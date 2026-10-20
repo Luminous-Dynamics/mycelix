@@ -23,12 +23,19 @@ rmp-serde = "1.1"
 
 # Cryptographic hashing (must match zome's SHA256 computation)
 sha2 = "0.10"
+serde_json_canonicalizer = "0.3.2"
+ed25519-dalek = "2"
 
 # Utilities
 chrono = "0.4"
+mycelix-crypto = { path = "../crates/mycelix-crypto" }
 uuid = { version = "1.6", features = ["v4"] }
 
 # DID Registry Integration Tests
+[[test]]
+name = "dsid_lifecycle_lab"
+path = "dsid_lifecycle_lab.rs"
+
 [[test]]
 name = "did_registry_test"
 path = "did_registry_test.rs"

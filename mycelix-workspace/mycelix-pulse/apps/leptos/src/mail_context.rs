@@ -705,23 +705,19 @@ pub fn provide_mail_context() {
             return;
         }
 
-        // Production: wait for connection to settle with exponential backoff
-        let mut delay_ms = 500u64;
-        for attempt in 0..8 {
+        // Production: wait briefly for the provider's bounded connection lifecycle.
+        // Do not hold the application behind an unbounded "loading network" state.
+        for attempt in 0..24 {
             let status = hc_load.status.get_untracked();
             if status != crate::holochain::ConnectionStatus::Connecting {
                 break;
             }
-            web_sys::console::log_1(
-                &format!(
-                    "[Mail] Waiting for conductor (attempt {}, {}ms)...",
-                    attempt + 1,
-                    delay_ms
-                )
-                .into(),
-            );
-            gloo_timers::future::sleep(std::time::Duration::from_millis(delay_ms)).await;
-            delay_ms = (delay_ms * 2).min(5000); // exponential backoff, max 5s
+            if attempt == 0 || attempt % 4 == 0 {
+                web_sys::console::log_1(
+                    &format!("[Mail] Waiting for conductor (attempt {}/24)...", attempt + 1).into(),
+                );
+            }
+            gloo_timers::future::sleep(std::time::Duration::from_millis(250)).await;
         }
 
         let status = hc_load.status.get_untracked();
@@ -733,15 +729,14 @@ pub fn provide_mail_context() {
             load_live_mail_data(ctx_load.clone(), &hc_load).await;
             ctx_load.loading.set(false);
         } else {
-            // Production but no conductor — show empty state, retry later
-            web_sys::console::log_1(&"[Mail] Conductor not available — waiting...".into());
-            gloo_timers::future::sleep(std::time::Duration::from_secs(10)).await;
-            if hc_load.status.get_untracked() == crate::holochain::ConnectionStatus::Connected {
-                web_sys::console::log_1(
-                    &"[Mail] Late conductor connection — loading data...".into(),
-                );
-                load_live_mail_data(ctx_load.clone(), &hc_load).await;
-            }
+            // Live failure is a terminal startup state for this render. The
+            // reactive provider can still reconnect later without blocking the UI.
+            web_sys::console::log_1(
+                &"[Mail] Conductor unavailable — rendering explicit empty/offline state.".into(),
+            );
+            ctx_load.inbox.set(Vec::new());
+            ctx_load.sent.set(Vec::new());
+            ctx_load.contacts.set(Vec::new());
             ctx_load.loading.set(false);
         }
     });

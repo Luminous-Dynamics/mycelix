@@ -87,6 +87,154 @@ pub fn genesis_self_check(_data: GenesisSelfCheckData) -> ExternResult<ValidateC
     Ok(ValidateCallbackResult::Valid)
 }
 
+fn action_target(
+    target_address: &AnyLinkableHash,
+    label: &str,
+) -> ExternResult<ActionHash> {
+    target_address.clone().into_action_hash().ok_or_else(|| {
+        wasm_error!(WasmErrorInner::Guest(format!(
+            "{label} target must be an ActionHash"
+        )))
+    })
+}
+
+fn validate_revocation_link(
+    link_type: LinkTypes,
+    base_address: &AnyLinkableHash,
+    target_address: &AnyLinkableHash,
+    action: &CreateLink,
+) -> ExternResult<ValidateCallbackResult> {
+    let target = action_target(target_address, "Revocation link")?;
+    let record = must_get_valid_record(target)?;
+    if matches!(link_type, LinkTypes::IssuerToRevocationList) {
+        let list: RevocationList = record
+            .entry()
+            .to_app_option()
+            .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
+            .ok_or(wasm_error!(WasmErrorInner::Guest(
+                "IssuerToRevocationList target must be a RevocationList".into(),
+            )))?;
+        let issuer = AgentPubKey::try_from(
+            list.issuer
+                .strip_prefix("did:mycelix:")
+                .unwrap_or_default()
+                .to_string(),
+        )
+        .map_err(|_| wasm_error!(WasmErrorInner::Guest(
+            "Revocation list issuer must encode a valid AgentPubKey".into()
+        )))?;
+        if action.author != issuer || *record.action().author() != issuer {
+            return Ok(ValidateCallbackResult::Invalid(
+                "Revocation list index must be authored by its issuer".into(),
+            ));
+        }
+
+        let actual_base = base_address.clone().into_entry_hash().ok_or_else(|| {
+            wasm_error!(WasmErrorInner::Guest(
+                "IssuerToRevocationList base must be an EntryHash".into(),
+            ))
+        })?;
+        let issuer_base = string_to_entry_hash(&list.issuer);
+        let list_id_base = string_to_entry_hash(&list.id);
+        if actual_base != issuer_base && actual_base != list_id_base {
+            return Ok(ValidateCallbackResult::Invalid(
+                "IssuerToRevocationList base must match the issuer or list ID anchor".into(),
+            ));
+        }
+        return Ok(ValidateCallbackResult::Valid);
+    }
+
+    let entry: RevocationEntry = record
+        .entry()
+        .to_app_option()
+        .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
+        .ok_or(wasm_error!(WasmErrorInner::Guest(
+            "Revocation index target must be a RevocationEntry".into(),
+        )))?;
+
+    let issuer = AgentPubKey::try_from(
+        entry.issuer.strip_prefix("did:mycelix:").unwrap_or_default().to_string(),
+    )
+    .map_err(|_| wasm_error!(WasmErrorInner::Guest(
+        "Revocation issuer must encode a valid AgentPubKey".into()
+    )))?;
+    if action.author != issuer || *record.action().author() != issuer {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Revocation index link must be authored by the credential issuer".into(),
+        ));
+    }
+
+    let actual_base = base_address.clone().into_entry_hash().ok_or_else(|| {
+        wasm_error!(WasmErrorInner::Guest(
+            "Revocation index link base must be an EntryHash".into(),
+        ))
+    })?;
+
+    let expected_base = match link_type {
+        LinkTypes::CredentialToRevocation => string_to_entry_hash(&entry.credential_id),
+        LinkTypes::IssuerToRevocation => string_to_entry_hash(&entry.issuer),
+        LinkTypes::IssuerToRevocationList => {
+            return Ok(ValidateCallbackResult::Invalid(
+                "IssuerToRevocationList link reached an invalid RevocationEntry matcher state".into(),
+            ));
+        }
+    };
+
+    if actual_base != expected_base {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Revocation index link base does not match the target entry".into(),
+        ));
+    }
+
+    Ok(ValidateCallbackResult::Valid)
+}
+
+/// Return the latest revocation-entry action for one credential on a source chain.
+fn latest_revocation_state_action(
+    author: AgentPubKey,
+    chain_top: ActionHash,
+    credential_id: &str,
+) -> ExternResult<Option<ActionHash>> {
+    let activity = must_get_agent_activity(author, ChainFilter::new(chain_top))?;
+    let entry_type = EntryType::App(AppEntryDef::try_from(UnitEntryTypes::RevocationEntry)?);
+    let mut latest: Option<(u32, ActionHash)> = None;
+
+    for item in activity {
+        let prior_action = item.action.action();
+        if prior_action.entry_type() != Some(&entry_type)
+            || !matches!(prior_action, Action::Create(_) | Action::Update(_))
+        {
+            continue;
+        }
+
+        let Some(entry_hash) = prior_action.entry_hash().cloned() else {
+            continue;
+        };
+        let entry = must_get_entry(entry_hash)?;
+        let prior: RevocationEntry = entry.try_into().map_err(|e| {
+            wasm_error!(WasmErrorInner::Guest(format!(
+                "Revocation state history entry could not be decoded: {e}"
+            )))
+        })?;
+        if prior.credential_id != credential_id {
+            continue;
+        }
+
+        let candidate = (
+            prior_action.action_seq(),
+            hdi::hash::hash_action(prior_action.clone())?,
+        );
+        if latest
+            .as_ref()
+            .is_none_or(|(seq, hash)| candidate.0 > *seq || (candidate.0 == *seq && candidate.1 > *hash))
+        {
+            latest = Some(candidate);
+        }
+    }
+
+    Ok(latest.map(|(_, hash)| hash))
+}
+
 /// Main validation callback using FlatOp pattern matching
 #[hdk_extern]
 pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
@@ -115,30 +263,68 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
             },
             _ => Ok(ValidateCallbackResult::Valid),
         },
-        FlatOp::RegisterCreateLink { link_type, tag, .. } => {
+        FlatOp::RegisterCreateLink {
+            base_address,
+            target_address,
+            link_type,
+            tag,
+            action,
+        } => {
             if tag.0.len() > 1024 {
                 return Ok(ValidateCallbackResult::Invalid(
                     "Link tag exceeds maximum length of 1024 bytes".into(),
                 ));
             }
             match link_type {
-                LinkTypes::CredentialToRevocation => Ok(ValidateCallbackResult::Valid),
-                LinkTypes::IssuerToRevocation => Ok(ValidateCallbackResult::Valid),
-                LinkTypes::IssuerToRevocationList => Ok(ValidateCallbackResult::Valid),
+                LinkTypes::CredentialToRevocation | LinkTypes::IssuerToRevocation => {
+                    validate_revocation_link(
+                        link_type,
+                        &base_address,
+                        &target_address,
+                        &action,
+                    )
+                }
+                LinkTypes::IssuerToRevocationList => {
+                    let base = base_address.clone().into_entry_hash().ok_or_else(|| {
+                        wasm_error!(WasmErrorInner::Guest(
+                            "IssuerToRevocationList base must be an EntryHash".into(),
+                        ))
+                    })?;
+                    let target = action_target(&target_address, "Revocation list link")?;
+                    let record = must_get_valid_record(target)?;
+                    let list: RevocationList = record
+                        .entry()
+                        .to_app_option()
+                        .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
+                        .ok_or(wasm_error!(WasmErrorInner::Guest(
+                            "IssuerToRevocationList target must be a RevocationList".into(),
+                        )))?;
+                    let issuer = AgentPubKey::try_from(
+                        list.issuer
+                            .strip_prefix("did:mycelix:")
+                            .unwrap_or_default()
+                            .to_string(),
+                    )
+                    .map_err(|_| wasm_error!(WasmErrorInner::Guest(
+                        "Revocation list issuer must encode a valid AgentPubKey".into()
+                    )))?;
+                    if action.author != issuer || *record.action().author() != issuer {
+                        return Ok(ValidateCallbackResult::Invalid(
+                            "Revocation list index must be authored by its issuer".into(),
+                        ));
+                    }
+                    if base != string_to_entry_hash(&list.issuer) {
+                        return Ok(ValidateCallbackResult::Invalid(
+                            "Revocation list index base does not match issuer".into(),
+                        ));
+                    }
+                    Ok(ValidateCallbackResult::Valid)
+                }
             }
         }
-        FlatOp::RegisterDeleteLink {
-            original_action,
-            action,
-            ..
-        } => {
-            if action.author != original_action.author {
-                return Ok(ValidateCallbackResult::Invalid(
-                    "Only the link creator can delete their links".into(),
-                ));
-            }
-            Ok(ValidateCallbackResult::Valid)
-        }
+        FlatOp::RegisterDeleteLink { .. } => Ok(ValidateCallbackResult::Invalid(
+            "Revocation index links cannot be deleted".into(),
+        ))
         FlatOp::StoreRecord(_) => Ok(ValidateCallbackResult::Valid),
         FlatOp::RegisterAgentActivity(_) => Ok(ValidateCallbackResult::Valid),
         FlatOp::RegisterUpdate(update) => {
@@ -193,6 +379,20 @@ fn validate_create_revocation_entry(
         ));
     }
 
+    // A credential may have one initial revocation state per issuer
+    // source chain. Later state changes must be updates to that state.
+    if let Some(_) = latest_revocation_state_action(
+        action.author().clone(),
+        match &action {
+            EntryCreationAction::Create(create) => create.prev_action.clone(),
+        },
+        &entry.credential_id,
+    )? {
+        return Ok(ValidateCallbackResult::Invalid(
+            "A credential may only have one revocation state on an issuer source chain".into(),
+        ));
+    }
+
     // Validate reason is provided
     if entry.reason.is_empty() {
         return Ok(ValidateCallbackResult::Invalid(
@@ -239,6 +439,26 @@ fn validate_update_revocation_entry(
         .ok_or(wasm_error!(WasmErrorInner::Guest(
             "Original revocation entry not found".into()
         )))?;
+
+    // Prevent stale-ancestor forks: the update must target the current
+    // revocation state on this issuer's source chain.
+    match latest_revocation_state_action(
+        action.author.clone(),
+        action.prev_action.clone(),
+        &original.credential_id,
+    )? {
+        Some(latest) if latest == action.original_action_address => {}
+        Some(_) => {
+            return Ok(ValidateCallbackResult::Invalid(
+                "Revocation update must target the latest state on the issuer source chain".into(),
+            ));
+        }
+        None => {
+            return Ok(ValidateCallbackResult::Invalid(
+                "Revocation update has no canonical prior state".into(),
+            ));
+        }
+    }
 
     // Immutable fields
     if entry.credential_id != original.credential_id {

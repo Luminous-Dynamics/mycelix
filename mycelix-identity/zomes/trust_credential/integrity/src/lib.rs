@@ -16,6 +16,39 @@
 
 use hdi::prelude::*;
 
+fn anchor_hash(anchor_str: &str) -> ExternResult<EntryHash> {
+    let hash = holo_hash::blake2b_256(anchor_str.as_bytes());
+    Ok(EntryHash::from_raw_32(hash.to_vec()))
+}
+
+fn did_to_agent(did: &str) -> Option<AgentPubKey> {
+    did.strip_prefix("did:mycelix:")
+        .and_then(|value| AgentPubKey::try_from(value.to_string()).ok())
+}
+
+fn validate_score_range(range: &TrustScoreRange) -> Result<(), String> {
+    if !range.lower.is_finite()
+        || !range.upper.is_finite()
+        || range.lower < 0.0
+        || range.upper > 1.0
+        || range.lower > range.upper
+    {
+        return Err("Trust score range must be finite, within [0, 1], and lower <= upper".into());
+    }
+    Ok(())
+}
+
+fn action_target(
+    target_address: &AnyLinkableHash,
+    label: &str,
+) -> ExternResult<ActionHash> {
+    target_address.clone().into_action_hash().ok_or_else(|| {
+        wasm_error!(WasmErrorInner::Guest(format!(
+            "{label} target must be an ActionHash"
+        )))
+    })
+}
+
 /// K-Vector Trust Credential
 ///
 /// A verifiable credential that attests to an agent's K-Vector trust profile
@@ -191,6 +224,10 @@ pub struct TrustPresentation {
     pub id: String,
     /// Reference to source credential
     pub credential_id: String,
+    /// Exact ActionHash of the source credential for new presentations.
+    /// Optional only for legacy records created before source binding existed.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub credential_action_hash: Option<ActionHash>,
     /// Subject's DID
     pub subject_did: String,
     /// Disclosed trust tier (always disclosed)
@@ -231,6 +268,143 @@ pub enum LinkTypes {
     TierToCredential,
 }
 
+fn validate_trust_link(
+    link_type: LinkTypes,
+    base_address: &AnyLinkableHash,
+    target_address: &AnyLinkableHash,
+    action: &CreateLink,
+) -> ExternResult<ValidateCallbackResult> {
+    let base = base_address.clone().into_entry_hash().ok_or_else(|| {
+        wasm_error!(WasmErrorInner::Guest(
+            "Trust credential link base must be an EntryHash".into(),
+        ))
+    })?;
+    let target = action_target(target_address, "Trust credential link")?;
+    let record = must_get_valid_record(target)?;
+
+    match link_type {
+        LinkTypes::SubjectToCredential
+        | LinkTypes::IssuerToCredential
+        | LinkTypes::TierToCredential => {
+            let credential: TrustCredential = record
+                .entry()
+                .to_app_option()
+                .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
+                .ok_or(wasm_error!(WasmErrorInner::Guest(
+                    "Trust credential index target must be a TrustCredential".into(),
+                )))?;
+
+            let issuer = did_to_agent(&credential.issuer_did).ok_or(wasm_error!(
+                WasmErrorInner::Guest("Credential issuer must be a did:mycelix AgentPubKey".into())
+            ))?;
+            if action.author != issuer || *record.action().author() != issuer {
+                return Ok(ValidateCallbackResult::Invalid(
+                    "Trust credential index must be authored by the issuer".into(),
+                ));
+            }
+
+            let expected_base = match link_type {
+                LinkTypes::SubjectToCredential => {
+                    anchor_hash(&format!("subject:{}", credential.subject_did))?
+                }
+                LinkTypes::IssuerToCredential => {
+                    anchor_hash(&format!("issuer:{}", credential.issuer_did))?
+                }
+                LinkTypes::TierToCredential => {
+                    anchor_hash(&format!("tier:{:?}", credential.trust_tier))?
+                }
+                _ => {
+                    return Ok(ValidateCallbackResult::Invalid(
+                        "Unexpected trust credential link type for credential index".into(),
+                    ));
+                }
+            };
+            if base != expected_base {
+                return Ok(ValidateCallbackResult::Invalid(
+                    "Trust credential index base does not match the target credential".into(),
+                ));
+            }
+        }
+        LinkTypes::SubjectToRequest => {
+            let request: AttestationRequest = record
+                .entry()
+                .to_app_option()
+                .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
+                .ok_or(wasm_error!(WasmErrorInner::Guest(
+                    "SubjectToRequest target must be an AttestationRequest".into(),
+                )))?;
+            let requester = did_to_agent(&request.requester_did).ok_or(wasm_error!(
+                WasmErrorInner::Guest("Attestation requester must be a did:mycelix AgentPubKey".into())
+            ))?;
+            if action.author != requester || *record.action().author() != requester {
+                return Ok(ValidateCallbackResult::Invalid(
+                    "SubjectToRequest link must be authored by the requester".into(),
+                ));
+            }
+            let expected_base = anchor_hash(&format!("requests:{}", request.subject_did))?;
+            if base != expected_base {
+                return Ok(ValidateCallbackResult::Invalid(
+                    "SubjectToRequest base does not match the requested subject".into(),
+                ));
+            }
+        }
+        LinkTypes::CredentialToPresentation => {
+            let presentation: TrustPresentation = record
+                .entry()
+                .to_app_option()
+                .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
+                .ok_or(wasm_error!(WasmErrorInner::Guest(
+                    "CredentialToPresentation target must be a TrustPresentation".into(),
+                )))?;
+            let subject = did_to_agent(&presentation.subject_did).ok_or(wasm_error!(
+                WasmErrorInner::Guest("Presentation subject must be a did:mycelix AgentPubKey".into())
+            ))?;
+            let credential_hash = presentation.credential_action_hash.clone().ok_or(
+                wasm_error!(WasmErrorInner::Guest(
+                    "CredentialToPresentation requires a source credential ActionHash".into()
+                )),
+            )?;
+            let credential_record = must_get_valid_record(credential_hash)?;
+            let credential: TrustCredential = credential_record
+                .entry()
+                .to_app_option()
+                .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
+                .ok_or(wasm_error!(WasmErrorInner::Guest(
+                    "Presentation source hash must reference a TrustCredential".into(),
+                )))?;
+            if credential.id != presentation.credential_id
+                || credential.subject_did != presentation.subject_did
+            {
+                return Ok(ValidateCallbackResult::Invalid(
+                    "CredentialToPresentation source credential does not match the presentation".into(),
+                ));
+            }
+            if action.author != subject
+                || *record.action().author() != subject
+                || *credential_record.action().author()
+                    != *did_to_agent(&credential.issuer_did).ok_or(wasm_error!(
+                        WasmErrorInner::Guest(
+                            "Presentation source credential issuer must be a did:mycelix AgentPubKey".to_string()
+                        )
+                    ))?
+            {
+                return Ok(ValidateCallbackResult::Invalid(
+                    "CredentialToPresentation link must be authored by the presentation subject".into(),
+                ));
+            }
+            let expected_base =
+                anchor_hash(&format!("credential:{}", presentation.credential_id))?;
+            if base != expected_base {
+                return Ok(ValidateCallbackResult::Invalid(
+                    "CredentialToPresentation base does not match the presentation credential".into(),
+                ));
+            }
+        }
+    }
+
+    Ok(ValidateCallbackResult::Valid)
+}
+
 /// Main validation callback
 #[hdk_extern]
 pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
@@ -252,32 +426,23 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
             },
             _ => Ok(ValidateCallbackResult::Valid),
         },
-        FlatOp::RegisterCreateLink { link_type, tag, .. } => {
+        FlatOp::RegisterCreateLink {
+            base_address,
+            target_address,
+            link_type,
+            tag,
+            action,
+        } => {
             if tag.0.len() > 1024 {
                 return Ok(ValidateCallbackResult::Invalid(
                     "Link tag exceeds maximum length of 1024 bytes".into(),
                 ));
             }
-            match link_type {
-                LinkTypes::SubjectToCredential => Ok(ValidateCallbackResult::Valid),
-                LinkTypes::IssuerToCredential => Ok(ValidateCallbackResult::Valid),
-                LinkTypes::SubjectToRequest => Ok(ValidateCallbackResult::Valid),
-                LinkTypes::CredentialToPresentation => Ok(ValidateCallbackResult::Valid),
-                LinkTypes::TierToCredential => Ok(ValidateCallbackResult::Valid),
-            }
+            validate_trust_link(link_type, &base_address, &target_address, &action)
         }
-        FlatOp::RegisterDeleteLink {
-            original_action,
-            action,
-            ..
-        } => {
-            if action.author != original_action.author {
-                return Ok(ValidateCallbackResult::Invalid(
-                    "Only the link creator can delete their links".into(),
-                ));
-            }
-            Ok(ValidateCallbackResult::Valid)
-        }
+        FlatOp::RegisterDeleteLink { .. } => Ok(ValidateCallbackResult::Invalid(
+            "Trust credential indexes cannot be deleted".into(),
+        )),
         FlatOp::StoreRecord(_) => Ok(ValidateCallbackResult::Valid),
         FlatOp::RegisterAgentActivity(_) => Ok(ValidateCallbackResult::Valid),
         FlatOp::RegisterUpdate(update) => {
@@ -306,6 +471,20 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
             Ok(ValidateCallbackResult::Valid)
         }
     }
+}
+
+/// Application timestamps cannot outrun the signed Holochain action.
+fn validate_timestamp_not_after_action(
+    field: &str,
+    value: Timestamp,
+    action_timestamp: Timestamp,
+) -> Result<(), String> {
+    if value > action_timestamp {
+        return Err(format!(
+            "{field} cannot be later than its signed Holochain action timestamp"
+        ));
+    }
+    Ok(())
 }
 
 /// Validate trust credential creation
@@ -350,17 +529,27 @@ fn validate_create_credential(
         ));
     }
 
-    // Trust score range must be valid
-    if cred.trust_score_range.lower < 0.0 || cred.trust_score_range.upper > 1.0 {
+    // Trust score range must be finite and valid. NaN would otherwise
+    // bypass ordered comparisons and could poison governance thresholds.
+    if let Err(message) = validate_score_range(&cred.trust_score_range) {
+        return Ok(ValidateCallbackResult::Invalid(message));
+    }
+    if cred.issued_at == Timestamp::from_micros(0) {
         return Ok(ValidateCallbackResult::Invalid(
-            "Trust score range must be within [0, 1]".into(),
+            "Trust credential issued_at must be non-zero".into(),
         ));
     }
-
-    if cred.trust_score_range.lower > cred.trust_score_range.upper {
-        return Ok(ValidateCallbackResult::Invalid(
-            "Trust score range lower bound cannot exceed upper bound".into(),
-        ));
+    if let Err(message) =
+        validate_timestamp_not_after_action("Trust credential issued_at", cred.issued_at, action.timestamp)
+    {
+        return Ok(ValidateCallbackResult::Invalid(message));
+    }
+    if let Some(expires_at) = cred.expires_at {
+        if expires_at <= cred.issued_at {
+            return Ok(ValidateCallbackResult::Invalid(
+                "Trust credential expiry must be after issuance".into(),
+            ));
+        }
     }
 
     // Trust tier must be consistent with range
@@ -420,7 +609,21 @@ fn validate_update_credential(
         ));
     }
 
-    // Immutable fields
+    // The revocation update may only change revocation state. All
+    // cryptographic/provenance inputs that determine the trust claim remain
+    // immutable once issued.
+    if cred.range_proof != original.range_proof
+        || cred.trust_score_range != original.trust_score_range
+        || cred.trust_tier != original.trust_tier
+        || cred.expires_at != original.expires_at
+        || cred.supersedes != original.supersedes
+    {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Trust credential proof, score range, tier, expiry, and supersession are immutable".into(),
+        ));
+    }
+
+    // Issuer and subject are likewise bound to the original credential.
     if cred.id != original.id {
         return Ok(ValidateCallbackResult::Invalid(
             "Trust credential ID cannot be changed".into(),
@@ -452,6 +655,34 @@ fn validate_update_credential(
         return Ok(ValidateCallbackResult::Invalid(
             "Trust credential revocation is irreversible".into(),
         ));
+    }
+
+    // Revocation metadata is required only when entering the revoked
+    // state and becomes immutable thereafter.
+    if cred.revoked && cred.revocation_reason.as_deref().is_none_or(str::is_empty) {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Revoked credentials must include a non-empty revocation reason".into(),
+        ));
+    }
+    if !cred.revoked && cred.revocation_reason.is_some() {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Non-revoked credentials cannot carry a revocation reason".into(),
+        ));
+    }
+    if let Some(original_reason) = &original.revocation_reason {
+        if cred.revocation_reason.as_ref() != Some(original_reason) {
+            return Ok(ValidateCallbackResult::Invalid(
+                "Revocation reason cannot be changed once set".into(),
+            ));
+        }
+    }
+
+    if let Some(revoked_at) = cred.revoked_at {
+        if let Err(message) =
+            validate_timestamp_not_after_action("Trust credential revoked_at", revoked_at, action.timestamp)
+        {
+            return Ok(ValidateCallbackResult::Invalid(message));
+        }
     }
 
     // If being revoked, revoked_at must be set
@@ -526,11 +757,32 @@ fn validate_create_request(
         ));
     }
 
-    // Min trust score must be valid if specified
+    if req.id.is_empty() || req.id.len() > 256 || req.purpose.is_empty() || req.purpose.len() > 1024 {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Attestation request id and purpose must be non-empty and bounded".into(),
+        ));
+    }
+    if req.components.is_empty() {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Attestation request must name at least one K-Vector component".into(),
+        ));
+    }
+    if req.created_at == Timestamp::from_micros(0) || req.expires_at <= req.created_at {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Attestation request timestamps are invalid".into(),
+        ));
+    }
+    if let Err(message) = validate_timestamp_not_after_action(
+        "Attestation request created_at",
+        req.created_at,
+        action.timestamp,
+    ) {
+        return Ok(ValidateCallbackResult::Invalid(message));
+    }
     if let Some(score) = req.min_trust_score {
-        if !(0.0..=1.0).contains(&score) {
+        if !score.is_finite() || !(0.0..=1.0).contains(&score) {
             return Ok(ValidateCallbackResult::Invalid(
-                "Minimum trust score must be in [0, 1]".into(),
+                "Minimum trust score must be finite and in [0, 1]".into(),
             ));
         }
     }
@@ -775,6 +1027,15 @@ fn validate_create_presentation(
         ));
     }
 
+    // New presentations must carry an explicit source credential action.
+    // The target record is resolved and authenticated by the mandatory
+    // CredentialToPresentation link validation, keeping this entry check pure.
+    if pres.credential_action_hash.is_none() {
+        return Ok(ValidateCallbackResult::Invalid(
+            "New trust presentations must include the source credential ActionHash".into(),
+        ));
+    }
+
     // Presentation proof must not be empty
     if pres.presentation_proof.is_empty() {
         return Ok(ValidateCallbackResult::Invalid(
@@ -789,13 +1050,27 @@ fn validate_create_presentation(
         ));
     }
 
-    // If range is disclosed, it must be valid
+    // If range is disclosed, it must be finite and valid.
     if let Some(ref range) = pres.disclosed_range {
-        if range.lower < 0.0 || range.upper > 1.0 || range.lower > range.upper {
-            return Ok(ValidateCallbackResult::Invalid(
-                "Disclosed range must be valid".into(),
-            ));
+        if let Err(message) = validate_score_range(range) {
+            return Ok(ValidateCallbackResult::Invalid(message));
         }
+    }
+    if let Err(message) = validate_timestamp_not_after_action(
+        "Trust presentation presented_at",
+        pres.presented_at,
+        action.timestamp,
+    ) {
+        return Ok(ValidateCallbackResult::Invalid(message));
+    }
+    if pres.presented_at == Timestamp::from_micros(0)
+        || pres.purpose.is_empty()
+        || pres.purpose.len() > 1024
+        || pres.nonce.len() < 16
+    {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Trust presentation metadata is incomplete or invalid".into(),
+        ));
     }
 
     Ok(ValidateCallbackResult::Valid)
@@ -808,7 +1083,7 @@ mod author_binding_tests {
     fn test_action(author: AgentPubKey) -> Create {
         Create {
             author,
-            timestamp: Timestamp::from_micros(0),
+            timestamp: Timestamp::from_micros(1),
             action_seq: 0,
             prev_action: ActionHash::from_raw_36(vec![0u8; 36]),
             entry_type: EntryType::App(AppEntryDef::new(
@@ -841,7 +1116,7 @@ mod author_binding_tests {
                 upper: 0.6,
             },
             trust_tier: TrustTier::Standard,
-            issued_at: Timestamp::from_micros(0),
+            issued_at: Timestamp::from_micros(1),
             expires_at: None,
             revoked: false,
             revocation_reason: None,
@@ -855,6 +1130,14 @@ mod author_binding_tests {
         let cred = valid_credential(format!("did:mycelix:{}", me()));
         let result = validate_create_credential(test_action(me()), cred).unwrap();
         assert_eq!(result, ValidateCallbackResult::Valid);
+    }
+
+    #[test]
+    fn future_issued_at_rejected() {
+        let mut cred = valid_credential(format!("did:mycelix:{}", me()));
+        cred.issued_at = Timestamp::from_micros(2);
+        let result = validate_create_credential(test_action(me()), cred).unwrap();
+        assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
     }
 
     #[test]
@@ -873,10 +1156,19 @@ mod author_binding_tests {
             min_trust_score: Some(0.5),
             min_tier: None,
             purpose: "test".to_string(),
-            expires_at: Timestamp::from_micros(1),
+            expires_at: Timestamp::from_micros(2),
             status: AttestationStatus::Pending,
-            created_at: Timestamp::from_micros(0),
+            created_at: Timestamp::from_micros(1),
         }
+    }
+
+    #[test]
+    fn future_created_at_rejected() {
+        let req = valid_request(format!("did:mycelix:{}", me()));
+        let mut future = req.clone();
+        future.created_at = Timestamp::from_micros(2);
+        let result = validate_create_request(test_action(me()), future).unwrap();
+        assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
     }
 
     #[test]
@@ -897,15 +1189,32 @@ mod author_binding_tests {
         TrustPresentation {
             id: "pres-1".to_string(),
             credential_id: "cred-1".to_string(),
+            credential_action_hash: Some(ActionHash::from_raw_36(vec![9u8; 36])),
             subject_did,
             disclosed_tier: TrustTier::Standard,
             disclosed_range: None,
             presentation_proof: vec![1, 2, 3],
             verifier_did: None,
             purpose: "test".to_string(),
-            presented_at: Timestamp::from_micros(0),
-            nonce: vec![1, 2, 3, 4],
+            presented_at: Timestamp::from_micros(1),
+            nonce: vec![1u8; 16],
         }
+    }
+
+    #[test]
+    fn create_presentation_requires_source_credential_hash() {
+        let mut pres = valid_presentation(format!("did:mycelix:{}", me()));
+        pres.credential_action_hash = None;
+        let result = validate_create_presentation(test_action(me()), pres).unwrap();
+        assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
+    }
+
+    #[test]
+    fn future_presented_at_rejected() {
+        let mut pres = valid_presentation(format!("did:mycelix:{}", me()));
+        pres.presented_at = Timestamp::from_micros(2);
+        let result = validate_create_presentation(test_action(me()), pres).unwrap();
+        assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
     }
 
     #[test]

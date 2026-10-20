@@ -8,7 +8,7 @@ use identity_leptos_types::*;
 pub fn mock_did_document() -> DidDocumentView {
     DidDocumentView {
         id: "did:mycelix:uhCAk4YSfRTHgq0P0LfxR9ip-DPO4FcD-7dNYBuu2Uj17j4Q5h0eF".into(),
-        controller: "uhCAk4YSfRTHgq0P0LfxR9ip-DPO4FcD-7dNYBuu2Uj17j4Q5h0eF".into(),
+        controller: "did:mycelix:uhCAk4YSfRTHgq0P0LfxR9ip-DPO4FcD-7dNYBuu2Uj17j4Q5h0eF".into(),
         verification_methods: vec![
             VerificationMethodView {
                 id: "did:mycelix:uhCAk...#keys-1".into(),
@@ -31,8 +31,8 @@ pub fn mock_did_document() -> DidDocumentView {
                 endpoint: "ws://localhost:8888".into(),
             },
         ],
-        created: 1711900000,
-        updated: 1774934400,
+        created: "2024-03-31T15:46:40.000Z".into(),
+        updated: "2026-03-31T05:20:00.000Z".into(),
         version: 3,
         active: true,
     }
@@ -107,6 +107,8 @@ pub fn mock_credentials_held() -> Vec<CredentialView> {
             }),
             issued_at: 1672531200,
             expires_at: None,
+            valid_from: "2023-01-01T00:00:00.000Z".into(),
+            valid_until: None,
             revoked: false,
             schema_id: Some("mycelix:schema:education:degree:v1".into()),
         },
@@ -122,6 +124,8 @@ pub fn mock_credentials_held() -> Vec<CredentialView> {
             }),
             issued_at: 1705276800,
             expires_at: Some(1800000000),
+            valid_from: "2024-01-15T00:00:00.000Z".into(),
+            valid_until: Some("2027-01-15T08:00:00.000Z".into()),
             revoked: false,
             schema_id: Some("mycelix:schema:community:membership:v1".into()),
         },
@@ -136,6 +140,8 @@ pub fn mock_credentials_held() -> Vec<CredentialView> {
             }),
             issued_at: 1711900000,
             expires_at: Some(1743436000),
+            valid_from: "2024-03-31T15:46:40.000Z".into(),
+            valid_until: Some("2025-03-31T15:46:40.000Z".into()),
             revoked: false,
             schema_id: None,
         },
@@ -155,6 +161,8 @@ pub fn mock_credentials_issued() -> Vec<CredentialView> {
             }),
             issued_at: 1774000000,
             expires_at: None,
+            valid_from: "2026-03-20T09:46:40.000Z".into(),
+            valid_until: None,
             revoked: false,
             schema_id: None,
         },
@@ -170,6 +178,8 @@ pub fn mock_trust_credentials() -> Vec<TrustCredentialView> {
             trust_tier: TrustTier::Standard,
             issued_at: 1774000000,
             expires_at: Some(1805536000),
+            valid_from: "2026-03-20T09:46:40.000Z".into(),
+            valid_until: Some("2027-03-20T09:46:40.000Z".into()),
             revoked: false,
         },
     ]

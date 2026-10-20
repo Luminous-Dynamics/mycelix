@@ -77,9 +77,11 @@ impl AlgorithmId {
         }
     }
 
-    /// W3C Data Integrity `cryptosuite` value.
+    /// Data Integrity profile identifier historically associated with this algorithm.
     ///
-    /// Reference: <https://www.w3.org/TR/vc-di-eddsa/>
+    /// Ed25519 maps to the finalized W3C eddsa-rdfc-2022 suite. The PQC values
+    /// below are retained compatibility identifiers from earlier Mycelix work;
+    /// they are not asserted here to be finalized W3C Recommendation suites.
     pub const fn cryptosuite(&self) -> &'static str {
         match self {
             Self::Ed25519 => "eddsa-rdfc-2022",

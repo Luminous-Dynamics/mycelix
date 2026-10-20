@@ -22,9 +22,18 @@
       url = "github:oxalica/rust-overlay";
       inputs.nixpkgs.follows = "nixpkgs";
     };
+
+    # This flake lives inside the repository tree. Nix >= 2.26 supports
+    # relative path inputs across sibling/parent directories, which lets us
+    # consume the shared Holochain module without importing a path that has
+    # already been copied out of the repository into /nix/store.
+    repoRoot = {
+      url = "path:..";
+      flake = false;
+    };
   };
 
-  outputs = { self, nixpkgs, flake-utils, holonix, rust-overlay }:
+  outputs = { self, nixpkgs, flake-utils, holonix, rust-overlay, repoRoot }:
     flake-utils.lib.eachDefaultSystem (system:
       let
         overlays = [ (import rust-overlay) ];
@@ -35,7 +44,7 @@
 
         holochainPackages = holonix.packages.${system};
 
-        holochainBase = import ../../nix/modules/holochain-base.nix {
+        holochainBase = import (repoRoot + "/nix/modules/holochain-base.nix") {
           inherit pkgs system;
           holochainPackages = holochainPackages;
         };
@@ -71,6 +80,7 @@
               pkg-config
               openssl
               openssl.dev
+              nodejs_22
             ];
 
             inherit (holochainBase.envVars)

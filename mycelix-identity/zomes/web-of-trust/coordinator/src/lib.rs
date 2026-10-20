@@ -19,9 +19,56 @@ fn ensure_anchor(anchor_str: &str) -> ExternResult<EntryHash> {
     anchor_hash(anchor_str)
 }
 
+fn verify_did_active(did: &str, operation: &str) -> ExternResult<()> {
+    let response = call(
+        CallTargetCell::Local,
+        ZomeName::new("did_registry"),
+        FunctionName::new("is_did_active"),
+        None,
+        did.to_string(),
+    )?;
+
+    match response {
+        ZomeCallResponse::Ok(result) => {
+            let active = result.decode::<bool>().map_err(|e| {
+                wasm_error!(WasmErrorInner::Guest(format!(
+                    "Failed to decode DID active state for {operation}: {e:?}"
+                )))
+            })?;
+            if active {
+                Ok(())
+            } else {
+                Err(wasm_error!(WasmErrorInner::Guest(format!(
+                    "DID is not active; refusing {operation}"
+                ))))
+            }
+        }
+        ZomeCallResponse::Unauthorized(_, _, _, _)
+        | ZomeCallResponse::AuthenticationFailed(_, _) => Err(wasm_error!(
+            WasmErrorInner::Guest(format!(
+                "DID active-state authorization failed for {operation}"
+            ))
+        )),
+        ZomeCallResponse::NetworkError(err) => Err(wasm_error!(WasmErrorInner::Guest(
+            format!("DID active-state verification failed for {operation}: {err}")
+        ))),
+        ZomeCallResponse::CountersigningSession(err) => Err(wasm_error!(
+            WasmErrorInner::Guest(format!(
+                "DID active-state verification failed for {operation} (countersigning: {err})"
+            ))
+        )),
+    }
+}
+
 /// Attest trust to another agent (Citizen+).
 #[hdk_extern]
 pub fn attest_trust(attestation: TrustAttestation) -> ExternResult<Record> {
+    let caller = agent_info()?.agent_initial_pubkey;
+    verify_did_active(
+        &format!("did:mycelix:{}", caller),
+        "trust attestation",
+    )?;
+
     let _eligibility = mycelix_zome_helpers::require_civic(
         "identity_bridge",
         &civic_requirement_voting(),
