@@ -1,0 +1,656 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://luminousdynamics.io/schemas/landscape-stewardship-profile-v0.schema.json",
+  "title": "Mycelix Landscape Stewardship Profile v0",
+  "description": "Application-level governance/provenance profile for a landscape project. This schema does not itself create a signed Mycelix event or establish legal title, consent, or physical truth.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "record_id",
+    "record_type",
+    "created_at",
+    "project_id",
+    "project_snapshot",
+    "actor_authority",
+    "access_policy",
+    "evidence_class",
+    "statement"
+  ],
+  "properties": {
+    "schema": {
+      "const": "mycelix.landscape-stewardship-profile.v0"
+    },
+    "record_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 200
+    },
+    "record_type": {
+      "enum": [
+        "project-version-review",
+        "scenario-review",
+        "field-observation",
+        "stewardship-commitment",
+        "consent-change",
+        "decision-withdrawal"
+      ]
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "project_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 200
+    },
+    "project_snapshot": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "system",
+        "schema",
+        "schema_uri",
+        "sha256",
+        "scope",
+        "coordinate_frame_kind",
+        "georeferenced",
+        "geometry_status"
+      ],
+      "properties": {
+        "system": {
+          "const": "sol-atlas"
+        },
+        "schema": {
+          "const": "luminous.landscape-design.v0"
+        },
+        "schema_uri": {
+          "const": "https://luminousdynamics.io/schemas/landscape-design-v0.schema.json"
+        },
+        "sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "scope": {
+          "enum": [
+            "site-parcel",
+            "district",
+            "watershed",
+            "bioregion"
+          ]
+        },
+        "coordinate_frame_kind": {
+          "const": "LOCAL_CARTESIAN_DRAWING_UNITS"
+        },
+        "georeferenced": {
+          "const": false
+        },
+        "geometry_status": {
+          "enum": [
+            "schematic-design-intent",
+            "synthetic-benchmark"
+          ]
+        }
+      }
+    },
+    "actor_authority": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "actor_id",
+        "role",
+        "authority_kind",
+        "authority_reference",
+        "consent_reference",
+        "publication_consent"
+      ],
+      "properties": {
+        "actor_id": {
+          "type": "string",
+          "minLength": 3,
+          "maxLength": 512
+        },
+        "role": {
+          "enum": [
+            "designer",
+            "landholder-or-rights-holder",
+            "community-participant",
+            "reviewer",
+            "maintainer",
+            "evidence-contributor",
+            "facilitator"
+          ]
+        },
+        "authority_kind": {
+          "enum": [
+            "project-role",
+            "landholder-permission",
+            "community-mandate",
+            "independent-review",
+            "evidence-contribution",
+            "not-claimed"
+          ]
+        },
+        "authority_reference": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1024
+        },
+        "consent_reference": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1024
+        },
+        "publication_consent": {
+          "enum": [
+            "not-requested",
+            "granted",
+            "denied",
+            "withdrawn"
+          ]
+        }
+      }
+    },
+    "access_policy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "visibility",
+        "coordinate_disclosure",
+        "sensitive_site_data_included"
+      ],
+      "properties": {
+        "visibility": {
+          "enum": [
+            "private",
+            "controlled",
+            "embargoed",
+            "public"
+          ]
+        },
+        "coordinate_disclosure": {
+          "enum": [
+            "none",
+            "coarse",
+            "exact"
+          ]
+        },
+        "sensitive_site_data_included": {
+          "const": false
+        }
+      }
+    },
+    "evidence_class": {
+      "enum": [
+        "observed",
+        "curated",
+        "synthetic",
+        "modelled",
+        "assumed",
+        "missing"
+      ]
+    },
+    "statement": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 10000
+    },
+    "rationale": {
+      "type": "string",
+      "maxLength": 10000
+    },
+    "scenario_reference": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "system",
+        "manifest_sha256",
+        "model_id",
+        "model_version",
+        "purpose",
+        "evidence_class"
+      ],
+      "properties": {
+        "system": {
+          "const": "symtropy"
+        },
+        "manifest_sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "result_sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "model_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        },
+        "model_version": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 100
+        },
+        "purpose": {
+          "enum": [
+            "schema-qualification",
+            "synthetic-benchmark"
+          ]
+        },
+        "evidence_class": {
+          "enum": [
+            "synthetic",
+            "missing"
+          ]
+        }
+      }
+    },
+    "observation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "metric_id",
+        "value",
+        "unit",
+        "source_reference",
+        "method_reference",
+        "observed_at",
+        "uncertainty"
+      ],
+      "properties": {
+        "metric_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        },
+        "value": {
+          "type": [
+            "number",
+            "string"
+          ]
+        },
+        "unit": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 100
+        },
+        "source_reference": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1024
+        },
+        "method_reference": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1024
+        },
+        "observed_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "uncertainty": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 2000
+        },
+        "location_reference": {
+          "type": "string",
+          "maxLength": 1024
+        },
+        "location_precision": {
+          "enum": [
+            "none",
+            "coarse",
+            "exact"
+          ]
+        }
+      }
+    },
+    "commitment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "commitment_id",
+        "obligation",
+        "responsible_party_reference",
+        "cadence",
+        "trigger",
+        "status",
+        "review_at"
+      ],
+      "properties": {
+        "commitment_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        },
+        "obligation": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4000
+        },
+        "responsible_party_reference": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1024
+        },
+        "cadence": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        },
+        "trigger": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 2000
+        },
+        "status": {
+          "enum": [
+            "draft",
+            "accepted",
+            "declined",
+            "expired",
+            "superseded"
+          ]
+        },
+        "acceptance_reference": {
+          "type": "string",
+          "maxLength": 1024
+        },
+        "review_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "resource_status": {
+          "enum": [
+            "unfunded",
+            "proposed",
+            "funded",
+            "unknown"
+          ]
+        }
+      }
+    },
+    "consent_change": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "consent_reference",
+        "scope",
+        "status",
+        "effective_at",
+        "recording_authority_reference"
+      ],
+      "properties": {
+        "consent_reference": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1024
+        },
+        "scope": {
+          "enum": [
+            "project-contribution",
+            "publication",
+            "sensitive-location",
+            "observation",
+            "stewardship-record"
+          ]
+        },
+        "status": {
+          "enum": [
+            "granted",
+            "denied",
+            "withdrawn",
+            "expired"
+          ]
+        },
+        "effective_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "recording_authority_reference": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1024
+        },
+        "supersedes_consent_reference": {
+          "type": "string",
+          "maxLength": 1024
+        }
+      }
+    },
+    "supersedes_record_id": {
+      "type": "string",
+      "maxLength": 200
+    },
+    "withdrawal_reason": {
+      "type": "string",
+      "maxLength": 4000
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "record_type": {
+            "const": "scenario-review"
+          }
+        },
+        "required": [
+          "record_type"
+        ]
+      },
+      "then": {
+        "required": [
+          "scenario_reference"
+        ]
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "record_type": {
+            "const": "field-observation"
+          }
+        },
+        "required": [
+          "record_type"
+        ]
+      },
+      "then": {
+        "required": [
+          "observation"
+        ],
+        "properties": {
+          "evidence_class": {
+            "const": "observed"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "record_type": {
+            "const": "stewardship-commitment"
+          }
+        },
+        "required": [
+          "record_type"
+        ]
+      },
+      "then": {
+        "required": [
+          "commitment"
+        ]
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "record_type": {
+            "const": "consent-change"
+          }
+        },
+        "required": [
+          "record_type"
+        ]
+      },
+      "then": {
+        "required": [
+          "consent_change"
+        ]
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "record_type": {
+            "const": "decision-withdrawal"
+          }
+        },
+        "required": [
+          "record_type"
+        ]
+      },
+      "then": {
+        "required": [
+          "supersedes_record_id",
+          "withdrawal_reason"
+        ]
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "access_policy": {
+            "properties": {
+              "visibility": {
+                "const": "public"
+              }
+            },
+            "required": [
+              "visibility"
+            ]
+          }
+        },
+        "required": [
+          "access_policy"
+        ]
+      },
+      "then": {
+        "properties": {
+          "actor_authority": {
+            "properties": {
+              "publication_consent": {
+                "const": "granted"
+              }
+            }
+          },
+          "access_policy": {
+            "properties": {
+              "coordinate_disclosure": {
+                "enum": [
+                  "none",
+                  "coarse"
+                ]
+              },
+              "sensitive_site_data_included": {
+                "const": false
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "commitment": {
+            "properties": {
+              "status": {
+                "const": "accepted"
+              }
+            },
+            "required": [
+              "status"
+            ]
+          }
+        },
+        "required": [
+          "commitment"
+        ]
+      },
+      "then": {
+        "properties": {
+          "commitment": {
+            "required": [
+              "acceptance_reference"
+            ]
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "project_snapshot": {
+            "properties": {
+              "geometry_status": {
+                "const": "synthetic-benchmark"
+              }
+            },
+            "required": [
+              "geometry_status"
+            ]
+          }
+        },
+        "required": [
+          "project_snapshot"
+        ]
+      },
+      "then": {
+        "properties": {
+          "evidence_class": {
+            "enum": [
+              "synthetic",
+              "missing"
+            ]
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "scenario_reference": {
+            "properties": {
+              "purpose": {
+                "const": "synthetic-benchmark"
+              }
+            },
+            "required": [
+              "purpose"
+            ]
+          }
+        },
+        "required": [
+          "scenario_reference"
+        ]
+      },
+      "then": {
+        "properties": {
+          "scenario_reference": {
+            "properties": {
+              "evidence_class": {
+                "const": "synthetic"
+              }
+            }
+          }
+        }
+      }
+    }
+  ]
+}
