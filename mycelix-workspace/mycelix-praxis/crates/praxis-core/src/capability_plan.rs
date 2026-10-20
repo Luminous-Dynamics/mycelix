@@ -315,13 +315,18 @@ pub fn compile_goal_plan(
     // Find the shortest route allowed by the hard learner constraints. If even
     // that route exceeds the budget, fail with a useful lower bound instead of
     // suggesting a route that violates the learner's budget.
-    let minimum_total_minutes = ordered_ids.iter().try_fold(0_u32, |total, capability_id| {
+    let mut minimum_by_capability = BTreeMap::<CapabilityId, u32>::new();
+    let mut minimum_total_minutes = 0_u32;
+    for capability_id in &ordered_ids {
         let minimum = route_options
             .get(capability_id)
             .and_then(|options| options.iter().map(|option| option.estimated_minutes).min())
             .expect("every route node has at least one validated option");
-        total.checked_add(minimum).ok_or(GoalPlanError::DurationOverflow)
-    })?;
+        minimum_total_minutes = minimum_total_minutes
+            .checked_add(minimum)
+            .ok_or(GoalPlanError::DurationOverflow)?;
+        minimum_by_capability.insert(capability_id.clone(), minimum);
+    }
     if minimum_total_minutes > request.constraints.max_total_minutes {
         return Err(GoalPlanError::TotalBudgetExceeded {
             required_minutes: minimum_total_minutes,
@@ -338,10 +343,9 @@ pub fn compile_goal_plan(
     for index in (0..ordered_ids.len()).rev() {
         minimum_suffix_minutes[index] = suffix_total;
         let capability_id = &ordered_ids[index];
-        let minimum = route_options
+        let minimum = *minimum_by_capability
             .get(capability_id)
-            .and_then(|options| options.iter().map(|option| option.estimated_minutes).min())
-            .expect("every route node has at least one validated option");
+            .expect("every route node has a minimum duration");
         suffix_total = suffix_total
             .checked_add(minimum)
             .ok_or(GoalPlanError::DurationOverflow)?;
@@ -382,11 +386,24 @@ pub fn compile_goal_plan(
 
         let mut prerequisites = node.prerequisites.clone();
         prerequisites.sort();
+        let minimum_for_this_capability = *minimum_by_capability
+            .get(capability_id)
+            .expect("every route node has a minimum duration");
+        let minimum_budget_without_this_step = minimum_total_minutes
+            .checked_sub(minimum_for_this_capability)
+            .expect("the minimum route contains each minimum duration exactly once");
         let eligible_alternatives = eligible_by_capability
             .get(capability_id)
             .expect("every route node has eligible alternatives")
             .iter()
-            .filter(|option| !same_practice_identity(option, &proposed_practice))
+            .filter(|option| {
+                !same_practice_identity(option, &proposed_practice)
+                    && minimum_budget_without_this_step
+                        .checked_add(option.estimated_minutes)
+                        .is_some_and(|minimum_total_with_option| {
+                            minimum_total_with_option <= request.constraints.max_total_minutes
+                        })
+            })
             .cloned()
             .collect();
 
@@ -1164,7 +1181,9 @@ mod tests {
             plan.steps.last().unwrap().proposed_practice.task_id,
             "task-network-lab"
         );
-        assert_eq!(plan.steps.last().unwrap().eligible_alternatives.len(), 1);
+        // The slower practical option is locally eligible but cannot fit within
+        // the global budget even if all other steps use their minimum options.
+        assert!(plan.steps.last().unwrap().eligible_alternatives.is_empty());
     }
 
     #[test]
