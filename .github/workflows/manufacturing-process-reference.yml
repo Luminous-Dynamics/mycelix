@@ -1,0 +1,54 @@
+name: Manufacturing process references
+
+on:
+  push:
+    branches:
+      - feat/manufacturing-process-reference-v1
+    paths:
+      - mycelix-workspace/mycelix-manufacturing/Cargo.toml
+      - mycelix-workspace/mycelix-manufacturing/Cargo.lock
+      - mycelix-workspace/mycelix-manufacturing/crates/manufacturing_common/**
+      - mycelix-workspace/mycelix-manufacturing/schemas/process-reference-v1.schema.json
+      - .github/workflows/manufacturing-process-reference.yml
+  pull_request:
+    paths:
+      - mycelix-workspace/mycelix-manufacturing/Cargo.toml
+      - mycelix-workspace/mycelix-manufacturing/Cargo.lock
+      - mycelix-workspace/mycelix-manufacturing/crates/manufacturing_common/**
+      - mycelix-workspace/mycelix-manufacturing/schemas/process-reference-v1.schema.json
+      - .github/workflows/manufacturing-process-reference.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: manufacturing-process-reference-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  manufacturing-common:
+    name: Typed process reference contracts
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+
+      - name: Install Rust, rustfmt, and Clippy
+        uses: actions-rust-lang/setup-rust-toolchain@ecabd13d1c56bd1345c230e542e9144811ad706f # v2.0.0
+        with:
+          components: rustfmt, clippy
+          build-warnings: warn
+
+      - name: Check package formatting
+        run: cargo fmt --manifest-path mycelix-workspace/mycelix-manufacturing/Cargo.toml --package manufacturing_common -- --check
+
+      - name: Run manufacturing common tests with the committed lockfile
+        run: cargo test --locked --manifest-path mycelix-workspace/mycelix-manufacturing/Cargo.toml --package manufacturing_common
+
+      - name: Run Clippy with warnings denied
+        run: cargo clippy --locked --manifest-path mycelix-workspace/mycelix-manufacturing/Cargo.toml --package manufacturing_common --all-targets -- -D warnings
+
+      - name: Validate schema JSON syntax
+        run: jq empty mycelix-workspace/mycelix-manufacturing/schemas/process-reference-v1.schema.json
