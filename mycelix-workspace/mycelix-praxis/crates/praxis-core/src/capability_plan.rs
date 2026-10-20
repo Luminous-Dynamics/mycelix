@@ -1314,7 +1314,6 @@ mod tests {
         let ids: Vec<&str> = plan.steps.iter().map(|step| step.capability_id.0.as_str()).collect();
         assert_eq!(ids, vec!["alpha", "zeta", "target"]);
     }
-}
 
     #[test]
     fn generated_dag_oracle_checks_closure_order_constraints_and_permutation_stability() {
