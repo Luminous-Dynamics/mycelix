@@ -1090,7 +1090,7 @@ async fn test_concurrent_receiver_credit_limit_inner() {
 
     let accepted_a = result_a.is_ok();
     let accepted_b = result_b.is_ok();
-    let accepted_count = usize::from(accepted_a) + usize::from(accepted_b);
+    let accepted_count = (accepted_a as usize) + (accepted_b as usize);
     assert_eq!(
         accepted_count, 1,
         "CIV-CAP-001: exactly one 2-hour exchange may be accepted against receiver limit=3;          accepted A={}, B={}, errors A={:?}, B={:?}",
@@ -1106,7 +1106,7 @@ async fn test_concurrent_receiver_credit_limit_inner() {
     assert!(
         ["limit", "exceed", "credit", "chain head", "concurrent", "conflict"]
             .iter()
-            .any(|needle| lower_error.contains(needle)),
+            .any(|needle| lower_error.contains(*needle)),
         "rejected operation should expose a capacity/contention reason, got: {}",
         loser_error
     );
