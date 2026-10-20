@@ -174,6 +174,83 @@ fn zeroize_recovery_words(words: &mut Vec<String>) {
     words.clear();
 }
 
+fn recovery_confirmation_matches(
+    words: &[String],
+    positions: [usize; 3],
+    answers: &[String; 3],
+) -> bool {
+    if words.len() != 24 {
+        return false;
+    }
+
+    let mut seen = [false; 24];
+    for slot in 0..3 {
+        let Some(index) = positions[slot].checked_sub(1) else {
+            return false;
+        };
+        if index >= words.len() || seen[index] {
+            return false;
+        }
+        seen[index] = true;
+        if !answers[slot]
+            .trim()
+            .eq_ignore_ascii_case(words[index].as_str())
+        {
+            return false;
+        }
+    }
+    true
+}
+
+#[cfg(test)]
+mod identity_bootstrap_backup_tests {
+    use super::recovery_confirmation_matches;
+
+    fn words() -> Vec<String> {
+        (1..=24).map(|n| format!("word{n}")).collect()
+    }
+
+    #[test]
+    fn backup_challenge_accepts_the_three_selected_words_case_insensitively() {
+        let words = words();
+        let positions = [2, 11, 24];
+        let answers = [
+            "WORD2".to_string(),
+            " word11 ".to_string(),
+            "word24".to_string(),
+        ];
+        assert!(recovery_confirmation_matches(&words, positions, &answers));
+    }
+
+    #[test]
+    fn backup_challenge_rejects_a_wrong_word() {
+        let words = words();
+        let positions = [2, 11, 24];
+        let answers = [
+            "word2".to_string(),
+            "wrong".to_string(),
+            "word24".to_string(),
+        ];
+        assert!(!recovery_confirmation_matches(&words, positions, &answers));
+    }
+
+    #[test]
+    fn backup_challenge_rejects_duplicate_or_out_of_range_positions() {
+        let words = words();
+        let answers = ["word1".to_string(), "word1".to_string(), "word24".to_string()];
+        assert!(!recovery_confirmation_matches(&words, [1, 1, 24], &answers));
+        assert!(!recovery_confirmation_matches(&words, [0, 11, 24], &answers));
+        assert!(!recovery_confirmation_matches(&words, [1, 11, 25], &answers));
+    }
+
+    #[test]
+    fn backup_challenge_rejects_non_24_word_material() {
+        let words = vec!["word1".to_string(); 12];
+        let answers = ["word1".to_string(), "word1".to_string(), "word1".to_string()];
+        assert!(!recovery_confirmation_matches(&words, [1, 5, 12], &answers));
+    }
+}
+
 #[component]
 fn IdentityBootstrapGate(
     posture: RwSignal<LocalIdentityStoragePosture>,
@@ -403,12 +480,7 @@ fn IdentityBootstrapGate(
             return;
         };
 
-        let words_match = (0..3).all(|slot| {
-            let expected = positions[slot]
-                .checked_sub(1)
-                .and_then(|index| words.get(index));
-            expected.is_some_and(|word| answers[slot].trim().eq_ignore_ascii_case(word))
-        });
+        let words_match = recovery_confirmation_matches(&words, positions, &answers);
         if !acknowledged || !words_match {
             for answer in answers.iter_mut() {
                 answer.zeroize();
