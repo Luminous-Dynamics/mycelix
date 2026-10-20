@@ -168,15 +168,11 @@ fn main() {
     println!("shape,nodes,options_per_node,iterations,steps,min_ns,p50_ns,p95_ns,max_ns,input_digest");
     for size in [10_usize, 100, 512, 4_096] {
         let options: &[usize] = if size <= 512 { &[1, 8, 64] } else { &[1, 8] };
-        let iterations = if size <= 10 {
-            30
-        } else if size <= 100 {
-            20
-        } else if size <= 512 {
-            8
-        } else {
-            3
-        };
+        // Thirty samples keeps p95 interpretable across all workloads; the
+        // 64-option stress case is intentionally omitted at 4,096 nodes to keep
+        // the baseline run bounded. Override repetitions only in a future
+        // explicitly parameterized harness rather than silently shrinking samples. 
+        let iterations = 30;
 
         for &option_count in options {
             for shape in [Shape::Chain, Shape::WideFanIn] {
