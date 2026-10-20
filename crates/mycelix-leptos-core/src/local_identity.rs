@@ -1374,6 +1374,24 @@ async fn rewrap_protected_identity_locked(passphrase: &str) -> Result<(), String
 /// passphrase and corrupt ciphertext are deliberately indistinguishable
 /// (see [`identity_crypto`] module docs).
 pub async fn unlock_with_passphrase(passphrase: &str) -> Result<SigningKey, String> {
+    let secret = Rc::new(RefCell::new(Some(passphrase.to_string())));
+    let secret_for_operation = Rc::clone(&secret);
+    let result = with_identity_transition_lock(move || async move {
+        let mut passphrase = secret_for_operation
+            .borrow_mut()
+            .take()
+            .ok_or_else(|| "Passphrase buffer was already consumed.".to_string())?;
+        let result = unlock_with_passphrase_locked(&passphrase).await;
+        passphrase.zeroize();
+        result
+    })
+    .await;
+    if let Some(mut remaining) = secret.borrow_mut().take() {
+        remaining.zeroize();
+    }
+    result
+}
+async fn unlock_with_passphrase_locked(passphrase: &str) -> Result<SigningKey, String> {
     // A failed unlock leaves the identity locked rather than reusing a prior
     // in-memory key against storage whose integrity may have changed.
     UNLOCKED_KEY.with(|cell| *cell.borrow_mut() = None);
@@ -1516,7 +1534,7 @@ pub async fn remove_passphrase_protection(passphrase: &str) -> Result<(), String
 }
 
 async fn remove_passphrase_protection_locked(passphrase: &str) -> Result<(), String> {
-    let signing_key = unlock_with_passphrase(passphrase).await?;
+    let signing_key = unlock_with_passphrase_locked(passphrase).await?;
     store_signing_key(&signing_key);
     remove_item(IDENTITY_SECRET_ENCRYPTED_KEY);
     Ok(())
