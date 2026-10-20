@@ -7,7 +7,6 @@
   "required": [
     "schema_version",
     "request_id",
-    "policy_profile",
     "candidate_ceiling"
   ],
   "properties": {
@@ -18,29 +17,6 @@
       "type": "string",
       "minLength": 1,
       "maxLength": 160
-    },
-    "policy_profile": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": [
-        "schema_version",
-        "profile_id",
-        "maximum_ceiling"
-      ],
-      "properties": {
-        "schema_version": {
-          "const": "mycelix.claim-ceiling-policy.profile.v1"
-        },
-        "profile_id": {
-          "type": "string",
-          "minLength": 1,
-          "maxLength": 200,
-          "pattern": "^[a-zA-Z0-9][a-zA-Z0-9._:-]*$"
-        },
-        "maximum_ceiling": {
-          "$ref": "#/$defs/claimCeiling"
-        }
-      }
     },
     "candidate_ceiling": {
       "$ref": "#/$defs/claimCeiling"
