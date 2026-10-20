@@ -1,0 +1,170 @@
+name: Health Vault Capability Handoff Contract
+
+on:
+  push:
+    branches:
+      - research/health-vault-capability-handoff-v0
+    paths:
+      - .github/workflows/health-vault-handoff-contract.yml
+      - docs/research/HEALTH_VAULT_CAPABILITY_HANDOFF_V0.md
+      - docs/research/fixtures/HEALTH_VAULT_CAPABILITY_HANDOFF_V1.json
+      - docs/research/fixtures/HEALTH_VAULT_CAPABILITY_HANDOFF_V1.schema.json
+      - mycelix-personal/tests/Cargo.toml
+      - mycelix-personal/tests/health_vault_capability_handoff_contract.rs
+      - mycelix-workspace/docs/research/HEALTH_VAULT_CAPABILITY_HANDOFF_V0.md
+      - mycelix-workspace/docs/research/fixtures/HEALTH_VAULT_CAPABILITY_HANDOFF_V1.json
+      - mycelix-workspace/docs/research/fixtures/HEALTH_VAULT_CAPABILITY_HANDOFF_V1.schema.json
+      - mycelix-workspace/mycelix-personal/tests/Cargo.toml
+      - mycelix-workspace/mycelix-personal/tests/health_vault_capability_handoff_contract.rs
+  pull_request:
+    paths:
+      - .github/workflows/health-vault-handoff-contract.yml
+      - docs/research/HEALTH_VAULT_CAPABILITY_HANDOFF_V0.md
+      - docs/research/fixtures/HEALTH_VAULT_CAPABILITY_HANDOFF_V1.json
+      - docs/research/fixtures/HEALTH_VAULT_CAPABILITY_HANDOFF_V1.schema.json
+      - mycelix-personal/tests/Cargo.toml
+      - mycelix-personal/tests/health_vault_capability_handoff_contract.rs
+      - mycelix-workspace/docs/research/HEALTH_VAULT_CAPABILITY_HANDOFF_V0.md
+      - mycelix-workspace/docs/research/fixtures/HEALTH_VAULT_CAPABILITY_HANDOFF_V1.json
+      - mycelix-workspace/docs/research/fixtures/HEALTH_VAULT_CAPABILITY_HANDOFF_V1.schema.json
+      - mycelix-workspace/mycelix-personal/tests/Cargo.toml
+      - mycelix-workspace/mycelix-personal/tests/health_vault_capability_handoff_contract.rs
+
+permissions:
+  contents: read
+
+concurrency:
+  group: health-vault-handoff-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  fixture-contract:
+    name: JSON corpus, schema shape and mirror parity (not runtime qualification)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout exact PR head or pushed commit
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+
+      - name: Assert exact checked source SHA
+        env:
+          EXPECTED_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          set -euo pipefail
+          actual="$(git rev-parse HEAD)"
+          test "$actual" = "$EXPECTED_SHA"
+          printf 'qualification_source_sha=%s\n' "$actual"
+
+      - name: Assert canonical/workspace mirror parity
+        run: |
+          set -euo pipefail
+          pairs=(
+            "docs/research/HEALTH_VAULT_CAPABILITY_HANDOFF_V0.md mycelix-workspace/docs/research/HEALTH_VAULT_CAPABILITY_HANDOFF_V0.md"
+            "docs/research/fixtures/HEALTH_VAULT_CAPABILITY_HANDOFF_V1.json mycelix-workspace/docs/research/fixtures/HEALTH_VAULT_CAPABILITY_HANDOFF_V1.json"
+            "docs/research/fixtures/HEALTH_VAULT_CAPABILITY_HANDOFF_V1.schema.json mycelix-workspace/docs/research/fixtures/HEALTH_VAULT_CAPABILITY_HANDOFF_V1.schema.json"
+            "mycelix-personal/tests/Cargo.toml mycelix-workspace/mycelix-personal/tests/Cargo.toml"
+            "mycelix-personal/tests/health_vault_capability_handoff_contract.rs mycelix-workspace/mycelix-personal/tests/health_vault_capability_handoff_contract.rs"
+          )
+          for pair in "${pairs[@]}"; do
+            read -r left right <<< "$pair"
+            cmp --silent "$left" "$right"
+            printf 'mirror_equal.%s=%s\n' "$left" "$(git rev-parse "HEAD:$left")"
+            printf 'mirror_equal.%s=%s\n' "$right" "$(git rev-parse "HEAD:$right")"
+          done
+
+      - name: Validate 26 fixture IDs, typed outcomes and zero-payload invariant
+        run: |
+          set -euo pipefail
+          corpus=docs/research/fixtures/HEALTH_VAULT_CAPABILITY_HANDOFF_V1.json
+          schema=docs/research/fixtures/HEALTH_VAULT_CAPABILITY_HANDOFF_V1.schema.json
+          seq -f 'HCH-%03g' 1 26 > /tmp/hch-expected-ids.txt
+          jq -r '.fixtures[].id' "$corpus" > /tmp/hch-corpus-ids.txt
+          jq -r '.properties.fixtures.allOf[].contains.properties.id.const' "$schema" > /tmp/hch-schema-ids.txt
+          diff -u /tmp/hch-expected-ids.txt /tmp/hch-corpus-ids.txt
+          diff -u /tmp/hch-expected-ids.txt /tmp/hch-schema-ids.txt
+          jq -e '
+            .schema_version == "mycelix.health-vault.capability-handoff-fixtures.v1" and
+            .status == "synthetic_fixture_contract" and
+            (.fixtures | length) == 26 and
+            all(.fixtures[];
+              .expected.protected_payload_bytes_returned == 0 and
+              (.expected.effective_claim_delta >= 0 and .expected.effective_claim_delta <= 1) and
+              (
+                (.expected.protocol_result == "success" and .expected.failure_code == null) or
+                (.expected.protocol_result != "success" and (.expected.failure_code | type) == "string" and (.expected.failure_code | length) > 0)
+              )
+            ) and
+            ([(.fixtures[] | select(.expected.effective_claim_delta == 1) | .id)] == ["HCH-001"]) and
+            ([(.fixtures[] | select(.id == "HCH-009" or .id == "HCH-024") | .expected.effective_claim_delta)] == [0,0]) and
+            ([(.fixtures[] | select(.id == "HCH-016") | .expected.protocol_result)] == ["unavailable"]) and
+            ([(.fixtures[] | select(.id == "HCH-025") | .expected.failure_code)] == ["secret_leak_detected"]) and
+            ([(.fixtures[] | select(.id == "HCH-026") | .expected.failure_code)] == ["recipient_key_binding_unqualified"])
+          ' "$corpus" > /dev/null
+          jq -e '
+            ."$schema" == "https://json-schema.org/draft/2020-12/schema" and
+            ."$id" == "urn:mycelix:schema:health-vault-capability-handoff-v1" and
+            .properties.fixtures.minItems == 26 and
+            .properties.fixtures.maxItems == 26 and
+            (.properties.fixtures.allOf | length) == 26 and
+            all(.properties.fixtures.allOf[]; .minContains == 1 and .maxContains == 1)
+          ' "$schema" > /dev/null
+          printf 'fixture_count=26\nfixture_ids_unique_and_ordered=true\nzero_payload_invariant=true\nschema_id_rules=26\n'
+
+      - name: Emit fixture-contract receipt
+        if: success()
+        run: |
+          set -euo pipefail
+          receipt=health-vault-handoff-fixture-contract-receipt.txt
+          {
+            printf 'receipt_schema=health-vault-handoff-fixture-contract-v1\n'
+            printf 'source_commit=%s\n' "$(git rev-parse HEAD)"
+            printf 'validator=jq+diff\n'
+            for path in \
+              docs/research/fixtures/HEALTH_VAULT_CAPABILITY_HANDOFF_V1.json \
+              docs/research/fixtures/HEALTH_VAULT_CAPABILITY_HANDOFF_V1.schema.json \
+              mycelix-personal/tests/health_vault_capability_handoff_contract.rs; do
+              printf 'git_blob.%s=%s\n' "$path" "$(git rev-parse "HEAD:$path")"
+              printf 'sha256.%s=%s\n' "$path" "$(sha256sum "$path" | cut -d ' ' -f 1)"
+            done
+          } > "$receipt"
+          cat "$receipt"
+
+      - name: Upload fixture-contract receipt
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: health-vault-handoff-fixture-contract-${{ github.event.pull_request.head.sha || github.sha }}
+          path: health-vault-handoff-fixture-contract-receipt.txt
+          if-no-files-found: error
+
+  rust-contract:
+    name: Personal Rust contract test (may require Holochain workspace dependencies)
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - name: Checkout exact PR head or pushed commit
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+
+      - name: Pin Rust toolchain
+        run: |
+          rustup toolchain install 1.96.0 --profile minimal
+          rustc +1.96.0 --version
+          cargo +1.96.0 --version
+
+      - name: Assert exact checked source SHA
+        env:
+          EXPECTED_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          set -euo pipefail
+          actual="$(git rev-parse HEAD)"
+          test "$actual" = "$EXPECTED_SHA"
+          printf 'qualification_source_sha=%s\n' "$actual"
+
+      - name: Run Rust corpus contract tests
+        run: cargo +1.96.0 test --manifest-path mycelix-personal/tests/Cargo.toml --test health_vault_capability_handoff_contract

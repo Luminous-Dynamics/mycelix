@@ -24,6 +24,10 @@ path = "sweettest_integration.rs"
 name = "sweettest_consciousness_gating"
 path = "sweettest_consciousness_gating.rs"
 
+[[test]]
+name = "health_vault_capability_handoff_contract"
+path = "health_vault_capability_handoff_contract.rs"
+
 [dev-dependencies]
 holochain = { version = "0.6", features = ["test_utils", "sweettest"] }
 holochain_types = "0.6"
