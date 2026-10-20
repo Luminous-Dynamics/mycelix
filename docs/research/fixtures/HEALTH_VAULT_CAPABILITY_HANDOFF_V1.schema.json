@@ -16,7 +16,7 @@
       "const": "mycelix.health-vault.capability-handoff-fixtures.v1"
     },
     "status": {
-      "const": "authored_not_executed"
+      "const": "synthetic_fixture_contract"
     },
     "claim_ceiling": {
       "type": "string",
