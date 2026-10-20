@@ -1,0 +1,304 @@
+{
+  "fixture_version": "fab-ux-printer-read-only-v1",
+  "status": "draft_contract_fixture_not_runtime_qualification",
+  "scope": "read-only Moonraker discovery/status; no printer motion, heat, upload, print start/stop, configuration mutation or shell command",
+  "references": [
+    "https://moonraker.readthedocs.io/en/latest/external_api/server/",
+    "https://moonraker.readthedocs.io/en/latest/external_api/introduction/",
+    "https://moonraker.readthedocs.io/en/latest/external_api/authorization/"
+  ],
+  "policy": {
+    "configured_endpoint_only": true,
+    "automatic_lan_scanning": false,
+    "allowed_initial_operations": [
+      {
+        "semantic_operation": "server_info",
+        "http_method": "GET",
+        "path": "/server/info",
+        "effects": "read_only"
+      },
+      {
+        "semantic_operation": "printer_status_query",
+        "http_method": "GET",
+        "path": "/printer/objects/query",
+        "allowed_query_objects": [
+          "webhooks",
+          "virtual_sdcard",
+          "print_stats"
+        ],
+        "effects": "read_only"
+      }
+    ],
+    "deny_all_unlisted_operations": true,
+    "cross_origin_redirects": "reject",
+    "credential_redaction": true,
+    "missing_or_stale_data": "unknown_not_healthy",
+    "identity_from_hostname_only": "forbidden",
+    "start_job_requires_separate_explicit_authorization": true
+  },
+  "cases": [
+    {
+      "id": "moonraker_ready",
+      "description": "Known server info response, Klippy connected and ready",
+      "request": {
+        "method": "GET",
+        "path": "/server/info",
+        "authorization": "configured_credential_reference_only"
+      },
+      "response": {
+        "http_status": 200,
+        "json": {
+          "klippy_connected": true,
+          "klippy_state": "ready",
+          "components": [
+            "database",
+            "file_manager",
+            "klippy_apis"
+          ],
+          "failed_components": [],
+          "warnings": []
+        }
+      },
+      "expected": {
+        "connection": "connected",
+        "printer_readiness": "ready",
+        "quality": "known_for_returned_fields",
+        "mutation_requests": 0,
+        "secret_values_in_logs": false
+      }
+    },
+    {
+      "id": "moonraker_unauthorized",
+      "description": "Authentication required or failed",
+      "request": {
+        "method": "GET",
+        "path": "/server/info",
+        "authorization": "missing_or_invalid"
+      },
+      "response": {
+        "http_status": 401,
+        "json": {
+          "error": "Unauthorized"
+        }
+      },
+      "expected": {
+        "connection": "authentication_required",
+        "printer_readiness": "unknown",
+        "anonymous_retry": false,
+        "credential_fallback": false,
+        "mutation_requests": 0,
+        "secret_values_in_logs": false
+      }
+    },
+    {
+      "id": "klippy_disconnected",
+      "description": "Moonraker HTTP service responds but Klippy is disconnected/not ready",
+      "request": {
+        "method": "GET",
+        "path": "/server/info",
+        "authorization": "configured_credential_reference_only"
+      },
+      "response": {
+        "http_status": 200,
+        "json": {
+          "klippy_connected": false,
+          "klippy_state": "shutdown",
+          "components": [
+            "database",
+            "file_manager"
+          ],
+          "failed_components": [],
+          "warnings": []
+        }
+      },
+      "expected": {
+        "connection": "connected",
+        "printer_readiness": "not_ready",
+        "job_actions_enabled": false,
+        "mutation_requests": 0
+      }
+    },
+    {
+      "id": "failed_component",
+      "description": "A server component has failed",
+      "request": {
+        "method": "GET",
+        "path": "/server/info",
+        "authorization": "configured_credential_reference_only"
+      },
+      "response": {
+        "http_status": 200,
+        "json": {
+          "klippy_connected": true,
+          "klippy_state": "ready",
+          "components": [
+            "database",
+            "file_manager"
+          ],
+          "failed_components": [
+            "file_manager"
+          ],
+          "warnings": [
+            "file manager failed"
+          ]
+        }
+      },
+      "expected": {
+        "connection": "connected",
+        "printer_readiness": "degraded",
+        "capabilities_for_failed_component": "unknown",
+        "mutation_requests": 0
+      }
+    },
+    {
+      "id": "malformed_json",
+      "description": "Endpoint returns malformed or truncated JSON",
+      "request": {
+        "method": "GET",
+        "path": "/server/info",
+        "authorization": "configured_credential_reference_only"
+      },
+      "response": {
+        "http_status": 200,
+        "body": "{\"klippy_connected\": tru"
+      },
+      "expected": {
+        "connection": "response_invalid",
+        "printer_readiness": "unknown",
+        "no_partial_success": true,
+        "mutation_requests": 0
+      }
+    },
+    {
+      "id": "missing_required_fields",
+      "description": "Response is syntactically valid but omits required readiness fields",
+      "request": {
+        "method": "GET",
+        "path": "/server/info",
+        "authorization": "configured_credential_reference_only"
+      },
+      "response": {
+        "http_status": 200,
+        "json": {
+          "components": [
+            "database"
+          ]
+        }
+      },
+      "expected": {
+        "connection": "connected",
+        "printer_readiness": "unknown",
+        "no_guess_from_hostname_or_model": true,
+        "mutation_requests": 0
+      }
+    },
+    {
+      "id": "stale_status",
+      "description": "Last status observation exceeds caller-declared freshness profile",
+      "request": {
+        "method": "none_cached_observation"
+      },
+      "response": {
+        "observed_age_ms": 90000,
+        "freshness_limit_ms": 5000,
+        "prior_state": "ready"
+      },
+      "expected": {
+        "printer_readiness": "stale_unknown",
+        "prior_ready_state_not_reused_as_current": true,
+        "mutation_requests": 0
+      }
+    },
+    {
+      "id": "cross_origin_redirect",
+      "description": "Configured endpoint redirects to an unrelated origin",
+      "request": {
+        "method": "GET",
+        "path": "/server/info",
+        "authorization": "configured_credential_reference_only"
+      },
+      "response": {
+        "http_status": 302,
+        "location": "https://unrelated.example/api"
+      },
+      "expected": {
+        "connection": "redirect_rejected",
+        "credentials_forwarded_to_redirect": false,
+        "mutation_requests": 0
+      }
+    },
+    {
+      "id": "mutation_request_denied",
+      "description": "A hypothetical start-job or arbitrary G-code operation is requested during read-only phase",
+      "request": {
+        "method": "POST",
+        "path": "/printer/print/start",
+        "semantic_operation": "start_job"
+      },
+      "response": {
+        "not_sent": true
+      },
+      "expected": {
+        "result": "policy_denied_before_network",
+        "network_mutation_requests": 0,
+        "job_state_unchanged": true
+      }
+    },
+    {
+      "id": "semantically_mutating_jsonrpc_denied",
+      "description": "JSON-RPC calls that mutate state remain denied even if sent via HTTP POST",
+      "request": {
+        "transport": "HTTP_JSON_RPC",
+        "http_method": "POST",
+        "rpc_method": "printer.gcode.script",
+        "params": {
+          "script": "G28"
+        }
+      },
+      "response": {
+        "not_sent": true
+      },
+      "expected": {
+        "result": "policy_denied_before_network",
+        "rpc_call_sent": false,
+        "printer_motion_possible_from_this_case": false
+      }
+    },
+    {
+      "id": "unknown_capability",
+      "description": "Server responds but no authoritative nozzle/toolhead/material-sensor profile is present",
+      "request": {
+        "method": "GET",
+        "path": "/server/info"
+      },
+      "response": {
+        "http_status": 200,
+        "json": {
+          "klippy_connected": true,
+          "klippy_state": "ready",
+          "components": [
+            "database",
+            "file_manager",
+            "klippy_apis"
+          ],
+          "failed_components": [],
+          "warnings": []
+        }
+      },
+      "expected": {
+        "connection": "connected",
+        "printer_readiness": "ready",
+        "nozzle_size": "unknown",
+        "toolhead_identity": "unknown",
+        "material_sensor_capability": "unknown",
+        "mutation_requests": 0
+      }
+    }
+  ],
+  "nonclaims": [
+    "Fixture definitions do not prove the adapter implements these rules.",
+    "A ready server response does not prove the physical printer is safe, calibrated or producing conforming parts.",
+    "This fixture does not qualify print upload/start/stop or OctoPrint support.",
+    "No live printer was contacted."
+  ]
+}
