@@ -6,10 +6,11 @@ use leptos_router::components::{Route, Router, Routes};
 use leptos_router::path;
 
 use mycelix_leptos_core::{
-    init_consciousness_ui, provide_consciousness_context, provide_homeostasis_context,
-    provide_local_identity, provide_theme_context, provide_thermodynamic_context,
-    provide_toast_context, AppShell, EmptyState, HolochainProviderAuto, HolochainProviderConfig,
-    NavLink, ToastContainer,
+    init_consciousness_ui, inspect_local_identity_posture, provide_consciousness_context,
+    provide_homeostasis_context, provide_theme_context, provide_thermodynamic_context,
+    provide_toast_context, try_provide_local_identity, AppShell, EmptyState, HolochainProviderAuto,
+    HolochainProviderConfig, IdentityBootstrapGate, LocalIdentityStoragePosture, NavLink,
+    ToastContainer,
 };
 use mycelix_leptos_i18n::provide_i18n;
 
@@ -71,13 +72,36 @@ pub fn App() -> impl IntoView {
 
 #[component]
 fn AppInner() -> impl IntoView {
+    let posture = RwSignal::new(inspect_local_identity_posture());
+    view! {
+        <Show
+            when=move || posture.get() == LocalIdentityStoragePosture::ProtectedUnlockedInSession
+            fallback=move || view! {
+                <IdentityBootstrapGate app_name="Finance" posture=posture />
+            }
+        >
+            <FinanceReadyApp posture=posture />
+        </Show>
+    }
+}
+
+#[component]
+fn FinanceReadyApp(posture: RwSignal<LocalIdentityStoragePosture>) -> impl IntoView {
+    if try_provide_local_identity().is_err() {
+        posture.set(inspect_local_identity_posture());
+        return view! {
+            <p role="status" aria-live="polite">
+                "Identity posture changed. Rechecking secure bootstrap state…"
+            </p>
+        }
+        .into_any();
+    }
     // Provider stack (order matters)
     provide_theme_context("finance-theme", AppThemeVariant::Dark);
     provide_thermodynamic_context();
     provide_consciousness_context();
     provide_toast_context();
     provide_homeostasis_context(2, "--homeostasis");
-    provide_local_identity();
     provide_finance_runtime_config();
     provide_i18n("finance-lang");
     provide_finance_context();
@@ -151,4 +175,5 @@ fn AppInner() -> impl IntoView {
             <mycelix_leptos_core::ClusterLauncher current="Finance" />
         </Router>
     }
+    .into_any()
 }
