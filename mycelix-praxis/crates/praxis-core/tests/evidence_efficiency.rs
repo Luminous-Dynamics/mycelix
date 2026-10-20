@@ -3,20 +3,34 @@
 // Commercial licensing: see COMMERCIAL_LICENSE.md at repository root
 
 use praxis_core::evidence_efficiency::{
-    EVIDENCE_EFFICIENCY_BENCHMARK_ID, EvidenceRequestCatalog, EvidenceSourceKind, RequestAuthority,
-    validate_request_catalog,
+    CyberDomain, EVIDENCE_EFFICIENCY_BENCHMARK_ID, EvidenceRequestCatalog, EvidenceSourceKind,
+    RequestAuthority, validate_request_catalog,
 };
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, BTreeSet, HashSet};
 
 const CATALOG_JSON: &str =
-    include_str!("../../../examples/cyber-evidence-efficiency/v1/request-catalog.json");
+    include_str!("../../../examples/cyber-evidence-efficiency/v2/request-catalog.json");
 const EVALUATOR_JSON: &str =
-    include_str!("../../../examples/cyber-evidence-efficiency/v1/evaluator-only.json");
+    include_str!("../../../examples/cyber-evidence-efficiency/v2/evaluator-only.json");
 const CATALOG_SCHEMA: &str =
-    include_str!("../../../examples/cyber-evidence-efficiency/v1/request-catalog.schema.json");
+    include_str!("../../../examples/cyber-evidence-efficiency/v2/request-catalog.schema.json");
 const EVALUATOR_SCHEMA: &str =
+    include_str!("../../../examples/cyber-evidence-efficiency/v2/evaluator-only.schema.json");
+const CATALOG_V1_JSON: &str =
+    include_str!("../../../examples/cyber-evidence-efficiency/v1/request-catalog.json");
+const EVALUATOR_V1_JSON: &str =
+    include_str!("../../../examples/cyber-evidence-efficiency/v1/evaluator-only.json");
+const CATALOG_V1_SCHEMA: &str =
+    include_str!("../../../examples/cyber-evidence-efficiency/v1/request-catalog.schema.json");
+const EVALUATOR_V1_SCHEMA: &str =
     include_str!("../../../examples/cyber-evidence-efficiency/v1/evaluator-only.schema.json");
+const PREREG_TEMPLATE_JSON: &str = include_str!(
+    "../../../examples/cyber-evidence-efficiency/v2/qualification-protocol.template.json"
+);
+const PREREG_SCHEMA_JSON: &str = include_str!(
+    "../../../examples/cyber-evidence-efficiency/v2/qualification-protocol.schema.json"
+);
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -25,6 +39,16 @@ enum EvidenceQuality {
     Stale,
     Conflicting,
     Unavailable,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+enum EvidenceSufficiency {
+    FullSupport,
+    PartialSupport,
+    Irrelevant,
+    Absent,
+    Conflicting,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -50,6 +74,7 @@ struct EvaluatorScenario {
 struct RequestOutcome {
     request_id: String,
     quality: EvidenceQuality,
+    sufficiency: EvidenceSufficiency,
     labels_by_hypothesis: Vec<HypothesisOutcome>,
 }
 
@@ -72,6 +97,7 @@ struct RequestResult {
     request_id: String,
     disposition: RequestDisposition,
     quality: Option<EvidenceQuality>,
+    sufficiency: Option<EvidenceSufficiency>,
     expected_information_gain_milli_bits: u32,
 }
 
@@ -92,6 +118,11 @@ struct EfficiencyReport {
     expected_information_gain_milli_bits: u32,
     realized_information_gain_milli_bits: u32,
     zero_gain_current_requests: usize,
+    full_support_responses: usize,
+    partial_support_responses: usize,
+    irrelevant_responses: usize,
+    absent_responses: usize,
+    conflicting_sufficiency_responses: usize,
     stale_responses: usize,
     conflicting_responses: usize,
     unavailable_responses: usize,
@@ -234,35 +265,38 @@ fn validate_evaluator_pair(
     }
 }
 
-fn expected_information_gain_milli_bits(
-    remaining_hypotheses: &[String],
-    outcome: &RequestOutcome,
-) -> u32 {
-    if remaining_hypotheses.len() < 2 {
+/// Prior-expected information gained from a fixed set of usable requests,
+/// computed as the entropy of joint outcome signatures under a uniform
+/// hypothesis prior. Unlike realized reduction, this does not depend on which
+/// synthetic world happened to be selected for this fixture.
+fn joint_information_gain_milli_bits(hypotheses: &[String], outcomes: &[&RequestOutcome]) -> u32 {
+    if hypotheses.len() < 2 || outcomes.is_empty() {
         return 0;
     }
 
-    let labels = outcome
-        .labels_by_hypothesis
-        .iter()
-        .map(|item| (item.hypothesis_id.as_str(), item.outcome_label.as_str()))
-        .collect::<BTreeMap<_, _>>();
-    let mut partition_sizes = BTreeMap::<&str, usize>::new();
-    for hypothesis in remaining_hypotheses {
-        if let Some(label) = labels.get(hypothesis.as_str()) {
-            *partition_sizes.entry(label).or_default() += 1;
+    let hypothesis_count = hypotheses.len() as f64;
+    let mut partitions = BTreeMap::<Vec<String>, usize>::new();
+    for hypothesis in hypotheses {
+        let mut signature = Vec::with_capacity(outcomes.len());
+        for outcome in outcomes {
+            let label = outcome
+                .labels_by_hypothesis
+                .iter()
+                .find(|entry| entry.hypothesis_id == *hypothesis)
+                .expect("semantic validation maps every hypothesis exactly once");
+            signature.push(label.outcome_label.clone());
         }
+        *partitions.entry(signature).or_default() += 1;
     }
-    let count = remaining_hypotheses.len() as f64;
-    let prior_entropy_bits = count.log2();
-    let expected_posterior_entropy_bits = partition_sizes
+
+    let posterior_entropy = partitions
         .values()
-        .map(|partition_size| {
-            let probability = *partition_size as f64 / count;
-            probability * (*partition_size as f64).log2()
+        .map(|size| {
+            let probability = *size as f64 / hypothesis_count;
+            probability * (*size as f64).log2()
         })
         .sum::<f64>();
-    ((prior_entropy_bits - expected_posterior_entropy_bits).max(0.0) * 1000.0).round() as u32
+    ((hypothesis_count.log2() - posterior_entropy).max(0.0) * 1000.0).round() as u32
 }
 
 /// Deterministic synthetic reference evaluator for integration tests and qualification.
@@ -294,6 +328,7 @@ fn evaluate_policy(
     remaining_hypotheses.sort();
     let initial_hypotheses = remaining_hypotheses.len();
     let mut seen_requests = HashSet::new();
+    let mut usable_outcomes: Vec<&RequestOutcome> = Vec::new();
     let mut report = EfficiencyReport {
         requests_attempted: requested_ids.len(),
         requests_executed: 0,
@@ -304,6 +339,11 @@ fn evaluate_policy(
         expected_information_gain_milli_bits: 0,
         realized_information_gain_milli_bits: 0,
         zero_gain_current_requests: 0,
+        full_support_responses: 0,
+        partial_support_responses: 0,
+        irrelevant_responses: 0,
+        absent_responses: 0,
+        conflicting_sufficiency_responses: 0,
         stale_responses: 0,
         conflicting_responses: 0,
         unavailable_responses: 0,
@@ -327,6 +367,7 @@ fn evaluate_policy(
                 request_id: request.request_id.clone(),
                 disposition: RequestDisposition::BlockedUnauthorized,
                 quality: None,
+                sufficiency: None,
                 expected_information_gain_milli_bits: 0,
             });
             continue;
@@ -345,6 +386,7 @@ fn evaluate_policy(
                 request_id: request.request_id.clone(),
                 disposition: RequestDisposition::BlockedBudget,
                 quality: None,
+                sufficiency: None,
                 expected_information_gain_milli_bits: 0,
             });
             continue;
@@ -358,31 +400,50 @@ fn evaluate_policy(
             .iter()
             .find(|outcome| outcome.request_id == request.request_id)
             .expect("pair validation guarantees each request outcome");
+        match outcome.sufficiency {
+            EvidenceSufficiency::FullSupport => report.full_support_responses += 1,
+            EvidenceSufficiency::PartialSupport => report.partial_support_responses += 1,
+            EvidenceSufficiency::Irrelevant => report.irrelevant_responses += 1,
+            EvidenceSufficiency::Absent => report.absent_responses += 1,
+            EvidenceSufficiency::Conflicting => report.conflicting_sufficiency_responses += 1,
+        }
+
         let mut request_gain = 0;
         match outcome.quality {
-            EvidenceQuality::Current => {
-                request_gain = expected_information_gain_milli_bits(&remaining_hypotheses, outcome);
-                report.expected_information_gain_milli_bits += request_gain;
-                if request_gain == 0 {
-                    report.zero_gain_current_requests += 1;
+            EvidenceQuality::Current => match outcome.sufficiency {
+                EvidenceSufficiency::FullSupport | EvidenceSufficiency::PartialSupport => {
+                    let information_before =
+                        joint_information_gain_milli_bits(&scenario.hypotheses, &usable_outcomes);
+                    usable_outcomes.push(outcome);
+                    let information_after =
+                        joint_information_gain_milli_bits(&scenario.hypotheses, &usable_outcomes);
+                    request_gain = information_after.saturating_sub(information_before);
+                    report.expected_information_gain_milli_bits += request_gain;
+                    if request_gain == 0 {
+                        report.zero_gain_current_requests += 1;
+                    }
+                    let labels = outcome
+                        .labels_by_hypothesis
+                        .iter()
+                        .map(|item| (item.hypothesis_id.as_str(), item.outcome_label.as_str()))
+                        .collect::<BTreeMap<_, _>>();
+                    let observed_label = labels
+                        .get(evaluator_scenario.world_hypothesis_id.as_str())
+                        .expect("pair validation binds the world hypothesis");
+                    let before = remaining_hypotheses.len();
+                    remaining_hypotheses.retain(|hypothesis| {
+                        labels.get(hypothesis.as_str()) == Some(observed_label)
+                    });
+                    let after = remaining_hypotheses.len();
+                    if after > 0 && after < before {
+                        report.realized_information_gain_milli_bits +=
+                            ((before as f64 / after as f64).log2() * 1000.0).round() as u32;
+                    }
                 }
-                let labels = outcome
-                    .labels_by_hypothesis
-                    .iter()
-                    .map(|item| (item.hypothesis_id.as_str(), item.outcome_label.as_str()))
-                    .collect::<BTreeMap<_, _>>();
-                let observed_label = labels
-                    .get(evaluator_scenario.world_hypothesis_id.as_str())
-                    .expect("pair validation binds the world hypothesis");
-                let before = remaining_hypotheses.len();
-                remaining_hypotheses
-                    .retain(|hypothesis| labels.get(hypothesis.as_str()) == Some(observed_label));
-                let after = remaining_hypotheses.len();
-                if after > 0 && after < before {
-                    report.realized_information_gain_milli_bits +=
-                        ((before as f64 / after as f64).log2() * 1000.0).round() as u32;
-                }
-            }
+                EvidenceSufficiency::Irrelevant
+                | EvidenceSufficiency::Absent
+                | EvidenceSufficiency::Conflicting => {}
+            },
             EvidenceQuality::Stale => report.stale_responses += 1,
             EvidenceQuality::Conflicting => report.conflicting_responses += 1,
             EvidenceQuality::Unavailable => report.unavailable_responses += 1,
@@ -391,6 +452,7 @@ fn evaluate_policy(
             request_id: request.request_id.clone(),
             disposition: RequestDisposition::Executed,
             quality: Some(outcome.quality),
+            sufficiency: Some(outcome.sufficiency),
             expected_information_gain_milli_bits: request_gain,
         });
     }
@@ -433,6 +495,7 @@ fn baseline_trace(
             let available = scenario
                 .requests
                 .iter()
+                .filter(|request| authorized_authorities.contains(&request.required_authority))
                 .map(|request| request.request_id.as_str())
                 .collect::<BTreeSet<_>>();
             Ok(PLAYBOOK
@@ -461,9 +524,10 @@ fn baseline_trace(
     }
 }
 
-/// Evaluator-informed information-gain-per-cost oracle. This function is
-/// deliberately test-only and receives the hidden evaluator. It is an
-/// upper-bound reference, never a fair solver/human/AI baseline.
+/// Exact non-adaptive oracle upper bound under the uniform synthetic prior.
+/// It sees evaluator partitions unavailable to solvers; this is not a fair
+/// baseline. It exhaustively chooses the authorized request subset maximizing
+/// expected hypothesis information under the declared cost/latency budget.
 fn oracle_information_gain_per_cost_trace(
     catalog: &EvidenceRequestCatalog,
     evaluator: &EvaluatorCorpus,
@@ -486,93 +550,114 @@ fn oracle_information_gain_per_cost_trace(
         .find(|scenario| scenario.scenario_id == scenario_id)
         .ok_or_else(|| format!("unknown evaluator scenario: {scenario_id}"))?;
 
-    let mut remaining = scenario.hypotheses.clone();
-    remaining.sort();
-    let mut selected = Vec::new();
-    let mut spent_cost = 0u32;
-    let mut spent_latency = 0u32;
-
-    loop {
-        // (request_id, gain_milli_bits, cost_units, latency_bound_minutes)
-        let mut best: Option<(String, u32, u32, u32)> = None;
-        for request in &scenario.requests {
-            if selected.iter().any(|id| id == &request.request_id)
-                || !authorized_authorities.contains(&request.required_authority)
-                || request.cost_units > budget.max_cost_units.saturating_sub(spent_cost)
-                || request.latency_bound_minutes
-                    > budget
-                        .max_latency_bound_minutes
-                        .saturating_sub(spent_latency)
-            {
-                continue;
-            }
+    let mut candidates = scenario
+        .requests
+        .iter()
+        .filter(|request| authorized_authorities.contains(&request.required_authority))
+        .filter(|request| {
             let outcome = evaluator_scenario
                 .request_outcomes
                 .iter()
                 .find(|outcome| outcome.request_id == request.request_id)
-                .expect("pair validation covers each catalog request");
-            if outcome.quality != EvidenceQuality::Current {
-                continue;
-            }
-            let gain = expected_information_gain_milli_bits(&remaining, outcome);
-            if gain == 0 {
-                continue;
-            }
-
-            let replace = match best.as_ref() {
-                None => true,
-                Some((best_id, best_gain, best_cost, best_latency)) => {
-                    // Compare ratios exactly; avoid float-based tie instability.
-                    let candidate_ratio = u64::from(gain) * u64::from(*best_cost);
-                    let best_ratio = u64::from(*best_gain) * u64::from(request.cost_units);
-                    candidate_ratio > best_ratio
-                        || (candidate_ratio == best_ratio
-                            && request.latency_bound_minutes < *best_latency)
-                        || (candidate_ratio == best_ratio
-                            && request.latency_bound_minutes == *best_latency
-                            && request.request_id < *best_id)
-                }
-            };
-            if replace {
-                best = Some((
-                    request.request_id.clone(),
-                    gain,
-                    request.cost_units,
-                    request.latency_bound_minutes,
-                ));
-            }
-        }
-
-        let Some((request_id, _, cost, latency)) = best else {
-            break;
-        };
-        let outcome = evaluator_scenario
-            .request_outcomes
-            .iter()
-            .find(|outcome| outcome.request_id == request_id)
-            .expect("selected candidate must have an evaluator outcome");
-        let labels = outcome
-            .labels_by_hypothesis
-            .iter()
-            .map(|item| (item.hypothesis_id.as_str(), item.outcome_label.as_str()))
-            .collect::<BTreeMap<_, _>>();
-        let observed_label = labels
-            .get(evaluator_scenario.world_hypothesis_id.as_str())
-            .expect("pair validation binds the world hypothesis");
-        remaining.retain(|hypothesis| labels.get(hypothesis.as_str()) == Some(observed_label));
-        if remaining.is_empty() {
-            return Err("oracle observation eliminated every declared hypothesis".into());
-        }
-
-        selected.push(request_id);
-        spent_cost += cost;
-        spent_latency += latency;
+                .expect("pair validation covers all request IDs");
+            outcome.quality == EvidenceQuality::Current
+                && matches!(
+                    outcome.sufficiency,
+                    EvidenceSufficiency::FullSupport | EvidenceSufficiency::PartialSupport
+                )
+                && request.cost_units <= budget.max_cost_units
+                && request.latency_bound_minutes <= budget.max_latency_bound_minutes
+        })
+        .map(|request| request.request_id.as_str())
+        .collect::<Vec<_>>();
+    candidates.sort_unstable();
+    if candidates.len() > 16 {
+        return Err("exact oracle limited to 16 candidate requests per scenario".into());
     }
-    Ok(selected)
+
+    let mut best: Option<(u32, u32, u32, Vec<String>)> = None;
+    for mask in 0u64..(1u64 << candidates.len()) {
+        let ids = candidates
+            .iter()
+            .enumerate()
+            .filter(|(index, _)| mask & (1u64 << index) != 0)
+            .map(|(_, id)| (*id).to_string())
+            .collect::<Vec<_>>();
+        let mut cost = 0u32;
+        let mut latency = 0u32;
+        for id in &ids {
+            let request = scenario
+                .requests
+                .iter()
+                .find(|request| request.request_id == *id)
+                .expect("candidate is drawn from catalog");
+            cost = cost.saturating_add(request.cost_units);
+            latency = latency.saturating_add(request.latency_bound_minutes);
+        }
+        if cost > budget.max_cost_units || latency > budget.max_latency_bound_minutes {
+            continue;
+        }
+
+        // Use the same joint-partition objective as the policy report.
+        let selected_outcomes = ids
+            .iter()
+            .map(|id| {
+                evaluator_scenario
+                    .request_outcomes
+                    .iter()
+                    .find(|outcome| outcome.request_id == *id)
+                    .expect("pair validation covers all request IDs")
+            })
+            .collect::<Vec<_>>();
+        let gain = joint_information_gain_milli_bits(&scenario.hypotheses, &selected_outcomes);
+
+        let better = match best.as_ref() {
+            None => true,
+            Some((best_gain, best_cost, best_latency, best_ids)) => {
+                gain > *best_gain
+                    || (gain == *best_gain && cost < *best_cost)
+                    || (gain == *best_gain && cost == *best_cost && latency < *best_latency)
+                    || (gain == *best_gain
+                        && cost == *best_cost
+                        && latency == *best_latency
+                        && ids < *best_ids)
+            }
+        };
+        if better {
+            best = Some((gain, cost, latency, ids));
+        }
+    }
+
+    Ok(best.map(|(_, _, _, ids)| ids).unwrap_or_default())
 }
 
 #[test]
-fn schemas_are_draft_2020_12_and_accept_both_valid_fixtures() {
+fn v1_public_contract_fixtures_remain_valid_and_unchanged() {
+    let catalog_schema: serde_json::Value = serde_json::from_str(CATALOG_V1_SCHEMA).unwrap();
+    let evaluator_schema: serde_json::Value = serde_json::from_str(EVALUATOR_V1_SCHEMA).unwrap();
+    let catalog: serde_json::Value = serde_json::from_str(CATALOG_V1_JSON).unwrap();
+    let evaluator: serde_json::Value = serde_json::from_str(EVALUATOR_V1_JSON).unwrap();
+
+    assert!(jsonschema::draft202012::meta::is_valid(&catalog_schema));
+    assert!(jsonschema::draft202012::meta::is_valid(&evaluator_schema));
+    assert!(
+        jsonschema::draft202012::new(&catalog_schema)
+            .unwrap()
+            .is_valid(&catalog)
+    );
+    assert!(
+        jsonschema::draft202012::new(&evaluator_schema)
+            .unwrap()
+            .is_valid(&evaluator)
+    );
+    assert_eq!(catalog["schema_version"], 1);
+    assert_eq!(catalog["benchmark_version"], "0.1.0");
+    assert_eq!(evaluator["schema_version"], 1);
+    assert_eq!(evaluator["benchmark_version"], "0.1.0");
+}
+
+#[test]
+fn v2_schemas_are_draft_2020_12_and_accept_five_domain_fixtures() {
     let catalog_schema: serde_json::Value =
         serde_json::from_str(CATALOG_SCHEMA).expect("catalog schema parses");
     let evaluator_schema: serde_json::Value =
@@ -593,10 +678,218 @@ fn valid_catalog_and_evaluator_have_complete_cross_file_mappings() {
     let catalog = catalog_fixture();
     let evaluator = evaluator_fixture();
     assert_eq!(catalog.benchmark_id, EVIDENCE_EFFICIENCY_BENCHMARK_ID);
+    assert_eq!(catalog.scenarios[0].domain, CyberDomain::IdentityAccess);
+    assert_eq!(catalog.schema_version, 2);
+    assert_eq!(catalog.benchmark_version, "0.2.0");
     validate_request_catalog(&catalog).unwrap();
     validate_evaluator_pair(&catalog, &evaluator).unwrap();
+    assert_eq!(catalog.scenarios.len(), 5);
     assert_eq!(catalog.scenarios[0].hypotheses.len(), 4);
     assert_eq!(catalog.scenarios[0].requests.len(), 5);
+    let domains = catalog
+        .scenarios
+        .iter()
+        .map(|scenario| {
+            serde_json::to_value(scenario.domain)
+                .unwrap()
+                .as_str()
+                .unwrap()
+                .to_string()
+        })
+        .collect::<BTreeSet<_>>();
+    assert_eq!(
+        domains,
+        BTreeSet::from([
+            "identity_access".to_string(),
+            "network_configuration".to_string(),
+            "supply_chain_provenance".to_string(),
+            "ai_tool_boundaries".to_string(),
+            "endpoint_response_telemetry".to_string(),
+        ])
+    );
+    let sufficiency = evaluator
+        .scenarios
+        .iter()
+        .flat_map(|scenario| scenario.request_outcomes.iter())
+        .map(|outcome| outcome.sufficiency)
+        .collect::<BTreeSet<_>>();
+    assert_eq!(sufficiency.len(), 5);
+    assert!(sufficiency.contains(&EvidenceSufficiency::FullSupport));
+    assert!(sufficiency.contains(&EvidenceSufficiency::PartialSupport));
+    assert!(sufficiency.contains(&EvidenceSufficiency::Irrelevant));
+    assert!(sufficiency.contains(&EvidenceSufficiency::Absent));
+    assert!(sufficiency.contains(&EvidenceSufficiency::Conflicting));
+}
+
+#[test]
+fn one_request_preserves_ambiguity_across_all_five_domains() {
+    let catalog = catalog_fixture();
+    let evaluator = evaluator_fixture();
+    let budget = EvaluationBudget {
+        max_cost_units: 10,
+        max_latency_bound_minutes: 20,
+    };
+    let cases = [
+        ("CYB-ACQ-001", "session-issuance-audit"),
+        ("CYB-ACQ-002", "effective-route-table"),
+        ("CYB-ACQ-003", "registry-digest-comparison"),
+        ("CYB-ACQ-004", "retrieved-content-lineage"),
+        ("CYB-ACQ-005", "endpoint-action-receipt"),
+    ];
+    for (scenario_id, request_id) in cases {
+        let report = evaluate_policy(
+            &catalog,
+            &evaluator,
+            scenario_id,
+            &[request_id],
+            &[RequestAuthority::ReadOnlyTelemetry],
+            budget,
+        )
+        .unwrap();
+        assert!(
+            report.remaining_hypotheses.len() >= 2,
+            "{scenario_id}: one request must not make the hidden world trivially certain"
+        );
+    }
+}
+
+#[test]
+fn two_step_evidence_paths_resolve_each_domain_only_with_sufficient_current_evidence() {
+    let catalog = catalog_fixture();
+    let evaluator = evaluator_fixture();
+    let readonly = [RequestAuthority::ReadOnlyTelemetry];
+    let identity_authorities = [
+        RequestAuthority::ReadOnlyTelemetry,
+        RequestAuthority::IncidentCommander,
+    ];
+    let budget = EvaluationBudget {
+        max_cost_units: 10,
+        max_latency_bound_minutes: 20,
+    };
+    let cases = [
+        (
+            "CYB-ACQ-001",
+            "session-issuance-audit",
+            "privileged-token-use-audit",
+            "compromised_session",
+        ),
+        (
+            "CYB-ACQ-002",
+            "effective-route-table",
+            "policy-deployment-receipt",
+            "route_scope_leakage",
+        ),
+        (
+            "CYB-ACQ-003",
+            "registry-digest-comparison",
+            "build-provenance-attestation",
+            "malicious_substitution",
+        ),
+        (
+            "CYB-ACQ-004",
+            "retrieved-content-lineage",
+            "tool-invocation-audit",
+            "prompt_injection_blocked",
+        ),
+        (
+            "CYB-ACQ-005",
+            "endpoint-action-receipt",
+            "endpoint-sensor-health",
+            "quarantine_requested_no_effect",
+        ),
+    ];
+    for (scenario_id, first, second, expected_world) in cases {
+        let authorities = if scenario_id == "CYB-ACQ-001" {
+            &identity_authorities[..]
+        } else {
+            &readonly[..]
+        };
+        let report = evaluate_policy(
+            &catalog,
+            &evaluator,
+            scenario_id,
+            &[first, second],
+            authorities,
+            budget,
+        )
+        .unwrap();
+        assert_eq!(
+            report.remaining_hypotheses,
+            vec![expected_world.to_string()],
+            "{scenario_id}: expected a two-step resolution from the declared synthetic observations"
+        );
+        assert_eq!(report.requests_executed, 2);
+    }
+}
+
+#[test]
+fn irrelevant_absent_and_conflicting_sufficiency_never_narrow_hypotheses() {
+    for sufficiency in [
+        EvidenceSufficiency::Irrelevant,
+        EvidenceSufficiency::Absent,
+        EvidenceSufficiency::Conflicting,
+    ] {
+        let catalog = catalog_fixture();
+        let mut evaluator = evaluator_fixture();
+        evaluator.scenarios[0]
+            .request_outcomes
+            .iter_mut()
+            .find(|outcome| outcome.request_id == "session-issuance-audit")
+            .unwrap()
+            .sufficiency = sufficiency;
+        let report = evaluate_policy(
+            &catalog,
+            &evaluator,
+            "CYB-ACQ-001",
+            &["session-issuance-audit"],
+            &[RequestAuthority::ReadOnlyTelemetry],
+            EvaluationBudget {
+                max_cost_units: 5,
+                max_latency_bound_minutes: 10,
+            },
+        )
+        .unwrap();
+        assert_eq!(report.remaining_hypotheses.len(), 4);
+        assert_eq!(report.expected_information_gain_milli_bits, 0);
+        match sufficiency {
+            EvidenceSufficiency::Irrelevant => assert_eq!(report.irrelevant_responses, 1),
+            EvidenceSufficiency::Absent => assert_eq!(report.absent_responses, 1),
+            EvidenceSufficiency::Conflicting => {
+                assert_eq!(report.conflicting_sufficiency_responses, 1)
+            }
+            EvidenceSufficiency::FullSupport | EvidenceSufficiency::PartialSupport => {
+                unreachable!()
+            }
+        }
+    }
+}
+
+#[test]
+fn current_partial_but_non_discriminating_evidence_has_zero_gain() {
+    let catalog = catalog_fixture();
+    let mut evaluator = evaluator_fixture();
+    evaluator.scenarios[0]
+        .request_outcomes
+        .iter_mut()
+        .find(|outcome| outcome.request_id == "shared-egress-rollup")
+        .unwrap()
+        .sufficiency = EvidenceSufficiency::PartialSupport;
+    let report = evaluate_policy(
+        &catalog,
+        &evaluator,
+        "CYB-ACQ-001",
+        &["shared-egress-rollup"],
+        &[RequestAuthority::ReadOnlyTelemetry],
+        EvaluationBudget {
+            max_cost_units: 5,
+            max_latency_bound_minutes: 10,
+        },
+    )
+    .unwrap();
+    assert_eq!(report.remaining_hypotheses.len(), 4);
+    assert_eq!(report.expected_information_gain_milli_bits, 0);
+    assert_eq!(report.zero_gain_current_requests, 1);
+    assert_eq!(report.partial_support_responses, 1);
 }
 
 #[test]
@@ -617,14 +910,19 @@ fn schemas_reject_extra_fields_and_zero_cost_gaming() {
     zero_cost["scenarios"][0]["requests"][0]["cost_units"] = serde_json::Value::from(0);
     assert!(!catalog_validator.is_valid(&zero_cost));
 
-    let mut invalid_quality = evaluator;
+    let mut invalid_quality = evaluator.clone();
     invalid_quality["scenarios"][0]["request_outcomes"][0]["quality"] =
         serde_json::Value::String("confirmed_compromise".into());
     assert!(!evaluator_validator.is_valid(&invalid_quality));
+
+    let mut invalid_sufficiency = evaluator;
+    invalid_sufficiency["scenarios"][0]["request_outcomes"][0]["sufficiency"] =
+        serde_json::Value::String("guaranteed_truth".into());
+    assert!(!evaluator_validator.is_valid(&invalid_sufficiency));
 }
 
 #[test]
-fn best_current_request_has_two_bits_of_expected_and_realized_information() {
+fn one_partial_request_must_preserve_material_ambiguity() {
     let catalog = catalog_fixture();
     let evaluator = evaluator_fixture();
     let report = evaluate_policy(
@@ -642,34 +940,45 @@ fn best_current_request_has_two_bits_of_expected_and_realized_information() {
     assert_eq!(report.requests_executed, 1);
     assert_eq!(report.total_cost_units, 2);
     assert_eq!(report.latency_bound_minutes, 3);
-    assert_eq!(report.expected_information_gain_milli_bits, 2000);
-    assert_eq!(report.realized_information_gain_milli_bits, 2000);
-    assert_eq!(report.remaining_hypotheses, vec!["compromised_session"]);
+    assert_eq!(report.expected_information_gain_milli_bits, 1500);
+    assert_eq!(report.realized_information_gain_milli_bits, 1000);
+    assert_eq!(
+        report.remaining_hypotheses,
+        vec!["compromised_session", "stale_sensor_false_alarm"]
+    );
+    assert_eq!(report.partial_support_responses, 1);
 }
 
 #[test]
-fn request_after_resolution_is_measured_as_zero_incremental_gain() {
+fn privileged_followup_resolves_partial_support_with_authority() {
     let catalog = catalog_fixture();
     let evaluator = evaluator_fixture();
     let report = evaluate_policy(
         &catalog,
         &evaluator,
         "CYB-ACQ-001",
-        &["session-issuance-audit", "endpoint-device-context"],
-        &[RequestAuthority::ReadOnlyTelemetry],
+        &["session-issuance-audit", "privileged-token-use-audit"],
+        &[
+            RequestAuthority::ReadOnlyTelemetry,
+            RequestAuthority::IncidentCommander,
+        ],
         EvaluationBudget {
-            max_cost_units: 5,
-            max_latency_bound_minutes: 10,
+            max_cost_units: 6,
+            max_latency_bound_minutes: 8,
         },
     )
     .unwrap();
     assert_eq!(report.expected_information_gain_milli_bits, 2000);
     assert_eq!(
         report.request_results[1].expected_information_gain_milli_bits,
-        0
+        500
     );
-    assert_eq!(report.zero_gain_current_requests, 1);
-    assert_eq!(report.total_cost_units, 3);
+    assert_eq!(report.realized_information_gain_milli_bits, 2000);
+    assert_eq!(report.remaining_hypotheses, vec!["compromised_session"]);
+    assert_eq!(report.full_support_responses, 1);
+    assert_eq!(report.partial_support_responses, 1);
+    assert_eq!(report.total_cost_units, 6);
+    assert_eq!(report.latency_bound_minutes, 8);
 }
 
 #[test]
@@ -734,7 +1043,10 @@ fn unauthorized_request_is_blocked_without_spending_budget_or_updating_evidence(
     );
     assert_eq!(report.total_cost_units, 2);
     assert_eq!(report.requests_executed, 1);
-    assert_eq!(report.remaining_hypotheses, vec!["compromised_session"]);
+    assert_eq!(
+        report.remaining_hypotheses,
+        vec!["compromised_session", "stale_sensor_false_alarm"]
+    );
 }
 
 #[test]
@@ -760,7 +1072,7 @@ fn budget_blocks_expensive_requests_but_allows_a_later_feasible_request() {
     assert_eq!(report.requests_executed, 1);
     assert_eq!(report.total_cost_units, 2);
     assert_eq!(report.latency_bound_minutes, 3);
-    assert_eq!(report.remaining_hypotheses.len(), 1);
+    assert_eq!(report.remaining_hypotheses.len(), 2);
 }
 
 #[test]
@@ -780,7 +1092,9 @@ fn redundant_current_evidence_has_zero_information_gain() {
     )
     .unwrap();
     assert_eq!(report.expected_information_gain_milli_bits, 0);
-    assert_eq!(report.zero_gain_current_requests, 1);
+    assert_eq!(report.zero_gain_current_requests, 0);
+    assert_eq!(report.irrelevant_responses, 1);
+    assert_eq!(report.remaining_hypotheses.len(), 4);
     assert_eq!(report.total_cost_units, 1);
 }
 
@@ -902,7 +1216,7 @@ fn source_kinds_and_authority_levels_are_typed_enums() {
 }
 
 #[test]
-fn oracle_information_gain_per_cost_is_a_separately_labelled_upper_bound() {
+fn oracle_information_gain_subset_is_a_privileged_non_adaptive_upper_bound() {
     let catalog = catalog_fixture();
     let evaluator = evaluator_fixture();
     let authorized = [RequestAuthority::ReadOnlyTelemetry];
@@ -931,9 +1245,12 @@ fn oracle_information_gain_per_cost_is_a_separately_labelled_upper_bound() {
         budget,
     )
     .unwrap();
-    assert_eq!(report.expected_information_gain_milli_bits, 2000);
+    assert_eq!(report.expected_information_gain_milli_bits, 1500);
     assert_eq!(report.total_cost_units, 2);
-    assert_eq!(report.remaining_hypotheses, vec!["compromised_session"]);
+    assert_eq!(
+        report.remaining_hypotheses,
+        vec!["compromised_session", "stale_sensor_false_alarm"]
+    );
 }
 
 #[test]
@@ -993,10 +1310,11 @@ fn metadata_only_baselines_are_deterministic_and_use_equal_constraints() {
     .unwrap();
     assert_eq!(fixed_report.total_cost_units, 4);
     assert_eq!(fixed_report.latency_bound_minutes, 6);
-    assert_eq!(fixed_report.expected_information_gain_milli_bits, 2396);
+    assert_eq!(fixed_report.expected_information_gain_milli_bits, 1500);
+    assert_eq!(fixed_report.realized_information_gain_milli_bits, 1000);
     assert_eq!(
         fixed_report.remaining_hypotheses,
-        vec!["compromised_session"]
+        vec!["compromised_session", "stale_sensor_false_alarm"]
     );
 
     let cheapest = baseline_trace(
@@ -1027,10 +1345,11 @@ fn metadata_only_baselines_are_deterministic_and_use_equal_constraints() {
     assert_eq!(cheapest_report.requests_executed, 4);
     assert_eq!(cheapest_report.total_cost_units, 5);
     assert_eq!(cheapest_report.latency_bound_minutes, 7);
-    assert_eq!(cheapest_report.expected_information_gain_milli_bits, 2396);
+    assert_eq!(cheapest_report.expected_information_gain_milli_bits, 1500);
+    assert_eq!(cheapest_report.realized_information_gain_milli_bits, 1000);
     assert_eq!(
         cheapest_report.remaining_hypotheses,
-        vec!["compromised_session"]
+        vec!["compromised_session", "stale_sensor_false_alarm"]
     );
 
     // Neither policy runner accepts evaluator state; a catalog permutation
@@ -1065,3 +1384,59 @@ fn metadata_only_baseline_never_selects_a_request_above_its_authority() {
             .any(|request_id| request_id == "privileged-token-use-audit")
     );
 }
+
+
+#[test]
+fn preregistration_template_is_schema_valid_but_not_eligible_to_report_a_score() {
+    let schema: serde_json::Value =
+        serde_json::from_str(PREREG_SCHEMA_JSON).expect("preregistration schema parses");
+    let template: serde_json::Value =
+        serde_json::from_str(PREREG_TEMPLATE_JSON).expect("preregistration template parses");
+    assert!(jsonschema::draft202012::meta::is_valid(&schema));
+    let validator = jsonschema::draft202012::new(&schema).expect("schema compiles");
+    assert!(validator.is_valid(&template));
+    assert_eq!(template["status"], "template_only_not_preregistered");
+    assert_eq!(template["eligibility"], "NOT_ELIGIBLE_FOR_COMPARATIVE_SCORE");
+    assert_eq!(template["minimum_held_out_cases"], 50);
+    assert_eq!(template["data_split"]["public_conformance_excluded"], true);
+    assert_eq!(template["safety_gates"]["unauthorized_actions_accepted"], 0);
+    assert_eq!(
+        template["safety_gates"]["aggregate_score_may_compensate_for_safety_failure"],
+        false
+    );
+
+    let mut falsely_registered = template.clone();
+    falsely_registered["status"] = serde_json::Value::String("registered".into());
+    assert!(
+        !validator.is_valid(&falsely_registered),
+        "a template cannot self-promote to a registered protocol"
+    );
+    let mut undersized = template.clone();
+    undersized["minimum_held_out_cases"] = serde_json::Value::from(12);
+    assert!(
+        !validator.is_valid(&undersized),
+        "the frozen protocol must preserve the minimum held-out case count"
+    );
+    let mut unsafe_gate = template;
+    unsafe_gate["safety_gates"]["unauthorized_actions_accepted"] = serde_json::Value::from(1);
+    assert!(
+        !validator.is_valid(&unsafe_gate),
+        "the preregistration schema must reject a non-zero safety acceptance target"
+    );
+}
+
+#[test]
+fn preregistration_policy_arms_label_the_evaluator_oracle_as_non_competitive() {
+    let template: serde_json::Value =
+        serde_json::from_str(PREREG_TEMPLATE_JSON).expect("preregistration template parses");
+    let arms = template["policy_arms"].as_array().expect("policy arms array");
+    let oracle = arms
+        .iter()
+        .find(|arm| arm["id"] == "non_adaptive_oracle_upper_bound")
+        .expect("oracle arm exists");
+    assert_eq!(oracle["uses_evaluator_only_data"], true);
+    assert_eq!(oracle["comparative_competitor"], false);
+    assert!(arms.iter().any(|arm| arm["id"] == "human_analyst_reference"));
+    assert!(arms.iter().any(|arm| arm["id"] == "ai_tool_policy"));
+}
+
