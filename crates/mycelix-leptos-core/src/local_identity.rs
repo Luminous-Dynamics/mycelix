@@ -188,6 +188,7 @@ pub enum IdentityBootstrapAction {
     ProtectExistingIdentity,
     UnlockProtectedIdentity,
     RestoreProtectedIdentityFromSeedPhrase,
+    ExportRecoveryPhrase,
     RotatePassphrase,
 }
 
@@ -207,7 +208,10 @@ pub fn allowed_identity_bootstrap_actions(
         ],
         LocalIdentityStoragePosture::UnprotectedIdentity => &[Action::ProtectExistingIdentity],
         LocalIdentityStoragePosture::ProtectedLocked => &[Action::UnlockProtectedIdentity],
-        LocalIdentityStoragePosture::ProtectedUnlockedInSession => &[Action::RotatePassphrase],
+        LocalIdentityStoragePosture::ProtectedUnlockedInSession => &[
+            Action::ExportRecoveryPhrase,
+            Action::RotatePassphrase,
+        ],
         LocalIdentityStoragePosture::LegacyIdentityNeedsMigration
         | LocalIdentityStoragePosture::StorageUnavailable
         | LocalIdentityStoragePosture::CorruptOrInconsistent => &[],
@@ -524,6 +528,47 @@ pub fn is_passphrase_protected() -> bool {
 /// This function still depends on browser storage semantics and cannot promise
 /// confidentiality from a compromised active page, malicious extensions, or
 /// a compromised browser profile.
+/// Export a recovery phrase for the currently unlocked protected identity.
+///
+/// This function is read-only: it never calls `ensure_keypair`, never mutates
+/// storage, and refuses to export from plaintext, locked, legacy, unavailable
+/// or inconsistent identity state. The returned phrase is secret material;
+/// callers must display it only in an explicit user-initiated recovery flow,
+/// never put it into telemetry/URLs/logs or persist it back into web storage.
+pub fn export_unlocked_identity_seed_phrase() -> Result<String, String> {
+    let signing_key = UNLOCKED_KEY
+        .with(|cell| cell.borrow().clone())
+        .ok_or_else(|| "Protected identity is not unlocked in this session.".to_string())?;
+    let mut snapshot = read_identity_storage_snapshot()
+        .map_err(|_| "Identity storage is unavailable; no recovery phrase was exported.".to_string())?;
+    let posture = classify_identity_storage_snapshot(&snapshot);
+    let public_b64 = snapshot.public_b64.clone();
+    let envelope = snapshot.encrypted_wire.clone();
+    if let Some(secret_b64) = snapshot.secret_b64.as_mut() {
+        secret_b64.zeroize();
+    }
+
+    if posture != LocalIdentityStoragePosture::ProtectedLocked
+        || envelope.as_deref().is_none_or(|value| !encrypted_blob_is_structurally_valid(value))
+        || public_b64
+            .as_deref()
+            .is_none_or(|value| !public_key_matches_signing_key(value, &signing_key))
+    {
+        return Err(
+            "Recovery export requires a consistent protected identity unlocked in this session."
+                .into(),
+        );
+    }
+    if !identity_bootstrap_action_allowed(
+        LocalIdentityStoragePosture::ProtectedUnlockedInSession,
+        IdentityBootstrapAction::ExportRecoveryPhrase,
+    ) {
+        return Err("Recovery phrase export is not permitted in the current identity state.".into());
+    }
+
+    Ok(export_seed_phrase(&signing_key))
+}
+
 pub async fn create_protected_identity(
     passphrase: &str,
 ) -> Result<LocalIdentityStoragePosture, String> {
@@ -1478,6 +1523,73 @@ mod tests {
         assert!(!identity_bootstrap_action_allowed(
             Posture::StorageUnavailable,
             Action::RotatePassphrase
+        ));
+    }
+
+    #[test]
+    fn bootstrap_action_policy_matches_every_identity_posture() {
+        use IdentityBootstrapAction as Action;
+        use LocalIdentityStoragePosture as Posture;
+
+        let cases: &[(Posture, &[Action])] = &[
+            (Posture::StorageUnavailable, &[]),
+            (
+                Posture::NoIdentity,
+                &[
+                    Action::CreateProtectedIdentity,
+                    Action::RestoreProtectedIdentityFromSeedPhrase,
+                ],
+            ),
+            (Posture::LegacyIdentityNeedsMigration, &[]),
+            (
+                Posture::UnprotectedIdentity,
+                &[Action::ProtectExistingIdentity],
+            ),
+            (Posture::ProtectedLocked, &[Action::UnlockProtectedIdentity]),
+            (
+                Posture::ProtectedUnlockedInSession,
+                &[Action::ExportRecoveryPhrase, Action::RotatePassphrase],
+            ),
+            (Posture::CorruptOrInconsistent, &[]),
+        ];
+
+        for (posture, expected) in cases {
+            assert_eq!(allowed_identity_bootstrap_actions(*posture), *expected);
+            for action in [
+                Action::CreateProtectedIdentity,
+                Action::ProtectExistingIdentity,
+                Action::UnlockProtectedIdentity,
+                Action::RestoreProtectedIdentityFromSeedPhrase,
+                Action::ExportRecoveryPhrase,
+                Action::RotatePassphrase,
+            ] {
+                assert_eq!(
+                    identity_bootstrap_action_allowed(*posture, action),
+                    expected.contains(&action),
+                    "unexpected policy for {posture:?} / {action:?}"
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn recovery_export_is_never_allowed_before_verified_protected_unlock() {
+        use IdentityBootstrapAction::ExportRecoveryPhrase as Export;
+        use LocalIdentityStoragePosture as Posture;
+
+        for posture in [
+            Posture::StorageUnavailable,
+            Posture::NoIdentity,
+            Posture::LegacyIdentityNeedsMigration,
+            Posture::UnprotectedIdentity,
+            Posture::ProtectedLocked,
+            Posture::CorruptOrInconsistent,
+        ] {
+            assert!(!identity_bootstrap_action_allowed(posture, Export));
+        }
+        assert!(identity_bootstrap_action_allowed(
+            Posture::ProtectedUnlockedInSession,
+            Export
         ));
     }
 
