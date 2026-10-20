@@ -1,0 +1,93 @@
+{
+  "node_id": "EK-DATA-001",
+  "lesson": {
+    "standard_code": "EK-DATA-001",
+    "title": "Interpret Statistics, Charts, and Everyday Risk",
+    "grade_level": "Adult",
+    "bloom_level": "Analyze",
+    "explanation": "Statistics describe data under particular collection and measurement conditions. Read chart titles, axes, dates, denominators, sample selection, and uncertainty before comparing values. A change from 10% to 15% is five percentage points but a 50% relative increase. Correlation means quantities vary together; it does not by itself establish that one caused the other. Base rates matter when interpreting tests, alerts, forecasts, and rare events.",
+    "examples": [
+      {
+        "problem": "A rate rises from 10 events per 1,000 people to 15 per 1,000. Explain the change.",
+        "steps": [
+          {
+            "instruction": "Subtract the rates.",
+            "result": "15 − 10 = 5 additional events per 1,000."
+          },
+          {
+            "instruction": "Compare the change with the starting rate.",
+            "result": "5 ÷ 10 = 0.5, or a 50% relative increase."
+          }
+        ],
+        "answer": "The absolute increase is 5 per 1,000; the relative increase is 50%. Both are correct and answer different questions."
+      }
+    ],
+    "practice_problems": [
+      {
+        "question": "A chart's vertical axis starts at 90, making a rise from 94 to 96 look enormous. What should you do?",
+        "answer": "Read the axis scale and show the absolute change; consider whether a zero baseline or another clearly labelled view is needed.",
+        "difficulty_permille": 200,
+        "bloom_level": "Apply",
+        "hints": [
+          "Identify what the question is asking before choosing a response.",
+          "State your reasoning and check whether it fits the context."
+        ],
+        "explanation": "Axis choices can change visual emphasis without changing the data.",
+        "distractors": [
+          "Assume the visual area represents the change fairly.",
+          "Ignore the labels.",
+          "Use the image colour as a measure."
+        ]
+      },
+      {
+        "question": "Why does the base rate matter when interpreting a warning for a very rare event?",
+        "answer": "Even a reasonably accurate detector can produce many false positives when the event is extremely rare; sensitivity, specificity, and the base rate all matter.",
+        "difficulty_permille": 450,
+        "bloom_level": "Analyze",
+        "hints": [
+          "Identify what the question is asking before choosing a response.",
+          "State your reasoning and check whether it fits the context."
+        ],
+        "explanation": "The probability after a warning depends on both test properties and prior prevalence.",
+        "distractors": [
+          "Base rates are always irrelevant.",
+          "Every alert means the event happened.",
+          "Accuracy alone tells the whole story."
+        ]
+      }
+    ],
+    "key_vocabulary": [
+      {
+        "term": "Base rate",
+        "definition": "How common an event is before considering a new signal.",
+        "example_usage": "A rare condition has a low base rate in the general population."
+      },
+      {
+        "term": "Percentage point",
+        "definition": "The arithmetic difference between two percentages.",
+        "example_usage": "12% − 8% = 4 percentage points."
+      }
+    ],
+    "misconceptions": [
+      {
+        "misconception": "A 50% relative increase must mean the risk is high.",
+        "correction": "Relative change must be interpreted alongside the baseline and absolute difference.",
+        "why_students_think_this": "Small baselines can make relative percentages sound dramatic."
+      }
+    ],
+    "hints": [
+      "Write down the evidence and assumptions before choosing a conclusion.",
+      "Explain one alternative and what observation would help distinguish it."
+    ]
+  },
+  "flashcards": [
+    {
+      "front": "Base rate",
+      "back": "How common an event is before considering a new signal."
+    },
+    {
+      "front": "What is the demonstration goal for this capability?",
+      "back": "Why does the base rate matter when interpreting a warning for a very rare event?"
+    }
+  ]
+}
