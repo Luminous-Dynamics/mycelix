@@ -8,7 +8,7 @@ use sha2::{Digest, Sha256};
 use std::{
     collections::{BTreeSet, HashMap},
     process::Command,
-    sync::{Arc, Mutex, OnceLock},
+    sync::{Arc, OnceLock, RwLock},
 };
 
 pub const REQUEST_SCHEMA_VERSION: &str = "mycelix.claim-ceiling-meet.request.v1";
@@ -336,18 +336,32 @@ fn sha256(bytes: &[u8]) -> String {
 // These validators are compiled from immutable, embedded schemas only. Keying by the
 // exact schema bytes avoids accidental cross-schema reuse and keeps untrusted request
 // data out of the cache key. Instance JSON is still parsed and validated for every call.
-static COMPILED_SCHEMA_CACHE: OnceLock<Mutex<HashMap<Vec<u8>, Arc<jsonschema::JSONSchema>>>> =
+static COMPILED_SCHEMA_CACHE: OnceLock<RwLock<HashMap<Vec<u8>, Arc<jsonschema::JSONSchema>>>> =
     OnceLock::new();
 
 fn compiled_schema_validator(
     schema_bytes: &[u8],
     name: &str,
 ) -> Result<Arc<jsonschema::JSONSchema>, String> {
-    let cache = COMPILED_SCHEMA_CACHE.get_or_init(|| Mutex::new(HashMap::new()));
-    let mut cached = cache
-        .lock()
-        .map_err(|_| format!("{name} schema validator cache lock is poisoned"))?;
+    let cache = COMPILED_SCHEMA_CACHE.get_or_init(|| RwLock::new(HashMap::new()));
 
+    // The read lock is the steady-state path, so concurrent evaluators do not serialize
+    // behind a mutex on every request.
+    {
+        let cached = cache
+            .read()
+            .map_err(|_| format!("{name} schema validator cache lock is poisoned"))?;
+        if let Some(validator) = cached.get(schema_bytes) {
+            return Ok(Arc::clone(validator));
+        }
+    }
+
+    // Recheck after acquiring the write lock; another first-use caller may have populated
+    // this exact schema while we waited. Compile under the write lock so each byte sequence
+    // is compiled once per process.
+    let mut cached = cache
+        .write()
+        .map_err(|_| format!("{name} schema validator cache lock is poisoned"))?;
     if let Some(validator) = cached.get(schema_bytes) {
         return Ok(Arc::clone(validator));
     }
