@@ -337,14 +337,12 @@ pub fn get_recovery_config(did: String) -> ExternResult<Option<Record>> {
         let action_hash = ActionHash::try_from(link.target)
             .map_err(|_| wasm_error!(WasmErrorInner::Guest("Invalid link target".into())))?;
         if let Some(record) = get(action_hash, GetOptions::default())? {
-            let config = record
-                .entry()
-                .to_app_option::<RecoveryConfig>()
-                .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?;
-            if config
-                .as_ref()
-                .is_some_and(|config| recovery_config_matches_did_owner(&did, config))
-            {
+            let Ok(Some(config)) = record.entry().to_app_option::<RecoveryConfig>() else {
+                // A link target that is not a RecoveryConfig is not evidence
+                // of a valid config and must not shadow legitimate records.
+                continue;
+            };
+            if recovery_config_matches_did_owner(&did, &config) {
                 valid_records.push((link.timestamp, record));
             }
         }
@@ -1309,14 +1307,12 @@ pub fn get_self_recovery_config(did: String) -> ExternResult<Option<Record>> {
         let hash = ActionHash::try_from(link.target)
             .map_err(|_| wasm_error!(WasmErrorInner::Guest("Invalid link target".into())))?;
         if let Some(record) = get(hash, GetOptions::default())? {
-            let config = record
-                .entry()
-                .to_app_option::<SelfRecoveryConfig>()
-                .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?;
-            if config
-                .as_ref()
-                .is_some_and(|config| self_recovery_config_matches_did_owner(&did, config))
-            {
+            let Ok(Some(config)) = record.entry().to_app_option::<SelfRecoveryConfig>() else {
+                // Ignore dangling/mistyped links; only owner-bound config
+                // entries can determine the effective recovery configuration.
+                continue;
+            };
+            if self_recovery_config_matches_did_owner(&did, &config) {
                 valid_records.push((link.timestamp, record));
             }
         }
