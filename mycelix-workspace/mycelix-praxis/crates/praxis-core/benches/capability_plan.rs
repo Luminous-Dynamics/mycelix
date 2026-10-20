@@ -3,7 +3,7 @@
 // Commercial licensing: see COMMERCIAL_LICENSE.md at repository root
 //! Dependency-free, native benchmark harness for the capability-plan compiler.
 //!
-//! Run from mycelix-workspace with:
+//! Run from mycelix-workspace/mycelix-praxis with:
 //!   cargo bench -p praxis-core --bench capability_plan
 //!
 //! This measures planner cost only. It does not measure learning efficacy, catalogue
