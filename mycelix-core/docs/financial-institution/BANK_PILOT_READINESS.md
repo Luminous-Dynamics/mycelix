@@ -229,10 +229,22 @@ Use the existing workstreams rather than creating a second bank ontology or dupl
 
 ## External references
 
+### South Africa
+
+- [South African Prudential Authority — D4/2023, Directive on Operational Resilience](https://www.resbank.co.za/content/dam/sarb/publications/prudential-authority/pa-deposit-takers/banks-directives/2023/D4-2023%20-%20Directive%20on%20operational%20resilience.pdf). Review against the target bank's applicability and any later directives or amendments before using as a formal control mapping.
+- [Prudential Authority and FSCA — Joint Communication 5 of 2026: notification template for material IT and cyber incidents](https://www.resbank.co.za/en/home/publications/publication-detail-pages/prudential-authority/pa-public-awareness/Communication/2026/joint-communication-5-of-2026-determination-of-notification-template-for-material-it-and-cyber-incidents). Incident-reporting scope, roles and thresholds require institutional legal/control review.
+
+### United Kingdom
+
+- [FCA — Operational resilience: insights and observations one year on (27 March 2026)](https://www.fca.org.uk/publications/good-and-poor-practice/operational-resilience-insights-observations-one-year). Its observations emphasize evidence-based important-business-service definitions, impact-tolerance rationale, dependency mapping, and scenario testing.
+
+### United States, European Union, and international baselines
 - [Financial Stability Board — Sound Practices for Responsible Adoption of AI (15 October 2026)](https://www.fsb.org/2026/10/fsb-finalises-sound-practices-for-the-responsible-adoption-of-artificial-intelligence-ai/)
 - [Basel Committee — Principles for Operational Resilience](https://www.bis.org/bcbs/publ/d509.pdf)
 - [EU Digital Operational Resilience Act — Regulation (EU) 2022/2554](https://eur-lex.europa.eu/eli/reg/2022/2554/oj)
-- [OCC — Revised Model Risk Management Guidance, Bulletin 2026-13](https://www.occ.gov/news-issuances/bulletins/2026/bulletin-2026-13.html)
+- [EBA — Regulatory Technical Standards for ICT services supporting critical or important functions](https://www.eba.europa.eu/activities/single-rulebook/regulatory-activities/operational-resilience/regulatory-technical-standards-policy-ict-services-supporting-critical-or-important-functions)
+- [EBA — Implementing Technical Standards for the Register of Information](https://www.eba.europa.eu/activities/single-rulebook/regulatory-activities/operational-resilience/implementing-technical-standards-establish-templates-register-information?version=2024)
+- [OCC — Revised Model Risk Management Guidance, Bulletin 2026-13 (17 April 2026)](https://www.occ.gov/news-issuances/bulletins/2026/bulletin-2026-13.html)
 - [NIST AI Risk Management Framework Core](https://airc.nist.gov/airmf-resources/airmf/5-sec-core/)
 - [NIST AI RMF Playbook](https://www.nist.gov/itl/ai-risk-management-framework/nist-ai-rmf-playbook)
 
