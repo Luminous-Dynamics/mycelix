@@ -91,6 +91,9 @@ jobs:
       - name: Run typed decision-submission contract tests
         run: cargo +1.96.0 test --manifest-path mycelix-praxis/Cargo.toml --package praxis-core --test decision_submission -- --nocapture
 
+      - name: Run evaluator-only decision-scoring tests
+        run: cargo +1.96.0 test --manifest-path mycelix-praxis/Cargo.toml --package praxis-core --test decision_scoring -- --nocapture
+
       - name: Verify evidence-acquisition fixture identities
         if: hashFiles('mycelix-praxis/examples/cyber-evidence-efficiency/v1/corpus-manifest.json') != ''
         shell: bash
@@ -203,19 +206,21 @@ jobs:
             --arg cargo "$(cargo +1.96.0 --version)" \
             --arg contract "$(git hash-object mycelix-praxis/crates/praxis-core/src/decision_submission.rs)" \
             --arg tests "$(git hash-object mycelix-praxis/crates/praxis-core/tests/decision_submission.rs)" \
+            --arg scorer "$(git hash-object mycelix-praxis/crates/praxis-core/tests/decision_scoring.rs)" \
             --arg workflow "$(git hash-object .github/workflows/praxis-cyber-challenges.yml)" \
             '{
               schema_version: 1,
-              qualification_type: "public_synthetic_decision_submission_contract_conformance",
+              qualification_type: "public_synthetic_decision_submission_and_scoring_conformance",
               result: "PASS",
               subject_commit: $commit,
               toolchain: {rustc: $rustc, cargo: $cargo},
               git_blob_sha1: {
                 decision_submission_contract: $contract,
                 adversarial_tests: $tests,
+                evaluator_only_decision_scorer: $scorer,
                 workflow: $workflow
               },
-              claim_ceiling: "Structural decision-contract and adversarial-test conformance only; not evidence truth, scorer correctness, held-out cyber capability, SOTA, or production readiness."
+              claim_ceiling: "Structural contract and public synthetic evaluator-scorer conformance only; not real-world evidence truth, held-out cyber capability, SOTA, or production readiness."
             }' > "$receipt"
           cat "$receipt" >> "$GITHUB_STEP_SUMMARY"
 
