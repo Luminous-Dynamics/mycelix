@@ -1,4 +1,4 @@
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 use sha2::{Digest, Sha256};
 use std::{
     collections::{BTreeMap, BTreeSet},
@@ -155,9 +155,13 @@ fn verify_local_hashed_file(root: &Path, record: &Value, label: &str) -> Result<
     let declared_path = required_string(record, "/path")?;
     let relative = Path::new(declared_path);
     if relative.is_absolute()
-        || !relative.components().all(|part| matches!(part, Component::Normal(_)))
+        || !relative
+            .components()
+            .all(|part| matches!(part, Component::Normal(_)))
     {
-        return Err(format!("{label} path must be a safe relative path: {declared_path}"));
+        return Err(format!(
+            "{label} path must be a safe relative path: {declared_path}"
+        ));
     }
 
     let canonical_root = fs::canonicalize(root)
@@ -165,7 +169,9 @@ fn verify_local_hashed_file(root: &Path, record: &Value, label: &str) -> Result<
     let candidate = fs::canonicalize(canonical_root.join(relative))
         .map_err(|error| format!("cannot resolve {label} {declared_path}: {error}"))?;
     if !candidate.starts_with(&canonical_root) {
-        return Err(format!("{label} path escapes the declared evidence root: {declared_path}"));
+        return Err(format!(
+            "{label} path escapes the declared evidence root: {declared_path}"
+        ));
     }
 
     let bytes = fs::read(&candidate)
@@ -187,11 +193,8 @@ fn verify_receipt_files(receipt: &Value, evidence_root: &Path) -> Result<(), Str
         .ok_or_else(|| "receipt artifacts are missing or not an array".to_string())?;
     let mut artifact_digests = BTreeSet::new();
     for (index, artifact) in artifacts.iter().enumerate() {
-        let digest = verify_local_hashed_file(
-            evidence_root,
-            artifact,
-            &format!("artifact[{index}]"),
-        )?;
+        let digest =
+            verify_local_hashed_file(evidence_root, artifact, &format!("artifact[{index}]"))?;
         artifact_digests.insert(digest);
     }
 
@@ -340,7 +343,9 @@ pub fn evaluate_receipt(
             ));
         }
         if executions_by_id.insert(id.clone(), execution).is_some() {
-            return Err(format!("duplicate receipt execution for scenario {id} and target {target}"));
+            return Err(format!(
+                "duplicate receipt execution for scenario {id} and target {target}"
+            ));
         }
 
         let applicability = required_string(execution, "/applicability")?;
@@ -387,15 +392,16 @@ pub fn evaluate_receipt(
             .get("checks")
             .and_then(Value::as_array)
             .ok_or_else(|| format!("scenario {id} checks are missing"))?;
-        let has_check_failure = checks.iter().any(|check| {
-            check.get("outcome").and_then(Value::as_str) == Some("failed")
-        });
-        let has_unknown_check = checks.iter().any(|check| {
-            check.get("outcome").and_then(Value::as_str) == Some("unknown")
-        });
-        let all_checks_passed = !checks.is_empty() && checks.iter().all(|check| {
-            check.get("outcome").and_then(Value::as_str) == Some("passed")
-        });
+        let has_check_failure = checks
+            .iter()
+            .any(|check| check.get("outcome").and_then(Value::as_str) == Some("failed"));
+        let has_unknown_check = checks
+            .iter()
+            .any(|check| check.get("outcome").and_then(Value::as_str) == Some("unknown"));
+        let all_checks_passed = !checks.is_empty()
+            && checks
+                .iter()
+                .all(|check| check.get("outcome").and_then(Value::as_str) == Some("passed"));
         let is_performance = class == "performance_baseline";
         let performance_has_measurements = execution
             .get("measurements")
@@ -414,7 +420,9 @@ pub fn evaluate_receipt(
             && (!is_performance || performance_has_measurements)
         {
             "passed"
-        } else if outcome == "unknown" || outcome == "skipped" || outcome == "not_run"
+        } else if outcome == "unknown"
+            || outcome == "skipped"
+            || outcome == "not_run"
             || has_unknown_check
         {
             "incomplete"
@@ -462,9 +470,8 @@ pub fn evaluate_receipt(
         && performance_incomplete == 0
         && performance_failed == 0
         && missing_scenarios.is_empty();
-    let release_qualified = safety_status == "SAFETY_GATES_PASSED"
-        && all_scope_complete
-        && source_is_clean;
+    let release_qualified =
+        safety_status == "SAFETY_GATES_PASSED" && all_scope_complete && source_is_clean;
     let status = if hard_gate_failed > 0 || coverage_failed > 0 || performance_failed > 0 {
         QualificationExit::Failed
     } else if release_qualified {
@@ -511,8 +518,10 @@ mod tests {
     use serde_json::json;
 
     const CORPUS: &str = include_str!("../../../docs/research/civos-multi-agent-scenarios-v0.json");
-    const CONTRACT_SCHEMA: &str = include_str!("../../../docs/research/civos-multi-agent-scenarios-v0.schema.json");
-    const RECEIPT_SCHEMA: &str = include_str!("../../../docs/research/civos-multi-agent-receipt-v0.schema.json");
+    const CONTRACT_SCHEMA: &str =
+        include_str!("../../../docs/research/civos-multi-agent-scenarios-v0.schema.json");
+    const RECEIPT_SCHEMA: &str =
+        include_str!("../../../docs/research/civos-multi-agent-receipt-v0.schema.json");
     const SYNTHETIC_EVIDENCE: &[u8] = include_bytes!("../fixtures/synthetic-evidence.log");
 
     fn valid_receipt(target: &str) -> Value {
@@ -523,7 +532,13 @@ mod tests {
             .as_array()
             .unwrap()
             .iter()
-            .filter(|scenario| scenario["targets"].as_array().unwrap().iter().any(|item| item.as_str() == Some(target)))
+            .filter(|scenario| {
+                scenario["targets"]
+                    .as_array()
+                    .unwrap()
+                    .iter()
+                    .any(|item| item.as_str() == Some(target))
+            })
             .map(|scenario| {
                 let id = scenario["id"].as_str().unwrap();
                 let mut execution = json!({
@@ -582,7 +597,7 @@ mod tests {
             RECEIPT_SCHEMA,
             &receipt.to_string(),
             "finance",
-            Path::new(env!("CARGO_MANIFEST_DIR"))
+            Path::new(env!("CARGO_MANIFEST_DIR")),
         )
     }
 
@@ -601,9 +616,11 @@ mod tests {
         let mut corpus: Value = serde_json::from_str(CORPUS).unwrap();
         let first_id = corpus["scenarios"][0]["id"].clone();
         corpus["scenarios"][1]["id"] = first_id;
-        assert!(validate_contract(&corpus.to_string(), CONTRACT_SCHEMA)
-            .unwrap_err()
-            .contains("duplicate scenario id"));
+        assert!(
+            validate_contract(&corpus.to_string(), CONTRACT_SCHEMA)
+                .unwrap_err()
+                .contains("duplicate scenario id")
+        );
     }
 
     #[test]
@@ -618,20 +635,32 @@ mod tests {
     fn missing_hard_gate_execution_is_incomplete_not_pass() {
         let mut receipt = valid_receipt("finance");
         let executions = receipt["executions"].as_array_mut().unwrap();
-        let index = executions.iter().position(|item| item["scenario_id"] == "CIV-CAP-001").unwrap();
+        let index = executions
+            .iter()
+            .position(|item| item["scenario_id"] == "CIV-CAP-001")
+            .unwrap();
         executions.remove(index);
         let report = evaluate(&receipt).unwrap();
         assert_eq!(report["status"], "INCOMPLETE");
         assert_eq!(report["safety_gate_status"], "INCOMPLETE");
         assert_eq!(report["release_qualified"], false);
-        assert!(report["missing_scenarios"].as_array().unwrap().iter().any(|id| id == "CIV-CAP-001"));
+        assert!(
+            report["missing_scenarios"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .any(|id| id == "CIV-CAP-001")
+        );
     }
 
     #[test]
     fn a_hard_gate_failure_vetoes_release_even_if_other_scenarios_are_missing() {
         let mut receipt = valid_receipt("finance");
         let executions = receipt["executions"].as_array_mut().unwrap();
-        let entry = executions.iter_mut().find(|item| item["scenario_id"] == "CIV-CAP-001").unwrap();
+        let entry = executions
+            .iter_mut()
+            .find(|item| item["scenario_id"] == "CIV-CAP-001")
+            .unwrap();
         entry["outcome"] = json!("failed");
         let report = evaluate(&receipt).unwrap();
         assert_eq!(report["status"], "FAILED");
@@ -642,14 +671,22 @@ mod tests {
     #[test]
     fn unknown_and_not_applicable_hard_gates_are_never_passes() {
         let mut unknown = valid_receipt("finance");
-        let entry = unknown["executions"].as_array_mut().unwrap().iter_mut()
-            .find(|item| item["scenario_id"] == "CIV-CAP-001").unwrap();
+        let entry = unknown["executions"]
+            .as_array_mut()
+            .unwrap()
+            .iter_mut()
+            .find(|item| item["scenario_id"] == "CIV-CAP-001")
+            .unwrap();
         entry["outcome"] = json!("unknown");
         assert_eq!(evaluate(&unknown).unwrap()["status"], "INCOMPLETE");
 
         let mut not_applicable = valid_receipt("finance");
-        let entry = not_applicable["executions"].as_array_mut().unwrap().iter_mut()
-            .find(|item| item["scenario_id"] == "CIV-CAP-001").unwrap();
+        let entry = not_applicable["executions"]
+            .as_array_mut()
+            .unwrap()
+            .iter_mut()
+            .find(|item| item["scenario_id"] == "CIV-CAP-001")
+            .unwrap();
         entry["applicability"] = json!("not_applicable");
         entry["applicability_reason"] = json!("synthetic coverage gap");
         assert_eq!(evaluate(&not_applicable).unwrap()["status"], "INCOMPLETE");
@@ -665,10 +702,18 @@ mod tests {
     #[test]
     fn unlinked_check_evidence_is_rejected() {
         let mut receipt = valid_receipt("finance");
-        let entry = receipt["executions"].as_array_mut().unwrap().iter_mut()
-            .find(|item| item["scenario_id"] == "CIV-CAP-001").unwrap();
+        let entry = receipt["executions"]
+            .as_array_mut()
+            .unwrap()
+            .iter_mut()
+            .find(|item| item["scenario_id"] == "CIV-CAP-001")
+            .unwrap();
         entry["checks"][0]["evidence_sha256"] = json!(["c".repeat(64)]);
-        assert!(evaluate(&receipt).unwrap_err().contains("not present in this execution"));
+        assert!(
+            evaluate(&receipt)
+                .unwrap_err()
+                .contains("not present in this execution")
+        );
     }
 
     #[test]
@@ -677,7 +722,11 @@ mod tests {
         let entry = receipt["executions"].as_array_mut().unwrap().iter_mut()
             .find(|item| item["scenario_id"] == "CIV-CAP-001").unwrap();
         entry["evidence"][0]["path"] = json!("../../Cargo.toml");
-        assert!(evaluate(&receipt).unwrap_err().contains("safe relative path"));
+        assert!(
+            evaluate(&receipt)
+                .unwrap_err()
+                .contains("safe relative path")
+        );
     }
 
     #[test]
