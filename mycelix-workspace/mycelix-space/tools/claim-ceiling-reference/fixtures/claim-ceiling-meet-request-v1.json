@@ -10,10 +10,10 @@
         "intended_use": "research"
       },
       {
-        "predicate": "causal_claim",
-        "evidence_class": "correlational_analysis",
+        "predicate": "forecast",
+        "evidence_class": "forecast_output",
         "derivation": "statistical_inference",
-        "intended_use": "decision_support"
+        "intended_use": "planning"
       }
     ],
     "subject_ids": [
@@ -51,8 +51,8 @@
         "intended_use": "research"
       },
       {
-        "predicate": "causal_claim",
-        "evidence_class": "causal_identification",
+        "predicate": "forecast",
+        "evidence_class": "forecast_output",
         "derivation": "statistical_inference",
         "intended_use": "decision_support"
       }
