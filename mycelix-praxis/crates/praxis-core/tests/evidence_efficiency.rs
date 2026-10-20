@@ -329,6 +329,11 @@ fn evaluate_policy(
         expected_information_gain_milli_bits: 0,
         realized_information_gain_milli_bits: 0,
         zero_gain_current_requests: 0,
+        full_support_responses: 0,
+        partial_support_responses: 0,
+        irrelevant_responses: 0,
+        absent_responses: 0,
+        conflicting_sufficiency_responses: 0,
         stale_responses: 0,
         conflicting_responses: 0,
         unavailable_responses: 0,
@@ -352,6 +357,7 @@ fn evaluate_policy(
                 request_id: request.request_id.clone(),
                 disposition: RequestDisposition::BlockedUnauthorized,
                 quality: None,
+                sufficiency: None,
                 expected_information_gain_milli_bits: 0,
             });
             continue;
@@ -383,31 +389,46 @@ fn evaluate_policy(
             .iter()
             .find(|outcome| outcome.request_id == request.request_id)
             .expect("pair validation guarantees each request outcome");
+        match outcome.sufficiency {
+            EvidenceSufficiency::FullSupport => report.full_support_responses += 1,
+            EvidenceSufficiency::PartialSupport => report.partial_support_responses += 1,
+            EvidenceSufficiency::Irrelevant => report.irrelevant_responses += 1,
+            EvidenceSufficiency::Absent => report.absent_responses += 1,
+            EvidenceSufficiency::Conflicting => report.conflicting_sufficiency_responses += 1,
+        }
+
         let mut request_gain = 0;
         match outcome.quality {
-            EvidenceQuality::Current => {
-                request_gain = expected_information_gain_milli_bits(&remaining_hypotheses, outcome);
-                report.expected_information_gain_milli_bits += request_gain;
-                if request_gain == 0 {
-                    report.zero_gain_current_requests += 1;
+            EvidenceQuality::Current => match outcome.sufficiency {
+                EvidenceSufficiency::FullSupport | EvidenceSufficiency::PartialSupport => {
+                    request_gain =
+                        expected_information_gain_milli_bits(&remaining_hypotheses, outcome);
+                    report.expected_information_gain_milli_bits += request_gain;
+                    if request_gain == 0 {
+                        report.zero_gain_current_requests += 1;
+                    }
+                    let labels = outcome
+                        .labels_by_hypothesis
+                        .iter()
+                        .map(|item| (item.hypothesis_id.as_str(), item.outcome_label.as_str()))
+                        .collect::<BTreeMap<_, _>>();
+                    let observed_label = labels
+                        .get(evaluator_scenario.world_hypothesis_id.as_str())
+                        .expect("pair validation binds the world hypothesis");
+                    let before = remaining_hypotheses.len();
+                    remaining_hypotheses.retain(|hypothesis| {
+                        labels.get(hypothesis.as_str()) == Some(observed_label)
+                    });
+                    let after = remaining_hypotheses.len();
+                    if after > 0 && after < before {
+                        report.realized_information_gain_milli_bits +=
+                            ((before as f64 / after as f64).log2() * 1000.0).round() as u32;
+                    }
                 }
-                let labels = outcome
-                    .labels_by_hypothesis
-                    .iter()
-                    .map(|item| (item.hypothesis_id.as_str(), item.outcome_label.as_str()))
-                    .collect::<BTreeMap<_, _>>();
-                let observed_label = labels
-                    .get(evaluator_scenario.world_hypothesis_id.as_str())
-                    .expect("pair validation binds the world hypothesis");
-                let before = remaining_hypotheses.len();
-                remaining_hypotheses
-                    .retain(|hypothesis| labels.get(hypothesis.as_str()) == Some(observed_label));
-                let after = remaining_hypotheses.len();
-                if after > 0 && after < before {
-                    report.realized_information_gain_milli_bits +=
-                        ((before as f64 / after as f64).log2() * 1000.0).round() as u32;
-                }
-            }
+                EvidenceSufficiency::Irrelevant
+                | EvidenceSufficiency::Absent
+                | EvidenceSufficiency::Conflicting => {}
+            },
             EvidenceQuality::Stale => report.stale_responses += 1,
             EvidenceQuality::Conflicting => report.conflicting_responses += 1,
             EvidenceQuality::Unavailable => report.unavailable_responses += 1,
@@ -416,6 +437,7 @@ fn evaluate_policy(
             request_id: request.request_id.clone(),
             disposition: RequestDisposition::Executed,
             quality: Some(outcome.quality),
+            sufficiency: Some(outcome.sufficiency),
             expected_information_gain_milli_bits: request_gain,
         });
     }
