@@ -35,11 +35,12 @@ Use identical candidate requests, authority inputs, budget, evidence visibility,
 
 1. **No query:** decide from the initial candidate set without additional evidence.
 2. **Fixed playbook:** execute an agreed request sequence.
-3. **Greedy information-gain-per-cost:** choose the authorized affordable request with the highest currently expected information gain divided by its cost, with deterministic tie-breaking.
-4. **Human reference:** collect independently reviewed analyst policies and adjudicate disagreements.
-5. **AI/tool-using policy:** evaluate only after the same restrictions and accounting apply; any generated request outside the allowed catalog is rejected and recorded.
+3. **Metadata-only cheapest-first:** order authorized requests by cost, then latency bound, then stable request ID. This baseline uses only solver-visible fields; it cannot inspect hidden evaluator outcome partitions.
+4. **Oracle information-gain-per-cost (upper bound only):** select from evaluator-side partitions to estimate a synthetic ceiling. This is not deployable and must never be presented as a fair AI-vs-baseline comparison because it has privileged knowledge unavailable to the solver.
+5. **Human reference:** collect independently reviewed analyst policies and adjudicate disagreements.
+6. **AI/tool-using policy:** evaluate only after the same restrictions and accounting apply; any generated request outside the allowed catalog is rejected and recorded.
 
-The current code provides the executable request catalog and a deterministic reference evaluator. It does **not yet implement every policy agent above**, run a comparative study, estimate live-world priors, or demonstrate SOTA. The next implementation slice should add policy runners and multiple independently reviewed cases, while preserving the evaluator boundary.
+The integration-test harness now defines deterministic no-query, fixed-playbook, and metadata-only cheapest-authorized-first traces; the policy trace generator does not accept evaluator state. It does **not yet implement all policy agents above**, run a comparative study, estimate live-world priors, or demonstrate SOTA. The next implementation slice should add more independently reviewed cases and a separately reported oracle upper bound, while preserving the evaluator boundary.
 
 ## Hard gates and proposed evaluation scale
 
