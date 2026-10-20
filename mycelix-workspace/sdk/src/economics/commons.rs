@@ -13,7 +13,6 @@
 //! Constitutional: Inalienable reserve minimum 25% (can increase, never decrease).
 //! Constitutional: All commons SAP exempt from demurrage.
 
-use mycelix_finance_types::INALIENABLE_RESERVE_RATIO;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
@@ -123,8 +122,10 @@ impl CommonsPool {
             };
         }
 
-        // Split contribution: 25% to reserve, 75% to available
-        let to_reserve = (amount as f64 * INALIENABLE_RESERVE_RATIO) as u64;
+        // Split contribution: 25% to reserve, 75% to available.
+        // The constitutional ratio is exactly 1/4; integer arithmetic avoids
+        // floating-point rounding for very large SAP amounts.
+        let to_reserve = amount / 4;
         let to_available = amount - to_reserve;
 
         self.inalienable_reserve += to_reserve;
@@ -185,14 +186,31 @@ impl CommonsPool {
         self.last_activity = timestamp;
     }
 
+    /// Return the reserve ratio in basis points using integer arithmetic.
+    ///
+    /// A value of 2,500 means exactly 25%. Zero means an empty pool.
+    pub fn reserve_ratio_bps(&self) -> u16 {
+        let total = u128::from(self.total_sap());
+        if total == 0 {
+            return 0;
+        }
+
+        let numerator = u128::from(self.inalienable_reserve) * 10_000;
+        u16::try_from(numerator / total).unwrap_or(u16::MAX)
+    }
+
     /// Verify the inalienable reserve ratio is maintained.
-    /// Returns true if the current ratio meets the constitutional minimum.
+    /// Returns true if the current ratio meets the existing constitutional
+    /// minimum with its historical 0.1 percentage-point tolerance.
     pub fn reserve_ratio_valid(&self) -> bool {
-        let total = self.total_sap();
+        let total = u128::from(self.total_sap());
         if total == 0 {
             return true;
         }
-        (self.inalienable_reserve as f64 / total as f64) >= INALIENABLE_RESERVE_RATIO - 0.001
+
+        // Preserve the existing threshold of 0.249 exactly as a rational
+        // comparison: reserve / total >= 249 / 1000.
+        u128::from(self.inalienable_reserve) * 1_000 >= total * 249
     }
 }
 
@@ -246,6 +264,51 @@ mod tests {
         // Reserve untouched
         assert_eq!(pool.inalienable_reserve, 250);
         assert_eq!(pool.available_balance, 0);
+    }
+
+    #[test]
+    #[test]
+    fn test_reserve_ratio_bps_uses_integer_arithmetic() {
+        let mut pool = CommonsPool::new("local-dao-1".to_string(), 1000);
+        pool.inalienable_reserve = 250;
+        pool.available_balance = 750;
+
+        assert_eq!(pool.reserve_ratio_bps(), 2_500);
+    }
+
+    #[test]
+    fn test_large_contribution_remains_conservation_safe() {
+        let mut pool = CommonsPool::new("local-dao-1".to_string(), 1000);
+        let amount = u64::MAX - 1;
+
+        match pool.contribute("did:test:alice", amount, 1001) {
+            CommonsResult::Contributed {
+                total,
+                to_reserve,
+                to_available,
+            } => {
+                assert_eq!(total, amount);
+                assert_eq!(to_reserve, amount / 4);
+                assert_eq!(to_available, amount - amount / 4);
+                assert_eq!(
+                    u128::from(to_reserve) + u128::from(to_available),
+                    u128::from(amount)
+                );
+            }
+            _ => panic!("Expected Contributed"),
+        }
+    }
+
+    #[test]
+    fn test_reserve_ratio_tolerance_boundary_is_exact() {
+        let mut pool = CommonsPool::new("local-dao-1".to_string(), 1000);
+        pool.inalienable_reserve = 249;
+        pool.available_balance = 751;
+        assert!(pool.reserve_ratio_valid());
+
+        pool.inalienable_reserve = 248;
+        pool.available_balance = 752;
+        assert!(!pool.reserve_ratio_valid());
     }
 
     #[test]
