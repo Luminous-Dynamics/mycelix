@@ -330,7 +330,7 @@ pub async fn decrypt(passphrase: &str, blob: &EncryptedBlob) -> Result<Vec<u8>, 
     Ok(Uint8Array::new(&result).to_vec())
 }
 
-#[cfg(feature = "production-kdf-benchmark")]
+#[cfg(all(test, feature = "production-kdf-benchmark"))]
 fn summarize_latency_samples(samples: &mut [f64]) -> Result<(f64, f64, f64), &'static str> {
     if samples.is_empty() {
         return Err("latency sample set is empty");
