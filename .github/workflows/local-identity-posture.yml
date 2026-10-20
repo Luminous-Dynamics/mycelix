@@ -74,7 +74,7 @@ jobs:
       - name: Execute WebCrypto and identity-storage tests in headless Chrome
         env:
           WASM_BINDGEN_TEST_TIMEOUT: "120"
-        run: wasm-pack test crates/mycelix-leptos-core --headless --chrome --locked --lib
+        run: wasm-pack test --headless --chrome crates/mycelix-leptos-core -- --locked --lib
       - name: Compile browser-only identity tests for WASM (diagnostic)
         run: cargo test --manifest-path crates/mycelix-leptos-core/Cargo.toml --locked --target wasm32-unknown-unknown --lib --no-run
       - name: Compile shared identity core for WASM
