@@ -102,29 +102,30 @@ fn main() {
         for route_count in [10_usize, 30, 70, 140, 700] {
             let (context, positions, routes) = make_case(route_count, scenario);
 
-        // Warm both code paths before collecting the measured samples.
-        optimize(&context, &positions, &routes).expect("optimizer warm-up failed");
-        greedy_match(&context, &positions, &routes).expect("greedy warm-up failed");
+            // Warm both code paths before collecting the measured samples.
+            optimize(&context, &positions, &routes).expect("optimizer warm-up failed");
+            greedy_match(&context, &positions, &routes).expect("greedy warm-up failed");
 
-        let mut optimize_samples = Vec::with_capacity(25);
-        let mut greedy_samples = Vec::with_capacity(25);
-        let mut optimized_plan = None;
-        let mut greedy_plan = None;
+            let mut optimize_samples = Vec::with_capacity(25);
+            let mut greedy_samples = Vec::with_capacity(25);
 
-        for _ in 0..25 {
-            let start = Instant::now();
-            optimized_plan =
-                Some(optimize(&context, &positions, &routes).expect("optimizer failed"));
-            optimize_samples.push(start.elapsed().as_micros());
+            for _ in 0..25 {
+                let start = Instant::now();
+                let _plan =
+                    optimize(&context, &positions, &routes).expect("optimizer failed");
+                optimize_samples.push(start.elapsed().as_micros());
 
-            let start = Instant::now();
-            greedy_plan =
-                Some(greedy_match(&context, &positions, &routes).expect("greedy baseline failed"));
-            greedy_samples.push(start.elapsed().as_micros());
-        }
+                let start = Instant::now();
+                let _plan =
+                    greedy_match(&context, &positions, &routes).expect("greedy baseline failed");
+                greedy_samples.push(start.elapsed().as_micros());
+            }
 
-        let optimized_plan = optimized_plan.expect("at least one sample");
-        let greedy_plan = greedy_plan.expect("at least one sample");
+            let optimized_plan = optimize(&context, &positions, &routes)
+                .expect("optimizer final sample failed");
+            let greedy_plan =
+                greedy_match(&context, &positions, &routes).expect("greedy final sample failed");
+
             println!(
                 "{},{},{},{},{},{},{},{},{},{},{}",
                 scenario,
