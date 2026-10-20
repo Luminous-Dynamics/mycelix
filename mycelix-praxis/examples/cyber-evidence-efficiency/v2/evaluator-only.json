@@ -121,7 +121,7 @@
               "outcome_label": "shared_egress_activity"
             }
           ],
-          "sufficiency": "partial_support"
+          "sufficiency": "irrelevant"
         }
       ]
     },
