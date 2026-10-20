@@ -620,6 +620,33 @@ pub mod governance {
     }
 }
 
+    /// Strict governance authorization for operations that must never treat
+    /// an uninitialized registry as authority.
+    ///
+    /// Bootstrap is intentionally limited to explicit initialization operations.
+    /// Monetary issuance and other security-sensitive operations must use this
+    /// helper so an empty registry fails closed.
+    pub fn verify_governance_strict_from_links(gov_links: Vec<Link>) -> ExternResult<()> {
+        if gov_links.is_empty() {
+            return Err(wasm_error!(WasmErrorInner::Guest(
+                "Governance authority is not initialized".into()
+            )));
+        }
+
+        let caller = agent_info()?.agent_initial_pubkey;
+        for link in gov_links {
+            if let Ok(agent) = AgentPubKey::try_from(link.target) {
+                if agent == caller {
+                    return Ok(());
+                }
+            }
+        }
+
+        Err(wasm_error!(WasmErrorInner::Guest(
+            "Caller is not an authorized governance agent".into()
+        )))
+    }
+
 /// Agent identity helpers
 pub mod identity {
     use super::*;
