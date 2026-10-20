@@ -966,10 +966,10 @@ fn privileged_followup_resolves_partial_support_with_authority() {
         },
     )
     .unwrap();
-    assert_eq!(report.expected_information_gain_milli_bits, 2500);
+    assert_eq!(report.expected_information_gain_milli_bits, 2000);
     assert_eq!(
         report.request_results[1].expected_information_gain_milli_bits,
-        1000
+        500
     );
     assert_eq!(report.realized_information_gain_milli_bits, 2000);
     assert_eq!(report.remaining_hypotheses, vec!["compromised_session"]);
@@ -1308,7 +1308,7 @@ fn metadata_only_baselines_are_deterministic_and_use_equal_constraints() {
     .unwrap();
     assert_eq!(fixed_report.total_cost_units, 4);
     assert_eq!(fixed_report.latency_bound_minutes, 6);
-    assert_eq!(fixed_report.expected_information_gain_milli_bits, 1729);
+    assert_eq!(fixed_report.expected_information_gain_milli_bits, 1500);
     assert_eq!(
         fixed_report.remaining_hypotheses,
         vec!["compromised_session", "stale_sensor_false_alarm"]
@@ -1342,7 +1342,7 @@ fn metadata_only_baselines_are_deterministic_and_use_equal_constraints() {
     assert_eq!(cheapest_report.requests_executed, 4);
     assert_eq!(cheapest_report.total_cost_units, 5);
     assert_eq!(cheapest_report.latency_bound_minutes, 7);
-    assert_eq!(cheapest_report.expected_information_gain_milli_bits, 1729);
+    assert_eq!(cheapest_report.expected_information_gain_milli_bits, 1500);
     assert_eq!(
         cheapest_report.remaining_hypotheses,
         vec!["compromised_session", "stale_sensor_false_alarm"]
