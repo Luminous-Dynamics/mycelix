@@ -123,7 +123,11 @@ Useful source references:
 - [2025 Rio de Janeiro Leaders' Declaration, paragraphs 49–50](https://brics.br/en/documents/presidency-documents/250705-brics-leaders-declaration-en.pdf/%40%40download/file)
 - [2026 New Delhi Declaration — public copy](https://www.pmindia.gov.in/en/news_updates/brics-new-delhi-declaration-building-for-resilience-innovation-cooperation-and-sustainability-september-12-2026/)
 - [BIS Project Rialto](https://www.bis.org/publications/project-rialto-improving-instant-cross-border-payments-using-central-bank-money-settlement-technical-report) — a technical experiment linking payment systems, tokenised FX and central-bank-money settlement.
-- [BIS Project Mandala](https://www.bis.org/project/mandala) — research on encoding jurisdiction-specific compliance checks and privacy-preserving proofs.
+- [BIS Project Mandala](https://www.bis.org/project/mandala)
+- [Wise Platform API](https://docs.wise.com/api-reference)
+- [Nium API](https://docs.nium.com/api)
+- [Airwallex currency conversion](https://www.airwallex.com/docs/payments-for-platforms/hold-and-convert/convert-wallet-balances)
+- [FSB — G20 Targets for Enhancing Cross-border Payments](https://www.fsb.org/work-of-the-fsb/financial-innovation-and-structural-change/cross-border-payments/g20-targets-for-enhancing-cross-border-payments-2/) — research on encoding jurisdiction-specific compliance checks and privacy-preserving proofs.
 - [BIS FX settlement risk analysis, June 2026](https://www.bis.org/publications/qr-202606/uncovering-fx-settlement-risk-new-measures-2025-bis-triennial-survey).
 
 These sources support a strategy of interoperability and local-currency settlement exploration, not the assumption of one BRICS currency, common central bank, universal participant network, common settlement finality or shared legal regime.
@@ -155,6 +159,32 @@ If the exact direction is unsupported, display **unsupported corridor** rather t
 The goal is to make lawful cross-border trade less expensive and more transparent where we can prove it—not to market “de-dollarisation” as an engineering achievement by itself.
 
 ## 6. What should we measure against industry?
+
+### Industry baseline and differentiation hypothesis
+
+The baseline is not "manual banking". Provider APIs already automate quote generation, rate/fee calculation, recipient setup, transfer creation, currency balances, payment initiation and status events:
+
+- [Wise Platform](https://docs.wise.com/api-reference) exposes quote, recipient, transfer, balance, profile and rate resources. Its [quote workflow](https://docs.wise.com/guides/product/send-money/quotes) binds an authenticated quote to the transfer workflow and surfaces rate, fees, estimated delivery and funding methods.
+- [Nium API](https://docs.nium.com/api) combines FX, wallets, onboarding, payment and payout endpoints; its [payout documentation](https://docs.nium.com/docs/payouts) describes local payout routes and provider-specific FX conversion.
+- [Airwallex](https://www.airwallex.com/docs/payments-for-platforms/hold-and-convert/convert-wallet-balances) documents API-based conversion between multi-currency wallet balances and conversion flows on behalf of connected accounts.
+
+This is a feature scan of vendor documentation—not a benchmark of delivered rates, cost, route quality, support, safety or provider solvency. Provider-reported global currency/country coverage must not be mistaken for support of every corridor, entity, use case, amount, direction or payout endpoint.
+
+**What Mycelix should try to win on (hypotheses to validate):**
+
+1. A provider-neutral and rights-aware evidence packet across quote → customer consent/authority → provider execution → payment processing → settlement/reconciliation, with no stage silently promoted into another.
+2. An independently reconstructable comparison of total delivered cost and time, including fees, spreads, intermediaries, failures and returns—not an attractive indicative rate.
+3. Explicit corridor and direction qualification, disclosed unsupported paths and reliable unknown/partial/reversal behavior.
+4. Better portability, contestability and audit lineage across providers and institutional workflows, without forcing a bank onto Mycelix's ledger or proprietary exchange.
+5. The ability to choose the incumbent/provider as the winner when the evidence shows it is cheaper, faster or safer.
+
+These are not proven unique advantages. Do not claim better rates, best execution or superior coverage without paired measurements on matched quotes and real, authorized outcomes.
+
+### Public policy targets as benchmarks (not Mycelix SLAs)
+
+The [Financial Stability Board's G20 cross-border payment targets](https://www.fsb.org/work-of-the-fsb/financial-innovation-and-structural-change/cross-border-payments/g20-targets-for-enhancing-cross-border-payments-2/) provide useful external targets for relevant retail and remittance corridors. Among the stated end-2027 goals are a global average retail payment cost no higher than 1%, no retail corridor over 3%, and 75% of cross-border retail payments providing recipient funds within one hour (with the remainder within one business day). The remittance targets include a global average cost no higher than 3% for sending $200 by 2030, with no corridor above 5%. These are sector-level policy targets—not a guarantee that every route is immediately achievable or an appropriate SLA for every B2B FX transaction.
+
+For transparency, the G20 targets also call for providers to disclose total transaction cost (all relevant charges, including sending/receiving/intermediary charges, FX rate and conversion costs), expected delivery time, payment status tracking and terms. Mycelix should make these fields first-class in its corridor and settlement receipts rather than burying them in marketing text.
 
 Set up a pre-registered, paired benchmark for exact corridors. Compare Mycelix orchestration against direct provider checkout and the bank/business's existing correspondent or payment workflow. Use matched quote timestamps, amounts, beneficiary/settlement conditions and provider access.
 
