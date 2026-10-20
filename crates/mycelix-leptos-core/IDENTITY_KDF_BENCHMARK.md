@@ -14,7 +14,7 @@ Install the repository-pinned `wasm-pack` version and ensure Chrome/Chromium plu
 wasm-pack test --headless --chrome crates/mycelix-leptos-core -- --lib --locked --features production-kdf-benchmark production_kdf_latency_benchmark
 ```
 
-The test performs one warm-up encrypt/decrypt pair and then collects 20 paired samples on a synthetic 32-byte test secret and a synthetic passphrase. It emits one machine-readable `IDENTITY_KDF_BENCHMARK` line. Do not supply actual user credentials, use a real mnemonic, or add secret-derived output.
+The test uses the browser's monotonic `performance.now()` timer, performs one warm-up encrypt/decrypt pair, and then collects 20 paired samples on a synthetic 32-byte test secret and a synthetic passphrase. It emits one machine-readable `IDENTITY_KDF_BENCHMARK` line. Do not supply actual user credentials, use a real mnemonic, or add secret-derived output.
 
 The exact-head CI workflow additionally records the Chrome/Chromium and ChromeDriver versions, runs the normal quick correctness suite independently, runs the production-factor benchmark as a separate step, and verifies that neither test command changes the generated lockfile.
 
@@ -22,7 +22,7 @@ The exact-head CI workflow additionally records the Chrome/Chromium and ChromeDr
 
 - `encrypt_ms`: browser WebCrypto encrypt operation including salt/IV generation, PBKDF2 derivation, and AES-GCM encryption.
 - `unlock_decrypt_ms`: browser WebCrypto decrypt operation including PBKDF2 derivation and authenticated AES-GCM decryption. This isolates the expensive cryptographic path; it does not include the full Personal startup, localStorage inspection, DOM rendering, or Holochain conductor connection.
-- `p50`: median observed sample.
+- `p50`: nearest-rank 50th percentile of the 20 samples (lower-middle observation for this even sample count).
 - `p95`: nearest-rank 95th percentile of the 20 samples.
 - `max`: maximum observed sample. With only 20 samples, p95 and max are close; use a longer controlled run for device qualification.
 
