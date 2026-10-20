@@ -6,7 +6,7 @@ use praxis_core::cyber_challenges::{
     validate_solver_corpus, ChallengeDifficulty, CyberDomain, EvidenceConflictStatus,
     EvidenceFreshness, EvidenceSourceKind, SolverVisibleCyberCorpus, CYBER_CHALLENGE_CORPUS_ID,
 };
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, BTreeSet};
 
 const SOLVER_FIXTURE: &str =
@@ -60,6 +60,44 @@ struct RubricCriterion {
     criterion_id: String,
     max_score_permille: u16,
     description: String,
+}
+
+fn serialized_enum_names<T: Serialize>(values: impl IntoIterator<Item = T>) -> BTreeSet<String> {
+    values
+        .into_iter()
+        .map(|value| {
+            serde_json::to_value(value)
+                .expect("enum serializes")
+                .as_str()
+                .expect("enum serializes as a string")
+                .to_string()
+        })
+        .collect()
+}
+
+fn schema_enum_names(schema: &serde_json::Value, name: &str) -> BTreeSet<String> {
+    schema["$defs"][name]["enum"]
+        .as_array()
+        .expect("enum list")
+        .iter()
+        .map(|value| value.as_str().expect("string enum value").to_string())
+        .collect()
+}
+
+fn assert_schema_fields_match(schema_properties: &serde_json::Value, instance: &serde_json::Value) {
+    let schema_fields = schema_properties
+        .as_object()
+        .expect("schema properties")
+        .keys()
+        .cloned()
+        .collect::<BTreeSet<_>>();
+    let instance_fields = instance
+        .as_object()
+        .expect("serialized instance object")
+        .keys()
+        .cloned()
+        .collect::<BTreeSet<_>>();
+    assert_eq!(schema_fields, instance_fields, "Rust/JSON Schema field drift");
 }
 
 fn solver_fixture() -> SolverVisibleCyberCorpus {
@@ -273,6 +311,75 @@ fn solver_projection_refuses_evaluator_fields() {
     assert!(
         serde_json::from_value::<SolverVisibleCyberCorpus>(value).is_err(),
         "deny_unknown_fields must fail closed on evaluator-only fields"
+    );
+}
+
+#[test]
+fn solver_schema_matches_rust_fields_and_enum_values() {
+    let schema: serde_json::Value =
+        serde_json::from_str(SOLVER_SCHEMA).expect("solver schema parses");
+    let corpus = solver_fixture();
+    let serialized = serde_json::to_value(&corpus).expect("Rust corpus serializes");
+    assert_schema_fields_match(&schema["properties"], &serialized);
+    assert_schema_fields_match(
+        &schema["$defs"]["Scenario"]["properties"],
+        &serialized["scenarios"][0],
+    );
+    assert_schema_fields_match(
+        &schema["$defs"]["Evidence"]["properties"],
+        &serialized["scenarios"][0]["evidence"][0],
+    );
+
+    assert_eq!(
+        schema_enum_names(&schema, "Domain"),
+        serialized_enum_names([
+            CyberDomain::IdentityAccess,
+            CyberDomain::NetworkConfiguration,
+            CyberDomain::SupplyChainProvenance,
+            CyberDomain::AiToolBoundary,
+            CyberDomain::EndpointTelemetry,
+        ])
+    );
+    assert_eq!(
+        schema_enum_names(&schema, "Difficulty"),
+        serialized_enum_names([
+            ChallengeDifficulty::Beginner,
+            ChallengeDifficulty::Intermediate,
+            ChallengeDifficulty::Advanced,
+        ])
+    );
+    assert_eq!(
+        schema_enum_names(&schema, "Freshness"),
+        serialized_enum_names([
+            EvidenceFreshness::Current,
+            EvidenceFreshness::Stale,
+            EvidenceFreshness::Unknown,
+        ])
+    );
+    assert_eq!(
+        schema_enum_names(&schema, "EvidenceSource"),
+        serialized_enum_names([
+            EvidenceSourceKind::IdentityLogSummary,
+            EvidenceSourceKind::NetworkContext,
+            EvidenceSourceKind::EndpointTelemetry,
+            EvidenceSourceKind::NetworkPolicySnapshot,
+            EvidenceSourceKind::FirewallPolicySnapshot,
+            EvidenceSourceKind::DependencyLockfile,
+            EvidenceSourceKind::ApprovedDependencyRecord,
+            EvidenceSourceKind::RegistryMetadata,
+            EvidenceSourceKind::RetrievedDocumentExcerpt,
+            EvidenceSourceKind::ToolPermissionSnapshot,
+            EvidenceSourceKind::ToolAuditSummary,
+            EvidenceSourceKind::ResponseRequestLog,
+        ])
+    );
+    assert_eq!(
+        schema_enum_names(&schema, "EvidenceConflictStatus"),
+        serialized_enum_names([
+            EvidenceConflictStatus::NoKnownConflict,
+            EvidenceConflictStatus::ConflictsWithOtherEvidence,
+            EvidenceConflictStatus::NotAssessed,
+        ])
     );
 }
 
