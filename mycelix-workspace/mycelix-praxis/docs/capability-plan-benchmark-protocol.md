@@ -59,3 +59,16 @@ Next qualification increments should add, with their own correctness fixtures:
 4. repeated-process and reordered-input determinism checks.
 
 The benchmark does not measure human learning. Educational qualification remains separate: randomized or otherwise defensible comparison against a fixed path, existing Praxis baselines and a reproducible external knowledge-tracing baseline; independently graded unseen-task transfer, 30/90-day retention, time-to-competence, calibration and false-mastery, assistance-off results, attrition and accessibility outcomes. Do not claim SOTA until a pre-registered, fair evaluation has actually run.
+
+## Independent planner oracle (unit-test qualification)
+
+The core test suite now includes a dependency-free deterministic generated-DAG oracle over 64 seeds, with 2–16 nodes and three practice modalities per node. For each generated acyclic graph it independently traverses prerequisite edges from the requested target and checks:
+- the planned capability set equals the target's prerequisite closure exactly, with no duplicates or omitted closure nodes;
+- every direct prerequisite appears before its dependent and ordinals are contiguous;
+- every selected option is declared in the source graph and satisfies the task-duration and delivery-mode constraints;
+- reported total minutes equal an independent sum of proposed task durations and remain within the request budget;
+- every exposed alternative is a declared, distinct, locally eligible option;
+- reversing graph-node, prerequisite and option input ordering leaves plan steps and the canonical input digest unchanged.
+
+The generator only emits acyclic dependencies by referencing earlier-indexed nodes. It is a useful bounded oracle, not exhaustive proof, mutation testing, adversarial parser coverage, or a substitute for randomized DAGs with shrinking. If the catalogue and graph generator become more complex, consider adding Rust `proptest` with an independently defined strategy and retained/shrunk regression cases; do not add a test dependency without checking the workspace's existing dependency policy first.
+
