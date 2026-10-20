@@ -431,7 +431,8 @@ fn project_listing(
 mod tests {
     use super::*;
     use marketplace_domain::{
-        EpistemicClassification, Listing, MaterialityLevel, NormativeLevel, TimestampMicros,
+        EpistemicClassification, Listing, ListingResolution, MaterialityLevel, NormativeLevel,
+        TimestampMicros,
     };
 
     fn listing(
