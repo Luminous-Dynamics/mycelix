@@ -44,7 +44,10 @@ jobs:
       - name: Check new process reference module formatting
         run: rustfmt --edition 2024 --check mycelix-workspace/mycelix-manufacturing/crates/manufacturing_common/src/process_registry.rs
 
-      - name: Run manufacturing common tests with the committed lockfile
+      - name: Bootstrap package lockfile for this isolated workspace
+        run: cargo generate-lockfile --manifest-path mycelix-workspace/mycelix-manufacturing/Cargo.toml
+
+      - name: Run manufacturing common tests with the generated lockfile
         run: cargo test --locked --manifest-path mycelix-workspace/mycelix-manufacturing/Cargo.toml --package manufacturing_common
 
       - name: Run Clippy with warnings denied
@@ -52,3 +55,11 @@ jobs:
 
       - name: Validate schema JSON syntax
         run: jq empty mycelix-workspace/mycelix-manufacturing/schemas/process-reference-v1.schema.json
+
+      - name: Preserve generated lockfile for pinning
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: manufacturing-common-lockfile-bootstrap
+          path: mycelix-workspace/mycelix-manufacturing/Cargo.lock
+          if-no-files-found: error
+          retention-days: 7
