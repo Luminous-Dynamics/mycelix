@@ -13,6 +13,7 @@
 
 pub mod commons;
 pub mod decay_garden;
+pub mod substrate;
 pub mod metabolic_oracle;
 pub mod poc;
 pub mod recognition;
@@ -27,6 +28,11 @@ pub use metabolic_oracle::{
 pub use poc::{
     calculate_mycel_score, jubilee_normalize, GamingDetection, GamingRecommendation,
     MycelCalculation, MycelComponent, MycelScore,
+};
+pub use substrate::{
+    BoundaryDirection, DistributionPurpose, GateDecision, SubstrateAccount, SubstrateBoundary,
+    SubstrateDimension, SubstrateEvent, SubstrateEventKind, SubstrateLedger, SubstrateReport,
+    SubstrateState,
 };
 pub use recognition::{
     calculate_recognition_score, ContributionType, RecognitionConfig, RecognitionEvent,
