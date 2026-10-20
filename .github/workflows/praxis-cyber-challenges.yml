@@ -52,6 +52,15 @@ jobs:
       - name: Assert Rust toolchain identity
         run: test "$(rustc +1.96.0 --version)" = "rustc 1.96.0 (ac68faa20 2026-05-25)"
 
+      - name: Verify exact corpus file identities
+        shell: bash
+        run: |
+          manifest=mycelix-praxis/examples/cyber-challenges/v1/corpus-manifest.json
+          test "$(git hash-object mycelix-praxis/examples/cyber-challenges/v1/solver-visible.json)" = "$(jq -r '.solver_visible_git_blob_sha' "$manifest")"
+          test "$(git hash-object mycelix-praxis/examples/cyber-challenges/v1/evaluator-only.json)" = "$(jq -r '.evaluator_only_git_blob_sha' "$manifest")"
+          test "$(git hash-object mycelix-praxis/examples/cyber-challenges/v1/solver-visible.schema.json)" = "$(jq -r '.solver_schema_git_blob_sha' "$manifest")"
+          test "$(git hash-object mycelix-praxis/examples/cyber-challenges/v1/evaluator-only.schema.json)" = "$(jq -r '.evaluator_schema_git_blob_sha' "$manifest")"
+
       - name: Check formatting for Praxis Core
         run: cargo +1.96.0 fmt --manifest-path mycelix-praxis/Cargo.toml --package praxis-core -- --check
 
