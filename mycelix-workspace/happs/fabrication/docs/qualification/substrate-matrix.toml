@@ -1,0 +1,46 @@
+# Fabrication substrate truth matrix v1
+
+schema = "MYCELIX-FABRICATION-SUBSTRATE-MATRIX-V1"
+matrix_version = 1
+
+# This is an evidence inventory, not a compatibility claim.
+# "known-mismatch" means the repository intentionally advertises the
+# implemented substrate rather than the intended future substrate.
+status = "known-mismatch"
+
+intended_holochain_family = "0.7"
+implemented_holochain_family = "0.6"
+
+[cargo]
+hdk = "0.6.1"
+hdi = "0.7.1"
+holochain_zome_types = "0.6.1"
+holochain_integrity_types = "0.6.1"
+holo_hash = "0.6.1"
+hdk_derive = "0.6.1"
+holochain_serialized_bytes = "0.0.57"
+
+[sweettest]
+holochain = "0.6"
+holochain_types = "0.6"
+hdk = "0.6"
+hdi = "0.7"
+
+[documentation]
+advertised_holochain_family = "0.6"
+wasm_zome_count = 14
+workspace_excludes_sweettest = true
+
+[qualification]
+status = "substrate-not-reconciled"
+holochain_07_claim_requires_reconciled_substrate = true
+known_mismatch_is_pass = false
+migration_issue = 4246
+runtime_integration_issue = 4248
+action_model_port_issue = 4371
+
+[claim_ceiling]
+repository_source_truth_only = true
+holochain_07_qualification = false
+holochain_runtime_qualification = false
+deployment_currentness = false
