@@ -717,12 +717,11 @@ mod tests {
             higher_outcome.lifecycle_receipt.disposition,
             PolicyLifecycleDispositionV1::AcceptedNewRelease
         );
-        assert!(
-            lower_outcome.lifecycle_receipt.disposition
-                == PolicyLifecycleDispositionV1::AcceptedNewRelease
-                || lower_outcome.lifecycle_receipt.disposition
-                    == PolicyLifecycleDispositionV1::Rejected
-        );
+        assert!(matches!(
+            lower_outcome.lifecycle_receipt.disposition,
+            PolicyLifecycleDispositionV1::AcceptedNewRelease
+                | PolicyLifecycleDispositionV1::Rejected
+        ));
         assert!(!lower_outcome.lifecycle_receipt.evidence_admission_granted);
         assert!(!lower_outcome.lifecycle_receipt.action_authority_granted);
         assert!(!higher_outcome.lifecycle_receipt.evidence_admission_granted);
@@ -731,7 +730,7 @@ mod tests {
         let reopened = PolicyHeadStore::open(path).unwrap();
         let current = reopened.read_current_state().unwrap();
         assert_eq!(current.head.as_ref().unwrap().version, 2);
-        assert!(current.generation >= 1 && current.generation <= 2);
+        assert!((1..=2).contains(&current.generation));
     }
 
     #[test]
