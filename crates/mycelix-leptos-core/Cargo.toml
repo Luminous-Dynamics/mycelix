@@ -5,6 +5,12 @@ edition = "2024"
 license = "AGPL-3.0-or-later"
 description = "Shared Leptos components for the Mycelix ecosystem"
 
+[features]
+default = []
+# Runs a browser-only latency calibration with the production KDF work factor.
+# Keep the normal quick-test path on its explicit reduced test-only work factor.
+production-kdf-benchmark = []
+
 [dependencies]
 leptos = { version = "0.8" }
 leptos_router = { version = "0.8" }
