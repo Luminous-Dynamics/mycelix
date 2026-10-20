@@ -1,0 +1,113 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://mycelix.net/schemas/manufacturing/process-reference-v1.schema.json",
+  "title": "Mycelix manufacturing process reference contracts v1",
+  "description": "Migration-safe references to canonical industrial artifacts. Structural validity does not establish resolution, capability, qualification, conformity, or authority.",
+  "oneOf": [
+    { "$ref": "#/$defs/processRegistryEntry" },
+    { "$ref": "#/$defs/typedRoutingStepRef" }
+  ],
+  "$defs": {
+    "digest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["algorithm", "hex"],
+      "properties": {
+        "algorithm": { "enum": ["sha256", "blake3"] },
+        "hex": { "type": "string", "pattern": "^[0-9a-f]{64}$" }
+      }
+    },
+    "artifactKind": {
+      "enum": [
+        "process_definition",
+        "process_recipe",
+        "capability_requirement",
+        "process_capability_profile",
+        "process_model_profile"
+      ]
+    },
+    "artifactRef": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "namespace", "identifier_scheme", "identifier", "semantic_version", "content_digest"],
+      "properties": {
+        "kind": { "$ref": "#/$defs/artifactKind" },
+        "namespace": { "type": "string", "minLength": 1 },
+        "identifier_scheme": { "type": "string", "minLength": 1 },
+        "identifier": { "type": "string", "minLength": 1 },
+        "semantic_version": { "type": "string", "minLength": 1 },
+        "content_digest": { "$ref": "#/$defs/digest" }
+      }
+    },
+    "lifecycle": { "enum": ["active", "deprecated", "retired"] },
+    "processRegistryEntry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema_version", "process_definition_ref", "family_refs", "legacy_operation_aliases", "lifecycle", "supersedes"],
+      "properties": {
+        "schema_version": { "const": "mycelix-manufacturing-process-registry/1" },
+        "process_definition_ref": {
+          "allOf": [
+            { "$ref": "#/$defs/artifactRef" },
+            { "properties": { "kind": { "const": "process_definition" } } }
+          ]
+        },
+        "display_label": { "type": ["string", "null"], "minLength": 1 },
+        "family_refs": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": { "type": "string", "pattern": "^[^:]+:.+$" }
+        },
+        "legacy_operation_aliases": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": { "type": "string", "minLength": 1 }
+        },
+        "lifecycle": { "$ref": "#/$defs/lifecycle" },
+        "supersedes": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "allOf": [
+              { "$ref": "#/$defs/artifactRef" },
+              { "properties": { "kind": { "const": "process_definition" } } }
+            ]
+          }
+        }
+      }
+    },
+    "typedRoutingStepRef": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema_version", "source_routing_system", "source_routing_ref", "source_routing_revision", "source_routing_digest", "step_sequence", "process_definition_ref"],
+      "properties": {
+        "schema_version": { "const": "mycelix-typed-routing-binding/1" },
+        "source_routing_system": { "type": "string", "minLength": 1 },
+        "source_routing_ref": { "type": "string", "minLength": 1 },
+        "source_routing_revision": { "type": "string", "minLength": 1 },
+        "source_routing_digest": { "$ref": "#/$defs/digest" },
+        "step_sequence": { "type": "integer", "minimum": 1, "maximum": 4294967295 },
+        "process_definition_ref": {
+          "allOf": [
+            { "$ref": "#/$defs/artifactRef" },
+            { "properties": { "kind": { "const": "process_definition" } } }
+          ]
+        },
+        "capability_requirement_ref": {
+          "type": ["object", "null"],
+          "allOf": [
+            { "if": { "type": "object" }, "then": { "$ref": "#/$defs/artifactRef" } }
+          ]
+        },
+        "recipe_ref": {
+          "type": ["object", "null"],
+          "allOf": [
+            { "if": { "type": "object" }, "then": { "$ref": "#/$defs/artifactRef" } }
+          ]
+        },
+        "legacy_operation_name": { "type": ["string", "null"], "minLength": 1 },
+        "legacy_machine_type": { "type": ["string", "null"], "minLength": 1 }
+      }
+    }
+  }
+}
