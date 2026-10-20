@@ -90,10 +90,7 @@ async fn probe_browser_capability() -> (bool, Result<Option<bool>, ()>) {
         Ok(value) => value,
         Err(_) => return (true, Err(())),
     };
-    let value = match Reflect::get(
-        &capabilities,
-        &JsValue::from_str("extension:prf"),
-    ) {
+    let value = match Reflect::get(&capabilities, &JsValue::from_str("extension:prf")) {
         Ok(value) if value.is_boolean() => value.as_bool(),
         Ok(_) => None,
         Err(_) => return (true, Err(())),
