@@ -1,6 +1,11 @@
 //! Typed Marketplace coordinator client over an injected transport.
 
 pub mod contract;
+pub mod furnishing_discovery;
+pub use furnishing_discovery::{
+    FurnishingDiscoveryAdapter, FurnishingDiscoverySnapshot, ListingReadPort,
+    project_listing_snapshot,
+};
 
 use async_trait::async_trait;
 use marketplace_domain::{
@@ -8,11 +13,12 @@ use marketplace_domain::{
     ApproveTransactionConflictInput, ArbitrationResultOutput, ArbitrationVoteOutput,
     ArbitrationVotesResponse, CreateListingInput, CreateTransactionInput, DerivedReputation,
     DisputeOutput, DisputeResolution, DisputesResponse, FileDisputeInput,
-    FinalizeBilateralTransactionConflictInput, ListingOutput, ListingsResponse, MarkShippedInput,
-    OpenDisputeInput, OpenDisputeOutput, ReputationEventOutput, ReputationEventsResponse,
-    SubmitArbitrationVoteInput, TransactionConflictApprovalOutput,
-    TransactionConflictResolutionOutput, TransactionOutput, TransactionResolution,
-    TransactionResolutionsResponse, TransactionSettlementResult, TransactionsResponse,
+    FinalizeBilateralTransactionConflictInput, ListingCatalogSnapshotV1, ListingOutput,
+    ListingResolution, ListingsResponse, MarkShippedInput, OpenDisputeInput, OpenDisputeOutput,
+    ReputationEventOutput, ReputationEventsResponse, SubmitArbitrationVoteInput,
+    TransactionConflictApprovalOutput, TransactionConflictResolutionOutput, TransactionOutput,
+    TransactionResolution, TransactionResolutionsResponse, TransactionSettlementResult,
+    TransactionsResponse,
 };
 use serde::{Serialize, de::DeserializeOwned};
 
@@ -32,8 +38,27 @@ pub enum ClientError {
     },
 }
 
+/// Identifies the configured transport implementation, not the truth or
+/// completeness of any response returned through it.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum TransportKind {
+    /// Calls are routed through the browser JS bridge. This does not by itself
+    /// prove that the remote conductor is current or that a listing read is complete.
+    JsBridge,
+    /// Explicit fixture-backed data path; never evidence of live listings.
+    DevelopmentFixture,
+    /// Stub whose calls always fail closed.
+    UnavailableStub,
+    /// Custom or legacy transport that has not declared its mode.
+    Unclassified,
+}
+
 #[async_trait(?Send)]
 pub trait ZomeTransport: Clone + 'static {
+    fn transport_kind(&self) -> TransportKind {
+        TransportKind::Unclassified
+    }
+
     async fn call_zome(
         &self,
         role: &str,
@@ -54,6 +79,12 @@ where
 {
     pub fn new(transport: T) -> Self {
         Self { transport }
+    }
+
+    /// Reports only the configured implementation; response provenance,
+    /// freshness, and completeness remain separate evidence questions.
+    pub fn transport_kind(&self) -> TransportKind {
+        self.transport.transport_kind()
     }
 
     async fn call<I, O>(&self, zome: &str, function: &str, input: &I) -> Result<O, ClientError>
@@ -87,6 +118,33 @@ where
             contract::listings::ZOME,
             contract::listings::GET_LISTING,
             listing_hash,
+        )
+        .await
+    }
+
+    /// Read a listing's locally observed update graph. A single observed head
+    /// is not a global-currentness guarantee; concurrent heads have no selection.
+    pub async fn get_listing_revision_state_v1(
+        &self,
+        listing_hash: &ActionHash,
+    ) -> Result<Option<ListingResolution>, ClientError> {
+        self.call(
+            contract::listings::ZOME,
+            contract::listings::GET_LISTING_REVISION_STATE_V1,
+            listing_hash,
+        )
+        .await
+    }
+
+    /// Read the currently visible all-listings link set with per-listing update-graph
+    /// states. The returned coverage field is intentionally local-only, not exhaustive.
+    pub async fn get_all_listings_revision_state_v1(
+        &self,
+    ) -> Result<ListingCatalogSnapshotV1, ClientError> {
+        self.call(
+            contract::listings::ZOME,
+            contract::listings::GET_ALL_LISTINGS_REVISION_STATE_V1,
+            &(),
         )
         .await
     }
@@ -458,6 +516,10 @@ pub struct UnavailableTransport;
 
 #[async_trait(?Send)]
 impl ZomeTransport for UnavailableTransport {
+    fn transport_kind(&self) -> TransportKind {
+        TransportKind::UnavailableStub
+    }
+
     async fn call_zome(
         &self,
         _role: &str,

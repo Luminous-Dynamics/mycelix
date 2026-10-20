@@ -4,11 +4,13 @@ use marketplace_domain::{
     ActionHash, AgentPubKey, ArbitrationResult, ArbitrationResultOutput, ArbitrationVote,
     ArbitrationVoteOutput, ArbitrationVotesResponse, CreateTransactionInput, DerivedReputation,
     Dispute, DisputeOutput, DisputeResolution, DisputeResolutionState, DisputeStatus,
-    DisputesResponse, EmpiricalLevel, EpistemicClassification, Listing, ListingCategory,
-    ListingOutput, ListingStatus, ListingsResponse, MarkShippedInput, MaterialityLevel,
-    NormativeLevel, OpenDisputeInput, OpenDisputeOutput, ReputationEvent, ReputationEventKind,
-    ReputationEventOutput, ReputationEventsResponse, SubmitArbitrationVoteInput, TimestampMicros,
-    Transaction, TransactionOutput, TransactionResolution, TransactionResolutionReason,
+    DisputesResponse, EmpiricalLevel, EpistemicClassification, Listing, ListingCatalogCoverage,
+    ListingCatalogSnapshotV1, ListingCategory, ListingObservationScope, ListingOutput,
+    ListingResolution, ListingResolutionReason, ListingResolutionState, ListingStatus,
+    ListingsResponse, MarkShippedInput, MaterialityLevel, NormativeLevel, OpenDisputeInput,
+    OpenDisputeOutput, ReputationEvent, ReputationEventKind, ReputationEventOutput,
+    ReputationEventsResponse, SubmitArbitrationVoteInput, TimestampMicros, Transaction,
+    TransactionOutput, TransactionResolution, TransactionResolutionReason,
     TransactionResolutionState, TransactionResolutionsResponse, TransactionSettlementResult,
     TransactionSettlementState, TransactionStatus, TransactionsResponse,
 };
@@ -82,6 +84,36 @@ pub fn fixture_listings() -> Vec<ListingOutput> {
             },
         },
     ]
+}
+
+fn fixture_listing_resolution(output: ListingOutput) -> ListingResolution {
+    ListingResolution {
+        root_listing_hash: output.listing_hash.clone(),
+        policy_version: 1,
+        observation_scope: ListingObservationScope::LocalDhtUpdateGraph,
+        state: ListingResolutionState::SingleObservedHead,
+        reason: ListingResolutionReason::SingleObservedHead,
+        sole_observed_head: Some(output.clone()),
+        heads: vec![output],
+        revision_count: 1,
+    }
+}
+
+fn fixture_listing_revision_snapshot() -> ListingCatalogSnapshotV1 {
+    let listings = fixture_listings()
+        .into_iter()
+        .map(fixture_listing_resolution)
+        .collect::<Vec<_>>();
+    let count = u32::try_from(listings.len()).unwrap_or(u32::MAX);
+    ListingCatalogSnapshotV1 {
+        policy_version: 1,
+        coverage: ListingCatalogCoverage::LocalObservedLinksOnly,
+        observed_link_count: count,
+        unique_listing_count: count,
+        single_observed_head_count: count,
+        concurrent_head_listing_count: 0,
+        listings,
+    }
 }
 
 #[derive(Clone)]
@@ -990,6 +1022,10 @@ impl FixtureTransport {
 
 #[async_trait(?Send)]
 impl ZomeTransport for FixtureTransport {
+    fn transport_kind(&self) -> crate::TransportKind {
+        crate::TransportKind::DevelopmentFixture
+    }
+
     async fn call_zome(
         &self,
         _role: &str,
@@ -1002,6 +1038,18 @@ impl ZomeTransport for FixtureTransport {
                 encode_fixture(&ListingsResponse {
                     listings: fixture_listings(),
                 })
+            }
+            (contract::listings::ZOME, contract::listings::GET_ALL_LISTINGS_REVISION_STATE_V1) => {
+                encode_fixture(&fixture_listing_revision_snapshot())
+            }
+            (contract::listings::ZOME, contract::listings::GET_LISTING_REVISION_STATE_V1) => {
+                let requested: ActionHash = rmp_serde::from_slice(&payload)
+                    .map_err(|error| ClientError::Decode(error.to_string()))?;
+                let resolution = fixture_listings()
+                    .into_iter()
+                    .find(|candidate| candidate.listing_hash == requested)
+                    .map(fixture_listing_resolution);
+                encode_fixture(&resolution)
             }
             (contract::listings::ZOME, contract::listings::GET_LISTING) => {
                 let requested: ActionHash = rmp_serde::from_slice(&payload)
@@ -1303,6 +1351,20 @@ mod tests {
         assert_eq!(result.result.vote_hashes, vec![vote.vote_hash]);
         assert_eq!(result.result.weighted_vote, 1.0);
         assert_eq!(result.result.winner, fixture_agent());
+
+        // This unit test calls the internal finalizer directly. The transport
+        // dispatcher separately projects reputation after finalization, so
+        // exercise that explicit boundary here rather than assuming the
+        // internal finalizer has transport-level side effects.
+        let projected = arbitrator
+            .project_arbitration_events(result.result_hash.clone())
+            .unwrap();
+        assert_eq!(projected.events.len(), 2);
+        let replayed = arbitrator
+            .project_arbitration_events(result.result_hash.clone())
+            .unwrap();
+        assert_eq!(replayed, projected);
+
         let winner = arbitrator.derived_reputation(fixture_agent());
         let loser = arbitrator.derived_reputation(listing.seller_agent_id);
         assert_eq!(winner.positive_events, 1);

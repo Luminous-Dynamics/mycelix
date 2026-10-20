@@ -1,0 +1,82 @@
+name: Furnishing discovery audit
+
+on:
+  push:
+    branches:
+      - feat/furnishing-revision-aware-client-20261020
+  pull_request:
+    paths:
+      - "mycelix-marketplace/frontend-leptos/crates/marketplace-domain/**"
+      - "mycelix-marketplace/frontend-leptos/crates/marketplace-client/**"
+      - ".github/workflows/furnishing-discovery-audit.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  furnishing-discovery:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout exact PR head (or pushed commit)
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - name: Install pinned Rust toolchain
+        uses: dtolnay/rust-toolchain@e97e2d8cc328f1b50210efc529dca0028893a2d9
+        with:
+          toolchain: 1.94.0
+          components: rustfmt, clippy
+      - name: Assert tested revision
+        shell: bash
+        run: |
+          set -euo pipefail
+          expected_head="${{ github.event.pull_request.head.sha || github.sha }}"
+          actual_head="$(git rev-parse HEAD)"
+          test "$actual_head" = "$expected_head"
+          echo "Qualified source SHA: $actual_head"
+      - name: Prepare isolated domain/client workspace
+        shell: bash
+        run: |
+          set -euo pipefail
+          workspace="$RUNNER_TEMP/furnishing-discovery-workspace"
+          mkdir -p "$workspace/crates"
+          cp -a mycelix-marketplace/frontend-leptos/crates/marketplace-domain "$workspace/crates/"
+          cp -a mycelix-marketplace/frontend-leptos/crates/marketplace-client "$workspace/crates/"
+          cat > "$workspace/Cargo.toml" <<'EOF'
+          [workspace]
+          resolver = "2"
+          members = ["crates/marketplace-domain", "crates/marketplace-client"]
+
+          [workspace.package]
+          edition = "2024"
+          rust-version = "1.94"
+          license = "AGPL-3.0-or-later"
+
+          [workspace.dependencies]
+          async-trait = "0.1"
+          base64 = "0.22"
+          leptos = { version = "0.8", features = ["csr"] }
+          leptos_router = "0.8"
+          rmp-serde = "1"
+          serde = { version = "1", features = ["derive"] }
+          serde_bytes = "0.11"
+          thiserror = "2"
+          js-sys = "0.3"
+          wasm-bindgen = "0.2"
+          wasm-bindgen-futures = "0.4"
+          web-sys = { version = "0.3", features = ["Window", "Location"] }
+          EOF
+          echo "FURNISHING_AUDIT_WORKSPACE=$workspace" >> "$GITHUB_ENV"
+      - name: Check formatting
+        run: cargo fmt --manifest-path "$FURNISHING_AUDIT_WORKSPACE/Cargo.toml" --all -- --check
+      - name: Test domain and typed discovery client
+        run: cargo test --manifest-path "$FURNISHING_AUDIT_WORKSPACE/Cargo.toml" --workspace
+      - name: Test explicit development-fixture mode
+        run: cargo test --manifest-path "$FURNISHING_AUDIT_WORKSPACE/Cargo.toml" --workspace --features marketplace-client/dev-fixtures
+      - name: Lint typed discovery client
+        run: cargo clippy --manifest-path "$FURNISHING_AUDIT_WORKSPACE/Cargo.toml" -p marketplace-client --all-targets -- -D warnings
+      - name: Lint explicit development-fixture mode
+        run: cargo clippy --manifest-path "$FURNISHING_AUDIT_WORKSPACE/Cargo.toml" -p marketplace-client --features dev-fixtures --all-targets -- -D warnings
+      - name: Benchmark revision-aware projection at 25/100/1000/10000 records
+        run: cargo bench --manifest-path "$FURNISHING_AUDIT_WORKSPACE/Cargo.toml" -p marketplace-client --bench furnishing_revision_projection
