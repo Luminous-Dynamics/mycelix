@@ -1347,6 +1347,32 @@ mod tests {
     /// identically on native and wasm32 targets.
 
     #[test]
+    fn new_envelopes_serialize_and_roundtrip_explicit_crypto_policy() {
+        let blob = EncryptedBlob {
+            format_version: identity_crypto::CURRENT_ENVELOPE_VERSION,
+            kdf: identity_crypto::KeyDerivationFunction::Pbkdf2HmacSha256,
+            iterations: identity_crypto::PBKDF2_ITERATIONS,
+            cipher: identity_crypto::IdentityCipher::Aes256Gcm,
+            salt: vec![1; identity_crypto::SALT_LEN],
+            iv: vec![2; identity_crypto::IV_LEN],
+            ciphertext: vec![3; 48],
+        };
+        let wire = EncryptedBlobWire::from(&blob);
+        let json = serde_json::to_value(&wire).unwrap();
+
+        assert_eq!(
+            json["format_version"],
+            identity_crypto::CURRENT_ENVELOPE_VERSION
+        );
+        assert_eq!(json["kdf"], identity_crypto::KDF_IDENTIFIER);
+        assert_eq!(json["iterations"], identity_crypto::PBKDF2_ITERATIONS);
+        assert_eq!(json["cipher"], identity_crypto::CIPHER_IDENTIFIER);
+
+        let decoded = EncryptedBlob::try_from(&wire).unwrap();
+        assert_eq!(decoded, blob);
+    }
+
+    #[test]
     fn legacy_three_field_envelope_maps_to_frozen_production_parameters() {
         let legacy_json = serde_json::json!({
             "salt_b64": base64_encode(&[1u8; identity_crypto::SALT_LEN]),
