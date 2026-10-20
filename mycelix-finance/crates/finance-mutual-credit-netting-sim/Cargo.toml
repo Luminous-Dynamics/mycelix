@@ -1,0 +1,9 @@
+[package]
+name = "finance-mutual-credit-netting-sim"
+version = "0.1.0"
+edition = "2024"
+license.workspace = true
+description = "FIN-ECO-005E1 pure reference simulator for exact mutual-credit netting and modeled fee savings"
+
+[lib]
+path = "src/lib.rs"
