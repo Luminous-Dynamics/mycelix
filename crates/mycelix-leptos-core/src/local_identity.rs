@@ -368,13 +368,15 @@ where
     Fut: Future<Output = Result<T, String>> + 'static,
 {
     use js_sys::{Function, Object, Promise, Reflect};
-    use wasm_bindgen::{closure::Closure, JsCast, JsValue};
-    use wasm_bindgen_futures::{future_to_promise, JsFuture};
+    use wasm_bindgen::{JsCast, JsValue, closure::Closure};
+    use wasm_bindgen_futures::{JsFuture, future_to_promise};
 
     let window = web_sys::window()
         .ok_or_else(|| "Browser window is unavailable; identity transition refused.".to_string())?;
-    let navigator = Reflect::get(window.as_ref(), &JsValue::from_str("navigator"))
-        .map_err(|_| "Browser navigator is unavailable; identity transition refused.".to_string())?;
+    let navigator =
+        Reflect::get(window.as_ref(), &JsValue::from_str("navigator")).map_err(|_| {
+            "Browser navigator is unavailable; identity transition refused.".to_string()
+        })?;
     let locks = Reflect::get(&navigator, &JsValue::from_str("locks"))
         .map_err(|_| "Web Locks capability could not be inspected.".to_string())?;
     if locks.is_null() || locks.is_undefined() {
@@ -800,12 +802,15 @@ pub async fn create_protected_identity(
     let secret = Rc::new(RefCell::new(Some(passphrase.to_string())));
     let secret_for_operation = Rc::clone(&secret);
     let result = with_identity_transition_lock(move || async move {
-        let mut passphrase = secret_for_operation.borrow_mut().take()
+        let mut passphrase = secret_for_operation
+            .borrow_mut()
+            .take()
             .ok_or_else(|| "Passphrase buffer was already consumed.".to_string())?;
         let result = create_protected_identity_locked(&passphrase).await;
         passphrase.zeroize();
         result
-    }).await;
+    })
+    .await;
     if let Some(mut remaining) = secret.borrow_mut().take() {
         remaining.zeroize();
     }
@@ -830,10 +835,15 @@ pub async fn restore_protected_identity_from_seed_phrase(
     phrase: &str,
     passphrase: &str,
 ) -> Result<LocalIdentityStoragePosture, String> {
-    let secrets = Rc::new(RefCell::new(Some((phrase.to_string(), passphrase.to_string()))));
+    let secrets = Rc::new(RefCell::new(Some((
+        phrase.to_string(),
+        passphrase.to_string(),
+    ))));
     let secrets_for_operation = Rc::clone(&secrets);
     let result = with_identity_transition_lock(move || async move {
-        let (mut phrase, mut passphrase) = secrets_for_operation.borrow_mut().take()
+        let (mut phrase, mut passphrase) = secrets_for_operation
+            .borrow_mut()
+            .take()
             .ok_or_else(|| "Recovery buffers were already consumed.".to_string())?;
         let result = restore_protected_identity_locked(&phrase, &passphrase).await;
         phrase.zeroize();
@@ -2484,7 +2494,11 @@ mod browser_storage_tests {
             create_protected_identity(&second_passphrase),
         )
         .await;
-        assert_ne!(first.is_ok(), second.is_ok(), "exactly one create can commit");
+        assert_ne!(
+            first.is_ok(),
+            second.is_ok(),
+            "exactly one create can commit"
+        );
 
         let storage = web_sys::window().unwrap().local_storage().unwrap().unwrap();
         assert!(storage.get_item(IDENTITY_SECRET_KEY).unwrap().is_none());
