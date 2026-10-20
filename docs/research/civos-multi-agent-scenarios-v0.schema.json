@@ -1,0 +1,68 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "CivOS Multi-Agent Correctness and Resilience Benchmark v0.1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["contract_id", "version", "status", "source_baseline", "fixture_policy", "scenarios"],
+  "properties": {
+    "contract_id": { "const": "CIVOS-MACQ-001" },
+    "version": { "type": "string", "pattern": "^0\\.1\\.0$" },
+    "status": { "const": "proposed-unmeasured" },
+    "source_baseline": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["repository", "commit", "purpose"],
+      "properties": {
+        "repository": { "type": "string", "minLength": 1 },
+        "commit": { "type": "string", "pattern": "^[0-9a-f]{40}$" },
+        "purpose": { "type": "string", "minLength": 1 }
+      }
+    },
+    "fixture_policy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["data_class", "wall_clock", "randomness", "unknown_applicability", "global_score"],
+      "properties": {
+        "data_class": { "const": "synthetic-only" },
+        "wall_clock": { "type": "string", "minLength": 1 },
+        "randomness": { "type": "string", "minLength": 1 },
+        "unknown_applicability": { "type": "string", "minLength": 1 },
+        "global_score": { "type": "string", "minLength": 1 }
+      }
+    },
+    "scenarios": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "title", "targets", "class", "setup", "actions", "expected", "negative_controls", "observables"],
+        "properties": {
+          "id": { "type": "string", "pattern": "^[A-Z0-9]+(-[A-Z0-9]+)*-[0-9]{3}$" },
+          "title": { "type": "string", "minLength": 1 },
+          "targets": {
+            "type": "array",
+            "minItems": 1,
+            "items": { "type": "string", "minLength": 1 },
+            "uniqueItems": true
+          },
+          "class": { "enum": ["hard_gate", "behavioral", "performance_baseline"] },
+          "setup": { "$ref": "#/$defs/nonEmptyStringList" },
+          "actions": { "$ref": "#/$defs/nonEmptyStringList" },
+          "expected": { "$ref": "#/$defs/nonEmptyStringList" },
+          "negative_controls": { "$ref": "#/$defs/nonEmptyStringList" },
+          "observables": { "$ref": "#/$defs/nonEmptyStringList" },
+          "requires_capability": { "type": "string", "minLength": 1 },
+          "notes": { "type": "string", "minLength": 1 }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "nonEmptyStringList": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "type": "string", "minLength": 1 }
+    }
+  }
+}
