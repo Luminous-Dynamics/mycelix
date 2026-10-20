@@ -11,8 +11,8 @@
 
 use super::{
     policy_lifecycle::{
-        PolicyLifecycleDispositionV1, PolicyLifecycleReceiptV1,
-        PolicyLifecycleTrustedContextV1, InstalledPolicyHeadV1, evaluate_policy_release_bytes,
+        InstalledPolicyHeadV1, PolicyLifecycleDispositionV1, PolicyLifecycleReceiptV1,
+        PolicyLifecycleTrustedContextV1, evaluate_policy_release_bytes,
     },
     policy_profile::{policy_profile_schema_sha256, validate_policy_profile_bytes},
     sha256, validate_json_against_schema,
@@ -140,7 +140,8 @@ impl PolicyHeadStore {
         let actual_schema_sha256 = policy_profile_schema_sha256();
         if trusted_context.expected_policy_profile_schema_sha256 != actual_schema_sha256 {
             return Err(
-                "trusted profile-schema pin does not match this binary's embedded schema".to_owned(),
+                "trusted profile-schema pin does not match this binary's embedded schema"
+                    .to_owned(),
             );
         }
         let profile = validate_policy_profile_bytes(profile_bytes)?;
@@ -186,7 +187,9 @@ impl PolicyHeadStore {
         bootstrap_mode: BootstrapModeV1,
     ) -> Result<PolicyHeadPromotionV1, String> {
         let current = self.read_current_state()?;
-        if current.head.is_none() && bootstrap_mode != BootstrapModeV1::ExplicitlyAuthorizedBootstrap {
+        if current.head.is_none()
+            && bootstrap_mode != BootstrapModeV1::ExplicitlyAuthorizedBootstrap
+        {
             return Err(
                 "policy-head state is absent; refusing implicit bootstrap or silent state reset"
                     .to_owned(),
@@ -198,11 +201,8 @@ impl PolicyHeadStore {
         let mut authoritative_context = trusted_context.clone();
         authoritative_context.installed_head = current.head.clone();
 
-        let receipt = evaluate_policy_release_bytes(
-            release_bytes,
-            profile_bytes,
-            &authoritative_context,
-        )?;
+        let receipt =
+            evaluate_policy_release_bytes(release_bytes, profile_bytes, &authoritative_context)?;
 
         match receipt.disposition {
             PolicyLifecycleDispositionV1::Rejected => {
@@ -285,7 +285,9 @@ impl PolicyHeadStore {
         let record: PolicyHeadStoreRecordV1 = serde_json::from_slice(&bytes)
             .map_err(|error| format!("policy-head state deserialization failed: {error}"))?;
         if record.schema_version != STORE_RECORD_SCHEMA_VERSION || record.generation == 0 {
-            return Err("policy-head state has an unsupported schema or zero generation".to_owned());
+            return Err(
+                "policy-head state has an unsupported schema or zero generation".to_owned(),
+            );
         }
         validate_head(&record.head)?;
 
@@ -298,7 +300,10 @@ impl PolicyHeadStore {
             .map_err(|error| format!("cannot serialize policy-head integrity body: {error}"))?;
         let expected_integrity = sha256(&body_bytes);
         if record.integrity_sha256 != expected_integrity {
-            return Err("policy-head state integrity digest mismatch; refusing to reset or repair".to_owned());
+            return Err(
+                "policy-head state integrity digest mismatch; refusing to reset or repair"
+                    .to_owned(),
+            );
         }
 
         Ok(CurrentState {
@@ -340,12 +345,16 @@ impl PolicyHeadStore {
         drop(temp_file);
         if let Err(error) = write_result {
             let _ = fs::remove_file(&temp_path);
-            return Err(format!("cannot write and sync temporary policy-head state: {error}"));
+            return Err(format!(
+                "cannot write and sync temporary policy-head state: {error}"
+            ));
         }
 
         if let Err(error) = fs::rename(&temp_path, &self.state_path) {
             let _ = fs::remove_file(&temp_path);
-            return Err(format!("cannot atomically replace policy-head state: {error}"));
+            return Err(format!(
+                "cannot atomically replace policy-head state: {error}"
+            ));
         }
 
         // If this fails, the rename may already be visible but crash durability is uncertain.
@@ -373,10 +382,7 @@ impl PolicyHeadStore {
             .to_string_lossy();
         for _ in 0..100 {
             let sequence = TEMP_FILE_SEQUENCE.fetch_add(1, Ordering::Relaxed);
-            let temp_path = parent.join(format!(
-                ".{name}.tmp-{}-{sequence}",
-                process::id()
-            ));
+            let temp_path = parent.join(format!(".{name}.tmp-{}-{sequence}", process::id()));
             let mut options = OpenOptions::new();
             options.write(true).create_new(true);
             #[cfg(unix)]
@@ -434,13 +440,10 @@ fn validate_head(head: &InstalledPolicyHeadV1) -> Result<(), String> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::policy_lifecycle::{
-        AuthenticatedDistributionStatus, PolicyReleaseDescriptorV1,
-    };
+    use crate::policy_lifecycle::{AuthenticatedDistributionStatus, PolicyReleaseDescriptorV1};
     use std::thread;
 
-    const PROFILE_BYTES: &[u8] =
-        include_bytes!("../fixtures/claim-ceiling-policy-profile-v1.json");
+    const PROFILE_BYTES: &[u8] = include_bytes!("../fixtures/claim-ceiling-policy-profile-v1.json");
     const POLICY_ID: &str = "mycelix.policy.instrument.research";
     const AUDIENCE: &str = "mycelix.claim-ceiling.policy-check";
 
@@ -459,7 +462,8 @@ mod tests {
 
     fn release_bytes(version: u64) -> Vec<u8> {
         let descriptor = PolicyReleaseDescriptorV1 {
-            schema_version: super::super::policy_lifecycle::RELEASE_DESCRIPTOR_SCHEMA_VERSION.to_owned(),
+            schema_version: super::super::policy_lifecycle::RELEASE_DESCRIPTOR_SCHEMA_VERSION
+                .to_owned(),
             policy_id: POLICY_ID.to_owned(),
             audience: AUDIENCE.to_owned(),
             version,
@@ -585,34 +589,29 @@ mod tests {
 
         // A cached context with no head cannot erase the persisted head. Version 1 is rejected.
         context.installed_head = None;
-        let rollback = promote(
-            &store,
-            1,
-            &context,
-            BootstrapModeV1::RequireExistingState,
-        )
-        .expect("rollback attempt should yield a rejection receipt");
+        let rollback = promote(&store, 1, &context, BootstrapModeV1::RequireExistingState)
+            .expect("rollback attempt should yield a rejection receipt");
         assert_eq!(
             rollback.lifecycle_receipt.disposition,
             PolicyLifecycleDispositionV1::Rejected
         );
-        assert!(rollback
-            .lifecycle_receipt
-            .violations
-            .iter()
-            .any(|violation| violation.code == "policy_version_rollback"));
+        assert!(
+            rollback
+                .lifecycle_receipt
+                .violations
+                .iter()
+                .any(|violation| violation.code == "policy_version_rollback")
+        );
         assert!(rollback.lifecycle_receipt.proposed_next_head.is_none());
         assert!(!rollback.state_changed);
-        assert_eq!((rollback.generation_before, rollback.generation_after), (1, 1));
+        assert_eq!(
+            (rollback.generation_before, rollback.generation_after),
+            (1, 1)
+        );
 
         // The exact installed release remains idempotent after the rejected rollback.
-        let current = promote(
-            &store,
-            2,
-            &context,
-            BootstrapModeV1::RequireExistingState,
-        )
-        .expect("replay current release");
+        let current = promote(&store, 2, &context, BootstrapModeV1::RequireExistingState)
+            .expect("replay current release");
         assert_eq!(
             current.lifecycle_receipt.disposition,
             PolicyLifecycleDispositionV1::AlreadyCurrent
@@ -652,16 +651,18 @@ mod tests {
         context.expected_policy_profile_schema_sha256 =
             "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa".to_owned();
 
-        assert!(store
-            .promote_release(
-                &release_bytes(1),
-                PROFILE_BYTES,
-                &expected_profile_id(),
-                &context,
-                BootstrapModeV1::ExplicitlyAuthorizedBootstrap,
-            )
-            .unwrap_err()
-            .contains("does not match this binary's embedded schema"));
+        assert!(
+            store
+                .promote_release(
+                    &release_bytes(1),
+                    PROFILE_BYTES,
+                    &expected_profile_id(),
+                    &context,
+                    BootstrapModeV1::ExplicitlyAuthorizedBootstrap,
+                )
+                .unwrap_err()
+                .contains("does not match this binary's embedded schema")
+        );
         assert!(!store_path(&temp).exists());
 
         let error = store
