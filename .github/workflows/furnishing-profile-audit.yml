@@ -1,13 +1,20 @@
 name: Furnishing Profile Audit
 
 on:
+  push:
+    branches:
+      - feat/furnishing-profile-revisions-v0-2-20261020
   pull_request:
-    branches: [main]
+    branches:
+      - main
+      - research/furnishing-marketplace-bridge-v0-1-20261020
     types: [opened, synchronize, reopened, ready_for_review]
     paths:
       - 'mycelix-marketplace/contracts/furnishing-catalog-profile-v0.1.schema.json'
+      - 'mycelix-marketplace/contracts/furnishing-catalog-profile-v0.2.schema.json'
       - 'mycelix-marketplace/contracts/furnishing-adapter-request-v0.1.schema.json'
       - 'mycelix-marketplace/contracts/fixtures/furnishing-catalog-profile-v0.1.json'
+      - 'mycelix-marketplace/contracts/fixtures/furnishing-catalog-profile-v0.2.json'
       - 'mycelix-marketplace/contracts/fixtures/furnishing-adapter-request-v0.1.json'
       - 'mycelix-marketplace/tools/furnishing-profile-audit/**'
       - '.github/workflows/furnishing-profile-audit.yml'

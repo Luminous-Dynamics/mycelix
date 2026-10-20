@@ -1,0 +1,874 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/Luminous-Dynamics/mycelix/blob/main/mycelix-marketplace/contracts/furnishing-catalog-profile-v0.2.schema.json",
+  "title": "Mycelix furnishing catalog profile v0.2 — fork-aware listing revision receipt",
+  "description": "Additive versioned furnishing profile carrying the locally observed Marketplace listing update-graph receipt. A conflict has no selected action or authoritative commercial terms. This does not prove global DHT completeness, seller/product truth, stock, safety or site compliance.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "profile_id",
+    "status",
+    "catalog_item",
+    "marketplace_offer",
+    "design_compatibility",
+    "evidence",
+    "claim_ceiling"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "0.2.0"
+    },
+    "profile_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "status": {
+      "enum": [
+        "synthetic_fixture",
+        "source_asserted",
+        "independently_checked",
+        "stale",
+        "disputed",
+        "unknown"
+      ]
+    },
+    "catalog_item": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "item_id",
+        "category",
+        "condition",
+        "identity",
+        "geometry"
+      ],
+      "properties": {
+        "item_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "category": {
+          "enum": [
+            "chair",
+            "desk",
+            "table",
+            "bed",
+            "sofa",
+            "storage",
+            "lighting",
+            "rug",
+            "shelving",
+            "textile",
+            "decor",
+            "other"
+          ]
+        },
+        "condition": {
+          "enum": [
+            "new",
+            "used",
+            "repaired",
+            "refurbished",
+            "remanufactured",
+            "reclaimed_material",
+            "made_to_order",
+            "unknown"
+          ]
+        },
+        "identity": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "identity_state"
+          ],
+          "properties": {
+            "identity_state": {
+              "enum": [
+                "manufacturer_model_known",
+                "seller_described",
+                "one_off_or_artisan",
+                "unknown"
+              ]
+            },
+            "manufacturer_or_maker": {
+              "type": "string"
+            },
+            "model_or_variant": {
+              "type": "string"
+            },
+            "global_product_id": {
+              "type": "string",
+              "description": "Optional identifier such as GTIN; an identifier does not prove quality or currentness."
+            },
+            "ifc_class": {
+              "const": "IfcFurniture"
+            },
+            "external_product_uri": {
+              "type": "string",
+              "format": "uri"
+            }
+          }
+        },
+        "geometry": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "dimension_state",
+            "unit",
+            "width",
+            "depth",
+            "height",
+            "orientation_set",
+            "geometry_evidence_refs",
+            "geometry_use_license",
+            "geometry_license_evidence_refs"
+          ],
+          "properties": {
+            "dimension_state": {
+              "enum": [
+                "manufacturer_specification",
+                "measured_item",
+                "seller_estimate",
+                "nominal_only",
+                "unknown"
+              ]
+            },
+            "unit": {
+              "const": "m"
+            },
+            "width": {
+              "type": [
+                "number",
+                "null"
+              ],
+              "minimum": 0
+            },
+            "depth": {
+              "type": [
+                "number",
+                "null"
+              ],
+              "minimum": 0
+            },
+            "height": {
+              "type": [
+                "number",
+                "null"
+              ],
+              "minimum": 0
+            },
+            "tolerance_m": {
+              "type": [
+                "number",
+                "null"
+              ],
+              "minimum": 0
+            },
+            "orientation_set": {
+              "type": "array",
+              "items": {
+                "enum": [
+                  0,
+                  90,
+                  180,
+                  270
+                ]
+              },
+              "uniqueItems": true,
+              "minItems": 1
+            },
+            "geometry_digest_sha256": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "pattern": "^([a-fA-F0-9]{64})$"
+            },
+            "geometry_evidence_refs": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1
+              }
+            },
+            "geometry_use_license": {
+              "enum": [
+                "redisplay_and_layout_allowed",
+                "redisplay_only",
+                "layout_use_not_granted",
+                "unknown"
+              ]
+            },
+            "geometry_license_evidence_refs": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1
+              },
+              "uniqueItems": true
+            }
+          }
+        },
+        "task_envelopes": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "kind",
+              "dimensions_state"
+            ],
+            "properties": {
+              "kind": {
+                "enum": [
+                  "front_approach",
+                  "side_approach",
+                  "drawer_or_door_swing",
+                  "transfer_space",
+                  "reach_space",
+                  "service_access",
+                  "mounting_zone",
+                  "task_clearance"
+                ]
+              },
+              "dimensions_state": {
+                "enum": [
+                  "measured_or_specified",
+                  "illustrative",
+                  "unknown"
+                ]
+              },
+              "width_m": {
+                "type": [
+                  "number",
+                  "null"
+                ],
+                "minimum": 0
+              },
+              "depth_m": {
+                "type": [
+                  "number",
+                  "null"
+                ],
+                "minimum": 0
+              },
+              "source_evidence_refs": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        },
+        "materials": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "material_label",
+              "claim_state"
+            ],
+            "properties": {
+              "material_label": {
+                "type": "string",
+                "minLength": 1
+              },
+              "fraction_by_mass": {
+                "type": [
+                  "number",
+                  "null"
+                ],
+                "minimum": 0,
+                "maximum": 1
+              },
+              "claim_state": {
+                "enum": [
+                  "seller_asserted",
+                  "manufacturer_declared",
+                  "third_party_verified",
+                  "unknown"
+                ]
+              },
+              "evidence_refs": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        },
+        "repairability": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "disassembly_state",
+            "spare_parts_state",
+            "repair_instructions_state"
+          ],
+          "properties": {
+            "disassembly_state": {
+              "enum": [
+                "documented_reversible",
+                "partially_reversible",
+                "adhesive_or_destructive",
+                "unknown"
+              ]
+            },
+            "spare_parts_state": {
+              "enum": [
+                "available_confirmed",
+                "seller_claimed",
+                "not_available",
+                "unknown"
+              ]
+            },
+            "repair_instructions_state": {
+              "enum": [
+                "publicly_available",
+                "available_on_request",
+                "not_available",
+                "unknown"
+              ]
+            },
+            "replaceable_components": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "repair_evidence_refs": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      }
+    },
+    "marketplace_offer": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "listing_action_hash",
+        "listing_revision",
+        "observed_state",
+        "observed_at",
+        "price_state",
+        "availability_state",
+        "delivery_state",
+        "stable_listing_root_hash",
+        "revision_observation"
+      ],
+      "properties": {
+        "listing_action_hash": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "minLength": 1,
+          "description": "Exact selected action hash only when one head was observed locally; null for concurrent heads."
+        },
+        "listing_revision": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "minLength": 1,
+          "description": "Revision label for the selected action only; null when concurrent heads prevent selecting one."
+        },
+        "observed_state": {
+          "enum": [
+            "live_read",
+            "cached",
+            "fixture",
+            "unavailable",
+            "conflict",
+            "unknown"
+          ]
+        },
+        "observed_at": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "date-time"
+        },
+        "price_state": {
+          "enum": [
+            "quoted",
+            "seller_asserted",
+            "unknown"
+          ]
+        },
+        "amount_minor": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "currency_code": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "pattern": "^[A-Z]{3}$"
+        },
+        "availability_state": {
+          "enum": [
+            "available_confirmed",
+            "seller_asserted",
+            "reserved",
+            "sold",
+            "withdrawn",
+            "unknown",
+            "stale"
+          ]
+        },
+        "quantity": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "delivery_state": {
+          "enum": [
+            "delivery_quoted",
+            "pickup_only",
+            "installation_quoted",
+            "not_offered",
+            "unknown"
+          ]
+        },
+        "delivery_region_code": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "delivery_quote_ref": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "terms_digest_sha256": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "pattern": "^([a-fA-F0-9]{64})$"
+        },
+        "stable_listing_root_hash": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Stable identity of the original listing Create action; distinct from a selected update action."
+        },
+        "revision_observation": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "policy_version",
+            "observation_scope",
+            "coverage",
+            "state",
+            "reason",
+            "revision_count",
+            "observed_head_action_hashes",
+            "sole_observed_head_action_hash"
+          ],
+          "properties": {
+            "policy_version": {
+              "const": 1
+            },
+            "observation_scope": {
+              "const": "local_dht_update_graph"
+            },
+            "coverage": {
+              "const": "local_observed_links_only",
+              "description": "Local conductor observation only; not global catalogue completeness or DHT convergence."
+            },
+            "state": {
+              "enum": [
+                "single_observed_head",
+                "concurrent_heads"
+              ]
+            },
+            "reason": {
+              "enum": [
+                "single_observed_head",
+                "concurrent_observed_heads"
+              ]
+            },
+            "revision_count": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 128
+            },
+            "observed_head_action_hashes": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1
+              },
+              "minItems": 1,
+              "maxItems": 128,
+              "uniqueItems": true
+            },
+            "sole_observed_head_action_hash": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "description": "Must be the sole member of observed_head_action_hashes in single-head state; must be null in conflict."
+            }
+          }
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "revision_observation": {
+                "properties": {
+                  "state": {
+                    "const": "single_observed_head"
+                  }
+                },
+                "required": [
+                  "state"
+                ]
+              }
+            },
+            "required": [
+              "revision_observation"
+            ]
+          },
+          "then": {
+            "properties": {
+              "revision_observation": {
+                "properties": {
+                  "reason": {
+                    "const": "single_observed_head"
+                  },
+                  "observed_head_action_hashes": {
+                    "minItems": 1,
+                    "maxItems": 1
+                  },
+                  "sole_observed_head_action_hash": {
+                    "type": "string",
+                    "minLength": 1
+                  }
+                }
+              },
+              "listing_action_hash": {
+                "type": "string",
+                "minLength": 1
+              },
+              "listing_revision": {
+                "type": "string",
+                "minLength": 1
+              },
+              "observed_state": {
+                "not": {
+                  "const": "conflict"
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "revision_observation": {
+                "properties": {
+                  "state": {
+                    "const": "concurrent_heads"
+                  }
+                },
+                "required": [
+                  "state"
+                ]
+              }
+            },
+            "required": [
+              "revision_observation"
+            ]
+          },
+          "then": {
+            "properties": {
+              "revision_observation": {
+                "properties": {
+                  "reason": {
+                    "const": "concurrent_observed_heads"
+                  },
+                  "observed_head_action_hashes": {
+                    "minItems": 2
+                  },
+                  "sole_observed_head_action_hash": {
+                    "type": "null"
+                  }
+                }
+              },
+              "listing_action_hash": {
+                "type": "null"
+              },
+              "listing_revision": {
+                "type": "null"
+              },
+              "observed_state": {
+                "const": "conflict"
+              },
+              "price_state": {
+                "const": "unknown"
+              },
+              "amount_minor": {
+                "type": "null"
+              },
+              "currency_code": {
+                "type": "null"
+              },
+              "availability_state": {
+                "const": "unknown"
+              },
+              "quantity": {
+                "type": "null"
+              },
+              "delivery_state": {
+                "const": "unknown"
+              },
+              "delivery_region_code": {
+                "type": "null"
+              },
+              "delivery_quote_ref": {
+                "type": "null"
+              },
+              "terms_digest_sha256": {
+                "type": "null"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "design_compatibility": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "compatibility_state",
+        "hard_constraint_results",
+        "preference_dimensions"
+      ],
+      "properties": {
+        "compatibility_state": {
+          "enum": [
+            "compatible_for_declared_checks",
+            "incompatible",
+            "indeterminate",
+            "not_checked"
+          ]
+        },
+        "design_revision": {
+          "type": "string",
+          "minLength": 1
+        },
+        "design_context_digest_sha256": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "pattern": "^([a-fA-F0-9]{64})$"
+        },
+        "hard_constraint_results": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "constraint_id",
+              "outcome",
+              "reason"
+            ],
+            "properties": {
+              "constraint_id": {
+                "type": "string",
+                "minLength": 1
+              },
+              "outcome": {
+                "enum": [
+                  "pass",
+                  "fail",
+                  "indeterminate"
+                ]
+              },
+              "reason": {
+                "type": "string",
+                "minLength": 1
+              },
+              "evidence_refs": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        },
+        "preference_dimensions": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "dimension",
+              "value_state"
+            ],
+            "properties": {
+              "dimension": {
+                "type": "string",
+                "minLength": 1
+              },
+              "value_state": {
+                "enum": [
+                  "declared_by_resident",
+                  "modelled_estimate",
+                  "not_assessed",
+                  "contested"
+                ]
+              },
+              "value_0_to_100": {
+                "type": [
+                  "integer",
+                  "null"
+                ],
+                "minimum": 0,
+                "maximum": 100
+              },
+              "evidence_refs": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "evidence": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "evidence_ref",
+          "claim_kind",
+          "claimant_or_issuer",
+          "claim_state",
+          "scope",
+          "source_digest_sha256",
+          "validity_state"
+        ],
+        "properties": {
+          "evidence_ref": {
+            "type": "string",
+            "minLength": 1
+          },
+          "claim_kind": {
+            "enum": [
+              "identity",
+              "geometry",
+              "material_composition",
+              "environmental_impact",
+              "repairability",
+              "availability",
+              "price",
+              "delivery",
+              "warranty",
+              "safety_or_compliance",
+              "other",
+              "geometry_use_rights"
+            ]
+          },
+          "claimant_or_issuer": {
+            "type": "string",
+            "minLength": 1
+          },
+          "claim_state": {
+            "enum": [
+              "asserted",
+              "manufacturer_declared",
+              "third_party_verified",
+              "buyer_observed",
+              "disputed",
+              "unknown"
+            ]
+          },
+          "scope": {
+            "type": "string",
+            "minLength": 1
+          },
+          "source_uri": {
+            "type": "string",
+            "format": "uri"
+          },
+          "source_digest_sha256": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^([a-fA-F0-9]{64})$"
+          },
+          "issued_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "validity_state": {
+            "enum": [
+              "valid_for_scoped_claim",
+              "stale",
+              "revoked",
+              "out_of_scope",
+              "incomplete",
+              "conflicting",
+              "unknown"
+            ]
+          },
+          "rights_state": {
+            "enum": [
+              "redistribution_permitted",
+              "link_only",
+              "private_or_restricted",
+              "unknown"
+            ]
+          },
+          "geometry_use_license": {
+            "enum": [
+              "redisplay_and_layout_allowed",
+              "redisplay_only",
+              "layout_use_not_granted",
+              "unknown"
+            ]
+          }
+        }
+      }
+    },
+    "claim_ceiling": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      },
+      "minItems": 1
+    }
+  }
+}

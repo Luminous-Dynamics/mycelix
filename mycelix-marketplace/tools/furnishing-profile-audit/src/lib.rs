@@ -58,6 +58,141 @@ fn string_set(
     result
 }
 
+fn validate_revision_observation(offer: &Value, label: &str, errors: &mut Vec<String>) {
+    let Some(root) = text(offer, "stable_listing_root_hash") else {
+        errors.push(format!(
+            "{label}: v0.2 offer needs a stable listing root hash"
+        ));
+        return;
+    };
+    if root.trim().is_empty() {
+        errors.push(format!(
+            "{label}: stable listing root hash must not be blank"
+        ));
+    }
+    let Some(receipt) = field(offer, "revision_observation") else {
+        errors.push(format!(
+            "{label}: v0.2 offer needs a revision observation receipt"
+        ));
+        return;
+    };
+    if field(receipt, "policy_version").and_then(Value::as_u64) != Some(1) {
+        errors.push(format!(
+            "{label}: unsupported listing revision policy version"
+        ));
+    }
+    if text(receipt, "observation_scope") != Some("local_dht_update_graph") {
+        errors.push(format!("{label}: unexpected listing observation scope"));
+    }
+    if text(receipt, "coverage") != Some("local_observed_links_only") {
+        errors.push(format!(
+            "{label}: listing revision receipt overstates catalogue coverage"
+        ));
+    }
+    let state = text(receipt, "state").unwrap_or("");
+    let reason = text(receipt, "reason").unwrap_or("");
+    let heads = array(receipt, "observed_head_action_hashes");
+    let head_ids = string_set(
+        heads,
+        &format!("{label}.observed_head_action_hashes"),
+        errors,
+    );
+    if heads.is_some_and(|items| items.len() != head_ids.len()) {
+        errors.push(format!(
+            "{label}: observed head action hashes must be unique"
+        ));
+    }
+    let revision_count = field(receipt, "revision_count").and_then(Value::as_u64);
+    if revision_count.is_none_or(|count| count == 0 || count > 128) {
+        errors.push(format!("{label}: revision_count must be between 1 and 128"));
+    } else if revision_count.is_some_and(|count| count < head_ids.len() as u64) {
+        errors.push(format!(
+            "{label}: revision_count is smaller than observed head count"
+        ));
+    }
+
+    match state {
+        "single_observed_head" => {
+            if reason != "single_observed_head" || head_ids.len() != 1 {
+                errors.push(format!(
+                    "{label}: single-head receipt contradicts observed heads"
+                ));
+            }
+            let Some(head) = head_ids.iter().next() else {
+                errors.push(format!("{label}: single-head state has no observed head"));
+                return;
+            };
+            if text(receipt, "sole_observed_head_action_hash") != Some(head.as_str()) {
+                errors.push(format!(
+                    "{label}: sole observed head does not match head evidence"
+                ));
+            }
+            if text(offer, "listing_action_hash") != Some(head.as_str()) {
+                errors.push(format!(
+                    "{label}: selected listing action hash is not the sole observed head"
+                ));
+            }
+            if text(offer, "listing_revision").is_none_or(str::is_empty) {
+                errors.push(format!(
+                    "{label}: single observed head needs a revision label"
+                ));
+            }
+            if text(offer, "observed_state") == Some("conflict") {
+                errors.push(format!(
+                    "{label}: single observed head contradicts conflict observation state"
+                ));
+            }
+        }
+        "concurrent_heads" => {
+            if reason != "concurrent_observed_heads" || head_ids.len() < 2 {
+                errors.push(format!(
+                    "{label}: concurrent-head receipt needs at least two distinct heads"
+                ));
+            }
+            if field(receipt, "sole_observed_head_action_hash").is_none_or(|value| !value.is_null())
+            {
+                errors.push(format!(
+                    "{label}: concurrent heads must not select a sole observed head"
+                ));
+            }
+            if field(offer, "listing_action_hash").is_none_or(|value| !value.is_null())
+                || field(offer, "listing_revision").is_none_or(|value| !value.is_null())
+            {
+                errors.push(format!(
+                    "{label}: conflicted offer must not expose a selected action or revision"
+                ));
+            }
+            if text(offer, "observed_state") != Some("conflict") {
+                errors.push(format!(
+                    "{label}: concurrent heads require conflict offer state"
+                ));
+            }
+            for (key, expected) in [
+                ("price_state", "unknown"),
+                ("availability_state", "unknown"),
+                ("delivery_state", "unknown"),
+            ] {
+                if text(offer, key) != Some(expected) {
+                    errors.push(format!("{label}: conflicted offer must keep {key} unknown"));
+                }
+            }
+            for key in [
+                "amount_minor",
+                "currency_code",
+                "quantity",
+                "delivery_region_code",
+                "delivery_quote_ref",
+                "terms_digest_sha256",
+            ] {
+                if field(offer, key).is_none_or(|value| !value.is_null()) {
+                    errors.push(format!("{label}: conflicted offer must not expose {key}"));
+                }
+            }
+        }
+        _ => errors.push(format!("{label}: unsupported listing revision state")),
+    }
+}
+
 fn validate_profile(profile: &Value, label: &str, errors: &mut Vec<String>) {
     for required in [
         "schema_version",
@@ -74,7 +209,8 @@ fn validate_profile(profile: &Value, label: &str, errors: &mut Vec<String>) {
         }
     }
 
-    if text(profile, "schema_version") != Some("0.1.0") {
+    let schema_version = text(profile, "schema_version");
+    if !matches!(schema_version, Some("0.1.0" | "0.2.0")) {
         errors.push(format!("{label}: unsupported schema_version"));
     }
     if text(profile, "status") != Some(SYNTHETIC_PROFILE_STATUS) {
@@ -283,6 +419,9 @@ fn validate_profile(profile: &Value, label: &str, errors: &mut Vec<String>) {
     // In a synthetic fixture, commerce terms must not masquerade as live,
     // quoted, or confirmed inventory state.
     if let Some(offer) = field(profile, "marketplace_offer") {
+        if schema_version == Some("0.2.0") {
+            validate_revision_observation(offer, label, errors);
+        }
         if text(offer, "observed_state") == Some("fixture") {
             for (key, forbidden, description) in [
                 ("price_state", "quoted", "live quote"),
@@ -368,6 +507,102 @@ mod tests {
     fn errors_after(mut document: Value, mutate: impl FnOnce(&mut Value)) -> Vec<String> {
         mutate(&mut document);
         validate_fixture(&document)
+    }
+
+    fn revision_baseline() -> Value {
+        let path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("../../contracts/fixtures/furnishing-catalog-profile-v0.2.json");
+        let bytes = std::fs::read(&path).expect("v0.2 synthetic fixture should exist");
+        serde_json::from_slice(&bytes).expect("v0.2 synthetic fixture should be valid JSON")
+    }
+
+    fn revision_errors_after(mut document: Value, mutate: impl FnOnce(&mut Value)) -> Vec<String> {
+        mutate(&mut document);
+        validate_fixture(&document)
+    }
+
+    #[test]
+    fn fork_aware_v02_fixture_passes_semantic_audit() {
+        let errors = validate_fixture(&revision_baseline());
+        assert!(
+            errors.is_empty(),
+            "unexpected v0.2 audit errors: {errors:#?}"
+        );
+    }
+
+    #[test]
+    fn concurrent_heads_never_select_action_or_expose_commercial_terms() {
+        let document = revision_baseline();
+        let conflict = &document["profiles"][3]["marketplace_offer"];
+        assert!(conflict["listing_action_hash"].is_null());
+        assert!(conflict["listing_revision"].is_null());
+        assert_eq!(conflict["price_state"], "unknown");
+        assert!(conflict["amount_minor"].is_null());
+        assert_eq!(conflict["availability_state"], "unknown");
+        assert!(conflict["quantity"].is_null());
+        assert_eq!(
+            conflict["revision_observation"]["coverage"],
+            "local_observed_links_only"
+        );
+    }
+
+    #[test]
+    fn conflict_with_selected_head_is_rejected() {
+        let errors = revision_errors_after(revision_baseline(), |doc| {
+            doc["profiles"][3]["marketplace_offer"]["listing_action_hash"] =
+                Value::String("synthetic:head:004a".to_owned());
+            doc["profiles"][3]["marketplace_offer"]["listing_revision"] =
+                Value::String("revision-a".to_owned());
+        });
+        assert!(errors
+            .iter()
+            .any(|error| error.contains("must not expose a selected action or revision")));
+    }
+
+    #[test]
+    fn conflict_with_known_price_or_stock_is_rejected() {
+        let errors = revision_errors_after(revision_baseline(), |doc| {
+            doc["profiles"][3]["marketplace_offer"]["price_state"] =
+                Value::String("seller_asserted".to_owned());
+            doc["profiles"][3]["marketplace_offer"]["amount_minor"] = Value::from(12_500);
+            doc["profiles"][3]["marketplace_offer"]["availability_state"] =
+                Value::String("available_confirmed".to_owned());
+            doc["profiles"][3]["marketplace_offer"]["quantity"] = Value::from(1);
+        });
+        assert!(errors
+            .iter()
+            .any(|error| error.contains("must keep price_state unknown")));
+        assert!(errors
+            .iter()
+            .any(|error| error.contains("must keep availability_state unknown")));
+        assert!(errors
+            .iter()
+            .any(|error| error.contains("must not expose amount_minor")));
+        assert!(errors
+            .iter()
+            .any(|error| error.contains("must not expose quantity")));
+    }
+
+    #[test]
+    fn single_observed_head_must_match_exact_action_identity() {
+        let errors = revision_errors_after(revision_baseline(), |doc| {
+            doc["profiles"][0]["marketplace_offer"]["listing_action_hash"] =
+                Value::String("synthetic:stale-action".to_owned());
+        });
+        assert!(errors
+            .iter()
+            .any(|error| error.contains("not the sole observed head")));
+    }
+
+    #[test]
+    fn global_catalogue_completeness_claim_is_rejected() {
+        let errors = revision_errors_after(revision_baseline(), |doc| {
+            doc["profiles"][0]["marketplace_offer"]["revision_observation"]["coverage"] =
+                Value::String("global_complete".to_owned());
+        });
+        assert!(errors
+            .iter()
+            .any(|error| error.contains("overstates catalogue coverage")));
     }
 
     #[test]

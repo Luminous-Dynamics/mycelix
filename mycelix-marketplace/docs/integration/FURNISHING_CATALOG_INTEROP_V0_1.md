@@ -33,6 +33,10 @@ This v0.1 is therefore an adapter/profile proposal, not a new Marketplace zome:
 - **Mycelix consent/provenance capabilities own:** authorization, who contributed a claim/approval, selective disclosure and event lineage, once the relevant adapters are reviewed.
 - **Sol-Atlas may later contribute:** location/climate/orientation context only through qualified source adapters. Do not scrape or silently assume live site data.
 
+## Versioned listing-revision receipt
+
+The additive [Furnishing Catalog Revision Profile v0.2](FURNISHING_CATALOG_REVISION_PROFILE_V0_2.md) extends this v0.1 contract without changing it. v0.2 carries a stable listing root and the exact locally observed head set. A concurrent update graph has no selected action and must leave price, availability, quantity and delivery unknown; coverage is explicitly local-only, not global DHT completeness. Its schema and Rust auditor tests are developed on a stacked draft branch.
+
 ## Profile and synthetic fixture
 
 Files introduced with this branch:

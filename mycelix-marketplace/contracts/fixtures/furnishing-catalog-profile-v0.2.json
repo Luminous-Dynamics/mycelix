@@ -1,0 +1,650 @@
+{
+  "fixture_status": "synthetic_only_not_marketplace_data",
+  "profiles": [
+    {
+      "schema_version": "0.2.0",
+      "profile_id": "FURN-MKT-001",
+      "status": "synthetic_fixture",
+      "catalog_item": {
+        "item_id": "desk-reclaimed-modular-01",
+        "category": "desk",
+        "condition": "refurbished",
+        "identity": {
+          "identity_state": "one_off_or_artisan",
+          "manufacturer_or_maker": "Synthetic local repair cooperative",
+          "model_or_variant": "Modular reclaimed-timber desk",
+          "ifc_class": "IfcFurniture"
+        },
+        "geometry": {
+          "dimension_state": "measured_item",
+          "unit": "m",
+          "width": 1.2,
+          "depth": 0.6,
+          "height": 0.74,
+          "tolerance_m": 0.01,
+          "orientation_set": [
+            0,
+            90,
+            180,
+            270
+          ],
+          "geometry_digest_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "geometry_evidence_refs": [
+            "geom-001"
+          ],
+          "geometry_use_license": "redisplay_and_layout_allowed",
+          "geometry_license_evidence_refs": [
+            "rights-001"
+          ]
+        },
+        "task_envelopes": [
+          {
+            "kind": "front_approach",
+            "dimensions_state": "illustrative",
+            "width_m": 1,
+            "depth_m": 0.7,
+            "source_evidence_refs": []
+          }
+        ],
+        "materials": [
+          {
+            "material_label": "reclaimed timber",
+            "fraction_by_mass": 0.7,
+            "claim_state": "seller_asserted",
+            "evidence_refs": [
+              "mat-001"
+            ]
+          },
+          {
+            "material_label": "reused steel fasteners",
+            "fraction_by_mass": 0.1,
+            "claim_state": "seller_asserted",
+            "evidence_refs": [
+              "mat-001"
+            ]
+          }
+        ],
+        "repairability": {
+          "disassembly_state": "documented_reversible",
+          "spare_parts_state": "seller_claimed",
+          "repair_instructions_state": "available_on_request",
+          "replaceable_components": [
+            "desktop panel",
+            "leg assembly"
+          ],
+          "repair_evidence_refs": [
+            "repair-001"
+          ]
+        }
+      },
+      "marketplace_offer": {
+        "listing_action_hash": "synthetic:listing:001",
+        "listing_revision": "synthetic-revision-1",
+        "observed_state": "fixture",
+        "observed_at": "2026-10-20T06:30:00Z",
+        "price_state": "seller_asserted",
+        "amount_minor": 950000,
+        "currency_code": "ZAR",
+        "availability_state": "seller_asserted",
+        "quantity": 1,
+        "delivery_state": "pickup_only",
+        "delivery_region_code": "ZA-GP-JHB",
+        "terms_digest_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "stable_listing_root_hash": "synthetic:root:001",
+        "revision_observation": {
+          "policy_version": 1,
+          "observation_scope": "local_dht_update_graph",
+          "coverage": "local_observed_links_only",
+          "state": "single_observed_head",
+          "reason": "single_observed_head",
+          "revision_count": 2,
+          "observed_head_action_hashes": [
+            "synthetic:listing:001"
+          ],
+          "sole_observed_head_action_hash": "synthetic:listing:001"
+        }
+      },
+      "design_compatibility": {
+        "compatibility_state": "compatible_for_declared_checks",
+        "design_revision": "synthetic-studio-v1",
+        "design_context_digest_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "hard_constraint_results": [
+          {
+            "constraint_id": "desk-footprint-fits",
+            "outcome": "pass",
+            "reason": "Synthetic measured rectangle fits the declared candidate zone; real delivery and site fit still need review.",
+            "evidence_refs": [
+              "geom-001"
+            ]
+          }
+        ],
+        "preference_dimensions": [
+          {
+            "dimension": "repairability",
+            "value_state": "declared_by_resident",
+            "value_0_to_100": 85,
+            "evidence_refs": [
+              "repair-001"
+            ]
+          },
+          {
+            "dimension": "local_making",
+            "value_state": "declared_by_resident",
+            "value_0_to_100": 80,
+            "evidence_refs": []
+          }
+        ]
+      },
+      "evidence": [
+        {
+          "evidence_ref": "geom-001",
+          "claim_kind": "geometry",
+          "claimant_or_issuer": "Synthetic local repair cooperative",
+          "claim_state": "buyer_observed",
+          "scope": "one synthetic desk instance; 2D footprint only",
+          "source_digest_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "issued_at": "2026-10-20T06:00:00Z",
+          "validity_state": "valid_for_scoped_claim",
+          "rights_state": "redistribution_permitted"
+        },
+        {
+          "evidence_ref": "mat-001",
+          "claim_kind": "material_composition",
+          "claimant_or_issuer": "Synthetic local repair cooperative",
+          "claim_state": "asserted",
+          "scope": "seller-described material composition; not independently verified",
+          "source_digest_sha256": null,
+          "validity_state": "unknown",
+          "rights_state": "link_only"
+        },
+        {
+          "evidence_ref": "repair-001",
+          "claim_kind": "repairability",
+          "claimant_or_issuer": "Synthetic local repair cooperative",
+          "claim_state": "asserted",
+          "scope": "instructions and replaceable-part claim; not independently verified",
+          "source_digest_sha256": null,
+          "validity_state": "unknown",
+          "rights_state": "link_only"
+        },
+        {
+          "evidence_ref": "rights-001",
+          "claim_kind": "geometry_use_rights",
+          "claimant_or_issuer": "Synthetic rights-holder",
+          "claim_state": "asserted",
+          "scope": "Synthetic rights statement allowing local layout evaluation and redistribution of this synthetic geometry fixture.",
+          "geometry_use_license": "redisplay_and_layout_allowed",
+          "source_digest_sha256": "1111111111111111111111111111111111111111111111111111111111111111",
+          "validity_state": "valid_for_scoped_claim",
+          "rights_state": "redistribution_permitted"
+        }
+      ],
+      "claim_ceiling": [
+        "Synthetic fixture; no real seller, listing, price, stock or delivery commitment.",
+        "Observed footprint does not establish stability, load capacity, electrical safety, accessibility compliance, or full installation feasibility.",
+        "Seller material and repairability claims remain assertions."
+      ]
+    },
+    {
+      "schema_version": "0.2.0",
+      "profile_id": "FURN-MKT-002",
+      "status": "synthetic_fixture",
+      "catalog_item": {
+        "item_id": "desk-new-standard-02",
+        "category": "desk",
+        "condition": "new",
+        "identity": {
+          "identity_state": "manufacturer_model_known",
+          "manufacturer_or_maker": "Synthetic Example Works",
+          "model_or_variant": "Desk D120",
+          "ifc_class": "IfcFurniture"
+        },
+        "geometry": {
+          "dimension_state": "manufacturer_specification",
+          "unit": "m",
+          "width": 1.2,
+          "depth": 0.6,
+          "height": 0.75,
+          "tolerance_m": 0.005,
+          "orientation_set": [
+            0,
+            90
+          ],
+          "geometry_digest_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+          "geometry_evidence_refs": [
+            "geom-002"
+          ],
+          "geometry_use_license": "redisplay_only",
+          "geometry_license_evidence_refs": [
+            "rights-002"
+          ]
+        },
+        "task_envelopes": [
+          {
+            "kind": "front_approach",
+            "dimensions_state": "unknown",
+            "width_m": null,
+            "depth_m": null,
+            "source_evidence_refs": []
+          }
+        ],
+        "materials": [
+          {
+            "material_label": "laminated engineered wood",
+            "fraction_by_mass": null,
+            "claim_state": "manufacturer_declared",
+            "evidence_refs": [
+              "mat-002"
+            ]
+          }
+        ],
+        "repairability": {
+          "disassembly_state": "unknown",
+          "spare_parts_state": "unknown",
+          "repair_instructions_state": "unknown",
+          "replaceable_components": [],
+          "repair_evidence_refs": []
+        }
+      },
+      "marketplace_offer": {
+        "listing_action_hash": "synthetic:listing:002",
+        "listing_revision": "synthetic-revision-1",
+        "observed_state": "fixture",
+        "observed_at": "2026-10-20T06:30:00Z",
+        "price_state": "seller_asserted",
+        "amount_minor": 1299000,
+        "currency_code": "ZAR",
+        "availability_state": "seller_asserted",
+        "quantity": 3,
+        "delivery_state": "unknown",
+        "delivery_region_code": "ZA-GP-JHB",
+        "delivery_quote_ref": null,
+        "terms_digest_sha256": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+        "stable_listing_root_hash": "synthetic:root:002",
+        "revision_observation": {
+          "policy_version": 1,
+          "observation_scope": "local_dht_update_graph",
+          "coverage": "local_observed_links_only",
+          "state": "single_observed_head",
+          "reason": "single_observed_head",
+          "revision_count": 1,
+          "observed_head_action_hashes": [
+            "synthetic:listing:002"
+          ],
+          "sole_observed_head_action_hash": "synthetic:listing:002"
+        }
+      },
+      "design_compatibility": {
+        "compatibility_state": "indeterminate",
+        "design_revision": "synthetic-studio-v1",
+        "design_context_digest_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "hard_constraint_results": [
+          {
+            "constraint_id": "desk-footprint-fits",
+            "outcome": "indeterminate",
+            "reason": "Nominal dimensions fit the rectangle check, but layout-use permission is not granted; the system must not claim an eligible geometry-based fit.",
+            "evidence_refs": [
+              "geom-002"
+            ]
+          },
+          {
+            "constraint_id": "front-approach-confirmed",
+            "outcome": "indeterminate",
+            "reason": "The approach envelope is unknown and cannot be inferred from the footprint.",
+            "evidence_refs": []
+          }
+        ],
+        "preference_dimensions": [
+          {
+            "dimension": "upfront_price",
+            "value_state": "declared_by_resident",
+            "value_0_to_100": 70,
+            "evidence_refs": []
+          },
+          {
+            "dimension": "repairability",
+            "value_state": "not_assessed",
+            "value_0_to_100": null,
+            "evidence_refs": []
+          }
+        ]
+      },
+      "evidence": [
+        {
+          "evidence_ref": "geom-002",
+          "claim_kind": "geometry",
+          "claimant_or_issuer": "Synthetic Example Works",
+          "claim_state": "manufacturer_declared",
+          "scope": "manufacturer nominal dimensions only",
+          "source_digest_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+          "issued_at": "2026-10-20T06:00:00Z",
+          "validity_state": "valid_for_scoped_claim",
+          "rights_state": "private_or_restricted"
+        },
+        {
+          "evidence_ref": "mat-002",
+          "claim_kind": "material_composition",
+          "claimant_or_issuer": "Synthetic Example Works",
+          "claim_state": "manufacturer_declared",
+          "scope": "manufacturer material claim; no third-party verification",
+          "source_digest_sha256": null,
+          "validity_state": "unknown",
+          "rights_state": "link_only"
+        },
+        {
+          "evidence_ref": "rights-002",
+          "claim_kind": "geometry_use_rights",
+          "claimant_or_issuer": "Synthetic manufacturer",
+          "claim_state": "manufacturer_declared",
+          "scope": "Synthetic rights statement permits product-page redisplay only and does not grant use of the geometry asset in layout evaluation.",
+          "geometry_use_license": "redisplay_only",
+          "source_digest_sha256": "2222222222222222222222222222222222222222222222222222222222222222",
+          "validity_state": "valid_for_scoped_claim",
+          "rights_state": "redistribution_permitted"
+        }
+      ],
+      "claim_ceiling": [
+        "Synthetic fixture; no real seller, listing, price, stock or delivery commitment.",
+        "Geometry reuse for layout is not licensed in this example, so the matcher must not copy or redistribute the geometry.",
+        "Nominal dimensions alone do not establish task accessibility, repairability or installed fit."
+      ]
+    },
+    {
+      "schema_version": "0.2.0",
+      "profile_id": "FURN-MKT-003",
+      "status": "synthetic_fixture",
+      "catalog_item": {
+        "item_id": "cabinet-upcycled-03",
+        "category": "storage",
+        "condition": "used",
+        "identity": {
+          "identity_state": "seller_described",
+          "manufacturer_or_maker": "Synthetic private seller",
+          "model_or_variant": "Upcycled cabinet",
+          "ifc_class": "IfcFurniture"
+        },
+        "geometry": {
+          "dimension_state": "unknown",
+          "unit": "m",
+          "width": null,
+          "depth": null,
+          "height": null,
+          "tolerance_m": null,
+          "orientation_set": [
+            0
+          ],
+          "geometry_digest_sha256": null,
+          "geometry_evidence_refs": [],
+          "geometry_use_license": "unknown",
+          "geometry_license_evidence_refs": []
+        },
+        "task_envelopes": [
+          {
+            "kind": "drawer_or_door_swing",
+            "dimensions_state": "unknown",
+            "width_m": null,
+            "depth_m": null,
+            "source_evidence_refs": []
+          }
+        ],
+        "materials": [
+          {
+            "material_label": "reused wood",
+            "fraction_by_mass": null,
+            "claim_state": "seller_asserted",
+            "evidence_refs": []
+          }
+        ],
+        "repairability": {
+          "disassembly_state": "unknown",
+          "spare_parts_state": "unknown",
+          "repair_instructions_state": "unknown",
+          "replaceable_components": [],
+          "repair_evidence_refs": []
+        }
+      },
+      "marketplace_offer": {
+        "listing_action_hash": "synthetic:listing:003",
+        "listing_revision": "synthetic-revision-1",
+        "observed_state": "fixture",
+        "observed_at": null,
+        "price_state": "unknown",
+        "amount_minor": null,
+        "currency_code": null,
+        "availability_state": "unknown",
+        "quantity": null,
+        "delivery_state": "unknown",
+        "delivery_region_code": null,
+        "delivery_quote_ref": null,
+        "terms_digest_sha256": null,
+        "stable_listing_root_hash": "synthetic:root:003",
+        "revision_observation": {
+          "policy_version": 1,
+          "observation_scope": "local_dht_update_graph",
+          "coverage": "local_observed_links_only",
+          "state": "single_observed_head",
+          "reason": "single_observed_head",
+          "revision_count": 1,
+          "observed_head_action_hashes": [
+            "synthetic:listing:003"
+          ],
+          "sole_observed_head_action_hash": "synthetic:listing:003"
+        }
+      },
+      "design_compatibility": {
+        "compatibility_state": "indeterminate",
+        "design_revision": "synthetic-studio-v1",
+        "design_context_digest_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "hard_constraint_results": [
+          {
+            "constraint_id": "storage-footprint-fits",
+            "outcome": "indeterminate",
+            "reason": "No item dimensions or valid geometry evidence; do not guess from product category or photo.",
+            "evidence_refs": []
+          }
+        ],
+        "preference_dimensions": [
+          {
+            "dimension": "reuse_first",
+            "value_state": "declared_by_resident",
+            "value_0_to_100": 90,
+            "evidence_refs": []
+          }
+        ]
+      },
+      "evidence": [],
+      "claim_ceiling": [
+        "Synthetic fixture; do not show as a verified fit.",
+        "Unknown availability, price, delivery and geometry must remain unknown.",
+        "Material reuse is an unverified seller assertion, not an environmental benefit measurement."
+      ]
+    },
+    {
+      "schema_version": "0.2.0",
+      "profile_id": "FURN-MKT-004",
+      "status": "synthetic_fixture",
+      "catalog_item": {
+        "item_id": "desk-conflicted-revision-04",
+        "category": "desk",
+        "condition": "refurbished",
+        "identity": {
+          "identity_state": "one_off_or_artisan",
+          "manufacturer_or_maker": "Synthetic local repair cooperative",
+          "model_or_variant": "Synthetic desk with concurrent listing updates",
+          "ifc_class": "IfcFurniture"
+        },
+        "geometry": {
+          "dimension_state": "measured_item",
+          "unit": "m",
+          "width": 1.2,
+          "depth": 0.6,
+          "height": 0.74,
+          "tolerance_m": 0.01,
+          "orientation_set": [
+            0,
+            90,
+            180,
+            270
+          ],
+          "geometry_digest_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "geometry_evidence_refs": [
+            "geom-001"
+          ],
+          "geometry_use_license": "redisplay_and_layout_allowed",
+          "geometry_license_evidence_refs": [
+            "rights-001"
+          ]
+        },
+        "task_envelopes": [
+          {
+            "kind": "front_approach",
+            "dimensions_state": "illustrative",
+            "width_m": 1,
+            "depth_m": 0.7,
+            "source_evidence_refs": []
+          }
+        ],
+        "materials": [
+          {
+            "material_label": "reclaimed timber",
+            "fraction_by_mass": 0.7,
+            "claim_state": "seller_asserted",
+            "evidence_refs": [
+              "mat-001"
+            ]
+          },
+          {
+            "material_label": "reused steel fasteners",
+            "fraction_by_mass": 0.1,
+            "claim_state": "seller_asserted",
+            "evidence_refs": [
+              "mat-001"
+            ]
+          }
+        ],
+        "repairability": {
+          "disassembly_state": "documented_reversible",
+          "spare_parts_state": "seller_claimed",
+          "repair_instructions_state": "available_on_request",
+          "replaceable_components": [
+            "desktop panel",
+            "leg assembly"
+          ],
+          "repair_evidence_refs": [
+            "repair-001"
+          ]
+        }
+      },
+      "marketplace_offer": {
+        "listing_action_hash": null,
+        "listing_revision": null,
+        "stable_listing_root_hash": "synthetic:root:004",
+        "revision_observation": {
+          "policy_version": 1,
+          "observation_scope": "local_dht_update_graph",
+          "coverage": "local_observed_links_only",
+          "state": "concurrent_heads",
+          "reason": "concurrent_observed_heads",
+          "revision_count": 3,
+          "observed_head_action_hashes": [
+            "synthetic:head:004a",
+            "synthetic:head:004b"
+          ],
+          "sole_observed_head_action_hash": null
+        },
+        "observed_state": "conflict",
+        "observed_at": null,
+        "price_state": "unknown",
+        "amount_minor": null,
+        "currency_code": null,
+        "availability_state": "unknown",
+        "quantity": null,
+        "delivery_state": "unknown",
+        "delivery_region_code": null,
+        "delivery_quote_ref": null,
+        "terms_digest_sha256": null
+      },
+      "design_compatibility": {
+        "compatibility_state": "compatible_for_declared_checks",
+        "design_revision": "synthetic-studio-v1",
+        "design_context_digest_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "hard_constraint_results": [
+          {
+            "constraint_id": "desk-footprint-fits",
+            "outcome": "pass",
+            "reason": "Synthetic measured rectangle fits the declared candidate zone; real delivery and site fit still need review.",
+            "evidence_refs": [
+              "geom-001"
+            ]
+          }
+        ],
+        "preference_dimensions": [
+          {
+            "dimension": "repairability",
+            "value_state": "declared_by_resident",
+            "value_0_to_100": 85,
+            "evidence_refs": [
+              "repair-001"
+            ]
+          },
+          {
+            "dimension": "local_making",
+            "value_state": "declared_by_resident",
+            "value_0_to_100": 80,
+            "evidence_refs": []
+          }
+        ]
+      },
+      "evidence": [
+        {
+          "evidence_ref": "geom-001",
+          "claim_kind": "geometry",
+          "claimant_or_issuer": "Synthetic local repair cooperative",
+          "claim_state": "buyer_observed",
+          "scope": "one synthetic desk instance; 2D footprint only",
+          "source_digest_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "issued_at": "2026-10-20T06:00:00Z",
+          "validity_state": "valid_for_scoped_claim",
+          "rights_state": "redistribution_permitted"
+        },
+        {
+          "evidence_ref": "mat-001",
+          "claim_kind": "material_composition",
+          "claimant_or_issuer": "Synthetic local repair cooperative",
+          "claim_state": "asserted",
+          "scope": "seller-described material composition; not independently verified",
+          "source_digest_sha256": null,
+          "validity_state": "unknown",
+          "rights_state": "link_only"
+        },
+        {
+          "evidence_ref": "repair-001",
+          "claim_kind": "repairability",
+          "claimant_or_issuer": "Synthetic local repair cooperative",
+          "claim_state": "asserted",
+          "scope": "instructions and replaceable-part claim; not independently verified",
+          "source_digest_sha256": null,
+          "validity_state": "unknown",
+          "rights_state": "link_only"
+        },
+        {
+          "evidence_ref": "rights-001",
+          "claim_kind": "geometry_use_rights",
+          "claimant_or_issuer": "Synthetic rights-holder",
+          "claim_state": "asserted",
+          "scope": "Synthetic rights statement allowing local layout evaluation and redistribution of this synthetic geometry fixture.",
+          "geometry_use_license": "redisplay_and_layout_allowed",
+          "source_digest_sha256": "1111111111111111111111111111111111111111111111111111111111111111",
+          "validity_state": "valid_for_scoped_claim",
+          "rights_state": "redistribution_permitted"
+        }
+      ],
+      "claim_ceiling": [
+        "Synthetic concurrent listing-revision fixture; no real seller, listing, price, stock or delivery commitment.",
+        "The update graph has two locally observed heads. No head is selected by timestamp, hash, price or quantity.",
+        "Price, availability, delivery and terms are unknown until an authorized resolution produces an authoritative revision.",
+        "local_observed_links_only is not proof of global catalogue completeness or DHT convergence."
+      ]
+    }
+  ]
+}
