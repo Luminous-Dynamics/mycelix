@@ -719,8 +719,12 @@ mod tests {
     #[test]
     fn evidence_paths_cannot_escape_the_declared_root() {
         let mut receipt = valid_receipt("finance");
-        let entry = receipt["executions"].as_array_mut().unwrap().iter_mut()
-            .find(|item| item["scenario_id"] == "CIV-CAP-001").unwrap();
+        let entry = receipt["executions"]
+            .as_array_mut()
+            .unwrap()
+            .iter_mut()
+            .find(|item| item["scenario_id"] == "CIV-CAP-001")
+            .unwrap();
         entry["evidence"][0]["path"] = json!("../../Cargo.toml");
         assert!(
             evaluate(&receipt)
