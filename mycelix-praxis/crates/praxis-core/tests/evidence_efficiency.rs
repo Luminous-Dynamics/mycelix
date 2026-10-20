@@ -376,6 +376,7 @@ fn evaluate_policy(
                 request_id: request.request_id.clone(),
                 disposition: RequestDisposition::BlockedBudget,
                 quality: None,
+                sufficiency: None,
                 expected_information_gain_milli_bits: 0,
             });
             continue;
