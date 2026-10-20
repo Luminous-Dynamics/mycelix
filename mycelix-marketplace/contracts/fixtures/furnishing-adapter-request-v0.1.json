@@ -41,7 +41,9 @@
     "exact_address_transmitted": false,
     "occupant_profile_transmitted": false,
     "floor_plan_transmitted": false,
-    "household_preferences_transmitted": false
+    "unrelated_household_preferences_transmitted": false,
+    "design_context_digest_transmitted": false,
+    "query_digest_transmitted": false
   },
   "effects": {
     "create_order": false,
