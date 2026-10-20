@@ -121,8 +121,9 @@ pub const SELF_RECOVERY_MIN_TIME_LOCK: u64 = 72 * 3600;
 /// Default time lock: 7 days (conservative for zero-anchor configs).
 pub const SELF_RECOVERY_DEFAULT_TIME_LOCK: u64 = 7 * 24 * 3600;
 
-/// Self-recovery configuration — created automatically at DID creation.
-/// Recovery is time-locked and requires proving control of enrolled anchors.
+/// Legacy self-recovery configuration — created in an inactive state.
+/// The current schema stores anchor identifiers but has no proof receipt, so
+/// configuration alone must not enable recovery or imply proof-of-possession.
 #[hdk_entry_helper]
 #[derive(Clone, PartialEq)]
 pub struct SelfRecoveryConfig {
