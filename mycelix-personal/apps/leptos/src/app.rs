@@ -14,9 +14,10 @@ use mycelix_leptos_core::consciousness::refresh_consciousness_from_conductor;
 use mycelix_leptos_core::local_identity::{
     IdentityBootstrapAction, LocalIdentityStoragePosture, allowed_identity_bootstrap_actions,
     create_protected_identity, export_unlocked_identity_seed_phrase,
-    identity_bootstrap_action_allowed, inspect_local_identity_posture, protect_existing_identity,
-    recovery_phrase_challenge_positions, restore_protected_identity_from_seed_phrase,
-    unlock_with_passphrase,
+    identity_bootstrap_action_allowed, inspect_local_identity_posture,
+    mark_recovery_backup_confirmed, protect_existing_identity,
+    recovery_backup_confirmation_needed, recovery_phrase_challenge_positions,
+    restore_protected_identity_from_seed_phrase, unlock_with_passphrase,
 };
 use mycelix_leptos_core::{
     ActivityFeed, ActivityFeedItem, AppShell, AvailabilityState, AvailabilityStateKind,
@@ -82,8 +83,12 @@ pub fn App() -> impl IntoView {
 
 #[component]
 fn AppInner() -> impl IntoView {
-    let posture = RwSignal::new(inspect_local_identity_posture());
-    let backup_pending = RwSignal::new(false);
+    let initial_posture = inspect_local_identity_posture();
+    let backup_pending = RwSignal::new(
+        initial_posture == LocalIdentityStoragePosture::ProtectedUnlockedInSession
+            && recovery_backup_confirmation_needed(),
+    );
+    let posture = RwSignal::new(initial_posture);
 
     view! {
         <Show
@@ -293,6 +298,18 @@ fn IdentityBootstrapGate(
     let backup_answers = RwSignal::new([String::new(), String::new(), String::new()]);
     let backup_acknowledged = RwSignal::new(false);
 
+    if backup_pending.get_untracked() {
+        match prepare_recovery_backup() {
+            Ok((words, positions)) => {
+                backup_phrase_words.set(words);
+                backup_challenge_positions.set(Some(positions));
+            }
+            Err(error) => status_message.set(format!(
+                "Recovery backup needs setup before entering Personal: {error}"
+            )),
+        }
+    }
+
     let submit = move |ev: SubmitEvent| {
         ev.prevent_default();
         if busy.get_untracked() {
@@ -421,16 +438,18 @@ fn IdentityBootstrapGate(
                         == LocalIdentityStoragePosture::ProtectedUnlockedInSession =>
                 {
                     posture_signal.set(LocalIdentityStoragePosture::ProtectedUnlockedInSession);
-                    if matches!(
-                        action,
-                        IdentityBootstrapAction::CreateProtectedIdentity
-                            | IdentityBootstrapAction::ProtectExistingIdentity
-                    ) {
+                    if recovery_backup_confirmation_needed() {
                         backup_pending_signal.set(true);
                         match prepare_recovery_backup() {
                             Ok((words, positions)) => {
+                                backup_words_signal.update(zeroize_recovery_words);
                                 backup_words_signal.set(words);
                                 backup_positions_signal.set(Some(positions));
+                                backup_answers_signal.update(|answers| {
+                                    for answer in answers.iter_mut() {
+                                        answer.zeroize();
+                                    }
+                                });
                                 backup_answers_signal.set([
                                     String::new(),
                                     String::new(),
@@ -438,21 +457,22 @@ fn IdentityBootstrapGate(
                                 ]);
                                 backup_ack_signal.set(false);
                                 status_signal.set(
-                                    "Identity protected. Save the recovery phrase and confirm three words before continuing."
+                                    "Identity is protected. Save the recovery phrase and confirm three words before continuing."
                                         .to_string(),
                                 );
                             }
                             Err(error) => {
+                                backup_words_signal.update(zeroize_recovery_words);
                                 backup_words_signal.set(Vec::new());
                                 backup_positions_signal.set(None);
                                 status_signal.set(format!(
-                                    "Identity protection succeeded, but backup setup must be retried before entering Personal: {error}"
+                                    "Backup setup must be completed before entering Personal: {error}"
                                 ));
                             }
                         }
                     } else {
                         status_signal
-                            .set("Protected identity state verified for this session.".to_string());
+                            .set("Protected identity and recovery backup state verified for this session.".to_string());
                     }
                 }
                 Ok(_) => {
@@ -532,6 +552,23 @@ fn IdentityBootstrapGate(
                     .to_string()
             });
             zeroize_recovery_words(&mut words);
+            return;
+        }
+
+        if let Err(error) = mark_recovery_backup_confirmed() {
+            for answer in answers.iter_mut() {
+                answer.zeroize();
+            }
+            backup_answers.update(|stored_answers| {
+                for answer in stored_answers.iter_mut() {
+                    answer.zeroize();
+                }
+            });
+            backup_answers.set([String::new(), String::new(), String::new()]);
+            zeroize_recovery_words(&mut words);
+            status_message.set(format!(
+                "The word check passed, but recovery confirmation could not be verified: {error}. Personal remains gated; retry the check."
+            ));
             return;
         }
 
