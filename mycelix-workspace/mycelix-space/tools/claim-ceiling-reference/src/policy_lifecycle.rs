@@ -770,7 +770,7 @@ mod tests {
             corpus.schema_version,
             "mycelix.claim-policy-lifecycle.golden.v1"
         );
-        assert_eq!(corpus.cases.len(), 19);
+        assert_eq!(corpus.cases.len(), 20);
 
         for vector in corpus.cases {
             let receipt = evaluate_policy_release_bytes(
