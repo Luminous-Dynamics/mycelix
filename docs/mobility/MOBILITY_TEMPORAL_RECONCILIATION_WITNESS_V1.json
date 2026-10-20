@@ -1,0 +1,33 @@
+{
+  "schema": "mobility-temporal-reconciliation-witness-v1",
+  "scope": "semantic-provenance-only",
+  "required_fields": [
+    "left_claim",
+    "right_claim",
+    "left_applicability",
+    "right_applicability",
+    "comparability",
+    "compatibility",
+    "explicitly_superseded",
+    "disputed",
+    "result"
+  ],
+  "reproducibility": "result-must-equal-deterministic-classification-of-recorded-inputs",
+  "forbidden_inferences": [
+    "physical_truth",
+    "physical_safety",
+    "certification",
+    "regulatory_approval",
+    "physical_equivalence",
+    "engineering_correctness"
+  ],
+  "adversarial_cases": [
+    "missing_identity",
+    "same_claim",
+    "tampered_classification",
+    "tampered_dispute",
+    "unknown_temporal_bounds",
+    "explicit_supersession",
+    "protocol_identity_substitution"
+  ]
+}
