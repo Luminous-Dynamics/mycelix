@@ -419,6 +419,7 @@ pub fn tally_votes(decision_hash: ActionHash) -> ExternResult<Vec<(u32, u32)>> {
 #[hdk_extern]
 pub fn finalize_decision(input: FinalizeDecisionInput) -> ExternResult<Record> {
     let now = sys_time()?;
+    let agent = agent_info()?.agent_initial_pubkey;
 
     // Get the decision
     let decision_record = get(input.decision_hash.clone(), GetOptions::default())?.ok_or(
@@ -520,6 +521,7 @@ pub fn finalize_decision(input: FinalizeDecisionInput) -> ExternResult<Record> {
     // Create the outcome
     let outcome = DecisionOutcome {
         decision_hash: input.decision_hash.clone(),
+        resolved_by: Some(agent.clone()),
         chosen_option,
         participation_rate_bp,
         resolved_at: now,
@@ -636,6 +638,7 @@ pub fn close_decision(input: CloseDecisionInput) -> ExternResult<Record> {
 
         let outcome = DecisionOutcome {
             decision_hash: input.decision_hash.clone(),
+            resolved_by: Some(agent.clone()),
             chosen_option,
             participation_rate_bp: participation,
             resolved_at: now,
