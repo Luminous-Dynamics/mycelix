@@ -41,7 +41,7 @@ struct Expected {
     protected_payload_bytes_returned: u64,
 }
 
-#[derive(Debug, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
 enum ProtocolResult {
     Success,
