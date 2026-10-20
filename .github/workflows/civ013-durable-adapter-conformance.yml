@@ -1,0 +1,93 @@
+name: CIV-013 Durable Adapter Conformance
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+    paths:
+      - ".github/workflows/civ013-durable-adapter-conformance.yml"
+      - "docs/integral/civ-013-durable-adapter-conformance-v1*"
+      - "scripts/integral/verify_civ013_durable_adapter_conformance_v1.py"
+  push:
+    branches:
+      - research/civ-013-durable-adapter-conformance-v1
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: civ013-durable-adapter-conformance-${{ github.event.pull_request.number || github.ref }}-${{ github.sha }}
+  cancel-in-progress: false
+
+jobs:
+  verify:
+    name: Durable adapter golden conformance exact-head
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    env:
+      QUALIFIED_SHA: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
+    steps:
+      - name: Checkout exact qualification subject
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          ref: ${{ env.QUALIFIED_SHA }}
+          persist-credentials: false
+
+      - name: Assert exact subject and pinned verifier ancestor
+        shell: bash
+        run: |
+          set -euo pipefail
+          actual="$(git rev-parse HEAD)"
+          test "$actual" = "$QUALIFIED_SHA"
+          checker_commit="$(python3 -c 'import json; print(json.load(open("docs/integral/civ-013-durable-adapter-conformance-v1-manifest.json"))["checker_commit_sha"])')"
+          verifier_path="$(python3 -c 'import json; print(json.load(open("docs/integral/civ-013-durable-adapter-conformance-v1-manifest.json"))["verifier_path"])')"
+          verifier_sha="$(python3 -c 'import json; print(json.load(open("docs/integral/civ-013-durable-adapter-conformance-v1-manifest.json"))["verifier_sha256"])')"
+          git cat-file -e "$checker_commit:$verifier_path"
+          git merge-base --is-ancestor "$checker_commit" "$QUALIFIED_SHA"
+          source_sha="$(git show "$checker_commit:$verifier_path" | sha256sum | cut -d ' ' -f1)"
+          test "$source_sha" = "$verifier_sha"
+          printf 'qualified_sha=%s\nchecker_commit_sha=%s\n' "$actual" "$checker_commit"
+
+      - name: Validate JSON syntax
+        run: |
+          python3 -m json.tool docs/integral/civ-013-durable-adapter-conformance-v1.json >/dev/null
+          python3 -m json.tool docs/integral/civ-013-durable-adapter-conformance-v1-manifest.json >/dev/null
+
+      - name: Verify canonical record and fork vectors
+        id: vectors
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 scripts/integral/verify_civ013_durable_adapter_conformance_v1.py | tee civ013-durable-adapter-conformance.txt
+
+      - name: Emit conformance evidence
+        if: always()
+        shell: bash
+        env:
+          VECTOR_OUTCOME: ${{ steps.vectors.outcome }}
+        run: |
+          set -euo pipefail
+          mkdir -p evidence
+          vector_outcome="$VECTOR_OUTCOME"
+          if [[ -z "$vector_outcome" ]]; then vector_outcome=not-run; fi
+          {
+            printf 'qualified_sha=%s\n' "$QUALIFIED_SHA"
+            printf 'profile_id=civ-013-durable-adapter-v1\n'
+            printf 'vector_step_outcome=%s\n' "$vector_outcome"
+            printf '\nsha256s:\n'
+            sha256sum \
+              docs/integral/civ-013-durable-adapter-conformance-v1.json \
+              docs/integral/civ-013-durable-adapter-conformance-v1-manifest.json \
+              scripts/integral/verify_civ013_durable_adapter_conformance_v1.py
+          } > evidence/civ013-durable-adapter-conformance.txt
+
+      - name: Upload exact-head conformance evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: civ013-durable-adapter-conformance-${{ github.sha }}
+          path: |
+            evidence/civ013-durable-adapter-conformance.txt
+            civ013-durable-adapter-conformance.txt
+          if-no-files-found: warn
+          retention-days: 90
