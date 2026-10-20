@@ -5,7 +5,7 @@
 //! that a returned action is the newest listing revision, that the read is
 //! exhaustive, or that the transport is live rather than fixture-backed.
 
-use crate::{ClientError, MarketplaceClient, ZomeTransport};
+use crate::{ClientError, MarketplaceClient, TransportKind, ZomeTransport};
 use async_trait::async_trait;
 use marketplace_domain::{
     ActionHash, AgentPubKey, EmpiricalLevel, ListingCategory, ListingOutput, ListingStatus,
@@ -20,6 +20,12 @@ use marketplace_domain::{
 #[async_trait(?Send)]
 pub trait ListingReadPort {
     async fn read_all_listings(&self) -> Result<ListingsResponse, ClientError>;
+
+    /// Describes only the configured adapter/transport path. It does not
+    /// certify liveness, listing freshness, or snapshot completeness.
+    fn transport_provenance(&self) -> TransportProvenance {
+        TransportProvenance::UnclassifiedTransport
+    }
 }
 
 #[async_trait(?Send)]
@@ -29,6 +35,10 @@ where
 {
     async fn read_all_listings(&self) -> Result<ListingsResponse, ClientError> {
         self.get_all_listings().await
+    }
+
+    fn transport_provenance(&self) -> TransportProvenance {
+        self.transport_kind().into()
     }
 }
 
@@ -41,9 +51,27 @@ pub enum SnapshotCoverage {
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum TransportProvenance {
-    /// ZomeTransport does not currently identify whether the response came from
-    /// a live conductor, a fixture transport, or another adapter.
-    UnclassifiedLiveOrFixture,
+    /// The configured JS bridge path was selected; this is not a freshness,
+    /// completeness, or independently verified live-conductor receipt.
+    ConfiguredJsBridgeTransport,
+    /// The response was requested through the explicit development fixture path.
+    ExplicitDevelopmentFixture,
+    /// The configured stub always fails closed; a successful snapshot should not
+    /// normally be reachable through this mode.
+    UnavailableStub,
+    /// The transport has not declared a source mode.
+    UnclassifiedTransport,
+}
+
+impl From<TransportKind> for TransportProvenance {
+    fn from(value: TransportKind) -> Self {
+        match value {
+            TransportKind::JsBridge => Self::ConfiguredJsBridgeTransport,
+            TransportKind::DevelopmentFixture => Self::ExplicitDevelopmentFixture,
+            TransportKind::UnavailableStub => Self::UnavailableStub,
+            TransportKind::Unclassified => Self::UnclassifiedTransport,
+        }
+    }
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -168,8 +196,11 @@ where
     }
 
     pub async fn discover(&self) -> Result<FurnishingDiscoverySnapshot, ClientError> {
+        let transport_provenance = self.read_port.transport_provenance();
         let response = self.read_port.read_all_listings().await?;
-        Ok(project_listing_snapshot(response))
+        let mut snapshot = project_listing_snapshot(response);
+        snapshot.transport_provenance = transport_provenance;
+        Ok(snapshot)
     }
 }
 
@@ -198,7 +229,7 @@ pub fn project_listing_snapshot(response: ListingsResponse) -> FurnishingDiscove
     FurnishingDiscoverySnapshot {
         result,
         coverage: SnapshotCoverage::UnknownUnpaginatedRead,
-        transport_provenance: TransportProvenance::UnclassifiedLiveOrFixture,
+        transport_provenance: TransportProvenance::UnclassifiedTransport,
         listings,
     }
 }
@@ -298,6 +329,24 @@ mod tests {
         assert!(!snapshot.can_claim_complete_current_furniture_offers());
     }
 
+    #[cfg(feature = "dev-fixtures")]
+    #[test]
+    fn fixture_client_exposes_fixture_mode_without_claiming_live_provenance() {
+        let client = MarketplaceClient::new(crate::FixtureTransport::default());
+        assert_eq!(
+            client.transport_provenance(),
+            TransportProvenance::ExplicitDevelopmentFixture
+        );
+    }
+
+    #[test]
+    fn unknown_transport_defaults_to_unclassified_provenance() {
+        assert_eq!(
+            TransportProvenance::from(TransportKind::Unclassified),
+            TransportProvenance::UnclassifiedTransport
+        );
+    }
+
     #[test]
     fn home_garden_category_does_not_assert_that_item_is_furniture() {
         let snapshot = project_listing_snapshot(ListingsResponse {
@@ -351,7 +400,7 @@ mod tests {
         assert_eq!(snapshot.coverage, SnapshotCoverage::UnknownUnpaginatedRead);
         assert_eq!(
             snapshot.transport_provenance,
-            TransportProvenance::UnclassifiedLiveOrFixture
+            TransportProvenance::UnclassifiedTransport
         );
         assert!(!snapshot.can_claim_complete_current_furniture_offers());
     }
