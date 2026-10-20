@@ -127,6 +127,31 @@ An aspirational optimization hypothesis is **at least 20% lower p95 end-to-end l
 
 For any claim of “better than state of the art,” choose a named baseline and publication/revision, replicate its relevant workload where licensing and practicality permit, report hardware/configuration, and compare equivalent semantics. Mycelix should earn differentiation through correctness under partial failure, explicit uncertainty, privacy-preserving evidence, recovery, and measured cost—not architectural vocabulary.
 
+## State-of-the-art and industry comparison
+
+Use external benchmarks for the layer they actually measure; do not collapse unlike guarantees into one leaderboard.
+
+| Comparison layer | Useful reference | What it tells us | What it does not prove |
+|---|---|---|---|
+| Holochain runtime | [Holochain Wind Tunnel roadmap](https://www.holochain.org/roadmap/) and [0.7 compatibility matrix](https://developer.holochain.org/resources/compatibility/holochain-0.7/) | Runtime behavior/performance scenarios, host metrics and version-appropriate baselines | Correctness of Mycelix's application-level consent, recovery, finance or governance policies |
+| Transaction-performance methodology | [Hyperledger Caliper](https://github.com/hyperledger-caliper/caliper) and its [benchmark examples](https://github.com/hyperledger-caliper/caliper-benchmarks) | Workload-driven transaction/read throughput, latency, success rates and resource consumption | A fair cross-platform comparison unless the system connectors and workload semantics are equivalent; current Caliper connector support must be checked before choosing a live comparator |
+| Credential interoperability | [W3C Verifiable Credentials Data Model 2.0](https://www.w3.org/TR/2025/REC-vc-data-model-2.0-20250515/) and [OpenID4VCI 1.0 Final](https://openid.net/specs/openid-4-verifiable-credential-issuance-1_0-final.html) | Credential structure, issuer-holder-verifier separation and interoperable issuance | That an issuer is trustworthy, a claim is true, the grant is authorized for this operation, or Mycelix conforms without conformance testing |
+| Proof of authenticator possession | [WebAuthn Level 3 Recommendation](https://www.w3.org/TR/webauthn-3/) (25 August 2026) | Origin-scoped public-key credentials and signed authenticator assertions | A drop-in replacement for a Holochain agent key, identity recovery, or the trust policy selecting accepted issuers/authenticators |
+
+### A defensible claim of improvement
+
+For each claim, preregister the workload and a named baseline before measuring. Run both systems on documented hardware with the same actors, payload sizes, data cardinality, retry policy and fault schedule. Report raw samples and uncertainty, not only a mean or composite score. Keep runtime version, DNA/hApp digest, benchmark corpus digest, workload seed and host metrics in the result receipt.
+
+Prioritize these cross-layer metrics:
+
+- **Cost per correct completed operation:** compute, memory, bytes and elapsed time divided by operations that reached the specified valid terminal state. Report rejected, pending, conflicting and unknown outcomes separately.
+- **Authorization and lifecycle failure rate:** measure false acceptance and false rejection against frozen known-answer vectors. For safety-critical decisions, any invalid acceptance is a hard-gate failure, not a small performance penalty.
+- **Recovery quality:** time to resume valid operations after restart/partition, number of duplicate logical effects, and percentage of cases in which state remains ambiguous.
+- **User-visible truthfulness:** proportion of cases where UI/API correctly distinguishes local authoring, peer visibility, confirmed current state, stale, expired, revoked, unavailable and unknown.
+- **Interoperability:** independent verifier agreement on the same versioned vectors, including unsupported algorithms/schema versions and trust-policy mismatch.
+
+The first competitive claim should be narrow, for example: *on three preregistered Mycelix civic workflows, the candidate reduces p95 cost per correct completed operation by at least 20% relative to a pinned Mycelix baseline, while passing all safety gates*. That threshold is a hypothesis, not a current result. Any external “better than SOTA” claim must name the system/version, match the semantics that can be matched, and publish the failure cases as well as successes.
+
 ## Runtime and upgrade discipline
 
 Record the exact runtime tuple per test. The official [Holochain 0.7 compatibility table](https://developer.holochain.org/resources/compatibility/holochain-0.7/) recommends the 0.7 line, but the [0.6 → 0.7 upgrade guide](https://developer.holochain.org/resources/upgrade/upgrade-holochain-0.7/) documents action-model changes, transport changes, changed DNA hashes, renamed databases, and no direct database migration path. Do not globally bump the workspace merely to make versions match; qualify each cluster's behavior-preserving migration separately and explicitly plan user-data continuity.
