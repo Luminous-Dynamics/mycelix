@@ -211,9 +211,10 @@ mod tests {
     use super::*;
     use crate::{
         ClaimAtom, ClaimPredicate, DerivationKind, EvidenceClass, IndependenceControl,
-        IntendedUse, ProvenanceRequirement,
+        IntendedUse, ProvenanceRequirement, meet,
     };
     use serde_json::json;
+    use std::collections::BTreeSet;
 
     fn atom(predicate: ClaimPredicate, evidence: EvidenceClass, derivation: DerivationKind, use_case: IntendedUse) -> ClaimAtom {
         ClaimAtom { predicate, evidence_class: evidence, derivation, intended_use: use_case }
@@ -277,6 +278,13 @@ mod tests {
             DerivationKind::Direct,
             IntendedUse::OperationalExecution,
         ));
+        let raw_meet = meet(&candidate, &candidate);
+        assert_eq!(raw_meet.0, crate::MeetDisposition::UsableIntersection);
+        assert!(
+            raw_meet.1.as_ref().unwrap().claim_atoms.contains(&forbidden),
+            "the pure meet correctly preserves the shared atom but has no policy knowledge"
+        );
+
         let receipt = evaluate(candidate);
         assert_eq!(receipt.disposition, PolicyDisposition::RejectedByProfile);
         assert!(receipt.violations.iter().any(|v| v.code == "claim_atom_not_allowed"));
