@@ -15,9 +15,9 @@ use mycelix_leptos_core::local_identity::{
     IdentityBootstrapAction, LocalIdentityStoragePosture, allowed_identity_bootstrap_actions,
     create_protected_identity, export_unlocked_identity_seed_phrase,
     identity_bootstrap_action_allowed, inspect_local_identity_posture,
-    mark_recovery_backup_confirmed, protect_existing_identity,
-    recovery_backup_confirmation_needed, recovery_phrase_challenge_positions,
-    restore_protected_identity_from_seed_phrase, unlock_with_passphrase,
+    mark_recovery_backup_confirmed, protect_existing_identity, recovery_backup_confirmation_needed,
+    recovery_phrase_challenge_positions, restore_protected_identity_from_seed_phrase,
+    unlock_with_passphrase,
 };
 use mycelix_leptos_core::{
     ActivityFeed, ActivityFeedItem, AppShell, AvailabilityState, AvailabilityStateKind,
