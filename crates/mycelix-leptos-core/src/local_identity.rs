@@ -581,7 +581,7 @@ async fn persist_protected_signing_key(
         return Err("Could not persist public-key metadata; no identity was activated.".into());
     }
 
-    let persisted = read_identity_storage_snapshot_from(&storage);
+    let mut persisted = read_identity_storage_snapshot_from(&storage);
     let verified = persisted.as_ref().is_ok_and(|stored| {
         stored.secret_b64.is_none()
             && stored.public_b64.as_deref() == Some(public_b64.as_str())
@@ -589,6 +589,11 @@ async fn persist_protected_signing_key(
             && classify_identity_storage_snapshot(stored)
                 == LocalIdentityStoragePosture::ProtectedLocked
     });
+    if let Ok(stored) = persisted.as_mut() {
+        if let Some(secret_b64) = stored.secret_b64.as_mut() {
+            secret_b64.zeroize();
+        }
+    }
     if !verified {
         let encrypted_cleanup = storage.remove_item(IDENTITY_SECRET_ENCRYPTED_KEY);
         let public_cleanup = storage.remove_item(IDENTITY_PUBLIC_KEY);
@@ -639,17 +644,16 @@ pub async fn protect_existing_identity(
         );
     }
 
+    let public_b64 = snapshot.public_b64.clone();
     let mut prior_secret_b64 = snapshot
         .secret_b64
         .take()
         .ok_or_else(|| "Existing plaintext secret is missing.".to_string())?;
-    let public_b64 = snapshot
-        .public_b64
-        .clone()
-        .ok_or_else(|| "Existing public-key metadata is missing.".to_string())?;
     let signing_key_result = signing_key_from_secret_b64(&prior_secret_b64);
     prior_secret_b64.zeroize();
     let signing_key = signing_key_result?;
+    let public_b64 = public_b64
+        .ok_or_else(|| "Existing public-key metadata is missing.".to_string())?;
 
     if !public_key_matches_signing_key(&public_b64, &signing_key) {
         return Err("Existing identity secret/public key binding is inconsistent.".into());
@@ -848,19 +852,17 @@ async fn rewrap_protected_identity(passphrase: &str) -> Result<(), String> {
         .ok_or_else(|| "Browser identity storage is unavailable.".to_string())?;
     let mut snapshot = read_identity_storage_snapshot_from(&storage)
         .map_err(|_| "Browser identity storage could not be inspected.".to_string())?;
-    let public_b64 = snapshot
-        .public_b64
-        .clone()
-        .ok_or_else(|| "Protected identity public-key metadata is missing.".to_string())?;
-    let previous_wire = snapshot
-        .encrypted_wire
-        .clone()
-        .ok_or_else(|| "Protected identity envelope is missing.".to_string())?;
+    let public_b64_candidate = snapshot.public_b64.clone();
+    let previous_wire_candidate = snapshot.encrypted_wire.clone();
     let valid_previous_state = classify_identity_storage_snapshot(&snapshot)
         == LocalIdentityStoragePosture::ProtectedLocked
         && snapshot.secret_b64.is_none()
-        && public_key_matches_signing_key(&public_b64, &signing_key)
-        && encrypted_blob_is_structurally_valid(&previous_wire);
+        && public_b64_candidate
+            .as_deref()
+            .is_some_and(|public| public_key_matches_signing_key(public, &signing_key))
+        && previous_wire_candidate
+            .as_deref()
+            .is_some_and(encrypted_blob_is_structurally_valid);
     if let Some(secret_b64) = snapshot.secret_b64.as_mut() {
         secret_b64.zeroize();
     }
@@ -869,6 +871,10 @@ async fn rewrap_protected_identity(passphrase: &str) -> Result<(), String> {
             "Protected identity storage is inconsistent; passphrase was not changed.".into(),
         );
     }
+    let public_b64 = public_b64_candidate
+        .ok_or_else(|| "Protected identity public-key metadata is missing.".to_string())?;
+    let previous_wire = previous_wire_candidate
+        .ok_or_else(|| "Protected identity envelope is missing.".to_string())?;
 
     let blob = identity_crypto::encrypt(passphrase, signing_key.as_bytes()).await?;
     let next_wire = serde_json::to_string(&EncryptedBlobWire::from(&blob))
