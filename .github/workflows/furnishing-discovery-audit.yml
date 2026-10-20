@@ -78,3 +78,5 @@ jobs:
         run: cargo clippy --manifest-path "$FURNISHING_AUDIT_WORKSPACE/Cargo.toml" -p marketplace-client --all-targets -- -D warnings
       - name: Lint explicit development-fixture mode
         run: cargo clippy --manifest-path "$FURNISHING_AUDIT_WORKSPACE/Cargo.toml" -p marketplace-client --features dev-fixtures --all-targets -- -D warnings
+      - name: Benchmark revision-aware projection at 25/100/1000/10000 records
+        run: cargo bench --manifest-path "$FURNISHING_AUDIT_WORKSPACE/Cargo.toml" -p marketplace-client --bench furnishing_revision_projection

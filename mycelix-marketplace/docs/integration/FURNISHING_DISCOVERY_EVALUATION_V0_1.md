@@ -72,7 +72,7 @@ Provisional engineering targets to test—not prior results:
 - no performance score may compensate for a false-safe, fabricated offer claim, privacy leak or commerce side effect;
 - network and DHT times are reported separately from local projection. Do not set or claim a live p95 SLA until conductor/runtime measurements exist.
 
-A dependency-free Rust benchmark is provided at `marketplace-client/benches/furnishing_revision_projection.rs`. Run it with `cargo bench -p marketplace-client --bench furnishing_revision_projection`; it emits local projection p50/p95 by frozen synthetic-size tier. The benchmark excludes source snapshot construction from the timed region, does not measure network/DHT latency, and does not substitute for peak-memory profiling. Numbers must be recorded with the exact commit SHA and reference machine before comparing to the provisional target.
+A dependency-free Rust benchmark is provided at `marketplace-client/benches/furnishing_revision_projection.rs`. The focused workflow executes it at the 25, 100, 1,000 and 10,000-record tiers and prints local projection p50/p95 into the exact-head job log. The benchmark excludes source snapshot construction from the timed region, does not measure network/DHT latency, and does not substitute for peak-memory profiling. Numbers must be recorded with the exact commit SHA and reference machine before comparing to the provisional target. No benchmark result is asserted here until that exact-head job is available.
 
 ### Resident outcomes
 
