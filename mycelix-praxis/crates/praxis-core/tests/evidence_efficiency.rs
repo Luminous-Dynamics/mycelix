@@ -461,6 +461,115 @@ fn baseline_trace(
     }
 }
 
+
+/// Evaluator-informed information-gain-per-cost oracle. This function is
+/// deliberately test-only and receives the hidden evaluator. It is an
+/// upper-bound reference, never a fair solver/human/AI baseline.
+fn oracle_information_gain_per_cost_trace(
+    catalog: &EvidenceRequestCatalog,
+    evaluator: &EvaluatorCorpus,
+    scenario_id: &str,
+    authorized_authorities: &[RequestAuthority],
+    budget: EvaluationBudget,
+) -> Result<Vec<String>, String> {
+    validate_request_catalog(catalog)
+        .map_err(|issues| format!("invalid request catalog: {}", issues[0].message))?;
+    validate_evaluator_pair(catalog, evaluator)
+        .map_err(|issues| format!("invalid evaluator pair: {}", issues[0]))?;
+    let scenario = catalog
+        .scenarios
+        .iter()
+        .find(|scenario| scenario.scenario_id == scenario_id)
+        .ok_or_else(|| format!("unknown scenario: {scenario_id}"))?;
+    let evaluator_scenario = evaluator
+        .scenarios
+        .iter()
+        .find(|scenario| scenario.scenario_id == scenario_id)
+        .ok_or_else(|| format!("unknown evaluator scenario: {scenario_id}"))?;
+
+    let mut remaining = scenario.hypotheses.clone();
+    remaining.sort();
+    let mut selected = Vec::new();
+    let mut spent_cost = 0u32;
+    let mut spent_latency = 0u32;
+
+    loop {
+        // (request_id, gain_milli_bits, cost_units, latency_bound_minutes)
+        let mut best: Option<(String, u32, u32, u32)> = None;
+        for request in &scenario.requests {
+            if selected.iter().any(|id| id == &request.request_id)
+                || !authorized_authorities.contains(&request.required_authority)
+                || request.cost_units > budget.max_cost_units.saturating_sub(spent_cost)
+                || request.latency_bound_minutes
+                    > budget.max_latency_bound_minutes.saturating_sub(spent_latency)
+            {
+                continue;
+            }
+            let outcome = evaluator_scenario
+                .request_outcomes
+                .iter()
+                .find(|outcome| outcome.request_id == request.request_id)
+                .expect("pair validation covers each catalog request");
+            if outcome.quality != EvidenceQuality::Current {
+                continue;
+            }
+            let gain = expected_information_gain_milli_bits(&remaining, outcome);
+            if gain == 0 {
+                continue;
+            }
+
+            let replace = match best.as_ref() {
+                None => true,
+                Some((best_id, best_gain, best_cost, best_latency)) => {
+                    // Compare ratios exactly; avoid float-based tie instability.
+                    let candidate_ratio = u64::from(gain) * u64::from(*best_cost);
+                    let best_ratio = u64::from(*best_gain) * u64::from(request.cost_units);
+                    candidate_ratio > best_ratio
+                        || (candidate_ratio == best_ratio
+                            && request.latency_bound_minutes < *best_latency)
+                        || (candidate_ratio == best_ratio
+                            && request.latency_bound_minutes == *best_latency
+                            && request.request_id < *best_id)
+                }
+            };
+            if replace {
+                best = Some((
+                    request.request_id.clone(),
+                    gain,
+                    request.cost_units,
+                    request.latency_bound_minutes,
+                ));
+            }
+        }
+
+        let Some((request_id, _, cost, latency)) = best else {
+            break;
+        };
+        let outcome = evaluator_scenario
+            .request_outcomes
+            .iter()
+            .find(|outcome| outcome.request_id == request_id)
+            .expect("selected candidate must have an evaluator outcome");
+        let labels = outcome
+            .labels_by_hypothesis
+            .iter()
+            .map(|item| (item.hypothesis_id.as_str(), item.outcome_label.as_str()))
+            .collect::<BTreeMap<_, _>>();
+        let observed_label = labels
+            .get(evaluator_scenario.world_hypothesis_id.as_str())
+            .expect("pair validation binds the world hypothesis");
+        remaining.retain(|hypothesis| labels.get(hypothesis.as_str()) == Some(observed_label));
+        if remaining.is_empty() {
+            return Err("oracle observation eliminated every declared hypothesis".into());
+        }
+
+        selected.push(request_id);
+        spent_cost += cost;
+        spent_latency += latency;
+    }
+    Ok(selected)
+}
+
 #[test]
 fn schemas_are_draft_2020_12_and_accept_both_valid_fixtures() {
     let catalog_schema: serde_json::Value =
@@ -887,6 +996,41 @@ fn metadata_only_baselines_are_deterministic_and_use_equal_constraints() {
         cheapest_report.remaining_hypotheses,
         vec!["compromised_session"]
     );
+
+#[test]
+fn oracle_information_gain_per_cost_is_a_separately_labelled_upper_bound() {
+    let catalog = catalog_fixture();
+    let evaluator = evaluator_fixture();
+    let authorized = [RequestAuthority::ReadOnlyTelemetry];
+    let budget = EvaluationBudget {
+        max_cost_units: 5,
+        max_latency_bound_minutes: 10,
+    };
+    let trace = oracle_information_gain_per_cost_trace(
+        &catalog,
+        &evaluator,
+        "CYB-ACQ-001",
+        &authorized,
+        budget,
+    )
+    .unwrap();
+
+    // The test oracle sees the hidden response partitions. Its score is an
+    // upper bound, not a fair comparison with metadata-only policies.
+    assert_eq!(trace, vec!["session-issuance-audit"]);
+    let report = evaluate_policy(
+        &catalog,
+        &evaluator,
+        "CYB-ACQ-001",
+        &trace.iter().map(String::as_str).collect::<Vec<_>>(),
+        &authorized,
+        budget,
+    )
+    .unwrap();
+    assert_eq!(report.expected_information_gain_milli_bits, 2000);
+    assert_eq!(report.total_cost_units, 2);
+    assert_eq!(report.remaining_hypotheses, vec!["compromised_session"]);
+}
 
     // Neither policy runner accepts evaluator state; a catalog permutation
     // must not change the metadata-only request order.
