@@ -111,7 +111,10 @@ fn evaluator_fixture() -> EvaluatorCorpus {
     serde_json::from_str(EVALUATOR_FIXTURE).expect("evaluator fixture parses")
 }
 
-fn evaluator_semantic_issues(solver: &SolverVisibleCyberCorpus, evaluator: &EvaluatorCorpus) -> Vec<String> {
+fn evaluator_semantic_issues(
+    solver: &SolverVisibleCyberCorpus,
+    evaluator: &EvaluatorCorpus,
+) -> Vec<String> {
     let mut issues = Vec::new();
     if evaluator.schema_version != solver.schema_version {
         issues.push("schema version mismatch".to_string());
@@ -230,7 +233,6 @@ fn has_code(
     issues.iter().any(|issue| issue.code == code)
 }
 
-
 #[test]
 fn both_schemas_are_valid_draft_2020_12_and_accept_their_fixtures() {
     let solver_schema: serde_json::Value =
@@ -270,14 +272,13 @@ fn both_schemas_are_valid_draft_2020_12_and_accept_their_fixtures() {
 fn solver_json_schema_rejects_critical_contract_mutations() {
     let schema: serde_json::Value =
         serde_json::from_str(SOLVER_SCHEMA).expect("solver schema parses");
-    let validator = jsonschema::draft202012::new(&schema)
-        .expect("solver schema compiles under Draft 2020-12");
+    let validator =
+        jsonschema::draft202012::new(&schema).expect("solver schema compiles under Draft 2020-12");
     let fixture: serde_json::Value =
         serde_json::from_str(SOLVER_FIXTURE).expect("solver fixture parses");
 
     let mut unknown_field = fixture.clone();
-    unknown_field["scenarios"][0]["evaluator_answer"] =
-        serde_json::Value::String("secret".into());
+    unknown_field["scenarios"][0]["evaluator_answer"] = serde_json::Value::String("secret".into());
     assert!(
         !validator.is_valid(&unknown_field),
         "additionalProperties=false must reject answer-key leakage"
@@ -294,8 +295,7 @@ fn solver_json_schema_rejects_critical_contract_mutations() {
     );
 
     let mut unknown_domain = fixture.clone();
-    unknown_domain["scenarios"][0]["domain"] =
-        serde_json::Value::String("made_up_domain".into());
+    unknown_domain["scenarios"][0]["domain"] = serde_json::Value::String("made_up_domain".into());
     assert!(
         !validator.is_valid(&unknown_domain),
         "unrecognized domain values must fail schema validation"
@@ -319,8 +319,7 @@ fn evaluator_json_schema_rejects_unknown_fields_and_invalid_dispositions() {
         serde_json::from_str(EVALUATOR_FIXTURE).expect("evaluator fixture parses");
 
     let mut unknown_field = fixture.clone();
-    unknown_field["cases"][0]["solver_visible_hint"] =
-        serde_json::Value::String("leak".into());
+    unknown_field["cases"][0]["solver_visible_hint"] = serde_json::Value::String("leak".into());
     assert!(
         !validator.is_valid(&unknown_field),
         "evaluator schema must reject undeclared case fields"
