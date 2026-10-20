@@ -1,0 +1,85 @@
+{
+  "schema": "mycelix.evidence-attestation-nonexpanding-semantic-transform-control-matrix.v1",
+  "controls": [
+    {
+      "id": "undeclared-derivation",
+      "tla_invariant": "DeclaredDerivationExact",
+      "alloy_assertion": "NonExpandingSemanticTransformExact",
+      "alloy_mutant_fact": "DeclaredDerivationExact",
+      "alloy_witness": "UndeclaredDerivationWitness",
+      "reference_marker": "UNDECLARED derivation NEGATIVE PASS"
+    },
+    {
+      "id": "privilege-widening",
+      "tla_invariant": "EffectScopeNarrowed",
+      "alloy_assertion": "NonExpandingSemanticTransformExact",
+      "alloy_mutant_fact": "EffectScopeNarrowed",
+      "alloy_witness": "PrivilegeWideningWitness",
+      "reference_marker": "PRIVILEGE widening NEGATIVE PASS"
+    },
+    {
+      "id": "cross-field-contamination",
+      "tla_invariant": "FieldSourcesExact",
+      "alloy_assertion": "NonExpandingSemanticTransformExact",
+      "alloy_mutant_fact": "FieldSourcesExact",
+      "alloy_witness": "CrossFieldContaminationWitness",
+      "reference_marker": "CROSS-FIELD contamination NEGATIVE PASS"
+    },
+    {
+      "id": "profile-substitution",
+      "tla_invariant": "ProfileIdentityExact",
+      "alloy_assertion": "NonExpandingSemanticTransformExact",
+      "alloy_mutant_fact": "ProfileIdentityExact",
+      "alloy_witness": "ProfileSubstitutionWitness",
+      "reference_marker": "PROFILE substitution NEGATIVE PASS"
+    },
+    {
+      "id": "implementation-hash-substitution",
+      "tla_invariant": "ImplementationIdentityExact",
+      "alloy_assertion": "NonExpandingSemanticTransformExact",
+      "alloy_mutant_fact": "ImplementationIdentityExact",
+      "alloy_witness": "ImplementationHashSubstitutionWitness",
+      "reference_marker": "IMPLEMENTATION substitution NEGATIVE PASS"
+    },
+    {
+      "id": "conversion-rule-substitution",
+      "tla_invariant": "ConversionRuleExact",
+      "alloy_assertion": "NonExpandingSemanticTransformExact",
+      "alloy_mutant_fact": "ConversionRuleExact",
+      "alloy_witness": "ConversionRuleSubstitutionWitness",
+      "reference_marker": "CONVERSION rule NEGATIVE PASS"
+    },
+    {
+      "id": "default-reconstruction",
+      "tla_invariant": "NoImplicitDefaults",
+      "alloy_assertion": "NonExpandingSemanticTransformExact",
+      "alloy_mutant_fact": "NoImplicitDefaults",
+      "alloy_witness": "DefaultReconstructionWitness",
+      "reference_marker": "DEFAULT reconstruction NEGATIVE PASS"
+    },
+    {
+      "id": "external-enrichment",
+      "tla_invariant": "NoExternalEnrichment",
+      "alloy_assertion": "NonExpandingSemanticTransformExact",
+      "alloy_mutant_fact": "NoExternalEnrichment",
+      "alloy_witness": "ExternalEnrichmentWitness",
+      "reference_marker": "EXTERNAL enrichment NEGATIVE PASS"
+    },
+    {
+      "id": "unbound-context",
+      "tla_invariant": "DeterministicContextExact",
+      "alloy_assertion": "NonExpandingSemanticTransformExact",
+      "alloy_mutant_fact": "DeterministicContextExact",
+      "alloy_witness": "UnboundContextWitness",
+      "reference_marker": "CONTEXT dependence NEGATIVE PASS"
+    },
+    {
+      "id": "profile-ceiling-widening",
+      "tla_invariant": "ProfileCeilingNarrowed",
+      "alloy_assertion": "NonExpandingSemanticTransformExact",
+      "alloy_mutant_fact": "ProfileCeilingNarrowed",
+      "alloy_witness": "ProfileCeilingWideningWitness",
+      "reference_marker": "PROFILE CEILING widening NEGATIVE PASS"
+    }
+  ]
+}

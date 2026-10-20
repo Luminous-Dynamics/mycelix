@@ -1,0 +1,16 @@
+{
+  "schema": "mycelix.evidence-attestation-claim-composition-control-matrix.v1",
+  "control": {
+    "id": "composition-amplification",
+    "boundary": "composition must preserve atomic authorized capabilities and cannot synthesize a Cartesian-product capability",
+    "tla_invariant": "CompositionOnlyUsesAtomicAuthorizedCapabilities",
+    "tla_control": "composition-amplification",
+    "alloy_witness": "CartesianAmplificationWitness",
+    "alloy_assertion": "CompositionContainsOnlyAuthorizedAtoms",
+    "alloy_mutant_fact": "CompositionOnlyUsesAtomicAuthorizedCapabilities",
+    "reference_markers": [
+      "ISOLATION PASS: cross-product capability is not caused by claim or grant invalidity",
+      "NEGATIVE PASS: cartesian composition authority amplification detected"
+    ]
+  }
+}

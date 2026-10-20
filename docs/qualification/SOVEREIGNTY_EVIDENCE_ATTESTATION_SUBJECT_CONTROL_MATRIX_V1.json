@@ -1,0 +1,31 @@
+{
+  "schema": "mycelix.evidence-attestation-subject-control-matrix.v1",
+  "controls": [
+    {
+      "id": "untrusted-attestation",
+      "boundary": "cryptographically valid but untrusted attestation cannot change authority",
+      "tla_invariant": "UntrustedAttestationCannotChangeAuthority",
+      "tla_control": "untrusted-attestation",
+      "alloy_witness": "UntrustedGrantBackedAuthorityDeltaWitness",
+      "alloy_assertion": "EvidenceAuthenticityCannotMintAuthority",
+      "alloy_mutant_fact": "UntrustedAttestationNoAuthorityDelta",
+      "reference_markers": [
+        "ISOLATION PASS: untrusted signer leaves steady-state grant provenance valid",
+        "NEGATIVE PASS: untrusted attestation authority delta detected"
+      ]
+    },
+    {
+      "id": "subject-mismatch",
+      "boundary": "trusted attestation presented for the wrong subject cannot redirect authority",
+      "tla_invariant": "SubjectMismatchCannotChangeAuthority",
+      "tla_control": "subject-mismatch",
+      "alloy_witness": "SubjectMismatchGrantBackedAuthorityDeltaWitness",
+      "alloy_assertion": "SubjectSubstitutionCannotMintAuthority",
+      "alloy_mutant_fact": "SubjectMismatchNoAuthorityDelta",
+      "reference_markers": [
+        "ISOLATION PASS: subject substitution leaves steady-state grant provenance valid",
+        "NEGATIVE PASS: subject-mismatch authority delta detected"
+      ]
+    }
+  ]
+}

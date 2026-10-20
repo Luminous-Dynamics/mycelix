@@ -1,0 +1,69 @@
+{
+  "schema": "mycelix.evidence-attestation-semantic-projection-control-matrix.v1",
+  "controls": [
+    {
+      "id": "uncovered-field",
+      "tla_invariant": "EffectFieldsAuthorized",
+      "alloy_assertion": "SemanticProjectionExact",
+      "alloy_mutant_fact": "EffectFieldsAuthorized",
+      "alloy_witness": "UncoveredFieldWitness",
+      "reference_marker": "UNCOVERED field NEGATIVE PASS"
+    },
+    {
+      "id": "unbacked-field",
+      "tla_invariant": "EffectFieldsDecisionBacked",
+      "alloy_assertion": "SemanticProjectionExact",
+      "alloy_mutant_fact": "EffectFieldsDecisionBacked",
+      "alloy_witness": "UnbackedFieldWitness",
+      "reference_marker": "UNBACKED field NEGATIVE PASS"
+    },
+    {
+      "id": "unknown-field",
+      "tla_invariant": "EffectFieldsKnown",
+      "alloy_assertion": "SemanticProjectionExact",
+      "alloy_mutant_fact": "EffectFieldsKnown",
+      "alloy_witness": "UnknownFieldWitness",
+      "reference_marker": "UNKNOWN field NEGATIVE PASS"
+    },
+    {
+      "id": "value-substitution",
+      "tla_invariant": "ProjectedValuesConserved",
+      "alloy_assertion": "SemanticProjectionExact",
+      "alloy_mutant_fact": "ProjectedValuesConserved",
+      "alloy_witness": "ValueSubstitutionWitness",
+      "reference_marker": "VALUE substitution NEGATIVE PASS"
+    },
+    {
+      "id": "source-substitution",
+      "tla_invariant": "ProjectionSourcesExact",
+      "alloy_assertion": "SemanticProjectionExact",
+      "alloy_mutant_fact": "ProjectionSourcesExact",
+      "alloy_witness": "SourceSubstitutionWitness",
+      "reference_marker": "SOURCE substitution NEGATIVE PASS"
+    },
+    {
+      "id": "implicit-default",
+      "tla_invariant": "NoImplicitDefaultAuthority",
+      "alloy_assertion": "SemanticProjectionExact",
+      "alloy_mutant_fact": "NoImplicitDefaultAuthority",
+      "alloy_witness": "DefaultWitness",
+      "reference_marker": "DEFAULT synthesis NEGATIVE PASS"
+    },
+    {
+      "id": "schema-profile",
+      "tla_invariant": "SchemaProfileExact",
+      "alloy_assertion": "SemanticProjectionExact",
+      "alloy_mutant_fact": "SchemaProfileExact",
+      "alloy_witness": "SchemaSubstitutionWitness",
+      "reference_marker": "SCHEMA substitution NEGATIVE PASS"
+    },
+    {
+      "id": "required-omission",
+      "tla_invariant": "RequiredFieldsPresent",
+      "alloy_assertion": "SemanticProjectionExact",
+      "alloy_mutant_fact": "RequiredFieldsPresent",
+      "alloy_witness": "RequiredOmissionWitness",
+      "reference_marker": "REQUIRED omission NEGATIVE PASS"
+    }
+  ]
+}

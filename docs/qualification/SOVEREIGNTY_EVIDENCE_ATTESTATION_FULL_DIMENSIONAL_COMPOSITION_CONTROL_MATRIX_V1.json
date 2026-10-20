@@ -1,0 +1,18 @@
+{
+  "schema": "mycelix.evidence-attestation-full-dimensional-composition-control-matrix.v1",
+  "controls": [
+    {
+      "id": "full-dimensional-hybrid",
+      "boundary": "composition cannot synthesize a resource/action/audience/expiry tuple absent from every input claim",
+      "tla_invariant": "CompositionAtomAndProvenanceExact",
+      "tla_control": "hybrid-synthesis",
+      "alloy_witness": "HybridSynthesisWitness",
+      "alloy_assertion": "CompositionAtomAndProvenanceExact",
+      "alloy_mutant_fact": "CompositionAtomicAndProvenance",
+      "reference_markers": [
+        "ISOLATION PASS: all component claims and per-dimension sources remain independently valid",
+        "NEGATIVE PASS: full-dimensional synthetic capability/provenance amplification detected"
+      ]
+    }
+  ]
+}
