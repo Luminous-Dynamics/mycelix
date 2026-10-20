@@ -2318,10 +2318,7 @@ mod browser_storage_tests {
         let mut phrase = export_unlocked_identity_seed_phrase()
             .expect("unlocked protected identity exports a backup phrase");
         assert_eq!(phrase.split_whitespace().count(), 24);
-        assert!(storage
-            .get_item(IDENTITY_SECRET_KEY)
-            .unwrap()
-            .is_none());
+        assert!(storage.get_item(IDENTITY_SECRET_KEY).unwrap().is_none());
 
         // Model a fresh browser profile: delete every identity and backup marker
         // item while retaining only the independently held offline phrase.
@@ -2332,19 +2329,25 @@ mod browser_storage_tests {
             IDENTITY_SECRET_ENCRYPTED_KEY,
             IDENTITY_BACKUP_CONFIRMED_PUBLIC_KEY,
         ] {
-            storage.remove_item(key).expect("fresh-profile reset succeeds");
+            storage
+                .remove_item(key)
+                .expect("fresh-profile reset succeeds");
         }
         UNLOCKED_KEY.with(|cell| *cell.borrow_mut() = None);
-        assert_eq!(inspect_local_identity_posture(), LocalIdentityStoragePosture::NoIdentity);
+        assert_eq!(
+            inspect_local_identity_posture(),
+            LocalIdentityStoragePosture::NoIdentity
+        );
 
-        let restore_result = restore_protected_identity_from_seed_phrase(
-            &phrase,
-            "synthetic restored passphrase",
-        )
-        .await;
+        let restore_result =
+            restore_protected_identity_from_seed_phrase(&phrase, "synthetic restored passphrase")
+                .await;
         phrase.zeroize();
         let posture = restore_result.expect("offline phrase restores into protected storage");
-        assert_eq!(posture, LocalIdentityStoragePosture::ProtectedUnlockedInSession);
+        assert_eq!(
+            posture,
+            LocalIdentityStoragePosture::ProtectedUnlockedInSession
+        );
 
         let restored_public = storage
             .get_item(IDENTITY_PUBLIC_KEY)
@@ -2355,17 +2358,21 @@ mod browser_storage_tests {
             .get_item(IDENTITY_SECRET_KEY)
             .unwrap()
             .is_none());
-        assert!(storage
-            .get_item(IDENTITY_SECRET_ENCRYPTED_KEY)
-            .unwrap()
-            .is_some());
+        assert!(
+            storage
+                .get_item(IDENTITY_SECRET_ENCRYPTED_KEY)
+                .unwrap()
+                .is_some()
+        );
 
         // Restore is not itself proof that the phrase was saved somewhere
         // offline; the new profile must still complete the backup challenge.
-        assert!(storage
-            .get_item(IDENTITY_BACKUP_CONFIRMED_PUBLIC_KEY)
-            .unwrap()
-            .is_none());
+        assert!(
+            storage
+                .get_item(IDENTITY_BACKUP_CONFIRMED_PUBLIC_KEY)
+                .unwrap()
+                .is_none()
+        );
         assert!(recovery_backup_confirmation_needed());
     }
 
