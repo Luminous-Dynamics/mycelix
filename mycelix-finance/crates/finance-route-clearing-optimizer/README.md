@@ -32,7 +32,7 @@ The crate includes unit tests for global route-cost allocation versus greedy, li
 
 A reproducible, dependency-free synthetic timing harness is available as:
 
-    cargo run --release --manifest-path mycelix-finance/Cargo.toml --example route_clearing_benchmark
+    cargo run --release --manifest-path mycelix-finance/Cargo.toml -p finance-route-clearing-optimizer --example route_clearing_benchmark
 
 It prints CSV for 10, 30, 70, 140 and 700 candidate route arcs, with participant counts, flow/cost output and p50/p95 runtime for the min-cost-flow optimizer and greedy baseline. Run it on a pinned machine and record OS, CPU, Rust version, commit SHA and repetition count alongside results. Synthetic runtime is a microbenchmark, not evidence of real-world settlement savings.
 
