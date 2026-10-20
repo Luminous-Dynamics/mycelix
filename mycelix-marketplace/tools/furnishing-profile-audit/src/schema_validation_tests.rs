@@ -33,7 +33,7 @@ mod schema_validation_tests {
         let mut failures = Vec::new();
         for (index, profile) in profiles.iter().enumerate() {
             for error in validator.iter_errors(profile) {
-                failures.push(format!("profiles[{index}]{}: {error}", error.instance_path()));
+                failures.push(format!("profiles[{index}]: {error}"));
             }
         }
         assert!(failures.is_empty(), "JSON Schema validation failed: {failures:#?}");
@@ -45,7 +45,7 @@ mod schema_validation_tests {
         let validator = request_validator();
         let failures: Vec<String> = validator
             .iter_errors(&fixture)
-            .map(|error| format!("{}: {error}", error.instance_path()))
+            .map(|error| format!("{error}"))
             .collect();
         assert!(failures.is_empty(), "request schema validation failed: {failures:#?}");
     }
