@@ -7,6 +7,9 @@
 //!
 //! - **K-Vector**: 8-dimensional trust representation
 //! - **E/N/M/H Classification**: Epistemic classification system
+//! - **Systemic Statements**: Provider-neutral, bitemporal evidence/provenance primitives
+//! - **Systemic Provenance**: Provenance-family independence and deterministic import-receipt semantics
+//! - **Provenance Graph**: Ancestry-aware independence and cycle rejection
 //! - **Harmonic Types**: Eight Harmonies integration for GIS v4
 //! - **Moral Uncertainty**: Tripartite moral uncertainty model
 //! - **WisdomEngine**: Full Stack Wisdom / Holistic Epistemics architecture with
@@ -151,6 +154,9 @@ pub mod epistemic;
 pub mod harmonic;
 pub mod k_vector;
 pub mod moral;
+pub mod systemic;
+pub mod systemic_provenance;
+pub mod systemic_provenance_graph;
 pub mod trust;
 pub mod wisdom_engine;
 
@@ -159,6 +165,9 @@ pub use epistemic::*;
 pub use harmonic::*;
 pub use k_vector::*;
 pub use moral::*;
+pub use systemic::*;
+pub use systemic_provenance::*;
+pub use systemic_provenance_graph::*;
 pub use trust::*;
 pub use wisdom_engine::*;
 
