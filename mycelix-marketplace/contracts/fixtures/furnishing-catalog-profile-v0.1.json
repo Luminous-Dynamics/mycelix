@@ -349,7 +349,8 @@
           ],
           "geometry_digest_sha256": null,
           "geometry_evidence_refs": [],
-          "geometry_use_license": "unknown"
+          "geometry_use_license": "unknown",
+          "geometry_license_evidence_refs": []
         },
         "task_envelopes": [
           {
