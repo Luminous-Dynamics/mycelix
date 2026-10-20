@@ -447,14 +447,7 @@ mod tests {
                 "IDENTITY_KDF_BENCHMARK kdf=Argon2id version=19 memory_kib={} iterations={} lanes={} ",
                 "output_bytes={} samples={} derive_ms_p50={:.1} derive_ms_p95={:.1} derive_ms_max={:.1}"
             ),
-            MEMORY_KIB,
-            ITERATIONS,
-            LANES,
-            OUTPUT_LEN,
-            SAMPLE_COUNT,
-            p50,
-            p95,
-            maximum,
+            MEMORY_KIB, ITERATIONS, LANES, OUTPUT_LEN, SAMPLE_COUNT, p50, p95, maximum,
         );
         web_sys::console::log_1(&report.clone().into());
         println!("{report}");
@@ -512,26 +505,20 @@ mod tests {
         let pbkdf2_base_key = import_pbkdf2_benchmark_password(passphrase)
             .await
             .expect("PBKDF2 benchmark password import succeeds");
-        let mut warmup_derived = derive_pbkdf2_key_material(
-            &pbkdf2_base_key,
-            &derive_salt,
-            PBKDF2_ITERATIONS,
-        )
-        .await
-        .expect("production PBKDF2 deriveBits warm-up succeeds");
+        let mut warmup_derived =
+            derive_pbkdf2_key_material(&pbkdf2_base_key, &derive_salt, PBKDF2_ITERATIONS)
+                .await
+                .expect("production PBKDF2 deriveBits warm-up succeeds");
         assert_eq!(warmup_derived.len(), 32);
         warmup_derived.zeroize();
 
         let mut derive_ms = Vec::with_capacity(SAMPLE_COUNT);
         for _ in 0..SAMPLE_COUNT {
             let start = performance.now();
-            let mut derived = derive_pbkdf2_key_material(
-                &pbkdf2_base_key,
-                &derive_salt,
-                PBKDF2_ITERATIONS,
-            )
-            .await
-            .expect("production PBKDF2 deriveBits benchmark succeeds");
+            let mut derived =
+                derive_pbkdf2_key_material(&pbkdf2_base_key, &derive_salt, PBKDF2_ITERATIONS)
+                    .await
+                    .expect("production PBKDF2 deriveBits benchmark succeeds");
             derive_ms.push(performance.now() - start);
             assert_eq!(derived.len(), 32);
             derived.zeroize();
