@@ -78,14 +78,23 @@ pub struct TierMembershipProof {
     pub committed_at: Timestamp,
 }
 
+/// All Identity Vault payload types are owner-private. Public identity, consent,
+/// or encryption-key discovery must use a separate, minimal disclosure protocol;
+/// do not publish this heterogeneous private store merely to make it discoverable.
 #[hdk_entry_types]
 #[unit_enum(UnitEntryTypes)]
 pub enum EntryTypes {
+    #[entry_type(visibility = "private")]
     Profile(Profile),
+    #[entry_type(visibility = "private")]
     MasterKey(MasterKey),
+    #[entry_type(visibility = "private")]
     TierMembershipProof(TierMembershipProof),
+    #[entry_type(visibility = "private")]
     DigitalWill(DigitalWill),
+    #[entry_type(visibility = "private")]
     AiMineralization(AiMineralization),
+    #[entry_type(visibility = "private")]
     SymbioteSnapshot(SymbioteSnapshot),
 }
 
@@ -134,8 +143,29 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
             | EntryTypes::SymbioteSnapshot(_) => Ok(ValidateCallbackResult::Valid),
         },
         FlatOp::StoreEntry(_) => Ok(ValidateCallbackResult::Valid),
+        FlatOp::RegisterCreateLink { link_type, .. } => {
+            if is_private_index_link(&link_type) {
+                Ok(ValidateCallbackResult::Invalid(
+                    "Identity Vault private entries must not be indexed by public DHT links".into(),
+                ))
+            } else {
+                Ok(ValidateCallbackResult::Valid)
+            }
+        }
         _ => Ok(ValidateCallbackResult::Valid),
     }
+}
+
+fn is_private_index_link(link_type: &LinkTypes) -> bool {
+    matches!(
+        link_type,
+        LinkTypes::AgentToProfile
+            | LinkTypes::AgentToKeys
+            | LinkTypes::AgentToProof
+            | LinkTypes::AgentToWill
+            | LinkTypes::AgentToSnapshot
+            | LinkTypes::AgentToMineralization
+    )
 }
 
 fn validate_profile(profile: &Profile) -> ExternResult<ValidateCallbackResult> {
@@ -330,5 +360,18 @@ mod tests {
         let json = serde_json::to_string(&k).unwrap();
         let back: MasterKey = serde_json::from_str(&json).unwrap();
         assert_eq!(back, k);
+    }
+    #[test]
+    fn all_identity_payload_index_links_are_forbidden() {
+        for link_type in [
+            LinkTypes::AgentToProfile,
+            LinkTypes::AgentToKeys,
+            LinkTypes::AgentToProof,
+            LinkTypes::AgentToWill,
+            LinkTypes::AgentToSnapshot,
+            LinkTypes::AgentToMineralization,
+        ] {
+            assert!(is_private_index_link(&link_type));
+        }
     }
 }
