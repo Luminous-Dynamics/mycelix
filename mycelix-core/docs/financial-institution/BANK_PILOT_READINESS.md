@@ -45,6 +45,28 @@ The pilot should improve the bank's ability to:
 
 Do not lead with tokens, generalized claims about decentralization, autonomous agents, or a vision of replacing banking infrastructure. Translate capabilities into the bank's existing operational-risk, business-continuity, third-party-risk, and change-management workflows.
 
+### Industry baseline and differentiation hypothesis
+
+We are entering an established market, not inventing operational resilience software from zero. Public product documentation shows that:
+
+- [ServiceNow Operational Resilience Management](https://www.servicenow.com/products/operational-resilience.html) already describes business-service risk, metrics/dependencies/tolerances, and continuous risk/control context. Its [Third-Party Risk Management product](https://www.servicenow.com/products/third-party-risk-management.html) covers lifecycle assessments, monitoring, remediation workflows, and audit trails.
+- [IBM OpenPages Third-Party Risk Management](https://www.ibm.com/products/openpages/third-party-risk) describes vendor/engagement inventories, criticality tiers, business-process relationships, questionnaires, evidence, remediation, key risk indicators, and ongoing monitoring.
+- [Fusion Third-Party Risk Management](https://www.fusionrm.com/solutions/third-party-risk-management/) describes connecting suppliers and nth-party relationships to business services, processes, applications, locations, and teams, including service impact and continuity planning.
+
+This is a feature-level scan of public product descriptions, not an independent product bake-off. It does not establish relative implementation quality, customer outcomes, pricing, performance, or what a particular bank has licensed. Before claiming superiority, run a buyer-relevant comparison against the institution's actual incumbent configuration and at least one representative alternative.
+
+**Consequences for our product strategy:**
+
+1. Do not differentiate on a risk dashboard, questionnaires, vendor inventory, dependency visualization, or “AI-powered” wording alone; incumbents already advertise those capabilities.
+2. Position as a reversible, interoperable **evidence and scenario qualification layer** alongside incumbent GRC/CMDB/business-continuity tools.
+3. Try to win on auditable links from each material conclusion to permitted source evidence, explicit observed/asserted/inferred/simulated distinctions, fail-closed handling of missing/conflicting data, independent scenario oracles, exact run replay, open exports, and measured incremental value.
+4. Treat these as differentiation hypotheses, not unique capabilities, until a documented competitor evaluation demonstrates the gap.
+5. Preserve deployment choice and customer control. A bank should be able to evaluate the workflow without accepting Mycelix-native finance, tokens, a DHT migration, or an autonomous decision system.
+
+### Initial markets and regulatory portability
+
+Use **South Africa as the first evidence and design-partner context**, while designing jurisdiction as a versioned profile, not as hardcoded legal assumptions. Keep separate requirements maps and customer-control ownership for South Africa, the US, the EU, and the UK. A global standards map is not a claim of global compliance; the pilot sponsor's legal/compliance owners decide which requirements apply to the exact entity, data, service, contract, and deployment.
+
 ### Proposed project roles
 
 | Project | Proposed role in the pilot | Boundary |
@@ -128,6 +150,20 @@ A candidate pilot should not pass unless:
 - The bank can reconstruct, challenge, and reject the assessment without requiring trust in a vendor-hosted black box.
 
 A synthetic pass qualifies only the specified synthetic benchmark. A shadow-mode result is not a causal impact estimate. A measured improvement must be reported with its uncertainty, scope, costs, limitations, and independent review status.
+
+### Proposed quantitative go/no-go targets (hypotheses to preregister, not achieved results)
+
+Set the final thresholds with the pilot sponsor before the confirmatory run. The first qualification corpus should target:
+
+- **100% run accounting:** every scheduled run has a recorded disposition; zero silent dropping of failed, invalid, missing, non-converged, unfavorable, or indeterminate runs.
+- **100% declared deterministic replay:** all fields explicitly marked deterministic reproduce for identical pinned inputs, software, schema and configuration.
+- **100% material-claim traceability:** every finding used to justify a mitigation has an explicit source/assumption lineage, evidence class, time scope and claim limit—or remains indeterminate.
+- **Zero false-safe results in the frozen negative-control suite:** no deliberately unavailable, unknown, stale or conflicting dependency is silently promoted to safe/available. This only qualifies the tested corpus, not zero risk in deployment.
+- **Exact expected outcomes on deterministic synthetic fixtures:** the candidate must match the independent oracle for fixture invariants and hard constraints. Unspecified outcomes remain unscored or indeterminate rather than being improvised.
+- **Shadow-pilot value hypothesis:** seek at least 20% reduction in fully loaded analyst-hours for the scoped evidence-assembly/review task, with no material degradation against the declared baseline in dependency-detection quality and no hard-guardrail regression. This is a proposal, not a standard or promise; reset it before evaluation if the use case's economics justify another threshold.
+- **Honest differentiation:** report paired outcomes against the bank's actual workflow and a comparable incumbent product/configuration where access permits. A feature checklist or one synthetic result is not enough to claim superiority.
+
+If the workflow fails these gates, document the failures and narrow/rework the product. Never weaken a test or alter the primary metric after seeing confirmatory results to manufacture a pass.
 
 ## 4. Bank diligence and assurance package
 
