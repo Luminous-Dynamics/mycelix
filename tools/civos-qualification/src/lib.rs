@@ -49,6 +49,11 @@ impl QualificationExit {
 /// receipt version from being reused as CivOS qualification evidence.
 const RECEIPT_SIGNATURE_DOMAIN: &[u8] = b"LUMINOUS-DYNAMICS/CIVOS-MACQ-001/RECEIPT/V0.1\0";
 
+/// Return the domain-separated message bytes signed by trusted receipt producers.
+///
+/// The function hashes the exact receipt bytes, then prefixes the digest with a
+/// versioned protocol domain. Do not parse and reserialize the receipt before
+/// calling this function; the signature is intended to bind the original bytes.
 pub fn receipt_signature_message(receipt_bytes: &[u8]) -> Vec<u8> {
     let digest = Sha256::digest(receipt_bytes);
     let mut message = Vec::with_capacity(RECEIPT_SIGNATURE_DOMAIN.len() + digest.len());
@@ -675,13 +680,8 @@ mod tests {
         let signature_base64 = STANDARD.encode(signature.to_bytes());
 
         assert_eq!(
-            verify_receipt_signature(
-                receipt,
-                &signature_base64,
-                &public_key,
-                &fingerprint
-            )
-            .unwrap(),
+            verify_receipt_signature(receipt, &signature_base64, &public_key, &fingerprint)
+                .unwrap(),
             fingerprint
         );
     }
@@ -698,22 +698,16 @@ mod tests {
         let signature_base64 = STANDARD.encode(signature.to_bytes());
 
         let changed_receipt = br#"{ "receipt_id":"synthetic-receipt-001","status":"PASS"}"#;
-        assert!(verify_receipt_signature(
-            changed_receipt,
-            &signature_base64,
-            &public_key,
-            &fingerprint
-        )
-        .unwrap_err()
-        .contains("signature verification failed"));
-        assert!(verify_receipt_signature(
-            receipt,
-            &signature_base64,
-            &public_key,
-            &"0".repeat(64)
-        )
-        .unwrap_err()
-        .contains("fingerprint mismatch"));
+        assert!(
+            verify_receipt_signature(changed_receipt, &signature_base64, &public_key, &fingerprint)
+                .unwrap_err()
+                .contains("signature verification failed")
+        );
+        assert!(
+            verify_receipt_signature(receipt, &signature_base64, &public_key, &"0".repeat(64))
+                .unwrap_err()
+                .contains("fingerprint mismatch")
+        );
     }
 
     #[test]
