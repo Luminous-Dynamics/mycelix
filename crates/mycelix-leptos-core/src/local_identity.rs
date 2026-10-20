@@ -487,9 +487,9 @@ pub fn ensure_keypair() -> SigningKey {
         LocalIdentityStoragePosture::LegacyIdentityNeedsMigration => panic!(
             "A legacy identity marker exists and requires explicit migration. No replacement identity was created."
         ),
-        LocalIdentityStoragePosture::StorageUnavailable => panic!(
-            "Local identity storage is unavailable. No replacement identity was created."
-        ),
+        LocalIdentityStoragePosture::StorageUnavailable => {
+            panic!("Local identity storage is unavailable. No replacement identity was created.")
+        }
         LocalIdentityStoragePosture::CorruptOrInconsistent => panic!(
             "Local identity storage is corrupt or inconsistent. Preserve it and use the explicit recovery path."
         ),
@@ -630,12 +630,8 @@ async fn persist_protected_signing_key(
     {
         // Storage.setItem is atomic by contract, but verify/cleanup fail closed
         // rather than relying on a reported write result as proof of state.
-        if remove_storage_item_if_matches(
-            &storage,
-            IDENTITY_SECRET_ENCRYPTED_KEY,
-            &encrypted_wire,
-        )
-        .is_err()
+        if remove_storage_item_if_matches(&storage, IDENTITY_SECRET_ENCRYPTED_KEY, &encrypted_wire)
+            .is_err()
         {
             return Err(
                 "Protected identity write failed and cleanup could not be confirmed; inspect posture before retrying."
@@ -737,8 +733,8 @@ pub async fn protect_existing_identity(
     let signing_key_result = signing_key_from_secret_b64(&prior_secret_b64);
     prior_secret_b64.zeroize();
     let signing_key = signing_key_result?;
-    let public_b64 = public_b64
-        .ok_or_else(|| "Existing public-key metadata is missing.".to_string())?;
+    let public_b64 =
+        public_b64.ok_or_else(|| "Existing public-key metadata is missing.".to_string())?;
 
     if !public_key_matches_signing_key(&public_b64, &signing_key) {
         return Err("Existing identity secret/public key binding is inconsistent.".into());
@@ -782,12 +778,8 @@ pub async fn protect_existing_identity(
         .set_item(IDENTITY_SECRET_ENCRYPTED_KEY, &encrypted_wire)
         .is_err()
     {
-        if remove_storage_item_if_matches(
-            &storage,
-            IDENTITY_SECRET_ENCRYPTED_KEY,
-            &encrypted_wire,
-        )
-        .is_err()
+        if remove_storage_item_if_matches(&storage, IDENTITY_SECRET_ENCRYPTED_KEY, &encrypted_wire)
+            .is_err()
         {
             return Err(
                 "Protected write failed and cleanup could not be confirmed; inspect posture before retrying."
@@ -811,12 +803,8 @@ pub async fn protect_existing_identity(
         }
     }
     if !envelope_verified {
-        if remove_storage_item_if_matches(
-            &storage,
-            IDENTITY_SECRET_ENCRYPTED_KEY,
-            &encrypted_wire,
-        )
-        .is_err()
+        if remove_storage_item_if_matches(&storage, IDENTITY_SECRET_ENCRYPTED_KEY, &encrypted_wire)
+            .is_err()
         {
             return Err(
                 "Envelope verification failed and cleanup was incomplete; inspect posture before retrying."
@@ -1319,13 +1307,10 @@ fn remove_storage_item_if_matches(
             }
         }
         Some(_) => Err(
-            "A different concurrent storage value was preserved; inspect identity posture."
-                .into(),
+            "A different concurrent storage value was preserved; inspect identity posture.".into(),
         ),
     }
 }
-
-
 
 // --- localStorage helpers (generic) ---
 
