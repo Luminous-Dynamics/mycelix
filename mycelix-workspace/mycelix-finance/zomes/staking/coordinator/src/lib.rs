@@ -237,7 +237,8 @@ pub fn begin_unbonding(stake_id: String) -> ExternResult<Record> {
     ))))
 }
 
-/// Complete withdrawal after unbonding period
+/// Complete withdrawal after unbonding period.
+/// Non-zero withdrawals fail closed until a source-specific SAP release receipt is qualified.
 #[hdk_extern]
 pub fn withdraw_stake(stake_id: String) -> ExternResult<Record> {
     let now = sys_time()?;
@@ -361,39 +362,16 @@ fn lock_stake_sap(staker_did: &str, amount: u64, reason: &str) -> ExternResult<(
     }
 }
 
-/// Return locked SAP to the staker: credit their balance via the payments zome.
-/// Used on withdrawal (full amount) and on slash (the un-slashed remainder).
-fn return_stake_sap(staker_did: &str, amount: u64, reason: &str) -> ExternResult<()> {
+/// Return locked SAP only when a typed, exact-source release receipt is available.
+/// Zero-value return is a no-op; non-zero legacy returns fail closed.
+fn return_stake_sap(_staker_did: &str, amount: u64, _reason: &str) -> ExternResult<()> {
     if amount == 0 {
         return Ok(());
     }
-    #[derive(Serialize, Debug)]
-    struct CreditPayload {
-        member_did: String,
-        amount: u64,
-        reason: String,
-    }
-    match call(
-        CallTargetCell::Local,
-        ZomeName::from("payments"),
-        FunctionName::from("credit_sap"),
-        None,
-        CreditPayload {
-            member_did: staker_did.to_string(),
-            amount,
-            reason: reason.to_string(),
-        },
-    ) {
-        Ok(ZomeCallResponse::Ok(_)) => Ok(()),
-        Ok(other) => Err(wasm_error!(WasmErrorInner::Guest(format!(
-            "Failed to return staked SAP: unexpected response {:?}",
-            other
-        )))),
-        Err(e) => Err(wasm_error!(WasmErrorInner::Guest(format!(
-            "Failed to return staked SAP: {:?}",
-            e
-        )))),
-    }
+
+    Err(wasm_error!(WasmErrorInner::Guest(
+        "Non-zero staking returns are disabled until an exact stake-lock and slash/release receipt can authorize an idempotent SAP return".into()
+    )))
 }
 
 /// Fetch a member's verified MYCEL score from the recognition zome.
@@ -453,102 +431,12 @@ pub struct SlashStakeInput {
     pub custom_slash_percentage: Option<u8>,
 }
 
-/// Slash a stake with cryptographic evidence.
-/// Restricted to authorized governance agents (or any agent during bootstrap).
+/// DISABLED: the legacy slash path cannot atomically and idempotently settle a source-bound SAP return.
 #[hdk_extern]
-pub fn slash_stake(input: SlashStakeInput) -> ExternResult<Record> {
-    verify_governance_or_bootstrap()?;
-    let now = sys_time()?;
-
-    // Serialize and hash evidence
-    let evidence_bytes = serde_json::to_vec(&input.evidence)
-        .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?;
-    let evidence_hash = compute_bytes_hash(&evidence_bytes);
-
-    let (stake, record) = find_stake_by_id(&input.stake_id)?;
-
-    if stake.status != StakeStatus::Active && stake.status != StakeStatus::Unbonding {
-        return Err(wasm_error!(WasmErrorInner::Guest(format!(
-            "Cannot slash a {:?} stake — only Active or Unbonding stakes can be slashed",
-            stake.status
-        ))));
-    }
-
-    let slash_pct = input
-        .custom_slash_percentage
-        .unwrap_or_else(|| input.reason.default_slash_percentage());
-
-    // Calculate slashed SAP amount
-    let sap_slashed = (stake.sap_amount as u128 * slash_pct as u128 / 100) as u64;
-
-    let jailed = input.reason.results_in_jail();
-    let jail_release = if jailed {
-        // 7-day jail period
-        Some(Timestamp::from_micros(
-            now.as_micros() as i64 + (7 * 24 * 3600 * 1_000_000),
-        ))
-    } else {
-        None
-    };
-
-    // Create slashing event
-    let event_id = format!("slash:{}:{}", input.stake_id, now.as_micros());
-    let slashing_event = SlashingEvent {
-        id: event_id.clone(),
-        stake_id: input.stake_id.clone(),
-        staker_did: stake.staker_did.clone(),
-        reason: input.reason.clone(),
-        slash_percentage: slash_pct,
-        sap_slashed,
-        evidence_hash: evidence_hash.clone(),
-        evidence: evidence_bytes,
-        slashed_at: now,
-        jailed,
-        jail_release,
-    };
-
-    let event_hash = create_entry(&EntryTypes::SlashingEvent(slashing_event))?;
-
-    // Link stake to slashing event
-    create_link(
-        anchor_hash(&format!("stake:{}", input.stake_id))?,
-        event_hash.clone(),
-        LinkTypes::StakeToSlashing,
-        (),
-    )?;
-
-    // Update stake
-    let new_status = if jailed {
-        StakeStatus::Jailed
-    } else {
-        StakeStatus::Slashed
-    };
-
-    // Burn the slashed portion and return the un-slashed remainder to the staker, so
-    // no SAP is stuck in a terminal/jailed stake. (Routing slashed SAP to a commons
-    // fund instead of burning is a future policy choice.)
-    let remainder = stake.sap_amount.saturating_sub(sap_slashed);
-    return_stake_sap(
-        &stake.staker_did,
-        remainder,
-        &format!("Slash remainder returned ({})", input.stake_id),
-    )?;
-
-    let updated_stake = CollateralStake {
-        sap_amount: 0,
-        status: new_status,
-        ..stake
-    };
-
-    update_entry(
-        record.action_address().clone(),
-        &EntryTypes::CollateralStake(updated_stake),
-    )?;
-
-    get(event_hash, GetOptions::default())?.ok_or(wasm_error!(WasmErrorInner::Guest(format!(
-        "Slashing event record not found after creation for stake {}",
-        input.stake_id
-    ))))
+pub fn slash_stake(_input: SlashStakeInput) -> ExternResult<Record> {
+    Err(wasm_error!(WasmErrorInner::Guest(
+        "Staking slashing is disabled until the exact slash event and un-slashed return are represented by validated, replay-protected economic receipts".into()
+    )))
 }
 
 // =============================================================================
