@@ -177,6 +177,49 @@ pub enum LocalIdentityStoragePosture {
     CorruptOrInconsistent,
 }
 
+/// A security-sensitive action that can be performed during identity bootstrap.
+///
+/// Keep this transition matrix pure and independent from the UI. Adding a new
+/// action requires a state-authorization test; an empty action set means that
+/// state is blocked from mutation.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum IdentityBootstrapAction {
+    CreateProtectedIdentity,
+    ProtectExistingIdentity,
+    UnlockProtectedIdentity,
+    RestoreProtectedIdentityFromSeedPhrase,
+    RotatePassphrase,
+}
+
+/// Return the only bootstrap mutations permitted for the observed local posture.
+///
+/// This is a policy decision, not proof that a storage operation has succeeded.
+/// The operation implementation must still recheck state immediately before
+/// writes and verify its read-back.
+pub fn allowed_identity_bootstrap_actions(
+    posture: LocalIdentityStoragePosture,
+) -> &'static [IdentityBootstrapAction] {
+    use IdentityBootstrapAction as Action;
+    match posture {
+        LocalIdentityStoragePosture::NoIdentity => {
+            &[Action::CreateProtectedIdentity, Action::RestoreProtectedIdentityFromSeedPhrase]
+        }
+        LocalIdentityStoragePosture::UnprotectedIdentity => &[Action::ProtectExistingIdentity],
+        LocalIdentityStoragePosture::ProtectedLocked => &[Action::UnlockProtectedIdentity],
+        LocalIdentityStoragePosture::ProtectedUnlockedInSession => &[Action::RotatePassphrase],
+        LocalIdentityStoragePosture::LegacyIdentityNeedsMigration
+        | LocalIdentityStoragePosture::StorageUnavailable
+        | LocalIdentityStoragePosture::CorruptOrInconsistent => &[],
+    }
+}
+
+pub fn identity_bootstrap_action_allowed(
+    posture: LocalIdentityStoragePosture,
+    action: IdentityBootstrapAction,
+) -> bool {
+    allowed_identity_bootstrap_actions(posture).contains(&action)
+}
+
 #[derive(Default)]
 struct IdentityStorageSnapshot {
     storage_available: bool,
@@ -1199,6 +1242,83 @@ mod tests {
         assert!(!public_key_matches_signing_key(
             &base64_encode(other.verifying_key().as_bytes()),
             &expected
+        ));
+    }
+
+    #[test]
+    fn bootstrap_policy_allows_only_the_state_specific_action_set() {
+        use IdentityBootstrapAction as Action;
+        use LocalIdentityStoragePosture as Posture;
+
+        assert_eq!(
+            allowed_identity_bootstrap_actions(Posture::NoIdentity),
+            &[
+                Action::CreateProtectedIdentity,
+                Action::RestoreProtectedIdentityFromSeedPhrase,
+            ]
+        );
+        assert_eq!(
+            allowed_identity_bootstrap_actions(Posture::UnprotectedIdentity),
+            &[Action::ProtectExistingIdentity]
+        );
+        assert_eq!(
+            allowed_identity_bootstrap_actions(Posture::ProtectedLocked),
+            &[Action::UnlockProtectedIdentity]
+        );
+        assert_eq!(
+            allowed_identity_bootstrap_actions(Posture::ProtectedUnlockedInSession),
+            &[Action::RotatePassphrase]
+        );
+        assert!(allowed_identity_bootstrap_actions(Posture::LegacyIdentityNeedsMigration).is_empty());
+        assert!(allowed_identity_bootstrap_actions(Posture::StorageUnavailable).is_empty());
+        assert!(allowed_identity_bootstrap_actions(Posture::CorruptOrInconsistent).is_empty());
+    }
+
+    #[test]
+    fn bootstrap_policy_denies_cross_state_identity_replacement() {
+        use IdentityBootstrapAction as Action;
+        use LocalIdentityStoragePosture as Posture;
+
+        let protected_or_unknown = [
+            Posture::UnprotectedIdentity,
+            Posture::ProtectedLocked,
+            Posture::ProtectedUnlockedInSession,
+            Posture::LegacyIdentityNeedsMigration,
+            Posture::StorageUnavailable,
+            Posture::CorruptOrInconsistent,
+        ];
+        for posture in protected_or_unknown {
+            assert!(!identity_bootstrap_action_allowed(
+                posture,
+                Action::CreateProtectedIdentity
+            ));
+            assert!(!identity_bootstrap_action_allowed(
+                posture,
+                Action::RestoreProtectedIdentityFromSeedPhrase
+            ));
+        }
+    }
+
+    #[test]
+    fn bootstrap_policy_denies_protection_and_unlock_in_wrong_states() {
+        use IdentityBootstrapAction as Action;
+        use LocalIdentityStoragePosture as Posture;
+
+        assert!(!identity_bootstrap_action_allowed(
+            Posture::NoIdentity,
+            Action::UnlockProtectedIdentity
+        ));
+        assert!(!identity_bootstrap_action_allowed(
+            Posture::ProtectedLocked,
+            Action::ProtectExistingIdentity
+        ));
+        assert!(!identity_bootstrap_action_allowed(
+            Posture::UnprotectedIdentity,
+            Action::UnlockProtectedIdentity
+        ));
+        assert!(!identity_bootstrap_action_allowed(
+            Posture::StorageUnavailable,
+            Action::RotatePassphrase
         ));
     }
 
