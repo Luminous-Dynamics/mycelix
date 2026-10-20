@@ -612,8 +612,7 @@ fn oracle_information_gain_per_cost_trace(
                 probability * (*size as f64).log2()
             })
             .sum::<f64>();
-        let gain = ((hypothesis_count.log2() - posterior_entropy).max(0.0) * 1000.0)
-            .round() as u32;
+        let gain = ((hypothesis_count.log2() - posterior_entropy).max(0.0) * 1000.0).round() as u32;
 
         let better = match best.as_ref() {
             None => true,
@@ -644,8 +643,16 @@ fn v1_public_contract_fixtures_remain_valid_and_unchanged() {
 
     assert!(jsonschema::draft202012::meta::is_valid(&catalog_schema));
     assert!(jsonschema::draft202012::meta::is_valid(&evaluator_schema));
-    assert!(jsonschema::draft202012::new(&catalog_schema).unwrap().is_valid(&catalog));
-    assert!(jsonschema::draft202012::new(&evaluator_schema).unwrap().is_valid(&evaluator));
+    assert!(
+        jsonschema::draft202012::new(&catalog_schema)
+            .unwrap()
+            .is_valid(&catalog)
+    );
+    assert!(
+        jsonschema::draft202012::new(&evaluator_schema)
+            .unwrap()
+            .is_valid(&evaluator)
+    );
     assert_eq!(catalog["schema_version"], 1);
     assert_eq!(catalog["benchmark_version"], "0.1.0");
     assert_eq!(evaluator["schema_version"], 1);
@@ -685,7 +692,13 @@ fn valid_catalog_and_evaluator_have_complete_cross_file_mappings() {
     let domains = catalog
         .scenarios
         .iter()
-        .map(|scenario| serde_json::to_value(scenario.domain).unwrap().as_str().unwrap().to_string())
+        .map(|scenario| {
+            serde_json::to_value(scenario.domain)
+                .unwrap()
+                .as_str()
+                .unwrap()
+                .to_string()
+        })
         .collect::<BTreeSet<_>>();
     assert_eq!(
         domains,
