@@ -1,3 +1,5 @@
+use base64::{Engine as _, engine::general_purpose::STANDARD};
+use ed25519_dalek::{Signature, VerifyingKey};
 use serde_json::{Value, json};
 use sha2::{Digest, Sha256};
 use std::{
@@ -41,6 +43,64 @@ impl QualificationExit {
             Self::Incomplete => 2,
         }
     }
+}
+
+/// Domain separation prevents a signature made for another protocol or
+/// receipt version from being reused as CivOS qualification evidence.
+const RECEIPT_SIGNATURE_DOMAIN: &[u8] = b"LUMINOUS-DYNAMICS/CIVOS-MACQ-001/RECEIPT/V0.1\\0";
+
+fn receipt_signature_message(receipt_bytes: &[u8]) -> Vec<u8> {
+    let digest = Sha256::digest(receipt_bytes);
+    let mut message = Vec::with_capacity(RECEIPT_SIGNATURE_DOMAIN.len() + digest.len());
+    message.extend_from_slice(RECEIPT_SIGNATURE_DOMAIN);
+    message.extend_from_slice(&digest);
+    message
+}
+
+/// Verify a detached Ed25519 signature over the exact receipt bytes.
+///
+/// `trusted_public_key` is exactly 32 raw Ed25519 public-key bytes.
+/// `signature_base64` is the detached 64-byte signature encoded as Base64.
+/// `expected_public_key_sha256` must come from an independent trust
+/// configuration (for example a protected CI variable or reviewed allowlist),
+/// not from the receipt or the same untrusted source that supplied the key.
+///
+/// This proves the receipt was signed by the private key corresponding to the
+/// pinned public key and binds the signature to the exact bytes. It does not,
+/// by itself, prove the test oracle is correct or that the pinned signer is
+/// authorized to attest a specific production environment.
+pub fn verify_receipt_signature(
+    receipt_bytes: &[u8],
+    signature_base64: &str,
+    trusted_public_key: &[u8],
+    expected_public_key_sha256: &str,
+) -> Result<String, String> {
+    let actual_fingerprint = sha256_hex(trusted_public_key);
+    if actual_fingerprint != expected_public_key_sha256 {
+        return Err(format!(
+            "trusted receipt public-key fingerprint mismatch: expected {expected_public_key_sha256}, actual {actual_fingerprint}"
+        ));
+    }
+
+    let public_key_bytes: [u8; 32] = trusted_public_key
+        .try_into()
+        .map_err(|_| "trusted Ed25519 public key must contain exactly 32 raw bytes".to_string())?;
+    let verifying_key = VerifyingKey::from_bytes(&public_key_bytes)
+        .map_err(|error| format!("trusted Ed25519 public key is invalid: {error}"))?;
+
+    let signature_bytes = STANDARD
+        .decode(signature_base64.trim())
+        .map_err(|error| format!("detached receipt signature is not valid Base64: {error}"))?;
+    let signature_array: [u8; 64] = signature_bytes
+        .as_slice()
+        .try_into()
+        .map_err(|_| "detached Ed25519 signature must contain exactly 64 bytes".to_string())?;
+    let signature = Signature::from_bytes(&signature_array);
+    verifying_key
+        .verify_strict(&receipt_signature_message(receipt_bytes), &signature)
+        .map_err(|_| "detached receipt signature verification failed".to_string())?;
+
+    Ok(actual_fingerprint)
 }
 
 fn parse_json(text: &str, label: &str) -> Result<Value, String> {
@@ -601,6 +661,59 @@ mod tests {
             "finance",
             Path::new(env!("CARGO_MANIFEST_DIR")),
         )
+    }
+
+    #[test]
+    fn detached_signature_authenticates_exact_receipt_bytes_and_pinned_key() {
+        use ed25519_dalek::{Signer, SigningKey};
+
+        let receipt = br#"{"receipt_id":"synthetic-receipt-001","status":"PASS"}"#;
+        let signing_key = SigningKey::from_bytes(&[43u8; 32]);
+        let public_key = signing_key.verifying_key().to_bytes();
+        let fingerprint = sha256_hex(&public_key);
+        let signature = signing_key.sign(&receipt_signature_message(receipt));
+        let signature_base64 = STANDARD.encode(signature.to_bytes());
+
+        assert_eq!(
+            verify_receipt_signature(
+                receipt,
+                &signature_base64,
+                &public_key,
+                &fingerprint
+            )
+            .unwrap(),
+            fingerprint
+        );
+    }
+
+    #[test]
+    fn detached_signature_rejects_receipt_byte_changes_and_wrong_fingerprint() {
+        use ed25519_dalek::{Signer, SigningKey};
+
+        let receipt = br#"{"receipt_id":"synthetic-receipt-001","status":"PASS"}"#;
+        let signing_key = SigningKey::from_bytes(&[44u8; 32]);
+        let public_key = signing_key.verifying_key().to_bytes();
+        let fingerprint = sha256_hex(&public_key);
+        let signature = signing_key.sign(&receipt_signature_message(receipt));
+        let signature_base64 = STANDARD.encode(signature.to_bytes());
+
+        let changed_receipt = br#"{ "receipt_id":"synthetic-receipt-001","status":"PASS"}"#;
+        assert!(verify_receipt_signature(
+            changed_receipt,
+            &signature_base64,
+            &public_key,
+            &fingerprint
+        )
+        .unwrap_err()
+        .contains("signature verification failed"));
+        assert!(verify_receipt_signature(
+            receipt,
+            &signature_base64,
+            &public_key,
+            &"0".repeat(64)
+        )
+        .unwrap_err()
+        .contains("fingerprint mismatch"));
     }
 
     #[test]
