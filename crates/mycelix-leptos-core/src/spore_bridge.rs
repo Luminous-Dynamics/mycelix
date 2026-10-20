@@ -24,9 +24,6 @@ pub struct SporeState {
     pub loaded: ReadSignal<bool>,
     pub phi: ReadSignal<f64>,
     pub cycle_count: ReadSignal<u64>,
-    set_loaded: WriteSignal<bool>,
-    set_phi: WriteSignal<f64>,
-    set_cycle_count: WriteSignal<u64>,
 }
 
 /// Initialize the Spore bridge. Attempts to load the Spore WASM kernel
@@ -37,16 +34,13 @@ pub struct SporeState {
 /// Call this after `provide_consciousness_context()` in the app root.
 pub fn provide_spore_bridge() {
     let (loaded, set_loaded) = signal(false);
-    let (phi, set_phi) = signal(0.0_f64);
-    let (cycle_count, set_cycle_count) = signal(0_u64);
+    let (phi, _set_phi) = signal(0.0_f64);
+    let (cycle_count, _set_cycle_count) = signal(0_u64);
 
     let state = SporeState {
         loaded,
         phi,
         cycle_count,
-        set_loaded,
-        set_phi,
-        set_cycle_count,
     };
     provide_context(state.clone());
 

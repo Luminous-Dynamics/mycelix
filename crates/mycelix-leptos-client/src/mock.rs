@@ -25,6 +25,12 @@ impl MockTransport {
     }
 }
 
+impl Default for MockTransport {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl HolochainTransport for MockTransport {
     fn call_zome(
         &self,
