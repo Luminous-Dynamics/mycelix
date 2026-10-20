@@ -535,6 +535,64 @@ mod tests {
     }
 
     #[test]
+    fn deterministic_256_case_policy_scope_lattice_never_amplifies() {
+        let approved = profile().maximum_ceiling;
+        for mask in 0u16..256 {
+            let mut candidate = safe_ceiling();
+            let mut expected = BTreeSet::new();
+
+            if mask & (1 << 0) != 0 {
+                candidate.claim_atoms.insert(atom(
+                    ClaimPredicate::OwnershipClaim,
+                    EvidenceClass::SourceAssertion,
+                    DerivationKind::Direct,
+                    IntendedUse::OperationalExecution,
+                ));
+                expected.insert("claim_atom_not_allowed");
+            }
+            if mask & (1 << 1) != 0 {
+                candidate.subject_ids.insert("outside-subject".to_owned());
+                expected.insert("subject_outside_policy");
+            }
+            if mask & (1 << 2) != 0 {
+                candidate.context_ids.insert("outside-context".to_owned());
+                expected.insert("context_outside_policy");
+            }
+            if mask & (1 << 3) != 0 {
+                candidate.valid_time.start_unix_seconds -= 1;
+                expected.insert("time_window_outside_policy");
+            }
+            if mask & (1 << 4) != 0 {
+                candidate.action_scopes.insert("operate-pump".to_owned());
+                expected.insert("action_scope_not_allowed");
+            }
+            if mask & (1 << 5) != 0 {
+                candidate.required_qualifications.clear();
+                expected.insert("required_qualification_missing");
+            }
+            if mask & (1 << 6) != 0 {
+                candidate.required_independence_controls.clear();
+                expected.insert("required_independence_control_missing");
+            }
+            if mask & (1 << 7) != 0 {
+                candidate.required_provenance.clear();
+                expected.insert("required_provenance_missing");
+            }
+
+            let actual: BTreeSet<_> = assess_candidate(&candidate, &approved)
+                .into_iter()
+                .map(|item| item.code)
+                .collect();
+            assert_eq!(actual, expected, "policy mutation mask {mask:#010b}");
+            assert_eq!(
+                is_no_broader_than(&candidate, &approved),
+                expected.is_empty(),
+                "partial-order predicate disagrees at mutation mask {mask:#010b}"
+            );
+        }
+    }
+
+    #[test]
     fn policy_receipt_is_deterministic_and_binds_raw_input_and_profile() {
         let input = request_bytes(safe_ceiling());
         let policy_bytes = serde_json::to_vec(&profile()).expect("serialize policy profile");
