@@ -29,16 +29,8 @@ jobs:
         with:
           toolchain: 1.96.0
           components: rustfmt, clippy
-      - name: Bootstrap Rust formatting and export exact formatted source
-        run: |
-          set -euo pipefail
-          cargo fmt --manifest-path "$PACKAGE" -p claim-ceiling-reference
-          for file in mycelix-workspace/mycelix-space/tools/claim-ceiling-reference/src/lib.rs mycelix-workspace/mycelix-space/tools/claim-ceiling-reference/src/main.rs; do
-            printf '\n---BEGIN_BASE64:%s---\n' "$file"
-            base64 --wrap=0 "$file"
-            printf '\n---END_BASE64:%s---\n' "$file"
-          done
-          exit 86
+      - name: Check package formatting
+        run: cargo fmt --manifest-path "$PACKAGE" -p claim-ceiling-reference -- --check
         env:
           PACKAGE: mycelix-workspace/mycelix-space/tools/claim-ceiling-reference/Cargo.toml
       - name: Run algebra, schema, golden-vector and mutation tests
