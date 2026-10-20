@@ -144,8 +144,7 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
             ..
         } => match link_type {
             LinkTypes::AgentToConsents | LinkTypes::AgentToConsentRevocations => {
-                let expected_base = action.author.clone().into();
-                if base != expected_base {
+                if !consent_history_base_matches_author(&base, &action.author) {
                     return Ok(ValidateCallbackResult::Invalid(
                         "Consent history links must be authored on the owner's agent base".into(),
                     ));
@@ -288,6 +287,10 @@ fn validate_consent(consent: &ConsentGrant) -> ExternResult<ValidateCallbackResu
 
 fn action_authors_match(original_author: &AgentPubKey, new_author: &AgentPubKey) -> bool {
     original_author == new_author
+}
+
+fn consent_history_base_matches_author(base: &AnyLinkableHash, author: &AgentPubKey) -> bool {
+    base == &AnyLinkableHash::from(author.clone())
 }
 
 fn validate_consent_revocation(
@@ -516,9 +519,8 @@ mod tests {
         let owner = AgentPubKey::from_raw_36(vec![1u8; 36]);
         let other = AgentPubKey::from_raw_36(vec![2u8; 36]);
         let owner_base: AnyLinkableHash = owner.clone().into();
-        let other_base: AnyLinkableHash = other.into();
-        assert_eq!(owner_base, owner.into());
-        assert_ne!(owner_base, other_base);
+        assert!(consent_history_base_matches_author(&owner_base, &owner));
+        assert!(!consent_history_base_matches_author(&owner_base, &other));
     }
 
     // ── Serde roundtrips ────────────────────────────────────────────
