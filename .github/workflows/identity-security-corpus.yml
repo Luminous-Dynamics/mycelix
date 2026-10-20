@@ -1,0 +1,68 @@
+name: Identity security corpus qualification
+
+on:
+  pull_request:
+    paths:
+      - "docs/research/IDENTITY_SECURITY_QUALIFICATION_V0.md"
+      - "docs/research/identity-security-scenarios-v0.json"
+      - "docs/research/identity-security-scenarios-v0.schema.json"
+      - ".github/workflows/identity-security-corpus.yml"
+  push:
+    branches: [main]
+    paths:
+      - "docs/research/IDENTITY_SECURITY_QUALIFICATION_V0.md"
+      - "docs/research/identity-security-scenarios-v0.json"
+      - "docs/research/identity-security-scenarios-v0.schema.json"
+      - ".github/workflows/identity-security-corpus.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  corpus:
+    name: Exact-head synthetic identity corpus checks
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - name: Assert exact source head
+        env:
+          EXPECTED_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        shell: bash
+        run: |
+          actual="$(git rev-parse HEAD)"
+          if [[ "$actual" != "$EXPECTED_SHA" ]]; then
+            echo "Expected source head $EXPECTED_SHA, checked out $actual" >&2
+            exit 1
+          fi
+      - name: Parse JSON and validate scenario contract
+        shell: bash
+        run: |
+          set -euo pipefail
+          corpus=docs/research/identity-security-scenarios-v0.json
+          schema=docs/research/identity-security-scenarios-v0.schema.json
+          jq -e . "$corpus" >/dev/null
+          jq -e . "$schema" >/dev/null
+
+          test "$(jq -r '.schema_version' "$corpus")" = "0.1.0"
+          test "$(jq -r '.status' "$corpus")" = "specification_only_not_executed"
+          test "$(jq '.scenarios | length' "$corpus")" -ge 30
+          test "$(jq '[.scenarios[].id] | unique | length' "$corpus")" = "$(jq '.scenarios | length' "$corpus")"
+          test "$(jq '[.scenarios[].execution_status] | unique | length' "$corpus")" = "1"
+          jq -e 'all(.scenarios[]; (.id | test("^ID-[0-9]{3}$")) and (.slug | test("^[a-z0-9]+(-[a-z0-9]+)*$")) and (.precondition | length > 0) and (.operation | length > 0) and (.expected | length > 0) and (.execution_status == "specified_not_executed") and ((.evidence_required | index("source_sha")) != null) and ((.evidence_required | index("result")) != null))' "$corpus" >/dev/null
+
+          test "$(jq -r '.properties.schema_version.const' "$schema")" = "0.1.0"
+          test "$(jq -r '.properties.scenarios.minItems' "$schema")" -ge 30
+          jq -e '.properties.scenarios.items.required | index("id") != null and index("expected") != null and index("execution_status") != null and index("evidence_required") != null' "$schema" >/dev/null
+
+          echo "Validated $(jq '.scenarios | length' "$corpus") unique synthetic scenarios; none is claimed executed."
+      - name: Check whitespace and merge markers
+        run: |
+          git diff --check
+          if rg -n '^(<<<<<<<|=======|>>>>>>>)' docs/research/IDENTITY_SECURITY_QUALIFICATION_V0.md docs/research/identity-security-scenarios-v0.json docs/research/identity-security-scenarios-v0.schema.json; then
+            echo "Merge conflict marker found" >&2
+            exit 1
+          fi
