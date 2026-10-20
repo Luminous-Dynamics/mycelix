@@ -1,0 +1,68 @@
+name: Health Vault Capability Handoff Contract
+
+on:
+  push:
+    branches:
+      - research/health-vault-capability-handoff-v0
+    paths:
+      - .github/workflows/health-vault-handoff-contract.yml
+      - docs/research/HEALTH_VAULT_CAPABILITY_HANDOFF_V0.md
+      - docs/research/fixtures/HEALTH_VAULT_CAPABILITY_HANDOFF_V1.json
+      - docs/research/fixtures/HEALTH_VAULT_CAPABILITY_HANDOFF_V1.schema.json
+      - mycelix-personal/tests/Cargo.toml
+      - mycelix-personal/tests/health_vault_capability_handoff_contract.rs
+      - mycelix-workspace/docs/research/HEALTH_VAULT_CAPABILITY_HANDOFF_V0.md
+      - mycelix-workspace/docs/research/fixtures/HEALTH_VAULT_CAPABILITY_HANDOFF_V1.json
+      - mycelix-workspace/docs/research/fixtures/HEALTH_VAULT_CAPABILITY_HANDOFF_V1.schema.json
+      - mycelix-workspace/mycelix-personal/tests/Cargo.toml
+      - mycelix-workspace/mycelix-personal/tests/health_vault_capability_handoff_contract.rs
+  pull_request:
+    paths:
+      - .github/workflows/health-vault-handoff-contract.yml
+      - docs/research/HEALTH_VAULT_CAPABILITY_HANDOFF_V0.md
+      - docs/research/fixtures/HEALTH_VAULT_CAPABILITY_HANDOFF_V1.json
+      - docs/research/fixtures/HEALTH_VAULT_CAPABILITY_HANDOFF_V1.schema.json
+      - mycelix-personal/tests/Cargo.toml
+      - mycelix-personal/tests/health_vault_capability_handoff_contract.rs
+      - mycelix-workspace/docs/research/HEALTH_VAULT_CAPABILITY_HANDOFF_V0.md
+      - mycelix-workspace/docs/research/fixtures/HEALTH_VAULT_CAPABILITY_HANDOFF_V1.json
+      - mycelix-workspace/docs/research/fixtures/HEALTH_VAULT_CAPABILITY_HANDOFF_V1.schema.json
+      - mycelix-workspace/mycelix-personal/tests/Cargo.toml
+      - mycelix-workspace/mycelix-personal/tests/health_vault_capability_handoff_contract.rs
+
+permissions:
+  contents: read
+
+concurrency:
+  group: health-vault-handoff-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  contract:
+    name: Synthetic corpus contract tests (not conductor qualification)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout exact PR head or pushed commit
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+
+      - name: Pin Rust toolchain
+        run: |
+          rustup toolchain install 1.96.0 --profile minimal
+          rustc +1.96.0 --version
+          cargo +1.96.0 --version
+
+      - name: Assert checked source SHA
+        env:
+          EXPECTED_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          set -euo pipefail
+          actual="$(git rev-parse HEAD)"
+          test "$actual" = "$EXPECTED_SHA"
+          printf 'qualification_source_sha=%s\n' "$actual"
+
+      - name: Run corpus contract tests
+        run: cargo +1.96.0 test --manifest-path mycelix-personal/tests/Cargo.toml --test health_vault_capability_handoff_contract
