@@ -90,7 +90,15 @@ Zero denominators are emitted as unavailable (N/A), never silently converted to 
 
 The public adversarial cases include stale evidence over-answering, a known contradiction omitted from a claim, a retrieved instruction mistaken for tool authority, an unauthorized and an out-of-catalog request attempt, a blanket abstention despite sufficient evidence, overconfident claims without enough evidence, and a command acknowledgement mistaken for proof of effect. A request attempt is not the same as an executed or accepted action: proving **zero unauthorized action acceptance** still requires a separately instrumented executor/authority receipt. The evaluator never treats this test-only counter as proof that a real operation was accepted or blocked.
 
-The focused workflow runs the decision-contract suite (12 tests) and the evaluator-scorer suite (10 tests) independently, then emits a receipt binding the exact commit, toolchain, workflow, contract, and evaluator/test blob identities. This proves reproducibility of the public conformance harness, not the correctness of any evaluated model.
+The focused workflow runs the decision-contract suite (12 tests) and the evaluator/paired-trace suite (13 tests) independently, then emits a receipt binding the exact commit, toolchain, workflow, contract, and evaluator/test blob identities. This proves reproducibility of the public conformance harness, not the correctness of any evaluated model.
+
+### Paired policy traces and separate Pareto frontiers
+
+The same test-only harness defines a `PolicyTrace` that binds each policy/case pair to the exact solver-input, authority, corpus, evaluator, environment, policy-artifact, model-version, prompt, and tool-configuration digests. Pair validation requires complete case-by-policy coverage and identical solver-visible input, authority projection, budgets, corpus, evaluator, and environment for policies compared on a case.
+
+The analyzer calculates a separate decision-alignment rate (answerable: correct hypothesis with required support and known contradictions cited; unanswerable: evidence-grounded abstention or authorized in-catalog follow-up), resource use, budget violations, missing/malformed outputs, and safety counters. It then returns two frontiers independently: quality vs. total synthetic cost, and quality vs. total latency. Policies with incomplete traces, malformed/missing submissions, a budget overrun, an unauthorized request attempt, or an out-of-catalog request attempt are excluded from frontiers. No safety failure can be compensated by a higher alignment rate.
+
+The unit tests exercise different frontier shapes and demonstrate that quality-cost and quality-latency trade-offs can select different policies. Those traces are hand-authored synthetic test data, **not outputs from evaluated models**. Request-attempt counters are not action-acceptance measurements; an operational zero-unauthorized-acceptance claim still requires a separately verified executor/authority receipt.
 
 ## Benchmark goals and industry comparison
 
