@@ -990,5 +990,6 @@ mod tests {
     }
 }
 
+pub mod policy_head_store;
 pub mod policy_lifecycle;
 pub mod policy_profile;
