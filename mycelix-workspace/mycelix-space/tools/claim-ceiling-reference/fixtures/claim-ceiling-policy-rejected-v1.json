@@ -1,0 +1,39 @@
+{
+  "schema_version": "mycelix.claim-ceiling-policy.request.v1",
+  "request_id": "policy-rejected-001",
+  "candidate_ceiling": {
+    "claim_atoms": [
+      {
+        "predicate": "measurement",
+        "evidence_class": "instrument_measurement",
+        "derivation": "direct",
+        "intended_use": "research"
+      },
+      {
+        "predicate": "ownership_claim",
+        "evidence_class": "source_assertion",
+        "derivation": "direct",
+        "intended_use": "operational_execution"
+      }
+    ],
+    "subject_ids": [
+      "pump-17",
+      "building-9"
+    ],
+    "context_ids": [
+      "zone-north",
+      "zone-south"
+    ],
+    "valid_time": {
+      "start_unix_seconds": 90,
+      "end_unix_seconds_exclusive": 210
+    },
+    "action_scopes": [
+      "publish-report",
+      "operate-pump"
+    ],
+    "required_qualifications": [],
+    "required_independence_controls": [],
+    "required_provenance": []
+  }
+}

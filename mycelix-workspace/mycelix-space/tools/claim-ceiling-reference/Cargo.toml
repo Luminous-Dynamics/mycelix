@@ -17,3 +17,7 @@ sha2 = "0.10"
 [[bin]]
 name = "claim-ceiling-meet"
 path = "src/main.rs"
+
+[[bin]]
+name = "claim-ceiling-policy-check"
+path = "src/policy_main.rs"
