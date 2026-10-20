@@ -1,6 +1,6 @@
 use civos_qualification::{evaluate_receipt, validate_contract};
 use serde_json::json;
-use std::{env, fs, process};
+use std::{env, fs, path::Path, process};
 
 fn value_after(args: &[String], flag: &str) -> Result<String, String> {
     let index = args.iter().position(|arg| arg == flag)
@@ -45,12 +45,18 @@ fn run(args: &[String]) -> Result<i32, String> {
             let receipt_schema_path = value_after(args, "--receipt-schema")?;
             let receipt_path = value_after(args, "--receipt")?;
             let target = value_after(args, "--target")?;
+            let evidence_root = value_after(args, "--evidence-root")?;
             let corpus = read(&corpus_path, "scenario corpus")?;
             let schema = read(&schema_path, "scenario schema")?;
             let receipt_schema = read(&receipt_schema_path, "receipt schema")?;
             let receipt = read(&receipt_path, "qualification receipt")?;
             let report = evaluate_receipt(
-                &corpus, &schema, &receipt_schema, &receipt, &target
+                &corpus,
+                &schema,
+                &receipt_schema,
+                &receipt,
+                &target,
+                Path::new(&evidence_root),
             )?;
             let status = report.get("status").and_then(|value| value.as_str()).unwrap_or("INCOMPLETE");
             println!("{}", serde_json::to_string_pretty(&report).map_err(|error| error.to_string())?);
@@ -71,7 +77,8 @@ fn run(args: &[String]) -> Result<i32, String> {
 fn usage() -> &'static str {
     "CivOS fail-closed qualification tool\n\n\
 civos-qualify validate-contract --corpus PATH --schema PATH\n\
-civos-qualify evaluate-receipt --corpus PATH --schema PATH --receipt-schema PATH --receipt PATH --target TARGET\n\n\
+civos-qualify evaluate-receipt --corpus PATH --schema PATH --receipt-schema PATH --receipt PATH --target TARGET --evidence-root PATH\n\n\
+Evidence paths are relative to --evidence-root. Every referenced file must exist under that root and match its declared SHA-256.\n\n\
 Exit codes: 0 qualified/valid, 1 hard-gate failure, 2 incomplete or invalid input."
 }
 
