@@ -1,0 +1,438 @@
+name: COS Conformance Exact-Head Qualification
+# Canonical exact-head qualifier for the COS federation reference boundary.
+
+on:
+  pull_request:
+    branches:
+      - myc-int-demo-d6e-heterogeneous-federation
+    types: [opened, synchronize, reopened, ready_for_review, converted_to_draft]
+    paths:
+      - 'mycelix-manufacturing/crates/cos_conformance/**'
+      - 'mycelix-manufacturing/Cargo.toml'
+      - 'mycelix-manufacturing/Cargo.lock'
+      - 'docs/integral/heterogeneous-federation-reference-v1.md'
+      - '.github/workflows/cos-conformance-exact-qualification.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pull-requests: read
+
+# Only the newest synchronization for a PR may qualify. A superseded queued
+# run must not be allowed to certify an older head after the branch advances.
+concurrency:
+  group: cos-conformance-exact-pr-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+  MANIFEST: mycelix-manufacturing/Cargo.toml
+  RUST_TOOLCHAIN: 1.99.0
+  HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+  BASE_SHA: ${{ github.event.pull_request.base.sha || '' }}
+
+jobs:
+  qualify:
+    name: Exact PR-head COS conformance
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - name: Checkout exact PR head
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          submodules: recursive
+          persist-credentials: false
+
+      - name: Prove checkout is exact requested head
+        shell: bash
+        run: |
+          set -euo pipefail
+          actual="$(git rev-parse HEAD)"
+          test "$actual" = "$HEAD_SHA"
+          echo "Exact event head: $actual"
+
+      - name: Capture runner provenance
+        id: runner
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "Runner label: ubuntu-24.04"
+          echo "Runner OS: ${RUNNER_OS}"
+          echo "Runner architecture: ${RUNNER_ARCH}"
+          echo "Runner image OS: ${ImageOS:-unknown}"
+          echo "Runner image version: ${ImageVersion:-unknown}"
+          echo "Kernel: $(uname -srmo)"
+
+      - name: Reject superseded PR-head runs
+        if: ${{ github.event_name == 'pull_request' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          current="$(gh api "repos/${GITHUB_REPOSITORY}/pulls/${{ github.event.pull_request.number }}" --jq '.head.sha')"
+          test "$current" = "$HEAD_SHA" || {
+            echo "Superseded qualification run: event head=$HEAD_SHA current PR head=$current"
+            exit 1
+          }
+          echo "Current PR head: $current"
+
+      - name: Reject superseded PR-base runs
+        id: base
+        if: ${{ github.event_name == 'pull_request' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          current="$(gh api "repos/${GITHUB_REPOSITORY}/branches/${{ github.event.pull_request.base.ref }}" --jq '.commit.sha')"
+          test "$current" = "$BASE_SHA" || {
+            echo "Superseded qualification base: event base=$BASE_SHA current base=$current"
+            exit 1
+          }
+          echo "Current PR base: $current"
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@7e38f4b43b4db5c8dd498af069a4f6196df1d067 # master @ 2026-10-01
+        with:
+          toolchain: ${{ env.RUST_TOOLCHAIN }}
+          components: rustfmt, clippy
+
+      - name: Format COS conformance
+        id: fmt
+        run: cargo fmt --manifest-path "$MANIFEST" -p cos_conformance --check
+
+      - name: Test COS conformance
+        id: test
+        run: cargo test --manifest-path "$MANIFEST" -p cos_conformance
+
+      - name: Clippy COS conformance
+        id: clippy
+        run: cargo clippy --manifest-path "$MANIFEST" -p cos_conformance --all-targets -- -D warnings
+
+      - name: Run independent external boundary probe
+        id: probe
+        shell: bash
+        run: |
+          set -euo pipefail
+          probe='mycelix-manufacturing/crates/cos_conformance/tests/__cos_exact_external_probe.rs'
+          rm -f "$probe"
+          trap 'rm -f "$probe"' EXIT
+          cat > "$probe" <<'EOF'
+          use cos_conformance::federation::{
+              state_machine_trace_external_evidence_anchor_reference,
+              state_machine_trace_external_evidence_verification_statement_with_request_context,
+              state_machine_trace_external_verification_request_context_sha256,
+              validate_state_machine_trace_external_evidence_verification_statement_chain_with_request_context,
+              FederationExternalVerificationPolicyAdmissionViolation,
+              FederationExternalVerificationTrustPolicyV1,
+              FederationExternalVerifierIdentityKind,
+              FederationStateMachineTraceExternalEvidenceVerificationStatementViolation,
+              FederationStateMachineTraceExternalVerificationClaim,
+              FederationStateMachineTraceExternalWitnessKind,
+          };
+          use serde_json::json;
+
+          #[test]
+          fn workflow_authored_probe_closes_request_identity_boundary() {
+              let subject_sha = "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
+              let witness = b"workflow-authored-witness";
+              let report = b"workflow-authored-report";
+              let request_a = b"rp=integral-demo;nonce=probe-A;action=water-maintenance";
+              let request_b = b"rp=integral-demo;nonce=probe-B;action=water-maintenance";
+              let anchor = state_machine_trace_external_evidence_anchor_reference(
+                  1,
+                  "integral-federation-publication-collection-reconciliation-v1",
+                  subject_sha,
+                  FederationStateMachineTraceExternalWitnessKind::TimestampToken,
+                  1,
+                  "tsa-token-v1",
+                  witness,
+                  1_791_030_000,
+              ).expect("anchor must build");
+
+              let statement = state_machine_trace_external_evidence_verification_statement_with_request_context(
+                  &anchor.anchor_reference_sha256,
+                  2,
+                  "rfc3161-verifier-v1",
+                  FederationExternalVerifierIdentityKind::PublicKey,
+                  "rfc3161-key-v1",
+                  b"workflow-authored-identity",
+                  FederationStateMachineTraceExternalVerificationClaim::TimestampTokenVerified,
+                  report,
+                  request_a,
+                  1_791_030_001,
+              ).expect("statement must build");
+
+              let result = validate_state_machine_trace_external_evidence_verification_statement_chain_with_request_context(
+                  1,
+                  "integral-federation-publication-collection-reconciliation-v1",
+                  subject_sha,
+                  witness,
+                  &anchor,
+                  report,
+                  request_a,
+                  &statement,
+              ).expect("exact request context must validate");
+
+              assert_eq!(
+                  result.request_context_sha256(),
+                  statement.request_context_sha256(),
+              );
+              assert_eq!(
+                  validate_state_machine_trace_external_evidence_verification_statement_chain_with_request_context(
+                      1,
+                      "integral-federation-publication-collection-reconciliation-v1",
+                      subject_sha,
+                      witness,
+                      &anchor,
+                      report,
+                      request_b,
+                      &statement,
+                  ),
+                  Err(FederationStateMachineTraceExternalEvidenceVerificationStatementViolation::RequestContextDigestMismatch),
+              );
+
+              let request_a_sha = state_machine_trace_external_verification_request_context_sha256(request_a);
+              let request_b_sha = state_machine_trace_external_verification_request_context_sha256(request_b);
+              assert_ne!(request_a_sha, request_b_sha);
+              let policy_a = FederationExternalVerificationTrustPolicyV1::try_new_bound(
+                  FederationStateMachineTraceExternalWitnessKind::TimestampToken,
+                  "tsa-token-v1",
+                  2,
+                  ["rfc3161-verifier-v1"],
+                  [FederationStateMachineTraceExternalVerificationClaim::TimestampTokenVerified],
+              ).expect("policy must build")
+              .try_new_bound_request_context_sha256(request_a_sha)
+              .expect("bound request policy must build")
+              .with_maximum_verification_age_seconds(60)
+              .expect("freshness policy must build");
+              let admission = result.admit_under_policy_at(&policy_a, 1_791_030_002)
+                  .expect("matching request policy must admit");
+              admission.validate_integrity().expect("admission receipt must validate");
+
+              let policy_b = policy_a.clone()
+                  .try_new_bound_request_context_sha256(request_b_sha)
+                  .expect("alternate request policy must build");
+              assert_eq!(
+                  result.admit_under_policy_at(&policy_b, 1_791_030_002),
+                  Err(FederationExternalVerificationPolicyAdmissionViolation::RequestContextNotAdmitted),
+              );
+
+              let mut wire: serde_json::Value = serde_json::to_value(&statement).expect("statement must serialize");
+              wire["request_context_sha256"] = serde_json::Value::Null;
+              wire["unexpected_probe_field"] = json!(true);
+              let decoded = serde_json::from_value::<cos_conformance::federation::FederationStateMachineTraceExternalEvidenceVerificationStatement>(wire);
+              assert!(decoded.is_err(), "wire boundary must reject malformed or unknown statement fields");
+          }
+          EOF
+          probe_sha256="$(sha256sum "$probe" | cut -d' ' -f1)"
+          echo "PROBE_SHA256=$probe_sha256" >> "$GITHUB_ENV"
+          cargo test --manifest-path mycelix-manufacturing/Cargo.toml -p cos_conformance --test __cos_exact_external_probe
+
+      - name: Enforce exact external-verification boundary
+        id: boundary
+        shell: bash
+        run: |
+          set -euo pipefail
+          source='mycelix-manufacturing/crates/cos_conformance/src/federation.rs'
+
+          grep -Fq '//! Claim ceiling: ReferenceModelOnly.' "$source"
+          grep -Fq 'pub enum FederationExternalVerifierIdentityKind' "$source"
+          grep -Fq 'pub enum FederationExternalVerifierIdentityUseMethod' "$source"
+          grep -Fq 'pub struct FederationExternalVerifierIdentityUseStatementV1' "$source"
+          grep -Fq 'pub struct FederationExternalVerifierIdentityUseVerificationResult' "$source"
+          grep -Fq 'pub struct FederationStateMachineTraceExternalEvidenceVerificationResult' "$source"
+          grep -Fq 'pub fn validate_federation_external_verifier_identity_use_statement' "$source"
+          grep -Fq 'pub fn validate_federation_external_verifier_identity_use_statement_against_result' "$source"
+          grep -Fq 'pub fn validate_federation_external_verifier_identity_use_statement_chain' "$source"
+          grep -Fq 'pub fn validate_federation_external_verifier_identity_use_verification_result_against_result' "$source"
+          grep -Fq 'pub fn admit_under_policy_with_identity_use_result_at' "$source"
+          grep -Fq 'pub fn admit_under_policy_with_identity_use_at' "$source"
+          grep -Fq 'pub fn try_new_bound_identity_use' "$source"
+          grep -Fq 'required_verifier_identity_use_method' "$source"
+          grep -Fq 'required_verifier_identity_use_profile' "$source"
+          grep -Fq 'required_anchor_reference_sha256' "$source"
+          grep -Fq 'required_verifier_profile_sha256' "$source"
+          grep -Fq 'required_request_context_sha256' "$source"
+          grep -Fq 'pub fn try_new_bound_anchor_reference' "$source"
+          grep -Fq 'pub fn try_new_bound_verifier_profile_sha256' "$source"
+          grep -Fq 'pub fn try_new_bound_request_context_sha256' "$source"
+          grep -Fq 'VerifierProfileDigestNotAdmitted' "$source"
+          grep -Fq 'InvalidRequiredVerifierProfileDigest' "$source"
+          grep -Fq 'RequestContextNotAdmitted' "$source"
+          grep -Fq 'InvalidRequiredRequestContextDigest' "$source"
+          grep -Fq 'pub fn state_machine_trace_external_evidence_verification_statement_with_verifier_profile_evidence' "$source"
+          grep -Fq 'pub fn state_machine_trace_external_evidence_verification_statement_with_request_context' "$source"
+          grep -Fq 'pub fn state_machine_trace_external_evidence_verification_statement_with_verifier_profile_evidence_and_request_context' "$source"
+          grep -Fq 'verifier_profile_sha256' "$source"
+          grep -Fq 'AnchorReferenceNotAdmitted' "$source"
+          grep -Fq 'InvalidRequiredAnchorReferenceDigest' "$source"
+          grep -Fq 'FEDERATION_EXTERNAL_VERIFICATION_TRUST_POLICY_SCHEMA_VERSION: u16 = 6' "$source"
+          grep -Fq 'integral-federation-external-verification-trust-policy-v6' "$source"
+          grep -Fq 'FEDERATION_STATE_MACHINE_TRACE_EXTERNAL_EVIDENCE_VERIFICATION_STATEMENT_SCHEMA_VERSION: u16 = 4' "$source"
+          grep -Fq 'integral-federation-trace-external-evidence-verification-statement-v4' "$source"
+          grep -Fq 'FEDERATION_EXTERNAL_VERIFIER_IDENTITY_USE_STATEMENT_SCHEMA_VERSION: u16 = 2' "$source"
+          grep -Fq 'verification_statement_sha256' "$source"
+          grep -Fq 'ResultVerificationStatementDigestMismatch' "$source"
+          grep -Fq 'external_verifier_identity_use_validation_mints_typed_capability_and_rebinds_it' "$source"
+          grep -Fq 'external_verification_policy_admission_typed_identity_use_matches_raw_compatibility_path' "$source"
+          grep -Fq 'external_verification_statement_wire_shape_is_closed_world_for_v4' "$source"
+          grep -Fq 'external_verification_request_context_binding_is_content_addressed_and_fail_closed' "$source"
+          grep -Fq 'external_verification_profile_and_request_context_composition_is_canonical' "$source"
+          grep -Fq 'external policy admission hash view must be serializable' "$source"
+          grep -Fq 'pub fn admission_sha256(&self)' "$source"
+          grep -Fq 'pub fn validate_integrity' "$source"
+          grep -Fq 'FederationExternalVerificationPolicyAdmissionIntegrityViolation' "$source"
+          grep -Fq 'AdmissionDigestMismatch' "$source"
+          grep -Fq 'admission_sha256: String' "$source"
+          grep -Fq 'external_verification_policy_anchor_reference_binding_is_content_addressed_and_fail_closed' "$source"
+          grep -Fq 'external_verification_policy_verifier_profile_digest_binding_is_content_addressed_and_fail_closed' "$source"
+          grep -Fq 'FEDERATION_EXTERNAL_VERIFICATION_TRUST_POLICY_PROFILE' "$source"
+          grep -Fq 'VerifierIdentityUsePolicyNotConfigured' "$source"
+          grep -Fq 'required_identity_sha256 != self.verifier_identity_sha256()' "$source"
+          grep -Fq 'WitnessBindingIncomplete' "$source"
+          grep -Fq 'VerifierIdentityBindingIncomplete' "$source"
+
+          if grep -Eq 'self\.evaluated_at_unix_seconds|self\.verification_age_seconds' "$source"; then
+            echo 'External verification statement must not expose admission-only timestamp fields.'
+            exit 1
+          fi
+          if grep -Fq 'pub pub fn' "$source"; then
+            echo 'Duplicated visibility keyword detected.'
+            exit 1
+          fi
+          if grep -Eq '^#[[:space:]]*\\[test\\][[:space:]]*$' "$source"; then
+            :
+          fi
+          if grep -Fq $'#[test]\\n    #[test]' "$source"; then
+            echo 'Duplicate adjacent test attributes detected.'
+            exit 1
+          fi
+          if grep -Eq 'reqwest::|hyper::|tonic::|TcpStream|UdpSocket|AdminWebsocket' "$source"; then
+            echo 'COS reference verification boundary must remain transport-neutral.'
+            exit 1
+          fi
+
+          result_context="$(grep -n -B12 -A2 -F 'pub struct FederationStateMachineTraceExternalEvidenceVerificationResult' "$source")"
+          if printf '%s\n' "$result_context" | grep -q 'Deserialize'; then
+            echo 'External verification result must remain non-deserializable.'
+            exit 1
+          fi
+
+          identity_use_context="$(grep -n -B12 -A2 -F 'pub struct FederationExternalVerifierIdentityUseVerificationResult' "$source")"
+          if printf '%s\n' "$identity_use_context" | grep -q 'Deserialize'; then
+            echo 'Typed identity-use capability must remain non-deserializable.'
+            exit 1
+          fi
+
+          admission_context="$(grep -n -B12 -A2 -F 'pub struct FederationExternalVerificationPolicyAdmissionV1' "$source")"
+          if printf '%s\n' "$admission_context" | grep -q 'Deserialize'; then
+            echo 'Policy admission must remain non-deserializable.'
+            exit 1
+          fi
+
+      - name: Reconfirm exact PR head and base before qualification closes
+        id: final_identity
+        if: ${{ github.event_name == 'pull_request' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          current_head="$(gh api "repos/${GITHUB_REPOSITORY}/pulls/${{ github.event.pull_request.number }}" --jq '.head.sha')"
+          current_base="$(gh api "repos/${GITHUB_REPOSITORY}/branches/${{ github.event.pull_request.base.ref }}" --jq '.commit.sha')"
+          test "$current_head" = "$HEAD_SHA" || {
+            echo "PR head advanced during qualification: start=$HEAD_SHA final=$current_head"
+            exit 1
+          }
+          test "$current_base" = "$BASE_SHA" || {
+            echo "PR base advanced during qualification: start=$BASE_SHA final=$current_base"
+            exit 1
+          }
+          echo "Final exact PR head: $current_head"
+          echo "Final exact PR base: $current_base"
+
+      - name: Emit exact qualification receipt
+        if: ${{ always() }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p qualification-receipt
+          source='mycelix-manufacturing/crates/cos_conformance/src/federation.rs'
+          cat > qualification-receipt/receipt-payload.json <<EOF
+          {
+            "schema": "cos-exact-qualification-receipt-v1",
+            "repository": "${GITHUB_REPOSITORY}",
+            "workflow": "${GITHUB_WORKFLOW}",
+            "workflow_sha": "${{ github.workflow_sha }}",
+            "checkout_action": "actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+            "rust_toolchain_action": "dtolnay/rust-toolchain@7e38f4b43b4db5c8dd498af069a4f6196df1d067",
+            "upload_artifact_action": "actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a",
+            "runner_label": "ubuntu-24.04",
+            "runner_os": "${RUNNER_OS}",
+            "runner_arch": "${RUNNER_ARCH}",
+            "runner_image_os": "${ImageOS:-unknown}",
+            "runner_image_version": "${ImageVersion:-unknown}",
+            "runner_kernel": "$(uname -srmo)",
+            "event": "${{ github.event_name }}",
+            "pull_request_number": "${{ github.event.pull_request.number || '' }}",
+            "event_head_sha": "${HEAD_SHA}",
+            "checked_out_head_sha": "$(git rev-parse HEAD)",
+            "event_base_sha": "${BASE_SHA}",
+            "base_guard_current_sha": "$(gh api "repos/${GITHUB_REPOSITORY}/branches/${{ github.event.pull_request.base.ref }}" --jq '.commit.sha')",
+            "final_pr_head_sha": "$(gh api "repos/${GITHUB_REPOSITORY}/pulls/${{ github.event.pull_request.number }}" --jq '.head.sha')",
+            "final_base_sha": "$(gh api "repos/${GITHUB_REPOSITORY}/branches/${{ github.event.pull_request.base.ref }}" --jq '.commit.sha')",
+            "rust_toolchain": "${{ env.RUST_TOOLCHAIN }}",
+            "rustc_version": "$(rustc -V)",
+            "cargo_version": "$(cargo -V)",
+            "job_status": "${{ job.status }}",
+            "fmt_conclusion": "${{ steps.fmt.conclusion }}",
+            "test_conclusion": "${{ steps.test.conclusion }}",
+            "clippy_conclusion": "${{ steps.clippy.conclusion }}",
+            "independent_probe_conclusion": "${{ steps.probe.conclusion }}",
+            "independent_probe_sha256": "${PROBE_SHA256:-}",
+            "boundary_conclusion": "${{ steps.boundary.conclusion }}",
+            "base_guard_conclusion": "${{ steps.base.conclusion }}",
+            "final_identity_guard_conclusion": "${{ steps.final_identity.conclusion }}",
+            "federation_source_sha256": "$(sha256sum "$source" | cut -d' ' -f1)",
+            "cargo_manifest_sha256": "$(sha256sum "$MANIFEST" | cut -d' ' -f1)",
+            "claim_ceiling": "ReferenceModelOnly",
+            "format_scope": "cos_conformance package only",
+            "qualification_scope": "Exact PR-head cos_conformance semantic conformance plus workflow-authored external boundary probe"
+          }
+          EOF
+          jq -cS '.' qualification-receipt/receipt-payload.json > qualification-receipt/receipt-payload-canonical.json
+          payload_sha256="$(sha256sum qualification-receipt/receipt-payload-canonical.json | cut -d' ' -f1)"
+          jq -cS --arg digest "$payload_sha256" '. + {receipt_payload_sha256: $digest}' qualification-receipt/receipt-payload.json > qualification-receipt/cos-exact-qualification-receipt.json
+          jq -e '.schema == "cos-exact-qualification-receipt-v1" and .event_head_sha == .checked_out_head_sha and .claim_ceiling == "ReferenceModelOnly" and (.receipt_payload_sha256 | test("^[0-9a-f]{64}$"))' qualification-receipt/cos-exact-qualification-receipt.json
+          actual_payload_sha256="$(jq -cS 'del(.receipt_payload_sha256)' qualification-receipt/cos-exact-qualification-receipt.json | sha256sum | cut -d' ' -f1)"
+          recorded_payload_sha256="$(jq -r '.receipt_payload_sha256' qualification-receipt/cos-exact-qualification-receipt.json)"
+          test "$actual_payload_sha256" = "$recorded_payload_sha256"
+          rm -f qualification-receipt/receipt-payload.json qualification-receipt/receipt-payload-canonical.json
+      - name: Upload exact qualification receipt
+        id: upload_receipt
+        if: ${{ always() }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: cos-exact-qualification-receipt
+          path: qualification-receipt/cos-exact-qualification-receipt.json
+          archive: false
+          if-no-files-found: error
+
+      - name: Publish receipt artifact provenance
+        if: ${{ always() }}
+        env:
+          ARTIFACT_ID: ${{ steps.upload_receipt.outputs.artifact-id }}
+          ARTIFACT_DIGEST: ${{ steps.upload_receipt.outputs.artifact-digest }}
+          RECEIPT_FILE_SHA256: "$(sha256sum qualification-receipt/cos-exact-qualification-receipt.json | cut -d' ' -f1)"
+        shell: bash
+        run: |
+          {
+            echo "### COS exact qualification receipt provenance"
+            echo
+            echo "- Artifact ID: ${ARTIFACT_ID:-unavailable}"
+            echo "- Artifact digest: ${ARTIFACT_DIGEST:-unavailable}"
+            echo "- Receipt file SHA-256: ${RECEIPT_FILE_SHA256}"
+            echo "- Runner image: ubuntu-24.04 (${ImageOS:-unknown} ${ImageVersion:-unknown})"
+          } >> "$GITHUB_STEP_SUMMARY"

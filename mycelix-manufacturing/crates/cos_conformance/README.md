@@ -22,3 +22,7 @@ A passing suite establishes only that this reference model rejects the specified
 semantic collapses and accepts their explicitly bound counterparts. It does not
 establish physical productivity, safety, qualification, economic/ecological
 outcomes, or Integral validation.
+
+## Heterogeneous federation
+
+`federation.rs` provides the deterministic reference oracle for Integral/Mycelix heterogeneous federation. It preserves local-vs-foreign authority, logical delivery identity, schema/authorization generations, causal dependencies, reconnect idempotence, conflicting observations, and privacy-minimized projections. See `docs/integral/heterogeneous-federation-reference-v1.md`.
