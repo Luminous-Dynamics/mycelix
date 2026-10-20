@@ -1417,8 +1417,7 @@ fn fixed_playbook_baseline_covers_all_five_domains_without_crossing_authority() 
             .unwrap();
         assert!(trace.iter().all(|id| {
             scenario.requests.iter().any(|request| {
-                request.request_id == *id
-                    && authorized.contains(&request.required_authority)
+                request.request_id == *id && authorized.contains(&request.required_authority)
             })
         }));
     }
