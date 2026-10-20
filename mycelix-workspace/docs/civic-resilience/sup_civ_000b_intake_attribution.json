@@ -1,0 +1,80 @@
+{
+  "schema": "mycelix.support-civic.intake-attribution.v1",
+  "program": "SUP-CIV-000B",
+  "tracking_issue": 2152,
+  "parent_subject": "a85369699099d4c7524e502e531735eed4ab36f4",
+  "runtime_owner": "Deferred",
+  "intake_modes": [
+    "SelfIntake",
+    "DelegatedIntake",
+    "AutomatedOrPreemptiveIntake",
+    "LegacyIntake"
+  ],
+  "attribution_dispositions": [
+    "SelfAuthoredVerified",
+    "DelegatedVerified",
+    "AutomatedSourceVerified",
+    "LegacyAttributionUnverified",
+    "AttributionConflict",
+    "AttributionInvalid",
+    "InsufficientAttributionEvidence"
+  ],
+  "self_intake_rule": "SupportTicket.requester == create_action.author",
+  "delegated_intake_required_refs": [
+    "submitter_ref",
+    "represented_requester_ref",
+    "delegation_or_authority_ref",
+    "purpose_ref",
+    "scope_ref",
+    "validity_or_session_ref",
+    "provenance_ref"
+  ],
+  "automated_intake_required_refs": [
+    "submitted_by_system_ref",
+    "represented_requester_ref_or_none",
+    "source_alert_or_observation_ref",
+    "intake_authority_ref",
+    "provenance_ref"
+  ],
+  "legacy_default_disposition": "LegacyAttributionUnverified",
+  "agent_to_ticket_link_is_attribution_proof": false,
+  "civic_gate_is_impersonation_authority": false,
+  "verified_attribution_is_public_disclosure_authority": false,
+  "required_runtime_refusals": [
+    "self_intake_requester_author_mismatch_without_delegation",
+    "direct_integrity_path_bypasses_requester_binding",
+    "coordinator_silently_substitutes_requester",
+    "expired_revoked_or_out_of_scope_delegation",
+    "delegation_subject_mismatch",
+    "automated_intake_masquerades_as_human_self_intake",
+    "agent_to_ticket_link_upgrades_attribution",
+    "legacy_unknown_attribution_silently_verified",
+    "conflicting_attribution_silently_selects_winner"
+  ],
+  "non_equivalences": [
+    "RequesterField != RequesterAuthorization",
+    "CanonicalIdentityMatchesGenesis != GenesisRequesterAuthorized",
+    "AgentToTicketLink != RequesterAuthorization",
+    "CivicGatePassed != AuthorityToImpersonateRequester",
+    "Submitter != RepresentedRequester",
+    "DelegationExists != DelegationInScope",
+    "SymthaeaPredictedTicket != HumanRequestedTicket",
+    "AutomatedSourceVerified != HumanConsent",
+    "LegacyRequesterField != VerifiedRequesterAttribution",
+    "SelfAuthoredVerified != LegalIdentityVerified",
+    "SelfAuthoredVerified != ServiceEntitlement",
+    "InsufficientEvidence != AttributionInvalid",
+    "VerifiedRequesterAttribution != PublicRequesterDisclosureAuthority"
+  ],
+  "deferred_runtime_decisions": [
+    "delegation_or_capability_representation",
+    "institutional_on_behalf_role_semantics",
+    "caregiver_or_accessibility_consent_semantics",
+    "system_or_preemptive_intake_authority",
+    "legal_identity_binding",
+    "service_entitlement_semantics",
+    "requester_public_private_projection",
+    "stable_identity_runtime_integration"
+  ],
+  "claim_ceiling": "semantic requester intake attribution boundary only"
+}

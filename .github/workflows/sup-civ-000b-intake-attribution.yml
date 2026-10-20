@@ -1,0 +1,90 @@
+name: SUP-CIV-000B Intake Attribution
+
+on:
+  pull_request:
+    paths:
+      - 'mycelix-workspace/docs/civic-resilience/SUP_CIV_000B_INTAKE_ATTRIBUTION_V1.md'
+      - 'mycelix-workspace/docs/civic-resilience/sup_civ_000b_intake_attribution.json'
+      - 'scripts/qualification/sup_civ_000b_intake_attribution_v1.py'
+      - '.github/workflows/sup-civ-000b-intake-attribution.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: sup-civ-000b-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  qualify:
+    name: Support-ticket intake attribution boundary
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+
+      - name: Exact parent and clean subject
+        shell: bash
+        run: |
+          set -euo pipefail
+          EXPECTED_PARENT='a85369699099d4c7524e502e531735eed4ab36f4'
+          test "$(git rev-parse HEAD^)" = "$EXPECTED_PARENT"
+          printf 'head=%s\nparent=%s\ntree=%s\n' \
+            "$(git rev-parse HEAD)" \
+            "$(git rev-parse HEAD^)" \
+            "$(git rev-parse HEAD^{tree})"
+          test -z "$(git status --short)"
+
+      - name: Exact tranche scope
+        shell: bash
+        run: |
+          set -euo pipefail
+          EXPECTED_PARENT='a85369699099d4c7524e502e531735eed4ab36f4'
+          test "$(git rev-list --count "$EXPECTED_PARENT"..HEAD)" = '1'
+          git diff --check "$EXPECTED_PARENT" HEAD
+          mapfile -t changed < <(git diff --name-only "$EXPECTED_PARENT" HEAD | sort)
+          expected=(
+            '.github/workflows/sup-civ-000b-intake-attribution.yml'
+            'mycelix-workspace/docs/civic-resilience/SUP_CIV_000B_INTAKE_ATTRIBUTION_V1.md'
+            'mycelix-workspace/docs/civic-resilience/sup_civ_000b_intake_attribution.json'
+            'scripts/qualification/sup_civ_000b_intake_attribution_v1.py'
+          )
+          mapfile -t expected_sorted < <(printf '%s\n' "${expected[@]}" | sort)
+          diff -u <(printf '%s\n' "${expected_sorted[@]}") <(printf '%s\n' "${changed[@]}")
+
+      - name: Validate intake attribution contract
+        run: python3 scripts/qualification/sup_civ_000b_intake_attribution_v1.py
+
+      - name: Static no-runtime audit
+        shell: bash
+        run: |
+          set -euo pipefail
+          EXPECTED_PARENT='a85369699099d4c7524e502e531735eed4ab36f4'
+          changed="$(git diff --name-only "$EXPECTED_PARENT" HEAD)"
+          if printf '%s\n' "$changed" | grep -E '\.(rs|toml|lock)$'; then
+            echo 'SUP-CIV-000B must remain semantic-contract/manifest/validator/workflow only' >&2
+            exit 1
+          fi
+
+      - name: Prove attribution does not collapse into identity or disclosure
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          d = json.loads(Path('mycelix-workspace/docs/civic-resilience/sup_civ_000b_intake_attribution.json').read_text())
+          assert d['runtime_owner'] == 'Deferred'
+          assert d['self_intake_rule'] == 'SupportTicket.requester == create_action.author'
+          assert d['agent_to_ticket_link_is_attribution_proof'] is False
+          assert d['civic_gate_is_impersonation_authority'] is False
+          assert d['verified_attribution_is_public_disclosure_authority'] is False
+          assert d['legacy_default_disposition'] == 'LegacyAttributionUnverified'
+          PY
+
+      - name: Immutable checkout postflight
+        run: test -z "$(git status --short)"
