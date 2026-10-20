@@ -443,7 +443,6 @@ mod tests {
         assert!(receipt.violations.iter().any(|v| v.code == "policy_version_equivocation"));
 
         candidate.target_profile_sha256 = "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd".to_owned();
-        candidate.version += 1;
         let mut epoch_conflict_ctx = ctx;
         epoch_conflict_ctx.installed_head.as_mut().unwrap().version = candidate.version;
         epoch_conflict_ctx.installed_head.as_mut().unwrap().target_profile_sha256 = candidate.target_profile_sha256.clone();
