@@ -4,7 +4,10 @@ use finance_route_clearing_optimizer::{
 };
 use std::time::Instant;
 
-fn make_case(route_count: usize) -> (ClearingContext, Vec<ParticipantNet>, Vec<SettlementRoute>) {
+fn make_case(
+    route_count: usize,
+    scenario: &str,
+) -> (ClearingContext, Vec<ParticipantNet>, Vec<SettlementRoute>) {
     assert!(route_count >= 4 && route_count % 2 == 0);
     let side = route_count / 2;
     let context = ClearingContext {
@@ -63,6 +66,23 @@ fn make_case(route_count: usize) -> (ClearingContext, Vec<ParticipantNet>, Vec<S
             cost_units_per_minor: next_cost,
         });
     }
+
+    for route in &mut routes {
+        let source_index = route
+            .route_id
+            .rsplit('-')
+            .next()
+            .and_then(|suffix| suffix.parse::<usize>().ok())
+            .expect("generated route IDs end in a source index");
+        match scenario {
+            "cyclic" => {}
+            "capacity-stress" => route.capacity_minor = 500,
+            "route-outage" if source_index % 11 == 0 => route.enabled = false,
+            "route-outage" => {}
+            _ => panic!("unknown benchmark scenario"),
+        }
+    }
+
     (context, positions, routes)
 }
 
@@ -75,11 +95,12 @@ fn percentile(values: &[u128], p: usize) -> u128 {
 
 fn main() {
     println!(
-        "route_arcs,participants,optimized_flow_minor,optimized_cost_units,greedy_flow_minor,greedy_cost_units,opt_p50_us,opt_p95_us,greedy_p50_us,greedy_p95_us"
+        "scenario,route_arcs,participants,optimized_flow_minor,optimized_cost_units,greedy_flow_minor,greedy_cost_units,opt_p50_us,opt_p95_us,greedy_p50_us,greedy_p95_us"
     );
 
-    for route_count in [10_usize, 30, 70, 140, 700] {
-        let (context, positions, routes) = make_case(route_count);
+    for scenario in ["cyclic", "capacity-stress", "route-outage"] {
+        for route_count in [10_usize, 30, 70, 140, 700] {
+            let (context, positions, routes) = make_case(route_count, scenario);
 
         // Warm both code paths before collecting the measured samples.
         optimize(&context, &positions, &routes).expect("optimizer warm-up failed");
@@ -104,18 +125,20 @@ fn main() {
 
         let optimized_plan = optimized_plan.expect("at least one sample");
         let greedy_plan = greedy_plan.expect("at least one sample");
-        println!(
-            "{},{},{},{},{},{},{},{},{},{}",
-            route_count,
-            positions.len(),
-            optimized_plan.total_allocated_minor,
-            optimized_plan.total_modeled_cost_units,
-            greedy_plan.total_allocated_minor,
-            greedy_plan.total_modeled_cost_units,
-            percentile(&optimize_samples, 50),
-            percentile(&optimize_samples, 95),
-            percentile(&greedy_samples, 50),
-            percentile(&greedy_samples, 95),
-        );
+            println!(
+                "{},{},{},{},{},{},{},{},{},{},{}",
+                scenario,
+                route_count,
+                positions.len(),
+                optimized_plan.total_allocated_minor,
+                optimized_plan.total_modeled_cost_units,
+                greedy_plan.total_allocated_minor,
+                greedy_plan.total_modeled_cost_units,
+                percentile(&optimize_samples, 50),
+                percentile(&optimize_samples, 95),
+                percentile(&greedy_samples, 50),
+                percentile(&greedy_samples, 95),
+            );
+        }
     }
 }
