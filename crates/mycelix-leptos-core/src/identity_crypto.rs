@@ -10,8 +10,11 @@
 //!
 //! Uses the real Web Crypto API (`SubtleCrypto`), not a hand-rolled or
 //! JS-`eval`'d KDF/cipher:
-//! - **PBKDF2-HMAC-SHA256**, [`PBKDF2_ITERATIONS`] rounds — OWASP's 2023
-//!   minimum recommendation for PBKDF2-SHA256.
+//! - **PBKDF2-HMAC-SHA256**, [`PBKDF2_ITERATIONS`] rounds — currently
+//!   aligned with OWASP's 600,000-iteration PBKDF2-SHA256 floor for FIPS-oriented
+//!   deployments. OWASP prefers Argon2id when compatible; this module uses Web
+//!   Crypto's native PBKDF2 primitive and treats an Argon2id migration as a
+//!   separately benchmarked/versioned design decision.
 //! - **AES-256-GCM** for the actual secret encryption (authenticated —
 //!   tampering or a wrong key/passphrase both fail closed).
 //!
@@ -26,7 +29,9 @@ use wasm_bindgen::{JsCast, JsValue};
 use wasm_bindgen_futures::JsFuture;
 use web_sys::{AesDerivedKeyParams, AesGcmParams, CryptoKey, Pbkdf2Params, SubtleCrypto};
 
-/// OWASP's 2023 minimum recommendation for PBKDF2-HMAC-SHA256.
+/// Production PBKDF2-HMAC-SHA256 floor, aligned with current OWASP guidance
+/// for FIPS-oriented deployments. This is not a claim that PBKDF2 is the
+/// strongest available KDF for every deployment.
 ///
 /// Deliberately much lower under `cfg(test)`: `cargo test`/`wasm-pack test`
 /// never builds with `cfg(test)` unset, so this never affects production —
