@@ -21,7 +21,7 @@
   "author": "Luminous Dynamics <dev@luminousdynamics.org>",
   "license": "AGPL-3.0-or-later",
   "dependencies": {
-    "@holochain/client": "^0.20.0"
+    "@holochain/client": "^0.21.0"
   },
   "devDependencies": {
     "typescript": "^5.9.3",
