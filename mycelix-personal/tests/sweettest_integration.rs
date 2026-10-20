@@ -1609,11 +1609,22 @@ async fn test_consent_remote_read_scope_stolen_secret_and_revocation() {
         )
         .await;
     assert_eq!(&offer.owner, owner.agent_pubkey());
-    assert!(
-        offer.expires_at.is_some(),
-        "remote capability must default to a bounded expiry"
-    );
     assert_eq!(&offer.grantee, grantee.agent_pubkey());
+    let offer_expiry = offer.expires_at.expect("remote capability must default to a bounded expiry");
+    let owner_grants: Vec<Record> = conductor
+        .call(&owner.zome("health_vault"), "get_my_consents", ())
+        .await;
+    assert_eq!(owner_grants.len(), 1);
+    let persisted_grant: ConsentGrant = owner_grants[0]
+        .entry()
+        .to_app_option()
+        .unwrap()
+        .unwrap();
+    assert_eq!(
+        offer_expiry.as_micros() - persisted_grant.created_at.as_micros(),
+        30 * 24 * 60 * 60 * 1_000_000,
+        "remote consent defaults to exactly 30 days"
+    );
 
     let claim_input = StoreConsentCapabilityInput {
         owner: owner.agent_pubkey().clone(),
