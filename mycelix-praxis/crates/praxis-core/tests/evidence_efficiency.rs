@@ -259,35 +259,41 @@ fn validate_evaluator_pair(
     }
 }
 
-fn expected_information_gain_milli_bits(
-    remaining_hypotheses: &[String],
-    outcome: &RequestOutcome,
+/// Prior-expected information gained from a fixed set of usable requests,
+/// computed as the entropy of joint outcome signatures under a uniform
+/// hypothesis prior. Unlike realized reduction, this does not depend on which
+/// synthetic world happened to be selected for this fixture.
+fn joint_information_gain_milli_bits(
+    hypotheses: &[String],
+    outcomes: &[&RequestOutcome],
 ) -> u32 {
-    if remaining_hypotheses.len() < 2 {
+    if hypotheses.len() < 2 || outcomes.is_empty() {
         return 0;
     }
 
-    let labels = outcome
-        .labels_by_hypothesis
-        .iter()
-        .map(|item| (item.hypothesis_id.as_str(), item.outcome_label.as_str()))
-        .collect::<BTreeMap<_, _>>();
-    let mut partition_sizes = BTreeMap::<&str, usize>::new();
-    for hypothesis in remaining_hypotheses {
-        if let Some(label) = labels.get(hypothesis.as_str()) {
-            *partition_sizes.entry(label).or_default() += 1;
+    let hypothesis_count = hypotheses.len() as f64;
+    let mut partitions = BTreeMap::<Vec<String>, usize>::new();
+    for hypothesis in hypotheses {
+        let mut signature = Vec::with_capacity(outcomes.len());
+        for outcome in outcomes {
+            let label = outcome
+                .labels_by_hypothesis
+                .iter()
+                .find(|entry| entry.hypothesis_id == *hypothesis)
+                .expect("semantic validation maps every hypothesis exactly once");
+            signature.push(label.outcome_label.clone());
         }
+        *partitions.entry(signature).or_default() += 1;
     }
-    let count = remaining_hypotheses.len() as f64;
-    let prior_entropy_bits = count.log2();
-    let expected_posterior_entropy_bits = partition_sizes
+
+    let posterior_entropy = partitions
         .values()
-        .map(|partition_size| {
-            let probability = *partition_size as f64 / count;
-            probability * (*partition_size as f64).log2()
+        .map(|size| {
+            let probability = *size as f64 / hypothesis_count;
+            probability * (*size as f64).log2()
         })
         .sum::<f64>();
-    ((prior_entropy_bits - expected_posterior_entropy_bits).max(0.0) * 1000.0).round() as u32
+    ((hypothesis_count.log2() - posterior_entropy).max(0.0) * 1000.0).round() as u32
 }
 
 /// Deterministic synthetic reference evaluator for integration tests and qualification.
@@ -319,6 +325,7 @@ fn evaluate_policy(
     remaining_hypotheses.sort();
     let initial_hypotheses = remaining_hypotheses.len();
     let mut seen_requests = HashSet::new();
+    let mut usable_outcomes: Vec<&RequestOutcome> = Vec::new();
     let mut report = EfficiencyReport {
         requests_attempted: requested_ids.len(),
         requests_executed: 0,
@@ -402,8 +409,12 @@ fn evaluate_policy(
         match outcome.quality {
             EvidenceQuality::Current => match outcome.sufficiency {
                 EvidenceSufficiency::FullSupport | EvidenceSufficiency::PartialSupport => {
-                    request_gain =
-                        expected_information_gain_milli_bits(&remaining_hypotheses, outcome);
+                    let information_before =
+                        joint_information_gain_milli_bits(&scenario.hypotheses, &usable_outcomes);
+                    usable_outcomes.push(outcome);
+                    let information_after =
+                        joint_information_gain_milli_bits(&scenario.hypotheses, &usable_outcomes);
+                    request_gain = information_after.saturating_sub(information_before);
                     report.expected_information_gain_milli_bits += request_gain;
                     if request_gain == 0 {
                         report.zero_gain_current_requests += 1;
