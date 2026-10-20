@@ -1,0 +1,45 @@
+name: Mycelix Invariant Verification (targeted)
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "mycelix-workspace/sdk/src/agentic/verification.rs"
+      - "mycelix-workspace/sdk/Cargo.toml"
+      - ".github/workflows/invariant-verification-targeted.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  QUALIFIED_SHA: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
+
+concurrency:
+  group: invariant-verification-targeted-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verification-engine:
+    name: Invariant verification unit tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.QUALIFIED_SHA }}
+
+      - name: Assert exact qualification subject
+        run: test "$(git rev-parse HEAD)" = "$QUALIFIED_SHA"
+
+      - name: Install pinned Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: 1.96.0
+          components: rustfmt
+
+      - name: Check formatting of changed module
+        run: rustfmt +1.96.0 --edition 2024 --check mycelix-workspace/sdk/src/agentic/verification.rs
+
+      - name: Run focused invariant verification tests
+        run: cargo +1.96.0 test --manifest-path mycelix-workspace/sdk/Cargo.toml agentic::verification::tests
