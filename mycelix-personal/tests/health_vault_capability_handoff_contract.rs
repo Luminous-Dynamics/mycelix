@@ -82,7 +82,7 @@ fn load_corpus(root: &Path, relative: &str) -> FixtureCorpus {
 }
 
 fn expected_ids() -> Vec<String> {
-    (1..=25).map(|n| format!("HCH-{n:03}")).collect()
+    (1..=26).map(|n| format!("HCH-{n:03}")).collect()
 }
 
 #[test]
@@ -99,7 +99,7 @@ fn corpus_has_exact_stable_ids_and_typed_fail_closed_results() {
     assert!(!corpus.claim_ceiling.trim().is_empty());
     assert!(corpus.invariants.len() >= 5);
     assert!(corpus.invariants.iter().all(|invariant| !invariant.trim().is_empty()));
-    assert_eq!(corpus.fixtures.len(), 25);
+    assert_eq!(corpus.fixtures.len(), 26);
     assert_eq!(ids, expected_ids(), "fixture IDs must be stable, ordered and unique");
 
     for fixture in &corpus.fixtures {
@@ -161,6 +161,10 @@ fn corpus_has_exact_stable_ids_and_typed_fail_closed_results() {
     let leak_mutation = corpus.fixtures.iter().find(|fixture| fixture.id == "HCH-025").unwrap();
     assert_eq!(leak_mutation.expected.protocol_result, ProtocolResult::Denied);
     assert_eq!(leak_mutation.expected.failure_code.as_deref(), Some("secret_leak_detected"));
+
+    let generic_key = corpus.fixtures.iter().find(|fixture| fixture.id == "HCH-026").unwrap();
+    assert_eq!(generic_key.expected.protocol_result, ProtocolResult::Denied);
+    assert_eq!(generic_key.expected.failure_code.as_deref(), Some("recipient_key_binding_unqualified"));
 }
 
 #[test]
@@ -189,7 +193,7 @@ fn json_schema_requires_each_stable_fixture_id_exactly_once() {
     let rules = schema["properties"]["fixtures"]["allOf"]
         .as_array()
         .expect("fixture array must carry exact-ID constraints");
-    assert_eq!(rules.len(), 25);
+    assert_eq!(rules.len(), 26);
     let expected = expected_ids();
     let schema_ids: Vec<String> = rules
         .iter()
