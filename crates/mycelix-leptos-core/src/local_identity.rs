@@ -1517,7 +1517,7 @@ mod tests {
         );
         assert_eq!(
             allowed_identity_bootstrap_actions(Posture::ProtectedUnlockedInSession),
-            &[Action::RotatePassphrase]
+            &[Action::ExportRecoveryPhrase, Action::RotatePassphrase]
         );
         assert!(
             allowed_identity_bootstrap_actions(Posture::LegacyIdentityNeedsMigration).is_empty()
