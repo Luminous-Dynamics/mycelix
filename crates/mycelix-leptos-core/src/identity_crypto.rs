@@ -311,8 +311,9 @@ pub async fn decrypt(passphrase: &str, blob: &EncryptedBlob) -> Result<Vec<u8>, 
     let subtle = subtle()?;
     let mut iv = blob.iv.clone();
     let gcm_params = AesGcmParams::new_with_u8_slice("AES-GCM", &mut iv);
-    if let Some(mut additional_data) = blob.authenticated_header() {
-        gcm_params.set_additional_data_u8_slice(&mut additional_data);
+    let mut additional_data = blob.authenticated_header();
+    if let Some(additional_data) = additional_data.as_mut() {
+        gcm_params.set_additional_data_u8_slice(additional_data);
     }
     let promise = subtle
         .decrypt_with_object_and_u8_array(&gcm_params, &aes_key, &blob.ciphertext)
