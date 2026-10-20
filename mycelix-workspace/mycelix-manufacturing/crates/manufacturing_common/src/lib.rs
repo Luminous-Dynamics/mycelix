@@ -6,6 +6,7 @@
 //! Shared types and validation for the mycelix-manufacturing cluster.
 //! All zomes in the cluster depend on this crate for canonical type definitions.
 
+pub mod process_execution_evidence;
 pub mod process_registry;
 
 use hdi::prelude::*;
