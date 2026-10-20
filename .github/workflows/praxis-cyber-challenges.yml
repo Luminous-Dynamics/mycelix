@@ -2,7 +2,7 @@ name: Praxis Cyber Challenge Contract
 
 on:
   pull_request:
-    branches: [main]
+    branches: [main, praxis/cyber-evidence-challenges-v1]
     types: [opened, synchronize, reopened, ready_for_review]
     paths:
       - "mycelix-praxis/crates/praxis-core/**"
