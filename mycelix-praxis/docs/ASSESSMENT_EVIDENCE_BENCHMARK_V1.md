@@ -44,10 +44,11 @@ The validator checks:
 5. Explicit assistance classification. Unknown assistance makes the controlled record ineligible; it is never silently interpreted as no help.
 6. Unaided baseline, immediate post-test, transfer, and retention phases. Practice can include hints, scaffolding, tools, or direct-answer assistance.
 7. Required baseline, practice, transfer, and 14-day retention, with optional protocol-required 30-day retention.
-8. Distinct task forms for assessment anchors and no reuse of a practice form as an anchor.
-9. Phase ordering and minimum elapsed time from final practice to delayed retention.
-10. Presence of at least one episode in each declared arm.
-11. JSON Schema parity with the serialized root/arm/episode/attempt field sets and Rust phase/assistance enums.
+8. Per-arm allowlists for practice assistance; observed assistance must match the participant's declared arm, preventing direct-answer records from being mislabeled as hint-first policy outcomes.
+9. Distinct task forms for assessment anchors and no reuse of a practice form as an anchor.
+10. Phase ordering and minimum elapsed time from final practice to delayed retention.
+11. Presence of at least one episode in each declared arm.
+12. JSON Schema parity with the serialized root/arm/episode/attempt field sets and Rust phase/assistance enums.
 
 The output is a structural summary and stable validation findings. It contains no global learner score and makes no mastery or causal claim.
 
@@ -117,6 +118,7 @@ The tests use the checked-in fixture, verify JSON Schema parity, and include neg
 - scores above 1000;
 - duplicate attempt IDs;
 - undeclared study arms;
+- practice-assistance mismatch with the declared study arm;
 - JSON Schema field/enum drift;
 - invalid fixed-size model-hash fixtures in the pre-existing provenance tests.
 
