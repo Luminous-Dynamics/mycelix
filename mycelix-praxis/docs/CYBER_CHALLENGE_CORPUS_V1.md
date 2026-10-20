@@ -39,7 +39,8 @@ Every case includes evidence IDs, source classes, freshness, conflict status, a 
 - Rust's `deny_unknown_fields` rejects evaluator-only fields inserted into a solver scenario.
 - Test tooling requires an exact match between solver and evaluator scenario IDs, verifies that evaluator evidence references exist in the solver view, and checks that each rubric sums to 1,000.
 - Schema and corpus versioning, separation paths, and selected coverage properties are checked in integration tests.
-- The new exact-head workflow checks Rust formatting and runs the focused `cyber_challenges` test target on Rust 1.96.0.
+- The corpus manifest pins Git blob identities for both fixtures and both schemas; exact-head CI recomputes each `git hash-object` value and fails closed on mismatch.
+- The new exact-head workflow checks the pinned blob identities, Rust formatting, and the focused `cyber_challenges` test target on Rust 1.96.0.
 
 These are structural conformance checks, not proof that the scenarios are psychometrically valid, representative, fair, secure against all oracle leakage, or effective at teaching learners.
 
@@ -93,4 +94,4 @@ This seed does not establish:
 - that a requested quarantine succeeded without an effect receipt;
 - production readiness, universal cybersecurity competence, certification eligibility, or operational authority.
 
-Next steps are to add evidence-strength and source-snapshot binding, frozen negative controls, a separately held-out corpus, rubric calibration, accessibility review, and transfer/delayed-retention evaluation. Compose with existing Symthaea cyber reasoning/range work rather than duplicating its ontology or operational authority. Link every future benchmark output to its exact source, corpus, evaluator, rubric, and environment versions.
+Next steps are to add stronger content-digest/attestation profiles beyond repository Git object identities, evidence-strength and source-snapshot binding, frozen negative controls, a separately held-out corpus, rubric calibration, accessibility review, and transfer/delayed-retention evaluation. Compose with existing Symthaea cyber reasoning/range work rather than duplicating its ontology or operational authority. Link every future benchmark output to its exact source, corpus, evaluator, rubric, and environment versions.
