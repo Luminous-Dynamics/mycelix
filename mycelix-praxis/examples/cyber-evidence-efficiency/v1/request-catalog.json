@@ -1,0 +1,58 @@
+{
+  "schema_version": 1,
+  "benchmark_id": "PRAXIS-CYBER-ACQ-001",
+  "benchmark_version": "0.1.0",
+  "scenarios": [
+    {
+      "scenario_id": "CYB-ACQ-001",
+      "hypotheses": [
+        "benign_shared_nat",
+        "credential_spray_no_session",
+        "compromised_session",
+        "stale_sensor_false_alarm"
+      ],
+      "requests": [
+        {
+          "request_id": "session-issuance-audit",
+          "source_kind": "identity_session_audit",
+          "purpose": "Determine whether the identity provider issued a session and whether post-authentication use occurred.",
+          "required_authority": "read_only_telemetry",
+          "cost_units": 2,
+          "latency_bound_minutes": 3
+        },
+        {
+          "request_id": "endpoint-device-context",
+          "source_kind": "endpoint_context",
+          "purpose": "Correlate the sign-in with current approved device posture.",
+          "required_authority": "read_only_telemetry",
+          "cost_units": 1,
+          "latency_bound_minutes": 2
+        },
+        {
+          "request_id": "privileged-token-use-audit",
+          "source_kind": "token_use_audit",
+          "purpose": "Inspect token issuance and use from a privileged audit view when incident command authorizes access.",
+          "required_authority": "incident_commander",
+          "cost_units": 4,
+          "latency_bound_minutes": 5
+        },
+        {
+          "request_id": "sensor-health-check",
+          "source_kind": "sensor_health",
+          "purpose": "Check telemetry freshness and sensor coverage before relying on endpoint silence.",
+          "required_authority": "read_only_telemetry",
+          "cost_units": 1,
+          "latency_bound_minutes": 1
+        },
+        {
+          "request_id": "shared-egress-rollup",
+          "source_kind": "shared_egress_summary",
+          "purpose": "Retrieve a high-level aggregate of traffic through the shared lab egress.",
+          "required_authority": "read_only_telemetry",
+          "cost_units": 1,
+          "latency_bound_minutes": 1
+        }
+      ]
+    }
+  ]
+}
