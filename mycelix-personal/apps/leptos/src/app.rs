@@ -12,7 +12,8 @@ use zeroize::Zeroize;
 
 use mycelix_leptos_core::consciousness::refresh_consciousness_from_conductor;
 use mycelix_leptos_core::local_identity::{
-    LocalIdentityStoragePosture, create_protected_identity, inspect_local_identity_posture,
+    IdentityBootstrapAction, LocalIdentityStoragePosture, allowed_identity_bootstrap_actions,
+    create_protected_identity, identity_bootstrap_action_allowed, inspect_local_identity_posture,
     protect_existing_identity, restore_protected_identity_from_seed_phrase, unlock_with_passphrase,
 };
 use mycelix_leptos_core::{
@@ -94,12 +95,7 @@ fn AppInner() -> impl IntoView {
 }
 
 fn identity_bootstrap_is_actionable(posture: LocalIdentityStoragePosture) -> bool {
-    matches!(
-        posture,
-        LocalIdentityStoragePosture::NoIdentity
-            | LocalIdentityStoragePosture::UnprotectedIdentity
-            | LocalIdentityStoragePosture::ProtectedLocked
-    )
+    !allowed_identity_bootstrap_actions(posture).is_empty()
 }
 
 fn identity_bootstrap_heading(
@@ -168,9 +164,35 @@ fn IdentityBootstrapGate(posture: RwSignal<LocalIdentityStoragePosture>) -> impl
         let mut confirmation_value = confirmation.get_untracked();
         let mut recovery_phrase_value = recovery_phrase.get_untracked();
 
-        if !identity_bootstrap_is_actionable(starting_posture) {
-            status_message
-                .set("This identity state does not permit automatic mutation.".to_string());
+        let action = match starting_posture {
+            LocalIdentityStoragePosture::NoIdentity if is_restore => {
+                IdentityBootstrapAction::RestoreProtectedIdentityFromSeedPhrase
+            }
+            LocalIdentityStoragePosture::NoIdentity => {
+                IdentityBootstrapAction::CreateProtectedIdentity
+            }
+            LocalIdentityStoragePosture::UnprotectedIdentity => {
+                IdentityBootstrapAction::ProtectExistingIdentity
+            }
+            LocalIdentityStoragePosture::ProtectedLocked => {
+                IdentityBootstrapAction::UnlockProtectedIdentity
+            }
+            _ => {
+                passphrase_value.zeroize();
+                confirmation_value.zeroize();
+                recovery_phrase_value.zeroize();
+                status_message
+                    .set("This identity state does not permit automatic mutation.".to_string());
+                return;
+            }
+        };
+        if !identity_bootstrap_action_allowed(starting_posture, action) {
+            passphrase_value.zeroize();
+            confirmation_value.zeroize();
+            recovery_phrase_value.zeroize();
+            status_message.set(
+                "The requested action is not permitted for the current identity posture.".to_string(),
+            );
             return;
         }
         if passphrase_value.trim().is_empty() {
@@ -212,27 +234,30 @@ fn IdentityBootstrapGate(posture: RwSignal<LocalIdentityStoragePosture>) -> impl
         let busy_signal = busy;
         let status_signal = status_message;
         spawn_local(async move {
-            let operation: Result<LocalIdentityStoragePosture, String> = match starting_posture {
-                LocalIdentityStoragePosture::NoIdentity if is_restore => {
+            let operation: Result<LocalIdentityStoragePosture, String> = match action {
+                IdentityBootstrapAction::RestoreProtectedIdentityFromSeedPhrase => {
                     restore_protected_identity_from_seed_phrase(
                         &recovery_phrase_value,
                         &passphrase_value,
                     )
                     .await
                 }
-                    LocalIdentityStoragePosture::NoIdentity => {
-                        create_protected_identity(&passphrase_value).await
-                    }
-                    LocalIdentityStoragePosture::UnprotectedIdentity => {
-                        protect_existing_identity(&passphrase_value).await
-                    }
-                    LocalIdentityStoragePosture::ProtectedLocked => {
-                        unlock_with_passphrase(&passphrase_value)
-                            .await
-                            .map(|_| inspect_local_identity_posture())
-                    }
-                    _ => Err("This identity state does not permit automatic mutation.".into()),
-                };
+                IdentityBootstrapAction::CreateProtectedIdentity => {
+                    create_protected_identity(&passphrase_value).await
+                }
+                IdentityBootstrapAction::ProtectExistingIdentity => {
+                    protect_existing_identity(&passphrase_value).await
+                }
+                IdentityBootstrapAction::UnlockProtectedIdentity => {
+                    unlock_with_passphrase(&passphrase_value)
+                        .await
+                        .map(|_| inspect_local_identity_posture())
+                }
+                IdentityBootstrapAction::RotatePassphrase => Err(
+                    "Passphrase rotation is available only from the unlocked identity settings."
+                        .into(),
+                ),
+            };
 
             let verified_posture = inspect_local_identity_posture();
             match operation {
