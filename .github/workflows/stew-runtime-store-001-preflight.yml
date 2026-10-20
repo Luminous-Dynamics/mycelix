@@ -1,0 +1,237 @@
+name: STEW-RUNTIME-STORE-001P Preparation
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+    paths:
+      - ".github/workflows/stew-runtime-store-001-preflight.yml"
+      - "ci/stew-runtime-store-001-preflight/**"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: stew-runtime-store-001p-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  PRODUCT_SHA: b3d6c002c224cf46501756391a2dfdaeb5ebcfca
+  PRODUCT_TREE: 0e967bee7c7c88ba8d72d42147d9b76f833eb3d9
+  PRODUCT_PARENT: a85369699099d4c7524e502e531735eed4ab36f4
+  PRODUCT_DIR: product/crates/mycelix-stewardship-runtime-store
+  MANIFEST: product/crates/mycelix-stewardship-runtime-store/Cargo.toml
+  RUST_TOOLCHAIN: 1.98.1
+
+jobs:
+  prepare:
+    name: Prepare exact STORE-001 dependency/runtime capsule
+    if: github.event_name == 'workflow_dispatch' || github.event.pull_request.draft == false
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+
+    steps:
+      - name: Checkout verifier subject
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          path: verifier
+          persist-credentials: false
+          fetch-depth: 1
+
+      - name: Checkout exact product subject
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ env.PRODUCT_SHA }}
+          path: product
+          persist-credentials: false
+          fetch-depth: 2
+
+      - name: Install exact Rust toolchain
+        uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87
+        with:
+          toolchain: 1.98.1
+          components: rustfmt, clippy
+
+      - name: Prove exact immutable product geometry
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git -C product rev-parse HEAD)" = "$PRODUCT_SHA"
+          test "$(git -C product rev-parse 'HEAD^{tree}')" = "$PRODUCT_TREE"
+          test "$(git -C product rev-parse 'HEAD^')" = "$PRODUCT_PARENT"
+          test ! -e "$PRODUCT_DIR/Cargo.lock"
+          cat > "$RUNNER_TEMP/expected-files.txt" <<'EOF'
+          crates/mycelix-stewardship-runtime-store/Cargo.toml
+          crates/mycelix-stewardship-runtime-store/README.md
+          crates/mycelix-stewardship-runtime-store/examples/profile_probe.rs
+          crates/mycelix-stewardship-runtime-store/src/lib.rs
+          crates/mycelix-stewardship-runtime-store/src/profiled.rs
+          crates/mycelix-stewardship-runtime-store/tests/format_guard.rs
+          crates/mycelix-stewardship-runtime-store/tests/permissions_guard.rs
+          crates/mycelix-stewardship-runtime-store/tests/runtime_store.rs
+          crates/mycelix-stewardship-runtime-store/tests/schema_guard.rs
+          EOF
+          git -C product diff --name-only "$PRODUCT_PARENT..$PRODUCT_SHA" | sort > "$RUNNER_TEMP/observed-files.txt"
+          diff -u "$RUNNER_TEMP/expected-files.txt" "$RUNNER_TEMP/observed-files.txt"
+          test -z "$(git -C product status --porcelain)"
+          test -z "$(git -C verifier status --porcelain)"
+
+      - name: Initialize evidence directory and capture environment
+        shell: bash
+        run: |
+          set -euo pipefail
+          EVIDENCE="$RUNNER_TEMP/store-001p-evidence"
+          mkdir -p "$EVIDENCE"
+          {
+            echo "PRODUCT_SHA=$PRODUCT_SHA"
+            echo "PRODUCT_TREE=$PRODUCT_TREE"
+            echo "PRODUCT_PARENT=$PRODUCT_PARENT"
+            echo "VERIFIER_HEAD=$(git -C verifier rev-parse HEAD)"
+            echo "VERIFIER_TREE=$(git -C verifier rev-parse 'HEAD^{tree}')"
+            echo "RUNNER_OS=${RUNNER_OS:-}"
+            echo "RUNNER_ARCH=${RUNNER_ARCH:-}"
+            uname -a
+            rustc -Vv
+            cargo -Vv
+            rustfmt --version
+            cargo clippy --version
+            cc --version | head -n 1
+            ld --version | head -n 1
+            echo "FILESYSTEM=$(findmnt -T "$GITHUB_WORKSPACE" -n -o SOURCE,FSTYPE,OPTIONS)"
+            for name in SQLITE_MAX_VARIABLE_NUMBER SQLITE_MAX_EXPR_DEPTH LIBSQLITE3_FLAGS CC CFLAGS; do
+              if [[ -v $name ]]; then
+                printf '%s=SET:%s\n' "$name" "${!name}"
+              else
+                printf '%s=UNSET\n' "$name"
+              fi
+            done
+          } | tee "$EVIDENCE/environment.txt"
+
+      - name: Generate exact Cargo lock and dependency capsule
+        shell: bash
+        env:
+          CARGO_TARGET_DIR: ${{ runner.temp }}/store-product-target
+        run: |
+          set -euo pipefail
+          EVIDENCE="$RUNNER_TEMP/store-001p-evidence"
+          cargo generate-lockfile --manifest-path "$MANIFEST"
+          cp "$PRODUCT_DIR/Cargo.lock" "$EVIDENCE/Cargo.lock"
+          sha256sum "$PRODUCT_DIR/Cargo.lock" | tee "$EVIDENCE/Cargo.lock.sha256"
+          cargo metadata --manifest-path "$MANIFEST" --locked --format-version 1 > "$EVIDENCE/cargo-metadata.json"
+          python3 - <<'PY' | tee "$EVIDENCE/dependency-audit.txt"
+          import json, pathlib, tomllib
+          root = pathlib.Path("${{ runner.temp }}/store-001p-evidence")
+          metadata = json.loads((root / "cargo-metadata.json").read_text())
+          packages = {p["name"]: p for p in metadata["packages"]}
+          assert packages["rusqlite"]["version"] == "0.40.2", packages["rusqlite"]["version"]
+          assert packages["libsqlite3-sys"]["version"] == "0.38.2", packages["libsqlite3-sys"]["version"]
+          lock = tomllib.loads((root / "Cargo.lock").read_text())
+          selected = {"rusqlite", "libsqlite3-sys", "cc"}
+          for package in lock["package"]:
+              if package["name"] in selected:
+                  print("PACKAGE", package["name"], package["version"], package.get("source", "PATH"), package.get("checksum", "NO-CHECKSUM"))
+          PY
+
+      - name: Execute Rust source quality gates
+        shell: bash
+        env:
+          CARGO_TARGET_DIR: ${{ runner.temp }}/store-product-target
+        run: |
+          set -euo pipefail
+          cargo fmt --manifest-path "$MANIFEST" -- --check
+          cargo check --manifest-path "$MANIFEST" --all-targets --locked
+          cargo test --manifest-path "$MANIFEST" --all-targets --locked
+          cargo clippy --manifest-path "$MANIFEST" --all-targets --locked -- -D warnings
+          RUSTDOCFLAGS='-D warnings' cargo doc --manifest-path "$MANIFEST" --no-deps --locked
+
+      - name: Execute independent SQLite profile oracle
+        shell: bash
+        env:
+          CARGO_TARGET_DIR: ${{ runner.temp }}/store-product-target
+        run: |
+          set -euo pipefail
+          EVIDENCE="$RUNNER_TEMP/store-001p-evidence"
+          DB="$RUNNER_TEMP/store-profile-probe.sqlite"
+          rm -f "$DB" "$DB-wal" "$DB-shm"
+          cargo run --manifest-path "$MANIFEST" --example profile_probe --locked -- "$DB" | tee "$EVIDENCE/profile-probe.txt"
+          grep -qx 'PAGE_SIZE=4096' "$EVIDENCE/profile-probe.txt"
+          grep -qx 'AUTO_VACUUM=0' "$EVIDENCE/profile-probe.txt"
+          grep -qx 'ENCODING=UTF-8' "$EVIDENCE/profile-probe.txt"
+          grep -qx 'JOURNAL_MODE=wal' "$EVIDENCE/profile-probe.txt"
+          grep -qx 'USER_VERSION=1' "$EVIDENCE/profile-probe.txt"
+          grep -qx 'SQLITE_VERSION=3.53.2' "$EVIDENCE/profile-probe.txt"
+          grep -qx 'INTEGRITY_CHECK=ok' "$EVIDENCE/profile-probe.txt"
+          if grep -Eq '^COMPILE_OPTION=(OMIT_WAL|OMIT_FOREIGN_KEY|OMIT_TRIGGER|OMIT_AUTOINIT|OMIT_AUTOMATIC_INDEX)(=|$)' "$EVIDENCE/profile-probe.txt"; then
+            echo 'refused SQLite compile option observed' >&2
+            exit 1
+          fi
+          sha256sum "$EVIDENCE/profile-probe.txt" | tee "$EVIDENCE/profile-probe.sha256"
+
+      - name: Execute multi-process and crash/restart corpus
+        shell: bash
+        env:
+          CARGO_TARGET_DIR: ${{ runner.temp }}/store-harness-target
+        run: |
+          set -euo pipefail
+          bash verifier/ci/stew-runtime-store-001-preflight/run.sh "$GITHUB_WORKSPACE/product" "$RUNNER_TEMP" | tee "$RUNNER_TEMP/store-001p-evidence/adversarial-runtime.txt"
+          cp verifier/ci/stew-runtime-store-001-preflight/Cargo.lock "$RUNNER_TEMP/store-001p-evidence/harness-Cargo.lock"
+          sha256sum "$RUNNER_TEMP/store-001p-evidence/harness-Cargo.lock" | tee "$RUNNER_TEMP/store-001p-evidence/harness-Cargo.lock.sha256"
+
+      - name: Immutable product and verifier postflight
+        shell: bash
+        run: |
+          set -euo pipefail
+          EVIDENCE="$RUNNER_TEMP/store-001p-evidence"
+          rm -f "$PRODUCT_DIR/Cargo.lock"
+          rm -f verifier/ci/stew-runtime-store-001-preflight/Cargo.lock
+          test "$(git -C product rev-parse HEAD)" = "$PRODUCT_SHA"
+          test "$(git -C product rev-parse 'HEAD^{tree}')" = "$PRODUCT_TREE"
+          test "$(git -C product rev-parse 'HEAD^')" = "$PRODUCT_PARENT"
+          test -z "$(git -C product status --porcelain)"
+          test -z "$(git -C verifier status --porcelain)"
+          {
+            echo "POSTFLIGHT_PRODUCT_HEAD=$(git -C product rev-parse HEAD)"
+            echo "POSTFLIGHT_PRODUCT_TREE=$(git -C product rev-parse 'HEAD^{tree}')"
+            echo "POSTFLIGHT_PRODUCT_PARENT=$(git -C product rev-parse 'HEAD^')"
+            echo "POSTFLIGHT_VERIFIER_HEAD=$(git -C verifier rev-parse HEAD)"
+            echo "POSTFLIGHT_VERIFIER_TREE=$(git -C verifier rev-parse 'HEAD^{tree}')"
+            echo "PRODUCT_SOURCE_STATUS=CLEAN"
+            echo "VERIFIER_SOURCE_STATUS=CLEAN"
+          } | tee "$EVIDENCE/postflight.txt"
+
+      - name: Build preparation receipt
+        shell: bash
+        run: |
+          set -euo pipefail
+          EVIDENCE="$RUNNER_TEMP/store-001p-evidence"
+          {
+            echo "theorem=STEW-RUNTIME-STORE-001P"
+            echo "product_sha=$PRODUCT_SHA"
+            echo "product_tree=$PRODUCT_TREE"
+            echo "product_parent=$PRODUCT_PARENT"
+            echo "verifier_head=$(git -C verifier rev-parse HEAD)"
+            echo "verifier_tree=$(git -C verifier rev-parse 'HEAD^{tree}')"
+            echo "run_id=$GITHUB_RUN_ID"
+            echo "run_attempt=$GITHUB_RUN_ATTEMPT"
+            echo "prepared=true"
+            echo "qualified=false"
+          } > "$EVIDENCE/preparation-receipt.txt"
+          MANIFEST_TMP="$RUNNER_TEMP/store-001p-evidence-files.sha256"
+          find "$EVIDENCE" -maxdepth 1 -type f ! -name 'evidence-files.sha256' -print0 | sort -z | xargs -0 sha256sum > "$MANIFEST_TMP"
+          mv "$MANIFEST_TMP" "$EVIDENCE/evidence-files.sha256"
+
+      - name: Upload preparation diagnostics/evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: stew-runtime-store-001p-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/store-001p-evidence
+          if-no-files-found: warn
+          retention-days: 30
+
+      - name: Emit PREPARED not QUALIFIED
+        shell: bash
+        run: |
+          echo 'PREPARED: exact STORE-001 source/dependency/native/runtime preparation gates passed.'
+          echo 'QUALIFIED: false — final STORE-001 qualification requires the later lock-bearing product subject and separate qualifier.'
