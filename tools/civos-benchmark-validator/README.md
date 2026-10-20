@@ -12,11 +12,38 @@ cargo test --manifest-path tools/civos-benchmark-validator/Cargo.toml
 cargo run --manifest-path tools/civos-benchmark-validator/Cargo.toml -- \
   docs/research/civos-multi-agent-scenarios-v0.json \
   docs/research/civos-multi-agent-scenarios-v0.schema.json \
-  --receipt /tmp/civos-corpus-validation-receipt.json
+  --receipt /tmp/civos-corpus-validation-receipt.json \
+  --coverage docs/research/civos-multi-agent-coverage-v0.json \
+  --coverage-schema docs/research/civos-multi-agent-coverage-v0.schema.json
 ```
 
 For a comparison against a previously reviewed/frozen corpus, also pass
 `--expected-corpus-sha256 <64-lowercase-hex-digest>`. A mismatch fails closed.
+
+## Scenario-to-test traceability
+
+The optional `--coverage` / `--coverage-schema` pair validates
+`docs/research/civos-multi-agent-coverage-v0.json`, a separate 21-row manifest
+bound to the exact corpus SHA-256. It records the owning domain, intended
+execution profile, source-linked test candidates and remaining gaps.
+
+- `unmapped`: no qualifying test reference is currently mapped.
+- `candidate_partial`: cited tests cover a narrow invariant, not the whole
+  scenario.
+- `implemented_unqualified`: implementation/test references exist, but no
+  exact-head execution receipt has qualified the scenario.
+
+There is deliberately **no** `qualified` status in coverage v0.1.0.
+Every mapping has explicit gaps; unmapped rows cannot contain test refs, and
+mapped rows must cite a 40-character source commit and symbol. The validator
+requires all 21 scenario IDs to appear exactly once and in corpus order, and it
+fails if the manifest's corpus digest differs from the checked-in corpus.
+
+Current manifest status is planning-only: 18 scenarios are unmapped and 3
+have candidate-partial test mappings. These are traceability observations, not
+pass rates. A later execution receipt must bind the scenario, exact source
+head, test command, runtime tuple, deterministic seed, negative-control result
+and state digests before a scenario can be called qualified.
 
 ## What is checked
 
