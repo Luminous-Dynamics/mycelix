@@ -590,9 +590,9 @@ fn validate_coverage_semantics(
         }
         if !seen_ids.insert(mapping.scenario_id.as_str()) {
             return Err(format!(
-            "duplicate coverage mapping {:?}",
-            mapping.scenario_id
-        ));
+                "duplicate coverage mapping {:?}",
+                mapping.scenario_id
+            ));
         }
         if mapping.primary_owner.trim().is_empty() {
             return Err(format!(
@@ -766,7 +766,9 @@ mod tests {
 
         let mut coverage = current_coverage();
         coverage.mappings.swap(0, 1);
-        assert!(validate_coverage_semantics(&coverage, &corpus, &current_coverage_sha256()).is_err());
+        assert!(
+            validate_coverage_semantics(&coverage, &corpus, &current_coverage_sha256()).is_err()
+        );
     }
 
     #[test]
@@ -774,7 +776,9 @@ mod tests {
         let corpus = current_corpus();
         let mut coverage = current_coverage();
         coverage.source_corpus.sha256 = "0".repeat(64);
-        assert!(validate_coverage_semantics(&coverage, &corpus, &current_coverage_sha256()).is_err());
+        assert!(
+            validate_coverage_semantics(&coverage, &corpus, &current_coverage_sha256()).is_err()
+        );
     }
 
     #[test]
@@ -792,7 +796,9 @@ mod tests {
             source_commit: "a".repeat(40),
             purpose: "synthetic negative control".into(),
         });
-        assert!(validate_coverage_semantics(&coverage, &corpus, &current_coverage_sha256()).is_err());
+        assert!(
+            validate_coverage_semantics(&coverage, &corpus, &current_coverage_sha256()).is_err()
+        );
     }
 
     #[test]
