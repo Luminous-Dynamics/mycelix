@@ -294,6 +294,24 @@ fn schemas_and_manifest_are_versioned_and_separate() {
     assert!(!solver_properties.contains_key("rubric"));
     assert!(!solver_properties.contains_key("prohibited_claims"));
 
+    for key in [
+        "solver_visible_git_blob_sha",
+        "evaluator_only_git_blob_sha",
+        "solver_schema_git_blob_sha",
+        "evaluator_schema_git_blob_sha",
+    ] {
+        let value = manifest[key].as_str().expect("manifest blob identity");
+        assert_eq!(value.len(), 40, "{key} must be a Git SHA-1 blob identifier");
+        assert!(
+            value.bytes().all(|byte| byte.is_ascii_hexdigit() && !byte.is_ascii_uppercase()),
+            "{key} must be lowercase hexadecimal"
+        );
+    }
+    assert!(manifest["git_blob_sha_note"]
+        .as_str()
+        .expect("blob identity caveat")
+        .contains("not signatures"));
+
     let solver = solver_fixture();
     let domains = solver.scenarios.iter().map(|scenario| scenario.domain).collect::<BTreeSet<_>>();
     assert_eq!(domains.len(), 5);
