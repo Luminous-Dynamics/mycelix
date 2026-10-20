@@ -10,8 +10,11 @@
 //!
 //! Uses the real Web Crypto API (`SubtleCrypto`), not a hand-rolled or
 //! JS-`eval`'d KDF/cipher:
-//! - **PBKDF2-HMAC-SHA256**, [`PBKDF2_ITERATIONS`] rounds — OWASP's 2023
-//!   minimum recommendation for PBKDF2-SHA256.
+//! - **PBKDF2-HMAC-SHA256**, [`PBKDF2_ITERATIONS`] rounds — currently
+//!   aligned with OWASP's 600,000-iteration PBKDF2-SHA256 floor for FIPS-oriented
+//!   deployments. OWASP prefers Argon2id when compatible; this module uses Web
+//!   Crypto's native PBKDF2 primitive and treats an Argon2id migration as a
+//!   separately benchmarked/versioned design decision.
 //! - **AES-256-GCM** for the actual secret encryption (authenticated —
 //!   tampering or a wrong key/passphrase both fail closed).
 //!
@@ -26,7 +29,9 @@ use wasm_bindgen::{JsCast, JsValue};
 use wasm_bindgen_futures::JsFuture;
 use web_sys::{AesDerivedKeyParams, AesGcmParams, CryptoKey, Pbkdf2Params, SubtleCrypto};
 
-/// OWASP's 2023 minimum recommendation for PBKDF2-HMAC-SHA256.
+/// Production PBKDF2-HMAC-SHA256 floor, aligned with current OWASP guidance
+/// for FIPS-oriented deployments. This is not a claim that PBKDF2 is the
+/// strongest available KDF for every deployment.
 ///
 /// Deliberately much lower under `cfg(test)`: `cargo test`/`wasm-pack test`
 /// never builds with `cfg(test)` unset, so this never affects production —
@@ -42,20 +47,154 @@ pub const PBKDF2_ITERATIONS: u32 = 600_000;
 pub const PBKDF2_ITERATIONS: u32 = 1_000;
 /// Random salt length for PBKDF2, in bytes.
 pub const SALT_LEN: usize = 16;
-/// AES-GCM's standard (and most efficient) nonce length, in bytes.
+/// The frozen iteration count used to interpret legacy three-field envelopes.
+/// AES-GCM's standard nonce length, in bytes.
 pub const IV_LEN: usize = 12;
+
+pub const LEGACY_PBKDF2_ITERATIONS: u32 = 600_000;
+/// New envelopes explicitly identify the format and cryptographic parameters.
+pub const CURRENT_ENVELOPE_VERSION: u8 = 2;
+/// Upper bound for attacker-controlled envelope work factors.
+///
+/// Keep the initial ceiling close to the production floor so a corrupted local
+/// envelope cannot impose an excessive synchronous-looking wait on the user.
+/// Raising this cap requires reference-device latency data and a reviewed format
+/// policy change; it must not be increased merely to make an outlier pass.
+pub const MAX_PBKDF2_ITERATIONS: u32 = 1_200_000;
+pub const KDF_IDENTIFIER: &str = "PBKDF2-HMAC-SHA256";
+pub const CIPHER_IDENTIFIER: &str = "AES-256-GCM";
+
+/// Authenticated key-derivation policy recorded in a versioned envelope.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum KeyDerivationFunction {
+    Pbkdf2HmacSha256,
+}
+
+impl KeyDerivationFunction {
+    pub fn identifier(self) -> &'static str {
+        match self {
+            Self::Pbkdf2HmacSha256 => KDF_IDENTIFIER,
+        }
+    }
+
+    pub fn from_identifier(identifier: &str) -> Option<Self> {
+        match identifier {
+            KDF_IDENTIFIER => Some(Self::Pbkdf2HmacSha256),
+            _ => None,
+        }
+    }
+}
+
+/// Authenticated cipher policy recorded in a versioned envelope.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum IdentityCipher {
+    Aes256Gcm,
+}
+
+impl IdentityCipher {
+    pub fn identifier(self) -> &'static str {
+        match self {
+            Self::Aes256Gcm => CIPHER_IDENTIFIER,
+        }
+    }
+
+    pub fn from_identifier(identifier: &str) -> Option<Self> {
+        match identifier {
+            CIPHER_IDENTIFIER => Some(Self::Aes256Gcm),
+            _ => None,
+        }
+    }
+}
 
 /// A passphrase-encrypted secret, ready to persist.
 ///
-/// `salt` and `iv` are not secret — they just need to be unique per
-/// encryption and are stored alongside `ciphertext`.
+/// The v2 header is authenticated as AES-GCM additional authenticated data.
+/// v1 is reserved for legacy envelopes that had no header and used the
+/// frozen legacy PBKDF2 work factor.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct EncryptedBlob {
+    pub format_version: u8,
+    pub kdf: KeyDerivationFunction,
+    pub iterations: u32,
+    pub cipher: IdentityCipher,
     pub salt: Vec<u8>,
     pub iv: Vec<u8>,
-    /// AES-GCM ciphertext, with the authentication tag appended (this is
-    /// `SubtleCrypto.encrypt`'s standard output shape for AES-GCM).
+    /// AES-GCM ciphertext, with the authentication tag appended.
     pub ciphertext: Vec<u8>,
+}
+
+fn minimum_supported_iterations() -> u32 {
+    #[cfg(test)]
+    {
+        1_000
+    }
+    #[cfg(not(test))]
+    {
+        LEGACY_PBKDF2_ITERATIONS
+    }
+}
+
+fn canonical_authenticated_header(
+    format_version: u8,
+    kdf: KeyDerivationFunction,
+    iterations: u32,
+    cipher: IdentityCipher,
+) -> Vec<u8> {
+    format!(
+        "mycelix-identity-envelope|version={format_version}|kdf={}|iterations={iterations}|cipher={}",
+        kdf.identifier(),
+        cipher.identifier()
+    )
+    .into_bytes()
+}
+
+impl EncryptedBlob {
+    /// Validate all untrusted envelope parameters before doing expensive work.
+    pub fn validate(&self) -> Result<(), String> {
+        if self.salt.len() != SALT_LEN {
+            return Err("Invalid encrypted identity salt length.".into());
+        }
+        if self.iv.len() != IV_LEN {
+            return Err("Invalid encrypted identity nonce length.".into());
+        }
+        if self.ciphertext.len() < 16 {
+            return Err("Encrypted identity payload is truncated.".into());
+        }
+
+        match self.format_version {
+            1 => {
+                if self.iterations != LEGACY_PBKDF2_ITERATIONS {
+                    return Err("Unsupported legacy identity work factor.".into());
+                }
+            }
+            CURRENT_ENVELOPE_VERSION => {
+                if !(minimum_supported_iterations()..=MAX_PBKDF2_ITERATIONS)
+                    .contains(&self.iterations)
+                {
+                    return Err("Encrypted identity work factor is outside policy limits.".into());
+                }
+            }
+            _ => return Err("Unsupported encrypted identity envelope version.".into()),
+        }
+        if self.kdf != KeyDerivationFunction::Pbkdf2HmacSha256 {
+            return Err("Unsupported encrypted identity KDF.".into());
+        }
+        if self.cipher != IdentityCipher::Aes256Gcm {
+            return Err("Unsupported encrypted identity cipher.".into());
+        }
+        Ok(())
+    }
+
+    fn authenticated_header(&self) -> Option<Vec<u8>> {
+        (self.format_version >= CURRENT_ENVELOPE_VERSION).then(|| {
+            canonical_authenticated_header(
+                self.format_version,
+                self.kdf,
+                self.iterations,
+                self.cipher,
+            )
+        })
+    }
 }
 
 fn subtle() -> Result<SubtleCrypto, String> {
@@ -81,7 +220,11 @@ fn random_bytes(len: usize) -> Result<Vec<u8>, String> {
 ///
 /// Non-extractable by design: once derived, the raw AES key bytes never
 /// need to leave `SubtleCrypto`'s internal (non-JS-readable) key storage.
-async fn derive_aes_key(passphrase: &str, salt: &[u8]) -> Result<CryptoKey, String> {
+async fn derive_aes_key(
+    passphrase: &str,
+    salt: &[u8],
+    iterations: u32,
+) -> Result<CryptoKey, String> {
     let subtle = subtle()?;
 
     let key_material = Uint8Array::from(passphrase.as_bytes());
@@ -97,7 +240,7 @@ async fn derive_aes_key(passphrase: &str, salt: &[u8]) -> Result<CryptoKey, Stri
     let pbkdf2_params = Pbkdf2Params::new(
         "PBKDF2",
         &JsValue::from_str("SHA-256"),
-        PBKDF2_ITERATIONS,
+        iterations,
         &Uint8Array::from(salt),
     );
     let derived_key_type = AesDerivedKeyParams::new("AES-GCM", 256);
@@ -128,10 +271,16 @@ async fn derive_aes_key(passphrase: &str, salt: &[u8]) -> Result<CryptoKey, Stri
 pub async fn encrypt(passphrase: &str, plaintext: &[u8]) -> Result<EncryptedBlob, String> {
     let salt = random_bytes(SALT_LEN)?;
     let mut iv = random_bytes(IV_LEN)?;
-    let aes_key = derive_aes_key(passphrase, &salt).await?;
+    let iterations = PBKDF2_ITERATIONS;
+    let kdf = KeyDerivationFunction::Pbkdf2HmacSha256;
+    let cipher = IdentityCipher::Aes256Gcm;
+    let aes_key = derive_aes_key(passphrase, &salt, iterations).await?;
 
+    let mut additional_data =
+        canonical_authenticated_header(CURRENT_ENVELOPE_VERSION, kdf, iterations, cipher);
     let subtle = subtle()?;
     let gcm_params = AesGcmParams::new_with_u8_slice("AES-GCM", &mut iv);
+    gcm_params.set_additional_data_u8_slice(&mut additional_data);
     let promise = subtle
         .encrypt_with_object_and_u8_array(&gcm_params, &aes_key, plaintext)
         .map_err(|e| format!("encrypt failed: {e:?}"))?;
@@ -141,6 +290,10 @@ pub async fn encrypt(passphrase: &str, plaintext: &[u8]) -> Result<EncryptedBlob
     let ciphertext = Uint8Array::new(&result).to_vec();
 
     Ok(EncryptedBlob {
+        format_version: CURRENT_ENVELOPE_VERSION,
+        kdf,
+        iterations,
+        cipher,
         salt,
         iv,
         ciphertext,
@@ -152,11 +305,16 @@ pub async fn encrypt(passphrase: &str, plaintext: &[u8]) -> Result<EncryptedBlob
 /// Fails closed with a generic error on a wrong passphrase *or* a corrupted
 /// blob — the two aren't distinguished on purpose (see module docs).
 pub async fn decrypt(passphrase: &str, blob: &EncryptedBlob) -> Result<Vec<u8>, String> {
-    let aes_key = derive_aes_key(passphrase, &blob.salt).await?;
+    blob.validate()?;
+    let aes_key = derive_aes_key(passphrase, &blob.salt, blob.iterations).await?;
 
     let subtle = subtle()?;
     let mut iv = blob.iv.clone();
     let gcm_params = AesGcmParams::new_with_u8_slice("AES-GCM", &mut iv);
+    let mut additional_data = blob.authenticated_header();
+    if let Some(additional_data) = additional_data.as_mut() {
+        gcm_params.set_additional_data_u8_slice(additional_data);
+    }
     let promise = subtle
         .decrypt_with_object_and_u8_array(&gcm_params, &aes_key, &blob.ciphertext)
         .map_err(|_| "Decryption failed (wrong passphrase?)".to_string())?;
@@ -215,6 +373,21 @@ mod tests {
     }
 
     #[wasm_bindgen_test::wasm_bindgen_test]
+    async fn rejects_modified_kdf_metadata() {
+        let secret = b"32-byte-ed25519-secret-key-seed";
+        let mut blob = encrypt("metadata passphrase", secret)
+            .await
+            .expect("encrypt should succeed");
+        blob.iterations += 1;
+
+        let result = decrypt("metadata passphrase", &blob).await;
+        assert!(
+            result.is_err(),
+            "altered KDF metadata must fail authenticated decryption"
+        );
+    }
+
+    #[wasm_bindgen_test::wasm_bindgen_test]
     async fn each_encryption_uses_a_fresh_salt_and_iv() {
         let secret = b"32-byte-ed25519-secret-key-seed";
         let blob_a = encrypt("same passphrase", secret)
@@ -234,5 +407,65 @@ mod tests {
         // covered by `round_trips_with_the_correct_passphrase` — not
         // re-checked here, to avoid running 4 PBKDF2 derivations worth of
         // work in one headless-browser test.)
+    }
+}
+
+#[cfg(test)]
+mod envelope_policy_tests {
+    use super::*;
+
+    fn sample_blob(format_version: u8, iterations: u32) -> EncryptedBlob {
+        EncryptedBlob {
+            format_version,
+            kdf: KeyDerivationFunction::Pbkdf2HmacSha256,
+            iterations,
+            cipher: IdentityCipher::Aes256Gcm,
+            salt: vec![1; SALT_LEN],
+            iv: vec![2; IV_LEN],
+            ciphertext: vec![3; 48],
+        }
+    }
+
+    #[test]
+    fn legacy_work_factor_is_frozen_independently_of_test_builds() {
+        assert_eq!(LEGACY_PBKDF2_ITERATIONS, 600_000);
+        assert!(sample_blob(1, LEGACY_PBKDF2_ITERATIONS).validate().is_ok());
+        assert!(sample_blob(1, PBKDF2_ITERATIONS).validate().is_err());
+    }
+
+    #[test]
+    fn new_envelopes_bound_iterations_before_kdf_work() {
+        assert!(
+            sample_blob(CURRENT_ENVELOPE_VERSION, PBKDF2_ITERATIONS)
+                .validate()
+                .is_ok()
+        );
+        assert!(
+            sample_blob(CURRENT_ENVELOPE_VERSION, 999)
+                .validate()
+                .is_err()
+        );
+        assert!(
+            sample_blob(CURRENT_ENVELOPE_VERSION, MAX_PBKDF2_ITERATIONS + 1)
+                .validate()
+                .is_err()
+        );
+        assert!(sample_blob(99, PBKDF2_ITERATIONS).validate().is_err());
+    }
+
+    #[test]
+    fn authenticated_header_changes_when_kdf_parameters_change() {
+        let blob = sample_blob(CURRENT_ENVELOPE_VERSION, PBKDF2_ITERATIONS);
+        let first = blob.authenticated_header().unwrap();
+        let changed = sample_blob(CURRENT_ENVELOPE_VERSION, PBKDF2_ITERATIONS + 1)
+            .authenticated_header()
+            .unwrap();
+        assert_ne!(first, changed);
+        assert!(String::from_utf8(first).unwrap().contains(KDF_IDENTIFIER));
+        assert!(
+            String::from_utf8(changed)
+                .unwrap()
+                .contains(CIPHER_IDENTIFIER)
+        );
     }
 }

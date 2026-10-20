@@ -64,8 +64,10 @@ jobs:
           cargo fmt --manifest-path mycelix-personal/apps/leptos/Cargo.toml -- --check
       - name: Run native identity-storage posture tests
         run: cargo test --manifest-path crates/mycelix-leptos-core/Cargo.toml --locked --lib
-      - name: Compile browser-only identity tests for WASM (not executed)
-        run: cargo test --manifest-path crates/mycelix-leptos-core/Cargo.toml --locked --target wasm32-unknown-unknown --lib --no-run
+      - name: Run browser identity and cryptographic transition tests
+        run: |
+          cargo install wasm-pack --version 0.13.1 --locked
+          wasm-pack test --headless --chrome crates/mycelix-leptos-core -- --lib
       - name: Compile shared identity core for WASM
         run: cargo check --manifest-path crates/mycelix-leptos-core/Cargo.toml --locked --target wasm32-unknown-unknown
       - name: Run strict Personal app Clippy

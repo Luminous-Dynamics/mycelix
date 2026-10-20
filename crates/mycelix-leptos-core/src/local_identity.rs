@@ -125,7 +125,16 @@ thread_local! {
 }
 
 #[derive(serde::Serialize, serde::Deserialize)]
+#[serde(deny_unknown_fields)]
 struct EncryptedBlobWire {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    format_version: Option<u8>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    kdf: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    iterations: Option<u32>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    cipher: Option<String>,
     salt_b64: String,
     iv_b64: String,
     ciphertext_b64: String,
@@ -134,6 +143,10 @@ struct EncryptedBlobWire {
 impl From<&EncryptedBlob> for EncryptedBlobWire {
     fn from(blob: &EncryptedBlob) -> Self {
         Self {
+            format_version: Some(blob.format_version),
+            kdf: Some(blob.kdf.identifier().to_string()),
+            iterations: Some(blob.iterations),
+            cipher: Some(blob.cipher.identifier().to_string()),
             salt_b64: base64_encode(&blob.salt),
             iv_b64: base64_encode(&blob.iv),
             ciphertext_b64: base64_encode(&blob.ciphertext),
@@ -145,11 +158,56 @@ impl TryFrom<&EncryptedBlobWire> for EncryptedBlob {
     type Error = String;
 
     fn try_from(wire: &EncryptedBlobWire) -> Result<Self, String> {
-        Ok(EncryptedBlob {
-            salt: base64_decode(&wire.salt_b64).ok_or("corrupt salt")?,
-            iv: base64_decode(&wire.iv_b64).ok_or("corrupt iv")?,
-            ciphertext: base64_decode(&wire.ciphertext_b64).ok_or("corrupt ciphertext")?,
-        })
+        let format_version = wire.format_version.unwrap_or(1);
+        let (kdf, iterations, cipher) = match format_version {
+            1 => {
+                // A legacy record is exactly the historical three-field
+                // shape. Extra policy fields on a v1 envelope are ambiguous
+                // and must not be interpreted under a different default.
+                if wire.kdf.is_some() || wire.iterations.is_some() || wire.cipher.is_some() {
+                    return Err("Legacy identity envelope contains unexpected metadata.".into());
+                }
+                (
+                    identity_crypto::KeyDerivationFunction::Pbkdf2HmacSha256,
+                    identity_crypto::LEGACY_PBKDF2_ITERATIONS,
+                    identity_crypto::IdentityCipher::Aes256Gcm,
+                )
+            }
+            identity_crypto::CURRENT_ENVELOPE_VERSION => {
+                let kdf = wire
+                    .kdf
+                    .as_deref()
+                    .and_then(identity_crypto::KeyDerivationFunction::from_identifier)
+                    .ok_or_else(|| "Unsupported or missing identity KDF metadata.".to_string())?;
+                let iterations = wire
+                    .iterations
+                    .ok_or_else(|| "Missing identity KDF work factor.".to_string())?;
+                let cipher = wire
+                    .cipher
+                    .as_deref()
+                    .and_then(identity_crypto::IdentityCipher::from_identifier)
+                    .ok_or_else(|| {
+                        "Unsupported or missing identity cipher metadata.".to_string()
+                    })?;
+                (kdf, iterations, cipher)
+            }
+            _ => return Err("Unsupported identity envelope version.".into()),
+        };
+
+        let blob = EncryptedBlob {
+            format_version,
+            kdf,
+            iterations,
+            cipher,
+            salt: base64_decode(&wire.salt_b64)
+                .ok_or_else(|| "Corrupt encrypted identity salt.".to_string())?,
+            iv: base64_decode(&wire.iv_b64)
+                .ok_or_else(|| "Corrupt encrypted identity nonce.".to_string())?,
+            ciphertext: base64_decode(&wire.ciphertext_b64)
+                .ok_or_else(|| "Corrupt encrypted identity payload.".to_string())?,
+        };
+        blob.validate()?;
+        Ok(blob)
     }
 }
 
@@ -201,9 +259,10 @@ pub fn allowed_identity_bootstrap_actions(
 ) -> &'static [IdentityBootstrapAction] {
     use IdentityBootstrapAction as Action;
     match posture {
-        LocalIdentityStoragePosture::NoIdentity => {
-            &[Action::CreateProtectedIdentity, Action::RestoreProtectedIdentityFromSeedPhrase]
-        }
+        LocalIdentityStoragePosture::NoIdentity => &[
+            Action::CreateProtectedIdentity,
+            Action::RestoreProtectedIdentityFromSeedPhrase,
+        ],
         LocalIdentityStoragePosture::UnprotectedIdentity => &[Action::ProtectExistingIdentity],
         LocalIdentityStoragePosture::ProtectedLocked => &[Action::UnlockProtectedIdentity],
         LocalIdentityStoragePosture::ProtectedUnlockedInSession => &[Action::RotatePassphrase],
@@ -227,6 +286,14 @@ struct IdentityStorageSnapshot {
     secret_b64: Option<String>,
     public_b64: Option<String>,
     encrypted_wire: Option<String>,
+}
+
+impl Drop for IdentityStorageSnapshot {
+    fn drop(&mut self) {
+        if let Some(secret_b64) = self.secret_b64.as_mut() {
+            secret_b64.zeroize();
+        }
+    }
 }
 
 /// Inspect browser identity storage without generating, unlocking, replacing,
@@ -823,9 +890,9 @@ pub async fn protect_with_passphrase(passphrase: &str) -> Result<(), String> {
             "A legacy identity label needs explicit migration or recovery; no key was generated."
                 .into(),
         ),
-        LocalIdentityStoragePosture::StorageUnavailable => Err(
-            "Identity storage is unavailable; no identity was created or changed.".into(),
-        ),
+        LocalIdentityStoragePosture::StorageUnavailable => {
+            Err("Identity storage is unavailable; no identity was created or changed.".into())
+        }
         LocalIdentityStoragePosture::CorruptOrInconsistent => Err(
             "Identity storage is inconsistent; inspect or recover it before changing protection."
                 .into(),
@@ -918,7 +985,10 @@ async fn rewrap_protected_identity(passphrase: &str) -> Result<(), String> {
         .as_ref()
         .is_ok_and(|value| value.as_deref() == Some(previous_wire.as_str()))
     {
-        Err("Passphrase rotation failed verification; the previous passphrase remains active.".into())
+        Err(
+            "Passphrase rotation failed verification; the previous passphrase remains active."
+                .into(),
+        )
     } else {
         Err(
             "Passphrase rotation and rollback could not be verified; inspect identity posture before retrying."
@@ -944,9 +1014,12 @@ pub async fn unlock_with_passphrase(passphrase: &str) -> Result<SigningKey, Stri
     // A failed unlock leaves the identity locked rather than reusing a prior
     // in-memory key against storage whose integrity may have changed.
     UNLOCKED_KEY.with(|cell| *cell.borrow_mut() = None);
-    let wire: EncryptedBlobWire = load_json(IDENTITY_SECRET_ENCRYPTED_KEY)
+    let original_wire = load_string(IDENTITY_SECRET_ENCRYPTED_KEY)
         .ok_or_else(|| "No passphrase-protected identity found".to_string())?;
+    let wire: EncryptedBlobWire = serde_json::from_str(&original_wire)
+        .map_err(|_| "Protected identity envelope is malformed.".to_string())?;
     let blob = EncryptedBlob::try_from(&wire)?;
+    let was_legacy = blob.format_version == 1;
     let mut secret_bytes = identity_crypto::decrypt(passphrase, &blob).await?;
     let secret_array_result: Result<[u8; 32], _> = secret_bytes.as_slice().try_into();
     secret_bytes.zeroize();
@@ -959,8 +1032,98 @@ pub async fn unlock_with_passphrase(passphrase: &str) -> Result<SigningKey, Stri
     if !public_key_matches_signing_key(&public_b64, &signing_key) {
         return Err("Protected identity key material is inconsistent.".into());
     }
+    if was_legacy {
+        migrate_legacy_envelope(passphrase, &original_wire, &public_b64, &signing_key).await?;
+    }
     UNLOCKED_KEY.with(|cell| *cell.borrow_mut() = Some(signing_key.clone()));
     Ok(signing_key)
+}
+
+/// Upgrade a legacy envelope only after decryption and public-key binding have
+/// succeeded. If read-back verification fails, restore and verify the exact
+/// original bytes before allowing the caller to continue unlocked.
+async fn migrate_legacy_envelope(
+    passphrase: &str,
+    original_wire: &str,
+    expected_public_b64: &str,
+    signing_key: &SigningKey,
+) -> Result<(), String> {
+    let window = web_sys::window()
+        .ok_or_else(|| "Browser storage unavailable during envelope migration.".to_string())?;
+    let storage = window
+        .local_storage()
+        .map_err(|_| "Browser storage unavailable during envelope migration.".to_string())?
+        .ok_or_else(|| "Browser storage unavailable during envelope migration.".to_string())?;
+
+    let current_wire = storage
+        .get_item(IDENTITY_SECRET_ENCRYPTED_KEY)
+        .map_err(|_| "Could not recheck the legacy identity envelope.".to_string())?;
+    let current_public = storage
+        .get_item(IDENTITY_PUBLIC_KEY)
+        .map_err(|_| "Could not recheck identity public-key metadata.".to_string())?;
+    if current_wire.as_deref() != Some(original_wire)
+        || current_public.as_deref() != Some(expected_public_b64)
+    {
+        return Err(
+            "Identity storage changed during unlock; legacy envelope was not migrated.".into(),
+        );
+    }
+
+    let new_blob = identity_crypto::encrypt(passphrase, signing_key.as_bytes()).await?;
+    let new_wire = serde_json::to_string(&EncryptedBlobWire::from(&new_blob))
+        .map_err(|_| "Could not serialize the versioned identity envelope.".to_string())?;
+
+    // Encryption is asynchronous, so repeat the compare immediately before
+    // writing to avoid replacing changes made in another tab.
+    let current_wire = storage
+        .get_item(IDENTITY_SECRET_ENCRYPTED_KEY)
+        .map_err(|_| "Could not recheck the legacy identity envelope.".to_string())?;
+    let current_public = storage
+        .get_item(IDENTITY_PUBLIC_KEY)
+        .map_err(|_| "Could not recheck identity public-key metadata.".to_string())?;
+    if current_wire.as_deref() != Some(original_wire)
+        || current_public.as_deref() != Some(expected_public_b64)
+    {
+        return Err(
+            "Identity storage changed during envelope migration; no new envelope was written."
+                .into(),
+        );
+    }
+
+    let _write_succeeded = storage
+        .set_item(IDENTITY_SECRET_ENCRYPTED_KEY, &new_wire)
+        .is_ok();
+    let readback = storage.get_item(IDENTITY_SECRET_ENCRYPTED_KEY);
+    let new_envelope_verified = readback.as_ref().is_ok_and(|value| {
+        if value.as_deref() != Some(new_wire.as_str()) {
+            return false;
+        }
+        serde_json::from_str::<EncryptedBlobWire>(&new_wire)
+            .ok()
+            .and_then(|wire| EncryptedBlob::try_from(&wire).ok())
+            .is_some_and(|blob| blob.format_version == identity_crypto::CURRENT_ENVELOPE_VERSION)
+    });
+    if new_envelope_verified {
+        return Ok(());
+    }
+
+    let _rollback_succeeded = storage
+        .set_item(IDENTITY_SECRET_ENCRYPTED_KEY, original_wire)
+        .is_ok();
+    let rollback = storage.get_item(IDENTITY_SECRET_ENCRYPTED_KEY);
+    if rollback
+        .as_ref()
+        .is_ok_and(|value| value.as_deref() == Some(original_wire))
+    {
+        return Err(
+            "Legacy envelope remains intact, but versioned migration failed verification. Retry unlock later."
+                .into(),
+        );
+    }
+    Err(
+        "Envelope migration and rollback could not be verified. The app remains locked; preserve this browser profile and inspect identity storage."
+            .into(),
+    )
 }
 
 /// Reverse [`protect_with_passphrase`]: decrypt with `passphrase`, restore
@@ -1191,6 +1354,87 @@ mod tests {
     /// `did_from_public_key` is pure and needs no browser: it should work
     /// identically on native and wasm32 targets.
 
+    #[test]
+    fn new_envelopes_serialize_and_roundtrip_explicit_crypto_policy() {
+        let blob = EncryptedBlob {
+            format_version: identity_crypto::CURRENT_ENVELOPE_VERSION,
+            kdf: identity_crypto::KeyDerivationFunction::Pbkdf2HmacSha256,
+            iterations: identity_crypto::PBKDF2_ITERATIONS,
+            cipher: identity_crypto::IdentityCipher::Aes256Gcm,
+            salt: vec![1; identity_crypto::SALT_LEN],
+            iv: vec![2; identity_crypto::IV_LEN],
+            ciphertext: vec![3; 48],
+        };
+        let wire = EncryptedBlobWire::from(&blob);
+        let json = serde_json::to_value(&wire).unwrap();
+
+        assert_eq!(
+            json["format_version"],
+            identity_crypto::CURRENT_ENVELOPE_VERSION
+        );
+        assert_eq!(json["kdf"], identity_crypto::KDF_IDENTIFIER);
+        assert_eq!(json["iterations"], identity_crypto::PBKDF2_ITERATIONS);
+        assert_eq!(json["cipher"], identity_crypto::CIPHER_IDENTIFIER);
+
+        let decoded = EncryptedBlob::try_from(&wire).unwrap();
+        assert_eq!(decoded, blob);
+    }
+
+    #[test]
+    fn legacy_three_field_envelope_maps_to_frozen_production_parameters() {
+        let legacy_json = serde_json::json!({
+            "salt_b64": base64_encode(&[1u8; identity_crypto::SALT_LEN]),
+            "iv_b64": base64_encode(&[2u8; identity_crypto::IV_LEN]),
+            "ciphertext_b64": base64_encode(&[3u8; 48]),
+        });
+        let wire: EncryptedBlobWire = serde_json::from_value(legacy_json).unwrap();
+        let blob = EncryptedBlob::try_from(&wire).unwrap();
+
+        assert_eq!(blob.format_version, 1);
+        assert_eq!(blob.iterations, identity_crypto::LEGACY_PBKDF2_ITERATIONS);
+        assert_eq!(
+            blob.kdf,
+            identity_crypto::KeyDerivationFunction::Pbkdf2HmacSha256
+        );
+        assert_eq!(blob.cipher, identity_crypto::IdentityCipher::Aes256Gcm);
+    }
+
+    #[test]
+    fn versioned_envelope_requires_complete_allowlisted_metadata() {
+        let mut json = serde_json::json!({
+            "format_version": identity_crypto::CURRENT_ENVELOPE_VERSION,
+            "kdf": identity_crypto::KDF_IDENTIFIER,
+            "iterations": identity_crypto::PBKDF2_ITERATIONS,
+            "cipher": identity_crypto::CIPHER_IDENTIFIER,
+            "salt_b64": base64_encode(&[1u8; identity_crypto::SALT_LEN]),
+            "iv_b64": base64_encode(&[2u8; identity_crypto::IV_LEN]),
+            "ciphertext_b64": base64_encode(&[3u8; 48]),
+        });
+        let good: EncryptedBlobWire = serde_json::from_value(json.clone()).unwrap();
+        assert!(EncryptedBlob::try_from(&good).is_ok());
+
+        json["format_version"] = serde_json::json!(99);
+        let unknown: EncryptedBlobWire = serde_json::from_value(json).unwrap();
+        assert!(EncryptedBlob::try_from(&unknown).is_err());
+    }
+
+    #[test]
+    fn legacy_shape_cannot_smuggle_metadata_and_v2_cannot_omit_it() {
+        let mut with_extra = serde_json::json!({
+            "salt_b64": base64_encode(&[1u8; identity_crypto::SALT_LEN]),
+            "iv_b64": base64_encode(&[2u8; identity_crypto::IV_LEN]),
+            "ciphertext_b64": base64_encode(&[3u8; 48]),
+            "iterations": 1,
+        });
+        let ambiguous: EncryptedBlobWire = serde_json::from_value(with_extra.clone()).unwrap();
+        assert!(EncryptedBlob::try_from(&ambiguous).is_err());
+
+        with_extra["format_version"] = serde_json::json!(identity_crypto::CURRENT_ENVELOPE_VERSION);
+        with_extra.as_object_mut().unwrap().remove("iterations");
+        let incomplete: EncryptedBlobWire = serde_json::from_value(with_extra).unwrap();
+        assert!(EncryptedBlob::try_from(&incomplete).is_err());
+    }
+
     fn snapshot(
         legacy_did: Option<String>,
         secret_b64: Option<String>,
@@ -1208,6 +1452,10 @@ mod tests {
 
     fn valid_encrypted_wire() -> String {
         let wire = EncryptedBlobWire {
+            format_version: Some(identity_crypto::CURRENT_ENVELOPE_VERSION),
+            kdf: Some(identity_crypto::KDF_IDENTIFIER.into()),
+            iterations: Some(identity_crypto::PBKDF2_ITERATIONS),
+            cipher: Some(identity_crypto::CIPHER_IDENTIFIER.into()),
             salt_b64: base64_encode(&[1u8; identity_crypto::SALT_LEN]),
             iv_b64: base64_encode(&[2u8; identity_crypto::IV_LEN]),
             ciphertext_b64: base64_encode(&[3u8; 48]),
@@ -1269,9 +1517,57 @@ mod tests {
             allowed_identity_bootstrap_actions(Posture::ProtectedUnlockedInSession),
             &[Action::RotatePassphrase]
         );
-        assert!(allowed_identity_bootstrap_actions(Posture::LegacyIdentityNeedsMigration).is_empty());
+        assert!(
+            allowed_identity_bootstrap_actions(Posture::LegacyIdentityNeedsMigration).is_empty()
+        );
         assert!(allowed_identity_bootstrap_actions(Posture::StorageUnavailable).is_empty());
         assert!(allowed_identity_bootstrap_actions(Posture::CorruptOrInconsistent).is_empty());
+    }
+
+    #[test]
+    fn bootstrap_policy_exhaustively_checks_every_posture_action_pair() {
+        use IdentityBootstrapAction as Action;
+        use LocalIdentityStoragePosture as Posture;
+
+        let postures = [
+            Posture::StorageUnavailable,
+            Posture::NoIdentity,
+            Posture::LegacyIdentityNeedsMigration,
+            Posture::UnprotectedIdentity,
+            Posture::ProtectedLocked,
+            Posture::ProtectedUnlockedInSession,
+            Posture::CorruptOrInconsistent,
+        ];
+        let actions = [
+            Action::CreateProtectedIdentity,
+            Action::ProtectExistingIdentity,
+            Action::UnlockProtectedIdentity,
+            Action::RestoreProtectedIdentityFromSeedPhrase,
+            Action::RotatePassphrase,
+        ];
+
+        for posture in postures {
+            for action in actions {
+                let expected = match posture {
+                    Posture::NoIdentity => matches!(
+                        action,
+                        Action::CreateProtectedIdentity
+                            | Action::RestoreProtectedIdentityFromSeedPhrase
+                    ),
+                    Posture::UnprotectedIdentity => action == Action::ProtectExistingIdentity,
+                    Posture::ProtectedLocked => action == Action::UnlockProtectedIdentity,
+                    Posture::ProtectedUnlockedInSession => action == Action::RotatePassphrase,
+                    Posture::LegacyIdentityNeedsMigration
+                    | Posture::StorageUnavailable
+                    | Posture::CorruptOrInconsistent => false,
+                };
+                assert_eq!(
+                    identity_bootstrap_action_allowed(posture, action),
+                    expected,
+                    "unexpected bootstrap permission for {posture:?} -> {action:?}"
+                );
+            }
+        }
     }
 
     #[test]
@@ -1402,6 +1698,10 @@ mod tests {
     fn encrypted_container_with_wrong_ciphertext_length_is_corrupt() {
         let key = SigningKey::from_bytes(&[11u8; 32]);
         let malformed_wire = serde_json::to_string(&EncryptedBlobWire {
+            format_version: Some(identity_crypto::CURRENT_ENVELOPE_VERSION),
+            kdf: Some(identity_crypto::KDF_IDENTIFIER.into()),
+            iterations: Some(identity_crypto::PBKDF2_ITERATIONS),
+            cipher: Some(identity_crypto::CIPHER_IDENTIFIER.into()),
             salt_b64: base64_encode(&[1u8; identity_crypto::SALT_LEN]),
             iv_b64: base64_encode(&[2u8; identity_crypto::IV_LEN]),
             ciphertext_b64: base64_encode(&[3u8; 47]),
@@ -1773,9 +2073,11 @@ mod browser_storage_tests {
         assert!(storage.get_item(IDENTITY_SECRET_KEY).unwrap().is_none());
         UNLOCKED_KEY.with(|cell| *cell.borrow_mut() = None);
 
-        assert!(unlock_with_passphrase("synthetic initial passphrase")
-            .await
-            .is_err());
+        assert!(
+            unlock_with_passphrase("synthetic initial passphrase")
+                .await
+                .is_err()
+        );
         assert!(UNLOCKED_KEY.with(|cell| cell.borrow().is_none()));
         let rotated = unlock_with_passphrase("synthetic rotated passphrase")
             .await
