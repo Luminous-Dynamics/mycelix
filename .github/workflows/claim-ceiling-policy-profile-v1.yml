@@ -43,6 +43,27 @@ jobs:
         run: cargo test --locked --manifest-path "$PACKAGE" -p claim-ceiling-reference
         env:
           PACKAGE: mycelix-workspace/mycelix-space/tools/claim-ceiling-reference/Cargo.toml
+      - name: Independently verify the policy lifecycle attack corpus
+        shell: bash
+        run: |
+          set -euo pipefail
+          root="mycelix-workspace/mycelix-space/tools/claim-ceiling-reference"
+          fixture="$root/fixtures/claim-policy-lifecycle-golden-v1.json"
+          oracle="$root/tests/independent_policy_lifecycle_verifier.jq"
+          tmp="$(mktemp -d)"
+          trap 'rm -rf "$tmp"' EXIT
+          count="$(jq '.cases | length' "$fixture")"
+          test "$count" -eq 19
+          for ((index = 0; index < count; index += 1)); do
+            jq -r --argjson index "$index" '.cases[$index].profile_bytes' "$fixture" > "$tmp/profile-$index"
+            profile_sha256="$(sha256sum "$tmp/profile-$index" | cut -d ' ' -f 1)"
+            jq -e -n \
+              --arg actual_profile_sha256 "$profile_sha256" \
+              --argjson index "$index" \
+              --slurpfile corpus "$fixture" \
+              -f "$oracle" > /dev/null
+          done
+          echo "CLAIM_POLICY_LIFECYCLE_INDEPENDENT_CORPUS_PASS cases=$count"
       - name: Run strict Clippy
         run: cargo clippy --locked --manifest-path "$PACKAGE" -p claim-ceiling-reference --all-targets -- -D warnings
         env:
