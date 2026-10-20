@@ -15,7 +15,14 @@ pub fn HomePage() -> impl IntoView {
     let hc = mycelix_leptos_core::holochain_provider::use_holochain();
     let hc_for_freshness = hc.clone();
     let hc_for_availability = hc.clone();
-    let latest_event = Memo::new(move |_| commons.events.get().into_iter().map(|event| event.start_time).max());
+    let latest_event = Memo::new(move |_| {
+        commons
+            .events
+            .get()
+            .into_iter()
+            .map(|event| event.start_time)
+            .max()
+    });
     let feed_items = move || {
         commons
             .events
@@ -149,7 +156,9 @@ fn freshness_from_secs(timestamp_secs: i64) -> FreshnessLevel {
 }
 
 fn format_relative_secs(timestamp_secs: i64) -> String {
-    let date = js_sys::Date::new(&wasm_bindgen::JsValue::from_f64((timestamp_secs * 1000) as f64));
+    let date = js_sys::Date::new(&wasm_bindgen::JsValue::from_f64(
+        (timestamp_secs * 1000) as f64,
+    ));
     date.to_locale_string("en-US", &wasm_bindgen::JsValue::UNDEFINED)
         .as_string()
         .unwrap_or_else(|| "recently".into())

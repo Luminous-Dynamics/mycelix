@@ -1,12 +1,12 @@
 // Copyright (C) 2024-2026 Tristan Stoltz / Luminous Dynamics
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+use crate::mock_data;
+use commons_leptos_types::*;
 use leptos::prelude::*;
+use mycelix_leptos_core::holochain_provider::use_holochain;
 use serde_json::Value;
 use wasm_bindgen_futures::spawn_local;
-use commons_leptos_types::*;
-use crate::mock_data;
-use mycelix_leptos_core::holochain_provider::use_holochain;
 
 #[derive(Clone)]
 pub struct CommonsCtx {
@@ -40,12 +40,20 @@ pub fn provide_commons_context() -> CommonsCtx {
     provide_context(ctx.clone());
 
     if let Some(set_pending) = use_context::<WriteSignal<u32>>() {
-        let open = ctx.needs.get_untracked().iter().filter(|n| n.status == NeedStatus::Open).count() as u32;
+        let open = ctx
+            .needs
+            .get_untracked()
+            .iter()
+            .filter(|n| n.status == NeedStatus::Open)
+            .count() as u32;
         set_pending.set(open);
     }
 
     let c = ctx.clone();
-    spawn_local(async move { gloo_timers::future::TimeoutFuture::new(4000).await; try_load(c).await; });
+    spawn_local(async move {
+        gloo_timers::future::TimeoutFuture::new(4000).await;
+        try_load(c).await;
+    });
     ctx
 }
 
@@ -68,7 +76,9 @@ struct SearchOffersInput {
 async fn try_load(ctx: CommonsCtx) {
     let hc = use_holochain();
     if hc.is_mock() {
-        web_sys::console::log_1(&"[Commons] Running in mock mode — using simulated commons data.".into());
+        web_sys::console::log_1(
+            &"[Commons] Running in mock mode — using simulated commons data.".into(),
+        );
         return;
     }
 
@@ -96,7 +106,12 @@ async fn try_load(ctx: CommonsCtx) {
             web_sys::console::log_1(&format!("[Commons] Loaded {} open needs", needs.len()).into());
             if !needs.is_empty() {
                 if let Some(set_pending) = use_context::<WriteSignal<u32>>() {
-                    set_pending.set(needs.iter().filter(|need| need.status == NeedStatus::Open).count() as u32);
+                    set_pending.set(
+                        needs
+                            .iter()
+                            .filter(|need| need.status == NeedStatus::Open)
+                            .count() as u32,
+                    );
                 }
                 ctx.needs.set(needs);
             }
@@ -121,7 +136,9 @@ async fn try_load(ctx: CommonsCtx) {
     {
         Ok(records) => {
             let offers = decode_records(&records, decode_offer_record);
-            web_sys::console::log_1(&format!("[Commons] Loaded {} available offers", offers.len()).into());
+            web_sys::console::log_1(
+                &format!("[Commons] Loaded {} available offers", offers.len()).into(),
+            );
             if !offers.is_empty() {
                 ctx.offers.set(offers);
             }
@@ -137,7 +154,9 @@ async fn try_load(ctx: CommonsCtx) {
     {
         Ok(records) => {
             let circles = decode_records(&records, decode_care_circle_record);
-            web_sys::console::log_1(&format!("[Commons] Loaded {} care circles", circles.len()).into());
+            web_sys::console::log_1(
+                &format!("[Commons] Loaded {} care circles", circles.len()).into(),
+            );
             if !circles.is_empty() {
                 ctx.care_circles.set(circles);
             }
@@ -215,14 +234,19 @@ async fn try_load(ctx: CommonsCtx) {
     }
 }
 
-pub fn use_commons() -> CommonsCtx { expect_context::<CommonsCtx>() }
+pub fn use_commons() -> CommonsCtx {
+    expect_context::<CommonsCtx>()
+}
 
 fn decode_records<T>(records: &[Value], decode: fn(&Value) -> Option<T>) -> Vec<T> {
     records.iter().filter_map(decode).collect()
 }
 
 fn record_entry(record: &Value) -> Option<&Value> {
-    record.get("entry").and_then(|entry| entry.get("Present")).or(Some(record))
+    record
+        .get("entry")
+        .and_then(|entry| entry.get("Present"))
+        .or(Some(record))
 }
 
 fn value_string(value: &Value) -> Option<String> {
@@ -240,7 +264,9 @@ fn value_u32(value: &Value) -> Option<u32> {
 }
 
 fn value_i64(value: &Value) -> Option<i64> {
-    value.as_i64().or_else(|| value.as_u64().and_then(|n| i64::try_from(n).ok()))
+    value
+        .as_i64()
+        .or_else(|| value.as_u64().and_then(|n| i64::try_from(n).ok()))
 }
 
 fn timestamp_to_micros(value: &Value) -> Option<i64> {
@@ -300,7 +326,10 @@ fn decode_care_circle_record(record: &Value) -> Option<CareCircleView> {
         name: entry.get("name").and_then(value_string)?,
         description: entry.get("description").and_then(value_string)?,
         circle_type: parse_circle_type(entry.get("circle_type")?)?,
-        member_count: entry.get("max_members").and_then(value_u32).unwrap_or_default(),
+        member_count: entry
+            .get("max_members")
+            .and_then(value_u32)
+            .unwrap_or_default(),
         active: entry.get("active").and_then(Value::as_bool).unwrap_or(true),
         created: entry
             .get("created_at")
@@ -339,7 +368,10 @@ fn decode_food_listing_record(record: &Value) -> Option<FoodListingView> {
         product_name: entry.get("product_name").and_then(value_string)?,
         quantity_kg: entry.get("quantity_kg").and_then(Value::as_f64)?,
         price_per_kg: entry.get("price_per_kg").and_then(Value::as_f64)?,
-        organic: entry.get("organic").and_then(Value::as_bool).unwrap_or(false),
+        organic: entry
+            .get("organic")
+            .and_then(Value::as_bool)
+            .unwrap_or(false),
         producer_did: entry.get("producer").and_then(value_string)?,
         available: matches!(status, ListingBackendStatus::Available),
     })
@@ -362,7 +394,9 @@ fn parse_need_category(value: &Value) -> Option<NeedCategory> {
         "Transportation" | "Rides" => NeedCategory::Transportation,
         "Food" => NeedCategory::Food,
         "Healthcare" => NeedCategory::Healthcare,
-        "Tools" | "Equipment" | "Skills" | "Computers" | "Books" | "SchoolSupplies" => NeedCategory::Skills,
+        "Tools" | "Equipment" | "Skills" | "Computers" | "Books" | "SchoolSupplies" => {
+            NeedCategory::Skills
+        }
         other => NeedCategory::Other(other.to_string()),
     })
 }

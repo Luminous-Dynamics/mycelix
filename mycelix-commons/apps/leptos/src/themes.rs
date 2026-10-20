@@ -5,16 +5,30 @@ use leptos::prelude::*;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-pub enum CommonsTheme { Grove, Meadow, Stone, Dusk, Frost }
+pub enum CommonsTheme {
+    Grove,
+    Meadow,
+    Stone,
+    Dusk,
+    Frost,
+}
 
 impl CommonsTheme {
     pub fn label(&self) -> &'static str {
-        match self { Self::Grove => "grove", Self::Meadow => "meadow", Self::Stone => "stone", Self::Dusk => "dusk", Self::Frost => "frost" }
+        match self {
+            Self::Grove => "grove",
+            Self::Meadow => "meadow",
+            Self::Stone => "stone",
+            Self::Dusk => "dusk",
+            Self::Frost => "frost",
+        }
     }
 }
 
 #[derive(Clone)]
-pub struct ThemeState { pub current: RwSignal<CommonsTheme> }
+pub struct ThemeState {
+    pub current: RwSignal<CommonsTheme>,
+}
 
 pub fn provide_theme_context() -> ThemeState {
     let saved = web_sys::window()

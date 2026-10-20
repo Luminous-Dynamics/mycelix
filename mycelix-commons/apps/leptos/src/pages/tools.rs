@@ -1,13 +1,14 @@
 // Copyright (C) 2024-2026 Tristan Stoltz / Luminous Dynamics
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use leptos::prelude::*;
 use crate::contexts::commons_context::use_commons;
+use leptos::prelude::*;
 
 #[component]
 pub fn ToolsPage() -> impl IntoView {
     let commons = use_commons();
-    let available_count = Memo::new(move |_| commons.tools.get().iter().filter(|t| t.available).count());
+    let available_count =
+        Memo::new(move |_| commons.tools.get().iter().filter(|t| t.available).count());
 
     view! {
         <div class="tools-page" data-page="tools" role="main">

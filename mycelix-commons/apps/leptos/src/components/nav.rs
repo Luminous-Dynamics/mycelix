@@ -16,6 +16,7 @@ pub fn Nav() -> impl IntoView {
                 <A href="/care">"Care"</A>
                 <A href="/mutual-aid">"Mutual Aid"</A>
                 <A href="/food">"Food"</A>
+                <A href="/farm">"Farm"</A>
                 <A href="/water">"Water"</A>
                 <A href="/tools">"Tools"</A>
                 <A href="/resources">"Resources"</A>

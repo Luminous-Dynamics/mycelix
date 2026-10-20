@@ -9,16 +9,14 @@ use leptos_router::{
 };
 
 use crate::components::Nav;
-use crate::contexts::commons_context::provide_commons_context;
 use crate::contexts::commons_actions::provide_commons_actions;
+use crate::contexts::commons_context::provide_commons_context;
 use crate::pages::*;
 
 use mycelix_leptos_core::{
-    HolochainProviderAuto, HolochainProviderConfig, ConnectStrategy,
-    provide_consciousness_context, provide_thermodynamic_context,
-    provide_homeostasis_context, init_consciousness_ui,
-    provide_toast_context, ToastContainer,
-    ConnectionStatusIndicator,
+    ConnectStrategy, ConnectionStatusIndicator, HolochainProviderAuto, HolochainProviderConfig,
+    ToastContainer, init_consciousness_ui, provide_consciousness_context,
+    provide_homeostasis_context, provide_thermodynamic_context, provide_toast_context,
 };
 
 #[component]
@@ -62,6 +60,7 @@ fn AppInner() -> impl IntoView {
                     <Route path=path!("/care") view=CarePage />
                     <Route path=path!("/mutual-aid") view=MutualAidPage />
                     <Route path=path!("/food") view=FoodPage />
+                    <Route path=path!("/farm") view=FarmPage />
                     <Route path=path!("/water") view=WaterPage />
                     <Route path=path!("/tools") view=ToolsPage />
                     <Route path=path!("/resources") view=ResourcesPage />

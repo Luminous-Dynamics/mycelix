@@ -1,0 +1,80 @@
+name: Commons Leptos Frontend Check
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review, converted_to_draft]
+    paths:
+      - "mycelix-commons/apps/leptos/**"
+      - "mycelix-commons/crates/commons-leptos-types/**"
+      - "crates/mycelix-leptos-core/**"
+      - ".github/workflows/commons-leptos-frontend.yml"
+  push:
+    branches: [main]
+    paths:
+      - "mycelix-commons/apps/leptos/**"
+      - "mycelix-commons/crates/commons-leptos-types/**"
+      - "crates/mycelix-leptos-core/**"
+      - ".github/workflows/commons-leptos-frontend.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: commons-leptos-frontend-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  wasm-compile:
+    name: Commons Leptos formatting and WASM compile
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - name: Checkout exact commit
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+
+      - name: Install Rust and WASM target
+        uses: dtolnay/rust-toolchain@e97e2d8cc328f1b50210efc529dca0028893a2d9 # pinned action
+        with:
+          toolchain: 1.99.1
+          components: rustfmt
+          targets: wasm32-unknown-unknown
+
+      - name: Format standalone frontend workspace
+        # Check the standalone frontend workspace only; --all would also format
+        # unrelated path dependencies with independent formatting baselines.
+        run: cargo fmt --manifest-path mycelix-commons/apps/leptos/Cargo.toml --check
+
+      # This app is a standalone Cargo workspace and currently has no checked-in
+      # Cargo.lock. Generate and preserve the exact resolution used in this
+      # run; a committed lockfile should replace this transitional step.
+      - name: Resolve and record dependencies
+        run: cargo generate-lockfile --manifest-path mycelix-commons/apps/leptos/Cargo.toml
+
+      - name: Compile browser application and targets
+        run: cargo check --manifest-path mycelix-commons/apps/leptos/Cargo.toml --locked --target wasm32-unknown-unknown --all-targets
+
+      - name: Record dependency lock digest
+        if: always()
+        shell: bash
+        run: |
+          if [ -f mycelix-commons/apps/leptos/Cargo.lock ]; then
+            sha256sum mycelix-commons/apps/leptos/Cargo.lock | tee commons-leptos-cargo-lock.sha256
+            echo "### Commons Leptos dependency lock" >> "$GITHUB_STEP_SUMMARY"
+            cat commons-leptos-cargo-lock.sha256 >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "No generated Cargo.lock is available." >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: Upload exact dependency lock used by this run
+        if: always() && hashFiles('mycelix-commons/apps/leptos/Cargo.lock') != ''
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: commons-leptos-cargo-lock-${{ github.sha }}
+          path: |
+            mycelix-commons/apps/leptos/Cargo.lock
+            commons-leptos-cargo-lock.sha256
+          if-no-files-found: error

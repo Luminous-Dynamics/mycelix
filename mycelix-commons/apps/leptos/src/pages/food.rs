@@ -1,9 +1,9 @@
 // Copyright (C) 2024-2026 Tristan Stoltz / Luminous Dynamics
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use leptos::prelude::*;
-use crate::contexts::commons_context::use_commons;
 use crate::contexts::commons_actions;
+use crate::contexts::commons_context::use_commons;
+use leptos::prelude::*;
 
 #[component]
 pub fn FoodPage() -> impl IntoView {
@@ -34,7 +34,7 @@ pub fn FoodPage() -> impl IntoView {
             <section data-section="soil" aria-label="soil health and compost">
                 <h2 class="section-title">"Soil & Compost"</h2>
                 <p class="section-subtitle">"regenerating the substrate of life through Terra Preta"</p>
-                
+
                 <div class="compost-grid" role="list">
                     {move || commons.compost_batches.get().into_iter().map(|b| {
                         view! {
