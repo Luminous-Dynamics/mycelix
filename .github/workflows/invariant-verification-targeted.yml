@@ -28,6 +28,7 @@ jobs:
         uses: dtolnay/rust-toolchain@stable
         with:
           toolchain: 1.96.0
+          components: rustfmt
 
       - name: Check formatting of changed module
         run: rustfmt +1.96.0 --edition 2024 --check mycelix-workspace/sdk/src/agentic/verification.rs
