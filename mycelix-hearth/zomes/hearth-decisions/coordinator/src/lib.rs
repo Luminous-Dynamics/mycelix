@@ -79,6 +79,94 @@ fn is_decision_closeable(status: &DecisionStatus) -> bool {
     *status == DecisionStatus::Open
 }
 
+/// Deterministic action-level ordering for Decision revisions.
+fn decision_record_order_key(record: &Record) -> (Timestamp, Vec<u8>) {
+    (
+        record.action().timestamp(),
+        record.action_address().get_raw_36().to_vec(),
+    )
+}
+
+/// Determine whether a decision revision is terminal.
+fn decision_record_is_terminal(record: &Record) -> ExternResult<bool> {
+    let decision: Decision = record
+        .entry()
+        .to_app_option()
+        .map_err(|e| {
+            wasm_error!(WasmErrorInner::Guest(format!(
+                "Failed to deserialize Decision record: {e}"
+            )))
+        })?
+        .ok_or(wasm_error!(WasmErrorInner::Guest(
+            "Decision record entry is missing".into()
+        )))?;
+    Ok(decision.status != DecisionStatus::Open)
+}
+
+/// Collect every reachable valid Decision revision from a root action.
+///
+/// Decision updates can branch concurrently. We therefore traverse the immutable
+/// update graph rather than assuming the DHT's update order is semantic.
+fn collect_decision_revisions(
+    action_hash: ActionHash,
+    seen: &mut std::collections::HashSet<ActionHash>,
+    revisions: &mut Vec<Record>,
+) -> ExternResult<()> {
+    // Use an explicit stack so an unusually deep but valid update history cannot
+    // exhaust the WASM call stack.
+    let mut pending = vec![action_hash];
+    while let Some(current_hash) = pending.pop() {
+        if !seen.insert(current_hash.clone()) {
+            continue;
+        }
+
+        let Some(details) = get_details(current_hash, GetOptions::default())? else {
+            continue;
+        };
+
+        if let Details::Record(record_details) = details {
+            revisions.push(record_details.record);
+            pending.extend(
+                record_details
+                    .updates
+                    .into_iter()
+                    .map(|update| update.action_address().clone()),
+            );
+        }
+    }
+
+    Ok(())
+}
+
+/// Resolve the current Decision revision deterministically.
+///
+/// Terminal revisions dominate Open revisions so a concurrent Open->Open update
+/// cannot resurrect a Decision after a Closed or Finalized revision exists.
+/// Among revisions in the same lifecycle class, the greatest
+/// `(action timestamp, action hash)` wins. All revisions remain preserved.
+fn get_current_decision_record(action_hash: ActionHash) -> ExternResult<Option<Record>> {
+    let mut seen = std::collections::HashSet::new();
+    let mut revisions = Vec::new();
+    collect_decision_revisions(action_hash, &mut seen, &mut revisions)?;
+
+    if revisions.is_empty() {
+        return Ok(None);
+    }
+
+    let mut terminal: Vec<Record> = Vec::new();
+    let mut open: Vec<Record> = Vec::new();
+    for record in revisions {
+        if decision_record_is_terminal(&record)? {
+            terminal.push(record);
+        } else {
+            open.push(record);
+        }
+    }
+
+    let candidates = if terminal.is_empty() { open } else { terminal };
+    Ok(candidates.into_iter().max_by_key(decision_record_order_key))
+}
+
 /// Check whether the current time is at or past the deadline.
 fn is_deadline_passed(now: &Timestamp, deadline: &Timestamp) -> bool {
     now >= deadline
@@ -137,9 +225,16 @@ fn is_quorum_met(participation_rate_bp: u32, quorum_bp: Option<u32>) -> bool {
     }
 }
 
-/// Check whether consensus is reached: all votes must be for the same option.
+/// Whether any option has positive substantive weight.
+fn has_positive_weight(tallies: &[(u32, u32)]) -> bool {
+    tallies.iter().any(|(_, weight)| *weight > 0)
+}
+
+/// Check whether consensus is reached: at least one substantive choice must
+/// exist, and all positive-weight votes must select the same option.
 fn is_consensus_reached(tallies: &[(u32, u32)]) -> bool {
-    tallies.iter().filter(|(_, weight)| *weight > 0).count() <= 1
+    has_positive_weight(tallies)
+        && tallies.iter().filter(|(_, weight)| *weight > 0).count() <= 1
 }
 
 /// Check whether a role can finalize this decision type.
@@ -226,7 +321,7 @@ pub fn create_decision(input: CreateDecisionInput) -> ExternResult<Record> {
         (),
     )?;
 
-    let record = get(decision_hash, GetOptions::default())?.ok_or(wasm_error!(
+    let record = get_current_decision_record(decision_hash)?.ok_or(wasm_error!(
         WasmErrorInner::Guest("Could not find the newly created Decision".into())
     ))?;
 
@@ -242,7 +337,7 @@ pub fn cast_vote(input: CastVoteInput) -> ExternResult<Record> {
     let agent = agent_info()?.agent_initial_pubkey;
 
     // Get the decision to find its hearth_hash
-    let decision_record = get(input.decision_hash.clone(), GetOptions::default())?.ok_or(
+    let decision_record = get_current_decision_record(input.decision_hash.clone())?.ok_or(
         wasm_error!(WasmErrorInner::Guest("Decision not found".into())),
     )?;
     let decision: Decision = decision_record
@@ -419,9 +514,10 @@ pub fn tally_votes(decision_hash: ActionHash) -> ExternResult<Vec<(u32, u32)>> {
 #[hdk_extern]
 pub fn finalize_decision(input: FinalizeDecisionInput) -> ExternResult<Record> {
     let now = sys_time()?;
+    let agent = agent_info()?.agent_initial_pubkey;
 
     // Get the decision
-    let decision_record = get(input.decision_hash.clone(), GetOptions::default())?.ok_or(
+    let decision_record = get_current_decision_record(input.decision_hash.clone())?.ok_or(
         wasm_error!(WasmErrorInner::Guest("Decision not found".into())),
     )?;
     let mut decision: Decision = decision_record
@@ -477,6 +573,13 @@ pub fn finalize_decision(input: FinalizeDecisionInput) -> ExternResult<Record> {
     // Tally votes
     let tallies = tally_votes(input.decision_hash.clone())?;
 
+    // Silence or zero-weight participation cannot select a substantive option.
+    if !has_positive_weight(&tallies) {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Cannot finalize: no positive-weight substantive choice exists".into()
+        )));
+    }
+
     // Find the winning option (highest weight, lowest index breaks ties)
     let chosen_option = winning_option(&tallies);
 
@@ -520,6 +623,8 @@ pub fn finalize_decision(input: FinalizeDecisionInput) -> ExternResult<Record> {
     // Create the outcome
     let outcome = DecisionOutcome {
         decision_hash: input.decision_hash.clone(),
+        finalization_basis_action: Some(decision_record.action_address().clone()),
+        resolved_by: Some(agent.clone()),
         chosen_option,
         participation_rate_bp,
         resolved_at: now,
@@ -558,7 +663,7 @@ pub fn finalize_decision(input: FinalizeDecisionInput) -> ExternResult<Record> {
 pub fn close_decision(input: CloseDecisionInput) -> ExternResult<Record> {
     let agent = agent_info()?.agent_initial_pubkey;
 
-    let decision_record = get(input.decision_hash.clone(), GetOptions::default())?.ok_or(
+    let decision_record = get_current_decision_record(input.decision_hash.clone())?.ok_or(
         wasm_error!(WasmErrorInner::Guest("Decision not found".into())),
     )?;
     let mut decision: Decision = decision_record
@@ -609,54 +714,16 @@ pub fn close_decision(input: CloseDecisionInput) -> ExternResult<Record> {
     decision.status = DecisionStatus::Closed;
     update_entry(input.decision_hash.clone(), &decision)?;
 
-    // 4. Snapshot current tally as audit trail (if any votes were cast)
-    let vote_links = get_links(
-        LinkQuery::try_new(input.decision_hash.clone(), LinkTypes::DecisionToVotes)?,
-        GetStrategy::default(),
-    )?;
-
-    if !vote_links.is_empty() {
-        let now = sys_time()?;
-        let tallies = tally_votes(input.decision_hash.clone())?;
-        let chosen_option = winning_option(&tallies);
-
-        let voter_count = vote_links.len() as u32;
-        let active_members: u32 = decode_zome_response(
-            call(
-                CallTargetCell::Local,
-                ZomeName::new("hearth_kinship"),
-                FunctionName::new("get_active_member_count"),
-                None,
-                decision.hearth_hash,
-            )?,
-            "get_active_member_count",
-        )?;
-
-        let participation = participation_rate_bp(voter_count, active_members);
-
-        let outcome = DecisionOutcome {
-            decision_hash: input.decision_hash.clone(),
-            chosen_option,
-            participation_rate_bp: participation,
-            resolved_at: now,
-            quorum_bp: decision.quorum_bp,
-        };
-
-        let outcome_hash = create_entry(&EntryTypes::DecisionOutcome(outcome))?;
-        create_link(
-            input.decision_hash.clone(),
-            outcome_hash,
-            LinkTypes::DecisionToOutcome,
-            (),
-        )?;
-    }
-
+    // Closure terminates the decision process without creating a substantive outcome.
+    // DecisionOutcome is reserved for finalize_decision, which enforces deadline,
+    // authorization, quorum, and positive-weight choice semantics.
+    
     emit_signal(&HearthSignal::DecisionClosed {
         decision_hash: input.decision_hash.clone(),
         closed_by: agent,
     })?;
 
-    let record = get(input.decision_hash, GetOptions::default())?.ok_or(wasm_error!(
+    let record = get_current_decision_record(input.decision_hash)?.ok_or(wasm_error!(
         WasmErrorInner::Guest("Could not find the updated Decision".into())
     ))?;
 
@@ -672,7 +739,7 @@ pub fn amend_vote(input: AmendVoteInput) -> ExternResult<Record> {
     let agent = agent_info()?.agent_initial_pubkey;
 
     // Get the decision
-    let decision_record = get(input.decision_hash.clone(), GetOptions::default())?.ok_or(
+    let decision_record = get_current_decision_record(input.decision_hash.clone())?.ok_or(
         wasm_error!(WasmErrorInner::Guest("Decision not found".into())),
     )?;
     let decision: Decision = decision_record
@@ -843,7 +910,7 @@ pub fn amend_vote(input: AmendVoteInput) -> ExternResult<Record> {
 /// Get a single decision by its action hash.
 #[hdk_extern]
 pub fn get_decision(decision_hash: ActionHash) -> ExternResult<Option<Record>> {
-    get(decision_hash, GetOptions::default())
+    get_current_decision_record(decision_hash)
 }
 
 /// Get all decisions for a hearth.
@@ -863,7 +930,7 @@ pub fn get_hearth_decisions(hearth_hash: ActionHash) -> ExternResult<Vec<Record>
                 "Link target is not an ActionHash".into()
             )))?;
 
-        if let Some(record) = get_latest_record(target)? {
+        if let Some(record) = get_current_decision_record(target)? {
             decisions.push(record);
         }
     }
@@ -925,28 +992,84 @@ pub fn get_vote_history(decision_hash: ActionHash) -> ExternResult<Vec<Record>> 
     Ok(votes)
 }
 
-/// Get the outcome of a finalized decision, if it exists.
-/// Follows DecisionToOutcome link — returns None if not yet finalized.
+/// Deterministic ordering key for competing outcome records.
+///
+/// Holochain can contain multiple concurrently-created candidates. The
+/// application must therefore not depend on DHT link iteration order.
+fn outcome_order_key(record: &Record) -> (Timestamp, Vec<u8>) {
+    (
+        record.action().timestamp(),
+        record.action_address().get_raw_36().to_vec(),
+    )
+}
+
+/// Return true when the candidate is the deterministic canonical choice.
+fn outcome_key_is_preferred(
+    candidate: &(Timestamp, Vec<u8>),
+    current: &(Timestamp, Vec<u8>),
+) -> bool {
+    candidate.0 < current.0
+        || (candidate.0 == current.0 && candidate.1 < current.1)
+}
+
+/// Get the deterministic canonical outcome of a finalized decision, if one exists.
+///
+/// Multiple concurrent finalizers may produce valid candidates. All candidates
+/// remain in the DHT for auditability; the canonical read path selects the
+/// earliest outcome action timestamp, breaking exact timestamp ties with the
+/// raw action hash. DHT link iteration order is never used as a semantic rule.
 #[hdk_extern]
 pub fn get_decision_outcome(decision_hash: ActionHash) -> ExternResult<Option<Record>> {
     let links = get_links(
-        LinkQuery::try_new(decision_hash, LinkTypes::DecisionToOutcome)?,
+        LinkQuery::try_new(decision_hash.clone(), LinkTypes::DecisionToOutcome)?,
         GetStrategy::default(),
     )?;
 
-    if let Some(link) = links.first() {
-        let target =
-            link.target
-                .clone()
-                .into_action_hash()
-                .ok_or(wasm_error!(WasmErrorInner::Guest(
-                    "Link target is not an ActionHash".into()
-                )))?;
+    let mut canonical: Option<(Record, (Timestamp, Vec<u8>))> = None;
 
-        return get_latest_record(target);
+    for link in links {
+        let target = link
+            .target
+            .clone()
+            .into_action_hash()
+            .ok_or(wasm_error!(WasmErrorInner::Guest(
+                "DecisionToOutcome target is not an ActionHash".into()
+            )))?;
+
+        let record = get_latest_record(target)?.ok_or(wasm_error!(
+            WasmErrorInner::Guest("Decision outcome record not found".into())
+        ))?;
+
+        let outcome: DecisionOutcome = record
+            .entry()
+            .to_app_option()
+            .map_err(|e| {
+                wasm_error!(WasmErrorInner::Guest(format!(
+                    "Failed to deserialize DecisionOutcome: {e}"
+                )))
+            })?
+            .ok_or(wasm_error!(WasmErrorInner::Guest(
+                "Decision outcome entry is missing".into()
+            )))?;
+
+        if outcome.decision_hash != decision_hash {
+            return Err(wasm_error!(WasmErrorInner::Guest(
+                "DecisionToOutcome link targets an outcome for another decision".into()
+            )));
+        }
+
+        let key = outcome_order_key(&record);
+        let replace = canonical
+            .as_ref()
+            .map(|(_, current_key)| outcome_key_is_preferred(&key, current_key))
+            .unwrap_or(true);
+
+        if replace {
+            canonical = Some((record, key));
+        }
     }
 
-    Ok(None)
+    Ok(canonical.map(|(record, _)| record))
 }
 
 /// Get decisions in a hearth where the calling agent has not yet voted.
@@ -1007,7 +1130,7 @@ pub fn get_my_pending_votes(hearth_hash: ActionHash) -> ExternResult<Vec<Record>
             continue;
         }
 
-        if let Some(record) = get_latest_record(target)? {
+        if let Some(record) = get_current_decision_record(target)? {
             let decision: Decision = record
                 .entry()
                 .to_app_option()
@@ -1142,6 +1265,28 @@ mod tests {
         let json = serde_json::to_string(&input).unwrap();
         let back: CloseDecisionInput = serde_json::from_str(&json).unwrap();
         assert_eq!(back.decision_hash, input.decision_hash);
+    }
+
+    #[test]
+    fn outcome_key_prefers_earlier_timestamp() {
+        let earlier = (Timestamp::from_micros(10), vec![2u8]);
+        let later = (Timestamp::from_micros(20), vec![1u8]);
+        assert!(outcome_key_is_preferred(&earlier, &later));
+        assert!(!outcome_key_is_preferred(&later, &earlier));
+    }
+
+    #[test]
+    fn outcome_key_uses_action_hash_as_tiebreaker() {
+        let low_hash = (Timestamp::from_micros(10), vec![1u8, 2u8]);
+        let high_hash = (Timestamp::from_micros(10), vec![1u8, 3u8]);
+        assert!(outcome_key_is_preferred(&low_hash, &high_hash));
+        assert!(!outcome_key_is_preferred(&high_hash, &low_hash));
+    }
+
+    #[test]
+    fn outcome_key_same_timestamp_and_hash_is_not_preferred() {
+        let key = (Timestamp::from_micros(10), vec![1u8, 2u8]);
+        assert!(!outcome_key_is_preferred(&key, &key));
     }
 
     // ---- Pure helper: is_decision_closeable ----
@@ -1591,9 +1736,10 @@ mod tests {
     // ---- Pure helper: is_consensus_reached ----
 
     #[test]
-    fn consensus_single_option_reached() {
-        let tallies = vec![(0, 30000)];
+    fn consensus_single_positive_option_reached() {
+        let tallies = vec![(0, 30000), (1, 0)];
         assert!(is_consensus_reached(&tallies));
+        assert!(has_positive_weight(&tallies));
     }
 
     #[test]
@@ -1603,16 +1749,17 @@ mod tests {
     }
 
     #[test]
-    fn consensus_empty_tallies_reached() {
+    fn consensus_empty_tallies_not_reached() {
         let tallies: Vec<(u32, u32)> = vec![];
-        assert!(is_consensus_reached(&tallies));
+        assert!(!is_consensus_reached(&tallies));
+        assert!(!has_positive_weight(&tallies));
     }
 
     #[test]
-    fn consensus_zero_weight_ignored() {
-        // Option 0 has votes, option 1 has 0 weight — still consensus
-        let tallies = vec![(0, 30000), (1, 0)];
-        assert!(is_consensus_reached(&tallies));
+    fn consensus_zero_weight_votes_do_not_create_vacuous_consensus() {
+        let tallies = vec![(0, 0), (1, 0)];
+        assert!(!is_consensus_reached(&tallies));
+        assert!(!has_positive_weight(&tallies));
     }
 
     #[test]
@@ -1883,8 +2030,9 @@ mod tests {
         let tallies = vec![(0, 10000), (1, 0)];
         assert_eq!(winning_option(&tallies), 0); // Adult wins despite fewer voters
 
-        // For consensus, zero-weight votes are ignored
+        // Zero-weight votes do not add a competing substantive option.
         assert!(is_consensus_reached(&tallies));
+        assert!(has_positive_weight(&tallies));
     }
 
     #[test]
@@ -1910,14 +2058,35 @@ mod tests {
 
     #[test]
     fn scenario_consensus_with_zero_voters() {
-        // Edge: no votes cast → empty tallies → consensus vacuously reached
+        // No votes cast -> no substantive choice -> no consensus.
         let tallies: Vec<(u32, u32)> = vec![];
-        assert!(is_consensus_reached(&tallies));
+        assert!(!is_consensus_reached(&tallies));
+        assert!(!has_positive_weight(&tallies));
 
-        // But participation is 0 → quorum likely not met
+        // Participation is 0 -> quorum may also reject the decision.
         let rate = participation_rate_bp(0, 5);
         assert_eq!(rate, 0);
         assert!(!is_quorum_met(rate, Some(5000)));
+    }
+
+    // ---- Current Decision revision semantics ----
+
+    #[test]
+    fn decision_record_terminal_classification() {
+        let open = DecisionStatus::Open;
+        let closed = DecisionStatus::Closed;
+        let finalized = DecisionStatus::Finalized;
+
+        assert!(!matches!(open, DecisionStatus::Closed | DecisionStatus::Finalized));
+        assert!(matches!(closed, DecisionStatus::Closed | DecisionStatus::Finalized));
+        assert!(matches!(finalized, DecisionStatus::Closed | DecisionStatus::Finalized));
+    }
+
+    #[test]
+    fn terminal_revision_semantics_are_strictly_non_open() {
+        for status in [DecisionStatus::Closed, DecisionStatus::Finalized] {
+            assert_ne!(status, DecisionStatus::Open);
+        }
     }
 
     // ---- Pure helper: winning_option (deterministic tiebreaker) ----
@@ -1929,9 +2098,10 @@ mod tests {
     }
 
     #[test]
-    fn winning_option_empty_returns_zero() {
+    fn winning_option_empty_returns_zero_but_is_not_substantive() {
         let tallies: Vec<(u32, u32)> = vec![];
         assert_eq!(winning_option(&tallies), 0);
+        assert!(!has_positive_weight(&tallies));
     }
 
     #[test]
