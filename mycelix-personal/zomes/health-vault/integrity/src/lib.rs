@@ -145,14 +145,13 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
             }
             Ok(ValidateCallbackResult::Valid)
         }
-        FlatOp::RegisterCreateLink { link_type, .. } => match link_type {
-            LinkTypes::AgentToRecords
-            | LinkTypes::AgentToBiometrics
-            | LinkTypes::AgentToConsents
-            | LinkTypes::RecordTypeToRecord
-            | LinkTypes::AgentToConsentRevocations => Ok(ValidateCallbackResult::Invalid(
-                "Public health-vault index links are disabled; query the owner's private source chain".into(),
-            )),
+        FlatOp::RegisterCreateLink { link_type, .. } => {
+            if is_public_health_index_link(&link_type) {
+                return Ok(ValidateCallbackResult::Invalid(
+                    "Public health-vault index links are disabled; query the owner's private source chain".into(),
+                ));
+            }
+            Ok(ValidateCallbackResult::Valid)
         },
         FlatOp::RegisterDelete(OpDelete { action }) => {
             let original = must_get_action(action.deletes_address.clone())?;
@@ -168,14 +167,13 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
             }
             Ok(ValidateCallbackResult::Valid)
         }
-        FlatOp::RegisterDeleteLink { link_type, .. } => match link_type {
-            LinkTypes::AgentToRecords
-            | LinkTypes::AgentToBiometrics
-            | LinkTypes::AgentToConsents
-            | LinkTypes::RecordTypeToRecord
-            | LinkTypes::AgentToConsentRevocations => Ok(ValidateCallbackResult::Invalid(
-                "Public health-vault index links are disabled".into(),
-            )),
+        FlatOp::RegisterDeleteLink { link_type, .. } => {
+            if is_public_health_index_link(&link_type) {
+                return Ok(ValidateCallbackResult::Invalid(
+                    "Public health-vault index links are disabled".into(),
+                ));
+            }
+            Ok(ValidateCallbackResult::Valid)
         },
         _ => Ok(ValidateCallbackResult::Valid),
     }
@@ -276,6 +274,17 @@ fn validate_consent(consent: &ConsentGrant) -> ExternResult<ValidateCallbackResu
 
 fn action_authors_match(original_author: &AgentPubKey, new_author: &AgentPubKey) -> bool {
     original_author == new_author
+}
+
+fn is_public_health_index_link(link_type: &LinkTypes) -> bool {
+    matches!(
+        link_type,
+        LinkTypes::AgentToRecords
+            | LinkTypes::AgentToBiometrics
+            | LinkTypes::AgentToConsents
+            | LinkTypes::RecordTypeToRecord
+            | LinkTypes::AgentToConsentRevocations
+    )
 }
 
 fn action_has_entry_type(action: &Action, expected: UnitEntryTypes) -> ExternResult<bool> {
@@ -511,6 +520,19 @@ mod tests {
         let _biometric = UnitEntryTypes::Biometric;
         let _consent = UnitEntryTypes::ConsentGrant;
         let _revocation = UnitEntryTypes::ConsentRevocation;
+    }
+
+    #[test]
+    fn all_sensitive_public_index_links_are_disabled() {
+        for link_type in [
+            LinkTypes::AgentToRecords,
+            LinkTypes::AgentToBiometrics,
+            LinkTypes::AgentToConsents,
+            LinkTypes::RecordTypeToRecord,
+            LinkTypes::AgentToConsentRevocations,
+        ] {
+            assert!(is_public_health_index_link(&link_type));
+        }
     }
 
     // ── Serde roundtrips ────────────────────────────────────────────
