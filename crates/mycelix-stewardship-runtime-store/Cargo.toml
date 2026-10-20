@@ -1,0 +1,19 @@
+[package]
+name = "mycelix-stewardship-runtime-store"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.98"
+description = "Closed SQLite WAL/FULL transactional substrate for local Mycelix stewardship authority state"
+license = "AGPL-3.0-or-later"
+authors = ["Luminous Dynamics <contact@luminousdynamics.org>"]
+repository = "https://github.com/luminous-dynamics/mycelix"
+readme = "README.md"
+
+[lib]
+path = "src/profiled.rs"
+
+[dependencies]
+rusqlite = { version = "=0.40.2", default-features = false, features = ["backup", "bundled"] }
+
+[lints.rust]
+unsafe_code = "forbid"
