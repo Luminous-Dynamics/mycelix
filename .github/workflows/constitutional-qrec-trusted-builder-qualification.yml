@@ -1,0 +1,248 @@
+name: Constitutional QREC Trusted Builder Qualification
+
+on:
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize, reopened, ready_for_review, converted_to_draft]
+    paths:
+      - '.github/workflows/constitutional-qrec-trusted-attestation-builder.yml'
+      - 'mycelix-governance/crates/constitutional-qualification-receipt/tests/external_receipt_verifier.rs'
+      - '.github/workflows/constitutional-qrec-trusted-builder-qualification.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: constitutional-qrec-trusted-builder-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+env:
+  EXPECTED_HEAD: ${{ github.event.pull_request.head.sha || github.sha }}
+  EXPECTED_SEMANTIC_HEAD: 52fc99f6cd7cc0b69dc2760df4646870cf6e2480
+  EXPECTED_PARENT: 37f6754f1511eb7a1c89f35bb5f32125a26c3a9f
+  EXPECTED_WORKFLOW_BLOB: d607f0afc04cc7504958e140b5df09d072734b35
+  EXPECTED_RUST_FIXTURE_BLOB: f3967d2c819af657b378c12c31b1ac23c2b18a9f
+  TRUSTED_WORKFLOW: .github/workflows/constitutional-qrec-trusted-attestation-builder.yml
+  RUST_FIXTURE: mycelix-governance/crates/constitutional-qualification-receipt/tests/external_receipt_verifier.rs
+
+jobs:
+  qualify:
+    name: Exact QREC trusted-builder source contract
+    if: github.event_name == 'workflow_dispatch' || (github.event_name == 'pull_request' && github.event.pull_request.draft == false)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout exact verifier head
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          fetch-depth: 3
+          ref: ${{ env.EXPECTED_HEAD }}
+          persist-credentials: false
+
+      - name: Bind exact semantic lineage and two-file surface
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$EXPECTED_HEAD"
+          test "$(git rev-parse HEAD^)" = "$EXPECTED_SEMANTIC_HEAD"
+          test "$(git rev-parse HEAD^^)" = "$EXPECTED_PARENT"
+          test "$(git diff --name-only HEAD^ HEAD)" = ".github/workflows/constitutional-qrec-trusted-builder-qualification.yml"
+
+          mapfile -t semantic_files < <(git diff --name-only "$EXPECTED_PARENT" "$EXPECTED_SEMANTIC_HEAD")
+          test "${#semantic_files[@]}" -eq 2
+          printf '%s\n' "${semantic_files[@]}" | grep -Fx "$TRUSTED_WORKFLOW" >/dev/null
+          printf '%s\n' "${semantic_files[@]}" | grep -Fx "$RUST_FIXTURE" >/dev/null
+
+          test "$(git hash-object "$TRUSTED_WORKFLOW")" = "$EXPECTED_WORKFLOW_BLOB"
+          test "$(git hash-object "$RUST_FIXTURE")" = "$EXPECTED_RUST_FIXTURE_BLOB"
+
+          rm -rf qrec-trusted-builder-qualification-evidence
+          mkdir -p qrec-trusted-builder-qualification-evidence
+          printf '%s\n' "$EXPECTED_HEAD" > qrec-trusted-builder-qualification-evidence/expected-head.txt
+          printf '%s\n' "$EXPECTED_SEMANTIC_HEAD" > qrec-trusted-builder-qualification-evidence/expected-semantic-head.txt
+          printf '%s\n' "$EXPECTED_PARENT" > qrec-trusted-builder-qualification-evidence/expected-parent.txt
+          git hash-object "$TRUSTED_WORKFLOW" "$RUST_FIXTURE" > qrec-trusted-builder-qualification-evidence/source-hashes-before.txt
+          sha256sum "$TRUSTED_WORKFLOW" "$RUST_FIXTURE" > qrec-trusted-builder-qualification-evidence/source-sha256-before.txt
+
+      - name: Static security contract and mutation controls
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+
+          workflow_path = Path(".github/workflows/constitutional-qrec-trusted-attestation-builder.yml")
+          rust_path = Path("mycelix-governance/crates/constitutional-qualification-receipt/tests/external_receipt_verifier.rs")
+          workflow = workflow_path.read_text()
+          rust = rust_path.read_text()
+
+          exact_actions = {
+              "actions/download-artifact": "d3f86a106a0bac45b974a628896c90dbdf5c8093",
+              "actions/checkout": "11d5960a326750d5838078e36cf38b85af677262",
+              "dtolnay/rust-toolchain": "ebb3d1676050bfd0971c36c1e215b5751473994d",
+              "actions/attest": "1e69f48acb82d1966a394da916b4c1698aa569d6",
+              "actions/upload-artifact": "ea165f8d65b6e75b540449e92b4886f43607fa02",
+          }
+
+          def require(text, needle, label):
+              if needle not in text:
+                  raise AssertionError(f"missing {label}: {needle}")
+
+          def audit(wf: str, rs: str) -> None:
+              require(wf, "on:\n  workflow_call:\n", "workflow_call-only trigger")
+              forbidden_triggers = re.findall(
+                  r"(?m)^  (pull_request|pull_request_target|push|workflow_dispatch|schedule|repository_dispatch):",
+                  wf,
+              )
+              if forbidden_triggers:
+                  raise AssertionError(f"direct triggers present: {forbidden_triggers}")
+              require(wf, "permissions: {}\n", "empty top-level permissions")
+              for needle in (
+                  "      contents: read\n",
+                  "      actions: read\n",
+                  "      id-token: write\n",
+                  "      attestations: write\n",
+                  'test "$EVENT_NAME" = "pull_request"',
+                  'test "$PR_DRAFT" = "false"',
+                  'test "$PR_BASE_REF" = "main"',
+                  'test "$PR_HEAD_REPO" = "$GITHUB_REPOSITORY"',
+                  'test "$RUNNER_ENVIRONMENT" = "github-hosted"',
+                  "TRUSTED_BUILDER_SHA: ${{ job.workflow_sha }}",
+                  "TRUSTED_BUILDER_REPOSITORY: ${{ job.workflow_repository }}",
+                  "TRUSTED_BUILDER_PATH: ${{ job.workflow_file_path }}",
+                  "CALLER_WORKFLOW_REF: ${{ github.workflow_ref }}",
+                  "CALLER_WORKFLOW_SHA: ${{ github.workflow_sha }}",
+                  'mapfile -t changed < <(git diff --name-only "$semantic_head" "$VERIFIER_HEAD")',
+                  'test "${#changed[@]}" -eq 1',
+                  'gh api -H "Accept: application/vnd.github+json"',
+                  'and .status == "completed"',
+                  'and .conclusion == "success"',
+                  'and (.steps | length > 0)',
+                  'A does not equal deterministic reconstruction from exact E + R',
+                  "--test external_receipt_verifier",
+                  "-- --ignored --nocapture",
+                  "--deny-self-hosted-runners",
+                  '--signer-digest "$TRUSTED_BUILDER_SHA"',
+                  "consumer_builder_authorization_established: false",
+                  "verified_receipt_minted: false",
+                  "provider_runtime_authority_granted: false",
+              ):
+                  require(wf, needle, "trusted-builder invariant")
+
+              for bad in (
+                  "contents: write",
+                  "actions: write",
+                  "packages: write",
+                  "deployments: write",
+                  "write-all",
+                  "VerifiedQualificationReceiptV1",
+              ):
+                  if bad in wf:
+                      raise AssertionError(f"forbidden workflow authority surface: {bad}")
+
+              seen = {}
+              for action, ref in re.findall(r"uses:\s+([^@\s]+)@([0-9A-Za-z._/-]+)", wf):
+                  if action.startswith("./"):
+                      continue
+                  if not re.fullmatch(r"[0-9a-f]{40}", ref):
+                      raise AssertionError(f"unpinned action: {action}@{ref}")
+                  seen[action] = ref
+              if seen != exact_actions:
+                  raise AssertionError(f"action set drift: {seen!r}")
+
+              require(rs, '#[ignore = "trusted-builder external fixture only"]', "ignored external fixture")
+              require(rs, "QualificationReceiptV1", "QREC receipt type")
+              require(rs, ".validate()", "Rust QREC validation")
+              for field in (
+                  "QREC_EXPECTED_DEPENDENCY_ID",
+                  "QREC_EXPECTED_ISSUER_ID",
+                  "QREC_EXPECTED_SEMANTIC_HEAD",
+                  "QREC_EXPECTED_VERIFIER_HEAD",
+                  "QREC_EXPECTED_RUN_ID",
+                  "QREC_EXPECTED_RUN_ATTEMPT",
+                  "QREC_EXPECTED_ARTIFACT_DIGEST",
+              ):
+                  require(rs, field, "external expected field")
+              if "VerifiedQualificationReceiptV1" in rs:
+                  raise AssertionError("external fixture must not mint verified receipt")
+
+          audit(workflow, rust)
+
+          mutants = [
+              ("direct-dispatch-trigger", workflow.replace("  workflow_call:\n", "  workflow_dispatch:\n", 1), rust),
+              ("weaken-oidc", workflow.replace("      id-token: write\n", "      id-token: read\n", 1), rust),
+              ("remove-builder-sha", workflow.replace("TRUSTED_BUILDER_SHA: ${{ job.workflow_sha }}", "TRUSTED_BUILDER_SHA: deadbeef"), rust),
+              ("remove-rust-explicit-run", workflow.replace("-- --ignored --nocapture", "-- --nocapture", 1), rust),
+              ("remove-rust-validate", workflow, rust.replace(".validate()", ".clone()", 1)),
+              ("unignore-external-fixture", workflow, rust.replace('#[ignore = "trusted-builder external fixture only"]\n', "", 1)),
+              ("mint-verified-name", workflow + "\n# VerifiedQualificationReceiptV1\n", rust),
+          ]
+          for name, wf_mut, rs_mut in mutants:
+              try:
+                  audit(wf_mut, rs_mut)
+              except AssertionError:
+                  continue
+              raise AssertionError(f"mutation survived static contract: {name}")
+
+          print("trusted-builder static contract + mutations: PASS")
+          PY
+
+      - name: Install pinned Rust 1.96.0
+        uses: dtolnay/rust-toolchain@ebb3d1676050bfd0971c36c1e215b5751473994d # 1.96.0
+
+      - name: Format, test, check, and clippy QREC contract
+        shell: bash
+        env:
+          CARGO_TARGET_DIR: ${{ runner.temp }}/qrec-trusted-builder-target
+        run: |
+          set -euo pipefail
+          cargo fmt --manifest-path mycelix-governance/Cargo.toml \
+            --package constitutional-qualification-receipt -- --check
+
+          cargo test --manifest-path mycelix-governance/Cargo.toml \
+            --package constitutional-qualification-receipt --all-targets
+
+          cargo check --manifest-path mycelix-governance/Cargo.toml \
+            --package constitutional-qualification-receipt --all-targets
+
+          cargo clippy --manifest-path mycelix-governance/Cargo.toml \
+            --package constitutional-qualification-receipt --all-targets -- -D warnings
+
+          if [[ -f mycelix-governance/Cargo.lock ]]; then
+            cp mycelix-governance/Cargo.lock qrec-trusted-builder-qualification-evidence/derived-Cargo.lock
+            sha256sum mycelix-governance/Cargo.lock > qrec-trusted-builder-qualification-evidence/derived-Cargo.lock.sha256
+          fi
+
+      - name: Postflight source immutability
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$EXPECTED_HEAD"
+          test "$(git rev-parse HEAD^)" = "$EXPECTED_SEMANTIC_HEAD"
+          test "$(git hash-object "$TRUSTED_WORKFLOW")" = "$EXPECTED_WORKFLOW_BLOB"
+          test "$(git hash-object "$RUST_FIXTURE")" = "$EXPECTED_RUST_FIXTURE_BLOB"
+
+          if git cat-file -e "HEAD:mycelix-governance/Cargo.lock" 2>/dev/null; then
+            git show "HEAD:mycelix-governance/Cargo.lock" > mycelix-governance/Cargo.lock
+          else
+            rm -f mycelix-governance/Cargo.lock
+          fi
+          git diff --exit-code -- "$TRUSTED_WORKFLOW" "$RUST_FIXTURE" mycelix-governance/Cargo.lock
+          test -z "$(git status --porcelain=v1 --untracked-files=no)"
+
+          git hash-object "$TRUSTED_WORKFLOW" "$RUST_FIXTURE" > qrec-trusted-builder-qualification-evidence/source-hashes-after.txt
+          sha256sum "$TRUSTED_WORKFLOW" "$RUST_FIXTURE" > qrec-trusted-builder-qualification-evidence/source-sha256-after.txt
+          cmp qrec-trusted-builder-qualification-evidence/source-hashes-before.txt qrec-trusted-builder-qualification-evidence/source-hashes-after.txt
+          cmp qrec-trusted-builder-qualification-evidence/source-sha256-before.txt qrec-trusted-builder-qualification-evidence/source-sha256-after.txt
+
+      - name: Upload qualification evidence
+        if: always() && (github.event_name == 'workflow_dispatch' || github.event.pull_request.draft == false)
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: constitutional-qrec-trusted-builder-${{ github.run_id }}-${{ github.run_attempt }}
+          path: qrec-trusted-builder-qualification-evidence
+          if-no-files-found: error
+          retention-days: 30

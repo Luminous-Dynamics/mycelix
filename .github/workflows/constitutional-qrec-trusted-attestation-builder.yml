@@ -1,0 +1,492 @@
+name: Constitutional QREC Trusted Attestation Builder
+
+on:
+  workflow_call:
+    inputs:
+      unattested_artifact_name:
+        description: Exact same-run artifact containing only qualification-auth-capsule-v1.tar
+        required: true
+        type: string
+      dependency_id:
+        description: Exact QREC dependency_id expected inside the receipt
+        required: true
+        type: string
+      qualifier_job_name:
+        description: Exact completed qualifier job name that produced the unattested artifact
+        required: true
+        type: string
+
+permissions: {}
+
+jobs:
+  attest:
+    name: Independently verify and attest QREC evidence
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      actions: read
+      id-token: write
+      attestations: write
+
+    steps:
+      - name: Enforce trusted-builder invocation boundary
+        shell: bash
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          PR_DRAFT: ${{ github.event.pull_request.draft }}
+          PR_BASE_REF: ${{ github.event.pull_request.base.ref }}
+          PR_HEAD_REPO: ${{ github.event.pull_request.head.repo.full_name }}
+          VERIFIER_HEAD: ${{ github.event.pull_request.head.sha }}
+          REPOSITORY_ID: ${{ github.repository_id }}
+          CALLER_WORKFLOW_REF: ${{ github.workflow_ref }}
+          CALLER_WORKFLOW_SHA: ${{ github.workflow_sha }}
+          TRUSTED_BUILDER_SHA: ${{ job.workflow_sha }}
+          TRUSTED_BUILDER_REPOSITORY: ${{ job.workflow_repository }}
+          TRUSTED_BUILDER_PATH: ${{ job.workflow_file_path }}
+          RUNNER_ENVIRONMENT: ${{ runner.environment }}
+          UNATTESTED_ARTIFACT_NAME: ${{ inputs.unattested_artifact_name }}
+          DEPENDENCY_ID: ${{ inputs.dependency_id }}
+          QUALIFIER_JOB_NAME: ${{ inputs.qualifier_job_name }}
+        run: |
+          set -euo pipefail
+
+          test "$EVENT_NAME" = "pull_request"
+          test "$PR_DRAFT" = "false"
+          test "$PR_BASE_REF" = "main"
+          test "$PR_HEAD_REPO" = "$GITHUB_REPOSITORY"
+          test "$TRUSTED_BUILDER_REPOSITORY" = "$GITHUB_REPOSITORY"
+          test "$TRUSTED_BUILDER_PATH" = ".github/workflows/constitutional-qrec-trusted-attestation-builder.yml"
+          test "$RUNNER_ENVIRONMENT" = "github-hosted"
+
+          [[ "$VERIFIER_HEAD" =~ ^[0-9a-f]{40}$ ]]
+          [[ "$CALLER_WORKFLOW_SHA" =~ ^[0-9a-f]{40}$ ]]
+          [[ "$TRUSTED_BUILDER_SHA" =~ ^[0-9a-f]{40}$ ]]
+          [[ "$REPOSITORY_ID" =~ ^[0-9]+$ ]]
+          [[ "$UNATTESTED_ARTIFACT_NAME" =~ ^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$ ]]
+          test -n "$DEPENDENCY_ID"
+          test "${#DEPENDENCY_ID}" -le 256
+          test "$DEPENDENCY_ID" = "$(printf '%s' "$DEPENDENCY_ID" | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')"
+          test -n "$QUALIFIER_JOB_NAME"
+          test "${#QUALIFIER_JOB_NAME}" -le 256
+          case "$QUALIFIER_JOB_NAME" in
+            *$'\n'*|*$'\r'*) exit 1 ;;
+          esac
+
+          case "$CALLER_WORKFLOW_REF" in
+            "$GITHUB_REPOSITORY"/.github/workflows/*.yml@*|"$GITHUB_REPOSITORY"/.github/workflows/*.yaml@*) ;;
+            *) echo "caller workflow ref is not canonical" >&2; exit 1 ;;
+          esac
+
+      - name: Download exact unattested capsule artifact
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: ${{ inputs.unattested_artifact_name }}
+          path: ${{ runner.temp }}/qrec-unattested
+
+      - name: Require one exact ordinary capsule file
+        shell: bash
+        env:
+          INPUT_DIR: ${{ runner.temp }}/qrec-unattested
+        run: |
+          set -euo pipefail
+          expected="$INPUT_DIR/qualification-auth-capsule-v1.tar"
+          test -d "$INPUT_DIR"
+          mapfile -d '' paths < <(find "$INPUT_DIR" -mindepth 1 -maxdepth 1 -print0)
+          test "${#paths[@]}" -eq 1
+          test "${paths[0]}" = "$expected"
+          test -f "$expected"
+          test ! -L "$expected"
+          test -s "$expected"
+
+      - name: Checkout exact trusted-builder revision
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          repository: ${{ job.workflow_repository }}
+          ref: ${{ job.workflow_sha }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Bind trusted source and exact verifier lineage
+        id: lineage
+        shell: bash
+        env:
+          VERIFIER_HEAD: ${{ github.event.pull_request.head.sha }}
+          CALLER_WORKFLOW_REF: ${{ github.workflow_ref }}
+          TRUSTED_BUILDER_SHA: ${{ job.workflow_sha }}
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$TRUSTED_BUILDER_SHA"
+
+          test "$(git hash-object mycelix-governance/tools/qrec/qualification_evidence_capsule.py)" = "8036bb43064fdac50349bcc71b3ee5086100aa25"
+          test "$(git hash-object mycelix-governance/tools/qrec/verify_github_qualification_provenance.py)" = "af7d5fee06c8f0404413c363313163e29345c83e"
+          test "$(git hash-object mycelix-governance/crates/constitutional-qualification-receipt/src/lib.rs)" = "de28606357306a554f0300813f632b5769d559b6"
+
+          git cat-file -e "${VERIFIER_HEAD}^{commit}" 2>/dev/null || git fetch --no-tags origin "$VERIFIER_HEAD"
+          set -- $(git rev-list --parents -n 1 "$VERIFIER_HEAD")
+          test "$#" -eq 2
+          semantic_head="$2"
+
+          caller_path="${CALLER_WORKFLOW_REF#${GITHUB_REPOSITORY}/}"
+          caller_path="${caller_path%@*}"
+          case "$caller_path" in
+            .github/workflows/*.yml|.github/workflows/*.yaml) ;;
+            *) echo "caller workflow path invalid" >&2; exit 1 ;;
+          esac
+
+          mapfile -t changed < <(git diff --name-only "$semantic_head" "$VERIFIER_HEAD")
+          test "${#changed[@]}" -eq 1
+          test "${changed[0]}" = "$caller_path"
+
+          echo "semantic_head=$semantic_head" >> "$GITHUB_OUTPUT"
+          echo "caller_workflow_path=$caller_path" >> "$GITHUB_OUTPUT"
+
+      - name: Observe exact caller run through authenticated GitHub API
+        id: provider
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERIFIER_HEAD: ${{ github.event.pull_request.head.sha }}
+          SEMANTIC_HEAD: ${{ steps.lineage.outputs.semantic_head }}
+          CALLER_WORKFLOW_PATH: ${{ steps.lineage.outputs.caller_workflow_path }}
+          QUALIFIER_JOB_NAME: ${{ inputs.qualifier_job_name }}
+          UNATTESTED_ARTIFACT_NAME: ${{ inputs.unattested_artifact_name }}
+        run: |
+          set -euo pipefail
+          out="$RUNNER_TEMP/qrec-provider"
+          mkdir -p "$out"
+
+          gh api -H "Accept: application/vnd.github+json" \
+            "/repos/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID" \
+            > "$out/run.json"
+          gh api -H "Accept: application/vnd.github+json" \
+            "/repos/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID/attempts/$GITHUB_RUN_ATTEMPT/jobs?per_page=100" \
+            > "$out/jobs.json"
+          gh api -H "Accept: application/vnd.github+json" \
+            "/repos/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID/artifacts?per_page=100" \
+            > "$out/artifacts.json"
+
+          jq -e \
+            --arg repo "$GITHUB_REPOSITORY" \
+            --argjson repo_id "${{ github.repository_id }}" \
+            --arg path "$CALLER_WORKFLOW_PATH" \
+            --arg head "$VERIFIER_HEAD" \
+            --arg event "pull_request" \
+            '.id == ($ENV.GITHUB_RUN_ID | tonumber)
+              and .run_attempt == ($ENV.GITHUB_RUN_ATTEMPT | tonumber)
+              and .event == $event
+              and .head_sha == $head
+              and .path == $path
+              and .repository.id == $repo_id
+              and .repository.full_name == $repo
+              and .head_repository.id == $repo_id
+              and .head_repository.full_name == $repo' \
+            "$out/run.json" >/dev/null
+
+          jq -e \
+            --arg name "$QUALIFIER_JOB_NAME" \
+            '[.jobs[]
+              | select(.name == $name
+                  and .run_id == ($ENV.GITHUB_RUN_ID | tonumber)
+                  and (.run_attempt == null or .run_attempt == ($ENV.GITHUB_RUN_ATTEMPT | tonumber))
+                  and .status == "completed"
+                  and .conclusion == "success"
+                  and (.steps | type == "array")
+                  and (.steps | length > 0)
+                  and ([.steps[] | select(.status == "completed" and .conclusion == "success")] | length > 0))
+             ] | length == 1' \
+            "$out/jobs.json" >/dev/null
+
+          qualifier_job_id="$(
+            jq -r --arg name "$QUALIFIER_JOB_NAME" \
+              '.jobs[] | select(.name == $name) | .id' "$out/jobs.json"
+          )"
+          [[ "$qualifier_job_id" =~ ^[1-9][0-9]*$ ]]
+
+          jq -e \
+            --arg name "$UNATTESTED_ARTIFACT_NAME" \
+            --arg head "$VERIFIER_HEAD" \
+            --argjson repo_id "${{ github.repository_id }}" \
+            '[.artifacts[]
+              | select(.name == $name
+                  and .expired == false
+                  and (.id | type == "number") and .id > 0
+                  and (.size_in_bytes | type == "number") and .size_in_bytes > 0
+                  and (.digest | type == "string") and (.digest | test("^sha256:[0-9a-f]{64}$"))
+                  and .workflow_run.id == ($ENV.GITHUB_RUN_ID | tonumber)
+                  and .workflow_run.repository_id == $repo_id
+                  and .workflow_run.head_repository_id == $repo_id
+                  and .workflow_run.head_sha == $head)
+             ] | length == 1' \
+            "$out/artifacts.json" >/dev/null
+
+          artifact_id="$(
+            jq -r --arg name "$UNATTESTED_ARTIFACT_NAME" \
+              '.artifacts[] | select(.name == $name) | .id' "$out/artifacts.json"
+          )"
+          artifact_digest="$(
+            jq -r --arg name "$UNATTESTED_ARTIFACT_NAME" \
+              '.artifacts[] | select(.name == $name) | .digest' "$out/artifacts.json"
+          )"
+
+          echo "qualifier_job_id=$qualifier_job_id" >> "$GITHUB_OUTPUT"
+          echo "artifact_id=$artifact_id" >> "$GITHUB_OUTPUT"
+          echo "artifact_digest=$artifact_digest" >> "$GITHUB_OUTPUT"
+
+      - name: Verify and deterministically reconstruct authentication capsule
+        id: capsule
+        shell: bash
+        env:
+          A_PATH: ${{ runner.temp }}/qrec-unattested/qualification-auth-capsule-v1.tar
+        run: |
+          set -euo pipefail
+          evidence="$RUNNER_TEMP/qrec-trusted-evidence"
+          mkdir -p "$evidence"
+
+          python3 mycelix-governance/tools/qrec/qualification_evidence_capsule.py \
+            verify-auth --input "$A_PATH" \
+            > "$evidence/qrec-002a-verification.json"
+
+          A_PATH="$A_PATH" E_PATH="$evidence/evidence.payload.tar" R_PATH="$evidence/qualification-receipt.json" \
+          python3 - <<'PY'
+          import importlib.util
+          import os
+          from pathlib import Path
+
+          tool = Path("mycelix-governance/tools/qrec/qualification_evidence_capsule.py")
+          spec = importlib.util.spec_from_file_location("qrec_capsule_trusted", tool)
+          if spec is None or spec.loader is None:
+              raise SystemExit("cannot load exact QREC-002A tool")
+          q = importlib.util.module_from_spec(spec)
+          spec.loader.exec_module(q)
+
+          a_path = Path(os.environ["A_PATH"])
+          a_bytes = a_path.read_bytes()
+          members = dict(q.read_tar_exact(a_bytes, expected_names=q.AUTH_MEMBER_NAMES))
+          e_bytes = members[q.EVIDENCE_NAME]
+          r_bytes = members[q.RECEIPT_NAME]
+          rebuilt = q.pack_auth_bytes(e_bytes, r_bytes)
+          if rebuilt != a_bytes:
+              raise SystemExit("A does not equal deterministic reconstruction from exact E + R")
+          Path(os.environ["E_PATH"]).write_bytes(e_bytes)
+          Path(os.environ["R_PATH"]).write_bytes(r_bytes)
+          PY
+
+          a_sha="$(sha256sum "$A_PATH" | awk '{print $1}')"
+          e_sha="$(sha256sum "$evidence/evidence.payload.tar" | awk '{print $1}')"
+          r_sha="$(sha256sum "$evidence/qualification-receipt.json" | awk '{print $1}')"
+          receipt_commitment="$(jq -er '.receipt_commitment | select(test("^blake3-256:[0-9a-f]{64}$"))' "$evidence/qualification-receipt.json")"
+
+          echo "a_sha256=$a_sha" >> "$GITHUB_OUTPUT"
+          echo "e_sha256=$e_sha" >> "$GITHUB_OUTPUT"
+          echo "r_sha256=$r_sha" >> "$GITHUB_OUTPUT"
+          echo "receipt_commitment=$receipt_commitment" >> "$GITHUB_OUTPUT"
+
+      - name: Install pinned Rust 1.96.0
+        uses: dtolnay/rust-toolchain@ebb3d1676050bfd0971c36c1e215b5751473994d # 1.96.0
+
+      - name: Validate exact receipt through Rust QREC semantics
+        shell: bash
+        env:
+          CARGO_TARGET_DIR: ${{ runner.temp }}/qrec-target
+          QREC_RECEIPT_PATH: ${{ runner.temp }}/qrec-trusted-evidence/qualification-receipt.json
+          QREC_EXPECTED_DEPENDENCY_ID: ${{ inputs.dependency_id }}
+          QREC_EXPECTED_ISSUER_ID: github-repository:${{ github.repository_id }}
+          QREC_EXPECTED_SEMANTIC_HEAD: ${{ steps.lineage.outputs.semantic_head }}
+          QREC_EXPECTED_VERIFIER_HEAD: ${{ github.event.pull_request.head.sha }}
+          QREC_EXPECTED_RUN_ID: ${{ github.run_id }}
+          QREC_EXPECTED_RUN_ATTEMPT: ${{ github.run_attempt }}
+          QREC_EXPECTED_ARTIFACT_DIGEST: sha256:${{ steps.capsule.outputs.e_sha256 }}
+        run: |
+          set -euo pipefail
+          evidence="$RUNNER_TEMP/qrec-trusted-evidence"
+
+          if git cat-file -e "${{ job.workflow_sha }}:mycelix-governance/Cargo.lock" 2>/dev/null; then
+            had_lock=true
+          else
+            had_lock=false
+          fi
+
+          set +e
+          cargo test \
+            --manifest-path mycelix-governance/Cargo.toml \
+            --package constitutional-qualification-receipt \
+            --test external_receipt_verifier \
+            -- --ignored --nocapture \
+            2>&1 | tee "$evidence/rust-receipt-validation.log"
+          cargo_status="${PIPESTATUS[0]}"
+          set -e
+
+          if [[ -f mycelix-governance/Cargo.lock ]]; then
+            cp mycelix-governance/Cargo.lock "$evidence/derived-Cargo.lock"
+            sha256sum mycelix-governance/Cargo.lock > "$evidence/derived-Cargo.lock.sha256"
+          fi
+
+          if [[ "$had_lock" == true ]]; then
+            git show "${{ job.workflow_sha }}:mycelix-governance/Cargo.lock" > mycelix-governance/Cargo.lock
+          else
+            rm -f mycelix-governance/Cargo.lock
+          fi
+
+          test "$cargo_status" -eq 0
+          git diff --exit-code -- \
+            mycelix-governance/crates/constitutional-qualification-receipt \
+            mycelix-governance/tools/qrec
+
+      - name: Record trusted-builder provenance
+        shell: bash
+        env:
+          CALLER_WORKFLOW_REF: ${{ github.workflow_ref }}
+          CALLER_WORKFLOW_SHA: ${{ github.workflow_sha }}
+          CALLER_WORKFLOW_PATH: ${{ steps.lineage.outputs.caller_workflow_path }}
+          TRUSTED_BUILDER_REF: ${{ job.workflow_ref }}
+          TRUSTED_BUILDER_SHA: ${{ job.workflow_sha }}
+          TRUSTED_BUILDER_REPOSITORY: ${{ job.workflow_repository }}
+          TRUSTED_BUILDER_PATH: ${{ job.workflow_file_path }}
+          SEMANTIC_HEAD: ${{ steps.lineage.outputs.semantic_head }}
+          VERIFIER_HEAD: ${{ github.event.pull_request.head.sha }}
+          QUALIFIER_JOB_ID: ${{ steps.provider.outputs.qualifier_job_id }}
+          ARTIFACT_ID: ${{ steps.provider.outputs.artifact_id }}
+          ARTIFACT_DIGEST: ${{ steps.provider.outputs.artifact_digest }}
+          A_SHA256: ${{ steps.capsule.outputs.a_sha256 }}
+          E_SHA256: ${{ steps.capsule.outputs.e_sha256 }}
+          R_SHA256: ${{ steps.capsule.outputs.r_sha256 }}
+          RECEIPT_COMMITMENT: ${{ steps.capsule.outputs.receipt_commitment }}
+          DEPENDENCY_ID: ${{ inputs.dependency_id }}
+        run: |
+          set -euo pipefail
+          evidence="$RUNNER_TEMP/qrec-trusted-evidence"
+          jq -n \
+            --arg schema "mycelix.qrec.github-trusted-builder-provenance.v1" \
+            --arg repository "$GITHUB_REPOSITORY" \
+            --arg repository_id "${{ github.repository_id }}" \
+            --arg event "$GITHUB_EVENT_NAME" \
+            --arg caller_workflow_ref "$CALLER_WORKFLOW_REF" \
+            --arg caller_workflow_sha "$CALLER_WORKFLOW_SHA" \
+            --arg caller_workflow_path "$CALLER_WORKFLOW_PATH" \
+            --arg trusted_builder_ref "$TRUSTED_BUILDER_REF" \
+            --arg trusted_builder_sha "$TRUSTED_BUILDER_SHA" \
+            --arg trusted_builder_repository "$TRUSTED_BUILDER_REPOSITORY" \
+            --arg trusted_builder_path "$TRUSTED_BUILDER_PATH" \
+            --arg semantic_head "$SEMANTIC_HEAD" \
+            --arg verifier_head "$VERIFIER_HEAD" \
+            --arg run_id "$GITHUB_RUN_ID" \
+            --arg run_attempt "$GITHUB_RUN_ATTEMPT" \
+            --arg qualifier_job_id "$QUALIFIER_JOB_ID" \
+            --arg artifact_id "$ARTIFACT_ID" \
+            --arg artifact_digest "$ARTIFACT_DIGEST" \
+            --arg dependency_id "$DEPENDENCY_ID" \
+            --arg a_sha256 "$A_SHA256" \
+            --arg e_sha256 "$E_SHA256" \
+            --arg r_sha256 "$R_SHA256" \
+            --arg receipt_commitment "$RECEIPT_COMMITMENT" \
+            '{
+              schema: $schema,
+              repository: {full_name: $repository, id: ($repository_id | tonumber)},
+              event: $event,
+              caller_workflow: {
+                ref: $caller_workflow_ref,
+                sha: $caller_workflow_sha,
+                path: $caller_workflow_path
+              },
+              trusted_builder: {
+                ref: $trusted_builder_ref,
+                sha: $trusted_builder_sha,
+                repository: $trusted_builder_repository,
+                path: $trusted_builder_path
+              },
+              qualification: {
+                dependency_id: $dependency_id,
+                semantic_head: $semantic_head,
+                verifier_head: $verifier_head,
+                run_id: ($run_id | tonumber),
+                run_attempt: ($run_attempt | tonumber),
+                qualifier_job_id: ($qualifier_job_id | tonumber)
+              },
+              source_artifact: {
+                artifact_id: ($artifact_id | tonumber),
+                github_archive_digest: $artifact_digest
+              },
+              exact_bytes: {
+                authentication_capsule_sha256: ("sha256:" + $a_sha256),
+                evidence_payload_sha256: ("sha256:" + $e_sha256),
+                receipt_sha256: ("sha256:" + $r_sha256),
+                receipt_commitment: $receipt_commitment
+              },
+              claims: {
+                qrec_capsule_reconstructed: true,
+                qrec_rust_receipt_validated: true,
+                github_api_retrieval_authenticated_by_job_token: true,
+                github_attestation_generated: false,
+                github_attestation_locally_verified: false,
+                consumer_builder_authorization_established: false,
+                verified_receipt_minted: false,
+                provider_runtime_authority_granted: false
+              }
+            }' > "$evidence/trusted-builder-provenance.json"
+
+      - name: Generate GitHub/Sigstore attestation for exact A
+        id: attest
+        uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4
+        with:
+          subject-path: ${{ runner.temp }}/qrec-unattested/qualification-auth-capsule-v1.tar
+
+      - name: Verify and preserve attestation bundle
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          A_PATH: ${{ runner.temp }}/qrec-unattested/qualification-auth-capsule-v1.tar
+          ATTESTATION_BUNDLE: ${{ steps.attest.outputs.bundle-path }}
+          TRUSTED_BUILDER_SHA: ${{ job.workflow_sha }}
+        run: |
+          set -euo pipefail
+          evidence="$RUNNER_TEMP/qrec-trusted-evidence"
+          mkdir -p "$evidence/attestation"
+
+          test -f "$ATTESTATION_BUNDLE"
+          cp "$ATTESTATION_BUNDLE" "$evidence/attestation/attestation.json"
+
+          gh attestation verify "$A_PATH" \
+            --repo "$GITHUB_REPOSITORY" \
+            --bundle "$evidence/attestation/attestation.json" \
+            --signer-workflow "$GITHUB_REPOSITORY/.github/workflows/constitutional-qrec-trusted-attestation-builder.yml" \
+            --signer-digest "$TRUSTED_BUILDER_SHA" \
+            --deny-self-hosted-runners \
+            --format json \
+            > "$evidence/attestation/verification.json"
+
+          sha256sum "$evidence/attestation/attestation.json" \
+            > "$evidence/attestation/attestation.json.sha256"
+          sha256sum "$evidence/attestation/verification.json" \
+            > "$evidence/attestation/verification.json.sha256"
+
+          jq '.claims.github_attestation_generated = true
+              | .claims.github_attestation_locally_verified = true' \
+            "$evidence/trusted-builder-provenance.json" \
+            > "$evidence/trusted-builder-provenance.final.json"
+          mv "$evidence/trusted-builder-provenance.final.json" \
+            "$evidence/trusted-builder-provenance.json"
+
+      - name: Postflight trusted source immutability
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "${{ job.workflow_sha }}"
+          test "$(git hash-object mycelix-governance/tools/qrec/qualification_evidence_capsule.py)" = "8036bb43064fdac50349bcc71b3ee5086100aa25"
+          test "$(git hash-object mycelix-governance/tools/qrec/verify_github_qualification_provenance.py)" = "af7d5fee06c8f0404413c363313163e29345c83e"
+          test "$(git hash-object mycelix-governance/crates/constitutional-qualification-receipt/src/lib.rs)" = "de28606357306a554f0300813f632b5769d559b6"
+          git diff --exit-code -- \
+            mycelix-governance/crates/constitutional-qualification-receipt \
+            mycelix-governance/tools/qrec \
+            .github/workflows/constitutional-qrec-trusted-attestation-builder.yml
+
+      - name: Upload trusted attested QREC evidence
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: qrec-trusted-attested-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            ${{ runner.temp }}/qrec-unattested/qualification-auth-capsule-v1.tar
+            ${{ runner.temp }}/qrec-trusted-evidence/
+            ${{ runner.temp }}/qrec-provider/
+          if-no-files-found: error
+          retention-days: 30
