@@ -105,7 +105,7 @@ A defensible product distinction would be **portable, inspectable evidence about
 From the Praxis workspace root:
 
 ```sh
-cargo test --manifest-path mycelix-praxis/Cargo.toml -p praxis-core assessment_evidence::tests
+cargo test --manifest-path mycelix-praxis/Cargo.toml -p praxis-core
 ```
 
 The tests use the checked-in fixture, verify JSON Schema parity, and include negative controls for:
@@ -116,7 +116,9 @@ The tests use the checked-in fixture, verify JSON Schema parity, and include neg
 - mismatched rubric versions;
 - scores above 1000;
 - duplicate attempt IDs;
-- undeclared study arms.
+- undeclared study arms;
+- JSON Schema field/enum drift;
+- invalid fixed-size model-hash fixtures in the pre-existing provenance tests.
 
 This command has **not** been executed in the current authoring environment. A passing remote check on the exact final commit is still required.
 
