@@ -1,0 +1,11 @@
+{
+  "schema_version": "d6s-canon-1-manifest/1",
+  "status": "ReferenceModelOnly",
+  "fixture_path": "docs/integral/d6s-canon-1-golden-vectors.json",
+  "fixture_sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+  "rust_test_target": "d6s_canon_1_golden_vectors",
+  "independent_verifier_path": "scripts/integral/verify_d6s_canon_1.py",
+  "corpus_id": "COS-CONF-001",
+  "expected_vector_count": 16,
+  "claim_ceiling": "Semantic conformance of this reference harness only; no physical, safety, economic, ecological, or Integral-validation claim."
+}
