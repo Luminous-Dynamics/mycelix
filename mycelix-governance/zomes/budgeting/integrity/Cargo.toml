@@ -12,3 +12,4 @@ name = "budgeting_integrity"
 hdi = { workspace = true }
 serde = { workspace = true }
 holochain_serialized_bytes = { workspace = true }
+mycelix-bridge-entry-types = { workspace = true }
