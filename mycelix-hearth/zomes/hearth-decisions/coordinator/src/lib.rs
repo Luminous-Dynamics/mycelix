@@ -189,6 +189,16 @@ fn winning_option(tallies: &[(u32, u32)]) -> u32 {
 // Extern Functions
 // ============================================================================
 
+/// Deduplicate action-hash targets and impose stable query ordering.
+///
+/// Link collections are mutable and may contain duplicate CreateLink actions.
+/// Query APIs expose semantic records, so the same action hash must not appear
+/// more than once and link iteration order must not become query semantics.
+fn deduplicate_action_hashes(hashes: &mut Vec<ActionHash>) {
+    hashes.sort_by_key(|hash| hash.get_raw_36().to_vec());
+    hashes.dedup();
+}
+
 /// Create a new decision for a hearth.
 /// Links the decision from the hearth via HearthToDecisions.
 #[hdk_extern]
@@ -854,15 +864,16 @@ pub fn get_hearth_decisions(hearth_hash: ActionHash) -> ExternResult<Vec<Record>
         GetStrategy::default(),
     )?;
 
-    let mut decisions = Vec::new();
+    let mut targets = Vec::with_capacity(links.len());
     for link in links {
-        let target = link
-            .target
-            .into_action_hash()
-            .ok_or(wasm_error!(WasmErrorInner::Guest(
-                "Link target is not an ActionHash".into()
-            )))?;
+        targets.push(link.target.into_action_hash().ok_or(wasm_error!(
+            WasmErrorInner::Guest("Link target is not an ActionHash".into())
+        ))?);
+    }
+    deduplicate_action_hashes(&mut targets);
 
+    let mut decisions = Vec::with_capacity(targets.len());
+    for target in targets {
         if let Some(record) = get_latest_record(target)? {
             decisions.push(record);
         }
@@ -879,15 +890,16 @@ pub fn get_decision_votes(decision_hash: ActionHash) -> ExternResult<Vec<Record>
         GetStrategy::default(),
     )?;
 
-    let mut votes = Vec::new();
+    let mut targets = Vec::with_capacity(links.len());
     for link in links {
-        let target = link
-            .target
-            .into_action_hash()
-            .ok_or(wasm_error!(WasmErrorInner::Guest(
-                "Link target is not an ActionHash".into()
-            )))?;
+        targets.push(link.target.into_action_hash().ok_or(wasm_error!(
+            WasmErrorInner::Guest("Link target is not an ActionHash".into())
+        ))?);
+    }
+    deduplicate_action_hashes(&mut targets);
 
+    let mut votes = Vec::with_capacity(targets.len());
+    for target in targets {
         if let Some(record) = get_latest_record(target)? {
             votes.push(record);
         }
@@ -905,22 +917,23 @@ pub fn get_vote_history(decision_hash: ActionHash) -> ExternResult<Vec<Record>> 
         GetStrategy::default(),
     )?;
 
-    let mut votes = Vec::new();
+    let mut targets = Vec::with_capacity(links.len());
     for link in links {
-        let target = link
-            .target
-            .into_action_hash()
-            .ok_or(wasm_error!(WasmErrorInner::Guest(
-                "Link target is not an ActionHash".into()
-            )))?;
+        targets.push(link.target.into_action_hash().ok_or(wasm_error!(
+            WasmErrorInner::Guest("Link target is not an ActionHash".into())
+        ))?);
+    }
+    deduplicate_action_hashes(&mut targets);
 
+    let mut votes = Vec::with_capacity(targets.len());
+    for target in targets {
         if let Some(record) = get_latest_record(target)? {
             votes.push(record);
         }
     }
 
-    // Sort by creation timestamp for consistent ordering
-    votes.sort_by_key(|r| r.action().timestamp());
+    // Sort by timestamp, then action hash for equal-timestamp determinism.
+    votes.sort_by_key(|r| (r.action().timestamp(), r.action_address().get_raw_36().to_vec()));
 
     Ok(votes)
 }
@@ -2033,4 +2046,15 @@ mod tests {
         let req_consensus = requirement_for_decision_type(&DecisionType::Consensus);
         assert_eq!(req_consensus.min_tier, CivicTier::Citizen);
     }
+    #[test]
+    fn deduplicate_action_hashes_is_order_independent() {
+        let first = ActionHash::from_raw_36(vec![0x01; 36]);
+        let second = ActionHash::from_raw_36(vec![0x02; 36]);
+        let mut hashes = vec![second.clone(), first.clone(), second.clone(), first.clone()];
+
+        deduplicate_action_hashes(&mut hashes);
+
+        assert_eq!(hashes, vec![first, second]);
+    }
+
 }
