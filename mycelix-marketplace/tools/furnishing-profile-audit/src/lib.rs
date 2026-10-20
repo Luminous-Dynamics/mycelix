@@ -429,7 +429,9 @@ pub fn validate_discovery_request(document: &Value) -> Vec<String> {
         "exact_address_transmitted",
         "occupant_profile_transmitted",
         "floor_plan_transmitted",
-        "household_preferences_transmitted",
+        "unrelated_household_preferences_transmitted",
+        "design_context_digest_transmitted",
+        "query_digest_transmitted",
     ] {
         if field(data_minimization, forbidden).and_then(Value::as_bool) != Some(false) {
             errors.push(format!("request: {forbidden} must be false"));
