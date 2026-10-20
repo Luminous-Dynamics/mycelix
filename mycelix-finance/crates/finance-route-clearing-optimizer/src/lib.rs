@@ -1,5 +1,4 @@
 #![forbid(unsafe_code)]
-
 // Copyright (C) 2024-2026 Tristan Stoltz / Luminous Dynamics
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Commercial licensing: see COMMERCIAL_LICENSE.md at repository root
@@ -120,7 +119,10 @@ pub enum OptimizeError {
     InvalidRoute(String),
     UnknownRouteParticipant(String),
     ConflictingDuplicateRoute(String),
-    UnbalancedNetPositions { owed_minor: u128, receivable_minor: u128 },
+    UnbalancedNetPositions {
+        owed_minor: u128,
+        receivable_minor: u128,
+    },
     ArithmeticOverflow,
     CostOverflow,
     NegativeReducedCostInvariant,
@@ -160,7 +162,8 @@ struct Prepared {
 }
 
 fn add_u128(left: u128, right: u128) -> Result<u128, OptimizeError> {
-    left.checked_add(right).ok_or(OptimizeError::ArithmeticOverflow)
+    left.checked_add(right)
+        .ok_or(OptimizeError::ArithmeticOverflow)
 }
 
 fn add_u64(left: u64, right: u64) -> Result<u64, OptimizeError> {
@@ -187,7 +190,9 @@ fn prepare(
         AuthorityQualification::NotQualified => return Err(OptimizeError::AuthorityNotQualified),
         AuthorityQualification::ExternallyQualified { evidence_ref } => {
             if evidence_ref.trim().is_empty() {
-                return Err(OptimizeError::InvalidContext("authority evidence reference"));
+                return Err(OptimizeError::InvalidContext(
+                    "authority evidence reference",
+                ));
             }
             evidence_ref.clone()
         }
@@ -202,12 +207,17 @@ fn prepare(
             return Err(OptimizeError::InvalidParticipant("empty member_id".into()));
         }
         if by_member.contains_key(&participant.member_id) {
-            return Err(OptimizeError::DuplicateParticipant(participant.member_id.clone()));
+            return Err(OptimizeError::DuplicateParticipant(
+                participant.member_id.clone(),
+            ));
         }
         if participant.net_minor > 0 {
             owed_total = add_u128(owed_total, participant.net_minor as u128)?;
         } else if participant.net_minor < 0 {
-            receivable_total = add_u128(receivable_total, participant.net_minor.unsigned_abs() as u128)?;
+            receivable_total = add_u128(
+                receivable_total,
+                participant.net_minor.unsigned_abs() as u128,
+            )?;
         }
         by_member.insert(participant.member_id.clone(), participant.clone());
     }
@@ -258,11 +268,14 @@ fn prepare(
 
         if let Some(previous) = unique_by_id.get(&route.route_id) {
             if previous == route {
-                deduplicated_route_observations =
-                    deduplicated_route_observations.checked_add(1).ok_or(OptimizeError::ArithmeticOverflow)?;
+                deduplicated_route_observations = deduplicated_route_observations
+                    .checked_add(1)
+                    .ok_or(OptimizeError::ArithmeticOverflow)?;
                 continue;
             }
-            return Err(OptimizeError::ConflictingDuplicateRoute(route.route_id.clone()));
+            return Err(OptimizeError::ConflictingDuplicateRoute(
+                route.route_id.clone(),
+            ));
         }
         unique_by_id.insert(route.route_id.clone(), route.clone());
     }
@@ -444,20 +457,23 @@ pub fn greedy_match(
 
     let mut legs = Vec::new();
     for route in ordered_routes {
-        let debtor_available = debtor_remaining.get(&route.from_member).copied().unwrap_or(0);
-        let creditor_demand = creditor_remaining.get(&route.to_member).copied().unwrap_or(0);
-        let amount_minor = route.capacity_minor.min(debtor_available).min(creditor_demand);
+        let debtor_available = debtor_remaining
+            .get(&route.from_member)
+            .copied()
+            .unwrap_or(0);
+        let creditor_demand = creditor_remaining
+            .get(&route.to_member)
+            .copied()
+            .unwrap_or(0);
+        let amount_minor = route
+            .capacity_minor
+            .min(debtor_available)
+            .min(creditor_demand);
         if amount_minor == 0 {
             continue;
         }
-        debtor_remaining.insert(
-            route.from_member.clone(),
-            debtor_available - amount_minor,
-        );
-        creditor_remaining.insert(
-            route.to_member.clone(),
-            creditor_demand - amount_minor,
-        );
+        debtor_remaining.insert(route.from_member.clone(), debtor_available - amount_minor);
+        creditor_remaining.insert(route.to_member.clone(), creditor_demand - amount_minor);
         legs.push(SettlementLeg {
             route_id: route.route_id,
             from_member: route.from_member,
@@ -485,9 +501,15 @@ fn build_plan(
 
     for leg in &legs {
         let current_sent = sent.get(&leg.from_member).copied().unwrap_or(0);
-        sent.insert(leg.from_member.clone(), add_u64(current_sent, leg.amount_minor)?);
+        sent.insert(
+            leg.from_member.clone(),
+            add_u64(current_sent, leg.amount_minor)?,
+        );
         let current_received = received.get(&leg.to_member).copied().unwrap_or(0);
-        received.insert(leg.to_member.clone(), add_u64(current_received, leg.amount_minor)?);
+        received.insert(
+            leg.to_member.clone(),
+            add_u64(current_received, leg.amount_minor)?,
+        );
         total_allocated_minor = add_u128(total_allocated_minor, leg.amount_minor as u128)?;
         total_modeled_cost_units = total_modeled_cost_units
             .checked_add(leg.modeled_cost_units)
@@ -731,8 +753,20 @@ mod tests {
 
         assert_eq!(plan.total_allocated_minor, 2);
         assert!(!plan.fully_allocatable);
-        assert_eq!(plan.residual_debtors, vec![Residual { member_id: "A".into(), amount_minor: 3 }]);
-        assert_eq!(plan.residual_creditors, vec![Residual { member_id: "B".into(), amount_minor: 3 }]);
+        assert_eq!(
+            plan.residual_debtors,
+            vec![Residual {
+                member_id: "A".into(),
+                amount_minor: 3
+            }]
+        );
+        assert_eq!(
+            plan.residual_creditors,
+            vec![Residual {
+                member_id: "B".into(),
+                amount_minor: 3
+            }]
+        );
     }
 
     #[test]
@@ -885,8 +919,14 @@ mod tests {
             }
 
             let route = &routes[index];
-            let debtor = positions.iter().find(|p| p.member_id == route.from_member).unwrap();
-            let creditor = positions.iter().find(|p| p.member_id == route.to_member).unwrap();
+            let debtor = positions
+                .iter()
+                .find(|p| p.member_id == route.from_member)
+                .unwrap();
+            let creditor = positions
+                .iter()
+                .find(|p| p.member_id == route.to_member)
+                .unwrap();
             let debtor_limit = (debtor.net_minor as u64).min(debtor.available_liquidity_minor);
             let creditor_limit = creditor.net_minor.unsigned_abs();
             let max = route.capacity_minor.min(debtor_limit).min(creditor_limit);
