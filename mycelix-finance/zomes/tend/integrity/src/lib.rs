@@ -764,7 +764,12 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
             LinkTypes::DaoToAlias => Ok(ValidateCallbackResult::Valid),
             LinkTypes::PendingAdjustmentToExchange => Ok(ValidateCallbackResult::Valid),
         },
-        FlatOp::RegisterDeleteLink { .. } => Ok(ValidateCallbackResult::Valid),
+        FlatOp::RegisterDeleteLink { link_type, .. } => match link_type {
+            LinkTypes::GovernanceAgents => Ok(ValidateCallbackResult::Invalid(
+                "Governance agent links are append-only and cannot be deleted".into(),
+            )),
+            _ => Ok(ValidateCallbackResult::Valid),
+        },
         FlatOp::StoreRecord(_) => Ok(ValidateCallbackResult::Valid),
         FlatOp::RegisterAgentActivity(_) => Ok(ValidateCallbackResult::Valid),
         FlatOp::RegisterUpdate(_) => Ok(ValidateCallbackResult::Valid),
