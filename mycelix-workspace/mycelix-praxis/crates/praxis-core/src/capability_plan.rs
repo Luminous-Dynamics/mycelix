@@ -805,6 +805,127 @@ mod tests {
     }
 
     #[test]
+    fn curator_priority_is_not_a_shortest_duration_heuristic() {
+        let mut graph = basic_graph();
+        let target = graph
+            .nodes
+            .iter_mut()
+            .find(|node| node.capability_id == id("cap-net-debug"))
+            .unwrap();
+        target.practice_options[0].route_priority = 20;
+        target.practice_options[1].route_priority = 1;
+        let plan = compile_goal_plan(
+            &graph,
+            &request(
+                "cap-net-debug",
+                &[
+                    DeliveryMode::GuidedPractice,
+                    DeliveryMode::RetrievalPractice,
+                    DeliveryMode::Simulation,
+                    DeliveryMode::SupervisedPractical,
+                ],
+                60,
+                100,
+            ),
+            100,
+        )
+        .unwrap();
+
+        let target_step = plan.steps.last().unwrap();
+        assert_eq!(target_step.proposed_practice.task_id, "task-network-practical");
+        assert_eq!(target_step.proposed_practice.estimated_minutes, 50);
+        assert_eq!(target_step.selection_basis, PracticeSelectionBasis::CuratorPriority);
+        assert_eq!(target_step.eligible_alternatives.len(), 1);
+        assert_eq!(target_step.eligible_alternatives[0].task_id, "task-network-lab");
+    }
+
+    #[test]
+    fn learner_can_choose_an_eligible_alternative() {
+        let graph = basic_graph();
+        let target = graph
+            .nodes
+            .iter()
+            .find(|node| node.capability_id == id("cap-net-debug"))
+            .unwrap();
+        let mut request = request(
+            "cap-net-debug",
+            &[
+                DeliveryMode::GuidedPractice,
+                DeliveryMode::RetrievalPractice,
+                DeliveryMode::Simulation,
+                DeliveryMode::SupervisedPractical,
+            ],
+            60,
+            100,
+        );
+        request.preferred_practice.insert(
+            id("cap-net-debug"),
+            PracticeOptionRef::from(&target.practice_options[1]),
+        );
+
+        let plan = compile_goal_plan(&graph, &request, 100).unwrap();
+        let target_step = plan.steps.last().unwrap();
+        assert_eq!(target_step.proposed_practice.task_id, "task-network-practical");
+        assert_eq!(target_step.selection_basis, PracticeSelectionBasis::LearnerPreference);
+        assert_eq!(target_step.eligible_alternatives.len(), 1);
+        assert_eq!(target_step.eligible_alternatives[0].task_id, "task-network-lab");
+    }
+
+    #[test]
+    fn preference_for_capability_outside_goal_closure_is_rejected() {
+        let graph = basic_graph();
+        let target = graph
+            .nodes
+            .iter()
+            .find(|node| node.capability_id == id("cap-net-debug"))
+            .unwrap();
+        let mut request = request("cap-observation", &[DeliveryMode::GuidedPractice], 60, 100);
+        request.preferred_practice.insert(
+            id("cap-net-debug"),
+            PracticeOptionRef::from(&target.practice_options[0]),
+        );
+
+        assert_eq!(
+            compile_goal_plan(&graph, &request, 100),
+            Err(GoalPlanError::PreferenceOutsideGoalClosure {
+                capability_id: "cap-net-debug".into()
+            })
+        );
+    }
+
+    #[test]
+    fn preferred_option_that_violates_constraints_is_rejected() {
+        let graph = basic_graph();
+        let target = graph
+            .nodes
+            .iter()
+            .find(|node| node.capability_id == id("cap-net-debug"))
+            .unwrap();
+        let mut request = request(
+            "cap-net-debug",
+            &[
+                DeliveryMode::GuidedPractice,
+                DeliveryMode::RetrievalPractice,
+                DeliveryMode::Simulation,
+            ],
+            60,
+            100,
+        );
+        request.preferred_practice.insert(
+            id("cap-net-debug"),
+            PracticeOptionRef::from(&target.practice_options[1]),
+        );
+
+        assert_eq!(
+            compile_goal_plan(&graph, &request, 100),
+            Err(GoalPlanError::PreferredPracticeNotEligible {
+                capability_id: "cap-net-debug".into(),
+                task_id: "task-network-practical".into()
+            })
+        );
+    }
+
+    #[test]
     fn unknown_target_is_rejected() {
         assert_eq!(
             compile_goal_plan(
