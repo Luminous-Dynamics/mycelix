@@ -5,6 +5,10 @@ on:
     branches:
       - myc-int-demo-d6t-canonical-encoding
   pull_request:
+    # Scope this reference gate to main and its canonical reference branch.
+    branches:
+      - main
+      - myc-int-demo-d6t-canonical-encoding
     types: [opened, synchronize, reopened, ready_for_review, converted_to_draft]
     # D6S is an independent exact-head gate. Do not run it for unrelated
     # product PRs: their exact head may not contain this reference corpus.
