@@ -191,7 +191,8 @@ fn IdentityBootstrapGate(posture: RwSignal<LocalIdentityStoragePosture>) -> impl
             confirmation_value.zeroize();
             recovery_phrase_value.zeroize();
             status_message.set(
-                "The requested action is not permitted for the current identity posture.".to_string(),
+                "The requested action is not permitted for the current identity posture."
+                    .to_string(),
             );
             return;
         }
