@@ -1,0 +1,24 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Mycelix durable policy-head store record V1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "generation", "head", "integrity_sha256"],
+  "properties": {
+    "schema_version": { "const": "mycelix.policy-head-store.record.v1" },
+    "generation": { "type": "integer", "minimum": 1 },
+    "head": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["policy_id", "audience", "version", "target_profile_sha256", "revocation_epoch"],
+      "properties": {
+        "policy_id": { "type": "string", "minLength": 1 },
+        "audience": { "type": "string", "minLength": 1 },
+        "version": { "type": "integer", "minimum": 1 },
+        "target_profile_sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+        "revocation_epoch": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "integrity_sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" }
+  }
+}
