@@ -95,6 +95,8 @@ use crate::identity_crypto::{self, EncryptedBlob};
 use ed25519_dalek::{Signature, Signer, SigningKey, VerifyingKey};
 use leptos::prelude::*;
 use std::cell::RefCell;
+use std::future::Future;
+use std::rc::Rc;
 use zeroize::Zeroize;
 
 /// Legacy key: pre-2026-07 builds stored a `did:mycelix:<12-random-bytes-hex>`
@@ -351,6 +353,89 @@ fn read_identity_storage_snapshot_from(
             .get_item(IDENTITY_SECRET_ENCRYPTED_KEY)
             .map_err(|_| ())?,
     })
+}
+
+/// Run a protected identity-storage transition under an origin-wide exclusive
+/// Web Lock. localStorage updates span multiple keys and are not a transaction;
+/// this lock serializes cooperating Mycelix tabs/workers for the full read-check-
+/// encrypt-write-verify sequence. We fail closed if the API is unavailable or
+/// rejects the request, rather than silently falling back to an unsafe mutation.
+#[cfg(target_arch = "wasm32")]
+async fn with_identity_transition_lock<T, F, Fut>(operation: F) -> Result<T, String>
+where
+    T: 'static,
+    F: FnOnce() -> Fut + 'static,
+    Fut: Future<Output = Result<T, String>> + 'static,
+{
+    use js_sys::{Function, Object, Promise, Reflect};
+    use wasm_bindgen::{JsCast, JsValue, closure::Closure};
+    use wasm_bindgen_futures::{JsFuture, future_to_promise};
+
+    let window = web_sys::window()
+        .ok_or_else(|| "Browser window is unavailable; identity transition refused.".to_string())?;
+    let navigator =
+        Reflect::get(window.as_ref(), &JsValue::from_str("navigator")).map_err(|_| {
+            "Browser navigator is unavailable; identity transition refused.".to_string()
+        })?;
+    let locks = Reflect::get(&navigator, &JsValue::from_str("locks"))
+        .map_err(|_| "Web Locks capability could not be inspected.".to_string())?;
+    if locks.is_null() || locks.is_undefined() {
+        return Err(
+            "This browser does not expose Web Locks; protected identity mutation is disabled to avoid cross-tab overwrite races.".into(),
+        );
+    }
+    let request = Reflect::get(&locks, &JsValue::from_str("request"))
+        .map_err(|_| "Web Locks request API is unavailable.".to_string())?
+        .dyn_into::<Function>()
+        .map_err(|_| "Web Locks request API has an unexpected type.".to_string())?;
+
+    let shared_result: Rc<RefCell<Option<Result<T, String>>>> = Rc::new(RefCell::new(None));
+    let callback_result = Rc::clone(&shared_result);
+    let callback = Closure::once_into_js(move |_lock: JsValue| {
+        future_to_promise(async move {
+            let result = operation().await;
+            *callback_result.borrow_mut() = Some(result);
+            Ok(JsValue::UNDEFINED)
+        })
+    });
+    let options = Object::new();
+    Reflect::set(
+        options.as_ref(),
+        &JsValue::from_str("mode"),
+        &JsValue::from_str("exclusive"),
+    )
+    .map_err(|_| "Could not configure the Web Lock request.".to_string())?;
+    let promise_value = request
+        .call3(
+            &locks,
+            &JsValue::from_str("mycelix.identity.storage-transition.v1"),
+            options.as_ref(),
+            &callback,
+        )
+        .map_err(|_| "The browser rejected the identity-storage lock request.".to_string())?;
+    let promise = promise_value
+        .dyn_into::<Promise>()
+        .map_err(|_| "The Web Locks request did not return a Promise.".to_string())?;
+    let lock_result = JsFuture::from(promise).await;
+    if lock_result.is_err() && shared_result.borrow().is_none() {
+        return Err(
+            "The exclusive identity-storage lock was not acquired; no protected transition was performed.".into(),
+        );
+    }
+    shared_result
+        .borrow_mut()
+        .take()
+        .unwrap_or_else(|| Err("The lock callback completed without a transition result.".into()))
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+async fn with_identity_transition_lock<T, F, Fut>(_operation: F) -> Result<T, String>
+where
+    T: 'static,
+    F: FnOnce() -> Fut + 'static,
+    Fut: Future<Output = Result<T, String>> + 'static,
+{
+    Err("Protected identity storage transitions require a browser Web Locks manager.".into())
 }
 
 fn classify_identity_storage_snapshot(
@@ -714,6 +799,27 @@ pub fn export_unlocked_identity_seed_phrase() -> Result<String, String> {
 pub async fn create_protected_identity(
     passphrase: &str,
 ) -> Result<LocalIdentityStoragePosture, String> {
+    let secret = Rc::new(RefCell::new(Some(passphrase.to_string())));
+    let secret_for_operation = Rc::clone(&secret);
+    let result = with_identity_transition_lock(move || async move {
+        let mut passphrase = secret_for_operation
+            .borrow_mut()
+            .take()
+            .ok_or_else(|| "Passphrase buffer was already consumed.".to_string())?;
+        let result = create_protected_identity_locked(&passphrase).await;
+        passphrase.zeroize();
+        result
+    })
+    .await;
+    if let Some(mut remaining) = secret.borrow_mut().take() {
+        remaining.zeroize();
+    }
+    result
+}
+
+async fn create_protected_identity_locked(
+    passphrase: &str,
+) -> Result<LocalIdentityStoragePosture, String> {
     validate_new_identity_passphrase(passphrase)?;
     ensure_empty_identity_storage()?;
     let signing_key = try_generate_signing_key()?;
@@ -726,6 +832,33 @@ pub async fn create_protected_identity(
 /// identity. Replacement of an existing identity needs a separate, explicit
 /// confirmation flow with an expected-current-identity check.
 pub async fn restore_protected_identity_from_seed_phrase(
+    phrase: &str,
+    passphrase: &str,
+) -> Result<LocalIdentityStoragePosture, String> {
+    let secrets = Rc::new(RefCell::new(Some((
+        phrase.to_string(),
+        passphrase.to_string(),
+    ))));
+    let secrets_for_operation = Rc::clone(&secrets);
+    let result = with_identity_transition_lock(move || async move {
+        let (mut phrase, mut passphrase) = secrets_for_operation
+            .borrow_mut()
+            .take()
+            .ok_or_else(|| "Recovery buffers were already consumed.".to_string())?;
+        let result = restore_protected_identity_locked(&phrase, &passphrase).await;
+        phrase.zeroize();
+        passphrase.zeroize();
+        result
+    })
+    .await;
+    if let Some((mut phrase, mut passphrase)) = secrets.borrow_mut().take() {
+        phrase.zeroize();
+        passphrase.zeroize();
+    }
+    result
+}
+
+async fn restore_protected_identity_locked(
     phrase: &str,
     passphrase: &str,
 ) -> Result<LocalIdentityStoragePosture, String> {
@@ -873,6 +1006,27 @@ async fn persist_protected_signing_key(
 /// envelope has been read back successfully, and attempts to restore the
 /// unprotected state if the final protected-state verification fails.
 pub async fn protect_existing_identity(
+    passphrase: &str,
+) -> Result<LocalIdentityStoragePosture, String> {
+    let secret = Rc::new(RefCell::new(Some(passphrase.to_string())));
+    let secret_for_operation = Rc::clone(&secret);
+    let result = with_identity_transition_lock(move || async move {
+        let mut passphrase = secret_for_operation
+            .borrow_mut()
+            .take()
+            .ok_or_else(|| "Passphrase buffer was already consumed.".to_string())?;
+        let result = protect_existing_identity_locked(&passphrase).await;
+        passphrase.zeroize();
+        result
+    })
+    .await;
+    if let Some(mut remaining) = secret.borrow_mut().take() {
+        remaining.zeroize();
+    }
+    result
+}
+
+async fn protect_existing_identity_locked(
     passphrase: &str,
 ) -> Result<LocalIdentityStoragePosture, String> {
     validate_new_identity_passphrase(passphrase)?;
@@ -1092,6 +1246,24 @@ pub async fn protect_with_passphrase(passphrase: &str) -> Result<(), String> {
 }
 
 async fn rewrap_protected_identity(passphrase: &str) -> Result<(), String> {
+    let secret = Rc::new(RefCell::new(Some(passphrase.to_string())));
+    let secret_for_operation = Rc::clone(&secret);
+    let result = with_identity_transition_lock(move || async move {
+        let mut passphrase = secret_for_operation
+            .borrow_mut()
+            .take()
+            .ok_or_else(|| "Passphrase buffer was already consumed.".to_string())?;
+        let result = rewrap_protected_identity_locked(&passphrase).await;
+        passphrase.zeroize();
+        result
+    })
+    .await;
+    if let Some(mut remaining) = secret.borrow_mut().take() {
+        remaining.zeroize();
+    }
+    result
+}
+async fn rewrap_protected_identity_locked(passphrase: &str) -> Result<(), String> {
     validate_new_identity_passphrase(passphrase)?;
     let signing_key = UNLOCKED_KEY
         .with(|cell| cell.borrow().clone())
@@ -1202,6 +1374,24 @@ async fn rewrap_protected_identity(passphrase: &str) -> Result<(), String> {
 /// passphrase and corrupt ciphertext are deliberately indistinguishable
 /// (see [`identity_crypto`] module docs).
 pub async fn unlock_with_passphrase(passphrase: &str) -> Result<SigningKey, String> {
+    let secret = Rc::new(RefCell::new(Some(passphrase.to_string())));
+    let secret_for_operation = Rc::clone(&secret);
+    let result = with_identity_transition_lock(move || async move {
+        let mut passphrase = secret_for_operation
+            .borrow_mut()
+            .take()
+            .ok_or_else(|| "Passphrase buffer was already consumed.".to_string())?;
+        let result = unlock_with_passphrase_locked(&passphrase).await;
+        passphrase.zeroize();
+        result
+    })
+    .await;
+    if let Some(mut remaining) = secret.borrow_mut().take() {
+        remaining.zeroize();
+    }
+    result
+}
+async fn unlock_with_passphrase_locked(passphrase: &str) -> Result<SigningKey, String> {
     // A failed unlock leaves the identity locked rather than reusing a prior
     // in-memory key against storage whose integrity may have changed.
     UNLOCKED_KEY.with(|cell| *cell.borrow_mut() = None);
@@ -1325,7 +1515,26 @@ async fn migrate_legacy_envelope(
 /// Same failure modes as [`unlock_with_passphrase`] (this calls it
 /// internally) — wrong passphrase, no protected identity, or corrupt blob.
 pub async fn remove_passphrase_protection(passphrase: &str) -> Result<(), String> {
-    let signing_key = unlock_with_passphrase(passphrase).await?;
+    let secret = Rc::new(RefCell::new(Some(passphrase.to_string())));
+    let secret_for_operation = Rc::clone(&secret);
+    let result = with_identity_transition_lock(move || async move {
+        let mut passphrase = secret_for_operation
+            .borrow_mut()
+            .take()
+            .ok_or_else(|| "Passphrase buffer was already consumed.".to_string())?;
+        let result = remove_passphrase_protection_locked(&passphrase).await;
+        passphrase.zeroize();
+        result
+    })
+    .await;
+    if let Some(mut remaining) = secret.borrow_mut().take() {
+        remaining.zeroize();
+    }
+    result
+}
+
+async fn remove_passphrase_protection_locked(passphrase: &str) -> Result<(), String> {
+    let signing_key = unlock_with_passphrase_locked(passphrase).await?;
     store_signing_key(&signing_key);
     remove_item(IDENTITY_SECRET_ENCRYPTED_KEY);
     Ok(())
@@ -2116,6 +2325,7 @@ mod browser_storage_tests {
                 IDENTITY_SECRET_KEY,
                 IDENTITY_PUBLIC_KEY,
                 IDENTITY_SECRET_ENCRYPTED_KEY,
+                IDENTITY_BACKUP_CONFIRMED_PUBLIC_KEY,
             ];
             let values = keys
                 .into_iter()
@@ -2138,6 +2348,7 @@ mod browser_storage_tests {
                 IDENTITY_SECRET_KEY,
                 IDENTITY_PUBLIC_KEY,
                 IDENTITY_SECRET_ENCRYPTED_KEY,
+                IDENTITY_BACKUP_CONFIRMED_PUBLIC_KEY,
             ] {
                 self.storage
                     .remove_item(key)
@@ -2301,6 +2512,39 @@ mod browser_storage_tests {
         assert!(public_key_matches_signing_key(&original_public, &rotated));
     }
 
+    #[wasm_bindgen_test]
+    async fn concurrent_protected_creation_requests_cannot_overwrite_the_winner() {
+        let _backup = IdentityStorageBackup::new_and_clear();
+        let first_passphrase = "synthetic first concurrent passphrase".to_string();
+        let second_passphrase = "synthetic second concurrent passphrase".to_string();
+        let (first, second) = futures_util::future::join(
+            create_protected_identity(&first_passphrase),
+            create_protected_identity(&second_passphrase),
+        )
+        .await;
+        assert_ne!(
+            first.is_ok(),
+            second.is_ok(),
+            "exactly one create can commit"
+        );
+
+        let storage = web_sys::window().unwrap().local_storage().unwrap().unwrap();
+        assert!(storage.get_item(IDENTITY_SECRET_KEY).unwrap().is_none());
+        let public_b64 = storage
+            .get_item(IDENTITY_PUBLIC_KEY)
+            .unwrap()
+            .expect("winning protected creation leaves public-key metadata");
+        let winning_passphrase = if first.is_ok() {
+            first_passphrase
+        } else {
+            second_passphrase
+        };
+        UNLOCKED_KEY.with(|cell| *cell.borrow_mut() = None);
+        let signing_key = unlock_with_passphrase(&winning_passphrase)
+            .await
+            .expect("the committed envelope unlocks with its winner's passphrase");
+        assert!(public_key_matches_signing_key(&public_b64, &signing_key));
+    }
     #[wasm_bindgen_test]
     async fn unlock_rejects_tampered_public_key_without_caching_decrypted_key() {
         let _backup = IdentityStorageBackup::new_and_clear();
