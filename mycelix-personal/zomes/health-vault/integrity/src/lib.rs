@@ -67,9 +67,17 @@ pub struct ConsentRevocation {
 #[hdk_entry_types]
 #[unit_enum(UnitEntryTypes)]
 pub enum EntryTypes {
+    /// Health payloads remain on the owner's source chain; never DHT-publish them.
+    #[entry_type(visibility = "private")]
     HealthRecord(HealthRecord),
+    /// Biometric values are sensitive source-chain data.
+    #[entry_type(visibility = "private")]
     Biometric(Biometric),
+    /// Grant metadata can reveal healthcare relationships and scopes.
+    #[entry_type(visibility = "private")]
     ConsentGrant(ConsentGrant),
+    /// Revocation metadata stays owner-local; protected reads check local history.
+    #[entry_type(visibility = "private")]
     ConsentRevocation(ConsentRevocation),
 }
 
