@@ -136,10 +136,6 @@ pub fn validate_contract(corpus_text: &str, schema_text: &str) -> Result<Contrac
     })
 }
 
-fn outcome_count_add(counts: &mut BTreeMap<String, usize>, outcome: &str) {
-    *counts.entry(outcome.to_string()).or_insert(0) += 1;
-}
-
 fn evidence_digest_set(execution: &Value) -> BTreeSet<String> {
     execution
         .get("evidence")
@@ -191,7 +187,6 @@ pub fn evaluate_receipt(
 ) -> Result<Value, String> {
     let summary = validate_contract(corpus_text, contract_schema_text)?;
     let corpus = parse_json(corpus_text, "scenario corpus")?;
-    let contract_schema = parse_json(contract_schema_text, "scenario schema")?;
     let receipt_schema = parse_json(receipt_schema_text, "receipt schema")?;
     let receipt = parse_json(receipt_text, "qualification receipt")?;
 
@@ -332,6 +327,8 @@ pub fn evaluate_receipt(
             "not_applicable"
         } else if outcome == "failed" || has_check_failure {
             "failed"
+        } else if !source_is_clean {
+            "incomplete"
         } else if outcome == "passed"
             && all_checks_passed
             && !evidence.is_empty()
@@ -339,7 +336,7 @@ pub fn evaluate_receipt(
         {
             "passed"
         } else if outcome == "unknown" || outcome == "skipped" || outcome == "not_run"
-            || has_unknown_check || !source_is_clean
+            || has_unknown_check
         {
             "incomplete"
         } else {
@@ -446,7 +443,7 @@ mod tests {
             .as_array()
             .unwrap()
             .iter()
-            .filter(|scenario| scenario["targets"].as_array().unwrap().iter().any(|item| item == target))
+            .filter(|scenario| scenario["targets"].as_array().unwrap().iter().any(|item| item.as_str() == Some(target)))
             .map(|scenario| {
                 let id = scenario["id"].as_str().unwrap();
                 let mut execution = json!({
