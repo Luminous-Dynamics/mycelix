@@ -3,19 +3,27 @@
 // Commercial licensing: see COMMERCIAL_LICENSE.md at repository root
 
 use praxis_core::evidence_efficiency::{
-    EVIDENCE_EFFICIENCY_BENCHMARK_ID, EvidenceRequestCatalog, EvidenceSourceKind, RequestAuthority,
-    validate_request_catalog,
+    CyberDomain, EVIDENCE_EFFICIENCY_BENCHMARK_ID, EvidenceRequestCatalog, EvidenceSourceKind,
+    RequestAuthority, validate_request_catalog,
 };
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, BTreeSet, HashSet};
 
 const CATALOG_JSON: &str =
-    include_str!("../../../examples/cyber-evidence-efficiency/v1/request-catalog.json");
+    include_str!("../../../examples/cyber-evidence-efficiency/v2/request-catalog.json");
 const EVALUATOR_JSON: &str =
-    include_str!("../../../examples/cyber-evidence-efficiency/v1/evaluator-only.json");
+    include_str!("../../../examples/cyber-evidence-efficiency/v2/evaluator-only.json");
 const CATALOG_SCHEMA: &str =
-    include_str!("../../../examples/cyber-evidence-efficiency/v1/request-catalog.schema.json");
+    include_str!("../../../examples/cyber-evidence-efficiency/v2/request-catalog.schema.json");
 const EVALUATOR_SCHEMA: &str =
+    include_str!("../../../examples/cyber-evidence-efficiency/v2/evaluator-only.schema.json");
+const CATALOG_V1_JSON: &str =
+    include_str!("../../../examples/cyber-evidence-efficiency/v1/request-catalog.json");
+const EVALUATOR_V1_JSON: &str =
+    include_str!("../../../examples/cyber-evidence-efficiency/v1/evaluator-only.json");
+const CATALOG_V1_SCHEMA: &str =
+    include_str!("../../../examples/cyber-evidence-efficiency/v1/request-catalog.schema.json");
+const EVALUATOR_V1_SCHEMA: &str =
     include_str!("../../../examples/cyber-evidence-efficiency/v1/evaluator-only.schema.json");
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -25,6 +33,16 @@ enum EvidenceQuality {
     Stale,
     Conflicting,
     Unavailable,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+enum EvidenceSufficiency {
+    FullSupport,
+    PartialSupport,
+    Irrelevant,
+    Absent,
+    Conflicting,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -50,6 +68,7 @@ struct EvaluatorScenario {
 struct RequestOutcome {
     request_id: String,
     quality: EvidenceQuality,
+    sufficiency: EvidenceSufficiency,
     labels_by_hypothesis: Vec<HypothesisOutcome>,
 }
 
@@ -72,6 +91,7 @@ struct RequestResult {
     request_id: String,
     disposition: RequestDisposition,
     quality: Option<EvidenceQuality>,
+    sufficiency: Option<EvidenceSufficiency>,
     expected_information_gain_milli_bits: u32,
 }
 
@@ -92,6 +112,11 @@ struct EfficiencyReport {
     expected_information_gain_milli_bits: u32,
     realized_information_gain_milli_bits: u32,
     zero_gain_current_requests: usize,
+    full_support_responses: usize,
+    partial_support_responses: usize,
+    irrelevant_responses: usize,
+    absent_responses: usize,
+    conflicting_sufficiency_responses: usize,
     stale_responses: usize,
     conflicting_responses: usize,
     unavailable_responses: usize,
