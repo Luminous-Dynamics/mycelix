@@ -1,0 +1,421 @@
+name: SYM-CIVIC-019 Independent Trusted Admission Verify
+
+on:
+  workflow_run:
+    workflows: ["SYM-CIVIC-019 Receipt Proof Binding"]
+    types: [completed]
+  workflow_dispatch:
+    inputs:
+      trigger_run_id:
+        description: "Exact completed 019 candidate workflow run ID"
+        required: true
+        type: string
+      pr_number:
+        description: "Exact candidate pull request number"
+        required: true
+        type: string
+      expected_head_sha:
+        description: "Exact candidate PR head SHA"
+        required: true
+        type: string
+
+permissions: {}
+
+concurrency:
+  group: sym-civic-019-trusted-admission-${{ inputs.expected_head_sha || github.event.workflow_run.head_sha }}
+  cancel-in-progress: false
+
+jobs:
+  verify:
+    name: Verify trusted 019 admission
+    if: >-
+      ${{ github.event_name == 'workflow_dispatch' ||
+          (github.event.workflow_run.event == 'pull_request' &&
+           github.event.workflow_run.repository.id == github.repository_id &&
+           github.event.workflow_run.head_repository.id == github.repository_id) }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      pull-requests: read
+      actions: read
+    steps:
+      - name: Assert trusted workflow control plane
+        env:
+          EXPECTED_WORKFLOW_REF: ${{ github.repository }}/.github/workflows/sym-civic-019-trusted-admission.yml@refs/heads/main
+          ACTUAL_WORKFLOW_REF: ${{ github.workflow_ref }}
+        run: |
+          set -euo pipefail
+          test "${ACTUAL_WORKFLOW_REF}" = "${EXPECTED_WORKFLOW_REF}"
+
+      - name: Checkout trusted verifier revision
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.workflow_sha }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Assert trusted verifier checkout
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "${{ github.workflow_sha }}"
+          test "$(git rev-parse HEAD:.github/workflows/sym-civic-019-trusted-admission.yml)" != ""
+          test "$(git rev-parse HEAD:mycelix-workspace/docs/civic-resilience/sym_civic_019_trusted_admission_v1.json)" = "9b04824d6b00e0f5489117dc63cbbb286aec3930"
+          test "$(git rev-parse HEAD:scripts/qualification/verify_sym_civic_019_trusted_semantics_v1.py)" = "d81f3e424f078945b9fdf4453fdff04c52b38614"
+
+      - name: Validate trusted workflow security invariants
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import re
+          from pathlib import Path
+
+          def require(condition, message):
+              if not condition:
+                  raise SystemExit("trusted workflow audit reject: " + message)
+
+          path = Path(".github/workflows/sym-civic-019-trusted-admission.yml")
+          text = path.read_text(encoding="utf-8")
+          audit_start = text.index("      - name: Validate trusted workflow security invariants")
+          audit_end = text.index("\n\n      - name: Verify exact trusted admission target", audit_start)
+          scanned = text[:audit_start] + text[audit_end:]
+
+          lines = scanned.splitlines()
+          permission_declarations = [
+              line for line in lines if re.match(r"^\s*permissions\s*:", line)
+          ]
+          require(permission_declarations == ["permissions: {}", "    permissions:"],
+                  "permission declarations differ from the exact allowlist")
+          job_permission_start = lines.index("    permissions:")
+          permission_body = []
+          for line in lines[job_permission_start + 1:]:
+              if not line.strip() or line.lstrip().startswith("#"):
+                  continue
+              indent = len(line) - len(line.lstrip())
+              if indent <= 4:
+                  break
+              permission_body.append(line)
+          require(permission_body == [
+              "      contents: read",
+              "      pull-requests: read",
+              "      actions: read",
+          ], "job permission body differs from the exact allowlist")
+
+          require("persist-credentials: false" in scanned, "checkout credential persistence")
+          require("cancel-in-progress: false" in scanned, "non-cancellable evidence")
+          require("secrets." not in scanned, "secret usage")
+          require("actions/cache@" not in scanned, "cache action")
+          require("pull_request_target" not in scanned, "privileged PR trigger")
+
+          refs = []
+          pattern = re.compile(r"^\s*(?:-\s+)?uses:\s+([A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+)@([0-9a-f]{40})(?:\s+#.*)?$")
+          for line in scanned.splitlines():
+              stripped = line.lstrip()
+              if not (stripped.startswith("- uses:") or stripped.startswith("uses:")):
+                  continue
+              match = pattern.fullmatch(line)
+              require(match is not None, "unfixed action reference: " + repr(line))
+              action, ref = match.groups()
+              refs.append((action, ref))
+          require(refs == [
+              ("actions/checkout", "3d3c42e5aac5ba805825da76410c181273ba90b1"),
+              ("actions/upload-artifact", "043fb46d1a93c77aae656e7c1c64a875d1fc6a0a"),
+          ], "immutable action reference sequence/allowlist")
+          print("trusted workflow privilege/action audit: PASS")
+          PY
+
+      - name: Verify exact trusted admission target
+        env:
+          TARGET_SHA: ${{ inputs.expected_head_sha || github.event.workflow_run.head_sha }}
+          TRIGGER_RUN_ID: ${{ inputs.trigger_run_id || github.event.workflow_run.id }}
+          TRIGGER_RUN_ATTEMPT: ${{ github.event.workflow_run.run_attempt || 0 }}
+          MANUAL_PR_NUMBER: ${{ inputs.pr_number || '' }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+
+          manifest="mycelix-workspace/docs/civic-resilience/sym_civic_019_trusted_admission_v1.json"
+          evidence="sym-civic-019-trusted-admission.txt"
+          test -s "${manifest}"
+          if [[ "${GITHUB_EVENT_NAME}" == "workflow_dispatch" ]]; then
+            test -n "${MANUAL_PR_NUMBER}"
+            test -n "${TARGET_SHA}"
+            test -n "${TRIGGER_RUN_ID}"
+            manifest_target="$(python3 - "${manifest}" <<'PY'
+          import json
+          import sys
+          print(json.load(open(sys.argv[1], encoding="utf-8"))["candidate_subject"])
+          PY
+            )"
+            manifest_pr="$(python3 - "${manifest}" <<'PY'
+          import json
+          import sys
+          print(json.load(open(sys.argv[1], encoding="utf-8"))["pr_number"])
+          PY
+            )"
+            test "${TARGET_SHA}" = "${manifest_target}"
+            test "${MANUAL_PR_NUMBER}" = "${manifest_pr}"
+          fi
+
+          gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${TRIGGER_RUN_ID}" > /tmp/trigger.json
+          gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${TRIGGER_RUN_ID}/jobs?per_page=100" > /tmp/trigger-jobs.json
+
+          trigger_run_attempt="$(python3 - /tmp/trigger.json <<'PY'
+          import json
+          import sys
+          print(json.load(open(sys.argv[1], encoding="utf-8")).get("run_attempt", 0))
+          PY
+          )"
+
+          python3 - "${manifest}" /tmp/trigger.json /tmp/trigger-jobs.json "${TRIGGER_RUN_ATTEMPT}" "${trigger_run_attempt}" <<'PY'
+          import json
+          import re
+          import sys
+
+          def require(condition, message):
+              if not condition:
+                  raise SystemExit("trusted admission reject: " + message)
+
+          manifest = json.load(open(sys.argv[1], encoding="utf-8"))
+          run = json.load(open(sys.argv[2], encoding="utf-8"))
+          jobs = json.load(open(sys.argv[3], encoding="utf-8"))
+          event_attempt = int(sys.argv[4])
+          live_attempt = int(sys.argv[5])
+
+          sha40 = re.compile(r"^[0-9a-f]{40}$")
+          expected_top_keys = {
+              "schema", "qualification_workflow", "trusted_admission_workflow",
+              "pr_number", "parent_subject", "candidate_subject",
+              "expected_changed_files", "expected_blob_sha", "required_successful_jobs",
+              "semantic_expectations", "trusted_semantic_oracle",
+          }
+          require(type(manifest) is dict and set(manifest) == expected_top_keys,
+                  "manifest closed-world schema")
+          require(manifest.get("schema") == "MYCELIX-SYM-CIVIC-019-TRUSTED-ADMISSION-V1",
+                  "manifest schema")
+          admission = manifest["qualification_workflow"]
+          require(type(admission) is dict and set(admission) == {
+              "workflow_id", "path", "repository_id", "repository", "event"
+          }, "candidate workflow schema")
+          require(admission["workflow_id"] == 378147946, "candidate workflow ID")
+          require(admission["path"] == ".github/workflows/sym-civic-019-receipt-proof-binding.yml",
+                  "candidate workflow path")
+          require(admission["repository_id"] == 1176351975, "candidate repository ID")
+          require(admission["repository"] == "Luminous-Dynamics/mycelix", "candidate repository name")
+          require(admission["event"] == "pull_request", "candidate event")
+          trusted = manifest["trusted_admission_workflow"]
+          require(type(trusted) is dict and set(trusted) == {
+              "path", "repository_id", "repository", "ref"
+          }, "trusted workflow schema")
+          require(trusted["path"] == ".github/workflows/sym-civic-019-trusted-admission.yml",
+                  "trusted workflow path")
+          require(trusted["repository_id"] == 1176351975, "trusted repository ID")
+          require(trusted["repository"] == "Luminous-Dynamics/mycelix", "trusted repository name")
+          require(trusted["ref"] == "refs/heads/main", "trusted workflow ref")
+          require(manifest["trusted_semantic_oracle"] == {
+              "path": "scripts/qualification/verify_sym_civic_019_trusted_semantics_v1.py",
+              "claim_ceiling": "TRUSTED_SEMANTIC_ORACLE_RESEARCH_ONLY",
+              "candidate_code_executed": False,
+              "negative_control_count": 11,
+              "tree_size_max_inclusive": 4611686018427387904,
+              "positive_inclusion_matrix": {
+                  "tree_sizes": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16],
+                  "expected_case_count": 136,
+              },
+          }, "trusted semantic oracle profile")
+          target = manifest["candidate_subject"]
+          parent = manifest["parent_subject"]
+          require(isinstance(target, str) and sha40.fullmatch(target) is not None, "candidate SHA format")
+          require(isinstance(parent, str) and sha40.fullmatch(parent) is not None, "parent SHA format")
+          require(type(run.get("id")) is int and run["id"] > 0, "trigger run ID")
+          require(type(run.get("run_attempt")) is int and live_attempt == run["run_attempt"], "live run attempt")
+          if event_attempt > 0:
+              require(event_attempt == run["run_attempt"], "event run attempt")
+          require(run.get("head_sha") == target, "trigger head SHA")
+          require(run.get("event") == "pull_request", "trigger event")
+          require(run.get("workflow_id") == admission["workflow_id"], "trigger workflow ID")
+          require(run.get("path") == admission["path"], "trigger workflow path")
+          require((run.get("repository") or {}).get("id") == admission["repository_id"], "trigger repo ID")
+          require((run.get("repository") or {}).get("full_name") == admission["repository"], "trigger repo name")
+          require((run.get("head_repository") or {}).get("id") == admission["repository_id"], "trigger head repo ID")
+          require((run.get("head_repository") or {}).get("full_name") == admission["repository"], "trigger head repo name")
+          require(run.get("status") == "completed", "trigger run not completed")
+          require(run.get("conclusion") == "success", "trigger run not successful")
+          associated_prs = run.get("pull_requests")
+          require(isinstance(associated_prs, list), "trigger PR association missing")
+          require(any(
+              item.get("number") == manifest["pr_number"]
+              and (item.get("head") or {}).get("sha") == target
+              and (item.get("base") or {}).get("sha") == parent
+              for item in associated_prs if isinstance(item, dict)
+          ), "trigger PR/head/base mismatch")
+          required_jobs = manifest["required_successful_jobs"]
+          require(isinstance(required_jobs, list) and len(required_jobs) == 3
+                  and len(required_jobs) == len(set(required_jobs)), "required job names")
+          job_rows = jobs.get("jobs")
+          require(isinstance(job_rows, list), "candidate job list missing")
+          observed = {}
+          for job in job_rows:
+              if not isinstance(job, dict):
+                  continue
+              name = job.get("name")
+              if name in required_jobs:
+                  observed.setdefault(name, []).append(job)
+          for name in required_jobs:
+              matches = [
+                  job for job in observed.get(name, [])
+                  if job.get("run_id") == run["id"]
+                  and job.get("status") == "completed"
+                  and job.get("conclusion") == "success"
+              ]
+              require(len(matches) == 1, "required job not uniquely successful: " + name)
+          print("trigger workflow identity: PASS")
+          print("required hosted jobs: PASS")
+          print("trigger run:", run["id"])
+          print("candidate:", target)
+          print("parent:", parent)
+          PY
+
+          pr_number="$(python3 - "${manifest}" <<'PY'
+          import json
+          import sys
+          print(json.load(open(sys.argv[1], encoding="utf-8"))["pr_number"])
+          PY
+          )"
+
+          gh api "repos/${GITHUB_REPOSITORY}/pulls/${pr_number}" > /tmp/pr.json
+
+          python3 - "${manifest}" /tmp/pr.json <<'PY'
+          import json
+          import re
+          import sys
+
+          def require(condition, message):
+              if not condition:
+                  raise SystemExit("live PR identity reject: " + message)
+
+          manifest = json.load(open(sys.argv[1], encoding="utf-8"))
+          pr = json.load(open(sys.argv[2], encoding="utf-8"))
+          sha40 = re.compile(r"^[0-9a-f]{40}$")
+          require(pr.get("number") == manifest["pr_number"], "PR number")
+          require(pr.get("state") == "open", "PR state")
+          head = pr.get("head") or {}
+          base = pr.get("base") or {}
+          require(head.get("sha") == manifest["candidate_subject"], "PR head SHA")
+          require(base.get("sha") == manifest["parent_subject"], "PR base SHA")
+          require((head.get("repo") or {}).get("id") == 1176351975, "head repo ID")
+          require((head.get("repo") or {}).get("full_name") == "Luminous-Dynamics/mycelix", "head repo")
+          require((base.get("repo") or {}).get("id") == 1176351975, "base repo ID")
+          require((base.get("repo") or {}).get("full_name") == "Luminous-Dynamics/mycelix", "base repo")
+          require(isinstance(head.get("sha"), str) and sha40.fullmatch(head["sha"]) is not None,
+                  "head SHA format")
+          require(isinstance(base.get("sha"), str) and sha40.fullmatch(base["sha"]) is not None,
+                  "base SHA format")
+          print("live PR identity: PASS")
+          PY
+
+          git fetch --no-tags origin "${TARGET_SHA}"
+          git cat-file -e "${TARGET_SHA}^{commit}"
+
+          parent="$(python3 - "${manifest}" <<'PY'
+          import json
+          import sys
+          print(json.load(open(sys.argv[1], encoding="utf-8"))["parent_subject"])
+          PY
+          )"
+
+          test "$(git merge-base "${TARGET_SHA}" "${parent}")" = "${parent}"
+          test "$(git rev-parse "${TARGET_SHA}^")" = "${parent}"
+          test "$(git rev-list --count "${parent}..${TARGET_SHA}")" = "1"
+
+          expected="$(python3 - "${manifest}" <<'PY'
+          import json
+          import sys
+          print("\n".join(sorted(json.load(open(sys.argv[1], encoding="utf-8"))["expected_changed_files"])))
+          PY
+          )"
+          actual="$(git diff --name-only "${parent}" "${TARGET_SHA}" | sort)"
+          test "${actual}" = "${expected}"
+          git diff --check "${parent}" "${TARGET_SHA}"
+
+          python3 - "${manifest}" "${TARGET_SHA}" <<'PY'
+          import json
+          import subprocess
+          import sys
+
+          manifest = json.load(open(sys.argv[1], encoding="utf-8"))
+          target = sys.argv[2]
+          expected = manifest["expected_blob_sha"]
+          def require(condition, message):
+              if not condition:
+                  raise SystemExit("candidate blob inventory reject: " + message)
+
+          require(set(expected) == set(manifest["expected_changed_files"]),
+                  "expected blob map key set")
+          actual = {}
+          for path in manifest["expected_changed_files"]:
+              actual[path] = subprocess.check_output(
+                  ["git", "rev-parse", f"{target}:{path}"], text=True
+              ).strip()
+          require(actual == expected, "candidate Git blob identities differ: " + repr({"expected": expected, "actual": actual}))
+          for path in manifest["expected_changed_files"]:
+              print(f"{path}={actual[path]}")
+          print("candidate research-surface blob identities: PASS")
+          PY
+
+          git worktree add --detach /tmp/sym-civic-019-candidate "${TARGET_SHA}"
+          trap 'git worktree remove --force /tmp/sym-civic-019-candidate >/dev/null 2>&1 || true' EXIT
+
+          python3 scripts/qualification/verify_sym_civic_019_trusted_semantics_v1.py \
+            --candidate-root /tmp/sym-civic-019-candidate \
+            --trusted-manifest "${manifest}" \
+            --report sym-civic-019-trusted-semantic-oracle.json
+
+          test -s sym-civic-019-trusted-semantic-oracle.json
+
+          trusted_sha="${{ github.workflow_sha }}"
+          trusted_blob="$(git rev-parse "${trusted_sha}:.github/workflows/sym-civic-019-trusted-admission.yml)"
+          trusted_manifest_blob="$(git rev-parse "${trusted_sha}:mycelix-workspace/docs/civic-resilience/sym_civic_019_trusted_admission_v1.json)"
+
+          {
+            echo "SYM-CIVIC-019 TRUSTED ADMISSION"
+            echo "result=PASS"
+            echo "claim_ceiling=TRUSTED_ADMISSION_AND_SYNTHETIC_SEMANTIC_ORACLE_RESEARCH_ONLY"
+            echo "admission_result=PASS"
+            echo "semantic_oracle_claim_ceiling=TRUSTED_SEMANTIC_ORACLE_RESEARCH_ONLY"
+            echo "repository=${GITHUB_REPOSITORY}"
+            echo "repository_id=1176351975"
+            echo "pr_number=${pr_number}"
+            echo "candidate_subject=${TARGET_SHA}"
+            echo "parent_subject=${parent}"
+            echo "trigger_run_id=${TRIGGER_RUN_ID}"
+            echo "trigger_run_attempt=${trigger_run_attempt}"
+            echo "trigger_workflow_id=378147946"
+            echo "trigger_workflow_path=.github/workflows/sym-civic-019-receipt-proof-binding.yml"
+            echo "trusted_workflow_ref=${{ github.workflow_ref }}"
+            echo "trusted_workflow_sha=${trusted_sha}"
+            echo "trusted_workflow_file_blob_sha=${trusted_blob}"
+            echo "trusted_manifest_file_blob_sha=${trusted_manifest_blob}"
+            echo "trusted_semantic_oracle_file_blob_sha=$(git rev-parse "${trusted_sha}:scripts/qualification/verify_sym_civic_019_trusted_semantics_v1.py")"
+            echo "trusted_semantic_oracle_sha256=$(sha256sum scripts/qualification/verify_sym_civic_019_trusted_semantics_v1.py | cut -d" " -f1)"
+            echo "trusted_semantic_oracle_result=$(python3 -c 'import json; print(json.load(open("sym-civic-019-trusted-semantic-oracle.json"))["result"])')"
+            echo "trusted_semantic_negative_controls=$(python3 -c 'import json; print(json.load(open("sym-civic-019-trusted-semantic-oracle.json"))["negative_control_count"])')"
+            echo "trusted_semantic_positive_inclusion_matrix_cases=$(python3 -c 'import json; print(json.load(open("sym-civic-019-trusted-semantic-oracle.json"))["positive_inclusion_matrix"]["case_count"])')"
+            echo "trusted_semantic_positive_inclusion_matrix_pass=$(python3 -c 'import json; print(str(json.load(open("sym-civic-019-trusted-semantic-oracle.json"))["positive_inclusion_matrix"]["all_pass"]).lower())')"
+            echo "required_jobs=3"
+            echo "production_authority=false"
+            echo "cryptographic_authority=false"
+            echo "semantic_oracle_recomputed=true"
+            echo "semantic_oracle_authority=RESEARCH_ONLY"
+            echo "issuer_signature_verification=NOT_EVALUATED"
+          } | tee "${evidence}"
+
+      - name: Upload trusted admission evidence
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: sym-civic-019-trusted-admission-${{ inputs.expected_head_sha || github.event.workflow_run.head_sha }}
+          path: |
+            sym-civic-019-trusted-admission.txt
+            sym-civic-019-trusted-semantic-oracle.json
+          if-no-files-found: error
+          retention-days: 90

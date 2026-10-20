@@ -1,0 +1,93 @@
+name: SYM-CIVIC-019 Trusted Oracle Self-Test (Non-Authoritative)
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+    paths:
+      - ".github/workflows/sym-civic-019-trusted-admission.yml"
+      - ".github/workflows/sym-civic-019-trusted-admission-selftest.yml"
+      - "mycelix-workspace/docs/civic-resilience/sym_civic_019_trusted_admission_v1.json"
+      - "scripts/qualification/verify_sym_civic_019_trusted_semantics_v1.py"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: sym-civic-019-trusted-oracle-selftest-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  selftest:
+    name: Run trusted-oracle development self-test
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout proposed control-plane revision
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          persist-credentials: false
+
+      - name: Checkout exact candidate subject as untrusted input
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: Luminous-Dynamics/mycelix
+          ref: df8fef90262caf025c1c5139abff2cc619d0fbab
+          path: candidate
+          persist-credentials: false
+
+      - name: Assert both exact subjects
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "${{ github.event.pull_request.head.sha }}"
+          test "$(git -C candidate rev-parse HEAD)" = "df8fef90262caf025c1c5139abff2cc619d0fbab"
+
+      - name: Compile trusted oracle without executing candidate code
+        run: python3 -m py_compile scripts/qualification/verify_sym_civic_019_trusted_semantics_v1.py
+
+      - name: Run bounded trusted semantic oracle
+        run: |
+          set -euo pipefail
+          python3 scripts/qualification/verify_sym_civic_019_trusted_semantics_v1.py             --candidate-root candidate             --trusted-manifest mycelix-workspace/docs/civic-resilience/sym_civic_019_trusted_admission_v1.json             --report trusted-oracle-selftest-report.json
+
+      - name: Independently check self-test report contract
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+
+          def require(condition, message):
+              if not condition:
+                  raise SystemExit("self-test report reject: " + message)
+
+          report = json.loads(Path("trusted-oracle-selftest-report.json").read_text(encoding="utf-8"))
+          require(report.get("schema") == "MYCELIX-SYM-CIVIC-019-TRUSTED-SEMANTIC-ORACLE-V5", "schema")
+          require(report.get("candidate_input_only") is True, "candidate-input-only claim")
+          require(report.get("candidate_code_executed") is False, "candidate code execution claim")
+          require(report.get("result") == "PASS", "overall result")
+          require(report.get("statement_issuer") == "https://arp.synthetic.mycelix",
+                  "trusted Signed Statement issuer binding")
+          require(report.get("statement_subject") == "stmt-019-001",
+                  "trusted Signed Statement subject binding")
+          require(report.get("negative_control_count") == 11, "negative-control count")
+          matrix = report.get("positive_inclusion_matrix")
+          require(isinstance(matrix, dict), "positive inclusion matrix report")
+          require(matrix.get("tree_sizes_tested") == list(range(1, 17)), "positive inclusion tree sizes")
+          require(matrix.get("case_count") == 136, "positive inclusion case count")
+          require(matrix.get("all_pass") is True, "positive inclusion matrix all pass")
+          require(len(matrix.get("cases", [])) == 136, "positive inclusion matrix rows")
+          require(all(row.get("verdict") == "PASS" for row in matrix["cases"]),
+                  "every positive inclusion case must pass")
+          require(report.get("tree_size_max_inclusive") == 2**62, "local synthetic profile tree-size cap")
+          require(report.get("tree_size_limit_scope") == "LOCAL_SYNTHETIC_PROFILE_NOT_RFC_REQUIREMENT",
+                  "local profile cap must not be claimed as RFC requirement")
+          require(report.get("negative_controls_all_rejected") is True, "negative-control verdict")
+          require(report.get("issuer_signature_verification") == "NOT_EVALUATED", "issuer signature non-claim")
+          require(len(report.get("negative_controls", [])) == 11, "negative-control rows")
+          require(all(row.get("verdict") == "REJECT" for row in report["negative_controls"]),
+                  "all negative controls must explicitly reject")
+          print("non-authoritative trusted-oracle self-test contract: PASS")
+          PY

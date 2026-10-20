@@ -1,0 +1,78 @@
+{
+  "schema": "MYCELIX-SYM-CIVIC-019-TRUSTED-ADMISSION-V1",
+  "qualification_workflow": {
+    "workflow_id": 378147946,
+    "path": ".github/workflows/sym-civic-019-receipt-proof-binding.yml",
+    "repository_id": 1176351975,
+    "repository": "Luminous-Dynamics/mycelix",
+    "event": "pull_request"
+  },
+  "trusted_admission_workflow": {
+    "path": ".github/workflows/sym-civic-019-trusted-admission.yml",
+    "repository_id": 1176351975,
+    "repository": "Luminous-Dynamics/mycelix",
+    "ref": "refs/heads/main"
+  },
+  "pr_number": 4671,
+  "parent_subject": "445a84abdaa64f3d05e2d5c51115e4d060b78ec7",
+  "candidate_subject": "df8fef90262caf025c1c5139abff2cc619d0fbab",
+  "expected_changed_files": [
+    ".github/workflows/sym-civic-019-receipt-proof-binding.yml",
+    "mycelix-workspace/docs/civic-resilience/scitt-cose-v1/manifest.json",
+    "mycelix-workspace/docs/civic-resilience/sym_civic_019_receipt_proof_binding_manifest_v1.json",
+    "mycelix-workspace/docs/civic-resilience/sym_civic_019_receipt_proof_binding_v1.json",
+    "scripts/qualification/sym_civic_019_receipt_proof_binding_v1.py",
+    "scripts/qualification/sym_civic_019_scitt_cose_interop_v1.py"
+  ],
+  "expected_blob_sha": {
+    ".github/workflows/sym-civic-019-receipt-proof-binding.yml": "461ec23a4cc3192f1989dfd828394611d97941a2",
+    "mycelix-workspace/docs/civic-resilience/scitt-cose-v1/manifest.json": "6b5017a8677b6e3028a8a6209b79771194726cb7",
+    "mycelix-workspace/docs/civic-resilience/sym_civic_019_receipt_proof_binding_manifest_v1.json": "541892e1dfb5f0094d03795d61bbdb3317d2da5d",
+    "mycelix-workspace/docs/civic-resilience/sym_civic_019_receipt_proof_binding_v1.json": "d27dfabddecea44aa8e3a0fc233ccdd43d4db571",
+    "scripts/qualification/sym_civic_019_receipt_proof_binding_v1.py": "cc79feffc9026386795e9320d5f1c426e97c1ce5",
+    "scripts/qualification/sym_civic_019_scitt_cose_interop_v1.py": "235cbb7d9811d350bc1028a358a86abe2f23e842"
+  },
+  "required_successful_jobs": [
+    "SYM-CIVIC-019 synthetic exact-object qualification",
+    "SYM-CIVIC-019 external SCITT/COSE interoperability",
+    "SYM-CIVIC-019 current-head qualification conjunction"
+  ],
+  "semantic_expectations": {
+    "profile": "RFC9162_SHA256_SYNTHETIC_V1",
+    "vds_id": 1,
+    "vdp_id": -1,
+    "entry_sha256": "5d3f9f28472378d5da390171d4ab99405a7efb9d78d3ee50cd6fec0c5daa6c26",
+    "statement_sha256": "5d3f9f28472378d5da390171d4ab99405a7efb9d78d3ee50cd6fec0c5daa6c26",
+    "receipt_a_sha256": "1f2a5388f1040ebf57eaf4c6dc6eb8795865a585faa2f2d5d199cf3a11afcf4d",
+    "receipt_b_sha256": "383e7c482a7d7c07fef72a4d5953b293e61fe1d661a0dd627a16307e4ff893bc",
+    "root_hash": "015038320762a26532a00cd545ed2260cd856cd648e4490ccc7c3f3593730462",
+    "merkle_root": "a64bf26e09128f6fe2fe6f8b2d8c801e166b57c047a7cd9b2b809e7a96a2f1cb",
+    "tree_size": 1,
+    "leaf_index": 0,
+    "subject": "stmt-019-001",
+    "identities": {
+      "A": {
+        "kid_hex": "54532d412d303139",
+        "issuer": "https://ts-a.synthetic.mycelix",
+        "public_key_pem": "-----BEGIN PUBLIC KEY-----\nMCowBQYDK2VwAyEASsV5oFXBuj5MOihdFeS5KUAlryoX+IBbnD4kRILhvYQ=\n-----END PUBLIC KEY-----\n"
+      },
+      "B": {
+        "kid_hex": "54532d422d303139",
+        "issuer": "https://ts-b.synthetic.mycelix",
+        "public_key_pem": "-----BEGIN PUBLIC KEY-----\nMCowBQYDK2VwAyEAp1bjo0NG/MI8hEFoi/rjz9QU8vMI/8vCLLHJAVXTzSk=\n-----END PUBLIC KEY-----\n"
+      }
+    },
+    "statement_issuer": "https://arp.synthetic.mycelix"
+  },
+  "trusted_semantic_oracle": {
+    "path": "scripts/qualification/verify_sym_civic_019_trusted_semantics_v1.py",
+    "claim_ceiling": "TRUSTED_SEMANTIC_ORACLE_RESEARCH_ONLY",
+    "candidate_code_executed": false,
+    "negative_control_count": 11,
+    "tree_size_max_inclusive": 4611686018427387904,
+    "positive_inclusion_matrix": {
+      "tree_sizes": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16],
+      "expected_case_count": 136
+    }
+  }
+}
