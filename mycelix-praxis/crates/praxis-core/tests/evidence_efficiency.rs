@@ -481,6 +481,7 @@ fn baseline_trace(
             let available = scenario
                 .requests
                 .iter()
+                .filter(|request| authorized_authorities.contains(&request.required_authority))
                 .map(|request| request.request_id.as_str())
                 .collect::<BTreeSet<_>>();
             Ok(PLAYBOOK
@@ -635,7 +636,7 @@ fn oracle_information_gain_per_cost_trace(
 }
 
 #[test]
-fn schemas_are_draft_2020_12_and_accept_both_valid_fixtures() {
+fn v2_schemas_are_draft_2020_12_and_accept_five_domain_fixtures() {
     let catalog_schema: serde_json::Value =
         serde_json::from_str(CATALOG_SCHEMA).expect("catalog schema parses");
     let evaluator_schema: serde_json::Value =
@@ -656,10 +657,40 @@ fn valid_catalog_and_evaluator_have_complete_cross_file_mappings() {
     let catalog = catalog_fixture();
     let evaluator = evaluator_fixture();
     assert_eq!(catalog.benchmark_id, EVIDENCE_EFFICIENCY_BENCHMARK_ID);
+    assert_eq!(catalog.schema_version, 2);
+    assert_eq!(catalog.benchmark_version, "0.2.0");
     validate_request_catalog(&catalog).unwrap();
     validate_evaluator_pair(&catalog, &evaluator).unwrap();
+    assert_eq!(catalog.scenarios.len(), 5);
     assert_eq!(catalog.scenarios[0].hypotheses.len(), 4);
     assert_eq!(catalog.scenarios[0].requests.len(), 5);
+    let domains = catalog
+        .scenarios
+        .iter()
+        .map(|scenario| serde_json::to_value(scenario.domain).unwrap().as_str().unwrap().to_string())
+        .collect::<BTreeSet<_>>();
+    assert_eq!(
+        domains,
+        BTreeSet::from([
+            "identity_access".to_string(),
+            "network_configuration".to_string(),
+            "supply_chain_provenance".to_string(),
+            "ai_tool_boundaries".to_string(),
+            "endpoint_response_telemetry".to_string(),
+        ])
+    );
+    let sufficiency = evaluator
+        .scenarios
+        .iter()
+        .flat_map(|scenario| scenario.request_outcomes.iter())
+        .map(|outcome| outcome.sufficiency)
+        .collect::<BTreeSet<_>>();
+    assert_eq!(sufficiency.len(), 5);
+    assert!(sufficiency.contains(&EvidenceSufficiency::FullSupport));
+    assert!(sufficiency.contains(&EvidenceSufficiency::PartialSupport));
+    assert!(sufficiency.contains(&EvidenceSufficiency::Irrelevant));
+    assert!(sufficiency.contains(&EvidenceSufficiency::Absent));
+    assert!(sufficiency.contains(&EvidenceSufficiency::Conflicting));
 }
 
 #[test]
@@ -680,14 +711,19 @@ fn schemas_reject_extra_fields_and_zero_cost_gaming() {
     zero_cost["scenarios"][0]["requests"][0]["cost_units"] = serde_json::Value::from(0);
     assert!(!catalog_validator.is_valid(&zero_cost));
 
-    let mut invalid_quality = evaluator;
+    let mut invalid_quality = evaluator.clone();
     invalid_quality["scenarios"][0]["request_outcomes"][0]["quality"] =
         serde_json::Value::String("confirmed_compromise".into());
     assert!(!evaluator_validator.is_valid(&invalid_quality));
+
+    let mut invalid_sufficiency = evaluator;
+    invalid_sufficiency["scenarios"][0]["request_outcomes"][0]["sufficiency"] =
+        serde_json::Value::String("guaranteed_truth".into());
+    assert!(!evaluator_validator.is_valid(&invalid_sufficiency));
 }
 
 #[test]
-fn best_current_request_has_two_bits_of_expected_and_realized_information() {
+fn one_partial_request_must_preserve_material_ambiguity() {
     let catalog = catalog_fixture();
     let evaluator = evaluator_fixture();
     let report = evaluate_policy(
@@ -705,34 +741,48 @@ fn best_current_request_has_two_bits_of_expected_and_realized_information() {
     assert_eq!(report.requests_executed, 1);
     assert_eq!(report.total_cost_units, 2);
     assert_eq!(report.latency_bound_minutes, 3);
-    assert_eq!(report.expected_information_gain_milli_bits, 2000);
-    assert_eq!(report.realized_information_gain_milli_bits, 2000);
-    assert_eq!(report.remaining_hypotheses, vec!["compromised_session"]);
+    assert_eq!(report.expected_information_gain_milli_bits, 1500);
+    assert_eq!(report.realized_information_gain_milli_bits, 1000);
+    assert_eq!(
+        report.remaining_hypotheses,
+        vec!["compromised_session", "stale_sensor_false_alarm"]
+    );
+    assert_eq!(report.partial_support_responses, 1);
 }
 
 #[test]
-fn request_after_resolution_is_measured_as_zero_incremental_gain() {
+fn privileged_followup_resolves_partial_support_with_authority() {
     let catalog = catalog_fixture();
     let evaluator = evaluator_fixture();
     let report = evaluate_policy(
         &catalog,
         &evaluator,
         "CYB-ACQ-001",
-        &["session-issuance-audit", "endpoint-device-context"],
-        &[RequestAuthority::ReadOnlyTelemetry],
+        &["session-issuance-audit", "privileged-token-use-audit"],
+        &[
+            RequestAuthority::ReadOnlyTelemetry,
+            RequestAuthority::IncidentCommander,
+        ],
         EvaluationBudget {
-            max_cost_units: 5,
-            max_latency_bound_minutes: 10,
+            max_cost_units: 6,
+            max_latency_bound_minutes: 8,
         },
     )
     .unwrap();
-    assert_eq!(report.expected_information_gain_milli_bits, 2000);
+    assert_eq!(report.expected_information_gain_milli_bits, 2500);
     assert_eq!(
         report.request_results[1].expected_information_gain_milli_bits,
-        0
+        1000
     );
-    assert_eq!(report.zero_gain_current_requests, 1);
-    assert_eq!(report.total_cost_units, 3);
+    assert_eq!(report.realized_information_gain_milli_bits, 2000);
+    assert_eq!(
+        report.remaining_hypotheses,
+        vec!["compromised_session", "stale_sensor_false_alarm"]
+    );
+    assert_eq!(report.full_support_responses, 1);
+    assert_eq!(report.partial_support_responses, 1);
+    assert_eq!(report.total_cost_units, 6);
+    assert_eq!(report.latency_bound_minutes, 8);
 }
 
 #[test]
@@ -843,7 +893,9 @@ fn redundant_current_evidence_has_zero_information_gain() {
     )
     .unwrap();
     assert_eq!(report.expected_information_gain_milli_bits, 0);
-    assert_eq!(report.zero_gain_current_requests, 1);
+    assert_eq!(report.zero_gain_current_requests, 0);
+    assert_eq!(report.irrelevant_responses, 1);
+    assert_eq!(report.remaining_hypotheses.len(), 4);
     assert_eq!(report.total_cost_units, 1);
 }
 
@@ -994,9 +1046,12 @@ fn oracle_information_gain_per_cost_is_a_separately_labelled_upper_bound() {
         budget,
     )
     .unwrap();
-    assert_eq!(report.expected_information_gain_milli_bits, 2000);
+    assert_eq!(report.expected_information_gain_milli_bits, 1500);
     assert_eq!(report.total_cost_units, 2);
-    assert_eq!(report.remaining_hypotheses, vec!["compromised_session"]);
+    assert_eq!(
+        report.remaining_hypotheses,
+        vec!["compromised_session", "stale_sensor_false_alarm"]
+    );
 }
 
 #[test]
@@ -1056,10 +1111,10 @@ fn metadata_only_baselines_are_deterministic_and_use_equal_constraints() {
     .unwrap();
     assert_eq!(fixed_report.total_cost_units, 4);
     assert_eq!(fixed_report.latency_bound_minutes, 6);
-    assert_eq!(fixed_report.expected_information_gain_milli_bits, 2396);
+    assert_eq!(fixed_report.expected_information_gain_milli_bits, 1729);
     assert_eq!(
         fixed_report.remaining_hypotheses,
-        vec!["compromised_session"]
+        vec!["compromised_session", "stale_sensor_false_alarm"]
     );
 
     let cheapest = baseline_trace(
@@ -1090,10 +1145,10 @@ fn metadata_only_baselines_are_deterministic_and_use_equal_constraints() {
     assert_eq!(cheapest_report.requests_executed, 4);
     assert_eq!(cheapest_report.total_cost_units, 5);
     assert_eq!(cheapest_report.latency_bound_minutes, 7);
-    assert_eq!(cheapest_report.expected_information_gain_milli_bits, 2396);
+    assert_eq!(cheapest_report.expected_information_gain_milli_bits, 1729);
     assert_eq!(
         cheapest_report.remaining_hypotheses,
-        vec!["compromised_session"]
+        vec!["compromised_session", "stale_sensor_false_alarm"]
     );
 
     // Neither policy runner accepts evaluator state; a catalog permutation
