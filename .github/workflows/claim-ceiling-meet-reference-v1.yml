@@ -12,6 +12,7 @@ on:
     branches: [main]
     paths:
       - "mycelix-workspace/mycelix-space/tools/claim-ceiling-reference/**"
+      - "mycelix-workspace/mycelix-space/Cargo.toml"
       - "mycelix-workspace/Cargo.toml"
       - "docs/research/CLAIM_CEILING_MEET_REFERENCE_V1_2026-10.md"
       - ".github/workflows/claim-ceiling-meet-reference-v1.yml"
