@@ -18,13 +18,44 @@ jobs:
       - uses: actions/checkout@v4
         with:
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 1
 
       - uses: dtolnay/rust-toolchain@master
         with:
           toolchain: 1.96.0
 
-      - name: Generate nested workspace dependency lock
+      - name: Generate candidate workspace dependency lock
         run: cargo generate-lockfile --manifest-path "$PACKAGE"
+        env:
+          PACKAGE: mycelix-workspace/mycelix-space/tools/claim-ceiling-reference/Cargo.toml
+
+      - name: Prepare uncached baseline with identical benchmark inputs
+        shell: bash
+        run: |
+          set -euo pipefail
+          baseline_sha="902d5b0896ce500e886b61db08d8160ba786bd3c"
+          candidate_root="$GITHUB_WORKSPACE/mycelix-workspace/mycelix-space/tools/claim-ceiling-reference"
+          baseline_root="$RUNNER_TEMP/policy-baseline"
+          candidate_workspace="$(cargo metadata --manifest-path "$candidate_root/Cargo.toml" --no-deps --format-version 1 | jq -r '.workspace_root')"
+          git fetch --no-tags --depth=1 origin "$baseline_sha"
+          git worktree add --detach "$baseline_root" "$baseline_sha"
+          baseline_package="$baseline_root/mycelix-workspace/mycelix-space/tools/claim-ceiling-reference"
+          baseline_workspace="$baseline_root/mycelix-workspace/mycelix-space"
+          mkdir -p "$baseline_package/benches"
+          cp "$candidate_root/Cargo.toml" "$baseline_package/Cargo.toml"
+          cp "$candidate_root/benches/policy_lifecycle.rs" "$baseline_package/benches/policy_lifecycle.rs"
+          cp "$candidate_root/fixtures/claim-policy-lifecycle-golden-v1.json" "$baseline_package/fixtures/claim-policy-lifecycle-golden-v1.json"
+          cp "$candidate_workspace/Cargo.lock" "$baseline_workspace/Cargo.lock"
+          {
+            echo "baseline_source_commit=$baseline_sha"
+            echo "candidate_source_commit=$(git rev-parse HEAD)"
+            echo "benchmark_harness_sha256=$(sha256sum "$candidate_root/benches/policy_lifecycle.rs" | cut -d ' ' -f 1)"
+            echo "package_manifest_sha256=$(sha256sum "$candidate_root/Cargo.toml" | cut -d ' ' -f 1)"
+            echo "paired_protocol=baseline,candidate,candidate,baseline on one hosted runner"
+            echo "baseline_policy_lib_sha256=$(sha256sum "$baseline_package/src/lib.rs" | cut -d ' ' -f 1)"
+            echo "candidate_policy_lib_sha256=$(sha256sum "$candidate_root/src/lib.rs" | cut -d ' ' -f 1)"
+            echo "baseline_workspace_root=$baseline_workspace"
+          } > "$RUNNER_TEMP/policy-performance/paired-baseline.txt"
         env:
           PACKAGE: mycelix-workspace/mycelix-space/tools/claim-ceiling-reference/Cargo.toml
 
@@ -46,44 +77,95 @@ jobs:
             uname -a
             echo "cpu:"
             lscpu
-            echo "command=cargo bench --locked --manifest-path $PACKAGE --bench policy_lifecycle -- --noplot"
+            echo "command=cargo bench --locked --manifest-path PACKAGE --bench policy_lifecycle -- --noplot"
           } > "$RUNNER_TEMP/policy-performance/provenance.txt"
         env:
           PACKAGE: mycelix-workspace/mycelix-space/tools/claim-ceiling-reference/Cargo.toml
 
-      - name: Run warm lifecycle benchmarks
+      - name: Run paired warm-path benchmarks
         shell: bash
         run: |
           set -euo pipefail
-          log="$RUNNER_TEMP/policy-performance/criterion-console.log"
-          cargo bench --locked --manifest-path "$PACKAGE" --bench policy_lifecycle -- --noplot 2>&1 | tee "$log"
+          candidate_root="$GITHUB_WORKSPACE/mycelix-workspace/mycelix-space/tools/claim-ceiling-reference"
+          baseline_root="$RUNNER_TEMP/policy-baseline/mycelix-workspace/mycelix-space/tools/claim-ceiling-reference"
+
+          run_benchmark() {
+            local label="$1"
+            local side="$2"
+            local package="$3"
+            local target="$RUNNER_TEMP/policy-target-$side"
+            local criterion="$RUNNER_TEMP/policy-criterion-$label"
+            local log="$RUNNER_TEMP/policy-performance/$label-console.log"
+            mkdir -p "$criterion"
+            echo "BEGIN label=$label side=$side package=$package"
+            CARGO_TARGET_DIR="$target" CRITERION_HOME="$criterion" \
+              cargo bench --locked --manifest-path "$package" --bench policy_lifecycle -- --noplot 2>&1 | tee "$log"
+            echo "END label=$label"
+          }
+
+          # A-B-B-A order helps reveal time/order drift; all runs share one runner.
+          run_benchmark baseline-round-1 baseline "$baseline_root/Cargo.toml"
+          run_benchmark candidate-round-1 candidate "$candidate_root/Cargo.toml"
+          run_benchmark candidate-round-2 candidate "$candidate_root/Cargo.toml"
+          run_benchmark baseline-round-2 baseline "$baseline_root/Cargo.toml"
         env:
           PACKAGE: mycelix-workspace/mycelix-space/tools/claim-ceiling-reference/Cargo.toml
-          CARGO_TARGET_DIR: ${{ runner.temp }}/policy-cargo-target
-          CRITERION_HOME: ${{ runner.temp }}/policy-cargo-criterion
 
-      - name: Collect Criterion output
+      - name: Collect Criterion data and summarize paired comparisons
         if: always()
         shell: bash
         run: |
           set -euo pipefail
-          mkdir -p "$RUNNER_TEMP/policy-performance"
-          mapfile -t candidates < <(printf '%s\n' "$RUNNER_TEMP/policy-cargo-criterion" "$RUNNER_TEMP/policy-cargo-target/criterion"; find "$GITHUB_WORKSPACE" -type d -path '*/target/criterion' -print 2>/dev/null | sort)
-          copied=false
-          for target in "${candidates[@]}"; do
-            if find "$target" -type f -print -quit | grep -q .; then
-              mkdir -p "$RUNNER_TEMP/policy-performance/criterion"
-              cp -a "$target/." "$RUNNER_TEMP/policy-performance/criterion/"
-              printf 'criterion_output_source=%s\n' "$target" >> "$RUNNER_TEMP/policy-performance/provenance.txt"
-              copied=true
-              break
+          output="$RUNNER_TEMP/policy-performance"
+          mkdir -p "$output/criterion"
+          labels=(baseline-round-1 candidate-round-1 candidate-round-2 baseline-round-2)
+          for label in "${labels[@]}"; do
+            source="$RUNNER_TEMP/policy-criterion-$label"
+            if test -d "$source"; then
+              mkdir -p "$output/criterion/$label"
+              cp -a "$source/." "$output/criterion/$label/"
             fi
           done
-          if test "$copied" != true; then
-            echo "Criterion raw directory not located; console log remains attached" > "$RUNNER_TEMP/policy-performance/benchmark-output-missing.txt"
+
+          summary="$output/paired-summary.tsv"
+          printf 'case\tbaseline_round_1_us\tcandidate_round_1_us\tratio_round_1\tcandidate_round_2_us\tbaseline_round_2_us\tratio_round_2\n' > "$summary"
+          baseline_one="$RUNNER_TEMP/policy-criterion-baseline-round-1"
+          candidate_one="$RUNNER_TEMP/policy-criterion-candidate-round-1"
+          candidate_two="$RUNNER_TEMP/policy-criterion-candidate-round-2"
+          baseline_two="$RUNNER_TEMP/policy-criterion-baseline-round-2"
+
+          mapfile -t estimate_files < <(find "$baseline_one/policy_lifecycle_warm_path/evaluate" -type f -path '*/new/estimates.json' -print 2>/dev/null | sort)
+          if test "${#estimate_files[@]}" -eq 0; then
+            echo "No Criterion estimates were captured; inspect per-run console logs and provenance." > "$output/paired-summary-missing.txt"
+          else
+            for file in "${estimate_files[@]}"; do
+              case_id="$(basename "$(dirname "$(dirname "$file")")")"
+              read_estimate() {
+                local root="$1"
+                local path="$root/policy_lifecycle_warm_path/evaluate/$case_id/new/estimates.json"
+                if test -f "$path"; then jq -r '.median.point_estimate / 1000' "$path"; else printf 'NA\n'; fi
+              }
+              b1="$(read_estimate "$baseline_one")"
+              c1="$(read_estimate "$candidate_one")"
+              c2="$(read_estimate "$candidate_two")"
+              b2="$(read_estimate "$baseline_two")"
+              r1="NA"; r2="NA"
+              if [[ "$b1" != NA && "$c1" != NA ]]; then r1="$(awk -v b="$b1" -v c="$c1" 'BEGIN { if (b>0) printf "%.4f", c/b; else print "NA" }')"; fi
+              if [[ "$b2" != NA && "$c2" != NA ]]; then r2="$(awk -v b="$b2" -v c="$c2" 'BEGIN { if (b>0) printf "%.4f", c/b; else print "NA" }')"; fi
+              printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\n' "$case_id" "$b1" "$c1" "$r1" "$c2" "$b2" "$r2" >> "$summary"
+            done
           fi
 
-      - name: Upload raw benchmark and provenance artifact
+          if test -f "$output/paired-baseline.txt"; then cat "$output/paired-baseline.txt" >> "$output/provenance.txt"; fi
+          {
+            echo
+            echo "paired_summary_path=$summary"
+            echo "latency units in the TSV are microseconds; ratios are candidate divided by baseline (below 1.0 is faster)"
+          } >> "$output/provenance.txt"
+          echo "Summary preview:"
+          sed -n '1,8p' "$summary"
+
+      - name: Upload paired benchmark, raw samples and provenance
         if: always()
         uses: actions/upload-artifact@v4
         with:
