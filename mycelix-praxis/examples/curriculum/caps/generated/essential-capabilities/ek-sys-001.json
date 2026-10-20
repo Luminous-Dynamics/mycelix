@@ -1,0 +1,93 @@
+{
+  "node_id": "EK-SYS-001",
+  "lesson": {
+    "standard_code": "EK-SYS-001",
+    "title": "Recognize Feedback, Stocks, Flows, and Side Effects",
+    "grade_level": "Adult",
+    "bloom_level": "Analyze",
+    "explanation": "A system contains interacting parts, inputs, outputs, constraints, and delays. A stock is an amount accumulated over time; a flow adds to or removes from it. Feedback occurs when an output affects later inputs or decisions. Reinforcing feedback can amplify change, while balancing feedback tends to counter it. A local improvement can shift cost or risk elsewhere, so map who benefits, who bears costs, and what delayed effects to monitor.",
+    "examples": [
+      {
+        "problem": "A tank fills from an inlet and drains through an outlet. The level keeps rising. How should you reason about it?",
+        "steps": [
+          {
+            "instruction": "Compare inflow and outflow over the same interval.",
+            "result": "If inflow exceeds outflow, stored water rises."
+          },
+          {
+            "instruction": "Look for the control loop and delay.",
+            "result": "A float valve, sensor, or blocked outlet may change flows; delayed control can cause overshoot."
+          }
+        ],
+        "answer": "The water level is a stock; inflow and outflow are rates. Measure them before choosing an intervention."
+      }
+    ],
+    "practice_problems": [
+      {
+        "question": "A community reduces water use in homes, but a local reservoir still falls. What else could be happening?",
+        "answer": "Reservoir inflow may be lower, leakage or evaporation may rise, other users may draw more, or the measurement period may not match. Map the whole system before concluding.",
+        "difficulty_permille": 200,
+        "bloom_level": "Apply",
+        "hints": [
+          "Identify what the question is asking before choosing a response.",
+          "State your reasoning and check whether it fits the context."
+        ],
+        "explanation": "Stocks reflect all relevant inflows and outflows.",
+        "distractors": [
+          "The household intervention must have failed.",
+          "Reservoir level only depends on home use.",
+          "No other variable can matter."
+        ]
+      },
+      {
+        "question": "Give an example of a delayed effect in a project or service.",
+        "answer": "A maintenance backlog can grow slowly while immediate service remains acceptable, then produce later failures.",
+        "difficulty_permille": 450,
+        "bloom_level": "Analyze",
+        "hints": [
+          "Identify what the question is asking before choosing a response.",
+          "State your reasoning and check whether it fits the context."
+        ],
+        "explanation": "Delays can hide accumulating risk until a threshold is reached.",
+        "distractors": [
+          "Every delay has no consequence.",
+          "Only instant effects count.",
+          "Averages always expose delays."
+        ]
+      }
+    ],
+    "key_vocabulary": [
+      {
+        "term": "Stock",
+        "definition": "A quantity accumulated at a point in time.",
+        "example_usage": "The outstanding repair backlog is a stock."
+      },
+      {
+        "term": "Feedback loop",
+        "definition": "A cycle where system outputs affect later inputs or decisions.",
+        "example_usage": "More congestion may cause route changes, which alter congestion again."
+      }
+    ],
+    "misconceptions": [
+      {
+        "misconception": "Optimizing one metric always improves the overall system.",
+        "correction": "A local metric can externalize costs or encourage gaming; monitor outcomes and side effects.",
+        "why_students_think_this": "Measures can be narrower than the real goal."
+      }
+    ],
+    "hints": [
+      "Write down the evidence and assumptions before choosing a conclusion.",
+      "Explain one alternative and what observation would help distinguish it."
+    ]
+  },
+  "flashcards": [
+    {
+      "front": "Stock",
+      "back": "A quantity accumulated at a point in time."
+    },
+    {
+      "front": "What is the demonstration goal for this capability?",
+      "back": "Give an example of a delayed effect in a project or service."
+    }
+  ]
+}
