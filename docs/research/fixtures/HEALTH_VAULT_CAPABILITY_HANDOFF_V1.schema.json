@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://luminousdynamics.io/schemas/health-vault-capability-handoff-v1.json",
+  "$id": "urn:mycelix:schema:health-vault-capability-handoff-v1",
   "title": "Mycelix Health Vault capability handoff adversarial corpus v1",
   "type": "object",
   "additionalProperties": false,
@@ -122,5 +122,382 @@
         }
       }
     }
-  }
+  },
+  "allOf": [
+    {
+      "contains": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "const": "HCH-001"
+          }
+        },
+        "required": [
+          "id"
+        ]
+      },
+      "minContains": 1,
+      "maxContains": 1
+    },
+    {
+      "contains": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "const": "HCH-002"
+          }
+        },
+        "required": [
+          "id"
+        ]
+      },
+      "minContains": 1,
+      "maxContains": 1
+    },
+    {
+      "contains": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "const": "HCH-003"
+          }
+        },
+        "required": [
+          "id"
+        ]
+      },
+      "minContains": 1,
+      "maxContains": 1
+    },
+    {
+      "contains": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "const": "HCH-004"
+          }
+        },
+        "required": [
+          "id"
+        ]
+      },
+      "minContains": 1,
+      "maxContains": 1
+    },
+    {
+      "contains": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "const": "HCH-005"
+          }
+        },
+        "required": [
+          "id"
+        ]
+      },
+      "minContains": 1,
+      "maxContains": 1
+    },
+    {
+      "contains": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "const": "HCH-006"
+          }
+        },
+        "required": [
+          "id"
+        ]
+      },
+      "minContains": 1,
+      "maxContains": 1
+    },
+    {
+      "contains": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "const": "HCH-007"
+          }
+        },
+        "required": [
+          "id"
+        ]
+      },
+      "minContains": 1,
+      "maxContains": 1
+    },
+    {
+      "contains": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "const": "HCH-008"
+          }
+        },
+        "required": [
+          "id"
+        ]
+      },
+      "minContains": 1,
+      "maxContains": 1
+    },
+    {
+      "contains": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "const": "HCH-009"
+          }
+        },
+        "required": [
+          "id"
+        ]
+      },
+      "minContains": 1,
+      "maxContains": 1
+    },
+    {
+      "contains": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "const": "HCH-010"
+          }
+        },
+        "required": [
+          "id"
+        ]
+      },
+      "minContains": 1,
+      "maxContains": 1
+    },
+    {
+      "contains": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "const": "HCH-011"
+          }
+        },
+        "required": [
+          "id"
+        ]
+      },
+      "minContains": 1,
+      "maxContains": 1
+    },
+    {
+      "contains": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "const": "HCH-012"
+          }
+        },
+        "required": [
+          "id"
+        ]
+      },
+      "minContains": 1,
+      "maxContains": 1
+    },
+    {
+      "contains": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "const": "HCH-013"
+          }
+        },
+        "required": [
+          "id"
+        ]
+      },
+      "minContains": 1,
+      "maxContains": 1
+    },
+    {
+      "contains": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "const": "HCH-014"
+          }
+        },
+        "required": [
+          "id"
+        ]
+      },
+      "minContains": 1,
+      "maxContains": 1
+    },
+    {
+      "contains": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "const": "HCH-015"
+          }
+        },
+        "required": [
+          "id"
+        ]
+      },
+      "minContains": 1,
+      "maxContains": 1
+    },
+    {
+      "contains": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "const": "HCH-016"
+          }
+        },
+        "required": [
+          "id"
+        ]
+      },
+      "minContains": 1,
+      "maxContains": 1
+    },
+    {
+      "contains": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "const": "HCH-017"
+          }
+        },
+        "required": [
+          "id"
+        ]
+      },
+      "minContains": 1,
+      "maxContains": 1
+    },
+    {
+      "contains": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "const": "HCH-018"
+          }
+        },
+        "required": [
+          "id"
+        ]
+      },
+      "minContains": 1,
+      "maxContains": 1
+    },
+    {
+      "contains": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "const": "HCH-019"
+          }
+        },
+        "required": [
+          "id"
+        ]
+      },
+      "minContains": 1,
+      "maxContains": 1
+    },
+    {
+      "contains": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "const": "HCH-020"
+          }
+        },
+        "required": [
+          "id"
+        ]
+      },
+      "minContains": 1,
+      "maxContains": 1
+    },
+    {
+      "contains": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "const": "HCH-021"
+          }
+        },
+        "required": [
+          "id"
+        ]
+      },
+      "minContains": 1,
+      "maxContains": 1
+    },
+    {
+      "contains": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "const": "HCH-022"
+          }
+        },
+        "required": [
+          "id"
+        ]
+      },
+      "minContains": 1,
+      "maxContains": 1
+    },
+    {
+      "contains": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "const": "HCH-023"
+          }
+        },
+        "required": [
+          "id"
+        ]
+      },
+      "minContains": 1,
+      "maxContains": 1
+    },
+    {
+      "contains": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "const": "HCH-024"
+          }
+        },
+        "required": [
+          "id"
+        ]
+      },
+      "minContains": 1,
+      "maxContains": 1
+    },
+    {
+      "contains": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "const": "HCH-025"
+          }
+        },
+        "required": [
+          "id"
+        ]
+      },
+      "minContains": 1,
+      "maxContains": 1
+    }
+  ]
 }
