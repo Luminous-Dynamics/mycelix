@@ -2034,6 +2034,68 @@ mod browser_storage_tests {
     }
 
     #[wasm_bindgen_test]
+    async fn rollback_cleanup_preserves_a_nonmatching_concurrent_value() {
+        let _backup = IdentityStorageBackup::new_and_clear();
+        let storage = web_sys::window().unwrap().local_storage().unwrap().unwrap();
+        storage
+            .set_item(IDENTITY_SECRET_ENCRYPTED_KEY, "another-tab-envelope")
+            .expect("test can seed the synthetic competing value");
+
+        assert!(
+            remove_storage_item_if_matches(
+                &storage,
+                IDENTITY_SECRET_ENCRYPTED_KEY,
+                "this-operation-envelope",
+            )
+            .is_err()
+        );
+        assert_eq!(
+            storage
+                .get_item(IDENTITY_SECRET_ENCRYPTED_KEY)
+                .unwrap()
+                .as_deref(),
+            Some("another-tab-envelope")
+        );
+
+        remove_storage_item_if_matches(
+            &storage,
+            IDENTITY_SECRET_ENCRYPTED_KEY,
+            "another-tab-envelope",
+        )
+        .expect("matching value can be removed and verified");
+        assert!(
+            storage
+                .get_item(IDENTITY_SECRET_ENCRYPTED_KEY)
+                .unwrap()
+                .is_none()
+        );
+    }
+
+    #[wasm_bindgen_test]
+    async fn plaintext_loader_rejects_a_secret_public_key_mismatch() {
+        let _backup = IdentityStorageBackup::new_and_clear();
+        let first = SigningKey::from_bytes(&[121u8; 32]);
+        let second = SigningKey::from_bytes(&[122u8; 32]);
+        let storage = web_sys::window().unwrap().local_storage().unwrap().unwrap();
+        storage
+            .set_item(IDENTITY_SECRET_KEY, &base64_encode(first.as_bytes()))
+            .expect("test can seed the synthetic secret");
+        storage
+            .set_item(
+                IDENTITY_PUBLIC_KEY,
+                &base64_encode(second.verifying_key().as_bytes()),
+            )
+            .expect("test can seed the mismatching public key");
+
+        assert!(load_signing_key().is_none());
+        assert_eq!(
+            inspect_local_identity_posture(),
+            LocalIdentityStoragePosture::CorruptOrInconsistent
+        );
+        assert!(UNLOCKED_KEY.with(|cell| cell.borrow().is_none()));
+    }
+
+    #[wasm_bindgen_test]
     async fn unlock_rejects_tampered_public_key_without_caching_decrypted_key() {
         let _backup = IdentityStorageBackup::new_and_clear();
         create_protected_identity("synthetic browser test passphrase")
