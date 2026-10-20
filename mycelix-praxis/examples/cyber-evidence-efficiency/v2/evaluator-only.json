@@ -1,0 +1,406 @@
+{
+  "schema_version": 2,
+  "benchmark_id": "PRAXIS-CYBER-ACQ-001",
+  "benchmark_version": "0.2.0",
+  "disclosure": "PUBLIC SYNTHETIC CONFORMANCE FIXTURE v0.2.0. All worlds, evidence partitions, sufficiency levels, costs, authority classes and latency bounds are invented for contract testing; they are not calibrated priors, operational forecasts, live security evidence or held-out assessment data.",
+  "scenarios": [
+    {
+      "scenario_id": "CYB-ACQ-001",
+      "world_hypothesis_id": "compromised_session",
+      "request_outcomes": [
+        {
+          "request_id": "session-issuance-audit",
+          "quality": "current",
+          "labels_by_hypothesis": [
+            {
+              "hypothesis_id": "benign_shared_nat",
+              "outcome_label": "expected_session_only"
+            },
+            {
+              "hypothesis_id": "credential_spray_no_session",
+              "outcome_label": "no_session_issued"
+            },
+            {
+              "hypothesis_id": "compromised_session",
+              "outcome_label": "session_issued_use_attribution_pending"
+            },
+            {
+              "hypothesis_id": "stale_sensor_false_alarm",
+              "outcome_label": "session_issued_use_attribution_pending"
+            }
+          ],
+          "sufficiency": "partial_support"
+        },
+        {
+          "request_id": "endpoint-device-context",
+          "quality": "current",
+          "labels_by_hypothesis": [
+            {
+              "hypothesis_id": "benign_shared_nat",
+              "outcome_label": "known_managed_device"
+            },
+            {
+              "hypothesis_id": "credential_spray_no_session",
+              "outcome_label": "unknown_device"
+            },
+            {
+              "hypothesis_id": "compromised_session",
+              "outcome_label": "unknown_device"
+            },
+            {
+              "hypothesis_id": "stale_sensor_false_alarm",
+              "outcome_label": "unknown_device"
+            }
+          ],
+          "sufficiency": "partial_support"
+        },
+        {
+          "request_id": "privileged-token-use-audit",
+          "quality": "current",
+          "labels_by_hypothesis": [
+            {
+              "hypothesis_id": "benign_shared_nat",
+              "outcome_label": "expected_token_use"
+            },
+            {
+              "hypothesis_id": "credential_spray_no_session",
+              "outcome_label": "no_post_auth_token_use"
+            },
+            {
+              "hypothesis_id": "compromised_session",
+              "outcome_label": "unexpected_token_use"
+            },
+            {
+              "hypothesis_id": "stale_sensor_false_alarm",
+              "outcome_label": "audit_gap"
+            }
+          ],
+          "sufficiency": "full_support"
+        },
+        {
+          "request_id": "sensor-health-check",
+          "quality": "stale",
+          "labels_by_hypothesis": [
+            {
+              "hypothesis_id": "benign_shared_nat",
+              "outcome_label": "healthy"
+            },
+            {
+              "hypothesis_id": "credential_spray_no_session",
+              "outcome_label": "healthy"
+            },
+            {
+              "hypothesis_id": "compromised_session",
+              "outcome_label": "healthy"
+            },
+            {
+              "hypothesis_id": "stale_sensor_false_alarm",
+              "outcome_label": "unhealthy"
+            }
+          ],
+          "sufficiency": "absent"
+        },
+        {
+          "request_id": "shared-egress-rollup",
+          "quality": "current",
+          "labels_by_hypothesis": [
+            {
+              "hypothesis_id": "benign_shared_nat",
+              "outcome_label": "shared_egress_activity"
+            },
+            {
+              "hypothesis_id": "credential_spray_no_session",
+              "outcome_label": "shared_egress_activity"
+            },
+            {
+              "hypothesis_id": "compromised_session",
+              "outcome_label": "shared_egress_activity"
+            },
+            {
+              "hypothesis_id": "stale_sensor_false_alarm",
+              "outcome_label": "shared_egress_activity"
+            }
+          ],
+          "sufficiency": "irrelevant"
+        }
+      ]
+    },
+    {
+      "scenario_id": "CYB-ACQ-002",
+      "world_hypothesis_id": "route_scope_leakage",
+      "request_outcomes": [
+        {
+          "request_id": "effective-route-table",
+          "quality": "current",
+          "sufficiency": "partial_support",
+          "labels_by_hypothesis": [
+            {
+              "hypothesis_id": "approved_segmentation",
+              "outcome_label": "route_scope_matches_reviewed_intent"
+            },
+            {
+              "hypothesis_id": "intended_policy_exception",
+              "outcome_label": "route_scope_matches_documented_exception"
+            },
+            {
+              "hypothesis_id": "route_scope_leakage",
+              "outcome_label": "route_scope_disagreement"
+            },
+            {
+              "hypothesis_id": "stale_policy_snapshot",
+              "outcome_label": "route_scope_disagreement"
+            }
+          ]
+        },
+        {
+          "request_id": "policy-deployment-receipt",
+          "quality": "current",
+          "sufficiency": "full_support",
+          "labels_by_hypothesis": [
+            {
+              "hypothesis_id": "approved_segmentation",
+              "outcome_label": "deployment_matches_reviewed_policy"
+            },
+            {
+              "hypothesis_id": "intended_policy_exception",
+              "outcome_label": "deployment_matches_exception_record"
+            },
+            {
+              "hypothesis_id": "route_scope_leakage",
+              "outcome_label": "deployment_matches_reviewed_revision_but_route_differs"
+            },
+            {
+              "hypothesis_id": "stale_policy_snapshot",
+              "outcome_label": "deployment_receipt_revision_unverified"
+            }
+          ]
+        },
+        {
+          "request_id": "policy-source-crosscheck",
+          "quality": "conflicting",
+          "sufficiency": "conflicting",
+          "labels_by_hypothesis": [
+            {
+              "hypothesis_id": "approved_segmentation",
+              "outcome_label": "reviewed_policy_record_a"
+            },
+            {
+              "hypothesis_id": "intended_policy_exception",
+              "outcome_label": "reviewed_policy_record_b"
+            },
+            {
+              "hypothesis_id": "route_scope_leakage",
+              "outcome_label": "deployment_record_a"
+            },
+            {
+              "hypothesis_id": "stale_policy_snapshot",
+              "outcome_label": "stale_policy_record_b"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "scenario_id": "CYB-ACQ-003",
+      "world_hypothesis_id": "malicious_substitution",
+      "request_outcomes": [
+        {
+          "request_id": "registry-digest-comparison",
+          "quality": "current",
+          "sufficiency": "partial_support",
+          "labels_by_hypothesis": [
+            {
+              "hypothesis_id": "approved_artifact",
+              "outcome_label": "registry_matches_release_digest"
+            },
+            {
+              "hypothesis_id": "malicious_substitution",
+              "outcome_label": "digest_mismatch_or_registry_gap"
+            },
+            {
+              "hypothesis_id": "stale_registry_snapshot",
+              "outcome_label": "digest_mismatch_or_registry_gap"
+            },
+            {
+              "hypothesis_id": "benign_reproducible_build_drift",
+              "outcome_label": "registry_matches_recorded_artifact"
+            }
+          ]
+        },
+        {
+          "request_id": "build-provenance-attestation",
+          "quality": "current",
+          "sufficiency": "full_support",
+          "labels_by_hypothesis": [
+            {
+              "hypothesis_id": "approved_artifact",
+              "outcome_label": "attestation_subject_matches_approved_release"
+            },
+            {
+              "hypothesis_id": "malicious_substitution",
+              "outcome_label": "attestation_subject_mismatch"
+            },
+            {
+              "hypothesis_id": "stale_registry_snapshot",
+              "outcome_label": "attestation_subject_unverifiable"
+            },
+            {
+              "hypothesis_id": "benign_reproducible_build_drift",
+              "outcome_label": "attestation_matches_build_with_documented_rebuild_drift"
+            }
+          ]
+        },
+        {
+          "request_id": "registry-snapshot-freshness",
+          "quality": "stale",
+          "sufficiency": "absent",
+          "labels_by_hypothesis": [
+            {
+              "hypothesis_id": "approved_artifact",
+              "outcome_label": "snapshot_age_unknown"
+            },
+            {
+              "hypothesis_id": "malicious_substitution",
+              "outcome_label": "snapshot_age_unknown"
+            },
+            {
+              "hypothesis_id": "stale_registry_snapshot",
+              "outcome_label": "snapshot_age_unknown"
+            },
+            {
+              "hypothesis_id": "benign_reproducible_build_drift",
+              "outcome_label": "snapshot_age_unknown"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "scenario_id": "CYB-ACQ-004",
+      "world_hypothesis_id": "prompt_injection_blocked",
+      "request_outcomes": [
+        {
+          "request_id": "retrieved-content-lineage",
+          "quality": "current",
+          "sufficiency": "partial_support",
+          "labels_by_hypothesis": [
+            {
+              "hypothesis_id": "benign_reference_text",
+              "outcome_label": "retrieved_reference_text"
+            },
+            {
+              "hypothesis_id": "prompt_injection_blocked",
+              "outcome_label": "retrieved_untrusted_instruction"
+            },
+            {
+              "hypothesis_id": "unauthorized_tool_attempt",
+              "outcome_label": "retrieved_untrusted_instruction"
+            },
+            {
+              "hypothesis_id": "data_export_completed",
+              "outcome_label": "retrieved_untrusted_instruction"
+            }
+          ]
+        },
+        {
+          "request_id": "tool-invocation-audit",
+          "quality": "current",
+          "sufficiency": "full_support",
+          "labels_by_hypothesis": [
+            {
+              "hypothesis_id": "benign_reference_text",
+              "outcome_label": "no_sensitive_tool_invocation"
+            },
+            {
+              "hypothesis_id": "prompt_injection_blocked",
+              "outcome_label": "read_only_request_denied"
+            },
+            {
+              "hypothesis_id": "unauthorized_tool_attempt",
+              "outcome_label": "unauthorized_tool_attempt_recorded"
+            },
+            {
+              "hypothesis_id": "data_export_completed",
+              "outcome_label": "export_invocation_recorded"
+            }
+          ]
+        },
+        {
+          "request_id": "export-effect-receipt",
+          "quality": "unavailable",
+          "sufficiency": "absent",
+          "labels_by_hypothesis": [
+            {
+              "hypothesis_id": "benign_reference_text",
+              "outcome_label": "receipt_source_unavailable"
+            },
+            {
+              "hypothesis_id": "prompt_injection_blocked",
+              "outcome_label": "receipt_source_unavailable"
+            },
+            {
+              "hypothesis_id": "unauthorized_tool_attempt",
+              "outcome_label": "receipt_source_unavailable"
+            },
+            {
+              "hypothesis_id": "data_export_completed",
+              "outcome_label": "receipt_source_unavailable"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "scenario_id": "CYB-ACQ-005",
+      "world_hypothesis_id": "quarantine_requested_no_effect",
+      "request_outcomes": [
+        {
+          "request_id": "endpoint-action-receipt",
+          "quality": "current",
+          "sufficiency": "partial_support",
+          "labels_by_hypothesis": [
+            {
+              "hypothesis_id": "quarantine_effective",
+              "outcome_label": "effect_receipt_present"
+            },
+            {
+              "hypothesis_id": "quarantine_requested_no_effect",
+              "outcome_label": "no_effect_receipt"
+            },
+            {
+              "hypothesis_id": "sensor_stale_no_receipt",
+              "outcome_label": "no_effect_receipt"
+            },
+            {
+              "hypothesis_id": "benign_alert_no_quarantine",
+              "outcome_label": "no_quarantine_requested"
+            }
+          ]
+        },
+        {
+          "request_id": "endpoint-sensor-health",
+          "quality": "current",
+          "sufficiency": "full_support",
+          "labels_by_hypothesis": [
+            {
+              "hypothesis_id": "quarantine_effective",
+              "outcome_label": "current_sensor_with_effect_receipt"
+            },
+            {
+              "hypothesis_id": "quarantine_requested_no_effect",
+              "outcome_label": "current_sensor_without_isolation_effect"
+            },
+            {
+              "hypothesis_id": "sensor_stale_no_receipt",
+              "outcome_label": "sensor_health_gap_confirmed"
+            },
+            {
+              "hypothesis_id": "benign_alert_no_quarantine",
+              "outcome_label": "current_sensor_without_quarantine_request"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
