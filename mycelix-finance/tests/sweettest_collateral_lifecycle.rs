@@ -857,13 +857,13 @@ async fn test_fiat_bridge_deposit() {
 }
 
 // ============================================================================
-// Test 10: Fiat bridge rejects zero amount
+// Test 10: Fiat bridge remains disabled for zero amount
 // ============================================================================
 
-/// A fiat bridge deposit with zero amount should be rejected.
+/// The default gate refuses even a zero-amount attempt before writes.
 #[tokio::test(flavor = "multi_thread")]
 #[ignore = "requires Holochain conductor (nix develop)"]
-async fn test_fiat_bridge_rejects_zero_amount() {
+async fn test_fiat_bridge_disabled_for_zero_amount() {
     let mut conductor = SweetConductor::from_standard_config().await;
     let dna_file = SweetDnaFile::from_bundle(&finance_dna_path())
         .await
@@ -889,21 +889,18 @@ async fn test_fiat_bridge_rejects_zero_amount() {
         .call_fallible(&alice.zome("finance_bridge"), "deposit_fiat", fiat_input)
         .await;
 
-    assert!(
-        result.is_err(),
-        "Fiat deposit with zero amount should be rejected",
-    );
+    let err_msg = format!("{:?}", result.unwrap_err());
+    assert!(err_msg.contains("disabled"), "Expected disabled response, got: {}", err_msg);
 }
 
 // ============================================================================
-// Test 11: Fiat bridge rejects invalid exchange rate
+// Test 11: Fiat bridge remains disabled for invalid exchange rate
 // ============================================================================
 
-/// A fiat bridge deposit with a negative or NaN exchange rate should be
-/// rejected by the validation guard.
+/// The default gate refuses the flow before caller-provided rates can be used.
 #[tokio::test(flavor = "multi_thread")]
 #[ignore = "requires Holochain conductor (nix develop)"]
-async fn test_fiat_bridge_rejects_invalid_exchange_rate() {
+async fn test_fiat_bridge_disabled_for_invalid_exchange_rate() {
     let mut conductor = SweetConductor::from_standard_config().await;
     let dna_file = SweetDnaFile::from_bundle(&finance_dna_path())
         .await
@@ -929,10 +926,8 @@ async fn test_fiat_bridge_rejects_invalid_exchange_rate() {
         .call_fallible(&alice.zome("finance_bridge"), "deposit_fiat", fiat_input)
         .await;
 
-    assert!(
-        result.is_err(),
-        "Fiat deposit with negative exchange rate should be rejected",
-    );
+    let err_msg = format!("{:?}", result.unwrap_err());
+    assert!(err_msg.contains("disabled"), "Expected disabled response, got: {}", err_msg);
 }
 
 // ============================================================================
