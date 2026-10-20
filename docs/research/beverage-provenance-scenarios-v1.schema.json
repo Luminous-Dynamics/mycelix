@@ -1,0 +1,68 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Beverage Provenance Scenario Corpus V1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "status",
+    "scenarios"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "beverage-provenance-scenarios-v1"
+    },
+    "status": {
+      "const": "synthetic_negative_and_positive_controls_not_real_batch_evidence"
+    },
+    "scenarios": {
+      "type": "array",
+      "minItems": 10,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "name",
+          "expected_disposition",
+          "guards",
+          "claim_ceiling"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^BP-[0-9]{3}$"
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1
+          },
+          "expected_disposition": {
+            "enum": [
+              "ELIGIBLE_FOR_CLAIM_REVIEW",
+              "REJECT",
+              "REJECT_INTEGRITY",
+              "REJECT_CLAIM",
+              "INELIGIBLE",
+              "INELIGIBLE_FOR_REUSE_OR_DISCLOSURE",
+              "SELECTIVE_DISCLOSURE_ONLY",
+              "REGULATORY_CLAIM_INDETERMINATE"
+            ]
+          },
+          "guards": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "claim_ceiling": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    }
+  }
+}
