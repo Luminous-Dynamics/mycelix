@@ -1315,3 +1315,197 @@ mod tests {
         assert_eq!(ids, vec!["alpha", "zeta", "target"]);
     }
 }
+
+    #[test]
+    fn generated_dag_oracle_checks_closure_order_constraints_and_permutation_stability() {
+        // Deterministic generated cases avoid adding a new property-test dependency.
+        // The oracle below is deliberately separate from the planner's topological
+        // sort: it computes target closure by plain graph traversal, then checks that
+        // every declared prerequisite appears before its dependent in the proposal.
+        fn next(state: &mut u64) -> u64 {
+            *state = state
+                .wrapping_mul(6_364_136_223_846_793_005)
+                .wrapping_add(1_442_695_040_888_963_407);
+            *state
+        }
+
+        for seed in 1_u64..=64 {
+            let mut state = seed;
+            let size = 2 + (seed as usize * 7 % 15);
+            let mut nodes = Vec::with_capacity(size);
+
+            for index in 0..size {
+                let mut prerequisites = Vec::new();
+                for prior in 0..index {
+                    if next(&mut state) % 5 == 0 {
+                        prerequisites.push(format!("cap-{prior:02}"));
+                    }
+                }
+
+                let modes = [
+                    DeliveryMode::RetrievalPractice,
+                    DeliveryMode::GuidedPractice,
+                    DeliveryMode::Simulation,
+                ];
+                let mut options = Vec::with_capacity(modes.len());
+                for (option_index, mode) in modes.into_iter().enumerate() {
+                    options.push(PracticeOption {
+                        task_id: format!("task-{index:02}-{option_index}"),
+                        task_version: "1".into(),
+                        rubric_id: format!("rubric-{index:02}-{option_index}"),
+                        rubric_version: "1".into(),
+                        route_priority: (next(&mut state) % 5) as u16,
+                        rationale: "Generated oracle fixture; efficacy is not measured.".into(),
+                        estimated_minutes: 1 + (next(&mut state) % 20) as u32,
+                        delivery_mode: mode,
+                    });
+                }
+
+                nodes.push(CapabilityNode {
+                    capability_id: id(&format!("cap-{index:02}")),
+                    version: "1".into(),
+                    title: format!("Generated capability {index}"),
+                    prerequisites: prerequisites.iter().map(|value| id(value)).collect(),
+                    practice_options: options,
+                });
+            }
+
+            let graph = CapabilityGraph {
+                graph_id: format!("generated-oracle-{seed}"),
+                revision: "v1".into(),
+                nodes,
+            };
+            let target = id(&format!("cap-{:02}", size - 1));
+            let request = GoalPlanRequest {
+                request_id: format!("generated-request-{seed}"),
+                target_capability: target.clone(),
+                constraints: GoalPlanConstraints {
+                    allowed_delivery_modes: [
+                        DeliveryMode::RetrievalPractice,
+                        DeliveryMode::GuidedPractice,
+                        DeliveryMode::Simulation,
+                    ]
+                    .into_iter()
+                    .collect(),
+                    max_task_minutes: 20,
+                    max_total_minutes: (size as u32) * 20,
+                },
+                preferred_practice: BTreeMap::new(),
+            };
+
+            let plan = compile_goal_plan(&graph, &request, 100).unwrap_or_else(|error| {
+                panic!("valid generated fixture {seed} was rejected: {error}")
+            });
+
+            // Independent reachability oracle: start at target and walk prerequisite
+            // edges from the source graph, rather than using planner-private helpers.
+            let by_id: BTreeMap<_, _> = graph
+                .nodes
+                .iter()
+                .map(|node| (node.capability_id.clone(), node))
+                .collect();
+            let mut expected_closure = BTreeSet::new();
+            let mut pending = vec![target.clone()];
+            while let Some(current) = pending.pop() {
+                if !expected_closure.insert(current.clone()) {
+                    continue;
+                }
+                let current_node = by_id
+                    .get(&current)
+                    .expect("generated prerequisite refers to an existing node");
+                pending.extend(current_node.prerequisites.iter().cloned());
+            }
+
+            let proposed_ids: Vec<_> = plan
+                .steps
+                .iter()
+                .map(|step| step.capability_id.clone())
+                .collect();
+            let proposed_set: BTreeSet<_> = proposed_ids.iter().cloned().collect();
+            assert_eq!(proposed_set, expected_closure, "closure mismatch for seed {seed}");
+            assert_eq!(proposed_ids.len(), expected_closure.len(), "duplicate step for seed {seed}");
+            assert_eq!(plan.steps.len(), expected_closure.len(), "missing step for seed {seed}");
+
+            let positions: BTreeMap<_, _> = plan
+                .steps
+                .iter()
+                .enumerate()
+                .map(|(index, step)| (step.capability_id.clone(), index))
+                .collect();
+            let mut independently_summed_minutes = 0_u32;
+
+            for (index, step) in plan.steps.iter().enumerate() {
+                assert_eq!(step.ordinal, (index + 1) as u32, "ordinal mismatch for seed {seed}");
+                let source_node = by_id
+                    .get(&step.capability_id)
+                    .expect("proposal step maps to a source node");
+
+                for prerequisite in &source_node.prerequisites {
+                    let prerequisite_position = positions
+                        .get(prerequisite)
+                        .expect("every prerequisite lies in target closure");
+                    assert!(
+                        prerequisite_position < &index,
+                        "prerequisite {prerequisite:?} must precede {:?} for seed {seed}",
+                        step.capability_id
+                    );
+                }
+
+                assert!(
+                    source_node
+                        .practice_options
+                        .iter()
+                        .any(|candidate| option_matches_ref(candidate, &PracticeOptionRef::from(&step.proposed_practice))),
+                    "proposal selected an undeclared option for seed {seed}"
+                );
+                assert!(
+                    request.constraints.allowed_delivery_modes
+                        .contains(&step.proposed_practice.delivery_mode),
+                    "proposal selected a disallowed modality for seed {seed}"
+                );
+                assert!(
+                    step.proposed_practice.estimated_minutes <= request.constraints.max_task_minutes,
+                    "proposal exceeded per-task limit for seed {seed}"
+                );
+                independently_summed_minutes += step.proposed_practice.estimated_minutes;
+
+                for alternative in &step.eligible_alternatives {
+                    assert!(
+                        source_node
+                            .practice_options
+                            .iter()
+                            .any(|candidate| option_matches_ref(candidate, &PracticeOptionRef::from(alternative))),
+                        "proposal exposed an undeclared alternative for seed {seed}"
+                    );
+                    assert_ne!(
+                        PracticeOptionRef::from(alternative),
+                        PracticeOptionRef::from(&step.proposed_practice),
+                        "proposal duplicated its selected option in alternatives for seed {seed}"
+                    );
+                    assert!(
+                        request.constraints.allowed_delivery_modes.contains(&alternative.delivery_mode)
+                            && alternative.estimated_minutes <= request.constraints.max_task_minutes,
+                        "proposal exposed an ineligible alternative for seed {seed}"
+                    );
+                }
+            }
+
+            assert_eq!(plan.estimated_total_minutes, independently_summed_minutes);
+            assert!(plan.estimated_total_minutes <= request.constraints.max_total_minutes);
+
+            // Equivalent input ordering must not change route, alternatives, or digest.
+            let mut permuted_graph = graph.clone();
+            permuted_graph.nodes.reverse();
+            for node in &mut permuted_graph.nodes {
+                node.prerequisites.reverse();
+                node.practice_options.reverse();
+            }
+            let permuted_plan = compile_goal_plan(&permuted_graph, &request, 100)
+                .unwrap_or_else(|error| panic!("permuted fixture {seed} was rejected: {error}"));
+            assert_eq!(plan.input_digest, permuted_plan.input_digest, "digest changed for seed {seed}");
+            assert_eq!(plan.steps, permuted_plan.steps, "route changed for seed {seed}");
+            assert_eq!(plan.estimated_total_minutes, permuted_plan.estimated_total_minutes);
+        }
+    }
+
+}
