@@ -221,14 +221,14 @@
         "listing_revision": "synthetic-revision-1",
         "observed_state": "fixture",
         "observed_at": "2026-10-20T06:30:00Z",
-        "price_state": "quoted",
+        "price_state": "seller_asserted",
         "amount_minor": 1299000,
         "currency_code": "ZAR",
-        "availability_state": "available_confirmed",
+        "availability_state": "seller_asserted",
         "quantity": 3,
-        "delivery_state": "delivery_quoted",
+        "delivery_state": "unknown",
         "delivery_region_code": "ZA-GP-JHB",
-        "delivery_quote_ref": "synthetic-delivery-002",
+        "delivery_quote_ref": null,
         "terms_digest_sha256": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
       },
       "design_compatibility": {
