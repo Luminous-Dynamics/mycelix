@@ -1,6 +1,7 @@
 [workspace]
 resolver = "2"
 members = [
+    "crates/aero-authority-ceiling",
     # Shared crates
     "crates/commons-leptos-types",
     "crates/commons-types",
