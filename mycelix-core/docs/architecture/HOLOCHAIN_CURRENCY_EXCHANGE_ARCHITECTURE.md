@@ -69,7 +69,7 @@ A **hybrid architecture candidate** that combines:
 │              BLOCKCHAIN EXCHANGE LAYER (Layer 2)                │
 │                                                                 │
 │  ┌─────────────┐  ┌──────────────┐  ┌─────────────────┐         │
-│  │  Orderbook  │  │ Liquidity    │  │  Atomic Swap    │         │
+│  │  Orderbook  │  │ Liquidity    │  │  Swap/Settle    │         │
 │  │    DEX      │  │    Pools     │  │    Contracts    │         │
 │  └─────────────┘  └──────────────┘  └─────────────────┘         │
 │                                                                 │
@@ -534,8 +534,8 @@ contract HolochainCurrencyExchange {
     }
 
     /**
-     * @dev Execute atomic swap between two orders
-     * @notice Only callable by bridge validators with signatures
+     * @dev Execute matched on-chain legs atomically within this contract only
+     * @notice This does not by itself make Holochain-to-chain settlement atomic; bridge proofs and failure recovery require a separate design
      */
     function executeSwap(
         uint256 order1Id,
@@ -1144,7 +1144,7 @@ class HolochainBridgeValidator:
         amount1: int,
         amount2: int
     ) -> bytes:
-        """Sign atomic swap as validator"""
+        '''Sign the matched on-chain exchange intent; this signature does not prove Holochain-leg finality or cross-domain atomicity'''
         # Create message hash
         message_hash = Web3.solidity_keccak(
             ['uint256', 'uint256', 'uint256', 'uint256', 'uint256'],
@@ -1250,28 +1250,29 @@ if __name__ == '__main__':
 - Can earn and spend in each currency
 - Balances tracked independently
 
-**Success Metric**: 5 active currencies, 1000+ transactions
+**Proposed adoption hypothesis (not achieved):** 5 active currencies; throughput must be measured under a reproducible test profile
 
 ---
 
-### Phase 3: Blockchain DEX + Bridge (2-3 weeks)
+### Phase 3: Blockchain DEX + Bridge (historical estimate; schedule must be re-estimated)
 
-**Goal**: Exchange layer with atomic swaps
+**Goal**: Prototype external exchange legs; cross-domain atomicity must be separately proven, not assumed
 
 **Deliverables**:
 - ✅ HolochainCurrencyExchange.sol deployed to Polygon
 - ✅ HolochainCurrencyPool.sol for liquidity
 - ✅ Bridge validator network (3+ validators)
 - ✅ Order posting from Holochain escrows
-- ✅ Atomic swap execution
+- Proposed: matched on-chain exchange execution; cross-domain atomicity remains unproven
 
 **Test Criteria**:
-- Can post order from Holochain → Polygon
-- Can execute swap on Polygon
-- Bridge completes transfer on Holochain
-- All or nothing (atomic)
+- Can post an order intent from Holochain → the external test contract
+- Can execute the on-chain leg in a controlled test environment
+- Verify the adapter receipt, idempotency and replay protection
+- Test crashes, partitions, delayed receipts, chain reorganization, validator outage/collusion and one-leg-success/other-leg-failure
+- Demonstrate all-or-nothing behavior under a written failure model before using the word atomic; otherwise mark the workflow non-atomic and prohibit real-value use
 
-**Success Metric**: 100 successful swaps between 2 currencies
+**Success Metric**: Reproducible coverage and zero unexplained/unsafe outcomes in the frozen failure corpus—not a volume target alone
 
 ---
 
@@ -1442,7 +1443,7 @@ holochain-currency-exchange/
 ## Success Metrics
 
 ### Technical Metrics
-- **Uptime**: 99.9%+ for bridge validators
+- **Uptime**: Publish measured availability and failure accounting; any 99.9%+ value is an unvalidated target until evidence exists
 - **Latency**: Proposed measurements only—report p50/p95/p99 for authorization, DHT visibility, external execution and beneficiary availability separately
 - **Throughput**: No 1000+ transactions/second claim without reproducible load tests, hardware/network config and failure accounting
 - **Cost**: Re-measure all provider/rail/gas costs for each route and include infrastructure, bridge, liquidity, failed attempts and support
