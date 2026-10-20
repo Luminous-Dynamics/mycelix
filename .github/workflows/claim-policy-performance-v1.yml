@@ -52,7 +52,11 @@ jobs:
           PACKAGE: mycelix-workspace/mycelix-space/tools/claim-ceiling-reference/Cargo.toml
 
       - name: Run warm lifecycle benchmarks
-        run: cargo bench --locked --manifest-path "$PACKAGE" --bench policy_lifecycle -- --noplot
+        shell: bash
+        run: |
+          set -euo pipefail
+          log="$RUNNER_TEMP/policy-performance/criterion-console.log"
+          cargo bench --locked --manifest-path "$PACKAGE" --bench policy_lifecycle -- --noplot 2>&1 | tee "$log"
         env:
           PACKAGE: mycelix-workspace/mycelix-space/tools/claim-ceiling-reference/Cargo.toml
 
@@ -61,11 +65,20 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          target="mycelix-workspace/mycelix-space/target/criterion"
-          if test -d "$target"; then
-            cp -a "$target" "$RUNNER_TEMP/policy-performance/criterion"
-          else
-            echo "Criterion output directory not present" > "$RUNNER_TEMP/policy-performance/benchmark-output-missing.txt"
+          mkdir -p "$RUNNER_TEMP/policy-performance"
+          mapfile -t candidates < <(find "$GITHUB_WORKSPACE" -type d -path '*/target/criterion' -print 2>/dev/null | sort)
+          copied=false
+          for target in "${candidates[@]}"; do
+            if find "$target" -type f -print -quit | grep -q .; then
+              mkdir -p "$RUNNER_TEMP/policy-performance/criterion"
+              cp -a "$target/." "$RUNNER_TEMP/policy-performance/criterion/"
+              printf 'criterion_output_source=%s\n' "$target" >> "$RUNNER_TEMP/policy-performance/provenance.txt"
+              copied=true
+              break
+            fi
+          done
+          if test "$copied" != true; then
+            echo "Criterion raw directory not located; console log remains attached" > "$RUNNER_TEMP/policy-performance/benchmark-output-missing.txt"
           fi
 
       - name: Upload raw benchmark and provenance artifact
