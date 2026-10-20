@@ -7,7 +7,9 @@ use std::{
 };
 
 fn value_after(args: &[String], flag: &str) -> Result<String, String> {
-    let index = args.iter().position(|arg| arg == flag)
+    let index = args
+        .iter()
+        .position(|arg| arg == flag)
         .ok_or_else(|| format!("missing required option {flag}"))?;
     args.get(index + 1)
         .filter(|value| !value.starts_with("--"))
@@ -25,7 +27,12 @@ fn git_output(source_root: &Path, args: &[&str]) -> Result<String, String> {
         .arg(source_root)
         .args(args)
         .output()
-        .map_err(|error| format!("could not execute git in {}: {error}", source_root.display()))?;
+        .map_err(|error| {
+            format!(
+                "could not execute git in {}: {error}",
+                source_root.display()
+            )
+        })?;
     if !output.status.success() {
         return Err(format!(
             "git {} failed in {}: {}",
@@ -86,17 +93,21 @@ fn run(args: &[String]) -> Result<i32, String> {
             let corpus = read(&corpus_path, "scenario corpus")?;
             let schema = read(&schema_path, "scenario schema")?;
             let summary = validate_contract(&corpus, &schema)?;
-            println!("{}", serde_json::to_string_pretty(&json!({
-                "status":"CONTRACT_VALID",
-                "contract_id":summary.contract_id,
-                "version":summary.version,
-                "scenario_count":summary.scenario_count,
-                "hard_gate_count":summary.hard_gate_count,
-                "behavioral_count":summary.behavioral_count,
-                "performance_baseline_count":summary.performance_baseline_count,
-                "corpus_sha256":summary.corpus_sha256,
-                "schema_sha256":summary.schema_sha256
-            })).map_err(|error| error.to_string())?);
+            println!(
+                "{}",
+                serde_json::to_string_pretty(&json!({
+                    "status":"CONTRACT_VALID",
+                    "contract_id":summary.contract_id,
+                    "version":summary.version,
+                    "scenario_count":summary.scenario_count,
+                    "hard_gate_count":summary.hard_gate_count,
+                    "behavioral_count":summary.behavioral_count,
+                    "performance_baseline_count":summary.performance_baseline_count,
+                    "corpus_sha256":summary.corpus_sha256,
+                    "schema_sha256":summary.schema_sha256
+                }))
+                .map_err(|error| error.to_string())?
+            );
             Ok(0)
         }
         "evaluate-receipt" => {
@@ -120,8 +131,14 @@ fn run(args: &[String]) -> Result<i32, String> {
                 &target,
                 Path::new(&evidence_root),
             )?;
-            let status = report.get("status").and_then(|value| value.as_str()).unwrap_or("INCOMPLETE");
-            println!("{}", serde_json::to_string_pretty(&report).map_err(|error| error.to_string())?);
+            let status = report
+                .get("status")
+                .and_then(|value| value.as_str())
+                .unwrap_or("INCOMPLETE");
+            println!(
+                "{}",
+                serde_json::to_string_pretty(&report).map_err(|error| error.to_string())?
+            );
             Ok(match status {
                 "QUALIFIED" => 0,
                 "FAILED" => 1,
