@@ -20,7 +20,7 @@ const EVALUATOR_SCHEMA: &str =
 const CORPUS_MANIFEST: &str =
     include_str!("../../../examples/cyber-challenges/v1/corpus-manifest.json");
 
-#[derive(Clone, Debug, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 struct EvaluatorCorpus {
     schema_version: u16,
@@ -30,7 +30,7 @@ struct EvaluatorCorpus {
     cases: Vec<EvaluatorCase>,
 }
 
-#[derive(Clone, Debug, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 struct EvaluatorCase {
     scenario_id: String,
@@ -44,7 +44,7 @@ struct EvaluatorCase {
     rubric: Vec<RubricCriterion>,
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Deserialize)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 enum ExpectedDisposition {
     NeedsMoreEvidence,
@@ -54,7 +54,7 @@ enum ExpectedDisposition {
     StaleStateUnknown,
 }
 
-#[derive(Clone, Debug, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 struct RubricCriterion {
     criterion_id: String,
@@ -379,6 +379,30 @@ fn solver_schema_matches_rust_fields_and_enum_values() {
             EvidenceConflictStatus::NoKnownConflict,
             EvidenceConflictStatus::ConflictsWithOtherEvidence,
             EvidenceConflictStatus::NotAssessed,
+        ])
+    );
+
+    let evaluator_schema: serde_json::Value =
+        serde_json::from_str(EVALUATOR_SCHEMA).expect("evaluator schema parses");
+    let evaluator = evaluator_fixture();
+    let evaluator_json = serde_json::to_value(&evaluator).expect("evaluator serializes");
+    assert_schema_fields_match(&evaluator_schema["properties"], &evaluator_json);
+    assert_schema_fields_match(
+        &evaluator_schema["$defs"]["Case"]["properties"],
+        &evaluator_json["cases"][0],
+    );
+    assert_schema_fields_match(
+        &evaluator_schema["$defs"]["Rubric"]["properties"],
+        &evaluator_json["cases"][0]["rubric"][0],
+    );
+    assert_eq!(
+        schema_enum_names(&evaluator_schema, "Disposition"),
+        serialized_enum_names([
+            ExpectedDisposition::NeedsMoreEvidence,
+            ExpectedDisposition::ConfigurationRisk,
+            ExpectedDisposition::ProvenanceConflict,
+            ExpectedDisposition::UntrustedInstruction,
+            ExpectedDisposition::StaleStateUnknown,
         ])
     );
 }
