@@ -17,6 +17,7 @@
 //! - Structured error handling with descriptive messages
 
 mod benchmarks;
+pub mod capability_plan;
 pub mod contracts;
 pub mod crypto;
 pub mod errors;
@@ -27,6 +28,7 @@ pub mod provenance;
 pub mod types;
 pub mod validation;
 
+pub use capability_plan::*;
 pub use contracts::*;
 pub use crypto::*;
 pub use errors::*;
