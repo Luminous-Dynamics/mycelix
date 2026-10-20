@@ -14,9 +14,9 @@ use mycelix_leptos_core::consciousness::refresh_consciousness_from_conductor;
 use mycelix_leptos_core::local_identity::{
     IdentityBootstrapAction, LocalIdentityStoragePosture, allowed_identity_bootstrap_actions,
     create_protected_identity, export_unlocked_identity_seed_phrase,
-    identity_bootstrap_action_allowed, inspect_local_identity_posture,
-    protect_existing_identity, recovery_phrase_challenge_positions,
-    restore_protected_identity_from_seed_phrase, unlock_with_passphrase,
+    identity_bootstrap_action_allowed, inspect_local_identity_posture, protect_existing_identity,
+    recovery_phrase_challenge_positions, restore_protected_identity_from_seed_phrase,
+    unlock_with_passphrase,
 };
 use mycelix_leptos_core::{
     ActivityFeed, ActivityFeedItem, AppShell, AvailabilityState, AvailabilityStateKind,
@@ -324,8 +324,11 @@ fn IdentityBootstrapGate(
                             Ok((words, positions)) => {
                                 backup_words_signal.set(words);
                                 backup_positions_signal.set(Some(positions));
-                                backup_answers_signal
-                                    .set([String::new(), String::new(), String::new()]);
+                                backup_answers_signal.set([
+                                    String::new(),
+                                    String::new(),
+                                    String::new(),
+                                ]);
                                 backup_ack_signal.set(false);
                                 status_signal.set(
                                     "Identity protected. Save the recovery phrase and confirm three words before continuing."
@@ -368,22 +371,18 @@ fn IdentityBootstrapGate(
         });
     };
 
-    let retry_backup = move |_| {
-        match prepare_recovery_backup() {
-            Ok((words, positions)) => {
-                backup_phrase_words.set(words);
-                backup_challenge_positions.set(Some(positions));
-                backup_answers.set([String::new(), String::new(), String::new()]);
-                backup_acknowledged.set(false);
-                status_message.set(
-                    "Recovery phrase ready. Store it offline, then confirm the requested words."
-                        .to_string(),
-                );
-            }
-            Err(error) => status_message.set(format!(
-                "Backup setup is still unavailable: {error}"
-            )),
+    let retry_backup = move |_| match prepare_recovery_backup() {
+        Ok((words, positions)) => {
+            backup_phrase_words.set(words);
+            backup_challenge_positions.set(Some(positions));
+            backup_answers.set([String::new(), String::new(), String::new()]);
+            backup_acknowledged.set(false);
+            status_message.set(
+                "Recovery phrase ready. Store it offline, then confirm the requested words."
+                    .to_string(),
+            );
         }
+        Err(error) => status_message.set(format!("Backup setup is still unavailable: {error}")),
     };
 
     let confirm_backup = move |ev: SubmitEvent| {
@@ -399,9 +398,8 @@ fn IdentityBootstrapGate(
                 answer.zeroize();
             }
             backup_answers.set([String::new(), String::new(), String::new()]);
-            status_message.set(
-                "Recovery challenge is not ready. Retry the backup setup.".to_string(),
-            );
+            status_message
+                .set("Recovery challenge is not ready. Retry the backup setup.".to_string());
             return;
         };
 
