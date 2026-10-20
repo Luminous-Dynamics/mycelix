@@ -2,7 +2,7 @@ name: Praxis Cyber Challenge Contract
 
 on:
   pull_request:
-    branches: [main, praxis/cyber-evidence-challenges-v1]
+    branches: [main, praxis/cyber-evidence-challenges-v1, praxis/cyber-evidence-acquisition-v0-1]
     types: [opened, synchronize, reopened, ready_for_review]
     paths:
       - "mycelix-praxis/crates/praxis-core/**"
@@ -10,6 +10,7 @@ on:
       - "mycelix-praxis/examples/cyber-evidence-efficiency/**"
       - "mycelix-praxis/docs/CYBER_CHALLENGE_CORPUS_V1.md"
       - "mycelix-praxis/docs/CYBER_EVIDENCE_EFFICIENCY_V1.md"
+      - "mycelix-praxis/docs/CYBER_EVIDENCE_EFFICIENCY_V2.md"
       - ".github/workflows/praxis-cyber-challenges.yml"
   push:
     branches: [main]
@@ -61,6 +62,19 @@ jobs:
           test "$(git hash-object mycelix-praxis/examples/cyber-challenges/v1/evaluator-only.json)" = "$(jq -r '.evaluator_only_git_blob_sha' "$manifest")"
           test "$(git hash-object mycelix-praxis/examples/cyber-challenges/v1/solver-visible.schema.json)" = "$(jq -r '.solver_schema_git_blob_sha' "$manifest")"
           test "$(git hash-object mycelix-praxis/examples/cyber-challenges/v1/evaluator-only.schema.json)" = "$(jq -r '.evaluator_schema_git_blob_sha' "$manifest")"
+
+
+      - name: Verify evidence-sufficiency v2 fixture identities
+        if: hashFiles('mycelix-praxis/examples/cyber-evidence-efficiency/v2/corpus-manifest.json') != ''
+        shell: bash
+        run: |
+          manifest=mycelix-praxis/examples/cyber-evidence-efficiency/v2/corpus-manifest.json
+          test "$(jq -r '.benchmark_id' "$manifest")" = "PRAXIS-CYBER-ACQ-001"
+          test "$(jq -r '.benchmark_version' "$manifest")" = "0.2.0"
+          test "$(git hash-object mycelix-praxis/examples/cyber-evidence-efficiency/v2/request-catalog.json)" = "$(jq -r '.solver_visible_git_blob_sha' "$manifest")"
+          test "$(git hash-object mycelix-praxis/examples/cyber-evidence-efficiency/v2/evaluator-only.json)" = "$(jq -r '.evaluator_only_git_blob_sha' "$manifest")"
+          test "$(git hash-object mycelix-praxis/examples/cyber-evidence-efficiency/v2/request-catalog.schema.json)" = "$(jq -r '.solver_schema_git_blob_sha' "$manifest")"
+          test "$(git hash-object mycelix-praxis/examples/cyber-evidence-efficiency/v2/evaluator-only.schema.json)" = "$(jq -r '.evaluator_schema_git_blob_sha' "$manifest")"
 
       - name: Check formatting for Praxis Core
         run: cargo +1.96.0 fmt --manifest-path mycelix-praxis/Cargo.toml --package praxis-core -- --check
@@ -123,5 +137,48 @@ jobs:
         with:
           name: praxis-cyber-evidence-acquisition
           path: praxis-cyber-evidence-acquisition-receipt.json
+          if-no-files-found: error
+          retention-days: 30
+
+
+      - name: Emit exact-head evidence-sufficiency v2 receipt
+        if: success() && hashFiles('mycelix-praxis/examples/cyber-evidence-efficiency/v2/corpus-manifest.json') != ''
+        shell: bash
+        run: |
+          receipt=praxis-cyber-evidence-sufficiency-v2-receipt.json
+          jq -n \
+            --arg commit "$CHECKED_SHA" \
+            --arg rustc "$(rustc +1.96.0 --version)" \
+            --arg cargo "$(cargo +1.96.0 --version)" \
+            --arg manifest "$(git hash-object mycelix-praxis/examples/cyber-evidence-efficiency/v2/corpus-manifest.json)" \
+            --arg catalog "$(git hash-object mycelix-praxis/examples/cyber-evidence-efficiency/v2/request-catalog.json)" \
+            --arg evaluator "$(git hash-object mycelix-praxis/examples/cyber-evidence-efficiency/v2/evaluator-only.json)" \
+            --arg catalog_schema "$(git hash-object mycelix-praxis/examples/cyber-evidence-efficiency/v2/request-catalog.schema.json)" \
+            --arg evaluator_schema "$(git hash-object mycelix-praxis/examples/cyber-evidence-efficiency/v2/evaluator-only.schema.json)" \
+            --arg workflow "$(git hash-object .github/workflows/praxis-cyber-challenges.yml)" \
+            '{
+              schema_version: 1,
+              qualification_type: "public_synthetic_five_domain_sufficiency_conformance",
+              result: "PASS",
+              subject_commit: $commit,
+              toolchain: {rustc: $rustc, cargo: $cargo},
+              git_blob_sha1: {
+                corpus_manifest: $manifest,
+                solver_visible_catalog: $catalog,
+                evaluator_only_fixture: $evaluator,
+                solver_schema: $catalog_schema,
+                evaluator_schema: $evaluator_schema,
+                workflow: $workflow
+              },
+              claim_ceiling: "Contract and public synthetic fixture conformance only; not held-out cyber capability, live incident truth, learning efficacy, SOTA, or production readiness."
+            }' > "$receipt"
+          cat "$receipt" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload exact-head evidence-sufficiency v2 receipt
+        if: success() && hashFiles('mycelix-praxis/examples/cyber-evidence-efficiency/v2/corpus-manifest.json') != ''
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: praxis-cyber-evidence-sufficiency-v2
+          path: praxis-cyber-evidence-sufficiency-v2-receipt.json
           if-no-files-found: error
           retention-days: 30
