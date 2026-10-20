@@ -330,6 +330,37 @@ pub async fn decrypt(passphrase: &str, blob: &EncryptedBlob) -> Result<Vec<u8>, 
     Ok(Uint8Array::new(&result).to_vec())
 }
 
+#[cfg(all(test, feature = "production-kdf-benchmark"))]
+async fn derive_pbkdf2_key_material(
+    passphrase: &str,
+    salt: &[u8],
+    iterations: u32,
+) -> Result<Vec<u8>, String> {
+    let subtle = subtle()?;
+    let key_material = Uint8Array::from(passphrase.as_bytes());
+    let derive_bits_usage = js_sys::Array::of1(&JsValue::from_str("deriveBits"));
+    let import_promise = subtle
+        .import_key_with_str("raw", &key_material, "PBKDF2", false, &derive_bits_usage)
+        .map_err(|e| format!("PBKDF2 benchmark importKey failed: {e:?}"))?;
+    let base_key: CryptoKey = JsFuture::from(import_promise)
+        .await
+        .map_err(|e| format!("PBKDF2 benchmark importKey rejected: {e:?}"))?
+        .unchecked_into();
+    let params = Pbkdf2Params::new(
+        "PBKDF2",
+        &JsValue::from_str("SHA-256"),
+        iterations,
+        &Uint8Array::from(salt),
+    );
+    let derive_promise = subtle
+        .derive_bits_with_object(&params, &base_key, 256)
+        .map_err(|e| format!("PBKDF2 benchmark deriveBits failed: {e:?}"))?;
+    let result = JsFuture::from(derive_promise)
+        .await
+        .map_err(|e| format!("PBKDF2 benchmark deriveBits rejected: {e:?}"))?;
+    Ok(Uint8Array::new(&result).to_vec())
+}
+
 #[cfg(all(
     test,
     any(
@@ -468,6 +499,35 @@ mod tests {
             assert_eq!(recovered.as_slice(), &secret[..]);
         }
 
+        use zeroize::Zeroize;
+        let derive_salt = [0x3Cu8; SALT_LEN];
+        let mut warmup_derived = derive_pbkdf2_key_material(
+            passphrase,
+            &derive_salt,
+            PBKDF2_ITERATIONS,
+        )
+        .await
+        .expect("production PBKDF2 deriveBits warm-up succeeds");
+        assert_eq!(warmup_derived.len(), 32);
+        warmup_derived.zeroize();
+
+        let mut derive_ms = Vec::with_capacity(SAMPLE_COUNT);
+        for _ in 0..SAMPLE_COUNT {
+            let start = performance.now();
+            let mut derived = derive_pbkdf2_key_material(
+                passphrase,
+                &derive_salt,
+                PBKDF2_ITERATIONS,
+            )
+            .await
+            .expect("production PBKDF2 deriveBits benchmark succeeds");
+            derive_ms.push(performance.now() - start);
+            assert_eq!(derived.len(), 32);
+            derived.zeroize();
+        }
+
+        let (derive_p50, derive_p95, derive_max) =
+            summarize_latency_samples(&mut derive_ms).expect("PBKDF2 derive timings are valid");
         let (encrypt_p50, encrypt_p95, encrypt_max) =
             summarize_latency_samples(&mut encrypt_ms).expect("encrypt timings are valid");
         let (decrypt_p50, decrypt_p95, decrypt_max) =
@@ -475,12 +535,16 @@ mod tests {
         let report = format!(
             concat!(
                 "IDENTITY_KDF_BENCHMARK kdf={} iterations={} samples={} ",
+                "derive_bits_ms_p50={:.1} derive_bits_ms_p95={:.1} derive_bits_ms_max={:.1} ",
                 "encrypt_ms_p50={:.1} encrypt_ms_p95={:.1} encrypt_ms_max={:.1} ",
                 "unlock_decrypt_ms_p50={:.1} unlock_decrypt_ms_p95={:.1} unlock_decrypt_ms_max={:.1}"
             ),
             KDF_IDENTIFIER,
             PBKDF2_ITERATIONS,
             SAMPLE_COUNT,
+            derive_p50,
+            derive_p95,
+            derive_max,
             encrypt_p50,
             encrypt_p95,
             encrypt_max,
