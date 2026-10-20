@@ -254,6 +254,21 @@ fn duplicate_attempt_ids_are_rejected() {
 }
 
 #[test]
+fn practice_assistance_must_match_assigned_arm() {
+    let mut run = fixture();
+    run.episodes[1]
+        .attempts
+        .iter_mut()
+        .find(|a| a.phase == AssessmentPhase::Practice)
+        .unwrap()
+        .assistance = AssistanceMode::DirectAnswer;
+    assert!(has_code(
+        validate_assessment_benchmark(&run),
+        "assistance_arm_mismatch"
+    ));
+}
+
+#[test]
 fn unknown_study_arm_is_rejected() {
     let mut run = fixture();
     run.episodes[0].arm_id = "unregistered-arm".into();
