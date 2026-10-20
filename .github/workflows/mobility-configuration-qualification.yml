@@ -1,0 +1,50 @@
+name: Mobility Configuration Qualification
+
+on:
+  pull_request:
+    paths:
+      - 'docs/mobility/MOBILITY_CONFIGURATION_CONTRACT_V1.json'
+      - 'docs/mobility/MOBILITY_CONFIGURATION_CONTRACT_V1_TEST_VECTORS.md'
+      - 'mycelix-commons/crates/mobility-configuration-qualification/**'
+      - 'tools/mobility_qualification_reference.py'
+      - '.github/workflows/mobility-configuration-qualification.yml'
+  push:
+    branches:
+      - main
+    paths:
+      - 'docs/mobility/MOBILITY_CONFIGURATION_CONTRACT_V1.json'
+      - 'docs/mobility/MOBILITY_CONFIGURATION_CONTRACT_V1_TEST_VECTORS.md'
+      - 'mycelix-commons/crates/mobility-configuration-qualification/**'
+      - 'tools/mobility_qualification_reference.py'
+      - '.github/workflows/mobility-configuration-qualification.yml'
+
+jobs:
+  qualify-rust:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: mycelix-commons/crates/mobility-configuration-qualification
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - run: cargo fmt --check
+      - run: cargo test
+
+  qualify-reference:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Independent reference evaluation
+        run: python3 tools/mobility_qualification_reference.py
+
+  differential:
+    runs-on: ubuntu-latest
+    needs: [qualify-rust, qualify-reference]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify independent reference gate
+        run: |
+          python3 tools/mobility_qualification_reference.py > /tmp/reference.json
+          grep -q '"result": "valid"' /tmp/reference.json
+          grep -q '"corruption_probe": "rejected"' /tmp/reference.json
+          echo "Independent reference gate passed; Rust job is the separate implementation."
