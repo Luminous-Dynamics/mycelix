@@ -263,12 +263,8 @@ pub async fn encrypt(passphrase: &str, plaintext: &[u8]) -> Result<EncryptedBlob
     let cipher = IdentityCipher::Aes256Gcm;
     let aes_key = derive_aes_key(passphrase, &salt, iterations).await?;
 
-    let mut additional_data = canonical_authenticated_header(
-        CURRENT_ENVELOPE_VERSION,
-        kdf,
-        iterations,
-        cipher,
-    );
+    let mut additional_data =
+        canonical_authenticated_header(CURRENT_ENVELOPE_VERSION, kdf, iterations, cipher);
     let subtle = subtle()?;
     let gcm_params = AesGcmParams::new_with_u8_slice("AES-GCM", &mut iv);
     gcm_params.set_additional_data_u8_slice(&mut additional_data);
@@ -371,7 +367,10 @@ mod tests {
         blob.iterations += 1;
 
         let result = decrypt("metadata passphrase", &blob).await;
-        assert!(result.is_err(), "altered KDF metadata must fail authenticated decryption");
+        assert!(
+            result.is_err(),
+            "altered KDF metadata must fail authenticated decryption"
+        );
     }
 
     #[wasm_bindgen_test::wasm_bindgen_test]
@@ -422,13 +421,21 @@ mod envelope_policy_tests {
 
     #[test]
     fn new_envelopes_bound_iterations_before_kdf_work() {
-        assert!(sample_blob(CURRENT_ENVELOPE_VERSION, PBKDF2_ITERATIONS)
-            .validate()
-            .is_ok());
-        assert!(sample_blob(CURRENT_ENVELOPE_VERSION, 999).validate().is_err());
-        assert!(sample_blob(CURRENT_ENVELOPE_VERSION, MAX_PBKDF2_ITERATIONS + 1)
-            .validate()
-            .is_err());
+        assert!(
+            sample_blob(CURRENT_ENVELOPE_VERSION, PBKDF2_ITERATIONS)
+                .validate()
+                .is_ok()
+        );
+        assert!(
+            sample_blob(CURRENT_ENVELOPE_VERSION, 999)
+                .validate()
+                .is_err()
+        );
+        assert!(
+            sample_blob(CURRENT_ENVELOPE_VERSION, MAX_PBKDF2_ITERATIONS + 1)
+                .validate()
+                .is_err()
+        );
         assert!(sample_blob(99, PBKDF2_ITERATIONS).validate().is_err());
     }
 
@@ -441,7 +448,10 @@ mod envelope_policy_tests {
             .unwrap();
         assert_ne!(first, changed);
         assert!(String::from_utf8(first).unwrap().contains(KDF_IDENTIFIER));
-        assert!(String::from_utf8(changed).unwrap().contains(CIPHER_IDENTIFIER));
+        assert!(
+            String::from_utf8(changed)
+                .unwrap()
+                .contains(CIPHER_IDENTIFIER)
+        );
     }
 }
-
