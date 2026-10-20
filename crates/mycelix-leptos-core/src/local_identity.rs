@@ -125,7 +125,16 @@ thread_local! {
 }
 
 #[derive(serde::Serialize, serde::Deserialize)]
+#[serde(deny_unknown_fields)]
 struct EncryptedBlobWire {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    format_version: Option<u8>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    kdf: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    iterations: Option<u32>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    cipher: Option<String>,
     salt_b64: String,
     iv_b64: String,
     ciphertext_b64: String,
@@ -134,6 +143,10 @@ struct EncryptedBlobWire {
 impl From<&EncryptedBlob> for EncryptedBlobWire {
     fn from(blob: &EncryptedBlob) -> Self {
         Self {
+            format_version: Some(blob.format_version),
+            kdf: Some(blob.kdf.identifier().to_string()),
+            iterations: Some(blob.iterations),
+            cipher: Some(blob.cipher.identifier().to_string()),
             salt_b64: base64_encode(&blob.salt),
             iv_b64: base64_encode(&blob.iv),
             ciphertext_b64: base64_encode(&blob.ciphertext),
@@ -145,11 +158,54 @@ impl TryFrom<&EncryptedBlobWire> for EncryptedBlob {
     type Error = String;
 
     fn try_from(wire: &EncryptedBlobWire) -> Result<Self, String> {
-        Ok(EncryptedBlob {
-            salt: base64_decode(&wire.salt_b64).ok_or("corrupt salt")?,
-            iv: base64_decode(&wire.iv_b64).ok_or("corrupt iv")?,
-            ciphertext: base64_decode(&wire.ciphertext_b64).ok_or("corrupt ciphertext")?,
-        })
+        let format_version = wire.format_version.unwrap_or(1);
+        let (kdf, iterations, cipher) = match format_version {
+            1 => {
+                // A legacy record is exactly the historical three-field
+                // shape. Extra policy fields on a v1 envelope are ambiguous
+                // and must not be interpreted under a different default.
+                if wire.kdf.is_some() || wire.iterations.is_some() || wire.cipher.is_some() {
+                    return Err("Legacy identity envelope contains unexpected metadata.".into());
+                }
+                (
+                    identity_crypto::KeyDerivationFunction::Pbkdf2HmacSha256,
+                    identity_crypto::LEGACY_PBKDF2_ITERATIONS,
+                    identity_crypto::IdentityCipher::Aes256Gcm,
+                )
+            }
+            identity_crypto::CURRENT_ENVELOPE_VERSION => {
+                let kdf = wire
+                    .kdf
+                    .as_deref()
+                    .and_then(identity_crypto::KeyDerivationFunction::from_identifier)
+                    .ok_or_else(|| "Unsupported or missing identity KDF metadata.".to_string())?;
+                let iterations = wire
+                    .iterations
+                    .ok_or_else(|| "Missing identity KDF work factor.".to_string())?;
+                let cipher = wire
+                    .cipher
+                    .as_deref()
+                    .and_then(identity_crypto::IdentityCipher::from_identifier)
+                    .ok_or_else(|| "Unsupported or missing identity cipher metadata.".to_string())?;
+                (kdf, iterations, cipher)
+            }
+            _ => return Err("Unsupported identity envelope version.".into()),
+        };
+
+        let blob = EncryptedBlob {
+            format_version,
+            kdf,
+            iterations,
+            cipher,
+            salt: base64_decode(&wire.salt_b64)
+                .ok_or_else(|| "Corrupt encrypted identity salt.".to_string())?,
+            iv: base64_decode(&wire.iv_b64)
+                .ok_or_else(|| "Corrupt encrypted identity nonce.".to_string())?,
+            ciphertext: base64_decode(&wire.ciphertext_b64)
+                .ok_or_else(|| "Corrupt encrypted identity payload.".to_string())?,
+        };
+        blob.validate()?;
+        Ok(blob)
     }
 }
 
@@ -1191,6 +1247,61 @@ mod tests {
     /// `did_from_public_key` is pure and needs no browser: it should work
     /// identically on native and wasm32 targets.
 
+    #[test]
+    fn legacy_three_field_envelope_maps_to_frozen_production_parameters() {
+        let legacy_json = serde_json::json!({
+            "salt_b64": base64_encode(&[1u8; identity_crypto::SALT_LEN]),
+            "iv_b64": base64_encode(&[2u8; identity_crypto::IV_LEN]),
+            "ciphertext_b64": base64_encode(&[3u8; 48]),
+        });
+        let wire: EncryptedBlobWire = serde_json::from_value(legacy_json).unwrap();
+        let blob = EncryptedBlob::try_from(&wire).unwrap();
+
+        assert_eq!(blob.format_version, 1);
+        assert_eq!(blob.iterations, identity_crypto::LEGACY_PBKDF2_ITERATIONS);
+        assert_eq!(
+            blob.kdf,
+            identity_crypto::KeyDerivationFunction::Pbkdf2HmacSha256
+        );
+        assert_eq!(blob.cipher, identity_crypto::IdentityCipher::Aes256Gcm);
+    }
+
+    #[test]
+    fn versioned_envelope_requires_complete_allowlisted_metadata() {
+        let mut json = serde_json::json!({
+            "format_version": identity_crypto::CURRENT_ENVELOPE_VERSION,
+            "kdf": identity_crypto::KDF_IDENTIFIER,
+            "iterations": identity_crypto::PBKDF2_ITERATIONS,
+            "cipher": identity_crypto::CIPHER_IDENTIFIER,
+            "salt_b64": base64_encode(&[1u8; identity_crypto::SALT_LEN]),
+            "iv_b64": base64_encode(&[2u8; identity_crypto::IV_LEN]),
+            "ciphertext_b64": base64_encode(&[3u8; 48]),
+        });
+        let good: EncryptedBlobWire = serde_json::from_value(json.clone()).unwrap();
+        assert!(EncryptedBlob::try_from(&good).is_ok());
+
+        json["format_version"] = serde_json::json!(99);
+        let unknown: EncryptedBlobWire = serde_json::from_value(json).unwrap();
+        assert!(EncryptedBlob::try_from(&unknown).is_err());
+    }
+
+    #[test]
+    fn legacy_shape_cannot_smuggle_metadata_and_v2_cannot_omit_it() {
+        let mut with_extra = serde_json::json!({
+            "salt_b64": base64_encode(&[1u8; identity_crypto::SALT_LEN]),
+            "iv_b64": base64_encode(&[2u8; identity_crypto::IV_LEN]),
+            "ciphertext_b64": base64_encode(&[3u8; 48]),
+            "iterations": 1,
+        });
+        let ambiguous: EncryptedBlobWire = serde_json::from_value(with_extra.clone()).unwrap();
+        assert!(EncryptedBlob::try_from(&ambiguous).is_err());
+
+        with_extra["format_version"] = serde_json::json!(identity_crypto::CURRENT_ENVELOPE_VERSION);
+        with_extra.as_object_mut().unwrap().remove("iterations");
+        let incomplete: EncryptedBlobWire = serde_json::from_value(with_extra).unwrap();
+        assert!(EncryptedBlob::try_from(&incomplete).is_err());
+    }
+
     fn snapshot(
         legacy_did: Option<String>,
         secret_b64: Option<String>,
@@ -1208,6 +1319,10 @@ mod tests {
 
     fn valid_encrypted_wire() -> String {
         let wire = EncryptedBlobWire {
+            format_version: Some(identity_crypto::CURRENT_ENVELOPE_VERSION),
+            kdf: Some(identity_crypto::KDF_IDENTIFIER.into()),
+            iterations: Some(identity_crypto::PBKDF2_ITERATIONS),
+            cipher: Some(identity_crypto::CIPHER_IDENTIFIER.into()),
             salt_b64: base64_encode(&[1u8; identity_crypto::SALT_LEN]),
             iv_b64: base64_encode(&[2u8; identity_crypto::IV_LEN]),
             ciphertext_b64: base64_encode(&[3u8; 48]),
@@ -1402,6 +1517,10 @@ mod tests {
     fn encrypted_container_with_wrong_ciphertext_length_is_corrupt() {
         let key = SigningKey::from_bytes(&[11u8; 32]);
         let malformed_wire = serde_json::to_string(&EncryptedBlobWire {
+            format_version: Some(identity_crypto::CURRENT_ENVELOPE_VERSION),
+            kdf: Some(identity_crypto::KDF_IDENTIFIER.into()),
+            iterations: Some(identity_crypto::PBKDF2_ITERATIONS),
+            cipher: Some(identity_crypto::CIPHER_IDENTIFIER.into()),
             salt_b64: base64_encode(&[1u8; identity_crypto::SALT_LEN]),
             iv_b64: base64_encode(&[2u8; identity_crypto::IV_LEN]),
             ciphertext_b64: base64_encode(&[3u8; 47]),
