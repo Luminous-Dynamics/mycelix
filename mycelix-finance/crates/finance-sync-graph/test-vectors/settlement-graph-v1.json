@@ -1,0 +1,117 @@
+{
+  "input": {
+    "economic_effect_commitment": "1111111111111111111111111111111111111111111111111111111111111111",
+    "graph_profile": {
+      "id": "fin-sync:pvp:v1",
+      "revision": 1,
+      "digest": "2222222222222222222222222222222222222222222222222222222222222222"
+    },
+    "temporal_profile": {
+      "id": "fin-time:execution-window:v1",
+      "revision": 1,
+      "digest": "3333333333333333333333333333333333333333333333333333333333333333"
+    },
+    "legs": [
+      {
+        "alias": "usd-leg",
+        "adapter_profile": {
+          "id": "adapter:synthetic-usd:v1",
+          "revision": 1,
+          "digest": "4444444444444444444444444444444444444444444444444444444444444444"
+        },
+        "rail": "SYNTHETIC_RTGS",
+        "network": "test-usd",
+        "role": "payment",
+        "source_subject": "org:bank-a:usd",
+        "destination_subject": "org:bank-b:usd",
+        "amount": {
+          "atomic_units": 1250000,
+          "asset": "USD:bank-a"
+        },
+        "asset_unit_profile": {
+          "id": "asset:usd-bank-a:v1",
+          "revision": 1,
+          "digest": "5555555555555555555555555555555555555555555555555555555555555555"
+        },
+        "required_finality_profile": {
+          "id": "finality:synthetic-usd:v1",
+          "revision": 1,
+          "digest": "6666666666666666666666666666666666666666666666666666666666666666"
+        },
+        "semantic_idempotency_ref": "effect-001:usd",
+        "purpose_profile": {
+          "id": "purpose:pvp-payment:v1",
+          "revision": 1,
+          "digest": "7777777777777777777777777777777777777777777777777777777777777777"
+        },
+        "delivery_asset_subject": null
+      },
+      {
+        "alias": "eur-leg",
+        "adapter_profile": {
+          "id": "adapter:synthetic-eur:v1",
+          "revision": 1,
+          "digest": "8888888888888888888888888888888888888888888888888888888888888888"
+        },
+        "rail": "SYNTHETIC_RTGS",
+        "network": "test-eur",
+        "role": "payment",
+        "source_subject": "org:bank-b:eur",
+        "destination_subject": "org:bank-a:eur",
+        "amount": {
+          "atomic_units": 1100000,
+          "asset": "EUR:bank-b"
+        },
+        "asset_unit_profile": {
+          "id": "asset:eur-bank-b:v1",
+          "revision": 1,
+          "digest": "9999999999999999999999999999999999999999999999999999999999999999"
+        },
+        "required_finality_profile": {
+          "id": "finality:synthetic-eur:v1",
+          "revision": 1,
+          "digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        },
+        "semantic_idempotency_ref": "effect-001:eur",
+        "purpose_profile": {
+          "id": "purpose:pvp-payment:v1",
+          "revision": 1,
+          "digest": "7777777777777777777777777777777777777777777777777777777777777777"
+        },
+        "delivery_asset_subject": null
+      }
+    ],
+    "dependencies": [
+      {
+        "kind": "conditional_on_evidence",
+        "leg_alias": "usd-leg",
+        "predicate_profile": {
+          "id": "compliance:synthetic:v1",
+          "revision": 1,
+          "digest": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+        }
+      }
+    ],
+    "coordination_groups": [
+      {
+        "alias": "fx-pvp",
+        "class": "pvp",
+        "coordination_profile": {
+          "id": "sync:pvp:synthetic:v1",
+          "revision": 1,
+          "digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+        },
+        "member_aliases": [
+          "eur-leg",
+          "usd-leg"
+        ]
+      }
+    ]
+  },
+  "expected": {
+    "usd_leg_id": "a0fca8a0301e14743716ec3c280c0179dca915310e90818b40db69f38930cd86",
+    "eur_leg_id": "3c00858264be8a13449bea08c8ca2ba592b799d490795300b264e7f1b4c7b709",
+    "group_id": "cf5254fed98de1d0f8dd8922f280130d69feada95e1820a73fbe064643977f5e",
+    "graph_commitment": "3cac9d88d535025a357b2cbfc18d48606e726dec7fa3ccd57b81b11f345a662d"
+  }
+}
