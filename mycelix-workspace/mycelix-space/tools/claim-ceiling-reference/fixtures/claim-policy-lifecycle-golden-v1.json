@@ -24,6 +24,8 @@
         "trusted_time_unix_seconds": 200,
         "distribution_status": "verified_current",
         "installed_head": {
+          "policy_id": "mycelix.policy.instrument.research",
+          "audience": "mycelix.claim-ceiling.policy-check",
           "version": 1,
           "target_profile_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
           "revocation_epoch": 3
@@ -54,6 +56,8 @@
         "trusted_time_unix_seconds": 200,
         "distribution_status": "verified_current",
         "installed_head": {
+          "policy_id": "mycelix.policy.instrument.research",
+          "audience": "mycelix.claim-ceiling.policy-check",
           "version": 2,
           "target_profile_sha256": "219557c25c93cf6978c69b379155666fbe8ad00040a138dfd9edb3e68e8f66cf",
           "revocation_epoch": 3
@@ -84,6 +88,8 @@
         "trusted_time_unix_seconds": 200,
         "distribution_status": "verified_current",
         "installed_head": {
+          "policy_id": "mycelix.policy.instrument.research",
+          "audience": "mycelix.claim-ceiling.policy-check",
           "version": 2,
           "target_profile_sha256": "219557c25c93cf6978c69b379155666fbe8ad00040a138dfd9edb3e68e8f66cf",
           "revocation_epoch": 3
@@ -116,6 +122,8 @@
         "trusted_time_unix_seconds": 200,
         "distribution_status": "verified_current",
         "installed_head": {
+          "policy_id": "mycelix.policy.instrument.research",
+          "audience": "mycelix.claim-ceiling.policy-check",
           "version": 2,
           "target_profile_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
           "revocation_epoch": 3
@@ -148,6 +156,8 @@
         "trusted_time_unix_seconds": 200,
         "distribution_status": "invalid_signature",
         "installed_head": {
+          "policy_id": "mycelix.policy.instrument.research",
+          "audience": "mycelix.claim-ceiling.policy-check",
           "version": 1,
           "target_profile_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
           "revocation_epoch": 3
@@ -180,6 +190,8 @@
         "trusted_time_unix_seconds": 200,
         "distribution_status": "unknown_publisher_key",
         "installed_head": {
+          "policy_id": "mycelix.policy.instrument.research",
+          "audience": "mycelix.claim-ceiling.policy-check",
           "version": 1,
           "target_profile_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
           "revocation_epoch": 3
@@ -212,6 +224,8 @@
         "trusted_time_unix_seconds": 200,
         "distribution_status": "revoked_publisher_key",
         "installed_head": {
+          "policy_id": "mycelix.policy.instrument.research",
+          "audience": "mycelix.claim-ceiling.policy-check",
           "version": 1,
           "target_profile_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
           "revocation_epoch": 3
@@ -244,6 +258,8 @@
         "trusted_time_unix_seconds": 200,
         "distribution_status": "metadata_expired",
         "installed_head": {
+          "policy_id": "mycelix.policy.instrument.research",
+          "audience": "mycelix.claim-ceiling.policy-check",
           "version": 1,
           "target_profile_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
           "revocation_epoch": 3
@@ -276,6 +292,8 @@
         "trusted_time_unix_seconds": null,
         "distribution_status": "verified_current",
         "installed_head": {
+          "policy_id": "mycelix.policy.instrument.research",
+          "audience": "mycelix.claim-ceiling.policy-check",
           "version": 1,
           "target_profile_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
           "revocation_epoch": 3
@@ -308,6 +326,8 @@
         "trusted_time_unix_seconds": 200,
         "distribution_status": "verified_current",
         "installed_head": {
+          "policy_id": "mycelix.policy.instrument.research",
+          "audience": "mycelix.claim-ceiling.policy-check",
           "version": 1,
           "target_profile_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
           "revocation_epoch": 3
@@ -340,6 +360,8 @@
         "trusted_time_unix_seconds": 200,
         "distribution_status": "verified_current",
         "installed_head": {
+          "policy_id": "mycelix.policy.instrument.research",
+          "audience": "mycelix.claim-ceiling.policy-check",
           "version": 1,
           "target_profile_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
           "revocation_epoch": 3
@@ -372,6 +394,8 @@
         "trusted_time_unix_seconds": 200,
         "distribution_status": "verified_current",
         "installed_head": {
+          "policy_id": "mycelix.policy.instrument.research",
+          "audience": "mycelix.claim-ceiling.policy-check",
           "version": 1,
           "target_profile_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
           "revocation_epoch": 3
@@ -404,6 +428,8 @@
         "trusted_time_unix_seconds": 300,
         "distribution_status": "verified_current",
         "installed_head": {
+          "policy_id": "mycelix.policy.instrument.research",
+          "audience": "mycelix.claim-ceiling.policy-check",
           "version": 1,
           "target_profile_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
           "revocation_epoch": 3
@@ -436,6 +462,8 @@
         "trusted_time_unix_seconds": 50,
         "distribution_status": "verified_current",
         "installed_head": {
+          "policy_id": "mycelix.policy.instrument.research",
+          "audience": "mycelix.claim-ceiling.policy-check",
           "version": 1,
           "target_profile_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
           "revocation_epoch": 3
@@ -468,6 +496,8 @@
         "trusted_time_unix_seconds": 200,
         "distribution_status": "verified_current",
         "installed_head": {
+          "policy_id": "mycelix.policy.instrument.research",
+          "audience": "mycelix.claim-ceiling.policy-check",
           "version": 1,
           "target_profile_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
           "revocation_epoch": 3
@@ -500,6 +530,8 @@
         "trusted_time_unix_seconds": 200,
         "distribution_status": "rollback_detected",
         "installed_head": {
+          "policy_id": "mycelix.policy.instrument.research",
+          "audience": "mycelix.claim-ceiling.policy-check",
           "version": 1,
           "target_profile_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
           "revocation_epoch": 3
@@ -532,6 +564,8 @@
         "trusted_time_unix_seconds": 200,
         "distribution_status": "mix_and_match_detected",
         "installed_head": {
+          "policy_id": "mycelix.policy.instrument.research",
+          "audience": "mycelix.claim-ceiling.policy-check",
           "version": 1,
           "target_profile_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
           "revocation_epoch": 3
@@ -564,6 +598,8 @@
         "trusted_time_unix_seconds": 200,
         "distribution_status": "metadata_stale",
         "installed_head": {
+          "policy_id": "mycelix.policy.instrument.research",
+          "audience": "mycelix.claim-ceiling.policy-check",
           "version": 1,
           "target_profile_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
           "revocation_epoch": 3
@@ -596,6 +632,8 @@
         "trusted_time_unix_seconds": 200,
         "distribution_status": "signature_threshold_not_met",
         "installed_head": {
+          "policy_id": "mycelix.policy.instrument.research",
+          "audience": "mycelix.claim-ceiling.policy-check",
           "version": 1,
           "target_profile_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
           "revocation_epoch": 3
