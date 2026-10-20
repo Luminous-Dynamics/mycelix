@@ -159,6 +159,7 @@ impl PolicyHeadStore {
             .create(true)
             .read(true)
             .write(true)
+            .truncate(false)
             .open(&self.lock_path)
             .map_err(|error| format!("cannot open policy-head lock file: {error}"))?;
         FileExt::lock_exclusive(&lock_file)
