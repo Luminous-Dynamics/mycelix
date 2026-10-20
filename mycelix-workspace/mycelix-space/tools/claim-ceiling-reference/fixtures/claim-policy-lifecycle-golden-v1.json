@@ -67,176 +67,6 @@
       "expected_violation_codes": []
     },
     {
-      "id": "reject-version-rollback",
-      "release": {
-        "schema_version": "mycelix.claim-policy-release-descriptor.v1",
-        "policy_id": "mycelix.policy.instrument.research",
-        "audience": "mycelix.claim-ceiling.policy-check",
-        "version": 1,
-        "revocation_epoch": 3,
-        "target_profile_sha256": "219557c25c93cf6978c69b379155666fbe8ad00040a138dfd9edb3e68e8f66cf",
-        "policy_profile_schema_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-        "issued_at_unix_seconds": 100,
-        "expires_at_unix_seconds": 300
-      },
-      "profile_bytes": "{\"policy\":\"sample-profile\"}",
-      "trusted_context": {
-        "expected_policy_id": "mycelix.policy.instrument.research",
-        "expected_audience": "mycelix.claim-ceiling.policy-check",
-        "expected_policy_profile_schema_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-        "minimum_revocation_epoch": 3,
-        "trusted_time_unix_seconds": 200,
-        "distribution_status": "verified_current",
-        "installed_head": {
-          "policy_id": "mycelix.policy.instrument.research",
-          "audience": "mycelix.claim-ceiling.policy-check",
-          "version": 2,
-          "target_profile_sha256": "219557c25c93cf6978c69b379155666fbe8ad00040a138dfd9edb3e68e8f66cf",
-          "revocation_epoch": 3
-        }
-      },
-      "expected_disposition": "rejected",
-      "expected_violation_codes": [
-        "policy_version_rollback"
-      ]
-    },
-    {
-      "id": "reject-same-version-equivocation",
-      "release": {
-        "schema_version": "mycelix.claim-policy-release-descriptor.v1",
-        "policy_id": "mycelix.policy.instrument.research",
-        "audience": "mycelix.claim-ceiling.policy-check",
-        "version": 2,
-        "revocation_epoch": 3,
-        "target_profile_sha256": "219557c25c93cf6978c69b379155666fbe8ad00040a138dfd9edb3e68e8f66cf",
-        "policy_profile_schema_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-        "issued_at_unix_seconds": 100,
-        "expires_at_unix_seconds": 300
-      },
-      "profile_bytes": "{\"policy\":\"sample-profile\"}",
-      "trusted_context": {
-        "expected_policy_id": "mycelix.policy.instrument.research",
-        "expected_audience": "mycelix.claim-ceiling.policy-check",
-        "expected_policy_profile_schema_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-        "minimum_revocation_epoch": 3,
-        "trusted_time_unix_seconds": 200,
-        "distribution_status": "verified_current",
-        "installed_head": {
-          "policy_id": "mycelix.policy.instrument.research",
-          "audience": "mycelix.claim-ceiling.policy-check",
-          "version": 2,
-          "target_profile_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
-          "revocation_epoch": 3
-        }
-      },
-      "expected_disposition": "rejected",
-      "expected_violation_codes": [
-        "policy_version_equivocation"
-      ]
-    },
-    {
-      "id": "reject-invalid-signature",
-      "release": {
-        "schema_version": "mycelix.claim-policy-release-descriptor.v1",
-        "policy_id": "mycelix.policy.instrument.research",
-        "audience": "mycelix.claim-ceiling.policy-check",
-        "version": 2,
-        "revocation_epoch": 3,
-        "target_profile_sha256": "219557c25c93cf6978c69b379155666fbe8ad00040a138dfd9edb3e68e8f66cf",
-        "policy_profile_schema_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-        "issued_at_unix_seconds": 100,
-        "expires_at_unix_seconds": 300
-      },
-      "profile_bytes": "{\"policy\":\"sample-profile\"}",
-      "trusted_context": {
-        "expected_policy_id": "mycelix.policy.instrument.research",
-        "expected_audience": "mycelix.claim-ceiling.policy-check",
-        "expected_policy_profile_schema_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-        "minimum_revocation_epoch": 3,
-        "trusted_time_unix_seconds": 200,
-        "distribution_status": "invalid_signature",
-        "installed_head": {
-          "policy_id": "mycelix.policy.instrument.research",
-          "audience": "mycelix.claim-ceiling.policy-check",
-          "version": 1,
-          "target_profile_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
-          "revocation_epoch": 3
-        }
-      },
-      "expected_disposition": "rejected",
-      "expected_violation_codes": [
-        "metadata_signature_invalid"
-      ]
-    },
-    {
-      "id": "reject-unknown-publisher-key",
-      "release": {
-        "schema_version": "mycelix.claim-policy-release-descriptor.v1",
-        "policy_id": "mycelix.policy.instrument.research",
-        "audience": "mycelix.claim-ceiling.policy-check",
-        "version": 2,
-        "revocation_epoch": 3,
-        "target_profile_sha256": "219557c25c93cf6978c69b379155666fbe8ad00040a138dfd9edb3e68e8f66cf",
-        "policy_profile_schema_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-        "issued_at_unix_seconds": 100,
-        "expires_at_unix_seconds": 300
-      },
-      "profile_bytes": "{\"policy\":\"sample-profile\"}",
-      "trusted_context": {
-        "expected_policy_id": "mycelix.policy.instrument.research",
-        "expected_audience": "mycelix.claim-ceiling.policy-check",
-        "expected_policy_profile_schema_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-        "minimum_revocation_epoch": 3,
-        "trusted_time_unix_seconds": 200,
-        "distribution_status": "unknown_publisher_key",
-        "installed_head": {
-          "policy_id": "mycelix.policy.instrument.research",
-          "audience": "mycelix.claim-ceiling.policy-check",
-          "version": 1,
-          "target_profile_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
-          "revocation_epoch": 3
-        }
-      },
-      "expected_disposition": "rejected",
-      "expected_violation_codes": [
-        "publisher_key_unknown"
-      ]
-    },
-    {
-      "id": "reject-revoked-publisher-key",
-      "release": {
-        "schema_version": "mycelix.claim-policy-release-descriptor.v1",
-        "policy_id": "mycelix.policy.instrument.research",
-        "audience": "mycelix.claim-ceiling.policy-check",
-        "version": 2,
-        "revocation_epoch": 3,
-        "target_profile_sha256": "219557c25c93cf6978c69b379155666fbe8ad00040a138dfd9edb3e68e8f66cf",
-        "policy_profile_schema_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-        "issued_at_unix_seconds": 100,
-        "expires_at_unix_seconds": 300
-      },
-      "profile_bytes": "{\"policy\":\"sample-profile\"}",
-      "trusted_context": {
-        "expected_policy_id": "mycelix.policy.instrument.research",
-        "expected_audience": "mycelix.claim-ceiling.policy-check",
-        "expected_policy_profile_schema_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-        "minimum_revocation_epoch": 3,
-        "trusted_time_unix_seconds": 200,
-        "distribution_status": "revoked_publisher_key",
-        "installed_head": {
-          "policy_id": "mycelix.policy.instrument.research",
-          "audience": "mycelix.claim-ceiling.policy-check",
-          "version": 1,
-          "target_profile_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
-          "revocation_epoch": 3
-        }
-      },
-      "expected_disposition": "rejected",
-      "expected_violation_codes": [
-        "publisher_key_revoked"
-      ]
-    },
-    {
       "id": "reject-expired-distribution-metadata",
       "release": {
         "schema_version": "mycelix.claim-policy-release-descriptor.v1",
@@ -268,142 +98,6 @@
       "expected_disposition": "rejected",
       "expected_violation_codes": [
         "metadata_expired"
-      ]
-    },
-    {
-      "id": "reject-no-trusted-time",
-      "release": {
-        "schema_version": "mycelix.claim-policy-release-descriptor.v1",
-        "policy_id": "mycelix.policy.instrument.research",
-        "audience": "mycelix.claim-ceiling.policy-check",
-        "version": 2,
-        "revocation_epoch": 3,
-        "target_profile_sha256": "219557c25c93cf6978c69b379155666fbe8ad00040a138dfd9edb3e68e8f66cf",
-        "policy_profile_schema_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-        "issued_at_unix_seconds": 100,
-        "expires_at_unix_seconds": 300
-      },
-      "profile_bytes": "{\"policy\":\"sample-profile\"}",
-      "trusted_context": {
-        "expected_policy_id": "mycelix.policy.instrument.research",
-        "expected_audience": "mycelix.claim-ceiling.policy-check",
-        "expected_policy_profile_schema_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-        "minimum_revocation_epoch": 3,
-        "trusted_time_unix_seconds": null,
-        "distribution_status": "verified_current",
-        "installed_head": {
-          "policy_id": "mycelix.policy.instrument.research",
-          "audience": "mycelix.claim-ceiling.policy-check",
-          "version": 1,
-          "target_profile_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
-          "revocation_epoch": 3
-        }
-      },
-      "expected_disposition": "rejected",
-      "expected_violation_codes": [
-        "trusted_time_unavailable"
-      ]
-    },
-    {
-      "id": "reject-wrong-audience",
-      "release": {
-        "schema_version": "mycelix.claim-policy-release-descriptor.v1",
-        "policy_id": "mycelix.policy.instrument.research",
-        "audience": "other.consumer",
-        "version": 2,
-        "revocation_epoch": 3,
-        "target_profile_sha256": "219557c25c93cf6978c69b379155666fbe8ad00040a138dfd9edb3e68e8f66cf",
-        "policy_profile_schema_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-        "issued_at_unix_seconds": 100,
-        "expires_at_unix_seconds": 300
-      },
-      "profile_bytes": "{\"policy\":\"sample-profile\"}",
-      "trusted_context": {
-        "expected_policy_id": "mycelix.policy.instrument.research",
-        "expected_audience": "mycelix.claim-ceiling.policy-check",
-        "expected_policy_profile_schema_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-        "minimum_revocation_epoch": 3,
-        "trusted_time_unix_seconds": 200,
-        "distribution_status": "verified_current",
-        "installed_head": {
-          "policy_id": "mycelix.policy.instrument.research",
-          "audience": "mycelix.claim-ceiling.policy-check",
-          "version": 1,
-          "target_profile_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
-          "revocation_epoch": 3
-        }
-      },
-      "expected_disposition": "rejected",
-      "expected_violation_codes": [
-        "policy_audience_mismatch"
-      ]
-    },
-    {
-      "id": "reject-profile-byte-tampering",
-      "release": {
-        "schema_version": "mycelix.claim-policy-release-descriptor.v1",
-        "policy_id": "mycelix.policy.instrument.research",
-        "audience": "mycelix.claim-ceiling.policy-check",
-        "version": 2,
-        "revocation_epoch": 3,
-        "target_profile_sha256": "219557c25c93cf6978c69b379155666fbe8ad00040a138dfd9edb3e68e8f66cf",
-        "policy_profile_schema_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-        "issued_at_unix_seconds": 100,
-        "expires_at_unix_seconds": 300
-      },
-      "profile_bytes": "tampered bytes",
-      "trusted_context": {
-        "expected_policy_id": "mycelix.policy.instrument.research",
-        "expected_audience": "mycelix.claim-ceiling.policy-check",
-        "expected_policy_profile_schema_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-        "minimum_revocation_epoch": 3,
-        "trusted_time_unix_seconds": 200,
-        "distribution_status": "verified_current",
-        "installed_head": {
-          "policy_id": "mycelix.policy.instrument.research",
-          "audience": "mycelix.claim-ceiling.policy-check",
-          "version": 1,
-          "target_profile_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
-          "revocation_epoch": 3
-        }
-      },
-      "expected_disposition": "rejected",
-      "expected_violation_codes": [
-        "profile_target_digest_mismatch"
-      ]
-    },
-    {
-      "id": "reject-stale-revocation-epoch",
-      "release": {
-        "schema_version": "mycelix.claim-policy-release-descriptor.v1",
-        "policy_id": "mycelix.policy.instrument.research",
-        "audience": "mycelix.claim-ceiling.policy-check",
-        "version": 2,
-        "revocation_epoch": 3,
-        "target_profile_sha256": "219557c25c93cf6978c69b379155666fbe8ad00040a138dfd9edb3e68e8f66cf",
-        "policy_profile_schema_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-        "issued_at_unix_seconds": 100,
-        "expires_at_unix_seconds": 300
-      },
-      "profile_bytes": "{\"policy\":\"sample-profile\"}",
-      "trusted_context": {
-        "expected_policy_id": "mycelix.policy.instrument.research",
-        "expected_audience": "mycelix.claim-ceiling.policy-check",
-        "expected_policy_profile_schema_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-        "minimum_revocation_epoch": 4,
-        "trusted_time_unix_seconds": 200,
-        "distribution_status": "verified_current",
-        "installed_head": {
-          "policy_id": "mycelix.policy.instrument.research",
-          "audience": "mycelix.claim-ceiling.policy-check",
-          "version": 1,
-          "target_profile_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
-          "revocation_epoch": 3
-        }
-      },
-      "expected_disposition": "rejected",
-      "expected_violation_codes": [
-        "revocation_epoch_stale"
       ]
     },
     {
@@ -441,7 +135,7 @@
       ]
     },
     {
-      "id": "reject-not-yet-valid",
+      "id": "reject-invalid-signature",
       "release": {
         "schema_version": "mycelix.claim-policy-release-descriptor.v1",
         "policy_id": "mycelix.policy.instrument.research",
@@ -459,42 +153,8 @@
         "expected_audience": "mycelix.claim-ceiling.policy-check",
         "expected_policy_profile_schema_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
         "minimum_revocation_epoch": 3,
-        "trusted_time_unix_seconds": 50,
-        "distribution_status": "verified_current",
-        "installed_head": {
-          "policy_id": "mycelix.policy.instrument.research",
-          "audience": "mycelix.claim-ceiling.policy-check",
-          "version": 1,
-          "target_profile_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
-          "revocation_epoch": 3
-        }
-      },
-      "expected_disposition": "rejected",
-      "expected_violation_codes": [
-        "release_not_yet_valid"
-      ]
-    },
-    {
-      "id": "reject-schema-digest-mismatch",
-      "release": {
-        "schema_version": "mycelix.claim-policy-release-descriptor.v1",
-        "policy_id": "mycelix.policy.instrument.research",
-        "audience": "mycelix.claim-ceiling.policy-check",
-        "version": 2,
-        "revocation_epoch": 3,
-        "target_profile_sha256": "219557c25c93cf6978c69b379155666fbe8ad00040a138dfd9edb3e68e8f66cf",
-        "policy_profile_schema_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
-        "issued_at_unix_seconds": 100,
-        "expires_at_unix_seconds": 300
-      },
-      "profile_bytes": "{\"policy\":\"sample-profile\"}",
-      "trusted_context": {
-        "expected_policy_id": "mycelix.policy.instrument.research",
-        "expected_audience": "mycelix.claim-ceiling.policy-check",
-        "expected_policy_profile_schema_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-        "minimum_revocation_epoch": 3,
         "trusted_time_unix_seconds": 200,
-        "distribution_status": "verified_current",
+        "distribution_status": "invalid_signature",
         "installed_head": {
           "policy_id": "mycelix.policy.instrument.research",
           "audience": "mycelix.claim-ceiling.policy-check",
@@ -505,7 +165,7 @@
       },
       "expected_disposition": "rejected",
       "expected_violation_codes": [
-        "policy_schema_digest_mismatch"
+        "metadata_signature_invalid"
       ]
     },
     {
@@ -577,6 +237,244 @@
       ]
     },
     {
+      "id": "reject-no-trusted-time",
+      "release": {
+        "schema_version": "mycelix.claim-policy-release-descriptor.v1",
+        "policy_id": "mycelix.policy.instrument.research",
+        "audience": "mycelix.claim-ceiling.policy-check",
+        "version": 2,
+        "revocation_epoch": 3,
+        "target_profile_sha256": "219557c25c93cf6978c69b379155666fbe8ad00040a138dfd9edb3e68e8f66cf",
+        "policy_profile_schema_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "issued_at_unix_seconds": 100,
+        "expires_at_unix_seconds": 300
+      },
+      "profile_bytes": "{\"policy\":\"sample-profile\"}",
+      "trusted_context": {
+        "expected_policy_id": "mycelix.policy.instrument.research",
+        "expected_audience": "mycelix.claim-ceiling.policy-check",
+        "expected_policy_profile_schema_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "minimum_revocation_epoch": 3,
+        "trusted_time_unix_seconds": null,
+        "distribution_status": "verified_current",
+        "installed_head": {
+          "policy_id": "mycelix.policy.instrument.research",
+          "audience": "mycelix.claim-ceiling.policy-check",
+          "version": 1,
+          "target_profile_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "revocation_epoch": 3
+        }
+      },
+      "expected_disposition": "rejected",
+      "expected_violation_codes": [
+        "trusted_time_unavailable"
+      ]
+    },
+    {
+      "id": "reject-not-yet-valid",
+      "release": {
+        "schema_version": "mycelix.claim-policy-release-descriptor.v1",
+        "policy_id": "mycelix.policy.instrument.research",
+        "audience": "mycelix.claim-ceiling.policy-check",
+        "version": 2,
+        "revocation_epoch": 3,
+        "target_profile_sha256": "219557c25c93cf6978c69b379155666fbe8ad00040a138dfd9edb3e68e8f66cf",
+        "policy_profile_schema_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "issued_at_unix_seconds": 100,
+        "expires_at_unix_seconds": 300
+      },
+      "profile_bytes": "{\"policy\":\"sample-profile\"}",
+      "trusted_context": {
+        "expected_policy_id": "mycelix.policy.instrument.research",
+        "expected_audience": "mycelix.claim-ceiling.policy-check",
+        "expected_policy_profile_schema_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "minimum_revocation_epoch": 3,
+        "trusted_time_unix_seconds": 50,
+        "distribution_status": "verified_current",
+        "installed_head": {
+          "policy_id": "mycelix.policy.instrument.research",
+          "audience": "mycelix.claim-ceiling.policy-check",
+          "version": 1,
+          "target_profile_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "revocation_epoch": 3
+        }
+      },
+      "expected_disposition": "rejected",
+      "expected_violation_codes": [
+        "release_not_yet_valid"
+      ]
+    },
+    {
+      "id": "reject-profile-byte-tampering",
+      "release": {
+        "schema_version": "mycelix.claim-policy-release-descriptor.v1",
+        "policy_id": "mycelix.policy.instrument.research",
+        "audience": "mycelix.claim-ceiling.policy-check",
+        "version": 2,
+        "revocation_epoch": 3,
+        "target_profile_sha256": "219557c25c93cf6978c69b379155666fbe8ad00040a138dfd9edb3e68e8f66cf",
+        "policy_profile_schema_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "issued_at_unix_seconds": 100,
+        "expires_at_unix_seconds": 300
+      },
+      "profile_bytes": "tampered bytes",
+      "trusted_context": {
+        "expected_policy_id": "mycelix.policy.instrument.research",
+        "expected_audience": "mycelix.claim-ceiling.policy-check",
+        "expected_policy_profile_schema_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "minimum_revocation_epoch": 3,
+        "trusted_time_unix_seconds": 200,
+        "distribution_status": "verified_current",
+        "installed_head": {
+          "policy_id": "mycelix.policy.instrument.research",
+          "audience": "mycelix.claim-ceiling.policy-check",
+          "version": 1,
+          "target_profile_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "revocation_epoch": 3
+        }
+      },
+      "expected_disposition": "rejected",
+      "expected_violation_codes": [
+        "profile_target_digest_mismatch"
+      ]
+    },
+    {
+      "id": "reject-revocation-epoch-rollback",
+      "release": {
+        "schema_version": "mycelix.claim-policy-release-descriptor.v1",
+        "policy_id": "mycelix.policy.instrument.research",
+        "audience": "mycelix.claim-ceiling.policy-check",
+        "version": 3,
+        "revocation_epoch": 2,
+        "target_profile_sha256": "219557c25c93cf6978c69b379155666fbe8ad00040a138dfd9edb3e68e8f66cf",
+        "policy_profile_schema_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "issued_at_unix_seconds": 100,
+        "expires_at_unix_seconds": 300
+      },
+      "profile_bytes": "{\"policy\":\"sample-profile\"}",
+      "trusted_context": {
+        "expected_policy_id": "mycelix.policy.instrument.research",
+        "expected_audience": "mycelix.claim-ceiling.policy-check",
+        "expected_policy_profile_schema_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "minimum_revocation_epoch": 2,
+        "trusted_time_unix_seconds": 200,
+        "distribution_status": "verified_current",
+        "installed_head": {
+          "policy_id": "mycelix.policy.instrument.research",
+          "audience": "mycelix.claim-ceiling.policy-check",
+          "version": 1,
+          "target_profile_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "revocation_epoch": 3
+        }
+      },
+      "expected_disposition": "rejected",
+      "expected_violation_codes": [
+        "policy_revocation_epoch_rollback"
+      ]
+    },
+    {
+      "id": "reject-revoked-publisher-key",
+      "release": {
+        "schema_version": "mycelix.claim-policy-release-descriptor.v1",
+        "policy_id": "mycelix.policy.instrument.research",
+        "audience": "mycelix.claim-ceiling.policy-check",
+        "version": 2,
+        "revocation_epoch": 3,
+        "target_profile_sha256": "219557c25c93cf6978c69b379155666fbe8ad00040a138dfd9edb3e68e8f66cf",
+        "policy_profile_schema_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "issued_at_unix_seconds": 100,
+        "expires_at_unix_seconds": 300
+      },
+      "profile_bytes": "{\"policy\":\"sample-profile\"}",
+      "trusted_context": {
+        "expected_policy_id": "mycelix.policy.instrument.research",
+        "expected_audience": "mycelix.claim-ceiling.policy-check",
+        "expected_policy_profile_schema_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "minimum_revocation_epoch": 3,
+        "trusted_time_unix_seconds": 200,
+        "distribution_status": "revoked_publisher_key",
+        "installed_head": {
+          "policy_id": "mycelix.policy.instrument.research",
+          "audience": "mycelix.claim-ceiling.policy-check",
+          "version": 1,
+          "target_profile_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "revocation_epoch": 3
+        }
+      },
+      "expected_disposition": "rejected",
+      "expected_violation_codes": [
+        "publisher_key_revoked"
+      ]
+    },
+    {
+      "id": "reject-same-version-equivocation",
+      "release": {
+        "schema_version": "mycelix.claim-policy-release-descriptor.v1",
+        "policy_id": "mycelix.policy.instrument.research",
+        "audience": "mycelix.claim-ceiling.policy-check",
+        "version": 2,
+        "revocation_epoch": 3,
+        "target_profile_sha256": "219557c25c93cf6978c69b379155666fbe8ad00040a138dfd9edb3e68e8f66cf",
+        "policy_profile_schema_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "issued_at_unix_seconds": 100,
+        "expires_at_unix_seconds": 300
+      },
+      "profile_bytes": "{\"policy\":\"sample-profile\"}",
+      "trusted_context": {
+        "expected_policy_id": "mycelix.policy.instrument.research",
+        "expected_audience": "mycelix.claim-ceiling.policy-check",
+        "expected_policy_profile_schema_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "minimum_revocation_epoch": 3,
+        "trusted_time_unix_seconds": 200,
+        "distribution_status": "verified_current",
+        "installed_head": {
+          "policy_id": "mycelix.policy.instrument.research",
+          "audience": "mycelix.claim-ceiling.policy-check",
+          "version": 2,
+          "target_profile_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+          "revocation_epoch": 3
+        }
+      },
+      "expected_disposition": "rejected",
+      "expected_violation_codes": [
+        "policy_version_equivocation"
+      ]
+    },
+    {
+      "id": "reject-schema-digest-mismatch",
+      "release": {
+        "schema_version": "mycelix.claim-policy-release-descriptor.v1",
+        "policy_id": "mycelix.policy.instrument.research",
+        "audience": "mycelix.claim-ceiling.policy-check",
+        "version": 2,
+        "revocation_epoch": 3,
+        "target_profile_sha256": "219557c25c93cf6978c69b379155666fbe8ad00040a138dfd9edb3e68e8f66cf",
+        "policy_profile_schema_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+        "issued_at_unix_seconds": 100,
+        "expires_at_unix_seconds": 300
+      },
+      "profile_bytes": "{\"policy\":\"sample-profile\"}",
+      "trusted_context": {
+        "expected_policy_id": "mycelix.policy.instrument.research",
+        "expected_audience": "mycelix.claim-ceiling.policy-check",
+        "expected_policy_profile_schema_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "minimum_revocation_epoch": 3,
+        "trusted_time_unix_seconds": 200,
+        "distribution_status": "verified_current",
+        "installed_head": {
+          "policy_id": "mycelix.policy.instrument.research",
+          "audience": "mycelix.claim-ceiling.policy-check",
+          "version": 1,
+          "target_profile_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "revocation_epoch": 3
+        }
+      },
+      "expected_disposition": "rejected",
+      "expected_violation_codes": [
+        "policy_schema_digest_mismatch"
+      ]
+    },
+    {
       "id": "reject-stale-metadata",
       "release": {
         "schema_version": "mycelix.claim-policy-release-descriptor.v1",
@@ -608,6 +506,40 @@
       "expected_disposition": "rejected",
       "expected_violation_codes": [
         "metadata_stale"
+      ]
+    },
+    {
+      "id": "reject-stale-revocation-epoch",
+      "release": {
+        "schema_version": "mycelix.claim-policy-release-descriptor.v1",
+        "policy_id": "mycelix.policy.instrument.research",
+        "audience": "mycelix.claim-ceiling.policy-check",
+        "version": 2,
+        "revocation_epoch": 3,
+        "target_profile_sha256": "219557c25c93cf6978c69b379155666fbe8ad00040a138dfd9edb3e68e8f66cf",
+        "policy_profile_schema_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "issued_at_unix_seconds": 100,
+        "expires_at_unix_seconds": 300
+      },
+      "profile_bytes": "{\"policy\":\"sample-profile\"}",
+      "trusted_context": {
+        "expected_policy_id": "mycelix.policy.instrument.research",
+        "expected_audience": "mycelix.claim-ceiling.policy-check",
+        "expected_policy_profile_schema_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "minimum_revocation_epoch": 4,
+        "trusted_time_unix_seconds": 200,
+        "distribution_status": "verified_current",
+        "installed_head": {
+          "policy_id": "mycelix.policy.instrument.research",
+          "audience": "mycelix.claim-ceiling.policy-check",
+          "version": 1,
+          "target_profile_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "revocation_epoch": 3
+        }
+      },
+      "expected_disposition": "rejected",
+      "expected_violation_codes": [
+        "revocation_epoch_stale"
       ]
     },
     {
@@ -643,6 +575,109 @@
       "expected_violation_codes": [
         "signature_threshold_not_met"
       ]
+    },
+    {
+      "id": "reject-unknown-publisher-key",
+      "release": {
+        "schema_version": "mycelix.claim-policy-release-descriptor.v1",
+        "policy_id": "mycelix.policy.instrument.research",
+        "audience": "mycelix.claim-ceiling.policy-check",
+        "version": 2,
+        "revocation_epoch": 3,
+        "target_profile_sha256": "219557c25c93cf6978c69b379155666fbe8ad00040a138dfd9edb3e68e8f66cf",
+        "policy_profile_schema_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "issued_at_unix_seconds": 100,
+        "expires_at_unix_seconds": 300
+      },
+      "profile_bytes": "{\"policy\":\"sample-profile\"}",
+      "trusted_context": {
+        "expected_policy_id": "mycelix.policy.instrument.research",
+        "expected_audience": "mycelix.claim-ceiling.policy-check",
+        "expected_policy_profile_schema_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "minimum_revocation_epoch": 3,
+        "trusted_time_unix_seconds": 200,
+        "distribution_status": "unknown_publisher_key",
+        "installed_head": {
+          "policy_id": "mycelix.policy.instrument.research",
+          "audience": "mycelix.claim-ceiling.policy-check",
+          "version": 1,
+          "target_profile_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "revocation_epoch": 3
+        }
+      },
+      "expected_disposition": "rejected",
+      "expected_violation_codes": [
+        "publisher_key_unknown"
+      ]
+    },
+    {
+      "id": "reject-version-rollback",
+      "release": {
+        "schema_version": "mycelix.claim-policy-release-descriptor.v1",
+        "policy_id": "mycelix.policy.instrument.research",
+        "audience": "mycelix.claim-ceiling.policy-check",
+        "version": 1,
+        "revocation_epoch": 3,
+        "target_profile_sha256": "219557c25c93cf6978c69b379155666fbe8ad00040a138dfd9edb3e68e8f66cf",
+        "policy_profile_schema_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "issued_at_unix_seconds": 100,
+        "expires_at_unix_seconds": 300
+      },
+      "profile_bytes": "{\"policy\":\"sample-profile\"}",
+      "trusted_context": {
+        "expected_policy_id": "mycelix.policy.instrument.research",
+        "expected_audience": "mycelix.claim-ceiling.policy-check",
+        "expected_policy_profile_schema_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "minimum_revocation_epoch": 3,
+        "trusted_time_unix_seconds": 200,
+        "distribution_status": "verified_current",
+        "installed_head": {
+          "policy_id": "mycelix.policy.instrument.research",
+          "audience": "mycelix.claim-ceiling.policy-check",
+          "version": 2,
+          "target_profile_sha256": "219557c25c93cf6978c69b379155666fbe8ad00040a138dfd9edb3e68e8f66cf",
+          "revocation_epoch": 3
+        }
+      },
+      "expected_disposition": "rejected",
+      "expected_violation_codes": [
+        "policy_version_rollback"
+      ]
+    },
+    {
+      "id": "reject-wrong-audience",
+      "release": {
+        "schema_version": "mycelix.claim-policy-release-descriptor.v1",
+        "policy_id": "mycelix.policy.instrument.research",
+        "audience": "other.consumer",
+        "version": 2,
+        "revocation_epoch": 3,
+        "target_profile_sha256": "219557c25c93cf6978c69b379155666fbe8ad00040a138dfd9edb3e68e8f66cf",
+        "policy_profile_schema_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "issued_at_unix_seconds": 100,
+        "expires_at_unix_seconds": 300
+      },
+      "profile_bytes": "{\"policy\":\"sample-profile\"}",
+      "trusted_context": {
+        "expected_policy_id": "mycelix.policy.instrument.research",
+        "expected_audience": "mycelix.claim-ceiling.policy-check",
+        "expected_policy_profile_schema_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "minimum_revocation_epoch": 3,
+        "trusted_time_unix_seconds": 200,
+        "distribution_status": "verified_current",
+        "installed_head": {
+          "policy_id": "mycelix.policy.instrument.research",
+          "audience": "mycelix.claim-ceiling.policy-check",
+          "version": 1,
+          "target_profile_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "revocation_epoch": 3
+        }
+      },
+      "expected_disposition": "rejected",
+      "expected_violation_codes": [
+        "policy_audience_mismatch"
+      ]
     }
-  ]
+  ],
+  "case_count": 20
 }
