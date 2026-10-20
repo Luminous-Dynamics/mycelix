@@ -636,6 +636,23 @@ fn oracle_information_gain_per_cost_trace(
 }
 
 #[test]
+fn v1_public_contract_fixtures_remain_valid_and_unchanged() {
+    let catalog_schema: serde_json::Value = serde_json::from_str(CATALOG_V1_SCHEMA).unwrap();
+    let evaluator_schema: serde_json::Value = serde_json::from_str(EVALUATOR_V1_SCHEMA).unwrap();
+    let catalog: serde_json::Value = serde_json::from_str(CATALOG_V1_JSON).unwrap();
+    let evaluator: serde_json::Value = serde_json::from_str(EVALUATOR_V1_JSON).unwrap();
+
+    assert!(jsonschema::draft202012::meta::is_valid(&catalog_schema));
+    assert!(jsonschema::draft202012::meta::is_valid(&evaluator_schema));
+    assert!(jsonschema::draft202012::new(&catalog_schema).unwrap().is_valid(&catalog));
+    assert!(jsonschema::draft202012::new(&evaluator_schema).unwrap().is_valid(&evaluator));
+    assert_eq!(catalog["schema_version"], 1);
+    assert_eq!(catalog["benchmark_version"], "0.1.0");
+    assert_eq!(evaluator["schema_version"], 1);
+    assert_eq!(evaluator["benchmark_version"], "0.1.0");
+}
+
+#[test]
 fn v2_schemas_are_draft_2020_12_and_accept_five_domain_fixtures() {
     let catalog_schema: serde_json::Value =
         serde_json::from_str(CATALOG_SCHEMA).expect("catalog schema parses");
@@ -775,10 +792,7 @@ fn privileged_followup_resolves_partial_support_with_authority() {
         1000
     );
     assert_eq!(report.realized_information_gain_milli_bits, 2000);
-    assert_eq!(
-        report.remaining_hypotheses,
-        vec!["compromised_session", "stale_sensor_false_alarm"]
-    );
+    assert_eq!(report.remaining_hypotheses, vec!["compromised_session"]);
     assert_eq!(report.full_support_responses, 1);
     assert_eq!(report.partial_support_responses, 1);
     assert_eq!(report.total_cost_units, 6);
@@ -1017,7 +1031,7 @@ fn source_kinds_and_authority_levels_are_typed_enums() {
 }
 
 #[test]
-fn oracle_information_gain_per_cost_is_a_separately_labelled_upper_bound() {
+fn oracle_information_gain_subset_is_a_privileged_non_adaptive_upper_bound() {
     let catalog = catalog_fixture();
     let evaluator = evaluator_fixture();
     let authorized = [RequestAuthority::ReadOnlyTelemetry];
