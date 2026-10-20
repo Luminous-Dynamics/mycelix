@@ -56,6 +56,16 @@ jobs:
       - name: Generate reference-test dependency lock
         run: cargo generate-lockfile --manifest-path mycelix-manufacturing/Cargo.toml
 
+      # Preserve the exact resolved graph even if a later semantic test fails,
+      # so a failed run still leaves a reviewable lockfile artifact.
+      - name: Preserve generated dependency lock for review
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: d6s-dependency-lock-${{ env.QUALIFIED_SHA }}
+          path: mycelix-manufacturing/Cargo.lock
+          if-no-files-found: error
+          retention-days: 7
+
       - name: Assert resolved reference-test dependency graph
         run: cargo metadata --manifest-path mycelix-manufacturing/Cargo.toml --locked --no-deps --format-version 1 > /dev/null
 
