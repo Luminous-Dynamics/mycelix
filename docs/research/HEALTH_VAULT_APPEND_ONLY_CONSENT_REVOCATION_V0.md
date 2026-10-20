@@ -8,7 +8,7 @@
 
 A consent grant is identified by its original `ConsentGrant` creation action hash. Revocation is a separate immutable `ConsentRevocation` entry referencing exactly that action. The Holochain creation action supplies the event timestamp; the revocation payload does not duplicate a caller-supplied time or reason.
 
-The integrity validator rejects a revocation if the target is not the grant's original creation action, the target does not decode as a consent grant, or the revocation author differs from the grant author's agent key. Revocation entries and their owner history links cannot be updated or deleted. Updates to health-vault entries are explicitly bound to the original action author.
+The integrity validator rejects a revocation if the target is not the grant's original creation action, the target does not decode as a consent grant, or the revocation author differs from the grant author's agent key. Consent and revocation history links must be authored on the same agent base and cannot be deleted; the coordinator also ignores foreign-authored grants even if a legacy link exists. Revocation entries cannot be updated or deleted. Updates to health-vault entries are explicitly bound to the original action author.
 
 The coordinator operation is idempotent on the owner's local source-linked history: repeating a revocation request returns the existing event rather than creating a second one. A new permission must be a **new grant**. Updating/reactivating a revoked grant cannot clear the revocation event.
 
