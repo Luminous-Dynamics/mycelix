@@ -482,8 +482,14 @@ fn IdentityBootstrapGate(
 
     let retry_backup = move |_| match prepare_recovery_backup() {
         Ok((words, positions)) => {
+            backup_phrase_words.update(zeroize_recovery_words);
             backup_phrase_words.set(words);
             backup_challenge_positions.set(Some(positions));
+            backup_answers.update(|answers| {
+                for answer in answers.iter_mut() {
+                    answer.zeroize();
+                }
+            });
             backup_answers.set([String::new(), String::new(), String::new()]);
             backup_acknowledged.set(false);
             status_message.set(
@@ -533,10 +539,14 @@ fn IdentityBootstrapGate(
         for answer in answers.iter_mut() {
             answer.zeroize();
         }
-        let mut stored_words = backup_phrase_words.get_untracked();
-        zeroize_recovery_words(&mut stored_words);
+        backup_phrase_words.update(zeroize_recovery_words);
         backup_phrase_words.set(Vec::new());
         backup_challenge_positions.set(None);
+        backup_answers.update(|stored_answers| {
+            for answer in stored_answers.iter_mut() {
+                answer.zeroize();
+            }
+        });
         backup_answers.set([String::new(), String::new(), String::new()]);
         backup_acknowledged.set(false);
         backup_pending.set(false);
@@ -617,7 +627,7 @@ fn IdentityBootstrapGate(
                                 class="identity-bootstrap-secondary"
                                 on:click=move |_| {
                                     restore_mode.update(|mode| *mode = !*mode);
-                                    recovery_phrase.set(String::new());
+                                    recovery_phrase.update(|value| value.zeroize());
                                     status_message.set(String::new());
                                 }
                             >
