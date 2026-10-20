@@ -12,9 +12,8 @@ use zeroize::Zeroize;
 
 use mycelix_leptos_core::consciousness::refresh_consciousness_from_conductor;
 use mycelix_leptos_core::local_identity::{
-    create_protected_identity, inspect_local_identity_posture, protect_existing_identity,
-    restore_protected_identity_from_seed_phrase, unlock_with_passphrase,
-    LocalIdentityStoragePosture,
+    LocalIdentityStoragePosture, create_protected_identity, inspect_local_identity_posture,
+    protect_existing_identity, restore_protected_identity_from_seed_phrase, unlock_with_passphrase,
 };
 use mycelix_leptos_core::{
     ActivityFeed, ActivityFeedItem, AppShell, AvailabilityState, AvailabilityStateKind,
@@ -108,9 +107,7 @@ fn identity_bootstrap_heading(
     restore_mode: bool,
 ) -> &'static str {
     match posture {
-        LocalIdentityStoragePosture::NoIdentity if restore_mode => {
-            "Restore a protected identity"
-        }
+        LocalIdentityStoragePosture::NoIdentity if restore_mode => "Restore a protected identity",
         LocalIdentityStoragePosture::NoIdentity => "Create a protected identity",
         LocalIdentityStoragePosture::UnprotectedIdentity => "Protect your existing identity",
         LocalIdentityStoragePosture::ProtectedLocked => "Unlock your protected identity",
@@ -118,12 +115,8 @@ fn identity_bootstrap_heading(
             "Legacy identity needs explicit migration"
         }
         LocalIdentityStoragePosture::StorageUnavailable => "Identity storage unavailable",
-        LocalIdentityStoragePosture::ProtectedUnlockedInSession => {
-            "Protected identity is unlocked"
-        }
-        LocalIdentityStoragePosture::CorruptOrInconsistent => {
-            "Identity storage is inconsistent"
-        }
+        LocalIdentityStoragePosture::ProtectedUnlockedInSession => "Protected identity is unlocked",
+        LocalIdentityStoragePosture::CorruptOrInconsistent => "Identity storage is inconsistent",
     }
 }
 
@@ -176,9 +169,8 @@ fn IdentityBootstrapGate(posture: RwSignal<LocalIdentityStoragePosture>) -> impl
         let mut recovery_phrase_value = recovery_phrase.get_untracked();
 
         if !identity_bootstrap_is_actionable(starting_posture) {
-            status_message.set(
-                "This identity state does not permit automatic mutation.".to_string(),
-            );
+            status_message
+                .set("This identity state does not permit automatic mutation.".to_string());
             return;
         }
         if passphrase_value.trim().is_empty() {
@@ -220,15 +212,14 @@ fn IdentityBootstrapGate(posture: RwSignal<LocalIdentityStoragePosture>) -> impl
         let busy_signal = busy;
         let status_signal = status_message;
         spawn_local(async move {
-            let operation: Result<LocalIdentityStoragePosture, String> =
-                match starting_posture {
-                    LocalIdentityStoragePosture::NoIdentity if is_restore => {
-                        restore_protected_identity_from_seed_phrase(
-                            &recovery_phrase_value,
-                            &passphrase_value,
-                        )
-                        .await
-                    }
+            let operation: Result<LocalIdentityStoragePosture, String> = match starting_posture {
+                LocalIdentityStoragePosture::NoIdentity if is_restore => {
+                    restore_protected_identity_from_seed_phrase(
+                        &recovery_phrase_value,
+                        &passphrase_value,
+                    )
+                    .await
+                }
                     LocalIdentityStoragePosture::NoIdentity => {
                         create_protected_identity(&passphrase_value).await
                     }
@@ -245,11 +236,13 @@ fn IdentityBootstrapGate(posture: RwSignal<LocalIdentityStoragePosture>) -> impl
 
             let verified_posture = inspect_local_identity_posture();
             match operation {
-                Ok(_) if verified_posture == LocalIdentityStoragePosture::ProtectedUnlockedInSession => {
+                Ok(_)
+                    if verified_posture
+                        == LocalIdentityStoragePosture::ProtectedUnlockedInSession =>
+                {
                     posture_signal.set(LocalIdentityStoragePosture::ProtectedUnlockedInSession);
-                    status_signal.set(
-                        "Protected identity state verified for this session.".to_string(),
-                    );
+                    status_signal
+                        .set("Protected identity state verified for this session.".to_string());
                 }
                 Ok(_) => {
                     posture_signal.set(verified_posture);
