@@ -111,7 +111,7 @@ fn evaluator_fixture() -> EvaluatorCorpus {
     serde_json::from_str(EVALUATOR_FIXTURE).expect("evaluator fixture parses")
 }
 
-fn evaluator_issues(solver: &SolverVisibleCyberCorpus, evaluator: &EvaluatorCorpus) -> Vec<String> {
+fn evaluator_semantic_issues(solver: &SolverVisibleCyberCorpus, evaluator: &EvaluatorCorpus) -> Vec<String> {
     let mut issues = Vec::new();
     if evaluator.schema_version != solver.schema_version {
         issues.push("schema version mismatch".to_string());
@@ -230,6 +230,111 @@ fn has_code(
     issues.iter().any(|issue| issue.code == code)
 }
 
+
+#[test]
+fn both_schemas_are_valid_draft_2020_12_and_accept_their_fixtures() {
+    let solver_schema: serde_json::Value =
+        serde_json::from_str(SOLVER_SCHEMA).expect("solver schema parses");
+    let evaluator_schema: serde_json::Value =
+        serde_json::from_str(EVALUATOR_SCHEMA).expect("evaluator schema parses");
+
+    assert!(
+        jsonschema::draft202012::meta::is_valid(&solver_schema),
+        "solver schema must conform to the Draft 2020-12 meta-schema"
+    );
+    assert!(
+        jsonschema::draft202012::meta::is_valid(&evaluator_schema),
+        "evaluator schema must conform to the Draft 2020-12 meta-schema"
+    );
+
+    let solver_validator = jsonschema::draft202012::new(&solver_schema)
+        .expect("solver schema compiles under Draft 2020-12");
+    let evaluator_validator = jsonschema::draft202012::new(&evaluator_schema)
+        .expect("evaluator schema compiles under Draft 2020-12");
+    let solver_json: serde_json::Value =
+        serde_json::from_str(SOLVER_FIXTURE).expect("solver fixture JSON parses");
+    let evaluator_json: serde_json::Value =
+        serde_json::from_str(EVALUATOR_FIXTURE).expect("evaluator fixture JSON parses");
+
+    assert!(
+        solver_validator.is_valid(&solver_json),
+        "public solver fixture must satisfy the executable JSON Schema"
+    );
+    assert!(
+        evaluator_validator.is_valid(&evaluator_json),
+        "public evaluator fixture must satisfy the executable JSON Schema"
+    );
+}
+
+#[test]
+fn solver_json_schema_rejects_critical_contract_mutations() {
+    let schema: serde_json::Value =
+        serde_json::from_str(SOLVER_SCHEMA).expect("solver schema parses");
+    let validator = jsonschema::draft202012::new(&schema)
+        .expect("solver schema compiles under Draft 2020-12");
+    let fixture: serde_json::Value =
+        serde_json::from_str(SOLVER_FIXTURE).expect("solver fixture parses");
+
+    let mut unknown_field = fixture.clone();
+    unknown_field["scenarios"][0]["evaluator_answer"] =
+        serde_json::Value::String("secret".into());
+    assert!(
+        !validator.is_valid(&unknown_field),
+        "additionalProperties=false must reject answer-key leakage"
+    );
+
+    let mut missing_snapshot_version = fixture.clone();
+    missing_snapshot_version["scenarios"][0]["evidence"][0]
+        .as_object_mut()
+        .expect("evidence object")
+        .remove("source_snapshot_version");
+    assert!(
+        !validator.is_valid(&missing_snapshot_version),
+        "source-snapshot version is required by the executable schema"
+    );
+
+    let mut unknown_domain = fixture.clone();
+    unknown_domain["scenarios"][0]["domain"] =
+        serde_json::Value::String("made_up_domain".into());
+    assert!(
+        !validator.is_valid(&unknown_domain),
+        "unrecognized domain values must fail schema validation"
+    );
+
+    let mut non_synthetic = fixture;
+    non_synthetic["scenarios"][0]["is_synthetic"] = serde_json::Value::Bool(false);
+    assert!(
+        !validator.is_valid(&non_synthetic),
+        "the public conformance fixture must remain synthetic-only"
+    );
+}
+
+#[test]
+fn evaluator_json_schema_rejects_unknown_fields_and_invalid_dispositions() {
+    let schema: serde_json::Value =
+        serde_json::from_str(EVALUATOR_SCHEMA).expect("evaluator schema parses");
+    let validator = jsonschema::draft202012::new(&schema)
+        .expect("evaluator schema compiles under Draft 2020-12");
+    let fixture: serde_json::Value =
+        serde_json::from_str(EVALUATOR_FIXTURE).expect("evaluator fixture parses");
+
+    let mut unknown_field = fixture.clone();
+    unknown_field["cases"][0]["solver_visible_hint"] =
+        serde_json::Value::String("leak".into());
+    assert!(
+        !validator.is_valid(&unknown_field),
+        "evaluator schema must reject undeclared case fields"
+    );
+
+    let mut unknown_disposition = fixture;
+    unknown_disposition["cases"][0]["expected_disposition"] =
+        serde_json::Value::String("guaranteed_compromise".into());
+    assert!(
+        !validator.is_valid(&unknown_disposition),
+        "evaluator schema must reject unrecognized disposition values"
+    );
+}
+
 #[test]
 fn synthetic_solver_corpus_passes_structural_validation() {
     let corpus = solver_fixture();
@@ -244,7 +349,7 @@ fn synthetic_solver_corpus_passes_structural_validation() {
 fn evaluator_is_separate_and_exactly_matches_solver_cases() {
     let solver = solver_fixture();
     let evaluator = evaluator_fixture();
-    assert!(evaluator_issues(&solver, &evaluator).is_empty());
+    assert!(evaluator_semantic_issues(&solver, &evaluator).is_empty());
 
     let solver_text = SOLVER_FIXTURE.to_ascii_lowercase();
     for evaluator_only_field in [
@@ -262,11 +367,11 @@ fn evaluator_is_separate_and_exactly_matches_solver_cases() {
 }
 
 #[test]
-fn evaluator_schema_rejects_non_1000_rubric_weights() {
+fn evaluator_semantics_reject_non_1000_rubric_weights() {
     let mut evaluator = evaluator_fixture();
     evaluator.cases[0].rubric[0].max_score_permille -= 1;
     assert!(
-        evaluator_issues(&solver_fixture(), &evaluator)
+        evaluator_semantic_issues(&solver_fixture(), &evaluator)
             .iter()
             .any(|issue| issue.contains("weights must sum to 1000"))
     );
@@ -279,7 +384,7 @@ fn evaluator_cannot_reference_unavailable_evidence() {
         .required_evidence_ids
         .push("secret-evidence-not-in-case".into());
     assert!(
-        evaluator_issues(&solver_fixture(), &evaluator)
+        evaluator_semantic_issues(&solver_fixture(), &evaluator)
             .iter()
             .any(|issue| issue.contains("not solver-visible"))
     );
