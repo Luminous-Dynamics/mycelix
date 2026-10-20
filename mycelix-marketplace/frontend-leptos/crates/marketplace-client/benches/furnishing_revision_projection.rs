@@ -32,7 +32,7 @@ fn listing_output(action_hash: ActionHash, index: usize) -> ListingOutput {
             title: format!("Synthetic furnishing {index}"),
             description: "Synthetic benchmark record; no seller or stock assertion.".into(),
             price_cents: 10_000 + index as u64,
-            category: if index % 3 == 0 {
+            category: if index.is_multiple_of(3) {
                 ListingCategory::HomeGarden
             } else {
                 ListingCategory::Electronics
@@ -53,7 +53,7 @@ fn listing_output(action_hash: ActionHash, index: usize) -> ListingOutput {
 
 fn resolution(index: usize) -> ListingResolution {
     let root = hash(0x10, index);
-    if index % 10 == 0 {
+    if index.is_multiple_of(10) {
         let heads = vec![
             listing_output(hash(0x20, index), index),
             listing_output(hash(0x21, index), index.saturating_add(1)),
