@@ -5,7 +5,10 @@ use std::{env, fs, path::PathBuf, process::ExitCode};
 fn main() -> ExitCode {
     let default_path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
         .join("../../contracts/fixtures/furnishing-catalog-profile-v0.1.json");
-    let path = env::args_os().nth(1).map(PathBuf::from).unwrap_or(default_path);
+    let path = env::args_os()
+        .nth(1)
+        .map(PathBuf::from)
+        .unwrap_or(default_path);
 
     let bytes = match fs::read(&path) {
         Ok(bytes) => bytes,
@@ -29,10 +32,16 @@ fn main() -> ExitCode {
         validate_discovery_request(&document)
     };
     if errors.is_empty() {
-        let label = if is_profile_corpus { "synthetic furnishing profile semantic audit" } else { "effects-disabled discovery request audit" };
+        let label = if is_profile_corpus {
+            "synthetic furnishing profile semantic audit"
+        } else {
+            "effects-disabled discovery request audit"
+        };
         println!("PASS: {label}");
         println!("Input: {}", path.display());
-        println!("Scope: contract invariants only; not product verification or JSON Schema validation");
+        println!(
+            "Scope: contract invariants only; not product verification or JSON Schema validation"
+        );
         ExitCode::SUCCESS
     } else {
         eprintln!("FAIL: {} furnishing audit finding(s)", errors.len());
