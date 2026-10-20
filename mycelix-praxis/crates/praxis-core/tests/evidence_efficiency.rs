@@ -901,6 +901,41 @@ fn source_kinds_and_authority_levels_are_typed_enums() {
 }
 
 #[test]
+fn oracle_information_gain_per_cost_is_a_separately_labelled_upper_bound() {
+    let catalog = catalog_fixture();
+    let evaluator = evaluator_fixture();
+    let authorized = [RequestAuthority::ReadOnlyTelemetry];
+    let budget = EvaluationBudget {
+        max_cost_units: 5,
+        max_latency_bound_minutes: 10,
+    };
+    let trace = oracle_information_gain_per_cost_trace(
+        &catalog,
+        &evaluator,
+        "CYB-ACQ-001",
+        &authorized,
+        budget,
+    )
+    .unwrap();
+
+    // The test oracle sees the hidden response partitions. Its score is an
+    // upper bound, not a fair comparison with metadata-only policies.
+    assert_eq!(trace, vec!["session-issuance-audit"]);
+    let report = evaluate_policy(
+        &catalog,
+        &evaluator,
+        "CYB-ACQ-001",
+        &trace.iter().map(String::as_str).collect::<Vec<_>>(),
+        &authorized,
+        budget,
+    )
+    .unwrap();
+    assert_eq!(report.expected_information_gain_milli_bits, 2000);
+    assert_eq!(report.total_cost_units, 2);
+    assert_eq!(report.remaining_hypotheses, vec!["compromised_session"]);
+}
+
+#[test]
 fn metadata_only_baselines_are_deterministic_and_use_equal_constraints() {
     let catalog = catalog_fixture();
     let evaluator = evaluator_fixture();
@@ -996,41 +1031,6 @@ fn metadata_only_baselines_are_deterministic_and_use_equal_constraints() {
         cheapest_report.remaining_hypotheses,
         vec!["compromised_session"]
     );
-
-#[test]
-fn oracle_information_gain_per_cost_is_a_separately_labelled_upper_bound() {
-    let catalog = catalog_fixture();
-    let evaluator = evaluator_fixture();
-    let authorized = [RequestAuthority::ReadOnlyTelemetry];
-    let budget = EvaluationBudget {
-        max_cost_units: 5,
-        max_latency_bound_minutes: 10,
-    };
-    let trace = oracle_information_gain_per_cost_trace(
-        &catalog,
-        &evaluator,
-        "CYB-ACQ-001",
-        &authorized,
-        budget,
-    )
-    .unwrap();
-
-    // The test oracle sees the hidden response partitions. Its score is an
-    // upper bound, not a fair comparison with metadata-only policies.
-    assert_eq!(trace, vec!["session-issuance-audit"]);
-    let report = evaluate_policy(
-        &catalog,
-        &evaluator,
-        "CYB-ACQ-001",
-        &trace.iter().map(String::as_str).collect::<Vec<_>>(),
-        &authorized,
-        budget,
-    )
-    .unwrap();
-    assert_eq!(report.expected_information_gain_milli_bits, 2000);
-    assert_eq!(report.total_cost_units, 2);
-    assert_eq!(report.remaining_hypotheses, vec!["compromised_session"]);
-}
 
     // Neither policy runner accepts evaluator state; a catalog permutation
     // must not change the metadata-only request order.
