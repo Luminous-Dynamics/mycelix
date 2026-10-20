@@ -133,12 +133,14 @@ fn status_violation(
             "metadata_signature_invalid",
             "distribution metadata signature is invalid",
         )),
-        AuthenticatedDistributionStatus::UnknownPublisherKey => {
-            Some(("publisher_key_unknown", "distribution publisher key is not trusted"))
-        }
-        AuthenticatedDistributionStatus::RevokedPublisherKey => {
-            Some(("publisher_key_revoked", "distribution publisher key is revoked"))
-        }
+        AuthenticatedDistributionStatus::UnknownPublisherKey => Some((
+            "publisher_key_unknown",
+            "distribution publisher key is not trusted",
+        )),
+        AuthenticatedDistributionStatus::RevokedPublisherKey => Some((
+            "publisher_key_revoked",
+            "distribution publisher key is revoked",
+        )),
         AuthenticatedDistributionStatus::MetadataExpired => Some((
             "metadata_expired",
             "authenticated distribution metadata is expired",
@@ -154,9 +156,10 @@ fn status_violation(
             "distribution_mix_and_match_detected",
             "distribution metadata is inconsistent",
         )),
-        AuthenticatedDistributionStatus::SignatureThresholdNotMet => {
-            Some(("signature_threshold_not_met", "required signature threshold was not met"))
-        }
+        AuthenticatedDistributionStatus::SignatureThresholdNotMet => Some((
+            "signature_threshold_not_met",
+            "required signature threshold was not met",
+        )),
     }
 }
 
@@ -492,10 +495,7 @@ mod tests {
         let mut candidate = release();
         candidate.version = 1;
         let receipt = evaluate(candidate, context(), PROFILE_BYTES);
-        assert_eq!(
-            receipt.disposition,
-            PolicyLifecycleDispositionV1::Rejected
-        );
+        assert_eq!(receipt.disposition, PolicyLifecycleDispositionV1::Rejected);
         assert!(
             receipt
                 .violations
@@ -536,7 +536,12 @@ mod tests {
         });
         candidate.revocation_epoch += 1;
         let receipt = evaluate(candidate, epoch_conflict_ctx, PROFILE_BYTES);
-        assert!(receipt.violations.iter().any(|v| v.code == "policy_version_equivocation"));
+        assert!(
+            receipt
+                .violations
+                .iter()
+                .any(|v| v.code == "policy_version_equivocation")
+        );
     }
 
     #[test]
@@ -613,9 +618,12 @@ mod tests {
         ctx.installed_head.as_mut().unwrap().policy_id = "mycelix.policy.other".to_owned();
         let receipt = evaluate(release(), ctx, PROFILE_BYTES);
         assert_eq!(receipt.disposition, PolicyLifecycleDispositionV1::Rejected);
-        assert!(receipt.violations.iter().any(|item| {
-            item.code == "installed_state_policy_mismatch"
-        }));
+        assert!(
+            receipt
+                .violations
+                .iter()
+                .any(|item| item.code == "installed_state_policy_mismatch")
+        );
         assert!(receipt.proposed_next_head.is_none());
     }
 
@@ -729,5 +737,4 @@ mod tests {
             assert!(!receipt.action_authority_granted);
         }
     }
-
 }
