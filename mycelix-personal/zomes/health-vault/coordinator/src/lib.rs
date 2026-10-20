@@ -70,6 +70,7 @@ const SHAREABLE_RECORD_TYPES: &[&str] = &[
     "lab_result", "imaging", "visit_note",
 ];
 const DEFAULT_REMOTE_CONSENT_TTL_MICROS: i64 = 30 * 24 * 60 * 60 * 1_000_000;
+const MAX_REMOTE_CONSENT_TTL_MICROS: i64 = 365 * 24 * 60 * 60 * 1_000_000;
 
 fn consent_capability_tag(grant_hash: &ActionHash) -> String {
     format!("mycelix-health-consent-read-v0:{grant_hash}")
@@ -180,6 +181,17 @@ pub fn grant_consent_with_remote_capability(
         return Err(wasm_error!(WasmErrorInner::Guest(
             "Consent expiry must be later than the current time".into()
         )));
+    }
+    if let Some(expiry) = expires_at.as_ref() {
+        let ttl = expiry
+            .as_micros()
+            .checked_sub(now.as_micros())
+            .unwrap_or(i64::MAX);
+        if ttl > MAX_REMOTE_CONSENT_TTL_MICROS {
+            return Err(wasm_error!(WasmErrorInner::Guest(
+                "Finite remote consent cannot exceed 365 days".into()
+            )));
+        }
     }
 
     let grantee = input.grantee;
