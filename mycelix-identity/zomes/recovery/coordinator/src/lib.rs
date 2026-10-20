@@ -1359,6 +1359,7 @@ pub fn verify_self_recovery_anchor(_input: VerifySelfRecoveryAnchorInput) -> Ext
 #[hdk_extern]
 pub fn execute_self_recovery(_request_action_hash: ActionHash) -> ExternResult<Record> {
     Err(wasm_error!(WasmErrorInner::Guest(
-        "Self-recovery execution is disabled because legacy anchor records do not prove possession".into()
+        "Self-recovery execution is disabled because legacy anchor records do not prove possession"
+            .into()
     )))
 }
