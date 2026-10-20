@@ -723,7 +723,7 @@ fn HealthPage() -> impl IntoView {
                             readonly=true
                         />
                     </label>
-                    <p class="muted">"The secret is not written to the shared consent entry or DHT. Send the offer through a separate private channel; never post it publicly."</p>
+                    <p class="muted">"Remote capabilities expire after 30 days by default; this form does not offer indefinite sharing. The secret is not written to the shared consent entry or DHT. Send the offer through a separate private channel; never post it publicly."</p>
                     <div class="consent-list">
                         <For
                             each=move || ctx.consents.get()
