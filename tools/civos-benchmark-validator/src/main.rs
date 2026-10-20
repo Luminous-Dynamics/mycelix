@@ -1,7 +1,6 @@
 use std::{
     collections::{BTreeMap, BTreeSet},
-    env,
-    fs,
+    env, fs,
     path::PathBuf,
     process::ExitCode,
 };
@@ -127,10 +126,9 @@ fn run() -> Result<(), String> {
                 ));
             }
             "--expected-corpus-sha256" => {
-                expected_corpus_sha256 = Some(
-                    args.next()
-                        .ok_or("--expected-corpus-sha256 requires a 64-character digest".to_string())?,
-                );
+                expected_corpus_sha256 = Some(args.next().ok_or(
+                    "--expected-corpus-sha256 requires a 64-character digest".to_string(),
+                )?);
             }
             other => return Err(format!("unknown argument {other:?}\n{}", usage())),
         }
@@ -145,7 +143,9 @@ fn run() -> Result<(), String> {
 
     if let Some(expected) = expected_corpus_sha256 {
         if !is_lower_hex_digest(&expected) {
-            return Err("--expected-corpus-sha256 must be 64 lowercase hexadecimal characters".into());
+            return Err(
+                "--expected-corpus-sha256 must be 64 lowercase hexadecimal characters".into(),
+            );
         }
         if expected != corpus_sha256 {
             return Err(format!(
@@ -180,7 +180,11 @@ fn run() -> Result<(), String> {
 
     let mut scenario_class_counts = BTreeMap::new();
     let mut target_counts = BTreeMap::new();
-    let scenario_ids: Vec<String> = corpus.scenarios.iter().map(|scenario| scenario.id.clone()).collect();
+    let scenario_ids: Vec<String> = corpus
+        .scenarios
+        .iter()
+        .map(|scenario| scenario.id.clone())
+        .collect();
     for scenario in &corpus.scenarios {
         *scenario_class_counts
             .entry(scenario.scenario_class.as_str().to_string())
@@ -271,10 +275,19 @@ fn validate_semantics(corpus: &Corpus) -> Result<(), String> {
         .to_ascii_lowercase()
         .contains("never pass")
     {
-        return Err("unknown or uncovered applicability must never be silently treated as a pass".into());
+        return Err(
+            "unknown or uncovered applicability must never be silently treated as a pass".into(),
+        );
     }
-    if !corpus.fixture_policy.global_score.to_ascii_lowercase().contains("none") {
-        return Err("the benchmark contract must not collapse safety gates into a global score".into());
+    if !corpus
+        .fixture_policy
+        .global_score
+        .to_ascii_lowercase()
+        .contains("none")
+    {
+        return Err(
+            "the benchmark contract must not collapse safety gates into a global score".into(),
+        );
     }
     if corpus.scenarios.is_empty() {
         return Err("at least one scenario is required".into());
@@ -284,7 +297,10 @@ fn validate_semantics(corpus: &Corpus) -> Result<(), String> {
     let mut has_hard_gate = false;
     for scenario in &corpus.scenarios {
         if !valid_scenario_id(&scenario.id) {
-            return Err(format!("scenario id {:?} does not match the contract ID pattern", scenario.id));
+            return Err(format!(
+                "scenario id {:?} does not match the contract ID pattern",
+                scenario.id
+            ));
         }
         if !seen_ids.insert(scenario.id.as_str()) {
             return Err(format!("duplicate scenario id {:?}", scenario.id));
@@ -293,7 +309,10 @@ fn validate_semantics(corpus: &Corpus) -> Result<(), String> {
             return Err(format!("scenario {} has an empty title", scenario.id));
         }
         if scenario.targets.is_empty() {
-            return Err(format!("scenario {} must name at least one target", scenario.id));
+            return Err(format!(
+                "scenario {} must name at least one target",
+                scenario.id
+            ));
         }
         let mut targets = BTreeSet::new();
         for target in &scenario.targets {
@@ -321,7 +340,10 @@ fn validate_semantics(corpus: &Corpus) -> Result<(), String> {
         if scenario.scenario_class == ScenarioClass::HardGate {
             has_hard_gate = true;
             if scenario.negative_controls.is_empty() {
-                return Err(format!("hard-gate scenario {} needs a negative control", scenario.id));
+                return Err(format!(
+                    "hard-gate scenario {} needs a negative control",
+                    scenario.id
+                ));
             }
         }
         if scenario.scenario_class == ScenarioClass::PerformanceBaseline {
@@ -351,21 +373,33 @@ fn valid_scenario_id(id: &str) -> bool {
         return false;
     }
     !prefix.is_empty()
-        && prefix
-            .split('-')
-            .all(|part| !part.is_empty() && part.bytes().all(|byte| byte.is_ascii_uppercase() || byte.is_ascii_digit()))
+        && prefix.split('-').all(|part| {
+            !part.is_empty()
+                && part
+                    .bytes()
+                    .all(|byte| byte.is_ascii_uppercase() || byte.is_ascii_digit())
+        })
 }
 
 fn is_lower_hex_commit(value: &str) -> bool {
-    value.len() == 40 && value.bytes().all(|byte| byte.is_ascii_hexdigit() && !byte.is_ascii_uppercase())
+    value.len() == 40
+        && value
+            .bytes()
+            .all(|byte| byte.is_ascii_hexdigit() && !byte.is_ascii_uppercase())
 }
 
 fn is_lower_hex_digest(value: &str) -> bool {
-    value.len() == 64 && value.bytes().all(|byte| byte.is_ascii_hexdigit() && !byte.is_ascii_uppercase())
+    value.len() == 64
+        && value
+            .bytes()
+            .all(|byte| byte.is_ascii_hexdigit() && !byte.is_ascii_uppercase())
 }
 
 fn sha256_hex(bytes: &[u8]) -> String {
-    Sha256::digest(bytes).iter().map(|byte| format!("{byte:02x}")).collect()
+    Sha256::digest(bytes)
+        .iter()
+        .map(|byte| format!("{byte:02x}"))
+        .collect()
 }
 
 #[cfg(test)]
@@ -373,7 +407,8 @@ mod tests {
     use super::*;
 
     const CORPUS: &str = include_str!("../../../docs/research/civos-multi-agent-scenarios-v0.json");
-    const SCHEMA: &str = include_str!("../../../docs/research/civos-multi-agent-scenarios-v0.schema.json");
+    const SCHEMA: &str =
+        include_str!("../../../docs/research/civos-multi-agent-scenarios-v0.schema.json");
 
     fn current_corpus() -> Corpus {
         serde_json::from_str(CORPUS).expect("checked-in corpus must decode")
