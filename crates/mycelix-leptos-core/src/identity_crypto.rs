@@ -41,9 +41,14 @@ use web_sys::{AesDerivedKeyParams, AesGcmParams, CryptoKey, Pbkdf2Params, Subtle
 /// property under test is "does the derived key round-trip / reject a wrong
 /// passphrase / reject tampering", which doesn't depend on the iteration
 /// count.
-#[cfg(not(test))]
+/// Production PBKDF2-HMAC-SHA256 work factor. The explicitly named benchmark
+/// feature selects this same value during tests so latency calibration never
+/// measures the reduced quick-test setting.
+#[cfg(any(not(test), feature = "production-kdf-benchmark"))]
 pub const PBKDF2_ITERATIONS: u32 = 600_000;
-#[cfg(test)]
+/// Reduced work factor for normal correctness tests only. This setting must
+/// not be used as evidence of production latency or brute-force resistance.
+#[cfg(all(test, not(feature = "production-kdf-benchmark")))]
 pub const PBKDF2_ITERATIONS: u32 = 1_000;
 /// Random salt length for PBKDF2, in bytes.
 pub const SALT_LEN: usize = 16;
@@ -330,6 +335,73 @@ mod tests {
     use super::*;
 
     wasm_bindgen_test::wasm_bindgen_test_configure!(run_in_browser);
+
+    /// Latency-only browser calibration using a synthetic secret and the real
+    /// production KDF count. It must never log passphrases or secret bytes.
+    #[cfg(feature = "production-kdf-benchmark")]
+    #[wasm_bindgen_test::wasm_bindgen_test]
+    async fn production_kdf_latency_benchmark() {
+        assert_eq!(
+            PBKDF2_ITERATIONS, 600_000,
+            "benchmark must not accidentally use the reduced correctness-test factor"
+        );
+
+        const SAMPLE_COUNT: usize = 20;
+        let secret = [0x5Au8; 32];
+        let passphrase = "synthetic production KDF benchmark only";
+
+        // Warm up browser/WebCrypto paths before collecting samples.
+        let warmup = encrypt(passphrase, &secret)
+            .await
+            .expect("production KDF warm-up encrypt succeeds");
+        let warmup_plaintext = decrypt(passphrase, &warmup)
+            .await
+            .expect("production KDF warm-up decrypt succeeds");
+        assert_eq!(warmup_plaintext, secret);
+
+        let mut encrypt_ms = Vec::with_capacity(SAMPLE_COUNT);
+        let mut decrypt_ms = Vec::with_capacity(SAMPLE_COUNT);
+        for _ in 0..SAMPLE_COUNT {
+            let start = js_sys::Date::now();
+            let blob = encrypt(passphrase, &secret)
+                .await
+                .expect("production KDF benchmark encrypt succeeds");
+            encrypt_ms.push(js_sys::Date::now() - start);
+
+            let start = js_sys::Date::now();
+            let recovered = decrypt(passphrase, &blob)
+                .await
+                .expect("production KDF benchmark decrypt succeeds");
+            decrypt_ms.push(js_sys::Date::now() - start);
+            assert_eq!(recovered, secret);
+        }
+
+        fn summarize(samples: &mut [f64]) -> (f64, f64, f64) {
+            samples.sort_by(f64::total_cmp);
+            let n = samples.len();
+            let p50_index = (n - 1) / 2;
+            // Nearest-rank p95, clamped for small sample sets.
+            let p95_index = ((n * 95).div_ceil(100)).saturating_sub(1).min(n - 1);
+            (samples[p50_index], samples[p95_index], samples[n - 1])
+        }
+
+        let (encrypt_p50, encrypt_p95, encrypt_max) = summarize(&mut encrypt_ms);
+        let (decrypt_p50, decrypt_p95, decrypt_max) = summarize(&mut decrypt_ms);
+        let report = format!(
+            "IDENTITY_KDF_BENCHMARK kdf={} iterations={} samples={}              encrypt_ms_p50={:.1} encrypt_ms_p95={:.1} encrypt_ms_max={:.1}              unlock_decrypt_ms_p50={:.1} unlock_decrypt_ms_p95={:.1} unlock_decrypt_ms_max={:.1}",
+            KDF_IDENTIFIER,
+            PBKDF2_ITERATIONS,
+            SAMPLE_COUNT,
+            encrypt_p50,
+            encrypt_p95,
+            encrypt_max,
+            decrypt_p50,
+            decrypt_p95,
+            decrypt_max,
+        );
+        web_sys::console::log_1(&report.clone().into());
+        println!("{report}");
+    }
 
     #[wasm_bindgen_test::wasm_bindgen_test]
     async fn round_trips_with_the_correct_passphrase() {
