@@ -55,7 +55,7 @@ jobs:
             echo "baseline_policy_lib_sha256=$(sha256sum "$baseline_package/src/lib.rs" | cut -d ' ' -f 1)"
             echo "candidate_policy_lib_sha256=$(sha256sum "$candidate_root/src/lib.rs" | cut -d ' ' -f 1)"
             echo "baseline_workspace_root=$baseline_workspace"
-          } >> "$RUNNER_TEMP/policy-performance/provenance.txt"
+          } > "$RUNNER_TEMP/policy-performance/paired-baseline.txt"
         env:
           PACKAGE: mycelix-workspace/mycelix-space/tools/claim-ceiling-reference/Cargo.toml
 
@@ -156,6 +156,7 @@ jobs:
             done
           fi
 
+          if test -f "$output/paired-baseline.txt"; then cat "$output/paired-baseline.txt" >> "$output/provenance.txt"; fi
           {
             echo
             echo "paired_summary_path=$summary"
