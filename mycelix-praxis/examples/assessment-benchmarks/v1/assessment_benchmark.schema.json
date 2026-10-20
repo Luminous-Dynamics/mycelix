@@ -52,7 +52,8 @@
       "required": [
         "arm_id",
         "intervention",
-        "description"
+        "description",
+        "allowed_practice_assistance"
       ],
       "properties": {
         "arm_id": {
@@ -69,6 +70,13 @@
           "type": "string",
           "minLength": 1,
           "pattern": ".*\\S.*"
+        },
+        "allowed_practice_assistance": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/AssistanceMode"
+          }
         }
       }
     },
