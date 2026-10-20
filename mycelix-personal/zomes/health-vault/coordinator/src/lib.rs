@@ -197,6 +197,7 @@ pub fn get_my_biometrics_view(_: ()) -> ExternResult<Vec<BiometricView>> {
 /// Equality at the expiry boundary is expired (fail closed).
 fn consent_is_effective_at(consent: &ConsentGrant, now: &Timestamp) -> bool {
     consent.active
+        && consent.created_at.as_micros() <= now.as_micros()
         && consent
             .expires_at
             .as_ref()
@@ -293,6 +294,12 @@ mod tests {
 
         consent.expires_at = Some(Timestamp::from_micros(100));
         assert!(!consent_is_effective_at(&consent, &now));
+
+        // A future-dated grant is not effective before its stated start.
+        consent.expires_at = Some(Timestamp::from_micros(101));
+        consent.created_at = Timestamp::from_micros(101);
+        assert!(!consent_is_effective_at(&consent, &now));
+        consent.created_at = Timestamp::from_micros(0);
 
         consent.expires_at = Some(Timestamp::from_micros(99));
         assert!(!consent_is_effective_at(&consent, &now));
