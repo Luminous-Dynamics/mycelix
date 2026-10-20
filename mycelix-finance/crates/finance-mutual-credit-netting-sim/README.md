@@ -65,11 +65,11 @@ These values are illustrative test inputs, not observed costs or a claim about a
 
 ## Test and benchmark plan
 
-The crate currently includes deterministic unit tests for a closed cycle, offsetting receivable, reciprocal obligations, duplicate observation, conflicting duplicate, disputed obligation, wrong asset, input-order invariance, exposure limit, fee rounding, zero/self obligations, and missing scope/member identity.
+The crate currently includes 13 deterministic unit tests for a closed cycle, offsetting receivable, reciprocal obligations, duplicate observation, conflicting duplicate, disputed obligation, wrong asset, input-order invariance, exposure limit, fee rounding, zero/self obligations, missing scope/member identity, and a 500-obligation order-invariance/conservation stress corpus.
 
 The local environment used to prepare this change did not provide `rustc`/Cargo, so these tests have been authored but **not executed here**. Do not interpret their presence as a passing test result. Exact-head CI/local Rust execution is still required.
 
-Follow-on benchmark work should freeze the input corpus, Rust version, hardware, compiler profile and cost model. Report throughput and memory as measurements, plus gross/net amount, count of legs, fixed/variable/total modeled cost, unresolved-obligation coverage and all failures. Compare against direct incumbent settlement with matched parameter assumptions. Do not claim a production cost reduction without matched real quote and settlement data.
+Follow-on benchmark work should freeze the input corpus, Rust version, hardware, compiler profile and cost model. Exercise 10, 100, 1,000, 10,000 and 100,000 obligation profiles within configured bounds, plus input-order permutations and adversarial duplicates/conflicts. Report throughput and memory as measurements, plus gross/net amount, count of legs, fixed/variable/total modeled cost, unresolved-obligation coverage and all failures. Compare against direct incumbent settlement with matched parameter assumptions. Do not claim a production cost reduction without matched real quote and settlement data.
 
 ## Related work
 
