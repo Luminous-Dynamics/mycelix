@@ -333,15 +333,23 @@ mod tests {
         }
     }
 
-    fn evaluate(candidate: ClaimCeilingV1) -> PolicyReceiptV1 {
-        let request = PolicyRequestV1 {
+    fn request_bytes(candidate: ClaimCeilingV1) -> Vec<u8> {
+        serde_json::to_vec(&PolicyRequestV1 {
             schema_version: POLICY_REQUEST_SCHEMA_VERSION.to_owned(),
             request_id: "policy-test-001".to_owned(),
-            policy_profile: profile(),
             candidate_ceiling: candidate,
-        };
+        })
+        .expect("serialize policy request")
+    }
+
+    fn evaluate(candidate: ClaimCeilingV1) -> PolicyReceiptV1 {
+        let input = request_bytes(candidate);
+        let policy_bytes = serde_json::to_vec(&profile()).expect("serialize approved test profile");
+        let expected_profile_sha256 = sha256(&policy_bytes);
         evaluate_policy_request_bytes(
-            &serde_json::to_vec(&request).expect("serialize policy request"),
+            &input,
+            &policy_bytes,
+            &expected_profile_sha256,
             UNPINNED_LOCAL_RUN,
         )
         .expect("valid policy request should emit a receipt")
@@ -358,6 +366,7 @@ mod tests {
         assert!(receipt.policy_admissibility_only);
         assert!(!receipt.action_authority_granted);
         assert!(!receipt.source_commit_pinned);
+        assert!(receipt.policy_profile_pinned);
     }
 
     #[test]
@@ -384,13 +393,7 @@ mod tests {
 
         let receipt = evaluate(candidate);
         assert_eq!(receipt.disposition, PolicyDisposition::RejectedByProfile);
-        assert!(
-            receipt
-                .violations
-                .iter()
-                .any(|v| v.code == "claim_atom_not_allowed")
-        );
-        // Rejection is scoped policy evidence only; it is not a truth/falsity result.
+        assert!(receipt.violations.iter().any(|v| v.code == "claim_atom_not_allowed"));
         assert!(receipt.policy_admissibility_only);
     }
 
@@ -432,59 +435,96 @@ mod tests {
     }
 
     #[test]
-    fn policy_receipt_is_deterministic_and_binds_raw_input_and_profile() {
-        let request = PolicyRequestV1 {
-            schema_version: POLICY_REQUEST_SCHEMA_VERSION.to_owned(),
-            request_id: "stable-policy-fixture".to_owned(),
-            policy_profile: profile(),
-            candidate_ceiling: safe_ceiling(),
-        };
-        let bytes = serde_json::to_vec(&request).expect("serialize request");
-        let first = evaluate_policy_request_bytes(&bytes, UNPINNED_LOCAL_RUN).unwrap();
-        let second = evaluate_policy_request_bytes(&bytes, UNPINNED_LOCAL_RUN).unwrap();
-        assert_eq!(first, second);
-        assert_eq!(first.input_sha256, sha256(&bytes));
-        assert_eq!(
-            first.policy_profile_sha256,
-            sha256(&serde_json::to_vec(&request.policy_profile).unwrap())
-        );
-        assert_eq!(
-            first.candidate_ceiling_sha256,
-            sha256(&serde_json::to_vec(&request.candidate_ceiling).unwrap())
-        );
+    fn mismatched_policy_profile_digest_cannot_produce_admissible_receipt() {
+        let input = request_bytes(safe_ceiling());
+        let trusted_profile = serde_json::to_vec(&profile()).unwrap();
+        let trusted_digest = sha256(&trusted_profile);
+
+        let mut altered_profile = profile();
+        altered_profile.profile_id = "mycelix.policy.overbroad.research.v1".to_owned();
+        let altered_bytes = serde_json::to_vec(&altered_profile).unwrap();
+        let receipt = evaluate_policy_request_bytes(
+            &input,
+            &altered_bytes,
+            &trusted_digest,
+            UNPINNED_LOCAL_RUN,
+        )
+        .expect("profile mismatch is a structured rejection, not an admission");
+        assert_eq!(receipt.disposition, PolicyDisposition::RejectedByProfile);
+        assert!(!receipt.policy_profile_pinned);
+        assert!(receipt.violations.iter().any(|v| v.code == "policy_profile_digest_mismatch"));
+        assert!(!receipt.action_authority_granted);
     }
 
     #[test]
-    fn policy_profile_rejects_unknown_fields_and_invalid_time_window() {
-        let mut value = serde_json::to_value(PolicyRequestV1 {
+    fn policy_receipt_is_deterministic_and_binds_raw_input_and_profile() {
+        let input = request_bytes(safe_ceiling());
+        let policy_bytes = serde_json::to_vec(&profile()).expect("serialize policy profile");
+        let expected_profile_sha256 = sha256(&policy_bytes);
+        let first = evaluate_policy_request_bytes(
+            &input,
+            &policy_bytes,
+            &expected_profile_sha256,
+            UNPINNED_LOCAL_RUN,
+        )
+        .unwrap();
+        let second = evaluate_policy_request_bytes(
+            &input,
+            &policy_bytes,
+            &expected_profile_sha256,
+            UNPINNED_LOCAL_RUN,
+        )
+        .unwrap();
+        assert_eq!(first, second);
+        assert_eq!(first.input_sha256, sha256(&input));
+        assert_eq!(first.policy_profile_sha256, sha256(&policy_bytes));
+        assert_eq!(first.expected_policy_profile_sha256, expected_profile_sha256);
+    }
+
+    #[test]
+    fn policy_request_rejects_unknown_fields_invalid_profile_and_bad_expected_digest() {
+        let mut request = serde_json::to_value(PolicyRequestV1 {
             schema_version: POLICY_REQUEST_SCHEMA_VERSION.to_owned(),
             request_id: "malformed-policy".to_owned(),
-            policy_profile: profile(),
             candidate_ceiling: safe_ceiling(),
         })
         .unwrap();
-        value["policy_profile"]["unexpected_authority"] = json!(true);
+        request["unexpected_authority"] = json!(true);
+        let input = serde_json::to_vec(&request).unwrap();
+        let policy_bytes = serde_json::to_vec(&profile()).unwrap();
+        let expected = sha256(&policy_bytes);
         assert!(
             evaluate_policy_request_bytes(
-                &serde_json::to_vec(&value).unwrap(),
+                &input,
+                &policy_bytes,
+                &expected,
                 UNPINNED_LOCAL_RUN
             )
             .is_err()
         );
 
-        let mut invalid = PolicyRequestV1 {
-            schema_version: POLICY_REQUEST_SCHEMA_VERSION.to_owned(),
-            request_id: "invalid-window".to_owned(),
-            policy_profile: profile(),
-            candidate_ceiling: safe_ceiling(),
-        };
-        invalid.policy_profile.maximum_ceiling.valid_time = TimeWindow {
+        let input = request_bytes(safe_ceiling());
+        let mut invalid = profile();
+        invalid.maximum_ceiling.valid_time = TimeWindow {
             start_unix_seconds: 200,
             end_unix_seconds_exclusive: 200,
         };
+        let invalid_bytes = serde_json::to_vec(&invalid).unwrap();
+        let invalid_digest = sha256(&invalid_bytes);
         assert!(
             evaluate_policy_request_bytes(
-                &serde_json::to_vec(&invalid).unwrap(),
+                &input,
+                &invalid_bytes,
+                &invalid_digest,
+                UNPINNED_LOCAL_RUN
+            )
+            .is_err()
+        );
+        assert!(
+            evaluate_policy_request_bytes(
+                &input,
+                &policy_bytes,
+                "NOT-A-SHA256",
                 UNPINNED_LOCAL_RUN
             )
             .is_err()
