@@ -38,14 +38,19 @@ There is no scalar trust score, confidence multiplier, wildcard scope, or implic
 
 The vectors are synthetic contract examples, not evidence that any real source, qualification, independence claim, or action permission is valid. This first slice is not yet integrated into production Mycelix admission, Symthaea, Symtropy, or Sol-Atlas consumers.
 
-## Separate policy-profile admissibility gate
+## Separate, digest-pinned policy-profile gate
 
-The meet computes an intersection; it does not establish that the surviving atoms are permitted by policy. The `claim-ceiling-policy-check` binary compares a candidate against a versioned, explicit `maximum_ceiling` and rejects out-of-profile claim atoms, scopes, time windows, action scopes, or dropped mandatory controls.
+The meet computes an intersection; it does not establish that surviving claim atoms are allowed by policy. The `claim-ceiling-policy-check` binary accepts the candidate request and approved policy profile as **separate files**. It requires `--expected-policy-sha256` from an out-of-band trusted configuration. The digest is calculated over the exact profile file bytes. If the profile bytes do not match the expected digest, the tool returns a structured rejection; it does not assess the candidate under a caller-substituted profile.
 
 ```bash
+PROFILE=mycelix-workspace/mycelix-space/tools/claim-ceiling-reference/fixtures/claim-ceiling-policy-profile-v1.json
+REQUEST=mycelix-workspace/mycelix-space/tools/claim-ceiling-reference/fixtures/claim-ceiling-policy-allowed-v1.json
+EXPECTED_POLICY_SHA256=$(sha256sum "$PROFILE" | cut -d ' ' -f 1)
+
 cargo run --locked --manifest-path mycelix-workspace/mycelix-space/tools/claim-ceiling-reference/Cargo.toml \
   -p claim-ceiling-reference --bin claim-ceiling-policy-check -- \
-  --input mycelix-workspace/mycelix-space/tools/claim-ceiling-reference/fixtures/claim-ceiling-policy-allowed-v1.json
+  --input "$REQUEST" --policy "$PROFILE" \
+  --expected-policy-sha256 "$EXPECTED_POLICY_SHA256"
 ```
 
-Use `fixtures/claim-ceiling-policy-rejected-v1.json` to inspect a multi-dimension rejection receipt. The gate is a policy-fit check only; a passing receipt grants no evidence-admission or action authority. See [the research contract](../../../../docs/research/CLAIM_CEILING_POLICY_ADMISSIBILITY_V1_2026-10.md).
+Use `fixtures/claim-ceiling-policy-rejected-v1.json` for a multi-dimension rejection. **Do not treat a hash computed from an untrusted policy file as an approval**: production callers must obtain the expected digest from the separately governed policy registry/configuration. A passing receipt proves profile fit only; it grants no evidence-admission or action authority. See [the research contract](../../../../docs/research/CLAIM_CEILING_POLICY_ADMISSIBILITY_V1_2026-10.md).
