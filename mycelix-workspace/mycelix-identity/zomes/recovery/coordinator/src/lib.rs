@@ -298,6 +298,18 @@ pub struct SetupRecoveryInput {
     pub time_lock: Option<u64>,
 }
 
+fn recovery_did_matches_agent(did: &str, agent: &AgentPubKey) -> bool {
+    did == format!("did:mycelix:{agent}")
+}
+
+fn recovery_config_matches_did_owner(did: &str, config: &RecoveryConfig) -> bool {
+    config.did == did && recovery_did_matches_agent(&config.did, &config.owner)
+}
+
+fn self_recovery_config_matches_did_owner(did: &str, config: &SelfRecoveryConfig) -> bool {
+    config.did == did && recovery_did_matches_agent(&config.did, &config.owner)
+}
+
 /// Get recovery config for a DID
 #[hdk_extern]
 pub fn get_recovery_config(did: String) -> ExternResult<Option<Record>> {
@@ -312,18 +324,29 @@ pub fn get_recovery_config(did: String) -> ExternResult<Option<Record>> {
         GetStrategy::default(),
     )?;
 
-    if links.is_empty() {
-        return Ok(None);
-    }
-
-    let latest_link = links.into_iter().max_by_key(|l| l.timestamp);
-    if let Some(link) = latest_link {
+    // Legacy links may refer to configs whose owner DID does not match the
+    // link subject. Filter them before choosing the latest, so an invalid
+    // config cannot shadow an older valid controller-bound config.
+    let mut valid_records: Vec<(Timestamp, Record)> = Vec::new();
+    for link in links {
         let action_hash = ActionHash::try_from(link.target)
             .map_err(|_| wasm_error!(WasmErrorInner::Guest("Invalid link target".into())))?;
-        return get(action_hash, GetOptions::default());
+        if let Some(record) = get(action_hash, GetOptions::default())? {
+            let Ok(Some(config)) = record.entry().to_app_option::<RecoveryConfig>() else {
+                // A link target that is not a RecoveryConfig is not evidence
+                // of a valid config and must not shadow legitimate records.
+                continue;
+            };
+            if recovery_config_matches_did_owner(&did, &config) {
+                valid_records.push((link.timestamp, record));
+            }
+        }
     }
 
-    Ok(None)
+    Ok(valid_records
+        .into_iter()
+        .max_by_key(|(timestamp, _)| *timestamp)
+        .map(|(_, record)| record))
 }
 
 /// Initiate a recovery request (trustee only)
@@ -1122,6 +1145,11 @@ pub fn create_self_recovery(input: CreateSelfRecoveryInput) -> ExternResult<Reco
     }
 
     let agent = agent_info()?.agent_initial_pubkey;
+    if !recovery_did_matches_agent(&input.did, &agent) {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Only the DID owner can create self-recovery config for this DID".into()
+        )));
+    }
     let now = sys_time()?;
 
     let config = SelfRecoveryConfig {
@@ -1166,22 +1194,11 @@ pub struct AddVerificationAnchorInput {
 /// - 3+ anchors: 72 hours (minimum)
 #[hdk_extern]
 pub fn add_verification_anchor(input: AddVerificationAnchorInput) -> ExternResult<Record> {
-    let did_hash = string_to_entry_hash(&input.did);
-    let links = get_links(
-        LinkQuery::try_new(did_hash, LinkTypes::DidToSelfRecoveryConfig)?,
-        GetStrategy::default(),
-    )?;
-
-    let link = links.first().ok_or(wasm_error!(WasmErrorInner::Guest(
-        "No self-recovery config found for this DID".into()
-    )))?;
-    let original_hash = ActionHash::try_from(link.target.clone())
-        .map_err(|_| wasm_error!(WasmErrorInner::Guest("Invalid link target".into())))?;
-
-    let record = get(original_hash.clone(), GetOptions::default())?.ok_or(wasm_error!(
-        WasmErrorInner::Guest("Self-recovery config record not found".into())
-    ))?;
-
+    let record =
+        get_self_recovery_config(input.did.clone())?.ok_or(wasm_error!(WasmErrorInner::Guest(
+            "No valid owner-bound self-recovery config found for this DID".into()
+        )))?;
+    let original_hash = record.action_address().clone();
     let mut config: SelfRecoveryConfig = record
         .entry()
         .to_app_option()
@@ -1222,20 +1239,39 @@ pub fn add_verification_anchor(input: AddVerificationAnchorInput) -> ExternResul
 /// Get self-recovery config for a DID.
 #[hdk_extern]
 pub fn get_self_recovery_config(did: String) -> ExternResult<Option<Record>> {
+    if did.is_empty() || did.len() > 256 {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "DID must be 1-256 characters".into()
+        )));
+    }
     let did_hash = string_to_entry_hash(&did);
     let links = get_links(
         LinkQuery::try_new(did_hash, LinkTypes::DidToSelfRecoveryConfig)?,
         GetStrategy::default(),
     )?;
 
-    match links.first() {
-        Some(link) => {
-            let hash = ActionHash::try_from(link.target.clone())
-                .map_err(|_| wasm_error!(WasmErrorInner::Guest("Invalid link target".into())))?;
-            get(hash, GetOptions::default())
+    // Do not use the first link: invalid legacy links must not shadow the
+    // actual owner's recovery configuration.
+    let mut valid_records: Vec<(Timestamp, Record)> = Vec::new();
+    for link in links {
+        let hash = ActionHash::try_from(link.target)
+            .map_err(|_| wasm_error!(WasmErrorInner::Guest("Invalid link target".into())))?;
+        if let Some(record) = get(hash, GetOptions::default())? {
+            let Ok(Some(config)) = record.entry().to_app_option::<SelfRecoveryConfig>() else {
+                // Ignore dangling/mistyped links; only owner-bound config
+                // entries can determine the effective recovery configuration.
+                continue;
+            };
+            if self_recovery_config_matches_did_owner(&did, &config) {
+                valid_records.push((link.timestamp, record));
+            }
         }
-        None => Ok(None),
     }
+
+    Ok(valid_records
+        .into_iter()
+        .max_by_key(|(timestamp, _)| *timestamp)
+        .map(|(_, record)| record))
 }
 
 /// Mark self-recovery as superseded by social recovery.
@@ -1244,29 +1280,19 @@ pub fn get_self_recovery_config(did: String) -> ExternResult<Option<Record>> {
 /// Self-recovery remains available as a fallback.
 #[hdk_extern]
 pub fn mark_self_recovery_superseded(did: String) -> ExternResult<()> {
-    let did_hash = string_to_entry_hash(&did);
-    let links = get_links(
-        LinkQuery::try_new(did_hash, LinkTypes::DidToSelfRecoveryConfig)?,
-        GetStrategy::default(),
-    )?;
+    if let Some(record) = get_self_recovery_config(did)? {
+        let hash = record.action_address().clone();
+        let mut config: SelfRecoveryConfig = record
+            .entry()
+            .to_app_option()
+            .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
+            .ok_or(wasm_error!(WasmErrorInner::Guest(
+                "Failed to decode self-recovery config".into()
+            )))?;
 
-    if let Some(link) = links.first() {
-        let hash = ActionHash::try_from(link.target.clone())
-            .map_err(|_| wasm_error!(WasmErrorInner::Guest("Invalid link target".into())))?;
-
-        if let Some(record) = get(hash.clone(), GetOptions::default())? {
-            let mut config: SelfRecoveryConfig = record
-                .entry()
-                .to_app_option()
-                .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
-                .ok_or(wasm_error!(WasmErrorInner::Guest(
-                    "Failed to decode config".into()
-                )))?;
-
-            config.superseded_by_social = true;
-            config.updated = sys_time()?;
-            update_entry(hash, &config)?;
-        }
+        config.superseded_by_social = true;
+        config.updated = sys_time()?;
+        update_entry(hash, &config)?;
     }
 
     Ok(())

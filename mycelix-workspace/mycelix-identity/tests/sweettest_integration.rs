@@ -5707,3 +5707,157 @@ mod cross_happ_integration_tests {
         assert!(!fake_exists, "Non-existent DID should not verify");
     }
 }
+
+
+// ============================================================================
+// Recovery Owner-Binding Adversarial E2E
+// ============================================================================
+
+#[cfg(test)]
+mod recovery_owner_binding_adversarial_tests {
+    use super::*;
+
+    #[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
+    struct CreateSelfRecoveryInput {
+        did: String,
+    }
+
+    /// An unrelated agent must not attach its recovery trustees to the victim's
+    /// canonical DID or replace the effective recovery configuration.
+    ///
+    /// This test uses two distinct app agents/source chains in one SweetConductor.
+    /// The integrity validator remains the authority boundary: a coordinator
+    /// check alone would not protect against a future or alternate entry writer.
+    #[tokio::test(flavor = "multi_thread")]
+    #[ignore = "requires Holochain conductor and packed identity DNA"]
+    async fn test_unrelated_agent_cannot_poison_recovery_config_for_victim_did() {
+        let mut conductor = SweetConductor::from_standard_config().await;
+        let dna = load_dna().await;
+
+        let victim_app = conductor
+            .setup_app("recovery-owner-binding-victim", &[dna.clone()])
+            .await
+            .expect("install victim app");
+        let victim_cell = victim_app.cells()[0].clone();
+        let victim_key = victim_app.agent().clone();
+
+        let attacker_app = conductor
+            .setup_app("recovery-owner-binding-attacker", &[dna])
+            .await
+            .expect("install attacker app");
+        let attacker_cell = attacker_app.cells()[0].clone();
+        let attacker_key = attacker_app.agent().clone();
+
+        assert_ne!(victim_key, attacker_key, "test requires distinct agents");
+
+        let did_record: Record = conductor
+            .call(&victim_cell.zome("did_registry"), "create_did", ())
+            .await;
+        let did_doc: DidDocument = decode_entry(&did_record).expect("decode victim DID");
+        let victim_did = did_doc.id.clone();
+
+        assert_eq!(did_doc.controller, victim_key);
+        assert_eq!(
+            victim_did,
+            format!("did:mycelix:{}", victim_key),
+            "fixture must use the canonical key-bound DID form"
+        );
+
+        let victim_trustees = vec![
+            "did:mycelix:owner-binding-victim-trustee-a".to_string(),
+            "did:mycelix:owner-binding-victim-trustee-b".to_string(),
+            "did:mycelix:owner-binding-victim-trustee-c".to_string(),
+        ];
+        let _: Record = conductor
+            .call(
+                &victim_cell.zome("recovery"),
+                "setup_recovery",
+                SetupRecoveryInput {
+                    did: victim_did.clone(),
+                    trustees: victim_trustees.clone(),
+                    threshold: 2,
+                    time_lock: Some(86_400),
+                },
+            )
+            .await;
+
+        // Adversary supplies the victim's DID while the host action is authored
+        // and signed by the attacker's distinct agent key.
+        let attacker_trustees = vec![
+            "did:mycelix:attacker-controlled-trustee-a".to_string(),
+            "did:mycelix:attacker-controlled-trustee-b".to_string(),
+            "did:mycelix:attacker-controlled-trustee-c".to_string(),
+        ];
+        let attack_result: Result<Record, _> = conductor
+            .call_fallible(
+                &attacker_cell.zome("recovery"),
+                "setup_recovery",
+                SetupRecoveryInput {
+                    did: victim_did.clone(),
+                    trustees: attacker_trustees,
+                    threshold: 2,
+                    time_lock: Some(86_400),
+                },
+            )
+            .await;
+
+        assert!(
+            attack_result.is_err(),
+            "SEC-RECOVERY-002 regression: a different agent must not create a recovery config for the victim DID"
+        );
+
+        // The self-recovery path must apply the same owner/DID binding. The
+        // victim's canonical DID creation best-effort initializes a legitimate
+        // self-recovery config; a different agent must neither create nor
+        // shadow it by submitting the victim's DID.
+        let self_attack: Result<Record, _> = conductor
+            .call_fallible(
+                &attacker_cell.zome("recovery"),
+                "create_self_recovery",
+                CreateSelfRecoveryInput {
+                    did: victim_did.clone(),
+                },
+            )
+            .await;
+        assert!(
+            self_attack.is_err(),
+            "SEC-RECOVERY-002 regression: a different agent must not create self-recovery config for the victim DID"
+        );
+
+        let existing_self_config: Option<Record> = conductor
+            .call(
+                &victim_cell.zome("recovery"),
+                "get_self_recovery_config",
+                victim_did.clone(),
+            )
+            .await;
+        let existing_self_config =
+            existing_self_config.expect("victim's owner-bound self-recovery config remains available");
+        let self_config: serde_json::Value =
+            decode_entry(&existing_self_config).expect("decode self-recovery config");
+        assert_eq!(
+            self_config.get("did").and_then(serde_json::Value::as_str),
+            Some(victim_did.as_str()),
+            "effective self-recovery config must remain bound to the victim DID"
+        );
+
+        // The legitimate owner's configuration remains the effective readable
+        // config after the rejected attempt; no hostile newer link may shadow it.
+        let retrieved: Option<Record> = conductor
+            .call(
+                &victim_cell.zome("recovery"),
+                "get_recovery_config",
+                victim_did.clone(),
+            )
+            .await;
+        let retrieved = retrieved.expect("victim's original recovery config remains available");
+        let config: RecoveryConfig =
+            decode_entry(&retrieved).expect("decode effective recovery config");
+
+        assert_eq!(config.did, victim_did);
+        assert_eq!(config.owner, victim_key);
+        assert_eq!(config.trustees, victim_trustees);
+        assert_eq!(config.threshold, 2);
+        assert!(config.active);
+    }
+}
