@@ -875,10 +875,14 @@ pub async fn protect_existing_identity(
                     .into(),
             );
         }
-        let remove_envelope = storage.remove_item(IDENTITY_SECRET_ENCRYPTED_KEY);
+        let remove_envelope = remove_storage_item_if_matches(
+            &storage,
+            IDENTITY_SECRET_ENCRYPTED_KEY,
+            &encrypted_wire,
+        );
         if remove_envelope.is_err() {
             return Err(
-                "Protected-state verification failed; plaintext was restored but encrypted-envelope cleanup failed. Inspect posture before retrying."
+                "Protected-state verification failed; plaintext was restored but a different/uncertain encrypted envelope was preserved. Inspect posture before retrying."
                     .into(),
             );
         }
@@ -1008,31 +1012,49 @@ async fn rewrap_protected_identity(passphrase: &str) -> Result<(), String> {
         return Ok(());
     }
 
-    // If write/read-back verification is ambiguous, restore and verify the old
-    // envelope. Never claim rotation success from a successful setItem alone.
-    if storage
-        .set_item(IDENTITY_SECRET_ENCRYPTED_KEY, &previous_wire)
-        .is_err()
-    {
-        return Err(
-            "Passphrase rotation could not be verified and rollback failed; inspect identity posture before retrying."
-                .into(),
-        );
-    }
-    let restored = storage.get_item(IDENTITY_SECRET_ENCRYPTED_KEY);
-    if restored
-        .as_ref()
-        .is_ok_and(|value| value.as_deref() == Some(previous_wire.as_str()))
-    {
-        Err(
+    // Restore only if the observed value is either the new envelope from
+    // this operation or the previously-authoritative envelope. Never overwrite
+    // a different value that may have been committed by another tab.
+    let observed = storage.get_item(IDENTITY_SECRET_ENCRYPTED_KEY);
+    match observed.as_ref().ok().and_then(|value| value.as_deref()) {
+        Some(value) if value == previous_wire => Err(
             "Passphrase rotation failed verification; the previous passphrase remains active."
                 .into(),
-        )
-    } else {
-        Err(
-            "Passphrase rotation and rollback could not be verified; inspect identity posture before retrying."
+        ),
+        Some(value) if value == next_wire => {
+            if storage
+                .set_item(IDENTITY_SECRET_ENCRYPTED_KEY, &previous_wire)
+                .is_err()
+            {
+                return Err(
+                    "Passphrase rotation could not be verified and rollback failed; inspect identity posture before retrying."
+                        .into(),
+                );
+            }
+            let restored = storage.get_item(IDENTITY_SECRET_ENCRYPTED_KEY);
+            if restored
+                .as_ref()
+                .is_ok_and(|stored| stored.as_deref() == Some(previous_wire.as_str()))
+            {
+                Err(
+                    "Passphrase rotation failed verification; the previous passphrase remains active."
+                        .into(),
+                )
+            } else {
+                Err(
+                    "Passphrase rotation rollback could not be verified; inspect identity posture before retrying."
+                        .into(),
+                )
+            }
+        }
+        Some(_) => Err(
+            "A different encrypted envelope was observed during passphrase rotation; it was preserved. Inspect identity posture before retrying."
                 .into(),
-        )
+        ),
+        None => Err(
+            "The encrypted envelope could not be read after rotation; no competing value was overwritten. Inspect identity posture before retrying."
+                .into(),
+        ),
     }
 }
 
