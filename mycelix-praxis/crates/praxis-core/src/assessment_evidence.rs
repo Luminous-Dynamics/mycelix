@@ -28,6 +28,8 @@ pub struct BenchmarkArm {
     pub arm_id: String,
     pub intervention: String,
     pub description: String,
+    /// Practice assistance modes allowed by this declared study condition.
+    pub allowed_practice_assistance: Vec<AssistanceMode>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -181,7 +183,19 @@ pub fn validate_assessment_benchmark(
                 "description is required",
             );
         }
+        if arm.allowed_practice_assistance.is_empty() {
+            issue(
+                &mut issues,
+                "empty_allowed_practice_assistance",
+                format!("{path}.allowed_practice_assistance"),
+                "each arm must declare permitted practice assistance modes",
+            );
+        }
     }
+
+    let arm_assistance = run.arms.iter()
+        .map(|arm| (arm.arm_id.clone(), arm.allowed_practice_assistance.clone()))
+        .collect::<BTreeMap<_, _>>();
 
     let mut participants = HashSet::<String>::new();
     let mut attempt_ids = HashSet::<String>::new();
@@ -320,6 +334,16 @@ pub fn validate_assessment_benchmark(
             }
             if attempt.phase == AssessmentPhase::Practice {
                 practice_forms.insert(attempt.task_form_id.clone());
+                if let Some(allowed) = arm_assistance.get(&episode.arm_id) {
+                    if !allowed.contains(&attempt.assistance) {
+                        issue(
+                            &mut issues,
+                            "assistance_arm_mismatch",
+                            format!("{path}.assistance"),
+                            "practice assistance does not match the declared study arm",
+                        );
+                    }
+                }
             }
             by_phase.entry(attempt.phase).or_default().push(attempt);
         }
