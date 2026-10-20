@@ -82,7 +82,7 @@ The scorer reports separate counters and per-domain rates; it deliberately does 
 | False-abstention rate | Abstentions on answerable cases | All answerable cases |
 | Justified-abstention rate | Abstentions on unanswerable cases | All unanswerable cases |
 | Citation precision | Citations that match evaluator-accepted support IDs | All cited evidence IDs |
-| Required-evidence coverage | Required evidence IDs both observed and cited | All required evidence IDs |
+| Required-evidence coverage | Required evidence IDs both observed and cited on answerable cases | All required evidence IDs for answerable cases |
 | Contradiction omission rate | Available contradiction IDs not cited | All available contradiction IDs |
 | Mean Brier score | Squared error of registered confidence vs. claim correctness | Valid confidence observations, only when preregistered |
 

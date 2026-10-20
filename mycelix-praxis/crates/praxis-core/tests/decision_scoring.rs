@@ -239,11 +239,11 @@ fn score_cases(cases: &[EvaluatorCase], confidence_metric_preregistered: bool) -
     for case in cases {
         let score = report.by_domain.entry(case.domain).or_default();
         score.total_cases += 1;
-        score.required_evidence_count += case.required_evidence_ids.len();
         score.available_contradiction_count += case.available_contradiction_ids.len();
 
         if case.answerable {
             score.answerable_cases += 1;
+            score.required_evidence_count += case.required_evidence_ids.len();
         } else {
             score.unanswerable_cases += 1;
         }
@@ -281,11 +281,15 @@ fn score_cases(cases: &[EvaluatorCase], confidence_metric_preregistered: bool) -
                 } else {
                     0
                 };
-                score.required_evidence_cited_count += case
-                    .required_evidence_ids
-                    .iter()
-                    .filter(|id| case.observed_evidence_ids.contains(id) && cited.contains(**id))
-                    .count();
+                if case.answerable {
+                    score.required_evidence_cited_count += case
+                        .required_evidence_ids
+                        .iter()
+                        .filter(|id| {
+                            case.observed_evidence_ids.contains(id) && cited.contains(**id)
+                        })
+                        .count();
+                }
                 score.available_contradiction_cited_count += case
                     .available_contradiction_ids
                     .iter()
@@ -1315,12 +1319,12 @@ fn unsupported_claims_false_abstention_and_justified_abstention_are_not_collapse
 fn citation_precision_coverage_and_contradiction_omission_are_independent() {
     let report = score_cases(&synthetic_cases(), true);
     let network = &report.by_domain[&Domain::NetworkConfiguration];
-    assert_eq!(network.required_evidence_coverage_permille(), Some(500));
+    assert_eq!(network.required_evidence_coverage_permille(), Some(1000));
     assert_eq!(network.contradiction_omission_rate_permille(), Some(1000));
 
     let endpoint = &report.by_domain[&Domain::EndpointResponseTelemetry];
     assert_eq!(endpoint.citation_precision_permille(), Some(333));
-    assert_eq!(endpoint.required_evidence_coverage_permille(), Some(500));
+    assert_eq!(endpoint.required_evidence_coverage_permille(), Some(1000));
 }
 
 #[test]
