@@ -1,0 +1,57 @@
+name: Finance Lock Structural Coherence Verifier
+
+on:
+  pull_request:
+    paths:
+      - 'scripts/ci/finance_lock_coherence.py'
+      - 'scripts/ci/test_finance_lock_coherence.py'
+      - '.github/workflows/finance-lock-coherence-verifier.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test-static-verifier:
+    runs-on: ubuntu-slim
+    timeout-minutes: 5
+    steps:
+      - name: Checkout exact subject
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 2
+          persist-credentials: false
+
+      - name: Capture environment
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 --version
+          git --version
+          sha256sum \
+            scripts/ci/finance_lock_coherence.py \
+            scripts/ci/test_finance_lock_coherence.py \
+            .github/workflows/finance-lock-coherence-verifier.yml
+
+      - name: Compile verifier and tests
+        run: python3 -m py_compile scripts/ci/finance_lock_coherence.py scripts/ci/test_finance_lock_coherence.py
+
+      - name: Run adversarial synthetic fixture suite
+        env:
+          PYTHONDONTWRITEBYTECODE: '1'
+          PIP_NO_INDEX: '1'
+        run: python3 scripts/ci/test_finance_lock_coherence.py
+
+      - name: Prove verifier does not mutate repository state
+        shell: bash
+        run: |
+          set -euo pipefail
+          git diff --exit-code
+          test -z "$(git status --porcelain=v1 --untracked-files=no)"
+
+      - name: Emit scope receipt
+        run: |
+          echo 'status=PASS'
+          echo 'claim=synthetic manifest-lock structural verifier fixtures pass without package installation or Cargo resolution'
+          echo 'nonclaim=current Finance workspace lock is coherent, Cargo resolver equivalence, dependency authenticity, vulnerability status, reproducible build'
