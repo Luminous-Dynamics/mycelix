@@ -47,9 +47,9 @@ impl QualificationExit {
 
 /// Domain separation prevents a signature made for another protocol or
 /// receipt version from being reused as CivOS qualification evidence.
-const RECEIPT_SIGNATURE_DOMAIN: &[u8] = b"LUMINOUS-DYNAMICS/CIVOS-MACQ-001/RECEIPT/V0.1\\0";
+const RECEIPT_SIGNATURE_DOMAIN: &[u8] = b"LUMINOUS-DYNAMICS/CIVOS-MACQ-001/RECEIPT/V0.1\0";
 
-fn receipt_signature_message(receipt_bytes: &[u8]) -> Vec<u8> {
+pub fn receipt_signature_message(receipt_bytes: &[u8]) -> Vec<u8> {
     let digest = Sha256::digest(receipt_bytes);
     let mut message = Vec::with_capacity(RECEIPT_SIGNATURE_DOMAIN.len() + digest.len());
     message.extend_from_slice(RECEIPT_SIGNATURE_DOMAIN);
