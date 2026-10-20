@@ -661,6 +661,11 @@ fn validate_create_self_recovery_config(
     {
         return Ok(ValidateCallbackResult::Invalid(reason));
     }
+    if config.active {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Self-recovery cannot be activated until anchor proof-of-possession is implemented".into(),
+        ));
+    }
     // Time lock minimum: 72 hours for self-recovery (stronger than social's 24h)
     if config.time_lock < SELF_RECOVERY_MIN_TIME_LOCK {
         return Ok(ValidateCallbackResult::Invalid(format!(
@@ -699,6 +704,11 @@ fn validate_update_self_recovery_config(
         require_recovery_config_did_matches_owner(&config.did, &config.owner)
     {
         return Ok(ValidateCallbackResult::Invalid(reason));
+    }
+    if config.active {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Self-recovery cannot be activated until anchor proof-of-possession is implemented".into(),
+        ));
     }
     if !config.anchors.is_empty() && config.anchor_threshold as usize > config.anchors.len() {
         return Ok(ValidateCallbackResult::Invalid(
@@ -768,23 +778,15 @@ fn validate_update_self_recovery_config(
 fn validate_create_self_recovery_request(
     request: SelfRecoveryRequest,
 ) -> ExternResult<ValidateCallbackResult> {
-    if !request.did.starts_with("did:mycelix:") {
-        return Ok(ValidateCallbackResult::Invalid(
-            "DID must start with 'did:mycelix:'".into(),
-        ));
-    }
-    if request.reason.is_empty() {
-        return Ok(ValidateCallbackResult::Invalid(
-            "Recovery reason is required".into(),
-        ));
-    }
-    if request.status != RecoveryStatus::Pending {
-        return Ok(ValidateCallbackResult::Invalid(
-            "Initial status must be Pending".into(),
-        ));
-    }
-    Ok(ValidateCallbackResult::Valid)
+    // The legacy request schema has no nonce-bound challenge, signed assertion,
+    // or verifier attestation. Reject direct DHT creation as well as coordinator
+    // requests so callers cannot populate verified_anchors themselves.
+    let _ = request;
+    Ok(ValidateCallbackResult::Invalid(
+        "Self-recovery requests are disabled until a challenge-bound proof receipt is required and validated".into(),
+    ))
 }
+
 
 /// Validate self-recovery request updates (same state machine as social recovery)
 ///
@@ -819,7 +821,21 @@ fn validate_update_self_recovery_request(
         ));
     }
 
-    // Same state machine as social recovery
+    // The legacy self-recovery schema records only anchor values, not
+    // independently verifiable proof receipts. Never permit a direct DHT
+    // update to advance into a state that can rotate a DID.
+    if matches!(
+        request.status,
+        RecoveryStatus::Approved
+            | RecoveryStatus::ReadyToExecute
+            | RecoveryStatus::Completed
+    ) {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Self-recovery status advancement requires a validated challenge-bound proof receipt".into(),
+        ));
+    }
+
+    // Same state machine for safe non-executing transitions.
     let valid_transition = match (&original.status, &request.status) {
         (RecoveryStatus::Pending, RecoveryStatus::Approved)
         | (RecoveryStatus::Pending, RecoveryStatus::Cancelled) => true,
@@ -1124,7 +1140,7 @@ mod author_binding_tests {
             anchors: vec![],
             anchor_threshold: 1,
             time_lock: SELF_RECOVERY_MIN_TIME_LOCK,
-            active: true,
+            active: false,
             superseded_by_social: false,
             created: Timestamp::from_micros(0),
             updated: Timestamp::from_micros(0),
@@ -1178,6 +1194,39 @@ mod author_binding_tests {
         assert!(
             matches!(result, ValidateCallbackResult::Invalid(message) if message.contains("correspond")),
             "self-recovery config for another owner's DID must be rejected"
+        );
+    }
+
+    #[test]
+    fn active_self_recovery_config_is_rejected_until_proof_protocol_exists() {
+        let owner = me();
+        let mut config = valid_self_config(format!("did:mycelix:{owner}"), owner.clone());
+        config.active = true;
+        let result = validate_create_self_recovery_config(
+            EntryCreationAction::Create(test_action(owner)),
+            config,
+        )
+        .unwrap();
+        assert!(
+            matches!(result, ValidateCallbackResult::Invalid(message) if message.contains("proof-of-possession"))
+        );
+    }
+
+    #[test]
+    fn unproven_self_recovery_requests_cannot_be_created_directly() {
+        let request = SelfRecoveryRequest {
+            id: "test-request".into(),
+            did: format!("did:mycelix:{}", me()),
+            new_agent: other_agent(),
+            verified_anchors: vec![VerificationAnchor::PhoneHash("guessed-hash".into())],
+            status: RecoveryStatus::Pending,
+            created: Timestamp::from_micros(0),
+            time_lock_expires: None,
+            reason: "synthetic negative-control".into(),
+        };
+        let result = validate_create_self_recovery_request(request).unwrap();
+        assert!(
+            matches!(result, ValidateCallbackResult::Invalid(message) if message.contains("challenge-bound proof receipt"))
         );
     }
 
