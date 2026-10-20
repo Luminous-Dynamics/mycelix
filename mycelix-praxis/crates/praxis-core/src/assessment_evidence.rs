@@ -103,36 +103,83 @@ pub fn validate_assessment_benchmark(
 ) -> Result<ValidationSummary, Vec<ValidationIssue>> {
     let mut issues = Vec::new();
     if run.schema_version != ASSESSMENT_BENCHMARK_SCHEMA_VERSION {
-        issue(&mut issues, "unsupported_schema_version", "$.schema_version",
-            format!("expected {}, got {}", ASSESSMENT_BENCHMARK_SCHEMA_VERSION, run.schema_version));
+        issue(
+            &mut issues,
+            "unsupported_schema_version",
+            "$.schema_version",
+            format!(
+                "expected {}, got {}",
+                ASSESSMENT_BENCHMARK_SCHEMA_VERSION, run.schema_version
+            ),
+        );
     }
     if run.protocol_id.trim().is_empty() {
-        issue(&mut issues, "empty_protocol_id", "$.protocol_id", "protocol_id is required");
+        issue(
+            &mut issues,
+            "empty_protocol_id",
+            "$.protocol_id",
+            "protocol_id is required",
+        );
     }
     if run.rubric_version.trim().is_empty() {
-        issue(&mut issues, "empty_rubric_version", "$.rubric_version", "rubric_version is required");
+        issue(
+            &mut issues,
+            "empty_rubric_version",
+            "$.rubric_version",
+            "rubric_version is required",
+        );
     }
     if run.arms.len() < 2 {
-        issue(&mut issues, "insufficient_arms", "$.arms", "comparative benchmark needs at least two arms");
+        issue(
+            &mut issues,
+            "insufficient_arms",
+            "$.arms",
+            "comparative benchmark needs at least two arms",
+        );
     }
     if run.episodes.is_empty() {
-        issue(&mut issues, "empty_episodes", "$.episodes", "at least one episode is required");
+        issue(
+            &mut issues,
+            "empty_episodes",
+            "$.episodes",
+            "at least one episode is required",
+        );
     }
 
     let mut declared_arms = BTreeSet::<String>::new();
     for (i, arm) in run.arms.iter().enumerate() {
         let path = format!("$.arms[{i}]");
         if arm.arm_id.trim().is_empty() {
-            issue(&mut issues, "empty_arm_id", format!("{path}.arm_id"), "arm_id is required");
+            issue(
+                &mut issues,
+                "empty_arm_id",
+                format!("{path}.arm_id"),
+                "arm_id is required",
+            );
         }
         if !declared_arms.insert(arm.arm_id.clone()) {
-            issue(&mut issues, "duplicate_arm_id", format!("{path}.arm_id"), "arm_id must be unique");
+            issue(
+                &mut issues,
+                "duplicate_arm_id",
+                format!("{path}.arm_id"),
+                "arm_id must be unique",
+            );
         }
         if arm.intervention.trim().is_empty() {
-            issue(&mut issues, "empty_intervention", format!("{path}.intervention"), "intervention is required");
+            issue(
+                &mut issues,
+                "empty_intervention",
+                format!("{path}.intervention"),
+                "intervention is required",
+            );
         }
         if arm.description.trim().is_empty() {
-            issue(&mut issues, "empty_arm_description", format!("{path}.description"), "description is required");
+            issue(
+                &mut issues,
+                "empty_arm_description",
+                format!("{path}.description"),
+                "description is required",
+            );
         }
     }
 
@@ -144,22 +191,46 @@ pub fn validate_assessment_benchmark(
     for (episode_i, episode) in run.episodes.iter().enumerate() {
         let base = format!("$.episodes[{episode_i}]");
         if episode.participant_ref.trim().is_empty() {
-            issue(&mut issues, "empty_participant_ref", format!("{base}.participant_ref"), "participant_ref is required");
+            issue(
+                &mut issues,
+                "empty_participant_ref",
+                format!("{base}.participant_ref"),
+                "participant_ref is required",
+            );
         } else if !participants.insert(episode.participant_ref.clone()) {
-            issue(&mut issues, "duplicate_participant_episode", format!("{base}.participant_ref"),
-                "participant must have one episode per protocol and task family");
+            issue(
+                &mut issues,
+                "duplicate_participant_episode",
+                format!("{base}.participant_ref"),
+                "participant must have one episode per protocol and task family",
+            );
         }
 
         if !declared_arms.contains(&episode.arm_id) {
-            issue(&mut issues, "unknown_arm", format!("{base}.arm_id"), "episode references an undeclared arm");
+            issue(
+                &mut issues,
+                "unknown_arm",
+                format!("{base}.arm_id"),
+                "episode references an undeclared arm",
+            );
         } else {
             *represented_arms.entry(episode.arm_id.clone()).or_default() += 1;
         }
         if episode.task_family_id.trim().is_empty() {
-            issue(&mut issues, "empty_task_family", format!("{base}.task_family_id"), "task_family_id is required");
+            issue(
+                &mut issues,
+                "empty_task_family",
+                format!("{base}.task_family_id"),
+                "task_family_id is required",
+            );
         }
         if episode.attempts.is_empty() {
-            issue(&mut issues, "empty_attempts", format!("{base}.attempts"), "episode has no attempts");
+            issue(
+                &mut issues,
+                "empty_attempts",
+                format!("{base}.attempts"),
+                "episode has no attempts",
+            );
             continue;
         }
 
@@ -169,38 +240,83 @@ pub fn validate_assessment_benchmark(
             attempt_count += 1;
             let path = format!("{base}.attempts[{attempt_i}]");
             if attempt.attempt_id.trim().is_empty() {
-                issue(&mut issues, "empty_attempt_id", format!("{path}.attempt_id"), "attempt_id is required");
+                issue(
+                    &mut issues,
+                    "empty_attempt_id",
+                    format!("{path}.attempt_id"),
+                    "attempt_id is required",
+                );
             } else if !attempt_ids.insert(attempt.attempt_id.clone()) {
-                issue(&mut issues, "duplicate_attempt_id", format!("{path}.attempt_id"), "attempt_id must be globally unique");
+                issue(
+                    &mut issues,
+                    "duplicate_attempt_id",
+                    format!("{path}.attempt_id"),
+                    "attempt_id must be globally unique",
+                );
             }
             if attempt.task_family_id != episode.task_family_id {
-                issue(&mut issues, "task_family_mismatch", format!("{path}.task_family_id"),
-                    "attempt task family must match its episode");
+                issue(
+                    &mut issues,
+                    "task_family_mismatch",
+                    format!("{path}.task_family_id"),
+                    "attempt task family must match its episode",
+                );
             }
             if attempt.task_form_id.trim().is_empty() {
-                issue(&mut issues, "empty_task_form_id", format!("{path}.task_form_id"), "task_form_id is required");
+                issue(
+                    &mut issues,
+                    "empty_task_form_id",
+                    format!("{path}.task_form_id"),
+                    "task_form_id is required",
+                );
             }
             if attempt.task_form_version.trim().is_empty() {
-                issue(&mut issues, "empty_task_form_version", format!("{path}.task_form_version"), "task_form_version is required");
+                issue(
+                    &mut issues,
+                    "empty_task_form_version",
+                    format!("{path}.task_form_version"),
+                    "task_form_version is required",
+                );
             }
             if attempt.score_permille > 1000 {
-                issue(&mut issues, "score_out_of_range", format!("{path}.score_permille"), "score must be in [0, 1000]");
+                issue(
+                    &mut issues,
+                    "score_out_of_range",
+                    format!("{path}.score_permille"),
+                    "score must be in [0, 1000]",
+                );
             }
             if attempt.completed_at_unix_seconds < 0 {
-                issue(&mut issues, "invalid_timestamp", format!("{path}.completed_at_unix_seconds"),
-                    "timestamp must be a non-negative Unix timestamp");
+                issue(
+                    &mut issues,
+                    "invalid_timestamp",
+                    format!("{path}.completed_at_unix_seconds"),
+                    "timestamp must be a non-negative Unix timestamp",
+                );
             }
             if attempt.rubric_version != run.rubric_version {
-                issue(&mut issues, "rubric_version_mismatch", format!("{path}.rubric_version"),
-                    "attempt rubric version must match the run");
+                issue(
+                    &mut issues,
+                    "rubric_version_mismatch",
+                    format!("{path}.rubric_version"),
+                    "attempt rubric version must match the run",
+                );
             }
             if attempt.assistance == AssistanceMode::Unknown {
-                issue(&mut issues, "unknown_assistance", format!("{path}.assistance"),
-                    "unknown assistance is ineligible for controlled benchmark analysis");
+                issue(
+                    &mut issues,
+                    "unknown_assistance",
+                    format!("{path}.assistance"),
+                    "unknown assistance is ineligible for controlled benchmark analysis",
+                );
             }
             if requires_unaided(attempt.phase) && attempt.assistance != AssistanceMode::Unaided {
-                issue(&mut issues, "assisted_independent_phase", format!("{path}.assistance"),
-                    "independent assessment phase must be unaided");
+                issue(
+                    &mut issues,
+                    "assisted_independent_phase",
+                    format!("{path}.assistance"),
+                    "independent assessment phase must be unaided",
+                );
             }
             if attempt.phase == AssessmentPhase::Practice {
                 practice_forms.insert(attempt.task_form_id.clone());
@@ -210,32 +326,64 @@ pub fn validate_assessment_benchmark(
 
         for (phase, attempts) in &by_phase {
             if *phase != AssessmentPhase::Practice && attempts.len() > 1 {
-                issue(&mut issues, "duplicate_anchor_phase", format!("{base}.attempts"),
-                    format!("phase {:?} may occur at most once", phase));
+                issue(
+                    &mut issues,
+                    "duplicate_anchor_phase",
+                    format!("{base}.attempts"),
+                    format!("phase {:?} may occur at most once", phase),
+                );
             }
         }
 
         let baseline = unique_phase(&by_phase, AssessmentPhase::Baseline);
-        let practice = by_phase.get(&AssessmentPhase::Practice).cloned().unwrap_or_default();
+        let practice = by_phase
+            .get(&AssessmentPhase::Practice)
+            .cloned()
+            .unwrap_or_default();
         let immediate = unique_phase(&by_phase, AssessmentPhase::ImmediatePost);
         let transfer = unique_phase(&by_phase, AssessmentPhase::Transfer);
         let retention14 = unique_phase(&by_phase, AssessmentPhase::Retention14Day);
         let retention30 = unique_phase(&by_phase, AssessmentPhase::Retention30Day);
 
         if baseline.is_none() {
-            issue(&mut issues, "missing_baseline", format!("{base}.attempts"), "baseline is required");
+            issue(
+                &mut issues,
+                "missing_baseline",
+                format!("{base}.attempts"),
+                "baseline is required",
+            );
         }
         if practice.is_empty() {
-            issue(&mut issues, "missing_practice", format!("{base}.attempts"), "at least one practice attempt is required");
+            issue(
+                &mut issues,
+                "missing_practice",
+                format!("{base}.attempts"),
+                "at least one practice attempt is required",
+            );
         }
         if transfer.is_none() {
-            issue(&mut issues, "missing_transfer", format!("{base}.attempts"), "independent transfer is required");
+            issue(
+                &mut issues,
+                "missing_transfer",
+                format!("{base}.attempts"),
+                "independent transfer is required",
+            );
         }
         if retention14.is_none() {
-            issue(&mut issues, "missing_retention_14d", format!("{base}.attempts"), "14-day retention is required");
+            issue(
+                &mut issues,
+                "missing_retention_14d",
+                format!("{base}.attempts"),
+                "14-day retention is required",
+            );
         }
         if run.require_30_day_retention && retention30.is_none() {
-            issue(&mut issues, "missing_retention_30d", format!("{base}.attempts"), "30-day retention is required by protocol");
+            issue(
+                &mut issues,
+                "missing_retention_30d",
+                format!("{base}.attempts"),
+                "30-day retention is required by protocol",
+            );
         }
 
         // Anchor forms must be distinct from one another and from every practice form.
@@ -245,64 +393,133 @@ pub fn validate_assessment_benchmark(
             transfer.map(|a| ("transfer", a)),
             retention14.map(|a| ("retention_14_day", a)),
             retention30.map(|a| ("retention_30_day", a)),
-        ].into_iter().flatten().collect();
+        ]
+        .into_iter()
+        .flatten()
+        .collect();
         let mut anchor_forms = BTreeMap::<String, &str>::new();
         for (phase_name, attempt) in &anchors {
             if let Some(prior) = anchor_forms.insert(attempt.task_form_id.clone(), *phase_name) {
-                issue(&mut issues, "reused_anchor_form", format!("{base}.attempts"),
-                    format!("form {:?} reused by {} and {}", attempt.task_form_id, prior, phase_name));
+                issue(
+                    &mut issues,
+                    "reused_anchor_form",
+                    format!("{base}.attempts"),
+                    format!(
+                        "form {:?} reused by {} and {}",
+                        attempt.task_form_id, prior, phase_name
+                    ),
+                );
             }
             if practice_forms.contains(&attempt.task_form_id) {
-                issue(&mut issues, "practice_form_reused_as_anchor", format!("{base}.attempts"),
-                    format!("form {:?} is used for both practice and assessment", attempt.task_form_id));
+                issue(
+                    &mut issues,
+                    "practice_form_reused_as_anchor",
+                    format!("{base}.attempts"),
+                    format!(
+                        "form {:?} is used for both practice and assessment",
+                        attempt.task_form_id
+                    ),
+                );
             }
         }
 
-        let first_practice = practice.iter().min_by_key(|a| a.completed_at_unix_seconds).copied();
-        let last_practice = practice.iter().max_by_key(|a| a.completed_at_unix_seconds).copied();
+        let first_practice = practice
+            .iter()
+            .min_by_key(|a| a.completed_at_unix_seconds)
+            .copied();
+        let last_practice = practice
+            .iter()
+            .max_by_key(|a| a.completed_at_unix_seconds)
+            .copied();
         if let (Some(baseline), Some(first)) = (baseline, first_practice) {
             if baseline.completed_at_unix_seconds >= first.completed_at_unix_seconds {
-                issue(&mut issues, "baseline_order", format!("{base}.attempts"), "baseline must precede practice");
+                issue(
+                    &mut issues,
+                    "baseline_order",
+                    format!("{base}.attempts"),
+                    "baseline must precede practice",
+                );
             }
         }
         if let (Some(last), Some(post)) = (last_practice, immediate) {
             if last.completed_at_unix_seconds >= post.completed_at_unix_seconds {
-                issue(&mut issues, "immediate_post_order", format!("{base}.attempts"), "immediate post-test must follow practice");
+                issue(
+                    &mut issues,
+                    "immediate_post_order",
+                    format!("{base}.attempts"),
+                    "immediate post-test must follow practice",
+                );
             }
         }
         if let (Some(last), Some(transfer)) = (last_practice, transfer) {
             let predecessor = immediate.unwrap_or(last);
             if predecessor.completed_at_unix_seconds >= transfer.completed_at_unix_seconds {
-                issue(&mut issues, "transfer_order", format!("{base}.attempts"), "transfer must follow immediate post-test or practice");
+                issue(
+                    &mut issues,
+                    "transfer_order",
+                    format!("{base}.attempts"),
+                    "transfer must follow immediate post-test or practice",
+                );
             }
         }
         if let (Some(transfer), Some(retention)) = (transfer, retention14) {
             if transfer.completed_at_unix_seconds >= retention.completed_at_unix_seconds {
-                issue(&mut issues, "retention_order", format!("{base}.attempts"), "14-day retention must follow transfer");
+                issue(
+                    &mut issues,
+                    "retention_order",
+                    format!("{base}.attempts"),
+                    "14-day retention must follow transfer",
+                );
             }
         }
         if let (Some(retention14), Some(retention30)) = (retention14, retention30) {
             if retention14.completed_at_unix_seconds >= retention30.completed_at_unix_seconds {
-                issue(&mut issues, "retention_order", format!("{base}.attempts"), "30-day retention must follow 14-day retention");
+                issue(
+                    &mut issues,
+                    "retention_order",
+                    format!("{base}.attempts"),
+                    "30-day retention must follow 14-day retention",
+                );
             }
         }
         if let (Some(last), Some(retention)) = (last_practice, retention14) {
-            if !elapsed_at_least(retention.completed_at_unix_seconds, last.completed_at_unix_seconds, 14) {
-                issue(&mut issues, "retention_too_early", format!("{base}.attempts"),
-                    "14-day retention must be at least 14 days after final practice");
+            if !elapsed_at_least(
+                retention.completed_at_unix_seconds,
+                last.completed_at_unix_seconds,
+                14,
+            ) {
+                issue(
+                    &mut issues,
+                    "retention_too_early",
+                    format!("{base}.attempts"),
+                    "14-day retention must be at least 14 days after final practice",
+                );
             }
         }
         if let (Some(last), Some(retention)) = (last_practice, retention30) {
-            if !elapsed_at_least(retention.completed_at_unix_seconds, last.completed_at_unix_seconds, 30) {
-                issue(&mut issues, "retention_too_early", format!("{base}.attempts"),
-                    "30-day retention must be at least 30 days after final practice");
+            if !elapsed_at_least(
+                retention.completed_at_unix_seconds,
+                last.completed_at_unix_seconds,
+                30,
+            ) {
+                issue(
+                    &mut issues,
+                    "retention_too_early",
+                    format!("{base}.attempts"),
+                    "30-day retention must be at least 30 days after final practice",
+                );
             }
         }
     }
 
     for arm in &declared_arms {
         if !represented_arms.contains_key(*arm) {
-            issue(&mut issues, "empty_arm", "$.arms", format!("declared arm {:?} has no episodes", arm));
+            issue(
+                &mut issues,
+                "empty_arm",
+                "$.arms",
+                format!("declared arm {:?} has no episodes", arm),
+            );
         }
     }
 
@@ -319,17 +536,20 @@ pub fn validate_assessment_benchmark(
 }
 
 fn elapsed_at_least(later: i64, earlier: i64, days: i64) -> bool {
-    later.checked_sub(earlier)
+    later
+        .checked_sub(earlier)
         .is_some_and(|elapsed| elapsed >= days * DAY_SECONDS)
 }
 
 fn requires_unaided(phase: AssessmentPhase) -> bool {
-    matches!(phase,
+    matches!(
+        phase,
         AssessmentPhase::Baseline
-        | AssessmentPhase::ImmediatePost
-        | AssessmentPhase::Transfer
-        | AssessmentPhase::Retention14Day
-        | AssessmentPhase::Retention30Day)
+            | AssessmentPhase::ImmediatePost
+            | AssessmentPhase::Transfer
+            | AssessmentPhase::Retention14Day
+            | AssessmentPhase::Retention30Day
+    )
 }
 
 fn unique_phase<'a>(
@@ -337,7 +557,11 @@ fn unique_phase<'a>(
     phase: AssessmentPhase,
 ) -> Option<&'a AssessmentAttempt> {
     phases.get(&phase).and_then(|attempts| {
-        if attempts.len() == 1 { attempts.first().copied() } else { None }
+        if attempts.len() == 1 {
+            attempts.first().copied()
+        } else {
+            None
+        }
     })
 }
 
@@ -347,7 +571,11 @@ fn issue(
     path: impl Into<String>,
     message: impl Into<String>,
 ) {
-    issues.push(ValidationIssue { code: code.to_string(), path: path.into(), message: message.into() });
+    issues.push(ValidationIssue {
+        code: code.to_string(),
+        path: path.into(),
+        message: message.into(),
+    });
 }
 
 #[cfg(test)]
@@ -357,32 +585,49 @@ mod tests {
     fn fixture() -> AssessmentBenchmarkRun {
         serde_json::from_str(include_str!(
             "../../../examples/assessment-benchmarks/v1/ai_scaffold_fading_synthetic.json"
-        )).expect("synthetic benchmark fixture must parse")
+        ))
+        .expect("synthetic benchmark fixture must parse")
     }
 
     fn has_code(result: Result<ValidationSummary, Vec<ValidationIssue>>, code: &str) -> bool {
-        result.err().unwrap_or_default().iter().any(|issue| issue.code == code)
+        result
+            .err()
+            .unwrap_or_default()
+            .iter()
+            .any(|issue| issue.code == code)
     }
 
     #[test]
     fn json_schema_matches_rust_wire_fields_and_enum_values() {
         let schema: serde_json::Value = serde_json::from_str(include_str!(
             "../../../examples/assessment-benchmarks/v1/assessment_benchmark.schema.json"
-        )).expect("published JSON Schema must parse");
+        ))
+        .expect("published JSON Schema must parse");
         let sample = serde_json::to_value(fixture()).expect("fixture serializes to JSON");
 
         fn assert_keys_match(schema: &serde_json::Value, instance: &serde_json::Value) {
-            let expected = schema["properties"].as_object().expect("schema properties")
-                .keys().cloned().collect::<BTreeSet<_>>();
-            let actual = instance.as_object().expect("sample object")
-                .keys().cloned().collect::<BTreeSet<_>>();
+            let expected = schema["properties"]
+                .as_object()
+                .expect("schema properties")
+                .keys()
+                .cloned()
+                .collect::<BTreeSet<_>>();
+            let actual = instance
+                .as_object()
+                .expect("sample object")
+                .keys()
+                .cloned()
+                .collect::<BTreeSet<_>>();
             assert_eq!(actual, expected, "schema and Rust wire fields drifted");
         }
 
         assert_eq!(schema["properties"]["schema_version"]["const"], 1);
         assert_keys_match(&schema, &sample);
         assert_keys_match(&schema["$defs"]["BenchmarkArm"], &sample["arms"][0]);
-        assert_keys_match(&schema["$defs"]["AssessmentEpisode"], &sample["episodes"][0]);
+        assert_keys_match(
+            &schema["$defs"]["AssessmentEpisode"],
+            &sample["episodes"][0],
+        );
         assert_keys_match(
             &schema["$defs"]["AssessmentAttempt"],
             &sample["episodes"][0]["attempts"][0],
@@ -395,12 +640,26 @@ mod tests {
             AssessmentPhase::Transfer,
             AssessmentPhase::Retention14Day,
             AssessmentPhase::Retention30Day,
-        ].into_iter().map(|phase| {
-            serde_json::to_value(phase).unwrap().as_str().unwrap().to_string()
-        }).collect::<BTreeSet<_>>();
-        let schema_phases = schema["$defs"]["AssessmentPhase"]["enum"].as_array().unwrap()
-            .iter().map(|value| value.as_str().unwrap().to_string()).collect::<BTreeSet<_>>();
-        assert_eq!(phase_names, schema_phases, "phase enum drifted from JSON Schema");
+        ]
+        .into_iter()
+        .map(|phase| {
+            serde_json::to_value(phase)
+                .unwrap()
+                .as_str()
+                .unwrap()
+                .to_string()
+        })
+        .collect::<BTreeSet<_>>();
+        let schema_phases = schema["$defs"]["AssessmentPhase"]["enum"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|value| value.as_str().unwrap().to_string())
+            .collect::<BTreeSet<_>>();
+        assert_eq!(
+            phase_names, schema_phases,
+            "phase enum drifted from JSON Schema"
+        );
 
         let assistance_names = [
             AssistanceMode::Unaided,
@@ -409,12 +668,26 @@ mod tests {
             AssistanceMode::ToolAssisted,
             AssistanceMode::DirectAnswer,
             AssistanceMode::Unknown,
-        ].into_iter().map(|assistance| {
-            serde_json::to_value(assistance).unwrap().as_str().unwrap().to_string()
-        }).collect::<BTreeSet<_>>();
-        let schema_assistance = schema["$defs"]["AssistanceMode"]["enum"].as_array().unwrap()
-            .iter().map(|value| value.as_str().unwrap().to_string()).collect::<BTreeSet<_>>();
-        assert_eq!(assistance_names, schema_assistance, "assistance enum drifted from JSON Schema");
+        ]
+        .into_iter()
+        .map(|assistance| {
+            serde_json::to_value(assistance)
+                .unwrap()
+                .as_str()
+                .unwrap()
+                .to_string()
+        })
+        .collect::<BTreeSet<_>>();
+        let schema_assistance = schema["$defs"]["AssistanceMode"]["enum"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|value| value.as_str().unwrap().to_string())
+            .collect::<BTreeSet<_>>();
+        assert_eq!(
+            assistance_names, schema_assistance,
+            "assistance enum drifted from JSON Schema"
+        );
     }
 
     #[test]
@@ -430,64 +703,115 @@ mod tests {
     #[test]
     fn assisted_transfer_is_rejected() {
         let mut run = fixture();
-        run.episodes[1].attempts.iter_mut()
-            .find(|a| a.phase == AssessmentPhase::Transfer).unwrap().assistance = AssistanceMode::DirectAnswer;
-        assert!(has_code(validate_assessment_benchmark(&run), "assisted_independent_phase"));
+        run.episodes[1]
+            .attempts
+            .iter_mut()
+            .find(|a| a.phase == AssessmentPhase::Transfer)
+            .unwrap()
+            .assistance = AssistanceMode::DirectAnswer;
+        assert!(has_code(
+            validate_assessment_benchmark(&run),
+            "assisted_independent_phase"
+        ));
     }
 
     #[test]
     fn practice_form_cannot_be_reused_for_transfer() {
         let mut run = fixture();
-        let form = run.episodes[0].attempts.iter()
-            .find(|a| a.phase == AssessmentPhase::Practice).unwrap().task_form_id.clone();
-        run.episodes[0].attempts.iter_mut()
-            .find(|a| a.phase == AssessmentPhase::Transfer).unwrap().task_form_id = form;
-        assert!(has_code(validate_assessment_benchmark(&run), "practice_form_reused_as_anchor"));
+        let form = run.episodes[0]
+            .attempts
+            .iter()
+            .find(|a| a.phase == AssessmentPhase::Practice)
+            .unwrap()
+            .task_form_id
+            .clone();
+        run.episodes[0]
+            .attempts
+            .iter_mut()
+            .find(|a| a.phase == AssessmentPhase::Transfer)
+            .unwrap()
+            .task_form_id = form;
+        assert!(has_code(
+            validate_assessment_benchmark(&run),
+            "practice_form_reused_as_anchor"
+        ));
     }
 
     #[test]
     fn high_score_cannot_make_early_retention_valid() {
         let mut run = fixture();
-        let last = run.episodes[0].attempts.iter()
+        let last = run.episodes[0]
+            .attempts
+            .iter()
             .filter(|a| a.phase == AssessmentPhase::Practice)
-            .map(|a| a.completed_at_unix_seconds).max().unwrap();
-        let retention = run.episodes[0].attempts.iter_mut()
-            .find(|a| a.phase == AssessmentPhase::Retention14Day).unwrap();
+            .map(|a| a.completed_at_unix_seconds)
+            .max()
+            .unwrap();
+        let retention = run.episodes[0]
+            .attempts
+            .iter_mut()
+            .find(|a| a.phase == AssessmentPhase::Retention14Day)
+            .unwrap();
         retention.completed_at_unix_seconds = last + 13 * DAY_SECONDS;
         retention.score_permille = 1000;
-        assert!(has_code(validate_assessment_benchmark(&run), "retention_too_early"));
+        assert!(has_code(
+            validate_assessment_benchmark(&run),
+            "retention_too_early"
+        ));
     }
 
     #[test]
     fn malformed_negative_timestamp_is_rejected_without_panicking() {
         let mut run = fixture();
-        run.episodes[0].attempts.iter_mut()
-            .find(|a| a.phase == AssessmentPhase::Retention14Day).unwrap()
+        run.episodes[0]
+            .attempts
+            .iter_mut()
+            .find(|a| a.phase == AssessmentPhase::Retention14Day)
+            .unwrap()
             .completed_at_unix_seconds = i64::MIN;
-        assert!(has_code(validate_assessment_benchmark(&run), "invalid_timestamp"));
-        assert!(has_code(validate_assessment_benchmark(&run), "retention_too_early"));
+        assert!(has_code(
+            validate_assessment_benchmark(&run),
+            "invalid_timestamp"
+        ));
+        assert!(has_code(
+            validate_assessment_benchmark(&run),
+            "retention_too_early"
+        ));
     }
 
     #[test]
     fn unknown_assistance_is_not_silently_treated_as_unaided() {
         let mut run = fixture();
-        run.episodes[0].attempts.iter_mut()
-            .find(|a| a.phase == AssessmentPhase::Practice).unwrap().assistance = AssistanceMode::Unknown;
-        assert!(has_code(validate_assessment_benchmark(&run), "unknown_assistance"));
+        run.episodes[0]
+            .attempts
+            .iter_mut()
+            .find(|a| a.phase == AssessmentPhase::Practice)
+            .unwrap()
+            .assistance = AssistanceMode::Unknown;
+        assert!(has_code(
+            validate_assessment_benchmark(&run),
+            "unknown_assistance"
+        ));
     }
 
     #[test]
     fn rubric_mismatch_is_rejected() {
         let mut run = fixture();
         run.episodes[2].attempts[0].rubric_version = "rubric-v0".into();
-        assert!(has_code(validate_assessment_benchmark(&run), "rubric_version_mismatch"));
+        assert!(has_code(
+            validate_assessment_benchmark(&run),
+            "rubric_version_mismatch"
+        ));
     }
 
     #[test]
     fn scores_above_one_thousand_are_rejected() {
         let mut run = fixture();
         run.episodes[1].attempts[0].score_permille = 1001;
-        assert!(has_code(validate_assessment_benchmark(&run), "score_out_of_range"));
+        assert!(has_code(
+            validate_assessment_benchmark(&run),
+            "score_out_of_range"
+        ));
     }
 
     #[test]
@@ -495,7 +819,10 @@ mod tests {
         let mut run = fixture();
         let id = run.episodes[0].attempts[0].attempt_id.clone();
         run.episodes[1].attempts[0].attempt_id = id;
-        assert!(has_code(validate_assessment_benchmark(&run), "duplicate_attempt_id"));
+        assert!(has_code(
+            validate_assessment_benchmark(&run),
+            "duplicate_attempt_id"
+        ));
     }
 
     #[test]
