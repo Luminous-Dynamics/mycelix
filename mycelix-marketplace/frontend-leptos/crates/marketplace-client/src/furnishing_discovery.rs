@@ -113,6 +113,10 @@ pub struct ObservedFurnishingListing {
     pub observed_quantity_available: u32,
     /// Status as present on the exact returned listing action—not current status.
     pub observed_status: ListingStatus,
+    /// Timestamp from the returned record, in the Marketplace wire unit (microseconds).
+    pub observed_created_at_micros: i64,
+    /// Timestamp from the returned record; not an independently verified freshness proof.
+    pub observed_updated_at_micros: i64,
     /// This preserves the Marketplace classification; it does not independently
     /// verify the evidence behind that classification.
     pub observed_empirical_class: ObservedEmpiricalClass,
@@ -176,12 +180,15 @@ where
 /// address, occupant profile, preference, design digest, or query digest is
 /// accepted by or transmitted through this function.
 pub fn project_listing_snapshot(response: ListingsResponse) -> FurnishingDiscoverySnapshot {
-    let listings = response
+    let mut listings = response
         .listings
         .into_iter()
         .filter(|output| matches!(&output.listing.category, ListingCategory::HomeGarden))
         .map(project_listing)
         .collect::<Vec<_>>();
+    // DHT/link traversal order is not a stable ranking. Sort by exact source
+    // action hash so identical snapshots produce the same projection order.
+    listings.sort_by_key(|candidate| candidate.listing_hash.to_holochain_b64());
     let result = if listings.is_empty() {
         SnapshotResult::NoHomeGardenListingsReturned
     } else {
@@ -205,6 +212,8 @@ fn project_listing(output: ListingOutput) -> ObservedFurnishingListing {
         observed_price_cents: output.listing.price_cents,
         observed_quantity_available: output.listing.quantity_available,
         observed_status: output.listing.status,
+        observed_created_at_micros: output.listing.created_at.0,
+        observed_updated_at_micros: output.listing.updated_at.0,
         observed_empirical_class: (&output.listing.epistemic.empirical).into(),
         furniture_identity: FurnitureIdentity::NeedsItemTypeConfirmation,
         geometry_evidence: GeometryEvidence::NotPresentInListingContract,
@@ -263,6 +272,8 @@ mod tests {
         assert_eq!(candidate.listing_hash, original_hash);
         assert_eq!(candidate.observed_price_cents, 12_500);
         assert_eq!(candidate.observed_quantity_available, 2);
+        assert_eq!(candidate.observed_created_at_micros, 0);
+        assert_eq!(candidate.observed_updated_at_micros, 7);
         assert_eq!(
             candidate.observed_empirical_class,
             ObservedEmpiricalClass::SellerTestimonial
@@ -366,6 +377,42 @@ mod tests {
             snapshot.listings[0].observed_empirical_class,
             ObservedEmpiricalClass::NoneSpecified
         );
+    }
+
+    #[test]
+    fn snapshot_projection_order_is_independent_of_source_link_order() {
+        let mut first = listing(
+            ListingCategory::HomeGarden,
+            ListingStatus::Active,
+            EmpiricalLevel::E1Testimonial,
+        );
+        first.listing_hash = ActionHash::new(vec![0x91; 39]);
+        let mut second = listing(
+            ListingCategory::HomeGarden,
+            ListingStatus::Active,
+            EmpiricalLevel::E1Testimonial,
+        );
+        second.listing_hash = ActionHash::new(vec![0x11; 39]);
+
+        let forward = project_listing_snapshot(ListingsResponse {
+            listings: vec![first.clone(), second.clone()],
+        });
+        let reversed = project_listing_snapshot(ListingsResponse {
+            listings: vec![second, first],
+        });
+        let forward_hashes = forward
+            .listings
+            .iter()
+            .map(|candidate| candidate.listing_hash.clone())
+            .collect::<Vec<_>>();
+        let reversed_hashes = reversed
+            .listings
+            .iter()
+            .map(|candidate| candidate.listing_hash.clone())
+            .collect::<Vec<_>>();
+
+        assert_eq!(forward_hashes, reversed_hashes);
+        assert_eq!(forward_hashes[0], ActionHash::new(vec![0x11; 39]));
     }
 
     #[test]
