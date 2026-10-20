@@ -23,6 +23,9 @@ integrity:
     - name: threshold_signing_integrity
       path: "../target/wasm32-unknown-unknown/release/threshold_signing_integrity.wasm"
 
+    - name: continuity_witness_integrity
+      path: "../target/wasm32-unknown-unknown/release/continuity_witness_integrity.wasm"
+
     - name: councils_integrity
       path: "../target/wasm32-unknown-unknown/release/councils_integrity.wasm"
 
@@ -68,6 +71,11 @@ coordinator:
       dependencies:
         - name: threshold_signing_integrity
         - name: voting_integrity
+
+    - name: continuity_witness
+      path: "../target/wasm32-unknown-unknown/release/continuity_witness.wasm"
+      dependencies:
+        - name: continuity_witness_integrity
 
     - name: councils
       path: "../target/wasm32-unknown-unknown/release/councils.wasm"

@@ -1,0 +1,15 @@
+[package]
+name = "continuity_witness"
+version = "0.1.0"
+edition = "2024"
+license.workspace = true
+description = "Purpose-separated external continuity witness coordinator zome"
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+hdk = { workspace = true }
+serde = { workspace = true }
+mycelix-zome-helpers = { workspace = true }
+continuity_witness_integrity = { path = "../integrity" }
