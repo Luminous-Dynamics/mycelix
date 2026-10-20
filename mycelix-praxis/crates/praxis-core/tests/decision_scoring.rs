@@ -19,8 +19,7 @@ use praxis_core::decision_submission::{
 
 const HIGH_CONFIDENCE_THRESHOLD: f64 = 0.80;
 
-const SCORE_REPORT_SCHEMA: &str =
-    include_str!("../schemas/decision-scoring-report-v1.schema.json");
+const SCORE_REPORT_SCHEMA: &str = include_str!("../schemas/decision-scoring-report-v1.schema.json");
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize)]
 #[serde(rename_all = "snake_case")]
@@ -1008,7 +1007,8 @@ fn synthetic_frontier_traces(cases: &[EvaluatorCase]) -> Vec<PolicyTrace> {
 
 fn public_synthetic_score_report() -> PublicSyntheticScoreReport {
     let cases = synthetic_cases();
-    validate_evaluator_cases(&cases).expect("public evaluator fixture must be internally consistent");
+    validate_evaluator_cases(&cases)
+        .expect("public evaluator fixture must be internally consistent");
 
     // This corpus is public conformance data, not a preregistered experiment; calibration is
     // intentionally disabled and the output must not be described as a model capability score.
@@ -1067,19 +1067,21 @@ fn public_synthetic_report_matches_schema_and_can_emit_ci_artifact() {
     assert_eq!(report.cases_accounted_for, 10);
     assert!(!report.confidence_metric_preregistered);
     assert_eq!(report.domain_scores.len(), 5);
-    assert!(report.policy_summaries.iter().any(|policy| {
-        policy.policy_id == "unsafe" && !policy.eligible_for_frontier
-    }));
+    assert!(
+        report
+            .policy_summaries
+            .iter()
+            .any(|policy| { policy.policy_id == "unsafe" && !policy.eligible_for_frontier })
+    );
 
     let report_value = serde_json::to_value(&report).expect("report serializes to JSON");
-    let schema: serde_json::Value = serde_json::from_str(SCORE_REPORT_SCHEMA)
-        .expect("score-report JSON Schema parses");
+    let schema: serde_json::Value =
+        serde_json::from_str(SCORE_REPORT_SCHEMA).expect("score-report JSON Schema parses");
     assert!(
         jsonschema::draft202012::meta::is_valid(&schema),
         "score-report schema must conform to Draft 2020-12"
     );
-    let validator =
-        jsonschema::draft202012::new(&schema).expect("score-report schema compiles");
+    let validator = jsonschema::draft202012::new(&schema).expect("score-report schema compiles");
     assert!(
         validator.is_valid(&report_value),
         "serialized score report must satisfy its schema: {report_value}"
@@ -1089,7 +1091,10 @@ fn public_synthetic_report_matches_schema_and_can_emit_ci_artifact() {
         let bytes =
             serde_json::to_vec_pretty(&report_value).expect("score report serializes prettily");
         std::fs::write(&path, bytes).expect("write the requested public synthetic score report");
-        println!("wrote public synthetic score report to {}", std::path::Path::new(&path).display());
+        println!(
+            "wrote public synthetic score report to {}",
+            std::path::Path::new(&path).display()
+        );
     }
 }
 
