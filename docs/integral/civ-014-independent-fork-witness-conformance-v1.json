@@ -1,0 +1,452 @@
+{
+  "schema_version": 1,
+  "profile_id": "civ-014-independent-fork-witness-v1",
+  "spec_version": "civ-014-independent-fork-witness-v1",
+  "source_repository": "Luminous-Dynamics/symthaea",
+  "source_commit": "5e2a06f2b6a0aa12c76d652bc249271050a8c0cd",
+  "event_schema_version": 1,
+  "event_domain": "mycelix-civ014-fork-event-v1\u0000",
+  "receipt_domain": "mycelix-civ014-fork-receipt-v1\u0000",
+  "vectors": [
+    {
+      "id": "DF001-event-canonical-golden",
+      "kind": "event_digest",
+      "expected_outcome": "VALID_EVENT",
+      "previous_frontier": {
+        "log_id": "log-a",
+        "witness_epoch": 7,
+        "event_count": 0,
+        "tail_digest": "0000000000000000000000000000000000000000000000000000000000000000"
+      },
+      "event": {
+        "schema_version": 1,
+        "log_id": "log-a",
+        "witness_epoch": 7,
+        "previous_event_count": 0,
+        "previous_event_digest": "0000000000000000000000000000000000000000000000000000000000000000",
+        "accepted_generation": 4,
+        "accepted_head_digest": "0404040404040404040404040404040404040404040404040404040404040404",
+        "fork_generation": 4,
+        "first_record_digest": "0505050505050505050505050505050505050505050505050505050505050505",
+        "conflicting_record_digest": "0606060606060606060606060606060606060606060606060606060606060606",
+        "event_digest": "85a478bb7489447b24b8874b8e0bcdb4ae143cd856174695e155ae4114c16dff"
+      },
+      "expected_event_digest": "85a478bb7489447b24b8874b8e0bcdb4ae143cd856174695e155ae4114c16dff"
+    },
+    {
+      "id": "DF002-receipt-canonical-golden",
+      "kind": "receipt",
+      "expected_outcome": "VALID_RECEIPT",
+      "receipt": {
+        "event": {
+          "schema_version": 1,
+          "log_id": "log-a",
+          "witness_epoch": 7,
+          "previous_event_count": 0,
+          "previous_event_digest": "0000000000000000000000000000000000000000000000000000000000000000",
+          "accepted_generation": 4,
+          "accepted_head_digest": "0404040404040404040404040404040404040404040404040404040404040404",
+          "fork_generation": 4,
+          "first_record_digest": "0505050505050505050505050505050505050505050505050505050505050505",
+          "conflicting_record_digest": "0606060606060606060606060606060606060606060606060606060606060606",
+          "event_digest": "85a478bb7489447b24b8874b8e0bcdb4ae143cd856174695e155ae4114c16dff"
+        },
+        "previous_frontier": {
+          "log_id": "log-a",
+          "witness_epoch": 7,
+          "event_count": 0,
+          "tail_digest": "0000000000000000000000000000000000000000000000000000000000000000"
+        },
+        "frontier_after": {
+          "log_id": "log-a",
+          "witness_epoch": 7,
+          "event_count": 1,
+          "tail_digest": "85a478bb7489447b24b8874b8e0bcdb4ae143cd856174695e155ae4114c16dff"
+        },
+        "receipt_digest": "06df505452cc1ef6c45c717084da3f15c89f34958cee5ff0fdd4441bfb03b926"
+      },
+      "expected_receipt_digest": "06df505452cc1ef6c45c717084da3f15c89f34958cee5ff0fdd4441bfb03b926"
+    },
+    {
+      "id": "DF003-event-zero-fork-generation",
+      "kind": "event_validation",
+      "expected_outcome": "RejectInvalidForkEvent",
+      "event_fields": {
+        "schema_version": 1,
+        "log_id": "log-a",
+        "witness_epoch": 7,
+        "previous_event_count": 0,
+        "previous_event_digest": "0000000000000000000000000000000000000000000000000000000000000000",
+        "accepted_generation": 4,
+        "accepted_head_digest": "0404040404040404040404040404040404040404040404040404040404040404",
+        "fork_generation": 0,
+        "first_record_digest": "0505050505050505050505050505050505050505050505050505050505050505",
+        "conflicting_record_digest": "0606060606060606060606060606060606060606060606060606060606060606",
+        "event_digest": "85a478bb7489447b24b8874b8e0bcdb4ae143cd856174695e155ae4114c16dff"
+      }
+    },
+    {
+      "id": "DF004-genesis-head-nonzero-digest",
+      "kind": "event_validation",
+      "expected_outcome": "RejectInvalidForkEvent",
+      "event_fields": {
+        "schema_version": 1,
+        "log_id": "log-a",
+        "witness_epoch": 7,
+        "previous_event_count": 0,
+        "previous_event_digest": "0000000000000000000000000000000000000000000000000000000000000000",
+        "accepted_generation": 0,
+        "accepted_head_digest": "0909090909090909090909090909090909090909090909090909090909090909",
+        "fork_generation": 1,
+        "first_record_digest": "0505050505050505050505050505050505050505050505050505050505050505",
+        "conflicting_record_digest": "0606060606060606060606060606060606060606060606060606060606060606",
+        "event_digest": "85a478bb7489447b24b8874b8e0bcdb4ae143cd856174695e155ae4114c16dff"
+      }
+    },
+    {
+      "id": "DF005-event-ahead-more-than-one",
+      "kind": "event_validation",
+      "expected_outcome": "RejectInvalidForkEvent",
+      "event_fields": {
+        "schema_version": 1,
+        "log_id": "log-a",
+        "witness_epoch": 7,
+        "previous_event_count": 0,
+        "previous_event_digest": "0000000000000000000000000000000000000000000000000000000000000000",
+        "accepted_generation": 4,
+        "accepted_head_digest": "0404040404040404040404040404040404040404040404040404040404040404",
+        "fork_generation": 6,
+        "first_record_digest": "0505050505050505050505050505050505050505050505050505050505050505",
+        "conflicting_record_digest": "0606060606060606060606060606060606060606060606060606060606060606",
+        "event_digest": "85a478bb7489447b24b8874b8e0bcdb4ae143cd856174695e155ae4114c16dff"
+      }
+    },
+    {
+      "id": "DF006-identical-competing-records",
+      "kind": "event_validation",
+      "expected_outcome": "RejectInvalidForkEvent",
+      "event_fields": {
+        "schema_version": 1,
+        "log_id": "log-a",
+        "witness_epoch": 7,
+        "previous_event_count": 0,
+        "previous_event_digest": "0000000000000000000000000000000000000000000000000000000000000000",
+        "accepted_generation": 4,
+        "accepted_head_digest": "0404040404040404040404040404040404040404040404040404040404040404",
+        "fork_generation": 4,
+        "first_record_digest": "0505050505050505050505050505050505050505050505050505050505050505",
+        "conflicting_record_digest": "0505050505050505050505050505050505050505050505050505050505050505",
+        "event_digest": "85a478bb7489447b24b8874b8e0bcdb4ae143cd856174695e155ae4114c16dff"
+      }
+    },
+    {
+      "id": "DF007-empty-frontier-nonzero-tail",
+      "kind": "frontier_validation",
+      "expected_outcome": "RejectInvalidFrontier",
+      "frontier": {
+        "log_id": "log-a",
+        "witness_epoch": 7,
+        "event_count": 0,
+        "tail_digest": "0707070707070707070707070707070707070707070707070707070707070707"
+      }
+    },
+    {
+      "id": "DF008-event-prior-frontier-mismatch",
+      "kind": "event_frontier_binding",
+      "expected_outcome": "RejectFrontierConflict",
+      "event": {
+        "schema_version": 1,
+        "log_id": "log-a",
+        "witness_epoch": 7,
+        "previous_event_count": 0,
+        "previous_event_digest": "0000000000000000000000000000000000000000000000000000000000000000",
+        "accepted_generation": 4,
+        "accepted_head_digest": "0404040404040404040404040404040404040404040404040404040404040404",
+        "fork_generation": 4,
+        "first_record_digest": "0505050505050505050505050505050505050505050505050505050505050505",
+        "conflicting_record_digest": "0606060606060606060606060606060606060606060606060606060606060606",
+        "event_digest": "85a478bb7489447b24b8874b8e0bcdb4ae143cd856174695e155ae4114c16dff"
+      },
+      "expected_frontier": {
+        "log_id": "log-a",
+        "witness_epoch": 7,
+        "event_count": 1,
+        "tail_digest": "0808080808080808080808080808080808080808080808080808080808080808"
+      }
+    },
+    {
+      "id": "DF009-receipt-skipped-count",
+      "kind": "receipt_validation",
+      "expected_outcome": "RejectInvalidReceipt",
+      "receipt": {
+        "event": {
+          "schema_version": 1,
+          "log_id": "log-a",
+          "witness_epoch": 7,
+          "previous_event_count": 0,
+          "previous_event_digest": "0000000000000000000000000000000000000000000000000000000000000000",
+          "accepted_generation": 4,
+          "accepted_head_digest": "0404040404040404040404040404040404040404040404040404040404040404",
+          "fork_generation": 4,
+          "first_record_digest": "0505050505050505050505050505050505050505050505050505050505050505",
+          "conflicting_record_digest": "0606060606060606060606060606060606060606060606060606060606060606",
+          "event_digest": "85a478bb7489447b24b8874b8e0bcdb4ae143cd856174695e155ae4114c16dff"
+        },
+        "previous_frontier": {
+          "log_id": "log-a",
+          "witness_epoch": 7,
+          "event_count": 0,
+          "tail_digest": "0000000000000000000000000000000000000000000000000000000000000000"
+        },
+        "frontier_after": {
+          "log_id": "log-a",
+          "witness_epoch": 7,
+          "event_count": 2,
+          "tail_digest": "85a478bb7489447b24b8874b8e0bcdb4ae143cd856174695e155ae4114c16dff"
+        },
+        "receipt_digest": "06df505452cc1ef6c45c717084da3f15c89f34958cee5ff0fdd4441bfb03b926"
+      }
+    },
+    {
+      "id": "DF010-tampered-event-digest",
+      "kind": "event_validation",
+      "expected_outcome": "RejectInvalidEventDigest",
+      "event_fields": {
+        "schema_version": 1,
+        "log_id": "log-a",
+        "witness_epoch": 7,
+        "previous_event_count": 0,
+        "previous_event_digest": "0000000000000000000000000000000000000000000000000000000000000000",
+        "accepted_generation": 4,
+        "accepted_head_digest": "0404040404040404040404040404040404040404040404040404040404040404",
+        "fork_generation": 4,
+        "first_record_digest": "0505050505050505050505050505050505050505050505050505050505050505",
+        "conflicting_record_digest": "0606060606060606060606060606060606060606060606060606060606060606",
+        "event_digest": "0909090909090909090909090909090909090909090909090909090909090909"
+      }
+    },
+    {
+      "id": "DF011-tampered-receipt-digest",
+      "kind": "receipt_validation",
+      "expected_outcome": "RejectInvalidReceiptDigest",
+      "receipt": {
+        "event": {
+          "schema_version": 1,
+          "log_id": "log-a",
+          "witness_epoch": 7,
+          "previous_event_count": 0,
+          "previous_event_digest": "0000000000000000000000000000000000000000000000000000000000000000",
+          "accepted_generation": 4,
+          "accepted_head_digest": "0404040404040404040404040404040404040404040404040404040404040404",
+          "fork_generation": 4,
+          "first_record_digest": "0505050505050505050505050505050505050505050505050505050505050505",
+          "conflicting_record_digest": "0606060606060606060606060606060606060606060606060606060606060606",
+          "event_digest": "85a478bb7489447b24b8874b8e0bcdb4ae143cd856174695e155ae4114c16dff"
+        },
+        "previous_frontier": {
+          "log_id": "log-a",
+          "witness_epoch": 7,
+          "event_count": 0,
+          "tail_digest": "0000000000000000000000000000000000000000000000000000000000000000"
+        },
+        "frontier_after": {
+          "log_id": "log-a",
+          "witness_epoch": 7,
+          "event_count": 1,
+          "tail_digest": "85a478bb7489447b24b8874b8e0bcdb4ae143cd856174695e155ae4114c16dff"
+        },
+        "receipt_digest": "0909090909090909090909090909090909090909090909090909090909090909"
+      }
+    },
+    {
+      "id": "DF012-unprovisioned-epoch",
+      "kind": "frontier_lookup",
+      "expected_outcome": "Unavailable",
+      "log_id": "log-a",
+      "witness_epoch": 8,
+      "provisioned": false,
+      "implicit_genesis_allowed": false
+    },
+    {
+      "id": "DF013-exact-event-replay",
+      "kind": "append_replay",
+      "expected_outcome": "ReturnExistingReceipt",
+      "requested_event": {
+        "schema_version": 1,
+        "log_id": "log-a",
+        "witness_epoch": 7,
+        "previous_event_count": 0,
+        "previous_event_digest": "0000000000000000000000000000000000000000000000000000000000000000",
+        "accepted_generation": 4,
+        "accepted_head_digest": "0404040404040404040404040404040404040404040404040404040404040404",
+        "fork_generation": 4,
+        "first_record_digest": "0505050505050505050505050505050505050505050505050505050505050505",
+        "conflicting_record_digest": "0606060606060606060606060606060606060606060606060606060606060606",
+        "event_digest": "85a478bb7489447b24b8874b8e0bcdb4ae143cd856174695e155ae4114c16dff"
+      },
+      "stored_event": {
+        "schema_version": 1,
+        "log_id": "log-a",
+        "witness_epoch": 7,
+        "previous_event_count": 0,
+        "previous_event_digest": "0000000000000000000000000000000000000000000000000000000000000000",
+        "accepted_generation": 4,
+        "accepted_head_digest": "0404040404040404040404040404040404040404040404040404040404040404",
+        "fork_generation": 4,
+        "first_record_digest": "0505050505050505050505050505050505050505050505050505050505050505",
+        "conflicting_record_digest": "0606060606060606060606060606060606060606060606060606060606060606",
+        "event_digest": "85a478bb7489447b24b8874b8e0bcdb4ae143cd856174695e155ae4114c16dff"
+      },
+      "stored_receipt": {
+        "event": {
+          "schema_version": 1,
+          "log_id": "log-a",
+          "witness_epoch": 7,
+          "previous_event_count": 0,
+          "previous_event_digest": "0000000000000000000000000000000000000000000000000000000000000000",
+          "accepted_generation": 4,
+          "accepted_head_digest": "0404040404040404040404040404040404040404040404040404040404040404",
+          "fork_generation": 4,
+          "first_record_digest": "0505050505050505050505050505050505050505050505050505050505050505",
+          "conflicting_record_digest": "0606060606060606060606060606060606060606060606060606060606060606",
+          "event_digest": "85a478bb7489447b24b8874b8e0bcdb4ae143cd856174695e155ae4114c16dff"
+        },
+        "previous_frontier": {
+          "log_id": "log-a",
+          "witness_epoch": 7,
+          "event_count": 0,
+          "tail_digest": "0000000000000000000000000000000000000000000000000000000000000000"
+        },
+        "frontier_after": {
+          "log_id": "log-a",
+          "witness_epoch": 7,
+          "event_count": 1,
+          "tail_digest": "85a478bb7489447b24b8874b8e0bcdb4ae143cd856174695e155ae4114c16dff"
+        },
+        "receipt_digest": "06df505452cc1ef6c45c717084da3f15c89f34958cee5ff0fdd4441bfb03b926"
+      },
+      "frontier_advanced": true
+    },
+    {
+      "id": "DF014-replay-changed-payload",
+      "kind": "append_replay",
+      "expected_outcome": "RejectInvalidEventDigest",
+      "requested_event": {
+        "schema_version": 1,
+        "log_id": "log-a",
+        "witness_epoch": 7,
+        "previous_event_count": 0,
+        "previous_event_digest": "0000000000000000000000000000000000000000000000000000000000000000",
+        "accepted_generation": 4,
+        "accepted_head_digest": "0909090909090909090909090909090909090909090909090909090909090909",
+        "fork_generation": 4,
+        "first_record_digest": "0505050505050505050505050505050505050505050505050505050505050505",
+        "conflicting_record_digest": "0606060606060606060606060606060606060606060606060606060606060606",
+        "event_digest": "85a478bb7489447b24b8874b8e0bcdb4ae143cd856174695e155ae4114c16dff"
+      },
+      "stored_event": {
+        "schema_version": 1,
+        "log_id": "log-a",
+        "witness_epoch": 7,
+        "previous_event_count": 0,
+        "previous_event_digest": "0000000000000000000000000000000000000000000000000000000000000000",
+        "accepted_generation": 4,
+        "accepted_head_digest": "0404040404040404040404040404040404040404040404040404040404040404",
+        "fork_generation": 4,
+        "first_record_digest": "0505050505050505050505050505050505050505050505050505050505050505",
+        "conflicting_record_digest": "0606060606060606060606060606060606060606060606060606060606060606",
+        "event_digest": "85a478bb7489447b24b8874b8e0bcdb4ae143cd856174695e155ae4114c16dff"
+      },
+      "stored_receipt": {
+        "event": {
+          "schema_version": 1,
+          "log_id": "log-a",
+          "witness_epoch": 7,
+          "previous_event_count": 0,
+          "previous_event_digest": "0000000000000000000000000000000000000000000000000000000000000000",
+          "accepted_generation": 4,
+          "accepted_head_digest": "0404040404040404040404040404040404040404040404040404040404040404",
+          "fork_generation": 4,
+          "first_record_digest": "0505050505050505050505050505050505050505050505050505050505050505",
+          "conflicting_record_digest": "0606060606060606060606060606060606060606060606060606060606060606",
+          "event_digest": "85a478bb7489447b24b8874b8e0bcdb4ae143cd856174695e155ae4114c16dff"
+        },
+        "previous_frontier": {
+          "log_id": "log-a",
+          "witness_epoch": 7,
+          "event_count": 0,
+          "tail_digest": "0000000000000000000000000000000000000000000000000000000000000000"
+        },
+        "frontier_after": {
+          "log_id": "log-a",
+          "witness_epoch": 7,
+          "event_count": 1,
+          "tail_digest": "85a478bb7489447b24b8874b8e0bcdb4ae143cd856174695e155ae4114c16dff"
+        },
+        "receipt_digest": "06df505452cc1ef6c45c717084da3f15c89f34958cee5ff0fdd4441bfb03b926"
+      },
+      "frontier_advanced": true
+    },
+    {
+      "id": "DF015-stale-frontier-no-write",
+      "kind": "stale_append",
+      "expected_outcome": "RejectFrontierConflict",
+      "event": {
+        "schema_version": 1,
+        "log_id": "log-a",
+        "witness_epoch": 7,
+        "previous_event_count": 0,
+        "previous_event_digest": "0000000000000000000000000000000000000000000000000000000000000000",
+        "accepted_generation": 4,
+        "accepted_head_digest": "0404040404040404040404040404040404040404040404040404040404040404",
+        "fork_generation": 4,
+        "first_record_digest": "0505050505050505050505050505050505050505050505050505050505050505",
+        "conflicting_record_digest": "0606060606060606060606060606060606060606060606060606060606060606",
+        "event_digest": "85a478bb7489447b24b8874b8e0bcdb4ae143cd856174695e155ae4114c16dff"
+      },
+      "expected_frontier": {
+        "log_id": "log-a",
+        "witness_epoch": 7,
+        "event_count": 0,
+        "tail_digest": "0000000000000000000000000000000000000000000000000000000000000000"
+      },
+      "current_frontier": {
+        "log_id": "log-a",
+        "witness_epoch": 7,
+        "event_count": 1,
+        "tail_digest": "85a478bb7489447b24b8874b8e0bcdb4ae143cd856174695e155ae4114c16dff"
+      },
+      "frontier_after_attempt": {
+        "log_id": "log-a",
+        "witness_epoch": 7,
+        "event_count": 1,
+        "tail_digest": "85a478bb7489447b24b8874b8e0bcdb4ae143cd856174695e155ae4114c16dff"
+      }
+    },
+    {
+      "id": "DF016-wrong-log-epoch-scope",
+      "kind": "event_frontier_binding",
+      "expected_outcome": "RejectFrontierScopeMismatch",
+      "event": {
+        "schema_version": 1,
+        "log_id": "log-a",
+        "witness_epoch": 7,
+        "previous_event_count": 0,
+        "previous_event_digest": "0000000000000000000000000000000000000000000000000000000000000000",
+        "accepted_generation": 4,
+        "accepted_head_digest": "0404040404040404040404040404040404040404040404040404040404040404",
+        "fork_generation": 4,
+        "first_record_digest": "0505050505050505050505050505050505050505050505050505050505050505",
+        "conflicting_record_digest": "0606060606060606060606060606060606060606060606060606060606060606",
+        "event_digest": "85a478bb7489447b24b8874b8e0bcdb4ae143cd856174695e155ae4114c16dff"
+      },
+      "expected_frontier": {
+        "log_id": "log-b",
+        "witness_epoch": 7,
+        "event_count": 0,
+        "tail_digest": "0000000000000000000000000000000000000000000000000000000000000000"
+      }
+    }
+  ],
+  "claim_ceiling": "Fork-event/frontier/receipt canonical conformance and abstract reference outcomes only. No production independent witness, durable local pending journal, local/remote crash recovery, anti-erasure, key/authentication lifecycle, or operational independence is qualified."
+}
