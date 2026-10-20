@@ -33,8 +33,8 @@
     },
     "fixtures": {
       "type": "array",
-      "minItems": 25,
-      "maxItems": 25,
+      "minItems": 26,
+      "maxItems": 26,
       "items": {
         "type": "object",
         "additionalProperties": false,
@@ -488,6 +488,21 @@
             "properties": {
               "id": {
                 "const": "HCH-025"
+              }
+            },
+            "required": [
+              "id"
+            ]
+          },
+          "minContains": 1,
+          "maxContains": 1
+        },
+        {
+          "contains": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "const": "HCH-026"
               }
             },
             "required": [
