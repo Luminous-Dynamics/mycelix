@@ -3,8 +3,9 @@
 // Commercial licensing: see COMMERCIAL_LICENSE.md at repository root
 //! Identity Vault Coordinator Zome
 //!
-//! CRUD operations for the agent's private identity data.
-//! All entries are stored on the source chain (private by default).
+//! CRUD operations for the agent's owner-private identity data.
+//! Entry payload visibility is explicit in the integrity zome. Public discovery
+//! or selective disclosure must use a separately reviewed capability-bound path.
 
 use hdk::prelude::*;
 use identity_vault_integrity::*;
