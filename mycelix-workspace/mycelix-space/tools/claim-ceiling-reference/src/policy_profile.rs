@@ -202,7 +202,10 @@ pub fn evaluate_policy_request_bytes(
         return Err("request_id must not be empty".to_owned());
     }
     if !valid_sha256(expected_policy_profile_sha256) {
-        return Err("expected policy-profile SHA-256 must be 64 lowercase hexadecimal characters".to_owned());
+        return Err(
+            "expected policy-profile SHA-256 must be 64 lowercase hexadecimal characters"
+                .to_owned(),
+        );
     }
     validate_profile(&policy_profile)?;
     validate_ceiling("candidate_ceiling", &request.candidate_ceiling)?;
@@ -210,10 +213,7 @@ pub fn evaluate_policy_request_bytes(
     let actual_policy_profile_sha256 = sha256(policy_bytes);
     let policy_profile_pinned = actual_policy_profile_sha256 == expected_policy_profile_sha256;
     let mut violations = if policy_profile_pinned {
-        assess_candidate(
-            &request.candidate_ceiling,
-            &policy_profile.maximum_ceiling,
-        )
+        assess_candidate(&request.candidate_ceiling, &policy_profile.maximum_ceiling)
     } else {
         vec![violation(
             "policy_profile_digest_mismatch",
@@ -226,10 +226,8 @@ pub fn evaluate_policy_request_bytes(
     if policy_profile_pinned {
         // Defence in depth: the dimension-level explanation and the shared partial-order
         // predicate must agree. A disagreement is an implementation error, never PASS.
-        let no_broader = is_no_broader_than(
-            &request.candidate_ceiling,
-            &policy_profile.maximum_ceiling,
-        );
+        let no_broader =
+            is_no_broader_than(&request.candidate_ceiling, &policy_profile.maximum_ceiling);
         if no_broader != violations.is_empty() {
             return Err(
                 "policy assessment invariant mismatch between dimension audit and no-broader predicate"
@@ -393,7 +391,12 @@ mod tests {
 
         let receipt = evaluate(candidate);
         assert_eq!(receipt.disposition, PolicyDisposition::RejectedByProfile);
-        assert!(receipt.violations.iter().any(|v| v.code == "claim_atom_not_allowed"));
+        assert!(
+            receipt
+                .violations
+                .iter()
+                .any(|v| v.code == "claim_atom_not_allowed")
+        );
         assert!(receipt.policy_admissibility_only);
     }
 
@@ -452,7 +455,12 @@ mod tests {
         .expect("profile mismatch is a structured rejection, not an admission");
         assert_eq!(receipt.disposition, PolicyDisposition::RejectedByProfile);
         assert!(!receipt.policy_profile_pinned);
-        assert!(receipt.violations.iter().any(|v| v.code == "policy_profile_digest_mismatch"));
+        assert!(
+            receipt
+                .violations
+                .iter()
+                .any(|v| v.code == "policy_profile_digest_mismatch")
+        );
         assert!(!receipt.action_authority_granted);
     }
 
@@ -478,7 +486,10 @@ mod tests {
         assert_eq!(first, second);
         assert_eq!(first.input_sha256, sha256(&input));
         assert_eq!(first.policy_profile_sha256, sha256(&policy_bytes));
-        assert_eq!(first.expected_policy_profile_sha256, expected_profile_sha256);
+        assert_eq!(
+            first.expected_policy_profile_sha256,
+            expected_profile_sha256
+        );
     }
 
     #[test]
@@ -494,13 +505,8 @@ mod tests {
         let policy_bytes = serde_json::to_vec(&profile()).unwrap();
         let expected = sha256(&policy_bytes);
         assert!(
-            evaluate_policy_request_bytes(
-                &input,
-                &policy_bytes,
-                &expected,
-                UNPINNED_LOCAL_RUN
-            )
-            .is_err()
+            evaluate_policy_request_bytes(&input, &policy_bytes, &expected, UNPINNED_LOCAL_RUN)
+                .is_err()
         );
 
         let input = request_bytes(safe_ceiling());
