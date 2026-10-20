@@ -1,8 +1,10 @@
 # Holochain Currency Exchange Architecture
 
-**Version**: 1.0
-**Date**: 2025-09-30
-**Status**: Design Document - Reference Implementation
+**Version**: 1.1
+**Date**: 2026-10-20
+**Status**: Research/design proposal — settlement and cost claims qualified; not production authorization
+
+> **Important qualification (2026-10-20):** This document is not evidence that any listed bridge, contract, validator set, token, integration, or benchmark is deployed, audited, legally approved, or production-ready. Prices, throughput, latency, adoption targets, and checkmarks below are legacy planning artifacts unless independently re-verified against exact source, configuration, deployment, source dates, and reproducible measurements. Holochain can avoid mandatory public-chain gas for app-level writes, but conductors, devices/servers, bandwidth, storage, operations, recovery and external rails still cost resources. The Holochain DHT does not provide global consensus or, by itself, prevent double-spending. See [HOLO-MONEY-001](https://github.com/Luminous-Dynamics/mycelix/issues/5326).
 
 ---
 
@@ -10,11 +12,11 @@
 
 This document outlines a novel architecture for **inter-currency exchange between Holochain-based community currencies** using blockchain as a settlement layer. This pattern enables:
 
-- Zero-cost, high-frequency transactions within communities (Holochain)
-- Efficient price discovery and atomic swaps between communities (Blockchain)
-- Seamless integration with external DeFi (USDC, ETH, etc.)
+- Low-per-action-cost community transactions, with infrastructure and operator costs explicitly measured (Holochain)
+- Potential price discovery and cross-community exchange through separately qualified mechanisms; atomicity is not assumed
+- External-asset interoperability only where issuer, custody/bridge, liquidity, legal, and settlement semantics are explicitly qualified
 
-**Key Innovation**: Each technology layer does what it does best—Holochain for agent-centric economies, blockchain for global settlement.
+**Design hypothesis**: Use Holochain for agent-centric records and coordination, then use an explicitly qualified authority or settlement rail wherever exclusive ownership, real-asset transfer, or financial finality is required.
 
 ---
 
@@ -48,10 +50,10 @@ This document outlines a novel architecture for **inter-currency exchange betwee
 
 ### Our Solution
 
-A **hybrid architecture** that combines:
-- **Holochain**: For internal community transactions (zero cost, high frequency)
-- **Blockchain**: For inter-community exchange (atomic swaps, price discovery)
-- **Bridge Validators**: Trusted layer connecting both worlds
+A **hybrid architecture candidate** that combines:
+- **Holochain**: Signed community-economy events, instrument rules, coordination and evidence; no mandatory public-chain gas fee per hApp call, but nonzero infrastructure/operational cost
+- **External settlement systems**: Optional price discovery and asset movement only where the exact rail/contract and its finality, liquidity, authority and legal conditions are qualified
+- **Bridge/oracle operators**: Explicitly named trust assumptions; their signatures are not equivalent to independent proof of underlying asset settlement
 
 ---
 
@@ -67,7 +69,7 @@ A **hybrid architecture** that combines:
 │              BLOCKCHAIN EXCHANGE LAYER (Layer 2)                │
 │                                                                 │
 │  ┌─────────────┐  ┌──────────────┐  ┌─────────────────┐         │
-│  │  Orderbook  │  │ Liquidity    │  │  Atomic Swap    │         │
+│  │  Orderbook  │  │ Liquidity    │  │  Swap/Settle    │         │
 │  │    DEX      │  │    Pools     │  │    Contracts    │         │
 │  └─────────────┘  └──────────────┘  └─────────────────┘         │
 │                                                                 │
@@ -89,11 +91,13 @@ A **hybrid architecture** that combines:
 │  │   DHT        │  │   DHT        │  │   DHT        │           │
 │  └──────────────┘  └──────────────┘  └──────────────┘           │
 │                                                                 │
-│  Technology: Holochain (agent-centric, zero gas)                │
+│  Technology: Holochain (agent-centric; no mandatory public-chain gas fee; infrastructure/operations still cost)                │
 └─────────────────────────────────────────────────────────────────┘
 ```
 
-### Data Flow Example: Alice Swaps Zero-TrustML Credits → TimeBank Hours
+### Illustrative Cross-Domain Flow (NOT atomic by default): Alice proposes exchanging Zero-TrustML Credits → TimeBank Hours
+
+This sequence is a conceptual workflow, not a proof of a live integration or an atomic swap. Different Holochain DNAs and an external chain do not become one atomic transaction merely because bridge validators observe events.
 
 ```
 1. Alice (Holochain)
@@ -108,20 +112,19 @@ A **hybrid architecture** that combines:
 4. Polygon DEX Smart Contract
    ↓ Orderbook matching: Bob accepts (opposite trade)
 
-5. Bridge Validator Network
-   ↓ Verifies match, signs atomic swap
+5. Authorized exchange policy/participants
+   ↓ Validate quote, consent, instrument rules, escrow conditions and explicitly named trust assumptions; do not infer atomicity
 
 6. Polygon DEX Smart Contract
    ↓ Executes swap, emits completion event
 
-7. Bridge Validator Network
-   ↓ Detects event, initiates DHT transfers
+7. Bridge/settlement adapter
+   ↓ Verify the external receipt against the authoritative rail/contract and its required finality profile before proposing the corresponding community-ledger transitions
 
-8. Zero-TrustML Credits DHT → Alice loses 100 credits
-   TimeBank Hours DHT → Alice gains 10 hours
+8. Each community authority applies its own authorized state transition; a success on one side does not automatically make the other side succeed
 
 9. Alice (Holochain)
-   ✓ Swap complete, can now use hours for services
+   Outcome remains Pending/Unknown until both legs satisfy their specified settlement and recovery rules; otherwise follow the explicit refund/dispute path
 ```
 
 ---
@@ -130,29 +133,31 @@ A **hybrid architecture** that combines:
 
 ### Why Holochain for Community Currencies?
 
-| Feature | Holochain | Blockchain | Winner |
-|---------|-----------|------------|--------|
-| **Transaction Cost** | $0.00 | $0.01-$1.00 | ✅ Holochain |
-| **Transaction Speed** | ~100ms | 12-15s | ✅ Holochain |
-| **Scalability** | Linear (per agent) | Log(n) sharding | ✅ Holochain |
-| **Privacy** | Private by default | Public | ✅ Holochain |
-| **Customization** | Full (per DNA) | Limited (EVM) | ✅ Holochain |
-| **Mutual Credit** | Native | Complex | ✅ Holochain |
+Evaluate by use case and trust model—not a universal winner.
 
-**Use Case Fit**: Internal community transactions (high frequency, low cost)
+| Dimension | Holochain candidate fit | Qualification / comparison rule |
+|---|---|---|
+| Transaction cost | No mandatory public-chain gas fee per hApp write | Conductors, bandwidth, DHT storage/replication, monitoring, recovery and support still cost resources; measure fully loaded cost |
+| Latency | Local zome-call/authorization may be responsive | Local return is not DHT integration or recipient-available settlement; measure p50/p95/p99 for each stage |
+| Double-spend risk | Signed source-chain activity and validation help detect invalid activity/forks | DHT eventual consistency is not global consensus or a spend lock; require explicit spend authority/quorum for exclusive assets |
+| Privacy | Private source-chain data and careful sharing can limit disclosure | Public DHT entries, links, timestamps and relationship metadata can leak; privacy must be designed and tested |
+| Scalability | Agent-centric workload distribution may suit independent/community activity | No blanket linear-scaling claim; test DHT size, peer density, write load, replication and adversarial participation |
+| Mutual credit | Can record obligations, limits and community-validated events | Define creditor/debtor, credit limit, default, dispute and loss allocation; a numeric token is not automatically money |
 
-### Why Blockchain for Exchange?
+**Candidate fit**: Community exchange units, mutual-credit records, service/time claims, entitlements and economic coordination where participants accept the declared issuer/authority and risk profile. Cash-equivalent or redeemable instruments need separate spend, liability, and settlement authority.
 
-| Feature | Holochain | Blockchain | Winner |
-|---------|-----------|------------|--------|
-| **Cross-DHT Comms** | No native support | Native | ✅ Blockchain |
-| **Price Discovery** | No orderbook | DEX orderbooks | ✅ Blockchain |
-| **Global Liquidity** | Isolated | Composable DeFi | ✅ Blockchain |
-| **Legal Recognition** | Emerging | Established | ✅ Blockchain |
-| **External Bridges** | Manual | Native (Chainlink) | ✅ Blockchain |
-| **Atomic Swaps** | Cross-DHT hard | Smart contracts | ✅ Blockchain |
+### Why use a separate external exchange or settlement rail?
 
-**Use Case Fit**: Inter-community exchange (lower frequency, settlement layer)
+| Need | Holochain by itself | External ledger/authorized rail | Qualification |
+|---|---|---|---|
+| Cross-domain coordination | Records requests and evidence within a DNA | May execute asset movement within its own defined domain | Inter-DNA/external transitions need explicit adapter and recovery semantics |
+| Price discovery | Can publish offers/quotes subject to app rules | Markets, providers and order books may provide executable quotes | Indicative rate is not an executed price; include spread, fees and expiry |
+| Scarce-asset exclusivity | Does not provide global consensus by default | Depends on the rail's consensus, account authority and finality model | Qualify conflicts, reorgs, custody, counterparty and reversal handling |
+| Liquidity | Does not create external liquidity by recording an event | Provider/market has finite, route- and time-specific liquidity | Do not claim availability until confirmed for the exact amount and path |
+| Regulatory and legal status | Holochain does not determine instrument classification | Provider/rail has its own permissions and legal boundaries | No platform choice makes a token legal tender or redeemable by default |
+| Cross-domain atomicity | Multiple DNA writes are not one global transaction | Atomicity may exist inside a single contract/ledger domain | A bridge or multi-leg workflow is not atomic unless all legs and failures are proven |
+
+**Candidate fit**: Use an external rail when actual external asset transfer or its finality model is required. Do not assume a blockchain bridge is automatically safer, cheaper, legally recognized or atomic.
 
 ### Why Polygon for Exchange Layer?
 
@@ -529,8 +534,8 @@ contract HolochainCurrencyExchange {
     }
 
     /**
-     * @dev Execute atomic swap between two orders
-     * @notice Only callable by bridge validators with signatures
+     * @dev Execute matched on-chain legs atomically within this contract only
+     * @notice This does not by itself make Holochain-to-chain settlement atomic; bridge proofs and failure recovery require a separate design
      */
     function executeSwap(
         uint256 order1Id,
@@ -1139,7 +1144,7 @@ class HolochainBridgeValidator:
         amount1: int,
         amount2: int
     ) -> bytes:
-        """Sign atomic swap as validator"""
+        '''Sign the matched on-chain exchange intent; this signature does not prove Holochain-leg finality or cross-domain atomicity'''
         # Create message hash
         message_hash = Web3.solidity_keccak(
             ['uint256', 'uint256', 'uint256', 'uint256', 'uint256'],
@@ -1245,28 +1250,29 @@ if __name__ == '__main__':
 - Can earn and spend in each currency
 - Balances tracked independently
 
-**Success Metric**: 5 active currencies, 1000+ transactions
+**Proposed adoption hypothesis (not achieved):** 5 active currencies; throughput must be measured under a reproducible test profile
 
 ---
 
-### Phase 3: Blockchain DEX + Bridge (2-3 weeks)
+### Phase 3: Blockchain DEX + Bridge (historical estimate; schedule must be re-estimated)
 
-**Goal**: Exchange layer with atomic swaps
+**Goal**: Prototype external exchange legs; cross-domain atomicity must be separately proven, not assumed
 
 **Deliverables**:
 - ✅ HolochainCurrencyExchange.sol deployed to Polygon
 - ✅ HolochainCurrencyPool.sol for liquidity
 - ✅ Bridge validator network (3+ validators)
 - ✅ Order posting from Holochain escrows
-- ✅ Atomic swap execution
+- Proposed: matched on-chain exchange execution; cross-domain atomicity remains unproven
 
 **Test Criteria**:
-- Can post order from Holochain → Polygon
-- Can execute swap on Polygon
-- Bridge completes transfer on Holochain
-- All or nothing (atomic)
+- Can post an order intent from Holochain → the external test contract
+- Can execute the on-chain leg in a controlled test environment
+- Verify the adapter receipt, idempotency and replay protection
+- Test crashes, partitions, delayed receipts, chain reorganization, validator outage/collusion and one-leg-success/other-leg-failure
+- Demonstrate all-or-nothing behavior under a written failure model before using the word atomic; otherwise mark the workflow non-atomic and prohibit real-value use
 
-**Success Metric**: 100 successful swaps between 2 currencies
+**Success Metric**: Reproducible coverage and zero unexplained/unsafe outcomes in the frozen failure corpus—not a volume target alone
 
 ---
 
@@ -1296,11 +1302,11 @@ if __name__ == '__main__':
 **Threat**: Malicious credit creation
 **Mitigation**: Validation rules require peer verification (3+ validators)
 
-**Threat**: Double-spend attacks
-**Mitigation**: Holochain's CRDT ensures eventual consistency, double-spends detected
+**Threat**: Conflicting spends / double-spend attempts
+**Mitigation**: Holochain validation and source-chain integrity are useful evidence, but eventual consistency/fork detection alone does not prevent concurrent conflicting spends or establish a single current balance. Define an authoritative per-account/per-asset spend serializer or an explicit quorum/consensus protocol, then prove its safety/liveness under partitions, forks, Sybil attempts, retries and recovery. For high-value redeemable assets, rely on an appropriately qualified settlement/ledger authority.
 
-**Threat**: Sybil attacks (fake verifiers)
-**Mitigation**: Reputation system, require established nodes as verifiers
+**Threat**: Sybil attacks (fake verifiers / captured witnesses)
+**Mitigation**: Specify identity/admission or resource-cost assumptions, quorum independence, witness selection, conflict-of-interest rules and adversarial tests. Reputation alone is not a Sybil-resistance theorem.
 
 ### Blockchain Layer Security
 
@@ -1315,11 +1321,11 @@ if __name__ == '__main__':
 
 ### Bridge Security
 
-**Threat**: Bridge validators sign invalid swaps
-**Mitigation**:
-- On-chain verification of Holochain state (Merkle proofs)
-- Slashing for misbehavior
-- DAO governance can rotate validators
+**Threat**: Bridge/adapter accepts an invalid or non-final external event
+**Mitigation (not supplied automatically by Holochain)**:
+- Specify the attestation/proof format and verify that the external contract/rail can actually validate it; DHT records are not automatically on-chain-verifiable Merkle proofs
+- Define finality depth/receipt requirements, replay domain, idempotency, signer independence and key revocation
+- Specify dispute, pause, refund, recovery and loss-allocation procedures; slashing/governance alone does not ensure solvency or user reimbursement
 
 **Threat**: Replay attacks
 **Mitigation**: Include chain ID and nonce in signatures
@@ -1335,7 +1341,7 @@ if __name__ == '__main__':
 
 | Layer | Fee | Who Pays | Who Receives |
 |-------|-----|----------|--------------|
-| **Holochain** | $0.00 | N/A | N/A |
+| **Holochain hApp** | No mandatory public-chain gas fee; not zero total cost | Community, operator or explicit subsidy | Conductor/network/storage/support costs must be measured |
 | **Blockchain DEX** | 0.3% | Taker | Liquidity providers |
 | **Bridge** | 0.1% | Both sides | Validators |
 | **External DeFi** | Variable | User | Protocol |
@@ -1343,7 +1349,7 @@ if __name__ == '__main__':
 ### Incentive Alignment
 
 **For Communities**:
-- Zero-cost internal transactions
+- Low-per-action-cost internal transactions, subject to an explicit infrastructure and operating-cost model
 - Control over currency rules
 - Self-sovereign economics
 
@@ -1360,7 +1366,7 @@ if __name__ == '__main__':
 **For Users**:
 - Freedom to hold multiple currencies
 - Access to global liquidity
-- No KYC friction for small amounts
+- Eligibility and compliance depend on exact instrument, use case, provider and jurisdiction; do not assume a small-value exemption
 
 ---
 
@@ -1437,10 +1443,10 @@ holochain-currency-exchange/
 ## Success Metrics
 
 ### Technical Metrics
-- **Uptime**: 99.9%+ for bridge validators
-- **Latency**: <5 seconds for escrow → order posting
-- **Throughput**: 1000+ transactions/second per currency (Holochain)
-- **Cost**: <$0.01 per swap (Polygon gas)
+- **Uptime**: Publish measured availability and failure accounting; any 99.9%+ value is an unvalidated target until evidence exists
+- **Latency**: Proposed measurements only—report p50/p95/p99 for authorization, DHT visibility, external execution and beneficiary availability separately
+- **Throughput**: No 1000+ transactions/second claim without reproducible load tests, hardware/network config and failure accounting
+- **Cost**: Re-measure all provider/rail/gas costs for each route and include infrastructure, bridge, liquidity, failed attempts and support
 
 ### Adoption Metrics
 - **Active Currencies**: 10+ live currencies by Month 6
@@ -1458,14 +1464,14 @@ holochain-currency-exchange/
 
 ## Conclusion
 
-This architecture provides a **production-ready blueprint** for building inter-currency exchanges between Holochain communities using blockchain as a settlement layer.
+This document is a **candidate architecture requiring further engineering, economic, security and jurisdiction-specific qualification**. It is not a production-ready blueprint, and does not demonstrate a live bridge or atomic cross-domain settlement.
 
 **Key Advantages**:
-- ✅ Zero-cost internal transactions (Holochain)
-- ✅ Efficient price discovery (Blockchain DEX)
-- ✅ Atomic swaps (Bridge validators)
-- ✅ Composable with DeFi (External liquidity)
-- ✅ Sovereign currencies (Community rules)
+- Potentially low application-level transfer costs; total operating cost must be measured
+- Price discovery is a separate function requiring live, executable quote evidence
+- Cross-domain atomicity is unproven until its state machine and failure model are tested
+- External liquidity and DeFi integration require separate authority, risk and legal qualification
+- Community control over rules does not eliminate issuer liabilities or legal constraints
 
 **Next Steps**:
 1. Implement Phase 1 (Zero-TrustML Credits DNA)
@@ -1480,18 +1486,18 @@ This architecture provides a **production-ready blueprint** for building inter-c
 
 ---
 
-**This architecture is ready for implementation. Phase 1 begins now.**
+**Next gate:** verify exact current code and release dependencies; specify instrument rights and spend authority; implement double-spend/replay/partition tests; measure fully loaded cost; and complete security and legal reviews before any live-value or bridge launch.
 
 ---
 
 ## Appendix: Comparison with Alternatives
 
-### vs Centralized Exchanges (Coinbase, Binance)
+### vs Centralized Exchanges (example classes; prices and policies must be checked for the exact product, geography and date)
 
 | Feature | Holochain + Blockchain | Centralized Exchange |
 |---------|----------------------|---------------------|
-| Internal Tx Cost | $0.00 | $0.50-$2.00 |
-| KYC Required | No (for P2P) | Yes (always) |
+| Internal Tx Cost | No mandatory public-chain gas fee; infrastructure/operator costs remain | Provider, account, route and plan dependent; use matched current prices |
+| KYC / eligibility | Depends on instrument, transaction and jurisdiction; no assumed exemption | Depends on service and jurisdiction; no blanket rule |
 | Custody | Self-custody | Exchange custody |
 | Downtime Risk | Distributed | Single point |
 | Censorship Resistance | High | Low |
@@ -1500,7 +1506,7 @@ This architecture provides a **production-ready blueprint** for building inter-c
 
 | Feature | Holochain + Blockchain | Pure DEX |
 |---------|----------------------|----------|
-| Internal Tx Cost | $0.00 | $1-$50 (L1) |
+| Internal Tx Cost | No mandatory public-chain gas fee; infrastructure/operator costs remain | Variable by chain, congestion, contract and token route; measure current quote |
 | Scalability | Linear per currency | Limited by blockchain |
 | Customization | Infinite (DNA rules) | Limited (EVM) |
 | Privacy | Configurable | Public |
