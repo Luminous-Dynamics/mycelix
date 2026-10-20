@@ -2116,6 +2116,7 @@ mod browser_storage_tests {
                 IDENTITY_SECRET_KEY,
                 IDENTITY_PUBLIC_KEY,
                 IDENTITY_SECRET_ENCRYPTED_KEY,
+                IDENTITY_BACKUP_CONFIRMED_PUBLIC_KEY,
             ];
             let values = keys
                 .into_iter()
@@ -2138,6 +2139,7 @@ mod browser_storage_tests {
                 IDENTITY_SECRET_KEY,
                 IDENTITY_PUBLIC_KEY,
                 IDENTITY_SECRET_ENCRYPTED_KEY,
+                IDENTITY_BACKUP_CONFIRMED_PUBLIC_KEY,
             ] {
                 self.storage
                     .remove_item(key)
@@ -2299,6 +2301,121 @@ mod browser_storage_tests {
             .await
             .expect("rotated passphrase unlocks the same identity");
         assert!(public_key_matches_signing_key(&original_public, &rotated));
+    }
+
+    #[wasm_bindgen_test]
+    async fn exported_recovery_phrase_restores_the_same_key_after_storage_reset() {
+        let _backup = IdentityStorageBackup::new_and_clear();
+        create_protected_identity("synthetic original passphrase")
+            .await
+            .expect("initial protected identity creation succeeds");
+
+        let storage = web_sys::window().unwrap().local_storage().unwrap().unwrap();
+        let original_public = storage
+            .get_item(IDENTITY_PUBLIC_KEY)
+            .unwrap()
+            .expect("original public key is present");
+        let mut phrase = export_unlocked_identity_seed_phrase()
+            .expect("unlocked protected identity exports a backup phrase");
+        assert_eq!(phrase.split_whitespace().count(), 24);
+        assert!(storage.get_item(IDENTITY_SECRET_KEY).unwrap().is_none());
+
+        // Model a fresh browser profile: delete every identity and backup marker
+        // item while retaining only the independently held offline phrase.
+        for key in [
+            LEGACY_DID_KEY,
+            IDENTITY_SECRET_KEY,
+            IDENTITY_PUBLIC_KEY,
+            IDENTITY_SECRET_ENCRYPTED_KEY,
+            IDENTITY_BACKUP_CONFIRMED_PUBLIC_KEY,
+        ] {
+            storage
+                .remove_item(key)
+                .expect("fresh-profile reset succeeds");
+        }
+        UNLOCKED_KEY.with(|cell| *cell.borrow_mut() = None);
+        assert_eq!(
+            inspect_local_identity_posture(),
+            LocalIdentityStoragePosture::NoIdentity
+        );
+
+        let restore_result =
+            restore_protected_identity_from_seed_phrase(&phrase, "synthetic restored passphrase")
+                .await;
+        phrase.zeroize();
+        let posture = restore_result.expect("offline phrase restores into protected storage");
+        assert_eq!(
+            posture,
+            LocalIdentityStoragePosture::ProtectedUnlockedInSession
+        );
+
+        let restored_public = storage
+            .get_item(IDENTITY_PUBLIC_KEY)
+            .unwrap()
+            .expect("restored public key is present");
+        assert_eq!(restored_public, original_public);
+        assert!(storage.get_item(IDENTITY_SECRET_KEY).unwrap().is_none());
+        assert!(
+            storage
+                .get_item(IDENTITY_SECRET_ENCRYPTED_KEY)
+                .unwrap()
+                .is_some()
+        );
+
+        // Restore is not itself proof that the phrase was saved somewhere
+        // offline; the new profile must still complete the backup challenge.
+        assert!(
+            storage
+                .get_item(IDENTITY_BACKUP_CONFIRMED_PUBLIC_KEY)
+                .unwrap()
+                .is_none()
+        );
+        assert!(recovery_backup_confirmation_needed());
+    }
+
+    #[wasm_bindgen_test]
+    async fn backup_confirmation_marker_is_invalidated_when_identity_key_changes() {
+        let _backup = IdentityStorageBackup::new_and_clear();
+        create_protected_identity("synthetic first identity passphrase")
+            .await
+            .expect("first protected identity creation succeeds");
+        mark_recovery_backup_confirmed().expect("first identity backup marker is recorded");
+        assert!(!recovery_backup_confirmation_needed());
+
+        let storage = web_sys::window().unwrap().local_storage().unwrap().unwrap();
+        let first_public = storage
+            .get_item(IDENTITY_PUBLIC_KEY)
+            .unwrap()
+            .expect("first public key is present");
+        assert_eq!(
+            storage
+                .get_item(IDENTITY_BACKUP_CONFIRMED_PUBLIC_KEY)
+                .unwrap()
+                .as_deref(),
+            Some(first_public.as_str())
+        );
+
+        // Simulate an identity reset that accidentally leaves the harmless
+        // confirmation marker behind. A newly created key must not inherit it.
+        for key in [
+            LEGACY_DID_KEY,
+            IDENTITY_SECRET_KEY,
+            IDENTITY_PUBLIC_KEY,
+            IDENTITY_SECRET_ENCRYPTED_KEY,
+        ] {
+            storage.remove_item(key).expect("identity reset succeeds");
+        }
+        UNLOCKED_KEY.with(|cell| *cell.borrow_mut() = None);
+        create_protected_identity("synthetic second identity passphrase")
+            .await
+            .expect("second protected identity creation succeeds");
+
+        let second_public = storage
+            .get_item(IDENTITY_PUBLIC_KEY)
+            .unwrap()
+            .expect("second public key is present");
+        assert_ne!(second_public, first_public);
+        assert!(recovery_backup_confirmation_needed());
     }
 
     #[wasm_bindgen_test]
