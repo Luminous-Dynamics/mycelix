@@ -1,6 +1,6 @@
 # Mycelix Compliance Matrix
 
-> **Reliance warning — reviewed 2026-10-20:** This is a preliminary control-mapping document, not a compliance determination, certification, audit report, or assertion of production readiness. The [repository README](https://github.com/Luminous-Dynamics/mycelix/blob/main/README.md) describes Mycelix as a pre-alpha research project and says the repository has not been independently threat-modeled or externally audited. The previous percentage scores and “Production Ready” / “Audit Ready” labels had no published scoring method or linked evidence register and are removed. Treat every implementation/control entry below as an unverified claim or candidate mapping until evidence is collected for an exact component version, configuration, and deployment.
+> **Reliance warning — reviewed 2026-10-20:** This is a preliminary control-mapping document, not a compliance determination, certification, audit report, or assertion of production readiness. The [repository README](https://github.com/Luminous-Dynamics/mycelix/blob/main/README.md) describes Mycelix as a pre-alpha research project and says the repository has not been independently threat-modeled or externally audited. The previous percentage scores and “Production Ready” / “Audit Ready” labels were not substantiated in this document by a published scoring method or linked evidence register and are removed. Treat every implementation/control entry below as an unverified claim or candidate mapping until evidence is collected for an exact component version, configuration, and deployment.
 
 > **Do not use this document as proof of GDPR, HIPAA, SOC 2, ISO 27001, NIST CSF, PCI DSS, or DORA compliance.** Applicability depends on jurisdiction, data, business process, contractual role, and deployment. Framework mapping does not create compliance. No certification or independent assurance report is claimed by this document.
 
@@ -312,7 +312,7 @@ mycelix compliance-report --framework gdpr > gdpr-evidence.json
 mycelix compliance-report --framework hipaa > hipaa-evidence.json
 mycelix compliance-report --framework soc2 > soc2-evidence.json
 
-# Evidence includes:
+# Desired report should include once implemented and verified:
 # - Access logs (90 days)
 # - Configuration snapshots
 # - Security scan results
@@ -343,11 +343,9 @@ mycelix compliance-report --framework soc2 > soc2-evidence.json
 
 ---
 
-## Contact
+## Contact and accountability
 
-For compliance inquiries:
-- Compliance Team: compliance@luminousdynamics.com
-- Data Protection Officer: dpo@luminousdynamics.com
+Use the maintainer/contact route published in the repository README for review of this draft. This matrix does not establish that a dedicated compliance team or Data Protection Officer has been appointed. Before institutional diligence, identify the responsible legal entity, accountable control owners, and any statutory appointments and service-specific contact channels that apply.
 
 ---
 
