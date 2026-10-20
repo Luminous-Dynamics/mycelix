@@ -1,0 +1,48 @@
+name: Listing revision resolution audit
+
+on:
+  pull_request:
+    branches: ["main"]
+    types: [opened, synchronize, reopened, ready_for_review]
+    paths:
+      - "mycelix-marketplace/backend/Cargo.toml"
+      - "mycelix-marketplace/backend/Cargo.lock"
+      - "mycelix-marketplace/backend/zomes/listings/**"
+      - ".github/workflows/listing-revision-resolution-audit.yml"
+  push:
+    branches:
+      - feat/listing-revision-resolution-20261020
+
+permissions:
+  contents: read
+
+jobs:
+  listing-revision-resolution:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - name: Checkout exact PR head or pushed commit
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+          fetch-depth: 1
+      - name: Install pinned Rust toolchain
+        uses: dtolnay/rust-toolchain@e97e2d8cc328f1b50210efc529dca0028893a2d9
+        with:
+          toolchain: 1.94.0
+          components: rustfmt, clippy
+      - name: Assert tested revision
+        shell: bash
+        run: |
+          set -euo pipefail
+          expected_head="${{ github.event.pull_request.head.sha || github.sha }}"
+          actual_head="$(git rev-parse HEAD)"
+          test "$actual_head" = "$expected_head"
+          echo "Qualified source SHA: $actual_head"
+      - name: Check coordinator formatting
+        run: cargo fmt --manifest-path mycelix-marketplace/backend/Cargo.toml -p listings_coordinator -- --check
+      - name: Test listing coordinator and revision oracle
+        run: cargo test --locked --manifest-path mycelix-marketplace/backend/Cargo.toml -p listings_coordinator
+      - name: Lint listing coordinator
+        run: cargo clippy --locked --manifest-path mycelix-marketplace/backend/Cargo.toml -p listings_coordinator --all-targets -- -D warnings
