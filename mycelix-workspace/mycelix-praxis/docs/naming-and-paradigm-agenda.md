@@ -136,6 +136,8 @@ A learner should be able to use Praxis meaningfully without publishing a public 
 
 The newest broad policy synthesis is the OECD's [Digital Education Outlook 2026](https://www.oecd.org/en/publications/oecd-digital-education-outlook-2026_062a7394-en.html), published January 19, 2026. Its key warning is directly relevant to Praxis: generative AI can improve immediate task output without producing durable learning, and some studies report weaker performance when assistance is removed. Praxis should therefore distinguish *assisted task success* from *independent delayed transfer*, record assistance explicitly, and include both AI-assisted practice and no-assistance assessment conditions in evaluation. That evidence argues for pedagogically bounded Symthaea advice rather than letting the model complete tasks on the learner's behalf.
 
+The evidence is not uniformly negative: a 2025 randomized controlled trial of a pedagogically designed AI tutor in an undergraduate physics course (N=194) found greater learning in less time than an active-learning classroom for that study's conditions ([Kestin et al., *Scientific Reports*, 2025](https://doi.org/10.1038/s41598-025-97652-6)). Treat this as evidence that well-designed AI tutoring can work—not proof that any AI tutor works, that results generalize across domains, or that gains persist for 30–90 days. Praxis should test both possibilities in matched conditions and measure independent delayed transfer.
+
 ## 6. Evaluation programme: compete on results, not adjectives
 
 Do not declare “better than SOTA” in advance. Set a reproducible baseline and publish whether each hypothesis passes.
