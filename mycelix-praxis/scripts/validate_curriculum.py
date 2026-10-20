@@ -186,7 +186,10 @@ def validate_essential_capabilities(errors: list[str]) -> tuple[int, int]:
         errors.append(f"{seed_path.relative_to(ROOT)}: learning_paths must be an array")
         paths = []
 
-    if metadata.get("total_standards") != len(nodes):
+    if (
+        isinstance(metadata.get("total_standards"), bool)
+        or metadata.get("total_standards") != len(nodes)
+    ):
         errors.append(
             f"{seed_path.relative_to(ROOT)}: metadata.total_standards "
             f"must equal node count ({len(nodes)})"
@@ -248,21 +251,27 @@ def validate_essential_capabilities(errors: list[str]) -> tuple[int, int]:
             continue
         source = edge.get("from")
         target = edge.get("to")
-        if source not in ids or target not in ids:
+        source_is_id = isinstance(source, str) and source in ids
+        target_is_id = isinstance(target, str) and target in ids
+        if not source_is_id or not target_is_id:
             errors.append(
                 f"{seed_path.relative_to(ROOT)}: edge {index} references unknown nodes "
                 f"{source!r} -> {target!r}"
             )
-        if source == target:
+        if isinstance(source, str) and isinstance(target, str) and source == target:
             errors.append(f"{seed_path.relative_to(ROOT)}: edge {index} is a self-edge")
         if edge.get("edge_type") not in allowed_edge_types:
             errors.append(f"{seed_path.relative_to(ROOT)}: edge {index} has invalid edge_type")
         strength = edge.get("strength_permille")
-        if not isinstance(strength, int) or not 0 <= strength <= 1000:
+        if isinstance(strength, bool) or not isinstance(strength, int) or not 0 <= strength <= 1000:
             errors.append(f"{seed_path.relative_to(ROOT)}: edge {index} has invalid strength_permille")
         if not isinstance(edge.get("rationale"), str) or not edge["rationale"].strip():
             errors.append(f"{seed_path.relative_to(ROOT)}: edge {index} needs a rationale")
-        if edge.get("edge_type") == "Requires" and source in adjacency and target in ids:
+        if (
+            edge.get("edge_type") == "Requires"
+            and source_is_id
+            and target_is_id
+        ):
             adjacency[source].append(target)
 
     visiting: set[str] = set()
@@ -293,7 +302,10 @@ def validate_essential_capabilities(errors: list[str]) -> tuple[int, int]:
         if not isinstance(sequence, list) or not sequence:
             errors.append(f"{seed_path.relative_to(ROOT)}: learning path {index} needs a nonempty sequence")
             continue
-        missing = [node_id for node_id in sequence if node_id not in ids]
+        missing = [
+            node_id for node_id in sequence
+            if not isinstance(node_id, str) or node_id not in ids
+        ]
         if missing:
             errors.append(
                 f"{seed_path.relative_to(ROOT)}: learning path {index} has unknown IDs {missing!r}"
@@ -355,7 +367,16 @@ def validate_essential_capabilities(errors: list[str]) -> tuple[int, int]:
                 errors.append(f"{lesson_path.relative_to(ROOT)}: at least one flashcard is required")
 
             if manifest is not None:
-                registered = manifest.get("lessons", {}).get(node_id, [])
+                manifest_lessons = manifest.get("lessons", {})
+                if not isinstance(manifest_lessons, dict):
+                    errors.append("apps/leptos/static/content-manifest.json: lessons must be an object")
+                    manifest_lessons = {}
+                registered = manifest_lessons.get(node_id, [])
+                if not isinstance(registered, list):
+                    errors.append(
+                        f"apps/leptos/static/content-manifest.json: {node_id} lesson entries must be an array"
+                    )
+                    registered = []
                 expected_asset = f"/curriculum/generated/essential-capabilities/{lesson_path.name}"
                 matching = [
                     item for item in registered
