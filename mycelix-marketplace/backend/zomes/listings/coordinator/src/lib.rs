@@ -163,8 +163,9 @@ pub fn get_listing(listing_hash: ActionHash) -> ExternResult<Option<ListingOutpu
 ///
 /// Unlike the legacy `get_listing`, this endpoint does not assume that the
 /// action hash supplied by the caller is the current revision. A single returned
-/// head means only "sole observed head in this conductor's local graph", not global currentness. Concurrent
-/// update branches are returned as conflicted, with no canonical listing.
+/// head means only "sole observed head in this conductor's local graph", not global
+/// currentness. Concurrent update branches are returned as conflicted, with no
+/// sole observed head.
 #[hdk_extern]
 pub fn get_listing_revision_state_v1(
     listing_hash: ActionHash,
@@ -172,7 +173,7 @@ pub fn get_listing_revision_state_v1(
     resolution::resolve_listing(listing_hash)
 }
 
-/// Read the locally observed catalogue link set with per-listing revision resolution.
+/// Read the locally observed catalogue link set with per-listing revision-state projections.
 ///
 /// The snapshot explicitly does not claim a globally complete or converged DHT
 /// view. A conflicting listing revision remains present as a conflict; deleted

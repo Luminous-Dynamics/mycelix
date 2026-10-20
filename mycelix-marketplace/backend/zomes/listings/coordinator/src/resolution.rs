@@ -5,7 +5,7 @@
 //!
 //! A timestamp, hash ordering, or arbitrary "last update" is not authority for
 //! choosing between concurrent listing revisions. The resolver preserves every
-//! observed leaf and exposes a canonical listing only when exactly one leaf is
+//! observed leaf and exposes a sole observed head only when exactly one leaf is
 //! visible from the local DHT view. This is not a global catalogue completeness
 //! proof: Holochain DHT integration is eventually consistent.
 
@@ -75,8 +75,8 @@ pub struct ListingCatalogSnapshotV1 {
     pub observed_link_count: u32,
     /// Number of unique listing roots after resolving links to their stable roots.
     pub unique_listing_count: u32,
-    pub resolved_listing_count: u32,
-    pub conflicted_listing_count: u32,
+    pub single_observed_head_count: u32,
+    pub concurrent_head_listing_count: u32,
     /// Includes conflicted listings and resolved soft-deleted listings.
     pub listings: Vec<ListingResolution>,
 }
@@ -286,7 +286,7 @@ mod tests {
     }
 
     #[test]
-    fn one_observed_leaf_is_resolved_and_preserves_root_and_current_hash() {
+    fn one_observed_leaf_preserves_root_and_sole_locally_observed_hash() {
         let root = hash(1);
         let output = listing_output(2, 25_000, 3, ListingStatus::Active);
         let projection = project_observed_heads(root.clone(), 2, vec![output]).unwrap();
@@ -297,13 +297,20 @@ mod tests {
             ListingResolutionReason::SingleObservedHead
         );
         assert_eq!(projection.root_listing_hash, root);
-        assert_eq!(projection.sole_observed_head.as_ref().unwrap().listing_hash, hash(2));
+        assert_eq!(
+            projection.sole_observed_head.as_ref().unwrap().listing_hash,
+            hash(2)
+        );
+        assert_eq!(
+            projection.observation_scope,
+            ListingObservationScope::LocalDhtUpdateGraph
+        );
         assert_eq!(projection.revision_count, 2);
         assert_eq!(projection.heads.len(), 1);
     }
 
     #[test]
-    fn concurrent_price_or_inventory_edits_never_choose_a_canonical_head() {
+    fn concurrent_price_or_inventory_edits_never_choose_a_sole_head() {
         let root = hash(1);
         let first = listing_output(2, 25_000, 3, ListingStatus::Active);
         let second = listing_output(3, 22_000, 1, ListingStatus::Active);
@@ -319,7 +326,7 @@ mod tests {
     }
 
     #[test]
-    fn identical_concurrent_heads_remain_conflicted_without_authority() {
+    fn identical_concurrent_heads_remain_unselected_without_authority() {
         let root = hash(1);
         let first = listing_output(2, 25_000, 3, ListingStatus::Active);
         let second = listing_output(3, 25_000, 3, ListingStatus::Active);
@@ -332,7 +339,7 @@ mod tests {
     }
 
     #[test]
-    fn soft_delete_is_a_resolved_observed_status_not_an_active_offer() {
+    fn soft_delete_is_a_single_observed_status_not_an_active_offer() {
         let root = hash(1);
         let deleted = listing_output(2, 25_000, 3, ListingStatus::Deleted);
         let projection = project_observed_heads(root, 2, vec![deleted]).unwrap();
@@ -345,13 +352,13 @@ mod tests {
     }
 
     #[test]
-    fn empty_or_incomplete_tree_never_becomes_a_successful_resolution() {
+    fn empty_or_incomplete_tree_never_becomes_a_successful_observation() {
         let error = project_observed_heads(hash(1), 1, Vec::new()).unwrap_err();
         assert!(error.contains("no observed leaf revisions"));
     }
 
     #[test]
-    fn identical_input_graphs_produce_stable_head_order() {
+    fn identical_input_graphs_produce_stable_head_order_without_promoting_currentness() {
         let root = hash(1);
         let a = listing_output(2, 25_000, 3, ListingStatus::Active);
         let b = listing_output(3, 22_000, 1, ListingStatus::Active);
