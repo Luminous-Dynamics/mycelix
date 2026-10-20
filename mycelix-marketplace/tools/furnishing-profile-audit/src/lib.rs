@@ -143,9 +143,13 @@ fn validate_profile(profile: &Value, label: &str, errors: &mut Vec<String>) {
     );
     let geometry_license = text(geometry, "geometry_use_license").unwrap_or("unknown");
     if geometry_license == "unknown" && !geometry_license_refs.is_empty() {
-        errors.push(format!("{label}: unknown geometry-use rights cannot cite a grant"));
+        errors.push(format!(
+            "{label}: unknown geometry-use rights cannot cite a grant"
+        ));
     } else if geometry_license != "unknown" && geometry_license_refs.is_empty() {
-        errors.push(format!("{label}: declared geometry-use rights need explicit rights evidence"));
+        errors.push(format!(
+            "{label}: declared geometry-use rights need explicit rights evidence"
+        ));
     }
 
     // Evidence identity and scoped references.
