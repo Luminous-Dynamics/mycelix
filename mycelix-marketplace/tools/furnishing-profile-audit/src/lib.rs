@@ -511,3 +511,6 @@ pub fn validate_discovery_request(document: &Value) -> Vec<String> {
 
     errors
 }
+
+#[cfg(test)]
+mod discovery_request_tests;
