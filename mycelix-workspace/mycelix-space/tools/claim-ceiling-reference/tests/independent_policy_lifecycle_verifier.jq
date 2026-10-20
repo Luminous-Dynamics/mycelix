@@ -90,8 +90,7 @@ def expected_disposition($vector; $codes):
   else "accepted_new_release"
   end;
 
-(. as $ignored)
-| $corpus[0] as $fixture
+$corpus[0] as $fixture
 | ($fixture.schema_version == "mycelix.claim-policy-lifecycle.golden.v1"
    and ($fixture.cases | length) == 20) as $corpus_is_frozen
 | $fixture.cases[$index] as $vector
