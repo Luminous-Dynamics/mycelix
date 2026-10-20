@@ -116,62 +116,42 @@ pub fn genesis_self_check(_data: GenesisSelfCheckData) -> ExternResult<ValidateC
 #[hdk_extern]
 pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
     match op.flattened::<EntryTypes, LinkTypes>()? {
-        FlatOp::StoreEntry(OpEntry::CreateEntry {
-            app_entry,
-            action: _,
-        }) => match app_entry {
+        FlatOp::CreateEntry(OpEntry::CreateEntry { app_entry, .. }) => match app_entry {
             EntryTypes::Decision(decision) => validate_decision(&decision),
             EntryTypes::Vote(vote) => validate_vote(&vote),
             EntryTypes::DecisionOutcome(outcome) => validate_outcome(&outcome),
         },
-        FlatOp::StoreEntry(OpEntry::UpdateEntry {
-            app_entry,
-            action,
-            original_action_hash,
-            ..
+        FlatOp::CreateEntry(OpEntry::UpdateEntry {
+            app_entry, action, ..
         }) => match app_entry {
             EntryTypes::Decision(decision) => {
                 validate_decision(&decision)?;
-                validate_decision_update(&action, &decision, &original_action_hash)
+                validate_decision_update(&action, &decision)
             }
-            EntryTypes::Vote(_) => {
-                // INVARIANT: Vote immutability — once a vote is cast on a decision,
-                // it cannot be modified or retracted. This ensures that tallied results
-                // remain stable and that members cannot retroactively change outcomes.
-                Ok(ValidateCallbackResult::Invalid(
-                    "Votes cannot be updated once cast".into(),
-                ))
-            }
-            EntryTypes::DecisionOutcome(_) => {
-                // INVARIANT: DecisionOutcome immutability — once a decision outcome
-                // is recorded, it cannot be modified. This preserves the integrity
-                // of the audit trail and prevents retroactive result tampering.
-                Ok(ValidateCallbackResult::Invalid(
-                    "DecisionOutcome cannot be updated once recorded".into(),
-                ))
-            }
+            EntryTypes::Vote(_) => Ok(ValidateCallbackResult::Invalid(
+                "Votes cannot be updated once cast".into(),
+            )),
+            EntryTypes::DecisionOutcome(_) => Ok(ValidateCallbackResult::Invalid(
+                "DecisionOutcome cannot be updated once recorded".into(),
+            )),
         },
-        FlatOp::StoreEntry(_) => Ok(ValidateCallbackResult::Valid),
-        FlatOp::RegisterCreateLink {
+        FlatOp::CreateEntry(_) => Ok(ValidateCallbackResult::Valid),
+        FlatOp::Link(OpLink::CreateLink { link_type, action }) => {
+            validate_create_link(link_type, &action.tag)
+        }
+        FlatOp::Link(OpLink::DeleteLink {
             link_type,
-            base_address: _,
-            target_address: _,
-            tag,
-            action: _,
-        } => validate_create_link(link_type, &tag),
-        FlatOp::RegisterDeleteLink {
-            link_type, action, ..
-        } => {
-            let original_action = must_get_action(action.link_add_address.clone())?;
-            let result = check_link_author_match(original_action.action().author(), &action.author);
+            action,
+            original_action,
+        }) => {
+            let result =
+                check_link_author_match(original_action.author(), action.author());
             if result != ValidateCallbackResult::Valid {
                 return Ok(result);
             }
             validate_delete_link(link_type)
         }
-        FlatOp::RegisterDelete(_) => {
-            // INVARIANT: Decisions, Votes, and Outcomes are append-only.
-            // Deletion would break audit trails, tally integrity, and history links.
+        FlatOp::Delete(OpDelete { .. }) => {
             Ok(ValidateCallbackResult::Invalid(
                 "Decision entries cannot be deleted".into(),
             ))
@@ -280,11 +260,10 @@ pub fn validate_outcome(outcome: &DecisionOutcome) -> ExternResult<ValidateCallb
 
 /// Validate that a Decision update only modifies allowed fields with valid transitions.
 pub fn validate_decision_update(
-    _action: &Update,
+    action: &TypedAction<UpdateData>,
     new_decision: &Decision,
-    original_action_hash: &ActionHash,
 ) -> ExternResult<ValidateCallbackResult> {
-    let original_record = must_get_valid_record(original_action_hash.clone())?;
+    let original_record = must_get_valid_record(action.original_action_address.clone())?;
     let original_decision: Decision = original_record
         .entry()
         .to_app_option()

@@ -738,3 +738,106 @@ async fn test_decline_invitation_and_leave_hearth() {
     drop(bob_conductor);
     tokio::time::sleep(std::time::Duration::from_millis(500)).await;
 }
+
+
+/// Canonical Active Hearth catalog excludes a departed membership even though
+/// the historical AgentToHearths discovery link remains.
+#[tokio::test(flavor = "multi_thread")]
+#[ignore = "requires Holochain conductor (nix develop)"]
+async fn test_active_hearth_catalog_excludes_departed_member() {
+    let dna_file = SweetDnaFile::from_bundle(&hearth_dna_path()).await.unwrap();
+
+    let mut alice_conductor = SweetConductor::from_standard_config().await;
+    let mut bob_conductor = SweetConductor::from_standard_config().await;
+
+    let (alice,) = alice_conductor
+        .setup_app("test-app", &[dna_file.clone()])
+        .await
+        .unwrap()
+        .into_tuple();
+    let (bob,) = bob_conductor
+        .setup_app("test-app", &[dna_file.clone()])
+        .await
+        .unwrap()
+        .into_tuple();
+
+    SweetConductor::exchange_peer_info([&alice_conductor, &bob_conductor]).await;
+
+    let hearth_record: Record = alice_conductor
+        .call(
+            &alice.zome("hearth_kinship"),
+            "create_hearth",
+            CreateHearthInput {
+                name: "Catalog Departure Test".into(),
+                description: "Departure must revoke active catalog membership".into(),
+                hearth_type: HearthType::Nuclear,
+                max_members: Some(4),
+            },
+        )
+        .await;
+    let hearth_hash = hearth_record.action_address().clone();
+
+    let invitation_record: Record = alice_conductor
+        .call(
+            &alice.zome("hearth_kinship"),
+            "invite_member",
+            InviteMemberInput {
+                hearth_hash: hearth_hash.clone(),
+                invitee_agent: bob.agent_pubkey().clone(),
+                proposed_role: MemberRole::Adult,
+                message: "Join catalog departure test".into(),
+                expires_at: Timestamp::from_micros(
+                    Timestamp::now().as_micros() + 86_400_000_000,
+                ),
+            },
+        )
+        .await;
+
+    tokio::time::sleep(std::time::Duration::from_secs(10)).await;
+
+    let membership_record: Record = bob_conductor
+        .call(
+            &bob.zome("hearth_kinship"),
+            "accept_invitation",
+            AcceptInvitationInput {
+                invitation_hash: invitation_record.action_address().clone(),
+                display_name: "Bob".into(),
+            },
+        )
+        .await;
+
+    tokio::time::sleep(std::time::Duration::from_secs(10)).await;
+
+    let active_before: serde_json::Value = bob_conductor
+        .call(&bob.zome("hearth_kinship"), "get_my_active_hearths", ())
+        .await;
+    assert_eq!(
+        active_before.as_array().map(Vec::len),
+        Some(1),
+        "Bob should have one active Hearth before departure"
+    );
+
+    let _departed: Record = bob_conductor
+        .call(
+            &bob.zome("hearth_kinship"),
+            "leave_hearth",
+            membership_record.action_address().clone(),
+        )
+        .await;
+
+    tokio::time::sleep(std::time::Duration::from_secs(10)).await;
+
+    let active_after: serde_json::Value = bob_conductor
+        .call(&bob.zome("hearth_kinship"), "get_my_active_hearths", ())
+        .await;
+    assert_eq!(
+        active_after.as_array().map(Vec::len),
+        Some(0),
+        "departed membership must not remain in the active Hearth catalog"
+    );
+
+    drop(alice_conductor);
+    drop(bob_conductor);
+    tokio::time::sleep(std::time::Duration::from_millis(500)).await;
+}
+
