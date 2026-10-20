@@ -406,6 +406,67 @@ fn evaluate_policy(
     Ok(report)
 }
 
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum BaselinePolicy {
+    NoQuery,
+    FixedPlaybook,
+    CheapestAuthorizedFirst,
+}
+
+/// Returns a policy trace using solver-visible catalog metadata only.
+/// Evaluator outcomes/world state are intentionally not accepted as inputs.
+fn baseline_trace(
+    catalog: &EvidenceRequestCatalog,
+    scenario_id: &str,
+    authorized_authorities: &[RequestAuthority],
+    policy: BaselinePolicy,
+) -> Result<Vec<String>, String> {
+    let scenario = catalog
+        .scenarios
+        .iter()
+        .find(|scenario| scenario.scenario_id == scenario_id)
+        .ok_or_else(|| format!("unknown scenario: {scenario_id}"))?;
+
+    match policy {
+        BaselinePolicy::NoQuery => Ok(Vec::new()),
+        BaselinePolicy::FixedPlaybook => {
+            const PLAYBOOK: &[&str] = &[
+                "shared-egress-rollup",
+                "endpoint-device-context",
+                "session-issuance-audit",
+            ];
+            let available = scenario
+                .requests
+                .iter()
+                .map(|request| request.request_id.as_str())
+                .collect::<BTreeSet<_>>();
+            Ok(PLAYBOOK
+                .iter()
+                .filter(|request_id| available.contains(**request_id))
+                .map(|request_id| (*request_id).to_string())
+                .collect())
+        }
+        BaselinePolicy::CheapestAuthorizedFirst => {
+            let mut requests = scenario
+                .requests
+                .iter()
+                .filter(|request| authorized_authorities.contains(&request.required_authority))
+                .collect::<Vec<_>>();
+            requests.sort_by(|left, right| {
+                left.cost_units
+                    .cmp(&right.cost_units)
+                    .then_with(|| left.latency_bound_minutes.cmp(&right.latency_bound_minutes))
+                    .then_with(|| left.request_id.cmp(&right.request_id))
+            });
+            Ok(requests
+                .into_iter()
+                .map(|request| request.request_id.clone())
+                .collect())
+        }
+    }
+}
+
 #[test]
 fn schemas_are_draft_2020_12_and_accept_both_valid_fixtures() {
     let catalog_schema: serde_json::Value =
@@ -712,4 +773,125 @@ fn source_kinds_and_authority_levels_are_typed_enums() {
         catalog.scenarios[0].requests[2].required_authority,
         RequestAuthority::IncidentCommander
     );
+}
+
+
+#[test]
+fn metadata_only_baselines_are_deterministic_and_use_equal_constraints() {
+    let catalog = catalog_fixture();
+    let evaluator = evaluator_fixture();
+    let authorized = [RequestAuthority::ReadOnlyTelemetry];
+    let budget = EvaluationBudget {
+        max_cost_units: 5,
+        max_latency_bound_minutes: 10,
+    };
+
+    let no_query = baseline_trace(
+        &catalog,
+        "CYB-ACQ-001",
+        &authorized,
+        BaselinePolicy::NoQuery,
+    )
+    .unwrap();
+    assert!(no_query.is_empty());
+    let no_query_report = evaluate_policy(
+        &catalog,
+        &evaluator,
+        "CYB-ACQ-001",
+        &no_query.iter().map(String::as_str).collect::<Vec<_>>(),
+        &authorized,
+        budget,
+    )
+    .unwrap();
+    assert_eq!(no_query_report.remaining_hypotheses.len(), 4);
+    assert_eq!(no_query_report.expected_information_gain_milli_bits, 0);
+    assert_eq!(no_query_report.total_cost_units, 0);
+
+    let fixed = baseline_trace(
+        &catalog,
+        "CYB-ACQ-001",
+        &authorized,
+        BaselinePolicy::FixedPlaybook,
+    )
+    .unwrap();
+    assert_eq!(
+        fixed,
+        vec![
+            "shared-egress-rollup",
+            "endpoint-device-context",
+            "session-issuance-audit"
+        ]
+    );
+    let fixed_report = evaluate_policy(
+        &catalog,
+        &evaluator,
+        "CYB-ACQ-001",
+        &fixed.iter().map(String::as_str).collect::<Vec<_>>(),
+        &authorized,
+        budget,
+    )
+    .unwrap();
+    assert_eq!(fixed_report.total_cost_units, 4);
+    assert_eq!(fixed_report.latency_bound_minutes, 6);
+    assert_eq!(fixed_report.expected_information_gain_milli_bits, 2396);
+    assert_eq!(fixed_report.remaining_hypotheses, vec!["compromised_session"]);
+
+    let cheapest = baseline_trace(
+        &catalog,
+        "CYB-ACQ-001",
+        &authorized,
+        BaselinePolicy::CheapestAuthorizedFirst,
+    )
+    .unwrap();
+    assert_eq!(
+        cheapest,
+        vec![
+            "sensor-health-check",
+            "shared-egress-rollup",
+            "endpoint-device-context",
+            "session-issuance-audit"
+        ]
+    );
+    let cheapest_report = evaluate_policy(
+        &catalog,
+        &evaluator,
+        "CYB-ACQ-001",
+        &cheapest.iter().map(String::as_str).collect::<Vec<_>>(),
+        &authorized,
+        budget,
+    )
+    .unwrap();
+    assert_eq!(cheapest_report.requests_executed, 4);
+    assert_eq!(cheapest_report.total_cost_units, 5);
+    assert_eq!(cheapest_report.latency_bound_minutes, 7);
+    assert_eq!(cheapest_report.expected_information_gain_milli_bits, 2396);
+    assert_eq!(cheapest_report.remaining_hypotheses, vec!["compromised_session"]);
+
+    // Neither policy runner accepts evaluator state; a catalog permutation
+    // must not change the metadata-only request order.
+    let mut permuted = catalog.clone();
+    permuted.scenarios[0].requests.reverse();
+    assert_eq!(
+        baseline_trace(
+            &permuted,
+            "CYB-ACQ-001",
+            &authorized,
+            BaselinePolicy::CheapestAuthorizedFirst
+        )
+        .unwrap(),
+        cheapest
+    );
+}
+
+#[test]
+fn metadata_only_baseline_never_selects_a_request_above_its_authority() {
+    let catalog = catalog_fixture();
+    let trace = baseline_trace(
+        &catalog,
+        "CYB-ACQ-001",
+        &[RequestAuthority::ReadOnlyTelemetry],
+        BaselinePolicy::CheapestAuthorizedFirst,
+    )
+    .unwrap();
+    assert!(!trace.iter().any(|request_id| request_id == "privileged-token-use-audit"));
 }
