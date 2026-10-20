@@ -8,14 +8,14 @@ on:
       - mycelix-workspace/mycelix-manufacturing/Cargo.toml
       - mycelix-workspace/mycelix-manufacturing/Cargo.lock
       - mycelix-workspace/mycelix-manufacturing/crates/manufacturing_common/**
-      - mycelix-workspace/mycelix-manufacturing/schemas/process-reference-v1.schema.json
+      - mycelix-workspace/mycelix-manufacturing/schemas/*.schema.json
       - .github/workflows/manufacturing-process-reference.yml
   pull_request:
     paths:
       - mycelix-workspace/mycelix-manufacturing/Cargo.toml
       - mycelix-workspace/mycelix-manufacturing/Cargo.lock
       - mycelix-workspace/mycelix-manufacturing/crates/manufacturing_common/**
-      - mycelix-workspace/mycelix-manufacturing/schemas/process-reference-v1.schema.json
+      - mycelix-workspace/mycelix-manufacturing/schemas/*.schema.json
       - .github/workflows/manufacturing-process-reference.yml
   workflow_dispatch:
 
@@ -42,7 +42,7 @@ jobs:
           build-warnings: warn
 
       - name: Check new process reference module formatting
-        run: rustfmt --edition 2024 --check mycelix-workspace/mycelix-manufacturing/crates/manufacturing_common/src/process_registry.rs
+        run: rustfmt --edition 2024 --check mycelix-workspace/mycelix-manufacturing/crates/manufacturing_common/src/process_registry.rs mycelix-workspace/mycelix-manufacturing/crates/manufacturing_common/src/process_execution_evidence.rs
 
       - name: Bootstrap package lockfile for this isolated workspace
         run: cargo generate-lockfile --manifest-path mycelix-workspace/mycelix-manufacturing/Cargo.toml
@@ -54,7 +54,7 @@ jobs:
         run: cargo clippy --locked --manifest-path mycelix-workspace/mycelix-manufacturing/Cargo.toml --package manufacturing_common --all-targets -- -D warnings
 
       - name: Validate schema JSON syntax
-        run: jq empty mycelix-workspace/mycelix-manufacturing/schemas/process-reference-v1.schema.json
+        run: jq empty mycelix-workspace/mycelix-manufacturing/schemas/*.schema.json
 
       - name: Preserve generated lockfile for pinning
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
