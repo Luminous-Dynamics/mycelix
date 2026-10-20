@@ -188,6 +188,7 @@ def validate_essential_capabilities(errors: list[str]) -> tuple[int, int]:
 
     if (
         isinstance(metadata.get("total_standards"), bool)
+        or not isinstance(metadata.get("total_standards"), int)
         or metadata.get("total_standards") != len(nodes)
     ):
         errors.append(
@@ -227,19 +228,27 @@ def validate_essential_capabilities(errors: list[str]) -> tuple[int, int]:
             errors.append(
                 f"{seed_path.relative_to(ROOT)}: {node_id} must define an observable Demonstration"
             )
-        if node.get("node_type") not in allowed_node_types:
+        node_type = node.get("node_type")
+        if not isinstance(node_type, str) or node_type not in allowed_node_types:
             errors.append(f"{seed_path.relative_to(ROOT)}: {node_id} has invalid node_type")
-        if node.get("difficulty") not in allowed_difficulties:
+        difficulty = node.get("difficulty")
+        if not isinstance(difficulty, str) or difficulty not in allowed_difficulties:
             errors.append(f"{seed_path.relative_to(ROOT)}: {node_id} has invalid difficulty")
-        if node.get("bloom_level") not in allowed_bloom:
+        bloom_level = node.get("bloom_level")
+        if not isinstance(bloom_level, str) or bloom_level not in allowed_bloom:
             errors.append(f"{seed_path.relative_to(ROOT)}: {node_id} has invalid bloom_level")
-        if node.get("subject_area") not in allowed_subjects:
+        subject_area = node.get("subject_area")
+        if not isinstance(subject_area, str) or subject_area not in allowed_subjects:
             errors.append(f"{seed_path.relative_to(ROOT)}: {node_id} has invalid subject_area")
         if not isinstance(node.get("grade_levels"), list) or not node["grade_levels"]:
             errors.append(f"{seed_path.relative_to(ROOT)}: {node_id} needs grade_levels")
         if not isinstance(node.get("academic_standards"), list):
             errors.append(f"{seed_path.relative_to(ROOT)}: {node_id} academic_standards must be an array")
-        if not isinstance(node.get("estimated_hours"), int) or node["estimated_hours"] <= 0:
+        if (
+            isinstance(node.get("estimated_hours"), bool)
+            or not isinstance(node.get("estimated_hours"), int)
+            or node["estimated_hours"] <= 0
+        ):
             errors.append(f"{seed_path.relative_to(ROOT)}: {node_id} estimated_hours must be positive")
         if not isinstance(node.get("tags"), list) or "essential-capability-v1" not in node["tags"]:
             errors.append(f"{seed_path.relative_to(ROOT)}: {node_id} must carry the seed tag")
@@ -260,7 +269,8 @@ def validate_essential_capabilities(errors: list[str]) -> tuple[int, int]:
             )
         if isinstance(source, str) and isinstance(target, str) and source == target:
             errors.append(f"{seed_path.relative_to(ROOT)}: edge {index} is a self-edge")
-        if edge.get("edge_type") not in allowed_edge_types:
+        edge_type = edge.get("edge_type")
+        if not isinstance(edge_type, str) or edge_type not in allowed_edge_types:
             errors.append(f"{seed_path.relative_to(ROOT)}: edge {index} has invalid edge_type")
         strength = edge.get("strength_permille")
         if isinstance(strength, bool) or not isinstance(strength, int) or not 0 <= strength <= 1000:
