@@ -322,13 +322,13 @@ mycelix compliance-report --framework soc2 > soc2-evidence.json
 
 ### Requested manual evidence (not evidence of current completion)
 
-| Evidence Type | Collection Frequency | Owner |
-|---------------|---------------------|-------|
-| Risk assessments | Quarterly | Security Team |
-| Penetration tests | Annual | External Vendor |
-| Policy reviews | Annual | Compliance |
-| Training records | Per employee | HR |
-| Vendor assessments | Annual per vendor | Procurement |
+| Evidence type | Proposed cadence / trigger | Accountable role to assign |
+|---|---|---|
+| Risk assessments | Quarterly and after material change | Named operational-risk owner |
+| Penetration tests | Before production approval and after material changes | Independent qualified tester |
+| Policy reviews | At least annually and on material change | Named policy owner |
+| Training records | As applicable to the deployment and workforce | Named workforce/compliance owner |
+| Vendor assessments | Before onboarding and after material changes | Named third-party-risk owner |
 
 ---
 
