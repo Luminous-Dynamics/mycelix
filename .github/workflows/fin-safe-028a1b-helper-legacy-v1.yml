@@ -1,0 +1,336 @@
+name: FIN-SAFE-028A1b LegacyV1 Helper Exact-Subject Qualification
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - '.github/workflows/fin-safe-028a1b-helper-legacy-v1.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: fin-safe-028a1b-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+env:
+  SUBJECT_SHA: '19eb8ef712d79d8f66d19419da584aad677fafa4'
+  SUBJECT_PARENT_SHA: '18b2bd8651ad46339c2fa9f418f76e7496582e1e'
+  QUALIFIER_BASE_SHA: '20452d0cde9448c424d708d6307aa33a3d1901e3'
+  RUST_VERSION: '1.96.0'
+  ROOT_HELPER: 'crates/mycelix-zome-helpers'
+  MIRROR_HELPER: 'mycelix-workspace/crates/mycelix-zome-helpers'
+  A1A_RECEIPT_SHA256: '6c259f60186e11c89c83d1da75bf02383e80ad159a3a1702972e4ec50c84f21b'
+
+jobs:
+  qualify:
+    name: Qualify exact LegacyV1 helper reroute
+    if: github.event.pull_request.head.repo.full_name == github.repository && github.event.pull_request.head.ref == 'qualify-fin-safe-028a1b-main-trigger'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - name: Checkout exact qualifier head
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 2
+          persist-credentials: false
+
+      - name: Bind one-file qualification plane
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "${{ github.event.pull_request.head.sha }}"
+          test "$(git rev-parse HEAD^)" = "$QUALIFIER_BASE_SHA"
+          mapfile -t changed < <(git diff --name-only "$QUALIFIER_BASE_SHA" HEAD | sort)
+          test "${#changed[@]}" -eq 1
+          test "${changed[0]}" = '.github/workflows/fin-safe-028a1b-helper-legacy-v1.yml'
+          test -z "$(git status --porcelain=v1 --untracked-files=all)"
+
+      - name: Checkout exact product subject
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ env.SUBJECT_SHA }}
+          fetch-depth: 2
+          persist-credentials: false
+
+      - name: Bind A1b lineage and four-file scope
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$SUBJECT_SHA"
+          test "$(git rev-parse HEAD^)" = "$SUBJECT_PARENT_SHA"
+          mapfile -t changed < <(git diff --name-only "$SUBJECT_PARENT_SHA" "$SUBJECT_SHA" | sort)
+          expected=(
+            'crates/mycelix-zome-helpers/Cargo.toml'
+            'crates/mycelix-zome-helpers/src/lib.rs'
+            'mycelix-workspace/crates/mycelix-zome-helpers/Cargo.toml'
+            'mycelix-workspace/crates/mycelix-zome-helpers/src/lib.rs'
+          )
+          test "${#changed[@]}" -eq "${#expected[@]}"
+          for i in "${!expected[@]}"; do
+            test "${changed[$i]}" = "${expected[$i]}"
+            test "$(git diff --diff-filter=M --name-only "$SUBJECT_PARENT_SHA" "$SUBJECT_SHA" -- "${expected[$i]}")" = "${expected[$i]}"
+          done
+          test -z "$(git status --porcelain=v1 --untracked-files=all)"
+
+      - name: Prove mirror identity and authority boundary
+        shell: bash
+        run: |
+          set -euo pipefail
+          cmp "$ROOT_HELPER/Cargo.toml" "$MIRROR_HELPER/Cargo.toml"
+          cmp "$ROOT_HELPER/src/lib.rs" "$MIRROR_HELPER/src/lib.rs"
+          for manifest in "$ROOT_HELPER/Cargo.toml" "$MIRROR_HELPER/Cargo.toml"; do
+            test "$(grep -Fc 'mycelix-legacy-governance-v1 = { path = "../mycelix-bridge-common/legacy-v1-facade" }' "$manifest")" -eq 1
+          done
+          for src in "$ROOT_HELPER/src/lib.rs" "$MIRROR_HELPER/src/lib.rs"; do
+            ! grep -Eq '(^|[^[:alnum:]_])GovernanceRequirement([[:space:],}&]|$)' "$src"
+            ! grep -Eq 'gate_consciousness[[:space:]]*\(' "$src"
+            ! grep -Fq '#[deprecated' "$src"
+            grep -Fq 'pub fn require_legacy_v1(' "$src"
+            grep -Fq 'pub fn require_consciousness(' "$src"
+            grep -Fq 'pub fn require_civic(' "$src"
+            test "$(grep -Fc 'gate_legacy_v1(bridge_zome, requirement, action_name)' "$src")" -eq 1
+            test "$(grep -Fc 'require_legacy_v1(bridge_zome, requirement, action_name)' "$src")" -eq 1
+          done
+          python3 - <<'PY'
+          import pathlib, subprocess
+
+          parent = '18b2bd8651ad46339c2fa9f418f76e7496582e1e'
+          paths = [
+              'crates/mycelix-zome-helpers/src/lib.rs',
+              'mycelix-workspace/crates/mycelix-zome-helpers/src/lib.rs',
+          ]
+
+          def function_block(text: str, name: str) -> str:
+              needle = f'pub fn {name}('
+              start = text.index(needle)
+              brace = text.index('{', start)
+              depth = 0
+              for i in range(brace, len(text)):
+                  if text[i] == '{':
+                      depth += 1
+                  elif text[i] == '}':
+                      depth -= 1
+                      if depth == 0:
+                          return text[start:i + 1]
+              raise AssertionError(f'unclosed function {name}')
+
+          for path in paths:
+              before = subprocess.check_output(['git', 'show', f'{parent}:{path}'], text=True)
+              after = pathlib.Path(path).read_text()
+              assert function_block(before, 'require_civic') == function_block(after, 'require_civic'), path
+          PY
+          sha256sum \
+            "$ROOT_HELPER/Cargo.toml" "$ROOT_HELPER/src/lib.rs" \
+            "$MIRROR_HELPER/Cargo.toml" "$MIRROR_HELPER/src/lib.rs" \
+            > /tmp/fin-safe-028a1b-product-files.sha256
+
+      - name: Install pinned Rust toolchain
+        shell: bash
+        run: |
+          set -euo pipefail
+          rustup toolchain install "$RUST_VERSION" --profile default
+          rustup target add --toolchain "$RUST_VERSION" wasm32-unknown-unknown
+          rustc "+$RUST_VERSION" --version --verbose
+          cargo "+$RUST_VERSION" --version
+
+      - name: Generate independent locks and bind deployment graphs
+        shell: bash
+        run: |
+          set -euo pipefail
+          cargo "+$RUST_VERSION" generate-lockfile --manifest-path "$ROOT_HELPER/Cargo.toml"
+          cargo "+$RUST_VERSION" generate-lockfile --manifest-path "$MIRROR_HELPER/Cargo.toml"
+
+          cp "$ROOT_HELPER/Cargo.lock" /tmp/fin-safe-028a1b-root-Cargo.lock
+          cp "$MIRROR_HELPER/Cargo.lock" /tmp/fin-safe-028a1b-mirror-Cargo.lock
+          sha256sum /tmp/fin-safe-028a1b-root-Cargo.lock > /tmp/fin-safe-028a1b-root-lock.sha256
+          sha256sum /tmp/fin-safe-028a1b-mirror-Cargo.lock > /tmp/fin-safe-028a1b-mirror-lock.sha256
+
+          sha256sum crates/mycelix-bridge-common/Cargo.toml > /tmp/fin-safe-028a1b-root-parent-manifest.sha256
+          sha256sum mycelix-workspace/crates/mycelix-bridge-common/Cargo.toml > /tmp/fin-safe-028a1b-mirror-parent-manifest.sha256
+          ! cmp -s crates/mycelix-bridge-common/Cargo.toml mycelix-workspace/crates/mycelix-bridge-common/Cargo.toml
+
+          cargo "+$RUST_VERSION" metadata --manifest-path "$ROOT_HELPER/Cargo.toml" --locked --no-deps --format-version 1 > /tmp/a1b-root-metadata.json
+          cargo "+$RUST_VERSION" metadata --manifest-path "$MIRROR_HELPER/Cargo.toml" --locked --no-deps --format-version 1 > /tmp/a1b-mirror-metadata.json
+          cargo "+$RUST_VERSION" tree --manifest-path "$ROOT_HELPER/Cargo.toml" --locked > /tmp/fin-safe-028a1b-root-dependency-tree.txt
+          cargo "+$RUST_VERSION" tree --manifest-path "$MIRROR_HELPER/Cargo.toml" --locked > /tmp/fin-safe-028a1b-mirror-dependency-tree.txt
+          sha256sum /tmp/fin-safe-028a1b-root-dependency-tree.txt > /tmp/fin-safe-028a1b-root-tree.sha256
+          sha256sum /tmp/fin-safe-028a1b-mirror-dependency-tree.txt > /tmp/fin-safe-028a1b-mirror-tree.sha256
+
+          python3 - <<'PY'
+          import json, pathlib
+          root = json.load(open('/tmp/a1b-root-metadata.json'))
+          mirror = json.load(open('/tmp/a1b-mirror-metadata.json'))
+          cwd = pathlib.Path.cwd().resolve()
+          assert pathlib.Path(root['workspace_root']).resolve() == (cwd / 'crates/mycelix-zome-helpers').resolve()
+          assert pathlib.Path(mirror['workspace_root']).resolve() == (cwd / 'mycelix-workspace/crates/mycelix-zome-helpers').resolve()
+          assert root['packages'][0]['name'] == 'mycelix-zome-helpers'
+          assert mirror['packages'][0]['name'] == 'mycelix-zome-helpers'
+          PY
+
+      - name: Format compile test and lint both helper graphs
+        shell: bash
+        run: |
+          set -euo pipefail
+          for spec in "root:$ROOT_HELPER" "mirror:$MIRROR_HELPER"; do
+            label="${spec%%:*}"
+            helper="${spec#*:}"
+            manifest="$helper/Cargo.toml"
+            export CARGO_TARGET_DIR="/tmp/fin-safe-028a1b-${label}-target"
+            cargo "+$RUST_VERSION" fmt --manifest-path "$manifest" --check
+            cargo "+$RUST_VERSION" check --manifest-path "$manifest" --locked
+            cargo "+$RUST_VERSION" check --manifest-path "$manifest" --target wasm32-unknown-unknown --locked
+            cargo "+$RUST_VERSION" test --manifest-path "$manifest" --locked
+            cargo "+$RUST_VERSION" clippy --manifest-path "$manifest" --all-targets --locked -- -D warnings
+          done
+          unset CARGO_TARGET_DIR
+
+      - name: Prove original LegacyV1 caller type compatibility
+        shell: bash
+        run: |
+          set -euo pipefail
+          for spec in \
+            "root:$ROOT_HELPER:crates/mycelix-bridge-common" \
+            "mirror:$MIRROR_HELPER:mycelix-workspace/crates/mycelix-bridge-common"; do
+            label="${spec%%:*}"
+            rest="${spec#*:}"
+            helper="${rest%%:*}"
+            bridge="${rest#*:}"
+            probe="/tmp/fin-safe-028a1b-${label}-compat-probe"
+            mkdir -p "$probe/src"
+            cat > "$probe/Cargo.toml" <<EOF
+          [package]
+          name = "fin-safe-028a1b-${label}-compat-probe"
+          version = "0.0.0"
+          edition = "2024"
+          publish = false
+
+          [workspace]
+
+          [dependencies]
+          mycelix-zome-helpers = { path = "$GITHUB_WORKSPACE/$helper" }
+          mycelix-bridge-common = { path = "$GITHUB_WORKSPACE/$bridge" }
+          EOF
+            cat > "$probe/src/main.rs" <<'EOF'
+          #![deny(warnings)]
+
+          use mycelix_zome_helpers::{require_consciousness, require_legacy_v1};
+
+          #[allow(deprecated)]
+          type OriginalLegacyRequirement = mycelix_bridge_common::GovernanceRequirement;
+
+          fn original_legacy_type_still_compiles(req: &OriginalLegacyRequirement) {
+              let _ = require_consciousness("compat_bridge", req, "compat_probe");
+              let _ = require_legacy_v1("compat_bridge", req, "compat_probe");
+          }
+
+          fn main() {
+              let _ = original_legacy_type_still_compiles;
+          }
+          EOF
+            cargo "+$RUST_VERSION" generate-lockfile --manifest-path "$probe/Cargo.toml"
+            cargo "+$RUST_VERSION" check --manifest-path "$probe/Cargo.toml" --locked
+            sha256sum "$probe/Cargo.lock" > "/tmp/fin-safe-028a1b-${label}-probe-lock.sha256"
+          done
+
+      - name: Emit qualification receipt and prove immutable product
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -f "$ROOT_HELPER/Cargo.lock" "$MIRROR_HELPER/Cargo.lock"
+          test "$(git rev-parse HEAD)" = "$SUBJECT_SHA"
+          git status --porcelain=v1 --untracked-files=all > /tmp/fin-safe-028a1b-status.txt
+          test ! -s /tmp/fin-safe-028a1b-status.txt
+          export ROOT_LOCK_SHA="$(awk '{print $1}' /tmp/fin-safe-028a1b-root-lock.sha256)"
+          export MIRROR_LOCK_SHA="$(awk '{print $1}' /tmp/fin-safe-028a1b-mirror-lock.sha256)"
+          export ROOT_PARENT_MANIFEST_SHA="$(awk '{print $1}' /tmp/fin-safe-028a1b-root-parent-manifest.sha256)"
+          export MIRROR_PARENT_MANIFEST_SHA="$(awk '{print $1}' /tmp/fin-safe-028a1b-mirror-parent-manifest.sha256)"
+          export ROOT_TREE_SHA="$(awk '{print $1}' /tmp/fin-safe-028a1b-root-tree.sha256)"
+          export MIRROR_TREE_SHA="$(awk '{print $1}' /tmp/fin-safe-028a1b-mirror-tree.sha256)"
+          export ROOT_PROBE_LOCK_SHA="$(awk '{print $1}' /tmp/fin-safe-028a1b-root-probe-lock.sha256)"
+          export MIRROR_PROBE_LOCK_SHA="$(awk '{print $1}' /tmp/fin-safe-028a1b-mirror-probe-lock.sha256)"
+          export RUSTC_VERSION="$(rustc "+$RUST_VERSION" --version)"
+          export CARGO_VERSION="$(cargo "+$RUST_VERSION" --version)"
+          export QUALIFIER_SHA='${{ github.event.pull_request.head.sha }}'
+          python3 - <<'PY'
+          import hashlib, json, os, pathlib
+          receipt = {
+              'schema': 'mycelix.finance.fin-safe-028a1b.qualification.v1',
+              'subject_sha': os.environ['SUBJECT_SHA'],
+              'subject_parent_sha': os.environ['SUBJECT_PARENT_SHA'],
+              'qualifier_sha': os.environ['QUALIFIER_SHA'],
+              'a1a_prerequisite_receipt_sha256': os.environ['A1A_RECEIPT_SHA256'],
+              'rustc': os.environ['RUSTC_VERSION'],
+              'cargo': os.environ['CARGO_VERSION'],
+              'root_generated_lock_sha256': os.environ['ROOT_LOCK_SHA'],
+              'mirror_generated_lock_sha256': os.environ['MIRROR_LOCK_SHA'],
+              'root_parent_manifest_sha256': os.environ['ROOT_PARENT_MANIFEST_SHA'],
+              'mirror_parent_manifest_sha256': os.environ['MIRROR_PARENT_MANIFEST_SHA'],
+              'root_dependency_tree_sha256': os.environ['ROOT_TREE_SHA'],
+              'mirror_dependency_tree_sha256': os.environ['MIRROR_TREE_SHA'],
+              'root_legacy_compat_probe_lock_sha256': os.environ['ROOT_PROBE_LOCK_SHA'],
+              'mirror_legacy_compat_probe_lock_sha256': os.environ['MIRROR_PROBE_LOCK_SHA'],
+              'product_file_sha256': pathlib.Path('/tmp/fin-safe-028a1b-product-files.sha256').read_text().splitlines(),
+              'assertions': {
+                  'four_helper_files_only': True,
+                  'root_and_workspace_helper_source_identical': True,
+                  'root_and_workspace_helper_manifest_identical': True,
+                  'no_direct_deprecated_legacy_gate_or_requirement_usage': True,
+                  'require_civic_function_block_unchanged': True,
+                  'legacy_v1_facade_dependency_present': True,
+                  'legacy_helper_signature_alias_test_pass': True,
+                  'original_legacy_requirement_type_compat_probe_pass': True,
+                  'deployment_graphs_qualified_independently': True,
+                  'native_compile_pass': True,
+                  'wasm32_compile_pass': True,
+                  'tests_pass': True,
+                  'clippy_warning_fatal_pass': True,
+                  'postflight_immutable': True,
+              },
+              'proposition': 'FIN-SAFE-028A1b reroutes only the shared LegacyV1 helper path through the independently qualified A1a facade while preserving original LegacyV1 type compatibility and leaving the CivicV2 helper function unchanged.',
+              'nonclaims': [
+                  'No application or Music coordinator caller is migrated by this receipt.',
+                  'No sovereign_gate fallback is migrated by this receipt.',
+                  'No LegacyV1-to-CivicV2 equivalence or policy transition is claimed.',
+                  'The underlying legacy gate_consciousness implementation remains the final LegacyV1 authority implementation.',
+              ],
+          }
+          raw = (json.dumps(receipt, sort_keys=True, separators=(',', ':')) + '\n').encode()
+          pathlib.Path('/tmp/fin-safe-028a1b-receipt.json').write_bytes(raw)
+          pathlib.Path('/tmp/fin-safe-028a1b-receipt.sha256').write_text(hashlib.sha256(raw).hexdigest() + '  fin-safe-028a1b-receipt.json\n')
+          print(raw.decode(), end='')
+          PY
+          cd /tmp
+          sha256sum -c fin-safe-028a1b-receipt.sha256
+          sha256sum -c fin-safe-028a1b-root-lock.sha256
+          sha256sum -c fin-safe-028a1b-mirror-lock.sha256
+          sha256sum -c fin-safe-028a1b-root-tree.sha256
+          sha256sum -c fin-safe-028a1b-mirror-tree.sha256
+          sha256sum -c fin-safe-028a1b-root-probe-lock.sha256
+          sha256sum -c fin-safe-028a1b-mirror-probe-lock.sha256
+
+      - name: Upload qualification evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: fin-safe-028a1b-${{ env.SUBJECT_SHA }}-${{ github.run_attempt }}
+          path: |
+            /tmp/fin-safe-028a1b-receipt.json
+            /tmp/fin-safe-028a1b-receipt.sha256
+            /tmp/fin-safe-028a1b-root-Cargo.lock
+            /tmp/fin-safe-028a1b-mirror-Cargo.lock
+            /tmp/fin-safe-028a1b-root-lock.sha256
+            /tmp/fin-safe-028a1b-mirror-lock.sha256
+            /tmp/fin-safe-028a1b-root-parent-manifest.sha256
+            /tmp/fin-safe-028a1b-mirror-parent-manifest.sha256
+            /tmp/fin-safe-028a1b-root-dependency-tree.txt
+            /tmp/fin-safe-028a1b-mirror-dependency-tree.txt
+            /tmp/fin-safe-028a1b-root-tree.sha256
+            /tmp/fin-safe-028a1b-mirror-tree.sha256
+            /tmp/fin-safe-028a1b-root-probe-lock.sha256
+            /tmp/fin-safe-028a1b-mirror-probe-lock.sha256
+            /tmp/fin-safe-028a1b-product-files.sha256
+            /tmp/fin-safe-028a1b-status.txt
+          if-no-files-found: warn
+          retention-days: 90
