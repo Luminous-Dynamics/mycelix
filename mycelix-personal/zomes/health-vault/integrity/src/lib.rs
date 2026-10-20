@@ -143,10 +143,13 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
             action,
             ..
         } => match link_type {
-            LinkTypes::AgentToConsents | LinkTypes::AgentToConsentRevocations => {
+            LinkTypes::AgentToRecords
+            | LinkTypes::AgentToBiometrics
+            | LinkTypes::AgentToConsents
+            | LinkTypes::AgentToConsentRevocations => {
                 if !consent_history_base_matches_author(&base, &action.author) {
                     return Ok(ValidateCallbackResult::Invalid(
-                        "Consent history links must be authored on the owner's agent base".into(),
+                        "Health Vault owner links must use the author agent as their base".into(),
                     ));
                 }
                 Ok(ValidateCallbackResult::Valid)
