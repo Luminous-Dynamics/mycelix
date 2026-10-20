@@ -17,6 +17,7 @@
 
 pub mod claims;
 pub mod error;
+pub mod persistent_id;
 pub mod storage;
 
 // Core claim types
@@ -38,6 +39,12 @@ pub use claims::MATLTrust;
 
 // Unified Fingerprint
 pub use claims::EpistemicFingerprint;
+
+// Scholarly persistent identifiers
+pub use persistent_id::{
+    ExternalMetadataProvenance, LegacyIdentifierClassification, PersistentIdentifierRef,
+    PersistentIdentifierScheme,
+};
 
 pub use error::{Error, Result};
 pub use storage::{IpfsStorage, MemoryStorage, StorageBackend};
