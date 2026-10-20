@@ -5,7 +5,11 @@
 
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
-use std::{collections::BTreeSet, process::Command};
+use std::{
+    collections::{BTreeSet, HashMap},
+    process::Command,
+    sync::{Arc, OnceLock, RwLock},
+};
 
 pub const REQUEST_SCHEMA_VERSION: &str = "mycelix.claim-ceiling-meet.request.v1";
 pub const RECEIPT_SCHEMA_VERSION: &str = "mycelix.claim-ceiling-meet.receipt.v1";
@@ -329,17 +333,56 @@ fn sha256(bytes: &[u8]) -> String {
     format!("{:x}", Sha256::digest(bytes))
 }
 
-fn validate_json_against_schema(
+// These validators are compiled from immutable, embedded schemas only. Keying by the
+// exact schema bytes avoids accidental cross-schema reuse and keeps untrusted request
+// data out of the cache key. Instance JSON is still parsed and validated for every call.
+static COMPILED_SCHEMA_CACHE: OnceLock<RwLock<HashMap<Vec<u8>, Arc<jsonschema::JSONSchema>>>> =
+    OnceLock::new();
+
+fn compiled_schema_validator(
     schema_bytes: &[u8],
-    json_bytes: &[u8],
     name: &str,
-) -> Result<(), String> {
+) -> Result<Arc<jsonschema::JSONSchema>, String> {
+    let cache = COMPILED_SCHEMA_CACHE.get_or_init(|| RwLock::new(HashMap::new()));
+
+    // The read lock is the steady-state path, so concurrent evaluators do not serialize
+    // behind a mutex on every request.
+    {
+        let cached = cache
+            .read()
+            .map_err(|_| format!("{name} schema validator cache lock is poisoned"))?;
+        if let Some(validator) = cached.get(schema_bytes) {
+            return Ok(Arc::clone(validator));
+        }
+    }
+
+    // Recheck after acquiring the write lock; another first-use caller may have populated
+    // this exact schema while we waited. Compile under the write lock so each byte sequence
+    // is compiled once per process.
+    let mut cached = cache
+        .write()
+        .map_err(|_| format!("{name} schema validator cache lock is poisoned"))?;
+    if let Some(validator) = cached.get(schema_bytes) {
+        return Ok(Arc::clone(validator));
+    }
+
     let schema: serde_json::Value = serde_json::from_slice(schema_bytes)
         .map_err(|error| format!("{name} schema is invalid JSON: {error}"))?;
     let validator = jsonschema::JSONSchema::options()
         .with_draft(jsonschema::Draft::Draft202012)
         .compile(&schema)
         .map_err(|error| format!("{name} schema compilation failed: {error}"))?;
+    let validator = Arc::new(validator);
+    cached.insert(schema_bytes.to_vec(), Arc::clone(&validator));
+    Ok(validator)
+}
+
+fn validate_json_against_schema(
+    schema_bytes: &[u8],
+    json_bytes: &[u8],
+    name: &str,
+) -> Result<(), String> {
+    let validator = compiled_schema_validator(schema_bytes, name)?;
     let instance: serde_json::Value = serde_json::from_slice(json_bytes)
         .map_err(|error| format!("{name} instance is invalid JSON: {error}"))?;
     match validator.validate(&instance) {
@@ -455,6 +498,23 @@ mod tests {
     use super::*;
     use serde::Deserialize;
     use serde_json::json;
+
+    #[test]
+    fn compiled_schema_cache_reuses_exact_immutable_schema_bytes() {
+        let first = compiled_schema_validator(REQUEST_SCHEMA, "request")
+            .expect("embedded request schema should compile");
+        let second = compiled_schema_validator(REQUEST_SCHEMA, "request")
+            .expect("cached request schema should be available");
+        assert!(std::sync::Arc::ptr_eq(&first, &second));
+
+        // A byte-distinct schema is a distinct cache entry even when it is semantically
+        // equivalent JSON (trailing whitespace). This prevents ambiguous keying.
+        let mut alternate_bytes = REQUEST_SCHEMA.to_vec();
+        alternate_bytes.push(b'\n');
+        let alternate = compiled_schema_validator(&alternate_bytes, "alternate request")
+            .expect("valid whitespace-extended schema should compile");
+        assert!(!std::sync::Arc::ptr_eq(&first, &alternate));
+    }
 
     #[derive(Debug, Deserialize)]
     struct GoldenVectorCorpus {
