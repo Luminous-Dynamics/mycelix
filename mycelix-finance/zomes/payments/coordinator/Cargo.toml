@@ -12,6 +12,7 @@ name = "payments"
 [dependencies]
 mycelix-bridge-common = { workspace = true }
 mycelix-zome-helpers = { workspace = true }
+holo_hash = { workspace = true }
 holochain_serialized_bytes = { workspace = true }
 hdk = { workspace = true }
 serde = { workspace = true }
