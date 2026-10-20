@@ -1,6 +1,6 @@
 # Mycelix Fabrication hApp
 
-[![CI](https://github.com/luminous-dynamics/luminous-dynamics/actions/workflows/fabrication-ci.yml/badge.svg)](https://github.com/luminous-dynamics/luminous-dynamics/actions/workflows/fabrication-ci.yml)
+[![CI](https://github.com/Luminous-Dynamics/mycelix/actions/workflows/fabrication-ci.yml/badge.svg)](https://github.com/Luminous-Dynamics/mycelix/actions/workflows/fabrication-ci.yml)
 **348 unit tests** | **14 WASM zomes** | **Holochain 0.6**
 
 **Distributed Manufacturing Commons for the Civilizational OS**
