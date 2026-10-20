@@ -1,0 +1,44 @@
+name: Mycelix Vehicle Record Schema Audit
+
+on:
+  pull_request:
+    branches: ["main"]
+    paths:
+      - "mycelix-commons/schemas/vehicle_record_envelope_v0_1.schema.json"
+      - "mycelix-commons/fixtures/vehicle_dossier_fixtures_v0_1.json"
+      - "mycelix-commons/fixtures/vehicle_record_envelopes_v0_1.json"
+      - "tools/vehicle-record-audit/**"
+      - ".github/workflows/vehicle-record-schema-audit.yml"
+  push:
+    branches: ["main"]
+    paths:
+      - "mycelix-commons/schemas/vehicle_record_envelope_v0_1.schema.json"
+      - "mycelix-commons/fixtures/vehicle_dossier_fixtures_v0_1.json"
+      - "mycelix-commons/fixtures/vehicle_record_envelopes_v0_1.json"
+      - "tools/vehicle-record-audit/**"
+      - ".github/workflows/vehicle-record-schema-audit.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: vehicle-record-schema-audit-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install pinned Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: 1.96.0
+          components: rustfmt
+      - name: Check verifier formatting
+        run: cargo fmt --manifest-path tools/vehicle-record-audit/Cargo.toml -- --check
+      - name: Validate Draft 2020-12 schema and privacy/claim controls
+        run: cargo test --manifest-path tools/vehicle-record-audit/Cargo.toml --all-targets
+      - name: Audit checked-in schema and fixture corpus
+        run: cargo run --manifest-path tools/vehicle-record-audit/Cargo.toml
