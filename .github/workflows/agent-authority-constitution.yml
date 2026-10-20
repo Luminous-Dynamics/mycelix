@@ -1,0 +1,65 @@
+name: AGENT-000 Agent Authority Constitution
+
+on:
+  pull_request:
+    paths:
+      - 'mycelix-workspace/docs/agents/AGENT_AUTHORITY_CONSTITUTION_V0.1.md'
+      - 'scripts/qualification/agent_authority_constitution_v0_1.py'
+      - '.github/workflows/agent-authority-constitution.yml'
+  push:
+    branches:
+      - 'docs/agent-000-authority-constitution-v0.1'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: agent-000-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  qualify:
+    name: Agent authority composition boundaries
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+
+      - name: Execution identity
+        run: |
+          git rev-parse HEAD
+          python3 --version
+
+      - name: Qualify constitutional corpus
+        run: python3 scripts/qualification/agent_authority_constitution_v0_1.py
+
+      - name: AGENT-000 remains documentation and qualification only
+        shell: bash
+        run: |
+          set -euo pipefail
+          base="${{ github.event.pull_request.base.sha || github.event.before }}"
+          changed="$(git diff --name-only "$base" HEAD 2>/dev/null || true)"
+          printf '%s\n' "$changed"
+
+          allowed='^(\.github/workflows/agent-authority-constitution\.yml|scripts/qualification/agent_authority_constitution_v0_1\.py|mycelix-workspace/docs/agents/AGENT_AUTHORITY_CONSTITUTION_V0\.1\.md)$'
+          unexpected="$(printf '%s\n' "$changed" | grep -Ev "$allowed" || true)"
+          if [ -n "$unexpected" ]; then
+            echo "AGENT-000 must remain documentation/qualification-only; unexpected paths:" >&2
+            printf '%s\n' "$unexpected" >&2
+            exit 1
+          fi
+
+      - name: Static anti-authority-shortcut audit
+        run: |
+          set -euo pipefail
+          doc='mycelix-workspace/docs/agents/AGENT_AUTHORITY_CONSTITUTION_V0.1.md'
+          grep -Fq 'AA-011 — consumable authority is conserved across fan-out' "$doc"
+          grep -Fq 'AA-015 — deterministic enforcement decides constraint fit' "$doc"
+          grep -Fq 'AA-017 — adapters cannot mint or widen authority' "$doc"
+          grep -Fq 'AA-019 — effect uncertainty is typed and fail-closed' "$doc"
+          grep -Fq 'AA-024 — model correctness is never a security assumption' "$doc"
+
+      - name: Immutable checkout postflight
+        run: test -z "$(git status --short)"
