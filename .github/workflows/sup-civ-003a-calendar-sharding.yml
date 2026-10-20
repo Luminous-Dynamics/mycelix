@@ -1,0 +1,91 @@
+name: SUP-CIV-003A Calendar-Correct Support Sharding
+
+on:
+  pull_request:
+    paths:
+      - 'mycelix-commons/crates/support-types/src/lib.rs'
+      - 'mycelix-workspace/docs/civic-resilience/SUP_CIV_003A_CALENDAR_SHARDING_MIGRATION_V1.md'
+      - '.github/workflows/sup-civ-003a-calendar-sharding.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: sup-civ-003a-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  qualify:
+    name: Exact UTC support-shard conversion
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+
+      - name: Exact parent and tranche scope
+        shell: bash
+        run: |
+          set -euo pipefail
+          EXPECTED_PARENT='a85369699099d4c7524e502e531735eed4ab36f4'
+          test "$(git rev-parse HEAD^)" = "$EXPECTED_PARENT"
+          test "$(git rev-list --count "$EXPECTED_PARENT"..HEAD)" = '1'
+          test -z "$(git status --short)"
+          git diff --check "$EXPECTED_PARENT" HEAD
+          mapfile -t changed < <(git diff --name-only "$EXPECTED_PARENT" HEAD | sort)
+          expected=(
+            '.github/workflows/sup-civ-003a-calendar-sharding.yml'
+            'mycelix-commons/crates/support-types/src/lib.rs'
+            'mycelix-workspace/docs/civic-resilience/SUP_CIV_003A_CALENDAR_SHARDING_MIGRATION_V1.md'
+          )
+          mapfile -t expected_sorted < <(printf '%s\n' "${expected[@]}" | sort)
+          diff -u <(printf '%s\n' "${expected_sorted[@]}") <(printf '%s\n' "${changed[@]}")
+          printf 'head=%s\nparent=%s\ntree=%s\n' \
+            "$(git rev-parse HEAD)" \
+            "$(git rev-parse HEAD^)" \
+            "$(git rev-parse HEAD^{tree})"
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+
+      - name: Prove approximation was removed from active conversion
+        shell: bash
+        run: |
+          set -euo pipefail
+          src='mycelix-commons/crates/support-types/src/lib.rs'
+          grep -q 'civil_year_month_from_days' "$src"
+          grep -q 'div_euclid' "$src"
+          if grep -q '30\.44' "$src"; then
+            echo 'legacy average-month approximation remains in active source' >&2
+            exit 1
+          fi
+          if grep -q 'days / 365' "$src"; then
+            echo 'legacy fixed-365-day year approximation remains in active source' >&2
+            exit 1
+          fi
+
+      - name: Format support-types
+        run: cd mycelix-commons && cargo fmt --package support-types -- --check
+
+      - name: Test support-types
+        run: cd mycelix-commons && cargo test --locked -p support-types
+
+      - name: Check support-types WASM target
+        run: cd mycelix-commons && cargo check --locked -p support-types --target wasm32-unknown-unknown
+
+      - name: Migration-boundary canaries
+        shell: bash
+        run: |
+          set -euo pipefail
+          doc='mycelix-workspace/docs/civic-resilience/SUP_CIV_003A_CALENDAR_SHARDING_MIGRATION_V1.md'
+          grep -q 'CorrectNewShardFunction != LegacyIndexMigrated' "$doc"
+          grep -q 'ReindexLink != TicketMutation' "$doc"
+          grep -q 'CalendarCorrectShard != TrustedEventTime' "$doc"
+          grep -q 'legacy-aware query or explicit incomplete-result status' "$doc"
+
+      - name: Immutable checkout postflight
+        run: test -z "$(git status --short)"
