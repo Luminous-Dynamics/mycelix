@@ -18,8 +18,10 @@ jobs:
   furnishing-discovery:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout event revision
+      - name: Checkout exact PR head (or pushed commit)
         uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
       - name: Install Rust toolchain
         uses: actions-rust-lang/setup-rust-toolchain@v1
         with:
@@ -29,7 +31,10 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+          expected_head="${{ github.event.pull_request.head.sha || github.sha }}"
+          actual_head="$(git rev-parse HEAD)"
+          test "$actual_head" = "$expected_head"
+          echo "Qualified source SHA: $actual_head"
       - name: Prepare isolated domain/client workspace
         shell: bash
         run: |
@@ -65,7 +70,7 @@ jobs:
           echo "FURNISHING_AUDIT_WORKSPACE=$workspace" >> "$GITHUB_ENV"
       - name: Check formatting
         run: cargo fmt --manifest-path "$FURNISHING_AUDIT_WORKSPACE/Cargo.toml" --all -- --check
-      - name: Test typed discovery client and domain contracts
-        run: cargo test --manifest-path "$FURNISHING_AUDIT_WORKSPACE/Cargo.toml" -p marketplace-client
+      - name: Test domain and typed discovery client
+        run: cargo test --manifest-path "$FURNISHING_AUDIT_WORKSPACE/Cargo.toml" --workspace
       - name: Lint typed discovery client
         run: cargo clippy --manifest-path "$FURNISHING_AUDIT_WORKSPACE/Cargo.toml" -p marketplace-client --all-targets -- -D warnings
