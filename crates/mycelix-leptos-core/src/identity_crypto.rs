@@ -41,9 +41,14 @@ use web_sys::{AesDerivedKeyParams, AesGcmParams, CryptoKey, Pbkdf2Params, Subtle
 /// property under test is "does the derived key round-trip / reject a wrong
 /// passphrase / reject tampering", which doesn't depend on the iteration
 /// count.
-#[cfg(not(test))]
+/// Production PBKDF2-HMAC-SHA256 work factor. The explicitly named benchmark
+/// feature selects this same value during tests so latency calibration never
+/// measures the reduced quick-test setting.
+#[cfg(any(not(test), feature = "production-kdf-benchmark"))]
 pub const PBKDF2_ITERATIONS: u32 = 600_000;
-#[cfg(test)]
+/// Reduced work factor for normal correctness tests only. This setting must
+/// not be used as evidence of production latency or brute-force resistance.
+#[cfg(all(test, not(feature = "production-kdf-benchmark")))]
 pub const PBKDF2_ITERATIONS: u32 = 1_000;
 /// Random salt length for PBKDF2, in bytes.
 pub const SALT_LEN: usize = 16;
@@ -325,11 +330,98 @@ pub async fn decrypt(passphrase: &str, blob: &EncryptedBlob) -> Result<Vec<u8>, 
     Ok(Uint8Array::new(&result).to_vec())
 }
 
+#[cfg(all(test, feature = "production-kdf-benchmark"))]
+fn summarize_latency_samples(samples: &mut [f64]) -> Result<(f64, f64, f64), &'static str> {
+    if samples.is_empty() {
+        return Err("latency sample set is empty");
+    }
+    if samples
+        .iter()
+        .any(|sample| !sample.is_finite() || *sample < 0.0)
+    {
+        return Err("latency samples must be finite and non-negative");
+    }
+
+    samples.sort_by(f64::total_cmp);
+    let n = samples.len();
+    let p50_index = (n - 1) / 2;
+    // Nearest-rank p95, clamped for small sample sets.
+    let p95_index = ((n * 95).div_ceil(100)).saturating_sub(1).min(n - 1);
+    Ok((samples[p50_index], samples[p95_index], samples[n - 1]))
+}
+
 #[cfg(all(test, target_arch = "wasm32"))]
 mod tests {
     use super::*;
 
     wasm_bindgen_test::wasm_bindgen_test_configure!(run_in_browser);
+
+    /// Latency-only browser calibration using a synthetic secret and the real
+    /// production KDF count. It must never log passphrases or secret bytes.
+    #[cfg(feature = "production-kdf-benchmark")]
+    #[wasm_bindgen_test::wasm_bindgen_test]
+    async fn production_kdf_latency_benchmark() {
+        assert_eq!(
+            PBKDF2_ITERATIONS, 600_000,
+            "benchmark must not accidentally use the reduced correctness-test factor"
+        );
+
+        const SAMPLE_COUNT: usize = 20;
+        let secret = [0x5Au8; 32];
+        let passphrase = "synthetic production KDF benchmark only";
+
+        // Warm up browser/WebCrypto paths before collecting samples.
+        let warmup = encrypt(passphrase, &secret)
+            .await
+            .expect("production KDF warm-up encrypt succeeds");
+        let warmup_plaintext = decrypt(passphrase, &warmup)
+            .await
+            .expect("production KDF warm-up decrypt succeeds");
+        assert_eq!(warmup_plaintext.as_slice(), &secret[..]);
+
+        let performance = web_sys::window()
+            .expect("browser window is present")
+            .performance();
+        let mut encrypt_ms = Vec::with_capacity(SAMPLE_COUNT);
+        let mut decrypt_ms = Vec::with_capacity(SAMPLE_COUNT);
+        for _ in 0..SAMPLE_COUNT {
+            let start = performance.now();
+            let blob = encrypt(passphrase, &secret)
+                .await
+                .expect("production KDF benchmark encrypt succeeds");
+            encrypt_ms.push(performance.now() - start);
+
+            let start = performance.now();
+            let recovered = decrypt(passphrase, &blob)
+                .await
+                .expect("production KDF benchmark decrypt succeeds");
+            decrypt_ms.push(performance.now() - start);
+            assert_eq!(recovered.as_slice(), &secret[..]);
+        }
+
+        let (encrypt_p50, encrypt_p95, encrypt_max) =
+            summarize_latency_samples(&mut encrypt_ms).expect("encrypt timings are valid");
+        let (decrypt_p50, decrypt_p95, decrypt_max) =
+            summarize_latency_samples(&mut decrypt_ms).expect("decrypt timings are valid");
+        let report = format!(
+            concat!(
+                "IDENTITY_KDF_BENCHMARK kdf={} iterations={} samples={} ",
+                "encrypt_ms_p50={:.1} encrypt_ms_p95={:.1} encrypt_ms_max={:.1} ",
+                "unlock_decrypt_ms_p50={:.1} unlock_decrypt_ms_p95={:.1} unlock_decrypt_ms_max={:.1}"
+            ),
+            KDF_IDENTIFIER,
+            PBKDF2_ITERATIONS,
+            SAMPLE_COUNT,
+            encrypt_p50,
+            encrypt_p95,
+            encrypt_max,
+            decrypt_p50,
+            decrypt_p95,
+            decrypt_max,
+        );
+        web_sys::console::log_1(&report.clone().into());
+        println!("{report}");
+    }
 
     #[wasm_bindgen_test::wasm_bindgen_test]
     async fn round_trips_with_the_correct_passphrase() {
@@ -407,6 +499,43 @@ mod tests {
         // covered by `round_trips_with_the_correct_passphrase` — not
         // re-checked here, to avoid running 4 PBKDF2 derivations worth of
         // work in one headless-browser test.)
+    }
+}
+
+#[cfg(all(test, feature = "production-kdf-benchmark"))]
+mod benchmark_statistics_tests {
+    use super::summarize_latency_samples;
+
+    #[test]
+    fn reports_nearest_rank_p50_p95_and_max() {
+        let mut samples: Vec<f64> = (1..=20).map(|value| (value * 2) as f64).collect();
+        assert_eq!(
+            summarize_latency_samples(&mut samples).unwrap(),
+            (20.0, 38.0, 40.0)
+        );
+        assert!(samples.windows(2).all(|pair| pair[0] <= pair[1]));
+    }
+
+    #[test]
+    fn rejects_empty_samples() {
+        assert_eq!(
+            summarize_latency_samples(&mut []),
+            Err("latency sample set is empty")
+        );
+    }
+
+    #[test]
+    fn rejects_non_finite_or_negative_timings() {
+        for mut samples in [
+            vec![1.0, f64::NAN],
+            vec![1.0, f64::INFINITY],
+            vec![1.0, -0.1],
+        ] {
+            assert_eq!(
+                summarize_latency_samples(&mut samples),
+                Err("latency samples must be finite and non-negative")
+            );
+        }
     }
 }
 
