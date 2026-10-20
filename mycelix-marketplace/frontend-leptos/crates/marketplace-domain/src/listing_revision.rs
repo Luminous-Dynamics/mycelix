@@ -65,19 +65,19 @@ mod tests {
     fn revision_states_match_backend_snake_case_wire_values() {
         assert_eq!(
             serde_json::to_string(&ListingResolutionState::SingleObservedHead).unwrap(),
-            "\\"single_observed_head\\""
+            "\"single_observed_head\""
         );
         assert_eq!(
             serde_json::to_string(&ListingResolutionState::ConcurrentHeads).unwrap(),
-            "\\"concurrent_heads\\""
+            "\"concurrent_heads\""
         );
         assert_eq!(
             serde_json::to_string(&ListingResolutionReason::ConcurrentObservedHeads).unwrap(),
-            "\\"concurrent_observed_heads\\""
+            "\"concurrent_observed_heads\""
         );
         assert_eq!(
             serde_json::to_string(&ListingCatalogCoverage::LocalObservedLinksOnly).unwrap(),
-            "\\"local_observed_links_only\\""
+            "\"local_observed_links_only\""
         );
     }
 }
