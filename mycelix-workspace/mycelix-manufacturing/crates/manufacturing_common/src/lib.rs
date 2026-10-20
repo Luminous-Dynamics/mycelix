@@ -8,6 +8,8 @@
 
 pub mod process_registry;
 
+pub mod process_registry;
+
 use hdi::prelude::*;
 use serde::{Deserialize, Serialize};
 
