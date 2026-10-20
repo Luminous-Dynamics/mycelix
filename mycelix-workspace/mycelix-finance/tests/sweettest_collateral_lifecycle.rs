@@ -848,36 +848,12 @@ async fn test_fiat_bridge_deposit() {
         .call_fallible(&alice.zome("finance_bridge"), "deposit_fiat", fiat_input)
         .await;
 
-    match result {
-        Ok(record) => {
-            if let Some(deposit_id) = extract_entry_field(&record, "id") {
-                assert!(
-                    deposit_id.starts_with("fiat:"),
-                    "Fiat deposit ID should have expected prefix, got: {}",
-                    deposit_id,
-                );
-            }
-            if let Some(status) = extract_entry_field(&record, "status") {
-                assert_eq!(
-                    status, "Pending",
-                    "Fiat deposit should start as Pending, got: {}",
-                    status,
-                );
-            }
-        }
-        Err(e) => {
-            // Expected: Citizen+ tier gating or DID mismatch
-            let err_msg = format!("{:?}", e);
-            assert!(
-                err_msg.contains("Citizen")
-                    || err_msg.contains("DID")
-                    || err_msg.contains("identity")
-                    || err_msg.contains("consciousness"),
-                "Expected consciousness gating error, got: {}",
-                err_msg,
-            );
-        }
-    }
+    let err_msg = format!("{:?}", result.unwrap_err());
+    assert!(
+        err_msg.contains("disabled"),
+        "Expected explicit disabled response, got: {}",
+        err_msg
+    );
 }
 
 // ============================================================================
