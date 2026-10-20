@@ -395,9 +395,6 @@ pub fn evaluate_receipt(
         let has_check_failure = checks
             .iter()
             .any(|check| check.get("outcome").and_then(Value::as_str) == Some("failed"));
-        let has_unknown_check = checks
-            .iter()
-            .any(|check| check.get("outcome").and_then(Value::as_str) == Some("unknown"));
         let all_checks_passed = !checks.is_empty()
             && checks
                 .iter()
@@ -422,12 +419,6 @@ pub fn evaluate_receipt(
             && (!is_performance || performance_has_measurements)
         {
             "passed"
-        } else if outcome == "unknown"
-            || outcome == "skipped"
-            || outcome == "not_run"
-            || has_unknown_check
-        {
-            "incomplete"
         } else {
             "incomplete"
         };
