@@ -17,6 +17,7 @@ leptos_router.workspace = true
 marketplace-client = { path = "../../crates/marketplace-client" }
 marketplace-domain = { path = "../../crates/marketplace-domain" }
 web-sys.workspace = true
+wasm-bindgen.workspace = true
 
 [lib]
 crate-type = ["cdylib", "rlib"]
