@@ -374,7 +374,7 @@ pub fn report_price(input: ReportPriceInput) -> ExternResult<Record> {
         )));
     }
 
-    let my_did = format!("did:holo:{}", my_info.agent_initial_pubkey);
+    let my_did = format!("did:mycelix:{}", my_info.agent_initial_pubkey);
 
     let report = PriceReport {
         item: item.clone(),
