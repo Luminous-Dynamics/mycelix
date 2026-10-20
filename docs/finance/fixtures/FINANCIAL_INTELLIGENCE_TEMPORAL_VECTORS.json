@@ -1,0 +1,174 @@
+{
+  "schema": "mycelix.finance.intelligence.semantic-vector.v1",
+  "purpose": "Machine-readable temporal and information-frontier vectors for FIN-001U.",
+  "canonical_envelope": [
+    "schema",
+    "vector_id",
+    "frontier",
+    "inputs",
+    "expected_semantics"
+  ],
+  "vectors": [
+    {
+      "vector_id": "FIN-001U-001",
+      "name": "publication-before-frontier",
+      "frontier": "2026-01-10T10:00:00Z",
+      "inputs": {
+        "observed_at": "2026-01-10T09:30:00Z",
+        "published_at": "2026-01-10T09:45:00Z",
+        "available_at": "2026-01-10T09:50:00Z",
+        "ingested_at": "2026-01-10T09:55:00Z"
+      },
+      "expected_semantics": {
+        "available_at_frontier": true,
+        "future_inaccessible": false
+      }
+    },
+    {
+      "vector_id": "FIN-001U-002",
+      "name": "late-arriving-observation",
+      "frontier": "2026-01-10T10:00:00Z",
+      "inputs": {
+        "observed_at": "2026-01-10T09:00:00Z",
+        "available_at": "2026-01-10T11:00:00Z",
+        "ingested_at": "2026-01-10T11:05:00Z"
+      },
+      "expected_semantics": {
+        "available_at_frontier": false,
+        "future_inaccessible": true,
+        "historical_event_time_preserved": true
+      }
+    },
+    {
+      "vector_id": "FIN-001U-003",
+      "name": "published-but-not-ingested",
+      "frontier": "2026-01-10T10:00:00Z",
+      "inputs": {
+        "published_at": "2026-01-10T09:00:00Z",
+        "available_at": "2026-01-10T09:05:00Z",
+        "ingested_at": "2026-01-10T10:30:00Z"
+      },
+      "expected_semantics": {
+        "available_at_frontier": true,
+        "ingested_at_frontier": false,
+        "usable_in_local_projection": false,
+        "future_inaccessible": true
+      }
+    },
+    {
+      "vector_id": "FIN-001U-004",
+      "name": "revised-document",
+      "frontier": "2026-01-10T12:00:00Z",
+      "inputs": {
+        "document_id": "D1",
+        "revision_v1_available_at": "2026-01-10T09:00:00Z",
+        "revision_v2_available_at": "2026-01-10T14:00:00Z"
+      },
+      "expected_semantics": {
+        "selected_revision": "v1",
+        "v2_future_inaccessible": true,
+        "v1_lineage_preserved": true,
+        "historical_state_rewritten": false
+      }
+    },
+    {
+      "vector_id": "FIN-001U-005",
+      "name": "supersession-after-frontier",
+      "frontier": "2026-01-10T13:00:00Z",
+      "inputs": {
+        "claim_v1_available_at": "2026-01-10T08:00:00Z",
+        "claim_v2_available_at": "2026-01-10T15:00:00Z",
+        "supersedes": "v1"
+      },
+      "expected_semantics": {
+        "v1_visible": true,
+        "v2_visible": false,
+        "supersession_applies_at_frontier": false
+      }
+    },
+    {
+      "vector_id": "FIN-001U-006",
+      "name": "effective-validity-versus-availability",
+      "frontier": "2026-01-10T10:00:00Z",
+      "inputs": {
+        "published_at": "2026-01-10T09:00:00Z",
+        "available_at": "2026-01-10T09:05:00Z",
+        "effective_from": "2026-01-12T00:00:00Z"
+      },
+      "expected_semantics": {
+        "information_available": true,
+        "economically_effective_at_frontier": false,
+        "future_effective_state_not_current": true
+      }
+    },
+    {
+      "vector_id": "FIN-001U-007",
+      "name": "corporate-action-adjustment",
+      "frontier": "2026-01-10T12:00:00Z",
+      "inputs": {
+        "raw_observation_at": "2026-01-10T09:00:00Z",
+        "action_published_at": "2026-01-10T11:00:00Z",
+        "adjustment_factor": "1/2"
+      },
+      "expected_semantics": {
+        "raw_observation_immutable": true,
+        "adjusted_projection_allowed": true,
+        "adjustment_lineage_required": true,
+        "raw_equals_adjusted": false
+      }
+    },
+    {
+      "vector_id": "FIN-001U-008",
+      "name": "timezone-boundary",
+      "frontier": "2026-01-10T10:00:00Z",
+      "inputs": {
+        "available_at": "2026-01-10T10:00:00Z"
+      },
+      "expected_semantics": {
+        "available_at_frontier": true,
+        "strictly_after_frontier": false,
+        "comparison_uses_absolute_instant": true
+      }
+    },
+    {
+      "vector_id": "FIN-001U-009",
+      "name": "forecast-hindsight-barrier",
+      "frontier": "2026-01-10T10:00:00Z",
+      "inputs": {
+        "forecast_issued_at": "2026-01-10T10:00:00Z",
+        "evidence_available_at": "2026-01-10T10:05:00Z",
+        "outcome_observed_at": "2026-01-11T10:00:00Z"
+      },
+      "expected_semantics": {
+        "evidence_usable_for_forecast": false,
+        "outcome_usable_for_forecast": false,
+        "forecast_frontier_immutable": true
+      }
+    },
+    {
+      "vector_id": "FIN-001U-010",
+      "name": "historical-replay-isolation",
+      "frontier": "2026-01-10T10:00:00Z",
+      "inputs": {
+        "dataset_contains_later_revision": true,
+        "later_revision_available_at": "2026-01-10T14:00:00Z"
+      },
+      "expected_semantics": {
+        "later_revision_excluded": true,
+        "replay_is_deterministic": true,
+        "later_wall_clock_state_irrelevant": true
+      }
+    }
+  ],
+  "required_temporal_fields": [
+    "observed_at",
+    "published_at",
+    "available_at",
+    "ingested_at",
+    "effective_from",
+    "effective_to",
+    "supersedes",
+    "frontier"
+  ],
+  "qualification_rule": "A conforming implementation must evaluate visibility and forecast eligibility against the explicit information frontier without rewriting raw history or confusing event time, availability time, ingestion time, or effective validity."
+}
