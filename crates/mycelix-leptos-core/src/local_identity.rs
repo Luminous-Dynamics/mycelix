@@ -115,6 +115,14 @@ const IDENTITY_PUBLIC_KEY: &str = "mycelix_identity_public_ed25519_b64";
 /// [`is_passphrase_protected`] checks.
 const IDENTITY_SECRET_ENCRYPTED_KEY: &str = "mycelix_identity_secret_ed25519_encrypted_v1";
 
+/// Non-secret, versioned UX marker. The stored value is the current public key,
+/// so an old confirmation cannot accidentally bless a different identity.
+/// This marker is not an authorization boundary; same-origin JavaScript can
+/// modify browser storage. Its purpose is to prevent accidental bypass after
+/// reload, not to replace proof of key possession.
+const IDENTITY_BACKUP_CONFIRMED_PUBLIC_KEY: &str =
+    "mycelix_identity_recovery_backup_confirmed_public_ed25519_b64_v1";
+
 thread_local! {
     // WASM is single-threaded, so a thread-local is a plain per-session
     // cache: populated by `ensure_keypair` (unprotected path) or
@@ -571,6 +579,96 @@ pub fn recovery_phrase_challenge_positions() -> Result<[usize; 3], String> {
     Ok(positions)
 }
 
+/// Return true when the currently stored protected identity has not passed
+/// the local recovery-backup confirmation step.
+///
+/// Storage errors, malformed posture and a missing/mismatched marker fail
+/// closed. The marker contains only the public key and is a UX continuity
+/// hint, not a security boundary against same-origin script.
+pub fn recovery_backup_confirmation_needed() -> bool {
+    let Ok(window) = web_sys::window().ok_or(()) else {
+        return true;
+    };
+    let Ok(Some(storage)) = window.local_storage() else {
+        return true;
+    };
+    let Ok(snapshot) = read_identity_storage_snapshot_from(&storage) else {
+        return true;
+    };
+    if classify_identity_storage_snapshot(&snapshot) != LocalIdentityStoragePosture::ProtectedLocked {
+        return true;
+    }
+    let Some(public_b64) = snapshot.public_b64 else {
+        return true;
+    };
+    match storage.get_item(IDENTITY_BACKUP_CONFIRMED_PUBLIC_KEY) {
+        Ok(Some(confirmed_public_b64)) => confirmed_public_b64 != public_b64,
+        Ok(None) | Err(_) => true,
+    }
+}
+
+/// Persist a non-secret confirmation marker only after the user has completed
+/// the recovery-word challenge. Bind it to the public key in current storage
+/// and verify the marker is still bound to the same protected envelope.
+pub fn mark_recovery_backup_confirmed() -> Result<(), String> {
+    let signing_key = UNLOCKED_KEY
+        .with(|cell| cell.borrow().clone())
+        .ok_or_else(|| "Protected identity is not unlocked in this session.".to_string())?;
+    if !identity_bootstrap_action_allowed(
+        LocalIdentityStoragePosture::ProtectedUnlockedInSession,
+        IdentityBootstrapAction::ExportRecoveryPhrase,
+    ) {
+        return Err("Recovery backup confirmation is not permitted in this state.".into());
+    }
+
+    let window = web_sys::window()
+        .ok_or_else(|| "Browser identity storage is unavailable.".to_string())?;
+    let storage = window
+        .local_storage()
+        .map_err(|_| "Browser identity storage is unavailable.".to_string())?
+        .ok_or_else(|| "Browser identity storage is unavailable.".to_string())?;
+    let mut snapshot = read_identity_storage_snapshot_from(&storage)
+        .map_err(|_| "Protected identity storage could not be inspected.".to_string())?;
+    let posture = classify_identity_storage_snapshot(&snapshot);
+    let public_b64 = snapshot.public_b64.clone();
+    let envelope = snapshot.encrypted_wire.clone();
+    if let Some(secret_b64) = snapshot.secret_b64.as_mut() {
+        secret_b64.zeroize();
+    }
+    let Some(public_b64) = public_b64 else {
+        return Err("Protected identity public-key metadata is missing.".into());
+    };
+    if posture != LocalIdentityStoragePosture::ProtectedLocked
+        || !public_key_matches_signing_key(&public_b64, &signing_key)
+        || envelope
+            .as_deref()
+            .is_none_or(|value| !encrypted_blob_is_structurally_valid(value))
+    {
+        return Err("Protected identity changed or is inconsistent; backup confirmation was not saved.".into());
+    }
+
+    storage
+        .set_item(IDENTITY_BACKUP_CONFIRMED_PUBLIC_KEY, &public_b64)
+        .map_err(|_| "Could not persist recovery-backup confirmation.".to_string())?;
+    let marker = storage
+        .get_item(IDENTITY_BACKUP_CONFIRMED_PUBLIC_KEY)
+        .map_err(|_| "Could not verify recovery-backup confirmation.".to_string())?;
+    let mut current = read_identity_storage_snapshot_from(&storage)
+        .map_err(|_| "Could not re-check protected identity after backup confirmation.".to_string())?;
+    let unchanged = current.secret_b64.is_none()
+        && current.public_b64.as_deref() == Some(public_b64.as_str())
+        && current.encrypted_wire.as_deref() == envelope.as_deref()
+        && public_key_matches_signing_key(&public_b64, &signing_key)
+        && classify_identity_storage_snapshot(&current) == LocalIdentityStoragePosture::ProtectedLocked;
+    if let Some(secret_b64) = current.secret_b64.as_mut() {
+        secret_b64.zeroize();
+    }
+    if marker.as_deref() != Some(public_b64.as_str()) || !unchanged {
+        return Err("Protected identity changed while backup confirmation was being recorded.".into());
+    }
+    Ok(())
+}
+
 /// Export a recovery phrase for the currently unlocked protected identity.
 ///
 /// This function is read-only: it never calls `ensure_keypair`, never mutates
@@ -648,6 +746,19 @@ fn validate_new_identity_passphrase(passphrase: &str) -> Result<(), String> {
     Ok(())
 }
 
+fn clear_recovery_backup_confirmation(storage: &web_sys::Storage) -> Result<(), String> {
+    if storage.remove_item(IDENTITY_BACKUP_CONFIRMED_PUBLIC_KEY).is_err() {
+        return Err("Could not reset recovery-backup confirmation; no identity change was made.".into());
+    }
+    match storage.get_item(IDENTITY_BACKUP_CONFIRMED_PUBLIC_KEY) {
+        Ok(None) => Ok(()),
+        Ok(Some(_)) | Err(_) => Err(
+            "Could not verify reset of recovery-backup confirmation; no identity change was made."
+                .into(),
+        ),
+    }
+}
+
 fn ensure_empty_identity_storage() -> Result<(), String> {
     if UNLOCKED_KEY.with(|cell| cell.borrow().is_some()) {
         return Err(
@@ -716,6 +827,7 @@ async fn persist_protected_signing_key(
                 .into(),
         );
     }
+    clear_recovery_backup_confirmation(&storage)?;
 
     if storage
         .set_item(IDENTITY_SECRET_ENCRYPTED_KEY, &encrypted_wire)
@@ -866,6 +978,7 @@ pub async fn protect_existing_identity(
                 .into(),
         );
     }
+    clear_recovery_backup_confirmation(&storage)?;
 
     if storage
         .set_item(IDENTITY_SECRET_ENCRYPTED_KEY, &encrypted_wire)
@@ -1919,6 +2032,7 @@ mod browser_storage_tests {
                 IDENTITY_SECRET_KEY,
                 IDENTITY_PUBLIC_KEY,
                 IDENTITY_SECRET_ENCRYPTED_KEY,
+                IDENTITY_BACKUP_CONFIRMED_PUBLIC_KEY,
             ];
             let values = keys
                 .into_iter()
@@ -1941,6 +2055,7 @@ mod browser_storage_tests {
                 IDENTITY_SECRET_KEY,
                 IDENTITY_PUBLIC_KEY,
                 IDENTITY_SECRET_ENCRYPTED_KEY,
+                IDENTITY_BACKUP_CONFIRMED_PUBLIC_KEY,
             ] {
                 self.storage
                     .remove_item(key)
