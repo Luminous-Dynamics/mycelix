@@ -1,0 +1,31 @@
+name: Mobility Evidence Relationship Qualification
+
+on:
+  pull_request:
+    paths:
+      - 'docs/mobility/MOBILITY_EVIDENCE_RELATION_ALGEBRA_V1.md'
+      - 'docs/mobility/MOBILITY_EVIDENCE_RELATION_ALGEBRA_V1.json'
+      - 'mycelix-commons/crates/mobility-configuration-qualification/src/lib.rs'
+      - 'tools/mobility_evidence_relation_reference.py'
+      - '.github/workflows/mobility-evidence-relationship-qualification.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  rust:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Format
+        run: cargo fmt --check --manifest-path mycelix-commons/crates/mobility-configuration-qualification/Cargo.toml
+      - name: Unit tests
+        run: cargo test --manifest-path mycelix-commons/crates/mobility-configuration-qualification/Cargo.toml
+
+  reference:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Independent relationship validator
+        run: python3 tools/mobility_evidence_relation_reference.py
