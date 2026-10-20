@@ -6,6 +6,15 @@ on:
       - myc-int-demo-d6t-canonical-encoding
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review]
+    # The dedicated CANON suites and fixtures belong to the D6S qualification
+    # workstream. Do not run this gate on unrelated PRs that don't carry them.
+    paths:
+      - "mycelix-manufacturing/Cargo.toml"
+      - "mycelix-manufacturing/crates/**"
+      - "docs/integral/d6s-canon-1-*"
+      - "docs/integral/d6s-canon-2-*"
+      - "scripts/integral/verify_d6s_canon_1.py"
+      - "scripts/integral/verify_d6s_canon_2_authority_boundary.py"
   workflow_dispatch:
 
 permissions:
@@ -59,9 +68,9 @@ jobs:
       - name: Assert resolved reference-test dependency graph
         run: cargo metadata --manifest-path mycelix-manufacturing/Cargo.toml --locked --no-deps --format-version 1 > /dev/null
 
-      # D6S qualification is scoped to the D6S reference contracts. The
-      # broader COS workspace contains unrelated suites whose baseline state
-      # must not gate this specific reference qualification.
+      # Keep the dedicated Rust suites as executable checks of their frozen
+      # CANON fixtures. The PR path filter above ensures these fixtures and
+      # verifier scripts are present in the qualified checkout.
       - name: Run D6S canonical integration suites
         run: >-
           cargo test

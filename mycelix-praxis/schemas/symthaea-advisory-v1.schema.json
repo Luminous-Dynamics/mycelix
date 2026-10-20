@@ -1,0 +1,100 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://mycelix.net/schemas/symthaea-advisory-v1.schema.json",
+  "title": "Praxis Symthaea Advisory Response v1",
+  "description": "Structural contract only. The Praxis validator must additionally enforce per-turn trusted action/reason allowlists, exact request context, and content-reference membership. Schema validity does not establish correctness or authority.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "model_id",
+    "model_version",
+    "skill_id",
+    "curriculum_revision",
+    "input_digest",
+    "action",
+    "reported_confidence_permille",
+    "reason",
+    "supporting_content_ids"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": 1
+    },
+    "model_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 160,
+      "pattern": "^[^\\u0000-\\u001F\\u007F-\\u009F]{1,160}$"
+    },
+    "model_version": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 160,
+      "pattern": "^[^\\u0000-\\u001F\\u007F-\\u009F]{1,160}$"
+    },
+    "skill_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 160,
+      "pattern": "^[^\\u0000-\\u001F\\u007F-\\u009F]{1,160}$"
+    },
+    "curriculum_revision": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 160,
+      "pattern": "^[^\\u0000-\\u001F\\u007F-\\u009F]{1,160}$"
+    },
+    "input_digest": {
+      "type": "string",
+      "minLength": 71,
+      "maxLength": 71,
+      "pattern": "^blake3:[0-9a-f]{64}$",
+      "description": "Canonical BLAKE3 digest of the minimized request encoding. This binds freshness only and is not authentication."
+    },
+    "action": {
+      "type": "string",
+      "enum": [
+        "offer_hint",
+        "offer_worked_example",
+        "offer_alternate_explanation",
+        "invite_retrieval_practice",
+        "invite_spaced_review",
+        "ask_for_self_explanation",
+        "offer_transfer_problem",
+        "suggest_craft_project",
+        "offer_break",
+        "no_suggestion"
+      ]
+    },
+    "reported_confidence_permille": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 1000
+    },
+    "reason": {
+      "type": "string",
+      "enum": [
+        "learner_requested_help",
+        "repeated_incorrect_attempts",
+        "review_due",
+        "transfer_not_demonstrated",
+        "ready_for_application",
+        "learner_requested_break",
+        "insufficient_evidence",
+        "no_change"
+      ]
+    },
+    "supporting_content_ids": {
+      "type": "array",
+      "maxItems": 8,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 160,
+        "pattern": "^[^\\u0000-\\u001F\\u007F-\\u009F]{1,160}$"
+      }
+    }
+  }
+}

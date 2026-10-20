@@ -1,0 +1,19 @@
+{
+  "schema_version": 1,
+  "request_nonce": "0123456789abcdef0123456789abcdef",
+  "model_id": "symthaea",
+  "model_version": "0.5.0",
+  "skill_id": "math.fractions",
+  "curriculum_revision": "2026.1",
+  "allowed_actions": [
+    "offer_hint",
+    "invite_retrieval_practice"
+  ],
+  "allowed_reasons": [
+    "repeated_incorrect_attempts",
+    "review_due"
+  ],
+  "allowed_content_ids": [
+    "lesson.fractions.01"
+  ]
+}
