@@ -8,8 +8,6 @@ mod tests {
     // deeper than intended. `use super::*` only reaches the (empty) outer
     // `tests` module, not the crate root — hence `super::super::*`.
     use super::super::*;
-    use listings_integrity::*;
-
     // Helper functions for tests
     fn mock_listing_input() -> CreateListingInput {
         CreateListingInput {
@@ -20,11 +18,6 @@ mod tests {
             photos_ipfs_cids: vec!["QmTest123456789012345678901234567890123456".to_string()],
             quantity_available: 10,
         }
-    }
-
-    fn mock_agent_pub_key() -> AgentPubKey {
-        // Create a mock AgentPubKey for testing
-        AgentPubKey::from_raw_36(vec![0u8; 36])
     }
 
     #[test]

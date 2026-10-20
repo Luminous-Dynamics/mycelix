@@ -133,9 +133,9 @@ pub fn create_listing(input: CreateListingInput) -> ExternResult<ListingOutput> 
     )?;
 
     Ok(ListingOutput {
-        listing_hash: action_hash.into(),
+        listing_hash: action_hash,
         listing,
-        seller_agent_id: agent_info.agent_initial_pubkey.into(),
+        seller_agent_id: agent_info.agent_initial_pubkey,
     })
 }
 
@@ -150,7 +150,7 @@ pub fn get_listing(listing_hash: ActionHash) -> ExternResult<Option<ListingOutpu
             let listing: Listing = error_handling::deserialize_entry(&record)?;
 
             Ok(Some(ListingOutput {
-                listing_hash: listing_hash.into(),
+                listing_hash,
                 listing,
                 seller_agent_id: record.action().author().clone().into(),
             }))
@@ -357,9 +357,9 @@ pub fn update_listing(input: UpdateListingInput) -> ExternResult<ListingOutput> 
     let action_hash = update_entry(input.listing_hash, &EntryTypes::Listing(listing.clone()))?;
 
     Ok(ListingOutput {
-        listing_hash: action_hash.into(),
+        listing_hash: action_hash,
         listing,
-        seller_agent_id: agent_info.agent_initial_pubkey.into(),
+        seller_agent_id: agent_info.agent_initial_pubkey,
     })
 }
 

@@ -196,7 +196,7 @@ fn collect_heads(
         heads.push(ListingOutput {
             listing_hash: action_hash,
             listing,
-            seller_agent_id: record_details.record.action().author().clone().into(),
+            seller_agent_id: record_details.record.action().author().clone(),
         });
         return Ok(());
     }
