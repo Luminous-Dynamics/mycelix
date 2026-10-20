@@ -494,7 +494,9 @@ mod tests {
     fn rejects_a_lower_release_version_as_rollback() {
         let mut candidate = release();
         candidate.version = 1;
-        let receipt = evaluate(candidate, context(), PROFILE_BYTES);
+        let mut ctx = context();
+        ctx.installed_head.as_mut().unwrap().version = 2;
+        let receipt = evaluate(candidate, ctx, PROFILE_BYTES);
         assert_eq!(receipt.disposition, PolicyLifecycleDispositionV1::Rejected);
         assert!(
             receipt
