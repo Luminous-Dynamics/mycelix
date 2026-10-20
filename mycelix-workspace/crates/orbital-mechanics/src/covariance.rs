@@ -47,7 +47,9 @@ pub struct CovarianceMatrix {
 /// Reference frame for covariance
 #[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq, Eq, Default)]
 pub enum CovarianceFrame {
-    /// Earth-Centered Inertial (most common for conjunction)
+    /// True Equator Mean Equinox (the coordinate frame emitted by the SGP4 propagator here)
+    TEME,
+    /// Earth-Centered Inertial (generic frame label; callers must still agree on the exact convention)
     #[default]
     ECI,
     /// Radial-Transverse-Normal (along-track frame)
@@ -106,20 +108,34 @@ impl CovarianceMatrix {
         }
     }
 
-    /// Create an estimated covariance based on TLE age
-    /// Uses empirical growth models for LEO objects
+    /// Create a rough, uncalibrated covariance heuristic based on elapsed TLE age.
+    ///
+    /// This default constructor retains the historical ECI frame label for callers
+    /// that do not supply a frame. Prefer `from_tle_age_in_frame` when the associated
+    /// state frame is known.
+    ///
+    /// This empirical LEO heuristic is not a calibrated uncertainty product and must
+    /// not, by itself, be treated as authoritative collision-risk evidence.
     pub fn from_tle_age(age_hours: f64) -> Self {
-        // Empirical uncertainty growth for LEO (very approximate)
-        // Position uncertainty grows roughly linearly with time
-        // Velocity uncertainty grows more slowly
+        Self::from_tle_age_in_frame(age_hours, CovarianceFrame::default())
+    }
 
-        // Base uncertainty for fresh TLE (from Space-Track accuracy)
-        let base_pos_km = 1.0; // ~1 km position uncertainty
-        let base_vel_kms = 0.001; // ~1 m/s velocity uncertainty
+    /// Create an estimated covariance with an explicit coordinate-frame label.
+    ///
+    /// The values remain the same approximate TLE-age heuristic regardless of frame;
+    /// this method does not perform orbit determination, calibration, or covariance
+    /// propagation. The caller is responsible for supplying the frame of the associated
+    /// state.
+    pub fn from_tle_age_in_frame(age_hours: f64, frame: CovarianceFrame) -> Self {
+        // Empirical uncertainty growth for LEO (very approximate).
+        // Position uncertainty grows roughly linearly with elapsed time;
+        // velocity uncertainty grows more slowly. These values are heuristics only.
+        let base_pos_km = 1.0; // heuristic ~1 km position uncertainty for a fresh TLE
+        let base_vel_kms = 0.001; // heuristic ~1 m/s velocity uncertainty
 
-        // Growth rates (km/day for position, km/s/day for velocity)
-        let pos_growth_rate = 5.0 / 24.0; // ~5 km/day
-        let vel_growth_rate = 0.01 / 24.0; // ~10 m/s/day
+        // Growth rates (km/day for position, km/s/day for velocity).
+        let pos_growth_rate = 5.0 / 24.0;
+        let vel_growth_rate = 0.01 / 24.0;
 
         let pos_sigma = base_pos_km + pos_growth_rate * age_hours;
         let vel_sigma = base_vel_kms + vel_growth_rate * age_hours;
@@ -127,6 +143,7 @@ impl CovarianceMatrix {
         let mut cov = Self::diagonal([
             pos_sigma, pos_sigma, pos_sigma, vel_sigma, vel_sigma, vel_sigma,
         ]);
+        cov.frame = frame;
         cov.source = CovarianceSource::Estimated {
             tle_age_hours: age_hours,
         };
@@ -171,12 +188,17 @@ impl CovarianceMatrix {
         let pos_cov = self.position_covariance();
         let eigen = SymmetricEigen::new(pos_cov);
         let mut eigenvalues: Vec<f64> = eigen.eigenvalues.iter().map(|&v| v.sqrt()).collect();
-        eigenvalues.sort_by(|a, b| b.partial_cmp(a).unwrap());
+        // total_cmp is non-panicking even if callers inspect a matrix before
+        // checking is_valid(); invalid inputs still yield non-meaningful axes.
+        eigenvalues.sort_by(|a, b| b.total_cmp(a));
         (eigenvalues[0], eigenvalues[1], eigenvalues[2])
     }
 
     /// Check if covariance is positive semi-definite (valid)
     pub fn is_valid(&self) -> bool {
+        if !self.data.iter().all(|value| value.is_finite()) {
+            return false;
+        }
         let eigen = SymmetricEigen::new(self.data);
         eigen.eigenvalues.iter().all(|&v| v >= -1e-10)
     }
@@ -190,7 +212,13 @@ impl CovarianceMatrix {
         }
     }
 
-    /// Transform covariance to RTN frame given position and velocity
+    /// Rotate covariance axes into the local Radial-Transverse-Normal (RTN) basis.
+    ///
+    /// `position` and `velocity` must be expressed in the same source frame as
+    /// this covariance. This applies a block-diagonal orientation rotation to the
+    /// position and velocity blocks; it is **not** a full six-state transformation
+    /// into a rotating RTN coordinate system because it omits frame angular-rate
+    /// terms. Do not treat it as a flight-quality RTN covariance transform.
     pub fn to_rtn(&self, position: Vector3<f64>, velocity: Vector3<f64>) -> Self {
         if self.frame == CovarianceFrame::RTN {
             return self.clone();
@@ -202,7 +230,7 @@ impl CovarianceMatrix {
         let n_hat = h.normalize();
         let t_hat = n_hat.cross(&r_hat);
 
-        // Build rotation matrix (ECI to RTN)
+        // Build the basis rotation from the caller-supplied source coordinates to RTN.
         let rot = Matrix3::from_rows(&[r_hat.transpose(), t_hat.transpose(), n_hat.transpose()]);
 
         // Build 6x6 rotation matrix
@@ -210,7 +238,8 @@ impl CovarianceMatrix {
         rot6.fixed_view_mut::<3, 3>(0, 0).copy_from(&rot);
         rot6.fixed_view_mut::<3, 3>(3, 3).copy_from(&rot);
 
-        // Transform: C_rtn = R * C_eci * R^T
+        // Orientation-only rotation: full rotating-frame state covariance also
+        // needs the RTN angular-rate terms described in the method documentation.
         let new_data = rot6 * self.data * rot6.transpose();
 
         Self {
@@ -279,6 +308,12 @@ pub fn mahalanobis_distance(
     cov1: &CovarianceMatrix,
     cov2: &CovarianceMatrix,
 ) -> Option<f64> {
+    // Delta and both covariances must use the same coordinate frame. The
+    // vector frame cannot be checked from this API, but mixed covariance frames
+    // must not be silently combined.
+    if cov1.frame != cov2.frame {
+        return None;
+    }
     let combined_cov = cov1.matrix() + cov2.matrix();
     let inv = combined_cov.try_inverse()?;
     let d_squared = delta.transpose() * inv * delta;
@@ -313,6 +348,24 @@ mod tests {
     fn test_covariance_validity() {
         let valid = CovarianceMatrix::diagonal([1.0, 1.0, 1.0, 0.1, 0.1, 0.1]);
         assert!(valid.is_valid());
+    }
+
+    #[test]
+    fn mahalanobis_distance_rejects_mixed_covariance_frames() {
+        let delta = Vector6::zeros();
+        let eci = CovarianceMatrix::diagonal([1.0, 1.0, 1.0, 0.1, 0.1, 0.1]);
+        let mut teme = CovarianceMatrix::diagonal([1.0, 1.0, 1.0, 0.1, 0.1, 0.1]);
+        teme.frame = CovarianceFrame::TEME;
+
+        assert!(mahalanobis_distance(&delta, &eci, &teme).is_none());
+    }
+
+    #[test]
+    fn non_finite_covariance_is_invalid() {
+        let mut matrix = Matrix6::identity();
+        matrix[(0, 0)] = f64::NAN;
+        let covariance = CovarianceMatrix::from_matrix(matrix);
+        assert!(!covariance.is_valid());
     }
 
     #[test]

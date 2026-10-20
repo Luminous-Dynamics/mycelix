@@ -14,7 +14,7 @@
 //! let state = propagator.propagate_to(future_time)?;
 //! ```
 
-use crate::covariance::CovarianceMatrix;
+use crate::covariance::{CovarianceFrame, CovarianceMatrix};
 use crate::state::{DataSource, OrbitalState, ReferenceFrame, StateVector};
 use crate::tle::TwoLineElement;
 use chrono::{DateTime, Duration, Utc};
@@ -33,6 +33,9 @@ pub enum PropagationError {
 
     #[error("Propagation time out of bounds: {0} days from epoch")]
     TimeOutOfBounds(f64),
+
+    #[error("Ephemeris step must be positive; got {0} seconds")]
+    InvalidEphemerisStep(i64),
 }
 
 /// Orbital propagator using SGP4/SDP4 algorithms
@@ -124,7 +127,7 @@ impl Propagator {
 
         // Estimate covariance based on TLE age
         let age_hours = days_since_epoch.abs() * 24.0;
-        let covariance = CovarianceMatrix::from_tle_age(age_hours);
+        let covariance = CovarianceMatrix::from_tle_age_in_frame(age_hours, CovarianceFrame::TEME);
 
         Ok(OrbitalState {
             norad_id: self.tle.norad_id,
@@ -151,6 +154,13 @@ impl Propagator {
         end: DateTime<Utc>,
         step_seconds: i64,
     ) -> Vec<Result<OrbitalState, PropagationError>> {
+        // Preserve the existing return type but surface invalid input as one explicit
+        // error result. Without this guard, zero/negative steps can fail to make
+        // progress and hang when start <= end.
+        if step_seconds <= 0 {
+            return vec![Err(PropagationError::InvalidEphemerisStep(step_seconds))];
+        }
+
         let mut results = Vec::new();
         let mut current = start;
 
@@ -335,5 +345,38 @@ mod tests {
         // Should have 7 points (0, 10, 20, 30, 40, 50, 60 minutes)
         assert_eq!(eph.len(), 7);
         assert!(eph.iter().all(|r| r.is_ok()));
+    }
+
+    #[test]
+    fn test_propagated_state_and_estimated_covariance_share_teme_frame() {
+        let tle = TwoLineElement::parse(ISS_TLE).unwrap();
+        let prop = Propagator::from_tle(&tle).unwrap();
+
+        let state = prop.propagate_to(tle.epoch).unwrap();
+
+        assert_eq!(state.frame, ReferenceFrame::TEME);
+        let covariance = state.covariance.as_ref().expect("covariance is present");
+        assert_eq!(covariance.frame, CovarianceFrame::TEME);
+        assert!(matches!(
+            &covariance.source,
+            crate::covariance::CovarianceSource::Estimated { .. }
+        ));
+    }
+
+    #[test]
+    fn test_ephemeris_rejects_non_positive_step_without_looping() {
+        let tle = TwoLineElement::parse(ISS_TLE).unwrap();
+        let prop = Propagator::from_tle(&tle).unwrap();
+        let start = tle.epoch;
+        let end = tle.epoch + Duration::minutes(1);
+
+        for invalid_step in [0, -1] {
+            let result = prop.ephemeris(start, end, invalid_step);
+            assert_eq!(result.len(), 1);
+            assert!(matches!(
+                &result[0],
+                Err(PropagationError::InvalidEphemerisStep(step)) if *step == invalid_step
+            ));
+        }
     }
 }
