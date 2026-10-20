@@ -5,14 +5,16 @@
 //! A mathematically conservative meet cannot repair an over-permissive policy.
 
 use super::{
-    ClaimCeilingV1, TimeWindow, is_no_broader_than, sha256,
-    validate_ceiling, validate_json_against_schema, validate_source_commit,
+    ClaimCeilingV1, TimeWindow, is_no_broader_than, sha256, validate_ceiling,
+    validate_json_against_schema, validate_source_commit,
 };
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeSet;
 
-const POLICY_REQUEST_SCHEMA: &[u8] = include_bytes!("../schemas/claim-ceiling-policy-request-v1.schema.json");
-const POLICY_RECEIPT_SCHEMA: &[u8] = include_bytes!("../schemas/claim-ceiling-policy-receipt-v1.schema.json");
+const POLICY_REQUEST_SCHEMA: &[u8] =
+    include_bytes!("../schemas/claim-ceiling-policy-request-v1.schema.json");
+const POLICY_RECEIPT_SCHEMA: &[u8] =
+    include_bytes!("../schemas/claim-ceiling-policy-receipt-v1.schema.json");
 
 pub const POLICY_REQUEST_SCHEMA_VERSION: &str = "mycelix.claim-ceiling-policy.request.v1";
 pub const POLICY_PROFILE_SCHEMA_VERSION: &str = "mycelix.claim-ceiling-policy.profile.v1";
@@ -80,12 +82,18 @@ const NONCLAIMS: &[&str] = &[
 ];
 
 fn violation(code: &str, value: impl Into<String>) -> PolicyViolation {
-    PolicyViolation { code: code.to_owned(), value: value.into() }
+    PolicyViolation {
+        code: code.to_owned(),
+        value: value.into(),
+    }
 }
 
 fn validate_profile(profile: &ClaimPolicyProfileV1) -> Result<(), String> {
     if profile.schema_version != POLICY_PROFILE_SCHEMA_VERSION {
-        return Err(format!("unsupported policy profile schema version: {}", profile.schema_version));
+        return Err(format!(
+            "unsupported policy profile schema version: {}",
+            profile.schema_version
+        ));
     }
     if profile.profile_id.trim().is_empty() {
         return Err("policy_profile.profile_id must not be empty".to_owned());
@@ -109,7 +117,8 @@ fn assess_candidate(candidate: &ClaimCeilingV1, maximum: &ClaimCeilingV1) -> Vec
         violations.push(violation("context_outside_policy", context.clone()));
     }
     if candidate.valid_time.start_unix_seconds < maximum.valid_time.start_unix_seconds
-        || candidate.valid_time.end_unix_seconds_exclusive > maximum.valid_time.end_unix_seconds_exclusive
+        || candidate.valid_time.end_unix_seconds_exclusive
+            > maximum.valid_time.end_unix_seconds_exclusive
     {
         let requested = TimeWindow {
             start_unix_seconds: candidate.valid_time.start_unix_seconds,
@@ -127,14 +136,32 @@ fn assess_candidate(candidate: &ClaimCeilingV1, maximum: &ClaimCeilingV1) -> Vec
     for action in candidate.action_scopes.difference(&maximum.action_scopes) {
         violations.push(violation("action_scope_not_allowed", action.clone()));
     }
-    for qualification in maximum.required_qualifications.difference(&candidate.required_qualifications) {
-        violations.push(violation("required_qualification_missing", qualification.clone()));
+    for qualification in maximum
+        .required_qualifications
+        .difference(&candidate.required_qualifications)
+    {
+        violations.push(violation(
+            "required_qualification_missing",
+            qualification.clone(),
+        ));
     }
-    for control in maximum.required_independence_controls.difference(&candidate.required_independence_controls) {
-        violations.push(violation("required_independence_control_missing", format!("{control:?}")));
+    for control in maximum
+        .required_independence_controls
+        .difference(&candidate.required_independence_controls)
+    {
+        violations.push(violation(
+            "required_independence_control_missing",
+            format!("{control:?}"),
+        ));
     }
-    for requirement in maximum.required_provenance.difference(&candidate.required_provenance) {
-        violations.push(violation("required_provenance_missing", format!("{requirement:?}")));
+    for requirement in maximum
+        .required_provenance
+        .difference(&candidate.required_provenance)
+    {
+        violations.push(violation(
+            "required_provenance_missing",
+            format!("{requirement:?}"),
+        ));
     }
 
     violations.sort();
@@ -146,14 +173,20 @@ fn assess_candidate(candidate: &ClaimCeilingV1, maximum: &ClaimCeilingV1) -> Vec
 ///
 /// This check is separate from `meet`: intersecting two over-permissive ceilings can
 /// still yield an inadmissible combination if both inputs encode a forbidden atom.
-pub fn evaluate_policy_request_bytes(input: &[u8], source_commit: &str) -> Result<PolicyReceiptV1, String> {
+pub fn evaluate_policy_request_bytes(
+    input: &[u8],
+    source_commit: &str,
+) -> Result<PolicyReceiptV1, String> {
     let source_commit_pinned = validate_source_commit(source_commit)?;
     validate_json_against_schema(POLICY_REQUEST_SCHEMA, input, "policy request")?;
     let request: PolicyRequestV1 = serde_json::from_slice(input)
         .map_err(|error| format!("policy request deserialization failed: {error}"))?;
 
     if request.schema_version != POLICY_REQUEST_SCHEMA_VERSION {
-        return Err(format!("unsupported policy request schema version: {}", request.schema_version));
+        return Err(format!(
+            "unsupported policy request schema version: {}",
+            request.schema_version
+        ));
     }
     if request.request_id.trim().is_empty() {
         return Err("request_id must not be empty".to_owned());
@@ -172,7 +205,10 @@ pub fn evaluate_policy_request_bytes(input: &[u8], source_commit: &str) -> Resul
         &request.policy_profile.maximum_ceiling,
     );
     if no_broader != violations.is_empty() {
-        return Err("policy assessment invariant mismatch between dimension audit and no-broader predicate".to_owned());
+        return Err(
+            "policy assessment invariant mismatch between dimension audit and no-broader predicate"
+                .to_owned(),
+        );
     }
 
     let profile_bytes = serde_json::to_vec(&request.policy_profile)
@@ -209,16 +245,26 @@ pub fn evaluate_policy_request_bytes(input: &[u8], source_commit: &str) -> Resul
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::UNPINNED_LOCAL_RUN;
     use crate::{
-        ClaimAtom, ClaimPredicate, DerivationKind, EvidenceClass, IndependenceControl,
-        IntendedUse, ProvenanceRequirement, meet,
+        ClaimAtom, ClaimPredicate, DerivationKind, EvidenceClass, IndependenceControl, IntendedUse,
+        ProvenanceRequirement, meet,
     };
     use serde_json::json;
     use std::collections::BTreeSet;
-    use crate::UNPINNED_LOCAL_RUN;
 
-    fn atom(predicate: ClaimPredicate, evidence: EvidenceClass, derivation: DerivationKind, use_case: IntendedUse) -> ClaimAtom {
-        ClaimAtom { predicate, evidence_class: evidence, derivation, intended_use: use_case }
+    fn atom(
+        predicate: ClaimPredicate,
+        evidence: EvidenceClass,
+        derivation: DerivationKind,
+        use_case: IntendedUse,
+    ) -> ClaimAtom {
+        ClaimAtom {
+            predicate,
+            evidence_class: evidence,
+            derivation,
+            intended_use: use_case,
+        }
     }
 
     fn safe_ceiling() -> ClaimCeilingV1 {
@@ -231,10 +277,15 @@ mod tests {
             )]),
             subject_ids: BTreeSet::from(["pump-17".to_owned()]),
             context_ids: BTreeSet::from(["zone-north".to_owned()]),
-            valid_time: TimeWindow { start_unix_seconds: 100, end_unix_seconds_exclusive: 200 },
+            valid_time: TimeWindow {
+                start_unix_seconds: 100,
+                end_unix_seconds_exclusive: 200,
+            },
             action_scopes: BTreeSet::from(["publish-report".to_owned()]),
             required_qualifications: BTreeSet::from(["calibration-reviewed".to_owned()]),
-            required_independence_controls: BTreeSet::from([IndependenceControl::DistinctAcquisition]),
+            required_independence_controls: BTreeSet::from([
+                IndependenceControl::DistinctAcquisition,
+            ]),
             required_provenance: BTreeSet::from([ProvenanceRequirement::ExactArtifactDigest]),
         }
     }
@@ -257,13 +308,17 @@ mod tests {
         evaluate_policy_request_bytes(
             &serde_json::to_vec(&request).expect("serialize policy request"),
             UNPINNED_LOCAL_RUN,
-        ).expect("valid policy request should emit a receipt")
+        )
+        .expect("valid policy request should emit a receipt")
     }
 
     #[test]
     fn policy_accepts_candidate_within_every_declared_ceiling_dimension() {
         let receipt = evaluate(safe_ceiling());
-        assert_eq!(receipt.disposition, PolicyDisposition::AdmissibleWithinProfile);
+        assert_eq!(
+            receipt.disposition,
+            PolicyDisposition::AdmissibleWithinProfile
+        );
         assert!(receipt.violations.is_empty());
         assert!(receipt.policy_admissibility_only);
         assert!(!receipt.action_authority_granted);
@@ -283,13 +338,23 @@ mod tests {
         let raw_meet = meet(&candidate, &candidate);
         assert_eq!(raw_meet.0, crate::MeetDisposition::UsableIntersection);
         assert!(
-            raw_meet.1.as_ref().unwrap().claim_atoms.contains(&forbidden),
+            raw_meet
+                .1
+                .as_ref()
+                .unwrap()
+                .claim_atoms
+                .contains(&forbidden),
             "the pure meet correctly preserves the shared atom but has no policy knowledge"
         );
 
         let receipt = evaluate(candidate);
         assert_eq!(receipt.disposition, PolicyDisposition::RejectedByProfile);
-        assert!(receipt.violations.iter().any(|v| v.code == "claim_atom_not_allowed"));
+        assert!(
+            receipt
+                .violations
+                .iter()
+                .any(|v| v.code == "claim_atom_not_allowed")
+        );
         // Rejection is scoped policy evidence only; it is not a truth/falsity result.
         assert!(receipt.policy_admissibility_only);
     }
@@ -297,9 +362,16 @@ mod tests {
     #[test]
     fn policy_rejects_each_widened_scope_dimension_and_dropped_obligation() {
         let mut candidate = safe_ceiling();
-        candidate.subject_ids.insert("unregistered-subject".to_owned());
-        candidate.context_ids.insert("unregistered-context".to_owned());
-        candidate.valid_time = TimeWindow { start_unix_seconds: 90, end_unix_seconds_exclusive: 210 };
+        candidate
+            .subject_ids
+            .insert("unregistered-subject".to_owned());
+        candidate
+            .context_ids
+            .insert("unregistered-context".to_owned());
+        candidate.valid_time = TimeWindow {
+            start_unix_seconds: 90,
+            end_unix_seconds_exclusive: 210,
+        };
         candidate.action_scopes.insert("operate-pump".to_owned());
         candidate.required_qualifications.clear();
         candidate.required_independence_controls.clear();
@@ -317,7 +389,10 @@ mod tests {
             "required_independence_control_missing",
             "required_provenance_missing",
         ] {
-            assert!(codes.contains(expected), "missing policy violation {expected}: {codes:?}");
+            assert!(
+                codes.contains(expected),
+                "missing policy violation {expected}: {codes:?}"
+            );
         }
     }
 
@@ -334,8 +409,14 @@ mod tests {
         let second = evaluate_policy_request_bytes(&bytes, UNPINNED_LOCAL_RUN).unwrap();
         assert_eq!(first, second);
         assert_eq!(first.input_sha256, sha256(&bytes));
-        assert_eq!(first.policy_profile_sha256, sha256(&serde_json::to_vec(&request.policy_profile).unwrap()));
-        assert_eq!(first.candidate_ceiling_sha256, sha256(&serde_json::to_vec(&request.candidate_ceiling).unwrap()));
+        assert_eq!(
+            first.policy_profile_sha256,
+            sha256(&serde_json::to_vec(&request.policy_profile).unwrap())
+        );
+        assert_eq!(
+            first.candidate_ceiling_sha256,
+            sha256(&serde_json::to_vec(&request.candidate_ceiling).unwrap())
+        );
     }
 
     #[test]
@@ -345,9 +426,16 @@ mod tests {
             request_id: "malformed-policy".to_owned(),
             policy_profile: profile(),
             candidate_ceiling: safe_ceiling(),
-        }).unwrap();
+        })
+        .unwrap();
         value["policy_profile"]["unexpected_authority"] = json!(true);
-        assert!(evaluate_policy_request_bytes(&serde_json::to_vec(&value).unwrap(), UNPINNED_LOCAL_RUN).is_err());
+        assert!(
+            evaluate_policy_request_bytes(
+                &serde_json::to_vec(&value).unwrap(),
+                UNPINNED_LOCAL_RUN
+            )
+            .is_err()
+        );
 
         let mut invalid = PolicyRequestV1 {
             schema_version: POLICY_REQUEST_SCHEMA_VERSION.to_owned(),
@@ -355,7 +443,16 @@ mod tests {
             policy_profile: profile(),
             candidate_ceiling: safe_ceiling(),
         };
-        invalid.policy_profile.maximum_ceiling.valid_time = TimeWindow { start_unix_seconds: 200, end_unix_seconds_exclusive: 200 };
-        assert!(evaluate_policy_request_bytes(&serde_json::to_vec(&invalid).unwrap(), UNPINNED_LOCAL_RUN).is_err());
+        invalid.policy_profile.maximum_ceiling.valid_time = TimeWindow {
+            start_unix_seconds: 200,
+            end_unix_seconds_exclusive: 200,
+        };
+        assert!(
+            evaluate_policy_request_bytes(
+                &serde_json::to_vec(&invalid).unwrap(),
+                UNPINNED_LOCAL_RUN
+            )
+            .is_err()
+        );
     }
 }
