@@ -666,9 +666,8 @@ fn semantic_validator_rejects_missing_hypothesis_outcome_and_unknown_world() {
 #[test]
 fn request_catalog_rejects_duplicate_request_ids_and_free_requests() {
     let mut catalog = catalog_fixture();
-    catalog.scenarios[0].requests[1].request_id = catalog.scenarios[0].requests[0]
-        .request_id
-        .clone();
+    let first_request_id = catalog.scenarios[0].requests[0].request_id.clone();
+    catalog.scenarios[0].requests[1].request_id = first_request_id;
     catalog.scenarios[0].requests[2].cost_units = 0;
     let issues = validate_request_catalog(&catalog).unwrap_err();
     assert!(issues.iter().any(|issue| issue.code == "duplicate_request_id"));
