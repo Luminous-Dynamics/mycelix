@@ -465,18 +465,14 @@ async fn test_oracle_rate_attestation_rejection() {
         )
         .await;
 
-    // Should fail due to oracle rate deviation (if consensus was established)
-    // or due to DID/consciousness gating. Either way, the manipulated-rate
-    // deposit should not silently succeed.
-    if result.is_ok() {
-        // If it succeeded, consensus was not established (requires 2+ distinct
-        // reporters in production, but single-agent mode accepts the rate
-        // when oracle is unreachable). This is expected in isolated tests.
-        eprintln!(
-            "Note: deposit succeeded — oracle consensus likely not established \
-             (expected in single-agent isolated test)"
-        );
-    }
+    // The caller-supplied rate must never be accepted when consensus is
+    // unavailable or the rate is outside the qualified tolerance. An earlier
+    // version tolerated success when the oracle was unreachable, masking the
+    // fail-open defect.
+    assert!(
+        result.is_err(),
+        "A manipulated rate or unavailable/invalid oracle consensus must never permit collateral deposit"
+    );
 }
 
 // ============================================================================
