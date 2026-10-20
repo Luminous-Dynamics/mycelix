@@ -15,8 +15,7 @@ use serde::{Deserialize, Serialize};
 const RELEASE_SCHEMA: &[u8] =
     include_bytes!("../schemas/claim-policy-release-descriptor-v1.schema.json");
 
-pub const RELEASE_DESCRIPTOR_SCHEMA_VERSION: &str =
-    "mycelix.claim-policy-release-descriptor.v1";
+pub const RELEASE_DESCRIPTOR_SCHEMA_VERSION: &str = "mycelix.claim-policy-release-descriptor.v1";
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -123,30 +122,36 @@ fn add_violation(violations: &mut Vec<PolicyLifecycleViolationV1>, code: &str, v
     });
 }
 
-fn status_violation(status: AuthenticatedDistributionStatus) -> Option<(&'static str, &'static str)> {
+fn status_violation(
+    status: AuthenticatedDistributionStatus,
+) -> Option<(&'static str, &'static str)> {
     match status {
         AuthenticatedDistributionStatus::VerifiedCurrent => None,
-        AuthenticatedDistributionStatus::InvalidSignature => {
-            Some(("metadata_signature_invalid", "distribution metadata signature is invalid"))
-        }
+        AuthenticatedDistributionStatus::InvalidSignature => Some((
+            "metadata_signature_invalid",
+            "distribution metadata signature is invalid",
+        )),
         AuthenticatedDistributionStatus::UnknownPublisherKey => {
             Some(("publisher_key_unknown", "distribution publisher key is not trusted"))
         }
         AuthenticatedDistributionStatus::RevokedPublisherKey => {
             Some(("publisher_key_revoked", "distribution publisher key is revoked"))
         }
-        AuthenticatedDistributionStatus::MetadataExpired => {
-            Some(("metadata_expired", "authenticated distribution metadata is expired"))
-        }
+        AuthenticatedDistributionStatus::MetadataExpired => Some((
+            "metadata_expired",
+            "authenticated distribution metadata is expired",
+        )),
         AuthenticatedDistributionStatus::MetadataStale => {
             Some(("metadata_stale", "distribution metadata is not current"))
         }
-        AuthenticatedDistributionStatus::RollbackDetected => {
-            Some(("distribution_rollback_detected", "distribution verifier detected rollback"))
-        }
-        AuthenticatedDistributionStatus::MixAndMatchDetected => {
-            Some(("distribution_mix_and_match_detected", "distribution metadata is inconsistent"))
-        }
+        AuthenticatedDistributionStatus::RollbackDetected => Some((
+            "distribution_rollback_detected",
+            "distribution verifier detected rollback",
+        )),
+        AuthenticatedDistributionStatus::MixAndMatchDetected => Some((
+            "distribution_mix_and_match_detected",
+            "distribution metadata is inconsistent",
+        )),
         AuthenticatedDistributionStatus::SignatureThresholdNotMet => {
             Some(("signature_threshold_not_met", "required signature threshold was not met"))
         }
@@ -185,7 +190,9 @@ pub fn evaluate_policy_release_bytes(
         || !valid_sha256(&release.policy_profile_schema_sha256)
         || !valid_sha256(&trusted_context.expected_policy_profile_schema_sha256)
     {
-        return Err("policy/profile schema digests must be 64 lowercase hexadecimal characters".to_owned());
+        return Err(
+            "policy/profile schema digests must be 64 lowercase hexadecimal characters".to_owned(),
+        );
     }
     if trusted_context.expected_policy_id.trim().is_empty()
         || trusted_context.expected_audience.trim().is_empty()
@@ -203,18 +210,23 @@ pub fn evaluate_policy_release_bytes(
         add_violation(
             &mut violations,
             "policy_id_mismatch",
-            format!("expected {}, received {}", trusted_context.expected_policy_id, release.policy_id),
+            format!(
+                "expected {}, received {}",
+                trusted_context.expected_policy_id, release.policy_id
+            ),
         );
     }
     if release.audience != trusted_context.expected_audience {
         add_violation(
             &mut violations,
             "policy_audience_mismatch",
-            format!("expected {}, received {}", trusted_context.expected_audience, release.audience),
+            format!(
+                "expected {}, received {}",
+                trusted_context.expected_audience, release.audience
+            ),
         );
     }
-    if release.policy_profile_schema_sha256
-        != trusted_context.expected_policy_profile_schema_sha256
+    if release.policy_profile_schema_sha256 != trusted_context.expected_policy_profile_schema_sha256
     {
         add_violation(
             &mut violations,
@@ -268,14 +280,20 @@ pub fn evaluate_policy_release_bytes(
                 add_violation(
                     &mut violations,
                     "release_not_yet_valid",
-                    format!("trusted time {now} precedes issue time {}", release.issued_at_unix_seconds),
+                    format!(
+                        "trusted time {now} precedes issue time {}",
+                        release.issued_at_unix_seconds
+                    ),
                 );
             }
             if now >= release.expires_at_unix_seconds {
                 add_violation(
                     &mut violations,
                     "release_expired",
-                    format!("trusted time {now} is at or after expiry {}", release.expires_at_unix_seconds),
+                    format!(
+                        "trusted time {now} is at or after expiry {}",
+                        release.expires_at_unix_seconds
+                    ),
                 );
             }
         }
@@ -287,7 +305,10 @@ pub fn evaluate_policy_release_bytes(
             add_violation(
                 &mut violations,
                 "policy_version_rollback",
-                format!("installed version {}, candidate version {}", installed.version, release.version),
+                format!(
+                    "installed version {}, candidate version {}",
+                    installed.version, release.version
+                ),
             );
         } else if release.version == installed.version {
             if release.target_profile_sha256 != installed.target_profile_sha256
@@ -378,7 +399,8 @@ mod tests {
             distribution_status: AuthenticatedDistributionStatus::VerifiedCurrent,
             installed_head: Some(InstalledPolicyHeadV1 {
                 version: 1,
-                target_profile_sha256: "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb".to_owned(),
+                target_profile_sha256:
+                    "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb".to_owned(),
                 revocation_epoch: 3,
             }),
         }
@@ -400,7 +422,10 @@ mod tests {
     #[test]
     fn accepts_a_new_current_release_and_proposes_monotonic_state() {
         let receipt = evaluate(release(), context(), PROFILE_BYTES);
-        assert_eq!(receipt.disposition, PolicyLifecycleDispositionV1::AcceptedNewRelease);
+        assert_eq!(
+            receipt.disposition,
+            PolicyLifecycleDispositionV1::AcceptedNewRelease
+        );
         assert_eq!(receipt.proposed_next_head.as_ref().unwrap().version, 2);
         assert!(!receipt.evidence_admission_granted);
         assert!(!receipt.action_authority_granted);
@@ -416,7 +441,10 @@ mod tests {
             revocation_epoch: current.revocation_epoch,
         });
         let receipt = evaluate(current, ctx.clone(), PROFILE_BYTES);
-        assert_eq!(receipt.disposition, PolicyLifecycleDispositionV1::AlreadyCurrent);
+        assert_eq!(
+            receipt.disposition,
+            PolicyLifecycleDispositionV1::AlreadyCurrent
+        );
         assert_eq!(receipt.proposed_next_head, ctx.installed_head);
     }
 
@@ -425,8 +453,16 @@ mod tests {
         let mut candidate = release();
         candidate.version = 1;
         let receipt = evaluate(candidate, context(), PROFILE_BYTES);
-        assert_eq!(receipt.disposition, PolicyLifecycleDispositionV1::Rejected);
-        assert!(receipt.violations.iter().any(|v| v.code == "policy_version_rollback"));
+        assert_eq!(
+            receipt.disposition,
+            PolicyLifecycleDispositionV1::Rejected
+        );
+        assert!(
+            receipt
+                .violations
+                .iter()
+                .any(|v| v.code == "policy_version_rollback")
+        );
         assert!(receipt.proposed_next_head.is_none());
     }
 
@@ -437,11 +473,17 @@ mod tests {
         let mut conflict_ctx = ctx.clone();
         conflict_ctx.installed_head = Some(InstalledPolicyHeadV1 {
             version: candidate.version,
-            target_profile_sha256: "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc".to_owned(),
+            target_profile_sha256:
+                "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc".to_owned(),
             revocation_epoch: candidate.revocation_epoch,
         });
         let receipt = evaluate(candidate.clone(), conflict_ctx, PROFILE_BYTES);
-        assert!(receipt.violations.iter().any(|v| v.code == "policy_version_equivocation"));
+        assert!(
+            receipt
+                .violations
+                .iter()
+                .any(|v| v.code == "policy_version_equivocation")
+        );
 
         let mut epoch_conflict_ctx = ctx;
         epoch_conflict_ctx.installed_head = Some(InstalledPolicyHeadV1 {
@@ -467,11 +509,26 @@ mod tests {
     #[test]
     fn rejects_unknown_or_revoked_publisher_and_expired_distribution_metadata() {
         let statuses = [
-            (AuthenticatedDistributionStatus::UnknownPublisherKey, "publisher_key_unknown"),
-            (AuthenticatedDistributionStatus::RevokedPublisherKey, "publisher_key_revoked"),
-            (AuthenticatedDistributionStatus::MetadataExpired, "metadata_expired"),
-            (AuthenticatedDistributionStatus::RollbackDetected, "distribution_rollback_detected"),
-            (AuthenticatedDistributionStatus::MixAndMatchDetected, "distribution_mix_and_match_detected"),
+            (
+                AuthenticatedDistributionStatus::UnknownPublisherKey,
+                "publisher_key_unknown",
+            ),
+            (
+                AuthenticatedDistributionStatus::RevokedPublisherKey,
+                "publisher_key_revoked",
+            ),
+            (
+                AuthenticatedDistributionStatus::MetadataExpired,
+                "metadata_expired",
+            ),
+            (
+                AuthenticatedDistributionStatus::RollbackDetected,
+                "distribution_rollback_detected",
+            ),
+            (
+                AuthenticatedDistributionStatus::MixAndMatchDetected,
+                "distribution_mix_and_match_detected",
+            ),
         ];
         for (status, code) in statuses {
             let mut ctx = context();
@@ -499,7 +556,12 @@ mod tests {
         ctx.trusted_time_unix_seconds = None;
         let receipt = evaluate(release(), ctx, PROFILE_BYTES);
         assert_eq!(receipt.disposition, PolicyLifecycleDispositionV1::Rejected);
-        assert!(receipt.violations.iter().any(|v| v.code == "trusted_time_unavailable"));
+        assert!(
+            receipt
+                .violations
+                .iter()
+                .any(|v| v.code == "trusted_time_unavailable")
+        );
     }
 
     #[test]
@@ -566,8 +628,7 @@ mod tests {
 
     #[test]
     fn frozen_lifecycle_attack_vectors_match_reference_state_machine() {
-        let bytes: &[u8] =
-            include_bytes!("../fixtures/claim-policy-lifecycle-golden-v1.json");
+        let bytes: &[u8] = include_bytes!("../fixtures/claim-policy-lifecycle-golden-v1.json");
         let corpus: LifecycleVectorCorpus =
             serde_json::from_slice(bytes).expect("lifecycle vector corpus must parse");
         assert_eq!(
@@ -597,9 +658,17 @@ mod tests {
             let mut expected = vector.expected_violation_codes;
             actual.sort();
             expected.sort();
-            assert_eq!(actual, expected, "wrong violation codes for vector {}", vector.id);
+            assert_eq!(
+                actual, expected,
+                "wrong violation codes for vector {}",
+                vector.id
+            );
             if receipt.disposition == PolicyLifecycleDispositionV1::Rejected {
-                assert!(receipt.proposed_next_head.is_none(), "rejected vector {} proposed state", vector.id);
+                assert!(
+                    receipt.proposed_next_head.is_none(),
+                    "rejected vector {} proposed state",
+                    vector.id
+                );
             }
             assert!(!receipt.evidence_admission_granted);
             assert!(!receipt.action_authority_granted);
