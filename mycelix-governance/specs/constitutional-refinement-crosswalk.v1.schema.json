@@ -1,0 +1,189 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://mycelix.dev/schemas/constitutional-refinement-crosswalk.v1.schema.json",
+  "title": "Mycelix Constitutional Refinement Crosswalk v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "crosswalk_id",
+    "version",
+    "status",
+    "qualified_prerequisites",
+    "relationships",
+    "pending_extensions"
+  ],
+  "properties": {
+    "schema": {
+      "const": "mycelix.constitutional-refinement-crosswalk.v1"
+    },
+    "crosswalk_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "version": {
+      "type": "string",
+      "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$"
+    },
+    "status": {
+      "enum": ["draft", "qualified"]
+    },
+    "qualified_prerequisites": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/prerequisite" },
+      "minItems": 1
+    },
+    "relationships": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/relationship" },
+      "minItems": 1
+    },
+    "pending_extensions": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/pendingExtension" }
+    }
+  },
+  "$defs": {
+    "prerequisite": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "semantic_head",
+        "verifier_head",
+        "qualification_run_id",
+        "artifact_digest"
+      ],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "semantic_head": { "type": "string", "pattern": "^[0-9a-f]{40}$" },
+        "verifier_head": { "type": "string", "pattern": "^[0-9a-f]{40}$" },
+        "qualification_run_id": { "type": "integer", "minimum": 1 },
+        "artifact_digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" }
+      }
+    },
+    "concrete": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "language",
+        "crate",
+        "source_path",
+        "source_git_blob_sha",
+        "symbol_type",
+        "symbol",
+        "persisted",
+        "crash_observable",
+        "transaction_boundary"
+      ],
+      "properties": {
+        "language": { "enum": ["rust", "holochain_runtime"] },
+        "crate": { "type": "string", "minLength": 1 },
+        "source_path": { "type": "string", "minLength": 1 },
+        "source_git_blob_sha": { "type": "string", "pattern": "^[0-9a-f]{40}$" },
+        "symbol_type": {
+          "enum": [
+            "enum_variant",
+            "derived_absence",
+            "method",
+            "field",
+            "transaction_boundary",
+            "runtime_entry"
+          ]
+        },
+        "symbol": { "type": "string", "minLength": 1 },
+        "persisted": { "type": "boolean" },
+        "crash_observable": { "type": "boolean" },
+        "transaction_boundary": { "type": "string", "minLength": 1 }
+      }
+    },
+    "formal": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "formalism",
+        "model_path",
+        "model_git_blob_sha",
+        "symbol",
+        "role",
+        "concrete_commit_correspondence"
+      ],
+      "properties": {
+        "formalism": { "enum": ["tla+", "alloy"] },
+        "model_path": { "type": "string", "minLength": 1 },
+        "model_git_blob_sha": { "type": "string", "pattern": "^[0-9a-f]{40}$" },
+        "symbol": { "type": "string", "minLength": 1 },
+        "role": {
+          "enum": [
+            "state",
+            "action",
+            "ghost",
+            "derived_predicate",
+            "environment_input",
+            "atom"
+          ]
+        },
+        "concrete_commit_correspondence": { "type": "boolean" }
+      }
+    },
+    "relationship": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "qualification_status",
+        "kind",
+        "action_cardinality",
+        "concrete",
+        "formal",
+        "rationale"
+      ],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "qualification_status": { "enum": ["qualified", "pending", "out_of_model"] },
+        "kind": {
+          "enum": [
+            "exact_enumeration",
+            "projection",
+            "action_refinement",
+            "ghost_environment_state",
+            "stuttering_refinement",
+            "out_of_model",
+            "future_unimplemented"
+          ]
+        },
+        "action_cardinality": {
+          "enum": [
+            "one_to_one",
+            "concrete_atomic_to_formal_microsteps",
+            "formal_atomic_to_concrete_microsteps",
+            "environment_plus_concrete_action",
+            "projection_only_no_action_correspondence"
+          ]
+        },
+        "concrete": { "$ref": "#/$defs/concrete" },
+        "formal": { "$ref": "#/$defs/formal" },
+        "rationale": { "type": "string", "minLength": 1 }
+      }
+    },
+    "pendingExtension": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "issue", "status", "reason"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "issue": { "type": "integer", "minimum": 1 },
+        "status": { "enum": ["pending_qualification", "pending_design"] },
+        "candidate_semantic_head": {
+          "type": ["string", "null"],
+          "pattern": "^[0-9a-f]{40}$"
+        },
+        "candidate_verifier_head": {
+          "type": ["string", "null"],
+          "pattern": "^[0-9a-f]{40}$"
+        },
+        "reason": { "type": "string", "minLength": 1 }
+      }
+    }
+  }
+}

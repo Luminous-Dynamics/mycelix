@@ -1,0 +1,225 @@
+{
+  "schema": "mycelix.constitutional-refinement-crosswalk.v1",
+  "crosswalk_id": "mycelix.lifecycle-status.v1",
+  "version": "0.1.0",
+  "status": "draft",
+  "qualified_prerequisites": [
+    {
+      "id": "MYC-CONST-003B2",
+      "semantic_head": "b19667a0399d46e7a21254e931c3149cfbd994fc",
+      "verifier_head": "aaf1a97546b7cf33802d363f94567481ebeb8217",
+      "qualification_run_id": 35283271597,
+      "artifact_digest": "sha256:a0bc243f4c9efc20c2fd7b5482ad30c880c14ae8782da5c8a6a04ad2bf61a4b4"
+    }
+  ],
+  "relationships": [
+    {
+      "id": "lifecycle.absent",
+      "qualification_status": "qualified",
+      "kind": "projection",
+      "action_cardinality": "projection_only_no_action_correspondence",
+      "concrete": {
+        "language": "rust",
+        "crate": "constitutional-claim-lifecycle",
+        "source_path": "mycelix-governance/crates/constitutional-claim-lifecycle/src/state.rs",
+        "source_git_blob_sha": "c8f888298ce6334863148c40ff263cd7bf7c9027",
+        "symbol_type": "derived_absence",
+        "symbol": "ClaimLifecycleState::claims.get(claim_id) == None",
+        "persisted": false,
+        "crash_observable": false,
+        "transaction_boundary": "pure reference state; no runtime persistence claim"
+      },
+      "formal": {
+        "formalism": "tla+",
+        "model_path": "mycelix-governance/specs/ConstitutionalClaimLifecycle.tla",
+        "model_git_blob_sha": "8699426cb4e256fb8b3c998381bab21fe528414b",
+        "symbol": "Absent",
+        "role": "state",
+        "concrete_commit_correspondence": false
+      },
+      "rationale": "The TLA+ Absent atom represents the absence of a ClaimRecord, not a ClaimLifecycleStatus enum variant."
+    },
+    {
+      "id": "lifecycle.pending",
+      "qualification_status": "qualified",
+      "kind": "projection",
+      "action_cardinality": "projection_only_no_action_correspondence",
+      "concrete": {
+        "language": "rust",
+        "crate": "constitutional-claim-lifecycle",
+        "source_path": "mycelix-governance/crates/constitutional-claim-lifecycle/src/types.rs",
+        "source_git_blob_sha": "a82000324ce7ec8c30d1a670a6b4ca64fa4f8573",
+        "symbol_type": "enum_variant",
+        "symbol": "ClaimLifecycleStatus::PendingExecutable",
+        "persisted": false,
+        "crash_observable": false,
+        "transaction_boundary": "pure reference state replacement"
+      },
+      "formal": {
+        "formalism": "tla+",
+        "model_path": "mycelix-governance/specs/ConstitutionalClaimLifecycle.tla",
+        "model_git_blob_sha": "8699426cb4e256fb8b3c998381bab21fe528414b",
+        "symbol": "Pending",
+        "role": "state",
+        "concrete_commit_correspondence": false
+      },
+      "rationale": "Rust carries claim provenance outside the abstract TLA+ status atom; the status meaning projects to Pending."
+    },
+    {
+      "id": "lifecycle.blocked",
+      "qualification_status": "qualified",
+      "kind": "projection",
+      "action_cardinality": "projection_only_no_action_correspondence",
+      "concrete": {
+        "language": "rust",
+        "crate": "constitutional-claim-lifecycle",
+        "source_path": "mycelix-governance/crates/constitutional-claim-lifecycle/src/types.rs",
+        "source_git_blob_sha": "a82000324ce7ec8c30d1a670a6b4ca64fa4f8573",
+        "symbol_type": "enum_variant",
+        "symbol": "ClaimLifecycleStatus::BlockedAwaitingEvidenceClosure",
+        "persisted": false,
+        "crash_observable": false,
+        "transaction_boundary": "pure reference state replacement"
+      },
+      "formal": {
+        "formalism": "tla+",
+        "model_path": "mycelix-governance/specs/ConstitutionalClaimLifecycle.tla",
+        "model_git_blob_sha": "8699426cb4e256fb8b3c998381bab21fe528414b",
+        "symbol": "Blocked",
+        "role": "state",
+        "concrete_commit_correspondence": false
+      },
+      "rationale": "The Rust variant retains revocation provenance while TLA+ abstracts that payload into other state variables."
+    },
+    {
+      "id": "lifecycle.finalized",
+      "qualification_status": "qualified",
+      "kind": "projection",
+      "action_cardinality": "projection_only_no_action_correspondence",
+      "concrete": {
+        "language": "rust",
+        "crate": "constitutional-claim-lifecycle",
+        "source_path": "mycelix-governance/crates/constitutional-claim-lifecycle/src/types.rs",
+        "source_git_blob_sha": "a82000324ce7ec8c30d1a670a6b4ca64fa4f8573",
+        "symbol_type": "enum_variant",
+        "symbol": "ClaimLifecycleStatus::Finalized",
+        "persisted": false,
+        "crash_observable": false,
+        "transaction_boundary": "pure reference state replacement"
+      },
+      "formal": {
+        "formalism": "tla+",
+        "model_path": "mycelix-governance/specs/ConstitutionalClaimLifecycle.tla",
+        "model_git_blob_sha": "8699426cb4e256fb8b3c998381bab21fe528414b",
+        "symbol": "Finalized",
+        "role": "state",
+        "concrete_commit_correspondence": false
+      },
+      "rationale": "Rust retains use index and finality provenance; the qualified TLA+ atom represents the lifecycle class only."
+    },
+    {
+      "id": "lifecycle.rejected",
+      "qualification_status": "qualified",
+      "kind": "projection",
+      "action_cardinality": "projection_only_no_action_correspondence",
+      "concrete": {
+        "language": "rust",
+        "crate": "constitutional-claim-lifecycle",
+        "source_path": "mycelix-governance/crates/constitutional-claim-lifecycle/src/types.rs",
+        "source_git_blob_sha": "a82000324ce7ec8c30d1a670a6b4ca64fa4f8573",
+        "symbol_type": "enum_variant",
+        "symbol": "ClaimLifecycleStatus::RejectedConflict",
+        "persisted": false,
+        "crash_observable": false,
+        "transaction_boundary": "pure reference state replacement"
+      },
+      "formal": {
+        "formalism": "tla+",
+        "model_path": "mycelix-governance/specs/ConstitutionalClaimLifecycle.tla",
+        "model_git_blob_sha": "8699426cb4e256fb8b3c998381bab21fe528414b",
+        "symbol": "Rejected",
+        "role": "state",
+        "concrete_commit_correspondence": false
+      },
+      "rationale": "The winning claim/proof provenance is intentionally abstracted from the TLA+ status atom."
+    },
+    {
+      "id": "lifecycle.revoked_closed",
+      "qualification_status": "qualified",
+      "kind": "projection",
+      "action_cardinality": "projection_only_no_action_correspondence",
+      "concrete": {
+        "language": "rust",
+        "crate": "constitutional-claim-lifecycle",
+        "source_path": "mycelix-governance/crates/constitutional-claim-lifecycle/src/types.rs",
+        "source_git_blob_sha": "a82000324ce7ec8c30d1a670a6b4ca64fa4f8573",
+        "symbol_type": "enum_variant",
+        "symbol": "ClaimLifecycleStatus::RevokedClosed",
+        "persisted": false,
+        "crash_observable": false,
+        "transaction_boundary": "pure reference state replacement"
+      },
+      "formal": {
+        "formalism": "tla+",
+        "model_path": "mycelix-governance/specs/ConstitutionalClaimLifecycle.tla",
+        "model_git_blob_sha": "8699426cb4e256fb8b3c998381bab21fe528414b",
+        "symbol": "RevokedClosed",
+        "role": "state",
+        "concrete_commit_correspondence": false
+      },
+      "rationale": "Rust closure/revocation evidence remains available as provenance while TLA+ abstracts the lifecycle terminal class."
+    },
+    {
+      "id": "lifecycle.halted",
+      "qualification_status": "qualified",
+      "kind": "projection",
+      "action_cardinality": "projection_only_no_action_correspondence",
+      "concrete": {
+        "language": "rust",
+        "crate": "constitutional-claim-lifecycle",
+        "source_path": "mycelix-governance/crates/constitutional-claim-lifecycle/src/types.rs",
+        "source_git_blob_sha": "a82000324ce7ec8c30d1a670a6b4ca64fa4f8573",
+        "symbol_type": "enum_variant",
+        "symbol": "ClaimLifecycleStatus::IntegrityHalted",
+        "persisted": false,
+        "crash_observable": false,
+        "transaction_boundary": "pure reference state replacement"
+      },
+      "formal": {
+        "formalism": "tla+",
+        "model_path": "mycelix-governance/specs/ConstitutionalClaimLifecycle.tla",
+        "model_git_blob_sha": "8699426cb4e256fb8b3c998381bab21fe528414b",
+        "symbol": "Halted",
+        "role": "state",
+        "concrete_commit_correspondence": false
+      },
+      "rationale": "Rust preserves the structured LifecycleFault while the qualified TLA+ status atom expresses the fail-closed lifecycle class."
+    }
+  ],
+  "pending_extensions": [
+    {
+      "id": "claim-binding-v1",
+      "issue": 1487,
+      "status": "pending_qualification",
+      "candidate_semantic_head": "037f61c15ff367a1518d98f7acc8ec0fa962c2f6",
+      "candidate_verifier_head": "7a654d6cc854185dd5589ac8aab30c6699b45a3a",
+      "reason": "Do not map ClaimBinding as qualified refinement evidence until the retained exact-head Rust+Alloy receipt passes inspection."
+    },
+    {
+      "id": "lifecycle-quiescence-v1",
+      "issue": 1426,
+      "status": "pending_qualification",
+      "candidate_semantic_head": "b9bb91353788aeb858c4e52422a87e2401d60a0e",
+      "candidate_verifier_head": "18309d680a5d630bbb7f5443ab103ade9239a557",
+      "reason": "003C3 readiness/ghost/action symbols remain outside qualified refinement until the exact bound-matrix receipt passes inspection."
+    },
+    {
+      "id": "runtime-crash-consistency",
+      "issue": 1535,
+      "status": "pending_design",
+      "candidate_semantic_head": null,
+      "candidate_verifier_head": null,
+      "reason": "Reference-model state is not runtime persistence evidence; commit/crash/outbox semantics require a separate qualified runtime tranche."
+    }
+  ]
+}
