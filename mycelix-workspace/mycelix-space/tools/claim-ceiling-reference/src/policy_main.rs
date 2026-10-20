@@ -8,7 +8,11 @@ use std::{collections::BTreeMap, env, fs, io::Read, process};
 const MAX_REQUEST_BYTES: usize = 1024 * 1024;
 const MAX_POLICY_PROFILE_BYTES: usize = 1024 * 1024;
 
-const USAGE: &str = "usage: claim-ceiling-policy-check --input REQUEST.json --policy PROFILE.json --expected-policy-sha256 SHA256 [--source-commit SHA]";
+const USAGE: &str = concat!(
+    "usage: claim-ceiling-policy-check --input REQUEST.json ",
+    "--policy PROFILE.json --expected-policy-sha256 SHA256 ",
+    "[--source-commit SHA]",
+);
 
 #[derive(Debug)]
 struct CliArgs {
@@ -76,7 +80,8 @@ fn parse_args(args: &[String]) -> Result<CliArgs, String> {
 /// Read no more than limit + 1 bytes, so a growing/replaced file cannot cause an
 /// unbounded read between a metadata check and the actual read.
 fn read_bounded(path: &str, label: &str, limit: usize) -> Result<Vec<u8>, String> {
-    let file = fs::File::open(path).map_err(|error| format!("cannot open {label} {path}: {error}"))?;
+    let file = fs::File::open(path)
+        .map_err(|error| format!("cannot open {label} {path}: {error}"))?;
     let mut bytes = Vec::new();
     file.take((limit + 1) as u64)
         .read_to_end(&mut bytes)
