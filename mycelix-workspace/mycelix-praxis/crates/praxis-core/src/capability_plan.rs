@@ -266,15 +266,17 @@ pub fn compile_goal_plan(
     }
     let ordered_ids = topological_order(&closure, &nodes)?;
 
-    let mut steps = Vec::with_capacity(ordered_ids.len());
-    let mut estimated_total_minutes = 0_u32;
+    // Keep all eligible alternatives separate from the route options allowed by
+    // the learner's explicit choices. A preference constrains the proposed plan;
+    // the UI may show alternatives, but selecting one requires recompilation.
+    let mut eligible_by_capability = BTreeMap::<CapabilityId, Vec<PracticeOption>>::new();
+    let mut route_options = BTreeMap::<CapabilityId, Vec<PracticeOption>>::new();
 
-    for (index, capability_id) in ordered_ids.iter().enumerate() {
+    for capability_id in &ordered_ids {
         let node = nodes
             .get(capability_id)
             .expect("dependency closure only contains validated graph nodes");
-
-        let mut eligible_practices: Vec<PracticeOption> = node
+        let mut eligible: Vec<PracticeOption> = node
             .practice_options
             .iter()
             .filter(|option| {
@@ -286,41 +288,106 @@ pub fn compile_goal_plan(
             })
             .cloned()
             .collect();
-        eligible_practices.sort_by(practice_option_order);
-        if eligible_practices.is_empty() {
+        eligible.sort_by(practice_option_order);
+        if eligible.is_empty() {
             return Err(GoalPlanError::NoEligiblePracticeOption {
                 capability_id: capability_id.0.clone(),
             });
         }
 
-        let preferred = request.preferred_practice.get(capability_id);
-        let proposed_practice = if let Some(preferred) = preferred {
-            eligible_practices
+        let choices = if let Some(preferred) = request.preferred_practice.get(capability_id) {
+            let chosen = eligible
                 .iter()
                 .find(|option| option_matches_ref(option, preferred))
                 .cloned()
                 .ok_or_else(|| GoalPlanError::PreferredPracticeNotEligible {
                     capability_id: capability_id.0.clone(),
                     task_id: preferred.task_id.clone(),
-                })?
+                })?;
+            vec![chosen]
         } else {
-            eligible_practices[0].clone()
+            eligible.clone()
         };
-        let selection_basis = if preferred.is_some() {
+        eligible_by_capability.insert(capability_id.clone(), eligible);
+        route_options.insert(capability_id.clone(), choices);
+    }
+
+    // Find the shortest route allowed by the hard learner constraints. If even
+    // that route exceeds the budget, fail with a useful lower bound instead of
+    // suggesting a route that violates the learner's budget.
+    let minimum_total_minutes = ordered_ids.iter().try_fold(0_u32, |total, capability_id| {
+        let minimum = route_options
+            .get(capability_id)
+            .and_then(|options| options.iter().map(|option| option.estimated_minutes).min())
+            .expect("every route node has at least one validated option");
+        total.checked_add(minimum).ok_or(GoalPlanError::DurationOverflow)
+    })?;
+    if minimum_total_minutes > request.constraints.max_total_minutes {
+        return Err(GoalPlanError::TotalBudgetExceeded {
+            required_minutes: minimum_total_minutes,
+            budget_minutes: request.constraints.max_total_minutes,
+        });
+    }
+
+    // Reserve the minimum possible time for the remaining steps. At each step,
+    // choose the highest-priority remaining option that keeps the whole plan
+    // within budget. This is deterministic and budget-feasible without pretending
+    // to solve a pedagogical-utility optimization problem.
+    let mut minimum_suffix_minutes = vec![0_u32; ordered_ids.len()];
+    let mut suffix_total = 0_u32;
+    for index in (0..ordered_ids.len()).rev() {
+        minimum_suffix_minutes[index] = suffix_total;
+        let capability_id = &ordered_ids[index];
+        let minimum = route_options
+            .get(capability_id)
+            .and_then(|options| options.iter().map(|option| option.estimated_minutes).min())
+            .expect("every route node has at least one validated option");
+        suffix_total = suffix_total
+            .checked_add(minimum)
+            .ok_or(GoalPlanError::DurationOverflow)?;
+    }
+
+    let mut steps = Vec::with_capacity(ordered_ids.len());
+    let mut estimated_total_minutes = 0_u32;
+
+    for (index, capability_id) in ordered_ids.iter().enumerate() {
+        let node = nodes
+            .get(capability_id)
+            .expect("dependency closure only contains validated graph nodes");
+        let options = route_options
+            .get(capability_id)
+            .expect("every route node has route options");
+
+        let proposed_practice = options
+            .iter()
+            .find(|option| {
+                estimated_total_minutes
+                    .checked_add(option.estimated_minutes)
+                    .and_then(|subtotal| subtotal.checked_add(minimum_suffix_minutes[index]))
+                    .is_some_and(|minimum_feasible_total| {
+                        minimum_feasible_total <= request.constraints.max_total_minutes
+                    })
+            })
+            .cloned()
+            .expect("minimum-route lower bound proves a feasible option exists");
+
+        let selection_basis = if request.preferred_practice.contains_key(capability_id) {
             PracticeSelectionBasis::LearnerPreference
         } else {
             PracticeSelectionBasis::CuratorPriority
         };
-
         estimated_total_minutes = estimated_total_minutes
             .checked_add(proposed_practice.estimated_minutes)
             .ok_or(GoalPlanError::DurationOverflow)?;
 
         let mut prerequisites = node.prerequisites.clone();
         prerequisites.sort();
-        let eligible_alternatives = eligible_practices
-            .into_iter()
+        let eligible_alternatives = eligible_by_capability
+            .get(capability_id)
+            .expect("every route node has eligible alternatives")
+            .iter()
             .filter(|option| !same_practice_identity(option, &proposed_practice))
+            .cloned()
             .collect();
 
         steps.push(GoalPlanStep {
@@ -335,12 +402,7 @@ pub fn compile_goal_plan(
         });
     }
 
-    if estimated_total_minutes > request.constraints.max_total_minutes {
-        return Err(GoalPlanError::TotalBudgetExceeded {
-            required_minutes: estimated_total_minutes,
-            budget_minutes: request.constraints.max_total_minutes,
-        });
-    }
+    debug_assert!(estimated_total_minutes <= request.constraints.max_total_minutes);
 
     let canonical_graph = canonicalize_graph(graph.clone());
     let canonical_bytes = serde_json::to_vec(&CanonicalPlanInput {
@@ -1063,6 +1125,77 @@ mod tests {
             ),
             Err(GoalPlanError::NoEligiblePracticeOption {
                 capability_id: "cap-ip-basics".into()
+            })
+        );
+    }
+
+    #[test]
+    fn budget_feasibility_can_choose_lower_priority_alternative() {
+        let mut graph = basic_graph();
+        let target = graph
+            .nodes
+            .iter_mut()
+            .find(|node| node.capability_id == id("cap-net-debug"))
+            .unwrap();
+        target.practice_options[0].route_priority = 20; // 35 minutes
+        target.practice_options[1].route_priority = 1;  // 50 minutes
+
+        // Prerequisites need 25 minutes. The highest-priority target option would
+        // produce a 75-minute route, while the 35-minute alternative fits in 70.
+        let plan = compile_goal_plan(
+            &graph,
+            &request(
+                "cap-net-debug",
+                &[
+                    DeliveryMode::GuidedPractice,
+                    DeliveryMode::RetrievalPractice,
+                    DeliveryMode::Simulation,
+                    DeliveryMode::SupervisedPractical,
+                ],
+                60,
+                70,
+            ),
+            100,
+        )
+        .unwrap();
+
+        assert_eq!(plan.estimated_total_minutes, 60);
+        assert_eq!(
+            plan.steps.last().unwrap().proposed_practice.task_id,
+            "task-network-lab"
+        );
+        assert_eq!(plan.steps.last().unwrap().eligible_alternatives.len(), 1);
+    }
+
+    #[test]
+    fn learner_preference_that_makes_budget_infeasible_is_rejected() {
+        let graph = basic_graph();
+        let target = graph
+            .nodes
+            .iter()
+            .find(|node| node.capability_id == id("cap-net-debug"))
+            .unwrap();
+        let mut request = request(
+            "cap-net-debug",
+            &[
+                DeliveryMode::GuidedPractice,
+                DeliveryMode::RetrievalPractice,
+                DeliveryMode::Simulation,
+                DeliveryMode::SupervisedPractical,
+            ],
+            60,
+            70,
+        );
+        request.preferred_practice.insert(
+            id("cap-net-debug"),
+            PracticeOptionRef::from(&target.practice_options[1]),
+        );
+
+        assert_eq!(
+            compile_goal_plan(&graph, &request, 100),
+            Err(GoalPlanError::TotalBudgetExceeded {
+                required_minutes: 75,
+                budget_minutes: 70,
             })
         );
     }
