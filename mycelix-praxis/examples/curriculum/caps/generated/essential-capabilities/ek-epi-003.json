@@ -1,0 +1,93 @@
+{
+  "node_id": "EK-EPI-003",
+  "lesson": {
+    "standard_code": "EK-EPI-003",
+    "title": "Represent Uncertainty and Update Beliefs",
+    "grade_level": "Adult",
+    "bloom_level": "Evaluate",
+    "explanation": "Uncertainty is not failure; it is information about the limits of a conclusion. Distinguish what is known, what is estimated, and what is unknown. Confidence should track the quality, relevance, and independence of evidence, not personal conviction or social agreement. State in advance what observations would change your mind. Update in proportion to evidence, preserve unresolved alternatives, and avoid turning one counterexample into proof of the opposite claim.",
+    "examples": [
+      {
+        "problem": "You predict that a delivery will arrive tomorrow with 70% confidence. It is delayed at the distribution centre.",
+        "steps": [
+          {
+            "instruction": "Identify which part of the evidence is new.",
+            "result": "The package has not yet left the distribution centre."
+          },
+          {
+            "instruction": "Reassess the prediction using the new evidence and relevant base rates.",
+            "result": "The original 70% estimate should be reconsidered; the size of the update depends on delivery patterns and timing."
+          }
+        ],
+        "answer": "A coherent update changes confidence because evidence changed. Do not invent a new precise probability without a basis."
+      }
+    ],
+    "practice_problems": [
+      {
+        "question": "What makes a useful prediction record?",
+        "answer": "A time-bounded claim, an outcome definition, a confidence estimate where appropriate, relevant evidence, and a later resolution.",
+        "difficulty_permille": 200,
+        "bloom_level": "Apply",
+        "hints": [
+          "Identify what the question is asking before choosing a response.",
+          "State your reasoning and check whether it fits the context."
+        ],
+        "explanation": "Predictions can only be evaluated if the outcome and time window are clear.",
+        "distractors": [
+          "A statement that cannot be checked.",
+          "Confidence without a resolution rule.",
+          "Only a prediction that you are certain will succeed."
+        ]
+      },
+      {
+        "question": "A trusted source is contradicted by a well-documented independent measurement. What is the best next step?",
+        "answer": "Inspect methods and scope for both, preserve the conflict, and update the claim in proportion to the stronger relevant evidence.",
+        "difficulty_permille": 450,
+        "bloom_level": "Evaluate",
+        "hints": [
+          "Identify what the question is asking before choosing a response.",
+          "State your reasoning and check whether it fits the context."
+        ],
+        "explanation": "Neither reputation nor recency substitutes for evidence quality.",
+        "distractors": [
+          "Ignore the measurement because of the source's reputation.",
+          "Accept any new claim without checking it.",
+          "Average the two conclusions automatically."
+        ]
+      }
+    ],
+    "key_vocabulary": [
+      {
+        "term": "Calibration",
+        "definition": "How closely stated confidence matches outcomes over many predictions.",
+        "example_usage": "Among events assigned 70% probability, roughly 70% should occur over a sufficiently large, relevant set."
+      },
+      {
+        "term": "Disconfirmation",
+        "definition": "Evidence that would count against a claim.",
+        "example_usage": "A prediction that fails under its stated conditions may disconfirm the model."
+      }
+    ],
+    "misconceptions": [
+      {
+        "misconception": "Changing your view means you were dishonest before.",
+        "correction": "Updating a view in response to better evidence is a core part of truth-seeking.",
+        "why_students_think_this": "People can confuse consistency of identity with consistency of reasoning."
+      }
+    ],
+    "hints": [
+      "Write down the evidence and assumptions before choosing a conclusion.",
+      "Explain one alternative and what observation would help distinguish it."
+    ]
+  },
+  "flashcards": [
+    {
+      "front": "Calibration",
+      "back": "How closely stated confidence matches outcomes over many predictions."
+    },
+    {
+      "front": "What is the demonstration goal for this capability?",
+      "back": "A trusted source is contradicted by a well-documented independent measurement. What is the best next step?"
+    }
+  ]
+}
