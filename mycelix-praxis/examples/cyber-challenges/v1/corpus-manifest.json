@@ -7,5 +7,10 @@
   "evaluator_only_file": "evaluator-only.json",
   "solver_schema_file": "solver-visible.schema.json",
   "evaluator_schema_file": "evaluator-only.schema.json",
-  "runtime_rule": "Solver runtimes may load only solver-visible.json. Evaluator-only material is conformance-test input; it must not be served or embedded in the learner application."
+  "runtime_rule": "Solver runtimes may load only solver-visible.json. Evaluator-only material is conformance-test input; it must not be served or embedded in the learner application.",
+  "solver_visible_git_blob_sha": "60ff40c11e317e248a82bd855d13a802de62aa94",
+  "evaluator_only_git_blob_sha": "90c6f95b049e587848f0d9e47eb7eafecc44ece0",
+  "solver_schema_git_blob_sha": "48c2d51dea23f325ecdbc27f7bddbe70c5be1706",
+  "evaluator_schema_git_blob_sha": "d29e6ec54060a5cbd29afa594a3579eca99f6fed",
+  "git_blob_sha_note": "Git blob identities are checked by CI against the exact checkout. They bind file bytes within this repository revision; they are not signatures, independent attestations, or a SHA-256 content security claim."
 }
