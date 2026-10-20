@@ -1,0 +1,455 @@
+{
+  "schema_version": "fin-zero-cost-cases/1",
+  "status": "synthetic reference fixtures; not production data and not a payment authorization",
+  "units": "All money values are integer minor units. Exchange rates are exact rational numbers of destination minor units per source minor unit.",
+  "cost_formula": {
+    "spread_cost_destination_minor": "max(0, reference_recipient_amount_minor - quoted_recipient_amount_minor)",
+    "payer_fee_conversion": "ceil((platform_fee_source_minor + sender_fee_source_minor + rail_fee_source_minor) * rate_numerator / rate_denominator)",
+    "total_known_cost_destination_minor": "spread_cost_destination_minor + converted payer fees + recipient_fee_destination_minor + intermediary_fee_destination_minor",
+    "rounding": "ceil only for source-side fee conversion; do not use binary floating point",
+    "limit": "A known quote-cost calculation is not proof of settlement, legal authority, availability, or sustainability."
+  },
+  "cases": [
+    {
+      "id": "FZC-001",
+      "name": "genuinely zero observed domestic charges",
+      "source_currency": "ZAR",
+      "destination_currency": "ZAR",
+      "source_amount_minor": 10000,
+      "reference_recipient_amount_minor": 10000,
+      "quoted_recipient_amount_minor": 10000,
+      "reference_rate_dest_minor_per_source_minor": {
+        "numerator": 1,
+        "denominator": 1
+      },
+      "platform_fee_source_minor": 0,
+      "sender_fee_source_minor": 0,
+      "rail_fee_source_minor": 0,
+      "recipient_fee_destination_minor": 0,
+      "intermediary_fee_destination_minor": 0,
+      "all_cost_fields_known": true,
+      "quote_fresh": true,
+      "provider_authorized": true,
+      "recipient_reachable": true,
+      "route_settlement_available": true,
+      "expected": {
+        "route_decision": "eligible_for_cost_comparison",
+        "cost_status": "known",
+        "all_in_cost_destination_minor": 0,
+        "flags": [
+          "zero_observed_cost_only"
+        ]
+      }
+    },
+    {
+      "id": "FZC-002",
+      "name": "zero platform fee but visible rail charge",
+      "source_currency": "ZAR",
+      "destination_currency": "ZAR",
+      "source_amount_minor": 10000,
+      "reference_recipient_amount_minor": 10000,
+      "quoted_recipient_amount_minor": 10000,
+      "reference_rate_dest_minor_per_source_minor": {
+        "numerator": 1,
+        "denominator": 1
+      },
+      "platform_fee_source_minor": 0,
+      "sender_fee_source_minor": 0,
+      "rail_fee_source_minor": 25,
+      "recipient_fee_destination_minor": 0,
+      "intermediary_fee_destination_minor": 0,
+      "all_cost_fields_known": true,
+      "quote_fresh": true,
+      "provider_authorized": true,
+      "recipient_reachable": true,
+      "route_settlement_available": true,
+      "expected": {
+        "route_decision": "eligible_for_cost_comparison",
+        "cost_status": "known",
+        "all_in_cost_destination_minor": 25,
+        "flags": [
+          "platform_fee_zero_not_free"
+        ]
+      }
+    },
+    {
+      "id": "FZC-003",
+      "name": "cost shifted to recipient",
+      "source_currency": "ZAR",
+      "destination_currency": "ZAR",
+      "source_amount_minor": 10000,
+      "reference_recipient_amount_minor": 10000,
+      "quoted_recipient_amount_minor": 10000,
+      "reference_rate_dest_minor_per_source_minor": {
+        "numerator": 1,
+        "denominator": 1
+      },
+      "platform_fee_source_minor": 0,
+      "sender_fee_source_minor": 0,
+      "rail_fee_source_minor": 0,
+      "recipient_fee_destination_minor": 50,
+      "intermediary_fee_destination_minor": 0,
+      "all_cost_fields_known": true,
+      "quote_fresh": true,
+      "provider_authorized": true,
+      "recipient_reachable": true,
+      "route_settlement_available": true,
+      "expected": {
+        "route_decision": "eligible_for_cost_comparison",
+        "cost_status": "known",
+        "all_in_cost_destination_minor": 50,
+        "flags": [
+          "recipient_pays"
+        ]
+      }
+    },
+    {
+      "id": "FZC-004",
+      "name": "zero explicit fees but embedded FX spread",
+      "source_currency": "USD",
+      "destination_currency": "ZAR",
+      "source_amount_minor": 100000,
+      "reference_recipient_amount_minor": 12300,
+      "quoted_recipient_amount_minor": 12000,
+      "reference_rate_dest_minor_per_source_minor": {
+        "numerator": 12300,
+        "denominator": 100000
+      },
+      "platform_fee_source_minor": 0,
+      "sender_fee_source_minor": 0,
+      "rail_fee_source_minor": 0,
+      "recipient_fee_destination_minor": 0,
+      "intermediary_fee_destination_minor": 0,
+      "all_cost_fields_known": true,
+      "quote_fresh": true,
+      "provider_authorized": true,
+      "recipient_reachable": true,
+      "route_settlement_available": true,
+      "expected": {
+        "route_decision": "eligible_for_cost_comparison",
+        "cost_status": "known",
+        "all_in_cost_destination_minor": 300,
+        "flags": [
+          "embedded_spread_detected"
+        ]
+      }
+    },
+    {
+      "id": "FZC-005",
+      "name": "combined fees and embedded spread",
+      "source_currency": "USD",
+      "destination_currency": "ZAR",
+      "source_amount_minor": 100000,
+      "reference_recipient_amount_minor": 12300,
+      "quoted_recipient_amount_minor": 12000,
+      "reference_rate_dest_minor_per_source_minor": {
+        "numerator": 12300,
+        "denominator": 100000
+      },
+      "platform_fee_source_minor": 0,
+      "sender_fee_source_minor": 1000,
+      "rail_fee_source_minor": 0,
+      "recipient_fee_destination_minor": 200,
+      "intermediary_fee_destination_minor": 100,
+      "all_cost_fields_known": true,
+      "quote_fresh": true,
+      "provider_authorized": true,
+      "recipient_reachable": true,
+      "route_settlement_available": true,
+      "expected": {
+        "route_decision": "eligible_for_cost_comparison",
+        "cost_status": "known",
+        "all_in_cost_destination_minor": 723,
+        "flags": [
+          "embedded_spread_detected",
+          "recipient_pays",
+          "intermediary_fee",
+          "source_fee_converted"
+        ]
+      }
+    },
+    {
+      "id": "FZC-006",
+      "name": "unknown recipient or intermediary deductions",
+      "source_currency": "ZAR",
+      "destination_currency": "ZAR",
+      "source_amount_minor": 10000,
+      "reference_recipient_amount_minor": 10000,
+      "quoted_recipient_amount_minor": 10000,
+      "reference_rate_dest_minor_per_source_minor": {
+        "numerator": 1,
+        "denominator": 1
+      },
+      "platform_fee_source_minor": 0,
+      "sender_fee_source_minor": 0,
+      "rail_fee_source_minor": 0,
+      "recipient_fee_destination_minor": 0,
+      "intermediary_fee_destination_minor": null,
+      "all_cost_fields_known": false,
+      "quote_fresh": true,
+      "provider_authorized": true,
+      "recipient_reachable": true,
+      "route_settlement_available": true,
+      "expected": {
+        "route_decision": "eligible_only_if_unknown_is_disclosed",
+        "cost_status": "unknown",
+        "all_in_cost_destination_minor": null,
+        "flags": [
+          "unknown_not_zero",
+          "no_zero_cost_claim"
+        ]
+      }
+    },
+    {
+      "id": "FZC-007",
+      "name": "stale quote with attractive price",
+      "source_currency": "ZAR",
+      "destination_currency": "ZAR",
+      "source_amount_minor": 10000,
+      "reference_recipient_amount_minor": 10000,
+      "quoted_recipient_amount_minor": 10000,
+      "reference_rate_dest_minor_per_source_minor": {
+        "numerator": 1,
+        "denominator": 1
+      },
+      "platform_fee_source_minor": 0,
+      "sender_fee_source_minor": 0,
+      "rail_fee_source_minor": 0,
+      "recipient_fee_destination_minor": 0,
+      "intermediary_fee_destination_minor": 0,
+      "all_cost_fields_known": true,
+      "quote_fresh": false,
+      "provider_authorized": true,
+      "recipient_reachable": true,
+      "route_settlement_available": true,
+      "expected": {
+        "route_decision": "abstain",
+        "cost_status": "known",
+        "all_in_cost_destination_minor": 0,
+        "flags": [
+          "stale_quote"
+        ]
+      }
+    },
+    {
+      "id": "FZC-008",
+      "name": "provider route not authorized",
+      "source_currency": "ZAR",
+      "destination_currency": "ZAR",
+      "source_amount_minor": 10000,
+      "reference_recipient_amount_minor": 10000,
+      "quoted_recipient_amount_minor": 10000,
+      "reference_rate_dest_minor_per_source_minor": {
+        "numerator": 1,
+        "denominator": 1
+      },
+      "platform_fee_source_minor": 0,
+      "sender_fee_source_minor": 0,
+      "rail_fee_source_minor": 0,
+      "recipient_fee_destination_minor": 0,
+      "intermediary_fee_destination_minor": 0,
+      "all_cost_fields_known": true,
+      "quote_fresh": true,
+      "provider_authorized": false,
+      "recipient_reachable": true,
+      "route_settlement_available": true,
+      "expected": {
+        "route_decision": "abstain",
+        "cost_status": "known",
+        "all_in_cost_destination_minor": 0,
+        "flags": [
+          "authorization_gate_failed"
+        ]
+      }
+    },
+    {
+      "id": "FZC-009",
+      "name": "recipient unreachable",
+      "source_currency": "ZAR",
+      "destination_currency": "ZAR",
+      "source_amount_minor": 10000,
+      "reference_recipient_amount_minor": 10000,
+      "quoted_recipient_amount_minor": 10000,
+      "reference_rate_dest_minor_per_source_minor": {
+        "numerator": 1,
+        "denominator": 1
+      },
+      "platform_fee_source_minor": 0,
+      "sender_fee_source_minor": 0,
+      "rail_fee_source_minor": 0,
+      "recipient_fee_destination_minor": 0,
+      "intermediary_fee_destination_minor": 0,
+      "all_cost_fields_known": true,
+      "quote_fresh": true,
+      "provider_authorized": true,
+      "recipient_reachable": false,
+      "route_settlement_available": true,
+      "expected": {
+        "route_decision": "abstain",
+        "cost_status": "known",
+        "all_in_cost_destination_minor": 0,
+        "flags": [
+          "recipient_unreachable"
+        ]
+      }
+    },
+    {
+      "id": "FZC-010",
+      "name": "settlement/liquidity availability unknown",
+      "source_currency": "ZAR",
+      "destination_currency": "ZAR",
+      "source_amount_minor": 10000,
+      "reference_recipient_amount_minor": 10000,
+      "quoted_recipient_amount_minor": 10000,
+      "reference_rate_dest_minor_per_source_minor": {
+        "numerator": 1,
+        "denominator": 1
+      },
+      "platform_fee_source_minor": 0,
+      "sender_fee_source_minor": 0,
+      "rail_fee_source_minor": 0,
+      "recipient_fee_destination_minor": 0,
+      "intermediary_fee_destination_minor": 0,
+      "all_cost_fields_known": true,
+      "quote_fresh": true,
+      "provider_authorized": true,
+      "recipient_reachable": true,
+      "route_settlement_available": null,
+      "expected": {
+        "route_decision": "abstain",
+        "cost_status": "known",
+        "all_in_cost_destination_minor": 0,
+        "flags": [
+          "settlement_unknown"
+        ]
+      }
+    },
+    {
+      "id": "FZC-011",
+      "name": "provider accepts instruction then client times out",
+      "source_currency": "ZAR",
+      "destination_currency": "ZAR",
+      "source_amount_minor": 10000,
+      "reference_recipient_amount_minor": 10000,
+      "quoted_recipient_amount_minor": 10000,
+      "reference_rate_dest_minor_per_source_minor": {
+        "numerator": 1,
+        "denominator": 1
+      },
+      "platform_fee_source_minor": 0,
+      "sender_fee_source_minor": 0,
+      "rail_fee_source_minor": 0,
+      "recipient_fee_destination_minor": 0,
+      "intermediary_fee_destination_minor": 0,
+      "all_cost_fields_known": false,
+      "quote_fresh": true,
+      "provider_authorized": true,
+      "recipient_reachable": true,
+      "route_settlement_available": true,
+      "payment_lifecycle": "provider_accepted_client_timeout",
+      "expected": {
+        "route_decision": "do_not_retry_without_idempotency_or_status_resolution",
+        "cost_status": "unknown",
+        "all_in_cost_destination_minor": null,
+        "flags": [
+          "outcome_unknown",
+          "no_assumed_failure",
+          "no_duplicate_side_effect"
+        ]
+      }
+    },
+    {
+      "id": "FZC-012",
+      "name": "duplicate provider callback for same payment",
+      "source_currency": "ZAR",
+      "destination_currency": "ZAR",
+      "source_amount_minor": 10000,
+      "reference_recipient_amount_minor": 10000,
+      "quoted_recipient_amount_minor": 10000,
+      "reference_rate_dest_minor_per_source_minor": {
+        "numerator": 1,
+        "denominator": 1
+      },
+      "platform_fee_source_minor": 0,
+      "sender_fee_source_minor": 0,
+      "rail_fee_source_minor": 25,
+      "recipient_fee_destination_minor": 0,
+      "intermediary_fee_destination_minor": 0,
+      "all_cost_fields_known": true,
+      "quote_fresh": true,
+      "provider_authorized": true,
+      "recipient_reachable": true,
+      "route_settlement_available": true,
+      "payment_lifecycle": "duplicate_callback_same_idempotency_key",
+      "expected": {
+        "route_decision": "process_effect_once",
+        "cost_status": "known",
+        "all_in_cost_destination_minor": 25,
+        "flags": [
+          "idempotent_replay",
+          "no_second_payment"
+        ]
+      }
+    },
+    {
+      "id": "FZC-013",
+      "name": "reference rate is missing",
+      "source_currency": "USD",
+      "destination_currency": "ZAR",
+      "source_amount_minor": 10000,
+      "reference_recipient_amount_minor": 10000,
+      "quoted_recipient_amount_minor": 10000,
+      "reference_rate_dest_minor_per_source_minor": null,
+      "platform_fee_source_minor": 0,
+      "sender_fee_source_minor": 0,
+      "rail_fee_source_minor": 0,
+      "recipient_fee_destination_minor": 0,
+      "intermediary_fee_destination_minor": 0,
+      "all_cost_fields_known": false,
+      "quote_fresh": true,
+      "provider_authorized": true,
+      "recipient_reachable": true,
+      "route_settlement_available": true,
+      "expected": {
+        "route_decision": "abstain_from_cost_ranking",
+        "cost_status": "unknown",
+        "all_in_cost_destination_minor": null,
+        "flags": [
+          "reference_rate_missing",
+          "no_fabricated_spread"
+        ]
+      }
+    },
+    {
+      "id": "FZC-014",
+      "name": "favorable quoted conversion must not erase disclosed fees",
+      "source_currency": "USD",
+      "destination_currency": "ZAR",
+      "source_amount_minor": 100000,
+      "reference_recipient_amount_minor": 12300,
+      "quoted_recipient_amount_minor": 12400,
+      "reference_rate_dest_minor_per_source_minor": {
+        "numerator": 12300,
+        "denominator": 100000
+      },
+      "platform_fee_source_minor": 0,
+      "sender_fee_source_minor": 100,
+      "rail_fee_source_minor": 0,
+      "recipient_fee_destination_minor": 20,
+      "intermediary_fee_destination_minor": 0,
+      "all_cost_fields_known": true,
+      "quote_fresh": true,
+      "provider_authorized": true,
+      "recipient_reachable": true,
+      "route_settlement_available": true,
+      "expected": {
+        "route_decision": "eligible_for_cost_comparison",
+        "cost_status": "known",
+        "all_in_cost_destination_minor": 33,
+        "flags": [
+          "favorable_price_does_not_offset_fee_accounting"
+        ]
+      }
+    }
+  ]
+}
