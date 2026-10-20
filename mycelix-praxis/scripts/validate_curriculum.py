@@ -154,6 +154,237 @@ def build_lesson_manifest(errors: list[str]) -> dict[str, Any]:
     }
 
 
+
+def validate_essential_capabilities(errors: list[str]) -> tuple[int, int]:
+    """Validate the versioned essential-capabilities seed and its active lessons.
+
+    This intentionally validates the seed's local schema and does not claim that
+    its content is pedagogically effective or suitable for every jurisdiction.
+    """
+    seed_path = ROOT / "examples/curriculum/essential_capabilities_v1.json"
+    lesson_root = LESSON_ROOT / "essential-capabilities"
+    manifest = load_json(MANIFEST_PATH, errors)
+
+    seed = load_json(seed_path, errors)
+    if seed is None:
+        return 0, 0
+
+    metadata = seed.get("metadata")
+    nodes = seed.get("nodes")
+    edges = seed.get("edges")
+    paths = seed.get("learning_paths", [])
+    if not isinstance(metadata, dict):
+        errors.append(f"{seed_path.relative_to(ROOT)}: metadata must be an object")
+        metadata = {}
+    if not isinstance(nodes, list):
+        errors.append(f"{seed_path.relative_to(ROOT)}: nodes must be an array")
+        nodes = []
+    if not isinstance(edges, list):
+        errors.append(f"{seed_path.relative_to(ROOT)}: edges must be an array")
+        edges = []
+    if not isinstance(paths, list):
+        errors.append(f"{seed_path.relative_to(ROOT)}: learning_paths must be an array")
+        paths = []
+
+    if metadata.get("total_standards") != len(nodes):
+        errors.append(
+            f"{seed_path.relative_to(ROOT)}: metadata.total_standards "
+            f"must equal node count ({len(nodes)})"
+        )
+
+    allowed_node_types = {"Concept", "Skill", "Topic", "Course", "Assessment", "Project"}
+    allowed_difficulties = {"Beginner", "Intermediate", "Advanced", "Expert"}
+    allowed_bloom = {"Remember", "Understand", "Apply", "Analyze", "Evaluate", "Create"}
+    allowed_subjects = {
+        "Mathematics", "EnglishLanguageArts", "Science", "SocialStudies",
+        "ForeignLanguage", "Arts", "PhysicalEducation", "Technology",
+    }
+    allowed_edge_types = {
+        "Requires", "Recommends", "RelatedTo", "PartOf", "LeadsTo",
+        "AlternativeTo", "Specializes", "AppliedIn",
+    }
+
+    ids: dict[str, dict[str, Any]] = {}
+    for index, node in enumerate(nodes):
+        if not isinstance(node, dict):
+            errors.append(f"{seed_path.relative_to(ROOT)}: node {index} must be an object")
+            continue
+        node_id = node.get("id")
+        if not isinstance(node_id, str) or not node_id.strip():
+            errors.append(f"{seed_path.relative_to(ROOT)}: node {index} has no stable id")
+            continue
+        if node_id in ids:
+            errors.append(f"{seed_path.relative_to(ROOT)}: duplicate node id {node_id!r}")
+            continue
+        ids[node_id] = node
+
+        if not isinstance(node.get("title"), str) or not node["title"].strip():
+            errors.append(f"{seed_path.relative_to(ROOT)}: {node_id} has no title")
+        if not isinstance(node.get("description"), str) or "Demonstration:" not in node["description"]:
+            errors.append(
+                f"{seed_path.relative_to(ROOT)}: {node_id} must define an observable Demonstration"
+            )
+        if node.get("node_type") not in allowed_node_types:
+            errors.append(f"{seed_path.relative_to(ROOT)}: {node_id} has invalid node_type")
+        if node.get("difficulty") not in allowed_difficulties:
+            errors.append(f"{seed_path.relative_to(ROOT)}: {node_id} has invalid difficulty")
+        if node.get("bloom_level") not in allowed_bloom:
+            errors.append(f"{seed_path.relative_to(ROOT)}: {node_id} has invalid bloom_level")
+        if node.get("subject_area") not in allowed_subjects:
+            errors.append(f"{seed_path.relative_to(ROOT)}: {node_id} has invalid subject_area")
+        if not isinstance(node.get("grade_levels"), list) or not node["grade_levels"]:
+            errors.append(f"{seed_path.relative_to(ROOT)}: {node_id} needs grade_levels")
+        if not isinstance(node.get("academic_standards"), list):
+            errors.append(f"{seed_path.relative_to(ROOT)}: {node_id} academic_standards must be an array")
+        if not isinstance(node.get("estimated_hours"), int) or node["estimated_hours"] <= 0:
+            errors.append(f"{seed_path.relative_to(ROOT)}: {node_id} estimated_hours must be positive")
+        if not isinstance(node.get("tags"), list) or "essential-capability-v1" not in node["tags"]:
+            errors.append(f"{seed_path.relative_to(ROOT)}: {node_id} must carry the seed tag")
+
+    adjacency: dict[str, list[str]] = {node_id: [] for node_id in ids}
+    for index, edge in enumerate(edges):
+        if not isinstance(edge, dict):
+            errors.append(f"{seed_path.relative_to(ROOT)}: edge {index} must be an object")
+            continue
+        source = edge.get("from")
+        target = edge.get("to")
+        if source not in ids or target not in ids:
+            errors.append(
+                f"{seed_path.relative_to(ROOT)}: edge {index} references unknown nodes "
+                f"{source!r} -> {target!r}"
+            )
+        if source == target:
+            errors.append(f"{seed_path.relative_to(ROOT)}: edge {index} is a self-edge")
+        if edge.get("edge_type") not in allowed_edge_types:
+            errors.append(f"{seed_path.relative_to(ROOT)}: edge {index} has invalid edge_type")
+        strength = edge.get("strength_permille")
+        if not isinstance(strength, int) or not 0 <= strength <= 1000:
+            errors.append(f"{seed_path.relative_to(ROOT)}: edge {index} has invalid strength_permille")
+        if not isinstance(edge.get("rationale"), str) or not edge["rationale"].strip():
+            errors.append(f"{seed_path.relative_to(ROOT)}: edge {index} needs a rationale")
+        if edge.get("edge_type") == "Requires" and source in adjacency and target in ids:
+            adjacency[source].append(target)
+
+    visiting: set[str] = set()
+    visited: set[str] = set()
+
+    def visit(node_id: str) -> None:
+        if node_id in visiting:
+            errors.append(
+                f"{seed_path.relative_to(ROOT)}: cycle in strict Requires edges at {node_id!r}"
+            )
+            return
+        if node_id in visited:
+            return
+        visiting.add(node_id)
+        for target in adjacency.get(node_id, []):
+            visit(target)
+        visiting.remove(node_id)
+        visited.add(node_id)
+
+    for node_id in ids:
+        visit(node_id)
+
+    for index, path in enumerate(paths):
+        if not isinstance(path, dict):
+            errors.append(f"{seed_path.relative_to(ROOT)}: learning path {index} must be an object")
+            continue
+        sequence = path.get("sequence")
+        if not isinstance(sequence, list) or not sequence:
+            errors.append(f"{seed_path.relative_to(ROOT)}: learning path {index} needs a nonempty sequence")
+            continue
+        missing = [node_id for node_id in sequence if node_id not in ids]
+        if missing:
+            errors.append(
+                f"{seed_path.relative_to(ROOT)}: learning path {index} has unknown IDs {missing!r}"
+            )
+            continue
+        expected_hours = sum(ids[node_id]["estimated_hours"] for node_id in sequence)
+        if path.get("total_hours") != expected_hours:
+            errors.append(
+                f"{seed_path.relative_to(ROOT)}: learning path {path.get('title')!r} "
+                f"total_hours must be {expected_hours}, got {path.get('total_hours')!r}"
+            )
+        for prior, later in zip(sequence, sequence[1:]):
+            if later not in adjacency.get(prior, []):
+                # Suggested paths may intentionally cross a Recommends edge or omit
+                # a strict edge, so this is informational rather than a validation error.
+                pass
+
+    actual_lesson_ids: set[str] = set()
+    if not lesson_root.is_dir():
+        errors.append(f"{lesson_root.relative_to(ROOT)}: essential-capability lesson directory missing")
+    else:
+        for lesson_path in sorted(lesson_root.glob("*.json")):
+            lesson_doc = load_json(lesson_path, errors)
+            if lesson_doc is None:
+                continue
+            node_id = lesson_doc.get("node_id")
+            if not isinstance(node_id, str) or node_id not in ids:
+                errors.append(
+                    f"{lesson_path.relative_to(ROOT)}: lesson node_id is not in the seed: {node_id!r}"
+                )
+                continue
+            if node_id in actual_lesson_ids:
+                errors.append(f"{lesson_path.relative_to(ROOT)}: duplicate lesson for {node_id}")
+                continue
+            actual_lesson_ids.add(node_id)
+
+            lesson = lesson_doc.get("lesson")
+            if not isinstance(lesson, dict):
+                errors.append(f"{lesson_path.relative_to(ROOT)}: lesson must be an object")
+                continue
+            if lesson.get("standard_code") != node_id:
+                errors.append(f"{lesson_path.relative_to(ROOT)}: standard_code must equal node_id")
+            for field in ("title", "explanation"):
+                if not isinstance(lesson.get(field), str) or not lesson[field].strip():
+                    errors.append(f"{lesson_path.relative_to(ROOT)}: lesson {field} is required")
+            if not isinstance(lesson.get("examples"), list) or not lesson["examples"]:
+                errors.append(f"{lesson_path.relative_to(ROOT)}: at least one worked example is required")
+            practice = lesson.get("practice_problems")
+            if not isinstance(practice, list) or len(practice) < 2:
+                errors.append(f"{lesson_path.relative_to(ROOT)}: at least two practice problems are required")
+            elif any(
+                not isinstance(item, dict)
+                or not all(isinstance(item.get(field), str) and item[field].strip()
+                           for field in ("question", "answer", "explanation"))
+                for item in practice
+            ):
+                errors.append(f"{lesson_path.relative_to(ROOT)}: each practice problem needs question, answer, and explanation")
+            if not isinstance(lesson_doc.get("flashcards"), list) or not lesson_doc["flashcards"]:
+                errors.append(f"{lesson_path.relative_to(ROOT)}: at least one flashcard is required")
+
+            if manifest is not None:
+                registered = manifest.get("lessons", {}).get(node_id, [])
+                expected_asset = f"/curriculum/generated/essential-capabilities/{lesson_path.name}"
+                matching = [
+                    item for item in registered
+                    if isinstance(item, dict) and item.get("path") == expected_asset
+                ]
+                if len(matching) != 1:
+                    errors.append(
+                        f"{lesson_path.relative_to(ROOT)}: expected exactly one manifest entry "
+                        f"for {expected_asset}"
+                    )
+                elif matching[0].get("title") != lesson.get("title"):
+                    errors.append(
+                        f"{lesson_path.relative_to(ROOT)}: manifest title differs from lesson title"
+                    )
+
+    missing_lessons = sorted(set(ids) - actual_lesson_ids)
+    if missing_lessons:
+        errors.append(
+            f"{lesson_root.relative_to(ROOT)}: missing lessons for {', '.join(missing_lessons)}"
+        )
+    extra_lessons = sorted(actual_lesson_ids - set(ids))
+    if extra_lessons:
+        errors.append(
+            f"{lesson_root.relative_to(ROOT)}: unexpected lesson IDs {', '.join(extra_lessons)}"
+        )
+
+    return len(ids), len(edges)
+
+
 def encoded_manifest(manifest: dict[str, Any]) -> str:
     return json.dumps(manifest, ensure_ascii=False, indent=2, sort_keys=True) + "\n"
 
@@ -170,6 +401,7 @@ def main() -> int:
     errors: list[str] = []
     documents = active_documents(errors)
     node_ids, edge_count = validate_graph(documents, errors)
+    essential_nodes, essential_edges = validate_essential_capabilities(errors)
     manifest = build_lesson_manifest(errors)
     expected = encoded_manifest(manifest)
 
@@ -200,7 +432,8 @@ def main() -> int:
         "Curriculum valid: "
         f"{len(node_ids)} nodes, {edge_count} edges, "
         f"{lesson_assets} lesson assets for {len(lessons)} ids, "
-        f"{active_lesson_nodes} active graph nodes with generated lessons."
+        f"{active_lesson_nodes} active graph nodes with generated lessons, "
+        f"{essential_nodes} essential capability nodes and {essential_edges} capability edges."
     )
     return 0
 
