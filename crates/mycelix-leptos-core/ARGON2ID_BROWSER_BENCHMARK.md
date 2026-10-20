@@ -24,7 +24,7 @@ The memory/time/lane profile mirrors the Argon2id profile commonly recommended b
 From the repository root with the pinned `wasm-pack`, Chrome/Chromium and matching driver:
 
 ```sh
-wasm-pack test --headless --chrome crates/mycelix-leptos-core --lib --locked --features argon2id-browser-benchmark argon2id_latency_benchmark -- --nocapture
+wasm-pack test --headless --chrome crates/mycelix-leptos-core --lib --locked --features argon2id-browser-benchmark -- --nocapture
 ```
 
 The dedicated workflow records browser/driver versions, runs the ordinary correctness suite, measures production PBKDF2 separately, then runs this Argon2id feature. It checks that lockfiles do not change during each benchmark invocation.
