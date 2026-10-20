@@ -167,7 +167,8 @@ fn add_u128(left: u128, right: u128) -> Result<u128, OptimizeError> {
 }
 
 fn add_u64(left: u64, right: u64) -> Result<u64, OptimizeError> {
-    left.checked_add(right).ok_or(OptimizeError::ArithmeticOverflow)
+    left.checked_add(right)
+        .ok_or(OptimizeError::ArithmeticOverflow)
 }
 
 fn prepare(
@@ -986,10 +987,12 @@ mod tests {
             ];
             let oracle = brute_force_best(&routes, &positions);
             let result = optimize(&context(), &positions, &routes).unwrap();
-            assert_eq!(result.total_allocated_minor, oracle.0, "flow mismatch, seed={seed}");
             assert_eq!(
-                result.total_modeled_cost_units,
-                oracle.1,
+                result.total_allocated_minor, oracle.0,
+                "flow mismatch, seed={seed}"
+            );
+            assert_eq!(
+                result.total_modeled_cost_units, oracle.1,
                 "cost mismatch, seed={seed}"
             );
         }
