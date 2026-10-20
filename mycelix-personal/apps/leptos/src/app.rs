@@ -148,6 +148,16 @@ fn identity_bootstrap_description(posture: LocalIdentityStoragePosture) -> &'sta
     }
 }
 
+fn clear_bootstrap_secret_signals(
+    passphrase: RwSignal<String>,
+    confirmation: RwSignal<String>,
+    recovery_phrase: RwSignal<String>,
+) {
+    passphrase.update(|value| value.zeroize());
+    confirmation.update(|value| value.zeroize());
+    recovery_phrase.update(|value| value.zeroize());
+}
+
 fn prepare_recovery_backup() -> Result<(Vec<String>, [usize; 3]), String> {
     let mut phrase = export_unlocked_identity_seed_phrase()?;
     let mut words: Vec<String> = phrase.split_whitespace().map(str::to_owned).collect();
@@ -297,6 +307,7 @@ fn IdentityBootstrapGate(
                 passphrase_value.zeroize();
                 confirmation_value.zeroize();
                 recovery_phrase_value.zeroize();
+                clear_bootstrap_secret_signals(passphrase, confirmation, recovery_phrase);
                 status_message
                     .set("This identity state does not permit automatic mutation.".to_string());
                 return;
@@ -306,6 +317,7 @@ fn IdentityBootstrapGate(
             passphrase_value.zeroize();
             confirmation_value.zeroize();
             recovery_phrase_value.zeroize();
+            clear_bootstrap_secret_signals(passphrase, confirmation, recovery_phrase);
             status_message.set(
                 "The requested action is not permitted for the current identity posture."
                     .to_string(),
@@ -313,6 +325,10 @@ fn IdentityBootstrapGate(
             return;
         }
         if passphrase_value.trim().is_empty() {
+            passphrase_value.zeroize();
+            confirmation_value.zeroize();
+            recovery_phrase_value.zeroize();
+            clear_bootstrap_secret_signals(passphrase, confirmation, recovery_phrase);
             status_message.set("Enter a passphrase.".to_string());
             return;
         }
@@ -326,6 +342,7 @@ fn IdentityBootstrapGate(
             passphrase_value.zeroize();
             confirmation_value.zeroize();
             recovery_phrase_value.zeroize();
+            clear_bootstrap_secret_signals(passphrase, confirmation, recovery_phrase);
             return;
         }
         if is_restore && recovery_phrase_value.trim().is_empty() {
@@ -333,14 +350,11 @@ fn IdentityBootstrapGate(
             passphrase_value.zeroize();
             confirmation_value.zeroize();
             recovery_phrase_value.zeroize();
+            clear_bootstrap_secret_signals(passphrase, confirmation, recovery_phrase);
             return;
         }
 
-        passphrase.set(String::new());
-        confirmation.set(String::new());
-        if is_restore {
-            recovery_phrase.set(String::new());
-        }
+        clear_bootstrap_secret_signals(passphrase, confirmation, recovery_phrase);
         status_message.set(String::new());
         busy.set(true);
 
@@ -441,9 +455,11 @@ fn IdentityBootstrapGate(
             passphrase_value.zeroize();
             confirmation_value.zeroize();
             recovery_phrase_value.zeroize();
-            passphrase_signal.set(String::new());
-            confirmation_signal.set(String::new());
-            recovery_phrase_signal.set(String::new());
+            clear_bootstrap_secret_signals(
+                passphrase_signal,
+                confirmation_signal,
+                recovery_phrase_signal,
+            );
             busy_signal.set(false);
         });
     };
