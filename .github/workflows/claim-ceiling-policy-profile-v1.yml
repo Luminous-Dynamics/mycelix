@@ -55,7 +55,7 @@ jobs:
           count="$(jq '.cases | length' "$fixture")"
           test "$count" -eq 19
           for ((index = 0; index < count; index += 1)); do
-            jq -r --argjson index "$index" '.cases[$index].profile_bytes' "$fixture" > "$tmp/profile-$index"
+            jq -j --argjson index "$index" '.cases[$index].profile_bytes' "$fixture" > "$tmp/profile-$index"
             profile_sha256="$(sha256sum "$tmp/profile-$index" | cut -d ' ' -f 1)"
             jq -e -n \
               --arg actual_profile_sha256 "$profile_sha256" \
