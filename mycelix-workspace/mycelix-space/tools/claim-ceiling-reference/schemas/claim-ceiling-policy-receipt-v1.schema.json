@@ -1,0 +1,160 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/Luminous-Dynamics/mycelix/blob/main/mycelix-workspace/mycelix-space/tools/claim-ceiling-reference/schemas/claim-ceiling-policy-receipt-v1.schema.json",
+  "title": "Mycelix claim-ceiling policy receipt v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "request_id",
+    "profile_id",
+    "source_commit",
+    "source_commit_pinned",
+    "input_sha256",
+    "policy_profile_sha256",
+    "candidate_ceiling_sha256",
+    "request_schema_sha256",
+    "receipt_schema_sha256",
+    "disposition",
+    "violations",
+    "policy_admissibility_only",
+    "action_authority_granted",
+    "nonclaims"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "mycelix.claim-ceiling-policy.receipt.v1"
+    },
+    "request_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "profile_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "source_commit": {
+      "oneOf": [
+        {
+          "type": "string",
+          "pattern": "^[a-f0-9]{40}$"
+        },
+        {
+          "const": "UNPINNED_LOCAL_RUN"
+        }
+      ]
+    },
+    "source_commit_pinned": {
+      "type": "boolean"
+    },
+    "input_sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "policy_profile_sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "candidate_ceiling_sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "request_schema_sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "receipt_schema_sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "disposition": {
+      "enum": [
+        "admissible_within_profile",
+        "rejected_by_profile"
+      ]
+    },
+    "violations": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "code",
+          "value"
+        ],
+        "properties": {
+          "code": {
+            "enum": [
+              "claim_atom_not_allowed",
+              "subject_outside_policy",
+              "context_outside_policy",
+              "time_window_outside_policy",
+              "action_scope_not_allowed",
+              "required_qualification_missing",
+              "required_independence_control_missing",
+              "required_provenance_missing"
+            ]
+          },
+          "value": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    },
+    "policy_admissibility_only": {
+      "const": true
+    },
+    "action_authority_granted": {
+      "const": false
+    },
+    "nonclaims": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "disposition": {
+            "const": "admissible_within_profile"
+          }
+        },
+        "required": [
+          "disposition"
+        ]
+      },
+      "then": {
+        "properties": {
+          "violations": {
+            "maxItems": 0
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "disposition": {
+            "const": "rejected_by_profile"
+          }
+        },
+        "required": [
+          "disposition"
+        ]
+      },
+      "then": {
+        "properties": {
+          "violations": {
+            "minItems": 1
+          }
+        }
+      }
+    }
+  ]
+}
