@@ -359,20 +359,23 @@ mod tests {
             .expect("production KDF warm-up decrypt succeeds");
         assert_eq!(warmup_plaintext.as_slice(), &secret[..]);
 
+        let performance = web_sys::window()
+            .expect("browser window is present")
+            .performance();
         let mut encrypt_ms = Vec::with_capacity(SAMPLE_COUNT);
         let mut decrypt_ms = Vec::with_capacity(SAMPLE_COUNT);
         for _ in 0..SAMPLE_COUNT {
-            let start = js_sys::Date::now();
+            let start = performance.now();
             let blob = encrypt(passphrase, &secret)
                 .await
                 .expect("production KDF benchmark encrypt succeeds");
-            encrypt_ms.push(js_sys::Date::now() - start);
+            encrypt_ms.push(performance.now() - start);
 
-            let start = js_sys::Date::now();
+            let start = performance.now();
             let recovered = decrypt(passphrase, &blob)
                 .await
                 .expect("production KDF benchmark decrypt succeeds");
-            decrypt_ms.push(js_sys::Date::now() - start);
+            decrypt_ms.push(performance.now() - start);
             assert_eq!(recovered.as_slice(), &secret[..]);
         }
 
