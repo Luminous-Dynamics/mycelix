@@ -413,6 +413,25 @@ mod tests {
     }
 
     #[test]
+    fn catalog_license_enum_cannot_override_restrictive_rights_evidence() {
+        let errors = errors_after(baseline(), |doc| {
+            doc["profiles"][1]["catalog_item"]["geometry"]["geometry_use_license"] =
+                Value::String("redisplay_and_layout_allowed".to_owned());
+            doc["profiles"][1]["design_compatibility"]["compatibility_state"] =
+                Value::String("compatible_for_declared_checks".to_owned());
+            for result in doc["profiles"][1]["design_compatibility"]["hard_constraint_results"]
+                .as_array_mut()
+                .unwrap()
+            {
+                result["outcome"] = Value::String("pass".to_owned());
+            }
+        });
+        assert!(errors.iter().any(|error| {
+            error.contains("geometry rights evidence disagrees with item license")
+        }));
+    }
+
+    #[test]
     fn geometry_digest_substitution_is_rejected() {
         let errors = errors_after(baseline(), |doc| {
             doc["profiles"][0]["evidence"][0]["source_digest_sha256"] = Value::String(
