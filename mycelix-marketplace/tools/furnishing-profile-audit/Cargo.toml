@@ -11,5 +11,5 @@ description = "Independent fail-closed auditor for synthetic Mycelix furnishing 
 resolver = "2"
 
 [dependencies]
-serde_json = "1.0"
-jsonschema = "=0.59.0"
+serde_json = "=1.0.154"
+jsonschema = { version = "=0.59.0", default-features = false }
