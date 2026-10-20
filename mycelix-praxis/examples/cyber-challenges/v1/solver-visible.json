@@ -17,21 +17,24 @@
           "source_kind": "identity_log_summary",
           "freshness": "current",
           "observed_at_offset_minutes": 0,
-          "observation": "Synthetic identity-provider summary: 34 failed password attempts from one egress address over six minutes; one event ends in an MFA success. Session issuance and post-authentication activity are not included."
+          "observation": "Synthetic identity-provider summary: 34 failed password attempts from one egress address over six minutes; one event ends in an MFA success. Session issuance and post-authentication activity are not included.",
+          "conflict_status": "no_known_conflict"
         },
         {
           "evidence_id": "shared-egress-context",
           "source_kind": "network_context",
           "freshness": "current",
           "observed_at_offset_minutes": 1,
-          "observation": "Synthetic inventory maps the egress address to a shared training-lab NAT. It does not resolve the individual host or user device."
+          "observation": "Synthetic inventory maps the egress address to a shared training-lab NAT. It does not resolve the individual host or user device.",
+          "conflict_status": "no_known_conflict"
         },
         {
           "evidence_id": "endpoint-last-seen",
           "source_kind": "endpoint_telemetry",
           "freshness": "stale",
           "observed_at_offset_minutes": -1080,
-          "observation": "The endpoint sensor's last report is 18 hours old; no current device or interactive-session signal is available."
+          "observation": "The endpoint sensor's last report is 18 hours old; no current device or interactive-session signal is available.",
+          "conflict_status": "not_assessed"
         }
       ],
       "allowed_next_steps": [
@@ -55,14 +58,16 @@
           "source_kind": "network_policy_snapshot",
           "freshness": "current",
           "observed_at_offset_minutes": 0,
-          "observation": "Synthetic network documentation assigns guest devices to VLAN 20 and describes corporate-network isolation as a requirement."
+          "observation": "Synthetic network documentation assigns guest devices to VLAN 20 and describes corporate-network isolation as a requirement.",
+          "conflict_status": "no_known_conflict"
         },
         {
           "evidence_id": "ordered-firewall-rules",
           "source_kind": "firewall_policy_snapshot",
           "freshness": "current",
           "observed_at_offset_minutes": 0,
-          "observation": "The supplied ordered rules contain a broad allow rule before the intended guest-to-corporate deny. Rule semantics appear to permit a path that the policy owner intended to block."
+          "observation": "The supplied ordered rules contain a broad allow rule before the intended guest-to-corporate deny. Rule semantics appear to permit a path that the policy owner intended to block.",
+          "conflict_status": "conflicts_with_other_evidence"
         }
       ],
       "allowed_next_steps": [
@@ -86,21 +91,24 @@
           "source_kind": "dependency_lockfile",
           "freshness": "current",
           "observed_at_offset_minutes": 0,
-          "observation": "A synthetic lockfile pins package version 2.4.1 with digest L-7F3A."
+          "observation": "A synthetic lockfile pins package version 2.4.1 with digest L-7F3A.",
+          "conflict_status": "conflicts_with_other_evidence"
         },
         {
           "evidence_id": "approved-digest-record",
           "source_kind": "approved_dependency_record",
           "freshness": "current",
           "observed_at_offset_minutes": 0,
-          "observation": "The local approved-dependency record for the same package version expects digest A-91C2; its source and approval event are recorded."
+          "observation": "The local approved-dependency record for the same package version expects digest A-91C2; its source and approval event are recorded.",
+          "conflict_status": "conflicts_with_other_evidence"
         },
         {
           "evidence_id": "registry-snapshot",
           "source_kind": "registry_metadata",
           "freshness": "stale",
           "observed_at_offset_minutes": -12960,
-          "observation": "The only available registry metadata snapshot is nine days old and does not bind the exact artifact bytes fetched by the build."
+          "observation": "The only available registry metadata snapshot is nine days old and does not bind the exact artifact bytes fetched by the build.",
+          "conflict_status": "not_assessed"
         }
       ],
       "allowed_next_steps": [
@@ -124,21 +132,24 @@
           "source_kind": "retrieved_document_excerpt",
           "freshness": "current",
           "observed_at_offset_minutes": 0,
-          "observation": "A synthetic retrieved note contains an instruction to ignore access policy and export all employee records."
+          "observation": "A synthetic retrieved note contains an instruction to ignore access policy and export all employee records.",
+          "conflict_status": "no_known_conflict"
         },
         {
           "evidence_id": "read-only-tool-config",
           "source_kind": "tool_permission_snapshot",
           "freshness": "current",
           "observed_at_offset_minutes": 0,
-          "observation": "The agent's supplied tool configuration lists read-only retrieval and search tools; no export-capable tool is declared in that snapshot."
+          "observation": "The agent's supplied tool configuration lists read-only retrieval and search tools; no export-capable tool is declared in that snapshot.",
+          "conflict_status": "no_known_conflict"
         },
         {
           "evidence_id": "tool-audit-window",
           "source_kind": "tool_audit_summary",
           "freshness": "current",
           "observed_at_offset_minutes": 0,
-          "observation": "The provided audit window has no export-tool invocation. The audit scope does not establish behavior outside that window or in unobserved systems."
+          "observation": "The provided audit window has no export-tool invocation. The audit scope does not establish behavior outside that window or in unobserved systems.",
+          "conflict_status": "no_known_conflict"
         }
       ],
       "allowed_next_steps": [
@@ -162,14 +173,16 @@
           "source_kind": "response_request_log",
           "freshness": "current",
           "observed_at_offset_minutes": 0,
-          "observation": "A synthetic response log records that quarantine was requested for an endpoint."
+          "observation": "A synthetic response log records that quarantine was requested for an endpoint.",
+          "conflict_status": "no_known_conflict"
         },
         {
           "evidence_id": "endpoint-sensor-status",
           "source_kind": "endpoint_telemetry",
           "freshness": "stale",
           "observed_at_offset_minutes": -840,
-          "observation": "The endpoint sensor last checked in 14 hours ago."
+          "observation": "The endpoint sensor last checked in 14 hours ago.",
+          "conflict_status": "not_assessed"
         }
       ],
       "allowed_next_steps": [
