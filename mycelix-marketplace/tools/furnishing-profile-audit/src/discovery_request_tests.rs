@@ -114,8 +114,7 @@ fn design_and_query_digests_must_remain_local() {
 #[test]
 fn malformed_design_digest_is_rejected() {
     let errors = errors_after(baseline(), |doc| {
-        doc["design_snapshot"]["design_context_digest_sha256"] =
-            Value::String("short".to_owned());
+        doc["design_snapshot"]["design_context_digest_sha256"] = Value::String("short".to_owned());
     });
     assert!(errors
         .iter()
