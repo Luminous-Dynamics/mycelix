@@ -1,0 +1,21 @@
+{
+  "evaluator_only": true,
+  "forbidden_as_solver_input": true,
+  "hidden_truth": [
+    {"case_id":"CI-001","fixture_truth":"NoSyntheticConcealedMaterial"},
+    {"case_id":"CI-002","fixture_truth":"BenignMetadataOnly"},
+    {"case_id":"CI-003","fixture_truth":"AmbiguousSyntheticTrailer"},
+    {"case_id":"CI-004","fixture_truth":"BenignReferencedEmbeddedResource"},
+    {"case_id":"CI-005","fixture_truth":"SyntheticTypeLabelMismatchOnly"},
+    {"case_id":"CI-006","fixture_truth":"SyntheticParserProfileDisagreement"},
+    {"case_id":"CI-007A","fixture_truth":"SyntheticConcealedMaterialPresent"},
+    {"case_id":"CI-007B","fixture_truth":"NoSyntheticConcealedMaterial"},
+    {"case_id":"CI-008","fixture_truth":"SyntheticNonRenderedExtensionPresent"},
+    {"case_id":"CI-009","fixture_truth":"BenignFormattingControls"},
+    {"case_id":"CI-010","fixture_truth":"NoSyntheticConcealedMaterial"},
+    {"case_id":"CI-011","fixture_truth":"EvaluatorDoesNotEstablishConcealment"},
+    {"case_id":"CI-012A","fixture_truth":"SyntheticSuspiciousBehaviorSequence"},
+    {"case_id":"CI-012B","fixture_truth":"SyntheticBenignProcessingSequence"},
+    {"case_id":"CI-013","fixture_truth":"SyntheticConcealedMaterialDirectlyEstablishedByFixtureOracle"}
+  ]
+}
