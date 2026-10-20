@@ -665,7 +665,8 @@ fn validate_create_self_recovery_config(
     }
     if config.active {
         return Ok(ValidateCallbackResult::Invalid(
-            "Self-recovery cannot be activated until anchor proof-of-possession is implemented".into(),
+            "Self-recovery cannot be activated until anchor proof-of-possession is implemented"
+                .into(),
         ));
     }
     // Time lock minimum: 72 hours for self-recovery (stronger than social's 24h)
@@ -789,7 +790,6 @@ fn validate_create_self_recovery_request(
     ))
 }
 
-
 /// Validate self-recovery request updates (same state machine as social recovery)
 ///
 /// Author-binding for updates is enforced universally by this crate's
@@ -828,12 +828,11 @@ fn validate_update_self_recovery_request(
     // update to advance into a state that can rotate a DID.
     if matches!(
         request.status,
-        RecoveryStatus::Approved
-            | RecoveryStatus::ReadyToExecute
-            | RecoveryStatus::Completed
+        RecoveryStatus::Approved | RecoveryStatus::ReadyToExecute | RecoveryStatus::Completed
     ) {
         return Ok(ValidateCallbackResult::Invalid(
-            "Self-recovery status advancement requires a validated challenge-bound proof receipt".into(),
+            "Self-recovery status advancement requires a validated challenge-bound proof receipt"
+                .into(),
         ));
     }
 
