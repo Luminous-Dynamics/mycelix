@@ -162,14 +162,16 @@ fn validate_profile(profile: &Value, label: &str, errors: &mut Vec<String>) {
         }
     }
 
-    if let Some(results) = array(field(profile, "design_compatibility").unwrap_or(&Value::Null), "hard_constraint_results") {
-        for (index, result) in results.iter().enumerate() {
-            let Some(refs) = array(result, "evidence_refs") else {
-                continue;
-            };
-            for reference in refs.iter().filter_map(Value::as_str) {
-                if !evidence_by_id.contains_key(reference) {
-                    errors.push(format!("{label}.hard_constraint_results[{index}]: unresolved evidence reference {reference:?}"));
+    if let Some(compatibility_record) = field(profile, "design_compatibility") {
+        if let Some(results) = array(compatibility_record, "hard_constraint_results") {
+            for (index, result) in results.iter().enumerate() {
+                let Some(refs) = array(result, "evidence_refs") else {
+                    continue;
+                };
+                for reference in refs.iter().filter_map(Value::as_str) {
+                    if !evidence_by_id.contains_key(reference) {
+                        errors.push(format!("{label}.hard_constraint_results[{index}]: unresolved evidence reference {reference:?}"));
+                    }
                 }
             }
         }
