@@ -35,6 +35,14 @@ pub struct ConsentCapabilityOffer {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GrantConsentWithRemoteCapabilityInput {
+    pub grantee: AgentPubKey,
+    pub record_types: Vec<String>,
+    pub expires_at: Option<Timestamp>,
+    pub active: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct StoreConsentCapabilityInput {
     pub owner: AgentPubKey,
     pub grant_hash: ActionHash,
@@ -148,7 +156,7 @@ pub fn grant_consent(consent: ConsentGrant) -> ExternResult<Record> {
 /// separate authenticated/private channel, never persisted in the consent entry.
 #[hdk_extern]
 pub fn grant_consent_with_remote_capability(
-    input: ConsentGrantInputView,
+    input: GrantConsentWithRemoteCapabilityInput,
 ) -> ExternResult<ConsentCapabilityOffer> {
     let now = sys_time()?;
     if !input.active {
@@ -161,17 +169,17 @@ pub fn grant_consent_with_remote_capability(
             "Consent must contain between 1 and 20 record types".into()
         )));
     }
-    if input.expires_at.is_some_and(|expires_at| expires_at <= now.as_micros()) {
+    if input.expires_at.is_some_and(|expires_at| expires_at.as_micros() <= now.as_micros()) {
         return Err(wasm_error!(WasmErrorInner::Guest(
             "Consent expiry must be later than the current time".into()
         )));
     }
 
-    let grantee = decode_agent_pubkey(&input.grantee)?;
+    let grantee = input.grantee;
     let grant_record = grant_consent(ConsentGrant {
         grantee: grantee.clone(),
         record_types: input.record_types,
-        expires_at: input.expires_at.map(Timestamp::from_micros),
+        expires_at: input.expires_at,
         active: true,
         created_at: now,
     })?;
@@ -200,6 +208,21 @@ pub fn grant_consent_with_remote_capability(
         grant_hash,
         capability_grant_hash,
         capability_secret: secret,
+    })
+}
+
+
+/// Browser-facing wrapper for consent input that represents the grantee key as base64.
+/// The capability secret is returned only in this direct local call response.
+#[hdk_extern]
+pub fn grant_consent_with_remote_capability_view(
+    input: ConsentGrantInputView,
+) -> ExternResult<ConsentCapabilityOffer> {
+    grant_consent_with_remote_capability(GrantConsentWithRemoteCapabilityInput {
+        grantee: decode_agent_pubkey(&input.grantee)?,
+        record_types: input.record_types,
+        expires_at: input.expires_at.map(Timestamp::from_micros),
+        active: input.active,
     })
 }
 
