@@ -724,10 +724,12 @@ fn semantic_validator_rejects_missing_hypothesis_outcome_and_unknown_world() {
 
     let mut evaluator = evaluator_fixture();
     evaluator.scenarios[0].world_hypothesis_id = "not-a-hypothesis".into();
-    assert!(validate_evaluator_pair(&catalog, &evaluator)
-        .unwrap_err()
-        .iter()
-        .any(|message| message.contains("world hypothesis is not")));
+    assert!(
+        validate_evaluator_pair(&catalog, &evaluator)
+            .unwrap_err()
+            .iter()
+            .any(|message| message.contains("world hypothesis is not"))
+    );
 }
 
 #[test]
@@ -788,7 +790,6 @@ fn source_kinds_and_authority_levels_are_typed_enums() {
         RequestAuthority::IncidentCommander
     );
 }
-
 
 #[test]
 fn metadata_only_baselines_are_deterministic_and_use_equal_constraints() {
