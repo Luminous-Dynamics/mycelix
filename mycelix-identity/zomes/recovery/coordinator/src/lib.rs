@@ -739,7 +739,15 @@ pub fn get_recovery_votes(request_id: String) -> ExternResult<Vec<Record>> {
         let action_hash = ActionHash::try_from(link.target)
             .map_err(|_| wasm_error!(WasmErrorInner::Guest("Invalid link target".into())))?;
         if let Some(record) = get(action_hash, GetOptions::default())? {
-            votes.push(record);
+            // Do not count an unrelated record, a vote linked under the wrong
+            // request ID, or a legacy unbound vote as quorum evidence.
+            if let Ok(Some(vote)) = record.entry().to_app_option::<RecoveryVote>()
+                && vote.request_id == request_id
+                && vote.request_action_hash.is_some()
+                && vote.config_action_hash.is_some()
+            {
+                votes.push(record);
+            }
         }
     }
 
@@ -1195,6 +1203,7 @@ pub fn cancel_recovery(request_id: String) -> ExternResult<Record> {
         status: RecoveryStatus::Cancelled,
         created: current_request.created,
         time_lock_expires: current_request.time_lock_expires,
+        config_action_hash: current_request.config_action_hash.clone(),
     };
 
     let action_hash = update_entry(
