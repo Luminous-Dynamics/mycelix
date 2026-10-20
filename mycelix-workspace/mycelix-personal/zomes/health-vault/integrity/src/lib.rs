@@ -67,9 +67,13 @@ pub struct ConsentRevocation {
 #[hdk_entry_types]
 #[unit_enum(UnitEntryTypes)]
 pub enum EntryTypes {
+    #[entry_type(visibility = "private")]
     HealthRecord(HealthRecord),
+    #[entry_type(visibility = "private")]
     Biometric(Biometric),
+    #[entry_type(visibility = "private")]
     ConsentGrant(ConsentGrant),
+    #[entry_type(visibility = "private")]
     ConsentRevocation(ConsentRevocation),
 }
 
@@ -105,7 +109,9 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
         FlatOp::StoreEntry(OpEntry::UpdateEntry { app_entry, .. }) => match app_entry {
             EntryTypes::HealthRecord(record) => validate_health_record(&record),
             EntryTypes::Biometric(biometric) => validate_biometric(&biometric),
-            EntryTypes::ConsentGrant(consent) => validate_consent(&consent),
+            EntryTypes::ConsentGrant(_) => Ok(ValidateCallbackResult::Invalid(
+                "ConsentGrant entries are immutable; create a new grant to change access".into(),
+            )),
             EntryTypes::ConsentRevocation(_) => Ok(ValidateCallbackResult::Invalid(
                 "Consent revocation events are immutable".into(),
             )),
@@ -119,15 +125,17 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
                 | OpUpdate::CapClaim { action, .. }
                 | OpUpdate::CapGrant { action, .. } => action,
             };
-            let original = must_get_valid_record(action.original_action_address.clone())?;
-            if original
-                .entry()
-                .to_app_option::<ConsentRevocation>()
-                .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
-                .is_some()
-            {
+            // Private entry content is unavailable to remote validators. The action header
+            // still proves the original author and app entry type.
+            let original = must_get_action(action.original_action_address.clone())?;
+            if action_has_entry_type(original.action(), UnitEntryTypes::ConsentRevocation)? {
                 return Ok(ValidateCallbackResult::Invalid(
                     "Consent revocation events are immutable".into(),
+                ));
+            }
+            if action_has_entry_type(original.action(), UnitEntryTypes::ConsentGrant)? {
+                return Ok(ValidateCallbackResult::Invalid(
+                    "ConsentGrant entries are immutable; create a new grant to change access".into(),
                 ));
             }
             if !action_authors_match(original.action().author(), &action.author) {
@@ -137,57 +145,36 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
             }
             Ok(ValidateCallbackResult::Valid)
         }
-        FlatOp::RegisterCreateLink {
-            link_type,
-            base,
-            action,
-            ..
-        } => match link_type {
-            LinkTypes::AgentToConsents | LinkTypes::AgentToConsentRevocations => {
-                if !consent_history_base_matches_author(&base, &action.author) {
-                    return Ok(ValidateCallbackResult::Invalid(
-                        "Consent history links must be authored on the owner's agent base".into(),
-                    ));
-                }
-                Ok(ValidateCallbackResult::Valid)
+        FlatOp::RegisterCreateLink { link_type, .. } => {
+            if is_public_health_index_link(&link_type) {
+                return Ok(ValidateCallbackResult::Invalid(
+                    "Public health-vault index links are disabled; query the owner's private source chain".into(),
+                ));
             }
-            _ => Ok(ValidateCallbackResult::Valid),
+            Ok(ValidateCallbackResult::Valid)
         },
         FlatOp::RegisterDelete(OpDelete { action }) => {
-            let original = must_get_valid_record(action.deletes_address.clone())?;
-            if original
-                .entry()
-                .to_app_option::<ConsentRevocation>()
-                .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
-                .is_some()
-            {
+            let original = must_get_action(action.deletes_address.clone())?;
+            if action_has_entry_type(original.action(), UnitEntryTypes::ConsentRevocation)? {
                 return Ok(ValidateCallbackResult::Invalid(
                     "Consent revocation events cannot be deleted".into(),
                 ));
             }
-            Ok(ValidateCallbackResult::Valid)
-        }
-        FlatOp::RegisterDeleteLink {
-            link_type,
-            original_action,
-            action,
-            ..
-        } => {
-            if matches!(
-                link_type,
-                LinkTypes::AgentToConsents | LinkTypes::AgentToConsentRevocations
-            ) {
+            if action_has_entry_type(original.action(), UnitEntryTypes::ConsentGrant)? {
                 return Ok(ValidateCallbackResult::Invalid(
-                    "Consent history links cannot be deleted; use an explicit revocation event".into(),
-                ));
-            }
-            if action.author != original_action.author {
-                return Ok(ValidateCallbackResult::Invalid(
-                    "Only the link creator can delete their links".into(),
+                    "Consent grants cannot be deleted; use an explicit revocation event".into(),
                 ));
             }
             Ok(ValidateCallbackResult::Valid)
         }
+        FlatOp::RegisterDeleteLink { link_type, .. } => {
+            if is_public_health_index_link(&link_type) {
+                return Ok(ValidateCallbackResult::Invalid(
+                    "Public health-vault index links are disabled".into(),
+                ));
+            }
+            Ok(ValidateCallbackResult::Valid)
+        },
         _ => Ok(ValidateCallbackResult::Valid),
     }
 }
@@ -289,28 +276,41 @@ fn action_authors_match(original_author: &AgentPubKey, new_author: &AgentPubKey)
     original_author == new_author
 }
 
-fn consent_history_base_matches_author(base: &AnyLinkableHash, author: &AgentPubKey) -> bool {
-    base == &AnyLinkableHash::from(author.clone())
+fn is_public_health_index_link(link_type: &LinkTypes) -> bool {
+    matches!(
+        link_type,
+        LinkTypes::AgentToRecords
+            | LinkTypes::AgentToBiometrics
+            | LinkTypes::AgentToConsents
+            | LinkTypes::RecordTypeToRecord
+            | LinkTypes::AgentToConsentRevocations
+    )
+}
+
+fn action_has_entry_type(action: &Action, expected: UnitEntryTypes) -> ExternResult<bool> {
+    let expected = EntryType::App(AppEntryDef::try_from(expected)?);
+    match action {
+        Action::Create(create) => Ok(create.entry_type == expected),
+        Action::Update(update) => Ok(update.entry_type == expected),
+        _ => Ok(false),
+    }
 }
 
 fn validate_consent_revocation(
     revocation: &ConsentRevocation,
     action: &Create,
 ) -> ExternResult<ValidateCallbackResult> {
-    let original = must_get_valid_record(revocation.grant_hash.clone())?;
+    // ConsentGrant contents are private. Validate only properties proven by the public action
+    // header here; the owner-side coordinator also verifies the actual local grant before write.
+    let original = must_get_action(revocation.grant_hash.clone())?;
     if !matches!(original.action(), Action::Create(_)) {
         return Ok(ValidateCallbackResult::Invalid(
             "Consent revocation must reference the original grant creation action".into(),
         ));
     }
-
-    let consent = original
-        .entry()
-        .to_app_option::<ConsentGrant>()
-        .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?;
-    if consent.is_none() {
+    if !action_has_entry_type(original.action(), UnitEntryTypes::ConsentGrant)? {
         return Ok(ValidateCallbackResult::Invalid(
-            "Consent revocation target must be a ConsentGrant entry".into(),
+            "Consent revocation target must be a ConsentGrant creation action".into(),
         ));
     }
     if !action_authors_match(original.action().author(), &action.author) {
@@ -515,12 +515,24 @@ mod tests {
     }
 
     #[test]
-    fn consent_history_links_are_bound_to_the_agent_base() {
-        let owner = AgentPubKey::from_raw_36(vec![1u8; 36]);
-        let other = AgentPubKey::from_raw_36(vec![2u8; 36]);
-        let owner_base: AnyLinkableHash = owner.clone().into();
-        assert!(consent_history_base_matches_author(&owner_base, &owner));
-        assert!(!consent_history_base_matches_author(&owner_base, &other));
+    fn private_entry_type_indices_remain_registered() {
+        let _record = UnitEntryTypes::HealthRecord;
+        let _biometric = UnitEntryTypes::Biometric;
+        let _consent = UnitEntryTypes::ConsentGrant;
+        let _revocation = UnitEntryTypes::ConsentRevocation;
+    }
+
+    #[test]
+    fn all_sensitive_public_index_links_are_disabled() {
+        for link_type in [
+            LinkTypes::AgentToRecords,
+            LinkTypes::AgentToBiometrics,
+            LinkTypes::AgentToConsents,
+            LinkTypes::RecordTypeToRecord,
+            LinkTypes::AgentToConsentRevocations,
+        ] {
+            assert!(is_public_health_index_link(&link_type));
+        }
     }
 
     // ── Serde roundtrips ────────────────────────────────────────────

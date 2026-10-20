@@ -76,6 +76,11 @@ pub struct ConsentGrant {
     pub created_at: Timestamp,
 }
 
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
+pub struct ConsentRevocation {
+    pub grant_hash: ActionHash,
+}
+
 // --- credential-wallet ---
 
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
@@ -482,6 +487,55 @@ async fn test_health_create_and_get_records() {
     assert_eq!(records.len(), 2);
 }
 
+/// Private health records remain queryable by their owner but are not
+/// present in another agent's local source-chain query.
+#[tokio::test(flavor = "multi_thread")]
+#[ignore = "requires Holochain conductor (nix develop)"]
+async fn test_health_private_entries_are_owner_local() {
+    let mut conductor = SweetConductor::from_standard_config().await;
+    let dna_file = SweetDnaFile::from_bundle(&personal_dna_path()).await.unwrap();
+
+    let alice_app = conductor.setup_app("alice", &[dna_file.clone()]).await.unwrap();
+    let alice = alice_app.cells()[0].clone();
+    let bob_app = conductor.setup_app("bob", &[dna_file]).await.unwrap();
+    let bob = bob_app.cells()[0].clone();
+
+    assert_ne!(alice.agent_pubkey(), bob.agent_pubkey());
+
+    let secret_marker = "owner-local-health-record-marker-9df21";
+    let record = HealthRecord {
+        record_type: "allergy".to_string(),
+        data: format!(r#"{{"marker":"{secret_marker}"}}"#),
+        source: "self".to_string(),
+        event_date: Timestamp::now(),
+        updated_at: Timestamp::now(),
+    };
+
+    let created: Record = conductor
+        .call(&alice.zome("health_vault"), "create_health_record", record)
+        .await;
+    assert_eq!(created.action().author(), alice.agent_pubkey());
+
+    let alice_records: Vec<Record> = conductor
+        .call(&alice.zome("health_vault"), "get_my_records", ())
+        .await;
+    assert_eq!(alice_records.len(), 1);
+    let owner_record: HealthRecord = alice_records[0]
+        .entry()
+        .to_app_option()
+        .unwrap()
+        .expect("owner query should include private entry content");
+    assert!(owner_record.data.contains(secret_marker));
+
+    let bob_records: Vec<Record> = conductor
+        .call(&bob.zome("health_vault"), "get_my_records", ())
+        .await;
+    assert!(
+        bob_records.is_empty(),
+        "another agent's local source-chain query must not return the owner's health records"
+    );
+}
+
 #[tokio::test(flavor = "multi_thread")]
 #[ignore = "requires Holochain conductor (nix develop)"]
 async fn test_health_record_biometric() {
@@ -549,6 +603,99 @@ async fn test_health_consent_grant_and_list() {
     let c: ConsentGrant = consents[0].entry().to_app_option().unwrap().unwrap();
     assert!(c.active);
     assert_eq!(c.record_types.len(), 2);
+}
+
+/// Revocation is permanent for the original grant, repeat requests are idempotent,
+/// and re-granting creates a distinct authorization record.
+#[tokio::test(flavor = "multi_thread")]
+#[ignore = "requires Holochain conductor (nix develop)"]
+async fn test_health_consent_revocation_is_idempotent_and_regrant_is_new() {
+    let mut conductor = SweetConductor::from_standard_config().await;
+    let dna_file = SweetDnaFile::from_bundle(&personal_dna_path()).await.unwrap();
+    let (alice,) = conductor
+        .setup_app("test-app", &[dna_file.clone()])
+        .await
+        .unwrap()
+        .into_tuple();
+
+    let consent = ConsentGrant {
+        grantee: AgentPubKey::from_raw_36(vec![1u8; 36]),
+        record_types: vec!["allergy".to_string()],
+        expires_at: None,
+        active: true,
+        created_at: Timestamp::now(),
+    };
+
+    let first_grant: Record = conductor
+        .call(&alice.zome("health_vault"), "grant_consent", consent.clone())
+        .await;
+    let first_grant_hash = first_grant.action_address().clone();
+
+    let effective_before: Vec<Record> = conductor
+        .call(&alice.zome("health_vault"), "get_my_consents", ())
+        .await;
+    assert_eq!(effective_before.len(), 1);
+
+    let revocation_one: Record = conductor
+        .call(
+            &alice.zome("health_vault"),
+            "revoke_consent",
+            first_grant_hash.clone(),
+        )
+        .await;
+    let revocation_two: Record = conductor
+        .call(
+            &alice.zome("health_vault"),
+            "revoke_consent",
+            first_grant_hash.clone(),
+        )
+        .await;
+    assert_eq!(
+        revocation_one.action_address(),
+        revocation_two.action_address(),
+        "a repeated revocation should return the existing immutable event"
+    );
+
+    let effective_after_revoke: Vec<Record> = conductor
+        .call(&alice.zome("health_vault"), "get_my_consents", ())
+        .await;
+    assert!(
+        effective_after_revoke.is_empty(),
+        "the revoked grant must not appear in the effective list"
+    );
+
+    let history: Vec<Record> = conductor
+        .call(&alice.zome("health_vault"), "get_my_consent_revocations", ())
+        .await;
+    assert_eq!(history.len(), 1);
+    let event: ConsentRevocation = history[0]
+        .entry()
+        .to_app_option()
+        .unwrap()
+        .expect("private revocation history should be locally queryable");
+    assert_eq!(event.grant_hash, first_grant_hash);
+
+    let second_grant: Record = conductor
+        .call(&alice.zome("health_vault"), "grant_consent", consent)
+        .await;
+    assert_ne!(
+        first_grant.action_address(),
+        second_grant.action_address(),
+        "a re-grant must create a distinct grant action"
+    );
+
+    let effective_after_regrant: Vec<Record> = conductor
+        .call(&alice.zome("health_vault"), "get_my_consents", ())
+        .await;
+    assert_eq!(
+        effective_after_regrant.len(),
+        1,
+        "only the newly created, unrevoked grant should be effective"
+    );
+    assert_ne!(
+        effective_after_regrant[0].action_address(),
+        &first_grant_hash
+    );
 }
 
 #[tokio::test(flavor = "multi_thread")]
