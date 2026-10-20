@@ -2,7 +2,7 @@
   "schema_version": "d6s-canon-2-manifest/1",
   "status": "ReferenceModelOnly",
   "fixture_path": "docs/integral/d6s-canon-2-authority-boundary-fixture.json",
-  "fixture_sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+  "fixture_sha256": "4c8cbe62b9c449ab035d5d3814cce61766ad6f0948a3d9d4d2537a5f6d869cab",
   "rust_test_target": "d6s_canon_2_authority_boundary",
   "independent_verifier_path": "scripts/integral/verify_d6s_canon_2_authority_boundary.py",
   "corpus_id": "COS-CONF-001",
