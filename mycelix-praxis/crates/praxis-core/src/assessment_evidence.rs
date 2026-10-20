@@ -62,7 +62,9 @@ pub enum AssessmentPhase {
     Practice,
     ImmediatePost,
     Transfer,
+    #[serde(rename = "retention_14_day")]
     Retention14Day,
+    #[serde(rename = "retention_30_day")]
     Retention30Day,
 }
 
