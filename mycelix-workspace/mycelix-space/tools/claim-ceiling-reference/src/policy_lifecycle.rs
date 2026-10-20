@@ -710,6 +710,28 @@ mod tests {
     }
 
     #[test]
+    fn lifecycle_receipt_binds_trusted_context_and_descriptor_schema() {
+        let first = evaluate(release(), context(), PROFILE_BYTES);
+        assert_eq!(
+            first.release_descriptor_schema_sha256,
+            sha256(RELEASE_SCHEMA)
+        );
+
+        let mut changed_context = context();
+        changed_context.minimum_revocation_epoch += 1;
+        let second = evaluate(release(), changed_context, PROFILE_BYTES);
+
+        assert_ne!(
+            first.trusted_context_sha256,
+            second.trusted_context_sha256,
+            "receipt must bind the complete trusted evaluation context"
+        );
+        assert_eq!(second.disposition, PolicyLifecycleDispositionV1::Rejected);
+        assert!(!first.evidence_admission_granted);
+        assert!(!first.action_authority_granted);
+    }
+
+    #[test]
     fn frozen_lifecycle_attack_vectors_match_reference_state_machine() {
         let bytes: &[u8] = include_bytes!("../fixtures/claim-policy-lifecycle-golden-v1.json");
         let corpus: LifecycleVectorCorpus =
