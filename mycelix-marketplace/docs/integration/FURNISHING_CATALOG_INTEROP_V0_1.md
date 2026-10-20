@@ -169,3 +169,23 @@ Before real-world superiority claims, run paid, consent-based tasks with distinc
 ## Current limitations
 
 This branch is a contract proposal with synthetic fixture data. Authoring-time JSON parsing and a structural/reference mirror are not formal JSON Schema validation, Rust tests, Holochain conductor tests, privacy review, rights review, or live marketplace evidence. No live query, product listing, stock/price check, purchase, ranking, repairability certification or environmental calculation was performed.
+
+## Independent Rust audit slice
+
+A standalone Rust audit utility now lives at `tools/furnishing-profile-audit/` with two checks:
+
+- **Profile semantics:** required identifiers and evidence references, unique IDs, geometry dimensions/digests, claim/evidence consistency, rights-aware compatibility, and the prohibition on treating fixture-only price/availability/delivery as live confirmed facts.
+- **Discovery-request policy:** verifies that design discovery stays in `discovery_only`, all commercial effects remain false, only allowlisted query fields are requested, detailed room geometry/address/occupant profile and correlatable design/query digests remain local, and purchase authorization is not requested during exploration.
+- **Formal shape validation:** uses the pinned Rust `jsonschema` dependency to validate every profile against the Draft 2020-12 profile schema and the request fixture against the Draft 2020-12 request schema, with format validation enabled.
+- **Mutation tests:** seed changed geometry digests, unknown dimensions labeled compatible, geometry without layout-use rights promoted to compatible, confirmed stock/quotes from fixtures, missing evidence, contradictory hard-constraint results, unauthorized reservation/order, seller contact, floor-plan/address transmission, unapproved disclosure fields and malformed digests.
+
+Run from the repository root:
+
+```sh
+cargo fmt --manifest-path mycelix-marketplace/tools/furnishing-profile-audit/Cargo.toml -- --check
+cargo test --manifest-path mycelix-marketplace/tools/furnishing-profile-audit/Cargo.toml
+cargo clippy --manifest-path mycelix-marketplace/tools/furnishing-profile-audit/Cargo.toml --all-targets -- -D warnings
+cargo run --manifest-path mycelix-marketplace/tools/furnishing-profile-audit/Cargo.toml -- mycelix-marketplace/contracts/fixtures/furnishing-adapter-request-v0.1.json
+```
+
+The audit is deliberately narrow; it does not authenticate Mycelix, prove seller claims, or independently verify source digests against any external source bytes. A format-valid digest is not proof of artifact integrity unless the verifier recomputes it over the actual artifact. It is also not a marketplace production integration. Exact-head formatting/tests/Clippy must pass on the pinned head before treating this verifier as qualified. The standalone crate does not yet have a committed lockfile, so the dependency closure still needs to be frozen before reproducible qualification.
