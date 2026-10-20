@@ -363,6 +363,59 @@ mod tests {
     }
 
     #[test]
+    fn json_schema_matches_rust_wire_fields_and_enum_values() {
+        let schema: serde_json::Value = serde_json::from_str(include_str!(
+            "../../../examples/assessment-benchmarks/v1/assessment_benchmark.schema.json"
+        )).expect("published JSON Schema must parse");
+        let sample = serde_json::to_value(fixture()).expect("fixture serializes to JSON");
+
+        fn assert_keys_match(schema: &serde_json::Value, instance: &serde_json::Value) {
+            let expected = schema["properties"].as_object().expect("schema properties")
+                .keys().cloned().collect::<BTreeSet<_>>();
+            let actual = instance.as_object().expect("sample object")
+                .keys().cloned().collect::<BTreeSet<_>>();
+            assert_eq!(actual, expected, "schema and Rust wire fields drifted");
+        }
+
+        assert_eq!(schema["properties"]["schema_version"]["const"], 1);
+        assert_keys_match(&schema, &sample);
+        assert_keys_match(&schema["$defs"]["BenchmarkArm"], &sample["arms"][0]);
+        assert_keys_match(&schema["$defs"]["AssessmentEpisode"], &sample["episodes"][0]);
+        assert_keys_match(
+            &schema["$defs"]["AssessmentAttempt"],
+            &sample["episodes"][0]["attempts"][0],
+        );
+
+        let phase_names = [
+            AssessmentPhase::Baseline,
+            AssessmentPhase::Practice,
+            AssessmentPhase::ImmediatePost,
+            AssessmentPhase::Transfer,
+            AssessmentPhase::Retention14Day,
+            AssessmentPhase::Retention30Day,
+        ].into_iter().map(|phase| {
+            serde_json::to_value(phase).unwrap().as_str().unwrap().to_string()
+        }).collect::<BTreeSet<_>>();
+        let schema_phases = schema["$defs"]["AssessmentPhase"]["enum"].as_array().unwrap()
+            .iter().map(|value| value.as_str().unwrap().to_string()).collect::<BTreeSet<_>>();
+        assert_eq!(phase_names, schema_phases, "phase enum drifted from JSON Schema");
+
+        let assistance_names = [
+            AssistanceMode::Unaided,
+            AssistanceMode::Hint,
+            AssistanceMode::Scaffolded,
+            AssistanceMode::ToolAssisted,
+            AssistanceMode::DirectAnswer,
+            AssistanceMode::Unknown,
+        ].into_iter().map(|assistance| {
+            serde_json::to_value(assistance).unwrap().as_str().unwrap().to_string()
+        }).collect::<BTreeSet<_>>();
+        let schema_assistance = schema["$defs"]["AssistanceMode"]["enum"].as_array().unwrap()
+            .iter().map(|value| value.as_str().unwrap().to_string()).collect::<BTreeSet<_>>();
+        assert_eq!(assistance_names, schema_assistance, "assistance enum drifted from JSON Schema");
+    }
+
+    #[test]
     fn synthetic_comparison_fixture_is_structurally_valid() {
         let summary = validate_assessment_benchmark(&fixture()).expect("fixture valid");
         assert_eq!(summary.episode_count, 3);
