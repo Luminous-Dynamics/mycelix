@@ -1197,6 +1197,7 @@ mod tests {
     fn test_missing_or_malformed_slashing_and_kvector_fail_closed() {
         let engine = VerificationEngine::new();
         let mut state = create_test_state();
+        state.variables.remove("last_slash_fraction");
         let slashing = Invariant {
             invariant_id: "slashing".into(),
             name: "Slashing".into(),
@@ -1212,6 +1213,7 @@ mod tests {
             .insert("last_slash_fraction".into(), "NaN".into());
         assert!(!engine.check_invariant(&slashing, &state, 1000).holds);
 
+        state.variables.remove("kvector_k_r");
         let kvector = Invariant {
             invariant_id: "kvector".into(),
             name: "K-vector".into(),
