@@ -1,0 +1,59 @@
+name: Praxis Cyber Challenge Contract
+
+on:
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize, reopened, ready_for_review]
+    paths:
+      - "mycelix-praxis/crates/praxis-core/**"
+      - "mycelix-praxis/examples/cyber-challenges/**"
+      - "mycelix-praxis/docs/CYBER_CHALLENGE_CORPUS_V1.md"
+      - ".github/workflows/praxis-cyber-challenges.yml"
+  push:
+    branches: [main]
+    paths:
+      - "mycelix-praxis/crates/praxis-core/**"
+      - "mycelix-praxis/examples/cyber-challenges/**"
+      - "mycelix-praxis/docs/CYBER_CHALLENGE_CORPUS_V1.md"
+      - ".github/workflows/praxis-cyber-challenges.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: praxis-cyber-challenges-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    name: Validate solver-visible cyber corpus
+    if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    env:
+      CHECKED_SHA: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
+      CARGO_TERM_COLOR: always
+    steps:
+      - name: Checkout exact cyber-corpus subject
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          ref: ${{ env.CHECKED_SHA }}
+          persist-credentials: false
+
+      - name: Assert exact qualification subject
+        run: test "$(git rev-parse HEAD)" = "$CHECKED_SHA"
+
+      - name: Install pinned Rust
+        uses: dtolnay/rust-toolchain@e97e2d8cc328f1b50210efc529dca0028893a2d9 # pinned action
+        with:
+          toolchain: 1.96.0
+          components: rustfmt
+
+      - name: Assert Rust toolchain identity
+        run: test "$(rustc +1.96.0 --version)" = "rustc 1.96.0 (ac68faa20 2026-05-25)"
+
+      - name: Check formatting for Praxis Core
+        run: cargo +1.96.0 fmt --manifest-path mycelix-praxis/Cargo.toml --package praxis-core -- --check
+
+      - name: Run cyber challenge contract tests
+        run: cargo +1.96.0 test --manifest-path mycelix-praxis/Cargo.toml --package praxis-core --test cyber_challenges -- --nocapture
