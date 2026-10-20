@@ -271,14 +271,33 @@ fn read_identity_storage_snapshot() -> Result<IdentityStorageSnapshot, ()> {
 fn read_identity_storage_snapshot_from(
     storage: &web_sys::Storage,
 ) -> Result<IdentityStorageSnapshot, ()> {
+    let legacy_did = storage.get_item(LEGACY_DID_KEY).map_err(|_| ())?;
+    let mut secret_b64 = storage.get_item(IDENTITY_SECRET_KEY).map_err(|_| ())?;
+    let public_b64 = match storage.get_item(IDENTITY_PUBLIC_KEY) {
+        Ok(value) => value,
+        Err(_) => {
+            if let Some(secret) = secret_b64.as_mut() {
+                secret.zeroize();
+            }
+            return Err(());
+        }
+    };
+    let encrypted_wire = match storage.get_item(IDENTITY_SECRET_ENCRYPTED_KEY) {
+        Ok(value) => value,
+        Err(_) => {
+            if let Some(secret) = secret_b64.as_mut() {
+                secret.zeroize();
+            }
+            return Err(());
+        }
+    };
+
     Ok(IdentityStorageSnapshot {
         storage_available: true,
-        legacy_did: storage.get_item(LEGACY_DID_KEY).map_err(|_| ())?,
-        secret_b64: storage.get_item(IDENTITY_SECRET_KEY).map_err(|_| ())?,
-        public_b64: storage.get_item(IDENTITY_PUBLIC_KEY).map_err(|_| ())?,
-        encrypted_wire: storage
-            .get_item(IDENTITY_SECRET_ENCRYPTED_KEY)
-            .map_err(|_| ())?,
+        legacy_did,
+        secret_b64,
+        public_b64,
+        encrypted_wire,
     })
 }
 
