@@ -70,10 +70,10 @@ Missing trusted time is rejection, not “best effort”. An expired TUF timesta
 
 ## 5. Frozen conformance corpus
 
-The machine-readable corpus at `fixtures/claim-policy-lifecycle-golden-v1.json` contains 19 deterministic scenarios. It includes:
+The machine-readable corpus at `fixtures/claim-policy-lifecycle-golden-v1.json` contains 20 deterministic scenarios. It includes:
 
 - valid new-release acceptance and idempotent exact replay;
-- lower-version rollback and same-version digest equivocation;
+- lower-version rollback, higher-version revocation-epoch rollback, and same-version digest equivocation;
 - invalid signature, unknown publisher key, revoked publisher key, unmet signature threshold;
 - expired/stale metadata, distribution rollback and mix-and-match;
 - missing trusted time, future-issued and expired release windows;
