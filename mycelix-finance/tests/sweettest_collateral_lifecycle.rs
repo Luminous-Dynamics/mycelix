@@ -1070,7 +1070,7 @@ async fn test_covenant_blocks_pledge_and_freeze() {
 }
 
 // ============================================================================
-// Test 13: Deposit collateral with invalid rate is rejected
+// Test 14: Deposit collateral with invalid rate is rejected
 // ============================================================================
 
 /// `deposit_collateral` should reject NaN, infinity, zero, and negative
@@ -1155,7 +1155,7 @@ async fn test_deposit_collateral_rejects_invalid_rates() {
 }
 
 // ============================================================================
-// Test 14: Deposit collateral rejects unsupported collateral types
+// Test 15: Deposit collateral rejects unsupported collateral types
 // ============================================================================
 
 /// Only "ETH" and "USDC" are accepted collateral types for bridge deposits.
