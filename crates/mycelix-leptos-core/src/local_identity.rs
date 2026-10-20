@@ -1987,6 +1987,41 @@ mod browser_storage_tests {
     }
 
     #[wasm_bindgen_test]
+    async fn recovery_export_is_read_only_and_matches_the_unlocked_identity() {
+        let _backup = IdentityStorageBackup::new_and_clear();
+        create_protected_identity("synthetic recovery export passphrase")
+            .await
+            .expect("protected identity creation succeeds");
+        let storage = web_sys::window().unwrap().local_storage().unwrap().unwrap();
+        let public_before = storage
+            .get_item(IDENTITY_PUBLIC_KEY)
+            .unwrap()
+            .expect("public metadata exists");
+        let envelope_before = storage
+            .get_item(IDENTITY_SECRET_ENCRYPTED_KEY)
+            .unwrap()
+            .expect("protected envelope exists");
+
+        let phrase = export_unlocked_identity_seed_phrase()
+            .expect("unlocked protected identity can export its recovery phrase");
+        let derived = signing_key_from_seed_phrase(&phrase)
+            .expect("exported recovery phrase is valid");
+        assert!(public_key_matches_signing_key(&public_before, &derived));
+        assert!(storage.get_item(IDENTITY_SECRET_KEY).unwrap().is_none());
+        assert_eq!(
+            storage.get_item(IDENTITY_PUBLIC_KEY).unwrap().as_deref(),
+            Some(public_before.as_str())
+        );
+        assert_eq!(
+            storage.get_item(IDENTITY_SECRET_ENCRYPTED_KEY).unwrap().as_deref(),
+            Some(envelope_before.as_str())
+        );
+
+        UNLOCKED_KEY.with(|cell| *cell.borrow_mut() = None);
+        assert!(export_unlocked_identity_seed_phrase().is_err());
+    }
+
+    #[wasm_bindgen_test]
     async fn protecting_existing_identity_removes_plaintext_after_verification() {
         let _backup = IdentityStorageBackup::new_and_clear();
         let original = ensure_keypair();
