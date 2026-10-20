@@ -1,0 +1,87 @@
+name: Claim Ceiling Policy Profile V1
+
+on:
+  pull_request:
+    paths:
+      - "mycelix-workspace/mycelix-space/tools/claim-ceiling-reference/**"
+      - "mycelix-workspace/mycelix-space/Cargo.toml"
+      - "mycelix-workspace/Cargo.toml"
+      - ".github/workflows/claim-ceiling-policy-profile-v1.yml"
+  push:
+    branches: [main]
+    paths:
+      - "mycelix-workspace/mycelix-space/tools/claim-ceiling-reference/**"
+      - "mycelix-workspace/mycelix-space/Cargo.toml"
+      - "mycelix-workspace/Cargo.toml"
+      - ".github/workflows/claim-ceiling-policy-profile-v1.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  policy-profile-gate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: 1.96.0
+          components: rustfmt, clippy
+      - name: Check package formatting
+        run: cargo fmt --manifest-path "$PACKAGE" -p claim-ceiling-reference -- --check
+        env:
+          PACKAGE: mycelix-workspace/mycelix-space/tools/claim-ceiling-reference/Cargo.toml
+      - name: Run algebra and policy-admissibility tests
+        run: cargo test --locked --manifest-path "$PACKAGE" -p claim-ceiling-reference
+        env:
+          PACKAGE: mycelix-workspace/mycelix-space/tools/claim-ceiling-reference/Cargo.toml
+      - name: Run strict Clippy
+        run: cargo clippy --locked --manifest-path "$PACKAGE" -p claim-ceiling-reference --all-targets -- -D warnings
+        env:
+          PACKAGE: mycelix-workspace/mycelix-space/tools/claim-ceiling-reference/Cargo.toml
+      - name: Run policy CLI twice and independently check positive/negative receipts
+        shell: bash
+        run: |
+          set -euo pipefail
+          package="mycelix-workspace/mycelix-space/tools/claim-ceiling-reference/Cargo.toml"
+          root="mycelix-workspace/mycelix-space/tools/claim-ceiling-reference"
+          allowed="$root/fixtures/claim-ceiling-policy-allowed-v1.json"
+          rejected="$root/fixtures/claim-ceiling-policy-rejected-v1.json"
+          request_schema="$root/schemas/claim-ceiling-policy-request-v1.schema.json"
+          receipt_schema="$root/schemas/claim-ceiling-policy-receipt-v1.schema.json"
+          source_sha="$(git rev-parse HEAD)"
+          allowed_sha="$(sha256sum "$allowed" | cut -d ' ' -f 1)"
+          rejected_sha="$(sha256sum "$rejected" | cut -d ' ' -f 1)"
+          request_schema_sha="$(sha256sum "$request_schema" | cut -d ' ' -f 1)"
+          receipt_schema_sha="$(sha256sum "$receipt_schema" | cut -d ' ' -f 1)"
+
+          cargo run --locked --manifest-path "$package" -p claim-ceiling-reference --bin claim-ceiling-policy-check -- --input "$allowed" --source-commit "$source_sha" > "$RUNNER_TEMP/policy-allowed-1.json"
+          cargo run --locked --manifest-path "$package" -p claim-ceiling-reference --bin claim-ceiling-policy-check -- --input "$allowed" --source-commit "$source_sha" > "$RUNNER_TEMP/policy-allowed-2.json"
+          cmp "$RUNNER_TEMP/policy-allowed-1.json" "$RUNNER_TEMP/policy-allowed-2.json"
+          jq -e --arg source "$source_sha" --arg input "$allowed_sha" --arg req_schema "$request_schema_sha" --arg rec_schema "$receipt_schema_sha" '
+            .source_commit == $source and .source_commit_pinned == true
+            and .input_sha256 == $input
+            and .request_schema_sha256 == $req_schema
+            and .receipt_schema_sha256 == $rec_schema
+            and .disposition == "admissible_within_profile"
+            and .violations == []
+            and .policy_admissibility_only == true
+            and .action_authority_granted == false
+          ' "$RUNNER_TEMP/policy-allowed-1.json" > /dev/null
+
+          cargo run --locked --manifest-path "$package" -p claim-ceiling-reference --bin claim-ceiling-policy-check -- --input "$rejected" --source-commit "$source_sha" > "$RUNNER_TEMP/policy-rejected.json"
+          jq -e --arg source "$source_sha" --arg input "$rejected_sha" --arg req_schema "$request_schema_sha" --arg rec_schema "$receipt_schema_sha" '
+            .source_commit == $source and .source_commit_pinned == true
+            and .input_sha256 == $input
+            and .request_schema_sha256 == $req_schema
+            and .receipt_schema_sha256 == $rec_schema
+            and .disposition == "rejected_by_profile"
+            and .policy_admissibility_only == true
+            and .action_authority_granted == false
+            and ([ "claim_atom_not_allowed", "subject_outside_policy", "context_outside_policy", "time_window_outside_policy", "action_scope_not_allowed", "required_qualification_missing", "required_independence_control_missing", "required_provenance_missing" ] - [.violations[].code] | length) == 0
+          ' "$RUNNER_TEMP/policy-rejected.json" > /dev/null
+          echo "CLAIM_CEILING_POLICY_PROFILE_V1_PASS"
+      - name: Require clean tracked source after policy checks
+        run: git diff --exit-code -- . ':!Cargo.lock'
