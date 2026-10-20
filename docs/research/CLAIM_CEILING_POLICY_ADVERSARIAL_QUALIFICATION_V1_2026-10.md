@@ -6,7 +6,7 @@
 
 ## 1. What the existing evidence establishes
 
-At exact head `ac48ea53b2f434292017bca5419cf48dcac70906`, the dedicated Claim Ceiling Policy Profile V1 workflow passed formatting, Rust tests, strict Clippy, byte-identical repeated CLI receipts, and independent jq verification of positive, negative, and altered-policy-digest cases. Its tests exhaust all 256 combinations of eight binary mutations. The separate D6S Canonical Qualification workflow failed in its integration suite; its verifier steps were skipped. These results are distinct and must not be combined into a claim that canonical admission is qualified.
+At exact head `ac48ea53b2f434292017bca5419cf48dcac70906`, the dedicated Claim Ceiling Policy Profile V1 workflow passed formatting, Rust tests, strict Clippy, byte-identical repeated CLI receipts, and independent jq verification of positive, negative, and altered-policy-digest cases. Its tests exhaust all 256 combinations of eight binary mutations. The separate D6S Canonical Qualification workflow failed before running tests because it requests Cargo test targets `d6s_canon_1_golden_vectors` and `d6s_canon_2_authority_boundary`, which do not exist in `cos_conformance` at that head; its verifier steps were skipped. This is a stale workflow/reference failure, not a failed test assertion. These results are distinct and must not be combined into a claim that canonical admission is qualified.
 
 The existing profile-fit result does not prove truth, publisher identity, source independence, trusted time, canonical evidence admission, user consent, or action authority. A SHA-256 pin establishes byte identity relative to a trusted expected digest; it does not authenticate who selected that digest.
 
