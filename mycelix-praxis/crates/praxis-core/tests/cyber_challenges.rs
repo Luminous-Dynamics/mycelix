@@ -3,8 +3,8 @@
 // Commercial licensing: see COMMERCIAL_LICENSE.md at repository root
 
 use praxis_core::cyber_challenges::{
-    validate_solver_corpus, ChallengeDifficulty, CyberDomain, EvidenceConflictStatus,
-    EvidenceFreshness, EvidenceSourceKind, SolverVisibleCyberCorpus, CYBER_CHALLENGE_CORPUS_ID,
+    CYBER_CHALLENGE_CORPUS_ID, ChallengeDifficulty, CyberDomain, EvidenceConflictStatus,
+    EvidenceFreshness, EvidenceSourceKind, SolverVisibleCyberCorpus, validate_solver_corpus,
 };
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, BTreeSet};
@@ -108,10 +108,7 @@ fn evaluator_fixture() -> EvaluatorCorpus {
     serde_json::from_str(EVALUATOR_FIXTURE).expect("evaluator fixture parses")
 }
 
-fn evaluator_issues(
-    solver: &SolverVisibleCyberCorpus,
-    evaluator: &EvaluatorCorpus,
-) -> Vec<String> {
+fn evaluator_issues(solver: &SolverVisibleCyberCorpus, evaluator: &EvaluatorCorpus) -> Vec<String> {
     let mut issues = Vec::new();
     if evaluator.schema_version != solver.schema_version {
         issues.push("schema version mismatch".to_string());
@@ -173,14 +170,22 @@ fn evaluator_issues(
             issues.push(format!("{path}: required_evidence_ids must not be empty"));
         }
         for (field, items) in [
-            ("additional_evidence_needed", case.additional_evidence_needed.as_slice()),
-            ("acceptable_inferences", case.acceptable_inferences.as_slice()),
+            (
+                "additional_evidence_needed",
+                case.additional_evidence_needed.as_slice(),
+            ),
+            (
+                "acceptable_inferences",
+                case.acceptable_inferences.as_slice(),
+            ),
             ("prohibited_claims", case.prohibited_claims.as_slice()),
             ("safe_next_steps", case.safe_next_steps.as_slice()),
             ("authority_gates", case.authority_gates.as_slice()),
         ] {
             if items.is_empty() || items.iter().any(|item| item.trim().is_empty()) {
-                issues.push(format!("{path}.{field}: non-empty descriptions are required"));
+                issues.push(format!(
+                    "{path}.{field}: non-empty descriptions are required"
+                ));
             }
         }
 
@@ -192,12 +197,12 @@ fn evaluator_issues(
         if case.rubric.is_empty() || criterion_ids.len() != case.rubric.len() {
             issues.push(format!("{path}.rubric: rubric must have unique criteria"));
         }
-        if case
-            .rubric
-            .iter()
-            .any(|criterion| criterion.description.trim().is_empty() || criterion.max_score_permille == 0)
-        {
-            issues.push(format!("{path}.rubric: criterion descriptions and positive weights are required"));
+        if case.rubric.iter().any(|criterion| {
+            criterion.description.trim().is_empty() || criterion.max_score_permille == 0
+        }) {
+            issues.push(format!(
+                "{path}.rubric: criterion descriptions and positive weights are required"
+            ));
         }
         let total = case
             .rubric
@@ -205,7 +210,9 @@ fn evaluator_issues(
             .map(|criterion| u32::from(criterion.max_score_permille))
             .sum::<u32>();
         if total != 1000 {
-            issues.push(format!("{path}.rubric: weights must sum to 1000, got {total}"));
+            issues.push(format!(
+                "{path}.rubric: weights must sum to 1000, got {total}"
+            ));
         }
         let _ = case.expected_disposition;
     }
@@ -255,18 +262,24 @@ fn evaluator_is_separate_and_exactly_matches_solver_cases() {
 fn evaluator_schema_rejects_non_1000_rubric_weights() {
     let mut evaluator = evaluator_fixture();
     evaluator.cases[0].rubric[0].max_score_permille -= 1;
-    assert!(evaluator_issues(&solver_fixture(), &evaluator)
-        .iter()
-        .any(|issue| issue.contains("weights must sum to 1000")));
+    assert!(
+        evaluator_issues(&solver_fixture(), &evaluator)
+            .iter()
+            .any(|issue| issue.contains("weights must sum to 1000"))
+    );
 }
 
 #[test]
 fn evaluator_cannot_reference_unavailable_evidence() {
     let mut evaluator = evaluator_fixture();
-    evaluator.cases[0].required_evidence_ids.push("secret-evidence-not-in-case".into());
-    assert!(evaluator_issues(&solver_fixture(), &evaluator)
-        .iter()
-        .any(|issue| issue.contains("not solver-visible")));
+    evaluator.cases[0]
+        .required_evidence_ids
+        .push("secret-evidence-not-in-case".into());
+    assert!(
+        evaluator_issues(&solver_fixture(), &evaluator)
+            .iter()
+            .any(|issue| issue.contains("not solver-visible"))
+    );
 }
 
 #[test]
@@ -297,7 +310,9 @@ fn solver_contract_rejects_duplicate_evidence_ids_within_a_case() {
 #[test]
 fn source_snapshot_binding_is_required() {
     let mut corpus = solver_fixture();
-    corpus.scenarios[0].evidence[0].source_snapshot_version.clear();
+    corpus.scenarios[0].evidence[0]
+        .source_snapshot_version
+        .clear();
     let issues = validate_solver_corpus(&corpus).unwrap_err();
     assert!(has_code(&issues, "empty_required_text"));
 }
@@ -416,15 +431,30 @@ fn schemas_and_manifest_are_versioned_and_separate() {
     let manifest: serde_json::Value =
         serde_json::from_str(CORPUS_MANIFEST).expect("corpus manifest parses");
 
-    assert_eq!(solver_schema["$schema"], "https://json-schema.org/draft/2020-12/schema");
-    assert_eq!(evaluator_schema["$schema"], "https://json-schema.org/draft/2020-12/schema");
-    assert_eq!(solver_schema["properties"]["corpus_id"]["const"], CYBER_CHALLENGE_CORPUS_ID);
-    assert_eq!(evaluator_schema["properties"]["corpus_id"]["const"], CYBER_CHALLENGE_CORPUS_ID);
+    assert_eq!(
+        solver_schema["$schema"],
+        "https://json-schema.org/draft/2020-12/schema"
+    );
+    assert_eq!(
+        evaluator_schema["$schema"],
+        "https://json-schema.org/draft/2020-12/schema"
+    );
+    assert_eq!(
+        solver_schema["properties"]["corpus_id"]["const"],
+        CYBER_CHALLENGE_CORPUS_ID
+    );
+    assert_eq!(
+        evaluator_schema["properties"]["corpus_id"]["const"],
+        CYBER_CHALLENGE_CORPUS_ID
+    );
     assert_eq!(manifest["corpus_id"], CYBER_CHALLENGE_CORPUS_ID);
     assert_eq!(manifest["corpus_version"], "1.0.0");
     assert_eq!(manifest["solver_visible_file"], "solver-visible.json");
     assert_eq!(manifest["evaluator_only_file"], "evaluator-only.json");
-    assert_ne!(manifest["solver_visible_file"], manifest["evaluator_only_file"]);
+    assert_ne!(
+        manifest["solver_visible_file"],
+        manifest["evaluator_only_file"]
+    );
 
     let solver_properties = solver_schema["$defs"]["Scenario"]["properties"]
         .as_object()
@@ -433,7 +463,9 @@ fn schemas_and_manifest_are_versioned_and_separate() {
         .as_array()
         .expect("evidence schema required list");
     assert!(evidence_required.contains(&serde_json::Value::String("source_snapshot_id".into())));
-    assert!(evidence_required.contains(&serde_json::Value::String("source_snapshot_version".into())));
+    assert!(
+        evidence_required.contains(&serde_json::Value::String("source_snapshot_version".into()))
+    );
     assert!(!solver_properties.contains_key("expected_disposition"));
     assert!(!solver_properties.contains_key("rubric"));
     assert!(!solver_properties.contains_key("prohibited_claims"));
@@ -447,35 +479,55 @@ fn schemas_and_manifest_are_versioned_and_separate() {
         let value = manifest[key].as_str().expect("manifest blob identity");
         assert_eq!(value.len(), 40, "{key} must be a Git SHA-1 blob identifier");
         assert!(
-            value.bytes().all(|byte| byte.is_ascii_hexdigit() && !byte.is_ascii_uppercase()),
+            value
+                .bytes()
+                .all(|byte| byte.is_ascii_hexdigit() && !byte.is_ascii_uppercase()),
             "{key} must be lowercase hexadecimal"
         );
     }
-    assert!(manifest["git_blob_sha_note"]
-        .as_str()
-        .expect("blob identity caveat")
-        .contains("not signatures"));
+    assert!(
+        manifest["git_blob_sha_note"]
+            .as_str()
+            .expect("blob identity caveat")
+            .contains("not signatures")
+    );
 
     let solver = solver_fixture();
-    let domains = solver.scenarios.iter().map(|scenario| scenario.domain).collect::<BTreeSet<_>>();
+    let domains = solver
+        .scenarios
+        .iter()
+        .map(|scenario| scenario.domain)
+        .collect::<BTreeSet<_>>();
     assert_eq!(domains.len(), 5);
-    let difficulties = solver.scenarios.iter().map(|scenario| scenario.difficulty).collect::<BTreeSet<_>>();
+    let difficulties = solver
+        .scenarios
+        .iter()
+        .map(|scenario| scenario.difficulty)
+        .collect::<BTreeSet<_>>();
     assert!(difficulties.contains(&ChallengeDifficulty::Beginner));
     assert!(difficulties.contains(&ChallengeDifficulty::Intermediate));
     assert!(difficulties.contains(&ChallengeDifficulty::Advanced));
 
-    let freshness = solver.scenarios.iter().flat_map(|s| s.evidence.iter().map(|e| e.freshness)).collect::<BTreeSet<_>>();
+    let freshness = solver
+        .scenarios
+        .iter()
+        .flat_map(|s| s.evidence.iter().map(|e| e.freshness))
+        .collect::<BTreeSet<_>>();
     assert!(freshness.contains(&EvidenceFreshness::Stale));
     assert!(freshness.contains(&EvidenceFreshness::Current));
 
-    let conflict_status = solver.scenarios.iter()
+    let conflict_status = solver
+        .scenarios
+        .iter()
         .flat_map(|s| s.evidence.iter().map(|e| e.conflict_status))
         .collect::<BTreeSet<_>>();
     assert!(conflict_status.contains(&EvidenceConflictStatus::ConflictsWithOtherEvidence));
     assert!(conflict_status.contains(&EvidenceConflictStatus::NoKnownConflict));
     assert!(conflict_status.contains(&EvidenceConflictStatus::NotAssessed));
 
-    let _source_coverage = solver.scenarios.iter()
+    let _source_coverage = solver
+        .scenarios
+        .iter()
         .flat_map(|s| s.evidence.iter().map(|e| e.source_kind))
         .collect::<BTreeSet<EvidenceSourceKind>>();
     assert_eq!(solver.scenarios[0].domain, CyberDomain::IdentityAccess);
