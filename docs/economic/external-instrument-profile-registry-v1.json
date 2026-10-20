@@ -1,0 +1,25 @@
+{
+  "registry_id": "MYC-ECO-INSTRUMENT-REGISTRY-001",
+  "version": "1.0.0",
+  "status": "bounded_reference",
+  "identifier_authorities": {
+    "fiat": "ISO 4217 where applicable",
+    "evm_chain": "EIP-155 chain identity where applicable",
+    "web3_asset": "CAIP-style asset identity where supported"
+  },
+  "profiles": [
+    {"profile_id":"fiat-unit","required":["namespace","instrument_identity","unit_scale","validity","source_evidence","claim_ceiling"]},
+    {"profile_id":"bank-deposit","required":["institution_identity","account_instrument_identity","currency_profile","validity","source_evidence","claim_ceiling"]},
+    {"profile_id":"native-chain-asset","required":["network_identity","instrument_identity","unit_scale","finality_profile","source_evidence","claim_ceiling"]},
+    {"profile_id":"token-asset","required":["network_identity","contract_or_mint","token_standard","unit_scale","source_evidence","claim_ceiling"]},
+    {"profile_id":"stablecoin","required":["network_identity","contract_or_mint","issuer","reference_asset","redemption_or_status_evidence","source_evidence","claim_ceiling"]},
+    {"profile_id":"wrapped-or-bridged","required":["representation_identity","network_identity","bridge_or_issuer","underlying_reference","source_evidence","claim_ceiling"]},
+    {"profile_id":"mutual-credit","required":["instrument_identity","issuer_or_steward","credit_policy","obligation_direction","issuance_policy","claim_ceiling"]},
+    {"profile_id":"integral-itc","required":["instrument_identity","domain_profile","contribution_policy","validity","claim_ceiling"]},
+    {"profile_id":"valueflows-role","required":["role","source_identity","role_semantics","claim_ceiling"]},
+    {"profile_id":"symtropy-simulation-asset","required":["world_id","episode_id","simulation_build_id","replay_identity","asset_identity","claim_ceiling"]}
+  ],
+  "conservation_vector":["source_identity","origin","instrument_identity","issuer_network_contract","quantity","unit_scale","evidence","validity","causality","authorization","settlement_identity","correction_lineage","claim_ceiling"],
+  "adapter_rule":"profile-specific transition must be a subset of kernel transitions and must not widen the source claim ceiling",
+  "claim_ceiling":"Semantic interoperability only."
+}

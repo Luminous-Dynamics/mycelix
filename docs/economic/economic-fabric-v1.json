@@ -1,0 +1,50 @@
+{
+  "contract_id":"MYC-ECO-FABRIC-V1",
+  "version":"1.0.0",
+  "status":"Engineering reference contract",
+  "claim_ceiling":"Neutral interoperability semantics only; no claim of currency legitimacy, financial performance, regulatory status, economic superiority, or adoption.",
+  "economic_event":{
+    "required":["event_id","event_type","actor_refs","resource_refs","quantity","unit_of_account","valuation_basis","origin","observed_at","valid_from","valid_until","evidence_refs","status","lineage_ref"],
+    "event_types":["production","consumption","transfer","delivery","service","contribution","allocation","obligation_created","obligation_fulfilled","adjustment","correction"]
+  },
+  "settlement":{
+    "states":["Proposed","Authorized","Submitted","Accepted","Settled","Reversed","Disputed","Corrected","Indeterminate"],
+    "required":["settlement_id","economic_event_refs","instrument_ref","amount","unit_of_account","authorization_ref","counterparty_refs","origin","submitted_at","status","lineage_ref"],
+    "rules":["transport_ack != settlement","authorization != settlement","duplicate_logical_settlement != second_settlement","reversal preserves original lineage","disputed != settled"]
+  },
+  "unit_of_account":{
+    "required":["unit_id","issuer_or_steward","definition","dimension","scale","valid_from","valid_until","provenance"],
+    "rule":"Units are not interchangeable merely because their numeric magnitudes match."
+  },
+  "valuation_basis":{
+    "required":["basis_id","method","inputs","policy_ref","effective_window","issuer_or_steward","provenance"],
+    "rule":"Price/value/valuation basis are distinct semantic objects."
+  },
+  "instrument_adapter":{
+    "required":["instrument_id","instrument_type","issuer","unit_of_account","terms","jurisdiction_or_domain","origin","validity","provenance"],
+    "supported_profiles":["Integral-ITC","mutual-credit","fiat-denominated","community-currency","resource-credit","time-credit","market-instrument","service-credit"],
+    "rule":"Recognition of a foreign instrument does not constitute local issuance."
+  },
+  "invariants":[
+    "production_observation != economic_entitlement",
+    "labor_observation != compensation",
+    "capability != collateral",
+    "reputation != money",
+    "credit_limit != asset_ownership",
+    "price != value",
+    "quote != settlement",
+    "authorization != settlement",
+    "settlement != physical_outcome",
+    "foreign_recognition != local_issuance",
+    "stale_quote cannot authorize settlement",
+    "duplicate_logical_settlement cannot create a second settlement",
+    "correction cannot rewrite historical economic events",
+    "dispute cannot silently become settlement",
+    "economic_event without admissible evidence remains epistemically bounded",
+    "foreign_origin is preserved through adapter recognition"
+  ],
+  "adapter_principle":"Adapters translate representations and policies while preserving origin, issuer, unit, valuation basis, validity, settlement state, provenance, and correction lineage.",
+  "architecture":"physical/economic observation -> evidence -> economic event -> policy/valuation -> obligation/entitlement -> offer/allocation -> authorization -> settlement -> outcome -> correction",
+  "composability":["AssuranceFlowV1","ProductiveLoopV1","Integral ITC","external accounting","mutual credit","marketplaces","commons/resource allocation"],
+  "formal_closure_requires":["reproducible_formal_artifact","executable_witness","production_refinement_witness","exact_source_commit","reproducible_build_identity"]
+}

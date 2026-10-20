@@ -1,0 +1,273 @@
+{
+  "manifest_id": "MYC-ECO-FV-001",
+  "version": "1.4.0",
+  "status": "Research candidate",
+  "closure_policy": {
+    "states": [
+      "Open",
+      "BoundedExecutableWitness",
+      "FormallyClosed"
+    ],
+    "formally_closed_requires": [
+      "formal_artifact",
+      "executable_witness",
+      "production_refinement",
+      "exact_source_commit",
+      "reproducible_build_identity"
+    ],
+    "scalar_score_can_close": false
+  },
+  "obligations": [
+    {
+      "id": "ECO-FV-001",
+      "proposition": "A stale price quote cannot authorize a settlement.",
+      "state": "Open"
+    },
+    {
+      "id": "ECO-FV-002",
+      "proposition": "The same logical settlement cannot settle twice.",
+      "state": "Open"
+    },
+    {
+      "id": "ECO-FV-003",
+      "proposition": "A settlement requires explicit authorization and matching scope.",
+      "state": "Open"
+    },
+    {
+      "id": "ECO-FV-004",
+      "proposition": "Recognition of a foreign instrument preserves origin and does not mint local issuance.",
+      "state": "Open"
+    },
+    {
+      "id": "ECO-FV-005",
+      "proposition": "Correction preserves the historical economic event lineage.",
+      "state": "Open"
+    },
+    {
+      "id": "ECO-FV-006",
+      "proposition": "A dispute cannot be silently promoted to settled state.",
+      "state": "Open"
+    },
+    {
+      "id": "ECO-FV-007",
+      "proposition": "A production observation does not itself create economic entitlement.",
+      "state": "Open"
+    },
+    {
+      "id": "ECO-FV-008",
+      "proposition": "Labor observation does not itself determine compensation.",
+      "state": "Open"
+    },
+    {
+      "id": "ECO-FV-009",
+      "proposition": "Unit identity and validity must match before cross-system valuation is applied.",
+      "state": "Open"
+    },
+    {
+      "id": "ECO-FV-010",
+      "proposition": "Economic-event evidence provenance survives adapter translation.",
+      "state": "Open"
+    },
+    {
+      "id": "ECO-FV-011",
+      "proposition": "A transport acknowledgment is not a settlement receipt.",
+      "state": "Open"
+    },
+    {
+      "id": "ECO-FV-012",
+      "proposition": "Price and valuation basis remain distinct semantic objects.",
+      "state": "Open"
+    },
+    {
+      "id": "ECO-FV-013",
+      "proposition": "An Integral CDS recommendation cannot itself become a decision or authorization.",
+      "state": "Open"
+    },
+    {
+      "id": "ECO-FV-014",
+      "proposition": "An Integral OAD certification cannot itself become a production observation.",
+      "state": "Open"
+    },
+    {
+      "id": "ECO-FV-015",
+      "proposition": "An Integral COS labor observation cannot itself mint an ITC entitlement.",
+      "state": "Open"
+    },
+    {
+      "id": "ECO-FV-016",
+      "proposition": "An ITC entitlement remains instrument-specific and cannot silently become a generic Mycelix currency.",
+      "state": "Open"
+    },
+    {
+      "id": "ECO-FV-017",
+      "proposition": "An Integral FRS recommendation cannot itself authorize an economic settlement.",
+      "state": "Open"
+    },
+    {
+      "id": "ECO-FV-018",
+      "proposition": "An Integral source identity and policy version survive economic adapter translation.",
+      "state": "Open"
+    },
+    {
+      "id": "ECO-FV-019",
+      "proposition": "A foreign Integral instrument may be recognized without creating local issuance.",
+      "state": "Open"
+    },
+    {
+      "id": "ECO-FV-020",
+      "proposition": "Integral economic meaning remains reversible to its source observation, decision, or entitlement.",
+      "state": "Open"
+    },
+    {
+      "id": "ECO-FV-021",
+      "proposition": "Settlement eligibility is distinct from authorization and requires current evidence, versioned policy, explicit authority, resolved disputes, and preserved claim ceiling.",
+      "state": "Open"
+    },
+    {
+      "id": "ECO-FV-022",
+      "proposition": "An authorized submission cannot bypass explicit settlement eligibility.",
+      "state": "Open"
+    },
+    {
+      "id": "ECO-FV-023",
+      "proposition": "An unresolved dispute cannot silently become settlement eligibility.",
+      "state": "Open"
+    },
+    {
+      "id": "ECO-FV-024",
+      "proposition": "An indeterminate outcome cannot be treated as settlement success.",
+      "state": "Open"
+    },
+    {
+      "id": "ECO-FV-025",
+      "proposition": "A settlement retry changes attempt identity but not logical economic identity.",
+      "state": "Open"
+    },
+    {
+      "id": "ECO-FV-026",
+      "proposition": "Economic profile selection cannot silently change the source claim ceiling.",
+      "state": "Open"
+    },
+    {
+      "id": "ECO-FV-027",
+      "proposition": "An external instrument profile cannot be admitted without the identity fields required by its profile class.",
+      "state": "Open"
+    },
+    {
+      "id": "ECO-FV-028",
+      "proposition": "Issuer, network, chain, contract or mint identity cannot be silently dropped when required by the source profile.",
+      "state": "Open"
+    },
+    {
+      "id": "ECO-FV-029",
+      "proposition": "A numeric quantity cannot change semantic unit or atomic scale during adapter translation without explicit policy and evidence.",
+      "state": "Open"
+    },
+    {
+      "id": "ECO-FV-030",
+      "proposition": "A token ticker or display symbol cannot substitute for authoritative instrument identity.",
+      "state": "Open"
+    },
+    {
+      "id": "ECO-FV-031",
+      "proposition": "A chain observation cannot itself establish legal ownership or key control.",
+      "state": "Open"
+    },
+    {
+      "id": "ECO-FV-032",
+      "proposition": "A wrapped or bridged representation cannot silently become the underlying native asset.",
+      "state": "Open"
+    },
+    {
+      "id": "ECO-FV-033",
+      "proposition": "A stablecoin representation cannot silently become the referenced fiat unit.",
+      "state": "Open"
+    },
+    {
+      "id": "ECO-FV-034",
+      "proposition": "An FX conversion requires an explicit, versioned and validity-bounded valuation profile.",
+      "state": "Open"
+    },
+    {
+      "id": "ECO-FV-035",
+      "proposition": "External provider status or transport completion cannot itself establish settlement finality.",
+      "state": "Open"
+    },
+    {
+      "id": "ECO-FV-036",
+      "proposition": "External instrument recognition creates a distinct target identity and preserves source origin.",
+      "state": "Open"
+    },
+    {
+      "id": "ECO-FV-037",
+      "proposition": "A profile adapter may restrict kernel transitions but cannot widen the source claim ceiling.",
+      "state": "Open"
+    },
+    {
+      "id": "ECO-FV-038",
+      "proposition": "A simulation-scoped economic asset cannot silently promote its claim ceiling to a physical-world economic fact.",
+      "state": "Open"
+    },
+    {
+      "id": "ECO-FV-039",
+      "proposition": "Settlement rail identity remains distinct from instrument identity.",
+      "state": "Open"
+    },
+    {
+      "id": "ECO-FV-040",
+      "proposition": "Confirmation state cannot be interpreted as universal finality.",
+      "state": "Open"
+    },
+    {
+      "id": "ECO-FV-041",
+      "proposition": "Provider acknowledgement cannot itself establish rail finality.",
+      "state": "Open"
+    },
+    {
+      "id": "ECO-FV-042",
+      "proposition": "Block inclusion cannot itself establish economic settlement finality.",
+      "state": "Open"
+    },
+    {
+      "id": "ECO-FV-043",
+      "proposition": "Probabilistic and consensus-finality profiles remain semantically distinct.",
+      "state": "Open"
+    },
+    {
+      "id": "ECO-FV-044",
+      "proposition": "A settlement receipt cannot exceed its authorization scope.",
+      "state": "Open"
+    },
+    {
+      "id": "ECO-FV-045",
+      "proposition": "Reconciliation requires explicit correspondence between source event, rail execution and target settlement identity.",
+      "state": "Open"
+    },
+    {
+      "id": "ECO-FV-046",
+      "proposition": "Reconciliation mismatch cannot be promoted to successful settlement.",
+      "state": "Open"
+    },
+    {
+      "id": "ECO-FV-047",
+      "proposition": "Timeout or unresolved rail outcome remains indeterminate until fresh qualified evidence resolves it.",
+      "state": "Open"
+    },
+    {
+      "id": "ECO-FV-048",
+      "proposition": "A correction appends settlement-receipt lineage and does not mutate the original receipt.",
+      "state": "Open"
+    },
+    {
+      "id": "ECO-FV-049",
+      "proposition": "Accounting projections cannot establish settlement finality.",
+      "state": "Open"
+    },
+    {
+      "id": "ECO-FV-050",
+      "proposition": "A rail profile cannot widen the instrument profile claim ceiling.",
+      "state": "Open"
+    }
+  ],
+  "claim_ceiling": "Semantic economic interoperability only; no financial, legal, regulatory, or real-world performance claim."
+}

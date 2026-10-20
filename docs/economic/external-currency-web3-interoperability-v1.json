@@ -1,0 +1,90 @@
+{
+  "contract_id": "MYC-ECO-EXT-XONT-001",
+  "version": "1.0.0",
+  "status": "bounded_reference",
+  "families": [
+    "FiatUnit",
+    "BankDeposit",
+    "NativeCrypto",
+    "Token",
+    "Stablecoin",
+    "WrappedOrBridgedAsset",
+    "MutualCredit",
+    "IntegralITC",
+    "Valueflows",
+    "SymtropySimulation"
+  ],
+  "instrument_profile_required_fields": [
+    "profile_id",
+    "revision",
+    "namespace",
+    "instrument_identity",
+    "issuer_or_steward",
+    "network_or_ledger",
+    "unit_profile",
+    "validity",
+    "source_evidence",
+    "claim_ceiling"
+  ],
+  "conservation_vector": [
+    "source_identity",
+    "origin",
+    "instrument_identity",
+    "issuer_network_contract",
+    "quantity",
+    "unit_scale",
+    "evidence",
+    "validity",
+    "causality",
+    "authorization",
+    "settlement_identity",
+    "correction_lineage",
+    "claim_ceiling"
+  ],
+  "kernel_invariants": [
+    "display_symbol_is_not_authoritative_identity",
+    "foreign_recognition_does_not_mint_local_issuance",
+    "chain_observation_does_not_create_legal_ownership",
+    "wallet_observation_does_not_create_key_control",
+    "bridge_representation_does_not_become_native_asset",
+    "stablecoin_does_not_become_fiat_by_ticker",
+    "fx_is_not_unit_conversion",
+    "stale_valuation_cannot_authorize_settlement",
+    "external_status_does_not_imply_finality",
+    "correction_preserves_history",
+    "profile_cannot_widen_kernel_claim_ceiling"
+  ],
+  "profiles": [
+    {
+      "id": "fiat-unit",
+      "examples": ["iso4217:USD", "iso4217:EUR", "iso4217:ZAR"],
+      "notes": "Unit-of-account profile; does not identify a specific bank deposit or cash holding."
+    },
+    {
+      "id": "native-crypto",
+      "examples": ["bitcoin:native", "ethereum:native"],
+      "notes": "Requires exact network/chain profile and finality semantics."
+    },
+    {
+      "id": "token",
+      "examples": ["caip19:eip155:1/erc20:<contract>"],
+      "notes": "Illustrative identity only; chain, contract and unit profile are required."
+    },
+    {
+      "id": "mutual-credit",
+      "examples": ["mycelix:TEND", "holo:<profile>"],
+      "notes": "Instrument-specific issuance, credit and settlement policy."
+    },
+    {
+      "id": "integral-itc",
+      "examples": ["integral:ITC:<profile>"],
+      "notes": "Contribution/access semantics; not generic currency."
+    },
+    {
+      "id": "simulation-economic",
+      "examples": ["symtropy:world:<id>:asset:<id>"],
+      "notes": "Simulation-scoped economic fact; cannot silently promote to physical-world fact."
+    }
+  ],
+  "claim_ceiling": "Semantic interoperability only; no legal, financial, regulatory, solvency, custody, investment, or external-finality claim."
+}

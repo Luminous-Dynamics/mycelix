@@ -1,0 +1,172 @@
+{
+  "contract_id": "MYC-ECO-TRANSITION-V1",
+  "version": "1.0.0",
+  "status": "Runtime-neutral executable reference model",
+  "states": [
+    "Observed",
+    "Evidenced",
+    "Valuated",
+    "Entitled",
+    "Authorized",
+    "Submitted",
+    "Settled",
+    "Disputed",
+    "Reversed",
+    "Corrected",
+    "Indeterminate"
+  ],
+  "transitions": [
+    {
+      "from": "Observed",
+      "to": "Evidenced",
+      "requires": [
+        "evidence_ref",
+        "subject_binding",
+        "observed_at"
+      ]
+    },
+    {
+      "from": "Evidenced",
+      "to": "Valuated",
+      "requires": [
+        "valuation_basis",
+        "unit_match",
+        "validity_current"
+      ]
+    },
+    {
+      "from": "Valuated",
+      "to": "Entitled",
+      "requires": [
+        "policy_ref",
+        "eligibility_evidence"
+      ]
+    },
+    {
+      "from": "Entitled",
+      "to": "Authorized",
+      "requires": [
+        "authority_ref",
+        "scope_match",
+        "validity_current"
+      ]
+    },
+    {
+      "from": "Authorized",
+      "to": "Submitted",
+      "requires": [
+        "settlement_id",
+        "idempotency_key",
+        "instrument_ref"
+      ]
+    },
+    {
+      "from": "Submitted",
+      "to": "Settled",
+      "requires": [
+        "recipient_acceptance",
+        "authorization_match",
+        "logical_settlement_not_already_settled"
+      ]
+    },
+    {
+      "from": "Submitted",
+      "to": "Indeterminate",
+      "requires": [
+        "delivery_unknown_or_timeout"
+      ]
+    },
+    {
+      "from": "Settled",
+      "to": "Reversed",
+      "requires": [
+        "explicit_reversal_authority",
+        "original_settlement_ref"
+      ]
+    },
+    {
+      "from": "Settled",
+      "to": "Corrected",
+      "requires": [
+        "correction_event",
+        "lineage_preserved"
+      ]
+    },
+    {
+      "from": "Submitted",
+      "to": "Disputed",
+      "requires": [
+        "dispute_ref",
+        "dispute_policy"
+      ]
+    },
+    {
+      "from": "Disputed",
+      "to": "Settled",
+      "requires": [
+        "explicit_dispute_resolution",
+        "fresh_authorization",
+        "settlement_idempotency_check"
+      ]
+    },
+    {
+      "from": "Disputed",
+      "to": "Reversed",
+      "requires": [
+        "explicit_dispute_resolution",
+        "reversal_authority"
+      ]
+    },
+    {
+      "from": "Indeterminate",
+      "to": "Settled",
+      "requires": [
+        "fresh_receipt",
+        "authorization_still_valid",
+        "settlement_idempotency_check"
+      ]
+    }
+  ],
+  "forbidden_shortcuts": [
+    "Observed->Entitled",
+    "Observed->Authorized",
+    "Evidenced->Settled",
+    "Valuated->Settled",
+    "Entitled->Settled",
+    "Submitted->Settled_without_recipient_acceptance",
+    "Disputed->Settled_without_resolution",
+    "Indeterminate->Settled_without_fresh_receipt",
+    "ForeignRecognized->LocalIssued",
+    "Correction->HistoricalMutation"
+  ],
+  "idempotency": {
+    "logical_settlement_identity": [
+      "settlement_id",
+      "idempotency_key",
+      "instrument_ref",
+      "source_event_refs"
+    ],
+    "retry_may_change": "attempt_id",
+    "retry_may_not_change": [
+      "economic meaning",
+      "amount",
+      "unit",
+      "instrument",
+      "authorization scope",
+      "source event references"
+    ],
+    "duplicate_result": "DuplicateIdempotent"
+  },
+  "profile_specific_conservation": {
+    "rule": "Conservation is not a universal economic invariant; it is declared by the instrument/settlement profile.",
+    "required_fields": [
+      "profile_id",
+      "conserved_quantity",
+      "allowed_fees",
+      "rounding_policy",
+      "issuance_policy",
+      "reversal_policy"
+    ],
+    "claim_ceiling": "Conservation is proven only for the declared instrument profile and transition model."
+  }
+}

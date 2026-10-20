@@ -1,0 +1,29 @@
+{
+  "scenario_id":"MYC-ECO-EXT-XONT-001",
+  "version":"1.0.0",
+  "status":"bounded_reference",
+  "scenarios":[
+    {"id":"X-001","path":["FiatUnit","MycelixEconomicEvent","ValueflowsEconomicEvent"],"preserve":["currency_identity","unit_scale","origin","evidence","claim_ceiling"],"forbid":["bank_account_inference","settlement_inference"]},
+    {"id":"X-002","path":["TokenAsset","MycelixEconomicEvent","Settlement"],"preserve":["chain","contract","quantity","unit_scale","transaction_evidence"],"forbid":["legal_ownership_inference","finality_inference"]},
+    {"id":"X-003","path":["NativeChainAsset","MycelixEconomicEvent"],"preserve":["chain_identity","transaction_or_block_evidence","finality_profile"],"forbid":["legal_discharge_inference"]},
+    {"id":"X-004","path":["Stablecoin","ExternalSettlement"],"preserve":["issuer","chain","contract","reference_asset","status_evidence"],"forbid":["stablecoin_equals_fiat"]},
+    {"id":"X-005","path":["MutualCredit","MycelixEconomicEvent"],"preserve":["issuer","credit_limit","obligation_direction","instrument_identity"],"forbid":["legal_tender_inference"]},
+    {"id":"X-006","path":["IntegralITC","EconomicEntitlement"],"preserve":["source_profile","contribution_evidence","validity"],"forbid":["generic_currency_conversion"]},
+    {"id":"X-007","path":["SymtropySimulationAsset","MycelixRecognition"],"preserve":["world","episode","build","replay_identity","simulation_claim_ceiling"],"forbid":["physical_world_promotion"]},
+    {"id":"X-008","path":["ValueflowsIntent","MycelixOffer"],"preserve":["planning_role","source_identity"],"forbid":["automatic_execution"]},
+    {"id":"X-009","path":["ValueflowsCommitment","MycelixObligation"],"preserve":["promise","provider","receiver","validity"],"forbid":["automatic_settlement"]},
+    {"id":"X-010","path":["WrappedOrBridged","MycelixRecognition"],"preserve":["representation_identity","bridge_or_issuer","underlying_reference"],"forbid":["native_asset_substitution"]}
+  ],
+  "global_invariants":[
+    "target_identity_is_distinct_from_source_identity",
+    "origin_is_preserved",
+    "quantity_and_unit_scale_are_preserved",
+    "required_issuer_network_contract_identity_is_preserved",
+    "source_evidence_is_traceable",
+    "validity_is_not_widened",
+    "claim_ceiling_is_not_widened",
+    "correction_appends_lineage",
+    "recognition_does_not_mint_local_issuance"
+  ],
+  "claim_ceiling":"Semantic interoperability only."
+}
