@@ -931,7 +931,47 @@ async fn test_fiat_bridge_disabled_for_invalid_exchange_rate() {
 }
 
 // ============================================================================
-// Test 12: Covenant-protected collateral cannot be pledged
+// Test 12: Fiat-to-SAP verification disabled by default
+// ============================================================================
+
+/// Verification must not upgrade a caller-supplied audit assertion into SAP
+/// issuance. The default feature gate must reject before reading or writing a deposit.
+#[tokio::test(flavor = "multi_thread")]
+#[ignore = "requires Holochain conductor (nix develop)"]
+async fn test_fiat_bridge_verification_disabled_by_default() {
+    let mut conductor = SweetConductor::from_standard_config().await;
+    let dna_file = SweetDnaFile::from_bundle(&finance_dna_path())
+        .await
+        .unwrap();
+    let (alice,) = conductor
+        .setup_app("test-app", &[dna_file.clone()])
+        .await
+        .unwrap()
+        .into_tuple();
+
+    let alice_did = format!("did:mycelix:{}", alice.agent_pubkey());
+    let input = serde_json::json!({
+        "deposit_id": "unverified-test-deposit",
+        "verifier_did": alice_did,
+        "audit": {
+            "source_institution": "synthetic-test-only",
+            "compliance_ref": "synthetic-test-only",
+            "is_speculative": false
+        }
+    });
+
+    let result: Result<::holochain::prelude::Record, _> = conductor
+        .call_fallible(&alice.zome("finance_bridge"), "verify_fiat_deposit", input)
+        .await;
+    let err_msg = format!("{:?}", result.unwrap_err());
+    assert!(
+        err_msg.contains("disabled"),
+        "Expected explicit disabled response before any SAP issuance, got: {}",
+        err_msg
+    );
+}
+
+// Test 13: Covenant-protected collateral cannot be pledged
 // ============================================================================
 
 /// Active covenants should also block transitions to `Pledged` and `Frozen`
