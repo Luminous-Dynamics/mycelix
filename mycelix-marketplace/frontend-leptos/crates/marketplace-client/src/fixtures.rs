@@ -10,9 +10,9 @@ use marketplace_domain::{
     ListingsResponse, MarkShippedInput, MaterialityLevel, NormativeLevel, OpenDisputeInput,
     OpenDisputeOutput, ReputationEvent, ReputationEventKind, ReputationEventOutput,
     ReputationEventsResponse, SubmitArbitrationVoteInput, TimestampMicros, Transaction,
-    TransactionOutput, TransactionResolution, TransactionResolutionReason, TransactionResolutionState,
-    TransactionResolutionsResponse, TransactionSettlementResult, TransactionSettlementState,
-    TransactionStatus, TransactionsResponse,
+    TransactionOutput, TransactionResolution, TransactionResolutionReason,
+    TransactionResolutionState, TransactionResolutionsResponse, TransactionSettlementResult,
+    TransactionSettlementState, TransactionStatus, TransactionsResponse,
 };
 use serde::Serialize;
 use std::{cell::RefCell, rc::Rc};

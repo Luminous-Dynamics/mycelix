@@ -10,8 +10,8 @@ use marketplace_client::furnishing_discovery::{TransportProvenance, project_revi
 use marketplace_domain::{
     ActionHash, AgentPubKey, EmpiricalLevel, EpistemicClassification, Listing,
     ListingCatalogCoverage, ListingCatalogSnapshotV1, ListingCategory, ListingObservationScope,
-    ListingOutput, ListingResolution, ListingResolutionReason, ListingResolutionState, ListingStatus,
-    MaterialityLevel, NormativeLevel, TimestampMicros,
+    ListingOutput, ListingResolution, ListingResolutionReason, ListingResolutionState,
+    ListingStatus, MaterialityLevel, NormativeLevel, TimestampMicros,
 };
 use std::{
     hint::black_box,
