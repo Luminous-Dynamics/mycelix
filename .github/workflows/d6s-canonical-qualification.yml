@@ -5,13 +5,17 @@ on:
     branches:
       - myc-int-demo-d6t-canonical-encoding
   pull_request:
-    # D6S assets and their frozen conformance inputs are maintained on this
-    # dedicated qualification branch; unrelated PRs must not run this gate.
+    # Keep this specialized gate off unrelated PRs while still qualifying
+    # relevant D6S inputs in the canonical branch and on main.
     branches:
+      - main
       - myc-int-demo-d6t-canonical-encoding
     paths:
       - ".github/workflows/d6s-canonical-qualification.yml"
-      - "mycelix-manufacturing/**"
+      - "mycelix-manufacturing/Cargo.toml"
+      - "mycelix-manufacturing/Cargo.lock"
+      - "mycelix-manufacturing/crates/cos_conformance/**"
+      - "mycelix-manufacturing/crates/manufacturing_common/**"
       - "docs/integral/d6s-canon-*"
       - "scripts/integral/verify_d6s_canon_*.py"
     types: [opened, synchronize, reopened, ready_for_review]
