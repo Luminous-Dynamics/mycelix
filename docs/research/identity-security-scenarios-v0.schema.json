@@ -1,0 +1,129 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/Luminous-Dynamics/mycelix/blob/main/docs/research/identity-security-scenarios-v0.schema.json",
+  "title": "Mycelix Personal Identity Security Qualification Corpus schema",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "title",
+    "schema_version",
+    "status",
+    "created_utc",
+    "purpose",
+    "rules",
+    "current_implementation_coverage",
+    "scenarios"
+  ],
+  "properties": {
+    "title": {
+      "const": "Mycelix Personal Identity Security Qualification Corpus"
+    },
+    "schema_version": {
+      "const": "0.1.0"
+    },
+    "status": {
+      "enum": [
+        "specification_only_not_executed",
+        "partially_executed",
+        "qualified_for_exact_sha"
+      ]
+    },
+    "created_utc": {
+      "type": "string",
+      "format": "date"
+    },
+    "purpose": {
+      "type": "string",
+      "minLength": 1
+    },
+    "rules": {
+      "type": "array",
+      "minItems": 4,
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "current_implementation_coverage": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "string"
+      }
+    },
+    "scenarios": {
+      "type": "array",
+      "minItems": 30,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "slug",
+          "precondition",
+          "operation",
+          "expected",
+          "layer",
+          "severity",
+          "execution_status",
+          "evidence_required"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^ID-[0-9]{3}$"
+          },
+          "slug": {
+            "type": "string",
+            "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+          },
+          "precondition": {
+            "type": "string",
+            "minLength": 1
+          },
+          "operation": {
+            "type": "string",
+            "minLength": 1
+          },
+          "expected": {
+            "type": "string",
+            "minLength": 1
+          },
+          "layer": {
+            "enum": [
+              "unit",
+              "browser",
+              "unit+browser",
+              "browser-fault-injection",
+              "multi-tab",
+              "integration",
+              "future-webauthn"
+            ]
+          },
+          "severity": {
+            "enum": [
+              "critical",
+              "high",
+              "medium"
+            ]
+          },
+          "execution_status": {
+            "enum": [
+              "specified_not_executed",
+              "pass",
+              "fail",
+              "blocked",
+              "not_applicable"
+            ]
+          },
+          "evidence_required": {
+            "type": "array",
+            "minItems": 4,
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    }
+  }
+}
