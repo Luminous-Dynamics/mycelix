@@ -246,7 +246,7 @@ pub fn validate_assessment_benchmark(
         ].into_iter().flatten().collect();
         let mut anchor_forms = BTreeMap::<&str, &str>::new();
         for (phase_name, attempt) in &anchors {
-            if let Some(prior) = anchor_forms.insert(attempt.task_form_id.as_str(), phase_name) {
+            if let Some(prior) = anchor_forms.insert(attempt.task_form_id.as_str(), *phase_name) {
                 issue(&mut issues, "reused_anchor_form", format!("{base}.attempts"),
                     format!("form {:?} reused by {} and {}", attempt.task_form_id, prior, phase_name));
             }
