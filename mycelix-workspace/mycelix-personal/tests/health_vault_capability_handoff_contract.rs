@@ -217,15 +217,9 @@ fn root_and_workspace_health_vault_contract_projections_are_byte_identical() {
         CORPUS_REL,
         SCHEMA_REL,
         "mycelix-personal/tests/Cargo.toml",
-        "mycelix-workspace/mycelix-personal/tests/Cargo.toml",
         "mycelix-personal/tests/health_vault_capability_handoff_contract.rs",
-        "mycelix-workspace/mycelix-personal/tests/health_vault_capability_handoff_contract.rs",
     ] {
-        let workspace_relative = if let Some(rest) = relative.strip_prefix("mycelix-workspace/") {
-            rest.to_string()
-        } else {
-            format!("mycelix-workspace/{relative}")
-        };
+        let workspace_relative = format!("mycelix-workspace/{relative}");
         let canonical = read_repo_file(&root, relative);
         let workspace = read_repo_file(&root, &workspace_relative);
         assert_eq!(canonical, workspace, "mirror drift at {relative}");
