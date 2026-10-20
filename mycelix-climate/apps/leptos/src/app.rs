@@ -6,10 +6,10 @@ use leptos_router::components::{Router, Routes, Route};
 use leptos_router::path;
 
 use mycelix_leptos_core::{
-    HolochainProviderAuto, HolochainProviderConfig,
-    provide_theme_context, provide_thermodynamic_context,
-    provide_consciousness_context, provide_toast_context,
-    provide_homeostasis_context, init_consciousness_ui,
+    HolochainProviderAuto, HolochainProviderConfig, IdentityBootstrapGate,
+    LocalIdentityStoragePosture, inspect_local_identity_posture, try_provide_local_identity,
+    provide_theme_context, provide_thermodynamic_context, provide_consciousness_context,
+    provide_toast_context, provide_homeostasis_context, init_consciousness_ui,
     AppShell, NavLink, ToastContainer, EmptyState,
 };
 use mycelix_leptos_i18n::provide_i18n;
@@ -71,6 +71,30 @@ pub fn App() -> impl IntoView {
 
 #[component]
 fn AppInner() -> impl IntoView {
+    let posture = RwSignal::new(inspect_local_identity_posture());
+    view! {
+        <Show
+            when=move || posture.get() == LocalIdentityStoragePosture::ProtectedUnlockedInSession
+            fallback=move || view! {
+                <IdentityBootstrapGate app_name="Climate" posture=posture />
+            }
+        >
+            <ClimateReadyApp posture=posture />
+        </Show>
+    }
+}
+
+#[component]
+fn ClimateReadyApp(posture: RwSignal<LocalIdentityStoragePosture>) -> impl IntoView {
+    if try_provide_local_identity().is_err() {
+        posture.set(inspect_local_identity_posture());
+        return view! {
+            <p role="status" aria-live="polite">
+                "Identity posture changed. Rechecking secure bootstrap state…"
+            </p>
+        }
+        .into_any();
+    }
     // Provider stack (order matters)
     provide_theme_context("climate-theme", AppThemeVariant::Dark);
     provide_thermodynamic_context();
@@ -78,7 +102,6 @@ fn AppInner() -> impl IntoView {
     provide_toast_context();
     provide_homeostasis_context(2, "--homeostasis");
     provide_i18n("climate-lang");
-    mycelix_leptos_core::provide_local_identity();
     provide_climate_context();
     init_consciousness_ui();
 
@@ -113,4 +136,5 @@ fn AppInner() -> impl IntoView {
             <mycelix_leptos_core::ClusterLauncher current="Climate" />
         </Router>
     }
+    .into_any()
 }
