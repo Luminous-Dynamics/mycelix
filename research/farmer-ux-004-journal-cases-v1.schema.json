@@ -1,0 +1,127 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/Luminous-Dynamics/mycelix/blob/main/research/farmer-ux-004-journal-cases-v1.schema.json",
+  "title": "Farmer UX-004 journal failure-injection corpus",
+  "description": "Synthetic fault schedules for durable local-operation journal semantics. Schema validation does not qualify a working storage or dispatch implementation.",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "status",
+    "contract",
+    "workflow",
+    "shared_invariants",
+    "cases"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "1.0.0"
+    },
+    "status": {
+      "const": "synthetic_fault_injection_corpus_not_field_validated"
+    },
+    "contract": {
+      "const": "FARMER-UX-004"
+    },
+    "workflow": {
+      "type": "string",
+      "minLength": 1
+    },
+    "shared_invariants": {
+      "type": "array",
+      "minItems": 13,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "cases": {
+      "type": "array",
+      "minItems": 16,
+      "items": {
+        "type": "object",
+        "required": [
+          "id",
+          "phase",
+          "fault",
+          "durable_last",
+          "send",
+          "recovery",
+          "expected_state",
+          "expected_ui",
+          "remote_effect_state",
+          "auto_replay_allowed",
+          "reconciliation_required"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^FUXJ-[0-9]{3}$"
+          },
+          "phase": {
+            "type": "string",
+            "minLength": 1
+          },
+          "fault": {
+            "type": "string",
+            "minLength": 1
+          },
+          "durable_last": {
+            "type": "string",
+            "minLength": 1
+          },
+          "send": {
+            "type": "string",
+            "minLength": 1,
+            "enum": [
+              "blocked",
+              "blocked_until_scope_confirmed",
+              "possibly_not_called",
+              "attempted",
+              "no_new_send"
+            ]
+          },
+          "recovery": {
+            "type": "string",
+            "minLength": 1
+          },
+          "expected_state": {
+            "type": "string",
+            "minLength": 1,
+            "enum": [
+              "Prepared",
+              "Submitted",
+              "Confirmed",
+              "ExplicitlyRejected",
+              "OutcomeUnknown",
+              "ReconciledApplied",
+              "ReconciledNotApplied",
+              "NotSent"
+            ]
+          },
+          "expected_ui": {
+            "type": "string",
+            "minLength": 1
+          },
+          "remote_effect_state": {
+            "enum": [
+              "not_sent",
+              "unknown",
+              "request_received",
+              "rejected",
+              "not_applicable"
+            ]
+          },
+          "auto_replay_allowed": {
+            "type": "boolean"
+          },
+          "reconciliation_required": {
+            "type": "boolean"
+          }
+        },
+        "additionalProperties": false
+      }
+    }
+  },
+  "additionalProperties": false
+}

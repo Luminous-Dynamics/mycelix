@@ -1,0 +1,237 @@
+{
+  "schema_version": "1.0.0",
+  "status": "proposed_adapter_contract_not_implementation",
+  "tracking_issue": "https://github.com/Luminous-Dynamics/mycelix/issues/5202",
+  "source_lifecycle_reference": {
+    "pr": "https://github.com/Luminous-Dynamics/mycelix/pull/5059",
+    "branch": "hth-ux-004-action-lifecycle",
+    "source_blob_sha": "1af673d1a38ea7d69ca51379088f07f088b5d080",
+    "maturity": "open_unmerged_reuse_subject_to_review"
+  },
+  "operation_attempt_statuses": [
+    {
+      "status": "Prepared",
+      "needs_reconciliation": false,
+      "meaning": "A validated operation attempt is prepared and may advance to Submitted. This does not authorize a network send; dispatch requires a durably committed and verified Submitted record.",
+      "can_advance_to_submitted": true
+    },
+    {
+      "status": "Submitted",
+      "needs_reconciliation": true,
+      "meaning": "Durable pre-send marker exists and an in-process one-shot send permit may have been issued; after restart, this persisted status is ambiguous and is never itself permission to resend.",
+      "can_advance_to_submitted": false
+    },
+    {
+      "status": "Confirmed",
+      "needs_reconciliation": false,
+      "meaning": "A successful typed response was received; only its precise semantics are confirmed.",
+      "can_advance_to_submitted": false
+    },
+    {
+      "status": "ExplicitlyRejected",
+      "needs_reconciliation": false,
+      "meaning": "A typed authoritative rejection proves the mutation was not applied.",
+      "can_advance_to_submitted": false
+    },
+    {
+      "status": "OutcomeUnknown",
+      "needs_reconciliation": true,
+      "meaning": "Remote effect may or may not have occurred; never blindly replay.",
+      "can_advance_to_submitted": false
+    },
+    {
+      "status": "ReconciledApplied",
+      "needs_reconciliation": false,
+      "meaning": "Authoritative evidence confirms the operation effect exists.",
+      "can_advance_to_submitted": false
+    },
+    {
+      "status": "ReconciledNotApplied",
+      "needs_reconciliation": false,
+      "meaning": "Authoritative evidence confirms the operation effect does not exist.",
+      "can_advance_to_submitted": false
+    },
+    {
+      "status": "NotSent",
+      "needs_reconciliation": false,
+      "meaning": "A local gate blocked transmission.",
+      "can_advance_to_submitted": false
+    }
+  ],
+  "farmer_service_states": [
+    {
+      "state": "DraftLocal",
+      "source": "local_user_action",
+      "meaning": "Draft only; no remote receipt."
+    },
+    {
+      "state": "RequestSubmitted",
+      "source": "local_attempt",
+      "meaning": "A send attempt was durably recorded; provider receipt is not implied."
+    },
+    {
+      "state": "RequestReceived",
+      "source": "typed_remote_receipt",
+      "meaning": "Service acknowledged request receipt; no quote or booking implied."
+    },
+    {
+      "state": "NoProviderAvailable",
+      "source": "authoritative_nonfulfillment",
+      "meaning": "Request remains unfulfilled and visible in denominators."
+    },
+    {
+      "state": "QuoteOffered",
+      "source": "typed_provider_quote",
+      "meaning": "A scoped quote exists; it is not a booking."
+    },
+    {
+      "state": "QuoteExpired",
+      "source": "quote_validity_rule",
+      "meaning": "Quote is no longer acceptable; booking is blocked."
+    },
+    {
+      "state": "BookingConfirmed",
+      "source": "accepted_quote_plus_authoritative_booking_confirmation",
+      "meaning": "Agreed service and terms are confirmed; work and payment remain separate."
+    },
+    {
+      "state": "ProviderReportedComplete",
+      "source": "provider_completion_claim",
+      "meaning": "Provider claims completion; farmer acceptance remains pending."
+    },
+    {
+      "state": "FarmerAccepted",
+      "source": "explicit_farmer_acceptance_event",
+      "meaning": "Farmer explicitly accepted work; payment remains separate."
+    },
+    {
+      "state": "DisputedOrRework",
+      "source": "explicit_farmer_dispute",
+      "meaning": "Concern is recorded; fault is not adjudicated."
+    },
+    {
+      "state": "OutcomeUnknown",
+      "source": "ambiguous_remote_result",
+      "meaning": "No authoritative result can be established yet."
+    }
+  ],
+  "allowed_promotions": [
+    {
+      "from": "DraftLocal",
+      "to": "RequestSubmitted",
+      "requires": [
+        "durable_prepared_record",
+        "durable_submitted_record"
+      ],
+      "prohibited_without": [
+        "durable_submit_commit"
+      ]
+    },
+    {
+      "from": "RequestSubmitted",
+      "to": "RequestReceived",
+      "requires": [
+        "typed_authoritative_request_receipt"
+      ],
+      "prohibited_without": [
+        "receipt_evidence"
+      ]
+    },
+    {
+      "from": "RequestReceived",
+      "to": "QuoteOffered",
+      "requires": [
+        "complete_scoped_provider_quote",
+        "validity_and_price_terms"
+      ],
+      "prohibited_without": [
+        "quote_evidence"
+      ]
+    },
+    {
+      "from": "QuoteOffered",
+      "to": "BookingConfirmed",
+      "requires": [
+        "explicit_farmer_quote_acceptance",
+        "unexpired_quote",
+        "scope_match",
+        "authoritative_booking_confirmation"
+      ],
+      "prohibited_without": [
+        "any_required_condition"
+      ]
+    },
+    {
+      "from": "BookingConfirmed",
+      "to": "ProviderReportedComplete",
+      "requires": [
+        "provider_completion_event"
+      ],
+      "prohibited_without": [
+        "provider_completion_evidence"
+      ]
+    },
+    {
+      "from": "ProviderReportedComplete",
+      "to": "FarmerAccepted",
+      "requires": [
+        "explicit_farmer_acceptance_event"
+      ],
+      "prohibited_without": [
+        "farmer_acceptance"
+      ]
+    },
+    {
+      "from": "ProviderReportedComplete",
+      "to": "DisputedOrRework",
+      "requires": [
+        "explicit_farmer_dispute_event"
+      ],
+      "prohibited_without": [
+        "farmer_dispute_record"
+      ]
+    },
+    {
+      "from": "OutcomeUnknown",
+      "to": "RequestReceived",
+      "requires": [
+        "authoritative_reconciliation_receipt"
+      ],
+      "prohibited_without": [
+        "authoritative_reconciliation"
+      ]
+    },
+    {
+      "from": "OutcomeUnknown",
+      "to": "NoProviderAvailable",
+      "requires": [
+        "authoritative_nonfulfillment_disposition"
+      ],
+      "prohibited_without": [
+        "authoritative_nonfulfillment_evidence"
+      ]
+    }
+  ],
+  "invariants": [
+    "local_attempt_status_is_not_farmer_service_state",
+    "confirmed_rpc_only_confirms_typed_response_semantics",
+    "request_received_is_not_quote_or_booking",
+    "quote_offered_is_not_booking_confirmed",
+    "booking_is_not_completed_work",
+    "provider_completion_is_not_farmer_accepted",
+    "farmer_accepted_is_not_payment_completed",
+    "client_operation_id_is_not_remote_idempotency",
+    "client_digest_is_not_source_authenticity",
+    "unknown_is_not_confirmed_or_rejected",
+    "unserved_requests_remain_in_outcome_denominators",
+    "scope_and_operation_identity_are_immutable_after_submission"
+  ],
+  "non_goals": [
+    "new_generic_attempt_state_machine",
+    "new_quote_booking_service_lifecycle",
+    "autonomous_payment_or_dispatch",
+    "assumed_remote_idempotency_from_client_operation_id",
+    "model_output_as_authoritative_service_state"
+  ],
+  "network_send_rule": "A network call is authorized only after the Submitted state has been durably committed and that exact operation record has been verified. No enum value alone proves the storage commit occurred."
+}
