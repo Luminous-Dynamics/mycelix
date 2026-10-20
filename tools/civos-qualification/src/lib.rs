@@ -690,9 +690,14 @@ mod tests {
 
         let changed_receipt = br#"{ "receipt_id":"synthetic-receipt-001","status":"PASS"}"#;
         assert!(
-            verify_receipt_signature(changed_receipt, &signature_base64, &public_key, &fingerprint)
-                .unwrap_err()
-                .contains("signature verification failed")
+            verify_receipt_signature(
+                changed_receipt,
+                &signature_base64,
+                &public_key,
+                &fingerprint,
+            )
+            .unwrap_err()
+            .contains("signature verification failed")
         );
         assert!(
             verify_receipt_signature(receipt, &signature_base64, &public_key, &"0".repeat(64))
