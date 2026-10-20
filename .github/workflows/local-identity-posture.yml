@@ -64,10 +64,36 @@ jobs:
           cargo fmt --manifest-path mycelix-personal/apps/leptos/Cargo.toml -- --check
       - name: Run native identity-storage posture tests
         run: cargo test --manifest-path crates/mycelix-leptos-core/Cargo.toml --locked --lib
+      - name: Record browser runner versions
+        shell: bash
+        run: |
+          if command -v google-chrome >/dev/null 2>&1; then
+            google-chrome --version
+          elif command -v google-chrome-stable >/dev/null 2>&1; then
+            google-chrome-stable --version
+          elif command -v chromium >/dev/null 2>&1; then
+            chromium --version
+          else
+            echo "No supported Chrome/Chromium executable is present." >&2
+            exit 1
+          fi
+          chromedriver --version
       - name: Run browser identity and cryptographic transition tests
         run: |
           cargo install wasm-pack --version 0.13.1 --locked
           wasm-pack test --headless --chrome crates/mycelix-leptos-core --lib --locked
+      - name: Benchmark production PBKDF2 latency in headless Chrome
+        env:
+          WASM_BINDGEN_TEST_TIMEOUT: "120"
+        shell: bash
+        run: |
+          lock_before="$(sha256sum crates/mycelix-leptos-core/Cargo.lock | cut -d ' ' -f1)"
+          wasm-pack test --headless --chrome crates/mycelix-leptos-core -- --lib --locked --features production-kdf-benchmark production_kdf_latency_benchmark
+          lock_after="$(sha256sum crates/mycelix-leptos-core/Cargo.lock | cut -d ' ' -f1)"
+          if [[ "$lock_before" != "$lock_after" ]]; then
+            echo "Production KDF benchmark changed the generated dependency lockfile" >&2
+            exit 1
+          fi
       - name: Compile shared identity core for WASM
         run: cargo check --manifest-path crates/mycelix-leptos-core/Cargo.toml --locked --target wasm32-unknown-unknown
       - name: Run strict Personal app Clippy
