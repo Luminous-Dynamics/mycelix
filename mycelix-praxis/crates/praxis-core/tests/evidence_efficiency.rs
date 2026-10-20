@@ -964,10 +964,7 @@ fn privileged_followup_resolves_partial_support_with_authority() {
         1000
     );
     assert_eq!(report.realized_information_gain_milli_bits, 2000);
-    assert_eq!(
-        report.remaining_hypotheses,
-        vec!["compromised_session", "stale_sensor_false_alarm"]
-    );
+    assert_eq!(report.remaining_hypotheses, vec!["compromised_session"]);
     assert_eq!(report.full_support_responses, 1);
     assert_eq!(report.partial_support_responses, 1);
     assert_eq!(report.total_cost_units, 6);
@@ -1036,7 +1033,10 @@ fn unauthorized_request_is_blocked_without_spending_budget_or_updating_evidence(
     );
     assert_eq!(report.total_cost_units, 2);
     assert_eq!(report.requests_executed, 1);
-    assert_eq!(report.remaining_hypotheses, vec!["compromised_session"]);
+    assert_eq!(
+        report.remaining_hypotheses,
+        vec!["compromised_session", "stale_sensor_false_alarm"]
+    );
 }
 
 #[test]
