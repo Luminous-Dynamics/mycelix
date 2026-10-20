@@ -122,7 +122,7 @@ The tests use the checked-in fixture, verify JSON Schema parity, and include neg
 - JSON Schema field/enum drift;
 - invalid fixed-size model-hash fixtures in the pre-existing provenance tests.
 
-This command has **not** been executed in the current authoring environment. A passing remote check on the exact final commit is still required.
+Local Cargo tests have not been executed in the current authoring environment. The dedicated exact-head workflow passed on commit `dff82424af6af23b56c413ee9b790b6a25ac12b5` with Rust 1.96.0: formatting passed, 56 `praxis-core` unit tests passed, and all 12 assessment-evidence integration tests passed. This confirms implementation and fixture checks on that commit only; a changed final head must be re-qualified, and passing structural tests does not establish learning efficacy.
 
 ## Next steps
 
