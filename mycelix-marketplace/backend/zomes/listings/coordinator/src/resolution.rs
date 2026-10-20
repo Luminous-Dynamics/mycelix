@@ -9,8 +9,8 @@
 //! visible from the local DHT view. This is not a global catalogue completeness
 //! proof: Holochain DHT integration is eventually consistent.
 
-use hdk::prelude::*;
 use super::ListingOutput;
+use hdk::prelude::*;
 use listings_integrity::Listing;
 use mycelix_common::error_handling;
 
@@ -346,7 +346,12 @@ mod tests {
 
         assert_eq!(projection.state, ListingResolutionState::SingleObservedHead);
         assert_eq!(
-            projection.sole_observed_head.as_ref().unwrap().listing.status,
+            projection
+                .sole_observed_head
+                .as_ref()
+                .unwrap()
+                .listing
+                .status,
             ListingStatus::Deleted
         );
     }
