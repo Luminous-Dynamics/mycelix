@@ -10,6 +10,7 @@ const MAX_POLICY_PROFILE_BYTES: usize = 1024 * 1024;
 
 const USAGE: &str = "usage: claim-ceiling-policy-check --input REQUEST.json --policy PROFILE.json --expected-policy-sha256 SHA256 [--source-commit SHA]";
 
+#[derive(Debug)]
 struct CliArgs {
     input_path: String,
     policy_path: String,
