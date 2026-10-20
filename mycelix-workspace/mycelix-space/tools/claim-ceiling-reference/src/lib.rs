@@ -5,7 +5,7 @@
 
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
-use std::collections::BTreeSet;
+use std::{collections::BTreeSet, process::Command};
 
 pub const REQUEST_SCHEMA_VERSION: &str = "mycelix.claim-ceiling-meet.request.v1";
 pub const RECEIPT_SCHEMA_VERSION: &str = "mycelix.claim-ceiling-meet.receipt.v1";
@@ -291,7 +291,7 @@ fn validate_json_against_schema(schema_bytes: &[u8], json_bytes: &[u8], name: &s
 }
 
 pub fn evaluate_request_bytes(input: &[u8], source_commit: &str) -> Result<MeetReceiptV1, String> {
-    validate_source_commit(source_commit)?;
+    let source_commit_pinned = validate_source_commit(source_commit)?;
     validate_json_against_schema(REQUEST_SCHEMA, input, "request")?;
     let request: MeetRequestV1 =
         serde_json::from_slice(input).map_err(|error| format!("request deserialization failed: {error}"))?;
@@ -319,7 +319,7 @@ pub fn evaluate_request_bytes(input: &[u8], source_commit: &str) -> Result<MeetR
         schema_version: RECEIPT_SCHEMA_VERSION.to_owned(),
         request_id: request.request_id,
         source_commit: source_commit.to_owned(),
-        source_commit_pinned: source_commit != UNPINNED_LOCAL_RUN,
+        source_commit_pinned,
         input_sha256: sha256(input),
         request_schema_sha256: sha256(REQUEST_SCHEMA),
         receipt_schema_sha256: sha256(RECEIPT_SCHEMA),
@@ -339,9 +339,33 @@ pub fn evaluate_request_bytes(input: &[u8], source_commit: &str) -> Result<MeetR
     Ok(receipt)
 }
 
-fn validate_source_commit(source_commit: &str) -> Result<(), String> {
+fn checkout_commit() -> Result<String, String> {
+    let output = Command::new("git")
+        .arg("-C")
+        .arg(env!("CARGO_MANIFEST_DIR"))
+        .args(["rev-parse", "HEAD"])
+        .output()
+        .map_err(|error| format!("cannot launch git to verify source identity: {error}"))?;
+    if !output.status.success() {
+        return Err("cannot resolve checked-out source commit; use UNPINNED_LOCAL_RUN for an explicitly unpinned receipt".to_owned());
+    }
+    let actual = String::from_utf8_lossy(&output.stdout).trim().to_owned();
+
+    let dirty = Command::new("git")
+        .arg("-C")
+        .arg(env!("CARGO_MANIFEST_DIR"))
+        .args(["status", "--porcelain", "--untracked-files=no"])
+        .output()
+        .map_err(|error| format!("cannot launch git to check source modifications: {error}"))?;
+    if !dirty.status.success() || !String::from_utf8_lossy(&dirty.stdout).trim().is_empty() {
+        return Err("tracked source tree is modified; refusing a pinned source receipt".to_owned());
+    }
+    Ok(actual)
+}
+
+fn validate_source_commit(source_commit: &str) -> Result<bool, String> {
     if source_commit == UNPINNED_LOCAL_RUN {
-        return Ok(());
+        return Ok(false);
     }
     if source_commit.len() != 40
         || !source_commit
@@ -350,7 +374,13 @@ fn validate_source_commit(source_commit: &str) -> Result<(), String> {
     {
         return Err("source commit must be 40 lowercase hexadecimal characters or UNPINNED_LOCAL_RUN".to_owned());
     }
-    Ok(())
+    let actual = checkout_commit()?;
+    if actual != source_commit {
+        return Err(format!(
+            "source commit mismatch: requested {source_commit}, checked-out source is {actual}"
+        ));
+    }
+    Ok(true)
 }
 
 #[cfg(test)]
@@ -531,6 +561,23 @@ mod tests {
     }
 
     #[test]
+    fn a_pinned_receipt_requires_the_actual_clean_checkout_commit() {
+        let request = serde_json::to_vec(&request(base_ceiling(), base_ceiling())).unwrap();
+        let actual = checkout_commit().expect("test runs in a Git checkout");
+        let receipt = evaluate_request_bytes(&request, &actual).expect("exact checkout pin accepted");
+        assert!(receipt.source_commit_pinned);
+
+        let wrong = if actual.starts_with('0') {
+            format!("1{}", &actual[1..])
+        } else {
+            format!("0{}", &actual[1..])
+        };
+        assert!(evaluate_request_bytes(&request, &wrong)
+            .expect_err("different source commit must not be labeled pinned")
+            .contains("source commit mismatch"));
+    }
+
+    #[test]
     fn frozen_portable_golden_vectors_match_the_reference_algebra() {
         let corpus: GoldenVectorCorpus =
             serde_json::from_slice(GOLDEN_VECTORS).expect("golden-vector corpus parses");
@@ -542,7 +589,7 @@ mod tests {
                 serde_json::to_vec(&vector.request).expect("golden request serializes");
             let receipt = evaluate_request_bytes(
                 &request_bytes,
-                "0123456789abcdef0123456789abcdef01234567",
+                UNPINNED_LOCAL_RUN,
             )
             .unwrap_or_else(|error| panic!("golden vector {} failed: {error}", vector.id));
             assert_eq!(
