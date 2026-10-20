@@ -330,6 +330,23 @@ pub async fn decrypt(passphrase: &str, blob: &EncryptedBlob) -> Result<Vec<u8>, 
     Ok(Uint8Array::new(&result).to_vec())
 }
 
+#[cfg(feature = "production-kdf-benchmark")]
+fn summarize_latency_samples(samples: &mut [f64]) -> Result<(f64, f64, f64), &'static str> {
+    if samples.is_empty() {
+        return Err("latency sample set is empty");
+    }
+    if samples.iter().any(|sample| !sample.is_finite() || *sample < 0.0) {
+        return Err("latency samples must be finite and non-negative");
+    }
+
+    samples.sort_by(f64::total_cmp);
+    let n = samples.len();
+    let p50_index = (n - 1) / 2;
+    // Nearest-rank p95, clamped for small sample sets.
+    let p95_index = ((n * 95).div_ceil(100)).saturating_sub(1).min(n - 1);
+    Ok((samples[p50_index], samples[p95_index], samples[n - 1]))
+}
+
 #[cfg(all(test, target_arch = "wasm32"))]
 mod tests {
     use super::*;
@@ -379,17 +396,10 @@ mod tests {
             assert_eq!(recovered.as_slice(), &secret[..]);
         }
 
-        fn summarize(samples: &mut [f64]) -> (f64, f64, f64) {
-            samples.sort_by(f64::total_cmp);
-            let n = samples.len();
-            let p50_index = (n - 1) / 2;
-            // Nearest-rank p95, clamped for small sample sets.
-            let p95_index = ((n * 95).div_ceil(100)).saturating_sub(1).min(n - 1);
-            (samples[p50_index], samples[p95_index], samples[n - 1])
-        }
-
-        let (encrypt_p50, encrypt_p95, encrypt_max) = summarize(&mut encrypt_ms);
-        let (decrypt_p50, decrypt_p95, decrypt_max) = summarize(&mut decrypt_ms);
+        let (encrypt_p50, encrypt_p95, encrypt_max) =
+            summarize_latency_samples(&mut encrypt_ms).expect("encrypt timings are valid");
+        let (decrypt_p50, decrypt_p95, decrypt_max) =
+            summarize_latency_samples(&mut decrypt_ms).expect("decrypt timings are valid");
         let report = format!(
             concat!(
                 "IDENTITY_KDF_BENCHMARK kdf={} iterations={} samples={} ",
@@ -486,6 +496,39 @@ mod tests {
         // covered by `round_trips_with_the_correct_passphrase` — not
         // re-checked here, to avoid running 4 PBKDF2 derivations worth of
         // work in one headless-browser test.)
+    }
+}
+
+#[cfg(all(test, feature = "production-kdf-benchmark"))]
+mod benchmark_statistics_tests {
+    use super::summarize_latency_samples;
+
+    #[test]
+    fn reports_nearest_rank_p50_p95_and_max() {
+        let mut samples: Vec<f64> = (1..=20).map(|value| (value * 2) as f64).collect();
+        assert_eq!(
+            summarize_latency_samples(&mut samples).unwrap(),
+            (20.0, 38.0, 40.0)
+        );
+        assert!(samples.windows(2).all(|pair| pair[0] <= pair[1]));
+    }
+
+    #[test]
+    fn rejects_empty_samples() {
+        assert_eq!(
+            summarize_latency_samples(&mut []),
+            Err("latency sample set is empty")
+        );
+    }
+
+    #[test]
+    fn rejects_non_finite_or_negative_timings() {
+        for mut samples in [vec![1.0, f64::NAN], vec![1.0, f64::INFINITY], vec![1.0, -0.1]] {
+            assert_eq!(
+                summarize_latency_samples(&mut samples),
+                Err("latency samples must be finite and non-negative")
+            );
+        }
     }
 }
 
