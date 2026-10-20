@@ -275,20 +275,18 @@ fn sha256(bytes: &[u8]) -> String {
 fn validate_json_against_schema(schema_bytes: &[u8], json_bytes: &[u8], name: &str) -> Result<(), String> {
     let schema: serde_json::Value = serde_json::from_slice(schema_bytes)
         .map_err(|error| format!("{name} schema is invalid JSON: {error}"))?;
-    jsonschema::draft202012::meta::validate(&schema)
-        .map_err(|error| format!("{name} schema meta-validation failed: {error}"))?;
-    let validator = jsonschema::draft202012::new(&schema)
-        .map_err(|error| format!("cannot build {name} schema validator: {error}"))?;
+    let validator = jsonschema::JSONSchema::options()
+        .with_draft(jsonschema::Draft::Draft202012)
+        .compile(&schema)
+        .map_err(|error| format!("{name} schema compilation failed: {error}"))?;
     let instance: serde_json::Value = serde_json::from_slice(json_bytes)
         .map_err(|error| format!("{name} instance is invalid JSON: {error}"))?;
-    let errors: Vec<String> = validator
-        .iter_errors(&instance)
-        .map(|error| format!("{} at {}", error, error.instance_path()))
-        .collect();
-    if errors.is_empty() {
-        Ok(())
-    } else {
-        Err(errors.join("\n"))
+    match validator.validate(&instance) {
+        Ok(()) => Ok(()),
+        Err(errors) => Err(errors
+            .map(|error| format!("{} at {}", error, error.instance_path))
+            .collect::<Vec<_>>()
+            .join("\n")),
     }
 }
 
@@ -571,8 +569,14 @@ mod tests {
     fn schema_rejects_unknown_fields_and_schema_files_are_valid_draft_2020_12() {
         let schema_req: serde_json::Value = serde_json::from_slice(REQUEST_SCHEMA).unwrap();
         let schema_rec: serde_json::Value = serde_json::from_slice(RECEIPT_SCHEMA).unwrap();
-        jsonschema::draft202012::meta::validate(&schema_req).expect("request schema valid");
-        jsonschema::draft202012::meta::validate(&schema_rec).expect("receipt schema valid");
+        jsonschema::JSONSchema::options()
+            .with_draft(jsonschema::Draft::Draft202012)
+            .compile(&schema_req)
+            .expect("request schema is valid Draft 2020-12");
+        jsonschema::JSONSchema::options()
+            .with_draft(jsonschema::Draft::Draft202012)
+            .compile(&schema_rec)
+            .expect("receipt schema is valid Draft 2020-12");
 
         let mut value = serde_json::to_value(request(base_ceiling(), base_ceiling())).unwrap();
         value["unexpected"] = json!(true);
