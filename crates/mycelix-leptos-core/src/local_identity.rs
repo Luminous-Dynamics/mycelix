@@ -314,8 +314,8 @@ fn signing_key_from_secret_b64(secret_b64: &str) -> Result<SigningKey, String> {
         base64_decode(secret_b64).ok_or_else(|| "Stored secret key is malformed.".to_string())?;
     let secret_array_result: Result<[u8; 32], _> = secret_bytes.as_slice().try_into();
     secret_bytes.zeroize();
-    let mut secret_array = secret_array_result
-        .map_err(|_| "Stored secret key has the wrong length.".to_string())?;
+    let mut secret_array =
+        secret_array_result.map_err(|_| "Stored secret key has the wrong length.".to_string())?;
     let signing_key = SigningKey::from_bytes(&secret_array);
     secret_array.zeroize();
     Ok(signing_key)
@@ -497,9 +497,9 @@ async fn persist_protected_signing_key(
     // a second tab cannot silently overwrite a newly created identity.
     let mut current = read_identity_storage_snapshot_from(&storage)
         .map_err(|_| "Browser identity storage became unavailable.".to_string())?;
-    let storage_still_empty =
-        classify_identity_storage_snapshot(&current) == LocalIdentityStoragePosture::NoIdentity
-            && !UNLOCKED_KEY.with(|cell| cell.borrow().is_some());
+    let storage_still_empty = classify_identity_storage_snapshot(&current)
+        == LocalIdentityStoragePosture::NoIdentity
+        && !UNLOCKED_KEY.with(|cell| cell.borrow().is_some());
     if let Some(secret_b64) = current.secret_b64.as_mut() {
         secret_b64.zeroize();
     }
@@ -615,7 +615,9 @@ pub async fn protect_existing_identity(
             .as_ref()
             .is_some_and(|cached| cached.verifying_key() != signing_key.verifying_key())
     }) {
-        return Err("An in-session key does not match the stored identity; no storage was changed.".into());
+        return Err(
+            "An in-session key does not match the stored identity; no storage was changed.".into(),
+        );
     }
 
     let blob = identity_crypto::encrypt(passphrase, signing_key.as_bytes()).await?;
@@ -697,8 +699,7 @@ pub async fn protect_existing_identity(
             );
         }
         return Err(
-            "Could not remove the plaintext key; the protected transition was rolled back."
-                .into(),
+            "Could not remove the plaintext key; the protected transition was rolled back.".into(),
         );
     }
 
@@ -735,8 +736,7 @@ pub async fn protect_existing_identity(
             );
         }
         return Err(
-            "Protected-state verification failed; the prior unprotected key was restored."
-                .into(),
+            "Protected-state verification failed; the prior unprotected key was restored.".into(),
         );
     }
     plaintext_rollback.zeroize();
@@ -1600,14 +1600,16 @@ mod browser_storage_tests {
         let _backup = IdentityStorageBackup::new_and_clear();
         let original = ensure_keypair();
         let expected_public = base64_encode(original.verifying_key().as_bytes());
-        assert!(web_sys::window()
-            .unwrap()
-            .local_storage()
-            .unwrap()
-            .unwrap()
-            .get_item(IDENTITY_SECRET_KEY)
-            .unwrap()
-            .is_some());
+        assert!(
+            web_sys::window()
+                .unwrap()
+                .local_storage()
+                .unwrap()
+                .unwrap()
+                .get_item(IDENTITY_SECRET_KEY)
+                .unwrap()
+                .is_some()
+        );
 
         protect_with_passphrase("synthetic browser test passphrase")
             .await
@@ -1627,7 +1629,10 @@ mod browser_storage_tests {
         let protected_key = unlock_with_passphrase("synthetic browser test passphrase")
             .await
             .expect("migrated protected identity unlocks");
-        assert!(public_key_matches_signing_key(&expected_public, &protected_key));
+        assert!(public_key_matches_signing_key(
+            &expected_public,
+            &protected_key
+        ));
     }
 
     #[wasm_bindgen_test]
