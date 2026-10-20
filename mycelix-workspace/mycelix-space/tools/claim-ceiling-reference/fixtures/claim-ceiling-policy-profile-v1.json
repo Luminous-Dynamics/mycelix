@@ -1,0 +1,36 @@
+{
+  "schema_version": "mycelix.claim-ceiling-policy.profile.v1",
+  "profile_id": "mycelix.policy.instrument-measurement.research.v1",
+  "maximum_ceiling": {
+    "claim_atoms": [
+      {
+        "predicate": "measurement",
+        "evidence_class": "instrument_measurement",
+        "derivation": "direct",
+        "intended_use": "research"
+      }
+    ],
+    "subject_ids": [
+      "pump-17"
+    ],
+    "context_ids": [
+      "zone-north"
+    ],
+    "valid_time": {
+      "start_unix_seconds": 100,
+      "end_unix_seconds_exclusive": 200
+    },
+    "action_scopes": [
+      "publish-report"
+    ],
+    "required_qualifications": [
+      "calibration-reviewed"
+    ],
+    "required_independence_controls": [
+      "distinct_acquisition"
+    ],
+    "required_provenance": [
+      "exact_artifact_digest"
+    ]
+  }
+}
