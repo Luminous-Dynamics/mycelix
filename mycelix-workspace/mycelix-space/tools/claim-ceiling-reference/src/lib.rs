@@ -13,6 +13,7 @@ pub const UNPINNED_LOCAL_RUN: &str = "UNPINNED_LOCAL_RUN";
 
 const REQUEST_SCHEMA: &[u8] = include_bytes!("../schemas/claim-ceiling-request-v1.schema.json");
 const RECEIPT_SCHEMA: &[u8] = include_bytes!("../schemas/claim-ceiling-receipt-v1.schema.json");
+const GOLDEN_VECTORS: &[u8] = include_bytes!("../fixtures/claim-ceiling-meet-golden-v1.json");
 const NONCLAIMS: &[&str] = &[
     "A well-formed ceiling or meet receipt does not establish that any claim is true.",
     "A digest binds exact bytes but does not authenticate the source, signer, timestamp, or policy.",
@@ -357,7 +358,28 @@ fn validate_source_commit(source_commit: &str) -> Result<(), String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use serde::Deserialize;
     use serde_json::json;
+
+    #[derive(Debug, Deserialize)]
+    struct GoldenVectorCorpus {
+        schema_version: String,
+        vectors: Vec<GoldenVector>,
+    }
+
+    #[derive(Debug, Deserialize)]
+    struct GoldenVector {
+        id: String,
+        request: MeetRequestV1,
+        expected: GoldenExpectation,
+    }
+
+    #[derive(Debug, Deserialize)]
+    struct GoldenExpectation {
+        disposition: MeetDisposition,
+        ceiling: Option<ClaimCeilingV1>,
+        empty_dimensions: Vec<EmptyDimension>,
+    }
 
     fn atom(predicate: ClaimPredicate, evidence_class: EvidenceClass, derivation: DerivationKind, intended_use: IntendedUse) -> ClaimAtom {
         ClaimAtom { predicate, evidence_class, derivation, intended_use }
@@ -508,6 +530,41 @@ mod tests {
         assert_eq!(receipt.source_commit, UNPINNED_LOCAL_RUN);
         assert!(receipt.non_amplification.no_broader_than_left);
         assert!(receipt.non_amplification.no_broader_than_right);
+    }
+
+    #[test]
+    fn frozen_portable_golden_vectors_match_the_reference_algebra() {
+        let corpus: GoldenVectorCorpus =
+            serde_json::from_slice(GOLDEN_VECTORS).expect("golden-vector corpus parses");
+        assert_eq!(corpus.schema_version, "mycelix.claim-ceiling-meet.golden.v1");
+        assert_eq!(corpus.vectors.len(), 5);
+
+        for vector in corpus.vectors {
+            let request_bytes =
+                serde_json::to_vec(&vector.request).expect("golden request serializes");
+            let receipt = evaluate_request_bytes(
+                &request_bytes,
+                "0123456789abcdef0123456789abcdef01234567",
+            )
+            .unwrap_or_else(|error| panic!("golden vector {} failed: {error}", vector.id));
+            assert_eq!(
+                receipt.disposition, vector.expected.disposition,
+                "disposition mismatch for {}",
+                vector.id
+            );
+            assert_eq!(
+                receipt.ceiling, vector.expected.ceiling,
+                "ceiling mismatch for {}",
+                vector.id
+            );
+            assert_eq!(
+                receipt.empty_dimensions, vector.expected.empty_dimensions,
+                "empty dimensions mismatch for {}",
+                vector.id
+            );
+            assert!(receipt.non_amplification.no_broader_than_left);
+            assert!(receipt.non_amplification.no_broader_than_right);
+        }
     }
 
     #[test]
