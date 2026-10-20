@@ -465,6 +465,76 @@ mod tests {
     }
 
     #[test]
+    fn each_policy_dimension_has_an_isolated_negative_control() {
+        let cases: Vec<(ClaimCeilingV1, &str)> = vec![
+            {
+                let mut candidate = safe_ceiling();
+                candidate.claim_atoms.insert(atom(
+                    ClaimPredicate::OwnershipClaim,
+                    EvidenceClass::SourceAssertion,
+                    DerivationKind::Direct,
+                    IntendedUse::OperationalExecution,
+                ));
+                (candidate, "claim_atom_not_allowed")
+            },
+            {
+                let mut candidate = safe_ceiling();
+                candidate.subject_ids.insert("outside-subject".to_owned());
+                (candidate, "subject_outside_policy")
+            },
+            {
+                let mut candidate = safe_ceiling();
+                candidate.context_ids.insert("outside-context".to_owned());
+                (candidate, "context_outside_policy")
+            },
+            {
+                let mut candidate = safe_ceiling();
+                candidate.valid_time = TimeWindow {
+                    start_unix_seconds: 99,
+                    end_unix_seconds_exclusive: 200,
+                };
+                (candidate, "time_window_outside_policy")
+            },
+            {
+                let mut candidate = safe_ceiling();
+                candidate.action_scopes.insert("operate-pump".to_owned());
+                (candidate, "action_scope_not_allowed")
+            },
+            {
+                let mut candidate = safe_ceiling();
+                candidate.required_qualifications.clear();
+                (candidate, "required_qualification_missing")
+            },
+            {
+                let mut candidate = safe_ceiling();
+                candidate.required_independence_controls.clear();
+                (candidate, "required_independence_control_missing")
+            },
+            {
+                let mut candidate = safe_ceiling();
+                candidate.required_provenance.clear();
+                (candidate, "required_provenance_missing")
+            },
+        ];
+
+        for (candidate, expected_code) in cases {
+            let receipt = evaluate(candidate);
+            assert_eq!(
+                receipt.disposition,
+                PolicyDisposition::RejectedByProfile,
+                "mutation should be rejected as {expected_code}"
+            );
+            let actual_codes: Vec<_> = receipt
+                .violations
+                .iter()
+                .map(|item| item.code.as_str())
+                .collect();
+            assert_eq!(actual_codes, vec![expected_code]);
+            assert!(!receipt.action_authority_granted);
+        }
+    }
+
+    #[test]
     fn policy_receipt_is_deterministic_and_binds_raw_input_and_profile() {
         let input = request_bytes(safe_ceiling());
         let policy_bytes = serde_json::to_vec(&profile()).expect("serialize policy profile");
