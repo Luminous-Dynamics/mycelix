@@ -279,17 +279,11 @@ mod tests {
     fn reference_groups_enforce_their_declared_entity_kinds() {
         let mut value = bundle();
         value.output_resource_refs[0].entity_kind = GraphEntityKindV1::Claim;
-        assert_eq!(
-            value.validate().unwrap_err().code,
-            "graph_ref.wrong_kind"
-        );
+        assert_eq!(value.validate().unwrap_err().code, "graph_ref.wrong_kind");
 
         let mut value = bundle();
         value.conformity_claim_refs[0].entity_kind = GraphEntityKindV1::Event;
-        assert_eq!(
-            value.validate().unwrap_err().code,
-            "graph_ref.wrong_kind"
-        );
+        assert_eq!(value.validate().unwrap_err().code, "graph_ref.wrong_kind");
     }
 
     #[test]
@@ -351,9 +345,6 @@ mod tests {
         value
             .supporting_event_refs
             .push(value.supporting_event_refs[0].clone());
-        assert_eq!(
-            value.validate().unwrap_err().code,
-            "graph_ref.duplicate"
-        );
+        assert_eq!(value.validate().unwrap_err().code, "graph_ref.duplicate");
     }
 }
