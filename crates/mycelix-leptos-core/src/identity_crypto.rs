@@ -47,7 +47,12 @@ pub const LEGACY_PBKDF2_ITERATIONS: u32 = 600_000;
 /// New envelopes explicitly identify the format and cryptographic parameters.
 pub const CURRENT_ENVELOPE_VERSION: u8 = 2;
 /// Upper bound for attacker-controlled envelope work factors.
-pub const MAX_PBKDF2_ITERATIONS: u32 = 5_000_000;
+///
+/// Keep the initial ceiling close to the production floor so a corrupted local
+/// envelope cannot impose an excessive synchronous-looking wait on the user.
+/// Raising this cap requires reference-device latency data and a reviewed format
+/// policy change; it must not be increased merely to make an outlier pass.
+pub const MAX_PBKDF2_ITERATIONS: u32 = 1_200_000;
 pub const KDF_IDENTIFIER: &str = "PBKDF2-HMAC-SHA256";
 pub const CIPHER_IDENTIFIER: &str = "AES-256-GCM";
 
