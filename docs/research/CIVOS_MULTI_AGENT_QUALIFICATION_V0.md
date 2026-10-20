@@ -97,6 +97,9 @@ cargo run --manifest-path tools/civos-qualification/Cargo.toml -- \
   --schema docs/research/civos-multi-agent-scenarios-v0.schema.json \
   --receipt-schema docs/research/civos-multi-agent-receipt-v0.schema.json \
   --receipt /path/to/finance-receipt.json \
+  --signature /path/to/finance-receipt.sig.b64 \
+  --trusted-public-key /path/to/trusted-receipt-key.raw32 \
+  --trusted-key-sha256 ${PINNED_PUBLIC_KEY_SHA256} \
   --target finance \
   --evidence-root /path/to/hashed-evidence \
   --source-root /path/to/mycelix-checkout
@@ -106,7 +109,7 @@ The corpus and schema hashes are calculated over their exact file bytes—not pa
 
 The evaluator returns three outcomes: `QUALIFIED`, `FAILED`, or `INCOMPLETE`. A failed hard gate vetoes qualification; missing, skipped, unknown, not-applicable, unrun or evidence-free gates cannot pass. A dirty/unknown source tree is not release-qualified. It separately reports hard-gate status, behavioral coverage and performance-baseline coverage rather than flattening them into one compensating score.
 
-**Important limit:** the v0.1 receipt is not digitally signed, the evaluator does not itself run conductor/browser workloads, and a matching digest does not prove the referenced test oracle was correct. Runtime adapters and an authenticated receipt/attestation layer remain required. The new tool makes receipt structure, file bytes, cross-links and fail-closed outcome semantics machine-checkable; it does not claim end-to-end multi-agent qualification or SOTA performance.
+**Important limit:** the CLI verifies a detached signature against a pinned key fingerprint, but v0.1 does not define automatic key enrollment/rotation, remote attestation or workload execution. The trusted runtime adapter must produce the evidence and protect its signing key; a valid signature and matching file hashes still do not prove the test oracle was correct. An authenticated runtime/attestation layer remains required. The new tool makes receipt structure, file bytes, cross-links and fail-closed outcome semantics machine-checkable; it does not claim end-to-end multi-agent qualification or SOTA performance.
 
 ## Required test layers
 
