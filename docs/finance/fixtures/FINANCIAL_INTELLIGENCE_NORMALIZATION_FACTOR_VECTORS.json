@@ -1,0 +1,56 @@
+{
+  "schema": "mycelix.finance.normalization-factor-v1",
+  "qualification": "A normalization factor is a typed observation. Numeric equality does not substitute for factor identity, lineage, availability, temporal validity, or unit compatibility.",
+  "vectors": [
+    {
+      "id": "factor-available-qualified",
+      "expected": "accept",
+      "notes": "FX factor is known, available at frontier, effective for observation, and USD→EUR compatible."
+    },
+    {
+      "id": "factor-future",
+      "expected": "reject:factor_unavailable_at_frontier",
+      "notes": "Same numeric factor exists, but availability is after replay frontier."
+    },
+    {
+      "id": "factor-revised-after-frontier",
+      "expected": "reject:factor_unavailable_at_frontier",
+      "notes": "Later revision cannot be selected for an earlier frontier."
+    },
+    {
+      "id": "factor-protected",
+      "expected": "reject:protected",
+      "notes": "Protected factor cannot be used to strengthen a derived projection."
+    },
+    {
+      "id": "factor-conflicting",
+      "expected": "reject:factor_unavailable_at_frontier",
+      "notes": "Conflicting factor cannot silently become a multiplier."
+    },
+    {
+      "id": "factor-same-value-different-lineage",
+      "expected": "reject:factor_identity_mismatch",
+      "notes": "Equal numeric value from another factor identity is not interchangeable."
+    },
+    {
+      "id": "factor-unit-mismatch",
+      "expected": "reject:factor_unit_mismatch",
+      "notes": "GBP→EUR factor cannot transform a USD observation into EUR."
+    },
+    {
+      "id": "factor-not-effective",
+      "expected": "reject:factor_not_effective_at_observation",
+      "notes": "Factor effective interval does not cover observation time."
+    },
+    {
+      "id": "factor-value-substitution",
+      "expected": "reject:factor_value_mismatch",
+      "notes": "Free multiplier differs from bound factor observation."
+    },
+    {
+      "id": "raw-immutability",
+      "expected": "accept",
+      "notes": "Successful normalization creates a projection; source observation remains byte-for-byte semantically unchanged."
+    }
+  ]
+}

@@ -1,0 +1,16 @@
+{
+  "schema": "mycelix.finance.intelligence.normalization-frontier-vector.v1",
+  "purpose": "Known-answer vectors for evidence-bound financial normalization and point-in-time replay.",
+  "canonical_envelope": ["schema", "vector_id", "frontier", "inputs", "expected_semantics"],
+  "vectors": [
+    {"vector_id":"FIN-001M-F-001","name":"future-fx-factor","frontier":"2026-01-10T12:00:00Z","inputs":{"raw_available_at":"2026-01-10T09:00:00Z","fx_factor_available_at":"2026-01-10T13:00:00Z","factor":"0.91"},"expected_semantics":{"raw_visible":true,"factor_visible":false,"normalization_allowed":false}},
+    {"vector_id":"FIN-001M-F-002","name":"protected-fx-factor","frontier":"2026-01-10T12:00:00Z","inputs":{"raw_available_at":"2026-01-10T09:00:00Z","fx_factor_available_at":"2026-01-10T10:00:00Z","factor_status":"protected"},"expected_semantics":{"factor_visible":false,"normalization_allowed":false,"protection_preserved":true}},
+    {"vector_id":"FIN-001M-F-003","name":"revised-factor-after-frontier","frontier":"2026-01-10T12:00:00Z","inputs":{"factor_v1_available_at":"2026-01-10T10:00:00Z","factor_v2_available_at":"2026-01-10T14:00:00Z","supersedes":"v1"},"expected_semantics":{"selected_factor":"v1","v2_future_inaccessible":true,"normalization_uses_v1":true}},
+    {"vector_id":"FIN-001M-F-004","name":"same-number-different-lineage","frontier":"2026-01-10T12:00:00Z","inputs":{"factor_a":"0.91","factor_b":"0.91","factor_a_source":"venue-a","factor_b_source":"venue-b","factor_b_available_at":"2026-01-13T09:00:00Z"},"expected_semantics":{"numeric_equality_does_not_imply_substitutability":true,"late_factor_rejected":true}},
+    {"vector_id":"FIN-001M-F-005","name":"currency-unit-mismatch","frontier":"2026-01-10T12:00:00Z","inputs":{"raw_unit":"USD","target_unit":"EUR","factor_pair":"GBP/EUR"},"expected_semantics":{"normalization_allowed":false,"unit_mismatch_preserved":true}},
+    {"vector_id":"FIN-001M-F-006","name":"common-source-provider-count","frontier":"2026-01-10T12:00:00Z","inputs":{"provider_a_factor":"0.91","provider_b_factor":"0.91","common_ancestry_id":"upstream-x"},"expected_semantics":{"corroboration_count":1,"evidence_independence_not_inferred":true}},
+    {"vector_id":"FIN-001M-F-007","name":"late-arriving-factor","frontier":"2026-01-10T12:00:00Z","inputs":{"factor_effective_at":"2026-01-09T00:00:00Z","factor_available_at":"2026-01-11T09:00:00Z"},"expected_semantics":{"effective_before_frontier":true,"available_after_frontier":true,"normalization_allowed":false}},
+    {"vector_id":"FIN-001M-F-008","name":"raw-immutability","frontier":"2026-01-10T12:00:00Z","inputs":{"raw_value":"100.00","factor":"0.91"},"expected_semantics":{"raw_value_remains":"100.00","derived_projection_separate":true,"transformation_lineage_required":true}}
+  ],
+  "qualification_rule": "Every normalization factor must be bound to an identifiable evidence observation and evaluated for availability, status, temporal validity, unit compatibility, and lineage at the requested information frontier. A matching numeric value alone is insufficient."
+}
