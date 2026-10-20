@@ -1,0 +1,78 @@
+name: Claim Policy Performance V1
+
+on:
+  pull_request:
+    paths:
+      - "mycelix-workspace/mycelix-space/tools/claim-ceiling-reference/**"
+      - "docs/research/CLAIM_POLICY_PERFORMANCE_V1_2026-10.md"
+      - ".github/workflows/claim-policy-performance-v1.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  policy-lifecycle-benchmark:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: 1.96.0
+
+      - name: Generate nested workspace dependency lock
+        run: cargo generate-lockfile --manifest-path "$PACKAGE"
+        env:
+          PACKAGE: mycelix-workspace/mycelix-space/tools/claim-ceiling-reference/Cargo.toml
+
+      - name: Capture benchmark provenance
+        shell: bash
+        run: |
+          set -euo pipefail
+          root="mycelix-workspace/mycelix-space/tools/claim-ceiling-reference"
+          mkdir -p "$RUNNER_TEMP/policy-performance"
+          {
+            echo "schema_version=mycelix.claim-policy-performance.provenance.v1"
+            echo "source_commit=$(git rev-parse HEAD)"
+            echo "fixture_sha256=$(sha256sum "$root/fixtures/claim-policy-lifecycle-golden-v1.json" | cut -d ' ' -f 1)"
+            echo "rustc:"
+            rustc -Vv
+            echo "cargo:"
+            cargo -V
+            echo "host:"
+            uname -a
+            echo "cpu:"
+            lscpu
+            echo "command=cargo bench --locked --manifest-path $PACKAGE --bench policy_lifecycle -- --noplot"
+          } > "$RUNNER_TEMP/policy-performance/provenance.txt"
+        env:
+          PACKAGE: mycelix-workspace/mycelix-space/tools/claim-ceiling-reference/Cargo.toml
+
+      - name: Run warm lifecycle benchmarks
+        run: cargo bench --locked --manifest-path "$PACKAGE" --bench policy_lifecycle -- --noplot
+        env:
+          PACKAGE: mycelix-workspace/mycelix-space/tools/claim-ceiling-reference/Cargo.toml
+
+      - name: Collect Criterion output
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          target="mycelix-workspace/mycelix-space/target/criterion"
+          if test -d "$target"; then
+            cp -a "$target" "$RUNNER_TEMP/policy-performance/criterion"
+          else
+            echo "Criterion output directory not present" > "$RUNNER_TEMP/policy-performance/benchmark-output-missing.txt"
+          fi
+
+      - name: Upload raw benchmark and provenance artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: claim-policy-performance-v1-${{ github.event.pull_request.head.sha || github.sha }}
+          path: ${{ runner.temp }}/policy-performance/
+          if-no-files-found: error
+          retention-days: 90
