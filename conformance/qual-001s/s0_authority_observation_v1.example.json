@@ -1,0 +1,46 @@
+{
+  "schema": "mycelix.qual-001s.s0-authority-observation-v1",
+  "profile": "mycelix.qual.static-subject-independence.v0.3",
+  "epoch_id": "epoch-001",
+  "repository_id": 1176351975,
+  "repository_full_name": "Luminous-Dynamics/mycelix",
+  "s0_workflow_source_commit_sha": "0000000000000000000000000000000000000000",
+  "s1_workflow_source_commit_sha": "0000000000000000000000000000000000000000",
+  "dispatch_nonce_hex": "1111111111111111111111111111111111111111111111111111111111111111",
+  "event_type": "workflow_dispatch",
+  "request_authentication": {
+    "state": "OBSERVED",
+    "source": "illustrative authenticated API boundary",
+    "rule_id": "AUTH-EXAMPLE-001",
+    "principal_identity": "github.example.authorized-actor"
+  },
+  "actor_authorization": {
+    "state": "OBSERVED",
+    "source": "illustrative actor policy observation",
+    "rule_id": "ACTOR-EXAMPLE-001",
+    "principal_identity": "github.example.authorized-actor"
+  },
+  "event_authorization": {
+    "state": "OBSERVED",
+    "source": "illustrative event allowlist observation",
+    "rule_id": "EVENT-EXAMPLE-001"
+  },
+  "workflow_source_authentication": {
+    "state": "OBSERVED",
+    "source": "illustrative protected-default-branch source observation",
+    "rule_id": "WORKFLOW-EXAMPLE-001"
+  },
+  "dispatch_result": "ACCEPTED",
+  "run_attribution": {
+    "state": "UNOBSERVED"
+  },
+  "observation_state": "OBSERVED",
+  "dispatch_ref": "main",
+  "dispatch_input_commitment_sha256": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+  "authenticated_principal_identity": "github.example.authorized-actor",
+  "policy_scope_identity": "repository.actions.workflow-execution-protection.v1",
+  "observation_timestamp": "2026-01-01T00:00:02Z",
+  "dispatch_input_canonical_json": "{}",
+  "dispatch_envelope_sha256": "530b9ef0d8c8e13d9ee50931c5187425003c7d2f04e9a988f729a2a0d21ba7df",
+  "observation_sha256": "d4510c894e3a90a7a55291f4a8bb48d135157262cba408ef2699687ff5813644"
+}

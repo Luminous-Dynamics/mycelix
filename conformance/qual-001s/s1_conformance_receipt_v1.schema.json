@@ -1,0 +1,264 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/Luminous-Dynamics/mycelix/blob/main/conformance/qual-001s/s1_conformance_receipt_v1.schema.json",
+  "title": "QUAL-001S S1 Trusted Conformance Receipt V1",
+  "description": "Machine-readable contract for the trusted S1 execution receipt. The receipt records the exact subject, S0 lineage, workflow/run identity, trusted builder and harness identities, and conformance result. It does not by itself authorize rotation, adoption, post-adoption independence, or runtime authority.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "profile",
+    "epoch_id",
+    "repository_id",
+    "repository_full_name",
+    "pull_request_number",
+    "s0_dispatch_envelope_sha256",
+    "s0_authority_observation_sha256",
+    "dispatch_input_commitment_sha256",
+    "subject_base_sha",
+    "subject_head_sha",
+    "subject_tree_sha",
+    "current_verifier_head_sha",
+    "current_verifier_tree_sha",
+    "current_verifier_bundle_sha256",
+    "current_verifier_profile",
+    "proposed_bundle_sha256",
+    "proposed_verifier_sha256",
+    "proposed_gate_sha256",
+    "registered_successor_profile",
+    "s1_workflow_identity",
+    "s1_workflow_ref",
+    "s1_workflow_source_commit_sha",
+    "run_id",
+    "run_attempt",
+    "run_head_sha",
+    "workflow_event",
+    "builder_id",
+    "builder_version",
+    "harness_source_commit_sha",
+    "harness_bundle_sha256",
+    "corpus_sha256",
+    "candidate_code_executed",
+    "execution_outcome",
+    "conformance_outcome",
+    "admitted_claims",
+    "nonclaims",
+    "receipt_sha256"
+  ],
+  "properties": {
+    "schema": {
+      "const": "mycelix.qual-001s.s1-conformance-receipt-v1"
+    },
+    "profile": {
+      "const": "mycelix.qual.static-subject-independence.v0.3"
+    },
+    "epoch_id": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$"
+    },
+    "repository_id": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 9007199254740991
+    },
+    "repository_full_name": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$"
+    },
+    "pull_request_number": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 9007199254740991
+    },
+    "s0_dispatch_envelope_sha256": {
+      "$ref": "#/$defs/sha256"
+    },
+    "s0_authority_observation_sha256": {
+      "$ref": "#/$defs/sha256"
+    },
+    "dispatch_input_commitment_sha256": {
+      "$ref": "#/$defs/sha256"
+    },
+    "subject_base_sha": {
+      "$ref": "#/$defs/git_sha"
+    },
+    "subject_head_sha": {
+      "$ref": "#/$defs/git_sha"
+    },
+    "subject_tree_sha": {
+      "$ref": "#/$defs/git_sha"
+    },
+    "current_verifier_head_sha": {
+      "$ref": "#/$defs/git_sha"
+    },
+    "current_verifier_tree_sha": {
+      "$ref": "#/$defs/git_sha"
+    },
+    "current_verifier_bundle_sha256": {
+      "$ref": "#/$defs/sha256"
+    },
+    "current_verifier_profile": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 200
+    },
+    "proposed_bundle_sha256": {
+      "$ref": "#/$defs/sha256"
+    },
+    "proposed_verifier_sha256": {
+      "$ref": "#/$defs/sha256"
+    },
+    "proposed_gate_sha256": {
+      "$ref": "#/$defs/sha256"
+    },
+    "registered_successor_profile": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 200
+    },
+    "s1_workflow_identity": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 500
+    },
+    "s1_workflow_ref": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 255
+    },
+    "s1_workflow_source_commit_sha": {
+      "$ref": "#/$defs/git_sha"
+    },
+    "run_id": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 9007199254740991
+    },
+    "run_attempt": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 9007199254740991
+    },
+    "run_head_sha": {
+      "$ref": "#/$defs/git_sha"
+    },
+    "workflow_event": {
+      "const": "workflow_dispatch"
+    },
+    "builder_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 500
+    },
+    "builder_version": {
+      "type": "object",
+      "minProperties": 1,
+      "additionalProperties": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 200
+      }
+    },
+    "harness_source_commit_sha": {
+      "$ref": "#/$defs/git_sha"
+    },
+    "harness_bundle_sha256": {
+      "$ref": "#/$defs/sha256"
+    },
+    "corpus_sha256": {
+      "$ref": "#/$defs/sha256"
+    },
+    "candidate_code_executed": {
+      "const": true
+    },
+    "execution_outcome": {
+      "enum": [
+        "OBSERVED",
+        "FAILED"
+      ]
+    },
+    "conformance_outcome": {
+      "enum": [
+        "PASS",
+        "FAIL",
+        "UNAVAILABLE"
+      ]
+    },
+    "admitted_claims": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "enum": [
+          "execution_observed",
+          "successor_conformance"
+        ]
+      }
+    },
+    "nonclaims": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "receipt_sha256": {
+      "$ref": "#/$defs/sha256"
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "conformance_outcome": {
+            "const": "PASS"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "admitted_claims": {
+            "contains": {
+              "const": "successor_conformance"
+            },
+            "minContains": 1
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "conformance_outcome": {
+            "enum": [
+              "FAIL",
+              "UNAVAILABLE"
+            ]
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "admitted_claims": {
+            "not": {
+              "contains": {
+                "const": "successor_conformance"
+              }
+            }
+          }
+        }
+      }
+    }
+  ],
+  "$defs": {
+    "git_sha": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{40}$"
+    },
+    "sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    }
+  }
+}
