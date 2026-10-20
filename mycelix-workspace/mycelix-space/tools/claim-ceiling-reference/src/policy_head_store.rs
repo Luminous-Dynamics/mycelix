@@ -60,7 +60,7 @@ struct PolicyHeadStoreRecordV1 {
     integrity_sha256: String,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 struct CurrentState {
     generation: u64,
     head: Option<InstalledPolicyHeadV1>,
