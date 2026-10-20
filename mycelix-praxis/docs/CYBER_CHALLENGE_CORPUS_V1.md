@@ -26,7 +26,7 @@ The five synthetic cases cover:
 4. an untrusted prompt-injection instruction without evidence that a tool action occurred;
 5. a quarantine request without a receipt proving the effect happened.
 
-Every case includes evidence IDs, source classes, freshness, a time offset, a concrete prompt, allowed next-step examples, and an explicit authority boundary. The evaluator separately encodes the expected disposition, supporting evidence references, acceptable alternatives, claim limits, safe follow-up, and a 1,000-permille rubric.
+Every case includes evidence IDs, source classes, freshness, conflict status, a time offset, a concrete prompt, allowed next-step examples, and an explicit authority boundary. Freshness and conflict are independent: current evidence can conflict with another source, while stale evidence may not have been reconciled. The evaluator separately encodes the expected disposition, supporting evidence references, acceptable alternatives, claim limits, safe follow-up, and a 1,000-permille rubric.
 
 ## Structural gates implemented
 
@@ -35,6 +35,7 @@ Every case includes evidence IDs, source classes, freshness, a time offset, a co
 - Every case must explicitly be synthetic.
 - Required learning prompt fields, evidence observations, permitted next steps, and authority boundaries cannot be empty.
 - Evidence IDs must be unique inside their scenario.
+- Freshness (`current`, `stale`, `unknown`) is represented separately from conflict status (`no_known_conflict`, `conflicts_with_other_evidence`, `not_assessed`).
 - Rust's `deny_unknown_fields` rejects evaluator-only fields inserted into a solver scenario.
 - Test tooling requires an exact match between solver and evaluator scenario IDs, verifies that evaluator evidence references exist in the solver view, and checks that each rubric sums to 1,000.
 - Schema and corpus versioning, separation paths, and selected coverage properties are checked in integration tests.
