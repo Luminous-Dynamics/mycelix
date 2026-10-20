@@ -25,9 +25,7 @@ pub fn register_my_did(input: RegisterDidInput) -> ExternResult<ActionHash> {
     path.ensure()?;
     let path_hash = path.path_entry_hash()?;
 
-    let existing = get_links(
-        GetLinksInputBuilder::try_new(path_hash.clone(), LinkTypes::DidBindingLink)?.build(),
-    )?;
+    let existing = get_links(LinkQuery::try_new(path_hash.clone(), LinkTypes::DidBindingLink)?, GetStrategy::default())?;
     if !existing.is_empty() {
         return Err(wasm_error!(WasmErrorInner::Guest(format!(
             "DID {} already registered",
@@ -107,9 +105,7 @@ pub fn get_inbox(_: ()) -> ExternResult<Vec<MailMessage>> {
     let agent_info = agent_info()?;
 
     // Get all links pointing to this agent's inbox
-    let links = get_links(
-        GetLinksInputBuilder::try_new(agent_info.agent_initial_pubkey, LinkTypes::ToInbox)?.build(),
-    )?;
+    let links = get_links(LinkQuery::try_new(agent_info.agent_initial_pubkey, LinkTypes::ToInbox)?, GetStrategy::default())?;
 
     let mut messages = Vec::new();
 
@@ -131,10 +127,7 @@ pub fn get_inbox(_: ()) -> ExternResult<Vec<MailMessage>> {
 pub fn get_outbox(_: ()) -> ExternResult<Vec<MailMessage>> {
     let agent_info = agent_info()?;
 
-    let links = get_links(
-        GetLinksInputBuilder::try_new(agent_info.agent_initial_pubkey, LinkTypes::FromOutbox)?
-            .build(),
-    )?;
+    let links = get_links(LinkQuery::try_new(agent_info.agent_initial_pubkey, LinkTypes::FromOutbox)?, GetStrategy::default())?;
 
     let mut messages = Vec::new();
 
@@ -154,7 +147,7 @@ pub fn get_outbox(_: ()) -> ExternResult<Vec<MailMessage>> {
 #[hdk_extern]
 pub fn get_thread(parent_hash: ActionHash) -> ExternResult<Vec<MailMessage>> {
     let links =
-        get_links(GetLinksInputBuilder::try_new(parent_hash, LinkTypes::ThreadReply)?.build())?;
+        get_links(LinkQuery::try_new(parent_hash, LinkTypes::ThreadReply)?, GetStrategy::default())?;
 
     let mut messages = Vec::new();
 
@@ -207,7 +200,7 @@ pub fn resolve_did(did: String) -> ExternResult<Option<DidBinding>> {
     let path_hash = path.path_entry_hash()?;
 
     let links =
-        get_links(GetLinksInputBuilder::try_new(path_hash, LinkTypes::DidBindingLink)?.build())?;
+        get_links(LinkQuery::try_new(path_hash, LinkTypes::DidBindingLink)?, GetStrategy::default())?;
 
     if let Some(link) = links.first() {
         let hash_any_dht: AnyDhtHash =
@@ -286,7 +279,7 @@ fn resolve_did_to_pubkey(did: &str) -> ExternResult<AgentPubKey> {
     let path_hash = path.path_entry_hash()?;
 
     let links =
-        get_links(GetLinksInputBuilder::try_new(path_hash, LinkTypes::DidBindingLink)?.build())?;
+        get_links(LinkQuery::try_new(path_hash, LinkTypes::DidBindingLink)?, GetStrategy::default())?;
 
     if let Some(link) = links.first() {
         let hash_any_dht: AnyDhtHash =

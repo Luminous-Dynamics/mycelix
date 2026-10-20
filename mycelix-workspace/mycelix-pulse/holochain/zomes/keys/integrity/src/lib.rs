@@ -28,7 +28,7 @@ pub enum EntryTypes {
 }
 
 fn validate_create_hybrid_key_bundle_v2(
-    action: Create,
+    action: TypedAction<EntryCreationData>,
     bundle: HybridKeyBundleV2,
 ) -> ExternResult<ValidateCallbackResult> {
     if bundle.version != HYBRID_KEY_BUNDLE_V2 || bundle.suite != HYBRID_SUITE_V2 {
@@ -64,7 +64,7 @@ fn validate_create_hybrid_key_bundle_v2(
     let mut signature = [0; 64];
     signature.copy_from_slice(&bundle.agent_signature);
     if !verify_signature_raw(
-        action.author,
+        action.author(),
         Signature(signature),
         hybrid_key_signing_content(&bundle),
     )? {
@@ -162,7 +162,7 @@ fn validate_update_pre_key_bundle(
 
 /// Validate pre-key bundle
 fn validate_create_pre_key_bundle(
-    action: Create,
+    action: TypedAction<EntryCreationData>,
     bundle: PreKeyBundle,
 ) -> ExternResult<ValidateCallbackResult> {
     // Validate identity key length (32 bytes for X25519)
@@ -188,7 +188,7 @@ fn validate_create_pre_key_bundle(
     let mut signature = [0u8; 64];
     signature.copy_from_slice(&bundle.signed_pre_key_signature);
     if !verify_signature_raw(
-        action.author,
+        action.author(),
         Signature(signature),
         pre_key_signing_content(&bundle),
     )? {
@@ -233,7 +233,7 @@ fn validate_create_pre_key_bundle(
 /// (X3DH protocol -- the consumer marks the bundle owner's one-time key used) -- that
 /// cross-agent update path is a real, deliberate exception and is NOT touched here.
 fn validate_create_used_pre_key(
-    action: Create,
+    action: TypedAction<EntryCreationData>,
     used: UsedPreKey,
 ) -> ExternResult<ValidateCallbackResult> {
     // Basic validation
@@ -243,7 +243,7 @@ fn validate_create_used_pre_key(
         ));
     }
 
-    if used.used_by != action.author {
+    if used.used_by != action.author() {
         return Ok(ValidateCallbackResult::Invalid(
             "UsedPreKey must be recorded by the consuming agent (used_by forgery)".to_string(),
         ));
@@ -254,7 +254,7 @@ fn validate_create_used_pre_key(
 
 /// Validate key rotation
 fn validate_create_key_rotation(
-    _action: Create,
+    _action: TypedAction<EntryCreationData>,
     rotation: KeyRotation,
 ) -> ExternResult<ValidateCallbackResult> {
     // Old and new bundles must be different
@@ -271,20 +271,16 @@ fn validate_create_key_rotation(
 #[hdk_extern]
 pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
     match op.flattened::<EntryTypes, LinkTypes>()? {
-        FlatOp::StoreEntry(store_entry) => match store_entry {
+        FlatOp::CreateEntry(store_entry) => match store_entry {
             OpEntry::CreateEntry { app_entry, action } => match app_entry {
-                EntryTypes::PreKeyBundle(bundle) => validate_create_pre_key_bundle(action, bundle),
+                EntryTypes::PreKeyBundle(bundle) => validate_create_pre_key_bundle(action.into(), bundle),
                 EntryTypes::HybridKeyBundleV2(bundle) => {
-                    validate_create_hybrid_key_bundle_v2(action, bundle)
+                    validate_create_hybrid_key_bundle_v2(action.into(), bundle)
                 }
-                EntryTypes::UsedPreKey(used) => validate_create_used_pre_key(action, used),
-                EntryTypes::KeyRotation(rotation) => validate_create_key_rotation(action, rotation),
+                EntryTypes::UsedPreKey(used) => validate_create_used_pre_key(action.into(), used),
+                EntryTypes::KeyRotation(rotation) => validate_create_key_rotation(action.into(), rotation),
             },
-            OpEntry::UpdateEntry {
-                app_entry,
-                original_action_hash,
-                ..
-            } => match app_entry {
+            OpEntry::UpdateEntry { app_entry, action } => match app_entry {
                 // PreKeyBundle updates are a genuine, deliberate cross-agent exception
                 // (X3DH protocol -- consume_pre_key's caller is the key CONSUMER, marking
                 // the bundle OWNER's one-time key used), so this is NOT an author-binding
@@ -296,21 +292,57 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
                 // consumed key, or swap key material -- since only identity_key's length
                 // was checked (P0 author-binding Turn B, keys.PreKeyBundle).
                 EntryTypes::PreKeyBundle(bundle) => {
-                    validate_update_pre_key_bundle(bundle, original_action_hash)
+                    validate_update_pre_key_bundle(
+                        bundle,
+                        action.original_action_address.clone(),
+                    )
                 }
                 EntryTypes::HybridKeyBundleV2(_) => Ok(ValidateCallbackResult::Invalid(
                     "Hybrid V2 bundles are immutable; publish a successor bundle".into(),
                 )),
-                _ => Ok(ValidateCallbackResult::Valid),
+                _ => Ok(ValidateCallbackResult::Invalid(
+                    "Only pre-key bundles have a supported update path".to_string(),
+                )),
             },
             _ => Ok(ValidateCallbackResult::Valid),
         },
-        FlatOp::RegisterCreateLink { .. } => Ok(ValidateCallbackResult::Valid),
-        FlatOp::RegisterDeleteLink { .. } => Ok(ValidateCallbackResult::Valid),
-        FlatOp::StoreRecord(_) => Ok(ValidateCallbackResult::Valid),
-        FlatOp::RegisterAgentActivity(_) => Ok(ValidateCallbackResult::Valid),
-        FlatOp::RegisterUpdate(_) => Ok(ValidateCallbackResult::Valid),
-        FlatOp::RegisterDelete(_) => Ok(ValidateCallbackResult::Valid),
+        FlatOp::Link(OpLink::CreateLink { .. }) => Ok(ValidateCallbackResult::Valid),
+        FlatOp::Link(OpLink::DeleteLink { .. }) => Ok(ValidateCallbackResult::Valid),
+        FlatOp::CreateRecord(record) => match record {
+            OpRecord::CreateEntry { app_entry, action } => match app_entry {
+                EntryTypes::PreKeyBundle(bundle) => validate_create_pre_key_bundle(action.into(), bundle),
+                EntryTypes::HybridKeyBundleV2(bundle) => validate_create_hybrid_key_bundle_v2(action.into(), bundle),
+                EntryTypes::UsedPreKey(used) => validate_create_used_pre_key(action.into(), used),
+                EntryTypes::KeyRotation(rotation) => validate_create_key_rotation(action.into(), rotation),
+            },
+            OpRecord::UpdateEntry { app_entry, action } => match app_entry {
+                EntryTypes::PreKeyBundle(bundle) => validate_update_pre_key_bundle(
+                    bundle,
+                    action.original_action_address.clone(),
+                ),
+                EntryTypes::HybridKeyBundleV2(_) => Ok(ValidateCallbackResult::Invalid(
+                    "Hybrid V2 bundles are immutable; publish a successor bundle".into(),
+                )),
+                _ => Ok(ValidateCallbackResult::Invalid(
+                    "Unsupported key update in CreateRecord".to_string(),
+                )),
+            },
+            _ => Ok(ValidateCallbackResult::Valid),
+        },
+        FlatOp::AgentActivity(_) => Ok(ValidateCallbackResult::Valid),
+        FlatOp::Update(OpUpdate::Entry { app_entry, action }) => match app_entry {
+            EntryTypes::PreKeyBundle(bundle) => validate_update_pre_key_bundle(
+                bundle,
+                action.original_action_address.clone(),
+            ),
+            _ => Ok(ValidateCallbackResult::Invalid(
+                "Only pre-key bundles have a supported update path".to_string(),
+            )),
+        },
+        FlatOp::Update(_) => Ok(ValidateCallbackResult::Invalid(
+            "Unsupported key update variant".to_string(),
+        )),
+        FlatOp::Delete(_) => Ok(ValidateCallbackResult::Valid),
     }
 }
 
@@ -347,7 +379,7 @@ mod tests {
         fn must_get_agent_activity(
             &self,
             _: MustGetAgentActivityInput,
-        ) -> ExternResult<Vec<RegisterAgentActivity>> {
+        ) -> ExternResult<Vec<AgentActivity>> {
             unimplemented!("not exercised by this fix")
         }
         fn dna_info(&self, _: ()) -> ExternResult<DnaInfo> {
@@ -385,22 +417,25 @@ mod tests {
         <T as TryInto<SerializedBytes>>::Error: std::fmt::Debug,
     {
         let entry = Entry::App(AppEntryBytes::try_from(value.try_into().unwrap()).unwrap());
-        let action = Action::Create(Create {
-            author,
-            timestamp: Timestamp::from_micros(0),
-            action_seq: 0,
-            prev_action: ActionHash::from_raw_36(vec![0; 36]),
-            entry_type: EntryType::App(AppEntryDef::new(
+        let action = Action {
+            header: ActionHeader {
+                author,
+                timestamp: Timestamp::from_micros(0),
+                action_seq: 0,
+                prev_action: Some(ActionHash::from_raw_36(vec![0; 36])),
+            },
+            data: ActionData::Create(CreateData {
+                entry_type: EntryType::App(AppEntryDef::new(
                 EntryDefIndex(0),
                 ZomeIndex(0),
                 EntryVisibility::Public,
             )),
-            entry_hash: EntryHash::from_raw_36(vec![1; 36]),
-            weight: Default::default(),
-        });
+                entry_hash: EntryHash::from_raw_36(vec![1; 36]),
+            }),
+        };
         let hashed = HoloHashed::from_content_sync(action);
         let signed_action = SignedActionHashed::with_presigned(hashed, Signature([0; 64]));
-        Record::new(signed_action, Some(entry))
+        Record::new(signed_action, RecordEntry::Present(entry))
     }
 
     fn test_bundle() -> PreKeyBundle {

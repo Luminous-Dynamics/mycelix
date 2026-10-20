@@ -52,7 +52,7 @@
   },
   "homepage": "https://mycelix.mail/docs/sdk",
   "dependencies": {
-    "@holochain/client": "^0.18.0"
+    "@holochain/client": "^0.21.0"
   },
   "peerDependencies": {
     "react": ">=18.0.0"

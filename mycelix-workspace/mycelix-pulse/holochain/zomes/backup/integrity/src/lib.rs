@@ -371,8 +371,8 @@ pub fn genesis_self_check(_data: GenesisSelfCheckData) -> ExternResult<ValidateC
 #[hdk_extern]
 pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
     match op.flattened::<EntryTypes, LinkTypes>()? {
-        FlatOp::StoreEntry(store_entry) => match store_entry {
-            OpEntry::CreateEntry { app_entry, action } => validate_create_entry(app_entry, action),
+        FlatOp::CreateEntry(store_entry) => match store_entry {
+            OpEntry::CreateEntry { app_entry, action } => validate_create_entry(app_entry, action.into()),
             // No entry type in this zome has a real update_entry call anywhere in the
             // coordinator (confirmed via direct grep) -- reject outright rather than leave
             // the previous unbound dead-code path (P0 wide-open RegisterUpdate gap,
@@ -382,7 +382,16 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
             )),
             _ => Ok(ValidateCallbackResult::Valid),
         },
-        FlatOp::RegisterUpdate(_) => Ok(ValidateCallbackResult::Invalid(
+        FlatOp::CreateRecord(record) => match record {
+            OpRecord::CreateEntry { app_entry, action } => {
+                validate_create_entry(app_entry, action.into())
+            }
+            OpRecord::UpdateEntry { .. } => Ok(ValidateCallbackResult::Invalid(
+                "Backup entries cannot be updated".to_string(),
+            )),
+            _ => Ok(ValidateCallbackResult::Valid),
+        },
+        FlatOp::Update(_) => Ok(ValidateCallbackResult::Invalid(
             "Backup entries cannot be updated".to_string(),
         )),
         _ => Ok(ValidateCallbackResult::Valid),
@@ -391,11 +400,11 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
 
 fn validate_create_entry(
     entry: EntryTypes,
-    action: Create,
+    action: TypedAction<EntryCreationData>,
 ) -> ExternResult<ValidateCallbackResult> {
     match entry {
         EntryTypes::BackupManifest(manifest) => {
-            if manifest.agent != action.author {
+            if manifest.agent != action.author() {
                 return Ok(ValidateCallbackResult::Invalid(
                     "Backup agent must match author".to_string(),
                 ));
@@ -431,7 +440,7 @@ fn validate_create_entry(
                     "manifest_hash entry must decode as BackupManifest".to_string()
                 )))?;
 
-            if manifest.agent != action.author {
+            if manifest.agent != action.author() {
                 return Ok(ValidateCallbackResult::Invalid(
                     "BackupChunk's manifest is not owned by the chunk's committer".to_string(),
                 ));
@@ -445,7 +454,7 @@ fn validate_create_entry(
             Ok(ValidateCallbackResult::Valid)
         }
         EntryTypes::RestoreOperation(restore) => {
-            if restore.agent != action.author {
+            if restore.agent != action.author() {
                 return Ok(ValidateCallbackResult::Invalid(
                     "Restore agent must match author".to_string(),
                 ));
@@ -456,7 +465,7 @@ fn validate_create_entry(
             // Bind to its committer -- set_backup_schedule already overrides `.agent` from
             // agent_info() coordinator-side despite taking the whole struct as raw input,
             // so this never rejects a legitimate schedule (P0 author-binding gap).
-            if schedule.agent != action.author {
+            if schedule.agent != action.author() {
                 return Ok(ValidateCallbackResult::Invalid(
                     "Backup schedule agent must match author".to_string(),
                 ));
@@ -497,7 +506,7 @@ mod tests {
         fn must_get_agent_activity(
             &self,
             _: MustGetAgentActivityInput,
-        ) -> ExternResult<Vec<RegisterAgentActivity>> {
+        ) -> ExternResult<Vec<AgentActivity>> {
             unimplemented!("not exercised by this fix")
         }
         fn dna_info(&self, _: ()) -> ExternResult<DnaInfo> {
@@ -535,22 +544,25 @@ mod tests {
         <T as TryInto<SerializedBytes>>::Error: std::fmt::Debug,
     {
         let entry = Entry::App(AppEntryBytes::try_from(value.try_into().unwrap()).unwrap());
-        let action = Action::Create(Create {
-            author,
-            timestamp: Timestamp::from_micros(0),
-            action_seq: 0,
-            prev_action: ActionHash::from_raw_36(vec![0; 36]),
-            entry_type: EntryType::App(AppEntryDef::new(
+        let action = Action {
+            header: ActionHeader {
+                author,
+                timestamp: Timestamp::from_micros(0),
+                action_seq: 0,
+                prev_action: Some(ActionHash::from_raw_36(vec![0; 36])),
+            },
+            data: ActionData::Create(CreateData {
+                entry_type: EntryType::App(AppEntryDef::new(
                 EntryDefIndex(0),
                 ZomeIndex(0),
                 EntryVisibility::Public,
             )),
-            entry_hash: EntryHash::from_raw_36(vec![1; 36]),
-            weight: Default::default(),
-        });
+                entry_hash: EntryHash::from_raw_36(vec![1; 36]),
+            }),
+        };
         let hashed = HoloHashed::from_content_sync(action);
         let signed_action = SignedActionHashed::with_presigned(hashed, Signature([0; 64]));
-        Record::new(signed_action, Some(entry))
+        Record::new(signed_action, RecordEntry::Present(entry))
     }
 
     fn test_manifest(agent: AgentPubKey, backup_id: &str) -> BackupManifest {
@@ -583,19 +595,22 @@ mod tests {
         }
     }
 
-    fn test_action(author: AgentPubKey) -> Create {
-        Create {
-            author,
-            timestamp: Timestamp::from_micros(0),
-            action_seq: 0,
-            prev_action: ActionHash::from_raw_36(vec![0; 36]),
-            entry_type: EntryType::App(AppEntryDef::new(
-                EntryDefIndex(0),
-                ZomeIndex(0),
-                EntryVisibility::Public,
-            )),
-            entry_hash: EntryHash::from_raw_36(vec![1; 36]),
-            weight: Default::default(),
+    fn test_action(author: AgentPubKey) -> TypedAction<EntryCreationData> {
+        TypedAction {
+            header: ActionHeader {
+                author,
+                timestamp: Timestamp::from_micros(0),
+                action_seq: 3,
+                prev_action: Some(ActionHash::from_raw_36(vec![0; 36])),
+            },
+            data: EntryCreationData::Create(CreateData {
+                entry_type: EntryType::App(AppEntryDef::new(
+                    EntryDefIndex(0),
+                    ZomeIndex(0),
+                    EntryVisibility::Public,
+                )),
+                entry_hash: EntryHash::from_raw_36(vec![1; 36]),
+            }),
         }
     }
 

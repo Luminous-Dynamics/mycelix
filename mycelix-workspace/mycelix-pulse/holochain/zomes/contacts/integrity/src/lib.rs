@@ -118,7 +118,7 @@ pub enum LinkTypes {
 
 /// Validate contact entry
 fn validate_create_contact(
-    _action: Create,
+    _action: TypedAction<EntryCreationData>,
     contact: Contact,
 ) -> ExternResult<ValidateCallbackResult> {
     // Validate display name
@@ -153,7 +153,7 @@ fn validate_create_contact(
 /// update_contact currently accepts an arbitrary caller-supplied hash with zero ownership
 /// check anywhere coordinator-side (P0 author-binding gap).
 fn validate_update_contact(
-    action: Update,
+    action: TypedAction<UpdateData>,
     original_action_hash: ActionHash,
     contact: Contact,
 ) -> ExternResult<ValidateCallbackResult> {
@@ -165,7 +165,7 @@ fn validate_update_contact(
     }
 
     let original_action = must_get_action(original_action_hash)?;
-    if original_action.action().author() != &action.author {
+    if original_action.action().author() != &action.author() {
         return Ok(ValidateCallbackResult::Invalid(
             "Only the original owner can update a contact".to_string(),
         ));
@@ -208,33 +208,59 @@ fn validate_create_group_membership(
 #[hdk_extern]
 pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
     match op.flattened::<EntryTypes, LinkTypes>()? {
-        FlatOp::StoreEntry(store_entry) => match store_entry {
+        FlatOp::CreateEntry(store_entry) => match store_entry {
             OpEntry::CreateEntry { app_entry, action } => match app_entry {
-                EntryTypes::Contact(contact) => validate_create_contact(action, contact),
+                EntryTypes::Contact(contact) => validate_create_contact(action.into(), contact),
                 EntryTypes::ContactGroup(group) => validate_create_contact_group(group),
                 EntryTypes::GroupMembership(membership) => {
                     validate_create_group_membership(membership)
                 }
                 EntryTypes::BlockedContact(_) => Ok(ValidateCallbackResult::Valid),
             },
-            OpEntry::UpdateEntry {
-                app_entry,
-                action,
-                original_action_hash,
-                original_entry_hash: _,
-            } => match app_entry {
+            OpEntry::UpdateEntry { app_entry, action } => match app_entry {
                 EntryTypes::Contact(contact) => {
+                    let original_action_hash = action.original_action_address.clone();
                     validate_update_contact(action, original_action_hash, contact)
                 }
-                _ => Ok(ValidateCallbackResult::Valid),
+                _ => Ok(ValidateCallbackResult::Invalid(
+                    "Only contacts have a supported update path".to_string(),
+                )),
             },
             _ => Ok(ValidateCallbackResult::Valid),
         },
-        FlatOp::RegisterCreateLink { .. } => Ok(ValidateCallbackResult::Valid),
-        FlatOp::RegisterDeleteLink { .. } => Ok(ValidateCallbackResult::Valid),
-        FlatOp::StoreRecord(_) => Ok(ValidateCallbackResult::Valid),
-        FlatOp::RegisterAgentActivity(_) => Ok(ValidateCallbackResult::Valid),
-        FlatOp::RegisterUpdate(_) => Ok(ValidateCallbackResult::Valid),
-        FlatOp::RegisterDelete(_) => Ok(ValidateCallbackResult::Valid),
+        FlatOp::Link(OpLink::CreateLink { .. }) => Ok(ValidateCallbackResult::Valid),
+        FlatOp::Link(OpLink::DeleteLink { .. }) => Ok(ValidateCallbackResult::Valid),
+        FlatOp::CreateRecord(record) => match record {
+            OpRecord::CreateEntry { app_entry, action } => match app_entry {
+                EntryTypes::Contact(contact) => validate_create_contact(action.into(), contact),
+                EntryTypes::ContactGroup(group) => validate_create_contact_group(group),
+                EntryTypes::GroupMembership(membership) => validate_create_group_membership(membership),
+                EntryTypes::BlockedContact(_) => Ok(ValidateCallbackResult::Valid),
+            },
+            OpRecord::UpdateEntry { app_entry, action } => match app_entry {
+                EntryTypes::Contact(contact) => {
+                    let original_action_hash = action.original_action_address.clone();
+                    validate_update_contact(action, original_action_hash, contact)
+                }
+                _ => Ok(ValidateCallbackResult::Invalid(
+                    "Only contacts have a supported update path".to_string(),
+                )),
+            },
+            _ => Ok(ValidateCallbackResult::Valid),
+        },
+        FlatOp::AgentActivity(_) => Ok(ValidateCallbackResult::Valid),
+        FlatOp::Update(OpUpdate::Entry { app_entry, action }) => match app_entry {
+            EntryTypes::Contact(contact) => {
+                let original_action_hash = action.original_action_address.clone();
+                validate_update_contact(action, original_action_hash, contact)
+            }
+            _ => Ok(ValidateCallbackResult::Invalid(
+                "Only contacts have a supported update path".to_string(),
+            )),
+        },
+        FlatOp::Update(_) => Ok(ValidateCallbackResult::Invalid(
+            "Unsupported contact update variant".to_string(),
+        )),
+        FlatOp::Delete(_) => Ok(ValidateCallbackResult::Valid),
     }
 }

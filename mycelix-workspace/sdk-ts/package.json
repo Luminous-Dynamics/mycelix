@@ -197,7 +197,7 @@
   },
   "homepage": "https://github.com/Luminous-Dynamics/mycelix#readme",
   "dependencies": {
-    "@holochain/client": "^0.20.0",
+    "@holochain/client": "^0.21.0",
     "zod": "^4.3.6"
   },
   "devDependencies": {
@@ -221,7 +221,7 @@
     "vitest": "^4.0.18"
   },
   "peerDependencies": {
-    "@holochain/client": "^0.20.0",
+    "@holochain/client": "^0.21.0",
     "react": "^18.0.0 || ^19.0.0",
     "svelte": "^4.0.0 || ^5.0.0",
     "vue": "^3.3.0"
