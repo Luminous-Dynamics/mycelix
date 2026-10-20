@@ -51,6 +51,8 @@ pub enum AuthenticatedDistributionStatus {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct InstalledPolicyHeadV1 {
+    pub policy_id: String,
+    pub audience: String,
     pub version: u64,
     pub target_profile_sha256: String,
     pub revocation_epoch: u64,
@@ -301,7 +303,38 @@ pub fn evaluate_policy_release_bytes(
 
     let mut already_current = false;
     if let Some(installed) = &trusted_context.installed_head {
-        if release.version < installed.version {
+        let mut installed_scope_valid = true;
+        if installed.policy_id != trusted_context.expected_policy_id {
+            add_violation(
+                &mut violations,
+                "installed_state_policy_mismatch",
+                format!(
+                    "expected {}, installed state is scoped to {}",
+                    trusted_context.expected_policy_id, installed.policy_id
+                ),
+            );
+            installed_scope_valid = false;
+        }
+        if installed.audience != trusted_context.expected_audience {
+            add_violation(
+                &mut violations,
+                "installed_state_audience_mismatch",
+                format!(
+                    "expected {}, installed state is scoped to {}",
+                    trusted_context.expected_audience, installed.audience
+                ),
+            );
+            installed_scope_valid = false;
+        }
+        if installed.version == 0 || !valid_sha256(&installed.target_profile_sha256) {
+            add_violation(
+                &mut violations,
+                "installed_state_invalid",
+                "installed policy head has an invalid version or digest".to_owned(),
+            );
+            installed_scope_valid = false;
+        }
+        if installed_scope_valid && release.version < installed.version {
             add_violation(
                 &mut violations,
                 "policy_version_rollback",
@@ -310,7 +343,7 @@ pub fn evaluate_policy_release_bytes(
                     installed.version, release.version
                 ),
             );
-        } else if release.version == installed.version {
+        } else if installed_scope_valid && release.version == installed.version {
             if release.target_profile_sha256 != installed.target_profile_sha256
                 || release.revocation_epoch != installed.revocation_epoch
             {
@@ -339,6 +372,8 @@ pub fn evaluate_policy_release_bytes(
     };
     let proposed_next_head = match disposition {
         PolicyLifecycleDispositionV1::AcceptedNewRelease => Some(InstalledPolicyHeadV1 {
+            policy_id: release.policy_id.clone(),
+            audience: release.audience.clone(),
             version: release.version,
             target_profile_sha256: release.target_profile_sha256.clone(),
             revocation_epoch: release.revocation_epoch,
@@ -398,6 +433,8 @@ mod tests {
             trusted_time_unix_seconds: Some(200),
             distribution_status: AuthenticatedDistributionStatus::VerifiedCurrent,
             installed_head: Some(InstalledPolicyHeadV1 {
+                policy_id: "mycelix.policy.instrument.research".to_owned(),
+                audience: "mycelix.claim-ceiling.policy-check".to_owned(),
                 version: 1,
                 target_profile_sha256:
                     "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb".to_owned(),
@@ -436,6 +473,8 @@ mod tests {
         let mut ctx = context();
         let current = release();
         ctx.installed_head = Some(InstalledPolicyHeadV1 {
+            policy_id: current.policy_id.clone(),
+            audience: current.audience.clone(),
             version: current.version,
             target_profile_sha256: current.target_profile_sha256.clone(),
             revocation_epoch: current.revocation_epoch,
@@ -472,6 +511,8 @@ mod tests {
         let mut candidate = release();
         let mut conflict_ctx = ctx.clone();
         conflict_ctx.installed_head = Some(InstalledPolicyHeadV1 {
+            policy_id: candidate.policy_id.clone(),
+            audience: candidate.audience.clone(),
             version: candidate.version,
             target_profile_sha256:
                 "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc".to_owned(),
@@ -487,6 +528,8 @@ mod tests {
 
         let mut epoch_conflict_ctx = ctx;
         epoch_conflict_ctx.installed_head = Some(InstalledPolicyHeadV1 {
+            policy_id: candidate.policy_id.clone(),
+            audience: candidate.audience.clone(),
             version: candidate.version,
             target_profile_sha256: candidate.target_profile_sha256.clone(),
             revocation_epoch: candidate.revocation_epoch,
