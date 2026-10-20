@@ -31,8 +31,8 @@
 //!             emphasis=NodeEmphasis::Consensus
 //!             continuous=true
 //!         />
-//!         <GraphNode x=40.0 y=40.0 label=Some("identity") stage=GrowthStage::Sapling />
-//!         <GraphNode x=260.0 y=40.0 label=Some("governance") stage=GrowthStage::Sapling emphasis=NodeEmphasis::Consensus />
+//!         <GraphNode x=40.0 y=40.0 label="identity" stage=GrowthStage::Sapling />
+//!         <GraphNode x=260.0 y=40.0 label="governance" stage=GrowthStage::Sapling emphasis=NodeEmphasis::Consensus />
 //!     </svg>
 //! }
 //! # };
