@@ -626,7 +626,7 @@ fn HealthPage() -> impl IntoView {
             }
 
             match hc
-                .call_zome_default::<_, ActionHash>(
+                .call_zome_default::<_, serde_json::Value>(
                     "health_vault",
                     "store_shared_health_capability",
                     &offer,
