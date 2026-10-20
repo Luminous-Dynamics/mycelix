@@ -672,6 +672,30 @@ mod tests {
     }
 
     #[test]
+    fn evidence_paths_cannot_escape_the_declared_root() {
+        let mut receipt = valid_receipt("finance");
+        let entry = receipt["executions"].as_array_mut().unwrap().iter_mut()
+            .find(|item| item["scenario_id"] == "CIV-CAP-001").unwrap();
+        entry["evidence"][0]["path"] = json!("../../Cargo.toml");
+        assert!(evaluate(&receipt).unwrap_err().contains("safe relative path"));
+    }
+
+    #[test]
+    fn receipt_rejects_a_digest_that_does_not_match_evidence_bytes() {
+        let mut receipt = valid_receipt("finance");
+        let invalid_digest = "0".repeat(64);
+        receipt["artifacts"][0]["sha256"] = json!(invalid_digest.clone());
+        receipt["environment"]["fault_schedule_sha256"] = json!(invalid_digest.clone());
+        for execution in receipt["executions"].as_array_mut().unwrap() {
+            execution["evidence"][0]["sha256"] = json!(invalid_digest.clone());
+            for check in execution["checks"].as_array_mut().unwrap() {
+                check["evidence_sha256"] = json!([invalid_digest.clone()]);
+            }
+        }
+        assert!(evaluate(&receipt).unwrap_err().contains("digest mismatch"));
+    }
+
+    #[test]
     fn dirty_source_tree_is_never_qualified() {
         let mut receipt = valid_receipt("finance");
         receipt["source"]["tree_state"] = json!("dirty");
