@@ -47,8 +47,10 @@ jobs:
             echo "Expected source head $EXPECTED_SHA, checked out $actual" >&2
             exit 1
           fi
-      - name: Fingerprint workspace lockfile
-        run: sha256sum mycelix-identity/Cargo.lock
+      - name: Generate and fingerprint workspace lockfile
+        run: |
+          cargo generate-lockfile --manifest-path mycelix-identity/Cargo.toml
+          sha256sum mycelix-identity/Cargo.lock
       - name: Format touched recovery zomes
         run: rustfmt --edition 2024 --check mycelix-identity/zomes/recovery/integrity/src/lib.rs mycelix-identity/zomes/recovery/coordinator/src/lib.rs
       - name: Run native recovery integrity and coordinator tests
