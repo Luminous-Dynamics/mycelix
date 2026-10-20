@@ -473,16 +473,16 @@
     },
     {
       "id": "HCH-025",
-      "title": "Secret appears in debug output, error text or telemetry",
+      "title": "Leak detector catches a secret canary planted in logs, errors or telemetry (negative control)",
       "operation": "secret_sink_scan",
       "category": "confidentiality",
       "setup": [
-        "synthetic_secret_canary=enabled",
-        "surfaces=logs_errors_telemetry"
+        "test_mutation=plant_synthetic_secret_canary_in_logs_errors_telemetry",
+        "scanner_must_detect_leak=true"
       ],
       "expected": {
-        "protocol_result": "success",
-        "failure_code": null,
+        "protocol_result": "denied",
+        "failure_code": "secret_leak_detected",
         "effective_claim_delta": 0,
         "protected_payload_bytes_returned": 0
       },
