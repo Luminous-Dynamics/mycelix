@@ -309,7 +309,7 @@
       "release": {
         "schema_version": "mycelix.claim-policy-release-descriptor.v1",
         "policy_id": "mycelix.policy.instrument.research",
-        "audience": "mycelix.claim-ceiling.policy-check",
+        "audience": "other.consumer",
         "version": 2,
         "revocation_epoch": 3,
         "target_profile_sha256": "219557c25c93cf6978c69b379155666fbe8ad00040a138dfd9edb3e68e8f66cf",
