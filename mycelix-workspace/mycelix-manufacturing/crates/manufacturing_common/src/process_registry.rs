@@ -19,7 +19,7 @@ pub struct ProcessReferenceValidationError {
 }
 
 impl ProcessReferenceValidationError {
-    fn new(code: &'static str, path: impl Into<String>) -> Self {
+    pub(crate) fn new(code: &'static str, path: impl Into<String>) -> Self {
         Self {
             code,
             path: path.into(),
