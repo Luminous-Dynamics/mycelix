@@ -354,7 +354,11 @@ pub fn get_my_records(_: ()) -> ExternResult<Vec<Record>> {
             )))
         })?;
         if let Some(record) = get(target, GetOptions::default())? {
-            records.push(record);
+            // Links are public metadata; never trust the link alone to establish
+            // ownership, including legacy/forged links already present in DHT.
+            if record.action().author() == &agent {
+                records.push(record);
+            }
         }
     }
     Ok(records)
@@ -400,7 +404,11 @@ pub fn get_my_biometrics(_: ()) -> ExternResult<Vec<Record>> {
             )))
         })?;
         if let Some(record) = get(target, GetOptions::default())? {
-            records.push(record);
+            // Links are public metadata; never trust the link alone to establish
+            // ownership, including legacy/forged links already present in DHT.
+            if record.action().author() == &agent {
+                records.push(record);
+            }
         }
     }
     Ok(records)
