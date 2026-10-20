@@ -1,0 +1,24 @@
+{
+  "profile": "mycelix:game-steam:capability-profile:v0.1",
+  "schema_version": 1,
+  "authority": "fixture-classification-only",
+  "cases": [
+    {"id":"runtime-unavailable","observations":[{"role":"RuntimeObservation","state":"Unavailable"}],"expect":{"RuntimeInitialized":"Unavailable","AuthenticatedSteamId":"Unknown"}},
+    {"id":"wrong-appid","profile":{"appid":"wrong-for-profile"},"expect_error":"ProviderProfileMismatch"},
+    {"id":"runtime-only","observations":[{"role":"RuntimeObservation","state":"Available"}],"expect":{"RuntimeInitialized":"ObservedAvailable","AuthenticatedSteamId":"Unknown","AppOwnershipObservation":"Unknown"}},
+    {"id":"local-steamid-not-auth","observations":[{"role":"RuntimeObservation","state":"Available"},{"role":"LocalSteamIdObservation","steam_id":"76561198000000001"}],"expect":{"AuthenticatedSteamId":"Unknown"}},
+    {"id":"backend-ticket-valid","observations":[{"role":"BackendTicketVerification","steam_id":"76561198000000001","appid":"profile-app","result":"Valid"}],"expect":{"AuthenticatedSteamId":"ObservedUnderBackendVerificationProfile"}},
+    {"id":"backend-ticket-invalid","observations":[{"role":"BackendTicketVerification","steam_id":"76561198000000001","appid":"profile-app","result":"Invalid"}],"expect":{"AuthenticatedSteamId":"Unavailable"}},
+    {"id":"ownership-true","observations":[{"role":"OwnershipObservation","appid":"profile-app","state":"Owned"}],"expect":{"AppOwnershipObservation":"ObservedOwned","WorkshopUGCAvailable":"Unknown"}},
+    {"id":"input-independent","observations":[{"role":"CapabilityAvailabilityObservation","capability":"SteamInputAvailable","state":"Available"}],"expect":{"SteamInputAvailable":"ObservedAvailable","AuthenticatedSteamId":"Unknown"}},
+    {"id":"lobby-not-session-authority","observations":[{"role":"CapabilityAvailabilityObservation","capability":"LobbyMatchmakingAvailable","state":"Available"}],"expect":{"LobbyMatchmakingAvailable":"ObservedAvailable","SteamNetworkingAvailable":"Unknown"},"nonclaims":["game-session-authority"]},
+    {"id":"workshop-locator-not-content-id","observations":[{"role":"ProviderLocatorObservation","kind":"WorkshopPublishedFileId","value":"12345"}],"nonclaims":["portable-content-identity"]},
+    {"id":"cloud-locator-not-save-id","observations":[{"role":"ProviderLocatorObservation","kind":"SteamCloudPath","value":"slot1.sav"}],"nonclaims":["canonical-save-identity"]},
+    {"id":"achievement-not-credential","observations":[{"role":"CapabilityAvailabilityObservation","capability":"StatsAchievementsAvailable","state":"Available"}],"nonclaims":["skill-credential","mastery-proof"]},
+    {"id":"inventory-separate","observations":[{"role":"CapabilityAvailabilityObservation","capability":"InventoryAvailable","state":"Unavailable"}],"expect":{"InventoryAvailable":"Unavailable"},"nonclaims":["economic-authority"]},
+    {"id":"conflicting-runtime-observations","observations":[{"role":"RuntimeObservation","state":"Available"},{"role":"RuntimeObservation","state":"Unavailable"}],"expect_error":"Conflict"},
+    {"id":"future-capability","observations":[{"role":"CapabilityAvailabilityObservation","capability":"FutureUnknownCapability","state":"Available"}],"expect_error":"UnknownCapability"}
+  ],
+  "forbidden_fixture_fields":["publisher_web_api_key","encrypted_ticket_private_key","backend_secret"],
+  "claim_ceiling":"supplied-fixture semantic classification only; no live provider or effect authority"
+}
