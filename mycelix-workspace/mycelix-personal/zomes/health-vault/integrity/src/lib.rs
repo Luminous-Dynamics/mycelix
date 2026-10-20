@@ -137,6 +137,23 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
             }
             Ok(ValidateCallbackResult::Valid)
         }
+        FlatOp::RegisterCreateLink {
+            link_type,
+            base,
+            action,
+            ..
+        } => match link_type {
+            LinkTypes::AgentToConsents | LinkTypes::AgentToConsentRevocations => {
+                let expected_base = action.author.clone().into();
+                if base != expected_base {
+                    return Ok(ValidateCallbackResult::Invalid(
+                        "Consent history links must be authored on the owner's agent base".into(),
+                    ));
+                }
+                Ok(ValidateCallbackResult::Valid)
+            }
+            _ => Ok(ValidateCallbackResult::Valid),
+        },
         FlatOp::RegisterDelete(OpDelete { action }) => {
             let original = must_get_valid_record(action.deletes_address.clone())?;
             if original
@@ -157,9 +174,12 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
             action,
             ..
         } => {
-            if link_type == LinkTypes::AgentToConsentRevocations {
+            if matches!(
+                link_type,
+                LinkTypes::AgentToConsents | LinkTypes::AgentToConsentRevocations
+            ) {
                 return Ok(ValidateCallbackResult::Invalid(
-                    "Consent revocation links cannot be deleted".into(),
+                    "Consent history links cannot be deleted; use an explicit revocation event".into(),
                 ));
             }
             if action.author != original_action.author {
@@ -489,6 +509,16 @@ mod tests {
         let other = AgentPubKey::from_raw_36(vec![2u8; 36]);
         assert!(action_authors_match(&owner, &owner));
         assert!(!action_authors_match(&owner, &other));
+    }
+
+    #[test]
+    fn consent_history_links_are_bound_to_the_agent_base() {
+        let owner = AgentPubKey::from_raw_36(vec![1u8; 36]);
+        let other = AgentPubKey::from_raw_36(vec![2u8; 36]);
+        let owner_base: AnyLinkableHash = owner.clone().into();
+        let other_base: AnyLinkableHash = other.into();
+        assert_eq!(owner_base, owner.into());
+        assert_ne!(owner_base, other_base);
     }
 
     // ── Serde roundtrips ────────────────────────────────────────────
