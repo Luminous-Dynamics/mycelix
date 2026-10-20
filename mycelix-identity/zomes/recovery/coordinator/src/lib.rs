@@ -389,7 +389,8 @@ pub fn initiate_recovery(input: InitiateRecoveryInput) -> ExternResult<Record> {
                 | RecoveryStatus::Approved
                 | RecoveryStatus::ReadyToExecute => {
                     return Err(wasm_error!(WasmErrorInner::Guest(
-                        "An active recovery request already exists for this DID. Cancel it first.".into()
+                        "An active recovery request already exists for this DID. Cancel it first."
+                            .into()
                     )));
                 }
                 _ => {} // Completed/Rejected/Cancelled — allow new request
