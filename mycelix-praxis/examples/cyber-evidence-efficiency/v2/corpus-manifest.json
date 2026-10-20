@@ -25,5 +25,10 @@
   "evaluator_only_git_blob_sha": "c99bd8e0d4cbc4fff3b70db78a980d8be78de352",
   "solver_schema_git_blob_sha": "7399d730db4f7b4acd6fe041e6df71df0c2caaa6",
   "evaluator_schema_git_blob_sha": "8f66537408ab3855e4e0c0d83005d7eaabbaca81",
-  "git_blob_sha_note": "Git blob identities are checked against the exact repository checkout. They bind file bytes within this revision; they are not signatures, independent attestations, calibrated incident probabilities, or real-world evidence."
+  "git_blob_sha_note": "Git blob identities are checked against the exact repository checkout. They bind file bytes within this revision; they are not signatures, independent attestations, calibrated incident probabilities, or real-world evidence.",
+  "qualification_protocol_template_file": "qualification-protocol.template.json",
+  "qualification_protocol_schema_file": "qualification-protocol.schema.json",
+  "qualification_protocol_template_git_blob_sha": "232f7af6ec87c14189768706e7ce14b13c1dd79f",
+  "qualification_protocol_schema_git_blob_sha": "d8d12304fe0b59a5de4c86b9f81694661a977a6a",
+  "qualification_protocol_note": "This is a deliberately ineligible template; do not count the public synthetic corpus as held-out evaluation or claim a registered comparison until the null pre-registration fields have been completed, independently reviewed, and frozen before held-out access."
 }
