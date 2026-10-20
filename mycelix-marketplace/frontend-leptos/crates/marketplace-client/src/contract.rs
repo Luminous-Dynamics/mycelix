@@ -7,6 +7,8 @@ pub mod listings {
     pub const CREATE_LISTING: &str = "create_listing";
     pub const GET_LISTING: &str = "get_listing";
     pub const GET_ALL_LISTINGS: &str = "get_all_listings";
+    pub const GET_LISTING_REVISION_STATE_V1: &str = "get_listing_revision_state_v1";
+    pub const GET_ALL_LISTINGS_REVISION_STATE_V1: &str = "get_all_listings_revision_state_v1";
     pub const GET_MY_LISTINGS: &str = "get_my_listings";
     pub const SEARCH_LISTINGS: &str = "search_listings";
     pub const UPDATE_LISTING: &str = "update_listing";
