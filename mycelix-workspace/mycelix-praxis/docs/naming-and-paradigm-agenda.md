@@ -134,6 +134,8 @@ The first interface should be organized around the learner's intent, not interna
 
 A learner should be able to use Praxis meaningfully without publishing a public identity, joining Craft, accepting AI recommendations, or obtaining an institution's credential.
 
+The newest broad policy synthesis is the OECD's [Digital Education Outlook 2026](https://www.oecd.org/en/publications/oecd-digital-education-outlook-2026_062a7394-en.html), published January 19, 2026. Its key warning is directly relevant to Praxis: generative AI can improve immediate task output without producing durable learning, and some studies report weaker performance when assistance is removed. Praxis should therefore distinguish *assisted task success* from *independent delayed transfer*, record assistance explicitly, and include both AI-assisted practice and no-assistance assessment conditions in evaluation. That evidence argues for pedagogically bounded Symthaea advice rather than letting the model complete tasks on the learner's behalf.
+
 ## 6. Evaluation programme: compete on results, not adjectives
 
 Do not declare “better than SOTA” in advance. Set a reproducible baseline and publish whether each hypothesis passes.
