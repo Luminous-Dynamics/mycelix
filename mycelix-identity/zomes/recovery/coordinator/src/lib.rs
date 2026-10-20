@@ -389,7 +389,7 @@ pub fn initiate_recovery(input: InitiateRecoveryInput) -> ExternResult<Record> {
                 | RecoveryStatus::Approved
                 | RecoveryStatus::ReadyToExecute => {
                     return Err(wasm_error!(WasmErrorInner::Guest(
-                        "An active recovery request already exists for this DID.".into()
+                        "An active recovery request already exists for this DID. Cancel it first.".into()
                     )));
                 }
                 _ => {} // Completed/Rejected/Cancelled — allow new request
@@ -699,12 +699,11 @@ fn check_and_update_request_status(request_id: String) -> ExternResult<()> {
             .entry()
             .to_app_option::<RecoveryRequest>()
             .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
+            && req.id == request_id
         {
-            if req.id == request_id {
-                // Keep iterating — update_entry appends newer versions later in the chain
-                request_data = Some(req);
-                request_record = Some(record);
-            }
+            // Keep iterating — update_entry appends newer versions later in the chain
+            request_data = Some(req);
+            request_record = Some(record);
         }
     }
 
@@ -1042,11 +1041,10 @@ pub fn cancel_recovery(request_id: String) -> ExternResult<Record> {
             .entry()
             .to_app_option::<RecoveryRequest>()
             .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
+            && req.id == request_id
         {
-            if req.id == request_id {
-                // Keep iterating — update_entry appends newer versions later in the chain
-                request_record = Some(record);
-            }
+            // Keep iterating — update_entry appends newer versions later in the chain
+            request_record = Some(record);
         }
     }
 
