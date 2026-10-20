@@ -722,8 +722,7 @@ mod tests {
         let second = evaluate(release(), changed_context, PROFILE_BYTES);
 
         assert_ne!(
-            first.trusted_context_sha256,
-            second.trusted_context_sha256,
+            first.trusted_context_sha256, second.trusted_context_sha256,
             "receipt must bind the complete trusted evaluation context"
         );
         assert_eq!(second.disposition, PolicyLifecycleDispositionV1::Rejected);
