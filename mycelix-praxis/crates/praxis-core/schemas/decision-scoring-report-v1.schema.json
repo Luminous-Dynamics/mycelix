@@ -1,0 +1,420 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://luminousdynamics.io/mycelix-praxis/schemas/decision-scoring-report-v1.schema.json",
+  "title": "Praxis Public Synthetic Decision Scoring Report v1",
+  "description": "A conformance output over hand-authored public synthetic cases. It is not a model result or held-out capability qualification.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "qualification_type",
+    "fixture_class",
+    "subject_commit",
+    "total_cases",
+    "cases_accounted_for",
+    "confidence_metric_preregistered",
+    "domain_scores",
+    "policy_summaries",
+    "quality_cost_frontier",
+    "quality_latency_frontier",
+    "claim_ceiling"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": 1
+    },
+    "qualification_type": {
+      "const": "public_synthetic_decision_scorer_report"
+    },
+    "fixture_class": {
+      "const": "public_synthetic_adversarial_conformance_not_held_out"
+    },
+    "subject_commit": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "pattern": "^[0-9a-f]{40}$"
+    },
+    "total_cases": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "cases_accounted_for": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "confidence_metric_preregistered": {
+      "const": false
+    },
+    "domain_scores": {
+      "type": "array",
+      "minItems": 5,
+      "maxItems": 5,
+      "items": {
+        "$ref": "#/$defs/DomainScoreReport"
+      }
+    },
+    "policy_summaries": {
+      "type": "array",
+      "minItems": 4,
+      "items": {
+        "$ref": "#/$defs/PolicySummary"
+      }
+    },
+    "quality_cost_frontier": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "quality_latency_frontier": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "claim_ceiling": {
+      "type": "string",
+      "minLength": 20
+    }
+  },
+  "$defs": {
+    "Domain": {
+      "type": "string",
+      "enum": [
+        "identity_access",
+        "network_configuration",
+        "supply_chain_provenance",
+        "ai_tool_boundaries",
+        "endpoint_response_telemetry"
+      ]
+    },
+    "DomainCounters": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "total_cases",
+        "scored_cases",
+        "missing_submissions",
+        "malformed_submissions",
+        "answerable_cases",
+        "unanswerable_cases",
+        "claims",
+        "correct_claims",
+        "wrong_definitive_claims",
+        "unsupported_definitive_claims",
+        "high_confidence_unsupported_claims",
+        "justified_abstentions",
+        "false_abstentions",
+        "appropriate_evidence_requests",
+        "unnecessary_evidence_requests",
+        "out_of_catalog_request_attempts",
+        "unauthorized_request_attempts",
+        "cited_evidence_count",
+        "supported_citation_count",
+        "required_evidence_count",
+        "required_evidence_cited_count",
+        "available_contradiction_count",
+        "available_contradiction_cited_count",
+        "confidence_observations",
+        "confidence_brier_sum_micros"
+      ],
+      "properties": {
+        "total_cases": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "scored_cases": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "missing_submissions": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "malformed_submissions": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "answerable_cases": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "unanswerable_cases": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "claims": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "correct_claims": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "wrong_definitive_claims": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "unsupported_definitive_claims": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "high_confidence_unsupported_claims": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "justified_abstentions": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "false_abstentions": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "appropriate_evidence_requests": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "unnecessary_evidence_requests": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "out_of_catalog_request_attempts": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "unauthorized_request_attempts": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "cited_evidence_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "supported_citation_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "required_evidence_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "required_evidence_cited_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "available_contradiction_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "available_contradiction_cited_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "confidence_observations": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "confidence_brier_sum_micros": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "DomainScoreReport": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "domain",
+        "counters",
+        "unsupported_claim_rate_permille",
+        "false_abstention_rate_permille",
+        "justified_abstention_rate_permille",
+        "citation_precision_permille",
+        "required_evidence_coverage_permille",
+        "contradiction_omission_rate_permille",
+        "mean_brier_micros",
+        "safety_gate_passes"
+      ],
+      "properties": {
+        "domain": {
+          "$ref": "#/$defs/Domain"
+        },
+        "counters": {
+          "$ref": "#/$defs/DomainCounters"
+        },
+        "unsupported_claim_rate_permille": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0,
+          "maximum": 1000
+        },
+        "false_abstention_rate_permille": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0,
+          "maximum": 1000
+        },
+        "justified_abstention_rate_permille": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0,
+          "maximum": 1000
+        },
+        "citation_precision_permille": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0,
+          "maximum": 1000
+        },
+        "required_evidence_coverage_permille": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0,
+          "maximum": 1000
+        },
+        "contradiction_omission_rate_permille": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0,
+          "maximum": 1000
+        },
+        "mean_brier_micros": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "safety_gate_passes": {
+          "type": "boolean"
+        }
+      }
+    },
+    "PolicySummary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "policy_id",
+        "registered_cases",
+        "aligned_cases",
+        "decision_alignment_permille",
+        "missing_submissions",
+        "malformed_submissions",
+        "requests_attempted",
+        "cost_units",
+        "latency_total_ms",
+        "budget_exceeded_cases",
+        "unauthorized_request_attempts",
+        "out_of_catalog_request_attempts",
+        "unsupported_claims",
+        "false_abstentions",
+        "justified_abstentions",
+        "citation_precision_permille",
+        "required_evidence_coverage_permille",
+        "eligible_for_frontier"
+      ],
+      "properties": {
+        "policy_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "registered_cases": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "aligned_cases": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "decision_alignment_permille": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0,
+          "maximum": 1000
+        },
+        "missing_submissions": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "malformed_submissions": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "requests_attempted": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "cost_units": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "latency_total_ms": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "budget_exceeded_cases": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "unauthorized_request_attempts": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "out_of_catalog_request_attempts": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "unsupported_claims": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "false_abstentions": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "justified_abstentions": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "citation_precision_permille": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0,
+          "maximum": 1000
+        },
+        "required_evidence_coverage_permille": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0,
+          "maximum": 1000
+        },
+        "eligible_for_frontier": {
+          "type": "boolean"
+        }
+      }
+    }
+  }
+}

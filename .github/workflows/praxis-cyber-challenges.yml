@@ -92,6 +92,8 @@ jobs:
         run: cargo +1.96.0 test --manifest-path mycelix-praxis/Cargo.toml --package praxis-core --test decision_submission -- --nocapture
 
       - name: Run evaluator-only decision-scoring tests
+        env:
+          PRAXIS_SYNTHETIC_SCORE_REPORT_PATH: ${{ github.workspace }}/praxis-cyber-decision-score-report.json
         run: cargo +1.96.0 test --manifest-path mycelix-praxis/Cargo.toml --package praxis-core --test decision_scoring -- --nocapture
 
       - name: Verify evidence-acquisition fixture identities
@@ -208,6 +210,8 @@ jobs:
             --arg tests "$(git hash-object mycelix-praxis/crates/praxis-core/tests/decision_submission.rs)" \
             --arg schema "$(git hash-object mycelix-praxis/crates/praxis-core/schemas/decision-submission-v1.schema.json)" \
             --arg scorer "$(git hash-object mycelix-praxis/crates/praxis-core/tests/decision_scoring.rs)" \
+            --arg score_report_schema "$(git hash-object mycelix-praxis/crates/praxis-core/schemas/decision-scoring-report-v1.schema.json)" \
+            --arg score_report_sha256 "$(sha256sum praxis-cyber-decision-score-report.json | cut -d ' ' -f1)" \
             --arg workflow "$(git hash-object .github/workflows/praxis-cyber-challenges.yml)" \
             '{
               schema_version: 1,
@@ -220,6 +224,8 @@ jobs:
                 adversarial_tests: $tests,
                 decision_submission_schema: $schema,
                 evaluator_only_decision_scorer: $scorer,
+                decision_score_report_schema: $score_report_schema,
+                decision_score_report_sha256: $score_report_sha256,
                 workflow: $workflow
               },
               claim_ceiling: "Structural contract and public synthetic evaluator-scorer conformance only; not real-world evidence truth, held-out cyber capability, SOTA, or production readiness."
@@ -232,5 +238,14 @@ jobs:
         with:
           name: praxis-cyber-decision-submission
           path: praxis-cyber-decision-submission-receipt.json
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Upload machine-readable public synthetic decision score report
+        if: success()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: praxis-cyber-decision-score-report
+          path: praxis-cyber-decision-score-report.json
           if-no-files-found: error
           retention-days: 30
