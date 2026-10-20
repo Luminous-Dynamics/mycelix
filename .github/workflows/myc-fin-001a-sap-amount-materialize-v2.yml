@@ -1,0 +1,490 @@
+name: MYC-FIN-001A SapAmount Materializer V2
+
+on:
+  push:
+    branches:
+      - mutate/myc-fin-001a-sap-amount-v2
+    paths:
+      - '.github/workflows/myc-fin-001a-sap-amount-materialize-v2.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: myc-fin-001a-sap-amount-materialize-v2
+  cancel-in-progress: true
+
+env:
+  MUTATOR_PARENT: '20452d0cde9448c424d708d6307aa33a3d1901e3'
+  MUTATOR_WORKFLOW: '.github/workflows/myc-fin-001a-sap-amount-materialize-v2.yml'
+  TEMPLATE_GENERATOR_SHA: '450f46e501fba1815824cb4e9f4b67fff3f847cd'
+  TEMPLATE_WORKFLOW: '.github/workflows/myc-fin-001a-sap-amount-materialize.yml'
+  TEMPLATE_WORKFLOW_BLOB: 'f5189bd4ab75c485626ce44d69cebbd467031dbc'
+  PRODUCT_PARENT: '26482b470ce97928654a9f669d1de16757f9b65b'
+  PRODUCT_BRANCH: 'feat/myc-fin-001a-sap-amount-v1'
+  FINANCE_LIB: 'mycelix-finance/types/src/lib.rs'
+  SAP_MODULE: 'mycelix-finance/types/src/sap_amount.rs'
+  PROFILE_DOC: 'docs/finance/MYC_FIN_001A_SAP_AMOUNT_V1.md'
+  ORIGINAL_FINANCE_LIB_BLOB: '354a377c88a57e8a5612a518d8c8b8b519fb67e2'
+  ORIGINAL_FINANCE_LOCK_BLOB: 'c38d8c1fd1ae7af9fa8ecfc604112fb421fb0ce9'
+  RUST_TOOLCHAIN: '1.96.0'
+  ARTIFACT_NAME: 'myc-fin-001a-sap-amount-v2'
+
+jobs:
+  derive:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    outputs:
+      artifact_id: ${{ steps.upload.outputs.artifact-id }}
+      artifact_digest: ${{ steps.upload.outputs.artifact-digest }}
+    steps:
+      - name: Checkout exact V2 mutator subject
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 2
+          persist-credentials: false
+          path: mutator
+
+      - name: Prove one-commit V2 mutation-authority surface
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git -C mutator rev-parse HEAD^)" = "$MUTATOR_PARENT"
+          test "$(git -C mutator rev-list --count "$MUTATOR_PARENT..HEAD")" -eq 1
+          mapfile -t changed < <(git -C mutator diff --name-only "$MUTATOR_PARENT" HEAD)
+          test "${#changed[@]}" -eq 1
+          test "${changed[0]}" = "$MUTATOR_WORKFLOW"
+          test -z "$(git -C mutator status --porcelain=v1)"
+          printf 'derive_job_repository_authority=READ_ONLY\n'
+
+      - name: Checkout exact qualified U1 parent read-only
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ env.PRODUCT_PARENT }}
+          fetch-depth: 2
+          persist-credentials: false
+          path: product
+
+      - name: Checkout exact failed V1 generator as immutable template source
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ env.TEMPLATE_GENERATOR_SHA }}
+          fetch-depth: 2
+          persist-credentials: false
+          path: generator
+
+      - name: Bind exact parent and template bytes
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git -C product rev-parse HEAD)" = "$PRODUCT_PARENT"
+          test "$(git -C product rev-parse "HEAD:$FINANCE_LIB")" = "$ORIGINAL_FINANCE_LIB_BLOB"
+          test "$(git -C product rev-parse 'HEAD:mycelix-finance/Cargo.lock')" = "$ORIGINAL_FINANCE_LOCK_BLOB"
+          test "$(git -C generator rev-parse HEAD)" = "$TEMPLATE_GENERATOR_SHA"
+          test "$(git -C generator rev-parse "HEAD:$TEMPLATE_WORKFLOW")" = "$TEMPLATE_WORKFLOW_BLOB"
+          test -z "$(git -C product status --porcelain=v1)"
+          test -z "$(git -C generator status --porcelain=v1)"
+          test -z "$(git -C product config --local --get-regexp '^http\..*\.extraheader$' || true)"
+          test -z "$(git -C generator config --local --get-regexp '^http\..*\.extraheader$' || true)"
+
+      - name: Reconstruct exact V1 candidate templates as data
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - "$TEMPLATE_WORKFLOW" "$SAP_MODULE" "$PROFILE_DOC" <<'PY'
+          from pathlib import Path
+          import sys, textwrap
+
+          workflow_path, sap_path, doc_path = sys.argv[1:]
+          lines = Path('generator', workflow_path).read_text(encoding='utf-8').splitlines()
+
+          def extract(marker, terminator):
+              starts = [i for i, line in enumerate(lines) if line.strip() == marker]
+              if len(starts) != 1:
+                  raise SystemExit(f'expected one marker {marker!r}, found {len(starts)}')
+              body = []
+              for line in lines[starts[0] + 1:]:
+                  if line.strip() == terminator:
+                      break
+                  body.append(line)
+              else:
+                  raise SystemExit(f'missing terminator {terminator!r}')
+              value = textwrap.dedent('\n'.join(body)) + '\n'
+              if not value.strip():
+                  raise SystemExit(f'empty extracted template for {marker!r}')
+              return value
+
+          sap = extract('cat > "product/$SAP_MODULE" <<\'RS\'', 'RS')
+          doc = extract('cat > "product/$PROFILE_DOC" <<\'MD\'', 'MD')
+          Path('product', sap_path).write_text(sap, encoding='utf-8')
+          target_doc = Path('product', doc_path)
+          target_doc.parent.mkdir(parents=True, exist_ok=True)
+          target_doc.write_text(doc, encoding='utf-8')
+
+          lib_path = Path('product/mycelix-finance/types/src/lib.rs')
+          lib = lib_path.read_text(encoding='utf-8')
+          anchor = 'use serde::{Deserialize, Serialize};\n'
+          addition = anchor + '\npub mod sap_amount;\n' + 'pub use sap_amount::{SapAmount, SapAmountArithmeticError};\n'
+          if lib.count(anchor) != 1:
+              raise SystemExit('expected exactly one serde import anchor')
+          if 'pub mod sap_amount;' in lib or 'pub use sap_amount::' in lib:
+              raise SystemExit('SapAmount root export already present')
+          lib_path.write_text(lib.replace(anchor, addition, 1), encoding='utf-8')
+          PY
+          git -C product add -N "$SAP_MODULE" "$PROFILE_DOC"
+          mapfile -t changed < <(git -C product diff --name-only | sort)
+          test "${#changed[@]}" -eq 3
+          test "${changed[0]}" = "$PROFILE_DOC"
+          test "${changed[1]}" = "$FINANCE_LIB"
+          test "${changed[2]}" = "$SAP_MODULE"
+
+      - name: Independent canonical-byte oracle
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          domain = b'mycelix/finance/sap-amount'
+          if len(domain) != 26:
+              raise SystemExit('domain length mismatch')
+          vectors = {
+              0: '6d7963656c69782f66696e616e63652f7361702d616d6f756e7400010000000000000000',
+              1: '6d7963656c69782f66696e616e63652f7361702d616d6f756e7400010000000000000001',
+              1_000_000: '6d7963656c69782f66696e616e63652f7361702d616d6f756e74000100000000000f4240',
+              10_000_000_000: '6d7963656c69782f66696e616e63652f7361702d616d6f756e74000100000002540be400',
+              (1 << 64) - 1: '6d7963656c69782f66696e616e63652f7361702d616d6f756e740001ffffffffffffffff',
+          }
+          for value, expected in vectors.items():
+              encoded = domain + b'\x00' + b'\x01' + value.to_bytes(8, 'big')
+              if len(encoded) != 36 or encoded.hex() != expected:
+                  raise SystemExit(f'golden-vector mismatch for {value}')
+          if 10_000_000_000 // 1_000_000 != 10_000:
+              raise SystemExit('historical threshold unit relation mismatch')
+          print('independent_sap_amount_oracle=PASS')
+          PY
+
+      - name: Install pinned Rust 1.96 toolchain
+        uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87
+        with:
+          toolchain: ${{ env.RUST_TOOLCHAIN }}
+          components: rustfmt,clippy
+
+      - name: Materialize exact rustfmt repair to generated module only
+        shell: bash
+        run: |
+          set -euo pipefail
+          pre_lib="$(git -C product hash-object "$FINANCE_LIB")"
+          pre_doc="$(git -C product hash-object "$PROFILE_DOC")"
+          pre_module="$(git -C product hash-object "$SAP_MODULE")"
+          rustfmt --edition 2024 "product/$SAP_MODULE"
+          post_lib="$(git -C product hash-object "$FINANCE_LIB")"
+          post_doc="$(git -C product hash-object "$PROFILE_DOC")"
+          post_module="$(git -C product hash-object "$SAP_MODULE")"
+          test "$post_lib" = "$pre_lib"
+          test "$post_doc" = "$pre_doc"
+          test "$post_module" != "$pre_module"
+          printf 'pre_rustfmt_module_blob=%s\n' "$pre_module"
+          printf 'post_rustfmt_module_blob=%s\n' "$post_module"
+          cargo fmt --manifest-path product/mycelix-finance/Cargo.toml --package mycelix_finance_types -- --check
+
+      - name: Audit formatted semantic surface
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          module = Path('product/mycelix-finance/types/src/sap_amount.rs').read_text(encoding='utf-8')
+          lib = Path('product/mycelix-finance/types/src/lib.rs').read_text(encoding='utf-8')
+          doc = Path('product/docs/finance/MYC_FIN_001A_SAP_AMOUNT_V1.md').read_text(encoding='utf-8')
+          required = [
+              'pub struct SapAmount(u64);',
+              'pub const MICRO_SAP_PER_SAP: u64 = 1_000_000;',
+              'b"mycelix/finance/sap-amount"',
+              'pub const SAP_AMOUNT_AUTHORITY_VERSION_V1: u8 = 1;',
+              'pub const SAP_AMOUNT_AUTHORITY_BYTES_LEN: usize = 36;',
+              'Currency::Sap',
+              'SapAmountArithmeticError::Overflow',
+              'SapAmountArithmeticError::Underflow',
+              'canonical_authority_bytes_v1',
+          ]
+          for marker in required:
+              if marker not in module:
+                  raise SystemExit(f'missing SapAmount marker: {marker}')
+          forbidden = ['f32', 'f64', 'impl From<u64>', 'impl Into<u64>',
+                       'impl core::ops::Add', 'impl std::ops::Add',
+                       'impl core::ops::Sub', 'impl std::ops::Sub']
+          for marker in forbidden:
+              if marker in module:
+                  raise SystemExit(f'forbidden SapAmount surface: {marker}')
+          if 'pub struct SapAmount(pub u64)' in module:
+              raise SystemExit('SapAmount inner field became public')
+          if lib.count('pub mod sap_amount;') != 1:
+              raise SystemExit('root module export mismatch')
+          if lib.count('pub use sap_amount::{SapAmount, SapAmountArithmeticError};') != 1:
+              raise SystemExit('root type re-export mismatch')
+          if 'valid quantity is not a valid or authorized economic action' not in doc:
+              raise SystemExit('claim ceiling is missing quantity/action separation')
+          PY
+
+      - name: Execute focused formatted SapAmount product gates
+        shell: bash
+        run: |
+          set -euo pipefail
+          cargo test --manifest-path product/mycelix-finance/Cargo.toml --package mycelix_finance_types --all-targets --locked --no-run
+          cargo test --manifest-path product/mycelix-finance/Cargo.toml --package mycelix_finance_types --all-targets --locked
+          cargo clippy --manifest-path product/mycelix-finance/Cargo.toml --package mycelix_finance_types --all-targets --locked -- -D warnings
+          test "$(git -C product rev-parse 'HEAD:mycelix-finance/Cargo.lock')" = "$ORIGINAL_FINANCE_LOCK_BLOB"
+          test -z "$(git -C product diff --name-only -- mycelix-finance/Cargo.lock)"
+
+      - name: Freeze exact formatted three-file candidate
+        shell: bash
+        run: |
+          set -euo pipefail
+          mapfile -t changed < <(git -C product diff --name-only | sort)
+          test "${#changed[@]}" -eq 3
+          test "${changed[0]}" = "$PROFILE_DOC"
+          test "${changed[1]}" = "$FINANCE_LIB"
+          test "${changed[2]}" = "$SAP_MODULE"
+
+          rm -rf /tmp/sap-payload
+          mkdir -p "/tmp/sap-payload/files/$(dirname "$FINANCE_LIB")"
+          mkdir -p "/tmp/sap-payload/files/$(dirname "$PROFILE_DOC")"
+          cp -- "product/$FINANCE_LIB" "/tmp/sap-payload/files/$FINANCE_LIB"
+          cp -- "product/$SAP_MODULE" "/tmp/sap-payload/files/$SAP_MODULE"
+          cp -- "product/$PROFILE_DOC" "/tmp/sap-payload/files/$PROFILE_DOC"
+
+          lib_sha256="$(sha256sum "product/$FINANCE_LIB" | awk '{print $1}')"
+          module_sha256="$(sha256sum "product/$SAP_MODULE" | awk '{print $1}')"
+          doc_sha256="$(sha256sum "product/$PROFILE_DOC" | awk '{print $1}')"
+          lib_blob="$(git -C product hash-object "$FINANCE_LIB")"
+          module_blob="$(git -C product hash-object "$SAP_MODULE")"
+          doc_blob="$(git -C product hash-object "$PROFILE_DOC")"
+
+          cat > /tmp/sap-payload/manifest.txt <<EOF
+          schema=myc-fin-001a-sap-amount-candidate-v2
+          product_parent=$PRODUCT_PARENT
+          product_branch=$PRODUCT_BRANCH
+          template_generator_sha=$TEMPLATE_GENERATOR_SHA
+          template_workflow_blob=$TEMPLATE_WORKFLOW_BLOB
+          original_finance_lib_blob=$ORIGINAL_FINANCE_LIB_BLOB
+          original_finance_lock_blob=$ORIGINAL_FINANCE_LOCK_BLOB
+          rust_toolchain=$RUST_TOOLCHAIN
+          rustfmt_materialized=true
+          changed_path_1=$PROFILE_DOC
+          changed_path_2=$FINANCE_LIB
+          changed_path_3=$SAP_MODULE
+          finance_lib_sha256=$lib_sha256
+          finance_lib_git_blob=$lib_blob
+          sap_module_sha256=$module_sha256
+          sap_module_git_blob=$module_blob
+          profile_doc_sha256=$doc_sha256
+          profile_doc_git_blob=$doc_blob
+          canonical_profile=mycelix/finance/sap-amount + 00 + 01 + u64be
+          canonical_length=36
+          EOF
+          test "$(find /tmp/sap-payload -type f | wc -l)" -eq 4
+          printf 'candidate_finance_lib_git_blob=%s\n' "$lib_blob"
+          printf 'candidate_sap_module_git_blob=%s\n' "$module_blob"
+          printf 'candidate_profile_doc_git_blob=%s\n' "$doc_blob"
+
+      - name: Upload exact formatted candidate
+        id: upload
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: ${{ env.ARTIFACT_NAME }}
+          path: /tmp/sap-payload/
+          if-no-files-found: error
+          retention-days: 1
+          compression-level: 0
+          overwrite: false
+
+      - name: Bind artifact stream identity
+        shell: bash
+        env:
+          ARTIFACT_ID: ${{ steps.upload.outputs.artifact-id }}
+          ARTIFACT_DIGEST: ${{ steps.upload.outputs.artifact-digest }}
+        run: |
+          set -euo pipefail
+          test -n "$ARTIFACT_ID"
+          test "$ARTIFACT_ID" -gt 0
+          test "${#ARTIFACT_DIGEST}" -eq 64
+          case "$ARTIFACT_DIGEST" in
+            *[!0-9a-f]*) echo 'artifact digest is not lowercase hex' >&2; exit 1 ;;
+          esac
+          printf 'artifact_id=%s\n' "$ARTIFACT_ID"
+          printf 'artifact_upload_stream_sha256=%s\n' "$ARTIFACT_DIGEST"
+          printf 'derive_job_repository_authority=READ_ONLY\n'
+
+  publish:
+    needs: derive
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+      actions: read
+    steps:
+      - name: Verify artifact and publish or recover equivalent SapAmount product
+        shell: bash
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ARTIFACT_ID: ${{ needs.derive.outputs.artifact_id }}
+          ARTIFACT_DIGEST: ${{ needs.derive.outputs.artifact_digest }}
+        run: |
+          set -euo pipefail
+          test -n "$GITHUB_TOKEN"
+          test -n "$ARTIFACT_ID"
+          test "$ARTIFACT_ID" -gt 0
+          test "${#ARTIFACT_DIGEST}" -eq 64
+
+          artifact_url="https://api.github.com/repos/${GITHUB_REPOSITORY}/actions/artifacts/${ARTIFACT_ID}/zip"
+          curl --fail --location --silent --show-error \
+            -H "Authorization: Bearer ${GITHUB_TOKEN}" \
+            -H 'Accept: application/vnd.github+json' \
+            -H 'X-GitHub-Api-Version: 2022-11-28' \
+            "$artifact_url" -o /tmp/sap-artifact.zip
+          test "$(sha256sum /tmp/sap-artifact.zip | awk '{print $1}')" = "$ARTIFACT_DIGEST"
+          rm -rf /tmp/sap-payload
+          mkdir -p /tmp/sap-payload
+          unzip -q /tmp/sap-artifact.zip -d /tmp/sap-payload
+          mapfile -t files < <(find /tmp/sap-payload -type f -printf '%P\n' | sort)
+          test "${#files[@]}" -eq 4
+          test "${files[0]}" = "files/$PROFILE_DOC"
+          test "${files[1]}" = "files/$FINANCE_LIB"
+          test "${files[2]}" = "files/$SAP_MODULE"
+          test "${files[3]}" = 'manifest.txt'
+
+          manifest=/tmp/sap-payload/manifest.txt
+          grep -Fx 'schema=myc-fin-001a-sap-amount-candidate-v2' "$manifest"
+          grep -Fx "product_parent=$PRODUCT_PARENT" "$manifest"
+          grep -Fx "product_branch=$PRODUCT_BRANCH" "$manifest"
+          grep -Fx "template_generator_sha=$TEMPLATE_GENERATOR_SHA" "$manifest"
+          grep -Fx "template_workflow_blob=$TEMPLATE_WORKFLOW_BLOB" "$manifest"
+          grep -Fx "original_finance_lib_blob=$ORIGINAL_FINANCE_LIB_BLOB" "$manifest"
+          grep -Fx "original_finance_lock_blob=$ORIGINAL_FINANCE_LOCK_BLOB" "$manifest"
+          grep -Fx "rust_toolchain=$RUST_TOOLCHAIN" "$manifest"
+          grep -Fx 'rustfmt_materialized=true' "$manifest"
+          grep -Fx 'canonical_profile=mycelix/finance/sap-amount + 00 + 01 + u64be' "$manifest"
+          grep -Fx 'canonical_length=36' "$manifest"
+
+          for spec in "finance_lib:$FINANCE_LIB" "sap_module:$SAP_MODULE" "profile_doc:$PROFILE_DOC"; do
+            key="${spec%%:*}"
+            path="${spec#*:}"
+            file="/tmp/sap-payload/files/$path"
+            raw_sha="$(sha256sum "$file" | awk '{print $1}')"
+            git_blob="$(git hash-object "$file")"
+            grep -Fx "${key}_sha256=$raw_sha" "$manifest"
+            grep -Fx "${key}_git_blob=$git_blob" "$manifest"
+          done
+
+          rm -rf /tmp/product
+          git init -q /tmp/product
+          git -C /tmp/product remote add origin "https://github.com/${GITHUB_REPOSITORY}.git"
+
+          remote_head() {
+            local output rc
+            set +e
+            output="$(git -C /tmp/product ls-remote origin "refs/heads/$PRODUCT_BRANCH" 2>/tmp/sap-ls-remote.err)"
+            rc=$?
+            set -e
+            if [[ "$rc" -ne 0 ]]; then
+              printf 'publication=IndeterminatePublication\n' >&2
+              cat /tmp/sap-ls-remote.err >&2 || true
+              exit 1
+            fi
+            awk '{print $1}' <<<"$output"
+          }
+
+          expected_blob() {
+            local key="$1"
+            awk -F= -v wanted="${key}_git_blob" '$1 == wanted {print $2}' "$manifest"
+          }
+
+          equivalent_remote() {
+            local sha="$1"
+            [[ -n "$sha" ]] || return 1
+            git -C /tmp/product fetch --quiet --no-tags --depth=2 origin "$sha" || return 1
+            [[ "$(git -C /tmp/product rev-parse "$sha^")" = "$PRODUCT_PARENT" ]] || return 1
+            mapfile -t changed < <(git -C /tmp/product diff-tree --no-commit-id --name-only -r "$sha" | sort)
+            [[ "${#changed[@]}" -eq 3 ]] || return 1
+            [[ "${changed[0]}" = "$PROFILE_DOC" ]] || return 1
+            [[ "${changed[1]}" = "$FINANCE_LIB" ]] || return 1
+            [[ "${changed[2]}" = "$SAP_MODULE" ]] || return 1
+            [[ "$(git -C /tmp/product rev-parse "$sha:$FINANCE_LIB")" = "$(expected_blob finance_lib)" ]] || return 1
+            [[ "$(git -C /tmp/product rev-parse "$sha:$SAP_MODULE")" = "$(expected_blob sap_module)" ]] || return 1
+            [[ "$(git -C /tmp/product rev-parse "$sha:$PROFILE_DOC")" = "$(expected_blob profile_doc)" ]] || return 1
+            [[ "$(git -C /tmp/product rev-parse "$sha:mycelix-finance/Cargo.lock")" = "$ORIGINAL_FINANCE_LOCK_BLOB" ]] || return 1
+            return 0
+          }
+
+          before="$(remote_head)"
+          if [[ "$before" != "$PRODUCT_PARENT" ]]; then
+            if equivalent_remote "$before"; then
+              printf 'status=PASS\npublication=PublishedEquivalent\nremote_product_sha=%s\n' "$before"
+              exit 0
+            fi
+            printf 'publication=Conflict\nremote_before=%s\n' "$before" >&2
+            exit 1
+          fi
+
+          git -C /tmp/product fetch --quiet --no-tags --depth=2 origin "$PRODUCT_PARENT"
+          test "$(git -C /tmp/product rev-parse FETCH_HEAD)" = "$PRODUCT_PARENT"
+          test "$(git -C /tmp/product rev-parse "$PRODUCT_PARENT:$FINANCE_LIB")" = "$ORIGINAL_FINANCE_LIB_BLOB"
+          test "$(git -C /tmp/product rev-parse "$PRODUCT_PARENT:mycelix-finance/Cargo.lock")" = "$ORIGINAL_FINANCE_LOCK_BLOB"
+
+          export GIT_INDEX_FILE=/tmp/product/.git/sap-index
+          rm -f "$GIT_INDEX_FILE"
+          git -C /tmp/product read-tree "$PRODUCT_PARENT"
+          for path in "$PROFILE_DOC" "$FINANCE_LIB" "$SAP_MODULE"; do
+            file="/tmp/sap-payload/files/$path"
+            blob="$(git -C /tmp/product hash-object -w "$file")"
+            git -C /tmp/product update-index --add --cacheinfo "100644,$blob,$path"
+          done
+          candidate_tree="$(git -C /tmp/product write-tree)"
+          mapfile -t changed < <(git -C /tmp/product diff --name-only "$PRODUCT_PARENT^{tree}" "$candidate_tree" | sort)
+          test "${#changed[@]}" -eq 3
+          test "${changed[0]}" = "$PROFILE_DOC"
+          test "${changed[1]}" = "$FINANCE_LIB"
+          test "${changed[2]}" = "$SAP_MODULE"
+          test "$(git -C /tmp/product rev-parse "$candidate_tree:mycelix-finance/Cargo.lock")" = "$ORIGINAL_FINANCE_LOCK_BLOB"
+
+          parent_date="$(git -C /tmp/product show -s --format=%aI "$PRODUCT_PARENT")"
+          export GIT_AUTHOR_DATE="$parent_date"
+          export GIT_COMMITTER_DATE="$parent_date"
+          git -C /tmp/product config user.name 'github-actions[bot]'
+          git -C /tmp/product config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          intended="$(printf '%s\n' 'feat(finance): add canonical SapAmount V1 semantic waist' | git -C /tmp/product commit-tree "$candidate_tree" -p "$PRODUCT_PARENT")"
+          test "$(git -C /tmp/product rev-parse "$intended^")" = "$PRODUCT_PARENT"
+
+          publish_url="https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
+          set +e
+          git -C /tmp/product push --quiet \
+            --force-with-lease="refs/heads/$PRODUCT_BRANCH:$PRODUCT_PARENT" \
+            "$publish_url" \
+            "$intended:refs/heads/$PRODUCT_BRANCH"
+          push_rc=$?
+          set -e
+          unset publish_url
+
+          after="$(remote_head)"
+          if [[ "$after" = "$intended" ]]; then
+            [[ "$push_rc" -eq 0 ]] && publication='Published' || publication='PublishedRecovered'
+          elif [[ "$after" = "$PRODUCT_PARENT" && "$push_rc" -ne 0 ]]; then
+            printf 'publication=DefinitelyNotPublished\n' >&2
+            exit 1
+          elif equivalent_remote "$after"; then
+            [[ "$push_rc" -eq 0 ]] && publication='PublishedEquivalent' || publication='PublishedRecoveredEquivalent'
+          else
+            printf 'publication=Conflict\nremote_after=%s\n' "$after" >&2
+            exit 1
+          fi
+
+          printf 'status=PASS\n'
+          printf 'publication=%s\n' "$publication"
+          printf 'product_sha=%s\n' "$after"
+          printf 'artifact_id=%s\n' "$ARTIFACT_ID"
+          printf 'artifact_upload_stream_sha256=%s\n' "$ARTIFACT_DIGEST"
+          printf 'mutation_scope=%s,%s,%s\n' "$PROFILE_DOC" "$FINANCE_LIB" "$SAP_MODULE"
+          printf 'claim=exact formatted and tested SapAmount candidate materialized as direct child of qualified U1\n'
+          printf 'nonclaim=MYC-FIN-001A independent qualification, Treasury migration, transfer authority, TEND/MYCEL semantics, deployment readiness\n'
