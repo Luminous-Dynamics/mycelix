@@ -10,7 +10,7 @@
 use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
 
-pub const EVIDENCE_EFFICIENCY_SCHEMA_VERSION: u16 = 1;
+pub const EVIDENCE_EFFICIENCY_SCHEMA_VERSION: u16 = 2;
 pub const EVIDENCE_EFFICIENCY_BENCHMARK_ID: &str = "PRAXIS-CYBER-ACQ-001";
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
