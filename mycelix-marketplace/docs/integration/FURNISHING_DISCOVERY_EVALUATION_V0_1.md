@@ -7,7 +7,7 @@
 
 Can a household reach a better **verified shortlist**—not merely a better-looking render—while maintaining correct uncertainty, currentness, evidence rights, resident control, and no unintended commerce or privacy effects?
 
-The initial read-only projection is intentionally conservative. The existing typed Listing payload contains title, description, integer-cent price, broad category, photo CIDs, quantity, status and an epistemic classification. It does not itself carry typed furniture dimensions, permitted geometry-use rights, a current-revision receipt, pagination/completeness receipt, or fixture-versus-live transport provenance. The adapter therefore marks those concerns unresolved rather than deriving them from prose or a successful RPC.
+The initial read-only projection is intentionally conservative. The existing typed Listing payload contains title, description, integer-cent price, broad category, photo CIDs, quantity, status and an epistemic classification. It does not itself carry typed furniture dimensions, permitted geometry-use rights, a current-revision receipt, or pagination/completeness receipt. The adapter now labels the configured transport path (JS bridge, explicit development fixtures, or unclassified custom transport), but this is **not** a live-conductor, freshness, or completeness receipt. Those remaining facts stay unresolved rather than being derived from prose or a successful RPC.
 
 ## Research and standards anchors
 
@@ -82,11 +82,14 @@ Only after the technical gates pass: consent-based and paid studies for time-to-
 
 - requires only a `ListingReadPort` capability, not a transaction-capable client surface;
 - calls the existing typed `get_all_listings` method, filters to the broad Home & Garden category, and preserves the exact returned action hash and observed fields;
-- marks item subtype as needing confirmation, geometry as absent, compatibility as not evaluated, revision currentness as unproven, read completeness as unknown, and live-versus-fixture provenance as unclassified;
+- marks item subtype as needing confirmation, geometry as absent, compatibility as not evaluated, revision currentness as unproven, and read completeness as unknown;
+- preserves the configured transport identity so explicit fixture results are labelled as fixture data, while JS-bridge results remain explicitly unverified as to live source and currentness;
 - performs no checkout, contact, payment, reservation or mutation calls.
 
-It is not yet wired to the furnishing-profile schema in #5251, does not prove the newest listing revision, has no pagination receipt, and does not distinguish fixture transport from a configured live transport. Those are real blockers, not documentation cleanup. Next: reconcile listing-update semantics and transport provenance; add a verified read snapshot/completeness contract; then project into the v0.1 furnishing profile under its rights and evidence gates.
+It is not yet wired to the furnishing-profile schema in #5251, does not prove the newest listing revision, and has no pagination/completeness receipt. Those remain blockers, not documentation cleanup. Next: reconcile listing-update semantics and transport provenance at the conductor boundary; add an attested read snapshot/completeness contract; then project into the v0.1 furnishing profile under its rights and evidence gates.
 
 ## Decision rule
 
 The first success criterion is not “we have more features than an industry product.” It is: **on the same inputs, we can demonstrate that the system never promotes unknown geometry, stale offers, unsupported seller claims, or a partial catalog into a verified fit or current purchase option—and that it still finds useful candidates once trustworthy evidence is available.** Comparative superiority must wait for the matched benchmark and observed results.
+
+The next reproducibility gate also runs the client with the explicit `dev-fixtures` feature. The focused fixture test proves that the adapter labels this path as development data without upgrading completeness, geometry or compatibility. The audit workflow and Rust toolchain actions are pinned; dependency reproducibility still requires a checked-in workspace `Cargo.lock` generated from a qualified workspace build.

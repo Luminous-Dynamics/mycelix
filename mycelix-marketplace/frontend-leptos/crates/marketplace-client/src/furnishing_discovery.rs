@@ -331,12 +331,49 @@ mod tests {
 
     #[cfg(feature = "dev-fixtures")]
     #[test]
-    fn fixture_client_exposes_fixture_mode_without_claiming_live_provenance() {
-        let client = MarketplaceClient::new(crate::FixtureTransport::default());
+    fn adapter_snapshot_preserves_fixture_mode_and_unknown_coverage() {
+        use std::{
+            future::Future,
+            pin::Pin,
+            sync::Arc,
+            task::{Context, Poll, Wake, Waker},
+        };
+
+        struct NoopWake;
+        impl Wake for NoopWake {
+            fn wake(self: Arc<Self>) {}
+        }
+
+        fn block_on_ready<F: Future>(future: F) -> F::Output {
+            let mut future = Box::pin(future);
+            let waker = Waker::from(Arc::new(NoopWake));
+            let mut context = Context::from_waker(&waker);
+            match Pin::as_mut(&mut future).poll(&mut context) {
+                Poll::Ready(value) => value,
+                Poll::Pending => panic!("fixture listing read unexpectedly yielded"),
+            }
+        }
+
+        let adapter = FurnishingDiscoveryAdapter::new(MarketplaceClient::new(
+            crate::FixtureTransport::default(),
+        ));
+        let snapshot = block_on_ready(adapter.discover()).unwrap();
+
         assert_eq!(
-            client.transport_provenance(),
+            snapshot.transport_provenance,
             TransportProvenance::ExplicitDevelopmentFixture
         );
+        assert_eq!(
+            snapshot.coverage,
+            SnapshotCoverage::UnknownUnpaginatedRead
+        );
+        assert_eq!(snapshot.returned_count(), 1);
+        assert!(!snapshot.can_claim_complete_current_furniture_offers());
+        assert!(snapshot.listings.iter().all(|listing| {
+            listing.review_disposition == ReviewDisposition::ManualReviewOnly
+                && listing.geometry_evidence == GeometryEvidence::NotPresentInListingContract
+                && listing.compatibility == CompatibilityState::NotEvaluated
+        }));
     }
 
     #[test]
