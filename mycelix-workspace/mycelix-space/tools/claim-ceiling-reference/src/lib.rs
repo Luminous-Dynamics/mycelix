@@ -930,4 +930,5 @@ mod tests {
     }
 }
 
+pub mod policy_lifecycle;
 pub mod policy_profile;
