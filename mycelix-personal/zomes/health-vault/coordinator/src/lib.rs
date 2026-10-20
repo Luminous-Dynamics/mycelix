@@ -186,7 +186,7 @@ pub fn grant_consent_with_remote_capability(
     let grant_record = grant_consent(ConsentGrant {
         grantee: grantee.clone(),
         record_types: input.record_types,
-        expires_at,
+        expires_at: expires_at.clone(),
         active: true,
         created_at: now,
     })?;
@@ -361,7 +361,7 @@ pub fn grant_consent_view(input: ConsentGrantInputView) -> ExternResult<Record> 
 pub fn get_my_records(_: ()) -> ExternResult<Vec<Record>> {
     let agent = agent_info()?.agent_initial_pubkey;
     let links = get_links(
-        LinkQuery::try_new(agent, LinkTypes::AgentToRecords)?,
+        LinkQuery::try_new(agent.clone(), LinkTypes::AgentToRecords)?,
         GetStrategy::Local,
     )?;
     let mut records = Vec::new();
@@ -411,7 +411,7 @@ pub fn get_my_records_view(_: ()) -> ExternResult<Vec<HealthRecordView>> {
 pub fn get_my_biometrics(_: ()) -> ExternResult<Vec<Record>> {
     let agent = agent_info()?.agent_initial_pubkey;
     let links = get_links(
-        LinkQuery::try_new(agent, LinkTypes::AgentToBiometrics)?,
+        LinkQuery::try_new(agent.clone(), LinkTypes::AgentToBiometrics)?,
         GetStrategy::Local,
     )?;
     let mut records = Vec::new();
@@ -644,7 +644,7 @@ fn get_my_consents_at(now: &Timestamp) -> ExternResult<Vec<Record>> {
         .map(|(_, event)| event)
         .collect();
     let links = get_links(
-        LinkQuery::try_new(agent, LinkTypes::AgentToConsents)?,
+        LinkQuery::try_new(agent.clone(), LinkTypes::AgentToConsents)?,
         GetStrategy::Local,
     )?;
     let mut records = Vec::new();
