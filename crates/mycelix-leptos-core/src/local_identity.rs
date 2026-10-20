@@ -186,7 +186,9 @@ impl TryFrom<&EncryptedBlobWire> for EncryptedBlob {
                     .cipher
                     .as_deref()
                     .and_then(identity_crypto::IdentityCipher::from_identifier)
-                    .ok_or_else(|| "Unsupported or missing identity cipher metadata.".to_string())?;
+                    .ok_or_else(|| {
+                        "Unsupported or missing identity cipher metadata.".to_string()
+                    })?;
                 (kdf, iterations, cipher)
             }
             _ => return Err("Unsupported identity envelope version.".into()),
@@ -257,9 +259,10 @@ pub fn allowed_identity_bootstrap_actions(
 ) -> &'static [IdentityBootstrapAction] {
     use IdentityBootstrapAction as Action;
     match posture {
-        LocalIdentityStoragePosture::NoIdentity => {
-            &[Action::CreateProtectedIdentity, Action::RestoreProtectedIdentityFromSeedPhrase]
-        }
+        LocalIdentityStoragePosture::NoIdentity => &[
+            Action::CreateProtectedIdentity,
+            Action::RestoreProtectedIdentityFromSeedPhrase,
+        ],
         LocalIdentityStoragePosture::UnprotectedIdentity => &[Action::ProtectExistingIdentity],
         LocalIdentityStoragePosture::ProtectedLocked => &[Action::UnlockProtectedIdentity],
         LocalIdentityStoragePosture::ProtectedUnlockedInSession => &[Action::RotatePassphrase],
@@ -879,9 +882,9 @@ pub async fn protect_with_passphrase(passphrase: &str) -> Result<(), String> {
             "A legacy identity label needs explicit migration or recovery; no key was generated."
                 .into(),
         ),
-        LocalIdentityStoragePosture::StorageUnavailable => Err(
-            "Identity storage is unavailable; no identity was created or changed.".into(),
-        ),
+        LocalIdentityStoragePosture::StorageUnavailable => {
+            Err("Identity storage is unavailable; no identity was created or changed.".into())
+        }
         LocalIdentityStoragePosture::CorruptOrInconsistent => Err(
             "Identity storage is inconsistent; inspect or recover it before changing protection."
                 .into(),
@@ -974,7 +977,10 @@ async fn rewrap_protected_identity(passphrase: &str) -> Result<(), String> {
         .as_ref()
         .is_ok_and(|value| value.as_deref() == Some(previous_wire.as_str()))
     {
-        Err("Passphrase rotation failed verification; the previous passphrase remains active.".into())
+        Err(
+            "Passphrase rotation failed verification; the previous passphrase remains active."
+                .into(),
+        )
     } else {
         Err(
             "Passphrase rotation and rollback could not be verified; inspect identity posture before retrying."
@@ -1019,13 +1025,7 @@ pub async fn unlock_with_passphrase(passphrase: &str) -> Result<SigningKey, Stri
         return Err("Protected identity key material is inconsistent.".into());
     }
     if was_legacy {
-        migrate_legacy_envelope(
-            passphrase,
-            &original_wire,
-            &public_b64,
-            &signing_key,
-        )
-        .await?;
+        migrate_legacy_envelope(passphrase, &original_wire, &public_b64, &signing_key).await?;
     }
     UNLOCKED_KEY.with(|cell| *cell.borrow_mut() = Some(signing_key.clone()));
     Ok(signing_key)
@@ -1509,7 +1509,9 @@ mod tests {
             allowed_identity_bootstrap_actions(Posture::ProtectedUnlockedInSession),
             &[Action::RotatePassphrase]
         );
-        assert!(allowed_identity_bootstrap_actions(Posture::LegacyIdentityNeedsMigration).is_empty());
+        assert!(
+            allowed_identity_bootstrap_actions(Posture::LegacyIdentityNeedsMigration).is_empty()
+        );
         assert!(allowed_identity_bootstrap_actions(Posture::StorageUnavailable).is_empty());
         assert!(allowed_identity_bootstrap_actions(Posture::CorruptOrInconsistent).is_empty());
     }
@@ -2017,9 +2019,11 @@ mod browser_storage_tests {
         assert!(storage.get_item(IDENTITY_SECRET_KEY).unwrap().is_none());
         UNLOCKED_KEY.with(|cell| *cell.borrow_mut() = None);
 
-        assert!(unlock_with_passphrase("synthetic initial passphrase")
-            .await
-            .is_err());
+        assert!(
+            unlock_with_passphrase("synthetic initial passphrase")
+                .await
+                .is_err()
+        );
         assert!(UNLOCKED_KEY.with(|cell| cell.borrow().is_none()));
         let rotated = unlock_with_passphrase("synthetic rotated passphrase")
             .await
