@@ -128,6 +128,26 @@ The v2 fixture folder now contains `qualification-protocol.template.json` plus `
 
 The exact-head CI receipt binds the preregistration template/schema blobs alongside the scenario fixtures. That proves which protocol template was present; it does not convert the template into a preregistered experiment or validate any future results. The test suite negatively checks that this template cannot self-promote to a registered status and that the 50-case minimum and zero-unauthorized-action safety gate cannot be weakened in the template schema.
 
+## Competitive benchmark map and proposed ambition
+
+The closest adjacent industry suite is [CyberSecEval 4 / CyberSOCEval](https://github.com/meta-llama/PurpleLlama/blob/main/CybersecurityBenchmarks/README.md). CyberSOCEval, announced in September 2025, targets defensive SOC tasks including malware analysis and threat-intelligence reasoning; CyberSecEval 4 also includes AutoPatchBench. These test different endpoints from this evidence-governed decision contract, so the results should be compared by task family, not treated as a single interchangeable leaderboard. ([Meta's CyberSOCEval research note](https://ai.meta.com/research/publications/cybersoceval-benchmarking-llms-capabilities-for-malware-analysis-and-threat-intelligence-reasoning/))
+
+[AbstentionBench](https://github.com/facebookresearch/AbstentionBench) is a relevant method baseline for answer-vs-abstain behavior across 20 datasets and six contexts, including stale information. [Cybench](https://cybench.github.io/) covers 40 professional-level CTF tasks and is relevant to cyber-agent capability measurement, but solving CTF tasks is not a proxy for evidence sufficiency or safe defensive decision-making. [NIST NICE v2.2.0](https://www.nist.gov/news-events/news/2026/04/nice-releases-nice-framework-components-v220) adds a Cybersecurity Supply Chain Risk Management work role and revised Cryptography/DevSecOps competencies; map tasks to a pinned framework version for coverage, not as a performance score.
+
+Praxis's proposed differentiator is the *joint contract*: evidence sufficiency and freshness/conflict are distinct; a decision must carry observed-evidence citations; authority and cost budgets are explicit; abstention and follow-up evidence requests are both scored; unsafe attempts are non-compensable; and paired traces preserve the exact input, authority, corpus, environment, policy/model/prompt/tool digests. This could complement existing suites, but it is not evidence that Praxis currently outperforms them.
+
+### Proposed quantitative pilot targets (not yet registered or achieved)
+
+Treat these as ambitious starting hypotheses. Freeze or revise them only after a power analysis and an independent reviewer approve the preregistration:
+- **Safety:** zero unauthorized actions accepted, an absolute hard gate. Until an executor receipt exists, report only out-of-catalog/unauthorized request attempts; do not claim acceptance outcomes.
+- **Reproducibility:** 100% registered cases accounted for; zero silent exclusions; exact subject, corpus, environment, policy/model/prompt/tool digests in the receipt.
+- **Evidence discipline:** at least 95% required-evidence coverage on answerable cases; zero definitive claims accepted against cases labelled insufficient by the independently reviewed rubric.
+- **Abstention balance:** at least 25% relative reduction in unsupported definitive claims versus the strongest fair baseline, while false-abstention rate is no more than 2 percentage points worse. If the baseline unsupported-claim rate is near zero, use absolute differences and confidence intervals rather than an unstable relative percentage.
+- **Calibration:** only where confidence was preregistered, target at least 10% relative improvement in Brier score over a declared baseline, without increased unsupported claims.
+- **Efficiency:** publish separate quality-cost and quality-latency Pareto frontiers; claim an efficiency improvement only when a policy is at least as good on the predeclared quality endpoints and measurably better on cost or latency within the same budget/authority constraints.
+
+These numerical targets are *proposal thresholds for a future study*, not SOTA benchmarks, industry-wide standards, or current Praxis results. Report per-domain results with uncertainty intervals and paired tests. Bootstrap at the incident/template-family level to avoid treating near-duplicate variants as independent; use paired analyses for paired policy traces. The 50-case minimum is a pilot floor, not a substitute for statistical power.
+
 ## Qualification targets
 
 Before a superiority claim, independently author and review at least 50 domain-balanced held-out cases, with paired benign/malicious hypotheses and controlled full/partial/irrelevant/absent/conflicting evidence. Register domains, splits, endpoints, exclusions, cost/latency budgets, policy prompts/tools, and analysis before running.
