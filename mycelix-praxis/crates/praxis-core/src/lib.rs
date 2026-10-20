@@ -15,6 +15,7 @@
 //! - Structured error handling with descriptive messages
 
 mod benchmarks;
+pub mod cyber_challenges;
 pub mod contracts;
 pub mod crypto;
 pub mod errors;
