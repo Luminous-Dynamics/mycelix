@@ -152,7 +152,7 @@ pub fn get_listing(listing_hash: ActionHash) -> ExternResult<Option<ListingOutpu
             Ok(Some(ListingOutput {
                 listing_hash,
                 listing,
-                seller_agent_id: record.action().author().clone().into(),
+                seller_agent_id: record.action().author().clone(),
             }))
         }
         None => Ok(None),

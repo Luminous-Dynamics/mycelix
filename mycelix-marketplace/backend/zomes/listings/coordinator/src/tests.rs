@@ -105,7 +105,7 @@ fn test_photos_count_validation() {
 
     // Valid photo count
     input.photos_ipfs_cids = vec!["QmTest123456789012345678901234567890123456".to_string(); 5];
-    assert!(input.photos_ipfs_cids.len() >= 1 && input.photos_ipfs_cids.len() <= 10);
+    assert!(!input.photos_ipfs_cids.is_empty() && input.photos_ipfs_cids.len() <= 10);
 }
 
 #[test]
@@ -144,7 +144,7 @@ fn test_listing_categories() {
 #[test]
 fn test_listing_status_transitions() {
     // Test valid status transitions
-    let statuses = vec![
+    let statuses = [
         ListingStatus::Active,
         ListingStatus::Sold,
         ListingStatus::Deleted,
@@ -203,7 +203,7 @@ fn test_description_length() {
 
     // Valid description
     input.description = "This is a valid product description.".to_string();
-    assert!(input.description.len() >= 1 && input.description.len() <= 5000);
+    assert!(!input.description.is_empty() && input.description.len() <= 5000);
 }
 
 #[test]
