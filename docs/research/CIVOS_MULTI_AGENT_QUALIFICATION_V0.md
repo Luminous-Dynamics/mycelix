@@ -160,12 +160,12 @@ For credentials and status, use the [W3C Verifiable Credentials Data Model 2.0 R
 
 ## Execution sequence
 
-1. Validate the corpus itself and freeze its digest.
+1. Validate the corpus and schema with the Rust validator in `tools/civos-benchmark-validator/`; freeze both SHA-256 digests and retain the corpus-validation receipt. This validates the test specification only, not system behavior.
 2. Map each scenario to a concrete test, implementation path, and owning cluster.
 3. Execute and review the candidate Finance cross-agent receiver-limit regression [PR #5248](https://github.com/Luminous-Dynamics/mycelix/pull/5248), then add the highest-risk idempotency and Personal identity/source-state cases to the existing test infrastructure.
 4. Run exact-head multi-agent tests locally where the pinned runtime is available; record precise blockers rather than waiting on hosted runners.
-5. Add fault-injection and restart cases; qualify the baseline with reproducible receipts.
-6. Only then publish performance comparisons or deployment-level outcome claims.
+5. Add fault-injection and restart cases; qualify the baseline with reproducible receipts containing exact runtime, source head, scenario digest, seed, negative-control result, and before/after state digests.
+6. Only after the required behavior scenarios pass may performance comparisons be published; only after controlled deployments may real-world outcome claims be made.
 
 ## Nonclaims
 
