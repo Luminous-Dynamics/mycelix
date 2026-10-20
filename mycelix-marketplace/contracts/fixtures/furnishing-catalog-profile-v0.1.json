@@ -238,8 +238,8 @@
         "hard_constraint_results": [
           {
             "constraint_id": "desk-footprint-fits",
-            "outcome": "pass",
-            "reason": "Nominal manufacturer dimensions fit the rectangle check but geometry use is restricted to redisplay only; layout use permission is not granted.",
+            "outcome": "indeterminate",
+            "reason": "Nominal dimensions fit the rectangle check, but layout-use permission is not granted; the system must not claim an eligible geometry-based fit.",
             "evidence_refs": [
               "geom-002"
             ]
