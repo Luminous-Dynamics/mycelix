@@ -925,9 +925,11 @@ fn paired_traces_require_identical_inputs_authority_budgets_and_model_configurat
     altered.prompt_digest = digest_for("prompt:unregistered-variation");
     let errors =
         validate_paired_traces(&cases, &traces).expect_err("prompt drift must invalidate pairing");
-    assert!(errors
-        .iter()
-        .any(|error| error.contains("same model/prompt/tool configuration")));
+    assert!(
+        errors
+            .iter()
+            .any(|error| error.contains("same model/prompt/tool configuration"))
+    );
 
     traces.pop();
     let errors = validate_paired_traces(&cases, &traces).expect_err("missing pair must fail");
