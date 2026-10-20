@@ -25,6 +25,15 @@ A source can return a current but irrelevant observation. A current record can p
 
 The dimensions are reported separately so a high information score cannot compensate for a source conflict, unsupported certainty, missing evidence, or an unauthorized request.
 
+## Metric semantics: expectation is not realization
+
+The evaluator uses a uniform prior over each scenario's declared hypotheses; this is a synthetic scoring convention, not an estimate of real incident prevalence.
+
+- **Expected information gain** is computed from the entropy of joint response-label signatures across the full declared hypothesis set. Each usable request contributes the increase in that joint information when its observation partition is added. This value is prior-expected and does not depend on which one synthetic world was selected for the fixture.
+- **Realized information gain** records the pathwise reduction for the declared world: for each usable response, it adds \\(\log_2(N_{before}/N_{after})\\) when the surviving hypothesis set narrows. It is one-world evidence reduction, not an estimate of average performance across worlds.
+- The exhaustive non-adaptive oracle optimizes the same prior-expected joint-partition objective subject to the declared synthetic cost and latency budget. It is exact only for the *non-adaptive subset* problem in this small fixture. It is not an upper bound on adaptive policies, and it is not a fair human/AI competitor because it sees evaluator-only partitions.
+- A serious policy comparison must average predeclared metrics across balanced held-out variants/worlds, with uncertainty intervals. Do not compare a single world's realized reduction to the oracle's prior-expected entropy as though they were the same statistic.
+
 ## Executable reference and baselines
 
 The focused integration harness reports requests attempted/executed, blocked authorization/budget attempts, synthetic request cost, declared latency bounds, expected and realized information gain, remaining hypotheses, and response status/sufficiency counts separately.
