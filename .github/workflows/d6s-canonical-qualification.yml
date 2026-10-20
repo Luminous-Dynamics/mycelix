@@ -21,6 +21,13 @@ env:
 jobs:
 
   d6s-canon-reference:
+    # This workflow is intentionally scoped to the D6S canonicalization branch.
+    # A D6U evaluator PR must not be treated as a D6S qualification subject.
+    if: >-
+      (github.event_name == 'pull_request' &&
+       github.head_ref == 'myc-int-demo-d6t-canonical-encoding') ||
+      (github.event_name != 'pull_request' &&
+       github.ref == 'refs/heads/myc-int-demo-d6t-canonical-encoding')
     name: D6S canonical reference qualification
     runs-on: ubuntu-24.04
     timeout-minutes: 20

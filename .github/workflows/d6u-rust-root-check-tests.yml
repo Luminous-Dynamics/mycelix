@@ -1,0 +1,52 @@
+name: D6U Rust Trusted-Root Preflight Tests
+
+on:
+  pull_request:
+    paths:
+      - "scripts/integral/d6u_trusted_root_check.rs"
+      - ".github/workflows/d6u-rust-root-check-tests.yml"
+  push:
+    branches:
+      - security/d6u-independent-evaluator-20261008
+    paths:
+      - "scripts/integral/d6u_trusted_root_check.rs"
+      - ".github/workflows/d6u-rust-root-check-tests.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: d6u-rust-root-check-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  rust-root-check:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Checkout exact source head
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+
+      - name: Install pinned Rust
+        uses: dtolnay/rust-toolchain@e97e2d8cc328f1b50210efc529dca0028893a2d9 # master @ 2025-08-23
+        with:
+          toolchain: 1.96.0
+
+      - name: Assert exact source head and Rust compiler
+        env:
+          EXPECTED_TEST_HEAD: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          test "$(git rev-parse HEAD)" = "$EXPECTED_TEST_HEAD"
+          test "$(rustc +1.96.0 --version)" = "rustc 1.96.0 (ac68faa20 2026-05-25)"
+
+      - name: Run Rust path and snapshot identity tests
+        run: |
+          set -euo pipefail
+          rustc +1.96.0 --edition=2024 --test scripts/integral/d6u_trusted_root_check.rs -o "$RUNNER_TEMP/d6u-root-check-tests"
+          "$RUNNER_TEMP/d6u-root-check-tests"
+
+      - name: Compile standalone Rust preflight with warnings denied
+        run: rustc +1.96.0 --edition=2024 -D warnings scripts/integral/d6u_trusted_root_check.rs -o "$RUNNER_TEMP/d6u-root-check"

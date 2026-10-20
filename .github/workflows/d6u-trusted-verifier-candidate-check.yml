@@ -1,0 +1,220 @@
+name: D6U Trusted Verifier Candidate Check
+
+on:
+  workflow_dispatch:
+    inputs:
+      candidate_sha:
+        description: Exact 40-character commit SHA to evaluate
+        required: true
+        type: string
+
+permissions: {}
+
+concurrency:
+  group: d6u-trusted-verifier-candidate-${{ github.run_id }}
+  cancel-in-progress: true
+
+jobs:
+  independent-verifier:
+    if: ${{ github.ref == 'refs/heads/main' }}
+    permissions:
+      contents: read
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Require workflow dispatch from trusted main ref
+        env:
+          EXPECTED_WORKFLOW_REF: Luminous-Dynamics/mycelix/.github/workflows/d6u-trusted-verifier-candidate-check.yml@refs/heads/main
+        run: |
+          set -euo pipefail
+          test "$GITHUB_REF" = "refs/heads/main"
+          test "$GITHUB_WORKFLOW_REF" = "$EXPECTED_WORKFLOW_REF"
+          test "$GITHUB_REPOSITORY" = "Luminous-Dynamics/mycelix"
+
+      - name: Checkout trusted default-branch source
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+          fetch-depth: 1
+
+      - name: Checkout workflow-definition revision
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+        with:
+          ref: ${{ github.workflow_sha }}
+          path: _workflow-definition
+          persist-credentials: false
+          fetch-depth: 1
+
+      - name: Assert trusted source and workflow-file identity
+        env:
+          EXPECTED_TRUSTED_SHA: ${{ github.sha }}
+          EXPECTED_WORKFLOW_SHA: ${{ github.workflow_sha }}
+          EXPECTED_EVALUATOR_BLOB: 0eb67587eb95bf8e0b3da3dffd5aa01bb92073a6
+          EXPECTED_RUST_PREFLIGHT_BLOB: ad32bf4181fdfefe8cc8cb72d9334788a9da6576
+        run: |
+          set -euo pipefail
+          observed_commit="$(git rev-parse HEAD)"
+          test "$observed_commit" = "$EXPECTED_TRUSTED_SHA"
+          [[ "$EXPECTED_TRUSTED_SHA" =~ ^[0-9a-f]{40}$ ]]
+          [[ "$EXPECTED_WORKFLOW_SHA" =~ ^[0-9a-f]{40}$ ]]
+          observed_workflow_revision="$(git -C _workflow-definition rev-parse HEAD)"
+          test "$observed_workflow_revision" = "$EXPECTED_WORKFLOW_SHA"
+          trusted_workflow_blob="$(git rev-parse HEAD:.github/workflows/d6u-trusted-verifier-candidate-check.yml)"
+          workflow_revision_blob="$(git -C _workflow-definition rev-parse HEAD:.github/workflows/d6u-trusted-verifier-candidate-check.yml)"
+          test "$trusted_workflow_blob" = "$workflow_revision_blob"
+          observed_blob="$(git rev-parse HEAD:scripts/integral/evaluate_d6u_trusted_verifier_independently.py)"
+          test "$observed_blob" = "$EXPECTED_EVALUATOR_BLOB"
+          observed_rust_blob="$(git rev-parse HEAD:scripts/integral/d6u_trusted_root_check.rs)"
+          test "$observed_rust_blob" = "$EXPECTED_RUST_PREFLIGHT_BLOB"
+
+      - name: Install pinned Rust for independent receipt validation
+        uses: dtolnay/rust-toolchain@e97e2d8cc328f1b50210efc529dca0028893a2d9 # master @ 2025-08-23
+        with:
+          toolchain: 1.96.0
+
+      - name: Compile trusted Rust preflight
+        run: |
+          set -euo pipefail
+          test "$(rustc +1.96.0 --version)" = "rustc 1.96.0 (ac68faa20 2026-05-25)"
+          rustc +1.96.0 --edition=2024 -D warnings scripts/integral/d6u_trusted_root_check.rs -o "$RUNNER_TEMP/d6u-trusted-root-check"
+
+      - name: Validate candidate SHA
+        id: validate
+        env:
+          CANDIDATE_SHA: ${{ inputs.candidate_sha }}
+        run: |
+          set -euo pipefail
+          [[ "$CANDIDATE_SHA" =~ ^[0-9a-f]{40}$ ]]
+          printf 'sha=%s\n' "$CANDIDATE_SHA" >> "$GITHUB_OUTPUT"
+
+      - name: Checkout exact candidate as inert input
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+        with:
+          ref: ${{ steps.validate.outputs.sha }}
+          path: _candidate
+          persist-credentials: false
+          fetch-depth: 1
+
+      - name: Assert exact candidate subject
+        env:
+          EXPECTED_CANDIDATE_SHA: ${{ steps.validate.outputs.sha }}
+        run: |
+          set -euo pipefail
+          observed_commit="$(git -C _candidate rev-parse HEAD)"
+          test "$observed_commit" = "$EXPECTED_CANDIDATE_SHA"
+
+      - name: Verify candidate trusted-root closure with Rust
+        run: "$RUNNER_TEMP/d6u-trusted-root-check" --candidate-root "$GITHUB_WORKSPACE/_candidate"
+
+      - name: Run evaluator in an isolated container
+        run: |
+          set -euo pipefail
+          image='python:3.12-slim-bookworm@sha256:9901e0a8d75037d8242ed43155cbcb2d1f61be1356383d8054afb59fd50e39c4'
+          docker pull "$image"
+          docker image inspect "$image" --format '{{json .RepoDigests}}' | grep -Fq 'sha256:9901e0a8d75037d8242ed43155cbcb2d1f61be1356383d8054afb59fd50e39c4'
+          docker run --rm \
+            --network none \
+            --read-only \
+            --cap-drop=ALL \
+            --security-opt=no-new-privileges \
+            --pids-limit=64 \
+            --memory=512m \
+            --cpus=1 \
+            --user 65534:65534 \
+            --tmpfs /tmp:rw,noexec,nosuid,size=32m,mode=1777 \
+            --mount "type=bind,src=$GITHUB_WORKSPACE,dst=/trusted,readonly" \
+            --mount "type=bind,src=$GITHUB_WORKSPACE/_candidate,dst=/candidate,readonly" \
+            --workdir /trusted \
+            --env HOME=/tmp \
+            --env TMPDIR=/tmp \
+            --env LANG=C.UTF-8 \
+            --env PYTHONDONTWRITEBYTECODE=1 \
+            "$image" \
+            python3 scripts/integral/evaluate_d6u_trusted_verifier_independently.py \
+              --candidate-root /candidate
+
+      - name: Write attempt-bound evaluation receipt
+        if: success()
+        env:
+          EXPECTED_CANDIDATE_SHA: ${{ steps.validate.outputs.sha }}
+          EXPECTED_EVALUATOR_BLOB: 0eb67587eb95bf8e0b3da3dffd5aa01bb92073a6
+          EXPECTED_RUST_PREFLIGHT_BLOB: ad32bf4181fdfefe8cc8cb72d9334788a9da6576
+          EXPECTED_TRUSTED_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          test "$GITHUB_REPOSITORY" = "Luminous-Dynamics/mycelix"
+          test "$(git rev-parse HEAD)" = "$EXPECTED_TRUSTED_SHA"
+          [[ "$EXPECTED_TRUSTED_SHA" =~ ^[0-9a-f]{40}$ ]]
+          [[ "$GITHUB_WORKFLOW_SHA" =~ ^[0-9a-f]{40}$ ]]
+          test "$(git -C _workflow-definition rev-parse HEAD)" = "$GITHUB_WORKFLOW_SHA"
+          trusted_workflow_blob="$(git rev-parse HEAD:.github/workflows/d6u-trusted-verifier-candidate-check.yml)"
+          workflow_revision_blob="$(git -C _workflow-definition rev-parse HEAD:.github/workflows/d6u-trusted-verifier-candidate-check.yml)"
+          test "$trusted_workflow_blob" = "$workflow_revision_blob"
+          [[ "$GITHUB_RUN_ID" =~ ^[1-9][0-9]*$ ]]
+          [[ "$GITHUB_RUN_ATTEMPT" =~ ^[1-9][0-9]*$ ]]
+          observed_evaluator_blob="$(git rev-parse HEAD:scripts/integral/evaluate_d6u_trusted_verifier_independently.py)"
+          test "$observed_evaluator_blob" = "$EXPECTED_EVALUATOR_BLOB"
+          observed_rust_preflight_blob="$(git rev-parse HEAD:scripts/integral/d6u_trusted_root_check.rs)"
+          test "$observed_rust_preflight_blob" = "$EXPECTED_RUST_PREFLIGHT_BLOB"
+          observed_candidate_sha="$(git -C _candidate rev-parse HEAD)"
+          test "$observed_candidate_sha" = "$EXPECTED_CANDIDATE_SHA"
+          candidate_verifier_blob="$(git -C _candidate rev-parse HEAD:scripts/integral/verify_d6u_trusted_artifacts.py)"
+          candidate_policy_blob="$(git -C _candidate rev-parse HEAD:docs/integral/d6u-trusted-builder-policy.json)"
+          candidate_workflow_blob="$(git -C _candidate rev-parse HEAD:.github/workflows/d6u-trusted-evidence-attestation.yml)"
+          candidate_fetcher_blob="$(git -C _candidate rev-parse HEAD:scripts/integral/fetch_d6u_trusted_artifact.py)"
+          candidate_attestation_verifier_blob="$(git -C _candidate rev-parse HEAD:scripts/integral/verify_d6u_trusted_attestation.py)"
+          candidate_predicate_emitter_blob="$(git -C _candidate rev-parse HEAD:scripts/integral/emit_d6u_trusted_attestation_predicate.py)"
+          candidate_retention_verifier_blob="$(git -C _candidate rev-parse HEAD:scripts/integral/verify_d6u_trusted_attestation_retention.py)"
+          {
+            printf '%s\n' "record_schema=d6u-independent-verifier-evaluation/v2"
+            printf '%s\n' "status=passed"
+            printf 'repository=%s\n' "$GITHUB_REPOSITORY"
+            printf 'candidate_sha=%s\n' "$observed_candidate_sha"
+            printf 'candidate_verifier_blob_sha=%s\n' "$candidate_verifier_blob"
+            printf 'candidate_trusted_workflow_blob_sha=%s\n' "$candidate_workflow_blob"
+            printf 'candidate_fetcher_blob_sha=%s\n' "$candidate_fetcher_blob"
+            printf 'candidate_attestation_verifier_blob_sha=%s\n' "$candidate_attestation_verifier_blob"
+            printf 'candidate_predicate_emitter_blob_sha=%s\n' "$candidate_predicate_emitter_blob"
+            printf 'candidate_retention_verifier_blob_sha=%s\n' "$candidate_retention_verifier_blob"
+            printf 'candidate_policy_blob_sha=%s\n' "$candidate_policy_blob"
+            printf 'trusted_evaluator_blob_sha=%s\n' "$observed_evaluator_blob"
+            printf 'trusted_rust_preflight_blob_sha=%s\n' "$observed_rust_preflight_blob"
+            printf 'trusted_source_commit_sha=%s\n' "$EXPECTED_TRUSTED_SHA"
+            printf 'workflow_file_commit_sha=%s\n' "$GITHUB_WORKFLOW_SHA"
+            printf 'workflow_ref=%s\n' "$GITHUB_WORKFLOW_REF"
+            printf 'run_id=%s\n' "$GITHUB_RUN_ID"
+            printf 'run_attempt=%s\n' "$GITHUB_RUN_ATTEMPT"
+            printf '%s\n' "claim_ceiling=ReferenceModelOnly"
+            printf '%s\n' "evaluation_scope=policy-fingerprint,workflow-and-five-program-closure,canonical-path-and-symlink-containment,candidate-root-identity-and-cli-path-preservation,validated-source-snapshot-import,alias-pin-consistency,provenance-binding,artifact-integrity,redirect-safety,optimized-mode-refusal"
+            printf '%s\n' "container_image=python:3.12-slim-bookworm@sha256:9901e0a8d75037d8242ed43155cbcb2d1f61be1356383d8054afb59fd50e39c4"
+          } > d6u-independent-verifier-result.txt
+          "$RUNNER_TEMP/d6u-trusted-root-check" --validate-receipt d6u-independent-verifier-result.txt
+          receipt_sha256="$(sha256sum d6u-independent-verifier-result.txt | cut -d ' ' -f 1)"
+          {
+            echo "### D6U independent verifier evaluation"
+            echo
+            printf '%s\n' "- Candidate SHA: \`$observed_candidate_sha\`"
+            printf '%s\n' "- Candidate verifier blob: \`$candidate_verifier_blob\`"
+            printf '%s\n' "- Candidate policy blob: \`$candidate_policy_blob\`"
+            printf '%s\n' "- Candidate trusted workflow blob: \`$candidate_workflow_blob\`"
+            printf '%s\n' "- Candidate fetcher blob: \`$candidate_fetcher_blob\`"
+            printf '%s\n' "- Candidate attestation verifier blob: \`$candidate_attestation_verifier_blob\`"
+            printf '%s\n' "- Candidate predicate emitter blob: \`$candidate_predicate_emitter_blob\`"
+            printf '%s\n' "- Candidate retention verifier blob: \`$candidate_retention_verifier_blob\`"
+            printf '%s\n' "- Trusted evaluator blob: \`$observed_evaluator_blob\`"
+            printf '%s\n' "- Workflow file commit: \`$GITHUB_WORKFLOW_SHA\`"
+            printf '%s\n' "- Workflow ref: $GITHUB_WORKFLOW_REF"
+            printf '%s\n' "- Run: \`$GITHUB_RUN_ID\`, attempt \`$GITHUB_RUN_ATTEMPT\`"
+            printf '%s\n' "- Claim ceiling: \`ReferenceModelOnly\`"
+            printf '%s\n' "- Receipt SHA-256: \`$receipt_sha256\`"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload attempt-bound evaluation receipt
+        if: success()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: d6u-independent-verifier-${{ steps.validate.outputs.sha }}-run-${{ github.run_id }}-attempt-${{ github.run_attempt }}
+          path: d6u-independent-verifier-result.txt
+          if-no-files-found: error
+          retention-days: 30
