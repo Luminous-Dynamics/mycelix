@@ -1507,4 +1507,223 @@ mod tests {
         }
     }
 
+
+    #[test]
+    fn generated_budget_oracle_checks_feasibility_and_priority_preservation() {
+        fn next(state: &mut u64) -> u64 {
+            *state = (*state)
+                .wrapping_mul(6_364_136_223_846_793_005)
+                .wrapping_add(1_442_695_040_888_963_407);
+            *state
+        }
+
+        fn reference_option_order(left: &PracticeOption, right: &PracticeOption) -> Ordering {
+            (
+                left.route_priority,
+                &left.task_id,
+                &left.task_version,
+                &left.rubric_id,
+                &left.rubric_version,
+                &left.delivery_mode,
+            )
+                .cmp(&(
+                    right.route_priority,
+                    &right.task_id,
+                    &right.task_version,
+                    &right.rubric_id,
+                    &right.rubric_version,
+                    &right.delivery_mode,
+                ))
+        }
+
+        for seed in 101_u64..=164 {
+            let mut state = seed;
+            let size = 2 + (seed as usize % 9);
+            let modes = [
+                DeliveryMode::RetrievalPractice,
+                DeliveryMode::GuidedPractice,
+                DeliveryMode::Simulation,
+            ];
+            let mut nodes = Vec::with_capacity(size);
+
+            for index in 0..size {
+                let prerequisites = if index == 0 {
+                    Vec::new()
+                } else {
+                    vec![id(&format!("budget-cap-{:02}", index - 1))]
+                };
+                let options = modes
+                    .iter()
+                    .enumerate()
+                    .map(|(option_index, mode)| PracticeOption {
+                        task_id: format!("budget-task-{index:02}-{option_index}"),
+                        task_version: "1".into(),
+                        rubric_id: format!("budget-rubric-{index:02}-{option_index}"),
+                        rubric_version: "1".into(),
+                        route_priority: (next(&mut state) % 7) as u16,
+                        rationale: "Generated budget fixture; efficacy is not measured.".into(),
+                        estimated_minutes: 1 + (next(&mut state) % 20) as u32,
+                        delivery_mode: mode.clone(),
+                    })
+                    .collect();
+                nodes.push(CapabilityNode {
+                    capability_id: id(&format!("budget-cap-{index:02}")),
+                    version: "1".into(),
+                    title: format!("Budget capability {index}"),
+                    prerequisites,
+                    practice_options: options,
+                });
+            }
+
+            let graph = CapabilityGraph {
+                graph_id: format!("generated-budget-{seed}"),
+                revision: "v1".into(),
+                nodes,
+            };
+            let target = id(&format!("budget-cap-{:02}", size - 1));
+            let by_id: BTreeMap<_, _> = graph
+                .nodes
+                .iter()
+                .map(|node| (node.capability_id.clone(), node))
+                .collect();
+
+            let minimum_by_node: Vec<u32> = (0..size)
+                .map(|index| {
+                    graph.nodes[index]
+                        .practice_options
+                        .iter()
+                        .filter(|option| option.estimated_minutes <= 20)
+                        .map(|option| option.estimated_minutes)
+                        .min()
+                        .expect("each generated node has eligible practice options")
+                })
+                .collect();
+            let minimum_total: u32 = minimum_by_node.iter().sum();
+            // Every fourth seed is deliberately infeasible; the others are at or
+            // just above the proven minimum to exercise budget-driven substitution.
+            let budget = if seed % 4 == 0 {
+                minimum_total - 1
+            } else {
+                minimum_total + (seed % 6) as u32
+            };
+
+            let request = GoalPlanRequest {
+                request_id: format!("generated-budget-request-{seed}"),
+                target_capability: target,
+                constraints: GoalPlanConstraints {
+                    allowed_delivery_modes: modes.iter().cloned().collect(),
+                    max_task_minutes: 20,
+                    max_total_minutes: budget,
+                },
+                preferred_practice: BTreeMap::new(),
+            };
+
+            let result = compile_goal_plan(&graph, &request, 100);
+            if minimum_total > budget {
+                assert_eq!(
+                    result,
+                    Err(GoalPlanError::TotalBudgetExceeded {
+                        required_minutes: minimum_total,
+                        budget_minutes: budget,
+                    }),
+                    "infeasible generated budget was not rejected with its lower bound for seed {seed}"
+                );
+                continue;
+            }
+
+            let plan = result.unwrap_or_else(|error| {
+                panic!("feasible generated budget rejected for seed {seed}: {error}")
+            });
+            assert_eq!(plan.steps.len(), size, "chain closure incomplete for seed {seed}");
+
+            // Independently compute the minimum-duration suffix in route order.
+            let mut suffix_minimum = vec![0_u32; size + 1];
+            for index in (0..size).rev() {
+                let source_node = by_id
+                    .get(&plan.steps[index].capability_id)
+                    .expect("every plan step maps to a source node");
+                let local_minimum = source_node
+                    .practice_options
+                    .iter()
+                    .filter(|option| {
+                        option.estimated_minutes <= request.constraints.max_task_minutes
+                            && request.constraints.allowed_delivery_modes.contains(&option.delivery_mode)
+                    })
+                    .map(|option| option.estimated_minutes)
+                    .min()
+                    .expect("generated option is eligible");
+                suffix_minimum[index] = suffix_minimum[index + 1] + local_minimum;
+            }
+            assert_eq!(suffix_minimum[0], minimum_total, "lower bound differs for seed {seed}");
+
+            let mut prefix_total = 0_u32;
+            let mut independent_total = 0_u32;
+            for (index, step) in plan.steps.iter().enumerate() {
+                let source_node = by_id
+                    .get(&step.capability_id)
+                    .expect("proposal step maps to source node");
+                let mut eligible: Vec<&PracticeOption> = source_node
+                    .practice_options
+                    .iter()
+                    .filter(|option| {
+                        option.estimated_minutes <= request.constraints.max_task_minutes
+                            && request.constraints.allowed_delivery_modes.contains(&option.delivery_mode)
+                    })
+                    .collect();
+                eligible.sort_by(|left, right| reference_option_order(left, right));
+
+                let expected = eligible
+                    .iter()
+                    .find(|option| {
+                        prefix_total
+                            .checked_add(option.estimated_minutes)
+                            .and_then(|subtotal| subtotal.checked_add(suffix_minimum[index + 1]))
+                            .is_some_and(|minimum_feasible| minimum_feasible <= budget)
+                    })
+                    .expect("the minimum route proves a feasible option exists");
+
+                assert_eq!(
+                    PracticeOptionRef::from(*expected),
+                    PracticeOptionRef::from(&step.proposed_practice),
+                    "planner did not preserve the best feasible priority at step {index}, seed {seed}"
+                );
+
+                let first_option = eligible.first().expect("generated node has options");
+                let expected_basis = if option_matches_ref(first_option, &PracticeOptionRef::from(&step.proposed_practice)) {
+                    PracticeSelectionBasis::CuratorPriority
+                } else {
+                    PracticeSelectionBasis::BudgetFeasibility
+                };
+                assert_eq!(step.selection_basis, expected_basis, "selection basis mismatch for seed {seed}");
+
+                let local_minimum = suffix_minimum[index] - suffix_minimum[index + 1];
+                let mut expected_alternatives: Vec<PracticeOptionRef> = eligible
+                    .iter()
+                    .filter(|option| {
+                        !option_matches_ref(option, &PracticeOptionRef::from(&step.proposed_practice))
+                            && minimum_total
+                                .checked_sub(local_minimum)
+                                .and_then(|other_minima| other_minima.checked_add(option.estimated_minutes))
+                                .is_some_and(|minimum_with_alternative| minimum_with_alternative <= budget)
+                    })
+                    .map(|option| PracticeOptionRef::from(*option))
+                    .collect();
+                expected_alternatives.sort();
+                let mut actual_alternatives: Vec<PracticeOptionRef> = step
+                    .eligible_alternatives
+                    .iter()
+                    .map(PracticeOptionRef::from)
+                    .collect();
+                actual_alternatives.sort();
+                assert_eq!(actual_alternatives, expected_alternatives, "alternative eligibility mismatch for seed {seed}");
+
+                prefix_total += step.proposed_practice.estimated_minutes;
+                independent_total += step.proposed_practice.estimated_minutes;
+            }
+
+            assert_eq!(plan.estimated_total_minutes, independent_total);
+            assert!(independent_total <= budget);
+        }
+    }
+
 }
