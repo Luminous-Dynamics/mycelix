@@ -9,7 +9,7 @@ use crate::{ClientError, MarketplaceClient, TransportKind, ZomeTransport};
 use async_trait::async_trait;
 use marketplace_domain::{
     ActionHash, AgentPubKey, EmpiricalLevel, ListingCatalogCoverage, ListingCatalogSnapshotV1,
-    ListingCategory, ListingOutput, ListingResolution, ListingResolutionReason,
+    ListingCategory, ListingOutput, ListingResolutionReason,
     ListingResolutionState, ListingStatus, ListingsResponse,
 };
 use std::collections::HashSet;
@@ -488,19 +488,6 @@ mod tests {
             single_observed_head_count: single,
             concurrent_head_listing_count: concurrent,
             listings,
-        }
-    }
-
-    fn single_resolution(output: ListingOutput) -> ListingResolution {
-        ListingResolution {
-            root_listing_hash: output.listing_hash.clone(),
-            policy_version: 1,
-            observation_scope: marketplace_domain::ListingObservationScope::LocalDhtUpdateGraph,
-            state: ListingResolutionState::SingleObservedHead,
-            reason: ListingResolutionReason::SingleObservedHead,
-            sole_observed_head: Some(output.clone()),
-            heads: vec![output],
-            revision_count: 1,
         }
     }
 
