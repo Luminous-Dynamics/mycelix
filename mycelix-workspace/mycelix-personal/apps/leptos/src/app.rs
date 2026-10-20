@@ -732,6 +732,34 @@ fn HealthPage() -> impl IntoView {
                         />
                     </div>
                 </section>
+
+                <section class="vault-card">
+                    <SectionTitle title="Use a shared health consent" />
+                    <form class="profile-form" on:submit=connect_shared>
+                        <label class="field-block">
+                            <span>"Capability offer JSON from the record owner"</span>
+                            <textarea
+                                class="form-textarea"
+                                rows="5"
+                                prop:value=move || shared_offer_input.get()
+                                on:input=move |ev| shared_offer_input.set(event_target_value(&ev))
+                            />
+                        </label>
+                        <label class="field-block">
+                            <span>"Requested record types (comma-separated)"</span>
+                            <input
+                                class="form-input"
+                                prop:value=move || shared_request_types.get()
+                                on:input=move |ev| shared_request_types.set(event_target_value(&ev))
+                            />
+                        </label>
+                        <div class="form-actions">
+                            <button class="btn btn-primary" type="submit">"Store claim and fetch allowed records"</button>
+                        </div>
+                    </form>
+                    <p class="muted">"A failed or unreachable source is shown as an error, not replaced with cached authorization or demo data."</p>
+                    <pre>{move || serde_json::to_string_pretty(&shared_records.get()).unwrap_or_default()}</pre>
+                </section>
             </div>
         </div>
     }
