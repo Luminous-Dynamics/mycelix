@@ -59,6 +59,7 @@ jobs:
           cargo bench --locked --manifest-path "$PACKAGE" --bench policy_lifecycle -- --noplot 2>&1 | tee "$log"
         env:
           PACKAGE: mycelix-workspace/mycelix-space/tools/claim-ceiling-reference/Cargo.toml
+          CARGO_TARGET_DIR: ${{ runner.temp }}/policy-cargo-target
 
       - name: Collect Criterion output
         if: always()
@@ -66,7 +67,7 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p "$RUNNER_TEMP/policy-performance"
-          mapfile -t candidates < <(find "$GITHUB_WORKSPACE" -type d -path '*/target/criterion' -print 2>/dev/null | sort)
+          mapfile -t candidates < <(printf '%s\n' "$RUNNER_TEMP/policy-cargo-target/criterion"; find "$GITHUB_WORKSPACE" -type d -path '*/target/criterion' -print 2>/dev/null | sort)
           copied=false
           for target in "${candidates[@]}"; do
             if find "$target" -type f -print -quit | grep -q .; then
