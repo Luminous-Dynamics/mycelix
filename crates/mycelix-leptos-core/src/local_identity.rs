@@ -431,24 +431,75 @@ pub fn local_did() -> String {
 /// also gating its startup on an unlock prompt.
 pub fn ensure_keypair() -> SigningKey {
     if let Some(signing_key) = UNLOCKED_KEY.with(|cell| cell.borrow().clone()) {
-        return signing_key;
+        let posture = inspect_local_identity_posture();
+        let cache_matches_storage = match posture {
+            LocalIdentityStoragePosture::ProtectedUnlockedInSession => true,
+            LocalIdentityStoragePosture::UnprotectedIdentity => load_signing_key()
+                .is_some_and(|stored| stored.verifying_key() == signing_key.verifying_key()),
+            _ => false,
+        };
+        if cache_matches_storage {
+            return signing_key;
+        }
+        UNLOCKED_KEY.with(|cell| *cell.borrow_mut() = None);
+        panic!(
+            "Cached local identity no longer matches a recognized persisted identity posture. \
+             No key was replaced. Inspect storage and use the explicit recovery path."
+        );
     }
+
     if let Some(signing_key) = load_signing_key() {
+        if inspect_local_identity_posture() != LocalIdentityStoragePosture::UnprotectedIdentity {
+            panic!(
+                "Stored key material exists, but identity posture is not a consistent unprotected keypair. \
+                 No replacement identity was created."
+            );
+        }
         UNLOCKED_KEY.with(|cell| *cell.borrow_mut() = Some(signing_key.clone()));
         return signing_key;
     }
-    if is_passphrase_protected() {
-        panic!(
+
+    match inspect_local_identity_posture() {
+        LocalIdentityStoragePosture::NoIdentity => {
+            // Legacy compatibility: some non-Personal callers still rely on
+            // first-use key creation. This path is intentionally isolated to
+            // a positively identified empty storage state. It remains
+            // unprotected and is tracked for removal by SEC-IDENTITY-003.
+            let signing_key = generate_signing_key();
+            store_signing_key(&signing_key);
+            if inspect_local_identity_posture() != LocalIdentityStoragePosture::UnprotectedIdentity
+                || !load_signing_key()
+                    .is_some_and(|stored| stored.verifying_key() == signing_key.verifying_key())
+            {
+                UNLOCKED_KEY.with(|cell| *cell.borrow_mut() = None);
+                panic!(
+                    "Legacy identity creation could not be verified after storage write. \
+                     No key was treated as persisted."
+                );
+            }
+            UNLOCKED_KEY.with(|cell| *cell.borrow_mut() = Some(signing_key.clone()));
+            signing_key
+        }
+        LocalIdentityStoragePosture::ProtectedLocked => panic!(
             "Local identity is passphrase-protected but locked this session. \
-             Call `unlock_with_passphrase()` before `ensure_keypair()` \
-             (directly or via `local_did()`/`sign_with_local_identity()`/ \
-             `provide_local_identity()`, which all call it)."
-        );
+             Call `unlock_with_passphrase()` before accessing it. No replacement identity was created."
+        ),
+        LocalIdentityStoragePosture::LegacyIdentityNeedsMigration => panic!(
+            "A legacy identity marker exists and requires explicit migration. No replacement identity was created."
+        ),
+        LocalIdentityStoragePosture::StorageUnavailable => panic!(
+            "Local identity storage is unavailable. No replacement identity was created."
+        ),
+        LocalIdentityStoragePosture::CorruptOrInconsistent => panic!(
+            "Local identity storage is corrupt or inconsistent. Preserve it and use the explicit recovery path."
+        ),
+        LocalIdentityStoragePosture::UnprotectedIdentity => panic!(
+            "A keypair appears to exist but could not be loaded consistently. No replacement identity was created."
+        ),
+        LocalIdentityStoragePosture::ProtectedUnlockedInSession => panic!(
+            "The protected identity posture is unlocked, but no valid in-memory key is available."
+        ),
     }
-    let signing_key = generate_signing_key();
-    store_signing_key(&signing_key);
-    UNLOCKED_KEY.with(|cell| *cell.borrow_mut() = Some(signing_key.clone()));
-    signing_key
 }
 
 /// Is the local identity currently passphrase-protected?
@@ -1158,10 +1209,13 @@ fn store_signing_key(signing_key: &SigningKey) {
 }
 
 fn load_signing_key() -> Option<SigningKey> {
-    let secret_b64 = load_string(IDENTITY_SECRET_KEY)?;
-    let secret_bytes = base64_decode(&secret_b64)?;
-    let secret_array: [u8; 32] = secret_bytes.try_into().ok()?;
-    Some(SigningKey::from_bytes(&secret_array))
+    let mut secret_b64 = load_string(IDENTITY_SECRET_KEY)?;
+    let public_b64 = load_string(IDENTITY_PUBLIC_KEY);
+    let signing_key_result = signing_key_from_secret_b64(&secret_b64);
+    secret_b64.zeroize();
+    let signing_key = signing_key_result.ok()?;
+    let public_b64 = public_b64?;
+    public_key_matches_signing_key(&public_b64, &signing_key).then_some(signing_key)
 }
 
 fn base64_encode(bytes: &[u8]) -> String {
