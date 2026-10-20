@@ -159,7 +159,6 @@ pub fn get_listing(listing_hash: ActionHash) -> ExternResult<Option<ListingOutpu
     }
 }
 
-
 /// Resolve the locally observed update graph for any known listing Create/Update action.
 ///
 /// Unlike the legacy `get_listing`, this endpoint does not assume that the

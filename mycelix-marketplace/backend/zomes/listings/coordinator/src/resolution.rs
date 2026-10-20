@@ -73,21 +73,14 @@ pub struct ListingCatalogSnapshotV1 {
 /// Resolve any known listing Create/Update action to its stable root and all
 /// locally observed leaf revisions. Missing input hashes return None; incomplete
 /// ancestry or traversal errors return an error instead of a guessed current item.
-pub fn resolve_listing(
-    listing_hash: ActionHash,
-) -> ExternResult<Option<ListingResolution>> {
+pub fn resolve_listing(listing_hash: ActionHash) -> ExternResult<Option<ListingResolution>> {
     let Some(root_listing_hash) = find_root(listing_hash)? else {
         return Ok(None);
     };
 
     let mut visited = Vec::new();
     let mut heads = Vec::new();
-    collect_heads(
-        root_listing_hash.clone(),
-        0,
-        &mut visited,
-        &mut heads,
-    )?;
+    collect_heads(root_listing_hash.clone(), 0, &mut visited, &mut heads)?;
 
     let revision_count = u32::try_from(visited.len()).unwrap_or(u32::MAX);
     project_observed_heads(root_listing_hash, revision_count, heads)
@@ -240,8 +233,8 @@ fn project_observed_heads(
 mod tests {
     use super::*;
     use listings_integrity::{
-        EmpiricalLevel, EpistemicClassification, ListingCategory, ListingStatus,
-        MaterialityLevel, NormativeLevel,
+        EmpiricalLevel, EpistemicClassification, ListingCategory, ListingStatus, MaterialityLevel,
+        NormativeLevel,
     };
 
     fn hash(byte: u8) -> ActionHash {
@@ -287,7 +280,10 @@ mod tests {
         let projection = project_observed_heads(root.clone(), 2, vec![output]).unwrap();
 
         assert_eq!(projection.state, ListingResolutionState::Resolved);
-        assert_eq!(projection.reason, ListingResolutionReason::SingleObservedHead);
+        assert_eq!(
+            projection.reason,
+            ListingResolutionReason::SingleObservedHead
+        );
         assert_eq!(projection.root_listing_hash, root);
         assert_eq!(projection.canonical.as_ref().unwrap().listing_hash, hash(2));
         assert_eq!(projection.revision_count, 2);
@@ -299,11 +295,13 @@ mod tests {
         let root = hash(1);
         let first = listing_output(2, 25_000, 3, ListingStatus::Active);
         let second = listing_output(3, 22_000, 1, ListingStatus::Active);
-        let projection =
-            project_observed_heads(root, 3, vec![first, second]).unwrap();
+        let projection = project_observed_heads(root, 3, vec![first, second]).unwrap();
 
         assert_eq!(projection.state, ListingResolutionState::Conflicted);
-        assert_eq!(projection.reason, ListingResolutionReason::ConcurrentObservedHeads);
+        assert_eq!(
+            projection.reason,
+            ListingResolutionReason::ConcurrentObservedHeads
+        );
         assert!(projection.canonical.is_none());
         assert_eq!(projection.heads.len(), 2);
     }
@@ -313,8 +311,7 @@ mod tests {
         let root = hash(1);
         let first = listing_output(2, 25_000, 3, ListingStatus::Active);
         let second = listing_output(3, 25_000, 3, ListingStatus::Active);
-        let projection =
-            project_observed_heads(root, 3, vec![second, first]).unwrap();
+        let projection = project_observed_heads(root, 3, vec![second, first]).unwrap();
 
         assert_eq!(projection.state, ListingResolutionState::Conflicted);
         assert!(projection.canonical.is_none());
@@ -349,8 +346,16 @@ mod tests {
         let first = project_observed_heads(root.clone(), 3, vec![a.clone(), b.clone()]).unwrap();
         let second = project_observed_heads(root, 3, vec![b, a]).unwrap();
 
-        let first_hashes: Vec<String> = first.heads.iter().map(|head| head.listing_hash.to_string()).collect();
-        let second_hashes: Vec<String> = second.heads.iter().map(|head| head.listing_hash.to_string()).collect();
+        let first_hashes: Vec<String> = first
+            .heads
+            .iter()
+            .map(|head| head.listing_hash.to_string())
+            .collect();
+        let second_hashes: Vec<String> = second
+            .heads
+            .iter()
+            .map(|head| head.listing_hash.to_string())
+            .collect();
         assert_eq!(first_hashes, second_hashes);
         assert!(first.canonical.is_none());
         assert!(second.canonical.is_none());
