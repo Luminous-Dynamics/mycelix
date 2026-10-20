@@ -1,33 +1,36 @@
 # Mycelix Compliance Matrix
 
-This document maps Mycelix capabilities to major compliance frameworks.
+> **Reliance warning — reviewed 2026-10-20:** This is a preliminary control-mapping document, not a compliance determination, certification, audit report, or assertion of production readiness. The [repository README](https://github.com/Luminous-Dynamics/mycelix/blob/main/README.md) describes Mycelix as a pre-alpha research project and says the repository has not been independently threat-modeled or externally audited. The previous percentage scores and “Production Ready” / “Audit Ready” labels were not substantiated in this document by a published scoring method or linked evidence register and are removed. Treat every implementation/control entry below as an unverified claim or candidate mapping until evidence is collected for an exact component version, configuration, and deployment.
 
-## Framework Coverage Summary
+> **Do not use this document as proof of GDPR, HIPAA, SOC 2, ISO 27001, NIST CSF, PCI DSS, or DORA compliance.** Applicability depends on jurisdiction, data, business process, contractual role, and deployment. Framework mapping does not create compliance. No certification or independent assurance report is claimed by this document.
 
-| Framework | Coverage | Status |
-|-----------|----------|--------|
-| GDPR | 95% | Production Ready |
-| HIPAA | 90% | Ready with Configuration |
-| SOC 2 Type II | 85% | Audit Ready |
-| ISO 27001 | 80% | Partial |
-| NIST CSF | 85% | Production Ready |
-| PCI-DSS | N/A | Not Required |
+## Framework mapping summary
+
+| Framework | Current mapping status | External assurance |
+|---|---|---|
+| GDPR | Preliminary conceptual mapping; artifact-level evidence not inventoried | Not claimed |
+| HIPAA | Scope-dependent; not a healthcare compliance determination | Not claimed |
+| SOC 2 | Candidate Trust Services Criteria mapping; no auditor report linked here | Not claimed |
+| ISO 27001 | Candidate control mapping; no certificate linked here | Not claimed |
+| NIST Cybersecurity Framework | Candidate mapping; control implementation and evidence require verification | Not claimed |
+| PCI DSS | Applicability must be determined from the exact cardholder-data environment; “not required” is not assumed | Not assessed here |
+| EU DORA | Applicability and contractual role must be determined per institution and deployment | Not assessed here |
 
 ---
 
-## GDPR Compliance
+## GDPR control mapping (not a compliance determination)
 
 ### Article 5: Data Processing Principles
 
 | Principle | Mycelix Implementation | Status |
 |-----------|------------------------|--------|
-| Lawfulness, fairness, transparency | Node consent on registration | ✅ |
-| Purpose limitation | Gradients used only for FL | ✅ |
-| Data minimization | No raw data transmitted | ✅ |
-| Accuracy | Byzantine detection ensures quality | ✅ |
-| Storage limitation | Configurable retention | ✅ |
-| Integrity & confidentiality | TLS, encryption, signatures | ✅ |
-| Accountability | Audit logging | ✅ |
+| Lawfulness, fairness, transparency | Node consent on registration | Mapped — not independently verified |
+| Purpose limitation | Gradients used only for FL | Mapped — not independently verified |
+| Data minimization | No raw data transmitted | Mapped — not independently verified |
+| Accuracy | Byzantine detection ensures quality | Mapped — not independently verified |
+| Storage limitation | Configurable retention | Mapped — not independently verified |
+| Integrity & confidentiality | TLS, encryption, signatures | Mapped — not independently verified |
+| Accountability | Audit logging | Mapped — not independently verified |
 
 ### Article 17: Right to Erasure
 
@@ -64,14 +67,14 @@ pub async fn delete_participant_data(agent_id: &AgentPubKey) -> Result<()> {
 
 | Risk | Likelihood | Impact | Mitigation | Residual Risk |
 |------|------------|--------|------------|---------------|
-| Gradient inversion | Medium | High | Differential privacy | Low |
-| Model memorization | Low | High | Training limits | Low |
-| Byzantine poisoning | High | High | Detection system | Very Low |
-| Data exfiltration | Low | High | Encryption + auth | Very Low |
+| Gradient inversion | Medium | High | Differential privacy | Not validated |
+| Model memorization | Not validated | High | Training limits | Not validated |
+| Byzantine poisoning | High | High | Detection system | Not validated |
+| Data exfiltration | Not validated | High | Encryption + auth | Not validated |
 
 ---
 
-## HIPAA Compliance
+## HIPAA control mapping (scope-dependent; not a compliance determination)
 
 ### Administrative Safeguards (§164.308)
 
@@ -107,7 +110,7 @@ pub async fn delete_participant_data(agent_id: &AgentPubKey) -> Result<()> {
 | Workstation use | N/A for automated nodes | Security policies |
 | Device controls | Encrypted volumes | Disk encryption required |
 
-### Configuration for HIPAA
+### Example HIPAA configuration (illustrative; not a verified safe baseline)
 
 ```toml
 # config/hipaa.toml
@@ -138,7 +141,7 @@ differential_privacy_epsilon = 0.5  # Stricter for healthcare
 
 ---
 
-## SOC 2 Type II Controls
+## SOC 2 Trust Services Criteria mapping (not independently audited)
 
 ### Trust Services Criteria
 
@@ -222,7 +225,7 @@ differential_privacy_epsilon = 0.5  # Stricter for healthcare
 
 ---
 
-## NIST Cybersecurity Framework
+## NIST Cybersecurity Framework mapping (not independently verified)
 
 ### Identify (ID)
 
@@ -280,36 +283,36 @@ differential_privacy_epsilon = 0.5  # Stricter for healthcare
 
 | Control | Status | Notes |
 |---------|--------|-------|
-| A.5 Information security policies | ✅ | Documented |
-| A.6 Organization of information security | ✅ | RACI defined |
-| A.7 Human resource security | ⚠️ | Requires HR integration |
-| A.8 Asset management | ✅ | IaC inventory |
-| A.9 Access control | ✅ | RBAC + audit |
-| A.10 Cryptography | ✅ | Strong crypto throughout |
-| A.11 Physical security | ⚠️ | CSP dependent |
-| A.12 Operations security | ✅ | Automated ops |
-| A.13 Communications security | ✅ | TLS + mTLS |
-| A.14 System acquisition | ✅ | Secure SDLC |
-| A.15 Supplier relationships | ⚠️ | Vendor assessment needed |
-| A.16 Incident management | ✅ | IR procedures |
-| A.17 Business continuity | ✅ | HA + DR |
-| A.18 Compliance | ✅ | This matrix |
+| A.5 Information security policies | Mapped — not independently verified | Documented |
+| A.6 Organization of information security | Mapped — not independently verified | RACI defined |
+| A.7 Human resource security | Gap noted — evidence/retest required | Requires HR integration |
+| A.8 Asset management | Mapped — not independently verified | IaC inventory |
+| A.9 Access control | Mapped — not independently verified | RBAC + audit |
+| A.10 Cryptography | Mapped — not independently verified | Strong crypto throughout |
+| A.11 Physical security | Gap noted — evidence/retest required | CSP dependent |
+| A.12 Operations security | Mapped — not independently verified | Automated ops |
+| A.13 Communications security | Mapped — not independently verified | TLS + mTLS |
+| A.14 System acquisition | Mapped — not independently verified | Secure SDLC |
+| A.15 Supplier relationships | Gap noted — evidence/retest required | Vendor assessment needed |
+| A.16 Incident management | Mapped — not independently verified | IR procedures |
+| A.17 Business continuity | Mapped — not independently verified | HA + DR |
+| A.18 Compliance | Mapped — not independently verified | This matrix |
 
 ---
 
-## Evidence Collection
+## Evidence collection — verification required
 
-### Automated Evidence
+The repository has not established here that the commands and artifacts below are implemented in a releasable build or have been independently checked. Treat this section as a proposed evidence checklist until each item is demonstrated against a pinned version and deployment. Do not present examples as runnable CLI commands without verification.
 
-The following evidence is automatically collected:
+### Candidate automated evidence (verify on pinned build)
 
 ```bash
-# Generate compliance report
+# Illustrative command shape only — verify command availability/output against a pinned build.
 mycelix compliance-report --framework gdpr > gdpr-evidence.json
 mycelix compliance-report --framework hipaa > hipaa-evidence.json
 mycelix compliance-report --framework soc2 > soc2-evidence.json
 
-# Evidence includes:
+# Desired report should include once implemented and verified:
 # - Access logs (90 days)
 # - Configuration snapshots
 # - Security scan results
@@ -317,36 +320,34 @@ mycelix compliance-report --framework soc2 > soc2-evidence.json
 # - Change history
 ```
 
-### Manual Evidence
+### Requested manual evidence (not evidence of current completion)
 
-| Evidence Type | Collection Frequency | Owner |
-|---------------|---------------------|-------|
-| Risk assessments | Quarterly | Security Team |
-| Penetration tests | Annual | External Vendor |
-| Policy reviews | Annual | Compliance |
-| Training records | Per employee | HR |
-| Vendor assessments | Annual per vendor | Procurement |
-
----
-
-## Certification Roadmap
-
-| Certification | Target Date | Prerequisites |
-|---------------|-------------|---------------|
-| SOC 2 Type I | Q2 2026 | Current controls |
-| SOC 2 Type II | Q4 2026 | 6 months of evidence |
-| ISO 27001 | Q1 2027 | SOC 2 + physical controls |
-| HIPAA attestation | As needed | Customer requirement |
+| Evidence type | Proposed cadence / trigger | Accountable role to assign |
+|---|---|---|
+| Risk assessments | Quarterly and after material change | Named operational-risk owner |
+| Penetration tests | Before production approval and after material changes | Independent qualified tester |
+| Policy reviews | At least annually and on material change | Named policy owner |
+| Training records | As applicable to the deployment and workforce | Named workforce/compliance owner |
+| Vendor assessments | Before onboarding and after material changes | Named third-party-risk owner |
 
 ---
 
-## Contact
+## External assurance status
 
-For compliance inquiries:
-- Compliance Team: compliance@luminousdynamics.com
-- Data Protection Officer: dpo@luminousdynamics.com
+| Assurance item | Status as represented by this repository document | Evidence needed before making a claim |
+|---|---|---|
+| SOC 2 Type I / Type II | Not claimed; no independent auditor report is linked here | Defined system and service scope, control evidence, auditor report and applicable period |
+| ISO 27001 | Not claimed; no certificate is linked here | Defined ISMS scope and current certificate from an accredited certification body |
+| HIPAA | No attestation or blanket compliance claim | Determine applicability; document the covered service, required agreements, risk analysis, safeguards, and evidence with qualified counsel/compliance owners |
+| Regulatory approval | Not claimed | Written evidence from the relevant authority, where an approval regime applies |
 
 ---
 
-*Last updated: January 2026*
+## Contact and accountability
+
+Use the maintainer/contact route published in the repository README for review of this draft. This matrix does not establish that a dedicated compliance team or Data Protection Officer has been appointed. Before institutional diligence, identify the responsible legal entity, accountable control owners, and any statutory appointments and service-specific contact channels that apply.
+
+---
+
+*Last revised: 2026-10-20; no external assurance is claimed by this document.*
 *Document version: 1.0.0*
