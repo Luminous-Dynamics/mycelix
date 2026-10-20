@@ -249,13 +249,11 @@ pub fn get_all_listings(_: ()) -> ExternResult<ListingsResponse> {
     let mut listings = Vec::new();
 
     for link in links {
-        if let Some(action_hash) = link.target.into_action_hash() {
-            if let Some(listing_output) = get_listing(action_hash)? {
-                // Filter out deleted/inactive if needed
-                if listing_output.listing.status != ListingStatus::Deleted {
-                    listings.push(listing_output);
-                }
-            }
+        if let Some(action_hash) = link.target.into_action_hash()
+            && let Some(listing_output) = get_listing(action_hash)?
+            && listing_output.listing.status != ListingStatus::Deleted
+        {
+            listings.push(listing_output);
         }
     }
 
@@ -271,10 +269,10 @@ pub fn get_listings_by_seller(agent_id: AgentPubKey) -> ExternResult<ListingsRes
     let mut listings = Vec::new();
 
     for link in links {
-        if let Some(action_hash) = link.target.into_action_hash() {
-            if let Some(listing_output) = get_listing(action_hash)? {
-                listings.push(listing_output);
-            }
+        if let Some(action_hash) = link.target.into_action_hash()
+            && let Some(listing_output) = get_listing(action_hash)?
+        {
+            listings.push(listing_output);
         }
     }
 
@@ -299,10 +297,10 @@ pub fn get_listings_by_category(category: ListingCategory) -> ExternResult<Listi
     let mut listings = Vec::new();
 
     for link in links {
-        if let Some(action_hash) = link.target.into_action_hash() {
-            if let Some(listing_output) = get_listing(action_hash)? {
-                listings.push(listing_output);
-            }
+        if let Some(action_hash) = link.target.into_action_hash()
+            && let Some(listing_output) = get_listing(action_hash)?
+        {
+            listings.push(listing_output);
         }
     }
 
