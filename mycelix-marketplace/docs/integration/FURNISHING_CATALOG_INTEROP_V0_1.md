@@ -184,9 +184,9 @@ Run from the repository root:
 
 ```sh
 cargo fmt --manifest-path mycelix-marketplace/tools/furnishing-profile-audit/Cargo.toml -- --check
-cargo test --manifest-path mycelix-marketplace/tools/furnishing-profile-audit/Cargo.toml
-cargo clippy --manifest-path mycelix-marketplace/tools/furnishing-profile-audit/Cargo.toml --all-targets -- -D warnings
+cargo test --locked --manifest-path mycelix-marketplace/tools/furnishing-profile-audit/Cargo.toml
+cargo clippy --locked --manifest-path mycelix-marketplace/tools/furnishing-profile-audit/Cargo.toml --all-targets -- -D warnings
 cargo run --manifest-path mycelix-marketplace/tools/furnishing-profile-audit/Cargo.toml -- mycelix-marketplace/contracts/fixtures/furnishing-adapter-request-v0.1.json
 ```
 
-The audit is deliberately narrow; it does not authenticate Mycelix, prove seller claims, or independently verify source digests against any external source bytes. A format-valid digest is not proof of artifact integrity unless the verifier recomputes it over the actual artifact. It is also not a marketplace production integration. Exact-head formatting/tests/Clippy must pass on the pinned head before treating this verifier as qualified. The standalone crate does not yet have a committed lockfile, so the dependency closure still needs to be frozen before reproducible qualification.
+The audit is deliberately narrow; it does not authenticate Mycelix, prove seller claims, or independently verify source digests against any external source bytes. A format-valid digest is not proof of artifact integrity unless the verifier recomputes it over the actual artifact. It is also not a marketplace production integration. Exact-head formatting/tests/Clippy must pass on the pinned head before treating this verifier as qualified. The standalone crate now includes a committed `Cargo.lock`; the exact-head workflow uses `--locked` for tests and Clippy to verify the pinned dependency closure.
