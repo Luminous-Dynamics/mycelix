@@ -1,6 +1,9 @@
 name: Furnishing discovery audit
 
 on:
+  push:
+    branches:
+      - feat/furnishing-readonly-discovery-20261020
   pull_request:
     paths:
       - "mycelix-marketplace/frontend-leptos/crates/marketplace-domain/**"
