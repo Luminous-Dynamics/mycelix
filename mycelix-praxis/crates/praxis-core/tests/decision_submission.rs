@@ -277,8 +277,8 @@ fn decision_submission_json_schema_accepts_all_three_typed_outcomes() {
         jsonschema::draft202012::meta::is_valid(&schema),
         "decision-submission schema must conform to Draft 2020-12"
     );
-    let validator = jsonschema::draft202012::new(&schema)
-        .expect("decision-submission schema compiles");
+    let validator =
+        jsonschema::draft202012::new(&schema).expect("decision-submission schema compiles");
 
     let supported_claim = serde_json::to_value(submission(claim())).expect("claim serializes");
     assert!(validator.is_valid(&supported_claim));
@@ -301,8 +301,8 @@ fn decision_submission_json_schema_accepts_all_three_typed_outcomes() {
 fn decision_submission_json_schema_rejects_leaks_and_unjustified_outputs() {
     let schema: Value =
         serde_json::from_str(DECISION_SUBMISSION_SCHEMA).expect("decision schema parses");
-    let validator = jsonschema::draft202012::new(&schema)
-        .expect("decision-submission schema compiles");
+    let validator =
+        jsonschema::draft202012::new(&schema).expect("decision-submission schema compiles");
     let valid = serde_json::to_value(submission(claim())).expect("claim serializes");
 
     let mut unknown_field = valid.clone();
@@ -314,8 +314,7 @@ fn decision_submission_json_schema_rejects_leaks_and_unjustified_outputs() {
     assert!(!validator.is_valid(&unsupported_confidence));
 
     let mut empty_support = valid.clone();
-    empty_support["outcome"]["rationale"]["supporting_evidence_ids"] =
-        Value::Array(Vec::new());
+    empty_support["outcome"]["rationale"]["supporting_evidence_ids"] = Value::Array(Vec::new());
     assert!(!validator.is_valid(&empty_support));
 
     let mut invalid_kind = valid;
