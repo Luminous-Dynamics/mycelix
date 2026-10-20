@@ -14,6 +14,8 @@ use serde::{Deserialize, Serialize};
 
 const RELEASE_SCHEMA: &[u8] =
     include_bytes!("../schemas/claim-policy-release-descriptor-v1.schema.json");
+const LIFECYCLE_RECEIPT_SCHEMA: &[u8] =
+    include_bytes!("../schemas/claim-policy-lifecycle-receipt-v1.schema.json");
 
 pub const RELEASE_DESCRIPTOR_SCHEMA_VERSION: &str = "mycelix.claim-policy-release-descriptor.v1";
 
@@ -95,7 +97,10 @@ pub struct PolicyLifecycleReceiptV1 {
     pub policy_id: String,
     pub audience: String,
     pub release_descriptor_sha256: String,
+    pub release_descriptor_schema_sha256: String,
     pub actual_profile_sha256: String,
+    /// Digest of deterministic serialization of the trusted evaluation context.
+    pub trusted_context_sha256: String,
     pub installed_head_before: Option<InstalledPolicyHeadV1>,
     /// Proposed next head only. The caller must persist it atomically after all
     /// required checks; emitting this field does not mutate durable anti-rollback state.
@@ -206,6 +211,9 @@ pub fn evaluate_policy_release_bytes(
     }
 
     let actual_profile_sha256 = sha256(profile_bytes);
+    let trusted_context_bytes = serde_json::to_vec(trusted_context)
+        .map_err(|error| format!("trusted context serialization failed: {error}"))?;
+    let trusted_context_sha256 = sha256(&trusted_context_bytes);
     let mut violations = Vec::new();
 
     if let Some((code, message)) = status_violation(trusted_context.distribution_status) {
@@ -385,12 +393,14 @@ pub fn evaluate_policy_release_bytes(
         PolicyLifecycleDispositionV1::Rejected => None,
     };
 
-    Ok(PolicyLifecycleReceiptV1 {
+    let receipt = PolicyLifecycleReceiptV1 {
         schema_version: "mycelix.claim-policy-lifecycle.receipt.v1".to_owned(),
         policy_id: release.policy_id,
         audience: release.audience,
         release_descriptor_sha256: sha256(release_bytes),
+        release_descriptor_schema_sha256: sha256(RELEASE_SCHEMA),
         actual_profile_sha256,
+        trusted_context_sha256,
         installed_head_before: trusted_context.installed_head.clone(),
         proposed_next_head,
         distribution_status: trusted_context.distribution_status,
@@ -400,7 +410,15 @@ pub fn evaluate_policy_release_bytes(
         evidence_admission_granted: false,
         action_authority_granted: false,
         nonclaims: NONCLAIMS.iter().map(|value| (*value).to_owned()).collect(),
-    })
+    };
+    let receipt_bytes = serde_json::to_vec(&receipt)
+        .map_err(|error| format!("lifecycle receipt serialization failed: {error}"))?;
+    super::validate_json_against_schema(
+        LIFECYCLE_RECEIPT_SCHEMA,
+        &receipt_bytes,
+        "policy lifecycle receipt",
+    )?;
+    Ok(receipt)
 }
 
 #[cfg(test)]
