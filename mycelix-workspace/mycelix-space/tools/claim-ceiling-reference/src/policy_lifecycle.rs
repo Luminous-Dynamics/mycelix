@@ -608,6 +608,18 @@ mod tests {
     }
 
     #[test]
+    fn rejects_high_water_state_scoped_to_a_different_policy_or_audience() {
+        let mut ctx = context();
+        ctx.installed_head.as_mut().unwrap().policy_id = "mycelix.policy.other".to_owned();
+        let receipt = evaluate(release(), ctx, PROFILE_BYTES);
+        assert_eq!(receipt.disposition, PolicyLifecycleDispositionV1::Rejected);
+        assert!(receipt.violations.iter().any(|item| {
+            item.code == "installed_state_policy_mismatch"
+        }));
+        assert!(receipt.proposed_next_head.is_none());
+    }
+
+    #[test]
     fn rejects_release_issued_in_the_future_and_invalid_intervals() {
         let mut candidate = release();
         candidate.issued_at_unix_seconds = 250;
