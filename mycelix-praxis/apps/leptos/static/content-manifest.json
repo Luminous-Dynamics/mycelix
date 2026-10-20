@@ -1574,6 +1574,12 @@
         "title": "Design a Self-Directed Learning Loop"
       }
     ],
+    "EK-LEARN-002": [
+      {
+        "path": "/curriculum/generated/essential-capabilities/ek-learn-002.json",
+        "title": "Learn With AI Without Offloading Your Reasoning"
+      }
+    ],
     "EK-MATH-001": [
       {
         "path": "/curriculum/generated/essential-capabilities/ek-math-001.json",
