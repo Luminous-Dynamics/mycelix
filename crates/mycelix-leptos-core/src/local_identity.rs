@@ -630,8 +630,13 @@ async fn persist_protected_signing_key(
     {
         // Storage.setItem is atomic by contract, but verify/cleanup fail closed
         // rather than relying on a reported write result as proof of state.
-        let cleanup = storage.remove_item(IDENTITY_SECRET_ENCRYPTED_KEY);
-        if cleanup.is_err() {
+        if remove_storage_item_if_matches(
+            &storage,
+            IDENTITY_SECRET_ENCRYPTED_KEY,
+            &encrypted_wire,
+        )
+        .is_err()
+        {
             return Err(
                 "Protected identity write failed and cleanup could not be confirmed; inspect posture before retrying."
                     .into(),
@@ -640,11 +645,16 @@ async fn persist_protected_signing_key(
         return Err("Could not persist the protected identity envelope.".into());
     }
     if storage.set_item(IDENTITY_PUBLIC_KEY, &public_b64).is_err() {
-        let encrypted_cleanup = storage.remove_item(IDENTITY_SECRET_ENCRYPTED_KEY);
-        let public_cleanup = storage.remove_item(IDENTITY_PUBLIC_KEY);
+        let encrypted_cleanup = remove_storage_item_if_matches(
+            &storage,
+            IDENTITY_SECRET_ENCRYPTED_KEY,
+            &encrypted_wire,
+        );
+        let public_cleanup =
+            remove_storage_item_if_matches(&storage, IDENTITY_PUBLIC_KEY, &public_b64);
         if encrypted_cleanup.is_err() || public_cleanup.is_err() {
             return Err(
-                "Identity creation was interrupted and partial storage remains; inspect posture before retrying."
+                "Identity creation was interrupted; concurrent values were preserved where detectable. Inspect posture before retrying."
                     .into(),
             );
         }
@@ -665,12 +675,17 @@ async fn persist_protected_signing_key(
         }
     }
     if !verified {
-        let encrypted_cleanup = storage.remove_item(IDENTITY_SECRET_ENCRYPTED_KEY);
-        let public_cleanup = storage.remove_item(IDENTITY_PUBLIC_KEY);
+        let encrypted_cleanup = remove_storage_item_if_matches(
+            &storage,
+            IDENTITY_SECRET_ENCRYPTED_KEY,
+            &encrypted_wire,
+        );
+        let public_cleanup =
+            remove_storage_item_if_matches(&storage, IDENTITY_PUBLIC_KEY, &public_b64);
         UNLOCKED_KEY.with(|cell| *cell.borrow_mut() = None);
         if encrypted_cleanup.is_err() || public_cleanup.is_err() {
             return Err(
-                "Identity storage verification failed and cleanup was incomplete; inspect posture before retrying."
+                "Identity storage verification failed; different concurrent values were preserved where detectable. Inspect posture before retrying."
                     .into(),
             );
         }
@@ -767,8 +782,13 @@ pub async fn protect_existing_identity(
         .set_item(IDENTITY_SECRET_ENCRYPTED_KEY, &encrypted_wire)
         .is_err()
     {
-        let cleanup = storage.remove_item(IDENTITY_SECRET_ENCRYPTED_KEY);
-        if cleanup.is_err() {
+        if remove_storage_item_if_matches(
+            &storage,
+            IDENTITY_SECRET_ENCRYPTED_KEY,
+            &encrypted_wire,
+        )
+        .is_err()
+        {
             return Err(
                 "Protected write failed and cleanup could not be confirmed; inspect posture before retrying."
                     .into(),
@@ -791,8 +811,13 @@ pub async fn protect_existing_identity(
         }
     }
     if !envelope_verified {
-        let cleanup = storage.remove_item(IDENTITY_SECRET_ENCRYPTED_KEY);
-        if cleanup.is_err() {
+        if remove_storage_item_if_matches(
+            &storage,
+            IDENTITY_SECRET_ENCRYPTED_KEY,
+            &encrypted_wire,
+        )
+        .is_err()
+        {
             return Err(
                 "Envelope verification failed and cleanup was incomplete; inspect posture before retrying."
                     .into(),
@@ -808,11 +833,15 @@ pub async fn protect_existing_identity(
     // has been checked. It is zeroized on either exit path.
     let mut plaintext_rollback = base64_encode(signing_key.as_bytes());
     if storage.remove_item(IDENTITY_SECRET_KEY).is_err() {
-        let cleanup = storage.remove_item(IDENTITY_SECRET_ENCRYPTED_KEY);
+        let cleanup = remove_storage_item_if_matches(
+            &storage,
+            IDENTITY_SECRET_ENCRYPTED_KEY,
+            &encrypted_wire,
+        );
         plaintext_rollback.zeroize();
         if cleanup.is_err() {
             return Err(
-                "Plaintext removal failed and encrypted-envelope cleanup was incomplete; inspect posture before retrying."
+                "Plaintext removal failed; different concurrent envelope values were preserved where detectable. Inspect posture before retrying."
                     .into(),
             );
         }
@@ -1237,6 +1266,44 @@ fn remove_item(key: &str) {
         let _ = storage.remove_item(key);
     }
 }
+
+/// Best-effort ownership-aware cleanup for split localStorage transitions.
+///
+/// This prevents the common failure mode where a losing operation blindly
+/// removes a different value written by another tab. The read/check/remove
+/// sequence is not atomic across tabs; full serialization/transactional storage
+/// remains tracked in SEC-IDENTITY-004.
+fn remove_storage_item_if_matches(
+    storage: &web_sys::Storage,
+    key: &str,
+    expected_value: &str,
+) -> Result<(), String> {
+    let current = storage
+        .get_item(key)
+        .map_err(|_| "Storage could not be read during rollback.".to_string())?;
+    match current.as_deref() {
+        None => Ok(()),
+        Some(value) if value == expected_value => {
+            storage
+                .remove_item(key)
+                .map_err(|_| "The operation's storage value could not be removed.".to_string())?;
+            let after = storage
+                .get_item(key)
+                .map_err(|_| "Storage cleanup could not be verified.".to_string())?;
+            if after.is_none() {
+                Ok(())
+            } else {
+                Err("Storage cleanup could not be verified.".into())
+            }
+        }
+        Some(_) => Err(
+            "A different concurrent storage value was preserved; inspect identity posture."
+                .into(),
+        ),
+    }
+}
+
+
 
 // --- localStorage helpers (generic) ---
 
