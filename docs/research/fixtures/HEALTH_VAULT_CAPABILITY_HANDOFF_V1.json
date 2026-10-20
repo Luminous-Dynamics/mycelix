@@ -1,6 +1,6 @@
 {
   "schema_version": "mycelix.health-vault.capability-handoff-fixtures.v1",
-  "status": "authored_not_executed",
+  "status": "synthetic_fixture_contract",
   "claim_ceiling": "Synthetic conformance fixtures; not runtime qualification or evidence of achieved security/performance.",
   "invariants": [
     "No plaintext capability secret across the UI/transport boundary.",
