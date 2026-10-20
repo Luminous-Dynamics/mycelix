@@ -202,6 +202,26 @@ mod tests {
     }
 
     #[test]
+    fn bounded_reader_accepts_exact_limit_and_rejects_oversized_input() {
+        let path = std::env::temp_dir().join(format!(
+            "mycelix-claim-policy-bounded-read-{}",
+            process::id()
+        ));
+        let path_string = path.to_string_lossy().into_owned();
+
+        fs::write(&path, b"1234").expect("write test input");
+        let error = read_bounded(&path_string, "test input", 3).unwrap_err();
+        assert!(error.contains("exceeds the 3-byte input limit"));
+
+        fs::write(&path, b"123").expect("replace test input");
+        assert_eq!(
+            read_bounded(&path_string, "test input", 3).expect("exact-size input should pass"),
+            b"123"
+        );
+        fs::remove_file(path).expect("remove test input");
+    }
+
+    #[test]
     fn parser_requires_policy_pin_and_input() {
         let error = parse_args(&argv(&[
             "--input",
