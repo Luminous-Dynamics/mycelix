@@ -1,0 +1,114 @@
+name: Hardware Rust CI
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'crates/mycelix-hardware-core/**'
+      - 'crates/mycelix-hardware-interop/**'
+      - 'crates/mycelix-hardware-release/**'
+      - 'crates/mycelix-hardware-kicad-gateway/**'
+      - 'mycelix-manufacturing/crates/hardware_projection/**'
+      - 'mycelix-manufacturing/crates/facility_capability/**'
+      - 'mycelix-manufacturing/Cargo.toml'
+      - '.github/workflows/hardware-semantic-ci.yml'
+  pull_request:
+    branches: ['**']
+    paths:
+      - 'crates/mycelix-hardware-core/**'
+      - 'crates/mycelix-hardware-interop/**'
+      - 'crates/mycelix-hardware-release/**'
+      - 'crates/mycelix-hardware-kicad-gateway/**'
+      - 'mycelix-manufacturing/crates/hardware_projection/**'
+      - 'mycelix-manufacturing/crates/facility_capability/**'
+      - 'mycelix-manufacturing/Cargo.toml'
+      - '.github/workflows/hardware-semantic-ci.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: hardware-rust-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  qualify:
+    name: Qualify hardware Rust crates
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+      - name: Validate qualification surface
+        run: |
+          test -f .github/workflows/hardware-semantic-ci.yml
+          found=0
+          for crate in mycelix-hardware-core mycelix-hardware-interop mycelix-hardware-release mycelix-hardware-kicad-gateway; do
+            if [ -f "crates/$crate/Cargo.toml" ]; then
+              echo "Found crates/$crate"
+              found=1
+            fi
+          done
+          for crate in hardware_projection facility_capability; do
+            if [ -f "mycelix-manufacturing/crates/$crate/Cargo.toml" ]; then
+              echo "Found mycelix-manufacturing/crates/$crate"
+              found=1
+            fi
+          done
+          if [ "$found" -eq 0 ]; then
+            echo "No hardware Rust crate exists on this branch yet; workflow infrastructure only."
+          fi
+      - name: Check formatting
+        run: |
+          for crate in mycelix-hardware-core mycelix-hardware-interop mycelix-hardware-release mycelix-hardware-kicad-gateway; do
+            if [ -f "crates/$crate/Cargo.toml" ]; then
+              cargo fmt --manifest-path "crates/$crate/Cargo.toml" --all --check
+            fi
+          done
+          for crate in hardware_projection facility_capability; do
+            if [ -f "mycelix-manufacturing/crates/$crate/Cargo.toml" ]; then
+              cargo fmt --manifest-path mycelix-manufacturing/Cargo.toml --package "$crate" --check
+            fi
+          done
+      - name: Compile all targets
+        run: |
+          for crate in mycelix-hardware-core mycelix-hardware-interop mycelix-hardware-release mycelix-hardware-kicad-gateway; do
+            if [ -f "crates/$crate/Cargo.toml" ]; then
+              cargo check --manifest-path "crates/$crate/Cargo.toml" --all-targets
+            fi
+          done
+          for crate in hardware_projection facility_capability; do
+            if [ -f "mycelix-manufacturing/crates/$crate/Cargo.toml" ]; then
+              cargo check --manifest-path mycelix-manufacturing/Cargo.toml -p "$crate" --all-targets
+            fi
+          done
+      - name: Run tests
+        run: |
+          for crate in mycelix-hardware-core mycelix-hardware-interop mycelix-hardware-release mycelix-hardware-kicad-gateway; do
+            if [ -f "crates/$crate/Cargo.toml" ]; then
+              cargo test --manifest-path "crates/$crate/Cargo.toml" --all-targets
+            fi
+          done
+          for crate in hardware_projection facility_capability; do
+            if [ -f "mycelix-manufacturing/crates/$crate/Cargo.toml" ]; then
+              cargo test --manifest-path mycelix-manufacturing/Cargo.toml -p "$crate" --all-targets
+            fi
+          done
+      - name: Compile experimental SPDX adapter
+        if: ${{ hashFiles('crates/mycelix-hardware-interop/Cargo.toml') != '' }}
+        run: cargo check --manifest-path crates/mycelix-hardware-interop/Cargo.toml --all-targets --features experimental-spdx-3-1-dev
+      - name: Clippy
+        run: |
+          for crate in mycelix-hardware-core mycelix-hardware-interop mycelix-hardware-release mycelix-hardware-kicad-gateway; do
+            if [ -f "crates/$crate/Cargo.toml" ]; then
+              cargo clippy --manifest-path "crates/$crate/Cargo.toml" --all-targets -- -D warnings
+            fi
+          done
+          for crate in hardware_projection facility_capability; do
+            if [ -f "mycelix-manufacturing/crates/$crate/Cargo.toml" ]; then
+              cargo clippy --manifest-path mycelix-manufacturing/Cargo.toml -p "$crate" --all-targets -- -D warnings
+            fi
+          done
