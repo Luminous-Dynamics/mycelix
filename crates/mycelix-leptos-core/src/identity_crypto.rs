@@ -331,21 +331,26 @@ pub async fn decrypt(passphrase: &str, blob: &EncryptedBlob) -> Result<Vec<u8>, 
 }
 
 #[cfg(all(test, feature = "production-kdf-benchmark"))]
-async fn derive_pbkdf2_key_material(
-    passphrase: &str,
-    salt: &[u8],
-    iterations: u32,
-) -> Result<Vec<u8>, String> {
+async fn import_pbkdf2_benchmark_password(passphrase: &str) -> Result<CryptoKey, String> {
     let subtle = subtle()?;
     let key_material = Uint8Array::from(passphrase.as_bytes());
     let derive_bits_usage = js_sys::Array::of1(&JsValue::from_str("deriveBits"));
     let import_promise = subtle
         .import_key_with_str("raw", &key_material, "PBKDF2", false, &derive_bits_usage)
         .map_err(|e| format!("PBKDF2 benchmark importKey failed: {e:?}"))?;
-    let base_key: CryptoKey = JsFuture::from(import_promise)
+    Ok(JsFuture::from(import_promise)
         .await
         .map_err(|e| format!("PBKDF2 benchmark importKey rejected: {e:?}"))?
-        .unchecked_into();
+        .unchecked_into())
+}
+
+#[cfg(all(test, feature = "production-kdf-benchmark"))]
+async fn derive_pbkdf2_key_material(
+    base_key: &CryptoKey,
+    salt: &[u8],
+    iterations: u32,
+) -> Result<Vec<u8>, String> {
+    let subtle = subtle()?;
     let params = Pbkdf2Params::new(
         "PBKDF2",
         &JsValue::from_str("SHA-256"),
@@ -353,7 +358,7 @@ async fn derive_pbkdf2_key_material(
         &Uint8Array::from(salt),
     );
     let derive_promise = subtle
-        .derive_bits_with_object(&params, &base_key, 256)
+        .derive_bits_with_object(&params, base_key, 256)
         .map_err(|e| format!("PBKDF2 benchmark deriveBits failed: {e:?}"))?;
     let result = JsFuture::from(derive_promise)
         .await
@@ -501,8 +506,14 @@ mod tests {
 
         use zeroize::Zeroize;
         let derive_salt = [0x3Cu8; SALT_LEN];
+        // Import passphrase material once so the per-sample timer measures the
+        // PBKDF2 deriveBits operation itself, matching the Argon2id hash-into
+        // benchmark's KDF-only scope.
+        let pbkdf2_base_key = import_pbkdf2_benchmark_password(passphrase)
+            .await
+            .expect("PBKDF2 benchmark password import succeeds");
         let mut warmup_derived = derive_pbkdf2_key_material(
-            passphrase,
+            &pbkdf2_base_key,
             &derive_salt,
             PBKDF2_ITERATIONS,
         )
@@ -515,7 +526,7 @@ mod tests {
         for _ in 0..SAMPLE_COUNT {
             let start = performance.now();
             let mut derived = derive_pbkdf2_key_material(
-                passphrase,
+                &pbkdf2_base_key,
                 &derive_salt,
                 PBKDF2_ITERATIONS,
             )
