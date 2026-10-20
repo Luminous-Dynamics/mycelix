@@ -25,10 +25,10 @@
 //!         <GraphEdge from=(80.0, 120.0) to=(200.0, 180.0) />
 //!         <GraphEdge from=(200.0, 60.0) to=(320.0, 120.0) />
 //!         <GraphEdge from=(200.0, 180.0) to=(320.0, 120.0) />
-//!         <GraphNode x=80.0 y=120.0 label=Some("Kagiso") stage=GrowthStage::Tree />
-//!         <GraphNode x=200.0 y=60.0 label=Some("Water council") stage=GrowthStage::Sapling />
-//!         <GraphNode x=200.0 y=180.0 label=Some("Family circle") stage=GrowthStage::Tree />
-//!         <GraphNode x=320.0 y=120.0 label=Some("Regional") stage=GrowthStage::Sprout />
+//!         <GraphNode x=80.0 y=120.0 label="Kagiso" stage=GrowthStage::Tree />
+//!         <GraphNode x=200.0 y=60.0 label="Water council" stage=GrowthStage::Sapling />
+//!         <GraphNode x=200.0 y=180.0 label="Family circle" stage=GrowthStage::Tree />
+//!         <GraphNode x=320.0 y=120.0 label="Regional" stage=GrowthStage::Sprout />
 //!     </svg>
 //! }
 //! # };
