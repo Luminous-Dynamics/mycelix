@@ -48,6 +48,9 @@ pub const PBKDF2_ITERATIONS: u32 = 1_000;
 /// Random salt length for PBKDF2, in bytes.
 pub const SALT_LEN: usize = 16;
 /// The frozen iteration count used to interpret legacy three-field envelopes.
+/// AES-GCM's standard nonce length, in bytes.
+pub const IV_LEN: usize = 12;
+
 pub const LEGACY_PBKDF2_ITERATIONS: u32 = 600_000;
 /// New envelopes explicitly identify the format and cryptographic parameters.
 pub const CURRENT_ENVELOPE_VERSION: u8 = 2;
