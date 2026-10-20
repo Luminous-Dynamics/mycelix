@@ -42,6 +42,13 @@ fn claim() -> DecisionOutcome {
 fn validate(
     value: &DecisionSubmission,
 ) -> Result<(), Vec<praxis_core::decision_submission::DecisionValidationIssue>> {
+    validate_with_confidence_permission(value, true)
+}
+
+fn validate_with_confidence_permission(
+    value: &DecisionSubmission,
+    confidence_scoring_preregistered: bool,
+) -> Result<(), Vec<praxis_core::decision_submission::DecisionValidationIssue>> {
     let (scenario_id, hypothesis_ids, available_evidence_ids, authorized_request_ids) =
         fixture_context();
     let context = DecisionContext {
@@ -49,6 +56,7 @@ fn validate(
         hypothesis_ids: &hypothesis_ids,
         available_evidence_ids: &available_evidence_ids,
         authorized_request_ids: &authorized_request_ids,
+        confidence_scoring_preregistered,
     };
     validate_decision_submission(value, &context)
 }
@@ -170,6 +178,15 @@ fn confidence_must_be_finite_and_within_zero_to_one() {
             issue_codes(validate(&submission(value))).contains(&"confidence_out_of_range".into())
         );
     }
+}
+
+#[test]
+fn confidence_is_rejected_without_explicit_preregistered_permission() {
+    let value = submission(claim());
+    assert!(
+        issue_codes(validate_with_confidence_permission(&value, false))
+            .contains(&"confidence_not_preregistered".into())
+    );
 }
 
 #[test]

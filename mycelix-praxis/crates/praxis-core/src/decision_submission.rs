@@ -97,6 +97,8 @@ pub struct DecisionContext<'a> {
     pub hypothesis_ids: &'a [String],
     pub available_evidence_ids: &'a [String],
     pub authorized_request_ids: &'a [String],
+    /// True only when the frozen preregistration protocol includes a probability metric.
+    pub confidence_scoring_preregistered: bool,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -238,6 +240,14 @@ pub fn validate_decision_submission(
             );
 
             if let Some(value) = confidence {
+                if !context.confidence_scoring_preregistered {
+                    issue(
+                        &mut issues,
+                        "confidence_not_preregistered",
+                        "$.outcome.confidence",
+                        "confidence is permitted only when a probability metric was preregistered",
+                    );
+                }
                 if !value.is_finite() || !(0.0..=1.0).contains(value) {
                     issue(
                         &mut issues,

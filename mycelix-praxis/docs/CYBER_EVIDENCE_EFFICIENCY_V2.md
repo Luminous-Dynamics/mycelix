@@ -52,15 +52,15 @@ Any human or AI/tool policy must receive the same solver-visible catalog, eviden
 
 The next evaluation boundary is a typed final submission rather than a raw label or a free-form explanation. The solver-visible `praxis_core::decision_submission` module defines three mutually exclusive outcomes:
 
-- `claim`: one scenario hypothesis, observed-evidence citations, a structured rationale with supporting/contradictory evidence IDs and typed missing-evidence kinds, plus optional confidence.
+- `claim`: one scenario hypothesis, observed-evidence citations, a structured rationale with supporting/contradictory evidence IDs and typed missing-evidence kinds, plus optional confidence only when preregistered scoring permission is explicit.
 - `abstain`: an explicit reason, cited observations when available, and structured missing-evidence kinds. An empty abstention without a stated evidence basis is rejected.
 - `request_more_evidence`: catalog request IDs and a typed purpose. Validation checks these IDs against the caller-provided authorized/budget-filtered allowlist.
 
-Observed evidence IDs and request IDs are separate namespaces: a request acknowledgement cannot be cited as though it were an observed record. A definitive claim must cite at least one supporting evidence ID; supporting and identified contradictory evidence must be included in its citation set. Confidence, when present, must be finite and in `[0, 1]`.
+Observed evidence IDs and request IDs are separate namespaces: a request acknowledgement cannot be cited as though it were an observed record. A definitive claim must cite at least one supporting evidence ID; supporting and identified contradictory evidence must be included in its citation set. Confidence is rejected unless the caller marks a preregistered probability metric as permitted, and any supplied value must be finite and in `[0, 1]`.
 
 This validator is **structural, not an evidence adjudicator**. It validates schema/benchmark/scenario identity and reference membership; it does not establish that a cited observation is fresh, relevant, sufficient, truthful, or proof that a command took effect. The caller must construct the context from solver-visible evidence and filter authorized requests before passing the context. The evaluator-only decision rubric, per-domain abstention/over-answer scorer, paired policy traces, and Pareto analysis remain follow-on work; this contract does not claim those are already implemented.
 
-Eleven integration tests cover valid claims, missing support, request/evidence ID confusion, unknown hypotheses and evidence, duplicate citations, uncited contradiction, confidence bounds, structured versus blanket abstention, unauthorized request IDs, scenario/version mismatches, and unknown evaluator-field rejection. These are contract tests, not a capability score.
+Twelve integration tests cover valid claims, missing support, request/evidence ID confusion, unknown hypotheses and evidence, duplicate citations, uncited contradiction, confidence bounds, structured versus blanket abstention, unauthorized request IDs, scenario/version mismatches, and unknown evaluator-field rejection. These are contract tests, not a capability score.
 
 ## Research and industry anchors
 
