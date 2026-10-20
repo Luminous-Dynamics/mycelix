@@ -2189,6 +2189,20 @@ mod browser_storage_tests {
             "stale marker must be cleared before identity activation"
         );
 
+        UNLOCKED_KEY.with(|cell| *cell.borrow_mut() = None);
+        assert!(
+            mark_recovery_backup_confirmed().is_err(),
+            "backup confirmation cannot be recorded while the key is locked"
+        );
+        assert!(
+            storage
+                .get_item(IDENTITY_BACKUP_CONFIRMED_PUBLIC_KEY)
+                .unwrap()
+                .is_none()
+        );
+        unlock_with_passphrase("synthetic backup-marker passphrase")
+            .await
+            .expect("the protected identity unlocks again before marking backup");
         mark_recovery_backup_confirmed()
             .expect("unlocked identity can record verified backup confirmation");
         assert!(
@@ -2283,12 +2297,20 @@ mod browser_storage_tests {
                 .is_some()
         );
 
+        let storage_before_protection = web_sys::window().unwrap().local_storage().unwrap().unwrap();
+        storage_before_protection
+            .set_item(IDENTITY_BACKUP_CONFIRMED_PUBLIC_KEY, &expected_public)
+            .expect("test can seed a stale confirmation from the prior storage posture");
         protect_with_passphrase("synthetic browser test passphrase")
             .await
             .expect("public protection API safely protects the existing identity");
         assert_eq!(
             inspect_local_identity_posture(),
             LocalIdentityStoragePosture::ProtectedUnlockedInSession
+        );
+        assert!(
+            recovery_backup_confirmation_needed(),
+            "protecting an unprotected identity must reset old backup confirmation"
         );
 
         let storage = web_sys::window().unwrap().local_storage().unwrap().unwrap();
