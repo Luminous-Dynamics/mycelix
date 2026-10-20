@@ -545,4 +545,62 @@ mod tests {
             .compile(&schema)
             .expect("release schema must be valid Draft 2020-12");
     }
+    #[derive(Debug, Deserialize)]
+    struct LifecycleVectorCorpus {
+        schema_version: String,
+        cases: Vec<LifecycleVectorCase>,
+    }
+
+    #[derive(Debug, Deserialize)]
+    struct LifecycleVectorCase {
+        id: String,
+        release: PolicyReleaseDescriptorV1,
+        profile_bytes: String,
+        trusted_context: PolicyLifecycleTrustedContextV1,
+        expected_disposition: PolicyLifecycleDispositionV1,
+        expected_violation_codes: Vec<String>,
+    }
+
+    #[test]
+    fn frozen_lifecycle_attack_vectors_match_reference_state_machine() {
+        let bytes: &[u8] =
+            include_bytes!("../fixtures/claim-policy-lifecycle-golden-v1.json");
+        let corpus: LifecycleVectorCorpus =
+            serde_json::from_slice(bytes).expect("lifecycle vector corpus must parse");
+        assert_eq!(
+            corpus.schema_version,
+            "mycelix.claim-policy-lifecycle.golden.v1"
+        );
+        assert_eq!(corpus.cases.len(), 19);
+
+        for vector in corpus.cases {
+            let receipt = evaluate_policy_release_bytes(
+                &serde_json::to_vec(&vector.release).expect("serialize descriptor"),
+                vector.profile_bytes.as_bytes(),
+                &vector.trusted_context,
+            )
+            .unwrap_or_else(|error| panic!("vector {} failed to evaluate: {error}", vector.id));
+
+            assert_eq!(
+                receipt.disposition, vector.expected_disposition,
+                "wrong disposition for vector {}",
+                vector.id
+            );
+            let mut actual: Vec<_> = receipt
+                .violations
+                .iter()
+                .map(|item| item.code.clone())
+                .collect();
+            let mut expected = vector.expected_violation_codes;
+            actual.sort();
+            expected.sort();
+            assert_eq!(actual, expected, "wrong violation codes for vector {}", vector.id);
+            if receipt.disposition == PolicyLifecycleDispositionV1::Rejected {
+                assert!(receipt.proposed_next_head.is_none(), "rejected vector {} proposed state", vector.id);
+            }
+            assert!(!receipt.evidence_admission_granted);
+            assert!(!receipt.action_authority_granted);
+        }
+    }
+
 }
