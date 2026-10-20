@@ -1814,7 +1814,11 @@ mod browser_storage_tests {
         let existing_secret = load_string(IDENTITY_SECRET_KEY).expect("legacy secret is present");
         let existing_public = load_string(IDENTITY_PUBLIC_KEY).expect("public key is present");
 
-        assert!(create_protected_identity("synthetic passphrase").await.is_err());
+        assert!(
+            create_protected_identity("synthetic passphrase")
+                .await
+                .is_err()
+        );
 
         let storage = web_sys::window().unwrap().local_storage().unwrap().unwrap();
         assert_eq!(
@@ -1825,7 +1829,12 @@ mod browser_storage_tests {
             storage.get_item(IDENTITY_PUBLIC_KEY).unwrap().as_deref(),
             Some(existing_public.as_str())
         );
-        assert!(storage.get_item(IDENTITY_SECRET_ENCRYPTED_KEY).unwrap().is_none());
+        assert!(
+            storage
+                .get_item(IDENTITY_SECRET_ENCRYPTED_KEY)
+                .unwrap()
+                .is_none()
+        );
         assert!(public_key_matches_signing_key(&existing_public, &existing));
     }
 
@@ -1838,12 +1847,9 @@ mod browser_storage_tests {
         let phrase = export_seed_phrase(&unrelated);
 
         assert!(
-            restore_protected_identity_from_seed_phrase(
-                &phrase,
-                "synthetic passphrase",
-            )
-            .await
-            .is_err()
+            restore_protected_identity_from_seed_phrase(&phrase, "synthetic passphrase")
+                .await
+                .is_err()
         );
 
         let storage = web_sys::window().unwrap().local_storage().unwrap().unwrap();
