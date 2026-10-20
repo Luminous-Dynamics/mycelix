@@ -501,6 +501,14 @@ fn validate_paired_traces(
                         "{scenario_id}: policies did not receive the same cost/latency budgets"
                     ));
                 }
+                if trace.model_version_digest != reference.model_version_digest
+                    || trace.prompt_digest != reference.prompt_digest
+                    || trace.tool_config_digest != reference.tool_config_digest
+                {
+                    errors.push(format!(
+                        "{scenario_id}: policies did not use the same model/prompt/tool configuration"
+                    ));
+                }
                 if trace.corpus_digest != reference.corpus_digest
                     || trace.evaluator_digest != reference.evaluator_digest
                     || trace.environment_digest != reference.environment_digest
@@ -522,18 +530,25 @@ fn validate_paired_traces(
         }
     }
 
-    // The corpus, evaluator, and environment are fixed across the entire paired study,
-    // not merely within one scenario.
+    // Study corpus, evaluator, environment, model, prompt, and tool configuration
+    // are fixed across the paired run. Only the policy artifact and its outputs vary.
     for (label, value) in [
         ("corpus", traces[0].corpus_digest.as_str()),
         ("evaluator", traces[0].evaluator_digest.as_str()),
         ("environment", traces[0].environment_digest.as_str()),
+        ("model_version", traces[0].model_version_digest.as_str()),
+        ("prompt", traces[0].prompt_digest.as_str()),
+        ("tool_config", traces[0].tool_config_digest.as_str()),
     ] {
-        if traces.iter().any(|trace| match label {
+        let varies = traces.iter().any(|trace| match label {
             "corpus" => trace.corpus_digest != value,
             "evaluator" => trace.evaluator_digest != value,
-            _ => trace.environment_digest != value,
-        }) {
+            "environment" => trace.environment_digest != value,
+            "model_version" => trace.model_version_digest != value,
+            "prompt" => trace.prompt_digest != value,
+            _ => trace.tool_config_digest != value,
+        });
+        if varies {
             errors.push(format!("{label} digest varies across paired study"));
         }
     }
@@ -866,9 +881,9 @@ fn make_policy_traces(
                 evaluator_digest: digest_for("public-evaluator-v2"),
                 environment_digest: digest_for("rust-1.96.0-linux-x86_64"),
                 policy_artifact_digest: digest_for(&format!("policy:{policy_id}")),
-                model_version_digest: digest_for(&format!("model:{policy_id}")),
-                prompt_digest: digest_for(&format!("prompt:{policy_id}")),
-                tool_config_digest: digest_for(&format!("tools:{policy_id}")),
+                model_version_digest: digest_for("model:reference-v1"),
+                prompt_digest: digest_for("prompt:fixed-v1"),
+                tool_config_digest: digest_for("tools:read-only-v1"),
                 cost_budget_units: 150,
                 latency_budget_ms: 1000,
                 requests_attempted,
@@ -883,7 +898,7 @@ fn make_policy_traces(
 }
 
 #[test]
-fn paired_traces_require_identical_inputs_authority_budgets_and_case_accounting() {
+fn paired_traces_require_identical_inputs_authority_budgets_and_model_configuration() {
     let cases = synthetic_cases();
     let mut traces = make_policy_traces(&cases, "policy-a", 20, 50, &[], None);
     traces.extend(make_policy_traces(&cases, "policy-b", 30, 60, &[], None));
@@ -901,6 +916,18 @@ fn paired_traces_require_identical_inputs_authority_budgets_and_case_accounting(
             .iter()
             .any(|error| error.contains("same authority digest"))
     );
+
+    let altered = traces
+        .iter_mut()
+        .find(|trace| trace.scenario_id == target_case && trace.policy_id == "policy-b")
+        .expect("paired trace exists");
+    altered.authority_digest = digest_for("authority:read-only-fixture-v1");
+    altered.prompt_digest = digest_for("prompt:unregistered-variation");
+    let errors =
+        validate_paired_traces(&cases, &traces).expect_err("prompt drift must invalidate pairing");
+    assert!(errors
+        .iter()
+        .any(|error| error.contains("same model/prompt/tool configuration")));
 
     traces.pop();
     let errors = validate_paired_traces(&cases, &traces).expect_err("missing pair must fail");

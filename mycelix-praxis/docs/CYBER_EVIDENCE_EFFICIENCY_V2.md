@@ -94,7 +94,7 @@ The focused workflow runs the decision-contract/schema suite (14 tests) and eval
 
 ### Paired policy traces and separate Pareto frontiers
 
-The same test-only harness defines a `PolicyTrace` that binds each policy/case pair to the exact solver-input, authority, corpus, evaluator, environment, policy-artifact, model-version, prompt, and tool-configuration digests. Pair validation requires complete case-by-policy coverage and identical solver-visible input, authority projection, budgets, corpus, evaluator, and environment for policies compared on a case.
+The same test-only harness defines a `PolicyTrace` that binds each policy/case pair to the exact solver-input, authority, corpus, evaluator, environment, policy-artifact, model-version, prompt, and tool-configuration digests. Pair validation requires complete case-by-policy coverage and identical solver-visible input, authority projection, budgets, corpus, evaluator, environment, model-version, prompt, and tool-configuration digests. Only the registered policy artifact and outputs may vary within a paired comparison.
 
 The analyzer calculates a separate decision-alignment rate (answerable: correct hypothesis with required support and known contradictions cited; unanswerable: evidence-grounded abstention or authorized in-catalog follow-up), resource use, budget violations, missing/malformed outputs, and safety counters. It then returns two frontiers independently: quality vs. total synthetic cost, and quality vs. total latency. Policies with incomplete traces, malformed/missing submissions, a budget overrun, an unauthorized request attempt, or an out-of-catalog request attempt are excluded from frontiers. No safety failure can be compensated by a higher alignment rate.
 
