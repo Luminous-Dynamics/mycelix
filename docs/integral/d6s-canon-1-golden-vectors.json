@@ -1,0 +1,157 @@
+{
+  "schema_version": "d6s-canon-1-golden-vectors/1",
+  "status": "ReferenceModelOnly",
+  "corpus_id": "COS-CONF-001",
+  "case_count": 16,
+  "expected_report_record_count": 16,
+  "expected_explicit_case_pair_count": 32,
+  "expected_untested_formal_obligations": [],
+  "vectors": [
+    {
+      "test_id": "COS-N-001",
+      "formal_obligations": [
+        "COS-FV-002",
+        "COS-FV-007"
+      ],
+      "expected_negative": "Rejected",
+      "expected_positive": "Accepted",
+      "claim_ceiling": "Plan/execution semantic conformance only."
+    },
+    {
+      "test_id": "COS-N-002",
+      "formal_obligations": [
+        "COS-FV-002"
+      ],
+      "expected_negative": "Rejected",
+      "expected_positive": "Accepted",
+      "claim_ceiling": "Planned-vs-consumed evidence separation only."
+    },
+    {
+      "test_id": "COS-N-003",
+      "formal_obligations": [
+        "COS-FV-003"
+      ],
+      "expected_negative": "Rejected",
+      "expected_positive": "Accepted",
+      "claim_ceiling": "Temporal availability binding only."
+    },
+    {
+      "test_id": "COS-N-004",
+      "formal_obligations": [
+        "COS-FV-003"
+      ],
+      "expected_negative": "Rejected",
+      "expected_positive": "Accepted",
+      "claim_ceiling": "Machine capability/availability separation only."
+    },
+    {
+      "test_id": "COS-N-005",
+      "formal_obligations": [
+        "COS-FV-005"
+      ],
+      "expected_negative": "Stale",
+      "expected_positive": "Accepted",
+      "claim_ceiling": "Freshness semantics only."
+    },
+    {
+      "test_id": "COS-N-006",
+      "formal_obligations": [
+        "COS-FV-004"
+      ],
+      "expected_negative": "Rejected",
+      "expected_positive": "Accepted",
+      "claim_ceiling": "Output qualification boundary only."
+    },
+    {
+      "test_id": "COS-N-007",
+      "formal_obligations": [
+        "COS-FV-002"
+      ],
+      "expected_negative": "Rejected",
+      "expected_positive": "Accepted",
+      "claim_ceiling": "Single-run/general-capability separation only."
+    },
+    {
+      "test_id": "COS-N-008",
+      "formal_obligations": [
+        "COS-FV-006"
+      ],
+      "expected_negative": "Rejected",
+      "expected_positive": "Accepted",
+      "claim_ceiling": "Historical failure immutability only."
+    },
+    {
+      "test_id": "COS-N-009",
+      "formal_obligations": [
+        "COS-FV-009"
+      ],
+      "expected_negative": "Rejected",
+      "expected_positive": "Accepted",
+      "claim_ceiling": "External dependency provenance only."
+    },
+    {
+      "test_id": "COS-N-010",
+      "formal_obligations": [
+        "COS-FV-008"
+      ],
+      "expected_negative": "Rejected",
+      "expected_positive": "Accepted",
+      "claim_ceiling": "FRS projection/source-observation separation only."
+    },
+    {
+      "test_id": "COS-N-011",
+      "formal_obligations": [
+        "COS-FV-001"
+      ],
+      "expected_negative": "Rejected",
+      "expected_positive": "Accepted",
+      "claim_ceiling": "Production/ITC projection separation only."
+    },
+    {
+      "test_id": "COS-N-012",
+      "formal_obligations": [
+        "COS-FV-001"
+      ],
+      "expected_negative": "Rejected",
+      "expected_positive": "Accepted",
+      "claim_ceiling": "ITC/physical-work separation only."
+    },
+    {
+      "test_id": "COS-N-013",
+      "formal_obligations": [
+        "COS-FV-010"
+      ],
+      "expected_negative": "Rejected",
+      "expected_positive": "Accepted",
+      "claim_ceiling": "Foreign/local provenance separation only."
+    },
+    {
+      "test_id": "COS-N-014",
+      "formal_obligations": [
+        "COS-FV-008"
+      ],
+      "expected_negative": "Unauthorized",
+      "expected_positive": "Accepted",
+      "claim_ceiling": "Authorization/effect separation only."
+    },
+    {
+      "test_id": "COS-N-015",
+      "formal_obligations": [
+        "COS-FV-004"
+      ],
+      "expected_negative": "Rejected",
+      "expected_positive": "Accepted",
+      "claim_ceiling": "Distribution/quality separation only."
+    },
+    {
+      "test_id": "COS-N-016",
+      "formal_obligations": [
+        "COS-FV-001"
+      ],
+      "expected_negative": "Rejected",
+      "expected_positive": "Accepted",
+      "claim_ceiling": "Explicit-denominator arithmetic claim only."
+    }
+  ],
+  "claim_ceiling": "Semantic conformance of the reference harness only; no physical, safety, economic, ecological, or Integral-validation claim."
+}

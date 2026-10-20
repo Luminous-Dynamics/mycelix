@@ -1,0 +1,69 @@
+name: Manufacturing process references
+
+on:
+  push:
+    branches:
+      - feat/manufacturing-process-reference-v1
+    paths:
+      - mycelix-workspace/mycelix-manufacturing/Cargo.toml
+      - mycelix-workspace/mycelix-manufacturing/Cargo.lock
+      - mycelix-workspace/mycelix-manufacturing/crates/manufacturing_common/**
+      - mycelix-workspace/mycelix-manufacturing/schemas/*.schema.json
+      - .github/workflows/manufacturing-process-reference.yml
+  pull_request:
+    paths:
+      - mycelix-workspace/mycelix-manufacturing/Cargo.toml
+      - mycelix-workspace/mycelix-manufacturing/Cargo.lock
+      - mycelix-workspace/mycelix-manufacturing/crates/manufacturing_common/**
+      - mycelix-workspace/mycelix-manufacturing/schemas/*.schema.json
+      - .github/workflows/manufacturing-process-reference.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: manufacturing-process-reference-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  manufacturing-common:
+    name: Typed process reference contracts
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+
+      - name: Install Rust, rustfmt, and Clippy
+        uses: actions-rust-lang/setup-rust-toolchain@ecabd13d1c56bd1345c230e542e9144811ad706f # v2.0.0
+        with:
+          components: rustfmt, clippy
+          build-warnings: warn
+
+      - name: Check new process reference module formatting
+        run: rustfmt --edition 2024 --check mycelix-workspace/mycelix-manufacturing/crates/manufacturing_common/src/process_registry.rs mycelix-workspace/mycelix-manufacturing/crates/manufacturing_common/src/process_execution_evidence.rs
+
+      - name: Bootstrap package lockfile for this isolated workspace
+        run: cargo generate-lockfile --manifest-path mycelix-workspace/mycelix-manufacturing/Cargo.toml
+
+      - name: Verify reviewed package dependency graph digest
+        run: |
+          echo "c7c6c731114db29b0275ce349799bf4a319a6d7f3773ff24a1295fc165fa0847  mycelix-workspace/mycelix-manufacturing/Cargo.lock" | sha256sum --check -
+
+      - name: Run manufacturing common tests with the generated lockfile
+        run: cargo test --locked --manifest-path mycelix-workspace/mycelix-manufacturing/Cargo.toml --package manufacturing_common
+
+      - name: Run Clippy with warnings denied
+        run: cargo clippy --locked --manifest-path mycelix-workspace/mycelix-manufacturing/Cargo.toml --package manufacturing_common --all-targets -- -D warnings
+
+      - name: Validate schema JSON syntax
+        run: jq empty mycelix-workspace/mycelix-manufacturing/schemas/*.schema.json
+
+      - name: Preserve generated lockfile for pinning
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: manufacturing-common-lockfile-bootstrap
+          path: mycelix-workspace/mycelix-manufacturing/Cargo.lock
+          if-no-files-found: error
+          retention-days: 7
