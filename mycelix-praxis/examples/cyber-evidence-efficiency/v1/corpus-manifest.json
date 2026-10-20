@@ -1,0 +1,15 @@
+{
+  "schema_version": 1,
+  "benchmark_id": "PRAXIS-CYBER-ACQ-001",
+  "benchmark_version": "0.1.0",
+  "classification": "public_synthetic_conformance",
+  "solver_visible_file": "request-catalog.json",
+  "evaluator_only_file": "evaluator-only.json",
+  "solver_schema_file": "request-catalog.schema.json",
+  "evaluator_schema_file": "evaluator-only.schema.json",
+  "solver_visible_git_blob_sha": "0acf7fa439339fd49e15dce0dd3a53bf2edce2bb",
+  "evaluator_only_git_blob_sha": "44670a88434bd6d3e9f7be202de5e4c88e59f48f",
+  "solver_schema_git_blob_sha": "43263e33a1d4b634f7e8f1226aad07cec9a61008",
+  "evaluator_schema_git_blob_sha": "41e9c3472cb12e27e204485e37c4aaeef2be41b2",
+  "git_blob_sha_note": "Git blob identities bind repository file bytes for this checkout. They are not signatures, independent attestations, calibrated probabilities, or real-world evidence."
+}
