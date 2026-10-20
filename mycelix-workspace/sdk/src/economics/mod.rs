@@ -11,13 +11,35 @@
 //! Anti-reflexivity: SAP value never depends on MYCEL, MYCEL never computed
 //! from SAP balance, TEND never convertible to SAP at fixed rate.
 
+pub mod accounting_closure;
 pub mod commons;
+pub mod actor_observables;
 pub mod decay_garden;
+pub mod debt_register;
+pub mod evidence;
+pub mod financial_commitment;
 pub mod metabolic_oracle;
+pub mod observables;
+pub mod period_ledger;
 pub mod poc;
+#[path = "reconciliation_v2.rs"]
+pub mod reconciliation;
 pub mod recognition;
+pub mod sector_flow;
+pub mod sector_balance;
+pub mod sector_observables;
+pub mod sector_financial_flow;
+pub mod sector_other_volume;
+pub mod sector_revaluation;
+pub mod stock_flow;
+pub mod transition;
+pub mod trace;
 
+pub use accounting_closure::{
+    EconomicAccountingClosure, ECONOMIC_ACCOUNTING_CLOSURE_SCHEMA_VERSION,
+};
 pub use commons::{CommonsContribution, CommonsPool, CommonsResult};
+pub use debt_register::{CounterpartyDebtPosition, CounterpartyDebtRegister};
 pub use decay_garden::{
     calculate_demurrage, CompostAllocation, CompostDistribution, CompostEvent, DemurrageConfig,
 };
@@ -28,6 +50,43 @@ pub use poc::{
     calculate_mycel_score, jubilee_normalize, GamingDetection, GamingRecommendation,
     MycelCalculation, MycelComponent, MycelScore,
 };
+pub use sector_flow::{EconomicSector, FlowCategory, SectorFlow, SectorTransactionMatrix};
+pub use sector_observables::SectorEconomicObservables;
+pub use sector_financial_flow::{
+    FinancialFlowCategory, SectorFinancialFlow, SectorFinancialFlowMatrix,
+};
+pub use sector_other_volume::{
+    OtherVolumeChangeCategory, SectorOtherVolumeChange, SectorOtherVolumeChangeMatrix,
+};
+pub use sector_revaluation::{
+    RevaluationChangeCategory, SectorRevaluationChange, SectorRevaluationChangeMatrix,
+};
+pub use reconciliation::{
+    physical_postings_for_step, postings_for_step, reconcile_step, PhysicalStockMismatch,
+    PhysicalStockPosting, StockFlowMismatch, StockFlowReconciliation, StockPosting,
+};
+pub use period_ledger::EconomicPeriodLedger;
+pub use observables::{
+    classify_financing_regime, EconomicObservables, FinancingRegime, RatioObservation,
+};
+pub use actor_observables::ActorEconomicObservables;
+pub use evidence::{EconomicEvidenceCapsule, EconomicEvidenceManifest};
+pub use financial_commitment::FinancialCommitmentObservation;
+
+pub use stock_flow::{
+    ActorBalanceSheet, ActorId, CapitalInvestment, ProductionEvent, InventoryTransfer,
+    InventoryConsumption, GoodsSale, TradeCreditSale, TradeCreditSettlement, InventoryCostAddition,
+    InventoryCostRelief, Depreciation, CreditCreation,
+    DebtRepayment, DebtWriteOff, DebtForgiveness, EconomicFlowCategory, IncomeTransfer, EconomicState, MonetaryFlow,
+    MonetaryInstrument, MonetaryStock, RealStock,
+};
+
+pub use transition::{
+    apply_step, state_hash, transition_hash, EconomicChainReceipt, EconomicStepError,
+    EconomicStepReceipt, EconomicTransition,
+};
+pub use trace::{EconomicSimulationStep, EconomicSimulationTrace};
+
 pub use recognition::{
     calculate_recognition_score, ContributionType, RecognitionConfig, RecognitionEvent,
 };
@@ -224,3 +283,9 @@ mod tests {
         assert!(member.is_apprentice);
     }
 }
+
+
+pub use sector_balance::{
+    BalanceSheetEntry, BalanceSheetInstrument, PhysicalStockEntry, PhysicalStockInstrument,
+    SectorAssignment, SectorBalanceSheet, SectorPhysicalStock,
+};
