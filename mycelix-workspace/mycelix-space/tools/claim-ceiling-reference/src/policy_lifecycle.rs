@@ -654,9 +654,12 @@ mod tests {
 
         let receipt = evaluate(candidate, ctx, PROFILE_BYTES);
         assert_eq!(receipt.disposition, PolicyLifecycleDispositionV1::Rejected);
-        assert!(receipt.violations.iter().any(|item| {
-            item.code == "policy_revocation_epoch_rollback"
-        }));
+        assert!(
+            receipt
+                .violations
+                .iter()
+                .any(|item| { item.code == "policy_revocation_epoch_rollback" })
+        );
         assert!(receipt.proposed_next_head.is_none());
     }
 
