@@ -1,0 +1,89 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://mycelix.net/schemas/manufacturing/process-execution-evidence-v1.schema.json",
+  "title": "Mycelix manufacturing process execution evidence links v1",
+  "description": "An additive reference bundle linking a manufacturing execution event to an exact typed routing snapshot, resource references, supporting events, and conformity-claim references. Structural validity is not authenticity, resolution, qualification, conformity, or execution authority.",
+  "$ref": "#/$defs/processExecutionEvidenceBundle",
+  "$defs": {
+    "graphEntityKind": {
+      "enum": ["resource", "event", "claim"]
+    },
+    "digest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["algorithm", "hex"],
+      "properties": {
+        "algorithm": { "enum": ["sha256", "blake3"] },
+        "hex": { "type": "string", "pattern": "^[0-9a-f]{64}$" }
+      }
+    },
+    "graphEntityRef": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["graph_system", "entity_kind", "entity_ref", "revision", "content_digest"],
+      "properties": {
+        "graph_system": { "type": "string", "minLength": 1 },
+        "entity_kind": { "$ref": "#/$defs/graphEntityKind" },
+        "entity_ref": { "type": "string", "minLength": 1 },
+        "revision": { "type": "string", "minLength": 1 },
+        "content_digest": { "$ref": "#/$defs/digest" }
+      }
+    },
+    "eventRef": {
+      "allOf": [
+        { "$ref": "#/$defs/graphEntityRef" },
+        { "properties": { "entity_kind": { "const": "event" } } }
+      ]
+    },
+    "resourceRef": {
+      "allOf": [
+        { "$ref": "#/$defs/graphEntityRef" },
+        { "properties": { "entity_kind": { "const": "resource" } } }
+      ]
+    },
+    "claimRef": {
+      "allOf": [
+        { "$ref": "#/$defs/graphEntityRef" },
+        { "properties": { "entity_kind": { "const": "claim" } } }
+      ]
+    },
+    "processExecutionEvidenceBundle": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "execution_event_ref",
+        "routing_step_ref",
+        "input_resource_refs",
+        "output_resource_refs",
+        "supporting_event_refs",
+        "conformity_claim_refs"
+      ],
+      "properties": {
+        "schema_version": {
+          "const": "mycelix-process-execution-evidence/1"
+        },
+        "execution_event_ref": { "$ref": "#/$defs/eventRef" },
+        "routing_step_ref": {
+          "$ref": "https://mycelix.net/schemas/manufacturing/process-reference-v1.schema.json#/$defs/typedRoutingStepRef"
+        },
+        "input_resource_refs": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/resourceRef" }
+        },
+        "output_resource_refs": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/resourceRef" }
+        },
+        "supporting_event_refs": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/eventRef" }
+        },
+        "conformity_claim_refs": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/claimRef" }
+        }
+      }
+    }
+  }
+}
