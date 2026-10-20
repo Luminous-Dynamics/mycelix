@@ -6,6 +6,16 @@ on:
       - myc-int-demo-d6t-canonical-encoding
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review]
+    paths:
+      - ".github/workflows/d6s-canonical-qualification.yml"
+      - "docs/integral/d6s-canon-1-*"
+      - "docs/integral/d6s-canon-2-*"
+      - "mycelix-manufacturing/Cargo.toml"
+      - "mycelix-manufacturing/Cargo.lock"
+      - "mycelix-manufacturing/crates/cos_conformance/**"
+      - "mycelix-manufacturing/crates/manufacturing_common/**"
+      - "scripts/integral/verify_d6s_canon_1.py"
+      - "scripts/integral/verify_d6s_canon_2_authority_boundary.py"
   workflow_dispatch:
 
 permissions:
