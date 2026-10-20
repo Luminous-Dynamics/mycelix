@@ -237,7 +237,7 @@ pub fn project_revision_snapshot(
 
     let mut listings = Vec::new();
     for resolution in &snapshot.listings {
-        let graph_state = match resolution.state {
+        let graph_state = match &resolution.state {
             ListingResolutionState::SingleObservedHead => RevisionGraphState::SingleObservedHead,
             ListingResolutionState::ConcurrentHeads => RevisionGraphState::ConcurrentHeads,
         };
@@ -319,7 +319,7 @@ fn validate_revision_snapshot(snapshot: &ListingCatalogSnapshotV1) -> Result<(),
             hashes.push(head.listing_hash.clone());
         }
 
-        match resolution.state {
+        match &resolution.state {
             ListingResolutionState::SingleObservedHead => {
                 single_count = single_count.saturating_add(1);
                 if resolution.reason != ListingResolutionReason::SingleObservedHead
