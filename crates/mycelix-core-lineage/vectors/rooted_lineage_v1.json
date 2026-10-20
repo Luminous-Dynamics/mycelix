@@ -1,0 +1,72 @@
+{
+  "profile": "mycelix-core-lineage-v1-sha256-framed-semantic",
+  "expected_lineage_digest_hex": "89a02c2002d5e95e2cb972d3726dd1be0b88b049f01351e4a31ac75872a7d5c0",
+  "root": {
+    "lineage_domain_identity": {
+      "profile": "example-lineage-domain-v1",
+      "digest_hex": "1111111111111111111111111111111111111111111111111111111111111111"
+    },
+    "generation": 0,
+    "node_identity": {
+      "profile": "example-node-v1",
+      "digest_hex": "2222222222222222222222222222222222222222222222222222222222222222"
+    },
+    "source_descriptor_identity": {
+      "profile": "example-source-v1",
+      "digest_hex": "3333333333333333333333333333333333333333333333333333333333333333"
+    },
+    "effective_at_ms": 1000
+  },
+  "transitions": [
+    {
+      "predecessor_generation": 0,
+      "predecessor_node_identity": {
+        "profile": "example-node-v1",
+        "digest_hex": "2222222222222222222222222222222222222222222222222222222222222222"
+      },
+      "predecessor_source_descriptor_identity": {
+        "profile": "example-source-v1",
+        "digest_hex": "3333333333333333333333333333333333333333333333333333333333333333"
+      },
+      "successor_generation": 1,
+      "successor_node_identity": {
+        "profile": "example-node-v1",
+        "digest_hex": "4444444444444444444444444444444444444444444444444444444444444444"
+      },
+      "successor_source_descriptor_identity": {
+        "profile": "example-source-v1",
+        "digest_hex": "3333333333333333333333333333333333333333333333333333333333333333"
+      },
+      "transition_semantic_identity": {
+        "profile": "example-transition-v1",
+        "digest_hex": "5555555555555555555555555555555555555555555555555555555555555555"
+      },
+      "effective_at_ms": 2000
+    },
+    {
+      "predecessor_generation": 1,
+      "predecessor_node_identity": {
+        "profile": "example-node-v1",
+        "digest_hex": "4444444444444444444444444444444444444444444444444444444444444444"
+      },
+      "predecessor_source_descriptor_identity": {
+        "profile": "example-source-v1",
+        "digest_hex": "3333333333333333333333333333333333333333333333333333333333333333"
+      },
+      "successor_generation": 2,
+      "successor_node_identity": {
+        "profile": "example-node-v1",
+        "digest_hex": "6666666666666666666666666666666666666666666666666666666666666666"
+      },
+      "successor_source_descriptor_identity": {
+        "profile": "example-source-v1",
+        "digest_hex": "7777777777777777777777777777777777777777777777777777777777777777"
+      },
+      "transition_semantic_identity": {
+        "profile": "example-transition-v1",
+        "digest_hex": "8888888888888888888888888888888888888888888888888888888888888888"
+      },
+      "effective_at_ms": 3000
+    }
+  ]
+}
