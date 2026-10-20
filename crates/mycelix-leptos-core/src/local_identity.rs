@@ -849,7 +849,8 @@ pub async fn restore_protected_identity_from_seed_phrase(
         phrase.zeroize();
         passphrase.zeroize();
         result
-    }).await;
+    })
+    .await;
     if let Some((mut phrase, mut passphrase)) = secrets.borrow_mut().take() {
         phrase.zeroize();
         passphrase.zeroize();
@@ -1010,12 +1011,15 @@ pub async fn protect_existing_identity(
     let secret = Rc::new(RefCell::new(Some(passphrase.to_string())));
     let secret_for_operation = Rc::clone(&secret);
     let result = with_identity_transition_lock(move || async move {
-        let mut passphrase = secret_for_operation.borrow_mut().take()
+        let mut passphrase = secret_for_operation
+            .borrow_mut()
+            .take()
             .ok_or_else(|| "Passphrase buffer was already consumed.".to_string())?;
         let result = protect_existing_identity_locked(&passphrase).await;
         passphrase.zeroize();
         result
-    }).await;
+    })
+    .await;
     if let Some(mut remaining) = secret.borrow_mut().take() {
         remaining.zeroize();
     }
@@ -1245,12 +1249,15 @@ async fn rewrap_protected_identity(passphrase: &str) -> Result<(), String> {
     let secret = Rc::new(RefCell::new(Some(passphrase.to_string())));
     let secret_for_operation = Rc::clone(&secret);
     let result = with_identity_transition_lock(move || async move {
-        let mut passphrase = secret_for_operation.borrow_mut().take()
+        let mut passphrase = secret_for_operation
+            .borrow_mut()
+            .take()
             .ok_or_else(|| "Passphrase buffer was already consumed.".to_string())?;
         let result = rewrap_protected_identity_locked(&passphrase).await;
         passphrase.zeroize();
         result
-    }).await;
+    })
+    .await;
     if let Some(mut remaining) = secret.borrow_mut().take() {
         remaining.zeroize();
     }
@@ -1493,12 +1500,15 @@ pub async fn remove_passphrase_protection(passphrase: &str) -> Result<(), String
     let secret = Rc::new(RefCell::new(Some(passphrase.to_string())));
     let secret_for_operation = Rc::clone(&secret);
     let result = with_identity_transition_lock(move || async move {
-        let mut passphrase = secret_for_operation.borrow_mut().take()
+        let mut passphrase = secret_for_operation
+            .borrow_mut()
+            .take()
             .ok_or_else(|| "Passphrase buffer was already consumed.".to_string())?;
         let result = remove_passphrase_protection_locked(&passphrase).await;
         passphrase.zeroize();
         result
-    }).await;
+    })
+    .await;
     if let Some(mut remaining) = secret.borrow_mut().take() {
         remaining.zeroize();
     }
