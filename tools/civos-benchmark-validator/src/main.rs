@@ -68,6 +68,16 @@ enum ScenarioClass {
     PerformanceBaseline,
 }
 
+impl ScenarioClass {
+    fn as_str(self) -> &'static str {
+        match self {
+            Self::HardGate => "hard_gate",
+            Self::Behavioral => "behavioral",
+            Self::PerformanceBaseline => "performance_baseline",
+        }
+    }
+}
+
 #[derive(Debug, Serialize)]
 struct QualificationReceipt {
     receipt_contract: &'static str,
@@ -173,7 +183,7 @@ fn run() -> Result<(), String> {
     let scenario_ids: Vec<String> = corpus.scenarios.iter().map(|scenario| scenario.id.clone()).collect();
     for scenario in &corpus.scenarios {
         *scenario_class_counts
-            .entry(format!("{:?}", scenario.scenario_class).to_ascii_lowercase())
+            .entry(scenario.scenario_class.as_str().to_string())
             .or_insert(0) += 1;
         for target in &scenario.targets {
             *target_counts.entry(target.clone()).or_insert(0) += 1;
