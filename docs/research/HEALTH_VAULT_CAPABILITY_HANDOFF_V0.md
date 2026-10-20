@@ -56,6 +56,10 @@ Before implementation, freeze one canonical byte encoding for the signed subject
 
 ### Key enrollment and rotation
 
+**Current Identity Vault audit:** the generic `MasterKey` registry is not sufficient for recipient X25519 enrollment. Its `public_key_hex` is a free-form string; `validate_master_key` checks nonempty content and a purpose label, while `register_key` links the entry on the agent's source chain and `get_my_keys` uses local link reads. That proves neither an exact X25519 public-key encoding nor a peer-verifiable binding/proof of possession. Do not treat `purpose = "encryption"` as authorization to use that key for capability handoff. The new negative control is HCH-026.
+
+Use a dedicated, explicitly typed versioned key binding with exact public-key encoding, author/agent identity binding, proof of possession, key ID, expiry/supersession semantics and a verifier that rejects arbitrary nonempty strings. If a new public key entry is needed for cross-agent discovery, expose only the encryption public key and minimum binding metadata; measure the resulting metadata leak separately from health data.
+
 - Prefer an existing qualified, general-purpose encryption-key registry if one exists and meets the author/key-binding contract. Do not create a Health Vault-specific public identity index without measuring its metadata leakage.
 - Otherwise, design a versioned key binding that is authored by the corresponding agent, references a dedicated X25519 public key, and includes a proof-of-possession challenge path. Specify how a grantee rotates or loses the key and how the owner learns the new binding.
 - Reject duplicate active key IDs, expired bindings, key substitution, mismatched signing identity and unknown key versions.
@@ -95,7 +99,7 @@ A machine-readable, synthetic first version is committed alongside this note:
 - [Corpus: `HEALTH_VAULT_CAPABILITY_HANDOFF_V1.json`](fixtures/HEALTH_VAULT_CAPABILITY_HANDOFF_V1.json)
 - [JSON Schema: `HEALTH_VAULT_CAPABILITY_HANDOFF_V1.schema.json`](fixtures/HEALTH_VAULT_CAPABILITY_HANDOFF_V1.schema.json)
 
-The corpus contains 25 stable IDs (`HCH-001` through `HCH-025`) across positive control, identity-binding, tampering, expiry, revocation, delivery retry, key rotation and secret-sink checks. Every fixture expects zero protected health-payload bytes from the tested handoff/read boundary. Denials have typed failure codes; offline authorization is an explicit `unavailable` result rather than success. The schema requires each of the 25 known fixture IDs exactly once. Fixture data is synthetic and contains no capability secrets or patient payloads.
+The corpus contains 26 stable IDs (`HCH-001` through `HCH-026`) across positive control, identity-binding, tampering, expiry, revocation, delivery retry, key rotation and secret-sink checks. Every fixture expects zero protected health-payload bytes from the tested handoff/read boundary. Denials have typed failure codes; offline authorization is an explicit `unavailable` result rather than success. The schema requires each of the 25 known fixture IDs exactly once. Fixture data is synthetic and contains no capability secrets or patient payloads.
 
 **Executable contract gate authored:** `health_vault_capability_handoff_contract` is registered in the Personal test manifest and mirrored workspace manifest. The Rust target checks the exact ordered fixture IDs, typed failure codes, zero-payload invariant, idempotent claim deltas, key negative controls, schema ID coverage and byte-for-byte root/workspace parity. A dedicated exact-source workflow is defined in `.github/workflows/health-vault-handoff-contract.yml`.
 
@@ -130,6 +134,7 @@ Give every fixture a stable ID and classify its status as authored, executed, fa
 | HCH-023 | Duplicate active recipient key IDs | Reject ambiguous selection |
 | HCH-024 | Delivery succeeds but acknowledgement is lost | Retry/reconciliation does not claim duplicate issuance |
 | HCH-025 | Secret placed in error string or debug formatting | Static/runtime leak probe fails the build |
+| HCH-026 | Owner-local generic MasterKey used as a peer X25519 binding | Reject as unqualified key binding |
 
 Each negative fixture must assert both its rejection class and that no protected payload bytes were returned. The suite must run in a real multi-agent/conductor scenario in addition to unit tests of pure envelope validation.
 
