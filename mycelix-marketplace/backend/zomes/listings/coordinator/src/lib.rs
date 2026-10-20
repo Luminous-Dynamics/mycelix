@@ -8,7 +8,7 @@ use mycelix_common::{bridge, error_handling, link_queries, time};
 mod resolution;
 pub use resolution::{
     LISTING_RESOLUTION_POLICY_VERSION, ListingCatalogCoverage, ListingCatalogSnapshotV1,
-    ListingResolution, ListingResolutionReason, ListingResolutionState,
+    ListingObservationScope, ListingResolution, ListingResolutionReason, ListingResolutionState,
 };
 
 /// Create a new listing
@@ -162,10 +162,11 @@ pub fn get_listing(listing_hash: ActionHash) -> ExternResult<Option<ListingOutpu
 /// Resolve the locally observed update graph for any known listing Create/Update action.
 ///
 /// Unlike the legacy `get_listing`, this endpoint does not assume that the
-/// action hash supplied by the caller is the current revision. Concurrent
+/// action hash supplied by the caller is the current revision. A single returned
+/// head means only "sole observed head in this conductor's local graph", not global currentness. Concurrent
 /// update branches are returned as conflicted, with no canonical listing.
 #[hdk_extern]
-pub fn get_listing_resolution_v1(
+pub fn get_listing_revision_state_v1(
     listing_hash: ActionHash,
 ) -> ExternResult<Option<ListingResolution>> {
     resolution::resolve_listing(listing_hash)
@@ -178,7 +179,7 @@ pub fn get_listing_resolution_v1(
 /// single-head listings remain present with their resolved Deleted status so
 /// callers cannot silently reinterpret older linked actions as active offers.
 #[hdk_extern]
-pub fn get_all_listings_resolved_v1(_: ()) -> ExternResult<ListingCatalogSnapshotV1> {
+pub fn get_all_listings_revision_state_v1(_: ()) -> ExternResult<ListingCatalogSnapshotV1> {
     let path = Path::from("all_listings");
     let links = link_queries::get_links_local(path.path_entry_hash()?, LinkTypes::AllListings)?;
     let observed_link_count = u32::try_from(links.len()).unwrap_or(u32::MAX);
@@ -211,17 +212,17 @@ pub fn get_all_listings_resolved_v1(_: ()) -> ExternResult<ListingCatalogSnapsho
     }
     listings.sort_by_key(|listing| listing.root_listing_hash.to_string());
 
-    let resolved_listing_count = u32::try_from(
+    let single_observed_head_count = u32::try_from(
         listings
             .iter()
-            .filter(|listing| listing.state == ListingResolutionState::Resolved)
+            .filter(|listing| listing.state == ListingResolutionState::SingleObservedHead)
             .count(),
     )
     .unwrap_or(u32::MAX);
-    let conflicted_listing_count = u32::try_from(
+    let concurrent_head_listing_count = u32::try_from(
         listings
             .iter()
-            .filter(|listing| listing.state == ListingResolutionState::Conflicted)
+            .filter(|listing| listing.state == ListingResolutionState::ConcurrentHeads)
             .count(),
     )
     .unwrap_or(u32::MAX);
@@ -231,8 +232,8 @@ pub fn get_all_listings_resolved_v1(_: ()) -> ExternResult<ListingCatalogSnapsho
         coverage: ListingCatalogCoverage::LocalObservedLinksOnly,
         observed_link_count,
         unique_listing_count: u32::try_from(listings.len()).unwrap_or(u32::MAX),
-        resolved_listing_count,
-        conflicted_listing_count,
+        single_observed_head_count,
+        concurrent_head_listing_count,
         listings,
     })
 }

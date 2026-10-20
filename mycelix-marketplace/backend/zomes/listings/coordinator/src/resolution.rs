@@ -10,7 +10,8 @@
 //! proof: Holochain DHT integration is eventually consistent.
 
 use hdk::prelude::*;
-use listings_integrity::{Listing, ListingOutput};
+use super::ListingOutput;
+use listings_integrity::Listing;
 use mycelix_common::error_handling;
 
 pub const LISTING_RESOLUTION_POLICY_VERSION: u16 = 1;
@@ -20,8 +21,17 @@ const MAX_LISTING_REVISIONS: usize = 128;
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
 pub enum ListingResolutionState {
-    Resolved,
-    Conflicted,
+    /// Exactly one leaf was visible in this conductor's locally observed graph.
+    /// This does not imply DHT convergence or global currentness.
+    SingleObservedHead,
+    /// Multiple leaf revisions were observed. No head is selected.
+    ConcurrentHeads,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum ListingObservationScope {
+    LocalDhtUpdateGraph,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
@@ -45,10 +55,11 @@ pub struct ListingResolution {
     pub root_listing_hash: ActionHash,
     /// Version of the fail-closed leaf projection policy.
     pub policy_version: u16,
+    pub observation_scope: ListingObservationScope,
     pub state: ListingResolutionState,
     pub reason: ListingResolutionReason,
-    /// Set only when exactly one locally observed leaf exists.
-    pub canonical: Option<ListingOutput>,
+    /// Sole locally observed leaf only; not a global-currentness guarantee.
+    pub sole_observed_head: Option<ListingOutput>,
     /// All locally observed leaf actions, sorted by action hash for reproducibility.
     pub heads: Vec<ListingOutput>,
     /// Number of Create/Update actions traversed in the locally observed graph.
@@ -207,12 +218,12 @@ fn project_observed_heads(
     let (state, reason, canonical) = match heads.len() {
         0 => return Err("Listing update tree has no observed leaf revisions".into()),
         1 => (
-            ListingResolutionState::Resolved,
+            ListingResolutionState::SingleObservedHead,
             ListingResolutionReason::SingleObservedHead,
             heads.first().cloned(),
         ),
         _ => (
-            ListingResolutionState::Conflicted,
+            ListingResolutionState::ConcurrentHeads,
             ListingResolutionReason::ConcurrentObservedHeads,
             None,
         ),
@@ -221,9 +232,10 @@ fn project_observed_heads(
     Ok(ListingResolution {
         root_listing_hash,
         policy_version: LISTING_RESOLUTION_POLICY_VERSION,
+        observation_scope: ListingObservationScope::LocalDhtUpdateGraph,
         state,
         reason,
-        canonical,
+        sole_observed_head: canonical,
         heads,
         revision_count,
     })
@@ -279,13 +291,13 @@ mod tests {
         let output = listing_output(2, 25_000, 3, ListingStatus::Active);
         let projection = project_observed_heads(root.clone(), 2, vec![output]).unwrap();
 
-        assert_eq!(projection.state, ListingResolutionState::Resolved);
+        assert_eq!(projection.state, ListingResolutionState::SingleObservedHead);
         assert_eq!(
             projection.reason,
             ListingResolutionReason::SingleObservedHead
         );
         assert_eq!(projection.root_listing_hash, root);
-        assert_eq!(projection.canonical.as_ref().unwrap().listing_hash, hash(2));
+        assert_eq!(projection.sole_observed_head.as_ref().unwrap().listing_hash, hash(2));
         assert_eq!(projection.revision_count, 2);
         assert_eq!(projection.heads.len(), 1);
     }
@@ -297,12 +309,12 @@ mod tests {
         let second = listing_output(3, 22_000, 1, ListingStatus::Active);
         let projection = project_observed_heads(root, 3, vec![first, second]).unwrap();
 
-        assert_eq!(projection.state, ListingResolutionState::Conflicted);
+        assert_eq!(projection.state, ListingResolutionState::ConcurrentHeads);
         assert_eq!(
             projection.reason,
             ListingResolutionReason::ConcurrentObservedHeads
         );
-        assert!(projection.canonical.is_none());
+        assert!(projection.sole_observed_head.is_none());
         assert_eq!(projection.heads.len(), 2);
     }
 
@@ -313,8 +325,8 @@ mod tests {
         let second = listing_output(3, 25_000, 3, ListingStatus::Active);
         let projection = project_observed_heads(root, 3, vec![second, first]).unwrap();
 
-        assert_eq!(projection.state, ListingResolutionState::Conflicted);
-        assert!(projection.canonical.is_none());
+        assert_eq!(projection.state, ListingResolutionState::ConcurrentHeads);
+        assert!(projection.sole_observed_head.is_none());
         assert_eq!(projection.heads[0].listing_hash, hash(2));
         assert_eq!(projection.heads[1].listing_hash, hash(3));
     }
@@ -325,9 +337,9 @@ mod tests {
         let deleted = listing_output(2, 25_000, 3, ListingStatus::Deleted);
         let projection = project_observed_heads(root, 2, vec![deleted]).unwrap();
 
-        assert_eq!(projection.state, ListingResolutionState::Resolved);
+        assert_eq!(projection.state, ListingResolutionState::SingleObservedHead);
         assert_eq!(
-            projection.canonical.as_ref().unwrap().listing.status,
+            projection.sole_observed_head.as_ref().unwrap().listing.status,
             ListingStatus::Deleted
         );
     }
@@ -357,7 +369,7 @@ mod tests {
             .map(|head| head.listing_hash.to_string())
             .collect();
         assert_eq!(first_hashes, second_hashes);
-        assert!(first.canonical.is_none());
-        assert!(second.canonical.is_none());
+        assert!(first.sole_observed_head.is_none());
+        assert!(second.sole_observed_head.is_none());
     }
 }

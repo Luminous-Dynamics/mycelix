@@ -43,14 +43,6 @@ jobs:
       - name: Check coordinator formatting
         run: cargo fmt --manifest-path mycelix-marketplace/backend/Cargo.toml -p listings_coordinator -- --check
       - name: Test listing coordinator and revision oracle
-        run: cargo test --manifest-path mycelix-marketplace/backend/Cargo.toml -p listings_coordinator
-      - name: Emit refreshed backend lockfile for review
-        if: always()
-        shell: bash
-        run: |
-          set -euo pipefail
-          echo "BACKEND_LOCKFILE_BEGIN"
-          cat mycelix-marketplace/backend/Cargo.lock
-          echo "BACKEND_LOCKFILE_END"
+        run: cargo test --locked --manifest-path mycelix-marketplace/backend/Cargo.toml -p listings_coordinator
       - name: Lint listing coordinator
-        run: cargo clippy --manifest-path mycelix-marketplace/backend/Cargo.toml -p listings_coordinator --all-targets -- -D warnings
+        run: cargo clippy --locked --manifest-path mycelix-marketplace/backend/Cargo.toml -p listings_coordinator --all-targets -- -D warnings
