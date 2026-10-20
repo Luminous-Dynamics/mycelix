@@ -80,6 +80,14 @@
           "required_authority": "read_only_telemetry",
           "cost_units": 1,
           "latency_bound_minutes": 2
+        },
+        {
+          "request_id": "policy-source-crosscheck",
+          "source_kind": "policy_deployment_receipt",
+          "purpose": "Compare independent source records; if they conflict, preserve the conflict and do not infer which source is authoritative.",
+          "required_authority": "read_only_telemetry",
+          "cost_units": 1,
+          "latency_bound_minutes": 2
         }
       ]
     },
@@ -108,6 +116,14 @@
           "required_authority": "read_only_telemetry",
           "cost_units": 3,
           "latency_bound_minutes": 4
+        },
+        {
+          "request_id": "registry-snapshot-freshness",
+          "source_kind": "registry_snapshot",
+          "purpose": "Verify the timestamp and version of the registry snapshot before relying on its digest comparison.",
+          "required_authority": "read_only_telemetry",
+          "cost_units": 1,
+          "latency_bound_minutes": 2
         }
       ]
     },
@@ -136,6 +152,14 @@
           "required_authority": "read_only_telemetry",
           "cost_units": 2,
           "latency_bound_minutes": 3
+        },
+        {
+          "request_id": "export-effect-receipt",
+          "source_kind": "export_effect_receipt",
+          "purpose": "Check whether a completed export effect receipt exists; absence of a receipt from an unavailable source proves neither success nor failure.",
+          "required_authority": "read_only_telemetry",
+          "cost_units": 1,
+          "latency_bound_minutes": 2
         }
       ]
     },
