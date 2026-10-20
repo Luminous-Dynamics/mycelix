@@ -1595,6 +1595,24 @@ async fn test_consent_remote_read_scope_stolen_secret_and_revocation() {
             .await;
     }
 
+    let too_long_expiry = Timestamp::from_micros(
+        Timestamp::now().as_micros() + 366 * 24 * 60 * 60 * 1_000_000,
+    );
+    let too_long: Result<ConsentCapabilityOffer, _> = conductor
+        .call_fallible(
+            &owner.zome("health_vault"),
+            "grant_consent_with_remote_capability",
+            GrantConsentWithRemoteCapabilityInput {
+                grantee: grantee.agent_pubkey().clone(),
+                record_types: vec!["vaccination".to_string()],
+                expires_at: Some(too_long_expiry),
+                allow_indefinite: false,
+                active: true,
+            },
+        )
+        .await;
+    assert!(too_long.is_err(), "finite remote grants over 365 days must fail closed");
+
     let offer: ConsentCapabilityOffer = conductor
         .call(
             &owner.zome("health_vault"),
