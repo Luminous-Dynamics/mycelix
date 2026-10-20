@@ -1554,15 +1554,9 @@ mod tests {
                         Action::CreateProtectedIdentity
                             | Action::RestoreProtectedIdentityFromSeedPhrase
                     ),
-                    Posture::UnprotectedIdentity => {
-                        action == Action::ProtectExistingIdentity
-                    }
-                    Posture::ProtectedLocked => {
-                        action == Action::UnlockProtectedIdentity
-                    }
-                    Posture::ProtectedUnlockedInSession => {
-                        action == Action::RotatePassphrase
-                    }
+                    Posture::UnprotectedIdentity => action == Action::ProtectExistingIdentity,
+                    Posture::ProtectedLocked => action == Action::UnlockProtectedIdentity,
+                    Posture::ProtectedUnlockedInSession => action == Action::RotatePassphrase,
                     Posture::LegacyIdentityNeedsMigration
                     | Posture::StorageUnavailable
                     | Posture::CorruptOrInconsistent => false,
