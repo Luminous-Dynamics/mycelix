@@ -1,0 +1,11 @@
+{
+  "schema_version": 1,
+  "corpus_id": "PRAXIS-CYBER-001",
+  "corpus_version": "1.0.0",
+  "classification": "public_synthetic_conformance",
+  "solver_visible_file": "solver-visible.json",
+  "evaluator_only_file": "evaluator-only.json",
+  "solver_schema_file": "solver-visible.schema.json",
+  "evaluator_schema_file": "evaluator-only.schema.json",
+  "runtime_rule": "Solver runtimes may load only solver-visible.json. Evaluator-only material is conformance-test input; it must not be served or embedded in the learner application."
+}
