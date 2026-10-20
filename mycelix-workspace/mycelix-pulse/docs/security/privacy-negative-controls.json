@@ -1,0 +1,299 @@
+{
+  "schema_version": 1,
+  "catalog_id": "PULSE-PRIVACY-NEGATIVE-CONTROLS-001",
+  "review_date": "2026-10-17",
+  "execution_status": "planned_not_executed",
+  "scope": "Synthetic-only tests for privacy audit sensitivity and fail-closed boundaries",
+  "execution_rule": "Every result must bind the exact build, config, tool versions, fixture digest, observer vantage point, and limitations. A planned control is not a test result.",
+  "controls": [
+    {
+      "id": "PULSE-PRIV-NC-001",
+      "name": "Canary plaintext escape",
+      "inventory_refs": [
+        "PULSE-META-005",
+        "PULSE-META-012"
+      ],
+      "category": "content_confidentiality",
+      "precondition": "Use a synthetic test identity and unique fake message-body canary in a controlled local test.",
+      "injected_condition": "The primary test exercises the normal path. A separate deliberately broken harness fixture writes the canary to a fake service-side log.",
+      "observer_vantage": [
+        "application logs",
+        "trace spans",
+        "diagnostic export",
+        "controlled network sink",
+        "crash dump"
+      ],
+      "expected_secure_result": "No canary plaintext appears in service-side delivery telemetry or unexpected egress. Explicit endpoint-local plaintext display is outside this specific assertion and must be separately scoped.",
+      "harness_sensitivity_gate": "The deliberately broken fixture must be detected by the exact scanning harness.",
+      "on_failure": "Fail the scoped privacy claim; preserve only the minimized synthetic trace.",
+      "claim_limit": "Passing a local canary test does not prove remote server retention behavior or all possible code paths.",
+      "status": "not_run"
+    },
+    {
+      "id": "PULSE-PRIV-NC-002",
+      "name": "Recipient identifier egress",
+      "inventory_refs": [
+        "PULSE-META-003",
+        "PULSE-META-006",
+        "PULSE-META-008"
+      ],
+      "category": "identifier_minimization",
+      "precondition": "Use synthetic recipient identifiers and a controlled test endpoint.",
+      "injected_condition": "Instrument request metadata and create one known-bad fixture that adds a direct recipient identifier to a query parameter or header.",
+      "observer_vantage": [
+        "client egress inspector",
+        "controlled relay",
+        "test gateway"
+      ],
+      "expected_secure_result": "Only fields declared necessary by the frozen profile are transmitted; undeclared direct identifiers are absent or the action fails closed.",
+      "harness_sensitivity_gate": "The known-bad fixture must be detected.",
+      "on_failure": "Fail the selected metadata minimization claim and open a path-specific remediation.",
+      "claim_limit": "An absence in one endpoint capture says nothing about other routes or remote logs.",
+      "status": "not_run"
+    },
+    {
+      "id": "PULSE-PRIV-NC-003",
+      "name": "Low-entropy identifier enumeration demonstration",
+      "inventory_refs": [
+        "PULSE-META-008"
+      ],
+      "category": "contact_discovery",
+      "precondition": "Use a small synthetic namespace of fake phone/email-like identifiers; no real contact data.",
+      "injected_condition": "Compare plain truncating hash lookup against a configured privacy-preserving protocol profile; also test repeated oracle queries and invalid/over-budget token redemptions.",
+      "observer_vantage": [
+        "client",
+        "PSI service",
+        "issuer or token service",
+        "network relay"
+      ],
+      "expected_secure_result": "The test reports separately what each role learns, whether enumeration is possible under the frozen query budget, and which collusion/transport assumptions are required. No anonymity Boolean is emitted.",
+      "harness_sensitivity_gate": "The naive-hash baseline must demonstrate the expected synthetic dictionary-recovery risk; abuse-control bypass mutants must be caught.",
+      "on_failure": "No contact-discovery privacy promotion; route issues through existing Mycelix PSI work #2297.",
+      "claim_limit": "Passing this synthetic suite does not prove malicious-secure PSI, anonymity, traffic-analysis resistance, or protection against all collusion.",
+      "status": "not_run"
+    },
+    {
+      "id": "PULSE-PRIV-NC-004",
+      "name": "Key-directory equivocation and stale mapping",
+      "inventory_refs": [
+        "PULSE-META-009"
+      ],
+      "category": "key_authenticity",
+      "precondition": "Use two synthetic clients and a controlled fake key directory.",
+      "injected_condition": "Return different account-to-key mappings to the two clients, then replay a stale prior mapping and a valid but newly enrolled device mapping.",
+      "observer_vantage": [
+        "client A",
+        "client B",
+        "key directory",
+        "independent consistency witness if configured"
+      ],
+      "expected_secure_result": "The client never labels a mapping verified when the selected profile cannot establish consistency/currentness; conflicts and unsupported states stay visible.",
+      "harness_sensitivity_gate": "A deliberately broken client that trusts the directory's positive Boolean must be detected.",
+      "on_failure": "Fail the key authenticity claim; do not represent key transparency as proof of real-world identity.",
+      "claim_limit": "A synthetic equivocation test does not establish a production transparency log or prevent endpoint compromise/account takeover.",
+      "status": "not_run"
+    },
+    {
+      "id": "PULSE-PRIV-NC-005",
+      "name": "Diagnostic export redaction",
+      "inventory_refs": [
+        "PULSE-META-005",
+        "PULSE-META-009",
+        "PULSE-META-012"
+      ],
+      "category": "diagnostics",
+      "precondition": "Use a synthetic crash/report fixture containing fake credentials, fake recipient ID and canary message content.",
+      "injected_condition": "Request a diagnostic package through the supported export boundary; include one deliberately unsafe exporter variant.",
+      "observer_vantage": [
+        "local export preview",
+        "archive contents",
+        "controlled upload sink"
+      ],
+      "expected_secure_result": "Sensitive fields are removed or the export is blocked, and the user can inspect the exact payload before any upload.",
+      "harness_sensitivity_gate": "The deliberately unsafe exporter must be detected by the archive inspector.",
+      "on_failure": "Block diagnostic upload/promotion until the path is fixed or explicitly scoped.",
+      "claim_limit": "This does not prove third-party support systems delete files after a user submits them.",
+      "status": "not_run"
+    },
+    {
+      "id": "PULSE-PRIV-NC-006",
+      "name": "Backup deletion and stale-device semantics",
+      "inventory_refs": [
+        "PULSE-META-010",
+        "PULSE-META-009"
+      ],
+      "category": "backup_and_revocation",
+      "precondition": "Use a synthetic account, fake message canary and an explicitly selected local test backup target.",
+      "injected_condition": "Create backup, delete/tombstone source, revoke a device, restore on a fresh test device and attempt rollback to an older backup.",
+      "observer_vantage": [
+        "source database",
+        "backup archive",
+        "restored database",
+        "device authorization evaluator"
+      ],
+      "expected_secure_result": "The restore outcome states precisely which content is restored, which deletions/revocations survive, and what recovery limitations apply; no silent claim that every copy is erased.",
+      "harness_sensitivity_gate": "A known-bad fixture that falsely reports complete erasure or re-authorizes a revoked device must be detected.",
+      "on_failure": "Fail the corresponding backup/revocation claim and preserve the minimized synthetic fixture.",
+      "claim_limit": "Local backup testing does not prove deletion from all remote or user-made copies.",
+      "status": "not_run"
+    },
+    {
+      "id": "PULSE-PRIV-NC-007",
+      "name": "Conflicting provider identity and native projection",
+      "inventory_refs": [
+        "PULSE-META-001",
+        "PULSE-META-002",
+        "PULSE-META-011"
+      ],
+      "category": "federation_semantics",
+      "precondition": "Use a frozen synthetic provider event corpus with explicit provenance and audience rules.",
+      "injected_condition": "Reuse a provider event ID with conflicting semantic commitment; mutate actor attribution, edit/delete lineage, audience or receipt field.",
+      "observer_vantage": [
+        "provider adapter",
+        "native projection",
+        "outbound bridge"
+      ],
+      "expected_secure_result": "Conflicting identity is preserved as conflict/rejected, and provider authorship, membership, delivery and receipt are not promoted into native Pulse authority.",
+      "harness_sensitivity_gate": "A deliberately permissive projection must be rejected.",
+      "on_failure": "Block affected bridge route; do not publish outbound effects.",
+      "claim_limit": "Passing synthetic mapping cases does not qualify a live provider integration or lossless interoperability.",
+      "status": "not_run"
+    },
+    {
+      "id": "PULSE-PRIV-NC-008",
+      "name": "Unsupported schema and unknown metadata field",
+      "inventory_refs": [
+        "PULSE-META-001",
+        "PULSE-META-006",
+        "PULSE-META-007",
+        "PULSE-META-011"
+      ],
+      "category": "fail_closed_serialization",
+      "precondition": "Use synthetic serialized records under a frozen schema version.",
+      "injected_condition": "Add unknown authority-bearing fields, unsupported enum values, conflicting duplicate keys, missing required fields, and future schema versions.",
+      "observer_vantage": [
+        "deserializer",
+        "replay reducer",
+        "positive constructor boundary"
+      ],
+      "expected_secure_result": "Unknown or unsupported input cannot construct a trusted positive state; it yields explicit unsupported/conflict/invalid evidence.",
+      "harness_sensitivity_gate": "A deliberately permissive parser or status constructor must be caught.",
+      "on_failure": "Fail schema/protocol qualification for the affected version.",
+      "claim_limit": "A strict deserializer does not establish cryptographic validity or remote authorization.",
+      "status": "not_run"
+    },
+    {
+      "id": "PULSE-PRIV-NC-009",
+      "name": "Timing and size correlation experiment",
+      "inventory_refs": [
+        "PULSE-META-002",
+        "PULSE-META-006",
+        "PULSE-META-013"
+      ],
+      "category": "traffic_analysis",
+      "precondition": "Run paired sessions using fully synthetic senders, recipients, group patterns and payload classes in a controlled lab.",
+      "injected_condition": "Change one feature at a time: message size, time, route, retry, group event or device presence. Compare observer traces under the exact proposed mitigation profile.",
+      "observer_vantage": [
+        "network observer",
+        "relay",
+        "gateway",
+        "recipient",
+        "provider bridge"
+      ],
+      "expected_secure_result": "Report distinguishability, confidence, sample limits, false positives/negatives and residual leakage. Do not claim anonymity from a non-significant result.",
+      "harness_sensitivity_gate": "A known timing/size marker must be detected in the baseline variant to demonstrate observer sensitivity.",
+      "on_failure": "Document the leak and decide on minimization, padding, batching, delayed delivery or explicit non-protection under a named threat model.",
+      "claim_limit": "This is an empirical side-channel assessment, not proof of traffic-analysis resistance.",
+      "status": "not_run"
+    },
+    {
+      "id": "PULSE-PRIV-NC-010",
+      "name": "Privacy-preserving rate limit without stable redemption identity",
+      "inventory_refs": [
+        "PULSE-META-008"
+      ],
+      "category": "abuse_resistance_and_unlinkability",
+      "precondition": "Use a synthetic issuer, test origin and contact-discovery endpoint.",
+      "injected_condition": "Replay one token, exceed query budget, redeem for the wrong origin/epoch and test issuance/redemption correlation under separately-operated issuer/origin profiles.",
+      "observer_vantage": [
+        "issuer",
+        "origin/PSI verifier",
+        "relay",
+        "client"
+      ],
+      "expected_secure_result": "Unauthorized or over-budget queries fail; report exactly which collusion and trust assumptions are required to prevent linkage.",
+      "harness_sensitivity_gate": "Token replay, cross-origin and budget-amplification mutants must be detected.",
+      "on_failure": "Do not enable bulk/private contact discovery; reuse the existing PSI composition work.",
+      "claim_limit": "A privacy-preserving token does not by itself prove transport privacy, anonymous contact discovery or malicious security.",
+      "status": "not_run"
+    },
+    {
+      "id": "PULSE-PRIV-NC-011",
+      "name": "Canonical V2 public DHT metadata correlation",
+      "inventory_refs": [
+        "PULSE-META-003",
+        "PULSE-META-014",
+        "PULSE-META-015",
+        "PULSE-META-016"
+      ],
+      "category": "public_dht_metadata_and_authorship",
+      "precondition": "Use a frozen local multi-agent Holochain test topology under the exact pinned HDI/HDK version, with two or more synthetic senders/recipients, unique fake message IDs and distinct synthetic threads.",
+      "injected_condition": "Send cross-recipient and cross-thread messages; inspect the public EncryptedEmailV2 entry, signed action metadata, AgentToInboxV2 links, base/target hashes, key-bundle references and timestamps from a DNA participant observer. Include a known-bad variant that removes the envelope sender field while leaving a direct sender action author or recipient AgentPubKey link base.",
+      "observer_vantage": [
+        "sender cell",
+        "recipient cell",
+        "independent DNA participant",
+        "DHT entry/link reader",
+        "controlled network observer where available"
+      ],
+      "expected_secure_result": "For the current V2 baseline, the report must accurately record the source-predicted public fields and any observed correlations, not label them private. A future metadata-private profile may claim only the fields shown opaque to its declared observers. Removing a JSON field alone must not pass if public action authorship or inbox-link metadata still identifies the relationship.",
+      "harness_sensitivity_gate": "The baseline observation must identify at least one deliberately injected public identifier/link. The known-bad field-only-redaction variant must still be classified as linkable when the action author or recipient link remains visible.",
+      "on_failure": "Fail only the claimed metadata-privacy property, preserve the minimized synthetic graph/trace, and route architecture changes through issue #5121. Do not silently change V2 semantics or flip entry visibility without an alternate qualified discovery/retrieval protocol.",
+      "claim_limit": "A source audit or local test does not establish visibility in every deployed network topology, resistance to traffic analysis, anonymity against a global observer, or the correctness of a future privacy redesign.",
+      "status": "not_run"
+    },
+    {
+      "id": "PULSE-PRIV-NC-012",
+      "name": "Repeated delivery receipt acknowledgment",
+      "inventory_refs": [
+        "PULSE-META-007",
+        "PULSE-META-018"
+      ],
+      "category": "receipt_idempotency_and_activity_metadata",
+      "precondition": "Use a frozen multi-agent Holochain test with one synthetic legacy V1 envelope, one intended recipient agent, and a captured public-record/link view.",
+      "injected_condition": "Call acknowledge_delivery sequentially many times and concurrently from duplicate handlers for the same email ActionHash; replay the same request after restart. Capture created DeliveryReceipt entries, EmailToDeliveryReceipts links, timestamps and sender-visible receipt projection.",
+      "observer_vantage": [
+        "recipient conductor",
+        "sender conductor",
+        "independent DNA participant",
+        "DHT entry/link reader"
+      ],
+      "expected_secure_result": "Repeated acknowledgments converge to one logical delivery receipt under the declared idempotency model, or to an explicitly documented deterministic set that cannot inflate delivery count or alter the original delivery event. The sender must not confuse repeated receipt artifacts with multiple deliveries.",
+      "harness_sensitivity_gate": "A deliberately non-idempotent baseline using fresh timestamps must create distinguishable receipt entries and trigger the count/correlation detector; the harness must detect duplicates from sequential and concurrent retries.",
+      "on_failure": "Fail receipt idempotency and activity-minimization qualification; preserve deterministic Rust regression traces and resolve with durable delivery work #5062.",
+      "claim_limit": "A successful local concurrency test does not prove distributed global exactly-once receipt creation; the exact topology and consistency assumptions must be stated.",
+      "status": "not_run"
+    },
+    {
+      "id": "PULSE-PRIV-NC-013",
+      "name": "V2 ActionHash console diagnostic minimization",
+      "inventory_refs": [
+        "PULSE-META-004",
+        "PULSE-META-017"
+      ],
+      "category": "local_diagnostic_correlation_identifier",
+      "precondition": "Build the canonical Leptos V2 compose path with a synthetic message and unique test ActionHash under a frozen build profile.",
+      "injected_condition": "Capture browser console output and any configured diagnostic export for a successful V2 send. Include a known-bad fixture that logs the full raw ActionHash in normal production mode.",
+      "observer_vantage": [
+        "browser console",
+        "browser diagnostic export",
+        "controlled support bundle if enabled"
+      ],
+      "expected_secure_result": "Routine production logs do not expose a directly reusable DHT ActionHash unless an explicitly documented debug profile enables it; the UI still reports the correctly scoped status 'Message sent and committed to DHT' without overstating recipient delivery.",
+      "harness_sensitivity_gate": "The known-bad full-ActionHash fixture must be found by the detector and tied back to the synthetic DHT record.",
+      "on_failure": "Fail the selected local-diagnostics minimization claim; remove or gate unnecessary raw-hash logging and preserve the ActionHash for local user-authorized debugging only when necessary.",
+      "claim_limit": "A browser-local console log is not a remote-service leak unless a supported export or remote collection path carries it. Do not infer remote telemetry behavior from this test alone.",
+      "status": "not_run"
+    }
+  ]
+}

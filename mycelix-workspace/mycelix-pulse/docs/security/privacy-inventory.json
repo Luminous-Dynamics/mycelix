@@ -1,0 +1,714 @@
+{
+  "schema_version": 1,
+  "inventory_id": "PULSE-PRIVACY-SURFACE-001",
+  "review_date": "2026-10-17",
+  "scope": "Public Mycelix Pulse design and implementation audit planning",
+  "claim_status": "inventory_seed_not_runtime_audit",
+  "status_semantics": {
+    "design_documented": "A public design issue documents the concept or requirement; this does not prove runtime presence.",
+    "source_verified_in_repo": "The exact code/config at a specified commit was inspected and the claim was verified.",
+    "candidate_surface": "A plausible privacy-relevant surface that must be checked; its presence is not asserted.",
+    "external_reference_only": "An outside standard or product is used as a comparison input, not evidence about Pulse.",
+    "not_audited": "Runtime collection, exposure, persistence, retention, or deletion behavior has not been verified.",
+    "verified_absent": "Absence was established for a named exact build and inspection method; never use without attached evidence."
+  },
+  "mandatory_rule": "No absence, anonymity, E2EE, retention, erasure, or privacy claim may be inferred from this seed inventory. Unknown remains unknown.",
+  "records": [
+    {
+      "id": "PULSE-META-001",
+      "name": "Logical message identity",
+      "data_class": "message_identifier",
+      "surface": "V2 durable envelope / social projection boundary",
+      "evidence_level": "source_verified_in_repo",
+      "source_refs": [
+        "https://github.com/Luminous-Dynamics/mycelix/issues/3746",
+        "https://github.com/Luminous-Dynamics/mycelix/blob/f81361124d073a1db309db977abcf7bdce8ad4cb/mycelix-workspace/mycelix-pulse/holochain/zomes/messages/integrity/src/lib.rs#L162-L188"
+      ],
+      "design_fact": "The canonical V2 source declares a 32-byte message_id in EncryptedEmailV2. This field is present in the entry model; whether it is observable in an actual deployed network has not been runtime-tested. Holochain public-entry behavior is a separate visibility concern.",
+      "runtime_presence": "not_audited",
+      "exposure_persistence_retention_deletion": "not_audited",
+      "linkability_risk": "high",
+      "audit_questions": [
+        "Where is the identifier stored and transmitted?",
+        "Can it be correlated across devices, routes, providers, or exports?",
+        "Does deletion leave links, indexes, or commitments?"
+      ],
+      "policy_intent": "Use scoped, stable identity only where required for deduplication and lineage; avoid exposing a globally reusable identifier unnecessarily.",
+      "claim_blockers": [
+        "Do not claim unlinkability or deletion completeness without exact-build evidence."
+      ],
+      "source_observations": [
+        {
+          "source_commit_sha": "f81361124d073a1db309db977abcf7bdce8ad4cb",
+          "path": "mycelix-workspace/mycelix-pulse/holochain/zomes/messages/integrity/src/lib.rs",
+          "blob_sha": "6a806138f71e2f73a01f17dd0cb0483e57d73082",
+          "line_start": 162,
+          "line_end": 188,
+          "symbol": "EncryptedEmailV2.message_id",
+          "observed_fact": "The public entry data model contains a stable 32-byte message_id adjacent to sender/recipient and thread fields.",
+          "url": "https://github.com/Luminous-Dynamics/mycelix/blob/f81361124d073a1db309db977abcf7bdce8ad4cb/mycelix-workspace/mycelix-pulse/holochain/zomes/messages/integrity/src/lib.rs#L162-L188"
+        }
+      ]
+    },
+    {
+      "id": "PULSE-META-002",
+      "name": "Thread and reply lineage",
+      "data_class": "relationship_metadata",
+      "surface": "V2 durable envelope / social projection",
+      "evidence_level": "source_verified_in_repo",
+      "source_refs": [
+        "https://github.com/Luminous-Dynamics/mycelix/issues/3746",
+        "https://github.com/Luminous-Dynamics/mycelix/blob/f81361124d073a1db309db977abcf7bdce8ad4cb/mycelix-workspace/mycelix-pulse/holochain/zomes/messages/integrity/src/lib.rs#L162-L188"
+      ],
+      "design_fact": "The V2 entry struct directly declares in_reply_to and thread_id as clear envelope fields beside ciphertext. These fields are not fields of the encrypted plaintext payload described in the V2 specification. Runtime observer visibility still requires exact-topology verification.",
+      "runtime_presence": "not_audited",
+      "exposure_persistence_retention_deletion": "not_audited",
+      "linkability_risk": "high",
+      "audit_questions": [
+        "Who can observe thread membership and reply graph?",
+        "Do tombstones or exports preserve sensitive relationship edges?",
+        "Can a provider bridge reveal source relationships?"
+      ],
+      "policy_intent": "Preserve semantic correctness while minimizing unnecessary cross-context correlation.",
+      "claim_blockers": [
+        "Do not claim private social graph or anonymous thread membership without a defined and tested protocol."
+      ],
+      "source_observations": [
+        {
+          "source_commit_sha": "f81361124d073a1db309db977abcf7bdce8ad4cb",
+          "path": "mycelix-workspace/mycelix-pulse/holochain/zomes/messages/integrity/src/lib.rs",
+          "blob_sha": "6a806138f71e2f73a01f17dd0cb0483e57d73082",
+          "line_start": 162,
+          "line_end": 188,
+          "symbol": "EncryptedEmailV2.in_reply_to / thread_id",
+          "observed_fact": "The entry struct carries in_reply_to and thread_id outside the ciphertext field, so the serialized public entry can encode thread/reply metadata in clear.",
+          "url": "https://github.com/Luminous-Dynamics/mycelix/blob/f81361124d073a1db309db977abcf7bdce8ad4cb/mycelix-workspace/mycelix-pulse/holochain/zomes/messages/integrity/src/lib.rs#L162-L188"
+        }
+      ]
+    },
+    {
+      "id": "PULSE-META-003",
+      "name": "Sender and recipient identifiers",
+      "data_class": "identity_and_routing",
+      "surface": "V2 durable envelope / Holochain message substrate",
+      "evidence_level": "source_verified_in_repo",
+      "source_refs": [
+        "https://github.com/Luminous-Dynamics/mycelix/issues/3746",
+        "https://github.com/Luminous-Dynamics/mycelix/blob/f81361124d073a1db309db977abcf7bdce8ad4cb/mycelix-workspace/mycelix-pulse/holochain/zomes/messages/integrity/src/lib.rs#L162-L188",
+        "https://github.com/Luminous-Dynamics/mycelix/blob/f81361124d073a1db309db977abcf7bdce8ad4cb/mycelix-workspace/mycelix-pulse/holochain/zomes/messages/coordinator/src/lib.rs#L219-L275",
+        "https://developer.holochain.org/build/working-with-data/"
+      ],
+      "design_fact": "The V2 entry model declares sender and recipient as AgentPubKey fields. send_email_v2 populates them and creates an inbox link based on the recipient key. Source inspection verifies the schema/control flow, not a runtime egress test.",
+      "runtime_presence": "not_audited",
+      "exposure_persistence_retention_deletion": "not_audited",
+      "linkability_risk": "high",
+      "audit_questions": [
+        "Which parties see these identifiers?",
+        "Which public links or DHT records expose them?",
+        "Are identifiers pairwise/scoped or reusable?",
+        "What is the mapping to human/provider identities?"
+      ],
+      "policy_intent": "Do not conflate AgentPubKey, public key, provider account, phone/email identifier, or verified human identity.",
+      "claim_blockers": [
+        "A cryptographic identifier does not establish a real-world identity or anonymity."
+      ],
+      "source_observations": [
+        {
+          "source_commit_sha": "f81361124d073a1db309db977abcf7bdce8ad4cb",
+          "path": "mycelix-workspace/mycelix-pulse/holochain/zomes/messages/integrity/src/lib.rs",
+          "blob_sha": "6a806138f71e2f73a01f17dd0cb0483e57d73082",
+          "line_start": 162,
+          "line_end": 188,
+          "symbol": "EncryptedEmailV2.sender / recipient",
+          "observed_fact": "Sender and recipient AgentPubKeys are direct envelope fields outside ciphertext.",
+          "url": "https://github.com/Luminous-Dynamics/mycelix/blob/f81361124d073a1db309db977abcf7bdce8ad4cb/mycelix-workspace/mycelix-pulse/holochain/zomes/messages/integrity/src/lib.rs#L162-L188"
+        },
+        {
+          "source_commit_sha": "f81361124d073a1db309db977abcf7bdce8ad4cb",
+          "path": "mycelix-workspace/mycelix-pulse/holochain/zomes/messages/coordinator/src/lib.rs",
+          "blob_sha": "d818dfc333cdc1c538745a283cb92ec90f1fcadb",
+          "line_start": 219,
+          "line_end": 275,
+          "symbol": "send_email_v2",
+          "observed_fact": "The coordinator sets sender from agent_info(), copies the recipient into the envelope, and creates an AgentToInboxV2 link whose base is input.recipient.",
+          "url": "https://github.com/Luminous-Dynamics/mycelix/blob/f81361124d073a1db309db977abcf7bdce8ad4cb/mycelix-workspace/mycelix-pulse/holochain/zomes/messages/coordinator/src/lib.rs#L219-L275"
+        }
+      ]
+    },
+    {
+      "id": "PULSE-META-004",
+      "name": "Durable action/evidence identity",
+      "data_class": "provenance_metadata",
+      "surface": "Holochain action/evidence lineage",
+      "evidence_level": "source_verified_in_repo",
+      "source_refs": [
+        "https://github.com/Luminous-Dynamics/mycelix/issues/3746",
+        "https://github.com/Luminous-Dynamics/mycelix/blob/f81361124d073a1db309db977abcf7bdce8ad4cb/mycelix-workspace/mycelix-pulse/holochain/zomes/messages/coordinator/src/lib.rs#L219-L275"
+      ],
+      "design_fact": "send_email_v2 commits EncryptedEmailV2 and returns its ActionHash; the inbox/sent paths target the action hash. Exact action/entry provenance is therefore part of the protocol data model. Runtime retention/deletion behavior is not audited here.",
+      "runtime_presence": "not_audited",
+      "exposure_persistence_retention_deletion": "not_audited",
+      "linkability_risk": "medium_to_high",
+      "audit_questions": [
+        "What provenance is publicly addressable?",
+        "Can a commitment be correlated to sender/recipient records?",
+        "What deletion/tombstone behavior actually means on this substrate?"
+      ],
+      "policy_intent": "Keep provenance and semantic identity distinct; publish only the lineage required by the selected access model.",
+      "claim_blockers": [
+        "A content commitment is not proof that linked metadata is private."
+      ],
+      "source_observations": [
+        {
+          "source_commit_sha": "f81361124d073a1db309db977abcf7bdce8ad4cb",
+          "path": "mycelix-workspace/mycelix-pulse/holochain/zomes/messages/coordinator/src/lib.rs",
+          "blob_sha": "d818dfc333cdc1c538745a283cb92ec90f1fcadb",
+          "line_start": 219,
+          "line_end": 275,
+          "symbol": "send_email_v2",
+          "observed_fact": "The V2 entry creation returns an ActionHash and inbox/sent links use the message action hash as target.",
+          "url": "https://github.com/Luminous-Dynamics/mycelix/blob/f81361124d073a1db309db977abcf7bdce8ad4cb/mycelix-workspace/mycelix-pulse/holochain/zomes/messages/coordinator/src/lib.rs#L219-L275"
+        }
+      ]
+    },
+    {
+      "id": "PULSE-META-005",
+      "name": "Encrypted message content and envelope metadata",
+      "data_class": "content_and_ciphertext_metadata",
+      "surface": "V2 EncryptedEmailV2 / local storage / transport boundaries",
+      "evidence_level": "source_verified_in_repo",
+      "source_refs": [
+        "https://github.com/Luminous-Dynamics/mycelix/issues/3746",
+        "https://github.com/Luminous-Dynamics/mycelix/blob/f81361124d073a1db309db977abcf7bdce8ad4cb/mycelix-workspace/mycelix-pulse/holochain/zomes/messages/integrity/src/lib.rs#L162-L188",
+        "https://github.com/Luminous-Dynamics/mycelix/blob/f81361124d073a1db309db977abcf7bdce8ad4cb/mycelix-workspace/mycelix-pulse/docs/PULSE_V2_CRYPTO_SPEC.md#L25-L50"
+      ],
+      "design_fact": "The V2 entry contains a ciphertext field and explicit crypto/key metadata. The V2 crypto spec defines the encrypted plaintext as subject/body/content type, while sender, recipient, thread/reply, message ID and created_at_micros remain separate fields in the entry schema. This source fact is not an independent cryptographic review.",
+      "runtime_presence": "not_audited",
+      "exposure_persistence_retention_deletion": "not_audited",
+      "linkability_risk": "medium_to_high",
+      "audit_questions": [
+        "Which algorithm/protocol/version is actually used?",
+        "What authentication and key-lifecycle guarantees are verified?",
+        "Do size, timing, attachment references, previews, notifications, logs or caches expose content-adjacent information?"
+      ],
+      "policy_intent": "Keep plaintext out of relays, logs, diagnostics and qualification corpora; review actual cryptographic protocol and client implementation independently.",
+      "claim_blockers": [
+        "Encrypted-at-rest or encrypted-envelope labels do not prove a complete E2EE threat model."
+      ],
+      "source_observations": [
+        {
+          "source_commit_sha": "f81361124d073a1db309db977abcf7bdce8ad4cb",
+          "path": "mycelix-workspace/mycelix-pulse/holochain/zomes/messages/integrity/src/lib.rs",
+          "blob_sha": "6a806138f71e2f73a01f17dd0cb0483e57d73082",
+          "line_start": 162,
+          "line_end": 188,
+          "symbol": "EncryptedEmailV2",
+          "observed_fact": "The struct places ciphertext and encryption fields alongside visible identity, key-reference, threading and timestamp fields.",
+          "url": "https://github.com/Luminous-Dynamics/mycelix/blob/f81361124d073a1db309db977abcf7bdce8ad4cb/mycelix-workspace/mycelix-pulse/holochain/zomes/messages/integrity/src/lib.rs#L162-L188"
+        }
+      ]
+    },
+    {
+      "id": "PULSE-META-006",
+      "name": "Transport route, attempt, retry and failure outcome",
+      "data_class": "transport_metadata",
+      "surface": "Experimental pulse-transport-core and future durable outbox/inbox",
+      "evidence_level": "design_documented",
+      "source_refs": [
+        "https://github.com/Luminous-Dynamics/mycelix/issues/5062",
+        "https://github.com/Luminous-Dynamics/mycelix/issues/5091"
+      ],
+      "design_fact": "The delivery plan calls for bounded outbox/attempt/evidence state and distinct ambiguous outcomes; the documented experimental lifecycle is in-memory and not integrated into the supported alpha path.",
+      "runtime_presence": "not_audited",
+      "exposure_persistence_retention_deletion": "not_audited",
+      "linkability_risk": "high",
+      "audit_questions": [
+        "Which route names, timestamps, failures and retry patterns are observable by each adapter/operator?",
+        "Are attempts joined to stable identity?",
+        "Do logs retain recipient or content-adjacent data?"
+      ],
+      "policy_intent": "Record only evidence required for recovery and bounded operation; separate operational diagnostics from message content and use pseudonymous/scoped identifiers where sufficient.",
+      "claim_blockers": [
+        "Do not imply an in-memory state machine proves persistent delivery or metadata minimization."
+      ]
+    },
+    {
+      "id": "PULSE-META-007",
+      "name": "Receipt and delivery evidence",
+      "data_class": "delivery_and_provenance_metadata",
+      "surface": "Recipient receipt / sender verification",
+      "evidence_level": "source_verified_in_repo",
+      "source_refs": [
+        "https://github.com/Luminous-Dynamics/mycelix/issues/5062",
+        "https://github.com/Luminous-Dynamics/mycelix/issues/5091",
+        "https://github.com/Luminous-Dynamics/mycelix/blob/f81361124d073a1db309db977abcf7bdce8ad4cb/mycelix-workspace/mycelix-pulse/holochain/zomes/messages/coordinator/src/lib.rs#L894-L960"
+      ],
+      "design_fact": "The canonical coordinator defines acknowledge_delivery, checks the fetched envelope's recipient against the active agent, creates a DeliveryReceipt entry, and signs the receipt payload. This confirms the source-level receipt path but not end-to-end behavior or receipt-observer privacy.",
+      "runtime_presence": "not_audited",
+      "exposure_persistence_retention_deletion": "not_audited",
+      "linkability_risk": "high",
+      "audit_questions": [
+        "What exact fields are signed/committed and who can read the receipt?",
+        "Can receipts reveal recipient activity or correlate contexts?",
+        "How long are receipts retained and how are revocation/expiry treated?"
+      ],
+      "policy_intent": "Bind evidence to exact message, recipient, envelope commitment and protocol context; minimize extra identity and timing fields.",
+      "claim_blockers": [
+        "A serialized status or Boolean is not cryptographic receipt evidence."
+      ],
+      "source_observations": [
+        {
+          "source_commit_sha": "f81361124d073a1db309db977abcf7bdce8ad4cb",
+          "path": "mycelix-workspace/mycelix-pulse/holochain/zomes/messages/coordinator/src/lib.rs",
+          "blob_sha": "d818dfc333cdc1c538745a283cb92ec90f1fcadb",
+          "line_start": 894,
+          "line_end": 960,
+          "symbol": "acknowledge_delivery",
+          "observed_fact": "The coordinator validates recipient binding and creates a signed DeliveryReceipt entry; sender delivery semantics must still distinguish this receipt from a transport wake or DHT link.",
+          "url": "https://github.com/Luminous-Dynamics/mycelix/blob/f81361124d073a1db309db977abcf7bdce8ad4cb/mycelix-workspace/mycelix-pulse/holochain/zomes/messages/coordinator/src/lib.rs#L894-L960"
+        }
+      ]
+    },
+    {
+      "id": "PULSE-META-008",
+      "name": "Contact discovery inputs and query results",
+      "data_class": "contact_graph_and_query_metadata",
+      "surface": "Candidate Pulse identity/contact discovery; broader Mycelix PSI program",
+      "evidence_level": "candidate_surface",
+      "source_refs": [
+        "https://github.com/Luminous-Dynamics/mycelix/issues/2297",
+        "https://signal.org/blog/private-contact-discovery/"
+      ],
+      "design_fact": "The Mycelix PSI design work treats cryptographic input privacy, enumeration abuse, transport metadata, registry currentness and retention as separate obligations. This inventory does not assert that Pulse currently uses that mechanism.",
+      "runtime_presence": "not_audited",
+      "exposure_persistence_retention_deletion": "not_audited",
+      "linkability_risk": "very_high",
+      "audit_questions": [
+        "Is local address-book access required or optional?",
+        "What exact identifiers and derivatives leave device?",
+        "Can repeated queries enumerate a low-entropy namespace?",
+        "Can issuer and PSI server collude?",
+        "Are query results or contacts retained?"
+      ],
+      "policy_intent": "Prefer opt-in identifier entry or locally held relationships until an exact, independently qualified private-discovery profile exists.",
+      "claim_blockers": [
+        "Hashing or VOPRF input privacy alone does not establish anonymity, enumeration resistance, or transport privacy."
+      ]
+    },
+    {
+      "id": "PULSE-META-009",
+      "name": "Device enrollment, key changes and revocation",
+      "data_class": "device_and_key_lifecycle",
+      "surface": "Candidate account/device lifecycle and identity verification",
+      "evidence_level": "candidate_surface",
+      "source_refs": [
+        "https://github.com/Luminous-Dynamics/mycelix/issues/5110",
+        "https://signal.org/blog/automatic-key-verification/"
+      ],
+      "design_fact": "The competitive benchmark identifies device/key lifecycle and key transparency as work required before stronger security claims; this inventory does not assert current implementation behavior.",
+      "runtime_presence": "not_audited",
+      "exposure_persistence_retention_deletion": "not_audited",
+      "linkability_risk": "high",
+      "audit_questions": [
+        "Who can add a device?",
+        "How are key-directory equivocation, rollback and stale devices detected?",
+        "What becomes visible when a device is added/removed?",
+        "Does revocation reach all authoritative send paths?"
+      ],
+      "policy_intent": "Make device and key transitions visible, freshness-bound and auditable; keep real-world identity claims separate.",
+      "claim_blockers": [
+        "Key transparency does not itself verify the human behind an account or prevent endpoint compromise."
+      ]
+    },
+    {
+      "id": "PULSE-META-010",
+      "name": "Backup, export, restore and recovery",
+      "data_class": "backup_and_recovery_metadata",
+      "surface": "Candidate local backup / user-selected storage / device migration",
+      "evidence_level": "candidate_surface",
+      "source_refs": [
+        "https://github.com/Luminous-Dynamics/mycelix/issues/5110"
+      ],
+      "design_fact": "The Pulse competitive benchmark defines encrypted user-controlled recovery as a target; a qualified Pulse backup implementation is not established by this seed inventory.",
+      "runtime_presence": "not_audited",
+      "exposure_persistence_retention_deletion": "not_audited",
+      "linkability_risk": "high",
+      "audit_questions": [
+        "Who holds decryption keys?",
+        "Are filenames, object sizes, timestamps or account links visible to storage providers?",
+        "How are rollback, key loss, old devices and revoked devices handled?",
+        "Does deletion cover exports and backups?"
+      ],
+      "policy_intent": "No default service-held decryption key; document recoverability, key loss, retention, deletion and provider visibility explicitly.",
+      "claim_blockers": [
+        "Encrypted backup does not by itself prove rollback resistance, safe recovery, or deletion from all copies."
+      ]
+    },
+    {
+      "id": "PULSE-META-011",
+      "name": "Federation/provider observations and bridge lineage",
+      "data_class": "external_identity_and_relationship_metadata",
+      "surface": "ActivityPub / Matrix / Discord and future external adapters",
+      "evidence_level": "design_documented",
+      "source_refs": [
+        "https://github.com/Luminous-Dynamics/mycelix/issues/2873",
+        "https://github.com/Luminous-Dynamics/mycelix/issues/2918"
+      ],
+      "design_fact": "The bridge program requires external provider identity, message identity, authorship and delivery/authority observations to remain distinct from native Pulse semantics.",
+      "runtime_presence": "not_audited",
+      "exposure_persistence_retention_deletion": "not_audited",
+      "linkability_risk": "very_high",
+      "audit_questions": [
+        "Which source IDs/accounts/rooms are stored?",
+        "Can audience or membership be widened by projection?",
+        "What origin lineage survives edit/delete?",
+        "What does the provider receive on outbound publication?"
+      ],
+      "policy_intent": "Use explicit mappings, audience policy, provenance and loss records; require separate authority before any outbound effect.",
+      "claim_blockers": [
+        "A public provider room is not consent to copy all content or attachments into Pulse."
+      ]
+    },
+    {
+      "id": "PULSE-META-012",
+      "name": "Logs, crash reports, support diagnostics and abuse reports",
+      "data_class": "operational_and_report_metadata",
+      "surface": "Candidate client telemetry, local logs, server logs, diagnostic export and moderation path",
+      "evidence_level": "candidate_surface",
+      "source_refs": [
+        "https://mas.owasp.org/MASVS/controls/MASVS-PRIVACY-1/",
+        "https://github.com/Luminous-Dynamics/mycelix/issues/5110"
+      ],
+      "design_fact": "These are mandatory surfaces for audit; their presence, payloads and retention have not been verified by this inventory.",
+      "runtime_presence": "not_audited",
+      "exposure_persistence_retention_deletion": "not_audited",
+      "linkability_risk": "very_high",
+      "audit_questions": [
+        "Do logs contain plaintext, tokens, identifiers, message size or recipient routing?",
+        "Are diagnostics opt-in and reviewed before upload?",
+        "Who can inspect abuse reports?",
+        "Are SDKs or crash vendors given data before consent?",
+        "Can user deletion affect retained diagnostic/report copies?"
+      ],
+      "policy_intent": "Data minimization by default; no plaintext in logs; diagnostic export must be explicit, previewable, scoped and redacted.",
+      "claim_blockers": [
+        "No source-code search alone can prove that remote services retain no data."
+      ]
+    },
+    {
+      "id": "PULSE-META-013",
+      "name": "Timing, payload size, retry patterns and network-level identifiers",
+      "data_class": "traffic_analysis_metadata",
+      "surface": "Client network connection / relays / Holochain and transport observations",
+      "evidence_level": "candidate_surface",
+      "source_refs": [
+        "https://github.com/Luminous-Dynamics/mycelix/issues/5112",
+        "https://www.rfc-editor.org/rfc/rfc9420.html"
+      ],
+      "design_fact": "Traffic analysis, group membership leakage and message size/timing are explicit candidate threats; this record does not assert a specific current leak or protection.",
+      "runtime_presence": "not_audited",
+      "exposure_persistence_retention_deletion": "not_audited",
+      "linkability_risk": "very_high",
+      "audit_questions": [
+        "Can a passive observer correlate sender and recipient by timing/size?",
+        "Do keepalives or retries reveal presence?",
+        "What do relay and Holochain observers each learn?",
+        "Do batching/padding/delays meaningfully reduce leakage at acceptable cost?"
+      ],
+      "policy_intent": "Describe residual leakage first; only add padding, batching, relays or mixnet-style design after a concrete adversary/latency/availability trade-off study.",
+      "claim_blockers": [
+        "E2EE and a DHT do not automatically provide anonymity or resistance to traffic analysis."
+      ]
+    },
+    {
+      "id": "PULSE-META-014",
+      "name": "Public V2 envelope fields and default entry visibility",
+      "data_class": "public_dht_envelope_metadata",
+      "surface": "Canonical Holochain V2 EncryptedEmailV2 entry",
+      "evidence_level": "source_verified_in_repo",
+      "source_refs": [
+        "https://github.com/Luminous-Dynamics/mycelix/blob/f81361124d073a1db309db977abcf7bdce8ad4cb/mycelix-workspace/mycelix-pulse/holochain/zomes/messages/integrity/src/lib.rs#L162-L188",
+        "https://github.com/Luminous-Dynamics/mycelix/blob/f81361124d073a1db309db977abcf7bdce8ad4cb/mycelix-workspace/mycelix-pulse/holochain/zomes/messages/integrity/src/lib.rs#L413-L418",
+        "https://developer.holochain.org/build/entries/",
+        "https://developer.holochain.org/build/working-with-data/"
+      ],
+      "design_fact": "The canonical EntryTypes variant uses required_validations=3 but has no visibility='private' override. Holochain documents public as the default for app entry types and says public entries are stored on the DHT and accessible to participants. The exact pinned HDI behavior and a real network observer view must be confirmed before a runtime claim.",
+      "runtime_presence": "not_audited",
+      "exposure_persistence_retention_deletion": "Source review establishes a public-entry declaration with no private override. Runtime replication, exact fields retrieved by a real remote DNA participant, historical persistence and deletions are not independently observed in this inventory.",
+      "linkability_risk": "very_high",
+      "audit_questions": [
+        "Confirm default visibility under the exact pinned HDI version in holochain/Cargo.lock.",
+        "Which DNA participants can retrieve this full entry after publication and validation?",
+        "Can message_id, sender/recipient, key references, thread/reply and timestamps be correlated across public records?",
+        "What metadata remains visible after message deletion or expiry?"
+      ],
+      "policy_intent": "Treat the entire serialized entry as public to DNA participants unless exact-version/runtime evidence proves otherwise. Define a versioned metadata-minimizing successor rather than inferring privacy from the encrypted ciphertext.",
+      "claim_blockers": [
+        "Encrypted ciphertext does not hide sibling fields in the same public entry.",
+        "No claim of sender/recipient anonymity, private social graph or traffic-analysis resistance from the current envelope.",
+        "Do not change entry visibility to private without replacing DHT-based recipient discovery and migration semantics."
+      ],
+      "source_observations": [
+        {
+          "source_commit_sha": "f81361124d073a1db309db977abcf7bdce8ad4cb",
+          "path": "mycelix-workspace/mycelix-pulse/holochain/zomes/messages/integrity/src/lib.rs",
+          "blob_sha": "6a806138f71e2f73a01f17dd0cb0483e57d73082",
+          "line_start": 162,
+          "line_end": 188,
+          "symbol": "EncryptedEmailV2",
+          "observed_fact": "The entry struct contains identity, key reference, relationship and timing fields adjacent to ciphertext.",
+          "url": "https://github.com/Luminous-Dynamics/mycelix/blob/f81361124d073a1db309db977abcf7bdce8ad4cb/mycelix-workspace/mycelix-pulse/holochain/zomes/messages/integrity/src/lib.rs#L162-L188"
+        },
+        {
+          "source_commit_sha": "f81361124d073a1db309db977abcf7bdce8ad4cb",
+          "path": "mycelix-workspace/mycelix-pulse/holochain/zomes/messages/integrity/src/lib.rs",
+          "blob_sha": "6a806138f71e2f73a01f17dd0cb0483e57d73082",
+          "line_start": 413,
+          "line_end": 418,
+          "symbol": "EntryTypes::EncryptedEmailV2",
+          "observed_fact": "EncryptedEmailV2 is declared with required_validations only; this variant has no explicit visibility='private' override.",
+          "url": "https://github.com/Luminous-Dynamics/mycelix/blob/f81361124d073a1db309db977abcf7bdce8ad4cb/mycelix-workspace/mycelix-pulse/holochain/zomes/messages/integrity/src/lib.rs#L413-L418"
+        }
+      ]
+    },
+    {
+      "id": "PULSE-META-015",
+      "name": "Recipient inbox link reveals recipient and message target",
+      "data_class": "public_dht_relationship_link",
+      "surface": "AgentToInboxV2 link base and target",
+      "evidence_level": "source_verified_in_repo",
+      "source_refs": [
+        "https://github.com/Luminous-Dynamics/mycelix/blob/f81361124d073a1db309db977abcf7bdce8ad4cb/mycelix-workspace/mycelix-pulse/holochain/zomes/messages/coordinator/src/lib.rs#L262-L275",
+        "https://github.com/Luminous-Dynamics/mycelix/blob/f81361124d073a1db309db977abcf7bdce8ad4cb/mycelix-workspace/mycelix-pulse/holochain/zomes/messages/integrity/src/lib.rs#L1145-L1183",
+        "https://developer.holochain.org/build/working-with-data/"
+      ],
+      "design_fact": "send_email_v2 creates an AgentToInboxV2 link with the recipient AgentPubKey as base and the envelope ActionHash as target. The validator requires the base to be an AgentPubKey, target to be an ActionHash, base to equal envelope.recipient and action.author to equal envelope.sender. Holochain public links are DHT metadata.",
+      "runtime_presence": "not_audited",
+      "exposure_persistence_retention_deletion": "Source-reviewed. Remote link enumeration and observer-specific access/replication/deletion behavior have not been runtime-tested.",
+      "linkability_risk": "very_high",
+      "audit_questions": [
+        "Can a DNA participant enumerate links for an AgentPubKey and recover message ActionHashes?",
+        "Can the target ActionHash be used to retrieve the entire public envelope?",
+        "Do deletes/tombstones retain link history or relationship evidence?",
+        "Could an opaque rotating mailbox anchor replace the stable recipient base without breaking discovery?"
+      ],
+      "policy_intent": "Make public inbox-graph exposure an explicit product choice. Evaluate high-entropy relationship-scoped mailbox anchors and rotation only with a complete retrieval, authorization, spam-control and recovery contract.",
+      "claim_blockers": [
+        "A static inbox-v2 tag is not secret and does not conceal the recipient base.",
+        "No claim that recipient relationships are hidden from DNA participants."
+      ],
+      "source_observations": [
+        {
+          "source_commit_sha": "f81361124d073a1db309db977abcf7bdce8ad4cb",
+          "path": "mycelix-workspace/mycelix-pulse/holochain/zomes/messages/coordinator/src/lib.rs",
+          "blob_sha": "d818dfc333cdc1c538745a283cb92ec90f1fcadb",
+          "line_start": 262,
+          "line_end": 275,
+          "symbol": "send_email_v2 AgentToInboxV2 link",
+          "observed_fact": "The recipient AgentPubKey is the public DHT link base and the V2 message ActionHash is the target.",
+          "url": "https://github.com/Luminous-Dynamics/mycelix/blob/f81361124d073a1db309db977abcf7bdce8ad4cb/mycelix-workspace/mycelix-pulse/holochain/zomes/messages/coordinator/src/lib.rs#L262-L275"
+        },
+        {
+          "source_commit_sha": "f81361124d073a1db309db977abcf7bdce8ad4cb",
+          "path": "mycelix-workspace/mycelix-pulse/holochain/zomes/messages/integrity/src/lib.rs",
+          "blob_sha": "6a806138f71e2f73a01f17dd0cb0483e57d73082",
+          "line_start": 1145,
+          "line_end": 1183,
+          "symbol": "validate_inbox_link_v2",
+          "observed_fact": "The validator binds the public link base to the envelope recipient and checks action.author equals envelope.sender.",
+          "url": "https://github.com/Luminous-Dynamics/mycelix/blob/f81361124d073a1db309db977abcf7bdce8ad4cb/mycelix-workspace/mycelix-pulse/holochain/zomes/messages/integrity/src/lib.rs#L1145-L1183"
+        }
+      ]
+    },
+    {
+      "id": "PULSE-META-016",
+      "name": "Public action authorship binds the long-term sender key",
+      "data_class": "authorship_and_linkability_metadata",
+      "surface": "Holochain source-chain action author and V2 integrity validation",
+      "evidence_level": "source_verified_in_repo",
+      "source_refs": [
+        "https://github.com/Luminous-Dynamics/mycelix/blob/f81361124d073a1db309db977abcf7bdce8ad4cb/mycelix-workspace/mycelix-pulse/holochain/zomes/messages/coordinator/src/lib.rs#L219-L275",
+        "https://github.com/Luminous-Dynamics/mycelix/blob/f81361124d073a1db309db977abcf7bdce8ad4cb/mycelix-workspace/mycelix-pulse/holochain/zomes/messages/integrity/src/lib.rs#L1170-L1183",
+        "https://developer.holochain.org/build/working-with-data/"
+      ],
+      "design_fact": "send_email_v2 sets sender from agent_info().agent_initial_pubkey, then creates a DHT entry; the inbox-link validator rejects when envelope.sender differs from action.author. Holochain documents that all actions are public. Hiding the sender field alone would not hide the action author under the current model.",
+      "runtime_presence": "not_audited",
+      "exposure_persistence_retention_deletion": "Source-reviewed correlation constraint; exact public action distribution and remote actor correlation require tests against the pinned Holochain stack.",
+      "linkability_risk": "very_high",
+      "audit_questions": [
+        "Which public actions are correlated with a particular agent key over time?",
+        "Does the supported app use the same agent key for messages, profiles, key bundles and other activity?",
+        "Can a relay or pseudonymous author create a safe authentication boundary without exposing sender identity to all validators?",
+        "What validation guarantees are lost if action.author no longer equals envelope.sender?"
+      ],
+      "policy_intent": "Treat action author as part of the metadata threat model. Any sender-opaque redesign must deliberately redesign authorship validation, anti-spam and identity proof; redacting the JSON field alone is insufficient.",
+      "claim_blockers": [
+        "No sender anonymity claim while public action authorship is linked to the sender identity.",
+        "A relay/pseudonymous author is only a design hypothesis and needs protocol and abuse-resistance review."
+      ],
+      "source_observations": [
+        {
+          "source_commit_sha": "f81361124d073a1db309db977abcf7bdce8ad4cb",
+          "path": "mycelix-workspace/mycelix-pulse/holochain/zomes/messages/coordinator/src/lib.rs",
+          "blob_sha": "d818dfc333cdc1c538745a283cb92ec90f1fcadb",
+          "line_start": 219,
+          "line_end": 275,
+          "symbol": "send_email_v2",
+          "observed_fact": "The sender is populated from the current Holochain agent identity and the entry is committed under that action author.",
+          "url": "https://github.com/Luminous-Dynamics/mycelix/blob/f81361124d073a1db309db977abcf7bdce8ad4cb/mycelix-workspace/mycelix-pulse/holochain/zomes/messages/coordinator/src/lib.rs#L219-L275"
+        },
+        {
+          "source_commit_sha": "f81361124d073a1db309db977abcf7bdce8ad4cb",
+          "path": "mycelix-workspace/mycelix-pulse/holochain/zomes/messages/integrity/src/lib.rs",
+          "blob_sha": "6a806138f71e2f73a01f17dd0cb0483e57d73082",
+          "line_start": 1170,
+          "line_end": 1183,
+          "symbol": "validate_inbox_link_v2",
+          "observed_fact": "Integrity validation enforces envelope.sender == action.author for the message's recipient inbox link.",
+          "url": "https://github.com/Luminous-Dynamics/mycelix/blob/f81361124d073a1db309db977abcf7bdce8ad4cb/mycelix-workspace/mycelix-pulse/holochain/zomes/messages/integrity/src/lib.rs#L1170-L1183"
+        }
+      ]
+    },
+    {
+      "id": "PULSE-META-017",
+      "name": "Browser console logs the V2 message ActionHash",
+      "data_class": "local_diagnostic_correlation_identifier",
+      "surface": "Canonical Leptos compose success/error logging",
+      "evidence_level": "source_verified_in_repo",
+      "source_refs": [
+        "https://github.com/Luminous-Dynamics/mycelix/blob/f81361124d073a1db309db977abcf7bdce8ad4cb/mycelix-workspace/mycelix-pulse/apps/leptos/src/pages/compose.rs#L421-L441"
+      ],
+      "design_fact": "The supported Leptos V2 compose path logs the raw response bytes returned by send_email_v2 to the browser console. Code comments say these bytes encode the created ActionHash, and this statement does not log the ciphertext payload. The ActionHash can serve as a stable pointer to the public V2 record and its metadata; this is a local diagnostic/logging exposure, not evidence of service-side telemetry.",
+      "runtime_presence": "not_audited",
+      "exposure_persistence_retention_deletion": "Source shows console output on successful V2 send. Browser history, log retention, crash-report/diagnostic upload and remote access have not been audited.",
+      "linkability_risk": "medium_to_high",
+      "audit_questions": [
+        "Is the raw ActionHash success log needed outside development?",
+        "Can the ActionHash be joined to public envelope/link metadata by an observer who can view the DHT?",
+        "Are browser console logs included in diagnostic export or remote support collection?",
+        "Can production builds suppress the raw identifier while preserving a stable non-linkable operation result?"
+      ],
+      "policy_intent": "Keep raw ActionHashes out of routine production console logs unless there is a justified debugging need; prefer a coarse status or local-only opt-in debug logging.",
+      "claim_blockers": [
+        "Do not call this a remote leak without evidence that logs are exported or remotely readable.",
+        "Absence of the message body in this one log statement does not prove all diagnostics are content-free."
+      ],
+      "source_observations": [
+        {
+          "source_commit_sha": "f81361124d073a1db309db977abcf7bdce8ad4cb",
+          "path": "mycelix-workspace/mycelix-pulse/apps/leptos/src/pages/compose.rs",
+          "blob_sha": "5aade01ade4ee83c55da94d9365452779c6ac4c6",
+          "line_start": 421,
+          "line_end": 441,
+          "symbol": "send_email_v2 success/error handling",
+          "observed_fact": "The V2 zome call returns ActionHash bytes and the success branch logs response bytes to the browser console before showing 'Message sent and committed to DHT'.",
+          "url": "https://github.com/Luminous-Dynamics/mycelix/blob/f81361124d073a1db309db977abcf7bdce8ad4cb/mycelix-workspace/mycelix-pulse/apps/leptos/src/pages/compose.rs#L421-L441"
+        }
+      ]
+    },
+    {
+      "id": "PULSE-META-018",
+      "name": "Delivery receipt exposes recipient, message reference and timestamp",
+      "data_class": "delivery_activity_metadata",
+      "surface": "Holochain DeliveryReceipt entry and EmailToDeliveryReceipts link",
+      "evidence_level": "source_verified_in_repo",
+      "source_refs": [
+        "https://github.com/Luminous-Dynamics/mycelix/blob/f81361124d073a1db309db977abcf7bdce8ad4cb/mycelix-workspace/mycelix-pulse/holochain/zomes/messages/integrity/src/lib.rs#L346-L355",
+        "https://github.com/Luminous-Dynamics/mycelix/blob/f81361124d073a1db309db977abcf7bdce8ad4cb/mycelix-workspace/mycelix-pulse/holochain/zomes/messages/integrity/src/lib.rs#L429-L430",
+        "https://github.com/Luminous-Dynamics/mycelix/blob/f81361124d073a1db309db977abcf7bdce8ad4cb/mycelix-workspace/mycelix-pulse/holochain/zomes/messages/coordinator/src/lib.rs#L894-L940",
+        "https://developer.holochain.org/build/entries/",
+        "https://developer.holochain.org/build/working-with-data/"
+      ],
+      "design_fact": "DeliveryReceipt carries the original email ActionHash, recipient AgentPubKey, delivered_at timestamp and signature. EntryTypes::DeliveryReceipt has a required-validation count but no explicit private-visibility override. acknowledge_delivery creates the receipt and a link from the email hash to the receipt hash. The function docstring states that repeated calls create distinct receipts because the timestamp differs.",
+      "runtime_presence": "not_audited",
+      "exposure_persistence_retention_deletion": "Source shows a public-entry candidate with message/recipient/time metadata and repeatable creation. Exact runtime replication, link retrieval and observer visibility require pinned-version conductor testing.",
+      "linkability_risk": "very_high",
+      "audit_questions": [
+        "Can a DNA participant inspect receipt entries and correlate recipient, message and delivery time?",
+        "What message activity can be inferred from repeated receipts or timing?",
+        "Can concurrent or replayed acknowledgments create unbounded receipt/link history?",
+        "What are the expected deletion/tombstone and retention semantics for delivery evidence?"
+      ],
+      "policy_intent": "Treat receipt metadata as sensitive relationship/activity data. Make receipt acknowledgment idempotent at the protocol level and document the minimum fields visible to the selected observer model.",
+      "claim_blockers": [
+        "A signed receipt is not metadata-private by itself.",
+        "Latest-receipt-wins is not storage-level idempotency.",
+        "No runtime exposure or exploitation claim is made without a frozen multi-agent observer test."
+      ],
+      "source_observations": [
+        {
+          "source_commit_sha": "f81361124d073a1db309db977abcf7bdce8ad4cb",
+          "path": "mycelix-workspace/mycelix-pulse/holochain/zomes/messages/integrity/src/lib.rs",
+          "blob_sha": "6a806138f71e2f73a01f17dd0cb0483e57d73082",
+          "line_start": 346,
+          "line_end": 355,
+          "symbol": "DeliveryReceipt",
+          "observed_fact": "The receipt struct contains email_hash, recipient AgentPubKey, delivered_at and signature.",
+          "url": "https://github.com/Luminous-Dynamics/mycelix/blob/f81361124d073a1db309db977abcf7bdce8ad4cb/mycelix-workspace/mycelix-pulse/holochain/zomes/messages/integrity/src/lib.rs#L346-L355"
+        },
+        {
+          "source_commit_sha": "f81361124d073a1db309db977abcf7bdce8ad4cb",
+          "path": "mycelix-workspace/mycelix-pulse/holochain/zomes/messages/integrity/src/lib.rs",
+          "blob_sha": "6a806138f71e2f73a01f17dd0cb0483e57d73082",
+          "line_start": 429,
+          "line_end": 430,
+          "symbol": "EntryTypes::DeliveryReceipt",
+          "observed_fact": "DeliveryReceipt is declared with required validations and no private-visibility override.",
+          "url": "https://github.com/Luminous-Dynamics/mycelix/blob/f81361124d073a1db309db977abcf7bdce8ad4cb/mycelix-workspace/mycelix-pulse/holochain/zomes/messages/integrity/src/lib.rs#L429-L430"
+        },
+        {
+          "source_commit_sha": "f81361124d073a1db309db977abcf7bdce8ad4cb",
+          "path": "mycelix-workspace/mycelix-pulse/holochain/zomes/messages/coordinator/src/lib.rs",
+          "blob_sha": "d818dfc333cdc1c538745a283cb92ec90f1fcadb",
+          "line_start": 894,
+          "line_end": 940,
+          "symbol": "acknowledge_delivery",
+          "observed_fact": "Each invocation uses a fresh sys_time timestamp, creates a new DeliveryReceipt entry and link; the docstring states duplicate calls create two receipts.",
+          "url": "https://github.com/Luminous-Dynamics/mycelix/blob/f81361124d073a1db309db977abcf7bdce8ad4cb/mycelix-workspace/mycelix-pulse/holochain/zomes/messages/coordinator/src/lib.rs#L894-L940"
+        }
+      ]
+    }
+  ],
+  "external_baselines": [
+    {
+      "name": "OWASP MASVS-PRIVACY",
+      "url": "https://mas.owasp.org/MASVS/controls/MASVS-PRIVACY-1/",
+      "use": "App-side data minimization, identification prevention, transparency and user control; does not establish remote server behavior or substitute for a complete privacy assessment."
+    },
+    {
+      "name": "Signal automatic key verification",
+      "url": "https://signal.org/blog/automatic-key-verification/",
+      "use": "Key-transparency design reference. It does not prove real-world identity and is not evidence of Pulse implementation."
+    },
+    {
+      "name": "Mycelix PSI composition",
+      "url": "https://github.com/Luminous-Dynamics/mycelix/issues/2297",
+      "use": "Existing workstream for query abuse, transport privacy, registry authenticity/currentness, key scoping and retention; reuse it rather than duplicating the protocol."
+    },
+    {
+      "name": "IETF RFC 9458 — Oblivious HTTP",
+      "url": "https://www.rfc-editor.org/rfc/rfc9458.html",
+      "use": "Optional relay/gateway composition candidate for reducing IP/request linkability on selected HTTP lookup requests. Requires an independently operated relay and gateway under the selected trust model; request content can still reintroduce identifiers, and traffic analysis remains out of scope."
+    },
+    {
+      "name": "IETF RFC 9576 — Privacy Pass Architecture",
+      "url": "https://www.rfc-editor.org/rfc/rfc9576/",
+      "use": "Authorization architecture candidate for privacy-preserving query-budget tokens. Issuer/origin collusion, token scoping, replay, issuance correlation and enumeration resistance require separate qualification; the RFC itself is informational rather than an Internet Standards Track specification."
+    },
+    {
+      "name": "OWASP MASVS-PRIVACY v2.1.0",
+      "url": "https://mas.owasp.org/news/2024/01/18/masvs-v210-release--masvs-privacy/",
+      "use": "Baseline for app-side data minimization, identification prevention, transparency and user control. It does not establish behavior of remote servers or replace an independent privacy assessment."
+    },
+    {
+      "name": "Holochain entries visibility",
+      "url": "https://developer.holochain.org/build/entries/",
+      "use": "Official documentation: public app entries are published to the DHT; private entries remain on the author source chain. Confirm behavior against the exact pinned HDI version."
+    },
+    {
+      "name": "Holochain data and links",
+      "url": "https://developer.holochain.org/build/working-with-data/",
+      "use": "Official documentation: all actions are public, public entries are accessible to participants, and links represent metadata in the DHT. Use to frame observer scope, not as runtime packet evidence."
+    }
+  ]
+}
