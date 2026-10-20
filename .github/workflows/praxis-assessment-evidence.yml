@@ -56,4 +56,4 @@ jobs:
         run: cargo +1.96.0 fmt --manifest-path mycelix-praxis/Cargo.toml --package praxis-core -- --check
 
       - name: Run frozen assessment-evidence contract tests
-        run: cargo +1.96.0 test --manifest-path mycelix-praxis/Cargo.toml --package praxis-core assessment_evidence::tests -- --nocapture
+        run: cargo +1.96.0 test --manifest-path mycelix-praxis/Cargo.toml --package praxis-core -- --nocapture
