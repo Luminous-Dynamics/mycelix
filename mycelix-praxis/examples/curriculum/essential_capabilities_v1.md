@@ -81,6 +81,39 @@ This is a synthesis, not a reproduction of a single curriculum. The following op
 - **Cybersecurity risk structure:** [NIST Cybersecurity Framework](https://www.nist.gov/cyberframework). This is an organizational risk framework, not a personal certification syllabus; use it as a vocabulary/resource for risk management, then write learner-facing tasks appropriate to individuals.
 - **Health, employment, emergency, and civic navigation:** use the appropriate current public authority in each locale and record the relevant jurisdiction, source version/date, and review date. These areas must not be taught as a substitute for licensed professional advice, legal counsel, or local emergency services.
 
+## Industry comparison and differentiation hypothesis
+
+This is a capability-learning direction, not a claim of superiority over existing platforms. The following comparison is based on public product/specification descriptions, not independent head-to-head testing.
+
+| System / standard | Publicly documented strength | Praxis opportunity | What would demonstrate an advantage |
+|---|---|---|---|
+| [Khan Academy mastery system](https://support.khanacademy.org/hc/en-us/articles/360007253831-What-is-self-paced-Mastery) | Skill-level progress, exercises, unit/course challenges, progress reporting, and skill changes after assessment | Generalize beyond a subject/course to portable, cross-domain capability evidence and learner-controlled records | A predeclared cross-domain transfer/retention study, not feature-count comparison |
+| [Duolingo efficacy approach](https://blog.duolingo.com/duolingo-efficacy-research-framework/) | Public description of research into taught content and language skills across reading, listening, speaking, and writing | Apply outcome measurement to practical adult capabilities across local contexts and real-world task performance | Independent outcome assessment, delayed checks, transparent uncertainty, and replication outside one subject |
+| [Open Badges 3.0](https://www.1edtech.org/standards/open-badges) and [W3C Verifiable Credentials 2.0](https://www.w3.org/TR/vc-data-model/) | Interoperable, verifiable achievement claims, with criteria and evidence fields and portable credential exchanges | Make capability definitions, evidence lineage, assistance, corrections, limitations, and privacy controls inspectable while remaining standards-compatible | Passing relevant interoperability/conformance suites and independent verification; do not invent a proprietary credential island |
+| [CAST Universal Design for Learning 3.0](https://udlguidelines.cast.org/) | Framework for access, choice, engagement, multiple representations, expression, and learner agency | Build accessibility and learner control into each assessment protocol rather than add them after outcome measurement | Comparable completion and learning-quality evidence across access needs, with privacy-preserving reporting |
+| [IES What Works Clearinghouse study guide](https://ies.ed.gov/ncee/wwc/PracticeGuide/1) | Research-informed recommendations including spacing learning over time and interleaving worked examples with problem-solving | Treat instructional methods as versioned hypotheses, compare them against a baseline, and measure durable transfer | Time-matched comparisons with delayed retention and preregistered outcomes rather than assuming a method will always help |
+
+### Paradigm shift: a capability evidence loop
+
+Build Praxis around this loop:
+
+`Need → Baseline → Practice → Feedback → New-context demonstration → Delayed check → Learner-owned evidence → Real-world application → Revision`
+
+The differentiator should be the quality and portability of this loop, not an AI tutor by itself, a large course catalog, a badge, or a global score. Knowledge nodes need explicit outcomes and provenance. Assessments need parallel forms and transfer tasks. Evidence needs clear assistance and scope. Learners need access to their records and meaningful consent. Communities should be able to contest or improve material without silently overwriting the history of claims.
+
+### Proposed comparative benchmark protocol
+
+1. **Baseline:** compare against (a) the current lesson experience and (b) a time-matched active baseline using retrieval practice and spaced review. Avoid a weak no-instruction control as the only comparison.
+2. **Assessment design:** use distinct pre-test, immediate post-test, transfer form, and delayed 14/30-day checks. Do not reuse an identical item as the only evidence of retention.
+3. **Primary outcomes:** predeclared rubric-scored transfer performance and delayed retention. Report effect sizes and confidence intervals, not only p-values or completion rates.
+4. **Efficiency:** measure time and number of attempts to reach a defined retained-capability criterion. Account for failures and dropout so the analysis does not only count completers.
+5. **Calibration:** on tasks where confidence predictions make sense, compare confidence with observed outcomes (for example, Brier score across a sufficient sample); do not force probability scores onto every task.
+6. **Assessment quality:** establish rubric clarity, score agreement between independent raters, and form-to-form comparability before using results for high-consequence claims.
+7. **Access and safety:** test keyboard/screen-reader-compatible paths where relevant, low-bandwidth/offline recovery, localization, and whether the task mistakenly rewards unnecessary exposure of private data. Report disparities as signals for investigation, not labels of learner deficiency.
+8. **Anti-gaming:** include novel variants, realistic case tasks, delayed checks, and documented assistance. Treat speed, streaks, time-on-page, AI-authorship guesses, and error patterns as weak signals—not proof of mastery or dishonesty.
+
+**Initial target hypotheses (not results):** seek ≥0.20 SD improvement on prespecified transfer outcomes or ≥15% less time-to-retained-competency against a credible active baseline, without a meaningful drop in delayed retention or accessibility. Preregister the study and sample-size plan, report negative/null results, and do not claim superiority until independently replicated. The targets should be revised if pilot reliability, feasibility, or learner harms make them inappropriate.
+
 ## Known gaps / next steps
 
 - Have educators and adult learners from multiple regions review omissions, language, accessibility, and assumptions.
