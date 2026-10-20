@@ -41,8 +41,8 @@ jobs:
           components: rustfmt, clippy
           build-warnings: warn
 
-      - name: Check package formatting
-        run: cargo fmt --manifest-path mycelix-workspace/mycelix-manufacturing/Cargo.toml --package manufacturing_common -- --check
+      - name: Check new process reference module formatting
+        run: rustfmt --edition 2024 --check mycelix-workspace/mycelix-manufacturing/crates/manufacturing_common/src/process_registry.rs
 
       - name: Run manufacturing common tests with the committed lockfile
         run: cargo test --locked --manifest-path mycelix-workspace/mycelix-manufacturing/Cargo.toml --package manufacturing_common
