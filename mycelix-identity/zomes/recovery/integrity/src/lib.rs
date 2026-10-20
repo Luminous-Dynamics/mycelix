@@ -117,6 +117,7 @@ pub enum VerificationAnchor {
 /// Minimum self-recovery time lock: 72 hours (vs 24h for social recovery).
 /// Longer because no humans are independently verifying the request.
 pub const SELF_RECOVERY_MIN_TIME_LOCK: u64 = 72 * 3600;
+const _: () = assert!(SELF_RECOVERY_MIN_TIME_LOCK > 86400);
 
 /// Default time lock: 7 days (conservative for zero-anchor configs).
 pub const SELF_RECOVERY_DEFAULT_TIME_LOCK: u64 = 7 * 24 * 3600;
@@ -943,12 +944,12 @@ mod tests {
                 RecoveryStatus::Cancelled,
             ];
             for terminal in &terminals {
-                let valid = match (terminal, &target) {
+                let valid = matches!(
+                    (terminal, &target),
                     (RecoveryStatus::Completed, RecoveryStatus::Completed)
-                    | (RecoveryStatus::Rejected, RecoveryStatus::Rejected)
-                    | (RecoveryStatus::Cancelled, RecoveryStatus::Cancelled) => true,
-                    _ => false,
-                };
+                        | (RecoveryStatus::Rejected, RecoveryStatus::Rejected)
+                        | (RecoveryStatus::Cancelled, RecoveryStatus::Cancelled)
+                );
                 if terminal != &target {
                     prop_assert!(!valid, "Terminal {:?} should not transition to {:?}", terminal, target);
                 }
@@ -997,12 +998,6 @@ mod tests {
     #[test]
     fn self_recovery_default_time_lock_is_7_days() {
         assert_eq!(SELF_RECOVERY_DEFAULT_TIME_LOCK, 7 * 24 * 3600);
-    }
-
-    #[test]
-    fn self_recovery_default_longer_than_social() {
-        // Self-recovery (72h) must be longer than social recovery (24h)
-        assert!(SELF_RECOVERY_MIN_TIME_LOCK > 86400);
     }
 
     #[test]
