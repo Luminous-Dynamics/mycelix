@@ -52,7 +52,7 @@ The release descriptor schema is strict and rejects unknown properties. Its fiel
 
 The target descriptor's authenticity comes from the authenticated distribution metadata that carries it; the schema only validates its structure. A digest or valid JSON schema does not authenticate the publisher.
 
-The trusted context must be supplied out of band and must include the expected policy identity/audience, expected schema digest, minimum revocation epoch, an authoritative time value, the distribution verifier's status, and the previously accepted high-water mark. It must never be loaded from the candidate release payload.
+The trusted context must be supplied out of band and must include the expected policy identity/audience, expected schema digest, minimum revocation epoch, an authoritative time value, the distribution verifier's status, and the previously accepted high-water mark. The head is explicitly scoped by both policy ID and audience; reusing a high-water mark from a different scope is rejected. This context must never be loaded from the candidate release payload.
 
 The reference module emits a proposed next high-water mark but does not persist it. Production state storage must perform an atomic compare-and-update so two concurrent evaluators cannot both advance state from the same prior head, and so rejected/failed checks never mutate the trusted head. If local anti-rollback storage itself can be rolled back, the system needs stronger state anchoring or a remotely attested/consensus-backed high-water mark.
 
