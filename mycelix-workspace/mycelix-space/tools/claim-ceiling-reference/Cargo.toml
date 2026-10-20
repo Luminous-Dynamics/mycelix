@@ -2,17 +2,17 @@
 name = "claim-ceiling-reference"
 version.workspace = true
 edition.workspace = true
-authors.workspace = true
+authors = ["Tristan Stoltz / Luminous Dynamics"]
 license.workspace = true
 description = "Executable finite-set reference for conservative Mycelix claim-ceiling composition"
-repository.workspace = true
+repository = "https://github.com/Luminous-Dynamics/mycelix"
 publish = false
 
 [dependencies]
-jsonschema.workspace = true
+jsonschema = "0.18"
 serde.workspace = true
 serde_json.workspace = true
-sha2.workspace = true
+sha2 = "0.10"
 
 [[bin]]
 name = "claim-ceiling-meet"
