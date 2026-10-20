@@ -305,25 +305,20 @@ fn validate_consent_revocation(
     revocation: &ConsentRevocation,
     action: &Create,
 ) -> ExternResult<ValidateCallbackResult> {
-    let original = must_get_valid_record(revocation.grant_hash.clone())?;
+    // ConsentGrant is a PRIVATE entry. Validators on peers can see its signed
+    // create action, but not its payload; must_get_valid_record + app-entry decode
+    // would therefore fail closed for every valid private grant. The owner-side
+    // coordinator checks the target is a ConsentGrant before writing this private
+    // event. Here, validate only facts that are verifiable from public action data.
+    let original = must_get_action(revocation.grant_hash.clone())?;
     if !matches!(original.action(), Action::Create(_)) {
         return Ok(ValidateCallbackResult::Invalid(
-            "Consent revocation must reference the original grant creation action".into(),
-        ));
-    }
-
-    let consent = original
-        .entry()
-        .to_app_option::<ConsentGrant>()
-        .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?;
-    if consent.is_none() {
-        return Ok(ValidateCallbackResult::Invalid(
-            "Consent revocation target must be a ConsentGrant entry".into(),
+            "Consent revocation must reference an original create action".into(),
         ));
     }
     if !action_authors_match(original.action().author(), &action.author) {
         return Ok(ValidateCallbackResult::Invalid(
-            "Only the consent grant owner can revoke the grant".into(),
+            "Consent revocation must be authored by the original action owner".into(),
         ));
     }
     Ok(ValidateCallbackResult::Valid)
