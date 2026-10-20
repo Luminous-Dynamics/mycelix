@@ -527,6 +527,50 @@ pub fn is_passphrase_protected() -> bool {
 /// This function still depends on browser storage semantics and cannot promise
 /// confidentiality from a compromised active page, malicious extensions, or
 /// a compromised browser profile.
+/// Generate three distinct, one-based word positions for backup confirmation.
+///
+/// Positions are selected with the browser CSPRNG, are kept in caller memory
+/// only, and contain no secret material. This is a usability check that the
+/// person copied the phrase, not cryptographic proof that an offline backup
+/// will remain available later.
+pub fn recovery_phrase_challenge_positions() -> Result<[usize; 3], String> {
+    let window = web_sys::window()
+        .ok_or_else(|| "Browser Web Crypto is unavailable.".to_string())?;
+    let crypto = window
+        .crypto()
+        .map_err(|_| "Browser Web Crypto is unavailable.".to_string())?;
+    let mut positions = [0usize; 3];
+
+    for slot in 0..positions.len() {
+        let mut selected = None;
+        for _ in 0..64 {
+            let mut sample = [0u8; 1];
+            if crypto.get_random_values_with_u8_array(&mut sample).is_err() {
+                sample.zeroize();
+                return Err("Could not generate recovery confirmation positions.".into());
+            }
+            let value = sample[0];
+            sample.zeroize();
+            // 240 is the largest multiple of 24 below 256; rejection avoids
+            // modulo bias in the 1..=24 position range.
+            if value >= 240 {
+                continue;
+            }
+            let candidate = usize::from(value % 24) + 1;
+            if !positions[..slot].contains(&candidate) {
+                selected = Some(candidate);
+                break;
+            }
+        }
+        positions[slot] = selected.ok_or_else(|| {
+            "Could not generate distinct recovery confirmation positions.".to_string()
+        })?;
+    }
+
+    positions.sort_unstable();
+    Ok(positions)
+}
+
 /// Export a recovery phrase for the currently unlocked protected identity.
 ///
 /// This function is read-only: it never calls `ensure_keypair`, never mutates
@@ -1988,6 +2032,18 @@ mod browser_storage_tests {
             .await
             .expect("protected restored identity unlocks");
         assert!(public_key_matches_signing_key(&expected_public, &restored));
+    }
+
+    #[wasm_bindgen_test]
+    async fn recovery_confirmation_positions_are_distinct_and_in_range() {
+        for _ in 0..100 {
+            let positions = recovery_phrase_challenge_positions()
+                .expect("browser CSPRNG can choose recovery positions");
+            assert!(positions.iter().all(|position| (1..=24).contains(position)));
+            assert_ne!(positions[0], positions[1]);
+            assert_ne!(positions[0], positions[2]);
+            assert_ne!(positions[1], positions[2]);
+        }
     }
 
     #[wasm_bindgen_test]
