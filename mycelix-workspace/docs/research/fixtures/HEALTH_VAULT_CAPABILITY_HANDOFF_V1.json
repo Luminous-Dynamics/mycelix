@@ -7,7 +7,8 @@
     "Negative controls return zero protected health payload bytes.",
     "Offer decryption/ingestion never overrides owner-side current consent, scope, expiry, revocation, or capability state.",
     "Unavailable authorization evidence is never converted to success.",
-    "Repeated delivery is idempotent."
+    "Repeated delivery is idempotent.",
+    "A generic owner-local key label does not qualify a peer X25519 key binding; algorithm, author binding, and proof of possession are explicit."
   ],
   "fixtures": [
     {
@@ -489,6 +490,28 @@
       "measurements": [
         "scan_duration_ms",
         "leak_count"
+      ]
+    },
+    {
+      "id": "HCH-026",
+      "title": "Owner-local generic MasterKey does not qualify a peer X25519 binding",
+      "operation": "key_enrollment",
+      "category": "key_binding",
+      "setup": [
+        "identity_vault.MasterKey.public_key_hex=arbitrary_nonempty_string",
+        "query_path=owner_local_AgentToKeys_links",
+        "proof_of_possession=absent",
+        "typed_key_algorithm_binding=absent"
+      ],
+      "expected": {
+        "protocol_result": "denied",
+        "failure_code": "recipient_key_binding_unqualified",
+        "effective_claim_delta": 0,
+        "protected_payload_bytes_returned": 0
+      },
+      "measurements": [
+        "key_lookup_ms",
+        "binding_validation_ms"
       ]
     }
   ]
