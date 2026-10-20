@@ -1490,6 +1490,120 @@
         "title": "Supply & Demand: Price determination, market equilibrium, shifts, and elasticity"
       }
     ],
+    "EK-AI-001": [
+      {
+        "path": "/curriculum/generated/essential-capabilities/ek-ai-001.json",
+        "title": "Use AI Systems Critically and Safely"
+      }
+    ],
+    "EK-CIVIC-001": [
+      {
+        "path": "/curriculum/generated/essential-capabilities/ek-civic-001.json",
+        "title": "Understand Civic Institutions and Participate with Evidence"
+      }
+    ],
+    "EK-COMMS-001": [
+      {
+        "path": "/curriculum/generated/essential-capabilities/ek-comms-001.json",
+        "title": "Communicate Clearly and Work Through Disagreement"
+      }
+    ],
+    "EK-DATA-001": [
+      {
+        "path": "/curriculum/generated/essential-capabilities/ek-data-001.json",
+        "title": "Interpret Statistics, Charts, and Everyday Risk"
+      }
+    ],
+    "EK-DIG-001": [
+      {
+        "path": "/curriculum/generated/essential-capabilities/ek-dig-001.json",
+        "title": "Protect Accounts, Devices, Privacy, and Consent"
+      }
+    ],
+    "EK-ECO-001": [
+      {
+        "path": "/curriculum/generated/essential-capabilities/ek-eco-001.json",
+        "title": "Understand Energy, Water, and Material Systems"
+      }
+    ],
+    "EK-EMERG-001": [
+      {
+        "path": "/curriculum/generated/essential-capabilities/ek-emerg-001.json",
+        "title": "Prepare for Local Emergencies and Act Within Limits"
+      }
+    ],
+    "EK-EPI-001": [
+      {
+        "path": "/curriculum/generated/essential-capabilities/ek-epi-001.json",
+        "title": "Separate Observation, Interpretation, and Assumption"
+      }
+    ],
+    "EK-EPI-002": [
+      {
+        "path": "/curriculum/generated/essential-capabilities/ek-epi-002.json",
+        "title": "Evaluate Sources and Trace Provenance"
+      }
+    ],
+    "EK-EPI-003": [
+      {
+        "path": "/curriculum/generated/essential-capabilities/ek-epi-003.json",
+        "title": "Represent Uncertainty and Update Beliefs"
+      }
+    ],
+    "EK-FIN-001": [
+      {
+        "path": "/curriculum/generated/essential-capabilities/ek-fin-001.json",
+        "title": "Make Informed Cash-Flow and Borrowing Decisions"
+      }
+    ],
+    "EK-FIN-002": [
+      {
+        "path": "/curriculum/generated/essential-capabilities/ek-fin-002.json",
+        "title": "Evaluate Consumer Offers, Contracts, and Fraud Risks"
+      }
+    ],
+    "EK-HEALTH-001": [
+      {
+        "path": "/curriculum/generated/essential-capabilities/ek-health-001.json",
+        "title": "Navigate Health Information and Care Decisions"
+      }
+    ],
+    "EK-LEARN-001": [
+      {
+        "path": "/curriculum/generated/essential-capabilities/ek-learn-001.json",
+        "title": "Design a Self-Directed Learning Loop"
+      }
+    ],
+    "EK-MATH-001": [
+      {
+        "path": "/curriculum/generated/essential-capabilities/ek-math-001.json",
+        "title": "Use Numeracy, Ratios, Units, and Estimation"
+      }
+    ],
+    "EK-PROJ-001": [
+      {
+        "path": "/curriculum/generated/essential-capabilities/ek-proj-001.json",
+        "title": "Plan, Execute, and Improve a Useful Project"
+      }
+    ],
+    "EK-SCI-001": [
+      {
+        "path": "/curriculum/generated/essential-capabilities/ek-sci-001.json",
+        "title": "Reason Scientifically About Mechanisms and Causes"
+      }
+    ],
+    "EK-SYS-001": [
+      {
+        "path": "/curriculum/generated/essential-capabilities/ek-sys-001.json",
+        "title": "Recognize Feedback, Stocks, Flows, and Side Effects"
+      }
+    ],
+    "EK-WORK-001": [
+      {
+        "path": "/curriculum/generated/essential-capabilities/ek-work-001.json",
+        "title": "Navigate Work, Collaboration, and Career Development"
+      }
+    ],
     "ENG.FOUND.GRAMMAR": [
       {
         "path": "/curriculum/generated/english-foundations/eng.found.grammar.json",
