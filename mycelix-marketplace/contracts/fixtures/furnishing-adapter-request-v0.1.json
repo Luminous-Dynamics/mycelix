@@ -1,0 +1,64 @@
+{
+  "schema_version": "0.1.0",
+  "request_id": "SYNTHETIC-REQUEST-001",
+  "mode": "discovery_only",
+  "design_snapshot": {
+    "design_revision": "synthetic-studio-v1",
+    "design_context_digest_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+    "dimensions_unit": "m",
+    "spatial_evaluation_location": "local_or_trusted_private_client",
+    "full_geometry_transmission": false
+  },
+  "query": {
+    "category": [
+      "desk",
+      "storage"
+    ],
+    "minimum_dimensions_m": {
+      "width": 1,
+      "depth": 0.4,
+      "height": 0.5
+    },
+    "condition_preferences": [
+      "used",
+      "repaired",
+      "refurbished",
+      "new"
+    ],
+    "delivery_region_code": "ZA-GP-JHB",
+    "query_digest_sha256": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+  },
+  "data_minimization": {
+    "fields_permitted_for_query": [
+      "category",
+      "bounding_dimensions_m",
+      "condition_preference",
+      "coarse_delivery_region",
+      "evidence_completeness",
+      "repairability_claim_state",
+      "geometry_use_rights"
+    ],
+    "exact_address_transmitted": false,
+    "occupant_profile_transmitted": false,
+    "floor_plan_transmitted": false,
+    "household_preferences_transmitted": false
+  },
+  "effects": {
+    "create_order": false,
+    "reserve_stock": false,
+    "create_payment": false,
+    "contact_seller": false,
+    "upload_floor_plan": false,
+    "transmit_exact_address": false,
+    "commit_transaction": false
+  },
+  "authorization": {
+    "resident_selection_required": true,
+    "purchase_authorization_state": "not_requested"
+  },
+  "claim_ceiling": [
+    "Synthetic discovery request only.",
+    "No transaction, reservation, payment, seller contact or floor-plan disclosure is permitted in this mode.",
+    "The design digest identifies a private local context but is not an authorization token."
+  ]
+}
