@@ -824,7 +824,7 @@ mod tests {
 
     #[test]
     fn linear_cost_overflow_is_reported() {
-        let m = u64::MAX as i64;
+        let m = i64::MAX;
         let positions = vec![
             participant("A", m, u64::MAX),
             participant("B", m, u64::MAX),
@@ -866,7 +866,9 @@ mod tests {
                 for p in positions {
                     if p.net_minor > 0 {
                         let sent_amount = sent.get(&p.member_id).copied().unwrap_or(0);
-                        if sent_amount > p.net_minor.min(p.available_liquidity_minor as i64) as u128 {
+                        let owed = p.net_minor as u64;
+                        let liquidity_limit = owed.min(p.available_liquidity_minor);
+                        if sent_amount > liquidity_limit as u128 {
                             return;
                         }
                     } else if p.net_minor < 0 {
