@@ -257,6 +257,14 @@ fn solver_contract_rejects_duplicate_evidence_ids_within_a_case() {
 }
 
 #[test]
+fn source_snapshot_binding_is_required() {
+    let mut corpus = solver_fixture();
+    corpus.scenarios[0].evidence[0].source_snapshot_version.clear();
+    let issues = validate_solver_corpus(&corpus).unwrap_err();
+    assert!(has_code(&issues, "empty_required_text"));
+}
+
+#[test]
 fn solver_projection_refuses_evaluator_fields() {
     let mut value: serde_json::Value =
         serde_json::from_str(SOLVER_FIXTURE).expect("solver JSON parses");
@@ -290,6 +298,11 @@ fn schemas_and_manifest_are_versioned_and_separate() {
     let solver_properties = solver_schema["$defs"]["Scenario"]["properties"]
         .as_object()
         .expect("solver scenario properties");
+    let evidence_required = solver_schema["$defs"]["Evidence"]["required"]
+        .as_array()
+        .expect("evidence schema required list");
+    assert!(evidence_required.contains(&serde_json::Value::String("source_snapshot_id".into())));
+    assert!(evidence_required.contains(&serde_json::Value::String("source_snapshot_version".into())));
     assert!(!solver_properties.contains_key("expected_disposition"));
     assert!(!solver_properties.contains_key("rubric"));
     assert!(!solver_properties.contains_key("prohibited_claims"));
