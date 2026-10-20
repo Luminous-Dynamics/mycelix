@@ -61,14 +61,18 @@ fn every_fork_aware_v02_profile_matches_json_schema() {
             failures.push(format!("profiles[{index}]: {error}"));
         }
     }
-    assert!(failures.is_empty(), "v0.2 JSON Schema validation failed: {failures:#?}");
+    assert!(
+        failures.is_empty(),
+        "v0.2 JSON Schema validation failed: {failures:#?}"
+    );
 }
 
 #[test]
 fn v02_conflict_cannot_select_a_listing_revision_in_json_schema() {
     let fixture = read_json("../../contracts/fixtures/furnishing-catalog-profile-v0.2.json");
     let mut profile = fixture["profiles"][3].clone();
-    profile["marketplace_offer"]["listing_action_hash"] = Value::String("synthetic:head:004a".to_owned());
+    profile["marketplace_offer"]["listing_action_hash"] =
+        Value::String("synthetic:head:004a".to_owned());
     assert!(!revision_profile_validator().is_valid(&profile));
 }
 
@@ -78,7 +82,8 @@ fn v02_conflict_cannot_publish_price_or_quantity_in_json_schema() {
     let mut profile = fixture["profiles"][3].clone();
     profile["marketplace_offer"]["price_state"] = Value::String("seller_asserted".to_owned());
     profile["marketplace_offer"]["amount_minor"] = Value::from(12_500);
-    profile["marketplace_offer"]["availability_state"] = Value::String("available_confirmed".to_owned());
+    profile["marketplace_offer"]["availability_state"] =
+        Value::String("available_confirmed".to_owned());
     profile["marketplace_offer"]["quantity"] = Value::from(1);
     assert!(!revision_profile_validator().is_valid(&profile));
 }

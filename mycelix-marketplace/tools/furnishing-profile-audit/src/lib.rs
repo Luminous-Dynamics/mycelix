@@ -60,75 +60,115 @@ fn string_set(
 
 fn validate_revision_observation(offer: &Value, label: &str, errors: &mut Vec<String>) {
     let Some(root) = text(offer, "stable_listing_root_hash") else {
-        errors.push(format!("{label}: v0.2 offer needs a stable listing root hash"));
+        errors.push(format!(
+            "{label}: v0.2 offer needs a stable listing root hash"
+        ));
         return;
     };
     if root.trim().is_empty() {
-        errors.push(format!("{label}: stable listing root hash must not be blank"));
+        errors.push(format!(
+            "{label}: stable listing root hash must not be blank"
+        ));
     }
     let Some(receipt) = field(offer, "revision_observation") else {
-        errors.push(format!("{label}: v0.2 offer needs a revision observation receipt"));
+        errors.push(format!(
+            "{label}: v0.2 offer needs a revision observation receipt"
+        ));
         return;
     };
     if field(receipt, "policy_version").and_then(Value::as_u64) != Some(1) {
-        errors.push(format!("{label}: unsupported listing revision policy version"));
+        errors.push(format!(
+            "{label}: unsupported listing revision policy version"
+        ));
     }
     if text(receipt, "observation_scope") != Some("local_dht_update_graph") {
         errors.push(format!("{label}: unexpected listing observation scope"));
     }
     if text(receipt, "coverage") != Some("local_observed_links_only") {
-        errors.push(format!("{label}: listing revision receipt overstates catalogue coverage"));
+        errors.push(format!(
+            "{label}: listing revision receipt overstates catalogue coverage"
+        ));
     }
     let state = text(receipt, "state").unwrap_or("");
     let reason = text(receipt, "reason").unwrap_or("");
     let heads = array(receipt, "observed_head_action_hashes");
-    let head_ids = string_set(heads, &format!("{label}.observed_head_action_hashes"), errors);
+    let head_ids = string_set(
+        heads,
+        &format!("{label}.observed_head_action_hashes"),
+        errors,
+    );
     if heads.is_some_and(|items| items.len() != head_ids.len()) {
-        errors.push(format!("{label}: observed head action hashes must be unique"));
+        errors.push(format!(
+            "{label}: observed head action hashes must be unique"
+        ));
     }
     let revision_count = field(receipt, "revision_count").and_then(Value::as_u64);
     if revision_count.is_none_or(|count| count == 0 || count > 128) {
-        errors.push(format!("{label}: revision_count must be between 1 and 128"));
+        errors.push(format!(
+            "{label}: revision_count must be between 1 and 128"
+        ));
     } else if revision_count.is_some_and(|count| count < head_ids.len() as u64) {
-        errors.push(format!("{label}: revision_count is smaller than observed head count"));
+        errors.push(format!(
+            "{label}: revision_count is smaller than observed head count"
+        ));
     }
 
     match state {
         "single_observed_head" => {
             if reason != "single_observed_head" || head_ids.len() != 1 {
-                errors.push(format!("{label}: single-head receipt contradicts observed heads"));
+                errors.push(format!(
+                    "{label}: single-head receipt contradicts observed heads"
+                ));
             }
             let Some(head) = head_ids.iter().next() else {
                 errors.push(format!("{label}: single-head state has no observed head"));
                 return;
             };
             if text(receipt, "sole_observed_head_action_hash") != Some(head.as_str()) {
-                errors.push(format!("{label}: sole observed head does not match head evidence"));
+                errors.push(format!(
+                    "{label}: sole observed head does not match head evidence"
+                ));
             }
             if text(offer, "listing_action_hash") != Some(head.as_str()) {
-                errors.push(format!("{label}: selected listing action hash is not the sole observed head"));
+                errors.push(format!(
+                    "{label}: selected listing action hash is not the sole observed head"
+                ));
             }
             if text(offer, "listing_revision").is_none_or(str::is_empty) {
-                errors.push(format!("{label}: single observed head needs a revision label"));
+                errors.push(format!(
+                    "{label}: single observed head needs a revision label"
+                ));
             }
             if text(offer, "observed_state") == Some("conflict") {
-                errors.push(format!("{label}: single observed head contradicts conflict observation state"));
+                errors.push(format!(
+                    "{label}: single observed head contradicts conflict observation state"
+                ));
             }
         }
         "concurrent_heads" => {
             if reason != "concurrent_observed_heads" || head_ids.len() < 2 {
-                errors.push(format!("{label}: concurrent-head receipt needs at least two distinct heads"));
+                errors.push(format!(
+                    "{label}: concurrent-head receipt needs at least two distinct heads"
+                ));
             }
-            if field(receipt, "sole_observed_head_action_hash").is_none_or(|value| !value.is_null()) {
-                errors.push(format!("{label}: concurrent heads must not select a sole observed head"));
+            if field(receipt, "sole_observed_head_action_hash")
+                .is_none_or(|value| !value.is_null())
+            {
+                errors.push(format!(
+                    "{label}: concurrent heads must not select a sole observed head"
+                ));
             }
             if field(offer, "listing_action_hash").is_none_or(|value| !value.is_null())
                 || field(offer, "listing_revision").is_none_or(|value| !value.is_null())
             {
-                errors.push(format!("{label}: conflicted offer must not expose a selected action or revision"));
+                errors.push(format!(
+                    "{label}: conflicted offer must not expose a selected action or revision"
+                ));
             }
             if text(offer, "observed_state") != Some("conflict") {
-                errors.push(format!("{label}: concurrent heads require conflict offer state"));
+                errors.push(format!(
+                    "{label}: concurrent heads require conflict offer state"
+                ));
             }
             for (key, expected) in [
                 ("price_state", "unknown"),
@@ -479,10 +519,7 @@ mod tests {
         serde_json::from_slice(&bytes).expect("v0.2 synthetic fixture should be valid JSON")
     }
 
-    fn revision_errors_after(
-        mut document: Value,
-        mutate: impl FnOnce(&mut Value),
-    ) -> Vec<String> {
+    fn revision_errors_after(mut document: Value, mutate: impl FnOnce(&mut Value)) -> Vec<String> {
         mutate(&mut document);
         validate_fixture(&document)
     }
@@ -490,7 +527,10 @@ mod tests {
     #[test]
     fn fork_aware_v02_fixture_passes_semantic_audit() {
         let errors = validate_fixture(&revision_baseline());
-        assert!(errors.is_empty(), "unexpected v0.2 audit errors: {errors:#?}");
+        assert!(
+            errors.is_empty(),
+            "unexpected v0.2 audit errors: {errors:#?}"
+        );
     }
 
     #[test]
@@ -503,7 +543,10 @@ mod tests {
         assert!(conflict["amount_minor"].is_null());
         assert_eq!(conflict["availability_state"], "unknown");
         assert!(conflict["quantity"].is_null());
-        assert_eq!(conflict["revision_observation"]["coverage"], "local_observed_links_only");
+        assert_eq!(
+            conflict["revision_observation"]["coverage"],
+            "local_observed_links_only"
+        );
     }
 
     #[test]
@@ -514,7 +557,9 @@ mod tests {
             doc["profiles"][3]["marketplace_offer"]["listing_revision"] =
                 Value::String("revision-a".to_owned());
         });
-        assert!(errors.iter().any(|error| error.contains("must not expose a selected action or revision")));
+        assert!(errors
+            .iter()
+            .any(|error| error.contains("must not expose a selected action or revision")));
     }
 
     #[test]
@@ -527,10 +572,18 @@ mod tests {
                 Value::String("available_confirmed".to_owned());
             doc["profiles"][3]["marketplace_offer"]["quantity"] = Value::from(1);
         });
-        assert!(errors.iter().any(|error| error.contains("must keep price_state unknown")));
-        assert!(errors.iter().any(|error| error.contains("must keep availability_state unknown")));
-        assert!(errors.iter().any(|error| error.contains("must not expose amount_minor")));
-        assert!(errors.iter().any(|error| error.contains("must not expose quantity")));
+        assert!(errors
+            .iter()
+            .any(|error| error.contains("must keep price_state unknown")));
+        assert!(errors
+            .iter()
+            .any(|error| error.contains("must keep availability_state unknown")));
+        assert!(errors
+            .iter()
+            .any(|error| error.contains("must not expose amount_minor")));
+        assert!(errors
+            .iter()
+            .any(|error| error.contains("must not expose quantity")));
     }
 
     #[test]
@@ -539,7 +592,9 @@ mod tests {
             doc["profiles"][0]["marketplace_offer"]["listing_action_hash"] =
                 Value::String("synthetic:stale-action".to_owned());
         });
-        assert!(errors.iter().any(|error| error.contains("not the sole observed head")));
+        assert!(errors
+            .iter()
+            .any(|error| error.contains("not the sole observed head")));
     }
 
     #[test]
@@ -548,7 +603,9 @@ mod tests {
             doc["profiles"][0]["marketplace_offer"]["revision_observation"]["coverage"] =
                 Value::String("global_complete".to_owned());
         });
-        assert!(errors.iter().any(|error| error.contains("overstates catalogue coverage")));
+        assert!(errors
+            .iter()
+            .any(|error| error.contains("overstates catalogue coverage")));
     }
 
     #[test]
