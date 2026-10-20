@@ -1,0 +1,311 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "CivOS Multi-Agent Qualification Receipt v0.1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "receipt_id",
+    "contract_id",
+    "contract_version",
+    "corpus_sha256",
+    "schema_sha256",
+    "source",
+    "runtime",
+    "artifacts",
+    "environment",
+    "executions"
+  ],
+  "properties": {
+    "receipt_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "contract_id": {
+      "const": "CIVOS-MACQ-001"
+    },
+    "contract_version": {
+      "const": "0.1.0"
+    },
+    "corpus_sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "schema_sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "repository",
+        "commit",
+        "tree_state"
+      ],
+      "properties": {
+        "repository": {
+          "type": "string",
+          "minLength": 1
+        },
+        "commit": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{40}$"
+        },
+        "tree_state": {
+          "enum": [
+            "clean",
+            "dirty",
+            "unknown"
+          ]
+        }
+      }
+    },
+    "runtime": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "holochain",
+        "hdk",
+        "hdi",
+        "conductor",
+        "client",
+        "harness"
+      ],
+      "properties": {
+        "holochain": {
+          "type": "string",
+          "minLength": 1
+        },
+        "hdk": {
+          "type": "string",
+          "minLength": 1
+        },
+        "hdi": {
+          "type": "string",
+          "minLength": 1
+        },
+        "conductor": {
+          "type": "string",
+          "minLength": 1
+        },
+        "client": {
+          "type": "string",
+          "minLength": 1
+        },
+        "harness": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "artifacts": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "kind",
+          "sha256",
+          "path"
+        ],
+        "properties": {
+          "kind": {
+            "enum": [
+              "dna",
+              "happ",
+              "wasm",
+              "fixture",
+              "binary",
+              "other"
+            ]
+          },
+          "sha256": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$"
+          },
+          "path": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    },
+    "environment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "target",
+        "peer_count",
+        "seed",
+        "fault_schedule_sha256",
+        "timeout_policy"
+      ],
+      "properties": {
+        "target": {
+          "type": "string",
+          "minLength": 1
+        },
+        "peer_count": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "seed": {
+          "type": "string",
+          "minLength": 1
+        },
+        "fault_schedule_sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "timeout_policy": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "executions": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "scenario_id",
+          "target",
+          "applicability",
+          "outcome",
+          "evidence",
+          "checks"
+        ],
+        "properties": {
+          "scenario_id": {
+            "type": "string",
+            "pattern": "^[A-Z0-9]+(-[A-Z0-9]+)*-[0-9]{3}$"
+          },
+          "target": {
+            "type": "string",
+            "minLength": 1
+          },
+          "applicability": {
+            "enum": [
+              "applicable",
+              "not_applicable"
+            ]
+          },
+          "applicability_reason": {
+            "type": "string",
+            "minLength": 1
+          },
+          "outcome": {
+            "enum": [
+              "passed",
+              "failed",
+              "unknown",
+              "skipped",
+              "not_run"
+            ]
+          },
+          "evidence": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "kind",
+                "sha256",
+                "path"
+              ],
+              "properties": {
+                "kind": {
+                  "enum": [
+                    "test_log",
+                    "state_digest",
+                    "agent_receipt",
+                    "trace_digest",
+                    "counterexample",
+                    "measurement",
+                    "other"
+                  ]
+                },
+                "sha256": {
+                  "type": "string",
+                  "pattern": "^[0-9a-f]{64}$"
+                },
+                "path": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              }
+            }
+          },
+          "checks": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "name",
+                "outcome",
+                "evidence_sha256"
+              ],
+              "properties": {
+                "name": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "outcome": {
+                  "enum": [
+                    "passed",
+                    "failed",
+                    "unknown"
+                  ]
+                },
+                "evidence_sha256": {
+                  "type": "array",
+                  "minItems": 1,
+                  "items": {
+                    "type": "string",
+                    "pattern": "^[0-9a-f]{64}$"
+                  },
+                  "uniqueItems": true
+                }
+              }
+            }
+          },
+          "measurements": {
+            "type": "object",
+            "additionalProperties": {
+              "type": [
+                "number",
+                "string",
+                "integer",
+                "boolean",
+                "null"
+              ]
+            }
+          }
+        },
+        "allOf": [
+          {
+            "if": {
+              "properties": {
+                "applicability": {
+                  "const": "not_applicable"
+                }
+              },
+              "required": [
+                "applicability"
+              ]
+            },
+            "then": {
+              "required": [
+                "applicability_reason"
+              ]
+            }
+          }
+        ]
+      }
+    }
+  }
+}

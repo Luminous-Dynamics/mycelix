@@ -1,0 +1,15 @@
+[package]
+name = "civos-qualification"
+version = "0.1.0"
+edition = "2024"
+license = "AGPL-3.0-or-later"
+description = "Fail-closed validation and safety-gate evaluation for CivOS multi-agent qualification receipts"
+
+[dependencies]
+jsonschema = "=0.59.0"
+serde_json = "1.0"
+sha2 = "0.10"
+
+[[bin]]
+name = "civos-qualify"
+path = "src/main.rs"

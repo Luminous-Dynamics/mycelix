@@ -4,7 +4,9 @@
 **Contract ID:** `CIVOS-MACQ-001`  
 **Source baseline:** `Luminous-Dynamics/mycelix@dbc883566ea937ee8a273c1d33d153cc6262dd9b`  
 **Machine-readable scenarios:** [civos-multi-agent-scenarios-v0.json](./civos-multi-agent-scenarios-v0.json)  
-**Corpus schema:** [civos-multi-agent-scenarios-v0.schema.json](./civos-multi-agent-scenarios-v0.schema.json)
+**Corpus schema:** [civos-multi-agent-scenarios-v0.schema.json](./civos-multi-agent-scenarios-v0.schema.json)  
+**Receipt schema:** [civos-multi-agent-receipt-v0.schema.json](./civos-multi-agent-receipt-v0.schema.json)  
+**Executable validator:** [tools/civos-qualification](../../tools/civos-qualification/) (Rust; contract/receipt verification, not a runtime adapter)
 
 ## Why this work exists
 
@@ -72,6 +74,39 @@ For each execution, record:
 - expected versus actual outcome, including all counterexamples.
 
 The result should be a machine-readable receipt. A test command returning exit code zero is not sufficient provenance on its own. A queued, skipped, cancelled, or unrelated workflow is not a pass for the tested commit.
+
+## Executable contract validator and receipt evaluator
+
+The first executable tooling slice lives in `tools/civos-qualification`. It uses a real Draft 2020-12 validator, then adds semantic invariants that JSON Schema alone cannot express (notably duplicate scenario IDs and evidence cross-links).
+
+Validate the exact fixture set:
+
+```sh
+cargo run --manifest-path tools/civos-qualification/Cargo.toml -- \
+  validate-contract \
+  --corpus docs/research/civos-multi-agent-scenarios-v0.json \
+  --schema docs/research/civos-multi-agent-scenarios-v0.schema.json
+```
+
+Evaluate a per-target receipt with local hashed evidence files:
+
+```sh
+cargo run --manifest-path tools/civos-qualification/Cargo.toml -- \
+  evaluate-receipt \
+  --corpus docs/research/civos-multi-agent-scenarios-v0.json \
+  --schema docs/research/civos-multi-agent-scenarios-v0.schema.json \
+  --receipt-schema docs/research/civos-multi-agent-receipt-v0.schema.json \
+  --receipt /path/to/finance-receipt.json \
+  --target finance \
+  --evidence-root /path/to/hashed-evidence \
+  --source-root /path/to/mycelix-checkout
+```
+
+The corpus and schema hashes are calculated over their exact file bytes—not parsed/re-serialized JSON. The receipt must match both. Every referenced artifact/evidence file must exist under the declared evidence root and match its SHA-256; absolute paths, parent traversal and symlink escapes are rejected. Each assertion check must reference a digest present in that same scenario execution.
+
+The evaluator returns three outcomes: `QUALIFIED`, `FAILED`, or `INCOMPLETE`. A failed hard gate vetoes qualification; missing, skipped, unknown, not-applicable, unrun or evidence-free gates cannot pass. A dirty/unknown source tree is not release-qualified. It separately reports hard-gate status, behavioral coverage and performance-baseline coverage rather than flattening them into one compensating score.
+
+**Important limit:** the v0.1 receipt is not digitally signed, the evaluator does not itself run conductor/browser workloads, and a matching digest does not prove the referenced test oracle was correct. Runtime adapters and an authenticated receipt/attestation layer remain required. The new tool makes receipt structure, file bytes, cross-links and fail-closed outcome semantics machine-checkable; it does not claim end-to-end multi-agent qualification or SOTA performance.
 
 ## Required test layers
 
