@@ -239,7 +239,9 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
             LinkTypes::MemberToMycelState => Ok(ValidateCallbackResult::Valid),
             LinkTypes::RecognizerCycleToAllocation => Ok(ValidateCallbackResult::Valid),
             LinkTypes::AnchorLinks => Ok(ValidateCallbackResult::Valid),
-            LinkTypes::GovernanceAgents => Ok(ValidateCallbackResult::Valid),
+            LinkTypes::GovernanceAgents => Ok(ValidateCallbackResult::Invalid(
+                "GovernanceAgents links are non-authoritative and cannot register Finance governance membership".into(),
+            )),
         },
         FlatOp::RegisterDeleteLink { .. } => Ok(ValidateCallbackResult::Valid),
         FlatOp::StoreRecord(_) => Ok(ValidateCallbackResult::Valid),
