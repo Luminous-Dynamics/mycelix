@@ -520,6 +520,14 @@ fn IdentityBootstrapGate(
         Err(error) => status_message.set(format!("Backup setup is still unavailable: {error}")),
     };
 
+    let backup_word_entries = move || {
+        backup_phrase_words
+            .get()
+            .into_iter()
+            .enumerate()
+            .collect::<Vec<(usize, String)>>()
+    };
+
     let confirm_backup = move |ev: SubmitEvent| {
         ev.prevent_default();
         let mut words = backup_phrase_words.get_untracked();
@@ -746,7 +754,7 @@ fn IdentityBootstrapGate(
                         <Show when=move || backup_phrase_words.get().len() == 24>
                             <ol class="identity-recovery-word-grid">
                                 <For
-                                    each=move || backup_phrase_words.get().into_iter().enumerate().collect::<Vec<_>>()
+                                    each=backup_word_entries
                                     key=|(index, _word)| *index
                                     children=move |(index, word)| view! {
                                         <li>
