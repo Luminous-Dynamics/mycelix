@@ -330,7 +330,13 @@ pub async fn decrypt(passphrase: &str, blob: &EncryptedBlob) -> Result<Vec<u8>, 
     Ok(Uint8Array::new(&result).to_vec())
 }
 
-#[cfg(all(test, feature = "production-kdf-benchmark"))]
+#[cfg(all(
+    test,
+    any(
+        feature = "production-kdf-benchmark",
+        feature = "argon2id-browser-benchmark"
+    )
+))]
 fn summarize_latency_samples(samples: &mut [f64]) -> Result<(f64, f64, f64), &'static str> {
     if samples.is_empty() {
         return Err("latency sample set is empty");
@@ -355,6 +361,69 @@ mod tests {
     use super::*;
 
     wasm_bindgen_test::wasm_bindgen_test_configure!(run_in_browser);
+
+    /// Experimental Argon2id memory-hard KDF timing. The fixed synthetic
+    /// passphrase and salt are benchmark fixtures only; no production envelope
+    /// or persistent identity is created by this test.
+    #[cfg(feature = "argon2id-browser-benchmark")]
+    #[wasm_bindgen_test::wasm_bindgen_test]
+    async fn argon2id_latency_benchmark() {
+        use argon2::{Algorithm, Argon2, Params, Version};
+        use zeroize::Zeroize;
+
+        const MEMORY_KIB: u32 = 19 * 1024;
+        const ITERATIONS: u32 = 2;
+        const LANES: u32 = 1;
+        const OUTPUT_LEN: usize = 32;
+        const SAMPLE_COUNT: usize = 20;
+        let password = b"synthetic Argon2id benchmark only";
+        let salt = [0xA5u8; 16];
+        let params = Params::new(MEMORY_KIB, ITERATIONS, LANES, Some(OUTPUT_LEN))
+            .expect("fixed Argon2id benchmark parameters are valid");
+        let argon2 = Argon2::new(Algorithm::Argon2id, Version::V0x13, params);
+        let performance = web_sys::window()
+            .expect("browser window is present")
+            .performance();
+        let mut output = [0u8; OUTPUT_LEN];
+
+        // Warm up memory allocation and WASM code paths before sampling.
+        argon2
+            .hash_password_into(password, &salt, &mut output)
+            .expect("Argon2id warm-up succeeds");
+        assert!(output.iter().any(|byte| *byte != 0));
+        output.zeroize();
+
+        let mut derive_ms = Vec::with_capacity(SAMPLE_COUNT);
+        for _ in 0..SAMPLE_COUNT {
+            let start = performance.now();
+            argon2
+                .hash_password_into(password, &salt, &mut output)
+                .expect("Argon2id benchmark derivation succeeds");
+            derive_ms.push(performance.now() - start);
+            assert!(output.iter().any(|byte| *byte != 0));
+            output.zeroize();
+        }
+
+        let (p50, p95, maximum) =
+            summarize_latency_samples(&mut derive_ms).expect("Argon2 timings are valid");
+        let report = format!(
+            concat!(
+                "IDENTITY_KDF_BENCHMARK kdf=Argon2id version=19 memory_kib={} iterations={} lanes={} ",
+                "output_bytes={} samples={} derive_ms_p50={:.1} derive_ms_p95={:.1} derive_ms_max={:.1}"
+            ),
+            MEMORY_KIB,
+            ITERATIONS,
+            LANES,
+            OUTPUT_LEN,
+            SAMPLE_COUNT,
+            p50,
+            p95,
+            maximum,
+        );
+        web_sys::console::log_1(&report.clone().into());
+        println!("{report}");
+        output.zeroize();
+    }
 
     /// Latency-only browser calibration using a synthetic secret and the real
     /// production KDF count. It must never log passphrases or secret bytes.
@@ -502,7 +571,13 @@ mod tests {
     }
 }
 
-#[cfg(all(test, feature = "production-kdf-benchmark"))]
+#[cfg(all(
+    test,
+    any(
+        feature = "production-kdf-benchmark",
+        feature = "argon2id-browser-benchmark"
+    )
+))]
 mod benchmark_statistics_tests {
     use super::summarize_latency_samples;
 
