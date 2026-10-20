@@ -5,6 +5,8 @@ on:
     paths:
       - "docs/research/civos-multi-agent-scenarios-v0.json"
       - "docs/research/civos-multi-agent-scenarios-v0.schema.json"
+      - "docs/research/civos-multi-agent-coverage-v0.json"
+      - "docs/research/civos-multi-agent-coverage-v0.schema.json"
       - "docs/research/CIVOS_MULTI_AGENT_QUALIFICATION_V0.md"
       - "tools/civos-benchmark-validator/**"
       - ".github/workflows/civos-benchmark-qualify.yml"
@@ -13,6 +15,8 @@ on:
     paths:
       - "docs/research/civos-multi-agent-scenarios-v0.json"
       - "docs/research/civos-multi-agent-scenarios-v0.schema.json"
+      - "docs/research/civos-multi-agent-coverage-v0.json"
+      - "docs/research/civos-multi-agent-coverage-v0.schema.json"
       - "docs/research/CIVOS_MULTI_AGENT_QUALIFICATION_V0.md"
       - "tools/civos-benchmark-validator/**"
       - ".github/workflows/civos-benchmark-qualify.yml"
@@ -62,9 +66,13 @@ jobs:
           cargo run --manifest-path tools/civos-benchmark-validator/Cargo.toml --locked -- \
             docs/research/civos-multi-agent-scenarios-v0.json \
             docs/research/civos-multi-agent-scenarios-v0.schema.json \
-            --receipt "$receipt"
+            --receipt "$receipt" \
+            --coverage docs/research/civos-multi-agent-coverage-v0.json \
+            --coverage-schema docs/research/civos-multi-agent-coverage-v0.schema.json
           test -s "$receipt"
           cat "$receipt"
           sha256sum \
             docs/research/civos-multi-agent-scenarios-v0.json \
-            docs/research/civos-multi-agent-scenarios-v0.schema.json
+            docs/research/civos-multi-agent-scenarios-v0.schema.json \
+            docs/research/civos-multi-agent-coverage-v0.json \
+            docs/research/civos-multi-agent-coverage-v0.schema.json
