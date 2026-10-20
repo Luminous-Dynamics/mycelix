@@ -1,5 +1,6 @@
 use finance_route_clearing_optimizer::{
-    greedy_match, optimize, AuthorityQualification, ClearingContext, ParticipantNet, SettlementRoute,
+    greedy_match, optimize, AuthorityQualification, ClearingContext, ParticipantNet,
+    SettlementRoute,
 };
 use std::time::Instant;
 
@@ -91,15 +92,13 @@ fn main() {
 
         for _ in 0..25 {
             let start = Instant::now();
-            optimized_plan = Some(
-                optimize(&context, &positions, &routes).expect("optimizer failed"),
-            );
+            optimized_plan =
+                Some(optimize(&context, &positions, &routes).expect("optimizer failed"));
             optimize_samples.push(start.elapsed().as_micros());
 
             let start = Instant::now();
-            greedy_plan = Some(
-                greedy_match(&context, &positions, &routes).expect("greedy baseline failed"),
-            );
+            greedy_plan =
+                Some(greedy_match(&context, &positions, &routes).expect("greedy baseline failed"));
             greedy_samples.push(start.elapsed().as_micros());
         }
 
