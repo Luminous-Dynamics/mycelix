@@ -1,5 +1,3 @@
-#[cfg(test)]
-mod schema_validation_tests {
     use serde_json::Value;
     use std::{fs, path::PathBuf};
 
@@ -76,4 +74,3 @@ mod schema_validation_tests {
         request["effects"]["reserve_stock"] = Value::Bool(true);
         assert!(!request_validator().is_valid(&request));
     }
-}
