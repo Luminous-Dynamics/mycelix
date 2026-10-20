@@ -74,6 +74,9 @@ struct QualificationReceipt {
     receipt_version: &'static str,
     corpus_sha256: String,
     schema_sha256: String,
+    validator_source_sha256: String,
+    validator_manifest_sha256: String,
+    dependency_lock_sha256: String,
     corpus_contract_id: String,
     corpus_version: String,
     corpus_status: String,
@@ -177,11 +180,18 @@ fn run() -> Result<(), String> {
         }
     }
 
+    let validator_source_sha256 = sha256_hex(include_bytes!("main.rs"));
+    let validator_manifest_sha256 = sha256_hex(include_bytes!("../Cargo.toml"));
+    let dependency_lock_sha256 = sha256_hex(include_bytes!("../Cargo.lock"));
+
     let receipt = QualificationReceipt {
         receipt_contract: "CIVOS-MACQ-CORPUS-VALIDATION",
         receipt_version: "0.1.0",
         corpus_sha256,
         schema_sha256,
+        validator_source_sha256,
+        validator_manifest_sha256,
+        dependency_lock_sha256,
         corpus_contract_id: corpus.contract_id,
         corpus_version: corpus.version,
         corpus_status: corpus.status,
