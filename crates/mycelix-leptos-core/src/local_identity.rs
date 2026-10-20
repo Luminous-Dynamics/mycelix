@@ -2196,6 +2196,14 @@ mod browser_storage_tests {
             "current public-key marker should satisfy the gate"
         );
 
+        // Simulate a full-page reload: the in-memory signing key disappears,
+        // but the non-secret marker remains bound to the same public key.
+        UNLOCKED_KEY.with(|cell| *cell.borrow_mut() = None);
+        assert!(
+            !recovery_backup_confirmation_needed(),
+            "verified backup state should survive a reload for the same public key"
+        );
+
         let wrong_key = SigningKey::from_bytes(&[139u8; 32]);
         storage
             .set_item(
