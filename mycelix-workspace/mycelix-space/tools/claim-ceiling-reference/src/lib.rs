@@ -500,10 +500,10 @@ mod tests {
                     IntendedUse::Research,
                 ),
                 atom(
-                    ClaimPredicate::CausalClaim,
-                    EvidenceClass::CorrelationalAnalysis,
+                    ClaimPredicate::Forecast,
+                    EvidenceClass::ForecastOutput,
                     DerivationKind::StatisticalInference,
-                    IntendedUse::DecisionSupport,
+                    IntendedUse::Planning,
                 ),
             ]),
             subject_ids: BTreeSet::from(["asset-1".to_owned(), "asset-2".to_owned()]),
