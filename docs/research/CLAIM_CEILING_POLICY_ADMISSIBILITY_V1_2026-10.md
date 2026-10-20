@@ -61,4 +61,9 @@ These are proposed gates, not an industry certification or a claim that the poli
 
 ## Nonclaims
 
-A passing policy check does not authenticate its publisher, establish source independence, prove the claim true, verify trusted time, admit the evidence into canonical state, or authorize an operation. It proves only that the serialized candidate ceiling fits the named finite profile under this implementation.
+A passing policy check does not authenticate its publisher, establish source independence, prove the claim true, verify trusted time, admit the evidence into canonical state, or authorize an operation. It proves only that the serialized candidate ceiling fits the separately digest-pinned finite profile under this implementation. The expected digest is still only as trustworthy as the external policy-delivery/configuration channel.
+
+## Policy pinning correction
+
+
+6. **The approved policy is a separately pinned artifact.** The candidate request does not carry its own policy profile. The CLI reads policy bytes from a separate file, requires an expected SHA-256 supplied through an out-of-band trusted channel, and returns a structured rejection when the profile bytes do not match that pin. Hashing an arbitrary caller-provided policy and trusting that hash would only prove self-consistency, not policy approval.
