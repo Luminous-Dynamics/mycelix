@@ -487,18 +487,33 @@ fn baseline_trace(
     match policy {
         BaselinePolicy::NoQuery => Ok(Vec::new()),
         BaselinePolicy::FixedPlaybook => {
-            const PLAYBOOK: &[&str] = &[
-                "shared-egress-rollup",
-                "endpoint-device-context",
-                "session-issuance-audit",
-            ];
+            // Frozen per-domain sequences are metadata-only policies, not oracle traces.
+            let playbook: &[&str] = match scenario.domain {
+                CyberDomain::IdentityAccess => &[
+                    "shared-egress-rollup",
+                    "endpoint-device-context",
+                    "session-issuance-audit",
+                ],
+                CyberDomain::NetworkConfiguration => {
+                    &["effective-route-table", "policy-deployment-receipt"]
+                }
+                CyberDomain::SupplyChainProvenance => {
+                    &["registry-digest-comparison", "build-provenance-attestation"]
+                }
+                CyberDomain::AiToolBoundaries => {
+                    &["retrieved-content-lineage", "tool-invocation-audit"]
+                }
+                CyberDomain::EndpointResponseTelemetry => {
+                    &["endpoint-action-receipt", "endpoint-sensor-health"]
+                }
+            };
             let available = scenario
                 .requests
                 .iter()
                 .filter(|request| authorized_authorities.contains(&request.required_authority))
                 .map(|request| request.request_id.as_str())
                 .collect::<BTreeSet<_>>();
-            Ok(PLAYBOOK
+            Ok(playbook
                 .iter()
                 .filter(|request_id| available.contains(**request_id))
                 .map(|request_id| (*request_id).to_string())
@@ -1366,6 +1381,47 @@ fn metadata_only_baselines_are_deterministic_and_use_equal_constraints() {
         .unwrap(),
         cheapest
     );
+}
+
+#[test]
+fn fixed_playbook_baseline_covers_all_five_domains_without_crossing_authority() {
+    let catalog = catalog_fixture();
+    let authorized = [RequestAuthority::ReadOnlyTelemetry];
+    let cases = [
+        ("CYB-ACQ-001", "session-issuance-audit"),
+        ("CYB-ACQ-002", "policy-deployment-receipt"),
+        ("CYB-ACQ-003", "build-provenance-attestation"),
+        ("CYB-ACQ-004", "tool-invocation-audit"),
+        ("CYB-ACQ-005", "endpoint-sensor-health"),
+    ];
+    for (scenario_id, expected_request) in cases {
+        let trace = baseline_trace(
+            &catalog,
+            scenario_id,
+            &authorized,
+            BaselinePolicy::FixedPlaybook,
+        )
+        .unwrap();
+        assert!(
+            trace.iter().any(|id| id == expected_request),
+            "{scenario_id}: fixed playbook must include its domain-relevant follow-up"
+        );
+        assert!(
+            trace.len() >= 2,
+            "{scenario_id}: fixed playbook must provide more than one investigative action"
+        );
+        let scenario = catalog
+            .scenarios
+            .iter()
+            .find(|scenario| scenario.scenario_id == scenario_id)
+            .unwrap();
+        assert!(trace.iter().all(|id| {
+            scenario.requests.iter().any(|request| {
+                request.request_id == *id
+                    && authorized.contains(&request.required_authority)
+            })
+        }));
+    }
 }
 
 #[test]
