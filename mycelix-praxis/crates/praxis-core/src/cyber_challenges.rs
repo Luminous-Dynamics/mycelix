@@ -37,7 +37,7 @@ pub struct SolverVisibleScenario {
     pub action_authority_boundary: String,
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, Hash, PartialOrd)]
 #[serde(rename_all = "snake_case")]
 pub enum CyberDomain {
     IdentityAccess,
@@ -47,7 +47,7 @@ pub enum CyberDomain {
     EndpointTelemetry,
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, Hash, PartialOrd)]
 #[serde(rename_all = "snake_case")]
 pub enum ChallengeDifficulty {
     Beginner,
@@ -66,7 +66,7 @@ pub struct EvidenceObservation {
     pub observation: String,
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, Hash, PartialOrd)]
 #[serde(rename_all = "snake_case")]
 pub enum EvidenceSourceKind {
     IdentityLogSummary,
@@ -83,7 +83,7 @@ pub enum EvidenceSourceKind {
     ResponseRequestLog,
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, Hash, PartialOrd)]
 #[serde(rename_all = "snake_case")]
 pub enum EvidenceFreshness {
     Current,
