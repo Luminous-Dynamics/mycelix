@@ -47,6 +47,10 @@ jobs:
       - name: Bootstrap package lockfile for this isolated workspace
         run: cargo generate-lockfile --manifest-path mycelix-workspace/mycelix-manufacturing/Cargo.toml
 
+      - name: Verify reviewed package dependency graph digest
+        run: |
+          echo "c7c6c731114db29b0275ce349799bf4a319a6d7f3773ff24a1295fc165fa0847  mycelix-workspace/mycelix-manufacturing/Cargo.lock" | sha256sum --check -
+
       - name: Run manufacturing common tests with the generated lockfile
         run: cargo test --locked --manifest-path mycelix-workspace/mycelix-manufacturing/Cargo.toml --package manufacturing_common
 
