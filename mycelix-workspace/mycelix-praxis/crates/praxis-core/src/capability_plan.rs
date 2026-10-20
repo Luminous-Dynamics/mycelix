@@ -130,8 +130,12 @@ pub struct GoalPlanRequest {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum PracticeSelectionBasis {
+    /// The first curator-ranked option fit the complete requested route.
     CuratorPriority,
+    /// The learner explicitly selected this versioned task/rubric/mode.
     LearnerPreference,
+    /// A higher-priority option would violate the total time budget.
+    BudgetFeasibility,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -377,8 +381,13 @@ pub fn compile_goal_plan(
 
         let selection_basis = if request.preferred_practice.contains_key(capability_id) {
             PracticeSelectionBasis::LearnerPreference
-        } else {
+        } else if options
+            .first()
+            .is_some_and(|first| same_practice_identity(first, &proposed_practice))
+        {
             PracticeSelectionBasis::CuratorPriority
+        } else {
+            PracticeSelectionBasis::BudgetFeasibility
         };
         estimated_total_minutes = estimated_total_minutes
             .checked_add(proposed_practice.estimated_minutes)
@@ -1180,6 +1189,10 @@ mod tests {
         assert_eq!(
             plan.steps.last().unwrap().proposed_practice.task_id,
             "task-network-lab"
+        );
+        assert_eq!(
+            plan.steps.last().unwrap().selection_basis,
+            PracticeSelectionBasis::BudgetFeasibility
         );
         // The slower practical option is locally eligible but cannot fit within
         // the global budget even if all other steps use their minimum options.
