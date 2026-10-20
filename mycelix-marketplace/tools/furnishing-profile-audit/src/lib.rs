@@ -518,3 +518,6 @@ pub fn validate_discovery_request(document: &Value) -> Vec<String> {
 
 #[cfg(test)]
 mod discovery_request_tests;
+
+#[cfg(test)]
+mod schema_validation_tests;
