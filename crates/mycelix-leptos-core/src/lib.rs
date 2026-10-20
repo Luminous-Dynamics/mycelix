@@ -72,6 +72,7 @@ pub mod identity_crypto;
 pub mod indlela;
 pub use mycelix_leptos_ui::loading;
 pub mod local_identity;
+pub mod identity_bootstrap;
 pub mod modal;
 pub use mycelix_leptos_ui::progress_bar;
 pub mod search_bar;
@@ -144,8 +145,14 @@ pub use forms::{Checkbox, FormField, Select, SelectOption, TextArea, TextInput};
 pub use freshness::{FreshnessBadge, FreshnessLevel};
 pub use graph_node::{GraphEdge, GraphNode, NodeEmphasis};
 pub use indlela::{GrowthStage, community_warmth, knowledge_freshness};
+pub use identity_bootstrap::IdentityBootstrapGate;
 pub use local_identity::{
-    LocalIdentity, load_json, local_did, provide_local_identity, save_json, use_local_identity,
+    IdentityBootstrapAction, LocalIdentity, LocalIdentityAccessError, LocalIdentityStoragePosture,
+    allowed_identity_bootstrap_actions, create_protected_identity, identity_bootstrap_action_allowed,
+    inspect_local_identity_posture, load_json, local_did, protect_existing_identity,
+    provide_local_identity, restore_protected_identity_from_seed_phrase, save_json,
+    try_ensure_keypair, try_local_did, try_provide_local_identity, try_sign_with_local_identity,
+    unlock_with_passphrase, use_local_identity,
 };
 pub use modal::{ConfirmDialog, Modal, ModalSize};
 pub use search_bar::SearchBar;

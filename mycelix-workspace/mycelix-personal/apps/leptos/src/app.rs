@@ -10,11 +10,12 @@ use wasm_bindgen_futures::spawn_local;
 
 use mycelix_leptos_core::consciousness::refresh_consciousness_from_conductor;
 use mycelix_leptos_core::{
-    init_consciousness_ui, provide_consciousness_context, provide_homeostasis_context,
-    provide_local_identity, provide_theme_context, provide_thermodynamic_context,
-    provide_toast_context, use_toasts, ActivityFeed, ActivityFeedItem, AppShell, AvailabilityState,
-    AvailabilityStateKind, ConnectStrategy, EmptyState, FreshnessBadge, FreshnessLevel,
-    HolochainProviderAuto, HolochainProviderConfig, NavLink, NavTab, ToastContainer, ToastKind,
+    init_consciousness_ui, inspect_local_identity_posture, provide_consciousness_context,
+    provide_homeostasis_context, provide_theme_context, provide_thermodynamic_context,
+    provide_toast_context, try_provide_local_identity, use_toasts, ActivityFeed, ActivityFeedItem,
+    AppShell, AvailabilityState, AvailabilityStateKind, ConnectStrategy, EmptyState, FreshnessBadge,
+    FreshnessLevel, HolochainProviderAuto, HolochainProviderConfig, IdentityBootstrapGate,
+    LocalIdentityStoragePosture, NavLink, NavTab, ToastContainer, ToastKind,
 };
 use personal_leptos_types::{ConsentGrantView, CredentialType, StoredCredentialView};
 
@@ -73,12 +74,35 @@ pub fn App() -> impl IntoView {
 
 #[component]
 fn AppInner() -> impl IntoView {
+    let posture = RwSignal::new(inspect_local_identity_posture());
+    view! {
+        <Show
+            when=move || posture.get() == LocalIdentityStoragePosture::ProtectedUnlockedInSession
+            fallback=move || view! {
+                <IdentityBootstrapGate app_name="Personal" posture=posture />
+            }
+        >
+            <PersonalReadyApp posture=posture />
+        </Show>
+    }
+}
+
+#[component]
+fn PersonalReadyApp(posture: RwSignal<LocalIdentityStoragePosture>) -> impl IntoView {
+    if try_provide_local_identity().is_err() {
+        posture.set(inspect_local_identity_posture());
+        return view! {
+            <p role="status" aria-live="polite">
+                "Identity posture changed. Rechecking secure bootstrap state…"
+            </p>
+        }
+        .into_any();
+    }
     provide_theme_context("personal-theme", PersonalTheme::Vault);
     provide_thermodynamic_context();
     let consciousness = provide_consciousness_context();
     provide_toast_context();
     provide_homeostasis_context(1, "--personal-homeostasis");
-    provide_local_identity();
     provide_personal_context();
     provide_cultural_context();
     init_consciousness_ui();
@@ -191,6 +215,7 @@ fn AppInner() -> impl IntoView {
             <ToastContainer />
         </Router>
     }
+    .into_any()
 }
 
 #[component]
