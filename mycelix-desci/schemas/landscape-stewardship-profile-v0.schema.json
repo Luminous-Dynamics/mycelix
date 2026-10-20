@@ -101,7 +101,6 @@
         "actor_id",
         "role",
         "authority_kind",
-        "authority_reference",
         "consent_reference",
         "publication_consent"
       ],
@@ -149,6 +148,11 @@
             "denied",
             "withdrawn"
           ]
+        },
+        "publication_authority_reference": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1024
         }
       }
     },
@@ -648,6 +652,92 @@
                 "const": "synthetic"
               }
             }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "actor_authority": {
+            "properties": {
+              "authority_kind": {
+                "not": {
+                  "const": "not-claimed"
+                }
+              }
+            },
+            "required": [
+              "authority_kind"
+            ]
+          }
+        },
+        "required": [
+          "actor_authority"
+        ]
+      },
+      "then": {
+        "properties": {
+          "actor_authority": {
+            "required": [
+              "authority_reference"
+            ]
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "access_policy": {
+            "properties": {
+              "visibility": {
+                "const": "public"
+              }
+            },
+            "required": [
+              "visibility"
+            ]
+          }
+        },
+        "required": [
+          "access_policy"
+        ]
+      },
+      "then": {
+        "properties": {
+          "actor_authority": {
+            "required": [
+              "publication_authority_reference"
+            ]
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "scenario_reference": {
+            "properties": {
+              "purpose": {
+                "const": "synthetic-benchmark"
+              }
+            },
+            "required": [
+              "purpose"
+            ]
+          }
+        },
+        "required": [
+          "scenario_reference"
+        ]
+      },
+      "then": {
+        "properties": {
+          "scenario_reference": {
+            "required": [
+              "result_sha256"
+            ]
           }
         }
       }
