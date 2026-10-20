@@ -66,3 +66,32 @@ jobs:
 
       - name: Run corpus contract tests
         run: cargo +1.96.0 test --manifest-path mycelix-personal/tests/Cargo.toml --test health_vault_capability_handoff_contract
+
+      - name: Emit exact-source qualification receipt
+        if: success()
+        run: |
+          set -euo pipefail
+          receipt=health-vault-handoff-contract-receipt.txt
+          {
+            printf 'receipt_schema=health-vault-handoff-contract-v1\\n'
+            printf 'source_commit=%s\\n' "$(git rev-parse HEAD)"
+            printf 'rustc=%s\\n' "$(rustc +1.96.0 --version)"
+            printf 'cargo=%s\\n' "$(cargo +1.96.0 --version)"
+            for path in \\
+              docs/research/fixtures/HEALTH_VAULT_CAPABILITY_HANDOFF_V1.json \\
+              docs/research/fixtures/HEALTH_VAULT_CAPABILITY_HANDOFF_V1.schema.json \\
+              mycelix-personal/tests/Cargo.toml \\
+              mycelix-personal/tests/health_vault_capability_handoff_contract.rs; do
+              printf 'git_blob.%s=%s\\n' "$path" "$(git rev-parse "HEAD:$path")"
+              printf 'sha256.%s=%s\\n' "$path" "$(sha256sum "$path" | cut -d ' ' -f 1)"
+            done
+          } > "$receipt"
+          cat "$receipt"
+
+      - name: Upload qualification receipt
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: health-vault-handoff-contract-${{ github.event.pull_request.head.sha || github.sha }}
+          path: health-vault-handoff-contract-receipt.txt
+          if-no-files-found: error
