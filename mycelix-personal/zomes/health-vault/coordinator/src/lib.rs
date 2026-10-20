@@ -100,29 +100,19 @@ fn decode_agent_pubkey(pubkey: &str) -> ExternResult<AgentPubKey> {
 /// Create a health record on the agent's source chain.
 #[hdk_extern]
 pub fn create_health_record(record: HealthRecord) -> ExternResult<Record> {
-    let action_hash = create_entry(&EntryTypes::HealthRecord(record.clone()))?;
+    let action_hash = create_entry(&EntryTypes::HealthRecord(record))?;
     let agent = agent_info()?.agent_initial_pubkey;
+    // The target entry is private. This owner-local index link may reveal that a
+    // record action exists, but it never includes the health category in a link tag.
     create_link(
-        agent.clone(),
+        agent,
         action_hash.clone(),
         LinkTypes::AgentToRecords,
         (),
     )?;
 
-    let type_anchor_hash = hash_entry(&EntryTypes::HealthRecord(HealthRecord {
-        record_type: record.record_type.clone(),
-        data: String::new(),
-        source: String::new(),
-        event_date: Timestamp::from_micros(0),
-        updated_at: Timestamp::from_micros(0),
-    }))?;
-    let _ = create_link(
-        agent,
-        type_anchor_hash,
-        LinkTypes::RecordTypeToRecord,
-        record.record_type.as_bytes().to_vec(),
-    );
-
+    // Do not write the legacy RecordTypeToRecord link: its public tag exposed the
+    // record_type. The variant is retained for entry/link-index compatibility.
     get(action_hash, GetOptions::default())?.ok_or(wasm_error!(WasmErrorInner::Guest(
         "Could not retrieve created health record".into()
     )))
@@ -609,7 +599,7 @@ pub fn fetch_shared_health_records(
                 "Invalid shared-health response: {e}"
             )))
         }),
-        ZomeCallResponse::Unauthorized(_, _, _, _, _) => Err(wasm_error!(
+        ZomeCallResponse::Unauthorized(..) => Err(wasm_error!(
             WasmErrorInner::Guest("Owner revoked or denied this health-read capability".into())
         )),
         _ => Err(wasm_error!(WasmErrorInner::Guest(
