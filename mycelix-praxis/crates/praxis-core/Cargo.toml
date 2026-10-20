@@ -18,3 +18,5 @@ holo_hash.workspace = true
 
 [dev-dependencies]
 anyhow.workspace = true
+# Test-only Draft 2020-12 validation; never included in production or WASM dependencies.
+jsonschema = { version = "=0.59.0", default-features = false }
