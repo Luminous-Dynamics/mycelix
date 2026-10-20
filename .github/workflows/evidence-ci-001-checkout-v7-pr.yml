@@ -1,0 +1,115 @@
+name: EVIDENCE-CI-001 Checkout v7 Runtime Qualification
+
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - '.github/workflows/evidence-ci-001-checkout-v7-pr.yml'
+
+permissions:
+  contents: read
+
+env:
+  EXPECTED_BASE_SHA: '20452d0cde9448c424d708d6307aa33a3d1901e3'
+  CHECKOUT_ACTION_SHA: '3d3c42e5aac5ba805825da76410c181273ba90b1'
+  WORKFLOW: '.github/workflows/evidence-ci-001-checkout-v7-pr.yml'
+
+jobs:
+  full-history:
+    name: Exact head with full history
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout exact pull-request head with Node 24-native action
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+
+      - name: Prove exact workflow-only child and clean tree
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "${{ github.event.pull_request.head.sha }}"
+          test "$(git rev-parse HEAD^)" = "$EXPECTED_BASE_SHA"
+          mapfile -t changed < <(git diff --name-only "$EXPECTED_BASE_SHA" HEAD)
+          test "${#changed[@]}" -eq 1
+          test "${changed[0]}" = "$WORKFLOW"
+          test -z "$(git status --porcelain=v1 --untracked-files=no)"
+          echo 'full_history_exact_head=PASS'
+
+      - name: Emit environment receipt
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "runner_os=$RUNNER_OS"
+          echo "runner_arch=$RUNNER_ARCH"
+          echo "runner_name=$RUNNER_NAME"
+          echo "checkout_action_sha=$CHECKOUT_ACTION_SHA"
+          echo "git_version=$(git --version)"
+          echo "python_version=$(python3 --version 2>&1)"
+          echo "head=$(git rev-parse HEAD)"
+          echo "parent=$(git rev-parse HEAD^)"
+          echo 'runtime_claim=checkout action declares node24 at pinned upstream commit'
+          echo 'nonclaim=runner image or GitHub Actions service is cryptographically pinned'
+
+      - name: Prove postflight immutability
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -z "$(git status --porcelain=v1 --untracked-files=no)"
+          echo 'full_history_postflight=PASS'
+
+  shallow-history:
+    name: Exact head with fetch-depth 2
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout exact pull-request head with depth 2
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 2
+
+      - name: Prove parent is available and exact
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "${{ github.event.pull_request.head.sha }}"
+          test "$(git rev-parse HEAD^)" = "$EXPECTED_BASE_SHA"
+          test "$(git cat-file -t "$EXPECTED_BASE_SHA")" = 'commit'
+          mapfile -t changed < <(git diff --name-only "$EXPECTED_BASE_SHA" HEAD)
+          test "${#changed[@]}" -eq 1
+          test "${changed[0]}" = "$WORKFLOW"
+          test -z "$(git status --porcelain=v1 --untracked-files=no)"
+          echo 'fetch_depth_2_parent_identity=PASS'
+
+      - name: Prove shallow checkout remains clean
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -z "$(git status --porcelain=v1 --untracked-files=no)"
+          echo 'shallow_history_postflight=PASS'
+
+  qualification-verdict:
+    name: Checkout v7 qualification verdict
+    if: always()
+    needs:
+      - full-history
+      - shallow-history
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Require both checkout modes
+        shell: bash
+        env:
+          FULL_RESULT: ${{ needs.full-history.result }}
+          SHALLOW_RESULT: ${{ needs.shallow-history.result }}
+        run: |
+          set -euo pipefail
+          printf 'full_history=%s\nshallow_history=%s\n' "$FULL_RESULT" "$SHALLOW_RESULT"
+          test "$FULL_RESULT" = 'success'
+          test "$SHALLOW_RESULT" = 'success'
+          echo 'evidence_ci_001_checkout_v7=PASS'
+          echo "qualified_checkout_action_sha=$CHECKOUT_ACTION_SHA"
