@@ -33,7 +33,7 @@ A profile allowing zero action scopes can still admit a research or display ceil
 
 The positive fixture is fully inside the measurement/research profile. The negative fixture mutates all eight audited dimensions: it adds an ownership claim for operational execution, an unregistered subject and context, widens the temporal interval, adds an action scope, and drops mandatory qualification, independence and provenance requirements.
 
-The Rust tests additionally demonstrate the key separation directly: a pure meet of two identical forbidden candidate ceilings preserves their shared atom, while the independent policy-profile check rejects it.
+The Rust tests exercise each of the eight dimensions in isolation and sweep all 256 combinations of the eight binary mutation controls. For each combination, the dimension-level violations must exactly match the expected set and agree with the shared no-broader-than predicate. The jq verifier recomputes the same policy disposition from separate JSON request/profile files. The Rust tests also demonstrate the key algebra separation directly: a pure meet of two identical forbidden candidate ceilings preserves their shared atom, while the independent policy-profile check rejects it.
 
 ## Receipt and reproducibility
 
@@ -52,7 +52,7 @@ A pinned receipt is emitted only when the CLI's source-commit argument matches t
 | Gate | Target |
 |---|---|
 | Policy scope | 100% rejection of frozen mutations that widen any one permitted dimension or drop a mandatory control |
-| False acceptance | Zero forbidden coupled claim atoms accepted in the frozen policy corpus |
+| False acceptance | Zero forbidden coupled claim atoms accepted in the frozen policy corpus and 256 deterministic combinations of the eight independent dimension mutations |
 | Explainability | 100% of rejected fixtures emit the expected dimension code and affected value |
 | Reproducibility | Byte-identical receipts for identical input, schema, executable, and pinned source |
 | Portability | Independent verifier agrees on disposition, violated dimensions, raw input digest, and no-authority fields |
