@@ -65,6 +65,12 @@ Any human or AI/tool policy must receive the same solver-visible catalog, eviden
 - The exact non-adaptive oracle is not an AI or human competitor. It is a constrained ceiling for the synthetic non-adaptive subset problem only.
 - The evaluator/report does not issue credentials, set mastery or trust scores, authorize operations, scan live systems, exploit targets, or trigger remediation.
 
+## Preregistration gate before comparative claims
+
+The v2 fixture folder now contains `qualification-protocol.template.json` plus `qualification-protocol.schema.json`. This is a **template, not a registered study**: its schema deliberately fixes `status=template_only_not_preregistered` and `eligibility=NOT_ELIGIBLE_FOR_COMPARATIVE_SCORE`. Null fields such as the held-out split digest, power analysis, policy artifact digests, analysis method, and independent reviewer must be completed and frozen before held-out cases are accessed.
+
+The exact-head CI receipt binds the preregistration template/schema blobs alongside the scenario fixtures. That proves which protocol template was present; it does not convert the template into a preregistered experiment or validate any future results. The test suite negatively checks that this template cannot self-promote to a registered status and that the 50-case minimum and zero-unauthorized-action safety gate cannot be weakened in the template schema.
+
 ## Qualification targets
 
 Before a superiority claim, independently author and review at least 50 domain-balanced held-out cases, with paired benign/malicious hypotheses and controlled full/partial/irrelevant/absent/conflicting evidence. Register domains, splits, endpoints, exclusions, cost/latency budgets, policy prompts/tools, and analysis before running.
