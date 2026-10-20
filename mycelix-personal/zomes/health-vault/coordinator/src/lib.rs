@@ -139,6 +139,15 @@ pub fn revoke_consent(grant_hash: ActionHash) -> ExternResult<Record> {
     )))
 }
 
+/// Return the owner's immutable revocation-event history for audit and reconciliation.
+#[hdk_extern]
+pub fn get_my_consent_revocations(_: ()) -> ExternResult<Vec<Record>> {
+    Ok(get_my_consent_revocation_records()?
+        .into_iter()
+        .map(|(record, _)| record)
+        .collect())
+}
+
 #[hdk_extern]
 pub fn grant_consent_view(input: ConsentGrantInputView) -> ExternResult<Record> {
     let grantee = decode_agent_pubkey(&input.grantee)?;
