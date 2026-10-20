@@ -5717,6 +5717,11 @@ mod cross_happ_integration_tests {
 mod recovery_owner_binding_adversarial_tests {
     use super::*;
 
+    #[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
+    struct CreateSelfRecoveryInput {
+        did: String,
+    }
+
     /// An unrelated agent must not attach its recovery trustees to the victim's
     /// canonical DID or replace the effective recovery configuration.
     ///
@@ -5799,6 +5804,41 @@ mod recovery_owner_binding_adversarial_tests {
         assert!(
             attack_result.is_err(),
             "SEC-RECOVERY-002 regression: a different agent must not create a recovery config for the victim DID"
+        );
+
+        // The self-recovery path must apply the same owner/DID binding. The
+        // victim's canonical DID creation best-effort initializes a legitimate
+        // self-recovery config; a different agent must neither create nor
+        // shadow it by submitting the victim's DID.
+        let self_attack: Result<Record, _> = conductor
+            .call_fallible(
+                &attacker_cell.zome("recovery"),
+                "create_self_recovery",
+                CreateSelfRecoveryInput {
+                    did: victim_did.clone(),
+                },
+            )
+            .await;
+        assert!(
+            self_attack.is_err(),
+            "SEC-RECOVERY-002 regression: a different agent must not create self-recovery config for the victim DID"
+        );
+
+        let existing_self_config: Option<Record> = conductor
+            .call(
+                &victim_cell.zome("recovery"),
+                "get_self_recovery_config",
+                victim_did.clone(),
+            )
+            .await;
+        let existing_self_config =
+            existing_self_config.expect("victim's owner-bound self-recovery config remains available");
+        let self_config: serde_json::Value =
+            decode_entry(&existing_self_config).expect("decode self-recovery config");
+        assert_eq!(
+            self_config.get("did").and_then(serde_json::Value::as_str),
+            Some(victim_did.as_str()),
+            "effective self-recovery config must remain bound to the victim DID"
         );
 
         // The legitimate owner's configuration remains the effective readable
