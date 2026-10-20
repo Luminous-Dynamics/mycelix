@@ -201,9 +201,10 @@ pub fn allowed_identity_bootstrap_actions(
 ) -> &'static [IdentityBootstrapAction] {
     use IdentityBootstrapAction as Action;
     match posture {
-        LocalIdentityStoragePosture::NoIdentity => {
-            &[Action::CreateProtectedIdentity, Action::RestoreProtectedIdentityFromSeedPhrase]
-        }
+        LocalIdentityStoragePosture::NoIdentity => &[
+            Action::CreateProtectedIdentity,
+            Action::RestoreProtectedIdentityFromSeedPhrase,
+        ],
         LocalIdentityStoragePosture::UnprotectedIdentity => &[Action::ProtectExistingIdentity],
         LocalIdentityStoragePosture::ProtectedLocked => &[Action::UnlockProtectedIdentity],
         LocalIdentityStoragePosture::ProtectedUnlockedInSession => &[Action::RotatePassphrase],
@@ -1272,7 +1273,9 @@ mod tests {
             allowed_identity_bootstrap_actions(Posture::ProtectedUnlockedInSession),
             &[Action::RotatePassphrase]
         );
-        assert!(allowed_identity_bootstrap_actions(Posture::LegacyIdentityNeedsMigration).is_empty());
+        assert!(
+            allowed_identity_bootstrap_actions(Posture::LegacyIdentityNeedsMigration).is_empty()
+        );
         assert!(allowed_identity_bootstrap_actions(Posture::StorageUnavailable).is_empty());
         assert!(allowed_identity_bootstrap_actions(Posture::CorruptOrInconsistent).is_empty());
     }
@@ -1776,9 +1779,11 @@ mod browser_storage_tests {
         assert!(storage.get_item(IDENTITY_SECRET_KEY).unwrap().is_none());
         UNLOCKED_KEY.with(|cell| *cell.borrow_mut() = None);
 
-        assert!(unlock_with_passphrase("synthetic initial passphrase")
-            .await
-            .is_err());
+        assert!(
+            unlock_with_passphrase("synthetic initial passphrase")
+                .await
+                .is_err()
+        );
         assert!(UNLOCKED_KEY.with(|cell| cell.borrow().is_none()));
         let rotated = unlock_with_passphrase("synthetic rotated passphrase")
             .await
