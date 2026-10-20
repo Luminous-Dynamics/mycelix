@@ -76,6 +76,11 @@ pub fn genesis_self_check(_data: GenesisSelfCheckData) -> ExternResult<ValidateC
     Ok(ValidateCallbackResult::Valid)
 }
 
+/// Pure author comparison shared with the DHT update authorization guard.
+fn update_author_matches(original_author: &AgentPubKey, update_author: &AgentPubKey) -> bool {
+    original_author == update_author
+}
+
 #[hdk_extern]
 pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
     match op.flattened::<EntryTypes, LinkTypes>()? {
@@ -92,6 +97,26 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
             EntryTypes::Biometric(biometric) => validate_biometric(&biometric),
             EntryTypes::ConsentGrant(consent) => validate_consent(&consent),
         },
+        // Holochain does not make an application entry update trustworthy
+        // merely because its content passes validation. Bind every update
+        // action to the author of the original action, including updates that
+        // arrive through direct DHT operations rather than our coordinator.
+        FlatOp::RegisterUpdate(update) => {
+            let action = match &update {
+                OpUpdate::Entry { action, .. }
+                | OpUpdate::PrivateEntry { action, .. }
+                | OpUpdate::Agent { action, .. }
+                | OpUpdate::CapClaim { action, .. }
+                | OpUpdate::CapGrant { action, .. } => action,
+            };
+            let original = must_get_action(action.original_action_address.clone())?;
+            if !update_author_matches(original.action().author(), &action.author) {
+                return Ok(ValidateCallbackResult::Invalid(
+                    "Only the original entry author can update health-vault entries".into(),
+                ));
+            }
+            Ok(ValidateCallbackResult::Valid)
+        }
         FlatOp::StoreEntry(_) => Ok(ValidateCallbackResult::Valid),
         _ => Ok(ValidateCallbackResult::Valid),
     }
@@ -374,5 +399,18 @@ mod tests {
         let json = serde_json::to_string(&c).unwrap();
         let back: ConsentGrant = serde_json::from_str(&json).unwrap();
         assert_eq!(back, c);
+    }
+
+    #[test]
+    fn original_author_may_update_its_health_vault_entry() {
+        let author = AgentPubKey::from_raw_36(vec![0u8; 36]);
+        assert!(update_author_matches(&author, &author));
+    }
+
+    #[test]
+    fn unrelated_agent_cannot_update_another_authors_health_vault_entry() {
+        let original_author = AgentPubKey::from_raw_36(vec![0u8; 36]);
+        let unrelated_agent = AgentPubKey::from_raw_36(vec![1u8; 36]);
+        assert!(!update_author_matches(&original_author, &unrelated_agent));
     }
 }
