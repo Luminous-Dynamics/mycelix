@@ -1792,6 +1792,69 @@ mod browser_storage_tests {
     }
 
     #[wasm_bindgen_test]
+    async fn empty_passphrase_does_not_create_or_mutate_identity() {
+        let _backup = IdentityStorageBackup::new_and_clear();
+        assert!(create_protected_identity("   ").await.is_err());
+        let storage = web_sys::window().unwrap().local_storage().unwrap().unwrap();
+        assert!(storage.get_item(IDENTITY_SECRET_KEY).unwrap().is_none());
+        assert!(storage.get_item(IDENTITY_PUBLIC_KEY).unwrap().is_none());
+        assert!(
+            storage
+                .get_item(IDENTITY_SECRET_ENCRYPTED_KEY)
+                .unwrap()
+                .is_none()
+        );
+        assert!(UNLOCKED_KEY.with(|cell| cell.borrow().is_none()));
+    }
+
+    #[wasm_bindgen_test]
+    async fn protected_creation_refuses_to_overwrite_existing_plaintext_identity() {
+        let _backup = IdentityStorageBackup::new_and_clear();
+        let existing = ensure_keypair();
+        let existing_secret = load_string(IDENTITY_SECRET_KEY).expect("legacy secret is present");
+        let existing_public = load_string(IDENTITY_PUBLIC_KEY).expect("public key is present");
+
+        assert!(create_protected_identity("synthetic passphrase").await.is_err());
+
+        let storage = web_sys::window().unwrap().local_storage().unwrap().unwrap();
+        assert_eq!(
+            storage.get_item(IDENTITY_SECRET_KEY).unwrap().as_deref(),
+            Some(existing_secret.as_str())
+        );
+        assert_eq!(
+            storage.get_item(IDENTITY_PUBLIC_KEY).unwrap().as_deref(),
+            Some(existing_public.as_str())
+        );
+        assert!(storage.get_item(IDENTITY_SECRET_ENCRYPTED_KEY).unwrap().is_none());
+        assert!(public_key_matches_signing_key(&existing_public, &existing));
+    }
+
+    #[wasm_bindgen_test]
+    async fn protected_restore_refuses_to_overwrite_an_existing_identity() {
+        let _backup = IdentityStorageBackup::new_and_clear();
+        let existing = ensure_keypair();
+        let existing_public = base64_encode(existing.verifying_key().as_bytes());
+        let unrelated = SigningKey::from_bytes(&[101u8; 32]);
+        let phrase = export_seed_phrase(&unrelated);
+
+        assert!(
+            restore_protected_identity_from_seed_phrase(
+                &phrase,
+                "synthetic passphrase",
+            )
+            .await
+            .is_err()
+        );
+
+        let storage = web_sys::window().unwrap().local_storage().unwrap().unwrap();
+        assert_eq!(
+            storage.get_item(IDENTITY_PUBLIC_KEY).unwrap().as_deref(),
+            Some(existing_public.as_str())
+        );
+        assert!(storage.get_item(IDENTITY_SECRET_ENCRYPTED_KEY).unwrap().is_none());
+    }
+
+    #[wasm_bindgen_test]
     async fn unlock_rejects_tampered_public_key_without_caching_decrypted_key() {
         let _backup = IdentityStorageBackup::new_and_clear();
         create_protected_identity("synthetic browser test passphrase")
