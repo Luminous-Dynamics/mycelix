@@ -177,8 +177,8 @@ pub struct ObservedFurnishingListing {
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum SnapshotResult {
-    NoHomeGardenListingsReturned,
-    HomeGardenListingsReturned,
+    NoHomeGardenListingsObserved,
+    HomeGardenListingsObserved,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -257,9 +257,9 @@ pub fn project_revision_snapshot(
     ));
 
     let result = if listings.is_empty() {
-        SnapshotResult::NoHomeGardenListingsReturned
+        SnapshotResult::NoHomeGardenListingsObserved
     } else {
-        SnapshotResult::HomeGardenListingsReturned
+        SnapshotResult::HomeGardenListingsObserved
     };
 
     Ok(FurnishingDiscoverySnapshot {
@@ -334,8 +334,12 @@ fn validate_revision_snapshot(snapshot: &ListingCatalogSnapshotV1) -> Result<(),
                 if resolution.reason != ListingResolutionReason::ConcurrentObservedHeads
                     || resolution.heads.len() < 2
                     || resolution.sole_observed_head.is_some()
+                    || resolution.revision_count
+                        <= u32::try_from(resolution.heads.len()).unwrap_or(u32::MAX)
                 {
-                    return Err(invalid("concurrent-head state selects or omits head evidence"));
+                    return Err(invalid(
+                        "concurrent-head state selects heads or omits ancestor count evidence",
+                    ));
                 }
             }
         }
@@ -370,9 +374,9 @@ pub fn project_listing_snapshot(response: ListingsResponse) -> FurnishingDiscove
     // action hash so identical snapshots produce the same projection order.
     listings.sort_by_key(|candidate| candidate.listing_hash.to_holochain_b64());
     let result = if listings.is_empty() {
-        SnapshotResult::NoHomeGardenListingsReturned
+        SnapshotResult::NoHomeGardenListingsObserved
     } else {
-        SnapshotResult::HomeGardenListingsReturned
+        SnapshotResult::HomeGardenListingsObserved
     };
 
     FurnishingDiscoverySnapshot {
@@ -487,7 +491,7 @@ mod tests {
             state: ListingResolutionState::ConcurrentHeads,
             reason: ListingResolutionReason::ConcurrentObservedHeads,
             sole_observed_head: None,
-            revision_count: u32::try_from(heads.len()).unwrap_or(u32::MAX),
+            revision_count: u32::try_from(heads.len()).unwrap_or(u32::MAX).saturating_add(1),
             heads,
         }
     }
@@ -542,7 +546,7 @@ mod tests {
             reason: ListingResolutionReason::ConcurrentObservedHeads,
             sole_observed_head: Some(first.clone()),
             heads: vec![first, second],
-            revision_count: 2,
+            revision_count: 3,
         };
         let result = project_revision_snapshot(
             catalog_snapshot(vec![bad], 1),
@@ -557,7 +561,7 @@ mod tests {
             catalog_snapshot(vec![], 0),
             TransportProvenance::ConfiguredJsBridgeTransport,
         ).unwrap();
-        assert_eq!(snapshot.result, SnapshotResult::NoHomeGardenListingsReturned);
+        assert_eq!(snapshot.result, SnapshotResult::NoHomeGardenListingsObserved);
         assert_eq!(snapshot.coverage, SnapshotCoverage::LocalObservedLinksOnly);
         assert_eq!(snapshot.observed_link_count, Some(0));
         assert!(!snapshot.can_claim_complete_current_furniture_offers());
@@ -711,7 +715,7 @@ mod tests {
         let snapshot = project_listing_snapshot(ListingsResponse { listings: vec![] });
         assert_eq!(
             snapshot.result,
-            SnapshotResult::NoHomeGardenListingsReturned
+            SnapshotResult::NoHomeGardenListingsObserved
         );
         assert_eq!(snapshot.coverage, SnapshotCoverage::UnknownUnpaginatedRead);
         assert_eq!(

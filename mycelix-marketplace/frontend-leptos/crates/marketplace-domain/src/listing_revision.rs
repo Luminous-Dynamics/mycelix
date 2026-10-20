@@ -55,3 +55,29 @@ pub struct ListingCatalogSnapshotV1 {
     pub concurrent_head_listing_count: u32,
     pub listings: Vec<ListingResolution>,
 }
+
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn revision_states_match_backend_snake_case_wire_values() {
+        assert_eq!(
+            serde_json::to_string(&ListingResolutionState::SingleObservedHead).unwrap(),
+            "\\"single_observed_head\\""
+        );
+        assert_eq!(
+            serde_json::to_string(&ListingResolutionState::ConcurrentHeads).unwrap(),
+            "\\"concurrent_heads\\""
+        );
+        assert_eq!(
+            serde_json::to_string(&ListingResolutionReason::ConcurrentObservedHeads).unwrap(),
+            "\\"concurrent_observed_heads\\""
+        );
+        assert_eq!(
+            serde_json::to_string(&ListingCatalogCoverage::LocalObservedLinksOnly).unwrap(),
+            "\\"local_observed_links_only\\""
+        );
+    }
+}
