@@ -523,7 +523,9 @@ pub enum LocalIdentityAccessError {
 impl std::fmt::Display for LocalIdentityAccessError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let message = match self {
-            Self::NoIdentity => "No local identity exists; explicit creation or restore is required.",
+            Self::NoIdentity => {
+                "No local identity exists; explicit creation or restore is required."
+            }
             Self::ProtectedLocked => "The local identity is protected but locked in this session.",
             Self::LegacyIdentityNeedsMigration => {
                 "A legacy identity marker exists; explicit migration is required."
@@ -550,9 +552,7 @@ impl std::fmt::Display for LocalIdentityAccessError {
 
 impl std::error::Error for LocalIdentityAccessError {}
 
-fn access_error_for_posture(
-    posture: LocalIdentityStoragePosture,
-) -> LocalIdentityAccessError {
+fn access_error_for_posture(posture: LocalIdentityStoragePosture) -> LocalIdentityAccessError {
     match posture {
         LocalIdentityStoragePosture::NoIdentity => LocalIdentityAccessError::NoIdentity,
         LocalIdentityStoragePosture::ProtectedLocked => LocalIdentityAccessError::ProtectedLocked,
@@ -627,9 +627,7 @@ pub fn try_local_did() -> Result<String, LocalIdentityAccessError> {
 }
 
 /// Sign with the existing local identity without implicit key creation.
-pub fn try_sign_with_local_identity(
-    message: &[u8],
-) -> Result<Signature, LocalIdentityAccessError> {
+pub fn try_sign_with_local_identity(message: &[u8]) -> Result<Signature, LocalIdentityAccessError> {
     try_ensure_keypair().map(|signing_key| signing_key.sign(message))
 }
 
@@ -1644,7 +1642,10 @@ mod tests {
                 LocalIdentityAccessError::InconsistentUnprotectedIdentity,
                 "keypair",
             ),
-            (LocalIdentityAccessError::CachedKeyMismatch, "persisted identity"),
+            (
+                LocalIdentityAccessError::CachedKeyMismatch,
+                "persisted identity",
+            ),
             (
                 LocalIdentityAccessError::UnlockedKeyUnavailable,
                 "in-memory key",
@@ -2161,7 +2162,12 @@ mod browser_storage_tests {
         let storage = web_sys::window().unwrap().local_storage().unwrap().unwrap();
         assert!(storage.get_item(IDENTITY_SECRET_KEY).unwrap().is_none());
         assert!(storage.get_item(IDENTITY_PUBLIC_KEY).unwrap().is_none());
-        assert!(storage.get_item(IDENTITY_SECRET_ENCRYPTED_KEY).unwrap().is_none());
+        assert!(
+            storage
+                .get_item(IDENTITY_SECRET_ENCRYPTED_KEY)
+                .unwrap()
+                .is_none()
+        );
         assert!(UNLOCKED_KEY.with(|cell| cell.borrow().is_none()));
     }
 
@@ -2183,7 +2189,12 @@ mod browser_storage_tests {
         );
         assert!(storage.get_item(IDENTITY_SECRET_KEY).unwrap().is_none());
         assert!(storage.get_item(IDENTITY_PUBLIC_KEY).unwrap().is_none());
-        assert!(storage.get_item(IDENTITY_SECRET_ENCRYPTED_KEY).unwrap().is_none());
+        assert!(
+            storage
+                .get_item(IDENTITY_SECRET_ENCRYPTED_KEY)
+                .unwrap()
+                .is_none()
+        );
     }
 
     #[wasm_bindgen_test]
@@ -2204,7 +2215,12 @@ mod browser_storage_tests {
             Some(expected)
         );
         assert!(storage.get_item(IDENTITY_PUBLIC_KEY).unwrap().is_none());
-        assert!(storage.get_item(IDENTITY_SECRET_ENCRYPTED_KEY).unwrap().is_none());
+        assert!(
+            storage
+                .get_item(IDENTITY_SECRET_ENCRYPTED_KEY)
+                .unwrap()
+                .is_none()
+        );
         assert!(UNLOCKED_KEY.with(|cell| cell.borrow().is_none()));
     }
 
