@@ -1232,6 +1232,21 @@ pub async fn protect_with_passphrase(passphrase: &str) -> Result<(), String> {
 }
 
 async fn rewrap_protected_identity(passphrase: &str) -> Result<(), String> {
+    let secret = Rc::new(RefCell::new(Some(passphrase.to_string())));
+    let secret_for_operation = Rc::clone(&secret);
+    let result = with_identity_transition_lock(move || async move {
+        let mut passphrase = secret_for_operation.borrow_mut().take()
+            .ok_or_else(|| "Passphrase buffer was already consumed.".to_string())?;
+        let result = rewrap_protected_identity_locked(&passphrase).await;
+        passphrase.zeroize();
+        result
+    }).await;
+    if let Some(mut remaining) = secret.borrow_mut().take() {
+        remaining.zeroize();
+    }
+    result
+}
+async fn rewrap_protected_identity_locked(passphrase: &str) -> Result<(), String> {
     validate_new_identity_passphrase(passphrase)?;
     let signing_key = UNLOCKED_KEY
         .with(|cell| cell.borrow().clone())
@@ -1465,6 +1480,22 @@ async fn migrate_legacy_envelope(
 /// Same failure modes as [`unlock_with_passphrase`] (this calls it
 /// internally) — wrong passphrase, no protected identity, or corrupt blob.
 pub async fn remove_passphrase_protection(passphrase: &str) -> Result<(), String> {
+    let secret = Rc::new(RefCell::new(Some(passphrase.to_string())));
+    let secret_for_operation = Rc::clone(&secret);
+    let result = with_identity_transition_lock(move || async move {
+        let mut passphrase = secret_for_operation.borrow_mut().take()
+            .ok_or_else(|| "Passphrase buffer was already consumed.".to_string())?;
+        let result = remove_passphrase_protection_locked(&passphrase).await;
+        passphrase.zeroize();
+        result
+    }).await;
+    if let Some(mut remaining) = secret.borrow_mut().take() {
+        remaining.zeroize();
+    }
+    result
+}
+
+async fn remove_passphrase_protection_locked(passphrase: &str) -> Result<(), String> {
     let signing_key = unlock_with_passphrase(passphrase).await?;
     store_signing_key(&signing_key);
     remove_item(IDENTITY_SECRET_ENCRYPTED_KEY);
@@ -2256,6 +2287,7 @@ mod browser_storage_tests {
                 IDENTITY_SECRET_KEY,
                 IDENTITY_PUBLIC_KEY,
                 IDENTITY_SECRET_ENCRYPTED_KEY,
+                IDENTITY_BACKUP_CONFIRMED_PUBLIC_KEY,
             ];
             let values = keys
                 .into_iter()
@@ -2278,6 +2310,7 @@ mod browser_storage_tests {
                 IDENTITY_SECRET_KEY,
                 IDENTITY_PUBLIC_KEY,
                 IDENTITY_SECRET_ENCRYPTED_KEY,
+                IDENTITY_BACKUP_CONFIRMED_PUBLIC_KEY,
             ] {
                 self.storage
                     .remove_item(key)
@@ -2441,6 +2474,35 @@ mod browser_storage_tests {
         assert!(public_key_matches_signing_key(&original_public, &rotated));
     }
 
+    #[wasm_bindgen_test]
+    async fn concurrent_protected_creation_requests_cannot_overwrite_the_winner() {
+        let _backup = IdentityStorageBackup::new_and_clear();
+        let first_passphrase = "synthetic first concurrent passphrase".to_string();
+        let second_passphrase = "synthetic second concurrent passphrase".to_string();
+        let (first, second) = futures_util::future::join(
+            create_protected_identity(&first_passphrase),
+            create_protected_identity(&second_passphrase),
+        )
+        .await;
+        assert_ne!(first.is_ok(), second.is_ok(), "exactly one create can commit");
+
+        let storage = web_sys::window().unwrap().local_storage().unwrap().unwrap();
+        assert!(storage.get_item(IDENTITY_SECRET_KEY).unwrap().is_none());
+        let public_b64 = storage
+            .get_item(IDENTITY_PUBLIC_KEY)
+            .unwrap()
+            .expect("winning protected creation leaves public-key metadata");
+        let winning_passphrase = if first.is_ok() {
+            first_passphrase
+        } else {
+            second_passphrase
+        };
+        UNLOCKED_KEY.with(|cell| *cell.borrow_mut() = None);
+        let signing_key = unlock_with_passphrase(&winning_passphrase)
+            .await
+            .expect("the committed envelope unlocks with its winner's passphrase");
+        assert!(public_key_matches_signing_key(&public_b64, &signing_key));
+    }
     #[wasm_bindgen_test]
     async fn unlock_rejects_tampered_public_key_without_caching_decrypted_key() {
         let _backup = IdentityStorageBackup::new_and_clear();
