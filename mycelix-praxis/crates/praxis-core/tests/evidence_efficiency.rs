@@ -711,6 +711,177 @@ fn valid_catalog_and_evaluator_have_complete_cross_file_mappings() {
 }
 
 #[test]
+fn one_request_preserves_ambiguity_across_all_five_domains() {
+    let catalog = catalog_fixture();
+    let evaluator = evaluator_fixture();
+    let budget = EvaluationBudget {
+        max_cost_units: 10,
+        max_latency_bound_minutes: 20,
+    };
+    let cases = [
+        ("CYB-ACQ-001", "session-issuance-audit"),
+        ("CYB-ACQ-002", "effective-route-table"),
+        ("CYB-ACQ-003", "registry-digest-comparison"),
+        ("CYB-ACQ-004", "retrieved-content-lineage"),
+        ("CYB-ACQ-005", "endpoint-action-receipt"),
+    ];
+    for (scenario_id, request_id) in cases {
+        let report = evaluate_policy(
+            &catalog,
+            &evaluator,
+            scenario_id,
+            &[request_id],
+            &[RequestAuthority::ReadOnlyTelemetry],
+            budget,
+        )
+        .unwrap();
+        assert!(
+            report.remaining_hypotheses.len() >= 2,
+            "{scenario_id}: one request must not make the hidden world trivially certain"
+        );
+    }
+}
+
+#[test]
+fn two_step_evidence_paths_resolve_each_domain_only_with_sufficient_current_evidence() {
+    let catalog = catalog_fixture();
+    let evaluator = evaluator_fixture();
+    let readonly = [RequestAuthority::ReadOnlyTelemetry];
+    let identity_authorities = [
+        RequestAuthority::ReadOnlyTelemetry,
+        RequestAuthority::IncidentCommander,
+    ];
+    let budget = EvaluationBudget {
+        max_cost_units: 10,
+        max_latency_bound_minutes: 20,
+    };
+    let cases = [
+        (
+            "CYB-ACQ-001",
+            "session-issuance-audit",
+            "privileged-token-use-audit",
+            "compromised_session",
+        ),
+        (
+            "CYB-ACQ-002",
+            "effective-route-table",
+            "policy-deployment-receipt",
+            "route_scope_leakage",
+        ),
+        (
+            "CYB-ACQ-003",
+            "registry-digest-comparison",
+            "build-provenance-attestation",
+            "malicious_substitution",
+        ),
+        (
+            "CYB-ACQ-004",
+            "retrieved-content-lineage",
+            "tool-invocation-audit",
+            "prompt_injection_blocked",
+        ),
+        (
+            "CYB-ACQ-005",
+            "endpoint-action-receipt",
+            "endpoint-sensor-health",
+            "quarantine_requested_no_effect",
+        ),
+    ];
+    for (scenario_id, first, second, expected_world) in cases {
+        let authorities = if scenario_id == "CYB-ACQ-001" {
+            &identity_authorities[..]
+        } else {
+            &readonly[..]
+        };
+        let report = evaluate_policy(
+            &catalog,
+            &evaluator,
+            scenario_id,
+            &[first, second],
+            authorities,
+            budget,
+        )
+        .unwrap();
+        assert_eq!(
+            report.remaining_hypotheses,
+            vec![expected_world.to_string()],
+            "{scenario_id}: expected a two-step resolution from the declared synthetic observations"
+        );
+        assert_eq!(report.requests_executed, 2);
+    }
+}
+
+#[test]
+fn irrelevant_absent_and_conflicting_sufficiency_never_narrow_hypotheses() {
+    for sufficiency in [
+        EvidenceSufficiency::Irrelevant,
+        EvidenceSufficiency::Absent,
+        EvidenceSufficiency::Conflicting,
+    ] {
+        let catalog = catalog_fixture();
+        let mut evaluator = evaluator_fixture();
+        evaluator.scenarios[0]
+            .request_outcomes
+            .iter_mut()
+            .find(|outcome| outcome.request_id == "session-issuance-audit")
+            .unwrap()
+            .sufficiency = sufficiency;
+        let report = evaluate_policy(
+            &catalog,
+            &evaluator,
+            "CYB-ACQ-001",
+            &["session-issuance-audit"],
+            &[RequestAuthority::ReadOnlyTelemetry],
+            EvaluationBudget {
+                max_cost_units: 5,
+                max_latency_bound_minutes: 10,
+            },
+        )
+        .unwrap();
+        assert_eq!(report.remaining_hypotheses.len(), 4);
+        assert_eq!(report.expected_information_gain_milli_bits, 0);
+        match sufficiency {
+            EvidenceSufficiency::Irrelevant => assert_eq!(report.irrelevant_responses, 1),
+            EvidenceSufficiency::Absent => assert_eq!(report.absent_responses, 1),
+            EvidenceSufficiency::Conflicting => {
+                assert_eq!(report.conflicting_sufficiency_responses, 1)
+            }
+            EvidenceSufficiency::FullSupport | EvidenceSufficiency::PartialSupport => {
+                unreachable!()
+            }
+        }
+    }
+}
+
+#[test]
+fn current_partial_but_non_discriminating_evidence_has_zero_gain() {
+    let catalog = catalog_fixture();
+    let mut evaluator = evaluator_fixture();
+    evaluator.scenarios[0]
+        .request_outcomes
+        .iter_mut()
+        .find(|outcome| outcome.request_id == "shared-egress-rollup")
+        .unwrap()
+        .sufficiency = EvidenceSufficiency::PartialSupport;
+    let report = evaluate_policy(
+        &catalog,
+        &evaluator,
+        "CYB-ACQ-001",
+        &["shared-egress-rollup"],
+        &[RequestAuthority::ReadOnlyTelemetry],
+        EvaluationBudget {
+            max_cost_units: 5,
+            max_latency_bound_minutes: 10,
+        },
+    )
+    .unwrap();
+    assert_eq!(report.remaining_hypotheses.len(), 4);
+    assert_eq!(report.expected_information_gain_milli_bits, 0);
+    assert_eq!(report.zero_gain_current_requests, 1);
+    assert_eq!(report.partial_support_responses, 1);
+}
+
+#[test]
 fn schemas_reject_extra_fields_and_zero_cost_gaming() {
     let catalog_schema: serde_json::Value = serde_json::from_str(CATALOG_SCHEMA).unwrap();
     let evaluator_schema: serde_json::Value = serde_json::from_str(EVALUATOR_SCHEMA).unwrap();
