@@ -14,8 +14,8 @@ use wasm_bindgen_futures::spawn_local;
 use zeroize::Zeroize;
 
 use crate::local_identity::{
-    IdentityBootstrapAction, LocalIdentityStoragePosture, allowed_identity_bootstrap_actions,
-    create_protected_identity, identity_bootstrap_action_allowed,
+    IdentityBootstrapAction, LocalIdentityStoragePosture, create_protected_identity,
+    identity_bootstrap_action_allowed,
     inspect_local_identity_posture, protect_existing_identity,
     restore_protected_identity_from_seed_phrase, unlock_with_passphrase,
 };
@@ -95,7 +95,7 @@ fn bootstrap_description(posture: LocalIdentityStoragePosture) -> &'static str {
 }
 
 fn bootstrap_is_mutable(posture: LocalIdentityStoragePosture) -> bool {
-    !allowed_identity_bootstrap_actions(posture).is_empty()
+    bootstrap_action_for_posture(posture, false).is_some()
 }
 
 /// Shared identity setup gate for Personal, Finance, Climate and other hApps.
@@ -408,5 +408,44 @@ pub fn IdentityBootstrapGate(
                 </p>
             </section>
         </main>
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{bootstrap_action_for_posture, bootstrap_is_mutable};
+    use crate::local_identity::{IdentityBootstrapAction as Action, LocalIdentityStoragePosture as Posture};
+
+    #[test]
+    fn every_mutable_posture_has_one_explicit_supported_action() {
+        assert_eq!(
+            bootstrap_action_for_posture(Posture::NoIdentity, false),
+            Some(Action::CreateProtectedIdentity)
+        );
+        assert_eq!(
+            bootstrap_action_for_posture(Posture::NoIdentity, true),
+            Some(Action::RestoreProtectedIdentityFromSeedPhrase)
+        );
+        assert_eq!(
+            bootstrap_action_for_posture(Posture::UnprotectedIdentity, false),
+            Some(Action::ProtectExistingIdentity)
+        );
+        assert_eq!(
+            bootstrap_action_for_posture(Posture::ProtectedLocked, false),
+            Some(Action::UnlockProtectedIdentity)
+        );
+    }
+
+    #[test]
+    fn uncertain_or_already_unlocked_postures_do_not_show_bootstrap_mutations() {
+        for posture in [
+            Posture::ProtectedUnlockedInSession,
+            Posture::LegacyIdentityNeedsMigration,
+            Posture::StorageUnavailable,
+            Posture::CorruptOrInconsistent,
+        ] {
+            assert_eq!(bootstrap_action_for_posture(posture, false), None);
+            assert!(!bootstrap_is_mutable(posture));
+        }
     }
 }
