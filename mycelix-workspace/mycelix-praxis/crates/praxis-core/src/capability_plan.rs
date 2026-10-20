@@ -209,7 +209,7 @@ pub enum GoalPlanError {
     PreferenceOutsideGoalClosure { capability_id: String },
     #[error("preferred practice option {task_id} is not eligible for capability {capability_id}")]
     PreferredPracticeNotEligible { capability_id: String, task_id: String },
-    #[error("requested_at/generated_at must be nonnegative: {timestamp}")]
+    #[error("generated_at must be nonnegative: {timestamp}")]
     NegativeTimestamp { timestamp: i64 },
     #[error("estimated duration overflowed the supported integer range")]
     DurationOverflow,
@@ -780,7 +780,7 @@ mod tests {
     }
 
     #[test]
-    fn disallowed_fastest_mode_falls_back_to_allowed_option() {
+    fn disallowed_mode_is_excluded_from_the_proposal() {
         let plan = compile_goal_plan(
             &basic_graph(),
             &request(
@@ -978,6 +978,52 @@ mod tests {
         let plan = compile_goal_plan(&graph, &request("target", &[DeliveryMode::Simulation], 60, 100), 100).unwrap();
         assert_eq!(plan.steps.len(), 1);
         assert_eq!(plan.steps[0].capability_id, id("target"));
+    }
+
+    #[test]
+    fn compiles_a_512_node_prerequisite_chain_without_losing_order() {
+        let count = 512_usize;
+        let mut nodes = Vec::with_capacity(count);
+        for index in 0..count {
+            let capability_id = format!("cap-{index:04}");
+            let prerequisites = if index == 0 {
+                Vec::new()
+            } else {
+                vec![id(&format!("cap-{:04}", index - 1))]
+            };
+            nodes.push(CapabilityNode {
+                capability_id: id(&capability_id),
+                version: "1".into(),
+                title: format!("Capability {index}"),
+                prerequisites,
+                practice_options: vec![option(
+                    &format!("task-{index:04}"),
+                    "1",
+                    &format!("rubric-{index:04}"),
+                    "1",
+                    1,
+                    DeliveryMode::Simulation,
+                )],
+            });
+        }
+        let graph = graph(nodes);
+        let plan = compile_goal_plan(
+            &graph,
+            &request(
+                &format!("cap-{:04}", count - 1),
+                &[DeliveryMode::Simulation],
+                1,
+                count as u32,
+            ),
+            100,
+        )
+        .unwrap();
+
+        assert_eq!(plan.steps.len(), count);
+        assert_eq!(plan.estimated_total_minutes, count as u32);
+        assert_eq!(plan.steps.first().unwrap().capability_id, id("cap-0000"));
+        assert_eq!(plan.steps.last().unwrap().capability_id, id("cap-0511"));
+        assert_eq!(plan.steps.last().unwrap().ordinal, count as u32);
     }
 
     #[test]
