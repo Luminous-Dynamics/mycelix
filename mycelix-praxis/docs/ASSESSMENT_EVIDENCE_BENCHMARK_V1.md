@@ -4,10 +4,11 @@
 
 This contribution adds a typed Rust contract for checking whether a learning-study dataset is structurally eligible for analysis. It is intentionally narrower than a mastery algorithm. A valid record sequence does not prove competence, validate an evaluator's judgment, establish a causal effect, issue a credential, or show that Praxis beats another product.
 
-The contract and synthetic comparison fixture are:
+The contract, language-neutral schema, and synthetic comparison fixture are:
 
-- `crates/praxis-core/src/assessment_evidence.rs`
-- `examples/assessment-benchmarks/v1/ai_scaffold_fading_synthetic.json`
+- `crates/praxis-core/src/assessment_evidence.rs` — executable semantic validator.
+- `examples/assessment-benchmarks/v1/assessment_benchmark.schema.json` — JSON Schema 2020-12 wire shape.
+- `examples/assessment-benchmarks/v1/ai_scaffold_fading_synthetic.json` — synthetic comparison fixture.
 
 The checked-in fixture contains three **synthetic examples**, one per arm, with 21 total assessment events. These records are only test data for schema and negative-control behavior. They are far too small to estimate learning effects and must never be reported as user results.
 
@@ -46,6 +47,7 @@ The validator checks:
 8. Distinct task forms for assessment anchors and no reuse of a practice form as an anchor.
 9. Phase ordering and minimum elapsed time from final practice to delayed retention.
 10. Presence of at least one episode in each declared arm.
+11. JSON Schema parity with the serialized root/arm/episode/attempt field sets and Rust phase/assistance enums.
 
 The output is a structural summary and stable validation findings. It contains no global learner score and makes no mastery or causal claim.
 
@@ -106,7 +108,7 @@ From the Praxis workspace root:
 cargo test --manifest-path mycelix-praxis/Cargo.toml -p praxis-core assessment_evidence::tests
 ```
 
-The tests use the checked-in fixture and include negative controls for:
+The tests use the checked-in fixture, verify JSON Schema parity, and include negative controls for:
 - assisted transfer;
 - practice/transfer form reuse;
 - retention before 14 days, even with a perfect score;
