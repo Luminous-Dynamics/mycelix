@@ -12,6 +12,9 @@
     "source_commit_pinned",
     "input_sha256",
     "policy_profile_sha256",
+    "expected_policy_profile_sha256",
+    "policy_profile_pinned",
+    "policy_profile_schema_sha256",
     "candidate_ceiling_sha256",
     "request_schema_sha256",
     "receipt_schema_sha256",
@@ -92,7 +95,8 @@
               "action_scope_not_allowed",
               "required_qualification_missing",
               "required_independence_control_missing",
-              "required_provenance_missing"
+              "required_provenance_missing",
+              "policy_profile_digest_mismatch"
             ]
           },
           "value": {
@@ -115,6 +119,17 @@
         "type": "string",
         "minLength": 1
       }
+    },
+    "expected_policy_profile_sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "policy_profile_pinned": {
+      "type": "boolean"
+    },
+    "policy_profile_schema_sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
     }
   },
   "allOf": [
