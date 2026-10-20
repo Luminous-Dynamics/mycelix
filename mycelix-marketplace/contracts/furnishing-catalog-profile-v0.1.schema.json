@@ -120,7 +120,9 @@
             "depth",
             "height",
             "orientation_set",
-            "geometry_evidence_refs"
+            "geometry_evidence_refs",
+            "geometry_use_license",
+            "geometry_license_evidence_refs"
           ],
           "properties": {
             "dimension_state": {
@@ -197,6 +199,14 @@
                 "layout_use_not_granted",
                 "unknown"
               ]
+            },
+            "geometry_license_evidence_refs": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1
+              },
+              "uniqueItems": true
             }
           }
         },
@@ -582,7 +592,8 @@
               "delivery",
               "warranty",
               "safety_or_compliance",
-              "other"
+              "other",
+              "geometry_use_rights"
             ]
           },
           "claimant_or_issuer": {
@@ -637,6 +648,14 @@
               "redistribution_permitted",
               "link_only",
               "private_or_restricted",
+              "unknown"
+            ]
+          },
+          "geometry_use_license": {
+            "enum": [
+              "redisplay_and_layout_allowed",
+              "redisplay_only",
+              "layout_use_not_granted",
               "unknown"
             ]
           }
