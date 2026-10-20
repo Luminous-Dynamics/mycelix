@@ -31,7 +31,8 @@ The executable tests require:
 - non-amplification: the usable meet is no broader than either operand;
 - obligation preservation: composition cannot drop a qualification, provenance requirement, or independence control;
 - explicit bottom for incompatible atoms, subjects, contexts, or time windows;
-- no accidental escalation where action scopes are disjoint.
+- no accidental escalation where action scopes are disjoint;
+- a deterministic 10,000-triple property sweep for commutativity, associativity (including bottom propagation), idempotence, and non-amplification. The sweep is an authored regression test; it is not reported as executed until exact-head CI says so.
 
 V1 uses finite enumerated sets and integer time boundaries for determinism. It deliberately does not define an implicit top element, wildcard IDs, probabilistic confidence, or a numeric ranking over different evidence classes. Evidence classes such as a formal proof and an instrument measurement are not generally interchangeable on one total scale.
 
@@ -50,7 +51,7 @@ The targets below are proposed engineering gates, not measured results or indust
 
 | Gate | Proposed acceptance |
 |---|---|
-| Algebra laws | 100% pass for frozen idempotence, commutativity, associativity, and no-broader-than properties |
+| Algebra laws | 100% pass for frozen idempotence, commutativity, associativity, and no-broader-than properties, plus a 10,000-triple deterministic sweep |
 | Negative controls | 100% of frozen incompatible-atom, disjoint-subject, empty-time, unknown-field, bad-SHA, and mismatched-checkout controls rejected or returned as explicit bottom |
 | Golden-vector portability | Independent Rust and a second language produce identical disposition, dimensions, ceiling, and input digest for every vector |
 | Mutation effectiveness | Every seeded mutation that widens a scope, removes a requirement, or upgrades evidence/use is detected by at least one named control |
