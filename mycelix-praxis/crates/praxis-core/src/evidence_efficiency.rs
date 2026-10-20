@@ -203,12 +203,7 @@ pub fn validate_request_catalog(
     }
 }
 
-fn required_text(
-    issues: &mut Vec<CatalogValidationIssue>,
-    path: &str,
-    value: &str,
-    label: &str,
-) {
+fn required_text(issues: &mut Vec<CatalogValidationIssue>, path: &str, value: &str, label: &str) {
     if value.trim().is_empty() {
         issue(
             issues,
