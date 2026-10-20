@@ -626,8 +626,8 @@ pub fn mark_recovery_backup_confirmed() -> Result<(), String> {
         return Err("Recovery backup confirmation is not permitted in this state.".into());
     }
 
-    let window = web_sys::window()
-        .ok_or_else(|| "Browser identity storage is unavailable.".to_string())?;
+    let window =
+        web_sys::window().ok_or_else(|| "Browser identity storage is unavailable.".to_string())?;
     let storage = window
         .local_storage()
         .map_err(|_| "Browser identity storage is unavailable.".to_string())?
@@ -649,7 +649,10 @@ pub fn mark_recovery_backup_confirmed() -> Result<(), String> {
             .as_deref()
             .is_none_or(|value| !encrypted_blob_is_structurally_valid(value))
     {
-        return Err("Protected identity changed or is inconsistent; backup confirmation was not saved.".into());
+        return Err(
+            "Protected identity changed or is inconsistent; backup confirmation was not saved."
+                .into(),
+        );
     }
 
     storage
@@ -658,18 +661,22 @@ pub fn mark_recovery_backup_confirmed() -> Result<(), String> {
     let marker = storage
         .get_item(IDENTITY_BACKUP_CONFIRMED_PUBLIC_KEY)
         .map_err(|_| "Could not verify recovery-backup confirmation.".to_string())?;
-    let mut current = read_identity_storage_snapshot_from(&storage)
-        .map_err(|_| "Could not re-check protected identity after backup confirmation.".to_string())?;
+    let mut current = read_identity_storage_snapshot_from(&storage).map_err(|_| {
+        "Could not re-check protected identity after backup confirmation.".to_string()
+    })?;
     let unchanged = current.secret_b64.is_none()
         && current.public_b64.as_deref() == Some(public_b64.as_str())
         && current.encrypted_wire.as_deref() == envelope.as_deref()
         && public_key_matches_signing_key(&public_b64, &signing_key)
-        && classify_identity_storage_snapshot(&current) == LocalIdentityStoragePosture::ProtectedLocked;
+        && classify_identity_storage_snapshot(&current)
+            == LocalIdentityStoragePosture::ProtectedLocked;
     if let Some(secret_b64) = current.secret_b64.as_mut() {
         secret_b64.zeroize();
     }
     if marker.as_deref() != Some(public_b64.as_str()) || !unchanged {
-        return Err("Protected identity changed while backup confirmation was being recorded.".into());
+        return Err(
+            "Protected identity changed while backup confirmation was being recorded.".into(),
+        );
     }
     Ok(())
 }
@@ -752,8 +759,13 @@ fn validate_new_identity_passphrase(passphrase: &str) -> Result<(), String> {
 }
 
 fn clear_recovery_backup_confirmation(storage: &web_sys::Storage) -> Result<(), String> {
-    if storage.remove_item(IDENTITY_BACKUP_CONFIRMED_PUBLIC_KEY).is_err() {
-        return Err("Could not reset recovery-backup confirmation; no identity change was made.".into());
+    if storage
+        .remove_item(IDENTITY_BACKUP_CONFIRMED_PUBLIC_KEY)
+        .is_err()
+    {
+        return Err(
+            "Could not reset recovery-backup confirmation; no identity change was made.".into(),
+        );
     }
     match storage.get_item(IDENTITY_BACKUP_CONFIRMED_PUBLIC_KEY) {
         Ok(None) => Ok(()),
