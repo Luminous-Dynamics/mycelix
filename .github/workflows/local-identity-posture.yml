@@ -64,6 +64,8 @@ jobs:
           cargo fmt --manifest-path mycelix-personal/apps/leptos/Cargo.toml -- --check
       - name: Run native identity-storage posture tests
         run: cargo test --manifest-path crates/mycelix-leptos-core/Cargo.toml --locked --lib
+      - name: Test production KDF benchmark statistics natively
+        run: cargo test --manifest-path crates/mycelix-leptos-core/Cargo.toml --locked --lib --features production-kdf-benchmark benchmark_statistics_tests
       - name: Record browser runner versions
         shell: bash
         run: |
