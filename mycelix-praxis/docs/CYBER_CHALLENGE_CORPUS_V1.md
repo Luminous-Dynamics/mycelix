@@ -39,7 +39,8 @@ Every case includes evidence IDs, source classes, source-snapshot IDs and versio
 - Freshness (`current`, `stale`, `unknown`) is represented separately from conflict status (`no_known_conflict`, `conflicts_with_other_evidence`, `not_assessed`).
 - Rust's `deny_unknown_fields` rejects evaluator-only fields inserted into a solver scenario.
 - Test tooling requires an exact match between solver and evaluator scenario IDs, verifies that evaluator evidence references exist in the solver view, and checks that each rubric sums to 1,000.
-- Schema and corpus versioning, separation paths, and selected coverage properties are checked in integration tests.
+- Both JSON Schema documents are validated against the Draft 2020-12 meta-schema by a pinned, test-only Rust validator. The public fixtures are run through the actual schema engine, along with negative mutations for extra fields, answer-key leakage, missing source-snapshot versions, invalid enum values, and non-synthetic public cases.
+- Cross-record semantic checks remain a distinct Rust layer: exact solver/evaluator case matching, evidence-reference integrity, and 1,000-permille rubric totals. The rubric sum is not claimed to be enforced by standard JSON Schema.
 - The corpus manifest pins Git blob identities for both fixtures and both schemas; exact-head CI recomputes each `git hash-object` value and fails closed on mismatch.
 - The new exact-head workflow checks the pinned blob identities, Rust formatting, and the focused `cyber_challenges` test target on Rust 1.96.0.
 
