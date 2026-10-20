@@ -604,7 +604,7 @@ pub fn deposit_collateral(input: DepositCollateralInput) -> ExternResult<Record>
     let sap_minted = (input.collateral_amount as f64 * input.oracle_rate) as u64;
 
     // Tier-scaled daily rate limit: higher consciousness tiers get larger limits
-    let mycel_score = fetch_mycel_score(&input.depositor_did);
+    let mycel_score = fetch_mycel_score(&input.depositor_did)?;
     let tier = FeeTier::from_mycel(mycel_score);
     let daily_limit_pct = match tier {
         FeeTier::Newcomer => 1, // 1% for newcomers (shouldn't reach here due to tier gate, but defense in depth)
@@ -802,7 +802,7 @@ pub fn redeem_collateral(deposit_id: String) -> ExternResult<Record> {
 
     // Enforce tier-scaled rate limit on redemption
     let now = sys_time()?;
-    let mycel_score = fetch_mycel_score(&deposit.depositor_did);
+    let mycel_score = fetch_mycel_score(&deposit.depositor_did)?;
     let redeem_tier = FeeTier::from_mycel(mycel_score);
     let redeem_daily_limit_pct = match redeem_tier {
         FeeTier::Newcomer => 1,
@@ -887,7 +887,7 @@ pub fn redeem_collateral(deposit_id: String) -> ExternResult<Record> {
 /// what fee rate a member should pay. Fetches MYCEL from recognition zome.
 #[hdk_extern]
 pub fn get_member_fee_tier(member_did: String) -> ExternResult<FeeTierResponse> {
-    let mycel_score = fetch_mycel_score(&member_did);
+    let mycel_score = fetch_mycel_score(&member_did)?;
     let tier = FeeTier::from_mycel(mycel_score);
 
     // Create a sovereign profile placeholder for the response
@@ -939,8 +939,11 @@ pub struct TendLimitResponse {
 }
 
 /// Fetch MYCEL score via cross-zome call to recognition.
-/// Falls back to 0.0 (Newcomer tier) if unavailable.
-fn fetch_mycel_score(member_did: &str) -> f64 {
+///
+/// MYCEL is an authorization input for fee tiers and collateral rate limits.
+/// Recognition failure, malformed data, non-finite values, or out-of-range
+/// scores therefore fail closed instead of silently selecting Newcomer (0.0).
+fn fetch_mycel_score(member_did: &str) -> ExternResult<f64> {
     match call(
         CallTargetCell::Local,
         ZomeName::from("recognition"),
@@ -953,41 +956,31 @@ fn fetch_mycel_score(member_did: &str) -> f64 {
             struct MycelState {
                 mycel_score: f64,
             }
-            match result.decode::<MycelState>() {
-                Ok(state) if state.mycel_score.is_finite() => state.mycel_score,
-                Ok(state) => {
-                    debug!(
-                        "fetch_mycel_score: non-finite MYCEL score {:?} for {}, defaulting to 0.0",
-                        state.mycel_score, member_did
-                    );
-                    0.0
-                }
-                Err(e) => {
-                    debug!(
-                        "fetch_mycel_score: decode error for {}: {:?}, defaulting to 0.0",
-                        member_did, e
-                    );
-                    0.0
-                }
+            let state = result.decode::<MycelState>().map_err(|e| {
+                wasm_error!(WasmErrorInner::Guest(format!(
+                    "MYCEL score decode failed for {member_did}: {e:?}"
+                )))
+            })?;
+            if !state.mycel_score.is_finite()
+                || !(0.0..=1.0).contains(&state.mycel_score)
+            {
+                return Err(wasm_error!(WasmErrorInner::Guest(format!(
+                    "MYCEL score for {member_did} is invalid: {}",
+                    state.mycel_score
+                ))));
             }
+            Ok(state.mycel_score)
         }
-        Ok(other) => {
-            debug!(
-                "fetch_mycel_score: recognition zome returned {:?} for {}, defaulting to 0.0",
-                other, member_did
-            );
-            0.0
-        }
-        Err(e) => {
-            debug!(
-                "fetch_mycel_score: recognition zome unreachable for {}: {:?}, defaulting to 0.0",
-                member_did, e
-            );
-            0.0
-        }
+        Ok(other) => Err(wasm_error!(WasmErrorInner::Guest(format!(
+            "Recognition returned an unexpected response for {member_did}: {:?}",
+            other
+        )))),
+        Err(e) => Err(wasm_error!(WasmErrorInner::Guest(format!(
+            "Recognition is unavailable for {member_did}: {:?}",
+            e
+        )))),
     }
 }
-
 /// Fetch current oracle vitality via cross-zome call to tend.
 /// Falls back to 50 (Normal tier) if unavailable.
 fn fetch_oracle_vitality() -> u32 {
@@ -1221,7 +1214,21 @@ pub fn query_tend_balance(member_did: String) -> ExternResult<TendBalanceRespons
                 .decode::<TendBalance>()
                 .map(|b| b.balance)
                 .unwrap_or(0);
-            let tier = fetch_mycel_score(&member_did);
+            let tier = match fetch_mycel_score(&member_did) {
+                Ok(score) => score,
+                Err(e) => {
+                    debug!(
+                        "query_tend_balance: MYCEL score unavailable for {}: {:?}, reporting unavailable",
+                        member_did, e
+                    );
+                    return Ok(TendBalanceResponse {
+                        member_did,
+                        balance: 0,
+                        mycel_score: 0.0,
+                        available: false,
+                    });
+                }
+            };
             Ok(TendBalanceResponse {
                 member_did,
                 balance,
