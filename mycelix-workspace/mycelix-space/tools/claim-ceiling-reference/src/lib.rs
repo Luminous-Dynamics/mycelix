@@ -13,6 +13,7 @@ pub const UNPINNED_LOCAL_RUN: &str = "UNPINNED_LOCAL_RUN";
 
 const REQUEST_SCHEMA: &[u8] = include_bytes!("../schemas/claim-ceiling-request-v1.schema.json");
 const RECEIPT_SCHEMA: &[u8] = include_bytes!("../schemas/claim-ceiling-receipt-v1.schema.json");
+#[cfg(test)]
 const GOLDEN_VECTORS: &[u8] = include_bytes!("../fixtures/claim-ceiling-meet-golden-v1.json");
 const NONCLAIMS: &[&str] = &[
     "A well-formed ceiling or meet receipt does not establish that any claim is true.",
@@ -862,11 +863,9 @@ mod tests {
             evaluate_request_bytes(&request, &actual).expect("exact checkout pin accepted");
         assert!(receipt.source_commit_pinned);
 
-        let wrong = if actual.starts_with('0') {
-            format!("1{}", &actual[1..])
-        } else {
-            format!("0{}", &actual[1..])
-        };
+        let replacement_prefix = if actual.starts_with('0') { "1" } else { "0" };
+        let mut wrong = actual.clone();
+        wrong.replace_range(0..1, replacement_prefix);
         assert!(
             evaluate_request_bytes(&request, &wrong)
                 .expect_err("different source commit must not be labeled pinned")
