@@ -271,7 +271,8 @@ pub fn compile_goal_plan(
         let node = nodes
             .get(capability_id)
             .expect("dependency closure only contains validated graph nodes");
-        let selected_practice = node
+
+        let mut eligible_practices: Vec<PracticeOption> = node
             .practice_options
             .iter()
             .filter(|option| {
@@ -281,18 +282,44 @@ pub fn compile_goal_plan(
                         .allowed_delivery_modes
                         .contains(&option.delivery_mode)
             })
-            .min_by(|left, right| practice_option_order(left, right))
             .cloned()
-            .ok_or_else(|| GoalPlanError::NoEligiblePracticeOption {
+            .collect();
+        eligible_practices.sort_by(practice_option_order);
+        if eligible_practices.is_empty() {
+            return Err(GoalPlanError::NoEligiblePracticeOption {
                 capability_id: capability_id.0.clone(),
-            })?;
+            });
+        }
+
+        let preferred = request.preferred_practice.get(capability_id);
+        let proposed_practice = if let Some(preferred) = preferred {
+            eligible_practices
+                .iter()
+                .find(|option| option_matches_ref(option, preferred))
+                .cloned()
+                .ok_or_else(|| GoalPlanError::PreferredPracticeNotEligible {
+                    capability_id: capability_id.0.clone(),
+                    task_id: preferred.task_id.clone(),
+                })?
+        } else {
+            eligible_practices[0].clone()
+        };
+        let selection_basis = if preferred.is_some() {
+            PracticeSelectionBasis::LearnerPreference
+        } else {
+            PracticeSelectionBasis::CuratorPriority
+        };
 
         estimated_total_minutes = estimated_total_minutes
-            .checked_add(selected_practice.estimated_minutes)
+            .checked_add(proposed_practice.estimated_minutes)
             .ok_or(GoalPlanError::DurationOverflow)?;
 
         let mut prerequisites = node.prerequisites.clone();
         prerequisites.sort();
+        let eligible_alternatives = eligible_practices
+            .into_iter()
+            .filter(|option| !same_practice_identity(option, &proposed_practice))
+            .collect();
 
         steps.push(GoalPlanStep {
             ordinal: u32::try_from(index + 1).map_err(|_| GoalPlanError::DurationOverflow)?,
@@ -300,7 +327,9 @@ pub fn compile_goal_plan(
             capability_version: node.version.clone(),
             title: node.title.clone(),
             prerequisites,
-            selected_practice,
+            proposed_practice,
+            eligible_alternatives,
+            selection_basis,
         });
     }
 
@@ -409,6 +438,7 @@ fn validate_graph<'a>(
             validate_identifier(&option.task_version, "task_version")?;
             validate_identifier(&option.rubric_id, "rubric_id")?;
             validate_identifier(&option.rubric_version, "rubric_version")?;
+            validate_text(&option.rationale, "practice_rationale", MAX_TITLE_BYTES)?;
             if option.estimated_minutes == 0
                 || option.estimated_minutes > MAX_ESTIMATED_TASK_MINUTES
             {
@@ -584,6 +614,18 @@ fn practice_option_order(left: &PracticeOption, right: &PracticeOption) -> Order
         .then_with(|| left.rubric_id.cmp(&right.rubric_id))
         .then_with(|| left.rubric_version.cmp(&right.rubric_version))
         .then_with(|| left.delivery_mode.cmp(&right.delivery_mode))
+}
+
+fn option_matches_ref(option: &PracticeOption, preferred: &PracticeOptionRef) -> bool {
+    option.task_id == preferred.task_id
+        && option.task_version == preferred.task_version
+        && option.rubric_id == preferred.rubric_id
+        && option.rubric_version == preferred.rubric_version
+        && option.delivery_mode == preferred.delivery_mode
+}
+
+fn same_practice_identity(left: &PracticeOption, right: &PracticeOption) -> bool {
+    option_matches_ref(left, &PracticeOptionRef::from(right))
 }
 
 #[cfg(test)]
