@@ -10,6 +10,8 @@ default = []
 # Runs a browser-only latency calibration with the production KDF work factor.
 # Keep the normal quick-test path on its explicit reduced test-only work factor.
 production-kdf-benchmark = []
+# Browser-only comparison using RustCrypto Argon2id; never changes production envelopes.
+argon2id-browser-benchmark = ["dep:argon2"]
 
 [dependencies]
 leptos = { version = "0.8" }
@@ -54,6 +56,8 @@ gloo-timers = { version = "0.3", features = ["futures"] }
 ed25519-dalek = "2.1"
 base64 = "0.22"
 zeroize = "1"
+# Experimental KDF benchmark only; production identity envelopes still use their declared KDF.
+argon2 = { version = "0.6", default-features = false, features = ["alloc"], optional = true }
 
 # Step 3 of the recoverable-identity roadmap (local_identity.rs): standards-
 # correct BIP-39 seed phrase export/import for manual/offline backup — the
