@@ -117,13 +117,13 @@ pub fn validate_assessment_benchmark(
         issue(&mut issues, "empty_episodes", "$.episodes", "at least one episode is required");
     }
 
-    let mut declared_arms = BTreeSet::new();
+    let mut declared_arms = BTreeSet::<String>::new();
     for (i, arm) in run.arms.iter().enumerate() {
         let path = format!("$.arms[{i}]");
         if arm.arm_id.trim().is_empty() {
             issue(&mut issues, "empty_arm_id", format!("{path}.arm_id"), "arm_id is required");
         }
-        if !declared_arms.insert(arm.arm_id.as_str()) {
+        if !declared_arms.insert(arm.arm_id.clone()) {
             issue(&mut issues, "duplicate_arm_id", format!("{path}.arm_id"), "arm_id must be unique");
         }
         if arm.intervention.trim().is_empty() {
@@ -134,8 +134,8 @@ pub fn validate_assessment_benchmark(
         }
     }
 
-    let mut participants = HashSet::new();
-    let mut attempt_ids = HashSet::new();
+    let mut participants = HashSet::<String>::new();
+    let mut attempt_ids = HashSet::<String>::new();
     let mut represented_arms = BTreeMap::<String, usize>::new();
     let mut attempt_count = 0usize;
 
@@ -143,12 +143,12 @@ pub fn validate_assessment_benchmark(
         let base = format!("$.episodes[{episode_i}]");
         if episode.participant_ref.trim().is_empty() {
             issue(&mut issues, "empty_participant_ref", format!("{base}.participant_ref"), "participant_ref is required");
-        } else if !participants.insert(episode.participant_ref.as_str()) {
+        } else if !participants.insert(episode.participant_ref.clone()) {
             issue(&mut issues, "duplicate_participant_episode", format!("{base}.participant_ref"),
                 "participant must have one episode per protocol and task family");
         }
 
-        if !declared_arms.contains(episode.arm_id.as_str()) {
+        if !declared_arms.contains(&episode.arm_id) {
             issue(&mut issues, "unknown_arm", format!("{base}.arm_id"), "episode references an undeclared arm");
         } else {
             *represented_arms.entry(episode.arm_id.clone()).or_default() += 1;
@@ -162,13 +162,13 @@ pub fn validate_assessment_benchmark(
         }
 
         let mut by_phase = BTreeMap::<AssessmentPhase, Vec<&AssessmentAttempt>>::new();
-        let mut practice_forms = BTreeSet::new();
+        let mut practice_forms = BTreeSet::<String>::new();
         for (attempt_i, attempt) in episode.attempts.iter().enumerate() {
             attempt_count += 1;
             let path = format!("{base}.attempts[{attempt_i}]");
             if attempt.attempt_id.trim().is_empty() {
                 issue(&mut issues, "empty_attempt_id", format!("{path}.attempt_id"), "attempt_id is required");
-            } else if !attempt_ids.insert(attempt.attempt_id.as_str()) {
+            } else if !attempt_ids.insert(attempt.attempt_id.clone()) {
                 issue(&mut issues, "duplicate_attempt_id", format!("{path}.attempt_id"), "attempt_id must be globally unique");
             }
             if attempt.task_family_id != episode.task_family_id {
@@ -201,7 +201,7 @@ pub fn validate_assessment_benchmark(
                     "independent assessment phase must be unaided");
             }
             if attempt.phase == AssessmentPhase::Practice {
-                practice_forms.insert(attempt.task_form_id.as_str());
+                practice_forms.insert(attempt.task_form_id.clone());
             }
             by_phase.entry(attempt.phase).or_default().push(attempt);
         }
@@ -244,13 +244,13 @@ pub fn validate_assessment_benchmark(
             retention14.map(|a| ("retention_14_day", a)),
             retention30.map(|a| ("retention_30_day", a)),
         ].into_iter().flatten().collect();
-        let mut anchor_forms = BTreeMap::<&str, &str>::new();
+        let mut anchor_forms = BTreeMap::<String, &str>::new();
         for (phase_name, attempt) in &anchors {
-            if let Some(prior) = anchor_forms.insert(attempt.task_form_id.as_str(), *phase_name) {
+            if let Some(prior) = anchor_forms.insert(attempt.task_form_id.clone(), *phase_name) {
                 issue(&mut issues, "reused_anchor_form", format!("{base}.attempts"),
                     format!("form {:?} reused by {} and {}", attempt.task_form_id, prior, phase_name));
             }
-            if practice_forms.contains(attempt.task_form_id.as_str()) {
+            if practice_forms.contains(&attempt.task_form_id) {
                 issue(&mut issues, "practice_form_reused_as_anchor", format!("{base}.attempts"),
                     format!("form {:?} is used for both practice and assessment", attempt.task_form_id));
             }
