@@ -389,3 +389,125 @@ mod tests {
         assert!(errors.iter().any(|error| error.contains("unresolved evidence reference")));
     }
 }
+
+
+/// Validate an adapter request that is explicitly discovery-only. Every
+/// externally visible or commercial side effect must remain false until a
+/// distinct, resident-authorized purchase handoff is designed and qualified.
+pub fn validate_discovery_request(document: &Value) -> Vec<String> {
+    let mut errors = Vec::new();
+    if text(document, "schema_version") != Some("0.1.0") {
+        errors.push("request: unsupported schema_version".to_owned());
+    }
+    if text(document, "mode") != Some("discovery_only") {
+        errors.push("request: only discovery_only mode is accepted".to_owned());
+    }
+
+    let Some(snapshot) = field(document, "design_snapshot") else {
+        errors.push("request: missing design_snapshot".to_owned());
+        return errors;
+    };
+    if text(snapshot, "dimensions_unit") != Some("m") {
+        errors.push("request: design dimensions must be expressed in metres".to_owned());
+    }
+    if text(snapshot, "spatial_evaluation_location") != Some("local_or_trusted_private_client") {
+        errors.push("request: spatial evaluation must remain local or in a trusted private client".to_owned());
+    }
+    if field(snapshot, "full_geometry_transmission").and_then(Value::as_bool) != Some(false) {
+        errors.push("request: full geometry transmission must be false".to_owned());
+    }
+    match text(snapshot, "design_context_digest_sha256") {
+        Some(digest) if is_sha256(digest) => {}
+        _ => errors.push("request: malformed design_context_digest_sha256".to_owned()),
+    }
+
+    let Some(data_minimization) = field(document, "data_minimization") else {
+        errors.push("request: missing data_minimization".to_owned());
+        return errors;
+    };
+    for forbidden in [
+        "exact_address_transmitted",
+        "occupant_profile_transmitted",
+        "floor_plan_transmitted",
+        "household_preferences_transmitted",
+    ] {
+        if field(data_minimization, forbidden).and_then(Value::as_bool) != Some(false) {
+            errors.push(format!("request: {forbidden} must be false"));
+        }
+    }
+    const ALLOWED_QUERY_FIELDS: &[&str] = &[
+        "category",
+        "bounding_dimensions_m",
+        "condition_preference",
+        "coarse_delivery_region",
+        "evidence_completeness",
+        "repairability_claim_state",
+        "geometry_use_rights",
+    ];
+    if let Some(fields) = array(data_minimization, "fields_permitted_for_query") {
+        let mut seen = BTreeSet::new();
+        for value in fields {
+            let Some(name) = value.as_str() else {
+                errors.push("request: permitted query fields must be strings".to_owned());
+                continue;
+            };
+            if !ALLOWED_QUERY_FIELDS.contains(&name) {
+                errors.push(format!("request: query field {name:?} exceeds the allowlist"));
+            }
+            if !seen.insert(name) {
+                errors.push(format!("request: duplicate query field {name:?}"));
+            }
+        }
+    } else {
+        errors.push("request: fields_permitted_for_query must be an array".to_owned());
+    }
+
+    let Some(effects) = field(document, "effects") else {
+        errors.push("request: missing effects".to_owned());
+        return errors;
+    };
+    for forbidden in [
+        "create_order",
+        "reserve_stock",
+        "create_payment",
+        "contact_seller",
+        "upload_floor_plan",
+        "transmit_exact_address",
+        "commit_transaction",
+    ] {
+        if field(effects, forbidden).and_then(Value::as_bool) != Some(false) {
+            errors.push(format!("request: effect {forbidden} must be false in discovery-only mode"));
+        }
+    }
+
+    if let Some(authorization) = field(document, "authorization") {
+        if field(authorization, "resident_selection_required").and_then(Value::as_bool) != Some(true) {
+            errors.push("request: resident_selection_required must be true".to_owned());
+        }
+        if text(authorization, "purchase_authorization_state") != Some("not_requested") {
+            errors.push("request: purchase authorization must not be requested during discovery".to_owned());
+        }
+    } else {
+        errors.push("request: missing authorization".to_owned());
+    }
+
+    if let Some(query) = field(document, "query") {
+        match text(query, "query_digest_sha256") {
+            Some(digest) if is_sha256(digest) => {}
+            _ => errors.push("request: malformed query_digest_sha256".to_owned()),
+        }
+        if let Some(dimensions) = field(query, "minimum_dimensions_m") {
+            for name in ["width", "depth", "height"] {
+                if !positive_finite(field(dimensions, name)) {
+                    errors.push(format!("request: minimum_dimensions_m.{name} must be positive and finite"));
+                }
+            }
+        } else {
+            errors.push("request: missing minimum_dimensions_m".to_owned());
+        }
+    } else {
+        errors.push("request: missing query".to_owned());
+    }
+
+    errors
+}
