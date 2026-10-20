@@ -495,7 +495,8 @@ mod tests {
 
     #[test]
     fn concurrent_heads_never_select_action_or_expose_commercial_terms() {
-        let conflict = &revision_baseline()["profiles"][3]["marketplace_offer"];
+        let document = revision_baseline();
+        let conflict = &document["profiles"][3]["marketplace_offer"];
         assert!(conflict["listing_action_hash"].is_null());
         assert!(conflict["listing_revision"].is_null());
         assert_eq!(conflict["price_state"], "unknown");
