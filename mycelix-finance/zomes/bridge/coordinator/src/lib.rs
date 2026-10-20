@@ -1485,16 +1485,45 @@ pub fn health_check(_: ()) -> ExternResult<FinanceBridgeHealth> {
 // Phase 1b: Oracle Rate Attestation
 // ---------------------------------------------------------------------------
 
+/// Validate a positive claimed rate against a positive, qualified consensus value.
+///
+/// This pure helper intentionally has no fallback: unavailable or malformed
+/// consensus must never make a caller-supplied rate authoritative.
+fn validate_claimed_rate_against_consensus(
+    claimed_rate: f64,
+    median_price: f64,
+) -> Result<(), String> {
+    use mycelix_finance_types::ORACLE_RATE_TOLERANCE;
+
+    if !claimed_rate.is_finite() || claimed_rate <= 0.0 {
+        return Err("Claimed oracle rate must be finite and positive".into());
+    }
+    if !median_price.is_finite() || median_price <= 0.0 {
+        return Err("Oracle consensus median price must be finite and positive".into());
+    }
+
+    let deviation = (claimed_rate - median_price).abs() / median_price;
+    if deviation > ORACLE_RATE_TOLERANCE {
+        return Err(format!(
+            "Oracle rate {:.6} deviates {:.1}% from consensus {:.6} (max {:.0}%). Use get_consensus_price to fetch current rate before depositing.",
+            claimed_rate,
+            deviation * 100.0,
+            median_price,
+            ORACLE_RATE_TOLERANCE * 100.0
+        ));
+    }
+
+    Ok(())
+}
+
 /// Verify that the claimed oracle rate is within tolerance of consensus.
 ///
-/// Fetches consensus from the price-oracle zome. If the oracle is unreachable
-/// (bootstrap/standalone), accepts the claimed rate with a warning.
+/// Missing, malformed, invalid, or unexpected oracle responses fail closed.
+/// The claimed rate is never accepted merely because the oracle is unavailable.
 fn verify_oracle_rate_against_consensus(
     collateral_type: &str,
     claimed_rate: f64,
 ) -> ExternResult<()> {
-    use mycelix_finance_types::ORACLE_RATE_TOLERANCE;
-
     #[derive(Serialize, Debug)]
     struct GetConsensusInput {
         item: String,
@@ -1504,47 +1533,47 @@ fn verify_oracle_rate_against_consensus(
         median_price: f64,
     }
 
-    let item = format!("{}_SAP", collateral_type); // e.g., "ETH_SAP", "USDC_SAP"
+    // Reject invalid caller data before performing any cross-zome request.
+    if !claimed_rate.is_finite() || claimed_rate <= 0.0 {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Claimed oracle rate must be finite and positive".into()
+        )));
+    }
 
-    match call(
+    let item = format!("{}_SAP", collateral_type); // e.g., "ETH_SAP", "USDC_SAP"
+    let response = match call(
         CallTargetCell::Local,
         ZomeName::from("price_oracle"),
         FunctionName::from("get_consensus_price"),
         None,
         GetConsensusInput { item },
     ) {
-        Ok(ZomeCallResponse::Ok(result)) => match result.decode::<ConsensusResult>() {
-            Ok(consensus) if consensus.median_price.is_finite() && consensus.median_price > 0.0 => {
-                let deviation =
-                    (claimed_rate - consensus.median_price).abs() / consensus.median_price;
-                if deviation > ORACLE_RATE_TOLERANCE {
-                    return Err(wasm_error!(WasmErrorInner::Guest(format!(
-                        "Oracle rate {:.6} deviates {:.1}% from consensus {:.6} (max {:.0}%). \
-                             Use get_consensus_price to fetch current rate before depositing.",
-                        claimed_rate,
-                        deviation * 100.0,
-                        consensus.median_price,
-                        ORACLE_RATE_TOLERANCE * 100.0
-                    ))));
-                }
-                Ok(())
-            }
-            _ => {
-                debug!(
-                    "verify_oracle_rate: consensus invalid, accepting claimed rate {:.6}",
-                    claimed_rate
-                );
-                Ok(())
-            }
-        },
-        _ => {
-            debug!(
-                "verify_oracle_rate: price oracle unreachable, accepting claimed rate {:.6}",
-                claimed_rate
-            );
-            Ok(())
+        Ok(response) => response,
+        Err(_) => {
+            return Err(wasm_error!(WasmErrorInner::Guest(
+                "Oracle consensus request failed; refusing caller-supplied rate".into()
+            )));
         }
-    }
+    };
+
+    let result = match response {
+        ZomeCallResponse::Ok(result) => result,
+        _ => {
+            return Err(wasm_error!(WasmErrorInner::Guest(
+                "Oracle consensus request returned an unexpected response; refusing caller-supplied rate".into()
+            )));
+        }
+    };
+
+    let consensus = result.decode::<ConsensusResult>().map_err(|_| {
+        wasm_error!(WasmErrorInner::Guest(
+            "Oracle consensus payload could not be decoded; refusing caller-supplied rate".into()
+        ))
+    })?;
+
+    validate_claimed_rate_against_consensus(claimed_rate, consensus.median_price)
+        .map_err(|reason| wasm_error!(WasmErrorInner::Guest(reason)))?;
+    Ok(())
 }
 
 // ---------------------------------------------------------------------------
@@ -2689,4 +2718,35 @@ mod tests {
             AssetType::Other("bamboo".into())
         );
     }
+    #[test]
+    fn oracle_rate_attestation_accepts_rates_within_tolerance_and_rejects_deviations() {
+        let consensus = 100.0;
+        let tolerance = mycelix_finance_types::ORACLE_RATE_TOLERANCE;
+        let within = consensus * (1.0 + tolerance * 0.5);
+        let outside = consensus * (1.0 + tolerance * 1.5);
+
+        assert!(validate_claimed_rate_against_consensus(within, consensus).is_ok());
+        assert!(validate_claimed_rate_against_consensus(outside, consensus).is_err());
+    }
+
+    #[test]
+    fn oracle_rate_attestation_rejects_non_positive_or_non_finite_claims() {
+        for claimed in [0.0, -1.0, f64::NAN, f64::INFINITY, f64::NEG_INFINITY] {
+            assert!(
+                validate_claimed_rate_against_consensus(claimed, 100.0).is_err(),
+                "invalid claimed rate must be rejected: {claimed:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn oracle_rate_attestation_rejects_non_positive_or_non_finite_consensus() {
+        for consensus in [0.0, -1.0, f64::NAN, f64::INFINITY, f64::NEG_INFINITY] {
+            assert!(
+                validate_claimed_rate_against_consensus(100.0, consensus).is_err(),
+                "invalid oracle consensus must be rejected: {consensus:?}"
+            );
+        }
+    }
+
 }
