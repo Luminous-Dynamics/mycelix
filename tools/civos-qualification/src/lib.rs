@@ -1,6 +1,10 @@
 use serde_json::{json, Value};
 use sha2::{Digest, Sha256};
-use std::collections::{BTreeMap, BTreeSet};
+use std::{
+    collections::{BTreeMap, BTreeSet},
+    fs,
+    path::{Component, Path},
+};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ContractSummary {
@@ -147,6 +151,79 @@ fn evidence_digest_set(execution: &Value) -> BTreeSet<String> {
         .collect()
 }
 
+fn verify_local_hashed_file(root: &Path, record: &Value, label: &str) -> Result<String, String> {
+    let declared_path = required_string(record, "/path")?;
+    let relative = Path::new(declared_path);
+    if relative.is_absolute()
+        || !relative.components().all(|part| matches!(part, Component::Normal(_)))
+    {
+        return Err(format!("{label} path must be a safe relative path: {declared_path}"));
+    }
+
+    let canonical_root = fs::canonicalize(root)
+        .map_err(|error| format!("cannot resolve evidence root {}: {error}", root.display()))?;
+    let candidate = fs::canonicalize(canonical_root.join(relative))
+        .map_err(|error| format!("cannot resolve {label} {declared_path}: {error}"))?;
+    if !candidate.starts_with(&canonical_root) {
+        return Err(format!("{label} path escapes the declared evidence root: {declared_path}"));
+    }
+
+    let bytes = fs::read(&candidate)
+        .map_err(|error| format!("cannot read {label} {declared_path}: {error}"))?;
+    let actual = sha256_hex(&bytes);
+    let declared = required_string(record, "/sha256")?;
+    if actual != declared {
+        return Err(format!(
+            "{label} digest mismatch for {declared_path}: declared {declared}, actual {actual}"
+        ));
+    }
+    Ok(actual)
+}
+
+fn verify_receipt_files(receipt: &Value, evidence_root: &Path) -> Result<(), String> {
+    let artifacts = receipt
+        .get("artifacts")
+        .and_then(Value::as_array)
+        .ok_or_else(|| "receipt artifacts are missing or not an array".to_string())?;
+    let mut artifact_digests = BTreeSet::new();
+    for (index, artifact) in artifacts.iter().enumerate() {
+        let digest = verify_local_hashed_file(
+            evidence_root,
+            artifact,
+            &format!("artifact[{index}]"),
+        )?;
+        artifact_digests.insert(digest);
+    }
+
+    let fault_schedule_digest = required_string(receipt, "/environment/fault_schedule_sha256")?;
+    if !artifact_digests.contains(fault_schedule_digest) {
+        return Err(
+            "fault_schedule_sha256 must identify one of the locally verified receipt artifacts"
+                .into(),
+        );
+    }
+
+    let executions = receipt
+        .get("executions")
+        .and_then(Value::as_array)
+        .ok_or_else(|| "receipt executions are missing or not an array".to_string())?;
+    for (execution_index, execution) in executions.iter().enumerate() {
+        let scenario_id = required_string(execution, "/scenario_id")?;
+        let evidence = execution
+            .get("evidence")
+            .and_then(Value::as_array)
+            .ok_or_else(|| format!("execution {scenario_id} has no evidence array"))?;
+        for (evidence_index, item) in evidence.iter().enumerate() {
+            verify_local_hashed_file(
+                evidence_root,
+                item,
+                &format!("execution[{execution_index}] {scenario_id} evidence[{evidence_index}]"),
+            )?;
+        }
+    }
+    Ok(())
+}
+
 fn checks_for_execution(execution: &Value, evidence: &BTreeSet<String>) -> Result<(), String> {
     let checks = execution
         .get("checks")
@@ -184,6 +261,7 @@ pub fn evaluate_receipt(
     receipt_schema_text: &str,
     receipt_text: &str,
     target: &str,
+    evidence_root: &Path,
 ) -> Result<Value, String> {
     let summary = validate_contract(corpus_text, contract_schema_text)?;
     let corpus = parse_json(corpus_text, "scenario corpus")?;
@@ -192,6 +270,7 @@ pub fn evaluate_receipt(
 
     validate_schema_document(&receipt_schema, "receipt schema")?;
     validate_instance(&receipt_schema, &receipt, "qualification receipt")?;
+    verify_receipt_files(&receipt, evidence_root)?;
 
     if required_string(&receipt, "/contract_id")? != summary.contract_id {
         return Err("receipt contract_id does not match the scenario corpus".into());
@@ -434,11 +513,12 @@ mod tests {
     const CORPUS: &str = include_str!("../../../docs/research/civos-multi-agent-scenarios-v0.json");
     const CONTRACT_SCHEMA: &str = include_str!("../../../docs/research/civos-multi-agent-scenarios-v0.schema.json");
     const RECEIPT_SCHEMA: &str = include_str!("../../../docs/research/civos-multi-agent-receipt-v0.schema.json");
+    const SYNTHETIC_EVIDENCE: &[u8] = include_bytes!("../fixtures/synthetic-evidence.log");
 
     fn valid_receipt(target: &str) -> Value {
         let corpus: Value = serde_json::from_str(CORPUS).unwrap();
-        let schema: Value = serde_json::from_str(CONTRACT_SCHEMA).unwrap();
-        let digest = "a".repeat(64);
+        let digest = sha256_hex(SYNTHETIC_EVIDENCE);
+        let evidence_path = "fixtures/synthetic-evidence.log";
         let executions: Vec<Value> = corpus["scenarios"]
             .as_array()
             .unwrap()
@@ -451,7 +531,7 @@ mod tests {
                     "target": target,
                     "applicability": "applicable",
                     "outcome": "passed",
-                    "evidence": [{"kind":"test_log","sha256":digest}],
+                    "evidence": [{"kind":"test_log","sha256":digest,"path":evidence_path}],
                     "checks": [{
                         "name":"synthetic contract fixture",
                         "outcome":"passed",
@@ -483,7 +563,7 @@ mod tests {
                 "client":"synthetic-client",
                 "harness":"synthetic-harness"
             },
-            "artifacts":[{"kind":"fixture","sha256":digest}],
+            "artifacts":[{"kind":"fixture","sha256":digest,"path":evidence_path}],
             "environment":{
                 "target":target,
                 "peer_count":3,
@@ -501,7 +581,8 @@ mod tests {
             CONTRACT_SCHEMA,
             RECEIPT_SCHEMA,
             &receipt.to_string(),
-            "finance"
+            "finance",
+            Path::new(env!("CARGO_MANIFEST_DIR"))
         )
     }
 
