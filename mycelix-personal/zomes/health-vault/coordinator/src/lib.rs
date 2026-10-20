@@ -328,6 +328,10 @@ fn get_my_consents_at(now: &Timestamp) -> ExternResult<Vec<Record>> {
             )))
         })?;
         if let Some(record) = get(target.clone(), GetOptions::default())? {
+            // Ignore foreign grants even if an older validator accepted a forged owner link.
+            if record.action().author() != &agent {
+                continue;
+            }
             let consent = record
                 .entry()
                 .to_app_option::<ConsentGrant>()
