@@ -7,7 +7,9 @@ on:
     paths:
       - "mycelix-praxis/crates/praxis-core/**"
       - "mycelix-praxis/examples/cyber-challenges/**"
+      - "mycelix-praxis/examples/cyber-evidence-efficiency/**"
       - "mycelix-praxis/docs/CYBER_CHALLENGE_CORPUS_V1.md"
+      - "mycelix-praxis/docs/CYBER_EVIDENCE_EFFICIENCY_V1.md"
       - ".github/workflows/praxis-cyber-challenges.yml"
   push:
     branches: [main]
@@ -26,7 +28,7 @@ concurrency:
 
 jobs:
   validate:
-    name: Validate solver-visible cyber corpus
+    name: Validate Praxis cyber evidence contracts
     if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
     runs-on: ubuntu-24.04
     timeout-minutes: 25
@@ -66,3 +68,6 @@ jobs:
 
       - name: Run cyber challenge contract tests
         run: cargo +1.96.0 test --manifest-path mycelix-praxis/Cargo.toml --package praxis-core --test cyber_challenges -- --nocapture
+
+      - name: Run evidence-acquisition evaluator and adversarial tests
+        run: cargo +1.96.0 test --manifest-path mycelix-praxis/Cargo.toml --package praxis-core --test evidence_efficiency -- --nocapture
