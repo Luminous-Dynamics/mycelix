@@ -347,6 +347,7 @@ pub fn evaluate_policy_release_bytes(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use serde::Deserialize;
     use serde_json::json;
 
     const PROFILE_BYTES: &[u8] = b"{\"policy\":\"sample-profile\"}";
@@ -442,11 +443,14 @@ mod tests {
         let receipt = evaluate(candidate.clone(), conflict_ctx, PROFILE_BYTES);
         assert!(receipt.violations.iter().any(|v| v.code == "policy_version_equivocation"));
 
-        candidate.target_profile_sha256 = "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd".to_owned();
         let mut epoch_conflict_ctx = ctx;
-        epoch_conflict_ctx.installed_head.as_mut().unwrap().version = candidate.version;
-        epoch_conflict_ctx.installed_head.as_mut().unwrap().target_profile_sha256 = candidate.target_profile_sha256.clone();
-        let receipt = evaluate(candidate.clone(), epoch_conflict_ctx, PROFILE_BYTES);
+        epoch_conflict_ctx.installed_head = Some(InstalledPolicyHeadV1 {
+            version: candidate.version,
+            target_profile_sha256: candidate.target_profile_sha256.clone(),
+            revocation_epoch: candidate.revocation_epoch,
+        });
+        candidate.revocation_epoch += 1;
+        let receipt = evaluate(candidate, epoch_conflict_ctx, PROFILE_BYTES);
         assert!(receipt.violations.iter().any(|v| v.code == "policy_version_equivocation"));
     }
 
