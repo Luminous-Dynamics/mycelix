@@ -32,6 +32,7 @@ pub struct ConsentCapabilityOffer {
     pub grant_hash: ActionHash,
     pub capability_grant_hash: ActionHash,
     pub capability_secret: CapSecret,
+    pub expires_at: Option<Timestamp>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -39,6 +40,8 @@ pub struct GrantConsentWithRemoteCapabilityInput {
     pub grantee: AgentPubKey,
     pub record_types: Vec<String>,
     pub expires_at: Option<Timestamp>,
+    /// Must be explicitly true to create a non-expiring remote grant.
+    pub allow_indefinite: bool,
     pub active: bool,
 }
 
@@ -66,6 +69,7 @@ const SHAREABLE_RECORD_TYPES: &[&str] = &[
     "allergy", "medication", "condition", "vaccination", "surgery",
     "lab_result", "imaging", "visit_note",
 ];
+const DEFAULT_REMOTE_CONSENT_TTL_MICROS: i64 = 30 * 24 * 60 * 60 * 1_000_000;
 
 fn consent_capability_tag(grant_hash: &ActionHash) -> String {
     format!("mycelix-health-consent-read-v0:{grant_hash}")
@@ -159,7 +163,20 @@ pub fn grant_consent_with_remote_capability(
             "Consent must contain between 1 and 20 record types".into()
         )));
     }
-    if input.expires_at.is_some_and(|expires_at| expires_at.as_micros() <= now.as_micros()) {
+    let expires_at = match input.expires_at {
+        Some(expiry) => Some(expiry),
+        None if input.allow_indefinite => None,
+        None => {
+            let deadline = now
+                .as_micros()
+                .checked_add(DEFAULT_REMOTE_CONSENT_TTL_MICROS)
+                .ok_or(wasm_error!(WasmErrorInner::Guest(
+                    "Default consent expiry exceeds timestamp range".into()
+                )))?;
+            Some(Timestamp::from_micros(deadline))
+        }
+    };
+    if expires_at.is_some_and(|expiry| expiry.as_micros() <= now.as_micros()) {
         return Err(wasm_error!(WasmErrorInner::Guest(
             "Consent expiry must be later than the current time".into()
         )));
@@ -169,7 +186,7 @@ pub fn grant_consent_with_remote_capability(
     let grant_record = grant_consent(ConsentGrant {
         grantee: grantee.clone(),
         record_types: input.record_types,
-        expires_at: input.expires_at,
+        expires_at,
         active: true,
         created_at: now,
     })?;
@@ -198,6 +215,7 @@ pub fn grant_consent_with_remote_capability(
         grant_hash,
         capability_grant_hash,
         capability_secret: secret,
+        expires_at,
     })
 }
 
@@ -212,6 +230,7 @@ pub fn grant_consent_with_remote_capability_view(
         grantee: decode_agent_pubkey(&input.grantee)?,
         record_types: input.record_types,
         expires_at: input.expires_at.map(Timestamp::from_micros),
+        allow_indefinite: false,
         active: input.active,
     })
 }
