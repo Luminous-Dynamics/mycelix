@@ -128,6 +128,18 @@ Use the same frozen candidate corpus, constraints, region, availability snapshot
 
 Do not claim "better than SOTA" from a more attractive render or the number of listed products. The differentiator to prove is **fewer false fits, clearer unknowns, better multi-objective choices and lower end-to-end effort with no increase in unsafe or unauthorized decisions**.
 
+### Named industry baselines to include
+
+This is a capability decomposition, not a claim that the products below are interchangeable or deficient:
+
+- **Planner 5D AI Designer / AI Furniture Placement:** its current official material describes automated furnishing or rearrangement, photo/floor-plan inputs, and interactive 2D/3D visualization. Treat it as a strong visual/layout workflow baseline. Run identical room inputs and tasks; independently score the resulting geometry and requirements rather than scoring screenshots alone. Product features cited by the vendor are not an independent correctness evaluation: https://support.planner5d.com/en/articles/8540993-ai-designer-furnish-or-style-your-room-with-our-ai-designer-feature-ios and https://ai.planner5d.com/ai-furniture-placement
+- **IKEA Kreativ:** the official UK guide describes whole-room scanning on LiDAR-enabled devices and room design continued across phone/web. Treat it as a retailer-integrated capture and product-visualization baseline, with device/region constraints explicitly recorded: https://www.ikea.com/gb/en/customer-service/knowledge/articles/250fg37g-2498-40gg-916c-f27d354683f0
+- **BIMobject furniture catalog:** offers manufacturer-specific furniture BIM objects and filters such as dimensions, brands, certifications and sustainability information. Treat it as a product-data/specification discovery baseline—not a neutral, multi-vendor checkout or proof that a selected item fits this exact design: https://www.bimobject.com/en/categories/furniture
+- **IFC / openBIM workflow:** use the same furniture geometry and supported property sets through an IFC 4.3 exchange path where possible. Report round-trip information loss and model-view coverage rather than assuming every tool implements all IFC concepts: https://technical.buildingsmart.org/standards/ifc/ and https://standards.buildingsmart.org/IFC/RELEASE/IFC4_3/HTML/lexical/IfcFurniture.htm
+- **Ordinary marketplace + manual design workflow:** use the same listing corpus with its available filters, plus a human designer/spreadsheet to do the fit checks. This baseline is essential: the combined system should save real work and reduce mistakes, not merely add provenance fields.
+
+The differentiated hypothesis for Symtropy + Symthaea + Mycelix is the **joined decision loop**: resident-authored functional constraints → geometry/unknown checks → rights-aware product offers → repair/reuse/new alternatives → visible multi-objective trade-offs → resident-authorized marketplace handoff → lifecycle traceability. None of the cited products is assumed to lack all these capabilities; the claim to test is whether the composed workflow measurably improves end-to-end outcomes on equivalent tasks and data.
+
 ### C. Scaling tiers
 
 Start with 25, 100 and 1,000 synthetic offers; then 10k only once pagination, memory, provenance resolution and candidate truncation are measurable. For each tier freeze seed, corpus digest, design manifest, database/DHT snapshot, hardware, query semantics, and software revision. Report p50/p95 latency and peak memory alongside completeness and correctness; speed alone never excuses lost candidates or weaker gates.
