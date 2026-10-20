@@ -862,7 +862,7 @@ async fn rewrap_protected_identity(passphrase: &str) -> Result<(), String> {
             .is_some_and(|public| public_key_matches_signing_key(public, &signing_key))
         && previous_wire_candidate
             .as_deref()
-            .is_some_and(encrypted_blob_is_structurally_valid);
+            .is_some_and(|wire| encrypted_blob_is_structurally_valid(wire));
     if let Some(secret_b64) = snapshot.secret_b64.as_mut() {
         secret_b64.zeroize();
     }
