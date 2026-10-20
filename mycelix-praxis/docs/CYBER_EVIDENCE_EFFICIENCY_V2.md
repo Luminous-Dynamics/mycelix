@@ -41,7 +41,7 @@ The focused integration harness reports requests attempted/executed, blocked aut
 It includes three solver-visible deterministic traces:
 
 - **No-query baseline:** no additional requests.
-- **Fixed playbook:** a declared sequence filtered through the same authority inputs.
+- **Fixed playbook:** a declared, domain-specific sequence filtered through the same authority inputs. Identity, network, supply-chain, AI/tool-boundary, and endpoint scenarios now have their own frozen request order; the baseline is not merely an identity-only trace reused across domains.
 - **Cheapest authorized first:** deterministic sort by synthetic cost, latency bound, then stable request ID.
 
 A fourth **non-adaptive oracle subset** exhaustively searches authorized, current, full/partial candidate requests under the same synthetic cost/latency budget and uniform hypothesis prior. It may inspect hidden response partitions; therefore it is a privileged mathematical reference, not a deployable policy or fair human/AI competitor. The exact search is capped at 16 usable candidate requests per scenario.
