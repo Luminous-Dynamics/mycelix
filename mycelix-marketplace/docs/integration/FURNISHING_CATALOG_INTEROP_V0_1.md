@@ -45,6 +45,7 @@ The profile separates:
 - product dimensions from its approach, swing, reach, transfer and service envelopes;
 - declared versus independently checked claims;
 - geometry digest/usage license from permission to advertise a listing;
+- the catalog's geometry-use-license enum from separate, referenced `geometry_use_rights` evidence—the audit rejects an allowed enum that contradicts the scoped rights record;
 - seller assertions from buyer observations, manufacturer declarations, and third-party evidence;
 - catalogue evidence from its validity/currentness and the exact scope of the claim it supports;
 - resident preferences from physical constraints and from model-estimated preference fit.
