@@ -1,0 +1,11 @@
+[package]
+name = "constitutional-effect-policy"
+version = "0.1.0"
+edition = "2021"
+license = "AGPL-3.0-or-later"
+description = "Pure constitutional policy for external-effect capabilities and batch execution"
+publish = false
+
+# Deliberately isolated from the live governance workspace until this policy layer
+# is qualified and its runtime integration prerequisites are satisfied.
+[workspace]
