@@ -98,7 +98,8 @@ cargo run --manifest-path tools/civos-qualification/Cargo.toml -- \
   --receipt-schema docs/research/civos-multi-agent-receipt-v0.schema.json \
   --receipt /path/to/finance-receipt.json \
   --target finance \
-  --evidence-root /path/to/hashed-evidence
+  --evidence-root /path/to/hashed-evidence \
+  --source-root /path/to/mycelix-checkout
 ```
 
 The corpus and schema hashes are calculated over their exact file bytes—not parsed/re-serialized JSON. The receipt must match both. Every referenced artifact/evidence file must exist under the declared evidence root and match its SHA-256; absolute paths, parent traversal and symlink escapes are rejected. Each assertion check must reference a digest present in that same scenario execution.
