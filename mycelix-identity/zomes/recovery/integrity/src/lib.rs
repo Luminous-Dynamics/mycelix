@@ -51,6 +51,10 @@ pub struct RecoveryRequest {
     pub created: Timestamp,
     /// When time lock expires (if approved)
     pub time_lock_expires: Option<Timestamp>,
+    /// Immutable recovery configuration selected when this request was created.
+    /// Missing on legacy records; new votes must not treat those requests as quorum-ready.
+    #[serde(default)]
+    pub config_action_hash: Option<ActionHash>,
 }
 
 /// Trustee vote on a recovery request
@@ -67,6 +71,12 @@ pub struct RecoveryVote {
     pub comment: Option<String>,
     /// Vote timestamp
     pub voted_at: Timestamp,
+    /// Action hash of the request being voted on.
+    #[serde(default)]
+    pub request_action_hash: Option<ActionHash>,
+    /// The exact request-pinned recovery configuration used for trustee membership.
+    #[serde(default)]
+    pub config_action_hash: Option<ActionHash>,
 }
 
 /// Status of a recovery request
@@ -519,6 +529,31 @@ fn validate_create_recovery_request(
         ));
     }
 
+    // New requests must pin the exact owner-bound config whose trustee set
+    // authorizes initiation and subsequent votes. Legacy requests without this
+    // field remain readable but cannot become a new quorum-authorizing request.
+    let Some(config_hash) = request.config_action_hash.clone() else {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Recovery request must pin an owner-bound recovery configuration".into(),
+        ));
+    };
+    let config_record = must_get_valid_record(config_hash)?;
+    let config: RecoveryConfig = config_record
+        .entry()
+        .to_app_option()
+        .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
+        .ok_or(wasm_error!(WasmErrorInner::Guest(
+            "Pinned recovery configuration not found".into()
+        )))?;
+    if config.did != request.did
+        || !recovery_config_did_matches_owner(&config.did, &config.owner)
+        || !config.trustees.iter().any(|trustee| trustee == &request.initiated_by)
+    {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Recovery request initiator must belong to its pinned owner-bound configuration".into(),
+        ));
+    }
+
     // Validate initial status is Pending
     if request.status != RecoveryStatus::Pending {
         return Ok(ValidateCallbackResult::Invalid(
@@ -594,6 +629,16 @@ fn validate_update_recovery_request(
     if request.created != original.created {
         return Ok(ValidateCallbackResult::Invalid(
             "Recovery request created timestamp cannot be changed".into(),
+        ));
+    }
+    if request.config_action_hash != original.config_action_hash {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Recovery request pinned configuration cannot be changed".into(),
+        ));
+    }
+    if original.config_action_hash.is_none() && request.status != original.status {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Legacy recovery request without a pinned configuration cannot advance state".into(),
         ));
     }
 
@@ -1031,6 +1076,23 @@ mod tests {
 }
 
 /// Validate recovery vote creation
+fn recovery_vote_is_authorized(
+    vote: &RecoveryVote,
+    request: &RecoveryRequest,
+    config: &RecoveryConfig,
+    author: &AgentPubKey,
+) -> bool {
+    let expected_trustee_did = format!("did:mycelix:{author}");
+    vote.trustee == expected_trustee_did
+        && vote.request_id == request.id
+        && vote.request_action_hash.is_some()
+        && vote.config_action_hash.is_some()
+        && vote.config_action_hash == request.config_action_hash
+        && request.did == config.did
+        && recovery_config_did_matches_owner(&config.did, &config.owner)
+        && config.trustees.iter().any(|trustee| trustee == &vote.trustee)
+}
+
 fn validate_create_recovery_vote(
     action: EntryCreationAction,
     vote: RecoveryVote,
@@ -1057,10 +1119,35 @@ fn validate_create_recovery_vote(
     // RecoveryVote claiming to be an arbitrary trustee, forging approval
     // votes for unauthorized DID/identity takeover. Bind here as
     // belt-and-suspenders.
-    let expected_trustee_did = format!("did:mycelix:{}", action.author());
-    if vote.trustee != expected_trustee_did {
+    let (Some(request_hash), Some(config_hash)) = (
+        vote.request_action_hash.clone(),
+        vote.config_action_hash.clone(),
+    ) else {
         return Ok(ValidateCallbackResult::Invalid(
-            "Recovery vote trustee DID must correspond to the committing agent".into(),
+            "Recovery vote must reference its request and pinned configuration".into(),
+        ));
+    };
+    let request_record = must_get_valid_record(request_hash)?;
+    let request: RecoveryRequest = request_record
+        .entry()
+        .to_app_option()
+        .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
+        .ok_or(wasm_error!(WasmErrorInner::Guest(
+            "Recovery request referenced by vote was not found".into()
+        )))?;
+    let config_record = must_get_valid_record(config_hash)?;
+    let config: RecoveryConfig = config_record
+        .entry()
+        .to_app_option()
+        .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
+        .ok_or(wasm_error!(WasmErrorInner::Guest(
+            "Recovery configuration referenced by vote was not found".into()
+        )))?;
+
+    if !recovery_vote_is_authorized(&vote, &request, &config, action.author()) {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Recovery vote must match a configured trustee for its pinned request configuration"
+                .into(),
         ));
     }
 
@@ -1177,6 +1264,67 @@ mod author_binding_tests {
     }
 
     #[test]
+    fn vote_policy_requires_the_author_to_be_a_member_of_the_pinned_config() {
+        let owner = me();
+        let trustee = other_agent();
+        let did = format!("did:mycelix:{owner}");
+        let request_hash = ActionHash::from_raw_36(vec![3u8; 36]);
+        let config_hash = ActionHash::from_raw_36(vec![4u8; 36]);
+        let request = RecoveryRequest {
+            id: "recovery:did:mycelix:owner:123".into(),
+            did: did.clone(),
+            new_agent: other_agent(),
+            initiated_by: format!("did:mycelix:{trustee}"),
+            reason: "synthetic policy fixture".into(),
+            status: RecoveryStatus::Pending,
+            created: Timestamp::from_micros(0),
+            time_lock_expires: None,
+            config_action_hash: Some(config_hash.clone()),
+        };
+        let config = RecoveryConfig {
+            did: did.clone(),
+            owner: owner.clone(),
+            trustees: vec![format!("did:mycelix:{trustee}")],
+            threshold: 1,
+            time_lock: 86_400,
+            active: true,
+            created: Timestamp::from_micros(0),
+            updated: Timestamp::from_micros(0),
+        };
+        let vote = RecoveryVote {
+            request_id: request.id.clone(),
+            trustee: format!("did:mycelix:{trustee}"),
+            vote: VoteDecision::Approve,
+            comment: None,
+            voted_at: Timestamp::from_micros(1),
+            request_action_hash: Some(request_hash),
+            config_action_hash: Some(config_hash),
+        };
+        assert!(recovery_vote_is_authorized(&vote, &request, &config, &trustee));
+
+        let stranger = me();
+        assert!(!recovery_vote_is_authorized(&vote, &request, &config, &stranger));
+
+        let mut unlisted_config = config.clone();
+        unlisted_config.trustees.clear();
+        assert!(!recovery_vote_is_authorized(
+            &vote,
+            &request,
+            &unlisted_config,
+            &trustee
+        ));
+
+        let mut wrong_request = request.clone();
+        wrong_request.config_action_hash = Some(ActionHash::from_raw_36(vec![5u8; 36]));
+        assert!(!recovery_vote_is_authorized(
+            &vote,
+            &wrong_request,
+            &config,
+            &trustee
+        ));
+    }
+
+    #[test]
     fn recovery_config_did_owner_binding_is_not_a_ui_only_rule() {
         let owner = me();
         let expected = format!("did:mycelix:{owner}");
@@ -1197,16 +1345,19 @@ mod author_binding_tests {
             status: RecoveryStatus::Pending,
             created: Timestamp::from_micros(0),
             time_lock_expires: None,
+            config_action_hash: None,
         }
     }
 
     #[test]
-    fn create_request_valid_when_initiator_matches_committer() {
+    fn create_request_without_a_pinned_config_is_rejected() {
         let req = valid_request(format!("did:mycelix:{}", me()));
         let result =
             validate_create_recovery_request(EntryCreationAction::Create(test_action(me())), req)
                 .unwrap();
-        assert_eq!(result, ValidateCallbackResult::Valid);
+        assert!(
+            matches!(result, ValidateCallbackResult::Invalid(message) if message.contains("pin an owner-bound"))
+        );
     }
 
     #[test]
@@ -1227,16 +1378,20 @@ mod author_binding_tests {
             vote: VoteDecision::Approve,
             comment: None,
             voted_at: Timestamp::from_micros(0),
+            request_action_hash: None,
+            config_action_hash: None,
         }
     }
 
     #[test]
-    fn create_vote_valid_when_trustee_matches_committer() {
+    fn create_vote_without_request_and_config_references_is_rejected() {
         let vote = valid_vote(format!("did:mycelix:{}", me()));
         let result =
             validate_create_recovery_vote(EntryCreationAction::Create(test_action(me())), vote)
                 .unwrap();
-        assert_eq!(result, ValidateCallbackResult::Valid);
+        assert!(
+            matches!(result, ValidateCallbackResult::Invalid(message) if message.contains("request and pinned configuration"))
+        );
     }
 
     #[test]
