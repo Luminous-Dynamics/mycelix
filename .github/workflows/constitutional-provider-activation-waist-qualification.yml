@@ -1,0 +1,128 @@
+name: Constitutional Provider Activation Waist Qualification
+
+on:
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize, reopened, ready_for_review, converted_to_draft]
+    paths:
+      - 'mycelix-governance/docs/CONSTITUTIONAL_PROVIDER_ACTIVATION_WAIST_V0_1.md'
+      - 'mycelix-governance/specs/constitutional-provider-activation-waist.v1.json'
+      - 'mycelix-governance/specs/constitutional-provider-activation-waist.v1.schema.json'
+      - 'mycelix-governance/tools/formal/validate_provider_activation_waist.py'
+      - '.github/workflows/constitutional-provider-activation-waist-qualification.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: constitutional-provider-activation-waist-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+env:
+  NIXPKGS_REV: a50bf0c1b07873c1a53892292017041a8f0a1288
+  EXPECTED_HEAD: ${{ github.event.pull_request.head.sha || github.sha }}
+  EXPECTED_SEMANTIC_HEAD: 62ffb73d46b695d698c9768056a6c2cf0e5e6fc9
+  EXPECTED_PARENT_CR2_HEAD: f4748da5c60686e9611ce68d60fcd24a4bfa239a
+
+jobs:
+  qualify:
+    if: github.event_name == 'workflow_dispatch' || (github.event_name == 'pull_request' && github.event.pull_request.draft == false)
+    name: Exact-head provider activation waist
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout exact verifier head
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          fetch-depth: 0
+          ref: ${{ env.EXPECTED_HEAD }}
+          persist-credentials: false
+
+      - name: Bind exact semantic lineage and surface
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$EXPECTED_HEAD"
+          test "$(git rev-parse HEAD^)" = "$EXPECTED_SEMANTIC_HEAD"
+          test "$(git rev-parse HEAD^^)" = "$EXPECTED_PARENT_CR2_HEAD"
+
+          mapfile -t verifier_files < <(git diff --name-only HEAD^ HEAD | sort)
+          test "${#verifier_files[@]}" -eq 1
+          test "${verifier_files[0]}" = ".github/workflows/constitutional-provider-activation-waist-qualification.yml"
+
+          mapfile -t semantic_files < <(git diff --name-only HEAD^^ HEAD^ | sort)
+          expected=(
+            "mycelix-governance/docs/CONSTITUTIONAL_PROVIDER_ACTIVATION_WAIST_V0_1.md"
+            "mycelix-governance/specs/constitutional-provider-activation-waist.v1.json"
+            "mycelix-governance/specs/constitutional-provider-activation-waist.v1.schema.json"
+            "mycelix-governance/tools/formal/validate_provider_activation_waist.py"
+          )
+          mapfile -t expected_sorted < <(printf '%s\n' "${expected[@]}" | sort)
+          test "${semantic_files[*]}" = "${expected_sorted[*]}"
+
+          if printf '%s\n' "${semantic_files[@]}" | grep -E '^mycelix-governance/(zomes|dnas|happs)/' >/dev/null; then
+            echo "CR2A unexpectedly changes runtime activation surface" >&2
+            exit 1
+          fi
+
+          rm -rf provider-activation-waist-evidence
+          mkdir -p provider-activation-waist-evidence
+          printf '%s\n' "$EXPECTED_HEAD" > provider-activation-waist-evidence/verifier-head.txt
+          printf '%s\n' "$EXPECTED_SEMANTIC_HEAD" > provider-activation-waist-evidence/semantic-head.txt
+          printf '%s\n' "$EXPECTED_PARENT_CR2_HEAD" > provider-activation-waist-evidence/parent-cr2-head.txt
+          git diff --name-status HEAD^^ HEAD^ > provider-activation-waist-evidence/semantic-diff.txt
+          sha256sum "${expected[@]}" > provider-activation-waist-evidence/preflight-sha256.txt
+
+      - name: Install Nix
+        uses: cachix/install-nix-action@ba0dd844c9180cbf77aa72a116d6fbc515d0e87b # v27
+        with:
+          extra_nix_config: |
+            experimental-features = nix-command flakes
+
+      - name: Validate closed profile and mutation sensitivity
+        shell: bash
+        run: |
+          set -euo pipefail
+          nix shell \
+            "github:NixOS/nixpkgs/${NIXPKGS_REV}#python312" \
+            "github:NixOS/nixpkgs/${NIXPKGS_REV}#check-jsonschema" \
+            "github:NixOS/nixpkgs/${NIXPKGS_REV}#git" \
+            "github:NixOS/nixpkgs/${NIXPKGS_REV}#coreutils" \
+            --command bash -euo pipefail -c '
+              python3 -m py_compile mycelix-governance/tools/formal/validate_provider_activation_waist.py
+              check-jsonschema \
+                --schemafile mycelix-governance/specs/constitutional-provider-activation-waist.v1.schema.json \
+                mycelix-governance/specs/constitutional-provider-activation-waist.v1.json \
+                | tee provider-activation-waist-evidence/schema-validation.log
+              python3 mycelix-governance/tools/formal/validate_provider_activation_waist.py \
+                --self-test \
+                --out provider-activation-waist-evidence/validator-receipt.json \
+                | tee provider-activation-waist-evidence/validator-console.log
+            '
+
+      - name: Postflight semantic immutability
+        shell: bash
+        run: |
+          set -euo pipefail
+          expected=(
+            "mycelix-governance/docs/CONSTITUTIONAL_PROVIDER_ACTIVATION_WAIST_V0_1.md"
+            "mycelix-governance/specs/constitutional-provider-activation-waist.v1.json"
+            "mycelix-governance/specs/constitutional-provider-activation-waist.v1.schema.json"
+            "mycelix-governance/tools/formal/validate_provider_activation_waist.py"
+          )
+          sha256sum "${expected[@]}" > provider-activation-waist-evidence/postflight-sha256.txt
+          diff -u provider-activation-waist-evidence/preflight-sha256.txt provider-activation-waist-evidence/postflight-sha256.txt
+          git diff --exit-code -- "${expected[@]}"
+          test "$(git rev-parse HEAD)" = "$EXPECTED_HEAD"
+          test "$(git rev-parse HEAD^)" = "$EXPECTED_SEMANTIC_HEAD"
+
+      - name: Upload qualification evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: constitutional-provider-activation-waist-${{ env.EXPECTED_HEAD }}
+          path: provider-activation-waist-evidence
+          if-no-files-found: error
+          retention-days: 30

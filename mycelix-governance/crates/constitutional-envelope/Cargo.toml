@@ -1,0 +1,10 @@
+[package]
+name = "constitutional-envelope"
+version = "0.1.0"
+edition = "2021"
+license = "AGPL-3.0-or-later"
+description = "Canonical constitutional authorization envelopes and separation-of-duty primitives for Mycelix"
+
+[dependencies]
+serde.workspace = true
+constitutional-authority.workspace = true

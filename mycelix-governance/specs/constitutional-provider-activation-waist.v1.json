@@ -1,0 +1,215 @@
+{
+  "schema": "mycelix.constitutional-provider-activation-waist.v1",
+  "profile_id": "mycelix.provider-activation-waist.c3-d1a.v1",
+  "version": "0.1.0",
+  "status": "draft",
+  "authority_class": "InertCrossLineageActivationContract",
+  "activation_allowed": false,
+  "parent_cr2": {
+    "semantic_head": "f4748da5c60686e9611ce68d60fcd24a4bfa239a",
+    "manifest_path": "mycelix-governance/specs/constitutional-refinement-crosswalk.v2.json",
+    "manifest_git_blob_sha": "2676271d2578ab58b83bec627bcd7b61454aba6a",
+    "verifier_head": "25b4942e1be20ef9ce70f55b2b1d15201ec38ca5",
+    "qualification_status": "PreparedNotHostedQualified",
+    "execution_pr": 1954,
+    "parked_run_id": 35458597274,
+    "parked_run_conclusion": "skipped"
+  },
+  "qualified_inputs": {
+    "c3": {
+      "id": "MYC-CONST-003C3",
+      "semantic_head": "b9bb91353788aeb858c4e52422a87e2401d60a0e",
+      "verifier_head": "18309d680a5d630bbb7f5443ab103ade9239a557",
+      "qualification_run_id": 35314384788,
+      "artifact_digest": "sha256:d26e566503fc1223d879d69ecdb4cf6978fc62664576ed04973067393c8feaab",
+      "model_path": "mycelix-governance/specs/ConstitutionalLifecycleQuiescence.tla",
+      "model_git_blob_sha": "8ca29563bb581cc77958653210e84d55b3aeb364"
+    },
+    "d1a": {
+      "id": "MYC-CONST-003D1A",
+      "semantic_head": "15b9c89adf0ac3c6c5a73681614d6bfcd368820a",
+      "verifier_head": "70fbe906834fdef1ba69a80066dbbbaef200156f",
+      "qualification_run_id": 35320314578,
+      "artifact_digest": "sha256:ce9d7176bd1040ef552fa587e44ae8801a13b0363c0013d5428e5f95ff60430c",
+      "model_path": "mycelix-governance/specs/ConstitutionalEffectOutbox.tla",
+      "model_git_blob_sha": "b75edcee5bfc826786148a0455c5b26a8223c38c"
+    }
+  },
+  "blocking_prerequisites": [
+    {
+      "id": "CR2Q",
+      "semantic_head": "f4748da5c60686e9611ce68d60fcd24a4bfa239a",
+      "verifier_head": "25b4942e1be20ef9ce70f55b2b1d15201ec38ca5",
+      "status": "PreparedNotHostedQualified"
+    },
+    {
+      "id": "C3ConcreteRuntimeRefinement",
+      "semantic_head": "b9bb91353788aeb858c4e52422a87e2401d60a0e",
+      "verifier_head": "18309d680a5d630bbb7f5443ab103ade9239a557",
+      "status": "NotEstablished"
+    },
+    {
+      "id": "D1AConcreteRuntimeRefinement",
+      "semantic_head": "15b9c89adf0ac3c6c5a73681614d6bfcd368820a",
+      "verifier_head": "70fbe906834fdef1ba69a80066dbbbaef200156f",
+      "status": "NotEstablished"
+    },
+    {
+      "id": "D1C-R1",
+      "semantic_head": "90ff00c371d2dd875b9bb7f23f1c5ee4b293f39c",
+      "verifier_head": "32a4ff8fac9c9479c76998691912a4febc08d7da",
+      "status": "PreparedNotHostedQualified"
+    },
+    {
+      "id": "E0-R1",
+      "semantic_head": "ac3f71e37c480a9c6f99578fe2106285fe567a5b",
+      "verifier_head": "5ffe02a3ee5712886171d0f3320f096756885e44",
+      "status": "PreparedNotHostedQualified"
+    }
+  ],
+  "identity_rules": {
+    "claim_binding_source": "QualifiedUpstreamEvidenceOnly",
+    "operation_identity_source": "QualifiedUpstreamEvidenceOnly",
+    "action_identity_source": "QualifiedUpstreamEvidenceOnly",
+    "provider_key_regeneration_allowed": false,
+    "action_id_regeneration_allowed": false,
+    "target_rebinding_allowed": false,
+    "payload_rebinding_allowed": false
+  },
+  "c3_activation_contract": {
+    "runtime_refinement_status": "NotEstablished",
+    "quiescence_classes": [
+      "HorizonReached",
+      "IntegrityHalt",
+      "ResolvedQuiescence",
+      "AwaitingExternalEvidence",
+      "ActiveResolution",
+      "ProtocolStall"
+    ],
+    "effect_dispatch": {
+      "required_state_class": "ActiveResolution",
+      "required_predicates": [
+        "EffectResolutionRequired",
+        "InternalStepEnabled"
+      ],
+      "required_internal_action": "ApplyEffect",
+      "blocked_state_classes": [
+        "HorizonReached",
+        "IntegrityHalt",
+        "ResolvedQuiescence",
+        "AwaitingExternalEvidence",
+        "ProtocolStall"
+      ],
+      "horizon_is_bounded_model_artifact": true
+    },
+    "source_assertions": {
+      "InternalStepEnabled": [
+        "ENABLED InternalResolutionStep"
+      ],
+      "EffectResolutionRequired": [
+        "PendingEffect",
+        "effectReady"
+      ],
+      "ProtocolStall": [
+        "ResolutionObligation",
+        "~InternalStepEnabled"
+      ],
+      "AwaitingExternalEvidence": [
+        "~ResolutionObligation"
+      ],
+      "ActiveResolution": [
+        "ResolutionObligation",
+        "InternalStepEnabled"
+      ],
+      "ApplyEffect": [
+        "PendingEffect",
+        "effectReady",
+        "effect' = winner"
+      ]
+    }
+  },
+  "d1a_activation_contract": {
+    "runtime_refinement_status": "NotEstablished",
+    "phases": [
+      "Absent",
+      "Prepared",
+      "EffectPending",
+      "UnknownOutcome",
+      "EffectObserved",
+      "ReceiptCommitted",
+      "Aborted",
+      "IntegrityHalted"
+    ],
+    "dispatch": {
+      "claim_work_phase": "EffectPending",
+      "start_request_phase": "EffectPending",
+      "delivery_identity_fields": [
+        "committedOp",
+        "outbox",
+        "inFlight"
+      ]
+    },
+    "unknown_outcome": {
+      "blind_retry_allowed": false,
+      "completion_allowed": false,
+      "resolution_actions": [
+        "ReconcileSuccess",
+        "ReconcileNoEffect",
+        "ObserveContradiction"
+      ],
+      "retry_reenable_action": "ReconcileNoEffect",
+      "retry_reenable_phase": "EffectPending"
+    },
+    "identity": {
+      "delivery_action": "ExternalDeliver",
+      "stable_operation_identity_required": true,
+      "logical_exactly_once_is_provider_assumption_not_physical_claim": true
+    }
+  },
+  "provider_activation_obligations": [
+    {
+      "id": "qualified-evidence-is-not-runtime-authority",
+      "required": true
+    },
+    {
+      "id": "effect-dispatch-only-on-effect-resolution",
+      "required": true
+    },
+    {
+      "id": "stall-and-halt-block-dispatch",
+      "required": true
+    },
+    {
+      "id": "external-wait-is-not-completion",
+      "required": true
+    },
+    {
+      "id": "bounded-horizon-is-not-authority",
+      "required": true
+    },
+    {
+      "id": "unknown-outcome-blocks-retry",
+      "required": true
+    },
+    {
+      "id": "reconcile-no-effect-preserves-identity",
+      "required": true
+    },
+    {
+      "id": "provider-identity-is-not-regenerated",
+      "required": true
+    }
+  ],
+  "non_claims": [
+    "not_cr2_qualified",
+    "not_c3_concrete_runtime_refinement",
+    "not_d1a_concrete_runtime_refinement",
+    "not_d1c_r1_qualified",
+    "not_e0_r1_qualified",
+    "not_provider_qualified",
+    "not_holochain_dht_admission",
+    "not_live_effect_wiring",
+    "not_physical_exactly_once",
+    "not_deployment_currentness"
+  ]
+}
