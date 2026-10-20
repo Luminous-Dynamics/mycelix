@@ -3,8 +3,8 @@
 // Commercial licensing: see COMMERCIAL_LICENSE.md at repository root
 
 use praxis_core::cyber_challenges::{
-    validate_solver_corpus, ChallengeDifficulty, CyberDomain, EvidenceFreshness,
-    EvidenceSourceKind, SolverVisibleCyberCorpus, CYBER_CHALLENGE_CORPUS_ID,
+    validate_solver_corpus, ChallengeDifficulty, CyberDomain, EvidenceConflictStatus,
+    EvidenceFreshness, EvidenceSourceKind, SolverVisibleCyberCorpus, CYBER_CHALLENGE_CORPUS_ID,
 };
 use serde::Deserialize;
 use std::collections::{BTreeMap, BTreeSet};
@@ -305,6 +305,13 @@ fn schemas_and_manifest_are_versioned_and_separate() {
     let freshness = solver.scenarios.iter().flat_map(|s| s.evidence.iter().map(|e| e.freshness)).collect::<BTreeSet<_>>();
     assert!(freshness.contains(&EvidenceFreshness::Stale));
     assert!(freshness.contains(&EvidenceFreshness::Current));
+
+    let conflict_status = solver.scenarios.iter()
+        .flat_map(|s| s.evidence.iter().map(|e| e.conflict_status))
+        .collect::<BTreeSet<_>>();
+    assert!(conflict_status.contains(&EvidenceConflictStatus::ConflictsWithOtherEvidence));
+    assert!(conflict_status.contains(&EvidenceConflictStatus::NoKnownConflict));
+    assert!(conflict_status.contains(&EvidenceConflictStatus::NotAssessed));
 
     let _source_coverage = solver.scenarios.iter()
         .flat_map(|s| s.evidence.iter().map(|e| e.source_kind))
