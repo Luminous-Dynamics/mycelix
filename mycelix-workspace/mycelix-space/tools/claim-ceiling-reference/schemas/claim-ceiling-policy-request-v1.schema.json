@@ -1,0 +1,211 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/Luminous-Dynamics/mycelix/blob/main/mycelix-workspace/mycelix-space/tools/claim-ceiling-reference/schemas/claim-ceiling-policy-request-v1.schema.json",
+  "title": "Mycelix claim-ceiling policy request v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "request_id",
+    "policy_profile",
+    "candidate_ceiling"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "mycelix.claim-ceiling-policy.request.v1"
+    },
+    "request_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 160
+    },
+    "policy_profile": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "profile_id",
+        "maximum_ceiling"
+      ],
+      "properties": {
+        "schema_version": {
+          "const": "mycelix.claim-ceiling-policy.profile.v1"
+        },
+        "profile_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200,
+          "pattern": "^[a-zA-Z0-9][a-zA-Z0-9._:-]*$"
+        },
+        "maximum_ceiling": {
+          "$ref": "#/$defs/claimCeiling"
+        }
+      }
+    },
+    "candidate_ceiling": {
+      "$ref": "#/$defs/claimCeiling"
+    }
+  },
+  "$defs": {
+    "claimAtom": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "predicate",
+        "evidence_class",
+        "derivation",
+        "intended_use"
+      ],
+      "properties": {
+        "predicate": {
+          "enum": [
+            "observation",
+            "measurement",
+            "model_estimate",
+            "simulation_result",
+            "forecast",
+            "formal_property",
+            "causal_claim",
+            "ownership_claim",
+            "authorization_claim"
+          ]
+        },
+        "evidence_class": {
+          "enum": [
+            "direct_observation",
+            "instrument_measurement",
+            "model_output",
+            "simulation_output",
+            "forecast_output",
+            "formal_proof",
+            "independent_replication",
+            "source_assertion",
+            "correlational_analysis",
+            "causal_identification"
+          ]
+        },
+        "derivation": {
+          "enum": [
+            "direct",
+            "deterministic_transform",
+            "statistical_inference",
+            "simulation",
+            "formal_verification",
+            "cross_source_synthesis"
+          ]
+        },
+        "intended_use": {
+          "enum": [
+            "research",
+            "display",
+            "planning",
+            "decision_support",
+            "operational_execution"
+          ]
+        }
+      }
+    },
+    "claimCeiling": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "claim_atoms",
+        "subject_ids",
+        "context_ids",
+        "valid_time",
+        "action_scopes",
+        "required_qualifications",
+        "required_independence_controls",
+        "required_provenance"
+      ],
+      "properties": {
+        "claim_atoms": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/claimAtom"
+          }
+        },
+        "subject_ids": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "context_ids": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "valid_time": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "start_unix_seconds",
+            "end_unix_seconds_exclusive"
+          ],
+          "properties": {
+            "start_unix_seconds": {
+              "type": "integer"
+            },
+            "end_unix_seconds_exclusive": {
+              "type": "integer"
+            }
+          }
+        },
+        "action_scopes": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "required_qualifications": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "required_independence_controls": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "enum": [
+              "distinct_record",
+              "distinct_acquisition",
+              "independent_origin",
+              "independent_measurement",
+              "independent_verifier"
+            ]
+          }
+        },
+        "required_provenance": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "enum": [
+              "source_attribution",
+              "exact_artifact_digest",
+              "trusted_time_evidence",
+              "measurement_calibration",
+              "toolchain_identity",
+              "dependency_closure",
+              "external_witness"
+            ]
+          }
+        }
+      }
+    }
+  }
+}
