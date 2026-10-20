@@ -11,10 +11,17 @@ Current production envelope policy uses PBKDF2-HMAC-SHA256 at 600,000 iterations
 Install the repository-pinned `wasm-pack` version and ensure Chrome/Chromium plus its matching driver are installed. From the repository root:
 
 ```sh
-wasm-pack test --headless --chrome crates/mycelix-leptos-core -- --lib --locked --features production-kdf-benchmark production_kdf_latency_benchmark
+wasm-pack test --headless --chrome crates/mycelix-leptos-core --lib --locked --features production-kdf-benchmark production_kdf_latency_benchmark
 ```
 
 The test uses the browser's monotonic `performance.now()` timer, performs one warm-up encrypt/decrypt pair, and then collects 20 paired samples on a synthetic 32-byte test secret and a synthetic passphrase. It emits one machine-readable `IDENTITY_KDF_BENCHMARK` line. Do not supply actual user credentials, use a real mnemonic, or add secret-derived output.
+
+The percentile/statistics helper is tested independently on native Rust without invoking WebCrypto:
+
+```sh
+cargo test --manifest-path crates/mycelix-leptos-core/Cargo.toml --locked --lib --features production-kdf-benchmark benchmark_statistics_tests
+```
+
 
 The exact-head CI workflow additionally records the Chrome/Chromium and ChromeDriver versions, runs the normal quick correctness suite independently, runs the production-factor benchmark as a separate step, and verifies that neither test command changes the generated lockfile.
 
