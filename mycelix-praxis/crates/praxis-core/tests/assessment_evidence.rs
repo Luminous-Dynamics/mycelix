@@ -3,8 +3,8 @@
 // Commercial licensing: see COMMERCIAL_LICENSE.md at repository root
 
 use praxis_core::assessment_evidence::{
-    validate_assessment_benchmark, AssessmentBenchmarkRun, AssessmentPhase, AssistanceMode,
-    ValidationIssue, ValidationSummary,
+    AssessmentBenchmarkRun, AssessmentPhase, AssistanceMode, ValidationIssue, ValidationSummary,
+    validate_assessment_benchmark,
 };
 use std::collections::BTreeSet;
 
