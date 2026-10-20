@@ -90,6 +90,64 @@ pub fn grant_consent(consent: ConsentGrant) -> ExternResult<Record> {
     )))
 }
 
+/// Revoke a grant by its original ConsentGrant creation action hash.
+/// Repeated calls are idempotent: the pre-existing revocation event is returned.
+#[hdk_extern]
+pub fn revoke_consent(grant_hash: ActionHash) -> ExternResult<Record> {
+    let owner = agent_info()?.agent_initial_pubkey;
+    let target = get(grant_hash.clone(), GetOptions::default())?
+        .ok_or(wasm_error!(WasmErrorInner::Guest(
+            "Consent grant was not found".into()
+        )))?;
+    if !matches!(target.action(), Action::Create(_)) {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Only the original ConsentGrant creation action can be revoked".into()
+        )));
+    }
+    let _consent = target
+        .entry()
+        .to_app_option::<ConsentGrant>()
+        .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
+        .ok_or(wasm_error!(WasmErrorInner::Guest(
+            "Target is not a ConsentGrant".into()
+        )))?;
+    if target.action().author() != &owner {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Only the grant owner can revoke this consent".into()
+        )));
+    }
+
+    let existing = get_my_consent_revocation_records()?;
+    if let Some((record, _)) = existing
+        .into_iter()
+        .find(|(_, event)| event.grant_hash == grant_hash)
+    {
+        return Ok(record);
+    }
+
+    let revocation_hash = create_entry(&EntryTypes::ConsentRevocation(ConsentRevocation {
+        grant_hash,
+    }))?;
+    create_link(
+        owner,
+        revocation_hash.clone(),
+        LinkTypes::AgentToConsentRevocations,
+        (),
+    )?;
+    get(revocation_hash, GetOptions::default())?.ok_or(wasm_error!(WasmErrorInner::Guest(
+        "Could not retrieve created consent revocation".into()
+    )))
+}
+
+/// Return the owner's immutable revocation-event history for audit and reconciliation.
+#[hdk_extern]
+pub fn get_my_consent_revocations(_: ()) -> ExternResult<Vec<Record>> {
+    Ok(get_my_consent_revocation_records()?
+        .into_iter()
+        .map(|(record, _)| record)
+        .collect())
+}
+
 #[hdk_extern]
 pub fn grant_consent_view(input: ConsentGrantInputView) -> ExternResult<Record> {
     let grantee = decode_agent_pubkey(&input.grantee)?;
@@ -193,9 +251,14 @@ pub fn get_my_biometrics_view(_: ()) -> ExternResult<Vec<BiometricView>> {
     Ok(views)
 }
 
-/// A grant is effective at `now` only when active and not expired.
+/// A grant is effective at `now` only when active, time-valid, and not revoked.
 /// Equality at the expiry boundary is expired (fail closed).
-fn consent_is_effective_at(consent: &ConsentGrant, now: &Timestamp) -> bool {
+fn consent_is_effective_at(
+    grant_hash: &ActionHash,
+    consent: &ConsentGrant,
+    now: &Timestamp,
+    revocations: &[ConsentRevocation],
+) -> bool {
     consent.active
         && consent.created_at.as_micros() <= now.as_micros()
         && consent
@@ -203,12 +266,55 @@ fn consent_is_effective_at(consent: &ConsentGrant, now: &Timestamp) -> bool {
             .as_ref()
             .map(|expires_at| expires_at.as_micros() > now.as_micros())
             .unwrap_or(true)
+        && !consent_is_revoked(grant_hash, revocations)
+}
+
+fn consent_is_revoked(grant_hash: &ActionHash, revocations: &[ConsentRevocation]) -> bool {
+    revocations
+        .iter()
+        .any(|revocation| &revocation.grant_hash == grant_hash)
+}
+
+/// Load revocation events linked by their authoring owner.
+/// The creation action is the immutable source of the event timestamp.
+fn get_my_consent_revocation_records() -> ExternResult<Vec<(Record, ConsentRevocation)>> {
+    let agent = agent_info()?.agent_initial_pubkey;
+    let links = get_links(
+        LinkQuery::try_new(agent.clone(), LinkTypes::AgentToConsentRevocations)?,
+        GetStrategy::Local,
+    )?;
+    let mut events = Vec::new();
+    for link in links {
+        let target = ActionHash::try_from(link.target.clone()).map_err(|e| {
+            wasm_error!(WasmErrorInner::Guest(format!(
+                "Invalid revocation link target: {:?}",
+                e
+            )))
+        })?;
+        if let Some(record) = get(target, GetOptions::default())? {
+            if record.action().author() != &agent {
+                continue;
+            }
+            if let Some(event) = record
+                .entry()
+                .to_app_option::<ConsentRevocation>()
+                .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
+            {
+                events.push((record, event));
+            }
+        }
+    }
+    Ok(events)
 }
 
 /// Fetch the current-effective grants using one evaluation timestamp.
 /// This is a source-local listing projection, not a grantee read-authorization gate.
 fn get_my_consents_at(now: &Timestamp) -> ExternResult<Vec<Record>> {
     let agent = agent_info()?.agent_initial_pubkey;
+    let revocations: Vec<ConsentRevocation> = get_my_consent_revocation_records()?
+        .into_iter()
+        .map(|(_, event)| event)
+        .collect();
     let links = get_links(
         LinkQuery::try_new(agent, LinkTypes::AgentToConsents)?,
         GetStrategy::Local,
@@ -221,13 +327,17 @@ fn get_my_consents_at(now: &Timestamp) -> ExternResult<Vec<Record>> {
                 e
             )))
         })?;
-        if let Some(record) = get(target, GetOptions::default())? {
+        if let Some(record) = get(target.clone(), GetOptions::default())? {
+            // Ignore foreign grants even if an older validator accepted a forged owner link.
+            if record.action().author() != &agent {
+                continue;
+            }
             let consent = record
                 .entry()
                 .to_app_option::<ConsentGrant>()
                 .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?;
             if let Some(consent) = consent {
-                if consent_is_effective_at(&consent, &now) {
+                if consent_is_effective_at(&target, &consent, now, &revocations) {
                     records.push(record);
                 }
             }
@@ -260,7 +370,7 @@ pub fn get_my_consents_view(_: ()) -> ExternResult<Vec<ConsentGrantView>> {
                 grantee: entry.grantee.to_string(),
                 record_types: entry.record_types,
                 expires_at: entry.expires_at.map(|ts| ts.as_micros()),
-                active: consent_is_effective_at(&entry, &now),
+                active: true,
                 created_at: entry.created_at.as_micros(),
             });
         }
@@ -277,11 +387,13 @@ mod tests {
         let _record = UnitEntryTypes::HealthRecord;
         let _bio = UnitEntryTypes::Biometric;
         let _consent = UnitEntryTypes::ConsentGrant;
+        let _revocation = UnitEntryTypes::ConsentRevocation;
     }
 
     #[test]
     fn consent_effectiveness_fails_closed_at_expiry_boundary() {
         let now = Timestamp::from_micros(100);
+        let hash = ActionHash::from_raw_39(vec![7u8; 39]).unwrap();
         let mut consent = ConsentGrant {
             grantee: AgentPubKey::from_raw_36(vec![0u8; 36]),
             record_types: vec!["allergy".into()],
@@ -289,25 +401,26 @@ mod tests {
             active: true,
             created_at: Timestamp::from_micros(0),
         };
+        let no_revocations: Vec<ConsentRevocation> = Vec::new();
 
-        assert!(consent_is_effective_at(&consent, &now));
+        assert!(consent_is_effective_at(&hash, &consent, &now, &no_revocations));
 
         consent.expires_at = Some(Timestamp::from_micros(100));
-        assert!(!consent_is_effective_at(&consent, &now));
+        assert!(!consent_is_effective_at(&hash, &consent, &now, &no_revocations));
 
-        // A future-dated grant is not effective before its stated start.
         consent.expires_at = Some(Timestamp::from_micros(101));
         consent.created_at = Timestamp::from_micros(101);
-        assert!(!consent_is_effective_at(&consent, &now));
+        assert!(!consent_is_effective_at(&hash, &consent, &now, &no_revocations));
         consent.created_at = Timestamp::from_micros(0);
 
         consent.expires_at = Some(Timestamp::from_micros(99));
-        assert!(!consent_is_effective_at(&consent, &now));
+        assert!(!consent_is_effective_at(&hash, &consent, &now, &no_revocations));
     }
 
     #[test]
     fn inactive_consent_is_never_effective_and_none_expiry_is_indefinite() {
         let now = Timestamp::from_micros(100);
+        let hash = ActionHash::from_raw_39(vec![8u8; 39]).unwrap();
         let mut consent = ConsentGrant {
             grantee: AgentPubKey::from_raw_36(vec![0u8; 36]),
             record_types: vec!["medication".into()],
@@ -315,10 +428,27 @@ mod tests {
             active: true,
             created_at: Timestamp::from_micros(0),
         };
+        let no_revocations: Vec<ConsentRevocation> = Vec::new();
 
-        assert!(consent_is_effective_at(&consent, &now));
+        assert!(consent_is_effective_at(&hash, &consent, &now, &no_revocations));
         consent.active = false;
-        assert!(!consent_is_effective_at(&consent, &now));
+        assert!(!consent_is_effective_at(&hash, &consent, &now, &no_revocations));
+    }
+
+    #[test]
+    fn duplicate_revocations_never_reactivate_a_grant() {
+        let target = ActionHash::from_raw_39(vec![9u8; 39]).unwrap();
+        let unrelated = ActionHash::from_raw_39(vec![10u8; 39]).unwrap();
+        let revocations = vec![
+            ConsentRevocation { grant_hash: target.clone() },
+            ConsentRevocation { grant_hash: target.clone() },
+            ConsentRevocation { grant_hash: unrelated },
+        ];
+        assert!(consent_is_revoked(&target, &revocations));
+        assert!(!consent_is_revoked(
+            &ActionHash::from_raw_39(vec![11u8; 39]).unwrap(),
+            &revocations
+        ));
     }
 
     #[test]
@@ -327,5 +457,6 @@ mod tests {
         let _bio = LinkTypes::AgentToBiometrics;
         let _consents = LinkTypes::AgentToConsents;
         let _type_to_record = LinkTypes::RecordTypeToRecord;
+        let _revocations = LinkTypes::AgentToConsentRevocations;
     }
 }

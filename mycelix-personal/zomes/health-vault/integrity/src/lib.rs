@@ -55,12 +55,22 @@ pub struct ConsentGrant {
     pub created_at: Timestamp,
 }
 
+/// Append-only event revoking one specific consent grant.
+/// The signed creation action timestamp is the authoritative revocation time.
+#[hdk_entry_helper]
+#[derive(Clone, PartialEq)]
+pub struct ConsentRevocation {
+    /// Hash of the original ConsentGrant Create action, never an update action.
+    pub grant_hash: ActionHash,
+}
+
 #[hdk_entry_types]
 #[unit_enum(UnitEntryTypes)]
 pub enum EntryTypes {
     HealthRecord(HealthRecord),
     Biometric(Biometric),
     ConsentGrant(ConsentGrant),
+    ConsentRevocation(ConsentRevocation),
 }
 
 #[hdk_link_types]
@@ -69,6 +79,8 @@ pub enum LinkTypes {
     AgentToBiometrics,
     AgentToConsents,
     RecordTypeToRecord,
+    /// Owner -> immutable consent-revocation events.
+    AgentToConsentRevocations,
 }
 
 #[hdk_extern]
@@ -81,18 +93,101 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
     match op.flattened::<EntryTypes, LinkTypes>()? {
         FlatOp::StoreEntry(OpEntry::CreateEntry {
             app_entry,
-            action: _,
+            action,
         }) => match app_entry {
             EntryTypes::HealthRecord(record) => validate_health_record(&record),
             EntryTypes::Biometric(biometric) => validate_biometric(&biometric),
             EntryTypes::ConsentGrant(consent) => validate_consent(&consent),
+            EntryTypes::ConsentRevocation(revocation) => {
+                validate_consent_revocation(&revocation, &action)
+            }
         },
         FlatOp::StoreEntry(OpEntry::UpdateEntry { app_entry, .. }) => match app_entry {
             EntryTypes::HealthRecord(record) => validate_health_record(&record),
             EntryTypes::Biometric(biometric) => validate_biometric(&biometric),
             EntryTypes::ConsentGrant(consent) => validate_consent(&consent),
+            EntryTypes::ConsentRevocation(_) => Ok(ValidateCallbackResult::Invalid(
+                "Consent revocation events are immutable".into(),
+            )),
         },
         FlatOp::StoreEntry(_) => Ok(ValidateCallbackResult::Valid),
+        FlatOp::RegisterUpdate(update) => {
+            let action = match &update {
+                OpUpdate::Entry { action, .. }
+                | OpUpdate::PrivateEntry { action, .. }
+                | OpUpdate::Agent { action, .. }
+                | OpUpdate::CapClaim { action, .. }
+                | OpUpdate::CapGrant { action, .. } => action,
+            };
+            let original = must_get_valid_record(action.original_action_address.clone())?;
+            if original
+                .entry()
+                .to_app_option::<ConsentRevocation>()
+                .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
+                .is_some()
+            {
+                return Ok(ValidateCallbackResult::Invalid(
+                    "Consent revocation events are immutable".into(),
+                ));
+            }
+            if !action_authors_match(original.action().author(), &action.author) {
+                return Ok(ValidateCallbackResult::Invalid(
+                    "Only the original entry author can update health-vault entries".into(),
+                ));
+            }
+            Ok(ValidateCallbackResult::Valid)
+        }
+        FlatOp::RegisterCreateLink {
+            link_type,
+            base,
+            action,
+            ..
+        } => match link_type {
+            LinkTypes::AgentToConsents | LinkTypes::AgentToConsentRevocations => {
+                if !consent_history_base_matches_author(&base, &action.author) {
+                    return Ok(ValidateCallbackResult::Invalid(
+                        "Consent history links must be authored on the owner's agent base".into(),
+                    ));
+                }
+                Ok(ValidateCallbackResult::Valid)
+            }
+            _ => Ok(ValidateCallbackResult::Valid),
+        },
+        FlatOp::RegisterDelete(OpDelete { action }) => {
+            let original = must_get_valid_record(action.deletes_address.clone())?;
+            if original
+                .entry()
+                .to_app_option::<ConsentRevocation>()
+                .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
+                .is_some()
+            {
+                return Ok(ValidateCallbackResult::Invalid(
+                    "Consent revocation events cannot be deleted".into(),
+                ));
+            }
+            Ok(ValidateCallbackResult::Valid)
+        }
+        FlatOp::RegisterDeleteLink {
+            link_type,
+            original_action,
+            action,
+            ..
+        } => {
+            if matches!(
+                link_type,
+                LinkTypes::AgentToConsents | LinkTypes::AgentToConsentRevocations
+            ) {
+                return Ok(ValidateCallbackResult::Invalid(
+                    "Consent history links cannot be deleted; use an explicit revocation event".into(),
+                ));
+            }
+            if action.author != original_action.author {
+                return Ok(ValidateCallbackResult::Invalid(
+                    "Only the link creator can delete their links".into(),
+                ));
+            }
+            Ok(ValidateCallbackResult::Valid)
+        }
         _ => Ok(ValidateCallbackResult::Valid),
     }
 }
@@ -186,6 +281,42 @@ fn validate_consent(consent: &ConsentGrant) -> ExternResult<ValidateCallbackResu
                 "ConsentGrant expires_at must be later than created_at".into(),
             ));
         }
+    }
+    Ok(ValidateCallbackResult::Valid)
+}
+
+fn action_authors_match(original_author: &AgentPubKey, new_author: &AgentPubKey) -> bool {
+    original_author == new_author
+}
+
+fn consent_history_base_matches_author(base: &AnyLinkableHash, author: &AgentPubKey) -> bool {
+    base == &AnyLinkableHash::from(author.clone())
+}
+
+fn validate_consent_revocation(
+    revocation: &ConsentRevocation,
+    action: &Create,
+) -> ExternResult<ValidateCallbackResult> {
+    let original = must_get_valid_record(revocation.grant_hash.clone())?;
+    if !matches!(original.action(), Action::Create(_)) {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Consent revocation must reference the original grant creation action".into(),
+        ));
+    }
+
+    let consent = original
+        .entry()
+        .to_app_option::<ConsentGrant>()
+        .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?;
+    if consent.is_none() {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Consent revocation target must be a ConsentGrant entry".into(),
+        ));
+    }
+    if !action_authors_match(original.action().author(), &action.author) {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Only the consent grant owner can revoke the grant".into(),
+        ));
     }
     Ok(ValidateCallbackResult::Valid)
 }
@@ -375,6 +506,23 @@ mod tests {
         ));
     }
 
+    #[test]
+    fn author_binding_accepts_original_owner_only() {
+        let owner = AgentPubKey::from_raw_36(vec![1u8; 36]);
+        let other = AgentPubKey::from_raw_36(vec![2u8; 36]);
+        assert!(action_authors_match(&owner, &owner));
+        assert!(!action_authors_match(&owner, &other));
+    }
+
+    #[test]
+    fn consent_history_links_are_bound_to_the_agent_base() {
+        let owner = AgentPubKey::from_raw_36(vec![1u8; 36]);
+        let other = AgentPubKey::from_raw_36(vec![2u8; 36]);
+        let owner_base: AnyLinkableHash = owner.clone().into();
+        assert!(consent_history_base_matches_author(&owner_base, &owner));
+        assert!(!consent_history_base_matches_author(&owner_base, &other));
+    }
+
     // ── Serde roundtrips ────────────────────────────────────────────
 
     #[test]
@@ -399,5 +547,15 @@ mod tests {
         let json = serde_json::to_string(&c).unwrap();
         let back: ConsentGrant = serde_json::from_str(&json).unwrap();
         assert_eq!(back, c);
+    }
+
+    #[test]
+    fn consent_revocation_serde_roundtrip() {
+        let event = ConsentRevocation {
+            grant_hash: ActionHash::from_raw_39(vec![0u8; 39]).unwrap(),
+        };
+        let json = serde_json::to_string(&event).unwrap();
+        let back: ConsentRevocation = serde_json::from_str(&json).unwrap();
+        assert_eq!(back, event);
     }
 }
