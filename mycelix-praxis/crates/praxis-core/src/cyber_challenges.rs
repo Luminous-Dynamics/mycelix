@@ -60,6 +60,9 @@ pub enum ChallengeDifficulty {
 pub struct EvidenceObservation {
     pub evidence_id: String,
     pub source_kind: EvidenceSourceKind,
+    /// Stable ID of the synthetic source snapshot supporting this observation.
+    pub source_snapshot_id: String,
+    pub source_snapshot_version: String,
     pub freshness: EvidenceFreshness,
     pub conflict_status: EvidenceConflictStatus,
     /// Minutes relative to the scenario reference time; negative means older.
@@ -259,6 +262,18 @@ pub fn validate_solver_corpus(
                 &format!("{path}.observation"),
                 &evidence.observation,
                 "observation",
+            );
+            required_text(
+                &mut issues,
+                &format!("{path}.source_snapshot_id"),
+                &evidence.source_snapshot_id,
+                "source snapshot ID",
+            );
+            required_text(
+                &mut issues,
+                &format!("{path}.source_snapshot_version"),
+                &evidence.source_snapshot_version,
+                "source snapshot version",
             );
         }
 
