@@ -1,0 +1,70 @@
+name: CivOS benchmark corpus qualification
+
+on:
+  pull_request:
+    paths:
+      - "docs/research/civos-multi-agent-scenarios-v0.json"
+      - "docs/research/civos-multi-agent-scenarios-v0.schema.json"
+      - "docs/research/CIVOS_MULTI_AGENT_QUALIFICATION_V0.md"
+      - "tools/civos-benchmark-validator/**"
+      - ".github/workflows/civos-benchmark-qualify.yml"
+  push:
+    branches: [main]
+    paths:
+      - "docs/research/civos-multi-agent-scenarios-v0.json"
+      - "docs/research/civos-multi-agent-scenarios-v0.schema.json"
+      - "docs/research/CIVOS_MULTI_AGENT_QUALIFICATION_V0.md"
+      - "tools/civos-benchmark-validator/**"
+      - ".github/workflows/civos-benchmark-qualify.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: civos-benchmark-qualify-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  validate-corpus:
+    name: Exact-head schema, semantics and receipt qualification
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Assert exact source head
+        env:
+          EXPECTED_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        shell: bash
+        run: |
+          actual="$(git rev-parse HEAD)"
+          if [[ "$actual" != "$EXPECTED_SHA" ]]; then
+            echo "Expected source head $EXPECTED_SHA, checked out $actual" >&2
+            exit 1
+          fi
+      - name: Generate and fingerprint validator lockfile
+        run: |
+          cargo generate-lockfile --manifest-path tools/civos-benchmark-validator/Cargo.toml
+          sha256sum tools/civos-benchmark-validator/Cargo.lock
+      - name: Check Rust formatting
+        run: cargo fmt --manifest-path tools/civos-benchmark-validator/Cargo.toml -- --check
+      - name: Test schema and semantic negative controls
+        run: cargo test --manifest-path tools/civos-benchmark-validator/Cargo.toml --locked
+      - name: Run strict Clippy
+        run: cargo clippy --manifest-path tools/civos-benchmark-validator/Cargo.toml --locked --all-targets -- -D warnings
+      - name: Validate frozen synthetic corpus and emit receipt
+        shell: bash
+        run: |
+          receipt="$RUNNER_TEMP/civos-corpus-validation-receipt.json"
+          cargo run --manifest-path tools/civos-benchmark-validator/Cargo.toml --locked -- \
+            docs/research/civos-multi-agent-scenarios-v0.json \
+            docs/research/civos-multi-agent-scenarios-v0.schema.json \
+            --receipt "$receipt"
+          test -s "$receipt"
+          cat "$receipt"
+          sha256sum \
+            docs/research/civos-multi-agent-scenarios-v0.json \
+            docs/research/civos-multi-agent-scenarios-v0.schema.json
