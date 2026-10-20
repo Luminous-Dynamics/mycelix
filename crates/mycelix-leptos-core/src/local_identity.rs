@@ -270,7 +270,7 @@ pub fn allowed_identity_bootstrap_actions(
         LocalIdentityStoragePosture::ProtectedLocked => &[Action::UnlockProtectedIdentity],
         LocalIdentityStoragePosture::ProtectedUnlockedInSession => {
             &[Action::ExportRecoveryPhrase, Action::RotatePassphrase]
-        },
+        }
         LocalIdentityStoragePosture::LegacyIdentityNeedsMigration
         | LocalIdentityStoragePosture::StorageUnavailable
         | LocalIdentityStoragePosture::CorruptOrInconsistent => &[],
