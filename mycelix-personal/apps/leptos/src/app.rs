@@ -711,7 +711,7 @@ fn HealthPage() -> impl IntoView {
                             />
                         </label>
                         <div class="form-actions">
-                            <button class="btn btn-primary" type="submit">"Create consent + assigned access"</button>
+                            <button class="btn btn-primary" type="submit">"Create 30-day consent + assigned access"</button>
                         </div>
                     </form>
                     <label class="field-block">
