@@ -4,8 +4,8 @@
 
 use praxis_core::decision_submission::{
     AbstentionReason, DECISION_SUBMISSION_BENCHMARK_ID, DECISION_SUBMISSION_SCHEMA_VERSION,
-    DecisionContext, DecisionOutcome, DecisionRationale, DecisionSubmission,
-    EvidenceRequestReason, MissingEvidenceKind, validate_decision_submission,
+    DecisionContext, DecisionOutcome, DecisionRationale, DecisionSubmission, EvidenceRequestReason,
+    MissingEvidenceKind, validate_decision_submission,
 };
 
 fn fixture_context() -> (String, Vec<String>, Vec<String>, Vec<String>) {
@@ -91,8 +91,10 @@ fn claim_requires_support_and_cannot_substitute_a_request_id_for_evidence() {
             missing_evidence: vec![],
         },
     };
-    assert!(issue_codes(validate(&submission(request_as_evidence)))
-        .contains(&"unknown_evidence_id".into()));
+    assert!(
+        issue_codes(validate(&submission(request_as_evidence)))
+            .contains(&"unknown_evidence_id".into())
+    );
 }
 
 #[test]
@@ -101,9 +103,7 @@ fn claims_reject_unknown_hypotheses_and_unavailable_evidence_ids() {
     if let DecisionOutcome::Claim { hypothesis_id, .. } = &mut value.outcome {
         *hypothesis_id = "evaluator-only-answer".into();
     }
-    assert!(
-        issue_codes(validate(&value)).contains(&"unknown_hypothesis_id".into())
-    );
+    assert!(issue_codes(validate(&value)).contains(&"unknown_hypothesis_id".into()));
 
     let unsupported_reference = DecisionOutcome::Claim {
         hypothesis_id: "h1".into(),
@@ -115,8 +115,10 @@ fn claims_reject_unknown_hypotheses_and_unavailable_evidence_ids() {
             missing_evidence: vec![],
         },
     };
-    assert!(issue_codes(validate(&submission(unsupported_reference)))
-        .contains(&"unknown_evidence_id".into()));
+    assert!(
+        issue_codes(validate(&submission(unsupported_reference)))
+            .contains(&"unknown_evidence_id".into())
+    );
 }
 
 #[test]
@@ -131,8 +133,9 @@ fn claim_rejects_duplicate_citations_and_uncited_contradiction() {
             missing_evidence: vec![],
         },
     };
-    assert!(issue_codes(validate(&submission(duplicate)))
-        .contains(&"duplicate_evidence_id".into()));
+    assert!(
+        issue_codes(validate(&submission(duplicate))).contains(&"duplicate_evidence_id".into())
+    );
 
     let uncited_contradiction = DecisionOutcome::Claim {
         hypothesis_id: "h1".into(),
@@ -144,8 +147,10 @@ fn claim_rejects_duplicate_citations_and_uncited_contradiction() {
             missing_evidence: vec![],
         },
     };
-    assert!(issue_codes(validate(&submission(uncited_contradiction)))
-        .contains(&"contradictory_evidence_not_cited".into()));
+    assert!(
+        issue_codes(validate(&submission(uncited_contradiction)))
+            .contains(&"contradictory_evidence_not_cited".into())
+    );
 }
 
 #[test]
@@ -181,8 +186,9 @@ fn structured_abstention_is_valid_but_unjustified_blanket_abstention_is_not() {
         cited_evidence_ids: vec![],
         missing_evidence: vec![],
     };
-    assert!(issue_codes(validate(&submission(blanket)))
-        .contains(&"missing_decision_rationale".into()));
+    assert!(
+        issue_codes(validate(&submission(blanket))).contains(&"missing_decision_rationale".into())
+    );
 }
 
 #[test]
@@ -227,9 +233,7 @@ fn request_more_evidence_rejects_empty_and_duplicate_request_lists() {
         request_ids: vec!["req-1".into(), "req-1".into()],
         reason: EvidenceRequestReason::VerifyFreshness,
     };
-    assert!(
-        issue_codes(validate(&submission(duplicate))).contains(&"duplicate_request_id".into())
-    );
+    assert!(issue_codes(validate(&submission(duplicate))).contains(&"duplicate_request_id".into()));
 }
 
 #[test]

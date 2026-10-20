@@ -260,11 +260,7 @@ pub fn validate_decision_submission(
                 context.available_evidence_ids,
                 false,
             );
-            validate_missing_evidence(
-                &mut issues,
-                "$.outcome.missing_evidence",
-                missing_evidence,
-            );
+            validate_missing_evidence(&mut issues, "$.outcome.missing_evidence", missing_evidence);
             if cited_evidence_ids.is_empty() && missing_evidence.is_empty() {
                 issue(
                     &mut issues,
@@ -360,7 +356,10 @@ fn validate_evidence_ids(
                 "evidence IDs must be unique within each reference list",
             );
         }
-        if !available_ids.iter().any(|available| available == evidence_id) {
+        if !available_ids
+            .iter()
+            .any(|available| available == evidence_id)
+        {
             issue(
                 issues,
                 "unknown_evidence_id",
