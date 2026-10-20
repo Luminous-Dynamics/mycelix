@@ -77,12 +77,94 @@ impl ScenarioClass {
     }
 }
 
+#[derive(Debug, Clone, Deserialize, Serialize)]
+#[serde(deny_unknown_fields)]
+struct CoverageManifest {
+    contract_id: String,
+    version: String,
+    status: String,
+    source_corpus: CoverageSourceCorpus,
+    coverage_policy: CoveragePolicy,
+    mappings: Vec<ScenarioMapping>,
+}
+
+#[derive(Debug, Clone, Deserialize, Serialize)]
+#[serde(deny_unknown_fields)]
+struct CoverageSourceCorpus {
+    contract_id: String,
+    version: String,
+    sha256: String,
+}
+
+#[derive(Debug, Clone, Deserialize, Serialize)]
+#[serde(deny_unknown_fields)]
+struct CoveragePolicy {
+    unmapped_is_pass: bool,
+    qualified_claims_enabled: bool,
+    global_score: String,
+    evidence_rule: String,
+}
+
+#[derive(Debug, Clone, Copy, Deserialize, Serialize, PartialEq, Eq, PartialOrd, Ord)]
+#[serde(rename_all = "snake_case")]
+enum ExecutionProfile {
+    Unit,
+    MultiAgent,
+    Browser,
+    FaultInjection,
+    CrossVersion,
+    ProtocolInterop,
+    RuntimePerformance,
+}
+
+#[derive(Debug, Clone, Copy, Deserialize, Serialize, PartialEq, Eq, PartialOrd, Ord)]
+#[serde(rename_all = "snake_case")]
+enum MappingStatus {
+    Unmapped,
+    CandidatePartial,
+    ImplementedUnqualified,
+}
+
+impl MappingStatus {
+    fn as_str(self) -> &'static str {
+        match self {
+            Self::Unmapped => "unmapped",
+            Self::CandidatePartial => "candidate_partial",
+            Self::ImplementedUnqualified => "implemented_unqualified",
+        }
+    }
+}
+
+#[derive(Debug, Clone, Deserialize, Serialize)]
+#[serde(deny_unknown_fields)]
+struct ScenarioMapping {
+    scenario_id: String,
+    primary_owner: String,
+    execution_profile: ExecutionProfile,
+    mapping_status: MappingStatus,
+    test_references: Vec<TestReference>,
+    known_gaps: Vec<String>,
+}
+
+#[derive(Debug, Clone, Deserialize, Serialize)]
+#[serde(deny_unknown_fields)]
+struct TestReference {
+    path: String,
+    symbol: String,
+    source_commit: String,
+    purpose: String,
+}
+
 #[derive(Debug, Serialize)]
 struct QualificationReceipt {
     receipt_contract: &'static str,
     receipt_version: &'static str,
     corpus_sha256: String,
     schema_sha256: String,
+    coverage_sha256: Option<String>,
+    coverage_schema_sha256: Option<String>,
+    coverage_validation: &'static str,
+    coverage_mapping_status_counts: BTreeMap<String, usize>,
     validator_source_sha256: String,
     validator_manifest_sha256: String,
     dependency_lock_sha256: String,
@@ -98,6 +180,7 @@ struct QualificationReceipt {
     scenario_execution: &'static str,
     benchmark_result: Option<String>,
     claim_boundary: &'static str,
+    coverage_claim_boundary: &'static str,
 }
 
 fn main() -> ExitCode {
@@ -116,6 +199,8 @@ fn run() -> Result<(), String> {
     let schema_path = PathBuf::from(args.next().ok_or_else(usage)?);
     let mut receipt_path: Option<PathBuf> = None;
     let mut expected_corpus_sha256: Option<String> = None;
+    let mut coverage_path: Option<PathBuf> = None;
+    let mut coverage_schema_path: Option<PathBuf> = None;
 
     while let Some(argument) = args.next() {
         match argument.as_str() {
@@ -130,8 +215,23 @@ fn run() -> Result<(), String> {
                     "--expected-corpus-sha256 requires a 64-character digest".to_string(),
                 )?);
             }
+            "--coverage" => {
+                coverage_path = Some(PathBuf::from(
+                    args.next().ok_or("--coverage requires a file path".to_string())?,
+                ));
+            }
+            "--coverage-schema" => {
+                coverage_schema_path = Some(PathBuf::from(
+                    args.next()
+                        .ok_or("--coverage-schema requires a file path".to_string())?,
+                ));
+            }
             other => return Err(format!("unknown argument {other:?}\n{}", usage())),
         }
+    }
+
+    if coverage_path.is_some() != coverage_schema_path.is_some() {
+        return Err("--coverage and --coverage-schema must be provided together".into());
     }
 
     let corpus_bytes = fs::read(&corpus_path)
@@ -178,6 +278,51 @@ fn run() -> Result<(), String> {
         .map_err(|error| format!("typed corpus decoding failed: {error}"))?;
     validate_semantics(&corpus)?;
 
+    let mut coverage_sha256: Option<String> = None;
+    let mut coverage_schema_sha256: Option<String> = None;
+    let mut coverage_validation = "NOT_PROVIDED";
+    let mut coverage_mapping_status_counts = BTreeMap::new();
+    if let (Some(path), Some(schema_path)) = (coverage_path.as_ref(), coverage_schema_path.as_ref()) {
+        let coverage_bytes = fs::read(path)
+            .map_err(|error| format!("cannot read coverage manifest {}: {error}", path.display()))?;
+        let coverage_schema_bytes = fs::read(schema_path).map_err(|error| {
+            format!("cannot read coverage schema {}: {error}", schema_path.display())
+        })?;
+        let coverage_digest = sha256_hex(&coverage_bytes);
+        let coverage_schema_digest = sha256_hex(&coverage_schema_bytes);
+        let coverage_value: Value = serde_json::from_slice(&coverage_bytes)
+            .map_err(|error| format!("coverage manifest JSON is invalid: {error}"))?;
+        let coverage_schema_value: Value = serde_json::from_slice(&coverage_schema_bytes)
+            .map_err(|error| format!("coverage schema JSON is invalid: {error}"))?;
+
+        jsonschema::meta::validate(&coverage_schema_value)
+            .map_err(|error| format!("coverage JSON Schema is invalid under its meta-schema: {error}"))?;
+        let coverage_validator = jsonschema::validator_for(&coverage_schema_value)
+            .map_err(|error| format!("cannot compile coverage JSON Schema validator: {error}"))?;
+        let coverage_schema_errors: Vec<String> = coverage_validator
+            .iter_errors(&coverage_value)
+            .map(|error| format!("{}: {error}", error.instance_path()))
+            .collect();
+        if !coverage_schema_errors.is_empty() {
+            return Err(format!(
+                "coverage manifest does not conform to the JSON Schema:\\n{}",
+                coverage_schema_errors.join("\\n")
+            ));
+        }
+
+        let coverage: CoverageManifest = serde_json::from_value(coverage_value)
+            .map_err(|error| format!("typed coverage manifest decoding failed: {error}"))?;
+        validate_coverage_semantics(&coverage, &corpus, &corpus_sha256)?;
+        for mapping in &coverage.mappings {
+            *coverage_mapping_status_counts
+                .entry(mapping.mapping_status.as_str().to_string())
+                .or_insert(0) += 1;
+        }
+        coverage_sha256 = Some(coverage_digest);
+        coverage_schema_sha256 = Some(coverage_schema_digest);
+        coverage_validation = "PASS";
+    }
+
     let mut scenario_class_counts = BTreeMap::new();
     let mut target_counts = BTreeMap::new();
     let scenario_ids: Vec<String> = corpus
@@ -203,6 +348,10 @@ fn run() -> Result<(), String> {
         receipt_version: "0.1.0",
         corpus_sha256,
         schema_sha256,
+        coverage_sha256,
+        coverage_schema_sha256,
+        coverage_validation,
+        coverage_mapping_status_counts,
         validator_source_sha256,
         validator_manifest_sha256,
         dependency_lock_sha256,
@@ -218,6 +367,7 @@ fn run() -> Result<(), String> {
         scenario_execution: "NOT_EXECUTED",
         benchmark_result: None,
         claim_boundary: "This receipt validates corpus structure and policy only. It does not execute scenarios or assert that any implementation passes them.",
+        coverage_claim_boundary: "Coverage mappings identify source-linked test candidates only. They are not execution evidence; no scenario is qualified by this receipt.",
     };
 
     let receipt_json = serde_json::to_string_pretty(&receipt)
@@ -231,7 +381,7 @@ fn run() -> Result<(), String> {
 }
 
 fn usage() -> String {
-    "usage: civos-benchmark-validator <corpus.json> <schema.json> [--receipt <receipt.json>] [--expected-corpus-sha256 <sha256>]".into()
+    "usage: civos-benchmark-validator <corpus.json> <schema.json> [--receipt <receipt.json>] [--expected-corpus-sha256 <sha256>] [--coverage <coverage.json> --coverage-schema <coverage.schema.json>]".into()
 }
 
 fn validate_semantics(corpus: &Corpus) -> Result<(), String> {
@@ -365,6 +515,107 @@ fn validate_semantics(corpus: &Corpus) -> Result<(), String> {
     Ok(())
 }
 
+fn validate_coverage_semantics(
+    coverage: &CoverageManifest,
+    corpus: &Corpus,
+    actual_corpus_sha256: &str,
+) -> Result<(), String> {
+    if coverage.contract_id != "CIVOS-MACQ-COVERAGE-001" {
+        return Err(format!("unexpected coverage contract_id {:?}", coverage.contract_id));
+    }
+    if coverage.version != "0.1.0" {
+        return Err("coverage manifest version must be bumped deliberately before editing the frozen map".into());
+    }
+    if coverage.status != "planning-only" {
+        return Err("coverage manifest status must remain planning-only; a mapping is not a qualification receipt".into());
+    }
+    if coverage.source_corpus.contract_id != corpus.contract_id
+        || coverage.source_corpus.version != corpus.version
+    {
+        return Err("coverage manifest refers to a different source corpus contract/version".into());
+    }
+    if coverage.source_corpus.sha256 != actual_corpus_sha256 {
+        return Err(format!(
+            "coverage source-corpus digest mismatch: manifest {}, actual {}",
+            coverage.source_corpus.sha256, actual_corpus_sha256
+        ));
+    }
+    if coverage.coverage_policy.unmapped_is_pass {
+        return Err("unmapped scenarios must never count as pass".into());
+    }
+    if coverage.coverage_policy.qualified_claims_enabled {
+        return Err("coverage mapping v0 cannot emit qualified claims".into());
+    }
+    if !coverage.coverage_policy.global_score.to_ascii_lowercase().contains("none") {
+        return Err("coverage policy must not collapse scenarios into a global score".into());
+    }
+    if coverage.coverage_policy.evidence_rule.trim().is_empty() {
+        return Err("coverage policy must explain the evidence boundary".into());
+    }
+    if coverage.mappings.len() != corpus.scenarios.len() {
+        return Err(format!(
+            "coverage must map every corpus scenario exactly once: expected {}, found {}",
+            corpus.scenarios.len(),
+            coverage.mappings.len()
+        ));
+    }
+
+    let mut seen_ids = BTreeSet::new();
+    for (scenario, mapping) in corpus.scenarios.iter().zip(&coverage.mappings) {
+        if mapping.scenario_id != scenario.id {
+            return Err(format!(
+                "coverage mapping order/identity mismatch: expected {}, found {}",
+                scenario.id, mapping.scenario_id
+            ));
+        }
+        if !seen_ids.insert(mapping.scenario_id.as_str()) {
+            return Err(format!("duplicate coverage mapping {:?}", mapping.scenario_id));
+        }
+        if mapping.primary_owner.trim().is_empty() {
+            return Err(format!("{} has an empty primary owner", mapping.scenario_id));
+        }
+        if mapping.known_gaps.is_empty() || mapping.known_gaps.iter().any(|gap| gap.trim().is_empty()) {
+            return Err(format!("{} must list concrete known gaps", mapping.scenario_id));
+        }
+        let mut ref_keys = BTreeSet::new();
+        for reference in &mapping.test_references {
+            if reference.path.trim().is_empty()
+                || reference.path.starts_with('/')
+                || reference.path.split('/').any(|part| part == "..")
+                || reference.symbol.trim().is_empty()
+                || reference.purpose.trim().is_empty()
+                || !is_lower_hex_commit(&reference.source_commit)
+            {
+                return Err(format!(
+                    "{} has an invalid source-linked test reference",
+                    mapping.scenario_id
+                ));
+            }
+            if !ref_keys.insert((reference.path.as_str(), reference.symbol.as_str(), reference.source_commit.as_str())) {
+                return Err(format!("{} has a duplicate test reference", mapping.scenario_id));
+            }
+        }
+        match mapping.mapping_status {
+            MappingStatus::Unmapped if !mapping.test_references.is_empty() => {
+                return Err(format!(
+                    "{} is unmapped but lists test references",
+                    mapping.scenario_id
+                ));
+            }
+            MappingStatus::CandidatePartial | MappingStatus::ImplementedUnqualified
+                if mapping.test_references.is_empty() =>
+            {
+                return Err(format!(
+                    "{} claims a mapping status without any source-linked test reference",
+                    mapping.scenario_id
+                ));
+            }
+            _ => {}
+        }
+    }
+    Ok(())
+}
+
 fn valid_scenario_id(id: &str) -> bool {
     let Some((prefix, suffix)) = id.rsplit_once('-') else {
         return false;
@@ -409,6 +660,10 @@ mod tests {
     const CORPUS: &str = include_str!("../../../docs/research/civos-multi-agent-scenarios-v0.json");
     const SCHEMA: &str =
         include_str!("../../../docs/research/civos-multi-agent-scenarios-v0.schema.json");
+    const COVERAGE: &str =
+        include_str!("../../../docs/research/civos-multi-agent-coverage-v0.json");
+    const COVERAGE_SCHEMA: &str =
+        include_str!("../../../docs/research/civos-multi-agent-coverage-v0.schema.json");
 
     fn current_corpus() -> Corpus {
         serde_json::from_str(CORPUS).expect("checked-in corpus must decode")
@@ -422,6 +677,79 @@ mod tests {
         let validator = jsonschema::validator_for(&schema_value).unwrap();
         assert!(validator.is_valid(&corpus_value));
         validate_semantics(&serde_json::from_value(corpus_value).unwrap()).unwrap();
+    }
+
+    fn current_coverage() -> CoverageManifest {
+        serde_json::from_str(COVERAGE).expect("checked-in coverage manifest must decode")
+    }
+
+    fn current_coverage_sha256() -> String {
+        sha256_hex(CORPUS.as_bytes())
+    }
+
+    #[test]
+    fn checked_in_coverage_manifest_matches_frozen_corpus_and_never_claims_qualification() {
+        let corpus = current_corpus();
+        let coverage_value: Value = serde_json::from_str(COVERAGE).unwrap();
+        let schema_value: Value = serde_json::from_str(COVERAGE_SCHEMA).unwrap();
+        jsonschema::meta::validate(&schema_value)
+            .expect("coverage schema must be valid draft 2020-12");
+        let validator = jsonschema::validator_for(&schema_value).unwrap();
+        assert!(validator.is_valid(&coverage_value));
+        let coverage: CoverageManifest = serde_json::from_value(coverage_value).unwrap();
+        validate_coverage_semantics(&coverage, &corpus, &current_coverage_sha256()).unwrap();
+        assert_eq!(coverage.mappings.len(), 21);
+        assert_eq!(
+            coverage.mappings.iter().filter(|m| m.mapping_status == MappingStatus::Unmapped).count(),
+            18
+        );
+        assert_eq!(
+            coverage.mappings.iter().filter(|m| m.mapping_status == MappingStatus::CandidatePartial).count(),
+            3
+        );
+    }
+
+    #[test]
+    fn coverage_with_missing_or_reordered_scenario_mapping_is_rejected() {
+        let corpus = current_corpus();
+        let mut coverage = current_coverage();
+        coverage.mappings.pop();
+        assert!(validate_coverage_semantics(&coverage, &corpus, &current_coverage_sha256()).is_err());
+
+        let mut coverage = current_coverage();
+        coverage.mappings.swap(0, 1);
+        assert!(validate_coverage_semantics(&coverage, &corpus, &current_coverage_sha256()).is_err());
+    }
+
+    #[test]
+    fn coverage_cannot_claim_a_different_corpus_digest() {
+        let corpus = current_corpus();
+        let mut coverage = current_coverage();
+        coverage.source_corpus.sha256 = "0".repeat(64);
+        assert!(validate_coverage_semantics(&coverage, &corpus, &current_coverage_sha256()).is_err());
+    }
+
+    #[test]
+    fn unmapped_scenario_cannot_list_a_test_reference() {
+        let corpus = current_corpus();
+        let mut coverage = current_coverage();
+        let unmapped = coverage.mappings.iter_mut()
+            .find(|mapping| mapping.mapping_status == MappingStatus::Unmapped)
+            .unwrap();
+        unmapped.test_references.push(TestReference {
+            path: "src/lib.rs".into(),
+            symbol: "test_candidate".into(),
+            source_commit: "a".repeat(40),
+            purpose: "synthetic negative control".into(),
+        });
+        assert!(validate_coverage_semantics(&coverage, &corpus, &current_coverage_sha256()).is_err());
+    }
+
+    #[test]
+    fn a_qualified_mapping_status_is_not_part_of_the_v0_contract() {
+        let mut value: Value = serde_json::from_str(COVERAGE).unwrap();
+        value["mappings"][0]["mapping_status"] = Value::String("qualified".into());
+        assert!(serde_json::from_value::<CoverageManifest>(value).is_err());
     }
 
     #[test]
