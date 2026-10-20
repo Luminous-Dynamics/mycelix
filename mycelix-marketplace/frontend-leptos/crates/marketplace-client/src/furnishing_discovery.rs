@@ -221,7 +221,11 @@ mod tests {
         EpistemicClassification, Listing, MaterialityLevel, NormativeLevel, TimestampMicros,
     };
 
-    fn listing(category: ListingCategory, status: ListingStatus, empirical: EmpiricalLevel) -> ListingOutput {
+    fn listing(
+        category: ListingCategory,
+        status: ListingStatus,
+        empirical: EmpiricalLevel,
+    ) -> ListingOutput {
         ListingOutput {
             listing_hash: ActionHash::new(vec![0x81; 39]),
             seller_agent_id: AgentPubKey::new(vec![0x42; 39]),
@@ -298,8 +302,14 @@ mod tests {
             )],
         });
         assert_eq!(snapshot.listings[0].observed_status, ListingStatus::Sold);
-        assert_eq!(snapshot.listings[0].revision_freshness, RevisionFreshness::LatestRevisionUnproven);
-        assert_eq!(snapshot.listings[0].observed_empirical_class, ObservedEmpiricalClass::PrivateVerificationClaimed);
+        assert_eq!(
+            snapshot.listings[0].revision_freshness,
+            RevisionFreshness::LatestRevisionUnproven
+        );
+        assert_eq!(
+            snapshot.listings[0].observed_empirical_class,
+            ObservedEmpiricalClass::PrivateVerificationClaimed
+        );
     }
 
     #[test]
@@ -331,7 +341,10 @@ mod tests {
             ],
         });
         assert_eq!(snapshot.returned_count(), 1);
-        assert_eq!(snapshot.listings[0].observed_empirical_class, ObservedEmpiricalClass::NoneSpecified);
+        assert_eq!(
+            snapshot.listings[0].observed_empirical_class,
+            ObservedEmpiricalClass::NoneSpecified
+        );
     }
 
     #[test]
@@ -340,8 +353,14 @@ mod tests {
             (EmpiricalLevel::E0Null, ObservedEmpiricalClass::NoneSpecified),
             (EmpiricalLevel::E1Testimonial, ObservedEmpiricalClass::SellerTestimonial),
             (EmpiricalLevel::E2PrivateVerify, ObservedEmpiricalClass::PrivateVerificationClaimed),
-            (EmpiricalLevel::E3Cryptographic, ObservedEmpiricalClass::CryptographicClaimClassified),
-            (EmpiricalLevel::E4PublicRepro, ObservedEmpiricalClass::PublicReproducibilityClassified),
+            (
+                EmpiricalLevel::E3Cryptographic,
+                ObservedEmpiricalClass::CryptographicClaimClassified,
+            ),
+            (
+                EmpiricalLevel::E4PublicRepro,
+                ObservedEmpiricalClass::PublicReproducibilityClassified,
+            ),
         ];
         for (source, expected) in levels {
             assert_eq!(ObservedEmpiricalClass::from(&source), expected);
