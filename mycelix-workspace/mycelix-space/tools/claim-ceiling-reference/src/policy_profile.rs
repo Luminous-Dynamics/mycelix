@@ -5,7 +5,7 @@
 //! A mathematically conservative meet cannot repair an over-permissive policy.
 
 use super::{
-    ClaimCeilingV1, TimeWindow, UNPINNED_LOCAL_RUN, is_no_broader_than, sha256,
+    ClaimCeilingV1, TimeWindow, is_no_broader_than, sha256,
     validate_ceiling, validate_json_against_schema, validate_source_commit,
 };
 use serde::{Deserialize, Serialize};
@@ -215,6 +215,7 @@ mod tests {
     };
     use serde_json::json;
     use std::collections::BTreeSet;
+    use crate::UNPINNED_LOCAL_RUN;
 
     fn atom(predicate: ClaimPredicate, evidence: EvidenceClass, derivation: DerivationKind, use_case: IntendedUse) -> ClaimAtom {
         ClaimAtom { predicate, evidence_class: evidence, derivation, intended_use: use_case }
@@ -272,12 +273,13 @@ mod tests {
     #[test]
     fn policy_rejects_forbidden_atom_even_when_a_meet_could_preserve_it() {
         let mut candidate = safe_ceiling();
-        candidate.claim_atoms.insert(atom(
+        let forbidden = atom(
             ClaimPredicate::OwnershipClaim,
             EvidenceClass::SourceAssertion,
             DerivationKind::Direct,
             IntendedUse::OperationalExecution,
-        ));
+        );
+        candidate.claim_atoms.insert(forbidden.clone());
         let raw_meet = meet(&candidate, &candidate);
         assert_eq!(raw_meet.0, crate::MeetDisposition::UsableIntersection);
         assert!(
