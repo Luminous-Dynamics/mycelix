@@ -1,0 +1,17 @@
+{
+  "ag_002_reference_head": "0db977083e89645bb9602f70f56fd2a75ac19877",
+  "ag_002_reference_is_dependency": false,
+  "ag_002_reference_receipt_sha256": "8754d86a90f6d247de9e314578e10d75b180c9d1073f872a45243b76c46d34d0",
+  "bootstrap_parent_main": "31ede2365b81365bb119cd9351b2739119974130",
+  "candidate_owned_bootstrap": true,
+  "default_branch_adoption_required": true,
+  "independent_topology_active": false,
+  "intended_authoritative_event": "pull_request_target",
+  "profile": "mycelix.qual.static-subject-independence.v0.1",
+  "qual_issue": 866,
+  "repository_protection_issue": 938,
+  "repository_protection_required": true,
+  "schema": "mycelix.qual.bootstrap-adoption.v0.1",
+  "subject_execution_in_v0_1": false,
+  "verifier_bundle_manifest_sha256": "b0281549127d0aa892a347ebffd32c5d9e59f8b6c26b3a478db852dc4366a964"
+}
