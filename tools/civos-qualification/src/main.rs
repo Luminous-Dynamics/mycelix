@@ -128,8 +128,11 @@ fn run(args: &[String]) -> Result<i32, String> {
             let receipt_schema = read(&receipt_schema_path, "receipt schema")?;
             let receipt = read(&receipt_path, "qualification receipt")?;
             let signature = read(&signature_path, "detached receipt signature")?;
-            let public_key = fs::read(&public_key_path)
-                .map_err(|error| format!("cannot read trusted public key at {public_key_path}: {error}"))?;
+            let public_key = fs::read(&public_key_path).map_err(|error| {
+                format!(
+                    "cannot read trusted public key at {public_key_path}: {error}"
+                )
+            })?;
             // The fingerprint is pinned in independently managed trust config;
             // never take the expected fingerprint from the receipt itself.
             let signer_fingerprint = verify_receipt_signature(
