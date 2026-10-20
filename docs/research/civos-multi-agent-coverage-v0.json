@@ -1,0 +1,357 @@
+{
+  "contract_id": "CIVOS-MACQ-COVERAGE-001",
+  "version": "0.1.0",
+  "status": "planning-only",
+  "source_corpus": {
+    "contract_id": "CIVOS-MACQ-001",
+    "version": "0.1.0",
+    "sha256": "33b52ba14e5fa3d34983d2f795ce68987711c43a0d09d1eccb68ad9f4d4f1432"
+  },
+  "coverage_policy": {
+    "unmapped_is_pass": false,
+    "qualified_claims_enabled": false,
+    "global_score": "none",
+    "evidence_rule": "Test references are source-linked candidates only; no status implies scenario qualification without a separate exact-head execution receipt."
+  },
+  "mappings": [
+    {
+      "scenario_id": "CIV-AUTH-001",
+      "primary_owner": "identity",
+      "execution_profile": "multi_agent",
+      "mapping_status": "unmapped",
+      "test_references": [],
+      "known_gaps": [
+        "No concrete multi-agent direct-call test reference has been verified for each target integrity/authorization boundary.",
+        "Requires unrelated-agent negative controls and before/after protected-state digests across identity, finance, commons and governance."
+      ]
+    },
+    {
+      "scenario_id": "CIV-DHT-001",
+      "primary_owner": "commons",
+      "execution_profile": "multi_agent",
+      "mapping_status": "unmapped",
+      "test_references": [],
+      "known_gaps": [
+        "No pinned-runtime, at-least-three-agent visibility test has been verified for this scenario.",
+        "Requires separate authoring, peer-validation and peer-visibility timestamps and an injected bounded timeout."
+      ]
+    },
+    {
+      "scenario_id": "CIV-IDEM-001",
+      "primary_owner": "finance",
+      "execution_profile": "multi_agent",
+      "mapping_status": "unmapped",
+      "test_references": [],
+      "known_gaps": [
+        "No exact test reference proving one logical effect across retries has been verified.",
+        "Requires operation-ID binding, retry/response-loss injection, durable receipt comparison and state-digest evidence."
+      ]
+    },
+    {
+      "scenario_id": "CIV-IDEM-002",
+      "primary_owner": "finance",
+      "execution_profile": "multi_agent",
+      "mapping_status": "unmapped",
+      "test_references": [],
+      "known_gaps": [
+        "No exact test reference proving same idempotency key with different payload is rejected has been verified.",
+        "Requires a stable payload digest and a negative control that mutates intent while preserving the operation key."
+      ]
+    },
+    {
+      "scenario_id": "CIV-CAP-001",
+      "primary_owner": "finance",
+      "execution_profile": "multi_agent",
+      "mapping_status": "unmapped",
+      "test_references": [],
+      "known_gaps": [
+        "No pinned-runtime race test proving finalized allocations never exceed capacity has been verified.",
+        "Requires concurrent independent agents, contention levels, and an explicit documented allocation/serialization protocol."
+      ]
+    },
+    {
+      "scenario_id": "CIV-CONFLICT-001",
+      "primary_owner": "commons",
+      "execution_profile": "multi_agent",
+      "mapping_status": "unmapped",
+      "test_references": [],
+      "known_gaps": [
+        "No end-to-end concurrent-writer test with an explicit, independently observed conflict policy has been verified.",
+        "Requires two independent writers, deterministic interleaving, accepted-version inventory and current-projection digest."
+      ]
+    },
+    {
+      "scenario_id": "CIV-VAL-001",
+      "primary_owner": "identity",
+      "execution_profile": "multi_agent",
+      "mapping_status": "unmapped",
+      "test_references": [],
+      "known_gaps": [
+        "No concrete integrity-zome action corpus mapped to this scenario has been verified.",
+        "Requires direct invalid-op fixtures and peer-visible negative controls for a named zome."
+      ]
+    },
+    {
+      "scenario_id": "CIV-SOURCE-001",
+      "primary_owner": "personal",
+      "execution_profile": "unit",
+      "mapping_status": "candidate_partial",
+      "test_references": [
+        {
+          "path": "mycelix-personal/apps/leptos/src/context.rs",
+          "symbol": "live_empty_and_live_with_records_are_distinct",
+          "source_commit": "460ab58d50e673fa5899f57e0cd94f336351c217",
+          "purpose": "Distinguishes a successful empty source read from a live read with records."
+        },
+        {
+          "path": "mycelix-personal/apps/leptos/src/context.rs",
+          "symbol": "failed_refresh_marks_previous_live_state_stale",
+          "source_commit": "460ab58d50e673fa5899f57e0cd94f336351c217",
+          "purpose": "Checks a failed refresh preserves last-success freshness instead of implying current data."
+        },
+        {
+          "path": "mycelix-personal/apps/leptos/src/context.rs",
+          "symbol": "failed_refresh_without_prior_success_is_unavailable",
+          "source_commit": "460ab58d50e673fa5899f57e0cd94f336351c217",
+          "purpose": "Checks a first-read failure is unavailable, not a confirmed empty result."
+        },
+        {
+          "path": "mycelix-personal/apps/leptos/src/app.rs",
+          "symbol": "live_empty_and_unavailable_messages_are_not_conflated",
+          "source_commit": "460ab58d50e673fa5899f57e0cd94f336351c217",
+          "purpose": "Checks UI copy distinguishes confirmed-empty from unavailable."
+        },
+        {
+          "path": "mycelix-personal/apps/leptos/src/app.rs",
+          "symbol": "demo_and_conflict_messages_do_not_assert_live_truth",
+          "source_commit": "460ab58d50e673fa5899f57e0cd94f336351c217",
+          "purpose": "Checks demo/conflicting evidence copy does not imply live confirmation."
+        },
+        {
+          "path": "mycelix-personal/apps/leptos/src/app.rs",
+          "symbol": "unsupported_source_is_not_displayed_as_empty",
+          "source_commit": "460ab58d50e673fa5899f57e0cd94f336351c217",
+          "purpose": "Checks unsupported integration is not rendered as confirmed empty."
+        }
+      ],
+      "known_gaps": [
+        "These unit tests cover selected Personal source-state transitions and user-facing distinctions, not every adapter or every state transition in every domain.",
+        "No multi-agent or provider-fault-injection test has been verified for unavailable, stale, conflicting or unsupported real source adapters.",
+        "No independent execution receipt currently maps this scenario to a fully passing benchmark run."
+      ]
+    },
+    {
+      "scenario_id": "CIV-STALE-001",
+      "primary_owner": "personal",
+      "execution_profile": "unit",
+      "mapping_status": "candidate_partial",
+      "test_references": [
+        {
+          "path": "mycelix-personal/apps/leptos/src/context.rs",
+          "symbol": "failed_refresh_marks_previous_live_state_stale",
+          "source_commit": "460ab58d50e673fa5899f57e0cd94f336351c217",
+          "purpose": "Checks a failed refresh after a previous success transitions that source to Stale with its last successful read time."
+        },
+        {
+          "path": "mycelix-personal/apps/leptos/src/context.rs",
+          "symbol": "failed_refresh_without_prior_success_is_unavailable",
+          "source_commit": "460ab58d50e673fa5899f57e0cd94f336351c217",
+          "purpose": "Checks no prior success is represented as Unavailable rather than current/empty."
+        },
+        {
+          "path": "mycelix-personal/apps/leptos/src/app.rs",
+          "symbol": "live_empty_and_unavailable_messages_are_not_conflated",
+          "source_commit": "460ab58d50e673fa5899f57e0cd94f336351c217",
+          "purpose": "Checks UI text does not make an unavailable source appear empty."
+        }
+      ],
+      "known_gaps": [
+        "The mapped tests do not cover expiry/revocation or every domain's source revision policy.",
+        "No injected clock matrix or multi-agent source-revision change has been verified.",
+        "No execution receipt has qualified the complete scenario."
+      ]
+    },
+    {
+      "scenario_id": "CIV-CONSENT-001",
+      "primary_owner": "personal",
+      "execution_profile": "multi_agent",
+      "mapping_status": "unmapped",
+      "test_references": [],
+      "known_gaps": [
+        "Issue #5240 tracks the current Health Vault consent lifecycle gaps; no verified multi-agent revocation/expiry authorization test is mapped here.",
+        "Requires source-side authorization checks for expired and revoked grants, stale status and disconnected consumers, not only UI filtering."
+      ]
+    },
+    {
+      "scenario_id": "CIV-DISC-001",
+      "primary_owner": "personal",
+      "execution_profile": "browser",
+      "mapping_status": "unmapped",
+      "test_references": [],
+      "known_gaps": [
+        "The Life Continuity disclosure rehearsal is synthetic/local-only and is not an authorization-enforcement test.",
+        "Requires a protected data fixture, authenticated consumer, field-level allowlist, negative disclosure sentinels and recipient-side observation."
+      ]
+    },
+    {
+      "scenario_id": "CIV-RECEIPT-001",
+      "primary_owner": "attribution",
+      "execution_profile": "protocol_interop",
+      "mapping_status": "unmapped",
+      "test_references": [],
+      "known_gaps": [
+        "No pinned trusted-key verifier vector suite has been mapped to this scenario.",
+        "Requires trusted and untrusted signing keys, revoked/unknown key states, and stable rejection-reason receipts."
+      ]
+    },
+    {
+      "scenario_id": "CIV-RECEIPT-002",
+      "primary_owner": "attribution",
+      "execution_profile": "protocol_interop",
+      "mapping_status": "unmapped",
+      "test_references": [],
+      "known_gaps": [
+        "No context-transplant negative-control suite has been mapped to this scenario.",
+        "Requires mutating request, profile revision, actor, purpose, scope and operation-binding fields one at a time."
+      ]
+    },
+    {
+      "scenario_id": "CIV-STATUS-001",
+      "primary_owner": "identity",
+      "execution_profile": "fault_injection",
+      "mapping_status": "unmapped",
+      "test_references": [],
+      "known_gaps": [
+        "No status-endpoint outage/freshness matrix with a controlled clock is mapped to this scenario.",
+        "Requires status unknown/expired/revoked/unavailable cases and explicit policy for prior cached status."
+      ]
+    },
+    {
+      "scenario_id": "CIV-CRASH-001",
+      "primary_owner": "finance",
+      "execution_profile": "fault_injection",
+      "mapping_status": "unmapped",
+      "test_references": [],
+      "known_gaps": [
+        "No crash-after-commit/before-response test with state reconciliation has been mapped.",
+        "Requires process termination at controlled commit boundaries and retry verification of logical effect count."
+      ]
+    },
+    {
+      "scenario_id": "CIV-PART-001",
+      "primary_owner": "commons",
+      "execution_profile": "multi_agent",
+      "mapping_status": "unmapped",
+      "test_references": [],
+      "known_gaps": [
+        "No partition/rejoin test with explicit pending and conflict state has been mapped.",
+        "Requires fixed fault schedules, local/peer state digests and eventual reconciliation observations."
+      ]
+    },
+    {
+      "scenario_id": "CIV-RESTART-001",
+      "primary_owner": "identity",
+      "execution_profile": "fault_injection",
+      "mapping_status": "unmapped",
+      "test_references": [],
+      "known_gaps": [
+        "No committed/pending/failed operation restart test has been mapped for the pinned runtime.",
+        "Requires a fresh process/conductor restart, durable receipt checks and documented persistence assumptions."
+      ]
+    },
+    {
+      "scenario_id": "CIV-BRIDGE-001",
+      "primary_owner": "bridge",
+      "execution_profile": "multi_agent",
+      "mapping_status": "unmapped",
+      "test_references": [],
+      "known_gaps": [
+        "No authenticated cross-zome authority-boundary test has been mapped to this scenario.",
+        "Requires the actual authenticated caller to be authoritative, with payload actor substitution and unauthorized target-scope controls."
+      ]
+    },
+    {
+      "scenario_id": "CIV-SCHEMA-001",
+      "primary_owner": "attribution",
+      "execution_profile": "cross_version",
+      "mapping_status": "unmapped",
+      "test_references": [],
+      "known_gaps": [
+        "No versioned acceptance/rejection vector suite across supported verifier/schema versions has been mapped.",
+        "Requires explicit unsupported and downgrade fixtures with a loss-detection assertion."
+      ]
+    },
+    {
+      "scenario_id": "CIV-ID-CORRUPT-001",
+      "primary_owner": "identity",
+      "execution_profile": "unit",
+      "mapping_status": "candidate_partial",
+      "test_references": [
+        {
+          "path": "crates/mycelix-leptos-core/src/local_identity.rs",
+          "symbol": "unavailable_storage_is_not_classified_as_no_identity",
+          "source_commit": "d1591fbafe7e7850edcea601267d77e0e432b21c",
+          "purpose": "Exercises a selected local identity storage posture or protected-key transition invariant; this is candidate unit-test mapping only, not whole-scenario qualification."
+        },
+        {
+          "path": "crates/mycelix-leptos-core/src/local_identity.rs",
+          "symbol": "empty_storage_and_legacy_identity_have_distinct_postures",
+          "source_commit": "d1591fbafe7e7850edcea601267d77e0e432b21c",
+          "purpose": "Exercises a selected local identity storage posture or protected-key transition invariant; this is candidate unit-test mapping only, not whole-scenario qualification."
+        },
+        {
+          "path": "crates/mycelix-leptos-core/src/local_identity.rs",
+          "symbol": "mismatched_or_partial_plaintext_key_material_is_corrupt",
+          "source_commit": "d1591fbafe7e7850edcea601267d77e0e432b21c",
+          "purpose": "Exercises a selected local identity storage posture or protected-key transition invariant; this is candidate unit-test mapping only, not whole-scenario qualification."
+        },
+        {
+          "path": "crates/mycelix-leptos-core/src/local_identity.rs",
+          "symbol": "well_formed_encrypted_container_is_protected_but_not_yet_authenticated",
+          "source_commit": "d1591fbafe7e7850edcea601267d77e0e432b21c",
+          "purpose": "Exercises a selected local identity storage posture or protected-key transition invariant; this is candidate unit-test mapping only, not whole-scenario qualification."
+        },
+        {
+          "path": "crates/mycelix-leptos-core/src/local_identity.rs",
+          "symbol": "protected_unlocked_posture_requires_the_cached_key_to_match_public_key",
+          "source_commit": "d1591fbafe7e7850edcea601267d77e0e432b21c",
+          "purpose": "Exercises a selected local identity storage posture or protected-key transition invariant; this is candidate unit-test mapping only, not whole-scenario qualification."
+        },
+        {
+          "path": "crates/mycelix-leptos-core/src/local_identity.rs",
+          "symbol": "protected_creation_writes_no_plaintext_secret_and_unlocks_same_key",
+          "source_commit": "d1591fbafe7e7850edcea601267d77e0e432b21c",
+          "purpose": "Exercises a selected local identity storage posture or protected-key transition invariant; this is candidate unit-test mapping only, not whole-scenario qualification."
+        },
+        {
+          "path": "crates/mycelix-leptos-core/src/local_identity.rs",
+          "symbol": "mnemonic_restore_writes_only_protected_key_material",
+          "source_commit": "d1591fbafe7e7850edcea601267d77e0e432b21c",
+          "purpose": "Exercises a selected local identity storage posture or protected-key transition invariant; this is candidate unit-test mapping only, not whole-scenario qualification."
+        },
+        {
+          "path": "crates/mycelix-leptos-core/src/local_identity.rs",
+          "symbol": "protecting_existing_identity_removes_plaintext_after_verification",
+          "source_commit": "d1591fbafe7e7850edcea601267d77e0e432b21c",
+          "purpose": "Exercises a selected local identity storage posture or protected-key transition invariant; this is candidate unit-test mapping only, not whole-scenario qualification."
+        }
+      ],
+      "known_gaps": [
+        "The mapped tests cover selected storage posture and key-binding primitives, not the complete browser bootstrap route gate and backup-challenge state machine.",
+        "The newest identity workflow has not yet passed the headless Chrome suite; native tests alone do not qualify browser WebCrypto/storage behavior.",
+        "A separate receipt must establish zero silent key mint/overwrite across all required posture states, including inaccessible and corrupted storage."
+      ]
+    },
+    {
+      "scenario_id": "CIV-PARITY-001",
+      "primary_owner": "cross-project",
+      "execution_profile": "cross_version",
+      "mapping_status": "unmapped",
+      "test_references": [],
+      "known_gaps": [
+        "No independently reviewed oracle corpus and multi-verifier parity test has been mapped.",
+        "Requires exact verifier versions, shared known-answer vectors, mutation tests and recorded counterexamples without normalization of unknown into reject/pass."
+      ]
+    }
+  ]
+}
