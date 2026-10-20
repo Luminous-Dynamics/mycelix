@@ -7,7 +7,7 @@
     "subject_area": "Technology",
     "domain": "Essential Capabilities",
     "version": "1.0-draft",
-    "total_standards": 19,
+    "total_standards": 20,
     "domains": [
       "Epistemic literacy",
       "Quantitative literacy",
@@ -25,7 +25,7 @@
       "Practical agency"
     ],
     "created_at": "2026-10-20",
-    "notes": "Jurisdiction-neutral working seed, not an official standards framework or credential policy. Estimated hours are orientation/practice estimates, not mastery guarantees. Demonstrations are embedded in node descriptions. No formal standards alignment is claimed."
+    "notes": "Jurisdiction-neutral working seed, not an official standards framework or credential policy. Estimated hours are orientation/practice estimates, not mastery guarantees. Demonstrations are embedded in node descriptions. No formal standards alignment is claimed. Includes a distinct AI-supported learning capability emphasizing hint-first scaffolding and tool-free transfer."
   },
   "nodes": [
     {
@@ -449,6 +449,30 @@
       "bloom_level": "Apply",
       "subject_area": "SocialStudies",
       "academic_standards": []
+    },
+    {
+      "id": "EK-LEARN-002",
+      "title": "Learn With AI Without Offloading Your Reasoning",
+      "description": "Capability: use AI as a learning scaffold rather than a substitute for thinking. Attempt the problem first, request hints or questions before full solutions, explain the reasoning in your own words, verify claims, gradually reduce assistance, and then solve a novel task without the tool. Demonstration: complete a matched task first with hint-based AI support and then a comparable tool-free transfer task; record assistance and evaluate both with the same visible rubric.",
+      "node_type": "Skill",
+      "difficulty": "Intermediate",
+      "domain": "Learning literacy",
+      "subdomain": "AI-supported practice",
+      "tags": [
+        "essential-capability-v1",
+        "ai-literacy",
+        "scaffold-fading",
+        "retrieval-practice",
+        "transfer",
+        "learning-autonomy"
+      ],
+      "estimated_hours": 3,
+      "grade_levels": [
+        "Adult"
+      ],
+      "bloom_level": "Apply",
+      "subject_area": "Technology",
+      "academic_standards": []
     }
   ],
   "edges": [
@@ -710,6 +734,20 @@
       "edge_type": "Recommends",
       "strength_permille": 650,
       "rationale": "Evidence-backed skill claims and agreement review require source discipline."
+    },
+    {
+      "from": "EK-AI-001",
+      "to": "EK-LEARN-002",
+      "edge_type": "Requires",
+      "strength_permille": 900,
+      "rationale": "Safe and critical use of AI is a prerequisite for treating it as a learning scaffold rather than an authority."
+    },
+    {
+      "from": "EK-LEARN-001",
+      "to": "EK-LEARN-002",
+      "edge_type": "Requires",
+      "strength_permille": 850,
+      "rationale": "A learner needs a self-directed practice and feedback loop to use AI assistance deliberately and fade it."
     }
   ],
   "learning_paths": [
@@ -775,6 +813,18 @@
         "EK-PROJ-001"
       ],
       "total_hours": 24
+    },
+    {
+      "title": "AI-Augmented Learning Without Dependency",
+      "description": "Use AI for hints and feedback, then demonstrate retained understanding and transfer without assistance.",
+      "sequence": [
+        "EK-EPI-001",
+        "EK-AI-001",
+        "EK-LEARN-001",
+        "EK-LEARN-002",
+        "EK-PROJ-001"
+      ],
+      "total_hours": 18
     }
   ]
 }
