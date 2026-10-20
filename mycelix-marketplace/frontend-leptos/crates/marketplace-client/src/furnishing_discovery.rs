@@ -363,10 +363,7 @@ mod tests {
             snapshot.transport_provenance,
             TransportProvenance::ExplicitDevelopmentFixture
         );
-        assert_eq!(
-            snapshot.coverage,
-            SnapshotCoverage::UnknownUnpaginatedRead
-        );
+        assert_eq!(snapshot.coverage, SnapshotCoverage::UnknownUnpaginatedRead);
         assert_eq!(snapshot.returned_count(), 1);
         assert!(!snapshot.can_claim_complete_current_furniture_offers());
         assert!(snapshot.listings.iter().all(|listing| {
