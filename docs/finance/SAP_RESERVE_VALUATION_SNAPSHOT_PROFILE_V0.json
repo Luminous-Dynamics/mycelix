@@ -1,0 +1,111 @@
+{
+  "profile": "sap.reserve.valuation-snapshot.v0",
+  "status": "UNQUALIFIED",
+  "purpose": "Bind reserve valuation to an immutable, addressable snapshot rather than mutable live consensus.",
+  "implementation_entry_type": "ReserveValuationSnapshot",
+  "mandatory_fields": {
+    "id": "non-empty bounded string",
+    "basis_id": "non-empty bounded string",
+    "asset_id": "non-empty bounded string",
+    "unit": "non-empty bounded string",
+    "quote_unit": "must equal SAP",
+    "valuation_numerator": "u64 > 0",
+    "valuation_denominator": "u64 > 0",
+    "rounding_policy": [
+      "Down",
+      "Up",
+      "HalfUp"
+    ],
+    "effective_window_start": "Timestamp <= effective_window_end",
+    "effective_window_end": "Timestamp",
+    "freshness_limit_micros": "i64 > 0",
+    "source_commitment": "non-empty bounded canonical commitment",
+    "source_count": "1..=200",
+    "aggregation_profile_id": "non-empty bounded string",
+    "publisher_policy_id": "non-empty bounded authenticated policy/version identifier",
+    "qualification_state": [
+      "Qualified",
+      "Degraded",
+      "Unavailable",
+      "Unresolved",
+      "Superseded",
+      "Expired",
+      "Conflicted"
+    ],
+    "publisher_did": "must bind to signed Create author",
+    "supersedes": "optional ActionHash",
+    "created_at": "must equal signed Create action timestamp",
+    "source_item": "non-empty bounded canonical source item identifier",
+    "source_action_hashes": "1..=200 unique ActionHash values in canonical sorted order",
+    "publisher_policy_action_hash": "ActionHash resolving to an immutable ReserveValuationAuthorityPolicy"
+  },
+  "reserve_consumption": {
+    "allowed_qualification_state": "Qualified",
+    "snapshot_identity_required": true,
+    "source_completeness_proof_required": true,
+    "freshness_check_required": true,
+    "asset_and_unit_binding_required": true,
+    "fixed_point_arithmetic_required": true,
+    "caller_rate_is_authority": false,
+    "mutable_live_consensus_is_authority": false
+  },
+  "authority": {
+    "accepted_models": [
+      "qualified_publisher",
+      "threshold_attested_snapshot"
+    ],
+    "empty_registry_implies_authority": false,
+    "authority_bootstrap_profile": "AC-106",
+    "policy_record": {
+      "entry_type": "ReserveValuationAuthorityPolicy",
+      "immutable": true,
+      "publisher_binding": "snapshot publisher DID must appear in authorized_publisher_dids",
+      "root_of_trust": "deferred to AC-106"
+    }
+  },
+  "source_commitment": {
+    "algorithm": "BLAKE2b-256",
+    "domain": "sap.reserve.source-set.v0",
+    "input": "u32 big-endian source count + sorted 39-byte ActionHash values",
+    "encoding": "blake2b256:<64 lowercase hex characters>"
+  },
+  "immutability": {
+    "snapshot_updates_allowed": false,
+    "historical_rewrite_allowed": false,
+    "supersession_model": "new immutable snapshot references prior snapshot"
+  },
+  "non_issuable_states": [
+    "Degraded",
+    "Unavailable",
+    "Unresolved",
+    "Superseded",
+    "Expired",
+    "Conflicted"
+  ],
+  "arithmetic": {
+    "monetary_rate_representation": "non-negative rational",
+    "floating_point_to_musap_cast_forbidden": true,
+    "overflow_behavior": "reject"
+  },
+  "qualification_cases": 25,
+  "qualification_ceiling": "Does not establish external market truth, legal ownership, custody, liquidity, time synchronization, or official reserve status.",
+  "related_boundaries": [
+    "AC-093",
+    "AC-102",
+    "AC-103",
+    "AC-104",
+    "AC-105",
+    "AC-106",
+    "AC-107",
+    "AC-108",
+    "AC-109",
+    "AC-110"
+  ],
+  "source_records": {
+    "dependency_resolution": "must_get_valid_record",
+    "required_entry_type": "price_oracle::PriceReport",
+    "required_item_match": true,
+    "required_window_match": true,
+    "observed_at_must_be_le_reported_at": true
+  }
+}
