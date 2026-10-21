@@ -149,7 +149,8 @@
               "operational_measurement",
               "remote_sensing",
               "model_output",
-              "synthetic_dataset"
+              "synthetic_dataset",
+              "experimental_statistics"
             ]
           },
           "title": {
