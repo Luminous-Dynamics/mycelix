@@ -82,7 +82,7 @@ The `queue` module is a separate discrete-tick model, not a replacement for the 
 - `LiquidityAwareFifo`: scan in arrival order, skip blocked entries and retry after a successful transfer.
 - `PriorityScan`: higher priority first, then arrival time and payment ID; skip blocked entries and retry after successful transfers.
 
-This separation is important: a static allocation can be feasible without being executable at a particular time. The queue model makes that gap measurable while keeping fees as modeled metrics (not balance debits or provider quotes), and preserves excluded and unsettled items explicitly. Deadlines are target times, not automatic expiry. Route outage intervals are half-open `[start_tick, end_tick)`; capacity resets at multiples of the configured window length. A fixed event budget makes pathological fixtures fail closed.
+This separation is important: a static allocation can be feasible without being executable at a particular time. The queue model makes that gap measurable while keeping fees as modeled metrics (not balance debits or provider quotes), and preserves excluded and unsettled items explicitly. It reports participant starting/final/minimum/maximum balances and balance-time in minor-unit ticks; aggregate balance-time is not itself a liquidity-savings percentage. Deadlines are target times, not automatic expiry. Route outage intervals are half-open `[start_tick, end_tick)`; capacity resets at multiples of the configured window length. A fixed event budget makes pathological fixtures fail closed.
 
 Run the reproducible synthetic policy comparison:
 
