@@ -73,6 +73,29 @@ struct ContentQualityAudit {
 }
 
 #[derive(Debug, Serialize)]
+struct InactiveSourceReference {
+    path: String,
+    title: String,
+    framework: String,
+    grade_level: String,
+    subject_area: String,
+}
+
+#[derive(Debug, Serialize)]
+struct InactiveManifestSourceMatch {
+    node_id: String,
+    sources: Vec<InactiveSourceReference>,
+}
+
+#[derive(Debug, Default)]
+struct InactiveSourceAudit {
+    graph_documents_scanned: usize,
+    orphan_ids_found_in_inactive_graphs: usize,
+    orphan_ids_without_source_graph: Vec<String>,
+    source_matches: Vec<InactiveManifestSourceMatch>,
+}
+
+#[derive(Debug, Serialize)]
 struct AuditReport {
     schema_version: u32,
     content_assets_scanned: usize,
@@ -89,6 +112,10 @@ struct AuditReport {
     active_nodes_with_lessons: usize,
     active_nodes_missing_lessons: usize,
     orphan_manifest_node_ids: Vec<String>,
+    inactive_source_graph_documents_scanned: usize,
+    orphan_manifest_ids_found_in_inactive_graphs: usize,
+    orphan_manifest_ids_without_source_graph: Vec<String>,
+    inactive_manifest_source_matches: Vec<InactiveManifestSourceMatch>,
     groups: Vec<CoverageGroup>,
     input_digest_blake3: String,
 }
@@ -603,12 +630,257 @@ fn analyze(
         active_nodes_with_lessons: active_with_lessons,
         active_nodes_missing_lessons: active_missing_lessons,
         orphan_manifest_node_ids: orphan_ids,
+        inactive_source_graph_documents_scanned: 0,
+        orphan_manifest_ids_found_in_inactive_graphs: 0,
+        orphan_manifest_ids_without_source_graph: Vec::new(),
+        inactive_manifest_source_matches: Vec::new(),
         groups,
         input_digest_blake3: String::new(),
         content_assets_scanned: 0,
         content_assets_with_quality_findings: 0,
         content_quality_findings: Vec::new(),
     }
+}
+
+fn collect_curriculum_json_paths(
+    directory: &Path,
+    workspace: &Path,
+    excluded_root: &Path,
+    output: &mut Vec<PathBuf>,
+    errors: &mut Vec<String>,
+) {
+    let entries = match fs::read_dir(directory) {
+        Ok(entries) => entries,
+        Err(error) => {
+            errors.push(format!(
+                "cannot enumerate curriculum source directory {}: {error}",
+                directory.display()
+            ));
+            return;
+        }
+    };
+
+    for entry in entries {
+        let entry = match entry {
+            Ok(entry) => entry,
+            Err(error) => {
+                errors.push(format!(
+                    "cannot enumerate curriculum source directory {}: {error}",
+                    directory.display()
+                ));
+                continue;
+            }
+        };
+        let path = entry.path();
+        let kind = match entry.file_type() {
+            Ok(kind) => kind,
+            Err(error) => {
+                errors.push(format!(
+                    "cannot inspect curriculum source path {}: {error}",
+                    path.display()
+                ));
+                continue;
+            }
+        };
+
+        if kind.is_dir() {
+            let canonical = match path.canonicalize() {
+                Ok(path) => path,
+                Err(error) => {
+                    errors.push(format!(
+                        "cannot resolve curriculum source directory {}: {error}",
+                        path.display()
+                    ));
+                    continue;
+                }
+            };
+            if !canonical.starts_with(workspace) {
+                errors.push(format!(
+                    "curriculum source directory escapes workspace root: {}",
+                    path.display()
+                ));
+                continue;
+            }
+            if !canonical.starts_with(excluded_root) {
+                collect_curriculum_json_paths(
+                    &canonical,
+                    workspace,
+                    excluded_root,
+                    output,
+                    errors,
+                );
+            }
+        } else if kind.is_file()
+            && path.extension().and_then(|value| value.to_str()) == Some("json")
+        {
+            let canonical = match path.canonicalize() {
+                Ok(path) => path,
+                Err(error) => {
+                    errors.push(format!(
+                        "cannot resolve curriculum source file {}: {error}",
+                        path.display()
+                    ));
+                    continue;
+                }
+            };
+            if !canonical.starts_with(workspace) {
+                errors.push(format!(
+                    "curriculum source file escapes workspace root: {}",
+                    path.display()
+                ));
+                continue;
+            }
+            if !canonical.starts_with(excluded_root) {
+                output.push(canonical);
+            }
+        }
+    }
+}
+
+fn match_inactive_manifest_sources(
+    active_ids: &BTreeSet<String>,
+    manifest: &BTreeMap<String, usize>,
+    documents: &[(String, Value)],
+) -> InactiveSourceAudit {
+    let orphan_ids: BTreeSet<String> = manifest
+        .iter()
+        .filter(|(id, count)| **count > 0 && !active_ids.contains(*id))
+        .map(|(id, _)| id.clone())
+        .collect();
+    let mut by_node = BTreeMap::<String, BTreeMap<String, InactiveSourceReference>>::new();
+    let mut graph_documents_scanned = 0;
+
+    for (path, document) in documents {
+        let Some(nodes) = document.get("nodes").and_then(Value::as_array) else {
+            continue;
+        };
+        graph_documents_scanned += 1;
+        let metadata = document.get("metadata");
+        let framework = nonempty_string(metadata.and_then(|value| value.get("framework")))
+            .unwrap_or_else(|| "Unspecified".to_owned());
+        let default_grade = nonempty_string(metadata.and_then(|value| value.get("grade_level")))
+            .unwrap_or_else(|| "Unspecified".to_owned());
+        let default_subject = nonempty_string(metadata.and_then(|value| value.get("subject_area")))
+            .unwrap_or_else(|| "Unspecified".to_owned());
+        for node in nodes {
+            let Some(node_id) = nonempty_string(node.get("id")) else {
+                continue;
+            };
+            if !orphan_ids.contains(&node_id) {
+                continue;
+            }
+            let reference = InactiveSourceReference {
+                path: path.clone(),
+                title: nonempty_string(node.get("title"))
+                    .or_else(|| nonempty_string(node.get("name")))
+                    .unwrap_or_else(|| "Untitled source node".to_owned()),
+                framework: nonempty_string(node.get("framework"))
+                    .unwrap_or_else(|| framework.clone()),
+                grade_level: string_array(node.get("grade_levels"))
+                    .first()
+                    .cloned()
+                    .or_else(|| nonempty_string(node.get("grade_level")))
+                    .unwrap_or_else(|| default_grade.clone()),
+                subject_area: nonempty_string(node.get("subject_area"))
+                    .unwrap_or_else(|| default_subject.clone()),
+            };
+            by_node
+                .entry(node_id)
+                .or_default()
+                .entry(reference.path.clone())
+                .or_insert(reference);
+        }
+    }
+
+    let source_matches = by_node
+        .into_iter()
+        .map(|(node_id, sources)| InactiveManifestSourceMatch {
+            node_id,
+            sources: sources.into_values().collect(),
+        })
+        .collect::<Vec<_>>();
+    let matched_ids: BTreeSet<String> = source_matches
+        .iter()
+        .map(|matched| matched.node_id.clone())
+        .collect();
+    let orphan_ids_without_source_graph = orphan_ids
+        .difference(&matched_ids)
+        .cloned()
+        .collect::<Vec<_>>();
+
+    InactiveSourceAudit {
+        graph_documents_scanned,
+        orphan_ids_found_in_inactive_graphs: source_matches.len(),
+        orphan_ids_without_source_graph,
+        source_matches,
+    }
+}
+
+fn audit_inactive_manifest_sources(
+    workspace: &Path,
+    active_documents: &[(PathBuf, Value)],
+    manifest: &BTreeMap<String, usize>,
+    errors: &mut Vec<String>,
+) -> InactiveSourceAudit {
+    let curriculum_root = workspace.join("examples/curriculum");
+    let excluded_root = workspace.join("examples/curriculum/caps/generated");
+    let active_paths: BTreeSet<PathBuf> = active_documents
+        .iter()
+        .map(|(path, _)| path.clone())
+        .collect();
+    let active_ids: BTreeSet<String> = active_documents
+        .iter()
+        .filter_map(|(_, document)| document.get("nodes").and_then(Value::as_array))
+        .flat_map(|nodes| nodes.iter().filter_map(|node| nonempty_string(node.get("id"))))
+        .collect();
+
+    let mut paths = Vec::new();
+    collect_curriculum_json_paths(
+        &curriculum_root,
+        workspace,
+        &excluded_root,
+        &mut paths,
+        errors,
+    );
+    paths.sort();
+    paths.dedup();
+
+    let mut documents = Vec::new();
+    for path in paths {
+        if active_paths.contains(&path) {
+            continue;
+        }
+        let raw = match fs::read_to_string(&path) {
+            Ok(raw) => raw,
+            Err(error) => {
+                errors.push(format!(
+                    "cannot read inactive curriculum source {}: {error}",
+                    path.display()
+                ));
+                continue;
+            }
+        };
+        let value: Value = match serde_json::from_str(&raw) {
+            Ok(value) => value,
+            Err(_) => continue,
+        };
+        if !value.get("nodes").is_some_and(Value::is_array) {
+            continue;
+        }
+        let relative = match path.strip_prefix(workspace) {
+            Ok(path) => path.to_string_lossy().replace('\\', "/"),
+            Err(error) => {
+                errors.push(format!(
+                    "cannot relativize inactive curriculum source {}: {error}",
+                    path.display()
+                ));
+                continue;
+            }
+        };
+        documents.push((relative, value));
+    }
+
+    match_inactive_manifest_sources(&active_ids, manifest, &documents)
 }
 
 fn normalize_content(text: &str) -> String {
