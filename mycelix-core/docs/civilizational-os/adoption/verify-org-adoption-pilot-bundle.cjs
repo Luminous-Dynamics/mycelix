@@ -76,7 +76,16 @@ function validateBundle(bundle) {
   add(Array.isArray(manifest.source_entries) && manifest.source_entries.length > 0, 'source entries missing');
   add(Array.isArray(manifest.events) && manifest.events.length > 0, 'event fixture missing');
 
-  const { manifest_sha256: declaredManifestSha, ...manifestBody } = manifest;
+  const declaredManifestSha = manifest.manifest_sha256;
+  const manifestBody = {
+    data_classification: manifest.data_classification,
+    rights_disposition: manifest.rights_disposition,
+    source_entries: (manifest.source_entries || [])
+      .map(entry => ({ ...entry, record_ids: [...(entry.record_ids || [])].sort() }))
+      .sort((left, right) => left.source_id.localeCompare(right.source_id)),
+    events: [...(manifest.events || [])]
+      .sort((left, right) => (left.sequence - right.sequence) || left.event_id.localeCompare(right.event_id))
+  };
   const computedManifestSha = sha256(canonical(manifestBody));
   add(hasSha(declaredManifestSha) && declaredManifestSha === computedManifestSha, 'input manifest digest mismatch');
 
