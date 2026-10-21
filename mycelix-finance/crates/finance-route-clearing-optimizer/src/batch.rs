@@ -543,6 +543,59 @@ mod tests {
         assert_eq!(plan.selected_gross_minor, 15);
         assert_eq!(plan.final_balances.iter().map(|a| a.balance_minor).sum::<u64>(), 0);
         assert_eq!(plan.selected_payment_ids, vec!["p-ab", "p-bc", "p-ca"]);
+
+        // The same cycle cannot begin under strict sequential gross settlement because
+        // every participant starts with zero liquidity. The batch model differs only
+        // because all selected debits and credits are evaluated atomically.
+        let gross_queue = super::super::queue::simulate_queue(
+            &super::super::queue::QueueContext {
+                rail_id: "synthetic-rtgs".into(),
+                asset_id: "zar-minor".into(),
+                policy_version: "batch-v1".into(),
+                horizon_tick: 0,
+            },
+            &accounts
+                .iter()
+                .map(|a| super::super::queue::QueueAccount {
+                    participant_id: a.participant_id.clone(),
+                    balance_minor: a.balance_minor,
+                })
+                .collect::<Vec<_>>(),
+            &routes
+                .iter()
+                .map(|r| super::super::queue::QueueRoute {
+                    route_id: r.route_id.clone(),
+                    rail_id: r.rail_id.clone(),
+                    asset_id: r.asset_id.clone(),
+                    policy_version: r.policy_version.clone(),
+                    enabled: r.enabled,
+                    capacity_minor_per_window: r.remaining_capacity_minor,
+                    capacity_window_ticks: 1,
+                    fixed_fee_units: r.fixed_fee_units,
+                    fee_units_per_minor: r.fee_units_per_minor,
+                    outages: Vec::new(),
+                })
+                .collect::<Vec<_>>(),
+            &payments
+                .iter()
+                .map(|p| super::super::queue::PaymentOrder {
+                    payment_id: p.payment_id.clone(),
+                    rail_id: p.rail_id.clone(),
+                    asset_id: p.asset_id.clone(),
+                    policy_version: p.policy_version.clone(),
+                    route_id: p.route_id.clone(),
+                    from: p.from.clone(),
+                    to: p.to.clone(),
+                    amount_minor: p.amount_minor,
+                    arrival_tick: p.arrival_tick,
+                    deadline_tick: p.deadline_tick,
+                    priority: 0,
+                })
+                .collect::<Vec<_>>(),
+            super::super::queue::QueuePolicy::StrictFifo,
+        )
+        .unwrap();
+        assert_eq!(gross_queue.settled_minor, 0);
     }
 
     #[test]
