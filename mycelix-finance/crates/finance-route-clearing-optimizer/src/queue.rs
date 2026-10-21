@@ -66,9 +66,6 @@ pub struct PaymentOrder {
     pub priority: u8,
 }
 
-/// One priority-aging level is earned after this many elapsed simulation ticks.
-pub const PRIORITY_AGING_INTERVAL_TICKS: u64 = 5;
-
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum QueuePolicy {
     /// A blocked head prevents later queue entries from being attempted at that tick.
@@ -77,8 +74,9 @@ pub enum QueuePolicy {
     LiquidityAwareFifo,
     /// Higher priority first, then arrival time and ID; retries after successful settlement.
     PriorityScan,
-    /// Priority increases by one level for each aging interval waited, then arrival time and ID.
-    AgingPriorityScan,
+    /// Priority increases by one level per configured interval, then arrival time and ID.
+    /// The interval must be positive; different intervals expose a fairness/latency trade-off.
+    AgingPriorityScan { interval_ticks: u64 },
     /// Earliest explicit deadline first (missing deadlines last), then arrival time and ID.
     /// This is a simple heuristic, not a globally optimal deadline schedule.
     EarliestDeadlineFirst,
@@ -171,6 +169,7 @@ pub struct QueueResult {
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum QueueError {
     InvalidContext(&'static str),
+    InvalidPolicy(&'static str),
     InvalidAccount(String),
     DuplicateAccount(String),
     InvalidRoute(String),
@@ -229,6 +228,12 @@ pub fn simulate_queue(
     payments: &[PaymentOrder],
     policy: QueuePolicy,
 ) -> Result<QueueResult, QueueError> {
+    if matches!(policy, QueuePolicy::AgingPriorityScan { interval_ticks: 0 }) {
+        return Err(QueueError::InvalidPolicy(
+            "priority aging interval must be greater than zero",
+        ));
+    }
+
     for (name, value) in [
         ("rail_id", context.rail_id.as_str()),
         ("asset_id", context.asset_id.as_str()),
@@ -432,13 +437,11 @@ pub fn simulate_queue(
                         .then_with(|| payments[*a].arrival_tick.cmp(&payments[*b].arrival_tick))
                         .then_with(|| payments[*a].payment_id.cmp(&payments[*b].payment_id))
                 }),
-                QueuePolicy::AgingPriorityScan => pending.sort_by(|a, b| {
+                QueuePolicy::AgingPriorityScan { interval_ticks } => pending.sort_by(|a, b| {
                     let priority_a = payments[*a].priority as u64
-                        + tick.saturating_sub(payments[*a].arrival_tick)
-                            / PRIORITY_AGING_INTERVAL_TICKS;
+                        + tick.saturating_sub(payments[*a].arrival_tick) / interval_ticks;
                     let priority_b = payments[*b].priority as u64
-                        + tick.saturating_sub(payments[*b].arrival_tick)
-                            / PRIORITY_AGING_INTERVAL_TICKS;
+                        + tick.saturating_sub(payments[*b].arrival_tick) / interval_ticks;
                     priority_b
                         .cmp(&priority_a)
                         .then_with(|| payments[*a].arrival_tick.cmp(&payments[*b].arrival_tick))
@@ -870,7 +873,7 @@ mod tests {
             &accounts,
             &routes,
             &orders,
-            QueuePolicy::AgingPriorityScan,
+            QueuePolicy::AgingPriorityScan { interval_ticks: 5 },
         )
         .unwrap();
 
