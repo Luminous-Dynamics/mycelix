@@ -64,7 +64,7 @@ jobs:
             lscpu | grep -E '^(Architecture|CPU\(s\)|Model name|Thread|Core|Socket):'
           } > "$out/metadata.txt"
           cargo run --manifest-path research/finance-liquidity-reordering/Cargo.toml --offline --locked --release --example benchmark > "$out/results.csv"
-          test "$(wc -l < "$out/results.csv")" -eq 205
+          test "$(wc -l < "$out/results.csv")" -eq 237
           awk -F, '
             NR == 1 { if ($12 != "aggregate_liquidity_gap_minor" || $13 != "max_participant_gap_minor" || $7 != "algorithm") exit 2; next }
             {
@@ -78,7 +78,7 @@ jobs:
               }
             }
             END {
-              if (rows != 204 || exact != 12 || failed) exit 1
+              if (rows != 236 || exact != 12 || failed) exit 1
             }
           ' "$out/results.csv"
           cd research/finance-liquidity-reordering
