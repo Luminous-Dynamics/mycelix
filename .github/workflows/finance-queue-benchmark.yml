@@ -87,7 +87,7 @@ jobs:
             cargo +1.96.1 run --offline --locked --release --example atomic_batch_benchmark \
               > "$output/atomic-batch-results.csv"
             cp Cargo.lock "$output/standalone-Cargo.lock"
-            find . -type f ! -name Cargo.lock -print0 | sort -z | xargs -0 sha256sum \
+            find Cargo.toml src tests examples -type f -print0 | sort -z | xargs -0 sha256sum \
               > "$output/SOURCE-SHA256SUMS"
           )
           test -s benchmark-output/results.csv
