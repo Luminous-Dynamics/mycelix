@@ -644,7 +644,11 @@ async fn persist_protected_signing_key(
     {
         // Storage.setItem is atomic by contract, but verify/cleanup fail closed
         // rather than relying on a reported write result as proof of state.
-        let cleanup = storage.remove_item(IDENTITY_SECRET_ENCRYPTED_KEY);
+        let cleanup = remove_storage_item_if_matches(
+            &storage,
+            IDENTITY_SECRET_ENCRYPTED_KEY,
+            &encrypted_wire,
+        );
         if cleanup.is_err() {
             return Err(
                 "Protected identity write failed and cleanup could not be confirmed; inspect posture before retrying."
@@ -654,11 +658,12 @@ async fn persist_protected_signing_key(
         return Err("Could not persist the protected identity envelope.".into());
     }
     if storage.set_item(IDENTITY_PUBLIC_KEY, &public_b64).is_err() {
-        let encrypted_cleanup = storage.remove_item(IDENTITY_SECRET_ENCRYPTED_KEY);
-        let public_cleanup = storage.remove_item(IDENTITY_PUBLIC_KEY);
-        if encrypted_cleanup.is_err() || public_cleanup.is_err() {
+        // Cleanup is all-or-preserve: if the public metadata no longer belongs
+        // to this envelope, retain the envelope rather than deleting a
+        // potentially newer operation's only encrypted recovery material.
+        if cleanup_protected_creation_if_owned(&storage, &encrypted_wire, &public_b64).is_err() {
             return Err(
-                "Identity creation was interrupted and partial storage remains; inspect posture before retrying."
+                "Identity creation was interrupted; concurrent or partial values were preserved for posture inspection."
                     .into(),
             );
         }
@@ -674,12 +679,10 @@ async fn persist_protected_signing_key(
                 == LocalIdentityStoragePosture::ProtectedLocked
     });
     if !verified {
-        let encrypted_cleanup = storage.remove_item(IDENTITY_SECRET_ENCRYPTED_KEY);
-        let public_cleanup = storage.remove_item(IDENTITY_PUBLIC_KEY);
         UNLOCKED_KEY.with(|cell| *cell.borrow_mut() = None);
-        if encrypted_cleanup.is_err() || public_cleanup.is_err() {
+        if cleanup_protected_creation_if_owned(&storage, &encrypted_wire, &public_b64).is_err() {
             return Err(
-                "Identity storage verification failed and cleanup was incomplete; inspect posture before retrying."
+                "Identity storage verification failed; values not proven to belong to this operation were preserved for posture inspection."
                     .into(),
             );
         }
@@ -777,7 +780,11 @@ pub async fn protect_existing_identity(
         .set_item(IDENTITY_SECRET_ENCRYPTED_KEY, &encrypted_wire)
         .is_err()
     {
-        let cleanup = storage.remove_item(IDENTITY_SECRET_ENCRYPTED_KEY);
+        let cleanup = remove_storage_item_if_matches(
+            &storage,
+            IDENTITY_SECRET_ENCRYPTED_KEY,
+            &encrypted_wire,
+        );
         if cleanup.is_err() {
             return Err(
                 "Protected write failed and cleanup could not be confirmed; inspect posture before retrying."
@@ -801,7 +808,11 @@ pub async fn protect_existing_identity(
         }
     }
     if !envelope_verified {
-        let cleanup = storage.remove_item(IDENTITY_SECRET_ENCRYPTED_KEY);
+        let cleanup = remove_storage_item_if_matches(
+            &storage,
+            IDENTITY_SECRET_ENCRYPTED_KEY,
+            &encrypted_wire,
+        );
         if cleanup.is_err() {
             return Err(
                 "Envelope verification failed and cleanup was incomplete; inspect posture before retrying."
@@ -816,18 +827,52 @@ pub async fn protect_existing_identity(
 
     // Keep a short-lived rollback value in memory only until the final state
     // has been checked. It is zeroized on either exit path.
-    let mut plaintext_rollback = base64_encode(signing_key.as_bytes());
-    if storage.remove_item(IDENTITY_SECRET_KEY).is_err() {
-        let cleanup = storage.remove_item(IDENTITY_SECRET_ENCRYPTED_KEY);
-        plaintext_rollback.zeroize();
-        if cleanup.is_err() {
+    let mut plaintext_value = base64_encode(signing_key.as_bytes());
+    if remove_storage_item_if_matches(
+        &storage,
+        IDENTITY_SECRET_KEY,
+        &plaintext_value,
+    )
+    .is_err()
+    {
+        // Do not remove the encrypted envelope just because removeItem returned
+        // an error: some runtimes can make the resulting state ambiguous. If
+        // plaintext is still present, we may clean up our own envelope. If the
+        // plaintext is absent or storage is unreadable, retain the verified
+        // encrypted recovery copy and require an explicit posture inspection.
+        let mut current = read_identity_storage_snapshot_from(&storage);
+        let plaintext_still_present = current.as_ref().is_ok_and(|stored| {
+            stored.secret_b64.as_deref() == Some(plaintext_value.as_str())
+                && stored.public_b64.as_deref() == Some(public_b64.as_str())
+                && stored.encrypted_wire.as_deref() == Some(encrypted_wire.as_str())
+        });
+        if let Ok(stored) = current.as_mut() {
+            if let Some(secret_b64) = stored.secret_b64.as_mut() {
+                secret_b64.zeroize();
+            }
+        }
+        plaintext_value.zeroize();
+        if plaintext_still_present {
+            let cleanup = remove_storage_item_if_matches(
+                &storage,
+                IDENTITY_SECRET_ENCRYPTED_KEY,
+                &encrypted_wire,
+            );
+            if cleanup.is_ok() {
+                return Err(
+                    "Could not remove the plaintext key; the new envelope was removed only after the original key was confirmed present."
+                        .into(),
+                );
+            }
             return Err(
-                "Plaintext removal failed and encrypted-envelope cleanup was incomplete; inspect posture before retrying."
+                "Plaintext key remains, but envelope cleanup could not be confirmed; inspect posture before retrying."
                     .into(),
             );
         }
+        UNLOCKED_KEY.with(|cell| *cell.borrow_mut() = None);
         return Err(
-            "Could not remove the plaintext key; the protected transition was rolled back.".into(),
+            "Plaintext-removal result is ambiguous; the encrypted recovery envelope was retained and no rollback was attempted."
+                .into(),
         );
     }
 
@@ -845,29 +890,17 @@ pub async fn protect_existing_identity(
         }
     }
     if !protected_verified {
-        let restore_plaintext = storage.set_item(IDENTITY_SECRET_KEY, &plaintext_rollback);
-        plaintext_rollback.zeroize();
+        // Preserve the checked encrypted envelope rather than restoring a stale
+        // plaintext key or deleting a value that may now belong to another tab.
+        // An ambiguous read-back is a recovery state, not permission to mutate.
+        plaintext_value.zeroize();
         UNLOCKED_KEY.with(|cell| *cell.borrow_mut() = None);
-        if restore_plaintext.is_err() {
-            // Keep the already-verified encrypted envelope as the only possible
-            // recovery copy; deleting it too could orphan the identity.
-            return Err(
-                "Protected-state verification failed and plaintext rollback was unavailable; encrypted recovery material was retained. Inspect posture before retrying."
-                    .into(),
-            );
-        }
-        let remove_envelope = storage.remove_item(IDENTITY_SECRET_ENCRYPTED_KEY);
-        if remove_envelope.is_err() {
-            return Err(
-                "Protected-state verification failed; plaintext was restored but encrypted-envelope cleanup failed. Inspect posture before retrying."
-                    .into(),
-            );
-        }
         return Err(
-            "Protected-state verification failed; the prior unprotected key was restored.".into(),
+            "Protected-state verification failed after plaintext removal; no destructive rollback was attempted. Preserve all identity values and inspect posture before retrying."
+                .into(),
         );
     }
-    plaintext_rollback.zeroize();
+    plaintext_value.zeroize();
 
     UNLOCKED_KEY.with(|cell| *cell.borrow_mut() = Some(signing_key));
     Ok(LocalIdentityStoragePosture::ProtectedUnlockedInSession)
@@ -987,31 +1020,21 @@ async fn rewrap_protected_identity(passphrase: &str) -> Result<(), String> {
         return Ok(());
     }
 
-    // If write/read-back verification is ambiguous, restore and verify the old
-    // envelope. Never claim rotation success from a successful setItem alone.
-    if storage
-        .set_item(IDENTITY_SECRET_ENCRYPTED_KEY, &previous_wire)
-        .is_err()
-    {
-        return Err(
-            "Passphrase rotation could not be verified and rollback failed; inspect identity posture before retrying."
+    // Restore only if the stored value is still this operation's new envelope.
+    // A different value may belong to another tab and must never be overwritten.
+    match restore_storage_item_if_matches(
+        &storage,
+        IDENTITY_SECRET_ENCRYPTED_KEY,
+        &next_wire,
+        &previous_wire,
+    ) {
+        Ok(()) => Err(
+            "Passphrase rotation failed verification; the previous envelope was restored after exact-value ownership check."
                 .into(),
-        );
-    }
-    let restored = storage.get_item(IDENTITY_SECRET_ENCRYPTED_KEY);
-    if restored
-        .as_ref()
-        .is_ok_and(|value| value.as_deref() == Some(previous_wire.as_str()))
-    {
-        Err(
-            "Passphrase rotation failed verification; the previous passphrase remains active."
-                .into(),
-        )
-    } else {
-        Err(
-            "Passphrase rotation and rollback could not be verified; inspect identity posture before retrying."
-                .into(),
-        )
+        ),
+        Err(error) => Err(format!(
+            "Passphrase rotation could not be verified; no different concurrent value was overwritten. {error}"
+        )),
     }
 }
 
@@ -1328,6 +1351,131 @@ fn base64_decode(s: &str) -> Option<Vec<u8>> {
 
 fn hex_encode(bytes: &[u8]) -> String {
     bytes.iter().map(|b| format!("{b:02x}")).collect()
+}
+
+/// Remove a localStorage entry only if it still contains the exact value
+/// written by the failing operation.
+///
+/// This protects a visibly different concurrent value. The read/check/remove
+/// sequence is NOT an atomic compare-and-swap; full serialization is tracked by
+/// SEC-IDENTITY-004 and this helper must not be described as transaction safety.
+fn remove_storage_item_if_matches(
+    storage: &web_sys::Storage,
+    key: &str,
+    expected_value: &str,
+) -> Result<(), String> {
+    let current = storage
+        .get_item(key)
+        .map_err(|_| "Storage could not be read during rollback.".to_string())?;
+    match current.as_deref() {
+        None => Ok(()),
+        Some(value) if value == expected_value => {
+            storage
+                .remove_item(key)
+                .map_err(|_| "The operation's storage value could not be removed.".to_string())?;
+            let after = storage
+                .get_item(key)
+                .map_err(|_| "Storage cleanup could not be verified.".to_string())?;
+            if after.is_none() {
+                Ok(())
+            } else {
+                Err("Storage cleanup could not be verified.".into())
+            }
+        }
+        Some(_) => Err(
+            "A different concurrent storage value was preserved; inspect identity posture.".into(),
+        ),
+    }
+}
+
+/// Remove public-key metadata only while the encrypted envelope still
+/// identifies this operation. Comparing the public key alone is insufficient:
+/// two restore attempts for the same mnemonic can have the same public key but
+/// different random salts/IVs and therefore different encrypted envelopes.
+fn remove_public_key_if_envelope_matches(
+    storage: &web_sys::Storage,
+    expected_envelope: &str,
+    expected_public_key: &str,
+) -> Result<(), String> {
+    let envelope = storage
+        .get_item(IDENTITY_SECRET_ENCRYPTED_KEY)
+        .map_err(|_| "Encrypted identity envelope could not be read during cleanup.".to_string())?;
+    if envelope.as_deref() != Some(expected_envelope) {
+        return Err(
+            "A different encrypted envelope was preserved; public-key cleanup was refused."
+                .into(),
+        );
+    }
+
+    let public_key = storage
+        .get_item(IDENTITY_PUBLIC_KEY)
+        .map_err(|_| "Public-key metadata could not be read during cleanup.".to_string())?;
+    match public_key.as_deref() {
+        None => Ok(()),
+        Some(value) if value == expected_public_key => {
+            storage
+                .remove_item(IDENTITY_PUBLIC_KEY)
+                .map_err(|_| "The operation's public-key metadata could not be removed.".to_string())?;
+            if storage
+                .get_item(IDENTITY_PUBLIC_KEY)
+                .map_err(|_| "Public-key cleanup could not be verified.".to_string())?
+                .is_none()
+            {
+                Ok(())
+            } else {
+                Err("Public-key cleanup could not be verified.".into())
+            }
+        }
+        Some(_) => Err(
+            "Different public-key metadata was preserved; cleanup was refused.".into(),
+        ),
+    }
+}
+
+/// Clean up a failed protected-creation attempt only when both values can
+/// still be attributed to the attempt. If public-key metadata differs or the
+/// envelope has changed, retain the encrypted value for recovery/inspection.
+fn cleanup_protected_creation_if_owned(
+    storage: &web_sys::Storage,
+    expected_envelope: &str,
+    expected_public_key: &str,
+) -> Result<(), String> {
+    remove_public_key_if_envelope_matches(storage, expected_envelope, expected_public_key)?;
+    remove_storage_item_if_matches(
+        storage,
+        IDENTITY_SECRET_ENCRYPTED_KEY,
+        expected_envelope,
+    )
+}
+
+/// Restore one value only when the key still contains this operation's
+/// replacement. This is a defensive check, not an atomic CAS across tabs.
+fn restore_storage_item_if_matches(
+    storage: &web_sys::Storage,
+    key: &str,
+    expected_current: &str,
+    previous_value: &str,
+) -> Result<(), String> {
+    let current = storage
+        .get_item(key)
+        .map_err(|_| "Storage could not be read before rollback.".to_string())?;
+    if current.as_deref() != Some(expected_current) {
+        return Err(
+            "A different concurrent storage value was preserved; stale rollback was refused."
+                .into(),
+        );
+    }
+    storage
+        .set_item(key, previous_value)
+        .map_err(|_| "The previous storage value could not be restored.".to_string())?;
+    let after = storage
+        .get_item(key)
+        .map_err(|_| "Rollback read-back could not be verified.".to_string())?;
+    if after.as_deref() == Some(previous_value) {
+        Ok(())
+    } else {
+        Err("Rollback read-back did not match the previous value.".into())
+    }
 }
 
 fn remove_item(key: &str) {
@@ -2121,6 +2269,169 @@ mod browser_storage_tests {
             .await
             .expect("rotated passphrase unlocks the same identity");
         assert!(public_key_matches_signing_key(&original_public, &rotated));
+    }
+
+    #[wasm_bindgen_test]
+    async fn rollback_cleanup_preserves_a_nonmatching_concurrent_value() {
+        let _backup = IdentityStorageBackup::new_and_clear();
+        let storage = web_sys::window().unwrap().local_storage().unwrap().unwrap();
+        storage
+            .set_item(IDENTITY_SECRET_ENCRYPTED_KEY, "another-tab-envelope")
+            .expect("test can seed the synthetic competing value");
+
+        assert!(
+            remove_storage_item_if_matches(
+                &storage,
+                IDENTITY_SECRET_ENCRYPTED_KEY,
+                "this-operation-envelope",
+            )
+            .is_err()
+        );
+        assert_eq!(
+            storage
+                .get_item(IDENTITY_SECRET_ENCRYPTED_KEY)
+                .unwrap()
+                .as_deref(),
+            Some("another-tab-envelope")
+        );
+    }
+
+    #[wasm_bindgen_test]
+    async fn owned_cleanup_removes_only_the_matching_value() {
+        let _backup = IdentityStorageBackup::new_and_clear();
+        let storage = web_sys::window().unwrap().local_storage().unwrap().unwrap();
+        storage
+            .set_item(IDENTITY_SECRET_ENCRYPTED_KEY, "this-operation-envelope")
+            .expect("test can seed this operation's value");
+
+        remove_storage_item_if_matches(
+            &storage,
+            IDENTITY_SECRET_ENCRYPTED_KEY,
+            "this-operation-envelope",
+        )
+        .expect("matching value is removable");
+        assert!(storage.get_item(IDENTITY_SECRET_ENCRYPTED_KEY).unwrap().is_none());
+    }
+
+    #[wasm_bindgen_test]
+    async fn public_key_cleanup_requires_the_owned_envelope_even_for_same_key() {
+        let _backup = IdentityStorageBackup::new_and_clear();
+        let storage = web_sys::window().unwrap().local_storage().unwrap().unwrap();
+        let same_public_key = base64_encode(
+            SigningKey::from_bytes(&[123u8; 32]).verifying_key().as_bytes()
+        );
+        storage
+            .set_item(IDENTITY_SECRET_ENCRYPTED_KEY, "other-tab-different-envelope")
+            .expect("test can seed a competing envelope");
+        storage
+            .set_item(IDENTITY_PUBLIC_KEY, &same_public_key)
+            .expect("second restore may refer to the same public key");
+
+        assert!(
+            remove_public_key_if_envelope_matches(
+                &storage,
+                "this-operation-envelope",
+                &same_public_key,
+            )
+            .is_err()
+        );
+        assert_eq!(
+            storage.get_item(IDENTITY_SECRET_ENCRYPTED_KEY).unwrap().as_deref(),
+            Some("other-tab-different-envelope")
+        );
+        assert_eq!(
+            storage.get_item(IDENTITY_PUBLIC_KEY).unwrap().as_deref(),
+            Some(same_public_key.as_str())
+        );
+    }
+
+    #[wasm_bindgen_test]
+    async fn failed_creation_cleanup_keeps_envelope_when_public_metadata_differs() {
+        let _backup = IdentityStorageBackup::new_and_clear();
+        let storage = web_sys::window().unwrap().local_storage().unwrap().unwrap();
+        let expected_public = base64_encode(
+            SigningKey::from_bytes(&[125u8; 32]).verifying_key().as_bytes()
+        );
+        let competing_public = base64_encode(
+            SigningKey::from_bytes(&[126u8; 32]).verifying_key().as_bytes()
+        );
+        storage
+            .set_item(IDENTITY_SECRET_ENCRYPTED_KEY, "this-operation-envelope")
+            .expect("test can seed this operation's envelope");
+        storage
+            .set_item(IDENTITY_PUBLIC_KEY, &competing_public)
+            .expect("test can seed competing public metadata");
+
+        assert!(
+            cleanup_protected_creation_if_owned(
+                &storage,
+                "this-operation-envelope",
+                &expected_public,
+            )
+            .is_err()
+        );
+        assert_eq!(
+            storage.get_item(IDENTITY_SECRET_ENCRYPTED_KEY).unwrap().as_deref(),
+            Some("this-operation-envelope"),
+            "do not delete the only envelope when companion metadata changed"
+        );
+        assert_eq!(
+            storage.get_item(IDENTITY_PUBLIC_KEY).unwrap().as_deref(),
+            Some(competing_public.as_str())
+        );
+    }
+
+    #[wasm_bindgen_test]
+    async fn public_key_cleanup_succeeds_when_both_values_belong_to_operation() {
+        let _backup = IdentityStorageBackup::new_and_clear();
+        let storage = web_sys::window().unwrap().local_storage().unwrap().unwrap();
+        let public_key = base64_encode(
+            SigningKey::from_bytes(&[124u8; 32]).verifying_key().as_bytes()
+        );
+        storage
+            .set_item(IDENTITY_SECRET_ENCRYPTED_KEY, "this-operation-envelope")
+            .expect("test can seed operation envelope");
+        storage
+            .set_item(IDENTITY_PUBLIC_KEY, &public_key)
+            .expect("test can seed operation public key");
+
+        remove_public_key_if_envelope_matches(
+            &storage,
+            "this-operation-envelope",
+            &public_key,
+        )
+        .expect("public metadata belongs to this exact envelope");
+        assert!(storage.get_item(IDENTITY_PUBLIC_KEY).unwrap().is_none());
+        assert_eq!(
+            storage.get_item(IDENTITY_SECRET_ENCRYPTED_KEY).unwrap().as_deref(),
+            Some("this-operation-envelope")
+        );
+    }
+
+    #[wasm_bindgen_test]
+    async fn conditional_rollback_refuses_to_replace_a_concurrent_value() {
+        let _backup = IdentityStorageBackup::new_and_clear();
+        let storage = web_sys::window().unwrap().local_storage().unwrap().unwrap();
+        storage
+            .set_item(IDENTITY_SECRET_ENCRYPTED_KEY, "newer-tab-envelope")
+            .expect("test can seed a newer operation's value");
+
+        assert!(
+            restore_storage_item_if_matches(
+                &storage,
+                IDENTITY_SECRET_ENCRYPTED_KEY,
+                "this-operation-envelope",
+                "older-envelope",
+            )
+            .is_err()
+        );
+        assert_eq!(
+            storage
+                .get_item(IDENTITY_SECRET_ENCRYPTED_KEY)
+                .unwrap()
+                .as_deref(),
+            Some("newer-tab-envelope")
+        );
     }
 
     #[wasm_bindgen_test]
