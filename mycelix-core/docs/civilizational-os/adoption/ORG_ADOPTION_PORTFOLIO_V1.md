@@ -98,6 +98,37 @@ Climate-credit profiles are explicitly marked `gap_requires_issue` and tracked b
 
 These references document public products, organizations or standards only. They do not mean that Mycelix has contacted or integrated any of them.
 
+## Portable proof-of-value bundle
+
+The profile catalog is the *discovery index*, not proof of an adapter. A concrete pilot should emit the separate [pilot proof-bundle schema](./org-adoption-pilot-bundle-v1.schema.json) and start from the [synthetic supply-chain example](./org-adoption-pilot-bundle-example-v1.json). The [cross-invariant verifier](./verify-org-adoption-pilot-bundle.cjs) is zero-dependency and deliberately refuses to elevate its example above `SyntheticReferenceOnly`.
+
+Run from this directory:
+
+```sh
+node verify-org-adoption-pilot-bundle.cjs
+```
+
+The verifier checks relationships JSON Schema alone cannot conveniently express: source/record linkage, manifest and synthetic source-content digests, baseline/candidate input equality, equal resource and authority-budget digests, evidence-reference closure, metric result arithmetic, mandatory negative-control coverage, export digest equality, rollback state, effects-disabled mode, relationship claim guard, and exact evaluator digest. It mutates 12 hostile variants and requires each to be rejected.
+
+JSON Schema validation is a separate lane; the zero-dependency evaluator does not pretend to be a general Draft 2020-12 implementation. The example is a contract witness only. It does not execute either named implementation, run a vendor integration, or prove the scenario happened in the physical world.
+
+## Benchmarking against industry and state of practice
+
+- **Adopt established event semantics where they fit.** GS1 EPCIS/CBV 2.0 already provides standardized supply-chain event representations, sensor-data support and REST interfaces. Mycelix should preserve EPCIS event meanings and provenance, and add value in cross-organization evidence qualification, contradiction handling, rights/authority boundaries, and portable replay—not invent a parallel traceability vocabulary. Reference: [GS1 EPCIS](https://www.gs1.org/standards/epcis).
+- **Adopt mature measurement discipline.** OpenTelemetry's SDK performance guidance specifies configuration and measurement practices, including warm-up where relevant. Use repeated runs and disclose hardware/software/input conditions instead of treating one latency number as a benchmark. Reference: [OpenTelemetry performance benchmark guidance](https://github.com/open-telemetry/opentelemetry-specification/blob/main/specification/performance-benchmark.md).
+- **Tailor evaluation to the actual mission.** NIST's initial public draft of AI 200-2, TEVV-Athlon, structures assessments around organizational objectives, measurement concepts, events and tools. Use the idea of a purpose-specific evaluation plan, while treating this as a draft framework—not a certification or endorsement. Reference: [NIST AI 200-2](https://doi.org/10.6028/NIST.AI.200-2.ipd).
+
+For every vertical, baseline and candidate must receive the same frozen input digest, resource budget, authority budget, measurement window and declared measurement profile. Report an outcome vector—not a single universal score:
+
+- semantic fidelity: preserved known fields, explicit unsupported fields, and round-trip loss;
+- correctness: false claim promotions, missing/duplicate events, replay acceptance, and disputed-state preservation;
+- trust boundaries: stale authority, wrong subject, source drift, rights gaps and cross-organization attribution;
+- operational performance: throughput and p50/p95/max latency under declared conditions, peak memory, operator effort, integration cost and recovery time;
+- portability: reproducible receipt, full export, independent replay and tested rollback/off-ramp;
+- consequential outcomes: only after real deployment, a suitable baseline, predeclared evaluation plan and permission to use the required data.
+
+Suggested scale gates are *targets to measure, not achieved results*: first prove the synthetic 4-event reference fixture; then 1,000, 10,000 and 100,000-event corpora with increasing event-type and source diversity. Hold exactness and claim ceilings constant while measuring scale. The reference fixture's five controls and 12 mutation cases do not by themselves demonstrate industrial readiness or SOTA performance.
+
 ## Acceptance profile for every pilot
 
 Before implementation work is proposed, run `node verify-org-adoption-profiles.cjs` from this directory. It checks cross-row invariants and emits a digest-bound JSON receipt. Validate the catalog instance against `org-adoption-profiles-v1.schema.json` separately with a Draft 2020-12 JSON Schema validator; the zero-dependency Node script does not claim to replace that validation.
