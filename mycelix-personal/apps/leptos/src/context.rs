@@ -124,7 +124,7 @@ fn unavailable_from_prior<T: Clone>(
     SourceObservation::from_failed_read(
         source_id,
         Some(attempted_at_unix_ms),
-        SourceFailure::Other("view read failed".into()),
+        SourceFailure::UnclassifiedReadFailure,
         last_known,
     )
 }
@@ -238,7 +238,7 @@ pub fn provide_personal_context() {
                     ctx.profile_source.set(SourceObservation::from_failed_read(
                         PROFILE_SOURCE_ID,
                         Some(observed_now_unix_ms()),
-                        SourceFailure::Other("view read failed".into()),
+                        SourceFailure::UnclassifiedReadFailure,
                         None,
                     ));
                     unavailable_sources.push("profile");
@@ -265,7 +265,7 @@ pub fn provide_personal_context() {
                     ctx.keys_source.set(SourceObservation::from_failed_read(
                         KEYS_SOURCE_ID,
                         Some(observed_now_unix_ms()),
-                        SourceFailure::Other("view read failed".into()),
+                        SourceFailure::UnclassifiedReadFailure,
                         None,
                     ));
                     unavailable_sources.push("identity keys");
