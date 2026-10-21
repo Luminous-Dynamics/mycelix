@@ -108,7 +108,7 @@ fn payment_outage_blocks_execution_but_does_not_consume_cash_or_drop_queue_entri
     let problem = Problem::new(2, vec![p("one", 0, 1, 3)]).unwrap();
     let result = replay_stream_with_liquidity_budget(
         &problem,
-        &cfg(vec![0], vec![10], 1, 0),
+        &cfg(vec![3], vec![10], 1, 0),
         OnlineBatchStrategy::Fifo,
         &[3, 0],
     )
