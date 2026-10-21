@@ -28,7 +28,7 @@ The comparison objective is explicit and lexicographic: (1) maximize settled val
 
     cargo run --release --manifest-path mycelix-finance/Cargo.toml -p finance-queue-lsm-sim --example queue_lsm_benchmark
 
-The benchmark builds deterministic synthetic batches of 70, 140 and 700 payments and emits CSV for FIFO, unlock-potential and seeded simulated annealing. Annealing budgets are 300, 120 and 30 swaps respectively, with five pinned seeds. Run on a pinned reference machine; record OS, CPU, Rust version and commit SHA with results.
+The benchmark builds deterministic synthetic batches of 70, 140 and 700 payments and emits CSV for FIFO, unlock-potential and seeded simulated annealing. Annealing budgets are 100, 30 and 5 swaps respectively, with five pinned seeds and three repeated timing samples per seed. Run on a pinned reference machine; record OS, CPU, Rust version and commit SHA with results.
 
 These scenarios are synthetic and only stress the stated simulator. They do not reconstruct SAMOS, SADC-RTGS, TARGET2, PayShap or other production rails.
 
