@@ -169,6 +169,42 @@
         "synthetic-sna-v01"
       ],
       "notes": "Distributional incidence matters; this amount is not automatically net new real output."
+    },
+    {
+      "event_id": "debt-repayment-001",
+      "event_class": "principal_repayment",
+      "amount": 30,
+      "unit": "ZAR_million",
+      "currency": "ZAR",
+      "gdp_treatment": "excluded_from_current_production",
+      "source_refs": [
+        "synthetic-sna-v01"
+      ],
+      "notes": "Synthetic principal repayment; changes financial positions but is not current production."
+    },
+    {
+      "event_id": "debt-writeoff-001",
+      "event_class": "writeoff",
+      "amount": 10,
+      "unit": "ZAR_million",
+      "currency": "ZAR",
+      "gdp_treatment": "excluded_from_current_production",
+      "source_refs": [
+        "synthetic-sna-v01"
+      ],
+      "notes": "Synthetic debt writeoff / stock change; not new current production."
+    },
+    {
+      "event_id": "debt-revaluation-001",
+      "event_class": "asset_revaluation",
+      "amount": 5,
+      "unit": "ZAR_million",
+      "currency": "ZAR",
+      "gdp_treatment": "excluded_from_current_production",
+      "source_refs": [
+        "synthetic-sna-v01"
+      ],
+      "notes": "Synthetic liability revaluation for the debt stock-flow account; not current production."
     }
   ],
   "outcome_vector": [
@@ -313,20 +349,23 @@
           "term": "GDP",
           "value": 1000,
           "coefficient": 1,
-          "unit": "ZAR_million"
+          "unit": "ZAR_million",
+          "value_pointer": "/conventional_accounts/gdp/value"
         },
         {
           "term": "consumption_of_fixed_capital",
           "value": 50,
           "coefficient": -1,
-          "unit": "ZAR_million"
+          "unit": "ZAR_million",
+          "value_pointer": "/conventional_accounts/consumption_of_fixed_capital/value"
         }
-      ]
+      ],
+      "lhs_pointer": "/conventional_accounts/net_domestic_product/value"
     },
     {
       "check_id": "debt-stock-rollforward-001",
       "class": "monetary_stock_flow",
-      "equation": "closing_debt = opening_debt + borrowing - principal_repayment - writeoff + revaluation",
+      "equation": "closing_debt = opening_debt + sum(signed_changes)",
       "lhs": 245,
       "rhs": 245,
       "residual": 0,
@@ -338,38 +377,44 @@
           "term": "opening_debt",
           "value": 200,
           "coefficient": 1,
-          "unit": "ZAR_million"
+          "unit": "ZAR_million",
+          "value_pointer": "/stock_flow_accounts/0/opening_stock"
         },
         {
           "term": "borrowing",
           "value": 80,
           "coefficient": 1,
-          "unit": "ZAR_million"
+          "unit": "ZAR_million",
+          "value_pointer": "/stock_flow_accounts/0/changes/0/signed_change"
         },
         {
           "term": "principal_repayment",
-          "value": 30,
-          "coefficient": -1,
-          "unit": "ZAR_million"
+          "value": -30,
+          "coefficient": 1,
+          "unit": "ZAR_million",
+          "value_pointer": "/stock_flow_accounts/0/changes/1/signed_change"
         },
         {
           "term": "writeoff",
-          "value": 10,
-          "coefficient": -1,
-          "unit": "ZAR_million"
+          "value": -10,
+          "coefficient": 1,
+          "unit": "ZAR_million",
+          "value_pointer": "/stock_flow_accounts/0/changes/2/signed_change"
         },
         {
           "term": "revaluation",
           "value": 5,
           "coefficient": 1,
-          "unit": "ZAR_million"
+          "unit": "ZAR_million",
+          "value_pointer": "/stock_flow_accounts/0/changes/3/signed_change"
         }
-      ]
+      ],
+      "lhs_pointer": "/stock_flow_accounts/0/closing_stock"
     },
     {
       "check_id": "water-stock-flow-001",
       "class": "physical_stock_flow",
-      "equation": "closing_water_stock = opening_stock + inflow - use - outflow",
+      "equation": "closing_water_stock = opening_stock + sum(signed_changes)",
       "lhs": 85,
       "rhs": 85,
       "residual": 0,
@@ -381,27 +426,32 @@
           "term": "opening_stock",
           "value": 100,
           "coefficient": 1,
-          "unit": "million_m3"
+          "unit": "million_m3",
+          "value_pointer": "/stock_flow_accounts/1/opening_stock"
         },
         {
           "term": "inflow",
           "value": 30,
           "coefficient": 1,
-          "unit": "million_m3"
+          "unit": "million_m3",
+          "value_pointer": "/stock_flow_accounts/1/changes/0/signed_change"
         },
         {
           "term": "use",
-          "value": 20,
-          "coefficient": -1,
-          "unit": "million_m3"
+          "value": -20,
+          "coefficient": 1,
+          "unit": "million_m3",
+          "value_pointer": "/stock_flow_accounts/1/changes/1/signed_change"
         },
         {
           "term": "outflow",
-          "value": 25,
-          "coefficient": -1,
-          "unit": "million_m3"
+          "value": -25,
+          "coefficient": 1,
+          "unit": "million_m3",
+          "value_pointer": "/stock_flow_accounts/1/changes/2/signed_change"
         }
-      ]
+      ],
+      "lhs_pointer": "/stock_flow_accounts/1/closing_stock"
     }
   ],
   "aggregation_policy": {
@@ -452,6 +502,99 @@
       "source_refs": [
         "synthetic-water-v01"
       ]
+    }
+  ],
+  "stock_flow_accounts": [
+    {
+      "account_id": "public-debt-stock",
+      "account_class": "financial_stock",
+      "unit": "ZAR_million",
+      "currency": "ZAR",
+      "opening_stock": 200,
+      "closing_stock": 245,
+      "changes": [
+        {
+          "change_id": "borrowings",
+          "change_class": "borrowing",
+          "signed_change": 80,
+          "source_event_id": "loan-drawdown-001",
+          "source_refs": [
+            "synthetic-sna-v01"
+          ]
+        },
+        {
+          "change_id": "principal-repayments",
+          "change_class": "principal_repayment",
+          "signed_change": -30,
+          "source_event_id": "debt-repayment-001",
+          "source_refs": [
+            "synthetic-sna-v01"
+          ]
+        },
+        {
+          "change_id": "writeoffs",
+          "change_class": "writeoff",
+          "signed_change": -10,
+          "source_event_id": "debt-writeoff-001",
+          "source_refs": [
+            "synthetic-sna-v01"
+          ]
+        },
+        {
+          "change_id": "debt-revaluation",
+          "change_class": "revaluation",
+          "signed_change": 5,
+          "source_event_id": "debt-revaluation-001",
+          "source_refs": [
+            "synthetic-sna-v01"
+          ]
+        }
+      ],
+      "source_refs": [
+        "synthetic-sna-v01"
+      ],
+      "notes": "Synthetic public-debt stock; signed changes are distinct from current production."
+    },
+    {
+      "account_id": "raw-water-stock",
+      "account_class": "physical_stock",
+      "unit": "million_m3",
+      "currency": null,
+      "opening_stock": 100,
+      "closing_stock": 85,
+      "changes": [
+        {
+          "change_id": "inflow",
+          "change_class": "physical_inflow",
+          "signed_change": 30,
+          "source_event_id": null,
+          "source_refs": [
+            "synthetic-water-v01"
+          ]
+        },
+        {
+          "change_id": "use",
+          "change_class": "physical_use",
+          "signed_change": -20,
+          "source_event_id": null,
+          "source_refs": [
+            "synthetic-water-v01"
+          ]
+        },
+        {
+          "change_id": "outflow",
+          "change_class": "physical_outflow",
+          "signed_change": -25,
+          "source_event_id": null,
+          "source_refs": [
+            "synthetic-water-v01"
+          ]
+        }
+      ],
+      "source_refs": [
+        "synthetic-water-v01"
+      ],
+      "notes": "Synthetic physical stock-flow example; not a hydraulic model or observed water body."
     }
   ]
 }
