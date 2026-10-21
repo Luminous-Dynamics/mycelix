@@ -77,7 +77,7 @@
         "explanation": "Six groups of seven total 42; the multiplication fact can be checked with 7 × 6.",
         "distractors": [
           "36",
-          "42",
+          "45",
           "48"
         ]
       },
@@ -92,7 +92,7 @@
         "explanation": "Use 8 × 10 − 8 = 80 − 8 = 72.",
         "distractors": [
           "63",
-          "72",
+          "64",
           "81"
         ]
       },
@@ -107,7 +107,7 @@
         "explanation": "20 × 3 = 60 and 4 × 3 = 12; 60 + 12 = 72.",
         "distractors": [
           "62",
-          "72",
+          "74",
           "82"
         ]
       },
@@ -122,8 +122,8 @@
         "explanation": "8 × 7 = 56, so 56 divided into groups of 8 makes 7 groups.",
         "distractors": [
           "6",
-          "7",
-          "8"
+          "8",
+          "9"
         ]
       },
       {
@@ -138,7 +138,7 @@
         "distractors": [
           "13 desks",
           "32 desks",
-          "36 desks"
+          "35 desks"
         ]
       },
       {
