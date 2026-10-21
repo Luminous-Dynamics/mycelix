@@ -211,6 +211,7 @@
       "required": [
         "implementation_id",
         "version",
+        "execution_state",
         "implementation_sha256",
         "input_manifest_sha256",
         "resource_budget_sha256",
@@ -228,7 +229,11 @@
           "maxLength": 100
         },
         "implementation_sha256": {
-          "$ref": "#/$defs/sha256"
+          "type": [
+            "string",
+            "null"
+          ],
+          "pattern": "^[0-9a-f]{64}$"
         },
         "input_manifest_sha256": {
           "$ref": "#/$defs/sha256"
@@ -238,8 +243,42 @@
         },
         "authority_budget_sha256": {
           "$ref": "#/$defs/sha256"
+        },
+        "execution_state": {
+          "enum": [
+            "not_executed",
+            "executed"
+          ]
         }
-      }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "execution_state": {
+                "const": "not_executed"
+              }
+            },
+            "required": [
+              "execution_state"
+            ]
+          },
+          "then": {
+            "properties": {
+              "implementation_sha256": {
+                "const": null
+              }
+            }
+          },
+          "else": {
+            "properties": {
+              "implementation_sha256": {
+                "$ref": "#/$defs/sha256"
+              }
+            }
+          }
+        }
+      ]
     },
     "sourceEntry": {
       "type": "object",
@@ -805,6 +844,128 @@
             "properties": {
               "execution_state": {
                 "const": "not_executed"
+              }
+            }
+          },
+          "comparison": {
+            "properties": {
+              "baseline": {
+                "properties": {
+                  "execution_state": {
+                    "const": "not_executed"
+                  }
+                }
+              },
+              "candidate": {
+                "properties": {
+                  "execution_state": {
+                    "const": "not_executed"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "evaluation_state": {
+            "const": "measured_evaluation"
+          }
+        },
+        "required": [
+          "evaluation_state"
+        ]
+      },
+      "then": {
+        "properties": {
+          "comparison": {
+            "properties": {
+              "baseline": {
+                "properties": {
+                  "execution_state": {
+                    "const": "executed"
+                  }
+                }
+              },
+              "candidate": {
+                "properties": {
+                  "execution_state": {
+                    "const": "executed"
+                  }
+                }
+              }
+            }
+          },
+          "metrics": {
+            "items": {
+              "properties": {
+                "comparison_rule": {
+                  "not": {
+                    "const": "not_measured"
+                  }
+                },
+                "baseline_value": {
+                  "type": "number"
+                },
+                "candidate_value": {
+                  "type": "number"
+                },
+                "disposition": {
+                  "enum": [
+                    "pass",
+                    "fail",
+                    "indeterminate"
+                  ]
+                }
+              }
+            }
+          },
+          "negative_controls": {
+            "items": {
+              "properties": {
+                "execution_state": {
+                  "const": "executed"
+                },
+                "observed_disposition": {
+                  "not": {
+                    "const": "not_observed"
+                  }
+                },
+                "passed": {
+                  "type": "boolean"
+                }
+              }
+            }
+          },
+          "export_test": {
+            "properties": {
+              "execution_state": {
+                "const": "executed"
+              },
+              "observed_sha256": {
+                "$ref": "#/$defs/sha256"
+              },
+              "round_trip_matches": {
+                "type": "boolean"
+              }
+            }
+          },
+          "rollback_test": {
+            "properties": {
+              "execution_state": {
+                "const": "executed"
+              },
+              "result": {
+                "enum": [
+                  "rollback_completed",
+                  "rollback_failed"
+                ]
+              },
+              "retained_external_effects": {
+                "type": "boolean"
               }
             }
           }
