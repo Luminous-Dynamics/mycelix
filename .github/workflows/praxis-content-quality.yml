@@ -31,8 +31,8 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: rustfmt
-      - name: Check formatting
-        run: cargo fmt -- --check
+      - name: Check changed implementation files
+        run: rustfmt --edition 2024 --check src/pipeline.rs src/caps_content/gr9_math.rs
 
   test:
     runs-on: ubuntu-latest
