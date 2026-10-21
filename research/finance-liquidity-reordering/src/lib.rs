@@ -22,7 +22,8 @@ pub const MAX_EVENT_QUEUE_REFRESHES: usize = 1_000_000;
 
 mod stream_replay;
 pub use stream_replay::{
-    replay_stream, OnlineBatchStrategy, StreamReplayConfig, StreamReplayError, StreamReplayResult,
+    replay_stream, replay_stream_with_liquidity_budget, BudgetedStreamReplayResult,
+    OnlineBatchStrategy, StreamReplayConfig, StreamReplayError, StreamReplayResult,
 };
 
 
