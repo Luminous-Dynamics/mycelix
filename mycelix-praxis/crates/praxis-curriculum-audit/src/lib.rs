@@ -1333,12 +1333,20 @@ mod tests {
             corpus["status"],
             "synthetic_seed_cases_not_a_validated_benchmark"
         );
-        assert!(corpus["privacy"].as_str().unwrap().contains("synthetic"));
+        assert!(
+            corpus["privacy"]
+                .as_str()
+                .unwrap()
+                .contains("synthetic")
+        );
 
         let cases = corpus["cases"]
             .as_array()
             .expect("PedBench cases must be an array");
-        assert!(cases.len() >= 6, "seed corpus should exercise multiple domains");
+        assert!(
+            cases.len() >= 6,
+            "seed corpus should exercise multiple domains"
+        );
 
         let mut seen = BTreeSet::new();
         for case in cases {
@@ -1369,16 +1377,19 @@ mod tests {
                 );
             }
             assert!(
-                case["expected_behaviours"].as_array().is_some_and(|items| !items.is_empty()),
+                case["expected_behaviours"]
+                    .as_array()
+                    .is_some_and(|items| !items.is_empty()),
                 "PedBench case {case_id} must include expected behaviours"
             );
             assert!(
-                case["prohibited_behaviours"].as_array().is_some_and(|items| !items.is_empty()),
+                case["prohibited_behaviours"]
+                    .as_array()
+                    .is_some_and(|items| !items.is_empty()),
                 "PedBench case {case_id} must include prohibited behaviours"
             );
             assert_eq!(
-                case["annotation_status"],
-                "needs_two_independent_educator_reviews",
+                case["annotation_status"], "needs_two_independent_educator_reviews",
                 "synthetic seed labels must not be presented as validated gold labels"
             );
         }
