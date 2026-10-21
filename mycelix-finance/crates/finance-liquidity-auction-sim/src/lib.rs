@@ -76,6 +76,16 @@ pub struct ExcludedObservation {
     pub reason: ExclusionReason,
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum ClearingPriceRule {
+    /// Clearing price is ask + floor((bid - ask) / 2).
+    MidpointFloor,
+    /// Receiver pays the provider's minimum ask; receiver retains all price surplus.
+    PayAsAsk,
+    /// Receiver pays their maximum bid; provider retains all price surplus.
+    PayAsBid,
+}
+
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct LiquidityMatch {
     pub offer_id: String,
@@ -117,6 +127,7 @@ pub struct AuctionReport {
     pub clearing_window_id: String,
     pub policy_version: String,
     pub authority_evidence_ref: String,
+    pub price_rule: ClearingPriceRule,
     pub opening_liquidity_total_minor: u128,
     pub closing_liquidity_total_minor: u128,
     pub eligible_offered_minor: u128,
@@ -242,6 +253,25 @@ pub fn run_auction(
     participant_observations: &[ParticipantLiquidity],
     offer_observations: &[LiquidityOffer],
     bid_observations: &[LiquidityBid],
+) -> Result<AuctionReport, AuctionError> {
+    run_auction_with_price_rule(
+        context,
+        participant_observations,
+        offer_observations,
+        bid_observations,
+        ClearingPriceRule::MidpointFloor,
+    )
+}
+
+/// Run the same deterministic matching policy with an explicit side-payment rule.
+/// This changes only compensation distribution; eligibility and matched quantity remain
+/// governed by the same ask/bid constraints.
+pub fn run_auction_with_price_rule(
+    context: &AuctionContext,
+    participant_observations: &[ParticipantLiquidity],
+    offer_observations: &[LiquidityOffer],
+    bid_observations: &[LiquidityBid],
+    price_rule: ClearingPriceRule,
 ) -> Result<AuctionReport, AuctionError> {
     let authority_evidence_ref = validate_context(context)?;
 
@@ -470,8 +500,13 @@ pub fn run_auction(
         }
         let price_spread = bid.maximum_price_units_per_minor
             - offer.minimum_price_units_per_minor;
-        let clearing_price_units_per_minor =
-            offer.minimum_price_units_per_minor + price_spread / 2;
+        let clearing_price_units_per_minor = match price_rule {
+            ClearingPriceRule::MidpointFloor => {
+                offer.minimum_price_units_per_minor + price_spread / 2
+            }
+            ClearingPriceRule::PayAsAsk => offer.minimum_price_units_per_minor,
+            ClearingPriceRule::PayAsBid => bid.maximum_price_units_per_minor,
+        };
         if clearing_price_units_per_minor < offer.minimum_price_units_per_minor
             || clearing_price_units_per_minor > bid.maximum_price_units_per_minor
         {
@@ -650,6 +685,7 @@ pub fn run_auction(
         clearing_window_id: context.clearing_window_id.clone(),
         policy_version: context.policy_version.clone(),
         authority_evidence_ref,
+        price_rule,
         opening_liquidity_total_minor,
         closing_liquidity_total_minor,
         eligible_offered_minor,
@@ -766,6 +802,58 @@ mod tests {
             .unwrap();
         assert_eq!(provider.available_after_minor, 70);
         assert!(provider.available_after_minor >= provider.required_reserve_minor);
+    }
+
+    #[test]
+    fn price_rules_change_surplus_distribution_not_matched_quantity() {
+        let participants = vec![participant("L", 10, 5), participant("B", 0, 5)];
+        let offers = [offer("ask", "L", 5, 2)];
+        let bids = [bid("bid", "B", 5, 5)];
+
+        let midpoint = run_auction_with_price_rule(
+            &context(),
+            &participants,
+            &offers,
+            &bids,
+            ClearingPriceRule::MidpointFloor,
+        )
+        .unwrap();
+        let pay_as_ask = run_auction_with_price_rule(
+            &context(),
+            &participants,
+            &offers,
+            &bids,
+            ClearingPriceRule::PayAsAsk,
+        )
+        .unwrap();
+        let pay_as_bid = run_auction_with_price_rule(
+            &context(),
+            &participants,
+            &offers,
+            &bids,
+            ClearingPriceRule::PayAsBid,
+        )
+        .unwrap();
+
+        assert_eq!(midpoint.matched_minor, 5);
+        assert_eq!(pay_as_ask.matched_minor, midpoint.matched_minor);
+        assert_eq!(pay_as_bid.matched_minor, midpoint.matched_minor);
+        assert_eq!(midpoint.price_rule, ClearingPriceRule::MidpointFloor);
+        assert_eq!(pay_as_ask.price_rule, ClearingPriceRule::PayAsAsk);
+        assert_eq!(pay_as_bid.price_rule, ClearingPriceRule::PayAsBid);
+
+        assert_eq!(midpoint.total_compensation_units, 15);
+        assert_eq!(pay_as_ask.total_compensation_units, 10);
+        assert_eq!(pay_as_bid.total_compensation_units, 25);
+        assert_eq!(midpoint.provider_retained_surplus_units, 5);
+        assert_eq!(midpoint.receiver_retained_surplus_units, 10);
+        assert_eq!(pay_as_ask.provider_retained_surplus_units, 0);
+        assert_eq!(pay_as_ask.receiver_retained_surplus_units, 15);
+        assert_eq!(pay_as_bid.provider_retained_surplus_units, 15);
+        assert_eq!(pay_as_bid.receiver_retained_surplus_units, 0);
+
+        assert_eq!(midpoint.total_surplus_units, pay_as_ask.total_surplus_units);
+        assert_eq!(midpoint.total_surplus_units, pay_as_bid.total_surplus_units);
     }
 
     #[test]
