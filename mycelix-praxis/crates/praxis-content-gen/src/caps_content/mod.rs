@@ -419,8 +419,8 @@ mod tests {
 
     #[test]
     fn test_gr9_alg1_via_pipeline() {
-        let gen = CapsContentGenerator;
-        let pipeline = crate::pipeline::ContentPipeline::new(gen);
+        let generator = CapsContentGenerator;
+        let pipeline = crate::pipeline::ContentPipeline::new(generator);
         let standard = crate::pipeline::StandardInput {
             code: "CAPS.Mathematics.Gr9.ALG.1".to_string(),
             description: "Identify and classify like terms".to_string(),
@@ -441,9 +441,9 @@ mod tests {
 
     #[test]
     fn test_caps_generator_produces_content() {
-        let gen = CapsContentGenerator;
+        let generator = CapsContentGenerator;
         let ch = ContentChannels::teaching_factual();
-        let out = gen.generate(&ch, "Standard: CAPS.Mathematics.Gr12.P1.CALC - Differential Calculus", 500);
+        let out = generator.generate(&ch, "Standard: CAPS.Mathematics.Gr12.P1.CALC - Differential Calculus", 500);
         assert!(out.text.contains("deriv") || out.text.contains("rate of change"));
         assert!(out.coherence >= 0.85);
     }
