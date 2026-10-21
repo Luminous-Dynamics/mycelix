@@ -42,7 +42,7 @@ Run native unit tests for pure state policy/classification, real-browser tests f
 
 ## Scenario status
 
-The machine-readable corpus currently defines 42 synthetic cases. All are initially marked `specified_not_executed`. This state is intentional; do not edit a scenario to `pass` without a source-SHA-bound receipt. Future WebAuthn cases are requirements for an experimental feature and are not implemented support claims.
+The machine-readable corpus currently defines 43 synthetic cases. All are initially marked `specified_not_executed`. This state is intentional; do not edit a scenario to `pass` without a source-SHA-bound receipt. Future WebAuthn cases are requirements for an experimental feature and are not implemented support claims.
 
 ## Files
 
