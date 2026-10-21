@@ -139,8 +139,8 @@ fn main() {
                 QueuePolicy::LiquidityAwareFifo,
                 QueuePolicy::PriorityScan,
                 QueuePolicy::AgingPriorityScan { interval_ticks: 1 },
-            QueuePolicy::AgingPriorityScan { interval_ticks: 5 },
-            QueuePolicy::AgingPriorityScan { interval_ticks: 20 },
+                QueuePolicy::AgingPriorityScan { interval_ticks: 5 },
+                QueuePolicy::AgingPriorityScan { interval_ticks: 20 },
                 QueuePolicy::EarliestDeadlineFirst,
             ] {
                 // Warm the code path before measuring. Keep warmup samples out of the
