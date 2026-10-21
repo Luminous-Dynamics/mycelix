@@ -99,3 +99,15 @@ For a sampling-decision evidence record, retain the policy version and configura
 The Draft 2020-12 schema checks required fields and action-specific shape. Cross-field temporal order (for example, observation availability not later than decision time), actual subset preservation of due required tests, digest recomputation, channel-inventory truth, and policy reproducibility still require an executing verifier. The companion Symthaea contract runner checks several of these internal relationships for a single decision record. Neither schema nor the runner authenticates the underlying measurement or proves that the declared minimum testing schedule is complete.
 
 New synthetic policy/provenance cases BP-017–BP-020 cover missing decision lineage, unavailable channels, deferral that drops a required test, and unsupported claims that fewer samples preserved event detection. The 20-case corpus and synthetic decision-evidence envelope are test fixtures only, not a measured batch record or a plant authorization.
+
+### Decision-value and deadline provenance
+
+The sampling-decision record now keeps the expected loss without a discretionary measurement, expected loss when its result is used, estimated sampling cost, estimated delay cost, and expected result-availability time alongside the decision deadline. These terms use one preregistered loss/utility unit; do not add money, time, and probability directly without a documented conversion.
+
+For a SAMPLE recommendation, Symthaea's executable contract checks that:
+
+`expected_loss_without_sample - expected_loss_with_sample - sampling_cost - delay_cost > 0`
+
+and that the expected result arrives by the decision deadline. This check means the recommendation is internally consistent with its own stated rationale; it does not mean the estimates are calibrated or the sample will actually improve a batch outcome. Retrospective replay should score forecasted net value against held-out outcomes, and a result arriving after the current decision deadline cannot be counted as improving that already-due decision.
+
+The Mycelix schema records these terms and the synthetic fixture carries an internally positive example. A production provenance verifier still needs cross-field arithmetic and chronological checks, digest recomputation, signature and authorization validation, and independent quality/process review. New cases BP-021 and BP-022 reject non-positive expected net value and a sample result arriving after the claimed decision deadline.
