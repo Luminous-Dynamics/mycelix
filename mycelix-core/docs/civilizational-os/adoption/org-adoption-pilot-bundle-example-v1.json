@@ -135,26 +135,26 @@
     {
       "metric_id": "required-event-lineage-preservation",
       "unit": "percent",
-      "comparison_rule": "candidate_gte_baseline",
-      "baseline_value": 100,
-      "candidate_value": 100,
-      "disposition": "pass"
+      "comparison_rule": "not_measured",
+      "baseline_value": null,
+      "candidate_value": null,
+      "disposition": "not_measured"
     },
     {
       "metric_id": "duplicate-event-rejection-controls",
       "unit": "count",
-      "comparison_rule": "candidate_gt_baseline",
-      "baseline_value": 0,
-      "candidate_value": 1,
-      "disposition": "pass"
+      "comparison_rule": "not_measured",
+      "baseline_value": null,
+      "candidate_value": null,
+      "disposition": "not_measured"
     },
     {
       "metric_id": "unsupported-claims-promoted-to-supported",
       "unit": "count",
-      "comparison_rule": "candidate_zero",
-      "baseline_value": 0,
-      "candidate_value": 0,
-      "disposition": "pass"
+      "comparison_rule": "not_measured",
+      "baseline_value": null,
+      "candidate_value": null,
+      "disposition": "not_measured"
     }
   ],
   "negative_controls": [
@@ -162,53 +162,53 @@
       "control_id": "nc-duplicate-replay",
       "attack": "Replay an already accepted source event with the same identifier.",
       "expected_disposition": "rejected_duplicate",
-      "observed_disposition": "rejected_duplicate",
-      "passed": true
+      "execution_state": "not_executed",
+      "observed_disposition": "not_observed",
+      "passed": null
     },
     {
       "control_id": "nc-wrong-subject",
       "attack": "Substitute a different lot identifier for the receiving event.",
       "expected_disposition": "rejected_subject_mismatch",
-      "observed_disposition": "rejected_subject_mismatch",
-      "passed": true
+      "execution_state": "not_executed",
+      "observed_disposition": "not_observed",
+      "passed": null
     },
     {
       "control_id": "nc-scan-promoted-to-delivery",
       "attack": "Present a scan observation alone as proof of physical delivery.",
       "expected_disposition": "claim_indeterminate",
-      "observed_disposition": "claim_indeterminate",
-      "passed": true
+      "execution_state": "not_executed",
+      "observed_disposition": "not_observed",
+      "passed": null
     },
     {
       "control_id": "nc-source-digest-mismatch",
       "attack": "Change a source record while keeping the previously committed source digest.",
       "expected_disposition": "rejected_digest_mismatch",
-      "observed_disposition": "rejected_digest_mismatch",
-      "passed": true
+      "execution_state": "not_executed",
+      "observed_disposition": "not_observed",
+      "passed": null
     },
     {
       "control_id": "nc-missing-rights",
       "attack": "Remove the required data-rights disposition from a non-synthetic source.",
       "expected_disposition": "rejected_missing_rights",
-      "observed_disposition": "rejected_missing_rights",
-      "passed": true
+      "execution_state": "not_executed",
+      "observed_disposition": "not_observed",
+      "passed": null
     }
   ],
   "export_test": {
-    "performed": true,
+    "execution_state": "not_executed",
     "expected_sha256": "6968898a0f15b6c711cf2dde82675e6b6da7b320f2157fa1c641f40f8529e619",
-    "observed_sha256": "6968898a0f15b6c711cf2dde82675e6b6da7b320f2157fa1c641f40f8529e619",
-    "round_trip_matches": true
+    "observed_sha256": null,
+    "round_trip_matches": null
   },
   "rollback_test": {
-    "performed": true,
-    "result": "rollback_completed",
-    "retained_external_effects": false
+    "execution_state": "not_executed",
+    "result": "not_executed",
+    "retained_external_effects": null
   },
-  "result": {
-    "disposition": "ReferenceFixtureConforms",
-    "evaluator_id": "verify-org-adoption-pilot-bundle.cjs",
-    "evaluator_sha256": "fa5732a0009853622282efbfa98111e8e522bab221aa0535029da3b860a194b2",
-    "bundle_scope": "synthetic_reference_fixture_only"
-  }
+  "evaluation_state": "contract_example_only"
 }
