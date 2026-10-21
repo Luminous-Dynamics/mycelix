@@ -838,21 +838,25 @@ pub async fn protect_existing_identity(
 
     // Keep a short-lived rollback value in memory only until the final state
     // has been checked. It is zeroized on either exit path.
-    let plaintext_value = base64_encode(signing_key.as_bytes());
+    let mut plaintext_value = base64_encode(signing_key.as_bytes());
     if storage.remove_item(IDENTITY_SECRET_KEY).is_err() {
         // Do not remove the encrypted envelope just because removeItem returned
         // an error: some runtimes can make the resulting state ambiguous. If
         // plaintext is still present, we may clean up our own envelope. If the
         // plaintext is absent or storage is unreadable, retain the verified
         // encrypted recovery copy and require an explicit posture inspection.
-        let current = read_identity_storage_snapshot_from(&storage);
+        let mut current = read_identity_storage_snapshot_from(&storage);
         let plaintext_still_present = current.as_ref().is_ok_and(|stored| {
             stored.secret_b64.as_deref() == Some(plaintext_value.as_str())
                 && stored.public_b64.as_deref() == Some(public_b64.as_str())
                 && stored.encrypted_wire.as_deref() == Some(encrypted_wire.as_str())
         });
-        let mut zeroizable_plaintext = plaintext_value;
-        zeroizable_plaintext.zeroize();
+        if let Ok(stored) = current.as_mut() {
+            if let Some(secret_b64) = stored.secret_b64.as_mut() {
+                secret_b64.zeroize();
+            }
+        }
+        plaintext_value.zeroize();
         if plaintext_still_present {
             let cleanup = remove_storage_item_if_matches(
                 &storage,
@@ -894,12 +898,14 @@ pub async fn protect_existing_identity(
         // Preserve the checked encrypted envelope rather than restoring a stale
         // plaintext key or deleting a value that may now belong to another tab.
         // An ambiguous read-back is a recovery state, not permission to mutate.
+        plaintext_value.zeroize();
         UNLOCKED_KEY.with(|cell| *cell.borrow_mut() = None);
         return Err(
             "Protected-state verification failed after plaintext removal; no destructive rollback was attempted. Preserve all identity values and inspect posture before retrying."
                 .into(),
         );
     }
+    plaintext_value.zeroize();
 
     UNLOCKED_KEY.with(|cell| *cell.borrow_mut() = Some(signing_key));
     Ok(LocalIdentityStoragePosture::ProtectedUnlockedInSession)
