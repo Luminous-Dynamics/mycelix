@@ -111,7 +111,7 @@ The fixture is not country data, calibration data, or validation evidence. A sem
 
 ## Adversarial test corpus
 
-The companion file fixtures/nrvca-adversarial-corpus-v0.1.json defines 14 proposed mutation cases against the synthetic golden fixture. It covers accounting misclassification, unknown-to-zero coercion, missing provenance, incompatible physical units, broken identities, duplicate events, currency/profile mismatch, unsupported evidence-tier promotion, scalar collapse, causal overclaim, and missing-period/unknown-register failures. Its status is explicitly specification-only: an independent validator still needs to execute each mutation and assert the expected disposition.
+The companion file fixtures/nrvca-adversarial-corpus-v0.1.json defines 20 proposed mutation cases against the synthetic golden fixture. It covers accounting misclassification, unknown-to-zero coercion, missing provenance, incompatible physical units, broken identities, duplicate events, currency/profile mismatch, unsupported evidence-tier promotion, scalar collapse, causal overclaim, and missing-period/unknown-register failures. Its status is explicitly specification-only: an independent validator still needs to execute each mutation and assert the expected disposition.
 
 ## Additional adversarial tests to add later
 
