@@ -118,7 +118,8 @@
         "receiving_event_recorded",
         "acceptance_of_possession_or_ownership",
         "legal_title_verified",
-        "product_authenticity_verified"
+        "product_authenticity_verified",
+        "regulatory_compliance"
       ]
     },
     {
