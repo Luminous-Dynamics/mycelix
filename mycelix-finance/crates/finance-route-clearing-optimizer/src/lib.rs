@@ -14,6 +14,8 @@
 //! multihop routing, and nonlinear tariff rules are deliberately outside this first model.
 //! Cost units are comparative weights, not a quoted fiat fee.
 
+pub mod fixed_charge;
+
 use std::cmp::Reverse;
 use std::collections::{BTreeMap, BinaryHeap};
 use std::error::Error;
