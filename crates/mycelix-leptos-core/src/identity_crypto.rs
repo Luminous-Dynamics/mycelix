@@ -36,8 +36,12 @@ use web_sys::{AesDerivedKeyParams, AesGcmParams, CryptoKey, Pbkdf2Params, Subtle
 /// property under test is "does the derived key round-trip / reject a wrong
 /// passphrase / reject tampering", which doesn't depend on the iteration
 /// count.
+/// Production PBKDF2 work factor used for every persisted identity envelope.
+/// The test-only default is intentionally smaller; the production-strength
+/// browser benchmark explicitly exercises this constant under cfg(test).
+pub const PRODUCTION_PBKDF2_ITERATIONS: u32 = 600_000;
 #[cfg(not(test))]
-pub const PBKDF2_ITERATIONS: u32 = 600_000;
+pub const PBKDF2_ITERATIONS: u32 = PRODUCTION_PBKDF2_ITERATIONS;
 #[cfg(test)]
 pub const PBKDF2_ITERATIONS: u32 = 1_000;
 /// Random salt length for PBKDF2, in bytes.
@@ -82,6 +86,14 @@ fn random_bytes(len: usize) -> Result<Vec<u8>, String> {
 /// Non-extractable by design: once derived, the raw AES key bytes never
 /// need to leave `SubtleCrypto`'s internal (non-JS-readable) key storage.
 async fn derive_aes_key(passphrase: &str, salt: &[u8]) -> Result<CryptoKey, String> {
+    derive_aes_key_with_iterations(passphrase, salt, PBKDF2_ITERATIONS).await
+}
+
+async fn derive_aes_key_with_iterations(
+    passphrase: &str,
+    salt: &[u8],
+    iterations: u32,
+) -> Result<CryptoKey, String> {
     let subtle = subtle()?;
 
     let key_material = Uint8Array::from(passphrase.as_bytes());
@@ -97,7 +109,7 @@ async fn derive_aes_key(passphrase: &str, salt: &[u8]) -> Result<CryptoKey, Stri
     let pbkdf2_params = Pbkdf2Params::new(
         "PBKDF2",
         &JsValue::from_str("SHA-256"),
-        PBKDF2_ITERATIONS,
+        iterations,
         &Uint8Array::from(salt),
     );
     let derived_key_type = AesDerivedKeyParams::new("AES-GCM", 256);
@@ -126,9 +138,17 @@ async fn derive_aes_key(passphrase: &str, salt: &[u8]) -> Result<CryptoKey, Stri
 /// with the same passphrase for different secrets, or to re-encrypt the
 /// same secret (e.g. on passphrase change).
 pub async fn encrypt(passphrase: &str, plaintext: &[u8]) -> Result<EncryptedBlob, String> {
+    encrypt_with_iterations(passphrase, plaintext, PBKDF2_ITERATIONS).await
+}
+
+async fn encrypt_with_iterations(
+    passphrase: &str,
+    plaintext: &[u8],
+    iterations: u32,
+) -> Result<EncryptedBlob, String> {
     let salt = random_bytes(SALT_LEN)?;
     let mut iv = random_bytes(IV_LEN)?;
-    let aes_key = derive_aes_key(passphrase, &salt).await?;
+    let aes_key = derive_aes_key_with_iterations(passphrase, &salt, iterations).await?;
 
     let subtle = subtle()?;
     let gcm_params = AesGcmParams::new_with_u8_slice("AES-GCM", &mut iv);
@@ -152,7 +172,15 @@ pub async fn encrypt(passphrase: &str, plaintext: &[u8]) -> Result<EncryptedBlob
 /// Fails closed with a generic error on a wrong passphrase *or* a corrupted
 /// blob — the two aren't distinguished on purpose (see module docs).
 pub async fn decrypt(passphrase: &str, blob: &EncryptedBlob) -> Result<Vec<u8>, String> {
-    let aes_key = derive_aes_key(passphrase, &blob.salt).await?;
+    decrypt_with_iterations(passphrase, blob, PBKDF2_ITERATIONS).await
+}
+
+async fn decrypt_with_iterations(
+    passphrase: &str,
+    blob: &EncryptedBlob,
+    iterations: u32,
+) -> Result<Vec<u8>, String> {
+    let aes_key = derive_aes_key_with_iterations(passphrase, &blob.salt, iterations).await?;
 
     let subtle = subtle()?;
     let mut iv = blob.iv.clone();
@@ -235,4 +263,57 @@ mod tests {
         // re-checked here, to avoid running 4 PBKDF2 derivations worth of
         // work in one headless-browser test.)
     }
+
+
+    #[wasm_bindgen_test::wasm_bindgen_test]
+    async fn production_iteration_round_trip_stays_inside_ci_budget() {
+        // This test deliberately bypasses the 1,000-iteration cfg(test) fast
+        // path and exercises the real 600,000-iteration production work factor.
+        let secret = [0x5Au8; 32];
+        let mut round_trip_ms = Vec::with_capacity(3);
+
+        for _ in 0..3 {
+            let started = js_sys::Date::now();
+            let blob = encrypt_with_iterations(
+                "production benchmark passphrase longer than fifteen chars",
+                &secret,
+                PRODUCTION_PBKDF2_ITERATIONS,
+            )
+            .await
+            .expect("production-strength encryption should succeed");
+            let recovered = decrypt_with_iterations(
+                "production benchmark passphrase longer than fifteen chars",
+                &blob,
+                PRODUCTION_PBKDF2_ITERATIONS,
+            )
+            .await
+            .expect("production-strength decryption should succeed");
+            let elapsed = js_sys::Date::now() - started;
+            assert_eq!(recovered.as_slice(), secret.as_slice());
+            assert!(
+                elapsed.is_finite() && elapsed >= 0.0,
+                "browser clock must return a finite non-negative duration"
+            );
+            round_trip_ms.push(elapsed);
+        }
+
+        round_trip_ms.sort_by(f64::total_cmp);
+        let median = round_trip_ms[1];
+        let p95_sample_max = round_trip_ms[2];
+        eprintln!(
+            "IDENTITY_KDF_BENCHMARK algorithm=PBKDF2-HMAC-SHA256 iterations={} trials=3 median_ms={:.1} max_sample_ms={:.1} ci_budget_ms=5000",
+            PRODUCTION_PBKDF2_ITERATIONS,
+            median,
+            p95_sample_max
+        );
+
+        // Generous runner regression ceiling, not the product latency goal.
+        // Product targets (desktop/mobile) are documented in the PR and need
+        // measurement on representative consumer hardware before claims.
+        assert!(
+            p95_sample_max <= 5_000.0,
+            "production PBKDF2 encrypt+decrypt exceeded the 5-second CI safety ceiling"
+        );
+    }
+
 }
