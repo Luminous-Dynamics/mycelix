@@ -26,6 +26,8 @@ pub struct Payment {
 pub struct Problem {
     participant_count: usize,
     payments: Vec<Payment>,
+    /// Hard precedence edges (payment index that must occur first, payment index that follows).
+    precedence_constraints: Vec<(usize, usize)>,
 }
 
 impl Problem {
@@ -77,6 +79,7 @@ impl Problem {
         Ok(Self {
             participant_count,
             payments,
+            precedence_constraints: Vec::new(),
         })
     }
 
@@ -86,6 +89,36 @@ impl Problem {
 
     pub fn payments(&self) -> &[Payment] {
         &self.payments
+    }
+
+    /// Attach hard precedence constraints, expressed as (before_index, after_index).
+    /// Indices refer to payments() order. Cyclic or malformed constraints fail closed.
+    pub fn with_precedence_constraints(
+        mut self,
+        constraints: Vec<(usize, usize)>,
+    ) -> Result<Self, ReorderError> {
+        let mut seen = BTreeSet::new();
+        for &(before, after) in &constraints {
+            if before >= self.payments.len()
+                || after >= self.payments.len()
+                || before == after
+            {
+                return Err(ReorderError::InvalidPrecedenceConstraint { before, after });
+            }
+            if !seen.insert((before, after)) {
+                return Err(ReorderError::DuplicatePrecedenceConstraint { before, after });
+            }
+        }
+        self.precedence_constraints = constraints;
+        self.precedence_constraints.sort_unstable();
+        if stable_topological_order(&self).is_none() {
+            return Err(ReorderError::PrecedenceCycle);
+        }
+        Ok(self)
+    }
+
+    pub fn precedence_constraints(&self) -> &[(usize, usize)] {
+        &self.precedence_constraints
     }
 }
 
@@ -100,6 +133,10 @@ pub enum ReorderError {
     InvalidOrderLength { expected: usize, observed: usize },
     InvalidPaymentIndex(usize),
     DuplicatePaymentIndex(usize),
+    InvalidPrecedenceConstraint { before: usize, after: usize },
+    DuplicatePrecedenceConstraint { before: usize, after: usize },
+    PrecedenceViolation { before: usize, after: usize },
+    PrecedenceCycle,
     TooManyParticipants { observed: usize, maximum: usize },
     TooManyPayments { observed: usize, maximum: usize },
     ExactOracleLimit { observed: usize, maximum: usize },
@@ -208,7 +245,54 @@ fn validate_order(problem: &Problem, order: &[usize]) -> Result<(), ReorderError
         }
         seen[index] = true;
     }
+    if let Some((before, after)) = violating_precedence(problem, order) {
+        return Err(ReorderError::PrecedenceViolation { before, after });
+    }
     Ok(())
+}
+
+fn violating_precedence(problem: &Problem, order: &[usize]) -> Option<(usize, usize)> {
+    if problem.precedence_constraints.is_empty() {
+        return None;
+    }
+    let mut position = vec![0_usize; order.len()];
+    for (offset, &index) in order.iter().enumerate() {
+        position[index] = offset;
+    }
+    problem
+        .precedence_constraints
+        .iter()
+        .copied()
+        .find(|(before, after)| position[*before] >= position[*after])
+}
+
+/// Stable topological order: preserve original payment-index order whenever constraints
+/// permit. None means the precedence graph contains a cycle.
+fn stable_topological_order(problem: &Problem) -> Option<Vec<usize>> {
+    let count = problem.payments.len();
+    let mut successors = vec![Vec::new(); count];
+    let mut indegree = vec![0_usize; count];
+    for &(before, after) in &problem.precedence_constraints {
+        successors[before].push(after);
+        indegree[after] += 1;
+    }
+    let mut ready = BTreeSet::new();
+    for (index, &degree) in indegree.iter().enumerate() {
+        if degree == 0 {
+            ready.insert(index);
+        }
+    }
+    let mut order = Vec::with_capacity(count);
+    while let Some(index) = ready.pop_first() {
+        order.push(index);
+        for &after in &successors[index] {
+            indegree[after] -= 1;
+            if indegree[after] == 0 {
+                ready.insert(after);
+            }
+        }
+    }
+    (order.len() == count).then_some(order)
 }
 
 fn objective_order(a: &Evaluation, b: &Evaluation) -> Ordering {
@@ -244,9 +328,10 @@ fn plan_is_better(
     }
 }
 
-/// Baseline: preserve the caller's input order exactly.
+/// Stable input-order baseline. With precedence constraints, it changes order only as
+/// needed to satisfy hard constraints, preserving input order among currently ready items.
 pub fn input_order(problem: &Problem) -> Result<SearchResult, ReorderError> {
-    let order = (0..problem.payments.len()).collect::<Vec<_>>();
+    let order = stable_topological_order(problem).ok_or(ReorderError::PrecedenceCycle)?;
     let evaluation = evaluate_unchecked(problem, &order)?;
     Ok(SearchResult {
         order,
@@ -278,6 +363,13 @@ pub fn receiver_ready_greedy(problem: &Problem) -> Result<SearchResult, ReorderE
             if !remaining[index] {
                 continue;
             }
+            if problem
+                .precedence_constraints
+                .iter()
+                .any(|(before, after)| *after == index && remaining[*before])
+            {
+                continue;
+            }
             candidate_evaluations = candidate_evaluations
                 .checked_add(1)
                 .ok_or(ReorderError::ArithmeticOverflow)?;
@@ -306,7 +398,7 @@ pub fn receiver_ready_greedy(problem: &Problem) -> Result<SearchResult, ReorderE
 
         let index = best
             .map(|entry| entry.0)
-            .ok_or(ReorderError::ArithmeticOverflow)?;
+            .ok_or(ReorderError::PrecedenceCycle)?;
         let payment = &problem.payments[index];
         let amount = i128::from(payment.amount_minor);
         balances[payment.from] = balances[payment.from]
@@ -377,8 +469,11 @@ pub fn bounded_insertion_search(
         }
 
         let candidate_order = move_payment(&order, current_from, current_to);
-        let candidate_evaluation = evaluate_unchecked(problem, &candidate_order)?;
         evaluations += 1;
+        if violating_precedence(problem, &candidate_order).is_some() {
+            continue;
+        }
+        let candidate_evaluation = evaluate_unchecked(problem, &candidate_order)?;
         if plan_is_better(
             problem,
             &candidate_order,
@@ -468,6 +563,10 @@ pub fn simulated_annealing(
 
         let mut candidate_order = current_order.clone();
         candidate_order.swap(from, to);
+        if violating_precedence(problem, &candidate_order).is_some() {
+            temperature = (temperature * cooling).max(1e-9);
+            continue;
+        }
         let candidate_evaluation = evaluate_unchecked(problem, &candidate_order)?;
         let objective = objective_order(&candidate_evaluation, &current_evaluation);
         let accept = if plan_is_better(
@@ -634,6 +733,13 @@ pub fn exact_permutation_oracle(problem: &Problem) -> Result<SearchResult, Reord
 
         for index in 0..problem.payments.len() {
             if used[index] {
+                continue;
+            }
+            if problem
+                .precedence_constraints
+                .iter()
+                .any(|(before, after)| *after == index && !used[*before])
+            {
                 continue;
             }
             used[index] = true;
