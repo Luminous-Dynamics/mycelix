@@ -44,13 +44,7 @@ fn route(
     }
 }
 
-fn payment(
-    id: &str,
-    route_id: &str,
-    from: &str,
-    to: &str,
-    amount_minor: u64,
-) -> BatchPayment {
+fn payment(id: &str, route_id: &str, from: &str, to: &str, amount_minor: u64) -> BatchPayment {
     BatchPayment {
         payment_id: id.into(),
         rail_id: "oracle-rail".into(),
@@ -115,8 +109,7 @@ fn oracle(
             *incoming.entry(payment.to.as_str()).or_default() += amount;
             *route_used.entry(payment.route_id.as_str()).or_default() += amount;
             gross_minor += amount;
-            fee_units += route.fixed_fee_units as u128
-                + amount * route.fee_units_per_minor as u128;
+            fee_units += route.fixed_fee_units as u128 + amount * route.fee_units_per_minor as u128;
             ids.push(payment.payment_id.clone());
         }
         ids.sort();
@@ -144,8 +137,7 @@ fn oracle(
             ids,
         };
         let better = candidate.gross_minor > best.gross_minor
-            || (candidate.gross_minor == best.gross_minor
-                && candidate.fee_units < best.fee_units)
+            || (candidate.gross_minor == best.gross_minor && candidate.fee_units < best.fee_units)
             || (candidate.gross_minor == best.gross_minor
                 && candidate.fee_units == best.fee_units
                 && candidate.count > best.count)
@@ -188,10 +180,8 @@ fn atomic_batch_selector_matches_exhaustive_oracle_on_64_small_graphs() {
         ];
 
         let expected = oracle(&accounts, &routes, &payments);
-        let actual =
-            select_atomic_batch(&context(), &accounts, &routes, &payments).unwrap_or_else(
-                |error| panic!("seed={seed}: {error}"),
-            );
+        let actual = select_atomic_batch(&context(), &accounts, &routes, &payments)
+            .unwrap_or_else(|error| panic!("seed={seed}: {error}"));
 
         assert_eq!(
             actual.selected_gross_minor, expected.gross_minor,
