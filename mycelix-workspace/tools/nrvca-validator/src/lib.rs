@@ -3,7 +3,7 @@
 //! This is intentionally an independent semantic layer; it does not claim full JSON
 //! Schema Draft 2020-12 conformance, official SNA/SEEA compliance, or factual truth.
 
-use serde_json::{Map, Value};
+use serde_json::Value;
 use std::collections::HashSet;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -250,7 +250,7 @@ pub fn validate_report(report: &Value) -> Vec<Diagnostic> {
             let unit = field_str(event, "unit").unwrap_or("");
             if currency.len() != 3 || !currency.bytes().all(|x| x.is_ascii_uppercase()) || unit.is_empty() {
                 push_structural(&mut out, "EVENT-UNIT", &path, "event needs a currency code and nonempty unit");
-            } else if unit.len() > 4 && unit.as_bytes().get(3) == Some(&b'_') && unit[..3].bytes().all(|x| x.is_ascii_uppercase()) && !unit.starts_with(&format!("{currency}_")) {
+            } else if unit.len() > 4 && unit.as_bytes().get(3) == Some(&b'_') && unit.as_bytes()[..3].iter().all(|x| x.is_ascii_uppercase()) && !unit.starts_with(&format!("{currency}_")) {
                 push_semantic(&mut out, "EVENT-CURRENCY-UNIT", &format!("{path}/unit"), "currency-prefixed unit conflicts with event currency");
             }
             reference_ids(event.get("source_refs").unwrap_or(&Value::Null), &format!("{path}/source_refs"), &source_ids, &mut out);
@@ -627,4 +627,57 @@ pub fn run_adversarial_corpus(base: &Value, corpus: &Value) -> Result<Vec<Corpus
         results.push(CorpusResult { case_id: id, expected_disposition: expected, diagnostic_codes: codes, passed, detail });
     }
     Ok(results)
+}
+
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    const GOLDEN: &str = include_str!("../../../../fixtures/nrvca-synthetic-golden-v0.1.json");
+    const CORPUS: &str = include_str!("../../../../fixtures/nrvca-adversarial-corpus-v0.1.json");
+    const SCHEMA: &str = include_str!("../../../../schemas/nrvca-result-v0.1.schema.json");
+
+    #[test]
+    fn schema_contract_has_required_fields() {
+        let schema: Value = serde_json::from_str(SCHEMA).expect("schema parses as JSON");
+        let diagnostics = validate_schema_contract(&schema);
+        assert!(diagnostics.is_empty(), "schema contract diagnostics: {diagnostics:?}");
+    }
+
+    #[test]
+    fn synthetic_golden_fixture_is_semantically_valid() {
+        let report: Value = serde_json::from_str(GOLDEN).expect("golden fixture parses as JSON");
+        let diagnostics = validate_report(&report);
+        assert!(diagnostics.is_empty(), "golden fixture diagnostics: {diagnostics:?}");
+    }
+
+    #[test]
+    fn all_adversarial_mutations_are_rejected_in_the_expected_class() {
+        let report: Value = serde_json::from_str(GOLDEN).expect("golden fixture parses as JSON");
+        let corpus: Value = serde_json::from_str(CORPUS).expect("adversarial corpus parses as JSON");
+        let results = run_adversarial_corpus(&report, &corpus).expect("corpus runner executes");
+        assert_eq!(results.len(), 14, "unexpected corpus size");
+        for result in &results {
+            assert!(result.passed, "{}: {}", result.case_id, result.detail);
+        }
+    }
+
+    #[test]
+    fn duplicate_event_identity_is_rejected_even_when_values_match() {
+        let mut report: Value = serde_json::from_str(GOLDEN).expect("golden fixture parses as JSON");
+        let mut duplicate = report["financial_events"][0].clone();
+        duplicate["amount"] = serde_json::json!(80.0);
+        report["financial_events"].as_array_mut().expect("events array").push(duplicate);
+        let diagnostics = validate_report(&report);
+        assert!(diagnostics.iter().any(|d| d.code == "SEM-DUPLICATE-EVENT"));
+    }
+
+    #[test]
+    fn unknown_value_cannot_be_coerced_to_zero() {
+        let mut report: Value = serde_json::from_str(GOLDEN).expect("golden fixture parses as JSON");
+        report["outcome_vector"][5]["value"] = serde_json::json!(0.0);
+        let diagnostics = validate_report(&report);
+        assert!(diagnostics.iter().any(|d| d.code == "SEM-UNKNOWN-ZERO-SEPARATION"));
+    }
 }
