@@ -288,9 +288,12 @@ fn detect_gr10_topic(context: &str) -> Box<dyn TopicContent> {
         Box::new(gr10_physics::Gr10SoundTopic)
     } else if context.contains("PHY.5") || context.contains("Electromagnetic Radiation") {
         Box::new(gr10_physics::Gr10EMRadiationTopic)
-    } else if context.contains("PHY.6") || context.contains("Electrostatics") || context.contains("Coulomb") {
-        Box::new(gr12_physics::ElectricityTopic) // electrostatics uses same concepts
-    } else if context.contains("PHY.7") || context.contains("Electric Circuits") {
+    } else if context.contains("PHY.6")
+        || context.contains("Electrostatics")
+        || context.contains("Coulomb")
+        || context.contains("PHY.7")
+        || context.contains("Electric Circuits")
+    {
         Box::new(gr12_physics::ElectricityTopic)
     // Chemistry
     } else if context.contains("CHM.1") || context.contains("Atomic Structure") || context.contains("electron configuration") {
@@ -375,9 +378,13 @@ fn detect_gr11_topic(context: &str) -> Box<dyn TopicContent> {
         Box::new(gr11_math::Gr11FunctionsTopic)
     } else if context.contains("FN.2") || context.contains("Inverse") {
         Box::new(gr11_math::Gr11InverseFunctionsTopic)
-    } else if context.contains("TRIG.1") || context.contains("Compound") || context.contains("Double") {
-        Box::new(gr12_math::TrigonometryTopic)
-    } else if context.contains("TRIG.2") || context.contains("Sine") || context.contains("Cosine") && context.contains("rule") {
+    } else if context.contains("TRIG.1")
+        || context.contains("Compound")
+        || context.contains("Double")
+        || context.contains("TRIG.2")
+        || context.contains("Sine")
+        || (context.contains("Cosine") && context.contains("rule"))
+    {
         Box::new(gr12_math::TrigonometryTopic)
     } else if context.contains("GEOM") || context.contains("Circle Geometry") {
         Box::new(gr12_math::GeometryTopic)
