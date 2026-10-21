@@ -115,6 +115,7 @@
         "unauthorized_request_attempts",
         "cited_evidence_count",
         "supported_citation_count",
+        "relevant_evidence_citation_count",
         "required_evidence_count",
         "required_evidence_cited_count",
         "available_contradiction_count",
@@ -222,6 +223,10 @@
         "confidence_brier_sum_micros": {
           "type": "integer",
           "minimum": 0
+        },
+        "relevant_evidence_citation_count": {
+          "type": "integer",
+          "minimum": 0
         }
       }
     },
@@ -235,6 +240,7 @@
         "false_abstention_rate_permille",
         "justified_abstention_rate_permille",
         "citation_precision_permille",
+        "evidence_relevance_precision_permille",
         "required_evidence_coverage_permille",
         "contradiction_omission_rate_permille",
         "mean_brier_micros",
@@ -304,6 +310,15 @@
         },
         "safety_gate_passes": {
           "type": "boolean"
+        },
+        "evidence_relevance_precision_permille": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0,
+          "maximum": 1000,
+          "description": "Share of cited evidence IDs matching evaluator-labelled supporting or contradictory evidence."
         }
       }
     },
@@ -327,6 +342,7 @@
         "false_abstentions",
         "justified_abstentions",
         "citation_precision_permille",
+        "evidence_relevance_precision_permille",
         "required_evidence_coverage_permille",
         "eligible_for_frontier"
       ],
@@ -413,6 +429,15 @@
         },
         "eligible_for_frontier": {
           "type": "boolean"
+        },
+        "evidence_relevance_precision_permille": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0,
+          "maximum": 1000,
+          "description": "Share of cited evidence IDs matching evaluator-labelled supporting or contradictory evidence."
         }
       }
     }

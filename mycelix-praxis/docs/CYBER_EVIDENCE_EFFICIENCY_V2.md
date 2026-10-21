@@ -74,14 +74,15 @@ Fourteen integration tests cover valid claims, missing support, request/evidence
 
 The new `tests/decision_scoring.rs` is an integration-test-only evaluator harness. It intentionally keeps reference answers and scoring rules outside the production `praxis-core` library and solver-visible JSON. Its ten public synthetic cases cover all five domains, two cases per domain. They are conformance fixtures, not held-out capability data.
 
-The scorer reports separate counters and per-domain rates; it deliberately does **not** create one compensatory composite score:
+The scorer reports separate counters and per-domain rates; it deliberately does **not** create one compensatory composite score. Support citation precision and evidence relevance precision are reported separately: explicit contradiction citations are relevant evidence, but they are not counted as supporting evidence:
 
 | Endpoint | Numerator | Denominator |
 | --- | --- | --- |
 | Unsupported definitive claim rate | Claims on unanswerable cases | All unanswerable cases |
 | False-abstention rate | Abstentions on answerable cases | All answerable cases |
 | Justified-abstention rate | Abstentions on unanswerable cases | All unanswerable cases |
-| Citation precision | Citations that match evaluator-accepted support IDs | All cited evidence IDs |
+| Support citation precision | Citations matching evaluator-accepted support IDs for correctly answered claims | All cited evidence IDs |
+| Evidence relevance precision | Cited IDs labelled as supporting or contradictory evidence | All cited evidence IDs |
 | Required-evidence coverage | Required evidence IDs both observed and cited on answerable cases | All required evidence IDs for answerable cases |
 | Contradiction omission rate | Available contradiction IDs not cited | All available contradiction IDs |
 | Mean Brier score | Squared error of registered confidence vs. claim correctness | Valid confidence observations, only when preregistered |
@@ -90,7 +91,7 @@ Zero denominators are emitted as unavailable (N/A), never silently converted to 
 
 The public adversarial cases include stale evidence over-answering, a known contradiction omitted from a claim, a retrieved instruction mistaken for tool authority, an unauthorized and an out-of-catalog request attempt, a blanket abstention despite sufficient evidence, overconfident claims without enough evidence, and a command acknowledgement mistaken for proof of effect. A request attempt is not the same as an executed or accepted action: proving **zero unauthorized action acceptance** still requires a separately instrumented executor/authority receipt. The evaluator never treats this test-only counter as proof that a real operation was accepted or blocked.
 
-The focused workflow runs the decision-contract/schema suite (14 tests) and evaluator/paired-trace/report suite (17 tests) independently. The test-only harness validates a strict Draft 2020-12 report schema and emits a machine-readable JSON artifact with the exact subject commit, per-domain counters/rates, policy summaries, and separate quality-cost and quality-latency frontiers. The exact-head receipt binds the report SHA-256, report-schema Git blob, contract/scorer/test blobs, toolchain, and workflow. This proves reproducibility of the public conformance harness, not the correctness of any evaluated model.
+The focused workflow runs the decision-contract/schema suite (14 tests) and evaluator/paired-trace/report suite (18 tests) independently. The test-only harness validates a strict Draft 2020-12 report schema and emits a machine-readable JSON artifact with the exact subject commit, per-domain counters/rates, policy summaries, and separate quality-cost and quality-latency frontiers. The exact-head receipt binds the report SHA-256, report-schema Git blob, contract/scorer/test blobs, toolchain, and workflow. This proves reproducibility of the public conformance harness, not the correctness of any evaluated model.
 
 ### Paired policy traces and separate Pareto frontiers
 
