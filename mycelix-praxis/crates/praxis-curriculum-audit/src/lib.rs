@@ -564,11 +564,11 @@ fn analyze(
                 } else {
                     group.nodes_missing_lessons += 1;
                 }
-                if let Some(standards) = node.standards_by_framework.get(framework) {
-                    if !standards.is_empty() {
-                        group.nodes_with_standards += 1;
-                        group.standards.extend(standards.iter().cloned());
-                    }
+                if let Some(standards) = node.standards_by_framework.get(framework)
+                    && !standards.is_empty()
+                {
+                    group.nodes_with_standards += 1;
+                    group.standards.extend(standards.iter().cloned());
                 }
             }
         }
@@ -636,7 +636,7 @@ fn is_known_instructional_placeholder(text: &str) -> bool {
         "placeholder",
         "answer",
     ];
-    if exact_placeholders.iter().any(|phrase| core == *phrase) {
+    if exact_placeholders.contains(&core) {
         return true;
     }
 
