@@ -11,7 +11,7 @@
 //! nonce: it could not sign anything, could not be recovered, and had no
 //! cryptographic binding to the DID string it produced.
 //!
-//! Step 1 fixed that: `local_did()` generates a genuine Ed25519 keypair
+//! Step 1 fixed that: explicit protected creation generates a genuine Ed25519 keypair
 //! in-browser (seeded from the Web Crypto CSPRNG, `crypto.getRandomValues`,
 //! NOT `Math.random()`) and derives the DID deterministically from the
 //! public key.
@@ -1278,12 +1278,6 @@ pub fn did_from_public_key(public_key: &VerifyingKey) -> String {
     format!("did:mycelix:{hex}")
 }
 
-/// Generate a fresh Ed25519 keypair, seeded from the Web Crypto CSPRNG
-/// (`crypto.getRandomValues`) — NOT `Math.random()`.
-fn generate_signing_key() -> SigningKey {
-    try_generate_signing_key().expect("Web Crypto CSPRNG unavailable for local identity")
-}
-
 fn try_generate_signing_key() -> Result<SigningKey, String> {
     let window = web_sys::window().ok_or_else(|| {
         "Browser window is unavailable; identity key generation requires Web Crypto.".to_string()
@@ -2109,6 +2103,37 @@ mod browser_storage_tests {
     }
 
     #[wasm_bindgen_test]
+    async fn legacy_accessors_fail_closed_without_minting_on_empty_storage() {
+        let _backup = IdentityStorageBackup::new_and_clear();
+
+        assert!(std::panic::catch_unwind(std::panic::AssertUnwindSafe(ensure_keypair)).is_err());
+        assert!(std::panic::catch_unwind(std::panic::AssertUnwindSafe(local_did)).is_err());
+        assert!(
+            std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+                sign_with_local_identity(b"synthetic fail-closed test")
+            }))
+            .is_err()
+        );
+        assert!(
+            std::panic::catch_unwind(std::panic::AssertUnwindSafe(provide_local_identity)).is_err()
+        );
+
+        let storage = web_sys::window().unwrap().local_storage().unwrap().unwrap();
+        for key in [
+            LEGACY_DID_KEY,
+            IDENTITY_SECRET_KEY,
+            IDENTITY_PUBLIC_KEY,
+            IDENTITY_SECRET_ENCRYPTED_KEY,
+        ] {
+            assert!(
+                storage.get_item(key).unwrap().is_none(),
+                "legacy accessors must not create or replace storage key {key}"
+            );
+        }
+        assert!(UNLOCKED_KEY.with(|cell| cell.borrow().is_none()));
+    }
+
+    #[wasm_bindgen_test]
     async fn fallible_access_preserves_legacy_marker_without_minting() {
         let _backup = IdentityStorageBackup::new_and_clear();
         let storage = web_sys::window().unwrap().local_storage().unwrap().unwrap();
@@ -2211,7 +2236,7 @@ mod browser_storage_tests {
     #[wasm_bindgen_test]
     async fn protected_restore_refuses_to_overwrite_an_existing_identity() {
         let _backup = IdentityStorageBackup::new_and_clear();
-        let existing = ensure_keypair();
+        let existing = seed_unprotected_test_identity();
         let existing_public = base64_encode(existing.verifying_key().as_bytes());
         let unrelated = SigningKey::from_bytes(&[101u8; 32]);
         let phrase = export_seed_phrase(&unrelated);
