@@ -9,12 +9,15 @@
 
 A model can solve a mathematics problem yet fail to teach it. It can also generate fluent, plausible text that ignores a learner's misconception, gives away the answer, or reinforces an incorrect rule. Praxis needs an evaluation set that measures teaching behavior rather than general language fluency or subject-answer accuracy alone.
 
-Two useful public comparison points are:
+Useful public comparison points now include several complementary benchmarks:
 
-- **MathTutorBench (EMNLP 2025)** is an open benchmark for holistic evaluation of open-ended math tutoring. It explicitly treats subject-solving ability and teaching ability as different capabilities. <https://aclanthology.org/2025.emnlp-main.11/>
-- **The BEA 2025 Shared Task on Pedagogical Ability Assessment of AI Tutors** evaluates misconception identification, mistake localization, guidance, feedback actionability, and tutor identity against human annotations. The best scores on the four pedagogical assessment tracks ranged from 58.34 macro-F1 for guidance to 71.81 for mistake identification in three-class tasks—evidence that those abilities remain difficult, not numbers that Praxis can compare directly without matching the task and protocol. <https://aclanthology.org/2025.bea-1.77/>
+- **MathTutorBench (EMNLP 2025)** evaluates open-ended math tutoring across subject problem-solving, student-understanding and pedagogy tasks. Its current leaderboard notes that similar solvers can differ by 20+ points on scaffolding and pedagogy-following win rates, especially on hard variants. <https://aclanthology.org/2025.emnlp-main.11/> · <https://eth-lre.github.io/mathtutorbench/>
+- **BEA 2025 Pedagogical Ability Assessment** evaluates mistake identification/location, guidance, feedback actionability and tutor identity against human annotations. The best scores across the four three-class pedagogical tracks ranged from 58.34 to 71.81 macro-F1, so mistake remediation remains measurably hard. Compare only identical tracks and splits. <https://aclanthology.org/2025.bea-1.77/>
+- **KMP-Bench (AAAI 2026)** evaluates K–8 tutoring through multi-turn dialogue principles and granular skills such as error detection/correction and problem generation; the authors also introduce the 150K-dialogue KMP-Pile. Treat the benchmark/test split separately from any training corpus. <https://ojs.aaai.org/index.php/AAAI/article/view/40578>
+- **MMTutorBench (ACL 2026)** evaluates 770 multimodal math-tutoring problems with step-level rubrics across six dimensions and three tasks: insight discovery, operation formulation, and operation execution. <https://aclanthology.org/2026.acl-long.1068/>
+- **Scale TutorBench (2026)** contains 1,490 expert-curated prompts across six STEM fields; 828 examples are multimodal and its rubrics cover correctness, explanation quality, tone and personalization. <https://labs.scale.com/leaderboard/tutorbench>
 
-Praxis-PedBench should reuse compatible concepts from these works, document any differences, and avoid presenting one scalar score as proof of pedagogical quality.
+Praxis-PedBench should complement these external tests with educational contexts not covered by math-only evaluation (CAPS alignment, accessibility, rights/provenance, language parity, and assistance dependence). Reuse compatible concepts, document any protocol differences, and never present one scalar score as proof of pedagogical quality.
 
 ## 2. Evaluation unit and record
 
@@ -78,19 +81,27 @@ Keep a held-out evaluation split immutable. Avoid leaking benchmark cases into p
 
 An LLM judge may assist triage, but cannot be the sole authority for the reference labels or for claims that a tutor teaches well.
 
-## 6. Proposed launch gates
+## 6. Proposed launch gates and SOTA comparison protocol
 
-These are internal research targets to validate, not existing results or published industry norms:
+These are internal research targets to validate, not existing Praxis results or published industry norms. Lock an exact benchmark version, test split, model version, prompting/tool policy, decoding regime and scoring implementation before comparing models.
 
-- **Known-critical defects:** 100% detection on a frozen initial negative-control suite; add a new regression test for every confirmed escaped defect.
-- **Human agreement:** reach a prespecified acceptable inter-rater agreement before treating any dimension as a stable benchmark. A provisional design target is Cohen's (kappa ge 0.70) on adjudicable categorical labels; analyze prevalence effects and do not report this target as achieved.
-- **Pedagogical response quality:** establish baseline score and confidence intervals before selecting a numerical improvement target. Then require a prespecified meaningful gain against both the current Praxis baseline and a named external baseline.
-- **Reliability:** publish variance across multiple runs and model versions; test prompt paraphrases and small context changes.
-- **External claims:** do not claim state-of-the-art from one split, one model, one language, or an LLM-judge-only score. Independently replicate on a held-out set and disclose all material regressions.
+**First reproduce; then try to beat the strongest comparable result.**
+
+1. **Upstream reproduction:** run the unchanged MathTutorBench tasks and matching BEA tracks against the published baselines. Add KMP-Bench for multi-turn K–8 dialogues and MMTutorBench/TutorBench when the system supports their multimodal input formats. Record per-task results; do not average incompatible scores across benchmarks.
+2. **SOTA stretch target on BEA:** on at least two of the four pedagogical tracks, exceed the best reproducible published macro-F1 by **at least 5 absolute points**, with a paired bootstrap 95% confidence interval for the improvement excluding zero. On every other track, do not regress by more than 2 absolute points without a documented reason and mitigation.
+3. **SOTA stretch target on MathTutorBench:** improve reward-model win rate by **at least 5 percentage points** against the strongest reproducibly comparable baseline on both the hard scaffolding and hard pedagogy-following tasks, while keeping problem-solving accuracy and solution correctness within 2 points of that comparator. The leaderboard's protocol and model-thinking settings must match before the comparison counts.
+4. **Critical defect controls:** 100% detection on a frozen initial negative-control suite for incorrect worked steps, answer-key/distractor collisions, forbidden answer leakage at the specified hint stage, and known generic placeholders. Zero observed misses on the suite is a finite test result—not proof that the whole system is defect-free.
+5. **Human-label reliability:** two independent educator annotations plus adjudication. Provisional target: Cohen's κ ≥ 0.70 on adjudicable categorical labels; revise labels/rubrics if agreement is weak and report prevalence effects. Do not call the six initial synthetic cases a validated gold set.
+6. **Robustness:** publish scores by grade/domain/language/access modality, repeated-run variance and prompt-perturbation sensitivity. Report all severe failure classes separately rather than letting good average performance hide a safety or pedagogy failure.
+7. **Replication:** rerun the improvement on an immutable held-out set and at least one external cohort before any public SOTA claim. Publish prompt/configuration digests, exclusions, confidence intervals, baseline versions and regressions.
+
+A human-grounded reward model is useful for scalable triage, but educator review and learner studies remain separate evidence layers.
 
 ## 7. From benchmark score to educational efficacy
 
-A strong PedBench score is a useful diagnostic, not evidence of learning. Once response quality is acceptable, run preregistered learner studies that compare equivalent objectives and assistance policies. The primary outcomes should include unaided delayed retention and transfer, with immediate performance, error recovery, time-to-competency, learner burden and accessibility as secondary or guardrail outcomes.
+A strong PedBench score is a useful diagnostic, not evidence of learning. Recent field evidence is mixed: a 2026 two-year school experiment of a coach-configured tutor found small achievement gains that resembled ordinary platform practice and low rates of substantive tutor dialogue; a separate October 2026 university working paper reported worse final grades and lower LMS participation under its course-integrated AI-tutor treatment. These results concern different populations and interventions, so they do not settle the question—but they make a controlled comparison mandatory rather than optional. <https://scale.stanford.edu/ai/repository/one-click-away-ai-tutoring-khanmigo-two-year-school-experiment> · <https://www.iza.org/publications/dp/18989/the-effects-of-course-integrated-ai-tutoring-on-student-performance-and-engagement-a-randomized-university-trial>
+
+Preregister a learner study that compares equivalent objectives and assistance policies against both (a) a well-designed non-AI learning baseline and (b) where feasible, a teacher-facilitated/human-supported condition. The primary outcomes should include unaided delayed retention and transfer; track immediate performance, meaningful learner engagement, usage opportunities, help-seeking, error recovery, time-to-competency, teacher/caregiver workload, well-being and subgroup accessibility as secondary or guardrail outcomes. Measure whether tutor access displaces productive practice, peer interaction or instructor contact.
 
 The desired causal chain is:
 
