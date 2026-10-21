@@ -167,6 +167,99 @@ pub async fn decrypt(passphrase: &str, blob: &EncryptedBlob) -> Result<Vec<u8>, 
     Ok(Uint8Array::new(&result).to_vec())
 }
 
+/// Non-secret timing output from the opt-in production-parameter benchmark.
+#[cfg(all(feature = "identity-kdf-benchmark", target_arch = "wasm32"))]
+#[derive(Clone, Debug, PartialEq)]
+pub struct ProductionKdfBenchmarkSamples {
+    /// Work factor used by the non-test core dependency.
+    pub pbkdf2_iterations: u32,
+    /// PBKDF2 key-derivation duration only, milliseconds per sample.
+    pub kdf_ms: Vec<f64>,
+    /// Full decrypt duration (PBKDF2 + AES-GCM authenticate/decrypt), milliseconds.
+    pub decrypt_ms: Vec<f64>,
+}
+
+/// Measure the production PBKDF2 parameters without accepting or returning user secrets.
+///
+/// Available only with `identity-kdf-benchmark` on `wasm32`. The standalone
+/// benchmark crate consumes this API as a normal dependency, so `cfg(test)`
+/// is not set inside this crate and the test-only 1,000-iteration setting is
+/// not used. The guard below refuses to emit results unless 600,000 rounds
+/// are active. No passphrase, payload, salt, IV, ciphertext or key is returned.
+///
+/// Samples exclude fresh-salt generation and one warm-up call. This is an
+/// engineering measurement, not a security certification or mobile-device
+/// latency claim.
+#[cfg(all(feature = "identity-kdf-benchmark", target_arch = "wasm32"))]
+pub async fn benchmark_production_passphrase_path(
+    passphrase: &str,
+    sample_count: usize,
+) -> Result<ProductionKdfBenchmarkSamples, String> {
+    if !(3..=25).contains(&sample_count) {
+        return Err("Benchmark sample count must be between 3 and 25.".into());
+    }
+    if passphrase.trim().is_empty() {
+        return Err("Benchmark passphrase must not be empty.".into());
+    }
+    if PBKDF2_ITERATIONS != 600_000 {
+        return Err(
+            "Refusing benchmark: the production PBKDF2 iteration count is not active in this build."
+                .into(),
+        );
+    }
+
+    let window = web_sys::window()
+        .ok_or_else(|| "Benchmark requires a real browser window.".to_string())?;
+    let performance = window
+        .performance()
+        .ok_or_else(|| "High-resolution browser timing is unavailable.".to_string())?;
+
+    // Warm the JS/WebCrypto paths before measurement; this sample is not recorded.
+    let warm_salt = random_bytes(SALT_LEN)?;
+    let _warm_key = derive_aes_key(passphrase, &warm_salt).await?;
+
+    let mut kdf_ms = Vec::with_capacity(sample_count);
+    for _ in 0..sample_count {
+        let salt = random_bytes(SALT_LEN)?;
+        let start = performance.now();
+        let _key = derive_aes_key(passphrase, &salt).await?;
+        let elapsed = performance.now() - start;
+        if !elapsed.is_finite() || elapsed < 0.0 {
+            return Err("Browser returned an invalid KDF duration.".into());
+        }
+        kdf_ms.push(elapsed);
+    }
+
+    // The full-path sample uses a fixed synthetic payload and envelope. No
+    // caller-provided message or identity seed is accepted by this benchmark.
+    let synthetic_plaintext = b"mycelix synthetic passphrase benchmark payload v1";
+    let blob = encrypt(passphrase, synthetic_plaintext).await?;
+    let warm_plaintext = decrypt(passphrase, &blob).await?;
+    if warm_plaintext.as_slice() != synthetic_plaintext {
+        return Err("Synthetic benchmark decrypt warm-up did not round-trip.".into());
+    }
+
+    let mut decrypt_ms = Vec::with_capacity(sample_count);
+    for _ in 0..sample_count {
+        let start = performance.now();
+        let plaintext = decrypt(passphrase, &blob).await?;
+        let elapsed = performance.now() - start;
+        if plaintext.as_slice() != synthetic_plaintext {
+            return Err("Synthetic benchmark decrypt did not round-trip.".into());
+        }
+        if !elapsed.is_finite() || elapsed < 0.0 {
+            return Err("Browser returned an invalid decrypt duration.".into());
+        }
+        decrypt_ms.push(elapsed);
+    }
+
+    Ok(ProductionKdfBenchmarkSamples {
+        pbkdf2_iterations: PBKDF2_ITERATIONS,
+        kdf_ms,
+        decrypt_ms,
+    })
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
