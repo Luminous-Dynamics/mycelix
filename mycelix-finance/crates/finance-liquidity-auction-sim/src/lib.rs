@@ -581,7 +581,9 @@ pub fn run_auction(
         let after_lending = participant
             .available_liquidity_minor
             .checked_sub(supplied_minor)
-            .ok_or_else(|| AuctionError::ReserveFloorViolation(participant.participant_id.clone()))?;
+            .ok_or_else(|| {
+                AuctionError::ReserveFloorViolation(participant.participant_id.clone())
+            })?;
         let available_after_minor = after_lending
             .checked_add(received_minor)
             .ok_or(AuctionError::ArithmeticOverflow)?;
