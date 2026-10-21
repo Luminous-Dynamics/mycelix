@@ -166,8 +166,8 @@
         ],
         "explanation": "When rounding to hundreds, tens 5–9 rounds to the next hundred.",
         "distractors": [
-          "Yes, because 264 is below 300.",
-          "No, it rounds to 300.",
+          "Yes, because the number is below 300.",
+          "No, it rounds to 200.",
           "It rounds to 260."
         ]
       }
