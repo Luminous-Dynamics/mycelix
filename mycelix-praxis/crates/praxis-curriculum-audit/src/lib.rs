@@ -1403,11 +1403,12 @@ fn audit_manifest_assets(workspace: &Path, errors: &mut Vec<String>) -> ContentQ
                 .iter()
                 .filter(|finding| finding.severity == "warning")
                 .count();
+            let finding_count = asset_findings.len();
             audit.assets.push(ContentAssetSummary {
                 lesson_id: actual_id.clone().unwrap_or_else(|| node_id.clone()),
                 asset_path: relative_path.clone(),
                 lesson_digest_blake3: lesson_asset_digest_blake3(&raw),
-                finding_count: asset_findings.len(),
+                finding_count,
                 blocker_count,
                 warning_count,
             });
