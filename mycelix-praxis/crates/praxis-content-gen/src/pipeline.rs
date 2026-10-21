@@ -285,7 +285,10 @@ impl<G: ContentGenerator> ContentPipeline<G> {
             if output.text.is_empty() {
                 continue;
             }
-            if output.coherence >= self.quality_threshold && !output.hallucination_flag {
+            if output.coherence >= self.quality_threshold
+                && !output.hallucination_flag
+                && !is_placeholder_content(&output.text)
+            {
                 return Ok(output);
             }
         }
@@ -350,6 +353,51 @@ impl<G: ContentGenerator> ContentPipeline<G> {
 
         Ok(parse_assessment_item(&output.text, bloom))
     }
+}
+
+
+/// Conservatively reject known template/fallback strings that are structurally
+/// non-empty but do not teach or assess the declared skill.
+///
+/// This is a deterministic guardrail, not a semantic proof of correctness.
+/// Passing it does not mean content is accurate, aligned, accessible, or
+/// pedagogically effective; those claims need separate checks and review.
+fn is_placeholder_content(text: &str) -> bool {
+    let normalized = text
+        .split_whitespace()
+        .collect::<Vec<_>>()
+        .join(" ")
+        .to_lowercase();
+
+    if normalized.is_empty() {
+        return true;
+    }
+
+    let known_placeholders = [
+        "answer: see worked solution",
+        "what is important about grade 3 mathematics?",
+        "a key word in this topic",
+        "a common mistake in grade 3 mathematics.",
+        "the correct way.",
+        "used in grade 3 maths.",
+        "try the method for grade 3 mathematics.",
+        "start with what you know about grade 3 mathematics.",
+        "let's explore this concept together!",
+        "every expert was once a beginner.",
+        "lorem ipsum",
+        "todo",
+        "placeholder",
+    ];
+
+    known_placeholders
+        .iter()
+        .any(|phrase| normalized.contains(phrase))
+        || (normalized.contains("solve a grade ")
+            && normalized.contains(" mathematics problem"))
+        || (normalized.starts_with("explain grade ")
+            && normalized.contains(" mathematics."))
+        || normalized == "answer."
+        || normalized == "answer"
 }
 
 // ---- Parsing helpers ----
@@ -631,6 +679,56 @@ mod tests {
         assert_eq!(lessons.len(), 2);
         assert_eq!(lessons[0].standard_code, "3.OA.A.1");
         assert_eq!(lessons[1].standard_code, "3.NF.A.1");
+    }
+
+    #[test]
+    fn placeholder_detector_rejects_non_empty_generic_fallbacks() {
+        for text in [
+            "Solve a Grade 3 Mathematics problem.",
+            "Explain Grade 3 Mathematics.",
+            "Answer: See worked solution",
+            "What is important about Grade 3 Mathematics?",
+            "Grade 3 mathematics content",
+            "A key word in this topic",
+            "A common mistake in Grade 3 Mathematics.",
+            "The correct way.",
+            "Answer.",
+            "Let's explore this concept together! Mathematics is about finding patterns and solving problems. We'll start with something you already know and build from there. Remember: every expert was once a beginner.",
+        ] {
+            assert!(
+                is_placeholder_content(text),
+                "expected placeholder to be rejected: {text}"
+            );
+        }
+
+        assert!(!is_placeholder_content(
+            "Multiplication represents equal groups. Four groups of three objects make twelve objects: 3 + 3 + 3 + 3 = 12, so 4 × 3 = 12."
+        ));
+        assert!(!is_placeholder_content("42"));
+    }
+
+    #[test]
+    fn high_coherence_does_not_override_placeholder_content() {
+        struct PlaceholderGenerator;
+
+        impl ContentGenerator for PlaceholderGenerator {
+            fn generate(
+                &self,
+                _: &ContentChannels,
+                _: &str,
+                _: usize,
+            ) -> GenerationOutput {
+                GenerationOutput {
+                    text: "Solve a Grade 3 Mathematics problem.".to_string(),
+                    coherence: 0.99,
+                    hallucination_flag: false,
+                    veto_count: 0,
+                }
+            }
+        }
+
+        let pipeline = ContentPipeline::new(PlaceholderGenerator).with_max_retries(2);
+        assert!(pipeline.generate_lesson(&sample_standard()).is_err());
     }
 
     #[test]
