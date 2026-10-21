@@ -65,11 +65,21 @@ class FinancePredecessorAuditTests(unittest.TestCase):
         self.assertTrue(any("not bound to action.original_action_address" in error for error in errors))
 
     def test_swallowed_host_dependency_is_rejected(self):
-        changed = GOOD_SOURCE.replace(
-            "let original = must_get_valid_record(action.original_action_address.clone())?;",
-            "if let Ok(original) = must_get_valid_record(action.original_action_address.clone()) {",
-        )
-        errors = self.audit(changed)
+        swallowed = """
+fn validate_update_payment(
+    action: Update,
+    payment: Payment,
+) -> ExternResult<ValidateCallbackResult> {
+    if let Ok(original) = must_get_valid_record(action.original_action_address.clone()) {
+        if original.id != payment.id {
+            return Ok(ValidateCallbackResult::Invalid("identity changed".into()));
+        }
+    }
+    Ok(ValidateCallbackResult::Valid)
+}
+"""
+        errors, count = AUDIT.audit_source("fixture.rs", swallowed)
+        self.assertEqual(count, 1)
         self.assertTrue(any("swallowed must_get_valid_record" in error for error in errors))
         self.assertTrue(any("failure is not propagated with ?" in error for error in errors))
 
