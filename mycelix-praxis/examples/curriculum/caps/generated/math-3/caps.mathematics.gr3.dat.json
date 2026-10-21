@@ -76,9 +76,9 @@
         ],
         "explanation": "Find the difference 8 − 5.",
         "distractors": [
-          "13",
-          "2",
-          "3"
+          "13 children",
+          "2 children",
+          "4 children"
         ]
       },
       {
@@ -167,7 +167,7 @@
         "explanation": "A graph summarizes the collected sample. Claims must match who was surveyed.",
         "distractors": [
           "A tallest bar proves everyone agrees.",
-          "The claim goes beyond the surveyed group.",
+          "The sample is guaranteed to include every learner in the school.",
           "Graphs can never show comparisons."
         ]
       }
