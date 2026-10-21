@@ -78,7 +78,7 @@ pub fn provide_climate_context() {
                 }
             }
 
-            if let Ok(owner) = mycelix_leptos_core::try_local_did() {
+            if let Ok(owner) = mycelix_leptos_core::local_identity::try_local_did() {
                 if let Ok(records) = hc.call_zome_default::<String, Vec<serde_json::Value>>(
                     "carbon", "get_credits_by_owner", &owner
                 ).await {
