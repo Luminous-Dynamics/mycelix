@@ -19,7 +19,12 @@ use crate::types::*;
 /// for development, use [`MockGenerator`](crate::mock::MockGenerator).
 pub trait ContentGenerator {
     /// Generate text given channel configuration, context prompt, and token budget.
-    fn generate(&self, channels: &ContentChannels, context: &str, max_tokens: usize) -> GenerationOutput;
+    fn generate(
+        &self,
+        channels: &ContentChannels,
+        context: &str,
+        max_tokens: usize,
+    ) -> GenerationOutput;
 }
 
 /// Output from a single generation call.
@@ -101,9 +106,7 @@ impl<G: ContentGenerator> ContentPipeline<G> {
         match grade_level {
             "PreK" => 0,
             "Kindergarten" => 1,
-            s if s.starts_with("Grade") => {
-                s[5..].parse::<u8>().unwrap_or(6) + 1
-            }
+            s if s.starts_with("Grade") => s[5..].parse::<u8>().unwrap_or(6) + 1,
             "College" => 14,
             "Undergraduate" => 15,
             "Graduate" => 16,
@@ -116,7 +119,10 @@ impl<G: ContentGenerator> ContentPipeline<G> {
     }
 
     /// Generate a complete lesson for a standard.
-    pub fn generate_lesson(&self, standard: &StandardInput) -> Result<GeneratedLesson, ContentGenError> {
+    pub fn generate_lesson(
+        &self,
+        standard: &StandardInput,
+    ) -> Result<GeneratedLesson, ContentGenError> {
         let grade_ord = Self::grade_ordinal(&standard.grade_level);
 
         // 1. Main explanation
@@ -205,7 +211,14 @@ impl<G: ContentGenerator> ContentPipeline<G> {
         num_items: usize,
     ) -> Result<GeneratedAssessment, ContentGenError> {
         let grade_ord = Self::grade_ordinal(&standard.grade_level);
-        let blooms = ["Remember", "Understand", "Apply", "Analyze", "Evaluate", "Create"];
+        let blooms = [
+            "Remember",
+            "Understand",
+            "Apply",
+            "Analyze",
+            "Evaluate",
+            "Create",
+        ];
 
         let items: Vec<AssessmentItem> = (0..num_items)
             .map(|i| {
@@ -356,7 +369,6 @@ impl<G: ContentGenerator> ContentPipeline<G> {
     }
 }
 
-
 /// Conservatively reject known template/fallback strings that are structurally
 /// non-empty but do not teach or assess the declared skill.
 ///
@@ -402,8 +414,7 @@ fn is_placeholder_content(text: &str) -> bool {
     template_phrases
         .iter()
         .any(|phrase| normalized.contains(phrase))
-        || (normalized.contains("solve a grade ")
-            && normalized.contains(" mathematics problem"))
+        || (normalized.contains("solve a grade ") && normalized.contains(" mathematics problem"))
         || (core.starts_with("explain grade ") && core.contains(" mathematics"))
         || (core.starts_with("grade ") && core.ends_with(" mathematics content"))
 }
@@ -529,9 +540,10 @@ fn parse_practice_problem(text: &str, difficulty: u16) -> PracticeProblem {
         bloom_level: "Apply".to_string(),
         hints: lines.iter().skip(4).map(|l| l.to_string()).collect(),
         explanation: lines.get(2).unwrap_or(&"").to_string(),
-        distractors: lines.get(3).map(|l| {
-            l.split(',').map(|s| s.trim().to_string()).collect()
-        }).unwrap_or_default(),
+        distractors: lines
+            .get(3)
+            .map(|l| l.split(',').map(|s| s.trim().to_string()).collect())
+            .unwrap_or_default(),
     }
 }
 
@@ -580,21 +592,38 @@ fn split_flashcard(text: &str) -> (String, String) {
 /// Infer Bloom's level from standard code and description.
 fn infer_bloom_level(code: &str, description: &str) -> String {
     let desc_lower = description.to_lowercase();
-    if desc_lower.contains("create") || desc_lower.contains("design") || desc_lower.contains("construct") {
+    if desc_lower.contains("create")
+        || desc_lower.contains("design")
+        || desc_lower.contains("construct")
+    {
         "Create".to_string()
-    } else if desc_lower.contains("evaluate") || desc_lower.contains("judge") || desc_lower.contains("justify") {
+    } else if desc_lower.contains("evaluate")
+        || desc_lower.contains("judge")
+        || desc_lower.contains("justify")
+    {
         "Evaluate".to_string()
-    } else if desc_lower.contains("analyze") || desc_lower.contains("compare") || desc_lower.contains("distinguish") {
+    } else if desc_lower.contains("analyze")
+        || desc_lower.contains("compare")
+        || desc_lower.contains("distinguish")
+    {
         "Analyze".to_string()
-    } else if desc_lower.contains("solve") || desc_lower.contains("apply") || desc_lower.contains("use")
-        || desc_lower.contains("determine") || desc_lower.contains("multiply") || desc_lower.contains("divide")
+    } else if desc_lower.contains("solve")
+        || desc_lower.contains("apply")
+        || desc_lower.contains("use")
+        || desc_lower.contains("determine")
+        || desc_lower.contains("multiply")
+        || desc_lower.contains("divide")
     {
         "Apply".to_string()
-    } else if desc_lower.contains("interpret") || desc_lower.contains("explain") || desc_lower.contains("understand")
-        || desc_lower.contains("describe") || desc_lower.contains("represent")
+    } else if desc_lower.contains("interpret")
+        || desc_lower.contains("explain")
+        || desc_lower.contains("understand")
+        || desc_lower.contains("describe")
+        || desc_lower.contains("represent")
     {
         "Understand".to_string()
-    } else if code.contains(".7") || desc_lower.contains("fluently") || desc_lower.contains("know") {
+    } else if code.contains(".7") || desc_lower.contains("fluently") || desc_lower.contains("know")
+    {
         "Remember".to_string()
     } else {
         "Understand".to_string()
@@ -675,7 +704,8 @@ mod tests {
             sample_standard(),
             StandardInput {
                 code: "3.NF.A.1".to_string(),
-                description: "Understand a fraction 1/b as the quantity formed by 1 part".to_string(),
+                description: "Understand a fraction 1/b as the quantity formed by 1 part"
+                    .to_string(),
                 grade_level: "Grade3".to_string(),
                 domain: "Number & Operations - Fractions".to_string(),
                 prerequisites: vec!["Equal parts".to_string()],
@@ -726,12 +756,7 @@ mod tests {
         struct PlaceholderGenerator;
 
         impl ContentGenerator for PlaceholderGenerator {
-            fn generate(
-                &self,
-                _: &ContentChannels,
-                _: &str,
-                _: usize,
-            ) -> GenerationOutput {
+            fn generate(&self, _: &ContentChannels, _: &str, _: usize) -> GenerationOutput {
                 GenerationOutput {
                     text: "Solve a Grade 3 Mathematics problem.".to_string(),
                     coherence: 0.99,
@@ -749,7 +774,8 @@ mod tests {
     fn unknown_caps_standard_fails_closed_instead_of_publishing_mock_fallback() {
         let standard = StandardInput {
             code: "CAPS.Mathematics.Gr3.MUL".to_string(),
-            description: "Times tables 2-10; multiply two-digit numbers by one digit; division".to_string(),
+            description: "Times tables 2-10; multiply two-digit numbers by one digit; division"
+                .to_string(),
             grade_level: "Grade3".to_string(),
             domain: "Mathematics".to_string(),
             prerequisites: vec!["Addition".to_string()],
@@ -802,26 +828,68 @@ mod tests {
     #[test]
     fn test_grade_ordinal_parsing() {
         assert_eq!(ContentPipeline::<MockGenerator>::grade_ordinal("PreK"), 0);
-        assert_eq!(ContentPipeline::<MockGenerator>::grade_ordinal("Kindergarten"), 1);
+        assert_eq!(
+            ContentPipeline::<MockGenerator>::grade_ordinal("Kindergarten"),
+            1
+        );
         assert_eq!(ContentPipeline::<MockGenerator>::grade_ordinal("Grade1"), 2);
         assert_eq!(ContentPipeline::<MockGenerator>::grade_ordinal("Grade3"), 4);
-        assert_eq!(ContentPipeline::<MockGenerator>::grade_ordinal("Grade12"), 13);
-        assert_eq!(ContentPipeline::<MockGenerator>::grade_ordinal("College"), 14);
-        assert_eq!(ContentPipeline::<MockGenerator>::grade_ordinal("Undergraduate"), 15);
-        assert_eq!(ContentPipeline::<MockGenerator>::grade_ordinal("Graduate"), 16);
-        assert_eq!(ContentPipeline::<MockGenerator>::grade_ordinal("Doctoral"), 17);
-        assert_eq!(ContentPipeline::<MockGenerator>::grade_ordinal("PostDoctoral"), 18);
-        assert_eq!(ContentPipeline::<MockGenerator>::grade_ordinal("Professional"), 19);
+        assert_eq!(
+            ContentPipeline::<MockGenerator>::grade_ordinal("Grade12"),
+            13
+        );
+        assert_eq!(
+            ContentPipeline::<MockGenerator>::grade_ordinal("College"),
+            14
+        );
+        assert_eq!(
+            ContentPipeline::<MockGenerator>::grade_ordinal("Undergraduate"),
+            15
+        );
+        assert_eq!(
+            ContentPipeline::<MockGenerator>::grade_ordinal("Graduate"),
+            16
+        );
+        assert_eq!(
+            ContentPipeline::<MockGenerator>::grade_ordinal("Doctoral"),
+            17
+        );
+        assert_eq!(
+            ContentPipeline::<MockGenerator>::grade_ordinal("PostDoctoral"),
+            18
+        );
+        assert_eq!(
+            ContentPipeline::<MockGenerator>::grade_ordinal("Professional"),
+            19
+        );
         assert_eq!(ContentPipeline::<MockGenerator>::grade_ordinal("Adult"), 20);
     }
 
     #[test]
     fn test_infer_bloom_level() {
-        assert_eq!(infer_bloom_level("3.OA.A.1", "Interpret products"), "Understand");
-        assert_eq!(infer_bloom_level("3.OA.A.3", "Solve word problems"), "Apply");
-        assert_eq!(infer_bloom_level("3.OA.C.7", "Fluently multiply and divide"), "Apply");
-        assert_eq!(infer_bloom_level("3.OA.C.7", "Know from memory all products of two one-digit numbers"), "Remember");
-        assert_eq!(infer_bloom_level("3.OA.A.4", "Determine the unknown"), "Apply");
+        assert_eq!(
+            infer_bloom_level("3.OA.A.1", "Interpret products"),
+            "Understand"
+        );
+        assert_eq!(
+            infer_bloom_level("3.OA.A.3", "Solve word problems"),
+            "Apply"
+        );
+        assert_eq!(
+            infer_bloom_level("3.OA.C.7", "Fluently multiply and divide"),
+            "Apply"
+        );
+        assert_eq!(
+            infer_bloom_level(
+                "3.OA.C.7",
+                "Know from memory all products of two one-digit numbers"
+            ),
+            "Remember"
+        );
+        assert_eq!(
+            infer_bloom_level("3.OA.A.4", "Determine the unknown"),
+            "Apply"
+        );
     }
 
     #[test]
