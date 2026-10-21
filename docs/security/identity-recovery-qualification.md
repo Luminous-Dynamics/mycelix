@@ -66,6 +66,18 @@ Potential envelope fields (illustrative contract, not yet a migration):
 - `salt_b64`, `iv_b64`, `ciphertext_b64`
 - optional public-key fingerprint for mismatch detection (not a replacement for deriving and comparing the public key)
 
+The working branch for PR #5250 implements this versioned envelope and bounded validation; treat it as proposed until its exact-head checks and review pass. Never reinterpret legacy v1 bytes using the mutable test-time constant.
+
+#### Production-cost KDF benchmark (added in the follow-on qualification)
+
+The ordinary WebCrypto tests compile with `cfg(test)` and use 1,000 PBKDF2 iterations so that wrong-passphrase, tamper, salt/nonce uniqueness and storage-transition tests stay fast. A separate headless-Chrome benchmark explicitly creates a v2 envelope using the production 600,000-iteration setting, decrypts it through the authenticated-header path, verifies key bytes, and runs three trials. It records median and max-sample round-trip latency as `IDENTITY_KDF_BENCHMARK`.
+
+- **CI-only regression ceiling:** max sample ≤ 5,000 ms per encrypt+decrypt on the pinned headless-Chrome runner. This broad ceiling catches catastrophic regressions; it is not the desired product UX.
+- **Desktop target (not yet established):** p50 ≤ 750 ms and p95 ≤ 1,500 ms for one protected encrypt+unlock round trip.
+- **Midrange mobile target (not yet established):** p95 ≤ 2,500 ms.
+- **Coverage gap:** headless Chrome is one environment. Before claiming these targets, measure representative Android/iOS devices and desktop Chrome/Firefox/Safari/WebKit; report each separately, include at least 20 trials per device and avoid combining different hardware into one p95.
+- Record runtime/browser, OS/device class, envelope/KDF version, iteration count, sample count, p50/p95/max, error rate and battery/thermal caveats. Never weaken the work factor simply to make the UI target pass; consider optional WebAuthn PRF and migration-safe KDF alternatives as separately versioned modes.
+
 Benchmark the production work factor on target devices. Do not reduce it for speed below the reviewed security floor. A future Argon2id path may be worth evaluating, but Web Crypto does not expose it as a native KDF; introducing a WASM implementation adds supply-chain, memory, compatibility and audit costs. Select it only from measured evidence and a documented upgrade/legacy strategy.
 
 ## Industry and standards positioning
