@@ -67,6 +67,9 @@ pub struct PaymentOrder {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+/// One priority-aging level is earned after this many elapsed simulation ticks.
+pub const PRIORITY_AGING_INTERVAL_TICKS: u64 = 5;
+
 pub enum QueuePolicy {
     /// A blocked head prevents later queue entries from being attempted at that tick.
     StrictFifo,
@@ -74,6 +77,8 @@ pub enum QueuePolicy {
     LiquidityAwareFifo,
     /// Higher priority first, then arrival time and ID; retries after successful settlement.
     PriorityScan,
+    /// Priority increases by one level for each aging interval waited, then arrival time and ID.
+    AgingPriorityScan,
     /// Earliest explicit deadline first (missing deadlines last), then arrival time and ID.
     /// This is a simple heuristic, not a globally optimal deadline schedule.
     EarliestDeadlineFirst,
@@ -424,6 +429,18 @@ pub fn simulate_queue(
                         .deadline_tick
                         .unwrap_or(u64::MAX)
                         .cmp(&payments[*b].deadline_tick.unwrap_or(u64::MAX))
+                        .then_with(|| payments[*a].arrival_tick.cmp(&payments[*b].arrival_tick))
+                        .then_with(|| payments[*a].payment_id.cmp(&payments[*b].payment_id))
+                }),
+                QueuePolicy::AgingPriorityScan => pending.sort_by(|a, b| {
+                    let priority_a = payments[*a].priority as u64
+                        + tick.saturating_sub(payments[*a].arrival_tick)
+                            / PRIORITY_AGING_INTERVAL_TICKS;
+                    let priority_b = payments[*b].priority as u64
+                        + tick.saturating_sub(payments[*b].arrival_tick)
+                            / PRIORITY_AGING_INTERVAL_TICKS;
+                    priority_b
+                        .cmp(&priority_a)
                         .then_with(|| payments[*a].arrival_tick.cmp(&payments[*b].arrival_tick))
                         .then_with(|| payments[*a].payment_id.cmp(&payments[*b].payment_id))
                 }),
@@ -798,6 +815,82 @@ mod tests {
                 reason: BlockReason::InsufficientLiquidity,
                 ..
             }
+        ));
+    }
+
+    #[test]
+    fn priority_aging_eventually_serves_an_old_low_priority_payment() {
+        let ctx = context(50);
+        let accounts = [
+            account("A", 4),
+            account("B", 0),
+            account("C", 0),
+        ];
+        let routes = [
+            route("ab", 1_000, 100),
+            route("ac", 1_000, 100),
+            route("ca", 1_000, 100),
+        ];
+        let mut orders = vec![payment("old-low", "ab", "A", "B", 4, 0, None, 0)];
+        for tick in 0..=50 {
+            orders.push(payment(
+                &format!("high-{tick:02}"),
+                "ac",
+                "A",
+                "C",
+                4,
+                tick,
+                None,
+                9,
+            ));
+            if tick > 0 {
+                orders.push(payment(
+                    &format!("fund-{tick:02}"),
+                    "ca",
+                    "C",
+                    "A",
+                    4,
+                    tick,
+                    None,
+                    0,
+                ));
+            }
+        }
+
+        let static_priority = simulate_queue(
+            &ctx,
+            &accounts,
+            &routes,
+            &orders,
+            QueuePolicy::PriorityScan,
+        )
+        .unwrap();
+        let aging_priority = simulate_queue(
+            &ctx,
+            &accounts,
+            &routes,
+            &orders,
+            QueuePolicy::AgingPriorityScan,
+        )
+        .unwrap();
+
+        assert!(matches!(
+            static_priority
+                .payments
+                .iter()
+                .find(|p| p.payment_id == "old-low")
+                .unwrap()
+                .state,
+            PaymentState::Unsettled { .. }
+        ));
+        assert!(matches!(
+            aging_priority
+                .payments
+                .iter()
+                .find(|p| p.payment_id == "old-low")
+                .unwrap()
+                .state,
+            PaymentState::Settled { tick, .. } if tick <= 50
         ));
     }
 
