@@ -74,6 +74,14 @@ Suggested next benchmark gates:
 
 This crate demonstrates a reference algorithm and authored tests. Until the exact commit is compiled and those tests run, they are not passing evidence. Even when tests pass, they establish only behavior on the modeled inputs; they do not establish legal set-off, external liquidity availability, production-grade safety, actual settlement finality, all-in fee savings or superiority to TARGET2, SAMOS, Nexus, or any production LSM.
 
+## Bounded atomic-batch clearing reference
+
+The `batch` module adds a fourth conceptual layer to the research model: `select_atomic_batch` chooses an all-or-nothing subset of eligible queued payments whose **post-batch** participant balances remain non-negative and whose total use of each caller-supplied remaining route capacity is respected. Because selected credits and debits are applied atomically, it can clear a closed cycle when every participant begins with zero gross liquidity—where strict sequential gross settlement cannot start.
+
+This is a **bounded exact reference/oracle**, not a production LSM. It requires the caller's explicit `ExternallyQualified` authority assertion, current route availability and remaining-window capacities. It does not authenticate legal authority or evidence, perform external settlement, model participant auctions/side payments, FX, fraud/default workflows, or prove settlement finality. Its objective is explicit: maximize total selected gross payment value, then minimize modeled fees, then maximize count, then deterministic payment-ID tie-breaking. Fees are reported as model metrics and are not debited from balances. It fails closed above 16 eligible orders (65,536 subsets); larger rolling batches require a separate measured heuristic compared against this oracle on tiny cases.
+
+The unit test contrasts a zero-funded three-party cycle under `StrictFifo` (zero settled gross value) with the atomic batch selector (all three orders selected, while every final balance remains zero). This demonstrates a difference in settlement model, not proof that an arbitrary rail supports atomic batch processing or has legal netting authority.
+
 ## Event-driven gross-payment queue simulator
 
 The `queue` module is a separate discrete-tick model, not a replacement for the static exact flow optimizer. It replays individual gross payments with balances, arrivals, deadline targets, route outages, per-window capacity and three policies:
