@@ -100,7 +100,7 @@ fn independent_market_oracle_matches_known_answers_and_separates_transfer_from_d
 
     for section in ["competitive", "monopoly"] {
         for field in expected[section].as_object().unwrap().keys() {
-            close(number(&actual[section][field]), number(&expected[section][field]));
+            close(number(&actual[section][field.as_str()]), number(&expected[section][field.as_str()]));
         }
     }
 
@@ -179,7 +179,7 @@ fn shadow_price_sensitivity_changes_valuation_not_physical_measurement() {
         .iter()
         .map(|s| quantity * number(&s["shadow_price_zar_per_tonne"]))
         .collect();
-    let mut relabelled = case.clone();
+    let mut relabelled = (*case).clone();
     relabelled["irrelevant_markup_label"] = serde_json::json!("very high");
     let q_after = number(&relabelled["physical_measurement"]["quantity"]);
     let after: Vec<f64> = relabelled["valuation_scenarios"]
