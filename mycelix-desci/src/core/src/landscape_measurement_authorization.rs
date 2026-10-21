@@ -26,6 +26,31 @@ const ACTIVITIES: &[&str] =
 const EVIDENCE_CLASSES: &[&str] = &["synthetic", "asserted", "signed"];
 const VERIFICATION_STATES: &[&str] =
     &["not-verified", "signature-verified", "authority-resolved"];
+const ALLOWED_FIELDS: &[&str] = &[
+    "schema",
+    "schema_uri",
+    "authorization_id",
+    "created_at",
+    "project_snapshot_sha256",
+    "site_ref_sha256",
+    "metric_id",
+    "unit",
+    "activity",
+    "participant_ref",
+    "consent_status",
+    "consent_evidence_sha256",
+    "site_access_status",
+    "site_access_evidence_sha256",
+    "publication_consent_status",
+    "publication_consent_evidence_sha256",
+    "publication_policy",
+    "coordinate_disclosure",
+    "valid_from",
+    "valid_until",
+    "evidence_class",
+    "verification_status",
+    "statement",
+];
 
 /// Validate record shape and high-consequence status/digest consistency.
 ///
@@ -35,8 +60,13 @@ const VERIFICATION_STATES: &[&str] =
 /// not authenticated by this function.
 pub fn validate_measurement_authorization(record: &Value) -> Result<(), Vec<String>> {
     let mut errors = Vec::new();
-    if !record.is_object() {
+    let Some(object) = record.as_object() else {
         return Err(vec!["$: expected a JSON object".to_owned()]);
+    };
+    for field in object.keys() {
+        if !ALLOWED_FIELDS.contains(&field.as_str()) {
+            errors.push(format!("$.{field}: unknown property is not allowed by authorization v0"));
+        }
     }
 
     if record.get("schema").and_then(Value::as_str)
@@ -366,6 +396,16 @@ mod tests {
             .unwrap_err()
             .iter()
             .any(|error| error.contains("synthetic examples must remain not-verified")));
+    }
+
+    #[test]
+    fn undeclared_authorization_properties_are_rejected() {
+        let mut record = fixture();
+        record["grant_everything"] = json!(true);
+        assert!(validate_measurement_authorization(&record)
+            .unwrap_err()
+            .iter()
+            .any(|error| error.contains("unknown property is not allowed")));
     }
 
     #[test]
