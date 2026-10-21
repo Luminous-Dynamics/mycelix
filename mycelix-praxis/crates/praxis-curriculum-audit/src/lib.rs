@@ -393,7 +393,7 @@ fn compute_input_digest(
     }
     collect_json_inputs(
         workspace,
-        &workspace.join("examples/curriculum/caps/generated"),
+        &workspace.join("examples/curriculum"),
         &mut inputs,
         errors,
     );
@@ -1514,7 +1514,15 @@ fn run() -> Result<(), AuditFailure> {
     let manifest = load_manifest(&workspace, &mut errors);
     let content_audit = audit_manifest_assets(&workspace, &mut errors);
     let input_digest = compute_input_digest(&workspace, &documents, &mut errors);
+    let inactive_source_audit =
+        audit_inactive_manifest_sources(&workspace, &documents, &manifest, &mut errors);
     let mut report = analyze(&documents, &manifest, &mut errors);
+    report.inactive_source_graph_documents_scanned = inactive_source_audit.graph_documents_scanned;
+    report.orphan_manifest_ids_found_in_inactive_graphs =
+        inactive_source_audit.orphan_ids_found_in_inactive_graphs;
+    report.orphan_manifest_ids_without_source_graph =
+        inactive_source_audit.orphan_ids_without_source_graph;
+    report.inactive_manifest_source_matches = inactive_source_audit.source_matches;
     report.content_assets_scanned = content_audit.assets_scanned;
     report.content_assets_with_quality_findings = content_audit.assets_with_findings;
     report.content_quality_findings = content_audit.findings;
@@ -1703,6 +1711,51 @@ mod tests {
         assert_eq!(
             embedded_json_paths(source),
             vec!["a.json".to_owned(), "nested/c.json".to_owned()]
+        );
+    }
+
+    #[test]
+    fn inactive_source_candidates_classify_orphans_without_activating_them() {
+        let active_ids = BTreeSet::from(["active".to_owned()]);
+        let manifest = BTreeMap::from([
+            ("active".to_owned(), 1usize),
+            ("inactive_match".to_owned(), 1usize),
+            ("not_found".to_owned(), 1usize),
+        ]);
+        let sources = vec![
+            (
+                "examples/curriculum/caps/caps-math-3.json".to_owned(),
+                serde_json::json!({
+                    "metadata": {
+                        "framework": "CAPS",
+                        "grade_level": "Grade3",
+                        "subject_area": "Mathematics"
+                    },
+                    "nodes": [
+                        {"id":"inactive_match","title":"Addition and Subtraction"},
+                        {"id":"active","title":"Already Active"}
+                    ],
+                    "edges": []
+                }),
+            ),
+            (
+                "examples/curriculum/all-curricula-unified.json".to_owned(),
+                serde_json::json!({
+                    "nodes": [{"id":"inactive_match","title":"Unified Addition"}],
+                    "edges": []
+                }),
+            ),
+        ];
+
+        let audit = match_inactive_manifest_sources(&active_ids, &manifest, &sources);
+        assert_eq!(audit.graph_documents_scanned, 2);
+        assert_eq!(audit.orphan_ids_found_in_inactive_graphs, 1);
+        assert_eq!(audit.source_matches.len(), 1);
+        assert_eq!(audit.source_matches[0].node_id, "inactive_match");
+        assert_eq!(audit.source_matches[0].sources.len(), 2);
+        assert_eq!(
+            audit.orphan_ids_without_source_graph,
+            vec!["not_found".to_owned()]
         );
     }
 
