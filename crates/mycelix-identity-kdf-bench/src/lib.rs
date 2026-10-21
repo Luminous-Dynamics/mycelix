@@ -111,8 +111,10 @@ mod browser_benchmark {
 
         let json = serde_json::to_string(&receipt)
             .expect("non-secret benchmark receipt serializes");
-        web_sys::console::log_1(&JsValue::from_str(&format!(
-            "IDENTITY_KDF_BENCHMARK_RECEIPT={json}"
-        )));
+        let line = format!("IDENTITY_KDF_BENCHMARK_RECEIPT={json}");
+        web_sys::console::log_1(&JsValue::from_str(&line));
+        // Also print through the wasm test harness so CI can extract exactly
+        // one non-secret JSON line into an immutable artifact.
+        println!("{line}");
     }
 }
