@@ -121,6 +121,49 @@ for (const [index, profile] of catalog.profiles.entries()) {
     requireCondition(url.protocol === 'https:', `${label} source URL must use HTTPS`);
   }
 
+  if (profile.source_evidence_state === 'snapshot_manifest_attached') {
+    const snapshotPath = path.resolve(root, profile.source_snapshot_manifest_path);
+    requireCondition(snapshotPath.startsWith(path.resolve(root) + path.sep),
+      `${label} source snapshot path escapes adoption directory`);
+    requireCondition(fs.existsSync(snapshotPath), `${label} attached source snapshot manifest is missing`);
+    const snapshotBytes = fs.readFileSync(snapshotPath);
+    requireCondition(sha256(snapshotBytes) === profile.source_snapshot_manifest_sha256,
+      `${label} source snapshot manifest digest mismatch`);
+    const manifest = readJson(snapshotPath);
+    requireCondition(manifest.schema_version === '1.0.0' &&
+      manifest.claim_ceiling === 'SourceSnapshotOnly' &&
+      manifest.profile_id === profile.profile_id,
+      `${label} source snapshot manifest identity or claim ceiling mismatch`);
+    requireCondition(Array.isArray(manifest.sources) &&
+      manifest.sources.length === profile.source_urls.length,
+      `${label} source snapshot does not cover every declared source URL`);
+    const manifestUrls = manifest.sources.map(source => source.source_url).sort();
+    requireCondition(new Set(manifestUrls).size === manifestUrls.length,
+      `${label} source snapshot contains duplicate source URLs`);
+    requireCondition(JSON.stringify(manifestUrls) === JSON.stringify([...profile.source_urls].sort()),
+      `${label} source snapshot URL set differs from profile source_urls`);
+    for (const sourceRecord of manifest.sources) {
+      requireCondition(['content_bytes_captured', 'exact_revision_pinned'].includes(sourceRecord.capture_state),
+        `${label} source ${sourceRecord.source_url} is not snapshot-qualified`);
+      requireCondition(['permitted_public_use', 'authorized_private_use', 'metadata_only'].includes(sourceRecord.rights_disposition),
+        `${label} source ${sourceRecord.source_url} has unresolved or blocked rights status`);
+      if (sourceRecord.capture_state === 'content_bytes_captured') {
+        requireCondition(typeof sourceRecord.content_artifact_path === 'string' &&
+          /^source-artifacts\/[a-z0-9][a-z0-9._-]{1,180}$/.test(sourceRecord.content_artifact_path),
+          `${label} captured source lacks a safe local artifact path`);
+        const artifactPath = path.resolve(root, sourceRecord.content_artifact_path);
+        requireCondition(artifactPath.startsWith(path.resolve(root) + path.sep) && fs.existsSync(artifactPath),
+          `${label} source content artifact is missing or escapes adoption directory`);
+        requireCondition(hasSha(sourceRecord.content_sha256) &&
+          sha256(fs.readFileSync(artifactPath)) === sourceRecord.content_sha256,
+          `${label} source content artifact digest mismatch`);
+      } else {
+        requireCondition(typeof sourceRecord.source_revision === 'string' && sourceRecord.source_revision.length > 0,
+          `${label} revision-pinned source lacks source_revision`);
+      }
+    }
+  }
+
   requireCondition(Array.isArray(profile.mycelix_owner_issues) && profile.mycelix_owner_issues.length >= 1,
     `${label} must name an owner issue or declare a gap`);
   for (const owner of profile.mycelix_owner_issues) {
@@ -159,6 +202,8 @@ const receipt = {
   adoption_domain_count: domains.size,
   source_reference_only_count: catalog.profiles.filter(p => p.source_evidence_state === 'reference_links_only').length,
   source_snapshot_attached_count: catalog.profiles.filter(p => p.source_evidence_state === 'snapshot_manifest_attached').length,
+  source_snapshot_manifest_digests: catalog.profiles.filter(p => p.source_snapshot_manifest_sha256)
+    .map(p => ({ profile_id: p.profile_id, manifest_sha256: p.source_snapshot_manifest_sha256 })),
   pre_pilot_snapshot_required_count: catalog.profiles.filter(p => p.source_snapshot_required_before_pilot).length,
   explicit_gap_count: catalog.profiles.filter(p => p.gap_requires_issue).length,
   snapshot_date: catalog.snapshot_date,
