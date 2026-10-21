@@ -648,15 +648,35 @@ fn decision_is_aligned(case: &EvaluatorCase, submission: Option<&DecisionSubmiss
                 return false;
             }
             let cited: BTreeSet<_> = cited_evidence_ids.iter().map(String::as_str).collect();
+            let rationale_support: BTreeSet<_> = rationale
+                .supporting_evidence_ids
+                .iter()
+                .map(String::as_str)
+                .collect();
+            let expected_support: BTreeSet<_> =
+                case.supporting_evidence_ids.iter().copied().collect();
+            let rationale_contradictions: BTreeSet<_> = rationale
+                .contradictory_evidence_ids
+                .iter()
+                .map(String::as_str)
+                .collect();
+            let expected_contradictions: BTreeSet<_> =
+                case.available_contradiction_ids.iter().copied().collect();
             let valid_citations: BTreeSet<_> = case
                 .supporting_evidence_ids
                 .iter()
                 .chain(case.available_contradiction_ids.iter())
                 .copied()
                 .collect();
-            case.required_evidence_ids
-                .iter()
-                .all(|id| case.observed_evidence_ids.contains(id) && cited.contains(id))
+            cited_evidence_ids.len() == cited.len()
+                && rationale.supporting_evidence_ids.len() == rationale_support.len()
+                && rationale.contradictory_evidence_ids.len() == rationale_contradictions.len()
+                && rationale_support == expected_support
+                && rationale_contradictions == expected_contradictions
+                && case
+                    .required_evidence_ids
+                    .iter()
+                    .all(|id| case.observed_evidence_ids.contains(id) && cited.contains(id))
                 && case
                     .supporting_evidence_ids
                     .iter()
@@ -666,29 +686,27 @@ fn decision_is_aligned(case: &EvaluatorCase, submission: Option<&DecisionSubmiss
                     .iter()
                     .all(|id| cited.contains(id))
                 && cited.iter().all(|id| valid_citations.contains(id))
-                && rationale
-                    .supporting_evidence_ids
-                    .iter()
-                    .all(|id| cited.contains(id.as_str()))
-                && rationale
-                    .contradictory_evidence_ids
-                    .iter()
-                    .all(|id| cited.contains(id.as_str()))
         }
         DecisionOutcome::Abstain {
             cited_evidence_ids,
             missing_evidence,
             ..
         } => {
+            let unique_citations: BTreeSet<_> =
+                cited_evidence_ids.iter().map(String::as_str).collect();
             !case.answerable
                 && (!cited_evidence_ids.is_empty() || !missing_evidence.is_empty())
+                && unique_citations.len() == cited_evidence_ids.len()
                 && cited_evidence_ids
                     .iter()
                     .all(|id| case.observed_evidence_ids.contains(&id.as_str()))
         }
         DecisionOutcome::RequestMoreEvidence { request_ids, .. } => {
+            let unique_requests: BTreeSet<_> =
+                request_ids.iter().map(String::as_str).collect();
             !case.answerable
                 && !request_ids.is_empty()
+                && unique_requests.len() == request_ids.len()
                 && request_ids.iter().all(|id| {
                     case.catalog_request_ids.contains(&id.as_str())
                         && case.authorized_request_ids.contains(&id.as_str())
@@ -1145,6 +1163,82 @@ fn policy_artifact_drift_invalidates_a_paired_study() {
         errors
             .iter()
             .any(|error| error.contains("policy artifact digest varies within policy quality"))
+    );
+}
+
+#[test]
+fn decision_alignment_rejects_mislabeled_support_and_duplicate_citations() {
+    let cases = synthetic_cases();
+    let case = cases
+        .iter()
+        .find(|case| case.scenario_id == "network-omitted-contradiction")
+        .expect("network contradiction case exists");
+    let mut submission = safe_submission_for(case);
+    if let DecisionOutcome::Claim { rationale, .. } = &mut submission.outcome {
+        rationale.supporting_evidence_ids.push("route-conflict".into());
+        rationale.contradictory_evidence_ids.clear();
+    } else {
+        panic!("network answerable case should use a claim");
+    }
+    assert!(
+        !decision_is_aligned(case, Some(&submission)),
+        "a known contradiction must not be relabelled as supporting evidence"
+    );
+
+    let case = cases
+        .iter()
+        .find(|case| case.scenario_id == "endpoint-effect-confirmed")
+        .expect("endpoint effect case exists");
+    let mut submission = safe_submission_for(case);
+    if let DecisionOutcome::Claim {
+        cited_evidence_ids, ..
+    } = &mut submission.outcome
+    {
+        cited_evidence_ids.push("command-effect-receipt".into());
+    } else {
+        panic!("endpoint effect case should use a claim");
+    }
+    assert!(
+        !decision_is_aligned(case, Some(&submission)),
+        "duplicate citations must not be counted as an aligned decision"
+    );
+}
+
+#[test]
+fn decision_alignment_rejects_duplicate_requests_and_unobserved_abstention_citations() {
+    let cases = synthetic_cases();
+    let case = cases
+        .iter()
+        .find(|case| case.scenario_id == "supplychain-request")
+        .expect("supply-chain request case exists");
+    let mut submission = safe_submission_for(case);
+    if let DecisionOutcome::RequestMoreEvidence { request_ids, .. } = &mut submission.outcome {
+        request_ids.push(request_ids[0].clone());
+    } else {
+        panic!("unanswerable supply-chain case should request evidence");
+    }
+    assert!(
+        !decision_is_aligned(case, Some(&submission)),
+        "duplicate follow-up requests must not be counted as aligned"
+    );
+
+    let case = cases
+        .iter()
+        .find(|case| case.scenario_id == "identity-conflict")
+        .expect("identity conflict case exists");
+    let submission = make_submission(
+        case.scenario_id,
+        DecisionOutcome::Abstain {
+            reason: praxis_core::decision_submission::AbstentionReason::ConflictingEvidence,
+            cited_evidence_ids: vec!["not-observed".into()],
+            missing_evidence: vec![
+                praxis_core::decision_submission::MissingEvidenceKind::ConflictResolution,
+            ],
+        },
+    );
+    assert!(
+        !decision_is_aligned(case, Some(&submission)),
+        "abstention citations must reference observed evidence"
     );
 }
 
