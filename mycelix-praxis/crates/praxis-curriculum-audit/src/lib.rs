@@ -1318,7 +1318,10 @@ mod tests {
         assert!(audit.findings.iter().any(|finding| finding.field == "assessment.items[0].question"));
         assert!(audit.findings.iter().any(|finding| finding.field == "flashcards[0].back"));
         assert!(audit.findings.iter().any(|finding| finding.code == "duplicate_worked_example"));
-        assert!(audit.findings.iter().any(|finding| finding.code == "duplicate_practice_prompt") == false);
+        assert!(!audit
+            .findings
+            .iter()
+            .any(|finding| finding.code == "duplicate_practice_prompt"));
         assert!(audit.findings.len() >= 10);
     }
 
