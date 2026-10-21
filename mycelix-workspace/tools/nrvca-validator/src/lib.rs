@@ -235,7 +235,7 @@ pub fn validate_report(report: &Value) -> Vec<Diagnostic> {
             if !["excluded_from_current_production", "included_under_declared_profile", "requires_profile_review"].contains(&treatment) {
                 push_structural(&mut out, "EVENT-TREATMENT", &format!("{path}/gdp_treatment"), "unsupported gdp_treatment");
             }
-            if ["new_borrowing", "principal_repayment", "asset_revaluation", "secondary_market_asset_transaction"].contains(&class)
+            if ["new_borrowing", "principal_repayment", "writeoff", "asset_revaluation", "secondary_market_asset_transaction"].contains(&class)
                 && treatment != "excluded_from_current_production"
             {
                 push_semantic(&mut out, "FINANCIAL-EVENT-AS-OUTPUT", &format!("{path}/gdp_treatment"), "financing, principal repayment, asset revaluation and secondary-market transfer are not current production by themselves");
@@ -256,6 +256,111 @@ pub fn validate_report(report: &Value) -> Vec<Diagnostic> {
             reference_ids(event.get("source_refs").unwrap_or(&Value::Null), &format!("{path}/source_refs"), &source_ids, &mut out);
         },
         None => push_structural(&mut out, "EVENTS-TYPE", "/financial_events", "financial_events must be an array"),
+    }
+
+    // Canonical stock-flow values are stored once. Reconciliation operands later point
+    // to these fields; financial-account changes optionally cross-reference event IDs.
+    let mut stock_ids = HashSet::new();
+    match report.get("stock_flow_accounts").and_then(Value::as_array) {
+        Some(accounts) if !accounts.is_empty() => for (i, account) in accounts.iter().enumerate() {
+            let path = format!("/stock_flow_accounts/{i}");
+            let Some(id) = field_str(account, "account_id") else {
+                push_structural(&mut out, "STOCK-ID", &format!("{path}/account_id"), "account_id is required");
+                continue;
+            };
+            if !stock_ids.insert(id.to_owned()) {
+                push_semantic(&mut out, "DUPLICATE-STOCK-ID", &format!("{path}/account_id"), format!("duplicate account_id: {id}"));
+            }
+            let class = field_str(account, "account_class").unwrap_or("");
+            let unit = field_str(account, "unit").unwrap_or("");
+            let currency = account.get("currency");
+            if !["financial_stock", "physical_stock", "produced_asset_stock", "natural_asset_stock"].contains(&class) {
+                push_structural(&mut out, "STOCK-CLASS", &format!("{path}/account_class"), "unsupported stock account class");
+            }
+            if unit.is_empty() {
+                push_structural(&mut out, "STOCK-UNIT", &format!("{path}/unit"), "stock unit is required");
+            }
+            if class == "financial_stock" && currency.and_then(Value::as_str).is_none() {
+                push_semantic(&mut out, "FINANCIAL-STOCK-CURRENCY", &format!("{path}/currency"), "financial stock requires an explicit currency");
+            }
+            if class == "physical_stock" && !currency.is_some_and(Value::is_null) {
+                push_semantic(&mut out, "PHYSICAL-STOCK-CURRENCY", &format!("{path}/currency"), "physical stock should not claim a currency unit");
+            }
+            let opening = field_num(account, "opening_stock");
+            let closing = field_num(account, "closing_stock");
+            if opening.is_none() || closing.is_none() || opening.is_some_and(|v| v < 0.0) || closing.is_some_and(|v| v < 0.0) {
+                push_structural(&mut out, "STOCK-VALUES", &path, "opening and closing stocks must be finite nonnegative values");
+            }
+            let changes = account.get("changes").and_then(Value::as_array);
+            match changes {
+                Some(changes) => {
+                    let mut change_ids = HashSet::new();
+                    let mut total = opening.unwrap_or(0.0);
+                    for (j, change) in changes.iter().enumerate() {
+                        let cpath = format!("{path}/changes/{j}");
+                        let Some(change_id) = field_str(change, "change_id") else {
+                            push_structural(&mut out, "CHANGE-ID", &format!("{cpath}/change_id"), "change_id is required");
+                            continue;
+                        };
+                        if !change_ids.insert(change_id.to_owned()) {
+                            push_semantic(&mut out, "DUPLICATE-CHANGE-ID", &format!("{cpath}/change_id"), format!("duplicate change_id: {change_id}"));
+                        }
+                        let kind = field_str(change, "change_class").unwrap_or("");
+                        let signed = field_num(change, "signed_change");
+                        if signed.is_none() {
+                            push_structural(&mut out, "SIGNED-CHANGE", &format!("{cpath}/signed_change"), "signed_change must be a finite number");
+                            continue;
+                        }
+                        let signed = signed.unwrap();
+                        if ["borrowing", "physical_inflow"].contains(&kind) && signed < 0.0 {
+                            push_semantic(&mut out, "CHANGE-SIGN", &format!("{cpath}/signed_change"), "inflow changes must be nonnegative");
+                        }
+                        if ["principal_repayment", "writeoff", "physical_use", "physical_outflow"].contains(&kind) && signed > 0.0 {
+                            push_semantic(&mut out, "CHANGE-SIGN", &format!("{cpath}/signed_change"), "outflow/decrease changes must be nonpositive");
+                        }
+                        total += signed;
+                        if let Some(event_id) = field_str(change, "source_event_id") {
+                            let found = report.get("financial_events").and_then(Value::as_array).into_iter().flatten()
+                                .find(|e| field_str(e, "event_id") == Some(event_id));
+                            match found {
+                                Some(event) => {
+                                    if !approx_eq(field_num(event, "amount").unwrap_or(f64::NAN), signed.abs(), 1e-9) {
+                                        push_semantic(&mut out, "STOCK-EVENT-AMOUNT", &format!("{cpath}/source_event_id"), "linked financial event amount must match absolute signed stock change");
+                                    }
+                                    let expected = match kind {
+                                        "borrowing" => Some("new_borrowing"),
+                                        "principal_repayment" => Some("principal_repayment"),
+                                        "writeoff" => Some("writeoff"),
+                                        "revaluation" => Some("asset_revaluation"),
+                                        _ => None,
+                                    };
+                                    if expected.is_none_or(|e| field_str(event, "event_class") != Some(e)) {
+                                        push_semantic(&mut out, "STOCK-EVENT-CLASS", &format!("{cpath}/source_event_id"), "linked event class does not match stock change class");
+                                    }
+                                    if field_str(event, "unit") != Some(unit) {
+                                        push_semantic(&mut out, "STOCK-EVENT-UNIT", &format!("{cpath}/source_event_id"), "linked event unit must match stock account unit");
+                                    }
+                                    if event.get("source_refs").and_then(Value::as_array).is_some_and(|r| !r.iter().filter_map(Value::as_str).any(|s| source_ids.contains(s))) {
+                                        push_semantic(&mut out, "STOCK-EVENT-SOURCE", &format!("{cpath}/source_event_id"), "linked event has no source reference admitted by the manifest");
+                                    }
+                                }
+                                None => push_semantic(&mut out, "STOCK-EVENT-MISSING", &format!("{cpath}/source_event_id"), format!("linked event not found: {event_id}")),
+                            }
+                        }
+                        reference_ids(change.get("source_refs").unwrap_or(&Value::Null), &format!("{cpath}/source_refs"), &source_ids, &mut out);
+                    }
+                    if let Some(closing) = closing {
+                        if !approx_eq(total, closing, 1e-6) {
+                            push_semantic(&mut out, "STOCK-FLOW-DOES-NOT-CLOSE", &path, format!("opening stock plus signed changes is {total}, but closing stock is {closing}"));
+                        }
+                    }
+                }
+                None => push_structural(&mut out, "STOCK-CHANGES-TYPE", &format!("{path}/changes"), "changes must be an array"),
+            }
+            reference_ids(account.get("source_refs").unwrap_or(&Value::Null), &format!("{path}/source_refs"), &source_ids, &mut out);
+        },
+        Some(_) => push_structural(&mut out, "STOCK-ACCOUNTS-EMPTY", "/stock_flow_accounts", "stock_flow_accounts must not be empty"),
+        None => push_structural(&mut out, "STOCK-ACCOUNTS-TYPE", "/stock_flow_accounts", "stock_flow_accounts must be an array"),
     }
 
     // Outcome coordinates remain typed and multi-dimensional; missingness is not zero.
@@ -332,6 +437,15 @@ pub fn validate_report(report: &Value) -> Vec<Diagnostic> {
             let residual = field_num(check, "residual");
             let tolerance = field_num(check, "tolerance");
             let unit = field_str(check, "unit").unwrap_or("");
+            let lhs_pointer = field_str(check, "lhs_pointer").unwrap_or("");
+            if lhs_pointer.is_empty() {
+                push_structural(&mut out, "RECONCILIATION-LHS-POINTER", &format!("{path}/lhs_pointer"), "lhs_pointer must bind the claimed LHS to a canonical report value");
+            } else {
+                match report.pointer(lhs_pointer).and_then(Value::as_f64) {
+                    Some(bound_lhs) if lhs.is_some_and(|v| approx_eq(v, bound_lhs, tolerance.unwrap_or(0.0))) => {}
+                    _ => push_semantic(&mut out, "RECONCILIATION-LHS-BINDING", &format!("{path}/lhs_pointer"), "lhs must equal the canonical value referenced by lhs_pointer"),
+                }
+            }
             if lhs.is_none() || rhs.is_none() || residual.is_none() || tolerance.is_none() || tolerance.is_some_and(|t| t < 0.0) || unit.is_empty() {
                 push_structural(&mut out, "RECONCILIATION-METADATA", &path, "lhs, rhs, residual, nonnegative tolerance and unit are required");
                 continue;
@@ -344,6 +458,19 @@ pub fn validate_report(report: &Value) -> Vec<Diagnostic> {
                     let opath = format!("{path}/operands/{j}");
                     match (field_num(operand, "value"), field_num(operand, "coefficient"), field_str(operand, "unit")) {
                         (Some(value), Some(coefficient), Some(operand_unit)) => {
+                            let value_pointer = field_str(operand, "value_pointer").unwrap_or("");
+                            if value_pointer.is_empty() {
+                                operands_valid = false;
+                                push_structural(&mut out, "RECONCILIATION-VALUE-POINTER", &format!("{opath}/value_pointer"), "each operand must bind to a canonical report value");
+                            } else {
+                                match report.pointer(value_pointer).and_then(Value::as_f64) {
+                                    Some(bound_value) if approx_eq(value, bound_value, tolerance) => {}
+                                    _ => {
+                                        operands_valid = false;
+                                        push_semantic(&mut out, "RECONCILIATION-VALUE-BINDING", &format!("{opath}/value_pointer"), "operand value differs from the canonical field referenced by value_pointer");
+                                    }
+                                }
+                            }
                             if operand_unit != unit {
                                 operands_valid = false;
                                 push_semantic(&mut out, "RECONCILIATION-UNIT", &format!("{opath}/unit"), "all operands must use the reconciliation's declared compatible unit");
@@ -382,9 +509,24 @@ pub fn validate_report(report: &Value) -> Vec<Diagnostic> {
             if field_str(check, "class") == Some("official_account_bridge")
                 && field_str(check, "equation").is_some_and(|e| e.to_ascii_lowercase().contains("ndp"))
             {
+                let expected = [
+                    ("GDP", "/conventional_accounts/gdp/value", 1.0),
+                    ("consumption_of_fixed_capital", "/conventional_accounts/consumption_of_fixed_capital/value", -1.0),
+                ];
+                let operands = check.get("operands").and_then(Value::as_array);
+                if let Some(operands) = operands {
+                    let matches = operands.len() == expected.len() && expected.iter().all(|(term, pointer, coefficient)| {
+                        operands.iter().any(|o| field_str(o, "term") == Some(*term)
+                            && field_str(o, "value_pointer") == Some(*pointer)
+                            && field_num(o, "coefficient").is_some_and(|c| approx_eq(c, *coefficient, 1e-12)))
+                    });
+                    if !matches {
+                        push_semantic(&mut out, "NDP-BRIDGE-TERMS", &format!("{path}/operands"), "NDP must be derived specifically from GDP minus consumption of fixed capital");
+                    }
+                }
                 if let Some(ndp) = report.pointer("/conventional_accounts/net_domestic_product/value").and_then(Value::as_f64) {
-                    if !approx_eq(lhs, ndp, tolerance) {
-                        push_semantic(&mut out, "ACCOUNT-BRIDGE-LHS", &format!("{path}/lhs"), "NDP bridge lhs must match reported net_domestic_product");
+                    if !approx_eq(lhs, ndp, tolerance) || !approx_eq(rhs, ndp, tolerance) {
+                        push_semantic(&mut out, "ACCOUNT-BRIDGE-LHS", &format!("{path}/lhs"), "NDP bridge result must match reported net_domestic_product");
                     }
                 }
             }
@@ -450,6 +592,16 @@ pub fn validate_report(report: &Value) -> Vec<Diagnostic> {
         None => push_structural(&mut out, "CLAIMS-TYPE", "/claims", "claims must be an array"),
     }
 
+    let operand_required: HashSet<&str> = schema.pointer("/properties/reconciliations/items/properties/operands/items/required")
+        .and_then(Value::as_array).into_iter().flatten().filter_map(Value::as_str).collect();
+    if !operand_required.contains("value_pointer") {
+        push_structural(&mut out, "SCHEMA-REQUIRED-FIELD", "/properties/reconciliations/items/properties/operands/items/required", "reconciliation operands must require value_pointer");
+    }
+    let stock_required: HashSet<&str> = schema.pointer("/required").and_then(Value::as_array)
+        .into_iter().flatten().filter_map(Value::as_str).collect();
+    if !stock_required.contains("stock_flow_accounts") {
+        push_structural(&mut out, "SCHEMA-REQUIRED-FIELD", "/required", "report must require stock_flow_accounts");
+    }
     out
 }
 
@@ -466,7 +618,7 @@ pub fn validate_schema_contract(schema: &Value) -> Vec<Diagnostic> {
     }
     for (name, required) in [
         ("outcome_vector", vec!["currency", "price_basis", "price_year", "uncertainty", "source_refs"]),
-        ("reconciliations", vec!["operands"]),
+        ("reconciliations", vec!["operands", "lhs_pointer"]),
         ("claims", vec!["claim_id", "claim_type", "evidence_status", "statement", "scope", "source_refs"]),
     ] {
         let path = format!("/properties/{name}/items/required");
