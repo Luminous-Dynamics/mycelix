@@ -41,8 +41,10 @@ use web_sys::{AesDerivedKeyParams, AesGcmParams, CryptoKey, Pbkdf2Params, Subtle
 /// property under test is "does the derived key round-trip / reject a wrong
 /// passphrase / reject tampering", which doesn't depend on the iteration
 /// count.
+/// Production PBKDF2-HMAC-SHA256 work factor for new identity envelopes.
+pub const PRODUCTION_PBKDF2_ITERATIONS: u32 = 600_000;
 #[cfg(not(test))]
-pub const PBKDF2_ITERATIONS: u32 = 600_000;
+pub const PBKDF2_ITERATIONS: u32 = PRODUCTION_PBKDF2_ITERATIONS;
 #[cfg(test)]
 pub const PBKDF2_ITERATIONS: u32 = 1_000;
 /// Random salt length for PBKDF2, in bytes.
@@ -269,9 +271,25 @@ async fn derive_aes_key(
 /// with the same passphrase for different secrets, or to re-encrypt the
 /// same secret (e.g. on passphrase change).
 pub async fn encrypt(passphrase: &str, plaintext: &[u8]) -> Result<EncryptedBlob, String> {
+    encrypt_with_iterations(passphrase, plaintext, PBKDF2_ITERATIONS).await
+}
+
+/// Encrypt using an explicit, validated iteration count.
+///
+/// Production callers use [`encrypt`], which selects the production work
+/// factor. The explicit form exists so the browser qualification suite can
+/// measure the real production setting even though ordinary unit tests use a
+/// faster test-only default.
+async fn encrypt_with_iterations(
+    passphrase: &str,
+    plaintext: &[u8],
+    iterations: u32,
+) -> Result<EncryptedBlob, String> {
+    if !(minimum_supported_iterations()..=MAX_PBKDF2_ITERATIONS).contains(&iterations) {
+        return Err("Requested identity KDF work factor is outside policy limits.".into());
+    }
     let salt = random_bytes(SALT_LEN)?;
     let mut iv = random_bytes(IV_LEN)?;
-    let iterations = PBKDF2_ITERATIONS;
     let kdf = KeyDerivationFunction::Pbkdf2HmacSha256;
     let cipher = IdentityCipher::Aes256Gcm;
     let aes_key = derive_aes_key(passphrase, &salt, iterations).await?;
@@ -330,6 +348,55 @@ mod tests {
     use super::*;
 
     wasm_bindgen_test::wasm_bindgen_test_configure!(run_in_browser);
+
+    #[wasm_bindgen_test::wasm_bindgen_test]
+    async fn production_iteration_round_trip_stays_inside_ci_budget() {
+        // Bypass the cfg(test) 1,000-iteration default and exercise the actual
+        // 600,000-iteration envelope and authenticated-header path.
+        let secret = [0x5Au8; 32];
+        let passphrase = "production benchmark passphrase longer than fifteen chars";
+        let mut round_trip_ms = Vec::with_capacity(3);
+
+        for _ in 0..3 {
+            let started = js_sys::Date::now();
+            let blob = encrypt_with_iterations(
+                passphrase,
+                &secret,
+                PRODUCTION_PBKDF2_ITERATIONS,
+            )
+            .await
+            .expect("production-strength v2 encryption should succeed");
+            assert_eq!(blob.format_version, CURRENT_ENVELOPE_VERSION);
+            assert_eq!(blob.iterations, PRODUCTION_PBKDF2_ITERATIONS);
+
+            let recovered = decrypt(passphrase, &blob)
+                .await
+                .expect("production-strength v2 decryption should succeed");
+            let elapsed = js_sys::Date::now() - started;
+            assert_eq!(recovered.as_slice(), secret.as_slice());
+            assert!(
+                elapsed.is_finite() && elapsed >= 0.0,
+                "browser clock must return a finite non-negative duration"
+            );
+            round_trip_ms.push(elapsed);
+        }
+
+        round_trip_ms.sort_by(f64::total_cmp);
+        let median = round_trip_ms[1];
+        let max_sample = round_trip_ms[2];
+        eprintln!(
+            "IDENTITY_KDF_BENCHMARK envelope=v2 algorithm=PBKDF2-HMAC-SHA256 iterations={} trials=3 median_ms={:.1} max_sample_ms={:.1} ci_budget_ms=5000",
+            PRODUCTION_PBKDF2_ITERATIONS,
+            median,
+            max_sample
+        );
+
+        // Generous runner regression ceiling, not the product latency goal.
+        assert!(
+            max_sample <= 5_000.0,
+            "production PBKDF2 v2 encrypt+decrypt exceeded the 5-second CI safety ceiling"
+        );
+    }
 
     #[wasm_bindgen_test::wasm_bindgen_test]
     async fn round_trips_with_the_correct_passphrase() {
