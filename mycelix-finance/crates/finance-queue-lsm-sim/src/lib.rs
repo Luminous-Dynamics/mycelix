@@ -494,6 +494,24 @@ pub fn simulate_order(
         return Err(QueueError::ConservationViolation);
     }
 
+    // A queued payment that remains blocked after its simulated deadline is
+    // counted as missed; it is not silently treated as timely merely because it
+    // never generated a settlement event.
+    for payment_id in &remaining {
+        let payment = payments_by_id
+            .get(payment_id.as_str())
+            .copied()
+            .ok_or(QueueError::InvalidQueueOrder)?;
+        if payment
+            .deadline_step
+            .is_some_and(|deadline| deadline <= settlement_index)
+        {
+            missed_deadline_count = missed_deadline_count
+                .checked_add(1)
+                .ok_or(QueueError::ArithmeticOverflow)?;
+        }
+    }
+
     let pending_payment_ids = order
         .iter()
         .filter(|payment_id| remaining.contains(*payment_id))
@@ -1064,6 +1082,19 @@ mod tests {
             ),
             Err(QueueError::InvalidAnnealingConfig)
         );
+    }
+
+    #[test]
+    fn blocked_payment_past_deadline_counts_as_missed() {
+        let balances = vec![balance("A", 0), balance("B", 0)];
+        let mut p = payment("late", "A", "B", 1, 1);
+        p.deadline_step = Some(0);
+        let order = fifo_order(&context(), &[p.clone()]).unwrap();
+        let report = simulate_order(&context(), &balances, &[p], &order).unwrap();
+
+        assert_eq!(report.settled_count, 0);
+        assert_eq!(report.pending_payment_ids, vec!["late"]);
+        assert_eq!(report.missed_deadline_count, 1);
     }
 
     #[test]
