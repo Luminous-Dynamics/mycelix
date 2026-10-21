@@ -87,9 +87,9 @@ fn main() {
         // Keep the budget lower for the larger batch; this is a compute-budget comparison,
         // not a claim of equivalence with any central-bank production algorithm.
         let iterations = match count {
-            70 => 300,
-            140 => 120,
-            _ => 30,
+            70 => 100,
+            140 => 30,
+            _ => 5,
         };
         for seed in [0x51A, 0x51B, 0x51C, 0x51D, 0x51E] {
             let config = AnnealingConfig {
@@ -98,9 +98,9 @@ fn main() {
                 initial_temperature: 0.35,
                 cooling_factor: 0.985,
             };
-            let mut timings = Vec::with_capacity(5);
+            let mut timings = Vec::with_capacity(3);
             let mut final_result = None;
-            for _ in 0..5 {
+            for _ in 0..3 {
                 let start = Instant::now();
                 final_result = Some(
                     simulated_annealing_order(&context, &balances, &payments, &fifo, &config)
