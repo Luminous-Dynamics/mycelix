@@ -62,7 +62,7 @@ const EXPECTED_VERSIONS = Object.freeze({
   'GS1-CBV': '2.0.0'
 });
 const EXPECTED_MANIFEST_PATH = 'source-snapshots/gs1-epcis-cbv-v1.json';
-const EXPECTED_MANIFEST_SHA = '9a3e9ddc94a5a2c4ed8f9a3820b3e64a2ce8f026d42cecc33f9fb1a4adfcd504';
+const EXPECTED_MANIFEST_SHA = 'ab7c5e7471b62117042ca41fed17b87f9af675858b2867db82f1c5f98f1edf4e';
 const EXPECTED_SOURCES = Object.freeze({
   'GS1-EPCIS': {
     url: 'https://ref.gs1.org/standards/epcis/2.0.1/',
@@ -77,22 +77,22 @@ const EXPECTED_SOURCES = Object.freeze({
 });
 const EXPECTED_ARTIFACTS = Object.freeze([
   {
-    url: 'https://ref.gs1.org/standards/epcis/2.0.1/epcis-context.jsonld',
+    url: 'https://ref.gs1.org/standards/epcis/2.0.1/artefacts/epcis-context.jsonld',
     source_id: 'gs1-epcis-2-0-1-context',
     revision: 'EPCIS 2.0.1 normative artefact; immutable versioned URL'
   },
   {
-    url: 'https://ref.gs1.org/standards/epcis/2.0.1/epcis-json-schema.json',
+    url: 'https://ref.gs1.org/standards/epcis/2.0.1/artefacts/epcis-json-schema.json',
     source_id: 'gs1-epcis-2-0-1-json-schema',
     revision: 'EPCIS 2.0.1 normative validation artefact; immutable versioned URL'
   },
   {
-    url: 'https://ref.gs1.org/standards/epcis/2.0.1/epcis-shacl.ttl',
+    url: 'https://ref.gs1.org/standards/epcis/2.0.1/artefacts/epcis-shacl.ttl',
     source_id: 'gs1-epcis-2-0-1-shacl',
     revision: 'EPCIS 2.0.1 normative validation artefact; immutable versioned URL'
   },
   {
-    url: 'https://ref.gs1.org/standards/epcis/2.0.1/cbv-ontology.jsonld',
+    url: 'https://ref.gs1.org/standards/epcis/2.0.1/artefacts/cbv-ontology.jsonld',
     source_id: 'gs1-cbv-2-0-0-ontology-jsonld',
     revision: 'CBV 2.0.0 normative ontology artefact distributed with EPCIS/CBV 2.0.1 package'
   }
@@ -134,7 +134,7 @@ function validateFixture(fixture, schema, manifest) {
   addError(errors, schema && schema.$defs && schema.$defs.epcisDocument &&
     schema.$defs.epcisDocument.properties['@context'] &&
     schema.$defs.epcisDocument.properties['@context'].items.const ===
-      'https://ref.gs1.org/standards/epcis/2.0.1/epcis-context.jsonld',
+      'https://ref.gs1.org/standards/epcis/2.0.1/artefacts/epcis-context.jsonld',
     'schema must pin the versioned EPCIS JSON-LD context');
 
   // Verify the manifest bytes and the exact source-reference bindings used by
@@ -213,7 +213,7 @@ function validateFixture(fixture, schema, manifest) {
     'EPCIS schemaVersion must be 2.0');
   addError(errors, epcisDocument && Array.isArray(epcisDocument['@context']) &&
     epcisDocument['@context'].length === 1 &&
-    epcisDocument['@context'][0] === 'https://ref.gs1.org/standards/epcis/2.0.1/epcis-context.jsonld',
+    epcisDocument['@context'][0] === 'https://ref.gs1.org/standards/epcis/2.0.1/artefacts/epcis-context.jsonld',
     'document must use the pinned EPCIS 2.0.1 JSON-LD context');
   addError(errors, epcisDocument && isUtcMilliseconds(epcisDocument.creationDate),
     'document creationDate must be UTC with millisecond precision');
