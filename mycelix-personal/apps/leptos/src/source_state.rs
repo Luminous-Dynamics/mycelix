@@ -85,6 +85,11 @@ impl<T> NonEmptyVec<T> {
         1 + self.rest.len()
     }
 
+    /// A non-empty vector is never empty by construction.
+    pub fn is_empty(&self) -> bool {
+        false
+    }
+
     pub fn iter(&self) -> impl Iterator<Item = &T> {
         std::iter::once(&self.first).chain(self.rest.iter())
     }
@@ -186,6 +191,31 @@ pub enum SourceObservation<T> {
 }
 
 impl<T> SourceObservation<T> {
+    /// Classify a successful read without allowing an empty vector to be
+    /// mislabeled as a live result containing records.
+    pub fn from_successful_read(records: Vec<T>, evidence: SourceEvidence) -> Self {
+        match NonEmptyVec::try_from_vec(records) {
+            Ok(records) => Self::LiveWithRecords { records, evidence },
+            Err(_) => Self::ConfirmedEmpty { evidence },
+        }
+    }
+
+    /// Preserve a failed attempt as unavailable. Any prior records must be
+    /// passed separately as a stale observation, never as current records.
+    pub fn from_failed_read(
+        source_id: impl Into<String>,
+        attempted_at_unix_ms: Option<u64>,
+        reason: SourceFailure,
+        last_known: Option<StaleObservation<T>>,
+    ) -> Self {
+        Self::Unavailable {
+            source_id: source_id.into(),
+            attempted_at_unix_ms,
+            reason,
+            last_known,
+        }
+    }
+
     pub fn kind(&self) -> SourceStateKind {
         match self {
             Self::NotChecked { .. } => SourceStateKind::NotChecked,
@@ -221,6 +251,37 @@ mod tests {
         let records = NonEmptyVec::try_from_vec(vec![4_u8, 5]).expect("non-empty");
         assert_eq!(records.len(), 2);
         assert_eq!(records.iter().copied().collect::<Vec<_>>(), vec![4, 5]);
+    }
+
+    #[test]
+    fn read_adapter_maps_empty_and_non_empty_successes_to_distinct_states() {
+        let empty = SourceObservation::<u8>::from_successful_read(
+            Vec::new(),
+            evidence("profile-service"),
+        );
+        assert_eq!(empty.kind(), SourceStateKind::ConfirmedEmpty);
+
+        let populated = SourceObservation::from_successful_read(
+            vec![9_u8, 10],
+            evidence("profile-service"),
+        );
+        match populated {
+            SourceObservation::LiveWithRecords { records, .. } => {
+                assert_eq!(records.into_vec(), vec![9, 10]);
+            }
+            other => panic!("non-empty success should be live: {other:?}"),
+        }
+    }
+
+    #[test]
+    fn failed_read_constructor_never_reports_confirmed_empty() {
+        let failed: SourceObservation<u8> = SourceObservation::from_failed_read(
+            "profile-service",
+            Some(1_800_000_000_100),
+            SourceFailure::Timeout,
+            None,
+        );
+        assert_eq!(failed.kind(), SourceStateKind::Unavailable);
     }
 
     #[test]
