@@ -7,6 +7,9 @@ on:
       - "crates/mycelix-leptos-core/src/identity_crypto.rs"
       - "crates/mycelix-leptos-core/Cargo.toml"
       - "mycelix-personal/apps/leptos/**"
+      - "mycelix-climate/apps/leptos/**"
+      - "mycelix-workspace/mycelix-climate/apps/leptos/**"
+      - "mycelix-workspace/Cargo.toml"
       - ".github/workflows/local-identity-posture.yml"
   push:
     branches: [main]
@@ -15,6 +18,9 @@ on:
       - "crates/mycelix-leptos-core/src/identity_crypto.rs"
       - "crates/mycelix-leptos-core/Cargo.toml"
       - "mycelix-personal/apps/leptos/**"
+      - "mycelix-climate/apps/leptos/**"
+      - "mycelix-workspace/mycelix-climate/apps/leptos/**"
+      - "mycelix-workspace/Cargo.toml"
       - ".github/workflows/local-identity-posture.yml"
   workflow_dispatch:
 
@@ -43,6 +49,8 @@ jobs:
             crates/mycelix-leptos-core -> target
             crates/mycelix-leptos-client -> target
             mycelix-personal/apps/leptos -> target
+            mycelix-climate/apps/leptos -> target
+            mycelix-workspace -> mycelix-workspace/target
       - name: Assert exact source head
         env:
           EXPECTED_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
@@ -57,11 +65,15 @@ jobs:
         run: |
           cargo generate-lockfile --manifest-path crates/mycelix-leptos-core/Cargo.toml
           cargo generate-lockfile --manifest-path mycelix-personal/apps/leptos/Cargo.toml
-          sha256sum crates/mycelix-leptos-core/Cargo.lock mycelix-personal/apps/leptos/Cargo.lock
+          cargo generate-lockfile --manifest-path mycelix-climate/apps/leptos/Cargo.toml
+          cargo generate-lockfile --manifest-path mycelix-workspace/Cargo.toml
+          sha256sum crates/mycelix-leptos-core/Cargo.lock mycelix-personal/apps/leptos/Cargo.lock mycelix-climate/apps/leptos/Cargo.lock mycelix-workspace/Cargo.lock
       - name: Check formatting of touched identity files and Personal app
         run: |
           rustfmt --edition 2024 --check crates/mycelix-leptos-core/src/local_identity.rs crates/mycelix-leptos-core/src/identity_crypto.rs
           cargo fmt --manifest-path mycelix-personal/apps/leptos/Cargo.toml -- --check
+          cargo fmt --manifest-path mycelix-climate/apps/leptos/Cargo.toml -- --check
+          cargo fmt --manifest-path mycelix-workspace/mycelix-climate/apps/leptos/Cargo.toml -- --check
       - name: Run native identity-storage posture tests
         run: cargo test --manifest-path crates/mycelix-leptos-core/Cargo.toml --locked --lib
       - name: Install wasm-pack for browser test execution
@@ -83,3 +95,11 @@ jobs:
         run: cargo clippy --manifest-path mycelix-personal/apps/leptos/Cargo.toml --locked --all-targets -- -D warnings
       - name: Compile Personal app for WASM
         run: cargo check --manifest-path mycelix-personal/apps/leptos/Cargo.toml --locked --target wasm32-unknown-unknown
+      - name: Run strict Climate app Clippy
+        run: cargo clippy --manifest-path mycelix-climate/apps/leptos/Cargo.toml --locked --all-targets -- -D warnings
+      - name: Compile Climate app for WASM
+        run: cargo check --manifest-path mycelix-climate/apps/leptos/Cargo.toml --locked --target wasm32-unknown-unknown
+      - name: Run strict Climate workspace-mirror Clippy
+        run: cargo clippy --manifest-path mycelix-workspace/mycelix-climate/apps/leptos/Cargo.toml --locked --all-targets -- -D warnings
+      - name: Compile Climate workspace mirror for WASM
+        run: cargo check --manifest-path mycelix-workspace/mycelix-climate/apps/leptos/Cargo.toml --locked --target wasm32-unknown-unknown
