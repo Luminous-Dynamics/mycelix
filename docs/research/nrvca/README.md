@@ -35,7 +35,7 @@ The v0.1 schema defines these components:
 
 - Jurisdiction and period.
 - Reporting currency and price basis.
-- Source manifest (identity, class, vintage, geographic/temporal coverage, licensing status, limitations, optional digest).
+- Source manifest (identity, class, vintage, geographic/temporal coverage, licensing status, limitations, optional digest). Source classes distinguish official_statistics from experimental_statistics; publisher identity is not a claim that a discussion document is official statistical output.
 - Conventional accounts (GDP, consumption of fixed capital, NDP, gross capital formation).
 - Financial events that must retain their SNA/profile treatment, such as new borrowing, secondary-market asset transfer, asset revaluation, and inter-sector transfers.
 - Multidimensional outcome vector with explicit unit, evidence status, population/coverage denominator, source references, and optional uncertainty interval.
