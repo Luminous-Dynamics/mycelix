@@ -1495,13 +1495,14 @@
     },
     {
       "profile_id": "gs1-epcis-cbv",
-      "display_name": "GS1 EPCIS / CBV",
+      "display_name": "GS1 EPCIS 2.0.1 / CBV 2.0.0",
       "profile_kind": "standards_body",
       "adoption_domain": "supply-chain-event-interoperability",
       "technical_priority": "P1",
-      "readiness": "standards_reference_only",
+      "readiness": "existing_work_to_reuse",
       "source_urls": [
-        "https://www.gs1.org/standards/epcis"
+        "https://ref.gs1.org/standards/epcis/2.0.1/",
+        "https://ref.gs1.org/standards/cbv/2.0.0/"
       ],
       "snapshot_date": "2026-10-21",
       "relationship_status": "not_recorded",
@@ -1521,7 +1522,7 @@
           "role": "synthetic logistics event reference verifier"
         }
       ],
-      "pilot_scope": "Pin an explicitly ratified EPCIS/CBV version and map a synthetic event sequence to its standard event semantics without losing event time, business step, disposition, source/party identity, location, or correction lineage. Mycelix's additional value is cross-organization evidence qualification and explicit handling of conflicting/unsupported claims, not a parallel event vocabulary.",
+      "pilot_scope": "Pin the immutable GS1 EPCIS 2.0.1 and CBV 2.0.0 references and map a synthetic event sequence to their event semantics without losing event time, business step, disposition, source/party identity, location, or correction lineage. Mycelix's additional value is cross-organization evidence qualification and explicit handling of conflicting/unsupported claims, not a parallel event vocabulary.",
       "acceptance_metrics": [
         "All fields claimed as supported by the selected EPCIS/CBV version round-trip with the same meaning and units.",
         "Unsupported or extension fields stay explicit and never disappear silently in translation.",
