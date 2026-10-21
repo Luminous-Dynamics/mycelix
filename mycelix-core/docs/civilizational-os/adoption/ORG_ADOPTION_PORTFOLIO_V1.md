@@ -12,6 +12,8 @@ The monorepo's target-organization research spans supply-chain traceability, ide
 
 This portfolio connects selected public organizations, protocols and registries to existing Mycelix work. It is a **technical integration map**, not an outreach tracker. The public artifact intentionally excludes private contact history and does not imply that a named organization is a partner, customer, design partner, adopter, or endorser.
 
+**Source-freshness guard:** all 28 machine profiles currently set `source_evidence_state: reference_links_only`, `source_snapshot_manifest_sha256: null`, and `source_snapshot_required_before_pilot: true`. The URLs are discovery references, not frozen or digest-qualified source content. Before a pilot relies on one, capture permitted source bytes or revision, retrieval time, content digest, declared source status, and rights/use disposition in a separate source snapshot manifest; then bind its SHA-256 into the profile. A URL that still resolves does not establish that its content or status is unchanged.
+
 ## Design rules
 
 1. **One profile, one bounded workflow.** Identify the exact workflow and the smallest pilot that produces useful evidence.
@@ -176,6 +178,6 @@ Every concrete pilot derived from this portfolio must provide:
 
 ## What success means
 
-A passing catalog validator proves only that this roster conforms to its declared schema. Each pilot must separately pass exact-head tests and its domain-specific oracle. An external claim such as “Mycelix improves traceability,” “reduces reconciliation cost,” or “is more effective than the incumbent” requires a paired baseline, a prespecified measurement plan, retained negative results, and a suitably independent evaluation.
+A passing catalog validator proves only that this roster conforms to its declared schema. The current catalog's 28 source entries remain `reference_links_only`; none is represented as a frozen source snapshot. Each pilot must separately freeze and qualify its relied-upon sources, pass exact-head tests, and pass its domain-specific oracle. An external claim such as “Mycelix improves traceability,” “reduces reconciliation cost,” or “is more effective than the incumbent” requires a paired baseline, a prespecified measurement plan, retained negative results, and a suitably independent evaluation.
 
 No target organization is treated as a benchmark owner or endorser unless a real, sourced agreement establishes that role.
