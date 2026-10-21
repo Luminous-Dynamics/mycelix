@@ -19,8 +19,8 @@ const INCLUDE_MARKER: &str = "include_str!(";
 struct NodeInfo {
     grades: Vec<String>,
     subject: String,
+    standards_by_framework: BTreeMap<String, BTreeSet<String>>,
     frameworks: BTreeSet<String>,
-    standards: BTreeSet<String>,
     lesson_assets: usize,
 }
 
@@ -377,20 +377,24 @@ fn analyze(
                 .unwrap_or_else(|| "Unspecified".to_owned());
 
             let standards_array = node.get("academic_standards").and_then(Value::as_array);
-            let mut standards = BTreeSet::new();
-            let mut frameworks = BTreeSet::new();
+            let mut standards_by_framework: BTreeMap<String, BTreeSet<String>> = BTreeMap::new();
             if let Some(items) = standards_array {
                 for standard in items {
                     if let (Some(framework), Some(code)) = (
                         nonempty_string(standard.get("framework")),
                         nonempty_string(standard.get("code")),
                     ) {
-                        standards.insert(format!("{framework}::{code}"));
-                        frameworks.insert(framework);
+                        let reference = format!("{framework}::{code}");
+                        standards_all.insert(reference.clone());
+                        standards_by_framework
+                            .entry(framework)
+                            .or_default()
+                            .insert(reference);
                     }
                 }
             }
-            standards_all.extend(standards.iter().cloned());
+            let mut frameworks: BTreeSet<String> =
+                standards_by_framework.keys().cloned().collect();
             if frameworks.is_empty() {
                 frameworks.insert(
                     nonempty_string(metadata.and_then(|m| m.get("framework")))
@@ -402,7 +406,7 @@ fn analyze(
                 grades,
                 subject,
                 frameworks,
-                standards,
+                standards_by_framework,
                 lesson_assets: manifest.get(&node_id).copied().unwrap_or(0),
             });
         }
@@ -443,7 +447,10 @@ fn analyze(
     let active_missing_lessons = active_ids.difference(&lesson_ids).count();
     let asset_count = manifest.values().sum();
 
-    let nodes_with_standards = nodes.values().filter(|node| !node.standards.is_empty()).count();
+    let nodes_with_standards = nodes
+        .values()
+        .filter(|node| !node.standards_by_framework.is_empty())
+        .count();
     let mut group_map: BTreeMap<GroupKey, GroupAccumulator> = BTreeMap::new();
     for node in nodes.values() {
         for framework in &node.frameworks {
@@ -461,9 +468,11 @@ fn analyze(
                 } else {
                     group.nodes_missing_lessons += 1;
                 }
-                if !node.standards.is_empty() {
-                    group.nodes_with_standards += 1;
-                    group.standards.extend(node.standards.iter().cloned());
+                if let Some(standards) = node.standards_by_framework.get(framework) {
+                    if !standards.is_empty() {
+                        group.nodes_with_standards += 1;
+                        group.standards.extend(standards.iter().cloned());
+                    }
                 }
             }
         }
