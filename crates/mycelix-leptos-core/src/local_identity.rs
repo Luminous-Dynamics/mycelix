@@ -1595,9 +1595,7 @@ pub fn ProtectedIdentityAccessGate(children: ChildrenFn) -> impl IntoView {
 
     view! {
         <Show
-            when=move || {
-                posture.get() == LocalIdentityStoragePosture::ProtectedUnlockedInSession
-            }
+            when=move || protected_identity_access_allowed(posture.get())
             fallback=move || view! {
                 <main class="identity-access-gate-shell" aria-labelledby="identity-access-gate-title">
                     <section class="identity-access-gate-card" aria-describedby="identity-access-gate-description">
@@ -1628,6 +1626,10 @@ pub fn ProtectedIdentityAccessGate(children: ChildrenFn) -> impl IntoView {
             </ProtectedIdentityAccessReady>
         </Show>
     }
+}
+
+fn protected_identity_access_allowed(posture: LocalIdentityStoragePosture) -> bool {
+    posture == LocalIdentityStoragePosture::ProtectedUnlockedInSession
 }
 
 fn protected_identity_access_message(posture: LocalIdentityStoragePosture) -> &'static str {
@@ -1966,6 +1968,28 @@ mod tests {
         assert!(!identity_bootstrap_action_allowed(
             Posture::StorageUnavailable,
             Action::RotatePassphrase
+        ));
+    }
+
+    #[test]
+    fn dependent_app_access_requires_a_protected_unlocked_identity() {
+        use LocalIdentityStoragePosture as Posture;
+
+        for posture in [
+            Posture::StorageUnavailable,
+            Posture::NoIdentity,
+            Posture::LegacyIdentityNeedsMigration,
+            Posture::UnprotectedIdentity,
+            Posture::ProtectedLocked,
+            Posture::CorruptOrInconsistent,
+        ] {
+            assert!(
+                !protected_identity_access_allowed(posture),
+                "{posture:?} must not mount an identity-dependent app"
+            );
+        }
+        assert!(protected_identity_access_allowed(
+            Posture::ProtectedUnlockedInSession
         ));
     }
 
