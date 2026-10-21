@@ -316,7 +316,7 @@ mod tests {
                     claims
                         .iter()
                         .map(|claim| claim.evidence.source_id.as_str())
-                        .collect::<Vec<_>>(), 
+                        .collect::<Vec<_>>(),
                     vec!["registry-a", "registry-b"]
                 );
             }
