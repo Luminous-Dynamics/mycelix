@@ -266,8 +266,11 @@ function assertRejects(mutator, label, fixture) {
 }
 
 const root = __dirname;
-const bundlePath = process.argv[2] || path.join(root, 'org-adoption-pilot-bundle-example-v1.json');
-const schemaPath = process.argv[3] || path.join(root, 'org-adoption-pilot-bundle-v1.schema.json');
+const args = process.argv.slice(2);
+const selfTestRequested = args.includes('--self-test');
+const positionalArgs = args.filter(arg => arg !== '--self-test');
+const bundlePath = positionalArgs[0] || path.join(root, 'org-adoption-pilot-bundle-example-v1.json');
+const schemaPath = positionalArgs[1] || path.join(root, 'org-adoption-pilot-bundle-v1.schema.json');
 const bundleBytes = fs.readFileSync(bundlePath);
 const schemaBytes = fs.readFileSync(schemaPath);
 const bundle = JSON.parse(bundleBytes.toString('utf8'));
@@ -278,7 +281,7 @@ requireCondition(schema.$schema === 'https://json-schema.org/draft/2020-12/schem
 const errors = validateBundle(bundle);
 if (errors.length) fail(errors.join('\n'));
 
-const mutationResults = [
+const mutationResults = selfTestRequested ? [
   assertRejects(b => { b.comparison.candidate.input_manifest_sha256 = 'dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd'; }, 'candidate-input-digest-mismatch', bundle),
   assertRejects(b => { b.comparison.candidate.resource_budget_sha256 = 'dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd'; }, 'resource-budget-mismatch', bundle),
   assertRejects(b => { b.comparison.candidate.authority_budget_sha256 = 'dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd'; }, 'authority-budget-mismatch', bundle),
@@ -291,10 +294,12 @@ const mutationResults = [
   assertRejects(b => { b.relationship_status = 'partner'; }, 'fabricated-relationship-status', bundle),
   assertRejects(b => { b.rollback_test.retained_external_effects = true; }, 'rollback-retained-effects', bundle),
   assertRejects(b => { b.input_manifest.events.push({ ...b.input_manifest.events[0] }); }, 'duplicate-event-replay', bundle)
-];
+];] : [];
 
 const receipt = {
   verifier: 'verify-org-adoption-pilot-bundle.cjs',
+  mode: selfTestRequested ? 'cross-invariant-plus-mutation-tests' : 'cross-invariant-only',
+  mutation_tests_executed: selfTestRequested,
   qualification_result: 'ReferenceFixtureConforms',
   claim_ceiling: bundle.claim_ceiling,
   bundle_id: bundle.bundle_id,
