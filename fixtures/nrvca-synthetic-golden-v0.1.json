@@ -1,0 +1,362 @@
+{
+  "schema_version": "nrvca/0.1",
+  "report_status": "synthetic",
+  "jurisdiction": {
+    "level": "national",
+    "name": "Synthetic demonstration economy (not South African data)",
+    "iso_3166_1_alpha3": "ZAF",
+    "parent_region_id": null
+  },
+  "reference_period": {
+    "start_date": "2025-01-01",
+    "end_date": "2025-12-31",
+    "periodicity": "annual"
+  },
+  "reporting_basis": {
+    "currency": "ZAR",
+    "price_basis": "constant_prices",
+    "price_year": 2025
+  },
+  "source_manifest": [
+    {
+      "source_id": "synthetic-sna-v01",
+      "source_class": "synthetic_dataset",
+      "title": "Hand-authored SNA-style demonstration values",
+      "publisher": "NRVCA v0.1 fixture",
+      "source_url": null,
+      "vintage": "fixture-v0.1",
+      "retrieved_at": null,
+      "coverage": "Synthetic national annual account; no external observation or calibration.",
+      "content_sha256": null,
+      "digest_scope": "not applicable: values are defined directly in this synthetic fixture",
+      "license_status": "not_applicable_synthetic",
+      "limitations": [
+        "Not real country data.",
+        "Does not claim SNA certification.",
+        "Values are chosen only to exercise declared identities."
+      ]
+    },
+    {
+      "source_id": "synthetic-water-v01",
+      "source_class": "synthetic_dataset",
+      "title": "Hand-authored water stock-flow and service demonstration",
+      "publisher": "NRVCA v0.1 fixture",
+      "source_url": null,
+      "vintage": "fixture-v0.1",
+      "retrieved_at": null,
+      "coverage": "Synthetic annual water balance and service-coverage example.",
+      "content_sha256": null,
+      "digest_scope": "not applicable: values are defined directly in this synthetic fixture",
+      "license_status": "not_applicable_synthetic",
+      "limitations": [
+        "Not a hydraulic simulation.",
+        "Not observed delivery or household survey data."
+      ]
+    },
+    {
+      "source_id": "synthetic-distribution-v01",
+      "source_class": "synthetic_dataset",
+      "title": "Hand-authored distribution and unpaid-work demonstration",
+      "publisher": "NRVCA v0.1 fixture",
+      "source_url": null,
+      "vintage": "fixture-v0.1",
+      "retrieved_at": null,
+      "coverage": "Synthetic income-distribution and unpaid-work indicator examples.",
+      "content_sha256": null,
+      "digest_scope": "not applicable: values are defined directly in this synthetic fixture",
+      "license_status": "not_applicable_synthetic",
+      "limitations": [
+        "Not a household survey.",
+        "Valuation of unpaid work is intentionally not performed."
+      ]
+    }
+  ],
+  "conventional_accounts": {
+    "gdp": {
+      "value": 1000,
+      "unit": "ZAR_million",
+      "currency": "ZAR",
+      "price_basis": "constant_prices",
+      "price_year": 2025,
+      "evidence_status": "synthetic",
+      "source_refs": [
+        "synthetic-sna-v01"
+      ],
+      "definition": "Synthetic gross domestic product for the demonstration economy."
+    },
+    "consumption_of_fixed_capital": {
+      "value": 50,
+      "unit": "ZAR_million",
+      "currency": "ZAR",
+      "price_basis": "constant_prices",
+      "price_year": 2025,
+      "evidence_status": "synthetic",
+      "source_refs": [
+        "synthetic-sna-v01"
+      ],
+      "definition": "Synthetic consumption of fixed capital for the period."
+    },
+    "net_domestic_product": {
+      "value": 950,
+      "unit": "ZAR_million",
+      "currency": "ZAR",
+      "price_basis": "constant_prices",
+      "price_year": 2025,
+      "evidence_status": "synthetic",
+      "source_refs": [
+        "synthetic-sna-v01"
+      ],
+      "definition": "Synthetic NDP, equal to GDP less consumption of fixed capital in this fixture."
+    },
+    "gross_capital_formation": {
+      "value": 150,
+      "unit": "ZAR_million",
+      "currency": "ZAR",
+      "price_basis": "constant_prices",
+      "price_year": 2025,
+      "evidence_status": "synthetic",
+      "source_refs": [
+        "synthetic-sna-v01"
+      ],
+      "definition": "Synthetic gross capital formation; not a direct measure of asset quality or resulting service."
+    }
+  },
+  "financial_events": [
+    {
+      "event_id": "loan-drawdown-001",
+      "event_class": "new_borrowing",
+      "amount": 80,
+      "unit": "ZAR_million",
+      "currency": "ZAR",
+      "gdp_treatment": "excluded_from_current_production",
+      "source_refs": [
+        "synthetic-sna-v01"
+      ],
+      "notes": "A financing flow / paired financial positions; not added to GDP merely because cash is received."
+    },
+    {
+      "event_id": "asset-revaluation-001",
+      "event_class": "asset_revaluation",
+      "amount": 40,
+      "unit": "ZAR_million",
+      "currency": "ZAR",
+      "gdp_treatment": "excluded_from_current_production",
+      "source_refs": [
+        "synthetic-sna-v01"
+      ],
+      "notes": "A non-transaction revaluation; not new current production."
+    },
+    {
+      "event_id": "secondary-sale-001",
+      "event_class": "secondary_market_asset_transaction",
+      "amount": 15,
+      "unit": "ZAR_million",
+      "currency": "ZAR",
+      "gdp_treatment": "excluded_from_current_production",
+      "source_refs": [
+        "synthetic-sna-v01"
+      ],
+      "notes": "Transfer of an existing asset; fees/services may be accounted separately under the applicable profile."
+    },
+    {
+      "event_id": "transfer-001",
+      "event_class": "intersector_transfer",
+      "amount": 10,
+      "unit": "ZAR_million",
+      "currency": "ZAR",
+      "gdp_treatment": "requires_profile_review",
+      "source_refs": [
+        "synthetic-sna-v01"
+      ],
+      "notes": "Distributional incidence matters; this amount is not automatically net new real output."
+    }
+  ],
+  "outcome_vector": [
+    {
+      "indicator_id": "water-delivered",
+      "dimension": "physical_flow",
+      "definition": "Synthetic annual volume delivered to end users.",
+      "value": 80,
+      "unit": "million_m3",
+      "currency": null,
+      "price_basis": "not_applicable",
+      "price_year": null,
+      "evidence_status": "synthetic",
+      "coverage": {
+        "statement": "Synthetic service-area delivery",
+        "numerator": 80,
+        "denominator": 100
+      },
+      "uncertainty": null,
+      "source_refs": [
+        "synthetic-water-v01"
+      ]
+    },
+    {
+      "indicator_id": "unmet-water-demand",
+      "dimension": "essential_service",
+      "definition": "Synthetic annual demand volume not served.",
+      "value": 20,
+      "unit": "million_m3",
+      "currency": null,
+      "price_basis": "not_applicable",
+      "price_year": null,
+      "evidence_status": "synthetic",
+      "coverage": {
+        "statement": "Synthetic demand accounting universe",
+        "numerator": 20,
+        "denominator": 100
+      },
+      "uncertainty": null,
+      "source_refs": [
+        "synthetic-water-v01"
+      ]
+    },
+    {
+      "indicator_id": "water-service-coverage",
+      "dimension": "essential_service",
+      "definition": "Share of eligible households receiving the declared minimum service standard in this synthetic example.",
+      "value": 0.9,
+      "unit": "share",
+      "currency": null,
+      "price_basis": "not_applicable",
+      "price_year": null,
+      "evidence_status": "synthetic",
+      "coverage": {
+        "statement": "90 of 100 synthetic eligible households meet the service standard",
+        "numerator": 90,
+        "denominator": 100
+      },
+      "uncertainty": null,
+      "source_refs": [
+        "synthetic-water-v01"
+      ]
+    },
+    {
+      "indicator_id": "unpaid-care-hours",
+      "dimension": "unpaid_work",
+      "definition": "Synthetic unpaid-care time, reported in a separate nonmarket satellite coordinate without adding it to GDP.",
+      "value": 2000000,
+      "unit": "person_hours",
+      "currency": null,
+      "price_basis": "not_applicable",
+      "price_year": null,
+      "evidence_status": "synthetic",
+      "coverage": {
+        "statement": "Synthetic household population; no valuation applied",
+        "numerator": 2000000,
+        "denominator": null
+      },
+      "uncertainty": null,
+      "source_refs": [
+        "synthetic-distribution-v01"
+      ]
+    },
+    {
+      "indicator_id": "bottom-40-real-income-change",
+      "dimension": "distribution",
+      "definition": "Synthetic percentage change in real disposable income for the bottom 40 percent; not an official distribution statistic.",
+      "value": 1.2,
+      "unit": "percent_change",
+      "currency": null,
+      "price_basis": "constant_prices",
+      "price_year": 2025,
+      "evidence_status": "synthetic",
+      "coverage": {
+        "statement": "Synthetic bottom-40 population group",
+        "numerator": 40,
+        "denominator": 100
+      },
+      "uncertainty": {
+        "lower": 0.5,
+        "upper": 1.8,
+        "method": "Illustrative fixture bounds; not statistically estimated."
+      },
+      "source_refs": [
+        "synthetic-distribution-v01"
+      ]
+    },
+    {
+      "indicator_id": "unknown-water-quality",
+      "dimension": "evidence_quality",
+      "definition": "Water quality at point of delivery is unknown in this fixture and must not be treated as safe or as zero risk.",
+      "value": null,
+      "unit": "not_measured",
+      "currency": null,
+      "price_basis": "not_applicable",
+      "price_year": null,
+      "evidence_status": "unknown",
+      "coverage": {
+        "statement": "No water-quality evidence supplied",
+        "numerator": null,
+        "denominator": null
+      },
+      "uncertainty": null,
+      "source_refs": [
+        "synthetic-water-v01"
+      ]
+    }
+  ],
+  "reconciliations": [
+    {
+      "check_id": "ndp-gdp-bridge-001",
+      "class": "official_account_bridge",
+      "equation": "NDP = GDP - consumption_of_fixed_capital",
+      "lhs": 950,
+      "rhs": 950,
+      "residual": 0,
+      "tolerance": 0.000001,
+      "unit": "ZAR_million",
+      "disposition": "pass"
+    },
+    {
+      "check_id": "debt-stock-rollforward-001",
+      "class": "monetary_stock_flow",
+      "equation": "closing_debt = opening_debt + borrowing - principal_repayment - writeoff + revaluation",
+      "lhs": 245,
+      "rhs": 245,
+      "residual": 0,
+      "tolerance": 0.000001,
+      "unit": "ZAR_million",
+      "disposition": "pass"
+    },
+    {
+      "check_id": "water-stock-flow-001",
+      "class": "physical_stock_flow",
+      "equation": "closing_water_stock = opening_stock + inflow - use - outflow",
+      "lhs": 85,
+      "rhs": 85,
+      "residual": 0,
+      "tolerance": 0.000001,
+      "unit": "million_m3",
+      "disposition": "pass"
+    }
+  ],
+  "aggregation_policy": {
+    "universal_scalar_produced": false,
+    "cross_unit_addition_permitted": false,
+    "rules": [
+      "GDP, net production, wealth, physical flows, service outcomes and distribution are separate coordinates.",
+      "Financial event amounts are not appended to GDP without the declared accounting profile.",
+      "Unpaid-care hours are not monetized in this report and are not added to GDP.",
+      "Unknown water quality is unknown, not safe, unsafe, zero risk, or zero activity."
+    ]
+  },
+  "data_quality": {
+    "coverage_ratio": 0.7,
+    "unresolved_conflict_count": 0,
+    "unknown_indicator_ids": [
+      "unknown-water-quality"
+    ],
+    "notes": [
+      "Entire report is synthetic and cannot support a real country estimate.",
+      "Coverage ratio is an illustrative fixture field, not a statistical completeness estimate."
+    ]
+  },
+  "claim_ceiling": [
+    "Demonstrates report structure and three hand-checkable identities only.",
+    "Does not estimate South African or any other country's economic output.",
+    "Does not establish SNA/SEEA/CWON conformity, physical service delivery, water safety, causal impact, or policy superiority.",
+    "The schema pass, when implemented, will establish structural conformance only."
+  ]
+}
