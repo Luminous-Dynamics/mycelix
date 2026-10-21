@@ -101,6 +101,7 @@ fn nonempty_string(value: Option<&Value>) -> Option<String> {
         .map(str::trim)
         .filter(|text| !text.is_empty())
         .map(ToOwned::to_owned)
+        .collect()
 }
 
 fn string_array(value: Option<&Value>) -> Vec<String> {
@@ -439,7 +440,7 @@ fn analyze(
                     let code = nonempty_string(standard_object.get("code"));
                     let (Some(framework), Some(code)) = (framework, code) else {
                         errors.push(format!(
-                            "node {node_id:?} standard {standard_index} requires framework/code",
+                            "{}: node {node_id:?} standard {standard_index} requires framework/code",
                             path.display()
                         ));
                         continue;
@@ -1250,9 +1251,9 @@ mod tests {
     #[test]
     fn extracts_only_json_include_paths() {
         let source = concat!(
-            "include_str!(\\"a.json\\"); ",
-            "include_str!(\\"b.svg\\"); ",
-            "include_str!(\\"nested/c.json\\");"
+            r#"include_str!("a.json"); "#,
+            r#"include_str!("b.svg"); "#,
+            r#"include_str!("nested/c.json");"#
         );
         assert_eq!(
             embedded_json_paths(source),
