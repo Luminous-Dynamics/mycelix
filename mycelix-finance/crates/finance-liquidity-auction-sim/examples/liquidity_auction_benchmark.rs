@@ -1,6 +1,6 @@
 use finance_liquidity_auction_sim::{
-    run_auction, AuctionContext, AuthorityQualification, LiquidityBid, LiquidityOffer,
-    ParticipantLiquidity,
+    run_auction, run_auction_with_price_rule, AuctionContext, AuthorityQualification,
+    ClearingPriceRule, LiquidityBid, LiquidityOffer, ParticipantLiquidity,
 };
 use std::time::Instant;
 
@@ -148,24 +148,36 @@ fn main() {
             &baseline_timings,
         );
 
-        // Participant-incentive clearing under the same opening-liquidity vector.
-        let mut auction_timings = Vec::with_capacity(25);
-        let mut auction_report = None;
-        for _ in 0..25 {
-            let start = Instant::now();
-            auction_report = Some(
-                run_auction(&context, &participants, &offers, &bids)
+        // Compare pricing rules on the same opening-liquidity vector and quotes.
+        for (scenario, price_rule) in [
+            ("midpoint-floor", ClearingPriceRule::MidpointFloor),
+            ("pay-as-ask", ClearingPriceRule::PayAsAsk),
+            ("pay-as-bid", ClearingPriceRule::PayAsBid),
+        ] {
+            let mut auction_timings = Vec::with_capacity(25);
+            let mut auction_report = None;
+            for _ in 0..25 {
+                let start = Instant::now();
+                auction_report = Some(
+                    run_auction_with_price_rule(
+                        &context,
+                        &participants,
+                        &offers,
+                        &bids,
+                        price_rule,
+                    )
                     .expect("liquidity auction simulation"),
+                );
+                auction_timings.push(start.elapsed().as_micros());
+            }
+            print_row(
+                participant_count,
+                scenario,
+                offers.len(),
+                bids.len(),
+                &auction_report.expect("positive repetition count"),
+                &auction_timings,
             );
-            auction_timings.push(start.elapsed().as_micros());
         }
-        print_row(
-            participant_count,
-            "midpoint-auction",
-            offers.len(),
-            bids.len(),
-            &auction_report.expect("positive repetition count"),
-            &auction_timings,
-        );
     }
 }
