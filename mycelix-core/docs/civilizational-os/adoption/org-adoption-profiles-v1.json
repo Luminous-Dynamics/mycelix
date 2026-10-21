@@ -1524,6 +1524,10 @@
         {
           "issue_id": "mycelix#4901",
           "role": "synthetic logistics event reference verifier"
+        },
+        {
+          "issue_id": "mycelix#5395",
+          "role": "official EPCIS/CBV normative artifact validation and semantic-loss benchmark"
         }
       ],
       "pilot_scope": "Pin the immutable GS1 EPCIS 2.0.1 and CBV 2.0.0 references and map a synthetic event sequence to their event semantics without losing event time, business step, disposition, source/party identity, location, or correction lineage. Mycelix's additional value is cross-organization evidence qualification and explicit handling of conflicting/unsupported claims, not a parallel event vocabulary.",
