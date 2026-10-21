@@ -41,7 +41,29 @@ This portfolio connects selected public organizations, protocols and registries 
 | P1 | ORCID | Bind a researcher-controlled ORCID identifier to a local researcher identity through an explicit, attributable mapping; preserve source freshness and local correction. | #2418. Mycelix DID and ORCID are not interchangeable identifiers. |
 | P1 | Research Organization Registry (ROR) | Resolve a research/funding organization reference without replacing the local institutional record or silently overwriting local assertions with imported metadata. | #2418. A ROR match alone does not prove signatory authority or a funding relationship. |
 | P2 | Toucan Protocol / climate-credit provenance | Prototype an evidence-lineage packet for a synthetic environmental-credit record: origin, methodology, registry/project/vintage references, revisions, retirement/transfer events where present, and unknowns. | #1112 and #2922 provide adjacent semantic/evidence work; a methodology-specific climate adapter remains a gap that needs its own reviewed contract before implementation claims. |
-| P1 | Catena / agentic financial operations | Simulate an agent's vendor-payment proposal: bind agent and principal, vendor identity, policy version, amount limits, approval, execution receipt and reconciliation. Include stale-policy and replay controls. | #1072, #3650, plus existing agent-authority/Finance work. Agent identity or an audit log is not authority to move money. |
+| P1 | Catena Labs / agentic financial operations | Simulate an agent's vendor-payment proposal: bind agent and principal, vendor identity, policy version, amount limits, approval, execution receipt and reconciliation. Include stale-policy and replay controls. | #1072, #3650, plus existing agent-authority/Finance work. Agent identity or an audit log is not authority to move money. |
+
+### Additional profiles recovered from the monorepo's target-organization research
+
+The machine-readable roster also includes these named target-list organizations. They are deliberately separate profiles: they exercise different evidence sources and failure modes even when they sit in the same vertical.
+
+| Organization | Bounded proof-of-value | Existing owner seam |
+|---|---|---|
+| Antares Vision Group | Serialization/aggregation and inspection-to-receipt event mapping | #437, #4901, #1112 |
+| Acviss | Product-authentication observation vs physical provenance and warranty decision | #437, #4901, #1112 |
+| Authentix | Brand-protection claim provenance, counterfeiting/diversion dispute handling | #437, #4901, #1112 |
+| Transmute | Credential/data exchange with issuer trust, status and local authority kept distinct | #1070, #1072, #1112 |
+| Verra | Methodology- and registry-bound environmental-project evidence; research-only until a domain owner contract exists | #1112, #2922, #5277 |
+| KlimaDAO | Token/market event vs underlying methodology and retirement/impact evidence; research-only until a domain owner contract exists | #1112, #2922, #4572 |
+| Ocean Protocol | Purpose-bound data access request, compute/disclosure mode, rights and output lineage | #2923, #2970, #1112 |
+| AxonDAO | Participant-consented research-data use and independent research-result evidence | #2418, #3327, #4950, #2970 |
+| TransCrypts | Holder-authorized employment/income credential sharing with source freshness and purpose scope | #1070, #1112, #2418 |
+| Digital Bazaar | VC proof/issuer/source fidelity across translations and selective disclosure | #1070, #1112, #1072 |
+| Decentralized Identity Foundation (DIF) | DID/VC method and profile mapping without inferring trust or authority | #1070, #1112 |
+| Danube Tech | Resolver/provider evidence and versioned DID/VC resolution receipts | #1070, #1112 |
+| Marblism | Effects-disabled agent workflow with principal binding, consent, tool scope, approval and action receipts | #1072, #3650, #2939 |
+
+Climate-credit profiles are explicitly marked `gap_requires_issue`: existing evidence/provenance owners are adjacent, but they are not a substitute for a methodology- and registry-specific contract. Those profiles must remain research-only and cannot emit qualified impact claims.
 
 ### Official public source references
 
@@ -59,7 +81,20 @@ This portfolio connects selected public organizations, protocols and registries 
 - ORCID, [official site](https://orcid.org/)
 - ROR, [official site](https://ror.org/)
 - Toucan, [documentation](https://docs.toucan.earth/)
-- Catena, [official site](https://catena.com/)
+- Catena Labs, [official announcement and agent commerce kit context](https://catena.com/blog/announcing-catena-labs)
+- Antares Vision Group, [official site](https://antaresvisiongroup.com/)
+- Acviss, [official product/traceability information](https://acviss.com/products/)
+- Authentix, [official brand-protection solutions](https://authentix.com/brand-protection-solutions/)
+- Transmute, [official decentralized-data guide](https://guide.transmute.industries/verifiable-data-platform/learning-center/decentralized-101)
+- Verra, [official standards organization](https://verra.org/)
+- KlimaDAO, [official app](https://app.klimadao.finance/)
+- Ocean Protocol, [official overview](https://docs.oceanprotocol.com/discover/what-is-ocean)
+- AxonDAO, [official site](https://www.axondao.io/)
+- TransCrypts, [official site](https://www.transcrypts.com/)
+- Digital Bazaar, [official site](https://www.digitalbazaar.com/)
+- Decentralized Identity Foundation, [official site](https://identity.foundation/)
+- Danube Tech, [official site](https://www.danubetech.com/)
+- Marblism, [official site](https://www.marblism.com/)
 
 These references document public products, organizations or standards only. They do not mean that Mycelix has contacted or integrated any of them.
 
