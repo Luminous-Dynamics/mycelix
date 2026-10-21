@@ -1,0 +1,156 @@
+{
+  "schema_version": "nrvca-benchmark/0.1",
+  "benchmark_id": "NRVCA-SA-BRIDGE-001",
+  "status": "design_only",
+  "task_type": "accounting_reconciliation",
+  "title": "South African national accounts × physical resource account bridge",
+  "hypothesis": "An NRVCA evidence and reconciliation contract can reproduce selected source-published national-account values and selected physical account identities while exposing time/geography/unit incompatibilities and source coverage that a disconnected indicator dashboard hides.",
+  "null_hypothesis": "The contract adds no reproducibility or evidence-quality advantage over a direct source-table transcription and independent source-native calculation; or its added mapping introduces unreconciled residuals or unsupported joins.",
+  "scope": {
+    "jurisdiction": "South Africa",
+    "geographic_level": "national",
+    "period_scope": "Initial source discovery includes GDP Q2 2026, experimental PEFA 2022, and selected catchment water accounts for hydrological years 2015/16–2020/21; aligned periods are not yet available.",
+    "unit_of_analysis": "source table × published value/identity × exact source vintage",
+    "out_of_scope": [
+      "A new national GDP estimate.",
+      "National water-security estimates extrapolated from three selected catchments.",
+      "Causal claims about infrastructure interventions.",
+      "A universal prosperity score or monetary monetization of all nonmarket activity.",
+      "Forecasting benchmarks before source vintages and definitions are reconciled."
+    ]
+  },
+  "source_policy": {
+    "content_digest_required_before_execution": true,
+    "rights_review_required": true,
+    "vintage_policy": "new_vintage_is_new_run",
+    "time_alignment_policy": "no_implicit_calendar_hydrological_join",
+    "missingness_policy": "preserve_unknown_and_report_coverage",
+    "revision_policy": "revisions_are_new_vintages"
+  },
+  "source_ids": [
+    "SA-GDP-P0441-Q2-2026",
+    "SA-PEFA-2022",
+    "SA-WATER-CATCHMENT-2015-2021",
+    "SA-DWS-NO-DROP-2021-22"
+  ],
+  "arms": [
+    {
+      "arm_id": "B0-official-table-reproduction",
+      "role": "incumbent",
+      "method": "Direct reproduction of source-published official GDP totals from the exact pinned Stats SA release",
+      "description": "Use the source-published GDP series and tables as the incumbent target; preserve published price basis and release vintage.",
+      "resource_budget_policy": "Same source artifacts and declared transformations; no later vintages or hidden manual corrections."
+    },
+    {
+      "arm_id": "B1-source-native-identity",
+      "role": "strong_baseline",
+      "method": "Independent source-native account reconstruction",
+      "description": "Recompute selected PEFA and water-account identities from source-native tables using their documented units, periods and definitions.",
+      "resource_budget_policy": "Same exact source bytes and published metadata; independent calculation code; no NRVCA-only helper."
+    },
+    {
+      "arm_id": "C0-nrvca-bridge",
+      "role": "candidate",
+      "method": "NRVCA source-bound account and capability bridge",
+      "description": "Represent source-published values, account identities, physical units, time basis, evidence status, coverage and noncomparabilities in the versioned NRVCA contract.",
+      "resource_budget_policy": "Same source bytes and permitted data; report integration/validation cost separately from source-native baseline costs."
+    }
+  ],
+  "metrics": [
+    {
+      "metric_id": "published-value-reproduction-rate",
+      "definition": "Count of preregistered selected source-published numeric values reconstructed within the source's documented rounding tolerance divided by the number of selected values.",
+      "unit": "share",
+      "direction": "higher_is_better",
+      "primary": true,
+      "target_value": 1,
+      "practical_effect_threshold": null,
+      "acceptance_rule": "All selected values reproduce within documented rounding tolerance; every deviation remains listed with a classified reason.",
+      "guardrail": true
+    },
+    {
+      "metric_id": "identity-closure-rate",
+      "definition": "Number of preregistered account identities that close within declared source precision divided by identities attempted.",
+      "unit": "share",
+      "direction": "higher_is_better",
+      "primary": true,
+      "target_value": 1,
+      "practical_effect_threshold": null,
+      "acceptance_rule": "Every identity included as qualified must close. No unexplained residual is silently suppressed.",
+      "guardrail": true
+    },
+    {
+      "metric_id": "source-reference-resolution-rate",
+      "definition": "Share of report references resolving to an exact pinned source artifact and source locator.",
+      "unit": "share",
+      "direction": "higher_is_better",
+      "primary": false,
+      "target_value": 1,
+      "practical_effect_threshold": null,
+      "acceptance_rule": "Every source-dependent claim must resolve to an admitted source manifest entry and locator.",
+      "guardrail": true
+    },
+    {
+      "metric_id": "unclassified-reconciliation-residual-count",
+      "definition": "Number of nonzero residuals with no documented accounting, rounding, coverage or semantic disposition.",
+      "unit": "count",
+      "direction": "zero_tolerance",
+      "primary": false,
+      "target_value": 0,
+      "practical_effect_threshold": null,
+      "acceptance_rule": "Must be zero for a qualified result; otherwise return unqualified with all residuals preserved.",
+      "guardrail": true
+    },
+    {
+      "metric_id": "implicit-time-or-unit-join-count",
+      "definition": "Number of joins across incompatible periods, units, geographies or statistical statuses without an explicit reviewed mapping.",
+      "unit": "count",
+      "direction": "zero_tolerance",
+      "primary": false,
+      "target_value": 0,
+      "practical_effect_threshold": null,
+      "acceptance_rule": "Must be zero; any unsupported mapping is rejected rather than coerced.",
+      "guardrail": true
+    },
+    {
+      "metric_id": "source-coverage-disclosure",
+      "definition": "Whether every source-derived summary reports applicable geographic/temporal coverage, missingness and official-versus-experimental status.",
+      "unit": "binary",
+      "direction": "higher_is_better",
+      "primary": false,
+      "target_value": 1,
+      "practical_effect_threshold": null,
+      "acceptance_rule": "All required source summaries carry coverage, missingness and statistical status.",
+      "guardrail": true
+    }
+  ],
+  "comparison_protocol": {
+    "preregister_before_results": true,
+    "sampling_or_split": "Accounting reproduction uses a frozen, preregistered census of source tables and identities; a later forecast trial must use vintage-aware rolling-origin holdouts and be preregistered separately.",
+    "independent_oracle": "Direct source-table reproduction plus separately implemented arithmetic for selected account identities; do not reuse the candidate's calculation helper as the sole oracle.",
+    "uncertainty_method": "For published table reproduction, use the source's declared rounding/revision precision. For estimated indicators, retain source intervals and model uncertainty; do not invent confidence intervals from scenario counts.",
+    "subgroup_policy": "Report coverage by source, table, geography, period, unit, and official/experimental status. No unreported country-wide inference from the selected catchments.",
+    "multiple_comparison_policy": "Freeze selected tables, identities and primary metrics before calculations; preserve all failed, missing and discordant cases."
+  },
+  "failure_policy": {
+    "retain_failed_runs": true,
+    "retain_unfavourable_results": true,
+    "excluded_case_ledger": true,
+    "no_posthoc_threshold_changes": true
+  },
+  "guardrails": [
+    "No source bytes enter reproducibility runs before use-rights review.",
+    "GDP source vintage and price basis remain explicit; later revisions create a new run.",
+    "Experimental PEFA and sub-national water accounts never become official statistics by aggregation.",
+    "Calendar-quarter GDP and hydrological-year water values are not joined without an explicitly reviewed method.",
+    "Unknown water service or quality is not zero, safe, adequate or available.",
+    "No national estimate is inferred from selected catchments without a separately justified sampling/aggregation design.",
+    "A modelled estimate never becomes an observed measurement by serialization, ledger attestation or visualization."
+  ],
+  "claim_ceiling": [
+    "This is a design-only benchmark preregistration, not an executed evaluation.",
+    "No source file has been pinned or licensed by this record.",
+    "No NRVCA performance advantage, official-standard conformity, national output estimate or causal effect is established.",
+    "The result, if later completed, applies only to the pinned values, identities, periods, units, and sources."
+  ]
+}
