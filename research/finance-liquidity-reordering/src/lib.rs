@@ -6,7 +6,7 @@
 //! data. Amounts are integer minor units; all reported results are model outputs.
 
 use std::cmp::Ordering;
-use std::collections::BTreeSet;
+use std::collections::{BTreeSet, BinaryHeap};
 use std::error::Error;
 use std::fmt;
 
@@ -407,6 +407,258 @@ pub fn input_order(problem: &Problem) -> Result<SearchResult, ReorderError> {
         order,
         evaluation,
         candidate_evaluations: 1,
+    })
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+struct QueueCandidate {
+    incremental_prefunding: u128,
+    unlock_value: u128,
+    payment_id: String,
+    payment_index: usize,
+    generation: u64,
+}
+
+impl Ord for QueueCandidate {
+    fn cmp(&self, other: &Self) -> Ordering {
+        other
+            .incremental_prefunding
+            .cmp(&self.incremental_prefunding)
+            .then_with(|| self.unlock_value.cmp(&other.unlock_value))
+            .then_with(|| other.payment_id.cmp(&self.payment_id))
+            .then_with(|| self.payment_index.cmp(&other.payment_index))
+            .then_with(|| self.generation.cmp(&other.generation))
+    }
+}
+
+impl PartialOrd for QueueCandidate {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+fn push_queue_candidate(
+    index: usize,
+    problem: &Problem,
+    balances: &[i128],
+    required: &[u128],
+    outstanding: &[u128],
+    generations: &mut [u64],
+    heap: &mut BinaryHeap<QueueCandidate>,
+) -> Result<(), ReorderError> {
+    let payment = &problem.payments[index];
+    let amount = i128::from(payment.amount_minor);
+    let post_debit = balances[payment.from]
+        .checked_sub(amount)
+        .ok_or(ReorderError::ArithmeticOverflow)?;
+    let required_after = required[payment.from].max(deficit(post_debit));
+    let incremental_prefunding = required_after.saturating_sub(required[payment.from]);
+    let unlock_value = (payment.amount_minor as u128).min(outstanding[payment.to]);
+
+    generations[index] = generations[index]
+        .checked_add(1)
+        .ok_or(ReorderError::ArithmeticOverflow)?;
+    heap.push(QueueCandidate {
+        incremental_prefunding,
+        unlock_value,
+        payment_id: payment.id.clone(),
+        payment_index: index,
+        generation: generations[index],
+    });
+    Ok(())
+}
+
+fn mark_affected_queue_candidate(
+    index: usize,
+    epoch: usize,
+    remaining: &[bool],
+    indegree: &[usize],
+    seen_epoch: &mut [usize],
+    affected: &mut Vec<usize>,
+) {
+    if remaining[index] && indegree[index] == 0 && seen_epoch[index] != epoch {
+        seen_epoch[index] = epoch;
+        affected.push(index);
+    }
+}
+
+/// Event-driven variant of receiver-ready greedy. It keeps a versioned max-heap and
+/// refreshes candidates whose sender state, receiver unlock value, or precedence readiness
+/// changed after a settlement. Sparse graphs avoid rescanning the full pending set, while
+/// high-degree graphs can still be quadratic; an explicit refresh-work cap fails closed.
+pub fn receiver_ready_event_driven(problem: &Problem) -> Result<SearchResult, ReorderError> {
+    let count = problem.payments.len();
+    let mut remaining = vec![true; count];
+    let mut outstanding = vec![0_u128; problem.participant_count];
+    let mut outgoing_by_participant = vec![Vec::<usize>::new(); problem.participant_count];
+    let mut incoming_by_participant = vec![Vec::<usize>::new(); problem.participant_count];
+    let mut successors = vec![Vec::<usize>::new(); count];
+    let mut indegree = vec![0_usize; count];
+
+    for (index, payment) in problem.payments.iter().enumerate() {
+        outstanding[payment.from] = outstanding[payment.from]
+            .checked_add(payment.amount_minor as u128)
+            .ok_or(ReorderError::ArithmeticOverflow)?;
+        outgoing_by_participant[payment.from].push(index);
+        incoming_by_participant[payment.to].push(index);
+    }
+    for &(before, after) in &problem.precedence_constraints {
+        successors[before].push(after);
+        indegree[after] += 1;
+    }
+
+    let mut balances = vec![0_i128; problem.participant_count];
+    let mut required = vec![0_u128; problem.participant_count];
+    let mut generations = vec![0_u64; count];
+    let mut heap = BinaryHeap::<QueueCandidate>::new();
+    let mut candidate_evaluations = 0_usize;
+    let mut work_units = count;
+    if work_units > MAX_SEARCH_WORK_UNITS {
+        return Err(ReorderError::SearchWorkLimit {
+            observed: work_units,
+            maximum: MAX_SEARCH_WORK_UNITS,
+        });
+    }
+    for index in 0..count {
+        if indegree[index] == 0 {
+            push_queue_candidate(
+                index,
+                problem,
+                &balances,
+                &required,
+                &outstanding,
+                &mut generations,
+                &mut heap,
+            )?;
+            candidate_evaluations = candidate_evaluations
+                .checked_add(1)
+                .ok_or(ReorderError::ArithmeticOverflow)?;
+        }
+    }
+
+    let mut order = Vec::with_capacity(count);
+    let mut seen_epoch = vec![0_usize; count];
+    let mut epoch = 0_usize;
+
+    while order.len() < count {
+        let selected = loop {
+            match heap.pop() {
+                Some(candidate)
+                    if remaining[candidate.payment_index]
+                        && indegree[candidate.payment_index] == 0
+                        && generations[candidate.payment_index] == candidate.generation =>
+                {
+                    break candidate.payment_index;
+                }
+                Some(_) => continue,
+                None => return Err(ReorderError::PrecedenceCycle),
+            }
+        };
+
+        let payment = &problem.payments[selected];
+        let from = payment.from;
+        let to = payment.to;
+        let amount = i128::from(payment.amount_minor);
+
+        balances[from] = balances[from]
+            .checked_sub(amount)
+            .ok_or(ReorderError::ArithmeticOverflow)?;
+        update_required(&mut required, from, balances[from]);
+        balances[to] = balances[to]
+            .checked_add(amount)
+            .ok_or(ReorderError::ArithmeticOverflow)?;
+        update_required(&mut required, to, balances[to]);
+        outstanding[from] = outstanding[from]
+            .checked_sub(payment.amount_minor as u128)
+            .ok_or(ReorderError::ArithmeticOverflow)?;
+        remaining[selected] = false;
+        order.push(selected);
+
+        epoch = epoch.checked_add(1).ok_or(ReorderError::ArithmeticOverflow)?;
+        let mut affected = Vec::<usize>::new();
+        for &after in &successors[selected] {
+            indegree[after] = indegree[after]
+                .checked_sub(1)
+                .ok_or(ReorderError::ArithmeticOverflow)?;
+            if indegree[after] == 0 {
+                mark_affected_queue_candidate(
+                    after,
+                    epoch,
+                    &remaining,
+                    &indegree,
+                    &mut seen_epoch,
+                    &mut affected,
+                );
+            }
+        }
+
+        let refreshed_edges = outgoing_by_participant[from]
+            .len()
+            .checked_add(outgoing_by_participant[to].len())
+            .and_then(|n| n.checked_add(incoming_by_participant[from].len()))
+            .ok_or(ReorderError::ArithmeticOverflow)?;
+        work_units = work_units
+            .checked_add(refreshed_edges)
+            .ok_or(ReorderError::ArithmeticOverflow)?;
+        if work_units > MAX_SEARCH_WORK_UNITS {
+            return Err(ReorderError::SearchWorkLimit {
+                observed: work_units,
+                maximum: MAX_SEARCH_WORK_UNITS,
+            });
+        }
+
+        for &index in &outgoing_by_participant[from] {
+            mark_affected_queue_candidate(
+                index,
+                epoch,
+                &remaining,
+                &indegree,
+                &mut seen_epoch,
+                &mut affected,
+            );
+        }
+        for &index in &outgoing_by_participant[to] {
+            mark_affected_queue_candidate(
+                index,
+                epoch,
+                &remaining,
+                &indegree,
+                &mut seen_epoch,
+                &mut affected,
+            );
+        }
+        for &index in &incoming_by_participant[from] {
+            mark_affected_queue_candidate(
+                index,
+                epoch,
+                &remaining,
+                &indegree,
+                &mut seen_epoch,
+                &mut affected,
+            );
+        }
+
+        for index in affected {
+            push_queue_candidate(
+                index,
+                problem,
+                &balances,
+                &required,
+                &outstanding,
+                &mut generations,
+                &mut heap,
+            )?;
+            candidate_evaluations = candidate_evaluations
+                .checked_add(1)
+                .ok_or(ReorderError::ArithmeticOverflow)?;
+        }
+    }
+
+    let evaluation = evaluate_unchecked(problem, &order)?;
+    Ok(SearchResult {
+        order,
+        evaluation,
+        candidate_evaluations,
     })
 }
 
