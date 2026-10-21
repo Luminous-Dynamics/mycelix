@@ -558,11 +558,17 @@ fn analyze(
 fn markdown(report: &AuditReport) -> String {
     let mut out = String::new();
     out.push_str("# Praxis curriculum coverage audit\n\n");
-    out.push_str(
     out.push_str("> Coverage is not proof of lesson quality or learning efficacy.\n");
     out.push_str("> Counts use the active embedded graph and checked-in content manifest.\n\n");
+    out.push_str(&format!(
+        "Input digest (BLAKE3): {}\n\n",
+        report.input_digest_blake3
+    ));
     out.push_str("| Metric | Count |\n|---|---:|\n");
-    out.push_str(&format!("| Active curriculum documents | {} |\n", report.active_document_count));
+    out.push_str(&format!(
+        "| Active curriculum documents | {} |\n",
+        report.active_document_count
+    ));
     out.push_str(&format!("| Active nodes | {} |\n", report.active_node_count));
     out.push_str(&format!("| Active edges | {} |\n", report.active_edge_count));
     out.push_str(&format!(
@@ -577,7 +583,10 @@ fn markdown(report: &AuditReport) -> String {
         "| Distinct referenced standards | {} |\n",
         report.distinct_standard_refs
     ));
-    out.push_str(&format!("| Generated lesson assets | {} |\n", report.manifest_asset_count));
+    out.push_str(&format!(
+        "| Generated lesson assets | {} |\n",
+        report.manifest_asset_count
+    ));
     out.push_str(&format!(
         "| Active nodes with lessons | {} |\n",
         report.active_nodes_with_lessons
@@ -591,23 +600,30 @@ fn markdown(report: &AuditReport) -> String {
         report.orphan_manifest_node_ids.len()
     ));
     out.push_str(
-    out.push_str(
-        "| Framework | Grade | Subject | Nodes | Refs | With | Missing | Assets |\n",
+        "| Framework | Grade | Subject | Nodes | Standard refs | With lessons | Missing | Assets |\n",
     );
+    out.push_str("|---|---|---|---:|---:|---:|---:|---:|\n");
     for group in &report.groups {
         out.push_str(&format!(
             "| {} | {} | {} | {} | {} | {} | {} | {} |\n",
-            group.framework, group.grade_level, group.subject_area, group.active_nodes,
-            group.nodes_with_standard_refs, group.nodes_with_lessons,
-            group.nodes_missing_lessons, group.lesson_assets
+            group.framework,
+            group.grade_level,
+            group.subject_area,
+            group.active_nodes,
+            group.nodes_with_standard_refs,
+            group.nodes_with_lessons,
+            group.nodes_missing_lessons,
+            group.lesson_assets
         ));
     }
+
     if !report.orphan_manifest_node_ids.is_empty() {
         out.push_str("\n## Orphan lesson-target IDs\n\n");
         for id in &report.orphan_manifest_node_ids {
-            out.push_str(&format!("- {id}\n"));
+            out.push_str(&format!("- `{id}`\n"));
         }
     }
+
     out
 }
 
