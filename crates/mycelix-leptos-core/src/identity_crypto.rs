@@ -494,10 +494,19 @@ mod envelope_policy_tests {
     }
 
     #[test]
-    fn legacy_work_factor_is_frozen_independently_of_test_builds() {
+    fn legacy_and_production_work_factors_are_explicit_and_frozen() {
         assert_eq!(LEGACY_PBKDF2_ITERATIONS, 600_000);
-        assert!(sample_blob(1, LEGACY_PBKDF2_ITERATIONS).validate().is_ok());
-        assert!(sample_blob(1, PBKDF2_ITERATIONS).validate().is_err());
+        assert_eq!(PRODUCTION_PBKDF2_ITERATIONS, 600_000);
+        assert_eq!(PRODUCTION_PBKDF2_ITERATIONS, LEGACY_PBKDF2_ITERATIONS);
+        assert!(PBKDF2_ITERATIONS < PRODUCTION_PBKDF2_ITERATIONS);
+        assert!(
+            sample_blob(1, LEGACY_PBKDF2_ITERATIONS).validate().is_ok(),
+            "legacy v1 must always retain its frozen production KDF"
+        );
+        assert!(
+            sample_blob(1, PBKDF2_ITERATIONS).validate().is_err(),
+            "test-time work factor must never reinterpret a legacy v1 envelope"
+        );
     }
 
     #[test]
