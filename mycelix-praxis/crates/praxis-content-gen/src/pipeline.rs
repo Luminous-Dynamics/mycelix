@@ -593,9 +593,7 @@ fn normalize_answer_choice(text: &str) -> String {
         .to_lowercase()
 }
 
-fn greatest_common_divisor(mut left: i128, mut right: i128) -> i128 {
-    left = left.abs();
-    right = right.abs();
+fn greatest_common_divisor(mut left: u128, mut right: u128) -> u128 {
     while right != 0 {
         let remainder = left % right;
         left = right;
@@ -613,11 +611,13 @@ fn rational_key(numerator: i128, denominator: i128) -> Option<String> {
     } else {
         ""
     };
-    let divisor = greatest_common_divisor(numerator, denominator);
+    let numerator_magnitude = numerator.unsigned_abs();
+    let denominator_magnitude = denominator.unsigned_abs();
+    let divisor = greatest_common_divisor(numerator_magnitude, denominator_magnitude);
     Some(format!(
         "{sign}{}/{}",
-        numerator.abs() / divisor,
-        denominator.abs() / divisor
+        numerator_magnitude / divisor,
+        denominator_magnitude / divisor
     ))
 }
 
