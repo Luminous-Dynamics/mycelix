@@ -24,11 +24,25 @@ The model is a reference simulator, not a deployed RTGS, payment processor, sett
 
 The comparison objective is explicit and lexicographic: (1) maximize settled value, (2) maximize settled payment count, (3) minimize missed deadlines, (4) minimize priority-weighted settlement index. This is one reference policy, not a universal policy prescription; alternative objectives should be reported separately rather than hidden in one score.
 
+## A separate objective: minimum required opening liquidity
+
+The additional API `minimum_opening_liquidity_for_sequence` answers a different question: for a strict proposed execution sequence, what minimum starting liquidity must each participant have so every payment in that exact sequence can settle without a negative balance? For each participant it computes the largest prefix deficit (cumulative outflows minus inflows). It reports the participant-wise vector and its aggregate; it does not simulate retries or treat later queue entries as executable out of order.
+
+For example, the three-payment recycling fixture has FIFO order `drain-a → feed-b → return-a` and requires 16 units of opening liquidity. The strict order `feed-b → return-a → drain-a` requires 10 units: an initial 10 at A can fund the 6-unit transfer, then receives 6 back before sending 10. (The amount is 10, not 6; gross payment value is 22.) The exact permutation oracle tests all six permutations and provides a small-instance lower-bound reference. A separate seeded annealer uses insertion moves because a single insertion can expose a liquidity-recycling cycle that would require multiple swaps to discover.
+
+This objective is more directly about capital efficiency than the fixed-opening-liquidity simulation above. Keep the two reports and targets separate: one measures execution outcomes under an opening balance vector; the other measures the minimum opening vector needed for a strict order.
+
 ## Run the benchmark
 
     cargo run --release --manifest-path mycelix-finance/Cargo.toml -p finance-queue-lsm-sim --example queue_lsm_benchmark
 
-The benchmark builds deterministic synthetic batches of 70, 140 and 700 payments and emits CSV for FIFO, unlock-potential and seeded simulated annealing. Annealing budgets are 100, 30 and 5 swaps respectively, with five pinned seeds and three repeated timing samples per seed. Run on a pinned reference machine; record OS, CPU, Rust version and commit SHA with results.
+The benchmark builds deterministic synthetic batches of 70, 140 and 700 payments and emits CSV for FIFO, unlock-potential and seeded simulated annealing under a fixed opening-balance vector. Annealing budgets are 100, 30 and 5 swaps respectively, with five pinned seeds and three repeated timing samples per seed.
+
+For strict-sequence liquidity requirements, run:
+
+    cargo run --release --manifest-path mycelix-finance/Cargo.toml -p finance-queue-lsm-sim --example minimum_liquidity_benchmark
+
+This emits a separate CSV for FIFO sequence, unlock-potential sequence, and the minimum-opening-liquidity annealer. It reports required opening liquidity rather than settled value under a pre-given opening vector. The annealer uses insertion moves and runs with budgets of 100, 30 and 5 iterations for 70/140/700 payments, five fixed seeds, and three repeated samples per seed. Run both examples on a pinned reference machine; record OS, CPU, Rust version and commit SHA with results.
 
 These scenarios are synthetic and only stress the stated simulator. They do not reconstruct SAMOS, SADC-RTGS, TARGET2, PayShap or other production rails.
 
