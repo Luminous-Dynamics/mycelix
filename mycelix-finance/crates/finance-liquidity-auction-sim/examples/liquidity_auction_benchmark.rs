@@ -133,10 +133,8 @@ fn main() {
         let mut baseline_report = None;
         for _ in 0..25 {
             let start = Instant::now();
-            baseline_report = Some(
-                run_auction(&context, &participants, &[], &[])
-                    .expect("no-auction baseline"),
-            );
+            baseline_report =
+                Some(run_auction(&context, &participants, &[], &[]).expect("no-auction baseline"));
             baseline_timings.push(start.elapsed().as_micros());
         }
         print_row(
