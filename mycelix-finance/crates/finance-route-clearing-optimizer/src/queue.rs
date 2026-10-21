@@ -123,10 +123,24 @@ pub struct PaymentResult {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
+pub struct AccountMetric {
+    pub participant_id: String,
+    pub starting_balance_minor: u64,
+    pub final_balance_minor: u64,
+    pub minimum_observed_balance_minor: u64,
+    pub maximum_observed_balance_minor: u64,
+    /// Balance integrated over time, measured in minor-unit ticks.
+    /// This is a state metric, not a standalone liquidity-savings measure.
+    pub balance_time_minor_ticks: u128,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct QueueResult {
     pub context: QueueContext,
     pub policy: QueuePolicy,
     pub final_balances: Vec<QueueAccount>,
+    /// Per-participant balance and balance-time metrics, sorted by participant ID.
+    pub account_metrics: Vec<AccountMetric>,
     /// Results are sorted by payment ID for deterministic reporting.
     pub payments: Vec<PaymentResult>,
     pub settled_count: usize,
@@ -221,6 +235,13 @@ pub fn simulate_queue(
             return Err(QueueError::DuplicateAccount(account.participant_id.clone()));
         }
     }
+
+    let starting_balances = balances.clone();
+    let mut minimum_balances = balances.clone();
+    let mut maximum_balances = balances.clone();
+    let mut balance_time = balances.keys()
+        .map(|participant| (participant.clone(), 0_u128))
+        .collect::<BTreeMap<_, _>>();
 
     let mut route_map = BTreeMap::<String, QueueRoute>::new();
     for route in routes {
@@ -349,8 +370,24 @@ pub fn simulate_queue(
     let mut used = BTreeMap::<(String, u64), u64>::new();
     let mut settled_minor = 0_u128;
     let mut total_fee = 0_u128;
+    let mut previous_tick = 0_u64;
 
     for tick in events.into_iter().filter(|t| *t <= context.horizon_tick) {
+        let elapsed = (tick - previous_tick) as u128;
+        if elapsed > 0 {
+            for (participant, balance) in &balances {
+                let contribution = (*balance as u128)
+                    .checked_mul(elapsed)
+                    .ok_or(QueueError::ArithmeticOverflow)?;
+                let accumulated = balance_time.get(participant).copied().unwrap_or(0);
+                balance_time.insert(
+                    participant.clone(),
+                    accumulated.checked_add(contribution).ok_or(QueueError::ArithmeticOverflow)?,
+                );
+            }
+        }
+        previous_tick = tick;
+
         loop {
             let mut pending = (0..payments.len())
                 .filter(|i| {
@@ -430,8 +467,17 @@ pub fn simulate_queue(
                     .ok_or(QueueError::ArithmeticOverflow)?;
 
                 // Apply state only after all arithmetic checks succeed.
-                balances.insert(payment.from.clone(), sender_balance - payment.amount_minor);
+                let sender_after = sender_balance - payment.amount_minor;
+                balances.insert(payment.from.clone(), sender_after);
                 balances.insert(payment.to.clone(), receiver_after);
+                minimum_balances.entry(payment.from.clone())
+                    .and_modify(|v| *v = (*v).min(sender_after));
+                minimum_balances.entry(payment.to.clone())
+                    .and_modify(|v| *v = (*v).min(receiver_after));
+                maximum_balances.entry(payment.from.clone())
+                    .and_modify(|v| *v = (*v).max(sender_after));
+                maximum_balances.entry(payment.to.clone())
+                    .and_modify(|v| *v = (*v).max(receiver_after));
                 used.insert(key, used_after);
                 settled_minor = settled_after;
                 total_fee = fee_after;
@@ -476,6 +522,16 @@ pub fn simulate_queue(
         .collect::<Vec<_>>();
     result_payments.sort_by(|a, b| a.payment_id.cmp(&b.payment_id));
 
+    let account_metrics = starting_balances.iter()
+        .map(|(participant_id, starting_balance_minor)| AccountMetric {
+            participant_id: participant_id.clone(),
+            starting_balance_minor: *starting_balance_minor,
+            final_balance_minor: balances[participant_id],
+            minimum_observed_balance_minor: minimum_balances[participant_id],
+            maximum_observed_balance_minor: maximum_balances[participant_id],
+            balance_time_minor_ticks: balance_time[participant_id],
+        })
+        .collect::<Vec<_>>();
     let final_balances = balances
         .into_iter()
         .map(|(participant_id, balance_minor)| QueueAccount {
@@ -514,6 +570,7 @@ pub fn simulate_queue(
         context: context.clone(),
         policy,
         final_balances,
+        account_metrics,
         payments: result_payments,
         settled_count,
         unsettled_count,
