@@ -196,11 +196,12 @@
       "known_limits": [
         "Report describes 88 datasets (61%) received from WSAs; coverage is not complete.",
         "High/medium/low confidence labels need mapping into NRVCA evidence states without erasing underlying definitions.",
-        "Not a 2026 live service feed."
+        "Not a 2026 live service feed.",
+        "The report says water balances for non-submitting WSAs were calculated, extrapolated or estimated; those values must not be promoted to observed measurements."
       ],
       "ingest_state": "report_context_only",
       "license_status": "unknown",
-      "next_action": "Inspect exact table definitions and obtain source datasets, response denominator, missing authorities and confidence classifications."
+      "next_action": "Inspect exact table definitions, distinguish returned water-balance data from calculated/extrapolated/estimated nonresponse cases, and obtain source datasets, response denominator, missing authorities and confidence classifications."
     }
   ]
 }
