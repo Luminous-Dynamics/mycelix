@@ -138,13 +138,21 @@ The GS1 profile now has a minimal, effects-free event mapping fixture:
 - [Fixture schema](./gs1-epcis-mapping-fixture-v1.schema.json)
 - [Cross-invariant verifier](./verify-gs1-epcis-mapping-fixture.cjs)
 - [Pinned source manifest](./source-snapshots/gs1-epcis-cbv-v1.json)
+- [Normative-artifact intake receipt schema](./gs1-normative-artifact-intake-receipt-v1.schema.json)
+- [Current intake receipt example](./gs1-normative-artifact-intake-example-v1.json)
+- [Intake receipt verifier](./verify-gs1-artifact-intake-receipt.cjs)
 
 Run from this directory:
 
 ```sh
 node verify-gs1-epcis-mapping-fixture.cjs
 node verify-gs1-epcis-mapping-fixture.cjs --self-test
+node verify-gs1-artifact-intake-receipt.cjs
+node verify-gs1-artifact-intake-receipt.cjs --self-test
+node verify-gs1-artifact-intake-receipt.cjs --require-complete
 ```
+
+The intake verifier's current receipt is expected to report `NormativeArtifactIntakeIncomplete`: four artifact references are recorded, but no raw bytes, HTTP response metadata, or artifact digests were obtained in this runtime. `--require-complete` should therefore exit nonzero until all four artifact payloads are actually captured and hashed. The current state does **not** claim that the GS1 server returned an error or that the artifacts are unavailable.
 
 The fixture pins EPCIS 2.0.1 and CBV 2.0.0. It uses the EPCIS JSON notation for standard CBV values (for example, `bizStep: "shipping"` and `disposition: "in_transit"`), UTC event timestamps at millisecond precision, and a separate `eventTimeZoneOffset`. The verifier binds these events to the exact checked-in source-manifest bytes and refuses version, URI-notation, mapping-lineage, time-format, and claim-promotion mutations.
 
