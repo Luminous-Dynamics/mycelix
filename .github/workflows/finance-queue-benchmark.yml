@@ -1,0 +1,90 @@
+name: Finance Queue Benchmark
+
+on:
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize, reopened, ready_for_review]
+    paths:
+      - 'mycelix-finance/Cargo.lock'
+      - 'mycelix-finance/Cargo.toml'
+      - 'mycelix-finance/crates/finance-route-clearing-optimizer/Cargo.toml'
+      - 'mycelix-finance/crates/finance-route-clearing-optimizer/src/queue.rs'
+      - 'mycelix-finance/crates/finance-route-clearing-optimizer/tests/queue_sequence_oracle.rs'
+      - 'mycelix-finance/crates/finance-route-clearing-optimizer/examples/queue_policy_benchmark.rs'
+      - '.github/workflows/finance-queue-benchmark.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  benchmark:
+    name: Pinned Synthetic Queue Benchmark
+    if: github.event_name == 'pull_request' && github.event.pull_request.draft == false && github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    env:
+      CARGO_TERM_COLOR: always
+      RUST_BACKTRACE: 1
+    steps:
+      - name: Checkout exact benchmark subject
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          persist-credentials: false
+          fetch-depth: 1
+
+      - name: Assert exact subject and repository
+        run: |
+          set -euo pipefail
+          test '${{ github.repository }}' = 'Luminous-Dynamics/mycelix'
+          test '${{ github.repository_id }}' = '1176351975'
+          test "$(git rev-parse HEAD)" = "${{ github.event.pull_request.head.sha }}"
+
+      - name: Install pinned Rust toolchain
+        uses: dtolnay/rust-toolchain@e97e2d8cc328f1b50210efc529dca0028893a2d9
+        with:
+          toolchain: 1.96.1
+
+      - name: Record machine and subject metadata
+        run: |
+          set -euo pipefail
+          mkdir -p benchmark-output
+          {
+            echo "repository=Luminous-Dynamics/mycelix"
+            echo "repository_id=1176351975"
+            echo "subject_sha=$(git rev-parse HEAD)"
+            echo "workflow_run_id=${{ github.run_id }}"
+            echo "workflow_run_attempt=${{ github.run_attempt }}"
+            echo "runner_os=$RUNNER_OS"
+            echo "runner_arch=$RUNNER_ARCH"
+            echo "utc_timestamp=$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+            echo "--- rustc ---"
+            rustc +1.96.1 --version --verbose
+            echo "--- cargo ---"
+            cargo +1.96.1 --version
+            echo "--- uname ---"
+            uname -a
+            echo "--- cpu ---"
+            lscpu | grep -E '^(Architecture|CPU\(s\)|Model name|Thread|Core|Socket|NUMA node0):'
+          } > benchmark-output/metadata.txt
+
+      - name: Run deterministic release benchmark
+        run: |
+          set -euo pipefail
+          cargo +1.96.1 run --locked --release \
+            --manifest-path mycelix-finance/Cargo.toml \
+            -p finance-route-clearing-optimizer \
+            --example queue_policy_benchmark \
+            > benchmark-output/results.csv
+          test -s benchmark-output/results.csv
+          sha256sum benchmark-output/results.csv benchmark-output/metadata.txt \
+            > benchmark-output/SHA256SUMS
+
+      - name: Preserve benchmark report and metadata
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: finance-queue-benchmark-${{ github.event.pull_request.head.sha }}
+          path: benchmark-output/
+          if-no-files-found: error
+          retention-days: 90
