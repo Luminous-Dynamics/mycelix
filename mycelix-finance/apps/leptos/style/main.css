@@ -248,3 +248,45 @@
     color: var(--text-secondary);
     overflow-wrap: anywhere;
 }
+
+
+/* Recovery-backup challenge stays local and is cleared between display and entry. */
+.recovery-phrase-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: var(--space-sm);
+    padding: 0;
+    margin: var(--space-md) 0;
+    list-style: none;
+}
+.recovery-phrase-grid li {
+    display: flex;
+    align-items: baseline;
+    gap: 0.45rem;
+    min-width: 0;
+    border: 1px solid var(--border-visible);
+    border-radius: var(--radius-sm);
+    padding: 0.45rem 0.55rem;
+    background: var(--bg-surface);
+    overflow-wrap: anywhere;
+}
+.recovery-word-index {
+    flex: 0 0 auto;
+    color: var(--text-secondary);
+    font-size: 0.75rem;
+    font-variant-numeric: tabular-nums;
+}
+.recovery-phrase-grid code {
+    min-width: 0;
+    font-size: 0.9rem;
+    color: var(--text-primary);
+    overflow-wrap: anywhere;
+}
+.recovery-phrase-panel { display: grid; gap: var(--space-sm); }
+@media (max-width: 640px) {
+    .recovery-phrase-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (prefers-reduced-motion: reduce) {
+    .recovery-phrase-panel *, .recovery-phrase-grid * { transition: none !important; }
+}
+
