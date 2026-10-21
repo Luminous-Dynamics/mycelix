@@ -122,8 +122,8 @@
         "explanation": "The difference between each pair of neighbouring terms is 9.",
         "distractors": [
           "Add 3",
-          "Multiply by 9 each time",
-          "Add 9 each time"
+          "Multiply by 3 each time",
+          "Multiply by 9 each time"
         ]
       },
       {
@@ -152,7 +152,7 @@
         "explanation": "Check the difference between each neighbouring pair.",
         "distractors": [
           "Yes, add 2.",
-          "No, add 3.",
+          "No, add 4.",
           "No, multiply by 2."
         ]
       },
@@ -166,7 +166,7 @@
         ],
         "explanation": "A valid pattern must follow one clear rule from term to term.",
         "distractors": [
-          "Answers vary, with a consistent stated rule.",
+          "The pattern 2, 4, 7, 11 follows add 2 each time.",
           "Any four random numbers count as a pattern.",
           "A valid pattern has to decrease."
         ]
