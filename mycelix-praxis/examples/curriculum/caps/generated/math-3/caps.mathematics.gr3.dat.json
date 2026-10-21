@@ -2,163 +2,213 @@
   "node_id": "CAPS.Mathematics.Gr3.DAT",
   "lesson": {
     "standard_code": "CAPS.Mathematics.Gr3.DAT",
-    "title": "CAPS.Mathematics.Gr3.DAT: Collect, organise data. Bar graphs and pictographs. Mode....",
+    "title": "Collecting and Interpreting Data: Tally Charts, Pictographs, Bar Graphs and Mode",
     "grade_level": "Grade3",
     "bloom_level": "Understand",
-    "explanation": "Grade 3 mathematics content.",
+    "explanation": "Data helps us answer questions about a group. First ask a clear question, collect answers fairly, and record them with tally marks or a table. In a pictograph, read the key because one picture may stand for more than one person or item. In a bar graph, compare bar heights using the same scale. The mode is the category or value that occurs most often. Always use the data shown; do not assume the graph says more than it actually records.",
     "examples": [
       {
-        "problem": "Solve a Grade 3 Mathematics problem.",
+        "problem": "A class survey records soccer = 8 learners and netball = 5 learners. How many more chose soccer?",
         "steps": [
           {
-            "instruction": "Step 1: Read the question carefully",
-            "result": "understand"
+            "instruction": "Read the two values from the graph or table.",
+            "result": "Soccer: 8; netball: 5."
           },
           {
-            "instruction": "Step 2: Show your working",
-            "result": "calculate"
+            "instruction": "Find how much larger 8 is than 5.",
+            "result": "8 − 5 = 3."
           },
           {
-            "instruction": "Step 3: Check your answer",
-            "result": "verify"
+            "instruction": "Answer in the context of the survey.",
+            "result": "Three more learners chose soccer."
           }
         ],
-        "answer": "Answer: See worked solution",
-        "visual_description": null
+        "answer": "3 more learners chose soccer.",
+        "visual_description": "Draw two bars starting at zero, one ending at 8 and one at 5."
       },
       {
-        "problem": "Solve a Grade 3 Mathematics problem.",
+        "problem": "A pictograph key says one ball picture represents 2 learners. Swimming has 6 pictures. How many learners chose swimming?",
         "steps": [
           {
-            "instruction": "Step 1: Read the question carefully",
-            "result": "understand"
+            "instruction": "Read the key.",
+            "result": "Each picture represents 2 learners."
           },
           {
-            "instruction": "Step 2: Show your working",
-            "result": "calculate"
+            "instruction": "Multiply the number of pictures by the value of one picture.",
+            "result": "6 × 2 = 12."
           },
           {
-            "instruction": "Step 3: Check your answer",
-            "result": "verify"
+            "instruction": "State the total with its unit.",
+            "result": "12 learners chose swimming."
           }
         ],
-        "answer": "Answer: See worked solution",
-        "visual_description": null
+        "answer": "12 learners chose swimming.",
+        "visual_description": "Show six ball icons with the key '1 icon = 2 learners'."
       },
       {
-        "problem": "Solve a Grade 3 Mathematics problem.",
+        "problem": "The scores are 5, 7, 3, 5, 5. Find the mode.",
         "steps": [
           {
-            "instruction": "Step 1: Read the question carefully",
-            "result": "understand"
+            "instruction": "Count each value.",
+            "result": "5 occurs three times; 7 and 3 occur once each."
           },
           {
-            "instruction": "Step 2: Show your working",
-            "result": "calculate"
+            "instruction": "Identify the value that appears most often.",
+            "result": "5 has the highest frequency."
           },
           {
-            "instruction": "Step 3: Check your answer",
-            "result": "verify"
+            "instruction": "State the mode.",
+            "result": "The mode is 5."
           }
         ],
-        "answer": "Answer: See worked solution",
-        "visual_description": null
+        "answer": "The mode is 5.",
+        "visual_description": "Use a tally table with a row for each score and its frequency."
       }
     ],
     "practice_problems": [
       {
         "question": "A bar graph shows 8 children chose soccer and 5 chose netball. How many more chose soccer?",
-        "answer": "3",
+        "answer": "3 children",
         "difficulty_permille": 125,
-        "bloom_level": "Remember",
+        "bloom_level": "Apply",
         "hints": [
-          "Subtract: 8 - 5"
+          "Compare the two counts by subtracting the smaller from the larger."
         ],
-        "explanation": "8 - 5 = 3 more children chose soccer.",
+        "explanation": "Find the difference 8 − 5.",
         "distractors": [
-          "2",
-          "4",
-          "13"
+          "13 children",
+          "2 children",
+          "4 children"
         ]
       },
       {
-        "question": "In a class survey: cats 7, dogs 9, rabbits 4. What is the mode?",
+        "question": "In a survey, cats received 7 votes, dogs 9 and rabbits 4. Which category is the mode?",
         "answer": "Dogs",
         "difficulty_permille": 250,
         "bloom_level": "Understand",
         "hints": [
-          "The mode is the most common answer"
+          "The mode is the category that occurs most often."
         ],
-        "explanation": "Dogs received the most votes (9), so dogs is the mode.",
+        "explanation": "Dogs has the largest count, 9.",
         "distractors": [
           "Cats",
-          "Rabbits",
-          "9"
+          "All equally common",
+          "Rabbits"
         ]
       },
       {
-        "question": "A pictograph uses 1 picture = 2 learners. If swimming has 6 pictures, how many learners chose swimming?",
-        "answer": "12",
+        "question": "A pictograph uses 1 picture = 2 learners. Swimming has 6 pictures. How many learners chose swimming?",
+        "answer": "12 learners",
         "difficulty_permille": 375,
         "bloom_level": "Apply",
         "hints": [
-          "Multiply the number of pictures by 2"
+          "Use the key to find the value of every picture."
         ],
-        "explanation": "6 pictures x 2 = 12 learners.",
+        "explanation": "Multiply 6 pictures by 2 learners per picture.",
         "distractors": [
-          "6",
-          "8",
-          "14"
+          "8 learners",
+          "10 learners",
+          "14 learners"
         ]
       },
       {
-        "question": "The scores on a test were: 5, 7, 3, 5, 5. What is the mode?",
+        "question": "The values are 5, 7, 3, 5, 5. What is the mode?",
         "answer": "5",
         "difficulty_permille": 500,
-        "bloom_level": "Understand",
+        "bloom_level": "Analyze",
         "hints": [
-          "Which number appears most often?"
+          "Count how often each value appears."
         ],
-        "explanation": "5 appears 3 times, more than any other number. The mode is 5.",
+        "explanation": "The value 5 appears three times, more than any other value.",
         "distractors": [
           "3",
-          "7",
-          "25"
+          "4",
+          "7"
         ]
       },
       {
-        "question": "A bar graph shows: Mon 4, Tue 6, Wed 3, Thu 7, Fri 5. Which day had the most sales?",
+        "question": "A bar graph shows Monday 4, Tuesday 6, Wednesday 3, Thursday 7 and Friday 5 sales. Which day had the most sales?",
         "answer": "Thursday",
         "difficulty_permille": 625,
-        "bloom_level": "Understand",
+        "bloom_level": "Interpret",
         "hints": [
-          "Find the tallest bar"
+          "Compare each bar or count."
         ],
-        "explanation": "Thursday has the tallest bar with 7 sales.",
+        "explanation": "Thursday's value, 7, is the largest.",
         "distractors": [
-          "Friday",
           "Tuesday",
-          "Monday"
+          "Wednesday",
+          "Friday"
+        ]
+      },
+      {
+        "question": "A pictograph shows 4 stars for red cars and 3 stars for blue cars. The key is 1 star = 5 cars. How many cars were recorded altogether?",
+        "answer": "35 cars",
+        "difficulty_permille": 750,
+        "bloom_level": "Apply",
+        "hints": [
+          "Add the symbols, then multiply by the key value."
+        ],
+        "explanation": "There are 7 stars altogether; 7 × 5 = 35.",
+        "distractors": [
+          "7 cars",
+          "25 cars",
+          "40 cars"
+        ]
+      },
+      {
+        "question": "A learner says a bar graph proves that every learner in the school prefers soccer because soccer has the tallest bar. What is wrong with this claim?",
+        "answer": "The graph shows only the people or responses included in the survey; it does not prove every learner in the school prefers soccer.",
+        "difficulty_permille": 875,
+        "bloom_level": "Evaluate",
+        "hints": [
+          "Check who was included in the data collection."
+        ],
+        "explanation": "A graph summarizes the collected sample. Claims must match who was surveyed.",
+        "distractors": [
+          "A tallest bar proves everyone agrees.",
+          "The sample is guaranteed to include every learner in the school.",
+          "Graphs can never show comparisons."
         ]
       }
     ],
     "hints": [
-      "What do you know about Grade 3 Mathematics?",
-      "Try the method for Grade 3 Mathematics.",
-      "Start with what you know about Grade 3 Mathematics."
+      "Read the title, labels and scale before interpreting a graph.",
+      "Use the pictograph key for every symbol.",
+      "The mode is the value or category that appears most often."
     ],
     "key_vocabulary": [
       {
-        "term": "mathematics",
-        "definition": "A key word in this topic",
-        "example_usage": "Used in Grade 3 maths."
+        "term": "data",
+        "definition": "Information collected to answer a question.",
+        "example_usage": "A class survey produces data about favourite sports."
+      },
+      {
+        "term": "frequency",
+        "definition": "How many times a value or category occurs.",
+        "example_usage": "The frequency of the score 5 is three."
+      },
+      {
+        "term": "pictograph",
+        "definition": "A display that uses pictures or symbols to represent counts.",
+        "example_usage": "A key might say one star represents five cars."
+      },
+      {
+        "term": "mode",
+        "definition": "The value or category that occurs most often.",
+        "example_usage": "Dogs is the mode when it has the most votes."
       }
     ],
     "misconceptions": [
       {
-        "misconception": "A common mistake in Grade 3 Mathematics.",
-        "correction": "The correct way.",
-        "why_students_think_this": "Understanding why helps."
+        "misconception": "Each pictograph symbol always represents one item.",
+        "correction": "Check the key; a symbol can represent two, five or another number of items.",
+        "why_students_think_this": "The picture can look like one object even when it represents a group."
+      },
+      {
+        "misconception": "The mode is the largest number in the data rather than the most frequent value.",
+        "correction": "Count occurrences: mode means most often, not greatest in size.",
+        "why_students_think_this": "The words 'most' and 'largest' can be confused without distinguishing frequency from magnitude."
       }
     ],
     "generation_quality": {
@@ -166,77 +216,83 @@
       "hallucination_detected": false,
       "veto_count": 0,
       "epistemic_confidence": 0.87999994,
-      "needs_human_review": false
+      "needs_human_review": true,
+      "metrics_valid_for_current_revision": false,
+      "review_notes": "Prior generation metrics predate this rewrite and must not be treated as validation of the current content."
     }
   },
   "assessment": {
     "standard_code": "CAPS.Mathematics.Gr3.DAT",
-    "title": "Assessment: Collect, organise data. Bar graphs and pictographs. Mode. Interpret data and draw conclusions",
+    "title": "Assessment: Collecting and Interpreting Data: Tally Charts, Pictographs, Bar Graphs and Mode",
     "items": [
       {
-        "question": "Explain Grade 3 Mathematics.",
+        "question": "What is data?",
         "item_type": "ShortAnswer",
-        "correct_answer": "Answer.",
+        "correct_answer": "Information collected to answer a question.",
         "points": 1,
         "bloom_level": "Remember",
         "rubric": null,
-        "hint": "2"
+        "hint": "Think of counts or answers collected in a survey."
       },
       {
-        "question": "Explain Grade 3 Mathematics.",
+        "question": "What does the key in a pictograph tell you?",
         "item_type": "ShortAnswer",
-        "correct_answer": "Answer.",
+        "correct_answer": "How many people or items each symbol represents.",
         "points": 2,
         "bloom_level": "Understand",
         "rubric": null,
-        "hint": "2"
+        "hint": "Check the meaning of one picture."
       },
       {
-        "question": "Explain Grade 3 Mathematics.",
+        "question": "A key says one symbol = 3 learners. Four symbols are shown. How many learners is that?",
         "item_type": "ShortAnswer",
-        "correct_answer": "Answer.",
+        "correct_answer": "12 learners.",
         "points": 2,
         "bloom_level": "Apply",
         "rubric": null,
-        "hint": "2"
+        "hint": "Multiply 4 by 3."
       },
       {
-        "question": "Explain Grade 3 Mathematics.",
+        "question": "Cats have 6 votes, dogs 8 and birds 6. What is the mode? Explain.",
         "item_type": "ShortAnswer",
-        "correct_answer": "Answer.",
+        "correct_answer": "Dogs, because 8 is the greatest frequency.",
         "points": 3,
         "bloom_level": "Analyze",
         "rubric": null,
-        "hint": "2"
+        "hint": "Compare how often each category was chosen."
       },
       {
-        "question": "Explain Grade 3 Mathematics.",
+        "question": "A graph uses a vertical scale that skips numbers without showing the skips. Why could that mislead a reader?",
         "item_type": "ShortAnswer",
-        "correct_answer": "Answer.",
+        "correct_answer": "The bar heights may appear to show differences larger or smaller than the true values; a scale must be clear and consistent.",
         "points": 3,
         "bloom_level": "Evaluate",
         "rubric": null,
-        "hint": "2"
+        "hint": "Think about how the reader interprets bar height."
       },
       {
-        "question": "Explain Grade 3 Mathematics.",
+        "question": "Plan a fair class survey about favourite fruit and name one way to display the results.",
         "item_type": "ShortAnswer",
-        "correct_answer": "Answer.",
+        "correct_answer": "Ask every learner the same question, record one response per learner, then use a tally table and bar graph or pictograph.",
         "points": 4,
         "bloom_level": "Create",
         "rubric": null,
-        "hint": "2"
+        "hint": "Keep the question and response rule the same for everyone."
       }
     ],
     "total_points": 15,
     "estimated_minutes": 18,
     "bloom_distribution": [
       [
+        "Remember",
+        1
+      ],
+      [
         "Understand",
         1
       ],
       [
-        "Remember",
+        "Apply",
         1
       ],
       [
@@ -248,10 +304,6 @@
         1
       ],
       [
-        "Apply",
-        1
-      ],
-      [
         "Create",
         1
       ]
@@ -259,91 +311,94 @@
   },
   "flashcards": [
     {
-      "front": "What is important about Grade 3 Mathematics?",
-      "back": "Grade 3 mathematics content",
+      "front": "What does a graph key explain?",
+      "back": "How many items each symbol represents.",
       "tags": [
         "CAPS.Mathematics.Gr3.DAT",
         "Grade3",
-        "Data"
+        "Mathematics"
       ],
       "difficulty_permille": 111
     },
     {
-      "front": "What is important about Grade 3 Mathematics?",
-      "back": "Grade 3 mathematics content",
+      "front": "What is the mode?",
+      "back": "The value or category that occurs most often.",
       "tags": [
         "CAPS.Mathematics.Gr3.DAT",
         "Grade3",
-        "Data"
+        "Mathematics"
       ],
       "difficulty_permille": 222
     },
     {
-      "front": "What is important about Grade 3 Mathematics?",
-      "back": "Grade 3 mathematics content",
+      "front": "If 1 pictograph icon = 2 learners, what do 5 icons represent?",
+      "back": "10 learners.",
       "tags": [
         "CAPS.Mathematics.Gr3.DAT",
         "Grade3",
-        "Data"
+        "Mathematics"
       ],
       "difficulty_permille": 333
     },
     {
-      "front": "What is important about Grade 3 Mathematics?",
-      "back": "Grade 3 mathematics content",
+      "front": "What is frequency?",
+      "back": "The number of times a value or category occurs.",
       "tags": [
         "CAPS.Mathematics.Gr3.DAT",
         "Grade3",
-        "Data"
+        "Mathematics"
       ],
       "difficulty_permille": 444
     },
     {
-      "front": "What is important about Grade 3 Mathematics?",
-      "back": "Grade 3 mathematics content",
+      "front": "What should you read before comparing bars?",
+      "back": "The title, labels and scale.",
       "tags": [
         "CAPS.Mathematics.Gr3.DAT",
         "Grade3",
-        "Data"
+        "Mathematics"
       ],
-      "difficulty_permille": 555
+      "difficulty_permille": 556
     },
     {
-      "front": "What is important about Grade 3 Mathematics?",
-      "back": "Grade 3 mathematics content",
+      "front": "Why start bars at zero for a simple count graph?",
+      "back": "It makes the bar lengths show the counts fairly.",
       "tags": [
         "CAPS.Mathematics.Gr3.DAT",
         "Grade3",
-        "Data"
+        "Mathematics"
       ],
-      "difficulty_permille": 666
+      "difficulty_permille": 667
     },
     {
-      "front": "What is important about Grade 3 Mathematics?",
-      "back": "Grade 3 mathematics content",
+      "front": "If soccer has 9 votes and netball 6, how many more chose soccer?",
+      "back": "3 more.",
       "tags": [
         "CAPS.Mathematics.Gr3.DAT",
         "Grade3",
-        "Data"
+        "Mathematics"
       ],
-      "difficulty_permille": 777
+      "difficulty_permille": 778
     },
     {
-      "front": "What is important about Grade 3 Mathematics?",
-      "back": "Grade 3 mathematics content",
+      "front": "Does a class survey prove what every child in a city prefers?",
+      "back": "No; the claim must be limited to the group surveyed.",
       "tags": [
         "CAPS.Mathematics.Gr3.DAT",
         "Grade3",
-        "Data"
+        "Mathematics"
       ],
-      "difficulty_permille": 888
+      "difficulty_permille": 889
     }
   ],
   "quality": {
     "coherence": 0.87999994,
     "hallucination_detected": false,
-    "needs_human_review": false,
-    "veto_count": 0
+    "needs_human_review": true,
+    "veto_count": 0,
+    "review_status": "draft_requires_educator_review",
+    "metrics_valid_for_current_revision": false,
+    "review_notes": "Substantive instructional rewrite; requires a qualified CAPS Grade 3 mathematics educator to verify curriculum alignment, worked solutions, assessment keys, and accessibility before release qualification."
   },
   "generated_at": "2026-03-30T13:17:33"
 }

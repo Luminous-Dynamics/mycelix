@@ -2,124 +2,124 @@
   "node_id": "CAPS.Mathematics.Gr3.MUL",
   "lesson": {
     "standard_code": "CAPS.Mathematics.Gr3.MUL",
-    "title": "CAPS.Mathematics.Gr3.MUL: Times tables 2-10. Multiply 2-digit by 1-digit. Division ...",
+    "title": "Multiplication and Division: Equal Groups, Times Tables and Sharing",
     "grade_level": "Grade3",
     "bloom_level": "Apply",
-    "explanation": "Grade 3 mathematics content.",
+    "explanation": "Multiplication finds the total in equal groups. For example, 4 groups of 3 can be shown as 3 + 3 + 3 + 3 or 4 × 3. The factors are the numbers being multiplied and the product is the result. Division shares a total into equal groups or asks how many groups of a given size fit. Multiplication and division check each other: if 8 × 7 = 56, then 56 ÷ 8 = 7. For two-digit multiplication, split the number into tens and ones, calculate each part, and add the partial products.",
     "examples": [
       {
-        "problem": "Solve a Grade 3 Mathematics problem.",
+        "problem": "There are 5 baskets with 3 oranges in each basket. How many oranges are there?",
         "steps": [
           {
-            "instruction": "Step 1: Read the question carefully",
-            "result": "understand"
+            "instruction": "Identify equal groups.",
+            "result": "There are 5 groups, each with 3 oranges."
           },
           {
-            "instruction": "Step 2: Show your working",
-            "result": "calculate"
+            "instruction": "Represent the groups as repeated addition or multiplication.",
+            "result": "3 + 3 + 3 + 3 + 3 = 5 × 3."
           },
           {
-            "instruction": "Step 3: Check your answer",
-            "result": "verify"
+            "instruction": "Calculate the total.",
+            "result": "5 × 3 = 15 oranges."
           }
         ],
-        "answer": "Answer: See worked solution",
-        "visual_description": null
+        "answer": "15 oranges.",
+        "visual_description": "Five baskets with three orange dots inside each basket."
       },
       {
-        "problem": "Solve a Grade 3 Mathematics problem.",
+        "problem": "Calculate 24 × 3.",
         "steps": [
           {
-            "instruction": "Step 1: Read the question carefully",
-            "result": "understand"
+            "instruction": "Split 24 into 20 and 4.",
+            "result": "24 × 3 = (20 × 3) + (4 × 3)."
           },
           {
-            "instruction": "Step 2: Show your working",
-            "result": "calculate"
+            "instruction": "Multiply each part.",
+            "result": "20 × 3 = 60 and 4 × 3 = 12."
           },
           {
-            "instruction": "Step 3: Check your answer",
-            "result": "verify"
+            "instruction": "Add the partial products.",
+            "result": "60 + 12 = 72."
           }
         ],
-        "answer": "Answer: See worked solution",
-        "visual_description": null
+        "answer": "24 × 3 = 72.",
+        "visual_description": "Show 3 groups of 20 and 3 groups of 4, then combine 60 and 12."
       },
       {
-        "problem": "Solve a Grade 3 Mathematics problem.",
+        "problem": "Share 17 counters equally among 4 children. How many does each child get and how many remain?",
         "steps": [
           {
-            "instruction": "Step 1: Read the question carefully",
-            "result": "understand"
+            "instruction": "Give one counter to each child repeatedly until each has 4.",
+            "result": "Four children receive 4 counters each, using 16 counters."
           },
           {
-            "instruction": "Step 2: Show your working",
-            "result": "calculate"
+            "instruction": "Count the counters used.",
+            "result": "4 × 4 = 16."
           },
           {
-            "instruction": "Step 3: Check your answer",
-            "result": "verify"
+            "instruction": "Count what is left from 17.",
+            "result": "17 − 16 = 1 counter remains."
           }
         ],
-        "answer": "Answer: See worked solution",
-        "visual_description": null
+        "answer": "Each child gets 4 counters and 1 counter remains.",
+        "visual_description": "Four groups of four counters and one counter outside the groups."
       }
     ],
     "practice_problems": [
       {
-        "question": "What is 6 x 7?",
+        "question": "What is 6 × 7?",
         "answer": "42",
         "difficulty_permille": 125,
         "bloom_level": "Remember",
         "hints": [
-          "Think of the 6 times table"
+          "Use a known 6 or 7 times-table fact."
         ],
-        "explanation": "6 x 7 = 42.",
+        "explanation": "Six groups of seven total 42; the multiplication fact can be checked with 7 × 6.",
         "distractors": [
           "36",
-          "48",
-          "40"
+          "45",
+          "48"
         ]
       },
       {
-        "question": "What is 8 x 9?",
+        "question": "What is 8 × 9?",
         "answer": "72",
         "difficulty_permille": 250,
-        "bloom_level": "Remember",
+        "bloom_level": "Apply",
         "hints": [
-          "8 x 9: think 8 x 10 - 8"
+          "Multiply 8 by 10 and subtract one group of 8."
         ],
-        "explanation": "8 x 10 = 80, minus 8 = 72.",
+        "explanation": "Use 8 × 10 − 8 = 80 − 8 = 72.",
         "distractors": [
           "63",
-          "81",
-          "64"
+          "64",
+          "81"
         ]
       },
       {
-        "question": "What is 24 x 3?",
+        "question": "Calculate 24 × 3.",
         "answer": "72",
         "difficulty_permille": 375,
         "bloom_level": "Apply",
         "hints": [
-          "Break it up: 20 x 3 and 4 x 3"
+          "Split 24 into 20 and 4."
         ],
-        "explanation": "20 x 3 = 60, 4 x 3 = 12. 60 + 12 = 72.",
+        "explanation": "20 × 3 = 60 and 4 × 3 = 12; 60 + 12 = 72.",
         "distractors": [
           "62",
-          "82",
-          "68"
+          "74",
+          "82"
         ]
       },
       {
-        "question": "What is 56 / 8?",
+        "question": "What is 56 ÷ 8?",
         "answer": "7",
         "difficulty_permille": 500,
         "bloom_level": "Apply",
         "hints": [
-          "Think: 8 x ? = 56"
+          "Ask 8 times what number equals 56."
         ],
-        "explanation": "8 x 7 = 56, so 56 / 8 = 7.",
+        "explanation": "8 × 7 = 56, so 56 divided into groups of 8 makes 7 groups.",
         "distractors": [
           "6",
           "8",
@@ -127,38 +127,88 @@
         ]
       },
       {
-        "question": "There are 9 rows of desks with 4 desks in each row. How many desks?",
-        "answer": "36",
+        "question": "There are 9 rows of desks with 4 desks in each row. How many desks are there?",
+        "answer": "36 desks",
         "difficulty_permille": 625,
         "bloom_level": "Apply",
         "hints": [
-          "Multiply: 9 x 4"
+          "Count 9 equal groups of 4."
         ],
-        "explanation": "9 x 4 = 36 desks.",
+        "explanation": "9 × 4 = 36 desks.",
         "distractors": [
-          "32",
-          "40",
-          "34"
+          "13 desks",
+          "32 desks",
+          "35 desks"
+        ]
+      },
+      {
+        "question": "A coach shares 29 cones equally among 5 teams. How many cones does each team receive and how many remain?",
+        "answer": "5 cones each, 4 remain",
+        "difficulty_permille": 750,
+        "bloom_level": "Analyze",
+        "hints": [
+          "Find the largest whole number of groups of 5 that fit into 29."
+        ],
+        "explanation": "5 × 5 = 25 and 29 − 25 = 4; this result is not an equal share of all 29 because 4 remain.",
+        "distractors": [
+          "4 cones each, 9 remain",
+          "5 cones each, 3 remain",
+          "6 each, no remainder"
+        ]
+      },
+      {
+        "question": "Write a real-life story for 6 × 4 and solve it.",
+        "answer": "Answers vary; it must describe six equal groups of four and total 24.",
+        "difficulty_permille": 875,
+        "bloom_level": "Create",
+        "hints": [
+          "Make a story with 6 groups and 4 objects in each group."
+        ],
+        "explanation": "Multiplication represents equal-sized groups.",
+        "distractors": [
+          "A story with six groups of four has 10 objects altogether.",
+          "The total must be 10.",
+          "There must be six groups of four, and the total is 46."
         ]
       }
     ],
     "hints": [
-      "What do you know about Grade 3 Mathematics?",
-      "Try the method for Grade 3 Mathematics.",
-      "Start with what you know about Grade 3 Mathematics."
+      "Draw equal groups or use repeated addition if the times-table fact is unfamiliar.",
+      "For a two-digit number, multiply the tens and ones separately, then add.",
+      "For division, check the answer by multiplying the group size by the number of groups."
     ],
     "key_vocabulary": [
       {
-        "term": "mathematics",
-        "definition": "A key word in this topic",
-        "example_usage": "Used in Grade 3 maths."
+        "term": "factor",
+        "definition": "A number being multiplied by another number.",
+        "example_usage": "In 4 × 6, 4 and 6 are factors."
+      },
+      {
+        "term": "product",
+        "definition": "The answer to a multiplication calculation.",
+        "example_usage": "The product of 4 and 6 is 24."
+      },
+      {
+        "term": "quotient",
+        "definition": "The answer to a division calculation.",
+        "example_usage": "The quotient of 56 ÷ 8 is 7."
+      },
+      {
+        "term": "remainder",
+        "definition": "The amount left after making as many equal whole groups as possible.",
+        "example_usage": "17 shared among 4 children leaves 1 counter."
       }
     ],
     "misconceptions": [
       {
-        "misconception": "A common mistake in Grade 3 Mathematics.",
-        "correction": "The correct way.",
-        "why_students_think_this": "Understanding why helps."
+        "misconception": "Multiplication always makes a number bigger.",
+        "correction": "Multiplying by 1 keeps the number the same, and multiplying by 0 gives 0.",
+        "why_students_think_this": "Early examples often use factors greater than one, which can create this expectation."
+      },
+      {
+        "misconception": "Division always leaves nothing over.",
+        "correction": "Some totals cannot be shared into equal whole-number groups with no remainder.",
+        "why_students_think_this": "Check whether the total is a multiple of the group size."
       }
     ],
     "generation_quality": {
@@ -166,75 +216,73 @@
       "hallucination_detected": false,
       "veto_count": 0,
       "epistemic_confidence": 0.87999994,
-      "needs_human_review": false
+      "needs_human_review": true,
+      "metrics_valid_for_current_revision": false,
+      "review_notes": "Prior generation metrics predate this rewrite and must not be treated as validation of the current content."
     }
   },
   "assessment": {
     "standard_code": "CAPS.Mathematics.Gr3.MUL",
-    "title": "Assessment: Times tables 2-10. Multiply 2-digit by 1-digit. Division as sharing and grouping. Remainders",
+    "title": "Assessment: Multiplication and Division: Equal Groups, Times Tables and Sharing",
     "items": [
       {
-        "question": "Explain Grade 3 Mathematics.",
+        "question": "What is the product of 5 × 4?",
         "item_type": "ShortAnswer",
-        "correct_answer": "Answer.",
+        "correct_answer": "20",
         "points": 1,
         "bloom_level": "Remember",
         "rubric": null,
-        "hint": "2"
+        "hint": "Count five groups of four."
       },
       {
-        "question": "Explain Grade 3 Mathematics.",
+        "question": "Explain what 4 × 3 means using equal groups.",
         "item_type": "ShortAnswer",
-        "correct_answer": "Answer.",
+        "correct_answer": "Four equal groups with three objects in each group; 12 objects altogether.",
         "points": 2,
         "bloom_level": "Understand",
         "rubric": null,
-        "hint": "2"
+        "hint": "Draw four circles with three objects in each."
       },
       {
-        "question": "Explain Grade 3 Mathematics.",
+        "question": "Calculate 24 × 3.",
         "item_type": "ShortAnswer",
-        "correct_answer": "Answer.",
+        "correct_answer": "72",
         "points": 2,
         "bloom_level": "Apply",
         "rubric": null,
-        "hint": "2"
+        "hint": "Split 24 into 20 and 4."
       },
       {
-        "question": "Explain Grade 3 Mathematics.",
+        "question": "Use 8 × 7 = 56 to find 56 ÷ 8 and explain the link.",
         "item_type": "ShortAnswer",
-        "correct_answer": "Answer.",
+        "correct_answer": "56 ÷ 8 = 7 because 8 × 7 = 56.",
         "points": 3,
         "bloom_level": "Analyze",
         "rubric": null,
-        "hint": "2"
+        "hint": "Multiplication and division undo each other."
       },
       {
-        "question": "Explain Grade 3 Mathematics.",
+        "question": "A learner says 17 ÷ 4 = 4 with no remainder. Is that complete?",
         "item_type": "ShortAnswer",
-        "correct_answer": "Answer.",
+        "correct_answer": "No. 4 × 4 = 16, leaving 1; the whole-number result is 4 remainder 1.",
         "points": 3,
         "bloom_level": "Evaluate",
         "rubric": null,
-        "hint": "2"
+        "hint": "Multiply 4 groups of 4, then compare with 17."
       },
       {
-        "question": "Explain Grade 3 Mathematics.",
+        "question": "Write and solve a word problem represented by 7 × 5.",
         "item_type": "ShortAnswer",
-        "correct_answer": "Answer.",
+        "correct_answer": "Answers vary; it must represent seven groups of five, with 35 in total.",
         "points": 4,
         "bloom_level": "Create",
         "rubric": null,
-        "hint": "2"
+        "hint": "Use seven equal groups with five in each."
       }
     ],
     "total_points": 15,
     "estimated_minutes": 18,
     "bloom_distribution": [
-      [
-        "Evaluate",
-        1
-      ],
       [
         "Remember",
         1
@@ -244,11 +292,15 @@
         1
       ],
       [
+        "Apply",
+        1
+      ],
+      [
         "Analyze",
         1
       ],
       [
-        "Apply",
+        "Evaluate",
         1
       ],
       [
@@ -259,91 +311,94 @@
   },
   "flashcards": [
     {
-      "front": "What is important about Grade 3 Mathematics?",
-      "back": "Grade 3 mathematics content",
+      "front": "What is the product of 7 × 8?",
+      "back": "56.",
       "tags": [
         "CAPS.Mathematics.Gr3.MUL",
         "Grade3",
-        "Operations"
+        "Mathematics"
       ],
       "difficulty_permille": 111
     },
     {
-      "front": "What is important about Grade 3 Mathematics?",
-      "back": "Grade 3 mathematics content",
+      "front": "What are factors?",
+      "back": "The numbers being multiplied.",
       "tags": [
         "CAPS.Mathematics.Gr3.MUL",
         "Grade3",
-        "Operations"
+        "Mathematics"
       ],
       "difficulty_permille": 222
     },
     {
-      "front": "What is important about Grade 3 Mathematics?",
-      "back": "Grade 3 mathematics content",
+      "front": "What does a quotient name?",
+      "back": "The result of a division calculation.",
       "tags": [
         "CAPS.Mathematics.Gr3.MUL",
         "Grade3",
-        "Operations"
+        "Mathematics"
       ],
       "difficulty_permille": 333
     },
     {
-      "front": "What is important about Grade 3 Mathematics?",
-      "back": "Grade 3 mathematics content",
+      "front": "What is 56 ÷ 8?",
+      "back": "7.",
       "tags": [
         "CAPS.Mathematics.Gr3.MUL",
         "Grade3",
-        "Operations"
+        "Mathematics"
       ],
       "difficulty_permille": 444
     },
     {
-      "front": "What is important about Grade 3 Mathematics?",
-      "back": "Grade 3 mathematics content",
+      "front": "How can you calculate 24 × 3?",
+      "back": "Calculate 20 × 3 and 4 × 3, then add 60 + 12 = 72.",
       "tags": [
         "CAPS.Mathematics.Gr3.MUL",
         "Grade3",
-        "Operations"
+        "Mathematics"
       ],
-      "difficulty_permille": 555
+      "difficulty_permille": 556
     },
     {
-      "front": "What is important about Grade 3 Mathematics?",
-      "back": "Grade 3 mathematics content",
+      "front": "What is a remainder?",
+      "back": "The amount left after making equal whole groups.",
       "tags": [
         "CAPS.Mathematics.Gr3.MUL",
         "Grade3",
-        "Operations"
+        "Mathematics"
       ],
-      "difficulty_permille": 666
+      "difficulty_permille": 667
     },
     {
-      "front": "What is important about Grade 3 Mathematics?",
-      "back": "Grade 3 mathematics content",
+      "front": "What multiplication fact checks 42 ÷ 6 = 7?",
+      "back": "6 × 7 = 42.",
       "tags": [
         "CAPS.Mathematics.Gr3.MUL",
         "Grade3",
-        "Operations"
+        "Mathematics"
       ],
-      "difficulty_permille": 777
+      "difficulty_permille": 778
     },
     {
-      "front": "What is important about Grade 3 Mathematics?",
-      "back": "Grade 3 mathematics content",
+      "front": "What is 9 × 4?",
+      "back": "36.",
       "tags": [
         "CAPS.Mathematics.Gr3.MUL",
         "Grade3",
-        "Operations"
+        "Mathematics"
       ],
-      "difficulty_permille": 888
+      "difficulty_permille": 889
     }
   ],
   "quality": {
     "coherence": 0.87999994,
     "hallucination_detected": false,
-    "needs_human_review": false,
-    "veto_count": 0
+    "needs_human_review": true,
+    "veto_count": 0,
+    "review_status": "draft_requires_educator_review",
+    "metrics_valid_for_current_revision": false,
+    "review_notes": "Substantive instructional rewrite; requires a qualified CAPS Grade 3 mathematics educator to verify curriculum alignment, worked solutions, assessment keys, and accessibility before release qualification."
   },
   "generated_at": "2026-03-30T13:17:33"
 }

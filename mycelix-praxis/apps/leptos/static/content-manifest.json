@@ -671,49 +671,49 @@
     "CAPS.Mathematics.Gr3.ADD": [
       {
         "path": "/curriculum/generated/math-3/caps.mathematics.gr3.add.json",
-        "title": "CAPS.Mathematics.Gr3.ADD: Add and subtract within 999. Column method. Estimate. Sol..."
+        "title": "Addition and Subtraction to 999: Place Value, Column Method, Estimation"
       }
     ],
     "CAPS.Mathematics.Gr3.DAT": [
       {
         "path": "/curriculum/generated/math-3/caps.mathematics.gr3.dat.json",
-        "title": "CAPS.Mathematics.Gr3.DAT: Collect, organise data. Bar graphs and pictographs. Mode...."
+        "title": "Collecting and Interpreting Data: Tally Charts, Pictographs, Bar Graphs and Mode"
       }
     ],
     "CAPS.Mathematics.Gr3.FRC": [
       {
         "path": "/curriculum/generated/math-3/caps.mathematics.gr3.frc.json",
-        "title": "CAPS.Mathematics.Gr3.FRC: Fractions of whole: halves, thirds, quarters, fifths, six..."
+        "title": "Understanding Fractions: Equal Parts, Unit Fractions and Fractions of Sets"
       }
     ],
     "CAPS.Mathematics.Gr3.GEO": [
       {
         "path": "/curriculum/generated/math-3/caps.mathematics.gr3.geo.json",
-        "title": "CAPS.Mathematics.Gr3.GEO: Properties of 2D shapes. Angles (right, acute, obtuse). L..."
+        "title": "2D Shapes, Angles and Symmetry: Describe and Classify Shapes"
       }
     ],
     "CAPS.Mathematics.Gr3.MEA": [
       {
         "path": "/curriculum/generated/math-3/caps.mathematics.gr3.mea.json",
-        "title": "CAPS.Mathematics.Gr3.MEA: Perimeter of shapes. Area by counting squares. Time: anal..."
+        "title": "Measurement: Perimeter, Area by Counting Squares, and Reading Time"
       }
     ],
     "CAPS.Mathematics.Gr3.MUL": [
       {
         "path": "/curriculum/generated/math-3/caps.mathematics.gr3.mul.json",
-        "title": "CAPS.Mathematics.Gr3.MUL: Times tables 2-10. Multiply 2-digit by 1-digit. Division ..."
+        "title": "Multiplication and Division: Equal Groups, Times Tables and Sharing"
       }
     ],
     "CAPS.Mathematics.Gr3.NUM": [
       {
         "path": "/curriculum/generated/math-3/caps.mathematics.gr3.num.json",
-        "title": "CAPS.Mathematics.Gr3.NUM: Place value to 999. Round to nearest 10 and 100. Compare ..."
+        "title": "Place Value to 999: Compare, Order and Round Numbers"
       }
     ],
     "CAPS.Mathematics.Gr3.PAT": [
       {
         "path": "/curriculum/generated/math-3/caps.mathematics.gr3.pat.json",
-        "title": "CAPS.Mathematics.Gr3.PAT: Patterns in addition and multiplication tables. Describe ..."
+        "title": "Number Patterns: Describe Rules and Extend Addition and Multiplication Patterns"
       }
     ],
     "CAPS.Mathematics.Gr4.DAT": [

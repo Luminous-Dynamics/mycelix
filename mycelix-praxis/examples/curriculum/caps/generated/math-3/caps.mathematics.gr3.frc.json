@@ -2,67 +2,67 @@
   "node_id": "CAPS.Mathematics.Gr3.FRC",
   "lesson": {
     "standard_code": "CAPS.Mathematics.Gr3.FRC",
-    "title": "CAPS.Mathematics.Gr3.FRC: Fractions of whole: halves, thirds, quarters, fifths, six...",
+    "title": "Understanding Fractions: Equal Parts, Unit Fractions and Fractions of Sets",
     "grade_level": "Grade3",
     "bloom_level": "Analyze",
-    "explanation": "Grade 3 mathematics content.",
+    "explanation": "A fraction describes equal parts of a whole or equal groups of objects. The denominator (bottom number) tells how many equal parts make the whole; the numerator (top number) tells how many of those parts are being considered. The parts must be equal in size. When wholes are the same size, dividing one whole into fewer equal parts makes each part larger. To find one third of a collection, share the items equally into three groups and count one group.",
     "examples": [
       {
-        "problem": "Solve a Grade 3 Mathematics problem.",
+        "problem": "A rectangle is divided into 4 equal parts and 1 part is shaded. What fraction is shaded?",
         "steps": [
           {
-            "instruction": "Step 1: Read the question carefully",
-            "result": "understand"
+            "instruction": "Count the equal parts that make the whole.",
+            "result": "There are 4 equal parts, so the denominator is 4."
           },
           {
-            "instruction": "Step 2: Show your working",
-            "result": "calculate"
+            "instruction": "Count how many parts are shaded.",
+            "result": "One part is shaded, so the numerator is 1."
           },
           {
-            "instruction": "Step 3: Check your answer",
-            "result": "verify"
+            "instruction": "Write numerator over denominator.",
+            "result": "The shaded fraction is 1/4."
           }
         ],
-        "answer": "Answer: See worked solution",
-        "visual_description": null
+        "answer": "1/4 of the rectangle is shaded.",
+        "visual_description": "A rectangle split into four equal-width cells with exactly one shaded."
       },
       {
-        "problem": "Solve a Grade 3 Mathematics problem.",
+        "problem": "Find 1/3 of 18 counters.",
         "steps": [
           {
-            "instruction": "Step 1: Read the question carefully",
-            "result": "understand"
+            "instruction": "The denominator 3 means share the counters into 3 equal groups.",
+            "result": "18 counters ÷ 3 = 6 counters per group."
           },
           {
-            "instruction": "Step 2: Show your working",
-            "result": "calculate"
+            "instruction": "Check the groups are equal.",
+            "result": "Each group contains 6 counters."
           },
           {
-            "instruction": "Step 3: Check your answer",
-            "result": "verify"
+            "instruction": "One third is one of the three groups.",
+            "result": "1/3 of 18 is 6."
           }
         ],
-        "answer": "Answer: See worked solution",
-        "visual_description": null
+        "answer": "1/3 of 18 is 6.",
+        "visual_description": "Eighteen dots arranged into three equal groups of six."
       },
       {
-        "problem": "Solve a Grade 3 Mathematics problem.",
+        "problem": "Which is larger for equal-sized wholes: 1/2 or 1/4?",
         "steps": [
           {
-            "instruction": "Step 1: Read the question carefully",
-            "result": "understand"
+            "instruction": "Imagine two identical strips.",
+            "result": "Split one strip into 2 equal parts and the other into 4 equal parts."
           },
           {
-            "instruction": "Step 2: Show your working",
-            "result": "calculate"
+            "instruction": "Compare one part from each strip.",
+            "result": "A half is larger than a quarter."
           },
           {
-            "instruction": "Step 3: Check your answer",
-            "result": "verify"
+            "instruction": "Write the comparison.",
+            "result": "1/2 > 1/4."
           }
         ],
-        "answer": "Answer: See worked solution",
-        "visual_description": null
+        "answer": "1/2 is larger than 1/4 when the wholes are the same size.",
+        "visual_description": "Two identical strips: one split into halves, the other into quarters; shade one part of each."
       }
     ],
     "practice_problems": [
@@ -72,58 +72,58 @@
         "difficulty_permille": 125,
         "bloom_level": "Remember",
         "hints": [
-          "Count the shaded parts over total parts"
+          "Count the shaded parts, then the total equal parts."
         ],
-        "explanation": "1 part shaded out of 4 total parts = 1/4.",
+        "explanation": "One shaded part out of four equal parts is 1/4.",
         "distractors": [
-          "1/2",
           "1/3",
-          "3/4"
+          "2/4",
+          "4/1"
         ]
       },
       {
-        "question": "Which is bigger: 1/2 or 1/4?",
+        "question": "Which is larger for equal-sized wholes: 1/2 or 1/4?",
         "answer": "1/2",
         "difficulty_permille": 250,
         "bloom_level": "Understand",
         "hints": [
-          "Think about cutting a cake into 2 vs 4 pieces"
+          "Compare equal-sized wholes divided into 2 or 4 parts."
         ],
-        "explanation": "Half of something is bigger than a quarter. 1/2 > 1/4.",
+        "explanation": "A half is a larger share than one of four equal quarters.",
         "distractors": [
           "1/4",
-          "They are equal",
-          "1/3"
+          "1/3",
+          "They are always equal."
         ]
       },
       {
-        "question": "What is 1/3 of 18?",
-        "answer": "6",
+        "question": "What is 1/3 of 18 counters?",
+        "answer": "6 counters",
         "difficulty_permille": 375,
         "bloom_level": "Apply",
         "hints": [
-          "Divide 18 by 3"
+          "Find the number in one of three equal groups."
         ],
-        "explanation": "18 / 3 = 6. One third of 18 is 6.",
+        "explanation": "Share 18 counters equally into 3 groups: 18 ÷ 3 = 6.",
         "distractors": [
-          "3",
-          "9",
-          "5"
+          "3 counters",
+          "5 counters",
+          "9 counters"
         ]
       },
       {
-        "question": "Write an equivalent fraction for 2/4.",
-        "answer": "1/2",
+        "question": "Which shows one whole divided into fifths?",
+        "answer": "5 equal parts",
         "difficulty_permille": 500,
-        "bloom_level": "Understand",
+        "bloom_level": "Analyze",
         "hints": [
-          "Divide both numerator and denominator by 2"
+          "Look for five parts of the same size."
         ],
-        "explanation": "2/4 = 1/2. Both 2 and 4 can be divided by 2.",
+        "explanation": "Fifths are made by splitting the whole into five equal parts.",
         "distractors": [
-          "2/3",
-          "1/4",
-          "3/4"
+          "5 parts of different sizes",
+          "4 equal parts",
+          "2 equal parts"
         ]
       },
       {
@@ -132,33 +132,83 @@
         "difficulty_permille": 625,
         "bloom_level": "Apply",
         "hints": [
-          "Divide 30 by 5"
+          "Divide the total by the denominator."
         ],
-        "explanation": "30 / 5 = 6. One fifth of 30 is 6.",
+        "explanation": "30 divided into 5 equal groups gives 6 in each group.",
         "distractors": [
           "5",
           "10",
-          "3"
+          "25"
+        ]
+      },
+      {
+        "question": "A sandwich is cut into 3 equal pieces. Sam eats 2 pieces. What fraction of the sandwich did Sam eat?",
+        "answer": "2/3",
+        "difficulty_permille": 750,
+        "bloom_level": "Apply",
+        "hints": [
+          "Numerator = pieces eaten; denominator = total equal pieces."
+        ],
+        "explanation": "Two of the three equal pieces were eaten, so the fraction is 2/3.",
+        "distractors": [
+          "1/3",
+          "3/2",
+          "2/5"
+        ]
+      },
+      {
+        "question": "A learner shades one quarter of a rectangle, but the four parts are different sizes. Is it a correct model of 1/4? Explain.",
+        "answer": "Not necessarily: the four parts must be equal in size for the rectangle to be divided into quarters.",
+        "difficulty_permille": 875,
+        "bloom_level": "Evaluate",
+        "hints": [
+          "Check whether every part has the same area."
+        ],
+        "explanation": "Fractions name equal parts of a whole; unequal parts do not represent quarters.",
+        "distractors": [
+          "Yes, any four parts are quarters.",
+          "No, each part must be a different size.",
+          "Only if the rectangle is blue."
         ]
       }
     ],
     "hints": [
-      "What do you know about Grade 3 Mathematics?",
-      "Try the method for Grade 3 Mathematics.",
-      "Start with what you know about Grade 3 Mathematics."
+      "The denominator names the number of equal parts in the whole.",
+      "The numerator counts the parts you mean.",
+      "For a fraction of a set, share the total into equal groups."
     ],
     "key_vocabulary": [
       {
-        "term": "mathematics",
-        "definition": "A key word in this topic",
-        "example_usage": "Used in Grade 3 maths."
+        "term": "fraction",
+        "definition": "A number describing equal parts of a whole or a set.",
+        "example_usage": "Three of four equal parts is 3/4."
+      },
+      {
+        "term": "numerator",
+        "definition": "The top number in a fraction; it counts the parts considered.",
+        "example_usage": "In 2/5, the numerator is 2."
+      },
+      {
+        "term": "denominator",
+        "definition": "The bottom number; it tells how many equal parts make the whole.",
+        "example_usage": "In 2/5, the denominator is 5."
+      },
+      {
+        "term": "equal parts",
+        "definition": "Parts of the same size.",
+        "example_usage": "Four equal parts make quarters."
       }
     ],
     "misconceptions": [
       {
-        "misconception": "A common mistake in Grade 3 Mathematics.",
-        "correction": "The correct way.",
-        "why_students_think_this": "Understanding why helps."
+        "misconception": "The denominator tells how many parts are shaded.",
+        "correction": "The denominator tells how many equal parts make the whole; the numerator counts selected parts.",
+        "why_students_think_this": "Both numbers matter and have different jobs."
+      },
+      {
+        "misconception": "Any four pieces are quarters even when sizes differ.",
+        "correction": "Quarters require four equal-sized parts of the same whole.",
+        "why_students_think_this": "A fraction describes the size of the parts, not just the count."
       }
     ],
     "generation_quality": {
@@ -166,85 +216,87 @@
       "hallucination_detected": false,
       "veto_count": 0,
       "epistemic_confidence": 0.87999994,
-      "needs_human_review": false
+      "needs_human_review": true,
+      "metrics_valid_for_current_revision": false,
+      "review_notes": "Prior generation metrics predate this rewrite and must not be treated as validation of the current content."
     }
   },
   "assessment": {
     "standard_code": "CAPS.Mathematics.Gr3.FRC",
-    "title": "Assessment: Fractions of whole: halves, thirds, quarters, fifths, sixths, eighths. Compare fractions. Equivalent fractions intro",
+    "title": "Assessment: Understanding Fractions: Equal Parts, Unit Fractions and Fractions of Sets",
     "items": [
       {
-        "question": "Explain Grade 3 Mathematics.",
+        "question": "In 3/5, which number is the denominator?",
         "item_type": "ShortAnswer",
-        "correct_answer": "Answer.",
+        "correct_answer": "5",
         "points": 1,
         "bloom_level": "Remember",
         "rubric": null,
-        "hint": "2"
+        "hint": "The denominator is the bottom number."
       },
       {
-        "question": "Explain Grade 3 Mathematics.",
+        "question": "What does the numerator tell you?",
         "item_type": "ShortAnswer",
-        "correct_answer": "Answer.",
+        "correct_answer": "How many parts are being considered or selected.",
         "points": 2,
         "bloom_level": "Understand",
         "rubric": null,
-        "hint": "2"
+        "hint": "Look at the top number."
       },
       {
-        "question": "Explain Grade 3 Mathematics.",
+        "question": "Find 1/4 of 20 counters.",
         "item_type": "ShortAnswer",
-        "correct_answer": "Answer.",
+        "correct_answer": "5 counters.",
         "points": 2,
         "bloom_level": "Apply",
         "rubric": null,
-        "hint": "2"
+        "hint": "Share 20 counters equally into four groups."
       },
       {
-        "question": "Explain Grade 3 Mathematics.",
+        "question": "Two learners shade one part of two identical shapes. One shape is split into halves; the other into quarters. Are the shaded amounts equal?",
         "item_type": "ShortAnswer",
-        "correct_answer": "Answer.",
+        "correct_answer": "No. One half is larger than one quarter when the wholes are the same size.",
         "points": 3,
         "bloom_level": "Analyze",
         "rubric": null,
-        "hint": "2"
+        "hint": "Compare one of two equal parts with one of four equal parts."
       },
       {
-        "question": "Explain Grade 3 Mathematics.",
+        "question": "A shape is split into five parts, but only one part is much smaller than the others. Is the small part one fifth?",
         "item_type": "ShortAnswer",
-        "correct_answer": "Answer.",
+        "correct_answer": "The whole has not been divided into five equal parts, so the pieces are not fifths.",
         "points": 3,
         "bloom_level": "Evaluate",
         "rubric": null,
-        "hint": "2"
+        "hint": "Fractions require equal-sized parts."
       },
       {
-        "question": "Explain Grade 3 Mathematics.",
+        "question": "Describe how you would show 3/4 using paper.",
         "item_type": "ShortAnswer",
-        "correct_answer": "Answer.",
+        "correct_answer": "Fold or draw a whole into four equal parts and shade three of them.",
         "points": 4,
         "bloom_level": "Create",
         "rubric": null,
-        "hint": "2"
+        "hint": "Make four equal parts before shading."
       }
     ],
     "total_points": 15,
     "estimated_minutes": 18,
     "bloom_distribution": [
       [
-        "Understand",
-        1
-      ],
-      [
-        "Analyze",
-        1
-      ],
-      [
         "Remember",
         1
       ],
       [
+        "Understand",
+        1
+      ],
+      [
         "Apply",
+        1
+      ],
+      [
+        "Analyze",
         1
       ],
       [
@@ -259,91 +311,94 @@
   },
   "flashcards": [
     {
-      "front": "What is important about Grade 3 Mathematics?",
-      "back": "Grade 3 mathematics content",
+      "front": "What does the denominator tell you?",
+      "back": "How many equal parts make the whole.",
       "tags": [
         "CAPS.Mathematics.Gr3.FRC",
         "Grade3",
-        "Numbers"
+        "Mathematics"
       ],
       "difficulty_permille": 111
     },
     {
-      "front": "What is important about Grade 3 Mathematics?",
-      "back": "Grade 3 mathematics content",
+      "front": "What does the numerator tell you?",
+      "back": "How many parts are being considered.",
       "tags": [
         "CAPS.Mathematics.Gr3.FRC",
         "Grade3",
-        "Numbers"
+        "Mathematics"
       ],
       "difficulty_permille": 222
     },
     {
-      "front": "What is important about Grade 3 Mathematics?",
-      "back": "Grade 3 mathematics content",
+      "front": "What fraction is one of six equal parts?",
+      "back": "1/6.",
       "tags": [
         "CAPS.Mathematics.Gr3.FRC",
         "Grade3",
-        "Numbers"
+        "Mathematics"
       ],
       "difficulty_permille": 333
     },
     {
-      "front": "What is important about Grade 3 Mathematics?",
-      "back": "Grade 3 mathematics content",
+      "front": "What is 1/3 of 12?",
+      "back": "4.",
       "tags": [
         "CAPS.Mathematics.Gr3.FRC",
         "Grade3",
-        "Numbers"
+        "Mathematics"
       ],
       "difficulty_permille": 444
     },
     {
-      "front": "What is important about Grade 3 Mathematics?",
-      "back": "Grade 3 mathematics content",
+      "front": "Which is larger: 1/2 or 1/4 of equal-sized wholes?",
+      "back": "1/2.",
       "tags": [
         "CAPS.Mathematics.Gr3.FRC",
         "Grade3",
-        "Numbers"
+        "Mathematics"
       ],
-      "difficulty_permille": 555
+      "difficulty_permille": 556
     },
     {
-      "front": "What is important about Grade 3 Mathematics?",
-      "back": "Grade 3 mathematics content",
+      "front": "What must be true of parts called quarters?",
+      "back": "There must be four equal-sized parts.",
       "tags": [
         "CAPS.Mathematics.Gr3.FRC",
         "Grade3",
-        "Numbers"
+        "Mathematics"
       ],
-      "difficulty_permille": 666
+      "difficulty_permille": 667
     },
     {
-      "front": "What is important about Grade 3 Mathematics?",
-      "back": "Grade 3 mathematics content",
+      "front": "What fraction is two shaded pieces out of five equal pieces?",
+      "back": "2/5.",
       "tags": [
         "CAPS.Mathematics.Gr3.FRC",
         "Grade3",
-        "Numbers"
+        "Mathematics"
       ],
-      "difficulty_permille": 777
+      "difficulty_permille": 778
     },
     {
-      "front": "What is important about Grade 3 Mathematics?",
-      "back": "Grade 3 mathematics content",
+      "front": "How do you find one fifth of 25 objects?",
+      "back": "Share into five equal groups; each group has 5 objects.",
       "tags": [
         "CAPS.Mathematics.Gr3.FRC",
         "Grade3",
-        "Numbers"
+        "Mathematics"
       ],
-      "difficulty_permille": 888
+      "difficulty_permille": 889
     }
   ],
   "quality": {
     "coherence": 0.87999994,
     "hallucination_detected": false,
-    "needs_human_review": false,
-    "veto_count": 0
+    "needs_human_review": true,
+    "veto_count": 0,
+    "review_status": "draft_requires_educator_review",
+    "metrics_valid_for_current_revision": false,
+    "review_notes": "Substantive instructional rewrite; requires a qualified CAPS Grade 3 mathematics educator to verify curriculum alignment, worked solutions, assessment keys, and accessibility before release qualification."
   },
   "generated_at": "2026-03-30T13:17:33"
 }
