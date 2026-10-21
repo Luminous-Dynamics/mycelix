@@ -1850,6 +1850,29 @@ mod tests {
                 "SOTA gate must require {field}"
             );
         }
+        for field in [
+            "baseline_run_digest_blake3",
+            "replication_run_digest_blake3",
+            "held_out_split_digest_sha256",
+        ] {
+            assert_eq!(
+                sota_gate.pointer(&format!("/then/properties/{field}/type")),
+                Some(&Value::String("string".to_owned())),
+                "SOTA gate must require non-null {field}"
+            );
+        }
+        assert!(
+            sota_gate
+                .pointer("/then/properties/aggregate_metrics/items/required")
+                .and_then(Value::as_array)
+                .is_some_and(|fields| fields.iter().any(|field| field.as_str() == Some("confidence_interval_95"))),
+            "strong claims must include confidence intervals"
+        );
+        assert_eq!(
+            sota_gate.pointer("/then/properties/aggregate_metrics/items/properties/paired_comparison/const"),
+            Some(&Value::Bool(true)),
+            "strong claims must use paired comparisons"
+        );
     }
 
     #[test]
