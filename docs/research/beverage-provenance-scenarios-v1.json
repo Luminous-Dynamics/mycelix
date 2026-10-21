@@ -128,6 +128,53 @@
         "measured_and_modelled_values_separated"
       ],
       "claim_ceiling": "A partial meter boundary or undisclosed missing interval cannot support an unqualified savings claim."
+    },
+    {
+      "id": "BP-013",
+      "name": "model_anomaly_score_claimed_as_contamination_confirmation",
+      "expected_disposition": "REJECT_CLAIM",
+      "guards": [
+        "modelled_evidence_not_promoted_to_measured_lab_result",
+        "lab_sample_identity_method_and_result_required_for_lab_claim",
+        "model_residual_is_not_a_food_safety_verdict",
+        "claim_scope_and_authorized_reviewer_explicit"
+      ],
+      "claim_ceiling": "A process anomaly score is not a microbiological diagnosis, contamination confirmation or food-safety certification."
+    },
+    {
+      "id": "BP-014",
+      "name": "sensor_drift_mimics_abnormal_fermentation",
+      "expected_disposition": "INELIGIBLE",
+      "guards": [
+        "sensor_fault_hypothesis_preserved",
+        "calibration_state_and_time_alignment_checked",
+        "unverified_sensor_data_cannot_support_contamination_claim",
+        "unknown_is_not_normal_or_contaminated"
+      ],
+      "claim_ceiling": "A model discrepancy cannot distinguish sensor drift from a process disturbance without additional evidence."
+    },
+    {
+      "id": "BP-015",
+      "name": "model_switches_estimator_without_auditable_reason",
+      "expected_disposition": "REGULATORY_CLAIM_INDETERMINATE",
+      "guards": [
+        "switch_rule_version_and_trigger_recorded",
+        "data_prefix_digest_bound_to_estimate",
+        "model_class_and_uncertainty_recorded",
+        "switch_event_does_not_override_hard_gates"
+      ],
+      "claim_ceiling": "A versioned estimate can be audited; model switching does not make the resulting assertion empirically true."
+    },
+    {
+      "id": "BP-016",
+      "name": "confidential_industrial_paper_presented_as_public_batch_evidence",
+      "expected_disposition": "INELIGIBLE_FOR_REUSE_OR_DISCLOSURE",
+      "guards": [
+        "source_data_availability_preserved",
+        "literature_result_class_not_promoted_to_measured_batch",
+        "rights_status_reviewed_before_reuse"
+      ],
+      "claim_ceiling": "Published metrics do not authorize reconstruction or disclosure of confidential underlying batch trajectories."
     }
   ]
 }
