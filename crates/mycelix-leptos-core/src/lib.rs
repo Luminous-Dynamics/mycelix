@@ -68,8 +68,8 @@ pub mod flow_indicator;
 pub mod forms;
 pub mod freshness;
 pub mod graph_node;
-pub mod identity_crypto;
 pub mod identity_bootstrap;
+pub mod identity_crypto;
 pub mod indlela;
 pub use mycelix_leptos_ui::loading;
 pub mod local_identity;
@@ -144,8 +144,8 @@ pub use flow_indicator::FlowIndicator;
 pub use forms::{Checkbox, FormField, Select, SelectOption, TextArea, TextInput};
 pub use freshness::{FreshnessBadge, FreshnessLevel};
 pub use graph_node::{GraphEdge, GraphNode, NodeEmphasis};
-pub use indlela::{GrowthStage, community_warmth, knowledge_freshness};
 pub use identity_bootstrap::IdentityBootstrapGate;
+pub use indlela::{GrowthStage, community_warmth, knowledge_freshness};
 pub use local_identity::{
     LocalIdentity, load_json, local_did, provide_local_identity, save_json, use_local_identity,
 };
