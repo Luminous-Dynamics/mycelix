@@ -77,7 +77,7 @@
         "explanation": "Add all four sides: 6 + 4 + 6 + 4 = 20 cm.",
         "distractors": [
           "10 cm",
-          "20 cm",
+          "18 cm",
           "24 cm"
         ]
       },
@@ -92,7 +92,7 @@
         "explanation": "Count the unit squares inside the shape.",
         "distractors": [
           "12 cm",
-          "12 square units",
+          "10 square units",
           "24 square units"
         ]
       },
@@ -107,7 +107,7 @@
         "explanation": "The minute hand at 3 marks 15 minutes past the hour.",
         "distractors": [
           "3:30",
-          "6:15",
+          "6:30",
           "6:03"
         ]
       },
@@ -122,7 +122,7 @@
         "explanation": "A square has four equal sides: 4 × 5 = 20 cm.",
         "distractors": [
           "10 cm",
-          "20 cm",
+          "25 cm",
           "25 cm"
         ]
       },
@@ -137,7 +137,7 @@
         "explanation": "Count rows and columns: 7 × 3 = 21 unit squares.",
         "distractors": [
           "10 square units",
-          "21 square units",
+          "18 square units",
           "21 cm"
         ]
       },
