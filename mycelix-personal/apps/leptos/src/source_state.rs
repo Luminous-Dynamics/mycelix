@@ -323,4 +323,83 @@ mod tests {
             _ => panic!("conflict must not be flattened"),
         }
     }
+    #[test]
+    fn every_state_has_a_distinct_serializable_classification() {
+        let stale = StaleObservation {
+            records: NonEmptyVec::new(1_u8),
+            evidence: evidence("stale-source"),
+            last_attempt_at_unix_ms: Some(1_800_000_000_300),
+            reason: StaleReason::SourceNotRechecked,
+        };
+        let claims = NonEmptyVec::new(AttributedClaim {
+            value: 1_u8,
+            evidence: evidence("claim-source"),
+        });
+
+        let cases: Vec<(SourceObservation<u8>, SourceStateKind)> = vec![
+            (
+                SourceObservation::NotChecked { source_id: "not-checked".into() },
+                SourceStateKind::NotChecked,
+            ),
+            (
+                SourceObservation::LiveWithRecords {
+                    records: NonEmptyVec::new(1),
+                    evidence: evidence("live-source"),
+                },
+                SourceStateKind::LiveWithRecords,
+            ),
+            (
+                SourceObservation::ConfirmedEmpty { evidence: evidence("empty-source") },
+                SourceStateKind::ConfirmedEmpty,
+            ),
+            (
+                SourceObservation::Unavailable {
+                    source_id: "unavailable-source".into(),
+                    attempted_at_unix_ms: Some(1_800_000_000_400),
+                    reason: SourceFailure::Timeout,
+                    last_known: Some(stale.clone()),
+                },
+                SourceStateKind::Unavailable,
+            ),
+            (
+                SourceObservation::Stale { observation: stale },
+                SourceStateKind::Stale,
+            ),
+            (
+                SourceObservation::Mock {
+                    source_id: "mock-source".into(),
+                    fixture_id: "synthetic-v1".into(),
+                    records: vec![1],
+                },
+                SourceStateKind::Mock,
+            ),
+            (
+                SourceObservation::Disputed {
+                    source_id: "disputed-source".into(),
+                    claims,
+                    reason: "contradictory claims".into(),
+                },
+                SourceStateKind::Disputed,
+            ),
+            (
+                SourceObservation::NotIntegrated {
+                    source_id: "unsupported-source".into(),
+                    reason: "adapter absent".into(),
+                },
+                SourceStateKind::NotIntegrated,
+            ),
+        ];
+
+        let mut seen = std::collections::HashSet::new();
+        for (observation, expected) in cases {
+            assert_eq!(observation.kind(), expected);
+            assert!(seen.insert(expected), "state classification must be unique");
+            let encoded = serde_json::to_string(&observation).expect("serialize source state");
+            let decoded: SourceObservation<u8> =
+                serde_json::from_str(&encoded).expect("deserialize source state");
+            assert_eq!(decoded, observation, "serde round-trip must preserve state and data");
+        }
+        assert_eq!(seen.len(), 8, "all source states must be covered");
+    }
+
 }
