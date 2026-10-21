@@ -7,9 +7,13 @@ on:
       - "crates/mycelix-leptos-core/src/identity_crypto.rs"
       - "crates/mycelix-leptos-core/Cargo.toml"
       - "mycelix-personal/apps/leptos/**"
+      - "mycelix-finance/apps/leptos/**"
       - "mycelix-climate/apps/leptos/**"
+      - "mycelix-workspace/mycelix-personal/apps/leptos/**"
+      - "mycelix-workspace/mycelix-finance/apps/leptos/**"
       - "mycelix-workspace/mycelix-climate/apps/leptos/**"
       - "mycelix-workspace/Cargo.toml"
+      - ".github/scripts/verify-no-implicit-identity-access.sh"
       - ".github/workflows/local-identity-posture.yml"
   push:
     branches: [main]
@@ -18,9 +22,13 @@ on:
       - "crates/mycelix-leptos-core/src/identity_crypto.rs"
       - "crates/mycelix-leptos-core/Cargo.toml"
       - "mycelix-personal/apps/leptos/**"
+      - "mycelix-finance/apps/leptos/**"
       - "mycelix-climate/apps/leptos/**"
+      - "mycelix-workspace/mycelix-personal/apps/leptos/**"
+      - "mycelix-workspace/mycelix-finance/apps/leptos/**"
       - "mycelix-workspace/mycelix-climate/apps/leptos/**"
       - "mycelix-workspace/Cargo.toml"
+      - ".github/scripts/verify-no-implicit-identity-access.sh"
       - ".github/workflows/local-identity-posture.yml"
   workflow_dispatch:
 
@@ -74,6 +82,9 @@ jobs:
           cargo fmt --manifest-path mycelix-personal/apps/leptos/Cargo.toml -- --check
           cargo fmt --manifest-path mycelix-climate/apps/leptos/Cargo.toml -- --check
           cargo fmt --manifest-path mycelix-workspace/mycelix-climate/apps/leptos/Cargo.toml -- --check
+      - name: Ban direct identity access in app source trees
+        shell: bash
+        run: bash .github/scripts/verify-no-implicit-identity-access.sh
       - name: Run native identity-storage posture tests
         run: cargo test --manifest-path crates/mycelix-leptos-core/Cargo.toml --locked --lib
       - name: Install wasm-pack for browser test execution
