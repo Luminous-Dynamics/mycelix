@@ -68,9 +68,37 @@ jobs:
         run: |
           command -v google-chrome || command -v google-chrome-stable || command -v chromium
           command -v chromedriver
-      - name: Execute production-parameter benchmark in headless Chrome
+      - name: Execute production-parameter benchmark and extract receipt
         env:
           WASM_BINDGEN_TEST_TIMEOUT: "180"
-        run: wasm-pack test --headless --chrome crates/mycelix-identity-kdf-bench -- --nocapture
+        shell: bash
+        run: |
+          set -euo pipefail
+          log="$(mktemp)"
+          wasm-pack test --headless --chrome crates/mycelix-identity-kdf-bench -- --nocapture 2>&1 | tee "$log"
+          receipt_line="$(grep -F 'IDENTITY_KDF_BENCHMARK_RECEIPT=' "$log" | tail -n 1 || true)"
+          if [[ -z "$receipt_line" ]]; then
+            echo "The browser test completed without a machine-readable KDF receipt." >&2
+            exit 1
+          fi
+          printf '%s\n' "${receipt_line#*IDENTITY_KDF_BENCHMARK_RECEIPT=}" > identity-kdf-benchmark-receipt.json
+          jq -e '
+            .benchmark == "mycelix-identity-pbkdf2-production"
+            and .iteration_count == 600000
+            and .sample_count == 15
+            and .secret_material_included == false
+            and (.kdf_samples_ms | length == 15)
+            and (.decrypt_samples_ms | length == 15)
+            and all(.kdf_samples_ms[]; type == "number" and . > 0)
+            and all(.decrypt_samples_ms[]; type == "number" and . > 0)
+          ' identity-kdf-benchmark-receipt.json >/dev/null
+          sha256sum identity-kdf-benchmark-receipt.json
+      - name: Upload non-secret timing receipt
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: identity-kdf-benchmark-${{ github.event.pull_request.head.sha || github.sha }}
+          path: identity-kdf-benchmark-receipt.json
+          if-no-files-found: error
+          retention-days: 14
       - name: Check patch whitespace
         run: git diff --check
