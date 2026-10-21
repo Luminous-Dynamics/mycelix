@@ -21,8 +21,14 @@
       "currency": "ZAR",
       "amount": 100,
       "counterparty_entries": [
-        {"sector": "domestic_households", "signed_amount": -100},
-        {"sector": "domestic_firm", "signed_amount": 100}
+        {
+          "sector": "domestic_households",
+          "signed_amount": -100
+        },
+        {
+          "sector": "domestic_firm",
+          "signed_amount": 100
+        }
       ],
       "expected": {
         "consolidated_net_transfer": 0,
@@ -38,8 +44,14 @@
       "case_id": "linear-market-power",
       "kind": "analytical_market_model",
       "model": {
-        "inverse_demand": {"intercept": 50, "slope": 0.5},
-        "marginal_cost": {"intercept": 10, "slope": 0.5},
+        "inverse_demand": {
+          "intercept": 50,
+          "slope": 0.5
+        },
+        "marginal_cost": {
+          "intercept": 10,
+          "slope": 0.5
+        },
         "assumptions": [
           "single homogeneous market",
           "linear inverse demand and marginal cost",
@@ -69,7 +81,108 @@
         },
         "identity": "lost_consumer_surplus = producer_surplus_gain + deadweight_loss",
         "claim_ceiling": "The result is conditional on this toy model; it is not a general estimator of any real firm's rent or national welfare loss."
-      }
+      },
+      "sensitivity_cases": [
+        {
+          "case_id": "elastic-demand-flat-cost",
+          "inverse_demand": {
+            "intercept": 50,
+            "slope": 0.25
+          },
+          "marginal_cost": {
+            "intercept": 10,
+            "slope": 0.1
+          }
+        },
+        {
+          "case_id": "elastic-demand-rising-cost",
+          "inverse_demand": {
+            "intercept": 50,
+            "slope": 0.25
+          },
+          "marginal_cost": {
+            "intercept": 10,
+            "slope": 0.5
+          }
+        },
+        {
+          "case_id": "elastic-demand-steep-cost",
+          "inverse_demand": {
+            "intercept": 50,
+            "slope": 0.25
+          },
+          "marginal_cost": {
+            "intercept": 10,
+            "slope": 1
+          }
+        },
+        {
+          "case_id": "reference-slope-low-cost-slope",
+          "inverse_demand": {
+            "intercept": 50,
+            "slope": 0.5
+          },
+          "marginal_cost": {
+            "intercept": 10,
+            "slope": 0.1
+          }
+        },
+        {
+          "case_id": "reference-slope-reference-cost",
+          "inverse_demand": {
+            "intercept": 50,
+            "slope": 0.5
+          },
+          "marginal_cost": {
+            "intercept": 10,
+            "slope": 0.5
+          }
+        },
+        {
+          "case_id": "reference-slope-high-cost-slope",
+          "inverse_demand": {
+            "intercept": 50,
+            "slope": 0.5
+          },
+          "marginal_cost": {
+            "intercept": 10,
+            "slope": 1
+          }
+        },
+        {
+          "case_id": "steep-demand-flat-cost",
+          "inverse_demand": {
+            "intercept": 50,
+            "slope": 1
+          },
+          "marginal_cost": {
+            "intercept": 10,
+            "slope": 0.1
+          }
+        },
+        {
+          "case_id": "steep-demand-rising-cost",
+          "inverse_demand": {
+            "intercept": 50,
+            "slope": 1
+          },
+          "marginal_cost": {
+            "intercept": 10,
+            "slope": 0.5
+          }
+        },
+        {
+          "case_id": "steep-demand-steep-cost",
+          "inverse_demand": {
+            "intercept": 50,
+            "slope": 1
+          },
+          "marginal_cost": {
+            "intercept": 10,
+            "slope": 1
+          }
+        }
+      ]
     },
     {
       "case_id": "markup-with-fixed-cost-recovery",
@@ -118,9 +231,21 @@
         "evidence_status": "synthetic_observation_for_fixture"
       },
       "valuation_scenarios": [
-        {"scenario_id": "low", "shadow_price_zar_per_tonne": 100, "modelled_damage_zar": 20000},
-        {"scenario_id": "central", "shadow_price_zar_per_tonne": 160, "modelled_damage_zar": 32000},
-        {"scenario_id": "high", "shadow_price_zar_per_tonne": 250, "modelled_damage_zar": 50000}
+        {
+          "scenario_id": "low",
+          "shadow_price_zar_per_tonne": 100,
+          "modelled_damage_zar": 20000
+        },
+        {
+          "scenario_id": "central",
+          "shadow_price_zar_per_tonne": 160,
+          "modelled_damage_zar": 32000
+        },
+        {
+          "scenario_id": "high",
+          "shadow_price_zar_per_tonne": 250,
+          "modelled_damage_zar": 50000
+        }
       ],
       "expected": {
         "physical_quantity_is_invariant_across_valuation_scenarios": true,
