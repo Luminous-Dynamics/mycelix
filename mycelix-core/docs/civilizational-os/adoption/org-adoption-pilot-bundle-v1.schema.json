@@ -13,6 +13,7 @@
     "relationship_status",
     "relationship_claim_guard",
     "data_classification",
+    "evaluation_state",
     "effects_mode",
     "claim_ceiling",
     "nonclaims",
@@ -22,8 +23,7 @@
     "metrics",
     "negative_controls",
     "export_test",
-    "rollback_test",
-    "result"
+    "rollback_test"
   ],
   "properties": {
     "schema_version": {
@@ -193,8 +193,11 @@
     "rollback_test": {
       "$ref": "#/$defs/rollbackTest"
     },
-    "result": {
-      "$ref": "#/$defs/result"
+    "evaluation_state": {
+      "enum": [
+        "contract_example_only",
+        "measured_evaluation"
+      ]
     }
   },
   "$defs": {
@@ -439,23 +442,75 @@
             "candidate_gt_baseline",
             "candidate_lte_baseline",
             "candidate_zero",
-            "informational"
+            "informational",
+            "not_measured"
           ]
         },
         "baseline_value": {
-          "type": "number"
+          "type": [
+            "number",
+            "null"
+          ]
         },
         "candidate_value": {
-          "type": "number"
+          "type": [
+            "number",
+            "null"
+          ]
         },
         "disposition": {
           "enum": [
             "pass",
             "fail",
-            "indeterminate"
+            "indeterminate",
+            "not_measured"
           ]
         }
-      }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "comparison_rule": {
+                "const": "not_measured"
+              }
+            },
+            "required": [
+              "comparison_rule"
+            ]
+          },
+          "then": {
+            "properties": {
+              "baseline_value": {
+                "const": null
+              },
+              "candidate_value": {
+                "const": null
+              },
+              "disposition": {
+                "const": "not_measured"
+              }
+            }
+          },
+          "else": {
+            "properties": {
+              "baseline_value": {
+                "type": "number"
+              },
+              "candidate_value": {
+                "type": "number"
+              },
+              "disposition": {
+                "enum": [
+                  "pass",
+                  "fail",
+                  "indeterminate"
+                ]
+              }
+            }
+          }
+        }
+      ]
     },
     "negativeControl": {
       "type": "object",
@@ -464,6 +519,7 @@
         "control_id",
         "attack",
         "expected_disposition",
+        "execution_state",
         "observed_disposition",
         "passed"
       ],
@@ -495,83 +551,265 @@
             "rejected_digest_mismatch",
             "rejected_missing_rights",
             "rejected_unauthorized_effect",
-            "accepted_incorrectly"
+            "accepted_incorrectly",
+            "not_observed"
           ]
         },
         "passed": {
-          "type": "boolean"
+          "type": [
+            "boolean",
+            "null"
+          ]
+        },
+        "execution_state": {
+          "enum": [
+            "not_executed",
+            "executed"
+          ]
         }
-      }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "execution_state": {
+                "const": "not_executed"
+              }
+            },
+            "required": [
+              "execution_state"
+            ]
+          },
+          "then": {
+            "properties": {
+              "observed_disposition": {
+                "const": "not_observed"
+              },
+              "passed": {
+                "const": null
+              }
+            }
+          },
+          "else": {
+            "properties": {
+              "observed_disposition": {
+                "enum": [
+                  "rejected_duplicate",
+                  "rejected_subject_mismatch",
+                  "claim_indeterminate",
+                  "rejected_digest_mismatch",
+                  "rejected_missing_rights",
+                  "rejected_unauthorized_effect",
+                  "accepted_incorrectly"
+                ]
+              },
+              "passed": {
+                "type": "boolean"
+              }
+            }
+          }
+        }
+      ]
     },
     "exportTest": {
       "type": "object",
       "additionalProperties": false,
       "required": [
-        "performed",
+        "execution_state",
         "expected_sha256",
         "observed_sha256",
         "round_trip_matches"
       ],
       "properties": {
-        "performed": {
-          "const": true
+        "execution_state": {
+          "enum": [
+            "not_executed",
+            "executed"
+          ]
         },
         "expected_sha256": {
           "$ref": "#/$defs/sha256"
         },
         "observed_sha256": {
-          "$ref": "#/$defs/sha256"
+          "type": [
+            "string",
+            "null"
+          ],
+          "pattern": "^[0-9a-f]{64}$"
         },
         "round_trip_matches": {
-          "const": true
+          "type": [
+            "boolean",
+            "null"
+          ]
         }
-      }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "execution_state": {
+                "const": "not_executed"
+              }
+            },
+            "required": [
+              "execution_state"
+            ]
+          },
+          "then": {
+            "properties": {
+              "observed_sha256": {
+                "const": null
+              },
+              "round_trip_matches": {
+                "const": null
+              }
+            }
+          },
+          "else": {
+            "properties": {
+              "observed_sha256": {
+                "$ref": "#/$defs/sha256"
+              },
+              "round_trip_matches": {
+                "type": "boolean"
+              }
+            }
+          }
+        }
+      ]
     },
     "rollbackTest": {
       "type": "object",
       "additionalProperties": false,
       "required": [
-        "performed",
+        "execution_state",
         "result",
         "retained_external_effects"
       ],
       "properties": {
-        "performed": {
-          "const": true
+        "execution_state": {
+          "enum": [
+            "not_executed",
+            "executed"
+          ]
         },
         "result": {
-          "const": "rollback_completed"
+          "enum": [
+            "not_executed",
+            "rollback_completed",
+            "rollback_failed"
+          ]
         },
         "retained_external_effects": {
-          "const": false
+          "type": [
+            "boolean",
+            "null"
+          ]
         }
-      }
-    },
-    "result": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": [
-        "disposition",
-        "evaluator_id",
-        "evaluator_sha256",
-        "bundle_scope"
-      ],
-      "properties": {
-        "disposition": {
-          "const": "ReferenceFixtureConforms"
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "execution_state": {
+                "const": "not_executed"
+              }
+            },
+            "required": [
+              "execution_state"
+            ]
+          },
+          "then": {
+            "properties": {
+              "result": {
+                "const": "not_executed"
+              },
+              "retained_external_effects": {
+                "const": null
+              }
+            }
+          },
+          "else": {
+            "properties": {
+              "result": {
+                "enum": [
+                  "rollback_completed",
+                  "rollback_failed"
+                ]
+              },
+              "retained_external_effects": {
+                "type": "boolean"
+              }
+            }
+          }
+        }
+      ]
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "evaluation_state": {
+            "const": "contract_example_only"
+          }
         },
-        "evaluator_id": {
-          "type": "string",
-          "minLength": 3,
-          "maxLength": 120
-        },
-        "evaluator_sha256": {
-          "$ref": "#/$defs/sha256"
-        },
-        "bundle_scope": {
-          "const": "synthetic_reference_fixture_only"
+        "required": [
+          "evaluation_state"
+        ]
+      },
+      "then": {
+        "properties": {
+          "metrics": {
+            "items": {
+              "properties": {
+                "comparison_rule": {
+                  "const": "not_measured"
+                },
+                "baseline_value": {
+                  "const": null
+                },
+                "candidate_value": {
+                  "const": null
+                },
+                "disposition": {
+                  "const": "not_measured"
+                }
+              }
+            }
+          },
+          "negative_controls": {
+            "items": {
+              "properties": {
+                "execution_state": {
+                  "const": "not_executed"
+                },
+                "observed_disposition": {
+                  "const": "not_observed"
+                },
+                "passed": {
+                  "const": null
+                }
+              }
+            }
+          },
+          "export_test": {
+            "properties": {
+              "execution_state": {
+                "const": "not_executed"
+              }
+            }
+          },
+          "rollback_test": {
+            "properties": {
+              "execution_state": {
+                "const": "not_executed"
+              }
+            }
+          }
         }
       }
     }
-  }
+  ]
 }
