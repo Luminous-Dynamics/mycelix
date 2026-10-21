@@ -135,7 +135,8 @@
               "CUSTODY",
               "SUSTAINABILITY",
               "PRODUCT_IDENTITY",
-              "OTHER"
+              "OTHER",
+              "RESOURCE_METER"
             ]
           },
           "recorded_at": {
@@ -197,8 +198,87 @@
           },
           "supersedes_evidence_id": {
             "type": "string"
+          },
+          "measurement_period_start": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "measurement_period_end": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "functional_unit": {
+            "type": "string",
+            "minLength": 1
+          },
+          "meter_boundary_ref": {
+            "type": "string",
+            "minLength": 1
+          },
+          "meter_boundary_status": {
+            "enum": [
+              "COMPLETE",
+              "PARTIAL",
+              "UNKNOWN"
+            ]
+          },
+          "production_output_basis": {
+            "enum": [
+              "SALEABLE_QUALITY_CONFORMING_OUTPUT",
+              "TOTAL_OUTPUT",
+              "INPUT_VOLUME",
+              "OTHER"
+            ]
+          },
+          "missing_interval_policy": {
+            "enum": [
+              "EXCLUDE_AND_REPORT",
+              "IMPUTED_WITH_METHOD",
+              "UNKNOWN"
+            ]
+          },
+          "measurement_uncertainty": {
+            "type": "number",
+            "minimum": 0
+          },
+          "product_mix_ref": {
+            "type": "string",
+            "minLength": 1
           }
-        }
+        },
+        "allOf": [
+          {
+            "if": {
+              "properties": {
+                "category": {
+                  "const": "RESOURCE_METER"
+                }
+              },
+              "required": [
+                "category"
+              ]
+            },
+            "then": {
+              "required": [
+                "value",
+                "units",
+                "instrument_ref",
+                "measurement_period_start",
+                "measurement_period_end",
+                "functional_unit",
+                "meter_boundary_ref",
+                "meter_boundary_status",
+                "production_output_basis",
+                "missing_interval_policy"
+              ],
+              "properties": {
+                "value": {
+                  "type": "number"
+                }
+              }
+            }
+          }
+        ]
       }
     },
     "attestations": {
