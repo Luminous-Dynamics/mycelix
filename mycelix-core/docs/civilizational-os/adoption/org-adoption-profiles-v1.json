@@ -1544,10 +1544,10 @@
         "Does not establish regulatory compliance, product authenticity, physical delivery, or source-record truth.",
         "Does not establish superiority over EPCIS-compatible systems; it defines a baseline for a matched evaluation."
       ],
-      "source_evidence_state": "reference_links_only",
-      "source_snapshot_manifest_path": null,
-      "source_snapshot_manifest_sha256": null,
-      "source_snapshot_required_before_pilot": true
+      "source_evidence_state": "snapshot_manifest_attached",
+      "source_snapshot_manifest_path": "source-snapshots/gs1-epcis-cbv-v1.json",
+      "source_snapshot_manifest_sha256": "46989ab0535265a2603e6ca146c074c6ece0b50d19fe872dcb1328d61795a1a1",
+      "source_snapshot_required_before_pilot": false
     }
   ]
 }
