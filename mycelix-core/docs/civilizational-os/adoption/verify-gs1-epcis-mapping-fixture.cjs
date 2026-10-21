@@ -63,6 +63,18 @@ const EXPECTED_VERSIONS = Object.freeze({
 });
 const EXPECTED_MANIFEST_PATH = 'source-snapshots/gs1-epcis-cbv-v1.json';
 const EXPECTED_MANIFEST_SHA = '46989ab0535265a2603e6ca146c074c6ece0b50d19fe872dcb1328d61795a1a1';
+const EXPECTED_SOURCES = Object.freeze({
+  'GS1-EPCIS': {
+    url: 'https://ref.gs1.org/standards/epcis/2.0.1/',
+    revision: 'EPCIS 2.0.1; published 2025-07-01',
+    source_id: 'gs1-epcis-2-0-1'
+  },
+  'GS1-CBV': {
+    url: 'https://ref.gs1.org/standards/cbv/2.0.0/',
+    revision: 'CBV 2.0.0; published 2022-06-22',
+    source_id: 'gs1-cbv-2-0-0'
+  }
+});
 
 function validateFixture(fixture, schema, manifest) {
   const errors = [];
@@ -101,9 +113,25 @@ function validateFixture(fixture, schema, manifest) {
     'GS1 source snapshot manifest missing or has unexpected claim ceiling');
   addError(errors, manifest && manifest.profile_id === 'gs1-epcis-cbv',
     'GS1 source snapshot manifest profile id mismatch');
+  addError(errors, manifest && manifest.manifest_id === 'gs1-epcis-cbv-v1',
+    'GS1 source snapshot manifest id mismatch');
+  addError(errors, Array.isArray(manifest && manifest.sources) && manifest.sources.length === 2,
+    'GS1 source manifest must bind exactly the two selected standard versions');
+  const sourcesByUrl = new Map((manifest && Array.isArray(manifest.sources) ? manifest.sources : [])
+    .map(source => [source.source_url, source]));
+  for (const [standardId, expected] of Object.entries(EXPECTED_SOURCES)) {
+    const source = sourcesByUrl.get(expected.url);
+    addError(errors, !!source, 'source manifest missing standard URL for ' + standardId);
+    if (!source) continue;
+    addError(errors, source.source_id === expected.source_id, 'source id mismatch for ' + standardId);
+    addError(errors, source.source_revision === expected.revision, 'source revision mismatch for ' + standardId);
+    addError(errors, source.capture_state === 'exact_revision_pinned', 'source must be an immutable version/revision pin');
+    addError(errors, source.integrity_method === 'immutable_source_revision', 'source pin integrity method mismatch');
+    addError(errors, source.rights_disposition === 'metadata_only', 'normative artefact rights must not be inferred');
+  }
   const actualManifestSha = sha256(Buffer.from(JSON.stringify(manifest, null, 2) + '\n'));
-  // Hash the exact checked-in bytes in main() separately; canonical JSON is
-  // not a substitute for that byte-level binding.
+  addError(errors, actualManifestSha === EXPECTED_MANIFEST_SHA,
+    'source manifest content digest differs from the pinned bytes');
   addError(errors, fixture.standard_bindings && fixture.standard_bindings.length === 2,
     'exactly two standard bindings are required');
   const bindingIds = new Set();
@@ -120,6 +148,9 @@ function validateFixture(fixture, schema, manifest) {
       'standard binding points to unexpected source manifest');
     addError(errors, binding.source_snapshot_manifest_sha256 === EXPECTED_MANIFEST_SHA,
       'standard binding has wrong source manifest digest');
+    const expectedSource = EXPECTED_SOURCES[binding.standard_id];
+    addError(errors, !!expectedSource && sourcesByUrl.has(expectedSource.url),
+      'binding has no source manifest entry for ' + binding.standard_id);
   }
   addError(errors, bindingIds.has('GS1-EPCIS') && bindingIds.has('GS1-CBV'),
     'both EPCIS and CBV standard bindings are required');
