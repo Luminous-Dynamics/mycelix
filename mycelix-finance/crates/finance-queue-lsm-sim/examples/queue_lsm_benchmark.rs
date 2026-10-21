@@ -91,9 +91,6 @@ fn main() {
             140 => 120,
             _ => 30,
         };
-        let mut timings = Vec::with_capacity(5);
-        let mut final_result = None;
-        let mut used_seed = 0_u64;
         for seed in [0x51A, 0x51B, 0x51C, 0x51D, 0x51E] {
             let config = AnnealingConfig {
                 iterations,
@@ -101,28 +98,31 @@ fn main() {
                 initial_temperature: 0.35,
                 cooling_factor: 0.985,
             };
-            let start = Instant::now();
-            final_result = Some(
-                simulated_annealing_order(&context, &balances, &payments, &fifo, &config)
-                    .expect("seeded annealing"),
+            let mut timings = Vec::with_capacity(5);
+            let mut final_result = None;
+            for _ in 0..5 {
+                let start = Instant::now();
+                final_result = Some(
+                    simulated_annealing_order(&context, &balances, &payments, &fifo, &config)
+                        .expect("seeded annealing"),
+                );
+                timings.push(start.elapsed().as_micros());
+            }
+            let result = final_result.expect("non-empty repetitions");
+            println!(
+                "{},simulated-annealing,{},{},{},{},{},{},{},{},{},{}",
+                count,
+                result.iterations_evaluated,
+                seed,
+                result.best_simulation.settled_count,
+                result.best_simulation.total_settled_minor,
+                result.best_simulation.opening_liquidity_total_minor,
+                result.best_simulation.pending_payment_ids.len(),
+                result.best_simulation.missed_deadline_count,
+                result.best_simulation.priority_weighted_delay_penalty,
+                percentile(&timings, 50),
+                percentile(&timings, 95),
             );
-            timings.push(start.elapsed().as_micros());
-            used_seed = seed;
         }
-        let result = final_result.expect("non-empty repetitions");
-        println!(
-            "{},simulated-annealing,{},{} ,{},{},{},{},{},{},{},{}",
-            count,
-            result.iterations_evaluated,
-            used_seed,
-            result.best_simulation.settled_count,
-            result.best_simulation.total_settled_minor,
-            result.best_simulation.opening_liquidity_total_minor,
-            result.best_simulation.pending_payment_ids.len(),
-            result.best_simulation.missed_deadline_count,
-            result.best_simulation.priority_weighted_delay_penalty,
-            percentile(&timings, 50),
-            percentile(&timings, 95),
-        );
     }
 }
