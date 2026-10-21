@@ -6,6 +6,7 @@ on:
       - ".github/workflows/nrvca-validator.yml"
       - "mycelix-workspace/tools/nrvca-validator/**"
       - "schemas/nrvca-result-v0.1.schema.json"
+      - "schemas/nrvca-benchmark-preregistration-v0.1.schema.json"
       - "fixtures/nrvca-*-v0.1.json"
       - "docs/research/nrvca/**"
   workflow_dispatch:
