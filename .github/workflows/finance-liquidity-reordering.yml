@@ -1,0 +1,99 @@
+name: Finance Liquidity Reordering Research
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+    paths:
+      - research/finance-liquidity-reordering/**
+      - .github/workflows/finance-liquidity-reordering.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: finance-liquidity-reordering-${{ github.event.pull_request.head.ref || github.ref_name }}
+  cancel-in-progress: true
+
+jobs:
+  test-and-benchmark:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - name: Checkout exact subject
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+          fetch-depth: 1
+
+      - name: Assert exact subject and repository
+        run: |
+          set -euo pipefail
+          test '${{ github.repository }}' = 'Luminous-Dynamics/mycelix'
+          test '${{ github.repository_id }}' = '1176351975'
+          test "$(git rev-parse HEAD)" = "${{ github.event.pull_request.head.sha || github.sha }}"
+
+      - name: Install pinned Rust
+        uses: dtolnay/rust-toolchain@e97e2d8cc328f1b50210efc529dca0028893a2d9
+        with:
+          toolchain: 1.96.1
+          components: rustfmt
+
+      - name: Check formatting
+        run: cargo fmt --manifest-path research/finance-liquidity-reordering/Cargo.toml -- --check
+
+      - name: Test independent exact oracle and heuristics
+        run: cargo test --manifest-path research/finance-liquidity-reordering/Cargo.toml --offline --locked
+
+      - name: Build and run release benchmark
+        shell: bash
+        run: |
+          set -euo pipefail
+          out="$RUNNER_TEMP/liquidity-reordering-artifact"
+          mkdir -p "$out"
+          {
+            echo "repository=Luminous-Dynamics/mycelix"
+            echo "subject_sha=$(git rev-parse HEAD)"
+            echo "workflow_run_id=${{ github.run_id }}"
+            echo "workflow_run_attempt=${{ github.run_attempt }}"
+            echo "timestamp_utc=$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+            rustc +1.96.1 --version --verbose
+            cargo +1.96.1 --version
+            uname -a
+            lscpu | grep -E '^(Architecture|CPU\(s\)|Model name|Thread|Core|Socket):'
+          } > "$out/metadata.txt"
+          cargo run --manifest-path research/finance-liquidity-reordering/Cargo.toml --offline --locked --release --example benchmark > "$out/results.csv"
+          test "$(wc -l < "$out/results.csv")" -eq 296
+          awk -F, '
+            NR == 1 { if ($15 != "aggregate_liquidity_gap_minor" || $16 != "max_participant_gap_minor" || $8 != "algorithm" || $7 != "exact_pareto_frontier_size" || $13 != "aggregate_saving_vs_input_minor" || $14 != "max_participant_reduction_vs_input_minor") exit 2; next }
+            {
+              rows++
+              if ($1 <= 8 && ($7 !~ /^[0-9]+$/ || $7 < 1)) failed = 1
+              if ($1 > 8 && $7 != "") failed = 1
+              if ($13 != "" && $13 !~ /^-?[0-9]+$/) failed = 1
+              if ($14 != "" && $14 !~ /^-?[0-9]+$/) failed = 1
+              if ($15 != "" && ($15 !~ /^[0-9]+$/ || $15 < 0)) failed = 1
+              if ($16 != "" && $16 !~ /^-?[0-9]+$/) failed = 1
+              if ($15 == "0" && $16 != "" && $16 < 0) failed = 1
+              if ($8 == "exact_permutation_oracle") {
+                exact++
+                if ($15 != "0" || $16 != "0") failed = 1
+              }
+            }
+            END {
+              if (rows != 295 || exact != 15 || failed) exit 1
+            }
+          ' "$out/results.csv"
+          cd research/finance-liquidity-reordering
+          sha256sum Cargo.toml Cargo.lock README.md src/lib.rs tests/exact_oracle.rs examples/benchmark.rs > "$out/SOURCE-SHA256SUMS"
+          cd "$out"
+          sha256sum results.csv metadata.txt SOURCE-SHA256SUMS > SHA256SUMS
+
+      - name: Upload reproducible benchmark evidence
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: finance-liquidity-reordering-${{ github.sha }}
+          path: ${{ runner.temp }}/liquidity-reordering-artifact/
+          if-no-files-found: error
+          retention-days: 90
