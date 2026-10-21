@@ -10,8 +10,8 @@
 //!
 //! Uses the real Web Crypto API (`SubtleCrypto`), not a hand-rolled or
 //! JS-`eval`'d KDF/cipher:
-//! - **PBKDF2-HMAC-SHA256**, [`PBKDF2_ITERATIONS`] rounds — OWASP's 2023
-//!   minimum recommendation for PBKDF2-SHA256.
+//! - **PBKDF2-HMAC-SHA256**, 600,000 iterations in production — the current
+//!   OWASP minimum recommendation for PBKDF2-SHA256 when PBKDF2 is used.
 //! - **AES-256-GCM** for the actual secret encryption (authenticated —
 //!   tampering or a wrong key/passphrase both fail closed).
 //!
@@ -28,14 +28,10 @@ use web_sys::{AesDerivedKeyParams, AesGcmParams, CryptoKey, Pbkdf2Params, Subtle
 
 /// OWASP's 2023 minimum recommendation for PBKDF2-HMAC-SHA256.
 ///
-/// Deliberately much lower under `cfg(test)`: `cargo test`/`wasm-pack test`
-/// never builds with `cfg(test)` unset, so this never affects production —
-/// but at the real iteration count, this module's browser test suite (each
-/// test does 1-2 full PBKDF2 derivations) is slow enough to risk tripping
-/// the headless-browser test runner's timeout. The security-relevant
-/// property under test is "does the derived key round-trip / reject a wrong
-/// passphrase / reject tampering", which doesn't depend on the iteration
-/// count.
+/// Most functional browser tests use a smaller test-only default to keep
+/// coverage fast. The production-cost benchmark explicitly passes
+/// [`PRODUCTION_PBKDF2_ITERATIONS`] to measure the real persisted-identity
+/// configuration; no production path uses the test-only value.
 /// Production PBKDF2 work factor used for every persisted identity envelope.
 /// The test-only default is intentionally smaller; the production-strength
 /// browser benchmark explicitly exercises this constant under cfg(test).
@@ -85,10 +81,6 @@ fn random_bytes(len: usize) -> Result<Vec<u8>, String> {
 ///
 /// Non-extractable by design: once derived, the raw AES key bytes never
 /// need to leave `SubtleCrypto`'s internal (non-JS-readable) key storage.
-async fn derive_aes_key(passphrase: &str, salt: &[u8]) -> Result<CryptoKey, String> {
-    derive_aes_key_with_iterations(passphrase, salt, PBKDF2_ITERATIONS).await
-}
-
 async fn derive_aes_key_with_iterations(
     passphrase: &str,
     salt: &[u8],
@@ -315,5 +307,4 @@ mod tests {
             "production PBKDF2 encrypt+decrypt exceeded the 5-second CI safety ceiling"
         );
     }
-
 }
