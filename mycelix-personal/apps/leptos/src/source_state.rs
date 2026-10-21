@@ -322,6 +322,15 @@ mod tests {
     }
 
     #[test]
+    fn a_single_claim_cannot_be_constructed_as_a_dispute() {
+        let only_claim = AttributedClaim {
+            value: "one claim",
+            evidence: evidence("single-source"),
+        };
+        assert!(ConflictingClaims::try_from_vec(vec![only_claim]).is_err());
+    }
+
+    #[test]
     fn confirmed_empty_is_distinct_from_unavailable_and_not_integrated() {
         let empty: SourceObservation<u8> = SourceObservation::ConfirmedEmpty {
             evidence: evidence("profile-service"),
