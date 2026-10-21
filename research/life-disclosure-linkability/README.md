@@ -10,6 +10,19 @@ Selective disclosure controls which claims are presented. It does not, by itself
 
 This harness makes a narrow part of that problem repeatable. It does **not** model production credentials, real cryptography, browser timing measurements, or actual people.
 
+## Industry and standards baselines (checked 2026-10-22)
+
+The next comparison layer should use existing interoperable mechanisms, not a custom Mycelix cryptosystem:
+
+- **[W3C Verifiable Credentials Data Model 2.0](https://www.w3.org/TR/2025/REC-vc-data-model-2.0-20250515/)** is a Recommendation (15 May 2025). It supplies the issuer/holder/verifier data model and explicitly discusses identifier-, signature-, metadata- and validation-based correlation.
+- **[W3C VC Data Model 2.1](https://www.w3.org/TR/2026/WD-vc-data-model-2.1-20260930/)** is still a Working Draft (30 September 2026), not a Recommendation. Do not use it as a conformance claim.
+- **[IETF RFC 9901, SD-JWT](https://www.rfc-editor.org/rfc/rfc9901.html)** is a Standards Track document published in November 2025 for selectively disclosing individual JSON/JWT claim elements. It is a concrete baseline for claim-level minimization, not a universal guarantee that multiple presentations cannot be correlated.
+- **[OpenID for Verifiable Presentations 1.0](https://openid.net/specs/openid-4-verifiable-presentations-1_0.html)** is a Final Specification (July 2025) for the request/presentation protocol. A later integration benchmark should evaluate the protocol and credential format separately.
+- **[W3C Data Integrity BBS Cryptosuites v1.0](https://www.w3.org/TR/vc-di-bbs/)** is a Candidate Recommendation Draft in the publication history as of 10 September 2026, not yet a W3C Recommendation. It specifically targets selective disclosure and unlinkable derived proofs; include it in a future comparison only with an independently reviewable implementation and supported issuer/profile.
+- **[WebAuthn Level 3](https://www.w3.org/news/2026/web-authentication-an-api-for-accessing-public-key-credentials-level-3-is-now-a-w3c-recommendation/)** became a Recommendation on 25 August 2026. It is relevant to authentication and key lifecycle, but it is not a substitute for presentation unlinkability.
+
+The strategic comparison is therefore: test SD-JWT and suitable VC/BBS profiles where actual adapters and issuer support exist; test each presentation protocol separately; and keep the cross-recipient attacker benchmark as an application-level composition test. Standards status is time-sensitive and must be rechecked before any conformance claim.
+
 ## Run
 
 From the repository root:
