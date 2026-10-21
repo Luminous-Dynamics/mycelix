@@ -1,5 +1,4 @@
 #![forbid(unsafe_code)]
-
 // Copyright (C) 2024-2026 Tristan Stoltz / Luminous Dynamics
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Commercial licensing: see COMMERCIAL_LICENSE.md at repository root
@@ -12,7 +11,9 @@
 //! min-cost-flow solver as its subproblem. The exponential bound is intentional and
 //! fail-closed; this is an exact oracle for small graphs, not a large-network heuristic.
 
-use super::{optimize, AllocationPlan, ClearingContext, OptimizeError, ParticipantNet, SettlementRoute};
+use super::{
+    optimize, AllocationPlan, ClearingContext, OptimizeError, ParticipantNet, SettlementRoute,
+};
 use std::collections::BTreeMap;
 use std::error::Error;
 use std::fmt;
@@ -43,10 +44,7 @@ pub struct FixedChargePlan {
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum FixedChargeError {
-    TooManyCandidateRoutes {
-        observed: usize,
-        maximum: usize,
-    },
+    TooManyCandidateRoutes { observed: usize, maximum: usize },
     ConflictingDuplicateRoute(String),
     CostOverflow,
     Optimize(OptimizeError),
@@ -331,12 +329,9 @@ mod tests {
     #[test]
     fn activation_charge_is_paid_once_per_used_route() {
         let positions = vec![participant("A", 5, 5), participant("B", -5, 0)];
-        let result = optimize_fixed_charge(
-            &context(),
-            &positions,
-            &[route("a-b", "A", "B", 5, 2, 7)],
-        )
-        .unwrap();
+        let result =
+            optimize_fixed_charge(&context(), &positions, &[route("a-b", "A", "B", 5, 2, 7)])
+                .unwrap();
 
         assert_eq!(result.allocation.total_allocated_minor, 5);
         assert_eq!(result.allocation.total_modeled_cost_units, 10);
@@ -408,8 +403,7 @@ mod tests {
         let mut disabled = route("disabled", "unused-from", "unused-to", 2, 1, 0);
         disabled.route.enabled = false;
 
-        let result =
-            optimize_fixed_charge(&context(), &positions, &[active, disabled]).unwrap();
+        let result = optimize_fixed_charge(&context(), &positions, &[active, disabled]).unwrap();
 
         assert_eq!(result.allocation.total_allocated_minor, 2);
         assert_eq!(
@@ -427,12 +421,10 @@ mod tests {
         invalid.authority = AuthorityQualification::NotQualified;
         let positions = vec![participant("A", 1, 1), participant("B", -1, 0)];
         assert_eq!(
-            optimize_fixed_charge(
-                &invalid,
-                &positions,
-                &[route("a-b", "A", "B", 1, 1, 0)],
-            ),
-            Err(FixedChargeError::Optimize(OptimizeError::AuthorityNotQualified))
+            optimize_fixed_charge(&invalid, &positions, &[route("a-b", "A", "B", 1, 1, 0)],),
+            Err(FixedChargeError::Optimize(
+                OptimizeError::AuthorityNotQualified
+            ))
         );
     }
 }
