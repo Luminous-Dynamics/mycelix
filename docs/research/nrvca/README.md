@@ -144,6 +144,12 @@ The current design-only benchmark preregistration and three-track methodology ar
 
 The first source-discovery pass is recorded in [South Africa NRVCA Source Catalogue v0.1](./south-africa-source-catalogue-v0.1.md), with a machine-readable companion at [nrvca-sa-source-catalogue-v0.1.json](../../../fixtures/nrvca-sa-source-catalogue-v0.1.json). The inventory distinguishes official GDP statistics from experimental PEFA and sub-national water accounts, and labels DWS planning/monitoring pages as context or candidate evidence rather than claiming their data have already been ingested. All entries remain discovery-only; source bytes, licensing, hashes and transformations are not yet qualified.
 
+## Synthetic follow-on benchmarks
+
+- [Economic decomposition v0.1](./economic-decomposition-v0.1.md) and its [known-answer fixture](../../../fixtures/nrvca-economic-decomposition-golden-v0.1.json) distinguish transfer incidence, modelled deadweight loss, fixed-cost recovery, resource costs of rent capture, physical externality measurement and valuation sensitivity. Nine declared demand/cost-slope settings test whether the toy-model invariants hold.
+- [Decision-value benchmark v0.1](./decision-value-benchmark-v0.1.md) and its [synthetic fixture](../../../fixtures/nrvca-decision-value-synthetic-v0.1.json) exhaustively evaluate all 16 allocations in a four-intervention example. A service-only baseline is compared with an explicitly declared service/equity/reliability/environmental constraint profile. The profile is a policy choice; the result is not a universal welfare ranking.
+- [NRVCA-003 draft PR #5394](https://github.com/Luminous-Dynamics/mycelix/pull/5394) and [NRVCA-004 draft PR #5400](https://github.com/Luminous-Dynamics/mycelix/pull/5400) contain these prototypes. Static known-answer audits are recorded in the PRs; successful Rust execution must be established separately on each exact head.
+
 ## Linked work
 
 - NRVCA-001: https://github.com/Luminous-Dynamics/mycelix/issues/5374
@@ -162,6 +168,6 @@ The first source-discovery pass is recorded in [South Africa NRVCA Source Catalo
 - UN SEEA Ecosystem Accounting: https://seea.un.org/en/methodology/ecosystem-accounting
 - World Bank Changing Wealth of Nations 2024: https://www.worldbank.org/en/publication/the-changing-wealth-of-nations
 - OECD Beyond GDP: https://www.oecd.org/en/publications/beyond-gdp_9789264307292-en.html
-- IMF GDP Nowcasting Performance of Traditional Econometric Models vs Machine-Learning Algorithms (2025): https://www.imf.org/en/publications/wp/issues/2025/12/05/gdp-nowcasting-performance-of-traditional-econometric-models-vs-machine-learning-572360
+- IMF GDP Nowcasting Performance of Traditional Econometric Models vs Machine-Learning Algorithms (2025): https://www.imf.org/en/publications/wp/issues/2025/12/05/gdp-nowcasting-performance-of-traditional-econometric-models-vs-machine-learning-572360\n- IMF SNA/BPM Implementation Planning Playbook (July 2026): https://www.imf.org/en/publications/tnm/issues/2026/07/02/sna-bpm-implementation-planning-playbook-575192
 - IMF Nowcasting Economic Growth with Machine Learning and Satellite Data (2026): https://www.imf.org/en/publications/wp/issues/2026/01/30/nowcasting-economic-growth-with-machine-learning-and-satellite-data-573623
 - Statistics South Africa, National Natural Capital Accounting Strategy: https://www.statssa.gov.za/?page_id=14714
