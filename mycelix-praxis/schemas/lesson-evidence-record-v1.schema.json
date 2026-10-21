@@ -202,6 +202,169 @@
           }
         }
       }
+    },
+    {
+      "if": {
+        "properties": {
+          "review_state": {
+            "enum": [
+              "human_reviewed",
+              "pilot_tested",
+              "independently_evaluated"
+            ]
+          }
+        },
+        "required": [
+          "review_state"
+        ]
+      },
+      "then": {
+        "properties": {
+          "content_rights": {
+            "properties": {
+              "status": {
+                "enum": [
+                  "open_license",
+                  "public_domain",
+                  "permission_granted",
+                  "link_only"
+                ]
+              }
+            }
+          },
+          "checks": {
+            "properties": {
+              "structural_integrity": {
+                "properties": {
+                  "status": {
+                    "enum": [
+                      "pass",
+                      "not_applicable"
+                    ]
+                  }
+                }
+              },
+              "objective_alignment": {
+                "properties": {
+                  "status": {
+                    "enum": [
+                      "pass",
+                      "not_applicable"
+                    ]
+                  }
+                }
+              },
+              "content_accuracy": {
+                "properties": {
+                  "status": {
+                    "enum": [
+                      "pass",
+                      "not_applicable"
+                    ]
+                  }
+                }
+              },
+              "assessment_alignment": {
+                "properties": {
+                  "status": {
+                    "enum": [
+                      "pass",
+                      "not_applicable"
+                    ]
+                  }
+                }
+              },
+              "accessibility": {
+                "properties": {
+                  "status": {
+                    "enum": [
+                      "pass",
+                      "not_applicable"
+                    ]
+                  }
+                }
+              },
+              "content_rights": {
+                "properties": {
+                  "status": {
+                    "enum": [
+                      "pass",
+                      "not_applicable"
+                    ]
+                  }
+                }
+              },
+              "age_and_safety": {
+                "properties": {
+                  "status": {
+                    "enum": [
+                      "pass",
+                      "not_applicable"
+                    ]
+                  }
+                }
+              }
+            }
+          },
+          "reviews": {
+            "contains": {
+              "type": "object",
+              "properties": {
+                "role": {
+                  "enum": [
+                    "subject_matter_expert",
+                    "educator",
+                    "accessibility_reviewer",
+                    "rights_reviewer",
+                    "child_safety_reviewer"
+                  ]
+                },
+                "outcome": {
+                  "enum": [
+                    "approved",
+                    "limited_approval"
+                  ]
+                }
+              },
+              "required": [
+                "role",
+                "outcome"
+              ]
+            },
+            "minContains": 1
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "review_state": {
+            "const": "independently_evaluated"
+          }
+        },
+        "required": [
+          "review_state"
+        ]
+      },
+      "then": {
+        "properties": {
+          "learning_studies": {
+            "contains": {
+              "type": "object",
+              "properties": {
+                "independent_evaluation": {
+                  "const": true
+                }
+              },
+              "required": [
+                "independent_evaluation"
+              ]
+            },
+            "minContains": 1
+          }
+        }
+      }
     }
   ],
   "$defs": {
