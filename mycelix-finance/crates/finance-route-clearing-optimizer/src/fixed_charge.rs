@@ -381,6 +381,26 @@ mod tests {
     }
 
     #[test]
+    fn excluded_route_observations_survive_route_subset_search() {
+        let positions = vec![participant("A", 2, 2), participant("B", -2, 0)];
+        let active = route("active", "A", "B", 2, 1, 0);
+        let mut disabled = route("disabled", "unused-from", "unused-to", 2, 1, 0);
+        disabled.route.enabled = false;
+
+        let result =
+            optimize_fixed_charge(&context(), &positions, &[active, disabled]).unwrap();
+
+        assert_eq!(result.allocation.total_allocated_minor, 2);
+        assert_eq!(
+            result.allocation.excluded_routes,
+            vec![super::super::ExcludedRoute {
+                route_id: "disabled".into(),
+                reason: super::super::RouteExclusionReason::Disabled,
+            }]
+        );
+    }
+
+    #[test]
     fn invalid_netting_authority_stays_fail_closed() {
         let mut invalid = context();
         invalid.authority = AuthorityQualification::NotQualified;
