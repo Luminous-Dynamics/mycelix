@@ -116,3 +116,7 @@ jobs:
         run: |
           cargo check --manifest-path mycelix-workspace/mycelix-finance/apps/leptos/Cargo.toml --locked --target wasm32-unknown-unknown
           cargo check --manifest-path mycelix-workspace/mycelix-climate/apps/leptos/Cargo.toml --locked --target wasm32-unknown-unknown
+      - name: Run strict Clippy on Finance and Climate
+        run: |
+          cargo clippy --manifest-path mycelix-finance/apps/leptos/Cargo.toml --locked --all-targets -- -D warnings
+          cargo clippy --manifest-path mycelix-climate/apps/leptos/Cargo.toml --locked --all-targets -- -D warnings
