@@ -1,0 +1,154 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:mycelix:praxis:cyber-evaluator-corpus:v1",
+  "title": "Praxis Evaluator-Only Cyber Challenge Corpus v1",
+  "description": "Public synthetic conformance fixtures only. Never serve this file in solver-visible runtime projections.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "corpus_id",
+    "corpus_version",
+    "disclosure",
+    "cases"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": 1
+    },
+    "corpus_id": {
+      "const": "PRAXIS-CYBER-001"
+    },
+    "corpus_version": {
+      "type": "string",
+      "minLength": 1
+    },
+    "disclosure": {
+      "type": "string",
+      "minLength": 1
+    },
+    "cases": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/Case"
+      }
+    }
+  },
+  "$defs": {
+    "Disposition": {
+      "type": "string",
+      "enum": [
+        "needs_more_evidence",
+        "configuration_risk",
+        "provenance_conflict",
+        "untrusted_instruction",
+        "stale_state_unknown"
+      ]
+    },
+    "Rubric": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "criterion_id",
+        "max_score_permille",
+        "description"
+      ],
+      "properties": {
+        "criterion_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "max_score_permille": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 1000
+        },
+        "description": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "Case": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "scenario_id",
+        "expected_disposition",
+        "required_evidence_ids",
+        "additional_evidence_needed",
+        "acceptable_inferences",
+        "prohibited_claims",
+        "safe_next_steps",
+        "authority_gates",
+        "rubric"
+      ],
+      "properties": {
+        "scenario_id": {
+          "type": "string",
+          "pattern": "^CYB-[A-Z]+-[0-9]{3}$"
+        },
+        "expected_disposition": {
+          "$ref": "#/$defs/Disposition"
+        },
+        "required_evidence_ids": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "additional_evidence_needed": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "acceptable_inferences": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "prohibited_claims": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "safe_next_steps": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "authority_gates": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "rubric": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/Rubric"
+          }
+        }
+      }
+    }
+  }
+}

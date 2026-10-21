@@ -1,0 +1,191 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:mycelix:praxis:cyber-solver-corpus:v1",
+  "title": "Praxis Solver-Visible Cyber Challenge Corpus v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "corpus_id",
+    "corpus_version",
+    "scenarios"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": 1
+    },
+    "corpus_id": {
+      "const": "PRAXIS-CYBER-001"
+    },
+    "corpus_version": {
+      "type": "string",
+      "minLength": 1
+    },
+    "scenarios": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/Scenario"
+      }
+    }
+  },
+  "$defs": {
+    "Domain": {
+      "type": "string",
+      "enum": [
+        "identity_access",
+        "network_configuration",
+        "supply_chain_provenance",
+        "ai_tool_boundary",
+        "endpoint_telemetry"
+      ]
+    },
+    "Difficulty": {
+      "type": "string",
+      "enum": [
+        "beginner",
+        "intermediate",
+        "advanced"
+      ]
+    },
+    "Freshness": {
+      "type": "string",
+      "enum": [
+        "current",
+        "stale",
+        "unknown"
+      ]
+    },
+    "EvidenceSource": {
+      "type": "string",
+      "enum": [
+        "identity_log_summary",
+        "network_context",
+        "endpoint_telemetry",
+        "network_policy_snapshot",
+        "firewall_policy_snapshot",
+        "dependency_lockfile",
+        "approved_dependency_record",
+        "registry_metadata",
+        "retrieved_document_excerpt",
+        "tool_permission_snapshot",
+        "tool_audit_summary",
+        "response_request_log"
+      ]
+    },
+    "Evidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "evidence_id",
+        "source_kind",
+        "source_snapshot_id",
+        "source_snapshot_version",
+        "freshness",
+        "conflict_status",
+        "observed_at_offset_minutes",
+        "observation"
+      ],
+      "properties": {
+        "evidence_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "source_kind": {
+          "$ref": "#/$defs/EvidenceSource"
+        },
+        "freshness": {
+          "$ref": "#/$defs/Freshness"
+        },
+        "observed_at_offset_minutes": {
+          "type": "integer"
+        },
+        "observation": {
+          "type": "string",
+          "minLength": 1
+        },
+        "conflict_status": {
+          "$ref": "#/$defs/EvidenceConflictStatus"
+        },
+        "source_snapshot_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "source_snapshot_version": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "Scenario": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "scenario_id",
+        "is_synthetic",
+        "domain",
+        "difficulty",
+        "title",
+        "objective",
+        "prompt",
+        "evidence",
+        "allowed_next_steps",
+        "action_authority_boundary"
+      ],
+      "properties": {
+        "scenario_id": {
+          "type": "string",
+          "pattern": "^CYB-[A-Z]+-[0-9]{3}$"
+        },
+        "is_synthetic": {
+          "const": true
+        },
+        "domain": {
+          "$ref": "#/$defs/Domain"
+        },
+        "difficulty": {
+          "$ref": "#/$defs/Difficulty"
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1
+        },
+        "objective": {
+          "type": "string",
+          "minLength": 1
+        },
+        "prompt": {
+          "type": "string",
+          "minLength": 1
+        },
+        "evidence": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/Evidence"
+          }
+        },
+        "allowed_next_steps": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "action_authority_boundary": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "EvidenceConflictStatus": {
+      "type": "string",
+      "enum": [
+        "no_known_conflict",
+        "conflicts_with_other_evidence",
+        "not_assessed"
+      ]
+    }
+  }
+}
