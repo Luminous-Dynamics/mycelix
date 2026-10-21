@@ -371,5 +371,22 @@ fn main() -> Result<(), Box<dyn Error>> {
             }
         }
     }
+
+    // Sparse-chain scale probe: the full-scan greedy intentionally refuses >5,000
+    // orders, while the event-driven candidate heap has an explicit graph-refresh cap.
+    // These rows measure it directly at sizes beyond the exact-oracle benchmark matrix.
+    for payment_count in [1_000, 10_000, 50_000, 99_999] {
+        let problem = make_problem(payment_count, Scenario::ReversedEqualChain)?;
+        emit(
+            &problem,
+            Scenario::ReversedEqualChain,
+            "receiver_ready_event_driven_scale",
+            None,
+            None,
+            None,
+            || receiver_ready_event_driven(&problem),
+        )?;
+    }
+
     Ok(())
 }
