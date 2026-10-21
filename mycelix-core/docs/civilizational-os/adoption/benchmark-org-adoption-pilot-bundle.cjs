@@ -56,7 +56,7 @@ function parseArgs(argv) {
   }
   return result;
 }
-function makeBundle(size, verifierSha) {
+function makeBundle(size) {
   const sourceId = 'synthetic-fixture:gs1-epcis-shaped';
   const startMillis = Date.parse('2026-10-21T09:00:00Z');
   const eventTypes = ['scan_observation', 'shipping', 'receiving', 'acceptance'];
@@ -104,6 +104,7 @@ function makeBundle(size, verifierSha) {
     relationship_status: 'not_recorded',
     relationship_claim_guard: 'No partnership, customer relationship, endorsement, or integration is implied by this bundle.',
     data_classification: 'synthetic',
+    evaluation_state: 'contract_example_only',
     effects_mode: 'disabled',
     claim_ceiling: 'SyntheticReferenceOnly',
     nonclaims: [
@@ -112,17 +113,19 @@ function makeBundle(size, verifierSha) {
     ],
     comparison: {
       baseline: {
-        implementation_id: 'manual-reference-normalizer',
-        version: 'scale-fixture-v1',
-        implementation_sha256: '2222222222222222222222222222222222222222222222222222222222222222',
+        implementation_id: 'manual-reference-normalizer-not-run',
+        version: 'not-run',
+        execution_state: 'not_executed',
+        implementation_sha256: null,
         input_manifest_sha256: manifestSha,
         resource_budget_sha256: 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
         authority_budget_sha256: 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb'
       },
       candidate: {
-        implementation_id: 'mycelix-loss-aware-event-projection',
-        version: 'scale-fixture-v1',
-        implementation_sha256: '3333333333333333333333333333333333333333333333333333333333333333',
+        implementation_id: 'mycelix-loss-aware-projection-not-run',
+        version: 'not-run',
+        execution_state: 'not_executed',
+        implementation_sha256: null,
         input_manifest_sha256: manifestSha,
         resource_budget_sha256: 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
         authority_budget_sha256: 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb'
@@ -163,25 +166,19 @@ function makeBundle(size, verifierSha) {
       }
     ],
     metrics: [
-      { metric_id: 'lineage-preservation', unit: 'percent', comparison_rule: 'candidate_gte_baseline', baseline_value: 100, candidate_value: 100, disposition: 'pass' },
-      { metric_id: 'duplicate-replay-controls', unit: 'count', comparison_rule: 'candidate_gt_baseline', baseline_value: 0, candidate_value: 1, disposition: 'pass' },
-      { metric_id: 'unsupported-claims-promoted', unit: 'count', comparison_rule: 'candidate_zero', baseline_value: 0, candidate_value: 0, disposition: 'pass' }
+      { metric_id: 'lineage-preservation', unit: 'percent', comparison_rule: 'not_measured', baseline_value: null, candidate_value: null, disposition: 'not_measured' },
+      { metric_id: 'duplicate-replay-controls', unit: 'count', comparison_rule: 'not_measured', baseline_value: null, candidate_value: null, disposition: 'not_measured' },
+      { metric_id: 'unsupported-claims-promoted', unit: 'count', comparison_rule: 'not_measured', baseline_value: null, candidate_value: null, disposition: 'not_measured' }
     ],
     negative_controls: [
-      { control_id: 'nc-duplicate-replay', attack: 'Replay an already accepted source event using the same identifier.', expected_disposition: 'rejected_duplicate', observed_disposition: 'rejected_duplicate', passed: true },
-      { control_id: 'nc-wrong-subject', attack: 'Replace an event subject with a different lot identifier.', expected_disposition: 'rejected_subject_mismatch', observed_disposition: 'rejected_subject_mismatch', passed: true },
-      { control_id: 'nc-scan-promotion', attack: 'Present a scan observation alone as proof of physical delivery.', expected_disposition: 'claim_indeterminate', observed_disposition: 'claim_indeterminate', passed: true },
-      { control_id: 'nc-source-digest', attack: 'Change a source record while keeping its committed digest.', expected_disposition: 'rejected_digest_mismatch', observed_disposition: 'rejected_digest_mismatch', passed: true },
-      { control_id: 'nc-rights-gap', attack: 'Remove the required rights disposition from an external source.', expected_disposition: 'rejected_missing_rights', observed_disposition: 'rejected_missing_rights', passed: true }
+      { control_id: 'nc-duplicate-replay', attack: 'Replay an already accepted source event using the same identifier.', expected_disposition: 'rejected_duplicate', execution_state: 'not_executed', observed_disposition: 'not_observed', passed: null },
+      { control_id: 'nc-wrong-subject', attack: 'Replace an event subject with a different lot identifier.', expected_disposition: 'rejected_subject_mismatch', execution_state: 'not_executed', observed_disposition: 'not_observed', passed: null },
+      { control_id: 'nc-scan-promotion', attack: 'Present a scan observation alone as proof of physical delivery.', expected_disposition: 'claim_indeterminate', execution_state: 'not_executed', observed_disposition: 'not_observed', passed: null },
+      { control_id: 'nc-source-digest', attack: 'Change a source record while keeping its committed digest.', expected_disposition: 'rejected_digest_mismatch', execution_state: 'not_executed', observed_disposition: 'not_observed', passed: null },
+      { control_id: 'nc-rights-gap', attack: 'Remove the required rights disposition from an external source.', expected_disposition: 'rejected_missing_rights', execution_state: 'not_executed', observed_disposition: 'not_observed', passed: null }
     ],
-    export_test: { performed: true, expected_sha256: manifestSha, observed_sha256: manifestSha, round_trip_matches: true },
-    rollback_test: { performed: true, result: 'rollback_completed', retained_external_effects: false },
-    result: {
-      disposition: 'ReferenceFixtureConforms',
-      evaluator_id: 'verify-org-adoption-pilot-bundle.cjs',
-      evaluator_sha256: verifierSha,
-      bundle_scope: 'synthetic_reference_fixture_only'
-    }
+    export_test: { execution_state: 'not_executed', expected_sha256: manifestSha, observed_sha256: null, round_trip_matches: null },
+    rollback_test: { execution_state: 'not_executed', result: 'not_executed', retained_external_effects: null }
   };
   return { bundle, manifestSha };
 }
@@ -205,7 +202,7 @@ function main() {
   const results = [];
   try {
     for (const size of options.sizes) {
-      const { bundle, manifestSha } = makeBundle(size, verifierSha);
+      const { bundle, manifestSha } = makeBundle(size);
       const fixturePath = path.join(tmp, `scale-${size}.json`);
       const fixtureBytes = Buffer.from(JSON.stringify(bundle, null, 2) + '\n');
       fs.writeFileSync(fixturePath, fixtureBytes);
@@ -224,7 +221,7 @@ function main() {
         try { verification = JSON.parse(child.stdout); } catch (error) {
           fail(`verifier returned invalid JSON receipt: ${error.message}`);
         }
-        if (verification.qualification_result !== 'ReferenceFixtureConforms' ||
+        if (verification.qualification_result !== 'BundleContractConforms' ||
             verification.mode !== 'cross-invariant-only' ||
             verification.mutation_tests_executed !== false ||
             verification.input_manifest_sha256 !== manifestSha) {
