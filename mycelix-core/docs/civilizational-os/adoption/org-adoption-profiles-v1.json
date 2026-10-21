@@ -62,7 +62,8 @@
       "gap_requires_issue": false,
       "source_evidence_state": "reference_links_only",
       "source_snapshot_manifest_sha256": null,
-      "source_snapshot_required_before_pilot": true
+      "source_snapshot_required_before_pilot": true,
+      "source_snapshot_manifest_path": null
     },
     {
       "profile_id": "integral-collective-specifications",
@@ -115,7 +116,8 @@
       "gap_requires_issue": false,
       "source_evidence_state": "reference_links_only",
       "source_snapshot_manifest_sha256": null,
-      "source_snapshot_required_before_pilot": true
+      "source_snapshot_required_before_pilot": true,
+      "source_snapshot_manifest_path": null
     },
     {
       "profile_id": "holochain-ecosystem",
@@ -165,7 +167,8 @@
       "gap_requires_issue": false,
       "source_evidence_state": "reference_links_only",
       "source_snapshot_manifest_sha256": null,
-      "source_snapshot_required_before_pilot": true
+      "source_snapshot_required_before_pilot": true,
+      "source_snapshot_manifest_path": null
     },
     {
       "profile_id": "tracelink",
@@ -218,7 +221,8 @@
       "gap_requires_issue": false,
       "source_evidence_state": "reference_links_only",
       "source_snapshot_manifest_sha256": null,
-      "source_snapshot_required_before_pilot": true
+      "source_snapshot_required_before_pilot": true,
+      "source_snapshot_manifest_path": null
     },
     {
       "profile_id": "trasce-consortium",
@@ -270,7 +274,8 @@
       "gap_requires_issue": false,
       "source_evidence_state": "reference_links_only",
       "source_snapshot_manifest_sha256": null,
-      "source_snapshot_required_before_pilot": true
+      "source_snapshot_required_before_pilot": true,
+      "source_snapshot_manifest_path": null
     },
     {
       "profile_id": "optel-group",
@@ -323,7 +328,8 @@
       "gap_requires_issue": false,
       "source_evidence_state": "reference_links_only",
       "source_snapshot_manifest_sha256": null,
-      "source_snapshot_required_before_pilot": true
+      "source_snapshot_required_before_pilot": true,
+      "source_snapshot_manifest_path": null
     },
     {
       "profile_id": "vitadao",
@@ -375,7 +381,8 @@
       "gap_requires_issue": false,
       "source_evidence_state": "reference_links_only",
       "source_snapshot_manifest_sha256": null,
-      "source_snapshot_required_before_pilot": true
+      "source_snapshot_required_before_pilot": true,
+      "source_snapshot_manifest_path": null
     },
     {
       "profile_id": "molecule",
@@ -428,7 +435,8 @@
       "gap_requires_issue": false,
       "source_evidence_state": "reference_links_only",
       "source_snapshot_manifest_sha256": null,
-      "source_snapshot_required_before_pilot": true
+      "source_snapshot_required_before_pilot": true,
+      "source_snapshot_manifest_path": null
     },
     {
       "profile_id": "researchhub",
@@ -481,7 +489,8 @@
       "gap_requires_issue": false,
       "source_evidence_state": "reference_links_only",
       "source_snapshot_manifest_sha256": null,
-      "source_snapshot_required_before_pilot": true
+      "source_snapshot_required_before_pilot": true,
+      "source_snapshot_manifest_path": null
     },
     {
       "profile_id": "gleif-vlei",
@@ -530,7 +539,8 @@
       "gap_requires_issue": false,
       "source_evidence_state": "reference_links_only",
       "source_snapshot_manifest_sha256": null,
-      "source_snapshot_required_before_pilot": true
+      "source_snapshot_required_before_pilot": true,
+      "source_snapshot_manifest_path": null
     },
     {
       "profile_id": "w3c-verifiable-credentials",
@@ -579,7 +589,8 @@
       "gap_requires_issue": false,
       "source_evidence_state": "reference_links_only",
       "source_snapshot_manifest_sha256": null,
-      "source_snapshot_required_before_pilot": true
+      "source_snapshot_required_before_pilot": true,
+      "source_snapshot_manifest_path": null
     },
     {
       "profile_id": "orcid",
@@ -623,7 +634,8 @@
       "gap_requires_issue": false,
       "source_evidence_state": "reference_links_only",
       "source_snapshot_manifest_sha256": null,
-      "source_snapshot_required_before_pilot": true
+      "source_snapshot_required_before_pilot": true,
+      "source_snapshot_manifest_path": null
     },
     {
       "profile_id": "ror",
@@ -668,7 +680,8 @@
       "gap_requires_issue": false,
       "source_evidence_state": "reference_links_only",
       "source_snapshot_manifest_sha256": null,
-      "source_snapshot_required_before_pilot": true
+      "source_snapshot_required_before_pilot": true,
+      "source_snapshot_manifest_path": null
     },
     {
       "profile_id": "toucan-protocol",
@@ -721,7 +734,8 @@
       "gap_requires_issue": true,
       "source_evidence_state": "reference_links_only",
       "source_snapshot_manifest_sha256": null,
-      "source_snapshot_required_before_pilot": true
+      "source_snapshot_required_before_pilot": true,
+      "source_snapshot_manifest_path": null
     },
     {
       "profile_id": "catena-agentic-finance",
@@ -775,7 +789,8 @@
       "gap_requires_issue": false,
       "source_evidence_state": "reference_links_only",
       "source_snapshot_manifest_sha256": null,
-      "source_snapshot_required_before_pilot": true
+      "source_snapshot_required_before_pilot": true,
+      "source_snapshot_manifest_path": null
     },
     {
       "profile_id": "antares-vision",
@@ -828,7 +843,8 @@
       ],
       "source_evidence_state": "reference_links_only",
       "source_snapshot_manifest_sha256": null,
-      "source_snapshot_required_before_pilot": true
+      "source_snapshot_required_before_pilot": true,
+      "source_snapshot_manifest_path": null
     },
     {
       "profile_id": "acviss",
@@ -881,7 +897,8 @@
       ],
       "source_evidence_state": "reference_links_only",
       "source_snapshot_manifest_sha256": null,
-      "source_snapshot_required_before_pilot": true
+      "source_snapshot_required_before_pilot": true,
+      "source_snapshot_manifest_path": null
     },
     {
       "profile_id": "authentix",
@@ -934,7 +951,8 @@
       ],
       "source_evidence_state": "reference_links_only",
       "source_snapshot_manifest_sha256": null,
-      "source_snapshot_required_before_pilot": true
+      "source_snapshot_required_before_pilot": true,
+      "source_snapshot_manifest_path": null
     },
     {
       "profile_id": "transmute",
@@ -987,7 +1005,8 @@
       ],
       "source_evidence_state": "reference_links_only",
       "source_snapshot_manifest_sha256": null,
-      "source_snapshot_required_before_pilot": true
+      "source_snapshot_required_before_pilot": true,
+      "source_snapshot_manifest_path": null
     },
     {
       "profile_id": "verra",
@@ -1044,7 +1063,8 @@
       ],
       "source_evidence_state": "reference_links_only",
       "source_snapshot_manifest_sha256": null,
-      "source_snapshot_required_before_pilot": true
+      "source_snapshot_required_before_pilot": true,
+      "source_snapshot_manifest_path": null
     },
     {
       "profile_id": "klimadao",
@@ -1100,7 +1120,8 @@
       ],
       "source_evidence_state": "reference_links_only",
       "source_snapshot_manifest_sha256": null,
-      "source_snapshot_required_before_pilot": true
+      "source_snapshot_required_before_pilot": true,
+      "source_snapshot_manifest_path": null
     },
     {
       "profile_id": "ocean-protocol",
@@ -1153,7 +1174,8 @@
       ],
       "source_evidence_state": "reference_links_only",
       "source_snapshot_manifest_sha256": null,
-      "source_snapshot_required_before_pilot": true
+      "source_snapshot_required_before_pilot": true,
+      "source_snapshot_manifest_path": null
     },
     {
       "profile_id": "axondao",
@@ -1209,7 +1231,8 @@
       ],
       "source_evidence_state": "reference_links_only",
       "source_snapshot_manifest_sha256": null,
-      "source_snapshot_required_before_pilot": true
+      "source_snapshot_required_before_pilot": true,
+      "source_snapshot_manifest_path": null
     },
     {
       "profile_id": "transcrypts",
@@ -1262,7 +1285,8 @@
       ],
       "source_evidence_state": "reference_links_only",
       "source_snapshot_manifest_sha256": null,
-      "source_snapshot_required_before_pilot": true
+      "source_snapshot_required_before_pilot": true,
+      "source_snapshot_manifest_path": null
     },
     {
       "profile_id": "digital-bazaar",
@@ -1314,7 +1338,8 @@
       ],
       "source_evidence_state": "reference_links_only",
       "source_snapshot_manifest_sha256": null,
-      "source_snapshot_required_before_pilot": true
+      "source_snapshot_required_before_pilot": true,
+      "source_snapshot_manifest_path": null
     },
     {
       "profile_id": "decentralized-identity-foundation",
@@ -1363,7 +1388,8 @@
       ],
       "source_evidence_state": "reference_links_only",
       "source_snapshot_manifest_sha256": null,
-      "source_snapshot_required_before_pilot": true
+      "source_snapshot_required_before_pilot": true,
+      "source_snapshot_manifest_path": null
     },
     {
       "profile_id": "danube-tech",
@@ -1411,7 +1437,8 @@
       ],
       "source_evidence_state": "reference_links_only",
       "source_snapshot_manifest_sha256": null,
-      "source_snapshot_required_before_pilot": true
+      "source_snapshot_required_before_pilot": true,
+      "source_snapshot_manifest_path": null
     },
     {
       "profile_id": "marblism",
@@ -1463,7 +1490,8 @@
       ],
       "source_evidence_state": "reference_links_only",
       "source_snapshot_manifest_sha256": null,
-      "source_snapshot_required_before_pilot": true
+      "source_snapshot_required_before_pilot": true,
+      "source_snapshot_manifest_path": null
     }
   ]
 }
