@@ -512,7 +512,7 @@ pub fn receiver_ready_event_driven(problem: &Problem) -> Result<SearchResult, Re
     let mut balances = vec![0_i128; problem.participant_count];
     let mut required = vec![0_u128; problem.participant_count];
     let mut generations = vec![0_u64; count];
-    let mut heap = BinaryHeap::<QueueCandidate>::new();
+    let mut heap = BinaryHeap::<QueueCandidate>::with_capacity(count);
     let mut candidate_evaluations = 0_usize;
     let mut work_units = count;
     if work_units > MAX_SEARCH_WORK_UNITS {
@@ -540,6 +540,7 @@ pub fn receiver_ready_event_driven(problem: &Problem) -> Result<SearchResult, Re
 
     let mut order = Vec::with_capacity(count);
     let mut seen_epoch = vec![0_usize; count];
+    let mut affected = Vec::<usize>::new();
     let mut epoch = 0_usize;
 
     while order.len() < count {
@@ -577,7 +578,7 @@ pub fn receiver_ready_event_driven(problem: &Problem) -> Result<SearchResult, Re
         order.push(selected);
 
         epoch = epoch.checked_add(1).ok_or(ReorderError::ArithmeticOverflow)?;
-        let mut affected = Vec::<usize>::new();
+        affected.clear();
         for &after in &successors[selected] {
             indegree[after] = indegree[after]
                 .checked_sub(1)
@@ -641,7 +642,7 @@ pub fn receiver_ready_event_driven(problem: &Problem) -> Result<SearchResult, Re
             );
         }
 
-        for index in affected {
+        for &index in &affected {
             push_queue_candidate(
                 index,
                 problem,
