@@ -15,6 +15,8 @@ pub const MAX_PARTICIPANTS: usize = 100_000;
 pub const MAX_EXACT_ORACLE_PAYMENTS: usize = 8;
 /// Receiver-ready greedy scans the remaining queue on each tick (quadratic work).
 pub const MAX_GREEDY_PAYMENTS: usize = 5_000;
+/// Per-search bound on candidate count multiplied by payment count.
+pub const MAX_SEARCH_WORK_UNITS: usize = 20_000_000;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Payment {
@@ -143,6 +145,7 @@ pub enum ReorderError {
     TooManyPayments { observed: usize, maximum: usize },
     ExactOracleLimit { observed: usize, maximum: usize },
     GreedyLimit { observed: usize, maximum: usize },
+    SearchWorkLimit { observed: usize, maximum: usize },
     ArithmeticOverflow,
 }
 
@@ -514,9 +517,18 @@ pub fn bounded_insertion_search(
     max_candidate_evaluations: usize,
 ) -> Result<SearchResult, ReorderError> {
     validate_order(problem, initial_order)?;
+    let count = initial_order.len();
+    let work_units = count
+        .checked_mul(max_candidate_evaluations)
+        .ok_or(ReorderError::ArithmeticOverflow)?;
+    if work_units > MAX_SEARCH_WORK_UNITS {
+        return Err(ReorderError::SearchWorkLimit {
+            observed: work_units,
+            maximum: MAX_SEARCH_WORK_UNITS,
+        });
+    }
     let mut order = initial_order.to_vec();
     let mut evaluation = evaluate_unchecked(problem, &order)?;
-    let count = order.len();
     if count < 2 || max_candidate_evaluations == 0 {
         return Ok(SearchResult {
             order,
@@ -609,6 +621,15 @@ pub fn simulated_annealing(
 ) -> Result<SearchResult, ReorderError> {
     validate_order(problem, initial_order)?;
     let count = initial_order.len();
+    let work_units = count
+        .checked_mul(iterations)
+        .ok_or(ReorderError::ArithmeticOverflow)?;
+    if work_units > MAX_SEARCH_WORK_UNITS {
+        return Err(ReorderError::SearchWorkLimit {
+            observed: work_units,
+            maximum: MAX_SEARCH_WORK_UNITS,
+        });
+    }
     let mut current_order = initial_order.to_vec();
     let mut current_evaluation = evaluate_unchecked(problem, &current_order)?;
     let mut best_order = current_order.clone();
