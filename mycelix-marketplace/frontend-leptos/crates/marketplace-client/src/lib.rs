@@ -1,6 +1,11 @@
 //! Typed Marketplace coordinator client over an injected transport.
 
 pub mod contract;
+pub mod furnishing_discovery;
+pub use furnishing_discovery::{
+    FurnishingDiscoveryAdapter, FurnishingDiscoverySnapshot, ListingReadPort,
+    project_listing_snapshot,
+};
 
 use async_trait::async_trait;
 use marketplace_domain::{
@@ -32,8 +37,27 @@ pub enum ClientError {
     },
 }
 
+/// Identifies the configured transport implementation, not the truth or
+/// completeness of any response returned through it.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum TransportKind {
+    /// Calls are routed through the browser JS bridge. This does not by itself
+    /// prove that the remote conductor is current or that a listing read is complete.
+    JsBridge,
+    /// Explicit fixture-backed data path; never evidence of live listings.
+    DevelopmentFixture,
+    /// Stub whose calls always fail closed.
+    UnavailableStub,
+    /// Custom or legacy transport that has not declared its mode.
+    Unclassified,
+}
+
 #[async_trait(?Send)]
 pub trait ZomeTransport: Clone + 'static {
+    fn transport_kind(&self) -> TransportKind {
+        TransportKind::Unclassified
+    }
+
     async fn call_zome(
         &self,
         role: &str,
@@ -54,6 +78,12 @@ where
 {
     pub fn new(transport: T) -> Self {
         Self { transport }
+    }
+
+    /// Reports only the configured implementation; response provenance,
+    /// freshness, and completeness remain separate evidence questions.
+    pub fn transport_kind(&self) -> TransportKind {
+        self.transport.transport_kind()
     }
 
     async fn call<I, O>(&self, zome: &str, function: &str, input: &I) -> Result<O, ClientError>
@@ -458,6 +488,10 @@ pub struct UnavailableTransport;
 
 #[async_trait(?Send)]
 impl ZomeTransport for UnavailableTransport {
+    fn transport_kind(&self) -> TransportKind {
+        TransportKind::UnavailableStub
+    }
+
     async fn call_zome(
         &self,
         _role: &str,

@@ -84,6 +84,10 @@ impl JsBridgeTransport {
 
 #[async_trait(?Send)]
 impl ZomeTransport for JsBridgeTransport {
+    fn transport_kind(&self) -> crate::TransportKind {
+        crate::TransportKind::JsBridge
+    }
+
     async fn call_zome(
         &self,
         role: &str,

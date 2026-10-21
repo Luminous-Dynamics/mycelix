@@ -990,6 +990,10 @@ impl FixtureTransport {
 
 #[async_trait(?Send)]
 impl ZomeTransport for FixtureTransport {
+    fn transport_kind(&self) -> crate::TransportKind {
+        crate::TransportKind::DevelopmentFixture
+    }
+
     async fn call_zome(
         &self,
         _role: &str,
@@ -1303,6 +1307,20 @@ mod tests {
         assert_eq!(result.result.vote_hashes, vec![vote.vote_hash]);
         assert_eq!(result.result.weighted_vote, 1.0);
         assert_eq!(result.result.winner, fixture_agent());
+
+        // This unit test calls the internal finalizer directly. The transport
+        // dispatcher separately projects reputation after finalization, so
+        // exercise that explicit boundary here rather than assuming the
+        // internal finalizer has transport-level side effects.
+        let projected = arbitrator
+            .project_arbitration_events(result.result_hash.clone())
+            .unwrap();
+        assert_eq!(projected.events.len(), 2);
+        let replayed = arbitrator
+            .project_arbitration_events(result.result_hash.clone())
+            .unwrap();
+        assert_eq!(replayed, projected);
+
         let winner = arbitrator.derived_reputation(fixture_agent());
         let loser = arbitrator.derived_reputation(listing.seller_agent_id);
         assert_eq!(winner.positive_events, 1);
