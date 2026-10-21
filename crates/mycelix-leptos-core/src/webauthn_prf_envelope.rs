@@ -250,12 +250,12 @@ mod tests {
     fn derivation_is_deterministic_for_identical_context() {
         let (prf_output, salt, public_key, credential_id) = fixed_inputs();
         let first = derive_prf_envelope_key(
-            &prf_output,
+            prf_output.to_vec(),
             &context("mycelix.example", &credential_id, &salt, &public_key),
         )
         .unwrap();
         let second = derive_prf_envelope_key(
-            &prf_output,
+            prf_output.to_vec(),
             &context("mycelix.example", &credential_id, &salt, &public_key),
         )
         .unwrap();
@@ -269,31 +269,31 @@ mod tests {
     fn rp_credential_salt_and_identity_key_are_domain_separated() {
         let (prf_output, salt, public_key, credential_id) = fixed_inputs();
         let base = derive_prf_envelope_key(
-            &prf_output,
+            prf_output.to_vec(),
             &context("mycelix.example", &credential_id, &salt, &public_key),
         )
         .unwrap();
 
         let other_rp = derive_prf_envelope_key(
-            &prf_output,
+            prf_output.to_vec(),
             &context("other.example", &credential_id, &salt, &public_key),
         )
         .unwrap();
         let other_credential_id = [0, 1, 2, 254];
         let other_credential = derive_prf_envelope_key(
-            &prf_output,
+            prf_output.to_vec(),
             &context("mycelix.example", &other_credential_id, &salt, &public_key),
         )
         .unwrap();
         let other_salt = [9u8; 32];
         let other_salt_key = derive_prf_envelope_key(
-            &prf_output,
+            prf_output.to_vec(),
             &context("mycelix.example", &credential_id, &other_salt, &public_key),
         )
         .unwrap();
         let other_public = [10u8; 32];
         let other_identity = derive_prf_envelope_key(
-            &prf_output,
+            prf_output.to_vec(),
             &context("mycelix.example", &credential_id, &salt, &other_public),
         )
         .unwrap();
@@ -325,7 +325,7 @@ mod tests {
         );
         assert_eq!(
             derive_prf_envelope_key(
-                &[0u8; 32],
+                vec![0u8; 32],
                 &context("mycelix.example", &credential_id, &salt, &[0u8; 31])
             )
             .unwrap_err(),
@@ -348,7 +348,7 @@ mod tests {
         ] {
             assert_eq!(
                 derive_prf_envelope_key(
-                    &prf_output,
+                    prf_output.to_vec(),
                     &context(invalid_rp, &credential_id, &salt, &public_key)
                 )
                 .unwrap_err(),
@@ -357,7 +357,7 @@ mod tests {
         }
         assert_eq!(
             derive_prf_envelope_key(
-                &prf_output,
+                prf_output.to_vec(),
                 &context("mycelix.example", &[], &salt, &public_key)
             )
             .unwrap_err(),
@@ -366,7 +366,7 @@ mod tests {
         let oversized_credential = vec![0u8; MAX_CREDENTIAL_ID_LEN + 1];
         assert_eq!(
             derive_prf_envelope_key(
-                &prf_output,
+                prf_output.to_vec(),
                 &context("mycelix.example", &oversized_credential, &salt, &public_key)
             )
             .unwrap_err(),
@@ -399,7 +399,7 @@ mod tests {
     fn debug_output_redacts_derived_key_bytes() {
         let (prf_output, salt, public_key, credential_id) = fixed_inputs();
         let key = derive_prf_envelope_key(
-            &prf_output,
+            prf_output.to_vec(),
             &context("mycelix.example", &credential_id, &salt, &public_key),
         )
         .unwrap();
