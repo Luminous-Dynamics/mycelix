@@ -4,6 +4,11 @@
 use leptos::prelude::*;
 use leptos_router::components::{Route, Router, Routes};
 use leptos_router::path;
+use mycelix_leptos_core::IdentityBootstrapGate;
+use mycelix_leptos_core::local_identity::{
+    inspect_local_identity_posture, recovery_backup_confirmation_needed,
+    LocalIdentityStoragePosture,
+};
 
 use mycelix_leptos_core::{
     init_consciousness_ui, provide_consciousness_context, provide_homeostasis_context,
@@ -71,6 +76,30 @@ pub fn App() -> impl IntoView {
 
 #[component]
 fn AppInner() -> impl IntoView {
+    let initial_posture = inspect_local_identity_posture();
+    let backup_pending = RwSignal::new(
+        initial_posture == LocalIdentityStoragePosture::ProtectedUnlockedInSession
+            && recovery_backup_confirmation_needed(),
+    );
+    let posture = RwSignal::new(initial_posture);
+
+    view! {
+        <Show
+            when=move || {
+                posture.get() == LocalIdentityStoragePosture::ProtectedUnlockedInSession
+                    && !backup_pending.get()
+            }
+            fallback=move || view! {
+                <IdentityBootstrapGate posture=posture backup_pending=backup_pending />
+            }
+        >
+            <FinanceReadyApp />
+        </Show>
+    }
+}
+
+#[component]
+fn FinanceReadyApp() -> impl IntoView {
     // Provider stack (order matters)
     provide_theme_context("finance-theme", AppThemeVariant::Dark);
     provide_thermodynamic_context();
