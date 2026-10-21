@@ -97,6 +97,8 @@ These are internal research targets to validate, not existing Praxis results or 
 
 A human-grounded reward model is useful for scalable triage, but educator review and learner studies remain separate evidence layers.
 
+Every evaluation should emit a versioned [PedBench run receipt](run-receipt.schema.json). The receipt binds the dataset split, model/version, decoding and tool policies, system and rubric digests, exact per-case input/output digests, annotation state, aggregate scores and uncertainty. Confirmatory-improvement and state-of-the-art claim levels are schema-gated to a held-out split, independent evaluation and confirmatory replication. The JSON Schema expresses the contract; CI tests protect key schema invariants, but a complete Draft 2020-12 meta-schema validation should still be part of the evaluator build before external use.
+
 ## 7. From benchmark score to educational efficacy
 
 A strong PedBench score is a useful diagnostic, not evidence of learning. Recent field evidence is mixed: a 2026 two-year school experiment of a coach-configured tutor found small achievement gains that resembled ordinary platform practice and low rates of substantive tutor dialogue; a separate October 2026 university working paper reported worse final grades and lower LMS participation under its course-integrated AI-tutor treatment. These results concern different populations and interventions, so they do not settle the question—but they make a controlled comparison mandatory rather than optional. <https://scale.stanford.edu/ai/repository/one-click-away-ai-tutoring-khanmigo-two-year-school-experiment> · <https://www.iza.org/publications/dp/18989/the-effects-of-course-integrated-ai-tutoring-on-student-performance-and-engagement-a-randomized-university-trial>
