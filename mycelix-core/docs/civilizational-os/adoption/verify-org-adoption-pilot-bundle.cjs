@@ -294,7 +294,7 @@ const mutationResults = selfTestRequested ? [
   assertRejects(b => { b.relationship_status = 'partner'; }, 'fabricated-relationship-status', bundle),
   assertRejects(b => { b.rollback_test.retained_external_effects = true; }, 'rollback-retained-effects', bundle),
   assertRejects(b => { b.input_manifest.events.push({ ...b.input_manifest.events[0] }); }, 'duplicate-event-replay', bundle)
-];] : [];
+] : [];
 
 const receipt = {
   verifier: 'verify-org-adoption-pilot-bundle.cjs',
