@@ -14,7 +14,7 @@ Report the following layers separately. A release decision must not replace a mi
 | C — Learner outcomes | Pre-registered study with fair comparator, independent assessments, delayed unaided retention and transfer | The named intervention changed the measured learner outcome in the studied population/context |
 | D — Replication and transport | Independent replication across materially different course, population, language or deployment conditions | The effect replicated across the specifically listed contexts |
 
-A digest binds evidence to bytes; it does not validate the judgement. A benchmark score describes responses on benchmark cases; it does not establish that a learner learned. A randomized study can support causal claims only when assignment integrity, implementation, attrition, analysis and interference assumptions justify them.
+A digest binds evidence to bytes; it does not validate the judgement. A benchmark score describes responses on benchmark cases; it does not establish that a learner learned. A randomized study can support causal claims only when assignment integrity, implementation, attrition, analysis and interference assumptions justify them. Individual learner state should use the private [Learner Mastery Evidence v1 contract](../../schemas/learner-mastery-evidence-v1.schema.json): the `mastered` state requires an independently scored, unaided transfer observation and an independently scored, unaided delayed-retention observation, at least three evidence records, a decision rationale, and a scheduled review. Do not put this per-learner record in the public source repository; publish only privacy-reviewed aggregate study outcomes.
 
 ## 2. Default outcome hierarchy
 
