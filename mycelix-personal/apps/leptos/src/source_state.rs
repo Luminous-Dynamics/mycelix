@@ -173,6 +173,11 @@ impl<T> ConflictingClaims<T> {
         2 + self.rest.len()
     }
 
+    /// ConflictingClaims always contains at least two claims.
+    pub fn is_empty(&self) -> bool {
+        false
+    }
+
     pub fn iter(&self) -> impl Iterator<Item = &T> {
         std::iter::once(&self.first)
             .chain(std::iter::once(&self.second))
