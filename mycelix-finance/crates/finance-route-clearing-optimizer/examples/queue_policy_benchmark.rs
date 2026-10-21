@@ -137,6 +137,7 @@ fn main() {
                 QueuePolicy::StrictFifo,
                 QueuePolicy::LiquidityAwareFifo,
                 QueuePolicy::PriorityScan,
+                QueuePolicy::EarliestDeadlineFirst,
             ] {
                 let mut timings = Vec::with_capacity(REPETITIONS);
                 let mut final_result = None;
