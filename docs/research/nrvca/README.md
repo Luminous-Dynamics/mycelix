@@ -43,7 +43,7 @@ The v0.1 schema defines these components:
 - Data-quality summary and a policy forbidding a universal scalar or addition across unlike units.
 - Explicit claim ceiling.
 
-The JSON Schema enforces shape and basic field domains. An independent semantic validator must additionally check that source references exist, all units are valid within a declared profile, source/time/geo scope matches, arithmetic identities hold, and an input cannot claim stronger evidence than its sources allow. Schema validation is necessary but not sufficient.
+The JSON Schema enforces shape and basic field domains. Typed claims separately declare claim type, evidence status, scope, statement, and source references. The independent semantic validator checks that references exist, arithmetic identities hold, unknowns remain visible, and the report cannot promote synthetic evidence to observations or causal evaluation. Do not try to infer epistemic status by parsing prose: negated disclaimers create false positives. Schema validation is necessary but not sufficient.
 
 ## Economic semantics that must not be blurred
 
@@ -98,7 +98,7 @@ For physical/service questions, the baseline is the best available operator/engi
 
 ## Synthetic fixture
 
-The adjacent fixture is wholly synthetic. Its values are deliberately small and hand-checkable. It demonstrates:
+The adjacent fixture is wholly synthetic. Its values are deliberately small and hand-checkable. Its typed claims make the evidence tier explicit. It demonstrates:
 - GDP minus consumption of fixed capital equals NDP.
 - A financial stock roll-forward reconciles.
 - A water stock-flow identity reconciles in a physical unit.
