@@ -21,7 +21,8 @@ Modes:
 - SNA-style account basis consistency;
 - separation of financing, revaluation, secondary-market asset transfers and current production;
 - unknown versus zero;
-- unit consistency and machine-reconstructed reconciliation identities;
+- unit consistency, canonical JSON-Pointer bindings, and independently reconstructed reconciliation identities;
+- canonical stock-flow account closure and financial-event linkage;
 - the v0.1 ban on adding incompatible units into a universal scalar;
 - typed claim classification and the prohibition on promoting synthetic claims to observed or causal evidence;
 - evidence-tier / synthetic-to-real overclaim controls;
@@ -32,3 +33,6 @@ Modes:
 This is not a full JSON Schema Draft 2020-12 validator and does not prove SNA/SEEA conformity, source truth, data completeness, causal impact, or policy quality. It checks a documented subset of the contract. It has no Holochain, network, database, or runtime-service dependency. The golden fixture is synthetic.
 
 Adversarial tests are qualified only when the Rust runner executes them successfully. A specification entry, a parsed JSON file, or an equivalent check in another language is not an executed Rust test. The claim checker uses typed claim fields; it does not attempt to infer truth from natural-language disclaimers.
+
+
+The reconciliation contract binds every operand via `value_pointer` and each LHS via `lhs_pointer`; stock-flow accounts carry signed changes and reconcile independently. The validator is still a limited semantic checker, not a full JSON Schema or national-account standard validator.
