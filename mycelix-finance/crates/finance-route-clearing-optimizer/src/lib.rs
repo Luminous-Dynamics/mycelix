@@ -15,6 +15,7 @@
 //! Cost units are comparative weights, not a quoted fiat fee.
 
 pub mod fixed_charge;
+pub mod queue;
 
 use std::cmp::Reverse;
 use std::collections::{BTreeMap, BinaryHeap};
