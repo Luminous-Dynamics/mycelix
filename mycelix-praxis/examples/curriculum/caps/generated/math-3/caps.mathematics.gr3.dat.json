@@ -92,7 +92,7 @@
         "explanation": "Dogs has the largest count, 9.",
         "distractors": [
           "Cats",
-          "Dogs",
+          "All equally common",
           "Rabbits"
         ]
       },
@@ -108,7 +108,7 @@
         "distractors": [
           "8 learners",
           "10 learners",
-          "12 learners"
+          "14 learners"
         ]
       },
       {
@@ -122,7 +122,7 @@
         "explanation": "The value 5 appears three times, more than any other value.",
         "distractors": [
           "3",
-          "5",
+          "4",
           "7"
         ]
       },
@@ -137,7 +137,7 @@
         "explanation": "Thursday's value, 7, is the largest.",
         "distractors": [
           "Tuesday",
-          "Thursday",
+          "Wednesday",
           "Friday"
         ]
       },
@@ -153,7 +153,7 @@
         "distractors": [
           "7 cars",
           "25 cars",
-          "35 cars"
+          "40 cars"
         ]
       },
       {
