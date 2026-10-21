@@ -86,12 +86,12 @@
     {
       "case_id": "NRVCA-ECO-007-stockflow-must-recompute",
       "expected_disposition": "reject_semantic",
-      "invariant": "The stock-flow closing value must match the signed sum of declared opening stock and changes.",
+      "invariant": "A stock-flow change is stored once in the canonical account and reconciliation terms must resolve to that exact value.",
       "patch": [
         {
           "op": "replace",
-          "path": "/reconciliations/1/operands/2/coefficient",
-          "value": 1
+          "path": "/stock_flow_accounts/0/changes/1/signed_change",
+          "value": 30
         }
       ]
     },
