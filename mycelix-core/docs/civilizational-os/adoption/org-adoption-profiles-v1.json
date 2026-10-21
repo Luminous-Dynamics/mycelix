@@ -652,6 +652,10 @@
         {
           "issue_id": "mycelix#2922",
           "role": "canonical evidence handling with provenance boundaries"
+        },
+        {
+          "issue_id": "mycelix#5390",
+          "role": "methodology-bound environmental-credit provenance profile (research-only gap)"
         }
       ],
       "pilot_scope": "Design only: a synthetic environmental-credit evidence packet with registry/project/vintage/methodology references, source revisions, transfers/retirements where supported, and explicit unknowns.",
@@ -955,6 +959,10 @@
         {
           "issue_id": "mycelix#5277",
           "role": "consent-aware landscape project provenance"
+        },
+        {
+          "issue_id": "mycelix#5390",
+          "role": "methodology-bound environmental-credit provenance profile (research-only gap)"
         }
       ],
       "pilot_scope": "Research-only: define a methodology-bound project evidence packet that keeps registry identity, methodology/version, validation and verification records, vintage, status changes, and independently observed outcomes separate.",
@@ -1004,6 +1012,10 @@
         {
           "issue_id": "mycelix#4572",
           "role": "separation of mechanism units and conventional financial claims"
+        },
+        {
+          "issue_id": "mycelix#5390",
+          "role": "methodology-bound environmental-credit provenance profile (research-only gap)"
         }
       ],
       "pilot_scope": "Research-only: model a carbon-market event chain with separate project/methodology evidence, tokenized instrument, market transfer, and retirement/claim events; retain unqualified fields rather than infer environmental impact.",
