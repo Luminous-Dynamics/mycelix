@@ -1566,7 +1566,84 @@ pub fn sign_with_local_identity(message: &[u8]) -> Signature {
     ensure_keypair().sign(message)
 }
 
-/// Provide local identity as Leptos context.
+/// Gate an identity-dependent app shell before it provides a local identity context.
+///
+/// This component deliberately does not create, restore, migrate or unlock keys.
+/// Users must complete the explicit identity lifecycle in the appropriate app
+/// for this browser origin, then recheck or reload the dependent app.
+#[component]
+pub fn ProtectedIdentityAccessGate(children: ChildrenFn) -> impl IntoView {
+    let posture = RwSignal::new(inspect_local_identity_posture());
+
+    view! {
+        <Show
+            when=move || {
+                posture.get() == LocalIdentityStoragePosture::ProtectedUnlockedInSession
+            }
+            fallback=move || view! {
+                <main class="identity-access-gate-shell" aria-labelledby="identity-access-gate-title">
+                    <section class="identity-access-gate-card" aria-describedby="identity-access-gate-description">
+                        <span class="identity-access-gate-eyebrow">"MYCELIX / IDENTITY SAFETY"</span>
+                        <h1 id="identity-access-gate-title">"Identity access is gated"</h1>
+                        <p id="identity-access-gate-description">
+                            {move || protected_identity_access_message(posture.get())}
+                        </p>
+                        <p>
+                            "This app will not create, replace, or unlock a key during startup. Browser identity storage is origin-scoped and is not automatically shared between different origins."
+                        </p>
+                        <button
+                            type="button"
+                            class="identity-access-gate-recheck"
+                            on:click=move |_| posture.set(inspect_local_identity_posture())
+                        >
+                            "Recheck identity"
+                        </button>
+                        <p class="identity-access-gate-status" role="status" aria-live="polite">
+                            {move || format!("Current identity posture: {:?}", posture.get())}
+                        </p>
+                    </section>
+                </main>
+            }
+        >
+            <ProtectedIdentityAccessReady>
+                {children()}
+            </ProtectedIdentityAccessReady>
+        </Show>
+    }
+}
+
+fn protected_identity_access_message(posture: LocalIdentityStoragePosture) -> &'static str {
+    match posture {
+        LocalIdentityStoragePosture::StorageUnavailable => {
+            "Browser storage could not be inspected. This is not proof that you have no identity. Restore storage access before proceeding."
+        }
+        LocalIdentityStoragePosture::NoIdentity => {
+            "No local identity was found. Open the Mycelix identity setup experience for this browser origin to create a protected identity or restore a verified backup."
+        }
+        LocalIdentityStoragePosture::LegacyIdentityNeedsMigration => {
+            "A legacy identity marker needs explicit migration. This app will not replace it or create a new key."
+        }
+        LocalIdentityStoragePosture::UnprotectedIdentity => {
+            "An existing key is not protected at rest. Use the identity setup experience for this browser origin to protect it in place, then recheck here."
+        }
+        LocalIdentityStoragePosture::ProtectedLocked => {
+            "A protected identity exists but is locked in this session. Unlock it in the identity setup experience for this browser origin, then recheck here."
+        }
+        LocalIdentityStoragePosture::ProtectedUnlockedInSession => {
+            "The protected identity is unlocked in this session."
+        }
+        LocalIdentityStoragePosture::CorruptOrInconsistent => {
+            "Stored identity evidence is corrupt or contradictory. Preserve the browser profile and use an explicit recovery procedure; no replacement key will be generated."
+        }
+    }
+}
+
+#[component]
+fn ProtectedIdentityAccessReady(children: ChildrenFn) -> impl IntoView {
+    provide_local_identity();
+    children()
+}
+
 pub fn provide_local_identity() {
     let did = local_did();
     provide_context(LocalIdentity { did });
