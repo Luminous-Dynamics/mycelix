@@ -856,17 +856,16 @@ fn audit_lesson_value(
                 }
             }
         }
-        if let Some(misconceptions) = lesson.get("misconceptions").and_then(Value::as_array) {
-            for (index, item) in misconceptions.iter().enumerate() {
-                for key in ["misconception", "correction", "why_students_think_this"] {
-                    add_text_finding(
-                        audit,
-                        &lesson_id,
-                        asset_path,
-                        &format!("lesson.misconceptions[{index}].{key}"),
-                        item.get(key),
-                    );
-                }
+    if let Some(misconceptions) = lesson.get("misconceptions").and_then(Value::as_array) {
+        for (index, item) in misconceptions.iter().enumerate() {
+            for key in ["misconception", "correction", "why_students_think_this"] {
+                add_text_finding(
+                    audit,
+                    &lesson_id,
+                    asset_path,
+                    &format!("lesson.misconceptions[{index}].{key}"),
+                    item.get(key),
+                );
             }
         }
     }
