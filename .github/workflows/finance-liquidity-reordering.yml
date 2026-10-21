@@ -1,6 +1,12 @@
 name: Finance Liquidity Reordering Research
 
 on:
+  push:
+    branches:
+      - feat/liquidity-reordering-exact-oracle-20261021
+    paths:
+      - research/finance-liquidity-reordering/**
+      - .github/workflows/finance-liquidity-reordering.yml
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review]
     paths:
