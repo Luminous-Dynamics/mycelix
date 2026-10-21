@@ -275,6 +275,9 @@ pub fn validate_report(report: &Value) -> Vec<Diagnostic> {
                 push_structural(&mut out, "INDICATOR-METADATA", &path, "dimension, definition, and unit are required");
             }
             let value = metric.get("value");
+            if value.is_none() {
+                push_structural(&mut out, "INDICATOR-VALUE-MISSING", &format!("{path}/value"), "value field is required; use null only with evidence_status=unknown");
+            }
             let is_null = value.is_none_or(Value::is_null);
             let is_numeric = value.and_then(Value::as_f64).is_some_and(f64::is_finite);
             if !is_null && !is_numeric {
@@ -399,17 +402,52 @@ pub fn validate_report(report: &Value) -> Vec<Diagnostic> {
         push_structural(&mut out, "CROSS-UNIT-ADDITION", "/aggregation_policy/cross_unit_addition_permitted", "v0.1 must set cross_unit_addition_permitted=false");
     }
 
-    if let Some(ceiling) = report.get("claim_ceiling").and_then(Value::as_array) {
-        for (i, claim) in ceiling.iter().enumerate() {
-            let text = claim.as_str().unwrap_or("").to_ascii_lowercase();
-            let asserts_causality = (text.contains("prove") || text.contains("establish"))
-                && (text.contains("causal") || text.contains("real-world") || text.contains("economic impact"));
-            if report_status == Some("synthetic") && asserts_causality {
-                push_semantic(&mut out, "SYNTHETIC-CAUSAL-OVERCLAIM", &format!("/claim_ceiling/{i}"), "synthetic report cannot assert proven real-world causal impact");
-            }
-        }
-    } else {
+    if !report.get("claim_ceiling").is_some_and(Value::is_array) {
         push_structural(&mut out, "CLAIM-CEILING", "/claim_ceiling", "claim_ceiling array is required");
+    }
+
+    // Machine-checkable claims carry explicit type/status/evidence references. Do not
+    // infer epistemic status by parsing disclaimer prose: negation makes that brittle.
+    let mut claim_ids = HashSet::new();
+    match report.get("claims").and_then(Value::as_array) {
+        Some(claims) if !claims.is_empty() => for (i, claim) in claims.iter().enumerate() {
+            let path = format!("/claims/{i}");
+            let Some(id) = field_str(claim, "claim_id") else {
+                push_structural(&mut out, "CLAIM-ID", &format!("{path}/claim_id"), "claim_id is required");
+                continue;
+            };
+            if !claim_ids.insert(id.to_owned()) {
+                push_semantic(&mut out, "DUPLICATE-CLAIM-ID", &format!("{path}/claim_id"), format!("duplicate claim_id: {id}"));
+            }
+            let claim_type = field_str(claim, "claim_type").unwrap_or("");
+            let evidence_status = field_str(claim, "evidence_status").unwrap_or("");
+            if !["accounting_reconciliation", "official_measurement", "observed_measurement", "derived_indicator", "forecast", "modeled_scenario", "causal_effect", "policy_assessment"].contains(&claim_type) {
+                push_structural(&mut out, "CLAIM-TYPE", &format!("{path}/claim_type"), "unsupported claim_type");
+            }
+            if !["synthetic", "official_statistic", "observed", "derived", "estimated", "modelled", "causally_evaluated", "independently_replicated", "unknown"].contains(&evidence_status) {
+                push_structural(&mut out, "CLAIM-EVIDENCE-STATUS", &format!("{path}/evidence_status"), "unsupported claim evidence_status");
+            }
+            if field_str(claim, "statement").is_none_or(str::is_empty) || field_str(claim, "scope").is_none_or(str::is_empty) {
+                push_structural(&mut out, "CLAIM-SCOPE-STATEMENT", &path, "nonempty statement and scope are required");
+            }
+            if report_status == Some("synthetic") && !["synthetic", "unknown"].contains(&evidence_status) {
+                push_semantic(&mut out, "SYNTHETIC-CLAIM-PROMOTION", &format!("{path}/evidence_status"), "synthetic report cannot promote a claim to real observation, estimate, or causal evaluation");
+            }
+            match claim_type {
+                "official_measurement" if evidence_status != "official_statistic" =>
+                    push_semantic(&mut out, "CLAIM-TYPE-STATUS", &format!("{path}/evidence_status"), "official_measurement requires official_statistic evidence status"),
+                "observed_measurement" if !["observed", "official_statistic", "independently_replicated"].contains(&evidence_status) =>
+                    push_semantic(&mut out, "CLAIM-TYPE-STATUS", &format!("{path}/evidence_status"), "observed_measurement requires observation or official-statistic evidence"),
+                "causal_effect" if !["causally_evaluated", "independently_replicated"].contains(&evidence_status) =>
+                    push_semantic(&mut out, "CAUSAL-CLAIM-UNQUALIFIED", &format!("{path}/evidence_status"), "causal_effect requires a qualified causal evaluation or independent replication"),
+                "forecast" if !["estimated", "modelled", "independently_replicated"].contains(&evidence_status) =>
+                    push_semantic(&mut out, "CLAIM-TYPE-STATUS", &format!("{path}/evidence_status"), "forecast requires estimated, modelled, or independently replicated status"),
+                _ => {}
+            }
+            reference_ids(claim.get("source_refs").unwrap_or(&Value::Null), &format!("{path}/source_refs"), &source_ids, &mut out);
+        },
+        Some(_) => push_structural(&mut out, "CLAIMS-EMPTY", "/claims", "at least one typed claim is required"),
+        None => push_structural(&mut out, "CLAIMS-TYPE", "/claims", "claims must be an array"),
     }
 
     out
@@ -429,6 +467,7 @@ pub fn validate_schema_contract(schema: &Value) -> Vec<Diagnostic> {
     for (name, required) in [
         ("outcome_vector", vec!["currency", "price_basis", "price_year", "uncertainty", "source_refs"]),
         ("reconciliations", vec!["operands"]),
+        ("claims", vec!["claim_id", "claim_type", "evidence_status", "statement", "scope", "source_refs"]),
     ] {
         let path = format!("/properties/{name}/items/required");
         let found: HashSet<&str> = schema.pointer(&path).and_then(Value::as_array).into_iter().flatten().filter_map(Value::as_str).collect();
