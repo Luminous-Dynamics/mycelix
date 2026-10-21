@@ -2,6 +2,7 @@ use finance_liquidity_reordering::{
     bounded_insertion_search, exact_permutation_oracle, input_order, receiver_ready_greedy,
     simulated_annealing, Payment, Problem, ReorderError, SearchResult,
 };
+use std::collections::BTreeSet;
 use std::error::Error;
 use std::time::Instant;
 
@@ -101,6 +102,35 @@ fn make_problem(length: usize, scenario: Scenario) -> Result<Problem, ReorderErr
     Problem::new(participant_count, payments)
 }
 
+#[derive(Clone, Copy, Debug)]
+struct TopologyFeatures {
+    participants_both_send_receive: usize,
+    unique_receivers: usize,
+    unique_directed_edges: usize,
+}
+
+/// Static workload features motivated by the 2026 TARGET2 paper's finding that
+/// optimizability varies with sender/receiver overlap and the diversity of receivers.
+fn topology_features(problem: &Problem) -> TopologyFeatures {
+    let mut sends = vec![false; problem.participant_count()];
+    let mut receives = vec![false; problem.participant_count()];
+    let mut unique_directed_edges = BTreeSet::new();
+    for payment in problem.payments() {
+        sends[payment.from] = true;
+        receives[payment.to] = true;
+        unique_directed_edges.insert((payment.from, payment.to));
+    }
+    TopologyFeatures {
+        participants_both_send_receive: sends
+            .iter()
+            .zip(&receives)
+            .filter(|(send, receive)| **send && **receive)
+            .count(),
+        unique_receivers: receives.iter().filter(|&&receives| receives).count(),
+        unique_directed_edges: unique_directed_edges.len(),
+    }
+}
+
 fn percentile(samples: &[u128], percentile: usize) -> u128 {
     let rank = (samples.len() * percentile).div_ceil(100).max(1);
     samples[rank.min(samples.len()) - 1]
@@ -139,6 +169,7 @@ where
     F: FnMut() -> Result<SearchResult, ReorderError>,
 {
     let (result, samples) = measure(run)?;
+    let features = topology_features(problem);
     let measured = finance_liquidity_reordering::evaluate_order(problem, &result.order)?;
     if measured != result.evaluation {
         return Err(format!("{} returned inconsistent metrics", algorithm).into());
@@ -170,10 +201,13 @@ where
     };
 
     println!(
-        "{},{},{},{},{},{},{},{},{},{},{},{},{}",
+        "{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{}",
         problem.payments().len(),
         problem.participant_count(),
         scenario.label(),
+        features.participants_both_send_receive,
+        features.unique_receivers,
+        features.unique_directed_edges,
         algorithm,
         seed.map(|value| value.to_string())
             .unwrap_or_else(|| "-".into()),
@@ -192,7 +226,7 @@ where
 }
 
 fn main() -> Result<(), Box<dyn Error>> {
-    println!("payments,participants,scenario,algorithm,seed,candidate_evaluations,aggregate_required_initial_liquidity_minor,max_participant_required_initial_liquidity_minor,aggregate_liquidity_gap_minor,max_participant_gap_minor,p50_ns,p95_ns,p99_ns");
+    println!("payments,participants,scenario,participants_both_send_receive,unique_receivers,unique_directed_edges,algorithm,seed,candidate_evaluations,aggregate_required_initial_liquidity_minor,max_participant_required_initial_liquidity_minor,aggregate_liquidity_gap_minor,max_participant_gap_minor,p50_ns,p95_ns,p99_ns");
 
     for payment_count in [4, 6, 8, 10, 30, 70, 140, 700] {
         for scenario in Scenario::ALL {
