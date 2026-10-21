@@ -140,7 +140,7 @@ pub fn record_footprint(
     let ctx = use_climate_context();
     let toasts = use_toasts();
     let total = scope1 + scope2 + scope3;
-    let entity_did = match mycelix_leptos_core::try_local_did() {
+    let entity_did = match mycelix_leptos_core::local_identity::try_local_did() {
         Ok(did) => did,
         Err(error) => {
             toasts.push(
