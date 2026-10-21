@@ -8,7 +8,7 @@ use finance_leptos_types::*;
 use finance_wire_types as wire;
 use leptos::prelude::*;
 use mycelix_leptos_core::holochain_provider::use_holochain;
-use mycelix_leptos_core::{use_local_identity, use_toasts, ToastKind};
+use mycelix_leptos_core::{try_local_did, use_toasts, ToastKind};
 use wasm_bindgen_futures::spawn_local;
 
 use crate::adapters::{map_exchange, map_payment, map_recognition, map_stake};
@@ -20,8 +20,17 @@ pub fn record_tend_exchange(receiver_did: String, hours: f32, description: Strin
     let hc = use_holochain();
     let ctx = use_finance_context();
     let config_store = use_finance_runtime_config();
-    let local_identity = use_local_identity();
     let toasts = use_toasts();
+    let local_did = match try_local_did() {
+        Ok(did) => did,
+        Err(error) => {
+            toasts.push(
+                format!("Identity unavailable; finance action was not performed: {error}"),
+                ToastKind::Error,
+            );
+            return;
+        }
+    };
 
     if hc.is_mock() {
         let id = format!("TND-{:04}", ctx.tend_exchanges.get_untracked().len() + 1);
@@ -30,7 +39,7 @@ pub fn record_tend_exchange(receiver_did: String, hours: f32, description: Strin
             exchanges.push(TendExchangeView {
                 hash: String::new(),
                 id: id.clone(),
-                provider_did: local_identity.did.clone(),
+                provider_did: local_did.clone(),
                 receiver_did: receiver_did.clone(),
                 hours,
                 service_description: description.clone(),
@@ -97,8 +106,17 @@ pub fn record_tend_exchange(receiver_did: String, hours: f32, description: Strin
 pub fn send_sap_payment(to_did: String, amount: u64, memo: String) {
     let hc = use_holochain();
     let ctx = use_finance_context();
-    let local_identity = use_local_identity();
     let toasts = use_toasts();
+    let local_did = match try_local_did() {
+        Ok(did) => did,
+        Err(error) => {
+            toasts.push(
+                format!("Identity unavailable; finance action was not performed: {error}"),
+                ToastKind::Error,
+            );
+            return;
+        }
+    };
 
     if hc.is_mock() {
         let id = format!("SAP-{:04}", ctx.sap_payments.get_untracked().len() + 1);
@@ -107,7 +125,7 @@ pub fn send_sap_payment(to_did: String, amount: u64, memo: String) {
             payments.push(SapPaymentView {
                 hash: String::new(),
                 id: id.clone(),
-                from_did: local_identity.did.clone(),
+                from_did: local_did.clone(),
                 to_did: to_did.clone(),
                 amount,
                 fee: 0,
@@ -183,15 +201,24 @@ pub fn send_sap_payment(to_did: String, amount: u64, memo: String) {
 pub fn recognize_member(recipient_did: String, contribution_type: ContributionType) {
     let hc = use_holochain();
     let ctx = use_finance_context();
-    let local_identity = use_local_identity();
     let toasts = use_toasts();
+    let local_did = match try_local_did() {
+        Ok(did) => did,
+        Err(error) => {
+            toasts.push(
+                format!("Identity unavailable; finance action was not performed: {error}"),
+                ToastKind::Error,
+            );
+            return;
+        }
+    };
 
     if hc.is_mock() {
         let now = current_unix_seconds();
         ctx.recognitions.update(|recognitions| {
             recognitions.push(RecognitionEventView {
                 hash: String::new(),
-                recognizer_did: local_identity.did.clone(),
+                recognizer_did: local_did.clone(),
                 recipient_did: recipient_did.clone(),
                 contribution_type: contribution_type.clone(),
                 weight: 1.0,
@@ -255,8 +282,17 @@ pub fn recognize_member(recipient_did: String, contribution_type: ContributionTy
 pub fn stake_sap(amount: u64) {
     let hc = use_holochain();
     let ctx = use_finance_context();
-    let local_identity = use_local_identity();
     let toasts = use_toasts();
+    let local_did = match try_local_did() {
+        Ok(did) => did,
+        Err(error) => {
+            toasts.push(
+                format!("Identity unavailable; finance action was not performed: {error}"),
+                ToastKind::Error,
+            );
+            return;
+        }
+    };
 
     if hc.is_mock() {
         let id = format!("STK-{:04}", ctx.stakes.get_untracked().len() + 1);
@@ -265,7 +301,7 @@ pub fn stake_sap(amount: u64) {
             stakes.push(StakeView {
                 hash: String::new(),
                 id: id.clone(),
-                staker_did: local_identity.did.clone(),
+                staker_did: local_did.clone(),
                 sap_amount: amount,
                 mycel_score: 0.0,
                 stake_weight: 1.0,
