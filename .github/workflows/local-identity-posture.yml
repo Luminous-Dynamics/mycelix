@@ -82,7 +82,7 @@ jobs:
                 ready="PersonalReadyApp"
                 ;;
             esac
-            rg -q '<IdentityBootstrapGate>' "$file"
+            grep -Fq '<IdentityBootstrapGate>' "$file"
             ready_line="$(grep -nF "fn ${ready}()" "$file" | cut -d: -f1)"
             provider_line="$(grep -nF 'provide_local_identity();' "$file" | cut -d: -f1)"
             count="$(grep -Fc 'provide_local_identity();' "$file")"
