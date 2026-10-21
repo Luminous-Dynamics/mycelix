@@ -13,6 +13,8 @@ use std::fmt;
 pub const MAX_REORDER_PAYMENTS: usize = 100_000;
 pub const MAX_PARTICIPANTS: usize = 100_000;
 pub const MAX_EXACT_ORACLE_PAYMENTS: usize = 8;
+/// Receiver-ready greedy scans the remaining queue on each tick (quadratic work).
+pub const MAX_GREEDY_PAYMENTS: usize = 5_000;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Payment {
@@ -140,6 +142,7 @@ pub enum ReorderError {
     TooManyParticipants { observed: usize, maximum: usize },
     TooManyPayments { observed: usize, maximum: usize },
     ExactOracleLimit { observed: usize, maximum: usize },
+    GreedyLimit { observed: usize, maximum: usize },
     ArithmeticOverflow,
 }
 
@@ -361,6 +364,12 @@ pub fn input_order(problem: &Problem) -> Result<SearchResult, ReorderError> {
 /// transfer that can unlock the most still-pending outgoing value at its receiver.
 pub fn receiver_ready_greedy(problem: &Problem) -> Result<SearchResult, ReorderError> {
     let count = problem.payments.len();
+    if count > MAX_GREEDY_PAYMENTS {
+        return Err(ReorderError::GreedyLimit {
+            observed: count,
+            maximum: MAX_GREEDY_PAYMENTS,
+        });
+    }
     let mut remaining = vec![true; count];
     let mut outstanding = vec![0_u128; problem.participant_count];
     for payment in &problem.payments {
