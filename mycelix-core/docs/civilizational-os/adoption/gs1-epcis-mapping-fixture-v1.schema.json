@@ -40,7 +40,47 @@
       "maxItems": 2,
       "items": {
         "$ref": "#/$defs/standardBinding"
-      }
+      },
+      "allOf": [
+        {
+          "contains": {
+            "type": "object",
+            "required": [
+              "standard_id",
+              "version"
+            ],
+            "properties": {
+              "standard_id": {
+                "const": "GS1-EPCIS"
+              },
+              "version": {
+                "const": "2.0.1"
+              }
+            }
+          },
+          "minContains": 1,
+          "maxContains": 1
+        },
+        {
+          "contains": {
+            "type": "object",
+            "required": [
+              "standard_id",
+              "version"
+            ],
+            "properties": {
+              "standard_id": {
+                "const": "GS1-CBV"
+              },
+              "version": {
+                "const": "2.0.0"
+              }
+            }
+          },
+          "minContains": 1,
+          "maxContains": 1
+        }
+      ]
     },
     "events": {
       "type": "array",
@@ -200,7 +240,85 @@
         "bizLocation": {
           "$ref": "#/$defs/location"
         }
-      }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "bizStep": {
+                "const": "shipping"
+              }
+            },
+            "required": [
+              "bizStep"
+            ]
+          },
+          "then": {
+            "properties": {
+              "disposition": {
+                "const": "in_transit"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "bizStep": {
+                "const": "arriving"
+              }
+            },
+            "required": [
+              "bizStep"
+            ]
+          },
+          "then": {
+            "properties": {
+              "disposition": {
+                "const": "in_progress"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "bizStep": {
+                "const": "receiving"
+              }
+            },
+            "required": [
+              "bizStep"
+            ]
+          },
+          "then": {
+            "properties": {
+              "disposition": {
+                "const": "active"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "bizStep": {
+                "const": "accepting"
+              }
+            },
+            "required": [
+              "bizStep"
+            ]
+          },
+          "then": {
+            "properties": {
+              "disposition": {
+                "const": "active"
+              }
+            }
+          }
+        }
+      ]
     },
     "eventMapping": {
       "type": "object",
@@ -252,7 +370,121 @@
             ]
           }
         }
-      }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "source_biz_step": {
+                "const": "shipping"
+              }
+            },
+            "required": [
+              "source_biz_step"
+            ]
+          },
+          "then": {
+            "properties": {
+              "mycelix_claim_type": {
+                "const": "shipment_process_asserted"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "source_biz_step": {
+                "const": "arriving"
+              }
+            },
+            "required": [
+              "source_biz_step"
+            ]
+          },
+          "then": {
+            "properties": {
+              "mycelix_claim_type": {
+                "const": "arrival_observed"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "source_biz_step": {
+                "const": "receiving"
+              }
+            },
+            "required": [
+              "source_biz_step"
+            ]
+          },
+          "then": {
+            "properties": {
+              "mycelix_claim_type": {
+                "const": "receiving_event_recorded"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "source_biz_step": {
+                "const": "accepting"
+              }
+            },
+            "required": [
+              "source_biz_step"
+            ]
+          },
+          "then": {
+            "properties": {
+              "mycelix_claim_type": {
+                "const": "possession_or_ownership_change_asserted"
+              }
+            }
+          }
+        },
+        {
+          "properties": {
+            "non_equivalences": {
+              "contains": {
+                "const": "physical_delivery_verified"
+              }
+            }
+          }
+        },
+        {
+          "properties": {
+            "non_equivalences": {
+              "contains": {
+                "const": "product_authenticity_verified"
+              }
+            }
+          }
+        },
+        {
+          "properties": {
+            "non_equivalences": {
+              "contains": {
+                "const": "regulatory_compliance"
+              }
+            }
+          }
+        },
+        {
+          "properties": {
+            "non_equivalences": {
+              "contains": {
+                "const": "legal_title_verified"
+              }
+            }
+          }
+        }
+      ]
     }
   }
 }
