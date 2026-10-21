@@ -18,7 +18,8 @@
     "reconciliations",
     "aggregation_policy",
     "data_quality",
-    "claim_ceiling"
+    "claim_ceiling",
+    "claims"
   ],
   "properties": {
     "schema_version": {
@@ -546,6 +547,68 @@
       "items": {
         "type": "string",
         "minLength": 1
+      }
+    },
+    "claims": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "claim_id",
+          "claim_type",
+          "evidence_status",
+          "statement",
+          "scope",
+          "source_refs"
+        ],
+        "properties": {
+          "claim_id": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9._:-]+$"
+          },
+          "claim_type": {
+            "enum": [
+              "accounting_reconciliation",
+              "official_measurement",
+              "observed_measurement",
+              "derived_indicator",
+              "forecast",
+              "modeled_scenario",
+              "causal_effect",
+              "policy_assessment"
+            ]
+          },
+          "evidence_status": {
+            "enum": [
+              "synthetic",
+              "official_statistic",
+              "observed",
+              "derived",
+              "estimated",
+              "modelled",
+              "causally_evaluated",
+              "independently_replicated",
+              "unknown"
+            ]
+          },
+          "statement": {
+            "type": "string",
+            "minLength": 1
+          },
+          "scope": {
+            "type": "string",
+            "minLength": 1
+          },
+          "source_refs": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "uniqueItems": true
+          }
+        }
       }
     }
   },
