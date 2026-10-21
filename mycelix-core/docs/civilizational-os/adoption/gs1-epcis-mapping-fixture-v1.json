@@ -18,80 +18,6 @@
       "source_snapshot_manifest_sha256": "46989ab0535265a2603e6ca146c074c6ece0b50d19fe872dcb1328d61795a1a1"
     }
   ],
-  "events": [
-    {
-      "eventID": "urn:uuid:10000000-0000-4000-8000-000000000001",
-      "type": "ObjectEvent",
-      "eventTime": "2026-10-21T08:00:00.000Z",
-      "eventTimeZoneOffset": "+02:00",
-      "epcList": [
-        "urn:epc:id:sgtin:0614141.107346.2017"
-      ],
-      "action": "OBSERVE",
-      "bizStep": "shipping",
-      "disposition": "in_transit",
-      "readPoint": {
-        "id": "urn:epc:id:sgln:0614141.12345.0"
-      },
-      "bizLocation": {
-        "id": "urn:epc:id:sgln:0614141.12345.0"
-      }
-    },
-    {
-      "eventID": "urn:uuid:10000000-0000-4000-8000-000000000002",
-      "type": "ObjectEvent",
-      "eventTime": "2026-10-21T10:20:00.000Z",
-      "eventTimeZoneOffset": "+02:00",
-      "epcList": [
-        "urn:epc:id:sgtin:0614141.107346.2018"
-      ],
-      "action": "OBSERVE",
-      "bizStep": "arriving",
-      "disposition": "in_progress",
-      "readPoint": {
-        "id": "urn:epc:id:sgln:0614141.54321.0"
-      },
-      "bizLocation": {
-        "id": "urn:epc:id:sgln:0614141.54321.0"
-      }
-    },
-    {
-      "eventID": "urn:uuid:10000000-0000-4000-8000-000000000003",
-      "type": "ObjectEvent",
-      "eventTime": "2026-10-21T10:30:00.000Z",
-      "eventTimeZoneOffset": "+02:00",
-      "epcList": [
-        "urn:epc:id:sgtin:0614141.107346.2019"
-      ],
-      "action": "OBSERVE",
-      "bizStep": "receiving",
-      "disposition": "active",
-      "readPoint": {
-        "id": "urn:epc:id:sgln:0614141.54321.0"
-      },
-      "bizLocation": {
-        "id": "urn:epc:id:sgln:0614141.54321.0"
-      }
-    },
-    {
-      "eventID": "urn:uuid:10000000-0000-4000-8000-000000000004",
-      "type": "ObjectEvent",
-      "eventTime": "2026-10-21T10:40:00.000Z",
-      "eventTimeZoneOffset": "+02:00",
-      "epcList": [
-        "urn:epc:id:sgtin:0614141.107346.2020"
-      ],
-      "action": "OBSERVE",
-      "bizStep": "accepting",
-      "disposition": "active",
-      "readPoint": {
-        "id": "urn:epc:id:sgln:0614141.54321.0"
-      },
-      "bizLocation": {
-        "id": "urn:epc:id:sgln:0614141.54321.0"
-      }
-    }
-  ],
   "projection_policy_id": "mycelix-epcis-loss-aware-v1",
   "mappings": [
     {
@@ -150,12 +76,96 @@
     }
   ],
   "nonclaims": [
-    "This is a synthetic minimal ObjectEvent projection, not a complete EPCISDocument, capture request, or claim of full EPCIS conformance.",
-    "Each event is an isolated test case using a distinct synthetic EPC; the fixture intentionally does not model one object's full shipment timeline.",
-    "A standards-shaped event does not establish that the asserted event actually happened.",
+    "This is a minimal EPCISDocument containing four isolated synthetic ObjectEvent cases, not a full business workflow or real shipment record.",
+    "Each event uses a different synthetic EPC so the event types are tested separately; this document does not assert that the four events form one object's physical lifecycle.",
+    "A standards-shaped or schema-valid event record does not establish that the asserted event actually happened.",
     "Shipping, arriving, receiving and accepting are distinct CBV meanings; none alone proves every downstream physical, identity, regulatory or legal claim.",
-    "The fixture is not yet validated by GS1's official normative JSON Schema/SHACL artefacts or a GS1 certification programme.",
-    "This fixture does not imply GS1 endorsement or existing Mycelix/vendor integration."
+    "The fixture has not yet been validated with the official GS1 EPCIS JSON Schema and SHACL artifacts or a GS1 certification programme.",
+    "This fixture does not imply GS1 endorsement or an existing Mycelix/vendor integration."
   ],
-  "fixture_scope": "minimal_object_event_projection_not_full_capture_document"
+  "fixture_scope": "minimal_epcis_document_with_isolated_object_event_cases",
+  "epcis_document": {
+    "@context": [
+      "https://ref.gs1.org/standards/epcis/2.0.1/epcis-context.jsonld"
+    ],
+    "type": "EPCISDocument",
+    "schemaVersion": "2.0",
+    "creationDate": "2026-10-21T19:30:00.000Z",
+    "epcisBody": {
+      "eventList": [
+        {
+          "eventID": "urn:uuid:10000000-0000-4000-8000-000000000001",
+          "type": "ObjectEvent",
+          "eventTime": "2026-10-21T08:00:00.000Z",
+          "eventTimeZoneOffset": "+02:00",
+          "epcList": [
+            "urn:epc:id:sgtin:0614141.107346.2017"
+          ],
+          "action": "OBSERVE",
+          "bizStep": "shipping",
+          "disposition": "in_transit",
+          "readPoint": {
+            "id": "urn:epc:id:sgln:0614141.12345.0"
+          },
+          "bizLocation": {
+            "id": "urn:epc:id:sgln:0614141.12345.0"
+          }
+        },
+        {
+          "eventID": "urn:uuid:10000000-0000-4000-8000-000000000002",
+          "type": "ObjectEvent",
+          "eventTime": "2026-10-21T10:20:00.000Z",
+          "eventTimeZoneOffset": "+02:00",
+          "epcList": [
+            "urn:epc:id:sgtin:0614141.107346.2018"
+          ],
+          "action": "OBSERVE",
+          "bizStep": "arriving",
+          "disposition": "in_progress",
+          "readPoint": {
+            "id": "urn:epc:id:sgln:0614141.54321.0"
+          },
+          "bizLocation": {
+            "id": "urn:epc:id:sgln:0614141.54321.0"
+          }
+        },
+        {
+          "eventID": "urn:uuid:10000000-0000-4000-8000-000000000003",
+          "type": "ObjectEvent",
+          "eventTime": "2026-10-21T10:30:00.000Z",
+          "eventTimeZoneOffset": "+02:00",
+          "epcList": [
+            "urn:epc:id:sgtin:0614141.107346.2019"
+          ],
+          "action": "OBSERVE",
+          "bizStep": "receiving",
+          "disposition": "active",
+          "readPoint": {
+            "id": "urn:epc:id:sgln:0614141.54321.0"
+          },
+          "bizLocation": {
+            "id": "urn:epc:id:sgln:0614141.54321.0"
+          }
+        },
+        {
+          "eventID": "urn:uuid:10000000-0000-4000-8000-000000000004",
+          "type": "ObjectEvent",
+          "eventTime": "2026-10-21T10:40:00.000Z",
+          "eventTimeZoneOffset": "+02:00",
+          "epcList": [
+            "urn:epc:id:sgtin:0614141.107346.2020"
+          ],
+          "action": "OBSERVE",
+          "bizStep": "accepting",
+          "disposition": "active",
+          "readPoint": {
+            "id": "urn:epc:id:sgln:0614141.54321.0"
+          },
+          "bizLocation": {
+            "id": "urn:epc:id:sgln:0614141.54321.0"
+          }
+        }
+      ]
+    }
+  }
 }
