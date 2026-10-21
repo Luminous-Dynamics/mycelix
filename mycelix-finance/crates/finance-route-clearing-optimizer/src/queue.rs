@@ -239,7 +239,8 @@ pub fn simulate_queue(
     let starting_balances = balances.clone();
     let mut minimum_balances = balances.clone();
     let mut maximum_balances = balances.clone();
-    let mut balance_time = balances.keys()
+    let mut balance_time = balances
+        .keys()
         .map(|participant| (participant.clone(), 0_u128))
         .collect::<BTreeMap<_, _>>();
 
@@ -382,7 +383,9 @@ pub fn simulate_queue(
                 let accumulated = balance_time.get(participant).copied().unwrap_or(0);
                 balance_time.insert(
                     participant.clone(),
-                    accumulated.checked_add(contribution).ok_or(QueueError::ArithmeticOverflow)?,
+                    accumulated
+                        .checked_add(contribution)
+                        .ok_or(QueueError::ArithmeticOverflow)?,
                 );
             }
         }
@@ -470,13 +473,17 @@ pub fn simulate_queue(
                 let sender_after = sender_balance - payment.amount_minor;
                 balances.insert(payment.from.clone(), sender_after);
                 balances.insert(payment.to.clone(), receiver_after);
-                minimum_balances.entry(payment.from.clone())
+                minimum_balances
+                    .entry(payment.from.clone())
                     .and_modify(|v| *v = (*v).min(sender_after));
-                minimum_balances.entry(payment.to.clone())
+                minimum_balances
+                    .entry(payment.to.clone())
                     .and_modify(|v| *v = (*v).min(receiver_after));
-                maximum_balances.entry(payment.from.clone())
+                maximum_balances
+                    .entry(payment.from.clone())
                     .and_modify(|v| *v = (*v).max(sender_after));
-                maximum_balances.entry(payment.to.clone())
+                maximum_balances
+                    .entry(payment.to.clone())
                     .and_modify(|v| *v = (*v).max(receiver_after));
                 used.insert(key, used_after);
                 settled_minor = settled_after;
@@ -522,7 +529,8 @@ pub fn simulate_queue(
         .collect::<Vec<_>>();
     result_payments.sort_by(|a, b| a.payment_id.cmp(&b.payment_id));
 
-    let account_metrics = starting_balances.iter()
+    let account_metrics = starting_balances
+        .iter()
         .map(|(participant_id, starting_balance_minor)| AccountMetric {
             participant_id: participant_id.clone(),
             starting_balance_minor: *starting_balance_minor,
