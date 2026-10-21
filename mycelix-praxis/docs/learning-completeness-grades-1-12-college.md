@@ -224,6 +224,43 @@ Initial outcome families:
 
 Targets for improvement should be preregistered per subject and protocol, not invented as a universal percentage before baselines and measurement reliability exist. The first target is **credible evidence and non-inferior safety/learning**, then measurable improvement over a relevant baseline.
 
+### 7.4 Industry benchmark snapshot (research checked 2026-10-21)
+
+Use these as comparison anchors, not directly interchangeable leaderboard scores:
+
+- **AI-assisted secondary mathematics, large field evidence:** Oreopoulos and Low's 2026 NBER working paper reports a two-year cluster-randomized study across 18 Tennessee middle schools. Assignment to Khan Academy plus Khanmigo raised math achievement by about 0.06–0.08 standard deviations over a school year; a secondary estimate for a full year of active participation was 0.14 SD. The paper reports the median student used Khanmigo only on about one-third of practice days and during 17% of exercise sessions with an error. This highlights the product gap between availability and productive use. It is a working paper and its treatment includes existing Khan Academy practice, so do not attribute all gains to the AI tutor alone. [NBER Working Paper 35620](https://www.nber.org/papers/w35620).
+- **AI product iteration, high-frequency outcome:** Khan Academy publicly reported a 6.1% improvement in next-item correctness across product tests spanning more than 15 million tutoring threads, by conditioning its tutor on structured learner history. Treat this as vendor-reported product experimentation and a useful short-horizon metric—not an independent estimate of long-term learning. [Khan Academy, May 2026](https://blog.khanacademy.org/how-khan-academy-is-building-a-better-ai-tutor-our-most-recent-learnings/).
+- **College physics tutoring RCT:** a 2025 *Scientific Reports* study at Harvard compared a research-informed AI tutor with active-learning classroom instruction in two introductory physics lessons. It reported higher post-test scores in the AI-tutored condition, but the evaluation was narrow and short-term; it does not establish that AI tutors universally outperform teachers or that the result transfers to other subjects. [Kestin et al., 2025](https://www.nature.com/articles/s41598-025-97652-6).
+- **Adaptive mathematics software meta-analysis:** a 2021 ALEKS meta-analysis combined 33 studies with 9,238 learners and found performance overall comparable to traditional instruction (Hedges' g = 0.05, 95% CI [-0.01, 0.20]); supplementary use showed a larger estimate (g = 0.43, 95% CI [0.02, 0.83]). This cautions against assuming personalization alone is a breakthrough. [Meta-analysis](https://www.tandfonline.com/doi/full/10.1080/19477503.2021.1926194).
+- **System-level comparators:** use official PISA 2025 results for 15-year-old science, mathematics, reading and digital-world problem-solving context; TIMSS 2023 for Grade 4 and 8 mathematics/science; and South Africa's CAPS/NCS mappings for local curricular alignment. These are contextual achievement measures, not direct product benchmarks. [OECD PISA](https://www.oecd.org/en/about/programmes/pisa.html); [TIMSS 2023](https://timssandpirls.bc.edu/latest-news/t23-international-results-release.html).
+- **Evidence and access guardrail:** UNESCO's Global Education Monitoring report warns that good impartial evidence of education technology's added value is scarce and remote learning failed to reach at least 500 million students, disproportionately the poorest. Product reach and time-on-platform therefore cannot stand in for education outcomes or equitable access. [UNESCO GEM 2023](https://gem-report-2023.unesco.org/).
+
+### 7.5 Proposed Praxis target ladder
+
+These are proposed internal acceptance targets, not claimed industry norms. For every research comparison, the protocol must name the population, baseline, outcomes, analysis and minimum practically important difference before seeing results.
+
+**Gate A — content integrity and usable access**
+- 100% of the declared release cohort has stable objective IDs, reviewed standards/source mappings or an explicit not-applicable rationale, known content-rights status, and an honest publication state.
+- 100% of core lessons in that cohort meet their lesson-type schema and reviewed instructional rubric; 100% of answer keys and executable examples pass their tests.
+- Zero unresolved critical accessibility blockers at release; target WCAG 2.2 AA conformance supported by both automated and human testing.
+- 100% of the core downloaded learning journey passes offline acceptance tests: open content, complete practice, save local progress, and recover/sync without silent loss. This does not claim every feature works offline.
+
+**Gate B — learning efficacy (first adequately powered pilots)**
+- Use an established instructional baseline and measure independent performance, not answer correctness while AI help is active.
+- Primary outcomes include a delayed assessment (at approximately 7 and 28 days where practical) and transfer to unpractised items or authentic work.
+- Initial non-inferiority guardrail: the lower confidence bound for the primary learning outcome must not fall below a preregistered -0.10 SD margin versus the relevant comparison. The margin must be reviewed by educators/researchers for each use case.
+- Stretch target: improve delayed retention or transfer by at least 0.15 SD versus the current well-designed baseline, with a preregistered analysis and a confidence interval that rules out no improvement in a confirmatory, adequately powered study. This is a research target, not a prediction.
+- Efficiency target: once learning outcomes meet the same delayed-retention and transfer threshold, reduce time-to-demonstrated-competency or delivery cost by at least 20%, without shifting unreasonable work onto teachers, caregivers, or learners.
+- Guardrails: no meaningful deterioration in accessibility, learner well-being, misconception rates, or outcomes for prespecified learner groups. Report all subgroup estimates and uncertainty; do not hide a failure behind an aggregate average.
+
+**Gate C — evidence to outperform the field**
+- Replicate the main improvement in at least two materially different contexts or cohorts before claiming general effectiveness.
+- Compare against both the current Praxis baseline and an established external teaching/resource baseline; ensure equivalent objectives, allotted time, assistance policies and assessment difficulty.
+- Publish the protocol, attrition, null results, uncertainty intervals, cost per demonstrated capability, and independent evaluator findings.
+- Do not promote a universal tutor or curriculum claim from a short-term single-topic study. Track next-item correctness as a useful diagnostic, but do not substitute it for delayed retention and transfer.
+
+The target of a repeatable learning gain plus lower cost and broader access is more meaningful than claiming one model beats another on a single benchmark.
+
 ## 8. Access to all college courses: a lawful, composable catalog
 
 Do not attempt to rewrite every textbook or scrape every university website. Compose existing resources with licensed content and fill measured gaps.
@@ -325,7 +362,7 @@ Foundations should receive priority because gaps in reading, numeracy, and prere
 
 The first implementation slice should be small enough to verify without waiting for a large model or remote runner:
 
-1. **Curriculum coverage report (Rust-first):** build a read-only Rust audit tool that emits stable JSON plus a readable table of active objective counts, lesson coverage and gaps by declared framework/grade/subject, explicitly separating orphan content from reachable content. Keep the existing Python validator as a compatibility gate until independent tests demonstrate parity; do not remove or weaken it to ease migration.
+1. **Curriculum coverage report (Rust-first):** the initial read-only audit crate now exists at `crates/praxis-curriculum-audit`. It emits stable JSON or Markdown for active graph/lesson coverage by framework/grade/subject and identifies orphan lesson-target IDs. Intended commands from the mycelix-praxis workspace are `cargo test -p praxis-curriculum-audit --lib` and `cargo run -p praxis-curriculum-audit -- --format=markdown`. Keep the existing Python validator as a compatibility gate until the Rust report is exercised against the real checkout and negative controls; do not remove or weaken it to ease migration. The new crate has not yet had a local compiler/test run in this work session.
 2. **Lesson quality schema:** add a versioned, typed schema for objectives, standards references, source/license metadata, instruction/assessment components, accessibility, review state and evidence status. Keep it separate from the legacy lesson shape until a deliberate migration is tested.
 3. **Golden corpus + negative controls:** make the validator fail for representative structural, source, rights, answer-key and accessibility metadata defects. Prove that each negative control is rejected.
 4. **Pilot lesson cohort:** publish a small, fully reviewed cohort rather than tens of thousands of unreviewed generated pages; use it to exercise the complete learner journey.
