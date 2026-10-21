@@ -97,7 +97,8 @@ struct AuditReport {
 struct AuditFailure(Vec<String>);
 
 fn nonempty_string(value: Option<&Value>) -> Option<String> {
-    value.and_then(Value::as_str)
+    value
+        .and_then(Value::as_str)
         .map(str::trim)
         .filter(|text| !text.is_empty())
         .map(ToOwned::to_owned)
@@ -105,7 +106,8 @@ fn nonempty_string(value: Option<&Value>) -> Option<String> {
 }
 
 fn string_array(value: Option<&Value>) -> Vec<String> {
-    value.and_then(Value::as_array)
+    value
+        .and_then(Value::as_array)
         .into_iter()
         .flatten()
         .filter_map(Value::as_str)
@@ -174,16 +176,22 @@ fn active_documents(workspace: &Path, errors: &mut Vec<String>) -> Vec<(PathBuf,
         let path = match unresolved.canonicalize() {
             Ok(path) => path,
             Err(error) => {
-                errors.push(format!("cannot resolve curriculum include {relative:?}: {error}"));
+                errors.push(format!(
+                    "cannot resolve curriculum include {relative:?}: {error}"
+                ));
                 continue;
             }
         };
         if !path.starts_with(workspace) {
-            errors.push(format!("curriculum include escapes workspace root: {relative}"));
+            errors.push(format!(
+                "curriculum include escapes workspace root: {relative}"
+            ));
             continue;
         }
         if !seen.insert(path.clone()) {
-            errors.push(format!("curriculum document included more than once: {relative}"));
+            errors.push(format!(
+                "curriculum document included more than once: {relative}"
+            ));
             continue;
         }
         match fs::read_to_string(&path) {
@@ -218,7 +226,10 @@ fn load_manifest(workspace: &Path, errors: &mut Vec<String>) -> BTreeMap<String,
         }
     };
     let Some(lessons) = value.get("lessons").and_then(Value::as_object) else {
-        errors.push(format!("{}: expected an object at key lessons", path.display()));
+        errors.push(format!(
+            "{}: expected an object at key lessons",
+            path.display()
+        ));
         return BTreeMap::new();
     };
 
@@ -237,7 +248,6 @@ fn load_manifest(workspace: &Path, errors: &mut Vec<String>) -> BTreeMap<String,
     result
 }
 
-
 fn add_digest_file(
     workspace: &Path,
     path: &Path,
@@ -247,12 +257,18 @@ fn add_digest_file(
     let canonical = match path.canonicalize() {
         Ok(path) => path,
         Err(error) => {
-            errors.push(format!("cannot resolve digest input {}: {error}", path.display()));
+            errors.push(format!(
+                "cannot resolve digest input {}: {error}",
+                path.display()
+            ));
             return;
         }
     };
     if !canonical.starts_with(workspace) {
-        errors.push(format!("digest input escapes workspace root: {}", path.display()));
+        errors.push(format!(
+            "digest input escapes workspace root: {}",
+            path.display()
+        ));
         return;
     }
     let relative = match canonical.strip_prefix(workspace) {
@@ -383,7 +399,10 @@ fn analyze(
             Some(value) => match value.as_array() {
                 Some(edges) => Some(edges),
                 None => {
-                    errors.push(format!("{}: edges must be an array when present", path.display()));
+                    errors.push(format!(
+                        "{}: edges must be an array when present",
+                        path.display()
+                    ));
                     None
                 }
             },
@@ -391,7 +410,10 @@ fn analyze(
 
         for (index, node) in raw_nodes.iter().enumerate() {
             let Some(node_id) = nonempty_string(node.get("id")) else {
-                errors.push(format!("{}: node {index} has no non-empty string ID", path.display()));
+                errors.push(format!(
+                    "{}: node {index} has no non-empty string ID",
+                    path.display()
+                ));
                 continue;
             };
             if nodes.contains_key(&node_id) {
@@ -405,8 +427,10 @@ fn analyze(
             let grades = {
                 let declared = string_array(node.get("grade_levels"));
                 if declared.is_empty() {
-                    vec![nonempty_string(metadata.and_then(|m| m.get("grade_level")))
-                        .unwrap_or_else(|| "Unspecified".to_owned())]
+                    vec![
+                        nonempty_string(metadata.and_then(|m| m.get("grade_level")))
+                            .unwrap_or_else(|| "Unspecified".to_owned()),
+                    ]
                 } else {
                     declared
                 }
@@ -453,8 +477,7 @@ fn analyze(
                         .insert(reference);
                 }
             }
-            let mut frameworks: BTreeSet<String> =
-                standards_by_framework.keys().cloned().collect();
+            let mut frameworks: BTreeSet<String> = standards_by_framework.keys().cloned().collect();
             if frameworks.is_empty() {
                 frameworks.insert(
                     nonempty_string(metadata.and_then(|m| m.get("framework")))
@@ -462,13 +485,16 @@ fn analyze(
                 );
             }
 
-            nodes.insert(node_id.clone(), NodeInfo {
-                grades,
-                subject,
-                frameworks,
-                standards_by_framework,
-                lesson_assets: manifest.get(&node_id).copied().unwrap_or(0),
-            });
+            nodes.insert(
+                node_id.clone(),
+                NodeInfo {
+                    grades,
+                    subject,
+                    frameworks,
+                    standards_by_framework,
+                    lesson_assets: manifest.get(&node_id).copied().unwrap_or(0),
+                },
+            );
         }
 
         if let Some(raw_edges) = raw_edges {
@@ -499,17 +525,22 @@ fn analyze(
             }
             errors.push(format!(
                 "{}: dangling edge {from:?} -> {to:?}; missing {}",
-                path.display(), missing.join(", ")
+                path.display(),
+                missing.join(", ")
             ));
         }
     }
 
     let active_ids: BTreeSet<String> = nodes.keys().cloned().collect();
-    let lesson_ids: BTreeSet<String> = manifest.iter()
+    let lesson_ids: BTreeSet<String> = manifest
+        .iter()
         .filter(|(_, count)| **count > 0)
         .map(|(id, _)| id.clone())
         .collect();
-    let orphan_ids = lesson_ids.difference(&active_ids).cloned().collect::<Vec<_>>();
+    let orphan_ids = lesson_ids
+        .difference(&active_ids)
+        .cloned()
+        .collect::<Vec<_>>();
     let active_with_lessons = active_ids.intersection(&lesson_ids).count();
     let active_missing_lessons = active_ids.difference(&lesson_ids).count();
     let asset_count = manifest.values().sum();
@@ -545,18 +576,21 @@ fn analyze(
         }
     }
 
-    let groups = group_map.into_iter().map(|(key, group)| CoverageGroup {
-        framework: key.framework,
-        grade_level: key.grade_level,
-        subject_area: key.subject_area,
-        active_nodes: group.nodes,
-        nodes_with_standard_refs: group.nodes_with_standards,
-        nodes_without_standard_refs: group.nodes - group.nodes_with_standards,
-        distinct_standard_refs: group.standards.len(),
-        nodes_with_lessons: group.nodes_with_lessons,
-        nodes_missing_lessons: group.nodes_missing_lessons,
-        lesson_assets: group.lesson_assets,
-    }).collect();
+    let groups = group_map
+        .into_iter()
+        .map(|(key, group)| CoverageGroup {
+            framework: key.framework,
+            grade_level: key.grade_level,
+            subject_area: key.subject_area,
+            active_nodes: group.nodes,
+            nodes_with_standard_refs: group.nodes_with_standards,
+            nodes_without_standard_refs: group.nodes - group.nodes_with_standards,
+            distinct_standard_refs: group.standards.len(),
+            nodes_with_lessons: group.nodes_with_lessons,
+            nodes_missing_lessons: group.nodes_missing_lessons,
+            lesson_assets: group.lesson_assets,
+        })
+        .collect();
 
     AuditReport {
         schema_version: SCHEMA_VERSION,
@@ -578,7 +612,6 @@ fn analyze(
         content_quality_findings: Vec::new(),
     }
 }
-
 
 fn normalize_content(text: &str) -> String {
     text.split_whitespace()
@@ -625,12 +658,9 @@ fn is_known_instructional_placeholder(text: &str) -> bool {
     template_phrases
         .iter()
         .any(|phrase| normalized.contains(phrase))
-        || (normalized.contains("solve a grade ")
-            && normalized.contains(" mathematics problem"))
-        || (normalized.starts_with("explain grade ")
-            && normalized.contains(" mathematics."))
-        || (normalized.starts_with("grade ")
-            && normalized.ends_with(" mathematics content"))
+        || (normalized.contains("solve a grade ") && normalized.contains(" mathematics problem"))
+        || (normalized.starts_with("explain grade ") && normalized.contains(" mathematics."))
+        || (normalized.starts_with("grade ") && normalized.ends_with(" mathematics content"))
 }
 fn add_text_finding(
     audit: &mut ContentQualityAudit,
@@ -696,11 +726,7 @@ fn add_structure_finding(
     });
 }
 
-fn audit_lesson_value(
-    asset_path: &str,
-    value: &Value,
-    audit: &mut ContentQualityAudit,
-) -> bool {
+fn audit_lesson_value(asset_path: &str, value: &Value, audit: &mut ContentQualityAudit) -> bool {
     let lesson_id = nonempty_string(value.get("node_id"))
         .or_else(|| nonempty_string(value.pointer("/lesson/standard_code")))
         .unwrap_or_else(|| "UNSPECIFIED".to_owned());
@@ -719,10 +745,18 @@ fn audit_lesson_value(
     };
 
     add_required_text_finding(
-        audit, &lesson_id, asset_path, "lesson.explanation", lesson.get("explanation")
+        audit,
+        &lesson_id,
+        asset_path,
+        "lesson.explanation",
+        lesson.get("explanation"),
     );
     add_required_text_finding(
-        audit, &lesson_id, asset_path, "lesson.title", lesson.get("title")
+        audit,
+        &lesson_id,
+        asset_path,
+        "lesson.title",
+        lesson.get("title"),
     );
 
     let examples_value = lesson.get("examples").and_then(Value::as_array);
@@ -737,134 +771,158 @@ fn audit_lesson_value(
         );
     }
     if let Some(examples) = examples_value {
-            let mut seen = BTreeMap::<String, usize>::new();
-            for (index, example) in examples.iter().enumerate() {
-                let prefix = format!("lesson.examples[{index}]");
-                add_required_text_finding(
-                    audit, &lesson_id, asset_path, &format!("{prefix}.problem"), example.get("problem")
-                );
-                add_required_text_finding(
-                    audit, &lesson_id, asset_path, &format!("{prefix}.answer"), example.get("answer")
-                );
-                let steps_value = example.get("steps").and_then(Value::as_array);
-                if steps_value.is_none_or(Vec::is_empty) {
-                    add_structure_finding(
-                        audit,
-                        &lesson_id,
-                        asset_path,
-                        &format!("{prefix}.steps"),
-                        "missing_worked_steps",
-                        "Worked example must include at least one explicit solution step.",
-                    );
-                }
-                if let Some(steps) = steps_value {
-                    for (step_index, step) in steps.iter().enumerate() {
-                        add_required_text_finding(
-                            audit,
-                            &lesson_id,
-                            asset_path,
-                            &format!("{prefix}.steps[{step_index}].instruction"),
-                            step.get("instruction"),
-                        );
-                        add_required_text_finding(
-                            audit,
-                            &lesson_id,
-                            asset_path,
-                            &format!("{prefix}.steps[{step_index}].result"),
-                            step.get("result"),
-                        );
-                    }
-                }
-                if let Some(prompt) = nonempty_string(example.get("problem")) {
-                    let key = normalize_content(&prompt);
-                    if !key.is_empty() {
-                        *seen.entry(key).or_default() += 1;
-                    }
-                }
-            }
-            for (prompt, count) in seen {
-                if count > 1 {
-                    audit.findings.push(ContentQualityFinding {
-                        lesson_id: lesson_id.clone(),
-                        asset_path: asset_path.to_owned(),
-                        field: "lesson.examples".to_owned(),
-                        code: "duplicate_worked_example".to_owned(),
-                        severity: "warning".to_owned(),
-                        message: format!(
-                            "The same normalized worked-example prompt occurs {count} times: {prompt}"
-                        ),
-                    });
-                }
-            }
-        }
-
-        let problems_value = lesson.get("practice_problems").and_then(Value::as_array);
-        if problems_value.is_none_or(Vec::is_empty) {
-            add_structure_finding(
+        let mut seen = BTreeMap::<String, usize>::new();
+        for (index, example) in examples.iter().enumerate() {
+            let prefix = format!("lesson.examples[{index}]");
+            add_required_text_finding(
                 audit,
                 &lesson_id,
                 asset_path,
-                "lesson.practice_problems",
-                "missing_practice_items",
-                "Lesson must include at least one independent practice item.",
+                &format!("{prefix}.problem"),
+                example.get("problem"),
             );
-        }
-        if let Some(problems) = problems_value {
-            let mut seen = BTreeMap::<String, usize>::new();
-            for (index, problem) in problems.iter().enumerate() {
-                let prefix = format!("lesson.practice_problems[{index}]");
-                add_required_text_finding(
-                    audit, &lesson_id, asset_path, &format!("{prefix}.question"), problem.get("question")
-                );
-                add_required_text_finding(
-                    audit, &lesson_id, asset_path, &format!("{prefix}.answer"), problem.get("answer")
-                );
-                add_required_text_finding(
-                    audit, &lesson_id, asset_path, &format!("{prefix}.explanation"), problem.get("explanation")
-                );
-                if let Some(prompt) = nonempty_string(problem.get("question")) {
-                    let key = normalize_content(&prompt);
-                    if !key.is_empty() {
-                        *seen.entry(key).or_default() += 1;
-                    }
-                }
-            }
-            for (prompt, count) in seen {
-                if count > 1 {
-                    audit.findings.push(ContentQualityFinding {
-                        lesson_id: lesson_id.clone(),
-                        asset_path: asset_path.to_owned(),
-                        field: "lesson.practice_problems".to_owned(),
-                        code: "duplicate_practice_prompt".to_owned(),
-                        severity: "warning".to_owned(),
-                        message: format!(
-                            "The same normalized practice prompt occurs {count} times: {prompt}"
-                        ),
-                    });
-                }
-            }
-        }
-
-        if let Some(hints) = lesson.get("hints").and_then(Value::as_array) {
-            for (index, hint) in hints.iter().enumerate() {
-                add_text_finding(
-                    audit, &lesson_id, asset_path, &format!("lesson.hints[{index}]"), Some(hint)
+            add_required_text_finding(
+                audit,
+                &lesson_id,
+                asset_path,
+                &format!("{prefix}.answer"),
+                example.get("answer"),
+            );
+            let steps_value = example.get("steps").and_then(Value::as_array);
+            if steps_value.is_none_or(Vec::is_empty) {
+                add_structure_finding(
+                    audit,
+                    &lesson_id,
+                    asset_path,
+                    &format!("{prefix}.steps"),
+                    "missing_worked_steps",
+                    "Worked example must include at least one explicit solution step.",
                 );
             }
-        }
-        if let Some(vocabulary) = lesson.get("key_vocabulary").and_then(Value::as_array) {
-            for (index, item) in vocabulary.iter().enumerate() {
-                for key in ["term", "definition", "example_usage"] {
-                    add_text_finding(
+            if let Some(steps) = steps_value {
+                for (step_index, step) in steps.iter().enumerate() {
+                    add_required_text_finding(
                         audit,
                         &lesson_id,
                         asset_path,
-                        &format!("lesson.key_vocabulary[{index}].{key}"),
-                        item.get(key),
+                        &format!("{prefix}.steps[{step_index}].instruction"),
+                        step.get("instruction"),
+                    );
+                    add_required_text_finding(
+                        audit,
+                        &lesson_id,
+                        asset_path,
+                        &format!("{prefix}.steps[{step_index}].result"),
+                        step.get("result"),
                     );
                 }
             }
+            if let Some(prompt) = nonempty_string(example.get("problem")) {
+                let key = normalize_content(&prompt);
+                if !key.is_empty() {
+                    *seen.entry(key).or_default() += 1;
+                }
+            }
         }
+        for (prompt, count) in seen {
+            if count > 1 {
+                audit.findings.push(ContentQualityFinding {
+                    lesson_id: lesson_id.clone(),
+                    asset_path: asset_path.to_owned(),
+                    field: "lesson.examples".to_owned(),
+                    code: "duplicate_worked_example".to_owned(),
+                    severity: "warning".to_owned(),
+                    message: format!(
+                        "The same normalized worked-example prompt occurs {count} times: {prompt}"
+                    ),
+                });
+            }
+        }
+    }
+
+    let problems_value = lesson.get("practice_problems").and_then(Value::as_array);
+    if problems_value.is_none_or(Vec::is_empty) {
+        add_structure_finding(
+            audit,
+            &lesson_id,
+            asset_path,
+            "lesson.practice_problems",
+            "missing_practice_items",
+            "Lesson must include at least one independent practice item.",
+        );
+    }
+    if let Some(problems) = problems_value {
+        let mut seen = BTreeMap::<String, usize>::new();
+        for (index, problem) in problems.iter().enumerate() {
+            let prefix = format!("lesson.practice_problems[{index}]");
+            add_required_text_finding(
+                audit,
+                &lesson_id,
+                asset_path,
+                &format!("{prefix}.question"),
+                problem.get("question"),
+            );
+            add_required_text_finding(
+                audit,
+                &lesson_id,
+                asset_path,
+                &format!("{prefix}.answer"),
+                problem.get("answer"),
+            );
+            add_required_text_finding(
+                audit,
+                &lesson_id,
+                asset_path,
+                &format!("{prefix}.explanation"),
+                problem.get("explanation"),
+            );
+            if let Some(prompt) = nonempty_string(problem.get("question")) {
+                let key = normalize_content(&prompt);
+                if !key.is_empty() {
+                    *seen.entry(key).or_default() += 1;
+                }
+            }
+        }
+        for (prompt, count) in seen {
+            if count > 1 {
+                audit.findings.push(ContentQualityFinding {
+                    lesson_id: lesson_id.clone(),
+                    asset_path: asset_path.to_owned(),
+                    field: "lesson.practice_problems".to_owned(),
+                    code: "duplicate_practice_prompt".to_owned(),
+                    severity: "warning".to_owned(),
+                    message: format!(
+                        "The same normalized practice prompt occurs {count} times: {prompt}"
+                    ),
+                });
+            }
+        }
+    }
+
+    if let Some(hints) = lesson.get("hints").and_then(Value::as_array) {
+        for (index, hint) in hints.iter().enumerate() {
+            add_text_finding(
+                audit,
+                &lesson_id,
+                asset_path,
+                &format!("lesson.hints[{index}]"),
+                Some(hint),
+            );
+        }
+    }
+    if let Some(vocabulary) = lesson.get("key_vocabulary").and_then(Value::as_array) {
+        for (index, item) in vocabulary.iter().enumerate() {
+            for key in ["term", "definition", "example_usage"] {
+                add_text_finding(
+                    audit,
+                    &lesson_id,
+                    asset_path,
+                    &format!("lesson.key_vocabulary[{index}].{key}"),
+                    item.get(key),
+                );
+            }
+        }
+    }
     if let Some(misconceptions) = lesson.get("misconceptions").and_then(Value::as_array) {
         for (index, item) in misconceptions.iter().enumerate() {
             for key in ["misconception", "correction", "why_students_think_this"] {
@@ -896,7 +954,11 @@ fn audit_lesson_value(
         for (index, card) in cards.iter().enumerate() {
             for key in ["front", "back"] {
                 add_required_text_finding(
-                    audit, &lesson_id, asset_path, &format!("flashcards[{index}].{key}"), card.get(key)
+                    audit,
+                    &lesson_id,
+                    asset_path,
+                    &format!("flashcards[{index}].{key}"),
+                    card.get(key),
                 );
             }
         }
@@ -905,10 +967,7 @@ fn audit_lesson_value(
     audit.findings.len() > before
 }
 
-fn audit_manifest_assets(
-    workspace: &Path,
-    errors: &mut Vec<String>,
-) -> ContentQualityAudit {
+fn audit_manifest_assets(workspace: &Path, errors: &mut Vec<String>) -> ContentQualityAudit {
     let manifest_path = workspace.join("apps/leptos/static/content-manifest.json");
     let manifest_text = match fs::read_to_string(&manifest_path) {
         Ok(text) => text,
@@ -920,12 +979,18 @@ fn audit_manifest_assets(
     let manifest: Value = match serde_json::from_str(&manifest_text) {
         Ok(value) => value,
         Err(error) => {
-            errors.push(format!("{}: invalid JSON: {error}", manifest_path.display()));
+            errors.push(format!(
+                "{}: invalid JSON: {error}",
+                manifest_path.display()
+            ));
             return ContentQualityAudit::default();
         }
     };
     let Some(lessons) = manifest.get("lessons").and_then(Value::as_object) else {
-        errors.push(format!("{}: lessons must be an object", manifest_path.display()));
+        errors.push(format!(
+            "{}: lessons must be an object",
+            manifest_path.display()
+        ));
         return ContentQualityAudit::default();
     };
 
@@ -942,7 +1007,9 @@ fn audit_manifest_assets(
                 continue;
             };
             let Some(relative) = uri.strip_prefix("/curriculum/generated/") else {
-                errors.push(format!("manifest asset path outside curriculum root: {uri}"));
+                errors.push(format!(
+                    "manifest asset path outside curriculum root: {uri}"
+                ));
                 continue;
             };
             let unresolved = lesson_root.join(relative);
@@ -956,7 +1023,10 @@ fn audit_manifest_assets(
             let root = match lesson_root.canonicalize() {
                 Ok(root) => root,
                 Err(error) => {
-                    errors.push(format!("cannot resolve lesson root {}: {error}", lesson_root.display()));
+                    errors.push(format!(
+                        "cannot resolve lesson root {}: {error}",
+                        lesson_root.display()
+                    ));
                     break;
                 }
             };
@@ -1021,8 +1091,14 @@ fn markdown(report: &AuditReport) -> String {
         "| Active curriculum documents | {} |\n",
         report.active_document_count
     ));
-    out.push_str(&format!("| Active nodes | {} |\n", report.active_node_count));
-    out.push_str(&format!("| Active edges | {} |\n", report.active_edge_count));
+    out.push_str(&format!(
+        "| Active nodes | {} |\n",
+        report.active_node_count
+    ));
+    out.push_str(&format!(
+        "| Active edges | {} |\n",
+        report.active_edge_count
+    ));
     out.push_str(&format!(
         "| Nodes with standard references | {} |\n",
         report.active_nodes_with_standard_refs
@@ -1115,7 +1191,8 @@ fn workspace_root() -> Result<PathBuf, String> {
         .ok_or_else(|| {
             "cannot locate mycelix-praxis workspace root from CARGO_MANIFEST_DIR".to_owned()
         })?;
-    path.canonicalize().map_err(|error| format!("cannot canonicalize workspace root: {error}"))
+    path.canonicalize()
+        .map_err(|error| format!("cannot canonicalize workspace root: {error}"))
 }
 
 fn run() -> Result<(), AuditFailure> {
@@ -1158,8 +1235,11 @@ fn run() -> Result<(), AuditFailure> {
         return Err(AuditFailure(errors));
     }
     match output_format {
-        "json" => println!("{}", serde_json::to_string_pretty(&report)
-            .map_err(|error| AuditFailure(vec![format!("cannot serialize report: {error}")]))?),
+        "json" => println!(
+            "{}",
+            serde_json::to_string_pretty(&report)
+                .map_err(|error| AuditFailure(vec![format!("cannot serialize report: {error}")]))?
+        ),
         "markdown" => print!("{}", markdown(&report)),
         _ => unreachable!("output format is constrained by argument parsing"),
     }
@@ -1228,14 +1308,8 @@ mod tests {
             "https://json-schema.org/draft/2020-12/schema"
         );
         assert_eq!(schema["properties"]["schema_version"]["const"], 1);
-        assert!(
-            schema["properties"]["lesson_digest_blake3"]
-                .is_object()
-        );
-        assert!(
-            schema["properties"]["learning_studies"]
-                .is_object()
-        );
+        assert!(schema["properties"]["lesson_digest_blake3"].is_object());
+        assert!(schema["properties"]["learning_studies"].is_object());
         assert!(
             schema["allOf"]
                 .as_array()
@@ -1243,7 +1317,10 @@ mod tests {
             "the evidence schema must retain its conditional release gates"
         );
         assert_eq!(
-            schema["properties"]["review_state"]["enum"].as_array().unwrap().len(),
+            schema["properties"]["review_state"]["enum"]
+                .as_array()
+                .unwrap()
+                .len(),
             5
         );
     }
@@ -1264,10 +1341,7 @@ mod tests {
     #[test]
     fn reports_coverage_and_orphans() {
         let docs = vec![(PathBuf::from("fixture.json"), fixture_document())];
-        let manifest = BTreeMap::from([
-            ("n1".to_owned(), 2usize),
-            ("orphan".to_owned(), 1usize),
-        ]);
+        let manifest = BTreeMap::from([("n1".to_owned(), 2usize), ("orphan".to_owned(), 1usize)]);
         let mut errors = Vec::new();
         let report = analyze(&docs, &manifest, &mut errors);
         assert!(errors.is_empty(), "{errors:?}");
@@ -1287,12 +1361,22 @@ mod tests {
     #[test]
     fn duplicate_node_ids_are_rejected() {
         let docs = vec![
-            (PathBuf::from("a.json"), serde_json::json!({"nodes":[{"id":"same"}],"edges":[]})),
-            (PathBuf::from("b.json"), serde_json::json!({"nodes":[{"id":"same"}],"edges":[]})),
+            (
+                PathBuf::from("a.json"),
+                serde_json::json!({"nodes":[{"id":"same"}],"edges":[]}),
+            ),
+            (
+                PathBuf::from("b.json"),
+                serde_json::json!({"nodes":[{"id":"same"}],"edges":[]}),
+            ),
         ];
         let mut errors = Vec::new();
         let _ = analyze(&docs, &BTreeMap::new(), &mut errors);
-        assert!(errors.iter().any(|error| error.contains("duplicate active node ID")));
+        assert!(
+            errors
+                .iter()
+                .any(|error| error.contains("duplicate active node ID"))
+        );
     }
 
     #[test]
@@ -1318,11 +1402,17 @@ mod tests {
         let mut same_inputs_reverse_insert = BTreeMap::new();
         same_inputs_reverse_insert.insert("b.json".to_owned(), b"content-b".to_vec());
         same_inputs_reverse_insert.insert("a.json".to_owned(), b"content-a".to_vec());
-        assert_eq!(hash_named_inputs(&first), hash_named_inputs(&same_inputs_reverse_insert));
+        assert_eq!(
+            hash_named_inputs(&first),
+            hash_named_inputs(&same_inputs_reverse_insert)
+        );
 
         let mut changed_content = first.clone();
         changed_content.insert("a.json".to_owned(), b"tampered".to_vec());
-        assert_ne!(hash_named_inputs(&first), hash_named_inputs(&changed_content));
+        assert_ne!(
+            hash_named_inputs(&first),
+            hash_named_inputs(&changed_content)
+        );
 
         let mut changed_path = BTreeMap::new();
         changed_path.insert("renamed.json".to_owned(), b"content-a".to_vec());
@@ -1354,7 +1444,12 @@ mod tests {
         let report = analyze(&docs, &BTreeMap::new(), &mut errors);
         assert!(errors.is_empty(), "{errors:?}");
         assert_eq!(report.groups.len(), 2);
-        assert!(report.groups.iter().all(|group| group.distinct_standard_refs == 1));
+        assert!(
+            report
+                .groups
+                .iter()
+                .all(|group| group.distinct_standard_refs == 1)
+        );
         assert_eq!(report.distinct_standard_refs, 2);
     }
 
@@ -1370,7 +1465,11 @@ mod tests {
         let docs = vec![(PathBuf::from("bad.json"), document)];
         let mut errors = Vec::new();
         let _ = analyze(&docs, &BTreeMap::new(), &mut errors);
-        assert!(errors.iter().any(|error| error.contains("requires framework/code")));
+        assert!(
+            errors
+                .iter()
+                .any(|error| error.contains("requires framework/code"))
+        );
     }
 
     #[test]
@@ -1423,14 +1522,36 @@ mod tests {
         });
         let mut audit = ContentQualityAudit::default();
         assert!(audit_lesson_value("fixture.json", &value, &mut audit));
-        assert!(audit.findings.iter().any(|finding| finding.field == "lesson.explanation"));
-        assert!(audit.findings.iter().any(|finding| finding.field == "assessment.items[0].question"));
-        assert!(audit.findings.iter().any(|finding| finding.field == "flashcards[0].back"));
-        assert!(audit.findings.iter().any(|finding| finding.code == "duplicate_worked_example"));
-        assert!(!audit
-            .findings
-            .iter()
-            .any(|finding| finding.code == "duplicate_practice_prompt"));
+        assert!(
+            audit
+                .findings
+                .iter()
+                .any(|finding| finding.field == "lesson.explanation")
+        );
+        assert!(
+            audit
+                .findings
+                .iter()
+                .any(|finding| finding.field == "assessment.items[0].question")
+        );
+        assert!(
+            audit
+                .findings
+                .iter()
+                .any(|finding| finding.field == "flashcards[0].back")
+        );
+        assert!(
+            audit
+                .findings
+                .iter()
+                .any(|finding| finding.code == "duplicate_worked_example")
+        );
+        assert!(
+            !audit
+                .findings
+                .iter()
+                .any(|finding| finding.code == "duplicate_practice_prompt")
+        );
         assert!(audit.findings.len() >= 10);
     }
 
@@ -1474,14 +1595,38 @@ mod tests {
         });
         let mut audit = ContentQualityAudit::default();
         assert!(audit_lesson_value("missing.json", &value, &mut audit));
-        assert!(audit.findings.iter().any(|finding| finding.code == "missing_required_text"));
-        assert!(audit.findings.iter().any(|finding| finding.code == "missing_worked_examples"));
-        assert!(audit.findings.iter().any(|finding| finding.code == "missing_practice_items"));
+        assert!(
+            audit
+                .findings
+                .iter()
+                .any(|finding| finding.code == "missing_required_text")
+        );
+        assert!(
+            audit
+                .findings
+                .iter()
+                .any(|finding| finding.code == "missing_worked_examples")
+        );
+        assert!(
+            audit
+                .findings
+                .iter()
+                .any(|finding| finding.code == "missing_practice_items")
+        );
 
         let missing_object = serde_json::json!({"node_id":"fixture.no-lesson"});
         let mut second_audit = ContentQualityAudit::default();
-        assert!(audit_lesson_value("no-lesson.json", &missing_object, &mut second_audit));
-        assert!(second_audit.findings.iter().any(|finding| finding.code == "missing_lesson_object"));
+        assert!(audit_lesson_value(
+            "no-lesson.json",
+            &missing_object,
+            &mut second_audit
+        ));
+        assert!(
+            second_audit
+                .findings
+                .iter()
+                .any(|finding| finding.code == "missing_lesson_object")
+        );
     }
 
     #[test]
