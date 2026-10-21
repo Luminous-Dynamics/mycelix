@@ -1528,15 +1528,21 @@
       ],
       "pilot_scope": "Pin the immutable GS1 EPCIS 2.0.1 and CBV 2.0.0 references and map a synthetic event sequence to their event semantics without losing event time, business step, disposition, source/party identity, location, or correction lineage. Mycelix's additional value is cross-organization evidence qualification and explicit handling of conflicting/unsupported claims, not a parallel event vocabulary.",
       "acceptance_metrics": [
-        "All fields claimed as supported by the selected EPCIS/CBV version round-trip with the same meaning and units.",
-        "Unsupported or extension fields stay explicit and never disappear silently in translation.",
-        "A scan, shipping event, receiving event, acceptance event, and qualified physical-delivery measurement remain distinct claims."
+        "The selected EPCIS 2.0.1 JSON document validates under the exact official JSON Schema artifact; the JSON-LD/RDF interpretation conforms to the exact official SHACL artifact. Retain artifact digests and separate validation receipts.",
+        "Every event is mapped exactly once to a claim with the correct source business step; 0 duplicate event IDs, unknown references, duplicate target mappings, or subject/EPC mismatches.",
+        "100% of the fields declared supported preserve their values, units, identifiers, timestamps, and semantics through round-trip translation; every unsupported/extension field is explicitly preserved or emitted in a loss report, with 0 silent drops.",
+        "0 source-only claims are promoted to independently verified physical delivery, product authenticity, legal title, or regulatory compliance without additional qualified evidence.",
+        "All registered negative controls reject in the intended way, including duplicate/replay, wrong EPC, mapping mislabel, unpinned schema, invalid context, unsupported-field loss, and tampered artifact/source digest.",
+        "After an adapter exists, report p50/p95 latency, throughput, peak RSS, CPU time, failure rate and full integration cost for fixed 1k/10k/50k event corpora with at least 30 measured repetitions and a disclosed machine/runtime configuration.",
+        "In a permitted shadow pilot, compare reconciliation correction rate per 1,000 events, median/p95 time-to-resolve, operator interventions and false acceptance against the current process using a pre-registered, matched evaluation plan."
       ],
       "negative_controls": [
-        "Promote an observation scan into proof of physical delivery without a qualified measurement.",
-        "Discard an unsupported external field without recording the semantic loss.",
-        "Accept an event with a mismatched lot/subject or source identity.",
-        "Use an unpinned or draft external schema as though it were the selected ratified version."
+        "Promote an observation-only event to independently verified physical delivery without a qualified measurement.",
+        "Use receiving, arriving, or accepting as interchangeable steps for the same EPC; receiving is defined as mutually exclusive from arriving and accepting in CBV.",
+        "Discard an unsupported external field or extension without a machine-readable semantic-loss record.",
+        "Accept duplicate event IDs, replay an event into a second projection, or map two source events to one event identifier.",
+        "Accept an event whose EPC/subject or source identity differs from the mapping target.",
+        "Use an unpinned/draft schema, a wrong JSON-LD context, or a tampered JSON Schema/SHACL artifact without failing the conformance gate."
       ],
       "deployment_assumptions": [
         "All current URLs are research references; the exact ratified version and normative artifacts must be frozen before a pilot.",
@@ -1545,8 +1551,9 @@
       "off_ramp": "Export original EPCIS event references, Mycelix projection, mapping dispositions and verifier receipt; disabling the projection must not modify the source traceability records.",
       "nonclaims": [
         "Does not imply GS1 endorsement or participation in any GS1 working group.",
-        "Does not establish regulatory compliance, product authenticity, physical delivery, or source-record truth.",
-        "Does not establish superiority over EPCIS-compatible systems; it defines a baseline for a matched evaluation."
+        "Does not establish EPCIS/CBV conformance until the exact normative JSON Schema and SHACL artefacts have actually been executed and their digests/receipts retained.",
+        "Does not establish regulatory compliance, product authenticity, physical delivery, legal title, or source-record truth.",
+        "Does not establish superiority over EPCIS-compatible systems until a fair independent baseline/candidate evaluation has been run."
       ],
       "source_evidence_state": "snapshot_manifest_attached",
       "source_snapshot_manifest_path": "source-snapshots/gs1-epcis-cbv-v1.json",
