@@ -16,6 +16,7 @@ on:
       - "mycelix-workspace/mycelix-finance/apps/leptos/**"
       - "mycelix-workspace/mycelix-climate/apps/leptos/**"
       - ".github/workflows/local-identity-posture.yml"
+      - ".github/scripts/verify-shared-identity-bootstrap.sh"
   push:
     branches: [main]
     paths:
@@ -32,6 +33,7 @@ on:
       - "mycelix-workspace/mycelix-finance/apps/leptos/**"
       - "mycelix-workspace/mycelix-climate/apps/leptos/**"
       - ".github/workflows/local-identity-posture.yml"
+      - ".github/scripts/verify-shared-identity-bootstrap.sh"
   workflow_dispatch:
 
 permissions:
@@ -90,23 +92,9 @@ jobs:
           cargo fmt --manifest-path mycelix-workspace/mycelix-personal/apps/leptos/Cargo.toml -- --check
           cargo fmt --manifest-path mycelix-workspace/mycelix-finance/apps/leptos/Cargo.toml -- --check
           cargo fmt --manifest-path mycelix-workspace/mycelix-climate/apps/leptos/Cargo.toml -- --check
-      - name: Ban implicit identity provider calls in app shells
+      - name: Verify shared identity bootstrap invariants
         shell: bash
-        run: |
-          set -euo pipefail
-          files=(
-            mycelix-personal/apps/leptos/src/app.rs
-            mycelix-finance/apps/leptos/src/app.rs
-            mycelix-climate/apps/leptos/src/app.rs
-            mycelix-workspace/mycelix-personal/apps/leptos/src/app.rs
-            mycelix-workspace/mycelix-finance/apps/leptos/src/app.rs
-            mycelix-workspace/mycelix-climate/apps/leptos/src/app.rs
-          )
-          if rg -n '(^|[^[:alnum:]_])provide_local_identity\s*\(' "${files[@]}"; then
-            echo "App shell calls legacy identity provider without typed posture handling." >&2
-            exit 1
-          fi
-          echo "All six app shells use the shared protected-identity gate."
+        run: bash .github/scripts/verify-shared-identity-bootstrap.sh
       - name: Run native identity-storage posture tests
         run: cargo test --manifest-path crates/mycelix-leptos-core/Cargo.toml --locked --lib
       - name: Install wasm-pack for browser test execution
