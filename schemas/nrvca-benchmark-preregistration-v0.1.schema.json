@@ -21,7 +21,9 @@
     "comparison_protocol",
     "failure_policy",
     "guardrails",
-    "claim_ceiling"
+    "claim_ceiling",
+    "execution_state",
+    "source_manifest"
   ],
   "properties": {
     "schema_version": {
@@ -330,6 +332,97 @@
       "items": {
         "type": "string",
         "minLength": 1
+      }
+    },
+    "execution_state": {
+      "enum": [
+        "blocked_missing_sources",
+        "blocked_rights_review",
+        "ready_for_execution",
+        "executed",
+        "invalidated"
+      ]
+    },
+    "source_manifest": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "source_id",
+          "publisher",
+          "dataset_id",
+          "source_url",
+          "source_status",
+          "data_vintage",
+          "reference_period",
+          "content_sha256",
+          "digest_scope",
+          "license_status",
+          "ingest_state"
+        ],
+        "properties": {
+          "source_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "publisher": {
+            "type": "string",
+            "minLength": 1
+          },
+          "dataset_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "source_url": {
+            "type": "string",
+            "format": "uri"
+          },
+          "source_status": {
+            "enum": [
+              "official_statistics",
+              "experimental_statistics",
+              "administrative_context",
+              "operational_measurement"
+            ]
+          },
+          "data_vintage": {
+            "type": "string",
+            "minLength": 1
+          },
+          "reference_period": {
+            "type": "string",
+            "minLength": 1
+          },
+          "content_sha256": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^[a-f0-9]{64}$"
+          },
+          "digest_scope": {
+            "type": "string",
+            "minLength": 1
+          },
+          "license_status": {
+            "enum": [
+              "reviewed_permitted",
+              "restricted",
+              "unknown",
+              "not_applicable_synthetic"
+            ]
+          },
+          "ingest_state": {
+            "enum": [
+              "discovery_only",
+              "metadata_only",
+              "ingested",
+              "independently_verified"
+            ]
+          }
+        }
       }
     }
   }
