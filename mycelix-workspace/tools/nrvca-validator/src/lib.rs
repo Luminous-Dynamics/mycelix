@@ -860,7 +860,7 @@ mod tests {
         let report: Value = serde_json::from_str(GOLDEN).expect("golden fixture parses as JSON");
         let corpus: Value = serde_json::from_str(CORPUS).expect("adversarial corpus parses as JSON");
         let results = run_adversarial_corpus(&report, &corpus).expect("corpus runner executes");
-        assert_eq!(results.len(), 14, "unexpected corpus size");
+        assert_eq!(results.len(), 20, "unexpected corpus size");
         for result in &results {
             assert!(result.passed, "{}: {}", result.case_id, result.detail);
         }
