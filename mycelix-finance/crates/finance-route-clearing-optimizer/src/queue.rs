@@ -66,10 +66,10 @@ pub struct PaymentOrder {
     pub priority: u8,
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 /// One priority-aging level is earned after this many elapsed simulation ticks.
 pub const PRIORITY_AGING_INTERVAL_TICKS: u64 = 5;
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum QueuePolicy {
     /// A blocked head prevents later queue entries from being attempted at that tick.
     StrictFifo,
