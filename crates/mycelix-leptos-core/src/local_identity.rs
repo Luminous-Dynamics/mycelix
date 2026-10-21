@@ -103,9 +103,9 @@ use zeroize::{Zeroize, Zeroizing};
 #[cfg(target_arch = "wasm32")]
 use js_sys::{Function, Promise, Reflect};
 #[cfg(target_arch = "wasm32")]
-use wasm_bindgen::{closure::Closure, JsCast, JsValue};
+use wasm_bindgen::{JsCast, JsValue, closure::Closure};
 #[cfg(target_arch = "wasm32")]
-use wasm_bindgen_futures::{future_to_promise, JsFuture};
+use wasm_bindgen_futures::{JsFuture, future_to_promise};
 
 /// Legacy key: pre-2026-07 builds stored a `did:mycelix:<12-random-bytes-hex>`
 /// string here directly, generated from `js_sys::Math::random()` (not a
@@ -804,8 +804,12 @@ where
         "Browser window is unavailable; identity operation was not started.".to_string()
     })?;
     let navigator: JsValue = window.navigator().into();
-    let locks = Reflect::get(&navigator, &JsValue::from_str("locks"))
-        .map_err(|error| format!("Web Locks API inspection failed: {}", js_value_message(error)))?;
+    let locks = Reflect::get(&navigator, &JsValue::from_str("locks")).map_err(|error| {
+        format!(
+            "Web Locks API inspection failed: {}",
+            js_value_message(error)
+        )
+    })?;
     if locks.is_null() || locks.is_undefined() {
         return Err(
             "This browser does not expose the Web Locks API; no identity change was attempted."
@@ -813,9 +817,16 @@ where
         );
     }
     let request = Reflect::get(&locks, &JsValue::from_str("request"))
-        .map_err(|error| format!("Web Lock request is unavailable: {}", js_value_message(error)))?
+        .map_err(|error| {
+            format!(
+                "Web Lock request is unavailable: {}",
+                js_value_message(error)
+            )
+        })?
         .dyn_into::<Function>()
-        .map_err(|_| "Web Lock request is not callable; no identity change was attempted.".to_string())?;
+        .map_err(|_| {
+            "Web Lock request is not callable; no identity change was attempted.".to_string()
+        })?;
 
     let output = Rc::new(RefCell::new(None::<T>));
     let operation_error = Rc::new(RefCell::new(None::<String>));
@@ -850,7 +861,12 @@ where
             &JsValue::from_str(IDENTITY_LIFECYCLE_LOCK_NAME),
             callback.as_ref(),
         )
-        .map_err(|error| format!("Could not acquire identity lifecycle lock: {}", js_value_message(error)))?
+        .map_err(|error| {
+            format!(
+                "Could not acquire identity lifecycle lock: {}",
+                js_value_message(error)
+            )
+        })?
         .dyn_into::<Promise>()
         .map_err(|_| "Web Lock request did not return a Promise.".to_string())?;
     let completion = JsFuture::from(promise).await;
@@ -861,18 +877,18 @@ where
             .borrow_mut()
             .take()
             .ok_or_else(|| "Identity lock completed without an operation result.".to_string()),
-        Err(error) => Err(operation_error
-            .borrow_mut()
-            .take()
-            .unwrap_or_else(|| format!("Identity lifecycle lock failed: {}", js_value_message(error)))),
+        Err(error) => Err(operation_error.borrow_mut().take().unwrap_or_else(|| {
+            format!(
+                "Identity lifecycle lock failed: {}",
+                js_value_message(error)
+            )
+        })),
     }
 }
 
 #[cfg(target_arch = "wasm32")]
 fn js_value_message(value: JsValue) -> String {
-    value
-        .as_string()
-        .unwrap_or_else(|| format!("{value:?}"))
+    value.as_string().unwrap_or_else(|| format!("{value:?}"))
 }
 
 /// Native state tests use the same transition body without a browser lock.
@@ -1279,11 +1295,13 @@ pub async fn protect_with_passphrase(passphrase: &str) -> Result<(), String> {
 async fn protect_with_passphrase_unlocked(passphrase: &str) -> Result<(), String> {
     validate_new_identity_passphrase(passphrase)?;
     match inspect_local_identity_posture() {
-        LocalIdentityStoragePosture::NoIdentity => {
-            create_protected_identity_unlocked(passphrase).await.map(|_| ())
-        }
+        LocalIdentityStoragePosture::NoIdentity => create_protected_identity_unlocked(passphrase)
+            .await
+            .map(|_| ()),
         LocalIdentityStoragePosture::UnprotectedIdentity => {
-            protect_existing_identity_unlocked(passphrase).await.map(|_| ())
+            protect_existing_identity_unlocked(passphrase)
+                .await
+                .map(|_| ())
         }
         LocalIdentityStoragePosture::ProtectedUnlockedInSession => {
             rewrap_protected_identity(passphrase).await
@@ -2275,8 +2293,8 @@ mod browser_storage_tests {
 
     #[wasm_bindgen_test]
     async fn web_lock_serializes_contending_identity_lifecycle_operations() {
-        use std::rc::Rc;
         use std::cell::RefCell;
+        use std::rc::Rc;
 
         let events = Rc::new(RefCell::new(Vec::<&'static str>::new()));
         let first_events = events.clone();
