@@ -582,6 +582,21 @@ fn validate_paired_traces(
         }
     }
 
+    // Each policy's own executable artifact must stay fixed across every scenario.
+    // Different policies may have different artifact digests; one policy may not drift.
+    for policy_id in &policy_ids {
+        let artifacts = traces
+            .iter()
+            .filter(|trace| trace.policy_id == *policy_id)
+            .map(|trace| trace.policy_artifact_digest.as_str())
+            .collect::<BTreeSet<_>>();
+        if artifacts.len() != 1 {
+            errors.push(format!(
+                "policy artifact digest varies within policy {policy_id}"
+            ));
+        }
+    }
+
     // Study corpus, evaluator, environment, model, prompt, and tool configuration
     // are fixed across the paired run. Only the policy artifact and its outputs vary.
     for (label, value) in [
@@ -1112,6 +1127,25 @@ fn public_synthetic_report_matches_schema_and_can_emit_ci_artifact() {
             std::path::Path::new(&path).display()
         );
     }
+}
+
+#[test]
+fn policy_artifact_drift_invalidates_a_paired_study() {
+    let cases = synthetic_cases();
+    let mut traces = synthetic_frontier_traces(&cases);
+    let trace = traces
+        .iter_mut()
+        .find(|trace| trace.policy_id == "quality" && trace.scenario_id == "network-stale-overanswer")
+        .expect("policy trace exists");
+    trace.policy_artifact_digest = digest_for("policy:quality-mutated");
+
+    let errors = validate_paired_traces(&cases, &traces)
+        .expect_err("a policy must not change artifact versions mid-study");
+    assert!(
+        errors
+            .iter()
+            .any(|error| error.contains("policy artifact digest varies within policy quality"))
+    );
 }
 
 #[test]
