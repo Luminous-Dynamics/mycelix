@@ -178,7 +178,22 @@ pub fn optimize_fixed_charge(
         }
     }
 
-    best.ok_or(FixedChargeError::CostOverflow)
+    let mut best = best.ok_or(FixedChargeError::CostOverflow)?;
+
+    // Preserve exclusions from the full candidate input, not just the subset used by
+    // the chosen plan. This keeps disabled and cross-profile route observations visible.
+    let all_routes = routes
+        .iter()
+        .map(|candidate| candidate.route.clone())
+        .collect::<Vec<_>>();
+    let eligibility_report = optimize(context, positions, &all_routes)?;
+    best.allocation.excluded_routes = eligibility_report.excluded_routes;
+    best.allocation.deduplicated_route_observations = eligibility_report
+        .deduplicated_route_observations
+        .checked_add(duplicate_observations)
+        .ok_or(FixedChargeError::CostOverflow)?;
+
+    Ok(best)
 }
 
 fn is_better(candidate: &FixedChargePlan, current: &FixedChargePlan) -> bool {
