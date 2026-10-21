@@ -138,6 +138,7 @@ fn main() {
                 QueuePolicy::StrictFifo,
                 QueuePolicy::LiquidityAwareFifo,
                 QueuePolicy::PriorityScan,
+                QueuePolicy::AgingPriorityScan,
                 QueuePolicy::EarliestDeadlineFirst,
             ] {
                 // Warm the code path before measuring. Keep warmup samples out of the
