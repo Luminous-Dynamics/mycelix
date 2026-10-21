@@ -1,0 +1,76 @@
+name: Identity KDF production benchmark
+
+on:
+  pull_request:
+    paths:
+      - "crates/mycelix-leptos-core/Cargo.toml"
+      - "crates/mycelix-leptos-core/src/identity_crypto.rs"
+      - "crates/mycelix-identity-kdf-bench/**"
+      - ".github/workflows/identity-kdf-benchmark.yml"
+  push:
+    branches: [main]
+    paths:
+      - "crates/mycelix-leptos-core/Cargo.toml"
+      - "crates/mycelix-leptos-core/src/identity_crypto.rs"
+      - "crates/mycelix-identity-kdf-bench/**"
+      - ".github/workflows/identity-kdf-benchmark.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: identity-kdf-benchmark-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  benchmark:
+    name: Production PBKDF2 baseline in headless Chrome
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: |
+            crates/mycelix-leptos-core -> target
+            crates/mycelix-leptos-client -> target
+            crates/mycelix-identity-kdf-bench -> target
+      - name: Assert exact source head
+        env:
+          EXPECTED_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        shell: bash
+        run: |
+          actual="$(git rev-parse HEAD)"
+          if [[ "$actual" != "$EXPECTED_SHA" ]]; then
+            echo "Expected source head $EXPECTED_SHA, checked out $actual" >&2
+            exit 1
+          fi
+      - name: Resolve and fingerprint benchmark lockfile
+        run: |
+          cargo generate-lockfile --manifest-path crates/mycelix-identity-kdf-bench/Cargo.toml
+          sha256sum crates/mycelix-identity-kdf-bench/Cargo.lock
+      - name: Check formatting
+        run: |
+          cargo fmt --manifest-path crates/mycelix-leptos-core/Cargo.toml -- --check
+          cargo fmt --manifest-path crates/mycelix-identity-kdf-bench/Cargo.toml -- --check
+      - name: Compile opt-in production benchmark for WASM
+        run: cargo check --manifest-path crates/mycelix-identity-kdf-bench/Cargo.toml --locked --target wasm32-unknown-unknown
+      - name: Install wasm-pack
+        run: cargo install wasm-pack --locked
+      - name: Verify browser runner tools
+        shell: bash
+        run: |
+          command -v google-chrome || command -v google-chrome-stable || command -v chromium
+          command -v chromedriver
+      - name: Execute production-parameter benchmark in headless Chrome
+        env:
+          WASM_BINDGEN_TEST_TIMEOUT: "180"
+        run: wasm-pack test --headless --chrome crates/mycelix-identity-kdf-bench -- --nocapture
+      - name: Check patch whitespace
+        run: git diff --check
