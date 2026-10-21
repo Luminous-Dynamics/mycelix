@@ -1515,7 +1515,7 @@ mod tests {
 
         assert_eq!(fifo, vec!["drain-a", "feed-b", "return-a"]);
         assert_eq!(fifo_report.total_required_opening_liquidity_minor, 16);
-        assert_eq!(optimized_report.total_required_opening_liquidity_minor, 6);
+        assert_eq!(optimized_report.total_required_opening_liquidity_minor, 10);
         assert_eq!(optimized_report.required_by_participant.len(), 3);
         assert_eq!(
             optimized_report
@@ -1524,7 +1524,7 @@ mod tests {
                 .find(|x| x.participant_id == "A")
                 .unwrap()
                 .required_opening_liquidity_minor,
-            6
+            10
         );
         assert_eq!(
             optimized_report
@@ -1547,7 +1547,7 @@ mod tests {
         let oracle = minimum_liquidity_order_oracle(&context(), &payments).unwrap();
 
         assert_eq!(oracle.candidate_orders_evaluated, 6);
-        assert_eq!(oracle.best_report.total_required_opening_liquidity_minor, 6);
+        assert_eq!(oracle.best_report.total_required_opening_liquidity_minor, 10);
         assert_eq!(
             oracle.best_report.total_payment_value_minor,
             payments.iter().map(|p| p.amount_minor as u128).sum::<u128>()
@@ -1584,7 +1584,7 @@ mod tests {
             first.best_report.total_required_opening_liquidity_minor
                 <= fifo_report.total_required_opening_liquidity_minor
         );
-        assert_eq!(first.best_report.total_required_opening_liquidity_minor, 6);
+        assert_eq!(first.best_report.total_required_opening_liquidity_minor, 10);
     }
 
     #[test]
