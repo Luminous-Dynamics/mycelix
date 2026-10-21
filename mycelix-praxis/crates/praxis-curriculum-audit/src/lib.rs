@@ -620,6 +620,28 @@ mod tests {
     }
 
     #[test]
+    fn lesson_evidence_schema_is_versioned_json() {
+        let schema: Value = serde_json::from_str(include_str!(
+            "../../../schemas/lesson-evidence-record-v1.schema.json"
+        ))
+        .expect("lesson evidence schema must be valid JSON");
+
+        assert_eq!(
+            schema["$schema"],
+            "https://json-schema.org/draft/2020-12/schema"
+        );
+        assert_eq!(schema["properties"]["schema_version"]["const"], 1);
+        assert!(
+            schema["properties"]["lesson_digest_blake3"]
+                .is_object()
+        );
+        assert!(
+            schema["properties"]["learning_studies"]
+                .is_object()
+        );
+    }
+
+    #[test]
     fn extracts_only_json_include_paths() {
         let source = "include_str!(\"a.json\"); include_str!(\"b.svg\"); include_str!(\"nested/c.json\");";
         assert_eq!(embedded_json_paths(source), vec!["a.json".to_owned(), "nested/c.json".to_owned()]);
