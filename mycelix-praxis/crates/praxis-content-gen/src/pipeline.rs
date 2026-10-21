@@ -385,7 +385,7 @@ fn is_placeholder_content(text: &str) -> bool {
         "placeholder",
         "answer",
     ];
-    if exact_placeholders.iter().any(|phrase| core == *phrase) {
+    if exact_placeholders.contains(&core) {
         return true;
     }
 
