@@ -143,6 +143,43 @@ pub struct AttributedClaim<T> {
     pub evidence: SourceEvidence,
 }
 
+/// Two or more attributed claims. A single claim cannot form a dispute.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ConflictingClaims<T> {
+    first: T,
+    second: T,
+    rest: Vec<T>,
+}
+
+impl<T> ConflictingClaims<T> {
+    pub fn try_from_vec(values: Vec<T>) -> Result<Self, Vec<T>> {
+        let mut iter = values.into_iter();
+        let first = match iter.next() {
+            Some(value) => value,
+            None => return Err(Vec::new()),
+        };
+        let second = match iter.next() {
+            Some(value) => value,
+            None => return Err(vec![first]),
+        };
+        Ok(Self {
+            first,
+            second,
+            rest: iter.collect(),
+        })
+    }
+
+    pub fn len(&self) -> usize {
+        2 + self.rest.len()
+    }
+
+    pub fn iter(&self) -> impl Iterator<Item = &T> {
+        std::iter::once(&self.first)
+            .chain(std::iter::once(&self.second))
+            .chain(self.rest.iter())
+    }
+}
+
 /// A source result whose variants deliberately encode distinct epistemic
 /// states. The type is a read-model contract, not an access-control primitive.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -183,7 +220,7 @@ pub enum SourceObservation<T> {
     /// Conflicting attributed claims. No winner is selected by this type.
     Disputed {
         source_id: String,
-        claims: NonEmptyVec<AttributedClaim<T>>,
+        claims: ConflictingClaims<AttributedClaim<T>>,
         reason: String,
     },
     /// No adapter exists for this source in this product/build.
@@ -352,7 +389,7 @@ mod tests {
 
     #[test]
     fn disputed_claims_preserve_each_claim_source() {
-        let claims = NonEmptyVec::try_from_vec(vec![
+        let claims = ConflictingClaims::try_from_vec(vec![
             AttributedClaim {
                 value: "claim A",
                 evidence: evidence("registry-a"),
@@ -392,10 +429,17 @@ mod tests {
             last_attempt_at_unix_ms: Some(1_800_000_000_300),
             reason: StaleReason::SourceNotRechecked,
         };
-        let claims = NonEmptyVec::new(AttributedClaim {
-            value: 1_u8,
-            evidence: evidence("claim-source"),
-        });
+        let claims = ConflictingClaims::try_from_vec(vec![
+            AttributedClaim {
+                value: 1_u8,
+                evidence: evidence("claim-source-a"),
+            },
+            AttributedClaim {
+                value: 2_u8,
+                evidence: evidence("claim-source-b"),
+            },
+        ])
+        .expect("a dispute needs at least two claims");
 
         let cases: Vec<(SourceObservation<u8>, SourceStateKind)> = vec![
             (
