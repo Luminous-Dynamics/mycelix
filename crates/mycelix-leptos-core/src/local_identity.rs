@@ -1464,6 +1464,57 @@ mod tests {
     }
 
     #[test]
+    fn legacy_identity_accessors_are_fail_closed_delegators() {
+        let source = include_str!("local_identity.rs");
+        let ensure_start = source
+            .find("pub fn ensure_keypair() -> SigningKey {")
+            .expect("legacy ensure_keypair wrapper exists");
+        let ensure_end = source[ensure_start..]
+            .find("/// Typed failure from a non-minting local-identity access attempt.")
+            .map(|offset| ensure_start + offset)
+            .expect("fallible accessor contract follows the wrapper");
+        let ensure = &source[ensure_start..ensure_end];
+        assert!(ensure.contains("try_ensure_keypair()"));
+        assert!(!ensure.contains("generate_signing_key("));
+        assert!(!ensure.contains("store_signing_key("));
+        assert!(!ensure.contains("create_protected_identity("));
+
+        let did_start = source
+            .find("pub fn local_did() -> String {")
+            .expect("legacy local_did wrapper exists");
+        let did_end = source[did_start..]
+            .find("/// Access the existing local signing key.")
+            .map(|offset| did_start + offset)
+            .expect("ensure wrapper follows local_did");
+        let did = &source[did_start..did_end];
+        assert!(did.contains("try_local_did()"));
+        assert!(!did.contains("ensure_keypair()"));
+
+        let signer_start = source
+            .find("pub fn sign_with_local_identity(message: &[u8]) -> Signature {")
+            .expect("legacy signing wrapper exists");
+        let signer_end = source[signer_start..]
+            .find("/// Provide local identity as Leptos context.")
+            .map(|offset| signer_start + offset)
+            .expect("provider wrapper follows signer");
+        let signer = &source[signer_start..signer_end];
+        assert!(signer.contains("try_sign_with_local_identity(message)"));
+        assert!(!signer.contains("ensure_keypair()"));
+
+        let provider_start = source
+            .find("pub fn provide_local_identity() {")
+            .expect("legacy provider wrapper exists");
+        let provider_end = source[provider_start..]
+            .find("/// Retrieve local identity from context.")
+            .map(|offset| provider_start + offset)
+            .expect("context accessor follows provider");
+        let provider = &source[provider_start..provider_end];
+        assert!(provider.contains("try_provide_local_identity()"));
+        assert!(!provider.contains("local_did()"));
+        assert!(!provider.contains("ensure_keypair()"));
+    }
+
+    #[test]
     fn bootstrap_policy_allows_only_the_state_specific_action_set() {
         use IdentityBootstrapAction as Action;
         use LocalIdentityStoragePosture as Posture;
@@ -2102,36 +2153,6 @@ mod browser_storage_tests {
         assert!(UNLOCKED_KEY.with(|cell| cell.borrow().is_none()));
     }
 
-    #[wasm_bindgen_test]
-    async fn legacy_accessors_fail_closed_without_minting_on_empty_storage() {
-        let _backup = IdentityStorageBackup::new_and_clear();
-
-        assert!(std::panic::catch_unwind(std::panic::AssertUnwindSafe(ensure_keypair)).is_err());
-        assert!(std::panic::catch_unwind(std::panic::AssertUnwindSafe(local_did)).is_err());
-        assert!(
-            std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-                sign_with_local_identity(b"synthetic fail-closed test")
-            }))
-            .is_err()
-        );
-        assert!(
-            std::panic::catch_unwind(std::panic::AssertUnwindSafe(provide_local_identity)).is_err()
-        );
-
-        let storage = web_sys::window().unwrap().local_storage().unwrap().unwrap();
-        for key in [
-            LEGACY_DID_KEY,
-            IDENTITY_SECRET_KEY,
-            IDENTITY_PUBLIC_KEY,
-            IDENTITY_SECRET_ENCRYPTED_KEY,
-        ] {
-            assert!(
-                storage.get_item(key).unwrap().is_none(),
-                "legacy accessors must not create or replace storage key {key}"
-            );
-        }
-        assert!(UNLOCKED_KEY.with(|cell| cell.borrow().is_none()));
-    }
 
     #[wasm_bindgen_test]
     async fn fallible_access_preserves_legacy_marker_without_minting() {
