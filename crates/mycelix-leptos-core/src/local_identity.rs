@@ -11,7 +11,7 @@
 //! nonce: it could not sign anything, could not be recovered, and had no
 //! cryptographic binding to the DID string it produced.
 //!
-//! Step 1 fixed that: `local_did()` generates a genuine Ed25519 keypair
+//! Step 1 fixed that: explicit protected creation generates a genuine Ed25519 keypair
 //! in-browser (seeded from the Web Crypto CSPRNG, `crypto.getRandomValues`,
 //! NOT `Math.random()`) and derives the DID deterministically from the
 //! public key.
@@ -403,103 +403,27 @@ fn encrypted_blob_is_structurally_valid(encoded: &str) -> bool {
         && blob.ciphertext.len() == 48
 }
 
-/// Generate or retrieve the local agent DID.
+/// Resolve the current local agent DID.
 ///
-/// Backed by a real Ed25519 keypair (see module docs) — no longer a random
-/// label. Idempotent: once a keypair has been generated and persisted,
-/// repeat calls return the same DID.
+/// This compatibility wrapper does not create, migrate or replace identity
+/// data. Call `try_local_did()` to handle absence, lock, legacy state, storage
+/// failure or corruption without panicking.
 pub fn local_did() -> String {
-    did_from_public_key(&ensure_keypair().verifying_key())
+    try_local_did().unwrap_or_else(|error| {
+        panic!("Cannot resolve local DID ({error}). No identity was created or replaced.")
+    })
 }
 
-/// Ensure a local Ed25519 keypair exists, generating one via the Web Crypto
-/// CSPRNG on first use, and return it.
+/// Access the existing local signing key.
 ///
-/// Exposed (not just used internally) so future callers — e.g. a
-/// `did_registry::create_did` zome call, or a recovery flow — can get at
-/// the real key material without re-deriving storage logic.
-///
-/// # Panics
-///
-/// Panics if the identity is passphrase-protected (see
-/// [`protect_with_passphrase`]) and [`unlock_with_passphrase`] hasn't
-/// succeeded yet this session. This is deliberate: the alternative would be
-/// silently minting a fresh keypair over a protected-but-locked identity,
-/// which permanently orphans the real one. Since protection is opt-in and
-/// nothing in this crate calls [`protect_with_passphrase`] on its own, this
-/// can only happen if a consuming app added passphrase protection without
-/// also gating its startup on an unlock prompt.
+/// This compatibility wrapper is intentionally **non-minting**. On an empty
+/// store, protected-but-locked identity, legacy marker, corrupt data or
+/// unavailable storage it panics with a fail-closed message. New callers
+/// should use [`try_ensure_keypair`] and handle its typed error.
 pub fn ensure_keypair() -> SigningKey {
-    if let Some(signing_key) = UNLOCKED_KEY.with(|cell| cell.borrow().clone()) {
-        let posture = inspect_local_identity_posture();
-        let cache_matches_storage = match posture {
-            LocalIdentityStoragePosture::ProtectedUnlockedInSession => true,
-            LocalIdentityStoragePosture::UnprotectedIdentity => load_signing_key()
-                .is_some_and(|stored| stored.verifying_key() == signing_key.verifying_key()),
-            _ => false,
-        };
-        if cache_matches_storage {
-            return signing_key;
-        }
-        UNLOCKED_KEY.with(|cell| *cell.borrow_mut() = None);
-        panic!(
-            "Cached local identity no longer matches a recognized persisted identity posture. \
-             No key was replaced. Inspect storage and use the explicit recovery path."
-        );
-    }
-
-    if let Some(signing_key) = load_signing_key() {
-        if inspect_local_identity_posture() != LocalIdentityStoragePosture::UnprotectedIdentity {
-            panic!(
-                "Stored key material exists, but identity posture is not a consistent unprotected keypair. \
-                 No replacement identity was created."
-            );
-        }
-        UNLOCKED_KEY.with(|cell| *cell.borrow_mut() = Some(signing_key.clone()));
-        return signing_key;
-    }
-
-    match inspect_local_identity_posture() {
-        LocalIdentityStoragePosture::NoIdentity => {
-            // Legacy compatibility: some non-Personal callers still rely on
-            // first-use key creation. This path is intentionally isolated to
-            // a positively identified empty storage state. It remains
-            // unprotected and is tracked for removal by SEC-IDENTITY-003.
-            let signing_key = generate_signing_key();
-            store_signing_key(&signing_key);
-            if inspect_local_identity_posture() != LocalIdentityStoragePosture::UnprotectedIdentity
-                || !load_signing_key()
-                    .is_some_and(|stored| stored.verifying_key() == signing_key.verifying_key())
-            {
-                UNLOCKED_KEY.with(|cell| *cell.borrow_mut() = None);
-                panic!(
-                    "Legacy identity creation could not be verified after storage write. \
-                     No key was treated as persisted."
-                );
-            }
-            UNLOCKED_KEY.with(|cell| *cell.borrow_mut() = Some(signing_key.clone()));
-            signing_key
-        }
-        LocalIdentityStoragePosture::ProtectedLocked => panic!(
-            "Local identity is passphrase-protected but locked this session. \
-             Call `unlock_with_passphrase()` before accessing it. No replacement identity was created."
-        ),
-        LocalIdentityStoragePosture::LegacyIdentityNeedsMigration => panic!(
-            "A legacy identity marker exists and requires explicit migration. No replacement identity was created."
-        ),
-        LocalIdentityStoragePosture::StorageUnavailable => {
-            panic!("Local identity storage is unavailable. No replacement identity was created.")
-        }
-        LocalIdentityStoragePosture::CorruptOrInconsistent => panic!(
-            "Local identity storage is corrupt or inconsistent. Preserve it and use the explicit recovery path."
-        ),
-        LocalIdentityStoragePosture::UnprotectedIdentity => panic!(
-            "A keypair appears to exist but could not be loaded consistently. No replacement identity was created."
-        ),
-        LocalIdentityStoragePosture::ProtectedUnlockedInSession => panic!(
-            "The protected identity posture is unlocked, but no valid in-memory key is available."
-        ),
-    }
+    try_ensure_keypair().unwrap_or_else(|error| {
+        panic!("Cannot access local identity ({error}). No identity was created or replaced.")
+    })
 }
 
 /// Typed failure from a non-minting local-identity access attempt.
@@ -1310,13 +1234,16 @@ pub fn restore_from_seed_phrase(phrase: &str) -> Result<SigningKey, String> {
 /// other proof-of-control flow, would use to prove ownership of
 /// [`local_did`].
 pub fn sign_with_local_identity(message: &[u8]) -> Signature {
-    ensure_keypair().sign(message)
+    try_sign_with_local_identity(message).unwrap_or_else(|error| {
+        panic!("Cannot sign with local identity ({error}). No identity was created or replaced.")
+    })
 }
 
 /// Provide local identity as Leptos context.
 pub fn provide_local_identity() {
-    let did = local_did();
-    provide_context(LocalIdentity { did });
+    try_provide_local_identity().unwrap_or_else(|error| {
+        panic!("Cannot provide local identity context ({error}). No identity was created or replaced.")
+    });
 }
 
 /// Retrieve local identity from context.
@@ -1349,12 +1276,6 @@ impl LocalIdentity {
 pub fn did_from_public_key(public_key: &VerifyingKey) -> String {
     let hex = hex_encode(public_key.as_bytes());
     format!("did:mycelix:{hex}")
-}
-
-/// Generate a fresh Ed25519 keypair, seeded from the Web Crypto CSPRNG
-/// (`crypto.getRandomValues`) — NOT `Math.random()`.
-fn generate_signing_key() -> SigningKey {
-    try_generate_signing_key().expect("Web Crypto CSPRNG unavailable for local identity")
 }
 
 fn try_generate_signing_key() -> Result<SigningKey, String> {
@@ -1540,6 +1461,57 @@ mod tests {
             &base64_encode(other.verifying_key().as_bytes()),
             &expected
         ));
+    }
+
+    #[test]
+    fn legacy_identity_accessors_are_fail_closed_delegators() {
+        let source = include_str!("local_identity.rs");
+        let ensure_start = source
+            .find("pub fn ensure_keypair() -> SigningKey {")
+            .expect("legacy ensure_keypair wrapper exists");
+        let ensure_end = source[ensure_start..]
+            .find("/// Typed failure from a non-minting local-identity access attempt.")
+            .map(|offset| ensure_start + offset)
+            .expect("fallible accessor contract follows the wrapper");
+        let ensure = &source[ensure_start..ensure_end];
+        assert!(ensure.contains("try_ensure_keypair()"));
+        assert!(!ensure.contains("generate_signing_key("));
+        assert!(!ensure.contains("store_signing_key("));
+        assert!(!ensure.contains("create_protected_identity("));
+
+        let did_start = source
+            .find("pub fn local_did() -> String {")
+            .expect("legacy local_did wrapper exists");
+        let did_end = source[did_start..]
+            .find("/// Access the existing local signing key.")
+            .map(|offset| did_start + offset)
+            .expect("ensure wrapper follows local_did");
+        let did = &source[did_start..did_end];
+        assert!(did.contains("try_local_did()"));
+        assert!(!did.contains("ensure_keypair()"));
+
+        let signer_start = source
+            .find("pub fn sign_with_local_identity(message: &[u8]) -> Signature {")
+            .expect("legacy signing wrapper exists");
+        let signer_end = source[signer_start..]
+            .find("/// Provide local identity as Leptos context.")
+            .map(|offset| signer_start + offset)
+            .expect("provider wrapper follows signer");
+        let signer = &source[signer_start..signer_end];
+        assert!(signer.contains("try_sign_with_local_identity(message)"));
+        assert!(!signer.contains("ensure_keypair()"));
+
+        let provider_start = source
+            .find("pub fn provide_local_identity() {")
+            .expect("legacy provider wrapper exists");
+        let provider_end = source[provider_start..]
+            .find("/// Retrieve local identity from context.")
+            .map(|offset| provider_start + offset)
+            .expect("context accessor follows provider");
+        let provider = &source[provider_start..provider_end];
+        assert!(provider.contains("try_provide_local_identity()"));
+        assert!(!provider.contains("local_did()"));
+        assert!(!provider.contains("ensure_keypair()"));
     }
 
     #[test]
@@ -1988,6 +1960,16 @@ mod browser_storage_tests {
         }
     }
 
+    fn seed_unprotected_test_identity() -> SigningKey {
+        let signing_key = SigningKey::from_bytes(&[83u8; 32]);
+        store_signing_key(&signing_key);
+        assert_eq!(
+            inspect_local_identity_posture(),
+            LocalIdentityStoragePosture::UnprotectedIdentity
+        );
+        signing_key
+    }
+
     impl Drop for IdentityStorageBackup {
         fn drop(&mut self) {
             self.clear_identity_keys();
@@ -2076,7 +2058,7 @@ mod browser_storage_tests {
     #[wasm_bindgen_test]
     async fn protecting_existing_identity_removes_plaintext_after_verification() {
         let _backup = IdentityStorageBackup::new_and_clear();
-        let original = ensure_keypair();
+        let original = seed_unprotected_test_identity();
         let expected_public = base64_encode(original.verifying_key().as_bytes());
         assert!(
             web_sys::window()
@@ -2171,6 +2153,7 @@ mod browser_storage_tests {
         assert!(UNLOCKED_KEY.with(|cell| cell.borrow().is_none()));
     }
 
+
     #[wasm_bindgen_test]
     async fn fallible_access_preserves_legacy_marker_without_minting() {
         let _backup = IdentityStorageBackup::new_and_clear();
@@ -2243,7 +2226,7 @@ mod browser_storage_tests {
     #[wasm_bindgen_test]
     async fn protected_creation_refuses_to_overwrite_existing_plaintext_identity() {
         let _backup = IdentityStorageBackup::new_and_clear();
-        let existing = ensure_keypair();
+        let existing = seed_unprotected_test_identity();
         let existing_secret = load_string(IDENTITY_SECRET_KEY).expect("legacy secret is present");
         let existing_public = load_string(IDENTITY_PUBLIC_KEY).expect("public key is present");
 
@@ -2274,7 +2257,7 @@ mod browser_storage_tests {
     #[wasm_bindgen_test]
     async fn protected_restore_refuses_to_overwrite_an_existing_identity() {
         let _backup = IdentityStorageBackup::new_and_clear();
-        let existing = ensure_keypair();
+        let existing = seed_unprotected_test_identity();
         let existing_public = base64_encode(existing.verifying_key().as_bytes());
         let unrelated = SigningKey::from_bytes(&[101u8; 32]);
         let phrase = export_seed_phrase(&unrelated);
