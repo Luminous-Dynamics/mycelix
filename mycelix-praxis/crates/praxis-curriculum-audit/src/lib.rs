@@ -56,8 +56,28 @@ struct CoverageGroup {
 }
 
 #[derive(Debug, Serialize)]
+struct ContentQualityFinding {
+    lesson_id: String,
+    asset_path: String,
+    field: String,
+    code: String,
+    severity: String,
+    message: String,
+}
+
+#[derive(Debug, Default)]
+struct ContentQualityAudit {
+    assets_scanned: usize,
+    assets_with_findings: usize,
+    findings: Vec<ContentQualityFinding>,
+}
+
+#[derive(Debug, Serialize)]
 struct AuditReport {
     schema_version: u32,
+    content_assets_scanned: usize,
+    content_assets_with_quality_findings: usize,
+    content_quality_findings: Vec<ContentQualityFinding>,
     active_document_count: usize,
     active_node_count: usize,
     active_edge_count: usize,
@@ -552,7 +572,345 @@ fn analyze(
         orphan_manifest_node_ids: orphan_ids,
         groups,
         input_digest_blake3: String::new(),
+        content_assets_scanned: 0,
+        content_assets_with_quality_findings: 0,
+        content_quality_findings: Vec::new(),
     }
+}
+
+
+fn normalize_content(text: &str) -> String {
+    text.split_whitespace()
+        .collect::<Vec<_>>()
+        .join(" ")
+        .trim()
+        .to_lowercase()
+}
+
+fn is_known_instructional_placeholder(text: &str) -> bool {
+    let normalized = normalize_content(text);
+    if normalized.is_empty() {
+        return true;
+    }
+
+    let known_phrases = [
+        "answer: see worked solution",
+        "grade 3 mathematics content",
+        "what is important about grade 3 mathematics?",
+        "a key word in this topic",
+        "a common mistake in grade 3 mathematics.",
+        "the correct way.",
+        "used in grade 3 maths.",
+        "try the method for grade 3 mathematics.",
+        "start with what you know about grade 3 mathematics.",
+        "let's explore this concept together!",
+        "every expert was once a beginner.",
+        "lorem ipsum",
+        "todo",
+        "placeholder",
+    ];
+
+    known_phrases
+        .iter()
+        .any(|phrase| normalized.contains(phrase))
+        || (normalized.contains("solve a grade ")
+            && normalized.contains(" mathematics problem"))
+        || (normalized.starts_with("explain grade ")
+            && normalized.contains(" mathematics."))
+        || (normalized.starts_with("grade ")
+            && normalized.ends_with(" mathematics content"))
+        || normalized == "answer."
+        || normalized == "answer"
+}
+
+fn add_text_finding(
+    audit: &mut ContentQualityAudit,
+    lesson_id: &str,
+    asset_path: &str,
+    field: &str,
+    value: Option<&Value>,
+) {
+    let Some(text) = value.and_then(Value::as_str) else {
+        return;
+    };
+    if is_known_instructional_placeholder(text) {
+        audit.findings.push(ContentQualityFinding {
+            lesson_id: lesson_id.to_owned(),
+            asset_path: asset_path.to_owned(),
+            field: field.to_owned(),
+            code: "generic_placeholder".to_owned(),
+            severity: "blocker".to_owned(),
+            message: format!(
+                "Known generic fallback text appears in {field}; this field cannot count as instructional evidence."
+            ),
+        });
+    }
+}
+
+fn audit_lesson_value(
+    asset_path: &str,
+    value: &Value,
+    audit: &mut ContentQualityAudit,
+) -> bool {
+    let lesson_id = nonempty_string(value.get("node_id"))
+        .or_else(|| nonempty_string(value.pointer("/lesson/standard_code")))
+        .unwrap_or_else(|| "UNSPECIFIED".to_owned());
+    let before = audit.findings.len();
+
+    let lesson = value.get("lesson");
+    if let Some(lesson) = lesson {
+        add_text_finding(
+            audit, &lesson_id, asset_path, "lesson.explanation", lesson.get("explanation")
+        );
+        add_text_finding(
+            audit, &lesson_id, asset_path, "lesson.title", lesson.get("title")
+        );
+
+        if let Some(examples) = lesson.get("examples").and_then(Value::as_array) {
+            let mut seen = BTreeMap::<String, usize>::new();
+            for (index, example) in examples.iter().enumerate() {
+                let prefix = format!("lesson.examples[{index}]");
+                add_text_finding(
+                    audit, &lesson_id, asset_path, &format!("{prefix}.problem"), example.get("problem")
+                );
+                add_text_finding(
+                    audit, &lesson_id, asset_path, &format!("{prefix}.answer"), example.get("answer")
+                );
+                if let Some(steps) = example.get("steps").and_then(Value::as_array) {
+                    for (step_index, step) in steps.iter().enumerate() {
+                        add_text_finding(
+                            audit,
+                            &lesson_id,
+                            asset_path,
+                            &format!("{prefix}.steps[{step_index}].instruction"),
+                            step.get("instruction"),
+                        );
+                        add_text_finding(
+                            audit,
+                            &lesson_id,
+                            asset_path,
+                            &format!("{prefix}.steps[{step_index}].result"),
+                            step.get("result"),
+                        );
+                    }
+                }
+                if let Some(prompt) = nonempty_string(example.get("problem")) {
+                    let key = normalize_content(&prompt);
+                    if !key.is_empty() {
+                        *seen.entry(key).or_default() += 1;
+                    }
+                }
+            }
+            for (prompt, count) in seen {
+                if count > 1 {
+                    audit.findings.push(ContentQualityFinding {
+                        lesson_id: lesson_id.clone(),
+                        asset_path: asset_path.to_owned(),
+                        field: "lesson.examples".to_owned(),
+                        code: "duplicate_worked_example".to_owned(),
+                        severity: "warning".to_owned(),
+                        message: format!(
+                            "The same normalized worked-example prompt occurs {count} times: {prompt}"
+                        ),
+                    });
+                }
+            }
+        }
+
+        if let Some(problems) = lesson.get("practice_problems").and_then(Value::as_array) {
+            let mut seen = BTreeMap::<String, usize>::new();
+            for (index, problem) in problems.iter().enumerate() {
+                let prefix = format!("lesson.practice_problems[{index}]");
+                add_text_finding(
+                    audit, &lesson_id, asset_path, &format!("{prefix}.question"), problem.get("question")
+                );
+                add_text_finding(
+                    audit, &lesson_id, asset_path, &format!("{prefix}.answer"), problem.get("answer")
+                );
+                add_text_finding(
+                    audit, &lesson_id, asset_path, &format!("{prefix}.explanation"), problem.get("explanation")
+                );
+                if let Some(prompt) = nonempty_string(problem.get("question")) {
+                    let key = normalize_content(&prompt);
+                    if !key.is_empty() {
+                        *seen.entry(key).or_default() += 1;
+                    }
+                }
+            }
+            for (prompt, count) in seen {
+                if count > 1 {
+                    audit.findings.push(ContentQualityFinding {
+                        lesson_id: lesson_id.clone(),
+                        asset_path: asset_path.to_owned(),
+                        field: "lesson.practice_problems".to_owned(),
+                        code: "duplicate_practice_prompt".to_owned(),
+                        severity: "warning".to_owned(),
+                        message: format!(
+                            "The same normalized practice prompt occurs {count} times: {prompt}"
+                        ),
+                    });
+                }
+            }
+        }
+
+        if let Some(hints) = lesson.get("hints").and_then(Value::as_array) {
+            for (index, hint) in hints.iter().enumerate() {
+                add_text_finding(
+                    audit, &lesson_id, asset_path, &format!("lesson.hints[{index}]"), Some(hint)
+                );
+            }
+        }
+        if let Some(vocabulary) = lesson.get("key_vocabulary").and_then(Value::as_array) {
+            for (index, item) in vocabulary.iter().enumerate() {
+                for key in ["term", "definition", "example_usage"] {
+                    add_text_finding(
+                        audit,
+                        &lesson_id,
+                        asset_path,
+                        &format!("lesson.key_vocabulary[{index}].{key}"),
+                        item.get(key),
+                    );
+                }
+            }
+        }
+        if let Some(misconceptions) = lesson.get("misconceptions").and_then(Value::as_array) {
+            for (index, item) in misconceptions.iter().enumerate() {
+                for key in ["misconception", "correction", "why_students_think_this"] {
+                    add_text_finding(
+                        audit,
+                        &lesson_id,
+                        asset_path,
+                        &format!("lesson.misconceptions[{index}].{key}"),
+                        item.get(key),
+                    );
+                }
+            }
+        }
+    }
+
+    if let Some(items) = value.pointer("/assessment/items").and_then(Value::as_array) {
+        for (index, item) in items.iter().enumerate() {
+            for key in ["question", "correct_answer", "hint", "rubric"] {
+                add_text_finding(
+                    audit, &lesson_id, asset_path, &format!("assessment.items[{index}].{key}"), item.get(key)
+                );
+            }
+        }
+    }
+
+    if let Some(cards) = value.get("flashcards").and_then(Value::as_array) {
+        for (index, card) in cards.iter().enumerate() {
+            for key in ["front", "back"] {
+                add_text_finding(
+                    audit, &lesson_id, asset_path, &format!("flashcards[{index}].{key}"), card.get(key)
+                );
+            }
+        }
+    }
+
+    audit.findings.len() > before
+}
+
+fn audit_manifest_assets(
+    workspace: &Path,
+    errors: &mut Vec<String>,
+) -> ContentQualityAudit {
+    let manifest_path = workspace.join("apps/leptos/static/content-manifest.json");
+    let manifest_text = match fs::read_to_string(&manifest_path) {
+        Ok(text) => text,
+        Err(error) => {
+            errors.push(format!("cannot read {}: {error}", manifest_path.display()));
+            return ContentQualityAudit::default();
+        }
+    };
+    let manifest: Value = match serde_json::from_str(&manifest_text) {
+        Ok(value) => value,
+        Err(error) => {
+            errors.push(format!("{}: invalid JSON: {error}", manifest_path.display()));
+            return ContentQualityAudit::default();
+        }
+    };
+    let Some(lessons) = manifest.get("lessons").and_then(Value::as_object) else {
+        errors.push(format!("{}: lessons must be an object", manifest_path.display()));
+        return ContentQualityAudit::default();
+    };
+
+    let lesson_root = workspace.join("examples/curriculum/caps/generated");
+    let mut audit = ContentQualityAudit::default();
+    let mut seen_paths = BTreeSet::new();
+    for (node_id, assets) in lessons {
+        let Some(assets) = assets.as_array() else {
+            continue;
+        };
+        for asset in assets {
+            let Some(uri) = nonempty_string(asset.get("path")) else {
+                errors.push(format!("manifest entry for {node_id:?} has no asset path"));
+                continue;
+            };
+            let Some(relative) = uri.strip_prefix("/curriculum/generated/") else {
+                errors.push(format!("manifest asset path outside curriculum root: {uri}"));
+                continue;
+            };
+            let unresolved = lesson_root.join(relative);
+            let path = match unresolved.canonicalize() {
+                Ok(path) => path,
+                Err(error) => {
+                    errors.push(format!("cannot resolve manifest asset {uri}: {error}"));
+                    continue;
+                }
+            };
+            let root = match lesson_root.canonicalize() {
+                Ok(root) => root,
+                Err(error) => {
+                    errors.push(format!("cannot resolve lesson root {}: {error}", lesson_root.display()));
+                    break;
+                }
+            };
+            if !path.starts_with(&root) {
+                errors.push(format!("manifest asset escapes lesson root: {uri}"));
+                continue;
+            }
+            let relative_path = match path.strip_prefix(workspace) {
+                Ok(path) => path.to_string_lossy().replace('\\', "/"),
+                Err(error) => {
+                    errors.push(format!("cannot relativize asset {uri}: {error}"));
+                    continue;
+                }
+            };
+            if !seen_paths.insert(relative_path.clone()) {
+                continue;
+            }
+            let raw = match fs::read_to_string(&path) {
+                Ok(raw) => raw,
+                Err(error) => {
+                    errors.push(format!("cannot read manifest asset {uri}: {error}"));
+                    continue;
+                }
+            };
+            let value: Value = match serde_json::from_str(&raw) {
+                Ok(value) => value,
+                Err(error) => {
+                    errors.push(format!("manifest asset {uri}: invalid JSON: {error}"));
+                    continue;
+                }
+            };
+            audit.assets_scanned += 1;
+            if audit_lesson_value(&relative_path, &value, &mut audit) {
+                audit.assets_with_findings += 1;
+            }
+
+            // A manifest key and the embedded lesson's stable ID should agree.
+            let actual_id = nonempty_string(value.get("node_id"))
+                .or_else(|| nonempty_string(value.pointer("/lesson/standard_code")));
+            if actual_id.as_deref() != Some(node_id.as_str()) {
+                errors.push(format!(
+                    "manifest key {node_id:?} does not match lesson ID {:?} in {uri}",
+                    actual_id
+                ));
+            }
+        }
+    }
+    audit
 }
 
 fn markdown(report: &AuditReport) -> String {
@@ -660,8 +1018,12 @@ fn run() -> Result<(), AuditFailure> {
     let mut errors = Vec::new();
     let documents = active_documents(&workspace, &mut errors);
     let manifest = load_manifest(&workspace, &mut errors);
+    let content_audit = audit_manifest_assets(&workspace, &mut errors);
     let input_digest = compute_input_digest(&workspace, &documents, &mut errors);
     let mut report = analyze(&documents, &manifest, &mut errors);
+    report.content_assets_scanned = content_audit.assets_scanned;
+    report.content_assets_with_quality_findings = content_audit.assets_with_findings;
+    report.content_quality_findings = content_audit.findings;
     if let Some(digest) = input_digest {
         report.input_digest_blake3 = digest;
     }
