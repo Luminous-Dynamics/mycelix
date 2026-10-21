@@ -9,6 +9,7 @@ on:
       - 'mycelix-workspace/mycelix-finance/**'
       - 'crates/mycelix-bridge-*/**'
       - 'scripts/security/finance_update_integrity_audit.py'
+      - 'scripts/security/tests/test_finance_update_integrity_audit.py'
       - '.github/workflows/finance-exact-head-qualification.yml'
 # Qualification evidence is intentionally separate from supersedable merge CI.
 # There is no concurrency cancellation in this workflow.
@@ -52,6 +53,8 @@ jobs:
         run: cd mycelix-finance && cargo fmt --all -- --check
       - name: Test Finance workspace at exact head
         run: cargo test --workspace --manifest-path mycelix-finance/Cargo.toml
+      - name: Test Finance update predecessor audit negative controls
+        run: python3 -m unittest discover -s scripts/security/tests -p 'test_finance_update_integrity_audit.py'
       - name: Run Finance update predecessor audit
         run: python3 scripts/security/finance_update_integrity_audit.py
       - name: Emit immutable qualification evidence
