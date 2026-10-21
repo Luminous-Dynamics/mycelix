@@ -614,11 +614,11 @@ mod tests {
 
     #[test]
     fn maximizes_gross_value_then_minimizes_modeled_fees() {
-        let accounts = [account("A", 5), account("B", 5), account("C", 0)];
-        let routes = [route("a-c", 5, true, 0, 5), route("b-c", 5, true, 0, 1)];
+        let accounts = [account("A", 5), account("B", 0), account("C", 0)];
+        let routes = [route("a-b", 5, true, 0, 5), route("a-c", 5, true, 0, 1)];
         let payments = [
-            payment("expensive", "a-c", "A", "C", 5),
-            payment("cheap", "b-c", "B", "C", 5),
+            payment("expensive", "a-b", "A", "B", 5),
+            payment("cheap", "a-c", "A", "C", 5),
         ];
         let plan = select_atomic_batch(&context(0), &accounts, &routes, &payments).unwrap();
         assert_eq!(plan.selected_gross_minor, 5);
