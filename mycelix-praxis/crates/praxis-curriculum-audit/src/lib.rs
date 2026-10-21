@@ -1846,7 +1846,7 @@ mod tests {
             assert!(
                 sota_gate["then"]["required"]
                     .as_array()
-                    .is_some_and(|fields| fields.iter().any(|field| field.as_str() == Some(field))),
+                    .is_some_and(|fields| fields.iter().any(|candidate| candidate.as_str() == Some(field))),
                 "SOTA gate must require {field}"
             );
         }
