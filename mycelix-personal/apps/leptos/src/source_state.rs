@@ -27,6 +27,34 @@ pub enum SourceStateKind {
     NotIntegrated,
 }
 
+impl SourceStateKind {
+    pub const fn label(self) -> &'static str {
+        match self {
+            Self::NotChecked => "Not checked",
+            Self::LiveWithRecords => "Live records",
+            Self::ConfirmedEmpty => "Confirmed empty",
+            Self::Unavailable => "Unavailable",
+            Self::Stale => "Stale evidence",
+            Self::Mock => "Demo data",
+            Self::Disputed => "Disputed",
+            Self::NotIntegrated => "Not integrated",
+        }
+    }
+
+    pub const fn explanation(self) -> &'static str {
+        match self {
+            Self::NotChecked => "This source has not been checked yet.",
+            Self::LiveWithRecords => "The source returned records for this read; claim truth and authority are not automatically established.",
+            Self::ConfirmedEmpty => "The source successfully returned no records at this read time.",
+            Self::Unavailable => "The read failed; absence has not been established.",
+            Self::Stale => "Last-known evidence exists but must not be treated as current.",
+            Self::Mock => "These are synthetic fixtures, not live source records.",
+            Self::Disputed => "Attributable claims conflict; no winner has been selected.",
+            Self::NotIntegrated => "No source adapter is configured; this is not evidence of absence.",
+        }
+    }
+}
+
 /// Evidence describing one successful read or attributed claim.
 ///
 /// `authority_scope` is descriptive metadata, not a capability or proof of
@@ -578,6 +606,8 @@ mod tests {
         let mut seen = std::collections::HashSet::new();
         for (observation, expected) in cases {
             assert_eq!(observation.kind(), expected);
+            assert!(!expected.label().is_empty());
+            assert!(!expected.explanation().is_empty());
             assert!(seen.insert(expected), "state classification must be unique");
             let encoded = serde_json::to_string(&observation).expect("serialize source state");
             let decoded: SourceObservation<u8> =
