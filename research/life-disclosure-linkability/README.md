@@ -43,9 +43,10 @@ The three-claim profile uses age band, region band, and employment cluster. Thei
 For each channel (claims, identifier, proof, envelope, behavior) and for the union of all channels, the executable reports:
 
 - positive and negative cross-recipient pairs;
-- true and false links under a declared exact-match attacker rule;
+- true positives, false positives, false negatives and true negatives under a declared exact-match attacker rule;
 - precision, recall, false-positive rate; and
 - `binary_rule_auc = (TPR + TNR) / 2`, i.e. the AUC of that binary rule with tied scores. **This is not** an ROC-AUC measurement for a trained probabilistic attacker.
+- A deterministic random-pair negative control that uses only presentation IDs and a fixed seed, never synthetic subject labels or feature values. Its metrics should remain near chance and are reported as `random_pair_baseline`.
 
 The FNV-1a value printed by the Rust program is a non-cryptographic determinism fingerprint only. CI separately computes SHA-256 over every exported corpus file and binds its qualification record to the exact checked-out commit.
 
