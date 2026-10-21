@@ -529,9 +529,7 @@ pub fn simulate_queue(
                 }
             });
             let queue_wait_ticks = match &state {
-                PaymentState::Settled { tick, .. } => {
-                    Some((*tick).saturating_sub(p.arrival_tick))
-                }
+                PaymentState::Settled { tick, .. } => Some((*tick).saturating_sub(p.arrival_tick)),
                 PaymentState::Unsettled { .. }
                     if eligible_route[i].is_some() && p.arrival_tick <= context.horizon_tick =>
                 {
