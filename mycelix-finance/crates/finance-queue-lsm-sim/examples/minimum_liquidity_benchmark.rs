@@ -1,7 +1,7 @@
 use finance_queue_lsm_sim::{
     fifo_order, minimum_opening_liquidity_for_sequence,
     simulated_annealing_minimum_liquidity_order, unlock_potential_order, AnnealingConfig,
-    MinimumLiquidityReport, PaymentState, ParticipantLiquidity, QueueContext, QueuedPayment,
+    MinimumLiquidityReport, PaymentState, QueueContext, QueuedPayment,
 };
 use std::time::Instant;
 
@@ -135,7 +135,4 @@ fn main() {
         }
     }
 
-    // A compile-time use prevents accidental drift in report field names as
-    // the benchmark evolves, without asserting unmeasured performance numbers.
-    let _opening_balances: Vec<ParticipantLiquidity> = Vec::new();
 }
