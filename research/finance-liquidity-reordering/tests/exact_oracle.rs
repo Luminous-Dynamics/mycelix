@@ -1,7 +1,7 @@
 use finance_liquidity_reordering::{
-    bounded_insertion_search, evaluate_order, exact_permutation_oracle, heuristic_portfolio,
-    input_order, receiver_ready_greedy, simulated_annealing, Evaluation, Payment, Problem,
-    ReorderError,
+    bounded_insertion_search, evaluate_order, exact_pareto_frontier, exact_permutation_oracle,
+    heuristic_portfolio, input_order, receiver_ready_greedy, simulated_annealing, Evaluation,
+    Payment, Problem, ReorderError,
 };
 use std::cmp::Ordering;
 
@@ -345,6 +345,69 @@ fn all_heuristics_are_feasible_and_never_beat_the_exact_oracle() {
 }
 
 #[test]
+fn exact_pareto_frontier_exposes_aggregate_vs_single_participant_tradeoff() {
+    let problem = problem(
+        3,
+        vec![
+            Payment {
+                id: "p0".into(),
+                from: 1,
+                to: 2,
+                amount_minor: 7,
+            },
+            Payment {
+                id: "p1".into(),
+                from: 2,
+                to: 1,
+                amount_minor: 4,
+            },
+            Payment {
+                id: "p2".into(),
+                from: 2,
+                to: 1,
+                amount_minor: 3,
+            },
+            Payment {
+                id: "p3".into(),
+                from: 2,
+                to: 0,
+                amount_minor: 6,
+            },
+        ],
+    );
+    let frontier = exact_pareto_frontier(&problem).unwrap();
+    let metrics = frontier
+        .points
+        .iter()
+        .map(|point| {
+            (
+                point.evaluation.aggregate_required_initial_liquidity_minor,
+                point.evaluation.max_participant_required_initial_liquidity_minor,
+            )
+        })
+        .collect::<Vec<_>>();
+
+    assert_eq!(frontier.evaluated_orders, 24);
+    assert!(metrics.contains(&(7, 7)), "missing lower aggregate-liquidity option");
+    assert!(metrics.contains(&(9, 6)), "missing lower peak-participant option");
+    for (index, &(aggregate, maximum)) in metrics.iter().enumerate() {
+        assert!(
+            !metrics.iter().enumerate().any(|(other_index, &(other_aggregate, other_max))| {
+                other_index != index
+                    && other_aggregate <= aggregate
+                    && other_max <= maximum
+                    && (other_aggregate < aggregate || other_max < maximum)
+            }),
+            "frontier contains a dominated point ({aggregate}, {maximum})"
+        );
+    }
+
+    let lexicographic = exact_permutation_oracle(&problem).unwrap();
+    assert_eq!(lexicographic.evaluation.aggregate_required_initial_liquidity_minor, 7);
+    assert_eq!(lexicographic.evaluation.max_participant_required_initial_liquidity_minor, 7);
+}
+
+#[test]
 fn every_optimizer_and_exact_oracle_respects_hard_precedence() {
     let problem = problem(
         4,
@@ -378,9 +441,15 @@ fn every_optimizer_and_exact_oracle_respects_hard_precedence() {
     let annealed = simulated_annealing(&problem, &fifo.order, 17, 200).unwrap();
     let portfolio = heuristic_portfolio(&problem, 100, 17, 200).unwrap();
     let exact = exact_permutation_oracle(&problem).unwrap();
+    let frontier = exact_pareto_frontier(&problem).unwrap();
 
     assert_eq!(fifo.order, vec![1, 0, 2]);
     assert_eq!(exact.candidate_evaluations, 3);
+    assert_eq!(frontier.evaluated_orders, 3);
+    for point in &frontier.points {
+        assert!(point.order.iter().position(|&index| index == 1).unwrap()
+            < point.order.iter().position(|&index| index == 0).unwrap());
+    }
     for candidate in [fifo, greedy, local, annealed, portfolio, exact] {
         let mut positions = vec![0; candidate.order.len()];
         for (position, &index) in candidate.order.iter().enumerate() {
