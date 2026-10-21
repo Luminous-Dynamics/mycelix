@@ -73,3 +73,21 @@ Suggested next benchmark gates:
 ## Claim ceiling
 
 This crate demonstrates a reference algorithm and authored tests. Until the exact commit is compiled and those tests run, they are not passing evidence. Even when tests pass, they establish only behavior on the modeled inputs; they do not establish legal set-off, external liquidity availability, production-grade safety, actual settlement finality, all-in fee savings or superiority to TARGET2, SAMOS, Nexus, or any production LSM.
+
+## Event-driven gross-payment queue simulator
+
+The `queue` module is a separate discrete-tick model, not a replacement for the static exact flow optimizer. It replays individual gross payments with balances, arrivals, deadline targets, route outages, per-window capacity and three policies:
+
+- `StrictFifo`: stop attempting later queue entries when the head is blocked.
+- `LiquidityAwareFifo`: scan in arrival order, skip blocked entries and retry after a successful transfer.
+- `PriorityScan`: higher priority first, then arrival time and payment ID; skip blocked entries and retry after successful transfers.
+
+This separation is important: a static allocation can be feasible without being executable at a particular time. The queue model makes that gap measurable while keeping fees as modeled metrics (not balance debits or provider quotes), and preserves excluded and unsettled items explicitly. Deadlines are target times, not automatic expiry. Route outage intervals are half-open `[start_tick, end_tick)`; capacity resets at multiples of the configured window length. A fixed event budget makes pathological fixtures fail closed.
+
+Run the reproducible synthetic policy comparison:
+
+    cargo run --release --manifest-path mycelix-finance/Cargo.toml -p finance-route-clearing-optimizer --example queue_policy_benchmark
+
+The harness compares the same 700-payment trace under all three policies and prints settled/unsettled/excluded counts, settled amount, missed deadlines, modeled fees and p50/p95 runtime over nine repetitions. It is a policy-comparison harness, not an industry benchmark result. Record machine, OS, compiler, exact commit, and repeated-run outputs; do not compare against TARGET2/SAMOS savings percentages unless the data, objective and settlement rules are aligned.
+
+Current model limits: one asset/profile per run; gross single-route payments; integer balances; no multilateral offset, FX, dynamic participant default, external rail adapter, queue-order-dependent network auctions, actual provider tariffs or finality verification. The simulation output is neither a transfer instruction nor settlement evidence.
