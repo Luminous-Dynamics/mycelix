@@ -1026,13 +1026,15 @@ fn workspace_root() -> Result<PathBuf, String> {
 
 fn run() -> Result<(), AuditFailure> {
     let mut output_format = "json";
+    let mut fail_on_blockers = false;
     for arg in env::args().skip(1) {
         match arg.as_str() {
             "--format=json" | "--json" => output_format = "json",
             "--format=markdown" | "--markdown" => output_format = "markdown",
+            "--fail-on-blockers" => fail_on_blockers = true,
             "--help" | "-h" => {
                 println!(
-                    "praxis-curriculum-audit [--format=json|markdown]\nCurriculum coverage audit."
+                    "praxis-curriculum-audit [--format=json|markdown] [--fail-on-blockers]\nRead-only coverage and instructional placeholder audit."
                 );
                 return Ok(());
             }
@@ -1066,6 +1068,19 @@ fn run() -> Result<(), AuditFailure> {
             .map_err(|error| AuditFailure(vec![format!("cannot serialize report: {error}")]))?),
         "markdown" => print!("{}", markdown(&report)),
         _ => unreachable!("output format is constrained by argument parsing"),
+    }
+    let blocker_count = report
+        .content_quality_findings
+        .iter()
+        .filter(|finding| finding.severity == "blocker")
+        .count();
+    if fail_on_blockers && blocker_count > 0 {
+        eprintln!(
+            "curriculum quality gate failed: {blocker_count} blocker finding(s); see report above"
+        );
+        return Err(AuditFailure(vec![format!(
+            "{blocker_count} instructional placeholder blocker(s)"
+        )]));
     }
     Ok(())
 }
