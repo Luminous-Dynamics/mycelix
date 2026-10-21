@@ -44,8 +44,8 @@ jobs:
           {
             echo "repository=Luminous-Dynamics/mycelix"
             echo "subject_sha=$(git rev-parse HEAD)"
-            echo "workflow_run_id=\${{ github.run_id }}"
-            echo "workflow_run_attempt=\${{ github.run_attempt }}"
+            echo "workflow_run_id=${{ github.run_id }}"
+            echo "workflow_run_attempt=${{ github.run_attempt }}"
             echo "timestamp_utc=$(date -u +%Y-%m-%dT%H:%M:%SZ)"
             rustc +1.96.1 --version --verbose
             cargo +1.96.1 --version
@@ -76,7 +76,7 @@ jobs:
       - name: Upload reproducible benchmark evidence
         uses: actions/upload-artifact@v4
         with:
-          name: finance-liquidity-reordering-\${{ github.sha }}
-          path: \${{ runner.temp }}/liquidity-reordering-artifact/
+          name: finance-liquidity-reordering-${{ github.sha }}
+          path: ${{ runner.temp }}/liquidity-reordering-artifact/
           if-no-files-found: error
           retention-days: 90
