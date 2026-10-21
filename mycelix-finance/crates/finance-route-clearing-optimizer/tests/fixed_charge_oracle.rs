@@ -1,6 +1,4 @@
-use finance_route_clearing_optimizer::fixed_charge::{
-    optimize_fixed_charge, FixedChargeRoute,
-};
+use finance_route_clearing_optimizer::fixed_charge::{optimize_fixed_charge, FixedChargeRoute};
 use finance_route_clearing_optimizer::{
     AuthorityQualification, ClearingContext, ParticipantNet, SettlementRoute,
 };
@@ -72,10 +70,7 @@ fn positions() -> Vec<ParticipantNet> {
 /// It enumerates every integer flow on every route, checks node/route capacities, and
 /// compares lexicographically: maximum total flow, then minimum variable + activation
 /// cost. This deliberately does not call the production optimizer.
-fn exhaustive_oracle(
-    routes: &[FixedChargeRoute],
-    positions: &[ParticipantNet],
-) -> (u128, u128) {
+fn exhaustive_oracle(routes: &[FixedChargeRoute], positions: &[ParticipantNet]) -> (u128, u128) {
     fn visit(
         index: usize,
         routes: &[FixedChargeRoute],
@@ -98,8 +93,12 @@ fn exhaustive_oracle(
 
         for (candidate, amount) in routes.iter().zip(flow_by_route.iter().copied()) {
             let amount = amount as u128;
-            *sent.entry(candidate.route.from_member.as_str()).or_default() += amount;
-            *received.entry(candidate.route.to_member.as_str()).or_default() += amount;
+            *sent
+                .entry(candidate.route.from_member.as_str())
+                .or_default() += amount;
+            *received
+                .entry(candidate.route.to_member.as_str())
+                .or_default() += amount;
             total_flow += amount;
             total_cost += amount * candidate.route.cost_units_per_minor as u128;
             if amount > 0 {
@@ -109,8 +108,8 @@ fn exhaustive_oracle(
 
         for position in positions {
             if position.net_minor > 0 {
-                let limit = (position.net_minor as u64)
-                    .min(position.available_liquidity_minor) as u128;
+                let limit =
+                    (position.net_minor as u64).min(position.available_liquidity_minor) as u128;
                 if sent.get(position.member_id.as_str()).copied().unwrap_or(0) > limit {
                     return;
                 }
