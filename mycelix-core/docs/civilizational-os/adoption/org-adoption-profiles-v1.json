@@ -679,14 +679,13 @@
     },
     {
       "profile_id": "catena-agentic-finance",
-      "display_name": "Catena",
+      "display_name": "Catena Labs",
       "profile_kind": "organization",
       "adoption_domain": "agentic-financial-operations",
       "technical_priority": "P1",
       "readiness": "existing_work_to_reuse",
       "source_urls": [
-        "https://catena.com/",
-        "https://catena.com/about"
+        "https://catena.com/blog/announcing-catena-labs"
       ],
       "snapshot_date": "2026-10-21",
       "relationship_status": "not_recorded",
@@ -728,6 +727,647 @@
         "Does not authorize any real funds movement."
       ],
       "gap_requires_issue": false
+    },
+    {
+      "profile_id": "antares-vision",
+      "display_name": "Antares Vision Group",
+      "profile_kind": "organization",
+      "adoption_domain": "regulated-supply-chain-traceability",
+      "technical_priority": "P1",
+      "readiness": "existing_work_to_reuse",
+      "source_urls": [
+        "https://antaresvisiongroup.com/",
+        "https://antaresvisiongroup.com/about-us/"
+      ],
+      "snapshot_date": "2026-10-21",
+      "relationship_status": "not_recorded",
+      "relationship_claim_guard": "No partnership, customer relationship, endorsement, or integration is implied by this catalog.",
+      "gap_requires_issue": false,
+      "mycelix_owner_issues": [
+        {
+          "issue_id": "mycelix#437",
+          "role": "loss-aware logistics standards interoperability"
+        },
+        {
+          "issue_id": "mycelix#4901",
+          "role": "synthetic logistics reference verifier"
+        },
+        {
+          "issue_id": "mycelix#1112",
+          "role": "semantic translation fidelity"
+        }
+      ],
+      "pilot_scope": "Map one synthetic serialization and aggregation flow into a Mycelix event projection, retaining product identity, lot relationships, source event, timestamp, correction lineage, and the distinction between inspection and accepted delivery.",
+      "acceptance_metrics": [
+        "Round-trip supported product and event identifiers without aliasing or loss.",
+        "Distinguish inspection, shipment, receipt, and acceptance states.",
+        "Changed or missing source events invalidate the qualified projection."
+      ],
+      "negative_controls": [
+        "Treat a scan as proof the product contents are authentic.",
+        "Change a lot identifier while replaying an otherwise valid event.",
+        "Drop a corrected event but preserve a green status."
+      ],
+      "deployment_assumptions": [
+        "Synthetic product/lot events only.",
+        "Pin the vendor data schema and usage rights before any live adapter."
+      ],
+      "off_ramp": "Export normalized events together with original identifiers, mapping dispositions and source evidence references.",
+      "nonclaims": [
+        "Does not imply Antares Vision integration or endorsement.",
+        "Does not establish product authenticity, regulatory compliance, or physical chain-of-custody correctness."
+      ]
+    },
+    {
+      "profile_id": "acviss",
+      "display_name": "Acviss",
+      "profile_kind": "organization",
+      "adoption_domain": "product-authentication-and-track-trace",
+      "technical_priority": "P1",
+      "readiness": "existing_work_to_reuse",
+      "source_urls": [
+        "https://acviss.com/",
+        "https://acviss.com/products/"
+      ],
+      "snapshot_date": "2026-10-21",
+      "relationship_status": "not_recorded",
+      "relationship_claim_guard": "No partnership, customer relationship, endorsement, or integration is implied by this catalog.",
+      "gap_requires_issue": false,
+      "mycelix_owner_issues": [
+        {
+          "issue_id": "mycelix#437",
+          "role": "loss-aware transport and traceability mappings"
+        },
+        {
+          "issue_id": "mycelix#4901",
+          "role": "independent logistics verifier"
+        },
+        {
+          "issue_id": "mycelix#1112",
+          "role": "semantic translation fidelity"
+        }
+      ],
+      "pilot_scope": "Create synthetic product-authentication and track-and-trace events where the verification result, physical product assertion, shipment handoff, and downstream warranty decision remain distinct.",
+      "acceptance_metrics": [
+        "Authentication results retain product, method/profile, time and source references.",
+        "Repeated code scans remain observations, not independent proof of physical origin.",
+        "Conflicting or cloned-code event sequences surface an explicit dispute state."
+      ],
+      "negative_controls": [
+        "Treat a successful scan alone as proof of unbroken provenance.",
+        "Count cloned/replayed codes as independent product instances.",
+        "Infer warranty approval from authentication without the required policy and authority."
+      ],
+      "deployment_assumptions": [
+        "Synthetic products and authentication events only.",
+        "No production cryptographic secret or live product identity is used."
+      ],
+      "off_ramp": "Export the event lineage and source identifiers; keep any physical product identity system authoritative for its own records.",
+      "nonclaims": [
+        "Does not imply Acviss integration or partnership.",
+        "Does not prove product origin, safety, or authenticity beyond the exact declared fixture."
+      ]
+    },
+    {
+      "profile_id": "authentix",
+      "display_name": "Authentix",
+      "profile_kind": "organization",
+      "adoption_domain": "brand-protection-and-traceability",
+      "technical_priority": "P1",
+      "readiness": "existing_work_to_reuse",
+      "source_urls": [
+        "https://authentix.com/",
+        "https://authentix.com/brand-protection-solutions/"
+      ],
+      "snapshot_date": "2026-10-21",
+      "relationship_status": "not_recorded",
+      "relationship_claim_guard": "No partnership, customer relationship, endorsement, or integration is implied by this catalog.",
+      "gap_requires_issue": false,
+      "mycelix_owner_issues": [
+        {
+          "issue_id": "mycelix#437",
+          "role": "traceability interoperability"
+        },
+        {
+          "issue_id": "mycelix#4901",
+          "role": "logistics event verifier"
+        },
+        {
+          "issue_id": "mycelix#1112",
+          "role": "semantic translation fidelity"
+        }
+      ],
+      "pilot_scope": "Test a synthetic product-protection event packet across a brand owner, verifier and distributor, preserving the issuer of each assertion and recording contested authenticity or diversion claims.",
+      "acceptance_metrics": [
+        "Each protection assertion is attributable to an issuer and method/profile.",
+        "A verification result does not overwrite conflicting downstream evidence.",
+        "Duplicate and replayed observations are deduplicated without erasing their source lineage."
+      ],
+      "negative_controls": [
+        "Treat brand owner assertion as independent verification.",
+        "Collapse diversion signal into proof of counterfeiting.",
+        "Treat repeated observations from one device as independent corroboration."
+      ],
+      "deployment_assumptions": [
+        "Synthetic brand/product records only.",
+        "Methodology and source permissions are reviewed before an adapter is built."
+      ],
+      "off_ramp": "Retain original vendor references and export the Mycelix evidence projection without altering source records.",
+      "nonclaims": [
+        "Does not imply Authentix integration or endorsement.",
+        "Does not establish product authenticity, diversion, tax compliance, or a legal finding."
+      ]
+    },
+    {
+      "profile_id": "transmute",
+      "display_name": "Transmute",
+      "profile_kind": "organization",
+      "adoption_domain": "verifiable-data-and-credential-interoperability",
+      "technical_priority": "P1",
+      "readiness": "existing_work_to_reuse",
+      "source_urls": [
+        "https://transmute.industries/",
+        "https://guide.transmute.industries/verifiable-data-platform/learning-center/decentralized-101"
+      ],
+      "snapshot_date": "2026-10-21",
+      "relationship_status": "not_recorded",
+      "relationship_claim_guard": "No partnership, customer relationship, endorsement, or integration is implied by this catalog.",
+      "gap_requires_issue": false,
+      "mycelix_owner_issues": [
+        {
+          "issue_id": "mycelix#1070",
+          "role": "organizational identity and representative-role bridge"
+        },
+        {
+          "issue_id": "mycelix#1112",
+          "role": "semantic translation fidelity"
+        },
+        {
+          "issue_id": "mycelix#1072",
+          "role": "delegated agent and contracting authority"
+        }
+      ],
+      "pilot_scope": "Build a synthetic verifiable-data exchange where a signed credential, its issuer trust profile, currentness/status, recipient consent, and Mycelix's local recognition decision are separate linked records.",
+      "acceptance_metrics": [
+        "Credential format validity remains separate from issuer trust and local recognition.",
+        "Status, provenance and profile/version survive export and import.",
+        "No credential alone creates exact-action authority."
+      ],
+      "negative_controls": [
+        "Accept a valid signature from an unrecognized issuer as locally trusted.",
+        "Use stale or revoked credential status.",
+        "Use an identity credential as payment or contract authority."
+      ],
+      "deployment_assumptions": [
+        "Synthetic credentials and test keys only.",
+        "Cryptosuite, issuer profile and source license are pinned explicitly."
+      ],
+      "off_ramp": "Export original credential bytes, verification receipts and mapping policy identity; local recognition can be disabled without rewriting the credential.",
+      "nonclaims": [
+        "Does not imply Transmute integration or endorsement.",
+        "Does not establish legal recognition, issuer reliability, or authorization for an external effect."
+      ]
+    },
+    {
+      "profile_id": "verra",
+      "display_name": "Verra",
+      "profile_kind": "organization",
+      "adoption_domain": "environmental-standards-and-project-provenance",
+      "technical_priority": "P2",
+      "readiness": "gap_requires_issue",
+      "source_urls": [
+        "https://verra.org/",
+        "https://verra.org/about/"
+      ],
+      "snapshot_date": "2026-10-21",
+      "relationship_status": "not_recorded",
+      "relationship_claim_guard": "No partnership, customer relationship, endorsement, or integration is implied by this catalog.",
+      "gap_requires_issue": true,
+      "mycelix_owner_issues": [
+        {
+          "issue_id": "mycelix#1112",
+          "role": "semantic translation fidelity"
+        },
+        {
+          "issue_id": "mycelix#2922",
+          "role": "evidence acquisition, preservation and lineage"
+        },
+        {
+          "issue_id": "mycelix#5277",
+          "role": "consent-aware landscape project provenance"
+        }
+      ],
+      "pilot_scope": "Research-only: define a methodology-bound project evidence packet that keeps registry identity, methodology/version, validation and verification records, vintage, status changes, and independently observed outcomes separate.",
+      "acceptance_metrics": [
+        "Every climate or environmental claim is bound to the exact methodology and registry source generation.",
+        "Unknown, disputed, suspended or retired status is never converted into an active-credit claim.",
+        "Any future impact comparison specifies its boundary, baseline, uncertainty and independent evidence."
+      ],
+      "negative_controls": [
+        "Treat registry listing as proof of additionality or permanence.",
+        "Apply a current methodology to a historical vintage without checking applicable rules.",
+        "Treat project proximity or satellite observation alone as the registry status."
+      ],
+      "deployment_assumptions": [
+        "Research-only schema/fixture; no live registry adapter or credit action.",
+        "A method- and program-specific owner contract is required before implementation."
+      ],
+      "off_ramp": "Keep the proposed evidence packet portable and read-only; no registry state or credit ownership is modified.",
+      "nonclaims": [
+        "Does not imply Verra endorsement or integration.",
+        "Does not establish additionality, permanence, leakage, environmental impact, or credit quality."
+      ]
+    },
+    {
+      "profile_id": "klimadao",
+      "display_name": "KlimaDAO",
+      "profile_kind": "organization",
+      "adoption_domain": "onchain-climate-market-provenance",
+      "technical_priority": "P2",
+      "readiness": "gap_requires_issue",
+      "source_urls": [
+        "https://app.klimadao.finance/"
+      ],
+      "snapshot_date": "2026-10-21",
+      "relationship_status": "not_recorded",
+      "relationship_claim_guard": "No partnership, customer relationship, endorsement, or integration is implied by this catalog.",
+      "gap_requires_issue": true,
+      "mycelix_owner_issues": [
+        {
+          "issue_id": "mycelix#1112",
+          "role": "semantic translation fidelity"
+        },
+        {
+          "issue_id": "mycelix#2922",
+          "role": "evidence lineage and digital-forensic preservation"
+        },
+        {
+          "issue_id": "mycelix#4572",
+          "role": "separation of mechanism units and conventional financial claims"
+        }
+      ],
+      "pilot_scope": "Research-only: model a carbon-market event chain with separate project/methodology evidence, tokenized instrument, market transfer, and retirement/claim events; retain unqualified fields rather than infer environmental impact.",
+      "acceptance_metrics": [
+        "Underlying project evidence and on-chain token events remain separate types.",
+        "Transfers and retirements reconcile to the exact instrument and network reference.",
+        "No impact statement is emitted when project/methodology provenance is missing or unqualified."
+      ],
+      "negative_controls": [
+        "Treat token ownership as proof of environmental additionality.",
+        "Treat a swap or transfer as a retirement event.",
+        "Treat an on-chain event as proof the underlying project delivered the claimed outcome."
+      ],
+      "deployment_assumptions": [
+        "Synthetic transaction and project references only.",
+        "A dedicated registry/methodology contract must be reviewed before a live adapter."
+      ],
+      "off_ramp": "Export the source-linked event packet without submitting transactions or modifying registry/market state.",
+      "nonclaims": [
+        "Does not imply KlimaDAO integration or endorsement.",
+        "Does not establish carbon-credit integrity, climate impact, investment return, or legal compliance."
+      ]
+    },
+    {
+      "profile_id": "ocean-protocol",
+      "display_name": "Ocean Protocol",
+      "profile_kind": "organization",
+      "adoption_domain": "data-commons-and-privacy-preserving-compute",
+      "technical_priority": "P1",
+      "readiness": "existing_work_to_reuse",
+      "source_urls": [
+        "https://oceanprotocol.com/",
+        "https://docs.oceanprotocol.com/discover/what-is-ocean"
+      ],
+      "snapshot_date": "2026-10-21",
+      "relationship_status": "not_recorded",
+      "relationship_claim_guard": "No partnership, customer relationship, endorsement, or integration is implied by this catalog.",
+      "gap_requires_issue": false,
+      "mycelix_owner_issues": [
+        {
+          "issue_id": "mycelix#2923",
+          "role": "dataset governance and data-use foundation"
+        },
+        {
+          "issue_id": "mycelix#2970",
+          "role": "evidence-bound use eligibility bundle"
+        },
+        {
+          "issue_id": "mycelix#1112",
+          "role": "semantic translation fidelity"
+        }
+      ],
+      "pilot_scope": "Construct a synthetic dataset-access request that binds asset/service identity, purpose, rights, authorization, computation or disclosure mode, output lineage and a revocable access decision.",
+      "acceptance_metrics": [
+        "Data discovery never creates data access authority.",
+        "Use eligibility binds the exact asset version and stated purpose.",
+        "Data and result lineage preserve privacy restrictions and source/license decisions."
+      ],
+      "negative_controls": [
+        "Use a public metadata record as evidence that the dataset may be redistributed.",
+        "Change requested purpose after approval.",
+        "Treat a compute-to-data receipt as proof the result is scientifically or commercially valid."
+      ],
+      "deployment_assumptions": [
+        "Synthetic datasets and mock compute only.",
+        "No real private data or live paid-access transaction."
+      ],
+      "off_ramp": "Export access decision, data-use basis and result lineage; revoke the adapter without changing the dataset owner's source records.",
+      "nonclaims": [
+        "Does not imply Ocean Protocol integration or endorsement.",
+        "Does not establish data rights, privacy compliance, scientific validity, or access permission from a token alone."
+      ]
+    },
+    {
+      "profile_id": "axondao",
+      "display_name": "AxonDAO",
+      "profile_kind": "organization",
+      "adoption_domain": "decentralized-science-and-health-data",
+      "technical_priority": "P1",
+      "readiness": "existing_work_to_reuse",
+      "source_urls": [
+        "https://www.axondao.io/"
+      ],
+      "snapshot_date": "2026-10-21",
+      "relationship_status": "not_recorded",
+      "relationship_claim_guard": "No partnership, customer relationship, endorsement, or integration is implied by this catalog.",
+      "gap_requires_issue": false,
+      "mycelix_owner_issues": [
+        {
+          "issue_id": "mycelix#2418",
+          "role": "researcher and research-output PID interop"
+        },
+        {
+          "issue_id": "mycelix#3327",
+          "role": "source-bound scientific research registry"
+        },
+        {
+          "issue_id": "mycelix#4950",
+          "role": "evidence independence and replication qualification"
+        },
+        {
+          "issue_id": "mycelix#2970",
+          "role": "governed data-use eligibility"
+        }
+      ],
+      "pilot_scope": "Represent a synthetic participant-consented research data request with purpose scope, dataset source, consent/withdrawal history, data transformation lineage, study protocol and separately qualified result evidence.",
+      "acceptance_metrics": [
+        "Purpose, consent, scope and withdrawal state survive each data-use decision.",
+        "A biometric signal is not reinterpreted as a diagnosis or outcome without a qualified profile.",
+        "Replication and result claims use the independent-evidence policy, not token or community metrics."
+      ],
+      "negative_controls": [
+        "Reuse a withdrawn consent grant for a new purpose.",
+        "Infer a clinical conclusion from a raw sensor signal without a validated model/profile.",
+        "Count duplicated research reports as independent reproduction."
+      ],
+      "deployment_assumptions": [
+        "Synthetic health signals and study records only.",
+        "No patient data or medical decision is involved in the initial fixture."
+      ],
+      "off_ramp": "Export consent receipts and study provenance without centralizing the raw health data; remove the adapter without mutating source records.",
+      "nonclaims": [
+        "Does not imply AxonDAO integration or endorsement.",
+        "Does not establish clinical validity, health-data rights, research efficacy, or token value."
+      ]
+    },
+    {
+      "profile_id": "transcrypts",
+      "display_name": "TransCrypts",
+      "profile_kind": "organization",
+      "adoption_domain": "employment-credentials-and-consent",
+      "technical_priority": "P1",
+      "readiness": "existing_work_to_reuse",
+      "source_urls": [
+        "https://www.transcrypts.com/",
+        "https://transcrypts.com/employment-verification"
+      ],
+      "snapshot_date": "2026-10-21",
+      "relationship_status": "not_recorded",
+      "relationship_claim_guard": "No partnership, customer relationship, endorsement, or integration is implied by this catalog.",
+      "gap_requires_issue": false,
+      "mycelix_owner_issues": [
+        {
+          "issue_id": "mycelix#1070",
+          "role": "organizational identity and representative-role bridge"
+        },
+        {
+          "issue_id": "mycelix#1112",
+          "role": "semantic translation and loss accounting"
+        },
+        {
+          "issue_id": "mycelix#2418",
+          "role": "portable identity/provenance patterns"
+        }
+      ],
+      "pilot_scope": "Map a synthetic employment/income credential from issuer through holder-authorized disclosure to verifier, preserving source freshness, permitted purpose, requested fields, consent and audit history.",
+      "acceptance_metrics": [
+        "The employee/holder's disclosure scope matches the recipient request and granted purpose.",
+        "An old employment fact retains its as-of/valid time and cannot be presented as current without a freshness check.",
+        "Verification outcome and downstream employment/lending decision remain distinct."
+      ],
+      "negative_controls": [
+        "Share more fields than the purpose permits.",
+        "Treat a valid signature as proof that the original HRIS source is current.",
+        "Use verification status itself as the authority for a hiring, lending, housing or eligibility decision."
+      ],
+      "deployment_assumptions": [
+        "Synthetic employment/income credentials only.",
+        "No real applicant, employer, payroll or consumer report is processed."
+      ],
+      "off_ramp": "Export consent and verification receipts with provenance; revoke the adapter and remove unneeded payloads under the declared retention policy.",
+      "nonclaims": [
+        "Does not imply TransCrypts integration or endorsement.",
+        "Does not establish employment law/FCRA compliance, source truth, or eligibility for a consequential decision."
+      ]
+    },
+    {
+      "profile_id": "digital-bazaar",
+      "display_name": "Digital Bazaar",
+      "profile_kind": "organization",
+      "adoption_domain": "verifiable-credentials-and-trusted-data",
+      "technical_priority": "P1",
+      "readiness": "existing_work_to_reuse",
+      "source_urls": [
+        "https://www.digitalbazaar.com/"
+      ],
+      "snapshot_date": "2026-10-21",
+      "relationship_status": "not_recorded",
+      "relationship_claim_guard": "No partnership, customer relationship, endorsement, or integration is implied by this catalog.",
+      "gap_requires_issue": false,
+      "mycelix_owner_issues": [
+        {
+          "issue_id": "mycelix#1070",
+          "role": "organizational identity and representative-role bridge"
+        },
+        {
+          "issue_id": "mycelix#1112",
+          "role": "semantic translation fidelity"
+        },
+        {
+          "issue_id": "mycelix#1072",
+          "role": "automated action attribution and authority"
+        }
+      ],
+      "pilot_scope": "Use a synthetic VC and linked-data credential exchange to test issuer attribution, data minimization, proof verification, status/currentness, recipient consent and loss accounting between canonical and external representations.",
+      "acceptance_metrics": [
+        "Original credential and proof context remain retrievable by digest/reference.",
+        "Unsupported semantics are reported rather than coerced into local fields.",
+        "Disclosure authorization is checked separately from the proof's cryptographic validity."
+      ],
+      "negative_controls": [
+        "Accept cryptographic validity as proof the issuer is trustworthy.",
+        "Drop proof context or status data during translation.",
+        "Reuse a credential for a recipient or purpose not covered by consent."
+      ],
+      "deployment_assumptions": [
+        "Synthetic credentials, fake identities and test keys only.",
+        "Pin data model, context and cryptosuite versions."
+      ],
+      "off_ramp": "Export original credential material and translation/verification receipts; disabling the adapter does not invalidate the source credential.",
+      "nonclaims": [
+        "Does not imply Digital Bazaar partnership or endorsement.",
+        "Does not establish issuer trust, legal recognition or entitlement to disclosure."
+      ]
+    },
+    {
+      "profile_id": "decentralized-identity-foundation",
+      "display_name": "Decentralized Identity Foundation (DIF)",
+      "profile_kind": "standards_body",
+      "adoption_domain": "decentralized-identity-interoperability",
+      "technical_priority": "P1",
+      "readiness": "existing_work_to_reuse",
+      "source_urls": [
+        "https://identity.foundation/",
+        "https://identity.foundation/governance/about"
+      ],
+      "snapshot_date": "2026-10-21",
+      "relationship_status": "not_recorded",
+      "relationship_claim_guard": "No partnership, customer relationship, endorsement, or integration is implied by this catalog.",
+      "gap_requires_issue": false,
+      "mycelix_owner_issues": [
+        {
+          "issue_id": "mycelix#1070",
+          "role": "organizational identity and role evidence"
+        },
+        {
+          "issue_id": "mycelix#1112",
+          "role": "semantic translation fidelity"
+        }
+      ],
+      "pilot_scope": "Create a standards-mapping fixture for a decentralized identifier and a verifiable credential, recording the exact method/profile, issuer/holder relationships, verification result and local policy disposition.",
+      "acceptance_metrics": [
+        "Every identifier and credential retains method/profile and source generation.",
+        "Unrecognized DID methods or verification relationships remain unsupported/unknown.",
+        "Interoperability mapping cannot mint local authority by itself."
+      ],
+      "negative_controls": [
+        "Treat a resolvable DID document as a trusted identity statement.",
+        "Accept wrong-subject or revoked credentials.",
+        "Convert a cross-domain identity association into an unbounded authority grant."
+      ],
+      "deployment_assumptions": [
+        "Synthetic DIDs, credentials and test keys only.",
+        "The pilot claims mapping coverage only for explicitly tested methods."
+      ],
+      "off_ramp": "Export the mapping profile and test receipts; disabling a DID method leaves other identity sources usable.",
+      "nonclaims": [
+        "Does not imply DIF membership, contribution, partnership or endorsement.",
+        "Does not establish universal DID interoperability, legal identity, trustworthiness or authorization."
+      ]
+    },
+    {
+      "profile_id": "danube-tech",
+      "display_name": "Danube Tech",
+      "profile_kind": "organization",
+      "adoption_domain": "did-and-credential-infrastructure",
+      "technical_priority": "P1",
+      "readiness": "existing_work_to_reuse",
+      "source_urls": [
+        "https://www.danubetech.com/"
+      ],
+      "snapshot_date": "2026-10-21",
+      "relationship_status": "not_recorded",
+      "relationship_claim_guard": "No partnership, customer relationship, endorsement, or integration is implied by this catalog.",
+      "gap_requires_issue": false,
+      "mycelix_owner_issues": [
+        {
+          "issue_id": "mycelix#1070",
+          "role": "legal-entity and representative identity mapping"
+        },
+        {
+          "issue_id": "mycelix#1112",
+          "role": "semantic translation and loss accounting"
+        }
+      ],
+      "pilot_scope": "Test a synthetic DID/VC resolution and verification path, including resolver/provider identity, method/version, proof status, source freshness and portable verification receipt.",
+      "acceptance_metrics": [
+        "Resolver output is recorded with provider/version/time and is not treated as the credential issuer's claim.",
+        "Unresolved, stale or contradictory results remain explicit and fail closed where required.",
+        "Source and profile identities survive export and independent replay."
+      ],
+      "negative_controls": [
+        "Treat successful resolution as proof of identity or authority.",
+        "Switch DID method or resolver result after approval without invalidation.",
+        "Use provider availability as proof a credential is valid."
+      ],
+      "deployment_assumptions": [
+        "Offline fixtures or mocked resolver responses only.",
+        "Pin the exact DID method and VC profile being evaluated."
+      ],
+      "off_ramp": "Retain portable identifiers and test fixtures; replace the resolver/provider without migrating local identity authority.",
+      "nonclaims": [
+        "Does not imply Danube Tech integration or endorsement.",
+        "Does not establish trust in a resolver, legal identity, or exact-action authority."
+      ]
+    },
+    {
+      "profile_id": "marblism",
+      "display_name": "Marblism",
+      "profile_kind": "organization",
+      "adoption_domain": "agentic-business-workflows",
+      "technical_priority": "P1",
+      "readiness": "existing_work_to_reuse",
+      "source_urls": [
+        "https://www.marblism.com/"
+      ],
+      "snapshot_date": "2026-10-21",
+      "relationship_status": "not_recorded",
+      "relationship_claim_guard": "No partnership, customer relationship, endorsement, or integration is implied by this catalog.",
+      "gap_requires_issue": false,
+      "mycelix_owner_issues": [
+        {
+          "issue_id": "mycelix#1072",
+          "role": "automated action attribution and authority bridge"
+        },
+        {
+          "issue_id": "mycelix#3650",
+          "role": "trust-native Relationship OS"
+        },
+        {
+          "issue_id": "mycelix#2939",
+          "role": "operational projection without a global ontology"
+        }
+      ],
+      "pilot_scope": "Build an effects-disabled synthetic inbox-to-action workflow where an AI agent proposes follow-up actions, binds each proposal to a user/principal and source evidence, checks consent and tool scope, and requires explicit approval before sending or changing records.",
+      "acceptance_metrics": [
+        "Every proposed action cites its source event and accountable principal.",
+        "Messages or record changes are not dispatched before current exact-action authorization.",
+        "The user can inspect, correct, export and revoke the agent's access without losing source history."
+      ],
+      "negative_controls": [
+        "Send a message after consent or permission is revoked.",
+        "Infer a task or contact relationship from an unsupported model summary.",
+        "Treat an agent's self-report as evidence the external action succeeded."
+      ],
+      "deployment_assumptions": [
+        "Synthetic mail/calendar/CRM events only.",
+        "No real accounts, external messaging or autonomous execution."
+      ],
+      "off_ramp": "Disable the agent connector, export the interaction/event ledger, and preserve source records and human corrections.",
+      "nonclaims": [
+        "Does not imply Marblism partnership or integration.",
+        "Does not establish comparative productivity, quality, privacy or safety of any AI employee product."
+      ]
     }
   ]
 }
