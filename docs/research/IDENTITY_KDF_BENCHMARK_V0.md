@@ -15,7 +15,7 @@ The headless-Chrome browser test runs 15 measured samples per metric, after unre
 - `kdf_ms`: PBKDF2-HMAC-SHA256-derived non-extractable AES-GCM key derivation only; fresh salt generation is outside the timer.
 - `decrypt_ms`: end-to-end decryption, including KDF, AES-GCM authentication and plaintext recovery for a fixed synthetic test payload.
 
-The test logs a `IDENTITY_KDF_BENCHMARK_RECEIPT=` JSON line with the iteration count, sample count, browser user-agent, raw durations in milliseconds, min/median/P95/max and an explicit non-secret marker. It never accepts a user's recovery phrase, identity seed, actual passphrase, or real ciphertext. Do not put user-identifiable data into the receipt.
+The test logs a `IDENTITY_KDF_BENCHMARK_RECEIPT=` JSON line with the iteration count, sample count, browser user-agent, raw durations in milliseconds, min/median/P95/max and an explicit non-secret marker. The workflow extracts this line, validates the structure and timing values with `jq`, fingerprints the resulting JSON and uploads it as an immutable GitHub Actions artifact with 14-day retention. The artifact name includes the benchmarked source SHA. It never accepts a user's recovery phrase, identity seed, actual passphrase, or real ciphertext. Do not put user-identifiable data into the receipt.
 
 The work-factor check prevents an accidentally test-configured build from pretending to measure production PBKDF2. Native tests and ordinary core browser tests do not replace this measurement.
 
