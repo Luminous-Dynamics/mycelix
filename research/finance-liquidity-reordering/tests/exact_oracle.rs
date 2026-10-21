@@ -1,7 +1,7 @@
 use finance_liquidity_reordering::{
     bounded_insertion_search, evaluate_order, exact_pareto_frontier, exact_permutation_oracle,
     heuristic_portfolio, input_order, receiver_ready_greedy, simulated_annealing, Evaluation,
-    Payment, Problem, ReorderError, MAX_GREEDY_PAYMENTS,
+    Payment, Problem, ReorderError, MAX_GREEDY_PAYMENTS, MAX_SEARCH_WORK_UNITS,
 };
 use std::cmp::Ordering;
 
@@ -560,6 +560,26 @@ fn exact_oracle_and_pareto_frontier_are_input_order_invariant() {
         summarize(&forward, &frontier_forward),
         summarize(&reverse, &frontier_reverse)
     );
+}
+
+#[test]
+fn neighbor_searches_fail_closed_when_candidate_count_times_batch_size_is_too_large() {
+    let payment_count = 1_000;
+    let problem = chain_problem(payment_count, false);
+    let fifo = input_order(&problem).unwrap();
+    let budget = MAX_SEARCH_WORK_UNITS / payment_count + 1;
+    let expected_work = payment_count * budget;
+
+    assert!(matches!(
+        bounded_insertion_search(&problem, &fifo.order, budget),
+        Err(ReorderError::SearchWorkLimit { observed, maximum })
+            if observed == expected_work && maximum == MAX_SEARCH_WORK_UNITS
+    ));
+    assert!(matches!(
+        simulated_annealing(&problem, &fifo.order, 17, budget),
+        Err(ReorderError::SearchWorkLimit { observed, maximum })
+            if observed == expected_work && maximum == MAX_SEARCH_WORK_UNITS
+    ));
 }
 
 #[test]
