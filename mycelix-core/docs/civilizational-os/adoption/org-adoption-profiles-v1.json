@@ -59,7 +59,10 @@
         "Does not imply AYU Points are money or that a live Creditist economy is operating.",
         "Does not establish housing availability or physical capacity."
       ],
-      "gap_requires_issue": false
+      "gap_requires_issue": false,
+      "source_evidence_state": "reference_links_only",
+      "source_snapshot_manifest_sha256": null,
+      "source_snapshot_required_before_pilot": true
     },
     {
       "profile_id": "integral-collective-specifications",
@@ -109,7 +112,10 @@
         "Does not establish that an external specification is ratified unless its source explicitly establishes that status.",
         "Does not authorize an operational action."
       ],
-      "gap_requires_issue": false
+      "gap_requires_issue": false,
+      "source_evidence_state": "reference_links_only",
+      "source_snapshot_manifest_sha256": null,
+      "source_snapshot_required_before_pilot": true
     },
     {
       "profile_id": "holochain-ecosystem",
@@ -156,7 +162,10 @@
         "Does not establish production readiness or scaling from a local test.",
         "Does not replace Holochain's own integrity validation."
       ],
-      "gap_requires_issue": false
+      "gap_requires_issue": false,
+      "source_evidence_state": "reference_links_only",
+      "source_snapshot_manifest_sha256": null,
+      "source_snapshot_required_before_pilot": true
     },
     {
       "profile_id": "tracelink",
@@ -206,7 +215,10 @@
         "Does not establish DSCSA/regulatory compliance or chain-of-custody completeness.",
         "Does not treat modeled events as physical proof."
       ],
-      "gap_requires_issue": false
+      "gap_requires_issue": false,
+      "source_evidence_state": "reference_links_only",
+      "source_snapshot_manifest_sha256": null,
+      "source_snapshot_required_before_pilot": true
     },
     {
       "profile_id": "trasce-consortium",
@@ -255,7 +267,10 @@
         "Does not claim TRASCE participation or endorsement.",
         "Does not establish product sustainability, ingredient origin, or regulatory compliance by itself."
       ],
-      "gap_requires_issue": false
+      "gap_requires_issue": false,
+      "source_evidence_state": "reference_links_only",
+      "source_snapshot_manifest_sha256": null,
+      "source_snapshot_required_before_pilot": true
     },
     {
       "profile_id": "optel-group",
@@ -305,7 +320,10 @@
         "Does not claim OPTEL integration or partnership.",
         "Does not validate an environmental methodology or supply-chain claim merely because data is traceable."
       ],
-      "gap_requires_issue": false
+      "gap_requires_issue": false,
+      "source_evidence_state": "reference_links_only",
+      "source_snapshot_manifest_sha256": null,
+      "source_snapshot_required_before_pilot": true
     },
     {
       "profile_id": "vitadao",
@@ -354,7 +372,10 @@
         "Does not imply VitaDAO endorsement or an existing relationship.",
         "Does not validate biomedical efficacy, intellectual-property rights, or investment performance."
       ],
-      "gap_requires_issue": false
+      "gap_requires_issue": false,
+      "source_evidence_state": "reference_links_only",
+      "source_snapshot_manifest_sha256": null,
+      "source_snapshot_required_before_pilot": true
     },
     {
       "profile_id": "molecule",
@@ -404,7 +425,10 @@
         "Does not imply Molecule partnership or integration.",
         "Does not establish scientific validity, legal ownership, or regulatory compliance."
       ],
-      "gap_requires_issue": false
+      "gap_requires_issue": false,
+      "source_evidence_state": "reference_links_only",
+      "source_snapshot_manifest_sha256": null,
+      "source_snapshot_required_before_pilot": true
     },
     {
       "profile_id": "researchhub",
@@ -454,7 +478,10 @@
         "Does not imply ResearchHub partnership or integration.",
         "Does not claim peer-review, reward, or replication quality from platform activity alone."
       ],
-      "gap_requires_issue": false
+      "gap_requires_issue": false,
+      "source_evidence_state": "reference_links_only",
+      "source_snapshot_manifest_sha256": null,
+      "source_snapshot_required_before_pilot": true
     },
     {
       "profile_id": "gleif-vlei",
@@ -500,7 +527,10 @@
         "Does not imply GLEIF collaboration or certification.",
         "Does not establish signatory authority for a specific transaction, beneficial ownership, or legal standing."
       ],
-      "gap_requires_issue": false
+      "gap_requires_issue": false,
+      "source_evidence_state": "reference_links_only",
+      "source_snapshot_manifest_sha256": null,
+      "source_snapshot_required_before_pilot": true
     },
     {
       "profile_id": "w3c-verifiable-credentials",
@@ -546,7 +576,10 @@
         "Does not imply W3C endorsement or conformance of Mycelix.",
         "Does not establish issuer trust, legal recognition or a right to perform an action."
       ],
-      "gap_requires_issue": false
+      "gap_requires_issue": false,
+      "source_evidence_state": "reference_links_only",
+      "source_snapshot_manifest_sha256": null,
+      "source_snapshot_required_before_pilot": true
     },
     {
       "profile_id": "orcid",
@@ -587,7 +620,10 @@
         "Does not imply ORCID partnership or certification.",
         "Does not establish that a researcher currently represents an organization."
       ],
-      "gap_requires_issue": false
+      "gap_requires_issue": false,
+      "source_evidence_state": "reference_links_only",
+      "source_snapshot_manifest_sha256": null,
+      "source_snapshot_required_before_pilot": true
     },
     {
       "profile_id": "ror",
@@ -629,7 +665,10 @@
         "Does not imply ROR partnership or endorsement.",
         "Does not prove signatory authority, funding commitment, or current organizational relationship."
       ],
-      "gap_requires_issue": false
+      "gap_requires_issue": false,
+      "source_evidence_state": "reference_links_only",
+      "source_snapshot_manifest_sha256": null,
+      "source_snapshot_required_before_pilot": true
     },
     {
       "profile_id": "toucan-protocol",
@@ -679,7 +718,10 @@
         "Does not validate additionality, permanence, leakage, retirement, or emissions reductions.",
         "Does not establish carbon-credit quality or investment value."
       ],
-      "gap_requires_issue": true
+      "gap_requires_issue": true,
+      "source_evidence_state": "reference_links_only",
+      "source_snapshot_manifest_sha256": null,
+      "source_snapshot_required_before_pilot": true
     },
     {
       "profile_id": "catena-agentic-finance",
@@ -730,7 +772,10 @@
         "Does not establish banking charter status, regulatory compliance, or production security of Mycelix.",
         "Does not authorize any real funds movement."
       ],
-      "gap_requires_issue": false
+      "gap_requires_issue": false,
+      "source_evidence_state": "reference_links_only",
+      "source_snapshot_manifest_sha256": null,
+      "source_snapshot_required_before_pilot": true
     },
     {
       "profile_id": "antares-vision",
@@ -780,7 +825,10 @@
       "nonclaims": [
         "Does not imply Antares Vision integration or endorsement.",
         "Does not establish product authenticity, regulatory compliance, or physical chain-of-custody correctness."
-      ]
+      ],
+      "source_evidence_state": "reference_links_only",
+      "source_snapshot_manifest_sha256": null,
+      "source_snapshot_required_before_pilot": true
     },
     {
       "profile_id": "acviss",
@@ -830,7 +878,10 @@
       "nonclaims": [
         "Does not imply Acviss integration or partnership.",
         "Does not prove product origin, safety, or authenticity beyond the exact declared fixture."
-      ]
+      ],
+      "source_evidence_state": "reference_links_only",
+      "source_snapshot_manifest_sha256": null,
+      "source_snapshot_required_before_pilot": true
     },
     {
       "profile_id": "authentix",
@@ -880,7 +931,10 @@
       "nonclaims": [
         "Does not imply Authentix integration or endorsement.",
         "Does not establish product authenticity, diversion, tax compliance, or a legal finding."
-      ]
+      ],
+      "source_evidence_state": "reference_links_only",
+      "source_snapshot_manifest_sha256": null,
+      "source_snapshot_required_before_pilot": true
     },
     {
       "profile_id": "transmute",
@@ -930,7 +984,10 @@
       "nonclaims": [
         "Does not imply Transmute integration or endorsement.",
         "Does not establish legal recognition, issuer reliability, or authorization for an external effect."
-      ]
+      ],
+      "source_evidence_state": "reference_links_only",
+      "source_snapshot_manifest_sha256": null,
+      "source_snapshot_required_before_pilot": true
     },
     {
       "profile_id": "verra",
@@ -984,7 +1041,10 @@
       "nonclaims": [
         "Does not imply Verra endorsement or integration.",
         "Does not establish additionality, permanence, leakage, environmental impact, or credit quality."
-      ]
+      ],
+      "source_evidence_state": "reference_links_only",
+      "source_snapshot_manifest_sha256": null,
+      "source_snapshot_required_before_pilot": true
     },
     {
       "profile_id": "klimadao",
@@ -1037,7 +1097,10 @@
       "nonclaims": [
         "Does not imply KlimaDAO integration or endorsement.",
         "Does not establish carbon-credit integrity, climate impact, investment return, or legal compliance."
-      ]
+      ],
+      "source_evidence_state": "reference_links_only",
+      "source_snapshot_manifest_sha256": null,
+      "source_snapshot_required_before_pilot": true
     },
     {
       "profile_id": "ocean-protocol",
@@ -1087,7 +1150,10 @@
       "nonclaims": [
         "Does not imply Ocean Protocol integration or endorsement.",
         "Does not establish data rights, privacy compliance, scientific validity, or access permission from a token alone."
-      ]
+      ],
+      "source_evidence_state": "reference_links_only",
+      "source_snapshot_manifest_sha256": null,
+      "source_snapshot_required_before_pilot": true
     },
     {
       "profile_id": "axondao",
@@ -1140,7 +1206,10 @@
       "nonclaims": [
         "Does not imply AxonDAO integration or endorsement.",
         "Does not establish clinical validity, health-data rights, research efficacy, or token value."
-      ]
+      ],
+      "source_evidence_state": "reference_links_only",
+      "source_snapshot_manifest_sha256": null,
+      "source_snapshot_required_before_pilot": true
     },
     {
       "profile_id": "transcrypts",
@@ -1190,7 +1259,10 @@
       "nonclaims": [
         "Does not imply TransCrypts integration or endorsement.",
         "Does not establish employment law/FCRA compliance, source truth, or eligibility for a consequential decision."
-      ]
+      ],
+      "source_evidence_state": "reference_links_only",
+      "source_snapshot_manifest_sha256": null,
+      "source_snapshot_required_before_pilot": true
     },
     {
       "profile_id": "digital-bazaar",
@@ -1239,7 +1311,10 @@
       "nonclaims": [
         "Does not imply Digital Bazaar partnership or endorsement.",
         "Does not establish issuer trust, legal recognition or entitlement to disclosure."
-      ]
+      ],
+      "source_evidence_state": "reference_links_only",
+      "source_snapshot_manifest_sha256": null,
+      "source_snapshot_required_before_pilot": true
     },
     {
       "profile_id": "decentralized-identity-foundation",
@@ -1285,7 +1360,10 @@
       "nonclaims": [
         "Does not imply DIF membership, contribution, partnership or endorsement.",
         "Does not establish universal DID interoperability, legal identity, trustworthiness or authorization."
-      ]
+      ],
+      "source_evidence_state": "reference_links_only",
+      "source_snapshot_manifest_sha256": null,
+      "source_snapshot_required_before_pilot": true
     },
     {
       "profile_id": "danube-tech",
@@ -1330,7 +1408,10 @@
       "nonclaims": [
         "Does not imply Danube Tech integration or endorsement.",
         "Does not establish trust in a resolver, legal identity, or exact-action authority."
-      ]
+      ],
+      "source_evidence_state": "reference_links_only",
+      "source_snapshot_manifest_sha256": null,
+      "source_snapshot_required_before_pilot": true
     },
     {
       "profile_id": "marblism",
@@ -1379,7 +1460,10 @@
       "nonclaims": [
         "Does not imply Marblism partnership or integration.",
         "Does not establish comparative productivity, quality, privacy or safety of any AI employee product."
-      ]
+      ],
+      "source_evidence_state": "reference_links_only",
+      "source_snapshot_manifest_sha256": null,
+      "source_snapshot_required_before_pilot": true
     }
   ]
 }
