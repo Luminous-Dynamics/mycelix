@@ -419,7 +419,7 @@ fn analyze(
                     let code = nonempty_string(standard_object.get("code"));
                     let (Some(framework), Some(code)) = (framework, code) else {
                         errors.push(format!(
-                            "{}: node {node_id:?} standard {standard_index} requires non-empty framework and code",
+                            "node {node_id:?} standard {standard_index} requires framework/code",
                             path.display()
                         ));
                         continue;
@@ -592,7 +592,7 @@ fn markdown(report: &AuditReport) -> String {
     ));
     out.push_str(
     out.push_str(
-        "| Framework | Grade | Subject | Nodes | Standard refs | With lessons | Missing | Assets |\n",
+        "| Framework | Grade | Subject | Nodes | Refs | With | Missing | Assets |\n",
     );
     for group in &report.groups {
         out.push_str(&format!(
@@ -630,7 +630,7 @@ fn run() -> Result<(), AuditFailure> {
             "--format=markdown" | "--markdown" => output_format = "markdown",
             "--help" | "-h" => {
                 println!(
-                    "praxis-curriculum-audit [--format=json|markdown]\nRead-only curriculum coverage audit."
+                    "praxis-curriculum-audit [--format=json|markdown]\nCurriculum coverage audit."
                 );
                 return Ok(());
             }
@@ -784,7 +784,10 @@ mod tests {
     fn dangling_edges_are_rejected() {
         let docs = vec![(
             PathBuf::from("a.json"),
-            serde_json::json!({"nodes":[{"id":"present"}],"edges":[{"from":"present","to":"missing"}]}),
+            serde_json::json!({
+                "nodes": [{"id": "present"}],
+                "edges": [{"from": "present", "to": "missing"}]
+            }),
         )];
         let mut errors = Vec::new();
         let _ = analyze(&docs, &BTreeMap::new(), &mut errors);
