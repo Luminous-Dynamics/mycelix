@@ -55,4 +55,4 @@ jobs:
       - name: Validate existing curriculum manifest
         run: python3 scripts/validate_curriculum.py
       - name: Emit exact-checkout coverage report
-        run: cargo run -p praxis-curriculum-audit -- --format=markdown
+        run: cargo run -p praxis-curriculum-audit -- --format=markdown --fail-on-blockers
