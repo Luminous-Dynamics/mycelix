@@ -20,6 +20,7 @@ pub enum SourceStateKind {
     NotChecked,
     LiveWithRecords,
     ConfirmedEmpty,
+    Partial,
     Unavailable,
     Stale,
     Mock,
@@ -33,6 +34,7 @@ impl SourceStateKind {
             Self::NotChecked => "Not checked",
             Self::LiveWithRecords => "Records returned",
             Self::ConfirmedEmpty => "Confirmed empty",
+            Self::Partial => "Partial result",
             Self::Unavailable => "Unavailable",
             Self::Stale => "Stale evidence",
             Self::Mock => "Demo data",
@@ -46,6 +48,7 @@ impl SourceStateKind {
             Self::NotChecked => "This source has not been checked yet.",
             Self::LiveWithRecords => "The source returned records for this read; claim truth and authority are not automatically established.",
             Self::ConfirmedEmpty => "The source successfully returned no records at this read time.",
+            Self::Partial => "Some subreads succeeded and others failed; the result is incomplete.",
             Self::Unavailable => "The read failed; absence has not been established.",
             Self::Stale => "Last-known evidence exists but must not be treated as current.",
             Self::Mock => "These are synthetic fixtures, not live source records.",
@@ -163,6 +166,37 @@ pub enum SourceFailure {
     UnclassifiedReadFailure,
 }
 
+/// A successful component of a multi-part read. Each component explicitly
+/// reports records or a successful empty result.
+///
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub enum SuccessfulSourceRead<T> {
+    Records {
+        records: NonEmptyVec<T>,
+        evidence: SourceEvidence,
+    },
+    ConfirmedEmpty {
+        evidence: SourceEvidence,
+    },
+}
+
+/// One failed component of a multi-part read. The error reason is a code, not
+/// a raw provider message.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct SourceReadFailure {
+    pub source_id: String,
+    pub attempted_at_unix_ms: Option<u64>,
+    pub reason: SourceFailure,
+}
+
+/// A genuinely partial read requires at least one successful component and at
+/// least one failed component. Successful empty components remain explicit.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct PartialObservation<T> {
+    pub successful_reads: NonEmptyVec<SuccessfulSourceRead<T>>,
+    pub failed_reads: NonEmptyVec<SourceReadFailure>,
+}
+
 /// An attributable claim retained when sources disagree. Attribution alone
 /// does not prove the claim is true or that the source is authoritative.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -250,6 +284,11 @@ pub enum SourceObservation<T> {
     ConfirmedEmpty {
         evidence: SourceEvidence,
     },
+    /// Some components succeeded and some failed. Component outcomes are
+    /// preserved rather than flattened into either success or total failure.
+    Partial {
+        observation: PartialObservation<T>,
+    },
     /// The current read failed. Any retained previous value is separately
     /// represented as stale and must not be shown as a current source result.
     Unavailable {
@@ -312,6 +351,7 @@ impl<T: Clone> SourceObservation<T> {
             }
             Self::NotChecked { .. }
             | Self::ConfirmedEmpty { .. }
+            | Self::Partial { .. }
             | Self::Mock { .. }
             | Self::Disputed { .. }
             | Self::NotIntegrated { .. } => None,
@@ -350,6 +390,7 @@ impl<T> SourceObservation<T> {
             Self::NotChecked { .. } => SourceStateKind::NotChecked,
             Self::LiveWithRecords { .. } => SourceStateKind::LiveWithRecords,
             Self::ConfirmedEmpty { .. } => SourceStateKind::ConfirmedEmpty,
+            Self::Partial { .. } => SourceStateKind::Partial,
             Self::Unavailable { .. } => SourceStateKind::Unavailable,
             Self::Stale { .. } => SourceStateKind::Stale,
             Self::Mock { .. } => SourceStateKind::Mock,
@@ -469,6 +510,64 @@ mod tests {
     }
 
     #[test]
+    fn partial_observation_preserves_successes_and_failures_separately() {
+        let successful_reads = NonEmptyVec::try_from_vec(vec![
+            SuccessfulSourceRead::Records {
+                records: NonEmptyVec::new("maintenance record"),
+                evidence: evidence("maintenance-source"),
+            },
+            SuccessfulSourceRead::ConfirmedEmpty {
+                evidence: evidence("recall-source"),
+            },
+        ])
+        .expect("at least one successful subread");
+        let failed_reads = NonEmptyVec::new(SourceReadFailure {
+            source_id: "insurance-source".into(),
+            attempted_at_unix_ms: Some(1_800_000_000_500),
+            reason: SourceFailure::Timeout,
+        });
+
+        let partial = SourceObservation::Partial {
+            observation: PartialObservation {
+                successful_reads,
+                failed_reads,
+            },
+        };
+        assert_eq!(partial.kind(), SourceStateKind::Partial);
+        match partial {
+            SourceObservation::Partial { observation } => {
+                assert_eq!(observation.successful_reads.len(), 2);
+                assert_eq!(observation.failed_reads.len(), 1);
+                assert_eq!(
+                    observation.failed_reads.first().source_id,
+                    "insurance-source"
+                );
+            }
+            _ => panic!("partial result must not be flattened"),
+        }
+    }
+
+    #[test]
+    fn partial_observation_cannot_be_laundered_into_stale_live_evidence() {
+        let partial = SourceObservation::Partial {
+            observation: PartialObservation {
+                successful_reads: NonEmptyVec::new(SuccessfulSourceRead::Records {
+                    records: NonEmptyVec::new(8_u8),
+                    evidence: evidence("one-source"),
+                }),
+                failed_reads: NonEmptyVec::new(SourceReadFailure {
+                    source_id: "second-source".into(),
+                    attempted_at_unix_ms: None,
+                    reason: SourceFailure::ProviderUnavailable,
+                }),
+            },
+        };
+        assert!(partial
+            .stale_snapshot(Some(1_800_000_000_600), StaleReason::SourceUnavailable)
+            .is_none());
+    }
+
+    #[test]
     fn mock_and_live_records_have_different_variants() {
         let live = SourceObservation::LiveWithRecords {
             records: NonEmptyVec::new(7_u8),
@@ -553,6 +652,10 @@ mod tests {
             .contains("not automatically established"));
 
         assert_eq!(SourceStateKind::ConfirmedEmpty.label(), "Confirmed empty");
+        assert_eq!(SourceStateKind::Partial.label(), "Partial result");
+        assert!(SourceStateKind::Partial
+            .explanation()
+            .contains("result is incomplete"));
         assert!(SourceStateKind::ConfirmedEmpty
             .explanation()
             .contains("at this read time"));
@@ -624,6 +727,23 @@ mod tests {
                 SourceStateKind::ConfirmedEmpty,
             ),
             (
+                SourceObservation::Partial {
+                    observation: PartialObservation {
+                        successful_reads: NonEmptyVec::new(
+                            SuccessfulSourceRead::ConfirmedEmpty {
+                                evidence: evidence("partial-empty-source"),
+                            },
+                        ),
+                        failed_reads: NonEmptyVec::new(SourceReadFailure {
+                            source_id: "partial-failed-source".into(),
+                            attempted_at_unix_ms: Some(1_800_000_000_450),
+                            reason: SourceFailure::Timeout,
+                        }),
+                    },
+                },
+                SourceStateKind::Partial,
+            ),
+            (
                 SourceObservation::Unavailable {
                     source_id: "unavailable-source".into(),
                     attempted_at_unix_ms: Some(1_800_000_000_400),
@@ -675,7 +795,7 @@ mod tests {
                 "serde round-trip must preserve state and data"
             );
         }
-        assert_eq!(seen.len(), 8, "all source states must be covered");
+        assert_eq!(seen.len(), 9, "all source states must be covered");
     }
     #[test]
     fn seeded_read_classification_stress_100k_cases() {
