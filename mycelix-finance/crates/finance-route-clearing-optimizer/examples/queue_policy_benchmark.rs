@@ -8,7 +8,12 @@ const PAYMENT_COUNT: usize = 700;
 const HORIZON: u64 = 99;
 const REPETITIONS: usize = 9;
 
-fn fixture() -> (QueueContext, Vec<QueueAccount>, Vec<QueueRoute>, Vec<PaymentOrder>) {
+fn fixture() -> (
+    QueueContext,
+    Vec<QueueAccount>,
+    Vec<QueueRoute>,
+    Vec<PaymentOrder>,
+) {
     let context = QueueContext {
         rail_id: "synthetic-zar-rtgs".into(),
         asset_id: "ZAR-minor-unit".into(),
