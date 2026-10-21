@@ -24,7 +24,7 @@ mycelix-leptos-client = { path = "../../../crates/mycelix-leptos-client" }
 mycelix-leptos-i18n = { path = "../../../mycelix-workspace/crates/mycelix-leptos-i18n" }
 finance-leptos-types = { path = "../../crates/finance-leptos-types" }
 finance-wire-types = { path = "../../crates/finance-wire-types" }
-mycelix-mock-data = { path = "../../../crates/mycelix-mock-data" }
+mycelix-mock-data = { path = "../../../mycelix-workspace/crates/mycelix-mock-data" }
 
 [workspace]
 
