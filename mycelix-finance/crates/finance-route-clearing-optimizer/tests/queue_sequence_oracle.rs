@@ -208,7 +208,7 @@ fn all_queue_policies_stay_within_the_exact_oracle_on_64_small_traces() {
             account("C", ((seed * 7 + 1) % 7) as u64),
         ];
         let routes = [route("ab", 5), route("bc", 5), route("ca", 5)];
-        let payments = [
+        let mut payments = [
             payment("p0", "ab", "A", "B", ((seed * 3 + 1) % 4 + 1) as u64, 1),
             payment("p1", "ab", "A", "B", ((seed * 5 + 2) % 4 + 1) as u64, 4),
             payment("p2", "bc", "B", "C", ((seed * 7 + 3) % 4 + 1) as u64, 2),
