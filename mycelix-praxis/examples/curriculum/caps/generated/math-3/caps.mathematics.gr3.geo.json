@@ -92,7 +92,7 @@
         "explanation": "A 90-degree angle is a right angle.",
         "distractors": [
           "Acute",
-          "Right",
+          "Straight",
           "Obtuse"
         ]
       },
@@ -151,8 +151,8 @@
         ],
         "explanation": "Equal side lengths alone are not enough; angle properties also matter.",
         "distractors": [
-          "Yes, equal sides are enough.",
-          "No, a square also has four right angles.",
+          "Yes, any shape with four sides is a square.",
+          "A square has exactly three right angles.",
           "Only if it has five sides."
         ]
       },
@@ -166,7 +166,7 @@
         ],
         "explanation": "A valid example must have four sides and a property that distinguishes it from a rectangle.",
         "distractors": [
-          "Answers vary; a four-sided parallelogram without right angles is valid.",
+          "A triangle with three sides and two pairs of parallel sides is a quadrilateral.",
           "It must have exactly three sides.",
           "Any circle is a quadrilateral."
         ]
