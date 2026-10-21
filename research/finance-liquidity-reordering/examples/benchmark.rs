@@ -79,7 +79,9 @@ where
         score
             .aggregate_required_initial_liquidity_minor
             .checked_sub(best.aggregate_required_initial_liquidity_minor)
-            .ok_or("objective gap underflow")?
+            .ok_or_else(|| {
+                std::io::Error::new(std::io::ErrorKind::InvalidData, "objective gap underflow")
+            })?
             .to_string()
     } else {
         String::new()
