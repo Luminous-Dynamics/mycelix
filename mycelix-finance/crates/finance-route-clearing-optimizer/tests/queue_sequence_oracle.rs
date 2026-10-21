@@ -1,5 +1,5 @@
 use finance_route_clearing_optimizer::queue::{
-    simulate_queue, PaymentOrder, QueueAccount, QueueContext, QueuePolicy, QueueRoute, PaymentState,
+    simulate_queue, PaymentOrder, PaymentState, QueueAccount, QueueContext, QueuePolicy, QueueRoute,
 };
 use std::collections::BTreeMap;
 
@@ -108,8 +108,7 @@ fn exhaustive_sequence_oracle(
                 continue;
             }
 
-            let variable_cost =
-                payment.amount_minor as u128 * route.fee_units_per_minor as u128;
+            let variable_cost = payment.amount_minor as u128 * route.fee_units_per_minor as u128;
             let fee = route.fixed_fee_units as u128 + variable_cost;
             balances[from] -= payment.amount_minor;
             balances[to] += payment.amount_minor;
@@ -134,7 +133,10 @@ fn exhaustive_sequence_oracle(
         }
     }
 
-    assert!(payments.len() <= 63, "oracle is intentionally bounded to tiny instances");
+    assert!(
+        payments.len() <= 63,
+        "oracle is intentionally bounded to tiny instances"
+    );
     let account_index = accounts
         .iter()
         .enumerate()
@@ -205,11 +207,7 @@ fn all_queue_policies_stay_within_the_exact_oracle_on_64_small_traces() {
             account("B", ((seed * 5 + 2) % 7) as u64),
             account("C", ((seed * 7 + 1) % 7) as u64),
         ];
-        let routes = [
-            route("ab", 5),
-            route("bc", 5),
-            route("ca", 5),
-        ];
+        let routes = [route("ab", 5), route("bc", 5), route("ca", 5)];
         let payments = [
             payment("p0", "ab", "A", "B", ((seed * 3 + 1) % 4 + 1) as u64, 1),
             payment("p1", "ab", "A", "B", ((seed * 5 + 2) % 4 + 1) as u64, 4),
@@ -225,8 +223,7 @@ fn all_queue_policies_stay_within_the_exact_oracle_on_64_small_traces() {
             QueuePolicy::LiquidityAwareFifo,
             QueuePolicy::PriorityScan,
         ] {
-            let result =
-                simulate_queue(&context(), &accounts, &routes, &payments, policy).unwrap();
+            let result = simulate_queue(&context(), &accounts, &routes, &payments, policy).unwrap();
             assert!(
                 result.settled_minor <= oracle.0,
                 "policy={policy:?}, seed={seed} settled more than oracle"
