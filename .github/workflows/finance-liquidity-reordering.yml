@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - feat/liquidity-reordering-exact-oracle-20261021
+      - feat/liquidity-budgeted-replay-20261022
     paths:
       - research/finance-liquidity-reordering/**
       - .github/workflows/finance-liquidity-reordering.yml
@@ -135,7 +136,7 @@ jobs:
             END { if (rows != 144 || failed) exit 1 }
           ' "$out/stream-results.csv"
           cd research/finance-liquidity-reordering
-          sha256sum Cargo.toml Cargo.lock README.md src/lib.rs src/stream_replay.rs tests/exact_oracle.rs tests/stream_replay.rs examples/benchmark.rs examples/stream_benchmark.rs > "$out/SOURCE-SHA256SUMS"
+          sha256sum Cargo.toml Cargo.lock README.md src/lib.rs src/stream_replay.rs tests/exact_oracle.rs tests/stream_replay.rs tests/budgeted_stream_replay.rs examples/benchmark.rs examples/stream_benchmark.rs > "$out/SOURCE-SHA256SUMS"
           cd "$out"
           sha256sum results.csv stream-results.csv metadata.txt SOURCE-SHA256SUMS > SHA256SUMS
 
