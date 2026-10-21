@@ -5,7 +5,8 @@ use std::time::Instant;
 
 const PARTICIPANTS: usize = 16;
 const HORIZON: u64 = 99;
-const REPETITIONS: usize = 9;
+const WARMUP_REPETITIONS: usize = 5;
+const REPETITIONS: usize = 101;
 const SIZES: [usize; 3] = [70, 140, 700];
 
 #[derive(Clone, Copy, Debug)]
@@ -139,6 +140,13 @@ fn main() {
                 QueuePolicy::PriorityScan,
                 QueuePolicy::EarliestDeadlineFirst,
             ] {
+                // Warm the code path before measuring. Keep warmup samples out of the
+                // reported distributions.
+                for _ in 0..WARMUP_REPETITIONS {
+                    let _ = simulate_queue(&context, &accounts, &routes, &payments, policy)
+                        .expect("synthetic warmup fixture must be valid");
+                }
+
                 let mut timings = Vec::with_capacity(REPETITIONS);
                 let mut final_result = None;
                 for _ in 0..REPETITIONS {
