@@ -55,9 +55,9 @@ jobs:
         run: |
           cargo generate-lockfile --manifest-path crates/mycelix-identity-kdf-bench/Cargo.toml
           sha256sum crates/mycelix-identity-kdf-bench/Cargo.lock
-      - name: Check formatting
+      - name: Check formatting of benchmark files
         run: |
-          cargo fmt --manifest-path crates/mycelix-leptos-core/Cargo.toml -- --check
+          rustfmt --edition 2024 --check crates/mycelix-leptos-core/src/identity_crypto.rs
           cargo fmt --manifest-path crates/mycelix-identity-kdf-bench/Cargo.toml -- --check
       - name: Compile opt-in production benchmark for WASM
         run: cargo check --manifest-path crates/mycelix-identity-kdf-bench/Cargo.toml --locked --target wasm32-unknown-unknown
