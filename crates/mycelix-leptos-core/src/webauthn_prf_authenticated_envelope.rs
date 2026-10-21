@@ -221,9 +221,9 @@ fn validate_expected_context(
     let nonce = base64_decode(&envelope.nonce_b64)?;
     let ciphertext = base64_decode(&envelope.ciphertext_b64)?;
 
-    if credential_id != expected.credential_id
-        || salt != expected.envelope_salt
-        || public_key != expected.identity_public_key
+    if credential_id.as_slice() != expected.credential_id
+        || salt.as_slice() != expected.envelope_salt
+        || public_key.as_slice() != expected.identity_public_key
     {
         return Err(PrfEnvelopeAeadError::ContextMismatch);
     }
@@ -401,7 +401,7 @@ mod browser_tests {
         let recovered = decrypt_seed_with_prf(&envelope, prf, &context)
             .await
             .expect("correct PRF/context decrypts");
-        assert_eq!(&*recovered, &seed);
+        assert_eq!(&recovered[..], &seed[..]);
     }
 
     #[wasm_bindgen_test]
