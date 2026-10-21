@@ -77,7 +77,7 @@
         "explanation": "The prefix penta- means five; a pentagon has five sides.",
         "distractors": [
           "4",
-          "5",
+          "7",
           "6"
         ]
       },
@@ -106,7 +106,7 @@
         ],
         "explanation": "45° is less than 90°, so it is acute.",
         "distractors": [
-          "Acute",
+          "Reflex",
           "Right",
           "Obtuse"
         ]
@@ -123,7 +123,7 @@
         "distractors": [
           "2",
           "3",
-          "4"
+          "5"
         ]
       },
       {
@@ -138,7 +138,7 @@
         "distractors": [
           "1",
           "2",
-          "3"
+          "4"
         ]
       },
       {
