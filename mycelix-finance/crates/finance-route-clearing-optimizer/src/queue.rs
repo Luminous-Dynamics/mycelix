@@ -101,9 +101,18 @@ pub enum BlockReason {
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum PaymentState {
-    Excluded { reason: ExclusionReason },
-    Settled { tick: u64, fee_units: u128, late: bool },
-    Unsettled { reason: BlockReason, deadline_missed: bool },
+    Excluded {
+        reason: ExclusionReason,
+    },
+    Settled {
+        tick: u64,
+        fee_units: u128,
+        late: bool,
+    },
+    Unsettled {
+        reason: BlockReason,
+        deadline_missed: bool,
+    },
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -137,8 +146,15 @@ pub enum QueueError {
     InvalidRoute(String),
     DuplicateRoute(String),
     DuplicatePayment(String),
-    InvalidOutage { route_id: String, start: u64, end: u64 },
-    TooManyEvents { observed_at_least: usize, maximum: usize },
+    InvalidOutage {
+        route_id: String,
+        start: u64,
+        end: u64,
+    },
+    TooManyEvents {
+        observed_at_least: usize,
+        maximum: usize,
+    },
     ArithmeticOverflow,
 }
 
@@ -155,7 +171,10 @@ fn matches_profile(rail: &str, asset: &str, policy: &str, context: &QueueContext
 }
 
 fn route_unavailable(route: &QueueRoute, tick: u64) -> bool {
-    route.outages.iter().any(|w| w.start_tick <= tick && tick < w.end_tick)
+    route
+        .outages
+        .iter()
+        .any(|w| w.start_tick <= tick && tick < w.end_tick)
 }
 
 fn add_cost(amount: u64, route: &QueueRoute) -> Result<u128, QueueError> {
@@ -195,7 +214,10 @@ pub fn simulate_queue(
         if account.participant_id.trim().is_empty() {
             return Err(QueueError::InvalidAccount("empty participant ID".into()));
         }
-        if balances.insert(account.participant_id.clone(), account.balance_minor).is_some() {
+        if balances
+            .insert(account.participant_id.clone(), account.balance_minor)
+            .is_some()
+        {
             return Err(QueueError::DuplicateAccount(account.participant_id.clone()));
         }
     }
@@ -216,7 +238,10 @@ pub fn simulate_queue(
                 });
             }
         }
-        if route_map.insert(normalized.route_id.clone(), normalized).is_some() {
+        if route_map
+            .insert(normalized.route_id.clone(), normalized)
+            .is_some()
+        {
             return Err(QueueError::DuplicateRoute(route.route_id.clone()));
         }
         if route_map.len() > MAX_QUEUE_EVENTS {
@@ -227,8 +252,11 @@ pub fn simulate_queue(
         }
     }
     let route_list = route_map.into_values().collect::<Vec<_>>();
-    let route_indexes = route_list.iter().enumerate()
-        .map(|(i, r)| (r.route_id.clone(), i)).collect::<BTreeMap<_, _>>();
+    let route_indexes = route_list
+        .iter()
+        .enumerate()
+        .map(|(i, r)| (r.route_id.clone(), i))
+        .collect::<BTreeMap<_, _>>();
 
     let mut ids = BTreeSet::new();
     let mut states = vec![None::<PaymentState>; payments.len()];
@@ -249,13 +277,23 @@ pub fn simulate_queue(
             Some(ExclusionReason::InvalidAmount)
         } else if payment.from == payment.to {
             Some(ExclusionReason::SelfPayment)
-        } else if !matches_profile(&payment.rail_id, &payment.asset_id, &payment.policy_version, context) {
+        } else if !matches_profile(
+            &payment.rail_id,
+            &payment.asset_id,
+            &payment.policy_version,
+            context,
+        ) {
             Some(ExclusionReason::PaymentProfileMismatch)
         } else if !balances.contains_key(&payment.from) || !balances.contains_key(&payment.to) {
             Some(ExclusionReason::UnknownParticipant)
         } else if let Some(route_index) = route_indexes.get(&payment.route_id).copied() {
             let route = &route_list[route_index];
-            if !matches_profile(&route.rail_id, &route.asset_id, &route.policy_version, context) {
+            if !matches_profile(
+                &route.rail_id,
+                &route.asset_id,
+                &route.policy_version,
+                context,
+            ) {
                 Some(ExclusionReason::RouteProfileMismatch)
             } else if !route.enabled {
                 Some(ExclusionReason::DisabledRoute)
@@ -283,8 +321,12 @@ pub fn simulate_queue(
 
     for route in &route_list {
         for window in &route.outages {
-            if window.start_tick <= context.horizon_tick { events.insert(window.start_tick); }
-            if window.end_tick <= context.horizon_tick { events.insert(window.end_tick); }
+            if window.start_tick <= context.horizon_tick {
+                events.insert(window.start_tick);
+            }
+            if window.end_tick <= context.horizon_tick {
+                events.insert(window.end_tick);
+            }
         }
         let last_bucket = context.horizon_tick / route.capacity_window_ticks;
         if last_bucket > MAX_QUEUE_EVENTS as u64 {
@@ -310,21 +352,33 @@ pub fn simulate_queue(
 
     for tick in events.into_iter().filter(|t| *t <= context.horizon_tick) {
         loop {
-            let mut pending = (0..payments.len()).filter(|i| {
-                states[*i].is_none()
-                    && eligible_route[*i].is_some()
-                    && payments[*i].arrival_tick <= tick
-            }).collect::<Vec<_>>();
+            let mut pending = (0..payments.len())
+                .filter(|i| {
+                    states[*i].is_none()
+                        && eligible_route[*i].is_some()
+                        && payments[*i].arrival_tick <= tick
+                })
+                .collect::<Vec<_>>();
 
             if policy == QueuePolicy::PriorityScan {
-                pending.sort_by(|a,b| payments[*b].priority.cmp(&payments[*a].priority)
-                    .then_with(|| payments[*a].arrival_tick.cmp(&payments[*b].arrival_tick))
-                    .then_with(|| payments[*a].payment_id.cmp(&payments[*b].payment_id)));
+                pending.sort_by(|a, b| {
+                    payments[*b]
+                        .priority
+                        .cmp(&payments[*a].priority)
+                        .then_with(|| payments[*a].arrival_tick.cmp(&payments[*b].arrival_tick))
+                        .then_with(|| payments[*a].payment_id.cmp(&payments[*b].payment_id))
+                });
             } else {
-                pending.sort_by(|a,b| payments[*a].arrival_tick.cmp(&payments[*b].arrival_tick)
-                    .then_with(|| payments[*a].payment_id.cmp(&payments[*b].payment_id)));
+                pending.sort_by(|a, b| {
+                    payments[*a]
+                        .arrival_tick
+                        .cmp(&payments[*b].arrival_tick)
+                        .then_with(|| payments[*a].payment_id.cmp(&payments[*b].payment_id))
+                });
             }
-            if pending.is_empty() { break; }
+            if pending.is_empty() {
+                break;
+            }
 
             let mut progress = false;
             let mut strict_block = false;
@@ -337,7 +391,9 @@ pub fn simulate_queue(
 
                 let blocked = if route_unavailable(route, tick) {
                     Some(BlockReason::RouteUnavailable)
-                } else if payment.amount_minor > route.capacity_minor_per_window.saturating_sub(current_used) {
+                } else if payment.amount_minor
+                    > route.capacity_minor_per_window.saturating_sub(current_used)
+                {
                     Some(BlockReason::CapacityExhausted)
                 } else if balances[&payment.from] < payment.amount_minor {
                     Some(BlockReason::InsufficientLiquidity)
@@ -359,14 +415,19 @@ pub fn simulate_queue(
 
                 let sender_balance = balances[&payment.from];
                 let receiver_balance = balances[&payment.to];
-                let receiver_after = receiver_balance.checked_add(payment.amount_minor)
+                let receiver_after = receiver_balance
+                    .checked_add(payment.amount_minor)
                     .ok_or(QueueError::ArithmeticOverflow)?;
-                let used_after = current_used.checked_add(payment.amount_minor)
+                let used_after = current_used
+                    .checked_add(payment.amount_minor)
                     .ok_or(QueueError::ArithmeticOverflow)?;
                 let fee = add_cost(payment.amount_minor, route)?;
-                let settled_after = settled_minor.checked_add(payment.amount_minor as u128)
+                let settled_after = settled_minor
+                    .checked_add(payment.amount_minor as u128)
                     .ok_or(QueueError::ArithmeticOverflow)?;
-                let fee_after = total_fee.checked_add(fee).ok_or(QueueError::ArithmeticOverflow)?;
+                let fee_after = total_fee
+                    .checked_add(fee)
+                    .ok_or(QueueError::ArithmeticOverflow)?;
 
                 // Apply state only after all arithmetic checks succeed.
                 balances.insert(payment.from.clone(), sender_balance - payment.amount_minor);
@@ -389,43 +450,78 @@ pub fn simulate_queue(
         }
     }
 
-    let mut result_payments = payments.iter().enumerate().map(|(i,p)| {
-        let state = states[i].clone().unwrap_or_else(|| {
-            let reason = if p.arrival_tick > context.horizon_tick {
-                BlockReason::NotArrivedByHorizon
-            } else {
-                last_block[i].clone().unwrap_or(BlockReason::InsufficientLiquidity)
-            };
-            PaymentState::Unsettled {
-                reason,
-                deadline_missed: p.deadline_tick.is_some_and(|d| d <= context.horizon_tick),
+    let mut result_payments = payments
+        .iter()
+        .enumerate()
+        .map(|(i, p)| {
+            let state = states[i].clone().unwrap_or_else(|| {
+                let reason = if p.arrival_tick > context.horizon_tick {
+                    BlockReason::NotArrivedByHorizon
+                } else {
+                    last_block[i]
+                        .clone()
+                        .unwrap_or(BlockReason::InsufficientLiquidity)
+                };
+                PaymentState::Unsettled {
+                    reason,
+                    deadline_missed: p.deadline_tick.is_some_and(|d| d <= context.horizon_tick),
+                }
+            });
+            PaymentResult {
+                payment_id: p.payment_id.clone(),
+                amount_minor: p.amount_minor,
+                state,
             }
-        });
-        PaymentResult { payment_id: p.payment_id.clone(), amount_minor: p.amount_minor, state }
-    }).collect::<Vec<_>>();
-    result_payments.sort_by(|a,b| a.payment_id.cmp(&b.payment_id));
+        })
+        .collect::<Vec<_>>();
+    result_payments.sort_by(|a, b| a.payment_id.cmp(&b.payment_id));
 
-    let final_balances = balances.into_iter().map(|(participant_id, balance_minor)| {
-        QueueAccount { participant_id, balance_minor }
-    }).collect::<Vec<_>>();
-    let settled_count = result_payments.iter()
-        .filter(|p| matches!(p.state, PaymentState::Settled { .. })).count();
-    let unsettled_count = result_payments.iter()
-        .filter(|p| matches!(p.state, PaymentState::Unsettled { .. })).count();
-    let excluded_count = result_payments.iter()
-        .filter(|p| matches!(p.state, PaymentState::Excluded { .. })).count();
-    let late_settled_count = result_payments.iter()
-        .filter(|p| matches!(p.state, PaymentState::Settled { late: true, .. })).count();
-    let missed_deadline_count = result_payments.iter().filter(|p| match p.state {
-        PaymentState::Settled { late, .. } => late,
-        PaymentState::Unsettled { deadline_missed, .. } => deadline_missed,
-        PaymentState::Excluded { .. } => false,
-    }).count();
+    let final_balances = balances
+        .into_iter()
+        .map(|(participant_id, balance_minor)| QueueAccount {
+            participant_id,
+            balance_minor,
+        })
+        .collect::<Vec<_>>();
+    let settled_count = result_payments
+        .iter()
+        .filter(|p| matches!(p.state, PaymentState::Settled { .. }))
+        .count();
+    let unsettled_count = result_payments
+        .iter()
+        .filter(|p| matches!(p.state, PaymentState::Unsettled { .. }))
+        .count();
+    let excluded_count = result_payments
+        .iter()
+        .filter(|p| matches!(p.state, PaymentState::Excluded { .. }))
+        .count();
+    let late_settled_count = result_payments
+        .iter()
+        .filter(|p| matches!(p.state, PaymentState::Settled { late: true, .. }))
+        .count();
+    let missed_deadline_count = result_payments
+        .iter()
+        .filter(|p| match p.state {
+            PaymentState::Settled { late, .. } => late,
+            PaymentState::Unsettled {
+                deadline_missed, ..
+            } => deadline_missed,
+            PaymentState::Excluded { .. } => false,
+        })
+        .count();
 
     Ok(QueueResult {
-        context: context.clone(), policy, final_balances, payments: result_payments,
-        settled_count, unsettled_count, excluded_count, late_settled_count,
-        missed_deadline_count, settled_minor, modeled_fee_units: total_fee,
+        context: context.clone(),
+        policy,
+        final_balances,
+        payments: result_payments,
+        settled_count,
+        unsettled_count,
+        excluded_count,
+        late_settled_count,
+        missed_deadline_count,
+        settled_minor,
+        modeled_fee_units: total_fee,
     })
 }
 
@@ -434,98 +530,213 @@ mod tests {
     use super::*;
 
     fn context(horizon_tick: u64) -> QueueContext {
-        QueueContext { rail_id: "rtgs".into(), asset_id: "ZAR-minor".into(),
-            policy_version: "v1".into(), horizon_tick }
+        QueueContext {
+            rail_id: "rtgs".into(),
+            asset_id: "ZAR-minor".into(),
+            policy_version: "v1".into(),
+            horizon_tick,
+        }
     }
     fn account(id: &str, balance_minor: u64) -> QueueAccount {
-        QueueAccount { participant_id: id.into(), balance_minor }
+        QueueAccount {
+            participant_id: id.into(),
+            balance_minor,
+        }
     }
     fn route(id: &str, capacity: u64, window: u64) -> QueueRoute {
-        QueueRoute { route_id: id.into(), rail_id: "rtgs".into(), asset_id: "ZAR-minor".into(),
-            policy_version: "v1".into(), enabled: true, capacity_minor_per_window: capacity,
-            capacity_window_ticks: window, fixed_fee_units: 2, fee_units_per_minor: 1,
-            outages: Vec::new() }
+        QueueRoute {
+            route_id: id.into(),
+            rail_id: "rtgs".into(),
+            asset_id: "ZAR-minor".into(),
+            policy_version: "v1".into(),
+            enabled: true,
+            capacity_minor_per_window: capacity,
+            capacity_window_ticks: window,
+            fixed_fee_units: 2,
+            fee_units_per_minor: 1,
+            outages: Vec::new(),
+        }
     }
-    fn payment(id: &str, route_id: &str, from: &str, to: &str, amount: u64,
-        arrival: u64, deadline: Option<u64>, priority: u8) -> PaymentOrder {
-        PaymentOrder { payment_id: id.into(), rail_id: "rtgs".into(), asset_id: "ZAR-minor".into(),
-            policy_version: "v1".into(), route_id: route_id.into(), from: from.into(), to: to.into(),
-            amount_minor: amount, arrival_tick: arrival, deadline_tick: deadline, priority }
+    fn payment(
+        id: &str,
+        route_id: &str,
+        from: &str,
+        to: &str,
+        amount: u64,
+        arrival: u64,
+        deadline: Option<u64>,
+        priority: u8,
+    ) -> PaymentOrder {
+        PaymentOrder {
+            payment_id: id.into(),
+            rail_id: "rtgs".into(),
+            asset_id: "ZAR-minor".into(),
+            policy_version: "v1".into(),
+            route_id: route_id.into(),
+            from: from.into(),
+            to: to.into(),
+            amount_minor: amount,
+            arrival_tick: arrival,
+            deadline_tick: deadline,
+            priority,
+        }
     }
 
     #[test]
     fn queue_scan_can_use_liquidity_received_at_same_tick() {
         let accounts = [account("A", 0), account("B", 0), account("C", 5)];
         let routes = [route("ab", 5, 10), route("ca", 5, 10)];
-        let orders = [payment("1-ab", "ab", "A", "B", 5, 0, None, 0),
-            payment("2-ca", "ca", "C", "A", 5, 1, None, 0)];
-        let result = simulate_queue(&context(2), &accounts, &routes, &orders,
-            QueuePolicy::LiquidityAwareFifo).unwrap();
+        let orders = [
+            payment("1-ab", "ab", "A", "B", 5, 0, None, 0),
+            payment("2-ca", "ca", "C", "A", 5, 1, None, 0),
+        ];
+        let result = simulate_queue(
+            &context(2),
+            &accounts,
+            &routes,
+            &orders,
+            QueuePolicy::LiquidityAwareFifo,
+        )
+        .unwrap();
         assert_eq!(result.settled_count, 2);
         assert_eq!(result.settled_minor, 10);
-        assert_eq!(result.final_balances.iter().map(|a| a.balance_minor as u128).sum::<u128>(), 5);
+        assert_eq!(
+            result
+                .final_balances
+                .iter()
+                .map(|a| a.balance_minor as u128)
+                .sum::<u128>(),
+            5
+        );
     }
 
     #[test]
     fn strict_fifo_exposes_head_of_line_blocking() {
         let accounts = [account("A", 0), account("B", 0), account("C", 5)];
         let routes = [route("ab", 5, 10), route("ca", 5, 10)];
-        let orders = [payment("1-ab", "ab", "A", "B", 5, 0, None, 0),
-            payment("2-ca", "ca", "C", "A", 5, 1, None, 0)];
-        let result = simulate_queue(&context(2), &accounts, &routes, &orders,
-            QueuePolicy::StrictFifo).unwrap();
+        let orders = [
+            payment("1-ab", "ab", "A", "B", 5, 0, None, 0),
+            payment("2-ca", "ca", "C", "A", 5, 1, None, 0),
+        ];
+        let result = simulate_queue(
+            &context(2),
+            &accounts,
+            &routes,
+            &orders,
+            QueuePolicy::StrictFifo,
+        )
+        .unwrap();
         assert_eq!(result.settled_count, 0);
-        assert!(result.payments.iter().any(|p| matches!(p.state,
-            PaymentState::Unsettled { reason: BlockReason::HeadOfLineBlocked, .. })));
+        assert!(result.payments.iter().any(|p| matches!(
+            p.state,
+            PaymentState::Unsettled {
+                reason: BlockReason::HeadOfLineBlocked,
+                ..
+            }
+        )));
     }
 
     #[test]
     fn priority_scan_chooses_higher_priority_under_scarce_liquidity() {
         let accounts = [account("A", 6), account("B", 0), account("C", 0)];
         let routes = [route("ab", 10, 10), route("ac", 10, 10)];
-        let orders = [payment("low", "ab", "A", "B", 4, 0, None, 1),
-            payment("high", "ac", "A", "C", 6, 0, None, 9)];
-        let result = simulate_queue(&context(0), &accounts, &routes, &orders,
-            QueuePolicy::PriorityScan).unwrap();
+        let orders = [
+            payment("low", "ab", "A", "B", 4, 0, None, 1),
+            payment("high", "ac", "A", "C", 6, 0, None, 9),
+        ];
+        let result = simulate_queue(
+            &context(0),
+            &accounts,
+            &routes,
+            &orders,
+            QueuePolicy::PriorityScan,
+        )
+        .unwrap();
         assert_eq!(result.settled_minor, 6);
-        assert!(matches!(result.payments.iter().find(|p| p.payment_id == "high").unwrap().state,
-            PaymentState::Settled { .. }));
-        assert!(matches!(result.payments.iter().find(|p| p.payment_id == "low").unwrap().state,
-            PaymentState::Unsettled { reason: BlockReason::InsufficientLiquidity, .. }));
+        assert!(matches!(
+            result
+                .payments
+                .iter()
+                .find(|p| p.payment_id == "high")
+                .unwrap()
+                .state,
+            PaymentState::Settled { .. }
+        ));
+        assert!(matches!(
+            result
+                .payments
+                .iter()
+                .find(|p| p.payment_id == "low")
+                .unwrap()
+                .state,
+            PaymentState::Unsettled {
+                reason: BlockReason::InsufficientLiquidity,
+                ..
+            }
+        ));
     }
 
     #[test]
     fn route_recovers_at_half_open_outage_end() {
         let mut r = route("r", 10, 10);
-        r.outages = vec![TickWindow { start_tick: 0, end_tick: 2 }];
-        let result = simulate_queue(&context(3), &[account("A", 10), account("B", 0)], &[r],
+        r.outages = vec![TickWindow {
+            start_tick: 0,
+            end_tick: 2,
+        }];
+        let result = simulate_queue(
+            &context(3),
+            &[account("A", 10), account("B", 0)],
+            &[r],
             &[payment("p", "r", "A", "B", 4, 0, None, 0)],
-            QueuePolicy::LiquidityAwareFifo).unwrap();
-        assert!(matches!(result.payments[0].state,
-            PaymentState::Settled { tick: 2, .. }));
+            QueuePolicy::LiquidityAwareFifo,
+        )
+        .unwrap();
+        assert!(matches!(
+            result.payments[0].state,
+            PaymentState::Settled { tick: 2, .. }
+        ));
     }
 
     #[test]
     fn route_capacity_resets_at_window_boundary() {
-        let result = simulate_queue(&context(3),
+        let result = simulate_queue(
+            &context(3),
             &[account("A", 10), account("B", 0), account("C", 0)],
             &[route("r", 5, 3)],
-            &[payment("a", "r", "A", "B", 4, 0, None, 0),
-              payment("b", "r", "A", "C", 4, 0, None, 0)],
-            QueuePolicy::LiquidityAwareFifo).unwrap();
+            &[
+                payment("a", "r", "A", "B", 4, 0, None, 0),
+                payment("b", "r", "A", "C", 4, 0, None, 0),
+            ],
+            QueuePolicy::LiquidityAwareFifo,
+        )
+        .unwrap();
         assert_eq!(result.settled_minor, 8);
-        assert!(matches!(result.payments.iter().find(|p| p.payment_id == "b").unwrap().state,
-            PaymentState::Settled { tick: 3, .. }));
+        assert!(matches!(
+            result
+                .payments
+                .iter()
+                .find(|p| p.payment_id == "b")
+                .unwrap()
+                .state,
+            PaymentState::Settled { tick: 3, .. }
+        ));
     }
 
     #[test]
     fn profile_mismatches_and_unknown_routes_stay_excluded() {
         let mut wrong = payment("wrong", "r", "A", "B", 1, 0, None, 0);
         wrong.asset_id = "other".into();
-        let result = simulate_queue(&context(1), &[account("A", 3), account("B", 0)],
+        let result = simulate_queue(
+            &context(1),
+            &[account("A", 3), account("B", 0)],
             &[route("r", 3, 2)],
-            &[wrong, payment("unknown", "missing", "A", "B", 1, 0, None, 0)],
-            QueuePolicy::LiquidityAwareFifo).unwrap();
+            &[
+                wrong,
+                payment("unknown", "missing", "A", "B", 1, 0, None, 0),
+            ],
+            QueuePolicy::LiquidityAwareFifo,
+        )
+        .unwrap();
         assert_eq!(result.excluded_count, 2);
         assert_eq!(result.settled_count, 0);
     }
@@ -535,13 +746,19 @@ mod tests {
         let ctx = context(4);
         let accounts = [account("A", 5), account("B", 1), account("C", 0)];
         let routes = [route("ab", 5, 2), route("bc", 5, 2)];
-        let orders = [payment("p1", "ab", "A", "B", 4, 0, Some(1), 2),
+        let orders = [
+            payment("p1", "ab", "A", "B", 4, 0, Some(1), 2),
             payment("p2", "bc", "B", "C", 4, 1, Some(2), 3),
-            payment("p3", "ab", "A", "B", 2, 1, Some(3), 1)];
-        let first = simulate_queue(&ctx, &accounts, &routes, &orders, QueuePolicy::PriorityScan).unwrap();
-        let mut a = accounts.to_vec(); a.reverse();
-        let mut r = routes.to_vec(); r.reverse();
-        let mut p = orders.to_vec(); p.reverse();
+            payment("p3", "ab", "A", "B", 2, 1, Some(3), 1),
+        ];
+        let first =
+            simulate_queue(&ctx, &accounts, &routes, &orders, QueuePolicy::PriorityScan).unwrap();
+        let mut a = accounts.to_vec();
+        a.reverse();
+        let mut r = routes.to_vec();
+        r.reverse();
+        let mut p = orders.to_vec();
+        p.reverse();
         let second = simulate_queue(&ctx, &a, &r, &p, QueuePolicy::PriorityScan).unwrap();
         assert_eq!(first, second);
     }
