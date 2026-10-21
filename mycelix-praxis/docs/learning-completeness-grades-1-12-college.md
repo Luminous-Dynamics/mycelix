@@ -281,6 +281,8 @@ The active Rust audit now adds a first static scan over the lesson assets listed
 - **Access parity:** differences in learning, completion, and task success by language, disability/access needs, prior knowledge, device/connectivity, and learner context.
 - **Calibration:** whether confidence and mastery status correspond to observed performance, and whether the system abstains or escalates when evidence is insufficient.
 
+A first PedBench v1 specification and six **synthetic, not-yet-validated** seed cases are now checked in under [`benchmarks/pedbench-v1/`](../benchmarks/pedbench-v1/). A Rust unit test enforces case-ID uniqueness and required annotation fields. The seed labels are candidate reference judgments only: they explicitly require two independent educator reviews and cannot be reported as gold-standard labels or benchmark scores. The protocol borrows compatible dimensions from [MathTutorBench (EMNLP 2025)](https://aclanthology.org/2025.emnlp-main.11/) and the [BEA 2025 shared task](https://aclanthology.org/2025.bea-1.77/), while keeping learner-outcome testing separate.
+
 There is no single benchmark that can certify an entire curriculum or establish that an AI tutor is "better than SOTA." Use PISA/TIMSS for system-level context, curriculum standards for alignment, subject-specific item banks and authentic tasks for skill measurement, and preregistered trials for causal effectiveness. Keep these layers separate.
 
 ### 7.6 Proposed Praxis target ladder
