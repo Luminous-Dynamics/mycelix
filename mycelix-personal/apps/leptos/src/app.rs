@@ -13,9 +13,10 @@ use mycelix_leptos_core::consciousness::refresh_consciousness_from_conductor;
 use mycelix_leptos_core::{
     ActivityFeed, ActivityFeedItem, AppShell, AvailabilityState, AvailabilityStateKind,
     ConnectStrategy, EmptyState, FreshnessBadge, FreshnessLevel, HolochainProviderAuto,
-    HolochainProviderConfig, IdentityBootstrapGate, NavLink, NavTab, ToastContainer, ToastKind, init_consciousness_ui,
-    provide_consciousness_context, provide_homeostasis_context, provide_local_identity,
-    provide_theme_context, provide_thermodynamic_context, provide_toast_context, use_toasts,
+    HolochainProviderConfig, IdentityBootstrapGate, NavLink, NavTab, ToastContainer, ToastKind,
+    init_consciousness_ui, provide_consciousness_context, provide_homeostasis_context,
+    provide_local_identity, provide_theme_context, provide_thermodynamic_context,
+    provide_toast_context, use_toasts,
 };
 use personal_leptos_types::{ConsentGrantView, CredentialType, StoredCredentialView};
 
