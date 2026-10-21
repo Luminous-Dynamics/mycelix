@@ -187,6 +187,100 @@
           "value": []
         }
       ]
+    },
+    {
+      "case_id": "NRVCA-ECO-015-balanced-but-unbound-reconciliation-value",
+      "expected_disposition": "reject_semantic",
+      "invariant": "A numerically balanced equation cannot use an operand detached from the canonical report value it claims to represent.",
+      "patch": [
+        {
+          "op": "replace",
+          "path": "/reconciliations/1/operands/1/value",
+          "value": 81
+        },
+        {
+          "op": "replace",
+          "path": "/reconciliations/1/rhs",
+          "value": 246
+        },
+        {
+          "op": "replace",
+          "path": "/reconciliations/1/lhs",
+          "value": 246
+        },
+        {
+          "op": "replace",
+          "path": "/reconciliations/1/residual",
+          "value": 0
+        },
+        {
+          "op": "replace",
+          "path": "/stock_flow_accounts/0/closing_stock",
+          "value": 246
+        }
+      ]
+    },
+    {
+      "case_id": "NRVCA-ECO-016-stock-change-diverges-from-linked-event",
+      "expected_disposition": "reject_semantic",
+      "invariant": "A signed stock change linked to a financial event must match the event amount and event class.",
+      "patch": [
+        {
+          "op": "replace",
+          "path": "/stock_flow_accounts/0/changes/0/signed_change",
+          "value": 81
+        }
+      ]
+    },
+    {
+      "case_id": "NRVCA-ECO-017-stock-change-event-class-mismatch",
+      "expected_disposition": "reject_semantic",
+      "invariant": "A borrowing event cannot be reclassified as a principal repayment in the canonical stock-flow record.",
+      "patch": [
+        {
+          "op": "replace",
+          "path": "/stock_flow_accounts/0/changes/0/change_class",
+          "value": "principal_repayment"
+        }
+      ]
+    },
+    {
+      "case_id": "NRVCA-ECO-018-duplicate-stock-account-id",
+      "expected_disposition": "reject_semantic",
+      "invariant": "Each canonical stock-flow account identifier is unique.",
+      "patch": [
+        {
+          "op": "copy",
+          "from": "/stock_flow_accounts/0",
+          "path": "/stock_flow_accounts/-"
+        }
+      ]
+    },
+    {
+      "case_id": "NRVCA-ECO-019-lhs-binds-to-wrong-canonical-field",
+      "expected_disposition": "reject_semantic",
+      "invariant": "A reconciliation LHS pointer must identify the claimed left-hand value, not a different account.",
+      "patch": [
+        {
+          "op": "replace",
+          "path": "/reconciliations/1/lhs_pointer",
+          "value": "/stock_flow_accounts/1/closing_stock"
+        }
+      ]
+    },
+    {
+      "case_id": "NRVCA-ECO-020-unresolved-stock-change-provenance",
+      "expected_disposition": "reject_semantic",
+      "invariant": "A stock-flow change may not reference an absent source artifact.",
+      "patch": [
+        {
+          "op": "replace",
+          "path": "/stock_flow_accounts/1/changes/0/source_refs",
+          "value": [
+            "source-does-not-exist"
+          ]
+        }
+      ]
     }
   ]
 }
