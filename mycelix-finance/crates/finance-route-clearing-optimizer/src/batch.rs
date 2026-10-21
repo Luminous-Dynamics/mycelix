@@ -495,7 +495,13 @@ mod tests {
         }
     }
 
-    fn route(id: &str, capacity: u64, available: bool, fixed_fee: u64, variable_fee: u64) -> BatchRoute {
+    fn route(
+        id: &str,
+        capacity: u64,
+        available: bool,
+        fixed_fee: u64,
+        variable_fee: u64,
+    ) -> BatchRoute {
         BatchRoute {
             route_id: id.into(),
             rail_id: "synthetic-rtgs".into(),
