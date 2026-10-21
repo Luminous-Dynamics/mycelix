@@ -96,28 +96,13 @@ pub enum ReorderError {
     DuplicatePaymentId(String),
     ZeroAmount(String),
     SelfPayment(String),
-    InvalidParticipantIndex {
-        payment_id: String,
-        index: usize,
-    },
-    InvalidOrderLength {
-        expected: usize,
-        observed: usize,
-    },
+    InvalidParticipantIndex { payment_id: String, index: usize },
+    InvalidOrderLength { expected: usize, observed: usize },
     InvalidPaymentIndex(usize),
     DuplicatePaymentIndex(usize),
-    TooManyParticipants {
-        observed: usize,
-        maximum: usize,
-    },
-    TooManyPayments {
-        observed: usize,
-        maximum: usize,
-    },
-    ExactOracleLimit {
-        observed: usize,
-        maximum: usize,
-    },
+    TooManyParticipants { observed: usize, maximum: usize },
+    TooManyPayments { observed: usize, maximum: usize },
+    ExactOracleLimit { observed: usize, maximum: usize },
     ArithmeticOverflow,
 }
 
@@ -301,16 +286,14 @@ pub fn receiver_ready_greedy(problem: &Problem) -> Result<SearchResult, ReorderE
                 .checked_sub(amount)
                 .ok_or(ReorderError::ArithmeticOverflow)?;
             let required_after = required[payment.from].max(deficit(post_debit));
-            let incremental_prefunding =
-                required_after.saturating_sub(required[payment.from]);
+            let incremental_prefunding = required_after.saturating_sub(required[payment.from]);
             let unlock_value = (payment.amount_minor as u128).min(outstanding[payment.to]);
 
             let replace = match best {
                 None => true,
                 Some((best_index, best_increment, best_unlock)) => {
                     incremental_prefunding < best_increment
-                        || (incremental_prefunding == best_increment
-                            && unlock_value > best_unlock)
+                        || (incremental_prefunding == best_increment && unlock_value > best_unlock)
                         || (incremental_prefunding == best_increment
                             && unlock_value == best_unlock
                             && payment.id < problem.payments[best_index].id)
@@ -321,7 +304,9 @@ pub fn receiver_ready_greedy(problem: &Problem) -> Result<SearchResult, ReorderE
             }
         }
 
-        let index = best.map(|entry| entry.0).ok_or(ReorderError::ArithmeticOverflow)?;
+        let index = best
+            .map(|entry| entry.0)
+            .ok_or(ReorderError::ArithmeticOverflow)?;
         let payment = &problem.payments[index];
         let amount = i128::from(payment.amount_minor);
         balances[payment.from] = balances[payment.from]
@@ -470,9 +455,8 @@ pub fn simulated_annealing(
         });
     }
 
-    let mut temperature = ((current_evaluation.aggregate_required_initial_liquidity_minor as f64)
-        * 0.05)
-        .max(1.0);
+    let mut temperature =
+        ((current_evaluation.aggregate_required_initial_liquidity_minor as f64) * 0.05).max(1.0);
     let cooling = 0.01_f64.powf(1.0 / iterations as f64);
 
     for _ in 0..iterations {
