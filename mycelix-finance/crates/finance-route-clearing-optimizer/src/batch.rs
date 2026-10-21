@@ -373,8 +373,7 @@ fn best_feasible_mask(
             let adding = mask & changed != 0;
             let (from, to, route, amount, fee) = indexed[index];
 
-            let from_was_overdrawn =
-                outgoing[from] > starting_balances[from] + incoming[from];
+            let from_was_overdrawn = outgoing[from] > starting_balances[from] + incoming[from];
             let to_was_overdrawn = outgoing[to] > starting_balances[to] + incoming[to];
             let route_was_over_capacity = route_used[route] > route_limits[route];
 
@@ -447,9 +446,7 @@ fn best_feasible_mask(
         };
         let better = gross_minor > best_gross
             || (gross_minor == best_gross && fee_units < best_fee)
-            || (gross_minor == best_gross
-                && fee_units == best_fee
-                && payment_count > best_count)
+            || (gross_minor == best_gross && fee_units == best_fee && payment_count > best_count)
             || (gross_minor == best_gross
                 && fee_units == best_fee
                 && payment_count == best_count
