@@ -703,20 +703,26 @@ mod tests {
     fn future_payments_are_deferred_and_profile_mismatches_are_retained() {
         let mut future = payment("future", "ab", "A", "B", 1);
         future.arrival_tick = 2;
-        let mut wrong = payment("wrong-profile", "ab", "A", "B", 1);
-        wrong.asset_id = "other-asset".into();
+        let mut wrong_asset = payment("wrong-asset", "ab", "A", "B", 1);
+        wrong_asset.asset_id = "other-asset".into();
+        let mut wrong_set = payment("wrong-set", "ab", "A", "B", 1);
+        wrong_set.netting_set_id = "other-set".into();
         let plan = select_atomic_batch(
             &context(0),
             &[account("A", 3), account("B", 0)],
             &[route("ab", 3, true, 0, 0)],
-            &[future, wrong],
+            &[future, wrong_asset, wrong_set],
         )
         .unwrap();
 
         assert_eq!(plan.deferred_payment_ids, vec!["future"]);
-        assert_eq!(plan.excluded_payments.len(), 1);
+        assert_eq!(plan.excluded_payments.len(), 2);
         assert_eq!(
             plan.excluded_payments[0].reason,
+            BatchExclusionReason::PaymentProfileMismatch
+        );
+        assert_eq!(
+            plan.excluded_payments[1].reason,
             BatchExclusionReason::PaymentProfileMismatch
         );
     }
