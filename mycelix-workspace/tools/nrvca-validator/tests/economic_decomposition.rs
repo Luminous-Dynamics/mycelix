@@ -192,6 +192,37 @@ fn shadow_price_sensitivity_changes_valuation_not_physical_measurement() {
 }
 
 #[test]
+fn transfer_scale_metamorphism_preserves_zero_consolidated_net() {
+    let mut root = fixture();
+    root["aggregation_policy"]["universal_scalar_produced"] = serde_json::json!(false);
+    root["aggregation_policy"]["cross_unit_addition_permitted"] = serde_json::json!(false);
+
+    let transfer = root["cases"]
+        .as_array_mut()
+        .unwrap()
+        .iter_mut()
+        .find(|case| case["case_id"].as_str() == Some("pure-domestic-transfer"))
+        .unwrap();
+    let scale = 1_000_000.0;
+    transfer["amount"] = serde_json::json!(number(&transfer["amount"]) * scale);
+    for entry in transfer["counterparty_entries"].as_array_mut().unwrap() {
+        entry["signed_amount"] = serde_json::json!(number(&entry["signed_amount"]) * scale);
+    }
+
+    let net: f64 = transfer["counterparty_entries"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|entry| number(&entry["signed_amount"]))
+        .sum();
+    close(net, 0.0);
+    assert_eq!(root["aggregation_policy"]["universal_scalar_produced"], false);
+    assert_eq!(root["aggregation_policy"]["cross_unit_addition_permitted"], false);
+    // A larger distributional flow does not create a resource-loss estimate.
+    assert!(transfer["expected"]["deadweight_loss"].is_null());
+}
+
+#[test]
 fn public_service_without_a_price_remains_unknown_not_zero() {
     let root = fixture();
     let case = case_by_id(&root, "public-service-without-market-price");
