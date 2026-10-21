@@ -144,7 +144,7 @@ where
         return Err(format!("{} returned inconsistent metrics", algorithm).into());
     }
 
-    let gap = if let Some(optimum) = exact {
+    let (aggregate_gap, max_participant_gap) = if let Some(optimum) = exact {
         let score = &result.evaluation;
         let best = &optimum.evaluation;
         if score.aggregate_required_initial_liquidity_minor
@@ -156,19 +156,21 @@ where
         {
             return Err(format!("{} beat exact oracle unexpectedly", algorithm).into());
         }
-        score
+        let aggregate_gap = score
             .aggregate_required_initial_liquidity_minor
             .checked_sub(best.aggregate_required_initial_liquidity_minor)
             .ok_or_else(|| {
-                std::io::Error::new(std::io::ErrorKind::InvalidData, "objective gap underflow")
-            })?
-            .to_string()
+                std::io::Error::new(std::io::ErrorKind::InvalidData, "aggregate gap underflow")
+            })?;
+        let max_gap = (score.max_participant_required_initial_liquidity_minor as i128)
+            - (best.max_participant_required_initial_liquidity_minor as i128);
+        (aggregate_gap.to_string(), max_gap.to_string())
     } else {
-        String::new()
+        (String::new(), String::new())
     };
 
     println!(
-        "{},{},{},{},{},{},{},{},{},{},{},{}",
+        "{},{},{},{},{},{},{},{},{},{},{},{},{}",
         problem.payments().len(),
         problem.participant_count(),
         scenario.label(),
@@ -180,7 +182,8 @@ where
         result
             .evaluation
             .max_participant_required_initial_liquidity_minor,
-        gap,
+        aggregate_gap,
+        max_participant_gap,
         percentile(&samples, 50),
         percentile(&samples, 95),
         percentile(&samples, 99)
@@ -189,7 +192,7 @@ where
 }
 
 fn main() -> Result<(), Box<dyn Error>> {
-    println!("payments,participants,scenario,algorithm,seed,candidate_evaluations,aggregate_required_initial_liquidity_minor,max_participant_required_initial_liquidity_minor,optimality_gap_minor,p50_ns,p95_ns,p99_ns");
+    println!("payments,participants,scenario,algorithm,seed,candidate_evaluations,aggregate_required_initial_liquidity_minor,max_participant_required_initial_liquidity_minor,aggregate_liquidity_gap_minor,max_participant_gap_minor,p50_ns,p95_ns,p99_ns");
 
     for payment_count in [4, 6, 8, 10, 30, 70, 140, 700] {
         for scenario in Scenario::ALL {
