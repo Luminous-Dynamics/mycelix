@@ -225,7 +225,9 @@ fn all_queue_policies_stay_within_the_exact_oracle_on_64_small_traces() {
             QueuePolicy::StrictFifo,
             QueuePolicy::LiquidityAwareFifo,
             QueuePolicy::PriorityScan,
-            QueuePolicy::AgingPriorityScan,
+            QueuePolicy::AgingPriorityScan { interval_ticks: 1 },
+            QueuePolicy::AgingPriorityScan { interval_ticks: 5 },
+            QueuePolicy::AgingPriorityScan { interval_ticks: 20 },
             QueuePolicy::EarliestDeadlineFirst,
         ] {
             let result = simulate_queue(&context(), &accounts, &routes, &payments, policy).unwrap();
