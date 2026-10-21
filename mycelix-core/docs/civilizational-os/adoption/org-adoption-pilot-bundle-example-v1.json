@@ -19,7 +19,7 @@
       "implementation_id": "manual-reference-normalizer",
       "version": "fixture-v1",
       "implementation_sha256": "2222222222222222222222222222222222222222222222222222222222222222",
-      "input_manifest_sha256": "b117d34fb5b5a976866ce441d6e89abaa696e6b4906f3415a8b7baf01cd5303b",
+      "input_manifest_sha256": "6968898a0f15b6c711cf2dde82675e6b6da7b320f2157fa1c641f40f8529e619",
       "resource_budget_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
       "authority_budget_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
     },
@@ -27,7 +27,7 @@
       "implementation_id": "mycelix-loss-aware-event-projection",
       "version": "fixture-v1",
       "implementation_sha256": "3333333333333333333333333333333333333333333333333333333333333333",
-      "input_manifest_sha256": "b117d34fb5b5a976866ce441d6e89abaa696e6b4906f3415a8b7baf01cd5303b",
+      "input_manifest_sha256": "6968898a0f15b6c711cf2dde82675e6b6da7b320f2157fa1c641f40f8529e619",
       "resource_budget_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
       "authority_budget_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
     },
@@ -44,7 +44,7 @@
         "source_id": "synthetic-fixture:gs1-epcis-shaped",
         "source_kind": "synthetic_fixture",
         "source_revision": "fixture-v1",
-        "content_sha256": "1111111111111111111111111111111111111111111111111111111111111111",
+        "content_sha256": "b51d7901046c07c9a0b9e173069ca65651e84ca24309cf7e5fb57da5645191cc",
         "rights_disposition": "synthetic_no_external_rights_required",
         "record_ids": [
           "evt-scan-001",
@@ -96,7 +96,7 @@
         "disposition": "accepted_by_receiver"
       }
     ],
-    "manifest_sha256": "b117d34fb5b5a976866ce441d6e89abaa696e6b4906f3415a8b7baf01cd5303b"
+    "manifest_sha256": "6968898a0f15b6c711cf2dde82675e6b6da7b320f2157fa1c641f40f8529e619"
   },
   "evidence_claims": [
     {
@@ -196,8 +196,8 @@
   ],
   "export_test": {
     "performed": true,
-    "expected_sha256": "b117d34fb5b5a976866ce441d6e89abaa696e6b4906f3415a8b7baf01cd5303b",
-    "observed_sha256": "b117d34fb5b5a976866ce441d6e89abaa696e6b4906f3415a8b7baf01cd5303b",
+    "expected_sha256": "6968898a0f15b6c711cf2dde82675e6b6da7b320f2157fa1c641f40f8529e619",
+    "observed_sha256": "6968898a0f15b6c711cf2dde82675e6b6da7b320f2157fa1c641f40f8529e619",
     "round_trip_matches": true
   },
   "rollback_test": {
@@ -208,7 +208,7 @@
   "result": {
     "disposition": "ReferenceFixtureConforms",
     "evaluator_id": "verify-org-adoption-pilot-bundle.cjs",
-    "evaluator_sha256": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+    "evaluator_sha256": "62fe513b145f1f87d2ca554dbd62d4c9799ab3eca054b9853803de33214cec42",
     "bundle_scope": "synthetic_reference_fixture_only"
   }
 }
