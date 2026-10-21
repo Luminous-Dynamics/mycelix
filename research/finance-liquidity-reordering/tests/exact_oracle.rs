@@ -95,17 +95,10 @@ fn independent_oracle(problem: &Problem) -> (Vec<usize>, Evaluation) {
     ) {
         if prefix.len() == problem.payments().len() {
             let score = independent_measure(problem, prefix);
-            let replace = best
-                .as_ref()
-                .is_none_or(|(best_order, best_score)| {
-                    compare_order_and_score(
-                        problem,
-                        prefix,
-                        &score,
-                        best_order,
-                        best_score,
-                    ) == Ordering::Less
-                });
+            let replace = best.as_ref().is_none_or(|(best_order, best_score)| {
+                compare_order_and_score(problem, prefix, &score, best_order, best_score)
+                    == Ordering::Less
+            });
             if replace {
                 *best = Some((prefix.clone(), score));
             }
@@ -140,9 +133,20 @@ fn reversed_chain_is_expensive_and_credit_unlock_order_is_cheaper() {
     let fifo = input_order(&problem).unwrap();
     let greedy = receiver_ready_greedy(&problem).unwrap();
 
-    assert_eq!(fifo.evaluation.aggregate_required_initial_liquidity_minor, 60);
-    assert_eq!(greedy.evaluation.aggregate_required_initial_liquidity_minor, 10);
-    assert_eq!(greedy.evaluation.max_participant_required_initial_liquidity_minor, 10);
+    assert_eq!(
+        fifo.evaluation.aggregate_required_initial_liquidity_minor,
+        60
+    );
+    assert_eq!(
+        greedy.evaluation.aggregate_required_initial_liquidity_minor,
+        10
+    );
+    assert_eq!(
+        greedy
+            .evaluation
+            .max_participant_required_initial_liquidity_minor,
+        10
+    );
     assert_eq!(
         order_ids(&problem, &greedy.order),
         vec!["p00", "p01", "p02", "p03", "p04", "p05"]
@@ -234,7 +238,13 @@ fn all_heuristics_are_feasible_and_never_beat_the_exact_oracle() {
             );
         }
         assert_eq!(
-            simulated_annealing(&problem, &input_order(&problem).unwrap().order, seed as u64 + 1, 500).unwrap(),
+            simulated_annealing(
+                &problem,
+                &input_order(&problem).unwrap().order,
+                seed as u64 + 1,
+                500
+            )
+            .unwrap(),
             annealed,
             "seeded annealing must be reproducible for seed={seed}"
         );
@@ -275,6 +285,9 @@ fn exact_oracle_refuses_batches_above_its_declared_limit() {
     let p = chain_problem(9, false);
     assert!(matches!(
         exact_permutation_oracle(&p),
-        Err(ReorderError::ExactOracleLimit { observed: 9, maximum: 8 })
+        Err(ReorderError::ExactOracleLimit {
+            observed: 9,
+            maximum: 8
+        })
     ));
 }
