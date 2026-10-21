@@ -9,4 +9,5 @@ description = "Deterministic, read-only audit of Mycelix Praxis curriculum cover
 
 [dependencies]
 serde.workspace = true
+blake3.workspace = true
 serde_json.workspace = true
