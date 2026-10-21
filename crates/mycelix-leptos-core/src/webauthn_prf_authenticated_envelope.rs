@@ -197,6 +197,7 @@ pub async fn decrypt_seed_with_prf(
     seed_bytes.copy_from_slice(&plaintext);
     plaintext.zeroize();
     let seed = Zeroizing::new(seed_bytes);
+    seed_bytes.zeroize();
     if !seed_matches_public_key(&seed, expected_context.identity_public_key) {
         return Err(PrfEnvelopeAeadError::IdentityPublicKeyMismatch);
     }
@@ -311,29 +312,30 @@ async fn import_non_extractable_aes_key(
     key: &PrfEnvelopeKey,
 ) -> Result<CryptoKey, PrfEnvelopeAeadError> {
     let subtle = subtle()?;
-    let raw_key = Uint8Array::from(key.expose_for_crypto_import().as_slice());
+    let raw_key = ZeroizingJsUint8Array(Uint8Array::from(
+        key.expose_for_crypto_import().as_slice(),
+    ));
     let usages = js_sys::Array::of2(
         &JsValue::from_str("encrypt"),
         &JsValue::from_str("decrypt"),
     );
-    let import_promise = match subtle.import_key_with_str(
-        "raw",
-        &raw_key,
-        "AES-GCM",
-        false,
-        &usages,
-    ) {
-        Ok(promise) => promise,
-        Err(_) => {
-            raw_key.fill(0);
-            return Err(PrfEnvelopeAeadError::KeyImportFailed);
-        }
-    };
-    let imported = JsFuture::from(import_promise).await;
-    // Best-effort clearing of the JavaScript typed-array copy after import.
-    raw_key.fill(0);
-    let imported = imported.map_err(|_| PrfEnvelopeAeadError::KeyImportFailed)?;
+    let import_promise = subtle
+        .import_key_with_str("raw", &raw_key.0, "AES-GCM", false, &usages)
+        .map_err(|_| PrfEnvelopeAeadError::KeyImportFailed)?;
+    // The guard clears the JavaScript typed-array copy when this function
+    // returns or is cancelled while awaiting the import promise.
+    let imported = JsFuture::from(import_promise)
+        .await
+        .map_err(|_| PrfEnvelopeAeadError::KeyImportFailed)?;
     Ok(imported.unchecked_into())
+}
+
+struct ZeroizingJsUint8Array(Uint8Array);
+
+impl Drop for ZeroizingJsUint8Array {
+    fn drop(&mut self) {
+        self.0.fill(0);
+    }
 }
 
 fn base64_encode(bytes: &[u8]) -> String {
