@@ -1493,6 +1493,10 @@ fn markdown(report: &AuditReport) -> String {
         report.content_assets_with_quality_findings
     ));
     out.push_str(&format!(
+        "| Assets with exact-byte BLAKE3 digests | {} |\n",
+        report.content_asset_summaries.len()
+    ));
+    out.push_str(&format!(
         "| Static quality findings | {} |\n\n",
         report.content_quality_findings.len()
     ));
@@ -1552,6 +1556,40 @@ fn markdown(report: &AuditReport) -> String {
             out.push_str(&format!(
                 "\n{} additional IDs without a source graph match are included in the JSON report.\n",
                 report.orphan_manifest_ids_without_source_graph.len() - 40
+            ));
+        }
+    }
+
+    if !report.content_asset_summaries.is_empty() {
+        out.push_str("\n## Asset digests for review binding\n\n");
+        out.push_str(
+            "Each digest is BLAKE3 over the exact UTF-8 bytes of the checked-in asset, not normalized or regenerated JSON. Use the JSON report for all asset digests; this Markdown view shows up to 40 assets with findings.\n\n",
+        );
+        out.push_str("| Lesson ID | Asset path | BLAKE3 | Blockers | Warnings |\n|---|---|---|---:|---:|\n");
+        for asset in report
+            .content_asset_summaries
+            .iter()
+            .filter(|asset| asset.finding_count > 0)
+            .take(40)
+        {
+            out.push_str(&format!(
+                "| {} | {} | {} | {} | {} |\n",
+                asset.lesson_id,
+                asset.asset_path,
+                asset.lesson_digest_blake3,
+                asset.blocker_count,
+                asset.warning_count
+            ));
+        }
+        let flagged_assets = report
+            .content_asset_summaries
+            .iter()
+            .filter(|asset| asset.finding_count > 0)
+            .count();
+        if flagged_assets > 40 {
+            out.push_str(&format!(
+                "\n{} additional flagged asset digest rows are included in the JSON report.\n",
+                flagged_assets - 40
             ));
         }
     }
