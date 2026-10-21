@@ -40,6 +40,14 @@ The profile is defined by [`landscape-stewardship-profile-v0.schema.json`](../sc
 
 It includes record types for project-version review, scenario review, field observation, stewardship commitment, consent change and decision withdrawal. Conditional rules require scenario references for scenario reviews, observations for field-observation records, acceptance references for accepted maintenance commitments, and explicit authorization for public publication. Sensitive coordinates are not embedded in the profile; access policy records whether coordinate disclosure is none, coarse or exact.
 
+### Runtime safety gate (policy invariants only)
+
+The core module `mycelix-desci/src/core/src/landscape_stewardship.rs` adds `validate_profile_safety_gate`. Call it after full JSON Schema validation and before creating a Mycelix event. It independently checks the highest-consequence rules at the application boundary: exact Sol-Atlas schema/digest/frame declaration, public publication consent and authority reference, no exact public coordinates or structured coordinate keys, no promotion of synthetic benchmarks to observed evidence, scenario-review purpose restrictions, required acceptance references for accepted maintenance commitments, and withdrawal visibility.
+
+The public example fixture uses deliberately fake digest and authority-reference sentinels and is **not** a resolvable, signed or legally meaningful record. The tests exercise policy rejection paths only.
+
+This safety gate is not a full JSON Schema implementation and does not verify signatures, event-chain integrity, actual source bytes behind hashes, land ownership, whether consent records are authentic, or scientific truth. Those remain responsibilities of the existing schema validator, signed-event API, authority/consent system and independent evidence process.
+
 ### Privacy and authority defaults
 
 - Producers must default visibility to `private`; changing it to `public` requires both publication consent and a publication authority reference.
@@ -55,6 +63,10 @@ Allowed evidence classes are observed, curated, synthetic, modelled, assumed and
 The current Symtropy v0 contract only qualifies schema inputs and synthetic benchmarks for the Sol-Atlas schematic coordinate frame. That cannot be represented as verified hydrology, shade, habitat, accessibility, ecological benefit or construction compliance. A scenario-review profile references the exact manifest/result digest and keeps its declared evidence class.
 
 Maintenance commitments are promises with a responsible-party reference, cadence, trigger, review date and status. Status `accepted` requires an acceptance reference; it does not prove the maintenance task was carried out or that the landscape outcome succeeded. Track later observed completion separately.
+
+## Executable contract tests
+
+The path-filtered workflow [landscape-stewardship.yml](../../.github/workflows/landscape-stewardship.yml) checks JSON syntax, Rust formatting and the core policy-gate tests for draft PRs as well as ready PRs. It intentionally does not claim that the profile is persisted through the signed event API yet.
 
 ## Acceptance gates for runtime integration
 
