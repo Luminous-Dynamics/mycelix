@@ -20,6 +20,20 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  format:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: mycelix-praxis
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt
+      - name: Check Rust formatting
+        run: cargo fmt -p praxis-curriculum-audit -- --check
+
   audit:
     runs-on: ubuntu-latest
     timeout-minutes: 20
@@ -30,12 +44,10 @@ jobs:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
         with:
-          components: rustfmt, clippy
+          components: clippy
       - uses: Swatinem/rust-cache@v2
         with:
           workspaces: mycelix-praxis
-      - name: Check Rust formatting
-        run: cargo fmt -p praxis-curriculum-audit -- --check
       - name: Test coverage auditor
         run: cargo test -p praxis-curriculum-audit --lib
       - name: Lint coverage auditor
