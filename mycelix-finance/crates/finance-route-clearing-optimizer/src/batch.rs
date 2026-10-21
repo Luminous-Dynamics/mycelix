@@ -208,12 +208,16 @@ fn evaluate_subset(
         let payment = &candidate.payment;
         let amount = payment.amount_minor as u128;
         let sent = outgoing.entry(payment.from.clone()).or_default();
-        *sent = sent.checked_add(amount).ok_or(BatchError::ArithmeticOverflow)?;
+        *sent = sent
+            .checked_add(amount)
+            .ok_or(BatchError::ArithmeticOverflow)?;
         let received = incoming.entry(payment.to.clone()).or_default();
         *received = received
             .checked_add(amount)
             .ok_or(BatchError::ArithmeticOverflow)?;
-        let capacity = route_used.entry(candidate.route.route_id.clone()).or_default();
+        let capacity = route_used
+            .entry(candidate.route.route_id.clone())
+            .or_default();
         *capacity = capacity
             .checked_add(amount)
             .ok_or(BatchError::ArithmeticOverflow)?;
@@ -371,8 +375,7 @@ pub fn select_atomic_batch(
             context,
         ) {
             Some(BatchExclusionReason::PaymentProfileMismatch)
-        } else if !account_map.contains_key(&payment.from)
-            || !account_map.contains_key(&payment.to)
+        } else if !account_map.contains_key(&payment.from) || !account_map.contains_key(&payment.to)
         {
             Some(BatchExclusionReason::UnknownParticipant)
         } else if let Some(route) = route_map.get(&payment.route_id) {
@@ -435,12 +438,14 @@ pub fn select_atomic_batch(
         .ok_or(BatchError::ArithmeticOverflow)?;
     let mut best: Option<FeasibleBatch> = None;
     for mask in 0..subset_count {
-        let Some(candidate) =
-            evaluate_subset(mask, &eligible, &account_map, &route_capacities)?
+        let Some(candidate) = evaluate_subset(mask, &eligible, &account_map, &route_capacities)?
         else {
             continue;
         };
-        if best.as_ref().is_none_or(|current| is_better(&candidate, current)) {
+        if best
+            .as_ref()
+            .is_none_or(|current| is_better(&candidate, current))
+        {
             best = Some(candidate);
         }
     }
@@ -584,7 +589,13 @@ mod tests {
 
         assert_eq!(plan.selected_payment_count, 3);
         assert_eq!(plan.selected_gross_minor, 15);
-        assert_eq!(plan.final_balances.iter().map(|a| a.balance_minor).sum::<u64>(), 0);
+        assert_eq!(
+            plan.final_balances
+                .iter()
+                .map(|a| a.balance_minor)
+                .sum::<u64>(),
+            0
+        );
         assert_eq!(plan.selected_payment_ids, vec!["p-ab", "p-bc", "p-ca"]);
         assert_eq!(plan.modeled_fee_units, 18);
         assert_eq!(plan.evaluated_subsets, 8);
@@ -736,10 +747,7 @@ mod tests {
         let plan = select_atomic_batch(
             &context(5),
             &[account("A", 5), account("B", 0), account("C", 0)],
-            &[
-                route("ab", 5, true, 0, 0),
-                route("ac", 5, true, 0, 0),
-            ],
+            &[route("ab", 5, true, 0, 0), route("ac", 5, true, 0, 0)],
             &[late, due_now],
         )
         .unwrap();
@@ -752,11 +760,7 @@ mod tests {
     #[test]
     fn atomic_batch_result_is_input_order_invariant() {
         let ctx = context(2);
-        let accounts = [
-            account("A", 4),
-            account("B", 1),
-            account("C", 2),
-        ];
+        let accounts = [account("A", 4), account("B", 1), account("C", 2)];
         let routes = [
             route("ab", 4, true, 1, 2),
             route("bc", 4, true, 1, 1),
