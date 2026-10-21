@@ -174,6 +174,23 @@ pub struct SearchResult {
     pub candidate_evaluations: usize,
 }
 
+/// One nondominated ordering under (aggregate required liquidity, maximum participant need).
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct ParetoPoint {
+    /// Indices into Problem::payments(), in execution order.
+    pub order: Vec<usize>,
+    pub evaluation: Evaluation,
+}
+
+/// Exact Pareto set for a tiny payment batch. Points are sorted by aggregate liquidity,
+/// then maximum participant requirement, then the payment-ID ordering.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct ParetoFrontier {
+    pub points: Vec<ParetoPoint>,
+    /// Number of valid precedence-respecting permutations scored exactly.
+    pub evaluated_orders: usize,
+}
+
 fn deficit(balance: i128) -> u128 {
     if balance < 0 {
         balance.unsigned_abs()
@@ -774,5 +791,113 @@ pub fn exact_permutation_oracle(problem: &Problem) -> Result<SearchResult, Reord
         order: best_order.unwrap_or_default(),
         evaluation: best_evaluation.ok_or(ReorderError::ArithmeticOverflow)?,
         candidate_evaluations: evaluations,
+    })
+}
+
+
+/// Compute the exact nondominated trade-off between aggregate initial liquidity and
+/// maximum single-participant initial liquidity. Unlike the lexicographic oracle, this
+/// preserves multiple nondominated options when one improves aggregate liquidity but
+/// worsens the largest participant requirement. It fails closed above eight payments.
+pub fn exact_pareto_frontier(problem: &Problem) -> Result<ParetoFrontier, ReorderError> {
+    let count = problem.payments.len();
+    if count > MAX_EXACT_ORACLE_PAYMENTS {
+        return Err(ReorderError::ExactOracleLimit {
+            observed: count,
+            maximum: MAX_EXACT_ORACLE_PAYMENTS,
+        });
+    }
+
+    fn visit(
+        problem: &Problem,
+        prefix: &mut Vec<usize>,
+        used: &mut [bool],
+        frontier: &mut Vec<ParetoPoint>,
+        evaluated_orders: &mut usize,
+    ) -> Result<(), ReorderError> {
+        if prefix.len() == problem.payments.len() {
+            let evaluation = evaluate_unchecked(problem, prefix)?;
+            *evaluated_orders = evaluated_orders
+                .checked_add(1)
+                .ok_or(ReorderError::ArithmeticOverflow)?;
+
+            let candidate_aggregate = evaluation.aggregate_required_initial_liquidity_minor;
+            let candidate_max = evaluation.max_participant_required_initial_liquidity_minor;
+            let candidate_is_redundant = frontier.iter().any(|point| {
+                let aggregate = point
+                    .evaluation
+                    .aggregate_required_initial_liquidity_minor;
+                let max_participant =
+                    point.evaluation.max_participant_required_initial_liquidity_minor;
+                let dominates = aggregate <= candidate_aggregate
+                    && max_participant <= candidate_max
+                    && (aggregate < candidate_aggregate || max_participant < candidate_max);
+                let equal_but_lexically_better = aggregate == candidate_aggregate
+                    && max_participant == candidate_max
+                    && order_ids_cmp(problem, &point.order, prefix) != Ordering::Greater;
+                dominates || equal_but_lexically_better
+            });
+            if candidate_is_redundant {
+                return Ok(());
+            }
+
+            frontier.retain(|point| {
+                let aggregate = point
+                    .evaluation
+                    .aggregate_required_initial_liquidity_minor;
+                let max_participant =
+                    point.evaluation.max_participant_required_initial_liquidity_minor;
+                let candidate_dominates = candidate_aggregate <= aggregate
+                    && candidate_max <= max_participant
+                    && (candidate_aggregate < aggregate || candidate_max < max_participant);
+                let equal_but_candidate_lexically_better = candidate_aggregate == aggregate
+                    && candidate_max == max_participant
+                    && order_ids_cmp(problem, prefix, &point.order) == Ordering::Less;
+                !(candidate_dominates || equal_but_candidate_lexically_better)
+            });
+            frontier.push(ParetoPoint {
+                order: prefix.clone(),
+                evaluation,
+            });
+            return Ok(());
+        }
+
+        for index in 0..problem.payments.len() {
+            if used[index] {
+                continue;
+            }
+            if problem
+                .precedence_constraints
+                .iter()
+                .any(|(before, after)| *after == index && !used[*before])
+            {
+                continue;
+            }
+            used[index] = true;
+            prefix.push(index);
+            visit(problem, prefix, used, frontier, evaluated_orders)?;
+            prefix.pop();
+            used[index] = false;
+        }
+        Ok(())
+    }
+
+    let mut points = Vec::new();
+    let mut evaluated_orders = 0_usize;
+    visit(
+        problem,
+        &mut Vec::with_capacity(count),
+        &mut vec![false; count],
+        &mut points,
+        &mut evaluated_orders,
+    )?;
+    points.sort_by(|a, b| {
+        objective_order(&a.evaluation, &b.evaluation)
+            .then_with(|| order_ids_cmp(problem, &a.order, &b.order))
+    });
+
+    Ok(ParetoFrontier {
+        points,
+        evaluated_orders,
     })
 }
