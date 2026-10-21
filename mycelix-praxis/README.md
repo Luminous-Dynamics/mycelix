@@ -119,6 +119,7 @@ mycelix-praxis/
 - **[Threat Model](docs/threat-model.md)**: Security threats and mitigations
 - **[Privacy Model](docs/privacy.md)**: Data handling, DP, selective disclosure
 - **[Curriculum and content contract](docs/content-contract.md)**: Graph and lesson integrity rules
+- **[Learning completeness: Grades 1–12 and college access](docs/learning-completeness-grades-1-12-college.md)**: Coverage model, instructional quality, efficacy benchmarks, accessibility, licensing, and delivery plan
 - **[Learning client contract](docs/learning-contract.md)**: Versioned browser/coordinator DTOs and privacy boundary
 - **[Live data lifecycle](docs/live-data-lifecycle.md)**: Reactive readiness, reconnect, and honest resource states
 - **[Governance](GOVERNANCE.md)**: Decision-making processes, roles, DAO alignment
