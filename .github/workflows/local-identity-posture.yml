@@ -63,6 +63,39 @@ jobs:
             echo "Expected source head $EXPECTED_SHA, checked out $actual" >&2
             exit 1
           fi
+      - name: Assert every identity app shell uses the shared gate before identity access
+        shell: bash
+        run: |
+          set -euo pipefail
+          for app in finance climate personal; do
+            case "$app" in
+              finance)
+                file="mycelix-finance/apps/leptos/src/app.rs"
+                ready="FinanceReadyApp"
+                ;;
+              climate)
+                file="mycelix-climate/apps/leptos/src/app.rs"
+                ready="ClimateReadyApp"
+                ;;
+              personal)
+                file="mycelix-personal/apps/leptos/src/app.rs"
+                ready="PersonalReadyApp"
+                ;;
+            esac
+            rg -q '<IdentityBootstrapGate>' "$file"
+            ready_line="$(grep -nF "fn ${ready}()" "$file" | cut -d: -f1)"
+            provider_line="$(grep -nF 'provide_local_identity();' "$file" | cut -d: -f1)"
+            count="$(grep -Fc 'provide_local_identity();' "$file")"
+            if [[ -z "$ready_line" || -z "$provider_line" || "$count" -ne 1 ]]; then
+              echo "Expected exactly one local identity provider inside ${ready} in $file" >&2
+              exit 1
+            fi
+            if (( provider_line <= ready_line )); then
+              echo "Identity provider is not inside ${ready} in $file" >&2
+              exit 1
+            fi
+            echo "$app identity provider gated at lines $provider_line / $ready_line"
+          done
       - name: Generate and fingerprint identity/app locks
         run: |
           cargo generate-lockfile --manifest-path crates/mycelix-leptos-core/Cargo.toml
@@ -79,7 +112,8 @@ jobs:
           rustfmt --edition 2024 --check \
             crates/mycelix-leptos-core/src/local_identity.rs \
             crates/mycelix-leptos-core/src/identity_crypto.rs \
-            crates/mycelix-leptos-core/src/identity_bootstrap.rs \
+            crates/mycelix-leptos-core/src/identity_bootstrap.rs
+          rustfmt --edition 2024 --check --config skip_children=true \
             crates/mycelix-leptos-core/src/lib.rs
           cargo fmt --manifest-path mycelix-personal/apps/leptos/Cargo.toml -- --check
           cargo fmt --manifest-path mycelix-finance/apps/leptos/Cargo.toml -- --check
