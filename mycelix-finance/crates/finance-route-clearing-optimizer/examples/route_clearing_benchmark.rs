@@ -4,6 +4,8 @@ use finance_route_clearing_optimizer::{
 };
 use std::time::Instant;
 
+const SAMPLE_COUNT: usize = 101;
+
 fn make_case(
     route_count: usize,
     scenario: &str,
@@ -24,7 +26,11 @@ fn make_case(
         positions.push(ParticipantNet {
             member_id: format!("D{i:04}"),
             net_minor: 1_000,
-            available_liquidity_minor: 1_000,
+            available_liquidity_minor: if scenario == "liquidity-stress" {
+                500
+            } else {
+                1_000
+            },
         });
     }
     for i in 0..side {
@@ -77,6 +83,7 @@ fn make_case(
         match scenario {
             "cyclic" => {}
             "capacity-stress" => route.capacity_minor = 500,
+            "liquidity-stress" => {},
             "route-outage" if source_index % 11 == 0 => route.enabled = false,
             "route-outage" => {}
             _ => panic!("unknown benchmark scenario"),
@@ -84,6 +91,24 @@ fn make_case(
     }
 
     (context, positions, routes)
+}
+
+fn residual_total(residuals: &[finance_route_clearing_optimizer::Residual]) -> u128 {
+    residuals.iter().map(|item| u128::from(item.amount_minor)).sum()
+}
+
+fn cost_per_allocated_minor(
+    plan: &finance_route_clearing_optimizer::AllocationPlan,
+) -> Option<f64> {
+    (plan.total_allocated_minor > 0).then_some(
+        plan.total_modeled_cost_units as f64 / plan.total_allocated_minor as f64,
+    )
+}
+
+fn metric(value: Option<f64>) -> String {
+    value
+        .map(|number| format!("{number:.6}"))
+        .unwrap_or_else(|| "NA".to_owned())
 }
 
 fn percentile(values: &[u128], p: usize) -> u128 {
@@ -95,10 +120,10 @@ fn percentile(values: &[u128], p: usize) -> u128 {
 
 fn main() {
     println!(
-        "scenario,route_arcs,participants,optimized_flow_minor,optimized_cost_units,greedy_flow_minor,greedy_cost_units,opt_p50_us,opt_p95_us,greedy_p50_us,greedy_p95_us"
+        "scenario,route_arcs,participants,optimized_flow_minor,optimized_cost_units,optimized_cost_per_minor,optimized_fully_allocatable,optimized_residual_debt_minor,optimized_residual_credit_minor,greedy_flow_minor,greedy_cost_units,greedy_cost_per_minor,greedy_fully_allocatable,greedy_residual_debt_minor,greedy_residual_credit_minor,flow_gap_minor,greedy_unit_cost_delta_pct,opt_p50_ns,opt_p95_ns,greedy_p50_ns,greedy_p95_ns"
     );
 
-    for scenario in ["cyclic", "capacity-stress", "route-outage"] {
+    for scenario in ["cyclic", "capacity-stress", "route-outage", "liquidity-stress"] {
         for route_count in [10_usize, 30, 70, 140, 700] {
             let (context, positions, routes) = make_case(route_count, scenario);
 
@@ -106,18 +131,18 @@ fn main() {
             optimize(&context, &positions, &routes).expect("optimizer warm-up failed");
             greedy_match(&context, &positions, &routes).expect("greedy warm-up failed");
 
-            let mut optimize_samples = Vec::with_capacity(25);
-            let mut greedy_samples = Vec::with_capacity(25);
+            let mut optimize_samples = Vec::with_capacity(SAMPLE_COUNT);
+            let mut greedy_samples = Vec::with_capacity(SAMPLE_COUNT);
 
-            for _ in 0..25 {
+            for _ in 0..SAMPLE_COUNT {
                 let start = Instant::now();
                 let _plan = optimize(&context, &positions, &routes).expect("optimizer failed");
-                optimize_samples.push(start.elapsed().as_micros());
+                optimize_samples.push(start.elapsed().as_nanos());
 
                 let start = Instant::now();
                 let _plan =
                     greedy_match(&context, &positions, &routes).expect("greedy baseline failed");
-                greedy_samples.push(start.elapsed().as_micros());
+                greedy_samples.push(start.elapsed().as_nanos());
             }
 
             let optimized_plan =
@@ -125,15 +150,36 @@ fn main() {
             let greedy_plan =
                 greedy_match(&context, &positions, &routes).expect("greedy final sample failed");
 
+            let optimized_cost_per_minor = cost_per_allocated_minor(&optimized_plan);
+            let greedy_cost_per_minor = cost_per_allocated_minor(&greedy_plan);
+            let greedy_unit_cost_delta_pct =
+                match (optimized_cost_per_minor, greedy_cost_per_minor) {
+                    (Some(optimal), Some(greedy)) if optimal > 0.0 => {
+                        Some((greedy / optimal - 1.0) * 100.0)
+                    }
+                    _ => None,
+                };
             println!(
-                "{},{},{},{},{},{},{},{},{},{},{}",
+                "{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{}",
                 scenario,
                 route_count,
                 positions.len(),
                 optimized_plan.total_allocated_minor,
                 optimized_plan.total_modeled_cost_units,
+                metric(optimized_cost_per_minor),
+                optimized_plan.fully_allocatable,
+                residual_total(&optimized_plan.residual_debtors),
+                residual_total(&optimized_plan.residual_creditors),
                 greedy_plan.total_allocated_minor,
                 greedy_plan.total_modeled_cost_units,
+                metric(greedy_cost_per_minor),
+                greedy_plan.fully_allocatable,
+                residual_total(&greedy_plan.residual_debtors),
+                residual_total(&greedy_plan.residual_creditors),
+                optimized_plan
+                    .total_allocated_minor
+                    .saturating_sub(greedy_plan.total_allocated_minor),
+                metric(greedy_unit_cost_delta_pct),
                 percentile(&optimize_samples, 50),
                 percentile(&optimize_samples, 95),
                 percentile(&greedy_samples, 50),
