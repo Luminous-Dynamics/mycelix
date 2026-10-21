@@ -136,6 +136,10 @@ Start by inventorying available Stats SA national accounts and natural-capital a
 
 Suggested first deliverable after this spec: a source-vintage catalogue and a pinned, low-dimensional water/energy synthetic-to-historical bridge. Keep the historical data pipeline read-only until data rights and statistical mapping are reviewed.
 
+## Preregistered benchmark contract
+
+The current design-only benchmark preregistration and three-track methodology are documented in [benchmark-protocol-v0.1.md](./benchmark-protocol-v0.1.md), with a typed preregistration schema at [nrvca-benchmark-preregistration-v0.1.schema.json](../../../schemas/nrvca-benchmark-preregistration-v0.1.schema.json) and the synthetic/design-only South African account-bridge record at [nrvca-sa-bridge-preregistration-v0.1.json](../../../fixtures/nrvca-sa-bridge-preregistration-v0.1.json). No empirical benchmark has been run by that preregistration. The thresholds are correctness/coverage acceptance rules, not a claim of superiority over current systems.
+
 ## South Africa source inventory
 
 The first source-discovery pass is recorded in [South Africa NRVCA Source Catalogue v0.1](./south-africa-source-catalogue-v0.1.md), with a machine-readable companion at [nrvca-sa-source-catalogue-v0.1.json](../../../fixtures/nrvca-sa-source-catalogue-v0.1.json). The inventory distinguishes official GDP statistics from experimental PEFA and sub-national water accounts, and labels DWS planning/monitoring pages as context or candidate evidence rather than claiming their data have already been ingested. All entries remain discovery-only; source bytes, licensing, hashes and transformations are not yet qualified.
