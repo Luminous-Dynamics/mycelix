@@ -194,6 +194,79 @@ fn fixed_charge_optimizer_matches_exhaustive_oracle_on_deterministic_small_graph
             "minimum total cost mismatch for fixed-charge graph seed={seed}"
         );
 
+        let flow_from_legs = actual
+            .allocation
+            .legs
+            .iter()
+            .map(|leg| u128::from(leg.amount_minor))
+            .sum::<u128>();
+        assert_eq!(
+            flow_from_legs,
+            actual.allocation.total_allocated_minor,
+            "leg amounts do not sum to reported flow for seed={seed}"
+        );
+
+        let variable_cost_from_legs = actual
+            .allocation
+            .legs
+            .iter()
+            .map(|leg| {
+                let route = routes
+                    .iter()
+                    .find(|route| route.route.route_id == leg.route_id)
+                    .expect("every allocated leg must reference a candidate route");
+                u128::from(leg.amount_minor) * u128::from(route.route.cost_units_per_minor)
+            })
+            .sum::<u128>();
+        assert_eq!(
+            variable_cost_from_legs,
+            actual.allocation.total_modeled_cost_units,
+            "variable-cost breakdown mismatch for seed={seed}"
+        );
+
+        let mut active_from_legs = actual
+            .allocation
+            .legs
+            .iter()
+            .filter(|leg| leg.amount_minor > 0)
+            .map(|leg| leg.route_id.clone())
+            .collect::<Vec<_>>();
+        active_from_legs.sort();
+        active_from_legs.dedup();
+        assert_eq!(
+            active_from_legs, actual.activated_route_ids,
+            "activation identity differs from positive-flow routes for seed={seed}"
+        );
+
+        let fixed_cost_from_active_routes = actual
+            .activated_route_ids
+            .iter()
+            .map(|route_id| {
+                u128::from(
+                    routes
+                        .iter()
+                        .find(|route| route.route.route_id == *route_id)
+                        .expect("every activated route must be a candidate")
+                        .activation_cost_units,
+                )
+            })
+            .sum::<u128>();
+        assert_eq!(
+            fixed_cost_from_active_routes,
+            actual.fixed_activation_cost_units,
+            "fixed activation cost breakdown mismatch for seed={seed}"
+        );
+        assert_eq!(
+            variable_cost_from_legs + fixed_cost_from_active_routes,
+            actual.total_cost_units,
+            "reported total cost does not equal variable plus fixed costs for seed={seed}"
+        );
+        assert_eq!(
+            actual.evaluated_subsets,
+            1_u64 << routes.len(),
+            "fixed-charge subset count mismatch for seed={seed}"
+        );
+
         let mut reversed = routes.clone();
         reversed.reverse();
         let reordered = optimize_fixed_charge(&context, &positions, &reversed)
