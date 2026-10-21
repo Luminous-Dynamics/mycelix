@@ -13,7 +13,7 @@ use mycelix_leptos_core::consciousness::refresh_consciousness_from_conductor;
 use mycelix_leptos_core::{
     ActivityFeed, ActivityFeedItem, AppShell, AvailabilityState, AvailabilityStateKind,
     ConnectStrategy, EmptyState, FreshnessBadge, FreshnessLevel, HolochainProviderAuto,
-    HolochainProviderConfig, NavLink, NavTab, ToastContainer, ToastKind, init_consciousness_ui,
+    HolochainProviderConfig, IdentityBootstrapGate, NavLink, NavTab, ToastContainer, ToastKind, init_consciousness_ui,
     provide_consciousness_context, provide_homeostasis_context, provide_local_identity,
     provide_theme_context, provide_thermodynamic_context, provide_toast_context, use_toasts,
 };
@@ -74,6 +74,15 @@ pub fn App() -> impl IntoView {
 
 #[component]
 fn AppInner() -> impl IntoView {
+    view! {
+        <IdentityBootstrapGate>
+            <PersonalReadyApp />
+        </IdentityBootstrapGate>
+    }
+}
+
+#[component]
+fn PersonalReadyApp() -> impl IntoView {
     provide_theme_context("personal-theme", PersonalTheme::Vault);
     provide_thermodynamic_context();
     let consciousness = provide_consciousness_context();
