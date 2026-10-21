@@ -1,0 +1,254 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/Luminous-Dynamics/mycelix/blob/main/mycelix-core/docs/civilizational-os/adoption/gs1-epcis-mapping-fixture-v1.schema.json",
+  "title": "Mycelix GS1 EPCIS/CBV version-pinned mapping fixture v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "fixture_id",
+    "evaluation_state",
+    "data_classification",
+    "claim_ceiling",
+    "standard_bindings",
+    "events",
+    "projection_policy_id",
+    "mappings",
+    "nonclaims"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "1.0.0"
+    },
+    "fixture_id": {
+      "type": "string",
+      "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+    },
+    "evaluation_state": {
+      "const": "contract_fixture_only"
+    },
+    "data_classification": {
+      "const": "synthetic"
+    },
+    "claim_ceiling": {
+      "const": "PinnedStandardMappingOnly"
+    },
+    "standard_bindings": {
+      "type": "array",
+      "minItems": 2,
+      "maxItems": 2,
+      "items": {
+        "$ref": "#/$defs/standardBinding"
+      }
+    },
+    "events": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 5000,
+      "items": {
+        "$ref": "#/$defs/objectEvent"
+      }
+    },
+    "projection_policy_id": {
+      "const": "mycelix-epcis-loss-aware-v1"
+    },
+    "mappings": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 5000,
+      "items": {
+        "$ref": "#/$defs/eventMapping"
+      }
+    },
+    "nonclaims": {
+      "type": "array",
+      "minItems": 3,
+      "maxItems": 20,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "minLength": 10,
+        "maxLength": 500
+      }
+    }
+  },
+  "$defs": {
+    "sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "standardBinding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "standard_id",
+        "version",
+        "source_snapshot_manifest_path",
+        "source_snapshot_manifest_sha256"
+      ],
+      "properties": {
+        "standard_id": {
+          "enum": [
+            "GS1-EPCIS",
+            "GS1-CBV"
+          ]
+        },
+        "version": {
+          "type": "string",
+          "minLength": 3,
+          "maxLength": 32
+        },
+        "source_snapshot_manifest_path": {
+          "const": "source-snapshots/gs1-epcis-cbv-v1.json"
+        },
+        "source_snapshot_manifest_sha256": {
+          "const": "46989ab0535265a2603e6ca146c074c6ece0b50d19fe872dcb1328d61795a1a1"
+        }
+      }
+    },
+    "epc": {
+      "type": "string",
+      "pattern": "^urn:epc:id:sgtin:[0-9.]+$",
+      "minLength": 20,
+      "maxLength": 160
+    },
+    "location": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^urn:epc:id:sgln:[0-9.]+$",
+          "minLength": 20,
+          "maxLength": 180
+        }
+      }
+    },
+    "objectEvent": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "eventID",
+        "type",
+        "eventTime",
+        "eventTimeZoneOffset",
+        "epcList",
+        "action",
+        "bizStep",
+        "disposition",
+        "readPoint",
+        "bizLocation"
+      ],
+      "properties": {
+        "eventID": {
+          "type": "string",
+          "pattern": "^urn:uuid:[0-9a-fA-F-]{36}$"
+        },
+        "type": {
+          "const": "ObjectEvent"
+        },
+        "eventTime": {
+          "type": "string",
+          "format": "date-time",
+          "pattern": "(?:Z|[+-][0-9]{2}:[0-9]{2})$"
+        },
+        "eventTimeZoneOffset": {
+          "type": "string",
+          "pattern": "^[+-](?:0[0-9]|1[0-4]):[0-5][0-9]$"
+        },
+        "epcList": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 100,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/epc"
+          }
+        },
+        "action": {
+          "enum": [
+            "OBSERVE",
+            "ADD",
+            "DELETE"
+          ]
+        },
+        "bizStep": {
+          "enum": [
+            "https://ref.gs1.org/cbv/BizStep-shipping",
+            "https://ref.gs1.org/cbv/BizStep-arriving",
+            "https://ref.gs1.org/cbv/BizStep-receiving",
+            "https://ref.gs1.org/cbv/BizStep-accepting"
+          ]
+        },
+        "disposition": {
+          "enum": [
+            "https://ref.gs1.org/cbv/Disp-in_transit",
+            "https://ref.gs1.org/cbv/Disp-in_progress",
+            "https://ref.gs1.org/cbv/Disp-active"
+          ]
+        },
+        "readPoint": {
+          "$ref": "#/$defs/location"
+        },
+        "bizLocation": {
+          "$ref": "#/$defs/location"
+        }
+      }
+    },
+    "eventMapping": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "source_event_id",
+        "source_biz_step",
+        "mycelix_claim_type",
+        "qualification_disposition",
+        "non_equivalences"
+      ],
+      "properties": {
+        "source_event_id": {
+          "type": "string",
+          "pattern": "^urn:uuid:[0-9a-fA-F-]{36}$"
+        },
+        "source_biz_step": {
+          "enum": [
+            "shipping",
+            "arriving",
+            "receiving",
+            "accepting"
+          ]
+        },
+        "mycelix_claim_type": {
+          "enum": [
+            "shipment_process_asserted",
+            "arrival_observed",
+            "receiving_event_recorded",
+            "possession_or_ownership_change_asserted"
+          ]
+        },
+        "qualification_disposition": {
+          "const": "source_assertion_only"
+        },
+        "non_equivalences": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 10,
+          "uniqueItems": true,
+          "items": {
+            "enum": [
+              "physical_delivery_verified",
+              "product_authenticity_verified",
+              "regulatory_compliance",
+              "receiving_event_recorded",
+              "acceptance_of_possession_or_ownership",
+              "legal_title_verified"
+            ]
+          }
+        }
+      }
+    }
+  }
+}
