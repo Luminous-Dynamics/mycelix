@@ -1,5 +1,4 @@
 #![forbid(unsafe_code)]
-
 // Copyright (C) 2024-2026 Tristan Stoltz / Luminous Dynamics
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Commercial licensing: see COMMERCIAL_LICENSE.md at repository root
@@ -20,7 +19,9 @@ use std::fmt;
 pub enum AuthorityQualification {
     NotQualified,
     /// A caller-side qualification assertion. The reference is not authenticated here.
-    ExternallyQualified { evidence_ref: String },
+    ExternallyQualified {
+        evidence_ref: String,
+    },
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -279,7 +280,9 @@ pub fn run_auction_with_price_rule(
     let mut opening_liquidity_total_minor = 0_u128;
     for participant in participant_observations {
         if participant.participant_id.trim().is_empty() {
-            return Err(AuctionError::InvalidParticipant("empty participant_id".into()));
+            return Err(AuctionError::InvalidParticipant(
+                "empty participant_id".into(),
+            ));
         }
         if participants.contains_key(&participant.participant_id) {
             return Err(AuctionError::DuplicateParticipant(
@@ -305,9 +308,7 @@ pub fn run_auction_with_price_rule(
             ("policy_version", offer.policy_version.as_str()),
         ] {
             if value.trim().is_empty() {
-                return Err(AuctionError::InvalidOffer(format!(
-                    "{field} is empty"
-                )));
+                return Err(AuctionError::InvalidOffer(format!("{field} is empty")));
             }
         }
         if offer.offered_minor == 0 {
@@ -440,9 +441,7 @@ pub fn run_auction_with_price_rule(
             return Err(AuctionError::DuplicateBidParticipant(bid.participant_id));
         }
         if offer_by_participant.contains_key(&bid.participant_id) {
-            return Err(AuctionError::ParticipantOnBothSides(
-                bid.participant_id,
-            ));
+            return Err(AuctionError::ParticipantOnBothSides(bid.participant_id));
         }
         eligible_bids.push(bid);
     }
@@ -498,8 +497,7 @@ pub fn run_auction_with_price_rule(
         if amount_minor == 0 {
             return Err(AuctionError::ArithmeticOverflow);
         }
-        let price_spread = bid.maximum_price_units_per_minor
-            - offer.minimum_price_units_per_minor;
+        let price_spread = bid.maximum_price_units_per_minor - offer.minimum_price_units_per_minor;
         let clearing_price_units_per_minor = match price_rule {
             ClearingPriceRule::MidpointFloor => {
                 offer.minimum_price_units_per_minor + price_spread / 2
@@ -647,8 +645,10 @@ pub fn run_auction_with_price_rule(
             add_u128(closing_liquidity_total_minor, available_after_minor as u128)?;
         residual_unmet_reserve_minor =
             add_u128(residual_unmet_reserve_minor, unmet_reserve_minor as u128)?;
-        residual_unmatched_offer_minor =
-            add_u128(residual_unmatched_offer_minor, unmatched_offer_minor as u128)?;
+        residual_unmatched_offer_minor = add_u128(
+            residual_unmatched_offer_minor,
+            unmatched_offer_minor as u128,
+        )?;
         residual_unmatched_bid_minor =
             add_u128(residual_unmatched_bid_minor, unmatched_bid_minor as u128)?;
 
@@ -770,10 +770,7 @@ mod tests {
             offer("offer-l1", "L1", 30, 2),
             offer("offer-l2", "L2", 20, 4),
         ];
-        let bids = vec![
-            bid("bid-b1", "B1", 20, 5),
-            bid("bid-b2", "B2", 20, 3),
-        ];
+        let bids = vec![bid("bid-b1", "B1", 20, 5), bid("bid-b2", "B2", 20, 3)];
 
         let report = run_auction(&context(), &participants, &offers, &bids).unwrap();
 
@@ -869,7 +866,10 @@ mod tests {
 
         assert_eq!(report.matched_minor, 0);
         assert_eq!(report.total_compensation_units, 0);
-        assert_eq!(report.opening_liquidity_total_minor, report.closing_liquidity_total_minor);
+        assert_eq!(
+            report.opening_liquidity_total_minor,
+            report.closing_liquidity_total_minor
+        );
         assert_eq!(
             report
                 .participants
@@ -1002,10 +1002,7 @@ mod tests {
             run_auction(
                 &context(),
                 &participants,
-                &[
-                    offer("offer-1", "L", 5, 1),
-                    offer("offer-2", "L", 5, 2),
-                ],
+                &[offer("offer-1", "L", 5, 1), offer("offer-2", "L", 5, 2),],
                 &[bid("bid", "B", 5, 3)],
             ),
             Err(AuctionError::DuplicateOfferParticipant("L".into()))
