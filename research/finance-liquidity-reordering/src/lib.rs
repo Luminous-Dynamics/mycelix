@@ -17,6 +17,8 @@ pub const MAX_EXACT_ORACLE_PAYMENTS: usize = 8;
 pub const MAX_GREEDY_PAYMENTS: usize = 5_000;
 /// Per-search bound on candidate count multiplied by payment count.
 pub const MAX_SEARCH_WORK_UNITS: usize = 20_000_000;
+/// Additional cap on heap entries created by the event-driven queue heuristic.
+pub const MAX_EVENT_QUEUE_REFRESHES: usize = 1_000_000;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Payment {
@@ -596,6 +598,7 @@ pub fn receiver_ready_event_driven(problem: &Problem) -> Result<SearchResult, Re
             .len()
             .checked_add(outgoing_by_participant[to].len())
             .and_then(|n| n.checked_add(incoming_by_participant[from].len()))
+            .and_then(|n| n.checked_add(successors[selected].len()))
             .ok_or(ReorderError::ArithmeticOverflow)?;
         work_units = work_units
             .checked_add(refreshed_edges)
@@ -651,6 +654,12 @@ pub fn receiver_ready_event_driven(problem: &Problem) -> Result<SearchResult, Re
             candidate_evaluations = candidate_evaluations
                 .checked_add(1)
                 .ok_or(ReorderError::ArithmeticOverflow)?;
+            if candidate_evaluations > MAX_EVENT_QUEUE_REFRESHES {
+                return Err(ReorderError::SearchWorkLimit {
+                    observed: candidate_evaluations,
+                    maximum: MAX_EVENT_QUEUE_REFRESHES,
+                });
+            }
         }
     }
 
