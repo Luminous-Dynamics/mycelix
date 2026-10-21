@@ -223,14 +223,7 @@ fn all_queue_policies_stay_within_the_exact_oracle_on_64_small_traces() {
             QueuePolicy::LiquidityAwareFifo,
             QueuePolicy::PriorityScan,
         ] {
-            let result = simulate_queue(
-                &context(),
-                &accounts,
-                &routes,
-                &payments,
-                policy,
-            )
-            .unwrap();
+            let result = simulate_queue(&context(), &accounts, &routes, &payments, policy).unwrap();
             assert!(
                 result.settled_minor <= oracle.0,
                 "policy={policy:?}, seed={seed} settled more than oracle"
