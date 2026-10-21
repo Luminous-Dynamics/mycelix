@@ -644,6 +644,228 @@ pub fn validate_schema_contract(schema: &Value) -> Vec<Diagnostic> {
     out
 }
 
+
+/// Check required fields in the benchmark preregistration schema.
+/// This remains a narrow schema-contract check, not a full JSON Schema engine.
+pub fn validate_benchmark_schema_contract(schema: &Value) -> Vec<Diagnostic> {
+    let mut out = Vec::new();
+    if !schema.is_object() {
+        push_structural(&mut out, "BENCH-SCHEMA-ROOT", "", "benchmark schema must be a JSON object");
+        return out;
+    }
+    if schema.pointer("/properties/schema_version/const").and_then(Value::as_str) != Some("nrvca-benchmark/0.1") {
+        push_structural(&mut out, "BENCH-SCHEMA-VERSION", "/properties/schema_version/const", "schema must pin nrvca-benchmark/0.1");
+    }
+    let top_required: HashSet<&str> = schema.pointer("/required").and_then(Value::as_array)
+        .into_iter().flatten().filter_map(Value::as_str).collect();
+    for field in ["source_manifest", "source_ids", "execution_state", "arms", "metrics", "failure_policy"] {
+        if !top_required.contains(field) {
+            push_structural(&mut out, "BENCH-SCHEMA-REQUIRED", "/required", format!("benchmark schema must require {field}"));
+        }
+    }
+    let source_required: HashSet<&str> = schema.pointer("/properties/source_manifest/items/required").and_then(Value::as_array)
+        .into_iter().flatten().filter_map(Value::as_str).collect();
+    for field in ["source_id", "content_sha256", "license_status", "ingest_state", "digest_scope"] {
+        if !source_required.contains(field) {
+            push_structural(&mut out, "BENCH-SCHEMA-SOURCE-FIELD", "/properties/source_manifest/items/required", format!("source manifest must require {field}"));
+        }
+    }
+    let failure_required: HashSet<&str> = schema.pointer("/properties/failure_policy/required").and_then(Value::as_array)
+        .into_iter().flatten().filter_map(Value::as_str).collect();
+    for field in ["retain_failed_runs", "retain_unfavourable_results", "excluded_case_ledger", "no_posthoc_threshold_changes"] {
+        if !failure_required.contains(field) {
+            push_structural(&mut out, "BENCH-SCHEMA-FAILURE-POLICY", "/properties/failure_policy/required", format!("failure policy must require {field}"));
+        }
+    }
+    out
+}
+
+/// Validate a preregistration's critical cross-field semantics and fail-closed execution gate.
+/// A PASS means the preregistration is internally coherent; it does not mean a benchmark ran.
+pub fn validate_benchmark_preregistration(record: &Value) -> Vec<Diagnostic> {
+    let mut out = Vec::new();
+    if !record.is_object() {
+        push_structural(&mut out, "BENCH-ROOT", "", "benchmark preregistration must be a JSON object");
+        return out;
+    }
+    if field_str(record, "schema_version") != Some("nrvca-benchmark/0.1") {
+        push_structural(&mut out, "BENCH-VERSION", "/schema_version", "expected nrvca-benchmark/0.1");
+    }
+    let status = field_str(record, "status").unwrap_or("");
+    if !["design_only", "preregistered", "in_progress", "completed", "invalidated"].contains(&status) {
+        push_structural(&mut out, "BENCH-STATUS", "/status", "unsupported benchmark status");
+    }
+    let execution = field_str(record, "execution_state").unwrap_or("");
+    if !["blocked_missing_sources", "blocked_rights_review", "ready_for_execution", "executed", "invalidated"].contains(&execution) {
+        push_structural(&mut out, "BENCH-EXECUTION-STATE", "/execution_state", "unsupported execution_state");
+    }
+    if status == "design_only" && !["blocked_missing_sources", "blocked_rights_review"].contains(&execution) {
+        push_semantic(&mut out, "BENCH-DESIGN-EXECUTION", "/execution_state", "design_only preregistration must remain blocked until evidence and rights are qualified");
+    }
+
+    let policy = record.get("source_policy");
+    if policy.and_then(|x| x.get("content_digest_required_before_execution")).and_then(Value::as_bool) != Some(true) {
+        push_semantic(&mut out, "BENCH-DIGEST-POLICY", "/source_policy/content_digest_required_before_execution", "source bytes must be content-addressed before execution");
+    }
+    if policy.and_then(|x| x.get("rights_review_required")).and_then(Value::as_bool) != Some(true) {
+        push_semantic(&mut out, "BENCH-RIGHTS-POLICY", "/source_policy/rights_review_required", "source reuse rights must be reviewed before execution");
+    }
+    if policy.and_then(|x| x.get("time_alignment_policy")).and_then(Value::as_str).is_none() {
+        push_structural(&mut out, "BENCH-TIME-POLICY", "/source_policy/time_alignment_policy", "time alignment policy is required");
+    }
+
+    let mut declared_ids = HashSet::new();
+    match record.get("source_ids").and_then(Value::as_array) {
+        Some(ids) if !ids.is_empty() => for (i, id) in ids.iter().enumerate() {
+            match id.as_str() {
+                Some(id) => {
+                    if !declared_ids.insert(id.to_owned()) {
+                        push_semantic(&mut out, "BENCH-DUPLICATE-SOURCE-ID", &format!("/source_ids/{i}"), format!("duplicate declared source ID: {id}"));
+                    }
+                }
+                None => push_structural(&mut out, "BENCH-SOURCE-ID", &format!("/source_ids/{i}"), "source ID must be a string"),
+            }
+        },
+        Some(_) => push_structural(&mut out, "BENCH-SOURCE-IDS-EMPTY", "/source_ids", "source_ids must not be empty"),
+        None => push_structural(&mut out, "BENCH-SOURCE-IDS-TYPE", "/source_ids", "source_ids must be an array"),
+    }
+
+    let mut manifest_ids = HashSet::new();
+    let mut digest_missing = false;
+    let mut rights_pending = false;
+    let mut source_uningested = false;
+    match record.get("source_manifest").and_then(Value::as_array) {
+        Some(entries) if !entries.is_empty() => for (i, entry) in entries.iter().enumerate() {
+            let path = format!("/source_manifest/{i}");
+            let Some(id) = field_str(entry, "source_id") else {
+                push_structural(&mut out, "BENCH-MANIFEST-ID", &format!("{path}/source_id"), "manifest source_id is required");
+                continue;
+            };
+            if !manifest_ids.insert(id.to_owned()) {
+                push_semantic(&mut out, "BENCH-DUPLICATE-MANIFEST-ID", &format!("{path}/source_id"), format!("duplicate manifest source ID: {id}"));
+            }
+            if !declared_ids.contains(id) {
+                push_semantic(&mut out, "BENCH-MANIFEST-UNDECLARED", &format!("{path}/source_id"), format!("manifest source is not in source_ids: {id}"));
+            }
+            for required in ["publisher", "dataset_id", "source_url", "source_status", "data_vintage", "reference_period", "digest_scope", "license_status", "ingest_state"] {
+                if entry.get(required).is_none() {
+                    push_structural(&mut out, "BENCH-MANIFEST-FIELD", &format!("{path}/{required}"), format!("required source manifest field missing: {required}"));
+                }
+            }
+            let digest = entry.get("content_sha256");
+            match digest {
+                Some(Value::String(hash)) if hash.len() == 64 && hash.bytes().all(|b| b.is_ascii_hexdigit() && !b.is_ascii_uppercase()) => {}
+                Some(Value::Null) | None => digest_missing = true,
+                _ => {
+                    digest_missing = true;
+                    push_semantic(&mut out, "BENCH-SOURCE-DIGEST-FORMAT", &format!("{path}/content_sha256"), "source digest must be lowercase SHA-256 hex or null while unpinned");
+                }
+            }
+            if !["reviewed_permitted", "not_applicable_synthetic"].contains(&field_str(entry, "license_status").unwrap_or("")) {
+                rights_pending = true;
+            }
+            if !["ingested", "independently_verified"].contains(&field_str(entry, "ingest_state").unwrap_or("")) {
+                source_uningested = true;
+            }
+        },
+        Some(_) => push_structural(&mut out, "BENCH-MANIFEST-EMPTY", "/source_manifest", "source_manifest must not be empty"),
+        None => push_structural(&mut out, "BENCH-MANIFEST-TYPE", "/source_manifest", "source_manifest must be an array"),
+    }
+    for id in &declared_ids {
+        if !manifest_ids.contains(id) {
+            push_semantic(&mut out, "BENCH-MANIFEST-MISSING-ID", "/source_manifest", format!("declared source is missing from manifest: {id}"));
+        }
+    }
+
+    if matches!(execution, "ready_for_execution" | "executed") {
+        if digest_missing {
+            push_semantic(&mut out, "BENCH-EXECUTION-MISSING-DIGEST", "/execution_state", "execution requires exact source content digests");
+        }
+        if rights_pending {
+            push_semantic(&mut out, "BENCH-EXECUTION-RIGHTS", "/execution_state", "execution requires reviewed source reuse rights");
+        }
+        if source_uningested {
+            push_semantic(&mut out, "BENCH-EXECUTION-INGEST", "/execution_state", "execution requires pinned source bytes to be ingested");
+        }
+    } else if digest_missing && execution != "blocked_missing_sources" {
+        push_semantic(&mut out, "BENCH-UNBLOCKED-MISSING-DIGEST", "/execution_state", "missing source digests must keep execution blocked_missing_sources");
+    } else if !digest_missing && rights_pending && execution != "blocked_rights_review" {
+        push_semantic(&mut out, "BENCH-UNBLOCKED-RIGHTS", "/execution_state", "unreviewed source rights must keep execution blocked_rights_review");
+    }
+
+    let arms = record.get("arms").and_then(Value::as_array);
+    let mut arm_ids = HashSet::new();
+    let mut has_candidate = false;
+    let mut has_baseline = false;
+    match arms {
+        Some(arms) if arms.len() >= 2 => for (i, arm) in arms.iter().enumerate() {
+            let path = format!("/arms/{i}");
+            let Some(id) = field_str(arm, "arm_id") else {
+                push_structural(&mut out, "BENCH-ARM-ID", &format!("{path}/arm_id"), "arm_id is required");
+                continue;
+            };
+            if !arm_ids.insert(id.to_owned()) {
+                push_semantic(&mut out, "BENCH-DUPLICATE-ARM", &format!("{path}/arm_id"), format!("duplicate arm ID: {id}"));
+            }
+            let role = field_str(arm, "role").unwrap_or("");
+            has_candidate |= role == "candidate";
+            has_baseline |= ["incumbent", "simple_baseline", "strong_baseline"].contains(&role);
+            for required in ["method", "description", "resource_budget_policy"] {
+                if field_str(arm, required).is_none_or(str::is_empty) {
+                    push_structural(&mut out, "BENCH-ARM-FIELD", &format!("{path}/{required}"), format!("nonempty arm field required: {required}"));
+                }
+            }
+        },
+        Some(_) => push_structural(&mut out, "BENCH-ARMS-COUNT", "/arms", "at least two benchmark arms are required"),
+        None => push_structural(&mut out, "BENCH-ARMS-TYPE", "/arms", "arms must be an array"),
+    }
+    if !has_candidate {
+        push_semantic(&mut out, "BENCH-NO-CANDIDATE", "/arms", "at least one candidate arm is required");
+    }
+    if !has_baseline {
+        push_semantic(&mut out, "BENCH-NO-BASELINE", "/arms", "at least one incumbent or baseline arm is required");
+    }
+
+    let metrics = record.get("metrics").and_then(Value::as_array);
+    let mut metric_ids = HashSet::new();
+    let mut has_primary = false;
+    match metrics {
+        Some(metrics) if !metrics.is_empty() => for (i, metric) in metrics.iter().enumerate() {
+            let path = format!("/metrics/{i}");
+            let Some(id) = field_str(metric, "metric_id") else {
+                push_structural(&mut out, "BENCH-METRIC-ID", &format!("{path}/metric_id"), "metric_id is required");
+                continue;
+            };
+            if !metric_ids.insert(id.to_owned()) {
+                push_semantic(&mut out, "BENCH-DUPLICATE-METRIC", &format!("{path}/metric_id"), format!("duplicate metric ID: {id}"));
+            }
+            has_primary |= metric.get("primary").and_then(Value::as_bool) == Some(true);
+            if field_str(metric, "definition").is_none_or(str::is_empty) || field_str(metric, "unit").is_none_or(str::is_empty) {
+                push_structural(&mut out, "BENCH-METRIC-META", &path, "metric definition and unit are required");
+            }
+            if field_str(metric, "direction").is_none() || field_str(metric, "acceptance_rule").is_none_or(str::is_empty) {
+                push_structural(&mut out, "BENCH-METRIC-RULE", &path, "metric direction and acceptance rule are required");
+            }
+        },
+        Some(_) => push_structural(&mut out, "BENCH-METRICS-EMPTY", "/metrics", "at least one metric is required"),
+        None => push_structural(&mut out, "BENCH-METRICS-TYPE", "/metrics", "metrics must be an array"),
+    }
+    if !has_primary {
+        push_semantic(&mut out, "BENCH-NO-PRIMARY-METRIC", "/metrics", "at least one primary metric must be preregistered");
+    }
+
+    if record.pointer("/comparison_protocol/preregister_before_results").and_then(Value::as_bool) != Some(true) {
+        push_semantic(&mut out, "BENCH-NOT-PREREGISTERED", "/comparison_protocol/preregister_before_results", "protocol must be frozen before results are inspected");
+    }
+    let failures = record.get("failure_policy");
+    for field in ["retain_failed_runs", "retain_unfavourable_results", "excluded_case_ledger", "no_posthoc_threshold_changes"] {
+        if failures.and_then(|f| f.get(field)).and_then(Value::as_bool) != Some(true) {
+            push_semantic(&mut out, "BENCH-FAILURE-POLICY", &format!("/failure_policy/{field}"), format!("{field} must be true"));
+        }
+    }
+    out
+}
+
 fn decode_pointer(path: &str) -> Result<Vec<String>, String> {
     if path.is_empty() {
         return Ok(Vec::new());
@@ -840,6 +1062,8 @@ mod tests {
     const GOLDEN: &str = include_str!("../../../../fixtures/nrvca-synthetic-golden-v0.1.json");
     const CORPUS: &str = include_str!("../../../../fixtures/nrvca-adversarial-corpus-v0.1.json");
     const SCHEMA: &str = include_str!("../../../../schemas/nrvca-result-v0.1.schema.json");
+    const BENCHMARK: &str = include_str!("../../../../fixtures/nrvca-sa-bridge-preregistration-v0.1.json");
+    const BENCH_SCHEMA: &str = include_str!("../../../../schemas/nrvca-benchmark-preregistration-v0.1.schema.json");
 
     #[test]
     fn schema_contract_has_required_fields() {
@@ -864,6 +1088,31 @@ mod tests {
         for result in &results {
             assert!(result.passed, "{}: {}", result.case_id, result.detail);
         }
+    }
+
+    #[test]
+    fn benchmark_schema_contract_requires_source_digest_gates() {
+        let schema: Value = serde_json::from_str(BENCH_SCHEMA).expect("benchmark schema parses");
+        let diagnostics = validate_benchmark_schema_contract(&schema);
+        assert!(diagnostics.is_empty(), "benchmark schema diagnostics: {diagnostics:?}");
+    }
+
+    #[test]
+    fn source_benchmark_preregistration_is_valid_but_execution_blocked() {
+        let record: Value = serde_json::from_str(BENCHMARK).expect("benchmark preregistration parses");
+        let diagnostics = validate_benchmark_preregistration(&record);
+        assert!(diagnostics.is_empty(), "benchmark preregistration diagnostics: {diagnostics:?}");
+        assert_eq!(record["execution_state"], "blocked_missing_sources");
+    }
+
+    #[test]
+    fn benchmark_cannot_execute_without_pinned_source_bytes() {
+        let mut record: Value = serde_json::from_str(BENCHMARK).expect("benchmark preregistration parses");
+        record["status"] = serde_json::json!("preregistered");
+        record["execution_state"] = serde_json::json!("ready_for_execution");
+        let diagnostics = validate_benchmark_preregistration(&record);
+        assert!(diagnostics.iter().any(|d| d.code == "SEM-BENCH-EXECUTION-MISSING-DIGEST"));
+        assert!(diagnostics.iter().any(|d| d.code == "SEM-BENCH-EXECUTION-RIGHTS"));
     }
 
     #[test]
