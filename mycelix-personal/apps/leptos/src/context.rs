@@ -12,9 +12,7 @@ use leptos::prelude::*;
 use wasm_bindgen_futures::spawn_local;
 
 use mycelix_leptos_core::holochain_provider::{HolochainCtx, use_holochain};
-use crate::source_state::{
-    SourceEvidence, SourceFailure, SourceObservation, StaleReason,
-};
+use crate::source_state::{SourceEvidence, SourceFailure, SourceObservation, StaleReason};
 use personal_leptos_types::{
     ActivityItemView, BiometricView, ConsentGrantView, DataSharingPreferenceView, HealthRecordView,
     MasterKeyView, PreferenceChangeLogView, ProfileView, StoredCredentialView,
@@ -408,8 +406,10 @@ pub async fn refresh_identity_state(ctx: PersonalCtx, hc: HolochainCtx) {
             ctx.draft_profile.set(profile);
         }
         Err(_) => {
-            ctx.profile_source
-                .set(unavailable_from_prior(PROFILE_SOURCE_ID, &ctx.profile_source.get_untracked()));
+            ctx.profile_source.set(unavailable_from_prior(
+                PROFILE_SOURCE_ID,
+                &ctx.profile_source.get_untracked(),
+            ));
             ctx.status_note.set(
                 "Live mode: the profile source could not be refreshed; the displayed profile may be stale."
                     .into(),
@@ -429,8 +429,10 @@ pub async fn refresh_identity_state(ctx: PersonalCtx, hc: HolochainCtx) {
             ctx.keys.set(keys);
         }
         Err(_) => {
-            ctx.keys_source
-                .set(unavailable_from_prior(KEYS_SOURCE_ID, &ctx.keys_source.get_untracked()));
+            ctx.keys_source.set(unavailable_from_prior(
+                KEYS_SOURCE_ID,
+                &ctx.keys_source.get_untracked(),
+            ));
             ctx.status_note.set(
                 "Live mode: identity keys could not be refreshed; the displayed key list may be stale."
                     .into(),
