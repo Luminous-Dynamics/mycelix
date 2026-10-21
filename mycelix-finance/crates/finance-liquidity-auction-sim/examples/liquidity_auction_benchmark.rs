@@ -81,52 +81,91 @@ fn percentile(values: &[u128], p: usize) -> u128 {
     sorted[rank.saturating_sub(1).min(sorted.len() - 1)]
 }
 
+fn print_row(
+    participant_count: usize,
+    scenario: &str,
+    offer_count: usize,
+    bid_count: usize,
+    report: &finance_liquidity_auction_sim::AuctionReport,
+    timings: &[u128],
+) {
+    let limiting_side = report
+        .eligible_offered_minor
+        .min(report.eligible_requested_minor);
+    let match_rate_bps = if limiting_side == 0 {
+        0
+    } else {
+        report.matched_minor * 10_000 / limiting_side
+    };
+
+    println!(
+        "{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{}",
+        participant_count,
+        scenario,
+        offer_count,
+        bid_count,
+        report.eligible_offered_minor,
+        report.eligible_requested_minor,
+        report.matched_minor,
+        match_rate_bps,
+        report.residual_unmet_reserve_minor,
+        report.residual_unmatched_offer_minor,
+        report.residual_unmatched_bid_minor,
+        report.total_compensation_units,
+        report.total_surplus_units,
+        report.provider_retained_surplus_units,
+        report.receiver_retained_surplus_units,
+        percentile(timings, 50),
+        percentile(timings, 95),
+    );
+}
+
 fn main() {
     println!(
-        "participants,offer_count,bid_count,eligible_offered_minor,eligible_requested_minor,matched_minor,match_rate_bps,residual_unmet_reserve_minor,residual_unmatched_offer_minor,residual_unmatched_bid_minor,compensation_units,surplus_units,provider_surplus_units,receiver_surplus_units,runtime_p50_us,runtime_p95_us"
+        "participants,scenario,offer_count,bid_count,eligible_offered_minor,eligible_requested_minor,matched_minor,match_rate_bps,residual_unmet_reserve_minor,residual_unmatched_offer_minor,residual_unmatched_bid_minor,compensation_units,surplus_units,provider_surplus_units,receiver_surplus_units,runtime_p50_us,runtime_p95_us"
     );
 
     for participant_count in [10_usize, 30, 70, 140, 700] {
         let (context, participants, offers, bids) = make_case(participant_count);
-        let mut timings = Vec::with_capacity(25);
-        let mut final_report = None;
+
+        // Baseline: no participants submit a liquidity offer or bid.
+        let mut baseline_timings = Vec::with_capacity(25);
+        let mut baseline_report = None;
         for _ in 0..25 {
             let start = Instant::now();
-            final_report = Some(
+            baseline_report = Some(
+                run_auction(&context, &participants, &[], &[])
+                    .expect("no-auction baseline"),
+            );
+            baseline_timings.push(start.elapsed().as_micros());
+        }
+        print_row(
+            participant_count,
+            "no-auction",
+            0,
+            0,
+            &baseline_report.expect("positive repetition count"),
+            &baseline_timings,
+        );
+
+        // Participant-incentive clearing under the same opening-liquidity vector.
+        let mut auction_timings = Vec::with_capacity(25);
+        let mut auction_report = None;
+        for _ in 0..25 {
+            let start = Instant::now();
+            auction_report = Some(
                 run_auction(&context, &participants, &offers, &bids)
                     .expect("liquidity auction simulation"),
             );
-            timings.push(start.elapsed().as_micros());
+            auction_timings.push(start.elapsed().as_micros());
         }
-
-        let report = final_report.expect("positive repetition count");
-        let limiting_side = report
-            .eligible_offered_minor
-            .min(report.eligible_requested_minor);
-        let match_rate_bps = if limiting_side == 0 {
-            0
-        } else {
-            report.matched_minor * 10_000 / limiting_side
-        };
-
-        println!(
-            "{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{}",
+        print_row(
             participant_count,
+            "midpoint-auction",
             offers.len(),
             bids.len(),
-            report.eligible_offered_minor,
-            report.eligible_requested_minor,
-            report.matched_minor,
-            match_rate_bps,
-            report.residual_unmet_reserve_minor,
-            report.residual_unmatched_offer_minor,
-            report.residual_unmatched_bid_minor,
-            report.total_compensation_units,
-            report.total_surplus_units,
-            report.provider_retained_surplus_units,
-            report.receiver_retained_surplus_units,
-            percentile(&timings, 50),
-            percentile(&timings, 95),
+            &auction_report.expect("positive repetition count"),
+            &auction_timings,
         );
     }
 }
