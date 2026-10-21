@@ -17,7 +17,7 @@
     },
     "scenarios": {
       "type": "array",
-      "minItems": 16,
+      "minItems": 20,
       "items": {
         "type": "object",
         "additionalProperties": false,
