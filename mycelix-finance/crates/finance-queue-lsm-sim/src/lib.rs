@@ -1491,6 +1491,133 @@ mod tests {
     }
 
     #[test]
+    fn strict_sequence_calculates_prefix_deficit_not_queue_retry_result() {
+        let (_, payments) = recycling_case();
+        let fifo = fifo_order(&context(), &payments).unwrap();
+        let low_liquidity_order = vec![
+            "feed-b".to_string(),
+            "return-a".to_string(),
+            "drain-a".to_string(),
+        ];
+
+        let fifo_report =
+            minimum_opening_liquidity_for_sequence(&context(), &payments, &fifo).unwrap();
+        let optimized_report = minimum_opening_liquidity_for_sequence(
+            &context(),
+            &payments,
+            &low_liquidity_order,
+        )
+        .unwrap();
+
+        assert_eq!(fifo, vec!["drain-a", "feed-b", "return-a"]);
+        assert_eq!(fifo_report.total_required_opening_liquidity_minor, 16);
+        assert_eq!(optimized_report.total_required_opening_liquidity_minor, 6);
+        assert_eq!(optimized_report.required_by_participant.len(), 3);
+        assert_eq!(
+            optimized_report
+                .required_by_participant
+                .iter()
+                .find(|x| x.participant_id == "A")
+                .unwrap()
+                .required_opening_liquidity_minor,
+            6
+        );
+        assert_eq!(
+            optimized_report
+                .required_by_participant
+                .iter()
+                .filter(|x| x.participant_id != "A")
+                .map(|x| x.required_opening_liquidity_minor)
+                .sum::<u128>(),
+            0
+        );
+        assert!(compare_minimum_liquidity_reports(&optimized_report, &fifo_report).is_gt());
+    }
+
+    #[test]
+    fn minimum_liquidity_oracle_checks_all_orders_and_finds_six_unit_schedule() {
+        let (_, payments) = recycling_case();
+        let fifo = fifo_order(&context(), &payments).unwrap();
+        let fifo_report =
+            minimum_opening_liquidity_for_sequence(&context(), &payments, &fifo).unwrap();
+        let oracle = minimum_liquidity_order_oracle(&context(), &payments).unwrap();
+
+        assert_eq!(oracle.candidate_orders_evaluated, 6);
+        assert_eq!(oracle.best_report.total_required_opening_liquidity_minor, 6);
+        assert_eq!(
+            oracle.best_report.total_payment_value_minor,
+            payments.iter().map(|p| p.amount_minor as u128).sum::<u128>()
+        );
+        assert!(compare_minimum_liquidity_reports(&oracle.best_report, &fifo_report).is_gt());
+        let replay =
+            minimum_opening_liquidity_for_sequence(&context(), &payments, &oracle.best_order)
+                .unwrap();
+        assert_eq!(replay, oracle.best_report);
+    }
+
+    #[test]
+    fn minimum_liquidity_annealing_is_reproducible_and_no_worse_than_fifo() {
+        let (_, payments) = recycling_case();
+        let initial = fifo_order(&context(), &payments).unwrap();
+        let fifo_report =
+            minimum_opening_liquidity_for_sequence(&context(), &payments, &initial).unwrap();
+        let config = AnnealingConfig {
+            iterations: 150,
+            seed: 0x5A17,
+            initial_temperature: 0.35,
+            cooling_factor: 0.985,
+        };
+        let first =
+            simulated_annealing_minimum_liquidity_order(&context(), &payments, &initial, &config)
+                .unwrap();
+        let second =
+            simulated_annealing_minimum_liquidity_order(&context(), &payments, &initial, &config)
+                .unwrap();
+
+        assert_eq!(first, second);
+        assert_eq!(first.iterations_evaluated, 150);
+        assert!(
+            first.best_report.total_required_opening_liquidity_minor
+                <= fifo_report.total_required_opening_liquidity_minor
+        );
+        assert_eq!(first.best_report.total_required_opening_liquidity_minor, 6);
+    }
+
+    #[test]
+    fn minimum_liquidity_oracle_fails_closed_above_eight_payments() {
+        let payments = (0..=MAX_EXACT_ORDER_PAYMENTS)
+            .map(|i| payment(&format!("p-{i}"), "A", "B", 1, i as u64))
+            .collect::<Vec<_>>();
+        assert_eq!(
+            minimum_liquidity_order_oracle(&context(), &payments),
+            Err(QueueError::TooManyExactPayments {
+                observed: MAX_EXACT_ORDER_PAYMENTS + 1,
+                maximum: MAX_EXACT_ORDER_PAYMENTS,
+            })
+        );
+    }
+
+    #[test]
+    fn minimum_liquidity_report_preserves_ineligible_observations() {
+        let mut proposed = payment("proposed", "A", "B", 1, 1);
+        proposed.state = PaymentState::Proposed;
+        let active = payment("active", "A", "B", 2, 2);
+        let order = vec!["active".to_string()];
+        let report =
+            minimum_opening_liquidity_for_sequence(&context(), &[proposed, active], &order)
+                .unwrap();
+
+        assert_eq!(report.total_payment_value_minor, 2);
+        assert_eq!(
+            report.excluded_payments,
+            vec![ExcludedPayment {
+                payment_id: "proposed".into(),
+                reason: ExclusionReason::Proposed,
+            }]
+        );
+    }
+
+    #[test]
     fn unknown_participant_on_accepted_payment_fails_closed() {
         let balances = vec![balance("A", 10)];
         let payments = vec![payment("p", "A", "missing", 1, 1)];
