@@ -1,0 +1,124 @@
+{
+  "schema_version": 1,
+  "benchmark_id": "PRAXIS-CYBER-ACQ-001",
+  "benchmark_version": "0.1.0",
+  "disclosure": "PUBLIC SYNTHETIC CONFORMANCE FIXTURE. These mappings and costs are invented for software conformance; they are not calibrated probabilities, incident evidence, or held-out assessment data.",
+  "scenarios": [
+    {
+      "scenario_id": "CYB-ACQ-001",
+      "world_hypothesis_id": "compromised_session",
+      "request_outcomes": [
+        {
+          "request_id": "session-issuance-audit",
+          "quality": "current",
+          "labels_by_hypothesis": [
+            {
+              "hypothesis_id": "benign_shared_nat",
+              "outcome_label": "expected_session_only"
+            },
+            {
+              "hypothesis_id": "credential_spray_no_session",
+              "outcome_label": "no_session_issued"
+            },
+            {
+              "hypothesis_id": "compromised_session",
+              "outcome_label": "session_issued_and_token_used"
+            },
+            {
+              "hypothesis_id": "stale_sensor_false_alarm",
+              "outcome_label": "incomplete_session_records"
+            }
+          ]
+        },
+        {
+          "request_id": "endpoint-device-context",
+          "quality": "current",
+          "labels_by_hypothesis": [
+            {
+              "hypothesis_id": "benign_shared_nat",
+              "outcome_label": "known_managed_device"
+            },
+            {
+              "hypothesis_id": "credential_spray_no_session",
+              "outcome_label": "unknown_device"
+            },
+            {
+              "hypothesis_id": "compromised_session",
+              "outcome_label": "unknown_device"
+            },
+            {
+              "hypothesis_id": "stale_sensor_false_alarm",
+              "outcome_label": "unknown_device"
+            }
+          ]
+        },
+        {
+          "request_id": "privileged-token-use-audit",
+          "quality": "current",
+          "labels_by_hypothesis": [
+            {
+              "hypothesis_id": "benign_shared_nat",
+              "outcome_label": "expected_token_use"
+            },
+            {
+              "hypothesis_id": "credential_spray_no_session",
+              "outcome_label": "no_post_auth_token_use"
+            },
+            {
+              "hypothesis_id": "compromised_session",
+              "outcome_label": "unexpected_token_use"
+            },
+            {
+              "hypothesis_id": "stale_sensor_false_alarm",
+              "outcome_label": "audit_gap"
+            }
+          ]
+        },
+        {
+          "request_id": "sensor-health-check",
+          "quality": "stale",
+          "labels_by_hypothesis": [
+            {
+              "hypothesis_id": "benign_shared_nat",
+              "outcome_label": "healthy"
+            },
+            {
+              "hypothesis_id": "credential_spray_no_session",
+              "outcome_label": "healthy"
+            },
+            {
+              "hypothesis_id": "compromised_session",
+              "outcome_label": "healthy"
+            },
+            {
+              "hypothesis_id": "stale_sensor_false_alarm",
+              "outcome_label": "unhealthy"
+            }
+          ]
+        },
+        {
+          "request_id": "shared-egress-rollup",
+          "quality": "current",
+          "labels_by_hypothesis": [
+            {
+              "hypothesis_id": "benign_shared_nat",
+              "outcome_label": "shared_egress_activity"
+            },
+            {
+              "hypothesis_id": "credential_spray_no_session",
+              "outcome_label": "shared_egress_activity"
+            },
+            {
+              "hypothesis_id": "compromised_session",
+              "outcome_label": "shared_egress_activity"
+            },
+            {
+              "hypothesis_id": "stale_sensor_false_alarm",
+              "outcome_label": "shared_egress_activity"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
