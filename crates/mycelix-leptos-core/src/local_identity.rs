@@ -95,7 +95,17 @@ use crate::identity_crypto::{self, EncryptedBlob};
 use ed25519_dalek::{Signature, Signer, SigningKey, VerifyingKey};
 use leptos::prelude::*;
 use std::cell::RefCell;
-use zeroize::Zeroize;
+use std::future::Future;
+#[cfg(target_arch = "wasm32")]
+use std::rc::Rc;
+use zeroize::{Zeroize, Zeroizing};
+
+#[cfg(target_arch = "wasm32")]
+use js_sys::{Function, Promise, Reflect};
+#[cfg(target_arch = "wasm32")]
+use wasm_bindgen::{closure::Closure, JsCast, JsValue};
+#[cfg(target_arch = "wasm32")]
+use wasm_bindgen_futures::{future_to_promise, JsFuture};
 
 /// Legacy key: pre-2026-07 builds stored a `did:mycelix:<12-random-bytes-hex>`
 /// string here directly, generated from `js_sys::Math::random()` (not a
@@ -730,18 +740,40 @@ pub fn export_unlocked_identity_seed_phrase() -> Result<String, String> {
 pub async fn create_protected_identity(
     passphrase: &str,
 ) -> Result<LocalIdentityStoragePosture, String> {
+    let passphrase = Zeroizing::new(passphrase.to_owned());
+    with_identity_operation_lock(move || async move {
+        create_protected_identity_unlocked(&passphrase).await
+    })
+    .await
+}
+
+async fn create_protected_identity_unlocked(
+    passphrase: &str,
+) -> Result<LocalIdentityStoragePosture, String> {
     validate_new_identity_passphrase(passphrase)?;
     ensure_empty_identity_storage()?;
     let signing_key = try_generate_signing_key()?;
     persist_protected_signing_key(signing_key, passphrase).await
 }
 
-/// Restore a BIP-39 identity directly into protected storage on an empty device.
+/// Restore a BIP-39 identity directly into protected storage on an empty device./// Restore a BIP-39 identity directly into protected storage on an empty device.
 ///
 /// This intentionally refuses to replace any recognized existing local
 /// identity. Replacement of an existing identity needs a separate, explicit
 /// confirmation flow with an expected-current-identity check.
 pub async fn restore_protected_identity_from_seed_phrase(
+    phrase: &str,
+    passphrase: &str,
+) -> Result<LocalIdentityStoragePosture, String> {
+    let phrase = Zeroizing::new(phrase.to_owned());
+    let passphrase = Zeroizing::new(passphrase.to_owned());
+    with_identity_operation_lock(move || async move {
+        restore_protected_identity_unlocked(&phrase, &passphrase).await
+    })
+    .await
+}
+
+async fn restore_protected_identity_unlocked(
     phrase: &str,
     passphrase: &str,
 ) -> Result<LocalIdentityStoragePosture, String> {
@@ -751,7 +783,7 @@ pub async fn restore_protected_identity_from_seed_phrase(
     persist_protected_signing_key(signing_key, passphrase).await
 }
 
-fn validate_new_identity_passphrase(passphrase: &str) -> Result<(), String> {
+fn validate_new_identity_passphrase(passphrase: &str) -> Result<(), String> {fn validate_new_identity_passphrase(passphrase: &str) -> Result<(), String> {
     if passphrase.trim().is_empty() {
         return Err("Passphrase must not be empty".into());
     }
@@ -924,6 +956,16 @@ async fn persist_protected_signing_key(
 /// envelope has been read back successfully, and attempts to restore the
 /// unprotected state if the final protected-state verification fails.
 pub async fn protect_existing_identity(
+    passphrase: &str,
+) -> Result<LocalIdentityStoragePosture, String> {
+    let passphrase = Zeroizing::new(passphrase.to_owned());
+    with_identity_operation_lock(move || async move {
+        protect_existing_identity_unlocked(&passphrase).await
+    })
+    .await
+}
+
+async fn protect_existing_identity_unlocked(
     passphrase: &str,
 ) -> Result<LocalIdentityStoragePosture, String> {
     validate_new_identity_passphrase(passphrase)?;
@@ -1107,7 +1149,7 @@ pub async fn protect_existing_identity(
     Ok(LocalIdentityStoragePosture::ProtectedUnlockedInSession)
 }
 
-/// Create, protect, or rotate the passphrase for the local identity.
+/// Create, protect, or rotate the passphrase for the local identity./// Create, protect, or rotate the passphrase for the local identity.
 ///
 /// This entry point routes to the checked storage-transition APIs. New
 /// identities are created directly in encrypted storage; an existing
@@ -1124,13 +1166,21 @@ pub async fn protect_existing_identity(
 /// unsuccessful persistence/read-back verification, or attempts to operate
 /// on an identity that is locked or inconsistent.
 pub async fn protect_with_passphrase(passphrase: &str) -> Result<(), String> {
+    let passphrase = Zeroizing::new(passphrase.to_owned());
+    with_identity_operation_lock(move || async move {
+        protect_with_passphrase_unlocked(&passphrase).await
+    })
+    .await
+}
+
+async fn protect_with_passphrase_unlocked(passphrase: &str) -> Result<(), String> {
     validate_new_identity_passphrase(passphrase)?;
     match inspect_local_identity_posture() {
         LocalIdentityStoragePosture::NoIdentity => {
-            create_protected_identity(passphrase).await.map(|_| ())
+            create_protected_identity_unlocked(passphrase).await.map(|_| ())
         }
         LocalIdentityStoragePosture::UnprotectedIdentity => {
-            protect_existing_identity(passphrase).await.map(|_| ())
+            protect_existing_identity_unlocked(passphrase).await.map(|_| ())
         }
         LocalIdentityStoragePosture::ProtectedUnlockedInSession => {
             rewrap_protected_identity(passphrase).await
@@ -1152,7 +1202,7 @@ pub async fn protect_with_passphrase(passphrase: &str) -> Result<(), String> {
     }
 }
 
-async fn rewrap_protected_identity(passphrase: &str) -> Result<(), String> {
+async fn rewrap_protected_identity(passphrase: &str) -> Result<(), String> {async fn rewrap_protected_identity(passphrase: &str) -> Result<(), String> {
     validate_new_identity_passphrase(passphrase)?;
     let signing_key = UNLOCKED_KEY
         .with(|cell| cell.borrow().clone())
@@ -1283,6 +1333,14 @@ async fn rewrap_protected_identity(passphrase: &str) -> Result<(), String> {
 /// passphrase and corrupt ciphertext are deliberately indistinguishable
 /// (see [`identity_crypto`] module docs).
 pub async fn unlock_with_passphrase(passphrase: &str) -> Result<SigningKey, String> {
+    let passphrase = Zeroizing::new(passphrase.to_owned());
+    with_identity_operation_lock(move || async move {
+        unlock_with_passphrase_unlocked(&passphrase).await
+    })
+    .await
+}
+
+async fn unlock_with_passphrase_unlocked(passphrase: &str) -> Result<SigningKey, String> {
     // A failed unlock leaves the identity locked rather than reusing a prior
     // in-memory key against storage whose integrity may have changed.
     UNLOCKED_KEY.with(|cell| *cell.borrow_mut() = None);
@@ -1305,7 +1363,7 @@ pub async fn unlock_with_passphrase(passphrase: &str) -> Result<SigningKey, Stri
     Ok(signing_key)
 }
 
-/// Reverse [`protect_with_passphrase`]: decrypt with `passphrase`, restore
+/// Reverse [`protect_with_passphrase`]: decrypt with `passphrase`, restore/// Reverse [`protect_with_passphrase`]: decrypt with `passphrase`, restore
 /// plaintext storage, and drop the encrypted blob.
 ///
 /// # Errors
@@ -1313,13 +1371,21 @@ pub async fn unlock_with_passphrase(passphrase: &str) -> Result<SigningKey, Stri
 /// Same failure modes as [`unlock_with_passphrase`] (this calls it
 /// internally) — wrong passphrase, no protected identity, or corrupt blob.
 pub async fn remove_passphrase_protection(passphrase: &str) -> Result<(), String> {
-    let signing_key = unlock_with_passphrase(passphrase).await?;
+    let passphrase = Zeroizing::new(passphrase.to_owned());
+    with_identity_operation_lock(move || async move {
+        remove_passphrase_protection_unlocked(&passphrase).await
+    })
+    .await
+}
+
+async fn remove_passphrase_protection_unlocked(passphrase: &str) -> Result<(), String> {
+    let signing_key = unlock_with_passphrase_unlocked(passphrase).await?;
     store_signing_key(&signing_key);
     remove_item(IDENTITY_SECRET_ENCRYPTED_KEY);
     Ok(())
 }
 
-/// Export the local identity's secret key as a standards-correct 24-word
+/// Export the local identity's secret key as a standards-correct 24-word/// Export the local identity's secret key as a standards-correct 24-word
 /// BIP-39 mnemonic (English wordlist), for manual/offline backup.
 ///
 /// Takes the key explicitly rather than calling [`ensure_keypair`] itself,
@@ -1375,18 +1441,17 @@ pub fn signing_key_from_seed_phrase(phrase: &str) -> Result<SigningKey, String> 
 /// Same failure modes as [`signing_key_from_seed_phrase`] (this calls it
 /// internally) — invalid word count, unknown word, bad checksum, or wrong
 /// decoded length.
-pub fn restore_from_seed_phrase(phrase: &str) -> Result<SigningKey, String> {
-    let signing_key = signing_key_from_seed_phrase(phrase)?;
-    store_signing_key(&signing_key);
-    // A freshly restored identity starts unprotected, same as a freshly
-    // generated one — any previous protection was on the *replaced*
-    // identity's ciphertext, which is now meaningless.
-    remove_item(IDENTITY_SECRET_ENCRYPTED_KEY);
-    UNLOCKED_KEY.with(|cell| *cell.borrow_mut() = Some(signing_key.clone()));
-    Ok(signing_key)
+#[deprecated(
+    note = "Synchronous plaintext restore is disabled; use restore_protected_identity_from_seed_phrase."
+)]
+pub fn restore_from_seed_phrase(_phrase: &str) -> Result<SigningKey, String> {
+    Err(
+        "Synchronous seed-phrase restore is disabled because it writes plaintext and can replace an existing identity. Use restore_protected_identity_from_seed_phrase with an explicit passphrase on an empty device."
+            .into(),
+    )
 }
 
-/// Sign an arbitrary message with the local identity's private key.
+/// Sign an arbitrary message with the local identity's private key./// Sign an arbitrary message with the local identity's private key.
 ///
 /// Generates the keypair on first use if one does not already exist. This
 /// is what a future DID-registry `create_did`/`rotate_key` call, or any
