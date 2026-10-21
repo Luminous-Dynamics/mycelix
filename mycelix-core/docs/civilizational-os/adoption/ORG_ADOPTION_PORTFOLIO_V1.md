@@ -110,9 +110,14 @@ node verify-org-adoption-pilot-bundle.cjs
 
 # Separately execute the 12 internal mutation controls
 node verify-org-adoption-pilot-bundle.cjs --self-test
+
+# Repeatable scale runs with portable measurements and artifact digests
+node benchmark-org-adoption-pilot-bundle.cjs --runs 5 --sizes 1000,10000,50000 --out /tmp/mycelix-org-adoption-scale.json
 ```
 
 The default verifier checks relationships JSON Schema alone cannot conveniently express: source/record linkage, manifest and synthetic source-content digests, baseline/candidate input equality, equal resource and authority-budget digests, evidence-reference closure, metric result arithmetic, mandatory negative-control coverage, export digest equality, rollback state, effects-disabled mode, relationship claim guard, and exact evaluator digest. The optional `--self-test` mode mutates 12 hostile variants and requires each to be rejected. The receipt states whether the mutation lane actually ran.
+
+The companion `benchmark-org-adoption-pilot-bundle.cjs` generates fixtures up to the schema's 50,000-event cap, runs the fast verification lane in fresh Node processes, and emits a machine-readable report with event count, input/bundle/evaluator digests, samples, median and max-of-N, and runtime conditions. Its timings deliberately exclude schema-instance validation and the 12-mutation self-test lane; run those as separate checks.
 
 JSON Schema validation is a separate lane; the zero-dependency evaluator does not pretend to be a general Draft 2020-12 implementation. The example is a contract witness only. It does not execute either named implementation, run a vendor integration, or prove the scenario happened in the physical world.
 
