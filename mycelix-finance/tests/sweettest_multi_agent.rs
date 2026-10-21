@@ -134,14 +134,14 @@ fn finance_dna_path() -> PathBuf {
 /// Extract a string field from a Record's entry via msgpack deserialization.
 fn extract_entry_field(record: &::holochain::prelude::Record, field: &str) -> Option<String> {
     let entry = record.entry().as_option()?;
-    let bytes: Vec<u8> = entry.clone().into();
+    let bytes = entry.as_app_entry()?.bytes();
     // Holochain entries are msgpack-encoded; try msgpack first, then JSON fallback
-    if let Ok(value) = rmp_serde::from_slice::<serde_json::Value>(&bytes) {
+    if let Ok(value) = rmp_serde::from_slice::<serde_json::Value>(bytes) {
         if let Some(s) = value.get(field).and_then(|v| v.as_str()) {
             return Some(s.to_string());
         }
     }
-    if let Ok(value) = serde_json::from_slice::<serde_json::Value>(&bytes) {
+    if let Ok(value) = serde_json::from_slice::<serde_json::Value>(bytes) {
         if let Some(s) = value.get(field).and_then(|v| v.as_str()) {
             return Some(s.to_string());
         }
@@ -152,13 +152,13 @@ fn extract_entry_field(record: &::holochain::prelude::Record, field: &str) -> Op
 /// Extract a numeric field from a Record's entry via msgpack deserialization.
 fn extract_entry_f64(record: &::holochain::prelude::Record, field: &str) -> Option<f64> {
     let entry = record.entry().as_option()?;
-    let bytes: Vec<u8> = entry.clone().into();
-    if let Ok(value) = rmp_serde::from_slice::<serde_json::Value>(&bytes) {
+    let bytes = entry.as_app_entry()?.bytes();
+    if let Ok(value) = rmp_serde::from_slice::<serde_json::Value>(bytes) {
         if let Some(n) = value.get(field).and_then(|v| v.as_f64()) {
             return Some(n);
         }
     }
-    if let Ok(value) = serde_json::from_slice::<serde_json::Value>(&bytes) {
+    if let Ok(value) = serde_json::from_slice::<serde_json::Value>(bytes) {
         if let Some(n) = value.get(field).and_then(|v| v.as_f64()) {
             return Some(n);
         }
