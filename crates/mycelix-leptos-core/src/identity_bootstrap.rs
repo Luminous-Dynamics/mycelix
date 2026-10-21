@@ -34,6 +34,36 @@ fn identity_ready_subtree_allowed(
         && !backup_confirmation_needed
 }
 
+#[cfg(test)]
+mod tests {
+    use super::identity_ready_subtree_allowed;
+    use crate::local_identity::LocalIdentityStoragePosture as Posture;
+
+    #[test]
+    fn ready_subtree_requires_protected_unlock_and_backup_confirmation() {
+        let postures = [
+            Posture::StorageUnavailable,
+            Posture::NoIdentity,
+            Posture::LegacyIdentityNeedsMigration,
+            Posture::UnprotectedIdentity,
+            Posture::ProtectedLocked,
+            Posture::ProtectedUnlockedInSession,
+            Posture::CorruptOrInconsistent,
+        ];
+        for posture in postures {
+            assert!(
+                !identity_ready_subtree_allowed(posture, true),
+                "backup-needed state must gate {posture:?}"
+            );
+            assert_eq!(
+                identity_ready_subtree_allowed(posture, false),
+                posture == Posture::ProtectedUnlockedInSession,
+                "only protected/unlocked plus confirmed backup may enter ready subtree: {posture:?}"
+            );
+        }
+    }
+}
+
 /// Hold identity-dependent UI behind the shared protected-identity gate and
 /// the recovery-backup challenge. This does not prove a physical backup lasts
 /// forever; it verifies the user can transcribe and later reproduce key words.
