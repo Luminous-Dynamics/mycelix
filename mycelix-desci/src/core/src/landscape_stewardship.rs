@@ -377,40 +377,10 @@ mod tests {
         "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
 
     fn valid_public_profile() -> Value {
-        json!({
-            "schema": LANDSCAPE_STEWARDSHIP_PROFILE_SCHEMA,
-            "schema_uri": LANDSCAPE_STEWARDSHIP_PROFILE_SCHEMA_URI,
-            "record_id": "landscape-record-demo-001",
-            "record_type": "project-version-review",
-            "created_at": "2026-10-21T00:00:00Z",
-            "project_id": "project-demo",
-            "project_snapshot": {
-                "system": "sol-atlas",
-                "schema": "luminous.landscape-design.v0",
-                "schema_uri": "https://luminousdynamics.io/schemas/landscape-design-v0.schema.json",
-                "sha256": SNAPSHOT_SHA256,
-                "scope": "site-parcel",
-                "coordinate_frame_kind": "LOCAL_CARTESIAN_DRAWING_UNITS",
-                "georeferenced": false,
-                "geometry_status": "schematic-design-intent"
-            },
-            "actor_authority": {
-                "actor_id": "did:example:123",
-                "role": "designer",
-                "authority_kind": "project-role",
-                "authority_reference": "authority-record:demo",
-                "consent_reference": "consent-record:demo",
-                "publication_consent": "granted",
-                "publication_authority_reference": "publication-record:demo"
-            },
-            "access_policy": {
-                "visibility": "public",
-                "coordinate_disclosure": "coarse",
-                "sensitive_site_data_included": false
-            },
-            "evidence_class": "curated",
-            "statement": "Synthetic conformance fixture only; not an actual decision or authority record."
-        })
+        serde_json::from_str(include_str!(
+            "../../../fixtures/landscape-stewardship-profile-v0.public.example.json"
+        ))
+        .expect("canonical stewardship profile fixture must be valid JSON")
     }
 
     #[test]
