@@ -114,10 +114,10 @@
         "Does not authorize an operational action."
       ],
       "gap_requires_issue": false,
-      "source_evidence_state": "reference_links_only",
-      "source_snapshot_manifest_sha256": null,
-      "source_snapshot_required_before_pilot": true,
-      "source_snapshot_manifest_path": null
+      "source_evidence_state": "snapshot_manifest_attached",
+      "source_snapshot_manifest_sha256": "cd7148a62c2ce63f874a1289de66227d3bff31b9936a96593aa7b9bd93bbb2fd",
+      "source_snapshot_required_before_pilot": false,
+      "source_snapshot_manifest_path": "source-snapshots/integral-collective-specifications-v1.json"
     },
     {
       "profile_id": "holochain-ecosystem",
