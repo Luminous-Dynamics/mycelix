@@ -7,6 +7,11 @@
     "externality": "tonnes and synthetic ZAR shadow-price scenarios",
     "aggregation": "no cross-domain universal scalar"
   },
+  "aggregation_policy": {
+    "universal_scalar_produced": false,
+    "cross_unit_addition_permitted": false,
+    "normative_weights": null
+  },
   "cases": [
     {
       "case_id": "pure-domestic-transfer",
