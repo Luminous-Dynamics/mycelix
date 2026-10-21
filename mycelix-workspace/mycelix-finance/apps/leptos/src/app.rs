@@ -7,7 +7,7 @@ use leptos_router::path;
 
 use mycelix_leptos_core::{
     init_consciousness_ui, provide_consciousness_context, provide_homeostasis_context,
-    provide_local_identity, provide_theme_context, provide_thermodynamic_context,
+    try_provide_local_identity, provide_theme_context, provide_thermodynamic_context,
     provide_toast_context, AppShell, EmptyState, HolochainProviderAuto, HolochainProviderConfig,
     NavLink, ToastContainer,
 };
@@ -77,7 +77,20 @@ fn AppInner() -> impl IntoView {
     provide_consciousness_context();
     provide_toast_context();
     provide_homeostasis_context(2, "--homeostasis");
-    provide_local_identity();
+    if let Err(error) = try_provide_local_identity() {
+        return view! {
+            <main class="stack-page identity-access-blocked" role="status" aria-live="polite">
+                <section class="vault-card">
+                    <h1>"Finance requires a ready identity"</h1>
+                    <p class="supporting-copy">{error.to_string()}</p>
+                    <p class="supporting-copy">
+                        "Open Mycelix Personal to create, protect, unlock or recover the identity and confirm its offline backup. No identity was created or replaced by Finance."
+                    </p>
+                </section>
+            </main>
+        }
+        .into_any();
+    }
     provide_finance_runtime_config();
     provide_i18n("finance-lang");
     provide_finance_context();
@@ -151,4 +164,5 @@ fn AppInner() -> impl IntoView {
             <mycelix_leptos_core::ClusterLauncher current="Finance" />
         </Router>
     }
+    .into_any()
 }
