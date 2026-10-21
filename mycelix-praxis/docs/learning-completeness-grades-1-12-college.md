@@ -325,7 +325,7 @@ Foundations should receive priority because gaps in reading, numeracy, and prere
 
 The first implementation slice should be small enough to verify without waiting for a large model or remote runner:
 
-1. **Curriculum coverage report:** extend/reuse the existing validator to emit stable JSON plus a readable table of active objective counts, lesson coverage and gaps by declared framework/grade/subject, explicitly separating orphan content from reachable content.
+1. **Curriculum coverage report (Rust-first):** build a read-only Rust audit tool that emits stable JSON plus a readable table of active objective counts, lesson coverage and gaps by declared framework/grade/subject, explicitly separating orphan content from reachable content. Keep the existing Python validator as a compatibility gate until independent tests demonstrate parity; do not remove or weaken it to ease migration.
 2. **Lesson quality schema:** add a versioned, typed schema for objectives, standards references, source/license metadata, instruction/assessment components, accessibility, review state and evidence status. Keep it separate from the legacy lesson shape until a deliberate migration is tested.
 3. **Golden corpus + negative controls:** make the validator fail for representative structural, source, rights, answer-key and accessibility metadata defects. Prove that each negative control is rejected.
 4. **Pilot lesson cohort:** publish a small, fully reviewed cohort rather than tens of thousands of unreviewed generated pages; use it to exercise the complete learner journey.
