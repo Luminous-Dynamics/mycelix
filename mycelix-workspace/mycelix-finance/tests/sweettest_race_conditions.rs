@@ -931,3 +931,241 @@ async fn test_crash_recovery_pending_adjustment_inner() {
         alice_after_recovery.balance, bob_after_recovery.balance, recovered
     );
 }
+
+// ============================================================================
+// Scenario 4: Cross-Agent Receiver Credit-Limit Admission Race (CIV-CAP-001)
+//
+// Two different providers concurrently record instantly-confirmed exchanges to
+// the same receiver. Each request fits the receiver's remaining limit in
+// isolation, but both together exceed it. Unlike RC-1 above, the writes come
+// from different agents/source chains, so same-chain transaction serialization
+// must not be assumed.
+//
+// This is a qualification test for the business invariant, not a claim that a
+// failure has been reproduced on the current runtime. Run against the exact
+// pinned DNA/conductor to establish whether the coordinator's pre-check and
+// balance-update protocol close this cross-agent race.
+// ============================================================================
+
+#[test]
+#[ignore = "requires Holochain conductor; run with --ignored"]
+fn test_concurrent_receiver_credit_limit() {
+    std::thread::Builder::new()
+        .stack_size(16 * 1024 * 1024)
+        .spawn(|| {
+            tokio::runtime::Builder::new_multi_thread()
+                .enable_all()
+                .build()
+                .unwrap()
+                .block_on(test_concurrent_receiver_credit_limit_inner());
+        })
+        .unwrap()
+        .join()
+        .unwrap();
+}
+
+async fn call_result_with_bad_nonce_retry<I, O>(
+    conductor: &SweetConductor,
+    zome: &SweetZome,
+    fn_name: &str,
+    payload: I,
+) -> Result<O, String>
+where
+    I: serde::Serialize + std::fmt::Debug + Clone,
+    O: serde::de::DeserializeOwned + std::fmt::Debug,
+{
+    for attempt in 0..=2 {
+        match conductor
+            .call_fallible(zome, fn_name, payload.clone())
+            .await
+        {
+            Ok(result) => return Ok(result),
+            Err(error) => {
+                let message = format!("{:?}", error);
+                if message.contains("BadNonce") && attempt < 2 {
+                    tokio::time::sleep(std::time::Duration::from_secs(2)).await;
+                    continue;
+                }
+                return Err(message);
+            }
+        }
+    }
+    unreachable!("bounded nonce retry loop returns on every branch")
+}
+
+async fn test_concurrent_receiver_credit_limit_inner() {
+    let (conductor, agents, apps) = setup_finance_conductor(3).await;
+    let zome_a = apps[0].cells()[0].zome("currency_mint");
+    let zome_b = apps[1].cells()[0].zome("currency_mint");
+    let zome_c = apps[2].cells()[0].zome("currency_mint");
+
+    let provider_a_did = format!("did:mycelix:{}", agents[0]);
+    let provider_b_did = format!("did:mycelix:{}", agents[1]);
+    let receiver_did = format!("did:mycelix:{}", agents[2]);
+
+    // Limit=3 and each request=2: each request is valid against a zero balance,
+    // but the pair would leave the receiver at -4, below the allowed -3.
+    let mut params = test_params("Cross-Agent Receiver Limit Race", "CARL");
+    params.credit_limit = 3;
+    let definition: currency_mint_integrity::CurrencyDefinition = call_with_retry(
+        &conductor,
+        &zome_a,
+        "create_currency",
+        CreateCurrencyInput {
+            dao_did: "did:mycelix:dao:receiver-limit-race".into(),
+            params,
+            governance_proposal_id: None,
+        },
+    )
+    .await;
+    let currency_id = definition.id.clone();
+
+    let _: currency_mint_integrity::CurrencyDefinition = call_with_retry(
+        &conductor,
+        &zome_a,
+        "activate_currency",
+        ActivateCurrencyInput {
+            currency_id: currency_id.clone(),
+        },
+    )
+    .await;
+
+    // Give the other cells time to discover the currency, then pre-create all
+    // three zero-balance entries so the scenario targets competing mutations
+    // rather than an uncontrolled get-or-create race.
+    tokio::time::sleep(std::time::Duration::from_secs(1)).await;
+    for (zome, member_did) in [
+        (&zome_a, provider_a_did.as_str()),
+        (&zome_b, provider_b_did.as_str()),
+        (&zome_c, receiver_did.as_str()),
+    ] {
+        let balance: MintedBalanceInfo = call_with_retry(
+            &conductor,
+            zome,
+            "get_minted_balance",
+            GetMintedBalanceInput {
+                currency_id: currency_id.clone(),
+                member_did: member_did.to_string(),
+            },
+        )
+        .await;
+        assert_eq!(
+            balance.raw_balance, 0,
+            "fresh test member must start at zero: {}",
+            member_did
+        );
+    }
+    tokio::time::sleep(std::time::Duration::from_secs(1)).await;
+
+    let input_a = RecordMintedExchangeInput {
+        currency_id: currency_id.clone(),
+        receiver_did: receiver_did.clone(),
+        hours: 2.0,
+        service_description: "Concurrent provider A -> shared receiver".into(),
+    };
+    let input_b = RecordMintedExchangeInput {
+        currency_id: currency_id.clone(),
+        receiver_did: receiver_did.clone(),
+        hours: 2.0,
+        service_description: "Concurrent provider B -> shared receiver".into(),
+    };
+
+    // Calls originate from different agent source chains. If both are accepted,
+    // the resulting confirmed transactions must still conserve balances and
+    // respect the receiver's aggregate credit limit.
+    let (result_a, result_b) = tokio::join!(
+        call_result_with_bad_nonce_retry::<_, MintedExchange>(
+            &conductor,
+            &zome_a,
+            "record_minted_exchange",
+            input_a,
+        ),
+        call_result_with_bad_nonce_retry::<_, MintedExchange>(
+            &conductor,
+            &zome_b,
+            "record_minted_exchange",
+            input_b,
+        ),
+    );
+
+    let accepted_a = result_a.is_ok();
+    let accepted_b = result_b.is_ok();
+    let accepted_count = (accepted_a as usize) + (accepted_b as usize);
+    assert_eq!(
+        accepted_count, 1,
+        "CIV-CAP-001: exactly one 2-hour exchange may be accepted against receiver limit=3;          accepted A={}, B={}, errors A={:?}, B={:?}",
+        accepted_a, accepted_b, result_a.as_ref().err(), result_b.as_ref().err()
+    );
+
+    let loser_error = if accepted_a {
+        result_b.err().expect("B is the rejected operation")
+    } else {
+        result_a.err().expect("A is the rejected operation")
+    };
+    let lower_error = loser_error.to_ascii_lowercase();
+    assert!(
+        ["limit", "exceed", "credit", "chain head", "concurrent", "conflict"]
+            .iter()
+            .any(|needle| lower_error.contains(*needle)),
+        "rejected operation should expose a capacity/contention reason, got: {}",
+        loser_error
+    );
+
+    tokio::time::sleep(std::time::Duration::from_secs(1)).await;
+    let final_a: MintedBalanceInfo = call_with_retry(
+        &conductor,
+        &zome_a,
+        "get_minted_balance",
+        GetMintedBalanceInput {
+            currency_id: currency_id.clone(),
+            member_did: provider_a_did,
+        },
+    )
+    .await;
+    let final_b: MintedBalanceInfo = call_with_retry(
+        &conductor,
+        &zome_b,
+        "get_minted_balance",
+        GetMintedBalanceInput {
+            currency_id: currency_id.clone(),
+            member_did: provider_b_did,
+        },
+    )
+    .await;
+    let final_receiver: MintedBalanceInfo = call_with_retry(
+        &conductor,
+        &zome_c,
+        "get_minted_balance",
+        GetMintedBalanceInput {
+            currency_id,
+            member_did: receiver_did,
+        },
+    )
+    .await;
+
+    assert!(
+        final_receiver.raw_balance >= -3,
+        "CIV-CAP-001: receiver debt limit violated: expected >= -3, got {}",
+        final_receiver.raw_balance
+    );
+    assert_eq!(
+        final_receiver.raw_balance, -2,
+        "one accepted 2-hour exchange should produce exactly -2 receiver balance"
+    );
+    assert_eq!(
+        final_a.raw_balance, if accepted_a { 2 } else { 0 },
+        "provider A balance must match its accepted transaction"
+    );
+    assert_eq!(
+        final_b.raw_balance, if accepted_b { 2 } else { 0 },
+        "provider B balance must match its accepted transaction"
+    );
+
+    let zero_sum =
+        final_a.raw_balance + final_b.raw_balance + final_receiver.raw_balance;
+    assert_eq!(
+        zero_sum, 0,
+        "CIV-CAP-001: zero-sum invariant violated; A={}, B={}, receiver={}, sum={}",
+        final_a.raw_balance, final_b.raw_balance, final_receiver.raw_balance, zero_sum
+    );
+}
