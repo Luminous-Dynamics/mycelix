@@ -746,6 +746,9 @@ mod tests {
                 ..
             }
         )));
+        assert_eq!(result.total_queue_wait_ticks, 3);
+        assert_eq!(result.p95_queue_wait_ticks, Some(2));
+        assert_eq!(result.max_queue_wait_ticks, Some(2));
     }
 
     #[test]
