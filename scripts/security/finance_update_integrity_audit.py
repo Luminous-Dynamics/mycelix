@@ -7,45 +7,126 @@ import sys
 ROOTS = [Path('mycelix-finance/zomes'), Path('mycelix-workspace/mycelix-finance/zomes')]
 
 def mask_rust(source: str) -> str:
+    """Blank Rust comments and literals while preserving offsets and newlines.
+
+    This is a small lexical masker, not a full Rust parser. It handles nested block
+    comments, escaped regular strings, raw strings, byte strings, character literals,
+    and the apostrophe distinction between character literals and lifetimes.
+    """
     out = list(source)
-    i = 0
-    n = len(source)
-    state = 'code'
-    while i < n:
-        if state == 'code':
-            if source.startswith('//', i):
-                state = 'line_comment'; out[i] = ' '; out[i+1] = ' '; i += 2; continue
-            if source.startswith('/*', i):
-                state = 'block_comment'; out[i] = ' '; out[i+1] = ' '; i += 2; continue
-            if source[i] == '"':
-                state = 'string'; out[i] = ' '; i += 1; continue
-            if source[i] == "'":
-                state = 'char'; out[i] = ' '; i += 1; continue
-            i += 1
-        elif state == 'line_comment':
-            out[i] = ' '
-            if source[i] == '\n': state = 'code'
-            i += 1
-        elif state == 'block_comment':
-            out[i] = ' '
-            if source.startswith('*/', i):
-                out[i] = ' '; out[i+1] = ' '; i += 2; state = 'code'
-            else: i += 1
-        elif state == 'string':
-            out[i] = ' '
-            if source[i] == '\\' and i + 1 < n:
-                out[i+1] = ' '; i += 2
-            elif source[i] == '"':
-                state = 'code'; i += 1
-            else: i += 1
+    length = len(source)
+    index = 0
+    state = "code"
+    block_depth = 0
+
+    def blank(start: int, end: int) -> None:
+        for position in range(start, end):
+            if source[position] != "\n":
+                out[position] = " "
+
+    while index < length:
+        if state == "code":
+            if source.startswith("//", index):
+                blank(index, index + 2)
+                index += 2
+                state = "line_comment"
+                continue
+            if source.startswith("/*", index):
+                blank(index, index + 2)
+                index += 2
+                block_depth = 1
+                state = "block_comment"
+                continue
+
+            # Raw strings are r###"..."###; raw byte strings are br###"..."###.
+            prefix_length = 0
+            if source.startswith("br", index):
+                prefix_length = 2
+            elif source[index] == "r":
+                prefix_length = 1
+            if prefix_length:
+                cursor = index + prefix_length
+                while cursor < length and source[cursor] == "#":
+                    cursor += 1
+                if cursor < length and source[cursor] == '"':
+                    hash_count = cursor - (index + prefix_length)
+                    terminator = '"' + ("#" * hash_count)
+                    closing = source.find(terminator, cursor + 1)
+                    literal_end = length if closing < 0 else closing + len(terminator)
+                    blank(index, literal_end)
+                    index = literal_end
+                    continue
+
+            if source[index] == '"':
+                blank(index, index + 1)
+                index += 1
+                state = "string"
+                continue
+
+            if source[index] == "'":
+                # A lifetime such as 'a or 'static is code, not a character literal.
+                # A character literal has a closing apostrophe after one scalar/escape.
+                cursor = index + 1
+                if cursor < length and (
+                    source[cursor].isalpha() or source[cursor] == "_"
+                ):
+                    while cursor < length and (
+                        source[cursor].isalnum() or source[cursor] == "_"
+                    ):
+                        cursor += 1
+                    if cursor >= length or source[cursor] != "'":
+                        index += 1
+                        continue
+                blank(index, index + 1)
+                index += 1
+                state = "char"
+                continue
+
+            index += 1
+            continue
+
+        if state == "line_comment":
+            if source[index] == "\n":
+                state = "code"
+            else:
+                out[index] = " "
+            index += 1
+            continue
+
+        if state == "block_comment":
+            if source.startswith("/*", index):
+                blank(index, index + 2)
+                block_depth += 1
+                index += 2
+            elif source.startswith("*/", index):
+                blank(index, index + 2)
+                block_depth -= 1
+                index += 2
+                if block_depth == 0:
+                    state = "code"
+            else:
+                if source[index] != "\n":
+                    out[index] = " "
+                index += 1
+            continue
+
+        # Escaped regular strings and character literals.
+        if source[index] == "\\" and index + 1 < length:
+            blank(index, index + 2)
+            index += 2
+        elif (state == "string" and source[index] == '"') or (
+            state == "char" and source[index] == "'"
+        ):
+            blank(index, index + 1)
+            index += 1
+            state = "code"
         else:
-            out[i] = ' '
-            if source[i] == '\\' and i + 1 < n:
-                out[i+1] = ' '; i += 2
-            elif source[i] == "'":
-                state = 'code'; i += 1
-            else: i += 1
-    return ''.join(out)
+            if source[index] != "\n":
+                out[index] = " "
+            index += 1
+
+    return "".join(out)
+
 
 def braced_block(source: str, start: int) -> str:
     masked = mask_rust(source)
