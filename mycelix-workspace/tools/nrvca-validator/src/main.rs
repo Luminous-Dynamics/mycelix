@@ -1,4 +1,4 @@
-use nrvca_validator::{run_adversarial_corpus, validate_report, validate_schema_contract};
+use nrvca_validator::{run_adversarial_corpus, validate_benchmark_preregistration, validate_benchmark_schema_contract, validate_report, validate_schema_contract};
 use serde_json::Value;
 use std::{env, fs, process::ExitCode};
 
@@ -11,6 +11,8 @@ fn run() -> Result<(), String> {
     let mut fixture = "fixtures/nrvca-synthetic-golden-v0.1.json".to_owned();
     let mut corpus = "fixtures/nrvca-adversarial-corpus-v0.1.json".to_owned();
     let mut schema = "schemas/nrvca-result-v0.1.schema.json".to_owned();
+    let mut benchmark = "fixtures/nrvca-sa-bridge-preregistration-v0.1.json".to_owned();
+    let mut benchmark_schema = "schemas/nrvca-benchmark-preregistration-v0.1.schema.json".to_owned();
     let mut mode = "all".to_owned();
 
     let mut args = env::args().skip(1);
@@ -19,9 +21,11 @@ fn run() -> Result<(), String> {
             "--fixture" => Some(&mut fixture),
             "--corpus" => Some(&mut corpus),
             "--schema" => Some(&mut schema),
+            "--benchmark" => Some(&mut benchmark),
+            "--benchmark-schema" => Some(&mut benchmark_schema),
             "--mode" => Some(&mut mode),
             "--help" | "-h" => {
-                println!("Usage: cargo run --manifest-path mycelix-workspace/tools/nrvca-validator/Cargo.toml -- [--fixture PATH] [--corpus PATH] [--schema PATH] [--mode all|validate|corpus]");
+                println!("Usage: cargo run --manifest-path mycelix-workspace/tools/nrvca-validator/Cargo.toml -- [--fixture PATH] [--corpus PATH] [--schema PATH] [--benchmark PATH] [--benchmark-schema PATH] [--mode all|validate|corpus]");
                 return Ok(());
             }
             other => return Err(format!("unknown argument: {other}")),
@@ -42,6 +46,13 @@ fn run() -> Result<(), String> {
             return Err(format!("schema contract check failed with {} diagnostic(s)", schema_errors.len()));
         }
 
+        let benchmark_schema_json = read_json(&benchmark_schema)?;
+        let benchmark_schema_errors = validate_benchmark_schema_contract(&benchmark_schema_json);
+        if !benchmark_schema_errors.is_empty() {
+            for d in &benchmark_schema_errors { eprintln!("{} {}: {}", d.code, d.path, d.message); }
+            return Err(format!("benchmark schema contract check failed with {} diagnostic(s)", benchmark_schema_errors.len()));
+        }
+
         let report = read_json(&fixture)?;
         let diagnostics = validate_report(&report);
         if diagnostics.is_empty() {
@@ -50,6 +61,14 @@ fn run() -> Result<(), String> {
             for d in &diagnostics { eprintln!("{} {}: {}", d.code, d.path, d.message); }
             return Err(format!("report validation failed with {} diagnostic(s)", diagnostics.len()));
         }
+
+        let benchmark_record = read_json(&benchmark)?;
+        let benchmark_diagnostics = validate_benchmark_preregistration(&benchmark_record);
+        if !benchmark_diagnostics.is_empty() {
+            for d in &benchmark_diagnostics { eprintln!("{} {}: {}", d.code, d.path, d.message); }
+            return Err(format!("benchmark preregistration invalid with {} diagnostic(s)", benchmark_diagnostics.len()));
+        }
+        println!("BENCHMARK PREREGISTRATION PASS: {} (execution_state={})", benchmark, benchmark_record["execution_state"].as_str().unwrap_or("unknown"));
     }
 
     if mode == "all" || mode == "corpus" {
