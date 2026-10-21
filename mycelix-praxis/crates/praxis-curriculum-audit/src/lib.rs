@@ -139,7 +139,10 @@ fn active_documents(workspace: &Path, errors: &mut Vec<String>) -> Vec<(PathBuf,
     };
     let paths = embedded_json_paths(&source);
     if paths.is_empty() {
-        errors.push(format!("{}: no embedded JSON curriculum documents found", source_path.display()));
+        errors.push(format!(
+            "{}: no embedded JSON curriculum documents found",
+            source_path.display()
+        ));
         return Vec::new();
     }
 
@@ -165,7 +168,10 @@ fn active_documents(workspace: &Path, errors: &mut Vec<String>) -> Vec<(PathBuf,
         match fs::read_to_string(&path) {
             Ok(text) => match serde_json::from_str::<Value>(&text) {
                 Ok(value) if value.is_object() => documents.push((path, value)),
-                Ok(_) => errors.push(format!("{}: top-level JSON value must be an object", path.display())),
+                Ok(_) => errors.push(format!(
+                    "{}: top-level JSON value must be an object",
+                    path.display()
+                )),
                 Err(error) => errors.push(format!("{}: invalid JSON: {error}", path.display())),
             },
             Err(error) => errors.push(format!("cannot read {}: {error}", path.display())),
@@ -239,7 +245,10 @@ fn add_digest_file(
         Ok(bytes) => {
             inputs.insert(relative, bytes);
         }
-        Err(error) => errors.push(format!("cannot read digest input {}: {error}", canonical.display())),
+        Err(error) => errors.push(format!(
+            "cannot read digest input {}: {error}",
+            canonical.display()
+        )),
     }
 }
 
@@ -252,7 +261,10 @@ fn collect_json_inputs(
     let entries = match fs::read_dir(directory) {
         Ok(entries) => entries,
         Err(error) => {
-            errors.push(format!("cannot read generated lesson directory {}: {error}", directory.display()));
+            errors.push(format!(
+                "cannot read generated lesson directory {}: {error}",
+                directory.display()
+            ));
             return;
         }
     };
@@ -275,7 +287,10 @@ fn collect_json_inputs(
         if kind.is_dir() {
             collect_json_inputs(workspace, &path, inputs, errors);
         } else if kind.is_symlink() {
-            errors.push(format!("symlinks are not accepted in generated lesson inputs: {}", path.display()));
+            errors.push(format!(
+                "symlinks are not accepted in generated lesson inputs: {}",
+                path.display()
+            ));
         } else if kind.is_file() && path.extension().and_then(|ext| ext.to_str()) == Some("json") {
             add_digest_file(workspace, &path, inputs, errors);
         }
@@ -359,7 +374,10 @@ fn analyze(
                 continue;
             };
             if nodes.contains_key(&node_id) {
-                errors.push(format!("duplicate active node ID {node_id:?} in an additional document: {}", path.display()));
+                errors.push(format!(
+                    "duplicate active node ID {node_id:?} in an additional document: {}",
+                    path.display()
+                ));
                 continue;
             }
 
@@ -438,7 +456,10 @@ fn analyze(
                     nonempty_string(edge.get("from")),
                     nonempty_string(edge.get("to")),
                 ) else {
-                    errors.push(format!("{}: edge {index} must contain non-empty string from/to IDs", path.display()));
+                    errors.push(format!(
+                        "{}: edge {index} must contain non-empty string from/to IDs",
+                        path.display()
+                    ));
                     continue;
                 };
                 edges.push((path.clone(), from, to));
@@ -449,8 +470,12 @@ fn analyze(
     for (path, from, to) in &edges {
         if !nodes.contains_key(from) || !nodes.contains_key(to) {
             let mut missing = Vec::new();
-            if !nodes.contains_key(from) { missing.push(format!("from={from:?}")); }
-            if !nodes.contains_key(to) { missing.push(format!("to={to:?}")); }
+            if !nodes.contains_key(from) {
+                missing.push(format!("from={from:?}"));
+            }
+            if !nodes.contains_key(to) {
+                missing.push(format!("to={to:?}"));
+            }
             errors.push(format!(
                 "{}: dangling edge {from:?} -> {to:?}; missing {}",
                 path.display(), missing.join(", ")
@@ -533,20 +558,42 @@ fn analyze(
 fn markdown(report: &AuditReport) -> String {
     let mut out = String::new();
     out.push_str("# Praxis curriculum coverage audit\n\n");
-    out.push_str("> Coverage is not proof of lesson quality, learning efficacy, or accreditation. Counts use the active embedded graph and checked-in content manifest.\n\n");
+    out.push_str(
+        "> Coverage is not proof of lesson quality, learning efficacy, or accreditation. Counts use the active embedded graph and checked-in content manifest.\n\n",
+    );
     out.push_str(&format!("Input digest (BLAKE3): {}\n\n", report.input_digest_blake3));
     out.push_str("| Metric | Count |\n|---|---:|\n");
     out.push_str(&format!("| Active curriculum documents | {} |\n", report.active_document_count));
     out.push_str(&format!("| Active nodes | {} |\n", report.active_node_count));
     out.push_str(&format!("| Active edges | {} |\n", report.active_edge_count));
-    out.push_str(&format!("| Nodes with standard references | {} |\n", report.active_nodes_with_standard_refs));
-    out.push_str(&format!("| Nodes without standard references | {} |\n", report.active_nodes_without_standard_refs));
-    out.push_str(&format!("| Distinct referenced standards | {} |\n", report.distinct_standard_refs));
+    out.push_str(&format!(
+        "| Nodes with standard references | {} |\n",
+        report.active_nodes_with_standard_refs
+    ));
+    out.push_str(&format!(
+        "| Nodes without standard references | {} |\n",
+        report.active_nodes_without_standard_refs
+    ));
+    out.push_str(&format!(
+        "| Distinct referenced standards | {} |\n",
+        report.distinct_standard_refs
+    ));
     out.push_str(&format!("| Generated lesson assets | {} |\n", report.manifest_asset_count));
-    out.push_str(&format!("| Active nodes with lessons | {} |\n", report.active_nodes_with_lessons));
-    out.push_str(&format!("| Active nodes missing lessons | {} |\n", report.active_nodes_missing_lessons));
-    out.push_str(&format!("| Orphan lesson-target IDs | {} |\n\n", report.orphan_manifest_node_ids.len()));
-    out.push_str("| Framework | Grade | Subject | Nodes | With standards | With lessons | Missing lessons | Assets |\n");
+    out.push_str(&format!(
+        "| Active nodes with lessons | {} |\n",
+        report.active_nodes_with_lessons
+    ));
+    out.push_str(&format!(
+        "| Active nodes missing lessons | {} |\n",
+        report.active_nodes_missing_lessons
+    ));
+    out.push_str(&format!(
+        "| Orphan lesson-target IDs | {} |\n\n",
+        report.orphan_manifest_node_ids.len()
+    ));
+    out.push_str(
+        "| Framework | Grade | Subject | Nodes | With standards | With lessons | Missing lessons | Assets |\n",
+    );
     out.push_str("|---|---|---|---:|---:|---:|---:|---:|\n");
     for group in &report.groups {
         out.push_str(&format!(
@@ -570,7 +617,9 @@ fn workspace_root() -> Result<PathBuf, String> {
         .ancestors()
         .nth(2)
         .map(Path::to_path_buf)
-        .ok_or_else(|| "cannot locate mycelix-praxis workspace root from CARGO_MANIFEST_DIR".to_owned())?;
+        .ok_or_else(|| {
+            "cannot locate mycelix-praxis workspace root from CARGO_MANIFEST_DIR".to_owned()
+        })?;
     path.canonicalize().map_err(|error| format!("cannot canonicalize workspace root: {error}"))
 }
 
@@ -581,7 +630,9 @@ fn run() -> Result<(), AuditFailure> {
             "--format=json" | "--json" => output_format = "json",
             "--format=markdown" | "--markdown" => output_format = "markdown",
             "--help" | "-h" => {
-                println!("praxis-curriculum-audit [--format=json|markdown]\nRead-only audit of active graph integrity and lesson coverage.");
+                println!(
+                    "praxis-curriculum-audit [--format=json|markdown]\nRead-only audit of active graph integrity and lesson coverage."
+                );
                 return Ok(());
             }
             other => {
@@ -600,7 +651,9 @@ fn run() -> Result<(), AuditFailure> {
         report.input_digest_blake3 = digest;
     }
     if !errors.is_empty() {
-        for error in &errors { eprintln!("curriculum audit error: {error}"); }
+        for error in &errors {
+            eprintln!("curriculum audit error: {error}");
+        }
         return Err(AuditFailure(errors));
     }
     match output_format {
