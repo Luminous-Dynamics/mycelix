@@ -7,6 +7,7 @@
   "additionalProperties": false,
   "required": [
     "schema",
+    "schema_uri",
     "record_id",
     "record_type",
     "created_at",
@@ -432,6 +433,9 @@
     "withdrawal_reason": {
       "type": "string",
       "maxLength": 4000
+    },
+    "schema_uri": {
+      "const": "https://luminousdynamics.io/schemas/landscape-stewardship-profile-v0.schema.json"
     }
   },
   "allOf": [
