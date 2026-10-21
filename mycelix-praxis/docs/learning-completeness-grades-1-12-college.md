@@ -126,6 +126,21 @@ For every release report, pin the source snapshot and scope. Compute at least:
 
 Report numerator, denominator, exclusions, unreviewed objects, version, and uncertainty where appropriate. Never count a generated lesson filename as a fully covered objective. Never treat missing data as success. Show coverage by grade, subject, framework, language, and evidence stage so one strong area cannot conceal an empty one.
 
+### 4.3 Versioned lesson-evidence sidecar
+
+The additive schema at `schemas/lesson-evidence-record-v1.schema.json` defines a sidecar keyed by lesson ID and exact BLAKE3 asset digest. It separates the lesson body from its evolving evidence metadata, allowing current lesson JSON to remain backward-compatible while reviewers and tooling qualify selected cohorts.
+
+The sidecar requires objective references, source records, rights status, a declared lifecycle stage, explicit check states, review receipts, and a collection of learning-study records. Its conditional rules require review metadata for human-reviewed states, learner-outcome studies for pilot-tested states, and an independent-evaluator review for the independently evaluated state. A study can record its comparison condition, outcome type/timepoint, estimate, uncertainty interval, limitations, and evaluator.
+
+Important limitations:
+- The schema file currently has a Rust unit test for JSON parsing and key contract fields. That is not equivalent to running a full JSON Schema Draft 2020-12 meta-schema validator or testing all conditional rules.
+- The sidecar is not yet integrated into the learner UI, content manifest, or coverage report. Existing lesson files are not automatically elevated to any review state.
+- A well-formed review receipt proves the record exists and is bound to a digest; it does not prove that the reviewer is correct or the learning-effect claim is causal.
+- Learner-level records, student identities, raw chat logs, and small-cell outcomes must not be placed in public sidecars. Store only privacy-reviewed cohort summaries and protocol/evaluation references.
+- Rights metadata must be conservative: unknown is a real state and blocks distribution that requires clear reuse rights.
+
+Next: add a fail-closed Rust validator for sidecar semantics and schema conditionals, bind each record to the exact lesson asset digest, and include sidecar coverage in the release report without mixing review states into a single quality score.
+
 ## 5. Minimum release contract for a core lesson
 
 Every released core lesson should contain or reference, as applicable:
