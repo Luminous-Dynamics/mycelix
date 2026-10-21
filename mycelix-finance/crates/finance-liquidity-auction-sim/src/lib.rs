@@ -865,13 +865,13 @@ mod tests {
     #[test]
     fn identical_observations_deduplicate_but_conflicting_ids_fail_closed() {
         let participants = vec![participant("L", 10, 5), participant("B", 0, 5)];
-        let offer = offer("offer", "L", 5, 1);
-        let bid = bid("bid", "B", 5, 3);
+        let offer_observation = offer("offer", "L", 5, 1);
+        let bid_observation = bid("bid", "B", 5, 3);
         let report = run_auction(
             &context(),
             &participants,
-            &[offer.clone(), offer.clone()],
-            &[bid.clone(), bid.clone()],
+            &[offer_observation.clone(), offer_observation.clone()],
+            &[bid_observation.clone(), bid_observation.clone()],
         )
         .unwrap();
         assert_eq!(report.deduplicated_observations, 2);
@@ -882,8 +882,8 @@ mod tests {
             run_auction(
                 &context(),
                 &participants,
-                &[offer, conflicting],
-                &[bid],
+                &[offer_observation, conflicting],
+                &[bid_observation],
             ),
             Err(AuctionError::ConflictingDuplicateOffer("offer".into()))
         );
