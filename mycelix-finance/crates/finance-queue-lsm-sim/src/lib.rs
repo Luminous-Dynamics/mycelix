@@ -907,8 +907,12 @@ pub fn simulated_annealing_minimum_liquidity_order(
             second = (second + 1) % payment_count;
         }
 
+        // Insertion moves explore re-orderings that require multiple pairwise
+        // swaps to realize. For example, moving a blocked early payment to the
+        // end can expose an incoming-liquidity cycle in a single neighborhood step.
         let mut candidate_order = current_order.clone();
-        candidate_order.swap(first, second);
+        let moved = candidate_order.remove(first);
+        candidate_order.insert(second, moved);
         let candidate_report =
             minimum_opening_liquidity_for_sequence(context, payments, &candidate_order)?;
         let comparison =
