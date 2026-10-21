@@ -2169,6 +2169,36 @@ mod browser_storage_tests {
     }
 
     #[wasm_bindgen_test]
+    async fn web_lock_serializes_contending_identity_lifecycle_operations() {
+        use std::rc::Rc;
+        use std::cell::RefCell;
+
+        let events = Rc::new(RefCell::new(Vec::<&'static str>::new()));
+        let first_events = events.clone();
+        let first = with_identity_operation_lock(move || async move {
+            first_events.borrow_mut().push("first-start");
+            gloo_timers::future::TimeoutFuture::new(50).await;
+            first_events.borrow_mut().push("first-end");
+            Ok(())
+        });
+        let second_events = events.clone();
+        let second = with_identity_operation_lock(move || async move {
+            second_events.borrow_mut().push("second-start");
+            second_events.borrow_mut().push("second-end");
+            Ok(())
+        });
+
+        let (first_result, second_result) = futures_util::future::join(first, second).await;
+        assert!(first_result.is_ok(), "first lock holder succeeds");
+        assert!(second_result.is_ok(), "queued lock holder succeeds");
+        assert_eq!(
+            *events.borrow(),
+            vec!["first-start", "first-end", "second-start", "second-end"],
+            "the second operation must not enter the critical section until the first Promise settles"
+        );
+    }
+
+    #[wasm_bindgen_test]
     async fn protected_creation_writes_no_plaintext_secret_and_unlocks_same_key() {
         let _backup = IdentityStorageBackup::new_and_clear();
         let posture = create_protected_identity("synthetic browser test passphrase")
