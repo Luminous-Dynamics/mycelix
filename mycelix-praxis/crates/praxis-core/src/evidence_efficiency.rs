@@ -10,7 +10,7 @@
 use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
 
-pub const EVIDENCE_EFFICIENCY_SCHEMA_VERSION: u16 = 1;
+pub const EVIDENCE_EFFICIENCY_SCHEMA_VERSION: u16 = 2;
 pub const EVIDENCE_EFFICIENCY_BENCHMARK_ID: &str = "PRAXIS-CYBER-ACQ-001";
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -26,9 +26,20 @@ pub struct EvidenceRequestCatalog {
 #[serde(deny_unknown_fields)]
 pub struct RequestScenario {
     pub scenario_id: String,
+    pub domain: CyberDomain,
     /// Candidate hypotheses are learner-visible framing, not the evaluator's answer.
     pub hypotheses: Vec<String>,
     pub requests: Vec<EvidenceRequest>,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum CyberDomain {
+    IdentityAccess,
+    NetworkConfiguration,
+    SupplyChainProvenance,
+    AiToolBoundaries,
+    EndpointResponseTelemetry,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -52,6 +63,15 @@ pub enum EvidenceSourceKind {
     TokenUseAudit,
     SensorHealth,
     SharedEgressSummary,
+    EffectiveRouteTable,
+    PolicyDeploymentReceipt,
+    BuildProvenance,
+    RegistrySnapshot,
+    RuntimeArtifactReceipt,
+    RetrievedContentLineage,
+    ToolInvocationAudit,
+    ExportEffectReceipt,
+    EndpointActionReceipt,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]

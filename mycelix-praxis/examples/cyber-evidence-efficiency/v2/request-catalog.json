@@ -1,0 +1,195 @@
+{
+  "schema_version": 2,
+  "benchmark_id": "PRAXIS-CYBER-ACQ-001",
+  "benchmark_version": "0.2.0",
+  "scenarios": [
+    {
+      "scenario_id": "CYB-ACQ-001",
+      "hypotheses": [
+        "benign_shared_nat",
+        "credential_spray_no_session",
+        "compromised_session",
+        "stale_sensor_false_alarm"
+      ],
+      "requests": [
+        {
+          "request_id": "session-issuance-audit",
+          "source_kind": "identity_session_audit",
+          "purpose": "Determine whether the identity provider issued a session and whether post-authentication use occurred.",
+          "required_authority": "read_only_telemetry",
+          "cost_units": 2,
+          "latency_bound_minutes": 3
+        },
+        {
+          "request_id": "endpoint-device-context",
+          "source_kind": "endpoint_context",
+          "purpose": "Correlate the sign-in with current approved device posture.",
+          "required_authority": "read_only_telemetry",
+          "cost_units": 1,
+          "latency_bound_minutes": 2
+        },
+        {
+          "request_id": "privileged-token-use-audit",
+          "source_kind": "token_use_audit",
+          "purpose": "Inspect token issuance and use from a privileged audit view when incident command authorizes access.",
+          "required_authority": "incident_commander",
+          "cost_units": 4,
+          "latency_bound_minutes": 5
+        },
+        {
+          "request_id": "sensor-health-check",
+          "source_kind": "sensor_health",
+          "purpose": "Check telemetry freshness and sensor coverage before relying on endpoint silence.",
+          "required_authority": "read_only_telemetry",
+          "cost_units": 1,
+          "latency_bound_minutes": 1
+        },
+        {
+          "request_id": "shared-egress-rollup",
+          "source_kind": "shared_egress_summary",
+          "purpose": "Retrieve a high-level aggregate of traffic through the shared lab egress.",
+          "required_authority": "read_only_telemetry",
+          "cost_units": 1,
+          "latency_bound_minutes": 1
+        }
+      ],
+      "domain": "identity_access"
+    },
+    {
+      "scenario_id": "CYB-ACQ-002",
+      "domain": "network_configuration",
+      "hypotheses": [
+        "approved_segmentation",
+        "intended_policy_exception",
+        "route_scope_leakage",
+        "stale_policy_snapshot"
+      ],
+      "requests": [
+        {
+          "request_id": "effective-route-table",
+          "source_kind": "effective_route_table",
+          "purpose": "Compare effective route prefixes against the approved segmentation intent; this request does not itself prove traffic crossed a boundary.",
+          "required_authority": "read_only_telemetry",
+          "cost_units": 2,
+          "latency_bound_minutes": 3
+        },
+        {
+          "request_id": "policy-deployment-receipt",
+          "source_kind": "policy_deployment_receipt",
+          "purpose": "Check which reviewed network-policy revision was deployed to the relevant enforcement point.",
+          "required_authority": "read_only_telemetry",
+          "cost_units": 1,
+          "latency_bound_minutes": 2
+        },
+        {
+          "request_id": "policy-source-crosscheck",
+          "source_kind": "policy_deployment_receipt",
+          "purpose": "Compare independent source records; if they conflict, preserve the conflict and do not infer which source is authoritative.",
+          "required_authority": "read_only_telemetry",
+          "cost_units": 1,
+          "latency_bound_minutes": 2
+        }
+      ]
+    },
+    {
+      "scenario_id": "CYB-ACQ-003",
+      "domain": "supply_chain_provenance",
+      "hypotheses": [
+        "approved_artifact",
+        "malicious_substitution",
+        "stale_registry_snapshot",
+        "benign_reproducible_build_drift"
+      ],
+      "requests": [
+        {
+          "request_id": "registry-digest-comparison",
+          "source_kind": "registry_snapshot",
+          "purpose": "Compare a registry digest with the declared release/build record; a mismatch alone does not prove malicious substitution.",
+          "required_authority": "read_only_telemetry",
+          "cost_units": 2,
+          "latency_bound_minutes": 3
+        },
+        {
+          "request_id": "build-provenance-attestation",
+          "source_kind": "build_provenance",
+          "purpose": "Verify subject identity and signer/build provenance against the approved release record.",
+          "required_authority": "read_only_telemetry",
+          "cost_units": 3,
+          "latency_bound_minutes": 4
+        },
+        {
+          "request_id": "registry-snapshot-freshness",
+          "source_kind": "registry_snapshot",
+          "purpose": "Verify the timestamp and version of the registry snapshot before relying on its digest comparison.",
+          "required_authority": "read_only_telemetry",
+          "cost_units": 1,
+          "latency_bound_minutes": 2
+        }
+      ]
+    },
+    {
+      "scenario_id": "CYB-ACQ-004",
+      "domain": "ai_tool_boundaries",
+      "hypotheses": [
+        "benign_reference_text",
+        "prompt_injection_blocked",
+        "unauthorized_tool_attempt",
+        "data_export_completed"
+      ],
+      "requests": [
+        {
+          "request_id": "retrieved-content-lineage",
+          "source_kind": "retrieved_content_lineage",
+          "purpose": "Identify which retrieved document supplied the untrusted instruction; retrieved text is not an authority grant.",
+          "required_authority": "read_only_telemetry",
+          "cost_units": 1,
+          "latency_bound_minutes": 2
+        },
+        {
+          "request_id": "tool-invocation-audit",
+          "source_kind": "tool_invocation_audit",
+          "purpose": "Inspect recorded tool invocation and policy decisions without repeating or executing the requested action.",
+          "required_authority": "read_only_telemetry",
+          "cost_units": 2,
+          "latency_bound_minutes": 3
+        },
+        {
+          "request_id": "export-effect-receipt",
+          "source_kind": "export_effect_receipt",
+          "purpose": "Check whether a completed export effect receipt exists; absence of a receipt from an unavailable source proves neither success nor failure.",
+          "required_authority": "read_only_telemetry",
+          "cost_units": 1,
+          "latency_bound_minutes": 2
+        }
+      ]
+    },
+    {
+      "scenario_id": "CYB-ACQ-005",
+      "domain": "endpoint_response_telemetry",
+      "hypotheses": [
+        "quarantine_effective",
+        "quarantine_requested_no_effect",
+        "sensor_stale_no_receipt",
+        "benign_alert_no_quarantine"
+      ],
+      "requests": [
+        {
+          "request_id": "endpoint-action-receipt",
+          "source_kind": "endpoint_action_receipt",
+          "purpose": "Check for a signed effect receipt; a request or command acknowledgement is not proof of isolation.",
+          "required_authority": "read_only_telemetry",
+          "cost_units": 2,
+          "latency_bound_minutes": 3
+        },
+        {
+          "request_id": "endpoint-sensor-health",
+          "source_kind": "sensor_health",
+          "purpose": "Check whether endpoint health and telemetry coverage are current enough to interpret missing effect receipts.",
+          "required_authority": "read_only_telemetry",
+          "cost_units": 1,
+          "latency_bound_minutes": 2
+        }
+      ]
+    }
+  ]
+}

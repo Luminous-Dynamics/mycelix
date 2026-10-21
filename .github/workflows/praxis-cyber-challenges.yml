@@ -75,6 +75,8 @@ jobs:
           test "$(git hash-object mycelix-praxis/examples/cyber-evidence-efficiency/v2/evaluator-only.json)" = "$(jq -r '.evaluator_only_git_blob_sha' "$manifest")"
           test "$(git hash-object mycelix-praxis/examples/cyber-evidence-efficiency/v2/request-catalog.schema.json)" = "$(jq -r '.solver_schema_git_blob_sha' "$manifest")"
           test "$(git hash-object mycelix-praxis/examples/cyber-evidence-efficiency/v2/evaluator-only.schema.json)" = "$(jq -r '.evaluator_schema_git_blob_sha' "$manifest")"
+          test "$(git hash-object mycelix-praxis/examples/cyber-evidence-efficiency/v2/qualification-protocol.template.json)" = "$(jq -r '.qualification_protocol_template_git_blob_sha' "$manifest")"
+          test "$(git hash-object mycelix-praxis/examples/cyber-evidence-efficiency/v2/qualification-protocol.schema.json)" = "$(jq -r '.qualification_protocol_schema_git_blob_sha' "$manifest")"
 
       - name: Check formatting for Praxis Core
         run: cargo +1.96.0 fmt --manifest-path mycelix-praxis/Cargo.toml --package praxis-core -- --check
@@ -155,6 +157,8 @@ jobs:
             --arg evaluator "$(git hash-object mycelix-praxis/examples/cyber-evidence-efficiency/v2/evaluator-only.json)" \
             --arg catalog_schema "$(git hash-object mycelix-praxis/examples/cyber-evidence-efficiency/v2/request-catalog.schema.json)" \
             --arg evaluator_schema "$(git hash-object mycelix-praxis/examples/cyber-evidence-efficiency/v2/evaluator-only.schema.json)" \
+            --arg prereg_template "$(git hash-object mycelix-praxis/examples/cyber-evidence-efficiency/v2/qualification-protocol.template.json)" \
+            --arg prereg_schema "$(git hash-object mycelix-praxis/examples/cyber-evidence-efficiency/v2/qualification-protocol.schema.json)" \
             --arg workflow "$(git hash-object .github/workflows/praxis-cyber-challenges.yml)" \
             '{
               schema_version: 1,
@@ -168,6 +172,8 @@ jobs:
                 evaluator_only_fixture: $evaluator,
                 solver_schema: $catalog_schema,
                 evaluator_schema: $evaluator_schema,
+                qualification_protocol_template: $prereg_template,
+                qualification_protocol_schema: $prereg_schema,
                 workflow: $workflow
               },
               claim_ceiling: "Contract and public synthetic fixture conformance only; not held-out cyber capability, live incident truth, learning efficacy, SOTA, or production readiness."
