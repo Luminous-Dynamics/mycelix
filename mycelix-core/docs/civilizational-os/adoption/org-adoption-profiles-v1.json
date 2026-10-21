@@ -1502,7 +1502,11 @@
       "readiness": "existing_work_to_reuse",
       "source_urls": [
         "https://ref.gs1.org/standards/epcis/2.0.1/",
-        "https://ref.gs1.org/standards/cbv/2.0.0/"
+        "https://ref.gs1.org/standards/cbv/2.0.0/",
+        "https://ref.gs1.org/standards/epcis/2.0.1/epcis-context.jsonld",
+        "https://ref.gs1.org/standards/epcis/2.0.1/epcis-json-schema.json",
+        "https://ref.gs1.org/standards/epcis/2.0.1/epcis-shacl.ttl",
+        "https://ref.gs1.org/standards/epcis/2.0.1/cbv-ontology.jsonld"
       ],
       "snapshot_date": "2026-10-21",
       "relationship_status": "not_recorded",
@@ -1546,7 +1550,7 @@
       ],
       "source_evidence_state": "snapshot_manifest_attached",
       "source_snapshot_manifest_path": "source-snapshots/gs1-epcis-cbv-v1.json",
-      "source_snapshot_manifest_sha256": "46989ab0535265a2603e6ca146c074c6ece0b50d19fe872dcb1328d61795a1a1",
+      "source_snapshot_manifest_sha256": "c181a57ea2404a4fcb81d5a0515b5f6e9084ce589a673486de0467ea427be27c",
       "source_snapshot_required_before_pilot": false
     }
   ]
