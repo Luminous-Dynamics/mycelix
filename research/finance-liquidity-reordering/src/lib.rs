@@ -992,24 +992,51 @@ pub fn heuristic_portfolio(
     annealing_seed: u64,
     annealing_iterations: usize,
 ) -> Result<SearchResult, ReorderError> {
+    let count = problem.payments.len();
     let fifo = input_order(problem)?;
-    let greedy = receiver_ready_greedy(problem)?;
-    let mut total_evaluations = fifo
-        .candidate_evaluations
-        .checked_add(greedy.candidate_evaluations)
-        .ok_or(ReorderError::ArithmeticOverflow)?;
+    let mut best = fifo;
+    let mut total_evaluations = best.candidate_evaluations;
 
-    let mut best = if plan_is_better(
-        problem,
-        &greedy.order,
-        &greedy.evaluation,
-        &fifo.order,
-        &fifo.evaluation,
-    ) {
-        greedy
-    } else {
-        fifo
-    };
+    // Preserve the original full-scan baseline at sizes where its O(n²) work is capped.
+    // Above that limit, use the event-driven heap as the greedy candidate generator.
+    if count <= MAX_GREEDY_PAYMENTS {
+        let greedy = receiver_ready_greedy(problem)?;
+        total_evaluations = total_evaluations
+            .checked_add(greedy.candidate_evaluations)
+            .ok_or(ReorderError::ArithmeticOverflow)?;
+        if plan_is_better(
+            problem,
+            &greedy.order,
+            &greedy.evaluation,
+            &best.order,
+            &best.evaluation,
+        ) {
+            best.order = greedy.order;
+            best.evaluation = greedy.evaluation;
+        }
+    }
+
+    match receiver_ready_event_driven(problem) {
+        Ok(event_driven) => {
+            total_evaluations = total_evaluations
+                .checked_add(event_driven.candidate_evaluations)
+                .ok_or(ReorderError::ArithmeticOverflow)?;
+            if plan_is_better(
+                problem,
+                &event_driven.order,
+                &event_driven.evaluation,
+                &best.order,
+                &best.evaluation,
+            ) {
+                best.order = event_driven.order;
+                best.evaluation = event_driven.evaluation;
+            }
+        }
+        // On a small, high-degree graph, event refresh overhead can exceed its cap while
+        // full-scan greedy is still within its declared limit. Continue with that baseline.
+        Err(ReorderError::SearchWorkLimit { .. }) if count <= MAX_GREEDY_PAYMENTS => {}
+        Err(error) => return Err(error),
+    }
 
     let local = bounded_insertion_search(problem, &best.order, insertion_candidate_budget)?;
     total_evaluations = total_evaluations
