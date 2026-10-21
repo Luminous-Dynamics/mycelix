@@ -104,14 +104,6 @@ function validateBundle(bundle) {
     if (entry.source_kind === 'synthetic_fixture') {
       add(entry.rights_disposition === 'synthetic_no_external_rights_required',
         `${label} synthetic rights disposition mismatch`);
-      const declaredIds = Array.isArray(entry.record_ids) ? [...entry.record_ids].sort() : [];
-      const sourceEvents = (manifest.events || [])
-        .filter(event => event && declaredIds.includes(event.event_id))
-        .sort((left, right) => (left.sequence - right.sequence) || left.event_id.localeCompare(right.event_id));
-      add(sourceEvents.length === declaredIds.length,
-        `${label} synthetic source event set is incomplete`);
-      add(entry.content_sha256 === sha256(canonical(sourceEvents)),
-        `${label} synthetic source-content digest mismatch`);
     } else {
       add(typeof entry.source_url === 'string' && entry.source_url.startsWith('https://'),
         `${label} non-synthetic source requires an HTTPS source_url`);
@@ -141,6 +133,19 @@ function validateBundle(bundle) {
   }
   for (const recordId of sourceRecordIds.keys()) {
     add(eventById.has(recordId), `source entry references missing event: ${recordId}`);
+  }
+
+  // Verify synthetic source content using indexed event IDs rather than repeated
+  // full-list scans. This keeps the check near-linear as event counts grow.
+  for (const entry of sourceById.values()) {
+    if (entry.source_kind !== 'synthetic_fixture') continue;
+    const declaredIds = Array.isArray(entry.record_ids) ? [...entry.record_ids].sort() : [];
+    const sourceEvents = declaredIds.map(recordId => eventById.get(recordId))
+      .filter(Boolean)
+      .sort((left, right) => (left.sequence - right.sequence) || left.event_id.localeCompare(right.event_id));
+    add(sourceEvents.length === declaredIds.length, `synthetic source event set is incomplete: ${entry.source_id}`);
+    add(entry.content_sha256 === sha256(canonical(sourceEvents)),
+      `synthetic source-content digest mismatch: ${entry.source_id}`);
   }
 
   // Baseline and candidate must run against the same inputs, resources, authority,
