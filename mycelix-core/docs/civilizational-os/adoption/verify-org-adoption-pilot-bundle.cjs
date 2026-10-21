@@ -236,7 +236,7 @@ function validateBundle(bundle) {
     'bundle result must remain a fixture-only conformance result');
   add(bundle.result && bundle.result.bundle_scope === 'synthetic_reference_fixture_only',
     'bundle scope must remain fixture-only');
-  add(bundle.result && hasSha(bundle.result.evaluator_sha256), 'evaluator digest malformed');
+  add(bundle.result && bundle.result.evaluator_sha256 === sha256(fs.readFileSync(__filename)), 'evaluator digest does not match executing verifier');
 
   return errors;
 }
