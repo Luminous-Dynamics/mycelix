@@ -66,15 +66,15 @@ jobs:
           cargo run --manifest-path research/finance-liquidity-reordering/Cargo.toml --offline --locked --release --example benchmark > "$out/results.csv"
           test "$(wc -l < "$out/results.csv")" -eq 205
           awk -F, '
-            NR == 1 { if ($9 != "aggregate_liquidity_gap_minor" || $10 != "max_participant_gap_minor") exit 2; next }
+            NR == 1 { if ($12 != "aggregate_liquidity_gap_minor" || $13 != "max_participant_gap_minor" || $7 != "algorithm") exit 2; next }
             {
               rows++
-              if ($9 != "" && ($9 !~ /^[0-9]+$/ || $9 < 0)) failed = 1
-              if ($10 != "" && $10 !~ /^-?[0-9]+$/) failed = 1
-              if ($9 == "0" && $10 != "" && $10 < 0) failed = 1
-              if ($4 == "exact_permutation_oracle") {
+              if ($12 != "" && ($12 !~ /^[0-9]+$/ || $12 < 0)) failed = 1
+              if ($13 != "" && $13 !~ /^-?[0-9]+$/) failed = 1
+              if ($12 == "0" && $13 != "" && $13 < 0) failed = 1
+              if ($7 == "exact_permutation_oracle") {
                 exact++
-                if ($9 != "0" || $10 != "0") failed = 1
+                if ($12 != "0" || $13 != "0") failed = 1
               }
             }
             END {
