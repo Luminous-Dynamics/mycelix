@@ -1,0 +1,48 @@
+{
+  "schema_version": "1.0.0",
+  "manifest_id": "gs1-epcis-cbv-v1",
+  "profile_id": "gs1-epcis-cbv",
+  "captured_at_utc": "2026-10-21T19:21:23Z",
+  "claim_ceiling": "SourceSnapshotOnly",
+  "sources": [
+    {
+      "source_id": "gs1-epcis-2-0-1",
+      "source_url": "https://ref.gs1.org/standards/epcis/2.0.1/",
+      "source_kind": "official_standard",
+      "source_title": "GS1 EPCIS Standard Release 2.0.1",
+      "retrieved_at_utc": "2026-10-21T19:21:23Z",
+      "capture_state": "exact_revision_pinned",
+      "source_revision": "EPCIS 2.0.1; published 2025-07-01",
+      "content_sha256": null,
+      "content_artifact_path": null,
+      "rights_disposition": "metadata_only",
+      "integrity_method": "immutable_source_revision",
+      "limitations": [
+        "The versioned GS1 reference URL pins a specific standard revision; this manifest does not copy the normative PDF or artefact bytes.",
+        "Normative schemas and artefacts used by a concrete pilot must be separately listed, rights-reviewed, and pinned to this same release."
+      ]
+    },
+    {
+      "source_id": "gs1-cbv-2-0-0",
+      "source_url": "https://ref.gs1.org/standards/cbv/2.0.0/",
+      "source_kind": "official_standard",
+      "source_title": "GS1 Core Business Vocabulary Standard Version 2.0.0",
+      "retrieved_at_utc": "2026-10-21T19:21:23Z",
+      "capture_state": "exact_revision_pinned",
+      "source_revision": "CBV 2.0.0; published 2022-06-22",
+      "content_sha256": null,
+      "content_artifact_path": null,
+      "rights_disposition": "metadata_only",
+      "integrity_method": "immutable_source_revision",
+      "limitations": [
+        "The versioned GS1 reference URL pins a specific standard revision; this manifest does not copy the normative PDF or artefact bytes.",
+        "Pilot fixture semantics must be validated against the exact normative EPCIS and CBV documents and any selected implementation profile."
+      ]
+    }
+  ],
+  "nonclaims": [
+    "This manifest pins public GS1 standard revisions only; it does not imply GS1 partnership, endorsement or participation.",
+    "It does not establish that Mycelix conforms to EPCIS/CBV or that any Mycelix adapter has been implemented.",
+    "It does not establish product authenticity, physical delivery, or regulatory compliance."
+  ]
+}
