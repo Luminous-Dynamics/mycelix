@@ -1,13 +1,8 @@
 name: Finance Liquidity Reordering Research
 
 on:
-  push:
-    branches:
-      - feat/liquidity-reordering-exact-oracle-20261021
-    paths:
-      - research/finance-liquidity-reordering/**
-      - .github/workflows/finance-liquidity-reordering.yml
   pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
     paths:
       - research/finance-liquidity-reordering/**
       - .github/workflows/finance-liquidity-reordering.yml
@@ -16,12 +11,28 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: finance-liquidity-reordering-${{ github.event.pull_request.head.ref || github.ref_name }}
+  cancel-in-progress: true
+
 jobs:
   test-and-benchmark:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
     steps:
       - name: Checkout exact subject
         uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+          fetch-depth: 1
+
+      - name: Assert exact subject and repository
+        run: |
+          set -euo pipefail
+          test '${{ github.repository }}' = 'Luminous-Dynamics/mycelix'
+          test '${{ github.repository_id }}' = '1176351975'
+          test "$(git rev-parse HEAD)" = "${{ github.event.pull_request.head.sha || github.sha }}"
 
       - name: Install pinned Rust
         uses: dtolnay/rust-toolchain@e97e2d8cc328f1b50210efc529dca0028893a2d9
