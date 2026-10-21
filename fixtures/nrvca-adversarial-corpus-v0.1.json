@@ -151,12 +151,17 @@
     {
       "case_id": "NRVCA-ECO-012-no-causal-claim-from-synthetic-fixture",
       "expected_disposition": "reject_semantic",
-      "invariant": "Synthetic consistency does not prove real-world effect or causal attribution.",
+      "invariant": "A synthetic report cannot attach a causally-evaluated status to a causal-effect claim.",
       "patch": [
         {
-          "op": "add",
-          "path": "/claim_ceiling/-",
-          "value": "This report proves positive causal economic impact in South Africa."
+          "op": "replace",
+          "path": "/claims/0/claim_type",
+          "value": "causal_effect"
+        },
+        {
+          "op": "replace",
+          "path": "/claims/0/evidence_status",
+          "value": "causally_evaluated"
         }
       ]
     },
