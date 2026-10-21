@@ -1492,6 +1492,61 @@
       "source_snapshot_manifest_sha256": null,
       "source_snapshot_required_before_pilot": true,
       "source_snapshot_manifest_path": null
+    },
+    {
+      "profile_id": "gs1-epcis-cbv",
+      "display_name": "GS1 EPCIS / CBV",
+      "profile_kind": "standards_body",
+      "adoption_domain": "supply-chain-event-interoperability",
+      "technical_priority": "P1",
+      "readiness": "standards_reference_only",
+      "source_urls": [
+        "https://www.gs1.org/standards/epcis"
+      ],
+      "snapshot_date": "2026-10-21",
+      "relationship_status": "not_recorded",
+      "relationship_claim_guard": "No partnership, customer relationship, endorsement, or integration is implied by this catalog.",
+      "gap_requires_issue": false,
+      "mycelix_owner_issues": [
+        {
+          "issue_id": "mycelix#437",
+          "role": "loss-aware EPCIS/DCSA/ONE Record/UN-CEFACT interoperability"
+        },
+        {
+          "issue_id": "mycelix#1112",
+          "role": "semantic translation fidelity and loss-accounting theorem"
+        },
+        {
+          "issue_id": "mycelix#4901",
+          "role": "synthetic logistics event reference verifier"
+        }
+      ],
+      "pilot_scope": "Pin an explicitly ratified EPCIS/CBV version and map a synthetic event sequence to its standard event semantics without losing event time, business step, disposition, source/party identity, location, or correction lineage. Mycelix's additional value is cross-organization evidence qualification and explicit handling of conflicting/unsupported claims, not a parallel event vocabulary.",
+      "acceptance_metrics": [
+        "All fields claimed as supported by the selected EPCIS/CBV version round-trip with the same meaning and units.",
+        "Unsupported or extension fields stay explicit and never disappear silently in translation.",
+        "A scan, shipping event, receiving event, acceptance event, and qualified physical-delivery measurement remain distinct claims."
+      ],
+      "negative_controls": [
+        "Promote an observation scan into proof of physical delivery without a qualified measurement.",
+        "Discard an unsupported external field without recording the semantic loss.",
+        "Accept an event with a mismatched lot/subject or source identity.",
+        "Use an unpinned or draft external schema as though it were the selected ratified version."
+      ],
+      "deployment_assumptions": [
+        "All current URLs are research references; the exact ratified version and normative artifacts must be frozen before a pilot.",
+        "Synthetic events and effects-disabled execution only in the first tranche."
+      ],
+      "off_ramp": "Export original EPCIS event references, Mycelix projection, mapping dispositions and verifier receipt; disabling the projection must not modify the source traceability records.",
+      "nonclaims": [
+        "Does not imply GS1 endorsement or participation in any GS1 working group.",
+        "Does not establish regulatory compliance, product authenticity, physical delivery, or source-record truth.",
+        "Does not establish superiority over EPCIS-compatible systems; it defines a baseline for a matched evaluation."
+      ],
+      "source_evidence_state": "reference_links_only",
+      "source_snapshot_manifest_path": null,
+      "source_snapshot_manifest_sha256": null,
+      "source_snapshot_required_before_pilot": true
     }
   ]
 }
