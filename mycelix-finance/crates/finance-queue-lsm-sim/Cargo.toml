@@ -1,0 +1,9 @@
+[package]
+name = "finance-queue-lsm-sim"
+version = "0.1.0"
+edition = "2021"
+license = "AGPL-3.0-or-later"
+description = "Deterministic reference simulator and bounded search tools for liquidity-constrained payment queues"
+
+[lib]
+path = "src/lib.rs"
