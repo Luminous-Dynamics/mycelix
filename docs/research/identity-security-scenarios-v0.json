@@ -690,6 +690,22 @@
         "result",
         "non_secret_receipt_digest"
       ]
+    },
+    {
+      "id": "ID-043",
+      "slug": "cross-app-ready-tree-gate",
+      "precondition": "Finance, Climate, and Personal startup with each possible local identity posture, including empty, unprotected, protected-locked, legacy, corrupt, and unavailable",
+      "operation": "Mount each app shell and observe ready-tree rendering, identity-provider invocation, and any identity-dependent context or local_did access",
+      "expected": "Only ProtectedUnlockedInSession permits the normal ready subtree and identity provider to mount; all other postures remain behind the shared bootstrap UI without implicit replacement",
+      "layer": "integration",
+      "severity": "critical",
+      "execution_status": "specified_not_executed",
+      "evidence_required": [
+        "source_sha",
+        "test_case_id",
+        "result",
+        "non_secret_receipt_digest"
+      ]
     }
   ]
 }
