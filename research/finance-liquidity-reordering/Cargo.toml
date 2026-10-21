@@ -11,3 +11,7 @@ path = "src/lib.rs"
 [[example]]
 name = "benchmark"
 path = "examples/benchmark.rs"
+
+[[example]]
+name = "stream_benchmark"
+path = "examples/stream_benchmark.rs"
