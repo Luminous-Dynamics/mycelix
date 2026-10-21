@@ -28,6 +28,12 @@ This problem is combinatorial, so the implementation hard-limits exact search to
 
 The returned plan preserves excluded routes from the full candidate input even when those routes were not part of the chosen subset. The existing linear solver remains the scalability baseline; fixed-charge search is an exact reference/oracle for small instances.
 
+Run the bounded fixed-charge timing comparison with:
+
+    cargo run --release --manifest-path mycelix-finance/Cargo.toml -p finance-route-clearing-optimizer --example fixed_charge_benchmark
+
+That example compares the linear-cost allocation against exact fixed-charge search on deterministic graphs with 4, 6, 8, 10 and 12 route IDs. It prints both objective breakdowns and p50/p95 runtime over nine repetitions. The 12-route case evaluates 4,096 subsets, so the fixed-charge measurements must not be extrapolated to larger route sets.
+
 ## Paradigm shift
 
 Do not optimize a single opaque “savings” score. First maximize the amount that is actually route- and liquidity-feasible; among plans with the same flow, minimize modeled routing cost. The residual is visible, not hand-waved away. That lexicographic objective separates service completion from price optimization and avoids trading a large amount of unmet obligations for a cosmetically cheap plan.
@@ -50,6 +56,7 @@ Suggested next benchmark gates:
 - **Provisional performance target, not yet measured:** p95 below 100 ms for 700 candidate route arcs in release mode on a pinned reference machine. Record CPU, OS, Rust commit, and run distributions; optimize measured bottlenecks rather than weakening safeguards.
 - **Quality target:** zero flow/cost gap versus the exact min-cost-flow solution for the linear model. For nonlinear tariffs or time-dependent LSMs, report separate oracle gaps and never compare unlike objectives.
 - The min-cost-flow plan must match the exhaustive oracle's maximum flow and minimum cost on all frozen small fixtures.
+- The fixed-charge exact search must select the minimum total cost at maximum flow, charging each used route once, and reject any instance beyond 12 distinct route IDs.
 - Zero cross-profile allocations, zero allocation above supplied liquidity or route capacity, zero net-position conservation errors.
 - Identical output for reordered inputs and stable output for a pinned toolchain.
 - Report optimality gap only against an exact oracle on instances where that oracle actually completed.
