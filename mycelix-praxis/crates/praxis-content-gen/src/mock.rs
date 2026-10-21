@@ -11,8 +11,10 @@ use crate::pipeline::{ContentGenerator, GenerationOutput};
 
 /// Mock content generator using pre-written templates.
 ///
-/// Returns realistic educational content for Grade 3 Math standards.
-/// For unknown standards, returns generic but still mathematically sound content.
+/// Returns illustrative educational content for the specifically implemented
+/// Grade 3 Math standards. For unknown standards, returns conspicuous generic
+/// fallback text so the pipeline's fail-closed quality gate can reject it;
+/// this fallback must not be treated as valid instruction.
 pub struct MockGenerator;
 
 impl ContentGenerator for MockGenerator {
