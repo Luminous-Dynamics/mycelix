@@ -727,6 +727,23 @@ mod tests {
                 SourceStateKind::ConfirmedEmpty,
             ),
             (
+                SourceObservation::Partial {
+                    observation: PartialObservation {
+                        successful_reads: NonEmptyVec::new(
+                            SuccessfulSourceRead::ConfirmedEmpty {
+                                evidence: evidence("partial-empty-source"),
+                            },
+                        ),
+                        failed_reads: NonEmptyVec::new(SourceReadFailure {
+                            source_id: "partial-failed-source".into(),
+                            attempted_at_unix_ms: Some(1_800_000_000_450),
+                            reason: SourceFailure::Timeout,
+                        }),
+                    },
+                },
+                SourceStateKind::Partial,
+            ),
+            (
                 SourceObservation::Unavailable {
                     source_id: "unavailable-source".into(),
                     attempted_at_unix_ms: Some(1_800_000_000_400),
