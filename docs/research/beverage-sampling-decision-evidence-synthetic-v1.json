@@ -1,0 +1,59 @@
+{
+  "schema_version": "beverage-batch-evidence-v1",
+  "status": "synthetic_fixture_not_a_production_record",
+  "batch_id": "synthetic-batch-sample-001",
+  "events": [
+    {
+      "event_id": "event-sampling-decision-001",
+      "event_type": "SAMPLING_DECISION_RECORDED",
+      "occurred_at": "2026-10-21T09:59:59Z",
+      "actor_ref": "policy:risk-aware-voi-contract-v1",
+      "input_batch_ids": [
+        "synthetic-batch-sample-001"
+      ],
+      "output_batch_ids": [
+        "synthetic-batch-sample-001"
+      ],
+      "evidence_refs": [
+        "evidence-sampling-decision-001"
+      ]
+    }
+  ],
+  "evidence_records": [
+    {
+      "evidence_id": "evidence-sampling-decision-001",
+      "subject_batch_id": "synthetic-batch-sample-001",
+      "evidence_class": "SIMULATED",
+      "category": "SAMPLING_DECISION",
+      "recorded_at": "2026-10-21T09:59:59Z",
+      "method": "Synthetic adaptive-sampling policy contract fixture; contains no plant measurements.",
+      "artifact_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "rights_status": "PERMITTED",
+      "data_sensitivity": "PUBLIC",
+      "decision_time": "2026-10-21T09:59:58Z",
+      "policy_version": "risk-aware-voi-contract-v1",
+      "policy_config_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "input_prefix_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+      "sampling_action": "SAMPLE",
+      "available_channels": [
+        "temperature",
+        "off_gas"
+      ],
+      "required_tests_due": [
+        "required-sugar-assay"
+      ],
+      "required_tests_scheduled": [
+        "required-sugar-assay",
+        "discretionary-off-gas"
+      ],
+      "calibration_state": "CALIBRATED",
+      "requested_channel": "off_gas",
+      "requested_at": "2026-10-21T09:59:58Z",
+      "next_review_at": null,
+      "reason_code": "synthetic_decision_value_exceeds_cost",
+      "estimated_cost_units": 2.0
+    }
+  ],
+  "attestations": [],
+  "claims": []
+}
