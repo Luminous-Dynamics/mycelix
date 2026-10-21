@@ -220,6 +220,28 @@
         "independent_batch_uncertainty_reported"
       ],
       "claim_ceiling": "A lower sample count alone does not prove preserved detection, quality, safety, or operational value."
+    },
+    {
+      "id": "BP-021",
+      "name": "sampling_decision_has_nonpositive_expected_net_value",
+      "expected_disposition": "REJECT_INTEGRITY",
+      "guards": [
+        "expected_loss_without_sample_declared",
+        "expected_loss_with_sample_and_cost_terms_use_same_preregistered_units",
+        "expected_loss_reduction_exceeds_sampling_and_delay_costs"
+      ],
+      "claim_ceiling": "A measurement request must not claim positive expected decision value when estimated loss reduction does not exceed its cost and delay terms."
+    },
+    {
+      "id": "BP-022",
+      "name": "measurement_result_arrives_after_current_decision_deadline",
+      "expected_disposition": "REJECT_INTEGRITY",
+      "guards": [
+        "decision_deadline_declared",
+        "result_availability_time_is_explicit",
+        "sample_cannot_claim_to_inform_a_decision_after_its_deadline"
+      ],
+      "claim_ceiling": "A measurement that arrives after the relevant decision deadline cannot be credited with reducing the loss of that already-due decision."
     }
   ]
 }
