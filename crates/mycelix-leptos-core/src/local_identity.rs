@@ -182,7 +182,36 @@ pub enum LocalIdentityStoragePosture {
     ProtectedUnlockedInSession,
     /// Stored key fields are malformed, incomplete, or contradictory.
     CorruptOrInconsistent,
+} 
+
+/// Typed result for a read-only request to access the active identity key.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum IdentityAccessError {
+    StorageUnavailable,
+    NoIdentity,
+    LegacyIdentityNeedsMigration,
+    UnprotectedIdentity,
+    ProtectedLocked,
+    CorruptOrInconsistent,
+    ProtectedKeyNotCached,
 }
+
+impl IdentityAccessError {
+    fn from_posture(posture: LocalIdentityStoragePosture) -> Self {
+        match posture {
+            LocalIdentityStoragePosture::StorageUnavailable => Self::StorageUnavailable,
+            LocalIdentityStoragePosture::NoIdentity => Self::NoIdentity,
+            LocalIdentityStoragePosture::LegacyIdentityNeedsMigration => {
+                Self::LegacyIdentityNeedsMigration
+            }
+            LocalIdentityStoragePosture::UnprotectedIdentity => Self::UnprotectedIdentity,
+            LocalIdentityStoragePosture::ProtectedLocked => Self::ProtectedLocked,
+            LocalIdentityStoragePosture::ProtectedUnlockedInSession => Self::ProtectedKeyNotCached,
+            LocalIdentityStoragePosture::CorruptOrInconsistent => Self::CorruptOrInconsistent,
+        }
+    }
+}
+
 
 /// A security-sensitive action that can be performed during identity bootstrap.
 ///
@@ -413,65 +442,43 @@ fn encrypted_blob_is_structurally_valid(encoded: &str) -> bool {
         && blob.ciphertext.len() == 48
 }
 
-/// Retrieve the local agent DID from an existing protected identity that
-/// has been unlocked in this session.
-///
-/// Access is deliberately read-only: an empty, unprotected, locked, legacy,
-/// unavailable or inconsistent store never triggers implicit key generation.
-pub fn local_did() -> String {
-    did_from_public_key(&ensure_keypair().verifying_key())
+/// Retrieve a typed view of the key for the already-protected identity
+/// unlocked in this session. This function never creates or replaces keys.
+pub fn try_get_unlocked_identity() -> Result<SigningKey, IdentityAccessError> {
+    let cached_key = UNLOCKED_KEY.with(|cell| cell.borrow().clone());
+    let posture = inspect_local_identity_posture();
+
+    match posture {
+        LocalIdentityStoragePosture::ProtectedUnlockedInSession => {
+            cached_key.ok_or(IdentityAccessError::ProtectedKeyNotCached)
+        }
+        other => {
+            if cached_key.is_some() {
+                UNLOCKED_KEY.with(|cell| *cell.borrow_mut() = None);
+            }
+            Err(IdentityAccessError::from_posture(other))
+        }
+    }
 }
 
-/// Return the signing key for an already-protected identity unlocked in this
-/// session. This accessor does not create, restore, or silently replace keys.
-///
-/// # Panics
-///
-/// Panics unless the persisted identity posture is `ProtectedUnlockedInSession`
-/// and the in-memory signing key matches that posture. Call the explicit
-/// protected create / existing-key protection / restore / unlock APIs through
-/// the shared bootstrap policy before mounting identity-dependent UI.
-pub fn ensure_keypair() -> SigningKey {
-    if let Some(signing_key) = UNLOCKED_KEY.with(|cell| cell.borrow().clone()) {
-        if inspect_local_identity_posture()
-            == LocalIdentityStoragePosture::ProtectedUnlockedInSession
-        {
-            return signing_key;
-        }
-        UNLOCKED_KEY.with(|cell| *cell.borrow_mut() = None);
-        panic!(
-            "The cached identity is not a recognized protected/unlocked identity. \\
-             No key was replaced. Inspect storage and use the explicit recovery path."
-        );
-    }
+/// Retrieve the local agent DID from an existing protected identity that has
+/// been unlocked in this session. Accessors never mint replacement identities.
+pub fn local_did() -> String {
+    did_from_public_key(
+        &try_get_unlocked_identity()
+            .unwrap_or_else(|error| panic!("Local identity is not ready for access: {error:?}"))
+            .verifying_key(),
+    )
+}
 
-    match inspect_local_identity_posture() {
-        LocalIdentityStoragePosture::NoIdentity => panic!(
-            "No local identity exists. Use the explicit protected creation or restore flow. \\
-             Identity access never creates a key implicitly."
-        ),
-        LocalIdentityStoragePosture::UnprotectedIdentity => panic!(
-            "The existing identity is unprotected. Protect it explicitly before app access; \\
-             no new key was generated."
-        ),
-        LocalIdentityStoragePosture::ProtectedLocked => panic!(
-            "Local identity is passphrase-protected but locked this session. \\
-             Call the explicit unlock flow before accessing it."
-        ),
-        LocalIdentityStoragePosture::LegacyIdentityNeedsMigration => panic!(
-            "A legacy identity marker exists and requires explicit migration. \\
-             No replacement identity was created."
-        ),
-        LocalIdentityStoragePosture::StorageUnavailable => panic!(
-            "Local identity storage is unavailable. No replacement identity was created."
-        ),
-        LocalIdentityStoragePosture::CorruptOrInconsistent => panic!(
-            "Local identity storage is corrupt or inconsistent. Preserve it and use the explicit recovery path."
-        ),
-        LocalIdentityStoragePosture::ProtectedUnlockedInSession => panic!(
-            "The protected identity posture reports unlocked, but no matching key is cached."
-        ),
-    }
+/// Compatibility wrapper for consumers that require a signing key directly.
+///
+/// This wrapper is read-only as well: it never creates a key. New callers
+/// should prefer `try_get_unlocked_identity()` and handle the typed posture
+/// error instead of panicking.
+pub fn ensure_keypair() -> SigningKey {
+    try_get_unlocked_identity()
+        .unwrap_or_else(|error| panic!("Local identity is not ready for access: {error:?}"))
 }
 
 /// Is the local identity currently passphrase-protected?
@@ -2309,8 +2316,10 @@ mod browser_storage_tests {
     #[wasm_bindgen_test]
     async fn identity_accessor_refuses_empty_storage_without_writing_a_key() {
         let _backup = IdentityStorageBackup::new_and_clear();
-        let result = std::panic::catch_unwind(ensure_keypair);
-        assert!(result.is_err());
+        assert!(matches!(
+            try_get_unlocked_identity(),
+            Err(IdentityAccessError::NoIdentity)
+        ));
 
         let storage = web_sys::window().unwrap().local_storage().unwrap().unwrap();
         assert!(storage.get_item(IDENTITY_SECRET_KEY).unwrap().is_none());
