@@ -683,6 +683,18 @@ fn quadratic_greedy_fails_closed_above_its_declared_workload_limit() {
 }
 
 #[test]
+fn heuristic_portfolio_uses_event_driven_path_above_full_scan_limit() {
+    let p = chain_problem(MAX_GREEDY_PAYMENTS + 1, false);
+    let result = heuristic_portfolio(&p, 10, 7, 10).unwrap();
+    assert_eq!(result.order.len(), p.payments().len());
+    assert_eq!(evaluate_order(&p, &result.order).unwrap(), result.evaluation);
+    assert_eq!(
+        result.evaluation.aggregate_required_initial_liquidity_minor,
+        1
+    );
+}
+
+#[test]
 fn exact_oracle_refuses_batches_above_its_declared_limit() {
     let p = chain_problem(9, false);
     assert!(matches!(
