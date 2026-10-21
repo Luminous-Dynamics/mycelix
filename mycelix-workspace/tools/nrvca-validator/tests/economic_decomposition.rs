@@ -125,6 +125,44 @@ fn independent_market_oracle_matches_known_answers_and_separates_transfer_from_d
 }
 
 #[test]
+fn market_conclusions_hold_across_preregistered_slope_grid() {
+    let root = fixture();
+    let case = case_by_id(&root, "linear-market-power");
+    let sensitivity = case["sensitivity_cases"]
+        .as_array()
+        .expect("sensitivity cases are an array");
+    assert_eq!(sensitivity.len(), 9);
+
+    for scenario in sensitivity {
+        let a = number(&scenario["inverse_demand"]["intercept"]);
+        let b = number(&scenario["inverse_demand"]["slope"]);
+        let c = number(&scenario["marginal_cost"]["intercept"]);
+        let d = number(&scenario["marginal_cost"]["slope"]);
+        assert!(a > c && b > 0.0 && d >= 0.0, "scenario must stay in declared valid domain");
+        let actual = linear_market(a, b, c, d);
+        let qc = number(&actual["competitive"]["quantity"]);
+        let pc = number(&actual["competitive"]["price"]);
+        let tc = number(&actual["competitive"]["total_surplus"]);
+        let qm = number(&actual["monopoly"]["quantity"]);
+        let pm = number(&actual["monopoly"]["price"]);
+        let tm = number(&actual["monopoly"]["total_surplus"]);
+        let dwl = number(&actual["monopoly"]["deadweight_loss_vs_competition"]);
+        let transfer = number(&actual["monopoly"]["price_transfer_on_retained_units"]);
+
+        assert!(qm < qc, "{}: monopoly quantity should be lower", scenario["case_id"]);
+        assert!(pm > pc, "{}: monopoly price should be higher", scenario["case_id"]);
+        assert!(tm <= tc + 1e-7, "{}: modeled monopoly surplus should not exceed competition", scenario["case_id"]);
+        assert!(dwl >= -1e-7, "{}: deadweight loss should be non-negative", scenario["case_id"]);
+        assert!(transfer >= 0.0, "{}: price-transfer incidence should be non-negative", scenario["case_id"]);
+        close(dwl, tc - tm);
+        close(
+            number(&actual["monopoly"]["lost_consumer_surplus_vs_competition"]),
+            number(&actual["monopoly"]["producer_surplus_gain_vs_competition"]) + dwl,
+        );
+    }
+}
+
+#[test]
 fn markup_and_rent_capture_do_not_auto_generate_social_loss() {
     let root = fixture();
     let markup = case_by_id(&root, "markup-with-fixed-cost-recovery");
