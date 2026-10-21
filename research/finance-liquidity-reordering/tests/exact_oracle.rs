@@ -95,6 +95,13 @@ fn independent_oracle(problem: &Problem) -> (Vec<usize>, Evaluation) {
     ) {
         if prefix.len() == problem.payments().len() {
             let score = independent_measure(problem, prefix);
+            let production = evaluate_order(problem, prefix).unwrap();
+            assert_eq!(
+                production,
+                score,
+                "prefix evaluator differs for order {:?}",
+                order_ids(problem, prefix)
+            );
             let replace = best.as_ref().is_none_or(|(best_order, best_score)| {
                 compare_order_and_score(problem, prefix, &score, best_order, best_score)
                     == Ordering::Less
