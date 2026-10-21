@@ -1293,6 +1293,20 @@ fn audit_lesson_value(asset_path: &str, value: &Value, audit: &mut ContentQualit
     audit.findings.len() > before
 }
 
+fn register_manifest_asset_path(
+    seen_paths: &mut BTreeMap<String, String>,
+    asset_path: &str,
+    node_id: &str,
+) -> Result<(), String> {
+    if let Some(first_node_id) = seen_paths.get(asset_path) {
+        return Err(format!(
+            "manifest asset path {asset_path:?} is registered under multiple lesson IDs: {first_node_id:?} and {node_id:?}"
+        ));
+    }
+    seen_paths.insert(asset_path.to_owned(), node_id.to_owned());
+    Ok(())
+}
+
 fn audit_manifest_assets(workspace: &Path, errors: &mut Vec<String>) -> ContentQualityAudit {
     let manifest_path = workspace.join("apps/leptos/static/content-manifest.json");
     let manifest_text = match fs::read_to_string(&manifest_path) {
@@ -1322,7 +1336,7 @@ fn audit_manifest_assets(workspace: &Path, errors: &mut Vec<String>) -> ContentQ
 
     let lesson_root = workspace.join("examples/curriculum/caps/generated");
     let mut audit = ContentQualityAudit::default();
-    let mut seen_paths = BTreeSet::new();
+    let mut seen_paths = BTreeMap::<String, String>::new();
     for (node_id, assets) in lessons {
         let Some(assets) = assets.as_array() else {
             continue;
@@ -1367,9 +1381,13 @@ fn audit_manifest_assets(workspace: &Path, errors: &mut Vec<String>) -> ContentQ
                     continue;
                 }
             };
-            if !seen_paths.insert(relative_path.clone()) {
+            if let Some(first_node_id) = seen_paths.get(&relative_path) {
+                errors.push(format!(
+                    "manifest asset path {uri:?} is registered under multiple lesson IDs: {first_node_id:?} and {node_id:?}"
+                ));
                 continue;
             }
+            seen_paths.insert(relative_path.clone(), node_id.clone());
             let raw = match fs::read_to_string(&path) {
                 Ok(raw) => raw,
                 Err(error) => {
@@ -2129,6 +2147,20 @@ mod tests {
                 .any(|finding| finding.code == "duplicate_practice_prompt")
         );
         assert!(audit.findings.len() >= 10);
+    }
+
+    #[test]
+    fn manifest_asset_paths_cannot_be_reused_under_different_node_ids() {
+        let mut seen = BTreeMap::new();
+        assert!(register_manifest_asset_path(&mut seen, "lesson.json", "node-a").is_ok());
+        let second = register_manifest_asset_path(&mut seen, "lesson.json", "node-b");
+        assert_eq!(
+            second,
+            Err(
+                "manifest asset path \"lesson.json\" is registered under multiple lesson IDs: \"node-a\" and \"node-b\"".to_owned()
+            )
+        );
+        assert!(register_manifest_asset_path(&mut seen, "another.json", "node-b").is_ok());
     }
 
     #[test]
