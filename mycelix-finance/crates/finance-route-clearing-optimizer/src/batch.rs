@@ -275,6 +275,196 @@ fn evaluate_subset(
     }))
 }
 
+/// Return the exact best feasible subset mask without allocating maps per subset.
+///
+/// Candidates must be sorted by payment ID. The lexicographic tie-break uses the lowest
+/// differing bit: with equal selected counts, the set containing that earlier ID has the
+/// lexicographically smaller sorted ID list. The winning mask is materialized separately
+/// with evaluate_subset, keeping this hot loop limited to incremental integer updates.
+fn best_feasible_mask(
+    candidates: &[Candidate],
+    accounts: &BTreeMap<String, u64>,
+    route_capacities: &BTreeMap<String, u64>,
+    subset_count: u64,
+) -> Result<u64, BatchError> {
+    let mut participant_ids = BTreeSet::<String>::new();
+    for candidate in candidates {
+        participant_ids.insert(candidate.payment.from.clone());
+        participant_ids.insert(candidate.payment.to.clone());
+    }
+    let participant_ids = participant_ids.into_iter().collect::<Vec<_>>();
+    let account_indices = participant_ids
+        .iter()
+        .enumerate()
+        .map(|(index, participant)| (participant.clone(), index))
+        .collect::<BTreeMap<_, _>>();
+    let starting_balances = participant_ids
+        .iter()
+        .map(|participant| {
+            accounts
+                .get(participant)
+                .copied()
+                .ok_or_else(|| BatchError::InvalidAccount(participant.clone()))
+                .map(|balance| balance as u128)
+        })
+        .collect::<Result<Vec<_>, _>>()?;
+
+    let route_ids = route_capacities.keys().cloned().collect::<Vec<_>>();
+    let route_indices = route_ids
+        .iter()
+        .enumerate()
+        .map(|(index, route_id)| (route_id.clone(), index))
+        .collect::<BTreeMap<_, _>>();
+    let route_limits = route_ids
+        .iter()
+        .map(|route_id| {
+            route_capacities
+                .get(route_id)
+                .copied()
+                .ok_or_else(|| BatchError::InvalidRoute(route_id.clone()))
+                .map(|capacity| capacity as u128)
+        })
+        .collect::<Result<Vec<_>, _>>()?;
+
+    // (sender index, receiver index, route index, amount, total modeled fee).
+    let mut indexed = Vec::with_capacity(candidates.len());
+    for candidate in candidates {
+        let payment = &candidate.payment;
+        let from = *account_indices
+            .get(&payment.from)
+            .ok_or_else(|| BatchError::InvalidAccount(payment.from.clone()))?;
+        let to = *account_indices
+            .get(&payment.to)
+            .ok_or_else(|| BatchError::InvalidAccount(payment.to.clone()))?;
+        let route = *route_indices
+            .get(&candidate.route.route_id)
+            .ok_or_else(|| BatchError::InvalidRoute(candidate.route.route_id.clone()))?;
+        let amount = payment.amount_minor as u128;
+        let variable_fee = amount
+            .checked_mul(candidate.route.fee_units_per_minor as u128)
+            .ok_or(BatchError::ArithmeticOverflow)?;
+        let fee = variable_fee
+            .checked_add(candidate.route.fixed_fee_units as u128)
+            .ok_or(BatchError::ArithmeticOverflow)?;
+        indexed.push((from, to, route, amount, fee));
+    }
+
+    let mut outgoing = vec![0_u128; participant_ids.len()];
+    let mut incoming = vec![0_u128; participant_ids.len()];
+    let mut route_used = vec![0_u128; route_ids.len()];
+    let mut gross_minor = 0_u128;
+    let mut fee_units = 0_u128;
+    let mut payment_count = 0_usize;
+    let mut balance_violations = 0_usize;
+    let mut route_violations = 0_usize;
+
+    // The empty batch is always feasible and is the initial incumbent.
+    let mut best_mask = 0_u64;
+    let mut best_gross = 0_u128;
+    let mut best_fee = 0_u128;
+    let mut best_count = 0_usize;
+    let mut previous_mask = 0_u64;
+
+    for step in 0..subset_count {
+        let mask = step ^ (step >> 1);
+        if step > 0 {
+            let changed = mask ^ previous_mask;
+            let index = changed.trailing_zeros() as usize;
+            let adding = mask & changed != 0;
+            let (from, to, route, amount, fee) = indexed[index];
+
+            let from_was_overdrawn =
+                outgoing[from] > starting_balances[from] + incoming[from];
+            let to_was_overdrawn = outgoing[to] > starting_balances[to] + incoming[to];
+            let route_was_over_capacity = route_used[route] > route_limits[route];
+
+            if adding {
+                outgoing[from] = outgoing[from]
+                    .checked_add(amount)
+                    .ok_or(BatchError::ArithmeticOverflow)?;
+                incoming[to] = incoming[to]
+                    .checked_add(amount)
+                    .ok_or(BatchError::ArithmeticOverflow)?;
+                route_used[route] = route_used[route]
+                    .checked_add(amount)
+                    .ok_or(BatchError::ArithmeticOverflow)?;
+                gross_minor = gross_minor
+                    .checked_add(amount)
+                    .ok_or(BatchError::ArithmeticOverflow)?;
+                fee_units = fee_units
+                    .checked_add(fee)
+                    .ok_or(BatchError::ArithmeticOverflow)?;
+                payment_count = payment_count
+                    .checked_add(1)
+                    .ok_or(BatchError::ArithmeticOverflow)?;
+            } else {
+                outgoing[from] = outgoing[from]
+                    .checked_sub(amount)
+                    .ok_or(BatchError::ArithmeticOverflow)?;
+                incoming[to] = incoming[to]
+                    .checked_sub(amount)
+                    .ok_or(BatchError::ArithmeticOverflow)?;
+                route_used[route] = route_used[route]
+                    .checked_sub(amount)
+                    .ok_or(BatchError::ArithmeticOverflow)?;
+                gross_minor = gross_minor
+                    .checked_sub(amount)
+                    .ok_or(BatchError::ArithmeticOverflow)?;
+                fee_units = fee_units
+                    .checked_sub(fee)
+                    .ok_or(BatchError::ArithmeticOverflow)?;
+                payment_count = payment_count
+                    .checked_sub(1)
+                    .ok_or(BatchError::ArithmeticOverflow)?;
+            }
+
+            let from_is_overdrawn = outgoing[from] > starting_balances[from] + incoming[from];
+            let to_is_overdrawn = outgoing[to] > starting_balances[to] + incoming[to];
+            let route_is_over_capacity = route_used[route] > route_limits[route];
+
+            balance_violations = balance_violations
+                .checked_sub(from_was_overdrawn as usize + to_was_overdrawn as usize)
+                .and_then(|count| {
+                    count.checked_add(from_is_overdrawn as usize + to_is_overdrawn as usize)
+                })
+                .ok_or(BatchError::ArithmeticOverflow)?;
+            route_violations = route_violations
+                .checked_sub(route_was_over_capacity as usize)
+                .and_then(|count| count.checked_add(route_is_over_capacity as usize))
+                .ok_or(BatchError::ArithmeticOverflow)?;
+        }
+
+        previous_mask = mask;
+        if balance_violations != 0 || route_violations != 0 {
+            continue;
+        }
+
+        let lexicographically_smaller = if mask == best_mask {
+            false
+        } else {
+            let first_difference = (mask ^ best_mask).trailing_zeros();
+            mask & (1_u64 << first_difference) != 0
+        };
+        let better = gross_minor > best_gross
+            || (gross_minor == best_gross && fee_units < best_fee)
+            || (gross_minor == best_gross
+                && fee_units == best_fee
+                && payment_count > best_count)
+            || (gross_minor == best_gross
+                && fee_units == best_fee
+                && payment_count == best_count
+                && lexicographically_smaller);
+        if better {
+            best_mask = mask;
+            best_gross = gross_minor;
+            best_fee = fee_units;
+            best_count = payment_count;
+        }
+    }
+
+    Ok(best_mask)
+}
+
 /// Select a maximum-gross-value feasible atomic batch, then minimize modeled fees.
 ///
 /// Feasibility is checked on *post-batch* participant balances and route remaining
@@ -436,20 +626,13 @@ pub fn select_atomic_batch(
     let subset_count = 1_u64
         .checked_shl(eligible.len() as u32)
         .ok_or(BatchError::ArithmeticOverflow)?;
-    let mut best: Option<FeasibleBatch> = None;
-    for mask in 0..subset_count {
-        let Some(candidate) = evaluate_subset(mask, &eligible, &account_map, &route_capacities)?
-        else {
-            continue;
-        };
-        if best
-            .as_ref()
-            .is_none_or(|current| is_better(&candidate, current))
-        {
-            best = Some(candidate);
-        }
-    }
-    let best = best.ok_or(BatchError::ArithmeticOverflow)?;
+    // The Gray-code walk changes exactly one payment between adjacent subsets.
+    // It maintains balance/capacity feasibility incrementally, avoiding per-subset
+    // BTreeMap allocations in the 65,536-subset worst case. Materialize the winner
+    // with the independent, straightforward evaluator once after selection.
+    let best_mask = best_feasible_mask(&eligible, &account_map, &route_capacities, subset_count)?;
+    let best = evaluate_subset(best_mask, &eligible, &account_map, &route_capacities)?
+        .ok_or(BatchError::ArithmeticOverflow)?;
 
     let selected_mask = best.mask;
     let mut unselected_eligible_payment_ids = eligible
