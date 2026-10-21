@@ -1,0 +1,94 @@
+{
+  "schema_version": "1.0.0",
+  "receipt_id": "gs1-epcis-cbv-normative-intake-2026-10-22",
+  "profile_id": "gs1-epcis-cbv",
+  "source_manifest_sha256": "d96381be7a7bbfdd6cafb6286834a575268a1f5b423a5e1345d8d1af4c3156e6",
+  "recorded_at_utc": "2026-10-21T23:30:00Z",
+  "receipt_state": "incomplete",
+  "runtime_access_state": "tool_could_not_fetch_raw_artifact",
+  "claim_ceiling": "ArtifactIntakeReceiptOnly",
+  "artifacts": [
+    {
+      "attempted_at_utc": "2026-10-21T23:30:00Z",
+      "http_status": null,
+      "final_url": null,
+      "media_type": null,
+      "byte_length": null,
+      "content_sha256": null,
+      "artifact_path": null,
+      "fetch_state": "not_fetched",
+      "failure_class": "tool_could_not_fetch_raw_artifact",
+      "notes": [
+        "The available web fetch tool did not provide the raw artifact bytes or an HTTP response.",
+        "This is an execution-environment limitation and is not evidence that the origin server returned 404 or that the artifact is unavailable."
+      ],
+      "artifact_id": "gs1-epcis-2-0-1-context",
+      "artifact_kind": "jsonld_context",
+      "requested_url": "https://ref.gs1.org/standards/epcis/2.0.1/artefacts/epcis-context.jsonld",
+      "source_revision": "EPCIS 2.0.1; versioned artefact path per GS1 URI policy"
+    },
+    {
+      "attempted_at_utc": "2026-10-21T23:30:00Z",
+      "http_status": null,
+      "final_url": null,
+      "media_type": null,
+      "byte_length": null,
+      "content_sha256": null,
+      "artifact_path": null,
+      "fetch_state": "not_fetched",
+      "failure_class": "tool_could_not_fetch_raw_artifact",
+      "notes": [
+        "The available web fetch tool did not provide the raw artifact bytes or an HTTP response.",
+        "This is an execution-environment limitation and is not evidence that the origin server returned 404 or that the artifact is unavailable."
+      ],
+      "artifact_id": "gs1-epcis-2-0-1-json-schema",
+      "artifact_kind": "json_schema_draft07",
+      "requested_url": "https://ref.gs1.org/standards/epcis/2.0.1/artefacts/epcis-json-schema.json",
+      "source_revision": "EPCIS 2.0.1; versioned artefact path per GS1 URI policy"
+    },
+    {
+      "attempted_at_utc": "2026-10-21T23:30:00Z",
+      "http_status": null,
+      "final_url": null,
+      "media_type": null,
+      "byte_length": null,
+      "content_sha256": null,
+      "artifact_path": null,
+      "fetch_state": "not_fetched",
+      "failure_class": "tool_could_not_fetch_raw_artifact",
+      "notes": [
+        "The available web fetch tool did not provide the raw artifact bytes or an HTTP response.",
+        "This is an execution-environment limitation and is not evidence that the origin server returned 404 or that the artifact is unavailable."
+      ],
+      "artifact_id": "gs1-epcis-2-0-1-shacl",
+      "artifact_kind": "shacl_shapes",
+      "requested_url": "https://ref.gs1.org/standards/epcis/2.0.1/artefacts/epcis-shacl.ttl",
+      "source_revision": "EPCIS 2.0.1; versioned artefact path per GS1 URI policy"
+    },
+    {
+      "attempted_at_utc": "2026-10-21T23:30:00Z",
+      "http_status": null,
+      "final_url": null,
+      "media_type": null,
+      "byte_length": null,
+      "content_sha256": null,
+      "artifact_path": null,
+      "fetch_state": "not_fetched",
+      "failure_class": "tool_could_not_fetch_raw_artifact",
+      "notes": [
+        "The available web fetch tool did not provide the raw artifact bytes or an HTTP response.",
+        "This is an execution-environment limitation and is not evidence that the origin server returned 404 or that the artifact is unavailable."
+      ],
+      "artifact_id": "gs1-cbv-2-0-0-ontology-jsonld",
+      "artifact_kind": "cbv_ontology_jsonld",
+      "requested_url": "https://ref.gs1.org/standards/epcis/2.0.1/artefacts/cbv-ontology.jsonld",
+      "source_revision": "CBV 2.0.0 ontology artifact distributed with the EPCIS/CBV 2.0.1 artefact package"
+    }
+  ],
+  "nonclaims": [
+    "This receipt records that raw artefact bytes were not obtained in the current runtime; it is not an origin HTTP status report.",
+    "No content SHA-256, media type, byte length or final URL is claimed for an artefact that was not fetched.",
+    "This receipt does not validate the fixture against the official EPCIS JSON Schema or SHACL shapes.",
+    "This receipt does not establish GS1 endorsement, Mycelix conformance, physical delivery, product authenticity or regulatory compliance."
+  ]
+}
