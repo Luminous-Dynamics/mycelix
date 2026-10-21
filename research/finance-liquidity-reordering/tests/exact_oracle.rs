@@ -161,6 +161,58 @@ fn reversed_chain_is_expensive_and_credit_unlock_order_is_cheaper() {
 }
 
 #[test]
+fn credit_unlock_greedy_reduces_hub_round_trip_prefunding() {
+    let pairs = 3;
+    let mut payments = Vec::new();
+    for participant in (1..=pairs).rev() {
+        payments.push(Payment {
+            id: format!("r{participant:04}"),
+            from: participant,
+            to: 0,
+            amount_minor: 10,
+        });
+    }
+    for participant in (1..=pairs).rev() {
+        payments.push(Payment {
+            id: format!("o{participant:04}"),
+            from: 0,
+            to: participant,
+            amount_minor: 10,
+        });
+    }
+    let problem = problem(pairs + 1, payments);
+    let fifo = input_order(&problem).unwrap();
+    let greedy = receiver_ready_greedy(&problem).unwrap();
+    let exact = exact_permutation_oracle(&problem).unwrap();
+
+    assert_eq!(fifo.evaluation.aggregate_required_initial_liquidity_minor, 30);
+    assert_eq!(greedy.evaluation.aggregate_required_initial_liquidity_minor, 10);
+    assert_eq!(exact.evaluation.aggregate_required_initial_liquidity_minor, 10);
+}
+
+#[test]
+fn credit_unlock_greedy_orders_a_closed_cycle_with_one_initial_buffer() {
+    let count = 6;
+    let payments = (0..count)
+        .rev()
+        .map(|i| Payment {
+            id: format!("p{i:02}"),
+            from: i,
+            to: (i + 1) % count,
+            amount_minor: 10,
+        })
+        .collect();
+    let problem = problem(count, payments);
+    let fifo = input_order(&problem).unwrap();
+    let greedy = receiver_ready_greedy(&problem).unwrap();
+    let exact = exact_permutation_oracle(&problem).unwrap();
+
+    assert_eq!(fifo.evaluation.aggregate_required_initial_liquidity_minor, 50);
+    assert_eq!(greedy.evaluation.aggregate_required_initial_liquidity_minor, 10);
+    assert_eq!(exact.evaluation.aggregate_required_initial_liquidity_minor, 10);
+}
+
+#[test]
 fn production_evaluator_matches_independent_prefix_oracle_for_every_small_order() {
     for seed in 0..24_usize {
         let payment_count = 4 + seed % 4;
