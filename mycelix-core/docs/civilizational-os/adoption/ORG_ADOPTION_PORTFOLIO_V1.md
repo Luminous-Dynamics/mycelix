@@ -100,7 +100,7 @@ These references document public products, organizations or standards only. They
 
 ## Portable proof-of-value bundle
 
-The profile catalog is the *discovery index*, not proof of an adapter. A concrete pilot should emit the separate [pilot proof-bundle schema](./org-adoption-pilot-bundle-v1.schema.json) and start from the [synthetic supply-chain example](./org-adoption-pilot-bundle-example-v1.json). The [cross-invariant verifier](./verify-org-adoption-pilot-bundle.cjs) is zero-dependency and deliberately refuses to elevate its example above `SyntheticReferenceOnly`.
+The profile catalog is the *discovery index*, not proof of an adapter. A concrete pilot should emit the separate [pilot proof-bundle schema](./org-adoption-pilot-bundle-v1.schema.json) and start from the [synthetic supply-chain example](./org-adoption-pilot-bundle-example-v1.json). The [cross-invariant verifier](./verify-org-adoption-pilot-bundle.cjs) is zero-dependency. The reference example is marked `contract_example_only`: its metrics are `not_measured`, negative controls are `not_executed`, both implementations are `not_executed` with null digests, and export/rollback are not claimed as performed. The verifier generates an external receipt; the input bundle does not self-attest its own result.
 
 Run from this directory:
 
@@ -115,7 +115,7 @@ node verify-org-adoption-pilot-bundle.cjs --self-test
 node benchmark-org-adoption-pilot-bundle.cjs --runs 5 --sizes 1000,10000,50000 --out /tmp/mycelix-org-adoption-scale.json
 ```
 
-The default verifier checks relationships JSON Schema alone cannot conveniently express: source/record linkage, manifest and synthetic source-content digests, baseline/candidate input equality, equal resource and authority-budget digests, evidence-reference closure, metric result arithmetic, mandatory negative-control coverage, export digest equality, rollback state, effects-disabled mode, relationship claim guard, and exact evaluator digest. The optional `--self-test` mode mutates 12 hostile variants and requires each to be rejected. The receipt states whether the mutation lane actually ran.
+The default verifier checks relationships JSON Schema alone cannot conveniently express: source/record linkage, manifest and synthetic source-content digests, baseline/candidate input equality, equal resource and authority-budget digests, evidence-reference closure, metric result arithmetic, explicit measured-versus-unmeasured state, export and rollback disposition, effects-disabled mode, and relationship claim guard. The optional `--self-test` mode mutates 12 hostile variants and requires each to be rejected. Those are **verifier mutation tests**, not executed domain-specific pilot controls. The receipt reports how many domain controls and metrics were actually executed/measured, and does not promote the reference example into a measured evaluation.
 
 The companion `benchmark-org-adoption-pilot-bundle.cjs` generates fixtures up to the schema's 50,000-event cap, runs the fast verification lane in fresh Node processes, and emits a machine-readable report with event count, input/bundle/evaluator digests, samples, median and max-of-N, and runtime conditions. Its timings deliberately exclude schema-instance validation and the 12-mutation self-test lane; run those as separate checks.
 
@@ -138,19 +138,19 @@ For every vertical, baseline and candidate must receive the same frozen input di
 
 ### First local reference measurement (2026-10-21)
 
-A small reference run was performed with Node v22.16.0 in a Linux x86_64 container (AMD EPYC 9V74 host, 3 visible vCPUs, 2-CPU cgroup quota, 4 GiB memory limit). Five independent process launches were measured for each size in `cross-invariant-only` mode. The schema-marker argument intentionally isolated the Node cross-invariant verifier; these timings do not include full JSON Schema evaluation.
+A small reference run was performed with Node v22.16.0 in a Linux x86_64 container (AMD EPYC 9V74 host, 3 visible vCPUs, 2-CPU cgroup quota, 4 GiB memory limit). Five independent process launches were measured for each size in `cross-invariant-only` mode, against synthetic contract-example bundles that explicitly report no measured application outcomes. The schema-marker argument intentionally isolated the Node cross-invariant verifier; these timings do not include full JSON Schema evaluation.
 
 | Synthetic events | Bundle bytes | Median wall time | Maximum of 5 runs |
 |---:|---:|---:|---:|
-| 1,000 | 387,045 | 60.66 ms | 66.35 ms |
-| 10,000 | 3,822,798 | 145.76 ms | 156.76 ms |
-| 50,000 | 19,132,798 | 669.98 ms | 846.89 ms |
+| 1,000 | 386,905 | 48.15 ms | 53.17 ms |
+| 10,000 | 3,822,658 | 135.26 ms | 155.09 ms |
+| 50,000 | 19,132,658 | 584.36 ms | 857.41 ms |
 
-At 50,000 events, one `--self-test` run including the 12 mutation variants took 8.52 s. The five-run maximum is **not a statistically reliable p95**; these values are a reproducible starting point, not a vendor/SOTA comparison. The companion harness reproduced medians of 60.66 ms, 145.76 ms and 669.98 ms, respectively, for the recorded verifier/input generation. The source-content digest scan was changed to use indexed event IDs rather than repeated list scans before these fast-lane measurements.
+At 50,000 events, one local `--self-test` run including the 12 verifier mutation variants took 7.02 s and peaked at about 503,724 KiB RSS. The five-run maximum is **not a statistically reliable p95**; these values are a reproducible starting point, not a vendor/SOTA comparison. The companion harness reproduced medians of 48.15 ms, 135.26 ms and 584.36 ms, respectively, for the recorded verifier/input generation. The source-content digest scan was changed to use indexed event IDs rather than repeated list scans before these fast-lane measurements.
 
 Proposed regression ceilings for this same harness/host are ≤90 ms at 1,000 events, ≤220 ms at 10,000, and ≤950 ms at 50,000 for cross-invariant-only mode; ≤10 s for a 50,000-event `--self-test` run. These are provisional local regression gates, not universal performance claims. Re-run at least 30 trials for percentile claims, pin the CPU/memory and runtime conditions, and compare against an independently implemented baseline before describing the system as faster than a competitor.
 
-Suggested scale gates are *targets to measure, not achieved results*: first prove the synthetic 4-event reference fixture; then 1,000, 10,000 and 50,000-event corpora with increasing event-type and source diversity. The v1 bundle schema caps one manifest at 50,000 events; larger corpora require explicit chunking/streaming semantics before raising that bound. Hold exactness and claim ceilings constant while measuring scale. The reference fixture's five controls and 12 mutation cases do not by themselves demonstrate industrial readiness or SOTA performance.
+Suggested scale gates are *targets to measure, not achieved results*: first validate the synthetic 4-event contract example; then add a measured pilot packet with executed baseline/candidate hashes and domain controls before scaling to 1,000, 10,000 and 50,000-event corpora with increasing event-type and source diversity. The v1 bundle schema caps one manifest at 50,000 events; larger corpora require explicit chunking/streaming semantics before raising that bound. Hold exactness and claim ceilings constant while measuring scale. The example's five declared-but-unexecuted domain controls and 12 verifier mutation cases do not demonstrate industrial readiness or SOTA performance.
 
 ## Acceptance profile for every pilot
 
