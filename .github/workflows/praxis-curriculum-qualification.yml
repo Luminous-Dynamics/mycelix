@@ -54,5 +54,20 @@ jobs:
         run: cargo clippy -p praxis-curriculum-audit --all-targets -- -D warnings
       - name: Validate existing curriculum manifest
         run: python3 scripts/validate_curriculum.py
-      - name: Emit exact-checkout coverage report
+      - name: Emit exact-checkout quality reports
+        run: |
+          cargo run -p praxis-curriculum-audit -- --format=json > curriculum-quality-report.json
+          cargo run -p praxis-curriculum-audit -- --format=markdown > curriculum-coverage-report.md
+
+      - name: Upload curriculum audit reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: praxis-curriculum-audit-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            mycelix-praxis/curriculum-quality-report.json
+            mycelix-praxis/curriculum-coverage-report.md
+          if-no-files-found: warn
+
+      - name: Enforce no known instructional blockers
         run: cargo run -p praxis-curriculum-audit -- --format=markdown --fail-on-blockers
