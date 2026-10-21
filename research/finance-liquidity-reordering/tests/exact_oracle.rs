@@ -1,6 +1,7 @@
 use finance_liquidity_reordering::{
-    bounded_insertion_search, evaluate_order, exact_permutation_oracle, input_order,
-    receiver_ready_greedy, simulated_annealing, Evaluation, Payment, Problem, ReorderError,
+    bounded_insertion_search, evaluate_order, exact_permutation_oracle, heuristic_portfolio,
+    input_order, receiver_ready_greedy, simulated_annealing, Evaluation, Payment, Problem,
+    ReorderError,
 };
 use std::cmp::Ordering;
 
@@ -296,7 +297,28 @@ fn all_heuristics_are_feasible_and_never_beat_the_exact_oracle() {
             annealed,
             "seeded annealing must be reproducible for seed={seed}"
         );
-        for candidate in [fifo, greedy, local, annealed] {
+        let portfolio = heuristic_portfolio(&problem, 300, seed as u64 + 1, 500).unwrap();
+        assert!(
+            compare_order_and_score(
+                &problem,
+                &portfolio.order,
+                &portfolio.evaluation,
+                &fifo.order,
+                &fifo.evaluation,
+            ) != Ordering::Greater,
+            "portfolio regressed versus FIFO for seed={seed}"
+        );
+        assert!(
+            compare_order_and_score(
+                &problem,
+                &portfolio.order,
+                &portfolio.evaluation,
+                &greedy.order,
+                &greedy.evaluation,
+            ) != Ordering::Greater,
+            "portfolio regressed versus greedy for seed={seed}"
+        );
+        for candidate in [fifo, greedy, local, annealed, portfolio] {
             assert_eq!(candidate.order.len(), payment_count);
             let remeasured = evaluate_order(&problem, &candidate.order).unwrap();
             assert_eq!(remeasured, candidate.evaluation);
