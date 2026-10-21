@@ -108,7 +108,11 @@ The adjacent fixture is wholly synthetic. Its values are deliberately small and 
 
 The fixture is not country data, calibration data, or validation evidence. A semantic validator and adversarial/property test corpus are required before v0.1 can be called qualified.
 
-## Adversarial tests to add next
+## Adversarial test corpus
+
+The companion file fixtures/nrvca-adversarial-corpus-v0.1.json defines 14 proposed mutation cases against the synthetic golden fixture. It covers accounting misclassification, unknown-to-zero coercion, missing provenance, incompatible physical units, broken identities, duplicate events, currency/profile mismatch, unsupported evidence-tier promotion, scalar collapse, causal overclaim, and missing-period/unknown-register failures. Its status is explicitly specification-only: an independent validator still needs to execute each mutation and assert the expected disposition.
+
+## Additional adversarial tests to add later
 
 1. Count a loan drawdown as GDP.
 2. Count a secondary-market asset purchase as new production.
