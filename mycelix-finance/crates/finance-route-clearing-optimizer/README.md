@@ -42,7 +42,7 @@ The linear solver is exact for its stated model, and the fixed-charge extension 
 
 ## Tests and benchmark harness
 
-The crate includes unit tests for global route-cost allocation versus greedy, liquidity and route-capacity residuals, absent routes, profile mismatch, authority gating, duplicate/conflicting observations, input-order invariance, overflow and comparison with an exhaustive integer oracle on a small graph.
+The crate includes tests for global route-cost allocation versus greedy, liquidity and route-capacity residuals, absent routes, profile mismatch, authority gating, duplicate/conflicting observations, input-order invariance, overflow and comparison with an exhaustive integer oracle across 64 deterministic small graphs. The fixed-charge module also tests route-choice changes caused by activation fees, one-time charging, input-order invariance, preservation of excluded routes, flow-first objective ordering, duplicate handling and the explicit route-count ceiling.
 
 A reproducible, dependency-free synthetic timing harness is available as:
 
