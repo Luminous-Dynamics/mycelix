@@ -308,6 +308,27 @@ mod tests {
     }
 
     #[test]
+    fn maximum_allocated_amount_precedes_lower_cost_partial_flow() {
+        let positions = vec![
+            participant("A", 2, 2),
+            participant("B", 1, 1),
+            participant("C", -2, 0),
+            participant("D", -1, 0),
+        ];
+        let candidates = vec![
+            route("a-c-cheap", "A", "C", 2, 0, 0),
+            route("a-d-expensive", "A", "D", 1, 100, 0),
+            route("b-c-expensive", "B", "C", 1, 100, 0),
+        ];
+
+        let result = optimize_fixed_charge(&context(), &positions, &candidates).unwrap();
+
+        assert_eq!(result.allocation.total_allocated_minor, 3);
+        assert!(result.allocation.fully_allocatable);
+        assert_eq!(result.total_cost_units, 200);
+    }
+
+    #[test]
     fn activation_charge_is_paid_once_per_used_route() {
         let positions = vec![participant("A", 5, 5), participant("B", -5, 0)];
         let result = optimize_fixed_charge(
