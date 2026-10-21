@@ -52,6 +52,18 @@ Two additional synthetic negative controls are now included:
 
 Their purpose is to reject unqualified comparisons, not to simulate measured resource performance.
 
+## Abnormal-process outputs must not be promoted into safety facts
+
+Model-based fermentation monitoring may flag a trajectory as abnormal, but a residual or anomaly score alone cannot establish contamination, identify a microorganism, certify food safety, or justify a regulatory statement. The evidence envelope now has four additional synthetic negative controls:
+- `BP-013`: an anomaly score is presented as contamination confirmation;
+- `BP-014`: sensor drift mimics a process disturbance;
+- `BP-015`: an estimator switches without an auditable trigger, data-prefix digest or uncertainty record;
+- `BP-016`: a paper that uses confidential industrial data is presented as reusable batch evidence.
+
+A model estimate should retain its evidence class, model/version, observation cutoff, input-prefix digest and uncertainty. Laboratory claims still require the relevant sample identity, method and actual result. A sensor calibration record is separate evidence, not an optional annotation that makes a suspect measurement valid. An unknown state remains unknown; it must not default to either normal or contaminated.
+
+This maps to the Symtropy abnormal-adaptation benchmark and the 2026 literature comparator at https://doi.org/10.1016/j.ceja.2026.101157. That paper's underlying industrial data are confidential, so its published metrics can motivate test design but cannot be imported as measured evidence for a new batch or reproduced as if the rows were public.
+
 ## Acceptance
 
 - Unique IDs across relevant namespaces; all references resolve to a record of the expected type.
