@@ -57,6 +57,7 @@ const required = [
   'relationship_status', 'relationship_claim_guard', 'gap_requires_issue',
   'mycelix_owner_issues', 'pilot_scope', 'acceptance_metrics',
   'negative_controls', 'deployment_assumptions', 'off_ramp', 'nonclaims',
+  'source_evidence_state', 'source_snapshot_manifest_sha256', 'source_snapshot_required_before_pilot',
 ];
 const profileKinds = new Set([
   'organization', 'protocol_project', 'platform_ecosystem', 'consortium',
@@ -95,6 +96,17 @@ for (const [index, profile] of catalog.profiles.entries()) {
   requireCondition(typeof profile.gap_requires_issue === 'boolean', `${label}.gap_requires_issue must be boolean`);
   requireCondition(profile.gap_requires_issue === (profile.readiness === 'gap_requires_issue'),
     `${label} gap_requires_issue must agree with readiness`);
+  requireCondition(['reference_links_only', 'snapshot_manifest_attached'].includes(profile.source_evidence_state),
+    `${label} source_evidence_state is invalid`);
+  requireCondition(profile.source_snapshot_required_before_pilot === true,
+    `${label} must require a source snapshot before pilot use`);
+  if (profile.source_evidence_state === 'reference_links_only') {
+    requireCondition(profile.source_snapshot_manifest_sha256 === null,
+      `${label} reference-only sources cannot claim a snapshot digest`);
+  } else {
+    requireCondition(hasSha(profile.source_snapshot_manifest_sha256),
+      `${label} attached source snapshot must have a SHA-256 manifest digest`);
+  }
 
   requireCondition(Array.isArray(profile.source_urls) && profile.source_urls.length >= 1,
     `${label}.source_urls must not be empty`);
@@ -140,6 +152,8 @@ const receipt = {
   profile_count: catalog.profiles.length,
   unique_profile_ids: ids.size,
   adoption_domain_count: domains.size,
+  source_reference_only_count: catalog.profiles.filter(p => p.source_evidence_state === 'reference_links_only').length,
+  source_snapshot_attached_count: catalog.profiles.filter(p => p.source_evidence_state === 'snapshot_manifest_attached').length,
   explicit_gap_count: catalog.profiles.filter(p => p.gap_requires_issue).length,
   snapshot_date: catalog.snapshot_date,
   catalog_sha256: sha256(jsonBytes),
