@@ -374,35 +374,41 @@ fn is_placeholder_content(text: &str) -> bool {
         return true;
     }
 
-    let known_placeholders = [
-        "answer: see worked solution",
+    let exact_placeholders = [
         "grade 3 mathematics content",
-        "what is important about grade 3 mathematics?",
-        "a key word in this topic",
         "a common mistake in grade 3 mathematics.",
         "the correct way.",
         "used in grade 3 maths.",
+        "lorem ipsum",
+        "todo",
+        "placeholder",
+        "answer.",
+        "answer",
+    ];
+    if exact_placeholders.iter().any(|phrase| normalized == *phrase) {
+        return true;
+    }
+
+    let template_phrases = [
+        "answer: see worked solution",
+        "what is important about grade 3 mathematics?",
+        "a key word in this topic",
         "try the method for grade 3 mathematics.",
         "start with what you know about grade 3 mathematics.",
         "let's explore this concept together!",
         "every expert was once a beginner.",
-        "lorem ipsum",
-        "todo",
-        "placeholder",
     ];
 
-    known_placeholders
+    template_phrases
         .iter()
         .any(|phrase| normalized.contains(phrase))
         || (normalized.contains("solve a grade ")
             && normalized.contains(" mathematics problem"))
         || (normalized.starts_with("explain grade ")
             && normalized.contains(" mathematics."))
-        || (normalized.starts_with("grade ") && normalized.ends_with(" mathematics content"))
-        || normalized == "answer."
-        || normalized == "answer"
+        || (normalized.starts_with("grade ")
+            && normalized.ends_with(" mathematics content"))
 }
-
 // ---- Parsing helpers ----
 
 /// Parse vocabulary from generated text. In mock mode, text is pre-formatted
@@ -708,6 +714,12 @@ mod tests {
             "Multiplication represents equal groups. Four groups of three objects make twelve objects: 3 + 3 + 3 + 3 = 12, so 4 × 3 = 12."
         ));
         assert!(!is_placeholder_content("42"));
+        assert!(!is_placeholder_content(
+            "A useful explanation tells learners how to check their answer."
+        ));
+        assert!(!is_placeholder_content(
+            "Answers vary; any valid rectangle with perimeter 16 cm is acceptable."
+        ));
     }
 
     #[test]
