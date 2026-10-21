@@ -490,6 +490,79 @@ fn malformed_and_cyclic_precedence_constraints_fail_closed() {
 }
 
 #[test]
+fn exact_oracle_and_pareto_frontier_are_input_order_invariant() {
+    let payments = vec![
+        Payment {
+            id: "p0".into(),
+            from: 0,
+            to: 1,
+            amount_minor: 7,
+        },
+        Payment {
+            id: "p1".into(),
+            from: 1,
+            to: 2,
+            amount_minor: 3,
+        },
+        Payment {
+            id: "p2".into(),
+            from: 2,
+            to: 0,
+            amount_minor: 4,
+        },
+        Payment {
+            id: "p3".into(),
+            from: 0,
+            to: 2,
+            amount_minor: 2,
+        },
+        Payment {
+            id: "p4".into(),
+            from: 2,
+            to: 1,
+            amount_minor: 5,
+        },
+    ];
+    let forward = problem(3, payments.clone());
+    let reverse = problem(3, payments.into_iter().rev().collect());
+
+    let exact_forward = exact_permutation_oracle(&forward).unwrap();
+    let exact_reverse = exact_permutation_oracle(&reverse).unwrap();
+    assert_eq!(
+        exact_forward.evaluation.aggregate_required_initial_liquidity_minor,
+        exact_reverse.evaluation.aggregate_required_initial_liquidity_minor
+    );
+    assert_eq!(
+        exact_forward.evaluation.max_participant_required_initial_liquidity_minor,
+        exact_reverse.evaluation.max_participant_required_initial_liquidity_minor
+    );
+    assert_eq!(
+        order_ids(&forward, &exact_forward.order),
+        order_ids(&reverse, &exact_reverse.order)
+    );
+
+    let frontier_forward = exact_pareto_frontier(&forward).unwrap();
+    let frontier_reverse = exact_pareto_frontier(&reverse).unwrap();
+    let summarize = |problem: &Problem, frontier: &finance_liquidity_reordering::ParetoFrontier| {
+        frontier
+            .points
+            .iter()
+            .map(|point| {
+                (
+                    point.evaluation.aggregate_required_initial_liquidity_minor,
+                    point.evaluation.max_participant_required_initial_liquidity_minor,
+                    order_ids(problem, &point.order),
+                )
+            })
+            .collect::<Vec<_>>()
+    };
+    assert_eq!(
+        summarize(&forward, &frontier_forward),
+        summarize(&reverse, &frontier_reverse)
+    );
+}
+
+#[test]
 fn invalid_orders_and_inputs_fail_closed() {
     let p = chain_problem(3, false);
     assert!(matches!(
