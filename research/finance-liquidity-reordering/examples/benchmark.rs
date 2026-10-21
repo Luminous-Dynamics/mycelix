@@ -90,10 +90,13 @@ where
         problem.payments().len(),
         problem.participant_count(),
         algorithm,
-        seed.map(|value| value.to_string()).unwrap_or_else(|| "-".into()),
+        seed.map(|value| value.to_string())
+            .unwrap_or_else(|| "-".into()),
         result.candidate_evaluations,
         result.evaluation.aggregate_required_initial_liquidity_minor,
-        result.evaluation.max_participant_required_initial_liquidity_minor,
+        result
+            .evaluation
+            .max_participant_required_initial_liquidity_minor,
         gap,
         percentile(&samples, 50),
         percentile(&samples, 95),
