@@ -7,6 +7,9 @@ on:
       - "mycelix-desci/schemas/landscape-stewardship-profile-v0.schema.json"
       - "mycelix-desci/fixtures/landscape-stewardship-profile-v0.public.example.json"
       - "mycelix-desci/src/core/src/landscape_stewardship.rs"
+      - "mycelix-desci/src/core/src/landscape_measurement_authorization.rs"
+      - "mycelix-desci/schemas/landscape-measurement-authorization-v0.schema.json"
+      - "mycelix-desci/fixtures/landscape-measurement-authorization-v0.public.example.json"
       - "mycelix-desci/src/core/src/lib.rs"
       - "mycelix-desci/Cargo.toml"
       - "mycelix-desci/Cargo.lock"
@@ -17,6 +20,9 @@ on:
       - "mycelix-desci/schemas/landscape-stewardship-profile-v0.schema.json"
       - "mycelix-desci/fixtures/landscape-stewardship-profile-v0.public.example.json"
       - "mycelix-desci/src/core/src/landscape_stewardship.rs"
+      - "mycelix-desci/src/core/src/landscape_measurement_authorization.rs"
+      - "mycelix-desci/schemas/landscape-measurement-authorization-v0.schema.json"
+      - "mycelix-desci/fixtures/landscape-measurement-authorization-v0.public.example.json"
       - "mycelix-desci/src/core/src/lib.rs"
       - "mycelix-desci/Cargo.toml"
       - "mycelix-desci/Cargo.lock"
@@ -44,7 +50,11 @@ jobs:
         run: |
           jq empty mycelix-desci/schemas/landscape-stewardship-profile-v0.schema.json
           jq empty mycelix-desci/fixtures/landscape-stewardship-profile-v0.public.example.json
+          jq empty mycelix-desci/schemas/landscape-measurement-authorization-v0.schema.json
+          jq empty mycelix-desci/fixtures/landscape-measurement-authorization-v0.public.example.json
       - name: Check formatting
         run: cargo fmt --manifest-path mycelix-desci/Cargo.toml -p mycelix-desci-core -- --check
       - name: Run landscape stewardship policy-gate tests
         run: cargo test --manifest-path mycelix-desci/Cargo.toml -p mycelix-desci-core landscape_stewardship::tests -- --nocapture
+      - name: Run measurement authorization policy-gate tests
+        run: cargo test --manifest-path mycelix-desci/Cargo.toml -p mycelix-desci-core landscape_measurement_authorization::tests -- --nocapture
