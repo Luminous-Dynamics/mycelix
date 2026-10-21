@@ -242,6 +242,67 @@ fn all_queue_policies_stay_within_the_exact_oracle_on_64_small_traces() {
                     .filter(|p| matches!(p.state, PaymentState::Settled { .. }))
                     .count()
             );
+            let starting_total = accounts
+                .iter()
+                .map(|account| account.balance_minor as u128)
+                .sum::<u128>();
+            let ending_total = result
+                .final_balances
+                .iter()
+                .map(|account| account.balance_minor as u128)
+                .sum::<u128>();
+            assert_eq!(
+                ending_total, starting_total,
+                "gross transfer conservation failed for policy={policy:?}, seed={seed}"
+            );
+            let settled_total = result
+                .payments
+                .iter()
+                .filter(|p| matches!(p.state, PaymentState::Settled { .. }))
+                .map(|p| p.amount_minor as u128)
+                .sum::<u128>();
+            assert_eq!(
+                result.settled_minor, settled_total,
+                "settled-value summary mismatch for policy={policy:?}, seed={seed}"
+            );
+            for route in &routes {
+                let route_total = result
+                    .payments
+                    .iter()
+                    .filter(|p| {
+                        payments.iter().any(|source| {
+                            source.payment_id == p.payment_id
+                                && source.route_id == route.route_id
+                                && matches!(p.state, PaymentState::Settled { .. })
+                        })
+                    })
+                    .map(|p| p.amount_minor as u128)
+                    .sum::<u128>();
+                assert!(
+                    route_total <= route.capacity_minor_per_window as u128,
+                    "route capacity exceeded for route={}, policy={policy:?}, seed={seed}",
+                    route.route_id
+                );
+            }
+
+            let mut reversed_accounts = accounts.to_vec();
+            reversed_accounts.reverse();
+            let mut reversed_routes = routes.to_vec();
+            reversed_routes.reverse();
+            let mut reversed_payments = payments.to_vec();
+            reversed_payments.reverse();
+            let reordered = simulate_queue(
+                &context(),
+                &reversed_accounts,
+                &reversed_routes,
+                &reversed_payments,
+                policy,
+            )
+            .unwrap();
+            assert_eq!(
+                result, reordered,
+                "input-order determinism failed for policy={policy:?}, seed={seed}"
+            );
         }
     }
 }
