@@ -19,7 +19,8 @@
     "aggregation_policy",
     "data_quality",
     "claim_ceiling",
-    "claims"
+    "claims",
+    "stock_flow_accounts"
   ],
   "properties": {
     "schema_version": {
@@ -408,7 +409,8 @@
           "tolerance",
           "unit",
           "disposition",
-          "operands"
+          "operands",
+          "lhs_pointer"
         ],
         "properties": {
           "check_id": {
@@ -460,7 +462,8 @@
                 "term",
                 "value",
                 "coefficient",
-                "unit"
+                "unit",
+                "value_pointer"
               ],
               "properties": {
                 "term": {
@@ -476,9 +479,17 @@
                 "unit": {
                   "type": "string",
                   "minLength": 1
+                },
+                "value_pointer": {
+                  "type": "string",
+                  "minLength": 1
                 }
               }
             }
+          },
+          "lhs_pointer": {
+            "type": "string",
+            "minLength": 1
           }
         }
       }
@@ -611,6 +622,115 @@
           }
         }
       }
+    },
+    "stock_flow_accounts": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "account_id",
+          "account_class",
+          "unit",
+          "currency",
+          "opening_stock",
+          "closing_stock",
+          "changes",
+          "source_refs",
+          "notes"
+        ],
+        "properties": {
+          "account_id": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9._:-]+$"
+          },
+          "account_class": {
+            "enum": [
+              "financial_stock",
+              "physical_stock",
+              "produced_asset_stock",
+              "natural_asset_stock"
+            ]
+          },
+          "unit": {
+            "type": "string",
+            "minLength": 1
+          },
+          "currency": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^[A-Z]{3}$"
+          },
+          "opening_stock": {
+            "type": "number"
+          },
+          "closing_stock": {
+            "type": "number"
+          },
+          "changes": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "change_id",
+                "change_class",
+                "signed_change",
+                "source_event_id",
+                "source_refs"
+              ],
+              "properties": {
+                "change_id": {
+                  "type": "string",
+                  "pattern": "^[A-Za-z0-9._:-]+$"
+                },
+                "change_class": {
+                  "enum": [
+                    "borrowing",
+                    "principal_repayment",
+                    "writeoff",
+                    "revaluation",
+                    "physical_inflow",
+                    "physical_use",
+                    "physical_outflow",
+                    "other_change"
+                  ]
+                },
+                "signed_change": {
+                  "type": "number"
+                },
+                "source_event_id": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "source_refs": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  },
+                  "uniqueItems": true
+                }
+              }
+            }
+          },
+          "source_refs": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "uniqueItems": true
+          },
+          "notes": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
     }
   },
   "$defs": {
@@ -703,7 +823,8 @@
             "secondary_market_asset_transaction",
             "intersector_transfer",
             "final_goods_or_service",
-            "other"
+            "other",
+            "writeoff"
           ]
         },
         "amount": {
