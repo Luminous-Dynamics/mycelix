@@ -98,6 +98,7 @@ pub struct BatchExclusion {
 pub struct BatchPlan {
     pub rail_id: String,
     pub asset_id: String,
+    pub netting_set_id: String,
     pub policy_version: String,
     pub tick: u64,
     pub authority_evidence_ref: String,
@@ -480,6 +481,7 @@ pub fn select_atomic_batch(
     Ok(BatchPlan {
         rail_id: context.rail_id.clone(),
         asset_id: context.asset_id.clone(),
+        netting_set_id: context.netting_set_id.clone(),
         policy_version: context.policy_version.clone(),
         tick: context.tick,
         authority_evidence_ref,
