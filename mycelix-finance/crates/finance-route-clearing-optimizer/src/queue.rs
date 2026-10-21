@@ -665,6 +665,14 @@ mod tests {
                 .sum::<u128>(),
             5
         );
+        assert_eq!(
+            result
+                .account_metrics
+                .iter()
+                .map(|account| account.balance_time_minor_ticks)
+                .sum::<u128>(),
+            10
+        );
     }
 
     #[test]
