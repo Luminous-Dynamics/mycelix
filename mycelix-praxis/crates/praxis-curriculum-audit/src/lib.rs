@@ -1421,6 +1421,18 @@ fn markdown(report: &AuditReport) -> String {
         report.orphan_manifest_node_ids.len()
     ));
     out.push_str(&format!(
+        "| Orphan IDs found in inactive source graphs | {} |\n",
+        report.orphan_manifest_ids_found_in_inactive_graphs
+    ));
+    out.push_str(&format!(
+        "| Orphan IDs with no source graph match | {} |\n",
+        report.orphan_manifest_ids_without_source_graph.len()
+    ));
+    out.push_str(&format!(
+        "| Inactive source graph documents scanned | {} |\n",
+        report.inactive_source_graph_documents_scanned
+    ));
+    out.push_str(&format!(
         "| Manifest lesson assets statically audited | {} |\n",
         report.content_assets_scanned
     ));
@@ -1454,6 +1466,41 @@ fn markdown(report: &AuditReport) -> String {
         out.push_str("\n## Orphan lesson-target IDs\n\n");
         for id in &report.orphan_manifest_node_ids {
             out.push_str(&format!("- `{id}`\n"));
+        }
+    }
+
+    if !report.inactive_manifest_source_matches.is_empty() {
+        out.push_str("\n## Orphan lesson IDs with inactive source candidates\n\n");
+        out.push_str(
+            "These IDs exist in source curriculum graphs not embedded by the current app loader. They are candidates for deliberate activation or ID reconciliation, not proof that the source graph is safe to merge.\n\n",
+        );
+        for matched in report.inactive_manifest_source_matches.iter().take(40) {
+            let sources = matched
+                .sources
+                .iter()
+                .map(|source| format!("{} ({})", source.path, source.title))
+                .collect::<Vec<_>>()
+                .join("; ");
+            out.push_str(&format!("- {}: {}\n", matched.node_id, sources));
+        }
+        if report.inactive_manifest_source_matches.len() > 40 {
+            out.push_str(&format!(
+                "\n{} additional IDs with source candidates are included in the JSON report.\n",
+                report.inactive_manifest_source_matches.len() - 40
+            ));
+        }
+    }
+
+    if !report.orphan_manifest_ids_without_source_graph.is_empty() {
+        out.push_str("\n## Orphan lesson IDs without an inactive source graph match\n\n");
+        for id in report.orphan_manifest_ids_without_source_graph.iter().take(40) {
+            out.push_str(&format!("- {}\n", id));
+        }
+        if report.orphan_manifest_ids_without_source_graph.len() > 40 {
+            out.push_str(&format!(
+                "\n{} additional IDs without a source graph match are included in the JSON report.\n",
+                report.orphan_manifest_ids_without_source_graph.len() - 40
+            ));
         }
     }
 
