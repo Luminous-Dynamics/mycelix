@@ -376,21 +376,42 @@ fn analyze(
                 .or_else(|| nonempty_string(metadata.and_then(|m| m.get("subject_area"))))
                 .unwrap_or_else(|| "Unspecified".to_owned());
 
-            let standards_array = node.get("academic_standards").and_then(Value::as_array);
+            let standards_array = match node.get("academic_standards") {
+                None => None,
+                Some(Value::Array(items)) => Some(items),
+                Some(_) => {
+                    errors.push(format!(
+                        "{}: node {node_id:?} academic_standards must be an array",
+                        path.display()
+                    ));
+                    None
+                }
+            };
             let mut standards_by_framework: BTreeMap<String, BTreeSet<String>> = BTreeMap::new();
             if let Some(items) = standards_array {
-                for standard in items {
-                    if let (Some(framework), Some(code)) = (
-                        nonempty_string(standard.get("framework")),
-                        nonempty_string(standard.get("code")),
-                    ) {
-                        let reference = format!("{framework}::{code}");
-                        standards_all.insert(reference.clone());
-                        standards_by_framework
-                            .entry(framework)
-                            .or_default()
-                            .insert(reference);
-                    }
+                for (standard_index, standard) in items.iter().enumerate() {
+                    let Some(standard_object) = standard.as_object() else {
+                        errors.push(format!(
+                            "{}: node {node_id:?} standard {standard_index} must be an object",
+                            path.display()
+                        ));
+                        continue;
+                    };
+                    let framework = nonempty_string(standard_object.get("framework"));
+                    let code = nonempty_string(standard_object.get("code"));
+                    let (Some(framework), Some(code)) = (framework, code) else {
+                        errors.push(format!(
+                            "{}: node {node_id:?} standard {standard_index} requires non-empty framework and code",
+                            path.display()
+                        ));
+                        continue;
+                    };
+                    let reference = format!("{framework}::{code}");
+                    standards_all.insert(reference.clone());
+                    standards_by_framework
+                        .entry(framework)
+                        .or_default()
+                        .insert(reference);
                 }
             }
             let mut frameworks: BTreeSet<String> =
@@ -720,6 +741,49 @@ mod tests {
         changed_path.insert("renamed.json".to_owned(), b"content-a".to_vec());
         changed_path.insert("b.json".to_owned(), b"content-b".to_vec());
         assert_ne!(hash_named_inputs(&first), hash_named_inputs(&changed_path));
+    }
+
+    #[test]
+    fn framework_groups_do_not_cross_count_standard_references() {
+        let document = serde_json::json!({
+            "metadata": {
+                "framework": "Fallback",
+                "grade_level": "Grade3",
+                "subject_area": "Mathematics"
+            },
+            "nodes": [{
+                "id": "multi",
+                "grade_levels": ["Grade3"],
+                "subject_area": "Mathematics",
+                "academic_standards": [
+                    {"framework":"FrameworkA","code":"A.1"},
+                    {"framework":"FrameworkB","code":"B.1"}
+                ]
+            }],
+            "edges": []
+        });
+        let docs = vec![(PathBuf::from("multi.json"), document)];
+        let mut errors = Vec::new();
+        let report = analyze(&docs, &BTreeMap::new(), &mut errors);
+        assert!(errors.is_empty(), "{errors:?}");
+        assert_eq!(report.groups.len(), 2);
+        assert!(report.groups.iter().all(|group| group.distinct_standard_refs == 1));
+        assert_eq!(report.distinct_standard_refs, 2);
+    }
+
+    #[test]
+    fn malformed_standard_references_fail_closed() {
+        let document = serde_json::json!({
+            "nodes": [{
+                "id": "bad",
+                "academic_standards": [{"framework":"OnlyFramework"}]
+            }],
+            "edges": []
+        });
+        let docs = vec![(PathBuf::from("bad.json"), document)];
+        let mut errors = Vec::new();
+        let _ = analyze(&docs, &BTreeMap::new(), &mut errors);
+        assert!(errors.iter().any(|error| error.contains("requires non-empty framework and code")));
     }
 
     #[test]
