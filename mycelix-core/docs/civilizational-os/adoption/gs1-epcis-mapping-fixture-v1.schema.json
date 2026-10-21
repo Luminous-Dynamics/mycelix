@@ -248,8 +248,7 @@
               "regulatory_compliance",
               "receiving_event_recorded",
               "acceptance_of_possession_or_ownership",
-              "legal_title_verified",
-              "ship_received_accepted_same_claim"
+              "legal_title_verified"
             ]
           }
         }
