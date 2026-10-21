@@ -2,67 +2,67 @@
   "node_id": "CAPS.Mathematics.Gr3.ADD",
   "lesson": {
     "standard_code": "CAPS.Mathematics.Gr3.ADD",
-    "title": "CAPS.Mathematics.Gr3.ADD: Add and subtract within 999. Column method. Estimate. Sol...",
+    "title": "Addition and Subtraction to 999: Place Value, Column Method, Estimation",
     "grade_level": "Grade3",
     "bloom_level": "Apply",
-    "explanation": "Grade 3 mathematics content.",
+    "explanation": "Three-digit addition and subtraction work because each digit represents hundreds, tens, or ones. Line up digits by place value before calculating. When a column reaches ten or more, regroup ten ones as one ten, or ten tens as one hundred. In subtraction, exchange one ten for ten ones (or one hundred for ten tens) when the top digit is too small. Estimation helps you check whether an answer is reasonable; it does not replace an exact answer when one is needed.",
     "examples": [
       {
-        "problem": "Solve a Grade 3 Mathematics problem.",
+        "problem": "Calculate 368 + 157.",
         "steps": [
           {
-            "instruction": "Step 1: Read the question carefully",
-            "result": "understand"
+            "instruction": "Add the ones: 8 + 7 = 15 ones.",
+            "result": "Write 5 ones and regroup 1 ten."
           },
           {
-            "instruction": "Step 2: Show your working",
-            "result": "calculate"
+            "instruction": "Add the tens: 6 tens + 5 tens + 1 regrouped ten = 12 tens.",
+            "result": "Write 2 tens and regroup 1 hundred."
           },
           {
-            "instruction": "Step 3: Check your answer",
-            "result": "verify"
+            "instruction": "Add the hundreds: 3 + 1 + 1 regrouped hundred = 5.",
+            "result": "The total is 525."
           }
         ],
-        "answer": "Answer: See worked solution",
-        "visual_description": null
+        "answer": "368 + 157 = 525.",
+        "visual_description": "Show hundreds, tens and ones in aligned columns, with regrouped tens and hundreds carried above their columns."
       },
       {
-        "problem": "Solve a Grade 3 Mathematics problem.",
+        "problem": "Calculate 402 − 187.",
         "steps": [
           {
-            "instruction": "Step 1: Read the question carefully",
-            "result": "understand"
+            "instruction": "Start with 4 hundreds, 0 tens and 2 ones. Exchange 1 hundred for 10 tens, then exchange 1 ten for 10 ones.",
+            "result": "402 is regrouped as 3 hundreds, 9 tens and 12 ones."
           },
           {
-            "instruction": "Step 2: Show your working",
-            "result": "calculate"
+            "instruction": "Subtract the ones: 12 − 7 = 5.",
+            "result": "Write 5 ones."
           },
           {
-            "instruction": "Step 3: Check your answer",
-            "result": "verify"
+            "instruction": "Subtract the tens: 9 − 8 = 1, then the hundreds: 3 − 1 = 2.",
+            "result": "The difference is 215."
           }
         ],
-        "answer": "Answer: See worked solution",
-        "visual_description": null
+        "answer": "402 − 187 = 215.",
+        "visual_description": "Use a place-value chart to show each exchange before subtracting."
       },
       {
-        "problem": "Solve a Grade 3 Mathematics problem.",
+        "problem": "Estimate 389 + 207 to the nearest hundred, then compare with the exact sum.",
         "steps": [
           {
-            "instruction": "Step 1: Read the question carefully",
-            "result": "understand"
+            "instruction": "Round 389 to 400 and 207 to 200.",
+            "result": "The estimate is 400 + 200 = 600."
           },
           {
-            "instruction": "Step 2: Show your working",
-            "result": "calculate"
+            "instruction": "Add exactly: 389 + 200 = 589, then add 7.",
+            "result": "The exact total is 596."
           },
           {
-            "instruction": "Step 3: Check your answer",
-            "result": "verify"
+            "instruction": "Compare the values.",
+            "result": "596 is close to 600, so the estimate is reasonable."
           }
         ],
-        "answer": "Answer: See worked solution",
-        "visual_description": null
+        "answer": "Estimate: 600. Exact sum: 596.",
+        "visual_description": "Place 596 and 600 on a number line to compare the exact value with the estimate."
       }
     ],
     "practice_problems": [
@@ -72,93 +72,143 @@
         "difficulty_permille": 125,
         "bloom_level": "Remember",
         "hints": [
-          "Add ones, then tens, then hundreds"
+          "Keep ones under ones and tens under tens."
         ],
-        "explanation": "5 + 2 = 7, 40 + 30 = 70, 200 + 100 = 300. Total: 377.",
+        "explanation": "Add ones, tens, and hundreds in place-value columns.",
         "distractors": [
           "367",
           "387",
-          "277"
+          "3770"
         ]
       },
       {
-        "question": "What is 503 - 178?",
+        "question": "Calculate 503 − 178.",
         "answer": "325",
+        "difficulty_permille": 250,
+        "bloom_level": "Apply",
+        "hints": [
+          "You must exchange a hundred because there are no tens."
+        ],
+        "explanation": "Regroup 503 as 4 hundreds, 9 tens and 13 ones before subtracting.",
+        "distractors": [
+          "335",
+          "425",
+          "3250"
+        ]
+      },
+      {
+        "question": "Estimate 389 + 207 by rounding each number to the nearest hundred.",
+        "answer": "600",
         "difficulty_permille": 375,
         "bloom_level": "Apply",
         "hints": [
-          "You will need to borrow from the hundreds"
+          "Round each addend first."
         ],
-        "explanation": "503 - 178: borrow from 5 hundreds. 13 - 8 = 5, 9 - 7 = 2, 4 - 1 = 3. Answer: 325.",
-        "distractors": [
-          "335",
-          "225",
-          "315"
-        ]
-      },
-      {
-        "question": "Estimate 389 + 207 by rounding to the nearest hundred.",
-        "answer": "600",
-        "difficulty_permille": 250,
-        "bloom_level": "Understand",
-        "hints": [
-          "Round each number first, then add"
-        ],
-        "explanation": "389 rounds to 400, 207 rounds to 200. 400 + 200 = 600.",
+        "explanation": "389 rounds to 400 and 207 rounds to 200; add the rounded values.",
         "distractors": [
           "500",
-          "700",
-          "596"
+          "590",
+          "700"
         ]
       },
       {
-        "question": "A shop has 456 oranges and sells 289. How many are left?",
-        "answer": "167",
+        "question": "A shop has 456 oranges and sells 289. How many oranges remain?",
+        "answer": "167 oranges",
         "difficulty_permille": 500,
         "bloom_level": "Apply",
         "hints": [
-          "Subtract: 456 - 289"
+          "The number remaining is the starting amount minus the amount sold."
         ],
-        "explanation": "456 - 289 = 167 oranges remaining.",
+        "explanation": "Find the difference 456 − 289, then attach the unit.",
         "distractors": [
-          "177",
-          "267",
-          "157"
+          "177 oranges",
+          "267 oranges",
+          "745 oranges"
         ]
       },
       {
-        "question": "What is 648 + 275?",
+        "question": "Calculate 648 + 275.",
         "answer": "923",
         "difficulty_permille": 625,
         "bloom_level": "Apply",
         "hints": [
-          "Add column by column with carrying"
+          "Watch for regrouping in both the ones and tens columns."
         ],
-        "explanation": "8 + 5 = 13 (carry 1). 4 + 7 + 1 = 12 (carry 1). 6 + 2 + 1 = 9. Answer: 923.",
+        "explanation": "8 + 5 = 13; regroup 1 ten. Then regroup the tens total of 12.",
         "distractors": [
+          "813",
           "913",
-          "823",
-          "933"
+          "9230"
+        ]
+      },
+      {
+        "question": "A library has 275 storybooks and 168 information books. How many books are there altogether?",
+        "answer": "443 books",
+        "difficulty_permille": 750,
+        "bloom_level": "Analyze",
+        "hints": [
+          "Choose addition because the question asks for the combined total."
+        ],
+        "explanation": "Add 275 + 168 using place value or a written column method.",
+        "distractors": [
+          "433 books",
+          "443 books",
+          "457 books"
+        ]
+      },
+      {
+        "question": "Explain how estimation can help you check 603 − 298 = 305.",
+        "answer": "The estimate is about 600 − 300 = 300, so 305 is reasonable.",
+        "difficulty_permille": 875,
+        "bloom_level": "Evaluate",
+        "hints": [
+          "Round to hundreds and compare the size of the answer."
+        ],
+        "explanation": "Round 603 to 600 and 298 to 300, then compare the estimate with the exact difference.",
+        "distractors": [
+          "An estimate must always equal the exact answer.",
+          "About 300, so 305 is reasonable.",
+          "The result must be greater than 603."
         ]
       }
     ],
     "hints": [
-      "What do you know about Grade 3 Mathematics?",
-      "Try the method for Grade 3 Mathematics.",
-      "Start with what you know about Grade 3 Mathematics."
+      "First line up hundreds, tens and ones.",
+      "If a column is too small for subtraction, exchange from the next place to the left.",
+      "Estimate with rounded numbers to check whether your exact answer is sensible."
     ],
     "key_vocabulary": [
       {
-        "term": "mathematics",
-        "definition": "A key word in this topic",
-        "example_usage": "Used in Grade 3 maths."
+        "term": "place value",
+        "definition": "The value a digit has because of its position in a number.",
+        "example_usage": "In 472, the 7 represents 70."
+      },
+      {
+        "term": "regroup",
+        "definition": "Exchange ten units of one place for one unit of the next place.",
+        "example_usage": "Ten ones can be regrouped as one ten."
+      },
+      {
+        "term": "estimate",
+        "definition": "A close value used to check or plan a calculation.",
+        "example_usage": "389 + 207 is about 600."
+      },
+      {
+        "term": "difference",
+        "definition": "The result of subtracting one number from another.",
+        "example_usage": "The difference between 456 and 289 is 167."
       }
     ],
     "misconceptions": [
       {
-        "misconception": "A common mistake in Grade 3 Mathematics.",
-        "correction": "The correct way.",
-        "why_students_think_this": "Understanding why helps."
+        "misconception": "Digits can be added without aligning their place values.",
+        "correction": "Line up ones, tens and hundreds before adding or subtracting.",
+        "why_students_think_this": "The same digit position represents the same unit; misalignment changes the value."
+      },
+      {
+        "misconception": "Borrowing in subtraction changes the value of the number.",
+        "correction": "An exchange keeps the total unchanged: one hundred equals ten tens, and one ten equals ten ones.",
+        "why_students_think_this": "Students may treat regrouping as moving a digit rather than exchanging equal values."
       }
     ],
     "generation_quality": {
@@ -166,77 +216,83 @@
       "hallucination_detected": false,
       "veto_count": 0,
       "epistemic_confidence": 0.87999994,
-      "needs_human_review": false
+      "needs_human_review": true,
+      "metrics_valid_for_current_revision": false,
+      "review_notes": "Prior generation metrics predate this rewrite and must not be treated as validation of the current content."
     }
   },
   "assessment": {
     "standard_code": "CAPS.Mathematics.Gr3.ADD",
-    "title": "Assessment: Add and subtract within 999. Column method. Estimate. Solve word problems with two operations",
+    "title": "Assessment: Addition and Subtraction to 999: Place Value, Column Method, Estimation",
     "items": [
       {
-        "question": "Explain Grade 3 Mathematics.",
+        "question": "What is 300 + 200?",
         "item_type": "ShortAnswer",
-        "correct_answer": "Answer.",
+        "correct_answer": "500",
         "points": 1,
         "bloom_level": "Remember",
         "rubric": null,
-        "hint": "2"
+        "hint": "Add three hundreds and two hundreds."
       },
       {
-        "question": "Explain Grade 3 Mathematics.",
+        "question": "Why must the ones digits be aligned in a column calculation?",
         "item_type": "ShortAnswer",
-        "correct_answer": "Answer.",
+        "correct_answer": "Because digits in the same column represent the same place value (ones with ones, tens with tens, hundreds with hundreds).",
         "points": 2,
         "bloom_level": "Understand",
         "rubric": null,
-        "hint": "2"
+        "hint": "Think about what each column means."
       },
       {
-        "question": "Explain Grade 3 Mathematics.",
+        "question": "Calculate 368 + 157.",
         "item_type": "ShortAnswer",
-        "correct_answer": "Answer.",
+        "correct_answer": "525",
         "points": 2,
         "bloom_level": "Apply",
         "rubric": null,
-        "hint": "2"
+        "hint": "Regroup when the ones or tens sum reaches ten."
       },
       {
-        "question": "Explain Grade 3 Mathematics.",
+        "question": "A learner writes 402 − 187 = 325. Identify the mistake and give the correct answer.",
         "item_type": "ShortAnswer",
-        "correct_answer": "Answer.",
+        "correct_answer": "The correct answer is 215; the learner did not exchange place values correctly when subtracting.",
         "points": 3,
         "bloom_level": "Analyze",
         "rubric": null,
-        "hint": "2"
+        "hint": "Regroup 402 as 3 hundreds, 9 tens and 12 ones."
       },
       {
-        "question": "Explain Grade 3 Mathematics.",
+        "question": "An estimate for 289 + 404 is 700. Is this reasonable? Explain.",
         "item_type": "ShortAnswer",
-        "correct_answer": "Answer.",
+        "correct_answer": "Yes. 289 rounds to 300 and 404 rounds to 400, giving an estimate of 700; the exact sum is 693.",
         "points": 3,
         "bloom_level": "Evaluate",
         "rubric": null,
-        "hint": "2"
+        "hint": "Round both addends to the nearest hundred."
       },
       {
-        "question": "Explain Grade 3 Mathematics.",
+        "question": "Write a short word problem that uses 235 + 168, then solve it.",
         "item_type": "ShortAnswer",
-        "correct_answer": "Answer.",
+        "correct_answer": "Answers vary; the story must combine 235 and 168 items and the correct total is 403.",
         "points": 4,
         "bloom_level": "Create",
         "rubric": null,
-        "hint": "2"
+        "hint": "Make a situation with two amounts being joined."
       }
     ],
     "total_points": 15,
     "estimated_minutes": 18,
     "bloom_distribution": [
       [
+        "Remember",
+        1
+      ],
+      [
         "Understand",
         1
       ],
       [
-        "Remember",
+        "Apply",
         1
       ],
       [
@@ -248,10 +304,6 @@
         1
       ],
       [
-        "Apply",
-        1
-      ],
-      [
         "Create",
         1
       ]
@@ -259,91 +311,94 @@
   },
   "flashcards": [
     {
-      "front": "What is important about Grade 3 Mathematics?",
-      "back": "Grade 3 mathematics content",
+      "front": "What does the 7 represent in 472?",
+      "back": "70; the 7 is in the tens place.",
       "tags": [
         "CAPS.Mathematics.Gr3.ADD",
         "Grade3",
-        "Operations"
+        "Mathematics"
       ],
       "difficulty_permille": 111
     },
     {
-      "front": "What is important about Grade 3 Mathematics?",
-      "back": "Grade 3 mathematics content",
+      "front": "What is regrouping in addition?",
+      "back": "Exchanging ten ones for one ten, or ten tens for one hundred.",
       "tags": [
         "CAPS.Mathematics.Gr3.ADD",
         "Grade3",
-        "Operations"
+        "Mathematics"
       ],
       "difficulty_permille": 222
     },
     {
-      "front": "What is important about Grade 3 Mathematics?",
-      "back": "Grade 3 mathematics content",
+      "front": "What should you do before using column addition?",
+      "back": "Align ones, tens and hundreds.",
       "tags": [
         "CAPS.Mathematics.Gr3.ADD",
         "Grade3",
-        "Operations"
+        "Mathematics"
       ],
       "difficulty_permille": 333
     },
     {
-      "front": "What is important about Grade 3 Mathematics?",
-      "back": "Grade 3 mathematics content",
+      "front": "What is the difference between 500 and 275?",
+      "back": "225.",
       "tags": [
         "CAPS.Mathematics.Gr3.ADD",
         "Grade3",
-        "Operations"
+        "Mathematics"
       ],
       "difficulty_permille": 444
     },
     {
-      "front": "What is important about Grade 3 Mathematics?",
-      "back": "Grade 3 mathematics content",
+      "front": "What is 389 rounded to the nearest hundred?",
+      "back": "400.",
       "tags": [
         "CAPS.Mathematics.Gr3.ADD",
         "Grade3",
-        "Operations"
+        "Mathematics"
       ],
-      "difficulty_permille": 555
+      "difficulty_permille": 556
     },
     {
-      "front": "What is important about Grade 3 Mathematics?",
-      "back": "Grade 3 mathematics content",
+      "front": "Why estimate an answer?",
+      "back": "To check whether the exact answer is a sensible size.",
       "tags": [
         "CAPS.Mathematics.Gr3.ADD",
         "Grade3",
-        "Operations"
+        "Mathematics"
       ],
-      "difficulty_permille": 666
+      "difficulty_permille": 667
     },
     {
-      "front": "What is important about Grade 3 Mathematics?",
-      "back": "Grade 3 mathematics content",
+      "front": "What is 402 − 187?",
+      "back": "215.",
       "tags": [
         "CAPS.Mathematics.Gr3.ADD",
         "Grade3",
-        "Operations"
+        "Mathematics"
       ],
-      "difficulty_permille": 777
+      "difficulty_permille": 778
     },
     {
-      "front": "What is important about Grade 3 Mathematics?",
-      "back": "Grade 3 mathematics content",
+      "front": "How many ones make one ten?",
+      "back": "Ten ones.",
       "tags": [
         "CAPS.Mathematics.Gr3.ADD",
         "Grade3",
-        "Operations"
+        "Mathematics"
       ],
-      "difficulty_permille": 888
+      "difficulty_permille": 889
     }
   ],
   "quality": {
     "coherence": 0.87999994,
     "hallucination_detected": false,
-    "needs_human_review": false,
-    "veto_count": 0
+    "needs_human_review": true,
+    "veto_count": 0,
+    "review_status": "draft_requires_educator_review",
+    "metrics_valid_for_current_revision": false,
+    "review_notes": "Substantive instructional rewrite; requires a qualified CAPS Grade 3 mathematics educator to verify curriculum alignment, worked solutions, assessment keys, and accessibility before release qualification."
   },
   "generated_at": "2026-03-30T13:17:33"
 }
