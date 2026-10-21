@@ -167,7 +167,7 @@
         "explanation": "Round 603 to 600 and 298 to 300, then compare the estimate with the exact difference.",
         "distractors": [
           "An estimate must always equal the exact answer.",
-          "About 300, so 305 is reasonable.",
+          "The estimate is about 300, so the exact answer must be 300.",
           "The result must be greater than 603."
         ]
       }
