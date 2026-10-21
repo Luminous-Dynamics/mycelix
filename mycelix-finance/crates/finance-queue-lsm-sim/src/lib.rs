@@ -80,12 +80,20 @@ pub struct ExcludedPayment {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
+pub struct BalanceSnapshot {
+    pub participant_id: String,
+    pub final_liquidity_minor: u64,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct SettlementEvent {
     pub payment_id: String,
     pub pass_index: u64,
     pub settlement_index: u64,
     pub amount_minor: u64,
+    pub payer_balance_before_minor: u64,
     pub payer_balance_after_minor: u64,
+    pub payee_balance_before_minor: u64,
     pub payee_balance_after_minor: u64,
     pub missed_deadline: bool,
 }
@@ -100,7 +108,7 @@ pub struct QueueSimulation {
     pub settled_count: u64,
     pub settled_payment_ids: Vec<String>,
     pub pending_payment_ids: Vec<String>,
-    pub final_balances: Vec<ParticipantLiquidity>,
+    pub final_balances: Vec<BalanceSnapshot>,
     pub events: Vec<SettlementEvent>,
     pub excluded_payments: Vec<ExcludedPayment>,
     pub deduplicated_payment_observations: usize,
@@ -448,7 +456,9 @@ pub fn simulate_order(
                 pass_index: passes_inspected,
                 settlement_index,
                 amount_minor: payment.amount_minor,
+                payer_balance_before_minor: payer_balance,
                 payer_balance_after_minor: payer_after,
+                payee_balance_before_minor: payee_balance,
                 payee_balance_after_minor: payee_after,
                 missed_deadline,
             });
@@ -471,11 +481,11 @@ pub fn simulate_order(
     let mut closing_total = 0_u128;
     let final_balances = mutable_balances
         .iter()
-        .map(|(participant_id, opening_liquidity_minor)| {
-            closing_total = checked_add_u128(closing_total, *opening_liquidity_minor as u128)?;
-            Ok(ParticipantLiquidity {
+        .map(|(participant_id, final_liquidity_minor)| {
+            closing_total = checked_add_u128(closing_total, *final_liquidity_minor as u128)?;
+            Ok(BalanceSnapshot {
                 participant_id: participant_id.clone(),
-                opening_liquidity_minor: *opening_liquidity_minor,
+                final_liquidity_minor: *final_liquidity_minor,
             })
         })
         .collect::<Result<Vec<_>, QueueError>>()?;
@@ -589,7 +599,8 @@ pub fn exact_order_oracle(
             let replace = best.as_ref().is_none_or(|current| {
                 let comparison = compare_simulations(&simulation, &current.simulation);
                 comparison == Ordering::Greater
-                    || (comparison == Ordering::Equal && order < current.order.as_slice())
+                    || (comparison == Ordering::Equal
+                        && order.iter().cmp(current.order.iter()) == Ordering::Less)
             });
             if replace {
                 *best = Some(Best {
@@ -899,8 +910,12 @@ mod tests {
         assert_eq!(report.passes_inspected, report.passes_with_progress + 1);
         for event in &report.events {
             assert_eq!(
-                event.payer_balance_after_minor + event.amount_minor,
+                event.payer_balance_before_minor,
                 event.payer_balance_after_minor + event.amount_minor
+            );
+            assert_eq!(
+                event.payee_balance_after_minor,
+                event.payee_balance_before_minor + event.amount_minor
             );
         }
     }
