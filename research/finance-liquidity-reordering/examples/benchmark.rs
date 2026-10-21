@@ -1,25 +1,104 @@
 use finance_liquidity_reordering::{
     bounded_insertion_search, exact_permutation_oracle, input_order, receiver_ready_greedy,
-    simulated_annealing, Evaluation, Payment, Problem, ReorderError, SearchResult,
+    simulated_annealing, Payment, Problem, ReorderError, SearchResult,
 };
 use std::error::Error;
 use std::time::Instant;
 
-const WARMUPS: usize = 3;
-const REPETITIONS: usize = 31;
+const WARMUPS: usize = 2;
+const REPETITIONS: usize = 21;
 const ANNEALING_SEEDS: [u64; 3] = [17, 101, 997];
 
-fn make_reversed_chain(length: usize) -> Result<Problem, ReorderError> {
-    let payments = (0..length)
-        .rev()
-        .map(|i| Payment {
-            id: format!("p{i:04}"),
-            from: i,
-            to: i + 1,
-            amount_minor: 10,
-        })
-        .collect();
-    Problem::new(length + 1, payments)
+#[derive(Clone, Copy)]
+enum Scenario {
+    ReversedEqualChain,
+    ReversedHeterogeneousChain,
+    ReversedCycle,
+    HubRoundTrips,
+}
+
+impl Scenario {
+    const ALL: [Self; 4] = [
+        Self::ReversedEqualChain,
+        Self::ReversedHeterogeneousChain,
+        Self::ReversedCycle,
+        Self::HubRoundTrips,
+    ];
+
+    fn label(self) -> &'static str {
+        match self {
+            Self::ReversedEqualChain => "reversed_equal_chain",
+            Self::ReversedHeterogeneousChain => "reversed_heterogeneous_chain",
+            Self::ReversedCycle => "reversed_cycle",
+            Self::HubRoundTrips => "hub_round_trips",
+        }
+    }
+}
+
+fn make_problem(length: usize, scenario: Scenario) -> Result<Problem, ReorderError> {
+    let (participant_count, payments) = match scenario {
+        Scenario::ReversedEqualChain => {
+            let payments = (0..length)
+                .rev()
+                .map(|i| Payment {
+                    id: format!("p{i:04}"),
+                    from: i,
+                    to: i + 1,
+                    amount_minor: 10,
+                })
+                .collect();
+            (length + 1, payments)
+        }
+        Scenario::ReversedHeterogeneousChain => {
+            let payments = (0..length)
+                .rev()
+                .map(|i| Payment {
+                    id: format!("p{i:04}"),
+                    from: i,
+                    to: i + 1,
+                    amount_minor: (length - i + 10) as u64,
+                })
+                .collect();
+            (length + 1, payments)
+        }
+        Scenario::ReversedCycle => {
+            let payments = (0..length)
+                .rev()
+                .map(|i| Payment {
+                    id: format!("p{i:04}"),
+                    from: i,
+                    to: (i + 1) % length,
+                    amount_minor: 10,
+                })
+                .collect();
+            (length, payments)
+        }
+        Scenario::HubRoundTrips => {
+            // All benchmark sizes are even. Return legs precede outbound legs in the
+            // intentionally hostile input order, making fan-in/fan-out liquidity visible.
+            debug_assert_eq!(length % 2, 0);
+            let pairs = length / 2;
+            let mut payments = Vec::with_capacity(length);
+            for participant in (1..=pairs).rev() {
+                payments.push(Payment {
+                    id: format!("r{participant:04}"),
+                    from: participant,
+                    to: 0,
+                    amount_minor: 10,
+                });
+            }
+            for participant in (1..=pairs).rev() {
+                payments.push(Payment {
+                    id: format!("o{participant:04}"),
+                    from: 0,
+                    to: participant,
+                    amount_minor: 10,
+                });
+            }
+            (pairs + 1, payments)
+        }
+    };
+    Problem::new(participant_count, payments)
 }
 
 fn percentile(samples: &[u128], percentile: usize) -> u128 {
@@ -50,6 +129,7 @@ where
 
 fn emit<F>(
     problem: &Problem,
+    scenario: Scenario,
     algorithm: &str,
     seed: Option<u64>,
     exact: Option<&SearchResult>,
@@ -88,9 +168,10 @@ where
     };
 
     println!(
-        "{},{},reversed_equal_chain,{},{},{},{},{},{},{},{},{}",
+        "{},{},{},{},{},{},{},{},{},{},{},{}",
         problem.payments().len(),
         problem.participant_count(),
+        scenario.label(),
         algorithm,
         seed.map(|value| value.to_string())
             .unwrap_or_else(|| "-".into()),
@@ -111,51 +192,62 @@ fn main() -> Result<(), Box<dyn Error>> {
     println!("payments,participants,scenario,algorithm,seed,candidate_evaluations,aggregate_required_initial_liquidity_minor,max_participant_required_initial_liquidity_minor,optimality_gap_minor,p50_ns,p95_ns,p99_ns");
 
     for payment_count in [4, 6, 8, 10, 30, 70, 140, 700] {
-        let problem = make_reversed_chain(payment_count)?;
-        let fifo = input_order(&problem)?;
-        let exact = if payment_count <= 8 {
-            Some(exact_permutation_oracle(&problem)?)
-        } else {
-            None
-        };
-        let budget = (payment_count * 8).clamp(40, 2_000);
+        for scenario in Scenario::ALL {
+            let problem = make_problem(payment_count, scenario)?;
+            let fifo = input_order(&problem)?;
+            let exact = if payment_count <= 8 {
+                Some(exact_permutation_oracle(&problem)?)
+            } else {
+                None
+            };
+            let budget = (payment_count * 4).clamp(40, 1_000);
 
-        emit(&problem, "input_order", None, exact.as_ref(), || {
-            input_order(&problem)
-        })?;
-        emit(
-            &problem,
-            "receiver_ready_greedy",
-            None,
-            exact.as_ref(),
-            || receiver_ready_greedy(&problem),
-        )?;
-        emit(
-            &problem,
-            "bounded_insertion_search",
-            None,
-            exact.as_ref(),
-            || bounded_insertion_search(&problem, &fifo.order, budget),
-        )?;
-
-        for seed in ANNEALING_SEEDS {
             emit(
                 &problem,
-                "simulated_annealing",
-                Some(seed),
-                exact.as_ref(),
-                || simulated_annealing(&problem, &fifo.order, seed, budget),
-            )?;
-        }
-
-        if exact.is_some() {
-            emit(
-                &problem,
-                "exact_permutation_oracle",
+                scenario,
+                "input_order",
                 None,
                 exact.as_ref(),
-                || exact_permutation_oracle(&problem),
+                || input_order(&problem),
             )?;
+            emit(
+                &problem,
+                scenario,
+                "receiver_ready_greedy",
+                None,
+                exact.as_ref(),
+                || receiver_ready_greedy(&problem),
+            )?;
+            emit(
+                &problem,
+                scenario,
+                "bounded_insertion_search",
+                None,
+                exact.as_ref(),
+                || bounded_insertion_search(&problem, &fifo.order, budget),
+            )?;
+
+            for seed in ANNEALING_SEEDS {
+                emit(
+                    &problem,
+                    scenario,
+                    "simulated_annealing",
+                    Some(seed),
+                    exact.as_ref(),
+                    || simulated_annealing(&problem, &fifo.order, seed, budget),
+                )?;
+            }
+
+            if exact.is_some() {
+                emit(
+                    &problem,
+                    scenario,
+                    "exact_permutation_oracle",
+                    None,
+                    exact.as_ref(),
+                    || exact_permutation_oracle(&problem),
+                )?;
+            }
         }
     }
     Ok(())
