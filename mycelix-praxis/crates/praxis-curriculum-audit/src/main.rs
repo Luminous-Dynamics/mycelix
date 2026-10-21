@@ -327,7 +327,7 @@ fn analyze(
 
     let nodes_with_standards = nodes.values().filter(|node| !node.standards.is_empty()).count();
     let mut group_map: BTreeMap<GroupKey, GroupAccumulator> = BTreeMap::new();
-    for (node_id, node) in &nodes {
+    for node in nodes.values() {
         for framework in &node.frameworks {
             for grade in &node.grades {
                 let key = GroupKey {
@@ -347,8 +347,8 @@ fn analyze(
                     group.nodes_with_standards += 1;
                     group.standards.extend(node.standards.iter().cloned());
                 }
+            }
         }
-        let _ = node_id; // Makes the identity-bearing iteration explicit.
     }
 
     let groups = group_map.into_iter().map(|(key, group)| CoverageGroup {
