@@ -221,11 +221,10 @@ fn evaluate_subset(
     }
 
     for (route_id, used) in route_used {
-        let route = candidates
-            .iter()
-            .find(|candidate| candidate.route.route_id == route_id)
+        let capacity = route_capacities
+            .get(&route_id)
             .ok_or(BatchError::InvalidRoute(route_id.clone()))?;
-        if used > route.route.remaining_capacity_minor as u128 {
+        if used > *capacity as u128 {
             return Ok(None);
         }
     }
