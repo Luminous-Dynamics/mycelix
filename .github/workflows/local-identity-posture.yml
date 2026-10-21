@@ -18,6 +18,7 @@ on:
       - "crates/mycelix-leptos-core/src/identity_crypto.rs"
       - "crates/mycelix-leptos-core/src/webauthn_prf.rs"
       - "crates/mycelix-leptos-core/src/webauthn_prf_envelope.rs"
+      - "crates/mycelix-leptos-core/src/webauthn_prf_authenticated_envelope.rs"
       - "crates/mycelix-leptos-core/Cargo.toml"
       - "mycelix-personal/apps/leptos/**"
       - ".github/workflows/local-identity-posture.yml"
