@@ -66,6 +66,6 @@ mycelix-crypto = { path = "../../mycelix-workspace/mycelix-identity/crates/mycel
 
 [dev-dependencies]
 # identity_crypto.rs's WebCrypto calls only run for real in a browser, so
-# its round-trip/tamper tests need `wasm-bindgen-test` + a headless browser
-# (`wasm-pack test --headless --firefox`), not plain `cargo test`.
+# its round-trip/tamper tests need `wasm-bindgen-test` + a headless browser.
 wasm-bindgen-test = "0.3"
+futures-util = "0.3"
