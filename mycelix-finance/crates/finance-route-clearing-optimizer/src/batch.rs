@@ -26,6 +26,8 @@ pub const MAX_BATCH_INPUTS: usize = 100_000;
 pub struct BatchContext {
     pub rail_id: String,
     pub asset_id: String,
+    /// Explicit settlement/netting-set boundary for this selection.
+    pub netting_set_id: String,
     pub policy_version: String,
     pub tick: u64,
     /// Caller-side assertion only; this module does not authenticate the evidence.
@@ -43,6 +45,7 @@ pub struct BatchRoute {
     pub route_id: String,
     pub rail_id: String,
     pub asset_id: String,
+    pub netting_set_id: String,
     pub policy_version: String,
     pub enabled: bool,
     /// Caller-supplied capacity remaining in this route's current settlement window.
@@ -60,6 +63,7 @@ pub struct BatchPayment {
     pub payment_id: String,
     pub rail_id: String,
     pub asset_id: String,
+    pub netting_set_id: String,
     pub policy_version: String,
     pub route_id: String,
     pub from: String,
@@ -140,8 +144,17 @@ impl fmt::Display for BatchError {
 
 impl Error for BatchError {}
 
-fn same_profile(rail: &str, asset: &str, policy: &str, context: &BatchContext) -> bool {
-    rail == context.rail_id && asset == context.asset_id && policy == context.policy_version
+fn same_profile(
+    rail: &str,
+    asset: &str,
+    netting_set: &str,
+    policy: &str,
+    context: &BatchContext,
+) -> bool {
+    rail == context.rail_id
+        && asset == context.asset_id
+        && netting_set == context.netting_set_id
+        && policy == context.policy_version
 }
 
 #[derive(Clone, Debug)]
@@ -274,6 +287,7 @@ pub fn select_atomic_batch(
     for (name, value) in [
         ("rail_id", context.rail_id.as_str()),
         ("asset_id", context.asset_id.as_str()),
+        ("netting_set_id", context.netting_set_id.as_str()),
         ("policy_version", context.policy_version.as_str()),
     ] {
         if value.trim().is_empty() {
@@ -351,6 +365,7 @@ pub fn select_atomic_batch(
         } else if !same_profile(
             &payment.rail_id,
             &payment.asset_id,
+            &payment.netting_set_id,
             &payment.policy_version,
             context,
         ) {
@@ -360,7 +375,13 @@ pub fn select_atomic_batch(
         {
             Some(BatchExclusionReason::UnknownParticipant)
         } else if let Some(route) = route_map.get(&payment.route_id) {
-            if !same_profile(&route.rail_id, &route.asset_id, &route.policy_version, context) {
+            if !same_profile(
+                &route.rail_id,
+                &route.asset_id,
+                &route.netting_set_id,
+                &route.policy_version,
+                context,
+            ) {
                 Some(BatchExclusionReason::RouteProfileMismatch)
             } else if !route.enabled {
                 Some(BatchExclusionReason::DisabledRoute)
@@ -491,6 +512,7 @@ mod tests {
         BatchContext {
             rail_id: "synthetic-rtgs".into(),
             asset_id: "zar-minor".into(),
+            netting_set_id: "batch-set-1".into(),
             policy_version: "batch-v1".into(),
             tick,
             authority: AuthorityQualification::ExternallyQualified {
@@ -517,6 +539,7 @@ mod tests {
             route_id: id.into(),
             rail_id: "synthetic-rtgs".into(),
             asset_id: "zar-minor".into(),
+            netting_set_id: "batch-set-1".into(),
             policy_version: "batch-v1".into(),
             enabled: true,
             remaining_capacity_minor: capacity,
@@ -531,6 +554,7 @@ mod tests {
             payment_id: id.into(),
             rail_id: "synthetic-rtgs".into(),
             asset_id: "zar-minor".into(),
+            netting_set_id: "batch-set-1".into(),
             policy_version: "batch-v1".into(),
             route_id: route_id.into(),
             from: from.into(),
