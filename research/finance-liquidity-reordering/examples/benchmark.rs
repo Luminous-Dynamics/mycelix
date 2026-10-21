@@ -1,7 +1,7 @@
 use finance_liquidity_reordering::{
     bounded_insertion_search, exact_pareto_frontier, exact_permutation_oracle,
-    heuristic_portfolio, input_order, receiver_ready_greedy, simulated_annealing, Payment, Problem,
-    ReorderError, SearchResult,
+    heuristic_portfolio, input_order, net_position_liquidity_lower_bound,
+    receiver_ready_greedy, simulated_annealing, Payment, Problem, ReorderError, SearchResult,
 };
 use std::collections::BTreeSet;
 use std::error::Error;
@@ -191,6 +191,21 @@ where
 {
     let (result, samples) = measure(run)?;
     let features = topology_features(problem);
+    let lower_bound = net_position_liquidity_lower_bound(problem)?;
+    let aggregate_lower_bound_gap = result
+        .evaluation
+        .aggregate_required_initial_liquidity_minor
+        .checked_sub(lower_bound.aggregate_required_initial_liquidity_minor)
+        .ok_or_else(|| {
+            std::io::Error::new(std::io::ErrorKind::InvalidData, "aggregate result under lower bound")
+        })?;
+    let max_participant_lower_bound_gap = result
+        .evaluation
+        .max_participant_required_initial_liquidity_minor
+        .checked_sub(lower_bound.max_participant_required_initial_liquidity_minor)
+        .ok_or_else(|| {
+            std::io::Error::new(std::io::ErrorKind::InvalidData, "participant result under lower bound")
+        })?;
     let baseline = input_order(problem)?;
     let aggregate_saving = signed_saving(
         baseline.evaluation.aggregate_required_initial_liquidity_minor,
@@ -231,7 +246,7 @@ where
     };
 
     println!(
-        "{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{}",
+        "{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{}",
         problem.payments().len(),
         problem.participant_count(),
         scenario.label(),
@@ -255,13 +270,17 @@ where
         max_participant_gap,
         percentile(&samples, 50),
         percentile(&samples, 95),
-        percentile(&samples, 99)
+        percentile(&samples, 99),
+        lower_bound.aggregate_required_initial_liquidity_minor,
+        lower_bound.max_participant_required_initial_liquidity_minor,
+        aggregate_lower_bound_gap,
+        max_participant_lower_bound_gap
     );
     Ok(())
 }
 
 fn main() -> Result<(), Box<dyn Error>> {
-    println!("payments,participants,scenario,participants_both_send_receive,unique_receivers,unique_directed_edges,exact_pareto_frontier_size,algorithm,seed,candidate_evaluations,aggregate_required_initial_liquidity_minor,max_participant_required_initial_liquidity_minor,aggregate_saving_vs_input_minor,max_participant_reduction_vs_input_minor,aggregate_liquidity_gap_minor,max_participant_gap_minor,p50_ns,p95_ns,p99_ns");
+    println!("payments,participants,scenario,participants_both_send_receive,unique_receivers,unique_directed_edges,exact_pareto_frontier_size,algorithm,seed,candidate_evaluations,aggregate_required_initial_liquidity_minor,max_participant_required_initial_liquidity_minor,aggregate_saving_vs_input_minor,max_participant_reduction_vs_input_minor,aggregate_liquidity_gap_minor,max_participant_gap_minor,p50_ns,p95_ns,p99_ns,aggregate_net_position_lower_bound_minor,max_participant_net_position_lower_bound_minor,aggregate_gap_to_lower_bound_minor,max_participant_gap_to_lower_bound_minor");
 
     for payment_count in [4, 6, 8, 10, 30, 70, 140, 700] {
         for scenario in Scenario::ALL {
