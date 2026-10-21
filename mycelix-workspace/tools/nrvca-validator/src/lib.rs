@@ -229,13 +229,13 @@ pub fn validate_report(report: &Value) -> Vec<Diagnostic> {
             }
             let class = field_str(event, "event_class").unwrap_or("");
             let treatment = field_str(event, "gdp_treatment").unwrap_or("");
-            if !["new_borrowing", "principal_repayment", "writeoff", "asset_revaluation", "secondary_market_asset_transaction", "intersector_transfer", "final_goods_or_service", "other"].contains(&class) {
+            if !["new_borrowing", "principal_repayment", "writeoff", "asset_revaluation", "liability_revaluation", "secondary_market_asset_transaction", "intersector_transfer", "final_goods_or_service", "other"].contains(&class) {
                 push_structural(&mut out, "EVENT-CLASS", &format!("{path}/event_class"), "unsupported event_class");
             }
             if !["excluded_from_current_production", "included_under_declared_profile", "requires_profile_review"].contains(&treatment) {
                 push_structural(&mut out, "EVENT-TREATMENT", &format!("{path}/gdp_treatment"), "unsupported gdp_treatment");
             }
-            if ["new_borrowing", "principal_repayment", "writeoff", "asset_revaluation", "secondary_market_asset_transaction"].contains(&class)
+            if ["new_borrowing", "principal_repayment", "writeoff", "asset_revaluation", "liability_revaluation", "secondary_market_asset_transaction"].contains(&class)
                 && treatment != "excluded_from_current_production"
             {
                 push_semantic(&mut out, "FINANCIAL-EVENT-AS-OUTPUT", &format!("{path}/gdp_treatment"), "financing, principal repayment, asset revaluation and secondary-market transfer are not current production by themselves");
@@ -309,8 +309,14 @@ pub fn validate_report(report: &Value) -> Vec<Diagnostic> {
                             push_semantic(&mut out, "DUPLICATE-CHANGE-ID", &format!("{cpath}/change_id"), format!("duplicate change_id: {change_id}"));
                         }
                         let kind = field_str(change, "change_class").unwrap_or("");
-                        if !["borrowing", "principal_repayment", "writeoff", "revaluation", "physical_inflow", "physical_use", "physical_outflow", "other_change"].contains(&kind) {
+                        if !["borrowing", "principal_repayment", "writeoff", "revaluation", "liability_revaluation", "physical_inflow", "physical_use", "physical_outflow", "other_change"].contains(&kind) {
                             push_structural(&mut out, "CHANGE-CLASS", &format!("{cpath}/change_class"), "unsupported stock change class");
+                        }
+                        if class == "financial_stock" && kind == "revaluation" {
+                            push_semantic(&mut out, "FINANCIAL-REVALUATION-CLASS", &format!("{cpath}/change_class"), "financial liability revaluation must use liability_revaluation explicitly");
+                        }
+                        if class != "financial_stock" && kind == "liability_revaluation" {
+                            push_semantic(&mut out, "NONFINANCIAL-LIABILITY-REVALUATION", &format!("{cpath}/change_class"), "liability_revaluation is only valid for a financial stock");
                         }
                         if class == "financial_stock" && ["physical_inflow", "physical_use", "physical_outflow"].contains(&kind) {
                             push_semantic(&mut out, "FINANCIAL-PHYSICAL-CHANGE", &format!("{cpath}/change_class"), "physical resource change cannot be booked directly to a financial stock");
@@ -344,6 +350,7 @@ pub fn validate_report(report: &Value) -> Vec<Diagnostic> {
                                         "principal_repayment" => Some("principal_repayment"),
                                         "writeoff" => Some("writeoff"),
                                         "revaluation" => Some("asset_revaluation"),
+                                        "liability_revaluation" => Some("liability_revaluation"),
                                         _ => None,
                                     };
                                     if expected.is_none_or(|e| field_str(event, "event_class") != Some(e)) {
