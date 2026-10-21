@@ -894,8 +894,8 @@ mod tests {
         (
             vec![balance("A", 10), balance("B", 0), balance("C", 0)],
             vec![
-                payment("feed-b", "A", "B", 6, 1),
-                payment("drain-a", "A", "C", 10, 2),
+                payment("feed-b", "A", "B", 6, 2),
+                payment("drain-a", "A", "C", 10, 1),
                 payment("return-a", "B", "A", 6, 3),
             ],
         )
