@@ -345,6 +345,82 @@ fn all_heuristics_are_feasible_and_never_beat_the_exact_oracle() {
 }
 
 #[test]
+fn every_optimizer_and_exact_oracle_respects_hard_precedence() {
+    let problem = problem(
+        4,
+        vec![
+            Payment {
+                id: "dependent".into(),
+                from: 1,
+                to: 2,
+                amount_minor: 5,
+            },
+            Payment {
+                id: "prerequisite".into(),
+                from: 0,
+                to: 1,
+                amount_minor: 5,
+            },
+            Payment {
+                id: "independent".into(),
+                from: 2,
+                to: 3,
+                amount_minor: 2,
+            },
+        ],
+    )
+    .with_precedence_constraints(vec![(1, 0)])
+    .unwrap();
+
+    let fifo = input_order(&problem).unwrap();
+    let greedy = receiver_ready_greedy(&problem).unwrap();
+    let local = bounded_insertion_search(&problem, &fifo.order, 100).unwrap();
+    let annealed = simulated_annealing(&problem, &fifo.order, 17, 200).unwrap();
+    let portfolio = heuristic_portfolio(&problem, 100, 17, 200).unwrap();
+    let exact = exact_permutation_oracle(&problem).unwrap();
+
+    assert_eq!(fifo.order, vec![1, 0, 2]);
+    assert_eq!(exact.candidate_evaluations, 3);
+    for candidate in [fifo, greedy, local, annealed, portfolio, exact] {
+        let mut positions = vec![0; candidate.order.len()];
+        for (position, &index) in candidate.order.iter().enumerate() {
+            positions[index] = position;
+        }
+        assert!(positions[1] < positions[0], "precedence violated by {:?}", candidate.order);
+        assert_eq!(
+            evaluate_order(&problem, &candidate.order).unwrap(),
+            candidate.evaluation
+        );
+    }
+
+    assert!(matches!(
+        evaluate_order(&problem, &[0, 1, 2]),
+        Err(ReorderError::PrecedenceViolation { before: 1, after: 0 })
+    ));
+}
+
+#[test]
+fn malformed_and_cyclic_precedence_constraints_fail_closed() {
+    let base = chain_problem(3, false);
+    assert!(matches!(
+        base.clone().with_precedence_constraints(vec![(0, 0)]),
+        Err(ReorderError::InvalidPrecedenceConstraint { before: 0, after: 0 })
+    ));
+    assert!(matches!(
+        base.clone().with_precedence_constraints(vec![(0, 9)]),
+        Err(ReorderError::InvalidPrecedenceConstraint { before: 0, after: 9 })
+    ));
+    assert!(matches!(
+        base.clone().with_precedence_constraints(vec![(0, 1), (0, 1)]),
+        Err(ReorderError::DuplicatePrecedenceConstraint { before: 0, after: 1 })
+    ));
+    assert!(matches!(
+        base.with_precedence_constraints(vec![(0, 1), (1, 0)]),
+        Err(ReorderError::PrecedenceCycle)
+    ));
+}
+
+#[test]
 fn invalid_orders_and_inputs_fail_closed() {
     let p = chain_problem(3, false);
     assert!(matches!(
