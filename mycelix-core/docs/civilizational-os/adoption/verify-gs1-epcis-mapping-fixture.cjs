@@ -75,6 +75,28 @@ const EXPECTED_SOURCES = Object.freeze({
     source_id: 'gs1-cbv-2-0-0'
   }
 });
+const EXPECTED_ARTIFACTS = Object.freeze([
+  {
+    url: 'https://ref.gs1.org/standards/epcis/2.0.1/epcis-context.jsonld',
+    source_id: 'gs1-epcis-2-0-1-context',
+    revision: 'EPCIS 2.0.1 normative artefact; immutable versioned URL'
+  },
+  {
+    url: 'https://ref.gs1.org/standards/epcis/2.0.1/epcis-json-schema.json',
+    source_id: 'gs1-epcis-2-0-1-json-schema',
+    revision: 'EPCIS 2.0.1 normative validation artefact; immutable versioned URL'
+  },
+  {
+    url: 'https://ref.gs1.org/standards/epcis/2.0.1/epcis-shacl.ttl',
+    source_id: 'gs1-epcis-2-0-1-shacl',
+    revision: 'EPCIS 2.0.1 normative validation artefact; immutable versioned URL'
+  },
+  {
+    url: 'https://ref.gs1.org/standards/epcis/2.0.1/cbv-ontology.jsonld',
+    source_id: 'gs1-cbv-2-0-0-ontology-jsonld',
+    revision: 'CBV 2.0.0 normative ontology artefact distributed with EPCIS/CBV 2.0.1 package'
+  }
+]);
 
 function validateFixture(fixture, schema, manifest) {
   const errors = [];
@@ -123,10 +145,19 @@ function validateFixture(fixture, schema, manifest) {
     'GS1 source snapshot manifest profile id mismatch');
   addError(errors, manifest && manifest.manifest_id === 'gs1-epcis-cbv-v1',
     'GS1 source snapshot manifest id mismatch');
-  addError(errors, Array.isArray(manifest && manifest.sources) && manifest.sources.length === 2,
-    'GS1 source manifest must bind exactly the two selected standard versions');
-  const sourcesByUrl = new Map((manifest && Array.isArray(manifest.sources) ? manifest.sources : [])
-    .map(source => [source.source_url, source]));
+  addError(errors, Array.isArray(manifest && manifest.sources) &&
+    manifest.sources.length === Object.keys(EXPECTED_SOURCES).length + EXPECTED_ARTIFACTS.length,
+    'GS1 source manifest must bind both standards and all selected normative artefacts');
+  const manifestSources = manifest && Array.isArray(manifest.sources) ? manifest.sources : [];
+  const sourcesByUrl = new Map(manifestSources.map(source => [source.source_url, source]));
+  addError(errors, sourcesByUrl.size === manifestSources.length, 'source manifest contains duplicate source URLs');
+  const expectedSourceUrls = [
+    ...Object.values(EXPECTED_SOURCES).map(source => source.url),
+    ...EXPECTED_ARTIFACTS.map(source => source.url)
+  ];
+  addError(errors, expectedSourceUrls.length === sourcesByUrl.size &&
+    expectedSourceUrls.every(url => sourcesByUrl.has(url)),
+    'source manifest URL set differs from the version-pinned standard/artifact set');
   for (const [standardId, expected] of Object.entries(EXPECTED_SOURCES)) {
     const source = sourcesByUrl.get(expected.url);
     addError(errors, !!source, 'source manifest missing standard URL for ' + standardId);
@@ -135,6 +166,17 @@ function validateFixture(fixture, schema, manifest) {
     addError(errors, source.source_revision === expected.revision, 'source revision mismatch for ' + standardId);
     addError(errors, source.capture_state === 'exact_revision_pinned', 'source must be an immutable version/revision pin');
     addError(errors, source.integrity_method === 'immutable_source_revision', 'source pin integrity method mismatch');
+    addError(errors, source.rights_disposition === 'metadata_only', 'normative artefact rights must not be inferred');
+  }
+  for (const expected of EXPECTED_ARTIFACTS) {
+    const source = sourcesByUrl.get(expected.url);
+    addError(errors, !!source, 'source manifest missing normative artefact ' + expected.url);
+    if (!source) continue;
+    addError(errors, source.source_id === expected.source_id, 'source id mismatch for artefact ' + expected.source_id);
+    addError(errors, source.source_revision === expected.revision, 'source revision mismatch for artefact ' + expected.source_id);
+    addError(errors, source.source_kind === 'official_standard', 'artefact must be classified as an official standard resource');
+    addError(errors, source.capture_state === 'exact_revision_pinned', 'artefact must use a version-pinned URL');
+    addError(errors, source.integrity_method === 'immutable_source_revision', 'artefact integrity method mismatch');
     addError(errors, source.rights_disposition === 'metadata_only', 'normative artefact rights must not be inferred');
   }
   const actualManifestSha = sha256(Buffer.from(JSON.stringify(manifest, null, 2) + '\n'));
