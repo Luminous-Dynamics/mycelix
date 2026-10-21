@@ -21,6 +21,6 @@ serde-wasm-bindgen = "0.6"
 
 mycelix-leptos-core = { path = "../../../../crates/mycelix-leptos-core" }
 mycelix-leptos-client = { path = "../../../../crates/mycelix-leptos-client", features = ["browser"] }
-personal-leptos-types = { path = "../../crates/personal-leptos-types" }
+personal-leptos-types = { path = "../../../../mycelix-personal/crates/personal-leptos-types" }
 
 [workspace]

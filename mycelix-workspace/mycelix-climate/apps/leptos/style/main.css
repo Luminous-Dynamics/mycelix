@@ -184,3 +184,114 @@
         grid-template-columns: 1fr;
     }
 }
+
+/* Shared protected identity bootstrap + offline recovery challenge. */
+.identity-bootstrap-shell {
+    min-height: 100vh;
+    display: grid;
+    place-items: center;
+    padding: var(--space-lg);
+}
+.identity-bootstrap-card {
+    width: min(100%, 40rem);
+    display: grid;
+    gap: var(--space-md);
+}
+.identity-bootstrap-card h1 { margin: 0; }
+.identity-bootstrap-form { display: grid; gap: var(--space-md); }
+.identity-bootstrap-field { display: grid; gap: var(--space-xs); }
+.identity-bootstrap-field label { font-weight: 650; font-size: 0.9rem; }
+.identity-bootstrap-input {
+    width: 100%;
+    min-width: 0;
+    min-height: 44px;
+    padding: 0.75rem;
+    border: 1px solid var(--border-visible);
+    border-radius: var(--radius-sm);
+    background: var(--bg-surface);
+    color: var(--text-primary);
+    font: inherit;
+}
+.identity-bootstrap-recovery-phrase {
+    min-height: 7rem;
+    resize: vertical;
+}
+.identity-bootstrap-input:focus-visible,
+.identity-bootstrap-secondary:focus-visible,
+.identity-bootstrap-submit:focus-visible {
+    outline: 3px solid var(--primary);
+    outline-offset: 3px;
+}
+.identity-bootstrap-secondary {
+    justify-self: start;
+    min-height: 44px;
+    border: 1px solid var(--border-visible);
+    border-radius: var(--radius-sm);
+    padding: 0.55rem 0.85rem;
+    background: transparent;
+    color: var(--text-primary);
+    font: inherit;
+    cursor: pointer;
+}
+.identity-bootstrap-warning {
+    border-inline-start: 3px solid var(--accent);
+    padding: var(--space-sm) var(--space-md);
+    color: var(--text-secondary);
+    background: rgba(217, 164, 65, 0.08);
+    font-size: 0.88rem;
+    line-height: 1.55;
+}
+.identity-bootstrap-submit { min-height: 44px; }
+.identity-bootstrap-blocker {
+    padding: var(--space-md);
+    border: 1px solid var(--border-visible);
+    border-radius: var(--radius-sm);
+}
+.identity-bootstrap-blocker p { margin: var(--space-xs) 0 0; color: var(--text-secondary); }
+.identity-bootstrap-status {
+    min-height: 1.2em;
+    margin: 0;
+    color: var(--text-secondary);
+    overflow-wrap: anywhere;
+}
+
+
+/* Recovery-backup challenge stays local and is cleared between display and entry. */
+.recovery-phrase-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: var(--space-sm);
+    padding: 0;
+    margin: var(--space-md) 0;
+    list-style: none;
+}
+.recovery-phrase-grid li {
+    display: flex;
+    align-items: baseline;
+    gap: 0.45rem;
+    min-width: 0;
+    border: 1px solid var(--border-visible);
+    border-radius: var(--radius-sm);
+    padding: 0.45rem 0.55rem;
+    background: var(--bg-surface);
+    overflow-wrap: anywhere;
+}
+.recovery-word-index {
+    flex: 0 0 auto;
+    color: var(--text-secondary);
+    font-size: 0.75rem;
+    font-variant-numeric: tabular-nums;
+}
+.recovery-phrase-grid code {
+    min-width: 0;
+    font-size: 0.9rem;
+    color: var(--text-primary);
+    overflow-wrap: anywhere;
+}
+.recovery-phrase-panel { display: grid; gap: var(--space-sm); }
+@media (max-width: 640px) {
+    .recovery-phrase-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (prefers-reduced-motion: reduce) {
+    .recovery-phrase-panel *, .recovery-phrase-grid * { transition: none !important; }
+}

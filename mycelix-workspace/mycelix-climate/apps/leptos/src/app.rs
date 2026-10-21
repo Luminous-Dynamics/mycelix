@@ -10,7 +10,7 @@ use mycelix_leptos_core::{
     provide_theme_context, provide_thermodynamic_context,
     provide_consciousness_context, provide_toast_context,
     provide_homeostasis_context, init_consciousness_ui,
-    AppShell, NavLink, ToastContainer, EmptyState,
+    AppShell, IdentityBootstrapGate, NavLink, ToastContainer, EmptyState,
 };
 use mycelix_leptos_i18n::provide_i18n;
 
@@ -71,6 +71,15 @@ pub fn App() -> impl IntoView {
 
 #[component]
 fn AppInner() -> impl IntoView {
+    view! {
+        <IdentityBootstrapGate>
+            <ClimateReadyApp />
+        </IdentityBootstrapGate>
+    }
+}
+
+#[component]
+fn ClimateReadyApp() -> impl IntoView {
     // Provider stack (order matters)
     provide_theme_context("climate-theme", AppThemeVariant::Dark);
     provide_thermodynamic_context();

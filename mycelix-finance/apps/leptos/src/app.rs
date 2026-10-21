@@ -9,7 +9,7 @@ use mycelix_leptos_core::{
     init_consciousness_ui, provide_consciousness_context, provide_homeostasis_context,
     provide_local_identity, provide_theme_context, provide_thermodynamic_context,
     provide_toast_context, AppShell, EmptyState, HolochainProviderAuto, HolochainProviderConfig,
-    NavLink, ToastContainer,
+    IdentityBootstrapGate, NavLink, ToastContainer,
 };
 use mycelix_leptos_i18n::provide_i18n;
 
@@ -71,6 +71,15 @@ pub fn App() -> impl IntoView {
 
 #[component]
 fn AppInner() -> impl IntoView {
+    view! {
+        <IdentityBootstrapGate>
+            <FinanceReadyApp />
+        </IdentityBootstrapGate>
+    }
+}
+
+#[component]
+fn FinanceReadyApp() -> impl IntoView {
     // Provider stack (order matters)
     provide_theme_context("finance-theme", AppThemeVariant::Dark);
     provide_thermodynamic_context();
