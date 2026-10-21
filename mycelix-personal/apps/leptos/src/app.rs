@@ -318,10 +318,10 @@ fn VaultPage() -> impl IntoView {
                             action={None}
                         />
                     }.into_any()
-                } else if !ctx.live_sync_ready.get() {
+                } else if !ctx.any_live_source_read_succeeded.get() {
                     view! {
                         <AvailabilityState
-                            kind=AvailabilityStateKind::Empty
+                            kind=AvailabilityStateKind::Degraded
                             title="Live Personal sources unavailable"
                             description="No Personal source view was successfully read. This is not confirmation that the vault is empty; check the source-status notice and retry when the relevant source is reachable."
                             action={Some(view! {
