@@ -88,8 +88,8 @@ function validateFixture(fixture, schema, manifest) {
   addError(errors, fixture.data_classification === 'synthetic', 'fixture must remain synthetic');
   addError(errors, fixture.claim_ceiling === 'PinnedStandardMappingOnly',
     'claim ceiling must remain PinnedStandardMappingOnly');
-  addError(errors, fixture.fixture_scope === 'minimal_object_event_projection_not_full_capture_document',
-    'fixture scope must state this is not a full EPCIS capture document');
+  addError(errors, fixture.fixture_scope === 'minimal_epcis_document_with_isolated_object_event_cases',
+    'fixture scope must state this is a minimal EPCISDocument with isolated cases');
   addError(errors, fixture.projection_policy_id === 'mycelix-epcis-loss-aware-v1',
     'unexpected projection policy');
   addError(errors, Array.isArray(fixture.nonclaims) && fixture.nonclaims.length >= 3,
@@ -106,6 +106,14 @@ function validateFixture(fixture, schema, manifest) {
   addError(errors, schema && schema.$defs && schema.$defs.objectEvent &&
     JSON.stringify(schema.$defs.objectEvent.properties.disposition.enum) === JSON.stringify(['in_transit', 'in_progress', 'active']),
     'schema disposition enum must be bare EPCIS JSON CBV values');
+  addError(errors, schema && schema.properties && schema.properties.epcis_document &&
+    schema.properties.epcis_document.$ref === '#/$defs/epcisDocument',
+    'fixture schema must include an EPCISDocument envelope');
+  addError(errors, schema && schema.$defs && schema.$defs.epcisDocument &&
+    schema.$defs.epcisDocument.properties['@context'] &&
+    schema.$defs.epcisDocument.properties['@context'].items.const ===
+      'https://ref.gs1.org/standards/epcis/2.0.1/epcis-context.jsonld',
+    'schema must pin the versioned EPCIS JSON-LD context');
 
   // Verify the manifest bytes and the exact source-reference bindings used by
   // the fixture. The manifest is a revision pin, not a copy of standard bytes.
@@ -156,11 +164,25 @@ function validateFixture(fixture, schema, manifest) {
     'both EPCIS and CBV standard bindings are required');
   addError(errors, actualManifestSha.length === 64, 'manifest serialization check failed');
 
+  const epcisDocument = fixture.epcis_document;
+  addError(errors, epcisDocument && epcisDocument.type === 'EPCISDocument',
+    'document type must be EPCISDocument');
+  addError(errors, epcisDocument && epcisDocument.schemaVersion === '2.0',
+    'EPCIS schemaVersion must be 2.0');
+  addError(errors, epcisDocument && Array.isArray(epcisDocument['@context']) &&
+    epcisDocument['@context'].length === 1 &&
+    epcisDocument['@context'][0] === 'https://ref.gs1.org/standards/epcis/2.0.1/epcis-context.jsonld',
+    'document must use the pinned EPCIS 2.0.1 JSON-LD context');
+  addError(errors, epcisDocument && isUtcMilliseconds(epcisDocument.creationDate),
+    'document creationDate must be UTC with millisecond precision');
   const eventSteps = new Set();
   const eventById = new Map();
   const epcs = new Set();
   const orderedTimes = [];
-  const events = Array.isArray(fixture.events) ? fixture.events : [];
+  const events = epcisDocument && epcisDocument.epcisBody &&
+    Array.isArray(epcisDocument.epcisBody.eventList) ? epcisDocument.epcisBody.eventList : [];
+  addError(errors, !!(epcisDocument && epcisDocument.epcisBody &&
+    Array.isArray(epcisDocument.epcisBody.eventList)), 'EPCISDocument epcisBody.eventList is missing');
   addError(errors, events.length === 4, 'this bounded fixture must contain exactly four isolated event cases');
   for (const [index, event] of events.entries()) {
     const label = 'events[' + index + ']';
@@ -285,17 +307,17 @@ function main() {
   }
 
   const mutations = selfTest ? [
-    assertMutationRejected(b => { b.events[0].bizStep = 'https://ref.gs1.org/cbv/BizStep-shipping'; }, 'expanded-bizstep-uri', fixture, schema, manifest),
-    assertMutationRejected(b => { b.events[0].disposition = 'https://ref.gs1.org/cbv/Disp-in_transit'; }, 'expanded-disposition-uri', fixture, schema, manifest),
+    assertMutationRejected(b => { b.epcis_document.epcisBody.eventList[0].bizStep = 'https://ref.gs1.org/cbv/BizStep-shipping'; }, 'expanded-bizstep-uri', fixture, schema, manifest),
+    assertMutationRejected(b => { b.epcis_document.epcisBody.eventList[0].disposition = 'https://ref.gs1.org/cbv/Disp-in_transit'; }, 'expanded-disposition-uri', fixture, schema, manifest),
     assertMutationRejected(b => { b.mappings[0].mycelix_claim_type = 'possession_or_ownership_change_asserted'; }, 'shipping-promoted-to-ownership-change', fixture, schema, manifest),
     assertMutationRejected(b => { b.mappings[0].non_equivalences = b.mappings[0].non_equivalences.filter(x => x !== 'physical_delivery_verified'); }, 'physical-delivery-non-equivalence-removed', fixture, schema, manifest),
-    assertMutationRejected(b => { b.events[1].eventID = b.events[0].eventID; }, 'duplicate-event-id', fixture, schema, manifest),
+    assertMutationRejected(b => { b.epcis_document.epcisBody.eventList[1].eventID = b.epcis_document.epcisBody.eventList[0].eventID; }, 'duplicate-event-id', fixture, schema, manifest),
     assertMutationRejected(b => { b.mappings[1].source_event_id = b.mappings[0].source_event_id; }, 'duplicate-mapping-target', fixture, schema, manifest),
     assertMutationRejected(b => { b.mappings[1].source_biz_step = 'receiving'; }, 'mapping-source-step-mismatch', fixture, schema, manifest),
     assertMutationRejected(b => { b.mappings.pop(); }, 'missing-event-mapping', fixture, schema, manifest),
-    assertMutationRejected(b => { b.events[1].epcList[0] = b.events[0].epcList[0]; }, 'two-cases-share-epc', fixture, schema, manifest),
+    assertMutationRejected(b => { b.epcis_document.epcisBody.eventList[1].epcList[0] = b.epcis_document.epcisBody.eventList[0].epcList[0]; }, 'two-cases-share-epc', fixture, schema, manifest),
     assertMutationRejected(b => { b.standard_bindings[0].version = '2.0.0'; }, 'epcis-version-downgrade', fixture, schema, manifest),
-    assertMutationRejected(b => { b.events[0].eventTime = '2026-10-21T08:00:00+02:00'; }, 'non-utc-event-time', fixture, schema, manifest),
+    assertMutationRejected(b => { b.epcis_document.epcisBody.eventList[0].eventTime = '2026-10-21T08:00:00+02:00'; }, 'non-utc-event-time', fixture, schema, manifest),
     assertMutationRejected(b => { b.standard_bindings[1].source_snapshot_manifest_sha256 = '0000000000000000000000000000000000000000000000000000000000000000'; }, 'source-manifest-digest-tamper', fixture, schema, manifest)
   ] : [];
 
@@ -305,10 +327,10 @@ function main() {
     fixture_state: fixture.evaluation_state,
     claim_ceiling: fixture.claim_ceiling,
     fixture_scope: fixture.fixture_scope,
-    event_count: fixture.events.length,
+    event_count: events.length,
     mapping_count: fixture.mappings.length,
-    distinct_biz_steps: [...new Set(fixture.events.map(event => event.bizStep))].sort(),
-    all_events_mapped_exactly_once: fixture.events.every(event =>
+    distinct_biz_steps: [...new Set(events.map(event => event.bizStep))].sort(),
+    all_events_mapped_exactly_once: events.every(event =>
       fixture.mappings.filter(mapping => mapping.source_event_id === event.eventID).length === 1),
     all_mappings_source_assertion_only: fixture.mappings.every(mapping =>
       mapping.qualification_disposition === 'source_assertion_only'),
