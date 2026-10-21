@@ -120,6 +120,9 @@ pub struct PaymentResult {
     pub payment_id: String,
     pub amount_minor: u64,
     pub state: PaymentState,
+    /// Settled wait or horizon-censored age for eligible unresolved payments.
+    /// Exclusions and payments not yet arrived have no wait sample.
+    pub queue_wait_ticks: Option<u64>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -150,6 +153,11 @@ pub struct QueueResult {
     pub missed_deadline_count: usize,
     pub settled_minor: u128,
     pub modeled_fee_units: u128,
+    /// Sum of observed and horizon-censored eligible-payment wait ticks.
+    pub total_queue_wait_ticks: u128,
+    /// Nearest-rank p95 over settled wait and horizon-censored unresolved age samples.
+    pub p95_queue_wait_ticks: Option<u64>,
+    pub max_queue_wait_ticks: Option<u64>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -520,10 +528,22 @@ pub fn simulate_queue(
                     deadline_missed: p.deadline_tick.is_some_and(|d| d <= context.horizon_tick),
                 }
             });
+            let queue_wait_ticks = match &state {
+                PaymentState::Settled { tick, .. } => {
+                    Some((*tick).saturating_sub(p.arrival_tick))
+                }
+                PaymentState::Unsettled { .. }
+                    if eligible_route[i].is_some() && p.arrival_tick <= context.horizon_tick =>
+                {
+                    Some(context.horizon_tick.saturating_sub(p.arrival_tick))
+                }
+                PaymentState::Excluded { .. } | PaymentState::Unsettled { .. } => None,
+            };
             PaymentResult {
                 payment_id: p.payment_id.clone(),
                 amount_minor: p.amount_minor,
                 state,
+                queue_wait_ticks,
             }
         })
         .collect::<Vec<_>>();
@@ -573,6 +593,22 @@ pub fn simulate_queue(
             PaymentState::Excluded { .. } => false,
         })
         .count();
+    let mut wait_samples = result_payments
+        .iter()
+        .filter_map(|payment| payment.queue_wait_ticks)
+        .collect::<Vec<_>>();
+    let total_queue_wait_ticks = wait_samples
+        .iter()
+        .try_fold(0_u128, |total, wait| total.checked_add(*wait as u128))
+        .ok_or(QueueError::ArithmeticOverflow)?;
+    wait_samples.sort_unstable();
+    let max_queue_wait_ticks = wait_samples.last().copied();
+    let p95_queue_wait_ticks = if wait_samples.is_empty() {
+        None
+    } else {
+        let rank = ((wait_samples.len() - 1) * 95).div_ceil(100);
+        wait_samples.get(rank).copied()
+    };
 
     Ok(QueueResult {
         context: context.clone(),
@@ -587,6 +623,9 @@ pub fn simulate_queue(
         missed_deadline_count,
         settled_minor,
         modeled_fee_units: total_fee,
+        total_queue_wait_ticks,
+        p95_queue_wait_ticks,
+        max_queue_wait_ticks,
     })
 }
 
