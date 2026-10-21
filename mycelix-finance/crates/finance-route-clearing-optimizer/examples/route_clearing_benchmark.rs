@@ -26,7 +26,11 @@ fn make_case(
         positions.push(ParticipantNet {
             member_id: format!("D{i:04}"),
             net_minor: 1_000,
-            available_liquidity_minor: if scenario == "liquidity-stress" { 500 } else { 1_000 },
+            available_liquidity_minor: if scenario == "liquidity-stress" {
+                500
+            } else {
+                1_000
+            },
         });
     }
     for i in 0..side {
@@ -93,14 +97,17 @@ fn residual_total(residuals: &[finance_route_clearing_optimizer::Residual]) -> u
     residuals.iter().map(|item| u128::from(item.amount_minor)).sum()
 }
 
-fn cost_per_allocated_minor(plan: &finance_route_clearing_optimizer::AllocationPlan) -> Option<f64> {
-    (plan.total_allocated_minor > 0).then(|| {
-        plan.total_modeled_cost_units as f64 / plan.total_allocated_minor as f64
-    })
+fn cost_per_allocated_minor(
+    plan: &finance_route_clearing_optimizer::AllocationPlan,
+) -> Option<f64> {
+    (plan.total_allocated_minor > 0).then_some(
+        plan.total_modeled_cost_units as f64 / plan.total_allocated_minor as f64,
+    )
 }
 
 fn metric(value: Option<f64>) -> String {
-    value.map(|number| format!("{number:.6}"))
+    value
+        .map(|number| format!("{number:.6}"))
         .unwrap_or_else(|| "NA".to_owned())
 }
 
@@ -113,7 +120,7 @@ fn percentile(values: &[u128], p: usize) -> u128 {
 
 fn main() {
     println!(
-        "scenario,route_arcs,participants,optimized_flow_minor,optimized_cost_units,optimized_cost_per_minor,optimized_fully_allocatable,optimized_residual_debt_minor,optimized_residual_credit_minor,greedy_flow_minor,greedy_cost_units,greedy_cost_per_minor,greedy_fully_allocatable,greedy_residual_debt_minor,greedy_residual_credit_minor,flow_gap_minor,greedy_unit_cost_premium_pct,opt_p50_ns,opt_p95_ns,greedy_p50_ns,greedy_p95_ns"
+        "scenario,route_arcs,participants,optimized_flow_minor,optimized_cost_units,optimized_cost_per_minor,optimized_fully_allocatable,optimized_residual_debt_minor,optimized_residual_credit_minor,greedy_flow_minor,greedy_cost_units,greedy_cost_per_minor,greedy_fully_allocatable,greedy_residual_debt_minor,greedy_residual_credit_minor,flow_gap_minor,greedy_unit_cost_delta_pct,opt_p50_ns,opt_p95_ns,greedy_p50_ns,greedy_p95_ns"
     );
 
     for scenario in ["cyclic", "capacity-stress", "route-outage", "liquidity-stress"] {
@@ -145,10 +152,13 @@ fn main() {
 
             let optimized_cost_per_minor = cost_per_allocated_minor(&optimized_plan);
             let greedy_cost_per_minor = cost_per_allocated_minor(&greedy_plan);
-            let greedy_unit_cost_premium_pct = match (optimized_cost_per_minor, greedy_cost_per_minor) {
-                (Some(optimal), Some(greedy)) if optimal > 0.0 => Some((greedy / optimal - 1.0) * 100.0),
-                _ => None,
-            };
+            let greedy_unit_cost_delta_pct =
+                match (optimized_cost_per_minor, greedy_cost_per_minor) {
+                    (Some(optimal), Some(greedy)) if optimal > 0.0 => {
+                        Some((greedy / optimal - 1.0) * 100.0)
+                    }
+                    _ => None,
+                };
             println!(
                 "{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{}",
                 scenario,
@@ -166,8 +176,10 @@ fn main() {
                 greedy_plan.fully_allocatable,
                 residual_total(&greedy_plan.residual_debtors),
                 residual_total(&greedy_plan.residual_creditors),
-                optimized_plan.total_allocated_minor.saturating_sub(greedy_plan.total_allocated_minor),
-                metric(greedy_unit_cost_premium_pct),
+                optimized_plan
+                    .total_allocated_minor
+                    .saturating_sub(greedy_plan.total_allocated_minor),
+                metric(greedy_unit_cost_delta_pct),
                 percentile(&optimize_samples, 50),
                 percentile(&optimize_samples, 95),
                 percentile(&greedy_samples, 50),
