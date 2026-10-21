@@ -2,163 +2,213 @@
   "node_id": "CAPS.Mathematics.Gr3.PAT",
   "lesson": {
     "standard_code": "CAPS.Mathematics.Gr3.PAT",
-    "title": "CAPS.Mathematics.Gr3.PAT: Patterns in addition and multiplication tables. Describe ...",
+    "title": "Number Patterns: Describe Rules and Extend Addition and Multiplication Patterns",
     "grade_level": "Grade3",
     "bloom_level": "Understand",
-    "explanation": "Grade 3 mathematics content.",
+    "explanation": "A number pattern follows a rule. Compare neighbouring terms to look for what changes: the same number may be added or subtracted each time, or each term may be multiplied by the same number. Test the rule on more than one pair before continuing the sequence. Multiples of a number form a pattern; for example, the 5 times table increases by 5 and ends in 0 or 5. Explain the rule, not only the next number, so another person can check your reasoning.",
     "examples": [
       {
-        "problem": "Solve a Grade 3 Mathematics problem.",
+        "problem": "Continue the pattern 5, 10, 15, 20, ...",
         "steps": [
           {
-            "instruction": "Step 1: Read the question carefully",
-            "result": "understand"
+            "instruction": "Compare consecutive terms.",
+            "result": "10 − 5 = 5, 15 − 10 = 5, and 20 − 15 = 5."
           },
           {
-            "instruction": "Step 2: Show your working",
-            "result": "calculate"
+            "instruction": "State the rule.",
+            "result": "Add 5 each time."
           },
           {
-            "instruction": "Step 3: Check your answer",
-            "result": "verify"
+            "instruction": "Apply the rule to the last term.",
+            "result": "20 + 5 = 25."
           }
         ],
-        "answer": "Answer: See worked solution",
-        "visual_description": null
+        "answer": "The next term is 25; the rule is add 5.",
+        "visual_description": "Show a number line with jumps of five from 5 through 25."
       },
       {
-        "problem": "Solve a Grade 3 Mathematics problem.",
+        "problem": "Find the rule for 3, 6, 12, 24, ...",
         "steps": [
           {
-            "instruction": "Step 1: Read the question carefully",
-            "result": "understand"
+            "instruction": "Compare consecutive terms.",
+            "result": "6 is 3 × 2, 12 is 6 × 2, and 24 is 12 × 2."
           },
           {
-            "instruction": "Step 2: Show your working",
-            "result": "calculate"
+            "instruction": "State the rule.",
+            "result": "Multiply by 2 each time."
           },
           {
-            "instruction": "Step 3: Check your answer",
-            "result": "verify"
+            "instruction": "Use the same rule again.",
+            "result": "24 × 2 = 48."
           }
         ],
-        "answer": "Answer: See worked solution",
-        "visual_description": null
+        "answer": "The rule is multiply by 2; the next term is 48.",
+        "visual_description": "Display arrows labelled ×2 between each term."
       },
       {
-        "problem": "Solve a Grade 3 Mathematics problem.",
+        "problem": "Find the missing number: 7, 14, __, 28, 35.",
         "steps": [
           {
-            "instruction": "Step 1: Read the question carefully",
-            "result": "understand"
+            "instruction": "Compare the known terms.",
+            "result": "14 − 7 = 7 and 35 − 28 = 7."
           },
           {
-            "instruction": "Step 2: Show your working",
-            "result": "calculate"
+            "instruction": "Apply the rule to 14.",
+            "result": "14 + 7 = 21."
           },
           {
-            "instruction": "Step 3: Check your answer",
-            "result": "verify"
+            "instruction": "Check the following term.",
+            "result": "21 + 7 = 28, so the pattern fits."
           }
         ],
-        "answer": "Answer: See worked solution",
-        "visual_description": null
+        "answer": "The missing number is 21; add 7 each time.",
+        "visual_description": "A sequence with the third space blank and jumps of seven marked."
       }
     ],
     "practice_problems": [
       {
-        "question": "What is the rule? 3, 6, 12, 24, ...",
+        "question": "What is the rule for 3, 6, 12, 24, ...?",
         "answer": "Multiply by 2",
         "difficulty_permille": 125,
-        "bloom_level": "Understand",
+        "bloom_level": "Analyze",
         "hints": [
-          "Each number is double the one before"
+          "Compare each term with the one before it."
         ],
-        "explanation": "3 x 2 = 6, 6 x 2 = 12, 12 x 2 = 24. The rule is multiply by 2.",
+        "explanation": "Each term is twice the previous one.",
         "distractors": [
-          "Add 3",
-          "Add 6",
-          "Multiply by 3"
+          "Add 2",
+          "Multiply by 2",
+          "Add 3"
         ]
       },
       {
-        "question": "Continue: 5, 10, 15, 20, ___",
+        "question": "Continue: 5, 10, 15, 20, __.",
         "answer": "25",
         "difficulty_permille": 250,
-        "bloom_level": "Remember",
+        "bloom_level": "Apply",
         "hints": [
-          "Add 5 each time"
+          "Find the difference between neighbouring terms."
         ],
-        "explanation": "The rule is +5. 20 + 5 = 25.",
+        "explanation": "The pattern adds 5; 20 + 5 = 25.",
         "distractors": [
-          "22",
-          "30",
-          "24"
+          "24",
+          "25",
+          "30"
         ]
       },
       {
-        "question": "In the 4 times table, what is the 6th number?",
+        "question": "What is the sixth number in the 4 times table?",
         "answer": "24",
         "difficulty_permille": 375,
         "bloom_level": "Apply",
         "hints": [
-          "4, 8, 12, 16, 20, ..."
+          "Count by fours six times."
         ],
-        "explanation": "4 x 6 = 24.",
+        "explanation": "4 × 6 = 24.",
         "distractors": [
           "20",
-          "28",
-          "22"
+          "24",
+          "28"
         ]
       },
       {
-        "question": "What pattern do you see in: 9, 18, 27, 36?",
-        "answer": "Add 9 (9 times table)",
+        "question": "What pattern do you see in 9, 18, 27, 36?",
+        "answer": "Add 9 each time; these are multiples of 9.",
         "difficulty_permille": 500,
-        "bloom_level": "Understand",
+        "bloom_level": "Analyze",
         "hints": [
-          "Find the difference between consecutive numbers"
+          "Subtract one term from the next."
         ],
-        "explanation": "18-9=9, 27-18=9, 36-27=9. These are multiples of 9.",
+        "explanation": "The difference between each pair of neighbouring terms is 9.",
         "distractors": [
-          "Add 10",
-          "Multiply by 2",
-          "Add 8"
+          "Add 3",
+          "Multiply by 9 each time",
+          "Add 9 each time"
         ]
       },
       {
-        "question": "Find the missing number: 7, 14, ___, 28, 35",
+        "question": "Find the missing number: 7, 14, __, 28, 35.",
         "answer": "21",
         "difficulty_permille": 625,
         "bloom_level": "Apply",
         "hints": [
-          "The pattern adds 7 each time"
+          "Check the equal difference between terms."
         ],
-        "explanation": "14 + 7 = 21. These are the multiples of 7.",
+        "explanation": "Add 7 to 14 to get 21; then 21 + 7 = 28.",
         "distractors": [
           "20",
-          "22",
+          "21",
           "24"
+        ]
+      },
+      {
+        "question": "A pattern begins 2, 5, 8, 11. A learner says the rule is add 2. Is that correct?",
+        "answer": "No. The difference is 3 each time, so the rule is add 3.",
+        "difficulty_permille": 750,
+        "bloom_level": "Evaluate",
+        "hints": [
+          "Calculate 5 − 2 and 8 − 5."
+        ],
+        "explanation": "Check the difference between each neighbouring pair.",
+        "distractors": [
+          "Yes, add 2.",
+          "No, add 3.",
+          "No, multiply by 2."
+        ]
+      },
+      {
+        "question": "Create an addition pattern with four terms and explain its rule.",
+        "answer": "Answers vary; for example 4, 9, 14, 19 follows add 5.",
+        "difficulty_permille": 875,
+        "bloom_level": "Create",
+        "hints": [
+          "Pick a starting number and a constant amount to add."
+        ],
+        "explanation": "A valid pattern must follow one clear rule from term to term.",
+        "distractors": [
+          "Answers vary, with a consistent stated rule.",
+          "Any four random numbers count as a pattern.",
+          "A valid pattern has to decrease."
         ]
       }
     ],
     "hints": [
-      "What do you know about Grade 3 Mathematics?",
-      "Try the method for Grade 3 Mathematics.",
-      "Start with what you know about Grade 3 Mathematics."
+      "Compare each term with the one immediately before it.",
+      "Test your rule on at least two transitions.",
+      "Continue the same rule and explain why the next term fits."
     ],
     "key_vocabulary": [
       {
-        "term": "mathematics",
-        "definition": "A key word in this topic",
-        "example_usage": "Used in Grade 3 maths."
+        "term": "pattern",
+        "definition": "A sequence that follows a rule.",
+        "example_usage": "2, 4, 6, 8 follows add 2."
+      },
+      {
+        "term": "term",
+        "definition": "One number or item in a sequence.",
+        "example_usage": "In 3, 6, 9, the second term is 6."
+      },
+      {
+        "term": "rule",
+        "definition": "The instruction that changes one term into the next.",
+        "example_usage": "The rule for 5, 10, 15 is add 5."
+      },
+      {
+        "term": "multiple",
+        "definition": "A number made by multiplying a whole number by another whole number.",
+        "example_usage": "20 is a multiple of 5 because 5 × 4 = 20."
       }
     ],
     "misconceptions": [
       {
-        "misconception": "A common mistake in Grade 3 Mathematics.",
-        "correction": "The correct way.",
-        "why_students_think_this": "Understanding why helps."
+        "misconception": "A pattern rule can be guessed from only one pair.",
+        "correction": "Check several consecutive pairs to see whether the rule stays true.",
+        "why_students_think_this": "Different rules can produce the same first two terms, so more evidence is needed."
+      },
+      {
+        "misconception": "The next term can be chosen without explaining the rule.",
+        "correction": "A pattern solution should state and verify the rule, then use it to find the next term.",
+        "why_students_think_this": "A checked rule makes reasoning clear and testable."
       }
     ],
     "generation_quality": {
@@ -166,77 +216,75 @@
       "hallucination_detected": false,
       "veto_count": 0,
       "epistemic_confidence": 0.87999994,
-      "needs_human_review": false
+      "needs_human_review": true,
+      "metrics_valid_for_current_revision": false,
+      "review_notes": "Prior generation metrics predate this rewrite and must not be treated as validation of the current content."
     }
   },
   "assessment": {
     "standard_code": "CAPS.Mathematics.Gr3.PAT",
-    "title": "Assessment: Patterns in addition and multiplication tables. Describe rules. Input-output tables",
+    "title": "Assessment: Number Patterns: Describe Rules and Extend Addition and Multiplication Patterns",
     "items": [
       {
-        "question": "Explain Grade 3 Mathematics.",
+        "question": "Continue 10, 20, 30, __.",
         "item_type": "ShortAnswer",
-        "correct_answer": "Answer.",
+        "correct_answer": "40",
         "points": 1,
         "bloom_level": "Remember",
         "rubric": null,
-        "hint": "2"
+        "hint": "The pattern adds 10."
       },
       {
-        "question": "Explain Grade 3 Mathematics.",
+        "question": "What is a pattern rule?",
         "item_type": "ShortAnswer",
-        "correct_answer": "Answer.",
+        "correct_answer": "An instruction describing how one term changes to the next.",
         "points": 2,
         "bloom_level": "Understand",
         "rubric": null,
-        "hint": "2"
+        "hint": "Think of add, subtract or multiply."
       },
       {
-        "question": "Explain Grade 3 Mathematics.",
+        "question": "Find the next term in 4, 8, 12, 16, __.",
         "item_type": "ShortAnswer",
-        "correct_answer": "Answer.",
+        "correct_answer": "20",
         "points": 2,
         "bloom_level": "Apply",
         "rubric": null,
-        "hint": "2"
+        "hint": "Add 4 each time."
       },
       {
-        "question": "Explain Grade 3 Mathematics.",
+        "question": "Explain the rule for 2, 6, 18, 54.",
         "item_type": "ShortAnswer",
-        "correct_answer": "Answer.",
+        "correct_answer": "Multiply by 3 each time.",
         "points": 3,
         "bloom_level": "Analyze",
         "rubric": null,
-        "hint": "2"
+        "hint": "Compare neighbouring terms by multiplication."
       },
       {
-        "question": "Explain Grade 3 Mathematics.",
+        "question": "A learner claims 5, 9, 13, 18 follows add 4 every time. Is that correct?",
         "item_type": "ShortAnswer",
-        "correct_answer": "Answer.",
+        "correct_answer": "No. The first three transitions add 4, but 13 to 18 adds 5, so the stated rule does not fit all terms.",
         "points": 3,
         "bloom_level": "Evaluate",
         "rubric": null,
-        "hint": "2"
+        "hint": "Check each difference."
       },
       {
-        "question": "Explain Grade 3 Mathematics.",
+        "question": "Create a pattern of four numbers using a multiply-by-2 rule.",
         "item_type": "ShortAnswer",
-        "correct_answer": "Answer.",
+        "correct_answer": "Answers vary; for example 3, 6, 12, 24.",
         "points": 4,
         "bloom_level": "Create",
         "rubric": null,
-        "hint": "2"
+        "hint": "Choose a starting number and double it each time."
       }
     ],
     "total_points": 15,
     "estimated_minutes": 18,
     "bloom_distribution": [
       [
-        "Evaluate",
-        1
-      ],
-      [
-        "Apply",
+        "Remember",
         1
       ],
       [
@@ -244,106 +292,113 @@
         1
       ],
       [
-        "Remember",
-        1
-      ],
-      [
-        "Create",
+        "Apply",
         1
       ],
       [
         "Analyze",
+        1
+      ],
+      [
+        "Evaluate",
+        1
+      ],
+      [
+        "Create",
         1
       ]
     ]
   },
   "flashcards": [
     {
-      "front": "What is important about Grade 3 Mathematics?",
-      "back": "Grade 3 mathematics content",
+      "front": "What is the rule for 4, 8, 12, 16?",
+      "back": "Add 4 each time.",
       "tags": [
         "CAPS.Mathematics.Gr3.PAT",
         "Grade3",
-        "Patterns"
+        "Mathematics"
       ],
       "difficulty_permille": 111
     },
     {
-      "front": "What is important about Grade 3 Mathematics?",
-      "back": "Grade 3 mathematics content",
+      "front": "What is the next term after 20 in a +5 pattern?",
+      "back": "25.",
       "tags": [
         "CAPS.Mathematics.Gr3.PAT",
         "Grade3",
-        "Patterns"
+        "Mathematics"
       ],
       "difficulty_permille": 222
     },
     {
-      "front": "What is important about Grade 3 Mathematics?",
-      "back": "Grade 3 mathematics content",
+      "front": "What is a term?",
+      "back": "One number or item in a sequence.",
       "tags": [
         "CAPS.Mathematics.Gr3.PAT",
         "Grade3",
-        "Patterns"
+        "Mathematics"
       ],
       "difficulty_permille": 333
     },
     {
-      "front": "What is important about Grade 3 Mathematics?",
-      "back": "Grade 3 mathematics content",
+      "front": "What is the rule for 3, 6, 12, 24?",
+      "back": "Multiply by 2 each time.",
       "tags": [
         "CAPS.Mathematics.Gr3.PAT",
         "Grade3",
-        "Patterns"
+        "Mathematics"
       ],
       "difficulty_permille": 444
     },
     {
-      "front": "What is important about Grade 3 Mathematics?",
-      "back": "Grade 3 mathematics content",
+      "front": "How do you check an addition-pattern rule?",
+      "back": "Subtract adjacent terms and check the difference stays the same.",
       "tags": [
         "CAPS.Mathematics.Gr3.PAT",
         "Grade3",
-        "Patterns"
+        "Mathematics"
       ],
-      "difficulty_permille": 555
+      "difficulty_permille": 556
     },
     {
-      "front": "What is important about Grade 3 Mathematics?",
-      "back": "Grade 3 mathematics content",
+      "front": "What is the sixth multiple of 4?",
+      "back": "24.",
       "tags": [
         "CAPS.Mathematics.Gr3.PAT",
         "Grade3",
-        "Patterns"
+        "Mathematics"
       ],
-      "difficulty_permille": 666
+      "difficulty_permille": 667
     },
     {
-      "front": "What is important about Grade 3 Mathematics?",
-      "back": "Grade 3 mathematics content",
+      "front": "Why check more than one pair of terms?",
+      "back": "To verify that the rule fits the whole pattern.",
       "tags": [
         "CAPS.Mathematics.Gr3.PAT",
         "Grade3",
-        "Patterns"
+        "Mathematics"
       ],
-      "difficulty_permille": 777
+      "difficulty_permille": 778
     },
     {
-      "front": "What is important about Grade 3 Mathematics?",
-      "back": "Grade 3 mathematics content",
+      "front": "Give the first four multiples of 5.",
+      "back": "5, 10, 15, 20.",
       "tags": [
         "CAPS.Mathematics.Gr3.PAT",
         "Grade3",
-        "Patterns"
+        "Mathematics"
       ],
-      "difficulty_permille": 888
+      "difficulty_permille": 889
     }
   ],
   "quality": {
     "coherence": 0.87999994,
     "hallucination_detected": false,
-    "needs_human_review": false,
-    "veto_count": 0
+    "needs_human_review": true,
+    "veto_count": 0,
+    "review_status": "draft_requires_educator_review",
+    "metrics_valid_for_current_revision": false,
+    "review_notes": "Substantive instructional rewrite; requires a qualified CAPS Grade 3 mathematics educator to verify curriculum alignment, worked solutions, assessment keys, and accessibility before release qualification."
   },
   "generated_at": "2026-03-30T13:17:33"
 }
