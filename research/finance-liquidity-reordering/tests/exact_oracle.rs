@@ -185,9 +185,18 @@ fn credit_unlock_greedy_reduces_hub_round_trip_prefunding() {
     let greedy = receiver_ready_greedy(&problem).unwrap();
     let exact = exact_permutation_oracle(&problem).unwrap();
 
-    assert_eq!(fifo.evaluation.aggregate_required_initial_liquidity_minor, 30);
-    assert_eq!(greedy.evaluation.aggregate_required_initial_liquidity_minor, 10);
-    assert_eq!(exact.evaluation.aggregate_required_initial_liquidity_minor, 10);
+    assert_eq!(
+        fifo.evaluation.aggregate_required_initial_liquidity_minor,
+        30
+    );
+    assert_eq!(
+        greedy.evaluation.aggregate_required_initial_liquidity_minor,
+        10
+    );
+    assert_eq!(
+        exact.evaluation.aggregate_required_initial_liquidity_minor,
+        10
+    );
 }
 
 #[test]
@@ -207,9 +216,18 @@ fn credit_unlock_greedy_orders_a_closed_cycle_with_one_initial_buffer() {
     let greedy = receiver_ready_greedy(&problem).unwrap();
     let exact = exact_permutation_oracle(&problem).unwrap();
 
-    assert_eq!(fifo.evaluation.aggregate_required_initial_liquidity_minor, 50);
-    assert_eq!(greedy.evaluation.aggregate_required_initial_liquidity_minor, 10);
-    assert_eq!(exact.evaluation.aggregate_required_initial_liquidity_minor, 10);
+    assert_eq!(
+        fifo.evaluation.aggregate_required_initial_liquidity_minor,
+        50
+    );
+    assert_eq!(
+        greedy.evaluation.aggregate_required_initial_liquidity_minor,
+        10
+    );
+    assert_eq!(
+        exact.evaluation.aggregate_required_initial_liquidity_minor,
+        10
+    );
 }
 
 #[test]
@@ -274,13 +292,7 @@ fn all_heuristics_are_feasible_and_never_beat_the_exact_oracle() {
         let local = bounded_insertion_search(&problem, &fifo.order, 300).unwrap();
         let annealed = simulated_annealing(&problem, &fifo.order, seed as u64 + 1, 500).unwrap();
         assert_eq!(
-            simulated_annealing(
-                &problem,
-                &fifo.order,
-                seed as u64 + 1,
-                500
-            )
-            .unwrap(),
+            simulated_annealing(&problem, &fifo.order, seed as u64 + 1, 500).unwrap(),
             annealed,
             "seeded annealing must be reproducible for seed={seed}"
         );
