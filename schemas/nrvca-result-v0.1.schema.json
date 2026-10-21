@@ -696,7 +696,8 @@
                     "physical_inflow",
                     "physical_use",
                     "physical_outflow",
-                    "other_change"
+                    "other_change",
+                    "liability_revaluation"
                   ]
                 },
                 "signed_change": {
@@ -824,7 +825,8 @@
             "intersector_transfer",
             "final_goods_or_service",
             "other",
-            "writeoff"
+            "writeoff",
+            "liability_revaluation"
           ]
         },
         "amount": {
