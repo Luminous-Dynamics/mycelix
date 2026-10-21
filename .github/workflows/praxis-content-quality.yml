@@ -1,0 +1,52 @@
+name: Praxis Content Quality
+
+on:
+  pull_request:
+    paths:
+      - "mycelix-praxis/crates/praxis-content-gen/**"
+      - ".github/workflows/praxis-content-quality.yml"
+  push:
+    branches: [main]
+    paths:
+      - "mycelix-praxis/crates/praxis-content-gen/**"
+      - ".github/workflows/praxis-content-quality.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: praxis-content-quality-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  format:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: mycelix-praxis/crates/praxis-content-gen
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt
+      - name: Check formatting
+        run: cargo fmt -- --check
+
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: mycelix-praxis/crates/praxis-content-gen
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: mycelix-praxis/crates/praxis-content-gen
+      - name: Run content generation tests
+        run: cargo test
+      - name: Lint content generator
+        run: cargo clippy --all-targets -- -D warnings
