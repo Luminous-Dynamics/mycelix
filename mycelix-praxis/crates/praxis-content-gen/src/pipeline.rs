@@ -375,6 +375,7 @@ fn is_placeholder_content(text: &str) -> bool {
 
     let known_placeholders = [
         "answer: see worked solution",
+        "grade 3 mathematics content",
         "what is important about grade 3 mathematics?",
         "a key word in this topic",
         "a common mistake in grade 3 mathematics.",
@@ -396,6 +397,7 @@ fn is_placeholder_content(text: &str) -> bool {
             && normalized.contains(" mathematics problem"))
         || (normalized.starts_with("explain grade ")
             && normalized.contains(" mathematics."))
+        || (normalized.starts_with("grade ") && normalized.ends_with(" mathematics content"))
         || normalized == "answer."
         || normalized == "answer"
 }
@@ -729,6 +731,20 @@ mod tests {
 
         let pipeline = ContentPipeline::new(PlaceholderGenerator).with_max_retries(2);
         assert!(pipeline.generate_lesson(&sample_standard()).is_err());
+    }
+
+    #[test]
+    fn unknown_caps_standard_fails_closed_instead_of_publishing_mock_fallback() {
+        let standard = StandardInput {
+            code: "CAPS.Mathematics.Gr3.MUL".to_string(),
+            description: "Times tables 2-10; multiply two-digit numbers by one digit; division".to_string(),
+            grade_level: "Grade3".to_string(),
+            domain: "Mathematics".to_string(),
+            prerequisites: vec!["Addition".to_string()],
+        };
+
+        let pipeline = ContentPipeline::new(MockGenerator);
+        assert!(pipeline.generate_lesson(&standard).is_err());
     }
 
     #[test]
