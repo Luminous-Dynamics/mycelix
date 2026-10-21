@@ -7,7 +7,7 @@ use leptos_router::path;
 
 use mycelix_leptos_core::{
     init_consciousness_ui, provide_consciousness_context, provide_homeostasis_context,
-    provide_local_identity, provide_theme_context, provide_thermodynamic_context,
+    ProtectedIdentityAccessGate, provide_theme_context, provide_thermodynamic_context,
     provide_toast_context, AppShell, EmptyState, HolochainProviderAuto, HolochainProviderConfig,
     NavLink, ToastContainer,
 };
@@ -64,7 +64,9 @@ pub fn App() -> impl IntoView {
 
     view! {
         <HolochainProviderAuto config=config>
-            <AppInner />
+            <ProtectedIdentityAccessGate>
+                <AppInner />
+            </ProtectedIdentityAccessGate>
         </HolochainProviderAuto>
     }
 }
@@ -77,7 +79,6 @@ fn AppInner() -> impl IntoView {
     provide_consciousness_context();
     provide_toast_context();
     provide_homeostasis_context(2, "--homeostasis");
-    provide_local_identity();
     provide_finance_runtime_config();
     provide_i18n("finance-lang");
     provide_finance_context();
