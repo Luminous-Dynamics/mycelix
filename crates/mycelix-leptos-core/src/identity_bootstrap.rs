@@ -39,6 +39,20 @@ pub fn IdentityBootstrapGate(children: Children) -> impl IntoView {
     }
 }
 
+fn clear_bootstrap_secret_signal(signal: RwSignal<String>) {
+    signal.update(|value| value.zeroize());
+}
+
+fn clear_bootstrap_secrets(
+    passphrase: RwSignal<String>,
+    confirmation: RwSignal<String>,
+    recovery_phrase: RwSignal<String>,
+) {
+    clear_bootstrap_secret_signal(passphrase);
+    clear_bootstrap_secret_signal(confirmation);
+    clear_bootstrap_secret_signal(recovery_phrase);
+}
+
 fn identity_bootstrap_is_actionable(posture: LocalIdentityStoragePosture) -> bool {
     !allowed_identity_bootstrap_actions(posture).is_empty()
 }
@@ -126,6 +140,7 @@ fn IdentityBootstrapForm(posture: RwSignal<LocalIdentityStoragePosture>) -> impl
                 passphrase_value.zeroize();
                 confirmation_value.zeroize();
                 recovery_phrase_value.zeroize();
+                clear_bootstrap_secrets(passphrase, confirmation, recovery_phrase);
                 status_message
                     .set("This identity state does not permit automatic mutation.".to_string());
                 return;
@@ -135,6 +150,7 @@ fn IdentityBootstrapForm(posture: RwSignal<LocalIdentityStoragePosture>) -> impl
             passphrase_value.zeroize();
             confirmation_value.zeroize();
             recovery_phrase_value.zeroize();
+            clear_bootstrap_secrets(passphrase, confirmation, recovery_phrase);
             status_message.set(
                 "The requested action is not permitted for the current identity posture."
                     .to_string(),
@@ -142,6 +158,10 @@ fn IdentityBootstrapForm(posture: RwSignal<LocalIdentityStoragePosture>) -> impl
             return;
         }
         if passphrase_value.trim().is_empty() {
+            passphrase_value.zeroize();
+            confirmation_value.zeroize();
+            recovery_phrase_value.zeroize();
+            clear_bootstrap_secrets(passphrase, confirmation, recovery_phrase);
             status_message.set("Enter a passphrase.".to_string());
             return;
         }
@@ -155,6 +175,7 @@ fn IdentityBootstrapForm(posture: RwSignal<LocalIdentityStoragePosture>) -> impl
             passphrase_value.zeroize();
             confirmation_value.zeroize();
             recovery_phrase_value.zeroize();
+            clear_bootstrap_secrets(passphrase, confirmation, recovery_phrase);
             return;
         }
         if is_restore && recovery_phrase_value.trim().is_empty() {
@@ -162,14 +183,11 @@ fn IdentityBootstrapForm(posture: RwSignal<LocalIdentityStoragePosture>) -> impl
             passphrase_value.zeroize();
             confirmation_value.zeroize();
             recovery_phrase_value.zeroize();
+            clear_bootstrap_secrets(passphrase, confirmation, recovery_phrase);
             return;
         }
 
-        passphrase.set(String::new());
-        confirmation.set(String::new());
-        if is_restore {
-            recovery_phrase.set(String::new());
-        }
+        clear_bootstrap_secrets(passphrase, confirmation, recovery_phrase);
         status_message.set(String::new());
         busy.set(true);
 
