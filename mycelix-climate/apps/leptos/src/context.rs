@@ -78,22 +78,23 @@ pub fn provide_climate_context() {
                 }
             }
 
-            let owner = mycelix_leptos_core::local_did();
-            if let Ok(records) = hc.call_zome_default::<String, Vec<serde_json::Value>>(
-                "carbon", "get_credits_by_owner", &owner
-            ).await {
-                let credits: Vec<CarbonCreditView> = records.iter()
-                    .filter_map(|r| extract_entry(r))
-                    .collect();
-                if !credits.is_empty() {
-                    state.credits.set(credits);
+            if let Ok(owner) = mycelix_leptos_core::try_local_did() {
+                if let Ok(records) = hc.call_zome_default::<String, Vec<serde_json::Value>>(
+                    "carbon", "get_credits_by_owner", &owner
+                ).await {
+                    let credits: Vec<CarbonCreditView> = records.iter()
+                        .filter_map(|r| extract_entry(r))
+                        .collect();
+                    if !credits.is_empty() {
+                        state.credits.set(credits);
+                    }
                 }
-            }
 
-            if let Ok(summary) = hc.call_zome_default::<String, CreditSummaryView>(
-                "carbon", "get_credit_summary", &owner
-            ).await {
-                state.credit_summary.set(summary);
+                if let Ok(summary) = hc.call_zome_default::<String, CreditSummaryView>(
+                    "carbon", "get_credit_summary", &owner
+                ).await {
+                    state.credit_summary.set(summary);
+                }
             }
 
             if let Ok(summary) = hc.call_zome_default::<(), ProjectsSummaryView>(

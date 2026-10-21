@@ -8,7 +8,7 @@ use leptos::prelude::*;
 use wasm_bindgen_futures::spawn_local;
 use climate_leptos_types::*;
 use mycelix_leptos_core::holochain_provider::use_holochain;
-use mycelix_leptos_core::{use_toasts, ToastKind};
+use mycelix_leptos_core::{try_local_did, use_toasts, ToastKind};
 use crate::context::use_climate_context;
 
 /// Create a new climate project.
@@ -140,11 +140,21 @@ pub fn record_footprint(
     let ctx = use_climate_context();
     let toasts = use_toasts();
     let total = scope1 + scope2 + scope3;
+    let entity_did = match try_local_did() {
+        Ok(did) => did,
+        Err(error) => {
+            toasts.push(
+                format!("Identity unavailable; footprint was not recorded: {error}"),
+                ToastKind::Error,
+            );
+            return;
+        }
+    };
 
     if hc.is_mock() {
         ctx.footprints.update(|fps| {
             fps.push(CarbonFootprintView {
-                entity_did: mycelix_leptos_core::local_did(),
+                entity_did: entity_did.clone(),
                 period_start: (js_sys::Date::now() / 1000.0) as i64,
                 period_end: (js_sys::Date::now() / 1000.0) as i64 + 31536000,
                 scope1, scope2, scope3,
@@ -170,7 +180,7 @@ pub fn record_footprint(
             }
             let now = (js_sys::Date::now() / 1000.0) as i64;
             let input = Input {
-                entity_did: mycelix_leptos_core::local_did(),
+                entity_did,
                 period_start: now, period_end: now + 31536000,
                 scope1, scope2, scope3,
                 methodology,

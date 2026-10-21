@@ -455,61 +455,172 @@ fn encrypted_blob_is_structurally_valid(encoded: &str) -> bool {
         && blob.ciphertext.len() == 48
 }
 
-/// Generate or retrieve the local agent DID.
+/// Resolve the current DID without creating or replacing an identity.
 ///
-/// Backed by a real Ed25519 keypair (see module docs) — no longer a random
-/// label. Idempotent: once a keypair has been generated and persisted,
-/// repeat calls return the same DID.
+/// This fails closed unless the identity is protected, unlocked in this session,
+/// and its recovery-backup confirmation is still bound to the current public key.
 pub fn local_did() -> String {
-    did_from_public_key(&ensure_keypair().verifying_key())
-}
-
-/// Ensure a local Ed25519 keypair exists, generating one via the Web Crypto
-/// CSPRNG on first use, and return it.
-///
-/// Exposed (not just used internally) so future callers — e.g. a
-/// `did_registry::create_did` zome call, or a recovery flow — can get at
-/// the real key material without re-deriving storage logic.
-///
-/// # Panics
-///
-/// Panics if the identity is passphrase-protected (see
-/// [`protect_with_passphrase`]) and [`unlock_with_passphrase`] hasn't
-/// succeeded yet this session. This is deliberate: the alternative would be
-/// silently minting a fresh keypair over a protected-but-locked identity,
-/// which permanently orphans the real one. Since protection is opt-in and
-/// nothing in this crate calls [`protect_with_passphrase`] on its own, this
-/// can only happen if a consuming app added passphrase protection without
-/// also gating its startup on an unlock prompt.
-pub fn ensure_keypair() -> SigningKey {
-    if let Some(signing_key) = UNLOCKED_KEY.with(|cell| cell.borrow().clone()) {
-        return signing_key;
-    }
-    if let Some(signing_key) = load_signing_key() {
-        UNLOCKED_KEY.with(|cell| *cell.borrow_mut() = Some(signing_key.clone()));
-        return signing_key;
-    }
-    if is_passphrase_protected() {
+    try_local_did().unwrap_or_else(|error| {
         panic!(
-            "Local identity is passphrase-protected but locked this session. \
-             Call `unlock_with_passphrase()` before `ensure_keypair()` \
-             (directly or via `local_did()`/`sign_with_local_identity()`/ \
-             `provide_local_identity()`, which all call it)."
-        );
-    }
-    let signing_key = generate_signing_key();
-    store_signing_key(&signing_key);
-    UNLOCKED_KEY.with(|cell| *cell.borrow_mut() = Some(signing_key.clone()));
-    signing_key
+            "Local DID access refused ({error}). Resolve protected identity posture and recovery confirmation explicitly."
+        )
+    })
 }
 
-/// Is the local identity currently passphrase-protected?
+/// Retrieve an existing local Ed25519 keypair without creating or replacing it.
 ///
-/// True once [`protect_with_passphrase`] has succeeded, until
-/// [`remove_passphrase_protection`] is called. Does not indicate whether
-/// it's currently *unlocked* this session — check that by whether
-/// [`ensure_keypair`] would panic, or track it in the caller's own UI state
-/// after a successful [`unlock_with_passphrase`].
+/// This compatibility wrapper is fail-closed. New app shells and event handlers
+/// should use the typed, non-minting APIs and must not mint identities during
+/// render or event handling.
+pub fn ensure_keypair() -> SigningKey {
+    try_ensure_keypair().unwrap_or_else(|error| {
+        panic!(
+            "Local identity access refused ({error}). Use explicit protected create, protect, unlock or restore flow; startup must not mint a replacement identity."
+        )
+    })
+}
+
+/// Typed failures for non-minting local identity access.
+///
+/// Keep posture resolution distinct from creation. Callers may render a
+/// protected bootstrap/recovery gate for these outcomes, but must never turn
+/// them into implicit key generation.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum LocalIdentityAccessError {
+    NoIdentity,
+    ProtectedLocked,
+    LegacyIdentityNeedsMigration,
+    StorageUnavailable,
+    CorruptOrInconsistent,
+    InconsistentUnprotectedIdentity,
+    CachedKeyMismatch,
+    UnlockedKeyUnavailable,
+    ProtectedIdentityRequired,
+    RecoveryBackupUnconfirmed,
+}
+
+impl std::fmt::Display for LocalIdentityAccessError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let message = match self {
+            Self::NoIdentity => "No local identity exists; explicit creation or restore is required.",
+            Self::ProtectedLocked => "The local identity is protected but locked in this session.",
+            Self::LegacyIdentityNeedsMigration => "A legacy identity marker exists; explicit migration is required.",
+            Self::StorageUnavailable => "Local identity storage is unavailable; absence cannot be confirmed.",
+            Self::CorruptOrInconsistent => "Local identity storage is corrupt or inconsistent; no replacement was created.",
+            Self::InconsistentUnprotectedIdentity => "An unprotected identity was detected but its keypair could not be loaded consistently.",
+            Self::CachedKeyMismatch => "The in-memory identity does not match the persisted identity.",
+            Self::UnlockedKeyUnavailable => "The protected identity is marked unlocked but no valid in-memory key is available.",
+            Self::ProtectedIdentityRequired => "This app requires a protected identity; use Personal to protect or restore the existing key.",
+            Self::RecoveryBackupUnconfirmed => "The recovery-backup confirmation is missing or no longer matches this identity; open Personal to complete it.",
+        };
+        f.write_str(message)
+    }
+}
+
+impl std::error::Error for LocalIdentityAccessError {}
+
+fn access_error_for_posture(posture: LocalIdentityStoragePosture) -> LocalIdentityAccessError {
+    match posture {
+        LocalIdentityStoragePosture::NoIdentity => LocalIdentityAccessError::NoIdentity,
+        LocalIdentityStoragePosture::ProtectedLocked => LocalIdentityAccessError::ProtectedLocked,
+        LocalIdentityStoragePosture::LegacyIdentityNeedsMigration => {
+            LocalIdentityAccessError::LegacyIdentityNeedsMigration
+        }
+        LocalIdentityStoragePosture::StorageUnavailable => LocalIdentityAccessError::StorageUnavailable,
+        LocalIdentityStoragePosture::CorruptOrInconsistent => LocalIdentityAccessError::CorruptOrInconsistent,
+        LocalIdentityStoragePosture::UnprotectedIdentity => LocalIdentityAccessError::ProtectedIdentityRequired,
+        LocalIdentityStoragePosture::ProtectedUnlockedInSession => LocalIdentityAccessError::UnlockedKeyUnavailable,
+    }
+}
+
+/// Resolve an existing key without minting or overwriting one.
+///
+/// A consistent unprotected identity can be returned here so explicit local
+/// protection/export code can operate on it. App identity/signing entry points
+/// use `try_active_signing_key`, which additionally requires the protected
+/// posture and a public-key-bound recovery-backup confirmation.
+pub fn try_ensure_keypair() -> Result<SigningKey, LocalIdentityAccessError> {
+    if let Some(signing_key) = UNLOCKED_KEY.with(|cell| cell.borrow().clone()) {
+        let posture = inspect_local_identity_posture();
+        let matches_storage = match posture {
+            LocalIdentityStoragePosture::ProtectedUnlockedInSession => true,
+            LocalIdentityStoragePosture::UnprotectedIdentity => load_signing_key()
+                .is_some_and(|stored| stored.verifying_key() == signing_key.verifying_key()),
+            _ => false,
+        };
+        if matches_storage {
+            return Ok(signing_key);
+        }
+        UNLOCKED_KEY.with(|cell| *cell.borrow_mut() = None);
+        return Err(match posture {
+            LocalIdentityStoragePosture::UnprotectedIdentity
+            | LocalIdentityStoragePosture::ProtectedUnlockedInSession => {
+                LocalIdentityAccessError::CachedKeyMismatch
+            }
+            other => access_error_for_posture(other),
+        });
+    }
+
+    match inspect_local_identity_posture() {
+        LocalIdentityStoragePosture::UnprotectedIdentity => {
+            let signing_key = load_signing_key()
+                .ok_or(LocalIdentityAccessError::InconsistentUnprotectedIdentity)?;
+            UNLOCKED_KEY.with(|cell| *cell.borrow_mut() = Some(signing_key.clone()));
+            Ok(signing_key)
+        }
+        LocalIdentityStoragePosture::ProtectedUnlockedInSession => {
+            Err(LocalIdentityAccessError::UnlockedKeyUnavailable)
+        }
+        posture => Err(access_error_for_posture(posture)),
+    }
+}
+
+fn try_active_signing_key() -> Result<SigningKey, LocalIdentityAccessError> {
+    let posture = inspect_local_identity_posture();
+    if posture != LocalIdentityStoragePosture::ProtectedUnlockedInSession {
+        return Err(access_error_for_posture(posture));
+    }
+    if recovery_backup_confirmation_needed() {
+        return Err(LocalIdentityAccessError::RecoveryBackupUnconfirmed);
+    }
+
+    let signing_key = try_ensure_keypair()?;
+    // Recheck after retrieving the key, because storage may have changed in
+    // another tab between the first posture read and this access.
+    if inspect_local_identity_posture() != LocalIdentityStoragePosture::ProtectedUnlockedInSession {
+        UNLOCKED_KEY.with(|cell| *cell.borrow_mut() = None);
+        return Err(LocalIdentityAccessError::CachedKeyMismatch);
+    }
+    if recovery_backup_confirmation_needed() {
+        return Err(LocalIdentityAccessError::RecoveryBackupUnconfirmed);
+    }
+    Ok(signing_key)
+}
+
+/// Resolve the current DID only for a protected, unlocked and backup-confirmed identity.
+pub fn try_local_did() -> Result<String, LocalIdentityAccessError> {
+    try_active_signing_key()
+        .map(|signing_key| did_from_public_key(&signing_key.verifying_key()))
+}
+
+/// Sign only with a protected, unlocked and backup-confirmed identity.
+pub fn try_sign_with_local_identity(
+    message: &[u8],
+) -> Result<Signature, LocalIdentityAccessError> {
+    try_active_signing_key().map(|signing_key| signing_key.sign(message))
+}
+
+/// Provide the existing identity in Leptos context only after policy checks.
+pub fn try_provide_local_identity() -> Result<(), LocalIdentityAccessError> {
+    let did = try_local_did()?;
+    provide_context(LocalIdentity { did });
+    Ok(())
+}
+
+/// Whether an encrypted identity envelope is present in browser storage.
+///
+/// This does not establish that the identity is unlocked or backup-confirmed.
+/// Inspect the full posture and confirmation state separately.
 pub fn is_passphrase_protected() -> bool {
     load_string(IDENTITY_SECRET_ENCRYPTED_KEY).is_some()
 }
@@ -1405,13 +1516,20 @@ pub fn restore_from_seed_phrase(phrase: &str) -> Result<SigningKey, String> {
 /// other proof-of-control flow, would use to prove ownership of
 /// [`local_did`].
 pub fn sign_with_local_identity(message: &[u8]) -> Signature {
-    ensure_keypair().sign(message)
+    try_sign_with_local_identity(message).unwrap_or_else(|error| {
+        panic!(
+            "Local identity signing refused ({error}). Resolve protected identity posture and recovery confirmation explicitly."
+        )
+    })
 }
 
 /// Provide local identity as Leptos context.
 pub fn provide_local_identity() {
-    let did = local_did();
-    provide_context(LocalIdentity { did });
+    try_provide_local_identity().unwrap_or_else(|error| {
+        panic!(
+            "Local identity context was not provided ({error}). App shells must use the typed identity gate and must not create identities during render."
+        )
+    });
 }
 
 /// Retrieve local identity from context.
@@ -1444,12 +1562,6 @@ impl LocalIdentity {
 pub fn did_from_public_key(public_key: &VerifyingKey) -> String {
     let hex = hex_encode(public_key.as_bytes());
     format!("did:mycelix:{hex}")
-}
-
-/// Generate a fresh Ed25519 keypair, seeded from the Web Crypto CSPRNG
-/// (`crypto.getRandomValues`) — NOT `Math.random()`.
-fn generate_signing_key() -> SigningKey {
-    try_generate_signing_key().expect("Web Crypto CSPRNG unavailable for local identity")
 }
 
 fn try_generate_signing_key() -> Result<SigningKey, String> {
@@ -1682,6 +1794,47 @@ mod tests {
             &base64_encode(other.verifying_key().as_bytes()),
             &expected
         ));
+    }
+
+    #[test]
+    fn identity_access_error_messages_are_safe_and_actionable() {
+        let cases = [
+            (LocalIdentityAccessError::NoIdentity, "explicit creation"),
+            (LocalIdentityAccessError::ProtectedLocked, "locked"),
+            (LocalIdentityAccessError::LegacyIdentityNeedsMigration, "migration"),
+            (LocalIdentityAccessError::StorageUnavailable, "absence cannot be confirmed"),
+            (LocalIdentityAccessError::CorruptOrInconsistent, "no replacement"),
+            (LocalIdentityAccessError::ProtectedIdentityRequired, "protected identity"),
+            (LocalIdentityAccessError::RecoveryBackupUnconfirmed, "backup confirmation"),
+        ];
+        for (error, expected) in cases {
+            assert!(error.to_string().contains(expected));
+        }
+    }
+
+    #[test]
+    fn every_posture_maps_to_a_typed_non_minting_access_outcome() {
+        use LocalIdentityAccessError as Error;
+        use LocalIdentityStoragePosture as Posture;
+        assert_eq!(access_error_for_posture(Posture::NoIdentity), Error::NoIdentity);
+        assert_eq!(access_error_for_posture(Posture::ProtectedLocked), Error::ProtectedLocked);
+        assert_eq!(
+            access_error_for_posture(Posture::LegacyIdentityNeedsMigration),
+            Error::LegacyIdentityNeedsMigration
+        );
+        assert_eq!(access_error_for_posture(Posture::StorageUnavailable), Error::StorageUnavailable);
+        assert_eq!(
+            access_error_for_posture(Posture::CorruptOrInconsistent),
+            Error::CorruptOrInconsistent
+        );
+        assert_eq!(
+            access_error_for_posture(Posture::UnprotectedIdentity),
+            Error::ProtectedIdentityRequired
+        );
+        assert_eq!(
+            access_error_for_posture(Posture::ProtectedUnlockedInSession),
+            Error::UnlockedKeyUnavailable
+        );
     }
 
     #[test]
@@ -2116,6 +2269,7 @@ mod browser_storage_tests {
                 IDENTITY_SECRET_KEY,
                 IDENTITY_PUBLIC_KEY,
                 IDENTITY_SECRET_ENCRYPTED_KEY,
+                IDENTITY_BACKUP_CONFIRMED_PUBLIC_KEY,
             ];
             let values = keys
                 .into_iter()
@@ -2138,6 +2292,7 @@ mod browser_storage_tests {
                 IDENTITY_SECRET_KEY,
                 IDENTITY_PUBLIC_KEY,
                 IDENTITY_SECRET_ENCRYPTED_KEY,
+                IDENTITY_BACKUP_CONFIRMED_PUBLIC_KEY,
             ] {
                 self.storage
                     .remove_item(key)
@@ -2166,6 +2321,99 @@ mod browser_storage_tests {
             }
             UNLOCKED_KEY.with(|cell| *cell.borrow_mut() = self.unlocked_key.clone());
         }
+    }
+
+    #[wasm_bindgen_test]
+    async fn non_minting_access_on_empty_store_does_not_write_identity_material() {
+        let _backup = IdentityStorageBackup::new_and_clear();
+        let result = try_ensure_keypair();
+        assert_eq!(result.unwrap_err(), LocalIdentityAccessError::NoIdentity);
+        let storage = web_sys::window().unwrap().local_storage().unwrap().unwrap();
+        for key in [
+            LEGACY_DID_KEY,
+            IDENTITY_SECRET_KEY,
+            IDENTITY_PUBLIC_KEY,
+            IDENTITY_SECRET_ENCRYPTED_KEY,
+        ] {
+            assert!(storage.get_item(key).unwrap().is_none());
+        }
+        assert!(UNLOCKED_KEY.with(|cell| cell.borrow().is_none()));
+    }
+
+    #[wasm_bindgen_test]
+    async fn non_minting_access_on_legacy_marker_preserves_original_marker() {
+        let _backup = IdentityStorageBackup::new_and_clear();
+        let storage = web_sys::window().unwrap().local_storage().unwrap().unwrap();
+        storage
+            .set_item(LEGACY_DID_KEY, "did:mycelix:legacy-label")
+            .unwrap();
+
+        assert_eq!(
+            try_ensure_keypair().unwrap_err(),
+            LocalIdentityAccessError::LegacyIdentityNeedsMigration
+        );
+        assert_eq!(
+            storage.get_item(LEGACY_DID_KEY).unwrap().as_deref(),
+            Some("did:mycelix:legacy-label")
+        );
+        assert!(storage.get_item(IDENTITY_SECRET_KEY).unwrap().is_none());
+        assert!(storage.get_item(IDENTITY_PUBLIC_KEY).unwrap().is_none());
+        assert!(storage.get_item(IDENTITY_SECRET_ENCRYPTED_KEY).unwrap().is_none());
+        assert!(UNLOCKED_KEY.with(|cell| cell.borrow().is_none()));
+    }
+
+    #[wasm_bindgen_test]
+    async fn non_minting_access_on_partial_secret_preserves_corrupt_storage() {
+        let _backup = IdentityStorageBackup::new_and_clear();
+        let storage = web_sys::window().unwrap().local_storage().unwrap().unwrap();
+        let existing_secret = base64_encode(&[0x55; 32]);
+        storage.set_item(IDENTITY_SECRET_KEY, &existing_secret).unwrap();
+
+        assert_eq!(
+            try_ensure_keypair().unwrap_err(),
+            LocalIdentityAccessError::CorruptOrInconsistent
+        );
+        assert_eq!(
+            storage.get_item(IDENTITY_SECRET_KEY).unwrap().as_deref(),
+            Some(existing_secret.as_str())
+        );
+        assert!(storage.get_item(IDENTITY_PUBLIC_KEY).unwrap().is_none());
+        assert!(storage.get_item(IDENTITY_SECRET_ENCRYPTED_KEY).unwrap().is_none());
+        assert!(UNLOCKED_KEY.with(|cell| cell.borrow().is_none()));
+    }
+
+    #[wasm_bindgen_test]
+    async fn active_identity_access_requires_backup_confirmation_bound_to_current_public_key() {
+        let _backup = IdentityStorageBackup::new_and_clear();
+        create_protected_identity("synthetic app-access passphrase")
+            .await
+            .expect("synthetic identity can be protected");
+        assert_eq!(
+            try_local_did().unwrap_err(),
+            LocalIdentityAccessError::RecoveryBackupUnconfirmed
+        );
+
+        let storage = web_sys::window().unwrap().local_storage().unwrap().unwrap();
+        let public_key = storage
+            .get_item(IDENTITY_PUBLIC_KEY)
+            .unwrap()
+            .expect("public key exists");
+        storage
+            .set_item(IDENTITY_BACKUP_CONFIRMED_PUBLIC_KEY, &public_key)
+            .unwrap();
+        assert!(try_local_did().is_ok());
+
+        let wrong_public = SigningKey::from_bytes(&[0x77; 32]).verifying_key();
+        storage
+            .set_item(
+                IDENTITY_BACKUP_CONFIRMED_PUBLIC_KEY,
+                &base64_encode(wrong_public.as_bytes()),
+            )
+            .unwrap();
+        assert_eq!(
+            try_local_did().unwrap_err(),
+            LocalIdentityAccessError::RecoveryBackupUnconfirmed
+        );
     }
 
     #[wasm_bindgen_test]
@@ -2234,7 +2482,9 @@ mod browser_storage_tests {
     #[wasm_bindgen_test]
     async fn protecting_existing_identity_removes_plaintext_after_verification() {
         let _backup = IdentityStorageBackup::new_and_clear();
-        let original = ensure_keypair();
+        let original = try_generate_signing_key().expect("Web Crypto creates test key");
+        store_signing_key(&original);
+        UNLOCKED_KEY.with(|cell| *cell.borrow_mut() = Some(original.clone()));
         let expected_public = base64_encode(original.verifying_key().as_bytes());
         assert!(
             web_sys::window()

@@ -78,7 +78,20 @@ fn AppInner() -> impl IntoView {
     provide_toast_context();
     provide_homeostasis_context(2, "--homeostasis");
     provide_i18n("climate-lang");
-    mycelix_leptos_core::provide_local_identity();
+    if let Err(error) = mycelix_leptos_core::try_provide_local_identity() {
+        return view! {
+            <main class="stack-page identity-access-blocked" role="status" aria-live="polite">
+                <section class="vault-card">
+                    <h1>"Climate requires a ready identity"</h1>
+                    <p class="supporting-copy">{error.to_string()}</p>
+                    <p class="supporting-copy">
+                        "Open Mycelix Personal to create, protect, unlock or recover the identity and confirm its offline backup. No identity was created or replaced by Climate."
+                    </p>
+                </section>
+            </main>
+        }
+        .into_any();
+    }
     provide_climate_context();
     init_consciousness_ui();
 
@@ -113,4 +126,5 @@ fn AppInner() -> impl IntoView {
             <mycelix_leptos_core::ClusterLauncher current="Climate" />
         </Router>
     }
+    .into_any()
 }

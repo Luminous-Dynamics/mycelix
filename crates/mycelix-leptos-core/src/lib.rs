@@ -145,7 +145,9 @@ pub use freshness::{FreshnessBadge, FreshnessLevel};
 pub use graph_node::{GraphEdge, GraphNode, NodeEmphasis};
 pub use indlela::{GrowthStage, community_warmth, knowledge_freshness};
 pub use local_identity::{
-    LocalIdentity, load_json, local_did, provide_local_identity, save_json, use_local_identity,
+    IdentityBootstrapAction, LocalIdentity, LocalIdentityAccessError, LocalIdentityStoragePosture,
+    load_json, local_did, provide_local_identity, save_json, try_ensure_keypair, try_local_did,
+    try_provide_local_identity, try_sign_with_local_identity, use_local_identity,
 };
 pub use modal::{ConfirmDialog, Modal, ModalSize};
 pub use search_bar::SearchBar;
