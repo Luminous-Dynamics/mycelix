@@ -4,8 +4,8 @@
 //! Shared identity-posture bootstrap boundary for Mycelix Leptos apps.
 //!
 //! Identity-dependent children mount only after the identity is protected,
- //! unlocked in this session, and the current recovery-backup challenge has
- //! been completed. Storage transitions still enforce their own preconditions.
+//! unlocked in this session, and the current recovery-backup challenge has
+//! been completed. Storage transitions still enforce their own preconditions.
 
 use leptos::ev::SubmitEvent;
 use leptos::prelude::*;
@@ -15,8 +15,8 @@ use zeroize::Zeroize;
 use crate::local_identity::{
     IdentityBootstrapAction, LocalIdentityStoragePosture, allowed_identity_bootstrap_actions,
     create_protected_identity, export_unlocked_identity_seed_phrase,
-    identity_bootstrap_action_allowed, inspect_local_identity_posture, mark_recovery_backup_confirmed,
-    protect_existing_identity, recovery_backup_confirmation_needed,
+    identity_bootstrap_action_allowed, inspect_local_identity_posture,
+    mark_recovery_backup_confirmed, protect_existing_identity, recovery_backup_confirmation_needed,
     recovery_phrase_challenge_positions, restore_protected_identity_from_seed_phrase,
     unlock_with_passphrase,
 };
@@ -266,7 +266,9 @@ fn RecoveryBackupGate(needed: RwSignal<bool>) -> impl IntoView {
             && !expected_three_value.is_empty()
             && answer_one.trim().eq_ignore_ascii_case(&expected_one_value)
             && answer_two.trim().eq_ignore_ascii_case(&expected_two_value)
-            && answer_three.trim().eq_ignore_ascii_case(&expected_three_value);
+            && answer_three
+                .trim()
+                .eq_ignore_ascii_case(&expected_three_value);
 
         expected_one_value.zeroize();
         expected_two_value.zeroize();
@@ -740,5 +742,3 @@ fn IdentityBootstrapForm(posture: RwSignal<LocalIdentityStoragePosture>) -> impl
         </div>
     }
 }
-
-
