@@ -208,7 +208,7 @@
   "result": {
     "disposition": "ReferenceFixtureConforms",
     "evaluator_id": "verify-org-adoption-pilot-bundle.cjs",
-    "evaluator_sha256": "404a5dd98cbc82c5bd6ccc5030c46fbb57eca03742a8500496b300303014556e",
+    "evaluator_sha256": "fa5732a0009853622282efbfa98111e8e522bab221aa0535029da3b860a194b2",
     "bundle_scope": "synthetic_reference_fixture_only"
   }
 }
