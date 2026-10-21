@@ -1,0 +1,9 @@
+[package]
+name = "finance-liquidity-auction-sim"
+version = "0.1.0"
+edition = "2021"
+license = "AGPL-3.0-or-later"
+description = "Reference simulator for consented liquidity offers and participant-incentive auctions"
+
+[lib]
+path = "src/lib.rs"
