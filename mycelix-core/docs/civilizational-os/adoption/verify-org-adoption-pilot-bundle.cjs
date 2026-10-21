@@ -38,6 +38,12 @@ function hasSha(value) {
   return typeof value === 'string' && /^[0-9a-f]{64}$/.test(value);
 }
 function expectedMetricDisposition(metric) {
+  if (metric.comparison_rule === 'not_measured') {
+    return metric.baseline_value === null && metric.candidate_value === null
+      ? 'not_measured'
+      : 'invalid';
+  }
+  if (!Number.isFinite(metric.baseline_value) || !Number.isFinite(metric.candidate_value)) return 'invalid';
   switch (metric.comparison_rule) {
     case 'candidate_gte_baseline': return metric.candidate_value >= metric.baseline_value ? 'pass' : 'fail';
     case 'candidate_gt_baseline': return metric.candidate_value > metric.baseline_value ? 'pass' : 'fail';
@@ -62,9 +68,13 @@ function validateBundle(bundle) {
   add(bundle.relationship_status === 'not_recorded', 'bundle must not assert a relationship');
   add(bundle.relationship_claim_guard === 'No partnership, customer relationship, endorsement, or integration is implied by this bundle.',
     'relationship claim guard missing or changed');
-  add(bundle.effects_mode === 'disabled', 'reference bundle must have external effects disabled');
+  add(bundle.evaluation_state === 'contract_example_only' || bundle.evaluation_state === 'measured_evaluation',
+    'evaluation_state must distinguish contract example from measured evaluation');
+  const contractExample = bundle.evaluation_state === 'contract_example_only';
+  const measuredEvaluation = bundle.evaluation_state === 'measured_evaluation';
+  add(bundle.effects_mode === 'disabled', 'external effects must remain disabled in v1 proof bundles');
   add(bundle.claim_ceiling === 'SyntheticReferenceOnly', 'example fixture must retain the synthetic-reference claim ceiling');
-  add(bundle.data_classification === 'synthetic', 'reference bundle must be synthetic');
+  add(bundle.data_classification === 'synthetic', 'this reference verifier accepts synthetic bundles only');
   add(Array.isArray(bundle.nonclaims) && bundle.nonclaims.length >= 2, 'at least two nonclaims are required');
 
   const manifest = bundle.input_manifest;
@@ -160,8 +170,20 @@ function validateBundle(bundle) {
     add(baseline.input_manifest_sha256 === candidate.input_manifest_sha256, 'baseline/candidate inputs are not matched');
     add(baseline.resource_budget_sha256 === candidate.resource_budget_sha256, 'baseline/candidate resource budgets differ');
     add(baseline.authority_budget_sha256 === candidate.authority_budget_sha256, 'baseline/candidate authority budgets differ');
-    add(hasSha(baseline.implementation_sha256) && hasSha(candidate.implementation_sha256),
-      'baseline/candidate implementation digest malformed');
+    add(['not_executed', 'executed'].includes(baseline.execution_state) &&
+      ['not_executed', 'executed'].includes(candidate.execution_state),
+      'baseline/candidate execution state is invalid');
+    if (contractExample) {
+      add(baseline.execution_state === 'not_executed' && candidate.execution_state === 'not_executed',
+        'contract-only example must not claim either implementation ran');
+      add(baseline.implementation_sha256 === null && candidate.implementation_sha256 === null,
+        'not-run implementations must not carry fabricated implementation digests');
+    } else {
+      add(baseline.execution_state === 'executed' && candidate.execution_state === 'executed',
+        'measured evaluation requires both baseline and candidate to have executed');
+      add(hasSha(baseline.implementation_sha256) && hasSha(candidate.implementation_sha256),
+        'executed baseline/candidate implementation digests are required');
+    }
     add(hasSha(baseline.resource_budget_sha256) && hasSha(baseline.authority_budget_sha256),
       'budget digest malformed');
     add(typeof comparison.measurement_profile_id === 'string' && comparison.measurement_profile_id.length >= 3,
@@ -203,8 +225,15 @@ function validateBundle(bundle) {
     if (!metric) continue;
     add(!metricIds.has(metric.metric_id), `duplicate metric_id: ${metric.metric_id}`);
     metricIds.add(metric.metric_id);
-    add(Number.isFinite(metric.baseline_value) && Number.isFinite(metric.candidate_value),
-      `metric ${metric.metric_id} values must be finite numbers`);
+    if (metric.comparison_rule === 'not_measured') {
+      add(contractExample, `metric ${metric.metric_id} may be not_measured only in contract_example_only state`);
+      add(metric.baseline_value === null && metric.candidate_value === null,
+        `metric ${metric.metric_id} must not contain invented numeric results`);
+    } else {
+      add(measuredEvaluation, `metric ${metric.metric_id} values require measured_evaluation state`);
+      add(Number.isFinite(metric.baseline_value) && Number.isFinite(metric.candidate_value),
+        `metric ${metric.metric_id} values must be finite numbers`);
+    }
     add(metric.disposition === expectedMetricDisposition(metric),
       `metric ${metric.metric_id} disposition disagrees with comparison_rule`);
   }
@@ -221,36 +250,64 @@ function validateBundle(bundle) {
     if (!control) continue;
     add(!controlIds.has(control.control_id), `duplicate control_id: ${control.control_id}`);
     controlIds.add(control.control_id);
+    add(['not_executed', 'executed'].includes(control.execution_state),
+      `control ${control.control_id} execution_state invalid`);
+    if (control.execution_state === 'not_executed') {
+      add(contractExample, `control ${control.control_id} cannot be marked not_executed in measured_evaluation state`);
+      add(control.observed_disposition === 'not_observed' && control.passed === null,
+        `control ${control.control_id} must not claim an unexecuted result`);
+      continue;
+    }
+    add(measuredEvaluation, `control ${control.control_id} cannot claim execution in contract_example_only state`);
     const shouldPass = control.expected_disposition === control.observed_disposition &&
-      control.observed_disposition !== 'accepted_incorrectly';
+      control.observed_disposition !== 'accepted_incorrectly' &&
+      control.observed_disposition !== 'not_observed';
     add(control.passed === shouldPass, `control ${control.control_id} pass flag incorrect`);
     if (shouldPass) observedControls.add(control.expected_disposition);
   }
-  for (const requiredControl of requiredControls) {
-    add(observedControls.has(requiredControl), `required negative control not evidenced: ${requiredControl}`);
+  if (measuredEvaluation) {
+    for (const requiredControl of requiredControls) {
+      add(observedControls.has(requiredControl), `required negative control not evidenced: ${requiredControl}`);
+    }
+  } else {
+    add(controls.every(control => control.execution_state === 'not_executed'),
+      'contract-only example must not claim executed negative controls');
   }
 
   const exportTest = bundle.export_test;
-  add(!!exportTest && exportTest.performed === true, 'export round-trip test not performed');
+  add(!!exportTest && ['not_executed', 'executed'].includes(exportTest.execution_state), 'export execution_state invalid');
   if (exportTest) {
-    add(hasSha(exportTest.expected_sha256) && hasSha(exportTest.observed_sha256), 'export digest malformed');
+    add(hasSha(exportTest.expected_sha256), 'export expected digest malformed');
     add(exportTest.expected_sha256 === declaredManifestSha, 'export expected digest differs from source manifest');
-    add(exportTest.observed_sha256 === exportTest.expected_sha256 && exportTest.round_trip_matches === true,
-      'export/round-trip digest mismatch');
+    if (exportTest.execution_state === 'not_executed') {
+      add(contractExample, 'export cannot be marked not_executed in measured_evaluation state');
+      add(exportTest.observed_sha256 === null && exportTest.round_trip_matches === null,
+        'unexecuted export must not claim observed digest or round-trip result');
+    } else {
+      add(measuredEvaluation, 'export cannot claim execution in contract_example_only state');
+      add(hasSha(exportTest.observed_sha256), 'observed export digest malformed');
+      add(typeof exportTest.round_trip_matches === 'boolean', 'executed export must record a boolean round-trip result');
+      add(exportTest.observed_sha256 === exportTest.expected_sha256 && exportTest.round_trip_matches === true,
+        'export/round-trip digest mismatch');
+    }
   }
 
   const rollback = bundle.rollback_test;
-  add(!!rollback && rollback.performed === true, 'rollback test not performed');
+  add(!!rollback && ['not_executed', 'executed'].includes(rollback.execution_state), 'rollback execution_state invalid');
   if (rollback) {
-    add(rollback.result === 'rollback_completed', 'rollback was not completed');
-    add(rollback.retained_external_effects === false, 'rollback leaves unaccounted external effects');
+    if (rollback.execution_state === 'not_executed') {
+      add(contractExample, 'rollback cannot be marked not_executed in measured_evaluation state');
+      add(rollback.result === 'not_executed' && rollback.retained_external_effects === null,
+        'unexecuted rollback must not claim an observed result');
+    } else {
+      add(measuredEvaluation, 'rollback cannot claim execution in contract_example_only state');
+      add(['rollback_completed', 'rollback_failed'].includes(rollback.result), 'executed rollback result invalid');
+      add(typeof rollback.retained_external_effects === 'boolean', 'executed rollback must declare retained external effects');
+      if (rollback.result === 'rollback_completed') {
+        add(rollback.retained_external_effects === false, 'completed rollback cannot leave retained external effects');
+      }
+    }
   }
-
-  add(bundle.result && bundle.result.disposition === 'ReferenceFixtureConforms',
-    'bundle result must remain a fixture-only conformance result');
-  add(bundle.result && bundle.result.bundle_scope === 'synthetic_reference_fixture_only',
-    'bundle scope must remain fixture-only');
-  add(bundle.result && bundle.result.evaluator_sha256 === sha256(fs.readFileSync(__filename)), 'evaluator digest does not match executing verifier');
 
   return errors;
 }
@@ -300,7 +357,8 @@ const receipt = {
   verifier: 'verify-org-adoption-pilot-bundle.cjs',
   mode: selfTestRequested ? 'cross-invariant-plus-mutation-tests' : 'cross-invariant-only',
   mutation_tests_executed: selfTestRequested,
-  qualification_result: 'ReferenceFixtureConforms',
+  qualification_result: 'BundleContractConforms',
+  evaluation_state: bundle.evaluation_state,
   claim_ceiling: bundle.claim_ceiling,
   bundle_id: bundle.bundle_id,
   profile_id: bundle.profile_id,
@@ -308,8 +366,14 @@ const receipt = {
   source_count: bundle.input_manifest.source_entries.length,
   evidence_claim_count: bundle.evidence_claims.length,
   metric_count: bundle.metrics.length,
-  negative_controls_checked: bundle.negative_controls.length,
-  negative_controls_passed: bundle.negative_controls.filter(control => control.passed).length,
+  negative_controls_declared: bundle.negative_controls.length,
+  negative_controls_executed: bundle.negative_controls.filter(control => control.execution_state === 'executed').length,
+  negative_controls_passed: bundle.negative_controls.filter(control => control.execution_state === 'executed' && control.passed === true).length,
+  metrics_measured: bundle.metrics.filter(metric => metric.disposition !== 'not_measured').length,
+  baseline_executed: bundle.comparison.baseline.execution_state === 'executed',
+  candidate_executed: bundle.comparison.candidate.execution_state === 'executed',
+  export_test_executed: bundle.export_test.execution_state === 'executed',
+  rollback_test_executed: bundle.rollback_test.execution_state === 'executed',
   internal_mutation_controls: mutationResults,
   bundle_sha256: sha256(bundleBytes),
   schema_sha256: sha256(schemaBytes),
@@ -320,9 +384,10 @@ const receipt = {
   matched_authority_budget: bundle.comparison.baseline.authority_budget_sha256 === bundle.comparison.candidate.authority_budget_sha256,
   external_effects_disabled: bundle.effects_mode === 'disabled',
   nonclaims: [
-    'This receipt proves only cross-invariant conformance of this synthetic fixture.',
-    'It does not run or independently validate the baseline/candidate implementation named by their digests.',
-    'JSON Schema structural validation is a separate lane.',
+    'This receipt proves only conformance of the bundle structure and cross-invariants under the named evaluator.',
+    'In contract_example_only state, metrics, negative controls, export and rollback are explicitly unmeasured/unexecuted.',
+    'In measured_evaluation state, declared measurements still require independent evidence that the named baseline/candidate and checks actually ran.',
+    'JSON Schema validation is a separate lane; this evaluator is not a general JSON Schema implementation.',
     'It does not establish vendor integration, regulatory compliance, physical delivery, product authenticity, or efficacy.'
   ]
 };
