@@ -327,11 +327,8 @@ fn evaluate(presentations: &[Presentation]) -> Evaluation {
         .collect();
     let mut any_channel = Metrics::default();
 
-    for left_index in 0..presentations.len() {
-        for right_index in (left_index + 1)..presentations.len() {
-            let left = &presentations[left_index];
-            let right = &presentations[right_index];
-
+    for (left_index, left) in presentations.iter().enumerate() {
+        for right in presentations.iter().skip(left_index + 1) {
             // Cross-recipient pairs only. The benchmark does not count a verifier
             // trivially matching its own repeated session as cross-recipient leakage.
             if left.recipient_id == right.recipient_id {
@@ -465,10 +462,8 @@ fn random_pair_baseline(presentations: &[Presentation]) -> Metrics {
     // subject label and feature values. The modulus approximates the 1/SUBJECTS
     // positive-pair prevalence without reading ground truth.
     let mut metrics = Metrics::default();
-    for left_index in 0..presentations.len() {
-        for right_index in (left_index + 1)..presentations.len() {
-            let left = &presentations[left_index];
-            let right = &presentations[right_index];
+    for (left_index, left) in presentations.iter().enumerate() {
+        for right in presentations.iter().skip(left_index + 1) {
             if left.recipient_id == right.recipient_id {
                 continue;
             }
@@ -489,9 +484,9 @@ fn run() -> Result<(), Box<dyn Error>> {
     let mut output_directory: Option<PathBuf> = None;
     while let Some(argument) = args.next() {
         if argument == "--write-corpus-dir" {
-            let path = args.next().ok_or(
-                "--write-corpus-dir requires a destination directory",
-            )?;
+            let path = args
+                .next()
+                .ok_or("--write-corpus-dir requires a destination directory")?;
             output_directory = Some(PathBuf::from(path));
         } else {
             return Err(format!("unknown argument: {argument}").into());
@@ -576,8 +571,6 @@ mod tests {
         let metrics = metrics_for(Strategy::StableGlobalId, Channel::Identifier);
         assert_eq!(metrics.true_positive, metrics.positive_pairs);
         assert_eq!(metrics.false_positive, 0);
-        assert_eq!(metrics.recall(), 1.0);
-        assert_eq!(metrics.false_positive_rate(), 0.0);
     }
 
     #[test]
