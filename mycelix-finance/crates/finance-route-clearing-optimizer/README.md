@@ -80,7 +80,7 @@ The `batch` module adds a fourth conceptual layer to the research model: `select
 
 This is a **bounded exact reference/oracle**, not a production LSM. It requires the caller's explicit `ExternallyQualified` authority assertion, current route availability and remaining-window capacities. It does not authenticate legal authority or evidence, perform external settlement, model participant auctions/side payments, FX, fraud/default workflows, or prove settlement finality. Its objective is explicit: maximize total selected gross payment value, then minimize modeled fees, then maximize count, then deterministic payment-ID tie-breaking. Fees are reported as model metrics and are not debited from balances. It fails closed above 16 eligible orders (65,536 subsets); larger rolling batches require a separate measured heuristic compared against this oracle on tiny cases.
 
-The unit test contrasts a zero-funded three-party cycle under `StrictFifo` (zero settled gross value) with the atomic batch selector (all three orders selected, while every final balance remains zero). This demonstrates a difference in settlement model, not proof that an arbitrary rail supports atomic batch processing or has legal netting authority.
+The unit test contrasts a zero-funded three-party cycle under `StrictFifo` (zero settled gross value) with the atomic batch selector (all three orders selected, while every final balance remains zero). This demonstrates a difference in settlement model, not proof that an arbitrary rail supports atomic batch processing or has legal netting authority. An independent integration-test oracle also checks the value/fee/count/ID objective against all 16 subsets on 64 deterministic four-payment graphs.
 
 ## Event-driven gross-payment queue simulator
 
