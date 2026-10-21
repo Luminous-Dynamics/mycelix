@@ -158,7 +158,7 @@ pub fn validate_report(report: &Value) -> Vec<Diagnostic> {
                     push_semantic(&mut out, "DUPLICATE-SOURCE-ID", &format!("{path}/source_id"), format!("duplicate source_id: {id}"));
                 }
                 let class = field_str(source, "source_class").unwrap_or("");
-                if !["official_statistics", "administrative_record", "operational_measurement", "remote_sensing", "model_output", "synthetic_dataset"].contains(&class) {
+                if !["official_statistics", "experimental_statistics", "administrative_record", "operational_measurement", "remote_sensing", "model_output", "synthetic_dataset"].contains(&class) {
                     push_structural(&mut out, "SOURCE-CLASS", &format!("{path}/source_class"), "unsupported source_class");
                 }
                 source_classes.push(class.to_owned());
