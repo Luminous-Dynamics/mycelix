@@ -13,7 +13,7 @@ The implementation reports the aggregate sum over participants and the largest i
 ## Algorithms included
 
 - input_order: unchanged input order / FIFO baseline.
-- receiver_ready_greedy: greedy next-payment selection by incremental prefunding need, then value that can unlock the receiver's pending outgoing transfers.
+- receiver_ready_greedy: greedy next-payment selection by incremental prefunding need, then value that can unlock the receiver's pending outgoing transfers. Because it rescans the remaining queue (quadratic work), it fails closed above 5,000 payments.
 - bounded_insertion_search: deterministic insertion local search with a caller-supplied candidate budget.
 - simulated_annealing: dependency-free SplitMix64-seeded swap search; exact seed and iteration count reproduce the same output.
 - heuristic_portfolio: compare input order and receiver-ready greedy, then spend separate insertion-search and seeded annealing budgets starting from the best plan so far. Its aggregate evaluation count includes component effort; compare its additional runtime against quality gains rather than presenting it as a free improvement.
