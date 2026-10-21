@@ -802,6 +802,41 @@ mod tests {
     }
 
     #[test]
+    fn earliest_deadline_and_priority_policies_expose_distinct_tradeoffs() {
+        let accounts = [account("A", 6), account("B", 0), account("C", 0)];
+        let routes = [route("ab", 10, 10), route("ac", 10, 10)];
+        let orders = [
+            payment("urgent", "ab", "A", "B", 4, 0, Some(0), 1),
+            payment("high-priority", "ac", "A", "C", 6, 0, Some(5), 9),
+        ];
+
+        let deadline_first = simulate_queue(
+            &context(0),
+            &accounts,
+            &routes,
+            &orders,
+            QueuePolicy::EarliestDeadlineFirst,
+        )
+        .unwrap();
+        let priority_first = simulate_queue(
+            &context(0),
+            &accounts,
+            &routes,
+            &orders,
+            QueuePolicy::PriorityScan,
+        )
+        .unwrap();
+
+        assert_eq!(deadline_first.settled_minor, 4);
+        assert_eq!(priority_first.settled_minor, 6);
+        assert_eq!(deadline_first.missed_deadline_count, 0);
+        assert!(matches!(
+            deadline_first.payments.iter().find(|p| p.payment_id == "urgent").unwrap().state,
+            PaymentState::Settled { .. }
+        ));
+    }
+
+    #[test]
     fn route_recovers_at_half_open_outage_end() {
         let mut r = route("r", 10, 10);
         r.outages = vec![TickWindow {
