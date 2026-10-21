@@ -4,6 +4,7 @@ members = [
     "types",
     "crates/finance-wire-types",
     "crates/finance-leptos-types",
+    "crates/finance-queue-lsm-sim",
     "zomes/shared",
     "zomes/payments/integrity",
     "zomes/payments/coordinator",
