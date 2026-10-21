@@ -105,7 +105,7 @@ use js_sys::{Function, Promise, Reflect};
 #[cfg(target_arch = "wasm32")]
 use wasm_bindgen::{JsCast, JsValue, closure::Closure};
 #[cfg(target_arch = "wasm32")]
-use wasm_bindgen_futures::{JsFuture, future_to_promise};
+use wasm_bindgen_futures::{JsFuture, future_to_promise, spawn_local};
 
 /// Legacy key: pre-2026-07 builds stored a `did:mycelix:<12-random-bytes-hex>`
 /// string here directly, generated from `js_sys::Math::random()` (not a
@@ -1589,9 +1589,122 @@ pub fn sign_with_local_identity(message: &[u8]) -> Signature {
 /// This component deliberately does not create, restore, migrate or unlock keys.
 /// Users must complete the explicit identity lifecycle in the appropriate app
 /// for this browser origin, then recheck or reload the dependent app.
+/// Gate an identity-dependent app shell and offer state-specific, explicit
+/// lifecycle actions. No identity context is provided until protected unlock
+/// has been verified in this JavaScript session.
+#[cfg(target_arch = "wasm32")]
 #[component]
 pub fn ProtectedIdentityAccessGate(children: ChildrenFn) -> impl IntoView {
     let posture = RwSignal::new(inspect_local_identity_posture());
+    let passphrase = RwSignal::new(String::new());
+    let confirmation = RwSignal::new(String::new());
+    let recovery_phrase = RwSignal::new(String::new());
+    let restore_mode = RwSignal::new(false);
+    let busy = RwSignal::new(false);
+    let status_message = RwSignal::new(String::new());
+
+    let submit = move |ev: SubmitEvent| {
+        ev.prevent_default();
+        if busy.get_untracked() {
+            return;
+        }
+
+        let starting_posture = posture.get_untracked();
+        let is_restore = starting_posture == LocalIdentityStoragePosture::NoIdentity
+            && restore_mode.get_untracked();
+        let passphrase_value = Zeroizing::new(passphrase.get_untracked());
+        let confirmation_value = Zeroizing::new(confirmation.get_untracked());
+        let recovery_phrase_value = Zeroizing::new(recovery_phrase.get_untracked());
+
+        if !protected_identity_access_actionable(starting_posture) {
+            status_message.set(
+                "This identity state does not permit an automatic change.".to_string(),
+            );
+            return;
+        }
+        if passphrase_value.trim().is_empty() {
+            status_message.set("Enter a passphrase.".to_string());
+            return;
+        }
+        if matches!(
+            starting_posture,
+            LocalIdentityStoragePosture::NoIdentity
+                | LocalIdentityStoragePosture::UnprotectedIdentity
+        ) && passphrase_value.as_str() != confirmation_value.as_str()
+        {
+            status_message.set("The passphrases do not match.".to_string());
+            return;
+        }
+        if is_restore && recovery_phrase_value.trim().is_empty() {
+            status_message.set("Enter the 24-word recovery phrase.".to_string());
+            return;
+        }
+
+        passphrase.set(String::new());
+        confirmation.set(String::new());
+        recovery_phrase.set(String::new());
+        status_message.set(String::new());
+        busy.set(true);
+
+        let posture_signal = posture;
+        let passphrase_signal = passphrase;
+        let confirmation_signal = confirmation;
+        let phrase_signal = recovery_phrase;
+        let busy_signal = busy;
+        let status_signal = status_message;
+
+        spawn_local(async move {
+            let operation: Result<LocalIdentityStoragePosture, String> =
+                match starting_posture {
+                    LocalIdentityStoragePosture::NoIdentity if is_restore => {
+                        restore_protected_identity_from_seed_phrase(
+                            &recovery_phrase_value,
+                            &passphrase_value,
+                        )
+                        .await
+                    }
+                    LocalIdentityStoragePosture::NoIdentity => {
+                        create_protected_identity(&passphrase_value).await
+                    }
+                    LocalIdentityStoragePosture::UnprotectedIdentity => {
+                        protect_existing_identity(&passphrase_value).await
+                    }
+                    LocalIdentityStoragePosture::ProtectedLocked => {
+                        unlock_with_passphrase(&passphrase_value)
+                            .await
+                            .map(|_| inspect_local_identity_posture())
+                    }
+                    _ => Err("This identity state does not permit an automatic change.".into()),
+                };
+
+            let verified_posture = inspect_local_identity_posture();
+            match operation {
+                Ok(_) if protected_identity_access_allowed(verified_posture) => {
+                    posture_signal.set(verified_posture);
+                    status_signal.set(
+                        "Protected identity verified. Identity-dependent functionality is now available in this session."
+                            .to_string(),
+                    );
+                }
+                Ok(_) => {
+                    posture_signal.set(verified_posture);
+                    status_signal.set(
+                        "The operation returned, but protected unlocked state was not verified. The application remains gated."
+                            .to_string(),
+                    );
+                }
+                Err(error) => {
+                    posture_signal.set(verified_posture);
+                    status_signal.set(error);
+                }
+            }
+
+            passphrase_signal.set(String::new());
+            confirmation_signal.set(String::new());
+            phrase_signal.set(String::new());
+            busy_signal.set(false);
+        });
+    };
 
     view! {
         <Show
@@ -1600,22 +1713,150 @@ pub fn ProtectedIdentityAccessGate(children: ChildrenFn) -> impl IntoView {
                 <main class="identity-access-gate-shell" aria-labelledby="identity-access-gate-title">
                     <section class="identity-access-gate-card" aria-describedby="identity-access-gate-description">
                         <span class="identity-access-gate-eyebrow">"MYCELIX / IDENTITY SAFETY"</span>
-                        <h1 id="identity-access-gate-title">"Identity access is gated"</h1>
+                        <h1 id="identity-access-gate-title">
+                            {move || protected_identity_access_heading(posture.get(), restore_mode.get())}
+                        </h1>
                         <p id="identity-access-gate-description">
                             {move || protected_identity_access_message(posture.get())}
                         </p>
-                        <p>
-                            "This app will not create, replace, or unlock a key during startup. Browser identity storage is origin-scoped and is not automatically shared between different origins."
+                        <p class="identity-access-gate-origin-note">
+                            "Identity storage is origin-scoped. This gate never transfers an unlocked private key from another tab or origin. If this origin has no identity, create one or restore a verified backup for the same DID."
                         </p>
+
+                        <Show when=move || protected_identity_access_actionable(posture.get())>
+                            <form class="identity-access-gate-form" on:submit=submit>
+                                <div class="identity-access-gate-field">
+                                    <label for="identity-access-passphrase">"Passphrase"</label>
+                                    <input
+                                        id="identity-access-passphrase"
+                                        class="identity-access-gate-input"
+                                        type="password"
+                                        required=true
+                                        autocomplete=move || {
+                                            if posture.get() == LocalIdentityStoragePosture::ProtectedLocked {
+                                                "current-password"
+                                            } else {
+                                                "new-password"
+                                            }
+                                        }
+                                        prop:value=move || passphrase.get()
+                                        on:input=move |ev| passphrase.set(event_target_value(&ev))
+                                    />
+                                </div>
+
+                                <Show when=move || {
+                                    matches!(
+                                        posture.get(),
+                                        LocalIdentityStoragePosture::NoIdentity
+                                            | LocalIdentityStoragePosture::UnprotectedIdentity
+                                    )
+                                }>
+                                    <div class="identity-access-gate-field">
+                                        <label for="identity-access-confirm">"Confirm passphrase"</label>
+                                        <input
+                                            id="identity-access-confirm"
+                                            class="identity-access-gate-input"
+                                            type="password"
+                                            required=true
+                                            autocomplete="new-password"
+                                            prop:value=move || confirmation.get()
+                                            on:input=move |ev| confirmation.set(event_target_value(&ev))
+                                        />
+                                    </div>
+                                </Show>
+
+                                <Show when=move || posture.get() == LocalIdentityStoragePosture::NoIdentity>
+                                    <button
+                                        type="button"
+                                        class="identity-access-gate-secondary"
+                                        on:click=move |_| {
+                                            restore_mode.update(|mode| *mode = !*mode);
+                                            recovery_phrase.set(String::new());
+                                            status_message.set(String::new());
+                                        }
+                                    >
+                                        {move || {
+                                            if restore_mode.get() {
+                                                "Create a new protected identity instead"
+                                            } else {
+                                                "Restore a verified 24-word backup"
+                                            }
+                                        }}
+                                    </button>
+                                </Show>
+
+                                <Show when=move || {
+                                    posture.get() == LocalIdentityStoragePosture::NoIdentity
+                                        && restore_mode.get()
+                                }>
+                                    <div class="identity-access-gate-field">
+                                        <label for="identity-access-recovery-phrase">"24-word recovery phrase"</label>
+                                        <textarea
+                                            id="identity-access-recovery-phrase"
+                                            class="identity-access-gate-input identity-access-gate-recovery-phrase"
+                                            rows="4"
+                                            required=true
+                                            autocomplete="off"
+                                            spellcheck="false"
+                                            prop:value=move || recovery_phrase.get()
+                                            on:input=move |ev| recovery_phrase.set(event_target_value(&ev))
+                                        />
+                                    </div>
+                                </Show>
+
+                                <p class="identity-access-gate-warning">
+                                    "Only use your recovery phrase in a private, trusted browser session. It is cleared after the attempt and is never sent to telemetry or a URL. A passphrase protects the key at rest, not against malicious same-origin JavaScript."
+                                </p>
+                                <button
+                                    class="identity-access-gate-submit"
+                                    type="submit"
+                                    disabled=move || busy.get()
+                                >
+                                    {move || {
+                                        if busy.get() {
+                                            "Processing…"
+                                        } else if posture.get() == LocalIdentityStoragePosture::ProtectedLocked {
+                                            "Unlock identity"
+                                        } else if posture.get() == LocalIdentityStoragePosture::UnprotectedIdentity {
+                                            "Protect existing identity"
+                                        } else if restore_mode.get() {
+                                            "Restore and protect identity"
+                                        } else {
+                                            "Create protected identity"
+                                        }
+                                    }}
+                                </button>
+                            </form>
+                        </Show>
+
+                        <Show when=move || !protected_identity_access_actionable(posture.get())>
+                            <section class="identity-access-gate-blocker" role="note">
+                                <strong>"No automatic change will be made."</strong>
+                                <p>
+                                    "Preserve this browser profile. Do not clear storage or try to create a replacement identity. Legacy, unavailable and inconsistent states require an explicit recovery procedure."
+                                </p>
+                            </section>
+                        </Show>
+
                         <button
                             type="button"
                             class="identity-access-gate-recheck"
-                            on:click=move |_| posture.set(inspect_local_identity_posture())
+                            disabled=move || busy.get()
+                            on:click=move |_| {
+                                posture.set(inspect_local_identity_posture());
+                                status_message.set(String::new());
+                            }
                         >
                             "Recheck identity"
                         </button>
                         <p class="identity-access-gate-status" role="status" aria-live="polite">
-                            {move || format!("Current identity posture: {:?}", posture.get())}
+                            {move || {
+                                format!(
+                                    "Current identity posture: {:?}. {}",
+                                    posture.get(),
+                                    status_message.get()
+                                )
+                            }}
                         </p>
                     </section>
                 </main>
@@ -1628,36 +1869,64 @@ pub fn ProtectedIdentityAccessGate(children: ChildrenFn) -> impl IntoView {
     }
 }
 
+fn protected_identity_access_actionable(posture: LocalIdentityStoragePosture) -> bool {
+    matches!(
+        posture,
+        LocalIdentityStoragePosture::NoIdentity
+            | LocalIdentityStoragePosture::UnprotectedIdentity
+            | LocalIdentityStoragePosture::ProtectedLocked
+    )
+}
+
 fn protected_identity_access_allowed(posture: LocalIdentityStoragePosture) -> bool {
     posture == LocalIdentityStoragePosture::ProtectedUnlockedInSession
 }
 
+#[cfg(target_arch = "wasm32")]
+fn protected_identity_access_heading(
+    posture: LocalIdentityStoragePosture,
+    restore_mode: bool,
+) -> &'static str {
+    match posture {
+        LocalIdentityStoragePosture::NoIdentity if restore_mode => "Restore a protected identity",
+        LocalIdentityStoragePosture::NoIdentity => "Create a protected identity",
+        LocalIdentityStoragePosture::UnprotectedIdentity => "Protect your existing identity",
+        LocalIdentityStoragePosture::ProtectedLocked => "Unlock your protected identity",
+        LocalIdentityStoragePosture::LegacyIdentityNeedsMigration => "Legacy identity needs migration",
+        LocalIdentityStoragePosture::StorageUnavailable => "Identity storage unavailable",
+        LocalIdentityStoragePosture::ProtectedUnlockedInSession => "Protected identity unlocked",
+        LocalIdentityStoragePosture::CorruptOrInconsistent => "Identity storage is inconsistent",
+    }
+}
+
+#[cfg(target_arch = "wasm32")]
 fn protected_identity_access_message(posture: LocalIdentityStoragePosture) -> &'static str {
     match posture {
         LocalIdentityStoragePosture::StorageUnavailable => {
-            "Browser storage could not be inspected. This is not proof that you have no identity. Restore storage access before proceeding."
+            "Browser storage could not be inspected. This is not proof that you have no identity."
         }
         LocalIdentityStoragePosture::NoIdentity => {
-            "No local identity was found. Open the Mycelix identity setup experience for this browser origin to create a protected identity or restore a verified backup."
+            "No identity was found in this origin. Create a new protected identity or restore a verified backup for the DID you want to use."
         }
         LocalIdentityStoragePosture::LegacyIdentityNeedsMigration => {
             "A legacy identity marker needs explicit migration. This app will not replace it or create a new key."
         }
         LocalIdentityStoragePosture::UnprotectedIdentity => {
-            "An existing key is not protected at rest. Use the identity setup experience for this browser origin to protect it in place, then recheck here."
+            "An existing key is stored without passphrase protection. Protect it in place; the same public key and DID must remain bound."
         }
         LocalIdentityStoragePosture::ProtectedLocked => {
-            "A protected identity exists but is locked in this session. Unlock it in the identity setup experience for this browser origin, then recheck here."
+            "A protected identity exists but is locked in this app's session. Enter its passphrase here to unlock this session."
         }
         LocalIdentityStoragePosture::ProtectedUnlockedInSession => {
             "The protected identity is unlocked in this session."
         }
         LocalIdentityStoragePosture::CorruptOrInconsistent => {
-            "Stored identity evidence is corrupt or contradictory. Preserve the browser profile and use an explicit recovery procedure; no replacement key will be generated."
+            "Stored identity evidence is corrupt or contradictory. Preserve this browser profile and use an explicit recovery procedure."
         }
     }
 }
 
+#[cfg(target_arch = "wasm32")]
 #[component]
 fn ProtectedIdentityAccessReady(children: ChildrenFn) -> impl IntoView {
     provide_local_identity();
