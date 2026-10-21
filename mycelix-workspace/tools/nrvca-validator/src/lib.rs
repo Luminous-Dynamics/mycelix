@@ -229,7 +229,7 @@ pub fn validate_report(report: &Value) -> Vec<Diagnostic> {
             }
             let class = field_str(event, "event_class").unwrap_or("");
             let treatment = field_str(event, "gdp_treatment").unwrap_or("");
-            if !["new_borrowing", "principal_repayment", "asset_revaluation", "secondary_market_asset_transaction", "intersector_transfer", "final_goods_or_service", "other"].contains(&class) {
+            if !["new_borrowing", "principal_repayment", "writeoff", "asset_revaluation", "secondary_market_asset_transaction", "intersector_transfer", "final_goods_or_service", "other"].contains(&class) {
                 push_structural(&mut out, "EVENT-CLASS", &format!("{path}/event_class"), "unsupported event_class");
             }
             if !["excluded_from_current_production", "included_under_declared_profile", "requires_profile_review"].contains(&treatment) {
@@ -280,6 +280,9 @@ pub fn validate_report(report: &Value) -> Vec<Diagnostic> {
             if unit.is_empty() {
                 push_structural(&mut out, "STOCK-UNIT", &format!("{path}/unit"), "stock unit is required");
             }
+            if class == "financial_stock" && !unit.starts_with(format!("{}_", currency.and_then(Value::as_str).unwrap_or("")).as_str()) {
+                push_semantic(&mut out, "FINANCIAL-STOCK-UNIT", &format!("{path}/unit"), "financial stock unit must be prefixed with its declared currency in v0.1");
+            }
             if class == "financial_stock" && currency.and_then(Value::as_str).is_none() {
                 push_semantic(&mut out, "FINANCIAL-STOCK-CURRENCY", &format!("{path}/currency"), "financial stock requires an explicit currency");
             }
@@ -306,6 +309,15 @@ pub fn validate_report(report: &Value) -> Vec<Diagnostic> {
                             push_semantic(&mut out, "DUPLICATE-CHANGE-ID", &format!("{cpath}/change_id"), format!("duplicate change_id: {change_id}"));
                         }
                         let kind = field_str(change, "change_class").unwrap_or("");
+                        if !["borrowing", "principal_repayment", "writeoff", "revaluation", "physical_inflow", "physical_use", "physical_outflow", "other_change"].contains(&kind) {
+                            push_structural(&mut out, "CHANGE-CLASS", &format!("{cpath}/change_class"), "unsupported stock change class");
+                        }
+                        if class == "financial_stock" && ["physical_inflow", "physical_use", "physical_outflow"].contains(&kind) {
+                            push_semantic(&mut out, "FINANCIAL-PHYSICAL-CHANGE", &format!("{cpath}/change_class"), "physical resource change cannot be booked directly to a financial stock");
+                        }
+                        if class == "physical_stock" && ["borrowing", "principal_repayment", "writeoff"].contains(&kind) {
+                            push_semantic(&mut out, "PHYSICAL-FINANCIAL-CHANGE", &format!("{cpath}/change_class"), "financial financing change cannot be booked directly to a physical stock");
+                        }
                         let signed = field_num(change, "signed_change");
                         if signed.is_none() {
                             push_structural(&mut out, "SIGNED-CHANGE", &format!("{cpath}/signed_change"), "signed_change must be a finite number");
@@ -870,5 +882,28 @@ mod tests {
         report["outcome_vector"][5]["value"] = serde_json::json!(0.0);
         let diagnostics = validate_report(&report);
         assert!(diagnostics.iter().any(|d| d.code == "SEM-UNKNOWN-ZERO-SEPARATION"));
+    }
+
+    #[test]
+    fn balanced_but_detached_reconciliation_operand_is_rejected() {
+        let mut report: Value = serde_json::from_str(GOLDEN).expect("golden fixture parses as JSON");
+        // Forge a self-consistent equation by changing both the reported stock and
+        // closing side, while leaving the canonical signed-change field untouched.
+        report["reconciliations"][1]["operands"][1]["value"] = serde_json::json!(81.0);
+        report["reconciliations"][1]["rhs"] = serde_json::json!(246.0);
+        report["reconciliations"][1]["lhs"] = serde_json::json!(246.0);
+        report["reconciliations"][1]["residual"] = serde_json::json!(0.0);
+        report["stock_flow_accounts"][0]["closing_stock"] = serde_json::json!(246.0);
+        let diagnostics = validate_report(&report);
+        assert!(diagnostics.iter().any(|d| d.code == "SEM-RECONCILIATION-VALUE-BINDING"));
+        assert!(diagnostics.iter().any(|d| d.code == "SEM-STOCK-FLOW-DOES-NOT-CLOSE"));
+    }
+
+    #[test]
+    fn financial_stock_change_must_match_linked_event() {
+        let mut report: Value = serde_json::from_str(GOLDEN).expect("golden fixture parses as JSON");
+        report["stock_flow_accounts"][0]["changes"][0]["signed_change"] = serde_json::json!(81.0);
+        let diagnostics = validate_report(&report);
+        assert!(diagnostics.iter().any(|d| d.code == "SEM-STOCK-EVENT-AMOUNT"));
     }
 }
