@@ -24,7 +24,7 @@ The specific gap to test is whether a shared evidence and reconciliation contrac
 
 1. **One headline number → a non-collapsed outcome vector.** Report GDP/NDP, wealth and asset changes, resource flows, essential service, distribution, resilience, and evidence quality separately. A future composite requires a declared normative profile and sensitivity analysis.
 2. **Money spent → useful function delivered.** Distinguish expenditure, installed capacity, available capacity, service actually delivered, quality, reliability, and access. These are different states.
-3. **Transactions → stock-flow and physical conservation.** Reconcile financial counterparties and balance-sheet changes; reconcile physical flows in consistent units. Asset-price gains and borrowing are not new current production.
+3. **Transactions → bound stock-flow and physical conservation.** Reconcile financial counterparties and balance-sheet changes; reconcile physical flows in consistent units. Each identity term must resolve to the canonical report value it claims to represent, not a detached number copied into an equation. Asset-price gains and borrowing are not new current production.
 4. **Industry labels → measured counterfactual harm/benefit.** Do not classify all finance, profit, administration, or intermediation as productive or parasitic by default. Distinguish transfers from real resource costs; estimate market-power, rent-seeking, congestion, pollution, and failure costs only under explicit profiles and evidence.
 5. **Point value → evidence frontier.** Record observed, official, derived, estimated, modelled, assumed, and unknown statuses separately. Missingness is not zero; uncertainty is not a permission to invent capacity.
 6. **Model success → empirical qualification.** Synthetic correctness, historical fit, out-of-sample prediction, shadow use, prospective causal impact, and independent replication are distinct evidence tiers.
@@ -37,9 +37,10 @@ The v0.1 schema defines these components:
 - Reporting currency and price basis.
 - Source manifest (identity, class, vintage, geographic/temporal coverage, licensing status, limitations, optional digest). Source classes distinguish official_statistics from experimental_statistics; publisher identity is not a claim that a discussion document is official statistical output.
 - Conventional accounts (GDP, consumption of fixed capital, NDP, gross capital formation).
-- Financial events that must retain their SNA/profile treatment, such as new borrowing, secondary-market asset transfer, asset revaluation, and inter-sector transfers.
+- Financial events that must retain their SNA/profile treatment, such as new borrowing, principal repayment, write-off, secondary-market asset transfer, asset revaluation, and inter-sector transfers.
+- Canonical stock-flow accounts with signed changes and optional links to the event that causes each financial change.
 - Multidimensional outcome vector with explicit unit, evidence status, population/coverage denominator, source references, and optional uncertainty interval.
-- Reconciliation checks for accounting identities and physical stock/flow balances.
+- Reconciliation checks for accounting identities and physical stock/flow balances. Every reconciliation operand and LHS is bound by JSON Pointer to the canonical value in the report; free-floating numbers cannot qualify an identity.
 - Data-quality summary and a policy forbidding a universal scalar or addition across unlike units.
 - Explicit claim ceiling.
 
