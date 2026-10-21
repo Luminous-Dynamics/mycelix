@@ -39,6 +39,14 @@ The purpose is to catch category substitution. In the golden case, the transfer 
 
 ## State-of-the-art comparison
 
-This is deliberately not claimed as a new national welfare index. It composes ideas that already exist in national accounts, environmental-economic accounting, competition measurement, and beyond-GDP dashboards. Its measurable contribution at this stage is a testable category contract, traceability and adversarial qualification. A fair comparison must reproduce aligned SNA/SEEA/World Bank/OECD concepts rather than relabel them, and must evaluate the additional decision value separately.
+This is deliberately not claimed as a new national welfare index. It composes established concepts rather than rebranding them:
+
+- The [2025 System of National Accounts](https://unstats.un.org/unsd/econstats/national-accounts/sna2025) is the international reference for comparable national accounts; NRVCA must reconcile to it rather than redefine production.
+- The [SEEA Central Framework](https://seea.un.org/en/methodology/seea-central-framework) already integrates physical flows and environmental asset stocks with economic accounts. Its physical and monetary views remain distinct where units or valuation bases differ.
+- The World Bank's [Adjusted Net Savings dataset](https://datacatalog.worldbank.org/search/dataset/0037653/adjusted-net-savings) already combines selected produced-capital depreciation, resource depletion, education spending and pollution damage estimates; NRVCA must reproduce aligned definitions rather than claim these dimensions as novel.
+- OECD [market-competition methods](https://doi.org/10.1787/29bf31c1-en) use multiple indicators with context-dependent limitations; markup, profit and concentration are not standalone proofs of rent or social loss.
+- OECD [Beyond GDP work](https://www.oecd.org/en/topics/well-being-and-beyond-gdp.html) supports a broader dashboard to expose distribution and sustainability. The design challenge is not inventing another composite index but making each component traceable and actually useful in policy decisions.
+
+The measurable contribution at this stage is a testable category contract, an independent toy-market oracle, metamorphic negative controls, and traceability. A fair comparison must reproduce aligned SNA/SEEA/World Bank/OECD concepts rather than relabel them, and evaluate additional decision value separately.
 
 The prototype should not advance beyond synthetic qualification until the production validator is compiling cleanly, source vintages and rights are pinned for real-data work, and the next tests include alternative demand elasticities, entry, fixed costs, quality/innovation, regulated natural monopolies, cross-border incidence, and uncertainty intervals.
