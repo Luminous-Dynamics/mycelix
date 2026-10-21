@@ -11,6 +11,11 @@ on:
       - "mycelix-personal/apps/leptos/**"
       - "mycelix-finance/apps/leptos/**"
       - "mycelix-climate/apps/leptos/**"
+      - "mycelix-workspace/mycelix-personal/apps/leptos/**"
+      - "mycelix-workspace/mycelix-finance/apps/leptos/**"
+      - "mycelix-workspace/mycelix-climate/apps/leptos/**"
+      - "mycelix-workspace/crates/mycelix-leptos-i18n/**"
+      - "mycelix-workspace/crates/mycelix-mock-data/**"
       - ".github/workflows/local-identity-posture.yml"
   push:
     branches: [main]
@@ -23,6 +28,11 @@ on:
       - "mycelix-personal/apps/leptos/**"
       - "mycelix-finance/apps/leptos/**"
       - "mycelix-climate/apps/leptos/**"
+      - "mycelix-workspace/mycelix-personal/apps/leptos/**"
+      - "mycelix-workspace/mycelix-finance/apps/leptos/**"
+      - "mycelix-workspace/mycelix-climate/apps/leptos/**"
+      - "mycelix-workspace/crates/mycelix-leptos-i18n/**"
+      - "mycelix-workspace/crates/mycelix-mock-data/**"
       - ".github/workflows/local-identity-posture.yml"
   workflow_dispatch:
 
@@ -37,7 +47,7 @@ jobs:
   qualify:
     name: Exact-head identity posture tests, browser checks, and app gates
     runs-on: ubuntu-24.04
-    timeout-minutes: 60
+    timeout-minutes: 90
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
@@ -53,6 +63,9 @@ jobs:
             mycelix-personal/apps/leptos -> target
             mycelix-finance/apps/leptos -> target
             mycelix-climate/apps/leptos -> target
+            mycelix-workspace/mycelix-personal/apps/leptos -> target
+            mycelix-workspace/mycelix-finance/apps/leptos -> target
+            mycelix-workspace/mycelix-climate/apps/leptos -> target
       - name: Assert exact source head
         env:
           EXPECTED_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
@@ -67,18 +80,30 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          for app in finance climate personal; do
+          for app in root-finance root-climate root-personal workspace-finance workspace-climate workspace-personal; do
             case "$app" in
-              finance)
+              root-finance)
                 file="mycelix-finance/apps/leptos/src/app.rs"
                 ready="FinanceReadyApp"
                 ;;
-              climate)
+              root-climate)
                 file="mycelix-climate/apps/leptos/src/app.rs"
                 ready="ClimateReadyApp"
                 ;;
-              personal)
+              root-personal)
                 file="mycelix-personal/apps/leptos/src/app.rs"
+                ready="PersonalReadyApp"
+                ;;
+              workspace-finance)
+                file="mycelix-workspace/mycelix-finance/apps/leptos/src/app.rs"
+                ready="FinanceReadyApp"
+                ;;
+              workspace-climate)
+                file="mycelix-workspace/mycelix-climate/apps/leptos/src/app.rs"
+                ready="ClimateReadyApp"
+                ;;
+              workspace-personal)
+                file="mycelix-workspace/mycelix-personal/apps/leptos/src/app.rs"
                 ready="PersonalReadyApp"
                 ;;
             esac
@@ -102,11 +127,17 @@ jobs:
           cargo generate-lockfile --manifest-path mycelix-personal/apps/leptos/Cargo.toml
           cargo generate-lockfile --manifest-path mycelix-finance/apps/leptos/Cargo.toml
           cargo generate-lockfile --manifest-path mycelix-climate/apps/leptos/Cargo.toml
+          cargo generate-lockfile --manifest-path mycelix-workspace/mycelix-personal/apps/leptos/Cargo.toml
+          cargo generate-lockfile --manifest-path mycelix-workspace/mycelix-finance/apps/leptos/Cargo.toml
+          cargo generate-lockfile --manifest-path mycelix-workspace/mycelix-climate/apps/leptos/Cargo.toml
           sha256sum \
             crates/mycelix-leptos-core/Cargo.lock \
             mycelix-personal/apps/leptos/Cargo.lock \
             mycelix-finance/apps/leptos/Cargo.lock \
-            mycelix-climate/apps/leptos/Cargo.lock
+            mycelix-climate/apps/leptos/Cargo.lock \
+            mycelix-workspace/mycelix-personal/apps/leptos/Cargo.lock \
+            mycelix-workspace/mycelix-finance/apps/leptos/Cargo.lock \
+            mycelix-workspace/mycelix-climate/apps/leptos/Cargo.lock
       - name: Check formatting of shared identity code and all app shells
         run: |
           rustfmt --edition 2024 --check \
@@ -118,6 +149,9 @@ jobs:
           cargo fmt --manifest-path mycelix-personal/apps/leptos/Cargo.toml -- --check
           cargo fmt --manifest-path mycelix-finance/apps/leptos/Cargo.toml -- --check
           cargo fmt --manifest-path mycelix-climate/apps/leptos/Cargo.toml -- --check
+          cargo fmt --manifest-path mycelix-workspace/mycelix-personal/apps/leptos/Cargo.toml -- --check
+          cargo fmt --manifest-path mycelix-workspace/mycelix-finance/apps/leptos/Cargo.toml -- --check
+          cargo fmt --manifest-path mycelix-workspace/mycelix-climate/apps/leptos/Cargo.toml -- --check
       - name: Run native identity-state and bootstrap-policy tests
         run: cargo test --manifest-path crates/mycelix-leptos-core/Cargo.toml --locked --lib
       - name: Install wasm-pack for browser test execution
@@ -155,3 +189,15 @@ jobs:
         run: cargo clippy --manifest-path mycelix-climate/apps/leptos/Cargo.toml --locked --all-targets -- -D warnings
       - name: Compile Climate app for WASM
         run: cargo check --manifest-path mycelix-climate/apps/leptos/Cargo.toml --locked --target wasm32-unknown-unknown
+      - name: Run strict mirrored Personal app Clippy
+        run: cargo clippy --manifest-path mycelix-workspace/mycelix-personal/apps/leptos/Cargo.toml --locked --all-targets -- -D warnings
+      - name: Compile mirrored Personal app for WASM
+        run: cargo check --manifest-path mycelix-workspace/mycelix-personal/apps/leptos/Cargo.toml --locked --target wasm32-unknown-unknown
+      - name: Run strict mirrored Finance app Clippy
+        run: cargo clippy --manifest-path mycelix-workspace/mycelix-finance/apps/leptos/Cargo.toml --locked --all-targets -- -D warnings
+      - name: Compile mirrored Finance app for WASM
+        run: cargo check --manifest-path mycelix-workspace/mycelix-finance/apps/leptos/Cargo.toml --locked --target wasm32-unknown-unknown
+      - name: Run strict mirrored Climate app Clippy
+        run: cargo clippy --manifest-path mycelix-workspace/mycelix-climate/apps/leptos/Cargo.toml --locked --all-targets -- -D warnings
+      - name: Compile mirrored Climate app for WASM
+        run: cargo check --manifest-path mycelix-workspace/mycelix-climate/apps/leptos/Cargo.toml --locked --target wasm32-unknown-unknown
