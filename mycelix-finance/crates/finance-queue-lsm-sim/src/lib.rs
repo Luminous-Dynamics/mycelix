@@ -1,5 +1,4 @@
 #![forbid(unsafe_code)]
-
 // Copyright (C) 2024-2026 Tristan Stoltz / Luminous Dynamics
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Commercial licensing: see COMMERCIAL_LICENSE.md at repository root
@@ -158,7 +157,8 @@ struct PreparedInput {
 }
 
 fn checked_add_u128(left: u128, right: u128) -> Result<u128, QueueError> {
-    left.checked_add(right).ok_or(QueueError::ArithmeticOverflow)
+    left.checked_add(right)
+        .ok_or(QueueError::ArithmeticOverflow)
 }
 
 fn nonempty(field: &'static str, value: &str) -> Result<(), QueueError> {
@@ -227,8 +227,7 @@ fn prepare_payment_observations(
     for payment in by_id.into_values() {
         let reason = match payment.state {
             PaymentState::Accepted => {
-                if payment.network_id != context.network_id
-                    || payment.asset_id != context.asset_id
+                if payment.network_id != context.network_id || payment.asset_id != context.asset_id
                 {
                     Some(ExclusionReason::ProfileMismatch)
                 } else {
@@ -276,17 +275,16 @@ fn prepare_input(
 
     for balance in balances {
         if balance.participant_id.trim().is_empty() {
-            return Err(QueueError::InvalidParticipant("empty participant_id".into()));
+            return Err(QueueError::InvalidParticipant(
+                "empty participant_id".into(),
+            ));
         }
         if balance_map.contains_key(&balance.participant_id) {
             return Err(QueueError::DuplicateParticipant(
                 balance.participant_id.clone(),
             ));
         }
-        opening_total = checked_add_u128(
-            opening_total,
-            balance.opening_liquidity_minor as u128,
-        )?;
+        opening_total = checked_add_u128(opening_total, balance.opening_liquidity_minor as u128)?;
         balance_map.insert(
             balance.participant_id.clone(),
             balance.opening_liquidity_minor,
@@ -689,11 +687,7 @@ struct XorShift64 {
 impl XorShift64 {
     fn new(seed: u64) -> Self {
         Self {
-            state: if seed == 0 {
-                0x9E3779B97F4A7C15
-            } else {
-                seed
-            },
+            state: if seed == 0 { 0x9E3779B97F4A7C15 } else { seed },
         }
     }
 
@@ -810,8 +804,7 @@ pub fn simulated_annealing_order(
 
         let mut candidate_order = current_order.clone();
         candidate_order.swap(first, second);
-        let candidate_simulation =
-            simulate_order(context, balances, payments, &candidate_order)?;
+        let candidate_simulation = simulate_order(context, balances, payments, &candidate_order)?;
         let comparison = compare_simulations(&candidate_simulation, &current_simulation);
 
         let accept = if comparison != Ordering::Less {
@@ -869,13 +862,7 @@ mod tests {
         }
     }
 
-    fn payment(
-        id: &str,
-        payer: &str,
-        payee: &str,
-        amount: u64,
-        sequence: u64,
-    ) -> QueuedPayment {
+    fn payment(id: &str, payer: &str, payee: &str, amount: u64, sequence: u64) -> QueuedPayment {
         QueuedPayment {
             payment_id: id.into(),
             network_id: "network-test".into(),
@@ -948,7 +935,10 @@ mod tests {
         assert_eq!(report.total_settled_minor, 0);
         assert!(report.settled_payment_ids.is_empty());
         assert_eq!(report.pending_payment_ids, vec!["p"]);
-        assert_eq!(report.opening_liquidity_total_minor, report.closing_liquidity_total_minor);
+        assert_eq!(
+            report.opening_liquidity_total_minor,
+            report.closing_liquidity_total_minor
+        );
     }
 
     #[test]
@@ -993,10 +983,7 @@ mod tests {
 
         let conflicting = payment("p", "A", "B", 3, 1);
         assert_eq!(
-            fifo_order(&context(), &[
-                payment("p", "A", "B", 2, 1),
-                conflicting,
-            ]),
+            fifo_order(&context(), &[payment("p", "A", "B", 2, 1), conflicting,]),
             Err(QueueError::ConflictingDuplicatePayment("p".into()))
         );
     }
@@ -1006,7 +993,12 @@ mod tests {
         let balances = vec![balance("A", 5), balance("B", 0)];
         let payments = vec![payment("p1", "A", "B", 1, 1), payment("p2", "A", "B", 1, 2)];
         assert_eq!(
-            simulate_order(&context(), &balances, &payments, &["p1".into(), "p1".into()]),
+            simulate_order(
+                &context(),
+                &balances,
+                &payments,
+                &["p1".into(), "p1".into()]
+            ),
             Err(QueueError::InvalidQueueOrder)
         );
     }
