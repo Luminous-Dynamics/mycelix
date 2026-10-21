@@ -151,8 +151,8 @@
         ],
         "explanation": "5 × 5 = 25 and 29 − 25 = 4; this result is not an equal share of all 29 because 4 remain.",
         "distractors": [
-          "4 each, 9 remain",
-          "5 each, 4 remain",
+          "4 cones each, 9 remain",
+          "5 cones each, 3 remain",
           "6 each, no remainder"
         ]
       },
@@ -166,9 +166,9 @@
         ],
         "explanation": "Multiplication represents equal-sized groups.",
         "distractors": [
-          "Answers vary; total must be 24.",
+          "A story with six groups of four has 10 objects altogether.",
           "The total must be 10.",
-          "There must be 6 groups of 4 but the total is 46."
+          "There must be six groups of four, and the total is 46."
         ]
       }
     ],
