@@ -1,4 +1,3 @@
-use nrvca_validator::Diagnostic;
 use serde_json::{json, Value};
 
 const FIXTURE: &str =
