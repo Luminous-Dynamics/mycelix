@@ -167,6 +167,19 @@ pub struct Evaluation {
     pub final_net_balance_by_participant_minor: Vec<i128>,
 }
 
+/// Order-independent lower bound derived from participants' final net debit positions.
+///
+/// Every feasible order must prefund each participant by at least its total outgoing
+/// amount minus its total incoming amount when that difference is positive. This is a
+/// certified lower bound, not generally the exact minimum: circular flows may require
+/// startup liquidity even when every final net position is zero.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct LiquidityLowerBound {
+    pub required_initial_liquidity_by_participant_minor: Vec<u128>,
+    pub aggregate_required_initial_liquidity_minor: u128,
+    pub max_participant_required_initial_liquidity_minor: u128,
+}
+
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct SearchResult {
     /// Indices into Problem::payments(), in execution order.
@@ -204,6 +217,40 @@ fn deficit(balance: i128) -> u128 {
 
 fn update_required(required: &mut [u128], participant: usize, balance: i128) {
     required[participant] = required[participant].max(deficit(balance));
+}
+
+/// Compute a certified, order-independent liquidity lower bound from final net positions.
+pub fn net_position_liquidity_lower_bound(
+    problem: &Problem,
+) -> Result<LiquidityLowerBound, ReorderError> {
+    let mut outgoing = vec![0_u128; problem.participant_count];
+    let mut incoming = vec![0_u128; problem.participant_count];
+    for payment in &problem.payments {
+        outgoing[payment.from] = outgoing[payment.from]
+            .checked_add(payment.amount_minor as u128)
+            .ok_or(ReorderError::ArithmeticOverflow)?;
+        incoming[payment.to] = incoming[payment.to]
+            .checked_add(payment.amount_minor as u128)
+            .ok_or(ReorderError::ArithmeticOverflow)?;
+    }
+
+    let mut required = Vec::with_capacity(problem.participant_count);
+    let mut aggregate = 0_u128;
+    let mut maximum = 0_u128;
+    for participant in 0..problem.participant_count {
+        let bound = outgoing[participant].saturating_sub(incoming[participant]);
+        aggregate = aggregate
+            .checked_add(bound)
+            .ok_or(ReorderError::ArithmeticOverflow)?;
+        maximum = maximum.max(bound);
+        required.push(bound);
+    }
+
+    Ok(LiquidityLowerBound {
+        required_initial_liquidity_by_participant_minor: required,
+        aggregate_required_initial_liquidity_minor: aggregate,
+        max_participant_required_initial_liquidity_minor: maximum,
+    })
 }
 
 fn evaluate_unchecked(problem: &Problem, order: &[usize]) -> Result<Evaluation, ReorderError> {
