@@ -399,12 +399,23 @@ pub fn select_atomic_batch(
     deferred_payment_ids.sort();
     excluded_payments.sort_by(|a, b| a.payment_id.cmp(&b.payment_id));
 
+    let route_capacities = eligible
+        .iter()
+        .map(|candidate| {
+            (
+                candidate.route.route_id.clone(),
+                candidate.route.remaining_capacity_minor,
+            )
+        })
+        .collect::<BTreeMap<_, _>>();
     let subset_count = 1_u64
         .checked_shl(eligible.len() as u32)
         .ok_or(BatchError::ArithmeticOverflow)?;
     let mut best: Option<FeasibleBatch> = None;
     for mask in 0..subset_count {
-        let Some(candidate) = evaluate_subset(mask, &eligible, &account_map)? else {
+        let Some(candidate) =
+            evaluate_subset(mask, &eligible, &account_map, &route_capacities)?
+        else {
             continue;
         };
         if best.as_ref().is_none_or(|current| is_better(&candidate, current)) {
