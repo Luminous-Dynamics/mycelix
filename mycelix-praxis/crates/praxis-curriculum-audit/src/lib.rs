@@ -1915,8 +1915,8 @@ mod tests {
             .as_array()
             .expect("PedBench cases must be an array");
         assert!(
-            cases.len() >= 6,
-            "seed corpus should exercise multiple domains"
+            cases.len() >= 10,
+            "seed corpus should cover at least ten distinct tutoring failure modes"
         );
 
         let mut seen = BTreeSet::new();
@@ -1929,6 +1929,7 @@ mod tests {
             );
             for key in [
                 "domain",
+                "failure_mode",
                 "grade_or_course_level",
                 "language",
                 "objective_ref",
