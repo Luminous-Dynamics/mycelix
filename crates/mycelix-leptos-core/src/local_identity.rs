@@ -95,7 +95,17 @@ use crate::identity_crypto::{self, EncryptedBlob};
 use ed25519_dalek::{Signature, Signer, SigningKey, VerifyingKey};
 use leptos::prelude::*;
 use std::cell::RefCell;
-use zeroize::Zeroize;
+use std::future::Future;
+#[cfg(target_arch = "wasm32")]
+use std::rc::Rc;
+use zeroize::{Zeroize, Zeroizing};
+
+#[cfg(target_arch = "wasm32")]
+use js_sys::{Function, Promise, Reflect};
+#[cfg(target_arch = "wasm32")]
+use wasm_bindgen::{JsCast, JsValue, closure::Closure};
+#[cfg(target_arch = "wasm32")]
+use wasm_bindgen_futures::{JsFuture, future_to_promise};
 
 /// Legacy key: pre-2026-07 builds stored a `did:mycelix:<12-random-bytes-hex>`
 /// string here directly, generated from `js_sys::Math::random()` (not a
@@ -730,12 +740,23 @@ pub fn export_unlocked_identity_seed_phrase() -> Result<String, String> {
 pub async fn create_protected_identity(
     passphrase: &str,
 ) -> Result<LocalIdentityStoragePosture, String> {
+    let passphrase = Zeroizing::new(passphrase.to_owned());
+    with_identity_operation_lock(move || async move {
+        create_protected_identity_unlocked(&passphrase).await
+    })
+    .await
+}
+
+async fn create_protected_identity_unlocked(
+    passphrase: &str,
+) -> Result<LocalIdentityStoragePosture, String> {
     validate_new_identity_passphrase(passphrase)?;
     ensure_empty_identity_storage()?;
     let signing_key = try_generate_signing_key()?;
     persist_protected_signing_key(signing_key, passphrase).await
 }
 
+/// Restore a BIP-39 identity directly into protected storage on an empty device.
 /// Restore a BIP-39 identity directly into protected storage on an empty device.
 ///
 /// This intentionally refuses to replace any recognized existing local
@@ -745,10 +766,139 @@ pub async fn restore_protected_identity_from_seed_phrase(
     phrase: &str,
     passphrase: &str,
 ) -> Result<LocalIdentityStoragePosture, String> {
+    let phrase = Zeroizing::new(phrase.to_owned());
+    let passphrase = Zeroizing::new(passphrase.to_owned());
+    with_identity_operation_lock(move || async move {
+        restore_protected_identity_unlocked(&phrase, &passphrase).await
+    })
+    .await
+}
+
+async fn restore_protected_identity_unlocked(
+    phrase: &str,
+    passphrase: &str,
+) -> Result<LocalIdentityStoragePosture, String> {
     validate_new_identity_passphrase(passphrase)?;
     ensure_empty_identity_storage()?;
     let signing_key = signing_key_from_seed_phrase(phrase)?;
     persist_protected_signing_key(signing_key, passphrase).await
+}
+
+const IDENTITY_LIFECYCLE_LOCK_NAME: &str = "mycelix.identity.lifecycle.v1";
+
+/// Serialize asynchronous protected-identity transitions across same-origin
+/// tabs and workers. The lock name is origin-scoped, not identity-scoped,
+/// because the local identity may not yet be known when creation begins.
+///
+/// This is cooperative serialization rather than a storage transaction:
+/// every caller still rechecks state and verifies postconditions. Synchronous
+/// legacy writers remain outside this lock and are tracked separately.
+#[cfg(target_arch = "wasm32")]
+async fn with_identity_operation_lock<T, F, Fut>(operation: F) -> Result<T, String>
+where
+    T: 'static,
+    F: FnOnce() -> Fut + 'static,
+    Fut: Future<Output = Result<T, String>> + 'static,
+{
+    let window = web_sys::window().ok_or_else(|| {
+        "Browser window is unavailable; identity operation was not started.".to_string()
+    })?;
+    let navigator: JsValue = window.navigator().into();
+    let locks = Reflect::get(&navigator, &JsValue::from_str("locks")).map_err(|error| {
+        format!(
+            "Web Locks API inspection failed: {}",
+            js_value_message(error)
+        )
+    })?;
+    if locks.is_null() || locks.is_undefined() {
+        return Err(
+            "This browser does not expose the Web Locks API; no identity change was attempted."
+                .into(),
+        );
+    }
+    let request = Reflect::get(&locks, &JsValue::from_str("request"))
+        .map_err(|error| {
+            format!(
+                "Web Lock request is unavailable: {}",
+                js_value_message(error)
+            )
+        })?
+        .dyn_into::<Function>()
+        .map_err(|_| {
+            "Web Lock request is not callable; no identity change was attempted.".to_string()
+        })?;
+
+    let output = Rc::new(RefCell::new(None::<T>));
+    let operation_error = Rc::new(RefCell::new(None::<String>));
+    let output_for_callback = output.clone();
+    let error_for_callback = operation_error.clone();
+    let mut operation = Some(operation);
+    let callback = Closure::wrap(Box::new(move |_lock: JsValue| -> Promise {
+        let Some(operation) = operation.take() else {
+            return Promise::reject(&JsValue::from_str(
+                "Identity lock callback unexpectedly ran more than once.",
+            ));
+        };
+        let output = output_for_callback.clone();
+        let operation_error = error_for_callback.clone();
+        future_to_promise(async move {
+            match operation().await {
+                Ok(value) => {
+                    *output.borrow_mut() = Some(value);
+                    Ok(JsValue::UNDEFINED)
+                }
+                Err(error) => {
+                    *operation_error.borrow_mut() = Some(error.clone());
+                    Err(JsValue::from_str(&error))
+                }
+            }
+        })
+    }) as Box<dyn FnMut(JsValue) -> Promise>);
+
+    let promise = request
+        .call2(
+            &locks,
+            &JsValue::from_str(IDENTITY_LIFECYCLE_LOCK_NAME),
+            callback.as_ref(),
+        )
+        .map_err(|error| {
+            format!(
+                "Could not acquire identity lifecycle lock: {}",
+                js_value_message(error)
+            )
+        })?
+        .dyn_into::<Promise>()
+        .map_err(|_| "Web Lock request did not return a Promise.".to_string())?;
+    let completion = JsFuture::from(promise).await;
+    drop(callback);
+
+    match completion {
+        Ok(_) => output
+            .borrow_mut()
+            .take()
+            .ok_or_else(|| "Identity lock completed without an operation result.".to_string()),
+        Err(error) => Err(operation_error.borrow_mut().take().unwrap_or_else(|| {
+            format!(
+                "Identity lifecycle lock failed: {}",
+                js_value_message(error)
+            )
+        })),
+    }
+}
+
+#[cfg(target_arch = "wasm32")]
+fn js_value_message(value: JsValue) -> String {
+    value.as_string().unwrap_or_else(|| format!("{value:?}"))
+}
+
+/// Native state tests use the same transition body without a browser lock.
+#[cfg(not(target_arch = "wasm32"))]
+async fn with_identity_operation_lock<T, F, Fut>(operation: F) -> Result<T, String>
+where
+    F: FnOnce() -> Fut,
+    Fut: Future<Output = Result<T, String>>,
+{
+    operation().await
 }
 
 fn validate_new_identity_passphrase(passphrase: &str) -> Result<(), String> {
@@ -924,6 +1074,16 @@ async fn persist_protected_signing_key(
 /// envelope has been read back successfully, and attempts to restore the
 /// unprotected state if the final protected-state verification fails.
 pub async fn protect_existing_identity(
+    passphrase: &str,
+) -> Result<LocalIdentityStoragePosture, String> {
+    let passphrase = Zeroizing::new(passphrase.to_owned());
+    with_identity_operation_lock(move || async move {
+        protect_existing_identity_unlocked(&passphrase).await
+    })
+    .await
+}
+
+async fn protect_existing_identity_unlocked(
     passphrase: &str,
 ) -> Result<LocalIdentityStoragePosture, String> {
     validate_new_identity_passphrase(passphrase)?;
@@ -1108,6 +1268,7 @@ pub async fn protect_existing_identity(
 }
 
 /// Create, protect, or rotate the passphrase for the local identity.
+/// Create, protect, or rotate the passphrase for the local identity.
 ///
 /// This entry point routes to the checked storage-transition APIs. New
 /// identities are created directly in encrypted storage; an existing
@@ -1124,13 +1285,23 @@ pub async fn protect_existing_identity(
 /// unsuccessful persistence/read-back verification, or attempts to operate
 /// on an identity that is locked or inconsistent.
 pub async fn protect_with_passphrase(passphrase: &str) -> Result<(), String> {
+    let passphrase = Zeroizing::new(passphrase.to_owned());
+    with_identity_operation_lock(move || async move {
+        protect_with_passphrase_unlocked(&passphrase).await
+    })
+    .await
+}
+
+async fn protect_with_passphrase_unlocked(passphrase: &str) -> Result<(), String> {
     validate_new_identity_passphrase(passphrase)?;
     match inspect_local_identity_posture() {
-        LocalIdentityStoragePosture::NoIdentity => {
-            create_protected_identity(passphrase).await.map(|_| ())
-        }
+        LocalIdentityStoragePosture::NoIdentity => create_protected_identity_unlocked(passphrase)
+            .await
+            .map(|_| ()),
         LocalIdentityStoragePosture::UnprotectedIdentity => {
-            protect_existing_identity(passphrase).await.map(|_| ())
+            protect_existing_identity_unlocked(passphrase)
+                .await
+                .map(|_| ())
         }
         LocalIdentityStoragePosture::ProtectedUnlockedInSession => {
             rewrap_protected_identity(passphrase).await
@@ -1283,6 +1454,14 @@ async fn rewrap_protected_identity(passphrase: &str) -> Result<(), String> {
 /// passphrase and corrupt ciphertext are deliberately indistinguishable
 /// (see [`identity_crypto`] module docs).
 pub async fn unlock_with_passphrase(passphrase: &str) -> Result<SigningKey, String> {
+    let passphrase = Zeroizing::new(passphrase.to_owned());
+    with_identity_operation_lock(move || async move {
+        unlock_with_passphrase_unlocked(&passphrase).await
+    })
+    .await
+}
+
+async fn unlock_with_passphrase_unlocked(passphrase: &str) -> Result<SigningKey, String> {
     // A failed unlock leaves the identity locked rather than reusing a prior
     // in-memory key against storage whose integrity may have changed.
     UNLOCKED_KEY.with(|cell| *cell.borrow_mut() = None);
@@ -1306,6 +1485,7 @@ pub async fn unlock_with_passphrase(passphrase: &str) -> Result<SigningKey, Stri
 }
 
 /// Reverse [`protect_with_passphrase`]: decrypt with `passphrase`, restore
+/// Reverse [`protect_with_passphrase`]: decrypt with `passphrase`, restore
 /// plaintext storage, and drop the encrypted blob.
 ///
 /// # Errors
@@ -1313,12 +1493,21 @@ pub async fn unlock_with_passphrase(passphrase: &str) -> Result<SigningKey, Stri
 /// Same failure modes as [`unlock_with_passphrase`] (this calls it
 /// internally) — wrong passphrase, no protected identity, or corrupt blob.
 pub async fn remove_passphrase_protection(passphrase: &str) -> Result<(), String> {
-    let signing_key = unlock_with_passphrase(passphrase).await?;
+    let passphrase = Zeroizing::new(passphrase.to_owned());
+    with_identity_operation_lock(move || async move {
+        remove_passphrase_protection_unlocked(&passphrase).await
+    })
+    .await
+}
+
+async fn remove_passphrase_protection_unlocked(passphrase: &str) -> Result<(), String> {
+    let signing_key = unlock_with_passphrase_unlocked(passphrase).await?;
     store_signing_key(&signing_key);
     remove_item(IDENTITY_SECRET_ENCRYPTED_KEY);
     Ok(())
 }
 
+/// Export the local identity's secret key as a standards-correct 24-word
 /// Export the local identity's secret key as a standards-correct 24-word
 /// BIP-39 mnemonic (English wordlist), for manual/offline backup.
 ///
@@ -1375,18 +1564,17 @@ pub fn signing_key_from_seed_phrase(phrase: &str) -> Result<SigningKey, String> 
 /// Same failure modes as [`signing_key_from_seed_phrase`] (this calls it
 /// internally) — invalid word count, unknown word, bad checksum, or wrong
 /// decoded length.
-pub fn restore_from_seed_phrase(phrase: &str) -> Result<SigningKey, String> {
-    let signing_key = signing_key_from_seed_phrase(phrase)?;
-    store_signing_key(&signing_key);
-    // A freshly restored identity starts unprotected, same as a freshly
-    // generated one — any previous protection was on the *replaced*
-    // identity's ciphertext, which is now meaningless.
-    remove_item(IDENTITY_SECRET_ENCRYPTED_KEY);
-    UNLOCKED_KEY.with(|cell| *cell.borrow_mut() = Some(signing_key.clone()));
-    Ok(signing_key)
+#[deprecated(
+    note = "Synchronous plaintext restore is disabled; use restore_protected_identity_from_seed_phrase."
+)]
+pub fn restore_from_seed_phrase(_phrase: &str) -> Result<SigningKey, String> {
+    Err(
+        "Synchronous seed-phrase restore is disabled because it writes plaintext and can replace an existing identity. Use restore_protected_identity_from_seed_phrase with an explicit passphrase on an empty device."
+            .into(),
+    )
 }
 
-/// Sign an arbitrary message with the local identity's private key.
+/// Sign an arbitrary message with the local identity's private key./// Sign an arbitrary message with the local identity's private key.
 ///
 /// Generates the keypair on first use if one does not already exist. This
 /// is what a future DID-registry `create_did`/`rotate_key` call, or any
@@ -2101,6 +2289,36 @@ mod browser_storage_tests {
             }
             UNLOCKED_KEY.with(|cell| *cell.borrow_mut() = self.unlocked_key.clone());
         }
+    }
+
+    #[wasm_bindgen_test]
+    async fn web_lock_serializes_contending_identity_lifecycle_operations() {
+        use std::cell::RefCell;
+        use std::rc::Rc;
+
+        let events = Rc::new(RefCell::new(Vec::<&'static str>::new()));
+        let first_events = events.clone();
+        let first = with_identity_operation_lock(move || async move {
+            first_events.borrow_mut().push("first-start");
+            gloo_timers::future::TimeoutFuture::new(50).await;
+            first_events.borrow_mut().push("first-end");
+            Ok(())
+        });
+        let second_events = events.clone();
+        let second = with_identity_operation_lock(move || async move {
+            second_events.borrow_mut().push("second-start");
+            second_events.borrow_mut().push("second-end");
+            Ok(())
+        });
+
+        let (first_result, second_result) = futures_util::future::join(first, second).await;
+        assert!(first_result.is_ok(), "first lock holder succeeds");
+        assert!(second_result.is_ok(), "queued lock holder succeeds");
+        assert_eq!(
+            *events.borrow(),
+            vec!["first-start", "first-end", "second-start", "second-end"],
+            "the second operation must not enter the critical section until the first Promise settles"
+        );
     }
 
     #[wasm_bindgen_test]
