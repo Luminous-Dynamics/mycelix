@@ -105,10 +105,14 @@ The profile catalog is the *discovery index*, not proof of an adapter. A concret
 Run from this directory:
 
 ```sh
+# Verify the supplied bundle and emit a digest-bound receipt
 node verify-org-adoption-pilot-bundle.cjs
+
+# Separately execute the 12 internal mutation controls
+node verify-org-adoption-pilot-bundle.cjs --self-test
 ```
 
-The verifier checks relationships JSON Schema alone cannot conveniently express: source/record linkage, manifest and synthetic source-content digests, baseline/candidate input equality, equal resource and authority-budget digests, evidence-reference closure, metric result arithmetic, mandatory negative-control coverage, export digest equality, rollback state, effects-disabled mode, relationship claim guard, and exact evaluator digest. It mutates 12 hostile variants and requires each to be rejected.
+The default verifier checks relationships JSON Schema alone cannot conveniently express: source/record linkage, manifest and synthetic source-content digests, baseline/candidate input equality, equal resource and authority-budget digests, evidence-reference closure, metric result arithmetic, mandatory negative-control coverage, export digest equality, rollback state, effects-disabled mode, relationship claim guard, and exact evaluator digest. The optional `--self-test` mode mutates 12 hostile variants and requires each to be rejected. The receipt states whether the mutation lane actually ran.
 
 JSON Schema validation is a separate lane; the zero-dependency evaluator does not pretend to be a general Draft 2020-12 implementation. The example is a contract witness only. It does not execute either named implementation, run a vendor integration, or prove the scenario happened in the physical world.
 
@@ -126,6 +130,20 @@ For every vertical, baseline and candidate must receive the same frozen input di
 - operational performance: throughput and p50/p95/max latency under declared conditions, peak memory, operator effort, integration cost and recovery time;
 - portability: reproducible receipt, full export, independent replay and tested rollback/off-ramp;
 - consequential outcomes: only after real deployment, a suitable baseline, predeclared evaluation plan and permission to use the required data.
+
+### First local reference measurement (2026-10-21)
+
+A small reference run was performed with Node v22.16.0 in a Linux x86_64 container (AMD EPYC 9V74 host, 3 visible vCPUs, 2-CPU cgroup quota, 4 GiB memory limit). Five independent process launches were measured for each size in `cross-invariant-only` mode. The schema-marker argument intentionally isolated the Node cross-invariant verifier; these timings do not include full JSON Schema evaluation.
+
+| Synthetic events | Bundle bytes | Median wall time | Maximum of 5 runs |
+|---:|---:|---:|---:|
+| 1,000 | 387,034 | 47.2 ms | 54.2 ms |
+| 10,000 | 3,822,787 | 137.3 ms | 150.9 ms |
+| 50,000 | 19,132,787 | 546.1 ms | 598.3 ms |
+
+At 50,000 events, one `--self-test` run including the 12 mutation variants took 8.52 s. The five-run maximum is **not a statistically reliable p95**; these values are a reproducible starting point, not a vendor/SOTA comparison. The source-content digest scan was changed to use indexed event IDs rather than repeated list scans before these fast-lane measurements.
+
+Proposed regression ceilings for this same harness/host are ≤75 ms at 1,000 events, ≤200 ms at 10,000, and ≤750 ms at 50,000 for cross-invariant-only mode; ≤10 s for a 50,000-event `--self-test` run. These are provisional local regression gates, not universal performance claims. Re-run at least 30 trials for percentile claims, pin the CPU/memory and runtime conditions, and compare against an independently implemented baseline before describing the system as faster than a competitor.
 
 Suggested scale gates are *targets to measure, not achieved results*: first prove the synthetic 4-event reference fixture; then 1,000, 10,000 and 50,000-event corpora with increasing event-type and source diversity. The v1 bundle schema caps one manifest at 50,000 events; larger corpora require explicit chunking/streaming semantics before raising that bound. Hold exactness and claim ceilings constant while measuring scale. The reference fixture's five controls and 12 mutation cases do not by themselves demonstrate industrial readiness or SOTA performance.
 
