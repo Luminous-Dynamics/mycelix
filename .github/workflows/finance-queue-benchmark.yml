@@ -9,6 +9,7 @@ on:
       - 'mycelix-finance/Cargo.toml'
       - 'mycelix-finance/crates/finance-route-clearing-optimizer/Cargo.toml'
       - 'mycelix-finance/crates/finance-route-clearing-optimizer/src/queue.rs'
+      - 'mycelix-finance/crates/finance-route-clearing-optimizer/src/lib.rs'
       - 'mycelix-finance/crates/finance-route-clearing-optimizer/tests/queue_sequence_oracle.rs'
       - 'mycelix-finance/crates/finance-route-clearing-optimizer/examples/queue_policy_benchmark.rs'
       - '.github/workflows/finance-queue-benchmark.yml'
@@ -86,6 +87,24 @@ jobs:
               > "$output/SOURCE-SHA256SUMS"
           )
           test -s benchmark-output/results.csv
+          test "$(wc -l < benchmark-output/results.csv)" -eq 46
+          # 700-order p95 must remain below the provisional 100 ms target, and the
+          # frozen synthetic corpus must not contain excluded inputs. These are benchmark
+          # gates, not claims of superiority to production settlement systems.
+          awk -F, '
+            NR == 1 { if ($17 != "p95_ns") exit 2; next }
+            {
+              if ($6 != 0) failed = 1
+              if ($2 == 700) {
+                stress_cases++
+                if ($17 !~ /^[0-9]+$/ || $17 > 100000000) failed = 1
+              }
+            }
+            END {
+              if (stress_cases != 15) failed = 1
+              if (failed) exit 1
+            }
+          ' benchmark-output/results.csv
           sha256sum benchmark-output/results.csv benchmark-output/metadata.txt \
             benchmark-output/standalone-Cargo.lock benchmark-output/SOURCE-SHA256SUMS \
             > benchmark-output/SHA256SUMS
