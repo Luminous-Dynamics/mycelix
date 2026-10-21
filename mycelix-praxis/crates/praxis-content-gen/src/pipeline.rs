@@ -53,7 +53,8 @@ pub struct StandardInput {
 /// Errors from the content generation pipeline.
 #[derive(Debug, thiserror::Error)]
 pub enum ContentGenError {
-    /// All retry attempts produced content below the quality threshold.
+    /// All retry attempts produced low-coherence, hallucination-flagged, or
+    /// known-placeholder content.
     #[error("content quality below threshold after {0} attempts")]
     QualityBelowThreshold(u32),
     /// The generator returned empty text.
