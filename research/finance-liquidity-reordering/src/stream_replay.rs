@@ -86,12 +86,10 @@ impl From<ReorderError> for StreamReplayError {
     }
 }
 
-fn can_settle_now(problem: &Problem, payment_index: usize, settled: &[bool]) -> bool {
-    problem
-        .precedence_constraints()
+fn can_settle_now(predecessors: &[Vec<usize>], payment_index: usize, settled: &[bool]) -> bool {
+    predecessors[payment_index]
         .iter()
-        .filter(|(_, after)| *after == payment_index)
-        .all(|(before, _)| settled[*before])
+        .all(|&before| settled[before])
 }
 
 fn batch_order(
@@ -160,6 +158,14 @@ pub fn replay_stream(
         return Err(StreamReplayError::ZeroBatchSize);
     }
 
+    let mut predecessors = vec![Vec::<usize>::new(); count];
+    for &(before, after) in problem.precedence_constraints() {
+        predecessors[after].push(before);
+    }
+    let mut release_order = (0..count).collect::<Vec<_>>();
+    release_order.sort_by_key(|&index| (config.release_ticks[index], index));
+    let mut release_order_cursor = 0_usize;
+
     let mut settled = vec![false; count];
     let mut order = Vec::with_capacity(count);
     let mut settlement_ticks = vec![0_u64; count];
@@ -168,19 +174,24 @@ pub fn replay_stream(
     let mut maximum_batch_size_observed = 0_usize;
 
     while order.len() < count {
+        while release_order_cursor < count
+            && config.release_ticks[release_order[release_order_cursor]] <= current_tick
+        {
+            release_order_cursor += 1;
+        }
+        let next_release = release_order
+            .get(release_order_cursor)
+            .map(|&index| config.release_ticks[index]);
+
         let mut eligible = (0..count)
             .filter(|&index| {
                 !settled[index]
                     && config.release_ticks[index] <= current_tick
-                    && can_settle_now(problem, index, &settled)
+                    && can_settle_now(&predecessors, index, &settled)
             })
             .collect::<Vec<_>>();
 
         if eligible.is_empty() {
-            let next_release = (0..count)
-                .filter(|&index| !settled[index] && config.release_ticks[index] > current_tick)
-                .map(|index| config.release_ticks[index])
-                .min();
             if let Some(next_tick) = next_release {
                 current_tick = next_tick;
                 continue;
@@ -198,10 +209,6 @@ pub fn replay_stream(
         let deadline_pressure = eligible
             .iter()
             .any(|&index| config.deadline_ticks[index] <= wait_deadline);
-        let next_release = (0..count)
-            .filter(|&index| !settled[index] && config.release_ticks[index] > current_tick)
-            .map(|index| config.release_ticks[index])
-            .min();
         let no_useful_future_release =
             next_release.is_none_or(|next_tick| next_tick > wait_deadline);
 
