@@ -78,39 +78,46 @@ pub fn provide_climate_context() {
                 }
             }
 
-            let owner = mycelix_leptos_core::local_did();
-            if let Ok(records) = hc.call_zome_default::<String, Vec<serde_json::Value>>(
-                "carbon", "get_credits_by_owner", &owner
-            ).await {
-                let credits: Vec<CarbonCreditView> = records.iter()
-                    .filter_map(|r| extract_entry(r))
-                    .collect();
-                if !credits.is_empty() {
-                    state.credits.set(credits);
+            if let Ok(owner) = mycelix_leptos_core::try_local_did() {
+                if let Ok(records) = hc.call_zome_default::<String, Vec<serde_json::Value>>(
+                    "carbon", "get_credits_by_owner", &owner
+                ).await {
+                    let credits: Vec<CarbonCreditView> = records.iter()
+                        .filter_map(|r| extract_entry(r))
+                        .collect();
+                    if !credits.is_empty() {
+                        state.credits.set(credits);
+                    }
                 }
+
+                if let Ok(summary) = hc.call_zome_default::<String, CreditSummaryView>(
+                    "carbon", "get_credit_summary", &owner
+                ).await {
+                    state.credit_summary.set(summary);
+                }
+
+                if let Ok(records) = hc.call_zome_default::<String, Vec<serde_json::Value>>(
+                    "carbon", "get_footprints_by_entity", &owner
+                ).await {
+                    let footprints: Vec<CarbonFootprintView> = records.iter()
+                        .filter_map(|r| extract_entry(r))
+                        .collect();
+                    if !footprints.is_empty() {
+                        state.footprints.set(footprints);
+                    }
+                }
+            } else {
+                web_sys::console::warn_1(
+                    &"[Climate] Local identity unavailable; skipping owner-scoped carbon reads."
+                        .into(),
+                );
             }
 
-            if let Ok(summary) = hc.call_zome_default::<String, CreditSummaryView>(
-                "carbon", "get_credit_summary", &owner
-            ).await {
-                state.credit_summary.set(summary);
-            }
-
+            // Project-level summaries do not require a local identity.
             if let Ok(summary) = hc.call_zome_default::<(), ProjectsSummaryView>(
                 "projects", "get_projects_summary", &()
             ).await {
                 state.projects_summary.set(summary);
-            }
-
-            if let Ok(records) = hc.call_zome_default::<String, Vec<serde_json::Value>>(
-                "carbon", "get_footprints_by_entity", &owner
-            ).await {
-                let footprints: Vec<CarbonFootprintView> = records.iter()
-                    .filter_map(|r| extract_entry(r))
-                    .collect();
-                if !footprints.is_empty() {
-                    state.footprints.set(footprints);
-                }
             }
         }
     });
