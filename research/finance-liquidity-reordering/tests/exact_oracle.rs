@@ -1,7 +1,7 @@
 use finance_liquidity_reordering::{
     bounded_insertion_search, evaluate_order, exact_pareto_frontier, exact_permutation_oracle,
     heuristic_portfolio, input_order, receiver_ready_greedy, simulated_annealing, Evaluation,
-    Payment, Problem, ReorderError,
+    Payment, Problem, ReorderError, MAX_GREEDY_PAYMENTS,
 };
 use std::cmp::Ordering;
 
@@ -515,6 +515,27 @@ fn invalid_orders_and_inputs_fail_closed() {
             }]
         ),
         Err(ReorderError::EmptyPaymentId)
+    ));
+}
+
+#[test]
+fn quadratic_greedy_fails_closed_above_its_declared_workload_limit() {
+    let payment_count = MAX_GREEDY_PAYMENTS + 1;
+    let payments = (0..payment_count)
+        .map(|index| Payment {
+            id: format!("g{index:05}"),
+            from: index,
+            to: index + 1,
+            amount_minor: 1,
+        })
+        .collect();
+    let problem = problem(payment_count + 1, payments);
+    assert!(matches!(
+        receiver_ready_greedy(&problem),
+        Err(ReorderError::GreedyLimit {
+            observed,
+            maximum
+        }) if observed == payment_count && maximum == MAX_GREEDY_PAYMENTS
     ));
 }
 
