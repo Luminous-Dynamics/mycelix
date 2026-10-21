@@ -15,7 +15,7 @@ This is a **simulation and allocation proposal**, not a loan executor, a payment
 - Exact duplicate observations with the same canonical offer/bid ID are deduplicated; changed terms under the same ID fail closed.
 - Offers sort by ask ascending and stable participant/offer ID tie-break; bids sort by maximum willingness to pay descending and stable participant/bid ID tie-break.
 - The reference match rule clears the best remaining bid with the best remaining offer while bid price is at least ask price. Matched quantities are integer minor units.
-- For each match, the price is the floor midpoint between ask and bid. Compensation is reported in abstract model units; it is not executed, deducted from liquidity, FX-converted or treated as fiat.
+- For each match, compensation follows the explicitly supplied price rule: floor midpoint, pay-as-ask or pay-as-bid. Compensation is reported in abstract model units; it is not executed, deducted from liquidity, FX-converted or treated as fiat.
 - Providers can never lend below their own required reserve. Receivers can have a residual reserve deficit if the auction does not satisfy all requests.
 - Total opening and closing available liquidity are compared. Liquidity is transferred between participants; none is created.
 
@@ -23,7 +23,7 @@ The caller-supplied authority evidence reference is retained for provenance only
 
 ## Objective and baseline
 
-The reference rule maximizes matched quantity for divisible integer units with fixed reservation prices by matching asks ascending against bids descending. The clearing price is an explicit midpoint rule. It is **not** claimed to be incentive-compatible, truth-revealing, strategically robust, fair in every distribution, or optimal when deadlines, risk, concentration, default or nonlinear utility are added.
+The reference matching rule maximizes matched quantity for divisible integer units with fixed reservation prices by matching asks ascending against bids descending. Pricing is configurable: floor midpoint, pay-as-ask or pay-as-bid. These rules change who retains the surplus, not which bids match under this fixed-quote model. None is claimed to be incentive-compatible, truth-revealing, strategically robust, fair in every distribution, or optimal when deadlines, risk, concentration, default or nonlinear utility are added.
 
 Report separately:
 - offered, requested, matched and unmatched volume;
@@ -36,7 +36,7 @@ Report separately:
 
     cargo run --release --manifest-path mycelix-finance/Cargo.toml -p finance-liquidity-auction-sim --example liquidity_auction_benchmark
 
-The example creates deterministic synthetic participants and quotes at 10, 30, 70, 140 and 700 participants. It emits separate rows for a no-offer/no-bid baseline and the midpoint auction under the same opening-liquidity vector, reporting quantities, compensation, residual deficits and p50/p95 runtime. Synthetic profiles are not calibrated to South African production data; they are for regression, scaling and objective-comparison tests.
+The example creates deterministic synthetic participants and quotes at 10, 30, 70, 140 and 700 participants. It emits rows for a no-offer/no-bid baseline and for all three pricing rules under the same opening-liquidity vector, reporting quantities, compensation, residual deficits, surplus distribution and p50/p95 runtime. Synthetic profiles are not calibrated to South African production data; they are for regression, scaling and objective-comparison tests.
 
 ## Research anchor
 
