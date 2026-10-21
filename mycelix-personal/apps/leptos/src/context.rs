@@ -12,6 +12,9 @@ use leptos::prelude::*;
 use wasm_bindgen_futures::spawn_local;
 
 use mycelix_leptos_core::holochain_provider::{HolochainCtx, use_holochain};
+use crate::source_state::{
+    SourceEvidence, SourceFailure, SourceObservation, StaleReason,
+};
 use personal_leptos_types::{
     ActivityItemView, BiometricView, ConsentGrantView, DataSharingPreferenceView, HealthRecordView,
     MasterKeyView, PreferenceChangeLogView, ProfileView, StoredCredentialView,
@@ -57,7 +60,11 @@ pub fn use_cultural() -> CulturalContext {
 pub struct PersonalCtx {
     pub profile: RwSignal<ProfileView>,
     pub draft_profile: RwSignal<ProfileView>,
+    /// Per-source evidence state; does not itself authorize actions.
+    pub profile_source: RwSignal<SourceObservation<ProfileView>>,
     pub keys: RwSignal<Vec<MasterKeyView>>,
+    /// Preserves key-source currentness independently of other source reads.
+    pub keys_source: RwSignal<SourceObservation<MasterKeyView>>,
     pub credentials: RwSignal<Vec<StoredCredentialView>>,
     pub biometrics: RwSignal<Vec<BiometricView>>,
     pub consents: RwSignal<Vec<ConsentGrantView>>,
@@ -78,6 +85,49 @@ fn empty_profile() -> ProfileView {
         metadata: std::collections::HashMap::new(),
         updated_at: 0,
     }
+}
+
+const PROFILE_SOURCE_ID: &str = "identity_vault.get_my_profile_view";
+const KEYS_SOURCE_ID: &str = "identity_vault.get_my_keys_view";
+
+fn observed_now_unix_ms() -> u64 {
+    let now = js_sys::Date::now();
+    if now.is_finite() && now >= 0.0 {
+        now as u64
+    } else {
+        0
+    }
+}
+
+fn source_read_evidence(source_id: &str) -> SourceEvidence {
+    SourceEvidence {
+        source_id: source_id.to_owned(),
+        read_at_unix_ms: observed_now_unix_ms(),
+        authority_scope: "Personal zome view response; domain authority not assessed".into(),
+        freshness_policy_id: "read-observed-only-v1".into(),
+        evidence_digest: None,
+        limitations: vec![
+            "Timestamp records when this endpoint was read, not when a claim became true.".into(),
+            "Source authority and claim truth have not been independently evaluated.".into(),
+        ],
+    }
+}
+
+fn unavailable_from_prior<T: Clone>(
+    source_id: &str,
+    prior: &SourceObservation<T>,
+) -> SourceObservation<T> {
+    let attempted_at_unix_ms = observed_now_unix_ms();
+    let last_known = prior.stale_snapshot(
+        Some(attempted_at_unix_ms),
+        StaleReason::SourceUnavailable,
+    );
+    SourceObservation::from_failed_read(
+        source_id,
+        Some(attempted_at_unix_ms),
+        SourceFailure::Other("view read failed".into()),
+        last_known,
+    )
 }
 
 fn live_source_status(successful_sources: &[&str], unavailable_sources: &[&str]) -> String {
@@ -104,6 +154,12 @@ pub fn provide_personal_context() {
     let ctx = PersonalCtx {
         draft_profile: RwSignal::new(profile.clone()),
         profile: RwSignal::new(profile),
+        profile_source: RwSignal::new(SourceObservation::NotChecked {
+            source_id: PROFILE_SOURCE_ID.into(),
+        }),
+        keys_source: RwSignal::new(SourceObservation::NotChecked {
+            source_id: KEYS_SOURCE_ID.into(),
+        }),
         // Start empty in every mode. Synthetic data is populated only after
         // the provider explicitly reports Mock mode.
         keys: RwSignal::new(Vec::new()),
@@ -129,9 +185,20 @@ pub fn provide_personal_context() {
             // Synthetic fixtures exist only in explicit Mock mode. They are
             // never used as fallback values for failed/empty Live reads.
             let profile = mock_data::mock_profile();
+            ctx.profile_source.set(SourceObservation::Mock {
+                source_id: PROFILE_SOURCE_ID.into(),
+                fixture_id: "personal-mock-data-v1".into(),
+                records: vec![profile.clone()],
+            });
             ctx.profile.set(profile.clone());
             ctx.draft_profile.set(profile);
-            ctx.keys.set(mock_data::mock_keys());
+            let keys = mock_data::mock_keys();
+            ctx.keys_source.set(SourceObservation::Mock {
+                source_id: KEYS_SOURCE_ID.into(),
+                fixture_id: "personal-mock-data-v1".into(),
+                records: keys.clone(),
+            });
+            ctx.keys.set(keys);
             ctx.credentials.set(mock_data::mock_credentials());
             ctx.biometrics.set(mock_data::mock_biometrics());
             ctx.consents.set(mock_data::mock_consents());
@@ -159,12 +226,24 @@ pub fn provide_personal_context() {
                 .await
             {
                 Ok(profile) => {
+                    ctx.profile_source.set(SourceObservation::from_successful_read(
+                        profile.clone().into_iter().collect(),
+                        source_read_evidence(PROFILE_SOURCE_ID),
+                    ));
                     let profile = profile.unwrap_or_else(empty_profile);
                     ctx.profile.set(profile.clone());
                     ctx.draft_profile.set(profile);
                     successful_sources.push("profile");
                 }
-                Err(_) => unavailable_sources.push("profile"),
+                Err(_) => {
+                    ctx.profile_source.set(SourceObservation::from_failed_read(
+                        PROFILE_SOURCE_ID,
+                        Some(observed_now_unix_ms()),
+                        SourceFailure::Other("view read failed".into()),
+                        None,
+                    ));
+                    unavailable_sources.push("profile");
+                },
             }
 
             match hc
@@ -176,10 +255,22 @@ pub fn provide_personal_context() {
                 .await
             {
                 Ok(keys) => {
+                    ctx.keys_source.set(SourceObservation::from_successful_read(
+                        keys.clone(),
+                        source_read_evidence(KEYS_SOURCE_ID),
+                    ));
                     ctx.keys.set(keys);
                     successful_sources.push("identity keys");
                 }
-                Err(_) => unavailable_sources.push("identity keys"),
+                Err(_) => {
+                    ctx.keys_source.set(SourceObservation::from_failed_read(
+                        KEYS_SOURCE_ID,
+                        Some(observed_now_unix_ms()),
+                        SourceFailure::Other("view read failed".into()),
+                        None,
+                    ));
+                    unavailable_sources.push("identity keys");
+                },
             }
 
             match hc
@@ -308,25 +399,43 @@ pub async fn refresh_identity_state(ctx: PersonalCtx, hc: HolochainCtx) {
         .await
     {
         Ok(profile) => {
+            ctx.profile_source.set(SourceObservation::from_successful_read(
+                profile.clone().into_iter().collect(),
+                source_read_evidence(PROFILE_SOURCE_ID),
+            ));
             let profile = profile.unwrap_or_else(empty_profile);
             ctx.profile.set(profile.clone());
             ctx.draft_profile.set(profile);
         }
-        Err(_) => ctx.status_note.set(
-            "Live mode: the profile source could not be refreshed; the displayed profile may be stale."
-                .into(),
-        ),
+        Err(_) => {
+            ctx.profile_source
+                .set(unavailable_from_prior(PROFILE_SOURCE_ID, &ctx.profile_source.get_untracked()));
+            ctx.status_note.set(
+                "Live mode: the profile source could not be refreshed; the displayed profile may be stale."
+                    .into(),
+            );
+        }
     }
 
     match hc
         .call_zome_default::<(), Vec<MasterKeyView>>("identity_vault", "get_my_keys_view", &())
         .await
     {
-        Ok(keys) => ctx.keys.set(keys),
-        Err(_) => ctx.status_note.set(
-            "Live mode: identity keys could not be refreshed; the displayed key list may be stale."
-                .into(),
-        ),
+        Ok(keys) => {
+            ctx.keys_source.set(SourceObservation::from_successful_read(
+                keys.clone(),
+                source_read_evidence(KEYS_SOURCE_ID),
+            ));
+            ctx.keys.set(keys);
+        }
+        Err(_) => {
+            ctx.keys_source
+                .set(unavailable_from_prior(KEYS_SOURCE_ID, &ctx.keys_source.get_untracked()));
+            ctx.status_note.set(
+                "Live mode: identity keys could not be refreshed; the displayed key list may be stale."
+                    .into(),
+            );
+        }
     }
 }
 
