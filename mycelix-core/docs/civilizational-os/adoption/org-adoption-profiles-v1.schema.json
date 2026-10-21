@@ -10,10 +10,7 @@
     "snapshot_date",
     "claim_ceiling",
     "relationship_status_default",
-    "profiles",
-    "source_evidence_state",
-    "source_snapshot_manifest_sha256",
-    "source_snapshot_required_before_pilot"
+    "profiles"
   ],
   "properties": {
     "schema_version": {
@@ -58,7 +55,10 @@
           "negative_controls",
           "deployment_assumptions",
           "off_ramp",
-          "nonclaims"
+          "nonclaims",
+          "source_evidence_state",
+          "source_snapshot_manifest_sha256",
+          "source_snapshot_required_before_pilot"
         ],
         "properties": {
           "profile_id": {
@@ -198,6 +198,22 @@
               "minLength": 15,
               "maxLength": 300
             }
+          },
+          "source_evidence_state": {
+            "enum": [
+              "reference_links_only",
+              "snapshot_manifest_attached"
+            ]
+          },
+          "source_snapshot_manifest_sha256": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^[0-9a-f]{64}$"
+          },
+          "source_snapshot_required_before_pilot": {
+            "const": true
           }
         },
         "allOf": [
@@ -238,72 +254,59 @@
                 }
               }
             }
+          },
+          {
+            "if": {
+              "properties": {
+                "source_evidence_state": {
+                  "const": "reference_links_only"
+                }
+              },
+              "required": [
+                "source_evidence_state"
+              ]
+            },
+            "then": {
+              "properties": {
+                "source_snapshot_manifest_sha256": {
+                  "const": null
+                },
+                "source_snapshot_required_before_pilot": {
+                  "const": true
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "source_evidence_state": {
+                  "const": "snapshot_manifest_attached"
+                }
+              },
+              "required": [
+                "source_evidence_state"
+              ]
+            },
+            "then": {
+              "properties": {
+                "source_snapshot_manifest_sha256": {
+                  "$ref": "#/$defs/sha256"
+                },
+                "source_snapshot_required_before_pilot": {
+                  "const": true
+                }
+              }
+            }
           }
         ]
       }
-    },
-    "source_evidence_state": {
-      "enum": [
-        "reference_links_only",
-        "snapshot_manifest_attached"
-      ]
-    },
-    "source_snapshot_manifest_sha256": {
-      "type": [
-        "string",
-        "null"
-      ],
-      "pattern": "^[0-9a-f]{64}$"
-    },
-    "source_snapshot_required_before_pilot": {
-      "const": true
     }
   },
-  "$defs": {},
-  "allOf": [
-    {
-      "if": {
-        "properties": {
-          "source_evidence_state": {
-            "const": "reference_links_only"
-          }
-        },
-        "required": [
-          "source_evidence_state"
-        ]
-      },
-      "then": {
-        "properties": {
-          "source_snapshot_manifest_sha256": {
-            "const": null
-          },
-          "source_snapshot_required_before_pilot": {
-            "const": true
-          }
-        }
-      }
-    },
-    {
-      "if": {
-        "properties": {
-          "source_evidence_state": {
-            "const": "snapshot_manifest_attached"
-          }
-        },
-        "required": [
-          "source_evidence_state"
-        ]
-      },
-      "then": {
-        "properties": {
-          "source_snapshot_manifest_sha256": {
-            "$ref": "#/$defs/sha256"
-          },
-          "source_snapshot_required_before_pilot": {
-            "const": true
-          }
-        }
-      }
+  "$defs": {
+    "sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
     }
-  ]
+  }
 }
