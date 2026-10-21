@@ -1321,6 +1321,70 @@ mod tests {
     }
 
     #[test]
+    fn pedbench_seed_corpus_is_versioned_synthetic_and_identity_unique() {
+        let corpus: Value = serde_json::from_str(include_str!(
+            "../../../benchmarks/pedbench-v1/seed-cases.json"
+        ))
+        .expect("PedBench seed corpus must be valid JSON");
+
+        assert_eq!(corpus["schema_version"], 1);
+        assert_eq!(corpus["dataset_id"], "praxis-pedbench-seed-v1");
+        assert_eq!(
+            corpus["status"],
+            "synthetic_seed_cases_not_a_validated_benchmark"
+        );
+        assert!(corpus["privacy"].as_str().unwrap().contains("synthetic"));
+
+        let cases = corpus["cases"]
+            .as_array()
+            .expect("PedBench cases must be an array");
+        assert!(cases.len() >= 6, "seed corpus should exercise multiple domains");
+
+        let mut seen = BTreeSet::new();
+        for case in cases {
+            let case_id = nonempty_string(case.get("case_id"))
+                .expect("each benchmark case must have a stable case_id");
+            assert!(
+                seen.insert(case_id.clone()),
+                "duplicate PedBench case ID: {case_id}"
+            );
+            for key in [
+                "domain",
+                "grade_or_course_level",
+                "language",
+                "objective_ref",
+                "learner_state",
+                "prompt",
+                "response_under_test",
+                "assistance_stage",
+                "expected_behaviours",
+                "prohibited_behaviours",
+                "reference_labels",
+                "severity",
+                "annotation_status",
+            ] {
+                assert!(
+                    case.get(key).is_some(),
+                    "PedBench case {case_id} is missing {key}"
+                );
+            }
+            assert!(
+                case["expected_behaviours"].as_array().is_some_and(|items| !items.is_empty()),
+                "PedBench case {case_id} must include expected behaviours"
+            );
+            assert!(
+                case["prohibited_behaviours"].as_array().is_some_and(|items| !items.is_empty()),
+                "PedBench case {case_id} must include prohibited behaviours"
+            );
+            assert_eq!(
+                case["annotation_status"],
+                "needs_two_independent_educator_reviews",
+                "synthetic seed labels must not be presented as validated gold labels"
+            );
+        }
+    }
+
+    #[test]
     fn extracts_only_json_include_paths() {
         let source = concat!(
             r#"include_str!("a.json"); "#,
