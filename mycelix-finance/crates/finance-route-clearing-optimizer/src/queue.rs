@@ -822,6 +822,23 @@ mod tests {
     }
 
     #[test]
+    fn zero_priority_aging_interval_fails_closed() {
+        let result = simulate_queue(
+            &context(2),
+            &[account("A", 1), account("B", 0)],
+            &[route("r", 1, 2)],
+            &[payment("p", "r", "A", "B", 1, 0, None, 0)],
+            QueuePolicy::AgingPriorityScan { interval_ticks: 0 },
+        );
+        assert_eq!(
+            result,
+            Err(QueueError::InvalidPolicy(
+                "priority aging interval must be greater than zero"
+            ))
+        );
+    }
+
+    #[test]
     fn priority_aging_eventually_serves_an_old_low_priority_payment() {
         let ctx = context(50);
         let accounts = [
