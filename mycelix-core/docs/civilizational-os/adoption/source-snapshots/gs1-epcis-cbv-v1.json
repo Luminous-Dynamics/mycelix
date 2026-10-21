@@ -2,7 +2,7 @@
   "schema_version": "1.0.0",
   "manifest_id": "gs1-epcis-cbv-v1",
   "profile_id": "gs1-epcis-cbv",
-  "captured_at_utc": "2026-10-21T19:21:23Z",
+  "captured_at_utc": "2026-10-21T21:47:10Z",
   "claim_ceiling": "SourceSnapshotOnly",
   "sources": [
     {
@@ -10,7 +10,7 @@
       "source_url": "https://ref.gs1.org/standards/epcis/2.0.1/",
       "source_kind": "official_standard",
       "source_title": "GS1 EPCIS Standard Release 2.0.1",
-      "retrieved_at_utc": "2026-10-21T19:21:23Z",
+      "retrieved_at_utc": "2026-10-21T21:47:10Z",
       "capture_state": "exact_revision_pinned",
       "source_revision": "EPCIS 2.0.1; published 2025-07-01",
       "content_sha256": null,
@@ -18,8 +18,8 @@
       "rights_disposition": "metadata_only",
       "integrity_method": "immutable_source_revision",
       "limitations": [
-        "The versioned GS1 reference URL pins a specific standard revision; this manifest does not copy the normative PDF or artefact bytes.",
-        "Normative schemas and artefacts used by a concrete pilot must be separately listed, rights-reviewed, and pinned to this same release."
+        "Versioned standard reference only; raw PDF bytes are not copied into this manifest.",
+        "The source revision pin does not prove conformance of the Mycelix fixture or adapter."
       ]
     },
     {
@@ -27,7 +27,7 @@
       "source_url": "https://ref.gs1.org/standards/cbv/2.0.0/",
       "source_kind": "official_standard",
       "source_title": "GS1 Core Business Vocabulary Standard Version 2.0.0",
-      "retrieved_at_utc": "2026-10-21T19:21:23Z",
+      "retrieved_at_utc": "2026-10-21T21:47:10Z",
       "capture_state": "exact_revision_pinned",
       "source_revision": "CBV 2.0.0; published 2022-06-22",
       "content_sha256": null,
@@ -35,14 +35,83 @@
       "rights_disposition": "metadata_only",
       "integrity_method": "immutable_source_revision",
       "limitations": [
-        "The versioned GS1 reference URL pins a specific standard revision; this manifest does not copy the normative PDF or artefact bytes.",
-        "Pilot fixture semantics must be validated against the exact normative EPCIS and CBV documents and any selected implementation profile."
+        "Versioned standard reference only; raw PDF bytes are not copied into this manifest.",
+        "The source revision pin does not prove conformance of the Mycelix fixture or adapter."
+      ]
+    },
+    {
+      "source_id": "gs1-epcis-2-0-1-context",
+      "source_url": "https://ref.gs1.org/standards/epcis/2.0.1/epcis-context.jsonld",
+      "source_title": "EPCIS 2.0.1 JSON-LD context",
+      "source_revision": "EPCIS 2.0.1 normative artefact; immutable versioned URL",
+      "source_kind": "official_standard",
+      "retrieved_at_utc": "2026-10-21T21:47:10Z",
+      "capture_state": "exact_revision_pinned",
+      "content_sha256": null,
+      "content_artifact_path": null,
+      "rights_disposition": "metadata_only",
+      "integrity_method": "immutable_source_revision",
+      "limitations": [
+        "Versioned public normative artefact URL is pinned but raw bytes are not copied into this source manifest.",
+        "A conformance run must use the resolved artifact bytes and retain their SHA-256 or another reproducible artifact receipt."
+      ]
+    },
+    {
+      "source_id": "gs1-epcis-2-0-1-json-schema",
+      "source_url": "https://ref.gs1.org/standards/epcis/2.0.1/epcis-json-schema.json",
+      "source_title": "EPCIS 2.0.1 JSON Schema",
+      "source_revision": "EPCIS 2.0.1 normative validation artefact; immutable versioned URL",
+      "source_kind": "official_standard",
+      "retrieved_at_utc": "2026-10-21T21:47:10Z",
+      "capture_state": "exact_revision_pinned",
+      "content_sha256": null,
+      "content_artifact_path": null,
+      "rights_disposition": "metadata_only",
+      "integrity_method": "immutable_source_revision",
+      "limitations": [
+        "Versioned public normative artefact URL is pinned but raw bytes are not copied into this source manifest.",
+        "A conformance run must use the resolved artifact bytes and retain their SHA-256 or another reproducible artifact receipt."
+      ]
+    },
+    {
+      "source_id": "gs1-epcis-2-0-1-shacl",
+      "source_url": "https://ref.gs1.org/standards/epcis/2.0.1/epcis-shacl.ttl",
+      "source_title": "EPCIS 2.0.1 SHACL validation shapes",
+      "source_revision": "EPCIS 2.0.1 normative validation artefact; immutable versioned URL",
+      "source_kind": "official_standard",
+      "retrieved_at_utc": "2026-10-21T21:47:10Z",
+      "capture_state": "exact_revision_pinned",
+      "content_sha256": null,
+      "content_artifact_path": null,
+      "rights_disposition": "metadata_only",
+      "integrity_method": "immutable_source_revision",
+      "limitations": [
+        "Versioned public normative artefact URL is pinned but raw bytes are not copied into this source manifest.",
+        "A conformance run must use the resolved artifact bytes and retain their SHA-256 or another reproducible artifact receipt."
+      ]
+    },
+    {
+      "source_id": "gs1-cbv-2-0-0-ontology-jsonld",
+      "source_url": "https://ref.gs1.org/standards/epcis/2.0.1/cbv-ontology.jsonld",
+      "source_title": "CBV 2.0.0 ontology in JSON-LD",
+      "source_revision": "CBV 2.0.0 normative ontology artefact distributed with EPCIS/CBV 2.0.1 package",
+      "source_kind": "official_standard",
+      "retrieved_at_utc": "2026-10-21T21:47:10Z",
+      "capture_state": "exact_revision_pinned",
+      "content_sha256": null,
+      "content_artifact_path": null,
+      "rights_disposition": "metadata_only",
+      "integrity_method": "immutable_source_revision",
+      "limitations": [
+        "Versioned public normative artefact URL is pinned but raw bytes are not copied into this source manifest.",
+        "A conformance run must use the resolved artifact bytes and retain their SHA-256 or another reproducible artifact receipt."
       ]
     }
   ],
   "nonclaims": [
-    "This manifest pins public GS1 standard revisions only; it does not imply GS1 partnership, endorsement or participation.",
-    "It does not establish that Mycelix conforms to EPCIS/CBV or that any Mycelix adapter has been implemented.",
-    "It does not establish product authenticity, physical delivery, or regulatory compliance."
+    "This manifest pins standard and normative artefact version references only; it does not copy their raw bytes.",
+    "It does not imply GS1 partnership, endorsement, participation or certification.",
+    "It does not establish that Mycelix conforms to EPCIS/CBV or that any Mycelix adapter is implemented.",
+    "It does not establish physical delivery, product authenticity, legal title or regulatory compliance."
   ]
 }
