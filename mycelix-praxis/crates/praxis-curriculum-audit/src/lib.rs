@@ -1149,11 +1149,27 @@ fn audit_lesson_value(asset_path: &str, value: &Value, audit: &mut ContentQualit
                     .trim_end_matches(['.', '!', '?'])
                     .to_owned();
                 if let Some(distractors) = problem.get("distractors").and_then(Value::as_array) {
+                    let mut seen_distractors = BTreeSet::new();
                     for distractor in distractors.iter().filter_map(Value::as_str) {
                         let distractor_key = normalize_content(distractor)
                             .trim_end_matches(['.', '!', '?'])
                             .to_owned();
-                        if !distractor_key.is_empty() && distractor_key == answer_key {
+                        if distractor_key.is_empty() {
+                            continue;
+                        }
+                        if !seen_distractors.insert(distractor_key.clone()) {
+                            audit.findings.push(ContentQualityFinding {
+                                lesson_id: lesson_id.clone(),
+                                asset_path: asset_path.to_owned(),
+                                field: format!("{prefix}.distractors"),
+                                code: "duplicate_distractor".to_owned(),
+                                severity: "warning".to_owned(),
+                                message: format!(
+                                    "The same normalized distractor appears more than once: {distractor:?}"
+                                ),
+                            });
+                        }
+                        if distractor_key == answer_key {
                             audit.findings.push(ContentQualityFinding {
                                 lesson_id: lesson_id.clone(),
                                 asset_path: asset_path.to_owned(),
@@ -2039,7 +2055,7 @@ mod tests {
                     "question": "How many objects are in 3 groups of 2?",
                     "answer": "6",
                     "explanation": "3 × 2 = 6.",
-                    "distractors": ["4", " 6 ", "8"]
+                    "distractors": ["4", " 4 ", " 6 ", "8"]
                 }]
             }
         });
@@ -2049,6 +2065,11 @@ mod tests {
             finding.code == "answer_in_distractors"
                 && finding.field == "lesson.practice_problems[0].distractors"
                 && finding.severity == "blocker"
+        }));
+        assert!(audit.findings.iter().any(|finding| {
+            finding.code == "duplicate_distractor"
+                && finding.field == "lesson.practice_problems[0].distractors"
+                && finding.severity == "warning"
         }));
     }
 
