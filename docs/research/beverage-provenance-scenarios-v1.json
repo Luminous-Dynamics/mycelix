@@ -175,6 +175,51 @@
         "rights_status_reviewed_before_reuse"
       ],
       "claim_ceiling": "Published metrics do not authorize reconstruction or disclosure of confidential underlying batch trajectories."
+    },
+    {
+      "id": "BP-017",
+      "name": "sampling_decision_lacks_auditable_policy_and_data_prefix",
+      "expected_disposition": "REJECT_INTEGRITY",
+      "guards": [
+        "policy_version_and_config_digest_required",
+        "decision_time_and_input_prefix_digest_required",
+        "sample_request_or_deferral_reason_timestamped"
+      ],
+      "claim_ceiling": "A sampling-efficiency claim cannot be traced to a reproducible policy decision without a versioned policy, decision time and declared input prefix."
+    },
+    {
+      "id": "BP-018",
+      "name": "sampling_decision_requests_channel_not_available_at_site",
+      "expected_disposition": "REJECT_INTEGRITY",
+      "guards": [
+        "site_channel_inventory_declared",
+        "requested_channel_must_be_available",
+        "unavailable_measurement_not_counted_as_acquired_evidence"
+      ],
+      "claim_ceiling": "A recommendation to use an unavailable sensor does not constitute a feasible sample or evidence of monitoring improvement."
+    },
+    {
+      "id": "BP-019",
+      "name": "adaptive_deferral_drops_a_required_process_test",
+      "expected_disposition": "REJECT_INTEGRITY",
+      "guards": [
+        "required_tests_due_and_scheduled_are_separately_declared",
+        "every_due_required_test_remains_scheduled",
+        "discretionary_cost_target_cannot_override_safety_floor"
+      ],
+      "claim_ceiling": "Adaptive-sampling policies may defer only discretionary measurements; required process tests remain non-compensatory."
+    },
+    {
+      "id": "BP-020",
+      "name": "fewer_samples_claim_has_no_reference_trajectory_or_event_bound",
+      "expected_disposition": "REGULATORY_CLAIM_INDETERMINATE",
+      "guards": [
+        "dense_reference_or_valid_counterfactual_method_required",
+        "missed_events_false_alarms_and_detection_delay_reported",
+        "assay_cost_and_equal_budget_baseline_declared",
+        "independent_batch_uncertainty_reported"
+      ],
+      "claim_ceiling": "A lower sample count alone does not prove preserved detection, quality, safety, or operational value."
     }
   ]
 }
