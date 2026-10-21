@@ -1268,7 +1268,13 @@ fn audit_lesson_value(asset_path: &str, value: &Value, audit: &mut ContentQualit
             for key in ["question", "correct_answer", "hint", "rubric"] {
                 let field = format!("assessment.items[{index}].{key}");
                 if matches!(key, "question" | "correct_answer") {
-                    add_required_text_finding(audit, &lesson_id, asset_path, &field, item.get(key));
+                    add_required_text_finding(
+                        audit,
+                        &lesson_id,
+                        asset_path,
+                        &field,
+                        item.get(key),
+                    );
                 } else {
                     add_text_finding(audit, &lesson_id, asset_path, &field, item.get(key));
                 }
@@ -1846,7 +1852,11 @@ mod tests {
             assert!(
                 sota_gate["then"]["required"]
                     .as_array()
-                    .is_some_and(|fields| fields.iter().any(|candidate| candidate.as_str() == Some(field))),
+                    .is_some_and(|fields| {
+                        fields
+                            .iter()
+                            .any(|candidate| candidate.as_str() == Some(field))
+                    }),
                 "SOTA gate must require {field}"
             );
         }
@@ -1865,11 +1875,17 @@ mod tests {
             sota_gate
                 .pointer("/then/properties/aggregate_metrics/items/required")
                 .and_then(Value::as_array)
-                .is_some_and(|fields| fields.iter().any(|field| field.as_str() == Some("confidence_interval_95"))),
+                .is_some_and(|fields| {
+                    fields
+                        .iter()
+                        .any(|field| field.as_str() == Some("confidence_interval_95"))
+                }),
             "strong claims must include confidence intervals"
         );
         assert_eq!(
-            sota_gate.pointer("/then/properties/aggregate_metrics/items/properties/paired_comparison/const"),
+            sota_gate.pointer(
+                "/then/properties/aggregate_metrics/items/properties/paired_comparison/const"
+            ),
             Some(&Value::Bool(true)),
             "strong claims must use paired comparisons"
         );
