@@ -828,7 +828,13 @@ pub async fn protect_existing_identity(
     // Keep a short-lived rollback value in memory only until the final state
     // has been checked. It is zeroized on either exit path.
     let mut plaintext_value = base64_encode(signing_key.as_bytes());
-    if storage.remove_item(IDENTITY_SECRET_KEY).is_err() {
+    if remove_storage_item_if_matches(
+        &storage,
+        IDENTITY_SECRET_KEY,
+        &plaintext_value,
+    )
+    .is_err()
+    {
         // Do not remove the encrypted envelope just because removeItem returned
         // an error: some runtimes can make the resulting state ambiguous. If
         // plaintext is still present, we may clean up our own envelope. If the
