@@ -204,7 +204,6 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     for scenario in Scenario::ALL {
         let (problem, mut base_config) = make_case(scenario)?;
-        let baseline = replay_stream(&problem, &base_config, OnlineBatchStrategy::Fifo)?;
         for batch_size in [1_usize, 8, 32] {
             for max_wait in [0_u64, 2, 10] {
                 for strategy in [
