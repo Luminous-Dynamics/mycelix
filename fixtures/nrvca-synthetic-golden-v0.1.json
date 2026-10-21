@@ -196,7 +196,7 @@
     },
     {
       "event_id": "debt-revaluation-001",
-      "event_class": "asset_revaluation",
+      "event_class": "liability_revaluation",
       "amount": 5,
       "unit": "ZAR_million",
       "currency": "ZAR",
@@ -204,7 +204,7 @@
       "source_refs": [
         "synthetic-sna-v01"
       ],
-      "notes": "Synthetic liability revaluation for the debt stock-flow account; not current production."
+      "notes": "Synthetic financial-liability revaluation for the debt stock-flow account; not current production."
     }
   ],
   "outcome_vector": [
@@ -542,7 +542,7 @@
         },
         {
           "change_id": "debt-revaluation",
-          "change_class": "revaluation",
+          "change_class": "liability_revaluation",
           "signed_change": 5,
           "source_event_id": "debt-revaluation-001",
           "source_refs": [
