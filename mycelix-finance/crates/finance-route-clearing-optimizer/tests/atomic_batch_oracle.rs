@@ -8,6 +8,7 @@ fn context() -> BatchContext {
     BatchContext {
         rail_id: "oracle-rail".into(),
         asset_id: "oracle-asset".into(),
+        netting_set_id: "oracle-set".into(),
         policy_version: "batch-oracle-v1".into(),
         tick: 0,
         authority: AuthorityQualification::ExternallyQualified {
@@ -33,6 +34,7 @@ fn route(
         route_id: id.into(),
         rail_id: "oracle-rail".into(),
         asset_id: "oracle-asset".into(),
+        netting_set_id: "oracle-set".into(),
         policy_version: "batch-oracle-v1".into(),
         enabled: true,
         remaining_capacity_minor: capacity_minor,
@@ -53,6 +55,7 @@ fn payment(
         payment_id: id.into(),
         rail_id: "oracle-rail".into(),
         asset_id: "oracle-asset".into(),
+        netting_set_id: "oracle-set".into(),
         policy_version: "batch-oracle-v1".into(),
         route_id: route_id.into(),
         from: from.into(),
