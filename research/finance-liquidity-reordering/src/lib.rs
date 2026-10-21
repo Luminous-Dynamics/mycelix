@@ -524,6 +524,77 @@ pub fn simulated_annealing(
     })
 }
 
+/// Evaluate a bounded portfolio of complementary heuristics and return the best plan.
+///
+/// The portfolio always considers input order, receiver-ready greedy, insertion search,
+/// and seeded simulated annealing. Its wall-clock cost is necessarily higher than a
+/// single baseline; compare solution quality and runtime separately. This is a candidate
+/// for an algorithm portfolio, not a claim that feature-based algorithm selection is
+/// already trained or validated.
+pub fn heuristic_portfolio(
+    problem: &Problem,
+    insertion_candidate_budget: usize,
+    annealing_seed: u64,
+    annealing_iterations: usize,
+) -> Result<SearchResult, ReorderError> {
+    let fifo = input_order(problem)?;
+    let greedy = receiver_ready_greedy(problem)?;
+    let mut total_evaluations = fifo
+        .candidate_evaluations
+        .checked_add(greedy.candidate_evaluations)
+        .ok_or(ReorderError::ArithmeticOverflow)?;
+
+    let mut best = if plan_is_better(
+        problem,
+        &greedy.order,
+        &greedy.evaluation,
+        &fifo.order,
+        &fifo.evaluation,
+    ) {
+        greedy
+    } else {
+        fifo
+    };
+
+    let local = bounded_insertion_search(problem, &best.order, insertion_candidate_budget)?;
+    total_evaluations = total_evaluations
+        .checked_add(local.candidate_evaluations)
+        .ok_or(ReorderError::ArithmeticOverflow)?;
+    if plan_is_better(
+        problem,
+        &local.order,
+        &local.evaluation,
+        &best.order,
+        &best.evaluation,
+    ) {
+        best.order = local.order;
+        best.evaluation = local.evaluation;
+    }
+
+    let annealed = simulated_annealing(
+        problem,
+        &best.order,
+        annealing_seed,
+        annealing_iterations,
+    )?;
+    total_evaluations = total_evaluations
+        .checked_add(annealed.candidate_evaluations)
+        .ok_or(ReorderError::ArithmeticOverflow)?;
+    if plan_is_better(
+        problem,
+        &annealed.order,
+        &annealed.evaluation,
+        &best.order,
+        &best.evaluation,
+    ) {
+        best.order = annealed.order;
+        best.evaluation = annealed.evaluation;
+    }
+
+    best.candidate_evaluations = total_evaluations;
+    Ok(best)
+}
+
 /// Exhaustive permutation oracle for tiny batches. The input order is not assumed to be
 /// good. This function fails closed above eight payments instead of implying optimality.
 pub fn exact_permutation_oracle(problem: &Problem) -> Result<SearchResult, ReorderError> {
