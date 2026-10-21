@@ -1794,6 +1794,91 @@ mod tests {
     }
 
     #[test]
+    fn learner_mastery_schema_requires_unaided_transfer_and_delayed_retention() {
+        let schema: Value = serde_json::from_str(include_str!(
+            "../../../schemas/learner-mastery-evidence-v1.schema.json"
+        ))
+        .expect("learner mastery evidence schema must be valid JSON");
+
+        assert_eq!(
+            schema["$schema"],
+            "https://json-schema.org/draft/2020-12/schema"
+        );
+        assert_eq!(schema["properties"]["schema_version"]["const"], 1);
+        assert_eq!(
+            schema["properties"]["mastery_state"]["enum"]
+                .as_array()
+                .unwrap()
+                .len(),
+            6
+        );
+        assert!(
+            schema["properties"]["learner_ref"]["description"]
+                .as_str()
+                .is_some_and(|description| description.contains("private pseudonym"))
+        );
+
+        let conditions = schema["allOf"]
+            .as_array()
+            .expect("mastery states need conditional evidence gates");
+        let mastered = conditions
+            .iter()
+            .find(|condition| {
+                condition
+                    .pointer("/if/properties/mastery_state/const")
+                    .and_then(Value::as_str)
+                    == Some("mastered")
+            })
+            .expect("mastered state needs a conditional gate");
+        assert_eq!(
+            mastered.pointer("/then/properties/evidence/minItems"),
+            Some(&Value::Number(3.into()))
+        );
+
+        let evidence_rules = mastered
+            .pointer("/then/properties/evidence/allOf")
+            .and_then(Value::as_array)
+            .expect("mastered state must require distinct evidence types");
+        assert!(
+            evidence_rules.iter().any(|rule| {
+                rule.pointer("/contains/properties/assessment_type/enum")
+                    .and_then(Value::as_array)
+                    .is_some_and(|kinds| {
+                        kinds.iter().any(|kind| kind.as_str() == Some("near_transfer"))
+                            || kinds.iter().any(|kind| kind.as_str() == Some("far_transfer"))
+                    })
+                    && rule.pointer("/contains/properties/assistance_level/const")
+                        == Some(&Value::String("unaided".to_owned()))
+                    && rule.pointer("/contains/properties/independent_assessment/const")
+                        == Some(&Value::Bool(true))
+            }),
+            "mastery requires an independent unaided transfer observation"
+        );
+        assert!(
+            evidence_rules.iter().any(|rule| {
+                rule.pointer("/contains/properties/assessment_type/const")
+                    == Some(&Value::String("delayed_retention".to_owned()))
+                    && rule.pointer("/contains/properties/assistance_level/const")
+                        == Some(&Value::String("unaided".to_owned()))
+                    && rule.pointer("/contains/properties/independent_assessment/const")
+                        == Some(&Value::Bool(true))
+                    && rule.pointer("/contains/properties/delay_days/minimum")
+                        == Some(&Value::Number(1.into()))
+            }),
+            "mastery requires an independent delayed-retention observation"
+        );
+        assert!(
+            mastered["then"]["required"]
+                .as_array()
+                .is_some_and(|fields| {
+                    fields.iter().any(|field| field.as_str() == Some("decision_rationale"))
+                        && fields.iter().any(|field| field.as_str() == Some("next_review_due"))
+                }),
+            "mastery decisions require rationale and scheduled review"
+        );
+    }
+
+    #[test]
     fn pedbench_run_receipt_requires_reproducible_inputs_and_sota_evidence() {
         let schema: Value = serde_json::from_str(include_str!(
             "../../../benchmarks/pedbench-v1/run-receipt.schema.json"
