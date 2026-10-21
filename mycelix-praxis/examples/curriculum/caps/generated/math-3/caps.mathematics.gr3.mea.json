@@ -152,7 +152,7 @@
         "explanation": "Area measures coverage; perimeter measures the boundary, so the measurements can differ independently.",
         "distractors": [
           "No, area and perimeter must always be equal.",
-          "Yes, they measure different properties.",
+          "This is possible only when one shape is larger than the other.",
           "Only for circles."
         ]
       },
@@ -166,9 +166,9 @@
         ],
         "explanation": "The sides must add as 2 × (length + width) = 16 cm.",
         "distractors": [
-          "For example, 3 cm by 5 cm, area 15 cm².",
+          "A rectangle 3 cm by 5 cm has perimeter 15 cm and area 16 square cm.",
           "A side length must be 16 cm.",
-          "The area must be 16 cm² in every case."
+          "The area must be 16 square cm in every case."
         ]
       }
     ],
