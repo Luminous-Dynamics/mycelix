@@ -13,7 +13,12 @@ fn p(id: &str, from: usize, to: usize, amount_minor: u64) -> Payment {
     }
 }
 
-fn cfg(releases: Vec<u64>, deadlines: Vec<u64>, batch_size: usize, wait: u64) -> StreamReplayConfig {
+fn cfg(
+    releases: Vec<u64>,
+    deadlines: Vec<u64>,
+    batch_size: usize,
+    wait: u64,
+) -> StreamReplayConfig {
     StreamReplayConfig {
         release_ticks: releases,
         deadline_ticks: deadlines,
