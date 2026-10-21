@@ -395,6 +395,142 @@ impl OracleState {
     }
 }
 
+fn validate_update_oracle_state(
+    action: Update,
+    state: OracleState,
+) -> ExternResult<ValidateCallbackResult> {
+    if state.vitality > 100 {
+        return Ok(ValidateCallbackResult::Invalid("Vitality must be 0-100".into()));
+    }
+    if state.tier != OracleState::tier_from_vitality(state.vitality) {
+        return Ok(ValidateCallbackResult::Invalid(
+            "OracleState tier must equal the deterministic tier derived from vitality".into(),
+        ));
+    }
+    let original_record = must_get_valid_record(action.original_action_address.clone())?;
+    let original = original_record.entry().to_app_option::<OracleState>().map_err(|e| {
+        wasm_error!(WasmErrorInner::Guest(format!(
+            "Failed to decode original OracleState predecessor: {e:?}"
+        )))
+    })?.ok_or_else(|| {
+        wasm_error!(WasmErrorInner::Guest(
+            "Original OracleState predecessor is not an OracleState entry".into(),
+        ))
+    })?;
+    if state.updated_at < original.updated_at {
+        return Ok(ValidateCallbackResult::Invalid(
+            "OracleState updated_at cannot move backwards".into(),
+        ));
+    }
+    Ok(ValidateCallbackResult::Valid)
+}
+
+fn validate_update_bilateral_balance(
+    action: Update,
+    bal: BilateralBalance,
+) -> ExternResult<ValidateCallbackResult> {
+    let original_record = must_get_valid_record(action.original_action_address.clone())?;
+    let original = original_record.entry().to_app_option::<BilateralBalance>().map_err(|e| {
+        wasm_error!(WasmErrorInner::Guest(format!(
+            "Failed to decode original BilateralBalance predecessor: {e:?}"
+        )))
+    })?.ok_or_else(|| {
+        wasm_error!(WasmErrorInner::Guest(
+            "Original bilateral balance predecessor is not a BilateralBalance entry".into(),
+        ))
+    })?;
+    if original.dao_a_did != bal.dao_a_did || original.dao_b_did != bal.dao_b_did {
+        return Ok(ValidateCallbackResult::Invalid(
+            "BilateralBalance DAO identities are immutable across updates".into(),
+        ));
+    }
+    if bal.dao_a_did >= bal.dao_b_did {
+        return Ok(ValidateCallbackResult::Invalid(
+            "BilateralBalance DAO ordering must remain canonical".into(),
+        ));
+    }
+    if bal.total_exchanges < original.total_exchanges
+        || bal.last_settled_at < original.last_settled_at
+        || bal.last_updated_at < original.last_updated_at
+    {
+        return Ok(ValidateCallbackResult::Invalid(
+            "BilateralBalance counters and timestamps cannot move backwards".into(),
+        ));
+    }
+    Ok(ValidateCallbackResult::Valid)
+}
+
+fn validate_update_currency_alias(
+    action: Update,
+    alias: CurrencyAliasEntry,
+) -> ExternResult<ValidateCallbackResult> {
+    if alias.dao_did.is_empty() || alias.alias_name.is_empty() || alias.alias_name.len() > MAX_CULTURAL_ALIAS_LEN {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Currency alias identity is invalid".into(),
+        ));
+    }
+    let original_record = must_get_valid_record(action.original_action_address.clone())?;
+    let original = original_record.entry().to_app_option::<CurrencyAliasEntry>().map_err(|e| {
+        wasm_error!(WasmErrorInner::Guest(format!(
+            "Failed to decode original CurrencyAliasEntry predecessor: {e:?}"
+        )))
+    })?.ok_or_else(|| {
+        wasm_error!(WasmErrorInner::Guest(
+            "Original CurrencyAliasEntry predecessor is not a CurrencyAliasEntry entry".into(),
+        ))
+    })?;
+    if original.dao_did != alias.dao_did
+        || original.base_currency != alias.base_currency
+        || original.created_at != alias.created_at
+    {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Currency alias scope and provenance are immutable across updates".into(),
+        ));
+    }
+    Ok(ValidateCallbackResult::Valid)
+}
+
+fn validate_update_pending_balance_adjustment(
+    action: Update,
+    adj: PendingBalanceAdjustment,
+) -> ExternResult<ValidateCallbackResult> {
+    if !adj.hours.is_finite() || adj.hours <= 0.0 {
+        return Ok(ValidateCallbackResult::Invalid(
+            "PendingBalanceAdjustment hours must be finite and positive".into(),
+        ));
+    }
+    let original_record = must_get_valid_record(action.original_action_address.clone())?;
+    let original = original_record.entry().to_app_option::<PendingBalanceAdjustment>().map_err(|e| {
+        wasm_error!(WasmErrorInner::Guest(format!(
+            "Failed to decode original PendingBalanceAdjustment predecessor: {e:?}"
+        )))
+    })?.ok_or_else(|| {
+        wasm_error!(WasmErrorInner::Guest(
+            "Original PendingBalanceAdjustment predecessor is not a PendingBalanceAdjustment entry".into(),
+        ))
+    })?;
+    if original.exchange_id != adj.exchange_id
+        || original.provider_did != adj.provider_did
+        || original.receiver_did != adj.receiver_did
+        || original.hours != adj.hours
+        || original.currency_id != adj.currency_id
+        || original.created_at != adj.created_at
+    {
+        return Ok(ValidateCallbackResult::Invalid(
+            "PendingBalanceAdjustment identity and amount are immutable across updates".into(),
+        ));
+    }
+    if (!original.provider_completed && !adj.provider_completed && original.provider_completed != adj.provider_completed)
+        || (original.provider_completed && !adj.provider_completed)
+        || (original.receiver_completed && !adj.receiver_completed)
+    {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Pending balance adjustment completion flags may only move from false to true".into(),
+        ));
+    }
+    Ok(ValidateCallbackResult::Valid)
+}
+
 // =============================================================================
 // HEARTH-SCOPED TEND (Phase 2: lightweight sub-ledgers for family units)
 // =============================================================================
@@ -704,33 +840,15 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
                     EntryTypes::DisputeCase(dispute) => {
                         validate_update_dispute_case(action, dispute)
                     }
-                    EntryTypes::OracleState(state) => {
-                        if state.vitality > 100 {
-                            Ok(ValidateCallbackResult::Invalid(
-                                "Vitality must be 0-100".into(),
-                            ))
-                        } else {
-                            Ok(ValidateCallbackResult::Valid)
-                        }
-                    }
-                    EntryTypes::BilateralBalance(_) => Ok(ValidateCallbackResult::Valid),
+                    EntryTypes::OracleState(state) => validate_update_oracle_state(action, state),
+                    EntryTypes::BilateralBalance(bal) => validate_update_bilateral_balance(action, bal),
                     EntryTypes::BilateralSettlement(settlement) => {
-                        validate_update_bilateral_settlement(settlement)
+                        validate_update_bilateral_settlement(action, settlement)
                     }
-                    EntryTypes::HearthTendBalance(bal) => validate_update_hearth_balance(bal),
-                    EntryTypes::CurrencyAliasEntry(_) => {
-                        // Aliases can be updated (e.g., change display name)
-                        Ok(ValidateCallbackResult::Valid)
-                    }
+                    EntryTypes::HearthTendBalance(bal) => validate_update_hearth_balance(action, bal),
+                    EntryTypes::CurrencyAliasEntry(alias) => validate_update_currency_alias(action, alias),
                     EntryTypes::PendingBalanceAdjustment(adj) => {
-                        // Only completed flags can change; hours must stay valid
-                        if !adj.hours.is_finite() || adj.hours <= 0.0 {
-                            Ok(ValidateCallbackResult::Invalid(
-                                "PendingBalanceAdjustment hours must be finite and positive".into(),
-                            ))
-                        } else {
-                            Ok(ValidateCallbackResult::Valid)
-                        }
+                        validate_update_pending_balance_adjustment(action, adj)
                     }
                     // Anchors cannot be updated
                     EntryTypes::Anchor(_) => Ok(ValidateCallbackResult::Invalid(
@@ -862,36 +980,50 @@ fn validate_update_exchange(
     action: Update,
     exchange: TendExchange,
 ) -> ExternResult<ValidateCallbackResult> {
-    // Only status can change (Proposed -> Confirmed/Disputed/Cancelled)
-    // Core data (provider, receiver, hours) cannot change
     if !exchange.hours.is_finite() || exchange.hours <= 0.0 {
         return Ok(ValidateCallbackResult::Invalid(
             "Hours must be a finite positive number".into(),
         ));
     }
 
-    // Enforce status transition rules and immutable field invariants
-    if let Ok(original_record) = must_get_valid_record(action.original_action_address) {
-        if let Ok(Some(original)) = original_record.entry().to_app_option::<TendExchange>() {
-            // Status transitions must follow the state machine
-            if original.status != exchange.status
-                && !original.status.can_transition_to(&exchange.status)
-            {
-                return Ok(ValidateCallbackResult::Invalid(format!(
-                    "Invalid exchange status transition: {:?} → {:?}",
-                    original.status, exchange.status
-                )));
-            }
-            // Core fields are immutable after creation
-            if original.provider_did != exchange.provider_did
-                || original.receiver_did != exchange.receiver_did
-                || original.hours != exchange.hours
-            {
-                return Ok(ValidateCallbackResult::Invalid(
-                    "Cannot change provider, receiver, or hours on an existing exchange".into(),
-                ));
-            }
-        }
+    let original_record = must_get_valid_record(action.original_action_address.clone())?;
+    let original = original_record
+        .entry()
+        .to_app_option::<TendExchange>()
+        .map_err(|e| {
+            wasm_error!(WasmErrorInner::Guest(format!(
+                "Failed to decode original TendExchange predecessor: {e:?}"
+            )))
+        })?
+        .ok_or_else(|| {
+            wasm_error!(WasmErrorInner::Guest(
+                "Original TEND exchange predecessor is not a TendExchange entry".into(),
+            ))
+        })?;
+
+    if original.status != exchange.status
+        && !original.status.can_transition_to(&exchange.status)
+    {
+        return Ok(ValidateCallbackResult::Invalid(format!(
+            "Invalid exchange status transition: {:?} → {:?}",
+            original.status, exchange.status
+        )));
+    }
+
+    if original.id != exchange.id
+        || original.provider_did != exchange.provider_did
+        || original.receiver_did != exchange.receiver_did
+        || original.hours != exchange.hours
+        || original.service_description != exchange.service_description
+        || original.service_category != exchange.service_category
+        || original.cultural_alias != exchange.cultural_alias
+        || original.dao_did != exchange.dao_did
+        || original.timestamp != exchange.timestamp
+        || original.service_date != exchange.service_date
+    {
+        return Ok(ValidateCallbackResult::Invalid(
+            "TEND exchange identity and economic/service terms are immutable across updates".into(),
+        ));
     }
 
     Ok(ValidateCallbackResult::Valid)
@@ -939,25 +1071,47 @@ fn validate_create_balance(
 }
 
 fn validate_update_balance(
-    _action: Update,
+    action: Update,
     balance: TendBalance,
 ) -> ExternResult<ValidateCallbackResult> {
-    // Float fields must be finite
+    let original_record = must_get_valid_record(action.original_action_address.clone())?;
+    let original = original_record.entry().to_app_option::<TendBalance>().map_err(|e| {
+        wasm_error!(WasmErrorInner::Guest(format!(
+            "Failed to decode original TendBalance predecessor: {e:?}"
+        )))
+    })?.ok_or_else(|| {
+        wasm_error!(WasmErrorInner::Guest(
+            "Original TEND balance predecessor is not a TendBalance entry".into(),
+        ))
+    })?;
+
+    if original.member_did != balance.member_did || original.dao_did != balance.dao_did {
+        return Ok(ValidateCallbackResult::Invalid(
+            "TEND balance identity is immutable across updates".into(),
+        ));
+    }
     if !balance.total_provided.is_finite() || !balance.total_received.is_finite() {
         return Ok(ValidateCallbackResult::Invalid(
             "total_provided and total_received must be finite numbers".into(),
         ));
     }
-    // Constitutional maximum — coordinator enforces dynamic limit
     if balance.balance.abs() > BALANCE_LIMIT_EMERGENCY {
         return Ok(ValidateCallbackResult::Invalid(format!(
             "Balance would exceed constitutional maximum of ±{}",
             BALANCE_LIMIT_EMERGENCY
         )));
     }
+    if balance.total_provided < original.total_provided
+        || balance.total_received < original.total_received
+        || balance.exchange_count < original.exchange_count
+        || balance.last_activity < original.last_activity
+    {
+        return Ok(ValidateCallbackResult::Invalid(
+            "TEND balance lifetime counters and timestamps cannot move backwards".into(),
+        ));
+    }
     Ok(ValidateCallbackResult::Valid)
 }
-
 fn validate_create_listing(
     action: EntryCreationAction,
     listing: ServiceListing,
@@ -1023,12 +1177,35 @@ fn validate_create_listing(
 }
 
 fn validate_update_listing(
-    _action: Update,
-    _listing: ServiceListing,
+    action: Update,
+    listing: ServiceListing,
 ) -> ExternResult<ValidateCallbackResult> {
+    let original_record = must_get_valid_record(action.original_action_address.clone())?;
+    let original = original_record.entry().to_app_option::<ServiceListing>().map_err(|e| {
+        wasm_error!(WasmErrorInner::Guest(format!(
+            "Failed to decode original ServiceListing predecessor: {e:?}"
+        )))
+    })?.ok_or_else(|| {
+        wasm_error!(WasmErrorInner::Guest(
+            "Original service-listing predecessor is not a ServiceListing entry".into(),
+        ))
+    })?;
+    if original.id != listing.id
+        || original.provider_did != listing.provider_did
+        || original.dao_did != listing.dao_did
+        || original.created != listing.created
+    {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Service listing identity and provenance are immutable across updates".into(),
+        ));
+    }
+    if listing.provider_did != did_for_author(&action.author) {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Service listing updates must be authored by the provider".into(),
+        ));
+    }
     Ok(ValidateCallbackResult::Valid)
 }
-
 fn validate_create_request(
     action: EntryCreationAction,
     request: ServiceRequest,
@@ -1087,12 +1264,35 @@ fn validate_create_request(
 }
 
 fn validate_update_request(
-    _action: Update,
-    _request: ServiceRequest,
+    action: Update,
+    request: ServiceRequest,
 ) -> ExternResult<ValidateCallbackResult> {
+    let original_record = must_get_valid_record(action.original_action_address.clone())?;
+    let original = original_record.entry().to_app_option::<ServiceRequest>().map_err(|e| {
+        wasm_error!(WasmErrorInner::Guest(format!(
+            "Failed to decode original ServiceRequest predecessor: {e:?}"
+        )))
+    })?.ok_or_else(|| {
+        wasm_error!(WasmErrorInner::Guest(
+            "Original service-request predecessor is not a ServiceRequest entry".into(),
+        ))
+    })?;
+    if original.id != request.id
+        || original.requester_did != request.requester_did
+        || original.dao_did != request.dao_did
+        || original.created != request.created
+    {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Service request identity and provenance are immutable across updates".into(),
+        ));
+    }
+    if request.requester_did != did_for_author(&action.author) {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Service request updates must be authored by the requester".into(),
+        ));
+    }
     Ok(ValidateCallbackResult::Valid)
 }
-
 fn validate_create_quality_rating(
     action: EntryCreationAction,
     rating: QualityRating,
@@ -1335,46 +1535,61 @@ fn validate_create_bilateral_settlement(
 }
 
 fn validate_update_bilateral_settlement(
+    action: Update,
     settlement: BilateralSettlement,
 ) -> ExternResult<ValidateCallbackResult> {
-    // Amount must remain positive
     if settlement.amount <= 0 {
         return Ok(ValidateCallbackResult::Invalid(
             "Settlement amount must be positive".into(),
         ));
     }
-
-    // Only Completed and Failed are valid terminal statuses for updates.
-    // Pending -> Completed and Pending -> Failed are the only valid transitions,
-    // but we cannot access the original entry in integrity validation (no DHT reads),
-    // so we validate that the status is a valid terminal state.
-    match settlement.status {
-        SettlementStatus::Completed | SettlementStatus::Failed => {
-            // Valid terminal states
-        }
-        SettlementStatus::Pending => {
-            // Updating to Pending is not a valid transition (already starts Pending)
-            return Ok(ValidateCallbackResult::Invalid(
-                "Cannot update settlement to Pending status (already starts Pending)".into(),
-            ));
-        }
-    }
-
-    // DIDs must remain valid
-    if !settlement.debtor_dao_did.starts_with("did:") {
+    let original_record = must_get_valid_record(action.original_action_address.clone())?;
+    let original = original_record.entry().to_app_option::<BilateralSettlement>().map_err(|e| {
+        wasm_error!(WasmErrorInner::Guest(format!(
+            "Failed to decode original BilateralSettlement predecessor: {e:?}"
+        )))
+    })?.ok_or_else(|| {
+        wasm_error!(WasmErrorInner::Guest(
+            "Original settlement predecessor is not a BilateralSettlement entry".into(),
+        ))
+    })?;
+    if original.id != settlement.id
+        || original.debtor_dao_did != settlement.debtor_dao_did
+        || original.creditor_dao_did != settlement.creditor_dao_did
+        || original.amount != settlement.amount
+        || original.created_at != settlement.created_at
+    {
         return Ok(ValidateCallbackResult::Invalid(
-            "Debtor DAO DID must be a valid DID".into(),
+            "Bilateral settlement identity and amount are immutable across updates".into(),
         ));
     }
-    if !settlement.creditor_dao_did.starts_with("did:") {
+    match (&original.status, &settlement.status) {
+        (SettlementStatus::Pending, SettlementStatus::Pending)
+        | (SettlementStatus::Pending, SettlementStatus::Completed)
+        | (SettlementStatus::Pending, SettlementStatus::Failed)
+        | (SettlementStatus::Completed, SettlementStatus::Completed)
+        | (SettlementStatus::Failed, SettlementStatus::Failed) => {}
+        _ => return Ok(ValidateCallbackResult::Invalid(
+            "Invalid bilateral settlement status transition".into(),
+        )),
+    }
+    if original.completed_at.is_some() && original.completed_at != settlement.completed_at {
         return Ok(ValidateCallbackResult::Invalid(
-            "Creditor DAO DID must be a valid DID".into(),
+            "Settlement completion timestamp is immutable after completion".into(),
         ));
     }
-
+    if settlement.status == SettlementStatus::Completed && settlement.completed_at.is_none() {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Completed settlement must record completed_at".into(),
+        ));
+    }
+    if settlement.status == SettlementStatus::Failed && settlement.completed_at.is_none() {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Failed settlement must record completed_at".into(),
+        ));
+    }
     Ok(ValidateCallbackResult::Valid)
 }
-
 fn validate_create_hearth_balance(bal: HearthTendBalance) -> ExternResult<ValidateCallbackResult> {
     if bal.member_did.len() > MAX_DID_LEN || bal.hearth_did.len() > MAX_DID_LEN {
         return Ok(ValidateCallbackResult::Invalid(
@@ -1401,16 +1616,47 @@ fn validate_create_hearth_balance(bal: HearthTendBalance) -> ExternResult<Valida
     Ok(ValidateCallbackResult::Valid)
 }
 
-fn validate_update_hearth_balance(bal: HearthTendBalance) -> ExternResult<ValidateCallbackResult> {
+fn validate_update_hearth_balance(
+    action: Update,
+    bal: HearthTendBalance,
+) -> ExternResult<ValidateCallbackResult> {
+    let original_record = must_get_valid_record(action.original_action_address.clone())?;
+    let original = original_record.entry().to_app_option::<HearthTendBalance>().map_err(|e| {
+        wasm_error!(WasmErrorInner::Guest(format!(
+            "Failed to decode original HearthTendBalance predecessor: {e:?}"
+        )))
+    })?.ok_or_else(|| {
+        wasm_error!(WasmErrorInner::Guest(
+            "Original hearth balance predecessor is not a HearthTendBalance entry".into(),
+        ))
+    })?;
+    if original.member_did != bal.member_did || original.hearth_did != bal.hearth_did {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Hearth TEND balance identity is immutable across updates".into(),
+        ));
+    }
     if bal.balance.abs() > HEARTH_TEND_CREDIT_LIMIT {
         return Ok(ValidateCallbackResult::Invalid(format!(
             "Hearth TEND balance would exceed limit of ±{}",
             HEARTH_TEND_CREDIT_LIMIT
         )));
     }
+    if !bal.total_provided.is_finite() || !bal.total_received.is_finite() {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Hearth TEND lifetime totals must be finite".into(),
+        ));
+    }
+    if bal.total_provided < original.total_provided
+        || bal.total_received < original.total_received
+        || bal.exchange_count < original.exchange_count
+        || bal.last_activity < original.last_activity
+    {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Hearth TEND counters and timestamps cannot move backwards".into(),
+        ));
+    }
     Ok(ValidateCallbackResult::Valid)
 }
-
 fn validate_create_currency_alias(
     alias: CurrencyAliasEntry,
 ) -> ExternResult<ValidateCallbackResult> {
@@ -1490,6 +1736,61 @@ fn validate_create_pending_balance_adjustment(
 }
 
 fn validate_update_dispute_case(
+    action: Update,
+    dispute: DisputeCase,
+) -> ExternResult<ValidateCallbackResult> {
+    let original_record = must_get_valid_record(action.original_action_address.clone())?;
+    let original = original_record.entry().to_app_option::<DisputeCase>().map_err(|e| {
+        wasm_error!(WasmErrorInner::Guest(format!(
+            "Failed to decode original DisputeCase predecessor: {e:?}"
+        )))
+    })?.ok_or_else(|| {
+        wasm_error!(WasmErrorInner::Guest(
+            "Original dispute predecessor is not a DisputeCase entry".into(),
+        ))
+    })?;
+    if original.id != dispute.id
+        || original.exchange_id != dispute.exchange_id
+        || original.complainant_did != dispute.complainant_did
+        || original.respondent_did != dispute.respondent_did
+        || original.description != dispute.description
+        || original.opened_at != dispute.opened_at
+    {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Dispute identity and provenance are immutable across updates".into(),
+        ));
+    }
+    for mediator_did in &dispute.mediator_dids {
+        if !mediator_did.starts_with("did:") {
+            return Ok(ValidateCallbackResult::Invalid(
+                "All mediator DIDs must be valid".into(),
+            ));
+        }
+    }
+    if dispute.mediator_dids.len() < original.mediator_dids.len()
+        || !original.mediator_dids.iter().all(|m| dispute.mediator_dids.contains(m))
+    {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Dispute mediator set is append-only".into(),
+        ));
+    }
+    if dispute.stage == DisputeStage::MediationPanel && dispute.mediator_dids.len() != 3 {
+        return Ok(ValidateCallbackResult::Invalid(
+            "MediationPanel stage requires exactly 3 mediators".into(),
+        ));
+    }
+    if dispute.description.is_empty() {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Dispute description is required".into(),
+        ));
+    }
+    if original.resolved_at.is_some() && original.resolved_at != dispute.resolved_at {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Resolved timestamp is immutable after resolution".into(),
+        ));
+    }
+    Ok(ValidateCallbackResult::Valid)
+}te_update_dispute_case(
     _action: Update,
     dispute: DisputeCase,
 ) -> ExternResult<ValidateCallbackResult> {

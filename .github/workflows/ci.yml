@@ -205,6 +205,16 @@ jobs:
       - name: Test finance
         run: cd mycelix-finance && cargo test --workspace
 
+  finance-update-integrity-audit:
+    name: Finance Update Predecessor Audit
+    needs: changes
+    if: needs.changes.outputs.finance == 'true' || github.event_name == 'push'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Audit mutable Finance update validators
+        run: python3 scripts/security/finance_update_integrity_audit.py
   # Separate from test-finance on purpose: this needs nix (for `hc`) and a much
   # longer timeout (a cold `holochain` crate compile alone takes ~1h without a
   # warm rust-cache), so it shouldn't share test-finance's fast 20-minute budget.
@@ -444,6 +454,7 @@ jobs:
       - test-civic
       - test-hearth
       - test-finance
+      - finance-update-integrity-audit
       - test-finance-integration
       - test-governance
       - test-identity
@@ -462,6 +473,7 @@ jobs:
           echo "Civic: ${{ needs.test-civic.result }}"
           echo "Hearth: ${{ needs.test-hearth.result }}"
           echo "Finance: ${{ needs.test-finance.result }}"
+          echo "Finance Update Audit: ${{ needs.finance-update-integrity-audit.result }}"
           # Reported but not gated below — expected red until the finance
           # zomes/tests are synced from the monorepo. See the job's own comment.
           echo "Finance Integration (informational): ${{ needs.test-finance-integration.result }}"
@@ -474,7 +486,7 @@ jobs:
           echo "Prism: ${{ needs.test-prism.result }}"
           if [ "${{ needs.format.result }}" = "failure" ]; then exit 1; fi
           # Skipped jobs are OK (path filter didn't match)
-          for result in "${{ needs.test-cos-conformance.result }}" "${{ needs.test-commons.result }}" "${{ needs.test-civic.result }}" "${{ needs.test-hearth.result }}" "${{ needs.test-finance.result }}" "${{ needs.test-governance.result }}" "${{ needs.test-identity.result }}" "${{ needs.test-personal.result }}" "${{ needs.test-attribution.result }}" "${{ needs.test-bridge.result }}" "${{ needs.test-sdk.result }}" "${{ needs.test-prism.result }}"; do
+          for result in "${{ needs.test-cos-conformance.result }}" "${{ needs.test-commons.result }}" "${{ needs.test-civic.result }}" "${{ needs.test-hearth.result }}" "${{ needs.test-finance.result }}" "${{ needs.finance-update-integrity-audit.result }}" "${{ needs.test-governance.result }}" "${{ needs.test-identity.result }}" "${{ needs.test-personal.result }}" "${{ needs.test-attribution.result }}" "${{ needs.test-bridge.result }}" "${{ needs.test-sdk.result }}" "${{ needs.test-prism.result }}"; do
             if [ "$result" = "failure" ]; then exit 1; fi
           done
           echo "All checks passed!"

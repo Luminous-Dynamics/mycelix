@@ -638,18 +638,58 @@ fn validate_create_collateral_registration(
 }
 
 fn validate_update_collateral_registration(
-    _action: Update,
+    action: Update,
     collateral: CollateralRegistration,
 ) -> ExternResult<ValidateCallbackResult> {
-    // Re-validate core invariants on update
-    if !collateral.owner_did.starts_with("did:") {
+    let original_record = must_get_valid_record(action.original_action_address.clone())?;
+    let original = original_record.entry().to_app_option::<CollateralRegistration>().map_err(|e| {
+        wasm_error!(WasmErrorInner::Guest(format!(
+            "Failed to decode original CollateralRegistration predecessor: {e:?}"
+        )))
+    })?.ok_or_else(|| {
+        wasm_error!(WasmErrorInner::Guest(
+            "Original CollateralRegistration update predecessor is not a CollateralRegistration entry".into(),
+        ))
+    })?;
+
+    if original.id != collateral.id {
         return Ok(ValidateCallbackResult::Invalid(
-            "Owner must be a valid DID".into(),
+            "CollateralRegistration.id is immutable across updates".into(),
         ));
     }
-    if collateral.value_estimate == 0 {
+    if original.owner_did != collateral.owner_did {
         return Ok(ValidateCallbackResult::Invalid(
-            "Value estimate must be positive".into(),
+            "CollateralRegistration.owner_did is immutable across updates".into(),
+        ));
+    }
+    if original.asset_type != collateral.asset_type {
+        return Ok(ValidateCallbackResult::Invalid(
+            "CollateralRegistration.asset_type is immutable across updates".into(),
+        ));
+    }
+    if original.asset_id != collateral.asset_id {
+        return Ok(ValidateCallbackResult::Invalid(
+            "CollateralRegistration.asset_id is immutable across updates".into(),
+        ));
+    }
+    if original.source_happ != collateral.source_happ {
+        return Ok(ValidateCallbackResult::Invalid(
+            "CollateralRegistration.source_happ is immutable across updates".into(),
+        ));
+    }
+    if original.value_estimate != collateral.value_estimate {
+        return Ok(ValidateCallbackResult::Invalid(
+            "CollateralRegistration.value_estimate is immutable across updates".into(),
+        ));
+    }
+    if original.currency != collateral.currency {
+        return Ok(ValidateCallbackResult::Invalid(
+            "CollateralRegistration.currency is immutable across updates".into(),
+        ));
+    }
+    if original.registered_at != collateral.registered_at {
+        return Ok(ValidateCallbackResult::Invalid(
+            "CollateralRegistration.registered_at is immutable across updates".into(),
         ));
     }
     Ok(ValidateCallbackResult::Valid)
@@ -756,44 +796,53 @@ fn validate_create_collateral_bridge_deposit(
 }
 
 fn validate_update_collateral_bridge_deposit(
-    _action: Update,
+    action: Update,
     deposit: CollateralBridgeDeposit,
 ) -> ExternResult<ValidateCallbackResult> {
-    // Validate the deposit DID is still valid
-    if !deposit.depositor_did.starts_with("did:") {
+    let original_record = must_get_valid_record(action.original_action_address.clone())?;
+    let original = original_record.entry().to_app_option::<CollateralBridgeDeposit>().map_err(|e| {
+        wasm_error!(WasmErrorInner::Guest(format!(
+            "Failed to decode original CollateralBridgeDeposit predecessor: {e:?}"
+        )))
+    })?.ok_or_else(|| {
+        wasm_error!(WasmErrorInner::Guest(
+            "Original CollateralBridgeDeposit update predecessor is not a CollateralBridgeDeposit entry".into(),
+        ))
+    })?;
+
+    if original.id != deposit.id {
         return Ok(ValidateCallbackResult::Invalid(
-            "Depositor must be a valid DID".into(),
+            "CollateralBridgeDeposit.id is immutable across updates".into(),
         ));
     }
-    // Core field invariants must still hold on update
-    if deposit.collateral_amount == 0 {
+    if original.depositor_did != deposit.depositor_did {
         return Ok(ValidateCallbackResult::Invalid(
-            "Collateral amount must be positive".into(),
+            "CollateralBridgeDeposit.depositor_did is immutable across updates".into(),
         ));
     }
-    if deposit.sap_minted == 0 {
+    if original.collateral_type != deposit.collateral_type {
         return Ok(ValidateCallbackResult::Invalid(
-            "SAP minted must be positive".into(),
+            "CollateralBridgeDeposit.collateral_type is immutable across updates".into(),
         ));
     }
-    if !deposit.oracle_rate.is_finite() || deposit.oracle_rate <= 0.0 {
+    if original.collateral_amount != deposit.collateral_amount {
         return Ok(ValidateCallbackResult::Invalid(
-            "Oracle rate must be a finite positive number".into(),
+            "CollateralBridgeDeposit.collateral_amount is immutable across updates".into(),
         ));
     }
-    if deposit.collateral_type != "ETH" && deposit.collateral_type != "USDC" {
+    if original.sap_minted != deposit.sap_minted {
         return Ok(ValidateCallbackResult::Invalid(
-            "Collateral type must be ETH or USDC".into(),
+            "CollateralBridgeDeposit.sap_minted is immutable across updates".into(),
         ));
     }
-    // Status transition validation: cannot transition back to Pending.
-    // Valid transitions are: Pending->Confirmed, Confirmed->Redeemed, Pending->Failed.
-    // Full transition validation requires fetching the original entry, which is not
-    // available in integrity validation. We enforce that updated status is never Pending
-    // (a deposit cannot revert to Pending once it has progressed).
-    if deposit.status == BridgeDepositStatus::Pending {
+    if original.oracle_rate != deposit.oracle_rate {
         return Ok(ValidateCallbackResult::Invalid(
-            "Cannot transition deposit status back to Pending".into(),
+            "CollateralBridgeDeposit.oracle_rate is immutable across updates".into(),
+        ));
+    }
+    if original.created_at != deposit.created_at {
+        return Ok(ValidateCallbackResult::Invalid(
+            "CollateralBridgeDeposit.created_at is immutable across updates".into(),
         ));
     }
     Ok(ValidateCallbackResult::Valid)
@@ -838,19 +887,48 @@ fn validate_create_covenant(
 }
 
 fn validate_update_covenant(
-    _action: Update,
+    action: Update,
     covenant: Covenant,
 ) -> ExternResult<ValidateCallbackResult> {
-    // Core invariants must hold
-    if !covenant.beneficiary_did.starts_with("did:") || covenant.beneficiary_did.len() > MAX_DID_LEN
-    {
+    let original_record = must_get_valid_record(action.original_action_address.clone())?;
+    let original = original_record.entry().to_app_option::<Covenant>().map_err(|e| {
+        wasm_error!(WasmErrorInner::Guest(format!(
+            "Failed to decode original Covenant predecessor: {e:?}"
+        )))
+    })?.ok_or_else(|| {
+        wasm_error!(WasmErrorInner::Guest(
+            "Original Covenant update predecessor is not a Covenant entry".into(),
+        ))
+    })?;
+
+    if original.id != covenant.id {
         return Ok(ValidateCallbackResult::Invalid(
-            "Beneficiary DID invalid".into(),
+            "Covenant.id is immutable across updates".into(),
         ));
     }
-    if covenant.id.is_empty() || covenant.id.len() > MAX_REFERENCE_LEN {
+    if original.collateral_id != covenant.collateral_id {
         return Ok(ValidateCallbackResult::Invalid(
-            "Covenant ID invalid".into(),
+            "Covenant.collateral_id is immutable across updates".into(),
+        ));
+    }
+    if original.restriction != covenant.restriction {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Covenant.restriction is immutable across updates".into(),
+        ));
+    }
+    if original.beneficiary_did != covenant.beneficiary_did {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Covenant.beneficiary_did is immutable across updates".into(),
+        ));
+    }
+    if original.created_at != covenant.created_at {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Covenant.created_at is immutable across updates".into(),
+        ));
+    }
+    if original.expires_at != covenant.expires_at {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Covenant.expires_at is immutable across updates".into(),
         ));
     }
     Ok(ValidateCallbackResult::Valid)
@@ -937,18 +1015,63 @@ fn validate_create_fiat_bridge_deposit(
 }
 
 fn validate_update_fiat_bridge_deposit(
-    _action: Update,
+    action: Update,
     fiat: FiatBridgeDeposit,
 ) -> ExternResult<ValidateCallbackResult> {
-    if !fiat.depositor_did.starts_with("did:") || fiat.depositor_did.len() > MAX_DID_LEN {
+    let original_record = must_get_valid_record(action.original_action_address.clone())?;
+    let original = original_record.entry().to_app_option::<FiatBridgeDeposit>().map_err(|e| {
+        wasm_error!(WasmErrorInner::Guest(format!(
+            "Failed to decode original FiatBridgeDeposit predecessor: {e:?}"
+        )))
+    })?.ok_or_else(|| {
+        wasm_error!(WasmErrorInner::Guest(
+            "Original FiatBridgeDeposit update predecessor is not a FiatBridgeDeposit entry".into(),
+        ))
+    })?;
+
+    if original.id != fiat.id {
         return Ok(ValidateCallbackResult::Invalid(
-            "Depositor DID invalid".into(),
+            "FiatBridgeDeposit.id is immutable across updates".into(),
         ));
     }
-    // Cannot revert to Pending
-    if fiat.status == "Pending" {
+    if original.depositor_did != fiat.depositor_did {
         return Ok(ValidateCallbackResult::Invalid(
-            "Cannot transition fiat deposit status back to Pending".into(),
+            "FiatBridgeDeposit.depositor_did is immutable across updates".into(),
+        ));
+    }
+    if original.fiat_currency != fiat.fiat_currency {
+        return Ok(ValidateCallbackResult::Invalid(
+            "FiatBridgeDeposit.fiat_currency is immutable across updates".into(),
+        ));
+    }
+    if original.fiat_amount != fiat.fiat_amount {
+        return Ok(ValidateCallbackResult::Invalid(
+            "FiatBridgeDeposit.fiat_amount is immutable across updates".into(),
+        ));
+    }
+    if original.sap_minted != fiat.sap_minted {
+        return Ok(ValidateCallbackResult::Invalid(
+            "FiatBridgeDeposit.sap_minted is immutable across updates".into(),
+        ));
+    }
+    if original.exchange_rate != fiat.exchange_rate {
+        return Ok(ValidateCallbackResult::Invalid(
+            "FiatBridgeDeposit.exchange_rate is immutable across updates".into(),
+        ));
+    }
+    if original.verifier_did != fiat.verifier_did {
+        return Ok(ValidateCallbackResult::Invalid(
+            "FiatBridgeDeposit.verifier_did is immutable across updates".into(),
+        ));
+    }
+    if original.external_reference != fiat.external_reference {
+        return Ok(ValidateCallbackResult::Invalid(
+            "FiatBridgeDeposit.external_reference is immutable across updates".into(),
+        ));
+    }
+    if original.created_at != fiat.created_at {
+        return Ok(ValidateCallbackResult::Invalid(
+            "FiatBridgeDeposit.created_at is immutable across updates".into(),
         ));
     }
     Ok(ValidateCallbackResult::Valid)
@@ -1004,18 +1127,68 @@ fn validate_create_energy_certificate(
 }
 
 fn validate_update_energy_certificate(
-    _action: Update,
+    action: Update,
     cert: EnergyCertificate,
 ) -> ExternResult<ValidateCallbackResult> {
-    if !cert.producer_did.starts_with("did:") || cert.producer_did.len() > MAX_DID_LEN {
+    let original_record = must_get_valid_record(action.original_action_address.clone())?;
+    let original = original_record.entry().to_app_option::<EnergyCertificate>().map_err(|e| {
+        wasm_error!(WasmErrorInner::Guest(format!(
+            "Failed to decode original EnergyCertificate predecessor: {e:?}"
+        )))
+    })?.ok_or_else(|| {
+        wasm_error!(WasmErrorInner::Guest(
+            "Original EnergyCertificate update predecessor is not a EnergyCertificate entry".into(),
+        ))
+    })?;
+
+    if original.id != cert.id {
         return Ok(ValidateCallbackResult::Invalid(
-            "Producer DID invalid".into(),
+            "EnergyCertificate.id is immutable across updates".into(),
         ));
     }
-    // Cannot revert to Pending
-    if cert.status == "Pending" {
+    if original.project_id != cert.project_id {
         return Ok(ValidateCallbackResult::Invalid(
-            "Cannot transition certificate status back to Pending".into(),
+            "EnergyCertificate.project_id is immutable across updates".into(),
+        ));
+    }
+    if original.source != cert.source {
+        return Ok(ValidateCallbackResult::Invalid(
+            "EnergyCertificate.source is immutable across updates".into(),
+        ));
+    }
+    if original.kwh_produced != cert.kwh_produced {
+        return Ok(ValidateCallbackResult::Invalid(
+            "EnergyCertificate.kwh_produced is immutable across updates".into(),
+        ));
+    }
+    if original.period_start != cert.period_start {
+        return Ok(ValidateCallbackResult::Invalid(
+            "EnergyCertificate.period_start is immutable across updates".into(),
+        ));
+    }
+    if original.period_end != cert.period_end {
+        return Ok(ValidateCallbackResult::Invalid(
+            "EnergyCertificate.period_end is immutable across updates".into(),
+        ));
+    }
+    if original.location_lat != cert.location_lat {
+        return Ok(ValidateCallbackResult::Invalid(
+            "EnergyCertificate.location_lat is immutable across updates".into(),
+        ));
+    }
+    if original.location_lon != cert.location_lon {
+        return Ok(ValidateCallbackResult::Invalid(
+            "EnergyCertificate.location_lon is immutable across updates".into(),
+        ));
+    }
+    if original.producer_did != cert.producer_did {
+        return Ok(ValidateCallbackResult::Invalid(
+            "EnergyCertificate.producer_did is immutable across updates".into(),
+        ));
+    }
+    if original.created_at != cert.created_at {
+        return Ok(ValidateCallbackResult::Invalid(
+            "EnergyCertificate.created_at is immutable across updates".into(),
         ));
     }
     Ok(ValidateCallbackResult::Valid)
@@ -1065,17 +1238,63 @@ fn validate_create_agricultural_asset(
 }
 
 fn validate_update_agricultural_asset(
-    _action: Update,
+    action: Update,
     asset: AgriculturalAsset,
 ) -> ExternResult<ValidateCallbackResult> {
-    if !asset.producer_did.starts_with("did:") || asset.producer_did.len() > MAX_DID_LEN {
+    let original_record = must_get_valid_record(action.original_action_address.clone())?;
+    let original = original_record.entry().to_app_option::<AgriculturalAsset>().map_err(|e| {
+        wasm_error!(WasmErrorInner::Guest(format!(
+            "Failed to decode original AgriculturalAsset predecessor: {e:?}"
+        )))
+    })?.ok_or_else(|| {
+        wasm_error!(WasmErrorInner::Guest(
+            "Original AgriculturalAsset update predecessor is not a AgriculturalAsset entry".into(),
+        ))
+    })?;
+
+    if original.id != asset.id {
         return Ok(ValidateCallbackResult::Invalid(
-            "Producer DID invalid".into(),
+            "AgriculturalAsset.id is immutable across updates".into(),
         ));
     }
-    if asset.status == "Pending" {
+    if original.asset_type != asset.asset_type {
         return Ok(ValidateCallbackResult::Invalid(
-            "Cannot transition asset status back to Pending".into(),
+            "AgriculturalAsset.asset_type is immutable across updates".into(),
+        ));
+    }
+    if original.quantity_kg != asset.quantity_kg {
+        return Ok(ValidateCallbackResult::Invalid(
+            "AgriculturalAsset.quantity_kg is immutable across updates".into(),
+        ));
+    }
+    if original.location_lat != asset.location_lat {
+        return Ok(ValidateCallbackResult::Invalid(
+            "AgriculturalAsset.location_lat is immutable across updates".into(),
+        ));
+    }
+    if original.location_lon != asset.location_lon {
+        return Ok(ValidateCallbackResult::Invalid(
+            "AgriculturalAsset.location_lon is immutable across updates".into(),
+        ));
+    }
+    if original.production_date != asset.production_date {
+        return Ok(ValidateCallbackResult::Invalid(
+            "AgriculturalAsset.production_date is immutable across updates".into(),
+        ));
+    }
+    if original.viability_duration_micros != asset.viability_duration_micros {
+        return Ok(ValidateCallbackResult::Invalid(
+            "AgriculturalAsset.viability_duration_micros is immutable across updates".into(),
+        ));
+    }
+    if original.producer_did != asset.producer_did {
+        return Ok(ValidateCallbackResult::Invalid(
+            "AgriculturalAsset.producer_did is immutable across updates".into(),
+        ));
+    }
+    if original.created_at != asset.created_at {
+        return Ok(ValidateCallbackResult::Invalid(
+            "AgriculturalAsset.created_at is immutable across updates".into(),
         ));
     }
     Ok(ValidateCallbackResult::Valid)
@@ -1119,15 +1338,44 @@ fn validate_create_multi_collateral_position(
 }
 
 fn validate_update_multi_collateral_position(
-    _action: Update,
+    action: Update,
     pos: MultiCollateralPosition,
 ) -> ExternResult<ValidateCallbackResult> {
-    if !pos.holder_did.starts_with("did:") || pos.holder_did.len() > MAX_DID_LEN {
-        return Ok(ValidateCallbackResult::Invalid("Holder DID invalid".into()));
-    }
-    if !pos.effective_ltv.is_finite() || pos.effective_ltv < 0.0 {
+    let original_record = must_get_valid_record(action.original_action_address.clone())?;
+    let original = original_record.entry().to_app_option::<MultiCollateralPosition>().map_err(|e| {
+        wasm_error!(WasmErrorInner::Guest(format!(
+            "Failed to decode original MultiCollateralPosition predecessor: {e:?}"
+        )))
+    })?.ok_or_else(|| {
+        wasm_error!(WasmErrorInner::Guest(
+            "Original MultiCollateralPosition update predecessor is not a MultiCollateralPosition entry".into(),
+        ))
+    })?;
+
+    if original.id != pos.id {
         return Ok(ValidateCallbackResult::Invalid(
-            "Effective LTV must be a finite non-negative number".into(),
+            "MultiCollateralPosition.id is immutable across updates".into(),
+        ));
+    }
+    if original.holder_did != pos.holder_did {
+        return Ok(ValidateCallbackResult::Invalid(
+            "MultiCollateralPosition.holder_did is immutable across updates".into(),
+        ));
+    }
+    if original.components_json != pos.components_json {
+        return Ok(ValidateCallbackResult::Invalid(
+            "MultiCollateralPosition.components_json is immutable across updates".into(),
+        ));
+    }
+    if original.created_at != pos.created_at {
+        return Ok(ValidateCallbackResult::Invalid(
+            "MultiCollateralPosition.created_at is immutable across updates".into(),
+        ));
+    }
+
+    if pos.last_revalued_at < original.last_revalued_at {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Multi-collateral revaluation timestamp cannot move backwards".into(),
         ));
     }
     Ok(ValidateCallbackResult::Valid)

@@ -222,12 +222,40 @@ fn validate_create_loan(
     Ok(ValidateCallbackResult::Valid)
 }
 
-fn validate_update_loan(_action: Update, loan: Loan) -> ExternResult<ValidateCallbackResult> {
-    // Principal and parties cannot change, but status can
-    if loan.principal <= 0.0 {
-        return Ok(ValidateCallbackResult::Invalid(
-            "Principal must be positive".into(),
-        ));
+fn validate_update_loan(
+    action: Update,
+    loan: Loan,
+) -> ExternResult<ValidateCallbackResult> {
+    if loan.principal <= 0.0 || !loan.principal.is_finite()
+        || !loan.interest_rate.is_finite() || loan.interest_rate < 0.0 || loan.interest_rate > 1.0 {
+        return Ok(ValidateCallbackResult::Invalid("Loan principal/interest terms are invalid".into()));
+    }
+    let r = must_get_valid_record(action.original_action_address.clone())?;
+    let o = r.entry().to_app_option::<Loan>().map_err(|e| wasm_error!(WasmErrorInner::Guest(format!("decode Loan predecessor: {e:?}"))))?
+        .ok_or_else(|| wasm_error!(WasmErrorInner::Guest("Loan predecessor has wrong type".into())))?;
+    if o.id != loan.id || o.borrower_did != loan.borrower_did || o.lender_did != loan.lender_did
+        || o.principal != loan.principal || o.currency != loan.currency || o.interest_rate != loan.interest_rate
+        || o.term_days != loan.term_days || o.collateral_ids != loan.collateral_ids || o.created != loan.created {
+        return Ok(ValidateCallbackResult::Invalid("Loan identity and economic terms are immutable".into()));
+    }
+    match (&o.status,&loan.status) {
+        (LoanStatus::Requested,LoanStatus::Requested|LoanStatus::Offered|LoanStatus::Cancelled)
+        | (LoanStatus::Offered,LoanStatus::Offered|LoanStatus::Funded|LoanStatus::Cancelled)
+        | (LoanStatus::Funded,LoanStatus::Funded|LoanStatus::Active|LoanStatus::Cancelled)
+        | (LoanStatus::Active,LoanStatus::Active|LoanStatus::Repaid|LoanStatus::Defaulted)
+        | (LoanStatus::Repaid,LoanStatus::Repaid)
+        | (LoanStatus::Defaulted,LoanStatus::Defaulted)
+        | (LoanStatus::Cancelled,LoanStatus::Cancelled) => {}
+        _ => return Ok(ValidateCallbackResult::Invalid("Invalid loan status transition".into())),
+    }
+    if o.funded.is_some() && o.funded != loan.funded { return Ok(ValidateCallbackResult::Invalid("Loan funded timestamp is immutable".into())); }
+    if o.maturity.is_some() && o.maturity != loan.maturity { return Ok(ValidateCallbackResult::Invalid("Loan maturity timestamp is immutable".into())); }
+    if o.repaid.is_some() && o.repaid != loan.repaid { return Ok(ValidateCallbackResult::Invalid("Loan repaid timestamp is immutable".into())); }
+    if matches!(loan.status,LoanStatus::Funded|LoanStatus::Active) && loan.funded.is_none() {
+        return Ok(ValidateCallbackResult::Invalid("Funded/Active loan must have funded timestamp".into()));
+    }
+    if loan.status == LoanStatus::Repaid && loan.repaid.is_none() {
+        return Ok(ValidateCallbackResult::Invalid("Repaid loan must have repaid timestamp".into()));
     }
     Ok(ValidateCallbackResult::Valid)
 }
@@ -273,24 +301,24 @@ fn validate_update_loan_offer(
     action: Update,
     offer: LoanOffer,
 ) -> ExternResult<ValidateCallbackResult> {
-    // Bind updates too, so a bound create cannot simply be overwritten by another
-    // agent. Safe: the only coordinator update path (`deactivate_offer`:415)
-    // locates the offer with `query()`, which reads the CALLER'S OWN source chain
-    // only — it can already only touch offers the caller authored.
-    //
-    // NOTE: `Update.author` is a field; `EntryCreationAction::author()` is a
-    // method. Hence the asymmetry with the create validator above.
     let author_did = did_for_author(&action.author);
-    if let ValidateCallbackResult::Invalid(msg) =
-        require_did_is_author("LoanOffer", "lender_did", &offer.lender_did, &author_did)
-    {
+    if let ValidateCallbackResult::Invalid(msg) = require_did_is_author("LoanOffer","lender_did",&offer.lender_did,&author_did) {
         return Ok(ValidateCallbackResult::Invalid(msg));
     }
-
-    if offer.min_amount > offer.max_amount {
-        return Ok(ValidateCallbackResult::Invalid(
-            "Min amount cannot exceed max amount".into(),
-        ));
+    if offer.min_amount > offer.max_amount || !offer.min_amount.is_finite() || !offer.max_amount.is_finite()
+        || !offer.base_interest_rate.is_finite() || offer.base_interest_rate < 0.0 || offer.base_interest_rate > 1.0 {
+        return Ok(ValidateCallbackResult::Invalid("Invalid loan offer terms".into()));
+    }
+    let r = must_get_valid_record(action.original_action_address.clone())?;
+    let o = r.entry().to_app_option::<LoanOffer>().map_err(|e| wasm_error!(WasmErrorInner::Guest(format!("decode LoanOffer predecessor: {e:?}"))))?
+        .ok_or_else(|| wasm_error!(WasmErrorInner::Guest("LoanOffer predecessor has wrong type".into())))?;
+    if o.id != offer.id || o.lender_did != offer.lender_did || o.max_amount != offer.max_amount || o.min_amount != offer.min_amount
+        || o.currency != offer.currency || o.base_interest_rate != offer.base_interest_rate || o.min_credit_score != offer.min_credit_score
+        || o.max_term_days != offer.max_term_days || o.collateral_required != offer.collateral_required || o.created != offer.created {
+        return Ok(ValidateCallbackResult::Invalid("Loan offer identity and terms are immutable".into()));
+    }
+    if !o.active && offer.active {
+        return Ok(ValidateCallbackResult::Invalid("A deactivated loan offer cannot be reactivated".into()));
     }
     Ok(ValidateCallbackResult::Valid)
 }
