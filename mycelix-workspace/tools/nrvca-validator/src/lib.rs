@@ -1,0 +1,630 @@
+//! NRVCA semantic checks.
+//!
+//! This is intentionally an independent semantic layer; it does not claim full JSON
+//! Schema Draft 2020-12 conformance, official SNA/SEEA compliance, or factual truth.
+
+use serde_json::{Map, Value};
+use std::collections::HashSet;
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Diagnostic {
+    pub code: String,
+    pub path: String,
+    pub message: String,
+}
+
+impl Diagnostic {
+    fn structural(code: &str, path: &str, message: impl Into<String>) -> Self {
+        Self { code: format!("STRUCT-{code}"), path: path.to_owned(), message: message.into() }
+    }
+
+    fn semantic(code: &str, path: &str, message: impl Into<String>) -> Self {
+        Self { code: format!("SEM-{code}"), path: path.to_owned(), message: message.into() }
+    }
+}
+
+fn push_structural(out: &mut Vec<Diagnostic>, code: &str, path: &str, message: impl Into<String>) {
+    out.push(Diagnostic::structural(code, path, message));
+}
+
+fn push_semantic(out: &mut Vec<Diagnostic>, code: &str, path: &str, message: impl Into<String>) {
+    out.push(Diagnostic::semantic(code, path, message));
+}
+
+fn field_str<'a>(obj: &'a Value, key: &str) -> Option<&'a str> {
+    obj.get(key).and_then(Value::as_str)
+}
+
+fn field_num(obj: &Value, key: &str) -> Option<f64> {
+    obj.get(key).and_then(Value::as_f64).filter(|n| n.is_finite())
+}
+
+fn approx_eq(a: f64, b: f64, tolerance: f64) -> bool {
+    (a - b).abs() <= tolerance
+}
+
+fn valid_iso_date(value: &str) -> bool {
+    let b = value.as_bytes();
+    b.len() == 10
+        && b[4] == b'-'
+        && b[7] == b'-'
+        && b.iter().enumerate().all(|(i, c)| i == 4 || i == 7 || c.is_ascii_digit())
+}
+
+fn reference_ids(value: &Value, path: &str, admitted: &HashSet<String>, out: &mut Vec<Diagnostic>) {
+    match value.as_array() {
+        Some(refs) => {
+            let mut seen = HashSet::new();
+            for (i, reference) in refs.iter().enumerate() {
+                let Some(id) = reference.as_str() else {
+                    push_structural(out, "SOURCE-REF-TYPE", &format!("{path}/{i}"), "source reference must be a string");
+                    continue;
+                };
+                if !seen.insert(id.to_owned()) {
+                    push_semantic(out, "DUPLICATE-SOURCE-REF", &format!("{path}/{i}"), format!("duplicate source reference: {id}"));
+                }
+                if !admitted.contains(id) {
+                    push_semantic(out, "UNRESOLVED-SOURCE-REF", &format!("{path}/{i}"), format!("source reference does not resolve: {id}"));
+                }
+            }
+        }
+        None => push_structural(out, "SOURCE-REFS-TYPE", path, "source_refs must be an array"),
+    }
+}
+
+/// Validate structural essentials and cross-field semantics for one NRVCA report.
+/// An empty diagnostic vector means only that these checks passed.
+pub fn validate_report(report: &Value) -> Vec<Diagnostic> {
+    let mut out = Vec::new();
+    if !report.is_object() {
+        push_structural(&mut out, "ROOT-TYPE", "", "report must be a JSON object");
+        return out;
+    }
+
+    if field_str(report, "schema_version") != Some("nrvca/0.1") {
+        push_structural(&mut out, "SCHEMA-VERSION", "/schema_version", "expected nrvca/0.1");
+    }
+
+    let report_status = match field_str(report, "report_status") {
+        Some(status) if ["synthetic", "historical_replay", "shadow", "prospective_pilot", "independent_replication"].contains(&status) => Some(status),
+        Some(_) => {
+            push_structural(&mut out, "REPORT-STATUS", "/report_status", "unsupported report_status");
+            None
+        }
+        None => {
+            push_structural(&mut out, "REPORT-STATUS-MISSING", "/report_status", "report_status is required");
+            None
+        }
+    };
+
+    let jurisdiction = report.get("jurisdiction");
+    if !jurisdiction.is_some_and(Value::is_object) {
+        push_structural(&mut out, "JURISDICTION", "/jurisdiction", "jurisdiction object is required");
+    } else if let Some(j) = jurisdiction {
+        if !matches!(field_str(j, "level"), Some("national" | "subnational")) {
+            push_structural(&mut out, "JURISDICTION-LEVEL", "/jurisdiction/level", "level must be national or subnational");
+        }
+        if field_str(j, "name").is_none_or(str::is_empty) {
+            push_structural(&mut out, "JURISDICTION-NAME", "/jurisdiction/name", "nonempty jurisdiction name is required");
+        }
+        let iso = field_str(j, "iso_3166_1_alpha3").unwrap_or("");
+        if iso.len() != 3 || !iso.bytes().all(|b| b.is_ascii_uppercase()) {
+            push_structural(&mut out, "JURISDICTION-CODE", "/jurisdiction/iso_3166_1_alpha3", "expected three uppercase ASCII letters");
+        }
+    }
+
+    let period = report.get("reference_period");
+    if !period.is_some_and(Value::is_object) {
+        push_structural(&mut out, "PERIOD", "/reference_period", "reference_period object is required");
+    } else if let Some(p) = period {
+        let start = field_str(p, "start_date").unwrap_or("");
+        let end = field_str(p, "end_date").unwrap_or("");
+        if !valid_iso_date(start) {
+            push_structural(&mut out, "PERIOD-START", "/reference_period/start_date", "start_date must use YYYY-MM-DD");
+        }
+        if !valid_iso_date(end) {
+            push_structural(&mut out, "PERIOD-END", "/reference_period/end_date", "end_date must use YYYY-MM-DD");
+        }
+        if valid_iso_date(start) && valid_iso_date(end) && start > end {
+            push_semantic(&mut out, "PERIOD-ORDER", "/reference_period", "start_date must not follow end_date");
+        }
+    }
+
+    let basis = report.get("reporting_basis");
+    if !basis.is_some_and(Value::is_object) {
+        push_structural(&mut out, "REPORTING-BASIS", "/reporting_basis", "reporting_basis object is required");
+    } else if let Some(b) = basis {
+        let currency = field_str(b, "currency").unwrap_or("");
+        if currency.len() != 3 || !currency.bytes().all(|x| x.is_ascii_uppercase()) {
+            push_structural(&mut out, "CURRENCY", "/reporting_basis/currency", "currency must be a three-letter uppercase code");
+        }
+        if !matches!(field_str(b, "price_basis"), Some("nominal" | "constant_prices" | "chain_volume" | "not_applicable")) {
+            push_structural(&mut out, "PRICE-BASIS", "/reporting_basis/price_basis", "unsupported price_basis");
+        }
+    }
+
+    // Establish the authoritative source IDs before checking claims that reference them.
+    let mut source_ids = HashSet::new();
+    let mut source_classes = Vec::new();
+    match report.get("source_manifest").and_then(Value::as_array) {
+        Some(sources) if !sources.is_empty() => {
+            for (i, source) in sources.iter().enumerate() {
+                let path = format!("/source_manifest/{i}");
+                let Some(id) = field_str(source, "source_id") else {
+                    push_structural(&mut out, "SOURCE-ID", &format!("{path}/source_id"), "source_id is required");
+                    continue;
+                };
+                if !source_ids.insert(id.to_owned()) {
+                    push_semantic(&mut out, "DUPLICATE-SOURCE-ID", &format!("{path}/source_id"), format!("duplicate source_id: {id}"));
+                }
+                let class = field_str(source, "source_class").unwrap_or("");
+                if !["official_statistics", "administrative_record", "operational_measurement", "remote_sensing", "model_output", "synthetic_dataset"].contains(&class) {
+                    push_structural(&mut out, "SOURCE-CLASS", &format!("{path}/source_class"), "unsupported source_class");
+                }
+                source_classes.push(class.to_owned());
+                for required in ["title", "publisher", "vintage", "coverage", "license_status", "limitations"] {
+                    if source.get(required).is_none() {
+                        push_structural(&mut out, "SOURCE-FIELD-MISSING", &format!("{path}/{required}"), format!("required source field missing: {required}"));
+                    }
+                }
+            }
+        }
+        Some(_) => push_structural(&mut out, "SOURCE-MANIFEST-EMPTY", "/source_manifest", "source_manifest must not be empty"),
+        None => push_structural(&mut out, "SOURCE-MANIFEST-TYPE", "/source_manifest", "source_manifest must be an array"),
+    }
+
+    if report_status == Some("synthetic") && source_classes.iter().any(|c| c != "synthetic_dataset") {
+        push_semantic(&mut out, "SYNTHETIC-SOURCE-STATUS", "/source_manifest", "a synthetic report may only cite synthetic_dataset sources");
+    }
+    if matches!(report_status, Some("historical_replay" | "shadow" | "prospective_pilot" | "independent_replication"))
+        && !source_classes.iter().any(|c| c != "synthetic_dataset")
+    {
+        push_semantic(&mut out, "EVIDENCE-TIER-PROMOTION", "/report_status", "a non-synthetic evidence tier requires at least one non-synthetic source");
+    }
+
+    // Basic SNA-style monetary account coherence and source admissibility.
+    let accounts = report.get("conventional_accounts");
+    if !accounts.is_some_and(Value::is_object) {
+        push_structural(&mut out, "ACCOUNTS", "/conventional_accounts", "conventional_accounts object is required");
+    } else if let Some(a) = accounts {
+        let top_currency = basis.and_then(|x| field_str(x, "currency")).unwrap_or("");
+        let top_price_basis = basis.and_then(|x| field_str(x, "price_basis")).unwrap_or("");
+        let top_price_year = basis.and_then(|x| x.get("price_year")).and_then(Value::as_i64);
+        for metric_name in ["gdp", "consumption_of_fixed_capital", "net_domestic_product", "gross_capital_formation"] {
+            let path = format!("/conventional_accounts/{metric_name}");
+            let Some(metric) = a.get(metric_name) else {
+                push_structural(&mut out, "ACCOUNT-MISSING", &path, "required conventional account is missing");
+                continue;
+            };
+            if field_num(metric, "value").is_none() {
+                push_structural(&mut out, "ACCOUNT-VALUE", &format!("{path}/value"), "account value must be a finite JSON number");
+            }
+            if field_str(metric, "currency") != Some(top_currency) {
+                push_semantic(&mut out, "ACCOUNT-CURRENCY", &format!("{path}/currency"), "account currency must match reporting currency in v0.1");
+            }
+            if field_str(metric, "price_basis") != Some(top_price_basis) {
+                push_semantic(&mut out, "ACCOUNT-PRICE-BASIS", &format!("{path}/price_basis"), "account price basis must match reporting basis in v0.1");
+            }
+            if metric.get("price_year").and_then(Value::as_i64) != top_price_year {
+                push_semantic(&mut out, "ACCOUNT-PRICE-YEAR", &format!("{path}/price_year"), "account price year must match reporting basis in v0.1");
+            }
+            if field_str(metric, "unit").is_none() || field_str(metric, "definition").is_none() {
+                push_structural(&mut out, "ACCOUNT-UNIT-DEFINITION", &path, "account unit and definition are required");
+            }
+            reference_ids(metric.get("source_refs").unwrap_or(&Value::Null), &format!("{path}/source_refs"), &source_ids, &mut out);
+        }
+    }
+
+    // Events which are pure financing/revaluation/transfers cannot silently become output.
+    let mut event_ids = HashSet::new();
+    match report.get("financial_events").and_then(Value::as_array) {
+        Some(events) => for (i, event) in events.iter().enumerate() {
+            let path = format!("/financial_events/{i}");
+            let Some(id) = field_str(event, "event_id") else {
+                push_structural(&mut out, "EVENT-ID", &format!("{path}/event_id"), "event_id is required");
+                continue;
+            };
+            if !event_ids.insert(id.to_owned()) {
+                push_semantic(&mut out, "DUPLICATE-EVENT", &format!("{path}/event_id"), format!("duplicate event identity: {id}"));
+            }
+            let class = field_str(event, "event_class").unwrap_or("");
+            let treatment = field_str(event, "gdp_treatment").unwrap_or("");
+            if !["new_borrowing", "principal_repayment", "asset_revaluation", "secondary_market_asset_transaction", "intersector_transfer", "final_goods_or_service", "other"].contains(&class) {
+                push_structural(&mut out, "EVENT-CLASS", &format!("{path}/event_class"), "unsupported event_class");
+            }
+            if !["excluded_from_current_production", "included_under_declared_profile", "requires_profile_review"].contains(&treatment) {
+                push_structural(&mut out, "EVENT-TREATMENT", &format!("{path}/gdp_treatment"), "unsupported gdp_treatment");
+            }
+            if ["new_borrowing", "principal_repayment", "asset_revaluation", "secondary_market_asset_transaction"].contains(&class)
+                && treatment != "excluded_from_current_production"
+            {
+                push_semantic(&mut out, "FINANCIAL-EVENT-AS-OUTPUT", &format!("{path}/gdp_treatment"), "financing, principal repayment, asset revaluation and secondary-market transfer are not current production by themselves");
+            }
+            if class == "intersector_transfer" && treatment == "included_under_declared_profile" {
+                push_semantic(&mut out, "TRANSFER-AS-OUTPUT", &format!("{path}/gdp_treatment"), "a transfer cannot be treated as new output without an explicit, separately qualified production account");
+            }
+            if field_num(event, "amount").is_none() || field_num(event, "amount").is_some_and(|n| n < 0.0) {
+                push_structural(&mut out, "EVENT-AMOUNT", &format!("{path}/amount"), "event amount must be a finite, nonnegative value; direction is carried by event_class/profile");
+            }
+            let currency = field_str(event, "currency").unwrap_or("");
+            let unit = field_str(event, "unit").unwrap_or("");
+            if currency.len() != 3 || !currency.bytes().all(|x| x.is_ascii_uppercase()) || unit.is_empty() {
+                push_structural(&mut out, "EVENT-UNIT", &path, "event needs a currency code and nonempty unit");
+            } else if unit.len() > 4 && unit.as_bytes().get(3) == Some(&b'_') && unit[..3].bytes().all(|x| x.is_ascii_uppercase()) && !unit.starts_with(&format!("{currency}_")) {
+                push_semantic(&mut out, "EVENT-CURRENCY-UNIT", &format!("{path}/unit"), "currency-prefixed unit conflicts with event currency");
+            }
+            reference_ids(event.get("source_refs").unwrap_or(&Value::Null), &format!("{path}/source_refs"), &source_ids, &mut out);
+        },
+        None => push_structural(&mut out, "EVENTS-TYPE", "/financial_events", "financial_events must be an array"),
+    }
+
+    // Outcome coordinates remain typed and multi-dimensional; missingness is not zero.
+    let mut observed_unknown_ids = HashSet::new();
+    match report.get("outcome_vector").and_then(Value::as_array) {
+        Some(metrics) if !metrics.is_empty() => for (i, metric) in metrics.iter().enumerate() {
+            let path = format!("/outcome_vector/{i}");
+            let id = field_str(metric, "indicator_id").unwrap_or("");
+            if id.is_empty() {
+                push_structural(&mut out, "INDICATOR-ID", &format!("{path}/indicator_id"), "indicator_id is required");
+            }
+            let status = field_str(metric, "evidence_status").unwrap_or("");
+            if !["official_statistic", "observed", "derived", "estimated", "modelled", "assumption", "synthetic", "unknown"].contains(&status) {
+                push_structural(&mut out, "EVIDENCE-STATUS", &format!("{path}/evidence_status"), "unsupported evidence_status");
+            }
+            if field_str(metric, "dimension").is_none() || field_str(metric, "definition").is_none() || field_str(metric, "unit").is_none() {
+                push_structural(&mut out, "INDICATOR-METADATA", &path, "dimension, definition, and unit are required");
+            }
+            let value = metric.get("value");
+            let is_null = value.is_none_or(Value::is_null);
+            let is_numeric = value.and_then(Value::as_f64).is_some_and(f64::is_finite);
+            if !is_null && !is_numeric {
+                push_structural(&mut out, "INDICATOR-VALUE", &format!("{path}/value"), "indicator value must be a finite number or null");
+            }
+            if status == "unknown" || is_null {
+                observed_unknown_ids.insert(id.to_owned());
+            }
+            if (status == "unknown") != is_null {
+                push_semantic(&mut out, "UNKNOWN-ZERO-SEPARATION", &format!("{path}/value"), "unknown evidence must have a null value, and null values must use evidence_status=unknown");
+            }
+            for required in ["currency", "price_basis", "price_year", "uncertainty", "coverage"] {
+                if metric.get(required).is_none() {
+                    push_structural(&mut out, "INDICATOR-FIELD-MISSING", &format!("{path}/{required}"), format!("required indicator field missing: {required}"));
+                }
+            }
+            reference_ids(metric.get("source_refs").unwrap_or(&Value::Null), &format!("{path}/source_refs"), &source_ids, &mut out);
+        },
+        Some(_) => push_structural(&mut out, "OUTCOME-VECTOR-EMPTY", "/outcome_vector", "outcome_vector must not be empty"),
+        None => push_structural(&mut out, "OUTCOME-VECTOR-TYPE", "/outcome_vector", "outcome_vector must be an array"),
+    }
+
+    let registered_unknowns: HashSet<String> = report
+        .get("data_quality")
+        .and_then(|x| x.get("unknown_indicator_ids"))
+        .and_then(Value::as_array)
+        .into_iter()
+        .flatten()
+        .filter_map(Value::as_str)
+        .map(str::to_owned)
+        .collect();
+    if report.get("data_quality").and_then(Value::as_object).is_none() {
+        push_structural(&mut out, "DATA-QUALITY", "/data_quality", "data_quality object is required");
+    }
+    for id in &observed_unknown_ids {
+        if !registered_unknowns.contains(id) {
+            push_semantic(&mut out, "UNKNOWN-REGISTER", "/data_quality/unknown_indicator_ids", format!("unknown indicator missing from register: {id}"));
+        }
+    }
+    for id in &registered_unknowns {
+        if !observed_unknown_ids.contains(id) {
+            push_semantic(&mut out, "UNKNOWN-REGISTER-STALE", "/data_quality/unknown_indicator_ids", format!("unknown register contains no unknown-valued indicator: {id}"));
+        }
+    }
+
+    // Independently recompute every signed identity from named operands.
+    match report.get("reconciliations").and_then(Value::as_array) {
+        Some(checks) if !checks.is_empty() => for (i, check) in checks.iter().enumerate() {
+            let path = format!("/reconciliations/{i}");
+            let lhs = field_num(check, "lhs");
+            let rhs = field_num(check, "rhs");
+            let residual = field_num(check, "residual");
+            let tolerance = field_num(check, "tolerance");
+            let unit = field_str(check, "unit").unwrap_or("");
+            if lhs.is_none() || rhs.is_none() || residual.is_none() || tolerance.is_none() || tolerance.is_some_and(|t| t < 0.0) || unit.is_empty() {
+                push_structural(&mut out, "RECONCILIATION-METADATA", &path, "lhs, rhs, residual, nonnegative tolerance and unit are required");
+                continue;
+            }
+            let (lhs, rhs, residual, tolerance) = (lhs.unwrap(), rhs.unwrap(), residual.unwrap(), tolerance.unwrap());
+            let mut recomputed = 0.0;
+            let mut operands_valid = true;
+            match check.get("operands").and_then(Value::as_array) {
+                Some(operands) if operands.len() >= 2 => for (j, operand) in operands.iter().enumerate() {
+                    let opath = format!("{path}/operands/{j}");
+                    match (field_num(operand, "value"), field_num(operand, "coefficient"), field_str(operand, "unit")) {
+                        (Some(value), Some(coefficient), Some(operand_unit)) => {
+                            if operand_unit != unit {
+                                operands_valid = false;
+                                push_semantic(&mut out, "RECONCILIATION-UNIT", &format!("{opath}/unit"), "all operands must use the reconciliation's declared compatible unit");
+                            }
+                            if field_str(operand, "term").is_none() {
+                                operands_valid = false;
+                                push_structural(&mut out, "RECONCILIATION-TERM", &format!("{opath}/term"), "operand term name is required");
+                            }
+                            recomputed += value * coefficient;
+                        }
+                        _ => {
+                            operands_valid = false;
+                            push_structural(&mut out, "RECONCILIATION-OPERAND", &opath, "each operand needs numeric value/coefficient and a unit");
+                        }
+                    }
+                },
+                _ => {
+                    operands_valid = false;
+                    push_structural(&mut out, "RECONCILIATION-OPERANDS", &format!("{path}/operands"), "at least two machine-readable operands are required");
+                }
+            }
+            if !approx_eq(recomputed, rhs, tolerance) {
+                push_semantic(&mut out, "RECONCILIATION-RHS", &format!("{path}/rhs"), format!("recomputed RHS {recomputed} differs from declared rhs {rhs}"));
+            }
+            if !approx_eq(lhs - rhs, residual, tolerance) {
+                push_semantic(&mut out, "RECONCILIATION-RESIDUAL", &format!("{path}/residual"), "residual does not equal lhs minus rhs");
+            }
+            if field_str(check, "disposition") == Some("pass")
+                && (!approx_eq(lhs, rhs, tolerance) || !approx_eq(residual, 0.0, tolerance) || !operands_valid)
+            {
+                push_semantic(&mut out, "FALSE-PASS", &format!("{path}/disposition"), "a reconciliation marked pass must close within its declared tolerance");
+            }
+            if field_str(check, "disposition").is_none() {
+                push_structural(&mut out, "RECONCILIATION-DISPOSITION", &format!("{path}/disposition"), "disposition is required");
+            }
+            if field_str(check, "class") == Some("official_account_bridge")
+                && field_str(check, "equation").is_some_and(|e| e.to_ascii_lowercase().contains("ndp"))
+            {
+                if let Some(ndp) = report.pointer("/conventional_accounts/net_domestic_product/value").and_then(Value::as_f64) {
+                    if !approx_eq(lhs, ndp, tolerance) {
+                        push_semantic(&mut out, "ACCOUNT-BRIDGE-LHS", &format!("{path}/lhs"), "NDP bridge lhs must match reported net_domestic_product");
+                    }
+                }
+            }
+        },
+        Some(_) => push_structural(&mut out, "RECONCILIATIONS-EMPTY", "/reconciliations", "at least one reconciliation is required"),
+        None => push_structural(&mut out, "RECONCILIATIONS-TYPE", "/reconciliations", "reconciliations must be an array"),
+    }
+
+    // The base profile deliberately refuses an unqualified universal welfare scalar.
+    let agg = report.get("aggregation_policy");
+    if agg.and_then(|x| x.get("universal_scalar_produced")).and_then(Value::as_bool) != Some(false) {
+        push_structural(&mut out, "UNIVERSAL-SCALAR", "/aggregation_policy/universal_scalar_produced", "v0.1 must set universal_scalar_produced=false");
+    }
+    if agg.and_then(|x| x.get("cross_unit_addition_permitted")).and_then(Value::as_bool) != Some(false) {
+        push_structural(&mut out, "CROSS-UNIT-ADDITION", "/aggregation_policy/cross_unit_addition_permitted", "v0.1 must set cross_unit_addition_permitted=false");
+    }
+
+    if let Some(ceiling) = report.get("claim_ceiling").and_then(Value::as_array) {
+        for (i, claim) in ceiling.iter().enumerate() {
+            let text = claim.as_str().unwrap_or("").to_ascii_lowercase();
+            let asserts_causality = (text.contains("prove") || text.contains("establish"))
+                && (text.contains("causal") || text.contains("real-world") || text.contains("economic impact"));
+            if report_status == Some("synthetic") && asserts_causality {
+                push_semantic(&mut out, "SYNTHETIC-CAUSAL-OVERCLAIM", &format!("/claim_ceiling/{i}"), "synthetic report cannot assert proven real-world causal impact");
+            }
+        }
+    } else {
+        push_structural(&mut out, "CLAIM-CEILING", "/claim_ceiling", "claim_ceiling array is required");
+    }
+
+    out
+}
+
+/// Check the subset of the v0.1 contract that this validator relies on.
+/// This is deliberately not advertised as a full JSON Schema implementation.
+pub fn validate_schema_contract(schema: &Value) -> Vec<Diagnostic> {
+    let mut out = Vec::new();
+    if !schema.is_object() {
+        push_structural(&mut out, "SCHEMA-ROOT", "", "schema document must be an object");
+        return out;
+    }
+    if schema.pointer("/properties/schema_version/const").and_then(Value::as_str) != Some("nrvca/0.1") {
+        push_structural(&mut out, "SCHEMA-VERSION", "/properties/schema_version/const", "schema must pin nrvca/0.1");
+    }
+    for (name, required) in [
+        ("outcome_vector", vec!["currency", "price_basis", "price_year", "uncertainty", "source_refs"]),
+        ("reconciliations", vec!["operands"]),
+    ] {
+        let path = format!("/properties/{name}/items/required");
+        let found: HashSet<&str> = schema.pointer(&path).and_then(Value::as_array).into_iter().flatten().filter_map(Value::as_str).collect();
+        for field in required {
+            if !found.contains(field) {
+                push_structural(&mut out, "SCHEMA-REQUIRED-FIELD", &path, format!("{name} must require {field}"));
+            }
+        }
+    }
+    out
+}
+
+fn decode_pointer(path: &str) -> Result<Vec<String>, String> {
+    if path.is_empty() {
+        return Ok(Vec::new());
+    }
+    if !path.starts_with('/') {
+        return Err(format!("JSON pointer must be empty or start with '/': {path}"));
+    }
+    path.split('/').skip(1).map(|part| {
+        let mut decoded = String::new();
+        let mut chars = part.chars();
+        while let Some(ch) = chars.next() {
+            if ch == '~' {
+                match chars.next() {
+                    Some('0') => decoded.push('~'),
+                    Some('1') => decoded.push('/'),
+                    _ => return Err(format!("invalid JSON pointer escape in {path}")),
+                }
+            } else {
+                decoded.push(ch);
+            }
+        }
+        Ok(decoded)
+    }).collect()
+}
+
+fn get_pointer<'a>(root: &'a Value, path: &str) -> Result<&'a Value, String> {
+    let mut current = root;
+    for segment in decode_pointer(path)? {
+        current = match current {
+            Value::Object(map) => map.get(&segment).ok_or_else(|| format!("missing object path {path}"))?,
+            Value::Array(array) => {
+                let index: usize = segment.parse().map_err(|_| format!("invalid array index in {path}"))?;
+                array.get(index).ok_or_else(|| format!("array index out of range in {path}"))?
+            }
+            _ => return Err(format!("path traverses scalar in {path}")),
+        };
+    }
+    Ok(current)
+}
+
+fn parent_mut<'a>(root: &'a mut Value, segments: &[String], full_path: &str) -> Result<&'a mut Value, String> {
+    if segments.is_empty() {
+        return Ok(root);
+    }
+    match root {
+        Value::Object(map) => {
+            let child = map.get_mut(&segments[0]).ok_or_else(|| format!("missing object path {full_path}"))?;
+            parent_mut(child, &segments[1..], full_path)
+        }
+        Value::Array(array) => {
+            let index: usize = segments[0].parse().map_err(|_| format!("invalid array index in {full_path}"))?;
+            let child = array.get_mut(index).ok_or_else(|| format!("array index out of range in {full_path}"))?;
+            parent_mut(child, &segments[1..], full_path)
+        }
+        _ => Err(format!("path traverses scalar in {full_path}")),
+    }
+}
+
+fn add_pointer(root: &mut Value, path: &str, value: Value) -> Result<(), String> {
+    let segments = decode_pointer(path)?;
+    if segments.is_empty() {
+        *root = value;
+        return Ok(());
+    }
+    let (last, parents) = segments.split_last().expect("nonempty segments");
+    let parent = parent_mut(root, parents, path)?;
+    match parent {
+        Value::Object(map) => { map.insert(last.clone(), value); Ok(()) }
+        Value::Array(array) if last == "-" => { array.push(value); Ok(()) }
+        Value::Array(array) => {
+            let index: usize = last.parse().map_err(|_| format!("invalid array index in {path}"))?;
+            if index > array.len() { return Err(format!("array insert index out of range in {path}")); }
+            array.insert(index, value);
+            Ok(())
+        }
+        _ => Err(format!("cannot add at non-container path {path}")),
+    }
+}
+
+fn replace_pointer(root: &mut Value, path: &str, value: Value) -> Result<(), String> {
+    let segments = decode_pointer(path)?;
+    if segments.is_empty() {
+        *root = value;
+        return Ok(());
+    }
+    let (last, parents) = segments.split_last().expect("nonempty segments");
+    let parent = parent_mut(root, parents, path)?;
+    match parent {
+        Value::Object(map) => {
+            if !map.contains_key(last) { return Err(format!("replace path does not exist: {path}")); }
+            map.insert(last.clone(), value);
+            Ok(())
+        }
+        Value::Array(array) => {
+            let index: usize = last.parse().map_err(|_| format!("invalid array index in {path}"))?;
+            let target = array.get_mut(index).ok_or_else(|| format!("replace index out of range in {path}"))?;
+            *target = value;
+            Ok(())
+        }
+        _ => Err(format!("cannot replace at non-container path {path}")),
+    }
+}
+
+fn remove_pointer(root: &mut Value, path: &str) -> Result<(), String> {
+    let segments = decode_pointer(path)?;
+    if segments.is_empty() { return Err("cannot remove document root".into()); }
+    let (last, parents) = segments.split_last().expect("nonempty segments");
+    let parent = parent_mut(root, parents, path)?;
+    match parent {
+        Value::Object(map) => {
+            map.remove(last).ok_or_else(|| format!("remove path does not exist: {path}"))?;
+            Ok(())
+        }
+        Value::Array(array) => {
+            let index: usize = last.parse().map_err(|_| format!("invalid array index in {path}"))?;
+            if index >= array.len() { return Err(format!("remove index out of range in {path}")); }
+            array.remove(index);
+            Ok(())
+        }
+        _ => Err(format!("cannot remove at non-container path {path}")),
+    }
+}
+
+/// Apply the restricted JSON Patch operations used by the checked-in corpus.
+pub fn apply_patch(root: &mut Value, patch: &Value) -> Result<(), String> {
+    let operations = patch.as_array().ok_or_else(|| "patch must be an array".to_owned())?;
+    for operation in operations {
+        let op = field_str(operation, "op").ok_or_else(|| "patch operation missing op".to_owned())?;
+        let path = field_str(operation, "path").ok_or_else(|| "patch operation missing path".to_owned())?;
+        match op {
+            "replace" => replace_pointer(root, path, operation.get("value").cloned().ok_or_else(|| "replace missing value".to_owned())?)?,
+            "add" => add_pointer(root, path, operation.get("value").cloned().ok_or_else(|| "add missing value".to_owned())?)?,
+            "remove" => remove_pointer(root, path)?,
+            "copy" => {
+                let from = field_str(operation, "from").ok_or_else(|| "copy missing from".to_owned())?;
+                let value = get_pointer(root, from)?.clone();
+                add_pointer(root, path, value)?;
+            }
+            other => return Err(format!("unsupported patch operation: {other}")),
+        }
+    }
+    Ok(())
+}
+
+#[derive(Debug)]
+pub struct CorpusResult {
+    pub case_id: String,
+    pub expected_disposition: String,
+    pub diagnostic_codes: Vec<String>,
+    pub passed: bool,
+    pub detail: String,
+}
+
+/// Run every declared adversarial mutation. The corpus is only qualified if each case
+/// is rejected in its declared diagnostic class; merely having cases listed is not a pass.
+pub fn run_adversarial_corpus(base: &Value, corpus: &Value) -> Result<Vec<CorpusResult>, String> {
+    let cases = corpus.get("cases").and_then(Value::as_array).ok_or_else(|| "corpus.cases must be an array".to_owned())?;
+    let baseline_errors = validate_report(base);
+    if !baseline_errors.is_empty() {
+        return Err(format!("golden baseline is invalid: {:?}", baseline_errors));
+    }
+    let mut results = Vec::new();
+    for case in cases {
+        let id = field_str(case, "case_id").ok_or_else(|| "case is missing case_id".to_owned())?.to_owned();
+        let expected = field_str(case, "expected_disposition").ok_or_else(|| format!("{id}: missing expected_disposition"))?.to_owned();
+        let patch = case.get("patch").ok_or_else(|| format!("{id}: missing patch"))?;
+        let mut mutated = base.clone();
+        apply_patch(&mut mutated, patch).map_err(|e| format!("{id}: mutation could not be applied: {e}"))?;
+        let diagnostics = validate_report(&mutated);
+        let codes: Vec<String> = diagnostics.iter().map(|d| d.code.clone()).collect();
+        let correct_class = match expected.as_str() {
+            "reject_structural" => codes.iter().any(|c| c.starts_with("STRUCT-")),
+            "reject_semantic" => codes.iter().any(|c| c.starts_with("SEM-")),
+            other => return Err(format!("{id}: unsupported expected disposition {other}")),
+        };
+        let passed = !diagnostics.is_empty() && correct_class;
+        let detail = if diagnostics.is_empty() {
+            "MUTATION SURVIVED: validator accepted adversarial input".to_owned()
+        } else if !correct_class {
+            format!("rejected, but not in expected class {expected}")
+        } else {
+            format!("rejected with {} diagnostic(s)", diagnostics.len())
+        };
+        results.push(CorpusResult { case_id: id, expected_disposition: expected, diagnostic_codes: codes, passed, detail });
+    }
+    Ok(results)
+}
