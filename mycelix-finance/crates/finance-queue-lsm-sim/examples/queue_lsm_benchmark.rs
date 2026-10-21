@@ -1,6 +1,6 @@
 use finance_queue_lsm_sim::{
-    fifo_order, simulate_order, simulated_annealing_order, unlock_potential_order,
-    AnnealingConfig, ParticipantLiquidity, PaymentState, QueueContext, QueuedPayment,
+    fifo_order, simulate_order, simulated_annealing_order, unlock_potential_order, AnnealingConfig,
+    ParticipantLiquidity, PaymentState, QueueContext, QueuedPayment,
 };
 use std::time::Instant;
 
