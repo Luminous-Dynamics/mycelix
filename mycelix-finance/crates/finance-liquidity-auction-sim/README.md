@@ -36,7 +36,7 @@ Report separately:
 
     cargo run --release --manifest-path mycelix-finance/Cargo.toml -p finance-liquidity-auction-sim --example liquidity_auction_benchmark
 
-The example creates deterministic synthetic participants and quotes at 10, 30, 70, 140 and 700 participants. It reports quantities, compensation, residual deficits and p50/p95 runtime. Synthetic profiles are not calibrated to South African production data; they are for regression, scaling and objective-comparison tests.
+The example creates deterministic synthetic participants and quotes at 10, 30, 70, 140 and 700 participants. It emits separate rows for a no-offer/no-bid baseline and the midpoint auction under the same opening-liquidity vector, reporting quantities, compensation, residual deficits and p50/p95 runtime. Synthetic profiles are not calibrated to South African production data; they are for regression, scaling and objective-comparison tests.
 
 ## Research anchor
 
