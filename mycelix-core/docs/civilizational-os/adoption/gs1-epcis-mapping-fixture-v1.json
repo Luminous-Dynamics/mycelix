@@ -22,16 +22,16 @@
     {
       "eventID": "urn:uuid:10000000-0000-4000-8000-000000000001",
       "type": "ObjectEvent",
-      "eventTime": "2026-10-21T10:00:00+02:00",
+      "eventTime": "2026-10-21T08:00:00.000Z",
       "eventTimeZoneOffset": "+02:00",
       "epcList": [
         "urn:epc:id:sgtin:0614141.107346.2017"
       ],
       "action": "OBSERVE",
-      "bizStep": "https://ref.gs1.org/cbv/BizStep-shipping",
-      "disposition": "https://ref.gs1.org/cbv/Disp-in_transit",
+      "bizStep": "shipping",
+      "disposition": "in_transit",
       "readPoint": {
-        "id": "urn:epc:id:sgln:0614141.12345.400"
+        "id": "urn:epc:id:sgln:0614141.12345.0"
       },
       "bizLocation": {
         "id": "urn:epc:id:sgln:0614141.12345.0"
@@ -40,16 +40,16 @@
     {
       "eventID": "urn:uuid:10000000-0000-4000-8000-000000000002",
       "type": "ObjectEvent",
-      "eventTime": "2026-10-21T12:20:00+02:00",
+      "eventTime": "2026-10-21T10:20:00.000Z",
       "eventTimeZoneOffset": "+02:00",
       "epcList": [
-        "urn:epc:id:sgtin:0614141.107346.2017"
+        "urn:epc:id:sgtin:0614141.107346.2018"
       ],
       "action": "OBSERVE",
-      "bizStep": "https://ref.gs1.org/cbv/BizStep-arriving",
-      "disposition": "https://ref.gs1.org/cbv/Disp-in_transit",
+      "bizStep": "arriving",
+      "disposition": "in_progress",
       "readPoint": {
-        "id": "urn:epc:id:sgln:0614141.54321.400"
+        "id": "urn:epc:id:sgln:0614141.54321.0"
       },
       "bizLocation": {
         "id": "urn:epc:id:sgln:0614141.54321.0"
@@ -58,16 +58,16 @@
     {
       "eventID": "urn:uuid:10000000-0000-4000-8000-000000000003",
       "type": "ObjectEvent",
-      "eventTime": "2026-10-21T12:30:00+02:00",
+      "eventTime": "2026-10-21T10:30:00.000Z",
       "eventTimeZoneOffset": "+02:00",
       "epcList": [
-        "urn:epc:id:sgtin:0614141.107346.2017"
+        "urn:epc:id:sgtin:0614141.107346.2019"
       ],
       "action": "OBSERVE",
-      "bizStep": "https://ref.gs1.org/cbv/BizStep-receiving",
-      "disposition": "https://ref.gs1.org/cbv/Disp-in_progress",
+      "bizStep": "receiving",
+      "disposition": "active",
       "readPoint": {
-        "id": "urn:epc:id:sgln:0614141.54321.401"
+        "id": "urn:epc:id:sgln:0614141.54321.0"
       },
       "bizLocation": {
         "id": "urn:epc:id:sgln:0614141.54321.0"
@@ -76,16 +76,16 @@
     {
       "eventID": "urn:uuid:10000000-0000-4000-8000-000000000004",
       "type": "ObjectEvent",
-      "eventTime": "2026-10-21T12:40:00+02:00",
+      "eventTime": "2026-10-21T10:40:00.000Z",
       "eventTimeZoneOffset": "+02:00",
       "epcList": [
-        "urn:epc:id:sgtin:0614141.107346.2017"
+        "urn:epc:id:sgtin:0614141.107346.2020"
       ],
       "action": "OBSERVE",
-      "bizStep": "https://ref.gs1.org/cbv/BizStep-accepting",
-      "disposition": "https://ref.gs1.org/cbv/Disp-active",
+      "bizStep": "accepting",
+      "disposition": "active",
       "readPoint": {
-        "id": "urn:epc:id:sgln:0614141.54321.402"
+        "id": "urn:epc:id:sgln:0614141.54321.0"
       },
       "bizLocation": {
         "id": "urn:epc:id:sgln:0614141.54321.0"
@@ -102,7 +102,10 @@
       "non_equivalences": [
         "physical_delivery_verified",
         "product_authenticity_verified",
-        "regulatory_compliance"
+        "regulatory_compliance",
+        "receiving_event_recorded",
+        "acceptance_of_possession_or_ownership",
+        "legal_title_verified"
       ]
     },
     {
@@ -111,9 +114,11 @@
       "mycelix_claim_type": "arrival_observed",
       "qualification_disposition": "source_assertion_only",
       "non_equivalences": [
+        "physical_delivery_verified",
         "receiving_event_recorded",
         "acceptance_of_possession_or_ownership",
-        "physical_delivery_verified"
+        "legal_title_verified",
+        "product_authenticity_verified"
       ]
     },
     {
@@ -122,9 +127,11 @@
       "mycelix_claim_type": "receiving_event_recorded",
       "qualification_disposition": "source_assertion_only",
       "non_equivalences": [
+        "physical_delivery_verified",
+        "product_authenticity_verified",
+        "regulatory_compliance",
         "acceptance_of_possession_or_ownership",
-        "legal_title_verified",
-        "physical_delivery_verified"
+        "legal_title_verified"
       ]
     },
     {
@@ -133,16 +140,21 @@
       "mycelix_claim_type": "possession_or_ownership_change_asserted",
       "qualification_disposition": "source_assertion_only",
       "non_equivalences": [
-        "legal_title_verified",
         "physical_delivery_verified",
-        "product_authenticity_verified"
+        "product_authenticity_verified",
+        "regulatory_compliance",
+        "receiving_event_recorded",
+        "legal_title_verified"
       ]
     }
   ],
   "nonclaims": [
-    "This is a synthetic EPCIS/CBV-shaped event-fragment fixture, not a complete EPCISDocument and is not yet validated against the normative GS1 XSD, JSON Schema, or SHACL artefacts.",
-    "The fixture's event records and transitions are not observations of a real shipment.",
-    "A source shipment, arrival, receiving, or accepting event does not by itself prove physical delivery, product authenticity, legal title, regulatory compliance, or real-world efficacy.",
-    "The version pins do not imply GS1 endorsement, Mycelix conformance, or an existing vendor integration."
-  ]
+    "This is a synthetic minimal ObjectEvent projection, not a complete EPCISDocument, capture request, or claim of full EPCIS conformance.",
+    "Each event is an isolated test case using a distinct synthetic EPC; the fixture intentionally does not model one object's full shipment timeline.",
+    "A standards-shaped event does not establish that the asserted event actually happened.",
+    "Shipping, arriving, receiving and accepting are distinct CBV meanings; none alone proves every downstream physical, identity, regulatory or legal claim.",
+    "The fixture is not yet validated by GS1's official normative JSON Schema/SHACL artefacts or a GS1 certification programme.",
+    "This fixture does not imply GS1 endorsement or existing Mycelix/vendor integration."
+  ],
+  "fixture_scope": "minimal_object_event_projection_not_full_capture_document"
 }
