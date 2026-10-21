@@ -13,6 +13,7 @@ on:
       - 'mycelix-finance/crates/finance-route-clearing-optimizer/src/lib.rs'
       - 'mycelix-finance/crates/finance-route-clearing-optimizer/tests/queue_sequence_oracle.rs'
       - 'mycelix-finance/crates/finance-route-clearing-optimizer/examples/queue_policy_benchmark.rs'
+      - 'mycelix-finance/crates/finance-route-clearing-optimizer/examples/atomic_batch_benchmark.rs'
       - '.github/workflows/finance-queue-benchmark.yml'
 
 permissions:
@@ -83,15 +84,17 @@ jobs:
             cargo +1.96.1 generate-lockfile --offline
             cargo +1.96.1 run --offline --locked --release --example queue_policy_benchmark \
               > "$output/results.csv"
+            cargo +1.96.1 run --offline --locked --release --example atomic_batch_benchmark \
+              > "$output/atomic-batch-results.csv"
             cp Cargo.lock "$output/standalone-Cargo.lock"
             find . -type f ! -name Cargo.lock -print0 | sort -z | xargs -0 sha256sum \
               > "$output/SOURCE-SHA256SUMS"
           )
           test -s benchmark-output/results.csv
           test "$(wc -l < benchmark-output/results.csv)" -eq 46
-          # 700-order p95 must remain below the provisional 100 ms target, and the
-          # frozen synthetic corpus must not contain excluded inputs. These are benchmark
-          # gates, not claims of superiority to production settlement systems.
+          test -s benchmark-output/atomic-batch-results.csv
+          test "$(wc -l < benchmark-output/atomic-batch-results.csv)" -eq 5
+          # Queue gate: all generated cases must be represented, with no excluded inputs.
           awk -F, '
             NR == 1 { if ($17 != "p95_ns") exit 2; next }
             {
@@ -106,9 +109,24 @@ jobs:
               if (failed) exit 1
             }
           ' benchmark-output/results.csv
-          sha256sum benchmark-output/results.csv benchmark-output/metadata.txt \
-            benchmark-output/standalone-Cargo.lock benchmark-output/SOURCE-SHA256SUMS \
-            > benchmark-output/SHA256SUMS
+          # Exact batch gate: every fully funded atomic cycle must select all legs,
+          # and 16-candidate p95 must remain below a provisional 250 ms on this runner.
+          awk -F, '
+            NR == 1 { if ($8 != "p95_ns") exit 2; next }
+            {
+              cases++
+              if ($1 !~ /^[0-9]+$/ || $3 != $1 || $4 != $1 * 100) failed = 1
+              if ($6 != 2 ^ $1) failed = 1
+              if ($1 == 16 && ($8 !~ /^[0-9]+$/ || $8 > 250000000)) failed = 1
+            }
+            END {
+              if (cases != 4) failed = 1
+              if (failed) exit 1
+            }
+          ' benchmark-output/atomic-batch-results.csv
+          sha256sum benchmark-output/results.csv benchmark-output/atomic-batch-results.csv \
+            benchmark-output/metadata.txt benchmark-output/standalone-Cargo.lock \
+            benchmark-output/SOURCE-SHA256SUMS > benchmark-output/SHA256SUMS
 
       - name: Preserve benchmark report and metadata
         if: always()
