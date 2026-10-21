@@ -143,6 +143,14 @@ fn topology_features(problem: &Problem) -> TopologyFeatures {
     }
 }
 
+fn signed_saving(reference: u128, observed: u128) -> String {
+    if reference >= observed {
+        (reference - observed).to_string()
+    } else {
+        format!("-{}", observed - reference)
+    }
+}
+
 fn percentile(samples: &[u128], percentile: usize) -> u128 {
     let rank = (samples.len() * percentile).div_ceil(100).max(1);
     samples[rank.min(samples.len()) - 1]
@@ -183,6 +191,15 @@ where
 {
     let (result, samples) = measure(run)?;
     let features = topology_features(problem);
+    let baseline = input_order(problem)?;
+    let aggregate_saving = signed_saving(
+        baseline.evaluation.aggregate_required_initial_liquidity_minor,
+        result.evaluation.aggregate_required_initial_liquidity_minor,
+    );
+    let max_participant_reduction = signed_saving(
+        baseline.evaluation.max_participant_required_initial_liquidity_minor,
+        result.evaluation.max_participant_required_initial_liquidity_minor,
+    );
     let measured = finance_liquidity_reordering::evaluate_order(problem, &result.order)?;
     if measured != result.evaluation {
         return Err(format!("{} returned inconsistent metrics", algorithm).into());
@@ -214,7 +231,7 @@ where
     };
 
     println!(
-        "{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{}",
+        "{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{}",
         problem.payments().len(),
         problem.participant_count(),
         scenario.label(),
@@ -232,6 +249,8 @@ where
         result
             .evaluation
             .max_participant_required_initial_liquidity_minor,
+        aggregate_saving,
+        max_participant_reduction,
         aggregate_gap,
         max_participant_gap,
         percentile(&samples, 50),
@@ -242,7 +261,7 @@ where
 }
 
 fn main() -> Result<(), Box<dyn Error>> {
-    println!("payments,participants,scenario,participants_both_send_receive,unique_receivers,unique_directed_edges,exact_pareto_frontier_size,algorithm,seed,candidate_evaluations,aggregate_required_initial_liquidity_minor,max_participant_required_initial_liquidity_minor,aggregate_liquidity_gap_minor,max_participant_gap_minor,p50_ns,p95_ns,p99_ns");
+    println!("payments,participants,scenario,participants_both_send_receive,unique_receivers,unique_directed_edges,exact_pareto_frontier_size,algorithm,seed,candidate_evaluations,aggregate_required_initial_liquidity_minor,max_participant_required_initial_liquidity_minor,aggregate_saving_vs_input_minor,max_participant_reduction_vs_input_minor,aggregate_liquidity_gap_minor,max_participant_gap_minor,p50_ns,p95_ns,p99_ns");
 
     for payment_count in [4, 6, 8, 10, 30, 70, 140, 700] {
         for scenario in Scenario::ALL {
