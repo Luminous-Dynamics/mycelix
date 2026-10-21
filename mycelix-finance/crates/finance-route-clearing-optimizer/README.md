@@ -20,11 +20,19 @@ The authority enum is an explicit caller-side gate, not a cryptographic verifier
 
 The cost value is a dimensionless linear optimization weight per minor unit. It is not a provider's actual fee quote. This first version intentionally does not model fixed-per-leg charges, fee floors/caps, FX spreads, deadlines, multihop routes, failed settlement, participant defaults, or nonlinear costs. A future extension should retain this linear solver as a baseline and add those costs without silently mixing objective units.
 
+## Fixed activation charges
+
+The `fixed_charge` module adds an exact small-instance extension for route activation costs. A route can be expensive to open even when its unit cost is low; a plan with fewer activated routes may therefore beat the pure linear min-cost-flow result. The exact search evaluates every route subset and calls the linear optimizer as its subproblem.
+
+This problem is combinatorial, so the implementation hard-limits exact search to 12 distinct route IDs (at most 4,096 subsets) and returns an error beyond that limit. It does not silently switch to a heuristic. The objective is still lexicographic: maximize feasible amount, then minimize unit costs plus one fixed activation charge per used route. The activation charge is a modeled weight, not a provider quote.
+
+The returned plan preserves excluded routes from the full candidate input even when those routes were not part of the chosen subset. The existing linear solver remains the scalability baseline; fixed-charge search is an exact reference/oracle for small instances.
+
 ## Paradigm shift
 
 Do not optimize a single opaque “savings” score. First maximize the amount that is actually route- and liquidity-feasible; among plans with the same flow, minimize modeled routing cost. The residual is visible, not hand-waved away. That lexicographic objective separates service completion from price optimization and avoids trading a large amount of unmet obligations for a cosmetically cheap plan.
 
-This is exact for the stated linear flow model. It is not an assertion that it outperforms production RTGS liquidity-saving mechanisms (LSMs), nor that every real-world clearing profile can be reduced to a linear flow problem.
+The linear solver is exact for its stated model, and the fixed-charge extension is exact only within its explicit 12-route bound. Neither is an assertion of superiority to production RTGS liquidity-saving mechanisms (LSMs), nor that every real-world clearing profile reduces to a simple flow problem.
 
 ## Tests and benchmark harness
 
