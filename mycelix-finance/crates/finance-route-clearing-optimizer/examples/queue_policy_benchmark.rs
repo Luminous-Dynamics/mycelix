@@ -123,7 +123,7 @@ fn percentile(samples: &mut [u128], percentile: usize) -> u128 {
 
 fn main() {
     println!(
-        "scenario,payments,policy,settled_count,unsettled_count,excluded_count,settled_minor,late_settled,missed_deadlines,modeled_fee_units,p95_participant_balance_time_minor_ticks,max_participant_peak_balance_minor,p50_ns,p95_ns,p99_ns"
+        "scenario,payments,policy,settled_count,unsettled_count,excluded_count,settled_minor,late_settled,missed_deadlines,modeled_fee_units,total_queue_wait_ticks,p95_queue_wait_ticks,max_queue_wait_ticks,p95_participant_balance_time_minor_ticks,max_participant_peak_balance_minor,p50_ns,p95_ns,p99_ns"
     );
 
     for scenario in [
@@ -158,6 +158,12 @@ fn main() {
                     .map(|a| a.balance_time_minor_ticks)
                     .collect::<Vec<_>>();
                 let p95_balance_time = percentile(&mut balance_time, 95);
+                let p95_queue_wait = result
+                    .p95_queue_wait_ticks
+                    .expect("synthetic trace must contain queue wait samples");
+                let max_queue_wait = result
+                    .max_queue_wait_ticks
+                    .expect("synthetic trace must contain queue wait samples");
                 let max_peak_balance = result
                     .account_metrics
                     .iter()
@@ -166,7 +172,7 @@ fn main() {
                     .unwrap_or(0);
 
                 println!(
-                    "{},{payment_count},{policy:?},{},{},{},{},{},{},{},{p95_balance_time},{max_peak_balance},{p50},{p95},{p99}",
+                    "{},{payment_count},{policy:?},{},{},{},{},{},{},{},{},{},{},{p95_balance_time},{max_peak_balance},{p50},{p95},{p99}",
                     scenario.name(),
                     result.settled_count,
                     result.unsettled_count,
@@ -175,6 +181,9 @@ fn main() {
                     result.late_settled_count,
                     result.missed_deadline_count,
                     result.modeled_fee_units,
+                    result.total_queue_wait_ticks,
+                    p95_queue_wait,
+                    max_queue_wait,
                 );
             }
         }
