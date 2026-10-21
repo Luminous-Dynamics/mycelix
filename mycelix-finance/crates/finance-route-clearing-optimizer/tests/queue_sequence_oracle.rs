@@ -19,7 +19,7 @@ fn account(id: &str, balance_minor: u64) -> QueueAccount {
     }
 }
 
-fn route(id: &str, from: &str, to: &str, capacity_minor: u64) -> QueueRoute {
+fn route(id: &str, capacity_minor: u64) -> QueueRoute {
     QueueRoute {
         route_id: id.into(),
         rail_id: "oracle-rail".into(),
@@ -167,7 +167,7 @@ fn exhaustive_sequence_oracle(
 #[test]
 fn exact_sequence_oracle_demonstrates_the_cost_of_strict_head_of_line_blocking() {
     let accounts = [account("A", 0), account("B", 0), account("C", 5)];
-    let routes = [route("ab", "A", "B", 5), route("ca", "C", "A", 5)];
+    let routes = [route("ab", 5), route("ca", 5)];
     let payments = [
         payment("a-first", "ab", "A", "B", 5, 0),
         payment("c-funds-a", "ca", "C", "A", 5, 0),
@@ -206,9 +206,9 @@ fn all_queue_policies_stay_within_the_exact_oracle_on_64_small_traces() {
             account("C", ((seed * 7 + 1) % 7) as u64),
         ];
         let routes = [
-            route("ab", "A", "B", 5),
-            route("bc", "B", "C", 5),
-            route("ca", "C", "A", 5),
+            route("ab", 5),
+            route("bc", 5),
+            route("ca", 5),
         ];
         let payments = [
             payment("p0", "ab", "A", "B", ((seed * 3 + 1) % 4 + 1) as u64, 1),
