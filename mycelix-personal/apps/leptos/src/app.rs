@@ -409,6 +409,8 @@ fn format_relative_micros(timestamp_micros: i64) -> String {
 #[component]
 fn IdentityPage() -> impl IntoView {
     let ctx = use_personal();
+    let profile_source = ctx.profile_source;
+    let keys_source = ctx.keys_source;
     let location = use_location();
     let hc = mycelix_leptos_core::holochain_provider::use_holochain();
     let toasts = use_toasts();
@@ -466,6 +468,12 @@ fn IdentityPage() -> impl IntoView {
             <div class="two-up">
                 <section class="vault-card">
                     <SectionTitle title="Profile" />
+                    <p class="supporting-copy" role="status" aria-live="polite">
+                        {move || {
+                            let state = profile_source.get().kind();
+                            format!("Profile source: {}. {}", state.label(), state.explanation())
+                        }}
+                    </p>
                     <form on:submit=save_profile class="profile-form">
                         <label class="field-block">
                             <span>"Display name"</span>
@@ -500,6 +508,12 @@ fn IdentityPage() -> impl IntoView {
 
                 <section class="vault-card">
                     <SectionTitle title="Key posture" />
+                    <p class="supporting-copy" role="status" aria-live="polite">
+                        {move || {
+                            let state = keys_source.get().kind();
+                            format!("Identity-key source: {}. {}", state.label(), state.explanation())
+                        }}
+                    </p>
                     <div class="key-list">
                         <For
                             each=move || ctx.keys.get()
