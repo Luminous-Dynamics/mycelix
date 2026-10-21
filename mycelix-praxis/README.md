@@ -134,6 +134,7 @@ See [`docs/adr/`](docs/adr/) for all ADRs.
 
 - **[VC Schema: EduAchievementCredential](schemas/vc/EduAchievementCredential.schema.json)**
 - **[DHT Entries](schemas/dht/entries.md)**: Holochain entry definitions
+- **[Lesson Evidence Record v1](schemas/lesson-evidence-record-v1.schema.json)**: Backward-compatible sidecar for source/rights provenance, review status, accessibility checks, and learning-study evidence
 
 ### Policies
 
@@ -154,6 +155,10 @@ make build       # Build Rust workspace + web app
 make test        # Run all tests (Rust + web)
 make check       # Quick sanity check (fmt + clippy + test)
 make bench       # Run performance benchmarks
+
+# Curriculum evidence and coverage audit (from this workspace)
+cargo test -p praxis-curriculum-audit --lib
+cargo run -p praxis-curriculum-audit -- --format=markdown
 make fmt         # Format all code
 make lint        # Run linters
 make clean       # Clean build artifacts
