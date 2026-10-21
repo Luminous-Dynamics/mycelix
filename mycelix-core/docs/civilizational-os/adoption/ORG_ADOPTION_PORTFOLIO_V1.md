@@ -127,7 +127,7 @@ For every vertical, baseline and candidate must receive the same frozen input di
 - portability: reproducible receipt, full export, independent replay and tested rollback/off-ramp;
 - consequential outcomes: only after real deployment, a suitable baseline, predeclared evaluation plan and permission to use the required data.
 
-Suggested scale gates are *targets to measure, not achieved results*: first prove the synthetic 4-event reference fixture; then 1,000, 10,000 and 100,000-event corpora with increasing event-type and source diversity. Hold exactness and claim ceilings constant while measuring scale. The reference fixture's five controls and 12 mutation cases do not by themselves demonstrate industrial readiness or SOTA performance.
+Suggested scale gates are *targets to measure, not achieved results*: first prove the synthetic 4-event reference fixture; then 1,000, 10,000 and 50,000-event corpora with increasing event-type and source diversity. The v1 bundle schema caps one manifest at 50,000 events; larger corpora require explicit chunking/streaming semantics before raising that bound. Hold exactness and claim ceilings constant while measuring scale. The reference fixture's five controls and 12 mutation cases do not by themselves demonstrate industrial readiness or SOTA performance.
 
 ## Acceptance profile for every pilot
 
