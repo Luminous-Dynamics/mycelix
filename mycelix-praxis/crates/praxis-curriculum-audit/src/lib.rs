@@ -65,11 +65,22 @@ struct ContentQualityFinding {
     message: String,
 }
 
+#[derive(Debug, Serialize)]
+struct ContentAssetSummary {
+    lesson_id: String,
+    asset_path: String,
+    lesson_digest_blake3: String,
+    finding_count: usize,
+    blocker_count: usize,
+    warning_count: usize,
+}
+
 #[derive(Debug, Default)]
 struct ContentQualityAudit {
     assets_scanned: usize,
     assets_with_findings: usize,
     findings: Vec<ContentQualityFinding>,
+    assets: Vec<ContentAssetSummary>,
 }
 
 #[derive(Debug, Serialize)]
@@ -100,6 +111,7 @@ struct AuditReport {
     schema_version: u32,
     content_assets_scanned: usize,
     content_assets_with_quality_findings: usize,
+    content_asset_summaries: Vec<ContentAssetSummary>,
     content_quality_findings: Vec<ContentQualityFinding>,
     active_document_count: usize,
     active_node_count: usize,
@@ -638,6 +650,7 @@ fn analyze(
         input_digest_blake3: String::new(),
         content_assets_scanned: 0,
         content_assets_with_quality_findings: 0,
+        content_asset_summaries: Vec::new(),
         content_quality_findings: Vec::new(),
     }
 }
@@ -881,6 +894,10 @@ fn audit_inactive_manifest_sources(
     }
 
     match_inactive_manifest_sources(&active_ids, manifest, &documents)
+}
+
+fn lesson_asset_digest_blake3(raw_bytes: &str) -> String {
+    blake3::hash(raw_bytes.as_bytes()).to_hex().to_string()
 }
 
 fn normalize_content(text: &str) -> String {
@@ -1368,13 +1385,32 @@ fn audit_manifest_assets(workspace: &Path, errors: &mut Vec<String>) -> ContentQ
                 }
             };
             audit.assets_scanned += 1;
-            if audit_lesson_value(&relative_path, &value, &mut audit) {
+            let previous_finding_count = audit.findings.len();
+            let has_findings = audit_lesson_value(&relative_path, &value, &mut audit);
+            if has_findings {
                 audit.assets_with_findings += 1;
             }
 
             // A manifest key and the embedded lesson's stable ID should agree.
             let actual_id = nonempty_string(value.get("node_id"))
                 .or_else(|| nonempty_string(value.pointer("/lesson/standard_code")));
+            let asset_findings = &audit.findings[previous_finding_count..];
+            let blocker_count = asset_findings
+                .iter()
+                .filter(|finding| finding.severity == "blocker")
+                .count();
+            let warning_count = asset_findings
+                .iter()
+                .filter(|finding| finding.severity == "warning")
+                .count();
+            audit.assets.push(ContentAssetSummary {
+                lesson_id: actual_id.clone().unwrap_or_else(|| node_id.clone()),
+                asset_path: relative_path.clone(),
+                lesson_digest_blake3: lesson_asset_digest_blake3(&raw),
+                finding_count: asset_findings.len(),
+                blocker_count,
+                warning_count,
+            });
             if actual_id.as_deref() != Some(node_id.as_str()) {
                 errors.push(format!(
                     "manifest key {node_id:?} does not match lesson ID {:?} in {uri}",
@@ -1588,6 +1624,7 @@ fn run() -> Result<(), AuditFailure> {
     report.inactive_manifest_source_matches = inactive_source_audit.source_matches;
     report.content_assets_scanned = content_audit.assets_scanned;
     report.content_assets_with_quality_findings = content_audit.assets_with_findings;
+    report.content_asset_summaries = content_audit.assets;
     report.content_quality_findings = content_audit.findings;
     if let Some(digest) = input_digest {
         report.input_digest_blake3 = digest;
@@ -1875,6 +1912,22 @@ mod tests {
         let mut errors = Vec::new();
         let _ = analyze(&docs, &BTreeMap::new(), &mut errors);
         assert!(errors.iter().any(|error| error.contains("dangling edge")));
+    }
+
+    #[test]
+    fn lesson_asset_digest_binds_exact_source_bytes() {
+        let original = "{\n  \"lesson\": {\"title\": \"Example\"}\n}\n";
+        let same_bytes = original.to_owned();
+        let changed_whitespace = "{\"lesson\":{\"title\":\"Example\"}}\n";
+        assert_eq!(
+            lesson_asset_digest_blake3(original),
+            lesson_asset_digest_blake3(&same_bytes)
+        );
+        assert_ne!(
+            lesson_asset_digest_blake3(original),
+            lesson_asset_digest_blake3(changed_whitespace)
+        );
+        assert_eq!(lesson_asset_digest_blake3(original).len(), 64);
     }
 
     #[test]
