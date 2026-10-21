@@ -74,6 +74,9 @@ pub enum QueuePolicy {
     LiquidityAwareFifo,
     /// Higher priority first, then arrival time and ID; retries after successful settlement.
     PriorityScan,
+    /// Earliest explicit deadline first (missing deadlines last), then arrival time and ID.
+    /// This is a simple heuristic, not a globally optimal deadline schedule.
+    EarliestDeadlineFirst,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -408,21 +411,30 @@ pub fn simulate_queue(
                 })
                 .collect::<Vec<_>>();
 
-            if policy == QueuePolicy::PriorityScan {
-                pending.sort_by(|a, b| {
+            match policy {
+                QueuePolicy::PriorityScan => pending.sort_by(|a, b| {
                     payments[*b]
                         .priority
                         .cmp(&payments[*a].priority)
                         .then_with(|| payments[*a].arrival_tick.cmp(&payments[*b].arrival_tick))
                         .then_with(|| payments[*a].payment_id.cmp(&payments[*b].payment_id))
-                });
-            } else {
-                pending.sort_by(|a, b| {
+                }),
+                QueuePolicy::EarliestDeadlineFirst => pending.sort_by(|a, b| {
                     payments[*a]
-                        .arrival_tick
-                        .cmp(&payments[*b].arrival_tick)
+                        .deadline_tick
+                        .unwrap_or(u64::MAX)
+                        .cmp(&payments[*b].deadline_tick.unwrap_or(u64::MAX))
+                        .then_with(|| payments[*a].arrival_tick.cmp(&payments[*b].arrival_tick))
                         .then_with(|| payments[*a].payment_id.cmp(&payments[*b].payment_id))
-                });
+                }),
+                QueuePolicy::StrictFifo | QueuePolicy::LiquidityAwareFifo => pending.sort_by(
+                    |a, b| {
+                        payments[*a]
+                            .arrival_tick
+                            .cmp(&payments[*b].arrival_tick)
+                            .then_with(|| payments[*a].payment_id.cmp(&payments[*b].payment_id))
+                    },
+                ),
             }
             if pending.is_empty() {
                 break;
