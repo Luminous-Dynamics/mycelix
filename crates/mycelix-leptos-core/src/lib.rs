@@ -72,6 +72,8 @@ pub mod identity_crypto;
 pub mod indlela;
 pub use mycelix_leptos_ui::loading;
 pub mod local_identity;
+pub mod identity_bootstrap;
+pub use identity_bootstrap::IdentityBootstrapGate;
 pub mod modal;
 pub use mycelix_leptos_ui::progress_bar;
 pub mod search_bar;
