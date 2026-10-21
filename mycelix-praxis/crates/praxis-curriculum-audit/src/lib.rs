@@ -559,9 +559,8 @@ fn markdown(report: &AuditReport) -> String {
     let mut out = String::new();
     out.push_str("# Praxis curriculum coverage audit\n\n");
     out.push_str(
-        "> Coverage is not proof of lesson quality, learning efficacy, or accreditation. Counts use the active embedded graph and checked-in content manifest.\n\n",
-    );
-    out.push_str(&format!("Input digest (BLAKE3): {}\n\n", report.input_digest_blake3));
+    out.push_str("> Coverage is not proof of lesson quality or learning efficacy.\n");
+    out.push_str("> Counts use the active embedded graph and checked-in content manifest.\n\n");
     out.push_str("| Metric | Count |\n|---|---:|\n");
     out.push_str(&format!("| Active curriculum documents | {} |\n", report.active_document_count));
     out.push_str(&format!("| Active nodes | {} |\n", report.active_node_count));
@@ -592,9 +591,9 @@ fn markdown(report: &AuditReport) -> String {
         report.orphan_manifest_node_ids.len()
     ));
     out.push_str(
-        "| Framework | Grade | Subject | Nodes | With standards | With lessons | Missing lessons | Assets |\n",
+    out.push_str(
+        "| Framework | Grade | Subject | Nodes | Standard refs | With lessons | Missing | Assets |\n",
     );
-    out.push_str("|---|---|---|---:|---:|---:|---:|---:|\n");
     for group in &report.groups {
         out.push_str(&format!(
             "| {} | {} | {} | {} | {} | {} | {} | {} |\n",
@@ -631,7 +630,7 @@ fn run() -> Result<(), AuditFailure> {
             "--format=markdown" | "--markdown" => output_format = "markdown",
             "--help" | "-h" => {
                 println!(
-                    "praxis-curriculum-audit [--format=json|markdown]\nRead-only audit of active graph integrity and lesson coverage."
+                    "praxis-curriculum-audit [--format=json|markdown]\nRead-only curriculum coverage audit."
                 );
                 return Ok(());
             }
@@ -736,8 +735,15 @@ mod tests {
 
     #[test]
     fn extracts_only_json_include_paths() {
-        let source = "include_str!(\"a.json\"); include_str!(\"b.svg\"); include_str!(\"nested/c.json\");";
-        assert_eq!(embedded_json_paths(source), vec!["a.json".to_owned(), "nested/c.json".to_owned()]);
+        let source = concat!(
+            "include_str!(\\"a.json\\"); ",
+            "include_str!(\\"b.svg\\"); ",
+            "include_str!(\\"nested/c.json\\");"
+        );
+        assert_eq!(
+            embedded_json_paths(source),
+            vec!["a.json".to_owned(), "nested/c.json".to_owned()]
+        );
     }
 
     #[test]
