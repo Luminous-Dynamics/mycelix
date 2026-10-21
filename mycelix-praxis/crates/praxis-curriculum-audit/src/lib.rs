@@ -871,6 +871,32 @@ fn audit_lesson_value(asset_path: &str, value: &Value, audit: &mut ContentQualit
                 &format!("{prefix}.explanation"),
                 problem.get("explanation"),
             );
+
+            if let Some(answer) = nonempty_string(problem.get("answer")) {
+                let answer_key = normalize_content(&answer)
+                    .trim_end_matches(['.', '!', '?'])
+                    .to_owned();
+                if let Some(distractors) = problem.get("distractors").and_then(Value::as_array) {
+                    for distractor in distractors.iter().filter_map(Value::as_str) {
+                        let distractor_key = normalize_content(distractor)
+                            .trim_end_matches(['.', '!', '?'])
+                            .to_owned();
+                        if !distractor_key.is_empty() && distractor_key == answer_key {
+                            audit.findings.push(ContentQualityFinding {
+                                lesson_id: lesson_id.clone(),
+                                asset_path: asset_path.to_owned(),
+                                field: format!("{prefix}.distractors"),
+                                code: "answer_in_distractors".to_owned(),
+                                severity: "blocker".to_owned(),
+                                message: format!(
+                                    "The correct answer {answer:?} is also listed as a distractor; multiple-choice feedback can become contradictory."
+                                ),
+                            });
+                        }
+                    }
+                }
+            }
+
             if let Some(prompt) = nonempty_string(problem.get("question")) {
                 let key = normalize_content(&prompt);
                 if !key.is_empty() {
@@ -1623,6 +1649,35 @@ mod tests {
                 .any(|finding| finding.code == "duplicate_practice_prompt")
         );
         assert!(audit.findings.len() >= 10);
+    }
+
+    #[test]
+    fn static_content_audit_blocks_correct_answers_in_distractors() {
+        let value = serde_json::json!({
+            "node_id": "fixture.distractors",
+            "lesson": {
+                "title": "Multiplication",
+                "explanation": "Multiplication represents equal groups of the same size.",
+                "examples": [{
+                    "problem": "Three groups of two objects are shown. How many objects are there?",
+                    "steps": [{"instruction": "Count both groups.", "result": "2 + 2 + 2 = 6"}],
+                    "answer": "6"
+                }],
+                "practice_problems": [{
+                    "question": "How many objects are in 3 groups of 2?",
+                    "answer": "6",
+                    "explanation": "3 × 2 = 6.",
+                    "distractors": ["4", " 6 ", "8"]
+                }]
+            }
+        });
+        let mut audit = ContentQualityAudit::default();
+        assert!(audit_lesson_value("distractors.json", &value, &mut audit));
+        assert!(audit.findings.iter().any(|finding| {
+            finding.code == "answer_in_distractors"
+                && finding.field == "lesson.practice_problems[0].distractors"
+                && finding.severity == "blocker"
+        }));
     }
 
     #[test]
