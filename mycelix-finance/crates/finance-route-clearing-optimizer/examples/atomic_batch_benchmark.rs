@@ -19,6 +19,7 @@ fn fixture(
     let context = BatchContext {
         rail_id: "synthetic-atomic-batch".into(),
         asset_id: "ZAR-minor-unit".into(),
+        netting_set_id: "batch-bench-set".into(),
         policy_version: "atomic-batch-bench-v1".into(),
         tick: 0,
         authority: AuthorityQualification::ExternallyQualified {
@@ -36,6 +37,7 @@ fn fixture(
             route_id: format!("R{index:02}"),
             rail_id: context.rail_id.clone(),
             asset_id: context.asset_id.clone(),
+            netting_set_id: context.netting_set_id.clone(),
             policy_version: context.policy_version.clone(),
             enabled: true,
             remaining_capacity_minor: 100,
@@ -49,6 +51,7 @@ fn fixture(
             payment_id: format!("PAY{index:02}"),
             rail_id: context.rail_id.clone(),
             asset_id: context.asset_id.clone(),
+            netting_set_id: context.netting_set_id.clone(),
             policy_version: context.policy_version.clone(),
             route_id: format!("R{index:02}"),
             from: format!("P{index:02}"),
