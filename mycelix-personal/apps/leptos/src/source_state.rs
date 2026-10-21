@@ -15,7 +15,7 @@ use serde::{Deserialize, Serialize};
 
 /// Stable machine-readable classification for rendering, metrics, and tests.
 /// Do not use this classification as an authorization decision.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum SourceStateKind {
     NotChecked,
     LiveWithRecords,
