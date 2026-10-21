@@ -16,6 +16,7 @@ The implementation reports the aggregate sum over participants and the largest i
 - receiver_ready_greedy: greedy next-payment selection by incremental prefunding need, then value that can unlock the receiver's pending outgoing transfers.
 - bounded_insertion_search: deterministic insertion local search with a caller-supplied candidate budget.
 - simulated_annealing: dependency-free SplitMix64-seeded swap search; exact seed and iteration count reproduce the same output.
+- heuristic_portfolio: compare input order and receiver-ready greedy, then spend separate insertion-search and seeded annealing budgets starting from the best plan so far. Its aggregate evaluation count includes component effort; compare its additional runtime against quality gains rather than presenting it as a free improvement.
 - exact_permutation_oracle: exhaustive search limited to at most eight payments. Larger input fails closed; no heuristic is presented as optimal.
 
 Every candidate order preserves each payment exactly once. Input amount, IDs, and participant indices are validated; all calculations use integer minor units and checked arithmetic where accumulation may overflow. No algorithm mutates payment terms.
@@ -28,7 +29,7 @@ From repository root, run:
     cargo test --manifest-path research/finance-liquidity-reordering/Cargo.toml --offline --locked
     cargo run --manifest-path research/finance-liquidity-reordering/Cargo.toml --offline --locked --release --example benchmark
 
-The generated CSV compares input order, receiver-ready greedy, bounded insertion search, and three seeded annealing runs over four deterministic synthetic topologies (reversed equal-amount chain, reversed heterogeneous chain, reversed cycle, and hub round trips) at 4, 6, 8, 10, 30, 70, 140, and 700 gross payments. It also reports three graph features—participants who both send and receive, unique receivers, and unique directed edges—to enable later study of which topology features predict liquidity-saving opportunity. The 16-column CSV reports aggregate-liquidity gap and maximum-participant gap separately; the workflow checks both against the exact permutation oracle where it is feasible. A 205-line output gate requires all 204 algorithm/scenario/size rows and zero gaps on exact rows. These fixtures are deliberately adversarial, not representative RTGS data.
+The generated CSV compares input order, receiver-ready greedy, bounded insertion search, three seeded annealing runs, and the combined heuristic portfolio over four deterministic synthetic topologies (reversed equal-amount chain, reversed heterogeneous chain, reversed cycle, and hub round trips) at 4, 6, 8, 10, 30, 70, 140, and 700 gross payments. It also reports three graph features—participants who both send and receive, unique receivers, and unique directed edges—to enable later study of which topology features predict liquidity-saving opportunity. The 16-column CSV reports aggregate-liquidity gap and maximum-participant gap separately; the workflow checks both against the exact permutation oracle where it is feasible. A 237-line output gate requires all 236 algorithm/scenario/size rows and zero aggregate and maximum-participant gaps on exact rows. These fixtures are deliberately adversarial, not representative RTGS data.
 
 ## Limitations / next stage
 
