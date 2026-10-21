@@ -1,0 +1,749 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Beverage Batch Evidence Envelope V1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "status",
+    "batch_id",
+    "events",
+    "evidence_records",
+    "attestations",
+    "claims"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "beverage-batch-evidence-v1"
+    },
+    "status": {
+      "const": "synthetic_fixture_not_a_production_record"
+    },
+    "batch_id": {
+      "type": "string",
+      "minLength": 2,
+      "maxLength": 128
+    },
+    "events": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "event_id",
+          "event_type",
+          "occurred_at",
+          "actor_ref",
+          "input_batch_ids",
+          "output_batch_ids",
+          "evidence_refs"
+        ],
+        "properties": {
+          "event_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "event_type": {
+            "enum": [
+              "RECEIVED",
+              "PROCESS_STARTED",
+              "FERMENTATION_COMPLETED",
+              "BLENDED",
+              "DISTILLED",
+              "MATURED",
+              "PACKAGED",
+              "SHIPPED",
+              "RECALLED",
+              "CORRECTED",
+              "SAMPLING_DECISION_RECORDED"
+            ]
+          },
+          "occurred_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "actor_ref": {
+            "type": "string",
+            "minLength": 1
+          },
+          "location_ref": {
+            "type": "string"
+          },
+          "input_batch_ids": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "output_batch_ids": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "evidence_refs": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "supersedes_event_id": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "evidence_records": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "evidence_id",
+          "subject_batch_id",
+          "evidence_class",
+          "category",
+          "recorded_at",
+          "method",
+          "artifact_sha256",
+          "rights_status",
+          "data_sensitivity"
+        ],
+        "properties": {
+          "evidence_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "subject_batch_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "evidence_class": {
+            "enum": [
+              "MEASURED",
+              "MODELLED",
+              "SIMULATED",
+              "DECLARED",
+              "UNKNOWN"
+            ]
+          },
+          "category": {
+            "enum": [
+              "LAB_RESULT",
+              "PROCESS_SENSOR",
+              "INGREDIENT_ORIGIN",
+              "CALIBRATION",
+              "CUSTODY",
+              "SUSTAINABILITY",
+              "PRODUCT_IDENTITY",
+              "OTHER",
+              "RESOURCE_METER",
+              "SAMPLING_DECISION"
+            ]
+          },
+          "recorded_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "method": {
+            "type": "string",
+            "minLength": 1
+          },
+          "units": {
+            "type": "string"
+          },
+          "value": {
+            "type": [
+              "string",
+              "number",
+              "integer",
+              "boolean",
+              "object",
+              "array",
+              "null"
+            ]
+          },
+          "instrument_ref": {
+            "type": "string"
+          },
+          "calibration_evidence_ref": {
+            "type": "string"
+          },
+          "artifact_sha256": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$"
+          },
+          "source_uri": {
+            "type": "string",
+            "format": "uri"
+          },
+          "rights_status": {
+            "enum": [
+              "PERMITTED",
+              "PERMITTED_WITH_ATTRIBUTION",
+              "RESTRICTED",
+              "PROHIBITED",
+              "UNKNOWN"
+            ]
+          },
+          "permission_ref": {
+            "type": "string"
+          },
+          "data_sensitivity": {
+            "enum": [
+              "PUBLIC",
+              "PARTNER",
+              "CONFIDENTIAL",
+              "TRADE_SECRET",
+              "PERSONAL_DATA"
+            ]
+          },
+          "supersedes_evidence_id": {
+            "type": "string"
+          },
+          "measurement_period_start": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "measurement_period_end": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "functional_unit": {
+            "type": "string",
+            "minLength": 1
+          },
+          "meter_boundary_ref": {
+            "type": "string",
+            "minLength": 1
+          },
+          "meter_boundary_status": {
+            "enum": [
+              "COMPLETE",
+              "PARTIAL",
+              "UNKNOWN"
+            ]
+          },
+          "production_output_basis": {
+            "enum": [
+              "SALEABLE_QUALITY_CONFORMING_OUTPUT",
+              "TOTAL_OUTPUT",
+              "INPUT_VOLUME",
+              "OTHER"
+            ]
+          },
+          "missing_interval_policy": {
+            "enum": [
+              "EXCLUDE_AND_REPORT",
+              "IMPUTED_WITH_METHOD",
+              "UNKNOWN"
+            ]
+          },
+          "measurement_uncertainty": {
+            "type": "number",
+            "minimum": 0
+          },
+          "product_mix_ref": {
+            "type": "string",
+            "minLength": 1
+          },
+          "decision_time": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "policy_version": {
+            "type": "string",
+            "minLength": 1
+          },
+          "policy_config_sha256": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$"
+          },
+          "input_prefix_sha256": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$"
+          },
+          "sampling_action": {
+            "enum": [
+              "SAMPLE",
+              "DEFER",
+              "ESCALATE",
+              "ABSTAIN"
+            ]
+          },
+          "available_channels": {
+            "type": "array",
+            "minItems": 1,
+            "uniqueItems": true,
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "required_tests_due": {
+            "type": "array",
+            "uniqueItems": true,
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "required_tests_scheduled": {
+            "type": "array",
+            "uniqueItems": true,
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "calibration_state": {
+            "enum": [
+              "CALIBRATED",
+              "UNAVAILABLE",
+              "FAILED",
+              "NOT_APPLICABLE"
+            ]
+          },
+          "requested_channel": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "minLength": 1
+          },
+          "requested_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "next_review_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "reason_code": {
+            "type": "string",
+            "minLength": 1
+          },
+          "decision_deadline": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "expected_result_available_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "expected_loss_without_sample_units": {
+            "type": "number",
+            "minimum": 0
+          },
+          "expected_loss_with_sample_units": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "minimum": 0
+          },
+          "estimated_sampling_cost_units": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "minimum": 0
+          },
+          "estimated_delay_cost_units": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "minimum": 0
+          }
+        },
+        "allOf": [
+          {
+            "if": {
+              "properties": {
+                "category": {
+                  "const": "RESOURCE_METER"
+                }
+              },
+              "required": [
+                "category"
+              ]
+            },
+            "then": {
+              "required": [
+                "value",
+                "units",
+                "instrument_ref",
+                "measurement_period_start",
+                "measurement_period_end",
+                "functional_unit",
+                "meter_boundary_ref",
+                "meter_boundary_status",
+                "production_output_basis",
+                "missing_interval_policy"
+              ],
+              "properties": {
+                "value": {
+                  "type": "number"
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "category": {
+                  "const": "SAMPLING_DECISION"
+                }
+              },
+              "required": [
+                "category"
+              ]
+            },
+            "then": {
+              "required": [
+                "decision_time",
+                "policy_version",
+                "policy_config_sha256",
+                "input_prefix_sha256",
+                "sampling_action",
+                "available_channels",
+                "required_tests_due",
+                "required_tests_scheduled",
+                "calibration_state",
+                "requested_channel",
+                "requested_at",
+                "next_review_at",
+                "reason_code",
+                "decision_deadline",
+                "expected_result_available_at",
+                "expected_loss_without_sample_units",
+                "expected_loss_with_sample_units",
+                "estimated_sampling_cost_units",
+                "estimated_delay_cost_units"
+              ],
+              "allOf": [
+                {
+                  "if": {
+                    "properties": {
+                      "sampling_action": {
+                        "const": "SAMPLE"
+                      }
+                    },
+                    "required": [
+                      "sampling_action"
+                    ]
+                  },
+                  "then": {
+                    "properties": {
+                      "requested_channel": {
+                        "type": "string",
+                        "minLength": 1
+                      },
+                      "requested_at": {
+                        "type": "string",
+                        "format": "date-time"
+                      },
+                      "next_review_at": {
+                        "type": "null"
+                      },
+                      "expected_result_available_at": {
+                        "type": "string",
+                        "format": "date-time"
+                      },
+                      "expected_loss_with_sample_units": {
+                        "type": "number",
+                        "minimum": 0
+                      },
+                      "estimated_sampling_cost_units": {
+                        "type": "number",
+                        "minimum": 0
+                      },
+                      "estimated_delay_cost_units": {
+                        "type": "number",
+                        "minimum": 0
+                      }
+                    },
+                    "required": [
+                      "expected_result_available_at",
+                      "expected_loss_with_sample_units",
+                      "estimated_sampling_cost_units",
+                      "estimated_delay_cost_units"
+                    ]
+                  }
+                },
+                {
+                  "if": {
+                    "properties": {
+                      "sampling_action": {
+                        "const": "DEFER"
+                      }
+                    },
+                    "required": [
+                      "sampling_action"
+                    ]
+                  },
+                  "then": {
+                    "properties": {
+                      "requested_channel": {
+                        "type": "null"
+                      },
+                      "requested_at": {
+                        "type": "null"
+                      },
+                      "next_review_at": {
+                        "type": "string",
+                        "format": "date-time"
+                      },
+                      "calibration_state": {
+                        "const": "CALIBRATED"
+                      },
+                      "expected_result_available_at": {
+                        "type": "null"
+                      },
+                      "expected_loss_with_sample_units": {
+                        "type": "null"
+                      },
+                      "estimated_sampling_cost_units": {
+                        "type": "null"
+                      },
+                      "estimated_delay_cost_units": {
+                        "type": "null"
+                      }
+                    },
+                    "required": [
+                      "expected_result_available_at",
+                      "expected_loss_with_sample_units",
+                      "estimated_sampling_cost_units",
+                      "estimated_delay_cost_units"
+                    ]
+                  }
+                },
+                {
+                  "if": {
+                    "properties": {
+                      "sampling_action": {
+                        "enum": [
+                          "ESCALATE",
+                          "ABSTAIN"
+                        ]
+                      }
+                    },
+                    "required": [
+                      "sampling_action"
+                    ]
+                  },
+                  "then": {
+                    "properties": {
+                      "requested_channel": {
+                        "type": "null"
+                      },
+                      "requested_at": {
+                        "type": "null"
+                      },
+                      "next_review_at": {
+                        "type": "null"
+                      },
+                      "expected_result_available_at": {
+                        "type": "null"
+                      },
+                      "expected_loss_with_sample_units": {
+                        "type": "null"
+                      },
+                      "estimated_sampling_cost_units": {
+                        "type": "null"
+                      },
+                      "estimated_delay_cost_units": {
+                        "type": "null"
+                      }
+                    },
+                    "required": [
+                      "expected_result_available_at",
+                      "expected_loss_with_sample_units",
+                      "estimated_sampling_cost_units",
+                      "estimated_delay_cost_units"
+                    ]
+                  }
+                }
+              ]
+            }
+          }
+        ]
+      }
+    },
+    "attestations": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "attestation_id",
+          "issuer_ref",
+          "subject_ref",
+          "subject_sha256",
+          "scope",
+          "issued_at",
+          "signature_algorithm",
+          "signature_sha256"
+        ],
+        "properties": {
+          "attestation_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "issuer_ref": {
+            "type": "string",
+            "minLength": 1
+          },
+          "subject_ref": {
+            "type": "string",
+            "minLength": 1
+          },
+          "subject_sha256": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$"
+          },
+          "scope": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "issued_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "expires_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "revoked_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "signature_algorithm": {
+            "type": "string",
+            "minLength": 1
+          },
+          "signature_sha256": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$"
+          },
+          "verification_key_ref": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "claims": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "claim_id",
+          "subject_batch_id",
+          "claim_type",
+          "claim_value",
+          "evidence_refs",
+          "requested_audience"
+        ],
+        "properties": {
+          "claim_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "subject_batch_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "claim_type": {
+            "enum": [
+              "ORIGIN",
+              "PRODUCT_IDENTITY",
+              "LAB_ATTRIBUTE",
+              "INGREDIENTS",
+              "SENSORY_ATTRIBUTE",
+              "SUSTAINABILITY",
+              "NUTRITION",
+              "SAFETY",
+              "REGULATORY_LABEL",
+              "OTHER"
+            ]
+          },
+          "claim_value": {
+            "type": [
+              "string",
+              "number",
+              "integer",
+              "boolean",
+              "object",
+              "array"
+            ]
+          },
+          "units": {
+            "type": "string"
+          },
+          "evidence_refs": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "attestation_refs": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "requested_audience": {
+            "enum": [
+              "PUBLIC",
+              "TRADING_PARTNER",
+              "AUDITOR",
+              "REGULATOR",
+              "INTERNAL"
+            ]
+          },
+          "required_evidence_classes": {
+            "type": "array",
+            "items": {
+              "enum": [
+                "MEASURED",
+                "MODELLED",
+                "SIMULATED",
+                "DECLARED"
+              ]
+            }
+          },
+          "required_scope": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "jurisdiction_rule_ref": {
+            "type": "string"
+          },
+          "required_effective_date": {
+            "type": "string",
+            "format": "date"
+          }
+        }
+      }
+    }
+  }
+}

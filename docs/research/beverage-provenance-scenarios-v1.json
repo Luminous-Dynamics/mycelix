@@ -1,0 +1,247 @@
+{
+  "schema_version": "beverage-provenance-scenarios-v1",
+  "status": "synthetic_negative_and_positive_controls_not_real_batch_evidence",
+  "scenarios": [
+    {
+      "id": "BP-001",
+      "name": "valid_batch_to_packaged_lot_lineage",
+      "expected_disposition": "ELIGIBLE_FOR_CLAIM_REVIEW",
+      "guards": [
+        "unique_ids",
+        "acyclic_transformation_graph",
+        "all_evidence_refs_resolve"
+      ],
+      "claim_ceiling": "Eligibility for review is not an authenticity verdict."
+    },
+    {
+      "id": "BP-002",
+      "name": "duplicate_event_identity",
+      "expected_disposition": "REJECT",
+      "guards": [
+        "event_ids_unique"
+      ],
+      "claim_ceiling": "Synthetic ID-integrity case."
+    },
+    {
+      "id": "BP-003",
+      "name": "broken_parent_child_transformation",
+      "expected_disposition": "REJECT",
+      "guards": [
+        "all_batch_edges_resolve",
+        "transform_inputs_outputs_recorded"
+      ],
+      "claim_ceiling": "Declared graph consistency does not prove the physical transfer occurred."
+    },
+    {
+      "id": "BP-004",
+      "name": "cycle_in_batch_lineage",
+      "expected_disposition": "REJECT",
+      "guards": [
+        "lineage_graph_acyclic"
+      ],
+      "claim_ceiling": "Synthetic graph-validation case."
+    },
+    {
+      "id": "BP-005",
+      "name": "tampered_evidence_bytes",
+      "expected_disposition": "REJECT_INTEGRITY",
+      "guards": [
+        "recompute_artifact_sha256",
+        "exact_subject_binding"
+      ],
+      "claim_ceiling": "A digest mismatch invalidates integrity for those bytes."
+    },
+    {
+      "id": "BP-006",
+      "name": "simulated_result_as_measured_lab_claim",
+      "expected_disposition": "REJECT_CLAIM",
+      "guards": [
+        "claim_requires_measured",
+        "evidence_class_not_upgraded"
+      ],
+      "claim_ceiling": "No schema can make simulated data into a measurement."
+    },
+    {
+      "id": "BP-007",
+      "name": "expired_or_revoked_lab_attestation",
+      "expected_disposition": "INELIGIBLE",
+      "guards": [
+        "issued_at_before_evaluation",
+        "not_expired",
+        "not_revoked",
+        "issuer_scope_valid"
+      ],
+      "claim_ceiling": "A signature without current valid scope may not support the claim."
+    },
+    {
+      "id": "BP-008",
+      "name": "unknown_data_rights",
+      "expected_disposition": "INELIGIBLE_FOR_REUSE_OR_DISCLOSURE",
+      "guards": [
+        "rights_status_explicit",
+        "permission_and_attribution_respected"
+      ],
+      "claim_ceiling": "Data availability does not imply permission."
+    },
+    {
+      "id": "BP-009",
+      "name": "trade_secret_hidden_from_public_claim",
+      "expected_disposition": "SELECTIVE_DISCLOSURE_ONLY",
+      "guards": [
+        "audience_authorized",
+        "minimum_disclosure",
+        "recipe_fields_not_public"
+      ],
+      "claim_ceiling": "Selective disclosure does not make the hidden recipe independently verified."
+    },
+    {
+      "id": "BP-010",
+      "name": "jurisdiction_rule_not_pinned",
+      "expected_disposition": "REGULATORY_CLAIM_INDETERMINATE",
+      "guards": [
+        "official_source",
+        "edition_effective_date",
+        "jurisdiction_and_market_scope"
+      ],
+      "claim_ceiling": "This envelope does not itself establish legal compliance."
+    },
+    {
+      "id": "BP-011",
+      "name": "resource_claim_with_mismatched_functional_unit",
+      "expected_disposition": "REJECT_CLAIM",
+      "guards": [
+        "resource_meter_evidence_requires_functional_unit",
+        "meter_boundary_matches_comparison",
+        "saleable_quality_conforming_output_basis",
+        "period_and_product_mix_are_aligned"
+      ],
+      "claim_ceiling": "Resource ratios cannot be ranked when the numerator boundary or output denominator differs."
+    },
+    {
+      "id": "BP-012",
+      "name": "resource_savings_claim_from_partial_unreported_meter_coverage",
+      "expected_disposition": "REJECT_CLAIM",
+      "guards": [
+        "meter_boundary_status_not_unknown",
+        "missing_intervals_disclosed",
+        "absolute_totals_reported",
+        "measured_and_modelled_values_separated"
+      ],
+      "claim_ceiling": "A partial meter boundary or undisclosed missing interval cannot support an unqualified savings claim."
+    },
+    {
+      "id": "BP-013",
+      "name": "model_anomaly_score_claimed_as_contamination_confirmation",
+      "expected_disposition": "REJECT_CLAIM",
+      "guards": [
+        "modelled_evidence_not_promoted_to_measured_lab_result",
+        "lab_sample_identity_method_and_result_required_for_lab_claim",
+        "model_residual_is_not_a_food_safety_verdict",
+        "claim_scope_and_authorized_reviewer_explicit"
+      ],
+      "claim_ceiling": "A process anomaly score is not a microbiological diagnosis, contamination confirmation or food-safety certification."
+    },
+    {
+      "id": "BP-014",
+      "name": "sensor_drift_mimics_abnormal_fermentation",
+      "expected_disposition": "INELIGIBLE",
+      "guards": [
+        "sensor_fault_hypothesis_preserved",
+        "calibration_state_and_time_alignment_checked",
+        "unverified_sensor_data_cannot_support_contamination_claim",
+        "unknown_is_not_normal_or_contaminated"
+      ],
+      "claim_ceiling": "A model discrepancy cannot distinguish sensor drift from a process disturbance without additional evidence."
+    },
+    {
+      "id": "BP-015",
+      "name": "model_switches_estimator_without_auditable_reason",
+      "expected_disposition": "REGULATORY_CLAIM_INDETERMINATE",
+      "guards": [
+        "switch_rule_version_and_trigger_recorded",
+        "data_prefix_digest_bound_to_estimate",
+        "model_class_and_uncertainty_recorded",
+        "switch_event_does_not_override_hard_gates"
+      ],
+      "claim_ceiling": "A versioned estimate can be audited; model switching does not make the resulting assertion empirically true."
+    },
+    {
+      "id": "BP-016",
+      "name": "confidential_industrial_paper_presented_as_public_batch_evidence",
+      "expected_disposition": "INELIGIBLE_FOR_REUSE_OR_DISCLOSURE",
+      "guards": [
+        "source_data_availability_preserved",
+        "literature_result_class_not_promoted_to_measured_batch",
+        "rights_status_reviewed_before_reuse"
+      ],
+      "claim_ceiling": "Published metrics do not authorize reconstruction or disclosure of confidential underlying batch trajectories."
+    },
+    {
+      "id": "BP-017",
+      "name": "sampling_decision_lacks_auditable_policy_and_data_prefix",
+      "expected_disposition": "REJECT_INTEGRITY",
+      "guards": [
+        "policy_version_and_config_digest_required",
+        "decision_time_and_input_prefix_digest_required",
+        "sample_request_or_deferral_reason_timestamped"
+      ],
+      "claim_ceiling": "A sampling-efficiency claim cannot be traced to a reproducible policy decision without a versioned policy, decision time and declared input prefix."
+    },
+    {
+      "id": "BP-018",
+      "name": "sampling_decision_requests_channel_not_available_at_site",
+      "expected_disposition": "REJECT_INTEGRITY",
+      "guards": [
+        "site_channel_inventory_declared",
+        "requested_channel_must_be_available",
+        "unavailable_measurement_not_counted_as_acquired_evidence"
+      ],
+      "claim_ceiling": "A recommendation to use an unavailable sensor does not constitute a feasible sample or evidence of monitoring improvement."
+    },
+    {
+      "id": "BP-019",
+      "name": "adaptive_deferral_drops_a_required_process_test",
+      "expected_disposition": "REJECT_INTEGRITY",
+      "guards": [
+        "required_tests_due_and_scheduled_are_separately_declared",
+        "every_due_required_test_remains_scheduled",
+        "discretionary_cost_target_cannot_override_safety_floor"
+      ],
+      "claim_ceiling": "Adaptive-sampling policies may defer only discretionary measurements; required process tests remain non-compensatory."
+    },
+    {
+      "id": "BP-020",
+      "name": "fewer_samples_claim_has_no_reference_trajectory_or_event_bound",
+      "expected_disposition": "REGULATORY_CLAIM_INDETERMINATE",
+      "guards": [
+        "dense_reference_or_valid_counterfactual_method_required",
+        "missed_events_false_alarms_and_detection_delay_reported",
+        "assay_cost_and_equal_budget_baseline_declared",
+        "independent_batch_uncertainty_reported"
+      ],
+      "claim_ceiling": "A lower sample count alone does not prove preserved detection, quality, safety, or operational value."
+    },
+    {
+      "id": "BP-021",
+      "name": "sampling_decision_has_nonpositive_expected_net_value",
+      "expected_disposition": "REJECT_INTEGRITY",
+      "guards": [
+        "expected_loss_without_sample_declared",
+        "expected_loss_with_sample_and_cost_terms_use_same_preregistered_units",
+        "expected_loss_reduction_exceeds_sampling_and_delay_costs"
+      ],
+      "claim_ceiling": "A measurement request must not claim positive expected decision value when estimated loss reduction does not exceed its cost and delay terms."
+    },
+    {
+      "id": "BP-022",
+      "name": "measurement_result_arrives_after_current_decision_deadline",
+      "expected_disposition": "REJECT_INTEGRITY",
+      "guards": [
+        "decision_deadline_declared",
+        "result_availability_time_is_explicit",
+        "sample_cannot_claim_to_inform_a_decision_after_its_deadline"
+      ],
+      "claim_ceiling": "A measurement that arrives after the relevant decision deadline cannot be credited with reducing the loss of that already-due decision."
+    }
+  ]
+}
