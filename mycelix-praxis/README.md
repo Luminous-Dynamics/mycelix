@@ -138,6 +138,7 @@ See [`docs/adr/`](docs/adr/) for all ADRs.
 - **[Learning experiment preregistration template](docs/experiment-preregistration-template.md)**: Freeze hypotheses, comparators, primary outcomes, uncertainty, privacy, and replication criteria before analyzing results
 - **[Praxis-PedBench v1 specification](benchmarks/pedbench-v1/README.md)**: Human-anchored evaluation of objective alignment, error diagnosis, actionable hints, answer leakage, explanation validity, cognitive engagement, accessibility and learner agency
 - **[PedBench synthetic seed cases](benchmarks/pedbench-v1/seed-cases.json)**: Six adversarial cases spanning primary mathematics, secondary algebra, science, writing and low-bandwidth accessibility; explicitly unvalidated pending educator annotation
+- **[PedBench run-receipt schema](benchmarks/pedbench-v1/run-receipt.schema.json)**: Binds split, model/configuration, policy/rubric digests, per-case results, uncertainty and held-out replication requirements for strong claims
 
 ### Policies
 
@@ -162,6 +163,7 @@ make bench       # Run performance benchmarks
 # Curriculum evidence and coverage audit (from this workspace)
 cargo test -p praxis-curriculum-audit --lib
 cargo run -p praxis-curriculum-audit -- --format=markdown
+cargo run -p praxis-curriculum-audit -- --format=markdown --fail-on-blockers
 make fmt         # Format all code
 make lint        # Run linters
 make clean       # Clean build artifacts
