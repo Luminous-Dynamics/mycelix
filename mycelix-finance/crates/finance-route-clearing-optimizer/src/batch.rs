@@ -474,7 +474,7 @@ pub fn select_atomic_batch(
                 && candidate
                     .payment
                     .deadline_tick
-                    .is_some_and(|deadline| context.tick > deadline)
+                    .is_some_and(|deadline| deadline <= context.tick)
         })
         .count();
 
@@ -725,6 +725,28 @@ mod tests {
             plan.excluded_payments[1].reason,
             BatchExclusionReason::PaymentProfileMismatch
         );
+    }
+
+    #[test]
+    fn deadline_is_missed_at_the_deadline_tick_if_payment_remains_unselected() {
+        let mut late = payment("late-selected", "ab", "A", "B", 5);
+        late.deadline_tick = Some(4);
+        let mut due_now = payment("unselected-due-now", "ac", "A", "C", 1);
+        due_now.deadline_tick = Some(5);
+        let plan = select_atomic_batch(
+            &context(5),
+            &[account("A", 5), account("B", 0), account("C", 0)],
+            &[
+                route("ab", 5, true, 0, 0),
+                route("ac", 5, true, 0, 0),
+            ],
+            &[late, due_now],
+        )
+        .unwrap();
+
+        assert_eq!(plan.selected_payment_ids, vec!["late-selected"]);
+        assert_eq!(plan.late_selected_count, 1);
+        assert_eq!(plan.missed_deadline_count, 1);
     }
 
     #[test]
