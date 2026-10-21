@@ -1453,6 +1453,29 @@ mod tests {
     }
 
     #[test]
+    fn static_content_audit_rejects_missing_instruction_and_empty_practice() {
+        let value = serde_json::json!({
+            "node_id": "fixture.missing",
+            "lesson": {
+                "title": "",
+                "explanation": "A real explanation with enough specific meaning.",
+                "examples": [],
+                "practice_problems": []
+            }
+        });
+        let mut audit = ContentQualityAudit::default();
+        assert!(audit_lesson_value("missing.json", &value, &mut audit));
+        assert!(audit.findings.iter().any(|finding| finding.code == "missing_required_text"));
+        assert!(audit.findings.iter().any(|finding| finding.code == "missing_worked_examples"));
+        assert!(audit.findings.iter().any(|finding| finding.code == "missing_practice_items"));
+
+        let missing_object = serde_json::json!({"node_id":"fixture.no-lesson"});
+        let mut second_audit = ContentQualityAudit::default();
+        assert!(audit_lesson_value("no-lesson.json", &missing_object, &mut second_audit));
+        assert!(second_audit.findings.iter().any(|finding| finding.code == "missing_lesson_object"));
+    }
+
+    #[test]
     fn markdown_describes_the_limit_of_the_report() {
         let docs = vec![(PathBuf::from("fixture.json"), fixture_document())];
         let manifest = BTreeMap::from([("n1".to_owned(), 1usize)]);
