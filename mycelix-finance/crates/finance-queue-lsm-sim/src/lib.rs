@@ -799,14 +799,7 @@ pub fn minimum_liquidity_order_oracle(
 
     let mut best = None;
     let mut candidates = 0_u64;
-    visit(
-        0,
-        &mut order,
-        context,
-        payments,
-        &mut best,
-        &mut candidates,
-    )?;
+    visit(0, &mut order, context, payments, &mut best, &mut candidates)?;
     let best = best.ok_or(QueueError::ConservationViolation)?;
     Ok(MinimumLiquidityOracleResult {
         best_order: best.order,
@@ -915,8 +908,7 @@ pub fn simulated_annealing_minimum_liquidity_order(
         candidate_order.insert(second, moved);
         let candidate_report =
             minimum_opening_liquidity_for_sequence(context, payments, &candidate_order)?;
-        let comparison =
-            compare_minimum_liquidity_reports(&candidate_report, &current_report);
+        let comparison = compare_minimum_liquidity_reports(&candidate_report, &current_report);
 
         let accept = if comparison != Ordering::Less {
             comparison == Ordering::Greater || candidate_order < current_order
@@ -936,8 +928,7 @@ pub fn simulated_annealing_minimum_liquidity_order(
             current_report = candidate_report.clone();
         }
 
-        let best_comparison =
-            compare_minimum_liquidity_reports(&candidate_report, &best_report);
+        let best_comparison = compare_minimum_liquidity_reports(&candidate_report, &best_report);
         if best_comparison == Ordering::Greater
             || (best_comparison == Ordering::Equal && candidate_order < best_order)
         {
@@ -1506,12 +1497,9 @@ mod tests {
 
         let fifo_report =
             minimum_opening_liquidity_for_sequence(&context(), &payments, &fifo).unwrap();
-        let optimized_report = minimum_opening_liquidity_for_sequence(
-            &context(),
-            &payments,
-            &low_liquidity_order,
-        )
-        .unwrap();
+        let optimized_report =
+            minimum_opening_liquidity_for_sequence(&context(), &payments, &low_liquidity_order)
+                .unwrap();
 
         assert_eq!(fifo, vec!["drain-a", "feed-b", "return-a"]);
         assert_eq!(fifo_report.total_required_opening_liquidity_minor, 16);
@@ -1547,10 +1535,16 @@ mod tests {
         let oracle = minimum_liquidity_order_oracle(&context(), &payments).unwrap();
 
         assert_eq!(oracle.candidate_orders_evaluated, 6);
-        assert_eq!(oracle.best_report.total_required_opening_liquidity_minor, 10);
+        assert_eq!(
+            oracle.best_report.total_required_opening_liquidity_minor,
+            10
+        );
         assert_eq!(
             oracle.best_report.total_payment_value_minor,
-            payments.iter().map(|p| p.amount_minor as u128).sum::<u128>()
+            payments
+                .iter()
+                .map(|p| p.amount_minor as u128)
+                .sum::<u128>()
         );
         assert!(compare_minimum_liquidity_reports(&oracle.best_report, &fifo_report).is_gt());
         let replay =
