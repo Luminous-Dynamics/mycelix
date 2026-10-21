@@ -12,7 +12,7 @@ The monorepo's target-organization research spans supply-chain traceability, ide
 
 This portfolio connects selected public organizations, protocols and registries to existing Mycelix work. It is a **technical integration map**, not an outreach tracker. The public artifact intentionally excludes private contact history and does not imply that a named organization is a partner, customer, design partner, adopter, or endorser.
 
-**Source-freshness guard:** 27 of 28 machine profiles currently set `source_evidence_state: reference_links_only`, `source_snapshot_manifest_path: null`, `source_snapshot_manifest_sha256: null`, and `source_snapshot_required_before_pilot: true`. The Integral Collective specifications profile is the first exception: it pins the official repository to commit [`402bf3ed46779f81ba720b3f4dabfe0cb1ab1bc5`](https://github.com/Integral-Collective/integral-specifications/commit/402bf3ed46779f81ba720b3f4dabfe0cb1ab1bc5) via [its source snapshot manifest](./source-snapshots/integral-collective-specifications-v1.json), whose SHA-256 is `cd7148a62c2ce63f874a1289de66227d3bff31b9936a96593aa7b9bd93bbb2fd`. This pins repository revision metadata only; raw source bytes are not copied, and no claim is made that any external spec is ratified or authoritative. The source snapshot schema is [versioned here](./org-adoption-source-snapshot-v1.schema.json). The catalog verifier rejects a claimed attachment if its manifest is missing, its digest differs, its URL set is incomplete, its source is not revision/content-qualified, or captured source bytes mismatch. A URL that still resolves does not establish that its content or status is unchanged.
+**Source-freshness guard:** 28 of 29 machine profiles currently set `source_evidence_state: reference_links_only`, `source_snapshot_manifest_path: null`, `source_snapshot_manifest_sha256: null`, and `source_snapshot_required_before_pilot: true`. The Integral Collective specifications profile is the first exception: it pins the official repository to commit [`402bf3ed46779f81ba720b3f4dabfe0cb1ab1bc5`](https://github.com/Integral-Collective/integral-specifications/commit/402bf3ed46779f81ba720b3f4dabfe0cb1ab1bc5) via [its source snapshot manifest](./source-snapshots/integral-collective-specifications-v1.json), whose SHA-256 is `cd7148a62c2ce63f874a1289de66227d3bff31b9936a96593aa7b9bd93bbb2fd`. This pins repository revision metadata only; raw source bytes are not copied, and no claim is made that any external spec is ratified or authoritative. The source snapshot schema is [versioned here](./org-adoption-source-snapshot-v1.schema.json). The catalog verifier rejects a claimed attachment if its manifest is missing, its digest differs, its URL set is incomplete, its source is not revision/content-qualified, or captured source bytes mismatch. A URL that still resolves does not establish that its content or status is unchanged.
 
 ## Design rules
 
@@ -64,6 +64,7 @@ The machine-readable roster also includes these named target-list organizations.
 | Decentralized Identity Foundation (DIF) | DID/VC method and profile mapping without inferring trust or authority | #1070, #1112 |
 | Danube Tech | Resolver/provider evidence and versioned DID/VC resolution receipts | #1070, #1112 |
 | Marblism | Effects-disabled agent workflow with principal binding, consent, tool scope, approval and action receipts | #1072, #3650, #2939 |
+| GS1 EPCIS / CBV | Preserve a specific ratified event-model version; test loss-aware mapping of scan/shipping/receiving/acceptance/correction events without inventing a parallel vocabulary | #437, #1112, #4901 |
 
 Climate-credit profiles are explicitly marked `gap_requires_issue` and tracked by [CLIMATE-PROV-001 #5390](https://github.com/Luminous-Dynamics/mycelix/issues/5390): existing evidence/provenance owners are adjacent, but they are not a substitute for a methodology- and registry-specific contract. Those profiles must remain research-only and cannot emit qualified impact claims.
 
@@ -72,6 +73,7 @@ Climate-credit profiles are explicitly marked `gap_requires_issue` and tracked b
 - Common Planet, [Creditism architecture](https://common-planet.org/creditism/architecture) and [Creditism overview](https://common-planet.org/creditism)
 - Integral Collective, [integral-specifications](https://github.com/Integral-Collective/integral-specifications)
 - Holochain, [developer portal](https://developer.holochain.org/) and [get involved](https://www.holochain.org/get-involved/)
+- GS1 EPCIS/CBV, [official standards page](https://www.gs1.org/standards/epcis)
 - TraceLink, [official site](https://www.tracelink.com/)
 - TRASCE, [2025 annual report](https://trasceconsortium.com/wp-content/uploads/2025/12/TRASCE_Annual-Report_2025.pdf)
 - OPTEL, [official site](https://www.optelgroup.com/en/)
@@ -178,6 +180,6 @@ Every concrete pilot derived from this portfolio must provide:
 
 ## What success means
 
-A passing catalog validator proves only that this roster conforms to its declared schema. The current catalog has 27 reference-only profiles and one immutable-revision pin for the Integral repository; neither status makes a draft interface ratified or establishes external authority. Each pilot must separately freeze and qualify its relied-upon sources, pass exact-head tests, and pass its domain-specific oracle. An external claim such as “Mycelix improves traceability,” “reduces reconciliation cost,” or “is more effective than the incumbent” requires a paired baseline, a prespecified measurement plan, retained negative results, and a suitably independent evaluation.
+A passing catalog validator proves only that this roster conforms to its declared schema. The current catalog has 28 reference-only profiles and one immutable-revision pin for the Integral repository; neither status makes a draft interface ratified or establishes external authority. Each pilot must separately freeze and qualify its relied-upon sources, pass exact-head tests, and pass its domain-specific oracle. An external claim such as “Mycelix improves traceability,” “reduces reconciliation cost,” or “is more effective than the incumbent” requires a paired baseline, a prespecified measurement plan, retained negative results, and a suitably independent evaluation.
 
 No target organization is treated as a benchmark owner or endorser unless a real, sourced agreement establishes that role.
