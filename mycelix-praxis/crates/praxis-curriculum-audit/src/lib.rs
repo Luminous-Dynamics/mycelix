@@ -593,24 +593,35 @@ fn is_known_instructional_placeholder(text: &str) -> bool {
         return true;
     }
 
-    let known_phrases = [
-        "answer: see worked solution",
+    let exact_placeholders = [
         "grade 3 mathematics content",
-        "what is important about grade 3 mathematics?",
-        "a key word in this topic",
         "a common mistake in grade 3 mathematics.",
         "the correct way.",
         "used in grade 3 maths.",
+        "lorem ipsum",
+        "todo",
+        "placeholder",
+        "answer.",
+        "answer",
+    ];
+    if exact_placeholders
+        .iter()
+        .any(|phrase| normalized == *phrase)
+    {
+        return true;
+    }
+
+    let template_phrases = [
+        "answer: see worked solution",
+        "what is important about grade 3 mathematics?",
+        "a key word in this topic",
         "try the method for grade 3 mathematics.",
         "start with what you know about grade 3 mathematics.",
         "let's explore this concept together!",
         "every expert was once a beginner.",
-        "lorem ipsum",
-        "todo",
-        "placeholder",
     ];
 
-    known_phrases
+    template_phrases
         .iter()
         .any(|phrase| normalized.contains(phrase))
         || (normalized.contains("solve a grade ")
@@ -619,10 +630,7 @@ fn is_known_instructional_placeholder(text: &str) -> bool {
             && normalized.contains(" mathematics."))
         || (normalized.starts_with("grade ")
             && normalized.ends_with(" mathematics content"))
-        || normalized == "answer."
-        || normalized == "answer"
 }
-
 fn add_text_finding(
     audit: &mut ContentQualityAudit,
     lesson_id: &str,
