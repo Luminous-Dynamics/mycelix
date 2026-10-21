@@ -1,0 +1,104 @@
+name: Identity KDF production benchmark
+
+on:
+  pull_request:
+    paths:
+      - "crates/mycelix-leptos-core/Cargo.toml"
+      - "crates/mycelix-leptos-core/src/identity_crypto.rs"
+      - "crates/mycelix-identity-kdf-bench/**"
+      - ".github/workflows/identity-kdf-benchmark.yml"
+  push:
+    branches: [main]
+    paths:
+      - "crates/mycelix-leptos-core/Cargo.toml"
+      - "crates/mycelix-leptos-core/src/identity_crypto.rs"
+      - "crates/mycelix-identity-kdf-bench/**"
+      - ".github/workflows/identity-kdf-benchmark.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: identity-kdf-benchmark-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  benchmark:
+    name: Production PBKDF2 baseline in headless Chrome
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: |
+            crates/mycelix-leptos-core -> target
+            crates/mycelix-leptos-client -> target
+            crates/mycelix-identity-kdf-bench -> target
+      - name: Assert exact source head
+        env:
+          EXPECTED_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        shell: bash
+        run: |
+          actual="$(git rev-parse HEAD)"
+          if [[ "$actual" != "$EXPECTED_SHA" ]]; then
+            echo "Expected source head $EXPECTED_SHA, checked out $actual" >&2
+            exit 1
+          fi
+      - name: Resolve and fingerprint benchmark lockfile
+        run: |
+          cargo generate-lockfile --manifest-path crates/mycelix-identity-kdf-bench/Cargo.toml
+          sha256sum crates/mycelix-identity-kdf-bench/Cargo.lock
+      - name: Check formatting of benchmark files
+        run: |
+          rustfmt --edition 2024 --check crates/mycelix-leptos-core/src/identity_crypto.rs
+          cargo fmt --manifest-path crates/mycelix-identity-kdf-bench/Cargo.toml -- --check
+      - name: Compile opt-in production benchmark for WASM
+        run: cargo check --manifest-path crates/mycelix-identity-kdf-bench/Cargo.toml --locked --target wasm32-unknown-unknown
+      - name: Install wasm-pack
+        run: cargo install wasm-pack --locked
+      - name: Verify browser runner tools
+        shell: bash
+        run: |
+          command -v google-chrome || command -v google-chrome-stable || command -v chromium
+          command -v chromedriver
+      - name: Execute production-parameter benchmark and extract receipt
+        env:
+          WASM_BINDGEN_TEST_TIMEOUT: "180"
+        shell: bash
+        run: |
+          set -euo pipefail
+          log="$(mktemp)"
+          wasm-pack test --headless --chrome crates/mycelix-identity-kdf-bench -- --nocapture 2>&1 | tee "$log"
+          receipt_line="$(grep -F 'IDENTITY_KDF_BENCHMARK_RECEIPT=' "$log" | tail -n 1 || true)"
+          if [[ -z "$receipt_line" ]]; then
+            echo "The browser test completed without a machine-readable KDF receipt." >&2
+            exit 1
+          fi
+          printf '%s\n' "${receipt_line#*IDENTITY_KDF_BENCHMARK_RECEIPT=}" > identity-kdf-benchmark-receipt.json
+          jq -e '
+            .benchmark == "mycelix-identity-pbkdf2-production"
+            and .iteration_count == 600000
+            and .sample_count == 15
+            and .secret_material_included == false
+            and (.kdf_samples_ms | length == 15)
+            and (.decrypt_samples_ms | length == 15)
+            and all(.kdf_samples_ms[]; type == "number" and . > 0)
+            and all(.decrypt_samples_ms[]; type == "number" and . > 0)
+          ' identity-kdf-benchmark-receipt.json >/dev/null
+          sha256sum identity-kdf-benchmark-receipt.json
+      - name: Upload non-secret timing receipt
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: identity-kdf-benchmark-${{ github.event.pull_request.head.sha || github.sha }}
+          path: identity-kdf-benchmark-receipt.json
+          if-no-files-found: error
+          retention-days: 14
+      - name: Check patch whitespace
+        run: git diff --check

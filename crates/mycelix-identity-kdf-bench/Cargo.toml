@@ -1,0 +1,19 @@
+[package]
+name = "mycelix-identity-kdf-bench"
+version = "0.1.0"
+edition = "2024"
+license = "AGPL-3.0-or-later"
+description = "Opt-in real-browser benchmark for Mycelix production identity KDF parameters"
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+mycelix-leptos-core = { path = "../mycelix-leptos-core", features = ["identity-kdf-benchmark"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+wasm-bindgen = "0.2"
+web-sys = { version = "0.3", features = ["console", "Window", "Navigator"] }
+
+[dev-dependencies]
+wasm-bindgen-test = "0.3"

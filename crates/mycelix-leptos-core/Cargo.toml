@@ -5,6 +5,11 @@ edition = "2024"
 license = "AGPL-3.0-or-later"
 description = "Shared Leptos components for the Mycelix ecosystem"
 
+[features]
+default = []
+# Opt-in, non-secret benchmark API for measuring the production PBKDF2 path.
+identity-kdf-benchmark = []
+
 [dependencies]
 leptos = { version = "0.8" }
 leptos_router = { version = "0.8" }
@@ -23,6 +28,7 @@ web-sys = { version = "0.3", features = [
     "Window",
     "Document",
     "Navigator",
+    "Performance",
     "Storage",
     "Crypto",
     "CssStyleDeclaration",
