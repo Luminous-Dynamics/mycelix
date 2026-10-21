@@ -23,6 +23,7 @@ Modes:
 - unknown versus zero;
 - unit consistency and machine-reconstructed reconciliation identities;
 - the v0.1 ban on adding incompatible units into a universal scalar;
+- typed claim classification and the prohibition on promoting synthetic claims to observed or causal evidence;
 - evidence-tier / synthetic-to-real overclaim controls;
 - every mutation is rejected in the expected structural or semantic diagnostic class.
 
@@ -30,4 +31,4 @@ Modes:
 
 This is not a full JSON Schema Draft 2020-12 validator and does not prove SNA/SEEA conformity, source truth, data completeness, causal impact, or policy quality. It checks a documented subset of the contract. It has no Holochain, network, database, or runtime-service dependency. The golden fixture is synthetic.
 
-Adversarial tests are qualified only when the Rust runner executes them successfully. A specification entry or a parsed JSON file is not an executed test.
+Adversarial tests are qualified only when the Rust runner executes them successfully. A specification entry, a parsed JSON file, or an equivalent check in another language is not an executed Rust test. The claim checker uses typed claim fields; it does not attempt to infer truth from natural-language disclaimers.
