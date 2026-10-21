@@ -1783,6 +1783,76 @@ mod tests {
     }
 
     #[test]
+    fn pedbench_run_receipt_requires_reproducible_inputs_and_sota_evidence() {
+        let schema: Value = serde_json::from_str(include_str!(
+            "../../../benchmarks/pedbench-v1/run-receipt.schema.json"
+        ))
+        .expect("PedBench run receipt schema must be valid JSON");
+
+        assert_eq!(
+            schema["$schema"],
+            "https://json-schema.org/draft/2020-12/schema"
+        );
+        assert_eq!(schema["properties"]["schema_version"]["const"], 1);
+        assert_eq!(
+            schema["properties"]["benchmark_id"]["const"],
+            "praxis-pedbench-v1"
+        );
+        let required = schema["required"]
+            .as_array()
+            .expect("run receipt schema must declare required fields")
+            .iter()
+            .filter_map(Value::as_str)
+            .collect::<BTreeSet<_>>();
+        for field in [
+            "dataset_digest_sha256",
+            "system_policy_digest_blake3",
+            "rubric_digest_blake3",
+            "case_results",
+            "aggregate_metrics",
+            "limitations",
+            "claim_level",
+        ] {
+            assert!(required.contains(field), "run receipt must require {field}");
+        }
+
+        let all_of = schema["allOf"]
+            .as_array()
+            .expect("run receipt needs conditional claim gates");
+        let sota_gate = all_of.iter().find(|rule| {
+            rule.pointer("/if/properties/claim_level/const")
+                .and_then(Value::as_str)
+                == Some("state_of_the_art")
+        });
+        let sota_gate = sota_gate.expect("SOTA claims must have a conditional gate");
+        assert_eq!(
+            sota_gate.pointer("/then/properties/split/const"),
+            Some(&Value::String("held_out_test".to_owned()))
+        );
+        assert_eq!(
+            sota_gate.pointer("/then/properties/independent_evaluation/const"),
+            Some(&Value::Bool(true))
+        );
+        assert_eq!(
+            sota_gate.pointer("/then/properties/confirmatory_replication/const"),
+            Some(&Value::Bool(true))
+        );
+        for field in [
+            "baseline_run_digest_blake3",
+            "replication_run_digest_blake3",
+            "held_out_split_digest_sha256",
+            "independent_evaluator",
+        ] {
+            assert!(
+                sota_gate["then"]["required"]
+                    .as_array()
+                    .is_some_and(|fields| fields.iter().any(|field| field.as_str() == Some(field))),
+                "SOTA gate must require {field}"
+            );
+        }
+    }
+
+    #[test]
     fn pedbench_seed_corpus_is_versioned_synthetic_and_identity_unique() {
         let corpus: Value = serde_json::from_str(include_str!(
             "../../../benchmarks/pedbench-v1/seed-cases.json"
