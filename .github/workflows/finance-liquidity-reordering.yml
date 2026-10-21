@@ -66,7 +66,7 @@ jobs:
           cargo run --manifest-path research/finance-liquidity-reordering/Cargo.toml --offline --locked --release --example benchmark > "$out/results.csv"
           test "$(wc -l < "$out/results.csv")" -eq 296
           awk -F, '
-            NR == 1 { if ($15 != "aggregate_liquidity_gap_minor" || $16 != "max_participant_gap_minor" || $8 != "algorithm" || $7 != "exact_pareto_frontier_size" || $13 != "aggregate_saving_vs_input_minor" || $14 != "max_participant_reduction_vs_input_minor") exit 2; next }
+            NR == 1 { if ($15 != "aggregate_liquidity_gap_minor" || $16 != "max_participant_gap_minor" || $8 != "algorithm" || $7 != "exact_pareto_frontier_size" || $13 != "aggregate_saving_vs_input_minor" || $14 != "max_participant_reduction_vs_input_minor" || $20 != "aggregate_net_position_lower_bound_minor" || $21 != "max_participant_net_position_lower_bound_minor" || $22 != "aggregate_gap_to_lower_bound_minor" || $23 != "max_participant_gap_to_lower_bound_minor") exit 2; next }
             {
               rows++
               if ($1 <= 8 && ($7 !~ /^[0-9]+$/ || $7 < 1)) failed = 1
@@ -76,6 +76,10 @@ jobs:
               if ($15 != "" && ($15 !~ /^[0-9]+$/ || $15 < 0)) failed = 1
               if ($16 != "" && $16 !~ /^-?[0-9]+$/) failed = 1
               if ($15 == "0" && $16 != "" && $16 < 0) failed = 1
+              if ($20 !~ /^[0-9]+$/ || $21 !~ /^[0-9]+$/) failed = 1
+              if ($22 !~ /^[0-9]+$/ || $23 !~ /^[0-9]+$/) failed = 1
+              if ($20 > $11 || $21 > $12) failed = 1
+              if ($22 != ($11 - $20) || $23 != ($12 - $21)) failed = 1
               if ($8 == "exact_permutation_oracle") {
                 exact++
                 if ($15 != "0" || $16 != "0") failed = 1
