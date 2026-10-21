@@ -543,6 +543,9 @@ mod tests {
         assert_eq!(plan.selected_gross_minor, 15);
         assert_eq!(plan.final_balances.iter().map(|a| a.balance_minor).sum::<u64>(), 0);
         assert_eq!(plan.selected_payment_ids, vec!["p-ab", "p-bc", "p-ca"]);
+        assert_eq!(plan.modeled_fee_units, 18);
+        assert_eq!(plan.evaluated_subsets, 8);
+        assert!(plan.final_balances.iter().all(|a| a.balance_minor == 0));
 
         // The same cycle cannot begin under strict sequential gross settlement because
         // every participant starts with zero liquidity. The batch model differs only
@@ -673,6 +676,55 @@ mod tests {
             plan.excluded_payments[0].reason,
             BatchExclusionReason::PaymentProfileMismatch
         );
+    }
+
+    #[test]
+    fn atomic_batch_result_is_input_order_invariant() {
+        let ctx = context(2);
+        let accounts = [
+            account("A", 4),
+            account("B", 1),
+            account("C", 2),
+        ];
+        let routes = [
+            route("ab", 4, true, 1, 2),
+            route("bc", 4, true, 1, 1),
+            route("ca", 4, true, 1, 3),
+            route("ac", 4, true, 2, 0),
+        ];
+        let payments = [
+            payment("p-ab", "ab", "A", "B", 3),
+            payment("p-bc", "bc", "B", "C", 2),
+            payment("p-ca", "ca", "C", "A", 2),
+            payment("p-ac", "ac", "A", "C", 1),
+        ];
+
+        let first = select_atomic_batch(&ctx, &accounts, &routes, &payments).unwrap();
+        let mut reversed_accounts = accounts.to_vec();
+        reversed_accounts.reverse();
+        let mut reversed_routes = routes.to_vec();
+        reversed_routes.reverse();
+        let mut reversed_payments = payments.to_vec();
+        reversed_payments.reverse();
+        let second = select_atomic_batch(
+            &ctx,
+            &reversed_accounts,
+            &reversed_routes,
+            &reversed_payments,
+        )
+        .unwrap();
+
+        assert_eq!(first, second);
+        let start_total = accounts
+            .iter()
+            .map(|a| a.balance_minor as u128)
+            .sum::<u128>();
+        let end_total = first
+            .final_balances
+            .iter()
+            .map(|a| a.balance_minor as u128)
+            .sum::<u128>();
+        assert_eq!(start_total, end_total);
     }
 
     #[test]
