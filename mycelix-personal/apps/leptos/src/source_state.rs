@@ -546,6 +546,44 @@ mod tests {
         }
     }
     #[test]
+    fn user_facing_labels_preserve_uncertainty() {
+        assert_eq!(SourceStateKind::LiveWithRecords.label(), "Records returned");
+        assert!(SourceStateKind::LiveWithRecords
+            .explanation()
+            .contains("not automatically established"));
+
+        assert_eq!(SourceStateKind::ConfirmedEmpty.label(), "Confirmed empty");
+        assert!(SourceStateKind::ConfirmedEmpty
+            .explanation()
+            .contains("at this read time"));
+
+        assert_eq!(SourceStateKind::Unavailable.label(), "Unavailable");
+        assert!(SourceStateKind::Unavailable
+            .explanation()
+            .contains("absence has not been established"));
+
+        assert_eq!(SourceStateKind::Stale.label(), "Stale evidence");
+        assert!(SourceStateKind::Stale
+            .explanation()
+            .contains("must not be treated as current"));
+
+        assert_eq!(SourceStateKind::Mock.label(), "Demo data");
+        assert!(SourceStateKind::Mock
+            .explanation()
+            .contains("not live source records"));
+
+        assert_eq!(SourceStateKind::Disputed.label(), "Disputed");
+        assert!(SourceStateKind::Disputed
+            .explanation()
+            .contains("no winner has been selected"));
+
+        assert_eq!(SourceStateKind::NotIntegrated.label(), "Not integrated");
+        assert!(SourceStateKind::NotIntegrated
+            .explanation()
+            .contains("not evidence of absence"));
+    }
+
+    #[test]
     fn every_state_has_a_distinct_serializable_classification() {
         let stale = StaleObservation {
             records: NonEmptyVec::new(1_u8),
