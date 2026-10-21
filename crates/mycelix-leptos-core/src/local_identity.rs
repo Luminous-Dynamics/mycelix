@@ -544,9 +544,27 @@ pub async fn restore_protected_identity_from_seed_phrase(
     persist_protected_signing_key(signing_key, passphrase).await
 }
 
+/// Minimum length for newly created or rotated local identity passphrases.
+///
+/// This length floor is not an entropy estimator; UX should recommend a
+/// unique multi-word passphrase or a password-manager-generated secret.
+pub const MIN_IDENTITY_PASSPHRASE_CHARS: usize = 15;
+/// Avoid unbounded user input in Web Crypto key derivation.
+pub const MAX_IDENTITY_PASSPHRASE_BYTES: usize = 1_024;
+
 fn validate_new_identity_passphrase(passphrase: &str) -> Result<(), String> {
     if passphrase.trim().is_empty() {
-        return Err("Passphrase must not be empty".into());
+        return Err("Passphrase must not be empty or whitespace.".into());
+    }
+    if passphrase.chars().count() < MIN_IDENTITY_PASSPHRASE_CHARS {
+        return Err(format!(
+            "Use at least {MIN_IDENTITY_PASSPHRASE_CHARS} characters for a new identity passphrase."
+        ));
+    }
+    if passphrase.len() > MAX_IDENTITY_PASSPHRASE_BYTES {
+        return Err(format!(
+            "Identity passphrases must not exceed {MAX_IDENTITY_PASSPHRASE_BYTES} UTF-8 bytes."
+        ));
     }
     Ok(())
 }
@@ -1461,6 +1479,26 @@ mod tests {
             ciphertext_b64: base64_encode(&[3u8; 48]),
         };
         serde_json::to_string(&wire).unwrap()
+    }
+
+    #[test]
+    fn identity_passphrase_policy_rejects_empty_and_whitespace() {
+        assert!(validate_new_identity_passphrase("").is_err());
+        assert!(validate_new_identity_passphrase("                 ").is_err());
+    }
+
+    #[test]
+    fn identity_passphrase_policy_requires_fifteen_characters() {
+        assert!(validate_new_identity_passphrase("fourteen chars").is_err());
+        assert!(validate_new_identity_passphrase("fifteen chars!!").is_ok());
+        assert!(validate_new_identity_passphrase("correct horse battery staple").is_ok());
+    }
+
+    #[test]
+    fn identity_passphrase_policy_bounds_length_without_rejecting_long_unique_secrets() {
+        assert!(validate_new_identity_passphrase(&"x".repeat(64)).is_ok());
+        let oversized = "x".repeat(MAX_IDENTITY_PASSPHRASE_BYTES + 1);
+        assert!(validate_new_identity_passphrase(&oversized).is_err());
     }
 
     #[test]
