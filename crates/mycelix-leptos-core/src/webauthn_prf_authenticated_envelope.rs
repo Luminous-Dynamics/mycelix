@@ -284,7 +284,7 @@ fn seed_matches_public_key(seed: &[u8; 32], public_key: &[u8]) -> bool {
         return false;
     }
     let signing_key = SigningKey::from_bytes(seed);
-    signing_key.verifying_key().as_bytes() == public_key
+    signing_key.verifying_key().as_bytes().as_slice() == public_key
 }
 
 fn random_nonce() -> Result<[u8; AES_GCM_NONCE_LEN], PrfEnvelopeAeadError> {
