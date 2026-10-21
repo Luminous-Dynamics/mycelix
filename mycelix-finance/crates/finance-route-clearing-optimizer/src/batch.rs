@@ -177,6 +177,7 @@ fn evaluate_subset(
     mask: u64,
     candidates: &[Candidate],
     accounts: &BTreeMap<String, u64>,
+    route_capacities: &BTreeMap<String, u64>,
 ) -> Result<Option<FeasibleBatch>, BatchError> {
     let mut outgoing = BTreeMap::<String, u128>::new();
     let mut incoming = BTreeMap::<String, u128>::new();
