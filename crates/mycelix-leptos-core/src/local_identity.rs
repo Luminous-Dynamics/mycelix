@@ -756,7 +756,8 @@ async fn create_protected_identity_unlocked(
     persist_protected_signing_key(signing_key, passphrase).await
 }
 
-/// Restore a BIP-39 identity directly into protected storage on an empty device./// Restore a BIP-39 identity directly into protected storage on an empty device.
+/// Restore a BIP-39 identity directly into protected storage on an empty device.
+/// Restore a BIP-39 identity directly into protected storage on an empty device.
 ///
 /// This intentionally refuses to replace any recognized existing local
 /// identity. Replacement of an existing identity needs a separate, explicit
@@ -783,7 +784,108 @@ async fn restore_protected_identity_unlocked(
     persist_protected_signing_key(signing_key, passphrase).await
 }
 
-fn validate_new_identity_passphrase(passphrase: &str) -> Result<(), String> {fn validate_new_identity_passphrase(passphrase: &str) -> Result<(), String> {
+const IDENTITY_LIFECYCLE_LOCK_NAME: &str = "mycelix.identity.lifecycle.v1";
+
+/// Serialize asynchronous protected-identity transitions across same-origin
+/// tabs and workers. The lock name is origin-scoped, not identity-scoped,
+/// because the local identity may not yet be known when creation begins.
+///
+/// This is cooperative serialization rather than a storage transaction:
+/// every caller still rechecks state and verifies postconditions. Synchronous
+/// legacy writers remain outside this lock and are tracked separately.
+#[cfg(target_arch = "wasm32")]
+async fn with_identity_operation_lock<T, F, Fut>(operation: F) -> Result<T, String>
+where
+    T: 'static,
+    F: FnOnce() -> Fut + 'static,
+    Fut: Future<Output = Result<T, String>> + 'static,
+{
+    let window = web_sys::window().ok_or_else(|| {
+        "Browser window is unavailable; identity operation was not started.".to_string()
+    })?;
+    let navigator: JsValue = window.navigator().into();
+    let locks = Reflect::get(&navigator, &JsValue::from_str("locks"))
+        .map_err(|error| format!("Web Locks API inspection failed: {}", js_value_message(error)))?;
+    if locks.is_null() || locks.is_undefined() {
+        return Err(
+            "This browser does not expose the Web Locks API; no identity change was attempted."
+                .into(),
+        );
+    }
+    let request = Reflect::get(&locks, &JsValue::from_str("request"))
+        .map_err(|error| format!("Web Lock request is unavailable: {}", js_value_message(error)))?
+        .dyn_into::<Function>()
+        .map_err(|_| "Web Lock request is not callable; no identity change was attempted.".to_string())?;
+
+    let output = Rc::new(RefCell::new(None::<T>));
+    let operation_error = Rc::new(RefCell::new(None::<String>));
+    let output_for_callback = output.clone();
+    let error_for_callback = operation_error.clone();
+    let mut operation = Some(operation);
+    let callback = Closure::wrap(Box::new(move |_lock: JsValue| -> Promise {
+        let Some(operation) = operation.take() else {
+            return Promise::reject(&JsValue::from_str(
+                "Identity lock callback unexpectedly ran more than once.",
+            ));
+        };
+        let output = output_for_callback.clone();
+        let operation_error = error_for_callback.clone();
+        future_to_promise(async move {
+            match operation().await {
+                Ok(value) => {
+                    *output.borrow_mut() = Some(value);
+                    Ok(JsValue::UNDEFINED)
+                }
+                Err(error) => {
+                    *operation_error.borrow_mut() = Some(error.clone());
+                    Err(JsValue::from_str(&error))
+                }
+            }
+        })
+    }) as Box<dyn FnMut(JsValue) -> Promise>);
+
+    let promise = request
+        .call2(
+            &locks,
+            &JsValue::from_str(IDENTITY_LIFECYCLE_LOCK_NAME),
+            callback.as_ref(),
+        )
+        .map_err(|error| format!("Could not acquire identity lifecycle lock: {}", js_value_message(error)))?
+        .dyn_into::<Promise>()
+        .map_err(|_| "Web Lock request did not return a Promise.".to_string())?;
+    let completion = JsFuture::from(promise).await;
+    drop(callback);
+
+    match completion {
+        Ok(_) => output
+            .borrow_mut()
+            .take()
+            .ok_or_else(|| "Identity lock completed without an operation result.".to_string()),
+        Err(error) => Err(operation_error
+            .borrow_mut()
+            .take()
+            .unwrap_or_else(|| format!("Identity lifecycle lock failed: {}", js_value_message(error)))),
+    }
+}
+
+#[cfg(target_arch = "wasm32")]
+fn js_value_message(value: JsValue) -> String {
+    value
+        .as_string()
+        .unwrap_or_else(|| format!("{value:?}"))
+}
+
+/// Native state tests use the same transition body without a browser lock.
+#[cfg(not(target_arch = "wasm32"))]
+async fn with_identity_operation_lock<T, F, Fut>(operation: F) -> Result<T, String>
+where
+    F: FnOnce() -> Fut,
+    Fut: Future<Output = Result<T, String>>,
+{
+    operation().await
+}
+
+fn validate_new_identity_passphrase(passphrase: &str) -> Result<(), String> {
     if passphrase.trim().is_empty() {
         return Err("Passphrase must not be empty".into());
     }
@@ -1149,7 +1251,8 @@ async fn protect_existing_identity_unlocked(
     Ok(LocalIdentityStoragePosture::ProtectedUnlockedInSession)
 }
 
-/// Create, protect, or rotate the passphrase for the local identity./// Create, protect, or rotate the passphrase for the local identity.
+/// Create, protect, or rotate the passphrase for the local identity.
+/// Create, protect, or rotate the passphrase for the local identity.
 ///
 /// This entry point routes to the checked storage-transition APIs. New
 /// identities are created directly in encrypted storage; an existing
@@ -1202,7 +1305,7 @@ async fn protect_with_passphrase_unlocked(passphrase: &str) -> Result<(), String
     }
 }
 
-async fn rewrap_protected_identity(passphrase: &str) -> Result<(), String> {async fn rewrap_protected_identity(passphrase: &str) -> Result<(), String> {
+async fn rewrap_protected_identity(passphrase: &str) -> Result<(), String> {
     validate_new_identity_passphrase(passphrase)?;
     let signing_key = UNLOCKED_KEY
         .with(|cell| cell.borrow().clone())
@@ -1363,7 +1466,8 @@ async fn unlock_with_passphrase_unlocked(passphrase: &str) -> Result<SigningKey,
     Ok(signing_key)
 }
 
-/// Reverse [`protect_with_passphrase`]: decrypt with `passphrase`, restore/// Reverse [`protect_with_passphrase`]: decrypt with `passphrase`, restore
+/// Reverse [`protect_with_passphrase`]: decrypt with `passphrase`, restore
+/// Reverse [`protect_with_passphrase`]: decrypt with `passphrase`, restore
 /// plaintext storage, and drop the encrypted blob.
 ///
 /// # Errors
@@ -1385,7 +1489,8 @@ async fn remove_passphrase_protection_unlocked(passphrase: &str) -> Result<(), S
     Ok(())
 }
 
-/// Export the local identity's secret key as a standards-correct 24-word/// Export the local identity's secret key as a standards-correct 24-word
+/// Export the local identity's secret key as a standards-correct 24-word
+/// Export the local identity's secret key as a standards-correct 24-word
 /// BIP-39 mnemonic (English wordlist), for manual/offline backup.
 ///
 /// Takes the key explicitly rather than calling [`ensure_keypair`] itself,
