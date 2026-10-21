@@ -1,7 +1,8 @@
 use finance_liquidity_reordering::{
     bounded_insertion_search, exact_pareto_frontier, exact_permutation_oracle,
     heuristic_portfolio, input_order, net_position_liquidity_lower_bound,
-    receiver_ready_greedy, simulated_annealing, Payment, Problem, ReorderError, SearchResult,
+    receiver_ready_event_driven, receiver_ready_greedy, simulated_annealing, Payment, Problem,
+    ReorderError, SearchResult,
 };
 use std::collections::BTreeSet;
 use std::error::Error;
@@ -315,6 +316,15 @@ fn main() -> Result<(), Box<dyn Error>> {
                 exact.as_ref(),
                 pareto_frontier_size,
                 || receiver_ready_greedy(&problem),
+            )?;
+            emit(
+                &problem,
+                scenario,
+                "receiver_ready_event_driven",
+                None,
+                exact.as_ref(),
+                pareto_frontier_size,
+                || receiver_ready_event_driven(&problem),
             )?;
             emit(
                 &problem,
