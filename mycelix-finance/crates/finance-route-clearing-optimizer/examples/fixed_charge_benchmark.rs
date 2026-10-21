@@ -1,7 +1,7 @@
-use finance_route_clearing_optimizer::fixed_charge::{
-    optimize_fixed_charge, FixedChargeRoute,
+use finance_route_clearing_optimizer::fixed_charge::{optimize_fixed_charge, FixedChargeRoute};
+use finance_route_clearing_optimizer::{
+    optimize, AuthorityQualification, ClearingContext, ParticipantNet, SettlementRoute,
 };
-use finance_route_clearing_optimizer::{optimize, AuthorityQualification, ClearingContext, ParticipantNet, SettlementRoute};
 use std::time::Instant;
 
 fn make_case(route_count: usize) -> (ClearingContext, Vec<ParticipantNet>, Vec<FixedChargeRoute>) {
@@ -34,10 +34,9 @@ fn make_case(route_count: usize) -> (ClearingContext, Vec<ParticipantNet>, Vec<F
 
     let mut routes = Vec::with_capacity(route_count);
     for i in 0..side {
-        for (suffix, creditor, offset) in [
-            ("primary", i, 0_usize),
-            ("next", (i + 1) % side, 1_usize),
-        ] {
+        for (suffix, creditor, offset) in
+            [("primary", i, 0_usize), ("next", (i + 1) % side, 1_usize)]
+        {
             let cost = ((i * (37 + 2 * offset) + 11 + offset * 13) % 47 + 1) as u64;
             let fixed = ((i * (19 + offset * 8) + 7 + offset * 5) % 53) as u64;
             routes.push(FixedChargeRoute {
@@ -89,15 +88,15 @@ fn main() {
             fixed_samples.push(start.elapsed().as_micros());
 
             let start = Instant::now();
-            let _plan = optimize(&context, &positions, &linear_routes)
-                .expect("linear optimizer failed");
+            let _plan =
+                optimize(&context, &positions, &linear_routes).expect("linear optimizer failed");
             linear_samples.push(start.elapsed().as_micros());
         }
 
         let fixed = optimize_fixed_charge(&context, &positions, &candidates)
             .expect("fixed-charge final sample failed");
-        let linear = optimize(&context, &positions, &linear_routes)
-            .expect("linear final sample failed");
+        let linear =
+            optimize(&context, &positions, &linear_routes).expect("linear final sample failed");
 
         println!(
             "{},{},{},{},{},{},{},{},{},{},{},{}",
