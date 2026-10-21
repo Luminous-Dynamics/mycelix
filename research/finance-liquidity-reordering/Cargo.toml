@@ -15,3 +15,7 @@ path = "examples/benchmark.rs"
 [[example]]
 name = "stream_benchmark"
 path = "examples/stream_benchmark.rs"
+
+[[example]]
+name = "budget_benchmark"
+path = "examples/budget_benchmark.rs"
