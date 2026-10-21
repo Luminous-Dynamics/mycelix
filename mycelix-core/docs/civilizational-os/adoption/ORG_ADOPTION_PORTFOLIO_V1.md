@@ -130,6 +130,28 @@ The companion `benchmark-org-adoption-pilot-bundle.cjs` generates fixtures up to
 
 JSON Schema validation is a separate lane; the zero-dependency evaluator does not pretend to be a general Draft 2020-12 implementation. The example is a contract witness only. It does not execute either named implementation, run a vendor integration, or prove the scenario happened in the physical world.
 
+## Version-pinned GS1 semantic-loss fixture
+
+The GS1 profile now has a minimal, effects-free event mapping fixture:
+
+- [Fixture](./gs1-epcis-mapping-fixture-v1.json)
+- [Fixture schema](./gs1-epcis-mapping-fixture-v1.schema.json)
+- [Cross-invariant verifier](./verify-gs1-epcis-mapping-fixture.cjs)
+- [Pinned source manifest](./source-snapshots/gs1-epcis-cbv-v1.json)
+
+Run from this directory:
+
+```sh
+node verify-gs1-epcis-mapping-fixture.cjs
+node verify-gs1-epcis-mapping-fixture.cjs --self-test
+```
+
+The fixture pins EPCIS 2.0.1 and CBV 2.0.0. It uses the EPCIS JSON notation for standard CBV values (for example, `bizStep: "shipping"` and `disposition: "in_transit"`), UTC event timestamps at millisecond precision, and a separate `eventTimeZoneOffset`. The verifier binds these events to the exact checked-in source-manifest bytes and refuses version, URI-notation, mapping-lineage, time-format, and claim-promotion mutations.
+
+Shipping, arriving, receiving, and accepting use separate synthetic EPCs as four isolated cases. They are not a simulated physical chain. This matters because CBV describes different meanings: arriving indicates arrival at a location; receiving indicates addition to receiver inventory; accepting indicates a change in possession and/or ownership. They should not be collapsed into one universal “delivered” state. Each mapped claim remains `source_assertion_only` and must explicitly avoid inferring physical delivery, product authenticity, regulatory compliance, and legal title.
+
+**Scope ceiling:** this is a minimal ObjectEvent projection, not a complete EPCISDocument or a claim of EPCIS conformance. The verifier checks local cross-invariants and has a 12-case mutation lane; it does not validate the full normative GS1 JSON Schema/SHACL artefacts, run a vendor adapter, or establish that any event happened. Those require separate validation and empirical-evaluation lanes. Source references: [EPCIS/CBV version archive](https://ref.gs1.org/standards/epcis/archive), [ObjectEvent definition](https://ref.gs1.org/epcis/ObjectEvent), [arriving definition](https://ref.gs1.org/cbv/BizStep-arriving), [shipping/CBV definitions](https://ref.gs1.org/cbv/BizStep-shipping), and [EPCIS 2.0.1 normative artefacts](https://ref.gs1.org/standards/epcis/2.0.1/artefacts).
+
 ## Benchmarking against industry and state of practice
 
 - **Adopt established event semantics where they fit.** GS1 EPCIS/CBV 2.0 already provides standardized supply-chain event representations, sensor-data support and REST interfaces. Mycelix should preserve EPCIS event meanings and provenance, and add value in cross-organization evidence qualification, contradiction handling, rights/authority boundaries, and portable replay—not invent a parallel traceability vocabulary. Reference: [GS1 EPCIS](https://www.gs1.org/standards/epcis).
