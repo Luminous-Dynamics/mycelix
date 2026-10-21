@@ -152,7 +152,7 @@ fn fixed_charge_optimizer_matches_exhaustive_oracle_on_deterministic_small_graph
                 "a-c",
                 "A",
                 "C",
-                ((seed * 3 + 1) % 3) as u64,
+                ((seed * 2 + 1) % 3) as u64,
                 ((seed * 7 + 2) % 9) as u64,
                 ((seed * 11 + 3) % 13) as u64,
             ),
