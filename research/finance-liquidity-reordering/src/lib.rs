@@ -20,6 +20,12 @@ pub const MAX_SEARCH_WORK_UNITS: usize = 20_000_000;
 /// Additional cap on heap entries created by the event-driven queue heuristic.
 pub const MAX_EVENT_QUEUE_REFRESHES: usize = 1_000_000;
 
+mod stream_replay;
+pub use stream_replay::{
+    replay_stream, OnlineBatchStrategy, StreamReplayConfig, StreamReplayError, StreamReplayResult,
+};
+
+
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Payment {
     pub id: String,
