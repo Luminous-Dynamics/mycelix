@@ -653,8 +653,7 @@ fn is_known_instructional_placeholder(text: &str) -> bool {
     template_phrases
         .iter()
         .any(|phrase| normalized.contains(phrase))
-        || (normalized.contains("solve a grade ")
-            && normalized.contains(" mathematics problem"))
+        || (normalized.contains("solve a grade ") && normalized.contains(" mathematics problem"))
         || (core.starts_with("explain grade ") && core.contains(" mathematics"))
         || (core.starts_with("grade ") && core.ends_with(" mathematics content"))
 }
