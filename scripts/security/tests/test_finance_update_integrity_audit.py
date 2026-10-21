@@ -119,6 +119,25 @@ fn validate_create_payment(action: EntryCreationAction) -> ExternResult<Validate
         self.assertEqual(errors, [])
         self.assertEqual(count, 0)
 
+    def test_lifetimes_nested_comments_and_raw_strings_are_lexed_safely(self):
+        source = r'''
+/* outer comment /* nested comment with } fn validate_update_fake */ end */
+fn validate_update_real<'a>(
+    action: Update,
+    value: &'a str,
+) -> ExternResult<ValidateCallbackResult> {
+    let original = must_get_valid_record(action.original_action_address.clone())?;
+    let raw = r###" fn validate_update_fake() { Ok(Valid) } "###;
+    let _ = raw;
+    let _ = value;
+    let _ = original;
+    Ok(ValidateCallbackResult::Valid)
+}
+'''
+        validators = list(AUDIT.functions(source))
+        self.assertEqual([item[0] for item in validators], ["validate_update_real"])
+        self.assertEqual(AUDIT.audit_source("fixture.rs", source)[1], 1)
+
     def test_missing_finance_roots_fail_closed(self):
         from tempfile import TemporaryDirectory
 
