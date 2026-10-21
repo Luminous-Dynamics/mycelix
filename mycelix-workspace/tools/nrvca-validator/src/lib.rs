@@ -250,7 +250,7 @@ pub fn validate_report(report: &Value) -> Vec<Diagnostic> {
             let unit = field_str(event, "unit").unwrap_or("");
             if currency.len() != 3 || !currency.bytes().all(|x| x.is_ascii_uppercase()) || unit.is_empty() {
                 push_structural(&mut out, "EVENT-UNIT", &path, "event needs a currency code and nonempty unit");
-            } else if unit.len() > 4 && unit.as_bytes().get(3) == Some(&b'_') && unit.as_bytes()[..3].iter().all(|x| x.is_ascii_uppercase()) && !unit.starts_with(&format!("{currency}_")) {
+            } else if unit.len() > 4 && unit.as_bytes().get(3) == Some(&b'_') && unit.as_bytes()[..3].iter().all(|x| x.is_ascii_uppercase()) && !unit.starts_with(format!("{currency}_").as_str()) {
                 push_semantic(&mut out, "EVENT-CURRENCY-UNIT", &format!("{path}/unit"), "currency-prefixed unit conflicts with event currency");
             }
             reference_ids(event.get("source_refs").unwrap_or(&Value::Null), &format!("{path}/source_refs"), &source_ids, &mut out);
