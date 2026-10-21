@@ -348,6 +348,52 @@ fn base64_decode(value: &str) -> Result<Vec<u8>, PrfEnvelopeAeadError> {
         .map_err(|_| PrfEnvelopeAeadError::InvalidEnvelopeMetadata)
 }
 
+#[cfg(test)]
+mod aad_contract_tests {
+    use super::*;
+    use sha2::{Digest, Sha256};
+
+    #[test]
+    fn canonical_aad_matches_frozen_sha256_vector() {
+        let context = WebAuthnPrfEnvelopeContext {
+            relying_party_id: "mycelix.example",
+            credential_id: &[1, 2, 3, 4],
+            envelope_salt: &[0x24; 32],
+            identity_public_key: &[0x25; 32],
+        };
+        let nonce = core::array::from_fn(|index| index as u8);
+        let aad = canonical_aad(&context, &nonce).unwrap();
+        let digest = Sha256::digest(&aad);
+        let hex: String = digest.iter().map(|byte| format!("{byte:02x}")).collect();
+        assert_eq!(
+            hex,
+            "e5e862c187fcdba6c52d156f4638a32afcb31af2d262bd94325e25e709fd998a"
+        );
+    }
+
+    #[test]
+    fn nonce_and_rp_id_changes_change_authenticated_context() {
+        let context = WebAuthnPrfEnvelopeContext {
+            relying_party_id: "mycelix.example",
+            credential_id: &[1, 2, 3, 4],
+            envelope_salt: &[0x24; 32],
+            identity_public_key: &[0x25; 32],
+        };
+        let nonce = core::array::from_fn(|index| index as u8);
+        let mut other_nonce = nonce;
+        other_nonce[0] ^= 1;
+        let base = canonical_aad(&context, &nonce).unwrap();
+        let nonce_changed = canonical_aad(&context, &other_nonce).unwrap();
+        let other_rp = WebAuthnPrfEnvelopeContext {
+            relying_party_id: "other.example",
+            ..context
+        };
+        let rp_changed = canonical_aad(&other_rp, &nonce).unwrap();
+        assert_ne!(base, nonce_changed);
+        assert_ne!(base, rp_changed);
+    }
+}
+
 #[cfg(all(test, target_arch = "wasm32"))]
 mod browser_tests {
     use super::*;
@@ -457,6 +503,38 @@ mod browser_tests {
             decrypt_seed_with_prf(&envelope, prf, &wrong_key_ctx).await.unwrap_err(),
             PrfEnvelopeAeadError::ContextMismatch
         );
+    }
+
+    #[wasm_bindgen_test]
+    async fn tampered_nonce_cipher_profile_and_unknown_json_fields_fail_closed() {
+        let (_, prf, salt, public_key, credential_id, envelope) = encrypted_fixture().await;
+        let context = context("localhost", &credential_id, &salt, &public_key);
+
+        let mut nonce_tampered = envelope.clone();
+        let mut nonce = base64_decode(&nonce_tampered.nonce_b64).unwrap();
+        nonce[0] ^= 1;
+        nonce_tampered.nonce_b64 = base64_encode(&nonce);
+        assert_eq!(
+            decrypt_seed_with_prf(&nonce_tampered, prf.clone(), &context)
+                .await
+                .unwrap_err(),
+            PrfEnvelopeAeadError::DecryptionFailed
+        );
+
+        let mut cipher_tampered = envelope.clone();
+        cipher_tampered.cipher_profile = "AES-128-GCM".into();
+        assert_eq!(
+            decrypt_seed_with_prf(&cipher_tampered, prf.clone(), &context)
+                .await
+                .unwrap_err(),
+            PrfEnvelopeAeadError::InvalidEnvelopeMetadata
+        );
+
+        let mut json = serde_json::to_value(&envelope).unwrap();
+        json.as_object_mut()
+            .unwrap()
+            .insert("unexpected".into(), serde_json::Value::Bool(true));
+        assert!(serde_json::from_value::<PrfWrappedIdentityEnvelopeV1>(json).is_err());
     }
 
     #[wasm_bindgen_test]
