@@ -119,6 +119,51 @@ pub struct QueueSimulation {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
+pub struct ParticipantMinimumLiquidity {
+    pub participant_id: String,
+    pub required_opening_liquidity_minor: u128,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct MinimumLiquidityStep {
+    pub payment_id: String,
+    pub settlement_index: u64,
+    pub payer_cumulative_net_minor: i128,
+    pub payee_cumulative_net_minor: i128,
+    pub missed_deadline: bool,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct MinimumLiquidityReport {
+    pub network_id: String,
+    pub asset_id: String,
+    pub order: Vec<String>,
+    pub total_payment_value_minor: u128,
+    pub total_required_opening_liquidity_minor: u128,
+    pub required_by_participant: Vec<ParticipantMinimumLiquidity>,
+    pub steps: Vec<MinimumLiquidityStep>,
+    pub excluded_payments: Vec<ExcludedPayment>,
+    pub deduplicated_payment_observations: usize,
+    pub missed_deadline_count: u64,
+    pub priority_weighted_delay_penalty: u128,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct MinimumLiquidityOracleResult {
+    pub best_order: Vec<String>,
+    pub best_report: MinimumLiquidityReport,
+    pub candidate_orders_evaluated: u64,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct MinimumLiquidityAnnealingResult {
+    pub best_order: Vec<String>,
+    pub best_report: MinimumLiquidityReport,
+    pub iterations_evaluated: usize,
+    pub seed: u64,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub enum QueueError {
     InvalidContext(&'static str),
     InvalidParticipant(String),
@@ -549,6 +594,362 @@ fn validate_order(eligible: &[QueuedPayment], order: &[String]) -> Result<(), Qu
         return Err(QueueError::InvalidQueueOrder);
     }
     Ok(())
+}
+
+/// Compute the minimum opening liquidity vector needed to execute every eligible
+/// payment in exactly the supplied sequence. For each participant this is the maximum
+/// prefix deficit (cumulative outflows minus cumulative inflows); the sum is the aggregate
+/// starting-liquidity requirement for this order. This evaluates a strict execution
+/// sequence, unlike simulate_order, which treats its order as a queue priority list and
+/// may execute a later item first when an earlier item is blocked.
+pub fn minimum_opening_liquidity_for_sequence(
+    context: &QueueContext,
+    payments: &[QueuedPayment],
+    order: &[String],
+) -> Result<MinimumLiquidityReport, QueueError> {
+    let prepared = prepare_payment_observations(context, payments)?;
+    validate_order(&prepared.eligible, order)?;
+    let payments_by_id = prepared
+        .eligible
+        .iter()
+        .map(|payment| (payment.payment_id.as_str(), payment))
+        .collect::<BTreeMap<_, _>>();
+
+    let mut running_net = BTreeMap::<String, i128>::new();
+    let mut required_by_id = BTreeMap::<String, u128>::new();
+    for payment in &prepared.eligible {
+        running_net.entry(payment.payer.clone()).or_insert(0);
+        running_net.entry(payment.payee.clone()).or_insert(0);
+        required_by_id.entry(payment.payer.clone()).or_insert(0);
+        required_by_id.entry(payment.payee.clone()).or_insert(0);
+    }
+
+    let mut total_payment_value_minor = 0_u128;
+    let mut missed_deadline_count = 0_u64;
+    let mut priority_weighted_delay_penalty = 0_u128;
+    let mut steps = Vec::with_capacity(order.len());
+
+    for (index, payment_id) in order.iter().enumerate() {
+        let payment = payments_by_id
+            .get(payment_id.as_str())
+            .copied()
+            .ok_or(QueueError::InvalidQueueOrder)?;
+        let settlement_index = (index as u64)
+            .checked_add(1)
+            .ok_or(QueueError::ArithmeticOverflow)?;
+        let amount = payment.amount_minor as i128;
+        let payer_net = running_net
+            .get(&payment.payer)
+            .copied()
+            .unwrap_or(0)
+            .checked_sub(amount)
+            .ok_or(QueueError::ArithmeticOverflow)?;
+        running_net.insert(payment.payer.clone(), payer_net);
+        let payer_deficit = if payer_net < 0 {
+            payer_net.unsigned_abs()
+        } else {
+            0
+        };
+        let payer_required = required_by_id
+            .get(&payment.payer)
+            .copied()
+            .unwrap_or(0)
+            .max(payer_deficit);
+        required_by_id.insert(payment.payer.clone(), payer_required);
+
+        let payee_net = running_net
+            .get(&payment.payee)
+            .copied()
+            .unwrap_or(0)
+            .checked_add(amount)
+            .ok_or(QueueError::ArithmeticOverflow)?;
+        running_net.insert(payment.payee.clone(), payee_net);
+
+        total_payment_value_minor =
+            checked_add_u128(total_payment_value_minor, payment.amount_minor as u128)?;
+        let missed_deadline = payment
+            .deadline_step
+            .is_some_and(|deadline| settlement_index > deadline);
+        if missed_deadline {
+            missed_deadline_count = missed_deadline_count
+                .checked_add(1)
+                .ok_or(QueueError::ArithmeticOverflow)?;
+        }
+        let delay_penalty = (payment.priority_weight as u128)
+            .checked_mul(settlement_index as u128)
+            .ok_or(QueueError::ArithmeticOverflow)?;
+        priority_weighted_delay_penalty =
+            checked_add_u128(priority_weighted_delay_penalty, delay_penalty)?;
+
+        steps.push(MinimumLiquidityStep {
+            payment_id: payment.payment_id.clone(),
+            settlement_index,
+            payer_cumulative_net_minor: payer_net,
+            payee_cumulative_net_minor: payee_net,
+            missed_deadline,
+        });
+    }
+
+    let mut total_required_opening_liquidity_minor = 0_u128;
+    let required_by_participant = required_by_id
+        .into_iter()
+        .map(|(participant_id, required_opening_liquidity_minor)| {
+            total_required_opening_liquidity_minor = checked_add_u128(
+                total_required_opening_liquidity_minor,
+                required_opening_liquidity_minor,
+            )?;
+            Ok(ParticipantMinimumLiquidity {
+                participant_id,
+                required_opening_liquidity_minor,
+            })
+        })
+        .collect::<Result<Vec<_>, QueueError>>()?;
+
+    Ok(MinimumLiquidityReport {
+        network_id: context.network_id.clone(),
+        asset_id: context.asset_id.clone(),
+        order: order.to_vec(),
+        total_payment_value_minor,
+        total_required_opening_liquidity_minor,
+        required_by_participant,
+        steps,
+        excluded_payments: prepared.excluded,
+        deduplicated_payment_observations: prepared.deduplicated_observations,
+        missed_deadline_count,
+        priority_weighted_delay_penalty,
+    })
+}
+
+/// Greater means better: less required opening liquidity, fewer missed deadlines,
+/// then lower priority-weighted settlement-index penalty.
+pub fn compare_minimum_liquidity_reports(
+    left: &MinimumLiquidityReport,
+    right: &MinimumLiquidityReport,
+) -> Ordering {
+    right
+        .total_required_opening_liquidity_minor
+        .cmp(&left.total_required_opening_liquidity_minor)
+        .then_with(|| right.missed_deadline_count.cmp(&left.missed_deadline_count))
+        .then_with(|| {
+            right
+                .priority_weighted_delay_penalty
+                .cmp(&left.priority_weighted_delay_penalty)
+        })
+}
+
+/// Exhaustively find the order requiring the least total opening liquidity. This oracle
+/// is capped at eight eligible payments and is meant for objective-gap validation.
+pub fn minimum_liquidity_order_oracle(
+    context: &QueueContext,
+    payments: &[QueuedPayment],
+) -> Result<MinimumLiquidityOracleResult, QueueError> {
+    let prepared = prepare_payment_observations(context, payments)?;
+    let mut order = prepared
+        .eligible
+        .iter()
+        .map(|payment| payment.payment_id.clone())
+        .collect::<Vec<_>>();
+    if order.len() > MAX_EXACT_ORDER_PAYMENTS {
+        return Err(QueueError::TooManyExactPayments {
+            observed: order.len(),
+            maximum: MAX_EXACT_ORDER_PAYMENTS,
+        });
+    }
+
+    struct Best {
+        order: Vec<String>,
+        report: MinimumLiquidityReport,
+    }
+
+    fn visit(
+        index: usize,
+        order: &mut [String],
+        context: &QueueContext,
+        payments: &[QueuedPayment],
+        best: &mut Option<Best>,
+        candidates: &mut u64,
+    ) -> Result<(), QueueError> {
+        if index == order.len() {
+            let report = minimum_opening_liquidity_for_sequence(context, payments, order)?;
+            *candidates = candidates
+                .checked_add(1)
+                .ok_or(QueueError::ArithmeticOverflow)?;
+            let replace = best.as_ref().is_none_or(|current| {
+                let comparison = compare_minimum_liquidity_reports(&report, &current.report);
+                comparison == Ordering::Greater
+                    || (comparison == Ordering::Equal
+                        && order.iter().cmp(current.order.iter()) == Ordering::Less)
+            });
+            if replace {
+                *best = Some(Best {
+                    order: order.to_vec(),
+                    report,
+                });
+            }
+            return Ok(());
+        }
+
+        for next in index..order.len() {
+            order.swap(index, next);
+            visit(index + 1, order, context, payments, best, candidates)?;
+            order.swap(index, next);
+        }
+        Ok(())
+    }
+
+    let mut best = None;
+    let mut candidates = 0_u64;
+    visit(
+        0,
+        &mut order,
+        context,
+        payments,
+        &mut best,
+        &mut candidates,
+    )?;
+    let best = best.ok_or(QueueError::ConservationViolation)?;
+    Ok(MinimumLiquidityOracleResult {
+        best_order: best.order,
+        best_report: best.report,
+        candidate_orders_evaluated: candidates,
+    })
+}
+
+fn normalized_minimum_liquidity_loss(
+    candidate: &MinimumLiquidityReport,
+    current: &MinimumLiquidityReport,
+    maximum_payment_value: u128,
+    payment_count: usize,
+    maximum_delay_penalty: u128,
+) -> f64 {
+    if candidate.total_required_opening_liquidity_minor
+        != current.total_required_opening_liquidity_minor
+    {
+        return candidate
+            .total_required_opening_liquidity_minor
+            .abs_diff(current.total_required_opening_liquidity_minor) as f64
+            / maximum_payment_value.max(1) as f64;
+    }
+    if candidate.missed_deadline_count != current.missed_deadline_count {
+        return candidate
+            .missed_deadline_count
+            .abs_diff(current.missed_deadline_count) as f64
+            / payment_count.max(1) as f64;
+    }
+    candidate
+        .priority_weighted_delay_penalty
+        .abs_diff(current.priority_weighted_delay_penalty) as f64
+        / maximum_delay_penalty.max(1) as f64
+}
+
+/// Seeded simulated annealing that minimizes the strict-sequence opening-liquidity
+/// requirement. This is separate from simulated_annealing_order, which maximizes settled
+/// value under an existing fixed-liquidity vector.
+pub fn simulated_annealing_minimum_liquidity_order(
+    context: &QueueContext,
+    payments: &[QueuedPayment],
+    initial_order: &[String],
+    config: &AnnealingConfig,
+) -> Result<MinimumLiquidityAnnealingResult, QueueError> {
+    if !config.initial_temperature.is_finite()
+        || config.initial_temperature <= 0.0
+        || !config.cooling_factor.is_finite()
+        || config.cooling_factor <= 0.0
+        || config.cooling_factor > 1.0
+    {
+        return Err(QueueError::InvalidAnnealingConfig);
+    }
+
+    let prepared = prepare_payment_observations(context, payments)?;
+    validate_order(&prepared.eligible, initial_order)?;
+    let payment_count = prepared.eligible.len();
+    let maximum_payment_value = prepared
+        .eligible
+        .iter()
+        .try_fold(0_u128, |total, payment| {
+            checked_add_u128(total, payment.amount_minor as u128)
+        })?;
+    let priority_sum = prepared
+        .eligible
+        .iter()
+        .try_fold(0_u128, |total, payment| {
+            checked_add_u128(total, payment.priority_weight as u128)
+        })?;
+    let maximum_delay_penalty = priority_sum
+        .checked_mul(payment_count as u128)
+        .ok_or(QueueError::ArithmeticOverflow)?;
+
+    let mut current_order = initial_order.to_vec();
+    let mut current_report =
+        minimum_opening_liquidity_for_sequence(context, payments, &current_order)?;
+    let mut best_order = current_order.clone();
+    let mut best_report = current_report.clone();
+    let mut rng = XorShift64::new(config.seed);
+    let mut temperature = config.initial_temperature;
+    let mut iterations_evaluated = 0_usize;
+
+    if payment_count < 2 {
+        return Ok(MinimumLiquidityAnnealingResult {
+            best_order,
+            best_report,
+            iterations_evaluated,
+            seed: config.seed,
+        });
+    }
+
+    for _ in 0..config.iterations {
+        iterations_evaluated = iterations_evaluated
+            .checked_add(1)
+            .ok_or(QueueError::ArithmeticOverflow)?;
+        let first = (rng.next_u64() as usize) % payment_count;
+        let mut second = (rng.next_u64() as usize) % payment_count;
+        if second == first {
+            second = (second + 1) % payment_count;
+        }
+
+        let mut candidate_order = current_order.clone();
+        candidate_order.swap(first, second);
+        let candidate_report =
+            minimum_opening_liquidity_for_sequence(context, payments, &candidate_order)?;
+        let comparison =
+            compare_minimum_liquidity_reports(&candidate_report, &current_report);
+
+        let accept = if comparison != Ordering::Less {
+            comparison == Ordering::Greater || candidate_order < current_order
+        } else {
+            let loss = normalized_minimum_liquidity_loss(
+                &candidate_report,
+                &current_report,
+                maximum_payment_value,
+                payment_count,
+                maximum_delay_penalty,
+            );
+            rng.unit_interval() < (-loss / temperature).exp()
+        };
+
+        if accept {
+            current_order = candidate_order.clone();
+            current_report = candidate_report.clone();
+        }
+
+        let best_comparison =
+            compare_minimum_liquidity_reports(&candidate_report, &best_report);
+        if best_comparison == Ordering::Greater
+            || (best_comparison == Ordering::Equal && candidate_order < best_order)
+        {
+            best_order = candidate_order;
+            best_report = candidate_report;
+        }
+
+        temperature *= config.cooling_factor;
+    }
+
+    Ok(MinimumLiquidityAnnealingResult {
+        best_order,
+        best_report,
+        iterations_evaluated,
+        seed: config.seed,
+    })
 }
 
 /// Compare two simulations. Greater means better: more settled value, more settled
