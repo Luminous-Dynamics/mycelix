@@ -715,6 +715,11 @@ mod tests {
         let mut changed_content = first.clone();
         changed_content.insert("a.json".to_owned(), b"tampered".to_vec());
         assert_ne!(hash_named_inputs(&first), hash_named_inputs(&changed_content));
+
+        let mut changed_path = BTreeMap::new();
+        changed_path.insert("renamed.json".to_owned(), b"content-a".to_vec());
+        changed_path.insert("b.json".to_owned(), b"content-b".to_vec());
+        assert_ne!(hash_named_inputs(&first), hash_named_inputs(&changed_path));
     }
 
     #[test]
