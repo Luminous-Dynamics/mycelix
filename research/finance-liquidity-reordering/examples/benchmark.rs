@@ -1,6 +1,7 @@
 use finance_liquidity_reordering::{
-    bounded_insertion_search, exact_permutation_oracle, heuristic_portfolio, input_order,
-    receiver_ready_greedy, simulated_annealing, Payment, Problem, ReorderError, SearchResult,
+    bounded_insertion_search, exact_pareto_frontier, exact_permutation_oracle,
+    heuristic_portfolio, input_order, receiver_ready_greedy, simulated_annealing, Payment, Problem,
+    ReorderError, SearchResult,
 };
 use std::collections::BTreeSet;
 use std::error::Error;
@@ -174,6 +175,7 @@ fn emit<F>(
     algorithm: &str,
     seed: Option<u64>,
     exact: Option<&SearchResult>,
+    pareto_frontier_size: Option<usize>,
     run: F,
 ) -> Result<(), Box<dyn Error>>
 where
@@ -212,13 +214,16 @@ where
     };
 
     println!(
-        "{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{}",
+        "{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{}",
         problem.payments().len(),
         problem.participant_count(),
         scenario.label(),
         features.participants_both_send_receive,
         features.unique_receivers,
         features.unique_directed_edges,
+        pareto_frontier_size
+            .map(|size| size.to_string())
+            .unwrap_or_default(),
         algorithm,
         seed.map(|value| value.to_string())
             .unwrap_or_else(|| "-".into()),
@@ -237,7 +242,7 @@ where
 }
 
 fn main() -> Result<(), Box<dyn Error>> {
-    println!("payments,participants,scenario,participants_both_send_receive,unique_receivers,unique_directed_edges,algorithm,seed,candidate_evaluations,aggregate_required_initial_liquidity_minor,max_participant_required_initial_liquidity_minor,aggregate_liquidity_gap_minor,max_participant_gap_minor,p50_ns,p95_ns,p99_ns");
+    println!("payments,participants,scenario,participants_both_send_receive,unique_receivers,unique_directed_edges,exact_pareto_frontier_size,algorithm,seed,candidate_evaluations,aggregate_required_initial_liquidity_minor,max_participant_required_initial_liquidity_minor,aggregate_liquidity_gap_minor,max_participant_gap_minor,p50_ns,p95_ns,p99_ns");
 
     for payment_count in [4, 6, 8, 10, 30, 70, 140, 700] {
         for scenario in Scenario::ALL {
@@ -245,6 +250,11 @@ fn main() -> Result<(), Box<dyn Error>> {
             let fifo = input_order(&problem)?;
             let exact = if payment_count <= 8 {
                 Some(exact_permutation_oracle(&problem)?)
+            } else {
+                None
+            };
+            let pareto_frontier_size = if payment_count <= 8 {
+                Some(exact_pareto_frontier(&problem)?.points.len())
             } else {
                 None
             };
@@ -256,6 +266,7 @@ fn main() -> Result<(), Box<dyn Error>> {
                 "input_order",
                 None,
                 exact.as_ref(),
+                pareto_frontier_size,
                 || input_order(&problem),
             )?;
             emit(
@@ -264,6 +275,7 @@ fn main() -> Result<(), Box<dyn Error>> {
                 "receiver_ready_greedy",
                 None,
                 exact.as_ref(),
+                pareto_frontier_size,
                 || receiver_ready_greedy(&problem),
             )?;
             emit(
@@ -272,6 +284,7 @@ fn main() -> Result<(), Box<dyn Error>> {
                 "bounded_insertion_search",
                 None,
                 exact.as_ref(),
+                pareto_frontier_size,
                 || bounded_insertion_search(&problem, &fifo.order, budget),
             )?;
 
@@ -282,6 +295,7 @@ fn main() -> Result<(), Box<dyn Error>> {
                     "simulated_annealing",
                     Some(seed),
                     exact.as_ref(),
+                    pareto_frontier_size,
                     || simulated_annealing(&problem, &fifo.order, seed, budget),
                 )?;
             }
@@ -292,6 +306,7 @@ fn main() -> Result<(), Box<dyn Error>> {
                 "heuristic_portfolio",
                 Some(41),
                 exact.as_ref(),
+                pareto_frontier_size,
                 || heuristic_portfolio(&problem, budget, 41, budget),
             )?;
 
@@ -302,6 +317,7 @@ fn main() -> Result<(), Box<dyn Error>> {
                     "exact_permutation_oracle",
                     None,
                     exact.as_ref(),
+                    pareto_frontier_size,
                     || exact_permutation_oracle(&problem),
                 )?;
             }
