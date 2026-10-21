@@ -1,0 +1,86 @@
+{
+  "schema_version": "mycelix.claim-ceiling-meet.request.v1",
+  "request_id": "golden-overlap-001",
+  "left": {
+    "claim_atoms": [
+      {
+        "predicate": "measurement",
+        "evidence_class": "instrument_measurement",
+        "derivation": "direct",
+        "intended_use": "research"
+      },
+      {
+        "predicate": "forecast",
+        "evidence_class": "forecast_output",
+        "derivation": "statistical_inference",
+        "intended_use": "planning"
+      }
+    ],
+    "subject_ids": [
+      "asset-1",
+      "asset-2"
+    ],
+    "context_ids": [
+      "zone-a",
+      "zone-b"
+    ],
+    "valid_time": {
+      "start_unix_seconds": 100,
+      "end_unix_seconds_exclusive": 200
+    },
+    "action_scopes": [
+      "publish-report",
+      "operate-asset"
+    ],
+    "required_qualifications": [
+      "source-attributed"
+    ],
+    "required_independence_controls": [
+      "distinct_record"
+    ],
+    "required_provenance": [
+      "exact_artifact_digest"
+    ]
+  },
+  "right": {
+    "claim_atoms": [
+      {
+        "predicate": "measurement",
+        "evidence_class": "instrument_measurement",
+        "derivation": "direct",
+        "intended_use": "research"
+      },
+      {
+        "predicate": "forecast",
+        "evidence_class": "forecast_output",
+        "derivation": "statistical_inference",
+        "intended_use": "decision_support"
+      }
+    ],
+    "subject_ids": [
+      "asset-1"
+    ],
+    "context_ids": [
+      "zone-a"
+    ],
+    "valid_time": {
+      "start_unix_seconds": 120,
+      "end_unix_seconds_exclusive": 180
+    },
+    "action_scopes": [
+      "publish-report"
+    ],
+    "required_qualifications": [
+      "source-attributed",
+      "calibrated-tool"
+    ],
+    "required_independence_controls": [
+      "distinct_record",
+      "independent_origin"
+    ],
+    "required_provenance": [
+      "exact_artifact_digest",
+      "source_attribution"
+    ]
+  }
+}

@@ -1,0 +1,118 @@
+name: Claim Ceiling Meet Reference V1
+
+on:
+  pull_request:
+    paths:
+      - "mycelix-workspace/mycelix-space/tools/claim-ceiling-reference/**"
+      - "mycelix-workspace/mycelix-space/Cargo.toml"
+      - "mycelix-workspace/Cargo.toml"
+      - "docs/research/CLAIM_CEILING_MEET_REFERENCE_V1_2026-10.md"
+      - ".github/workflows/claim-ceiling-meet-reference-v1.yml"
+  push:
+    branches: [main]
+    paths:
+      - "mycelix-workspace/mycelix-space/tools/claim-ceiling-reference/**"
+      - "mycelix-workspace/mycelix-space/Cargo.toml"
+      - "mycelix-workspace/Cargo.toml"
+      - "docs/research/CLAIM_CEILING_MEET_REFERENCE_V1_2026-10.md"
+      - ".github/workflows/claim-ceiling-meet-reference-v1.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  claim-ceiling-reference:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: 1.96.0
+          components: rustfmt, clippy
+      - name: Check package formatting
+        run: cargo fmt --manifest-path "$PACKAGE" -p claim-ceiling-reference -- --check
+        env:
+          PACKAGE: mycelix-workspace/mycelix-space/tools/claim-ceiling-reference/Cargo.toml
+      - name: Run algebra, schema, golden-vector and mutation tests
+        run: cargo test --manifest-path "$PACKAGE" -p claim-ceiling-reference
+        env:
+          PACKAGE: mycelix-workspace/mycelix-space/tools/claim-ceiling-reference/Cargo.toml
+      - name: Run strict Clippy
+        run: cargo clippy --manifest-path "$PACKAGE" -p claim-ceiling-reference --all-targets -- -D warnings
+        env:
+          PACKAGE: mycelix-workspace/mycelix-space/tools/claim-ceiling-reference/Cargo.toml
+      - name: Run pinned CLI twice and independently verify all golden vectors
+        shell: bash
+        run: |
+          set -euo pipefail
+          package="mycelix-workspace/mycelix-space/tools/claim-ceiling-reference/Cargo.toml"
+          root="mycelix-workspace/mycelix-space/tools/claim-ceiling-reference"
+          input="$root/fixtures/claim-ceiling-meet-request-v1.json"
+          golden="$root/fixtures/claim-ceiling-meet-golden-v1.json"
+          oracle="$root/tests/independent_meet_verifier.jq"
+          source_sha="$(git rev-parse HEAD)"
+          request_schema_sha="$(sha256sum "$root/schemas/claim-ceiling-request-v1.schema.json" | cut -d ' ' -f 1)"
+          receipt_schema_sha="$(sha256sum "$root/schemas/claim-ceiling-receipt-v1.schema.json" | cut -d ' ' -f 1)"
+
+          expected_input_sha="$(sha256sum "$input" | cut -d ' ' -f 1)"
+          cargo run --manifest-path "$package" -p claim-ceiling-reference --bin claim-ceiling-meet -- --input "$input" --source-commit "$source_sha" > "$RUNNER_TEMP/receipt-1.json"
+          cargo run --manifest-path "$package" -p claim-ceiling-reference --bin claim-ceiling-meet -- --input "$input" --source-commit "$source_sha" > "$RUNNER_TEMP/receipt-2.json"
+          cmp "$RUNNER_TEMP/receipt-1.json" "$RUNNER_TEMP/receipt-2.json"
+          jq -e --arg source "$source_sha" \
+            --arg input_sha256 "$expected_input_sha" \
+            --arg request_schema_sha256 "$request_schema_sha" \
+            --arg receipt_schema_sha256 "$receipt_schema_sha" \
+            --slurpfile request "$input" -f "$oracle" "$RUNNER_TEMP/receipt-1.json" > /dev/null
+
+          # Recompute every frozen golden vector in jq, not just the CLI smoke request.
+          index=0
+          while IFS= read -r request_json; do
+            index=$((index + 1))
+            request_path="$RUNNER_TEMP/golden-request-$index.json"
+            receipt_path="$RUNNER_TEMP/golden-receipt-$index.json"
+            printf '%s\n' "$request_json" > "$request_path"
+            input_sha="$(sha256sum "$request_path" | cut -d ' ' -f 1)"
+            cargo run --manifest-path "$package" -p claim-ceiling-reference --bin claim-ceiling-meet -- --input "$request_path" --source-commit "$source_sha" > "$receipt_path"
+            jq -e --arg source "$source_sha" \
+              --arg input_sha256 "$input_sha" \
+              --arg request_schema_sha256 "$request_schema_sha" \
+              --arg receipt_schema_sha256 "$receipt_schema_sha" \
+              --slurpfile request "$request_path" -f "$oracle" "$receipt_path" > /dev/null
+          done < <(jq -c '.vectors[].request' "$golden")
+          test "$index" -eq 5
+          echo "INDEPENDENT_JQ_GOLDEN_VECTORS_PASS: $index"
+
+          # Mutation controls: a forged broader ceiling and a dropped obligation must not verify.
+          jq '.ceiling.subject_ids += ["injected-extra-subject"]' "$RUNNER_TEMP/receipt-1.json" > "$RUNNER_TEMP/mutated-broader.json"
+          if jq -e --arg source "$source_sha" \
+            --arg input_sha256 "$expected_input_sha" \
+            --arg request_schema_sha256 "$request_schema_sha" \
+            --arg receipt_schema_sha256 "$receipt_schema_sha" \
+            --slurpfile request "$input" -f "$oracle" "$RUNNER_TEMP/mutated-broader.json" > /dev/null; then
+            echo "MUTATION_ESCAPE: broader subject scope" >&2
+            exit 1
+          fi
+          jq '.ceiling.required_provenance = []' "$RUNNER_TEMP/receipt-1.json" > "$RUNNER_TEMP/mutated-obligation.json"
+          if jq -e --arg source "$source_sha" \
+            --arg input_sha256 "$expected_input_sha" \
+            --arg request_schema_sha256 "$request_schema_sha" \
+            --arg receipt_schema_sha256 "$receipt_schema_sha" \
+            --slurpfile request "$input" -f "$oracle" "$RUNNER_TEMP/mutated-obligation.json" > /dev/null; then
+            echo "MUTATION_ESCAPE: dropped provenance obligation" >&2
+            exit 1
+          fi
+          echo "INDEPENDENT_JQ_MUTATION_CONTROLS_PASS: 2"
+      - name: Ensure tracked source did not mutate
+        run: git diff --exit-code HEAD -- mycelix-workspace/mycelix-space/tools/claim-ceiling-reference docs/research/CLAIM_CEILING_MEET_REFERENCE_V1_2026-10.md
+      - name: Upload exact-source receipt and frozen input
+        uses: actions/upload-artifact@v4
+        with:
+          name: claim-ceiling-reference-v1-${{ github.sha }}
+          path: |
+            mycelix-workspace/mycelix-space/tools/claim-ceiling-reference/fixtures/claim-ceiling-meet-request-v1.json
+            mycelix-workspace/mycelix-space/tools/claim-ceiling-reference/fixtures/claim-ceiling-meet-golden-v1.json
+            ${{ runner.temp }}/receipt-1.json
+          if-no-files-found: error
+          retention-days: 30

@@ -1,0 +1,19 @@
+[package]
+name = "claim-ceiling-reference"
+version.workspace = true
+edition.workspace = true
+authors = ["Tristan Stoltz / Luminous Dynamics"]
+license.workspace = true
+description = "Executable finite-set reference for conservative Mycelix claim-ceiling composition"
+repository = "https://github.com/Luminous-Dynamics/mycelix"
+publish = false
+
+[dependencies]
+jsonschema = { version = "0.18", features = ["draft202012"] }
+serde.workspace = true
+serde_json.workspace = true
+sha2 = "0.10"
+
+[[bin]]
+name = "claim-ceiling-meet"
+path = "src/main.rs"

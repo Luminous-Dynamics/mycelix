@@ -8,6 +8,7 @@ members = [
     # Tools
     "tools/celestrak-demo",
     "tools/screening-daemon",
+    "tools/claim-ceiling-reference",
 
     # Shared zome utilities
     "zomes/shared",
