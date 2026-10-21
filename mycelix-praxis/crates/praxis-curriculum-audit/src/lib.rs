@@ -1381,13 +1381,12 @@ fn audit_manifest_assets(workspace: &Path, errors: &mut Vec<String>) -> ContentQ
                     continue;
                 }
             };
-            if let Some(first_node_id) = seen_paths.get(&relative_path) {
-                errors.push(format!(
-                    "manifest asset path {uri:?} is registered under multiple lesson IDs: {first_node_id:?} and {node_id:?}"
-                ));
+            if let Err(error) =
+                register_manifest_asset_path(&mut seen_paths, &relative_path, node_id)
+            {
+                errors.push(error);
                 continue;
             }
-            seen_paths.insert(relative_path.clone(), node_id.clone());
             let raw = match fs::read_to_string(&path) {
                 Ok(raw) => raw,
                 Err(error) => {
