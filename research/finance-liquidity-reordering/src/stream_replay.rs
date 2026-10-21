@@ -66,6 +66,10 @@ pub enum StreamReplayError {
         release_ticks: usize,
         deadline_ticks: usize,
     },
+    InitialBalanceLengthMismatch {
+        participants: usize,
+        initial_balances: usize,
+    },
     ZeroBatchSize,
     Unschedulable,
     TimeOverflow,
@@ -287,5 +291,245 @@ pub fn replay_stream(
             .aggregate_required_initial_liquidity_minor,
         lower_bound_max_participant_liquidity_minor: lower_bound
             .max_participant_required_initial_liquidity_minor,
+    })
+}
+
+
+/// Result from replay under fixed participant balances. Unlike replay_stream, this path
+/// refuses to settle a payment that the sender cannot fund from its live balance.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct BudgetedStreamReplayResult {
+    /// Settled global payment indices in execution order; may be partial on deadlock.
+    pub order: Vec<usize>,
+    /// Settlement tick per original payment; None means it did not settle.
+    pub settlement_ticks: Vec<Option<u64>>,
+    pub unsettled_indices: Vec<usize>,
+    pub liquidity_deadlock: bool,
+    pub fully_settled: bool,
+    pub deadline_misses: usize,
+    pub total_queue_wait_ticks: u128,
+    pub max_queue_wait_ticks: u64,
+    pub p95_queue_wait_ticks: u64,
+    pub batches_processed: usize,
+    pub maximum_batch_size_observed: usize,
+    pub initial_liquidity_by_participant_minor: Vec<u128>,
+    pub initial_liquidity_total_minor: u128,
+    pub final_balances_by_participant_minor: Vec<u128>,
+    pub total_value_settled_minor: u128,
+    pub total_value_unsettled_minor: u128,
+    /// Present only when every obligation settled, so the Evaluation covers the full order.
+    pub evaluation: Option<Evaluation>,
+}
+
+/// Replay with explicit participant cash balances. A payment can only settle when it has
+/// been released, all precedence prerequisites are settled, and its sender's current balance
+/// covers the full gross amount. Incoming transfers recycle liquidity. If no affordable
+/// payment remains and no future arrival can change the state, the replay returns a
+/// partial result marked liquidity_deadlock instead of pretending the queue settled.
+pub fn replay_stream_with_liquidity_budget(
+    problem: &Problem,
+    config: &StreamReplayConfig,
+    strategy: OnlineBatchStrategy,
+    initial_balances: &[u128],
+) -> Result<BudgetedStreamReplayResult, StreamReplayError> {
+    let count = problem.payments().len();
+    if config.release_ticks.len() != count || config.deadline_ticks.len() != count {
+        return Err(StreamReplayError::TimingLengthMismatch {
+            payments: count,
+            release_ticks: config.release_ticks.len(),
+            deadline_ticks: config.deadline_ticks.len(),
+        });
+    }
+    if initial_balances.len() != problem.participant_count() {
+        return Err(StreamReplayError::InitialBalanceLengthMismatch {
+            participants: problem.participant_count(),
+            initial_balances: initial_balances.len(),
+        });
+    }
+    if config.batch_size == 0 {
+        return Err(StreamReplayError::ZeroBatchSize);
+    }
+
+    let mut predecessors = vec![Vec::<usize>::new(); count];
+    for &(before, after) in problem.precedence_constraints() {
+        predecessors[after].push(before);
+    }
+    let mut release_order = (0..count).collect::<Vec<_>>();
+    release_order.sort_by_key(|&index| (config.release_ticks[index], index));
+    let mut release_order_cursor = 0_usize;
+
+    let mut balances = initial_balances.to_vec();
+    let mut settled = vec![false; count];
+    let mut settlement_ticks = vec![None; count];
+    let mut order = Vec::with_capacity(count);
+    let mut current_tick = 0_u64;
+    let mut batches_processed = 0_usize;
+    let mut maximum_batch_size_observed = 0_usize;
+    let mut liquidity_deadlock = false;
+
+    while order.len() < count {
+        while release_order_cursor < count
+            && config.release_ticks[release_order[release_order_cursor]] <= current_tick
+        {
+            release_order_cursor += 1;
+        }
+        let next_release = release_order
+            .get(release_order_cursor)
+            .map(|&index| config.release_ticks[index]);
+
+        let mut eligible = (0..count)
+            .filter(|&index| {
+                !settled[index]
+                    && config.release_ticks[index] <= current_tick
+                    && can_settle_now(&predecessors, index, &settled)
+                    && balances[problem.payments()[index].from]
+                        >= u128::from(problem.payments()[index].amount_minor)
+            })
+            .collect::<Vec<_>>();
+
+        if eligible.is_empty() {
+            if let Some(next_tick) = next_release {
+                current_tick = next_tick;
+                continue;
+            }
+            liquidity_deadlock = true;
+            break;
+        }
+
+        eligible.sort_by_key(|&index| (config.release_ticks[index], index));
+        let oldest_release = config.release_ticks[eligible[0]];
+        let wait_deadline = oldest_release.saturating_add(config.max_batch_wait_ticks);
+        let full = eligible.len() >= config.batch_size;
+        let wait_expired = current_tick >= wait_deadline;
+        let deadline_pressure = eligible
+            .iter()
+            .any(|&index| config.deadline_ticks[index] <= wait_deadline);
+        let no_useful_future_release =
+            next_release.is_none_or(|next_tick| next_tick > wait_deadline);
+
+        if !full && !wait_expired && !deadline_pressure && !no_useful_future_release {
+            current_tick = next_release.unwrap_or(wait_deadline);
+            continue;
+        }
+
+        let batch = eligible
+            .into_iter()
+            .take(config.batch_size)
+            .collect::<Vec<_>>();
+        let ordered_batch = batch_order(problem, &batch, config, strategy)?;
+        batches_processed = batches_processed
+            .checked_add(1)
+            .ok_or(StreamReplayError::TimeOverflow)?;
+        maximum_batch_size_observed = maximum_batch_size_observed.max(ordered_batch.len());
+
+        let mut settled_in_batch = 0_usize;
+        for index in ordered_batch {
+            if settled[index] {
+                continue;
+            }
+            let payment = &problem.payments()[index];
+            let amount = u128::from(payment.amount_minor);
+            if balances[payment.from] < amount {
+                // Earlier payments in this same committed batch may have spent this sender's
+                // balance. Keep the payment pending and reconsider it in a later batch.
+                continue;
+            }
+            while config.unavailable_ticks.contains(&current_tick) {
+                current_tick = current_tick
+                    .checked_add(1)
+                    .ok_or(StreamReplayError::TimeOverflow)?;
+            }
+            balances[payment.from] = balances[payment.from]
+                .checked_sub(amount)
+                .ok_or(StreamReplayError::TimeOverflow)?;
+            balances[payment.to] = balances[payment.to]
+                .checked_add(amount)
+                .ok_or(StreamReplayError::TimeOverflow)?;
+            settled[index] = true;
+            settlement_ticks[index] = Some(current_tick);
+            order.push(index);
+            settled_in_batch += 1;
+            current_tick = current_tick
+                .checked_add(1)
+                .ok_or(StreamReplayError::TimeOverflow)?;
+        }
+        if settled_in_batch == 0 {
+            // The batch was formed from currently affordable payments; a zero-progress
+            // commit indicates an internal inconsistency and must fail closed.
+            return Err(StreamReplayError::Unschedulable);
+        }
+    }
+
+    let unsettled_indices = (0..count).filter(|&index| !settled[index]).collect::<Vec<_>>();
+    let fully_settled = unsettled_indices.is_empty();
+    let evaluation = if fully_settled {
+        Some(evaluate_order(problem, &order)?)
+    } else {
+        None
+    };
+    let mut initial_liquidity_total_minor = 0_u128;
+    for &amount in initial_balances {
+        initial_liquidity_total_minor = initial_liquidity_total_minor
+            .checked_add(amount)
+            .ok_or(StreamReplayError::TimeOverflow)?;
+    }
+
+    let mut total_value_settled_minor = 0_u128;
+    for &index in &order {
+        total_value_settled_minor = total_value_settled_minor
+            .checked_add(u128::from(problem.payments()[index].amount_minor))
+            .ok_or(StreamReplayError::TimeOverflow)?;
+    }
+    let mut total_value_unsettled_minor = 0_u128;
+    for &index in &unsettled_indices {
+        total_value_unsettled_minor = total_value_unsettled_minor
+            .checked_add(u128::from(problem.payments()[index].amount_minor))
+            .ok_or(StreamReplayError::TimeOverflow)?;
+    }
+
+    let mut waits = Vec::with_capacity(order.len());
+    let mut total_queue_wait_ticks = 0_u128;
+    let mut max_queue_wait_ticks = 0_u64;
+    let mut deadline_misses = 0_usize;
+    for index in 0..count {
+        if let Some(tick) = settlement_ticks[index] {
+            let wait = tick.saturating_sub(config.release_ticks[index]);
+            waits.push(wait);
+            total_queue_wait_ticks = total_queue_wait_ticks
+                .checked_add(wait as u128)
+                .ok_or(StreamReplayError::TimeOverflow)?;
+            max_queue_wait_ticks = max_queue_wait_ticks.max(wait);
+            if tick > config.deadline_ticks[index] {
+                deadline_misses = deadline_misses
+                    .checked_add(1)
+                    .ok_or(StreamReplayError::TimeOverflow)?;
+            }
+        }
+    }
+    waits.sort_unstable();
+    let p95_index = if waits.is_empty() {
+        0
+    } else {
+        ((waits.len() * 95).div_ceil(100)).saturating_sub(1)
+    };
+
+    Ok(BudgetedStreamReplayResult {
+        order,
+        settlement_ticks,
+        unsettled_indices,
+        liquidity_deadlock,
+        fully_settled,
+        deadline_misses,
+        total_queue_wait_ticks,
+        max_queue_wait_ticks,
+        p95_queue_wait_ticks: waits.get(p95_index).copied().unwrap_or(0),
+        batches_processed,
+        maximum_batch_size_observed,
+        initial_liquidity_by_participant_minor: initial_balances.to_vec(),
+        initial_liquidity_total_minor,
+        final_balances_by_participant_minor: balances,
+        total_value_settled_minor,
+        total_value_unsettled_minor,
+        evaluation,
     })
 }
