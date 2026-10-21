@@ -206,6 +206,20 @@ fn emit(
     if result.order.iter().any(|&index| result.unsettled_indices.contains(&index)) {
         return Err("payment appears as settled and unsettled".into());
     }
+    let mut coverage = result.order.clone();
+    coverage.extend(result.unsettled_indices.iter().copied());
+    coverage.sort_unstable();
+    if coverage != (0..PAYMENT_COUNT).collect::<Vec<_>>() {
+        return Err("settled/unsettled partition is not a payment-index partition".into());
+    }
+    let gross_total = problem
+        .payments()
+        .iter()
+        .map(|payment| u128::from(payment.amount_minor))
+        .sum::<u128>();
+    if result.total_value_settled_minor + result.total_value_unsettled_minor != gross_total {
+        return Err("settled and unsettled values do not conserve gross obligations".into());
+    }
     if result.initial_liquidity_total_minor
         != result.final_balances_by_participant_minor.iter().sum::<u128>()
     {
