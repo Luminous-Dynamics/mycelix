@@ -669,6 +669,16 @@ mod tests {
             schema["properties"]["learning_studies"]
                 .is_object()
         );
+        assert!(
+            schema["allOf"]
+                .as_array()
+                .is_some_and(|rules| rules.len() >= 5),
+            "the evidence schema must retain its conditional release gates"
+        );
+        assert_eq!(
+            schema["properties"]["review_state"]["enum"].as_array().unwrap().len(),
+            5
+        );
     }
 
     #[test]
