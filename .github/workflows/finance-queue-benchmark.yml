@@ -92,7 +92,7 @@ jobs:
               > "$output/SOURCE-SHA256SUMS"
           )
           test -s benchmark-output/results.csv
-          test "$(wc -l < benchmark-output/results.csv)" -eq 46
+          test "$(wc -l < benchmark-output/results.csv)" -eq 64
           test -s benchmark-output/atomic-batch-results.csv
           test "$(wc -l < benchmark-output/atomic-batch-results.csv)" -eq 5
           # Queue gate: all generated cases must be represented, with no excluded inputs.
@@ -106,7 +106,7 @@ jobs:
               }
             }
             END {
-              if (stress_cases != 15) failed = 1
+              if (stress_cases != 21) failed = 1
               if (failed) exit 1
             }
           ' benchmark-output/results.csv
