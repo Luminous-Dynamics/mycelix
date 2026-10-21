@@ -16,14 +16,16 @@ enum Scenario {
     ReversedHeterogeneousChain,
     ReversedCycle,
     HubRoundTrips,
+    PrecedenceConstrainedChain,
 }
 
 impl Scenario {
-    const ALL: [Self; 4] = [
+    const ALL: [Self; 5] = [
         Self::ReversedEqualChain,
         Self::ReversedHeterogeneousChain,
         Self::ReversedCycle,
         Self::HubRoundTrips,
+        Self::PrecedenceConstrainedChain,
     ];
 
     fn label(self) -> &'static str {
@@ -32,13 +34,14 @@ impl Scenario {
             Self::ReversedHeterogeneousChain => "reversed_heterogeneous_chain",
             Self::ReversedCycle => "reversed_cycle",
             Self::HubRoundTrips => "hub_round_trips",
+            Self::PrecedenceConstrainedChain => "precedence_constrained_chain",
         }
     }
 }
 
 fn make_problem(length: usize, scenario: Scenario) -> Result<Problem, ReorderError> {
     let (participant_count, payments) = match scenario {
-        Scenario::ReversedEqualChain => {
+        Scenario::ReversedEqualChain | Scenario::PrecedenceConstrainedChain => {
             let payments = (0..length)
                 .rev()
                 .map(|i| Payment {
@@ -99,7 +102,15 @@ fn make_problem(length: usize, scenario: Scenario) -> Result<Problem, ReorderErr
             (pairs + 1, payments)
         }
     };
-    Problem::new(participant_count, payments)
+    let problem = Problem::new(participant_count, payments)?;
+    if matches!(scenario, Scenario::PrecedenceConstrainedChain) {
+        let precedence = (0..length.saturating_sub(1))
+            .map(|index| (length - 1 - index, length - 2 - index))
+            .collect();
+        problem.with_precedence_constraints(precedence)
+    } else {
+        Ok(problem)
+    }
 }
 
 #[derive(Clone, Copy, Debug)]
