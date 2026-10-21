@@ -1564,12 +1564,6 @@ pub fn did_from_public_key(public_key: &VerifyingKey) -> String {
     format!("did:mycelix:{hex}")
 }
 
-/// Generate a fresh Ed25519 keypair, seeded from the Web Crypto CSPRNG
-/// (`crypto.getRandomValues`) — NOT `Math.random()`.
-fn generate_signing_key() -> SigningKey {
-    try_generate_signing_key().expect("Web Crypto CSPRNG unavailable for local identity")
-}
-
 fn try_generate_signing_key() -> Result<SigningKey, String> {
     let window = web_sys::window().ok_or_else(|| {
         "Browser window is unavailable; identity key generation requires Web Crypto.".to_string()
