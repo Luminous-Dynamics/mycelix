@@ -1,0 +1,143 @@
+{
+  "schema_version": "nrvca-economic-decomposition/0.1",
+  "status": "synthetic_only",
+  "purpose": "Small known-answer cases for distinguishing distributional transfers, productive output, market-power counterfactuals, resource expenditure and external damages. This is not a national estimate.",
+  "unit_conventions": {
+    "market_model": "abstract currency units and quantity units",
+    "externality": "tonnes and synthetic ZAR shadow-price scenarios",
+    "aggregation": "no cross-domain universal scalar"
+  },
+  "cases": [
+    {
+      "case_id": "pure-domestic-transfer",
+      "kind": "transfer",
+      "payer_sector": "domestic_households",
+      "receiver_sector": "domestic_firm",
+      "currency": "ZAR",
+      "amount": 100,
+      "counterparty_entries": [
+        {"sector": "domestic_households", "signed_amount": -100},
+        {"sector": "domestic_firm", "signed_amount": 100}
+      ],
+      "expected": {
+        "consolidated_net_transfer": 0,
+        "distributional_incidence": 100,
+        "observed_real_resource_cost": 0,
+        "net_resource_loss_in_this_isolated_case": 0,
+        "deadweight_loss": null,
+        "external_damage": null,
+        "must_not_infer_general_welfare_effect_from_transfer_alone": true
+      }
+    },
+    {
+      "case_id": "linear-market-power",
+      "kind": "analytical_market_model",
+      "model": {
+        "inverse_demand": {"intercept": 50, "slope": 0.5},
+        "marginal_cost": {"intercept": 10, "slope": 0.5},
+        "assumptions": [
+          "single homogeneous market",
+          "linear inverse demand and marginal cost",
+          "no externalities in this market case",
+          "no entry, quality, dynamic innovation or distributional effects beyond the stated model",
+          "monopoly chooses quantity where marginal revenue equals marginal cost"
+        ]
+      },
+      "expected": {
+        "competitive": {
+          "quantity": 40,
+          "price": 30,
+          "consumer_surplus": 400,
+          "producer_surplus": 400,
+          "total_surplus": 800
+        },
+        "monopoly": {
+          "quantity": 26.666666666666668,
+          "price": 36.666666666666664,
+          "consumer_surplus": 177.77777777777777,
+          "producer_surplus": 533.3333333333333,
+          "total_surplus": 711.1111111111111,
+          "price_transfer_on_retained_units": 177.77777777777777,
+          "lost_consumer_surplus_vs_competition": 222.22222222222223,
+          "producer_surplus_gain_vs_competition": 133.33333333333331,
+          "deadweight_loss_vs_competition": 88.88888888888891
+        },
+        "identity": "lost_consumer_surplus = producer_surplus_gain + deadweight_loss",
+        "claim_ceiling": "The result is conditional on this toy model; it is not a general estimator of any real firm's rent or national welfare loss."
+      }
+    },
+    {
+      "case_id": "markup-with-fixed-cost-recovery",
+      "kind": "accounting_and_inference_guardrail",
+      "currency": "ZAR",
+      "units_sold": 100,
+      "price_per_unit": 20,
+      "marginal_variable_cost_per_unit": 12,
+      "fixed_rnd_and_capital_recovery_cost": 900,
+      "observed": {
+        "revenue": 2000,
+        "variable_cost": 1200,
+        "contribution_after_variable_cost": 800,
+        "operating_result_after_fixed_cost": -100,
+        "markup_over_marginal_variable_cost_fraction": 0.6666666666666666
+      },
+      "expected": {
+        "economic_rent": null,
+        "deadweight_loss": null,
+        "social_loss_from_markup_alone": null,
+        "required_disposition": "insufficient_counterfactual_evidence_abstain"
+      }
+    },
+    {
+      "case_id": "rent-capture-vs-real-resource-cost",
+      "kind": "separate-ledger",
+      "currency": "ZAR",
+      "captured_transfer_or_rent": 1000,
+      "observed_real_resources_spent_on_capture": 120,
+      "deadweight_loss": null,
+      "external_damage": null,
+      "expected": {
+        "transfer_incidence_amount": 1000,
+        "observed_real_resource_cost": 120,
+        "automatic_total_social_loss": null,
+        "must_not_add_transfer_and_resource_cost_as_if_same_category": true,
+        "required_disposition": "report_components_separately"
+      }
+    },
+    {
+      "case_id": "physical-externality-sensitivity",
+      "kind": "physical_then_valued_externality",
+      "physical_measurement": {
+        "quantity": 200,
+        "unit": "tonne_CO2e",
+        "evidence_status": "synthetic_observation_for_fixture"
+      },
+      "valuation_scenarios": [
+        {"scenario_id": "low", "shadow_price_zar_per_tonne": 100, "modelled_damage_zar": 20000},
+        {"scenario_id": "central", "shadow_price_zar_per_tonne": 160, "modelled_damage_zar": 32000},
+        {"scenario_id": "high", "shadow_price_zar_per_tonne": 250, "modelled_damage_zar": 50000}
+      ],
+      "expected": {
+        "physical_quantity_is_invariant_across_valuation_scenarios": true,
+        "monetary_damage_is_modelled_not_observed": true,
+        "must_preserve_sensitivity_range": true
+      }
+    },
+    {
+      "case_id": "public-service-without-market-price",
+      "kind": "non_market_service",
+      "service": "emergency water provision",
+      "observed_market_price": null,
+      "service_units_delivered": 500,
+      "unit": "household-days",
+      "service_quality": "not_measured",
+      "social_value": null,
+      "expected": {
+        "value_status": "unknown",
+        "must_not_impute_zero_value": true,
+        "must_not_invent_price_from_missing_market_price": true,
+        "must_report_delivered_units_separately": true
+      }
+    }
+  ]
+}
