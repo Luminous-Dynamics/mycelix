@@ -341,20 +341,39 @@ impl<G: ContentGenerator> ContentPipeline<G> {
         let channels = ContentChannels::practice_problem().for_grade(grade_ord);
         let context = templates::practice_problem_context(standard, difficulty);
         let mut last_reason = "no generation attempt was made";
+        let mut last_failure_was_quality = false;
 
         for _attempt in 0..self.max_retries {
-            let output = self.generate_with_retry(&channels, &context, 256)?;
+            // Keep the outer attempt budget truthful: wrapping generate_with_retry
+            // here would turn N practice attempts into as many as N squared model calls.
+            let output = self.generator.generate(&channels, &context, 256);
+            if output.text.trim().is_empty()
+                || output.coherence < self.quality_threshold
+                || output.hallucination_flag
+                || is_placeholder_content(&output.text)
+            {
+                last_failure_was_quality = true;
+                continue;
+            }
+
             let problem = parse_practice_problem(&output.text, difficulty);
             match validate_practice_problem(&problem) {
                 Ok(()) => return Ok(problem),
-                Err(reason) => last_reason = reason,
+                Err(reason) => {
+                    last_reason = reason;
+                    last_failure_was_quality = false;
+                }
             }
         }
 
-        Err(ContentGenError::InvalidPracticeProblem {
-            attempts: self.max_retries,
-            reason: last_reason,
-        })
+        if last_failure_was_quality {
+            Err(ContentGenError::QualityBelowThreshold(self.max_retries))
+        } else {
+            Err(ContentGenError::InvalidPracticeProblem {
+                attempts: self.max_retries,
+                reason: last_reason,
+            })
+        }
     }
 
     fn generate_hint(
@@ -844,10 +863,18 @@ mod tests {
 
     #[test]
     fn generation_retries_practice_items_with_invalid_distractors() {
-        struct InvalidChoiceGenerator;
+        use std::sync::{
+            Arc,
+            atomic::{AtomicUsize, Ordering},
+        };
+
+        struct InvalidChoiceGenerator {
+            calls: Arc<AtomicUsize>,
+        }
 
         impl ContentGenerator for InvalidChoiceGenerator {
             fn generate(&self, _: &ContentChannels, _: &str, _: usize) -> GenerationOutput {
+                self.calls.fetch_add(1, Ordering::SeqCst);
                 GenerationOutput {
                     text: "What is 6 × 7?\\n42\\nSix groups of seven make 42.\\n36, 42, 48\\nUse a known fact.\\nCheck by repeated addition.".to_string(),
                     coherence: 0.99,
@@ -857,7 +884,11 @@ mod tests {
             }
         }
 
-        let pipeline = ContentPipeline::new(InvalidChoiceGenerator).with_max_retries(2);
+        let calls = Arc::new(AtomicUsize::new(0));
+        let pipeline = ContentPipeline::new(InvalidChoiceGenerator {
+            calls: Arc::clone(&calls),
+        })
+        .with_max_retries(2);
         let result = pipeline.generate_practice_problem(&sample_standard(), 4, 250);
         assert!(matches!(
             result,
@@ -866,6 +897,11 @@ mod tests {
                 reason: "the correct answer also appears as a distractor"
             })
         ));
+        assert_eq!(
+            calls.load(Ordering::SeqCst),
+            2,
+            "each configured practice retry must make exactly one generator call"
+        );
     }
 
     #[test]
