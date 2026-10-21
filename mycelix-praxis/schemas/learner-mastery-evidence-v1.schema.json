@@ -1,0 +1,377 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://luminousdynamics.io/schemas/praxis-learner-mastery-evidence-v1.schema.json",
+  "title": "Praxis Learner Mastery Evidence Record v1",
+  "description": "Private per-learner record for a versioned mastery inference. A mastered state requires unaided transfer and delayed-retention observations; this schema does not itself establish learning efficacy.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "learner_ref",
+    "objective_id",
+    "objective_digest_sha256",
+    "mastery_rule_digest_sha256",
+    "updated_at",
+    "mastery_state",
+    "confidence",
+    "evidence",
+    "next_review_due",
+    "limitations"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": 1
+    },
+    "learner_ref": {
+      "type": "string",
+      "minLength": 32,
+      "maxLength": 128,
+      "description": "Opaque private pseudonym; do not use a name, email, student ID, or stable public identifier."
+    },
+    "objective_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "objective_digest_sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "mastery_rule_digest_sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "updated_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "mastery_state": {
+      "enum": [
+        "unassessed",
+        "developing",
+        "provisional_mastery",
+        "mastered",
+        "needs_reteaching",
+        "stale"
+      ]
+    },
+    "confidence": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1
+    },
+    "next_review_due": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "date"
+    },
+    "evidence": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "evidence_id",
+          "assessment_type",
+          "item_set_digest_sha256",
+          "observed_at",
+          "assistance_level",
+          "outcome",
+          "score",
+          "independent_assessment",
+          "scoring_method",
+          "accommodations"
+        ],
+        "properties": {
+          "evidence_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "assessment_type": {
+            "enum": [
+              "practiced_item",
+              "near_transfer",
+              "far_transfer",
+              "delayed_retention",
+              "learner_explanation",
+              "authentic_performance_task"
+            ]
+          },
+          "item_set_digest_sha256": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$"
+          },
+          "observed_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "assistance_level": {
+            "enum": [
+              "unaided",
+              "hint_level_1",
+              "hint_level_2",
+              "worked_solution",
+              "peer_or_teacher_support"
+            ]
+          },
+          "outcome": {
+            "enum": [
+              "correct",
+              "partially_correct",
+              "incorrect",
+              "not_attempted"
+            ]
+          },
+          "score": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1
+          },
+          "independent_assessment": {
+            "type": "boolean"
+          },
+          "scoring_method": {
+            "enum": [
+              "deterministic_key",
+              "educator_rubric",
+              "independently_validated_rubric",
+              "authentic_task_rubric"
+            ]
+          },
+          "delay_days": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "minimum": 0
+          },
+          "accommodations": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "response_digest_sha256": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^[a-f0-9]{64}$"
+          },
+          "notes": {
+            "type": "string",
+            "description": "Do not place raw learner responses or identifying details here."
+          }
+        },
+        "allOf": [
+          {
+            "if": {
+              "properties": {
+                "assessment_type": {
+                  "const": "delayed_retention"
+                }
+              },
+              "required": [
+                "assessment_type"
+              ]
+            },
+            "then": {
+              "required": [
+                "delay_days"
+              ],
+              "properties": {
+                "delay_days": {
+                  "type": "integer",
+                  "minimum": 1
+                }
+              }
+            }
+          }
+        ]
+      }
+    },
+    "decision_rationale": {
+      "type": "string"
+    },
+    "next_review_reason": {
+      "type": "string"
+    },
+    "limitations": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "mastery_state": {
+            "const": "provisional_mastery"
+          }
+        },
+        "required": [
+          "mastery_state"
+        ]
+      },
+      "then": {
+        "properties": {
+          "evidence": {
+            "type": "array",
+            "minItems": 2,
+            "contains": {
+              "type": "object",
+              "properties": {
+                "assistance_level": {
+                  "const": "unaided"
+                },
+                "independent_assessment": {
+                  "const": true
+                },
+                "outcome": {
+                  "const": "correct"
+                }
+              },
+              "required": [
+                "assistance_level",
+                "independent_assessment",
+                "outcome"
+              ]
+            },
+            "minContains": 1
+          },
+          "decision_rationale": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "required": [
+          "decision_rationale",
+          "next_review_due"
+        ]
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "mastery_state": {
+            "const": "mastered"
+          }
+        },
+        "required": [
+          "mastery_state"
+        ]
+      },
+      "then": {
+        "properties": {
+          "evidence": {
+            "type": "array",
+            "minItems": 3,
+            "allOf": [
+              {
+                "contains": {
+                  "type": "object",
+                  "properties": {
+                    "assessment_type": {
+                      "enum": [
+                        "near_transfer",
+                        "far_transfer"
+                      ]
+                    },
+                    "assistance_level": {
+                      "const": "unaided"
+                    },
+                    "independent_assessment": {
+                      "const": true
+                    },
+                    "outcome": {
+                      "const": "correct"
+                    }
+                  },
+                  "required": [
+                    "assessment_type",
+                    "assistance_level",
+                    "independent_assessment",
+                    "outcome"
+                  ]
+                },
+                "minContains": 1
+              },
+              {
+                "contains": {
+                  "type": "object",
+                  "properties": {
+                    "assessment_type": {
+                      "const": "delayed_retention"
+                    },
+                    "assistance_level": {
+                      "const": "unaided"
+                    },
+                    "independent_assessment": {
+                      "const": true
+                    },
+                    "outcome": {
+                      "const": "correct"
+                    },
+                    "delay_days": {
+                      "type": "integer",
+                      "minimum": 1
+                    }
+                  },
+                  "required": [
+                    "assessment_type",
+                    "assistance_level",
+                    "independent_assessment",
+                    "outcome",
+                    "delay_days"
+                  ]
+                },
+                "minContains": 1
+              }
+            ]
+          },
+          "decision_rationale": {
+            "type": "string",
+            "minLength": 1
+          },
+          "next_review_due": {
+            "type": "string",
+            "format": "date"
+          }
+        },
+        "required": [
+          "decision_rationale",
+          "next_review_due"
+        ]
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "mastery_state": {
+            "const": "stale"
+          }
+        },
+        "required": [
+          "mastery_state"
+        ]
+      },
+      "then": {
+        "properties": {
+          "next_review_reason": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "required": [
+          "next_review_reason",
+          "next_review_due"
+        ]
+      }
+    }
+  ]
+}
