@@ -214,6 +214,17 @@ fn all_heuristics_are_feasible_and_never_beat_the_exact_oracle() {
         let greedy = receiver_ready_greedy(&problem).unwrap();
         let local = bounded_insertion_search(&problem, &fifo.order, 300).unwrap();
         let annealed = simulated_annealing(&problem, &fifo.order, seed as u64 + 1, 500).unwrap();
+        assert_eq!(
+            simulated_annealing(
+                &problem,
+                &fifo.order,
+                seed as u64 + 1,
+                500
+            )
+            .unwrap(),
+            annealed,
+            "seeded annealing must be reproducible for seed={seed}"
+        );
         for candidate in [fifo, greedy, local, annealed] {
             assert_eq!(candidate.order.len(), payment_count);
             let remeasured = evaluate_order(&problem, &candidate.order).unwrap();
@@ -237,17 +248,6 @@ fn all_heuristics_are_feasible_and_never_beat_the_exact_oracle() {
                 0
             );
         }
-        assert_eq!(
-            simulated_annealing(
-                &problem,
-                &input_order(&problem).unwrap().order,
-                seed as u64 + 1,
-                500
-            )
-            .unwrap(),
-            annealed,
-            "seeded annealing must be reproducible for seed={seed}"
-        );
     }
 }
 
