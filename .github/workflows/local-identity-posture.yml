@@ -6,6 +6,7 @@ on:
       - "crates/mycelix-leptos-core/src/local_identity.rs"
       - "crates/mycelix-leptos-core/src/identity_crypto.rs"
       - "crates/mycelix-leptos-core/src/webauthn_prf.rs"
+      - "crates/mycelix-leptos-core/src/webauthn_prf_envelope.rs"
       - "crates/mycelix-leptos-core/Cargo.toml"
       - "mycelix-personal/apps/leptos/**"
       - ".github/workflows/local-identity-posture.yml"
@@ -14,6 +15,8 @@ on:
     paths:
       - "crates/mycelix-leptos-core/src/local_identity.rs"
       - "crates/mycelix-leptos-core/src/identity_crypto.rs"
+      - "crates/mycelix-leptos-core/src/webauthn_prf.rs"
+      - "crates/mycelix-leptos-core/src/webauthn_prf_envelope.rs"
       - "crates/mycelix-leptos-core/Cargo.toml"
       - "mycelix-personal/apps/leptos/**"
       - ".github/workflows/local-identity-posture.yml"
@@ -61,7 +64,7 @@ jobs:
           sha256sum crates/mycelix-leptos-core/Cargo.lock mycelix-personal/apps/leptos/Cargo.lock
       - name: Check formatting of touched identity files and Personal app
         run: |
-          rustfmt --edition 2024 --check crates/mycelix-leptos-core/src/local_identity.rs crates/mycelix-leptos-core/src/identity_crypto.rs crates/mycelix-leptos-core/src/webauthn_prf.rs
+          rustfmt --edition 2024 --check crates/mycelix-leptos-core/src/local_identity.rs crates/mycelix-leptos-core/src/identity_crypto.rs crates/mycelix-leptos-core/src/webauthn_prf.rs crates/mycelix-leptos-core/src/webauthn_prf_envelope.rs
           cargo fmt --manifest-path mycelix-personal/apps/leptos/Cargo.toml -- --check
       - name: Run native identity-storage posture tests
         run: cargo test --manifest-path crates/mycelix-leptos-core/Cargo.toml --locked --lib

@@ -47,6 +47,8 @@ gloo-timers = { version = "0.3", features = ["futures"] }
 ed25519-dalek = "2.1"
 base64 = "0.22"
 zeroize = "1"
+hkdf = "0.12"
+sha2 = "0.10"
 
 # Step 3 of the recoverable-identity roadmap (local_identity.rs): standards-
 # correct BIP-39 seed phrase export/import for manual/offline backup — the
