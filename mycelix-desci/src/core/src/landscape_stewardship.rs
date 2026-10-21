@@ -36,6 +36,7 @@ const VALID_RECORD_TYPES: &[&str] = &[
 /// measurement, or model result is authentic.
 pub fn validate_profile_safety_gate(profile: &Value) -> Result<(), Vec<String>> {
     let mut errors = Vec::new();
+    let null_value = Value::Null;
     if !profile.is_object() {
         return Err(vec!["$: expected a JSON object".to_string()]);
     }
@@ -73,7 +74,7 @@ pub fn validate_profile_safety_gate(profile: &Value) -> Result<(), Vec<String>> 
         Some(value) if value.is_object() => value,
         _ => {
             errors.push("$.project_snapshot: expected an object".to_string());
-            &Value::Null
+            &null_value
         }
     };
     if snapshot.get("system").and_then(Value::as_str) != Some("sol-atlas") {
