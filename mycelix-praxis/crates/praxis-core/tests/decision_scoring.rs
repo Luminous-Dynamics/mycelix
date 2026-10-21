@@ -1543,6 +1543,100 @@ fn zero_denominators_are_not_fabricated_as_zero_rates() {
 }
 
 #[test]
+fn evaluator_scores_are_invariant_to_case_and_trace_order() {
+    let cases = synthetic_cases();
+    let expected_scores = score_cases(&cases, false);
+    let mut reversed_cases = cases.clone();
+    reversed_cases.reverse();
+    assert_eq!(
+        score_cases(&reversed_cases, false),
+        expected_scores,
+        "case order must not change aggregate evaluator scores"
+    );
+
+    let traces = synthetic_frontier_traces(&cases);
+    let expected_summaries =
+        summarize_paired_policies(&cases, &traces).expect("paired traces validate");
+    let mut reversed_traces = traces.clone();
+    reversed_traces.reverse();
+    assert_eq!(
+        summarize_paired_policies(&cases, &reversed_traces).expect("reordered traces validate"),
+        expected_summaries,
+        "trace order must not change policy summaries or Pareto membership"
+    );
+}
+
+#[test]
+fn irrelevant_evidence_cannot_improve_alignment_or_citation_precision() {
+    let cases = synthetic_cases();
+    let case = cases
+        .iter()
+        .find(|case| case.scenario_id == "endpoint-effect-confirmed")
+        .expect("endpoint effect case exists");
+    let grounded = safe_submission_for(case);
+    assert!(decision_is_aligned(case, Some(&grounded)));
+
+    let mut grounded_cases = cases.clone();
+    grounded_cases
+        .iter_mut()
+        .find(|case| case.scenario_id == "endpoint-effect-confirmed")
+        .expect("endpoint effect case exists")
+        .submission = Some(grounded.clone());
+    let grounded_precision = score_cases(&grounded_cases, false)
+        .by_domain[&Domain::EndpointResponseTelemetry]
+        .citation_precision_permille();
+
+    let mut polluted = grounded;
+    if let DecisionOutcome::Claim {
+        cited_evidence_ids, ..
+    } = &mut polluted.outcome
+    {
+        cited_evidence_ids.push("command-ack".into());
+    } else {
+        panic!("grounded fixture must be a claim");
+    }
+    assert!(
+        !decision_is_aligned(case, Some(&polluted)),
+        "an irrelevant acknowledgement cannot become a valid supporting citation"
+    );
+
+    let mut polluted_cases = cases;
+    polluted_cases
+        .iter_mut()
+        .find(|case| case.scenario_id == "endpoint-effect-confirmed")
+        .expect("endpoint effect case exists")
+        .submission = Some(polluted);
+    let polluted_precision = score_cases(&polluted_cases, false)
+        .by_domain[&Domain::EndpointResponseTelemetry]
+        .citation_precision_permille();
+
+    assert_eq!(grounded_precision, Some(500));
+    assert_eq!(polluted_precision, Some(333));
+    assert!(
+        polluted_precision < grounded_precision,
+        "injecting an irrelevant citation must not improve measured evidence quality"
+    );
+}
+
+#[test]
+fn public_score_report_does_not_disclose_evaluator_answer_keys() {
+    let report = public_synthetic_score_report();
+    let serialized = serde_json::to_string(&report).expect("report serializes");
+    for answer_key in [
+        "expected_session",
+        "route-policy-mismatch",
+        "signed-build-matches",
+        "tool-is-authorized",
+        "action-succeeded",
+    ] {
+        assert!(
+            !serialized.contains(answer_key),
+            "public report leaked evaluator-only label {answer_key}"
+        );
+    }
+}
+
+#[test]
 fn wrong_definitive_claim_is_distinct_from_unanswerable_overanswer() {
     let mut cases = synthetic_cases();
     cases[0].submission = Some(make_submission(
