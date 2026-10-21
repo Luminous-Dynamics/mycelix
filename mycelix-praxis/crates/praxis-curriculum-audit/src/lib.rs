@@ -954,8 +954,20 @@ fn markdown(report: &AuditReport) -> String {
         report.active_nodes_missing_lessons
     ));
     out.push_str(&format!(
-        "| Orphan lesson-target IDs | {} |\n\n",
+        "| Orphan lesson-target IDs | {} |\n",
         report.orphan_manifest_node_ids.len()
+    ));
+    out.push_str(&format!(
+        "| Manifest lesson assets statically audited | {} |\n",
+        report.content_assets_scanned
+    ));
+    out.push_str(&format!(
+        "| Assets with quality findings | {} |\n",
+        report.content_assets_with_quality_findings
+    ));
+    out.push_str(&format!(
+        "| Static quality findings | {} |\n\n",
+        report.content_quality_findings.len()
     ));
     out.push_str(
         "| Framework | Grade | Subject | Nodes | Standard refs | With lessons | Missing | Assets |\n",
@@ -979,6 +991,22 @@ fn markdown(report: &AuditReport) -> String {
         out.push_str("\n## Orphan lesson-target IDs\n\n");
         for id in &report.orphan_manifest_node_ids {
             out.push_str(&format!("- `{id}`\n"));
+        }
+    }
+
+    if !report.content_quality_findings.is_empty() {
+        out.push_str("\n## Static instructional-content findings\n\n");
+        for finding in report.content_quality_findings.iter().take(25) {
+            out.push_str(&format!(
+                "- **{} / {}** — `{}` — {}\n",
+                finding.severity, finding.code, finding.asset_path, finding.field
+            ));
+        }
+        if report.content_quality_findings.len() > 25 {
+            out.push_str(&format!(
+                "\n{} additional findings are included in the JSON report.\n",
+                report.content_quality_findings.len() - 25
+            ));
         }
     }
 
@@ -1233,7 +1261,92 @@ mod tests {
         let docs = vec![(PathBuf::from("bad.json"), document)];
         let mut errors = Vec::new();
         let _ = analyze(&docs, &BTreeMap::new(), &mut errors);
-        assert!(errors.iter().any(|error| error.contains("requires non-empty framework and code")));
+        assert!(errors.iter().any(|error| error.contains("requires framework/code")));
+    }
+
+    #[test]
+    fn static_content_audit_flags_placeholders_in_all_instructional_channels() {
+        let value = serde_json::json!({
+            "node_id": "CAPS.Mathematics.Gr3.MUL",
+            "lesson": {
+                "title": "Multiplication",
+                "explanation": "Grade 3 mathematics content.",
+                "examples": [
+                    {
+                        "problem": "Solve a Grade 3 Mathematics problem.",
+                        "steps": [{"instruction": "Show your working", "result": "Calculate"}],
+                        "answer": "Answer: See worked solution"
+                    },
+                    {
+                        "problem": "Solve a Grade 3 Mathematics problem.",
+                        "steps": [{"instruction": "Show your working", "result": "Calculate"}],
+                        "answer": "Answer: See worked solution"
+                    }
+                ],
+                "practice_problems": [{
+                    "question": "What is important about Grade 3 Mathematics?",
+                    "answer": "Answer.",
+                    "explanation": "Grade 3 mathematics content."
+                }],
+                "hints": ["Try the method for Grade 3 Mathematics."],
+                "key_vocabulary": [{
+                    "term": "mathematics",
+                    "definition": "A key word in this topic",
+                    "example_usage": "Used in Grade 3 maths."
+                }],
+                "misconceptions": [{
+                    "misconception": "A common mistake in Grade 3 Mathematics.",
+                    "correction": "The correct way.",
+                    "why_students_think_this": "Students need help."
+                }]
+            },
+            "assessment": {
+                "items": [{
+                    "question": "Explain Grade 3 Mathematics.",
+                    "correct_answer": "Answer.",
+                    "hint": "2"
+                }]
+            },
+            "flashcards": [{
+                "front": "What is important about Grade 3 Mathematics?",
+                "back": "Grade 3 mathematics content"
+            }]
+        });
+        let mut audit = ContentQualityAudit::default();
+        assert!(audit_lesson_value("fixture.json", &value, &mut audit));
+        assert!(audit.findings.iter().any(|finding| finding.field == "lesson.explanation"));
+        assert!(audit.findings.iter().any(|finding| finding.field == "assessment.items[0].question"));
+        assert!(audit.findings.iter().any(|finding| finding.field == "flashcards[0].back"));
+        assert!(audit.findings.iter().any(|finding| finding.code == "duplicate_worked_example"));
+        assert!(audit.findings.iter().any(|finding| finding.code == "duplicate_practice_prompt") == false);
+        assert!(audit.findings.len() >= 10);
+    }
+
+    #[test]
+    fn static_content_audit_does_not_flag_specific_instruction() {
+        let value = serde_json::json!({
+            "node_id": "CCSS.Math.Content.3.OA.A.1",
+            "lesson": {
+                "title": "Interpret products of whole numbers",
+                "explanation": "Multiplication represents equal groups. Four groups of three objects make twelve objects: 3 + 3 + 3 + 3 = 12, so 4 × 3 = 12.",
+                "examples": [{
+                    "problem": "There are 5 baskets with 3 oranges in each basket. How many oranges are there?",
+                    "steps": [
+                        {"instruction": "Count 5 equal groups of 3 oranges.", "result": "3 + 3 + 3 + 3 + 3"},
+                        {"instruction": "Add the groups or multiply 5 by 3.", "result": "5 × 3 = 15"}
+                    ],
+                    "answer": "There are 15 oranges."
+                }],
+                "practice_problems": [{
+                    "question": "How many wheels are on 4 bicycles if each bicycle has 2 wheels?",
+                    "answer": "8",
+                    "explanation": "Four groups of two wheels gives 4 × 2 = 8 wheels."
+                }]
+            }
+        });
+        let mut audit = ContentQualityAudit::default();
+        assert!(!audit_lesson_value("good.json", &value, &mut audit));
+        assert!(audit.findings.is_empty());
     }
 
     #[test]
