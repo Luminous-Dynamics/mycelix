@@ -431,20 +431,57 @@ fn write_corpus(output_directory: &Path) -> Result<(), Box<dyn Error>> {
     Ok(())
 }
 
-fn print_metrics(strategy: Strategy, channel: &str, metrics: Metrics) {
+fn print_metrics_named(strategy: &str, channel: &str, metrics: Metrics) {
     println!(
-        "{},{},{},{},{},{},{:.6},{:.6},{:.6},{:.6}",
-        strategy.label(),
+        "{},{},{},{},{},{},{},{},{:.6},{:.6},{:.6},{:.6}",
+        strategy,
         channel,
         metrics.positive_pairs,
         metrics.negative_pairs,
         metrics.true_positive,
         metrics.false_positive,
+        metrics.false_negative(),
+        metrics.true_negative(),
         metrics.precision(),
         metrics.recall(),
         metrics.false_positive_rate(),
         metrics.binary_rule_auc()
     );
+}
+
+fn print_metrics(strategy: Strategy, channel: &str, metrics: Metrics) {
+    print_metrics_named(strategy.label(), channel, metrics);
+}
+
+fn splitmix64(mut value: u64) -> u64 {
+    value = value.wrapping_add(0x9e3779b97f4a7c15);
+    value = (value ^ (value >> 30)).wrapping_mul(0xbf58476d1ce4e5b9);
+    value = (value ^ (value >> 27)).wrapping_mul(0x94d049bb133111eb);
+    value ^ (value >> 31)
+}
+
+fn random_pair_baseline(presentations: &[Presentation]) -> Metrics {
+    // Deterministic pseudo-random negative control, independent of the synthetic
+    // subject label and feature values. The modulus approximates the 1/SUBJECTS
+    // positive-pair prevalence without reading ground truth.
+    let mut metrics = Metrics::default();
+    for left_index in 0..presentations.len() {
+        for right_index in (left_index + 1)..presentations.len() {
+            let left = &presentations[left_index];
+            let right = &presentations[right_index];
+            if left.recipient_id == right.recipient_id {
+                continue;
+            }
+            let pair_key =
+                (u64::from(left.presentation_id) << 32) | u64::from(right.presentation_id);
+            let predicted_link = splitmix64(pair_key ^ 0xD1CE_BA5E) % u64::from(SUBJECTS) == 0;
+            metrics.observe(
+                left.synthetic_subject_id == right.synthetic_subject_id,
+                predicted_link,
+            );
+        }
+    }
+    metrics
 }
 
 fn run() -> Result<(), Box<dyn Error>> {
@@ -476,7 +513,7 @@ fn run() -> Result<(), Box<dyn Error>> {
         "pairs_scope=cross-recipient only; all strategy outputs are synthetic and deterministic"
     );
     println!(
-        "strategy,channel,positive_pairs,negative_pairs,true_positive,false_positive,precision,recall,false_positive_rate,binary_rule_auc"
+        "strategy,channel,positive_pairs,negative_pairs,true_positive,false_positive,false_negative,true_negative,precision,recall,false_positive_rate,binary_rule_auc"
     );
 
     for strategy in Strategy::ALL {
@@ -499,6 +536,13 @@ fn run() -> Result<(), Box<dyn Error>> {
         }
         print_metrics(strategy, "any_channel", evaluation.any_channel);
     }
+
+    let baseline = build_corpus(Strategy::StableGlobalId);
+    print_metrics_named(
+        "random_pair_baseline",
+        "any_channel",
+        random_pair_baseline(&baseline),
+    );
 
     Ok(())
 }
@@ -579,6 +623,16 @@ mod tests {
         assert!(claims.false_positive > 0);
         assert!(claims.false_positive_rate() > 0.4);
         assert!(claims.precision() < 0.1);
+    }
+
+    #[test]
+    fn deterministic_random_pair_control_stays_near_chance() {
+        let metrics = random_pair_baseline(&build_corpus(Strategy::StableGlobalId));
+        assert_eq!(metrics.positive_pairs, 1_440);
+        assert_eq!(metrics.negative_pairs, 171_360);
+        assert!((metrics.binary_rule_auc() - 0.5).abs() < 0.01);
+        assert!(metrics.recall() < 0.03);
+        assert!(metrics.false_positive_rate() < 0.02);
     }
 
     #[test]
