@@ -469,4 +469,56 @@ mod tests {
         }
         assert_eq!(seen.len(), 8, "all source states must be covered");
     }
+    #[test]
+    fn seeded_read_classification_stress_100k_cases() {
+        // Deterministic state-classification stress test; this is not a
+        // substitute for cross-tab or storage-fault integration testing.
+        let mut seed = 0xD1CE_BA5E_u64;
+        for index in 0..100_000_u64 {
+            seed = seed
+                .wrapping_mul(6_364_136_223_846_793_005)
+                .wrapping_add(1_442_695_040_888_963_407);
+
+            match seed % 3 {
+                0 => {
+                    let observation = SourceObservation::<u64>::from_successful_read(
+                        Vec::new(),
+                        evidence("stress-source"),
+                    );
+                    assert_eq!(
+                        observation.kind(),
+                        SourceStateKind::ConfirmedEmpty,
+                        "seed=0xD1CEBA5E case={index}"
+                    );
+                }
+                1 => {
+                    let observation = SourceObservation::from_successful_read(
+                        vec![seed],
+                        evidence("stress-source"),
+                    );
+                    match observation {
+                        SourceObservation::LiveWithRecords { records, .. } => {
+                            assert_eq!(records.first(), &seed, "case={index}");
+                        }
+                        _ => panic!("non-empty success misclassified at case={index}"),
+                    }
+                }
+                _ => {
+                    let observation: SourceObservation<u64> =
+                        SourceObservation::from_failed_read(
+                            "stress-source",
+                            Some(index),
+                            SourceFailure::Timeout,
+                            None,
+                        );
+                    assert_eq!(
+                        observation.kind(),
+                        SourceStateKind::Unavailable,
+                        "seed=0xD1CEBA5E case={index}"
+                    );
+                }
+            }
+        }
+    }
+
 }
