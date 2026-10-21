@@ -1,6 +1,6 @@
 use finance_liquidity_reordering::{
-    bounded_insertion_search, exact_permutation_oracle, input_order, receiver_ready_greedy,
-    simulated_annealing, Payment, Problem, ReorderError, SearchResult,
+    bounded_insertion_search, exact_permutation_oracle, heuristic_portfolio, input_order,
+    receiver_ready_greedy, simulated_annealing, Payment, Problem, ReorderError, SearchResult,
 };
 use std::collections::BTreeSet;
 use std::error::Error;
@@ -274,6 +274,15 @@ fn main() -> Result<(), Box<dyn Error>> {
                     || simulated_annealing(&problem, &fifo.order, seed, budget),
                 )?;
             }
+
+            emit(
+                &problem,
+                scenario,
+                "heuristic_portfolio",
+                Some(41),
+                exact.as_ref(),
+                || heuristic_portfolio(&problem, budget, 41, budget),
+            )?;
 
             if exact.is_some() {
                 emit(
