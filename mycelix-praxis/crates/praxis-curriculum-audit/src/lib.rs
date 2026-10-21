@@ -102,7 +102,6 @@ fn nonempty_string(value: Option<&Value>) -> Option<String> {
         .map(str::trim)
         .filter(|text| !text.is_empty())
         .map(ToOwned::to_owned)
-        .collect()
 }
 
 fn string_array(value: Option<&Value>) -> Vec<String> {
@@ -114,10 +113,9 @@ fn string_array(value: Option<&Value>) -> Vec<String> {
         .map(str::trim)
         .filter(|text| !text.is_empty())
         .map(ToOwned::to_owned)
+        .collect()
 }
 
-/// Extract JSON string literals from include_str! invocations. The source file
-/// is the same one the application uses to declare the active curriculum.
 fn embedded_json_paths(source: &str) -> Vec<String> {
     let mut paths = Vec::new();
     let mut cursor = 0;
