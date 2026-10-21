@@ -63,107 +63,202 @@ pub fn IdentityBootstrapGate(children: Children) -> impl IntoView {
     }
 }
 
-/// An explicit, user-initiated recovery-phrase display and three-word challenge.
-/// The phrase remains transient UI state only and is zeroized/hidden after
-/// each attempt; the persisted marker contains the public key, never the phrase.
+/// Clear every transient recovery phrase, challenge answer and expected word.
+fn clear_recovery_challenge(
+    phrase: RwSignal<String>,
+    word_one: RwSignal<String>,
+    word_two: RwSignal<String>,
+    word_three: RwSignal<String>,
+    expected_one: RwSignal<String>,
+    expected_two: RwSignal<String>,
+    expected_three: RwSignal<String>,
+) {
+    for signal in [
+        phrase,
+        word_one,
+        word_two,
+        word_three,
+        expected_one,
+        expected_two,
+        expected_three,
+    ] {
+        clear_bootstrap_secret_signal(signal);
+    }
+}
+
+/// The phrase is shown only after an explicit action. The user must hide it
+/// before the challenge inputs become available, so the UI tests recollection
+/// after the display is gone instead of letting the user copy words directly
+/// from the currently visible phrase.
 #[component]
 fn RecoveryBackupGate(needed: RwSignal<bool>) -> impl IntoView {
     let phrase = RwSignal::new(String::new());
     let positions = RwSignal::new([1usize, 2usize, 3usize]);
     let visible = RwSignal::new(false);
+    let challenge_ready = RwSignal::new(false);
     let word_one = RwSignal::new(String::new());
     let word_two = RwSignal::new(String::new());
     let word_three = RwSignal::new(String::new());
+    let expected_one = RwSignal::new(String::new());
+    let expected_two = RwSignal::new(String::new());
+    let expected_three = RwSignal::new(String::new());
     let status_message = RwSignal::new(String::new());
 
     let hide_phrase = move |_| {
-        clear_bootstrap_secret_signal(phrase);
-        clear_bootstrap_secret_signal(word_one);
-        clear_bootstrap_secret_signal(word_two);
-        clear_bootstrap_secret_signal(word_three);
+        clear_recovery_challenge(
+            phrase,
+            word_one,
+            word_two,
+            word_three,
+            expected_one,
+            expected_two,
+            expected_three,
+        );
         visible.set(false);
+        challenge_ready.set(false);
+        status_message.set("The phrase was hidden. No backup confirmation was recorded.".into());
     };
 
     let show_phrase = move |_| {
-        clear_bootstrap_secret_signal(word_one);
-        clear_bootstrap_secret_signal(word_two);
-        clear_bootstrap_secret_signal(word_three);
+        clear_recovery_challenge(
+            phrase,
+            word_one,
+            word_two,
+            word_three,
+            expected_one,
+            expected_two,
+            expected_three,
+        );
         match export_unlocked_identity_seed_phrase() {
             Ok(mut exported_phrase) => match recovery_phrase_challenge_positions() {
                 Ok(challenge_positions) => {
-                    clear_bootstrap_secret_signal(phrase);
                     phrase.set(exported_phrase);
                     positions.set(challenge_positions);
                     visible.set(true);
+                    challenge_ready.set(false);
                     status_message.set(String::new());
                 }
                 Err(error) => {
                     exported_phrase.zeroize();
-                    clear_bootstrap_secret_signal(phrase);
                     visible.set(false);
+                    challenge_ready.set(false);
                     status_message.set(error);
                 }
             },
             Err(error) => {
-                clear_bootstrap_secret_signal(phrase);
                 visible.set(false);
+                challenge_ready.set(false);
                 status_message.set(error);
             }
         }
     };
 
-    let verify_backup = move |ev: SubmitEvent| {
-        ev.prevent_default();
+    let start_challenge = move |_| {
         if !visible.get_untracked() {
-            status_message.set("Show the recovery phrase before answering the challenge.".into());
+            status_message.set("Show the recovery phrase before starting the challenge.".into());
             return;
         }
 
-        let phrase_positions = positions.get_untracked();
         let mut phrase_value = phrase.get_untracked();
-        let mut answer_one = word_one.get_untracked();
-        let mut answer_two = word_two.get_untracked();
-        let mut answer_three = word_three.get_untracked();
-
-        let mut expected_one = phrase_value
+        let challenge_positions = positions.get_untracked();
+        let mut next_expected_one = phrase_value
             .split_whitespace()
-            .nth(phrase_positions[0].saturating_sub(1))
+            .nth(challenge_positions[0].saturating_sub(1))
             .unwrap_or("")
-            .to_ascii_lowercase();
-        let mut expected_two = phrase_value
+            .to_string();
+        let mut next_expected_two = phrase_value
             .split_whitespace()
-            .nth(phrase_positions[1].saturating_sub(1))
+            .nth(challenge_positions[1].saturating_sub(1))
             .unwrap_or("")
-            .to_ascii_lowercase();
-        let mut expected_three = phrase_value
+            .to_string();
+        let mut next_expected_three = phrase_value
             .split_whitespace()
-            .nth(phrase_positions[2].saturating_sub(1))
+            .nth(challenge_positions[2].saturating_sub(1))
             .unwrap_or("")
-            .to_ascii_lowercase();
-
-        let matches = !expected_one.is_empty()
-            && !expected_two.is_empty()
-            && !expected_three.is_empty()
-            && answer_one.trim().eq_ignore_ascii_case(&expected_one)
-            && answer_two.trim().eq_ignore_ascii_case(&expected_two)
-            && answer_three.trim().eq_ignore_ascii_case(&expected_three);
-
+            .to_string();
         phrase_value.zeroize();
-        answer_one.zeroize();
-        answer_two.zeroize();
-        answer_three.zeroize();
-        expected_one.zeroize();
-        expected_two.zeroize();
-        expected_three.zeroize();
+
+        if next_expected_one.is_empty()
+            || next_expected_two.is_empty()
+            || next_expected_three.is_empty()
+        {
+            next_expected_one.zeroize();
+            next_expected_two.zeroize();
+            next_expected_three.zeroize();
+            clear_recovery_challenge(
+                phrase,
+                word_one,
+                word_two,
+                word_three,
+                expected_one,
+                expected_two,
+                expected_three,
+            );
+            visible.set(false);
+            challenge_ready.set(false);
+            status_message.set(
+                "The recovery phrase could not be read safely. Reopen it to try again.".into(),
+            );
+            return;
+        }
+
         clear_bootstrap_secret_signal(phrase);
         clear_bootstrap_secret_signal(word_one);
         clear_bootstrap_secret_signal(word_two);
         clear_bootstrap_secret_signal(word_three);
+        clear_bootstrap_secret_signal(expected_one);
+        clear_bootstrap_secret_signal(expected_two);
+        clear_bootstrap_secret_signal(expected_three);
+        expected_one.set(next_expected_one);
+        expected_two.set(next_expected_two);
+        expected_three.set(next_expected_three);
         visible.set(false);
+        challenge_ready.set(true);
+        status_message.set(String::new());
+    };
+
+    let verify_backup = move |ev: SubmitEvent| {
+        ev.prevent_default();
+        if !challenge_ready.get_untracked() || visible.get_untracked() {
+            status_message.set("Hide the recovery phrase before answering the challenge.".into());
+            return;
+        }
+
+        let mut expected_one_value = expected_one.get_untracked();
+        let mut expected_two_value = expected_two.get_untracked();
+        let mut expected_three_value = expected_three.get_untracked();
+        let mut answer_one = word_one.get_untracked();
+        let mut answer_two = word_two.get_untracked();
+        let mut answer_three = word_three.get_untracked();
+
+        let matches = !expected_one_value.is_empty()
+            && !expected_two_value.is_empty()
+            && !expected_three_value.is_empty()
+            && answer_one.trim().eq_ignore_ascii_case(&expected_one_value)
+            && answer_two.trim().eq_ignore_ascii_case(&expected_two_value)
+            && answer_three.trim().eq_ignore_ascii_case(&expected_three_value);
+
+        expected_one_value.zeroize();
+        expected_two_value.zeroize();
+        expected_three_value.zeroize();
+        answer_one.zeroize();
+        answer_two.zeroize();
+        answer_three.zeroize();
+        clear_recovery_challenge(
+            phrase,
+            word_one,
+            word_two,
+            word_three,
+            expected_one,
+            expected_two,
+            expected_three,
+        );
+        visible.set(false);
+        challenge_ready.set(false);
 
         if !matches {
             status_message.set(
-                "The recovery words did not match. The phrase has been hidden; show it again to retry."
+                "The recovery words did not match. No confirmation was recorded; show the phrase again to retry."
                     .into(),
             );
             return;
@@ -173,8 +268,7 @@ fn RecoveryBackupGate(needed: RwSignal<bool>) -> impl IntoView {
             Ok(()) if !recovery_backup_confirmation_needed() => {
                 needed.set(false);
                 status_message.set(
-                    "Recovery-word challenge passed. Keep the backup offline and private."
-                        .into(),
+                    "Recovery-word challenge passed. Keep the backup offline and private.".into(),
                 );
             }
             Ok(()) => {
@@ -197,96 +291,118 @@ fn RecoveryBackupGate(needed: RwSignal<bool>) -> impl IntoView {
                 <span class="page-eyebrow">"MYCELIX / RECOVERY READINESS"</span>
                 <h1 id="recovery-backup-title">"Verify your offline recovery backup"</h1>
                 <p class="supporting-copy">
-                    "Your identity is protected and unlocked, but the normal app remains gated until you demonstrate that you can reproduce selected recovery words."
+                    "Your identity is protected and unlocked, but the normal app remains gated until you can reproduce selected recovery words after the phrase is hidden."
                 </p>
                 <section class="identity-bootstrap-blocker" role="note">
                     <strong>"Keep this phrase private."</strong>
                     <p>
-                        "Write the 24 words on a durable offline backup and store it securely. Do not photograph it, paste it into another website, send it to support, or put it in cloud notes. This challenge tests transcription; it cannot prove the physical backup will survive."
+                        "Write the 24 words on a durable offline backup and store it securely. Do not photograph it, paste it into another website, send it to support, or put it in cloud notes. This challenge tests transcription and recall; it cannot prove the physical backup will survive."
                     </p>
                 </section>
-                <Show
-                    when=move || !visible.get()
-                    fallback=move || view! {
-                        <section class="recovery-phrase-panel" aria-label="Recovery phrase">
-                            <p class="supporting-copy">
-                                "This phrase is secret key material. It is shown only after your explicit action and will be hidden after verification or when you hide it."
-                            </p>
-                            <ol class="recovery-phrase-grid">
-                                {move || {
-                                    phrase.get()
-                                        .split_whitespace()
-                                        .enumerate()
-                                        .map(|(index, word)| {
-                                            view! {
-                                                <li>
-                                                    <span class="recovery-word-index">{index + 1}</span>
-                                                    <code>{word.to_string()}</code>
-                                                </li>
-                                            }
-                                        })
-                                        .collect_view()
-                                }}
-                            </ol>
-                            <form class="identity-bootstrap-form" on:submit=verify_backup>
-                                <p class="supporting-copy">
-                                    "Enter the word at each requested position to confirm you copied the phrase."
-                                </p>
-                                <div class="identity-bootstrap-field">
-                                    <label for="recovery-word-one">
-                                        {move || format!("Word {} (1 of 3)", positions.get()[0])}
-                                    </label>
-                                    <input
-                                        id="recovery-word-one"
-                                        class="identity-bootstrap-input"
-                                        type="password"
-                                        autocomplete="off"
-                                        spellcheck="false"
-                                        required=true
-                                        prop:value=move || word_one.get()
-                                        on:input=move |ev| word_one.set(event_target_value(&ev))
-                                    />
-                                </div>
-                                <div class="identity-bootstrap-field">
-                                    <label for="recovery-word-two">
-                                        {move || format!("Word {} (2 of 3)", positions.get()[1])}
-                                    </label>
-                                    <input
-                                        id="recovery-word-two"
-                                        class="identity-bootstrap-input"
-                                        type="password"
-                                        autocomplete="off"
-                                        spellcheck="false"
-                                        required=true
-                                        prop:value=move || word_two.get()
-                                        on:input=move |ev| word_two.set(event_target_value(&ev))
-                                    />
-                                </div>
-                                <div class="identity-bootstrap-field">
-                                    <label for="recovery-word-three">
-                                        {move || format!("Word {} (3 of 3)", positions.get()[2])}
-                                    </label>
-                                    <input
-                                        id="recovery-word-three"
-                                        class="identity-bootstrap-input"
-                                        type="password"
-                                        autocomplete="off"
-                                        spellcheck="false"
-                                        required=true
-                                        prop:value=move || word_three.get()
-                                        on:input=move |ev| word_three.set(event_target_value(&ev))
-                                    />
-                                </div>
-                                <button class="btn btn-primary identity-bootstrap-submit" type="submit">
-                                    "Verify recovery words"
-                                </button>
-                                <button class="identity-bootstrap-secondary" type="button" on:click=hide_phrase>
-                                    "Hide phrase"
-                                </button>
-                            </form>
-                        </section>
-                    }
-                >
+
+                <Show when=move || visible.get()>
+                    <section class="recovery-phrase-panel" aria-label="Recovery phrase">
+                        <p class="supporting-copy">
+                            "This is your identity's secret key material. After writing it down offline, hide it to start the challenge."
+                        </p>
+                        <ol class="recovery-phrase-grid">
+                            {move || {
+                                phrase
+                                    .get()
+                                    .split_whitespace()
+                                    .enumerate()
+                                    .map(|(index, word)| {
+                                        view! {
+                                            <li>
+                                                <span class="recovery-word-index">{index + 1}</span>
+                                                <code>{word.to_string()}</code>
+                                            </li>
+                                        }
+                                    })
+                                    .collect_view()
+                            }}
+                        </ol>
+                        <button
+                            class="btn btn-primary identity-bootstrap-submit"
+                            type="button"
+                            on:click=start_challenge
+                        >
+                            "I wrote it down — hide phrase and start challenge"
+                        </button>
+                        <button
+                            class="identity-bootstrap-secondary"
+                            type="button"
+                            on:click=hide_phrase
+                        >
+                            "Hide without confirming"
+                        </button>
+                    </section>
+                </Show>
+
+                <Show when=move || !visible.get() && challenge_ready.get()>
+                    <form class="identity-bootstrap-form" on:submit=verify_backup>
+                        <p class="supporting-copy">
+                            "The phrase is now hidden. Enter the three requested words from your offline copy."
+                        </p>
+                        <div class="identity-bootstrap-field">
+                            <label for="recovery-word-one">
+                                {move || format!("Word {} (1 of 3)", positions.get()[0])}
+                            </label>
+                            <input
+                                id="recovery-word-one"
+                                class="identity-bootstrap-input"
+                                type="password"
+                                autocomplete="off"
+                                spellcheck="false"
+                                required=true
+                                prop:value=move || word_one.get()
+                                on:input=move |ev| word_one.set(event_target_value(&ev))
+                            />
+                        </div>
+                        <div class="identity-bootstrap-field">
+                            <label for="recovery-word-two">
+                                {move || format!("Word {} (2 of 3)", positions.get()[1])}
+                            </label>
+                            <input
+                                id="recovery-word-two"
+                                class="identity-bootstrap-input"
+                                type="password"
+                                autocomplete="off"
+                                spellcheck="false"
+                                required=true
+                                prop:value=move || word_two.get()
+                                on:input=move |ev| word_two.set(event_target_value(&ev))
+                            />
+                        </div>
+                        <div class="identity-bootstrap-field">
+                            <label for="recovery-word-three">
+                                {move || format!("Word {} (3 of 3)", positions.get()[2])}
+                            </label>
+                            <input
+                                id="recovery-word-three"
+                                class="identity-bootstrap-input"
+                                type="password"
+                                autocomplete="off"
+                                spellcheck="false"
+                                required=true
+                                prop:value=move || word_three.get()
+                                on:input=move |ev| word_three.set(event_target_value(&ev))
+                            />
+                        </div>
+                        <button class="btn btn-primary identity-bootstrap-submit" type="submit">
+                            "Verify recovery words"
+                        </button>
+                        <button
+                            class="identity-bootstrap-secondary"
+                            type="button"
+                            on:click=hide_phrase
+                        >
+                            "Clear challenge"
+                        </button>
+                    </form>
+                </Show>
+
+                <Show when=move || !visible.get() && !challenge_ready.get()>
                     <button
                         class="btn btn-primary identity-bootstrap-submit"
                         type="button"
@@ -300,99 +416,6 @@ fn RecoveryBackupGate(needed: RwSignal<bool>) -> impl IntoView {
                 </p>
             </main>
         </div>
-    }
-}
-
-fn clear_bootstrap_secret_signal(signal: RwSignal<String>) {
-    signal.update(|value| value.zeroize());
-}
-
-fn clear_bootstrap_secrets(
-    passphrase: RwSignal<String>,
-    confirmation: RwSignal<String>,
-    recovery_phrase: RwSignal<String>,
-) {
-    clear_bootstrap_secret_signal(passphrase);
-    clear_bootstrap_secret_signal(confirmation);
-    clear_bootstrap_secret_signal(recovery_phrase);
-}
-
-
-#[cfg(test)]
-mod tests {
-    use super::identity_ready_subtree_allowed;
-    use crate::local_identity::LocalIdentityStoragePosture as Posture;
-
-    #[test]
-    fn ready_subtree_requires_protected_unlock_and_backup_confirmation() {
-        let postures = [
-            Posture::StorageUnavailable,
-            Posture::NoIdentity,
-            Posture::LegacyIdentityNeedsMigration,
-            Posture::UnprotectedIdentity,
-            Posture::ProtectedLocked,
-            Posture::ProtectedUnlockedInSession,
-            Posture::CorruptOrInconsistent,
-        ];
-        for posture in postures {
-            assert!(
-                !identity_ready_subtree_allowed(posture, true),
-                "backup-needed state must gate {posture:?}"
-            );
-            assert_eq!(
-                identity_ready_subtree_allowed(posture, false),
-                posture == Posture::ProtectedUnlockedInSession,
-                "only protected/unlocked may enter the ready subtree: {posture:?}"
-            );
-        }
-    }
-}
-
-fn identity_bootstrap_is_actionable(posture: LocalIdentityStoragePosture) -> bool {
-    !allowed_identity_bootstrap_actions(posture).is_empty()
-}
-
-fn identity_bootstrap_heading(
-    posture: LocalIdentityStoragePosture,
-    restore_mode: bool,
-) -> &'static str {
-    match posture {
-        LocalIdentityStoragePosture::NoIdentity if restore_mode => "Restore a protected identity",
-        LocalIdentityStoragePosture::NoIdentity => "Create a protected identity",
-        LocalIdentityStoragePosture::UnprotectedIdentity => "Protect your existing identity",
-        LocalIdentityStoragePosture::ProtectedLocked => "Unlock your protected identity",
-        LocalIdentityStoragePosture::LegacyIdentityNeedsMigration => {
-            "Legacy identity needs explicit migration"
-        }
-        LocalIdentityStoragePosture::StorageUnavailable => "Identity storage unavailable",
-        LocalIdentityStoragePosture::ProtectedUnlockedInSession => "Protected identity is unlocked",
-        LocalIdentityStoragePosture::CorruptOrInconsistent => "Identity storage is inconsistent",
-    }
-}
-
-fn identity_bootstrap_description(posture: LocalIdentityStoragePosture) -> &'static str {
-    match posture {
-        LocalIdentityStoragePosture::NoIdentity => {
-            "No local identity was found. Create a new key directly into protected storage, or restore a valid 24-word backup. Existing identities are never overwritten by this flow."
-        }
-        LocalIdentityStoragePosture::UnprotectedIdentity => {
-            "An existing key is stored without passphrase protection. Protect it in place; the key and DID should remain the same. Plaintext is removed only after the encrypted envelope is read back and verified."
-        }
-        LocalIdentityStoragePosture::ProtectedLocked => {
-            "A protected identity was found. Enter its passphrase to unlock it. There is no passphrase reset that can recover a lost key; do not clear browser storage."
-        }
-        LocalIdentityStoragePosture::LegacyIdentityNeedsMigration => {
-            "Only a legacy random-label identity is present. It is not cryptographic proof of control and this screen will not silently discard it or generate a replacement. Explicit migration/recovery is required."
-        }
-        LocalIdentityStoragePosture::StorageUnavailable => {
-            "Browser storage could not be inspected. This does not mean there is no identity. No key will be generated or overwritten."
-        }
-        LocalIdentityStoragePosture::ProtectedUnlockedInSession => {
-            "The protected identity is unlocked in this session."
-        }
-        LocalIdentityStoragePosture::CorruptOrInconsistent => {
-            "Stored key material is malformed or contradictory. No replacement key will be generated. Preserve the browser profile and use the reviewed recovery procedure."
-        }
     }
 }
 
