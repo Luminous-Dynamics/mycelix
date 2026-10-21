@@ -62,6 +62,12 @@ pub enum ContentGenError {
     /// known-placeholder content.
     #[error("content quality below threshold after {0} attempts")]
     QualityBelowThreshold(u32),
+    /// A parsed practice item failed deterministic answer/distractor validation.
+    #[error("practice problem failed validation after {attempts} attempts: {reason}")]
+    InvalidPracticeProblem {
+        attempts: u32,
+        reason: &'static str,
+    },
     /// The generator returned empty text.
     #[error("generator returned empty text")]
     EmptyGeneration,
@@ -330,13 +336,23 @@ impl<G: ContentGenerator> ContentPipeline<G> {
         grade_ord: u8,
         difficulty: u16,
     ) -> Result<PracticeProblem, ContentGenError> {
-        let output = self.generate_with_retry(
-            &ContentChannels::practice_problem().for_grade(grade_ord),
-            &templates::practice_problem_context(standard, difficulty),
-            256,
-        )?;
+        let channels = ContentChannels::practice_problem().for_grade(grade_ord);
+        let context = templates::practice_problem_context(standard, difficulty);
+        let mut last_reason = "no generation attempt was made";
 
-        Ok(parse_practice_problem(&output.text, difficulty))
+        for _attempt in 0..self.max_retries {
+            let output = self.generate_with_retry(&channels, &context, 256)?;
+            let problem = parse_practice_problem(&output.text, difficulty);
+            match validate_practice_problem(&problem) {
+                Ok(()) => return Ok(problem),
+                Err(reason) => last_reason = reason,
+            }
+        }
+
+        Err(ContentGenError::InvalidPracticeProblem {
+            attempts: self.max_retries,
+            reason: last_reason,
+        })
     }
 
     fn generate_hint(
@@ -547,6 +563,54 @@ fn parse_practice_problem(text: &str, difficulty: u16) -> PracticeProblem {
     }
 }
 
+fn normalize_answer_choice(text: &str) -> String {
+    text.split_whitespace()
+        .collect::<Vec<_>>()
+        .join(" ")
+        .trim()
+        .trim_end_matches(['.', '!', '?'])
+        .to_lowercase()
+}
+
+fn validate_practice_problem(problem: &PracticeProblem) -> Result<(), &'static str> {
+    if problem.question.trim().is_empty() {
+        return Err("question is empty");
+    }
+    if problem.answer.trim().is_empty() {
+        return Err("correct answer is empty");
+    }
+    if problem.explanation.trim().is_empty() {
+        return Err("explanation is empty");
+    }
+    if problem.distractors.len() != 3 {
+        return Err("exactly three distractors are required");
+    }
+
+    let normalized_answer = normalize_answer_choice(&problem.answer);
+    let normalized_distractors = problem
+        .distractors
+        .iter()
+        .map(|distractor| normalize_answer_choice(distractor))
+        .collect::<Vec<_>>();
+    if normalized_distractors.iter().any(String::is_empty) {
+        return Err("a distractor is empty");
+    }
+    if normalized_distractors
+        .iter()
+        .any(|distractor| distractor == &normalized_answer)
+    {
+        return Err("the correct answer also appears as a distractor");
+    }
+
+    for index in 0..normalized_distractors.len() {
+        if normalized_distractors[index + 1..].contains(&normalized_distractors[index]) {
+            return Err("duplicate distractors were generated");
+        }
+    }
+
+    Ok(())
+}
+
 /// Parse an assessment item from generated text.
 fn parse_assessment_item(text: &str, bloom: &str) -> AssessmentItem {
     let lines: Vec<&str> = text.lines().collect();
@@ -748,6 +812,58 @@ mod tests {
         ));
         assert!(!is_placeholder_content(
             "Answers vary; any valid rectangle with perimeter 16 cm is acceptable."
+        ));
+    }
+
+    #[test]
+    fn practice_problem_validation_rejects_answer_key_collisions_and_duplicate_choices() {
+        let mut problem = PracticeProblem {
+            question: "What is 6 × 7?".to_string(),
+            answer: "42".to_string(),
+            difficulty_permille: 250,
+            bloom_level: "Apply".to_string(),
+            hints: vec!["Use a known fact.".to_string()],
+            explanation: "6 groups of 7 make 42.".to_string(),
+            distractors: vec!["36".to_string(), " 42 ".to_string(), "48".to_string()],
+        };
+        assert_eq!(
+            validate_practice_problem(&problem),
+            Err("the correct answer also appears as a distractor")
+        );
+
+        problem.distractors = vec!["36".to_string(), " 36 ".to_string(), "48".to_string()];
+        assert_eq!(
+            validate_practice_problem(&problem),
+            Err("duplicate distractors were generated")
+        );
+
+        problem.distractors = vec!["36".to_string(), "45".to_string(), "48".to_string()];
+        assert!(validate_practice_problem(&problem).is_ok());
+    }
+
+    #[test]
+    fn generation_retries_practice_items_with_invalid_distractors() {
+        struct InvalidChoiceGenerator;
+
+        impl ContentGenerator for InvalidChoiceGenerator {
+            fn generate(&self, _: &ContentChannels, _: &str, _: usize) -> GenerationOutput {
+                GenerationOutput {
+                    text: "What is 6 × 7?\\n42\\nSix groups of seven make 42.\\n36, 42, 48\\nUse a known fact.\\nCheck by repeated addition.".to_string(),
+                    coherence: 0.99,
+                    hallucination_flag: false,
+                    veto_count: 0,
+                }
+            }
+        }
+
+        let pipeline = ContentPipeline::new(InvalidChoiceGenerator).with_max_retries(2);
+        let result = pipeline.generate_practice_problem(&sample_standard(), 4, 250);
+        assert!(matches!(
+            result,
+            Err(ContentGenError::InvalidPracticeProblem {
+                attempts: 2,
+                reason: "the correct answer also appears as a distractor"
+            })
         ));
     }
 
