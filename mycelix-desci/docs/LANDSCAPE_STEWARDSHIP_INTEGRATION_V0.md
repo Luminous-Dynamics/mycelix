@@ -40,6 +40,18 @@ The profile is defined by [`landscape-stewardship-profile-v0.schema.json`](../sc
 
 It includes record types for project-version review, scenario review, field observation, stewardship commitment, consent change and decision withdrawal. Conditional rules require scenario references for scenario reviews, observations for field-observation records, acceptance references for accepted maintenance commitments, and explicit authorization for public publication. Sensitive coordinates are not embedded in the profile; access policy records whether coordinate disclosure is none, coarse or exact.
 
+### Scoped measurement authorization
+
+A separate [landscape-measurement-authorization-v0.schema.json](../schemas/landscape-measurement-authorization-v0.schema.json) and example fixture describe a narrowly scoped permission reference for one project snapshot, opaque site digest, metric/unit and collection activity. It keeps three questions separate:
+
+- **Consent to participate/measure** and its evidence reference.
+- **Site access authorization** and its evidence reference.
+- **Consent to publish** and its evidence reference, which is independent of permission to collect.
+
+A positive consent state requires a corresponding SHA-256 evidence reference; denied, withdrawn, expired or unknown states must not claim positive evidence. Site-access authorization is governed by the same rule. Public publication requires separate granted publication consent and may not expose exact coordinates. No coordinates, names or contact details are carried in this authorization payload.
+
+The module at mycelix-desci/src/core/src/landscape_measurement_authorization.rs provides validate_measurement_authorization, a structural safety gate for these invariants. The example is explicitly synthetic and not-verified; its hashes are placeholders. This validator does not authenticate the digest target, signatures, land rights, current time window, or authority resolution. A host must resolve the references against trusted Mycelix records, verify signed evidence, check expiry/revocation at decision time, and only then decide whether a real operation is authorized. A shape-valid digest never grants site access.
+
 ### Runtime safety gate (policy invariants only)
 
 The core module `mycelix-desci/src/core/src/landscape_stewardship.rs` adds `validate_profile_safety_gate`. Call it after full JSON Schema validation and before creating a Mycelix event. It independently checks the highest-consequence rules at the application boundary: exact Sol-Atlas schema/digest/frame declaration, public publication consent and authority reference, no exact public coordinates or structured coordinate keys, no promotion of synthetic benchmarks to observed evidence, scenario-review purpose restrictions, required acceptance references for accepted maintenance commitments, and withdrawal visibility.
@@ -66,7 +78,7 @@ Maintenance commitments are promises with a responsible-party reference, cadence
 
 ## Executable contract tests
 
-The path-filtered workflow [landscape-stewardship.yml](../../.github/workflows/landscape-stewardship.yml) checks JSON syntax, Rust formatting and the core policy-gate tests for draft PRs as well as ready PRs. It intentionally does not claim that the profile is persisted through the signed event API yet.
+The path-filtered workflow [landscape-stewardship.yml](../../.github/workflows/landscape-stewardship.yml) checks JSON syntax, Rust formatting, the stewardship profile safety-gate tests, and the scoped measurement-authorization tests for draft PRs as well as ready PRs. It intentionally does not claim that the profile is persisted through the signed event API yet.
 
 ## Acceptance gates for runtime integration
 
