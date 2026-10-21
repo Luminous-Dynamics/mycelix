@@ -104,6 +104,30 @@
         "jurisdiction_and_market_scope"
       ],
       "claim_ceiling": "This envelope does not itself establish legal compliance."
+    },
+    {
+      "id": "BP-011",
+      "name": "resource_claim_with_mismatched_functional_unit",
+      "expected_disposition": "REJECT_CLAIM",
+      "guards": [
+        "resource_meter_evidence_requires_functional_unit",
+        "meter_boundary_matches_comparison",
+        "saleable_quality_conforming_output_basis",
+        "period_and_product_mix_are_aligned"
+      ],
+      "claim_ceiling": "Resource ratios cannot be ranked when the numerator boundary or output denominator differs."
+    },
+    {
+      "id": "BP-012",
+      "name": "resource_savings_claim_from_partial_unreported_meter_coverage",
+      "expected_disposition": "REJECT_CLAIM",
+      "guards": [
+        "meter_boundary_status_not_unknown",
+        "missing_intervals_disclosed",
+        "absolute_totals_reported",
+        "measured_and_modelled_values_separated"
+      ],
+      "claim_ceiling": "A partial meter boundary or undisclosed missing interval cannot support an unqualified savings claim."
     }
   ]
 }
