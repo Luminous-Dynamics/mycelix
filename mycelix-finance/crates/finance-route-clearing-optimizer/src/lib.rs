@@ -14,6 +14,7 @@
 //! multihop routing, and nonlinear tariff rules are deliberately outside this first model.
 //! Cost units are comparative weights, not a quoted fiat fee.
 
+pub mod batch;
 pub mod fixed_charge;
 pub mod queue;
 
