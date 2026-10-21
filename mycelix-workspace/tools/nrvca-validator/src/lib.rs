@@ -611,16 +611,6 @@ pub fn validate_report(report: &Value) -> Vec<Diagnostic> {
         None => push_structural(&mut out, "CLAIMS-TYPE", "/claims", "claims must be an array"),
     }
 
-    let operand_required: HashSet<&str> = schema.pointer("/properties/reconciliations/items/properties/operands/items/required")
-        .and_then(Value::as_array).into_iter().flatten().filter_map(Value::as_str).collect();
-    if !operand_required.contains("value_pointer") {
-        push_structural(&mut out, "SCHEMA-REQUIRED-FIELD", "/properties/reconciliations/items/properties/operands/items/required", "reconciliation operands must require value_pointer");
-    }
-    let stock_required: HashSet<&str> = schema.pointer("/required").and_then(Value::as_array)
-        .into_iter().flatten().filter_map(Value::as_str).collect();
-    if !stock_required.contains("stock_flow_accounts") {
-        push_structural(&mut out, "SCHEMA-REQUIRED-FIELD", "/required", "report must require stock_flow_accounts");
-    }
     out
 }
 
@@ -647,6 +637,17 @@ pub fn validate_schema_contract(schema: &Value) -> Vec<Diagnostic> {
                 push_structural(&mut out, "SCHEMA-REQUIRED-FIELD", &path, format!("{name} must require {field}"));
             }
         }
+    }
+
+    let operand_required: HashSet<&str> = schema.pointer("/properties/reconciliations/items/properties/operands/items/required")
+        .and_then(Value::as_array).into_iter().flatten().filter_map(Value::as_str).collect();
+    if !operand_required.contains("value_pointer") {
+        push_structural(&mut out, "SCHEMA-REQUIRED-FIELD", "/properties/reconciliations/items/properties/operands/items/required", "reconciliation operands must require value_pointer");
+    }
+    let stock_required: HashSet<&str> = schema.pointer("/required").and_then(Value::as_array)
+        .into_iter().flatten().filter_map(Value::as_str).collect();
+    if !stock_required.contains("stock_flow_accounts") {
+        push_structural(&mut out, "SCHEMA-REQUIRED-FIELD", "/required", "report must require stock_flow_accounts");
     }
     out
 }
