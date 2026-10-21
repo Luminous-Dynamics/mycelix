@@ -34,17 +34,26 @@ macro_rules! stub_topic {
     };
 }
 
-stub_topic!(Gr9WholeNumbersTopic, "Whole Numbers and Integers",
+stub_topic!(
+    Gr9WholeNumbersTopic,
+    "Whole Numbers and Integers",
     "In Grade 9, you work with integers — positive and negative whole numbers. BODMAS (Brackets, Orders, Division, Multiplication, Addition, Subtraction) tells you the order to do calculations. When multiplying integers: positive × positive = positive, negative × negative = positive, positive × negative = negative. You also learn prime factorisation, HCF (highest common factor) and LCM (lowest common multiple).",
-    "integer");
+    "integer"
+);
 
-stub_topic!(Gr9FractionsDecimalsTopic, "Fractions, Decimals, and Percentages",
+stub_topic!(
+    Gr9FractionsDecimalsTopic,
+    "Fractions, Decimals, and Percentages",
     "Grade 9 covers converting between fractions, decimals, and percentages. To convert a fraction to a decimal, divide the numerator by the denominator. To convert to a percentage, multiply by 100. Ratio and proportion are used to compare quantities and solve problems like sharing amounts or scaling recipes.",
-    "ratio");
+    "ratio"
+);
 
-stub_topic!(Gr9ExponentsTopic, "Exponents",
+stub_topic!(
+    Gr9ExponentsTopic,
+    "Exponents",
     "Exponent laws let you simplify expressions with powers. Key rules: a^m × a^n = a^(m+n), a^m ÷ a^n = a^(m-n), (a^m)^n = a^(mn), (ab)^n = a^n × b^n, a^0 = 1 (for a ≠ 0). Scientific notation writes very large or small numbers as a number between 1 and 10 multiplied by a power of 10.",
-    "exponent");
+    "exponent"
+);
 
 pub(crate) struct Gr9AlgebraExpressionsTopic;
 
@@ -90,7 +99,8 @@ impl TopicContent for Gr9AlgebraExpressionsTopic {
     }
 
     fn flashcard(&self) -> String {
-        "What is 3x + 5x? | 8x, because the terms are like terms and their coefficients add.".to_string()
+        "What is 3x + 5x? | 8x, because the terms are like terms and their coefficients add."
+            .to_string()
     }
 
     fn assessment_item(&self, context: &str) -> String {
@@ -110,34 +120,58 @@ impl TopicContent for Gr9AlgebraExpressionsTopic {
     }
 }
 
-stub_topic!(Gr9AlgebraEquationsTopic, "Algebraic Equations",
+stub_topic!(
+    Gr9AlgebraEquationsTopic,
+    "Algebraic Equations",
     "Solving equations means finding the value of the variable that makes the equation true. For linear equations, use inverse operations to isolate the variable: if 3x + 7 = 22, subtract 7 from both sides (3x = 15), then divide by 3 (x = 5). Always do the same operation to both sides. Word problems: translate the English into an equation, then solve.",
-    "equation");
+    "equation"
+);
 
-stub_topic!(Gr9PatternsTopic, "Numeric and Geometric Patterns",
+stub_topic!(
+    Gr9PatternsTopic,
+    "Numeric and Geometric Patterns",
     "A pattern is a sequence of numbers or shapes that follows a rule. In a linear pattern, the difference between consecutive terms is constant. The general term (nth term) of a linear sequence is Tn = a + (n-1)d, where a is the first term and d is the common difference. You can use the general term to find any term without listing them all.",
-    "sequence");
+    "sequence"
+);
 
-stub_topic!(Gr9FunctionsTopic, "Functions and Relationships",
+stub_topic!(
+    Gr9FunctionsTopic,
+    "Functions and Relationships",
     "A function is a rule that assigns exactly one output to each input. You can represent functions as equations (y = 2x + 3), tables of values, or graphs on the Cartesian plane. The Cartesian plane has an x-axis (horizontal) and y-axis (vertical). Each point is written as (x, y). Linear functions produce straight-line graphs.",
-    "function");
+    "function"
+);
 
-stub_topic!(Gr9GeomStraightLinesToopic, "Geometry of Straight Lines",
+stub_topic!(
+    Gr9GeomStraightLinesToopic,
+    "Geometry of Straight Lines",
     "Angles on a straight line add up to 180° (supplementary). Vertically opposite angles are equal. When a transversal crosses parallel lines: corresponding angles are equal (F-pattern), alternate angles are equal (Z-pattern), and co-interior angles add to 180° (C-pattern or U-pattern).",
-    "transversal");
+    "transversal"
+);
 
-stub_topic!(Gr9Geom2DShapesTopic, "Geometry of 2D Shapes",
+stub_topic!(
+    Gr9Geom2DShapesTopic,
+    "Geometry of 2D Shapes",
     "The angles of any triangle add up to 180°. The Theorem of Pythagoras states that in a right-angled triangle, a² + b² = c² where c is the hypotenuse (longest side, opposite the right angle). Triangles are congruent (identical) if SSS, SAS, ASA, or RHS conditions are met. Similar triangles have the same shape but different sizes.",
-    "Pythagoras");
+    "Pythagoras"
+);
 
-stub_topic!(Gr9MeasurementTopic, "Area, Perimeter, and Volume",
+stub_topic!(
+    Gr9MeasurementTopic,
+    "Area, Perimeter, and Volume",
     "Perimeter is the distance around a shape. Area is the space inside a 2D shape: rectangle = l × w, triangle = ½ × b × h, circle = πr². Volume is the space inside a 3D shape: rectangular prism = l × w × h, cylinder = πr²h. Surface area is the total area of all faces. Always include the correct units: cm for length, cm² for area, cm³ for volume.",
-    "volume");
+    "volume"
+);
 
-stub_topic!(Gr9DataHandlingTopic, "Data Handling",
+stub_topic!(
+    Gr9DataHandlingTopic,
+    "Data Handling",
     "The mean is the sum of all values divided by the number of values. The median is the middle value when data is arranged in order. The mode is the most frequent value. The range is the difference between the highest and lowest values. Data can be displayed using bar graphs, histograms, pie charts, and line graphs.",
-    "mean");
+    "mean"
+);
 
-stub_topic!(Gr9ProbabilityTopic, "Probability",
+stub_topic!(
+    Gr9ProbabilityTopic,
+    "Probability",
     "Probability measures how likely an event is to occur, on a scale from 0 (impossible) to 1 (certain). P(event) = number of favourable outcomes / total number of outcomes. The probability of an event NOT happening is 1 - P(event). Tree diagrams show all possible outcomes for two or more events and help calculate combined probabilities.",
-    "probability");
+    "probability"
+);
