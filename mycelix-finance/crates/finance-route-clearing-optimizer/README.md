@@ -32,7 +32,7 @@ Run the bounded fixed-charge timing comparison with:
 
     cargo run --release --manifest-path mycelix-finance/Cargo.toml -p finance-route-clearing-optimizer --example fixed_charge_benchmark
 
-That example compares the linear-cost allocation against exact fixed-charge search on deterministic graphs with 4, 6, 8, 10 and 12 route IDs. It prints both objective breakdowns and p50/p95 runtime over nine repetitions. The 12-route case evaluates 4,096 subsets, so the fixed-charge measurements must not be extrapolated to larger route sets.
+That example compares the linear-cost allocation against exact fixed-charge search on deterministic graphs with 4, 6, 8, 10 and 12 route IDs. It prints both objective breakdowns and p50/p95 runtime over five warmup runs followed by 101 measured repetitions. The 12-route case evaluates 4,096 subsets, so the fixed-charge measurements must not be extrapolated to larger route sets.
 
 ## Paradigm shift
 
