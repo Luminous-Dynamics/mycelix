@@ -98,10 +98,34 @@ jobs:
               if (rows != 339 || exact != 15 || failed) exit 1
             }
           ' "$out/results.csv"
+          cargo run --manifest-path research/finance-liquidity-reordering/Cargo.toml --offline --locked --release --example stream_benchmark > "$out/stream-results.csv"
+          test "$(wc -l < "$out/stream-results.csv")" -eq 145
+          awk -F, '
+            NR == 1 {
+              if (NF != 20 || $1 != "scenario" || $4 != "strategy" ||
+                  $16 != "aggregate_saving_vs_fifo_minor" ||
+                  $17 != "queue_wait_reduction_vs_fifo_ticks") exit 2
+              next
+            }
+            {
+              rows++
+              if (NF != 20) failed = 1
+              if ($2 != 240 || $3 != 32) failed = 1
+              if ($5 !~ /^[1-9][0-9]*$/ || $6 !~ /^[0-9]+$/) failed = 1
+              if ($7 != 11) failed = 1
+              if ($8 < 1 || $9 > $5 || $10 > $2) failed = 1
+              if ($11 !~ /^[0-9]+$/ || $12 !~ /^[0-9]+$/ || $13 !~ /^[0-9]+$/) failed = 1
+              if ($14 !~ /^[0-9]+$/ || $15 !~ /^[0-9]+$/) failed = 1
+              if ($16 !~ /^-?[0-9]+$/ || $17 !~ /^-?[0-9]+$/) failed = 1
+              if ($18 !~ /^[0-9]+$/ || $19 !~ /^[0-9]+$/ || $20 !~ /^[0-9]+$/) failed = 1
+              if ($4 == "fifo" && ($16 != "0" || $17 != "0")) failed = 1
+            }
+            END { if (rows != 144 || failed) exit 1 }
+          ' "$out/stream-results.csv"
           cd research/finance-liquidity-reordering
-          sha256sum Cargo.toml Cargo.lock README.md src/lib.rs tests/exact_oracle.rs examples/benchmark.rs > "$out/SOURCE-SHA256SUMS"
+          sha256sum Cargo.toml Cargo.lock README.md src/lib.rs src/stream_replay.rs tests/exact_oracle.rs tests/stream_replay.rs examples/benchmark.rs examples/stream_benchmark.rs > "$out/SOURCE-SHA256SUMS"
           cd "$out"
-          sha256sum results.csv metadata.txt SOURCE-SHA256SUMS > SHA256SUMS
+          sha256sum results.csv stream-results.csv metadata.txt SOURCE-SHA256SUMS > SHA256SUMS
 
       - name: Upload reproducible benchmark evidence
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
