@@ -593,6 +593,146 @@ fn normalize_answer_choice(text: &str) -> String {
         .to_lowercase()
 }
 
+fn greatest_common_divisor(mut left: i128, mut right: i128) -> i128 {
+    left = left.abs();
+    right = right.abs();
+    while right != 0 {
+        let remainder = left % right;
+        left = right;
+        right = remainder;
+    }
+    left.max(1)
+}
+
+fn rational_key(numerator: i128, denominator: i128) -> Option<String> {
+    if denominator == 0 {
+        return None;
+    }
+    let sign = if (numerator < 0) ^ (denominator < 0) {
+        "-"
+    } else {
+        ""
+    };
+    let divisor = greatest_common_divisor(numerator, denominator);
+    Some(format!(
+        "{sign}{}/{}",
+        numerator.abs() / divisor,
+        denominator.abs() / divisor
+    ))
+}
+
+fn scalar_number_key(token: &str) -> Option<String> {
+    if let Some(percent) = token.strip_suffix('%') {
+        let (numerator, denominator) = if let Some((left, right)) = percent.split_once('/') {
+            let numerator = left.parse::<i128>().ok()?;
+            let denominator = right.parse::<i128>().ok()?.checked_mul(100)?;
+            (numerator, denominator)
+        } else {
+            (percent.parse::<i128>().ok()?, 100)
+        };
+        return rational_key(numerator, denominator);
+    }
+    if let Some((left, right)) = token.split_once('/') {
+        return rational_key(left.parse::<i128>().ok()?, right.parse::<i128>().ok()?);
+    }
+    if let Ok(integer) = token.parse::<i128>() {
+        return rational_key(integer, 1);
+    }
+    if let Some((whole, fraction)) = token.split_once('.') {
+        if fraction.is_empty() || !fraction.chars().all(|char| char.is_ascii_digit()) {
+            return None;
+        }
+        let sign = if whole.starts_with('-') { -1 } else { 1 };
+        let whole_digits = whole.trim_start_matches('-');
+        let whole_value = if whole_digits.is_empty() {
+            0
+        } else {
+            whole_digits.parse::<i128>().ok()?
+        };
+        let denominator = 10_i128.checked_pow(u32::try_from(fraction.len()).ok()?)?;
+        let fraction_value = fraction.parse::<i128>().ok()?;
+        let numerator = whole_value
+            .checked_mul(denominator)?
+            .checked_add(fraction_value)?
+            .checked_mul(sign)?;
+        return rational_key(numerator, denominator);
+    }
+    None
+}
+
+fn scalar_answer_key(text: &str) -> Option<(String, Option<&'static str>)> {
+    let normalized = normalize_answer_choice(text);
+    let units: [(&str, &str); 27] = [
+        ("square centimetres", "area_cm2"),
+        ("square centimeters", "area_cm2"),
+        ("square metres", "area_m2"),
+        ("square meters", "area_m2"),
+        ("square units", "area_unit"),
+        ("square unit", "area_unit"),
+        ("square cm", "area_cm2"),
+        ("square m", "area_m2"),
+        ("centimetres", "length_cm"),
+        ("centimeters", "length_cm"),
+        ("millimetres", "length_mm"),
+        ("millimeters", "length_mm"),
+        ("kilograms", "mass_kg"),
+        ("kilometres", "length_km"),
+        ("kilometers", "length_km"),
+        ("minutes", "time_min"),
+        ("seconds", "time_s"),
+        ("hours", "time_h"),
+        ("learners", "count"),
+        ("children", "count"),
+        ("counters", "count"),
+        ("objects", "count"),
+        ("oranges", "count"),
+        ("students", "count"),
+        ("books", "count"),
+        ("cm", "length_cm"),
+        ("mm", "length_mm"),
+    ];
+    for (unit, canonical_unit) in units {
+        if let Some(number) = normalized.strip_suffix(unit)
+            && (number.is_empty() || number.ends_with(' '))
+        {
+            let number = number.trim();
+            if let Some(key) = scalar_number_key(number) {
+                return Some((key, Some(canonical_unit)));
+            }
+        }
+    }
+    let tokens = normalized.split_whitespace().collect::<Vec<_>>();
+    if tokens.len() == 2 {
+        let unit = match tokens[1] {
+            "learner" | "child" | "student" | "object" | "counter" | "orange" | "book"
+            | "desk" | "cone" | "car" | "star" | "slice" | "group" | "groups" => Some("count"),
+            "m" => Some("length_m"),
+            "kg" => Some("mass_kg"),
+            _ => None,
+        };
+        if let Some(unit) = unit {
+            return scalar_number_key(tokens[0]).map(|key| (key, Some(unit)));
+        }
+    }
+    if tokens.len() == 1 {
+        return scalar_number_key(tokens[0]).map(|key| (key, None));
+    }
+    None
+}
+
+fn numeric_answer_choices_collide(answer: &str, distractor: &str) -> bool {
+    let Some((answer_value, answer_unit)) = scalar_answer_key(answer) else {
+        return false;
+    };
+    let Some((distractor_value, distractor_unit)) = scalar_answer_key(distractor) else {
+        return false;
+    };
+    answer_value == distractor_value
+        && (answer_unit.is_none()
+            || distractor_unit.is_none()
+            || answer_unit == distractor_unit)
+}
+
 fn validate_practice_problem(problem: &PracticeProblem) -> Result<(), &'static str> {
     if problem.question.trim().is_empty() {
         return Err("question is empty");
@@ -621,6 +761,13 @@ fn validate_practice_problem(problem: &PracticeProblem) -> Result<(), &'static s
         .any(|distractor| distractor == &normalized_answer)
     {
         return Err("the correct answer also appears as a distractor");
+    }
+    if problem
+        .distractors
+        .iter()
+        .any(|distractor| numeric_answer_choices_collide(&problem.answer, distractor))
+    {
+        return Err("a distractor is numerically equivalent to the correct answer");
     }
 
     let distinct_distractors = normalized_distractors.iter().collect::<BTreeSet<_>>();
@@ -859,6 +1006,27 @@ mod tests {
 
         problem.distractors = vec!["36".to_string(), "45".to_string(), "48".to_string()];
         assert!(validate_practice_problem(&problem).is_ok());
+    }
+
+    #[test]
+    fn practice_problem_validation_rejects_equivalent_numbers_with_missing_units() {
+        let problem = PracticeProblem {
+            question: "How many more children chose soccer?".to_string(),
+            answer: "3 children".to_string(),
+            difficulty_permille: 250,
+            bloom_level: "Apply".to_string(),
+            hints: vec!["Compare the two counts.".to_string()],
+            explanation: "8 minus 5 is 3 children.".to_string(),
+            distractors: vec!["13".to_string(), "2".to_string(), "3".to_string()],
+        };
+        assert_eq!(
+            validate_practice_problem(&problem),
+            Err("a distractor is numerically equivalent to the correct answer")
+        );
+
+        assert!(numeric_answer_choices_collide("1/2", "2/4"));
+        assert!(numeric_answer_choices_collide("20 cm", "20"));
+        assert!(!numeric_answer_choices_collide("12 cm", "12 square units"));
     }
 
     #[test]
