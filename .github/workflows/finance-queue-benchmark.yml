@@ -9,6 +9,7 @@ on:
       - 'mycelix-finance/Cargo.toml'
       - 'mycelix-finance/crates/finance-route-clearing-optimizer/Cargo.toml'
       - 'mycelix-finance/crates/finance-route-clearing-optimizer/src/queue.rs'
+      - 'mycelix-finance/crates/finance-route-clearing-optimizer/src/batch.rs'
       - 'mycelix-finance/crates/finance-route-clearing-optimizer/src/lib.rs'
       - 'mycelix-finance/crates/finance-route-clearing-optimizer/tests/queue_sequence_oracle.rs'
       - 'mycelix-finance/crates/finance-route-clearing-optimizer/examples/queue_policy_benchmark.rs'
