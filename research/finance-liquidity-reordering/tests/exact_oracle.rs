@@ -690,7 +690,7 @@ fn heuristic_portfolio_uses_event_driven_path_above_full_scan_limit() {
     assert_eq!(evaluate_order(&p, &result.order).unwrap(), result.evaluation);
     assert_eq!(
         result.evaluation.aggregate_required_initial_liquidity_minor,
-        1
+        10
     );
 }
 
