@@ -137,8 +137,9 @@ See [`docs/adr/`](docs/adr/) for all ADRs.
 - **[Lesson Evidence Record v1](schemas/lesson-evidence-record-v1.schema.json)**: Backward-compatible sidecar for source/rights provenance, review status, accessibility checks, and learning-study evidence
 - **[Learning experiment preregistration template](docs/experiment-preregistration-template.md)**: Freeze hypotheses, comparators, primary outcomes, uncertainty, privacy, and replication criteria before analyzing results
 - **[Praxis-PedBench v1 specification](benchmarks/pedbench-v1/README.md)**: Human-anchored evaluation of objective alignment, error diagnosis, actionable hints, answer leakage, explanation validity, cognitive engagement, accessibility and learner agency
-- **[PedBench synthetic seed cases](benchmarks/pedbench-v1/seed-cases.json)**: Six adversarial cases spanning primary mathematics, secondary algebra, science, writing and low-bandwidth accessibility; explicitly unvalidated pending educator annotation
+- **[PedBench synthetic seed cases](benchmarks/pedbench-v1/seed-cases.json)**: Ten adversarial cases spanning misconceptions, answer leakage, mastery overclaim, language access, source integrity, science and writing; explicitly unvalidated pending educator annotation
 - **[PedBench run-receipt schema](benchmarks/pedbench-v1/run-receipt.schema.json)**: Binds split, model/configuration, policy/rubric digests, per-case results, uncertainty and held-out replication requirements for strong claims
+- **[Learning Impact Protocol v1](benchmarks/pedbench-v1/learning-impact-protocol.md)**: Separates content validity, tutor behaviour, learner outcomes, and independent replication; defines delayed unaided transfer and the aided-to-unaided gap
 
 ### Policies
 
