@@ -1,6 +1,7 @@
 use finance_liquidity_reordering::{
     bounded_insertion_search, evaluate_order, exact_pareto_frontier, exact_permutation_oracle,
-    heuristic_portfolio, input_order, receiver_ready_greedy, simulated_annealing, Evaluation,
+    heuristic_portfolio, input_order, net_position_liquidity_lower_bound,
+    receiver_ready_event_driven, receiver_ready_greedy, simulated_annealing, Evaluation,
     Payment, Problem, ReorderError, MAX_GREEDY_PAYMENTS, MAX_SEARCH_WORK_UNITS,
 };
 use std::cmp::Ordering;
@@ -232,6 +233,37 @@ fn credit_unlock_greedy_orders_a_closed_cycle_with_one_initial_buffer() {
 }
 
 #[test]
+fn net_position_lower_bound_is_order_independent_and_never_exceeds_realized_need() {
+    let original = chain_problem(6, true);
+    let bound = net_position_liquidity_lower_bound(&original).unwrap();
+    assert_eq!(bound.aggregate_required_initial_liquidity_minor, 10);
+    assert_eq!(bound.max_participant_required_initial_liquidity_minor, 10);
+
+    let fifo = input_order(&original).unwrap();
+    let greedy = receiver_ready_greedy(&original).unwrap();
+    assert!(fifo.evaluation.aggregate_required_initial_liquidity_minor
+        >= bound.aggregate_required_initial_liquidity_minor);
+    assert!(fifo.evaluation.max_participant_required_initial_liquidity_minor
+        >= bound.max_participant_required_initial_liquidity_minor);
+    assert_eq!(greedy.evaluation.aggregate_required_initial_liquidity_minor, 10);
+    assert_eq!(greedy.evaluation.max_participant_required_initial_liquidity_minor, 10);
+
+    let cycle = problem(
+        3,
+        vec![
+            Payment { id: "ab".into(), from: 0, to: 1, amount_minor: 10 },
+            Payment { id: "bc".into(), from: 1, to: 2, amount_minor: 10 },
+            Payment { id: "ca".into(), from: 2, to: 0, amount_minor: 10 },
+        ],
+    );
+    let cycle_bound = net_position_liquidity_lower_bound(&cycle).unwrap();
+    let cycle_exact = exact_permutation_oracle(&cycle).unwrap();
+    assert_eq!(cycle_bound.aggregate_required_initial_liquidity_minor, 0);
+    assert_eq!(cycle_bound.max_participant_required_initial_liquidity_minor, 0);
+    assert!(cycle_exact.evaluation.aggregate_required_initial_liquidity_minor > 0);
+}
+
+#[test]
 fn production_evaluator_matches_independent_prefix_oracle_for_every_small_order() {
     for seed in 0..24_usize {
         let payment_count = 4 + seed % 4;
@@ -288,8 +320,15 @@ fn all_heuristics_are_feasible_and_never_beat_the_exact_oracle() {
             .collect();
         let problem = problem(6, payments);
         let exact = exact_permutation_oracle(&problem).unwrap();
+        let lower_bound = net_position_liquidity_lower_bound(&problem).unwrap();
         let fifo = input_order(&problem).unwrap();
         let greedy = receiver_ready_greedy(&problem).unwrap();
+        let event_driven = receiver_ready_event_driven(&problem).unwrap();
+        assert_eq!(
+            event_driven.order, greedy.order,
+            "event-driven heap diverged from scan greedy for seed={seed}"
+        );
+        assert_eq!(event_driven.evaluation, greedy.evaluation, "seed={seed}");
         let local = bounded_insertion_search(&problem, &fifo.order, 300).unwrap();
         let annealed = simulated_annealing(&problem, &fifo.order, seed as u64 + 1, 500).unwrap();
         assert_eq!(
@@ -318,10 +357,18 @@ fn all_heuristics_are_feasible_and_never_beat_the_exact_oracle() {
             ) != Ordering::Greater,
             "portfolio regressed versus greedy for seed={seed}"
         );
-        for candidate in [fifo, greedy, local, annealed, portfolio] {
+        for candidate in [fifo, greedy, event_driven, local, annealed, portfolio] {
             assert_eq!(candidate.order.len(), payment_count);
             let remeasured = evaluate_order(&problem, &candidate.order).unwrap();
             assert_eq!(remeasured, candidate.evaluation);
+            assert!(
+                candidate.evaluation.aggregate_required_initial_liquidity_minor
+                    >= lower_bound.aggregate_required_initial_liquidity_minor
+            );
+            assert!(
+                candidate.evaluation.max_participant_required_initial_liquidity_minor
+                    >= lower_bound.max_participant_required_initial_liquidity_minor
+            );
             assert!(
                 compare_order_and_score(
                     &problem,
@@ -437,6 +484,9 @@ fn every_optimizer_and_exact_oracle_respects_hard_precedence() {
 
     let fifo = input_order(&problem).unwrap();
     let greedy = receiver_ready_greedy(&problem).unwrap();
+    let event_driven = receiver_ready_event_driven(&problem).unwrap();
+    assert_eq!(event_driven.order, greedy.order);
+    assert_eq!(event_driven.evaluation, greedy.evaluation);
     let local = bounded_insertion_search(&problem, &fifo.order, 100).unwrap();
     let annealed = simulated_annealing(&problem, &fifo.order, 17, 200).unwrap();
     let portfolio = heuristic_portfolio(&problem, 100, 17, 200).unwrap();
@@ -450,7 +500,7 @@ fn every_optimizer_and_exact_oracle_respects_hard_precedence() {
         assert!(point.order.iter().position(|&index| index == 1).unwrap()
             < point.order.iter().position(|&index| index == 0).unwrap());
     }
-    for candidate in [fifo, greedy, local, annealed, portfolio, exact] {
+    for candidate in [fifo, greedy, event_driven, local, annealed, portfolio, exact] {
         let mut positions = vec![0; candidate.order.len()];
         for (position, &index) in candidate.order.iter().enumerate() {
             positions[index] = position;
