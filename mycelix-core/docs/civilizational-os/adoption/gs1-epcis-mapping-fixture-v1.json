@@ -1,0 +1,148 @@
+{
+  "schema_version": "1.0.0",
+  "fixture_id": "gs1-epcis-cbv-2-0-1-2-0-0-shipment-to-acceptance-v1",
+  "evaluation_state": "contract_fixture_only",
+  "data_classification": "synthetic",
+  "claim_ceiling": "PinnedStandardMappingOnly",
+  "standard_bindings": [
+    {
+      "standard_id": "GS1-EPCIS",
+      "version": "2.0.1",
+      "source_snapshot_manifest_path": "source-snapshots/gs1-epcis-cbv-v1.json",
+      "source_snapshot_manifest_sha256": "46989ab0535265a2603e6ca146c074c6ece0b50d19fe872dcb1328d61795a1a1"
+    },
+    {
+      "standard_id": "GS1-CBV",
+      "version": "2.0.0",
+      "source_snapshot_manifest_path": "source-snapshots/gs1-epcis-cbv-v1.json",
+      "source_snapshot_manifest_sha256": "46989ab0535265a2603e6ca146c074c6ece0b50d19fe872dcb1328d61795a1a1"
+    }
+  ],
+  "events": [
+    {
+      "eventID": "urn:uuid:10000000-0000-4000-8000-000000000001",
+      "type": "ObjectEvent",
+      "eventTime": "2026-10-21T10:00:00+02:00",
+      "eventTimeZoneOffset": "+02:00",
+      "epcList": [
+        "urn:epc:id:sgtin:0614141.107346.2017"
+      ],
+      "action": "OBSERVE",
+      "bizStep": "https://ref.gs1.org/cbv/BizStep-shipping",
+      "disposition": "https://ref.gs1.org/cbv/Disp-in_transit",
+      "readPoint": {
+        "id": "urn:epc:id:sgln:0614141.12345.400"
+      },
+      "bizLocation": {
+        "id": "urn:epc:id:sgln:0614141.12345.0"
+      }
+    },
+    {
+      "eventID": "urn:uuid:10000000-0000-4000-8000-000000000002",
+      "type": "ObjectEvent",
+      "eventTime": "2026-10-21T12:20:00+02:00",
+      "eventTimeZoneOffset": "+02:00",
+      "epcList": [
+        "urn:epc:id:sgtin:0614141.107346.2017"
+      ],
+      "action": "OBSERVE",
+      "bizStep": "https://ref.gs1.org/cbv/BizStep-arriving",
+      "disposition": "https://ref.gs1.org/cbv/Disp-in_transit",
+      "readPoint": {
+        "id": "urn:epc:id:sgln:0614141.54321.400"
+      },
+      "bizLocation": {
+        "id": "urn:epc:id:sgln:0614141.54321.0"
+      }
+    },
+    {
+      "eventID": "urn:uuid:10000000-0000-4000-8000-000000000003",
+      "type": "ObjectEvent",
+      "eventTime": "2026-10-21T12:30:00+02:00",
+      "eventTimeZoneOffset": "+02:00",
+      "epcList": [
+        "urn:epc:id:sgtin:0614141.107346.2017"
+      ],
+      "action": "OBSERVE",
+      "bizStep": "https://ref.gs1.org/cbv/BizStep-receiving",
+      "disposition": "https://ref.gs1.org/cbv/Disp-in_progress",
+      "readPoint": {
+        "id": "urn:epc:id:sgln:0614141.54321.401"
+      },
+      "bizLocation": {
+        "id": "urn:epc:id:sgln:0614141.54321.0"
+      }
+    },
+    {
+      "eventID": "urn:uuid:10000000-0000-4000-8000-000000000004",
+      "type": "ObjectEvent",
+      "eventTime": "2026-10-21T12:40:00+02:00",
+      "eventTimeZoneOffset": "+02:00",
+      "epcList": [
+        "urn:epc:id:sgtin:0614141.107346.2017"
+      ],
+      "action": "OBSERVE",
+      "bizStep": "https://ref.gs1.org/cbv/BizStep-accepting",
+      "disposition": "https://ref.gs1.org/cbv/Disp-active",
+      "readPoint": {
+        "id": "urn:epc:id:sgln:0614141.54321.402"
+      },
+      "bizLocation": {
+        "id": "urn:epc:id:sgln:0614141.54321.0"
+      }
+    }
+  ],
+  "projection_policy_id": "mycelix-epcis-loss-aware-v1",
+  "mappings": [
+    {
+      "source_event_id": "urn:uuid:10000000-0000-4000-8000-000000000001",
+      "source_biz_step": "shipping",
+      "mycelix_claim_type": "shipment_process_asserted",
+      "qualification_disposition": "source_assertion_only",
+      "non_equivalences": [
+        "physical_delivery_verified",
+        "product_authenticity_verified",
+        "regulatory_compliance"
+      ]
+    },
+    {
+      "source_event_id": "urn:uuid:10000000-0000-4000-8000-000000000002",
+      "source_biz_step": "arriving",
+      "mycelix_claim_type": "arrival_observed",
+      "qualification_disposition": "source_assertion_only",
+      "non_equivalences": [
+        "receiving_event_recorded",
+        "acceptance_of_possession_or_ownership",
+        "physical_delivery_verified"
+      ]
+    },
+    {
+      "source_event_id": "urn:uuid:10000000-0000-4000-8000-000000000003",
+      "source_biz_step": "receiving",
+      "mycelix_claim_type": "receiving_event_recorded",
+      "qualification_disposition": "source_assertion_only",
+      "non_equivalences": [
+        "acceptance_of_possession_or_ownership",
+        "legal_title_verified",
+        "physical_delivery_verified"
+      ]
+    },
+    {
+      "source_event_id": "urn:uuid:10000000-0000-4000-8000-000000000004",
+      "source_biz_step": "accepting",
+      "mycelix_claim_type": "possession_or_ownership_change_asserted",
+      "qualification_disposition": "source_assertion_only",
+      "non_equivalences": [
+        "legal_title_verified",
+        "physical_delivery_verified",
+        "product_authenticity_verified"
+      ]
+    }
+  ],
+  "nonclaims": [
+    "This is a synthetic EPCIS/CBV-shaped event-fragment fixture, not a complete EPCISDocument and is not yet validated against the normative GS1 XSD, JSON Schema, or SHACL artefacts.",
+    "The fixture's event records and transitions are not observations of a real shipment.",
+    "A source shipment, arrival, receiving, or accepting event does not by itself prove physical delivery, product authenticity, legal title, regulatory compliance, or real-world efficacy.",
+    "The version pins do not imply GS1 endorsement, Mycelix conformance, or an existing vendor integration."
+  ]
+}
