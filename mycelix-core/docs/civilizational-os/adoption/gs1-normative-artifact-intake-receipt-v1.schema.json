@@ -1,0 +1,362 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/Luminous-Dynamics/mycelix/blob/main/mycelix-core/docs/civilizational-os/adoption/gs1-normative-artifact-intake-receipt-v1.schema.json",
+  "title": "GS1 normative artifact intake receipt v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "receipt_id",
+    "profile_id",
+    "source_manifest_sha256",
+    "recorded_at_utc",
+    "receipt_state",
+    "runtime_access_state",
+    "claim_ceiling",
+    "artifacts",
+    "nonclaims"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "1.0.0"
+    },
+    "receipt_id": {
+      "type": "string",
+      "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+    },
+    "profile_id": {
+      "const": "gs1-epcis-cbv"
+    },
+    "source_manifest_sha256": {
+      "type": "string",
+      "const": "d96381be7a7bbfdd6cafb6286834a575268a1f5b423a5e1345d8d1af4c3156e6"
+    },
+    "recorded_at_utc": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "receipt_state": {
+      "enum": [
+        "incomplete",
+        "complete"
+      ]
+    },
+    "runtime_access_state": {
+      "enum": [
+        "network_unavailable",
+        "tool_could_not_fetch_raw_artifact",
+        "network_available"
+      ]
+    },
+    "claim_ceiling": {
+      "const": "ArtifactIntakeReceiptOnly"
+    },
+    "artifacts": {
+      "type": "array",
+      "minItems": 4,
+      "maxItems": 4,
+      "items": {
+        "$ref": "#/$defs/artifact"
+      }
+    },
+    "nonclaims": {
+      "type": "array",
+      "minItems": 3,
+      "maxItems": 20,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "minLength": 10,
+        "maxLength": 500
+      }
+    }
+  },
+  "$defs": {
+    "sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "artifact": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "artifact_id",
+        "artifact_kind",
+        "requested_url",
+        "source_revision",
+        "fetch_state",
+        "attempted_at_utc",
+        "http_status",
+        "final_url",
+        "media_type",
+        "byte_length",
+        "content_sha256",
+        "artifact_path",
+        "failure_class",
+        "notes"
+      ],
+      "properties": {
+        "artifact_id": {
+          "enum": [
+            "gs1-epcis-2-0-1-context",
+            "gs1-epcis-2-0-1-json-schema",
+            "gs1-epcis-2-0-1-shacl",
+            "gs1-cbv-2-0-0-ontology-jsonld"
+          ]
+        },
+        "artifact_kind": {
+          "enum": [
+            "jsonld_context",
+            "json_schema_draft07",
+            "shacl_shapes",
+            "cbv_ontology_jsonld"
+          ]
+        },
+        "requested_url": {
+          "enum": [
+            "https://ref.gs1.org/standards/epcis/2.0.1/artefacts/epcis-context.jsonld",
+            "https://ref.gs1.org/standards/epcis/2.0.1/artefacts/epcis-json-schema.json",
+            "https://ref.gs1.org/standards/epcis/2.0.1/artefacts/epcis-shacl.ttl",
+            "https://ref.gs1.org/standards/epcis/2.0.1/artefacts/cbv-ontology.jsonld"
+          ]
+        },
+        "source_revision": {
+          "type": "string",
+          "minLength": 3,
+          "maxLength": 240
+        },
+        "fetch_state": {
+          "enum": [
+            "fetched_and_hashed",
+            "not_fetched",
+            "fetch_failed"
+          ]
+        },
+        "attempted_at_utc": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "date-time"
+        },
+        "http_status": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 100,
+          "maximum": 599
+        },
+        "final_url": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "uri"
+        },
+        "media_type": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "minLength": 3,
+          "maxLength": 200
+        },
+        "byte_length": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 1
+        },
+        "content_sha256": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "artifact_path": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "pattern": "^source-artifacts/[a-z0-9][a-z0-9._-]{1,180}$"
+        },
+        "failure_class": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "enum": [
+            "network_unavailable",
+            "tool_could_not_fetch_raw_artifact",
+            "http_error",
+            "unexpected_redirect",
+            "unexpected_media_type",
+            "rights_or_terms_blocked",
+            "not_attempted",
+            null
+          ]
+        },
+        "notes": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 10,
+          "items": {
+            "type": "string",
+            "minLength": 10,
+            "maxLength": 500
+          }
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "fetch_state": {
+                "const": "fetched_and_hashed"
+              }
+            },
+            "required": [
+              "fetch_state"
+            ]
+          },
+          "then": {
+            "properties": {
+              "attempted_at_utc": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "http_status": {
+                "const": 200
+              },
+              "final_url": {
+                "type": "string",
+                "format": "uri"
+              },
+              "media_type": {
+                "type": "string",
+                "minLength": 3
+              },
+              "byte_length": {
+                "type": "integer",
+                "minimum": 1
+              },
+              "content_sha256": {
+                "$ref": "#/$defs/sha256"
+              },
+              "artifact_path": {
+                "type": "string",
+                "pattern": "^source-artifacts/[a-z0-9][a-z0-9._-]{1,180}$"
+              },
+              "failure_class": {
+                "const": null
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "fetch_state": {
+                "const": "not_fetched"
+              }
+            },
+            "required": [
+              "fetch_state"
+            ]
+          },
+          "then": {
+            "properties": {
+              "http_status": {
+                "const": null
+              },
+              "final_url": {
+                "const": null
+              },
+              "media_type": {
+                "const": null
+              },
+              "byte_length": {
+                "const": null
+              },
+              "content_sha256": {
+                "const": null
+              },
+              "artifact_path": {
+                "const": null
+              },
+              "failure_class": {
+                "enum": [
+                  "network_unavailable",
+                  "tool_could_not_fetch_raw_artifact",
+                  "not_attempted"
+                ]
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "fetch_state": {
+                "const": "fetch_failed"
+              }
+            },
+            "required": [
+              "fetch_state"
+            ]
+          },
+          "then": {
+            "properties": {
+              "content_sha256": {
+                "const": null
+              },
+              "artifact_path": {
+                "const": null
+              },
+              "failure_class": {
+                "enum": [
+                  "network_unavailable",
+                  "tool_could_not_fetch_raw_artifact",
+                  "http_error",
+                  "unexpected_redirect",
+                  "unexpected_media_type",
+                  "rights_or_terms_blocked"
+                ]
+              }
+            }
+          }
+        }
+      ]
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "receipt_state": {
+            "const": "complete"
+          }
+        },
+        "required": [
+          "receipt_state"
+        ]
+      },
+      "then": {
+        "properties": {
+          "artifacts": {
+            "items": {
+              "properties": {
+                "fetch_state": {
+                  "const": "fetched_and_hashed"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  ]
+}
