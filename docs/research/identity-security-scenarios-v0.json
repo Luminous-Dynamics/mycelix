@@ -1,0 +1,711 @@
+{
+  "title": "Mycelix Personal Identity Security Qualification Corpus",
+  "schema_version": "0.1.0",
+  "status": "specification_only_not_executed",
+  "created_utc": "2026-10-20",
+  "purpose": "Synthetic adversarial test contract for protected identity create/restore/protect/unlock/rotate/bootstrap and planned WebAuthn PRF experimentation.",
+  "rules": [
+    "A specified scenario is not an executed test.",
+    "Every result must bind to the exact source SHA and named browser/runtime.",
+    "Unknown, unavailable, legacy, corrupt or contradictory state must never collapse to NoIdentity.",
+    "A valid storage write is not success until read-back and postcondition checks pass.",
+    "No scenario may use or disclose real user secrets; receipt payloads must be non-secret."
+  ],
+  "current_implementation_coverage": {
+    "native_storage_posture_classifier": "implemented_tests_exist",
+    "shared_bootstrap_action_policy": "implemented_tests_exist",
+    "protected_create_restore_protect_unlock_rotate": "implementation_in_review",
+    "browser_security_tests": "authored_browser_tests_need_exact_head_execution",
+    "webauthn_prf": "future_research_only"
+  },
+  "scenarios": [
+    {
+      "id": "ID-001",
+      "slug": "protected-create-happy-path",
+      "precondition": "No identity; storage available",
+      "operation": "Create protected identity with a valid passphrase",
+      "expected": "Encrypted envelope and matching public key read back; no plaintext secret; session state is unlocked only after verification",
+      "layer": "browser",
+      "severity": "critical",
+      "execution_status": "specified_not_executed",
+      "evidence_required": [
+        "source_sha",
+        "test_case_id",
+        "result",
+        "non_secret_receipt_digest"
+      ]
+    },
+    {
+      "id": "ID-002",
+      "slug": "blank-passphrase",
+      "precondition": "No identity",
+      "operation": "Create with an empty or whitespace-only passphrase",
+      "expected": "No storage writes; no key cached; actionable validation error",
+      "layer": "browser",
+      "severity": "high",
+      "execution_status": "specified_not_executed",
+      "evidence_required": [
+        "source_sha",
+        "test_case_id",
+        "result",
+        "non_secret_receipt_digest"
+      ]
+    },
+    {
+      "id": "ID-003",
+      "slug": "storage-denied",
+      "precondition": "localStorage denied or unavailable",
+      "operation": "Inspect posture and attempt create",
+      "expected": "Posture is StorageUnavailable; no replacement key; no writes",
+      "layer": "browser",
+      "severity": "critical",
+      "execution_status": "specified_not_executed",
+      "evidence_required": [
+        "source_sha",
+        "test_case_id",
+        "result",
+        "non_secret_receipt_digest"
+      ]
+    },
+    {
+      "id": "ID-004",
+      "slug": "unknown-not-empty",
+      "precondition": "Storage read throws during initial snapshot",
+      "operation": "Inspect posture",
+      "expected": "StorageUnavailable, never NoIdentity",
+      "layer": "browser",
+      "severity": "critical",
+      "execution_status": "specified_not_executed",
+      "evidence_required": [
+        "source_sha",
+        "test_case_id",
+        "result",
+        "non_secret_receipt_digest"
+      ]
+    },
+    {
+      "id": "ID-005",
+      "slug": "legacy-label-present",
+      "precondition": "Only legacy DID label exists",
+      "operation": "Create or restore protected identity",
+      "expected": "Operation refused; legacy identifier retained; no key generated/persisted",
+      "layer": "browser",
+      "severity": "critical",
+      "execution_status": "specified_not_executed",
+      "evidence_required": [
+        "source_sha",
+        "test_case_id",
+        "result",
+        "non_secret_receipt_digest"
+      ]
+    },
+    {
+      "id": "ID-006",
+      "slug": "existing-plaintext-create",
+      "precondition": "Consistent plaintext keypair exists",
+      "operation": "Invoke protected creation API directly",
+      "expected": "Refused; original secret/public values remain unchanged; no envelope added",
+      "layer": "browser",
+      "severity": "critical",
+      "execution_status": "specified_not_executed",
+      "evidence_required": [
+        "source_sha",
+        "test_case_id",
+        "result",
+        "non_secret_receipt_digest"
+      ]
+    },
+    {
+      "id": "ID-007",
+      "slug": "existing-protected-create",
+      "precondition": "Valid protected envelope exists",
+      "operation": "Invoke protected creation API",
+      "expected": "Refused; prior identity and envelope remain unchanged",
+      "layer": "browser",
+      "severity": "critical",
+      "execution_status": "specified_not_executed",
+      "evidence_required": [
+        "source_sha",
+        "test_case_id",
+        "result",
+        "non_secret_receipt_digest"
+      ]
+    },
+    {
+      "id": "ID-008",
+      "slug": "restore-overwrite",
+      "precondition": "Any recognized identity already exists",
+      "operation": "Restore a different valid seed phrase",
+      "expected": "Refused; identity remains byte-for-byte equivalent at the stored-value level",
+      "layer": "browser",
+      "severity": "critical",
+      "execution_status": "specified_not_executed",
+      "evidence_required": [
+        "source_sha",
+        "test_case_id",
+        "result",
+        "non_secret_receipt_digest"
+      ]
+    },
+    {
+      "id": "ID-009",
+      "slug": "valid-mnemonic-restore",
+      "precondition": "Empty device; valid 24-word backup",
+      "operation": "Restore into protected storage",
+      "expected": "Restored public key matches phrase-derived key; only encrypted envelope plus public metadata persist",
+      "layer": "browser",
+      "severity": "critical",
+      "execution_status": "specified_not_executed",
+      "evidence_required": [
+        "source_sha",
+        "test_case_id",
+        "result",
+        "non_secret_receipt_digest"
+      ]
+    },
+    {
+      "id": "ID-010",
+      "slug": "bad-mnemonic-checksum",
+      "precondition": "Empty device; invalid phrase checksum",
+      "operation": "Restore backup",
+      "expected": "No writes and no unlocked cache",
+      "layer": "browser",
+      "severity": "high",
+      "execution_status": "specified_not_executed",
+      "evidence_required": [
+        "source_sha",
+        "test_case_id",
+        "result",
+        "non_secret_receipt_digest"
+      ]
+    },
+    {
+      "id": "ID-011",
+      "slug": "mnemonic-wrong-length",
+      "precondition": "Empty device; non-24-word phrase",
+      "operation": "Restore backup",
+      "expected": "Reject without writes, key generation or mutation",
+      "layer": "browser",
+      "severity": "high",
+      "execution_status": "specified_not_executed",
+      "evidence_required": [
+        "source_sha",
+        "test_case_id",
+        "result",
+        "non_secret_receipt_digest"
+      ]
+    },
+    {
+      "id": "ID-012",
+      "slug": "protect-existing-preserves-did",
+      "precondition": "Valid plaintext Ed25519 secret/public pair",
+      "operation": "Protect existing identity",
+      "expected": "Derived public key/DID stay identical; envelope verifies before plaintext removal",
+      "layer": "browser",
+      "severity": "critical",
+      "execution_status": "specified_not_executed",
+      "evidence_required": [
+        "source_sha",
+        "test_case_id",
+        "result",
+        "non_secret_receipt_digest"
+      ]
+    },
+    {
+      "id": "ID-013",
+      "slug": "protect-existing-mismatched-public",
+      "precondition": "Stored secret and public key disagree",
+      "operation": "Protect existing identity",
+      "expected": "Refuse before mutation; retain original material for recovery",
+      "layer": "browser",
+      "severity": "critical",
+      "execution_status": "specified_not_executed",
+      "evidence_required": [
+        "source_sha",
+        "test_case_id",
+        "result",
+        "non_secret_receipt_digest"
+      ]
+    },
+    {
+      "id": "ID-014",
+      "slug": "protection-removal-fails",
+      "precondition": "Storage denies plaintext-secret removal after envelope write",
+      "operation": "Protect existing identity",
+      "expected": "Do not report success; preserve at least one verified recovery path; record explicit partial-state outcome",
+      "layer": "browser-fault-injection",
+      "severity": "critical",
+      "execution_status": "specified_not_executed",
+      "evidence_required": [
+        "source_sha",
+        "test_case_id",
+        "result",
+        "non_secret_receipt_digest"
+      ]
+    },
+    {
+      "id": "ID-015",
+      "slug": "protection-readback-fails",
+      "precondition": "Storage read-back throws after writes",
+      "operation": "Protect existing identity",
+      "expected": "Do not report protected success; rollback is verified or leave encrypted recovery material and require manual inspection",
+      "layer": "browser-fault-injection",
+      "severity": "critical",
+      "execution_status": "specified_not_executed",
+      "evidence_required": [
+        "source_sha",
+        "test_case_id",
+        "result",
+        "non_secret_receipt_digest"
+      ]
+    },
+    {
+      "id": "ID-016",
+      "slug": "concurrent-tab-create",
+      "precondition": "Two tabs begin creation from empty state",
+      "operation": "Both encrypt asynchronously, then race to persist",
+      "expected": "At most one identity succeeds; no accepted operation silently overwrites another key",
+      "layer": "multi-tab",
+      "severity": "critical",
+      "execution_status": "specified_not_executed",
+      "evidence_required": [
+        "source_sha",
+        "test_case_id",
+        "result",
+        "non_secret_receipt_digest"
+      ]
+    },
+    {
+      "id": "ID-017",
+      "slug": "concurrent-tab-protect",
+      "precondition": "Storage changes while protection awaits WebCrypto",
+      "operation": "Continue in-place protection",
+      "expected": "Pre-write recheck detects changed key/state; no mismatched envelope activated",
+      "layer": "multi-tab",
+      "severity": "critical",
+      "execution_status": "specified_not_executed",
+      "evidence_required": [
+        "source_sha",
+        "test_case_id",
+        "result",
+        "non_secret_receipt_digest"
+      ]
+    },
+    {
+      "id": "ID-018",
+      "slug": "correct-passphrase-unlock",
+      "precondition": "Valid envelope and matching public key",
+      "operation": "Unlock with correct passphrase",
+      "expected": "Correct key cached only after derived public key matches stored metadata",
+      "layer": "browser",
+      "severity": "critical",
+      "execution_status": "specified_not_executed",
+      "evidence_required": [
+        "source_sha",
+        "test_case_id",
+        "result",
+        "non_secret_receipt_digest"
+      ]
+    },
+    {
+      "id": "ID-019",
+      "slug": "wrong-passphrase",
+      "precondition": "Valid envelope",
+      "operation": "Unlock with wrong passphrase",
+      "expected": "Failure; no decrypted key cached; posture remains protected/locked",
+      "layer": "browser",
+      "severity": "critical",
+      "execution_status": "specified_not_executed",
+      "evidence_required": [
+        "source_sha",
+        "test_case_id",
+        "result",
+        "non_secret_receipt_digest"
+      ]
+    },
+    {
+      "id": "ID-020",
+      "slug": "cache-cleared-before-failure",
+      "precondition": "Previous in-memory key exists; next unlock fails",
+      "operation": "Attempt unlock with wrong passphrase",
+      "expected": "Old cache is cleared before failure; stale key is not left active",
+      "layer": "browser",
+      "severity": "critical",
+      "execution_status": "specified_not_executed",
+      "evidence_required": [
+        "source_sha",
+        "test_case_id",
+        "result",
+        "non_secret_receipt_digest"
+      ]
+    },
+    {
+      "id": "ID-021",
+      "slug": "tampered-ciphertext",
+      "precondition": "Ciphertext/tag altered",
+      "operation": "Unlock",
+      "expected": "Authenticated decrypt fails; no cache; no plaintext recovery guess",
+      "layer": "browser",
+      "severity": "critical",
+      "execution_status": "specified_not_executed",
+      "evidence_required": [
+        "source_sha",
+        "test_case_id",
+        "result",
+        "non_secret_receipt_digest"
+      ]
+    },
+    {
+      "id": "ID-022",
+      "slug": "tampered-public-metadata",
+      "precondition": "Envelope valid; public-key metadata changed",
+      "operation": "Unlock",
+      "expected": "Reject after decrypt/public derivation mismatch; no key cached",
+      "layer": "browser",
+      "severity": "critical",
+      "execution_status": "specified_not_executed",
+      "evidence_required": [
+        "source_sha",
+        "test_case_id",
+        "result",
+        "non_secret_receipt_digest"
+      ]
+    },
+    {
+      "id": "ID-023",
+      "slug": "missing-public-metadata",
+      "precondition": "Envelope valid; public-key metadata absent",
+      "operation": "Unlock",
+      "expected": "Reject; no cache and no regenerated public identity",
+      "layer": "browser",
+      "severity": "critical",
+      "execution_status": "specified_not_executed",
+      "evidence_required": [
+        "source_sha",
+        "test_case_id",
+        "result",
+        "non_secret_receipt_digest"
+      ]
+    },
+    {
+      "id": "ID-024",
+      "slug": "malformed-salt",
+      "precondition": "Encrypted envelope salt has invalid length",
+      "operation": "Inspect and unlock",
+      "expected": "CorruptOrInconsistent; no implicit repair or replacement",
+      "layer": "unit+browser",
+      "severity": "high",
+      "execution_status": "specified_not_executed",
+      "evidence_required": [
+        "source_sha",
+        "test_case_id",
+        "result",
+        "non_secret_receipt_digest"
+      ]
+    },
+    {
+      "id": "ID-025",
+      "slug": "malformed-iv",
+      "precondition": "Encrypted envelope IV has invalid length",
+      "operation": "Inspect and unlock",
+      "expected": "CorruptOrInconsistent; no cache",
+      "layer": "unit+browser",
+      "severity": "high",
+      "execution_status": "specified_not_executed",
+      "evidence_required": [
+        "source_sha",
+        "test_case_id",
+        "result",
+        "non_secret_receipt_digest"
+      ]
+    },
+    {
+      "id": "ID-026",
+      "slug": "wrong-ciphertext-length",
+      "precondition": "Encrypted key envelope ciphertext is not the expected 48 bytes",
+      "operation": "Inspect",
+      "expected": "CorruptOrInconsistent; no cache or mutation",
+      "layer": "unit",
+      "severity": "high",
+      "execution_status": "specified_not_executed",
+      "evidence_required": [
+        "source_sha",
+        "test_case_id",
+        "result",
+        "non_secret_receipt_digest"
+      ]
+    },
+    {
+      "id": "ID-027",
+      "slug": "plaintext-and-envelope",
+      "precondition": "Both plaintext secret and protected envelope exist",
+      "operation": "Inspect and unlock",
+      "expected": "CorruptOrInconsistent; no implicit preference for either copy",
+      "layer": "unit+browser",
+      "severity": "critical",
+      "execution_status": "specified_not_executed",
+      "evidence_required": [
+        "source_sha",
+        "test_case_id",
+        "result",
+        "non_secret_receipt_digest"
+      ]
+    },
+    {
+      "id": "ID-028",
+      "slug": "public-key-only",
+      "precondition": "Public key exists without private/encrypted material",
+      "operation": "Inspect and bootstrap",
+      "expected": "CorruptOrInconsistent; do not mint replacement",
+      "layer": "unit",
+      "severity": "critical",
+      "execution_status": "specified_not_executed",
+      "evidence_required": [
+        "source_sha",
+        "test_case_id",
+        "result",
+        "non_secret_receipt_digest"
+      ]
+    },
+    {
+      "id": "ID-029",
+      "slug": "secret-only",
+      "precondition": "Plaintext secret exists without public key",
+      "operation": "Inspect and bootstrap",
+      "expected": "CorruptOrInconsistent; do not infer a new DID",
+      "layer": "unit",
+      "severity": "critical",
+      "execution_status": "specified_not_executed",
+      "evidence_required": [
+        "source_sha",
+        "test_case_id",
+        "result",
+        "non_secret_receipt_digest"
+      ]
+    },
+    {
+      "id": "ID-030",
+      "slug": "passphrase-rotation-success",
+      "precondition": "Protected identity is unlocked",
+      "operation": "Rotate passphrase",
+      "expected": "Same DID/public key; new passphrase works; old passphrase fails; no plaintext stored",
+      "layer": "browser",
+      "severity": "critical",
+      "execution_status": "specified_not_executed",
+      "evidence_required": [
+        "source_sha",
+        "test_case_id",
+        "result",
+        "non_secret_receipt_digest"
+      ]
+    },
+    {
+      "id": "ID-031",
+      "slug": "rotation-setitem-error",
+      "precondition": "Storage write for new envelope errors",
+      "operation": "Rotate passphrase",
+      "expected": "Previous envelope remains active or is restored and read-back verified; operation never reports success",
+      "layer": "browser-fault-injection",
+      "severity": "critical",
+      "execution_status": "specified_not_executed",
+      "evidence_required": [
+        "source_sha",
+        "test_case_id",
+        "result",
+        "non_secret_receipt_digest"
+      ]
+    },
+    {
+      "id": "ID-032",
+      "slug": "rotation-readback-error",
+      "precondition": "New envelope write returns but read-back fails",
+      "operation": "Rotate passphrase",
+      "expected": "Previous envelope restored and verified where possible; otherwise explicit inspect-required error",
+      "layer": "browser-fault-injection",
+      "severity": "critical",
+      "execution_status": "specified_not_executed",
+      "evidence_required": [
+        "source_sha",
+        "test_case_id",
+        "result",
+        "non_secret_receipt_digest"
+      ]
+    },
+    {
+      "id": "ID-033",
+      "slug": "rotation-lost-old-envelope",
+      "precondition": "Simulated interrupted rotation/ambiguous storage state",
+      "operation": "Inspect after reload",
+      "expected": "Unknown/inconsistent state is surfaced; no automatic key or envelope replacement",
+      "layer": "browser-fault-injection",
+      "severity": "critical",
+      "execution_status": "specified_not_executed",
+      "evidence_required": [
+        "source_sha",
+        "test_case_id",
+        "result",
+        "non_secret_receipt_digest"
+      ]
+    },
+    {
+      "id": "ID-034",
+      "slug": "bootstrap-route-gate",
+      "precondition": "Posture is NoIdentity/Locked/Corrupt/Unavailable",
+      "operation": "Attempt to mount Personal identity-dependent routes",
+      "expected": "Only ProtectedUnlockedInSession mounts the ready app; all other states remain gated",
+      "layer": "browser",
+      "severity": "critical",
+      "execution_status": "specified_not_executed",
+      "evidence_required": [
+        "source_sha",
+        "test_case_id",
+        "result",
+        "non_secret_receipt_digest"
+      ]
+    },
+    {
+      "id": "ID-035",
+      "slug": "shared-action-policy",
+      "precondition": "Each posture enum variant supplied to policy",
+      "operation": "Query allowed actions",
+      "expected": "Only explicit actions allowed for each posture; legacy/unavailable/corrupt yield no mutation action",
+      "layer": "unit",
+      "severity": "critical",
+      "execution_status": "specified_not_executed",
+      "evidence_required": [
+        "source_sha",
+        "test_case_id",
+        "result",
+        "non_secret_receipt_digest"
+      ]
+    },
+    {
+      "id": "ID-036",
+      "slug": "secret-not-telemetry",
+      "precondition": "Create, restore, protect, unlock and rotation run with telemetry enabled",
+      "operation": "Inspect logs/events/error payloads/URL",
+      "expected": "No passphrase, phrase, raw private seed, PRF output or decrypted buffer is emitted",
+      "layer": "integration",
+      "severity": "critical",
+      "execution_status": "specified_not_executed",
+      "evidence_required": [
+        "source_sha",
+        "test_case_id",
+        "result",
+        "non_secret_receipt_digest"
+      ]
+    },
+    {
+      "id": "ID-037",
+      "slug": "challenge-replay-future-webauthn",
+      "precondition": "Experimental WebAuthn unlock has a recorded challenge",
+      "operation": "Replay the same challenge/assertion",
+      "expected": "Verifier rejects replay; no wrapping key released",
+      "layer": "future-webauthn",
+      "severity": "critical",
+      "execution_status": "specified_not_executed",
+      "evidence_required": [
+        "source_sha",
+        "test_case_id",
+        "result",
+        "non_secret_receipt_digest"
+      ]
+    },
+    {
+      "id": "ID-038",
+      "slug": "wrong-origin-rp-future-webauthn",
+      "precondition": "Experimental WebAuthn unlock receives assertion from wrong origin/RP",
+      "operation": "Verify assertion",
+      "expected": "Reject wrong origin/RP ID hash and do not evaluate/accept a detached PRF result",
+      "layer": "future-webauthn",
+      "severity": "critical",
+      "execution_status": "specified_not_executed",
+      "evidence_required": [
+        "source_sha",
+        "test_case_id",
+        "result",
+        "non_secret_receipt_digest"
+      ]
+    },
+    {
+      "id": "ID-039",
+      "slug": "prf-unavailable-fallback",
+      "precondition": "Authenticator/browser does not support PRF extension",
+      "operation": "Start passkey setup/unlock",
+      "expected": "Explicit Unsupported result and user-approved passphrase/offline recovery fallback; no silent downgrade",
+      "layer": "future-webauthn",
+      "severity": "high",
+      "execution_status": "specified_not_executed",
+      "evidence_required": [
+        "source_sha",
+        "test_case_id",
+        "result",
+        "non_secret_receipt_digest"
+      ]
+    },
+    {
+      "id": "ID-040",
+      "slug": "webauthn-cancelled",
+      "precondition": "User cancels authenticator ceremony",
+      "operation": "Unlock",
+      "expected": "No key cache or state mutation; cancellation is not success",
+      "layer": "future-webauthn",
+      "severity": "high",
+      "execution_status": "specified_not_executed",
+      "evidence_required": [
+        "source_sha",
+        "test_case_id",
+        "result",
+        "non_secret_receipt_digest"
+      ]
+    },
+    {
+      "id": "ID-041",
+      "slug": "synced-passkey-claim",
+      "precondition": "Authenticator supports passkey but may sync it",
+      "operation": "Present capability/status to user",
+      "expected": "Product does not claim device-bound/hardware-bound assurance without evidence",
+      "layer": "future-webauthn",
+      "severity": "high",
+      "execution_status": "specified_not_executed",
+      "evidence_required": [
+        "source_sha",
+        "test_case_id",
+        "result",
+        "non_secret_receipt_digest"
+      ]
+    },
+    {
+      "id": "ID-042",
+      "slug": "cross-origin-storage-collision",
+      "precondition": "Another app shares the same origin and accesses localStorage",
+      "operation": "Security review/test packaging boundary",
+      "expected": "Threat model acknowledges same-origin access; product separation uses distinct origin where needed; no false origin isolation claim",
+      "layer": "integration",
+      "severity": "high",
+      "execution_status": "specified_not_executed",
+      "evidence_required": [
+        "source_sha",
+        "test_case_id",
+        "result",
+        "non_secret_receipt_digest"
+      ]
+    },
+    {
+      "id": "ID-043",
+      "slug": "cross-app-ready-tree-gate",
+      "precondition": "Finance, Climate, and Personal startup with each possible local identity posture, including empty, unprotected, protected-locked, legacy, corrupt, and unavailable",
+      "operation": "Mount each app shell and observe ready-tree rendering, identity-provider invocation, and any identity-dependent context or local_did access",
+      "expected": "Only ProtectedUnlockedInSession permits the normal ready subtree and identity provider to mount; all other postures remain behind the shared bootstrap UI without implicit replacement",
+      "layer": "integration",
+      "severity": "critical",
+      "execution_status": "specified_not_executed",
+      "evidence_required": [
+        "source_sha",
+        "test_case_id",
+        "result",
+        "non_secret_receipt_digest"
+      ]
+    }
+  ]
+}
