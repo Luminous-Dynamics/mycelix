@@ -29,7 +29,10 @@ fn fixture(
     let accounts = (0..candidates)
         .map(|index| BatchAccount {
             participant_id: format!("P{index:02}"),
-            balance_minor: 0,
+            // Every subset remains balance-feasible: each participant has enough
+            // initial liquidity for its one outgoing order, so all 2^n subsets incur
+            // the full objective evaluation instead of early rejection on liquidity.
+            balance_minor: 100,
         })
         .collect::<Vec<_>>();
     let routes = (0..candidates)
@@ -86,7 +89,7 @@ fn main() {
         for _ in 0..REPETITIONS {
             let start = Instant::now();
             let plan = select_atomic_batch(&context, &accounts, &routes, &payments)
-                .expect("synthetic atomic-cycle fixture must be valid");
+                .expect("synthetic dense-feasible fixture must be valid");
             timings.push(start.elapsed().as_nanos());
             final_plan = Some(plan);
         }
