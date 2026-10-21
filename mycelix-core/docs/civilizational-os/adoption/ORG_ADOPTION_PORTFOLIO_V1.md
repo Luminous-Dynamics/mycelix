@@ -142,13 +142,13 @@ A small reference run was performed with Node v22.16.0 in a Linux x86_64 contain
 
 | Synthetic events | Bundle bytes | Median wall time | Maximum of 5 runs |
 |---:|---:|---:|---:|
-| 1,000 | 387,045 | 50.5 ms | 58.9 ms |
-| 10,000 | 3,822,798 | 150.4 ms | 161.2 ms |
-| 50,000 | 19,132,798 | 607.5 ms | 769.8 ms |
+| 1,000 | 387,045 | 60.66 ms | 66.35 ms |
+| 10,000 | 3,822,798 | 145.76 ms | 156.76 ms |
+| 50,000 | 19,132,798 | 669.98 ms | 846.89 ms |
 
-At 50,000 events, one `--self-test` run including the 12 mutation variants took 8.52 s. The five-run maximum is **not a statistically reliable p95**; these values are a reproducible starting point, not a vendor/SOTA comparison. The source-content digest scan was changed to use indexed event IDs rather than repeated list scans before these fast-lane measurements.
+At 50,000 events, one `--self-test` run including the 12 mutation variants took 8.52 s. The five-run maximum is **not a statistically reliable p95**; these values are a reproducible starting point, not a vendor/SOTA comparison. The companion harness reproduced medians of 60.66 ms, 145.76 ms and 669.98 ms, respectively, for the recorded verifier/input generation. The source-content digest scan was changed to use indexed event IDs rather than repeated list scans before these fast-lane measurements.
 
-Proposed regression ceilings for this same harness/host are ≤80 ms at 1,000 events, ≤220 ms at 10,000, and ≤850 ms at 50,000 for cross-invariant-only mode; ≤10 s for a 50,000-event `--self-test` run. These are provisional local regression gates, not universal performance claims. Re-run at least 30 trials for percentile claims, pin the CPU/memory and runtime conditions, and compare against an independently implemented baseline before describing the system as faster than a competitor.
+Proposed regression ceilings for this same harness/host are ≤90 ms at 1,000 events, ≤220 ms at 10,000, and ≤950 ms at 50,000 for cross-invariant-only mode; ≤10 s for a 50,000-event `--self-test` run. These are provisional local regression gates, not universal performance claims. Re-run at least 30 trials for percentile claims, pin the CPU/memory and runtime conditions, and compare against an independently implemented baseline before describing the system as faster than a competitor.
 
 Suggested scale gates are *targets to measure, not achieved results*: first prove the synthetic 4-event reference fixture; then 1,000, 10,000 and 50,000-event corpora with increasing event-type and source diversity. The v1 bundle schema caps one manifest at 50,000 events; larger corpora require explicit chunking/streaming semantics before raising that bound. Hold exactness and claim ceilings constant while measuring scale. The reference fixture's five controls and 12 mutation cases do not by themselves demonstrate industrial readiness or SOTA performance.
 
