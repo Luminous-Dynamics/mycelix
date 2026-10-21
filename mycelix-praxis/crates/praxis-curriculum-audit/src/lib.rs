@@ -70,6 +70,7 @@ struct AuditReport {
     active_nodes_missing_lessons: usize,
     orphan_manifest_node_ids: Vec<String>,
     groups: Vec<CoverageGroup>,
+    input_digest_blake3: String,
 }
 
 #[derive(Debug)]
@@ -207,6 +208,123 @@ fn load_manifest(workspace: &Path, errors: &mut Vec<String>) -> BTreeMap<String,
         }
     }
     result
+}
+
+
+fn add_digest_file(
+    workspace: &Path,
+    path: &Path,
+    inputs: &mut BTreeMap<String, Vec<u8>>,
+    errors: &mut Vec<String>,
+) {
+    let canonical = match path.canonicalize() {
+        Ok(path) => path,
+        Err(error) => {
+            errors.push(format!("cannot resolve digest input {}: {error}", path.display()));
+            return;
+        }
+    };
+    if !canonical.starts_with(workspace) {
+        errors.push(format!("digest input escapes workspace root: {}", path.display()));
+        return;
+    }
+    let relative = match canonical.strip_prefix(workspace) {
+        Ok(path) => path.to_string_lossy().replace('\\', "/"),
+        Err(error) => {
+            errors.push(format!("cannot make digest path relative: {error}"));
+            return;
+        }
+    };
+    match fs::read(&canonical) {
+        Ok(bytes) => {
+            inputs.insert(relative, bytes);
+        }
+        Err(error) => errors.push(format!("cannot read digest input {}: {error}", canonical.display())),
+    }
+}
+
+fn collect_json_inputs(
+    workspace: &Path,
+    directory: &Path,
+    inputs: &mut BTreeMap<String, Vec<u8>>,
+    errors: &mut Vec<String>,
+) {
+    let entries = match fs::read_dir(directory) {
+        Ok(entries) => entries,
+        Err(error) => {
+            errors.push(format!("cannot read generated lesson directory {}: {error}", directory.display()));
+            return;
+        }
+    };
+    for entry in entries {
+        let entry = match entry {
+            Ok(entry) => entry,
+            Err(error) => {
+                errors.push(format!("cannot enumerate {}: {error}", directory.display()));
+                continue;
+            }
+        };
+        let path = entry.path();
+        let kind = match entry.file_type() {
+            Ok(kind) => kind,
+            Err(error) => {
+                errors.push(format!("cannot inspect {}: {error}", path.display()));
+                continue;
+            }
+        };
+        if kind.is_dir() {
+            collect_json_inputs(workspace, &path, inputs, errors);
+        } else if kind.is_symlink() {
+            errors.push(format!("symlinks are not accepted in generated lesson inputs: {}", path.display()));
+        } else if kind.is_file() && path.extension().and_then(|ext| ext.to_str()) == Some("json") {
+            add_digest_file(workspace, &path, inputs, errors);
+        }
+    }
+}
+
+fn hash_named_inputs(inputs: &BTreeMap<String, Vec<u8>>) -> String {
+    let mut hasher = blake3::Hasher::new();
+    for (path, bytes) in inputs {
+        hasher.update(&(path.len() as u64).to_le_bytes());
+        hasher.update(path.as_bytes());
+        hasher.update(&(bytes.len() as u64).to_le_bytes());
+        hasher.update(bytes);
+    }
+    hasher.finalize().to_hex().to_string()
+}
+
+fn compute_input_digest(
+    workspace: &Path,
+    documents: &[(PathBuf, Value)],
+    errors: &mut Vec<String>,
+) -> Option<String> {
+    let mut inputs = BTreeMap::new();
+    add_digest_file(
+        workspace,
+        &workspace.join("apps/leptos/src/curriculum.rs"),
+        &mut inputs,
+        errors,
+    );
+    add_digest_file(
+        workspace,
+        &workspace.join("apps/leptos/static/content-manifest.json"),
+        &mut inputs,
+        errors,
+    );
+    for (path, _) in documents {
+        add_digest_file(workspace, path, &mut inputs, errors);
+    }
+    collect_json_inputs(
+        workspace,
+        &workspace.join("examples/curriculum/caps/generated"),
+        &mut inputs,
+        errors,
+    );
+    if errors.is_empty() {
+        Some(hash_named_inputs(&inputs))
+    } else {
+        None
+    }
 }
 
 fn analyze(
@@ -378,6 +496,7 @@ fn analyze(
         active_nodes_missing_lessons: active_missing_lessons,
         orphan_manifest_node_ids: orphan_ids,
         groups,
+        input_digest_blake3: String::new(),
     }
 }
 
@@ -385,6 +504,7 @@ fn markdown(report: &AuditReport) -> String {
     let mut out = String::new();
     out.push_str("# Praxis curriculum coverage audit\n\n");
     out.push_str("> Coverage is not proof of lesson quality, learning efficacy, or accreditation. Counts use the active embedded graph and checked-in content manifest.\n\n");
+    out.push_str(&format!("Input digest (BLAKE3): {}\n\n", report.input_digest_blake3));
     out.push_str("| Metric | Count |\n|---|---:|\n");
     out.push_str(&format!("| Active curriculum documents | {} |\n", report.active_document_count));
     out.push_str(&format!("| Active nodes | {} |\n", report.active_node_count));
@@ -416,11 +536,12 @@ fn markdown(report: &AuditReport) -> String {
 }
 
 fn workspace_root() -> Result<PathBuf, String> {
-    PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+    let path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
         .ancestors()
         .nth(2)
         .map(Path::to_path_buf)
-        .ok_or_else(|| "cannot locate mycelix-praxis workspace root from CARGO_MANIFEST_DIR".to_owned())
+        .ok_or_else(|| "cannot locate mycelix-praxis workspace root from CARGO_MANIFEST_DIR".to_owned())?;
+    path.canonicalize().map_err(|error| format!("cannot canonicalize workspace root: {error}"))
 }
 
 fn run() -> Result<(), AuditFailure> {
@@ -443,7 +564,11 @@ fn run() -> Result<(), AuditFailure> {
     let mut errors = Vec::new();
     let documents = active_documents(&workspace, &mut errors);
     let manifest = load_manifest(&workspace, &mut errors);
-    let report = analyze(&documents, &manifest, &mut errors);
+    let input_digest = compute_input_digest(&workspace, &documents, &mut errors);
+    let mut report = analyze(&documents, &manifest, &mut errors);
+    if let Some(digest) = input_digest {
+        report.input_digest_blake3 = digest;
+    }
     if !errors.is_empty() {
         for error in &errors { eprintln!("curriculum audit error: {error}"); }
         return Err(AuditFailure(errors));
@@ -543,6 +668,22 @@ mod tests {
         let mut errors = Vec::new();
         let _ = analyze(&docs, &BTreeMap::new(), &mut errors);
         assert!(errors.iter().any(|error| error.contains("dangling edge")));
+    }
+
+    #[test]
+    fn digest_changes_with_path_or_content_and_is_order_stable() {
+        let mut first = BTreeMap::new();
+        first.insert("a.json".to_owned(), b"content-a".to_vec());
+        first.insert("b.json".to_owned(), b"content-b".to_vec());
+
+        let mut same_inputs_reverse_insert = BTreeMap::new();
+        same_inputs_reverse_insert.insert("b.json".to_owned(), b"content-b".to_vec());
+        same_inputs_reverse_insert.insert("a.json".to_owned(), b"content-a".to_vec());
+        assert_eq!(hash_named_inputs(&first), hash_named_inputs(&same_inputs_reverse_insert));
+
+        let mut changed_content = first.clone();
+        changed_content.insert("a.json".to_owned(), b"tampered".to_vec());
+        assert_ne!(hash_named_inputs(&first), hash_named_inputs(&changed_content));
     }
 
     #[test]
