@@ -11,6 +11,7 @@ This is a **simulation and allocation proposal**, not a loan executor, a payment
 - A provider may offer only liquidity above their own reserve.
 - A receiver may bid only for the shortfall between their current liquidity and required reserve.
 - Offers state an integer minimum compensation price per minor unit; bids state a maximum. Wrong-profile observations are preserved as excluded records.
+- This first version accepts at most one eligible offer and one eligible bid per participant; duplicate participant tranches fail closed. Multi-tier offer curves are a future model extension.
 - Exact duplicate observations with the same canonical offer/bid ID are deduplicated; changed terms under the same ID fail closed.
 - Offers sort by ask ascending and stable participant/offer ID tie-break; bids sort by maximum willingness to pay descending and stable participant/bid ID tie-break.
 - The reference match rule clears the best remaining bid with the best remaining offer while bid price is at least ask price. Matched quantities are integer minor units.
