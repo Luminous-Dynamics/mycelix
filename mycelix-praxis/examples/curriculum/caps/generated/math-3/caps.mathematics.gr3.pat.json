@@ -77,8 +77,8 @@
         "explanation": "Each term is twice the previous one.",
         "distractors": [
           "Add 2",
-          "Multiply by 2",
-          "Add 3"
+          "Add 3",
+          "Add 3 each time"
         ]
       },
       {
@@ -92,7 +92,7 @@
         "explanation": "The pattern adds 5; 20 + 5 = 25.",
         "distractors": [
           "24",
-          "25",
+          "35",
           "30"
         ]
       },
@@ -107,7 +107,7 @@
         "explanation": "4 × 6 = 24.",
         "distractors": [
           "20",
-          "24",
+          "20",
           "28"
         ]
       },
@@ -137,7 +137,7 @@
         "explanation": "Add 7 to 14 to get 21; then 21 + 7 = 28.",
         "distractors": [
           "20",
-          "21",
+          "28",
           "24"
         ]
       },
