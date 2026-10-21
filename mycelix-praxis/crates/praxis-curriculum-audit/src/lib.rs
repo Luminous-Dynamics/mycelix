@@ -647,6 +647,46 @@ fn add_text_finding(
     }
 }
 
+fn add_required_text_finding(
+    audit: &mut ContentQualityAudit,
+    lesson_id: &str,
+    asset_path: &str,
+    field: &str,
+    value: Option<&Value>,
+) {
+    if nonempty_string(value).is_none() {
+        audit.findings.push(ContentQualityFinding {
+            lesson_id: lesson_id.to_owned(),
+            asset_path: asset_path.to_owned(),
+            field: field.to_owned(),
+            code: "missing_required_text".to_owned(),
+            severity: "blocker".to_owned(),
+            message: format!("Required instructional text is missing or empty: {field}."),
+        });
+        return;
+    }
+
+    add_text_finding(audit, lesson_id, asset_path, field, value);
+}
+
+fn add_structure_finding(
+    audit: &mut ContentQualityAudit,
+    lesson_id: &str,
+    asset_path: &str,
+    field: &str,
+    code: &str,
+    message: &str,
+) {
+    audit.findings.push(ContentQualityFinding {
+        lesson_id: lesson_id.to_owned(),
+        asset_path: asset_path.to_owned(),
+        field: field.to_owned(),
+        code: code.to_owned(),
+        severity: "blocker".to_owned(),
+        message: message.to_owned(),
+    });
+}
+
 fn audit_lesson_value(
     asset_path: &str,
     value: &Value,
@@ -657,35 +697,67 @@ fn audit_lesson_value(
         .unwrap_or_else(|| "UNSPECIFIED".to_owned());
     let before = audit.findings.len();
 
-    let lesson = value.get("lesson");
-    if let Some(lesson) = lesson {
-        add_text_finding(
-            audit, &lesson_id, asset_path, "lesson.explanation", lesson.get("explanation")
+    let Some(lesson) = value.get("lesson").filter(|lesson| lesson.is_object()) else {
+        add_structure_finding(
+            audit,
+            &lesson_id,
+            asset_path,
+            "lesson",
+            "missing_lesson_object",
+            "Asset must contain a lesson object.",
         );
-        add_text_finding(
-            audit, &lesson_id, asset_path, "lesson.title", lesson.get("title")
-        );
+        return true;
+    };
 
-        if let Some(examples) = lesson.get("examples").and_then(Value::as_array) {
+    add_required_text_finding(
+        audit, &lesson_id, asset_path, "lesson.explanation", lesson.get("explanation")
+    );
+    add_required_text_finding(
+        audit, &lesson_id, asset_path, "lesson.title", lesson.get("title")
+    );
+
+    let examples_value = lesson.get("examples").and_then(Value::as_array);
+    if examples_value.is_none_or(Vec::is_empty) {
+        add_structure_finding(
+            audit,
+            &lesson_id,
+            asset_path,
+            "lesson.examples",
+            "missing_worked_examples",
+            "Lesson must include at least one worked example or demonstration.",
+        );
+    }
+    if let Some(examples) = examples_value {
             let mut seen = BTreeMap::<String, usize>::new();
             for (index, example) in examples.iter().enumerate() {
                 let prefix = format!("lesson.examples[{index}]");
-                add_text_finding(
+                add_required_text_finding(
                     audit, &lesson_id, asset_path, &format!("{prefix}.problem"), example.get("problem")
                 );
-                add_text_finding(
+                add_required_text_finding(
                     audit, &lesson_id, asset_path, &format!("{prefix}.answer"), example.get("answer")
                 );
-                if let Some(steps) = example.get("steps").and_then(Value::as_array) {
+                let steps_value = example.get("steps").and_then(Value::as_array);
+                if steps_value.is_none_or(Vec::is_empty) {
+                    add_structure_finding(
+                        audit,
+                        &lesson_id,
+                        asset_path,
+                        &format!("{prefix}.steps"),
+                        "missing_worked_steps",
+                        "Worked example must include at least one explicit solution step.",
+                    );
+                }
+                if let Some(steps) = steps_value {
                     for (step_index, step) in steps.iter().enumerate() {
-                        add_text_finding(
+                        add_required_text_finding(
                             audit,
                             &lesson_id,
                             asset_path,
                             &format!("{prefix}.steps[{step_index}].instruction"),
                             step.get("instruction"),
                         );
-                        add_text_finding(
+                        add_required_text_finding(
                             audit,
                             &lesson_id,
                             asset_path,
@@ -717,17 +789,28 @@ fn audit_lesson_value(
             }
         }
 
-        if let Some(problems) = lesson.get("practice_problems").and_then(Value::as_array) {
+        let problems_value = lesson.get("practice_problems").and_then(Value::as_array);
+        if problems_value.is_none_or(Vec::is_empty) {
+            add_structure_finding(
+                audit,
+                &lesson_id,
+                asset_path,
+                "lesson.practice_problems",
+                "missing_practice_items",
+                "Lesson must include at least one independent practice item.",
+            );
+        }
+        if let Some(problems) = problems_value {
             let mut seen = BTreeMap::<String, usize>::new();
             for (index, problem) in problems.iter().enumerate() {
                 let prefix = format!("lesson.practice_problems[{index}]");
-                add_text_finding(
+                add_required_text_finding(
                     audit, &lesson_id, asset_path, &format!("{prefix}.question"), problem.get("question")
                 );
-                add_text_finding(
+                add_required_text_finding(
                     audit, &lesson_id, asset_path, &format!("{prefix}.answer"), problem.get("answer")
                 );
-                add_text_finding(
+                add_required_text_finding(
                     audit, &lesson_id, asset_path, &format!("{prefix}.explanation"), problem.get("explanation")
                 );
                 if let Some(prompt) = nonempty_string(problem.get("question")) {
@@ -791,9 +874,12 @@ fn audit_lesson_value(
     if let Some(items) = value.pointer("/assessment/items").and_then(Value::as_array) {
         for (index, item) in items.iter().enumerate() {
             for key in ["question", "correct_answer", "hint", "rubric"] {
-                add_text_finding(
-                    audit, &lesson_id, asset_path, &format!("assessment.items[{index}].{key}"), item.get(key)
-                );
+                let field = format!("assessment.items[{index}].{key}");
+                if matches!(key, "question" | "correct_answer") {
+                    add_required_text_finding(audit, &lesson_id, asset_path, &field, item.get(key));
+                } else {
+                    add_text_finding(audit, &lesson_id, asset_path, &field, item.get(key));
+                }
             }
         }
     }
@@ -801,7 +887,7 @@ fn audit_lesson_value(
     if let Some(cards) = value.get("flashcards").and_then(Value::as_array) {
         for (index, card) in cards.iter().enumerate() {
             for key in ["front", "back"] {
-                add_text_finding(
+                add_required_text_finding(
                     audit, &lesson_id, asset_path, &format!("flashcards[{index}].{key}"), card.get(key)
                 );
             }
