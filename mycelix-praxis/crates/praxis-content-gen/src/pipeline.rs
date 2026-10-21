@@ -373,19 +373,19 @@ fn is_placeholder_content(text: &str) -> bool {
     if normalized.is_empty() {
         return true;
     }
+    let core = normalized.trim_end_matches(['.', '!', '?']).trim();
 
     let exact_placeholders = [
         "grade 3 mathematics content",
-        "a common mistake in grade 3 mathematics.",
-        "the correct way.",
-        "used in grade 3 maths.",
+        "a common mistake in grade 3 mathematics",
+        "the correct way",
+        "used in grade 3 maths",
         "lorem ipsum",
         "todo",
         "placeholder",
-        "answer.",
         "answer",
     ];
-    if exact_placeholders.iter().any(|phrase| normalized == *phrase) {
+    if exact_placeholders.iter().any(|phrase| core == *phrase) {
         return true;
     }
 
@@ -404,10 +404,8 @@ fn is_placeholder_content(text: &str) -> bool {
         .any(|phrase| normalized.contains(phrase))
         || (normalized.contains("solve a grade ")
             && normalized.contains(" mathematics problem"))
-        || (normalized.starts_with("explain grade ")
-            && normalized.contains(" mathematics."))
-        || (normalized.starts_with("grade ")
-            && normalized.ends_with(" mathematics content"))
+        || (core.starts_with("explain grade ") && core.contains(" mathematics"))
+        || (core.starts_with("grade ") && core.ends_with(" mathematics content"))
 }
 // ---- Parsing helpers ----
 
@@ -698,6 +696,7 @@ mod tests {
             "Answer: See worked solution",
             "What is important about Grade 3 Mathematics?",
             "Grade 3 mathematics content",
+            "Grade 3 mathematics content.",
             "A key word in this topic",
             "A common mistake in Grade 3 Mathematics.",
             "The correct way.",
