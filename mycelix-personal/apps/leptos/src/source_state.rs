@@ -182,10 +182,7 @@ pub enum SourceObservation<T> {
         reason: String,
     },
     /// No adapter exists for this source in this product/build.
-    NotIntegrated {
-        source_id: String,
-        reason: String,
-    },
+    NotIntegrated { source_id: String, reason: String },
 }
 
 impl<T> SourceObservation<T> {
@@ -316,7 +313,10 @@ mod tests {
             SourceObservation::Disputed { claims, .. } => {
                 assert_eq!(claims.len(), 2);
                 assert_eq!(
-                    claims.iter().map(|claim| claim.evidence.source_id.as_str()).collect::<Vec<_>>(),
+                    claims
+                        .iter()
+                        .map(|claim| claim.evidence.source_id.as_str())
+                        .collect::<Vec<_>>(), 
                     vec!["registry-a", "registry-b"]
                 );
             }
@@ -338,7 +338,9 @@ mod tests {
 
         let cases: Vec<(SourceObservation<u8>, SourceStateKind)> = vec![
             (
-                SourceObservation::NotChecked { source_id: "not-checked".into() },
+                SourceObservation::NotChecked {
+                    source_id: "not-checked".into(),
+                },
                 SourceStateKind::NotChecked,
             ),
             (
@@ -349,7 +351,9 @@ mod tests {
                 SourceStateKind::LiveWithRecords,
             ),
             (
-                SourceObservation::ConfirmedEmpty { evidence: evidence("empty-source") },
+                SourceObservation::ConfirmedEmpty {
+                    evidence: evidence("empty-source"),
+                },
                 SourceStateKind::ConfirmedEmpty,
             ),
             (
@@ -397,9 +401,11 @@ mod tests {
             let encoded = serde_json::to_string(&observation).expect("serialize source state");
             let decoded: SourceObservation<u8> =
                 serde_json::from_str(&encoded).expect("deserialize source state");
-            assert_eq!(decoded, observation, "serde round-trip must preserve state and data");
+            assert_eq!(
+                decoded, observation,
+                "serde round-trip must preserve state and data"
+            );
         }
         assert_eq!(seen.len(), 8, "all source states must be covered");
     }
-
 }
