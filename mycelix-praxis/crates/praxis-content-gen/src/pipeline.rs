@@ -6,6 +6,8 @@
 //! teaching materials (lessons, assessments, flashcards) by making multiple
 //! calls to a [`ContentGenerator`] with appropriate [`ContentChannels`].
 
+use std::collections::BTreeSet;
+
 use serde::{Deserialize, Serialize};
 
 use crate::channels::ContentChannels;
@@ -602,10 +604,9 @@ fn validate_practice_problem(problem: &PracticeProblem) -> Result<(), &'static s
         return Err("the correct answer also appears as a distractor");
     }
 
-    for index in 0..normalized_distractors.len() {
-        if normalized_distractors[index + 1..].contains(&normalized_distractors[index]) {
-            return Err("duplicate distractors were generated");
-        }
+    let distinct_distractors = normalized_distractors.iter().collect::<BTreeSet<_>>();
+    if distinct_distractors.len() != normalized_distractors.len() {
+        return Err("duplicate distractors were generated");
     }
 
     Ok(())
