@@ -255,10 +255,10 @@ pub fn print_report(report: &BatchReport) {
 }
 
 fn load_progress(path: &Path) -> BatchProgress {
-    if let Ok(content) = std::fs::read_to_string(path) {
-        if let Ok(progress) = serde_json::from_str(&content) {
-            return progress;
-        }
+    if let Ok(content) = std::fs::read_to_string(path)
+        && let Ok(progress) = serde_json::from_str(&content)
+    {
+        return progress;
     }
     BatchProgress {
         total: 0,
