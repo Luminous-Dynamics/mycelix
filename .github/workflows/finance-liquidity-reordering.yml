@@ -135,10 +135,49 @@ jobs:
             }
             END { if (rows != 144 || failed) exit 1 }
           ' "$out/stream-results.csv"
+          cargo run --manifest-path research/finance-liquidity-reordering/Cargo.toml --offline --locked --release --example budget_benchmark > "$out/budget-results.csv"
+          test "$(wc -l < "$out/budget-results.csv")" -eq 577
+          awk -F, '
+            NR == 1 {
+              if (NF != 29 || $2 != "funding_profile" || $3 != "strategy" ||
+                  $22 != "full_order_aggregate_liquidity_minor" ||
+                  $24 != "settled_value_delta_vs_fifo_minor") exit 2
+              next
+            }
+            {
+              rows++
+              if (NF != 29) failed = 1
+              if ($1 !~ /^(staggered_arrivals|bursty_arrivals|tight_deadlines|dependency_heavy)$/) failed = 1
+              if ($2 !~ /^(zero|distributed_quarter_outgoing|distributed_half_outgoing|concentrated_quarter_gross_at_p0)$/) failed = 1
+              if ($3 !~ /^(fifo|earliest_deadline_first|liquidity_greedy|liquidity_portfolio)$/) failed = 1
+              if ($4 != 48 || $5 != 16) failed = 1
+              if ($7 != 1 && $7 != 8 && $7 != 32) failed = 1
+              if ($8 != 0 && $8 != 2 && $8 != 10) failed = 1
+              key = $1 FS $2 FS $3 FS $7 FS $8
+              if (seen[key]++) failed = 1
+              if ($6 !~ /^[0-9]+$/ || $9 != 3) failed = 1
+              if ($10 !~ /^[0-9]+$/ || $11 !~ /^[0-9]+$/ || $10 + $11 != $4) failed = 1
+              if ($12 != 0 && $12 != 1) failed = 1
+              if ($13 !~ /^[0-9]+$/ || $13 > $10) failed = 1
+              if ($14 !~ /^[0-9]+$/ || $15 !~ /^[0-9]+$/ || $16 !~ /^[0-9]+$/) failed = 1
+              if ($17 !~ /^[0-9]+$/ || $18 !~ /^[0-9]+$/) failed = 1
+              if ($19 != $6 || $20 > $10 || $21 > $7) failed = 1
+              if ($22 != "" && $22 !~ /^[0-9]+$/) failed = 1
+              if ($23 != "" && $23 !~ /^[0-9]+$/) failed = 1
+              if ($11 == 0 && ($22 == "" || $23 == "")) failed = 1
+              if ($11 > 0 && ($22 != "" || $23 != "")) failed = 1
+              if ($24 !~ /^-?[0-9]+$/ || $25 !~ /^-?[0-9]+$/ || $26 !~ /^-?[0-9]+$/) failed = 1
+              if ($27 !~ /^[0-9]+$/ || $28 !~ /^[0-9]+$/ || $29 !~ /^[0-9]+$/) failed = 1
+              if ($27 > $28 || $28 > $29) failed = 1
+              if ($3 == "fifo" && ($24 != "0" || $25 != "0" || $26 != "0")) failed = 1
+              if ($2 == "zero" && ($10 != 0 || $11 != $4 || $12 != 1 || $17 != 0)) failed = 1
+            }
+            END { if (rows != 576 || failed) exit 1 }
+          ' "$out/budget-results.csv"
           cd research/finance-liquidity-reordering
-          sha256sum Cargo.toml Cargo.lock README.md src/lib.rs src/stream_replay.rs tests/exact_oracle.rs tests/stream_replay.rs tests/budgeted_stream_replay.rs examples/benchmark.rs examples/stream_benchmark.rs > "$out/SOURCE-SHA256SUMS"
+          sha256sum Cargo.toml Cargo.lock README.md src/lib.rs src/stream_replay.rs tests/exact_oracle.rs tests/stream_replay.rs tests/budgeted_stream_replay.rs examples/benchmark.rs examples/stream_benchmark.rs examples/budget_benchmark.rs > "$out/SOURCE-SHA256SUMS"
           cd "$out"
-          sha256sum results.csv stream-results.csv metadata.txt SOURCE-SHA256SUMS > SHA256SUMS
+          sha256sum results.csv stream-results.csv budget-results.csv metadata.txt SOURCE-SHA256SUMS > SHA256SUMS
 
       - name: Upload reproducible benchmark evidence
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
