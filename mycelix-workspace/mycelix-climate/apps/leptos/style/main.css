@@ -237,3 +237,67 @@
 @media (prefers-reduced-motion: reduce) {
     .identity-access-gate-card { scroll-behavior: auto; }
 }
+
+.identity-access-gate-form { display: grid; gap: 1rem; }
+.identity-access-gate-field { display: grid; gap: 0.4rem; }
+.identity-access-gate-field label { font-size: 0.9rem; font-weight: 650; }
+.identity-access-gate-input {
+    box-sizing: border-box;
+    width: 100%;
+    min-width: 0;
+    min-height: 44px;
+    padding: 0.7rem 0.8rem;
+    border: 1px solid var(--border-visible, currentColor);
+    border-radius: 0.55rem;
+    background: var(--bg-surface, Canvas);
+    color: var(--text-primary, CanvasText);
+    font: inherit;
+}
+.identity-access-gate-recovery-phrase { min-height: 7rem; resize: vertical; }
+.identity-access-gate-form button:focus-visible,
+.identity-access-gate-recheck:focus-visible,
+.identity-access-gate-input:focus-visible {
+    outline: 3px solid var(--primary, Highlight);
+    outline-offset: 3px;
+}
+.identity-access-gate-secondary {
+    justify-self: start;
+    min-height: 44px;
+    padding: 0.6rem 0.9rem;
+    border: 1px solid var(--border-visible, currentColor);
+    border-radius: 0.55rem;
+    background: transparent;
+    color: inherit;
+    font: inherit;
+    cursor: pointer;
+}
+.identity-access-gate-warning {
+    border-inline-start: 3px solid var(--accent, currentColor);
+    padding: 0.6rem 0.8rem;
+    font-size: 0.87rem;
+    line-height: 1.5;
+    opacity: 0.9;
+}
+.identity-access-gate-submit {
+    min-height: 44px;
+    justify-self: start;
+    padding: 0.65rem 1rem;
+    border: 1px solid var(--border-visible, currentColor);
+    border-radius: 0.55rem;
+    background: var(--primary, ButtonFace);
+    color: var(--primary-contrast, ButtonText);
+    font: inherit;
+    font-weight: 700;
+    cursor: pointer;
+}
+.identity-access-gate-submit:disabled,
+.identity-access-gate-recheck:disabled { cursor: wait; opacity: 0.65; }
+.identity-access-gate-blocker {
+    display: grid;
+    gap: 0.5rem;
+    padding: 0.9rem;
+    border: 1px solid var(--border-visible, currentColor);
+    border-radius: 0.55rem;
+}
+.identity-access-gate-blocker p { margin: 0; }
+.identity-access-gate-origin-note { font-size: 0.9rem; line-height: 1.5; opacity: 0.85; }
