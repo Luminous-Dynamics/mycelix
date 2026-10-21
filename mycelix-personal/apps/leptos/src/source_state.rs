@@ -31,7 +31,7 @@ impl SourceStateKind {
     pub const fn label(self) -> &'static str {
         match self {
             Self::NotChecked => "Not checked",
-            Self::LiveWithRecords => "Live records",
+            Self::LiveWithRecords => "Records returned",
             Self::ConfirmedEmpty => "Confirmed empty",
             Self::Unavailable => "Unavailable",
             Self::Stale => "Stale evidence",
@@ -137,7 +137,7 @@ pub enum StaleReason {
     SourceNotRechecked,
     SourceUnavailable,
     ClockUncertain,
-    Other(String),
+    Unclassified,
 }
 
 /// Last-known records, explicitly marked stale rather than re-labelled as
@@ -160,7 +160,7 @@ pub enum SourceFailure {
     StorageUnavailable,
     MalformedResponse,
     Unauthorized,
-    Other(String),
+    UnclassifiedReadFailure,
 }
 
 /// An attributable claim retained when sources disagree. Attribution alone
@@ -169,6 +169,26 @@ pub enum SourceFailure {
 pub struct AttributedClaim<T> {
     pub value: T,
     pub evidence: SourceEvidence,
+}
+
+/// Why attributed claims conflict. Codes avoid retaining provider-supplied
+/// free-form messages that could contain personal data.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub enum ConflictReason {
+    ContradictoryClaims,
+    AuthorityScopeDisagreement,
+    FreshnessDisagreement,
+    StatusDisagreement,
+    Unclassified,
+}
+
+/// Why a source adapter is not available for this view.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub enum NotIntegratedReason {
+    NoAdapterConfigured,
+    RequiresAuthorizedProvider,
+    UnsupportedInThisBuild,
+    Unclassified,
 }
 
 /// Two or more attributed claims. A single claim cannot form a dispute.
@@ -254,10 +274,10 @@ pub enum SourceObservation<T> {
     Disputed {
         source_id: String,
         claims: ConflictingClaims<AttributedClaim<T>>,
-        reason: String,
+        reason: ConflictReason,
     },
     /// No adapter exists for this source in this product/build.
-    NotIntegrated { source_id: String, reason: String },
+    NotIntegrated { source_id: String, reason: NotIntegratedReason },
 }
 
 impl<T: Clone> SourceObservation<T> {
@@ -438,7 +458,7 @@ mod tests {
         };
         let unsupported: SourceObservation<u8> = SourceObservation::NotIntegrated {
             source_id: "property-registry".into(),
-            reason: "no authorized adapter configured".into(),
+            reason: NotIntegratedReason::RequiresAuthorizedProvider,
         };
 
         assert_eq!(empty.kind(), SourceStateKind::ConfirmedEmpty);
@@ -508,7 +528,7 @@ mod tests {
         let disputed = SourceObservation::Disputed {
             source_id: "asset-status".into(),
             claims,
-            reason: "authoritative sources disagree".into(),
+            reason: ConflictReason::ContradictoryClaims,
         };
 
         match disputed {
@@ -590,14 +610,14 @@ mod tests {
                 SourceObservation::Disputed {
                     source_id: "disputed-source".into(),
                     claims,
-                    reason: "contradictory claims".into(),
+                    reason: ConflictReason::ContradictoryClaims,
                 },
                 SourceStateKind::Disputed,
             ),
             (
                 SourceObservation::NotIntegrated {
                     source_id: "unsupported-source".into(),
-                    reason: "adapter absent".into(),
+                    reason: NotIntegratedReason::NoAdapterConfigured,
                 },
                 SourceStateKind::NotIntegrated,
             ),
