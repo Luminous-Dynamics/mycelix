@@ -62,7 +62,7 @@ const EXPECTED_VERSIONS = Object.freeze({
   'GS1-CBV': '2.0.0'
 });
 const EXPECTED_MANIFEST_PATH = 'source-snapshots/gs1-epcis-cbv-v1.json';
-const EXPECTED_MANIFEST_SHA = '9a3e9ddc94a5a2c4ed8f9a3820b3e64a2ce8f026d42cecc33f9fb1a4adfcd504';
+const EXPECTED_MANIFEST_SHA = '3948e159edf666e250c30682ba488f327648c06ef34cdc1bb3c44c5f378b31f6';
 const EXPECTED_SOURCES = Object.freeze({
   'GS1-EPCIS': {
     url: 'https://ref.gs1.org/standards/epcis/2.0.1/',
