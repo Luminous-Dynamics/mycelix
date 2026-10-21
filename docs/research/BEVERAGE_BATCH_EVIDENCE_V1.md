@@ -40,6 +40,18 @@ Use standard identifiers and event semantics where applicable instead of inventi
 4. **Claim request** — names a target batch, claim type, value and required evidence references. A verifier computes the disposition; a producer-supplied status field cannot force a claim to be verified.
 5. **Disclosure** — the record names a disclosure purpose/audience while the authorization layer decides which fields may be revealed. Never put recipe contents into this public evidence envelope.
 
+## Resource-meter evidence must carry its accounting boundary
+
+Resource and sustainability claims need stricter evidence than a generic statement plus a hash. The evidence schema now has a dedicated `RESOURCE_METER` category. A record in that category must declare a numeric reading, units, meter/instrument reference, measurement period, functional unit, versioned meter-boundary reference and status, production-output basis, and policy for missing intervals. Optional fields can record nonnegative measurement uncertainty and a production-mix reference.
+
+This makes a key cross-project invariant explicit: resource evidence only supports a comparison when the numerator boundary and denominator are aligned. For a beverage plant, a preferred denominator is saleable, quality-conforming output; total output and input volume remain representable, but must not be silently compared as if equivalent. Partial or unknown meter coverage and estimated data need to remain visible to the claim-specific verifier. The schema is a contract, not an implemented comparator; it cannot resolve boundary references or itself decide whether a resource-saving claim passes.
+
+Two additional synthetic negative controls are now included:
+- `BP-011 resource_claim_with_mismatched_functional_unit`
+- `BP-012 resource_savings_claim_from_partial_unreported_meter_coverage`
+
+Their purpose is to reject unqualified comparisons, not to simulate measured resource performance.
+
 ## Acceptance
 
 - Unique IDs across relevant namespaces; all references resolve to a record of the expected type.
