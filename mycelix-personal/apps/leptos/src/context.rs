@@ -71,7 +71,8 @@ pub struct PersonalCtx {
     pub health_record_count: RwSignal<usize>,
     pub activity: RwSignal<Vec<ActivityItemView>>,
     pub loading: RwSignal<bool>,
-    pub live_sync_ready: RwSignal<bool>,
+    /// True if at least one live source read succeeded; not a global readiness guarantee.
+    pub any_live_source_read_succeeded: RwSignal<bool>,
     pub status_note: RwSignal<String>,
 }
 
@@ -169,7 +170,7 @@ pub fn provide_personal_context() {
         health_record_count: RwSignal::new(0),
         activity: RwSignal::new(Vec::new()),
         loading: RwSignal::new(true),
-        live_sync_ready: RwSignal::new(false),
+        any_live_source_read_succeeded: RwSignal::new(false),
         status_note: RwSignal::new("Personal source state has not been checked yet.".into()),
     };
 
@@ -376,7 +377,7 @@ pub fn provide_personal_context() {
                 Err(_) => unavailable_sources.push("activity history"),
             }
 
-            ctx.live_sync_ready.set(!successful_sources.is_empty());
+            ctx.any_live_source_read_succeeded.set(!successful_sources.is_empty());
             ctx.status_note.set(live_source_status(
                 &successful_sources,
                 &unavailable_sources,
