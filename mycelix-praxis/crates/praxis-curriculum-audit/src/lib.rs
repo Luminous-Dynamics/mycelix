@@ -764,7 +764,10 @@ fn match_inactive_manifest_sources(
     let mut graph_documents_scanned = 0;
 
     for (path, document) in documents {
-        let Some(nodes) = document.get("nodes").and_then(Value::as_array) else {
+        let (Some(nodes), Some(_edges)) = (
+            document.get("nodes").and_then(Value::as_array),
+            document.get("edges").and_then(Value::as_array),
+        ) else {
             continue;
         };
         graph_documents_scanned += 1;
@@ -877,7 +880,9 @@ fn audit_inactive_manifest_sources(
             Ok(value) => value,
             Err(_) => continue,
         };
-        if !value.get("nodes").is_some_and(Value::is_array) {
+        if !value.get("nodes").is_some_and(Value::is_array)
+            || !value.get("edges").is_some_and(Value::is_array)
+        {
             continue;
         }
         let relative = match path.strip_prefix(workspace) {
@@ -2009,6 +2014,12 @@ mod tests {
                 serde_json::json!({
                     "nodes": [{"id":"inactive_match","title":"Unified Addition"}],
                     "edges": []
+                }),
+            ),
+            (
+                "examples/curriculum/lesson-notes.json".to_owned(),
+                serde_json::json!({
+                    "nodes": [{"id":"not_found","title":"Not a graph"}]
                 }),
             ),
         ];
