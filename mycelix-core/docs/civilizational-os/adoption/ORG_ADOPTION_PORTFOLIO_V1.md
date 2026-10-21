@@ -65,6 +65,9 @@ These references document public products, organizations or standards only. They
 
 ## Acceptance profile for every pilot
 
+Before implementation work is proposed, run `node verify-org-adoption-profiles.cjs` from this directory. It checks cross-row invariants and emits a digest-bound JSON receipt. Validate the catalog instance against `org-adoption-profiles-v1.schema.json` separately with a Draft 2020-12 JSON Schema validator; the zero-dependency Node script does not claim to replace that validation.
+
+
 Every concrete pilot derived from this portfolio must provide:
 
 - **Frozen input manifest:** source identity/revision/digest, schema/profile, units, valid/observed time, source rights, synthetic/real label, and known gaps.
