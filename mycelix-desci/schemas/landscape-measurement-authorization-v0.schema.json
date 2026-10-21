@@ -1,0 +1,278 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://luminousdynamics.io/schemas/landscape-measurement-authorization-v0.schema.json",
+  "title": "Mycelix landscape measurement authorization record v0",
+  "description": "A privacy-preserving reference record for scoped measurement permission. Schema validation does not authenticate consent, land access, signatures, authority, or current validity.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "schema_uri",
+    "authorization_id",
+    "created_at",
+    "project_snapshot_sha256",
+    "site_ref_sha256",
+    "metric_id",
+    "unit",
+    "activity",
+    "participant_ref",
+    "consent_status",
+    "consent_evidence_sha256",
+    "site_access_status",
+    "site_access_evidence_sha256",
+    "publication_consent_status",
+    "publication_consent_evidence_sha256",
+    "publication_policy",
+    "coordinate_disclosure",
+    "valid_from",
+    "valid_until",
+    "evidence_class",
+    "verification_status",
+    "statement"
+  ],
+  "properties": {
+    "schema": {
+      "const": "mycelix.landscape-measurement-authorization.v0"
+    },
+    "schema_uri": {
+      "const": "https://luminousdynamics.io/schemas/landscape-measurement-authorization-v0.schema.json"
+    },
+    "authorization_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 200
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "project_snapshot_sha256": {
+      "$ref": "#/$defs/sha256"
+    },
+    "site_ref_sha256": {
+      "$ref": "#/$defs/sha256"
+    },
+    "metric_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 200
+    },
+    "unit": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 100
+    },
+    "activity": {
+      "enum": [
+        "measure-site",
+        "install-sensor",
+        "collect-observation",
+        "maintain-sensor"
+      ]
+    },
+    "participant_ref": {
+      "type": "string",
+      "minLength": 3,
+      "maxLength": 512,
+      "description": "Opaque participant/authority reference; do not embed names or contact details."
+    },
+    "consent_status": {
+      "enum": [
+        "granted",
+        "denied",
+        "withdrawn",
+        "expired",
+        "unknown"
+      ]
+    },
+    "consent_evidence_sha256": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/sha256"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "site_access_status": {
+      "enum": [
+        "authorized",
+        "denied",
+        "revoked",
+        "expired",
+        "unknown"
+      ]
+    },
+    "site_access_evidence_sha256": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/sha256"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "publication_consent_status": {
+      "enum": [
+        "not-requested",
+        "granted",
+        "denied",
+        "withdrawn",
+        "unknown"
+      ]
+    },
+    "publication_consent_evidence_sha256": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/sha256"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "publication_policy": {
+      "enum": [
+        "private",
+        "controlled",
+        "embargoed",
+        "public"
+      ]
+    },
+    "coordinate_disclosure": {
+      "enum": [
+        "none",
+        "coarse",
+        "exact"
+      ]
+    },
+    "valid_from": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "valid_until": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "evidence_class": {
+      "enum": [
+        "synthetic",
+        "asserted",
+        "signed"
+      ]
+    },
+    "verification_status": {
+      "enum": [
+        "not-verified",
+        "signature-verified",
+        "authority-resolved"
+      ]
+    },
+    "statement": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 4000
+    }
+  },
+  "$defs": {
+    "sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "consent_status": {
+            "const": "granted"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "consent_evidence_sha256": {
+            "$ref": "#/$defs/sha256"
+          }
+        }
+      },
+      "else": {
+        "properties": {
+          "consent_evidence_sha256": {
+            "type": "null"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "site_access_status": {
+            "const": "authorized"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "site_access_evidence_sha256": {
+            "$ref": "#/$defs/sha256"
+          }
+        }
+      },
+      "else": {
+        "properties": {
+          "site_access_evidence_sha256": {
+            "type": "null"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "publication_consent_status": {
+            "const": "granted"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "publication_consent_evidence_sha256": {
+            "$ref": "#/$defs/sha256"
+          }
+        }
+      },
+      "else": {
+        "properties": {
+          "publication_consent_evidence_sha256": {
+            "type": "null"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "publication_policy": {
+            "const": "public"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "publication_consent_status": {
+            "const": "granted"
+          },
+          "coordinate_disclosure": {
+            "enum": [
+              "none",
+              "coarse"
+            ]
+          }
+        }
+      }
+    }
+  ]
+}
