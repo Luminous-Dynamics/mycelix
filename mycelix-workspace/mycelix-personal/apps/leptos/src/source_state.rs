@@ -49,7 +49,7 @@ impl SourceStateKind {
             Self::LiveWithRecords => "The source returned records for this read; claim truth and authority are not automatically established.",
             Self::ConfirmedEmpty => "The source successfully returned no records at this read time.",
             Self::Partial => "Some subreads succeeded and others failed; the result is incomplete.",
-            Self::Unavailable => "The read failed; absence has not been established.",
+            Self::Unavailable => "The read failed; absence has not been established. Any retained last-known value is stale.",
             Self::Stale => "Last-known evidence exists but must not be treated as current.",
             Self::Mock => "These are synthetic fixtures, not live source records.",
             Self::Disputed => "Attributable claims conflict; no winner has been selected.",
@@ -664,6 +664,9 @@ mod tests {
         assert!(SourceStateKind::Unavailable
             .explanation()
             .contains("absence has not been established"));
+        assert!(SourceStateKind::Unavailable
+            .explanation()
+            .contains("retained last-known value is stale"));
 
         assert_eq!(SourceStateKind::Stale.label(), "Stale evidence");
         assert!(SourceStateKind::Stale
