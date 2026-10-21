@@ -232,6 +232,45 @@ pub enum SourceObservation<T> {
     NotIntegrated { source_id: String, reason: String },
 }
 
+impl<T: Clone> SourceObservation<T> {
+    /// Preserve prior live evidence as stale when a subsequent read fails.
+    /// Mock, unsupported, disputed, and never-checked observations do not
+    /// become stale live evidence.
+    pub fn stale_snapshot(
+        &self,
+        last_attempt_at_unix_ms: Option<u64>,
+        reason: StaleReason,
+    ) -> Option<StaleObservation<T>> {
+        match self {
+            Self::LiveWithRecords { records, evidence } => Some(StaleObservation {
+                records: records.clone(),
+                evidence: evidence.clone(),
+                last_attempt_at_unix_ms,
+                reason,
+            }),
+            Self::Stale { observation } => Some(StaleObservation {
+                records: observation.records.clone(),
+                evidence: observation.evidence.clone(),
+                last_attempt_at_unix_ms,
+                reason,
+            }),
+            Self::Unavailable { last_known, .. } => {
+                last_known.as_ref().map(|observation| StaleObservation {
+                    records: observation.records.clone(),
+                    evidence: observation.evidence.clone(),
+                    last_attempt_at_unix_ms,
+                    reason,
+                })
+            }
+            Self::NotChecked { .. }
+            | Self::ConfirmedEmpty { .. }
+            | Self::Mock { .. }
+            | Self::Disputed { .. }
+            | Self::NotIntegrated { .. } => None,
+        }
+    }
+}
+
 impl<T> SourceObservation<T> {
     /// Classify a successful read without allowing an empty vector to be
     /// mislabeled as a live result containing records.
@@ -313,6 +352,29 @@ mod tests {
             }
             other => panic!("non-empty success should be live: {other:?}"),
         }
+    }
+
+    #[test]
+    fn only_prior_live_evidence_can_be_carried_forward_as_stale() {
+        let live = SourceObservation::from_successful_read(
+            vec![4_u8, 5],
+            evidence("profile-service"),
+        );
+        let stale = live
+            .stale_snapshot(Some(1_800_000_000_300), StaleReason::SourceUnavailable)
+            .expect("prior live evidence can be retained as stale");
+        assert_eq!(stale.records.into_vec(), vec![4, 5]);
+        assert_eq!(stale.evidence.source_id, "profile-service");
+        assert_eq!(stale.reason, StaleReason::SourceUnavailable);
+
+        let mock = SourceObservation::Mock {
+            source_id: "fixture-source".into(),
+            fixture_id: "synthetic-v1".into(),
+            records: vec![4_u8],
+        };
+        assert!(mock
+            .stale_snapshot(Some(1_800_000_000_300), StaleReason::SourceUnavailable)
+            .is_none());
     }
 
     #[test]
