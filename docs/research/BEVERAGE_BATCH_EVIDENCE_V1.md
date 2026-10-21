@@ -89,3 +89,13 @@ This proposal defines a data contract and tests for future verifiers. It does no
 - GS1 Global Traceability Standard, Critical Tracking Events and Key Data Elements: https://www.gs1.org/standards/gs1-global-traceability-standard/current-standard
 - European Commission wine labelling explainer (rules applied from 8 December 2023 to wines obtained from 2024 harvest, with transition boundaries): https://agriculture.ec.europa.eu/media/news/new-rules-wine-labelling-enter-application-2023-12-07_en
 - BIER 2025 Water, Energy, and Emissions Benchmarking Summary: https://www.bieroundtable.com/2025-water-energy-and-emissions-benchmarking-summary-bier
+
+## Adaptive-sensing decision provenance
+
+The evidence envelope now includes a typed `SAMPLING_DECISION` category and a `SAMPLING_DECISION_RECORDED` event. The intent is to preserve the chain from a sampling recommendation to the measurement (if obtained), the resulting process inference, and any later claim. A policy recommendation and a completed measurement are different evidence objects; a request must not be serialized as though the sample result already exists.
+
+For a sampling-decision evidence record, retain the policy version and configuration digest, decision timestamp, declared input-prefix digest, available channel inventory, requested action, reason code, calibration state, cost estimate, and the required tests due versus required tests still scheduled. SAMPLE records name the available channel and request time; DEFER records name a future review time and require calibrated uncertainty; ESCALATE and ABSTAIN records cannot simultaneously carry a sample request or pretend to defer a required check.
+
+The Draft 2020-12 schema checks required fields and action-specific shape. Cross-field temporal order (for example, observation availability not later than decision time), actual subset preservation of due required tests, digest recomputation, channel-inventory truth, and policy reproducibility still require an executing verifier. The companion Symthaea contract runner checks several of these internal relationships for a single decision record. Neither schema nor the runner authenticates the underlying measurement or proves that the declared minimum testing schedule is complete.
+
+New synthetic policy/provenance cases BP-017–BP-020 cover missing decision lineage, unavailable channels, deferral that drops a required test, and unsupported claims that fewer samples preserved event detection. The 20-case corpus and synthetic decision-evidence envelope are test fixtures only, not a measured batch record or a plant authorization.
