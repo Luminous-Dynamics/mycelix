@@ -438,10 +438,12 @@ pub fn simulate_queue(
                         .then_with(|| payments[*a].payment_id.cmp(&payments[*b].payment_id))
                 }),
                 QueuePolicy::AgingPriorityScan { interval_ticks } => pending.sort_by(|a, b| {
-                    let priority_a = payments[*a].priority as u64
-                        + tick.saturating_sub(payments[*a].arrival_tick) / interval_ticks;
-                    let priority_b = payments[*b].priority as u64
-                        + tick.saturating_sub(payments[*b].arrival_tick) / interval_ticks;
+                    let priority_a = (payments[*a].priority as u64).saturating_add(
+                        tick.saturating_sub(payments[*a].arrival_tick) / interval_ticks,
+                    );
+                    let priority_b = (payments[*b].priority as u64).saturating_add(
+                        tick.saturating_sub(payments[*b].arrival_tick) / interval_ticks,
+                    );
                     priority_b
                         .cmp(&priority_a)
                         .then_with(|| payments[*a].arrival_tick.cmp(&payments[*b].arrival_tick))
@@ -836,6 +838,33 @@ mod tests {
                 "priority aging interval must be greater than zero"
             ))
         );
+    }
+
+    #[test]
+    fn aging_priority_saturates_at_extreme_tick_without_wrapping() {
+        let result = simulate_queue(
+            &context(u64::MAX),
+            &[
+                account("A", 0),
+                account("B", 0),
+                account("C", 1),
+            ],
+            &[
+                route("ab", 1, u64::MAX),
+                route("ca", 1, u64::MAX),
+            ],
+            &[
+                payment("old", "ab", "A", "B", 1, 0, None, u8::MAX),
+                payment("fund", "ca", "C", "A", 1, u64::MAX, None, 0),
+            ],
+            QueuePolicy::AgingPriorityScan { interval_ticks: 1 },
+        )
+        .unwrap();
+
+        assert!(matches!(
+            result.payments.iter().find(|p| p.payment_id == "old").unwrap().state,
+            PaymentState::Settled { tick: u64::MAX, .. }
+        ));
     }
 
     #[test]
