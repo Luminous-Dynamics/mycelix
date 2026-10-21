@@ -112,6 +112,17 @@ impl std::error::Error for PrfEnvelopeDerivationError {}
 /// local contract. It does not establish that a credential was authorized,
 /// that a key is hardware-backed, or that the resulting envelope is authentic.
 pub fn derive_prf_envelope_key(
+    mut prf_output: Vec<u8>,
+    context: &WebAuthnPrfEnvelopeContext<'_>,
+) -> Result<PrfEnvelopeKey, PrfEnvelopeDerivationError> {
+    // Own and zeroize the Rust copy of the secret PRF output, including on
+    // validation failures. This cannot wipe any source JavaScript ArrayBuffer.
+    let result = derive_prf_envelope_key_inner(&prf_output, context);
+    prf_output.zeroize();
+    result
+}
+
+fn derive_prf_envelope_key_inner(
     prf_output: &[u8],
     context: &WebAuthnPrfEnvelopeContext<'_>,
 ) -> Result<PrfEnvelopeKey, PrfEnvelopeDerivationError> {
@@ -220,7 +231,7 @@ mod tests {
     fn hkdf_derivation_matches_frozen_test_vector() {
         let (prf_output, salt, public_key, credential_id) = fixed_inputs();
         let key = derive_prf_envelope_key(
-            &prf_output,
+            prf_output.to_vec(),
             &context("mycelix.example", &credential_id, &salt, &public_key),
         )
         .unwrap();
@@ -298,7 +309,7 @@ mod tests {
         let (_, salt, public_key, credential_id) = fixed_inputs();
         assert_eq!(
             derive_prf_envelope_key(
-                &[0u8; 31],
+                vec![0u8; 31],
                 &context("mycelix.example", &credential_id, &salt, &public_key)
             )
             .unwrap_err(),
@@ -306,7 +317,7 @@ mod tests {
         );
         assert_eq!(
             derive_prf_envelope_key(
-                &[0u8; 32],
+                vec![0u8; 32],
                 &context("mycelix.example", &credential_id, &[0u8; 31], &public_key)
             )
             .unwrap_err(),
@@ -364,23 +375,24 @@ mod tests {
     }
 
     #[test]
-    fn length_prefixes_prevent_ambiguous_context_concatenation() {
+    fn length_prefixes_prevent_ambiguous_rp_and_credential_concatenation() {
         let (prf_output, salt, public_key, _) = fixed_inputs();
+        // Without length-prefixes these (RP ID || credential ID) pairs both
+        // concatenate to "abc". The HKDF contexts must nevertheless differ.
         let first = derive_prf_envelope_key(
-            &prf_output,
-            &context("mycelix.example", &[0x41], &salt, &[0x42; 32]),
+            prf_output.to_vec(),
+            &context("a", b"bc", &salt, &public_key),
         )
         .unwrap();
         let second = derive_prf_envelope_key(
-            &prf_output,
-            &context("mycelix.example", &[0x41, 0x42], &salt, &[0x42; 32]),
+            prf_output.to_vec(),
+            &context("ab", b"c", &salt, &public_key),
         )
         .unwrap();
         assert_ne!(
             first.expose_for_crypto_import(),
             second.expose_for_crypto_import()
         );
-        assert_eq!(public_key.len(), IDENTITY_PUBLIC_KEY_LEN);
     }
 
     #[test]
