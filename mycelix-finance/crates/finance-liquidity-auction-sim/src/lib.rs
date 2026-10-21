@@ -251,9 +251,6 @@ pub fn run_auction(
         if participant.participant_id.trim().is_empty() {
             return Err(AuctionError::InvalidParticipant("empty participant_id".into()));
         }
-        if participant.required_reserve_minor > u64::MAX {
-            return Err(AuctionError::ArithmeticOverflow);
-        }
         if participants.contains_key(&participant.participant_id) {
             return Err(AuctionError::DuplicateParticipant(
                 participant.participant_id.clone(),
@@ -783,8 +780,24 @@ mod tests {
         assert_eq!(report.matched_minor, 0);
         assert_eq!(report.total_compensation_units, 0);
         assert_eq!(report.opening_liquidity_total_minor, report.closing_liquidity_total_minor);
-        assert_eq!(report.participants[0].available_after_minor, 10);
-        assert_eq!(report.participants[1].available_after_minor, 0);
+        assert_eq!(
+            report
+                .participants
+                .iter()
+                .find(|participant| participant.participant_id == "L")
+                .unwrap()
+                .available_after_minor,
+            10
+        );
+        assert_eq!(
+            report
+                .participants
+                .iter()
+                .find(|participant| participant.participant_id == "B")
+                .unwrap()
+                .available_after_minor,
+            0
+        );
     }
 
     #[test]
