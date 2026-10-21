@@ -196,6 +196,8 @@ fn transfer_scale_metamorphism_preserves_zero_consolidated_net() {
     let mut root = fixture();
     root["aggregation_policy"]["universal_scalar_produced"] = serde_json::json!(false);
     root["aggregation_policy"]["cross_unit_addition_permitted"] = serde_json::json!(false);
+    assert_eq!(root["aggregation_policy"]["universal_scalar_produced"], false);
+    assert_eq!(root["aggregation_policy"]["cross_unit_addition_permitted"], false);
 
     let transfer = root["cases"]
         .as_array_mut()
@@ -216,8 +218,6 @@ fn transfer_scale_metamorphism_preserves_zero_consolidated_net() {
         .map(|entry| number(&entry["signed_amount"]))
         .sum();
     close(net, 0.0);
-    assert_eq!(root["aggregation_policy"]["universal_scalar_produced"], false);
-    assert_eq!(root["aggregation_policy"]["cross_unit_addition_permitted"], false);
     // A larger distributional flow does not create a resource-loss estimate.
     assert!(transfer["expected"]["deadweight_loss"].is_null());
 }
