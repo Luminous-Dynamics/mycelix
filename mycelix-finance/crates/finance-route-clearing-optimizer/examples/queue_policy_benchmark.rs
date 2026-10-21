@@ -28,7 +28,12 @@ impl Scenario {
 fn fixture(
     payment_count: usize,
     scenario: Scenario,
-) -> (QueueContext, Vec<QueueAccount>, Vec<QueueRoute>, Vec<PaymentOrder>) {
+) -> (
+    QueueContext,
+    Vec<QueueAccount>,
+    Vec<QueueRoute>,
+    Vec<PaymentOrder>,
+) {
     let context = QueueContext {
         rail_id: "synthetic-zar-rtgs".into(),
         asset_id: "ZAR-minor-unit".into(),
@@ -137,9 +142,8 @@ fn main() {
                 let mut final_result = None;
                 for _ in 0..REPETITIONS {
                     let start = Instant::now();
-                    let result =
-                        simulate_queue(&context, &accounts, &routes, &payments, policy)
-                            .expect("synthetic benchmark fixture must be valid");
+                    let result = simulate_queue(&context, &accounts, &routes, &payments, policy)
+                        .expect("synthetic benchmark fixture must be valid");
                     timings.push(start.elapsed().as_nanos());
                     final_result = Some(result);
                 }
