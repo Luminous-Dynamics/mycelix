@@ -4,6 +4,9 @@ use finance_route_clearing_optimizer::{
 };
 use std::time::Instant;
 
+const WARMUP_RUNS: usize = 3;
+const MEASURED_REPETITIONS: usize = 31;
+
 fn make_case(route_count: usize) -> (ClearingContext, Vec<ParticipantNet>, Vec<FixedChargeRoute>) {
     assert!((4..=12).contains(&route_count) && route_count % 2 == 0);
     let side = route_count / 2;
@@ -69,7 +72,7 @@ fn percentile(values: &[u128], p: usize) -> u128 {
 
 fn main() {
     println!(
-        "candidate_routes,subsets,fixed_flow_minor,fixed_variable_cost,fixed_activation_cost,fixed_total_cost,linear_flow_minor,linear_variable_cost,fixed_p50_us,fixed_p95_us,linear_p50_us,linear_p95_us"
+        "candidate_routes,subsets,fixed_flow_minor,fixed_variable_cost,fixed_activation_cost,fixed_total_cost,linear_flow_minor,linear_variable_cost,fixed_p50_us,fixed_p95_us,linear_p50_us,linear_p95_us,warmup_runs,measured_repetitions"
     );
 
     for route_count in [4_usize, 6, 8, 10, 12] {
@@ -79,9 +82,17 @@ fn main() {
             .map(|candidate| candidate.route.clone())
             .collect::<Vec<_>>();
 
-        let mut fixed_samples = Vec::with_capacity(9);
-        let mut linear_samples = Vec::with_capacity(9);
-        for _ in 0..9 {
+        // Warm both implementations before timing so first-use and allocator effects
+        // do not dominate the small exact-search cases.
+        for _ in 0..WARMUP_RUNS {
+            optimize_fixed_charge(&context, &positions, &candidates)
+                .expect("fixed-charge warm-up failed");
+            optimize(&context, &positions, &linear_routes).expect("linear warm-up failed");
+        }
+
+        let mut fixed_samples = Vec::with_capacity(MEASURED_REPETITIONS);
+        let mut linear_samples = Vec::with_capacity(MEASURED_REPETITIONS);
+        for _ in 0..MEASURED_REPETITIONS {
             let start = Instant::now();
             let _plan = optimize_fixed_charge(&context, &positions, &candidates)
                 .expect("fixed-charge optimizer failed");
@@ -99,7 +110,7 @@ fn main() {
             optimize(&context, &positions, &linear_routes).expect("linear final sample failed");
 
         println!(
-            "{},{},{},{},{},{},{},{},{},{},{},{}",
+            "{},{},{},{},{},{},{},{},{},{},{},{},{},{}",
             route_count,
             fixed.evaluated_subsets,
             fixed.allocation.total_allocated_minor,
@@ -112,6 +123,8 @@ fn main() {
             percentile(&fixed_samples, 95),
             percentile(&linear_samples, 50),
             percentile(&linear_samples, 95),
+            WARMUP_RUNS,
+            MEASURED_REPETITIONS,
         );
     }
 }
