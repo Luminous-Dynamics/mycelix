@@ -430,5 +430,28 @@
     "Does not estimate South African or any other country's economic output.",
     "Does not establish SNA/SEEA/CWON conformity, physical service delivery, water safety, causal impact, or policy superiority.",
     "The schema pass, when implemented, will establish structural conformance only."
+  ],
+  "claims": [
+    {
+      "claim_id": "claim-account-reconciliation-001",
+      "claim_type": "accounting_reconciliation",
+      "evidence_status": "synthetic",
+      "statement": "The three demonstration identities reconcile under the fixture's declared operands and tolerances.",
+      "scope": "Synthetic fixture only; not observed national accounts.",
+      "source_refs": [
+        "synthetic-sna-v01",
+        "synthetic-water-v01"
+      ]
+    },
+    {
+      "claim_id": "claim-water-service-001",
+      "claim_type": "derived_indicator",
+      "evidence_status": "synthetic",
+      "statement": "The fixture separates 80 million m3 delivered from 20 million m3 of unmet demand.",
+      "scope": "Synthetic annual service scenario; not a real water-system observation.",
+      "source_refs": [
+        "synthetic-water-v01"
+      ]
+    }
   ]
 }
