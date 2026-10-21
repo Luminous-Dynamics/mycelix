@@ -307,7 +307,21 @@
       "residual": 0,
       "tolerance": 0.000001,
       "unit": "ZAR_million",
-      "disposition": "pass"
+      "disposition": "pass",
+      "operands": [
+        {
+          "term": "GDP",
+          "value": 1000,
+          "coefficient": 1,
+          "unit": "ZAR_million"
+        },
+        {
+          "term": "consumption_of_fixed_capital",
+          "value": 50,
+          "coefficient": -1,
+          "unit": "ZAR_million"
+        }
+      ]
     },
     {
       "check_id": "debt-stock-rollforward-001",
@@ -318,7 +332,39 @@
       "residual": 0,
       "tolerance": 0.000001,
       "unit": "ZAR_million",
-      "disposition": "pass"
+      "disposition": "pass",
+      "operands": [
+        {
+          "term": "opening_debt",
+          "value": 200,
+          "coefficient": 1,
+          "unit": "ZAR_million"
+        },
+        {
+          "term": "borrowing",
+          "value": 80,
+          "coefficient": 1,
+          "unit": "ZAR_million"
+        },
+        {
+          "term": "principal_repayment",
+          "value": 30,
+          "coefficient": -1,
+          "unit": "ZAR_million"
+        },
+        {
+          "term": "writeoff",
+          "value": 10,
+          "coefficient": -1,
+          "unit": "ZAR_million"
+        },
+        {
+          "term": "revaluation",
+          "value": 5,
+          "coefficient": 1,
+          "unit": "ZAR_million"
+        }
+      ]
     },
     {
       "check_id": "water-stock-flow-001",
@@ -329,7 +375,33 @@
       "residual": 0,
       "tolerance": 0.000001,
       "unit": "million_m3",
-      "disposition": "pass"
+      "disposition": "pass",
+      "operands": [
+        {
+          "term": "opening_stock",
+          "value": 100,
+          "coefficient": 1,
+          "unit": "million_m3"
+        },
+        {
+          "term": "inflow",
+          "value": 30,
+          "coefficient": 1,
+          "unit": "million_m3"
+        },
+        {
+          "term": "use",
+          "value": 20,
+          "coefficient": -1,
+          "unit": "million_m3"
+        },
+        {
+          "term": "outflow",
+          "value": 25,
+          "coefficient": -1,
+          "unit": "million_m3"
+        }
+      ]
     }
   ],
   "aggregation_policy": {
