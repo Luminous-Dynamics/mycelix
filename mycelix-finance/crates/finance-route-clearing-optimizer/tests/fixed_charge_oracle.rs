@@ -201,8 +201,7 @@ fn fixed_charge_optimizer_matches_exhaustive_oracle_on_deterministic_small_graph
             .map(|leg| u128::from(leg.amount_minor))
             .sum::<u128>();
         assert_eq!(
-            flow_from_legs,
-            actual.allocation.total_allocated_minor,
+            flow_from_legs, actual.allocation.total_allocated_minor,
             "leg amounts do not sum to reported flow for seed={seed}"
         );
 
@@ -219,8 +218,7 @@ fn fixed_charge_optimizer_matches_exhaustive_oracle_on_deterministic_small_graph
             })
             .sum::<u128>();
         assert_eq!(
-            variable_cost_from_legs,
-            actual.allocation.total_modeled_cost_units,
+            variable_cost_from_legs, actual.allocation.total_modeled_cost_units,
             "variable-cost breakdown mismatch for seed={seed}"
         );
 
@@ -252,8 +250,7 @@ fn fixed_charge_optimizer_matches_exhaustive_oracle_on_deterministic_small_graph
             })
             .sum::<u128>();
         assert_eq!(
-            fixed_cost_from_active_routes,
-            actual.fixed_activation_cost_units,
+            fixed_cost_from_active_routes, actual.fixed_activation_cost_units,
             "fixed activation cost breakdown mismatch for seed={seed}"
         );
         assert_eq!(
