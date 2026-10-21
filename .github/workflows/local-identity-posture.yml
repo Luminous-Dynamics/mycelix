@@ -7,6 +7,10 @@ on:
       - "crates/mycelix-leptos-core/src/identity_crypto.rs"
       - "crates/mycelix-leptos-core/Cargo.toml"
       - "mycelix-personal/apps/leptos/**"
+      - "mycelix-finance/apps/leptos/**"
+      - "mycelix-climate/apps/leptos/**"
+      - "mycelix-workspace/mycelix-finance/apps/leptos/**"
+      - "mycelix-workspace/mycelix-climate/apps/leptos/**"
       - ".github/workflows/local-identity-posture.yml"
   push:
     branches: [main]
@@ -15,6 +19,10 @@ on:
       - "crates/mycelix-leptos-core/src/identity_crypto.rs"
       - "crates/mycelix-leptos-core/Cargo.toml"
       - "mycelix-personal/apps/leptos/**"
+      - "mycelix-finance/apps/leptos/**"
+      - "mycelix-climate/apps/leptos/**"
+      - "mycelix-workspace/mycelix-finance/apps/leptos/**"
+      - "mycelix-workspace/mycelix-climate/apps/leptos/**"
       - ".github/workflows/local-identity-posture.yml"
   workflow_dispatch:
 
@@ -57,11 +65,19 @@ jobs:
         run: |
           cargo generate-lockfile --manifest-path crates/mycelix-leptos-core/Cargo.toml
           cargo generate-lockfile --manifest-path mycelix-personal/apps/leptos/Cargo.toml
-          sha256sum crates/mycelix-leptos-core/Cargo.lock mycelix-personal/apps/leptos/Cargo.lock
+          cargo generate-lockfile --manifest-path mycelix-finance/apps/leptos/Cargo.toml
+          cargo generate-lockfile --manifest-path mycelix-climate/apps/leptos/Cargo.toml
+          cargo generate-lockfile --manifest-path mycelix-workspace/mycelix-finance/apps/leptos/Cargo.toml
+          cargo generate-lockfile --manifest-path mycelix-workspace/mycelix-climate/apps/leptos/Cargo.toml
+          sha256sum crates/mycelix-leptos-core/Cargo.lock mycelix-personal/apps/leptos/Cargo.lock mycelix-finance/apps/leptos/Cargo.lock mycelix-climate/apps/leptos/Cargo.lock mycelix-workspace/mycelix-finance/apps/leptos/Cargo.lock mycelix-workspace/mycelix-climate/apps/leptos/Cargo.lock
       - name: Check formatting of touched identity files and Personal app
         run: |
           rustfmt --edition 2024 --check crates/mycelix-leptos-core/src/local_identity.rs crates/mycelix-leptos-core/src/identity_crypto.rs
           cargo fmt --manifest-path mycelix-personal/apps/leptos/Cargo.toml -- --check
+          cargo fmt --manifest-path mycelix-finance/apps/leptos/Cargo.toml -- --check
+          cargo fmt --manifest-path mycelix-climate/apps/leptos/Cargo.toml -- --check
+          cargo fmt --manifest-path mycelix-workspace/mycelix-finance/apps/leptos/Cargo.toml -- --check
+          cargo fmt --manifest-path mycelix-workspace/mycelix-climate/apps/leptos/Cargo.toml -- --check
       - name: Run native identity-storage posture tests
         run: cargo test --manifest-path crates/mycelix-leptos-core/Cargo.toml --locked --lib
       - name: Install wasm-pack for browser test execution
@@ -91,3 +107,24 @@ jobs:
         run: cargo clippy --manifest-path mycelix-personal/apps/leptos/Cargo.toml --locked --all-targets -- -D warnings
       - name: Compile Personal app for WASM
         run: cargo check --manifest-path mycelix-personal/apps/leptos/Cargo.toml --locked --target wasm32-unknown-unknown
+      - name: Compile Finance, Climate and workspace mirror apps for WASM
+        run: |
+          cargo check --manifest-path mycelix-finance/apps/leptos/Cargo.toml --locked --target wasm32-unknown-unknown
+          cargo check --manifest-path mycelix-climate/apps/leptos/Cargo.toml --locked --target wasm32-unknown-unknown
+          cargo check --manifest-path mycelix-workspace/mycelix-finance/apps/leptos/Cargo.toml --locked --target wasm32-unknown-unknown
+          cargo check --manifest-path mycelix-workspace/mycelix-climate/apps/leptos/Cargo.toml --locked --target wasm32-unknown-unknown
+      - name: Assert Finance and Climate identity shells remain gated
+        shell: bash
+        run: |
+          set -euo pipefail
+          for file in \
+            mycelix-finance/apps/leptos/src/app.rs \
+            mycelix-climate/apps/leptos/src/app.rs \
+            mycelix-workspace/mycelix-finance/apps/leptos/src/app.rs \
+            mycelix-workspace/mycelix-climate/apps/leptos/src/app.rs; do
+            rg -q 'ProtectedIdentityAccessGate' "$file"
+            if rg -n 'provide_local_identity\(\);' "$file"; then
+              echo "Ungated direct identity context creation in $file" >&2
+              exit 1
+            fi
+          done

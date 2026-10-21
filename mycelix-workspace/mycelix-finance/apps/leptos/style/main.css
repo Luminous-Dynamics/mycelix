@@ -178,3 +178,120 @@
         grid-template-columns: 1fr;
     }
 }
+
+/* Shared-core fail-closed identity access gate for dependent hApps. */
+.identity-access-gate-shell {
+    min-height: 100vh;
+    display: grid;
+    place-items: center;
+    padding: clamp(1rem, 3vw, 2rem);
+}
+.identity-access-gate-card {
+    width: min(100%, 42rem);
+    display: grid;
+    gap: 1rem;
+    padding: clamp(1.25rem, 4vw, 2rem);
+    border: 1px solid var(--border-visible, currentColor);
+    border-radius: 1rem;
+    background: var(--bg-surface, Canvas);
+    color: var(--text-primary, CanvasText);
+    box-shadow: 0 1rem 3rem rgb(0 0 0 / 12%);
+}
+.identity-access-gate-card h1,
+.identity-access-gate-card p { margin: 0; }
+.identity-access-gate-eyebrow {
+    font-size: 0.75rem;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    opacity: 0.8;
+}
+.identity-access-gate-recheck {
+    justify-self: start;
+    min-height: 44px;
+    padding: 0.65rem 1rem;
+    border: 1px solid currentColor;
+    border-radius: 0.55rem;
+    background: transparent;
+    color: inherit;
+    font: inherit;
+    font-weight: 650;
+    cursor: pointer;
+}
+.identity-access-gate-recheck:focus-visible {
+    outline: 3px solid var(--primary, Highlight);
+    outline-offset: 3px;
+}
+.identity-access-gate-status {
+    min-height: 1.25em;
+    overflow-wrap: anywhere;
+    font-size: 0.85rem;
+    opacity: 0.8;
+}
+@media (prefers-reduced-motion: reduce) {
+    .identity-access-gate-card { scroll-behavior: auto; }
+}
+
+.identity-access-gate-form { display: grid; gap: 1rem; }
+.identity-access-gate-field { display: grid; gap: 0.4rem; }
+.identity-access-gate-field label { font-size: 0.9rem; font-weight: 650; }
+.identity-access-gate-input {
+    box-sizing: border-box;
+    width: 100%;
+    min-width: 0;
+    min-height: 44px;
+    padding: 0.7rem 0.8rem;
+    border: 1px solid var(--border-visible, currentColor);
+    border-radius: 0.55rem;
+    background: var(--bg-surface, Canvas);
+    color: var(--text-primary, CanvasText);
+    font: inherit;
+}
+.identity-access-gate-recovery-phrase { min-height: 7rem; resize: vertical; }
+.identity-access-gate-form button:focus-visible,
+.identity-access-gate-recheck:focus-visible,
+.identity-access-gate-input:focus-visible {
+    outline: 3px solid var(--primary, Highlight);
+    outline-offset: 3px;
+}
+.identity-access-gate-secondary {
+    justify-self: start;
+    min-height: 44px;
+    padding: 0.6rem 0.9rem;
+    border: 1px solid var(--border-visible, currentColor);
+    border-radius: 0.55rem;
+    background: transparent;
+    color: inherit;
+    font: inherit;
+    cursor: pointer;
+}
+.identity-access-gate-warning {
+    border-inline-start: 3px solid var(--accent, currentColor);
+    padding: 0.6rem 0.8rem;
+    font-size: 0.87rem;
+    line-height: 1.5;
+    opacity: 0.9;
+}
+.identity-access-gate-submit {
+    min-height: 44px;
+    justify-self: start;
+    padding: 0.65rem 1rem;
+    border: 1px solid var(--border-visible, currentColor);
+    border-radius: 0.55rem;
+    background: var(--primary, ButtonFace);
+    color: var(--primary-contrast, ButtonText);
+    font: inherit;
+    font-weight: 700;
+    cursor: pointer;
+}
+.identity-access-gate-submit:disabled,
+.identity-access-gate-recheck:disabled { cursor: wait; opacity: 0.65; }
+.identity-access-gate-blocker {
+    display: grid;
+    gap: 0.5rem;
+    padding: 0.9rem;
+    border: 1px solid var(--border-visible, currentColor);
+    border-radius: 0.55rem;
+}
+.identity-access-gate-blocker p { margin: 0; }
+.identity-access-gate-origin-note { font-size: 0.9rem; line-height: 1.5; opacity: 0.85; }
