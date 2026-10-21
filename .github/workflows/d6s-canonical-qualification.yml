@@ -5,19 +5,32 @@ on:
     branches:
       - myc-int-demo-d6t-canonical-encoding
   pull_request:
-    # Keep this specialized gate off unrelated PRs while still qualifying
-    # relevant D6S inputs in the canonical branch and on main.
+    # Scope this reference gate to main and its canonical reference branch.
     branches:
       - main
       - myc-int-demo-d6t-canonical-encoding
+    types: [opened, synchronize, reopened, ready_for_review, converted_to_draft]
+    # D6S is an independent exact-head gate. Do not run it for unrelated
+    # product PRs: their exact head may not contain this reference corpus.
+    # Every contract, fixture, verifier, or target input that can change the
+    # qualification result is explicitly covered here.
     paths:
-      - "mycelix-manufacturing/Cargo.toml"
+      - ".github/workflows/d6s-canonical-qualification.yml"
+      - "docs/integral/canonical-encoding-profile-d6t-v1.md"
+      - "docs/integral/d6s-canon-1-golden-vectors.json"
+      - "docs/integral/d6s-canon-1-manifest.json"
+      - "docs/integral/d6s-canon-2-authority-boundary-fixture.json"
+      - "docs/integral/d6s-canon-2-authority-boundary-v1.md"
+      - "docs/integral/d6s-canon-2-manifest.json"
+      - "scripts/integral/verify_d6s_canon_1.py"
+      - "scripts/integral/verify_d6s_canon_2_authority_boundary.py"
+      - "rust-toolchain.toml"
+      - ".cargo/**"
+      - "mycelix-manufacturing/**/Cargo.toml"
       - "mycelix-manufacturing/Cargo.lock"
+      - "mycelix-manufacturing/.cargo/**"
       - "mycelix-manufacturing/crates/cos_conformance/**"
       - "mycelix-manufacturing/crates/manufacturing_common/**"
-      - "docs/integral/d6s-canon-*"
-      - "scripts/integral/verify_d6s_canon_*.py"
-    types: [opened, synchronize, reopened, ready_for_review]
   workflow_dispatch:
 
 permissions:
