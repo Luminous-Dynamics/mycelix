@@ -449,14 +449,14 @@ pub fn simulate_queue(
                         .then_with(|| payments[*a].arrival_tick.cmp(&payments[*b].arrival_tick))
                         .then_with(|| payments[*a].payment_id.cmp(&payments[*b].payment_id))
                 }),
-                QueuePolicy::StrictFifo | QueuePolicy::LiquidityAwareFifo => pending.sort_by(
-                    |a, b| {
+                QueuePolicy::StrictFifo | QueuePolicy::LiquidityAwareFifo => {
+                    pending.sort_by(|a, b| {
                         payments[*a]
                             .arrival_tick
                             .cmp(&payments[*b].arrival_tick)
                             .then_with(|| payments[*a].payment_id.cmp(&payments[*b].payment_id))
-                    },
-                ),
+                    })
+                }
             }
             if pending.is_empty() {
                 break;
@@ -844,15 +844,8 @@ mod tests {
     fn aging_priority_saturates_at_extreme_tick_without_wrapping() {
         let result = simulate_queue(
             &context(u64::MAX),
-            &[
-                account("A", 0),
-                account("B", 0),
-                account("C", 1),
-            ],
-            &[
-                route("ab", 1, u64::MAX),
-                route("ca", 1, u64::MAX),
-            ],
+            &[account("A", 0), account("B", 0), account("C", 1)],
+            &[route("ab", 1, u64::MAX), route("ca", 1, u64::MAX)],
             &[
                 payment("old", "ab", "A", "B", 1, 0, None, u8::MAX),
                 payment("fund", "ca", "C", "A", 1, u64::MAX, None, 0),
@@ -862,7 +855,12 @@ mod tests {
         .unwrap();
 
         assert!(matches!(
-            result.payments.iter().find(|p| p.payment_id == "old").unwrap().state,
+            result
+                .payments
+                .iter()
+                .find(|p| p.payment_id == "old")
+                .unwrap()
+                .state,
             PaymentState::Settled { tick: u64::MAX, .. }
         ));
     }
@@ -870,11 +868,7 @@ mod tests {
     #[test]
     fn priority_aging_eventually_serves_an_old_low_priority_payment() {
         let ctx = context(50);
-        let accounts = [
-            account("A", 4),
-            account("B", 0),
-            account("C", 0),
-        ];
+        let accounts = [account("A", 4), account("B", 0), account("C", 0)];
         let routes = [
             route("ab", 1_000, 100),
             route("ac", 1_000, 100),
@@ -906,14 +900,8 @@ mod tests {
             }
         }
 
-        let static_priority = simulate_queue(
-            &ctx,
-            &accounts,
-            &routes,
-            &orders,
-            QueuePolicy::PriorityScan,
-        )
-        .unwrap();
+        let static_priority =
+            simulate_queue(&ctx, &accounts, &routes, &orders, QueuePolicy::PriorityScan).unwrap();
         let aging_priority = simulate_queue(
             &ctx,
             &accounts,
@@ -973,7 +961,12 @@ mod tests {
         assert_eq!(priority_first.settled_minor, 6);
         assert_eq!(deadline_first.missed_deadline_count, 0);
         assert!(matches!(
-            deadline_first.payments.iter().find(|p| p.payment_id == "urgent").unwrap().state,
+            deadline_first
+                .payments
+                .iter()
+                .find(|p| p.payment_id == "urgent")
+                .unwrap()
+                .state,
             PaymentState::Settled { .. }
         ));
     }
