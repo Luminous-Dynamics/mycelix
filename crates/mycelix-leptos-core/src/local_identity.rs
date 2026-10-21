@@ -658,18 +658,12 @@ async fn persist_protected_signing_key(
         return Err("Could not persist the protected identity envelope.".into());
     }
     if storage.set_item(IDENTITY_PUBLIC_KEY, &public_b64).is_err() {
-        // Clean public metadata first while we can still bind it to this
-        // operation's envelope; a matching public key alone is not ownership.
-        let public_cleanup =
-            remove_public_key_if_envelope_matches(&storage, &encrypted_wire, &public_b64);
-        let encrypted_cleanup = remove_storage_item_if_matches(
-            &storage,
-            IDENTITY_SECRET_ENCRYPTED_KEY,
-            &encrypted_wire,
-        );
-        if encrypted_cleanup.is_err() || public_cleanup.is_err() {
+        // Cleanup is all-or-preserve: if the public metadata no longer belongs
+        // to this envelope, retain the envelope rather than deleting a
+        // potentially newer operation's only encrypted recovery material.
+        if cleanup_protected_creation_if_owned(&storage, &encrypted_wire, &public_b64).is_err() {
             return Err(
-                "Identity creation was interrupted and partial storage remains; inspect posture before retrying."
+                "Identity creation was interrupted; concurrent or partial values were preserved for posture inspection."
                     .into(),
             );
         }
@@ -685,17 +679,10 @@ async fn persist_protected_signing_key(
                 == LocalIdentityStoragePosture::ProtectedLocked
     });
     if !verified {
-        let public_cleanup =
-            remove_public_key_if_envelope_matches(&storage, &encrypted_wire, &public_b64);
-        let encrypted_cleanup = remove_storage_item_if_matches(
-            &storage,
-            IDENTITY_SECRET_ENCRYPTED_KEY,
-            &encrypted_wire,
-        );
         UNLOCKED_KEY.with(|cell| *cell.borrow_mut() = None);
-        if encrypted_cleanup.is_err() || public_cleanup.is_err() {
+        if cleanup_protected_creation_if_owned(&storage, &encrypted_wire, &public_b64).is_err() {
             return Err(
-                "Identity storage verification failed and cleanup was incomplete; inspect posture before retrying."
+                "Identity storage verification failed; values not proven to belong to this operation were preserved for posture inspection."
                     .into(),
             );
         }
@@ -1437,6 +1424,22 @@ fn remove_public_key_if_envelope_matches(
             "Different public-key metadata was preserved; cleanup was refused.".into(),
         ),
     }
+}
+
+/// Clean up a failed protected-creation attempt only when both values can
+/// still be attributed to the attempt. If public-key metadata differs or the
+/// envelope has changed, retain the encrypted value for recovery/inspection.
+fn cleanup_protected_creation_if_owned(
+    storage: &web_sys::Storage,
+    expected_envelope: &str,
+    expected_public_key: &str,
+) -> Result<(), String> {
+    remove_public_key_if_envelope_matches(storage, expected_envelope, expected_public_key)?;
+    remove_storage_item_if_matches(
+        storage,
+        IDENTITY_SECRET_ENCRYPTED_KEY,
+        expected_envelope,
+    )
 }
 
 /// Restore one value only when the key still contains this operation's
@@ -2333,6 +2336,42 @@ mod browser_storage_tests {
         assert_eq!(
             storage.get_item(IDENTITY_PUBLIC_KEY).unwrap().as_deref(),
             Some(same_public_key.as_str())
+        );
+    }
+
+    #[wasm_bindgen_test]
+    async fn failed_creation_cleanup_keeps_envelope_when_public_metadata_differs() {
+        let _backup = IdentityStorageBackup::new_and_clear();
+        let storage = web_sys::window().unwrap().local_storage().unwrap().unwrap();
+        let expected_public = base64_encode(
+            SigningKey::from_bytes(&[125u8; 32]).verifying_key().as_bytes()
+        );
+        let competing_public = base64_encode(
+            SigningKey::from_bytes(&[126u8; 32]).verifying_key().as_bytes()
+        );
+        storage
+            .set_item(IDENTITY_SECRET_ENCRYPTED_KEY, "this-operation-envelope")
+            .expect("test can seed this operation's envelope");
+        storage
+            .set_item(IDENTITY_PUBLIC_KEY, &competing_public)
+            .expect("test can seed competing public metadata");
+
+        assert!(
+            cleanup_protected_creation_if_owned(
+                &storage,
+                "this-operation-envelope",
+                &expected_public,
+            )
+            .is_err()
+        );
+        assert_eq!(
+            storage.get_item(IDENTITY_SECRET_ENCRYPTED_KEY).unwrap().as_deref(),
+            Some("this-operation-envelope"),
+            "do not delete the only envelope when companion metadata changed"
+        );
+        assert_eq!(
+            storage.get_item(IDENTITY_PUBLIC_KEY).unwrap().as_deref(),
+            Some(competing_public.as_str())
         );
     }
 
