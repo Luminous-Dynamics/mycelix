@@ -58,7 +58,8 @@
           "nonclaims",
           "source_evidence_state",
           "source_snapshot_manifest_sha256",
-          "source_snapshot_required_before_pilot"
+          "source_snapshot_required_before_pilot",
+          "source_snapshot_manifest_path"
         ],
         "properties": {
           "profile_id": {
@@ -213,7 +214,15 @@
             "pattern": "^[0-9a-f]{64}$"
           },
           "source_snapshot_required_before_pilot": {
-            "const": true
+            "type": "boolean"
+          },
+          "source_snapshot_manifest_path": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "minLength": 3,
+            "maxLength": 220
           }
         },
         "allOf": [
@@ -271,6 +280,9 @@
                 "source_snapshot_manifest_sha256": {
                   "const": null
                 },
+                "source_snapshot_manifest_path": {
+                  "const": null
+                },
                 "source_snapshot_required_before_pilot": {
                   "const": true
                 }
@@ -293,8 +305,12 @@
                 "source_snapshot_manifest_sha256": {
                   "$ref": "#/$defs/sha256"
                 },
+                "source_snapshot_manifest_path": {
+                  "type": "string",
+                  "pattern": "^source-snapshots/[a-z0-9][a-z0-9-]+-v[1-9][0-9]*\\.json$"
+                },
                 "source_snapshot_required_before_pilot": {
-                  "const": true
+                  "const": false
                 }
               }
             }
