@@ -216,12 +216,16 @@ fn all_queue_policies_stay_within_the_exact_oracle_on_64_small_traces() {
             payment("p4", "ca", "C", "A", ((seed * 13 + 2) % 4 + 1) as u64, 5),
             payment("p5", "ca", "C", "A", ((seed * 17 + 3) % 4 + 1) as u64, 0),
         ];
+        for (index, payment) in payments.iter_mut().enumerate() {
+            payment.deadline_tick = Some(((seed + index * 3) % 5) as u64);
+        }
         let oracle = exhaustive_sequence_oracle(&accounts, &routes, &payments);
 
         for policy in [
             QueuePolicy::StrictFifo,
             QueuePolicy::LiquidityAwareFifo,
             QueuePolicy::PriorityScan,
+            QueuePolicy::EarliestDeadlineFirst,
         ] {
             let result = simulate_queue(&context(), &accounts, &routes, &payments, policy).unwrap();
             assert!(
