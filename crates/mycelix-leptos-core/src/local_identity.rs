@@ -658,13 +658,15 @@ async fn persist_protected_signing_key(
         return Err("Could not persist the protected identity envelope.".into());
     }
     if storage.set_item(IDENTITY_PUBLIC_KEY, &public_b64).is_err() {
+        // Clean public metadata first while we can still bind it to this
+        // operation's envelope; a matching public key alone is not ownership.
+        let public_cleanup =
+            remove_public_key_if_envelope_matches(&storage, &encrypted_wire, &public_b64);
         let encrypted_cleanup = remove_storage_item_if_matches(
             &storage,
             IDENTITY_SECRET_ENCRYPTED_KEY,
             &encrypted_wire,
         );
-        let public_cleanup =
-            remove_storage_item_if_matches(&storage, IDENTITY_PUBLIC_KEY, &public_b64);
         if encrypted_cleanup.is_err() || public_cleanup.is_err() {
             return Err(
                 "Identity creation was interrupted and partial storage remains; inspect posture before retrying."
@@ -683,13 +685,13 @@ async fn persist_protected_signing_key(
                 == LocalIdentityStoragePosture::ProtectedLocked
     });
     if !verified {
+        let public_cleanup =
+            remove_public_key_if_envelope_matches(&storage, &encrypted_wire, &public_b64);
         let encrypted_cleanup = remove_storage_item_if_matches(
             &storage,
             IDENTITY_SECRET_ENCRYPTED_KEY,
             &encrypted_wire,
         );
-        let public_cleanup =
-            remove_storage_item_if_matches(&storage, IDENTITY_PUBLIC_KEY, &public_b64);
         UNLOCKED_KEY.with(|cell| *cell.borrow_mut() = None);
         if encrypted_cleanup.is_err() || public_cleanup.is_err() {
             return Err(
@@ -1389,6 +1391,50 @@ fn remove_storage_item_if_matches(
         }
         Some(_) => Err(
             "A different concurrent storage value was preserved; inspect identity posture.".into(),
+        ),
+    }
+}
+
+/// Remove public-key metadata only while the encrypted envelope still
+/// identifies this operation. Comparing the public key alone is insufficient:
+/// two restore attempts for the same mnemonic can have the same public key but
+/// different random salts/IVs and therefore different encrypted envelopes.
+fn remove_public_key_if_envelope_matches(
+    storage: &web_sys::Storage,
+    expected_envelope: &str,
+    expected_public_key: &str,
+) -> Result<(), String> {
+    let envelope = storage
+        .get_item(IDENTITY_SECRET_ENCRYPTED_KEY)
+        .map_err(|_| "Encrypted identity envelope could not be read during cleanup.".to_string())?;
+    if envelope.as_deref() != Some(expected_envelope) {
+        return Err(
+            "A different encrypted envelope was preserved; public-key cleanup was refused."
+                .into(),
+        );
+    }
+
+    let public_key = storage
+        .get_item(IDENTITY_PUBLIC_KEY)
+        .map_err(|_| "Public-key metadata could not be read during cleanup.".to_string())?;
+    match public_key.as_deref() {
+        None => Ok(()),
+        Some(value) if value == expected_public_key => {
+            storage
+                .remove_item(IDENTITY_PUBLIC_KEY)
+                .map_err(|_| "The operation's public-key metadata could not be removed.".to_string())?;
+            if storage
+                .get_item(IDENTITY_PUBLIC_KEY)
+                .map_err(|_| "Public-key cleanup could not be verified.".to_string())?
+                .is_none()
+            {
+                Ok(())
+            } else {
+                Err("Public-key cleanup could not be verified.".into())
+            }
+        }
+        Some(_) => Err(
+            "Different public-key metadata was preserved; cleanup was refused.".into(),
         ),
     }
 }
@@ -2256,6 +2302,65 @@ mod browser_storage_tests {
         )
         .expect("matching value is removable");
         assert!(storage.get_item(IDENTITY_SECRET_ENCRYPTED_KEY).unwrap().is_none());
+    }
+
+    #[wasm_bindgen_test]
+    async fn public_key_cleanup_requires_the_owned_envelope_even_for_same_key() {
+        let _backup = IdentityStorageBackup::new_and_clear();
+        let storage = web_sys::window().unwrap().local_storage().unwrap().unwrap();
+        let same_public_key = base64_encode(
+            SigningKey::from_bytes(&[123u8; 32]).verifying_key().as_bytes()
+        );
+        storage
+            .set_item(IDENTITY_SECRET_ENCRYPTED_KEY, "other-tab-different-envelope")
+            .expect("test can seed a competing envelope");
+        storage
+            .set_item(IDENTITY_PUBLIC_KEY, &same_public_key)
+            .expect("second restore may refer to the same public key");
+
+        assert!(
+            remove_public_key_if_envelope_matches(
+                &storage,
+                "this-operation-envelope",
+                &same_public_key,
+            )
+            .is_err()
+        );
+        assert_eq!(
+            storage.get_item(IDENTITY_SECRET_ENCRYPTED_KEY).unwrap().as_deref(),
+            Some("other-tab-different-envelope")
+        );
+        assert_eq!(
+            storage.get_item(IDENTITY_PUBLIC_KEY).unwrap().as_deref(),
+            Some(same_public_key.as_str())
+        );
+    }
+
+    #[wasm_bindgen_test]
+    async fn public_key_cleanup_succeeds_when_both_values_belong_to_operation() {
+        let _backup = IdentityStorageBackup::new_and_clear();
+        let storage = web_sys::window().unwrap().local_storage().unwrap().unwrap();
+        let public_key = base64_encode(
+            SigningKey::from_bytes(&[124u8; 32]).verifying_key().as_bytes()
+        );
+        storage
+            .set_item(IDENTITY_SECRET_ENCRYPTED_KEY, "this-operation-envelope")
+            .expect("test can seed operation envelope");
+        storage
+            .set_item(IDENTITY_PUBLIC_KEY, &public_key)
+            .expect("test can seed operation public key");
+
+        remove_public_key_if_envelope_matches(
+            &storage,
+            "this-operation-envelope",
+            &public_key,
+        )
+        .expect("public metadata belongs to this exact envelope");
+        assert!(storage.get_item(IDENTITY_PUBLIC_KEY).unwrap().is_none());
+        assert_eq!(
+            storage.get_item(IDENTITY_SECRET_ENCRYPTED_KEY).unwrap().as_deref(),
+            Some("this-operation-envelope")
+        );
     }
 
     #[wasm_bindgen_test]
