@@ -4,17 +4,27 @@ on:
   pull_request:
     paths:
       - "crates/mycelix-leptos-core/src/local_identity.rs"
+      - "crates/mycelix-leptos-core/src/lib.rs"
       - "crates/mycelix-leptos-core/src/identity_crypto.rs"
       - "crates/mycelix-leptos-core/Cargo.toml"
       - "mycelix-personal/apps/leptos/**"
+      - "mycelix-finance/apps/leptos/**"
+      - "mycelix-climate/apps/leptos/**"
+      - "mycelix-workspace/mycelix-finance/apps/leptos/**"
+      - "mycelix-workspace/mycelix-climate/apps/leptos/**"
       - ".github/workflows/local-identity-posture.yml"
   push:
     branches: [main]
     paths:
       - "crates/mycelix-leptos-core/src/local_identity.rs"
+      - "crates/mycelix-leptos-core/src/lib.rs"
       - "crates/mycelix-leptos-core/src/identity_crypto.rs"
       - "crates/mycelix-leptos-core/Cargo.toml"
       - "mycelix-personal/apps/leptos/**"
+      - "mycelix-finance/apps/leptos/**"
+      - "mycelix-climate/apps/leptos/**"
+      - "mycelix-workspace/mycelix-finance/apps/leptos/**"
+      - "mycelix-workspace/mycelix-climate/apps/leptos/**"
       - ".github/workflows/local-identity-posture.yml"
   workflow_dispatch:
 
@@ -29,7 +39,7 @@ jobs:
   qualify:
     name: Exact-head identity posture tests and WASM compile
     runs-on: ubuntu-24.04
-    timeout-minutes: 45
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
@@ -53,15 +63,39 @@ jobs:
             echo "Expected source head $EXPECTED_SHA, checked out $actual" >&2
             exit 1
           fi
-      - name: Generate and fingerprint identity/app locks
+      - name: Generate and fingerprint identity and app locks
         run: |
           cargo generate-lockfile --manifest-path crates/mycelix-leptos-core/Cargo.toml
           cargo generate-lockfile --manifest-path mycelix-personal/apps/leptos/Cargo.toml
-          sha256sum crates/mycelix-leptos-core/Cargo.lock mycelix-personal/apps/leptos/Cargo.lock
-      - name: Check formatting of touched identity files and Personal app
+          cargo generate-lockfile --manifest-path mycelix-finance/apps/leptos/Cargo.toml
+          cargo generate-lockfile --manifest-path mycelix-climate/apps/leptos/Cargo.toml
+          cargo generate-lockfile --manifest-path mycelix-workspace/mycelix-finance/apps/leptos/Cargo.toml
+          cargo generate-lockfile --manifest-path mycelix-workspace/mycelix-climate/apps/leptos/Cargo.toml
+          sha256sum crates/mycelix-leptos-core/Cargo.lock mycelix-personal/apps/leptos/Cargo.lock mycelix-finance/apps/leptos/Cargo.lock mycelix-climate/apps/leptos/Cargo.lock mycelix-workspace/mycelix-finance/apps/leptos/Cargo.lock mycelix-workspace/mycelix-climate/apps/leptos/Cargo.lock
+      - name: Check formatting of touched identity and app files
         run: |
-          rustfmt --edition 2024 --check crates/mycelix-leptos-core/src/local_identity.rs crates/mycelix-leptos-core/src/identity_crypto.rs
+          rustfmt --edition 2024 --check crates/mycelix-leptos-core/src/local_identity.rs crates/mycelix-leptos-core/src/lib.rs crates/mycelix-leptos-core/src/identity_crypto.rs
+          rustfmt --edition 2024 --check mycelix-finance/apps/leptos/src/app.rs mycelix-finance/apps/leptos/src/actions.rs mycelix-climate/apps/leptos/src/app.rs mycelix-climate/apps/leptos/src/actions.rs mycelix-climate/apps/leptos/src/context.rs
           cargo fmt --manifest-path mycelix-personal/apps/leptos/Cargo.toml -- --check
+      - name: Assert Finance and Climate workspace mirrors are exact
+        run: |
+          cmp mycelix-finance/apps/leptos/src/app.rs mycelix-workspace/mycelix-finance/apps/leptos/src/app.rs
+          cmp mycelix-finance/apps/leptos/src/actions.rs mycelix-workspace/mycelix-finance/apps/leptos/src/actions.rs
+          cmp mycelix-climate/apps/leptos/src/app.rs mycelix-workspace/mycelix-climate/apps/leptos/src/app.rs
+          cmp mycelix-climate/apps/leptos/src/actions.rs mycelix-workspace/mycelix-climate/apps/leptos/src/actions.rs
+          cmp mycelix-climate/apps/leptos/src/context.rs mycelix-workspace/mycelix-climate/apps/leptos/src/context.rs
+      - name: Assert no legacy identity minting call sites in Finance/Climate
+        shell: bash
+        run: |
+          set -euo pipefail
+          if rg -n '(^|[^[:alnum:]_])provide_local_identity\(\)' mycelix-finance/apps/leptos/src mycelix-climate/apps/leptos/src mycelix-workspace/mycelix-finance/apps/leptos/src mycelix-workspace/mycelix-climate/apps/leptos/src; then
+            echo "Legacy identity provider call detected in Finance/Climate." >&2
+            exit 1
+          fi
+          if rg -n 'mycelix_leptos_core::local_did\(\)' mycelix-climate/apps/leptos/src mycelix-workspace/mycelix-climate/apps/leptos/src; then
+            echo "Legacy minting DID accessor detected in Climate." >&2
+            exit 1
+          fi
       - name: Run native identity-storage posture tests
         run: cargo test --manifest-path crates/mycelix-leptos-core/Cargo.toml --locked --lib
       - name: Run browser identity and cryptographic transition tests
@@ -74,3 +108,11 @@ jobs:
         run: cargo clippy --manifest-path mycelix-personal/apps/leptos/Cargo.toml --locked --all-targets -- -D warnings
       - name: Compile Personal app for WASM
         run: cargo check --manifest-path mycelix-personal/apps/leptos/Cargo.toml --locked --target wasm32-unknown-unknown
+      - name: Compile Finance and Climate apps for WASM
+        run: |
+          cargo check --manifest-path mycelix-finance/apps/leptos/Cargo.toml --locked --target wasm32-unknown-unknown
+          cargo check --manifest-path mycelix-climate/apps/leptos/Cargo.toml --locked --target wasm32-unknown-unknown
+      - name: Compile workspace Finance and Climate mirrors for WASM
+        run: |
+          cargo check --manifest-path mycelix-workspace/mycelix-finance/apps/leptos/Cargo.toml --locked --target wasm32-unknown-unknown
+          cargo check --manifest-path mycelix-workspace/mycelix-climate/apps/leptos/Cargo.toml --locked --target wasm32-unknown-unknown
