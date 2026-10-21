@@ -4,7 +4,7 @@
 
 A beyond-GDP system can look superior by choosing favorable indicators, hiding incompatible sources, excluding bad cases, or changing weights after seeing results. NRVCA therefore uses a benchmark contract before source calculations begin. Each benchmark must name its exact target, unit of analysis, data vintage, incumbent, strongest feasible baseline, candidate method, primary metrics, acceptance rules, guardrails, and claim ceiling.
 
-The companion design-only run is [NRVCA-SA-BRIDGE-001](../../../../fixtures/nrvca-sa-bridge-preregistration-v0.1.json); its contract is [nrvca-benchmark-preregistration-v0.1.schema.json](../../../../schemas/nrvca-benchmark-preregistration-v0.1.schema.json).
+The companion design-only run is [NRVCA-SA-BRIDGE-001](../../../fixtures/nrvca-sa-bridge-preregistration-v0.1.json); its contract is [nrvca-benchmark-preregistration-v0.1.schema.json](../../../schemas/nrvca-benchmark-preregistration-v0.1.schema.json).
 
 ## Three independent benchmark tracks
 
