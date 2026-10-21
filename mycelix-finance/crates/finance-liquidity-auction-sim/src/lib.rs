@@ -892,6 +892,65 @@ mod tests {
     }
 
     #[test]
+    fn conflicting_duplicate_bid_id_fails_closed() {
+        let participants = vec![participant("L", 10, 5), participant("B", 0, 5)];
+        let first = bid("bid", "B", 5, 3);
+        let conflicting = bid("bid", "B", 4, 3);
+        assert_eq!(
+            run_auction(
+                &context(),
+                &participants,
+                &[offer("offer", "L", 5, 1)],
+                &[first, conflicting],
+            ),
+            Err(AuctionError::ConflictingDuplicateBid("bid".into()))
+        );
+    }
+
+    #[test]
+    fn one_participant_cannot_submit_multiple_quote_ids_in_one_side() {
+        let participants = vec![participant("L", 20, 10), participant("B", 0, 10)];
+        assert_eq!(
+            run_auction(
+                &context(),
+                &participants,
+                &[
+                    offer("offer-1", "L", 5, 1),
+                    offer("offer-2", "L", 5, 2),
+                ],
+                &[bid("bid", "B", 5, 3)],
+            ),
+            Err(AuctionError::DuplicateOfferParticipant("L".into()))
+        );
+        assert_eq!(
+            run_auction(
+                &context(),
+                &participants,
+                &[offer("offer", "L", 5, 1)],
+                &[bid("bid-1", "B", 3, 3), bid("bid-2", "B", 2, 2)],
+            ),
+            Err(AuctionError::DuplicateBidParticipant("B".into()))
+        );
+    }
+
+    #[test]
+    fn empty_authority_evidence_reference_is_rejected() {
+        let mut invalid = context();
+        invalid.authority = AuthorityQualification::ExternallyQualified {
+            evidence_ref: "  ".into(),
+        };
+        assert_eq!(
+            run_auction(
+                &invalid,
+                &[participant("L", 10, 5), participant("B", 0, 5)],
+                &[],
+                &[],
+            ),
+            Err(AuctionError::InvalidContext("authority evidence reference"))
+        );
+    }
+
+    #[test]
     fn output_is_invariant_to_observation_order() {
         let participants = vec![
             participant("L1", 12, 6),
