@@ -155,6 +155,7 @@ The first source-discovery pass is recorded in [South Africa NRVCA Source Catalo
 - NRVCA-001: https://github.com/Luminous-Dynamics/mycelix/issues/5374
 - NRVCA-002: https://github.com/Luminous-Dynamics/mycelix/issues/5382 (source-vintage acquisition and historical reconciliation)
 - NRVCA-003: https://github.com/Luminous-Dynamics/mycelix/issues/5387 (transfers, rents, resource costs, deadweight loss and external damages)
+- NRVCA-004: https://github.com/Luminous-Dynamics/mycelix/issues/5399 (decision value under explicit service and equity constraints)
 - Mycelix FIN-SYS-003: https://github.com/Luminous-Dynamics/mycelix/issues/3072
 - Mycelix CIV-ECON-006: https://github.com/Luminous-Dynamics/mycelix/issues/4816
 - Mycelix CIV-IMPACT-001: https://github.com/Luminous-Dynamics/mycelix/issues/5046
