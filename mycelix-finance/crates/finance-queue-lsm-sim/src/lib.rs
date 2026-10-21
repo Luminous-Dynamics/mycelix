@@ -1539,7 +1539,7 @@ mod tests {
     }
 
     #[test]
-    fn minimum_liquidity_oracle_checks_all_orders_and_finds_six_unit_schedule() {
+    fn minimum_liquidity_oracle_checks_all_orders_and_finds_ten_unit_schedule() {
         let (_, payments) = recycling_case();
         let fifo = fifo_order(&context(), &payments).unwrap();
         let fifo_report =
