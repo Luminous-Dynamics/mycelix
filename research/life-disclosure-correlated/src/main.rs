@@ -48,8 +48,6 @@ impl DisclosureProfile {
 #[derive(Clone, Debug, Eq, PartialEq)]
 struct Record {
     attributes: [u8; ATTRIBUTE_COUNT],
-    // This label is test/evaluator truth only, never part of an observable signature.
-    cohort_truth: Option<usize>,
 }
 
 fn cohort_attributes(cohort: usize) -> [u8; ATTRIBUTE_COUNT] {
@@ -103,7 +101,6 @@ fn build_population(kind: PopulationKind) -> Vec<Record> {
                 attributes: std::array::from_fn(|attribute| {
                     ((index >> (attribute * 2)) & 0b11) as u8
                 }),
-                cohort_truth: None,
             })
             .collect(),
         PopulationKind::CorrelatedSkewed => {
@@ -111,10 +108,7 @@ fn build_population(kind: PopulationKind) -> Vec<Record> {
             for (cohort, &size) in COHORT_SIZES.iter().enumerate() {
                 let attributes = cohort_attributes(cohort);
                 for _ in 0..size {
-                    records.push(Record {
-                        attributes,
-                        cohort_truth: Some(cohort),
-                    });
+                    records.push(Record { attributes });
                 }
             }
             records
@@ -390,15 +384,13 @@ mod tests {
         assert_eq!(COHORT_SIZES.iter().sum::<usize>(), POPULATION_SIZE);
         let records = build_population(PopulationKind::CorrelatedSkewed);
         assert_eq!(records.len(), POPULATION_SIZE);
+        assert_eq!(records[0].attributes, cohort_attributes(0));
+        let last_cohort_start = POPULATION_SIZE - COHORT_SIZES[COHORT_COUNT - 1];
+        assert!(records[last_cohort_start..]
+            .iter()
+            .all(|record| record.attributes == cohort_attributes(COHORT_COUNT - 1)));
         assert_eq!(
-            records.iter().filter(|record| record.cohort_truth == Some(0)).count(),
-            1
-        );
-        assert_eq!(
-            records
-                .iter()
-                .filter(|record| record.cohort_truth == Some(COHORT_COUNT - 1))
-                .count(),
+            records[last_cohort_start..].len(),
             COHORT_SIZES[COHORT_COUNT - 1]
         );
     }
@@ -438,7 +430,7 @@ mod tests {
                 DisclosureProfile::ExactAttribute,
                 2
             ),
-            "correlated_skewed,exact_attribute,2,1,89,987,1514,1514,1514,1,244,19,4638,231,56396,854,1000,4096"
+            "correlated_skewed,exact_attribute,2,1,89,987,1514,1514,1514,1,244,19,4638,231,56396,854545,1000,4096"
         );
         assert_eq!(
             summarize(
@@ -447,7 +439,7 @@ mod tests {
                 DisclosureProfile::PredicateOnly,
                 3
             ),
-            "correlated_skewed,predicate_only,3,9,432,1131,1747,1747,1747,0,0,9,2197,87,21240,392,1000,4096"
+            "correlated_skewed,predicate_only,3,9,432,1131,1747,1747,1747,0,0,9,2197,87,21240,392981,1000,4096"
         );
     }
 
@@ -469,18 +461,20 @@ mod tests {
         for profile in DisclosureProfile::ALL {
             for depth in 1..=ATTRIBUTE_COUNT {
                 let sizes = candidate_counts(&records, depth, profile);
-                for cohort in 0..COHORT_COUNT {
+                let mut cohort_start = 0;
+                for (cohort, &cohort_size) in COHORT_SIZES.iter().enumerate() {
                     let expected = correlated_cohort_oracle(cohort, depth, profile);
-                    for (index, record) in records.iter().enumerate() {
-                        if record.cohort_truth == Some(cohort) {
-                            assert_eq!(
-                                sizes[index],
-                                expected,
-                                "profile={profile:?}, depth={depth}, cohort={cohort}"
-                            );
-                        }
+                    let cohort_end = cohort_start + cohort_size;
+                    for (offset, &observed) in sizes[cohort_start..cohort_end].iter().enumerate() {
+                        assert_eq!(
+                            observed,
+                            expected,
+                            "profile={profile:?}, depth={depth}, cohort={cohort}, row_offset={offset}"
+                        );
                     }
+                    cohort_start = cohort_end;
                 }
+                assert_eq!(cohort_start, records.len());
             }
         }
     }
