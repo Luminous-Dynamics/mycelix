@@ -1009,6 +1009,51 @@ mod tests {
     }
 
     #[test]
+    fn practice_problem_validation_rejects_missing_fields_and_incomplete_choices() {
+        let valid = PracticeProblem {
+            question: "What is 6 × 7?".to_string(),
+            answer: "42".to_string(),
+            difficulty_permille: 250,
+            bloom_level: "Apply".to_string(),
+            hints: vec!["Use a known fact.".to_string()],
+            explanation: "Six groups of seven make 42.".to_string(),
+            distractors: vec!["36".to_string(), "45".to_string(), "48".to_string()],
+        };
+
+        let mut invalid = valid.clone();
+        invalid.question.clear();
+        assert_eq!(validate_practice_problem(&invalid), Err("question is empty"));
+
+        let mut invalid = valid.clone();
+        invalid.answer.clear();
+        assert_eq!(
+            validate_practice_problem(&invalid),
+            Err("correct answer is empty")
+        );
+
+        let mut invalid = valid.clone();
+        invalid.explanation.clear();
+        assert_eq!(
+            validate_practice_problem(&invalid),
+            Err("explanation is empty")
+        );
+
+        let mut invalid = valid.clone();
+        invalid.distractors.pop();
+        assert_eq!(
+            validate_practice_problem(&invalid),
+            Err("exactly three distractors are required")
+        );
+
+        let mut invalid = valid;
+        invalid.distractors[0] = " ".to_string();
+        assert_eq!(
+            validate_practice_problem(&invalid),
+            Err("a distractor is empty")
+        );
+    }
+
+    #[test]
     fn practice_problem_validation_rejects_equivalent_numbers_with_missing_units() {
         let problem = PracticeProblem {
             question: "How many more children chose soccer?".to_string(),
