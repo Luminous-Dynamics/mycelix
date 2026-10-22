@@ -313,7 +313,7 @@ mod tests {
         let result = compare_kpi_contracts(&left, &right);
         assert_eq!(result.measurement.status, MeasurementStatus::Indeterminate);
         assert_eq!(result.target_policy.status, TargetPolicyStatus::Indeterminate);
-        assert_eq!(result.target_policy.unsupported_fields, vec!["comparison_operator"]);
+        assert_eq!(result.target_policy.unsupported_fields, vec!["comparison_operator".to_owned()]);
     }
 
     #[test]
