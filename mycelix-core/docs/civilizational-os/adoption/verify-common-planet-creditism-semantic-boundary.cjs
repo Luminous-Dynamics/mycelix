@@ -31,8 +31,6 @@ const REQUIRED_INVARIANTS = [
   'future negative evidence != current qualified observation'
 ];
 
-function equalJson];
-
 function equalJson(a, b) {
   return JSON.stringify(a) === JSON.stringify(b);
 }
