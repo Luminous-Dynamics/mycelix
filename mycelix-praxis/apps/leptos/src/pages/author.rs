@@ -828,9 +828,17 @@ fn validate_draft(draft: &LessonAuthorDraft) -> Vec<String> {
             ));
         }
     }
-    if draft.license.to_lowercase().contains("undecided") {
+    let license = draft.license.to_lowercase();
+    if license.contains("undecided") {
         findings.push(
             "Before publication, choose the actual reuse licence/rights status and record sources in the evidence sidecar."
+                .into(),
+        );
+    } else if license.contains("all rights reserved")
+        || license.contains("do not redistribute")
+    {
+        findings.push(
+            "This rights status does not permit public redistribution. Keep the export private or obtain permission/a compatible licence before sharing it as an open lesson."
                 .into(),
         );
     }
@@ -1143,8 +1151,25 @@ pub fn LessonAuthorPage() -> impl IntoView {
                     <input style="width: 100%" prop:value=move || draft.get().author_credit.clone() on:input=move |ev| set_draft.update(|d| d.author_credit = event_target_value(&ev)) />
                 </label>
                 <label style="display: block; margin-top: 0.75rem">"Intended reuse licence / rights status"
-                    <input style="width: 100%" prop:value=move || draft.get().license.clone() on:input=move |ev| set_draft.update(|d| d.license = event_target_value(&ev)) />
+                    <input
+                        list="praxis-license-options"
+                        aria-label="Intended reuse licence or rights status"
+                        placeholder="Choose a licence or enter a verified custom rights status"
+                        style="width: 100%"
+                        prop:value=move || draft.get().license.clone()
+                        on:input=move |ev| set_draft.update(|d| d.license = event_target_value(&ev))
+                    />
+                    <datalist id="praxis-license-options">
+                        <option value="CC BY 4.0" label="Creative Commons Attribution — allow reuse with credit" />
+                        <option value="CC BY-SA 4.0" label="Attribution + adaptations shared under the same licence" />
+                        <option value="CC BY-NC 4.0" label="Attribution + non-commercial reuse only; narrower reuse" />
+                        <option value="CC0 1.0" label="Public-domain dedication where legally possible" />
+                        <option value="Public domain (verified)" label="Use only when the public-domain status is verified" />
+                        <option value="All rights reserved — do not redistribute" label="Not cleared for public redistribution" />
+                        <option value="UNDECIDED — choose a licence before publication." label="Keep as draft until rights are clear" />
+                    </datalist>
                 </label>
+                <p style="margin-top: 0.35rem; color: var(--text-secondary)">"Choose only a licence you have the authority to grant. Check every included source and image for compatible reuse rights; a URL is not permission. This helper is not legal advice."</p>
                 <label style="display: block; margin-top: 0.75rem">"Sources and attribution notes (one per line)"
                     <textarea style="width: 100%; min-height: 90px" prop:value=move || draft.get().source_notes.clone() on:input=move |ev| set_draft.update(|d| d.source_notes = event_target_value(&ev)) />
                 </label>
@@ -1324,6 +1349,16 @@ mod tests {
             "missing items must be blank, not copied from the sample lesson"
         );
         assert_eq!(draft.practice[2].question, "");
+    }
+
+    #[test]
+    fn author_quick_check_blocks_public_redistribution_when_rights_are_reserved() {
+        let mut draft = LessonAuthorDraft::default();
+        draft.license = "All rights reserved — do not redistribute".into();
+        let findings = validate_draft(&draft);
+        assert!(findings.iter().any(|finding| {
+            finding.contains("does not permit public redistribution")
+        }));
     }
 
     #[test]
