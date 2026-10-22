@@ -12,6 +12,8 @@ const SEED: u64 = 0xBB5_2026_10_22;
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 struct Presentation {
+    // Stable row handle input; never exported as an attacker feature.
+    presentation_id: u32,
     // Ground-truth label is kept in memory only and never exported.
     subject_truth: usize,
     recipient: u8,
@@ -163,6 +165,7 @@ fn build_corpus() -> Vec<Presentation> {
                 let presentation_index =
                     (subject * RECIPIENTS * SESSIONS + recipient * SESSIONS + session) as u64;
                 records.push(Presentation {
+                    presentation_id: presentation_index as u32,
                     subject_truth: subject,
                     recipient: recipient as u8,
                     session: session as u8,
