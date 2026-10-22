@@ -216,6 +216,62 @@ fn validate_cross_fixture(stress: &Value, evidence: &Value) -> Result<(), String
         .ok_or_else(|| "scenario_manifest must be an array".to_owned())?
         .iter()
         .collect();
+    let scenario_id_list: Vec<String> = stressors
+        .iter()
+        .map(|scenario| {
+            scenario["scenario_id"]
+                .as_str()
+                .ok_or_else(|| "scenario missing scenario_id".to_owned())
+                .map(str::to_owned)
+        })
+        .collect::<Result<_, _>>()?;
+    let scenario_id_set: BTreeSet<String> = scenario_id_list.iter().cloned().collect();
+    if scenario_id_set.len() != scenario_id_list.len() {
+        return Err("duplicate scenario_id in stress fixture".to_owned());
+    }
+
+    let strategies = stress["strategies"]
+        .as_array()
+        .ok_or_else(|| "strategies must be an array".to_owned())?;
+    let strategy_id_list: Vec<String> = strategies
+        .iter()
+        .map(|strategy| {
+            strategy["strategy_id"]
+                .as_str()
+                .ok_or_else(|| "strategy missing strategy_id".to_owned())
+                .map(str::to_owned)
+        })
+        .collect::<Result<_, _>>()?;
+    let strategy_id_set: BTreeSet<String> = strategy_id_list.iter().cloned().collect();
+    if strategy_id_set.len() != strategy_id_list.len() {
+        return Err("duplicate strategy_id in stress fixture".to_owned());
+    }
+
+    let expected_scenarios = evidence["linked_fixture"]["expected_scenario_count"].as_u64()
+        .ok_or_else(|| "expected_scenario_count missing from evidence contract".to_owned())? as usize;
+    let expected_strategies = evidence["linked_fixture"]["expected_strategy_count"].as_u64()
+        .ok_or_else(|| "expected_strategy_count missing from evidence contract".to_owned())? as usize;
+    let expected_cells = evidence["linked_fixture"]["expected_outcome_cell_count"].as_u64()
+        .ok_or_else(|| "expected_outcome_cell_count missing from evidence contract".to_owned())? as usize;
+    if scenario_id_list.len() != expected_scenarios || strategy_id_list.len() != expected_strategies {
+        return Err("linked-fixture scenario or strategy cardinality mismatch".to_owned());
+    }
+
+    let mut source_ids = BTreeSet::new();
+    for source in evidence["methodological_sources"]
+        .as_array()
+        .ok_or_else(|| "methodological_sources must be an array".to_owned())?
+        .iter()
+        .chain(evidence["evidence_sources"]
+            .as_array()
+            .ok_or_else(|| "evidence_sources must be an array".to_owned())?.iter())
+    {
+        let source_id = source["source_id"].as_str()
+            .ok_or_else(|| "source registry record missing source_id".to_owned())?;
+        if !source_ids.insert(source_id.to_owned()) {
+            return Err(format!("duplicate source_id across source registries: {source_id}"));
+        }
+    }
     let definitions: Vec<&Value> = evidence["stressor_definitions"]
         .as_array()
         .ok_or_else(|| "stressor_definitions must be an array".to_owned())?
@@ -271,14 +327,27 @@ fn validate_cross_fixture(stress: &Value, evidence: &Value) -> Result<(), String
         return Err("scenario history conditions must cover each scenario exactly once".to_owned());
     }
 
-    for strategy in stress["strategies"]
-        .as_array()
-        .ok_or_else(|| "strategies must be an array".to_owned())?
-    {
-        for row in strategy["scenario_results"]
+    let mut outcome_cell_count = 0usize;
+    for strategy in strategies {
+        let rows = strategy["scenario_results"]
             .as_array()
-            .ok_or_else(|| "scenario_results must be an array".to_owned())?
-        {
+            .ok_or_else(|| "scenario_results must be an array".to_owned())?;
+        let row_ids: Vec<String> = rows.iter()
+            .map(|row| {
+                row["scenario_id"].as_str()
+                    .ok_or_else(|| "outcome missing scenario_id".to_owned())
+                    .map(str::to_owned)
+            })
+            .collect::<Result<_, _>>()?;
+        let row_id_set: BTreeSet<String> = row_ids.iter().cloned().collect();
+        if row_id_set.len() != row_ids.len() {
+            return Err(format!("duplicate strategy-scenario outcome for {}", strategy["strategy_id"]));
+        }
+        if row_id_set != scenario_id_set {
+            return Err(format!("incomplete or extraneous scenario cells for {}", strategy["strategy_id"]));
+        }
+        outcome_cell_count += rows.len();
+        for row in rows {
             if row["evidence_status"].as_str() != Some("synthetic_stress_assumption") {
                 return Err("scenario outcome was promoted beyond synthetic stress assumption".to_owned());
             }
@@ -286,6 +355,9 @@ fn validate_cross_fixture(stress: &Value, evidence: &Value) -> Result<(), String
                 return Err("scenario-neutral outcome must not carry an implicit probability".to_owned());
             }
         }
+    }
+    if outcome_cell_count != expected_cells {
+        return Err(format!("outcome cell count {outcome_cell_count} differs from declared {expected_cells}"));
     }
 
     Ok(())
@@ -300,6 +372,31 @@ fn every_used_stressor_has_exactly_one_definition_and_each_scenario_has_one_hist
     assert_eq!(stress["strategies"].as_array().unwrap().len(), 3);
     assert_eq!(evidence["stressor_definitions"].as_array().unwrap().len(), 6);
     assert_eq!(evidence["scenario_conditions"].as_array().unwrap().len(), 5);
+}
+
+
+#[test]
+fn duplicate_scenario_strategy_and_source_ids_fail_closed() {
+    let stress = stress_fixture();
+    let evidence = evidence_manifest();
+
+    let mut duplicate_scenario = stress.clone();
+    let duplicate = duplicate_scenario["scenario_manifest"][0].clone();
+    duplicate_scenario["scenario_manifest"].as_array_mut().unwrap().push(duplicate);
+    assert!(validate_cross_fixture(&duplicate_scenario, &evidence).is_err(),
+        "duplicate scenario IDs must not be collapsed by set-based coverage");
+
+    let mut duplicate_strategy = stress.clone();
+    let duplicate = duplicate_strategy["strategies"][0].clone();
+    duplicate_strategy["strategies"].as_array_mut().unwrap().push(duplicate);
+    assert!(validate_cross_fixture(&duplicate_strategy, &evidence).is_err(),
+        "duplicate strategy IDs must fail");
+
+    let mut duplicate_source = evidence.clone();
+    let source = duplicate_source["methodological_sources"][0].clone();
+    duplicate_source["evidence_sources"].as_array_mut().unwrap().push(source);
+    assert!(validate_cross_fixture(&stress, &duplicate_source).is_err(),
+        "source IDs must be unique across registries");
 }
 
 #[test]
