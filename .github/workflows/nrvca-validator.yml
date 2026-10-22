@@ -1,0 +1,34 @@
+name: NRVCA Validator
+
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/nrvca-validator.yml"
+      - "mycelix-workspace/tools/nrvca-validator/**"
+      - "schemas/nrvca-result-v0.1.schema.json"
+      - "schemas/nrvca-benchmark-preregistration-v0.1.schema.json"
+      - "fixtures/nrvca-*-v0.1.json"
+      - "docs/research/nrvca/**"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: nrvca-validator-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    name: Semantic contract and mutation corpus
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout exact revision
+        uses: actions/checkout@v4
+      - name: Install stable Rust
+        uses: dtolnay/rust-toolchain@stable
+      - name: Compile and run unit tests
+        run: cargo test --manifest-path mycelix-workspace/tools/nrvca-validator/Cargo.toml
+      - name: Execute golden report and adversarial corpus
+        run: cargo run --manifest-path mycelix-workspace/tools/nrvca-validator/Cargo.toml -- --mode all

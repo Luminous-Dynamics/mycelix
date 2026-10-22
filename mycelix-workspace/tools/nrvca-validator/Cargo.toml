@@ -1,0 +1,12 @@
+[package]
+name = "nrvca-validator"
+version = "0.1.0"
+edition = "2024"
+license = "AGPL-3.0-or-later"
+description = "Independent semantic checks and adversarial runner for NRVCA v0.1 research reports"
+
+[workspace]
+members = ["."]
+
+[dependencies]
+serde_json = "1.0"

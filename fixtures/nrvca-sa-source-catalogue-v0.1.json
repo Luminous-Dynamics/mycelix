@@ -1,0 +1,241 @@
+{
+  "catalogue_version": "nrvca-sa-sources/0.1",
+  "as_of_date": "2026-10-22",
+  "status": "discovery_only",
+  "warning": "Publisher webpages identified; no dataset bytes downloaded or rights-cleared for production use in this tranche. The Q2 2026 GDP release announces a base-year change to 2022 and benchmarking/rebasing expected in October 2026; verify current release status before freezing a baseline.",
+  "sources": [
+    {
+      "source_id": "SA-GDP-P0441-Q2-2026",
+      "publisher": "Statistics South Africa",
+      "title": "Gross Domestic Product (GDP), 2nd Quarter 2026",
+      "source_class": "official_statistics",
+      "statistical_status": "official_statistical_publication",
+      "source_url": "https://www.statssa.gov.za/?PPN=P0441&page_id=1854",
+      "release_vintage": "P0441 Q2 2026; publication page dated 2026-09-08",
+      "reference_period": "2026-Q2",
+      "geography": "South Africa, national",
+      "time_basis": "quarterly",
+      "domains": [
+        "GDP",
+        "sectoral production",
+        "national-account aggregates"
+      ],
+      "known_limits": [
+        "GDP is a monetary production flow, not a complete welfare measure.",
+        "Release values can be revised; use versioned vintages.",
+        "Keep nominal and constant-price values distinct.",
+        "The Q2 2026 release announces national-accounts rebasing to a 2022 base year with benchmarked/rebased estimates expected in October 2026; verify the latest publisher release before establishing a baseline."
+      ],
+      "ingest_state": "discovery_only_bytes_not_fetched",
+      "license_status": "unknown",
+      "next_action": "Before ingest, check whether the announced 2022-base rebased/benchmarked series has been published; pin pre- and post-rebase vintages separately, then record exact workbook bytes SHA-256, price basis, revisions, units and tables.",
+      "direct_artifact_link_state": "publisher_direct_xlsx_url_identified_bytes_not_acquired",
+      "artifacts": [
+        {
+          "artifact_id": "SA-GDP-P0441-Q2-2026-TIMESERIES",
+          "title": "GDP P0441 - GDP Time series Q2 2026",
+          "artifact_url": "https://www.statssa.gov.za/publications/P0441/GDP%20P0441%20-%20GDP%20Time%20series%20Q2%202026.xlsx",
+          "format": "xlsx",
+          "source_page": "https://www.statssa.gov.za/?PPN=P0441&page_id=1854",
+          "publisher_link_verified": true,
+          "release_date": "2026-09-08",
+          "series_basis_from_release": "The Q2 release PDF reports constant 2015 prices for the published real-GDP tables. Workbook sheet-level price/reference-year basis has not been inspected; do not infer that it contains a 2022-base rebased series.",
+          "download_attempt_status": "browser_fetch_rejected_unsupported_spreadsheet_mime_and_container_download_failed",
+          "bytes_acquired": false,
+          "sha256": null,
+          "license_status": "unknown"
+        }
+      ]
+    },
+    {
+      "source_id": "SA-PEFA-2022",
+      "publisher": "Statistics South Africa",
+      "title": "Natural Capital 7: Physical Energy Flow Accounts for South Africa, 2022",
+      "source_class": "experimental_statistics",
+      "statistical_status": "discussion_document_experimental_accounts",
+      "source_url": "https://www.statssa.gov.za/?PPN=D0401.7&SCH=74271&page_id=1856",
+      "release_vintage": "D0401.7; reference year 2022; exact publication timestamp to verify during file ingest",
+      "reference_period": "2022; series extension from 2015-2021",
+      "geography": "South Africa, national",
+      "time_basis": "annual",
+      "domains": [
+        "physical energy flows",
+        "energy dependency",
+        "domestic production and use"
+      ],
+      "known_limits": [
+        "Stats SA characterizes the document as experimental and not official statistics.",
+        "Energy quantities do not directly measure affordability, reliability or welfare."
+      ],
+      "ingest_state": "discovery_only_bytes_not_fetched",
+      "license_status": "unknown",
+      "next_action": "Retrieve publication and machine-readable tables; check unit and classification continuity against PEFA 2015-2021."
+    },
+    {
+      "source_id": "SA-WATER-CATCHMENT-2015-2021",
+      "publisher": "Statistics South Africa",
+      "title": "Sub-national Water Resource Accounts, 2015 to 2021",
+      "source_class": "experimental_statistics",
+      "statistical_status": "discussion_document_subnational_accounts",
+      "source_url": "https://www.statssa.gov.za/?PPN=D0401.4&page_id=1854",
+      "release_vintage": "D0401.4; publication dated 2024-03-28",
+      "reference_period": "Hydrological years 2015/16 through 2020/21",
+      "geography": "Breede, uMngeni and Mooi catchments in two Water Management Areas",
+      "time_basis": "hydrological year October-September",
+      "domains": [
+        "water resource stocks and flows",
+        "catchment water accounts",
+        "resource-supply context"
+      ],
+      "known_limits": [
+        "Sub-national and selected catchments, not a national census.",
+        "Resource accounts do not establish delivered municipal service, drinking-water quality or household access.",
+        "Hydrological years must not be silently treated as calendar years."
+      ],
+      "ingest_state": "discovery_only_bytes_not_fetched",
+      "license_status": "unknown",
+      "next_action": "Retrieve main document and companion Excel tables; record every workbook/sheet, units, hydrological-period definitions, model status and missingness."
+    },
+    {
+      "source_id": "SA-NCA-ECOSYSTEM-INVENTORY",
+      "publisher": "Statistics South Africa",
+      "title": "Ecosystem Accounting publication index",
+      "source_class": "experimental_statistics",
+      "statistical_status": "mixed_publication_inventory",
+      "source_url": "https://www.statssa.gov.za/?page_id=14717",
+      "release_vintage": "Current webpage viewed 2026-10-21; individual publication vintages vary",
+      "reference_period": "Multiple: land 1990-2014; protected areas 1900-2020; strategic water source areas 1990-2020; water 2015-2021; biodiversity tourism 2013-2019",
+      "geography": "National and sub-national by publication",
+      "time_basis": "varies by account",
+      "domains": [
+        "land and ecosystems",
+        "protected areas",
+        "strategic water source areas",
+        "biodiversity-linked tourism"
+      ],
+      "known_limits": [
+        "Catalogue is not a harmonized table.",
+        "Status, units, reference periods, geography and methods differ by account."
+      ],
+      "ingest_state": "inventory_only",
+      "license_status": "unknown",
+      "next_action": "Create one record per report/table rather than treating the publication index as a dataset."
+    },
+    {
+      "source_id": "SA-NCA-STRATEGY",
+      "publisher": "Statistics South Africa",
+      "title": "National Natural Capital Accounting Strategy",
+      "source_class": "administrative_record",
+      "statistical_status": "strategy_methodology_context",
+      "source_url": "https://www.statssa.gov.za/?page_id=14714",
+      "release_vintage": "Ten-year strategy published 2021; check for 2026 review status",
+      "reference_period": "not a measurement series",
+      "geography": "South Africa, national",
+      "time_basis": "not applicable",
+      "domains": [
+        "account governance",
+        "institutional coordination",
+        "natural capital accounting priorities"
+      ],
+      "known_limits": [
+        "Policy/methodology context only; not quantitative observations.",
+        "A planned strategy review must not be presented as completed without current evidence."
+      ],
+      "ingest_state": "metadata_only",
+      "license_status": "unknown",
+      "next_action": "Track official 2026 review outcome and use the Strategy to map appropriate statistical roles."
+    },
+    {
+      "source_id": "SA-DWS-WATER-RESOURCE-PLANNING",
+      "publisher": "Department of Water and Sanitation",
+      "title": "Strategic Water Resource Planning / National Water Resource Strategy",
+      "source_class": "administrative_record",
+      "statistical_status": "policy_and_planning_context",
+      "source_url": "https://www.dws.gov.za/iwrp/NWRP.aspx",
+      "release_vintage": "Webpage and strategy vintage to pin at ingest",
+      "reference_period": "varies by plan/assessment",
+      "geography": "Water Management Areas and national",
+      "time_basis": "varies",
+      "domains": [
+        "water resource availability and requirements",
+        "planning areas",
+        "catchment-management context"
+      ],
+      "known_limits": [
+        "Planning assessments may be modelled rather than observed.",
+        "Strategy text is not a direct measurement of delivered service."
+      ],
+      "ingest_state": "metadata_only",
+      "license_status": "unknown",
+      "next_action": "Find the exact dated water-availability assessment and input tables used for any pilot; distinguish observation, calibrated model and scenario."
+    },
+    {
+      "source_id": "SA-DWS-MONITORING-NETWORKS",
+      "publisher": "Department of Water and Sanitation",
+      "title": "National Water Resource Monitoring network review",
+      "source_class": "operational_measurement",
+      "statistical_status": "monitoring_network_metadata",
+      "source_url": "https://www.dws.gov.za/Projects/NWRM/",
+      "release_vintage": "Current project page viewed 2026-10-21; series vintages not yet identified",
+      "reference_period": "not established by landing page",
+      "geography": "National networks; station-specific scope must be acquired",
+      "time_basis": "station/network-specific",
+      "domains": [
+        "hydrology",
+        "groundwater",
+        "chemistry",
+        "microbiology",
+        "aquatic health and other monitoring"
+      ],
+      "known_limits": [
+        "A network review page does not prove a specific dataset is downloadable or current.",
+        "Station metadata, QA/QC, calibration, missingness and license remain unknown."
+      ],
+      "ingest_state": "locator_only",
+      "license_status": "unknown",
+      "next_action": "Locate specific observation series and metadata; verify access, sampling interval, station identity, calibration and QC flags before use."
+    },
+    {
+      "source_id": "SA-DWS-NO-DROP-2021-22",
+      "publisher": "Department of Water and Sanitation",
+      "title": "National State of Water Report 2023, water security / No Drop data context",
+      "source_class": "administrative_record",
+      "statistical_status": "reported_benchmarking_context",
+      "source_url": "https://www.dws.gov.za/Projects/National%20State%20of%20Water%20Report/Documents/National%20State%20of%20Water%20Report%202023-%20Water%20Security%208.pdf",
+      "release_vintage": "Report 2023; cited benchmarking uses 2021/22 data",
+      "reference_period": "2021/22",
+      "geography": "Water services authorities; report includes national/provincial context",
+      "time_basis": "financial/reporting year details to verify in source",
+      "domains": [
+        "non-revenue water",
+        "water losses",
+        "data-submission coverage and confidence"
+      ],
+      "known_limits": [
+        "Report describes 88 datasets (61%) received from WSAs; coverage is not complete.",
+        "High/medium/low confidence labels need mapping into NRVCA evidence states without erasing underlying definitions.",
+        "Not a 2026 live service feed.",
+        "The report says water balances for non-submitting WSAs were calculated, extrapolated or estimated; those values must not be promoted to observed measurements."
+      ],
+      "ingest_state": "report_context_only",
+      "license_status": "unknown",
+      "next_action": "Inspect exact table definitions, distinguish returned water-balance data from calculated/extrapolated/estimated nonresponse cases, and obtain source datasets, response denominator, missing authorities and confidence classifications."
+    }
+  ],
+  "vintage_break_watch": {
+    "source_id": "SA-GDP-P0441-Q2-2026",
+    "announcement_source": "https://www.statssa.gov.za/publications/P0441/P04412ndQuarter2026.pdf",
+    "as_announced": "Stats SA said national accounts would be rebased to a 2022 base year, with periodic datasets incorporated, and expected the benchmarked/rebased estimates in October 2026.",
+    "as_of_date": "2026-10-22",
+    "verification_state": "publisher_page_still_reports_expected_later_in_2026_direct_artifact_status_unverified",
+    "methodological_implication": "Do not assume the Q2 2026 workbook is the latest comparable vintage. Pin the pre-rebase publication and any newly published post-rebase version separately, then document overlap-period revisions, base-year/price-basis change, benchmark-source additions, classification changes, and reconciliation differences.",
+    "latest_release_page": "https://www.statssa.gov.za/?PPN=P0441&page_id=1854",
+    "no_overwrite_rule": "A post-rebase release creates a new source-vintage record and new digest; do not overwrite the pre-rebase bytes or splice series without a declared linking method.",
+    "status_check_date": "2026-10-22",
+    "latest_official_status_source": "https://www.statssa.gov.za/?PPN=P0441&SCH=74517&page_id=1856",
+    "latest_official_status_observed": "The available official key-findings page for annual estimates of 2025 still describes rebasing/benchmarking to a 2022 base year as in progress, with rebased/benchmarked estimates expected later in 2026.",
+    "interpretation": "This official page does not establish whether a post-rebase release is already available elsewhere or absent. Do not infer non-publication from the page wording alone. Directly verify the current release page and obtain the actual source artifact before freezing a vintage.",
+    "direct_artifact_url_identified_but_bytes_not_acquired": true,
+    "artifact_status_caveat": "The official publication page exposes a direct time-series XLSX link. URL identification is not acquisition, exact-byte hashing, rights verification, worksheet inspection, or confirmation that an announced rebased vintage has or has not been released."
+  }
+}

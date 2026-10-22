@@ -1,0 +1,286 @@
+{
+  "schema_version": "nrvca-adversarial-corpus/0.1",
+  "baseline_fixture": "fixtures/nrvca-synthetic-golden-v0.1.json",
+  "status": "specification_only_not_executed",
+  "note": "Each case is a proposed mutation against the synthetic baseline. A future independent semantic validator must apply the mutation, classify the result, retain diagnostics, and prove the expected disposition. Listing a case does not mean it has been executed.",
+  "cases": [
+    {
+      "case_id": "NRVCA-ECO-001-loan-is-not-output",
+      "expected_disposition": "reject_semantic",
+      "invariant": "A new borrowing event cannot be counted as current production merely because financing changes cash or liabilities.",
+      "patch": [
+        {
+          "op": "replace",
+          "path": "/financial_events/0/gdp_treatment",
+          "value": "included_under_declared_profile"
+        }
+      ]
+    },
+    {
+      "case_id": "NRVCA-ECO-002-revaluation-is-not-output",
+      "expected_disposition": "reject_semantic",
+      "invariant": "An asset revaluation is not current production.",
+      "patch": [
+        {
+          "op": "replace",
+          "path": "/financial_events/1/gdp_treatment",
+          "value": "included_under_declared_profile"
+        }
+      ]
+    },
+    {
+      "case_id": "NRVCA-ECO-003-unknown-is-not-zero",
+      "expected_disposition": "reject_semantic",
+      "invariant": "Unknown measurement must remain unknown; zero is a measured/defined value, not a missingness encoding.",
+      "patch": [
+        {
+          "op": "replace",
+          "path": "/outcome_vector/5/value",
+          "value": 0
+        }
+      ]
+    },
+    {
+      "case_id": "NRVCA-ECO-004-source-reference-must-resolve",
+      "expected_disposition": "reject_semantic",
+      "invariant": "Every evidence reference must resolve to an admitted source-manifest entry.",
+      "patch": [
+        {
+          "op": "replace",
+          "path": "/outcome_vector/0/source_refs",
+          "value": [
+            "source-does-not-exist"
+          ]
+        }
+      ]
+    },
+    {
+      "case_id": "NRVCA-ECO-005-physical-units-must-match",
+      "expected_disposition": "reject_semantic",
+      "invariant": "All operands of a physical stock-flow identity must use a compatible declared unit.",
+      "patch": [
+        {
+          "op": "replace",
+          "path": "/reconciliations/2/operands/1/unit",
+          "value": "m3"
+        }
+      ]
+    },
+    {
+      "case_id": "NRVCA-ECO-006-ndp-bridge-must-close",
+      "expected_disposition": "reject_semantic",
+      "invariant": "The declared NDP/GDP bridge must recompute from inputs within the declared tolerance.",
+      "patch": [
+        {
+          "op": "replace",
+          "path": "/reconciliations/0/lhs",
+          "value": 951
+        },
+        {
+          "op": "replace",
+          "path": "/reconciliations/0/residual",
+          "value": 1
+        }
+      ]
+    },
+    {
+      "case_id": "NRVCA-ECO-007-stockflow-must-recompute",
+      "expected_disposition": "reject_semantic",
+      "invariant": "A stock-flow change is stored once in the canonical account and reconciliation terms must resolve to that exact value.",
+      "patch": [
+        {
+          "op": "replace",
+          "path": "/stock_flow_accounts/0/changes/1/signed_change",
+          "value": 30
+        }
+      ]
+    },
+    {
+      "case_id": "NRVCA-ECO-008-currency-and-unit-profile-must-agree",
+      "expected_disposition": "reject_semantic",
+      "invariant": "A monetary event cannot claim USD currency while retaining a ZAR-denominated unit/profile.",
+      "patch": [
+        {
+          "op": "replace",
+          "path": "/financial_events/0/currency",
+          "value": "USD"
+        }
+      ]
+    },
+    {
+      "case_id": "NRVCA-ECO-009-duplicate-event-is-not-new-output",
+      "expected_disposition": "reject_semantic",
+      "invariant": "Duplicated source event identity must not be booked twice or counted as independent economic evidence.",
+      "patch": [
+        {
+          "op": "copy",
+          "from": "/financial_events/0",
+          "path": "/financial_events/-"
+        }
+      ]
+    },
+    {
+      "case_id": "NRVCA-ECO-010-synthetic-evidence-cannot-be-promoted",
+      "expected_disposition": "reject_semantic",
+      "invariant": "A report whose sources are synthetic cannot be relabelled as a prospective pilot or real observation without new admissible evidence.",
+      "patch": [
+        {
+          "op": "replace",
+          "path": "/report_status",
+          "value": "prospective_pilot"
+        }
+      ]
+    },
+    {
+      "case_id": "NRVCA-ECO-011-no-universal-scalar",
+      "expected_disposition": "reject_structural",
+      "invariant": "The v0.1 base profile forbids a universal scalar and addition across incompatible units.",
+      "patch": [
+        {
+          "op": "replace",
+          "path": "/aggregation_policy/universal_scalar_produced",
+          "value": true
+        },
+        {
+          "op": "replace",
+          "path": "/aggregation_policy/cross_unit_addition_permitted",
+          "value": true
+        }
+      ]
+    },
+    {
+      "case_id": "NRVCA-ECO-012-no-causal-claim-from-synthetic-fixture",
+      "expected_disposition": "reject_semantic",
+      "invariant": "A synthetic report cannot attach a causally-evaluated status to a causal-effect claim.",
+      "patch": [
+        {
+          "op": "replace",
+          "path": "/claims/0/claim_type",
+          "value": "causal_effect"
+        },
+        {
+          "op": "replace",
+          "path": "/claims/0/evidence_status",
+          "value": "causally_evaluated"
+        }
+      ]
+    },
+    {
+      "case_id": "NRVCA-ECO-013-period-scope-is-required",
+      "expected_disposition": "reject_structural",
+      "invariant": "A national account without a declared end date cannot be compared over a known period.",
+      "patch": [
+        {
+          "op": "remove",
+          "path": "/reference_period/end_date"
+        }
+      ]
+    },
+    {
+      "case_id": "NRVCA-ECO-014-missing-unknown-register",
+      "expected_disposition": "reject_semantic",
+      "invariant": "Unknown-valued indicators must remain visible in the report's unknown-indicator register.",
+      "patch": [
+        {
+          "op": "replace",
+          "path": "/data_quality/unknown_indicator_ids",
+          "value": []
+        }
+      ]
+    },
+    {
+      "case_id": "NRVCA-ECO-015-balanced-but-unbound-reconciliation-value",
+      "expected_disposition": "reject_semantic",
+      "invariant": "A numerically balanced equation cannot use an operand detached from the canonical report value it claims to represent.",
+      "patch": [
+        {
+          "op": "replace",
+          "path": "/reconciliations/1/operands/1/value",
+          "value": 81
+        },
+        {
+          "op": "replace",
+          "path": "/reconciliations/1/rhs",
+          "value": 246
+        },
+        {
+          "op": "replace",
+          "path": "/reconciliations/1/lhs",
+          "value": 246
+        },
+        {
+          "op": "replace",
+          "path": "/reconciliations/1/residual",
+          "value": 0
+        },
+        {
+          "op": "replace",
+          "path": "/stock_flow_accounts/0/closing_stock",
+          "value": 246
+        }
+      ]
+    },
+    {
+      "case_id": "NRVCA-ECO-016-stock-change-diverges-from-linked-event",
+      "expected_disposition": "reject_semantic",
+      "invariant": "A signed stock change linked to a financial event must match the event amount and event class.",
+      "patch": [
+        {
+          "op": "replace",
+          "path": "/stock_flow_accounts/0/changes/0/signed_change",
+          "value": 81
+        }
+      ]
+    },
+    {
+      "case_id": "NRVCA-ECO-017-stock-change-event-class-mismatch",
+      "expected_disposition": "reject_semantic",
+      "invariant": "A borrowing event cannot be reclassified as a principal repayment in the canonical stock-flow record.",
+      "patch": [
+        {
+          "op": "replace",
+          "path": "/stock_flow_accounts/0/changes/0/change_class",
+          "value": "principal_repayment"
+        }
+      ]
+    },
+    {
+      "case_id": "NRVCA-ECO-018-duplicate-stock-account-id",
+      "expected_disposition": "reject_semantic",
+      "invariant": "Each canonical stock-flow account identifier is unique.",
+      "patch": [
+        {
+          "op": "copy",
+          "from": "/stock_flow_accounts/0",
+          "path": "/stock_flow_accounts/-"
+        }
+      ]
+    },
+    {
+      "case_id": "NRVCA-ECO-019-lhs-binds-to-wrong-canonical-field",
+      "expected_disposition": "reject_semantic",
+      "invariant": "A reconciliation LHS pointer must identify the claimed left-hand value, not a different account.",
+      "patch": [
+        {
+          "op": "replace",
+          "path": "/reconciliations/1/lhs_pointer",
+          "value": "/stock_flow_accounts/1/closing_stock"
+        }
+      ]
+    },
+    {
+      "case_id": "NRVCA-ECO-020-unresolved-stock-change-provenance",
+      "expected_disposition": "reject_semantic",
+      "invariant": "A stock-flow change may not reference an absent source artifact.",
+      "patch": [
+        {
+          "op": "replace",
+          "path": "/stock_flow_accounts/1/changes/0/source_refs",
+          "value": [
+            "source-does-not-exist"
+          ]
+        }
+      ]
+    }
+  ]
+}
