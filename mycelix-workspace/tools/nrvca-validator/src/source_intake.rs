@@ -286,14 +286,43 @@ impl Drop for TemporaryObject {
     }
 }
 
+fn create_private_new_file(path: &Path) -> Result<File, std::io::Error> {
+    let mut options = OpenOptions::new();
+    options.write(true).create_new(true);
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::OpenOptionsExt;
+        options.mode(0o600);
+    }
+    options.open(path)
+}
+
+fn make_object_read_only(path: &Path) -> Result<(), String> {
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        fs::set_permissions(path, fs::Permissions::from_mode(0o400))
+            .map_err(|error| format!("cannot restrict object permissions {}: {error}", path.display()))
+    }
+    #[cfg(not(unix))]
+    {
+        let mut permissions = fs::metadata(path)
+            .map_err(|error| format!("cannot inspect object permissions: {error}"))?
+            .permissions();
+        permissions.set_readonly(true);
+        fs::set_permissions(path, permissions)
+            .map_err(|error| format!("cannot mark object read-only {}: {error}", path.display()))
+    }
+}
+
 fn create_temporary_object(staging_dir: &Path) -> Result<(PathBuf, File), String> {
     for _ in 0..32 {
         let sequence = NEXT_TEMP_OBJECT.fetch_add(1, Ordering::Relaxed);
         let path = staging_dir.join(format!(".capture-{}-{sequence}.tmp", std::process::id()));
-        match OpenOptions::new().write(true).read(true).create_new(true).open(&path) {
+        match create_private_new_file(&path) {
             Ok(file) => return Ok((path, file)),
             Err(error) if error.kind() == std::io::ErrorKind::AlreadyExists => continue,
-            Err(error) => return Err(format!("cannot create temporary content object {}: {error}", path.display())),
+            Err(error) => return Err(format!("cannot create private temporary content object {}: {error}", path.display())),
         }
     }
     Err("could not allocate a unique temporary content object after 32 attempts".to_owned())
@@ -423,9 +452,8 @@ fn capture_source_file(
     let relative_object_path = PathBuf::from("objects").join("sha256").join(prefix).join(&digest);
 
     // Make the staged inode read-only before the atomic no-overwrite promotion.
-    let mut temp_permissions = temp_file.metadata().map_err(|error| format!("cannot stat staged object: {error}"))?.permissions();
-    temp_permissions.set_readonly(true);
-    temp_file.set_permissions(temp_permissions).map_err(|error| format!("cannot protect staged object: {error}"))?;
+    temp_file.flush().map_err(|error| format!("cannot flush staged object before promotion: {error}"))?;
+    make_object_read_only(&temp_path)?;
     temp_file.sync_all().map_err(|error| format!("cannot sync protected staged object: {error}"))?;
     drop(temp_file);
 
@@ -441,6 +469,7 @@ fn capture_source_file(
             if existing_digest != digest || existing_size != bytes_captured {
                 return Err(format!("pre-existing content object failed digest/size verification: {}", object_path.display()));
             }
+            make_object_read_only(&object_path)?;
         }
         Err(error) => return Err(format!("atomic no-overwrite promotion failed for {}: {error}", object_path.display())),
     }
@@ -586,8 +615,8 @@ fn hash_source_file(
 pub fn write_receipt_new(path: &Path, receipt: &Value) -> Result<(), String> {
     let serialized = serde_json::to_vec_pretty(receipt)
         .map_err(|error| format!("cannot serialize source receipt: {error}"))?;
-    let mut file = OpenOptions::new().write(true).create_new(true).open(path)
-        .map_err(|error| format!("cannot create receipt {} without overwriting: {error}", path.display()))?;
+    let mut file = create_private_new_file(path)
+        .map_err(|error| format!("cannot create private receipt {} without overwriting: {error}", path.display()))?;
     if let Err(error) = file.write_all(&serialized).and_then(|_| file.write_all(b"\n")).and_then(|_| file.sync_all()) {
         let _ = fs::remove_file(path);
         return Err(format!("cannot persist receipt {}: {error}", path.display()));
@@ -732,7 +761,8 @@ mod tests {
         assert_eq!(first.receipt["sha256"], second.receipt["sha256"]);
         assert_eq!(first.receipt["acquisition_receipt"]["object_path"], second.receipt["acquisition_receipt"]["object_path"]);
         let object_root = store.0.join("objects").join("sha256");
-        let files: Vec<_> = fs::read_dir(object_root.join(first.receipt["sha256"].as_str().unwrap().get(..2).unwrap()))
+        let digest = first.receipt["sha256"].as_str().unwrap();
+        let files: Vec<_> = fs::read_dir(object_root.join(&digest[..2]))
             .expect("read digest shard").collect();
         assert_eq!(files.len(), 1);
     }
