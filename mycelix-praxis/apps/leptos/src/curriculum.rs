@@ -573,6 +573,9 @@ pub struct NodeProgress {
     pub self_reported_attempts: u32,
     #[serde(default)]
     pub self_reported_correct: u32,
+    /// Completed interactive activities; this is exposure/participation, not mastery.
+    #[serde(default)]
+    pub activity_completions: u32,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -1028,6 +1031,17 @@ impl ProgressStore {
         }
     }
 
+    /// Record completion of an interactive activity. Activity completion is a
+    /// separate participation signal: it does not increase mastery, attempts,
+    /// correctness, or the BKT posterior.
+    pub fn record_activity_completion(&mut self, node_id: &str) {
+        let entry = self.nodes.entry(node_id.to_string()).or_default();
+        entry.activity_completions = entry.activity_completions.saturating_add(1);
+        if entry.status == ProgressStatus::NotStarted {
+            entry.status = ProgressStatus::Studying;
+        }
+    }
+
     /// Topics sorted by weakness (lowest P(mastery) first), filtered to those with attempts.
     pub fn weakest_topics(&self, limit: usize) -> Vec<(String, f32)> {
         let mut topics: Vec<(String, f32)> = self
@@ -1388,6 +1402,25 @@ mod evidence_first_progress_tests {
         assert_eq!(node.mastery_permille, 0);
         assert_eq!(progress.bkt("math.fractions").attempts, 0);
         assert_eq!(node.status, ProgressStatus::Studying);
+    }
+
+    #[test]
+    fn activity_completion_is_not_scored_as_mastery() {
+        let mut progress = ProgressStore::default();
+        progress.record_activity_completion("math.projectile");
+
+        let node = progress.get("math.projectile");
+        assert_eq!(node.activity_completions, 1);
+        assert_eq!(node.status, ProgressStatus::Studying);
+        assert_eq!(node.mastery_permille, 0);
+        assert_eq!(node.attempts, 0);
+        assert_eq!(node.correct, 0);
+        assert_eq!(progress.bkt("math.projectile").attempts, 0);
+        assert_eq!(progress.mastered_count(), 0);
+
+        progress.record_activity_completion("math.projectile");
+        assert_eq!(progress.get("math.projectile").activity_completions, 2);
+        assert_eq!(progress.get("math.projectile").mastery_permille, 0);
     }
 
     #[test]
