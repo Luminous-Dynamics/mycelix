@@ -39,6 +39,25 @@ Across this transcription, the largest absolute sector-sum residual is 3 R milli
 
 The Rust tests freeze identity/vintage/frequency boundaries, row counts, key reference values, residual computation, conservative tolerances, duplicate-period rejection and negative controls. They are intended as contract checks; they have not been reported as passed until executed on an exact head.
 
+## State of the art: vintage databases and benchmark revisions
+
+The underlying idea of retaining multiple releases is established practice, not a novel NRVCA invention:
+
+- Statistics Canada's real-time data tables retain release date as an explicit vintage dimension and track how estimates for the same reference period change in later releases: https://www.statcan.gc.ca/en/developers/real-time-data-tables
+- The Federal Reserve Bank of Philadelphia's real-time GDP/GNP dataset publishes quarterly and monthly vintages and first-, second-, and third-release values: https://www.philadelphiafed.org/surveys-and-data/real-time-data-research/routput
+- OECD guidance distinguishes routine revisions from comprehensive benchmark revisions and warns about breaks in series and changes to the available historical coverage: https://www.oecd.org/en/data/insights/data-explainers/2024/03/annual-national-accounts-frequently-asked-questions.html
+- The World Bank explains how reference-year changes affect constant-price series and why linking/revising historical data needs explicit methodology: https://datahelpdesk.worldbank.org/knowledgebase/articles/680284-why-do-countries-revise-their-national-accounts
+
+NRVCA should compare itself to those mature practices instead of claiming novelty for “vintages.” The testable incremental goal is to combine source-file hashes and extraction receipts with typed units, evidence status, accounting residuals and cross-domain service measures in a common machine-checkable contract.
+
+Proposed qualification measures once source bytes are available:
+- 100% of imported rows tied to a release date, reference period, frequency, unit, price base, adjustment convention and source locator.
+- 100% of pinned source files have an independently verified SHA-256, byte length and retrieval timestamp; a failed download cannot become a passing empty file.
+- Zero silent vintage overwrites, frequency splices or price-base transitions.
+- A revision triangle indexed by release vintage and reference period, with revision magnitude, sign, and documented method/coverage/price-base change classes.
+- At least two independent paths (e.g. official XLSX parser and PDF table transcription) reconcile to a frozen tolerance report; disagreements remain visible until resolved.
+- Reproduce all included-source rows byte-for-byte or value-for-value under a pinned parser version and produce a machine-readable diff report for each newer vintage.
+
 ## Paradigm shift: immutable release-vintage observations
 
 A data point is not just `GDP=...`. It is a value plus source publisher, release vintage, reference period, price base, frequency, seasonal-adjustment convention, units, source row, extraction method, source-byte status, and explicit reconciliation residuals.
