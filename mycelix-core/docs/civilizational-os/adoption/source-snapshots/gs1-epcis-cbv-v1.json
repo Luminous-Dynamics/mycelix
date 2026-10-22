@@ -40,7 +40,7 @@
       ]
     },
     {
-      "source_id": "gs1-epcis-2-0-1-context",
+      "source_id": "gs1-epcis-2-0-0-context",
       "source_url": "https://ref.gs1.org/standards/epcis/2.0.0/epcis-context.jsonld",
       "source_title": "EPCIS 2.0.1 JSON-LD context",
       "source_revision": "EPCIS 2.0.0 JSON-LD context, explicitly referenced by EPCIS 2.0.1 specification",
@@ -58,7 +58,7 @@
       ]
     },
     {
-      "source_id": "gs1-epcis-2-0-1-json-schema",
+      "source_id": "gs1-epcis-2-0-0-json-schema",
       "source_url": "https://ref.gs1.org/standards/epcis/2.0.0/epcis-json-schema.json",
       "source_title": "EPCIS 2.0.1 JSON Schema",
       "source_revision": "EPCIS 2.0.0 JSON Schema; EPCIS 2.0.1 specification explicitly references this immutable versioned URL",
@@ -76,7 +76,7 @@
       ]
     },
     {
-      "source_id": "gs1-epcis-2-0-1-shacl",
+      "source_id": "gs1-epcis-2-0-0-shacl",
       "source_url": "https://ref.gs1.org/standards/epcis/2.0.0/epcis-shacl.ttl",
       "source_title": "EPCIS 2.0.1 SHACL validation shapes",
       "source_revision": "EPCIS 2.0.0 SHACL validation file; EPCIS 2.0.1 specification explicitly references this immutable versioned URL",
