@@ -10,7 +10,6 @@
 //! - Supplementary resource links
 
 use leptos::prelude::*;
-use rand::seq::SliceRandom;
 use praxis_core::{
     GET_MY_PROGRESS_FN, LEARNING_COORDINATOR_ZOME, ProgressSnapshot, ProgressSyncInput,
     ProgressSyncReceipt, SYNC_PROGRESS_FN, curriculum_node_course_id,
@@ -229,7 +228,12 @@ fn answer_first_choices(problem: &PracticeProblem) -> Option<Vec<String>> {
     }) {
         return None;
     }
-    choices.shuffle(&mut rand::thread_rng());
+    // Fisher–Yates using the existing browser/WASM Math binding. Do not add a
+    // Rust RNG dependency just to randomize four answer choices.
+    for index in (1..choices.len()).rev() {
+        let swap_index = (js_sys::Math::random() * (index + 1) as f64) as usize;
+        choices.swap(index, swap_index.min(index));
+    }
     Some(choices)
 }
 
