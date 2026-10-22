@@ -175,6 +175,7 @@ struct Metrics {
     false_negative: usize,
     true_negative: usize,
     auc: f64,
+    average_precision: f64,
     precision_at_half: f64,
     recall_at_half: f64,
     fpr_at_half: f64,
@@ -567,6 +568,60 @@ fn auc_from_weighted_scores(
     sorted.sort_unstable_by(|left, right| left.score.total_cmp(&right.score));
     auc_from_sorted_scores(&sorted, cluster_weights)
 }
+
+fn average_precision_from_sorted_scores(
+    scores_descending: &[ScoredPair],
+    cluster_weights: Option<&[usize; SUBJECTS]>,
+) -> f64 {
+    let total_positive: u64 = scores_descending
+        .iter()
+        .filter(|pair| pair.label)
+        .map(|pair| pair_cluster_weight(pair, cluster_weights))
+        .sum();
+    if total_positive == 0 {
+        return 0.0;
+    }
+
+    let mut cumulative_positive = 0_u64;
+    let mut cumulative_negative = 0_u64;
+    let mut average_precision = 0.0_f64;
+    let mut start = 0;
+    while start < scores_descending.len() {
+        let score = scores_descending[start].score;
+        let mut end = start + 1;
+        while end < scores_descending.len()
+            && scores_descending[end].score.total_cmp(&score) == Ordering::Equal
+        {
+            end += 1;
+        }
+
+        let mut group_positive = 0_u64;
+        let mut group_negative = 0_u64;
+        for pair in &scores_descending[start..end] {
+            let weight = pair_cluster_weight(pair, cluster_weights);
+            if pair.label {
+                group_positive += weight;
+            } else {
+                group_negative += weight;
+            }
+        }
+        cumulative_positive += group_positive;
+        cumulative_negative += group_negative;
+        if group_positive > 0 {
+            let precision = cumulative_positive as f64
+                / (cumulative_positive + cumulative_negative) as f64;
+            average_precision += precision * group_positive as f64 / total_positive as f64;
+        }
+        start = end;
+    }
+    average_precision
+}
+
+fn average_precision_from_scores(scores: &[ScoredPair], cluster_weights: Option<&[usize; SUBJECTS]>) -> f64 {
+    let mut sorted = scores.to_vec();
+    sorted.sort_unstable_by(|left, right| right.score.total_cmp(&left.score));
+    average_precision_from_sorted_scores(&sorted, cluster_weights)
+}
 fn rate_at_threshold(scores: &[ScoredPair], threshold: f64) -> (f64, f64, f64) {
     let mut tp = 0_usize;
     let mut fp = 0_usize;
@@ -662,6 +717,7 @@ fn evaluate_scores(scores: &[ScoredPair]) -> Metrics {
         false_negative: fn_count,
         true_negative: tn,
         auc: auc_from_weighted_scores(scores, None),
+        average_precision: average_precision_from_scores(scores, None),
         precision_at_half: precision,
         recall_at_half: recall,
         fpr_at_half: fpr,
@@ -670,11 +726,18 @@ fn evaluate_scores(scores: &[ScoredPair]) -> Metrics {
     }
 }
 
-fn bootstrap_auc_ci(scores: &[ScoredPair], test_subjects: &[usize], salt: u64) -> (f64, f64) {
-    let mut sorted_scores = scores.to_vec();
-    sorted_scores.sort_unstable_by(|left, right| left.score.total_cmp(&right.score));
+fn bootstrap_privacy_metrics_ci(
+    scores: &[ScoredPair],
+    test_subjects: &[usize],
+    salt: u64,
+) -> ((f64, f64), (f64, f64)) {
+    let mut sorted_auc_scores = scores.to_vec();
+    sorted_auc_scores.sort_unstable_by(|left, right| left.score.total_cmp(&right.score));
+    let mut sorted_ap_scores = scores.to_vec();
+    sorted_ap_scores.sort_unstable_by(|left, right| right.score.total_cmp(&left.score));
 
     let mut aucs = Vec::with_capacity(BOOTSTRAP_REPLICATES);
+    let mut average_precisions = Vec::with_capacity(BOOTSTRAP_REPLICATES);
     let mut weights = [0_usize; SUBJECTS];
     for replicate in 0..BOOTSTRAP_REPLICATES {
         weights.fill(0);
@@ -685,12 +748,23 @@ fn bootstrap_auc_ci(scores: &[ScoredPair], test_subjects: &[usize], salt: u64) -
                 % test_subjects.len();
             weights[test_subjects[choice]] += 1;
         }
-        aucs.push(auc_from_sorted_scores(&sorted_scores, Some(&weights)));
+        aucs.push(auc_from_sorted_scores(&sorted_auc_scores, Some(&weights)));
+        average_precisions.push(average_precision_from_sorted_scores(
+            &sorted_ap_scores,
+            Some(&weights),
+        ));
     }
-    aucs.sort_unstable_by(f64::total_cmp);
-    let lower_index = (aucs.len() * 25 / 1_000).min(aucs.len() - 1);
-    let upper_index = (aucs.len() * 975 / 1_000).min(aucs.len() - 1);
-    (aucs[lower_index], aucs[upper_index])
+
+    let percentile_interval = |values: &mut Vec<f64>| {
+        values.sort_unstable_by(f64::total_cmp);
+        let lower_index = (values.len() * 25 / 1_000).min(values.len() - 1);
+        let upper_index = (values.len() * 975 / 1_000).min(values.len() - 1);
+        (values[lower_index], values[upper_index])
+    };
+    (
+        percentile_interval(&mut aucs),
+        percentile_interval(&mut average_precisions),
+    )
 }
 fn candidate_subjects(train_split: bool) -> Vec<usize> {
     let split = subject_split();
@@ -701,8 +775,8 @@ fn score_bootstrap_ci(
     scores: &[ScoredPair],
     test_subjects: &[usize],
     salt: u64,
-) -> (f64, f64) {
-    bootstrap_auc_ci(scores, test_subjects, salt)
+) -> ((f64, f64), (f64, f64)) {
+    bootstrap_privacy_metrics_ci(scores, test_subjects, salt)
 }
 
 fn csv_number(value: f64) -> String {
@@ -733,7 +807,7 @@ fn render_report() -> String {
     writeln!(&mut output, "# subject_and_presentation_ordinals_not_features=true").unwrap();
     writeln!(
         &mut output,
-        "strategy,attacker,train_subjects,test_subjects,train_pairs_fit,train_positive_pairs_fit,train_negative_pairs_fit,test_positive_pairs,test_negative_pairs,auc,auc_ci95_low,auc_ci95_high,precision_at_0_5,recall_at_0_5,fpr_at_0_5,tpr_at_fpr_1pct,fpr_at_tpr_95pct,tp,fp,fn,tn"
+        "strategy,attacker,train_subjects,test_subjects,train_pairs_fit,train_positive_pairs_fit,train_negative_pairs_fit,test_positive_pairs,test_negative_pairs,auc,auc_ci95_low,auc_ci95_high,average_precision,ap_ci95_low,ap_ci95_high,precision_at_0_5,recall_at_0_5,fpr_at_0_5,tpr_at_fpr_1pct,fpr_at_tpr_95pct,tp,fp,fn,tn"
     )
     .unwrap();
 
@@ -750,7 +824,7 @@ fn render_report() -> String {
             let model = Model::fit(&train_variant);
             let model_scores = score_pairs(&test_variant, Some(&model));
             let model_metrics = evaluate_scores(&model_scores);
-            let model_ci = score_bootstrap_ci(
+            let model_cis = score_bootstrap_ci(
                 &model_scores,
                 &test_subjects,
                 ablation.bootstrap_salt() ^ strategy as u64,
@@ -763,13 +837,14 @@ fn render_report() -> String {
                 test_subjects.len(),
                 &train_variant,
                 model_metrics,
-                model_ci,
+                model_cis.0,
+                model_cis.1,
             );
         }
 
         let exact_scores = score_pairs(&test_pairs, None);
         let exact_metrics = evaluate_scores(&exact_scores);
-        let exact_ci = score_bootstrap_ci(
+        let exact_cis = score_bootstrap_ci(
             &exact_scores,
             &test_subjects,
             0x4558_4143_5400 ^ strategy as u64,
@@ -782,12 +857,13 @@ fn render_report() -> String {
             test_subjects.len(),
             &train_fit,
             exact_metrics,
-            exact_ci,
+            exact_cis.0,
+            exact_cis.1,
         );
 
         let random_scores = score_random_pairs(&test_pairs);
         let random_metrics = evaluate_scores(&random_scores);
-        let random_ci = score_bootstrap_ci(
+        let random_cis = score_bootstrap_ci(
             &random_scores,
             &test_subjects,
             0x5241_4e44_4f4d ^ strategy as u64,
@@ -800,7 +876,8 @@ fn render_report() -> String {
             test_subjects.len(),
             &[],
             random_metrics,
-            random_ci,
+            random_cis.0,
+            random_cis.1,
         );
     }
     output
@@ -814,13 +891,14 @@ fn write_metric_row(
     test_subject_count: usize,
     train_fit: &[PairExample],
     metrics: Metrics,
-    ci: (f64, f64),
+    auc_ci: (f64, f64),
+    ap_ci: (f64, f64),
 ) {
     let train_positive = train_fit.iter().filter(|pair| pair.label).count();
     let train_negative = train_fit.len() - train_positive;
     writeln!(
         output,
-        "{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{}",
+        "{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{}",
         strategy.name(),
         attacker,
         train_subject_count,
@@ -831,8 +909,11 @@ fn write_metric_row(
         metrics.positive_pairs,
         metrics.negative_pairs,
         csv_number(metrics.auc),
-        csv_number(ci.0),
-        csv_number(ci.1),
+        csv_number(auc_ci.0),
+        csv_number(auc_ci.1),
+        csv_number(metrics.average_precision),
+        csv_number(ap_ci.0),
+        csv_number(ap_ci.1),
         csv_number(metrics.precision_at_half),
         csv_number(metrics.recall_at_half),
         csv_number(metrics.fpr_at_half),
@@ -1055,6 +1136,8 @@ mod tests {
         ];
         let auc = auc_from_weighted_scores(&scores, None);
         assert_eq!(auc, 0.375);
+        let average_precision = average_precision_from_scores(&scores, None);
+        assert_eq!(average_precision, 0.5);
         let (tpr, fpr) = operating_points(&scores);
         assert!((0.0..=1.0).contains(&tpr));
         assert!((0.0..=1.0).contains(&fpr));
