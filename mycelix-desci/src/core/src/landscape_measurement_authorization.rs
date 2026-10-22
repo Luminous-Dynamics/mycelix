@@ -8,6 +8,7 @@
 //! Hosts must resolve evidence digests, verify signatures/authority, check the
 //! time window, and re-evaluate revocation before permitting real measurements.
 
+use chrono::DateTime;
 use serde_json::Value;
 
 pub const LANDSCAPE_MEASUREMENT_AUTHORIZATION_SCHEMA: &str =
@@ -96,6 +97,27 @@ pub fn validate_measurement_authorization(record: &Value) -> Result<(), Vec<Stri
         "statement",
     ] {
         require_nonblank(record, field, "$", &mut errors);
+    }
+    let parsed_times: std::collections::BTreeMap<&str, DateTime<chrono::FixedOffset>> =
+        ["created_at", "valid_from", "valid_until"]
+            .into_iter()
+            .filter_map(|field| {
+                let raw = record.get(field).and_then(Value::as_str)?;
+                match DateTime::parse_from_rfc3339(raw) {
+                    Ok(parsed) => Some((field, parsed)),
+                    Err(_) => {
+                        errors.push(format!("$.{field}: expected a valid RFC 3339 timestamp"));
+                        None
+                    }
+                }
+            })
+            .collect();
+    if let (Some(start), Some(end)) =
+        (parsed_times.get("valid_from"), parsed_times.get("valid_until"))
+    {
+        if end <= start {
+            errors.push("$.valid_until: must be strictly later than valid_from".to_owned());
+        }
     }
 
     for field in ["project_snapshot_sha256", "site_ref_sha256"] {
@@ -396,6 +418,24 @@ mod tests {
             .unwrap_err()
             .iter()
             .any(|error| error.contains("synthetic examples must remain not-verified")));
+    }
+
+    #[test]
+    fn validity_window_requires_valid_timestamps_and_positive_duration() {
+        let mut invalid_timestamp = fixture();
+        invalid_timestamp["valid_from"] = json!("not-rfc3339");
+        assert!(validate_measurement_authorization(&invalid_timestamp)
+            .unwrap_err()
+            .iter()
+            .any(|error| error.contains("valid RFC 3339 timestamp")));
+
+        let mut reversed_window = fixture();
+        reversed_window["valid_from"] = json!("2026-12-31T00:00:00Z");
+        reversed_window["valid_until"] = json!("2026-10-21T00:00:00Z");
+        assert!(validate_measurement_authorization(&reversed_window)
+            .unwrap_err()
+            .iter()
+            .any(|error| error.contains("strictly later than valid_from")));
     }
 
     #[test]
