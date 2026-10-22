@@ -341,7 +341,7 @@ This is a pilot proposal, not a decision that the same path should be first for 
 - H5P, [content types](https://h5p.com/content-types) and [2026 authoring direction](https://h5p.com/resources/blog/whats-coming-next-for-h5p): interactive-content authoring, accessibility, and reuse are active areas of competition.
 - W3C, [Verifiable Credentials Data Model 2.0](https://www.w3.org/TR/vc-data-model-2.0/): standard data model for verifiable claims, including privacy, accessibility, and internationalization considerations.
 - World Economic Forum, [Future of Jobs Report 2025 — Skills Outlook](https://www.weforum.org/publications/the-future-of-jobs-report-2025/in-full/3-skills-outlook/): one employer-survey perspective on analytical thinking, adaptability, technological literacy, creativity, and lifelong learning. It is an input, not a universal curriculum authority.
-- [Mycelix Praxis CreatorBench proposal](../benchmarks/creatorbench-v1/README.md), [PedBench](../benchmarks/pedbench-v1/README.md), and existing community-authoring proposals: local implementation and evaluation context to reconcile before this RFC is implemented.
+- [CreatorBench, PedBench, and the curriculum-audit/community-authoring proposal (PR #5368)](https://github.com/Luminous-Dynamics/mycelix/pull/5368), the focused [Community Creator Studio proposal (PR #5406)](https://github.com/Luminous-Dynamics/mycelix/pull/5406), and the [essential-capabilities curriculum seed (PR #5273)](https://github.com/Luminous-Dynamics/mycelix/pull/5273): implementation and evaluation context to reconcile against current exact heads before this RFC is implemented.
 
 ---
 
