@@ -42,13 +42,16 @@ impl Person {
     }
 
     fn eligible(&self) -> bool {
-        let features = self.features();
-        features[0] && features[1]
+        self.age_band > 0 && self.region < 4
     }
 
     fn high_income(&self) -> bool {
         self.income_band >= 4
     }
+}
+
+fn precompute_feature_rows(people: &[Person]) -> Vec<[bool; FEATURE_COUNT]> {
+    people.iter().map(Person::features).collect()
 }
 
 fn splitmix64(state: &mut u64) -> u64 {
@@ -97,14 +100,19 @@ enum BaseDisclosure {
     FullAttributes,
 }
 
-fn initial_cohort(people: &[Person], target_id: usize, disclosure: BaseDisclosure) -> Vec<usize> {
+fn initial_cohort(
+    people: &[Person],
+    feature_rows: &[[bool; FEATURE_COUNT]],
+    target_id: usize,
+    disclosure: BaseDisclosure,
+) -> Vec<usize> {
     let target = &people[target_id];
-    let target_features = target.features();
+    let target_features = feature_rows[target_id];
 
     (0..people.len())
         .filter(|candidate_id| {
             let candidate = &people[*candidate_id];
-            let candidate_features = candidate.features();
+            let candidate_features = feature_rows[*candidate_id];
             match disclosure {
                 BaseDisclosure::TaskResult => candidate.eligible() == target.eligible(),
                 BaseDisclosure::TaskInputs => {
@@ -118,7 +126,7 @@ fn initial_cohort(people: &[Person], target_id: usize, disclosure: BaseDisclosur
 }
 
 fn choose_query(
-    people: &[Person],
+    feature_rows: &[[bool; FEATURE_COUNT]],
     candidates: &[usize],
     asked: &[bool; FEATURE_COUNT],
 ) -> Option<usize> {
@@ -132,7 +140,7 @@ fn choose_query(
 
         let yes_count = candidates
             .iter()
-            .filter(|candidate_id| people[**candidate_id].features()[feature])
+            .filter(|candidate_id| feature_rows[**candidate_id][feature])
             .count();
         let no_count = candidates.len() - yes_count;
         let minority_count = yes_count.min(no_count);
@@ -155,6 +163,7 @@ struct AdaptiveRun {
 
 fn adaptive_cohorts_with_policy(
     people: &[Person],
+    feature_rows: &[[bool; FEATURE_COUNT]],
     min_branch_size: usize,
     max_sensitive_uplift_ppm: u64,
 ) -> AdaptiveRun {
@@ -165,8 +174,8 @@ fn adaptive_cohorts_with_policy(
     let mut stopped_by_guard = Vec::with_capacity(people.len());
 
     for (target_id, target) in people.iter().enumerate() {
-        let target_features = target.features();
-        let mut candidates = initial_cohort(people, target_id, BaseDisclosure::TaskResult);
+        let target_features = feature_rows[target_id];
+        let mut candidates = initial_cohort(people, feature_rows, target_id, BaseDisclosure::TaskResult);
         let mut asked = [false; FEATURE_COUNT];
         let mut accepted_queries = 0;
         let mut stopped = false;
@@ -186,14 +195,14 @@ fn adaptive_cohorts_with_policy(
                 continue;
             }
 
-            let Some(feature) = choose_query(people, &candidates, &asked) else {
+            let Some(feature) = choose_query(feature_rows, &candidates, &asked) else {
                 continue;
             };
 
             let mut yes_candidates = Vec::new();
             let mut no_candidates = Vec::new();
             for candidate_id in candidates.iter().copied() {
-                if people[candidate_id].features()[feature] {
+                if feature_rows[candidate_id][feature] {
                     yes_candidates.push(candidate_id);
                 } else {
                     no_candidates.push(candidate_id);
@@ -359,25 +368,26 @@ fn summarize(
 
 fn report() -> String {
     let people = synthetic_population();
+    let feature_rows = precompute_feature_rows(&people);
     let task_result = people
         .iter()
         .enumerate()
-        .map(|(target_id, _)| initial_cohort(&people, target_id, BaseDisclosure::TaskResult))
+        .map(|(target_id, _)| initial_cohort(&people, &feature_rows, target_id, BaseDisclosure::TaskResult))
         .collect::<Vec<_>>();
     let task_inputs = people
         .iter()
         .enumerate()
-        .map(|(target_id, _)| initial_cohort(&people, target_id, BaseDisclosure::TaskInputs))
+        .map(|(target_id, _)| initial_cohort(&people, &feature_rows, target_id, BaseDisclosure::TaskInputs))
         .collect::<Vec<_>>();
     let full_attributes = people
         .iter()
         .enumerate()
-        .map(|(target_id, _)| initial_cohort(&people, target_id, BaseDisclosure::FullAttributes))
+        .map(|(target_id, _)| initial_cohort(&people, &feature_rows, target_id, BaseDisclosure::FullAttributes))
         .collect::<Vec<_>>();
-    let adaptive = adaptive_cohorts_with_policy(&people, 1, MILLION);
-    let guarded_32 = adaptive_cohorts_with_policy(&people, 32, MILLION);
-    let guarded_64 = adaptive_cohorts_with_policy(&people, 64, MILLION);
-    let dual_guard_32 = adaptive_cohorts_with_policy(&people, 32, 100_000);
+    let adaptive = adaptive_cohorts_with_policy(&people, &feature_rows, 1, MILLION);
+    let guarded_32 = adaptive_cohorts_with_policy(&people, &feature_rows, 32, MILLION);
+    let guarded_64 = adaptive_cohorts_with_policy(&people, &feature_rows, 64, MILLION);
+    let dual_guard_32 = adaptive_cohorts_with_policy(&people, &feature_rows, 32, 100_000);
     let zero_queries = vec![0; people.len()];
     let no_guard_stops = vec![false; people.len()];
 
@@ -513,7 +523,8 @@ mod tests {
     #[test]
     fn adaptive_questions_never_increase_candidate_sets() {
         let people = synthetic_population();
-        let run = adaptive_cohorts_with_policy(&people, 1, MILLION);
+        let feature_rows = precompute_feature_rows(&people);
+        let run = adaptive_cohorts_with_policy(&people, &feature_rows, 1, MILLION);
 
         for (depth, (previous, current)) in run
             .by_depth
@@ -536,7 +547,8 @@ mod tests {
         let people = synthetic_population();
 
         for (threshold, max_uplift_ppm) in [(32, MILLION), (64, MILLION), (32, 100_000)] {
-            let run = adaptive_cohorts_with_policy(&people, threshold, max_uplift_ppm);
+            let feature_rows = precompute_feature_rows(&people);
+            let run = adaptive_cohorts_with_policy(&people, &feature_rows, threshold, max_uplift_ppm);
             for (depth, cohorts) in run.by_depth.iter().enumerate() {
                 for (target_id, candidates) in cohorts.iter().enumerate() {
                     assert!(
@@ -552,8 +564,8 @@ mod tests {
     #[test]
     fn risk_guard_stops_queries_without_changing_task_answers() {
         let people = synthetic_population();
-        let unbounded = adaptive_cohorts_with_policy(&people, 1, MILLION);
-        let guarded = adaptive_cohorts_with_policy(&people, 32, MILLION);
+        let unbounded = adaptive_cohorts_with_policy(&people, &feature_rows, 1, MILLION);
+        let guarded = adaptive_cohorts_with_policy(&people, &feature_rows, 32, MILLION);
         let last = MAX_ADAPTIVE_QUERIES;
         let unbounded_mean = unbounded.queries_by_depth[last].iter().sum::<usize>();
         let guarded_mean = guarded.queries_by_depth[last].iter().sum::<usize>();
@@ -568,9 +580,9 @@ mod tests {
         let people = synthetic_population();
 
         for (target_id, _) in people.iter().enumerate() {
-            let result_cohort = initial_cohort(&people, target_id, BaseDisclosure::TaskResult);
+            let result_cohort = initial_cohort(&people, &feature_rows, target_id, BaseDisclosure::TaskResult);
             let full_cohort =
-                initial_cohort(&people, target_id, BaseDisclosure::FullAttributes);
+                initial_cohort(&people, &feature_rows, target_id, BaseDisclosure::FullAttributes);
 
             assert!(!full_cohort.is_empty());
             assert!(full_cohort.iter().all(|id| result_cohort.contains(id)));
@@ -592,7 +604,8 @@ mod tests {
     fn guarded_policy_records_stops_without_breaching_threshold() {
         let people = synthetic_population();
         let threshold = 32;
-        let run = adaptive_cohorts_with_policy(&people, threshold, MILLION);
+        let feature_rows = precompute_feature_rows(&people);
+        let run = adaptive_cohorts_with_policy(&people, &feature_rows, threshold, MILLION);
         let target_id = run
             .stopped_by_guard
             .iter()
@@ -607,7 +620,8 @@ mod tests {
     fn sensitive_inference_guard_bounds_each_admitted_query_uplift() {
         let people = synthetic_population();
         let max_uplift_ppm = 100_000;
-        let run = adaptive_cohorts_with_policy(&people, 32, max_uplift_ppm);
+        let feature_rows = precompute_feature_rows(&people);
+        let run = adaptive_cohorts_with_policy(&people, &feature_rows, 32, max_uplift_ppm);
 
         for (previous, current) in run.by_depth.iter().zip(run.by_depth.iter().skip(1)) {
             for (target_id, current_cohort) in current.iter().enumerate() {
@@ -621,7 +635,7 @@ mod tests {
             }
         }
 
-        let branch_only = adaptive_cohorts_with_policy(&people, 32, MILLION);
+        let branch_only = adaptive_cohorts_with_policy(&people, &feature_rows, 32, MILLION);
         assert!(
             run.queries_by_depth[MAX_ADAPTIVE_QUERIES].iter().sum::<usize>()
                 < branch_only.queries_by_depth[MAX_ADAPTIVE_QUERIES].iter().sum::<usize>()
