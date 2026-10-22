@@ -54,7 +54,7 @@ Praxis reimagines learning by putting **learners in control** of their data. The
 cargo run -p praxis-curriculum-audit -- --check-lesson authoring/drafts/my-lesson.json --format=markdown
 ```
 
-The [lesson-pack schema](authoring/lesson-pack-v1.schema.json) defines the interoperable format. A clean static check does not replace subject review, rights clearance, accessibility review or learner-outcome evidence.
+The [lesson-pack schema](authoring/lesson-pack-v1.schema.json) defines the interoperable format. The `/author` form also imports an existing lesson pack for remixing and preserves extra untouched content that the first editor cannot yet modify. A clean static check does not replace subject review, rights clearance, accessibility review or learner-outcome evidence.
 
 ---
 
