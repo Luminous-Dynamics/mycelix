@@ -913,6 +913,123 @@ fn normalize_content(text: &str) -> String {
         .to_lowercase()
 }
 
+fn audit_greatest_common_divisor(mut left: u128, mut right: u128) -> u128 {
+    while right != 0 {
+        let remainder = left % right;
+        left = right;
+        right = remainder;
+    }
+    left.max(1)
+}
+
+fn audit_rational_key(numerator: i128, denominator: i128) -> Option<String> {
+    if denominator == 0 {
+        return None;
+    }
+    let sign = if (numerator < 0) ^ (denominator < 0) {
+        "-"
+    } else {
+        ""
+    };
+    let numerator_magnitude = numerator.unsigned_abs();
+    let denominator_magnitude = denominator.unsigned_abs();
+    let divisor = audit_greatest_common_divisor(numerator_magnitude, denominator_magnitude);
+    Some(format!(
+        "{sign}{}/{}",
+        numerator_magnitude / divisor,
+        denominator_magnitude / divisor
+    ))
+}
+
+fn audit_scalar_answer_key(text: &str) -> Option<(String, Option<&'static str>)> {
+    let normalized = normalize_content(text)
+        .trim_end_matches(['.', '!', '?'])
+        .trim()
+        .to_owned();
+    const UNITS: &[(&str, &str)] = &[
+        (" square centimetres", "area_cm2"),
+        (" square centimeters", "area_cm2"),
+        (" square metres", "area_m2"),
+        (" square meters", "area_m2"),
+        (" square units", "area_unit"),
+        (" square unit", "area_unit"),
+        (" square cm", "area_cm2"),
+        (" square m", "area_m2"),
+        (" centimetres", "length_cm"),
+        (" centimeters", "length_cm"),
+        (" millimetres", "length_mm"),
+        (" millimeters", "length_mm"),
+        (" kilograms", "mass_kg"),
+        (" minutes", "time_min"),
+        (" minute", "time_min"),
+        (" seconds", "time_s"),
+        (" second", "time_s"),
+        (" hours", "time_h"),
+        (" hour", "time_h"),
+        (" learners", "count"),
+        (" learner", "count"),
+        (" children", "count"),
+        (" child", "count"),
+        (" counters", "count"),
+        (" counter", "count"),
+        (" oranges", "count"),
+        (" orange", "count"),
+        (" objects", "count"),
+        (" object", "count"),
+        (" students", "count"),
+        (" student", "count"),
+        (" books", "count"),
+        (" book", "count"),
+        (" desks", "count"),
+        (" desk", "count"),
+        (" cones", "count"),
+        (" cone", "count"),
+        (" cars", "count"),
+        (" car", "count"),
+        (" stars", "count"),
+        (" star", "count"),
+        (" slices", "count"),
+        (" slice", "count"),
+        (" cm", "length_cm"),
+        (" mm", "length_mm"),
+        (" m", "length_m"),
+        (" kg", "mass_kg"),
+    ];
+
+    let mut number_text = normalized.as_str();
+    let mut unit = None;
+    for (suffix, canonical_unit) in UNITS {
+        if let Some(number) = normalized.strip_suffix(suffix) {
+            number_text = number.trim();
+            unit = Some(*canonical_unit);
+            break;
+        }
+    }
+
+    let number_key = if let Some((numerator, denominator)) = number_text.split_once('/') {
+        audit_rational_key(
+            numerator.trim().parse::<i128>().ok()?,
+            denominator.trim().parse::<i128>().ok()?,
+        )?
+    } else {
+        audit_rational_key(number_text.parse::<i128>().ok()?, 1)?
+    };
+    Some((number_key, unit))
+}
+
+fn numeric_answer_choices_equivalent(answer: &str, distractor: &str) -> bool {
+    let Some((answer_value, answer_unit)) = audit_scalar_answer_key(answer) else {
+        return false;
+    };
+    let Some((distractor_value, distractor_unit)) = audit_scalar_answer_key(distractor) else {
+        return false;
+    };
+    answer_value == distractor_value
+        && (answer_unit.is_none()
+            || distractor_unit.is_none()
+            || answer_unit == distractor_unit)
+}
+
 fn is_known_instructional_placeholder(text: &str) -> bool {
     let normalized = normalize_content(text);
     if normalized.is_empty() {
@@ -1191,7 +1308,9 @@ fn audit_lesson_value(asset_path: &str, value: &Value, audit: &mut ContentQualit
                                 ),
                             });
                         }
-                        if distractor_key == answer_key {
+                        if distractor_key == answer_key
+                            || numeric_answer_choices_equivalent(&answer, distractor)
+                        {
                             audit.findings.push(ContentQualityFinding {
                                 lesson_id: lesson_id.clone(),
                                 asset_path: asset_path.to_owned(),
@@ -2400,6 +2519,38 @@ mod tests {
                 && finding.field == "lesson.practice_problems[0].distractors"
                 && finding.severity == "warning"
         }));
+    }
+
+    #[test]
+    fn static_content_audit_flags_numeric_answer_repeated_without_its_unit() {
+        let value = serde_json::json!({
+            "node_id": "fixture.numeric-distractors",
+            "lesson": {
+                "title": "Reading data",
+                "explanation": "A difference compares two counts.",
+                "examples": [{
+                    "problem": "A graph shows 8 children chose soccer and 5 chose netball. How many more chose soccer?",
+                    "steps": [{"instruction": "Subtract the smaller count.", "result": "8 - 5 = 3"}],
+                    "answer": "3 children"
+                }],
+                "practice_problems": [{
+                    "question": "How many more children chose soccer?",
+                    "answer": "3 children",
+                    "explanation": "8 - 5 = 3 children.",
+                    "distractors": ["13", "2", "3"]
+                }]
+            }
+        });
+        let mut audit = ContentQualityAudit::default();
+        assert!(audit_lesson_value("numeric-distractors.json", &value, &mut audit));
+        assert!(audit.findings.iter().any(|finding| {
+            finding.code == "answer_in_distractors"
+                && finding.field == "lesson.practice_problems[0].distractors"
+                && finding.severity == "blocker"
+        }));
+        assert!(numeric_answer_choices_equivalent("1/2", "2/4"));
+        assert!(numeric_answer_choices_equivalent("3 children", "3"));
+        assert!(!numeric_answer_choices_equivalent("12 cm", "12 square units"));
     }
 
     #[test]
