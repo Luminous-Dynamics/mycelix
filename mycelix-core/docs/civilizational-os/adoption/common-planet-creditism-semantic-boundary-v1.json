@@ -905,7 +905,10 @@
           "contribution_evidence_refs": []
         }
       ],
-      "expected_relation": "evaluation_outputs_equal"
+      "expected_relation": "evaluation_outputs_equal",
+      "varied_fields": [
+        "buyer_event_id"
+      ]
     },
     {
       "property_id": "cp-meta-nominal-scale",
@@ -929,7 +932,10 @@
           "recipient_scope": "person"
         }
       ],
-      "expected_relation": "evaluation_outputs_equal"
+      "expected_relation": "evaluation_outputs_equal",
+      "varied_fields": [
+        "amount"
+      ]
     },
     {
       "property_id": "cp-meta-seller-rule-noninterference",
@@ -955,7 +961,10 @@
           "seller_contribution_rule": "permissive"
         }
       ],
-      "expected_relation": "evaluation_outputs_equal"
+      "expected_relation": "evaluation_outputs_equal",
+      "varied_fields": [
+        "seller_contribution_rule"
+      ]
     },
     {
       "property_id": "cp-meta-demand-noninterference",
@@ -991,7 +1000,10 @@
           "demand_amount": 100000
         }
       ],
-      "expected_relation": "evaluation_outputs_equal"
+      "expected_relation": "evaluation_outputs_equal",
+      "varied_fields": [
+        "demand_amount"
+      ]
     },
     {
       "property_id": "cp-meta-contribution-evidence-noninterference",
@@ -1019,7 +1031,10 @@
           ]
         }
       ],
-      "expected_relation": "evaluation_outputs_equal"
+      "expected_relation": "evaluation_outputs_equal",
+      "varied_fields": [
+        "contribution_evidence_refs"
+      ]
     },
     {
       "property_id": "cp-meta-evaluator-identity",
@@ -1055,7 +1070,10 @@
           "evaluator_identity": "evaluator-B"
         }
       ],
-      "expected_relation": "evaluation_outputs_equal"
+      "expected_relation": "evaluation_outputs_equal",
+      "varied_fields": [
+        "evaluator_identity"
+      ]
     },
     {
       "property_id": "cp-meta-hidden-latent-outcome",
@@ -1091,7 +1109,10 @@
           "hidden_latent_outcome": "negative"
         }
       ],
-      "expected_relation": "evaluation_outputs_equal"
+      "expected_relation": "evaluation_outputs_equal",
+      "varied_fields": [
+        "hidden_latent_outcome"
+      ]
     },
     {
       "property_id": "cp-meta-capacity-scale",
@@ -1119,7 +1140,11 @@
           "resource_type": "water"
         }
       ],
-      "expected_relation": "evaluation_outputs_equal"
+      "expected_relation": "evaluation_outputs_equal",
+      "varied_fields": [
+        "requested_amount",
+        "available_capacity"
+      ]
     },
     {
       "property_id": "cp-meta-exchange-rekey",
@@ -1153,7 +1178,11 @@
           "seller_financial_payment_observed": false
         }
       ],
-      "expected_relation": "evaluation_outputs_equal"
+      "expected_relation": "evaluation_outputs_equal",
+      "varied_fields": [
+        "buyer_deletion.event_id",
+        "seller_recredit.event_id"
+      ]
     }
   ]
 }
