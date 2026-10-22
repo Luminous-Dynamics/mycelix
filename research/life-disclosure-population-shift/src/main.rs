@@ -95,15 +95,17 @@ enum ShiftProfile {
     MatchedControl,
     IndependentSeed,
     DebtCorrelationReversed,
+    DebtRiskRewiredToTransit,
     IncomeMarginalShift,
     RareTail,
 }
 
 impl ShiftProfile {
-    const ALL: [Self; 5] = [
+    const ALL: [Self; 6] = [
         Self::MatchedControl,
         Self::IndependentSeed,
         Self::DebtCorrelationReversed,
+        Self::DebtRiskRewiredToTransit,
         Self::IncomeMarginalShift,
         Self::RareTail,
     ];
@@ -113,6 +115,7 @@ impl ShiftProfile {
             Self::MatchedControl => "matched_control",
             Self::IndependentSeed => "independent_seed",
             Self::DebtCorrelationReversed => "debt_correlation_reversed",
+            Self::DebtRiskRewiredToTransit => "debt_risk_rewired_to_transit",
             Self::IncomeMarginalShift => "income_marginal_shift",
             Self::RareTail => "rare_tail",
         }
@@ -127,6 +130,14 @@ impl ShiftProfile {
                 .cloned()
                 .map(|mut person| {
                     person.debt_risk = person.income_band >= 4;
+                    person
+                })
+                .collect(),
+            Self::DebtRiskRewiredToTransit => reference
+                .iter()
+                .cloned()
+                .map(|mut person| {
+                    person.debt_risk = person.public_transit;
                     person
                 })
                 .collect(),
@@ -629,6 +640,24 @@ mod tests {
         assert!(branch_summary.max_debt_risk_confidence_uplift_ppm > 100_000);
         assert!(dual_summary.max_high_income_confidence_uplift_ppm <= 100_000);
         assert!(dual_summary.max_debt_risk_confidence_uplift_ppm <= 100_000);
+    }
+
+    #[test]
+    fn population_shift_can_break_sensitive_confidence_even_when_dual_guard_meets_k() {
+        let reference = synthetic_population(REFERENCE_SEED);
+        let attacker = ShiftProfile::DebtRiskRewiredToTransit.apply(&reference);
+        let policy = QueryPolicy {
+            name: "dual_k32_uplift100k",
+            min_branch_size: 32,
+            max_sensitive_uplift_ppm: 100_000,
+        };
+        let outcomes = evaluate(&reference, &attacker, policy);
+        let summary = summarize(&attacker, &outcomes, policy);
+
+        assert_eq!(summary.task_answer_utility_ppm, MILLION);
+        assert_eq!(summary.below_k_subject_count, 0);
+        assert_eq!(summary.max_debt_risk_confidence_uplift_ppm, 472_478);
+        assert!(summary.max_debt_risk_confidence_uplift_ppm > policy.max_sensitive_uplift_ppm);
     }
 
     #[test]
