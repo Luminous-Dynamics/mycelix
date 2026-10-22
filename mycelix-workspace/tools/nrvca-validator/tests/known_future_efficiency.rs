@@ -20,6 +20,17 @@ struct PolicyEfficiency {
     total_cost_regret: f64,
 }
 
+#[derive(Clone, Copy, Debug, PartialEq)]
+struct ConstraintMargins {
+    primary_budget: f64,
+    contingency_reserve: f64,
+    total_cost: f64,
+    total_service: f64,
+    underserved_service: f64,
+    reliability: f64,
+    emissions: f64,
+}
+
 fn stress_fixture() -> Value {
     serde_json::from_str(STRESS_FIXTURE).expect("synthetic stress fixture parses")
 }
@@ -95,6 +106,31 @@ fn feasible_cost(fixture: &Value, strategy: &Value, row: &Value) -> Option<f64> 
         && emissions <= num(&rules["max_emissions_tonnes_co2e_upper_bound"]) + EPS;
 
     (within_budget && service_constraints).then_some(total_cost)
+}
+
+/// Signed margins retain each constraint's native units; non-negative means the
+/// declared floor/cap is met. This is diagnostic only and is not scalarized.
+fn constraint_margins(
+    fixture: &Value,
+    strategy: &Value,
+    row: &Value,
+) -> ConstraintMargins {
+    let rules = &fixture["scoring_policy"];
+    let base_cost = num(&strategy["base_cost"]);
+    let total_cost = num(&row["total_cost"]);
+    ConstraintMargins {
+        primary_budget: num(&rules["primary_budget"]) - base_cost,
+        contingency_reserve: num(&rules["contingency_reserve_cap"]) - (total_cost - base_cost),
+        total_cost: num(&rules["total_cost_upper_bound"]) - total_cost,
+        total_service: num(&row["service_units_lower_bound"])
+            - num(&rules["min_service_units_lower_bound"]),
+        underserved_service: num(&row["underserved_service_units_lower_bound"])
+            - num(&rules["min_underserved_service_units_lower_bound"]),
+        reliability: num(&row["reliability_lower_bound"])
+            - num(&rules["min_reliability_lower_bound"]),
+        emissions: num(&rules["max_emissions_tonnes_co2e_upper_bound"])
+            - num(&row["emissions_tonnes_co2e_upper_bound"]),
+    }
 }
 
 fn scenario_oracle(fixture: &Value, id: &str) -> ScenarioOracle {
@@ -340,6 +376,27 @@ fn a_hard_constraint_mutation_can_make_a_previously_feasible_scenario_infeasible
         scenario_oracle(&fixture, "seasonal-drought").minimum_feasible_cost,
         None,
         "the oracle must expose catalog infeasibility instead of relaxing the floor"
+    );
+}
+
+#[test]
+fn prolonged_repeat_case_reports_each_native_unit_constraint_margin() {
+    let fixture = stress_fixture();
+    let strategy = unique_strategy(&fixture, "adaptive_staged");
+    let row = unique_scenario_row(&strategy, "prolonged-repeat-disruption");
+    let margin = constraint_margins(&fixture, strategy, row);
+
+    assert!((margin.primary_budget - 1.0).abs() <= EPS);
+    assert!(margin.contingency_reserve.abs() <= EPS);
+    assert!((margin.total_cost - 1.0).abs() <= EPS);
+    assert!((margin.total_service + 10.0).abs() <= EPS);
+    assert!((margin.underserved_service + 40.0).abs() <= EPS);
+    assert!((margin.reliability + 0.02).abs() <= EPS);
+    assert!(margin.emissions.abs() <= EPS);
+
+    assert!(
+        feasible_cost(&fixture, strategy, row).is_none(),
+        "native-unit slacks must not hide the simultaneous service/equity/reliability violations"
     );
 }
 
