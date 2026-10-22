@@ -118,7 +118,8 @@ fn cli_reuses_matching_existing_object_after_verification() {
     let second_receipt: Value = serde_json::from_slice(&second.stdout).unwrap();
     assert_eq!(first_receipt["sha256"], second_receipt["sha256"]);
     assert_eq!(first_receipt["acquisition_receipt"]["object_path"], second_receipt["acquisition_receipt"]["object_path"]);
-    let shard = store.join("objects/sha256").join("d1");
+    let digest = first_receipt["sha256"].as_str().unwrap();
+    let shard = store.join("objects/sha256").join(&digest[..2]);
     assert_eq!(fs::read_dir(shard).expect("read digest shard").count(), 1);
 }
 
