@@ -1,0 +1,295 @@
+{
+  "schema_version": "nrvca-scenario-evidence/0.1",
+  "status": "synthetic_only",
+  "purpose": "Machine-checkable evidence, dependency and temporal-history contract for the frozen NRVCA-005 stress fixture. Nothing here calibrates local water or energy outcomes.",
+  "linked_fixture": {
+    "path": "fixtures/nrvca-correlated-stress-synthetic-v0.1.json",
+    "schema_version": "nrvca-robust-stress/0.1",
+    "expected_scenario_count": 5,
+    "expected_strategy_count": 3,
+    "expected_outcome_cell_count": 15
+  },
+  "probability_policy": {
+    "scenario_neutral_metrics": true,
+    "probabilities_present": false,
+    "rule": "Scenario counts are not probabilities. Probability weights require a separately preregistered model and independent justification."
+  },
+  "evidence_tier_contract": {
+    "unknown": {
+      "required_fields": [
+        "stressor_id",
+        "meaning",
+        "evidence_status",
+        "limitations"
+      ],
+      "permitted_claim": "The quantity is unknown; do not interpret missing as zero or available capacity."
+    },
+    "synthetic_assumption": {
+      "required_fields": [
+        "stressor_id",
+        "meaning",
+        "representation",
+        "evidence_status",
+        "calibration_status",
+        "geographic_scope",
+        "source_refs",
+        "limitations"
+      ],
+      "required_source_role": null,
+      "permitted_claim": "Only tests deterministic logic, scenario handling, or policy sensitivity under declared illustrative assumptions."
+    },
+    "expert_judgment": {
+      "required_fields": [
+        "stressor_id",
+        "meaning",
+        "representation",
+        "evidence_status",
+        "record_id",
+        "elicitation_method",
+        "elicitation_date",
+        "limitations",
+        "source_refs"
+      ],
+      "required_source_role": "expert_judgment_record",
+      "permitted_claim": "A documented elicitation, not an observation or calibrated model."
+    },
+    "official_observation": {
+      "required_fields": [
+        "stressor_id",
+        "meaning",
+        "representation",
+        "evidence_status",
+        "publisher_id",
+        "source_artifact_uri",
+        "retrieved_at",
+        "valid_time",
+        "unit",
+        "geographic_coverage",
+        "license_status",
+        "content_sha256",
+        "source_refs",
+        "limitations"
+      ],
+      "required_source_role": "empirical_data_source",
+      "permitted_claim": "An observation in the stated source, unit, coverage and reference period; not automatically a causal explanation or a future projection."
+    },
+    "operator_measurement": {
+      "required_fields": [
+        "stressor_id",
+        "meaning",
+        "representation",
+        "evidence_status",
+        "publisher_id",
+        "source_artifact_uri",
+        "retrieved_at",
+        "valid_time",
+        "unit",
+        "geographic_coverage",
+        "license_status",
+        "content_sha256",
+        "source_refs",
+        "limitations"
+      ],
+      "required_source_role": "operator_data_source",
+      "permitted_claim": "A recorded operational measurement within documented sensor, service, time and coverage limits."
+    },
+    "published_estimate": {
+      "required_fields": [
+        "stressor_id",
+        "meaning",
+        "representation",
+        "evidence_status",
+        "publisher_id",
+        "source_artifact_uri",
+        "retrieved_at",
+        "valid_time",
+        "unit",
+        "geographic_coverage",
+        "method_reference",
+        "license_status",
+        "content_sha256",
+        "source_refs",
+        "limitations"
+      ],
+      "required_source_role": "published_empirical_estimate",
+      "permitted_claim": "The source's estimate under its stated method and scope; not automatically a direct observation."
+    },
+    "model_output": {
+      "required_fields": [
+        "stressor_id",
+        "meaning",
+        "representation",
+        "evidence_status",
+        "model_id",
+        "model_version",
+        "model_configuration_sha256",
+        "input_manifest_sha256",
+        "validation_status",
+        "valid_time",
+        "unit",
+        "geographic_coverage",
+        "source_refs",
+        "limitations"
+      ],
+      "required_source_role": "model_artifact",
+      "permitted_claim": "A model output only at the declared version, configuration, input set and validation state."
+    }
+  },
+  "methodological_sources": [
+    {
+      "source_id": "us_climate_resilience_toolkit_dmdu",
+      "role": "methodological_context_only",
+      "title": "Decision-Making Under Deep Uncertainty",
+      "url": "https://toolkit.climate.gov/course-lesson/decision-making-under-deep-uncertainty",
+      "claim_ceiling": "Supports a description of the DMDU workflow; does not empirically support any stressor magnitude or local service result."
+    },
+    {
+      "source_id": "wuca_water_utility_dmdu_2026",
+      "role": "methodological_context_only",
+      "title": "A Beginner's Guide to Decision Making Under Deep Uncertainty for Water Utilities",
+      "publication_date": "2026-03",
+      "url": "https://www.cakex.org/documents/beginners-guide-decision-making-under-deep-uncertainty-water-utilities",
+      "claim_ceiling": "Supports water-utility planning method and practice context; does not calibrate the synthetic fixture."
+    },
+    {
+      "source_id": "world_bank_dmdu",
+      "role": "methodological_context_only",
+      "title": "Investment Decision Making Under Deep Uncertainty",
+      "url": "https://ppp.worldbank.org/library/investment-decision-making-under-deep-uncertainty",
+      "claim_ceiling": "Supports selection and combination of DMDU approaches; not a local measurement source."
+    }
+  ],
+  "stressor_definitions": [
+    {
+      "stressor_id": "source_availability_low",
+      "meaning": "Low source or inflow availability relative to an unspecified baseline.",
+      "representation": "qualitative_flag",
+      "evidence_status": "synthetic_assumption",
+      "calibration_status": "not_calibrated",
+      "geographic_scope": "fictional_not_a_south_african_measurement",
+      "source_refs": [],
+      "limitations": "No numeric inflow, hydrology series, catchment, date, baseline, or model is supplied."
+    },
+    {
+      "stressor_id": "heat_demand_high",
+      "meaning": "Elevated demand under a heat-related stress condition.",
+      "representation": "qualitative_flag",
+      "evidence_status": "synthetic_assumption",
+      "calibration_status": "not_calibrated",
+      "geographic_scope": "fictional_not_a_south_african_measurement",
+      "source_refs": [],
+      "limitations": "No temperature series, demand response function, metered demand, or calibrated magnitude is supplied."
+    },
+    {
+      "stressor_id": "grid_disruption",
+      "meaning": "A grid-disruption event that affects powered infrastructure in this fixture.",
+      "representation": "qualitative_flag",
+      "evidence_status": "synthetic_assumption",
+      "calibration_status": "not_calibrated",
+      "geographic_scope": "fictional_not_a_south_african_measurement",
+      "source_refs": [],
+      "limitations": "No outage duration, grid telemetry, local feeder, backup topology, or failure-rate model is supplied."
+    },
+    {
+      "stressor_id": "powered_pressure_system_down",
+      "meaning": "Powered pressure-management equipment is unavailable in the fixture's grid-disruption model.",
+      "representation": "qualitative_flag",
+      "evidence_status": "synthetic_assumption",
+      "calibration_status": "not_calibrated",
+      "geographic_scope": "fictional_not_a_south_african_measurement",
+      "source_refs": [],
+      "limitations": "The grid dependency is a scoped fixture assumption, not a universal causal law for pressure-system outages."
+    },
+    {
+      "stressor_id": "repair_crew_delay",
+      "meaning": "Repair crews arrive later than the unstated baseline.",
+      "representation": "qualitative_flag",
+      "evidence_status": "synthetic_assumption",
+      "calibration_status": "not_calibrated",
+      "geographic_scope": "fictional_not_a_south_african_measurement",
+      "source_refs": [],
+      "limitations": "No roster, travel-time distribution, parts availability, dispatch log, or repair-time model is supplied."
+    },
+    {
+      "stressor_id": "reserve_depleted",
+      "meaning": "Previously available reserve capacity has been used before another disruption occurs.",
+      "representation": "qualitative_flag",
+      "evidence_status": "synthetic_assumption",
+      "calibration_status": "not_calibrated",
+      "geographic_scope": "fictional_not_a_south_african_measurement",
+      "source_refs": [],
+      "limitations": "The fixture has no explicit storage mass balance or reserve state trajectory; required history is declared separately."
+    }
+  ],
+  "dependency_rules": [
+    {
+      "rule_id": "powered-pressure-down-requires-grid-disruption",
+      "rule_type": "stressor_dependency",
+      "if_present": "powered_pressure_system_down",
+      "requires_all": [
+        "grid_disruption"
+      ],
+      "scope": "fixture_encoding_only",
+      "rationale": "The current synthetic scenario defines this powered-system outage as a consequence of grid disruption. Real models must represent other possible causes explicitly."
+    },
+    {
+      "rule_id": "reserve-depletion-requires-low-source-availability",
+      "rule_type": "stressor_dependency",
+      "if_present": "reserve_depleted",
+      "requires_all": [
+        "source_availability_low"
+      ],
+      "scope": "fixture_encoding_only",
+      "rationale": "The current repeated-disruption fixture combines depleted reserve with low source availability; this is a scenario design constraint, not a general physical law."
+    },
+    {
+      "rule_id": "reserve-depletion-requires-prior-history",
+      "rule_type": "temporal_dependency",
+      "if_present": "reserve_depleted",
+      "requires_history_tokens": [
+        "prior_disruption",
+        "prior_reserve_drawdown",
+        "repeat_disruption"
+      ],
+      "scope": "fixture_encoding_only",
+      "rationale": "A reserve-depleted state must have a prior event and drawdown; a scenario label alone is not enough."
+    }
+  ],
+  "scenario_conditions": [
+    {
+      "scenario_id": "nominal-operations",
+      "history_tokens": [],
+      "history_evidence_status": "synthetic_assumption"
+    },
+    {
+      "scenario_id": "seasonal-drought",
+      "history_tokens": [],
+      "history_evidence_status": "synthetic_assumption"
+    },
+    {
+      "scenario_id": "grid-disruption",
+      "history_tokens": [],
+      "history_evidence_status": "synthetic_assumption"
+    },
+    {
+      "scenario_id": "compound-drought-grid-crew",
+      "history_tokens": [],
+      "history_evidence_status": "synthetic_assumption"
+    },
+    {
+      "scenario_id": "prolonged-repeat-disruption",
+      "history_tokens": [
+        "prior_disruption",
+        "prior_reserve_drawdown",
+        "repeat_disruption"
+      ],
+      "history_evidence_status": "synthetic_assumption"
+    }
+  ],
+  "evidence_transition_policy": {
+    "rule": "Evidence tier changes only when required provenance and review gates are satisfied; changing labels, descriptions, or source metadata alone cannot promote a claim.",
+    "official_observation_gate": "Exact source identity, access/retrieval record, valid time, unit, geography/coverage, licensing state and SHA-256 digest of acquired bytes where bytes are available.",
+    "model_output_gate": "Model identity/version, configuration digest, input-manifest digest, outputs with valid time/unit/coverage, explicit validation status and retained failure cases.",
+    "empirical_claim_ceiling": "A sourced observation or model output is not by itself evidence of causality, policy effectiveness, or a calibrated counterfactual."
+  }
+}
