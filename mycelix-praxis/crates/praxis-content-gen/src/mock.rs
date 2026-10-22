@@ -274,7 +274,7 @@ fn mock_practice_problem(context: &str) -> String {
         "A pie is cut into 6 equal slices. Maria eats 2 slices. What fraction of the pie did she eat?\n\
          2/6\n\
          There are 6 equal parts (denominator) and Maria ate 2 (numerator): 2/6.\n\
-         2/3, 6/2, 1/3\n\
+         2/3, 6/2, 5/6\n\
          How many total equal pieces is the pie cut into?\n\
          The bottom number is the total pieces, the top is how many she ate."
             .to_string()
