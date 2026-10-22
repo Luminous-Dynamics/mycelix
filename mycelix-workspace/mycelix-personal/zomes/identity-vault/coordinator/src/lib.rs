@@ -394,7 +394,6 @@ mod tests {
         );
     }
 
-
     #[test]
     fn profile_entry_type_exists() {
         // Verify the entry type enum compiles and matches
