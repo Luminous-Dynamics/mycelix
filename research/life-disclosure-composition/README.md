@@ -43,7 +43,7 @@ cargo +1.96.0 clippy --locked --manifest-path research/life-disclosure-compositi
 cargo +1.96.0 run --release --locked --manifest-path research/life-disclosure-composition/Cargo.toml
 ```
 
-The executable emits a deterministic CSV report with min/p50/p90/p95/max candidate counts, unique-candidate rate, share of targets with at most ten candidates, candidate-set shrinkage and a task-utility correctness guard. The printed FNV-1a fingerprint is non-cryptographic; CI separately computes SHA-256 over the report and qualification receipt.
+The executable emits a deterministic CSV report with min/p50/p90/p95/max candidate counts, unique-candidate rate, share of targets with at most ten candidates, candidate-set retention per step and a task-utility correctness guard. The printed FNV-1a fingerprint is non-cryptographic; CI separately computes SHA-256 over the report and qualification receipt.
 
 ## Next experiments
 
