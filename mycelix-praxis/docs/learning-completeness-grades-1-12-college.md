@@ -5,6 +5,14 @@
 **Scope:** Mycelix Praxis curriculum graph, lesson assets, assessments, accessibility, evidence of learning, and college-level course access  
 **Implementation boundary:** This document defines acceptance criteria and a research plan. It does not claim the existing corpus already meets them, that lessons have been independently validated, or that Praxis credentials confer institutional credit.
 
+## 0. Community authoring as a first-class workflow
+
+People who know a subject, a language, a trade, a community practice or a learner's needs should be able to contribute original, reusable teaching materials without needing to be software engineers. The initial [Praxis lesson authoring kit](../authoring/README.md) establishes a shared lesson-pack format, a realistic starter, and a local static checker. This lowers the contribution barrier while keeping publication review separate from drafting.
+
+The product target is a local-first visual authoring wizard with objective lookup, structured explanation/example/practice/assessment editors, preview, progressive-hint checks, accessibility prompts, source/licence capture, a validation report, autosave and JSON export. Contributors should be able to work without an account or network connection, then submit a reviewable draft. Reuse should preserve original author credit and licence, and any edit to reviewed content must create a new digest and review state.
+
+This is not yet a claim that a graphical no-code editor exists. The JSON starter/checker is the first executable author workflow; the visual wizard remains the next UI milestone.
+
 ## 1. Outcome
 
 Praxis should help a learner move from their current knowledge to a meaningful capability, with the evidence needed to know whether that capability was actually learned. The goal is not merely to place a course title or generated lesson beside every standard.
