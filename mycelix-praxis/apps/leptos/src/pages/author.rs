@@ -480,6 +480,12 @@ fn validate_draft(draft: &LessonAuthorDraft) -> Vec<String> {
             findings.push(format!("Practice item {} repeats the answer among the wrong-answer choices.", index + 1));
         }
     }
+    if draft.license.to_lowercase().contains("undecided") {
+        findings.push(
+            "Before publication, choose the actual reuse licence/rights status and record sources in the evidence sidecar."
+                .into(),
+        );
+    }
     for (label, rows) in [
         ("Key vocabulary", draft.vocabulary_rows.as_str()),
         ("Misconceptions", draft.misconception_rows.as_str()),
@@ -800,7 +806,11 @@ mod tests {
         assert_eq!(value["quality"]["needs_human_review"], true);
         assert_eq!(value["quality"]["metrics_valid_for_current_revision"], false);
         assert_eq!(value["authoring"]["status"], "draft");
-        assert!(validate_draft(&draft).is_empty());
+        let findings = validate_draft(&draft);
+        assert!(
+            findings.iter().any(|finding| finding.contains("choose the actual reuse licence")),
+            "the sample should make unresolved reuse rights visible"
+        );
     }
 
     #[test]
@@ -812,6 +822,26 @@ mod tests {
         assert!(findings.iter().any(|finding| finding.contains("duplicate choices")));
         assert!(findings.iter().any(|finding| finding.contains("repeats the answer")));
         assert!(findings.iter().any(|finding| finding.contains("Key vocabulary row 1")));
+    }
+
+    #[test]
+    fn imported_lesson_pack_becomes_a_remixable_local_draft() {
+        let original = LessonAuthorDraft::default();
+        let serialized = lesson_pack_value(&original);
+        let imported = pack_to_draft(&serialized).expect("exported pack should import");
+        assert_eq!(imported.node_id, original.node_id);
+        assert_eq!(imported.title, original.title);
+        assert_eq!(imported.practice[0].question, original.practice[0].question);
+        assert_eq!(imported.practice[0].distractors, original.practice[0].distractors);
+        assert!(imported.source_notes.contains("Imported as a new local draft"));
+        assert!(imported.license.contains("UNDECIDED"));
+    }
+
+    #[test]
+    fn import_rejects_json_without_a_lesson_object() {
+        let error = pack_to_draft(&serde_json::json!({"node_id":"example"}))
+            .expect_err("arbitrary JSON must not be treated as a lesson pack");
+        assert!(error.contains("lesson object is missing"));
     }
 
     #[test]
