@@ -840,6 +840,27 @@ mod tests {
     }
 
     #[test]
+    fn writable_preexisting_object_is_rejected_without_permission_side_effects() {
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            let input = TempFile::with_bytes(b"already present but writable");
+            let store = TempDir::new();
+            let digest = sha256_hex(b"already present but writable");
+            let shard = store.0.join("objects").join("sha256").join(&digest[..2]);
+            fs::create_dir_all(&shard).expect("create shard");
+            let object = shard.join(&digest);
+            fs::write(&object, b"already present but writable").expect("write existing object");
+            fs::set_permissions(&object, fs::Permissions::from_mode(0o644)).expect("make object writable");
+
+            let error = capture_from_cli(&capture_args_for(&input.0, &store.0)).unwrap_err();
+            assert!(error.contains("owner-read-only (0400)"));
+            let mode = fs::metadata(&object).expect("inspect unchanged object").permissions().mode() & 0o777;
+            assert_eq!(mode, 0o644, "the intake path must not chmod a pre-existing inode");
+        }
+    }
+
+    #[test]
     fn duplicate_store_dir_and_escaping_store_symlinks_fail_closed() {
         let input = TempFile::with_bytes(b"store containment");
         let store = TempDir::new();
