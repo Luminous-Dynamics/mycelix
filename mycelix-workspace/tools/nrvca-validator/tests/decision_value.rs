@@ -242,6 +242,35 @@ fn changing_descriptive_label_does_not_change_numeric_outcomes_or_optimum() {
 }
 
 #[test]
+fn relaxing_each_policy_guardrail_cannot_shrink_the_feasible_set() {
+    let root = fixture();
+    let allocations = all_allocations(&root);
+    let policy = &root["policy_profile"];
+    let budget = num(&policy["budget"]);
+    let equity = num(&policy["min_underserved_service_units_lower_bound"]);
+    let emissions = num(&policy["max_emissions_tonnes_co2e_upper_bound"]);
+    let reliability = num(&policy["min_service_weighted_reliability_lower_bound"]);
+
+    for allocation in &allocations {
+        let strict = feasible_under_constraints(
+            allocation, budget, equity, emissions, reliability,
+        );
+        let lower_equity_floor = feasible_under_constraints(
+            allocation, budget, (equity - 100.0).max(0.0), emissions, reliability,
+        );
+        let looser_emissions_cap = feasible_under_constraints(
+            allocation, budget, equity, emissions + 2.0, reliability,
+        );
+        let looser_reliability_floor = feasible_under_constraints(
+            allocation, budget, equity, emissions, (reliability - 0.01).max(0.0),
+        );
+        assert!(!strict || lower_equity_floor);
+        assert!(!strict || looser_emissions_cap);
+        assert!(!strict || looser_reliability_floor);
+    }
+}
+
+#[test]
 fn policy_sensitivity_reports_choice_changes_and_infeasibility_explicitly() {
     let root = fixture();
     let allocations = all_allocations(&root);
