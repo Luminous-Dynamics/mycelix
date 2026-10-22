@@ -539,7 +539,7 @@ mod tests {
 
     #[test]
     fn malformed_known_future_event_is_not_hidden_by_occurrence_cutoff() {
-        let mut event = observation(
+        let event = observation(
             "scan-future",
             PhysicalObservationKind::PlacementOccupancyObserved,
             9,
@@ -550,11 +550,8 @@ mod tests {
             "clear-block-a",
             "yard-clock-v1",
             cutoff(8, 10),
-            &[event.clone()],
+            &[event],
         );
-        event.recorded_tick = 10;
-        event.occurred_tick = 9;
-        let _ = event;
         assert_eq!(result.decision, PlacementStateDecision::Rejected);
         assert!(result.violations.iter().any(|v| {
             v.code == ExecutionEvidenceViolationCode::RecordedBeforeOccurrence
