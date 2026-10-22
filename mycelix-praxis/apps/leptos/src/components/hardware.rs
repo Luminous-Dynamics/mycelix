@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 //! Hardware Integration Components — WebBluetooth and Physical Presence.
 
-use crate::curriculum::{ProgressStatus, use_progress};
 use leptos::prelude::*;
 
 #[component]
@@ -92,25 +91,26 @@ pub fn PresenceValidator(
 
 #[component]
 pub fn SafetyGuard(children: ChildrenFn) -> impl IntoView {
-    let progress = use_progress();
-    let is_safe = move || progress.get().get("VOC-000-S").status == ProgressStatus::Mastered;
+    // The child hardware UI is deliberately not rendered. This browser-only
+    // component has no verifier for independently issued, signed safety
+    // credentials; localStorage/BKT/self-report state is not authorization.
+    let _ = children;
 
     view! {
-        {move || if is_safe() {
-            children().into_any()
-        } else {
-            view! {
-                <div class="safety-lockout" style="padding: 2rem; background: var(--error-low); border: 2px solid var(--error); border-radius: 12px; text-align: center">
-                    <div style="font-size: 2rem; margin-bottom: 1rem">"\u{26A0}\u{FE0F}"</div>
-                    <h4 style="color: var(--error)">"PHYSICAL LOCKOUT ACTIVE"</h4>
-                    <p style="font-size: 0.85rem">
-                        "Access to physical hardware requires mastery of the mandatory Safety Protocol."
-                    </p>
-                    <a href="/study/VOC-000-S" class="btn-sm btn-primary" style="margin-top: 1rem; background: var(--error); border-color: var(--error)">
-                        "Master VOC-000-S Now"
-                    </a>
-                </div>
-            }.into_any()
-        }}
+        <div
+            class="safety-lockout"
+            role="alert"
+            style="padding: 2rem; background: var(--error-low); border: 2px solid var(--error); border-radius: 12px; text-align: center"
+        >
+            <div style="font-size: 2rem; margin-bottom: 1rem">"\u{26A0}\u{FE0F}"</div>
+            <h4 style="color: var(--error)">"PHYSICAL HARDWARE DISABLED"</h4>
+            <p style="font-size: 0.85rem">
+                "This browser build cannot verify an independently issued, signed Safety Protocol credential. "
+                "A local progress toggle, self-assessment, BKT estimate, or localStorage record cannot authorize a physical device."
+            </p>
+            <a href="/study/VOC-000-S" class="btn-sm btn-primary" style="margin-top: 1rem; background: var(--error); border-color: var(--error)">
+                "Review the Safety Protocol (does not unlock hardware)"
+            </a>
+        </div>
     }
 }
