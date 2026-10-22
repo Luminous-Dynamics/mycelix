@@ -115,12 +115,12 @@ impl FeatureAblation {
         }
     }
 
-    const fn masks(self, feature_index: usize) -> bool {
+    fn masks(self, feature_index: usize) -> bool {
         match self {
             Self::Full => false,
             Self::WithoutClaims => feature_index <= 3,
-            Self::WithoutIdentifierAndProof => feature_index >= 4 && feature_index <= 5,
-            Self::WithoutLineageAndBehavior => feature_index >= 6 && feature_index <= 7,
+            Self::WithoutIdentifierAndProof => (4..=5).contains(&feature_index),
+            Self::WithoutLineageAndBehavior => (6..=7).contains(&feature_index),
             Self::WithoutStructure => feature_index >= 8,
         }
     }
@@ -639,9 +639,21 @@ fn rate_at_threshold(scores: &[ScoredPair], threshold: f64) -> (f64, f64, f64) {
             }
         }
     }
-    let precision = if tp + fp == 0 { 0.0 } else { tp as f64 / (tp + fp) as f64 };
-    let recall = if positives == 0 { 0.0 } else { tp as f64 / positives as f64 };
-    let fpr = if negatives == 0 { 0.0 } else { fp as f64 / negatives as f64 };
+    let precision = if tp + fp == 0 {
+        0.0
+    } else {
+        tp as f64 / (tp + fp) as f64
+    };
+    let recall = if positives == 0 {
+        0.0
+    } else {
+        tp as f64 / positives as f64
+    };
+    let fpr = if negatives == 0 {
+        0.0
+    } else {
+        fp as f64 / negatives as f64
+    };
     (precision, recall, fpr)
 }
 
@@ -758,7 +770,7 @@ fn bootstrap_privacy_metrics_ci(
         ));
     }
 
-    let percentile_interval = |values: &mut Vec<f64>| {
+    let percentile_interval = |values: &mut [f64]| {
         values.sort_unstable_by(f64::total_cmp);
         let lower_index = (values.len() * 25 / 1_000).min(values.len() - 1);
         let upper_index = (values.len() * 975 / 1_000).min(values.len() - 1);
