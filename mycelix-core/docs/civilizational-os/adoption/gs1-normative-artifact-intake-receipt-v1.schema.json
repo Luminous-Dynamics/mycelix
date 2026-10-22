@@ -29,7 +29,7 @@
     },
     "source_manifest_sha256": {
       "type": "string",
-      "const": "c1ee59514524c7eb0535e58f3fc19c3c3f309d05adb0ca896ac59ef5b3abcf92"
+      "const": "acb4eee1c6b5ec625047f6857e466408716bb4b09b911029faac303c990cb647"
     },
     "recorded_at_utc": {
       "type": "string",
@@ -98,9 +98,9 @@
       "properties": {
         "artifact_id": {
           "enum": [
-            "gs1-epcis-2-0-1-context",
-            "gs1-epcis-2-0-1-json-schema",
-            "gs1-epcis-2-0-1-shacl",
+            "gs1-epcis-2-0-0-context",
+            "gs1-epcis-2-0-0-json-schema",
+            "gs1-epcis-2-0-0-shacl",
             "gs1-cbv-2-0-0-ontology-jsonld"
           ]
         },
@@ -114,10 +114,10 @@
         },
         "requested_url": {
           "enum": [
-            "https://ref.gs1.org/standards/epcis/2.0.1/epcis-context.jsonld",
-            "https://ref.gs1.org/standards/epcis/2.0.1/epcis-json-schema.json",
-            "https://ref.gs1.org/standards/epcis/2.0.1/epcis-shacl.ttl",
-            "https://ref.gs1.org/standards/epcis/2.0.1/cbv-ontology.jsonld"
+            "https://ref.gs1.org/standards/epcis/2.0.0/epcis-context.jsonld",
+            "https://ref.gs1.org/standards/epcis/2.0.0/epcis-json-schema.json",
+            "https://ref.gs1.org/standards/epcis/2.0.0/epcis-shacl.ttl",
+            "https://ref.gs1.org/standards/epcis/2.0.0/cbv-ontology.jsonld"
           ]
         },
         "source_revision": {
