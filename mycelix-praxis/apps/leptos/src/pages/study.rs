@@ -491,14 +491,21 @@ pub fn StudyPage(node_id: String) -> impl IntoView {
                         >"Studying"</button>
                         <button
                             class=move || {
-                                let s = progress.get().get(&id_m).status;
-                                if s == ProgressStatus::Mastered { "praxis-status-btn active-mastered" } else { "praxis-status-btn" }
+                                let learner_state = progress.get().get(&id_m).self_assessment;
+                                if learner_state == Some(SelfAssessment::FeelsUnderstood) {
+                                    "praxis-status-btn active-studying"
+                                } else {
+                                    "praxis-status-btn"
+                                }
                             }
                             on:click={
                                 let id = id_m2.clone();
-                                move |_| set_progress.update(|p| p.set_status(&id, ProgressStatus::Mastered))
+                                move |_| set_progress.update(|p| {
+                                    p.record_self_assessment(&id, SelfAssessment::FeelsUnderstood)
+                                })
                             }
-                        >"Mastered"</button>
+                            title="Self-assessment only; this does not verify mastery."
+                        >"I feel I understand"</button>
                     }
                 }
             </div>
@@ -875,7 +882,9 @@ fn LiveProgressSync(node_id: String) -> impl IntoView {
         let course_id = curriculum_node_course_id(&node_id_for_click);
         let progress_percent = match local.status {
             ProgressStatus::NotStarted => 0.0,
-            ProgressStatus::Studying => local.mastery_permille as f32 / 10.0,
+            ProgressStatus::Studying | ProgressStatus::ProvisionalMastery => {
+                local.mastery_permille as f32 / 10.0
+            }
             ProgressStatus::Mastered => 100.0,
         };
         let input = ProgressSyncInput {
