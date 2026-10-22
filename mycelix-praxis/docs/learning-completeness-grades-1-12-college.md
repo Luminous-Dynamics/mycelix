@@ -7,11 +7,11 @@
 
 ## 0. Community authoring as a first-class workflow
 
-People who know a subject, a language, a trade, a community practice or a learner's needs should be able to contribute original, reusable teaching materials without needing to be software engineers. The initial [Praxis lesson authoring kit](../authoring/README.md) establishes a shared lesson-pack format, a realistic starter, and a local static checker. This lowers the contribution barrier while keeping publication review separate from drafting.
+People who know a subject, a language, a trade, a community practice or a learner's needs should be able to contribute original, reusable teaching materials without needing to be software engineers. The initial [Praxis lesson authoring kit](../authoring/README.md) establishes a shared lesson-pack format, a realistic starter, a Rust static checker, and a local-first `/author` form that autosaves to browser storage and exports JSON. It lowers the contribution barrier while keeping publication review separate from drafting. The form is an initial prototype; it still needs exact-head compile/test qualification and accessibility review.
 
 The product target is a local-first visual authoring wizard with objective lookup, structured explanation/example/practice/assessment editors, preview, progressive-hint checks, accessibility prompts, source/licence capture, a validation report, autosave and JSON export. Contributors should be able to work without an account or network connection, then submit a reviewable draft. Reuse should preserve original author credit and licence, and any edit to reviewed content must create a new digest and review state.
 
-This is not yet a claim that a graphical no-code editor exists. The JSON starter/checker is the first executable author workflow; the visual wizard remains the next UI milestone.
+The first form-based author screen now exists at `/author`; adding a searchable objective picker, flexible item counts, evidence-sidecar generation, and richer validation are the next usability steps. This is not yet a claim that the page has passed browser-based accessibility evaluation or that lessons created there are published automatically.
 
 ## 1. Outcome
 
