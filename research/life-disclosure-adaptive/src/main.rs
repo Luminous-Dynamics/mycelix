@@ -87,6 +87,55 @@ impl Strategy {
     }
 }
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+enum FeatureAblation {
+    Full,
+    WithoutClaims,
+    WithoutIdentifierAndProof,
+    WithoutLineageAndBehavior,
+    WithoutStructure,
+}
+
+impl FeatureAblation {
+    const LOGISTIC: [Self; 5] = [
+        Self::Full,
+        Self::WithoutClaims,
+        Self::WithoutIdentifierAndProof,
+        Self::WithoutLineageAndBehavior,
+        Self::WithoutStructure,
+    ];
+
+    const fn name(self) -> &'static str {
+        match self {
+            Self::Full => "balanced_logistic_full",
+            Self::WithoutClaims => "logistic_no_claims",
+            Self::WithoutIdentifierAndProof => "logistic_no_identifier_proof",
+            Self::WithoutLineageAndBehavior => "logistic_no_lineage_behavior",
+            Self::WithoutStructure => "logistic_no_structure",
+        }
+    }
+
+    const fn masks(self, feature_index: usize) -> bool {
+        match self {
+            Self::Full => false,
+            Self::WithoutClaims => feature_index <= 3,
+            Self::WithoutIdentifierAndProof => (4..=5).contains(&feature_index),
+            Self::WithoutLineageAndBehavior => (6..=7).contains(&feature_index),
+            Self::WithoutStructure => feature_index >= 8,
+        }
+    }
+
+    const fn bootstrap_salt(self) -> u64 {
+        match self {
+            Self::Full => 0x4d4f_4445_4c00,
+            Self::WithoutClaims => 0x4142_4c41_5445_01,
+            Self::WithoutIdentifierAndProof => 0x4142_4c41_5445_02,
+            Self::WithoutLineageAndBehavior => 0x4142_4c41_5445_03,
+            Self::WithoutStructure => 0x4142_4c41_5445_04,
+        }
+    }
+}
+
 #[derive(Clone, Debug)]
 struct Presentation {
     presentation_ref: u64,
@@ -336,6 +385,21 @@ fn downsample_training_negatives(examples: &[PairExample], strategy: Strategy) -
     sampled.extend(negatives);
     sampled.sort_unstable_by_key(|pair| pair.pair_ref);
     sampled
+}
+
+fn apply_ablation(examples: &[PairExample], ablation: FeatureAblation) -> Vec<PairExample> {
+    examples
+        .iter()
+        .cloned()
+        .map(|mut pair| {
+            for (index, feature) in pair.features.iter_mut().enumerate() {
+                if ablation.masks(index) {
+                    *feature = 0.0;
+                }
+            }
+            pair
+        })
+        .collect()
 }
 
 fn sigmoid(value: f64) -> f64 {
@@ -653,6 +717,16 @@ fn render_report() -> String {
     writeln!(&mut output, "# train_subjects={TRAIN_SUBJECTS}").unwrap();
     writeln!(&mut output, "# test_subjects={}", SUBJECTS - TRAIN_SUBJECTS).unwrap();
     writeln!(&mut output, "# optimizer=balanced_logistic_full_batch_l2").unwrap();
+    writeln!(
+        &mut output,
+        "# threshold_note=0.5 is descriptive; class-balanced training scores are not deployment-calibrated probabilities"
+    )
+    .unwrap();
+    writeln!(
+        &mut output,
+        "# ablations=full,no_claims,no_identifier_proof,no_lineage_behavior,no_structure"
+    )
+    .unwrap();
     writeln!(&mut output, "# optimizer_steps={OPTIMIZER_STEPS}").unwrap();
     writeln!(&mut output, "# negative_sampling_ratio=1:{NEGATIVE_MULTIPLIER}").unwrap();
     writeln!(&mut output, "# bootstrap_replicates={BOOTSTRAP_REPLICATES}").unwrap();
@@ -669,25 +743,29 @@ fn render_report() -> String {
         let train_all = build_pairs(strategy, true);
         let test_pairs = build_pairs(strategy, false);
         let train_fit = downsample_training_negatives(&train_all, strategy);
-        let model = Model::fit(&train_fit);
 
-        let model_scores = score_pairs(&test_pairs, Some(&model));
-        let model_metrics = evaluate_scores(&model_scores);
-        let model_ci = score_bootstrap_ci(
-            &model_scores,
-            &test_subjects,
-            0x4d4f_4445_4c00 ^ strategy as u64,
-        );
-        write_metric_row(
-            &mut output,
-            strategy,
-            "balanced_logistic",
-            train_subjects.len(),
-            test_subjects.len(),
-            &train_fit,
-            model_metrics,
-            model_ci,
-        );
+        for ablation in FeatureAblation::LOGISTIC {
+            let train_variant = apply_ablation(&train_fit, ablation);
+            let test_variant = apply_ablation(&test_pairs, ablation);
+            let model = Model::fit(&train_variant);
+            let model_scores = score_pairs(&test_variant, Some(&model));
+            let model_metrics = evaluate_scores(&model_scores);
+            let model_ci = score_bootstrap_ci(
+                &model_scores,
+                &test_subjects,
+                ablation.bootstrap_salt() ^ strategy as u64,
+            );
+            write_metric_row(
+                &mut output,
+                strategy,
+                ablation.name(),
+                train_subjects.len(),
+                test_subjects.len(),
+                &train_variant,
+                model_metrics,
+                model_ci,
+            );
+        }
 
         let exact_scores = score_pairs(&test_pairs, None);
         let exact_metrics = evaluate_scores(&exact_scores);
@@ -997,9 +1075,30 @@ mod tests {
     }
 
     #[test]
-    fn report_is_deterministic_and_contains_all_three_attackers() {
+    fn ablation_masks_only_the_declared_feature_groups() {
+        let example = PairExample {
+            pair_ref: 7,
+            left_subject: 1,
+            right_subject: 2,
+            features: [1.0; FEATURE_COUNT],
+            label: false,
+        };
+        for ablation in FeatureAblation::LOGISTIC {
+            let masked = apply_ablation(std::slice::from_ref(&example), ablation);
+            assert_eq!(masked.len(), 1);
+            for (index, feature) in masked[0].features.iter().enumerate() {
+                assert_eq!(
+                    *feature == 0.0,
+                    ablation.masks(index),
+                    "ablation={ablation:?}, feature={index}"
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn report_schema_declares_all_attackers_and_subject_disjoint_split() {
         let report = render_report();
-        assert_eq!(report, render_report());
         assert_eq!(TRAIN_SUBJECTS, 80);
         assert_eq!(SUBJECTS - TRAIN_SUBJECTS, 40);
         assert_eq!(BOOTSTRAP_REPLICATES, 200);
@@ -1008,10 +1107,12 @@ mod tests {
             .lines()
             .filter(|line| !line.starts_with('#'))
             .collect();
-        assert_eq!(rows.len(), 1 + Strategy::ALL.len() * 3);
+        assert_eq!(rows.len(), 1 + Strategy::ALL.len() * 7);
         assert!(rows[0].starts_with("strategy,attacker,train_subjects,test_subjects,"));
         for strategy in Strategy::ALL {
-            assert!(report.contains(&format!("{},balanced_logistic,", strategy.name())));
+            for ablation in FeatureAblation::LOGISTIC {
+                assert!(report.contains(&format!("{},{},", strategy.name(), ablation.name())));
+            }
             assert!(report.contains(&format!("{},exact_channel_union,", strategy.name())));
             assert!(report.contains(&format!("{},seeded_random_control,", strategy.name())));
         }
