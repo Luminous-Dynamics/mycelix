@@ -27,6 +27,9 @@ fn unique_ids(items: &[Value], field: &str) -> Result<BTreeSet<String>, String> 
             .as_str()
             .ok_or_else(|| format!("missing {field}"))?
             .to_owned();
+        if id.trim().is_empty() {
+            return Err(format!("{field} cannot be empty"));
+        }
         if !ids.insert(id.clone()) {
             return Err(format!("duplicate {field}: {id}"));
         }
@@ -47,6 +50,9 @@ fn resource_capacities(root: &Value) -> Result<BTreeMap<String, i64>, String> {
         .ok_or_else(|| "resource_capacities must be an object".to_owned())?;
     let mut capacities = BTreeMap::new();
     for (resource_id, value) in object {
+        if resource_id.trim().is_empty() {
+            return Err("resource ID cannot be empty".to_owned());
+        }
         let capacity = value
             .as_i64()
             .ok_or_else(|| format!("resource capacity {resource_id} must be an integer"))?;
@@ -66,7 +72,8 @@ fn required_preconditions<'a>(action: &'a Value) -> Result<BTreeSet<&'a str>, St
     for value in values {
         let precondition = value
             .as_str()
-            .ok_or_else(|| format!("{} has a non-string precondition", text(action, "action_id")))?;
+            .filter(|value| !value.trim().is_empty())
+            .ok_or_else(|| format!("{} has a missing/empty/non-string precondition", text(action, "action_id")))?;
         if !result.insert(precondition) {
             return Err(format!("{} has duplicate precondition {precondition}", text(action, "action_id")));
         }
@@ -82,7 +89,8 @@ fn available_preconditions(candidate: &Value) -> Result<BTreeSet<&str>, String> 
     for value in values {
         let precondition = value
             .as_str()
-            .ok_or_else(|| format!("{} has a non-string available precondition", text(candidate, "candidate_id")))?;
+            .filter(|value| !value.trim().is_empty())
+            .ok_or_else(|| format!("{} has a missing/empty/non-string available precondition", text(candidate, "candidate_id")))?;
         if !result.insert(precondition) {
             return Err(format!("{} repeats available precondition {precondition}", text(candidate, "candidate_id")));
         }
@@ -133,7 +141,10 @@ fn validate_contract(root: &Value) -> Result<(), String> {
         .ok_or_else(|| "actions must be an array".to_owned())?;
     unique_ids(actions, "action_id")?;
     let capacities = resource_capacities(root)?;
-    let unit = text(&root["policy"], "cost_unit");
+    let unit = root["policy"]["cost_unit"]
+        .as_str()
+        .filter(|value| !value.trim().is_empty())
+        .ok_or_else(|| "policy cost_unit must be a non-empty string".to_owned())?;
     let max_cost = integer(&root["hard_contract"], "max_single_action_cost")?;
     let max_candidates = integer(&root["hard_contract"], "max_candidates_per_case")?;
     if max_cost < 0 || max_candidates <= 0 {
@@ -191,6 +202,9 @@ fn validate_contract(root: &Value) -> Result<(), String> {
 }
 
 fn validate_case(root: &Value, case: &Value) -> Result<(), String> {
+    if case["status"].as_str() != Some("synthetic_assumption") {
+        return Err(format!("case {} must retain synthetic status", text(case, "case_id")));
+    }
     let budget = integer(case, "budget")?;
     if budget < 0 {
         return Err(format!("case {} has negative budget", text(case, "case_id")));
@@ -208,7 +222,10 @@ fn validate_case(root: &Value, case: &Value) -> Result<(), String> {
         if candidate.get("cost").is_some() {
             return Err(format!("candidate {candidate_id} must not override authoritative action cost"));
         }
-        let action_id = text(candidate, "action_id");
+        let action_id = candidate["action_id"]
+            .as_str()
+            .filter(|value| !value.trim().is_empty())
+            .ok_or_else(|| format!("candidate {candidate_id} has missing/empty action_id"))?;
         let act = action(root, action_id)
             .ok_or_else(|| format!("candidate {candidate_id} references unknown action {action_id}"))?;
         available_preconditions(candidate)?;
@@ -335,15 +352,6 @@ fn arbitrate(root: &Value, case: &Value) -> Result<ArbitrationOutcome, String> {
     let mut ordered: Vec<&Value> = candidates.iter().collect();
     ordered.sort_by(|left, right| candidate_order(root, left, right));
     let protected = protected_candidates(root, candidates);
-    let discretionary: Vec<&Value> = ordered
-        .iter()
-        .copied()
-        .filter(|candidate| {
-            action(root, text(candidate, "action_id"))
-                .is_some_and(|act| act["policy_class"].as_str() == Some("discretionary_recovery"))
-        })
-        .collect();
-
     let missing_protected = protected.iter().any(|candidate| {
         let act = action(root, text(candidate, "action_id")).expect("validated action");
         has_missing_preconditions(candidate, act)
@@ -474,7 +482,6 @@ fn arbitrate(root: &Value, case: &Value) -> Result<ArbitrationOutcome, String> {
         }
     }
 
-    let _ = discretionary; // Retain an explicit validated separation of protected and discretionary candidates.
     Ok(ArbitrationOutcome {
         status: "arbitration_complete".to_owned(),
         selected_action_ids,
@@ -699,7 +706,8 @@ fn increasing_budget_never_breaks_feasibility_or_revokes_an_already_selected_act
         let outcome = arbitrate(&root, &variant).expect("budget sweep case remains valid");
         assert!(outcome.total_selected_cost <= budget, "overspent at budget {budget}");
         assert_eq!(outcome.total_selected_cost + outcome.remaining_budget, budget);
-        let expected = strings(&expected_by_budget[budget.to_string()]);
+        let budget_key = budget.to_string();
+        let expected = strings(&expected_by_budget[budget_key.as_str()]);
         assert_eq!(outcome.selected_action_ids, expected, "unexpected selected set at budget {budget}");
         let current: BTreeSet<String> = outcome.selected_action_ids.iter().cloned().collect();
         assert!(previous.is_subset(&current), "larger budget revoked a previously selected action at {budget}");
@@ -759,6 +767,18 @@ fn malformed_contracts_and_cases_fail_closed() {
     let mut automatic_dispatch = root.clone();
     automatic_dispatch["action_authority"]["automatic_dispatch_enabled"] = json!(true);
     assert!(validate_contract(&automatic_dispatch).is_err());
+
+    let mut wrong_unit = root.clone();
+    wrong_unit["actions"][0]["cost_unit"] = json!("dollars");
+    assert!(validate_contract(&wrong_unit).is_err());
+
+    let mut duplicate_action = root.clone();
+    duplicate_action["actions"][1]["action_id"] = json!("deploy_backup_power");
+    assert!(validate_contract(&duplicate_action).is_err());
+
+    let mut wrong_rank = root.clone();
+    wrong_rank["actions"][2]["class_rank"] = json!(0);
+    assert!(validate_contract(&wrong_rank).is_err());
 }
 
 #[test]
@@ -768,6 +788,24 @@ fn protected_floor_infeasibility_cannot_be_hidden_by_optional_actions() {
     assert_eq!(outcome.status, "manual_review_infeasible_protected_tier");
     assert!(outcome.selected_action_ids.is_empty());
     assert_eq!(outcome.remaining_budget, integer(case(&root, "protected-floor-infeasible"), "budget").unwrap());
+    assert!(outcome.decisions.iter().all(|decision| {
+        decision.budget_before == decision.budget_after
+            && decision.disposition != "selected"
+    }));
+}
+
+
+#[test]
+fn jointly_infeasible_protected_resource_bundle_requires_manual_review() {
+    let mut root = fixture();
+    // The mutation preserves each action's individual claim limit but makes the
+    // two protected actions compete for the same single-capacity resource.
+    root["actions"][1]["resource_claims"] = json!({"backup_system":1});
+    let mut scenario = case(&root, "protected-floor-infeasible").clone();
+    scenario["budget"] = json!(6);
+    let outcome = arbitrate(&root, &scenario).unwrap();
+    assert_eq!(outcome.status, "manual_review_infeasible_protected_resources");
+    assert!(outcome.selected_action_ids.is_empty());
     assert!(outcome.decisions.iter().all(|decision| {
         decision.budget_before == decision.budget_after
             && decision.disposition != "selected"
