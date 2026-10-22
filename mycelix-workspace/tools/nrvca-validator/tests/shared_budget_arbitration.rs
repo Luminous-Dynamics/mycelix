@@ -779,6 +779,14 @@ fn malformed_contracts_and_cases_fail_closed() {
     let mut wrong_rank = root.clone();
     wrong_rank["actions"][2]["class_rank"] = json!(0);
     assert!(validate_contract(&wrong_rank).is_err());
+
+    let mut too_many = root.clone();
+    too_many["hard_contract"]["max_candidates_per_case"] = json!(3);
+    assert!(validate_contract(&too_many).is_err());
+
+    let mut missing_action_id = root.clone();
+    missing_action_id["cases"][0]["candidates"][0].as_object_mut().unwrap().remove("action_id");
+    assert!(arbitrate(&missing_action_id, &missing_action_id["cases"][0]).is_err());
 }
 
 #[test]
