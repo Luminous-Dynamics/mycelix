@@ -29,7 +29,7 @@ The gate's admission function receives only the reference population, current re
 
 The report includes task-answer utility agreement; candidate-set average and p05/p50/p95; raw count and ppm rate below the configured k; empty candidate count; accepted-query volume; stopped-by-guard rate; majority-rule inference accuracy for high-income and debt-risk with evaluable denominators; and the maximum observed uplift from the starting candidate cohort in each protected label's majority posterior confidence.
 
-Raw violation counts are reported in addition to ppm. With 512 targets, one event is 1,953 ppm, so rounding alone can hide no event when the raw count is preserved.
+Raw violation counts are reported in addition to ppm. With 512 targets, one event is about 1,953 ppm; raw counts remain the audit reference so normalized rates cannot conceal the event denominator.
 
 The below_k_subject_count metric is measured against the attacker's actual candidate set after the disclosure sequence. This can expose a mismatch even though each branch was at least k under the policy's reference population.
 
