@@ -1932,6 +1932,16 @@ mod tests {
             6
         );
         assert!(
+            schema["properties"]["evidence"]["items"]["required"]
+                .as_array()
+                .is_some_and(|fields| {
+                    fields
+                        .iter()
+                        .any(|field| field.as_str() == Some("independent_scoring"))
+                }),
+            "evidence records must distinguish independent scoring from unaided attempts"
+        );
+        assert!(
             schema["properties"]["learner_ref"]["description"]
                 .as_str()
                 .is_some_and(|description| description.contains("private pseudonym"))
@@ -1970,6 +1980,8 @@ mod tests {
                         == Some(&Value::String("unaided".to_owned()))
                     && rule.pointer("/contains/properties/independent_assessment/const")
                         == Some(&Value::Bool(true))
+                    && rule.pointer("/contains/properties/independent_scoring/const")
+                        == Some(&Value::Bool(true))
             }),
             "mastery requires an independent unaided transfer observation"
         );
@@ -1980,6 +1992,8 @@ mod tests {
                     && rule.pointer("/contains/properties/assistance_level/const")
                         == Some(&Value::String("unaided".to_owned()))
                     && rule.pointer("/contains/properties/independent_assessment/const")
+                        == Some(&Value::Bool(true))
+                    && rule.pointer("/contains/properties/independent_scoring/const")
                         == Some(&Value::Bool(true))
                     && rule.pointer("/contains/properties/delay_days/minimum")
                         == Some(&Value::Number(1.into()))
