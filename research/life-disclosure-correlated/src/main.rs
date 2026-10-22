@@ -177,6 +177,14 @@ fn nearest_rank(values: &[usize], numerator: usize, denominator: usize) -> usize
     values[rank.saturating_sub(1)]
 }
 
+fn rate_permille(numerator: usize, denominator: usize) -> usize {
+    if denominator == 0 {
+        0
+    } else {
+        numerator * 1_000 / denominator
+    }
+}
+
 fn rate_ppm(numerator: usize, denominator: usize) -> usize {
     if denominator == 0 {
         0
