@@ -28,13 +28,6 @@ impl TempFile {
         Self(path)
     }
 
-    fn unused_path() -> PathBuf {
-        let id = NEXT.fetch_add(1, Ordering::Relaxed);
-        std::env::temp_dir().join(format!(
-            "nrvca-intake-cli-output-{}-{id}.json",
-            std::process::id()
-        ))
-    }
 }
 
 impl Drop for TempFile {
