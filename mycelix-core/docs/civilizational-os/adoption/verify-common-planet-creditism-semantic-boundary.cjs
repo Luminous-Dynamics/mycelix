@@ -22,8 +22,16 @@ const REQUIRED_INVARIANTS = [
   'credit balance != wealth',
   'credit issuance != productive capacity',
   'allocation authorization != resource reservation != physical delivery',
-  'unknown sna mapping != ordinary financial instrument'
+  'unknown sna mapping != ordinary financial instrument',
+  'stored personal credit != transferable wealth',
+  'external conventional liability != domestic personal credit offset',
+  'evaluator identity != verification authority',
+  'event frequency != contribution value',
+  'latent outcome != observed evidence',
+  'future negative evidence != current qualified observation'
 ];
+
+function equalJson];
 
 function equalJson(a, b) {
   return JSON.stringify(a) === JSON.stringify(b);
@@ -101,14 +109,54 @@ function evaluate(input) {
         ['seller_payment', 'contribution_recognition', 'producer_financial_asset']);
     }
 
+    case 'retain_personal_credit_balance': {
+      if (input.instrument !== 'PersonalCredit' ||
+          input.reason !== 'future_use' ||
+          !positiveNumber(input.amount)) {
+        return result('Reject', 'Unsupported', [], ['invalid_retained_balance_scope']);
+      }
+      return result('Allow', 'ProfileMapped', ['personal_credit_balance_retained'],
+        ['transferability', 'ordinary_financial_asset', 'wealth_equivalence']);
+    }
+
     case 'recognize_contribution': {
       if (Array.isArray(input.evidence_refs) &&
           new Set(input.evidence_refs).size !== input.evidence_refs.length) {
         return result('Reject', 'Unsupported', [], ['duplicate_contribution_issuance']);
       }
-      if (input.dispute_state === 'disputed') {
+      if (input.outcome_laundering_flag === true) {
+        return result('Reject', 'Unsupported', [], ['outcome_laundering_detected']);
+      }
+      if (input.verifier_relationship === 'colluding') {
+        return result('Reject', 'Unsupported', [], ['verifier_collusion_not_independent']);
+      }
+      if (input.verifier_panel_state === 'captured') {
         return result('PendingAppeal', 'Unknown', [],
-          ['contribution_issuance_before_review', 'moral_worth_score']);
+          ['contribution_issuance_before_review', 'verifier_panel_review_required']);
+      }
+      if (input.dispute_state === 'disputed') {
+        const prohibited = ['contribution_issuance_before_review', 'moral_worth_score'];
+        if (typeof input.appeal_route !== 'string' || input.appeal_route.trim().length === 0) {
+          prohibited.push('appeal_route_suppression');
+        }
+        return result('PendingAppeal', 'Unknown', [], prohibited);
+      }
+      if (input.identity_uniqueness_state === 'unresolved') {
+        return result('Indeterminate', 'Unknown', [],
+          ['identity_uniqueness_unresolved', 'contribution_credit_issuance']);
+      }
+      if (input.task_decomposition_state === 'unreviewed') {
+        return result('Indeterminate', 'Unknown', [],
+          ['task_decomposition_unreviewed', 'contribution_credit_issuance']);
+      }
+      if (input.metric_profile === 'event_frequency_only' &&
+          (!Array.isArray(input.quality_evidence_refs) || input.quality_evidence_refs.length === 0)) {
+        return result('Indeterminate', 'Unknown', [],
+          ['event_frequency_as_contribution_value', 'contribution_credit_issuance']);
+      }
+      if (input.activity_source === 'model_generated' && input.independently_observed !== true) {
+        return result('Indeterminate', 'Unknown', [],
+          ['model_generated_activity_unverified', 'contribution_credit_issuance']);
       }
       if (input.derived_only_from_transaction_settlement === true ||
           !positiveNumber(input.amount) ||
@@ -197,13 +245,20 @@ function evaluate(input) {
     }
 
     case 'project_to_sna': {
+      const effects = ['native_instrument_semantics_preserved'];
+      const externalLiabilities = Array.isArray(input.conventional_external_liabilities) &&
+        input.conventional_external_liabilities.length > 0;
+      if (externalLiabilities) effects.push('external_liability_kept_separate');
       if (input.mapping_disposition === 'Unknown' ||
           input.mapping_disposition === 'Unsupported' ||
           input.semantic_equivalence_established !== true) {
-        return result('Indeterminate', 'Unknown', ['native_instrument_semantics_preserved'],
-          ['deposit_equivalence', 'financial_asset_coercion']);
+        const prohibited = ['deposit_equivalence', 'financial_asset_coercion'];
+        if (externalLiabilities && input.fx_conversion_enabled !== true) {
+          prohibited.unshift('direct_offset_of_foreign_liability');
+        }
+        return result('Indeterminate', 'Unknown', effects, prohibited);
       }
-      return result('Indeterminate', 'Unknown', ['native_instrument_semantics_preserved'],
+      return result('Indeterminate', 'Unknown', effects,
         ['unsupported_sna_equivalence']);
     }
 
@@ -238,9 +293,12 @@ function corpusErrors(corpus) {
   add(corpus && corpus.evaluation_state === 'contract_fixture_only', 'fixture must remain contract-only');
   add(corpus && corpus.claim_ceiling === 'ReferenceModelOnly', 'claim ceiling must remain ReferenceModelOnly');
   add(corpus && corpus.data_classification === 'synthetic', 'corpus must remain synthetic');
-  add(corpus && corpus.case_count === 21, 'declared case_count must remain 21');
+  add(corpus && corpus.case_count === 32, 'declared case_count must remain 32');
   add(corpus && Array.isArray(corpus.cases) && corpus.cases.length === corpus.case_count,
     'case_count differs from cases array length');
+  add(corpus && Array.isArray(corpus.metamorphic_properties) &&
+      corpus.metamorphic_properties.length >= 9 && corpus.metamorphic_properties.length <= 15,
+    'metamorphic property suite must contain 9..15 invariance checks');
   const owners = new Set(corpus.related_owners || []);
   add(owners.has('mycelix#4572') && owners.has('mycelix#4573') &&
       owners.has('mycelix#4771') && owners.has('mycelix#5366') &&
@@ -265,6 +323,27 @@ function corpusErrors(corpus) {
       const observed = evaluate(item.input);
       add(equalJson(observed, item.expected),
         label + ' expected output differs from evaluator output for ' + item.id);
+    }
+  }
+
+  const metamorphicIds = new Set();
+  for (const [index, property] of (corpus.metamorphic_properties || []).entries()) {
+    const label = 'metamorphic_properties[' + index + ']';
+    add(property && typeof property.property_id === 'string',
+      label + ' has no property_id');
+    add(!metamorphicIds.has(property && property.property_id),
+      label + ' duplicate property_id');
+    if (property) metamorphicIds.add(property.property_id);
+    add(property && ids.has(property.case_id),
+      label + ' references an unknown base case');
+    add(property && property.expected_relation === 'evaluation_outputs_equal',
+      label + ' has an unsupported relation');
+    add(property && Array.isArray(property.input_variants) && property.input_variants.length === 2,
+      label + ' must have exactly two input variants');
+    if (property && Array.isArray(property.input_variants) && property.input_variants.length === 2) {
+      const [left, right] = property.input_variants.map(evaluate);
+      add(equalJson(left, right),
+        label + ' violates its claimed non-interference/equivalence property');
     }
   }
   return errors;
@@ -308,7 +387,25 @@ function runMutationTests(corpus) {
     mustTransition('housing-without-known-capacity-indeterminate', find('cp-housing-needs-capacity'),
       input => { input.capacity_state = 'unknown'; }, 'Indeterminate'),
     mustTransition('unknown-operation-fails-closed', find('cp-pc-baseline-issuance'),
-      input => { input.operation = 'invent_new_financial_asset'; }, 'Indeterminate')
+      input => { input.operation = 'invent_new_financial_asset'; }, 'Indeterminate'),
+    mustTransition('retained-personal-credit-is-not-transferable', find('cp-pc-retained-for-future-use'),
+      input => { input.operation = 'transfer_personal_credit'; input.instrument = 'PersonalCredit'; }, 'Reject'),
+    mustTransition('verifier-collusion-rejected', find('cp-qualified-contribution'),
+      input => { input.verifier_relationship = 'colluding'; }, 'Reject'),
+    mustTransition('sybil-identity-indeterminate', find('cp-qualified-contribution'),
+      input => { input.identity_uniqueness_state = 'unresolved'; }, 'Indeterminate'),
+    mustTransition('task-decomposition-indeterminate', find('cp-qualified-contribution'),
+      input => { input.task_decomposition_state = 'unreviewed'; }, 'Indeterminate'),
+    mustTransition('frequency-only-metric-indeterminate', find('cp-qualified-contribution'),
+      input => { input.metric_profile = 'event_frequency_only'; input.quality_evidence_refs = []; }, 'Indeterminate'),
+    mustTransition('outcome-laundering-rejected', find('cp-qualified-contribution'),
+      input => { input.outcome_laundering_flag = true; }, 'Reject'),
+    mustTransition('captured-verifier-panel-pending', find('cp-qualified-contribution'),
+      input => { input.verifier_panel_state = 'captured'; }, 'PendingAppeal'),
+    mustTransition('model-generated-activity-indeterminate', find('cp-qualified-contribution'),
+      input => { input.activity_source = 'model_generated'; input.independently_observed = false; }, 'Indeterminate'),
+    mustTransition('missing-appeal-route-stays-pending', find('cp-disputed-contribution-paused'),
+      input => { input.appeal_route = null; }, 'PendingAppeal')
   ];
   const tamperedExpected = JSON.parse(JSON.stringify(corpus));
   tamperedExpected.cases[0].expected.decision = 'Reject';
@@ -322,6 +419,12 @@ function runMutationTests(corpus) {
   const invariantMutationRejected = corpusErrors(missingInvariant).length > 0;
   if (!invariantMutationRejected) throw new Error('missing required semantic invariant was not rejected');
   results.push({ name: 'missing-required-invariant-rejected', passed: true, decision: 'RejectedByCorpusVerifier' });
+
+  const tamperedMetamorphic = JSON.parse(JSON.stringify(corpus));
+  tamperedMetamorphic.metamorphic_properties[0].input_variants[1].operation = 'transfer_personal_credit';
+  const metamorphicMutationRejected = corpusErrors(tamperedMetamorphic).length > 0;
+  if (!metamorphicMutationRejected) throw new Error('broken metamorphic relation was not rejected');
+  results.push({ name: 'tampered-metamorphic-relation-rejected', passed: true, decision: 'RejectedByCorpusVerifier' });
   return results;
 }
 
@@ -339,6 +442,15 @@ function main() {
   if (!equalJson(schema.properties.cases.items.$ref, '#/$defs/case')) {
     fail('schema case reference changed');
   }
+  if (schema.properties.case_count.const !== 32 ||
+      schema.properties.cases.minItems !== 32 ||
+      schema.properties.cases.maxItems !== 32 ||
+      schema.properties.metamorphic_properties.minItems !== 9) {
+    fail('schema corpus/metamorphic count contract changed');
+  }
+  if (!schema.$defs.case.properties.input.properties.operation.enum.includes('retain_personal_credit_balance')) {
+    fail('schema operation enum is missing retained Personal Credit handling');
+  }
 
   const mutations = selfTest ? runMutationTests(corpus) : [];
   const receipt = {
@@ -350,6 +462,9 @@ function main() {
     schema_sha256: sha256(schemaBytes),
     case_count: corpus.cases.length,
     known_answer_cases_passed: corpus.cases.length,
+    metamorphic_property_count: corpus.metamorphic_properties.length,
+    metamorphic_properties_passed: corpus.metamorphic_properties.filter(property =>
+      equalJson(evaluate(property.input_variants[0]), evaluate(property.input_variants[1]))).length,
     decisions: corpus.cases.reduce((counts, item) => {
       counts[item.expected.decision] = (counts[item.expected.decision] || 0) + 1;
       return counts;
