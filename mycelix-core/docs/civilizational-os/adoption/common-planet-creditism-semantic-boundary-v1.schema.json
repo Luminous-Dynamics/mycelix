@@ -56,12 +56,12 @@
       "$ref": "#/$defs/sourceSemantics"
     },
     "case_count": {
-      "const": 32
+      "const": 36
     },
     "cases": {
       "type": "array",
-      "minItems": 32,
-      "maxItems": 32,
+      "minItems": 36,
+      "maxItems": 36,
       "items": {
         "$ref": "#/$defs/case"
       }
@@ -79,7 +79,7 @@
     },
     "metamorphic_properties": {
       "type": "array",
-      "minItems": 9,
+      "minItems": 11,
       "maxItems": 15,
       "items": {
         "$ref": "#/$defs/metamorphicProperty"
@@ -223,7 +223,8 @@
                 "exchange_pair",
                 "project_to_sna",
                 "grant_housing_right",
-                "retain_personal_credit_balance"
+                "retain_personal_credit_balance",
+                "review_delayed_negative_evidence"
               ]
             }
           },
@@ -329,7 +330,8 @@
                   "exchange_pair",
                   "project_to_sna",
                   "grant_housing_right",
-                  "retain_personal_credit_balance"
+                  "retain_personal_credit_balance",
+                  "review_delayed_negative_evidence"
                 ]
               }
             },
