@@ -88,7 +88,7 @@ fn valid_rfc3339(value: &str) -> bool {
     if bytes.len() < 20
         || bytes.get(4) != Some(&b'-')
         || bytes.get(7) != Some(&b'-')
-        || !matches!(bytes.get(10), Some(b'T' | b't'))
+        || !matches!(bytes.get(10).copied(), Some(b'T' | b't'))
         || bytes.get(13) != Some(&b':')
         || bytes.get(16) != Some(&b':')
     {
@@ -96,7 +96,7 @@ fn valid_rfc3339(value: &str) -> bool {
     }
     let number = |start: usize, length: usize| -> Option<u32> {
         let slice = bytes.get(start..start + length)?;
-        if !slice.iter().all(u8::is_ascii_digit) {
+        if !slice.iter().all(|byte| byte.is_ascii_digit()) {
             return None;
         }
         std::str::from_utf8(slice).ok()?.parse().ok()
@@ -121,10 +121,10 @@ fn valid_rfc3339(value: &str) -> bool {
     if bytes.get(cursor) == Some(&b'.') {
         cursor += 1;
         let start = cursor;
-        while bytes.get(cursor).is_some_and(u8::is_ascii_digit) { cursor += 1; }
+        while bytes.get(cursor).is_some_and(|byte| byte.is_ascii_digit()) { cursor += 1; }
         if cursor == start { return false; }
     }
-    match bytes.get(cursor) {
+    match bytes.get(cursor).copied() {
         Some(b'Z' | b'z') => cursor + 1 == bytes.len(),
         Some(b'+' | b'-') => {
             if cursor + 6 != bytes.len() || bytes.get(cursor + 3) != Some(&b':') {
