@@ -249,8 +249,7 @@ fn NodeDetail(node: CurriculumNode, on_close: impl Fn() + 'static) -> impl IntoV
             {
                 let node_title = node.title.clone();
                 let tags = node.tags.clone();
-                let mastered = status() == ProgressStatus::Mastered;
-                move || if mastered && (tags.contains(&"solar".to_string()) || tags.contains(&"mfg".to_string()) || tags.contains(&"robotics".to_string())) {
+                move || if tags.contains(&"solar".to_string()) || tags.contains(&"mfg".to_string()) || tags.contains(&"robotics".to_string()) {
                     // Fresh clone per call -- the view! macro's component-prop
                     // codegen moves this into HardwareScanner's props, so the
                     // outer captured `node_title` must never be consumed
@@ -262,7 +261,7 @@ fn NodeDetail(node: CurriculumNode, on_close: impl Fn() + 'static) -> impl IntoV
                             <section class="hardware-grants" style="margin-top: 2rem; padding: 1.5rem; background: var(--surface-high); border: 2px solid var(--accent); border-radius: 8px">
                                 <h4 style="margin: 0; color: var(--accent)">"Holonic Lab Access"</h4>
                                 <p style="font-size: 0.75rem; line-height: 1.4; margin: 0.5rem 0 1rem 0">
-                                    "As a master of this node, you are eligible for a physical hardware control key."
+                                    "Learning progress is not hardware authorization. This build has no trusted hardware authorization provider, so physical controls remain locked."
                                 </p>
                                 <HardwareScanner
                                     device_type=node_title.clone()
