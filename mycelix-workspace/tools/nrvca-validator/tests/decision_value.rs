@@ -61,13 +61,27 @@ fn evaluate_mask(root: &Value, mask: usize) -> Allocation {
     result
 }
 
-fn feasible(root: &Value, allocation: &Allocation, budget: f64, equity_floor: f64) -> bool {
+fn feasible_under_constraints(
+    allocation: &Allocation,
+    budget: f64,
+    equity_floor: f64,
+    emissions_cap: f64,
+    reliability_floor: f64,
+) -> bool {
     allocation.cost <= budget + 1e-9
         && allocation.underserved_lower + 1e-9 >= equity_floor
-        && allocation.emissions_upper
-            <= num(&root["policy_profile"]["max_emissions_tonnes_co2e_upper_bound"]) + 1e-9
-        && allocation.weighted_reliability_lower + 1e-9
-            >= num(&root["policy_profile"]["min_service_weighted_reliability_lower_bound"])
+        && allocation.emissions_upper <= emissions_cap + 1e-9
+        && allocation.weighted_reliability_lower + 1e-9 >= reliability_floor
+}
+
+fn feasible(root: &Value, allocation: &Allocation, budget: f64, equity_floor: f64) -> bool {
+    feasible_under_constraints(
+        allocation,
+        budget,
+        equity_floor,
+        num(&root["policy_profile"]["max_emissions_tonnes_co2e_upper_bound"]),
+        num(&root["policy_profile"]["min_service_weighted_reliability_lower_bound"]),
+    )
 }
 
 fn all_allocations(root: &Value) -> Vec<Allocation> {
@@ -203,6 +217,57 @@ fn changing_descriptive_label_does_not_change_numeric_outcomes_or_optimum() {
     .expect("label change cannot eliminate feasible options");
     assert_eq!(before.mask, after.mask);
     assert_eq!(before.nominal_service, after.nominal_service);
+}
+
+#[test]
+fn policy_sensitivity_reports_choice_changes_and_infeasibility_explicitly() {
+    let root = fixture();
+    let allocations = all_allocations(&root);
+    let profiles = root["policy_sensitivity_profiles"]
+        .as_array()
+        .expect("policy_sensitivity_profiles is an array");
+    assert_eq!(profiles.len(), 4);
+
+    for profile in profiles {
+        let budget = num(&profile["budget"]);
+        let equity = num(&profile["min_underserved_service_units_lower_bound"]);
+        let emissions = num(&profile["max_emissions_tonnes_co2e_upper_bound"]);
+        let reliability = num(&profile["min_service_weighted_reliability_lower_bound"]);
+        let best = best_by_nominal_service(
+            allocations
+                .iter()
+                .filter(|a| feasible_under_constraints(a, budget, equity, emissions, reliability))
+                .cloned(),
+        );
+        let expect_feasible = profile["expected_feasible"].as_bool().unwrap();
+        assert_eq!(
+            best.is_some(),
+            expect_feasible,
+            "profile {} feasibility changed unexpectedly",
+            profile["profile_id"]
+        );
+
+        match (&best, profile["expected_selected_ids"].as_array()) {
+            (Some(choice), Some(expected_ids)) => {
+                let mut expected: Vec<String> = expected_ids
+                    .iter()
+                    .map(|v| v.as_str().unwrap().to_owned())
+                    .collect();
+                expected.sort();
+                assert_eq!(
+                    chosen_ids(choice.clone()),
+                    expected,
+                    "profile {} selected a different allocation",
+                    profile["profile_id"]
+                );
+            }
+            (None, None) => {}
+            _ => panic!(
+                "profile {} has inconsistent expected feasibility and expected IDs",
+                profile["profile_id"]
+            ),
+        }
+    }
 }
 
 #[test]
