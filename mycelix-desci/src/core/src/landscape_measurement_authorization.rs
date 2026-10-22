@@ -22,11 +22,14 @@ const PUBLICATION_CONSENT_STATES: &[&str] =
     &["not-requested", "granted", "denied", "withdrawn", "unknown"];
 const PUBLICATION_POLICIES: &[&str] = &["private", "controlled", "embargoed", "public"];
 const COORDINATE_DISCLOSURE: &[&str] = &["none", "coarse", "exact"];
-const ACTIVITIES: &[&str] =
-    &["measure-site", "install-sensor", "collect-observation", "maintain-sensor"];
+const ACTIVITIES: &[&str] = &[
+    "measure-site",
+    "install-sensor",
+    "collect-observation",
+    "maintain-sensor",
+];
 const EVIDENCE_CLASSES: &[&str] = &["synthetic", "asserted", "signed"];
-const VERIFICATION_STATES: &[&str] =
-    &["not-verified", "signature-verified", "authority-resolved"];
+const VERIFICATION_STATES: &[&str] = &["not-verified", "signature-verified", "authority-resolved"];
 const ALLOWED_FIELDS: &[&str] = &[
     "schema",
     "schema_uri",
@@ -66,7 +69,9 @@ pub fn validate_measurement_authorization(record: &Value) -> Result<(), Vec<Stri
     };
     for field in object.keys() {
         if !ALLOWED_FIELDS.contains(&field.as_str()) {
-            errors.push(format!("$.{field}: unknown property is not allowed by authorization v0"));
+            errors.push(format!(
+                "$.{field}: unknown property is not allowed by authorization v0"
+            ));
         }
     }
 
@@ -112,9 +117,10 @@ pub fn validate_measurement_authorization(record: &Value) -> Result<(), Vec<Stri
                 }
             })
             .collect();
-    if let (Some(start), Some(end)) =
-        (parsed_times.get("valid_from"), parsed_times.get("valid_until"))
-    {
+    if let (Some(start), Some(end)) = (
+        parsed_times.get("valid_from"),
+        parsed_times.get("valid_until"),
+    ) {
         if end <= start {
             errors.push("$.valid_until: must be strictly later than valid_from".to_owned());
         }
@@ -169,9 +175,8 @@ pub fn validate_measurement_authorization(record: &Value) -> Result<(), Vec<Stri
         .and_then(Value::as_str)
         .unwrap_or("");
     if !PUBLICATION_CONSENT_STATES.contains(&publication_consent) {
-        errors.push(
-            "$.publication_consent_status: unsupported publication-consent state".to_owned(),
-        );
+        errors
+            .push("$.publication_consent_status: unsupported publication-consent state".to_owned());
     }
     validate_evidence_binding(
         record,
@@ -230,9 +235,8 @@ pub fn validate_measurement_authorization(record: &Value) -> Result<(), Vec<Stri
         errors.push("$.verification_status: unsupported verification state".to_owned());
     }
     if evidence_class == "synthetic" && verification_status != "not-verified" {
-        errors.push(
-            "$.verification_status: synthetic examples must remain not-verified".to_owned(),
-        );
+        errors
+            .push("$.verification_status: synthetic examples must remain not-verified".to_owned());
     }
     if evidence_class != "signed" && verification_status != "not-verified" {
         errors.push(
@@ -266,13 +270,13 @@ fn validate_evidence_binding(
     path: &str,
     errors: &mut Vec<String>,
 ) {
-    let status = record.get(status_field).and_then(Value::as_str).unwrap_or("");
+    let status = record
+        .get(status_field)
+        .and_then(Value::as_str)
+        .unwrap_or("");
     let digest = record.get(digest_field);
     if status == positive_state {
-        if !digest
-            .and_then(Value::as_str)
-            .is_some_and(is_sha256)
-        {
+        if !digest.and_then(Value::as_str).is_some_and(is_sha256) {
             errors.push(format!(
                 "{path}.{digest_field}: {positive_state} requires a valid 64-character lowercase SHA-256 reference"
             ));
@@ -308,7 +312,13 @@ fn collect_structured_coordinate_paths(value: &Value, path: &str, out: &mut Vec<
                 let normalized = key.to_ascii_lowercase();
                 if matches!(
                     normalized.as_str(),
-                    "latitude" | "longitude" | "lat" | "lon" | "lng" | "coordinates" | "coordinate_pair"
+                    "latitude"
+                        | "longitude"
+                        | "lat"
+                        | "lon"
+                        | "lng"
+                        | "coordinates"
+                        | "coordinate_pair"
                 ) {
                     out.push(format!("{path}.{key}"));
                 } else {
@@ -344,7 +354,10 @@ mod tests {
         ))
         .expect("authorization schema JSON");
         let record = fixture();
-        assert_eq!(schema["$id"], LANDSCAPE_MEASUREMENT_AUTHORIZATION_SCHEMA_URI);
+        assert_eq!(
+            schema["$id"],
+            LANDSCAPE_MEASUREMENT_AUTHORIZATION_SCHEMA_URI
+        );
         assert_eq!(record["schema"], LANDSCAPE_MEASUREMENT_AUTHORIZATION_SCHEMA);
         assert_eq!(record["evidence_class"], "synthetic");
         assert_eq!(record["verification_status"], "not-verified");
@@ -355,17 +368,21 @@ mod tests {
     fn consent_and_access_positive_states_require_their_own_evidence() {
         let mut consent_missing = fixture();
         consent_missing["consent_evidence_sha256"] = Value::Null;
-        assert!(validate_measurement_authorization(&consent_missing)
-            .unwrap_err()
-            .iter()
-            .any(|error| error.contains("consent_evidence_sha256")));
+        assert!(
+            validate_measurement_authorization(&consent_missing)
+                .unwrap_err()
+                .iter()
+                .any(|error| error.contains("consent_evidence_sha256"))
+        );
 
         let mut access_missing = fixture();
         access_missing["site_access_evidence_sha256"] = Value::Null;
-        assert!(validate_measurement_authorization(&access_missing)
-            .unwrap_err()
-            .iter()
-            .any(|error| error.contains("site_access_evidence_sha256")));
+        assert!(
+            validate_measurement_authorization(&access_missing)
+                .unwrap_err()
+                .iter()
+                .any(|error| error.contains("site_access_evidence_sha256"))
+        );
     }
 
     #[test]
@@ -373,10 +390,12 @@ mod tests {
         let mut denied = fixture();
         denied["consent_status"] = json!("denied");
         denied["consent_evidence_sha256"] = json!("c".repeat(64));
-        assert!(validate_measurement_authorization(&denied)
-            .unwrap_err()
-            .iter()
-            .any(|error| error.contains("non-granted status must use null")));
+        assert!(
+            validate_measurement_authorization(&denied)
+                .unwrap_err()
+                .iter()
+                .any(|error| error.contains("non-granted status must use null"))
+        );
 
         let mut unknown = fixture();
         unknown["site_access_status"] = json!("unknown");
@@ -391,10 +410,12 @@ mod tests {
         record["publication_consent_status"] = json!("not-requested");
         record["publication_consent_evidence_sha256"] = Value::Null;
         record["publication_policy"] = json!("public");
-        assert!(validate_measurement_authorization(&record)
-            .unwrap_err()
-            .iter()
-            .any(|error| error.contains("separate granted publication consent")));
+        assert!(
+            validate_measurement_authorization(&record)
+                .unwrap_err()
+                .iter()
+                .any(|error| error.contains("separate granted publication consent"))
+        );
     }
 
     #[test]
@@ -404,57 +425,69 @@ mod tests {
         record["publication_consent_evidence_sha256"] = json!("e".repeat(64));
         record["publication_policy"] = json!("public");
         record["coordinate_disclosure"] = json!("exact");
-        assert!(validate_measurement_authorization(&record)
-            .unwrap_err()
-            .iter()
-            .any(|error| error.contains("cannot disclose exact coordinates")));
+        assert!(
+            validate_measurement_authorization(&record)
+                .unwrap_err()
+                .iter()
+                .any(|error| error.contains("cannot disclose exact coordinates"))
+        );
     }
 
     #[test]
     fn synthetic_record_cannot_claim_authority_verification() {
         let mut record = fixture();
         record["verification_status"] = json!("authority-resolved");
-        assert!(validate_measurement_authorization(&record)
-            .unwrap_err()
-            .iter()
-            .any(|error| error.contains("synthetic examples must remain not-verified")));
+        assert!(
+            validate_measurement_authorization(&record)
+                .unwrap_err()
+                .iter()
+                .any(|error| error.contains("synthetic examples must remain not-verified"))
+        );
     }
 
     #[test]
     fn validity_window_requires_valid_timestamps_and_positive_duration() {
         let mut invalid_timestamp = fixture();
         invalid_timestamp["valid_from"] = json!("not-rfc3339");
-        assert!(validate_measurement_authorization(&invalid_timestamp)
-            .unwrap_err()
-            .iter()
-            .any(|error| error.contains("valid RFC 3339 timestamp")));
+        assert!(
+            validate_measurement_authorization(&invalid_timestamp)
+                .unwrap_err()
+                .iter()
+                .any(|error| error.contains("valid RFC 3339 timestamp"))
+        );
 
         let mut reversed_window = fixture();
         reversed_window["valid_from"] = json!("2026-12-31T00:00:00Z");
         reversed_window["valid_until"] = json!("2026-10-21T00:00:00Z");
-        assert!(validate_measurement_authorization(&reversed_window)
-            .unwrap_err()
-            .iter()
-            .any(|error| error.contains("strictly later than valid_from")));
+        assert!(
+            validate_measurement_authorization(&reversed_window)
+                .unwrap_err()
+                .iter()
+                .any(|error| error.contains("strictly later than valid_from"))
+        );
     }
 
     #[test]
     fn undeclared_authorization_properties_are_rejected() {
         let mut record = fixture();
         record["grant_everything"] = json!(true);
-        assert!(validate_measurement_authorization(&record)
-            .unwrap_err()
-            .iter()
-            .any(|error| error.contains("unknown property is not allowed")));
+        assert!(
+            validate_measurement_authorization(&record)
+                .unwrap_err()
+                .iter()
+                .any(|error| error.contains("unknown property is not allowed"))
+        );
     }
 
     #[test]
     fn raw_coordinate_fields_are_rejected() {
         let mut record = fixture();
         record["site_location"] = json!({"latitude": -26.2, "longitude": 28.0});
-        assert!(validate_measurement_authorization(&record)
-            .unwrap_err()
-            .iter()
-            .any(|error| error.contains("structured coordinates are forbidden")));
+        assert!(
+            validate_measurement_authorization(&record)
+                .unwrap_err()
+                .iter()
+                .any(|error| error.contains("structured coordinates are forbidden"))
+        );
     }
 }
