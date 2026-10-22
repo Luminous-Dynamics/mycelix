@@ -1,0 +1,187 @@
+{
+  "node_id": "EXAMPLE.MATH.GR3.EQUAL_GROUPS",
+  "lesson": {
+    "standard_code": "EXAMPLE.MATH.GR3.EQUAL_GROUPS",
+    "title": "Multiplication as equal groups",
+    "grade_level": "Grade3",
+    "bloom_level": "Understand",
+    "explanation": "Multiplication can describe equal groups. In 4 × 3, the first number tells us there are 4 groups and the second number tells us each group contains 3 objects. We can draw four circles and put three counters in each circle. Counting all the counters gives 12, so 4 × 3 = 12. Repeated addition shows the same idea: 3 + 3 + 3 + 3 = 12. Keep the two meanings separate: 4 groups of 3 is not the same as 4 + 3. Drawing or arranging objects is a useful way to check the meaning before memorising a multiplication fact.",
+    "examples": [
+      {
+        "problem": "There are 4 bags with 3 oranges in each bag. How many oranges are there altogether?",
+        "steps": [
+          {
+            "instruction": "Identify the number of equal groups.",
+            "result": "There are 4 bags, so there are 4 groups."
+          },
+          {
+            "instruction": "Identify the number in each group.",
+            "result": "Each bag contains 3 oranges."
+          },
+          {
+            "instruction": "Represent the groups as multiplication or repeated addition.",
+            "result": "4 × 3 = 3 + 3 + 3 + 3."
+          },
+          {
+            "instruction": "Count the total and include the unit.",
+            "result": "4 × 3 = 12, so there are 12 oranges."
+          }
+        ],
+        "answer": "12 oranges",
+        "visual_description": "Draw four separate bags; place three orange circles inside each bag."
+      }
+    ],
+    "practice_problems": [
+      {
+        "question": "There are 3 plates with 5 biscuits on each plate. How many biscuits are there?",
+        "answer": "15 biscuits",
+        "difficulty_permille": 250,
+        "bloom_level": "Apply",
+        "hints": [
+          "Draw three groups and place five dots in each group.",
+          "Add five three times, or calculate 3 × 5."
+        ],
+        "explanation": "There are 3 equal groups of 5 biscuits: 5 + 5 + 5 = 15.",
+        "distractors": [
+          "8 biscuits",
+          "10 biscuits",
+          "20 biscuits"
+        ]
+      },
+      {
+        "question": "Write repeated addition for 4 groups of 2 and find the total.",
+        "answer": "2 + 2 + 2 + 2 = 8",
+        "difficulty_permille": 350,
+        "bloom_level": "Apply",
+        "hints": [
+          "Write one 2 for each group.",
+          "Count how many 2s are in your addition sentence."
+        ],
+        "explanation": "Four groups contain four copies of 2, so 2 + 2 + 2 + 2 = 8.",
+        "distractors": [
+          "2 + 4 = 6",
+          "4 + 2 = 6",
+          "2 + 2 + 2 = 6"
+        ]
+      },
+      {
+        "question": "A learner says 6 groups of 4 means 6 + 4 = 10. Explain the error and give the correct total.",
+        "answer": "There are six groups of four, so 4 + 4 + 4 + 4 + 4 + 4 = 24.",
+        "difficulty_permille": 500,
+        "bloom_level": "Analyze",
+        "hints": [
+          "Separate the number of groups from the number in each group.",
+          "Represent six sets, with four objects in every set."
+        ],
+        "explanation": "The learner added the number of groups to the group size instead of counting four objects six times. Six groups of four contain 24 objects.",
+        "distractors": [
+          "10 because the two numbers are added",
+          "20 because 6 groups have 4 objects each",
+          "28 because 6 + 4 is nearly 12"
+        ]
+      }
+    ],
+    "hints": [
+      "Start by drawing one box for each group.",
+      "Place the same number of dots in every box.",
+      "Count all the dots or write repeated addition."
+    ],
+    "key_vocabulary": [
+      {
+        "term": "equal groups",
+        "definition": "Groups that contain the same number of objects.",
+        "example_usage": "Four bags with three oranges each are four equal groups."
+      },
+      {
+        "term": "factor",
+        "definition": "A number multiplied by another number to make a product.",
+        "example_usage": "In 4 × 3, the numbers 4 and 3 are factors."
+      },
+      {
+        "term": "product",
+        "definition": "The result of a multiplication.",
+        "example_usage": "The product of 4 and 3 is 12."
+      }
+    ],
+    "misconceptions": [
+      {
+        "misconception": "4 × 3 means 4 + 3.",
+        "correction": "4 × 3 represents four groups of three: 3 + 3 + 3 + 3 = 12.",
+        "why_students_think_this": "Both operations use the same two numbers, but multiplication represents equal groups rather than adding the factors once."
+      }
+    ]
+  },
+  "assessment": {
+    "standard_code": "EXAMPLE.MATH.GR3.EQUAL_GROUPS",
+    "title": "Check understanding: equal groups",
+    "items": [
+      {
+        "question": "What does 4 × 3 mean in an equal-groups model?",
+        "item_type": "ShortAnswer",
+        "correct_answer": "Four groups with three objects in each group.",
+        "points": 1,
+        "bloom_level": "Understand",
+        "rubric": "Award the point for identifying both four groups and three objects in each group.",
+        "hint": "State how many groups and how many objects belong in each one."
+      },
+      {
+        "question": "Draw or describe a situation represented by 3 × 5, then calculate the total.",
+        "item_type": "OpenEnded",
+        "correct_answer": "Any valid model of three equal groups of five, with a total of 15.",
+        "points": 2,
+        "bloom_level": "Apply",
+        "rubric": "Award one point for a correct equal-groups model and one point for the total of 15.",
+        "hint": "Think of three plates with five items on each plate."
+      }
+    ],
+    "total_points": 3,
+    "estimated_minutes": 5,
+    "bloom_distribution": [
+      [
+        "Understand",
+        1
+      ],
+      [
+        "Apply",
+        1
+      ]
+    ]
+  },
+  "flashcards": [
+    {
+      "front": "What is a product?",
+      "back": "The result of a multiplication.",
+      "tags": [
+        "EXAMPLE.MATH.GR3.EQUAL_GROUPS",
+        "Grade3",
+        "Mathematics"
+      ],
+      "difficulty_permille": 200
+    },
+    {
+      "front": "Show 3 × 4 as repeated addition.",
+      "back": "4 + 4 + 4 = 12: three groups with four in each group.",
+      "tags": [
+        "EXAMPLE.MATH.GR3.EQUAL_GROUPS",
+        "Grade3",
+        "Mathematics"
+      ],
+      "difficulty_permille": 300
+    }
+  ],
+  "quality": {
+    "coherence": 0,
+    "hallucination_detected": false,
+    "needs_human_review": true,
+    "veto_count": 0,
+    "review_status": "draft_requires_educator_review",
+    "metrics_valid_for_current_revision": false,
+    "review_notes": "Example template only. A subject educator must verify the mathematics, learning-objective alignment, age appropriateness, accessibility, and assessment key before publication."
+  },
+  "authoring": {
+    "format_version": 1,
+    "status": "draft",
+    "license": "CC BY 4.0 (confirm contributor has authority to license every included element)",
+    "author_credit": "Replace with the contributor's preferred public attribution or pseudonym."
+  }
+}
