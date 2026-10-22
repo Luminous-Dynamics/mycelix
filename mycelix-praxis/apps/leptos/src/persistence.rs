@@ -372,16 +372,7 @@ pub fn import_all(json: &str) -> Result<String, String> {
                     existing_node.scored_item_ids.push(item_id.clone());
                 }
             }
-            for receipt in &imp_node.scored_practice_receipts {
-                if !existing_node
-                    .scored_practice_receipts
-                    .iter()
-                    .any(|seen| seen.item_id == receipt.item_id)
-                {
-                    existing_node.scored_item_ids.push(receipt.item_id.clone());
-                    existing_node.scored_practice_receipts.push(receipt.clone());
-                }
-            }
+
             if imp_node.last_reviewed.unwrap_or(0.0) > existing_node.last_reviewed.unwrap_or(0.0) {
                 existing_node.last_reviewed = imp_node.last_reviewed;
                 if imp_node.self_assessment.is_some() {
@@ -410,15 +401,7 @@ pub fn import_all(json: &str) -> Result<String, String> {
             }
         }
 
-        let receipt_node_ids = existing
-            .nodes
-            .iter()
-            .filter(|(_, node)| !node.scored_practice_receipts.is_empty())
-            .map(|(id, _)| id.clone())
-            .collect::<Vec<_>>();
-        for node_id in receipt_node_ids {
-            existing.rebuild_bkt_from_practice_receipts(&node_id);
-        }
+        let merged_receipts = existing.merge_scored_practice_evidence(&imported);
 
         // Merge SRS cards
         for (id, imp_card) in &imported.srs_cards {
@@ -430,6 +413,12 @@ pub fn import_all(json: &str) -> Result<String, String> {
 
         save("praxis_progress", &existing);
         summary.push(format!("{} topics merged", imported.nodes.len()));
+        if merged_receipts > 0 {
+            summary.push(format!(
+                "{} unique scored practice receipts merged",
+                merged_receipts
+            ));
+        }
         if merged_count > 0 {
             summary.push(format!("{} mastery levels updated", merged_count));
         }
