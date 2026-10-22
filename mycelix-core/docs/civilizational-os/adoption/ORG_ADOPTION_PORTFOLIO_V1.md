@@ -132,6 +132,39 @@ The companion `benchmark-org-adoption-pilot-bundle.cjs` generates fixtures up to
 
 JSON Schema validation is a separate lane; the zero-dependency evaluator does not pretend to be a general Draft 2020-12 implementation. The example is a contract witness only. It does not execute either named implementation, run a vendor integration, or prove the scenario happened in the physical world.
 
+## Integral Collective OAD → COS lifecycle boundary
+
+The Integral P0 profile now routes into the existing source-drift and COS conformance owners rather than creating a second harness:
+
+- [#3213 — source-generation drift monitor](https://github.com/Luminous-Dynamics/mycelix/issues/3213)
+- [#3332 — five-system requirements coverage / COS audit](https://github.com/Luminous-Dynamics/mycelix/issues/3332)
+- [#3334 — executable COS adversarial conformance harness](https://github.com/Luminous-Dynamics/mycelix/issues/3334)
+- [#3336 — current OAD/COS public-material refresh](https://github.com/Luminous-Dynamics/mycelix/issues/3336)
+
+The pinned Integral specifications repository is at commit [`402bf3ed46779f81ba720b3f4dabfe0cb1ab1bc5`](https://github.com/Integral-Collective/integral-specifications/commit/402bf3ed46779f81ba720b3f4dabfe0cb1ab1bc5). Its pinned README says the repository is in Phase 1 development; the source manifest is a revision identity, not a claim that the schema/interface set is ratified. It remains `version_pinned_manifest_attached`, and its source-content gate is still open.
+
+The bounded lifecycle should preserve these non-equivalences at every adapter seam:
+
+| Stage or record | Must not be mistaken for |
+|---|---|
+| OAD design/version + feasibility evidence | current production authorization |
+| production plan / work breakdown | assigned work or performed work |
+| skill/capability profile | current worker availability |
+| scheduled assignment | observed labor or completed contribution |
+| planned bill of materials | consumed materials |
+| machine capability | machine currently available and producing |
+| production observation | QA/safety qualification or certification |
+| distribution/access handoff | product quality/safety qualification |
+| FRS finding or forecast | source-owned COS observation |
+| source-owned production observation | automatic ITC contribution recognition |
+| imported material or external procurement | locally produced capability |
+| recommendation | decision, authorization, execution, or effect receipt |
+| output/throughput/share claim | meaningful comparative rate without explicit denominator |
+
+The next execution lane should implement the **16 COS-N negative controls and corresponding positive counterparts already required by #3334**, each bound to a COS-FV formal obligation, evidence class, source generation, temporal validity, expected decision, actual decision, and claim ceiling. Historical failures remain immutable; corrections append supersession lineage. No scalar “COS verified” score should replace the per-boundary outcomes.
+
+This portfolio adds the adoption-facing traceability and target requirements; it does not duplicate #3334's conformance harness or claim the full OAD/COS flow is already implemented. Use a frozen synthetic trace first, then exact-head execution of the owning harness. External or public Integral descriptions are kept distinct from Development Guide proposals, normative Technical Specifications, ratified contracts, implementations, and conformance evidence.
+
 ## Common Planet / Creditism semantic-boundary corpus
 
 The Common Planet P0 profile now points to a versioned, synthetic semantic-boundary corpus built from existing Mycelix owner contracts—not a new currency or finance kernel:
