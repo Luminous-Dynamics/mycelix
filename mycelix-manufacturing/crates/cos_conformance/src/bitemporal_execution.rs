@@ -303,22 +303,10 @@ pub fn resolve_placement_state(
         if !targets_placement && !targets_operation {
             continue;
         }
-        if event.timebase_id.trim().is_empty() {
-            push(
-                &mut violations,
-                ExecutionEvidenceViolationCode::EmptyTimebaseId,
-                &event.observation_id,
-                "timebase identity is required",
-            );
-            continue;
-        }
-        if event.timebase_id != timebase_id {
-            push(
-                &mut violations,
-                ExecutionEvidenceViolationCode::TimebaseMismatch,
-                &event.observation_id,
-                "event and decision cutoff must use the same normalized timebase",
-            );
+        if event.timebase_id.trim().is_empty() || event.timebase_id != timebase_id {
+            // Validate all fields of a known but incomparable event before rejecting it, so
+            // provenance/mapping defects are not hidden behind the first clock error.
+            validate_visible_observation(event, timebase_id, &mut violations);
             continue;
         }
         if event.occurred_tick > cutoff.as_of_occurred_tick {
@@ -464,12 +452,15 @@ mod tests {
 
     #[test]
     fn generic_operation_completion_never_clears_a_placement() {
+        let mut completion =
+            observation("complete", PhysicalObservationKind::OperationCompleted, 5, 5);
+        completion.placement_reservation_id = None;
         let result = resolve_placement_state(
             "placement-a",
             "clear-block-a",
             "yard-clock-v1",
             cutoff(8, 8),
-            &[observation("complete", PhysicalObservationKind::OperationCompleted, 5, 5)],
+            &[completion],
         );
         assert_eq!(result.decision, PlacementStateDecision::Indeterminate);
     }
