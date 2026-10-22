@@ -2,7 +2,7 @@
   "schema_version": "1.0.0",
   "manifest_id": "gs1-epcis-cbv-v1",
   "profile_id": "gs1-epcis-cbv",
-  "captured_at_utc": "2026-10-21T23:30:00Z",
+  "captured_at_utc": "2026-10-22T01:05:00Z",
   "claim_ceiling": "SourceSnapshotOnly",
   "sources": [
     {
@@ -41,78 +41,79 @@
     },
     {
       "source_id": "gs1-epcis-2-0-1-context",
-      "source_url": "https://ref.gs1.org/standards/epcis/2.0.1/artefacts/epcis-context.jsonld",
+      "source_url": "https://ref.gs1.org/standards/epcis/2.0.1/epcis-context.jsonld",
       "source_title": "EPCIS 2.0.1 JSON-LD context",
       "source_revision": "EPCIS 2.0.1 normative artefact; immutable versioned URL",
       "source_kind": "official_standard",
-      "retrieved_at_utc": "2026-10-21T23:30:00Z",
+      "retrieved_at_utc": "2026-10-22T01:05:00Z",
       "capture_state": "exact_revision_pinned",
       "content_sha256": null,
       "content_artifact_path": null,
       "rights_disposition": "metadata_only",
       "integrity_method": "immutable_source_revision",
       "limitations": [
-        "Uses the versioned artefact path pattern specified by the official GS1 URI policy; this runtime could not independently fetch the binary/raw artefact URL.",
-        "Raw bytes and per-artefact content hashes are not included in this manifest; the conformance lane must record final URL, HTTP status, media type, byte length, SHA-256 and validator version/configuration."
+        "This versioned file URL follows the GS1 URI policy's /standards/epcis/{version}/{filename} convention; /artefacts is an artifact index page.",
+        "Raw bytes were not captured in this manifest. A conformance run must record actual HTTP status, final URL, media type, byte length, SHA-256 and validator version/configuration."
       ]
     },
     {
       "source_id": "gs1-epcis-2-0-1-json-schema",
-      "source_url": "https://ref.gs1.org/standards/epcis/2.0.1/artefacts/epcis-json-schema.json",
+      "source_url": "https://ref.gs1.org/standards/epcis/2.0.1/epcis-json-schema.json",
       "source_title": "EPCIS 2.0.1 JSON Schema",
       "source_revision": "EPCIS 2.0.1 normative validation artefact; immutable versioned URL",
       "source_kind": "official_standard",
-      "retrieved_at_utc": "2026-10-21T23:30:00Z",
+      "retrieved_at_utc": "2026-10-22T01:05:00Z",
       "capture_state": "exact_revision_pinned",
       "content_sha256": null,
       "content_artifact_path": null,
       "rights_disposition": "metadata_only",
       "integrity_method": "immutable_source_revision",
       "limitations": [
-        "Uses the versioned artefact path pattern specified by the official GS1 URI policy; this runtime could not independently fetch the binary/raw artefact URL.",
-        "Raw bytes and per-artefact content hashes are not included in this manifest; the conformance lane must record final URL, HTTP status, media type, byte length, SHA-256 and validator version/configuration."
+        "This versioned file URL follows the GS1 URI policy's /standards/epcis/{version}/{filename} convention; /artefacts is an artifact index page.",
+        "Raw bytes were not captured in this manifest. A conformance run must record actual HTTP status, final URL, media type, byte length, SHA-256 and validator version/configuration."
       ]
     },
     {
       "source_id": "gs1-epcis-2-0-1-shacl",
-      "source_url": "https://ref.gs1.org/standards/epcis/2.0.1/artefacts/epcis-shacl.ttl",
+      "source_url": "https://ref.gs1.org/standards/epcis/2.0.1/epcis-shacl.ttl",
       "source_title": "EPCIS 2.0.1 SHACL validation shapes",
       "source_revision": "EPCIS 2.0.1 normative validation artefact; immutable versioned URL",
       "source_kind": "official_standard",
-      "retrieved_at_utc": "2026-10-21T23:30:00Z",
+      "retrieved_at_utc": "2026-10-22T01:05:00Z",
       "capture_state": "exact_revision_pinned",
       "content_sha256": null,
       "content_artifact_path": null,
       "rights_disposition": "metadata_only",
       "integrity_method": "immutable_source_revision",
       "limitations": [
-        "Uses the versioned artefact path pattern specified by the official GS1 URI policy; this runtime could not independently fetch the binary/raw artefact URL.",
-        "Raw bytes and per-artefact content hashes are not included in this manifest; the conformance lane must record final URL, HTTP status, media type, byte length, SHA-256 and validator version/configuration."
+        "This versioned file URL follows the GS1 URI policy's /standards/epcis/{version}/{filename} convention; /artefacts is an artifact index page.",
+        "Raw bytes were not captured in this manifest. A conformance run must record actual HTTP status, final URL, media type, byte length, SHA-256 and validator version/configuration."
       ]
     },
     {
       "source_id": "gs1-cbv-2-0-0-ontology-jsonld",
-      "source_url": "https://ref.gs1.org/standards/epcis/2.0.1/artefacts/cbv-ontology.jsonld",
+      "source_url": "https://ref.gs1.org/standards/epcis/2.0.1/cbv-ontology.jsonld",
       "source_title": "CBV 2.0.0 ontology in JSON-LD",
       "source_revision": "CBV 2.0.0 normative ontology artefact distributed with EPCIS/CBV 2.0.1 package",
       "source_kind": "official_standard",
-      "retrieved_at_utc": "2026-10-21T23:30:00Z",
+      "retrieved_at_utc": "2026-10-22T01:05:00Z",
       "capture_state": "exact_revision_pinned",
       "content_sha256": null,
       "content_artifact_path": null,
       "rights_disposition": "metadata_only",
       "integrity_method": "immutable_source_revision",
       "limitations": [
-        "Uses the versioned artefact path pattern specified by the official GS1 URI policy; this runtime could not independently fetch the binary/raw artefact URL.",
-        "Raw bytes and per-artefact content hashes are not included in this manifest; the conformance lane must record final URL, HTTP status, media type, byte length, SHA-256 and validator version/configuration."
+        "This versioned file URL follows the GS1 URI policy's /standards/epcis/{version}/{filename} convention; /artefacts is an artifact index page.",
+        "Raw bytes were not captured in this manifest. A conformance run must record actual HTTP status, final URL, media type, byte length, SHA-256 and validator version/configuration."
       ]
     }
   ],
   "nonclaims": [
-    "This manifest binds versioned standard and normative artefact references only; it does not copy their raw bytes or establish successful HTTP retrieval.",
-    "The versioned artefact paths follow the official GS1 URI policy, but the artifact URLs could not be fetched from this runtime and must be confirmed by the dedicated conformance lane.",
+    "This manifest binds selected versioned standard and normative artifact references only; it does not copy their raw bytes or establish successful HTTP retrieval.",
+    "The /artefacts endpoint is an artifact index page. Individual versioned artifact file URLs follow the GS1 URI policy's /standards/epcis/{version}/{filename} convention.",
+    "The runtime did not obtain the raw normative artifact bytes; artifact endpoint availability and content hashes remain unverified.",
     "It does not imply GS1 partnership, endorsement, participation or certification.",
-    "It does not establish that Mycelix conforms to EPCIS/CBV or that any Mycelix adapter is implemented.",
+    "It does not establish Mycelix conformance to EPCIS/CBV or implementation of an adapter.",
     "It does not establish physical delivery, product authenticity, legal title or regulatory compliance."
   ]
 }
