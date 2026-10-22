@@ -427,6 +427,17 @@ mod tests {
     }
 
     #[test]
+    fn receipt_writer_does_not_overwrite_an_existing_file() {
+        let id = NEXT.fetch_add(1, Ordering::Relaxed);
+        let path = std::env::temp_dir().join(format!("nrvca-receipt-{}-{id}.json", std::process::id()));
+        fs::write(&path, b"preserve-existing").expect("write existing sentinel");
+        let error = write_receipt_new(&path, &json!({"sha256": "test"})).unwrap_err();
+        assert!(error.contains("without overwriting"));
+        assert_eq!(fs::read(&path).expect("read sentinel"), b"preserve-existing");
+        let _ = fs::remove_file(path);
+    }
+
+    #[test]
     fn expected_digest_is_case_insensitive_and_reproducible() {
         let temp = TempFile::with_bytes(b"same captured bytes");
         let expected = sha256_hex(b"same captured bytes").to_uppercase();
