@@ -535,8 +535,8 @@ mod tests {
     fn risk_guard_never_allows_a_candidate_cohort_below_its_threshold() {
         let people = synthetic_population();
 
-        for threshold in [32, 64] {
-            let run = adaptive_cohorts_with_policy(&people, threshold, MILLION);
+        for (threshold, max_uplift_ppm) in [(32, MILLION), (64, MILLION), (32, 100_000)] {
+            let run = adaptive_cohorts_with_policy(&people, threshold, max_uplift_ppm);
             for (depth, cohorts) in run.by_depth.iter().enumerate() {
                 for (target_id, candidates) in cohorts.iter().enumerate() {
                     assert!(
