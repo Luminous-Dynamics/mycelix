@@ -1487,6 +1487,7 @@ fn MasteryHeatMap() -> impl IntoView {
                             let np = p.get(&n.id);
                             let (bg, border) = match np.status {
                                 ProgressStatus::Mastered => ("var(--mastery-green)", "var(--mastery-green)"),
+                                ProgressStatus::ProvisionalMastery => ("var(--info)", "var(--info)"),
                                 ProgressStatus::Studying => ("var(--mastery-yellow)", "var(--mastery-yellow)"),
                                 ProgressStatus::NotStarted => ("var(--border)", "transparent"),
                             };
