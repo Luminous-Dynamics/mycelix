@@ -130,6 +130,95 @@ impl Default for LessonAuthorDraft {
     }
 }
 
+fn blank_lesson_draft() -> LessonAuthorDraft {
+    let mut draft = LessonAuthorDraft::default();
+    draft.node_id.clear();
+    draft.title.clear();
+    draft.grade_level.clear();
+    draft.learning_objective.clear();
+    draft.explanation.clear();
+    draft.example_problem.clear();
+    draft.example_step_one.clear();
+    draft.example_step_one_result.clear();
+    draft.example_step_two.clear();
+    draft.example_step_two_result.clear();
+    draft.example_answer.clear();
+    draft.visual_description.clear();
+    draft.general_hint_one.clear();
+    draft.general_hint_two.clear();
+    draft.vocabulary_rows.clear();
+    draft.misconception_rows.clear();
+    draft.practice = std::array::from_fn(|_| PracticeDraft::blank());
+    draft.assessment_question.clear();
+    draft.assessment_answer.clear();
+    draft.assessment_rubric.clear();
+    draft.assessment_hint.clear();
+    draft.flashcard_front.clear();
+    draft.flashcard_back.clear();
+    draft.author_credit.clear();
+    draft.license = "UNDECIDED — confirm you have rights before publication.".into();
+    draft.source_notes.clear();
+    draft.source_pack = None;
+    draft
+}
+
+fn hands_on_activity_draft() -> LessonAuthorDraft {
+    let mut draft = LessonAuthorDraft::default();
+    draft.node_id = "COMMUNITY.STEM.PAPER_BRIDGE".into();
+    draft.title = "Design and test a paper bridge".into();
+    draft.grade_level = "Grade6".into();
+    draft.language = "en-ZA".into();
+    draft.bloom_level = "Evaluate".into();
+    draft.learning_objective = "Design a paper bridge across a fixed gap, test it with equal loads, record the result, and justify one evidence-based design change.".into();
+    draft.explanation = "Engineers solve problems by making a design, testing it, and improving it using evidence. For a fair paper-bridge test, keep the paper type, bridge span, supports, and loading method the same. Change one design feature at a time, such as folding the paper into a beam, so you can reason about what caused a difference. Put identical coins on the bridge one at a time, stop when it bends too far, and record the load. Do not compare tests that used different spans or different kinds of load. A stronger design is one that performs better under the same test conditions, not simply one that looks stronger.".into();
+    draft.example_problem = "Two paper bridges span the same 15 cm gap. How can you test whether folding the paper improves its strength?".into();
+    draft.example_step_one = "Choose the one design feature to compare and keep other conditions the same.".into();
+    draft.example_step_one_result = "Use the same paper, 15 cm span, supports, and identical coins; change only whether the paper is flat or folded.".into();
+    draft.example_step_two = "Add equal loads gradually and record the load at which each bridge bends.".into();
+    draft.example_step_two_result = "Test each design the same way, record the number of coins, and compare the results.".into();
+    draft.example_answer = "Compare the number of identical coins each bridge supports before bending, while keeping the span and materials the same.".into();
+    draft.visual_description = "Side view of two paper bridges between identical supports over a labelled 15 cm gap; one bridge is flat and the other folded.".into();
+    draft.general_hint_one = "Which conditions must stay the same for the comparison to be fair?".into();
+    draft.general_hint_two = "Change one design feature, add identical coins one at a time, and record the load for each design.".into();
+    draft.practice = [
+        PracticeDraft {
+            question: "Which plan is the fairest test of whether a fold strengthens a paper bridge?".into(),
+            answer: "Use the same paper and span, change only the fold, and add identical coins.".into(),
+            explanation: "Keeping the materials, span, and loading method the same lets the fold be the main changed variable.".into(),
+            hint: "Find the plan that changes one design feature and keeps the other conditions constant.".into(),
+            distractors: "Use thicker paper only for the folded bridge.\nGive one bridge a shorter span.\nPut large coins on one bridge and small coins on the other.".into(),
+        },
+        PracticeDraft {
+            question: "Bridge A supports 12 identical coins and Bridge B supports 8 before bending. How many more coins did A support?".into(),
+            answer: "4 more coins".into(),
+            explanation: "Subtract the smaller count from the larger count: 12 − 8 = 4.".into(),
+            hint: "Compare the two counts by subtracting 8 from 12.".into(),
+            distractors: "4 fewer coins.\n20 more coins.\nThe same number of coins.".into(),
+        },
+        PracticeDraft {
+            question: "A bridge bends after five coins. What is the best next step in an engineering investigation?".into(),
+            answer: "Record the result, change one design feature, and repeat the same test.".into(),
+            explanation: "A recorded result supports comparison; changing one feature at a time helps explain why performance changed.".into(),
+            hint: "Keep the evidence, make one controlled change, and test under the same conditions.".into(),
+            distractors: "Change the paper, span, and coin sizes together.\nIgnore the result and claim the design always fails.\nUse a different gap and compare the counts directly.".into(),
+        },
+    ];
+    draft.assessment_question = "Explain how you would fairly compare a flat-paper bridge with a folded-paper bridge.".into();
+    draft.assessment_answer = "Use the same paper, supports, span, and identical coins; change only the fold; repeat the loading procedure; and record the load at which each bridge bends.".into();
+    draft.assessment_rubric = "Award credit for identifying the changed variable, at least two controlled conditions, a consistent loading procedure, and recording/comparing results.".into();
+    draft.assessment_hint = "Name what you change, what you keep the same, and what you measure.".into();
+    draft.assessment_points = "4".into();
+    draft.flashcard_front = "What makes an engineering test fair?".into();
+    draft.flashcard_back = "Change one main feature at a time, keep the other conditions consistent, and measure each design the same way.".into();
+    draft.vocabulary_rows = "variable | A factor that can change in an investigation. | The fold shape is the variable being tested.\nspan | The distance a bridge must cross. | Both bridges cross the same 15 cm span.\nload | The force or weight placed on a structure. | Add identical coins as a repeatable load.".into();
+    draft.misconception_rows = "A folded bridge is always stronger, so there is no need to test it. | Test both designs under the same conditions and compare recorded results. | Familiar designs can behave differently depending on materials and span.\nChange several things at once to make the bridge stronger. | Change one feature at a time when investigating which change helped. | Multiple changes make the cause of a result difficult to identify.".into();
+    draft.author_credit = "Community contributor".into();
+    draft.license = "UNDECIDED — choose a reuse licence only after confirming rights.".into();
+    draft.source_notes = "Starter template content; contributor must verify subject accuracy, add any sources used, and confirm redistribution rights.".into();
+    draft.source_pack = None;
+    draft
+}
+
 fn parse_rows(text: &str) -> Vec<Vec<String>> {
     text.lines()
         .map(str::trim)
@@ -677,6 +766,26 @@ pub fn LessonAuthorPage() -> impl IntoView {
                 <h1 style="margin-bottom: 0.5rem">"Create a lesson for someone else"</h1>
                 <p style="max-width: 760px; color: var(--text-secondary)">"Share a skill you know. This form builds a reusable lesson pack, saves your draft locally, and lets you export a JSON file for review. You do not need to write JSON by hand."</p>
             </header>
+
+            <section style="padding: 1rem; border: 1px solid var(--border); border-radius: 12px; margin-bottom: 1rem">
+                <h2>"Start with a template"</h2>
+                <p style="max-width: 760px; color: var(--text-secondary)">"You do not need to start with a blank page. Choose a teaching pattern, replace the sample with what you know, and run the quick checks. Templates are examples—not verified curriculum or approved lessons."</p>
+                <div style="display: flex; gap: 0.75rem; flex-wrap: wrap">
+                    <button class="btn-primary" on:click=move |_| {
+                        set_draft.set(LessonAuthorDraft::default());
+                        set_notice.set("Started the worked-example lesson template. Replace the sample with your own teaching and run the checks.".into());
+                    }>"Explain a concept"</button>
+                    <button class="btn-outline" on:click=move |_| {
+                        set_draft.set(hands_on_activity_draft());
+                        set_notice.set("Started a hands-on investigation template. Verify the science and adapt the activity to the learner's materials and setting.".into());
+                    }>"Build a hands-on activity"</button>
+                    <button class="btn-outline" on:click=move |_| {
+                        set_draft.set(blank_lesson_draft());
+                        set_notice.set("Started a blank draft. Fill in the required fields; your progress stays in this browser.".into());
+                    }>"Start from blank"</button>
+                </div>
+                <p style="margin-top: 0.75rem; color: var(--text-tertiary); font-size: 0.85rem">"Choosing a template replaces the current form contents. If you need to preserve this draft first, download it for review before switching."</p>
+            </section>
 
             <section style="padding: 0.85rem; border: 1px solid var(--border); border-radius: 10px; margin-bottom: 1rem">
                 <h2>"Remix an existing lesson"</h2>
