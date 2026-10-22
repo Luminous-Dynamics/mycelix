@@ -153,7 +153,7 @@ fn correlated_cohort_oracle(
 ) -> usize {
     let target = cohort_attributes(target_cohort);
     let mut candidate_mass = 0;
-    for candidate_cohort in 0..COHORT_COUNT {
+    for (candidate_cohort, &cohort_size) in COHORT_SIZES.iter().enumerate() {
         let candidate = cohort_attributes(candidate_cohort);
         let mut matches = true;
         for (attribute, (&target_value, &candidate_value)) in
@@ -167,7 +167,7 @@ fn correlated_cohort_oracle(
             }
         }
         if matches {
-            candidate_mass += COHORT_SIZES[candidate_cohort];
+            candidate_mass += cohort_size;
         }
     }
     candidate_mass
