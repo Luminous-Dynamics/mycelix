@@ -169,7 +169,7 @@ This portfolio adds the adoption-facing traceability and target requirements; it
 
 The Common Planet P0 profile now points to a versioned, synthetic semantic-boundary corpus built from existing Mycelix owner contracts—not a new currency or finance kernel:
 
-- [21-case known-answer corpus](./common-planet-creditism-semantic-boundary-v1.json)
+- [32-case known-answer corpus + 9 metamorphic properties](./common-planet-creditism-semantic-boundary-v1.json)
 - [Corpus schema](./common-planet-creditism-semantic-boundary-v1.schema.json)
 - [Reference evaluator and mutation suite](./verify-common-planet-creditism-semantic-boundary.cjs)
 
@@ -180,7 +180,7 @@ node verify-common-planet-creditism-semantic-boundary.cjs
 node verify-common-planet-creditism-semantic-boundary.cjs --self-test
 ```
 
-The output receipt binds the exact corpus and schema SHA-256 values, counts known-answer outcomes, and identifies whether the mutation lane ran. The current local mirror matched **21/21** known answers, passed **11/11** input-transition controls, and separately rejected a tampered expected result plus removal of a required semantic invariant. The exact remote Node process has not been run in this environment; this is not an external-schema-engine or domain-system certification result.
+The output receipt binds the exact corpus and schema SHA-256 values, counts known-answer and metamorphic outcomes, and identifies whether the mutation lane ran. The current in-memory mirror over the fetched branch matched **32/32** known answers, **9/9** metamorphic properties, and **20/20** input-transition controls; three meta-controls reject a tampered expected answer, removal of a required invariant, or a broken metamorphic relation. The exact remote Node process has not been run in this environment; this is not an external-schema-engine or domain-system certification result.
 
 The corpus composes [#4572](https://github.com/Luminous-Dynamics/mycelix/issues/4572) instrument/accounting semantics, [#4573](https://github.com/Luminous-Dynamics/mycelix/issues/4573) evidence-bound contribution verification and appeal, [#4771](https://github.com/Luminous-Dynamics/mycelix/issues/4771) capacity/commons boundaries, [#5366](https://github.com/Luminous-Dynamics/mycelix/issues/5366) the Integral water-loop comparison, and Symthaea [#7031](https://github.com/Luminous-Dynamics/symthaea/issues/7031) Creditism mechanism semantics.
 
@@ -188,9 +188,9 @@ It covers Personal Credit baseline issuance and deletion; prohibited transfer/le
 
 ### Local reference-mirror result
 
-- **21/21** named known-answer cases matched the reference evaluator.
-- **11/11** input mutation transitions produced their required fail-closed state (reject, indeterminate, or pending appeal).
-- Two meta-controls separately detected a tampered expected answer and removal of a required semantic-separation invariant.
+- **32/32** named known-answer cases matched the reference evaluator.
+- **20/20** input mutation transitions produced their required fail-closed state (reject, indeterminate, or pending appeal), with **9/9** metamorphic non-interference properties also passing.
+- Three meta-controls separately detected a tampered expected answer, removal of a required semantic-separation invariant, and a broken metamorphic relation.
 - The corpus schema declares Draft 2020-12. Structural fields and the declared operation set were checked in the local mirror; this is not represented as execution of an external schema engine or the exact remote CJS verifier.
 
 ### Industry comparison and benchmark posture
@@ -202,7 +202,7 @@ Use two complementary external baselines rather than forcing a false one-to-one 
 - [OpenFisca's simulation model](https://openfisca.org/doc/simulate/index.html) supports structured test cases, bulk/population simulations and tracing of computed rules. Use it as a reproducibility, rule-evaluation and scale-design reference. It does not supply Creditism-specific semantic guarantees by itself.
 - The World Bank's [MANAGE-WB / CGE practice](https://www.worldbank.org/en/programs/economicpolicy-macro-modeling/cge) evaluates economy-wide counterfactuals under resource constraints using calibrated social-accounting data. Use such macroeconomic models for calibrated economy-wide scenario comparison when the data and assumptions are available; do not treat this 21-case synthetic ledger fixture as an alternative to CGE calibration.
 
-The next measurable benchmark should report: semantic known-answer accuracy; forbidden-operation rejection; evidence-loss and duplicate/replay rejection; proportion of disputed cases that remain pending rather than issued; capacity-bound invariants; decision latency and memory at declared event scales; and reconciliation/operator workload in a permitted shadow pilot. A macroeconomic superiority claim additionally needs a calibrated baseline, sensitivity analysis and out-of-sample or real pilot evidence. Do not combine these into a single fairness/productivity number.
+The next measurable benchmark should report: semantic known-answer accuracy; forbidden-operation rejection; evidence-loss and duplicate/replay rejection; proportion of disputed cases that remain pending rather than issued; capacity-bound invariants; metamorphic non-interference across evaluator identity, hidden outcomes, event IDs, nominal scale and demand; decision latency and memory at declared event scales; and reconciliation/operator workload in a permitted shadow pilot. A macroeconomic superiority claim additionally needs a calibrated baseline, sensitivity analysis and out-of-sample or real pilot evidence. Do not combine these into a single fairness/productivity number.
 
 This is a **synthetic semantic contract**, not a production ledger, a complete measurement of human contribution, or evidence that the real-world Creditism model is fair or economically superior. A `ProfileMapped` result says only that a declared synthetic operation satisfies this profile's local boundary. It does not prove that a work claim is true, that a result was caused, or that any resource was physically delivered.
 
