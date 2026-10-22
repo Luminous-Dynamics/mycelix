@@ -42,13 +42,14 @@
         "Issuance/deletion and contribution-recognition totals reconcile exactly under the declared profile.",
         "Allocation policy changes distributional outcomes only; physical capacity and aggregate feasible delivery remain invariant.",
         "Unknown capacity or contribution evidence produces an explicit indeterminate disposition.",
-        "The 32-case Creditism semantic-boundary corpus matches every named known answer; all 9 metamorphic non-interference properties hold; all 20 input-transition controls and 3 meta-controls pass before adapter integration claims.",
+        "The 36-case Creditism semantic-boundary corpus matches every named known answer; all 11 metamorphic non-interference properties hold; all 23 input-transition controls and 4 corpus-mutation controls pass before adapter integration claims.",
         "Personal Credit retention/deletion, producer payment, contribution recognition, Bonus, Community Credit allocation, housing rights and physical delivery retain separate event/decision semantics; no implicit conversion is allowed.",
         "Unknown or disputed contribution evidence remains Unknown/PendingAppeal and cannot issue credit before qualification/review; duplicated evidence, verifier collusion, unresolved Sybil identity, unreviewed task splitting and captured verifier panels do not silently qualify issuance.",
         "Event frequency or model-generated activity alone cannot stand in for contribution value or observed work; hidden latent outcomes and evaluator identities outside the authorized projection do not alter the decision.",
         "Unknown physical capacity cannot be treated as unlimited; Community Credit allocation beyond capacity is rejected and authorization is not evidence of resource reservation or delivery.",
         "Unsupported conventional accounting/SNA mapping preserves the Mycelix-native instrument and separate conventional liabilities as Unknown/Unsupported; no implicit FX offset is inferred.",
-        "Same-outcome Bonus double-counting is rejected, and housing rights require separately qualified eligibility, stewardship and known dwelling capacity."
+        "Same-outcome Bonus double-counting is rejected, and housing rights require separately qualified eligibility, stewardship and known dwelling capacity.",
+        "The corpus explicitly protects valuable low-observability care/maintenance from frequency-based exclusion while still requiring qualified evidence; delayed negative evidence opens a separate appealable review and cannot silently rewrite prior recognition."
       ],
       "negative_controls": [
         "Attempt to transfer, lend, collateralize, accrue interest on, invest or inherit concentrated Personal Credit under a profile that forbids it.",
@@ -60,7 +61,9 @@
         "Authorize community allocation beyond declared physical capacity or treat authorization as resource reservation, production output or physical delivery.",
         "Record the same outcome as contribution pay and Bonus recognition without explicit non-duplication rules.",
         "Coerce Personal Credit or Community Credit into a deposit/financial instrument, or net it against external conventional liabilities, without explicit qualified semantic equivalence and FX rules.",
-        "Grant housing from a credit balance alone or with unknown/unavailable dwelling capacity, eligibility or stewardship evidence."
+        "Grant housing from a credit balance alone or with unknown/unavailable dwelling capacity, eligibility or stewardship evidence.",
+        "Deny a care/maintenance contribution solely because its activity is low-observability when declared criteria, bounded completion evidence and qualified corroboration are satisfied.",
+        "Automatically reverse prior contribution recognition from later negative evidence without checking temporal ordering, qualification, independent review and an appeal route."
       ],
       "deployment_assumptions": [
         "Synthetic data only for initial benchmark.",
