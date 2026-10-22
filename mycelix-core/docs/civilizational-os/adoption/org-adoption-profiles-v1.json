@@ -37,17 +37,28 @@
           "role": "synthetic allocation comparison through Integral lifecycle"
         }
       ],
-      "pilot_scope": "Replay a synthetic ledger with distinct Personal Credit, Community Credit, Bonus, contribution recognition, spending/deletion and capacity constraints. Compare allocation rules against held-fixed physical inputs.",
+      "pilot_scope": "Run a synthetic Personal Credit / Community Credit / Bonus ledger through the bounded semantic contract at common-planet-creditism-semantic-boundary-v1.json, then compose the existing CP-WATER-ALLOC-001 allocation comparison through the Integral five-system lifecycle. Keep consumer deletion, producer payment, contribution recognition, outcome Bonus, authorization, resource capacity and physical delivery as distinct propositions. This is a reference-profile test, not a production Creditism ledger.",
       "acceptance_metrics": [
         "Issuance/deletion and contribution-recognition totals reconcile exactly under the declared profile.",
         "Allocation policy changes distributional outcomes only; physical capacity and aggregate feasible delivery remain invariant.",
-        "Unknown capacity or contribution evidence produces an explicit indeterminate disposition."
+        "Unknown capacity or contribution evidence produces an explicit indeterminate disposition.",
+        "The 21-case Creditism semantic-boundary corpus must match every named known answer; the verifier must reject the registered hostile input/expected-result mutations before any adapter integration claim.",
+        "Personal Credit deletion, producer payment, contribution recognition, Bonus, Community Credit allocation, housing rights and physical delivery retain separate event/decision semantics; no implicit conversion is allowed.",
+        "Unknown or disputed contribution evidence remains Unknown/PendingAppeal and cannot issue credit before qualification/review; duplicate evidence cannot issue twice.",
+        "Unknown physical capacity cannot be treated as unlimited; Community Credit authorization beyond capacity is rejected and authorization is not evidence of resource reservation or delivery.",
+        "An unsupported conventional accounting/SNA mapping preserves the Mycelix-native instrument and an explicit Unknown/Unsupported disposition."
       ],
       "negative_controls": [
         "Attempt to transfer, lend, collateralize or invest Personal Credit under a profile that forbids it.",
         "Infer producer financial payment from buyer credit deletion.",
         "Issue contribution credit from settlement alone, without qualifying evidence.",
-        "Authorize community allocation beyond the declared physical capacity."
+        "Authorize community allocation beyond the declared physical capacity.",
+        "Coerce a Personal Credit unit to a deposit or transferable financial asset without an explicit qualified semantic-equivalence rule.",
+        "Change the Personal Credit buyer-deletion event and infer a seller financial payment or contribution issuance from it.",
+        "Remove evidence, duplicate evidence, change verifier authority, or suppress an appeal while still allowing contribution issuance.",
+        "Convert unknown Community Credit capacity into positive authorization or treat allocation authorization as physical delivery.",
+        "Record the same outcome as contribution pay and Bonus recognition without explicit non-duplication rules.",
+        "Coerce an unknown SNA/financial-instrument mapping into an ordinary category instead of preserving Unknown."
       ],
       "deployment_assumptions": [
         "Synthetic data only for initial benchmark.",
