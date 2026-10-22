@@ -76,7 +76,10 @@ fn make_case(
             .expect("generated route IDs end in a source index");
         match scenario {
             "cyclic" => {}
-            "capacity-stress" => route.capacity_minor = 500,
+            // Each debtor has two outgoing arcs, so 500 would still permit its
+            // full 1,000-unit obligation. 400 forces a measurable 20% capacity
+            // deficit even when the global flow is allocated optimally.
+            "capacity-stress" => route.capacity_minor = 400,
             "route-outage" if source_index % 11 == 0 => route.enabled = false,
             "route-outage" => {}
             _ => panic!("unknown benchmark scenario"),
@@ -95,7 +98,7 @@ fn percentile(values: &[u128], p: usize) -> u128 {
 
 fn main() {
     println!(
-        "scenario,route_arcs,participants,optimized_flow_minor,optimized_cost_units,greedy_flow_minor,greedy_cost_units,opt_p50_us,opt_p95_us,greedy_p50_us,greedy_p95_us"
+        "scenario,route_arcs,participants,optimized_flow_minor,optimized_cost_units,optimized_full,greedy_flow_minor,greedy_cost_units,greedy_full,flow_gain_minor,same_flow_cost_savings_units,opt_p50_us,opt_p95_us,greedy_p50_us,greedy_p95_us"
     );
 
     for scenario in ["cyclic", "capacity-stress", "route-outage"] {
@@ -125,15 +128,55 @@ fn main() {
             let greedy_plan =
                 greedy_match(&context, &positions, &routes).expect("greedy final sample failed");
 
+            // Fail the benchmark itself if the optimizer violates its stated
+            // lexicographic objective: maximize feasible flow, then minimize cost.
+            assert!(
+                optimized_plan.total_allocated_minor >= greedy_plan.total_allocated_minor,
+                "optimizer flow must dominate greedy baseline for {scenario}/{route_count}"
+            );
+            if optimized_plan.total_allocated_minor == greedy_plan.total_allocated_minor {
+                assert!(
+                    optimized_plan.total_modeled_cost_units <= greedy_plan.total_modeled_cost_units,
+                    "optimizer cost must not exceed greedy at equal flow for {scenario}/{route_count}"
+                );
+            }
+
+            let side = route_count / 2;
+            let expected_flow = match scenario {
+                "cyclic" => side as u128 * 1_000,
+                "capacity-stress" => side as u128 * 800,
+                "route-outage" => (0..side).filter(|i| i % 11 != 0).count() as u128 * 1_000,
+                _ => unreachable!("scenario list is fixed above"),
+            };
+            assert_eq!(
+                optimized_plan.total_allocated_minor, expected_flow,
+                "optimized flow must match the scenario's constructed capacity ceiling"
+            );
+            assert_eq!(
+                optimized_plan.fully_allocatable,
+                scenario == "cyclic",
+                "only the unconstrained cyclic case should be fully allocatable"
+            );
+            let flow_gain = optimized_plan.total_allocated_minor - greedy_plan.total_allocated_minor;
+            let equal_flow_cost_savings = if optimized_plan.total_allocated_minor == greedy_plan.total_allocated_minor {
+                greedy_plan.total_modeled_cost_units - optimized_plan.total_modeled_cost_units
+            } else {
+                0
+            };
+
             println!(
-                "{},{},{},{},{},{},{},{},{},{},{}",
+                "{},{},{},{},{},{},{},{},{},{},{},{},{},{},{}",
                 scenario,
                 route_count,
                 positions.len(),
                 optimized_plan.total_allocated_minor,
                 optimized_plan.total_modeled_cost_units,
+                optimized_plan.fully_allocatable,
                 greedy_plan.total_allocated_minor,
                 greedy_plan.total_modeled_cost_units,
+                greedy_plan.fully_allocatable,
+                flow_gain,
+                equal_flow_cost_savings,
                 percentile(&optimize_samples, 50),
                 percentile(&optimize_samples, 95),
                 percentile(&greedy_samples, 50),
