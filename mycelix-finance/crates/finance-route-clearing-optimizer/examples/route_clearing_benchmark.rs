@@ -4,6 +4,8 @@ use finance_route_clearing_optimizer::{
 };
 use std::time::Instant;
 
+const MEASURED_REPETITIONS: usize = 101;
+
 fn make_case(
     route_count: usize,
     scenario: &str,
@@ -98,7 +100,7 @@ fn percentile(values: &[u128], p: usize) -> u128 {
 
 fn main() {
     println!(
-        "scenario,route_arcs,participants,optimized_flow_minor,optimized_cost_units,optimized_full,greedy_flow_minor,greedy_cost_units,greedy_full,flow_gain_minor,same_flow_cost_savings_units,opt_p50_us,opt_p95_us,greedy_p50_us,greedy_p95_us"
+        "scenario,route_arcs,participants,optimized_flow_minor,optimized_cost_units,optimized_full,greedy_flow_minor,greedy_cost_units,greedy_full,flow_gain_minor,same_flow_cost_savings_units,opt_p50_us,opt_p95_us,opt_p99_us,greedy_p50_us,greedy_p95_us,greedy_p99_us"
     );
 
     for scenario in ["cyclic", "capacity-stress", "route-outage"] {
@@ -109,10 +111,10 @@ fn main() {
             optimize(&context, &positions, &routes).expect("optimizer warm-up failed");
             greedy_match(&context, &positions, &routes).expect("greedy warm-up failed");
 
-            let mut optimize_samples = Vec::with_capacity(25);
-            let mut greedy_samples = Vec::with_capacity(25);
+            let mut optimize_samples = Vec::with_capacity(MEASURED_REPETITIONS);
+            let mut greedy_samples = Vec::with_capacity(MEASURED_REPETITIONS);
 
-            for _ in 0..25 {
+            for _ in 0..MEASURED_REPETITIONS {
                 let start = Instant::now();
                 let _plan = optimize(&context, &positions, &routes).expect("optimizer failed");
                 optimize_samples.push(start.elapsed().as_micros());
@@ -168,7 +170,7 @@ fn main() {
                 };
 
             println!(
-                "{},{},{},{},{},{},{},{},{},{},{},{},{},{},{}",
+                "{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{}",
                 scenario,
                 route_count,
                 positions.len(),
@@ -182,8 +184,10 @@ fn main() {
                 equal_flow_cost_savings,
                 percentile(&optimize_samples, 50),
                 percentile(&optimize_samples, 95),
+                percentile(&optimize_samples, 99),
                 percentile(&greedy_samples, 50),
                 percentile(&greedy_samples, 95),
+                percentile(&greedy_samples, 99),
             );
         }
     }
