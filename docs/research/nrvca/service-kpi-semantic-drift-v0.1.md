@@ -43,7 +43,13 @@ This is a defense against Goodhart-type dashboard failure: an organization can a
 
 ## Existing practice and what would improve it
 
-Versioned metadata and statistical revision histories are established practices; NRVCA should not claim novelty for keeping vintages. The incremental objective is a machine-checkable comparability decision embedded beside the reported values so a downstream map, dashboard, report, or optimizer cannot silently create a trend from semantically different measures.
+Versioned metadata, service indicator standards and peer benchmarking are established practices; NRVCA should not claim novelty for keeping vintages or defining utility KPIs. Existing references include:
+
+- [ISO 24510:2024](https://www.iso.org/standard/81484.html) specifies user-relevant drinking-water/wastewater service characteristics and provides guidance on needs, performance indicators and assessment.
+- The [American Water Works Association Utility Benchmarking Program](https://www.awwa.org/programs/benchmarking/) compares performance indicators across utility types, sizes and regions, and offers more than 100 individual metrics. Its reports provide a strong industry benchmark family, but the source definitions and access/licensing must be obtained before doing an apples-to-apples comparison.
+- The [SDMX comparability glossary](https://sdmx.org/wp-content/uploads/SDMX_Glossary_Version_2_1_December_2020.htm) explicitly treats comparability as sensitive to differing concepts/definitions across time and populations, and calls for metadata to expose those differences.
+
+The incremental objective is therefore narrow and testable: a machine-checkable comparability decision adjacent to each reported value so a downstream map, dashboard, report, or optimizer cannot silently create a trend from semantically different measures. The fingerprint must be derived from, or validated against, actual semantic fields; a text label or manually copied fingerprint cannot override a changed deadline, population, denominator or unit.
 
 The next data tier should obtain source bytes and, where possible, event-level numerator/denominator definitions for each reporting year. If the definitions truly changed, publish a **parallel-run overlap study** using both old and new definitions on the same incident/work-order data, then estimate a bridge only if the underlying records support it. Never invent a conversion coefficient from the two annual headline percentages.
 
@@ -60,6 +66,8 @@ The next data tier should obtain source bytes and, where possible, event-level n
 | Robustness | Hand-reviewed examples alone | Mutation suite for changing deadlines, categories, denominator, unit, target, source, period, vintage and achieved-count scope |
 
 For production qualification, aim for zero accepted false comparability results on the preregistered semantic-mutation corpus and zero silent denominator changes. On real source updates, measure source-reconciliation error rate and the proportion of KPIs whose comparability could be independently confirmed.
+
+For a stronger benchmark against manual domain review, assemble at least 100 KPI-version pairs across water, wastewater and other municipal services, with two independent reviewers labeling `comparable`, `provisionally comparable`, or `not comparable`. Freeze adjudication rules before testing. Report class-wise precision/recall, confusion matrices and abstention rate; do not optimize a single accuracy figure if false-comparable decisions are more costly. Target 100% detection of registered hard semantic changes (deadline, inclusion population, denominator, units or clock start) and 0 hard false-comparable results in the mutation suite. These are qualification targets, not current achievements.
 
 Do not optimize for a target of “improve every KPI by x%” until metric semantics, ownership and service outcomes are qualified. That target encourages gaming, can conflict with priorities, and is not a measure of whether households received more reliable water.
 
