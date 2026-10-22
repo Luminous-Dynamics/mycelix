@@ -635,7 +635,7 @@ impl ProgressStatus {
     }
 }
 
-#[derive(Clone, Debug, Default, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct ProgressStore {
     /// Version of the local progress semantics/migration.
     #[serde(default)]
@@ -648,6 +648,20 @@ pub struct ProgressStore {
     /// BKT adaptive difficulty state — keyed by node_id
     #[serde(default)]
     pub bkt_states: HashMap<String, BktState>,
+}
+
+impl Default for ProgressStore {
+    fn default() -> Self {
+        Self {
+            // Fresh in-memory stores use the current schema. Missing schema_version
+            // in deserialized legacy JSON still defaults to zero via serde.
+            schema_version: 2,
+            nodes: HashMap::new(),
+            exam_date: None,
+            srs_cards: HashMap::new(),
+            bkt_states: HashMap::new(),
+        }
+    }
 }
 
 /// SM-2 spaced repetition state for a single flashcard.
