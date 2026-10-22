@@ -1,0 +1,771 @@
+{
+  "schema_version": "nrvca-sa-gdp-table1-transcription/0.1",
+  "artifact_status": "discovery_only_unpinned_transcription",
+  "purpose": "Manually transcribed and visually checked values from Stats SA P0441 Q2 2026 official PDF Table 1. Suitable for developing vintage, unit and reconciliation validation. Not a byte-reproducible ingestion product.",
+  "source": {
+    "publisher": "Statistics South Africa",
+    "publication_id": "P0441",
+    "publication_title": "Gross domestic product, quarter ended June 2026",
+    "published_at": "2026-09-08T11:00:00+02:00",
+    "reference_period": "2026-Q2",
+    "source_landing_page": "https://www.statssa.gov.za/?PPN=P0441&page_id=1854",
+    "source_document_url": "https://www.statssa.gov.za/publications/P0441/P04412ndQuarter2026.pdf",
+    "companion_timeseries_xlsx_url": "https://www.statssa.gov.za/publications/P0441/GDP%20P0441%20-%20GDP%20Time%20series%20Q2%202026.xlsx",
+    "table_id": "Table 1",
+    "printed_page": 8,
+    "visible_pdf_page_index_zero_based": 8,
+    "source_bytes_acquired": false,
+    "source_sha256": null,
+    "source_acquisition_note": "The official release landing page and PDF URL were verified; Table 1 values were transcribed from the web-rendered table and screenshot. PDF and XLSX bytes were not acquired in this session. No upstream digest is asserted. The JSON fixture itself is not the source PDF digest.",
+    "extraction_method": "manual_transcription_from_official_web_rendered_pdf_table_visual_review",
+    "extraction_status": "not_independently_reparsed_from_source_bytes",
+    "license_status": "published material; Stats SA Publication and Data Access Policy applies; this record does not assert a permissive data license",
+    "license_policy_url": "https://www.statssa.gov.za/?page_id=18324",
+    "rebasing_status_as_of": "2026-10-22",
+    "rebase_note": "The Q2 release says 2022-base rebased/benchmarked national accounts are expected in October 2026. The official live pages checked in this pass still described the release as expected; a separate rebase release was not located. Record a new vintage when officially published; do not infer it exists solely because October has arrived.",
+    "provenance_limits": [
+      "Manual transcription could contain key-entry errors even where arithmetic residuals are within rounding bounds.",
+      "No upstream source-byte digest or parser replay yet.",
+      "Do not splice the existing 2015-price-base series to a future 2022-price-base series without explicit overlap/vintage bridge."
+    ]
+  },
+  "units": {
+    "currency": "ZAR",
+    "scale": "million",
+    "price_basis": "constant_2015_prices",
+    "annual_convention": "annual totals, not seasonally adjusted",
+    "quarterly_convention": "seasonally adjusted and annualised levels",
+    "note": "Annual totals and quarterly SAAR values are separate frequencies and must not be concatenated as a single same-frequency series."
+  },
+  "metrics": [
+    {
+      "metric_id": "agriculture_forestry_fishing",
+      "label": "Agriculture, forestry and fishing",
+      "ordinal": 1,
+      "unit": "ZAR_million_constant_2015_prices",
+      "series_role": "industry_value_added"
+    },
+    {
+      "metric_id": "mining_quarrying",
+      "label": "Mining and quarrying",
+      "ordinal": 2,
+      "unit": "ZAR_million_constant_2015_prices",
+      "series_role": "industry_value_added"
+    },
+    {
+      "metric_id": "manufacturing",
+      "label": "Manufacturing",
+      "ordinal": 3,
+      "unit": "ZAR_million_constant_2015_prices",
+      "series_role": "industry_value_added"
+    },
+    {
+      "metric_id": "electricity_gas_water",
+      "label": "Electricity, gas and water",
+      "ordinal": 4,
+      "unit": "ZAR_million_constant_2015_prices",
+      "series_role": "industry_value_added"
+    },
+    {
+      "metric_id": "construction",
+      "label": "Construction",
+      "ordinal": 5,
+      "unit": "ZAR_million_constant_2015_prices",
+      "series_role": "industry_value_added"
+    },
+    {
+      "metric_id": "trade_catering_accommodation",
+      "label": "Trade, catering and accommodation",
+      "ordinal": 6,
+      "unit": "ZAR_million_constant_2015_prices",
+      "series_role": "industry_value_added"
+    },
+    {
+      "metric_id": "transport_storage_communication",
+      "label": "Transport, storage and communication",
+      "ordinal": 7,
+      "unit": "ZAR_million_constant_2015_prices",
+      "series_role": "industry_value_added"
+    },
+    {
+      "metric_id": "finance_real_estate_business_services",
+      "label": "Finance, real estate and business services",
+      "ordinal": 8,
+      "unit": "ZAR_million_constant_2015_prices",
+      "series_role": "industry_value_added"
+    },
+    {
+      "metric_id": "general_government_services",
+      "label": "General government services",
+      "ordinal": 9,
+      "unit": "ZAR_million_constant_2015_prices",
+      "series_role": "industry_value_added"
+    },
+    {
+      "metric_id": "personal_services",
+      "label": "Personal services",
+      "ordinal": 10,
+      "unit": "ZAR_million_constant_2015_prices",
+      "series_role": "industry_value_added"
+    },
+    {
+      "metric_id": "total_value_added_basic_prices",
+      "label": "Total value added at basic prices",
+      "ordinal": 11,
+      "unit": "ZAR_million_constant_2015_prices",
+      "series_role": "aggregate_value_added"
+    },
+    {
+      "metric_id": "taxes_less_subsidies",
+      "label": "Taxes less subsidies",
+      "ordinal": 12,
+      "unit": "ZAR_million_constant_2015_prices",
+      "series_role": "taxes_less_subsidies"
+    },
+    {
+      "metric_id": "gdp_market_prices",
+      "label": "GDP at market prices",
+      "ordinal": 13,
+      "unit": "ZAR_million_constant_2015_prices",
+      "series_role": "gdp_market_price_aggregate"
+    }
+  ],
+  "reconciliation_contract": [
+    {
+      "identity_id": "industry_value_added_sum",
+      "description": "The ten industry sector values sum to total value added at basic prices up to published integer rounding.",
+      "residual_field": "industry_sector_sum_minus_total_value_added",
+      "tolerance_absolute": 5,
+      "tolerance_basis": "Ten industry values plus the aggregate are rounded to R million; conservative integer residual bound derived from displayed precision, not a substitute for checking the source file."
+    },
+    {
+      "identity_id": "gdp_at_market_prices_bridge",
+      "description": "Total value added at basic prices plus taxes less subsidies equals GDP at market prices up to displayed rounding.",
+      "residual_field": "value_added_plus_taxes_minus_gdp",
+      "tolerance_absolute": 1,
+      "tolerance_basis": "Three displayed aggregates rounded to R million; a residual of one unit is allowed for rounding only."
+    }
+  ],
+  "declared_row_counts": {
+    "annual": 8,
+    "quarterly_saar": 12,
+    "total": 20
+  },
+  "rows": [
+    {
+      "period": "2018",
+      "frequency": "annual",
+      "seasonal_adjustment": "not_seasonally_adjusted_annual",
+      "annualisation": "annual_total",
+      "source_locator": {
+        "printed_page": 8,
+        "table_id": "table_1",
+        "block": "annual_observations"
+      },
+      "values": {
+        "agriculture_forestry_fishing": 112095,
+        "mining_quarrying": 223613,
+        "manufacturing": 563250,
+        "electricity_gas_water": 111280,
+        "construction": 144861,
+        "trade_catering_accommodation": 562325,
+        "transport_storage_communication": 380339,
+        "finance_real_estate_business_services": 994663,
+        "general_government_services": 362957,
+        "personal_services": 672452,
+        "total_value_added_basic_prices": 4127833,
+        "taxes_less_subsidies": 443950,
+        "gdp_market_prices": 4571783
+      },
+      "displayed_rounding_residuals": {
+        "industry_sector_sum_minus_total_value_added": 2,
+        "value_added_plus_taxes_minus_gdp": 0
+      }
+    },
+    {
+      "period": "2019",
+      "frequency": "annual",
+      "seasonal_adjustment": "not_seasonally_adjusted_annual",
+      "annualisation": "annual_total",
+      "source_locator": {
+        "printed_page": 8,
+        "table_id": "table_1",
+        "block": "annual_observations"
+      },
+      "values": {
+        "agriculture_forestry_fishing": 104785,
+        "mining_quarrying": 222100,
+        "manufacturing": 559322,
+        "electricity_gas_water": 107571,
+        "construction": 139986,
+        "trade_catering_accommodation": 559935,
+        "transport_storage_communication": 378211,
+        "finance_real_estate_business_services": 1016210,
+        "general_government_services": 367515,
+        "personal_services": 681249,
+        "total_value_added_basic_prices": 4136884,
+        "taxes_less_subsidies": 446783,
+        "gdp_market_prices": 4583667
+      },
+      "displayed_rounding_residuals": {
+        "industry_sector_sum_minus_total_value_added": 0,
+        "value_added_plus_taxes_minus_gdp": 0
+      }
+    },
+    {
+      "period": "2020",
+      "frequency": "annual",
+      "seasonal_adjustment": "not_seasonally_adjusted_annual",
+      "annualisation": "annual_total",
+      "source_locator": {
+        "printed_page": 8,
+        "table_id": "table_1",
+        "block": "annual_observations"
+      },
+      "values": {
+        "agriculture_forestry_fishing": 122870,
+        "mining_quarrying": 194985,
+        "manufacturing": 491447,
+        "electricity_gas_water": 101405,
+        "construction": 115374,
+        "trade_catering_accommodation": 491413,
+        "transport_storage_communication": 319642,
+        "finance_real_estate_business_services": 1021809,
+        "general_government_services": 371364,
+        "personal_services": 667187,
+        "total_value_added_basic_prices": 3897495,
+        "taxes_less_subsidies": 403409,
+        "gdp_market_prices": 4300904
+      },
+      "displayed_rounding_residuals": {
+        "industry_sector_sum_minus_total_value_added": 1,
+        "value_added_plus_taxes_minus_gdp": 0
+      }
+    },
+    {
+      "period": "2021",
+      "frequency": "annual",
+      "seasonal_adjustment": "not_seasonally_adjusted_annual",
+      "annualisation": "annual_total",
+      "source_locator": {
+        "printed_page": 8,
+        "table_id": "table_1",
+        "block": "annual_observations"
+      },
+      "values": {
+        "agriculture_forestry_fishing": 128983,
+        "mining_quarrying": 219636,
+        "manufacturing": 524905,
+        "electricity_gas_water": 103787,
+        "construction": 112427,
+        "trade_catering_accommodation": 524188,
+        "transport_storage_communication": 339443,
+        "finance_real_estate_business_services": 1047807,
+        "general_government_services": 368231,
+        "personal_services": 704480,
+        "total_value_added_basic_prices": 4073887,
+        "taxes_less_subsidies": 435984,
+        "gdp_market_prices": 4509870
+      },
+      "displayed_rounding_residuals": {
+        "industry_sector_sum_minus_total_value_added": 0,
+        "value_added_plus_taxes_minus_gdp": 1
+      }
+    },
+    {
+      "period": "2022",
+      "frequency": "annual",
+      "seasonal_adjustment": "not_seasonally_adjusted_annual",
+      "annualisation": "annual_total",
+      "source_locator": {
+        "printed_page": 8,
+        "table_id": "table_1",
+        "block": "annual_observations"
+      },
+      "values": {
+        "agriculture_forestry_fishing": 131771,
+        "mining_quarrying": 204453,
+        "manufacturing": 523091,
+        "electricity_gas_water": 100918,
+        "construction": 110065,
+        "trade_catering_accommodation": 543447,
+        "transport_storage_communication": 367702,
+        "finance_real_estate_business_services": 1086089,
+        "general_government_services": 368425,
+        "personal_services": 724472,
+        "total_value_added_basic_prices": 4160431,
+        "taxes_less_subsidies": 442258,
+        "gdp_market_prices": 4602690
+      },
+      "displayed_rounding_residuals": {
+        "industry_sector_sum_minus_total_value_added": 2,
+        "value_added_plus_taxes_minus_gdp": -1
+      }
+    },
+    {
+      "period": "2023",
+      "frequency": "annual",
+      "seasonal_adjustment": "not_seasonally_adjusted_annual",
+      "annualisation": "annual_total",
+      "source_locator": {
+        "printed_page": 8,
+        "table_id": "table_1",
+        "block": "annual_observations"
+      },
+      "values": {
+        "agriculture_forestry_fishing": 125747,
+        "mining_quarrying": 204229,
+        "manufacturing": 524994,
+        "electricity_gas_water": 96689,
+        "construction": 109565,
+        "trade_catering_accommodation": 534955,
+        "transport_storage_communication": 383231,
+        "finance_real_estate_business_services": 1101706,
+        "general_government_services": 370829,
+        "personal_services": 739456,
+        "total_value_added_basic_prices": 4191400,
+        "taxes_less_subsidies": 448392,
+        "gdp_market_prices": 4639792
+      },
+      "displayed_rounding_residuals": {
+        "industry_sector_sum_minus_total_value_added": 1,
+        "value_added_plus_taxes_minus_gdp": 0
+      }
+    },
+    {
+      "period": "2024",
+      "frequency": "annual",
+      "seasonal_adjustment": "not_seasonally_adjusted_annual",
+      "annualisation": "annual_total",
+      "source_locator": {
+        "printed_page": 8,
+        "table_id": "table_1",
+        "block": "annual_observations"
+      },
+      "values": {
+        "agriculture_forestry_fishing": 114792,
+        "mining_quarrying": 205126,
+        "manufacturing": 523151,
+        "electricity_gas_water": 100040,
+        "construction": 103625,
+        "trade_catering_accommodation": 528762,
+        "transport_storage_communication": 378590,
+        "finance_real_estate_business_services": 1137339,
+        "general_government_services": 372000,
+        "personal_services": 748449,
+        "total_value_added_basic_prices": 4211873,
+        "taxes_less_subsidies": 452734,
+        "gdp_market_prices": 4664608
+      },
+      "displayed_rounding_residuals": {
+        "industry_sector_sum_minus_total_value_added": 1,
+        "value_added_plus_taxes_minus_gdp": -1
+      }
+    },
+    {
+      "period": "2025",
+      "frequency": "annual",
+      "seasonal_adjustment": "not_seasonally_adjusted_annual",
+      "annualisation": "annual_total",
+      "source_locator": {
+        "printed_page": 8,
+        "table_id": "table_1",
+        "block": "annual_observations"
+      },
+      "values": {
+        "agriculture_forestry_fishing": 134797,
+        "mining_quarrying": 205465,
+        "manufacturing": 516986,
+        "electricity_gas_water": 95759,
+        "construction": 99099,
+        "trade_catering_accommodation": 540829,
+        "transport_storage_communication": 381657,
+        "finance_real_estate_business_services": 1158863,
+        "general_government_services": 373615,
+        "personal_services": 751646,
+        "total_value_added_basic_prices": 4258715,
+        "taxes_less_subsidies": 457886,
+        "gdp_market_prices": 4716601
+      },
+      "displayed_rounding_residuals": {
+        "industry_sector_sum_minus_total_value_added": 1,
+        "value_added_plus_taxes_minus_gdp": 0
+      }
+    },
+    {
+      "period": "2023-Q3",
+      "frequency": "quarterly",
+      "seasonal_adjustment": "seasonally_adjusted",
+      "annualisation": "seasonally_adjusted_annualised_rate",
+      "source_locator": {
+        "printed_page": 8,
+        "table_id": "table_1",
+        "block": "quarterly_seasonally_adjusted_annualised_observations"
+      },
+      "values": {
+        "agriculture_forestry_fishing": 113738,
+        "mining_quarrying": 202475,
+        "manufacturing": 524749,
+        "electricity_gas_water": 96044,
+        "construction": 107839,
+        "trade_catering_accommodation": 538217,
+        "transport_storage_communication": 380192,
+        "finance_real_estate_business_services": 1104521,
+        "general_government_services": 373046,
+        "personal_services": 745043,
+        "total_value_added_basic_prices": 4185863,
+        "taxes_less_subsidies": 449881,
+        "gdp_market_prices": 4635745
+      },
+      "displayed_rounding_residuals": {
+        "industry_sector_sum_minus_total_value_added": 1,
+        "value_added_plus_taxes_minus_gdp": -1
+      }
+    },
+    {
+      "period": "2023-Q4",
+      "frequency": "quarterly",
+      "seasonal_adjustment": "seasonally_adjusted",
+      "annualisation": "seasonally_adjusted_annualised_rate",
+      "source_locator": {
+        "printed_page": 8,
+        "table_id": "table_1",
+        "block": "quarterly_seasonally_adjusted_annualised_observations"
+      },
+      "values": {
+        "agriculture_forestry_fishing": 111202,
+        "mining_quarrying": 207913,
+        "manufacturing": 528556,
+        "electricity_gas_water": 98276,
+        "construction": 106150,
+        "trade_catering_accommodation": 520718,
+        "transport_storage_communication": 392203,
+        "finance_real_estate_business_services": 1114951,
+        "general_government_services": 371501,
+        "personal_services": 749030,
+        "total_value_added_basic_prices": 4200500,
+        "taxes_less_subsidies": 453292,
+        "gdp_market_prices": 4653792
+      },
+      "displayed_rounding_residuals": {
+        "industry_sector_sum_minus_total_value_added": 0,
+        "value_added_plus_taxes_minus_gdp": 0
+      }
+    },
+    {
+      "period": "2024-Q1",
+      "frequency": "quarterly",
+      "seasonal_adjustment": "seasonally_adjusted",
+      "annualisation": "seasonally_adjusted_annualised_rate",
+      "source_locator": {
+        "printed_page": 8,
+        "table_id": "table_1",
+        "block": "quarterly_seasonally_adjusted_annualised_observations"
+      },
+      "values": {
+        "agriculture_forestry_fishing": 126746,
+        "mining_quarrying": 205508,
+        "manufacturing": 522477,
+        "electricity_gas_water": 98264,
+        "construction": 103110,
+        "trade_catering_accommodation": 525677,
+        "transport_storage_communication": 389911,
+        "finance_real_estate_business_services": 1114582,
+        "general_government_services": 370913,
+        "personal_services": 747928,
+        "total_value_added_basic_prices": 4205115,
+        "taxes_less_subsidies": 452676,
+        "gdp_market_prices": 4657791
+      },
+      "displayed_rounding_residuals": {
+        "industry_sector_sum_minus_total_value_added": 1,
+        "value_added_plus_taxes_minus_gdp": 0
+      }
+    },
+    {
+      "period": "2024-Q2",
+      "frequency": "quarterly",
+      "seasonal_adjustment": "seasonally_adjusted",
+      "annualisation": "seasonally_adjusted_annualised_rate",
+      "source_locator": {
+        "printed_page": 8,
+        "table_id": "table_1",
+        "block": "quarterly_seasonally_adjusted_annualised_observations"
+      },
+      "values": {
+        "agriculture_forestry_fishing": 121768,
+        "mining_quarrying": 204080,
+        "manufacturing": 524850,
+        "electricity_gas_water": 100213,
+        "construction": 103440,
+        "trade_catering_accommodation": 530241,
+        "transport_storage_communication": 376884,
+        "finance_real_estate_business_services": 1133702,
+        "general_government_services": 373196,
+        "personal_services": 747912,
+        "total_value_added_basic_prices": 4216285,
+        "taxes_less_subsidies": 453448,
+        "gdp_market_prices": 4669733
+      },
+      "displayed_rounding_residuals": {
+        "industry_sector_sum_minus_total_value_added": 1,
+        "value_added_plus_taxes_minus_gdp": 0
+      }
+    },
+    {
+      "period": "2024-Q3",
+      "frequency": "quarterly",
+      "seasonal_adjustment": "seasonally_adjusted",
+      "annualisation": "seasonally_adjusted_annualised_rate",
+      "source_locator": {
+        "printed_page": 8,
+        "table_id": "table_1",
+        "block": "quarterly_seasonally_adjusted_annualised_observations"
+      },
+      "values": {
+        "agriculture_forestry_fishing": 96753,
+        "mining_quarrying": 205525,
+        "manufacturing": 525466,
+        "electricity_gas_water": 101551,
+        "construction": 104230,
+        "trade_catering_accommodation": 526191,
+        "transport_storage_communication": 375883,
+        "finance_real_estate_business_services": 1145617,
+        "general_government_services": 372561,
+        "personal_services": 750628,
+        "total_value_added_basic_prices": 4204405,
+        "taxes_less_subsidies": 451764,
+        "gdp_market_prices": 4656169
+      },
+      "displayed_rounding_residuals": {
+        "industry_sector_sum_minus_total_value_added": 0,
+        "value_added_plus_taxes_minus_gdp": 0
+      }
+    },
+    {
+      "period": "2024-Q4",
+      "frequency": "quarterly",
+      "seasonal_adjustment": "seasonally_adjusted",
+      "annualisation": "seasonally_adjusted_annualised_rate",
+      "source_locator": {
+        "printed_page": 8,
+        "table_id": "table_1",
+        "block": "quarterly_seasonally_adjusted_annualised_observations"
+      },
+      "values": {
+        "agriculture_forestry_fishing": 113900,
+        "mining_quarrying": 205389,
+        "manufacturing": 519810,
+        "electricity_gas_water": 100133,
+        "construction": 103720,
+        "trade_catering_accommodation": 532940,
+        "transport_storage_communication": 371682,
+        "finance_real_estate_business_services": 1155456,
+        "general_government_services": 371331,
+        "personal_services": 747328,
+        "total_value_added_basic_prices": 4221689,
+        "taxes_less_subsidies": 453049,
+        "gdp_market_prices": 4674738
+      },
+      "displayed_rounding_residuals": {
+        "industry_sector_sum_minus_total_value_added": 0,
+        "value_added_plus_taxes_minus_gdp": 0
+      }
+    },
+    {
+      "period": "2025-Q1",
+      "frequency": "quarterly",
+      "seasonal_adjustment": "seasonally_adjusted",
+      "annualisation": "seasonally_adjusted_annualised_rate",
+      "source_locator": {
+        "printed_page": 8,
+        "table_id": "table_1",
+        "block": "quarterly_seasonally_adjusted_annualised_observations"
+      },
+      "values": {
+        "agriculture_forestry_fishing": 132553,
+        "mining_quarrying": 198626,
+        "manufacturing": 512681,
+        "electricity_gas_water": 97454,
+        "construction": 99956,
+        "trade_catering_accommodation": 534277,
+        "transport_storage_communication": 380714,
+        "finance_real_estate_business_services": 1150174,
+        "general_government_services": 370460,
+        "personal_services": 746877,
+        "total_value_added_basic_prices": 4223769,
+        "taxes_less_subsidies": 453327,
+        "gdp_market_prices": 4677096
+      },
+      "displayed_rounding_residuals": {
+        "industry_sector_sum_minus_total_value_added": 3,
+        "value_added_plus_taxes_minus_gdp": 0
+      }
+    },
+    {
+      "period": "2025-Q2",
+      "frequency": "quarterly",
+      "seasonal_adjustment": "seasonally_adjusted",
+      "annualisation": "seasonally_adjusted_annualised_rate",
+      "source_locator": {
+        "printed_page": 8,
+        "table_id": "table_1",
+        "block": "quarterly_seasonally_adjusted_annualised_observations"
+      },
+      "values": {
+        "agriculture_forestry_fishing": 134097,
+        "mining_quarrying": 204924,
+        "manufacturing": 518913,
+        "electricity_gas_water": 97598,
+        "construction": 99196,
+        "trade_catering_accommodation": 540042,
+        "transport_storage_communication": 381048,
+        "finance_real_estate_business_services": 1156802,
+        "general_government_services": 372819,
+        "personal_services": 751317,
+        "total_value_added_basic_prices": 4256755,
+        "taxes_less_subsidies": 457743,
+        "gdp_market_prices": 4714498
+      },
+      "displayed_rounding_residuals": {
+        "industry_sector_sum_minus_total_value_added": 1,
+        "value_added_plus_taxes_minus_gdp": 0
+      }
+    },
+    {
+      "period": "2025-Q3",
+      "frequency": "quarterly",
+      "seasonal_adjustment": "seasonally_adjusted",
+      "annualisation": "seasonally_adjusted_annualised_rate",
+      "source_locator": {
+        "printed_page": 8,
+        "table_id": "table_1",
+        "block": "quarterly_seasonally_adjusted_annualised_observations"
+      },
+      "values": {
+        "agriculture_forestry_fishing": 136013,
+        "mining_quarrying": 209835,
+        "manufacturing": 519785,
+        "electricity_gas_water": 95030,
+        "construction": 99260,
+        "trade_catering_accommodation": 542173,
+        "transport_storage_communication": 382917,
+        "finance_real_estate_business_services": 1156395,
+        "general_government_services": 374871,
+        "personal_services": 752829,
+        "total_value_added_basic_prices": 4269105,
+        "taxes_less_subsidies": 459492,
+        "gdp_market_prices": 4728597
+      },
+      "displayed_rounding_residuals": {
+        "industry_sector_sum_minus_total_value_added": 3,
+        "value_added_plus_taxes_minus_gdp": 0
+      }
+    },
+    {
+      "period": "2025-Q4",
+      "frequency": "quarterly",
+      "seasonal_adjustment": "seasonally_adjusted",
+      "annualisation": "seasonally_adjusted_annualised_rate",
+      "source_locator": {
+        "printed_page": 8,
+        "table_id": "table_1",
+        "block": "quarterly_seasonally_adjusted_annualised_observations"
+      },
+      "values": {
+        "agriculture_forestry_fishing": 136524,
+        "mining_quarrying": 208475,
+        "manufacturing": 516565,
+        "electricity_gas_water": 92954,
+        "construction": 97984,
+        "trade_catering_accommodation": 546825,
+        "transport_storage_communication": 381949,
+        "finance_real_estate_business_services": 1172082,
+        "general_government_services": 376312,
+        "personal_services": 755561,
+        "total_value_added_basic_prices": 4285230,
+        "taxes_less_subsidies": 460981,
+        "gdp_market_prices": 4746211
+      },
+      "displayed_rounding_residuals": {
+        "industry_sector_sum_minus_total_value_added": 1,
+        "value_added_plus_taxes_minus_gdp": 0
+      }
+    },
+    {
+      "period": "2026-Q1",
+      "frequency": "quarterly",
+      "seasonal_adjustment": "seasonally_adjusted",
+      "annualisation": "seasonally_adjusted_annualised_rate",
+      "source_locator": {
+        "printed_page": 8,
+        "table_id": "table_1",
+        "block": "quarterly_seasonally_adjusted_annualised_observations"
+      },
+      "values": {
+        "agriculture_forestry_fishing": 138224,
+        "mining_quarrying": 209866,
+        "manufacturing": 512313,
+        "electricity_gas_water": 93662,
+        "construction": 98223,
+        "trade_catering_accommodation": 549694,
+        "transport_storage_communication": 384491,
+        "finance_real_estate_business_services": 1180846,
+        "general_government_services": 377701,
+        "personal_services": 758041,
+        "total_value_added_basic_prices": 4303062,
+        "taxes_less_subsidies": 463176,
+        "gdp_market_prices": 4766238
+      },
+      "displayed_rounding_residuals": {
+        "industry_sector_sum_minus_total_value_added": -1,
+        "value_added_plus_taxes_minus_gdp": 0
+      }
+    },
+    {
+      "period": "2026-Q2",
+      "frequency": "quarterly",
+      "seasonal_adjustment": "seasonally_adjusted",
+      "annualisation": "seasonally_adjusted_annualised_rate",
+      "source_locator": {
+        "printed_page": 8,
+        "table_id": "table_1",
+        "block": "quarterly_seasonally_adjusted_annualised_observations"
+      },
+      "values": {
+        "agriculture_forestry_fishing": 138662,
+        "mining_quarrying": 203478,
+        "manufacturing": 502873,
+        "electricity_gas_water": 94586,
+        "construction": 98628,
+        "trade_catering_accommodation": 539330,
+        "transport_storage_communication": 388078,
+        "finance_real_estate_business_services": 1183807,
+        "general_government_services": 381336,
+        "personal_services": 762620,
+        "total_value_added_basic_prices": 4293399,
+        "taxes_less_subsidies": 461401,
+        "gdp_market_prices": 4754800
+      },
+      "displayed_rounding_residuals": {
+        "industry_sector_sum_minus_total_value_added": -1,
+        "value_added_plus_taxes_minus_gdp": 0
+      }
+    }
+  ],
+  "claim_ceiling": {
+    "evidence_status": "published_official_manual_transcription_unpinned",
+    "permitted": [
+      "test the displayed accounting identities within explicit published-rounding tolerances",
+      "test source-vintage and frequency separation",
+      "use as a prototype parser and known-answer target"
+    ],
+    "not_permitted": [
+      "claim byte-reproducible ingestion",
+      "describe as a fully source-pinned production dataset",
+      "treat annual and quarterly values as same-frequency points",
+      "splice 2015 price-base and future 2022 price-base series without a vintage bridge",
+      "infer local utility resilience, causality, or citizen-level outcomes"
+    ]
+  }
+}
