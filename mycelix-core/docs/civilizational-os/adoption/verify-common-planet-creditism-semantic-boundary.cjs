@@ -28,7 +28,9 @@ const REQUIRED_INVARIANTS = [
   'evaluator identity != verification authority',
   'event frequency != contribution value',
   'latent outcome != observed evidence',
-  'future negative evidence != current qualified observation'
+  'future negative evidence != current qualified observation',
+  'care/maintenance visibility != contribution value',
+  'delayed negative evidence != automatic retroactive reversal'
 ];
 
 function equalJson(a, b) {
@@ -94,7 +96,8 @@ const SUPPORTED_OPERATIONS = Object.freeze([
   'recognize_bonus',
   'exchange_pair',
   'project_to_sna',
-  'grant_housing_right'
+  'grant_housing_right',
+  'review_delayed_negative_evidence'
 ]);
 
 const FORBIDDEN_PERSONAL_CREDIT_OPERATIONS = Object.freeze({
@@ -316,6 +319,41 @@ function evaluate(input) {
         ['housing_as_monetary_balance', 'unbounded_resource_claim']);
     }
 
+    case 'review_delayed_negative_evidence': {
+      const priorTime = Date.parse(input.prior_recognition_time || '');
+      const negativeTime = Date.parse(input.negative_evidence_time || '');
+      if (!UUID_URN.test(input.prior_recognition_event_id || '') ||
+          input.prior_recognition_state !== 'recognized' ||
+          typeof input.negative_evidence_ref !== 'string' ||
+          input.negative_evidence_ref.trim().length === 0 ||
+          input.evidence_time_relation !== 'after_recognition' ||
+          !Number.isFinite(priorTime) ||
+          !Number.isFinite(negativeTime) ||
+          negativeTime <= priorTime) {
+        return result('Indeterminate', 'Unknown', [],
+          ['delayed_negative_evidence_unqualified', 'prior_recognition_event_preserved']);
+      }
+      if (input.corroboration_state !== 'qualified') {
+        return result('Indeterminate', 'Unknown', ['prior_recognition_event_preserved'],
+          ['unqualified_negative_evidence_cannot_reverse', 'no_silent_reversal']);
+      }
+      const prohibited = [
+        'retroactive_silent_reversal',
+        'contribution_issuance_before_review',
+        'moral_worth_score'
+      ];
+      if (typeof input.appeal_route !== 'string' ||
+          input.appeal_route.trim().length === 0 ||
+          typeof input.review_authority_scope !== 'string' ||
+          input.review_authority_scope.trim().length === 0) {
+        return result('PendingAppeal', 'Unknown', ['prior_recognition_event_preserved'],
+          [...prohibited, 'appeal_route_and_authority_required']);
+      }
+      return result('PendingAppeal', 'Unknown',
+        ['delayed_evidence_review_opened', 'prior_recognition_event_preserved'],
+        prohibited);
+    }
+
     default:
       return result('Indeterminate', 'Unknown', [], ['unsupported_operation']);
   }
@@ -330,12 +368,12 @@ function corpusErrors(corpus) {
   add(corpus && corpus.evaluation_state === 'contract_fixture_only', 'fixture must remain contract-only');
   add(corpus && corpus.claim_ceiling === 'ReferenceModelOnly', 'claim ceiling must remain ReferenceModelOnly');
   add(corpus && corpus.data_classification === 'synthetic', 'corpus must remain synthetic');
-  add(corpus && corpus.case_count === 32, 'declared case_count must remain 32');
+  add(corpus && corpus.case_count === 36, 'declared case_count must remain 36');
   add(corpus && Array.isArray(corpus.cases) && corpus.cases.length === corpus.case_count,
     'case_count differs from cases array length');
   add(corpus && Array.isArray(corpus.metamorphic_properties) &&
-      corpus.metamorphic_properties.length >= 9 && corpus.metamorphic_properties.length <= 15,
-    'metamorphic property suite must contain 9..15 invariance checks');
+      corpus.metamorphic_properties.length >= 11 && corpus.metamorphic_properties.length <= 15,
+    'metamorphic property suite must contain 11..15 invariance checks');
   const owners = new Set(corpus.related_owners || []);
   add(owners.has('mycelix#4572') && owners.has('mycelix#4573') &&
       owners.has('mycelix#4771') && owners.has('mycelix#5366') &&
@@ -459,7 +497,13 @@ function runMutationTests(corpus) {
     mustTransition('model-generated-activity-indeterminate', find('cp-qualified-contribution'),
       input => { input.activity_source = 'model_generated'; input.independently_observed = false; }, 'Indeterminate'),
     mustTransition('missing-appeal-route-stays-pending', find('cp-disputed-contribution-paused'),
-      input => { input.appeal_route = null; }, 'PendingAppeal')
+      input => { input.appeal_route = null; }, 'PendingAppeal'),
+    mustTransition('low-observability-care-needs-qualified-corroboration', find('cp-low-observability-care-qualifies-with-bounded-proof'),
+      input => { input.corroboration_state = 'missing'; }, 'Indeterminate'),
+    mustTransition('delayed-negative-evidence-must-follow-recognition', find('cp-delayed-negative-evidence-opens-separate-review'),
+      input => { input.negative_evidence_time = input.prior_recognition_time; }, 'Indeterminate'),
+    mustTransition('unqualified-delayed-negative-evidence-cannot-reverse', find('cp-delayed-negative-evidence-opens-separate-review'),
+      input => { input.corroboration_state = 'missing'; }, 'Indeterminate')
   ];
   const tamperedExpected = JSON.parse(JSON.stringify(corpus));
   tamperedExpected.cases[0].expected.decision = 'Reject';
@@ -502,10 +546,10 @@ function main() {
   if (!equalJson(schema.properties.cases.items.$ref, '#/$defs/case')) {
     fail('schema case reference changed');
   }
-  if (schema.properties.case_count.const !== 32 ||
-      schema.properties.cases.minItems !== 32 ||
-      schema.properties.cases.maxItems !== 32 ||
-      schema.properties.metamorphic_properties.minItems !== 9) {
+  if (schema.properties.case_count.const !== 36 ||
+      schema.properties.cases.minItems !== 36 ||
+      schema.properties.cases.maxItems !== 36 ||
+      schema.properties.metamorphic_properties.minItems !== 11) {
     fail('schema corpus/metamorphic count contract changed');
   }
   if (!equalJson(schema.$defs.case.properties.input.properties.operation.enum, SUPPORTED_OPERATIONS)) {
