@@ -1,0 +1,93 @@
+{
+  "node_id": "EK-FIN-002",
+  "lesson": {
+    "standard_code": "EK-FIN-002",
+    "title": "Evaluate Consumer Offers, Contracts, and Fraud Risks",
+    "grade_level": "Adult",
+    "bloom_level": "Evaluate",
+    "explanation": "Before accepting an offer, inspect the full terms: total cost, recurring fees, automatic renewal, minimum commitments, cancellation, data use, support, and dispute routes. Pressure, secrecy, unusual payment requests, mismatched domains, and refusal to provide verifiable details are reasons to pause and independently check. Never share one-time codes, passwords, or recovery secrets to 'verify' an account. Use current local consumer-protection sources when rights or legal remedies matter.",
+    "examples": [
+      {
+        "problem": "An online seller offers a valuable item far below typical prices but demands an irreversible payment immediately.",
+        "steps": [
+          {
+            "instruction": "Stop the time pressure and verify the seller independently.",
+            "result": "Check a known contact route, business identity, terms, and independent records."
+          },
+          {
+            "instruction": "Assess payment reversibility and information requests.",
+            "result": "Do not disclose credentials or send irreversible funds while identity and terms remain unverified."
+          }
+        ],
+        "answer": "Treat the offer as high risk until independently verified. A low price and urgency are not proof of fraud, but together justify caution."
+      }
+    ],
+    "practice_problems": [
+      {
+        "question": "An unsolicited caller asks you to read out a one-time login code to prevent account closure. What should you do?",
+        "answer": "Do not share the code. End the contact and verify through the service's known official app or site.",
+        "difficulty_permille": 200,
+        "bloom_level": "Apply",
+        "hints": [
+          "Identify what the question is asking before choosing a response.",
+          "State your reasoning and check whether it fits the context."
+        ],
+        "explanation": "Authentication codes are secrets; independently contact the service.",
+        "distractors": [
+          "Read the code if the caller sounds professional.",
+          "Share your password as well.",
+          "Click the caller's link to verify."
+        ]
+      },
+      {
+        "question": "Name four terms to compare across two subscription offers.",
+        "answer": "Full price over the whole term, fees, renewal and cancellation rules, service limits, data terms, and refund/dispute procedure.",
+        "difficulty_permille": 450,
+        "bloom_level": "Evaluate",
+        "hints": [
+          "Identify what the question is asking before choosing a response.",
+          "State your reasoning and check whether it fits the context."
+        ],
+        "explanation": "Introductory pricing may conceal later costs or constraints.",
+        "distractors": [
+          "Colour, font, popularity, and urgency.",
+          "Only introductory price.",
+          "Only the first month."
+        ]
+      }
+    ],
+    "key_vocabulary": [
+      {
+        "term": "Irreversible payment",
+        "definition": "A payment method for which reversal or recovery may be difficult or impossible.",
+        "example_usage": "Some transfers and gift-card payments have limited recovery."
+      },
+      {
+        "term": "Contract term",
+        "definition": "A provision describing rights, duties, limits, duration, or exit conditions.",
+        "example_usage": "A cancellation clause sets conditions for ending a service."
+      }
+    ],
+    "misconceptions": [
+      {
+        "misconception": "A familiar logo proves the message is genuine.",
+        "correction": "Logos and sender names can be copied; verify the underlying address and use an independent contact channel.",
+        "why_students_think_this": "Attackers impersonate brands and institutions."
+      }
+    ],
+    "hints": [
+      "Write down the evidence and assumptions before choosing a conclusion.",
+      "Explain one alternative and what observation would help distinguish it."
+    ]
+  },
+  "flashcards": [
+    {
+      "front": "Irreversible payment",
+      "back": "A payment method for which reversal or recovery may be difficult or impossible."
+    },
+    {
+      "front": "What is the demonstration goal for this capability?",
+      "back": "Name four terms to compare across two subscription offers."
+    }
+  ]
+}

@@ -72,6 +72,7 @@ fn load_curriculum_graph() -> Result<CurriculumGraph, CurriculumLoadError> {
         include_str!("../../../examples/curriculum/vocational/mycelial_humanities.json"),
         include_str!("../../../examples/curriculum/vocational/collective_flourishing.json"),
         include_str!("../../../examples/curriculum/vocational/epistemic_sovereignty.json"),
+        include_str!("../../../examples/curriculum/essential_capabilities_v1.json"),
         include_str!("../../../examples/curriculum/vocational/type1_studies.json"),
         include_str!("../../../examples/curriculum/vocational/mycelial_soul.json"),
         include_str!("../../../examples/curriculum/vocational/bioregional_vitality.json"),

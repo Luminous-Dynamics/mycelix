@@ -1,0 +1,93 @@
+{
+  "node_id": "EK-PROJ-001",
+  "lesson": {
+    "standard_code": "EK-PROJ-001",
+    "title": "Plan, Execute, and Improve a Useful Project",
+    "grade_level": "Adult",
+    "bloom_level": "Create",
+    "explanation": "A project turns an unclear need into a testable result. Define who benefits, a measurable outcome, scope and non-goals, acceptance criteria, dependencies, risks, owner, and review points before committing to a design. Build the smallest safe test that can answer the main question. Keep work and decisions visible, test against the criteria, then conduct an after-action review that looks for causes and improvements rather than blame. Preserve failed hypotheses because they can prevent repetition.",
+    "examples": [
+      {
+        "problem": "A team is asked to 'improve onboarding' but the request is vague.",
+        "steps": [
+          {
+            "instruction": "Turn the request into a testable target.",
+            "result": "For example: a new user can complete a defined setup task and explain how to recover access."
+          },
+          {
+            "instruction": "Specify scope and evidence.",
+            "result": "Record a baseline, allowed changes, test cases, completion criterion, and what is out of scope."
+          }
+        ],
+        "answer": "A measurable acceptance criterion makes it possible to tell whether the change helped and what needs revision."
+      }
+    ],
+    "practice_problems": [
+      {
+        "question": "Which is a stronger acceptance criterion: 'make it user-friendly' or 'a first-time user completes the task without help in 5 minutes in 4 of 5 observed trials'?",
+        "answer": "The second is more testable, though its threshold should be justified and the study conditions documented.",
+        "difficulty_permille": 200,
+        "bloom_level": "Apply",
+        "hints": [
+          "Identify what the question is asking before choosing a response.",
+          "State your reasoning and check whether it fits the context."
+        ],
+        "explanation": "A testable criterion defines observable evidence.",
+        "distractors": [
+          "Both are equally measurable.",
+          "Neither can be checked.",
+          "The first is always better because it is broad."
+        ]
+      },
+      {
+        "question": "A pilot fails. What should an after-action review do?",
+        "answer": "Compare expected and observed outcomes, identify assumptions and contributing conditions, preserve evidence, and assign a testable follow-up without hiding the failure.",
+        "difficulty_permille": 450,
+        "bloom_level": "Create",
+        "hints": [
+          "Identify what the question is asking before choosing a response.",
+          "State your reasoning and check whether it fits the context."
+        ],
+        "explanation": "Improvement depends on an honest record and a changed next experiment.",
+        "distractors": [
+          "Rewrite the target to claim success.",
+          "Delete failed records.",
+          "Blame an individual before analysis."
+        ]
+      }
+    ],
+    "key_vocabulary": [
+      {
+        "term": "Acceptance criterion",
+        "definition": "A condition that an outcome must satisfy to be considered adequate.",
+        "example_usage": "A testable response-time or task-completion requirement."
+      },
+      {
+        "term": "After-action review",
+        "definition": "A structured analysis of what was expected, what happened, why, and what to change.",
+        "example_usage": "Review a pilot's outcomes and failed assumptions."
+      }
+    ],
+    "misconceptions": [
+      {
+        "misconception": "A project plan should never change after kickoff.",
+        "correction": "A plan should change when evidence changes, while recording why the change was made.",
+        "why_students_think_this": "Unrecorded changes make outcomes difficult to interpret."
+      }
+    ],
+    "hints": [
+      "Write down the evidence and assumptions before choosing a conclusion.",
+      "Explain one alternative and what observation would help distinguish it."
+    ]
+  },
+  "flashcards": [
+    {
+      "front": "Acceptance criterion",
+      "back": "A condition that an outcome must satisfy to be considered adequate."
+    },
+    {
+      "front": "What is the demonstration goal for this capability?",
+      "back": "A pilot fails. What should an after-action review do?"
+    }
+  ]
+}

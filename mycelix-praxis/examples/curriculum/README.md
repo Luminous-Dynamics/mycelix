@@ -109,6 +109,15 @@ for (const edge of data.edges) {
 }
 ```
 
+## Essential Capabilities seed (adult lifelong learning)
+
+- **Data:** [`essential_capabilities_v1.json`](essential_capabilities_v1.json) — 20 cross-domain capability nodes, 39 relationship edges, and six suggested learning paths.
+- **Design and assessment notes:** [`essential_capabilities_v1.md`](essential_capabilities_v1.md) — observable demonstrations, evidence boundaries, localization cautions, references, an industry comparison, and a pilot benchmark plan including AI-withdrawal tests.
+
+This is a jurisdiction-neutral draft, not an official universal standard. Descriptions contain demonstration prompts. It claims no formal standards alignment, and mastery hours or curriculum completion are not proof of competence. Before deployment, localize law, emergency, consumer, employment, and health-system content, and have educators and learners review accessibility and omissions.
+
+The authoring workflow checked JSON parsing, unique node IDs, resolvable edge/path references, enum values, path-hour totals, and cycles in strict `Requires` edges. A dedicated extension to `scripts/validate_curriculum.py` now checks the seed's active lesson files and manifest registration; it has not yet been executed in this environment. These are structural checks only; they do not validate instructional effectiveness or make this seed a credential standard.
+
 ## Standards Source
 
 Common Core State Standards for Mathematics:

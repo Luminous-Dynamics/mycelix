@@ -1,0 +1,93 @@
+{
+  "node_id": "EK-ECO-001",
+  "lesson": {
+    "standard_code": "EK-ECO-001",
+    "title": "Understand Energy, Water, and Material Systems",
+    "grade_level": "Adult",
+    "bloom_level": "Analyze",
+    "explanation": "Resources move through systems: they are extracted or collected, transformed, stored, transported, used, and returned as waste or emissions. Compare interventions using consistent units and system boundaries. An option that reduces one cost can move costs elsewhere, create a reliability problem, or trigger rebound use. Measure before and after, include maintenance and life-cycle effects where practical, and state who benefits or bears the burden.",
+    "examples": [
+      {
+        "problem": "A leaking tap loses an estimated 0.2 litres per minute. About how much water is lost in one hour?",
+        "steps": [
+          {
+            "instruction": "Multiply the flow rate by the minutes in an hour.",
+            "result": "0.2 L/min × 60 min = 12 L."
+          },
+          {
+            "instruction": "State the uncertainty.",
+            "result": "The estimate assumes the leak rate stays constant for the hour."
+          }
+        ],
+        "answer": "About 12 litres in one hour under the stated constant-rate assumption."
+      }
+    ],
+    "practice_problems": [
+      {
+        "question": "An efficient device reduces energy used per task, but people use it twice as often. What should you compare?",
+        "answer": "Total energy use over the same period and service level, not only energy per task.",
+        "difficulty_permille": 200,
+        "bloom_level": "Apply",
+        "hints": [
+          "Identify what the question is asking before choosing a response.",
+          "State your reasoning and check whether it fits the context."
+        ],
+        "explanation": "Efficiency and total consumption can move differently.",
+        "distractors": [
+          "Only the device's efficiency label.",
+          "Only how often it is sold.",
+          "Only the first-day measurement."
+        ]
+      },
+      {
+        "question": "What should an estimate of water-saving benefits state?",
+        "answer": "Baseline and new flow/use, time period, measurement method, assumptions, and any costs or side effects.",
+        "difficulty_permille": 450,
+        "bloom_level": "Analyze",
+        "hints": [
+          "Identify what the question is asking before choosing a response.",
+          "State your reasoning and check whether it fits the context."
+        ],
+        "explanation": "Transparent assumptions make estimates comparable and revisable.",
+        "distractors": [
+          "Only a rounded percentage without a baseline.",
+          "Only the purchase price.",
+          "Only the best-case result."
+        ]
+      }
+    ],
+    "key_vocabulary": [
+      {
+        "term": "System boundary",
+        "definition": "The parts and effects included in an analysis.",
+        "example_usage": "A household energy estimate may omit energy embodied in manufacturing."
+      },
+      {
+        "term": "Rebound effect",
+        "definition": "When some expected savings are offset by increased use.",
+        "example_usage": "A cheaper-to-run device may be used more often."
+      }
+    ],
+    "misconceptions": [
+      {
+        "misconception": "Improving efficiency guarantees lower total resource use.",
+        "correction": "Total use also depends on demand, rebound, system boundaries, and other flows.",
+        "why_students_think_this": "Per-unit performance is only one part of the system."
+      }
+    ],
+    "hints": [
+      "Write down the evidence and assumptions before choosing a conclusion.",
+      "Explain one alternative and what observation would help distinguish it."
+    ]
+  },
+  "flashcards": [
+    {
+      "front": "System boundary",
+      "back": "The parts and effects included in an analysis."
+    },
+    {
+      "front": "What is the demonstration goal for this capability?",
+      "back": "What should an estimate of water-saving benefits state?"
+    }
+  ]
+}

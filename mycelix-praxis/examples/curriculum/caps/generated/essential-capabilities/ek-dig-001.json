@@ -1,0 +1,93 @@
+{
+  "node_id": "EK-DIG-001",
+  "lesson": {
+    "standard_code": "EK-DIG-001",
+    "title": "Protect Accounts, Devices, Privacy, and Consent",
+    "grade_level": "Adult",
+    "bloom_level": "Apply",
+    "explanation": "Digital safety reduces avoidable exposure; it cannot eliminate all risk. Use unique passwords or a reputable password manager, enable multifactor authentication where possible, keep software updated, secure recovery options, and maintain backups. Treat unexpected links, attachments, QR codes, and requests for codes or secrets with care. Share personal information intentionally, check permissions, and separate public information from confidential records. Adapt controls to device capabilities and the consequences of account loss.",
+    "examples": [
+      {
+        "problem": "You receive an unexpected 'account locked' message asking you to sign in through a link.",
+        "steps": [
+          {
+            "instruction": "Do not use the supplied link or reply with secrets.",
+            "result": "Avoid providing credentials or authentication codes."
+          },
+          {
+            "instruction": "Open the service through a saved bookmark or known official app.",
+            "result": "Check the account and report the message through a trusted route."
+          }
+        ],
+        "answer": "Independent navigation reduces the chance of handing credentials to an impersonator."
+      }
+    ],
+    "practice_problems": [
+      {
+        "question": "Which is stronger: one memorable password reused everywhere, or unique passwords stored in a password manager?",
+        "answer": "Unique passwords stored in a reputable password manager reduce the risk that one breached service unlocks other accounts.",
+        "difficulty_permille": 200,
+        "bloom_level": "Apply",
+        "hints": [
+          "Identify what the question is asking before choosing a response.",
+          "State your reasoning and check whether it fits the context."
+        ],
+        "explanation": "Password reuse allows one compromise to cascade.",
+        "distractors": [
+          "Reusing the same password.",
+          "Writing the password in a public note.",
+          "Sending it in a chat."
+        ]
+      },
+      {
+        "question": "What should an account-recovery plan include?",
+        "answer": "Current recovery options, protected backup codes where supported, trusted contact details if appropriate, and a safe method to revoke lost sessions/devices.",
+        "difficulty_permille": 450,
+        "bloom_level": "Apply",
+        "hints": [
+          "Identify what the question is asking before choosing a response.",
+          "State your reasoning and check whether it fits the context."
+        ],
+        "explanation": "Recovery is part of account security; secrets still need protection.",
+        "distractors": [
+          "Posting recovery codes publicly.",
+          "Sending secrets to an unsolicited caller.",
+          "Relying only on memory."
+        ]
+      }
+    ],
+    "key_vocabulary": [
+      {
+        "term": "Multifactor authentication (MFA)",
+        "definition": "Sign-in that requires more than one kind of proof.",
+        "example_usage": "A password plus a security key."
+      },
+      {
+        "term": "Least privilege",
+        "definition": "Give an account or app only the permissions needed for its task.",
+        "example_usage": "A note-taking app usually does not need access to every account."
+      }
+    ],
+    "misconceptions": [
+      {
+        "misconception": "MFA makes phishing impossible.",
+        "correction": "Some MFA methods can still be phished or socially engineered; use phishing-resistant options where available and keep recovery secure.",
+        "why_students_think_this": "Security controls reduce risk but do not remove it."
+      }
+    ],
+    "hints": [
+      "Write down the evidence and assumptions before choosing a conclusion.",
+      "Explain one alternative and what observation would help distinguish it."
+    ]
+  },
+  "flashcards": [
+    {
+      "front": "Multifactor authentication (MFA)",
+      "back": "Sign-in that requires more than one kind of proof."
+    },
+    {
+      "front": "What is the demonstration goal for this capability?",
+      "back": "What should an account-recovery plan include?"
+    }
+  ]
+}

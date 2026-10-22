@@ -1,0 +1,93 @@
+{
+  "node_id": "EK-COMMS-001",
+  "lesson": {
+    "standard_code": "EK-COMMS-001",
+    "title": "Communicate Clearly and Work Through Disagreement",
+    "grade_level": "Adult",
+    "bloom_level": "Apply",
+    "explanation": "Good collaboration makes needs, constraints, uncertainty, and next actions explicit. Describe observable events before judging motives; ask questions that could change your interpretation; summarize the other person's view in terms they recognize; and separate agreement on facts from agreement on values. A useful conversation seeks a workable next step, not a forced confession or a win at any cost. In unsafe or coercive situations, prioritize boundaries and appropriate support over negotiation.",
+    "examples": [
+      {
+        "problem": "A teammate misses a deadline and you are frustrated.",
+        "steps": [
+          {
+            "instruction": "State the observable impact without assigning motive.",
+            "result": "'The report was not available at the agreed time, so review is delayed.'"
+          },
+          {
+            "instruction": "Ask a clarifying question and propose a concrete next step.",
+            "result": "'What blocked it, and what delivery time can we safely commit to now?'"
+          }
+        ],
+        "answer": "This gives the team a path to understand the constraint, reset expectations, and prevent recurrence without assuming intent."
+      }
+    ],
+    "practice_problems": [
+      {
+        "question": "Rewrite 'You never care about the project' as an observation and a request.",
+        "answer": "For example: 'The last two agreed updates were missed. Can we agree on a status and escalation time for the next milestone?'",
+        "difficulty_permille": 200,
+        "bloom_level": "Apply",
+        "hints": [
+          "Identify what the question is asking before choosing a response.",
+          "State your reasoning and check whether it fits the context."
+        ],
+        "explanation": "Observable facts and a specific request are easier to discuss.",
+        "distractors": [
+          "Repeat the accusation more loudly.",
+          "Guess at the other person's motives.",
+          "Avoid defining any next step."
+        ]
+      },
+      {
+        "question": "How can you check whether you understood a disagreement?",
+        "answer": "Summarize the other person's concern, ask whether the summary is fair, and invite corrections before responding.",
+        "difficulty_permille": 450,
+        "bloom_level": "Apply",
+        "hints": [
+          "Identify what the question is asking before choosing a response.",
+          "State your reasoning and check whether it fits the context."
+        ],
+        "explanation": "Accurate understanding reduces arguments about misrepresented positions.",
+        "distractors": [
+          "Assume silence means agreement.",
+          "Prepare your rebuttal before listening.",
+          "Use a reputation score to decide who is right."
+        ]
+      }
+    ],
+    "key_vocabulary": [
+      {
+        "term": "Active listening",
+        "definition": "Attending to another person's meaning and checking your understanding.",
+        "example_usage": "Paraphrase the concern and ask what you missed."
+      },
+      {
+        "term": "Boundary",
+        "definition": "A clear limit on what you will do, accept, or disclose.",
+        "example_usage": "Decline to share a password even if pressured."
+      }
+    ],
+    "misconceptions": [
+      {
+        "misconception": "De-escalation means conceding every point.",
+        "correction": "It means lowering avoidable threat and clarifying the issue; firm boundaries and disagreement can remain.",
+        "why_students_think_this": "People often confuse calm process with agreement."
+      }
+    ],
+    "hints": [
+      "Write down the evidence and assumptions before choosing a conclusion.",
+      "Explain one alternative and what observation would help distinguish it."
+    ]
+  },
+  "flashcards": [
+    {
+      "front": "Active listening",
+      "back": "Attending to another person's meaning and checking your understanding."
+    },
+    {
+      "front": "What is the demonstration goal for this capability?",
+      "back": "How can you check whether you understood a disagreement?"
+    }
+  ]
+}

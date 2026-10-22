@@ -1,0 +1,93 @@
+{
+  "node_id": "EK-WORK-001",
+  "lesson": {
+    "standard_code": "EK-WORK-001",
+    "title": "Navigate Work, Collaboration, and Career Development",
+    "grade_level": "Adult",
+    "bloom_level": "Apply",
+    "explanation": "Work literacy connects an employer's or client's stated need to deliverables, acceptance criteria, timelines, responsibilities, and evidence of competence. Read role requirements carefully, distinguish required from preferred skills, ask about unclear terms, track commitments, and document completed work with permission and respect for confidential information. Pay documents, safety obligations, worker rights, licensing, and employment law differ by jurisdiction; use current local official resources or qualified advice for specific cases.",
+    "examples": [
+      {
+        "problem": "A role requests three skills you have and two you have not used professionally.",
+        "steps": [
+          {
+            "instruction": "Map each requirement to evidence.",
+            "result": "Link existing skills to work samples or outcomes that can be shared safely."
+          },
+          {
+            "instruction": "Plan a realistic gap-closing exercise.",
+            "result": "Build a small testable artifact for one missing skill and identify what remains unproven."
+          }
+        ],
+        "answer": "An evidence-backed skills map is more useful than claiming mastery of tools you have not yet used."
+      }
+    ],
+    "practice_problems": [
+      {
+        "question": "A job description says a skill is 'preferred,' while another is required for the role. How should you prioritize a learning plan?",
+        "answer": "Clarify role context, prioritize safety- or outcome-critical requirements first, and distinguish required competence from useful additional skills.",
+        "difficulty_permille": 200,
+        "bloom_level": "Apply",
+        "hints": [
+          "Identify what the question is asking before choosing a response.",
+          "State your reasoning and check whether it fits the context."
+        ],
+        "explanation": "Requirements have different roles, and claims should match evidence.",
+        "distractors": [
+          "Treat every listed item as equally critical.",
+          "Ignore all missing skills.",
+          "Claim the preferred skill without evidence."
+        ]
+      },
+      {
+        "question": "What makes a work sample safe to share in a portfolio?",
+        "answer": "It respects confidentiality, ownership, security and privacy constraints, removes sensitive data, and clearly states your contribution.",
+        "difficulty_permille": 450,
+        "bloom_level": "Apply",
+        "hints": [
+          "Identify what the question is asking before choosing a response.",
+          "State your reasoning and check whether it fits the context."
+        ],
+        "explanation": "Skill evidence should not expose others or misrepresent authorship.",
+        "distractors": [
+          "Uploading a customer's production database.",
+          "Sharing another person's private work as yours.",
+          "Publishing secrets to demonstrate access."
+        ]
+      }
+    ],
+    "key_vocabulary": [
+      {
+        "term": "Work sample",
+        "definition": "An artifact or demonstration showing a person's contribution or capability.",
+        "example_usage": "A sanitized code sample with tests and a clear scope note."
+      },
+      {
+        "term": "Acceptance criteria",
+        "definition": "Observable conditions that define whether work meets the agreed need.",
+        "example_usage": "A service is considered restored after specified checks pass."
+      }
+    ],
+    "misconceptions": [
+      {
+        "misconception": "A certificate or job title proves every related skill.",
+        "correction": "Credentials and titles can provide context, but actual capabilities are task- and scope-specific and should be supported by relevant evidence.",
+        "why_students_think_this": "Broad labels can hide meaningful gaps or outdated skills."
+      }
+    ],
+    "hints": [
+      "Write down the evidence and assumptions before choosing a conclusion.",
+      "Explain one alternative and what observation would help distinguish it."
+    ]
+  },
+  "flashcards": [
+    {
+      "front": "Work sample",
+      "back": "An artifact or demonstration showing a person's contribution or capability."
+    },
+    {
+      "front": "What is the demonstration goal for this capability?",
+      "back": "What makes a work sample safe to share in a portfolio?"
+    }
+  ]
+}

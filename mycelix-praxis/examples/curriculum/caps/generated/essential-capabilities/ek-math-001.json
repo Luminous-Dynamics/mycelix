@@ -1,0 +1,93 @@
+{
+  "node_id": "EK-MATH-001",
+  "lesson": {
+    "standard_code": "EK-MATH-001",
+    "title": "Use Numeracy, Ratios, Units, and Estimation",
+    "grade_level": "Adult",
+    "bloom_level": "Apply",
+    "explanation": "Numeracy is the ability to make quantities meaningful. Estimate first, keep units attached to numbers, check denominators, and compare like with like. Percentages, rates, ratios, and unit conversions are often more useful than exact-looking numbers. A calculator can execute arithmetic but cannot decide whether the inputs or result make sense. State assumptions where a rate depends on time, distance, population, or other context.",
+    "examples": [
+      {
+        "problem": "A device uses 60 watts while running for 5 hours. Estimate its energy use in kilowatt-hours.",
+        "steps": [
+          {
+            "instruction": "Multiply power by time.",
+            "result": "60 W × 5 h = 300 Wh."
+          },
+          {
+            "instruction": "Convert watt-hours to kilowatt-hours.",
+            "result": "300 Wh ÷ 1,000 = 0.3 kWh."
+          }
+        ],
+        "answer": "0.3 kWh, assuming it draws about 60 W for all five hours."
+      }
+    ],
+    "practice_problems": [
+      {
+        "question": "A 2.5 L container holds how many millilitres?",
+        "answer": "2,500 mL.",
+        "difficulty_permille": 200,
+        "bloom_level": "Apply",
+        "hints": [
+          "Identify what the question is asking before choosing a response.",
+          "State your reasoning and check whether it fits the context."
+        ],
+        "explanation": "One litre equals 1,000 millilitres.",
+        "distractors": [
+          "25 mL.",
+          "250 mL.",
+          "25,000 mL."
+        ]
+      },
+      {
+        "question": "A repair estimate falls from 800 to 680 units of currency. What is the percentage decrease?",
+        "answer": "The decrease is 120; 120 ÷ 800 = 0.15, or 15%.",
+        "difficulty_permille": 450,
+        "bloom_level": "Apply",
+        "hints": [
+          "Identify what the question is asking before choosing a response.",
+          "State your reasoning and check whether it fits the context."
+        ],
+        "explanation": "Compute the change divided by the original amount.",
+        "distractors": [
+          "120%.",
+          "15 percentage points.",
+          "1.5%."
+        ]
+      }
+    ],
+    "key_vocabulary": [
+      {
+        "term": "Rate",
+        "definition": "A quantity expressed per unit of another quantity.",
+        "example_usage": "Kilometres per hour is distance per time."
+      },
+      {
+        "term": "Order of magnitude",
+        "definition": "A rough scale of a quantity, often as a power of ten.",
+        "example_usage": "Hundreds and millions differ by several orders of magnitude."
+      }
+    ],
+    "misconceptions": [
+      {
+        "misconception": "A precise decimal is automatically accurate.",
+        "correction": "Precision of formatting does not fix weak inputs or wrong assumptions.",
+        "why_students_think_this": "Calculators return exact-looking outputs from inaccurate premises."
+      }
+    ],
+    "hints": [
+      "Write down the evidence and assumptions before choosing a conclusion.",
+      "Explain one alternative and what observation would help distinguish it."
+    ]
+  },
+  "flashcards": [
+    {
+      "front": "Rate",
+      "back": "A quantity expressed per unit of another quantity."
+    },
+    {
+      "front": "What is the demonstration goal for this capability?",
+      "back": "A repair estimate falls from 800 to 680 units of currency. What is the percentage decrease?"
+    }
+  ]
+}

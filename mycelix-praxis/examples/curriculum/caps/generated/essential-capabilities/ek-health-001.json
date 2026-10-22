@@ -1,0 +1,93 @@
+{
+  "node_id": "EK-HEALTH-001",
+  "lesson": {
+    "standard_code": "EK-HEALTH-001",
+    "title": "Navigate Health Information and Care Decisions",
+    "grade_level": "Adult",
+    "bloom_level": "Apply",
+    "explanation": "Health literacy helps people find, understand, appraise, and use information in conversations with qualified care providers. Check the source, date, population, uncertainty, conflicts of interest, and whether findings apply to the actual question. Prepare a concise history and questions; compare benefits, harms, alternatives, and the option of waiting where a qualified professional says it is reasonable. Do not use this lesson to diagnose yourself or another person. For urgent danger, follow official local emergency guidance.",
+    "examples": [
+      {
+        "problem": "A viral post claims a common symptom always indicates one serious illness.",
+        "steps": [
+          {
+            "instruction": "Identify the source, scope, and evidence behind the absolute claim.",
+            "result": "Look for current information from an appropriate health authority or qualified clinical source."
+          },
+          {
+            "instruction": "Prepare a decision-focused question for a clinician.",
+            "result": "Describe the symptom, timing, relevant context, and what would warrant urgent care."
+          }
+        ],
+        "answer": "A broad post cannot determine a diagnosis for an individual. Verify reliable information and seek qualified care appropriate to the situation."
+      }
+    ],
+    "practice_problems": [
+      {
+        "question": "You find conflicting health advice from two websites. What should you compare?",
+        "answer": "Authority and relevant expertise, source date, evidence quality, population, harms/benefits, uncertainty, and whether it links to primary evidence or current guidance.",
+        "difficulty_permille": 200,
+        "bloom_level": "Apply",
+        "hints": [
+          "Identify what the question is asking before choosing a response.",
+          "State your reasoning and check whether it fits the context."
+        ],
+        "explanation": "Popularity and urgency are not substitutes for current evidence.",
+        "distractors": [
+          "Which headline is more alarming.",
+          "Which page has more ads.",
+          "Which view is repeated most often."
+        ]
+      },
+      {
+        "question": "What makes a useful question for a health appointment?",
+        "answer": "A specific question about likely options, benefits and harms, alternatives, uncertainties, follow-up, or signs that need urgent attention.",
+        "difficulty_permille": 450,
+        "bloom_level": "Apply",
+        "hints": [
+          "Identify what the question is asking before choosing a response.",
+          "State your reasoning and check whether it fits the context."
+        ],
+        "explanation": "Clear questions support informed discussion, not replacement of clinical judgment.",
+        "distractors": [
+          "A demand that a specific diagnosis be confirmed.",
+          "A question based solely on an unverified post.",
+          "No questions at all."
+        ]
+      }
+    ],
+    "key_vocabulary": [
+      {
+        "term": "Health literacy",
+        "definition": "The ability to access, understand, appraise, and use health information and services.",
+        "example_usage": "Preparing questions and checking source quality."
+      },
+      {
+        "term": "Shared decision-making",
+        "definition": "A discussion combining the person's values with professional knowledge and available evidence.",
+        "example_usage": "Comparing treatment options and trade-offs with a clinician."
+      }
+    ],
+    "misconceptions": [
+      {
+        "misconception": "A reputable general health source can diagnose a specific individual.",
+        "correction": "General information can inform questions but does not substitute for an individual clinical evaluation.",
+        "why_students_think_this": "Population-level guidance and personal diagnosis answer different questions."
+      }
+    ],
+    "hints": [
+      "Write down the evidence and assumptions before choosing a conclusion.",
+      "Explain one alternative and what observation would help distinguish it."
+    ]
+  },
+  "flashcards": [
+    {
+      "front": "Health literacy",
+      "back": "The ability to access, understand, appraise, and use health information and services."
+    },
+    {
+      "front": "What is the demonstration goal for this capability?",
+      "back": "What makes a useful question for a health appointment?"
+    }
+  ]
+}

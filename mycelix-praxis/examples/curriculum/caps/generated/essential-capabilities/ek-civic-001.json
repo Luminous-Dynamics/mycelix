@@ -1,0 +1,93 @@
+{
+  "node_id": "EK-CIVIC-001",
+  "lesson": {
+    "standard_code": "EK-CIVIC-001",
+    "title": "Understand Civic Institutions and Participate with Evidence",
+    "grade_level": "Adult",
+    "bloom_level": "Analyze",
+    "explanation": "Civic literacy means understanding how public decisions are made, which institution has authority, how to locate primary rules and notices, and how people can participate or appeal. Processes and rights differ across countries, regions, and levels of government, so verify the jurisdiction and effective date. Fair participation also means representing opposing arguments accurately, distinguishing evidence from values, and recording uncertainty rather than forwarding a claim because it supports your preferred side.",
+    "examples": [
+      {
+        "problem": "A social post says a new local rule takes effect tomorrow. How do you check it?",
+        "steps": [
+          {
+            "instruction": "Identify the jurisdiction and institution that would have authority.",
+            "result": "Find the relevant agency, council, legislature, court, or official process."
+          },
+          {
+            "instruction": "Find the primary notice and its effective date.",
+            "result": "Check whether the rule was adopted, amended, delayed, or only proposed."
+          }
+        ],
+        "answer": "Do not treat commentary about a policy as the policy itself. Trace the claim to the relevant dated primary record."
+      }
+    ],
+    "practice_problems": [
+      {
+        "question": "A proposal is open for comment but has not been adopted. How should it be described?",
+        "answer": "As a proposal open for comment, not as an already effective rule.",
+        "difficulty_permille": 200,
+        "bloom_level": "Apply",
+        "hints": [
+          "Identify what the question is asking before choosing a response.",
+          "State your reasoning and check whether it fits the context."
+        ],
+        "explanation": "The status of a policy is material evidence.",
+        "distractors": [
+          "As a law that definitely applies.",
+          "As an unchangeable decision.",
+          "As proof of wrongdoing."
+        ]
+      },
+      {
+        "question": "What information should you record when sharing a public-policy claim?",
+        "answer": "The specific claim, responsible institution/jurisdiction, primary source, publication/effective date, and uncertainty or opposing evidence.",
+        "difficulty_permille": 450,
+        "bloom_level": "Analyze",
+        "hints": [
+          "Identify what the question is asking before choosing a response.",
+          "State your reasoning and check whether it fits the context."
+        ],
+        "explanation": "Public records enable independent checking and participation.",
+        "distractors": [
+          "Only the most persuasive quote.",
+          "Only the number of reactions.",
+          "Only whether it agrees with your view."
+        ]
+      }
+    ],
+    "key_vocabulary": [
+      {
+        "term": "Jurisdiction",
+        "definition": "The territory or subject area within which an authority has power.",
+        "example_usage": "A national rule and a municipal bylaw may apply differently."
+      },
+      {
+        "term": "Primary source",
+        "definition": "A direct record from the institution or person responsible for an event or decision.",
+        "example_usage": "An official published notice is a primary source for its own effective date."
+      }
+    ],
+    "misconceptions": [
+      {
+        "misconception": "A proposal, announcement, and enacted rule are interchangeable.",
+        "correction": "They have distinct statuses and may have different legal effects.",
+        "why_students_think_this": "Public discussion often compresses complex procedural stages into a headline."
+      }
+    ],
+    "hints": [
+      "Write down the evidence and assumptions before choosing a conclusion.",
+      "Explain one alternative and what observation would help distinguish it."
+    ]
+  },
+  "flashcards": [
+    {
+      "front": "Jurisdiction",
+      "back": "The territory or subject area within which an authority has power."
+    },
+    {
+      "front": "What is the demonstration goal for this capability?",
+      "back": "What information should you record when sharing a public-policy claim?"
+    }
+  ]
+}

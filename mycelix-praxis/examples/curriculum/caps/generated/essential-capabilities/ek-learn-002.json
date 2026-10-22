@@ -1,0 +1,160 @@
+{
+  "node_id": "EK-LEARN-002",
+  "lesson": {
+    "standard_code": "EK-LEARN-002",
+    "title": "Learn With AI Without Offloading Your Reasoning",
+    "grade_level": "Adult",
+    "bloom_level": "Apply",
+    "explanation": "An AI tool can make a task feel easier without making the underlying skill durable. Use it to create productive support, not to replace the mental work you want to learn. First make an independent attempt or state what you know. Ask for a hint, a question, an analogy, or feedback on your own reasoning before requesting a full solution. Verify important claims, explain the result in your own words, and schedule a tool-free retrieval or transfer task. As capability improves, gradually reduce hints and assistance. Record what help was used so an assisted success is not misreported as independent mastery. Good design should improve both supported performance and later independent performance.",
+    "examples": [
+      {
+        "problem": "You are learning to debug a small program and an AI assistant can immediately provide the corrected code.",
+        "steps": [
+          {
+            "instruction": "Attempt to locate the failure and state a hypothesis before asking for help.",
+            "result": "You create a baseline and expose your current reasoning."
+          },
+          {
+            "instruction": "Ask for one diagnostic hint or a question that narrows the cause, not the final patch.",
+            "result": "The tool helps direct attention while preserving the learner's work."
+          },
+          {
+            "instruction": "Make a change, run a test, and explain why the result supports or contradicts your hypothesis.",
+            "result": "Your explanation is checked against observed behavior."
+          },
+          {
+            "instruction": "Close the assistant and debug a different small failure using the same principles.",
+            "result": "The tool-free task tests transfer rather than recall of the answer."
+          }
+        ],
+        "answer": "A useful learning loop combines independent attempt, bounded assistance, evidence-based feedback, and tool-free transfer. The generated patch alone is not proof that you learned to debug."
+      },
+      {
+        "problem": "An AI-supported practice score rises sharply, but a later no-AI quiz does not improve.",
+        "steps": [
+          {
+            "instruction": "Separate performance with assistance from performance without assistance.",
+            "result": "Record them as distinct conditions."
+          },
+          {
+            "instruction": "Inspect whether help revealed answers, skipped retrieval, or prevented the learner from explaining the reasoning.",
+            "result": "Identify possible cognitive offloading or over-scaffolding."
+          },
+          {
+            "instruction": "Compare hint-first support with direct answers using parallel tasks and delayed tool-free tests.",
+            "result": "Test whether the instructional policy changes durable learning."
+          }
+        ],
+        "answer": "High assisted performance may indicate useful support, but it does not establish independent skill. Retain the distinction and redesign the support policy based on delayed outcomes."
+      }
+    ],
+    "practice_problems": [
+      {
+        "question": "You want to learn a new calculation. Which AI request best preserves your opportunity to learn?",
+        "answer": "'Ask me what I have tried, then give one hint at a time. Do not give the final answer until I have attempted the next step; afterward, check my reasoning and give me a different problem to solve without help.'",
+        "difficulty_permille": 250,
+        "bloom_level": "Apply",
+        "hints": [
+          "Ask the tool to support the learning process, not just finish the task.",
+          "Look for an independent attempt, bounded hint, feedback, and a new tool-free problem."
+        ],
+        "explanation": "Hint-first scaffolding keeps the learner responsible for retrieving and applying the core reasoning. The final independent task provides evidence beyond the AI-assisted interaction.",
+        "distractors": [
+          "'Give me the final answer immediately and write it as if I solved it.'",
+          "'Keep solving each next step before I have to think.'",
+          "'Tell me whether I mastered it based only on how fast I clicked through.'"
+        ]
+      },
+      {
+        "question": "A learner solves an exercise correctly after the AI reveals every step. What can you conclude from that result alone?",
+        "answer": "Only that the task was completed correctly with direct-answer assistance under those conditions. Independent mastery and transfer remain unproven.",
+        "difficulty_permille": 300,
+        "bloom_level": "Analyze",
+        "hints": [
+          "Preserve the assistance context.",
+          "Ask what evidence would distinguish copying from understanding."
+        ],
+        "explanation": "The conditions of a performance are part of its interpretation. Assistance must be recorded instead of erased from the evidence.",
+        "distractors": [
+          "The learner has independently mastered the skill.",
+          "The learner cheated in every possible context.",
+          "The learner should never use AI again."
+        ]
+      },
+      {
+        "question": "Design a minimum fair comparison between a hint-first AI tutor and a direct-answer AI tutor.",
+        "answer": "Use comparable tasks and time limits, keep content and feedback quality as similar as practicable, randomly assign or counterbalance conditions where appropriate, and assess immediate performance plus delayed no-AI transfer with prespecified rubrics. Report uncertainty and attrition.",
+        "difficulty_permille": 650,
+        "bloom_level": "Create",
+        "hints": [
+          "Do not measure only task completion while the tool is present.",
+          "Use comparable tasks, delayed independent performance, and a stated analysis plan."
+        ],
+        "explanation": "A fair test distinguishes productivity with assistance from durable skill acquisition, and reduces bias from task difficulty or selective outcome reporting.",
+        "distractors": [
+          "Measure only how many answers the AI produces per minute.",
+          "Let each group choose completely different tasks and compare raw scores.",
+          "Change the success criterion after seeing the results."
+        ]
+      }
+    ],
+    "key_vocabulary": [
+      {
+        "term": "Scaffolding",
+        "definition": "Temporary support that enables a learner to perform a task while developing capability.",
+        "example_usage": "An instructor gives a targeted hint rather than completing the proof."
+      },
+      {
+        "term": "Scaffold fading",
+        "definition": "Gradually reducing external help as the learner becomes able to perform more independently.",
+        "example_usage": "Move from a worked example to a partial hint and then an independent problem."
+      },
+      {
+        "term": "Cognitive offloading",
+        "definition": "Using an external tool or representation to reduce internal mental effort; it can be helpful, but may also replace practice needed for learning.",
+        "example_usage": "Copying a generated solution may finish a task without building the skill to solve the next one."
+      },
+      {
+        "term": "Tool-free transfer",
+        "definition": "Demonstrating a skill on a different but related task without access to the assistance that supported practice.",
+        "example_usage": "Solving a new debugging problem without the AI assistant after earlier hint-based practice."
+      }
+    ],
+    "misconceptions": [
+      {
+        "misconception": "If AI makes a task faster, it necessarily improved learning.",
+        "correction": "Speed and task success under assistance are useful but distinct from retained independent capability. Measure both.",
+        "why_students_think_this": "Immediate, visible results are easier to observe than delayed learning."
+      },
+      {
+        "misconception": "Using AI is inherently harmful to learning.",
+        "correction": "Effects depend on the task, the form of support, the learner, and how outcomes are measured. Test hinting, feedback, and fading rather than assuming a universal effect.",
+        "why_students_think_this": "Warnings about over-reliance can be misread as a ban on all useful support."
+      },
+      {
+        "misconception": "A tool-free test should never be used because it ignores real-world tools.",
+        "correction": "Both assisted and independent performance matter. Measure the tool-assisted workflow and the underlying independent skill when each is relevant.",
+        "why_students_think_this": "Different jobs require different tool conditions; confusing them creates an incomplete assessment."
+      }
+    ],
+    "hints": [
+      "Make an independent attempt before requesting a full solution.",
+      "Ask for bounded help and check it against evidence.",
+      "Fade assistance and test a new task without the tool."
+    ]
+  },
+  "flashcards": [
+    {
+      "front": "What is scaffold fading?",
+      "back": "Gradually reducing support as the learner gains ability, until the learner can perform the target task independently."
+    },
+    {
+      "front": "Why test tool-free transfer after AI-assisted practice?",
+      "back": "It helps distinguish completing a task with assistance from retaining and transferring the underlying capability."
+    },
+    {
+      "front": "Does an assisted correct answer prove independent mastery?",
+      "back": "No. The assistance class and task conditions must remain visible, and independent performance requires its own evidence."
+    }
+  ]
+}

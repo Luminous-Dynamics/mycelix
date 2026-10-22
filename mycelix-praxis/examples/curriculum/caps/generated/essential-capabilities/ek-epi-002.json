@@ -1,0 +1,93 @@
+{
+  "node_id": "EK-EPI-002",
+  "lesson": {
+    "standard_code": "EK-EPI-002",
+    "title": "Evaluate Sources and Trace Provenance",
+    "grade_level": "Adult",
+    "bloom_level": "Evaluate",
+    "explanation": "A claim is easier to assess when its origin and transformations are visible. Ask who made it, when, for what purpose, using which method or evidence, and whether the original record is available. Separate primary evidence from commentary and summaries. Multiple posts repeating one source are not independent corroboration. Expertise matters, but authority does not eliminate the need to inspect scope, methods, conflicts of interest, corrections, and alternative sources.",
+    "examples": [
+      {
+        "problem": "A popular post says a public rule changed yesterday but links to no document.",
+        "steps": [
+          {
+            "instruction": "Find the institution responsible for the rule and search its dated primary notices.",
+            "result": "Locate an official page, rule text, notice, or statement."
+          },
+          {
+            "instruction": "Check the date, scope, and independent reporting.",
+            "result": "Determine whether the notice actually supports the post's wording."
+          }
+        ],
+        "answer": "Until the primary record and effective date are checked, label the claim unverified rather than share it as fact."
+      }
+    ],
+    "practice_problems": [
+      {
+        "question": "One claim appears on twenty accounts, all quoting the same anonymous post. How many independent sources do you have?",
+        "answer": "At most one originating source is visible; the reposts are not independent confirmation.",
+        "difficulty_permille": 200,
+        "bloom_level": "Apply",
+        "hints": [
+          "Identify what the question is asking before choosing a response.",
+          "State your reasoning and check whether it fits the context."
+        ],
+        "explanation": "Repetition and independence are different properties.",
+        "distractors": [
+          "Twenty independent sources.",
+          "A verified claim.",
+          "No need to check the origin."
+        ]
+      },
+      {
+        "question": "List three questions to ask before relying on a graph in an article.",
+        "answer": "Check its source, date, population/sample, denominator, axes, method, uncertainty, and whether the graph supports the attached claim.",
+        "difficulty_permille": 450,
+        "bloom_level": "Evaluate",
+        "hints": [
+          "Identify what the question is asking before choosing a response.",
+          "State your reasoning and check whether it fits the context."
+        ],
+        "explanation": "A clear-looking chart can still be stale, selective, or misleading.",
+        "distractors": [
+          "Only whether the graph looks professional.",
+          "Only how many shares it has.",
+          "Only whether its author agrees with you."
+        ]
+      }
+    ],
+    "key_vocabulary": [
+      {
+        "term": "Provenance",
+        "definition": "The origin and transformation history of information or an artifact.",
+        "example_usage": "A graph links to the dataset and method it summarizes."
+      },
+      {
+        "term": "Corroboration",
+        "definition": "Independent evidence that supports a claim.",
+        "example_usage": "Two reports based on separate measurements may corroborate a finding."
+      }
+    ],
+    "misconceptions": [
+      {
+        "misconception": "A large number of copies means a claim is well supported.",
+        "correction": "Copies of the same source are not independent evidence.",
+        "why_students_think_this": "Social platforms can amplify one source many times."
+      }
+    ],
+    "hints": [
+      "Write down the evidence and assumptions before choosing a conclusion.",
+      "Explain one alternative and what observation would help distinguish it."
+    ]
+  },
+  "flashcards": [
+    {
+      "front": "Provenance",
+      "back": "The origin and transformation history of information or an artifact."
+    },
+    {
+      "front": "What is the demonstration goal for this capability?",
+      "back": "List three questions to ask before relying on a graph in an article."
+    }
+  ]
+}
