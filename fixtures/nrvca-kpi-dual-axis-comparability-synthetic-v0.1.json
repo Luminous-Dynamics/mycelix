@@ -1,0 +1,1559 @@
+{
+  "schema_version": "nrvca-kpi-dual-axis-comparability-benchmark/0.1",
+  "artifact_status": "synthetic_known_answer_benchmark",
+  "purpose": "Adversarial benchmark separating measurement-definition comparability from target/policy comparability. All contracts are synthetic, not a representation of any specific utility's full data system.",
+  "baseline": {
+    "name": "same-local-id-and-display-label",
+    "rule": "measurement_comparability=comparable iff local_metric_id and label both exactly match; otherwise not_comparable",
+    "known_limitation": "This naive comparator conflates display text with semantics and has no explicit unknown/target axis."
+  },
+  "decision_classes": {
+    "measurement_comparability": [
+      "comparable",
+      "not_comparable",
+      "indeterminate"
+    ],
+    "target_comparability": [
+      "same_target_policy",
+      "changed_target_policy",
+      "indeterminate"
+    ]
+  },
+  "semantic_fields": [
+    "canonical_concept_id",
+    "unit",
+    "numerator_definition",
+    "denominator_definition",
+    "eligible_population",
+    "clock_start",
+    "deadline_rule",
+    "category_rule",
+    "geographic_scope",
+    "aggregation",
+    "inclusion_rule"
+  ],
+  "target_fields": [
+    "value",
+    "unit",
+    "target_population",
+    "policy_vintage"
+  ],
+  "rules": {
+    "labels_and_local_ids_are_not_measurement_semantics": true,
+    "source_vintage_is_provenance_not_measurement_semantics": true,
+    "unknown_semantic_fields_cause_indeterminate_unless_a_known_hard_mismatch_exists": true,
+    "target_changes_do_not_automatically_invalidate_actual_measurement_comparability": true,
+    "measurement_delta_suppressed_unless_measurement_comparability_is_comparable": true,
+    "target_gap_delta_suppressed_unless_measurement_and_target_comparability_are_both_known": true,
+    "declared_fingerprint_is_untrusted_and_must_not_override_actual_fields": true
+  },
+  "cases": [
+    {
+      "case_id": "exact-same-contract",
+      "title": "Identical contract and target",
+      "left": {
+        "local_metric_id": "JW-SS1",
+        "label": "Percentage of water-supply interruptions concluded within 12 hours of notification",
+        "source_vintage": "report-2023-24",
+        "measurement": {
+          "canonical_concept_id": "water_interruption_closure_within_deadline",
+          "unit": "percent",
+          "numerator_definition": "eligible water interruption records closed within deadline",
+          "denominator_definition": "all eligible water interruption notifications",
+          "eligible_population": "all water-supply interruptions",
+          "clock_start": "notification_timestamp",
+          "deadline_rule": "fixed_12_hours",
+          "category_rule": "none",
+          "geographic_scope": "Johannesburg_Water_service_area",
+          "aggregation": "annual_fiscal_year",
+          "inclusion_rule": "include_closed_interruption_records; exclude_cancelled_duplicates"
+        },
+        "target": {
+          "value": 90,
+          "unit": "percent",
+          "target_population": "all water-supply interruptions",
+          "policy_vintage": "service_standard_2023-24"
+        }
+      },
+      "right": {
+        "local_metric_id": "JW-SS1",
+        "label": "Percentage of water-supply interruptions concluded within 12 hours of notification",
+        "source_vintage": "report-2023-24",
+        "measurement": {
+          "canonical_concept_id": "water_interruption_closure_within_deadline",
+          "unit": "percent",
+          "numerator_definition": "eligible water interruption records closed within deadline",
+          "denominator_definition": "all eligible water interruption notifications",
+          "eligible_population": "all water-supply interruptions",
+          "clock_start": "notification_timestamp",
+          "deadline_rule": "fixed_12_hours",
+          "category_rule": "none",
+          "geographic_scope": "Johannesburg_Water_service_area",
+          "aggregation": "annual_fiscal_year",
+          "inclusion_rule": "include_closed_interruption_records; exclude_cancelled_duplicates"
+        },
+        "target": {
+          "value": 90,
+          "unit": "percent",
+          "target_population": "all water-supply interruptions",
+          "policy_vintage": "service_standard_2023-24"
+        }
+      },
+      "expected": {
+        "measurement_comparability": "comparable",
+        "target_comparability": "same_target_policy",
+        "reason_codes": [
+          "semantic_fields_match",
+          "target_policy_match"
+        ]
+      },
+      "naive_same_id_and_label_baseline": "comparable",
+      "note": "Control case."
+    },
+    {
+      "case_id": "wording-only-label-change",
+      "title": "Wording changes, semantics do not",
+      "left": {
+        "local_metric_id": "JW-SS1",
+        "label": "Percentage of water-supply interruptions concluded within 12 hours of notification",
+        "source_vintage": "report-2023-24",
+        "measurement": {
+          "canonical_concept_id": "water_interruption_closure_within_deadline",
+          "unit": "percent",
+          "numerator_definition": "eligible water interruption records closed within deadline",
+          "denominator_definition": "all eligible water interruption notifications",
+          "eligible_population": "all water-supply interruptions",
+          "clock_start": "notification_timestamp",
+          "deadline_rule": "fixed_12_hours",
+          "category_rule": "none",
+          "geographic_scope": "Johannesburg_Water_service_area",
+          "aggregation": "annual_fiscal_year",
+          "inclusion_rule": "include_closed_interruption_records; exclude_cancelled_duplicates"
+        },
+        "target": {
+          "value": 90,
+          "unit": "percent",
+          "target_population": "all water-supply interruptions",
+          "policy_vintage": "service_standard_2023-24"
+        }
+      },
+      "right": {
+        "local_metric_id": "JW-SS1",
+        "label": "Share of eligible water interruption records closed within their 12-hour notification deadline",
+        "source_vintage": "report-2023-24",
+        "measurement": {
+          "canonical_concept_id": "water_interruption_closure_within_deadline",
+          "unit": "percent",
+          "numerator_definition": "eligible water interruption records closed within deadline",
+          "denominator_definition": "all eligible water interruption notifications",
+          "eligible_population": "all water-supply interruptions",
+          "clock_start": "notification_timestamp",
+          "deadline_rule": "fixed_12_hours",
+          "category_rule": "none",
+          "geographic_scope": "Johannesburg_Water_service_area",
+          "aggregation": "annual_fiscal_year",
+          "inclusion_rule": "include_closed_interruption_records; exclude_cancelled_duplicates"
+        },
+        "target": {
+          "value": 90,
+          "unit": "percent",
+          "target_population": "all water-supply interruptions",
+          "policy_vintage": "service_standard_2023-24"
+        }
+      },
+      "expected": {
+        "measurement_comparability": "comparable",
+        "target_comparability": "same_target_policy",
+        "reason_codes": [
+          "semantic_fields_match",
+          "display_label_changed_only"
+        ]
+      },
+      "naive_same_id_and_label_baseline": "not_comparable",
+      "note": "Should be comparable despite a different display label."
+    },
+    {
+      "case_id": "source-vintage-only",
+      "title": "Source/report vintage changes",
+      "left": {
+        "local_metric_id": "JW-SS1",
+        "label": "Percentage of water-supply interruptions concluded within 12 hours of notification",
+        "source_vintage": "report-2023-24",
+        "measurement": {
+          "canonical_concept_id": "water_interruption_closure_within_deadline",
+          "unit": "percent",
+          "numerator_definition": "eligible water interruption records closed within deadline",
+          "denominator_definition": "all eligible water interruption notifications",
+          "eligible_population": "all water-supply interruptions",
+          "clock_start": "notification_timestamp",
+          "deadline_rule": "fixed_12_hours",
+          "category_rule": "none",
+          "geographic_scope": "Johannesburg_Water_service_area",
+          "aggregation": "annual_fiscal_year",
+          "inclusion_rule": "include_closed_interruption_records; exclude_cancelled_duplicates"
+        },
+        "target": {
+          "value": 90,
+          "unit": "percent",
+          "target_population": "all water-supply interruptions",
+          "policy_vintage": "service_standard_2023-24"
+        }
+      },
+      "right": {
+        "local_metric_id": "JW-SS1",
+        "label": "Percentage of water-supply interruptions concluded within 12 hours of notification",
+        "source_vintage": "report-2024-25",
+        "measurement": {
+          "canonical_concept_id": "water_interruption_closure_within_deadline",
+          "unit": "percent",
+          "numerator_definition": "eligible water interruption records closed within deadline",
+          "denominator_definition": "all eligible water interruption notifications",
+          "eligible_population": "all water-supply interruptions",
+          "clock_start": "notification_timestamp",
+          "deadline_rule": "fixed_12_hours",
+          "category_rule": "none",
+          "geographic_scope": "Johannesburg_Water_service_area",
+          "aggregation": "annual_fiscal_year",
+          "inclusion_rule": "include_closed_interruption_records; exclude_cancelled_duplicates"
+        },
+        "target": {
+          "value": 90,
+          "unit": "percent",
+          "target_population": "all water-supply interruptions",
+          "policy_vintage": "service_standard_2023-24"
+        }
+      },
+      "expected": {
+        "measurement_comparability": "comparable",
+        "target_comparability": "same_target_policy",
+        "reason_codes": [
+          "semantic_fields_match",
+          "source_vintage_changed"
+        ]
+      },
+      "naive_same_id_and_label_baseline": "comparable",
+      "note": "Vintage change is lineage information, not automatically a semantic change."
+    },
+    {
+      "case_id": "local-id-only",
+      "title": "Local KPI code changes but canonical concept and semantics match",
+      "left": {
+        "local_metric_id": "JW-SS1",
+        "label": "Percentage of water-supply interruptions concluded within 12 hours of notification",
+        "source_vintage": "report-2023-24",
+        "measurement": {
+          "canonical_concept_id": "water_interruption_closure_within_deadline",
+          "unit": "percent",
+          "numerator_definition": "eligible water interruption records closed within deadline",
+          "denominator_definition": "all eligible water interruption notifications",
+          "eligible_population": "all water-supply interruptions",
+          "clock_start": "notification_timestamp",
+          "deadline_rule": "fixed_12_hours",
+          "category_rule": "none",
+          "geographic_scope": "Johannesburg_Water_service_area",
+          "aggregation": "annual_fiscal_year",
+          "inclusion_rule": "include_closed_interruption_records; exclude_cancelled_duplicates"
+        },
+        "target": {
+          "value": 90,
+          "unit": "percent",
+          "target_population": "all water-supply interruptions",
+          "policy_vintage": "service_standard_2023-24"
+        }
+      },
+      "right": {
+        "local_metric_id": "OPS-WAT-07",
+        "label": "Percentage of water-supply interruptions concluded within 12 hours of notification",
+        "source_vintage": "report-2023-24",
+        "measurement": {
+          "canonical_concept_id": "water_interruption_closure_within_deadline",
+          "unit": "percent",
+          "numerator_definition": "eligible water interruption records closed within deadline",
+          "denominator_definition": "all eligible water interruption notifications",
+          "eligible_population": "all water-supply interruptions",
+          "clock_start": "notification_timestamp",
+          "deadline_rule": "fixed_12_hours",
+          "category_rule": "none",
+          "geographic_scope": "Johannesburg_Water_service_area",
+          "aggregation": "annual_fiscal_year",
+          "inclusion_rule": "include_closed_interruption_records; exclude_cancelled_duplicates"
+        },
+        "target": {
+          "value": 90,
+          "unit": "percent",
+          "target_population": "all water-supply interruptions",
+          "policy_vintage": "service_standard_2023-24"
+        }
+      },
+      "expected": {
+        "measurement_comparability": "comparable",
+        "target_comparability": "same_target_policy",
+        "reason_codes": [
+          "semantic_fields_match",
+          "local_id_changed"
+        ]
+      },
+      "naive_same_id_and_label_baseline": "not_comparable",
+      "note": "Canonical concept and definition fields drive comparability."
+    },
+    {
+      "case_id": "target-value-only",
+      "title": "Target changes from 90% to 95% but measurement stays identical",
+      "left": {
+        "local_metric_id": "JW-SS1",
+        "label": "Percentage of water-supply interruptions concluded within 12 hours of notification",
+        "source_vintage": "report-2023-24",
+        "measurement": {
+          "canonical_concept_id": "water_interruption_closure_within_deadline",
+          "unit": "percent",
+          "numerator_definition": "eligible water interruption records closed within deadline",
+          "denominator_definition": "all eligible water interruption notifications",
+          "eligible_population": "all water-supply interruptions",
+          "clock_start": "notification_timestamp",
+          "deadline_rule": "fixed_12_hours",
+          "category_rule": "none",
+          "geographic_scope": "Johannesburg_Water_service_area",
+          "aggregation": "annual_fiscal_year",
+          "inclusion_rule": "include_closed_interruption_records; exclude_cancelled_duplicates"
+        },
+        "target": {
+          "value": 90,
+          "unit": "percent",
+          "target_population": "all water-supply interruptions",
+          "policy_vintage": "service_standard_2023-24"
+        }
+      },
+      "right": {
+        "local_metric_id": "JW-SS1",
+        "label": "Percentage of water-supply interruptions concluded within 12 hours of notification",
+        "source_vintage": "report-2023-24",
+        "measurement": {
+          "canonical_concept_id": "water_interruption_closure_within_deadline",
+          "unit": "percent",
+          "numerator_definition": "eligible water interruption records closed within deadline",
+          "denominator_definition": "all eligible water interruption notifications",
+          "eligible_population": "all water-supply interruptions",
+          "clock_start": "notification_timestamp",
+          "deadline_rule": "fixed_12_hours",
+          "category_rule": "none",
+          "geographic_scope": "Johannesburg_Water_service_area",
+          "aggregation": "annual_fiscal_year",
+          "inclusion_rule": "include_closed_interruption_records; exclude_cancelled_duplicates"
+        },
+        "target": {
+          "value": 95,
+          "unit": "percent",
+          "target_population": "all water-supply interruptions",
+          "policy_vintage": "service_standard_2024-25"
+        }
+      },
+      "expected": {
+        "measurement_comparability": "comparable",
+        "target_comparability": "changed_target_policy",
+        "reason_codes": [
+          "semantic_fields_match",
+          "target_value_changed",
+          "target_policy_vintage_changed"
+        ]
+      },
+      "naive_same_id_and_label_baseline": "comparable",
+      "note": "Actual-value trend can remain comparable; target-attainment trend spans changed policy."
+    },
+    {
+      "case_id": "target-population-only",
+      "title": "Target applies to a narrower policy population",
+      "left": {
+        "local_metric_id": "JW-SS1",
+        "label": "Percentage of water-supply interruptions concluded within 12 hours of notification",
+        "source_vintage": "report-2023-24",
+        "measurement": {
+          "canonical_concept_id": "water_interruption_closure_within_deadline",
+          "unit": "percent",
+          "numerator_definition": "eligible water interruption records closed within deadline",
+          "denominator_definition": "all eligible water interruption notifications",
+          "eligible_population": "all water-supply interruptions",
+          "clock_start": "notification_timestamp",
+          "deadline_rule": "fixed_12_hours",
+          "category_rule": "none",
+          "geographic_scope": "Johannesburg_Water_service_area",
+          "aggregation": "annual_fiscal_year",
+          "inclusion_rule": "include_closed_interruption_records; exclude_cancelled_duplicates"
+        },
+        "target": {
+          "value": 90,
+          "unit": "percent",
+          "target_population": "all water-supply interruptions",
+          "policy_vintage": "service_standard_2023-24"
+        }
+      },
+      "right": {
+        "local_metric_id": "JW-SS1",
+        "label": "Percentage of water-supply interruptions concluded within 12 hours of notification",
+        "source_vintage": "report-2023-24",
+        "measurement": {
+          "canonical_concept_id": "water_interruption_closure_within_deadline",
+          "unit": "percent",
+          "numerator_definition": "eligible water interruption records closed within deadline",
+          "denominator_definition": "all eligible water interruption notifications",
+          "eligible_population": "all water-supply interruptions",
+          "clock_start": "notification_timestamp",
+          "deadline_rule": "fixed_12_hours",
+          "category_rule": "none",
+          "geographic_scope": "Johannesburg_Water_service_area",
+          "aggregation": "annual_fiscal_year",
+          "inclusion_rule": "include_closed_interruption_records; exclude_cancelled_duplicates"
+        },
+        "target": {
+          "value": 90,
+          "unit": "percent",
+          "target_population": "planned_water_interruptions_only",
+          "policy_vintage": "service_standard_2024-25"
+        }
+      },
+      "expected": {
+        "measurement_comparability": "comparable",
+        "target_comparability": "changed_target_policy",
+        "reason_codes": [
+          "semantic_fields_match",
+          "target_population_changed",
+          "target_policy_vintage_changed"
+        ]
+      },
+      "naive_same_id_and_label_baseline": "comparable",
+      "note": "Measurement population unchanged; policy target scope changed."
+    },
+    {
+      "case_id": "target-policy-vintage-only",
+      "title": "Policy version changes with the same numeric target",
+      "left": {
+        "local_metric_id": "JW-SS1",
+        "label": "Percentage of water-supply interruptions concluded within 12 hours of notification",
+        "source_vintage": "report-2023-24",
+        "measurement": {
+          "canonical_concept_id": "water_interruption_closure_within_deadline",
+          "unit": "percent",
+          "numerator_definition": "eligible water interruption records closed within deadline",
+          "denominator_definition": "all eligible water interruption notifications",
+          "eligible_population": "all water-supply interruptions",
+          "clock_start": "notification_timestamp",
+          "deadline_rule": "fixed_12_hours",
+          "category_rule": "none",
+          "geographic_scope": "Johannesburg_Water_service_area",
+          "aggregation": "annual_fiscal_year",
+          "inclusion_rule": "include_closed_interruption_records; exclude_cancelled_duplicates"
+        },
+        "target": {
+          "value": 90,
+          "unit": "percent",
+          "target_population": "all water-supply interruptions",
+          "policy_vintage": "service_standard_2023-24"
+        }
+      },
+      "right": {
+        "local_metric_id": "JW-SS1",
+        "label": "Percentage of water-supply interruptions concluded within 12 hours of notification",
+        "source_vintage": "report-2023-24",
+        "measurement": {
+          "canonical_concept_id": "water_interruption_closure_within_deadline",
+          "unit": "percent",
+          "numerator_definition": "eligible water interruption records closed within deadline",
+          "denominator_definition": "all eligible water interruption notifications",
+          "eligible_population": "all water-supply interruptions",
+          "clock_start": "notification_timestamp",
+          "deadline_rule": "fixed_12_hours",
+          "category_rule": "none",
+          "geographic_scope": "Johannesburg_Water_service_area",
+          "aggregation": "annual_fiscal_year",
+          "inclusion_rule": "include_closed_interruption_records; exclude_cancelled_duplicates"
+        },
+        "target": {
+          "value": 90,
+          "unit": "percent",
+          "target_population": "all water-supply interruptions",
+          "policy_vintage": "service_standard_revised_2024-25"
+        }
+      },
+      "expected": {
+        "measurement_comparability": "comparable",
+        "target_comparability": "changed_target_policy",
+        "reason_codes": [
+          "semantic_fields_match",
+          "target_policy_vintage_changed"
+        ]
+      },
+      "naive_same_id_and_label_baseline": "comparable",
+      "note": "A policy revision must remain visible even if the number is unchanged."
+    },
+    {
+      "case_id": "deadline-rule-changed",
+      "title": "Deadline changes while identifier and label are reused",
+      "left": {
+        "local_metric_id": "JW-SS1",
+        "label": "Percentage of water-supply interruptions concluded within 12 hours of notification",
+        "source_vintage": "report-2023-24",
+        "measurement": {
+          "canonical_concept_id": "water_interruption_closure_within_deadline",
+          "unit": "percent",
+          "numerator_definition": "eligible water interruption records closed within deadline",
+          "denominator_definition": "all eligible water interruption notifications",
+          "eligible_population": "all water-supply interruptions",
+          "clock_start": "notification_timestamp",
+          "deadline_rule": "fixed_12_hours",
+          "category_rule": "none",
+          "geographic_scope": "Johannesburg_Water_service_area",
+          "aggregation": "annual_fiscal_year",
+          "inclusion_rule": "include_closed_interruption_records; exclude_cancelled_duplicates"
+        },
+        "target": {
+          "value": 90,
+          "unit": "percent",
+          "target_population": "all water-supply interruptions",
+          "policy_vintage": "service_standard_2023-24"
+        }
+      },
+      "right": {
+        "local_metric_id": "JW-SS1",
+        "label": "Percentage of water-supply interruptions concluded within 12 hours of notification",
+        "source_vintage": "report-2023-24",
+        "measurement": {
+          "canonical_concept_id": "water_interruption_closure_within_deadline",
+          "unit": "percent",
+          "numerator_definition": "eligible water interruption records closed within deadline",
+          "denominator_definition": "all eligible water interruption notifications",
+          "eligible_population": "all water-supply interruptions",
+          "clock_start": "notification_timestamp",
+          "deadline_rule": "category_A_12h_B_24h_C_72h",
+          "category_rule": "interruption_category_A_B_C",
+          "geographic_scope": "Johannesburg_Water_service_area",
+          "aggregation": "annual_fiscal_year",
+          "inclusion_rule": "include_closed_interruption_records; exclude_cancelled_duplicates"
+        },
+        "target": {
+          "value": 90,
+          "unit": "percent",
+          "target_population": "all water-supply interruptions",
+          "policy_vintage": "service_standard_2023-24"
+        }
+      },
+      "expected": {
+        "measurement_comparability": "not_comparable",
+        "target_comparability": "same_target_policy",
+        "reason_codes": [
+          "deadline_rule_changed",
+          "category_rule_changed"
+        ]
+      },
+      "naive_same_id_and_label_baseline": "comparable",
+      "note": "Hard semantic drift; suppress direct actual trend."
+    },
+    {
+      "case_id": "eligibility-narrowed",
+      "title": "Eligible population changes from all to planned interruptions",
+      "left": {
+        "local_metric_id": "JW-SS1",
+        "label": "Percentage of water-supply interruptions concluded within 12 hours of notification",
+        "source_vintage": "report-2023-24",
+        "measurement": {
+          "canonical_concept_id": "water_interruption_closure_within_deadline",
+          "unit": "percent",
+          "numerator_definition": "eligible water interruption records closed within deadline",
+          "denominator_definition": "all eligible water interruption notifications",
+          "eligible_population": "all water-supply interruptions",
+          "clock_start": "notification_timestamp",
+          "deadline_rule": "fixed_12_hours",
+          "category_rule": "none",
+          "geographic_scope": "Johannesburg_Water_service_area",
+          "aggregation": "annual_fiscal_year",
+          "inclusion_rule": "include_closed_interruption_records; exclude_cancelled_duplicates"
+        },
+        "target": {
+          "value": 90,
+          "unit": "percent",
+          "target_population": "all water-supply interruptions",
+          "policy_vintage": "service_standard_2023-24"
+        }
+      },
+      "right": {
+        "local_metric_id": "JW-SS1",
+        "label": "Percentage of water-supply interruptions concluded within 12 hours of notification",
+        "source_vintage": "report-2023-24",
+        "measurement": {
+          "canonical_concept_id": "water_interruption_closure_within_deadline",
+          "unit": "percent",
+          "numerator_definition": "eligible water interruption records closed within deadline",
+          "denominator_definition": "all eligible water interruption notifications",
+          "eligible_population": "planned_water_interruptions_only",
+          "clock_start": "notification_timestamp",
+          "deadline_rule": "fixed_12_hours",
+          "category_rule": "none",
+          "geographic_scope": "Johannesburg_Water_service_area",
+          "aggregation": "annual_fiscal_year",
+          "inclusion_rule": "include_closed_interruption_records; exclude_cancelled_duplicates"
+        },
+        "target": {
+          "value": 90,
+          "unit": "percent",
+          "target_population": "all water-supply interruptions",
+          "policy_vintage": "service_standard_2023-24"
+        }
+      },
+      "expected": {
+        "measurement_comparability": "not_comparable",
+        "target_comparability": "same_target_policy",
+        "reason_codes": [
+          "eligible_population_changed"
+        ]
+      },
+      "naive_same_id_and_label_baseline": "comparable",
+      "note": "Same name and target do not rescue the changed denominator population."
+    },
+    {
+      "case_id": "numerator-changed",
+      "title": "Numerator counts assigned work rather than completed work",
+      "left": {
+        "local_metric_id": "JW-SS1",
+        "label": "Percentage of water-supply interruptions concluded within 12 hours of notification",
+        "source_vintage": "report-2023-24",
+        "measurement": {
+          "canonical_concept_id": "water_interruption_closure_within_deadline",
+          "unit": "percent",
+          "numerator_definition": "eligible water interruption records closed within deadline",
+          "denominator_definition": "all eligible water interruption notifications",
+          "eligible_population": "all water-supply interruptions",
+          "clock_start": "notification_timestamp",
+          "deadline_rule": "fixed_12_hours",
+          "category_rule": "none",
+          "geographic_scope": "Johannesburg_Water_service_area",
+          "aggregation": "annual_fiscal_year",
+          "inclusion_rule": "include_closed_interruption_records; exclude_cancelled_duplicates"
+        },
+        "target": {
+          "value": 90,
+          "unit": "percent",
+          "target_population": "all water-supply interruptions",
+          "policy_vintage": "service_standard_2023-24"
+        }
+      },
+      "right": {
+        "local_metric_id": "JW-SS1",
+        "label": "Percentage of water-supply interruptions concluded within 12 hours of notification",
+        "source_vintage": "report-2023-24",
+        "measurement": {
+          "canonical_concept_id": "water_interruption_closure_within_deadline",
+          "unit": "percent",
+          "numerator_definition": "eligible interruptions assigned to a crew within deadline",
+          "denominator_definition": "all eligible water interruption notifications",
+          "eligible_population": "all water-supply interruptions",
+          "clock_start": "notification_timestamp",
+          "deadline_rule": "fixed_12_hours",
+          "category_rule": "none",
+          "geographic_scope": "Johannesburg_Water_service_area",
+          "aggregation": "annual_fiscal_year",
+          "inclusion_rule": "include_closed_interruption_records; exclude_cancelled_duplicates"
+        },
+        "target": {
+          "value": 90,
+          "unit": "percent",
+          "target_population": "all water-supply interruptions",
+          "policy_vintage": "service_standard_2023-24"
+        }
+      },
+      "expected": {
+        "measurement_comparability": "not_comparable",
+        "target_comparability": "same_target_policy",
+        "reason_codes": [
+          "numerator_definition_changed"
+        ]
+      },
+      "naive_same_id_and_label_baseline": "comparable",
+      "note": "Changes what success counts."
+    },
+    {
+      "case_id": "denominator-changed",
+      "title": "Denominator excludes unresolved notifications",
+      "left": {
+        "local_metric_id": "JW-SS1",
+        "label": "Percentage of water-supply interruptions concluded within 12 hours of notification",
+        "source_vintage": "report-2023-24",
+        "measurement": {
+          "canonical_concept_id": "water_interruption_closure_within_deadline",
+          "unit": "percent",
+          "numerator_definition": "eligible water interruption records closed within deadline",
+          "denominator_definition": "all eligible water interruption notifications",
+          "eligible_population": "all water-supply interruptions",
+          "clock_start": "notification_timestamp",
+          "deadline_rule": "fixed_12_hours",
+          "category_rule": "none",
+          "geographic_scope": "Johannesburg_Water_service_area",
+          "aggregation": "annual_fiscal_year",
+          "inclusion_rule": "include_closed_interruption_records; exclude_cancelled_duplicates"
+        },
+        "target": {
+          "value": 90,
+          "unit": "percent",
+          "target_population": "all water-supply interruptions",
+          "policy_vintage": "service_standard_2023-24"
+        }
+      },
+      "right": {
+        "local_metric_id": "JW-SS1",
+        "label": "Percentage of water-supply interruptions concluded within 12 hours of notification",
+        "source_vintage": "report-2023-24",
+        "measurement": {
+          "canonical_concept_id": "water_interruption_closure_within_deadline",
+          "unit": "percent",
+          "numerator_definition": "eligible water interruption records closed within deadline",
+          "denominator_definition": "only interruptions already marked completed",
+          "eligible_population": "all water-supply interruptions",
+          "clock_start": "notification_timestamp",
+          "deadline_rule": "fixed_12_hours",
+          "category_rule": "none",
+          "geographic_scope": "Johannesburg_Water_service_area",
+          "aggregation": "annual_fiscal_year",
+          "inclusion_rule": "include_closed_interruption_records; exclude_cancelled_duplicates"
+        },
+        "target": {
+          "value": 90,
+          "unit": "percent",
+          "target_population": "all water-supply interruptions",
+          "policy_vintage": "service_standard_2023-24"
+        }
+      },
+      "expected": {
+        "measurement_comparability": "not_comparable",
+        "target_comparability": "same_target_policy",
+        "reason_codes": [
+          "denominator_definition_changed"
+        ]
+      },
+      "naive_same_id_and_label_baseline": "comparable",
+      "note": "Can inflate a KPI even without improved service."
+    },
+    {
+      "case_id": "unit-changed",
+      "title": "Measurement unit changes from percent to hours",
+      "left": {
+        "local_metric_id": "JW-SS1",
+        "label": "Percentage of water-supply interruptions concluded within 12 hours of notification",
+        "source_vintage": "report-2023-24",
+        "measurement": {
+          "canonical_concept_id": "water_interruption_closure_within_deadline",
+          "unit": "percent",
+          "numerator_definition": "eligible water interruption records closed within deadline",
+          "denominator_definition": "all eligible water interruption notifications",
+          "eligible_population": "all water-supply interruptions",
+          "clock_start": "notification_timestamp",
+          "deadline_rule": "fixed_12_hours",
+          "category_rule": "none",
+          "geographic_scope": "Johannesburg_Water_service_area",
+          "aggregation": "annual_fiscal_year",
+          "inclusion_rule": "include_closed_interruption_records; exclude_cancelled_duplicates"
+        },
+        "target": {
+          "value": 90,
+          "unit": "percent",
+          "target_population": "all water-supply interruptions",
+          "policy_vintage": "service_standard_2023-24"
+        }
+      },
+      "right": {
+        "local_metric_id": "JW-SS1",
+        "label": "Percentage of water-supply interruptions concluded within 12 hours of notification",
+        "source_vintage": "report-2023-24",
+        "measurement": {
+          "canonical_concept_id": "water_interruption_closure_within_deadline",
+          "unit": "hours",
+          "numerator_definition": "eligible water interruption records closed within deadline",
+          "denominator_definition": "all eligible water interruption notifications",
+          "eligible_population": "all water-supply interruptions",
+          "clock_start": "notification_timestamp",
+          "deadline_rule": "fixed_12_hours",
+          "category_rule": "none",
+          "geographic_scope": "Johannesburg_Water_service_area",
+          "aggregation": "annual_fiscal_year",
+          "inclusion_rule": "include_closed_interruption_records; exclude_cancelled_duplicates"
+        },
+        "target": {
+          "value": 90,
+          "unit": "percent",
+          "target_population": "all water-supply interruptions",
+          "policy_vintage": "service_standard_2023-24"
+        }
+      },
+      "expected": {
+        "measurement_comparability": "not_comparable",
+        "target_comparability": "same_target_policy",
+        "reason_codes": [
+          "measurement_unit_changed"
+        ]
+      },
+      "naive_same_id_and_label_baseline": "comparable",
+      "note": "Unlike units cannot produce a direct numeric trend."
+    },
+    {
+      "case_id": "clock-start-changed",
+      "title": "Deadline clock starts at event detection, not notification",
+      "left": {
+        "local_metric_id": "JW-SS1",
+        "label": "Percentage of water-supply interruptions concluded within 12 hours of notification",
+        "source_vintage": "report-2023-24",
+        "measurement": {
+          "canonical_concept_id": "water_interruption_closure_within_deadline",
+          "unit": "percent",
+          "numerator_definition": "eligible water interruption records closed within deadline",
+          "denominator_definition": "all eligible water interruption notifications",
+          "eligible_population": "all water-supply interruptions",
+          "clock_start": "notification_timestamp",
+          "deadline_rule": "fixed_12_hours",
+          "category_rule": "none",
+          "geographic_scope": "Johannesburg_Water_service_area",
+          "aggregation": "annual_fiscal_year",
+          "inclusion_rule": "include_closed_interruption_records; exclude_cancelled_duplicates"
+        },
+        "target": {
+          "value": 90,
+          "unit": "percent",
+          "target_population": "all water-supply interruptions",
+          "policy_vintage": "service_standard_2023-24"
+        }
+      },
+      "right": {
+        "local_metric_id": "JW-SS1",
+        "label": "Percentage of water-supply interruptions concluded within 12 hours of notification",
+        "source_vintage": "report-2023-24",
+        "measurement": {
+          "canonical_concept_id": "water_interruption_closure_within_deadline",
+          "unit": "percent",
+          "numerator_definition": "eligible water interruption records closed within deadline",
+          "denominator_definition": "all eligible water interruption notifications",
+          "eligible_population": "all water-supply interruptions",
+          "clock_start": "first_sensor_detection_timestamp",
+          "deadline_rule": "fixed_12_hours",
+          "category_rule": "none",
+          "geographic_scope": "Johannesburg_Water_service_area",
+          "aggregation": "annual_fiscal_year",
+          "inclusion_rule": "include_closed_interruption_records; exclude_cancelled_duplicates"
+        },
+        "target": {
+          "value": 90,
+          "unit": "percent",
+          "target_population": "all water-supply interruptions",
+          "policy_vintage": "service_standard_2023-24"
+        }
+      },
+      "expected": {
+        "measurement_comparability": "not_comparable",
+        "target_comparability": "same_target_policy",
+        "reason_codes": [
+          "clock_start_changed"
+        ]
+      },
+      "naive_same_id_and_label_baseline": "comparable",
+      "note": "Same deadline duration does not imply same service standard."
+    },
+    {
+      "case_id": "geography-changed",
+      "title": "Citywide population changes to a sample of selected wards",
+      "left": {
+        "local_metric_id": "JW-SS1",
+        "label": "Percentage of water-supply interruptions concluded within 12 hours of notification",
+        "source_vintage": "report-2023-24",
+        "measurement": {
+          "canonical_concept_id": "water_interruption_closure_within_deadline",
+          "unit": "percent",
+          "numerator_definition": "eligible water interruption records closed within deadline",
+          "denominator_definition": "all eligible water interruption notifications",
+          "eligible_population": "all water-supply interruptions",
+          "clock_start": "notification_timestamp",
+          "deadline_rule": "fixed_12_hours",
+          "category_rule": "none",
+          "geographic_scope": "Johannesburg_Water_service_area",
+          "aggregation": "annual_fiscal_year",
+          "inclusion_rule": "include_closed_interruption_records; exclude_cancelled_duplicates"
+        },
+        "target": {
+          "value": 90,
+          "unit": "percent",
+          "target_population": "all water-supply interruptions",
+          "policy_vintage": "service_standard_2023-24"
+        }
+      },
+      "right": {
+        "local_metric_id": "JW-SS1",
+        "label": "Percentage of water-supply interruptions concluded within 12 hours of notification",
+        "source_vintage": "report-2023-24",
+        "measurement": {
+          "canonical_concept_id": "water_interruption_closure_within_deadline",
+          "unit": "percent",
+          "numerator_definition": "eligible water interruption records closed within deadline",
+          "denominator_definition": "all eligible water interruption notifications",
+          "eligible_population": "all water-supply interruptions",
+          "clock_start": "notification_timestamp",
+          "deadline_rule": "fixed_12_hours",
+          "category_rule": "none",
+          "geographic_scope": "sampled_wards_only",
+          "aggregation": "annual_fiscal_year",
+          "inclusion_rule": "include_closed_interruption_records; exclude_cancelled_duplicates"
+        },
+        "target": {
+          "value": 90,
+          "unit": "percent",
+          "target_population": "all water-supply interruptions",
+          "policy_vintage": "service_standard_2023-24"
+        }
+      },
+      "expected": {
+        "measurement_comparability": "not_comparable",
+        "target_comparability": "same_target_policy",
+        "reason_codes": [
+          "geographic_scope_changed"
+        ]
+      },
+      "naive_same_id_and_label_baseline": "comparable",
+      "note": "Coverage shift can create a false improvement."
+    },
+    {
+      "case_id": "aggregation-changed",
+      "title": "Annual fiscal-year aggregation changes to a monthly cohort",
+      "left": {
+        "local_metric_id": "JW-SS1",
+        "label": "Percentage of water-supply interruptions concluded within 12 hours of notification",
+        "source_vintage": "report-2023-24",
+        "measurement": {
+          "canonical_concept_id": "water_interruption_closure_within_deadline",
+          "unit": "percent",
+          "numerator_definition": "eligible water interruption records closed within deadline",
+          "denominator_definition": "all eligible water interruption notifications",
+          "eligible_population": "all water-supply interruptions",
+          "clock_start": "notification_timestamp",
+          "deadline_rule": "fixed_12_hours",
+          "category_rule": "none",
+          "geographic_scope": "Johannesburg_Water_service_area",
+          "aggregation": "annual_fiscal_year",
+          "inclusion_rule": "include_closed_interruption_records; exclude_cancelled_duplicates"
+        },
+        "target": {
+          "value": 90,
+          "unit": "percent",
+          "target_population": "all water-supply interruptions",
+          "policy_vintage": "service_standard_2023-24"
+        }
+      },
+      "right": {
+        "local_metric_id": "JW-SS1",
+        "label": "Percentage of water-supply interruptions concluded within 12 hours of notification",
+        "source_vintage": "report-2023-24",
+        "measurement": {
+          "canonical_concept_id": "water_interruption_closure_within_deadline",
+          "unit": "percent",
+          "numerator_definition": "eligible water interruption records closed within deadline",
+          "denominator_definition": "all eligible water interruption notifications",
+          "eligible_population": "all water-supply interruptions",
+          "clock_start": "notification_timestamp",
+          "deadline_rule": "fixed_12_hours",
+          "category_rule": "none",
+          "geographic_scope": "Johannesburg_Water_service_area",
+          "aggregation": "monthly_cohort",
+          "inclusion_rule": "include_closed_interruption_records; exclude_cancelled_duplicates"
+        },
+        "target": {
+          "value": 90,
+          "unit": "percent",
+          "target_population": "all water-supply interruptions",
+          "policy_vintage": "service_standard_2023-24"
+        }
+      },
+      "expected": {
+        "measurement_comparability": "not_comparable",
+        "target_comparability": "same_target_policy",
+        "reason_codes": [
+          "aggregation_changed"
+        ]
+      },
+      "naive_same_id_and_label_baseline": "comparable",
+      "note": "Different reporting windows are not directly comparable without a documented bridge."
+    },
+    {
+      "case_id": "inclusion-rule-changed",
+      "title": "Reopened repair records are excluded",
+      "left": {
+        "local_metric_id": "JW-SS1",
+        "label": "Percentage of water-supply interruptions concluded within 12 hours of notification",
+        "source_vintage": "report-2023-24",
+        "measurement": {
+          "canonical_concept_id": "water_interruption_closure_within_deadline",
+          "unit": "percent",
+          "numerator_definition": "eligible water interruption records closed within deadline",
+          "denominator_definition": "all eligible water interruption notifications",
+          "eligible_population": "all water-supply interruptions",
+          "clock_start": "notification_timestamp",
+          "deadline_rule": "fixed_12_hours",
+          "category_rule": "none",
+          "geographic_scope": "Johannesburg_Water_service_area",
+          "aggregation": "annual_fiscal_year",
+          "inclusion_rule": "include_closed_interruption_records; exclude_cancelled_duplicates"
+        },
+        "target": {
+          "value": 90,
+          "unit": "percent",
+          "target_population": "all water-supply interruptions",
+          "policy_vintage": "service_standard_2023-24"
+        }
+      },
+      "right": {
+        "local_metric_id": "JW-SS1",
+        "label": "Percentage of water-supply interruptions concluded within 12 hours of notification",
+        "source_vintage": "report-2023-24",
+        "measurement": {
+          "canonical_concept_id": "water_interruption_closure_within_deadline",
+          "unit": "percent",
+          "numerator_definition": "eligible water interruption records closed within deadline",
+          "denominator_definition": "all eligible water interruption notifications",
+          "eligible_population": "all water-supply interruptions",
+          "clock_start": "notification_timestamp",
+          "deadline_rule": "fixed_12_hours",
+          "category_rule": "none",
+          "geographic_scope": "Johannesburg_Water_service_area",
+          "aggregation": "annual_fiscal_year",
+          "inclusion_rule": "include_closed_interruption_records; exclude_reopened_and_cancelled_records"
+        },
+        "target": {
+          "value": 90,
+          "unit": "percent",
+          "target_population": "all water-supply interruptions",
+          "policy_vintage": "service_standard_2023-24"
+        }
+      },
+      "expected": {
+        "measurement_comparability": "not_comparable",
+        "target_comparability": "same_target_policy",
+        "reason_codes": [
+          "inclusion_rule_changed"
+        ]
+      },
+      "naive_same_id_and_label_baseline": "comparable",
+      "note": "Changing closure/reopen rules changes the evaluated population."
+    },
+    {
+      "case_id": "deadline-unknown",
+      "title": "New definition has no documented deadline",
+      "left": {
+        "local_metric_id": "JW-SS1",
+        "label": "Percentage of water-supply interruptions concluded within 12 hours of notification",
+        "source_vintage": "report-2023-24",
+        "measurement": {
+          "canonical_concept_id": "water_interruption_closure_within_deadline",
+          "unit": "percent",
+          "numerator_definition": "eligible water interruption records closed within deadline",
+          "denominator_definition": "all eligible water interruption notifications",
+          "eligible_population": "all water-supply interruptions",
+          "clock_start": "notification_timestamp",
+          "deadline_rule": "fixed_12_hours",
+          "category_rule": "none",
+          "geographic_scope": "Johannesburg_Water_service_area",
+          "aggregation": "annual_fiscal_year",
+          "inclusion_rule": "include_closed_interruption_records; exclude_cancelled_duplicates"
+        },
+        "target": {
+          "value": 90,
+          "unit": "percent",
+          "target_population": "all water-supply interruptions",
+          "policy_vintage": "service_standard_2023-24"
+        }
+      },
+      "right": {
+        "local_metric_id": "JW-SS1",
+        "label": "Percentage of water-supply interruptions concluded within 12 hours of notification",
+        "source_vintage": "report-2023-24",
+        "measurement": {
+          "canonical_concept_id": "water_interruption_closure_within_deadline",
+          "unit": "percent",
+          "numerator_definition": "eligible water interruption records closed within deadline",
+          "denominator_definition": "all eligible water interruption notifications",
+          "eligible_population": "all water-supply interruptions",
+          "clock_start": "notification_timestamp",
+          "deadline_rule": null,
+          "category_rule": null,
+          "geographic_scope": "Johannesburg_Water_service_area",
+          "aggregation": "annual_fiscal_year",
+          "inclusion_rule": "include_closed_interruption_records; exclude_cancelled_duplicates"
+        },
+        "target": {
+          "value": 90,
+          "unit": "percent",
+          "target_population": "all water-supply interruptions",
+          "policy_vintage": "service_standard_2023-24"
+        }
+      },
+      "expected": {
+        "measurement_comparability": "indeterminate",
+        "target_comparability": "same_target_policy",
+        "reason_codes": [
+          "deadline_rule_unknown",
+          "category_rule_unknown"
+        ]
+      },
+      "naive_same_id_and_label_baseline": "comparable",
+      "note": "Unknown definition must abstain, not guess."
+    },
+    {
+      "case_id": "denominator-unknown",
+      "title": "New definition omits denominator details",
+      "left": {
+        "local_metric_id": "JW-SS1",
+        "label": "Percentage of water-supply interruptions concluded within 12 hours of notification",
+        "source_vintage": "report-2023-24",
+        "measurement": {
+          "canonical_concept_id": "water_interruption_closure_within_deadline",
+          "unit": "percent",
+          "numerator_definition": "eligible water interruption records closed within deadline",
+          "denominator_definition": "all eligible water interruption notifications",
+          "eligible_population": "all water-supply interruptions",
+          "clock_start": "notification_timestamp",
+          "deadline_rule": "fixed_12_hours",
+          "category_rule": "none",
+          "geographic_scope": "Johannesburg_Water_service_area",
+          "aggregation": "annual_fiscal_year",
+          "inclusion_rule": "include_closed_interruption_records; exclude_cancelled_duplicates"
+        },
+        "target": {
+          "value": 90,
+          "unit": "percent",
+          "target_population": "all water-supply interruptions",
+          "policy_vintage": "service_standard_2023-24"
+        }
+      },
+      "right": {
+        "local_metric_id": "JW-SS1",
+        "label": "Percentage of water-supply interruptions concluded within 12 hours of notification",
+        "source_vintage": "report-2023-24",
+        "measurement": {
+          "canonical_concept_id": "water_interruption_closure_within_deadline",
+          "unit": "percent",
+          "numerator_definition": "eligible water interruption records closed within deadline",
+          "denominator_definition": null,
+          "eligible_population": "all water-supply interruptions",
+          "clock_start": "notification_timestamp",
+          "deadline_rule": "fixed_12_hours",
+          "category_rule": "none",
+          "geographic_scope": "Johannesburg_Water_service_area",
+          "aggregation": "annual_fiscal_year",
+          "inclusion_rule": "include_closed_interruption_records; exclude_cancelled_duplicates"
+        },
+        "target": {
+          "value": 90,
+          "unit": "percent",
+          "target_population": "all water-supply interruptions",
+          "policy_vintage": "service_standard_2023-24"
+        }
+      },
+      "expected": {
+        "measurement_comparability": "indeterminate",
+        "target_comparability": "same_target_policy",
+        "reason_codes": [
+          "denominator_definition_unknown"
+        ]
+      },
+      "naive_same_id_and_label_baseline": "comparable",
+      "note": "Unknown denominator must suppress the trend."
+    },
+    {
+      "case_id": "target-value-unknown",
+      "title": "Target not documented for newer period",
+      "left": {
+        "local_metric_id": "JW-SS1",
+        "label": "Percentage of water-supply interruptions concluded within 12 hours of notification",
+        "source_vintage": "report-2023-24",
+        "measurement": {
+          "canonical_concept_id": "water_interruption_closure_within_deadline",
+          "unit": "percent",
+          "numerator_definition": "eligible water interruption records closed within deadline",
+          "denominator_definition": "all eligible water interruption notifications",
+          "eligible_population": "all water-supply interruptions",
+          "clock_start": "notification_timestamp",
+          "deadline_rule": "fixed_12_hours",
+          "category_rule": "none",
+          "geographic_scope": "Johannesburg_Water_service_area",
+          "aggregation": "annual_fiscal_year",
+          "inclusion_rule": "include_closed_interruption_records; exclude_cancelled_duplicates"
+        },
+        "target": {
+          "value": 90,
+          "unit": "percent",
+          "target_population": "all water-supply interruptions",
+          "policy_vintage": "service_standard_2023-24"
+        }
+      },
+      "right": {
+        "local_metric_id": "JW-SS1",
+        "label": "Percentage of water-supply interruptions concluded within 12 hours of notification",
+        "source_vintage": "report-2023-24",
+        "measurement": {
+          "canonical_concept_id": "water_interruption_closure_within_deadline",
+          "unit": "percent",
+          "numerator_definition": "eligible water interruption records closed within deadline",
+          "denominator_definition": "all eligible water interruption notifications",
+          "eligible_population": "all water-supply interruptions",
+          "clock_start": "notification_timestamp",
+          "deadline_rule": "fixed_12_hours",
+          "category_rule": "none",
+          "geographic_scope": "Johannesburg_Water_service_area",
+          "aggregation": "annual_fiscal_year",
+          "inclusion_rule": "include_closed_interruption_records; exclude_cancelled_duplicates"
+        },
+        "target": {
+          "value": null,
+          "unit": "percent",
+          "target_population": "all water-supply interruptions",
+          "policy_vintage": "service_standard_2023-24"
+        }
+      },
+      "expected": {
+        "measurement_comparability": "comparable",
+        "target_comparability": "indeterminate",
+        "reason_codes": [
+          "semantic_fields_match",
+          "target_value_unknown"
+        ]
+      },
+      "naive_same_id_and_label_baseline": "comparable",
+      "note": "Actual metric trend can be compared while target-gap comparison abstains."
+    },
+    {
+      "case_id": "target-unit-changed",
+      "title": "Target unit changes without a declared conversion",
+      "left": {
+        "local_metric_id": "JW-SS1",
+        "label": "Percentage of water-supply interruptions concluded within 12 hours of notification",
+        "source_vintage": "report-2023-24",
+        "measurement": {
+          "canonical_concept_id": "water_interruption_closure_within_deadline",
+          "unit": "percent",
+          "numerator_definition": "eligible water interruption records closed within deadline",
+          "denominator_definition": "all eligible water interruption notifications",
+          "eligible_population": "all water-supply interruptions",
+          "clock_start": "notification_timestamp",
+          "deadline_rule": "fixed_12_hours",
+          "category_rule": "none",
+          "geographic_scope": "Johannesburg_Water_service_area",
+          "aggregation": "annual_fiscal_year",
+          "inclusion_rule": "include_closed_interruption_records; exclude_cancelled_duplicates"
+        },
+        "target": {
+          "value": 90,
+          "unit": "percent",
+          "target_population": "all water-supply interruptions",
+          "policy_vintage": "service_standard_2023-24"
+        }
+      },
+      "right": {
+        "local_metric_id": "JW-SS1",
+        "label": "Percentage of water-supply interruptions concluded within 12 hours of notification",
+        "source_vintage": "report-2023-24",
+        "measurement": {
+          "canonical_concept_id": "water_interruption_closure_within_deadline",
+          "unit": "percent",
+          "numerator_definition": "eligible water interruption records closed within deadline",
+          "denominator_definition": "all eligible water interruption notifications",
+          "eligible_population": "all water-supply interruptions",
+          "clock_start": "notification_timestamp",
+          "deadline_rule": "fixed_12_hours",
+          "category_rule": "none",
+          "geographic_scope": "Johannesburg_Water_service_area",
+          "aggregation": "annual_fiscal_year",
+          "inclusion_rule": "include_closed_interruption_records; exclude_cancelled_duplicates"
+        },
+        "target": {
+          "value": 0.9,
+          "unit": "ratio_0_to_1",
+          "target_population": "all water-supply interruptions",
+          "policy_vintage": "service_standard_2024-25"
+        }
+      },
+      "expected": {
+        "measurement_comparability": "comparable",
+        "target_comparability": "changed_target_policy",
+        "reason_codes": [
+          "semantic_fields_match",
+          "target_unit_changed_requires_normalization",
+          "target_policy_vintage_changed"
+        ]
+      },
+      "naive_same_id_and_label_baseline": "comparable",
+      "note": "A conversion could be possible, but must be explicit rather than implicit."
+    },
+    {
+      "case_id": "canonical-concept-changed",
+      "title": "Same displayed wording reused for another service concept",
+      "left": {
+        "local_metric_id": "JW-SS1",
+        "label": "Percentage of water-supply interruptions concluded within 12 hours of notification",
+        "source_vintage": "report-2023-24",
+        "measurement": {
+          "canonical_concept_id": "water_interruption_closure_within_deadline",
+          "unit": "percent",
+          "numerator_definition": "eligible water interruption records closed within deadline",
+          "denominator_definition": "all eligible water interruption notifications",
+          "eligible_population": "all water-supply interruptions",
+          "clock_start": "notification_timestamp",
+          "deadline_rule": "fixed_12_hours",
+          "category_rule": "none",
+          "geographic_scope": "Johannesburg_Water_service_area",
+          "aggregation": "annual_fiscal_year",
+          "inclusion_rule": "include_closed_interruption_records; exclude_cancelled_duplicates"
+        },
+        "target": {
+          "value": 90,
+          "unit": "percent",
+          "target_population": "all water-supply interruptions",
+          "policy_vintage": "service_standard_2023-24"
+        }
+      },
+      "right": {
+        "local_metric_id": "JW-SS1",
+        "label": "Percentage of water-supply interruptions concluded within 12 hours of notification",
+        "source_vintage": "report-2023-24",
+        "measurement": {
+          "canonical_concept_id": "water_pressure_compliance",
+          "unit": "percent",
+          "numerator_definition": "eligible water interruption records closed within deadline",
+          "denominator_definition": "all eligible water interruption notifications",
+          "eligible_population": "all water-supply interruptions",
+          "clock_start": "notification_timestamp",
+          "deadline_rule": "fixed_12_hours",
+          "category_rule": "none",
+          "geographic_scope": "Johannesburg_Water_service_area",
+          "aggregation": "annual_fiscal_year",
+          "inclusion_rule": "include_closed_interruption_records; exclude_cancelled_duplicates"
+        },
+        "target": {
+          "value": 90,
+          "unit": "percent",
+          "target_population": "all water-supply interruptions",
+          "policy_vintage": "service_standard_2023-24"
+        }
+      },
+      "expected": {
+        "measurement_comparability": "not_comparable",
+        "target_comparability": "same_target_policy",
+        "reason_codes": [
+          "canonical_concept_changed"
+        ]
+      },
+      "naive_same_id_and_label_baseline": "comparable",
+      "note": "A copied label is not proof of identity."
+    },
+    {
+      "case_id": "fingerprint-lie",
+      "title": "Declared fingerprint claims a match while semantics differ",
+      "left": {
+        "local_metric_id": "JW-SS1",
+        "label": "Percentage of water-supply interruptions concluded within 12 hours of notification",
+        "source_vintage": "report-2023-24",
+        "measurement": {
+          "canonical_concept_id": "water_interruption_closure_within_deadline",
+          "unit": "percent",
+          "numerator_definition": "eligible water interruption records closed within deadline",
+          "denominator_definition": "all eligible water interruption notifications",
+          "eligible_population": "all water-supply interruptions",
+          "clock_start": "notification_timestamp",
+          "deadline_rule": "fixed_12_hours",
+          "category_rule": "none",
+          "geographic_scope": "Johannesburg_Water_service_area",
+          "aggregation": "annual_fiscal_year",
+          "inclusion_rule": "include_closed_interruption_records; exclude_cancelled_duplicates"
+        },
+        "target": {
+          "value": 90,
+          "unit": "percent",
+          "target_population": "all water-supply interruptions",
+          "policy_vintage": "service_standard_2023-24"
+        },
+        "declared_fingerprint": "same"
+      },
+      "right": {
+        "local_metric_id": "JW-SS1",
+        "label": "Percentage of water-supply interruptions concluded within 12 hours of notification",
+        "source_vintage": "report-2023-24",
+        "measurement": {
+          "canonical_concept_id": "water_interruption_closure_within_deadline",
+          "unit": "percent",
+          "numerator_definition": "eligible water interruption records closed within deadline",
+          "denominator_definition": "closed cases only",
+          "eligible_population": "all water-supply interruptions",
+          "clock_start": "notification_timestamp",
+          "deadline_rule": "fixed_12_hours",
+          "category_rule": "none",
+          "geographic_scope": "Johannesburg_Water_service_area",
+          "aggregation": "annual_fiscal_year",
+          "inclusion_rule": "include_closed_interruption_records; exclude_cancelled_duplicates"
+        },
+        "target": {
+          "value": 90,
+          "unit": "percent",
+          "target_population": "all water-supply interruptions",
+          "policy_vintage": "service_standard_2023-24"
+        },
+        "declared_fingerprint": "same"
+      },
+      "expected": {
+        "measurement_comparability": "not_comparable",
+        "target_comparability": "same_target_policy",
+        "reason_codes": [
+          "denominator_definition_changed",
+          "declared_fingerprint_untrusted"
+        ]
+      },
+      "naive_same_id_and_label_baseline": "comparable",
+      "note": "Expected result depends on fields, not the declared fingerprint."
+    },
+    {
+      "case_id": "same-label-deadline-drift",
+      "title": "Adversarial same ID and same label, different deadline",
+      "left": {
+        "local_metric_id": "JW-SS1",
+        "label": "Percentage of water-supply interruptions concluded within 12 hours of notification",
+        "source_vintage": "report-2023-24",
+        "measurement": {
+          "canonical_concept_id": "water_interruption_closure_within_deadline",
+          "unit": "percent",
+          "numerator_definition": "eligible water interruption records closed within deadline",
+          "denominator_definition": "all eligible water interruption notifications",
+          "eligible_population": "all water-supply interruptions",
+          "clock_start": "notification_timestamp",
+          "deadline_rule": "fixed_12_hours",
+          "category_rule": "none",
+          "geographic_scope": "Johannesburg_Water_service_area",
+          "aggregation": "annual_fiscal_year",
+          "inclusion_rule": "include_closed_interruption_records; exclude_cancelled_duplicates"
+        },
+        "target": {
+          "value": 90,
+          "unit": "percent",
+          "target_population": "all water-supply interruptions",
+          "policy_vintage": "service_standard_2023-24"
+        }
+      },
+      "right": {
+        "local_metric_id": "JW-SS1",
+        "label": "Percentage of water-supply interruptions concluded within 12 hours of notification",
+        "source_vintage": "report-2023-24",
+        "measurement": {
+          "canonical_concept_id": "water_interruption_closure_within_deadline",
+          "unit": "percent",
+          "numerator_definition": "eligible water interruption records closed within deadline",
+          "denominator_definition": "all eligible water interruption notifications",
+          "eligible_population": "all water-supply interruptions",
+          "clock_start": "notification_timestamp",
+          "deadline_rule": "fixed_48_hours",
+          "category_rule": "none",
+          "geographic_scope": "Johannesburg_Water_service_area",
+          "aggregation": "annual_fiscal_year",
+          "inclusion_rule": "include_closed_interruption_records; exclude_cancelled_duplicates"
+        },
+        "target": {
+          "value": 90,
+          "unit": "percent",
+          "target_population": "all water-supply interruptions",
+          "policy_vintage": "service_standard_2023-24"
+        }
+      },
+      "expected": {
+        "measurement_comparability": "not_comparable",
+        "target_comparability": "same_target_policy",
+        "reason_codes": [
+          "deadline_rule_changed"
+        ]
+      },
+      "naive_same_id_and_label_baseline": "comparable",
+      "note": "Specifically counts as false-comparable under same-ID-and-label baseline."
+    },
+    {
+      "case_id": "target-profile-missing",
+      "title": "Target scope metadata missing in later period",
+      "left": {
+        "local_metric_id": "JW-SS1",
+        "label": "Percentage of water-supply interruptions concluded within 12 hours of notification",
+        "source_vintage": "report-2023-24",
+        "measurement": {
+          "canonical_concept_id": "water_interruption_closure_within_deadline",
+          "unit": "percent",
+          "numerator_definition": "eligible water interruption records closed within deadline",
+          "denominator_definition": "all eligible water interruption notifications",
+          "eligible_population": "all water-supply interruptions",
+          "clock_start": "notification_timestamp",
+          "deadline_rule": "fixed_12_hours",
+          "category_rule": "none",
+          "geographic_scope": "Johannesburg_Water_service_area",
+          "aggregation": "annual_fiscal_year",
+          "inclusion_rule": "include_closed_interruption_records; exclude_cancelled_duplicates"
+        },
+        "target": {
+          "value": 90,
+          "unit": "percent",
+          "target_population": "all water-supply interruptions",
+          "policy_vintage": "service_standard_2023-24"
+        }
+      },
+      "right": {
+        "local_metric_id": "JW-SS1",
+        "label": "Percentage of water-supply interruptions concluded within 12 hours of notification",
+        "source_vintage": "report-2023-24",
+        "measurement": {
+          "canonical_concept_id": "water_interruption_closure_within_deadline",
+          "unit": "percent",
+          "numerator_definition": "eligible water interruption records closed within deadline",
+          "denominator_definition": "all eligible water interruption notifications",
+          "eligible_population": "all water-supply interruptions",
+          "clock_start": "notification_timestamp",
+          "deadline_rule": "fixed_12_hours",
+          "category_rule": "none",
+          "geographic_scope": "Johannesburg_Water_service_area",
+          "aggregation": "annual_fiscal_year",
+          "inclusion_rule": "include_closed_interruption_records; exclude_cancelled_duplicates"
+        },
+        "target": {
+          "value": 90,
+          "unit": "percent",
+          "target_population": null,
+          "policy_vintage": "service_standard_2023-24"
+        }
+      },
+      "expected": {
+        "measurement_comparability": "comparable",
+        "target_comparability": "indeterminate",
+        "reason_codes": [
+          "semantic_fields_match",
+          "target_population_unknown"
+        ]
+      },
+      "naive_same_id_and_label_baseline": "comparable",
+      "note": "Actual measurement contract remains comparable; target equivalence is unknown."
+    }
+  ],
+  "expected_aggregate": {
+    "total_pairs": 24,
+    "measurement_comparable": 10,
+    "measurement_not_comparable": 12,
+    "measurement_indeterminate": 2,
+    "target_same": 18,
+    "target_changed": 4,
+    "target_indeterminate": 2,
+    "naive_false_comparable": 14,
+    "naive_false_incomparable": 2
+  },
+  "claim_ceiling": {
+    "evidence_status": "synthetic_test_oracle",
+    "permits": [
+      "measure performance on this frozen adversarial pair set",
+      "compare naive same-label baseline against contract-aware decision",
+      "regress semantic drift rules"
+    ],
+    "does_not_permit": [
+      "claim trained-model generalization",
+      "claim expert-level accuracy across utilities",
+      "claim service improvement",
+      "infer real KPI definitions from these synthetic cases"
+    ]
+  }
+}
