@@ -243,6 +243,12 @@
         },
         "author_credit": {
           "type": "string"
+        },
+        "language": {
+          "type": "string",
+          "minLength": 2,
+          "maxLength": 64,
+          "description": "BCP 47 language tag, e.g. en-ZA, zu-ZA, af-ZA. Do not claim language proficiency or review that has not occurred."
         }
       },
       "additionalProperties": true
