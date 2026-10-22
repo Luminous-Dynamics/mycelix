@@ -948,6 +948,79 @@ mod tests {
     }
 
     #[test]
+    fn varied_balanced_liquidity_networks_match_oracle_and_ignore_input_order() {
+        // Deterministically generate many distinct 2x2 bipartite clearing networks.
+        // Small capacities let the independent exhaustive oracle enumerate every
+        // feasible integer allocation, including zero-liquidity and disconnected cases.
+        for seed in 0_u64..256 {
+            let debt_a = (seed * 3 + 1) % 4 + 1;
+            let debt_b = (seed * 5 + 2) % 4 + 1;
+            let total = debt_a + debt_b;
+            let credit_c = (seed * 7 + 1) % (total - 1) + 1;
+            let credit_d = total - credit_c;
+            let liquidity_a = (seed * 11 + 1) % (debt_a + 1);
+            let liquidity_b = (seed * 13 + 2) % (debt_b + 1);
+
+            let positions = vec![
+                participant("A", debt_a as i64, liquidity_a),
+                participant("B", debt_b as i64, liquidity_b),
+                participant("C", -(credit_c as i64), 0),
+                participant("D", -(credit_d as i64), 0),
+            ];
+            let routes = vec![
+                route(
+                    "a-c",
+                    "A",
+                    "C",
+                    (seed * 17 + 1) % 5,
+                    (seed * 19 + 1) % 31 + 1,
+                ),
+                route(
+                    "a-d",
+                    "A",
+                    "D",
+                    (seed * 23 + 2) % 5,
+                    (seed * 29 + 2) % 31 + 1,
+                ),
+                route(
+                    "b-c",
+                    "B",
+                    "C",
+                    (seed * 31 + 3) % 5,
+                    (seed * 37 + 3) % 31 + 1,
+                ),
+                route(
+                    "b-d",
+                    "B",
+                    "D",
+                    (seed * 41 + 4) % 5,
+                    (seed * 43 + 4) % 31 + 1,
+                ),
+            ];
+
+            let oracle = brute_force_best(&routes, &positions);
+            let result = optimize(&context(), &positions, &routes)
+                .unwrap_or_else(|error| panic!("seed={seed}: {error}"));
+            assert_eq!(
+                (result.total_allocated_minor, result.total_modeled_cost_units),
+                oracle,
+                "oracle mismatch for generated network seed={seed}"
+            );
+
+            let mut reversed_positions = positions.clone();
+            reversed_positions.reverse();
+            let mut reversed_routes = routes.clone();
+            reversed_routes.reverse();
+            let permuted = optimize(&context(), &reversed_positions, &reversed_routes)
+                .unwrap_or_else(|error| panic!("permutation seed={seed}: {error}"));
+            assert_eq!(
+                permuted, result,
+                "input permutation changed deterministic allocation for seed={seed}"
+            );
+        }
+    }
+
+    #[test]
     fn min_cost_flow_matches_exhaustive_integer_oracle_on_small_graphs() {
         let positions = vec![
             participant("A", 2, 2),
