@@ -1,0 +1,88 @@
+{
+  "schema_version": "nrvca-external-validity-bundle/0.1",
+  "artifact_status": "preregistered_not_executed",
+  "external_evaluation_enabled": false,
+  "execution_state": "blocked_no_adjudicated_records",
+  "protocol": {
+    "protocol_id": "NRVCA-EXTVAL-001",
+    "protocol_version": "0.1",
+    "comparability_contract_version": "nrvca-kpi-dual-axis-comparability-benchmark/0.1",
+    "preregistered_on": "2026-10-22",
+    "objective": "Estimate selective measurement-comparability error and abstention behavior on independently adjudicated real KPI definition pairs; distinguish contract correctness from external validity.",
+    "adjudication": {
+      "independent_initial_raters": 2,
+      "third_rater_for_disagreement": true,
+      "raters_blinded_to_comparator": true,
+      "preserve_disagreements": true,
+      "gold_labels_frozen_before_model_run": true
+    },
+    "split_policy": {
+      "random_pair_split_allowed": false,
+      "provider_group_disjoint_primary_splits": true,
+      "primary_splits": [
+        "development",
+        "validation",
+        "provider_held_out_test"
+      ],
+      "separate_temporal_vintage_test": true,
+      "source_bytes_disjoint_across_primary_splits": true,
+      "contract_ids_disjoint_across_primary_splits": true,
+      "duplicate_pair_across_splits_forbidden": true
+    },
+    "source_requirements": {
+      "acquired_bytes_required": true,
+      "sha256_required": true,
+      "exact_locator_required": true,
+      "capture_timestamp_required": true,
+      "extraction_recipe_required": true,
+      "rights_evidence_required": true,
+      "allowed_rights_states": [
+        "open_reuse",
+        "permission_granted",
+        "evaluation_only"
+      ],
+      "unknown_or_prohibited_rights_block_evaluation": true,
+      "restricted_data_may_be_evaluation_only": true,
+      "redistributable_content_requires_explicit_rights": true
+    },
+    "acceptance_targets": {
+      "minimum_hard_mismatch_pairs": 300,
+      "false_comparable_hard_mismatch_max": 0,
+      "minimum_exact_three_way_agreement": 0.95,
+      "minimum_coverage_adequate_evidence": 0.8,
+      "critical_unknown_abstention_minimum": 1,
+      "confidence_level": 0.95,
+      "zero_errors_approx_upper_error_bound": 0.01
+    },
+    "required_metrics": [
+      "false_comparable_rate_on_adjudicated_hard_mismatches",
+      "false_incomparable_rate_on_adjudicated_matches",
+      "exact_three_way_agreement",
+      "coverage_on_adequately_evidenced_pairs",
+      "abstention_rate_and_reason",
+      "per_provider_group_error",
+      "per_field_error",
+      "rater_agreement",
+      "confidence_intervals"
+    ],
+    "reporting": {
+      "per_provider_breakdown": true,
+      "confidence_intervals": true,
+      "abstention_and_coverage": true,
+      "adjudicator_disagreement": true,
+      "naive_baseline_and_production_mapping_required": true,
+      "aggregate_only_when_required_by_rights": true
+    },
+    "source_access_notes": {
+      "awwa": "The official benchmarking page advertises aggregate utility benchmarking results and participant-specific access; obtain rights-cleared indicator definitions/data before evaluation. Do not infer a weak comparator baseline from AWWA's public description.",
+      "ibnet": "IBNET describes comparative KPI dashboards; its Use Data page says management-practices data are confidential and shared only with the registered utility. Do not scrape or redistribute restricted content."
+    },
+    "preregistration_limits": [
+      "These are proposed targets, not measured results.",
+      "Zero observed errors on 300 independent hard mismatches gives an approximate one-sided 95% binomial upper error-rate bound near 1%; dependence and sampling bias can invalidate this approximation.",
+      "Do not claim SOTA superiority without multi-provider held-out evaluation and fair baseline access."
+    ]
+  },
+  "sources": [],
+  "pairs": []
+}

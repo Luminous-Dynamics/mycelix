@@ -5,6 +5,8 @@
 
 pub mod comparability;
 
+pub mod external_validity;
+
 use serde_json::Value;
 use std::collections::HashSet;
 
