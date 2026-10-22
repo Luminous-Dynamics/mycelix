@@ -80,6 +80,16 @@ fn validate(root: &Value) -> Result<(), String> {
         || root["rules"]["declared_fingerprint_is_untrusted_and_must_not_override_actual_fields"].as_bool() != Some(true) {
         return Err("dual-axis comparability policy weakened".to_owned());
     }
+    let expected_semantic_fields = [
+        "canonical_concept_id", "unit", "numerator_definition", "denominator_definition",
+        "eligible_population", "clock_start", "deadline_rule", "category_rule",
+        "geographic_scope", "aggregation", "inclusion_rule",
+    ];
+    let expected_target_fields = ["value", "unit", "target_population", "policy_vintage"];
+    if list_strings(&root["semantic_fields"])? != expected_semantic_fields.iter().map(|s| s.to_string()).collect::<Vec<_>>()
+        || list_strings(&root["target_fields"])? != expected_target_fields.iter().map(|s| s.to_string()).collect::<Vec<_>>() {
+        return Err("semantic/target comparison field set changed without review".to_owned());
+    }
     let cases = root["cases"].as_array().ok_or_else(|| "cases missing".to_owned())?;
     if cases.len() != 24 {
         return Err(format!("expected 24 known-answer pairs, got {}", cases.len()));
@@ -119,6 +129,33 @@ fn validate(root: &Value) -> Result<(), String> {
     if root["baseline"]["name"].as_str() != Some("same-local-id-and-display-label") {
         return Err("naive baseline definition changed".to_owned());
     }
+    let mut aggregate = std::collections::BTreeMap::<String, i64>::new();
+    aggregate.insert("total_pairs".to_owned(), cases.len() as i64);
+    for item in cases {
+        let measurement = text(&item["expected"], "measurement_comparability")?;
+        let target = text(&item["expected"], "target_comparability")?;
+        *aggregate.entry(format!("measurement_{measurement}")).or_default() += 1;
+        *aggregate.entry(match target {
+            "same_target_policy" => "target_same",
+            "changed_target_policy" => "target_changed",
+            "indeterminate" => "target_indeterminate",
+            _ => return Err(format!("unexpected target status in {}", text(item, "case_id")?)),
+        }.to_owned()).or_default() += 1;
+        let naive = naive_same_id_and_label(&item["left"], &item["right"]);
+        if naive == "comparable" && measurement != "comparable" {
+            *aggregate.entry("naive_false_comparable".to_owned()).or_default() += 1;
+        }
+        if naive == "not_comparable" && measurement == "comparable" {
+            *aggregate.entry("naive_false_incomparable".to_owned()).or_default() += 1;
+        }
+    }
+    let summary = &root["expected_aggregate"];
+    for (key, value) in aggregate {
+        if summary[key.as_str()].as_i64() != Some(value) {
+            return Err(format!("benchmark aggregate {key} mismatches pair-level decisions"));
+        }
+    }
+
     Ok(())
 }
 
@@ -257,8 +294,5 @@ fn malformed_or_incomplete_contracts_fail_closed() {
     false_counts["expected_aggregate"]["naive_false_comparable"] = json!(0);
     // The fixture's summary itself is a frozen audit contract. Recalculate the
     // benchmark metrics by rerunning the known-answer test when this mutation is made.
-    assert_ne!(
-        false_counts["expected_aggregate"]["naive_false_comparable"],
-        root["expected_aggregate"]["naive_false_comparable"]
-    );
+    assert!(validate(&false_counts).is_err());
 }
