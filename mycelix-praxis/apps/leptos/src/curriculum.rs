@@ -1242,3 +1242,118 @@ pub fn set_node_status(node_id: &str, status: ProgressStatus, topic_title: &str)
         });
     }
 }
+
+
+#[cfg(test)]
+mod evidence_first_progress_tests {
+    use super::*;
+
+    #[test]
+    fn a_manual_mastered_toggle_becomes_self_assessment_not_verified_mastery() {
+        let mut progress = ProgressStore::default();
+        progress.set_status("math.addition", ProgressStatus::Mastered);
+
+        let node = progress.get("math.addition");
+        assert_eq!(node.status, ProgressStatus::Studying);
+        assert_eq!(node.self_assessment, Some(SelfAssessment::FeelsUnderstood));
+        assert_eq!(node.mastery_permille, 0);
+        assert_eq!(node.attempts, 0);
+        assert_eq!(node.correct, 0);
+        assert_eq!(progress.mastered_count(), 0);
+        assert!(progress.mastered_ids().is_empty());
+    }
+
+    #[test]
+    fn self_assessment_does_not_update_scored_attempts_or_bkt() {
+        let mut progress = ProgressStore::default();
+        progress.record_self_assessment("math.fractions", SelfAssessment::FeelsUnderstood);
+
+        let node = progress.get("math.fractions");
+        assert_eq!(node.self_assessment, Some(SelfAssessment::FeelsUnderstood));
+        assert_eq!(node.self_reported_attempts, 1);
+        assert_eq!(node.self_reported_correct, 1);
+        assert_eq!(node.attempts, 0);
+        assert_eq!(node.correct, 0);
+        assert_eq!(node.mastery_permille, 0);
+        assert_eq!(progress.bkt("math.fractions").attempts, 0);
+        assert_eq!(node.status, ProgressStatus::Studying);
+    }
+
+    #[test]
+    fn scored_responses_can_reach_provisional_but_not_verified_mastery() {
+        let mut progress = ProgressStore::default();
+        for _ in 0..5 {
+            progress.record_response("math.multiplication", true);
+        }
+
+        assert_eq!(
+            progress.get("math.multiplication").status,
+            ProgressStatus::ProvisionalMastery
+        );
+        assert!(progress.get("math.multiplication").mastery_permille >= 950);
+        assert_eq!(progress.mastered_count(), 0);
+        assert!(progress.mastered_ids().is_empty());
+    }
+
+    #[test]
+    fn legacy_post_reveal_feedback_is_migrated_as_unscored_self_report() {
+        let mut progress = ProgressStore::default();
+        progress.nodes.insert(
+            "math.multiplication".to_owned(),
+            NodeProgress {
+                mastery_permille: 900,
+                attempts: 4,
+                correct: 4,
+                status: ProgressStatus::Mastered,
+                ..NodeProgress::default()
+            },
+        );
+        progress.bkt_states.insert(
+            "math.multiplication".to_owned(),
+            BktState {
+                p_mastery: 0.99,
+                attempts: 4,
+                correct: 4,
+            },
+        );
+
+        assert!(progress.migrate_legacy_progress());
+        let node = progress.get("math.multiplication");
+        assert_eq!(progress.schema_version, 1);
+        assert_eq!(node.status, ProgressStatus::Studying);
+        assert_eq!(node.self_assessment, Some(SelfAssessment::FeelsUnderstood));
+        assert_eq!(node.self_reported_attempts, 4);
+        assert_eq!(node.self_reported_correct, 4);
+        assert_eq!(node.attempts, 0);
+        assert_eq!(node.correct, 0);
+        assert_eq!(node.mastery_permille, 0);
+        assert_eq!(progress.bkt("math.multiplication").attempts, 0);
+        assert!(progress.mastered_ids().is_empty());
+
+        assert!(
+            !progress.migrate_legacy_progress(),
+            "migration must not erase new scored responses on a later load"
+        );
+    }
+
+    #[test]
+    fn legacy_bkt_entries_without_node_progress_are_not_trusted() {
+        let mut progress = ProgressStore::default();
+        progress.bkt_states.insert(
+            "math.geometry".to_owned(),
+            BktState {
+                p_mastery: 0.98,
+                attempts: 6,
+                correct: 5,
+            },
+        );
+
+        assert!(progress.migrate_legacy_progress());
+        let node = progress.get("math.geometry");
+        assert_eq!(node.self_reported_attempts, 6);
+        assert_eq!(node.self_reported_correct, 5);
+        assert_eq!(node.attempts, 0);
+        assert_eq!(node.mastery_permille, 0);
+        assert_eq!(progress.bkt("math.geometry").attempts, 0);
+    }
+}
