@@ -536,6 +536,18 @@ mod tests {
         let rows: Vec<&str> = features.lines().skip(1).collect();
         assert_eq!(rows.len(), PRESENTATIONS);
         assert!(rows.iter().all(|row| row.split('\t').count() == 7));
-        assert_ne!(rows.first(), rows.last());
+
+        let generated_proof_order: Vec<String> = corpus
+            .iter()
+            .map(|item| format!("{:016x}", item.proof_tag))
+            .collect();
+        let exported_proof_order: Vec<&str> = rows
+            .iter()
+            .map(|row| row.split('\t').nth(2).unwrap())
+            .collect();
+        assert_ne!(
+            exported_proof_order,
+            generated_proof_order.iter().map(String::as_str).collect::<Vec<_>>()
+        );
     }
 }
