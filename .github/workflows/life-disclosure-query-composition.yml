@@ -1,0 +1,58 @@
+name: LIFE disclosure query composition benchmark
+
+on:
+  pull_request:
+    paths:
+      - "research/life-disclosure-query-composition/**"
+      - ".github/workflows/life-disclosure-query-composition.yml"
+  push:
+    paths:
+      - "research/life-disclosure-query-composition/**"
+      - ".github/workflows/life-disclosure-query-composition.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  qualify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out exact revision
+        uses: actions/checkout@v4
+
+      - name: Install pinned Rust toolchain
+        uses: dtolnay/rust-toolchain@1.96.0
+        with:
+          components: rustfmt, clippy
+
+      - name: Check formatting
+        run: cargo fmt --manifest-path research/life-disclosure-query-composition/Cargo.toml --all -- --check
+
+      - name: Run tests
+        run: cargo test --locked --manifest-path research/life-disclosure-query-composition/Cargo.toml
+
+      - name: Run strict Clippy
+        run: cargo clippy --locked --manifest-path research/life-disclosure-query-composition/Cargo.toml --all-targets -- -D warnings
+
+      - name: Compare repeated benchmark reports
+        shell: bash
+        run: |
+          set -euo pipefail
+          cargo run --quiet --locked --manifest-path research/life-disclosure-query-composition/Cargo.toml > report-a.csv
+          cargo run --quiet --locked --manifest-path research/life-disclosure-query-composition/Cargo.toml > report-b.csv
+          cmp report-a.csv report-b.csv
+          sha256sum report-a.csv > report.sha256
+          printf 'commit=%s\n' "$GITHUB_SHA" > qualification.txt
+          cat report.sha256 >> qualification.txt
+          cat qualification.txt
+
+      - name: Upload qualification receipt
+        uses: actions/upload-artifact@v4
+        with:
+          name: life-disclosure-query-composition-${{ github.sha }}
+          path: |
+            report-a.csv
+            report.sha256
+            qualification.txt
+          if-no-files-found: error
