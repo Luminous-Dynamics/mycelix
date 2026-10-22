@@ -653,6 +653,12 @@ pub fn LessonAuthorPage() -> impl IntoView {
     let initial = persistence::load::<LessonAuthorDraft>(DRAFT_KEY).unwrap_or_default();
     let (draft, set_draft) = signal(initial);
     let (notice, set_notice) = signal("Drafts are saved only in this browser. Nothing is published or uploaded.".to_owned());
+    let mut objective_options = crate::curriculum::curriculum_graph()
+        .nodes
+        .iter()
+        .map(|node| (node.id.clone(), node.title.clone()))
+        .collect::<Vec<_>>();
+    objective_options.sort_by(|left, right| left.0.cmp(&right.0));
 
     Effect::new(move |_| {
         persistence::save(DRAFT_KEY, &draft.get());
@@ -768,10 +774,23 @@ pub fn LessonAuthorPage() -> impl IntoView {
 
             <section style="padding: 1rem; border: 1px solid var(--border); border-radius: 12px; margin-bottom: 1rem">
                 <h2>"1. What are you teaching?"</h2>
-                <p style="color: var(--text-secondary)">"Use an existing objective ID if you know it. Find likely objectives in Knowledge Garden / Skill Map; do not invent an official code. Drafting is separate from curriculum activation."</p>
+                <p style="color: var(--text-secondary)">"Start typing an objective ID or choose a title from the suggestions. If no objective fits, enter a clearly provisional ID and document the gap; never invent an official standards code. Drafting does not activate a curriculum node."</p>
                 <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 0.85rem">
-                    <label>"Objective ID"
-                        <input style="width: 100%" prop:value=move || draft.get().node_id.clone() on:input=move |ev| set_draft.update(|d| d.node_id = event_target_value(&ev)) />
+                    <label>"Objective ID — search existing objectives or enter a provisional ID"
+                        <input
+                            list="praxis-objective-options"
+                            aria-label="Curriculum objective ID"
+                            style="width: 100%"
+                            prop:value=move || draft.get().node_id.clone()
+                            on:input=move |ev| set_draft.update(|d| d.node_id = event_target_value(&ev))
+                        />
+                        <datalist id="praxis-objective-options">
+                            {objective_options.iter().map(|(id, title)| {
+                                let id = id.clone();
+                                let title = title.clone();
+                                view! { <option value=id label=title></option> }
+                            }).collect::<Vec<_>>()}
+                        </datalist>
                     </label>
                     <label>"Lesson title"
                         <input style="width: 100%" prop:value=move || draft.get().title.clone() on:input=move |ev| set_draft.update(|d| d.title = event_target_value(&ev)) />
