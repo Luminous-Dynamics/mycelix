@@ -1,8 +1,8 @@
 {
   "catalogue_version": "nrvca-sa-sources/0.1",
-  "as_of_date": "2026-10-21",
+  "as_of_date": "2026-10-22",
   "status": "discovery_only",
-  "warning": "Publisher webpages identified; no dataset bytes downloaded or licensed for production use in this tranche.",
+  "warning": "Publisher webpages identified; no dataset bytes downloaded or rights-cleared for production use in this tranche. The Q2 2026 GDP release announces a base-year change to 2022 and benchmarking/rebasing expected in October 2026; verify current release status before freezing a baseline.",
   "sources": [
     {
       "source_id": "SA-GDP-P0441-Q2-2026",
@@ -23,11 +23,12 @@
       "known_limits": [
         "GDP is a monetary production flow, not a complete welfare measure.",
         "Release values can be revised; use versioned vintages.",
-        "Keep nominal and constant-price values distinct."
+        "Keep nominal and constant-price values distinct.",
+        "The Q2 2026 release announces national-accounts rebasing to a 2022 base year with benchmarked/rebased estimates expected in October 2026; verify the latest publisher release before establishing a baseline."
       ],
       "ingest_state": "discovery_only_bytes_not_fetched",
       "license_status": "unknown",
-      "next_action": "Retrieve publication and time-series companion; record retrieval time, SHA-256, price basis, revision vintage, unit and source table."
+      "next_action": "Before ingest, check whether the announced 2022-base rebased/benchmarked series has been published; pin pre- and post-rebase vintages separately, then record exact workbook bytes SHA-256, price basis, revisions, units and tables."
     },
     {
       "source_id": "SA-PEFA-2022",
@@ -203,5 +204,15 @@
       "license_status": "unknown",
       "next_action": "Inspect exact table definitions, distinguish returned water-balance data from calculated/extrapolated/estimated nonresponse cases, and obtain source datasets, response denominator, missing authorities and confidence classifications."
     }
-  ]
+  ],
+  "vintage_break_watch": {
+    "source_id": "SA-GDP-P0441-Q2-2026",
+    "announcement_source": "https://www.statssa.gov.za/publications/P0441/P04412ndQuarter2026.pdf",
+    "as_announced": "Stats SA said national accounts would be rebased to a 2022 base year, with periodic datasets incorporated, and expected the benchmarked/rebased estimates in October 2026.",
+    "as_of_date": "2026-10-22",
+    "verification_state": "release_status_requires_current_publisher_confirmation_before_ingest",
+    "methodological_implication": "Do not assume the Q2 2026 workbook is the latest comparable vintage. Pin the pre-rebase publication and any newly published post-rebase version separately, then document overlap-period revisions, base-year/price-basis change, benchmark-source additions, classification changes, and reconciliation differences.",
+    "latest_release_page": "https://www.statssa.gov.za/?PPN=P0441&page_id=1854",
+    "no_overwrite_rule": "A post-rebase release creates a new source-vintage record and new digest; do not overwrite the pre-rebase bytes or splice series without a declared linking method."
+  }
 }
