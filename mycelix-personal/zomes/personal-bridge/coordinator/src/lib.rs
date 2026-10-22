@@ -466,7 +466,8 @@ fn validate_identity_projection_response(
         return Err("Identity vault returned an unrequested disclosure field");
     }
 
-    serde_json::to_string(&value).map_err(|_| "Identity vault disclosure payload could not be serialized")
+    serde_json::to_string(&value)
+        .map_err(|_| "Identity vault disclosure payload could not be serialized")
 }
 
 // ============================================================================
