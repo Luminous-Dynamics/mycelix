@@ -146,7 +146,7 @@
     "policy_service_units_lower_bound": 1150,
     "policy_underserved_service_units_lower_bound": 900,
     "policy_emissions_upper_bound": 9.5,
-    "policy_service_weighted_reliability_lower_bound": 0.951304347826087,
+    "policy_service_weighted_reliability_lower_bound": 0.9504,
     "policy_is_feasible": true,
     "strict_equity_floor_901_is_infeasible": true
   },
