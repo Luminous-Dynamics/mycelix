@@ -1201,6 +1201,38 @@ impl ProgressStore {
         };
     }
 
+    /// Merge answer-first practice outcomes by opaque item ID, then rebuild
+    /// the BKT state from the deduplicated evidence. Returns the number of new
+    /// receipt records added. Safe to call repeatedly with the same profile.
+    pub fn merge_scored_practice_evidence(&mut self, other: &Self) -> usize {
+        let mut touched = BTreeSet::new();
+        let mut added = 0usize;
+        for (node_id, imported_node) in &other.nodes {
+            if imported_node.scored_practice_receipts.is_empty() {
+                continue;
+            }
+            let target = self.nodes.entry(node_id.clone()).or_default();
+            for receipt in &imported_node.scored_practice_receipts {
+                if target
+                    .scored_practice_receipts
+                    .iter()
+                    .any(|existing| existing.item_id == receipt.item_id)
+                {
+                    continue;
+                }
+                target.scored_item_ids.push(receipt.item_id.clone());
+                target.scored_practice_receipts.push(receipt.clone());
+                added += 1;
+            }
+            touched.insert(node_id.clone());
+        }
+
+        for node_id in touched {
+            self.rebuild_bkt_from_practice_receipts(&node_id);
+        }
+        added
+    }
+
     /// Record completion of an interactive activity. Activity completion is a
     /// separate participation signal: it does not increase mastery, attempts,
     /// correctness, or the BKT posterior.
@@ -1690,6 +1722,35 @@ mod evidence_first_progress_tests {
             progress.get("math.multiplication").attempts,
             attempts_before_repeat + 1
         );
+    }
+
+    #[test]
+    fn merging_the_same_scored_profile_twice_is_idempotent() {
+        let mut imported = ProgressStore::default();
+        assert!(imported.record_response_for_item("math.fractions", "item-a", true));
+        assert!(imported.record_response_for_item("math.fractions", "item-b", false));
+
+        let mut local = ProgressStore::default();
+        assert_eq!(local.merge_scored_practice_evidence(&imported), 2);
+        let first_attempts = local.bkt("math.fractions").attempts;
+        let first_correct = local.bkt("math.fractions").correct;
+        let first_posterior = local.bkt("math.fractions").p_mastery;
+        assert_eq!(first_attempts, 2);
+        assert_eq!(first_correct, 1);
+        assert_eq!(local.get("math.fractions").scored_practice_receipts.len(), 2);
+
+        assert_eq!(local.merge_scored_practice_evidence(&imported), 0);
+        assert_eq!(local.bkt("math.fractions").attempts, first_attempts);
+        assert_eq!(local.bkt("math.fractions").correct, first_correct);
+        assert_eq!(local.bkt("math.fractions").p_mastery, first_posterior);
+        assert_eq!(local.get("math.fractions").scored_practice_receipts.len(), 2);
+
+        let mut other_device = ProgressStore::default();
+        assert!(other_device.record_response_for_item("math.fractions", "item-c", true));
+        assert_eq!(local.merge_scored_practice_evidence(&other_device), 1);
+        assert_eq!(local.bkt("math.fractions").attempts, 3);
+        assert_eq!(local.bkt("math.fractions").correct, 2);
+        assert_eq!(local.get("math.fractions").scored_practice_receipts.len(), 3);
     }
 
     #[test]
