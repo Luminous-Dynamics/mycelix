@@ -8,7 +8,7 @@
 
 use leptos::prelude::*;
 
-use crate::curriculum::{ProgressStatus, curriculum_graph, use_progress, use_set_progress};
+use crate::curriculum::{SelfAssessment, ProgressStatus, curriculum_graph, use_progress, use_set_progress};
 use crate::student_profile::use_profile;
 
 #[component]
@@ -257,7 +257,8 @@ pub fn ExamPrepPage() -> impl IntoView {
                     let href = format!("/study/{}", id);
                     let subject_color = if subject == "Mathematics" { "var(--subject-math)" } else { "var(--subject-physics)" };
                     let status_label = status.label();
-                    let status_class = status.css_class();
+                    let self_assessed_ready = progress.get().get(&id).self_assessment
+                        == Some(SelfAssessment::FeelsUnderstood);
                     let opacity = if status == ProgressStatus::Mastered { "0.5" } else { "1" };
 
                     let id_for_toggle = id.clone();
@@ -274,18 +275,26 @@ pub fn ExamPrepPage() -> impl IntoView {
                                 <span class="praxis-badge praxis-badge-exam">{marks}</span>
                             </span>
                             <button
-                                class=format!("praxis-status-btn {}", if status == ProgressStatus::Mastered { "active-mastered" } else { "" })
-                                style="width: 80px; font-size: 0.7rem"
+                                class=if self_assessed_ready { "praxis-status-btn active-studying" } else { "praxis-status-btn" }
+                                style="width: 142px; font-size: 0.7rem"
+                                disabled=status == ProgressStatus::Mastered || self_assessed_ready
+                                title="Self-assessment only; this does not certify mastery or completion."
                                 on:click=move |_| {
-                                    let new_status = if status == ProgressStatus::Mastered {
-                                        ProgressStatus::NotStarted
-                                    } else {
-                                        ProgressStatus::Mastered
-                                    };
-                                    set_progress.update(|p| p.set_status(&id_for_toggle, new_status));
+                                    set_progress.update(|p| {
+                                        p.record_self_assessment(
+                                            &id_for_toggle,
+                                            SelfAssessment::FeelsUnderstood
+                                        )
+                                    });
                                 }
                             >
-                                {if status == ProgressStatus::Mastered { "\u{2714} Mastered" } else { "Mark done" }}
+                                {if status == ProgressStatus::Mastered {
+                                    "Verified mastery"
+                                } else if self_assessed_ready {
+                                    "Self-assessed ready"
+                                } else {
+                                    "I feel ready"
+                                }}
                             </button>
                         </div>
                     }
