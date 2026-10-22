@@ -15,13 +15,13 @@ The result is a vector, not one opaque score. The public module requires nonempt
 
 - `measurement.status`: `comparable`, `not_comparable`, or `indeterminate`.
 - `target_policy.status`: `same_target_policy`, `changed_target_policy`, or `indeterminate`.
-- Each axis returns deterministic `changed_fields` and `unknown_fields` in a fixed canonical field order.
+- Each axis returns deterministic `changed_fields` and `unknown_fields` in a fixed canonical field order, plus sorted `unsupported_fields` for keys that this version does not understand.
 
-The public API fixes its measurement and target fields. Labels, local identifiers, source-vintage strings and declared semantic fingerprints do not override the actual measured contract. A known semantic mismatch takes precedence over unknown fields; otherwise, any missing/null critical field yields an indeterminate result. Target-policy changes do not invalidate comparability of actual measurements by themselves.
+The public API fixes its measurement and target fields. Labels, local identifiers, source-vintage strings and declared semantic fingerprints do not override the actual measured contract. A known semantic mismatch takes precedence over unknown fields; otherwise, any missing, null, empty, ill-typed critical field—or any unrecognized extra key inside an axis object—forces an indeterminate result. This prevents a future field such as a target comparison operator (`at_least` versus `at_most`) from being silently ignored before the contract is versioned. Target-policy changes do not invalidate comparability of actual measurements by themselves.
 
 ## Qualification gates
 
-The committed integration test exercises the library API against every frozen known answer and aggregate count, then mutates every measurement field and every target-policy field. It also checks unknown-field abstention, mismatch precedence, source-vintage/wording/local-ID invariance, misleading fingerprint resistance, numeric JSON representation equivalence for targets, and deterministic results.
+The committed integration test exercises the library API against every frozen known answer and aggregate count, then mutates every measurement field and every target-policy field. It also checks unknown-field and unversioned-extension abstention, mismatch precedence, source-vintage/wording/local-ID invariance, misleading fingerprint resistance, exact numeric JSON comparison, symmetric decisions, and deterministic results.
 
 Required gates before calling the implementation qualified:
 
