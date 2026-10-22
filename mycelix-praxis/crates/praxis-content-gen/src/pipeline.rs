@@ -1073,6 +1073,29 @@ mod tests {
     }
 
     #[test]
+    fn mock_fraction_practice_does_not_include_an_equivalent_fraction_distractor() {
+        let standard = StandardInput {
+            code: "3.NF.A.1".to_string(),
+            description: "Understand a fraction 1/b as the quantity formed by 1 part".to_string(),
+            grade_level: "Grade3".to_string(),
+            domain: "Number & Operations - Fractions".to_string(),
+            prerequisites: vec!["Equal parts".to_string()],
+        };
+        let pipeline = ContentPipeline::new(crate::mock::MockGenerator);
+        let problem = pipeline
+            .generate_practice_problem(&standard, 4, 250)
+            .expect("fraction practice should pass its answer-choice quality gate");
+        assert_eq!(problem.answer, "2/6");
+        assert!(
+            problem
+                .distractors
+                .iter()
+                .all(|choice| !numeric_answer_choices_collide(&problem.answer, choice)),
+            "equivalent forms such as 1/3 must not be used as distractors for 2/6"
+        );
+    }
+
+    #[test]
     fn generation_retries_practice_items_with_invalid_distractors() {
         use std::sync::{
             Arc,
