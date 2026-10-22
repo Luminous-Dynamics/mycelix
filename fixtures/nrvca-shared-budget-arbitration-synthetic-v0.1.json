@@ -246,20 +246,20 @@
       "expected_remaining_budget": 4,
       "expected_decisions": [
         {
-          "candidate_id": "backup-signal",
-          "action_id": "deploy_backup_power",
-          "disposition": "manual_review_infeasible_protected_tier",
-          "reason": "protected_service_floor_bundle_exceeds_shared_budget",
-          "cost": 3,
-          "budget_before": 4,
-          "budget_after": 4
-        },
-        {
           "candidate_id": "water-signal",
           "action_id": "deliver_emergency_water",
           "disposition": "manual_review_infeasible_protected_tier",
           "reason": "protected_service_floor_bundle_exceeds_shared_budget",
           "cost": 2,
+          "budget_before": 4,
+          "budget_after": 4
+        },
+        {
+          "candidate_id": "backup-signal",
+          "action_id": "deploy_backup_power",
+          "disposition": "manual_review_infeasible_protected_tier",
+          "reason": "protected_service_floor_bundle_exceeds_shared_budget",
+          "cost": 3,
           "budget_before": 4,
           "budget_after": 4
         },
