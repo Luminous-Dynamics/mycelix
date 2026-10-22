@@ -502,21 +502,24 @@ mod tests {
     fn declared_validity_window_is_half_open_and_uses_decision_time() {
         let record = fixture();
         let at_start = DateTime::parse_from_rfc3339("2026-10-21T00:00:00Z").unwrap();
-        let just_before_start =
-            DateTime::parse_from_rfc3339("2026-10-20T23:59:59Z").unwrap();
+        let just_before_start = DateTime::parse_from_rfc3339("2026-10-20T23:59:59Z").unwrap();
         let at_end = DateTime::parse_from_rfc3339("2026-12-31T23:59:59Z").unwrap();
         let just_before_end = DateTime::parse_from_rfc3339("2026-12-31T23:59:58Z").unwrap();
 
         assert!(declared_validity_window_active_at(&record, at_start).is_ok());
         assert!(declared_validity_window_active_at(&record, just_before_end).is_ok());
-        assert!(declared_validity_window_active_at(&record, just_before_start)
-            .unwrap_err()
-            .iter()
-            .any(|error| error.contains("not active yet")));
-        assert!(declared_validity_window_active_at(&record, at_end)
-            .unwrap_err()
-            .iter()
-            .any(|error| error.contains("has expired")));
+        assert!(
+            declared_validity_window_active_at(&record, just_before_start)
+                .unwrap_err()
+                .iter()
+                .any(|error| error.contains("not active yet"))
+        );
+        assert!(
+            declared_validity_window_active_at(&record, at_end)
+                .unwrap_err()
+                .iter()
+                .any(|error| error.contains("has expired"))
+        );
     }
 
     #[test]
