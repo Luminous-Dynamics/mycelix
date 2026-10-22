@@ -332,7 +332,7 @@ pub fn import_all(json: &str) -> Result<String, String> {
 
     // Merge progress (keep higher mastery, more recent reviews)
     if let Some(imported) = bundle.progress {
-        let mut existing = load::<ProgressStore>("praxis_progress").unwrap_or_default();
+        let mut existing = crate::curriculum::load_progress_store();
         let mut merged_count = 0u32;
 
         for (id, imp_node) in &imported.nodes {
