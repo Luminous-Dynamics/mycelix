@@ -2297,7 +2297,7 @@ mod tests {
             schema["$id"],
             "https://mycelix.net/schemas/praxis/lesson-pack-v1.schema.json"
         );
-        for field in ["node_id", "lesson", "assessment", "flashcards", "quality"] {
+        for field in ["node_id", "lesson", "assessment", "flashcards", "quality", "authoring"] {
             assert!(
                 schema["required"]
                     .as_array()
@@ -2313,6 +2313,17 @@ mod tests {
         }
         assert_eq!(schema["properties"]["lesson"]["properties"]["practice_problems"]["minItems"], 3);
         assert_eq!(schema["properties"]["lesson"]["properties"]["explanation"]["minLength"], 80);
+        for field in ["language", "learning_objective", "license", "author_credit"] {
+            assert!(
+                schema["properties"]["authoring"]["required"]
+                    .as_array()
+                    .is_some_and(|fields| {
+                        fields.iter().any(|candidate| candidate.as_str() == Some(field))
+                    }),
+                "authoring schema must require {field}"
+            );
+        }
+        assert_eq!(example["authoring"]["language"], "en-ZA");
         assert_eq!(example["quality"]["needs_human_review"], true);
         assert_eq!(example["quality"]["metrics_valid_for_current_revision"], false);
         assert_eq!(example["authoring"]["status"], "draft");
@@ -2356,6 +2367,7 @@ mod tests {
         ))
         .expect("authoring starter must be valid JSON");
         value["assessment"]["total_points"] = Value::from(99);
+        value["authoring"]["language"] = Value::String(String::new());
         value["lesson"]["practice_problems"][0]["distractors"] = serde_json::json!([
             "8 biscuits",
             " 8 biscuits ",
@@ -2368,6 +2380,11 @@ mod tests {
         }));
         assert!(audit.findings.iter().any(|finding| {
             finding.code == "duplicate_distractor_choice" && finding.severity == "blocker"
+        }));
+        assert!(audit.findings.iter().any(|finding| {
+            finding.field == "authoring.language"
+                && finding.severity == "blocker"
+                && finding.code == "missing_required_text"
         }));
 
         value.as_object_mut().unwrap().remove("assessment");
