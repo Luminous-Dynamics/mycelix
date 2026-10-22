@@ -999,7 +999,7 @@ fn audit_scalar_answer_key(text: &str) -> Option<(String, Option<&'static str>)>
     let mut number_text = normalized.as_str();
     let mut unit = None;
     for (suffix, canonical_unit) in UNITS {
-        if let Some(number) = normalized.strip_suffix(suffix) {
+        if let Some(number) = normalized.strip_suffix(*suffix) {
             number_text = number.trim();
             unit = Some(*canonical_unit);
             break;
