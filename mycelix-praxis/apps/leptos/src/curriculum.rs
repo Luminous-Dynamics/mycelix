@@ -480,14 +480,14 @@ impl CurriculumGraph {
     /// unmastered node with no prerequisites at all.
     pub fn recommended_next(
         &self,
-        mastered_ids: &std::collections::HashSet<String>,
+        progression_ready_ids: &std::collections::HashSet<String>,
     ) -> Option<&str> {
         // Build a list of (index, exam_weight_pct) sorted by weight desc
         let mut candidates: Vec<(usize, f32)> = self
             .nodes
             .iter()
             .enumerate()
-            .filter(|(_, n)| !mastered_ids.contains(&n.id))
+            .filter(|(_, n)| !progression_ready_ids.contains(&n.id))
             .map(|(i, n)| {
                 let weight = n.exam_weight.as_ref().map(|w| w.percentage).unwrap_or(0.0);
                 (i, weight)
@@ -499,7 +499,7 @@ impl CurriculumGraph {
         for &(idx, _) in &candidates {
             let node = &self.nodes[idx];
             let prereqs = self.prereqs_for(&node.id);
-            if prereqs.iter().all(|p| mastered_ids.contains(*p)) {
+            if prereqs.iter().all(|p| progression_ready_ids.contains(*p)) {
                 return Some(&node.id);
             }
         }
@@ -515,17 +515,17 @@ impl CurriculumGraph {
         None
     }
 
-    /// Get all unmastered nodes whose prerequisites are all met (the Zone of Proximal Development).
+    /// Get all not-yet-ready nodes whose prerequisites are progression-ready (the Zone of Proximal Development).
     pub fn zpd_nodes(
         &self,
-        mastered_ids: &std::collections::HashSet<String>,
+        progression_ready_ids: &std::collections::HashSet<String>,
     ) -> Vec<&CurriculumNode> {
         self.nodes
             .iter()
-            .filter(|n| !mastered_ids.contains(&n.id))
+            .filter(|n| !progression_ready_ids.contains(&n.id))
             .filter(|n| {
                 let prereqs = self.prereqs_for(&n.id);
-                prereqs.is_empty() || prereqs.iter().all(|p| mastered_ids.contains(*p))
+                prereqs.is_empty() || prereqs.iter().all(|p| progression_ready_ids.contains(*p))
             })
             .collect()
     }
@@ -907,12 +907,42 @@ impl ProgressStore {
         (total / nodes.len() as u32) as u16
     }
 
+    /// IDs whose prerequisites may be treated as provisionally satisfied for
+    /// learning navigation. This deliberately includes a BKT provisional estimate,
+    /// but must never be used for credentials, safety authorization or claims of
+    /// verified/durable mastery.
+    pub fn progression_ready_ids(&self) -> std::collections::HashSet<String> {
+        self.nodes
+            .iter()
+            .filter(|(_, progress)| {
+                matches!(
+                    progress.status,
+                    ProgressStatus::ProvisionalMastery | ProgressStatus::Mastered
+                )
+            })
+            .map(|(id, _)| id.clone())
+            .collect()
+    }
+
+    /// IDs with independently verified mastery receipts. Browser-only BKT and
+    /// self-assessment cannot populate this set.
     pub fn mastered_ids(&self) -> std::collections::HashSet<String> {
         self.nodes
             .iter()
             .filter(|(_, p)| p.status == ProgressStatus::Mastered)
             .map(|(id, _)| id.clone())
             .collect()
+    }
+
+    pub fn provisional_mastery_count(&self) -> usize {
+        self.nodes
+            .values()
+            .filter(|progress| progress.status == ProgressStatus::ProvisionalMastery)
+            .count()
+    }
+
+    pub fn progression_ready_count(&self) -> usize {
+        self.progression_ready_ids().len()
     }
 }
 
@@ -1330,6 +1360,33 @@ pub fn set_node_status(node_id: &str, status: ProgressStatus, _topic_title: &str
 #[cfg(test)]
 mod evidence_first_progress_tests {
     use super::*;
+
+    #[test]
+    fn provisional_mastery_unlocks_learning_navigation_but_not_verified_mastery() {
+        let mut progress = ProgressStore::default();
+        progress.nodes.insert(
+            "foundation".to_owned(),
+            NodeProgress {
+                status: ProgressStatus::ProvisionalMastery,
+                mastery_permille: 960,
+                ..NodeProgress::default()
+            },
+        );
+
+        assert!(progress.progression_ready_ids().contains("foundation"));
+        assert!(!progress.mastered_ids().contains("foundation"));
+        assert_eq!(progress.provisional_mastery_count(), 1);
+        assert_eq!(progress.progression_ready_count(), 1);
+        assert_eq!(progress.mastered_count(), 0);
+
+        let verified = NodeProgress {
+            status: ProgressStatus::Mastered,
+            ..NodeProgress::default()
+        };
+        progress.nodes.insert("verified".to_owned(), verified);
+        assert!(progress.progression_ready_ids().contains("verified"));
+        assert!(progress.mastered_ids().contains("verified"));
+    }
 
     #[test]
     fn a_manual_mastered_toggle_becomes_self_assessment_not_verified_mastery() {
