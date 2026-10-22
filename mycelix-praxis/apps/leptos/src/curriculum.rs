@@ -711,6 +711,9 @@ impl ProgressStore {
             return;
         }
         entry.status = status;
+        if status == ProgressStatus::NotStarted {
+            entry.self_assessment = None;
+        }
     }
 
     /// Record a learner reflection separately from scored answers. This never
@@ -960,6 +963,8 @@ impl ProgressStore {
 
         // Also update basic progress
         let progress = self.nodes.entry(node_id.to_string()).or_default();
+        // A new scored observation supersedes a prior confidence-only reflection.
+        progress.self_assessment = None;
         progress.attempts += 1;
         if correct {
             progress.correct += 1;
