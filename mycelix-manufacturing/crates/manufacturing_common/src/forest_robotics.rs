@@ -87,6 +87,10 @@ pub struct ForestRobotObservation {
     pub position_uncertainty_mm: u32,
     pub mission_receipt_sha256: String,
     pub map_sha256: String,
+    /// Sorted, unique opaque IDs of Sol Atlas RoboticsTerrainEvidenceEnvelope records.
+    /// The consumer must resolve each reference and compare its map snapshot and
+    /// coordinate frame; this string is not an authenticity or hazard-clearance proof.
+    pub spatial_terrain_evidence_refs: Vec<String>,
     pub raw_artifact_sha256: String,
     /// References to separately validated WoodMeasurementEvidence records.
     pub related_measurement_ids: Vec<String>,
@@ -146,6 +150,38 @@ impl ForestRobotObservation {
 
         if self.position_uncertainty_mm == 0 {
             errors.push("position_uncertainty_mm must be > 0".to_owned());
+        }
+
+        if self.spatial_terrain_evidence_refs.len() > 128 {
+            errors.push("spatial_terrain_evidence_refs must contain <= 128 items".to_owned());
+        }
+        let mut terrain_refs = BTreeSet::new();
+        let mut previous_terrain_ref: Option<&str> = None;
+        for terrain_ref in &self.spatial_terrain_evidence_refs {
+            if !nonblank(terrain_ref) {
+                errors.push("spatial terrain evidence refs must not be blank".to_owned());
+            }
+            if terrain_ref.len() > 500 {
+                errors.push("spatial terrain evidence refs must be <= 500 characters".to_owned());
+            }
+            if !terrain_refs.insert(terrain_ref) {
+                errors.push(format!("duplicate spatial terrain evidence ref: {terrain_ref}"));
+            }
+            if previous_terrain_ref.is_some_and(|previous| previous >= terrain_ref.as_str()) {
+                errors.push("spatial_terrain_evidence_refs must be sorted and unique".to_owned());
+            }
+            previous_terrain_ref = Some(terrain_ref);
+        }
+        if matches!(
+            self.kind,
+            ForestObservationKind::TerrainPatch
+                | ForestObservationKind::TrailSegment
+                | ForestObservationKind::Obstacle
+        ) && self.spatial_terrain_evidence_refs.is_empty()
+        {
+            errors.push(
+                "terrain, trail, and obstacle observations require a Sol Atlas terrain evidence reference".to_owned(),
+            );
         }
         if self.sensor_id.as_ref().is_some_and(|value| !nonblank(value)) {
             errors.push("sensor_id must be omitted rather than blank".to_owned());
@@ -304,6 +340,7 @@ mod tests {
             position_uncertainty_mm: 35,
             mission_receipt_sha256: "a".repeat(64),
             map_sha256: "b".repeat(64),
+            spatial_terrain_evidence_refs: vec![],
             raw_artifact_sha256: "c".repeat(64),
             related_measurement_ids: vec![
                 "measurement-tree-001-dbh".to_owned(),
@@ -330,6 +367,47 @@ mod tests {
         let decoded: ForestRobotObservation =
             serde_json::from_str(&encoded).expect("observation deserializes");
         assert_eq!(decoded, record);
+    }
+
+    #[test]
+    fn terrain_and_obstacle_observations_require_sol_atlas_evidence() {
+        let mut record = observation();
+        record.kind = ForestObservationKind::TerrainPatch;
+        let errors = record.validate().expect_err("terrain observation needs spatial evidence");
+        assert!(errors.iter().any(|error| error.contains("Sol Atlas terrain evidence reference")));
+        record.spatial_terrain_evidence_refs = vec!["sol-atlas-terrain-evidence-001".to_owned()];
+        assert!(record.validate().is_ok());
+    }
+
+    #[test]
+    fn spatial_terrain_evidence_refs_must_be_canonical_and_unique() {
+        let mut record = observation();
+        record.spatial_terrain_evidence_refs = vec![
+            "terrain-ref-z".to_owned(),
+            "terrain-ref-a".to_owned(),
+        ];
+        assert!(record
+            .validate()
+            .expect_err("unsorted references must fail")
+            .iter()
+            .any(|error| error.contains("must be sorted and unique")));
+        record.spatial_terrain_evidence_refs = vec![
+            "terrain-ref-a".to_owned(),
+            "terrain-ref-a".to_owned(),
+        ];
+        assert!(record
+            .validate()
+            .expect_err("duplicate references must fail")
+            .iter()
+            .any(|error| error.contains("duplicate spatial terrain evidence ref")));
+    }
+
+    #[test]
+    fn tree_candidate_may_omit_terrain_handoff() {
+        let record = observation();
+        assert_eq!(record.kind, ForestObservationKind::TreeCandidate);
+        assert!(record.spatial_terrain_evidence_refs.is_empty());
+        assert!(record.validate().is_ok());
     }
 
     #[test]
