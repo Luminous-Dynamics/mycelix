@@ -525,7 +525,7 @@ mod tests {
 
         let mut rows = features.lines();
         let header = rows.next().unwrap();
-        assert!(header.starts_with("presentation_ref\\trecipient\\tsession"));
+        assert!(header.starts_with("presentation_ref\trecipient\tsession"));
         assert!(!header.contains("subject_truth"));
         assert!(!header.contains("ground_truth"));
         assert!(!header.contains("subject_index"));
@@ -533,7 +533,7 @@ mod tests {
 
         let rows: Vec<&str> = features.lines().skip(1).collect();
         assert_eq!(rows.len(), PRESENTATIONS);
-        assert!(rows.iter().all(|row| row.split('\\t').count() == 8));
+        assert!(rows.iter().all(|row| row.split('\t').count() == 8));
 
         let mut presentation_refs: Vec<&str> = rows
             .iter()
