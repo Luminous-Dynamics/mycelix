@@ -155,13 +155,7 @@ pub fn ParabolaExplorer(node_id: String) -> impl IntoView {
 
                     // If all challenges complete, update mastery
                     if next_idx >= 5 {
-                        set_progress.update(|p| {
-                            let entry = p.nodes.entry(node_id).or_default();
-                            entry.mastery_permille = entry.mastery_permille.max(800);
-                            if entry.status == ProgressStatus::NotStarted {
-                                entry.status = ProgressStatus::Studying;
-                            }
-                        });
+                        set_progress.update(|p| p.record_activity_completion(&node_id));
                     }
                 });
             } else {
