@@ -392,10 +392,11 @@ impl CurriculumGraph {
 
         for (edge_idx, edge) in raw.edges.iter().enumerate() {
             // Only an explicit Requires edge is a hard learning prerequisite.
-            // Recommended and LeadsTo describe optional guidance or progression;
-            // AppliedIn/RelatedTo describe cross-subject relationships. Keep all
-            // edge types in the graph, but do not let soft/relational edges block
-            // a learner from entering the zone of proximal development.
+            // Recommends (the knowledge-zome name) and Recommended (used by
+            // some authored curriculum graphs) are soft guidance; LeadsTo,
+            // PartOf, AlternativeTo and Specializes remain relationships. Keep
+            // every edge in the graph, but don't let non-Require edges block the
+            // learner from entering the zone of proximal development.
             if edge.edge_type == "Requires" {
                 prerequisites
                     .entry(edge.to.clone())
@@ -1190,27 +1191,28 @@ mod edge_semantics_tests {
             "an unmet explicit prerequisite must keep the skill out of the ZPD"
         );
 
-        let recommended = graph_with_edge("Recommended");
-        assert!(recommended.prereqs_for("next-skill").is_empty());
-        assert!(
-            recommended
-                .zpd_nodes(&HashSet::new())
-                .iter()
-                .any(|node| node.id == "next-skill"),
-            "a recommendation must not behave like a mandatory prerequisite"
-        );
-        assert_eq!(recommended.edges[0].edge_type, "Recommended");
-
-        let bridge = graph_with_edge("LeadsTo");
-        assert!(bridge.prereqs_for("next-skill").is_empty());
-        assert!(
-            bridge
-                .zpd_nodes(&HashSet::new())
-                .iter()
-                .any(|node| node.id == "next-skill"),
-            "a cross-level bridge must not block the target by itself"
-        );
-        assert_eq!(bridge.edges[0].edge_type, "LeadsTo");
+        for edge_type in [
+            "Recommended",
+            "Recommends",
+            "LeadsTo",
+            "PartOf",
+            "AlternativeTo",
+            "Specializes",
+        ] {
+            let graph = graph_with_edge(edge_type);
+            assert!(
+                graph.prereqs_for("next-skill").is_empty(),
+                "{edge_type} must not become a hard prerequisite"
+            );
+            assert!(
+                graph
+                    .zpd_nodes(&HashSet::new())
+                    .iter()
+                    .any(|node| node.id == "next-skill"),
+                "{edge_type} must not block the target by itself"
+            );
+            assert_eq!(graph.edges[0].edge_type, edge_type);
+        }
     }
 
     #[test]
