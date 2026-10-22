@@ -157,12 +157,15 @@ fn main() {
                 scenario == "cyclic",
                 "only the unconstrained cyclic case should be fully allocatable"
             );
-            let flow_gain = optimized_plan.total_allocated_minor - greedy_plan.total_allocated_minor;
-            let equal_flow_cost_savings = if optimized_plan.total_allocated_minor == greedy_plan.total_allocated_minor {
-                greedy_plan.total_modeled_cost_units - optimized_plan.total_modeled_cost_units
-            } else {
-                0
-            };
+            let flow_gain =
+                optimized_plan.total_allocated_minor - greedy_plan.total_allocated_minor;
+            let equal_flow_cost_savings =
+                if optimized_plan.total_allocated_minor == greedy_plan.total_allocated_minor {
+                    greedy_plan.total_modeled_cost_units
+                        - optimized_plan.total_modeled_cost_units
+                } else {
+                    0
+                };
 
             println!(
                 "{},{},{},{},{},{},{},{},{},{},{},{},{},{},{}",
