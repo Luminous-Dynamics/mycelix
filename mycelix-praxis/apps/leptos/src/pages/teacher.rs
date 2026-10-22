@@ -71,8 +71,7 @@ fn skill_full_names() -> Vec<String> {
 }
 
 fn real_students() -> Vec<StudentMastery> {
-    let progress = crate::persistence::load::<crate::curriculum::ProgressStore>("praxis_progress")
-        .unwrap_or_default();
+    let progress = crate::curriculum::load_progress_store();
     let profile =
         crate::persistence::load::<crate::student_profile::StudentProfile>("praxis_profile");
     let name = profile.map(|p| p.name).unwrap_or_else(|| "Student".into());
