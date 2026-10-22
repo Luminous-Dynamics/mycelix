@@ -8,6 +8,7 @@
 use leptos::prelude::*;
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
+use wasm_bindgen::{JsCast, closure::Closure};
 
 use crate::persistence;
 
@@ -117,6 +118,155 @@ fn parse_rows(text: &str) -> Vec<Vec<String>> {
         .filter(|line| !line.is_empty())
         .map(|line| line.split('|').map(|part| part.trim().to_owned()).collect())
         .collect()
+}
+
+fn value_text(value: Option<&Value>, fallback: &str) -> String {
+    value.and_then(Value::as_str)
+        .map(str::to_owned)
+        .unwrap_or_else(|| fallback.to_owned())
+}
+
+fn pack_to_draft(value: &Value) -> Result<LessonAuthorDraft, String> {
+    let Some(lesson) = value.get("lesson").filter(|value| value.is_object()) else {
+        return Err("That file is not a Praxis lesson pack: the lesson object is missing.".into());
+    };
+    let mut draft = LessonAuthorDraft::default();
+    draft.node_id = value_text(
+        value.get("node_id").or_else(|| lesson.get("standard_code")),
+        &draft.node_id,
+    );
+    draft.title = value_text(lesson.get("title"), &draft.title);
+    draft.grade_level = value_text(lesson.get("grade_level"), &draft.grade_level);
+    draft.bloom_level = value_text(lesson.get("bloom_level"), &draft.bloom_level);
+    draft.explanation = value_text(lesson.get("explanation"), &draft.explanation);
+
+    if let Some(example) = lesson
+        .get("examples")
+        .and_then(Value::as_array)
+        .and_then(|items| items.first())
+    {
+        draft.example_problem = value_text(example.get("problem"), &draft.example_problem);
+        draft.example_answer = value_text(example.get("answer"), &draft.example_answer);
+        draft.visual_description =
+            value_text(example.get("visual_description"), &draft.visual_description);
+        if let Some(steps) = example.get("steps").and_then(Value::as_array) {
+            if let Some(step) = steps.first() {
+                draft.example_step_one =
+                    value_text(step.get("instruction"), &draft.example_step_one);
+                draft.example_step_one_result =
+                    value_text(step.get("result"), &draft.example_step_one_result);
+            }
+            if let Some(step) = steps.get(1) {
+                draft.example_step_two =
+                    value_text(step.get("instruction"), &draft.example_step_two);
+                draft.example_step_two_result =
+                    value_text(step.get("result"), &draft.example_step_two_result);
+            }
+        }
+    }
+
+    if let Some(hints) = lesson.get("hints").and_then(Value::as_array) {
+        if let Some(hint) = hints.first().and_then(Value::as_str) {
+            draft.general_hint_one = hint.to_owned();
+        }
+        if let Some(hint) = hints.get(1).and_then(Value::as_str) {
+            draft.general_hint_two = hint.to_owned();
+        }
+    }
+
+    if let Some(items) = lesson.get("practice_problems").and_then(Value::as_array) {
+        for (index, target) in draft.practice.iter_mut().enumerate() {
+            let Some(item) = items.get(index) else {
+                continue;
+            };
+            target.question = value_text(item.get("question"), &target.question);
+            target.answer = value_text(item.get("answer"), &target.answer);
+            target.explanation = value_text(item.get("explanation"), &target.explanation);
+            target.hint = item
+                .get("hints")
+                .and_then(Value::as_array)
+                .and_then(|hints| hints.first())
+                .and_then(Value::as_str)
+                .unwrap_or(&target.hint)
+                .to_owned();
+            if let Some(choices) = item.get("distractors").and_then(Value::as_array) {
+                target.distractors = choices
+                    .iter()
+                    .filter_map(Value::as_str)
+                    .map(str::to_owned)
+                    .collect::<Vec<_>>()
+                    .join("\n");
+            }
+        }
+    }
+
+    if let Some(items) = lesson.get("key_vocabulary").and_then(Value::as_array) {
+        draft.vocabulary_rows = items
+            .iter()
+            .map(|item| format!(
+                "{} | {} | {}",
+                value_text(item.get("term"), ""),
+                value_text(item.get("definition"), ""),
+                value_text(item.get("example_usage"), "")
+            ))
+            .collect::<Vec<_>>()
+            .join("\n");
+    }
+    if let Some(items) = lesson.get("misconceptions").and_then(Value::as_array) {
+        draft.misconception_rows = items
+            .iter()
+            .map(|item| format!(
+                "{} | {} | {}",
+                value_text(item.get("misconception"), ""),
+                value_text(item.get("correction"), ""),
+                value_text(item.get("why_students_think_this"), "")
+            ))
+            .collect::<Vec<_>>()
+            .join("\n");
+    }
+
+    if let Some(item) = value.pointer("/assessment/items")
+        .and_then(Value::as_array)
+        .and_then(|items| items.first())
+    {
+        draft.assessment_question = value_text(item.get("question"), &draft.assessment_question);
+        draft.assessment_answer = value_text(item.get("correct_answer"), &draft.assessment_answer);
+        draft.assessment_rubric = value_text(item.get("rubric"), &draft.assessment_rubric);
+        draft.assessment_hint = value_text(item.get("hint"), &draft.assessment_hint);
+        if let Some(points) = item.get("points").and_then(Value::as_u64) {
+            draft.assessment_points = points.to_string();
+        }
+    }
+
+    if let Some(card) = value.get("flashcards")
+        .and_then(Value::as_array)
+        .and_then(|cards| cards.first())
+    {
+        draft.flashcard_front = value_text(card.get("front"), &draft.flashcard_front);
+        draft.flashcard_back = value_text(card.get("back"), &draft.flashcard_back);
+    }
+
+    if let Some(authoring) = value.get("authoring") {
+        draft.learning_objective = value_text(
+            authoring.get("learning_objective"),
+            &draft.learning_objective,
+        );
+        draft.author_credit = value_text(authoring.get("author_credit"), &draft.author_credit);
+        draft.license = value_text(authoring.get("license"), &draft.license);
+        if let Some(notes) = authoring.get("source_and_attribution_notes") {
+            draft.source_notes = match notes {
+                Value::String(note) => note.clone(),
+                Value::Array(items) => items.iter().filter_map(Value::as_str).collect::<Vec<_>>().join("\n"),
+                _ => draft.source_notes.clone(),
+            };
+        }
+    }
+
+    draft.source_notes = format!(
+        "Imported as a new local draft; verify reuse rights and review the new revision.\n{}",
+        draft.source_notes
+    );
+    Ok(draft)
 }
 
 fn lesson_pack_value(draft: &LessonAuthorDraft) -> Value {
@@ -360,6 +510,82 @@ pub fn LessonAuthorPage() -> impl IntoView {
                 <h1 style="margin-bottom: 0.5rem">"Create a lesson for someone else"</h1>
                 <p style="max-width: 760px; color: var(--text-secondary)">"Share a skill you know. This form builds a reusable lesson pack, saves your draft locally, and lets you export a JSON file for review. You do not need to write JSON by hand."</p>
             </header>
+
+            <section style="padding: 0.85rem; border: 1px solid var(--border); border-radius: 10px; margin-bottom: 1rem">
+                <h2>"Remix an existing lesson"</h2>
+                <p style="color: var(--text-secondary)">"Choose a Praxis lesson JSON file. It is read in this browser and mapped into the form; it is not uploaded or published. The imported content becomes a new draft and still needs full review."</p>
+                <label style="display: block">"Choose a lesson-pack JSON file"
+                    <input
+                        type="file"
+                        accept=".json,application/json"
+                        aria-label="Import an existing Praxis lesson JSON file"
+                        on:change=move |event| {
+                            let Some(target) = event.target() else {
+                                set_notice.set("Could not access the selected file input.".into());
+                                return;
+                            };
+                            let Ok(input) = target.dyn_into::<web_sys::HtmlInputElement>() else {
+                                set_notice.set("Could not read the selected file input.".into());
+                                return;
+                            };
+                            let Some(files) = input.files() else {
+                                set_notice.set("No file list was available.".into());
+                                return;
+                            };
+                            let Some(file) = files.item(0) else {
+                                return;
+                            };
+                            let filename = file.name();
+                            let reader = match web_sys::FileReader::new() {
+                                Ok(reader) => reader,
+                                Err(_) => {
+                                    set_notice.set("Your browser could not open the selected file.".into());
+                                    return;
+                                }
+                            };
+                            let reader_for_load = reader.clone();
+                            let set_draft_after_load = set_draft;
+                            let set_notice_after_load = set_notice;
+                            let onload = Closure::<dyn FnMut(web_sys::Event)>::new(move |_| {
+                                let Some(text) = reader_for_load
+                                    .result()
+                                    .ok()
+                                    .and_then(|result| result.as_string())
+                                else {
+                                    set_notice_after_load.set("The selected file could not be read as text.".into());
+                                    return;
+                                };
+                                let parsed = match serde_json::from_str::<Value>(&text) {
+                                    Ok(value) => value,
+                                    Err(error) => {
+                                        set_notice_after_load.set(format!("Invalid JSON: {error}"));
+                                        return;
+                                    }
+                                };
+                                match pack_to_draft(&parsed) {
+                                    Ok(mut imported) => {
+                                        imported.source_notes = format!(
+                                            "Imported from {filename}; check source attribution and redistribution rights.\n{}",
+                                            imported.source_notes
+                                        );
+                                        set_draft_after_load.set(imported);
+                                        set_notice_after_load.set(format!(
+                                            "Imported {filename} as a new local draft. Check all fields and run the standalone checker after export."
+                                        ));
+                                    }
+                                    Err(error) => set_notice_after_load.set(error),
+                                }
+                            });
+                            reader.set_onloadend(Some(onload.as_ref().unchecked_ref()));
+                            if reader.read_as_text(&file).is_err() {
+                                set_notice.set("Could not start reading the selected file.".into());
+                                return;
+                            }
+                            onload.forget();
+                        }
+                    />
+                </label>
+            </section>
 
             <div style="display: flex; gap: 0.75rem; flex-wrap: wrap; margin-bottom: 1rem">
                 <button class="btn-primary" on:click=move |_| {
