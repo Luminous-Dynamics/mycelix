@@ -2,7 +2,7 @@
 
 Praxis should let a classroom teacher, parent, student, tradesperson, researcher, librarian, community educator or practitioner turn useful knowledge into a teachable lesson—without requiring them to be a programmer or an AI expert.
 
-This folder is the first practical authoring path. It is a **copy-edit-validate-review** workflow. A graphical, no-code authoring screen is a separate product milestone; this starter kit does not pretend the current app already has one.
+This folder provides both a **form-based authoring screen** at `/author` and a **copy-edit-validate-review** workflow for contributors who prefer files. The screen autosaves to local browser storage and exports a JSON draft; it does not upload or publish content. The file workflow remains the most reproducible path for PR review.
 
 ## Start in 10 minutes
 
