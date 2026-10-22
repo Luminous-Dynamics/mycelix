@@ -19,7 +19,7 @@ Objects are stored as:
         <full-64-hex-digit-sha256>
 ```
 
-Promotion uses same-filesystem hard-link creation, which atomically refuses to overwrite an existing target. If a digest object already exists, its bytes and size are re-hashed and compared before reuse. The staged object is created with owner-only permissions on Unix, and persisted objects are owner-read-only by default (0400 on Unix); a pre-existing object is reusable only when it already has the safe read-only mode. The intake tool refuses to chmod an existing inode because it may be hard-linked elsewhere. Receipt files created by the tool are owner read/write only by default (0600 on Unix). These are safer defaults, not a guarantee against the owning administrator changing permissions later.
+Promotion uses same-filesystem hard-link creation, which atomically refuses to overwrite an existing target. If the selected filesystem does not support hard links or the staged and destination paths are not on the same filesystem, capture fails closed rather than falling back to a potentially overwriting move. If a digest object already exists, its bytes and size are re-hashed and compared before reuse. The staged object is created with owner-only permissions on Unix, and persisted objects are owner-read-only by default (0400 on Unix); a pre-existing object is reusable only when it already has the safe read-only mode. The intake tool refuses to chmod an existing inode because it may be hard-linked elsewhere. Receipt files created by the tool are owner read/write only by default (0600 on Unix). These are safer defaults, not a guarantee against the owning administrator changing permissions later.
 
 The resulting record uses a store-relative `object_path` and a `sha256:<digest>` URI. It deliberately does not put the original input's absolute path into the capture receipt. Store root/host configuration stays local.
 
@@ -62,6 +62,16 @@ The fields above are placeholders. They do not assert a source was captured, per
 9. If the optional receipt output already exists, fail without replacing it. The valid object may remain stored; rerunning can reuse it after verification.
 
 If the receipt file cannot be written after object promotion, the verified content object can remain as an unreferenced object. This is safe for integrity but requires later store inventory/garbage-collection tooling; no garbage collector is included in v0.1.
+
+## Interoperability strategy
+
+The content-addressed object store should be an implementation detail behind an interoperable evidence package—not a new standalone provenance standard. The next package-format step should map source objects and their metadata into **RO-Crate 1.3** (using a versioned profile), with derivation activities and responsible agents represented using **W3C PROV**. KPI definitions/units/vintages should reference **SDMX** concepts and unit metadata wherever those definitions can be mapped without semantic loss. Keep NRVCA's additional rights/adjudication fields as an explicit profile rather than claiming that the generic standards already encode this project's entire policy.
+
+- [RO-Crate specification and versions](https://www.researchobject.org/ro-crate/specification.html) — packaging data for reuse/preservation and recording contextual and provenance metadata.
+- [W3C PROV Primer](https://www.w3.org/TR/prov-primer/) — interoperable representation of entities, activities, and agents.
+- [SDMX guidance](https://sdmx.org/guidelines/) — common statistical metadata, definitions, units, and vintage modelling.
+
+This is a roadmap, not a conformance claim: the current JSON source record is not yet a valid RO-Crate package and does not assert SDMX conformance.
 
 ## Qualification and safety boundary
 
