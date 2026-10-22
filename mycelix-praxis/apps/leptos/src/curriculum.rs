@@ -703,6 +703,16 @@ impl ProgressStore {
         if status == ProgressStatus::Mastered {
             let bkt = self.bkt_states.get(node_id).cloned();
             let entry = self.nodes.entry(node_id.to_string()).or_default();
+            if entry.status == ProgressStatus::Mastered {
+                entry.self_reported_attempts = entry
+                    .self_reported_attempts
+                    .saturating_add(entry.attempts);
+                entry.self_reported_correct = entry
+                    .self_reported_correct
+                    .saturating_add(entry.correct.min(entry.attempts));
+                entry.attempts = 0;
+                entry.correct = 0;
+            }
             entry.self_assessment = Some(SelfAssessment::FeelsUnderstood);
             entry.self_reported_attempts = entry.self_reported_attempts.saturating_add(1);
             entry.self_reported_correct = entry.self_reported_correct.saturating_add(1);
@@ -1341,8 +1351,10 @@ mod evidence_first_progress_tests {
         let node = progress.get("math.stale");
         assert_eq!(node.status, ProgressStatus::Studying);
         assert_eq!(node.mastery_permille, 0);
-        assert_eq!(node.attempts, 8);
-        assert_eq!(node.correct, 8);
+        assert_eq!(node.attempts, 0);
+        assert_eq!(node.correct, 0);
+        assert_eq!(node.self_reported_attempts, 9);
+        assert_eq!(node.self_reported_correct, 9);
         assert_eq!(node.self_assessment, Some(SelfAssessment::FeelsUnderstood));
         assert!(progress.mastered_ids().is_empty());
 
