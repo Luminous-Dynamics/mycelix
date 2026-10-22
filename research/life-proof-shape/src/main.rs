@@ -421,6 +421,99 @@ mod tests {
     }
 
     #[test]
+    fn frozen_attack_channels_match_exact_confusion_matrix_known_answers() {
+        let corpus = build_corpus();
+        let expected = [
+            (
+                Channel::FreshProofValue,
+                Confusion {
+                    true_positive: 0,
+                    false_positive: 0,
+                    false_negative: 1_440,
+                    true_negative: 171_360,
+                },
+            ),
+            (
+                Channel::StatementCount,
+                Confusion {
+                    true_positive: 1_440,
+                    false_positive: 33_120,
+                    false_negative: 0,
+                    true_negative: 138_240,
+                },
+            ),
+            (
+                Channel::RevealedIndexPattern,
+                Confusion {
+                    true_positive: 1_440,
+                    false_positive: 20_160,
+                    false_negative: 0,
+                    true_negative: 151_200,
+                },
+            ),
+            (
+                Channel::StatementCountAndIndexPattern,
+                Confusion {
+                    true_positive: 1_440,
+                    false_positive: 2_880,
+                    false_negative: 0,
+                    true_negative: 168_480,
+                },
+            ),
+            (
+                Channel::SchemaProfile,
+                Confusion {
+                    true_positive: 1_440,
+                    false_positive: 84_960,
+                    false_negative: 0,
+                    true_negative: 86_400,
+                },
+            ),
+            (
+                Channel::GlobalId,
+                Confusion {
+                    true_positive: 1_440,
+                    false_positive: 0,
+                    false_negative: 0,
+                    true_negative: 171_360,
+                },
+            ),
+            (
+                Channel::StructureWithoutGlobalId,
+                Confusion {
+                    true_positive: 1_440,
+                    false_positive: 2_880,
+                    false_negative: 0,
+                    true_negative: 168_480,
+                },
+            ),
+            (
+                Channel::AllStableFieldsIgnoringFreshProof,
+                Confusion {
+                    true_positive: 1_440,
+                    false_positive: 0,
+                    false_negative: 0,
+                    true_negative: 171_360,
+                },
+            ),
+        ];
+
+        for (channel, expected_matrix) in expected {
+            assert_eq!(
+                confusion_for(&corpus, channel),
+                expected_matrix,
+                "known answer for channel {channel:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn frozen_corpus_fingerprint_matches_the_independent_reference() {
+        let corpus = build_corpus();
+        assert_eq!(fnv_feature_fingerprint(&corpus), 0x4337_1097_7265_4aa0);
+    }
+
+    #[test]
     fn metrics_and_export_are_deterministic_and_export_has_no_truth_column() {
         let corpus = build_corpus();
         assert_eq!(render_metrics(&corpus), render_metrics(&build_corpus()));
