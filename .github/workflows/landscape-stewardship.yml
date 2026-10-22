@@ -8,6 +8,7 @@ on:
       - "mycelix-desci/fixtures/landscape-stewardship-profile-v0.public.example.json"
       - "mycelix-desci/src/core/src/landscape_stewardship.rs"
       - "mycelix-desci/src/core/src/landscape_measurement_authorization.rs"
+      - "mycelix-desci/landscape-authorization-gate-harness/**"
       - "mycelix-desci/schemas/landscape-measurement-authorization-v0.schema.json"
       - "mycelix-desci/fixtures/landscape-measurement-authorization-v0.public.example.json"
       - "mycelix-desci/src/core/src/lib.rs"
@@ -21,6 +22,7 @@ on:
       - "mycelix-desci/fixtures/landscape-stewardship-profile-v0.public.example.json"
       - "mycelix-desci/src/core/src/landscape_stewardship.rs"
       - "mycelix-desci/src/core/src/landscape_measurement_authorization.rs"
+      - "mycelix-desci/landscape-authorization-gate-harness/**"
       - "mycelix-desci/schemas/landscape-measurement-authorization-v0.schema.json"
       - "mycelix-desci/fixtures/landscape-measurement-authorization-v0.public.example.json"
       - "mycelix-desci/src/core/src/lib.rs"
@@ -52,9 +54,7 @@ jobs:
           jq empty mycelix-desci/fixtures/landscape-stewardship-profile-v0.public.example.json
           jq empty mycelix-desci/schemas/landscape-measurement-authorization-v0.schema.json
           jq empty mycelix-desci/fixtures/landscape-measurement-authorization-v0.public.example.json
-      - name: Check formatting
-        run: cargo fmt --manifest-path mycelix-desci/Cargo.toml -p mycelix-desci-core -- --check
-      - name: Run landscape stewardship policy-gate tests
-        run: cargo test --manifest-path mycelix-desci/Cargo.toml -p mycelix-desci-core landscape_stewardship::tests -- --nocapture
-      - name: Run measurement authorization policy-gate tests
-        run: cargo test --manifest-path mycelix-desci/Cargo.toml -p mycelix-desci-core landscape_measurement_authorization::tests -- --nocapture
+      - name: Check formatting for isolated landscape policy-gate sources
+        run: rustfmt --edition 2024 --check mycelix-desci/landscape-authorization-gate-harness/src/lib.rs mycelix-desci/src/core/src/landscape_stewardship.rs mycelix-desci/src/core/src/landscape_measurement_authorization.rs
+      - name: Run isolated landscape policy-gate tests
+        run: cargo test --locked --manifest-path mycelix-desci/Cargo.toml -p landscape-authorization-gate-harness -- --nocapture
