@@ -148,6 +148,7 @@ The first source-discovery pass is recorded in [South Africa NRVCA Source Catalo
 
 - [Economic decomposition v0.1](./economic-decomposition-v0.1.md) and its [known-answer fixture](../../../fixtures/nrvca-economic-decomposition-golden-v0.1.json) distinguish transfer incidence, modelled deadweight loss, fixed-cost recovery, resource costs of rent capture, physical externality measurement and valuation sensitivity. Nine declared demand/cost-slope settings test whether the toy-model invariants hold.
 - [Decision-value benchmark v0.1](./decision-value-benchmark-v0.1.md) and its [synthetic fixture](../../../fixtures/nrvca-decision-value-synthetic-v0.1.json) exhaustively evaluate all 16 allocations in a four-intervention example. A service-only baseline is compared with explicit service/equity/reliability/environmental constraints, four alternative policy profiles, robust interval endpoints for service-weighted reliability, and explicit infeasibility outcomes. The profile is a policy choice; the result is not a universal welfare ranking. The next tier must add correlated and physically admissible scenarios rather than treating interval endpoints as a probability distribution.
+- [Correlated scenario stress benchmark v0.1](./correlated-scenario-stress-v0.1.md) and its [synthetic stress fixture](../../../fixtures/nrvca-correlated-stress-synthetic-v0.1.json) evaluate three strategies over five jointly described stress scenarios, with complete matrix coverage, explicit action triggers, scenario-neutral robust-feasibility fractions and worst-case shortfalls. Outcomes are hand-authored synthetic assumptions, not calibrated simulation. The adaptive policy passes 4/5 scenarios and still fails prolonged/repeated disruption; do not hide that failure.
 - [NRVCA-003 draft PR #5394](https://github.com/Luminous-Dynamics/mycelix/pull/5394) and [NRVCA-004 draft PR #5400](https://github.com/Luminous-Dynamics/mycelix/pull/5400) contain these prototypes. Static known-answer audits are recorded in the PRs; successful Rust execution must be established separately on each exact head.
 
 ## Linked work
@@ -156,6 +157,7 @@ The first source-discovery pass is recorded in [South Africa NRVCA Source Catalo
 - NRVCA-002: https://github.com/Luminous-Dynamics/mycelix/issues/5382 (source-vintage acquisition and historical reconciliation)
 - NRVCA-003: https://github.com/Luminous-Dynamics/mycelix/issues/5387 (transfers, rents, resource costs, deadweight loss and external damages)
 - NRVCA-004: https://github.com/Luminous-Dynamics/mycelix/issues/5399 (decision value under explicit service and equity constraints)
+- NRVCA-005: https://github.com/Luminous-Dynamics/mycelix/issues/5409 (correlated disruption scenarios and adaptive policy stress tests)
 - Robust Decision Making under deep uncertainty: https://ppp.worldbank.org/library/investment-decision-making-under-deep-uncertainty
 - Mycelix FIN-SYS-003: https://github.com/Luminous-Dynamics/mycelix/issues/3072
 - Mycelix CIV-ECON-006: https://github.com/Luminous-Dynamics/mycelix/issues/4816
@@ -169,6 +171,8 @@ The first source-discovery pass is recorded in [South Africa NRVCA Source Catalo
 - UN SEEA Central Framework: https://seea.un.org/en/methodology/seea-central-framework
 - UN SEEA Ecosystem Accounting: https://seea.un.org/en/methodology/ecosystem-accounting
 - World Bank Changing Wealth of Nations 2024: https://www.worldbank.org/en/publication/the-changing-wealth-of-nations
+- World Bank, Investment Decision Making Under Deep Uncertainty: https://ppp.worldbank.org/library/investment-decision-making-under-deep-uncertainty
+- Water Utility Climate Alliance / The Water Institute, Beginner's Guide to DMDU for Water Utilities (2026): https://www.cakex.org/documents/beginners-guide-decision-making-under-deep-uncertainty-water-utilities
 - OECD Beyond GDP: https://www.oecd.org/en/publications/beyond-gdp_9789264307292-en.html
 - IMF GDP Nowcasting Performance of Traditional Econometric Models vs Machine-Learning Algorithms (2025): https://www.imf.org/en/publications/wp/issues/2025/12/05/gdp-nowcasting-performance-of-traditional-econometric-models-vs-machine-learning-572360\n- IMF SNA/BPM Implementation Planning Playbook (July 2026): https://www.imf.org/en/publications/tnm/issues/2026/07/02/sna-bpm-implementation-planning-playbook-575192
 - IMF Nowcasting Economic Growth with Machine Learning and Satellite Data (2026): https://www.imf.org/en/publications/wp/issues/2026/01/30/nowcasting-economic-growth-with-machine-learning-and-satellite-data-573623
