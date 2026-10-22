@@ -372,6 +372,16 @@ pub fn import_all(json: &str) -> Result<String, String> {
                     existing_node.scored_item_ids.push(item_id.clone());
                 }
             }
+            for receipt in &imp_node.scored_practice_receipts {
+                if !existing_node
+                    .scored_practice_receipts
+                    .iter()
+                    .any(|seen| seen.item_id == receipt.item_id)
+                {
+                    existing_node.scored_item_ids.push(receipt.item_id.clone());
+                    existing_node.scored_practice_receipts.push(receipt.clone());
+                }
+            }
             if imp_node.last_reviewed.unwrap_or(0.0) > existing_node.last_reviewed.unwrap_or(0.0) {
                 existing_node.last_reviewed = imp_node.last_reviewed;
                 if imp_node.self_assessment.is_some() {
@@ -382,12 +392,32 @@ pub fn import_all(json: &str) -> Result<String, String> {
             }
         }
 
-        // Merge BKT states
+        // Merge legacy aggregate BKT states for topics with no item receipts.
+        // For topics with receipts, rebuild below from the deduplicated union so
+        // importing the same profile twice cannot add evidence twice or simply
+        // select whichever device claims the larger mastery posterior.
         for (id, imp_bkt) in &imported.bkt_states {
+            let has_receipts = existing
+                .nodes
+                .get(id)
+                .is_some_and(|node| !node.scored_practice_receipts.is_empty());
+            if has_receipts {
+                continue;
+            }
             let existing_bkt = existing.bkt_states.entry(id.clone()).or_default();
             if imp_bkt.p_mastery > existing_bkt.p_mastery {
                 *existing_bkt = imp_bkt.clone();
             }
+        }
+
+        let receipt_node_ids = existing
+            .nodes
+            .iter()
+            .filter(|(_, node)| !node.scored_practice_receipts.is_empty())
+            .map(|(id, _)| id.clone())
+            .collect::<Vec<_>>();
+        for node_id in receipt_node_ids {
+            existing.rebuild_bkt_from_practice_receipts(&node_id);
         }
 
         // Merge SRS cards
