@@ -122,7 +122,7 @@ fn score_subset(stress: &Value, included_scenarios: &[String]) -> Vec<Score> {
     for id in strategy_ids(stress) {
         let strategy = find_strategy(stress, &id);
         let pass_count = included_scenarios.iter()
-            .filter(|scenario| row_passes(stress, strategy, find_row(strategy, scenario)))
+            .filter(|scenario| row_passes(stress, strategy, find_row(strategy, scenario.as_str())))
             .count();
         scores.push(Score {
             strategy_id: id,
@@ -210,8 +210,8 @@ fn all_nonempty_subsets_have_exact_frozen_scores_and_disclosed_denominators() {
         let key = subset_key(included);
         let frozen = expected_by_key.get(&key)
             .unwrap_or_else(|| panic!("missing subset known answer: {key}"));
-        assert_eq!(strings(&frozen["scenario_ids_included"]), *included);
-        assert_eq!(strings(&frozen["scenario_ids_excluded"]), *excluded);
+        assert_eq!(strings(&frozen["scenario_ids_included"]), included.clone());
+        assert_eq!(strings(&frozen["scenario_ids_excluded"]), excluded.clone());
         assert_eq!(frozen["scenario_count"].as_u64(), Some(included.len() as u64));
 
         let scores = score_subset(&stress, included);
