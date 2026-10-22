@@ -194,9 +194,13 @@ fn choice_numeric_value(text: &str) -> Option<(String, Option<&'static str>)> {
 }
 
 fn practice_item_evidence_id(node_id: &str, problem: &PracticeProblem) -> String {
-    // Bind the idempotency key to the full answer-choice set, not merely the
-    // prompt. A revised item with changed options is a new item revision; order
-    // does not matter because the displayed choices are shuffled per attempt.
+    // Store a compact deterministic fingerprint rather than the question, answer,
+    // or distractor text. This is an idempotency key, not a security signature.
+    let mut parts = vec![
+        node_id.to_owned(),
+        normalized_choice(&problem.question),
+        normalized_choice(&problem.answer),
+    ];
     let mut choices = problem
         .distractors
         .iter()
@@ -204,13 +208,19 @@ fn practice_item_evidence_id(node_id: &str, problem: &PracticeProblem) -> String
         .collect::<Vec<_>>();
     choices.push(normalized_choice(&problem.answer));
     choices.sort_unstable();
-    format!(
-        "{}::{}::{}::{}",
-        node_id,
-        normalized_choice(&problem.question),
-        normalized_choice(&problem.answer),
-        choices.join("\u{1f}")
-    )
+    parts.extend(choices);
+
+    // FNV-1a 128-bit with length-prefixing for deterministic, collision-resistant
+    // local deduplication across refreshes without storing item content in export.
+    let mut hash: u128 = 0x6c62272e07bb014262b821756295c58d;
+    const PRIME: u128 = 0x0000000001000000000000000000013b;
+    for part in &parts {
+        for byte in (part.len() as u64).to_le_bytes().into_iter().chain(part.bytes()) {
+            hash ^= u128::from(byte);
+            hash = hash.wrapping_mul(PRIME);
+        }
+    }
+    format!("practice-item-v1:{hash:032x}")
 }
 
 fn numeric_choices_collide(answer: &str, distractor: &str) -> bool {
@@ -1170,6 +1180,9 @@ mod answer_first_choice_tests {
         let revised_answer = problem("4 children", ["13 children", "2 children", "5 children"]);
 
         let base_id = practice_item_evidence_id("CAPS.Mathematics.Gr3.DAT", &base);
+        assert!(base_id.starts_with("practice-item-v1:"));
+        assert_eq!(base_id.len(), "practice-item-v1:".len() + 32);
+        assert!(!base_id.contains("children"));
         assert_eq!(
             base_id,
             practice_item_evidence_id(
