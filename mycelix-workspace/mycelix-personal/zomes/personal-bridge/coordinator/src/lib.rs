@@ -545,6 +545,7 @@ pub fn present_identity_proof(fields: Vec<String>) -> ExternResult<CredentialPre
         presented_at: sys_time()?,
     })
 }
+
 /// Present a K-vector credential for governance trust scoring.
 #[hdk_extern]
 pub fn present_k_vector(_: ()) -> ExternResult<CredentialPresentation> {
