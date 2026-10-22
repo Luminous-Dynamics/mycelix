@@ -135,8 +135,9 @@ fn validate_contract(root: &Value) -> Result<(), String> {
     let capacities = resource_capacities(root)?;
     let unit = text(&root["policy"], "cost_unit");
     let max_cost = integer(&root["hard_contract"], "max_single_action_cost")?;
-    if max_cost < 0 {
-        return Err("max_single_action_cost cannot be negative".to_owned());
+    let max_candidates = integer(&root["hard_contract"], "max_candidates_per_case")?;
+    if max_cost < 0 || max_candidates <= 0 {
+        return Err("single-action cost and case-size limits must be non-negative/positive".to_owned());
     }
 
     for act in actions {
@@ -197,6 +198,10 @@ fn validate_case(root: &Value, case: &Value) -> Result<(), String> {
     let candidates = case["candidates"]
         .as_array()
         .ok_or_else(|| format!("case {} candidates must be an array", text(case, "case_id")))?;
+    let max_candidates = integer(&root["hard_contract"], "max_candidates_per_case")?;
+    if candidates.len() > max_candidates as usize {
+        return Err(format!("case {} exceeds max candidate count", text(case, "case_id")));
+    }
     unique_ids(candidates, "candidate_id")?;
     for candidate in candidates {
         let candidate_id = text(candidate, "candidate_id");
