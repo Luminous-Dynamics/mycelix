@@ -1773,17 +1773,339 @@ fn workspace_root() -> Result<PathBuf, String> {
         .map_err(|error| format!("cannot canonicalize workspace root: {error}"))
 }
 
+fn audit_authoring_contract(
+    asset_path: &str,
+    value: &Value,
+    audit: &mut ContentQualityAudit,
+) {
+    let lesson_id = nonempty_string(value.get("node_id"))
+        .or_else(|| nonempty_string(value.pointer("/lesson/standard_code")))
+        .unwrap_or_else(|| "UNSPECIFIED".to_owned());
+    add_required_text_finding(
+        audit,
+        &lesson_id,
+        asset_path,
+        "node_id",
+        value.get("node_id"),
+    );
+    add_required_text_finding(
+        audit,
+        &lesson_id,
+        asset_path,
+        "lesson.standard_code",
+        value.pointer("/lesson/standard_code"),
+    );
+    add_required_text_finding(
+        audit,
+        &lesson_id,
+        asset_path,
+        "lesson.grade_level",
+        value.pointer("/lesson/grade_level"),
+    );
+    add_required_text_finding(
+        audit,
+        &lesson_id,
+        asset_path,
+        "lesson.bloom_level",
+        value.pointer("/lesson/bloom_level"),
+    );
+
+    let hints = value.pointer("/lesson/hints").and_then(Value::as_array);
+    if hints.is_none_or(Vec::is_empty) {
+        add_structure_finding(
+            audit,
+            &lesson_id,
+            asset_path,
+            "lesson.hints",
+            "missing_hints",
+            "Author packs need at least one hint that supports progress without immediately giving away the answer.",
+        );
+    }
+
+    let Some(items) = value.pointer("/assessment/items").and_then(Value::as_array) else {
+        add_structure_finding(
+            audit,
+            &lesson_id,
+            asset_path,
+            "assessment.items",
+            "missing_assessment",
+            "Author packs need at least one assessment item with an answer key.",
+        );
+        return;
+    };
+    if items.is_empty() {
+        add_structure_finding(
+            audit,
+            &lesson_id,
+            asset_path,
+            "assessment.items",
+            "empty_assessment",
+            "Author packs need at least one assessment item with an answer key.",
+        );
+    }
+
+    let mut total_points = 0_u64;
+    for (index, item) in items.iter().enumerate() {
+        let field = format!("assessment.items[{index}]");
+        add_required_text_finding(
+            audit,
+            &lesson_id,
+            asset_path,
+            &format!("{field}.question"),
+            item.get("question"),
+        );
+        add_required_text_finding(
+            audit,
+            &lesson_id,
+            asset_path,
+            &format!("{field}.correct_answer"),
+            item.get("correct_answer"),
+        );
+        match item.get("points").and_then(Value::as_u64) {
+            Some(points) if points > 0 => {
+                total_points = total_points.saturating_add(points);
+            }
+            _ => add_structure_finding(
+                audit,
+                &lesson_id,
+                asset_path,
+                &format!("{field}.points"),
+                "invalid_assessment_points",
+                "Assessment points must be a positive integer.",
+            ),
+        }
+    }
+    match value.pointer("/assessment/total_points").and_then(Value::as_u64) {
+        Some(declared) if declared == total_points => {}
+        Some(declared) => add_structure_finding(
+            audit,
+            &lesson_id,
+            asset_path,
+            "assessment.total_points",
+            "assessment_points_mismatch",
+            &format!(
+                "Assessment declares {declared} total points, but its items add up to {total_points}."
+            ),
+        ),
+        None => add_structure_finding(
+            audit,
+            &lesson_id,
+            asset_path,
+            "assessment.total_points",
+            "missing_assessment_total",
+            "Declare total_points and ensure it equals the sum of item points.",
+        ),
+    }
+
+    let Some(cards) = value.get("flashcards").and_then(Value::as_array) else {
+        add_structure_finding(
+            audit,
+            &lesson_id,
+            asset_path,
+            "flashcards",
+            "missing_flashcards",
+            "A complete author pack needs at least one reusable recall card.",
+        );
+        return;
+    };
+    if cards.is_empty() {
+        add_structure_finding(
+            audit,
+            &lesson_id,
+            asset_path,
+            "flashcards",
+            "empty_flashcards",
+            "A complete author pack needs at least one reusable recall card.",
+        );
+    }
+    for (index, card) in cards.iter().enumerate() {
+        for key in ["front", "back"] {
+            add_required_text_finding(
+                audit,
+                &lesson_id,
+                asset_path,
+                &format!("flashcards[{index}].{key}"),
+                card.get(key),
+            );
+        }
+    }
+
+    if value.pointer("/quality/needs_human_review") != Some(&Value::Bool(true)) {
+        add_structure_finding(
+            audit,
+            &lesson_id,
+            asset_path,
+            "quality.needs_human_review",
+            "draft_missing_human_review_gate",
+            "Author-created content must remain marked for human review until an educator has reviewed this exact revision.",
+        );
+    }
+    if value.pointer("/quality/metrics_valid_for_current_revision") != Some(&Value::Bool(false)) {
+        add_structure_finding(
+            audit,
+            &lesson_id,
+            asset_path,
+            "quality.metrics_valid_for_current_revision",
+            "draft_has_unsubstantiated_quality_metrics",
+            "New or edited content must not inherit old quality metrics; set metrics_valid_for_current_revision to false.",
+        );
+    }
+}
+
+fn check_standalone_lesson(
+    workspace: &Path,
+    requested_path: &str,
+    output_format: &str,
+) -> Result<(), AuditFailure> {
+    let requested = PathBuf::from(requested_path);
+    let unresolved_path = if requested.is_absolute() {
+        requested
+    } else {
+        workspace.join(requested)
+    };
+    let path = unresolved_path.canonicalize().map_err(|error| {
+        eprintln!("lesson check error: cannot resolve {requested_path:?}: {error}");
+        AuditFailure(vec![error.to_string()])
+    })?;
+    if !path.starts_with(workspace) {
+        eprintln!("lesson check error: draft path must stay inside the Praxis workspace");
+        return Err(AuditFailure(vec![
+            "draft path must stay inside the Praxis workspace".to_owned(),
+        ]));
+    }
+    let raw = fs::read(&path).map_err(|error| {
+        eprintln!("lesson check error: cannot read {}: {error}", path.display());
+        AuditFailure(vec![error.to_string()])
+    })?;
+    let value: Value = serde_json::from_slice(&raw).map_err(|error| {
+        eprintln!("lesson check error: invalid JSON in {}: {error}", path.display());
+        AuditFailure(vec![error.to_string()])
+    })?;
+    if !value.is_object() {
+        eprintln!("lesson check error: draft must be a top-level JSON object");
+        return Err(AuditFailure(vec![
+            "draft must be a top-level JSON object".to_owned(),
+        ]));
+    }
+
+    let relative_path = path
+        .strip_prefix(workspace)
+        .unwrap_or(&path)
+        .to_string_lossy()
+        .replace('\\', "/");
+    let mut audit = ContentQualityAudit {
+        assets_scanned: 1,
+        ..ContentQualityAudit::default()
+    };
+    audit_lesson_value(&relative_path, &value, &mut audit);
+    audit_authoring_contract(&relative_path, &value, &mut audit);
+    audit.assets_with_findings = usize::from(!audit.findings.is_empty());
+
+    let lesson_id = nonempty_string(value.get("node_id"))
+        .or_else(|| nonempty_string(value.pointer("/lesson/standard_code")))
+        .unwrap_or_else(|| "UNSPECIFIED".to_owned());
+    let blocker_count = audit
+        .findings
+        .iter()
+        .filter(|finding| finding.severity == "blocker")
+        .count();
+    let warning_count = audit.findings.len() - blocker_count;
+    audit.assets.push(ContentAssetSummary {
+        lesson_id: lesson_id.clone(),
+        asset_path: relative_path.clone(),
+        lesson_digest_blake3: blake3::hash(&raw).to_hex().to_string(),
+        finding_count: audit.findings.len(),
+        blocker_count,
+        warning_count,
+    });
+
+    let status = if blocker_count > 0 {
+        "needs_changes"
+    } else {
+        "static_checks_passed_human_review_required"
+    };
+    match output_format {
+        "json" => println!(
+            "{}",
+            serde_json::to_string_pretty(&serde_json::json!({
+                "schema_version": SCHEMA_VERSION,
+                "mode": "lesson_draft_check",
+                "status": status,
+                "lesson_id": lesson_id,
+                "asset_path": relative_path,
+                "lesson_digest_blake3": blake3::hash(&raw).to_hex().to_string(),
+                "finding_count": audit.findings.len(),
+                "blocker_count": blocker_count,
+                "warning_count": warning_count,
+                "findings": audit.findings,
+                "limitations": [
+                    "Static checks only; a clean report does not prove semantic correctness.",
+                    "Rights/provenance sidecar, educator review, and learner-outcome evidence are separate requirements."
+                ]
+            }))
+            .map_err(|error| AuditFailure(vec![format!("cannot serialize draft report: {error}")]))?
+        ),
+        "markdown" => {
+            println!("# Praxis lesson draft check");
+            println!();
+            println!("- Status: **{status}**");
+            println!("- Lesson ID: `{lesson_id}`");
+            println!("- Asset: `{relative_path}`");
+            println!("- BLAKE3: `{}`", blake3::hash(&raw).to_hex());
+            println!("- Findings: {} ({} blockers, {} warnings)", audit.findings.len(), blocker_count, warning_count);
+            println!();
+            if audit.findings.is_empty() {
+                println!("No known structural or placeholder findings were detected.");
+            } else {
+                println!("## Findings");
+                for finding in &audit.findings {
+                    println!(
+                        "- **{} · {}** — `{}`: {}",
+                        finding.severity, finding.code, finding.field, finding.message
+                    );
+                }
+            }
+            println!();
+            println!("A clean static check is not educator approval, rights clearance, or evidence of learning efficacy.");
+        }
+        _ => unreachable!("output format is constrained by argument parsing"),
+    }
+
+    if blocker_count > 0 {
+        eprintln!("lesson draft check failed: {blocker_count} blocker finding(s)");
+        return Err(AuditFailure(vec![format!(
+            "lesson draft has {blocker_count} blocker finding(s)"
+        )]));
+    }
+    Ok(())
+}
+
 fn run() -> Result<(), AuditFailure> {
     let mut output_format = "json";
     let mut fail_on_blockers = false;
-    for arg in env::args().skip(1) {
-        match arg.as_str() {
+    let mut check_lesson_path: Option<String> = None;
+    let args = env::args().skip(1).collect::<Vec<_>>();
+    let mut index = 0;
+    while index < args.len() {
+        match args[index].as_str() {
             "--format=json" | "--json" => output_format = "json",
             "--format=markdown" | "--markdown" => output_format = "markdown",
             "--fail-on-blockers" => fail_on_blockers = true,
+            "--check-lesson" => {
+                index += 1;
+                let Some(path) = args.get(index) else {
+                    eprintln!("--check-lesson requires a JSON path");
+                    return Err(AuditFailure(vec![
+                        "--check-lesson requires a JSON path".to_owned(),
+                    ]));
+                };
+                check_lesson_path = Some(path.clone());
+            }
             "--help" | "-h" => {
                 println!(
-                    "praxis-curriculum-audit [--format=json|markdown] [--fail-on-blockers]\nRead-only coverage and instructional placeholder audit."
+                    "praxis-curriculum-audit [--format=json|markdown] [--fail-on-blockers]\n\
+                     praxis-curriculum-audit --check-lesson <json-path> [--format=json|markdown]\n\
+                     Read-only curriculum audit and standalone lesson authoring check."
                 );
                 return Ok(());
             }
@@ -1792,8 +2114,12 @@ fn run() -> Result<(), AuditFailure> {
                 return Err(AuditFailure(Vec::new()));
             }
         }
+        index += 1;
     }
     let workspace = workspace_root().map_err(|error| AuditFailure(vec![error]))?;
+    if let Some(path) = check_lesson_path {
+        return check_standalone_lesson(&workspace, &path, output_format);
+    }
     let mut errors = Vec::new();
     let documents = active_documents(&workspace, &mut errors);
     let manifest = load_manifest(&workspace, &mut errors);
