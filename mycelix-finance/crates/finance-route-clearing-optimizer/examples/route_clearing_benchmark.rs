@@ -114,15 +114,30 @@ fn main() {
             let mut optimize_samples = Vec::with_capacity(MEASURED_REPETITIONS);
             let mut greedy_samples = Vec::with_capacity(MEASURED_REPETITIONS);
 
-            for _ in 0..MEASURED_REPETITIONS {
-                let start = Instant::now();
-                let _plan = optimize(&context, &positions, &routes).expect("optimizer failed");
-                optimize_samples.push(start.elapsed().as_micros());
+            // Alternate execution order within paired repetitions to reduce systematic
+            // first/second-call bias from warm caches or changing CPU frequency.
+            for repetition in 0..MEASURED_REPETITIONS {
+                if repetition % 2 == 0 {
+                    let start = Instant::now();
+                    let _plan =
+                        optimize(&context, &positions, &routes).expect("optimizer failed");
+                    optimize_samples.push(start.elapsed().as_micros());
 
-                let start = Instant::now();
-                let _plan =
-                    greedy_match(&context, &positions, &routes).expect("greedy baseline failed");
-                greedy_samples.push(start.elapsed().as_micros());
+                    let start = Instant::now();
+                    let _plan = greedy_match(&context, &positions, &routes)
+                        .expect("greedy baseline failed");
+                    greedy_samples.push(start.elapsed().as_micros());
+                } else {
+                    let start = Instant::now();
+                    let _plan = greedy_match(&context, &positions, &routes)
+                        .expect("greedy baseline failed");
+                    greedy_samples.push(start.elapsed().as_micros());
+
+                    let start = Instant::now();
+                    let _plan =
+                        optimize(&context, &positions, &routes).expect("optimizer failed");
+                    optimize_samples.push(start.elapsed().as_micros());
+                }
             }
 
             let optimized_plan =
