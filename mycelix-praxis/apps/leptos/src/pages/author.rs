@@ -662,6 +662,102 @@ fn lesson_pack_json(draft: &LessonAuthorDraft) -> String {
         .unwrap_or_else(|error| format!("{{\"error\":\"could not serialize draft: {error}\"}}"))
 }
 
+fn author_gcd(mut left: u128, mut right: u128) -> u128 {
+    while right != 0 {
+        let remainder = left % right;
+        left = right;
+        right = remainder;
+    }
+    left.max(1)
+}
+
+fn author_rational_key(numerator: i128, denominator: i128) -> Option<String> {
+    if denominator == 0 {
+        return None;
+    }
+    let negative = (numerator < 0) ^ (denominator < 0);
+    let numerator_magnitude = numerator.unsigned_abs();
+    let denominator_magnitude = denominator.unsigned_abs();
+    let divisor = author_gcd(numerator_magnitude, denominator_magnitude);
+    let sign = if negative { "-" } else { "" };
+    Some(format!(
+        "{sign}{}/{}",
+        numerator_magnitude / divisor,
+        denominator_magnitude / divisor
+    ))
+}
+
+fn author_numeric_key(text: &str) -> Option<(String, Option<&'static str>)> {
+    let normalized = text
+        .trim()
+        .to_lowercase()
+        .trim_end_matches(['.', '!', '?'])
+        .trim()
+        .to_owned();
+
+    const UNITS: &[(&str, &str)] = &[
+        (" square centimetres", "area_cm2"),
+        (" square centimeters", "area_cm2"),
+        (" square metres", "area_m2"),
+        (" square meters", "area_m2"),
+        (" square units", "area_unit"),
+        (" square unit", "area_unit"),
+        (" square cm", "area_cm2"),
+        (" square m", "area_m2"),
+        (" centimetres", "length_cm"),
+        (" centimeters", "length_cm"),
+        (" millimetres", "length_mm"),
+        (" millimeters", "length_mm"),
+        (" kilograms", "mass_kg"),
+        (" learners", "count"),
+        (" learner", "count"),
+        (" children", "count"),
+        (" child", "count"),
+        (" counters", "count"),
+        (" counter", "count"),
+        (" objects", "count"),
+        (" object", "count"),
+        (" students", "count"),
+        (" student", "count"),
+        (" books", "count"),
+        (" book", "count"),
+        (" desks", "count"),
+        (" desk", "count"),
+        (" cm", "length_cm"),
+        (" mm", "length_mm"),
+        (" m", "length_m"),
+        (" kg", "mass_kg"),
+    ];
+
+    let mut number_text = normalized.as_str();
+    let mut unit = None;
+    for (suffix, canonical_unit) in UNITS {
+        if let Some(number) = normalized.strip_suffix(*suffix) {
+            number_text = number.trim();
+            unit = Some(*canonical_unit);
+            break;
+        }
+    }
+
+    let (numerator, denominator) = if let Some((left, right)) = number_text.split_once('/') {
+        (left.trim().parse::<i128>().ok()?, right.trim().parse::<i128>().ok()?)
+    } else {
+        (number_text.parse::<i128>().ok()?, 1)
+    };
+    Some((author_rational_key(numerator, denominator)?, unit))
+}
+
+fn author_numeric_choices_collide(answer: &str, choice: &str) -> bool {
+    let Some((answer_value, answer_unit)) = author_numeric_key(answer) else {
+        return false;
+    };
+    let Some((choice_value, choice_unit)) = author_numeric_key(choice) else {
+        return false;
+    };
+    answer_value == choice_value
+        && (answer_unit.is_none() || choice_unit.is_none() || answer_unit == choice_unit)
+}
+
 fn validate_draft(draft: &LessonAuthorDraft) -> Vec<String> {
     let mut findings = Vec::new();
     let required = [
@@ -722,6 +818,14 @@ fn validate_draft(draft: &LessonAuthorDraft) -> Vec<String> {
         let answer = item.answer.trim().to_lowercase().trim_end_matches(['.', '!', '?']).to_owned();
         if normalized.iter().any(|choice| choice.trim_end_matches(['.', '!', '?']) == answer.as_str()) {
             findings.push(format!("Practice item {} repeats the answer among the wrong-answer choices.", index + 1));
+        } else if choices
+            .iter()
+            .any(|choice| author_numeric_choices_collide(item.answer.trim(), choice))
+        {
+            findings.push(format!(
+                "Practice item {} may repeat the correct numeric answer with a different unit or equivalent fraction; review the wrong-answer choices.",
+                index + 1
+            ));
         }
     }
     if draft.license.to_lowercase().contains("undecided") {
@@ -1219,6 +1323,21 @@ mod tests {
             "missing items must be blank, not copied from the sample lesson"
         );
         assert_eq!(draft.practice[2].question, "");
+    }
+
+    #[test]
+    fn author_quick_check_detects_numeric_answer_collisions() {
+        assert!(author_numeric_choices_collide("3 children", "3"));
+        assert!(author_numeric_choices_collide("1/2", "2/4"));
+        assert!(!author_numeric_choices_collide("12 cm", "12 square units"));
+
+        let mut draft = LessonAuthorDraft::default();
+        draft.practice[0].answer = "3 children".into();
+        draft.practice[0].distractors = "13\n2\n3".into();
+        let findings = validate_draft(&draft);
+        assert!(findings.iter().any(|finding| {
+            finding.contains("different unit or equivalent fraction")
+        }));
     }
 
     #[test]
