@@ -25,7 +25,6 @@ pub use stream_replay::{
     replay_stream, OnlineBatchStrategy, StreamReplayConfig, StreamReplayError, StreamReplayResult,
 };
 
-
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Payment {
     pub id: String,
@@ -111,10 +110,7 @@ impl Problem {
     ) -> Result<Self, ReorderError> {
         let mut seen = BTreeSet::new();
         for &(before, after) in &constraints {
-            if before >= self.payments.len()
-                || after >= self.payments.len()
-                || before == after
-            {
+            if before >= self.payments.len() || after >= self.payments.len() || before == after {
                 return Err(ReorderError::InvalidPrecedenceConstraint { before, after });
             }
             if !seen.insert((before, after)) {
@@ -583,7 +579,9 @@ pub fn receiver_ready_event_driven(problem: &Problem) -> Result<SearchResult, Re
         remaining[selected] = false;
         order.push(selected);
 
-        epoch = epoch.checked_add(1).ok_or(ReorderError::ArithmeticOverflow)?;
+        epoch = epoch
+            .checked_add(1)
+            .ok_or(ReorderError::ArithmeticOverflow)?;
         affected.clear();
         for &after in &successors[selected] {
             indegree[after] = indegree[after]
@@ -1059,12 +1057,7 @@ pub fn heuristic_portfolio(
         best.evaluation = local.evaluation;
     }
 
-    let annealed = simulated_annealing(
-        problem,
-        &best.order,
-        annealing_seed,
-        annealing_iterations,
-    )?;
+    let annealed = simulated_annealing(problem, &best.order, annealing_seed, annealing_iterations)?;
     total_evaluations = total_evaluations
         .checked_add(annealed.candidate_evaluations)
         .ok_or(ReorderError::ArithmeticOverflow)?;
@@ -1166,7 +1159,6 @@ pub fn exact_permutation_oracle(problem: &Problem) -> Result<SearchResult, Reord
     })
 }
 
-
 /// Compute the exact nondominated trade-off between aggregate initial liquidity and
 /// maximum single-participant initial liquidity. Unlike the lexicographic oracle, this
 /// preserves multiple nondominated options when one improves aggregate liquidity but
@@ -1196,11 +1188,10 @@ pub fn exact_pareto_frontier(problem: &Problem) -> Result<ParetoFrontier, Reorde
             let candidate_aggregate = evaluation.aggregate_required_initial_liquidity_minor;
             let candidate_max = evaluation.max_participant_required_initial_liquidity_minor;
             let candidate_is_redundant = frontier.iter().any(|point| {
-                let aggregate = point
+                let aggregate = point.evaluation.aggregate_required_initial_liquidity_minor;
+                let max_participant = point
                     .evaluation
-                    .aggregate_required_initial_liquidity_minor;
-                let max_participant =
-                    point.evaluation.max_participant_required_initial_liquidity_minor;
+                    .max_participant_required_initial_liquidity_minor;
                 let dominates = aggregate <= candidate_aggregate
                     && max_participant <= candidate_max
                     && (aggregate < candidate_aggregate || max_participant < candidate_max);
@@ -1214,11 +1205,10 @@ pub fn exact_pareto_frontier(problem: &Problem) -> Result<ParetoFrontier, Reorde
             }
 
             frontier.retain(|point| {
-                let aggregate = point
+                let aggregate = point.evaluation.aggregate_required_initial_liquidity_minor;
+                let max_participant = point
                     .evaluation
-                    .aggregate_required_initial_liquidity_minor;
-                let max_participant =
-                    point.evaluation.max_participant_required_initial_liquidity_minor;
+                    .max_participant_required_initial_liquidity_minor;
                 let candidate_dominates = candidate_aggregate <= aggregate
                     && candidate_max <= max_participant
                     && (candidate_aggregate < aggregate || candidate_max < max_participant);
