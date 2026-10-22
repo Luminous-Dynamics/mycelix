@@ -230,11 +230,18 @@ fn hash_source_file(
 ) -> Result<Value, String> {
     let resolved = fs::canonicalize(input_path)
         .map_err(|error| format!("cannot resolve source path {}: {error}", input_path.display()))?;
+    // Check the canonical target before opening it: opening a FIFO first can
+    // block waiting for a writer, even though it is not a valid evidence file.
+    let path_metadata = fs::metadata(&resolved)
+        .map_err(|error| format!("cannot stat source path {}: {error}", resolved.display()))?;
+    if !path_metadata.is_file() {
+        return Err(format!("source input must be a regular file: {}", resolved.display()));
+    }
     let mut file = File::open(&resolved)
         .map_err(|error| format!("cannot open source bytes {}: {error}", resolved.display()))?;
-    let before = file.metadata().map_err(|error| format!("cannot stat source file: {error}"))?;
+    let before = file.metadata().map_err(|error| format!("cannot stat opened source file: {error}"))?;
     if !before.is_file() {
-        return Err(format!("source input must be a regular file: {}", resolved.display()));
+        return Err(format!("opened source input is not a regular file: {}", resolved.display()));
     }
     let before_modified = before.modified().map_err(|error| format!("cannot read source modification time: {error}"))?;
     let before_size = before.len();
@@ -390,6 +397,13 @@ mod tests {
         let admission = crate::external_validity::validate_source_record(&parsed.receipt, "/source");
         assert!(admission.is_empty(), "receipt should satisfy NRVCA-016 source manifest: {admission:?}");
         assert_eq!(parsed.output_path, None);
+    }
+
+    #[test]
+    fn directory_input_is_rejected_before_file_content_open() {
+        let args = args_for(&std::env::temp_dir());
+        let error = receipt_from_cli(&args).unwrap_err();
+        assert!(error.contains("regular file"));
     }
 
     #[test]
