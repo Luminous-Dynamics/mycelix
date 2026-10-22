@@ -54,7 +54,7 @@ cargo run --manifest-path mycelix-workspace/tools/nrvca-validator/Cargo.toml -- 
   --locator-id table-1-row-2 --locator "PDF page 4, Table 1, row 2" \
   --extraction-method "PDF table extraction" --tool-version "extractor-version" \
   --expected-sha256 "INDEPENDENTLY-RECORDED-64-HEX-DIGEST" \
-  --output ./private-evidence-store/receipts/source-001.json
+  --output ./private-evidence-store/source-001.json
 ```
 
 All values above are examples, not a claim that any source was acquired or permission granted. Omit `--expected-sha256` if no independent digest exists; the captured stream is still hashed, but publisher/source authenticity remains unproven. The command does not enable evaluation.
