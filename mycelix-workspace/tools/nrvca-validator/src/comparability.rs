@@ -109,7 +109,7 @@ fn values_equal(left: &Value, right: &Value) -> bool {
 fn compare_fields(
     left_axis: Option<&Value>,
     right_axis: Option<&Value>,
-    fields: &'static [&'static str],
+    fields: &[&'static str],
 ) -> (Vec<&'static str>, Vec<&'static str>) {
     let mut changed = Vec::new();
     let mut unknown = Vec::new();
