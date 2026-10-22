@@ -109,6 +109,10 @@ fn every_strategy_covers_every_declared_correlated_scenario_exactly_once() {
     for item in root["strategies"].as_array().unwrap() {
         let rows = item["scenario_results"].as_array().unwrap();
         assert_eq!(rows.len(), scenarios.len(), "no silent scenario omissions");
+        assert!(
+            num(&item["base_cost"]) <= num(&root["scoring_policy"]["primary_budget"]) + 1e-9,
+            "base plan must fit the primary budget"
+        );
         let actual_ids: Vec<String> = rows.iter()
             .map(|r| r["scenario_id"].as_str().unwrap().to_owned())
             .collect();
@@ -122,6 +126,18 @@ fn every_strategy_covers_every_declared_correlated_scenario_exactly_once() {
         for row in rows {
             assert_eq!(row["evidence_status"], "synthetic_stress_assumption");
             assert!(row.get("probability").is_none(), "do not invent scenario probabilities");
+            let base_cost = num(&item["base_cost"]);
+            let total_cost = num(&row["total_cost"]);
+            let reserve_cap = num(&root["scoring_policy"]["contingency_reserve_cap"]);
+            assert!(total_cost + 1e-9 >= base_cost, "scenario cost cannot understate base plan cost");
+            assert!(
+                total_cost - base_cost <= reserve_cap + 1e-9,
+                "scenario contingency spend exceeds its declared reserve cap"
+            );
+            assert!(
+                total_cost <= num(&root["scoring_policy"]["total_cost_upper_bound"]) + 1e-9,
+                "scenario total cost exceeds overall cap"
+            );
         }
     }
 }
