@@ -35,7 +35,8 @@
     "action_cost_is_authoritative": true,
     "one_terminal_disposition_per_candidate": true,
     "full_budget_receipt_required": true,
-    "all_values_uncalibrated": true
+    "all_values_uncalibrated": true,
+    "max_candidates_per_case": 10000
   },
   "resource_capacities": {
     "backup_system": 1,
