@@ -1535,10 +1535,10 @@
       "source_urls": [
         "https://ref.gs1.org/standards/epcis/2.0.1/",
         "https://ref.gs1.org/standards/cbv/2.0.0/",
-        "https://ref.gs1.org/standards/epcis/2.0.1/epcis-context.jsonld",
-        "https://ref.gs1.org/standards/epcis/2.0.1/epcis-json-schema.json",
-        "https://ref.gs1.org/standards/epcis/2.0.1/epcis-shacl.ttl",
-        "https://ref.gs1.org/standards/epcis/2.0.1/cbv-ontology.jsonld"
+        "https://ref.gs1.org/standards/epcis/2.0.0/epcis-context.jsonld",
+        "https://ref.gs1.org/standards/epcis/2.0.0/epcis-json-schema.json",
+        "https://ref.gs1.org/standards/epcis/2.0.0/epcis-shacl.ttl",
+        "https://ref.gs1.org/standards/epcis/2.0.0/cbv-ontology.jsonld"
       ],
       "snapshot_date": "2026-10-21",
       "relationship_status": "not_recorded",
@@ -1593,7 +1593,7 @@
       ],
       "source_evidence_state": "version_pinned_manifest_attached",
       "source_snapshot_manifest_path": "source-snapshots/gs1-epcis-cbv-v1.json",
-      "source_snapshot_manifest_sha256": "c1ee59514524c7eb0535e58f3fc19c3c3f309d05adb0ca896ac59ef5b3abcf92",
+      "source_snapshot_manifest_sha256": "acb4eee1c6b5ec625047f6857e466408716bb4b09b911029faac303c990cb647",
       "source_snapshot_required_before_pilot": true
     }
   ]
