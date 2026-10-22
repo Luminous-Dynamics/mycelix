@@ -315,6 +315,30 @@ fn make_object_read_only(path: &Path) -> Result<(), String> {
     }
 }
 
+fn ensure_object_permissions(path: &Path) -> Result<(), String> {
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        let permissions = fs::metadata(path)
+            .map_err(|error| format!("cannot inspect existing object permissions: {error}"))?
+            .permissions();
+        if permissions.mode() & 0o777 != 0o400 {
+            return Err(format!("pre-existing digest object permissions are not owner-read-only (0400): {}", path.display()));
+        }
+        Ok(())
+    }
+    #[cfg(not(unix))]
+    {
+        let permissions = fs::metadata(path)
+            .map_err(|error| format!("cannot inspect existing object permissions: {error}"))?
+            .permissions();
+        if !permissions.readonly() {
+            return Err(format!("pre-existing digest object is writable: {}", path.display()));
+        }
+        Ok(())
+    }
+}
+
 fn create_temporary_object(staging_dir: &Path) -> Result<(PathBuf, File), String> {
     for _ in 0..32 {
         let sequence = NEXT_TEMP_OBJECT.fetch_add(1, Ordering::Relaxed);
@@ -489,7 +513,9 @@ fn capture_source_file(
             if existing_digest != digest || existing_size != bytes_captured {
                 return Err(format!("pre-existing content object failed digest/size verification: {}", object_path.display()));
             }
-            make_object_read_only(&object_path)?;
+            // Never chmod a pre-existing inode: it may be hard-linked elsewhere.
+            // Verify safe permissions and fail closed instead of mutating shared state.
+            ensure_object_permissions(&object_path)?;
         }
         Err(error) => return Err(format!("atomic no-overwrite promotion failed for {}: {error}", object_path.display())),
     }
