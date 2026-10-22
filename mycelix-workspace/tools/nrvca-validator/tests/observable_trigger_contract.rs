@@ -205,10 +205,28 @@ struct SuppressedEvent {
 }
 
 #[derive(Debug, PartialEq)]
+struct AuditDecision {
+    trace_id: String,
+    evaluation_step: i64,
+    observation_id: String,
+    observed_at_step: i64,
+    rule_id: String,
+    rule_version: String,
+    action_id: String,
+    decision: String,
+    reason: String,
+    lead_time_steps: i64,
+    time_to_floor_breach_steps: Option<i64>,
+    late_warning: bool,
+    evidence_status: String,
+}
+
+#[derive(Debug, PartialEq)]
 struct TraceResult {
     fires: Vec<FireEvent>,
     review_steps: Vec<i64>,
     suppressed: Vec<SuppressedEvent>,
+    decisions: Vec<AuditDecision>,
 }
 
 fn evaluate_trace(root: &Value, trace: &Value) -> Result<TraceResult, String> {
@@ -229,7 +247,7 @@ fn evaluate_trace(root: &Value, trace: &Value) -> Result<TraceResult, String> {
     let preconditions_met = required.is_subset(&preconditions);
 
     let mut state = RuleState::default();
-    let mut result = TraceResult { fires: Vec::new(), review_steps: Vec::new(), suppressed: Vec::new() };
+    let mut result = TraceResult { fires: Vec::new(), review_steps: Vec::new(), suppressed: Vec::new(), decisions: Vec::new() };
     let activate_after = rule["persistence_valid_samples"].as_u64().unwrap();
     let recover_after = rule["recovery_valid_samples"].as_u64().unwrap();
     let max_age = rule["max_age_steps"].as_i64().unwrap();
@@ -242,6 +260,7 @@ fn evaluate_trace(root: &Value, trace: &Value) -> Result<TraceResult, String> {
         let oid = text(obs, "observation_id").to_owned();
         let observed_at = obs["observed_at_step"].as_i64().ok_or_else(|| "bad observed_at_step".to_owned())?;
         let age = step - observed_at;
+        let time_to_breach = obs["time_to_floor_breach_steps"].as_i64();
         let usable = obs["quality_status"].as_str() == Some("valid")
             && obs["value"].as_f64().is_some()
             && obs["unit"] == ind["unit"]
@@ -249,65 +268,102 @@ fn evaluate_trace(root: &Value, trace: &Value) -> Result<TraceResult, String> {
             && age <= max_age
             && obs["value"].as_f64().is_some_and(|v| v >= num(&ind["allowed_min"]) && v <= num(&ind["allowed_max"]));
 
+        let mut decision = String::new();
+        let mut reason = String::new();
+        let mut late_warning = false;
+
         if !usable {
             state.low_count = 0;
             state.recovery_count = 0;
             result.review_steps.push(step);
-            continue;
-        }
-
-        let value = num(&obs["value"]);
-        if state.active {
-            let recovered = matches_operator(value, text(rule, "recover_operator"), num(&rule["recover_threshold"]));
-            if recovered {
-                state.recovery_count += 1;
+            decision = "manual_review".to_owned();
+            reason = if obs["quality_status"].as_str() == Some("missing") {
+                "missing_observation".to_owned()
             } else {
-                state.recovery_count = 0;
-            }
-            let cooldown_done = state.last_fire_step.is_some_and(|last| step - last >= cooldown);
-            if state.recovery_count >= recover_after && cooldown_done {
-                state.active = false;
-                state.low_count = 0;
-                state.recovery_count = 0;
-            }
-            continue;
-        }
-
-        let activates = matches_operator(value, text(rule, "activate_operator"), num(&rule["activate_threshold"]));
-        if activates {
-            state.low_count += 1;
+                "stale_or_invalid_observation".to_owned()
+            };
         } else {
-            state.low_count = 0;
-        }
-        if state.low_count < activate_after {
-            continue;
+            let value = num(&obs["value"]);
+            if state.active {
+                let recovered = matches_operator(value, text(rule, "recover_operator"), num(&rule["recover_threshold"]));
+                if recovered {
+                    state.recovery_count += 1;
+                } else {
+                    state.recovery_count = 0;
+                }
+                let cooldown_done = state.last_fire_step.is_some_and(|last| step - last >= cooldown);
+                if state.recovery_count >= recover_after && cooldown_done {
+                    state.active = false;
+                    state.low_count = 0;
+                    state.recovery_count = 0;
+                    decision = "rearmed".to_owned();
+                    reason = "recovery_persistence_and_cooldown_satisfied".to_owned();
+                } else {
+                    decision = "monitoring_recovery".to_owned();
+                    reason = if recovered {
+                        "recovery_threshold_met_waiting_for_persistence_or_cooldown".to_owned()
+                    } else {
+                        "recovery_condition_not_met".to_owned()
+                    };
+                }
+            } else {
+                let activates = matches_operator(value, text(rule, "activate_operator"), num(&rule["activate_threshold"]));
+                if activates {
+                    state.low_count += 1;
+                } else {
+                    state.low_count = 0;
+                }
+                if !activates {
+                    decision = "no_signal".to_owned();
+                    reason = "activation_condition_not_met".to_owned();
+                } else if state.low_count < activate_after {
+                    decision = "waiting_persistence".to_owned();
+                    reason = "activation_persistence_not_met".to_owned();
+                } else if !preconditions_met {
+                    result.review_steps.push(step);
+                    result.suppressed.push(SuppressedEvent {
+                        evaluation_step: step,
+                        action_id: text(act, "action_id").to_owned(),
+                        reason: "precondition_not_met".to_owned(),
+                    });
+                    decision = "recommendation_suppressed".to_owned();
+                    reason = "precondition_not_met".to_owned();
+                    state.low_count = activate_after - 1;
+                } else {
+                    let ttb = time_to_breach.ok_or_else(|| format!("observation {oid} lacks time_to_floor_breach_steps"))?;
+                    late_warning = lead > ttb;
+                    result.fires.push(FireEvent {
+                        evaluation_step: step,
+                        observation_id: oid.clone(),
+                        rule_id: text(rule, "rule_id").to_owned(),
+                        action_id: text(act, "action_id").to_owned(),
+                        late_warning,
+                    });
+                    decision = "recommendation_issued".to_owned();
+                    reason = "activation_rule_satisfied".to_owned();
+                    state.active = true;
+                    state.low_count = 0;
+                    state.recovery_count = 0;
+                    state.last_fire_step = Some(step);
+                }
+            }
         }
 
-        if !preconditions_met {
-            result.review_steps.push(step);
-            result.suppressed.push(SuppressedEvent {
-                evaluation_step: step,
-                action_id: text(act, "action_id").to_owned(),
-                reason: "precondition_not_met".to_owned(),
-            });
-            // Do not latch an unperformed action. A later valid observation may retry.
-            state.low_count = activate_after - 1;
-            continue;
-        }
-
-        let time_to_breach = obs["time_to_floor_breach_steps"].as_i64()
-            .ok_or_else(|| format!("observation {oid} lacks time_to_floor_breach_steps"))?;
-        result.fires.push(FireEvent {
+        result.decisions.push(AuditDecision {
+            trace_id: text(trace, "trace_id").to_owned(),
             evaluation_step: step,
             observation_id: oid,
+            observed_at_step: observed_at,
             rule_id: text(rule, "rule_id").to_owned(),
+            rule_version: text(rule, "version").to_owned(),
             action_id: text(act, "action_id").to_owned(),
-            late_warning: lead > time_to_breach,
+            decision,
+            reason,
+            lead_time_steps: lead,
+            time_to_floor_breach_steps: time_to_breach,
+            late_warning,
+            evidence_status: "synthetic_assumption".to_owned(),
         });
-        state.active = true;
-        state.low_count = 0;
-        state.recovery_count = 0;
-        state.last_fire_step = Some(step);
     }
     Ok(result)
 }
@@ -329,6 +385,32 @@ fn check_expected(root: &Value, trace_item: &Value) {
         late_warning: event["late_warning"].as_bool().unwrap(),
     }).collect();
     assert_eq!(result.fires, expected, "trigger mismatch for {}", text(trace_item, "trace_id"));
+
+    let frozen_decisions = trace_item["expected_decisions"].as_array().unwrap();
+    let expected_decisions: Vec<AuditDecision> = frozen_decisions.iter().map(|event| AuditDecision {
+        trace_id: text(event,"trace_id").to_owned(),
+        evaluation_step: event["evaluation_step"].as_i64().unwrap(),
+        observation_id: text(event,"observation_id").to_owned(),
+        observed_at_step: event["observed_at_step"].as_i64().unwrap(),
+        rule_id: text(event,"rule_id").to_owned(),
+        rule_version: text(event,"rule_version").to_owned(),
+        action_id: text(event,"action_id").to_owned(),
+        decision: text(event,"decision").to_owned(),
+        reason: text(event,"reason").to_owned(),
+        lead_time_steps: event["lead_time_steps"].as_i64().unwrap(),
+        time_to_floor_breach_steps: event["time_to_floor_breach_steps"].as_i64(),
+        late_warning: event["late_warning"].as_bool().unwrap(),
+        evidence_status: text(event,"evidence_status").to_owned(),
+    }).collect();
+    assert_eq!(result.decisions, expected_decisions,
+        "full audit decision log mismatch for {}", text(trace_item, "trace_id"));
+    assert!(result.decisions.iter().all(|event| {
+        !event.rule_id.is_empty() && !event.rule_version.is_empty()
+            && !event.observation_id.is_empty() && !event.action_id.is_empty()
+            && !event.reason.is_empty() && event.lead_time_steps >= 0
+            && event.evidence_status == "synthetic_assumption"
+    }), "every decision must be attributable and retain its claim ceiling");
+
     let mut review = result.review_steps.clone();
     review.sort();
     let mut expected_review: Vec<i64> = trace_item["expected_review_steps"].as_array().unwrap()
@@ -403,9 +485,11 @@ fn unavailable_action_precondition_suppresses_recommendation() {
 fn duplicate_steps_wrong_units_out_of_range_values_and_unknown_indicators_fail_closed() {
     let root = fixture();
 
-    let mut duplicate = trace(&root,"crew-two-period-delay").clone();
-    duplicate["observations"][1]["evaluation_step"] = json!(0);
-    assert!(validate_contract_with_trace(&root,&duplicate).is_err());
+    let mut duplicate = root.clone();
+    let crew = duplicate["traces"].as_array_mut().unwrap()
+        .iter_mut().find(|item| item["trace_id"] == "crew-two-period-delay").unwrap();
+    crew["observations"][1]["evaluation_step"] = json!(0);
+    assert!(validate_contract(&duplicate).is_err());
 
     let mut wrong_unit = root.clone();
     wrong_unit["traces"][0]["observations"][0]["unit"] = json!("percent");
@@ -420,31 +504,13 @@ fn duplicate_steps_wrong_units_out_of_range_values_and_unknown_indicators_fail_c
     assert!(validate_contract(&unknown).is_err());
 }
 
-fn validate_contract_with_trace(root: &Value, changed_trace: &Value) -> Result<(), String> {
-    validate_contract(root)?;
-    let id = text(changed_trace,"trace_id");
-    let original = trace(root,id);
-    if changed_trace["indicator_id"] != original["indicator_id"] {
-        return Err("trace indicator changed".to_owned());
-    }
-    let observations = changed_trace["observations"].as_array()
-        .ok_or_else(|| "observations must be array".to_owned())?;
-    unique_ids(observations,"observation_id")?;
-    let mut previous = None;
-    for obs in observations {
-        let step=obs["evaluation_step"].as_i64().ok_or_else(||"bad step".to_owned())?;
-        if previous.is_some_and(|p|step<=p) { return Err("duplicate or nonmonotone evaluation step".to_owned()); }
-        previous=Some(step);
-    }
-    Ok(())
-}
-
 #[test]
 fn changing_labels_does_not_change_trigger_events() {
     let mut root = fixture();
     let before = evaluate_trace(&root, trace(&root,"reserve-persistence-hysteresis")).unwrap();
     for rule in root["rules"].as_array_mut().unwrap() {
-        rule["display_label"] = json!(format!("marketing-{}", text(rule,"rule_id")));
+        let id = text(rule,"rule_id").to_owned();
+        rule["display_label"] = json!(format!("marketing-{id}"));
     }
     for act in root["actions"].as_array_mut().unwrap() {
         act["description"] = json!("Changed descriptive wording only.");
