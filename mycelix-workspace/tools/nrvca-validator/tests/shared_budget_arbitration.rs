@@ -162,6 +162,9 @@ fn validate_contract(root: &Value) -> Result<(), String> {
         if act["policy_class"].as_str() == Some("protected_service_floor") && class_rank != 0 {
             return Err(format!("protected action {id} must use class rank 0"));
         }
+        if act["policy_class"].as_str() == Some("discretionary_recovery") && class_rank != 1 {
+            return Err(format!("discretionary action {id} must use class rank 1"));
+        }
         required_preconditions(act)?;
         for (resource_id, units) in resource_claims(act)? {
             let capacity = capacities
@@ -376,6 +379,8 @@ fn arbitrate(root: &Value, case: &Value) -> Result<ArbitrationOutcome, String> {
             let candidate_missing = has_missing_preconditions(candidate, act);
             let (disposition, reason) = if is_protected && candidate_missing {
                 ("manual_review_precondition_missing", "protected_action_missing_required_precondition")
+            } else if is_protected && status == "manual_review_protected_precondition" {
+                ("blocked_by_protected_review", "another_protected_action_missing_required_precondition")
             } else if is_protected {
                 (protected_disposition, protected_reason)
             } else {
@@ -400,7 +405,6 @@ fn arbitrate(root: &Value, case: &Value) -> Result<ArbitrationOutcome, String> {
 
     for candidate in &ordered {
         let act = action(root, text(candidate, "action_id")).expect("validated action");
-        let candidate_id = text(candidate, "candidate_id");
         let cost = integer(act, "cost").expect("validated action cost");
         let budget_before = remaining_budget;
         let is_protected = act["policy_class"].as_str() == Some("protected_service_floor");
@@ -463,7 +467,6 @@ fn arbitrate(root: &Value, case: &Value) -> Result<ArbitrationOutcome, String> {
                 remaining_budget,
             ));
         }
-        let _ = candidate_id;
     }
 
     let _ = discretionary; // Retain an explicit validated separation of protected and discretionary candidates.
@@ -504,6 +507,107 @@ fn strings(values: &Value) -> Vec<String> {
         .iter()
         .map(|value| value.as_str().expect("string item").to_owned())
         .collect()
+}
+
+
+fn lexicographically_better(left: &[bool], right: &[bool]) -> bool {
+    for (left_bit, right_bit) in left.iter().zip(right.iter()) {
+        if left_bit != right_bit {
+            return *left_bit && !*right_bit;
+        }
+    }
+    false
+}
+
+// Exhaustive oracle for the contract's declared objective: first preserve the
+// atomic protected bundle, then maximize the selected/not-selected bit vector
+// in policy priority order subject to the same hard budget/resource constraints.
+// This proves lexicographic optimality for small fixtures, not public-welfare
+// optimality and not optimality under a different objective.
+fn exhaustive_lexicographic_oracle(root: &Value, case: &Value) -> Result<Vec<String>, String> {
+    validate_contract(root)?;
+    validate_case(root, case)?;
+    let budget = integer(case, "budget")?;
+    let candidates = case["candidates"].as_array().expect("validated candidates");
+    if candidates.is_empty() {
+        return Ok(Vec::new());
+    }
+
+    let mut ordered: Vec<&Value> = candidates.iter().collect();
+    ordered.sort_by(|left, right| candidate_order(root, left, right));
+    let protected = protected_candidates(root, candidates);
+    let protected_cost: i64 = protected.iter().map(|candidate| {
+        integer(action(root, text(candidate, "action_id")).expect("validated action"), "cost")
+            .expect("validated cost")
+    }).sum();
+    let capacities = resource_capacities(root)?;
+
+    if protected.iter().any(|candidate| {
+        has_missing_preconditions(candidate, action(root, text(candidate, "action_id")).expect("validated action"))
+    }) || protected_cost > budget || !resource_bundle_fits(root, &protected, &capacities) {
+        return Ok(Vec::new());
+    }
+
+    let optional: Vec<&Value> = ordered.iter().copied().filter(|candidate| {
+        action(root, text(candidate, "action_id"))
+            .is_some_and(|act| act["policy_class"].as_str() == Some("discretionary_recovery"))
+    }).collect();
+    if optional.len() >= usize::BITS as usize {
+        return Err("oracle case has too many discretionary candidates for exhaustive enumeration".to_owned());
+    }
+
+    let mut protected_resources: BTreeMap<String, i64> = BTreeMap::new();
+    for candidate in &protected {
+        add_resource_claims(
+            action(root, text(candidate, "action_id")).expect("validated action"),
+            &mut protected_resources,
+        );
+    }
+    let mut best_bits: Option<Vec<bool>> = None;
+    for mask in 0..(1usize << optional.len()) {
+        let mut bits = Vec::with_capacity(optional.len());
+        let mut used_resources = protected_resources.clone();
+        let mut total_cost = protected_cost;
+        let mut feasible = true;
+
+        for (index, candidate) in optional.iter().enumerate() {
+            let selected = (mask & (1usize << index)) != 0;
+            bits.push(selected);
+            if !selected {
+                continue;
+            }
+            let act = action(root, text(candidate, "action_id")).expect("validated action");
+            let cost = integer(act, "cost").expect("validated cost");
+            if has_missing_preconditions(candidate, act)
+                || cost > budget - total_cost
+                || !resource_claim_fits(act, &used_resources, &capacities)
+            {
+                feasible = false;
+                break;
+            }
+            total_cost += cost;
+            add_resource_claims(act, &mut used_resources);
+        }
+
+        if feasible && best_bits.as_ref().is_none_or(|best| lexicographically_better(&bits, best)) {
+            best_bits = Some(bits);
+        }
+    }
+
+    let best_bits = best_bits.unwrap_or_else(|| vec![false; optional.len()]);
+    let selected_optional: BTreeSet<String> = optional.iter().zip(best_bits.iter())
+        .filter(|(_, selected)| **selected)
+        .map(|(candidate, _)| text(candidate, "candidate_id").to_owned())
+        .collect();
+    Ok(ordered.iter().filter_map(|candidate| {
+        let act = action(root, text(candidate, "action_id")).expect("validated action");
+        let is_protected = act["policy_class"].as_str() == Some("protected_service_floor");
+        if is_protected || selected_optional.contains(text(candidate, "candidate_id")) {
+            Some(text(act, "action_id").to_owned())
+        } else {
+            None
+        }
+    }).collect())
 }
 
 #[test]
@@ -598,6 +702,25 @@ fn increasing_budget_never_breaks_feasibility_or_revokes_an_already_selected_act
     }
 }
 
+
+#[test]
+fn greedy_receipts_match_exhaustive_lexicographic_oracle_across_budgets() {
+    let root = fixture();
+    for item in root["cases"].as_array().unwrap() {
+        for budget in 0..=6 {
+            let mut variant = item.clone();
+            variant["budget"] = json!(budget);
+            let actual = arbitrate(&root, &variant).expect("valid budget variant");
+            let oracle = exhaustive_lexicographic_oracle(&root, &variant).expect("small exhaustive oracle");
+            assert_eq!(
+                actual.selected_action_ids, oracle,
+                "fixed-priority selection diverged from exhaustive oracle for {} at budget {}",
+                text(item, "case_id"), budget
+            );
+        }
+    }
+}
+
 #[test]
 fn malformed_contracts_and_cases_fail_closed() {
     let root = fixture();
@@ -612,8 +735,8 @@ fn malformed_contracts_and_cases_fail_closed() {
     assert!(arbitrate(&unknown_action, &unknown_action["cases"][0]).is_err());
 
     let mut duplicate_candidate = root.clone();
-    duplicate_candidate["cases"][0]["candidates"][1]["candidate_id"] =
-        duplicate_candidate["cases"][0]["candidates"][0]["candidate_id"].clone();
+    let duplicate_id = duplicate_candidate["cases"][0]["candidates"][0]["candidate_id"].clone();
+    duplicate_candidate["cases"][0]["candidates"][1]["candidate_id"] = duplicate_id;
     assert!(arbitrate(&duplicate_candidate, &duplicate_candidate["cases"][0]).is_err());
 
     let mut cost_override = root.clone();
