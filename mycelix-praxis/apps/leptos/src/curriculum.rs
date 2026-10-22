@@ -1048,14 +1048,18 @@ impl ProgressStore {
                 progress.self_reported_correct = progress
                     .self_reported_correct
                     .saturating_add(progress.correct.max(old_bkt.as_ref().map_or(0, |bkt| bkt.correct)));
+                let had_unbound_attempts = progress.attempts > 0
+                    || old_bkt.as_ref().is_some_and(|bkt| bkt.attempts > 0);
                 progress.attempts = 0;
                 progress.correct = 0;
                 progress.mastery_permille = 0;
                 progress.scored_item_ids.clear();
-                if matches!(
-                    progress.status,
-                    ProgressStatus::ProvisionalMastery | ProgressStatus::Mastered
-                ) {
+                if had_unbound_attempts
+                    || matches!(
+                        progress.status,
+                        ProgressStatus::ProvisionalMastery | ProgressStatus::Mastered
+                    )
+                {
                     progress.status = ProgressStatus::Studying;
                 }
             }
@@ -1270,6 +1274,7 @@ impl ProgressStore {
         }
 
         progress.scored_item_ids.push(item_id.to_owned());
+        progress.last_reviewed = Some(current_timestamp_ms());
         let sequence = progress
             .scored_practice_receipts
             .iter()
