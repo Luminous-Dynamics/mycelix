@@ -13,11 +13,17 @@ This dependency-free Rust harness creates 1,024 synthetic people and compares:
 - `task_result_only`: disclose only the exact eligibility decision;
 - `task_inputs_only`: disclose the two binary inputs used to calculate that same decision;
 - `adaptive_q0` through `adaptive_q8`: disclose the eligibility decision, then let an attacker select up to eight additional binary claims adaptively;
+- `risk_guard_k32` and `risk_guard_k64`: apply a minimum-branch-size admission guard requiring both possible answers to leave at least 32 or 64 synthetic candidates;
+- `dual_guard_k32_uplift100k`: require at least 32 candidates on both answer branches and reject a query if either branch would increase the modeled confidence of **either** protected attribute (high-income or debt-risk) by more than 100,000 ppm (10 percentage points);
 - `full_attribute_disclosure`: expose the full modeled predicate vector as an upper-bound comparison.
 
 The eligibility task is `adult AND in_jurisdiction`. All tested profiles are expected to preserve the same task answer. The adaptive attacker starts with the task-result cohort, uses the known synthetic population as auxiliary information, selects the unanswered predicate that most evenly splits the current candidate cohort, observes that target's answer, and intersects the cohort with the answer. Ties are resolved deterministically by feature order.
 
 This is a *query-composition attack model*, not a credential cryptography implementation. The attacker is deliberately strong about having auxiliary population data but deliberately narrow about observing only the modeled predicate answers.
+
+The policy experiments are intentionally not equivalent. The **branch-size-only guard** prevents a response from reducing the modeled cohort below (k), but can still permit a query that discloses a protected attribute with certainty. The **dual guard** additionally measures the maximum-class posterior confidence for high-income and debt-risk in the current candidate set and in each of the two possible next-answer branches. It denies the next query if either protected attribute's confidence would rise by more than the configured absolute tolerance. Crucially, the gate evaluates *both possible branches before reading the target's answer*, so the admit/deny decision itself is not selected according to that next answer in this toy model.
+
+The 100,000-ppm / 10-percentage-point uplift is a benchmark parameter, **not** differential-privacy epsilon, a general privacy threshold, or a recommended universal value. The candidate population is fully known and synthetic; a live policy could not safely copy this oracle without establishing an appropriate data, threat, fairness, and governance model.
 
 ## Metrics
 
@@ -26,11 +32,14 @@ Every output row reports:
 - exact task utility agreement in parts per million (ppm);
 - average candidate-set size in milli-persons and p05 / p50 / p95 candidate counts;
 - rate at which the modeled candidate set is a singleton, in ppm;
-- majority-rule inference accuracy for high-income and debt-risk attributes, in ppm.
+- majority-rule inference accuracy for high-income and debt-risk attributes, in ppm;
+- average number of answered adaptive queries (milli-queries per person) and the share of people whose remaining query sequence was stopped by a guard, in ppm.
+
+Inference-accuracy columns measure global majority-guess correctness under the finite synthetic cohort model; the dual guard's admission threshold instead bounds per-attribute **posterior confidence uplift** between the current cohort and each candidate branch. They are distinct metrics and should be reported together.
 
 The population-prior inference accuracies are emitted as comment lines for comparison. Singleton candidate sets and inference accuracy are **synthetic attack outcomes under this generator**, not real-world re-identification rates or calibrated risk estimates. Candidate-set size is not, by itself, a formal anonymity guarantee.
 
-The test suite asserts deterministic population generation, full task-answer utility for the compared disclosure profiles, monotonic candidate-set shrinkage as queries accumulate, full-disclosure cohort containment, and deterministic report output.
+The test suite asserts deterministic population generation, full task-answer utility for the compared disclosure profiles, monotonic candidate-set shrinkage as queries accumulate, full-disclosure cohort containment, deterministic report output, minimum-cohort preservation under the guards, explicit query stopping, and per-step bounds on the dual guard's modeled sensitive-confidence uplift. These are invariants of this synthetic evaluator, not proofs that a production policy engine is correct.
 
 ## Reproducibility
 
@@ -47,6 +56,9 @@ CI repeats the report and compares the output byte-for-byte, then records a SHA-
 - This is not a population-representative dataset, a real-world attack success rate, differential privacy, a proof of anonymity, or a cryptographic unlinkability result.
 - The fixed predicate vocabulary, single binary task, synthetic distribution, and known auxiliary population omit real-world side channels, network metadata, issuer/verifier collusion, false claims, and user behavior.
 - The balanced-split greedy policy is one explicit adaptive attacker, not an optimal or universal attacker.
+- A branch-size guard only bounds the modeled candidate set. It does not prevent attribute inference, and the benchmark intentionally demonstrates that limitation.
+- The dual guard only bounds the specified posterior-confidence change for two modeled sensitive labels in the known synthetic population. It is not differential privacy, does not account for unmodeled labels or side channels, and is not robust against population misspecification or auxiliary data mismatch.
+- Denial itself can be a side channel in general systems. This toy gate evaluates both possible answer branches before deciding; deployment would still need tests for repeated refusals, timing, policy changes and cross-session state.
 - Equal task accuracy in this benchmark shows only that these toy disclosure profiles compute this toy decision correctly; it does not establish equal utility for other transactions.
 
 ## Next qualification gates
