@@ -186,7 +186,10 @@ mod algebra_distractor_tests {
         for difficulty in [100, 250, 350, 450, 600, 700, 900] {
             let item = topic.practice_problem(difficulty);
             let lines = item.lines().collect::<Vec<_>>();
-            assert!(lines.len() >= 4, "practice item is incomplete at difficulty {difficulty}");
+            assert!(
+                lines.len() >= 4,
+                "practice item is incomplete at difficulty {difficulty}"
+            );
             let answer = lines[1].trim().to_lowercase();
             let choices = lines[3]
                 .split(',')
@@ -212,4 +215,3 @@ mod algebra_distractor_tests {
         );
     }
 }
-
