@@ -86,8 +86,7 @@ fn generate_dynamic_cards(subject: &str) -> Vec<MockFlashcard> {
     // We can't return MockFlashcard (static refs) from dynamic data,
     // so we'll use a leaked string approach for compatibility
     let graph = crate::curriculum::curriculum_graph();
-    let progress = crate::persistence::load::<crate::curriculum::ProgressStore>("praxis_progress")
-        .unwrap_or_default();
+    let progress = crate::curriculum::load_progress_store();
 
     let mut cards: Vec<MockFlashcard> = Vec::new();
 
