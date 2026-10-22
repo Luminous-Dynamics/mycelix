@@ -339,7 +339,8 @@ fn labels_and_array_order_do_not_change_pareto_front_membership() {
 
     let mut renamed = stress.clone();
     for strategy in renamed["strategies"].as_array_mut().unwrap() {
-        strategy["label"] = json!(format!("renamed-{}", strategy_id(strategy)));
+        let id = strategy_id(strategy).to_owned();
+        strategy["label"] = json!(format!("renamed-{id}"));
     }
     renamed["strategies"].as_array_mut().unwrap().reverse();
     let candidates_after = rows_for_scenario(&renamed, scenario).unwrap();
