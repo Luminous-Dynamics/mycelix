@@ -702,7 +702,7 @@ fn every_candidate_permutation_has_the_same_canonical_receipt() {
 }
 
 #[test]
-fn increasing_budget_never_breaks_feasibility_or_revokes_an_already_selected_action() {
+fn frozen_budget_sweep_is_feasible_and_matches_fixture_specific_selection_sets() {
     let root = fixture();
     let baseline_case = case(&root, "compound-trigger-overload");
     let budgets = root["budget_sweep"]["budgets"].as_array().unwrap();
@@ -720,7 +720,7 @@ fn increasing_budget_never_breaks_feasibility_or_revokes_an_already_selected_act
         let expected = strings(&expected_by_budget[budget_key.as_str()]);
         assert_eq!(outcome.selected_action_ids, expected, "unexpected selected set at budget {budget}");
         let current: BTreeSet<String> = outcome.selected_action_ids.iter().cloned().collect();
-        assert!(previous.is_subset(&current), "larger budget revoked a previously selected action at {budget}");
+        assert!(previous.is_subset(&current), "fixture-specific selected-set monotonicity changed unexpectedly at budget {budget}");
         previous = current;
     }
 }
