@@ -420,6 +420,23 @@ fn score_pairs(examples: &[PairExample], model: Option<&Model>) -> Vec<ScoredPai
         .collect()
 }
 
+fn random_control_score(pair: &PairExample) -> f64 {
+    let uniform_53_bits = splitmix64(SEED ^ 0x5241_4e44_5f56_3100 ^ pair.pair_ref) >> 11;
+    uniform_53_bits as f64 / ((1_u64 << 53) as f64)
+}
+
+fn score_random_pairs(examples: &[PairExample]) -> Vec<ScoredPair> {
+    examples
+        .iter()
+        .map(|pair| ScoredPair {
+            score: random_control_score(pair),
+            label: pair.label,
+            left_subject: pair.left_subject,
+            right_subject: pair.right_subject,
+        })
+        .collect()
+}
+
 fn pair_cluster_weight(
     pair: &ScoredPair,
     cluster_weights: Option<&[usize; SUBJECTS]>,
@@ -689,6 +706,24 @@ fn render_report() -> String {
             exact_metrics,
             exact_ci,
         );
+
+        let random_scores = score_random_pairs(&test_pairs);
+        let random_metrics = evaluate_scores(&random_scores);
+        let random_ci = score_bootstrap_ci(
+            &random_scores,
+            &test_subjects,
+            0x5241_4e44_4f4d ^ strategy as u64,
+        );
+        write_metric_row(
+            &mut output,
+            strategy,
+            "seeded_random_control",
+            train_subjects.len(),
+            test_subjects.len(),
+            &[],
+            random_metrics,
+            random_ci,
+        );
     }
     output
 }
@@ -945,6 +980,20 @@ mod tests {
         let (tpr, fpr) = operating_points(&scores);
         assert!((0.0..=1.0).contains(&tpr));
         assert!((0.0..=1.0).contains(&fpr));
+    }
+
+    #[test]
+    fn seeded_random_control_is_deterministic_and_near_chance() {
+        let examples = build_pairs(Strategy::MetadataMinimized, false);
+        let first = score_random_pairs(&examples);
+        let second = score_random_pairs(&examples);
+        assert_eq!(first.len(), examples.len());
+        assert_eq!(
+            first.iter().map(|score| score.score.to_bits()).collect::<Vec<_>>(),
+            second.iter().map(|score| score.score.to_bits()).collect::<Vec<_>>()
+        );
+        let auc = auc_from_weighted_scores(&first, None);
+        assert!((auc - 0.5).abs() < 0.05, "random control AUC was {auc}");
     }
 
     #[test]
