@@ -31,7 +31,7 @@ For each strategy, the report compares three ranking/evaluation baselines:
 
 For each baseline the report includes positive/negative held-out pair counts and TP/FP/FN/TN at score threshold 0.5; precision/recall/FPR at 0.5; rank-based ROC-AUC with ties handled as half credit; maximum TPR reachable at FPR <= 1%; and minimum FPR to reach TPR >= 95%. The random control is a chance-reference sanity check, not a privacy defense or adversary.
 
-A 200-replicate **subject-cluster bootstrap** provides a 95% percentile interval for AUC. It resamples held-out subjects and weights within-subject positive pairs by one cluster multiplicity and between-subject negative pairs by the product of cluster multiplicities. This avoids pretending that overlapping pairs are independent observations.
+A 200-replicate **subject-cluster bootstrap** provides percentile intervals for both ROC-AUC and average precision. It resamples held-out subjects and weights within-subject positive pairs by one cluster multiplicity and between-subject negative pairs by the product of cluster multiplicities. This avoids pretending that overlapping pairs are independent observations. Threshold-0.5 precision/recall/FPR are descriptive only: the class-balanced fit does not produce deployment-calibrated probabilities. Prefer the fixed-FPR/FPR-at-recall operating points for policy discussion, and do not tune them on the test labels.
 
 ## Export safety
 
