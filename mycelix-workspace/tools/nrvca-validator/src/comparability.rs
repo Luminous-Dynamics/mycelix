@@ -9,6 +9,7 @@
 //! or authorize policy changes and service dispatch.
 
 use serde_json::Value;
+use std::collections::BTreeSet;
 
 /// Fields that define whether two observed KPI values are directly comparable.
 /// Keep this list versioned by review: adding/removing a field changes semantics.
@@ -75,6 +76,8 @@ pub struct MeasurementDecision {
     pub changed_fields: Vec<&'static str>,
     /// Missing, null, empty, or incorrectly typed fields on either side.
     pub unknown_fields: Vec<&'static str>,
+    /// Extra axis keys not recognized by this contract version; any such key forces abstention.
+    pub unsupported_fields: Vec<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -84,6 +87,8 @@ pub struct TargetPolicyDecision {
     pub changed_fields: Vec<&'static str>,
     /// Missing, null, empty, or incorrectly typed policy fields.
     pub unknown_fields: Vec<&'static str>,
+    /// Extra axis keys not recognized by this contract version; any such key forces abstention.
+    pub unsupported_fields: Vec<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -181,6 +186,24 @@ fn compare_fields(
     (changed, unknown)
 }
 
+fn unsupported_axis_fields(
+    left_axis: Option<&Value>,
+    right_axis: Option<&Value>,
+    allowed_fields: &[&str],
+) -> Vec<String> {
+    let mut unsupported = BTreeSet::new();
+    for axis in [left_axis, right_axis].into_iter().flatten() {
+        if let Some(object) = axis.as_object() {
+            for key in object.keys() {
+                if !allowed_fields.iter().any(|field| *field == key.as_str()) {
+                    unsupported.insert(key.clone());
+                }
+            }
+        }
+    }
+    unsupported.into_iter().collect()
+}
+
 /// Compare two KPI contracts on separate measurement and target-policy axes.
 ///
 /// Critical string fields must be nonempty strings; target `value` must be a
@@ -196,9 +219,14 @@ pub fn compare_kpi_contracts(left: &Value, right: &Value) -> KpiComparability {
         &MEASUREMENT_FIELDS,
         false,
     );
+    let measurement_unsupported = unsupported_axis_fields(
+        left.get("measurement"),
+        right.get("measurement"),
+        &MEASUREMENT_FIELDS,
+    );
     let measurement_status = if !measurement_changed.is_empty() {
         MeasurementStatus::NotComparable
-    } else if !measurement_unknown.is_empty() {
+    } else if !measurement_unknown.is_empty() || !measurement_unsupported.is_empty() {
         MeasurementStatus::Indeterminate
     } else {
         MeasurementStatus::Comparable
@@ -210,9 +238,14 @@ pub fn compare_kpi_contracts(left: &Value, right: &Value) -> KpiComparability {
         &TARGET_POLICY_FIELDS,
         true,
     );
+    let target_unsupported = unsupported_axis_fields(
+        left.get("target"),
+        right.get("target"),
+        &TARGET_POLICY_FIELDS,
+    );
     let target_status = if !target_changed.is_empty() {
         TargetPolicyStatus::ChangedTargetPolicy
-    } else if !target_unknown.is_empty() {
+    } else if !target_unknown.is_empty() || !target_unsupported.is_empty() {
         TargetPolicyStatus::Indeterminate
     } else {
         TargetPolicyStatus::SameTargetPolicy
@@ -223,11 +256,13 @@ pub fn compare_kpi_contracts(left: &Value, right: &Value) -> KpiComparability {
             status: measurement_status,
             changed_fields: measurement_changed,
             unknown_fields: measurement_unknown,
+            unsupported_fields: measurement_unsupported,
         },
         target_policy: TargetPolicyDecision {
             status: target_status,
             changed_fields: target_changed,
             unknown_fields: target_unknown,
+            unsupported_fields: target_unsupported,
         },
     }
 }
@@ -263,6 +298,22 @@ mod tests {
         assert!(result.measurement.unknown_fields.contains(&"unit"));
         assert_eq!(result.target_policy.status, TargetPolicyStatus::Indeterminate);
         assert!(result.target_policy.unknown_fields.contains(&"value"));
+    }
+
+    #[test]
+    fn unknown_axis_keys_abstain_until_the_contract_is_versioned() {
+        let left = json!({
+            "measurement": {"unit": "percent"},
+            "target": {"value": 90, "comparison_operator": "at_least"}
+        });
+        let right = json!({
+            "measurement": {"unit": "percent"},
+            "target": {"value": 90, "comparison_operator": "at_most"}
+        });
+        let result = compare_kpi_contracts(&left, &right);
+        assert_eq!(result.measurement.status, MeasurementStatus::Indeterminate);
+        assert_eq!(result.target_policy.status, TargetPolicyStatus::Indeterminate);
+        assert_eq!(result.target_policy.unsupported_fields, vec!["comparison_operator"]);
     }
 
     #[test]
