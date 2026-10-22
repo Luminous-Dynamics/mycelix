@@ -401,7 +401,7 @@
     }
   ],
   "budget_sweep": {
-    "description": "Same fixed candidate set, evaluated at increasing synthetic budgets. A larger budget may unlock an action but must not change the deterministic ordering or revoke a previously selected action.",
+    "description": "Same fixed candidate set, evaluated at increasing synthetic budgets. These frozen outcomes happen to be non-decreasing under the fixture's costs and ranks; that is a fixture-specific known answer, not a general monotonicity guarantee for priority-based allocation.",
     "case_id": "compound-trigger-overload",
     "budgets": [
       3,
