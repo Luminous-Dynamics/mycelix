@@ -119,8 +119,8 @@ impl FeatureAblation {
         match self {
             Self::Full => false,
             Self::WithoutClaims => feature_index <= 3,
-            Self::WithoutIdentifierAndProof => (4..=5).contains(&feature_index),
-            Self::WithoutLineageAndBehavior => (6..=7).contains(&feature_index),
+            Self::WithoutIdentifierAndProof => feature_index >= 4 && feature_index <= 5,
+            Self::WithoutLineageAndBehavior => feature_index >= 6 && feature_index <= 7,
             Self::WithoutStructure => feature_index >= 8,
         }
     }
