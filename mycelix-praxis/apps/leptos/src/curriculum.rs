@@ -733,56 +733,93 @@ impl ProgressStore {
     /// is preserved as self-report history, but cannot be treated as scored
     /// attempts, a BKT estimate, or verified mastery.
     pub fn migrate_legacy_progress(&mut self) -> bool {
-        if self.schema_version >= 1 {
-            return false;
-        }
+        let mut changed = false;
 
-        let node_ids: BTreeSet<String> = self
-            .nodes
-            .keys()
-            .chain(self.bkt_states.keys())
-            .cloned()
-            .collect();
-        for node_id in node_ids {
-            let old_bkt = self.bkt_states.get(&node_id).cloned();
-            let progress = self.nodes.entry(node_id.clone()).or_default();
-            if progress.status == ProgressStatus::Mastered {
-                progress.self_assessment = Some(SelfAssessment::FeelsUnderstood);
-            }
-
-            let legacy_attempts = progress
-                .attempts
-                .max(old_bkt.as_ref().map_or(0, |bkt| bkt.attempts));
-            let legacy_correct = progress
-                .correct
-                .max(old_bkt.as_ref().map_or(0, |bkt| bkt.correct))
-                .min(legacy_attempts);
-            if legacy_attempts > 0 || legacy_correct > 0 {
-                progress.self_reported_attempts = progress
-                    .self_reported_attempts
-                    .saturating_add(legacy_attempts);
-                progress.self_reported_correct = progress
-                    .self_reported_correct
-                    .saturating_add(legacy_correct);
-            }
-
-            if old_bkt.is_some() || legacy_attempts > 0 || legacy_correct > 0
-                || progress.status == ProgressStatus::Mastered
-            {
-                progress.attempts = 0;
-                progress.correct = 0;
-                progress.mastery_permille = 0;
-                if progress.status == ProgressStatus::Mastered
-                    || progress.status == ProgressStatus::ProvisionalMastery
-                {
-                    progress.status = ProgressStatus::Studying;
+        if self.schema_version < 1 {
+            let node_ids: BTreeSet<String> = self
+                .nodes
+                .keys()
+                .chain(self.bkt_states.keys())
+                .cloned()
+                .collect();
+            for node_id in node_ids {
+                let old_bkt = self.bkt_states.get(&node_id).cloned();
+                let progress = self.nodes.entry(node_id.clone()).or_default();
+                if progress.status == ProgressStatus::Mastered {
+                    progress.self_assessment = Some(SelfAssessment::FeelsUnderstood);
                 }
-                self.bkt_states.remove(&node_id);
+
+                // In the previous UI, BKT was updated only after the answer had
+                // been revealed and the learner self-rated. Preserve those
+                // counts as self-report history, but invalidate them as scored
+                // attempts and discard the resulting BKT posterior.
+                let legacy_attempts = progress
+                    .attempts
+                    .max(old_bkt.as_ref().map_or(0, |bkt| bkt.attempts));
+                let legacy_correct = progress
+                    .correct
+                    .max(old_bkt.as_ref().map_or(0, |bkt| bkt.correct))
+                    .min(legacy_attempts);
+                if legacy_attempts > 0 || legacy_correct > 0 {
+                    progress.self_reported_attempts = progress
+                        .self_reported_attempts
+                        .saturating_add(legacy_attempts);
+                    progress.self_reported_correct = progress
+                        .self_reported_correct
+                        .saturating_add(legacy_correct);
+                }
+                if progress.status == ProgressStatus::Mastered
+                    || old_bkt.is_some()
+                    || legacy_attempts > 0
+                    || legacy_correct > 0
+                {
+                    progress.attempts = 0;
+                    progress.correct = 0;
+                    progress.mastery_permille = 0;
+                    if matches!(
+                        progress.status,
+                        ProgressStatus::Mastered | ProgressStatus::ProvisionalMastery
+                    ) {
+                        progress.status = ProgressStatus::Studying;
+                    }
+                }
+                if old_bkt.is_some() {
+                    self.bkt_states.remove(&node_id);
+                }
             }
+            self.schema_version = 1;
+            changed = true;
         }
 
-        self.schema_version = 1;
-        true
+        // No trusted, independently verified mastery receipt is represented in
+        // this browser-local model yet. Therefore a persisted Mastered flag,
+        // even in a version-1 store, is not sufficient evidence and must not
+        // unlock prerequisites or hardware-related UI.
+        let unverified_mastered_ids = self
+            .nodes
+            .iter()
+            .filter(|(_, progress)| progress.status == ProgressStatus::Mastered)
+            .map(|(node_id, _)| node_id.clone())
+            .collect::<Vec<_>>();
+        for node_id in unverified_mastered_ids {
+            let bkt = self.bkt_states.get(&node_id);
+            if let Some(progress) = self.nodes.get_mut(&node_id) {
+                progress.self_assessment = Some(SelfAssessment::FeelsUnderstood);
+                progress.status = if bkt.is_some_and(BktState::is_likely_mastered) {
+                    ProgressStatus::ProvisionalMastery
+                } else {
+                    ProgressStatus::Studying
+                };
+                if let Some(bkt) = bkt {
+                    progress.mastery_permille = (bkt.p_mastery * 1000.0) as u16;
+                } else {
+                    progress.mastery_permille = 0;
+                }
+            }
+            changed = true;
+        }
+
+        changed
     }
 
     pub fn mastered_count(&self) -> usize {
