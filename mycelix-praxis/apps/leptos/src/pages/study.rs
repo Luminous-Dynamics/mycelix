@@ -264,7 +264,12 @@ fn PracticeProblemCard(
     let hint_text = hints.first().cloned().unwrap_or_default();
     let progress = use_set_progress();
     let scored_node_id = node_id.clone();
-    let scored_item_id = format!("{}::{}", node_id, normalized_choice(&problem.question));
+    let scored_item_id = format!(
+        "{}::{}::{}",
+        node_id,
+        normalized_choice(&problem.question),
+        normalized_choice(&problem.answer)
+    );
     let reflection_node_id = node_id.clone();
 
     view! {
