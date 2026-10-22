@@ -10,6 +10,10 @@ fn read_json(path: &str) -> Result<Value, String> {
 fn run() -> Result<(), String> {
     let all_args: Vec<String> = env::args().skip(1).collect();
     if all_args.first().map(String::as_str) == Some("hash-source") {
+        if all_args.len() == 2 && matches!(all_args[1].as_str(), "--help" | "-h") {
+            println!("{}", nrvca_validator::source_intake::HASH_SOURCE_USAGE);
+            return Ok(());
+        }
         let output = nrvca_validator::source_intake::receipt_from_cli(&all_args[1..])?;
         if let Some(path) = &output.output_path {
             nrvca_validator::source_intake::write_receipt_new(path, &output.receipt)?;
