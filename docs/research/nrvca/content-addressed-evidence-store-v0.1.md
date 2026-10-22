@@ -19,7 +19,7 @@ Objects are stored as:
         <full-64-hex-digit-sha256>
 ```
 
-Promotion uses same-filesystem hard-link creation, which atomically refuses to overwrite an existing target. If a digest object already exists, its bytes and size are re-hashed and compared before reuse. The staged object is created with owner-only permissions on Unix, and persisted objects are owner-read-only by default (0400 on Unix); existing verified objects are tightened to the same default. Receipt files created by the tool are owner read/write only by default (0600 on Unix). These are safer defaults, not a guarantee against the owning administrator changing permissions later.
+Promotion uses same-filesystem hard-link creation, which atomically refuses to overwrite an existing target. If a digest object already exists, its bytes and size are re-hashed and compared before reuse. The staged object is created with owner-only permissions on Unix, and persisted objects are owner-read-only by default (0400 on Unix); a pre-existing object is reusable only when it already has the safe read-only mode. The intake tool refuses to chmod an existing inode because it may be hard-linked elsewhere. Receipt files created by the tool are owner read/write only by default (0600 on Unix). These are safer defaults, not a guarantee against the owning administrator changing permissions later.
 
 The resulting record uses a store-relative `object_path` and a `sha256:<digest>` URI. It deliberately does not put the original input's absolute path into the capture receipt. Store root/host configuration stays local.
 
@@ -44,7 +44,7 @@ cargo run --manifest-path mycelix-workspace/tools/nrvca-validator/Cargo.toml -- 
   --extraction-method "PDF table extraction" \
   --tool-version "operator-recorded-extractor-version" \
   --expected-sha256 "PASTE-INDEPENDENTLY-RECORDED-64-HEX-DIGEST" \
-  --output ./private-evidence-store/receipts/source-001.json
+  --output ./private-evidence-store/source-001.json
 ```
 
 The fields above are placeholders. They do not assert a source was captured, permission was granted, or an expected digest exists. Omit `--expected-sha256` where no independent digest exists; the tool still derives the digest from captured bytes, but publisher/source authenticity must be established separately.
