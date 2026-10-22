@@ -384,7 +384,7 @@ mod tests {
     }
 
     #[test]
-    fn actual_file_bytes_produce_a_source_record_compatible_with_nrvc_a016() {
+    fn actual_file_bytes_produce_a_source_record_compatible_with_nrvca_016() {
         let temp = TempFile::with_bytes(b"real bytes in a synthetic test");
         let parsed = receipt_from_cli(&args_for(&temp.0)).expect("source receipt");
         let bytes = b"real bytes in a synthetic test";
@@ -397,6 +397,15 @@ mod tests {
         let admission = crate::external_validity::validate_source_record(&parsed.receipt, "/source");
         assert!(admission.is_empty(), "receipt should satisfy NRVCA-016 source manifest: {admission:?}");
         assert_eq!(parsed.output_path, None);
+    }
+
+    #[test]
+    fn malformed_capture_timestamp_is_rejected_before_hashing() {
+        let temp = TempFile::with_bytes(b"test content");
+        let mut args = args_for(&temp.0);
+        let index = args.iter().position(|item| item == "--captured-at").unwrap() + 1;
+        args[index] = "2026-10-22T17:00:00".into();
+        assert!(receipt_from_cli(&args).unwrap_err().contains("RFC 3339"));
     }
 
     #[test]
