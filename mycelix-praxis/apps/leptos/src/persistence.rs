@@ -332,6 +332,12 @@ pub fn import_all(json: &str) -> Result<String, String> {
 
     // Merge progress (keep higher mastery, more recent reviews)
     if let Some(imported) = bundle.progress {
+        // Imports may come from older app versions whose "attempts" were
+        // recorded after answer reveal and whose Mastered state was self-set.
+        // Normalize that data before merging; do not reintroduce unverified
+        // mastery or a self-reported BKT posterior into the current store.
+        let mut imported = imported;
+        imported.migrate_legacy_progress();
         let mut existing = crate::curriculum::load_progress_store();
         let mut merged_count = 0u32;
 
