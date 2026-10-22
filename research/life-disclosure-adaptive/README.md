@@ -24,12 +24,12 @@ A full-batch logistic regression is fit deterministically with fixed optimizer s
 
 The subject-cluster bootstrap sorts each test score vector once and reuses that ordering across bootstrap replicates; each replicate recomputes only cluster weights and tie-group totals. This preserves the metric while keeping repeated report generation practical in CI.
 
-For each strategy and attacker, the report includes:
-- positive and negative test pairs and TP/FP/FN/TN at score threshold 0.5;
-- precision, recall and FPR at 0.5;
-- rank-based ROC-AUC with ties handled as half credit;
-- maximum TPR reachable at FPR <= 1%; and
-- minimum FPR to reach TPR >= 95%.
+For each strategy, the report compares three ranking/evaluation baselines:
+- `balanced_logistic`: learned only from subject-disjoint training examples;
+- `exact_channel_union`: deterministic rule that predicts a link when any observable equality channel matches;
+- `seeded_random_control`: deterministic pseudo-random score derived from an opaque pair reference, independent of pair labels by construction.
+
+For each baseline the report includes positive/negative held-out pair counts and TP/FP/FN/TN at score threshold 0.5; precision/recall/FPR at 0.5; rank-based ROC-AUC with ties handled as half credit; maximum TPR reachable at FPR <= 1%; and minimum FPR to reach TPR >= 95%. The random control is a chance-reference sanity check, not a privacy defense or adversary.
 
 A 200-replicate **subject-cluster bootstrap** provides a 95% percentile interval for AUC. It resamples held-out subjects and weights within-subject positive pairs by one cluster multiplicity and between-subject negative pairs by the product of cluster multiplicities. This avoids pretending that overlapping pairs are independent observations.
 
