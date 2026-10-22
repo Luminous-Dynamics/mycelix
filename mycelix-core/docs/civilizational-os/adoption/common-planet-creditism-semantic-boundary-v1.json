@@ -40,11 +40,13 @@
       "evaluator identity != verification authority",
       "event frequency != contribution value",
       "latent outcome != observed evidence",
-      "future negative evidence != current qualified observation"
+      "future negative evidence != current qualified observation",
+      "care/maintenance visibility != contribution value",
+      "delayed negative evidence != automatic retroactive reversal"
     ],
     "uncertainty_policy": "Unknown or disputed inputs do not grant optimistic capacity or authorize issuance; preserve an explicit Unknown/Indeterminate/PendingAppeal disposition."
   },
-  "case_count": 32,
+  "case_count": 36,
   "cases": [
     {
       "id": "cp-pc-baseline-issuance",
@@ -869,6 +871,137 @@
           "contribution_credit_issuance"
         ]
       }
+    },
+    {
+      "id": "cp-low-observability-care-qualifies-with-bounded-proof",
+      "category": "contribution-evidence",
+      "title": "Qualified care and maintenance can qualify without a high-frequency activity signal",
+      "input": {
+        "operation": "recognize_contribution",
+        "recognition_mode": "milestone",
+        "amount": 3,
+        "criteria_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "evidence_refs": [
+          "urn:mycelix:commitment:care-maintenance-8"
+        ],
+        "verifier_authority_scope": "contribution:care-project-1",
+        "corroboration_state": "qualified",
+        "dispute_state": "none",
+        "derived_only_from_transaction_settlement": false,
+        "metric_profile": "care_maintenance",
+        "contribution_domain": "care_maintenance",
+        "observation_visibility": "low",
+        "quality_evidence_refs": [
+          "urn:mycelix:evidence:care-maintenance-quality-1"
+        ],
+        "evidence_privacy_mode": "opaque_commitment",
+        "personal_payload_disclosed": false
+      },
+      "expected": {
+        "decision": "Allow",
+        "disposition": "ProfileMapped",
+        "effects": [
+          "bounded_completion_fact_recorded",
+          "personal_credit_issuance_allowed"
+        ],
+        "prohibited_inferences": [
+          "surveillance_requirement",
+          "moral_worth_score"
+        ]
+      }
+    },
+    {
+      "id": "cp-low-observability-care-unqualified-stays-indeterminate",
+      "category": "contribution-evidence",
+      "title": "Low-observability care without qualified corroboration remains indeterminate",
+      "input": {
+        "operation": "recognize_contribution",
+        "recognition_mode": "milestone",
+        "amount": 3,
+        "criteria_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "evidence_refs": [
+          "urn:mycelix:commitment:care-maintenance-9"
+        ],
+        "verifier_authority_scope": "contribution:care-project-1",
+        "corroboration_state": "missing",
+        "dispute_state": "none",
+        "derived_only_from_transaction_settlement": false,
+        "metric_profile": "care_maintenance",
+        "contribution_domain": "care_maintenance",
+        "observation_visibility": "low",
+        "quality_evidence_refs": [],
+        "evidence_privacy_mode": "opaque_commitment",
+        "personal_payload_disclosed": false
+      },
+      "expected": {
+        "decision": "Indeterminate",
+        "disposition": "Unknown",
+        "effects": [],
+        "prohibited_inferences": [
+          "contribution_credit_issuance",
+          "moral_worth_score"
+        ]
+      }
+    },
+    {
+      "id": "cp-delayed-negative-evidence-opens-separate-review",
+      "category": "appeal-and-governance",
+      "title": "Qualified late negative evidence opens a separate appealable review without rewriting prior recognition",
+      "input": {
+        "operation": "review_delayed_negative_evidence",
+        "prior_recognition_event_id": "urn:uuid:10000000-0000-4000-8000-000000000301",
+        "prior_recognition_state": "recognized",
+        "prior_recognition_time": "2026-10-01T10:00:00Z",
+        "negative_evidence_ref": "urn:mycelix:evidence:delayed-negative-301",
+        "negative_evidence_time": "2026-10-18T10:00:00Z",
+        "evidence_time_relation": "after_recognition",
+        "corroboration_state": "qualified",
+        "dispute_state": "none",
+        "appeal_route": "appeal:delayed-negative-301",
+        "review_authority_scope": "contribution-review:project-12"
+      },
+      "expected": {
+        "decision": "PendingAppeal",
+        "disposition": "Unknown",
+        "effects": [
+          "delayed_evidence_review_opened",
+          "prior_recognition_event_preserved"
+        ],
+        "prohibited_inferences": [
+          "retroactive_silent_reversal",
+          "contribution_issuance_before_review",
+          "moral_worth_score"
+        ]
+      }
+    },
+    {
+      "id": "cp-delayed-negative-evidence-unqualified-no-reversal",
+      "category": "appeal-and-governance",
+      "title": "Unqualified delayed negative evidence cannot silently reverse a recorded contribution",
+      "input": {
+        "operation": "review_delayed_negative_evidence",
+        "prior_recognition_event_id": "urn:uuid:10000000-0000-4000-8000-000000000302",
+        "prior_recognition_state": "recognized",
+        "prior_recognition_time": "2026-10-01T10:00:00Z",
+        "negative_evidence_ref": "urn:mycelix:evidence:unqualified-delayed-negative-302",
+        "negative_evidence_time": "2026-10-18T10:00:00Z",
+        "evidence_time_relation": "after_recognition",
+        "corroboration_state": "unqualified",
+        "dispute_state": "none",
+        "appeal_route": null,
+        "review_authority_scope": "contribution-review:project-12"
+      },
+      "expected": {
+        "decision": "Indeterminate",
+        "disposition": "Unknown",
+        "effects": [
+          "prior_recognition_event_preserved"
+        ],
+        "prohibited_inferences": [
+          "unqualified_negative_evidence_cannot_reverse",
+          "no_silent_reversal"
+        ]
+      }
     }
   ],
   "nonclaims": [
@@ -1182,6 +1315,103 @@
       "varied_fields": [
         "buyer_deletion.event_id",
         "seller_recredit.event_id"
+      ]
+    },
+    {
+      "property_id": "cp-meta-care-observability-noninterference",
+      "title": "Lower visibility of qualified care does not lower recognition when criteria and evidence are unchanged",
+      "case_id": "cp-low-observability-care-qualifies-with-bounded-proof",
+      "input_variants": [
+        {
+          "operation": "recognize_contribution",
+          "recognition_mode": "milestone",
+          "amount": 3,
+          "criteria_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "evidence_refs": [
+            "urn:mycelix:commitment:care-maintenance-8"
+          ],
+          "verifier_authority_scope": "contribution:care-project-1",
+          "corroboration_state": "qualified",
+          "dispute_state": "none",
+          "derived_only_from_transaction_settlement": false,
+          "metric_profile": "care_maintenance",
+          "contribution_domain": "care_maintenance",
+          "observation_visibility": "low",
+          "quality_evidence_refs": [
+            "urn:mycelix:evidence:care-maintenance-quality-1"
+          ],
+          "evidence_privacy_mode": "opaque_commitment",
+          "personal_payload_disclosed": false
+        },
+        {
+          "operation": "recognize_contribution",
+          "recognition_mode": "milestone",
+          "amount": 3,
+          "criteria_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "evidence_refs": [
+            "urn:mycelix:commitment:care-maintenance-8"
+          ],
+          "verifier_authority_scope": "contribution:care-project-1",
+          "corroboration_state": "qualified",
+          "dispute_state": "none",
+          "derived_only_from_transaction_settlement": false,
+          "metric_profile": "care_maintenance",
+          "contribution_domain": "care_maintenance",
+          "observation_visibility": "high",
+          "quality_evidence_refs": [
+            "urn:mycelix:evidence:care-maintenance-quality-1"
+          ],
+          "evidence_privacy_mode": "opaque_commitment",
+          "personal_payload_disclosed": false
+        }
+      ],
+      "expected_relation": "evaluation_outputs_equal",
+      "varied_fields": [
+        "observation_visibility"
+      ]
+    },
+    {
+      "property_id": "cp-meta-delayed-negative-evidence-review-boundary",
+      "title": "Future negative evidence does not rewrite the original recognition decision without a separate review operation",
+      "case_id": "cp-qualified-contribution",
+      "input_variants": [
+        {
+          "operation": "recognize_contribution",
+          "recognition_mode": "milestone",
+          "amount": 8,
+          "criteria_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "evidence_refs": [
+            "urn:mycelix:evidence:contribution-17"
+          ],
+          "verifier_authority_scope": "contribution:project-2",
+          "corroboration_state": "qualified",
+          "dispute_state": "none",
+          "derived_only_from_transaction_settlement": false,
+          "future_negative_evidence_refs": [],
+          "future_negative_evidence_cutoff": "2026-10-10T00:00:00Z"
+        },
+        {
+          "operation": "recognize_contribution",
+          "recognition_mode": "milestone",
+          "amount": 8,
+          "criteria_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "evidence_refs": [
+            "urn:mycelix:evidence:contribution-17"
+          ],
+          "verifier_authority_scope": "contribution:project-2",
+          "corroboration_state": "qualified",
+          "dispute_state": "none",
+          "derived_only_from_transaction_settlement": false,
+          "future_negative_evidence_refs": [
+            "urn:mycelix:evidence:delayed-negative-77"
+          ],
+          "future_negative_evidence_cutoff": "2026-10-18T00:00:00Z"
+        }
+      ],
+      "expected_relation": "evaluation_outputs_equal",
+      "varied_fields": [
+        "future_negative_evidence_cutoff",
+        "future_negative_evidence_refs"
       ]
     }
   ]
