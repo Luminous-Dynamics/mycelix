@@ -305,7 +305,10 @@ fn render_feature_corpus(corpus: &[Presentation]) -> String {
 
 fn write_corpus(dir: &Path, corpus: &[Presentation]) -> io::Result<()> {
     fs::create_dir_all(dir)?;
-    fs::write(dir.join("attacker-visible-features.tsv"), render_feature_corpus(corpus))?;
+    fs::write(
+        dir.join("attacker-visible-features.tsv"),
+        render_feature_corpus(corpus),
+    )?;
     fs::write(dir.join("metrics.csv"), render_metrics(corpus))?;
     Ok(())
 }
@@ -343,8 +346,7 @@ mod tests {
             .enumerate()
             .flat_map(|(i, left)| corpus.iter().skip(i + 1).map(move |right| (left, right)))
             .filter(|(left, right)| {
-                left.recipient != right.recipient
-                    && left.subject_truth == right.subject_truth
+                left.recipient != right.recipient && left.subject_truth == right.subject_truth
             })
             .count();
         assert_eq!(positives, 1_440);
@@ -380,7 +382,10 @@ mod tests {
             Channel::StructureWithoutGlobalId,
         ] {
             let result = confusion_for(&corpus, channel);
-            assert!(result.true_positive > 0, "{channel:?} should retain same-subject matches");
+            assert!(
+                result.true_positive > 0,
+                "{channel:?} should retain same-subject matches"
+            );
             assert!(
                 result.false_positive > 0,
                 "{channel:?} is a coarse feature and should create false matches"
@@ -408,7 +413,10 @@ mod tests {
             let mut right_without_truth = right.clone();
             left_without_truth.subject_truth = usize::MAX;
             right_without_truth.subject_truth = usize::MAX - 1;
-            assert_eq!(expected, channel.matches(&left_without_truth, &right_without_truth));
+            assert_eq!(
+                expected,
+                channel.matches(&left_without_truth, &right_without_truth)
+            );
         }
     }
 
