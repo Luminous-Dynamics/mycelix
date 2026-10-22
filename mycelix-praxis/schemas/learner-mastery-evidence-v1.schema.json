@@ -81,7 +81,8 @@
           "score",
           "independent_assessment",
           "scoring_method",
-          "accommodations"
+          "accommodations",
+          "independent_scoring"
         ],
         "properties": {
           "evidence_id": {
@@ -162,6 +163,10 @@
           "notes": {
             "type": "string",
             "description": "Do not place raw learner responses or identifying details here."
+          },
+          "independent_scoring": {
+            "type": "boolean",
+            "description": "True only when scoring was independently computed or reviewed by a scorer who is not the learner and is not merely accepting the tutor's own claim."
           }
         },
         "allOf": [
@@ -234,12 +239,16 @@
                 },
                 "outcome": {
                   "const": "correct"
+                },
+                "independent_scoring": {
+                  "const": true
                 }
               },
               "required": [
                 "assistance_level",
                 "independent_assessment",
-                "outcome"
+                "outcome",
+                "independent_scoring"
               ]
             },
             "minContains": 1
@@ -290,13 +299,17 @@
                     },
                     "outcome": {
                       "const": "correct"
+                    },
+                    "independent_scoring": {
+                      "const": true
                     }
                   },
                   "required": [
                     "assessment_type",
                     "assistance_level",
                     "independent_assessment",
-                    "outcome"
+                    "outcome",
+                    "independent_scoring"
                   ]
                 },
                 "minContains": 1
@@ -320,6 +333,9 @@
                     "delay_days": {
                       "type": "integer",
                       "minimum": 1
+                    },
+                    "independent_scoring": {
+                      "const": true
                     }
                   },
                   "required": [
@@ -327,7 +343,8 @@
                     "assistance_level",
                     "independent_assessment",
                     "outcome",
-                    "delay_days"
+                    "delay_days",
+                    "independent_scoring"
                   ]
                 },
                 "minContains": 1
