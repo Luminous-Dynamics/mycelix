@@ -1,0 +1,201 @@
+{
+  "schema_version": "nrvca-decision-value/0.1",
+  "status": "synthetic_only",
+  "purpose": "Exhaustively enumerable constrained allocation benchmark. It tests decision rules under a declared normative profile and does not model Johannesburg, South Africa, or a real utility.",
+  "policy_profile": {
+    "profile_id": "water-service-floor-v0.1",
+    "currency": "ZAR",
+    "budget": 10,
+    "min_underserved_service_units_lower_bound": 800,
+    "max_emissions_tonnes_co2e_upper_bound": 12,
+    "min_service_weighted_reliability_lower_bound": 0.95,
+    "objective": "maximize_nominal_service_units_among_feasible_allocations",
+    "normative_note": "The equity floor, physical cap and reliability floor are explicit policy choices, not value-neutral estimates. Results must be sensitivity-tested; infeasibility must be reported rather than silently weakening a floor."
+  },
+  "baseline": {
+    "baseline_id": "budgeted-service-only",
+    "budget": 10,
+    "objective": "maximize_nominal_service_units",
+    "constraints": [
+      "total_cost <= budget"
+    ],
+    "purpose": "Strong simple comparison: exactly optimize total nominal service output under the same budget, but do not apply distribution, emissions, or reliability floors."
+  },
+  "interventions": [
+    {
+      "intervention_id": "central-main-repair",
+      "label": "Central district main repair",
+      "cost": 6,
+      "service_units": {
+        "lower": 850,
+        "nominal": 900,
+        "upper": 950
+      },
+      "underserved_service_units": {
+        "lower": 80,
+        "nominal": 100,
+        "upper": 120
+      },
+      "emissions_tonnes_co2e": {
+        "lower": 9,
+        "nominal": 10,
+        "upper": 11
+      },
+      "reliability": {
+        "lower": 0.97,
+        "nominal": 0.99,
+        "upper": 1
+      },
+      "evidence_status": "synthetic_estimate"
+    },
+    {
+      "intervention_id": "peripheral-leak-repair",
+      "label": "Peripheral neighbourhood leak repair",
+      "cost": 5,
+      "service_units": {
+        "lower": 650,
+        "nominal": 700,
+        "upper": 750
+      },
+      "underserved_service_units": {
+        "lower": 570,
+        "nominal": 600,
+        "upper": 630
+      },
+      "emissions_tonnes_co2e": {
+        "lower": 5,
+        "nominal": 6,
+        "upper": 7
+      },
+      "reliability": {
+        "lower": 0.96,
+        "nominal": 0.98,
+        "upper": 0.99
+      },
+      "evidence_status": "synthetic_estimate"
+    },
+    {
+      "intervention_id": "pressure-management",
+      "label": "Pressure management",
+      "cost": 4,
+      "service_units": {
+        "lower": 500,
+        "nominal": 550,
+        "upper": 600
+      },
+      "underserved_service_units": {
+        "lower": 330,
+        "nominal": 350,
+        "upper": 370
+      },
+      "emissions_tonnes_co2e": {
+        "lower": 1.5,
+        "nominal": 2,
+        "upper": 2.5
+      },
+      "reliability": {
+        "lower": 0.94,
+        "nominal": 0.96,
+        "upper": 0.98
+      },
+      "evidence_status": "synthetic_estimate"
+    },
+    {
+      "intervention_id": "emergency-tanker",
+      "label": "Emergency tanker support",
+      "cost": 3,
+      "service_units": {
+        "lower": 250,
+        "nominal": 300,
+        "upper": 350
+      },
+      "underserved_service_units": {
+        "lower": 230,
+        "nominal": 260,
+        "upper": 280
+      },
+      "emissions_tonnes_co2e": {
+        "lower": 16,
+        "nominal": 18,
+        "upper": 20
+      },
+      "reliability": {
+        "lower": 0.5,
+        "nominal": 0.6,
+        "upper": 0.7
+      },
+      "evidence_status": "synthetic_estimate"
+    }
+  ],
+  "expected": {
+    "baseline_selected_ids": [
+      "central-main-repair",
+      "pressure-management"
+    ],
+    "baseline_total_cost": 10,
+    "baseline_nominal_service_units": 1450,
+    "baseline_underserved_service_units_lower_bound": 410,
+    "baseline_emissions_upper_bound": 13.5,
+    "baseline_violates_policy_profile": true,
+    "policy_selected_ids": [
+      "peripheral-leak-repair",
+      "pressure-management"
+    ],
+    "policy_total_cost": 9,
+    "policy_nominal_service_units": 1250,
+    "policy_service_units_lower_bound": 1150,
+    "policy_underserved_service_units_lower_bound": 900,
+    "policy_emissions_upper_bound": 9.5,
+    "policy_service_weighted_reliability_lower_bound": 0.9504,
+    "policy_is_feasible": true,
+    "strict_equity_floor_901_is_infeasible": true
+  },
+  "policy_sensitivity_profiles": [
+    {
+      "profile_id": "service-only-compatible-guards",
+      "budget": 10,
+      "min_underserved_service_units_lower_bound": 0,
+      "max_emissions_tonnes_co2e_upper_bound": 14,
+      "min_service_weighted_reliability_lower_bound": 0.95,
+      "expected_selected_ids": [
+        "central-main-repair",
+        "pressure-management"
+      ],
+      "expected_feasible": true,
+      "interpretation": "With relaxed equity floor and emissions cap, the output-maximizing package meets the declared profile. This is a normative sensitivity, not a universal ranking."
+    },
+    {
+      "profile_id": "equity-priority",
+      "budget": 10,
+      "min_underserved_service_units_lower_bound": 800,
+      "max_emissions_tonnes_co2e_upper_bound": 14,
+      "min_service_weighted_reliability_lower_bound": 0.95,
+      "expected_selected_ids": [
+        "peripheral-leak-repair",
+        "pressure-management"
+      ],
+      "expected_feasible": true,
+      "interpretation": "An explicit underserved-service floor changes the preferred feasible package."
+    },
+    {
+      "profile_id": "reliability-floor-too-strict-for-equity-package",
+      "budget": 10,
+      "min_underserved_service_units_lower_bound": 800,
+      "max_emissions_tonnes_co2e_upper_bound": 12,
+      "min_service_weighted_reliability_lower_bound": 0.96,
+      "expected_selected_ids": null,
+      "expected_feasible": false,
+      "interpretation": "Given this fixture, no allocation meets all declared constraints; the system must report infeasibility rather than weaken the reliability or equity floor."
+    },
+    {
+      "profile_id": "equity-floor-above-attainable",
+      "budget": 10,
+      "min_underserved_service_units_lower_bound": 901,
+      "max_emissions_tonnes_co2e_upper_bound": 12,
+      "min_service_weighted_reliability_lower_bound": 0.95,
+      "expected_selected_ids": null,
+      "expected_feasible": false,
+      "interpretation": "The requested underserved-service lower bound is unattainable under the current synthetic intervention set and budget."
+    }
+  ]
+}
