@@ -1266,7 +1266,14 @@ pub fn set_node_status(node_id: &str, status: ProgressStatus, topic_title: &str)
     let set_progress = use_set_progress();
     set_progress.update(|p| p.set_status(node_id, status));
 
+    // Asking for "Mastered" through the local UI is now recorded only as a
+    // self-assessment by ProgressStore::set_status. It must not trigger a
+    // verified-mastery celebration.
     if status == ProgressStatus::Mastered {
+        return;
+    }
+
+    if status == ProgressStatus::ProvisionalMastery {
         let set_celebrating = expect_context::<WriteSignal<bool>>();
         let set_celebration_topic = expect_context::<WriteSignal<String>>();
         set_celebrating.set(true);
