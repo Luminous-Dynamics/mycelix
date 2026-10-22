@@ -1,0 +1,1342 @@
+{
+  "schema_version": "nrvca-scenario-selection-sensitivity/0.1",
+  "status": "synthetic_exhaustive_subset_diagnostic",
+  "purpose": "Exhaustive sensitivity analysis over every non-empty subset of the five NRVCA-005 hand-authored stress scenarios. This is a set-selection diagnostic, not a probability distribution and not empirical robustness evidence.",
+  "source_fixture": {
+    "path": "fixtures/nrvca-correlated-stress-synthetic-v0.1.json",
+    "schema_version": "nrvca-robust-stress/0.1",
+    "scenario_count": 5,
+    "strategy_count": 3
+  },
+  "subset_generation": {
+    "method": "all_nonempty_subsets",
+    "formula": "2^n - 1",
+    "expected_subset_count": 31,
+    "probabilities_assigned": false,
+    "subset_weights_used": false,
+    "interpretation": "Subsets are generated exhaustively to expose metric sensitivity; equal enumeration frequency is not a probability or importance weight."
+  },
+  "scoring_contract": {
+    "rule": "Recompute robust pass count from all declared hard floors/caps plus primary-budget, contingency-reserve and cost-roll-forward checks.",
+    "fraction": "pass_count / scenario_count_included",
+    "all_dimensions_non_compensable": true,
+    "denominator_required_in_output": true,
+    "excluded_scenario_ids_required": true,
+    "probabilities_used": false
+  },
+  "strategy_score_ranges": [
+    {
+      "strategy_id": "adaptive_staged",
+      "min_robust_pass_fraction": 0,
+      "max_robust_pass_fraction": 1,
+      "distinct_fraction_count": 6,
+      "subset_count_including_top_tie": 31,
+      "subset_count_as_sole_top": 28
+    },
+    {
+      "strategy_id": "equity_static",
+      "min_robust_pass_fraction": 0,
+      "max_robust_pass_fraction": 1,
+      "distinct_fraction_count": 6,
+      "subset_count_including_top_tie": 3,
+      "subset_count_as_sole_top": 0
+    },
+    {
+      "strategy_id": "output_only_static",
+      "min_robust_pass_fraction": 0,
+      "max_robust_pass_fraction": 0,
+      "distinct_fraction_count": 1,
+      "subset_count_including_top_tie": 1,
+      "subset_count_as_sole_top": 0
+    }
+  ],
+  "top_rank_ordering": {
+    "observed_in_all_subsets": true,
+    "ordering": [
+      "adaptive_staged",
+      "equity_static",
+      "output_only_static"
+    ],
+    "important_limitation": "This ordering is a property of the current synthetic pass/fail pattern: the adaptive pass set contains the equity-static pass case and adds more passing cases. It is not a general theorem about adaptive policies or real systems."
+  },
+  "leave_one_out": [
+    {
+      "excluded_scenario_id": "compound-drought-grid-crew",
+      "remaining_scenario_ids": [
+        "grid-disruption",
+        "nominal-operations",
+        "prolonged-repeat-disruption",
+        "seasonal-drought"
+      ],
+      "scenario_count": 4,
+      "strategy_results": [
+        {
+          "strategy_id": "adaptive_staged",
+          "pass_count": 3,
+          "scenario_count": 4,
+          "robust_pass_fraction": 0.75
+        },
+        {
+          "strategy_id": "equity_static",
+          "pass_count": 1,
+          "scenario_count": 4,
+          "robust_pass_fraction": 0.25
+        },
+        {
+          "strategy_id": "output_only_static",
+          "pass_count": 0,
+          "scenario_count": 4,
+          "robust_pass_fraction": 0
+        }
+      ]
+    },
+    {
+      "excluded_scenario_id": "grid-disruption",
+      "remaining_scenario_ids": [
+        "compound-drought-grid-crew",
+        "nominal-operations",
+        "prolonged-repeat-disruption",
+        "seasonal-drought"
+      ],
+      "scenario_count": 4,
+      "strategy_results": [
+        {
+          "strategy_id": "adaptive_staged",
+          "pass_count": 3,
+          "scenario_count": 4,
+          "robust_pass_fraction": 0.75
+        },
+        {
+          "strategy_id": "equity_static",
+          "pass_count": 1,
+          "scenario_count": 4,
+          "robust_pass_fraction": 0.25
+        },
+        {
+          "strategy_id": "output_only_static",
+          "pass_count": 0,
+          "scenario_count": 4,
+          "robust_pass_fraction": 0
+        }
+      ]
+    },
+    {
+      "excluded_scenario_id": "nominal-operations",
+      "remaining_scenario_ids": [
+        "compound-drought-grid-crew",
+        "grid-disruption",
+        "prolonged-repeat-disruption",
+        "seasonal-drought"
+      ],
+      "scenario_count": 4,
+      "strategy_results": [
+        {
+          "strategy_id": "adaptive_staged",
+          "pass_count": 3,
+          "scenario_count": 4,
+          "robust_pass_fraction": 0.75
+        },
+        {
+          "strategy_id": "equity_static",
+          "pass_count": 0,
+          "scenario_count": 4,
+          "robust_pass_fraction": 0
+        },
+        {
+          "strategy_id": "output_only_static",
+          "pass_count": 0,
+          "scenario_count": 4,
+          "robust_pass_fraction": 0
+        }
+      ]
+    },
+    {
+      "excluded_scenario_id": "prolonged-repeat-disruption",
+      "remaining_scenario_ids": [
+        "compound-drought-grid-crew",
+        "grid-disruption",
+        "nominal-operations",
+        "seasonal-drought"
+      ],
+      "scenario_count": 4,
+      "strategy_results": [
+        {
+          "strategy_id": "adaptive_staged",
+          "pass_count": 4,
+          "scenario_count": 4,
+          "robust_pass_fraction": 1
+        },
+        {
+          "strategy_id": "equity_static",
+          "pass_count": 1,
+          "scenario_count": 4,
+          "robust_pass_fraction": 0.25
+        },
+        {
+          "strategy_id": "output_only_static",
+          "pass_count": 0,
+          "scenario_count": 4,
+          "robust_pass_fraction": 0
+        }
+      ]
+    },
+    {
+      "excluded_scenario_id": "seasonal-drought",
+      "remaining_scenario_ids": [
+        "compound-drought-grid-crew",
+        "grid-disruption",
+        "nominal-operations",
+        "prolonged-repeat-disruption"
+      ],
+      "scenario_count": 4,
+      "strategy_results": [
+        {
+          "strategy_id": "adaptive_staged",
+          "pass_count": 3,
+          "scenario_count": 4,
+          "robust_pass_fraction": 0.75
+        },
+        {
+          "strategy_id": "equity_static",
+          "pass_count": 1,
+          "scenario_count": 4,
+          "robust_pass_fraction": 0.25
+        },
+        {
+          "strategy_id": "output_only_static",
+          "pass_count": 0,
+          "scenario_count": 4,
+          "robust_pass_fraction": 0
+        }
+      ]
+    }
+  ],
+  "expected_subsets": [
+    {
+      "subset_id": "set:compound-drought-grid-crew",
+      "scenario_ids_included": [
+        "compound-drought-grid-crew"
+      ],
+      "scenario_ids_excluded": [
+        "grid-disruption",
+        "nominal-operations",
+        "prolonged-repeat-disruption",
+        "seasonal-drought"
+      ],
+      "scenario_count": 1,
+      "strategy_results": [
+        {
+          "strategy_id": "adaptive_staged",
+          "pass_count": 1,
+          "scenario_count": 1,
+          "robust_pass_fraction": 1
+        },
+        {
+          "strategy_id": "equity_static",
+          "pass_count": 0,
+          "scenario_count": 1,
+          "robust_pass_fraction": 0
+        },
+        {
+          "strategy_id": "output_only_static",
+          "pass_count": 0,
+          "scenario_count": 1,
+          "robust_pass_fraction": 0
+        }
+      ],
+      "top_rank_strategy_ids": [
+        "adaptive_staged"
+      ]
+    },
+    {
+      "subset_id": "set:grid-disruption",
+      "scenario_ids_included": [
+        "grid-disruption"
+      ],
+      "scenario_ids_excluded": [
+        "compound-drought-grid-crew",
+        "nominal-operations",
+        "prolonged-repeat-disruption",
+        "seasonal-drought"
+      ],
+      "scenario_count": 1,
+      "strategy_results": [
+        {
+          "strategy_id": "adaptive_staged",
+          "pass_count": 1,
+          "scenario_count": 1,
+          "robust_pass_fraction": 1
+        },
+        {
+          "strategy_id": "equity_static",
+          "pass_count": 0,
+          "scenario_count": 1,
+          "robust_pass_fraction": 0
+        },
+        {
+          "strategy_id": "output_only_static",
+          "pass_count": 0,
+          "scenario_count": 1,
+          "robust_pass_fraction": 0
+        }
+      ],
+      "top_rank_strategy_ids": [
+        "adaptive_staged"
+      ]
+    },
+    {
+      "subset_id": "set:compound-drought-grid-crew|grid-disruption",
+      "scenario_ids_included": [
+        "compound-drought-grid-crew",
+        "grid-disruption"
+      ],
+      "scenario_ids_excluded": [
+        "nominal-operations",
+        "prolonged-repeat-disruption",
+        "seasonal-drought"
+      ],
+      "scenario_count": 2,
+      "strategy_results": [
+        {
+          "strategy_id": "adaptive_staged",
+          "pass_count": 2,
+          "scenario_count": 2,
+          "robust_pass_fraction": 1
+        },
+        {
+          "strategy_id": "equity_static",
+          "pass_count": 0,
+          "scenario_count": 2,
+          "robust_pass_fraction": 0
+        },
+        {
+          "strategy_id": "output_only_static",
+          "pass_count": 0,
+          "scenario_count": 2,
+          "robust_pass_fraction": 0
+        }
+      ],
+      "top_rank_strategy_ids": [
+        "adaptive_staged"
+      ]
+    },
+    {
+      "subset_id": "set:nominal-operations",
+      "scenario_ids_included": [
+        "nominal-operations"
+      ],
+      "scenario_ids_excluded": [
+        "compound-drought-grid-crew",
+        "grid-disruption",
+        "prolonged-repeat-disruption",
+        "seasonal-drought"
+      ],
+      "scenario_count": 1,
+      "strategy_results": [
+        {
+          "strategy_id": "adaptive_staged",
+          "pass_count": 1,
+          "scenario_count": 1,
+          "robust_pass_fraction": 1
+        },
+        {
+          "strategy_id": "equity_static",
+          "pass_count": 1,
+          "scenario_count": 1,
+          "robust_pass_fraction": 1
+        },
+        {
+          "strategy_id": "output_only_static",
+          "pass_count": 0,
+          "scenario_count": 1,
+          "robust_pass_fraction": 0
+        }
+      ],
+      "top_rank_strategy_ids": [
+        "adaptive_staged",
+        "equity_static"
+      ]
+    },
+    {
+      "subset_id": "set:compound-drought-grid-crew|nominal-operations",
+      "scenario_ids_included": [
+        "compound-drought-grid-crew",
+        "nominal-operations"
+      ],
+      "scenario_ids_excluded": [
+        "grid-disruption",
+        "prolonged-repeat-disruption",
+        "seasonal-drought"
+      ],
+      "scenario_count": 2,
+      "strategy_results": [
+        {
+          "strategy_id": "adaptive_staged",
+          "pass_count": 2,
+          "scenario_count": 2,
+          "robust_pass_fraction": 1
+        },
+        {
+          "strategy_id": "equity_static",
+          "pass_count": 1,
+          "scenario_count": 2,
+          "robust_pass_fraction": 0.5
+        },
+        {
+          "strategy_id": "output_only_static",
+          "pass_count": 0,
+          "scenario_count": 2,
+          "robust_pass_fraction": 0
+        }
+      ],
+      "top_rank_strategy_ids": [
+        "adaptive_staged"
+      ]
+    },
+    {
+      "subset_id": "set:grid-disruption|nominal-operations",
+      "scenario_ids_included": [
+        "grid-disruption",
+        "nominal-operations"
+      ],
+      "scenario_ids_excluded": [
+        "compound-drought-grid-crew",
+        "prolonged-repeat-disruption",
+        "seasonal-drought"
+      ],
+      "scenario_count": 2,
+      "strategy_results": [
+        {
+          "strategy_id": "adaptive_staged",
+          "pass_count": 2,
+          "scenario_count": 2,
+          "robust_pass_fraction": 1
+        },
+        {
+          "strategy_id": "equity_static",
+          "pass_count": 1,
+          "scenario_count": 2,
+          "robust_pass_fraction": 0.5
+        },
+        {
+          "strategy_id": "output_only_static",
+          "pass_count": 0,
+          "scenario_count": 2,
+          "robust_pass_fraction": 0
+        }
+      ],
+      "top_rank_strategy_ids": [
+        "adaptive_staged"
+      ]
+    },
+    {
+      "subset_id": "set:compound-drought-grid-crew|grid-disruption|nominal-operations",
+      "scenario_ids_included": [
+        "compound-drought-grid-crew",
+        "grid-disruption",
+        "nominal-operations"
+      ],
+      "scenario_ids_excluded": [
+        "prolonged-repeat-disruption",
+        "seasonal-drought"
+      ],
+      "scenario_count": 3,
+      "strategy_results": [
+        {
+          "strategy_id": "adaptive_staged",
+          "pass_count": 3,
+          "scenario_count": 3,
+          "robust_pass_fraction": 1
+        },
+        {
+          "strategy_id": "equity_static",
+          "pass_count": 1,
+          "scenario_count": 3,
+          "robust_pass_fraction": 0.3333333333333333
+        },
+        {
+          "strategy_id": "output_only_static",
+          "pass_count": 0,
+          "scenario_count": 3,
+          "robust_pass_fraction": 0
+        }
+      ],
+      "top_rank_strategy_ids": [
+        "adaptive_staged"
+      ]
+    },
+    {
+      "subset_id": "set:prolonged-repeat-disruption",
+      "scenario_ids_included": [
+        "prolonged-repeat-disruption"
+      ],
+      "scenario_ids_excluded": [
+        "compound-drought-grid-crew",
+        "grid-disruption",
+        "nominal-operations",
+        "seasonal-drought"
+      ],
+      "scenario_count": 1,
+      "strategy_results": [
+        {
+          "strategy_id": "adaptive_staged",
+          "pass_count": 0,
+          "scenario_count": 1,
+          "robust_pass_fraction": 0
+        },
+        {
+          "strategy_id": "equity_static",
+          "pass_count": 0,
+          "scenario_count": 1,
+          "robust_pass_fraction": 0
+        },
+        {
+          "strategy_id": "output_only_static",
+          "pass_count": 0,
+          "scenario_count": 1,
+          "robust_pass_fraction": 0
+        }
+      ],
+      "top_rank_strategy_ids": [
+        "adaptive_staged",
+        "equity_static",
+        "output_only_static"
+      ]
+    },
+    {
+      "subset_id": "set:compound-drought-grid-crew|prolonged-repeat-disruption",
+      "scenario_ids_included": [
+        "compound-drought-grid-crew",
+        "prolonged-repeat-disruption"
+      ],
+      "scenario_ids_excluded": [
+        "grid-disruption",
+        "nominal-operations",
+        "seasonal-drought"
+      ],
+      "scenario_count": 2,
+      "strategy_results": [
+        {
+          "strategy_id": "adaptive_staged",
+          "pass_count": 1,
+          "scenario_count": 2,
+          "robust_pass_fraction": 0.5
+        },
+        {
+          "strategy_id": "equity_static",
+          "pass_count": 0,
+          "scenario_count": 2,
+          "robust_pass_fraction": 0
+        },
+        {
+          "strategy_id": "output_only_static",
+          "pass_count": 0,
+          "scenario_count": 2,
+          "robust_pass_fraction": 0
+        }
+      ],
+      "top_rank_strategy_ids": [
+        "adaptive_staged"
+      ]
+    },
+    {
+      "subset_id": "set:grid-disruption|prolonged-repeat-disruption",
+      "scenario_ids_included": [
+        "grid-disruption",
+        "prolonged-repeat-disruption"
+      ],
+      "scenario_ids_excluded": [
+        "compound-drought-grid-crew",
+        "nominal-operations",
+        "seasonal-drought"
+      ],
+      "scenario_count": 2,
+      "strategy_results": [
+        {
+          "strategy_id": "adaptive_staged",
+          "pass_count": 1,
+          "scenario_count": 2,
+          "robust_pass_fraction": 0.5
+        },
+        {
+          "strategy_id": "equity_static",
+          "pass_count": 0,
+          "scenario_count": 2,
+          "robust_pass_fraction": 0
+        },
+        {
+          "strategy_id": "output_only_static",
+          "pass_count": 0,
+          "scenario_count": 2,
+          "robust_pass_fraction": 0
+        }
+      ],
+      "top_rank_strategy_ids": [
+        "adaptive_staged"
+      ]
+    },
+    {
+      "subset_id": "set:compound-drought-grid-crew|grid-disruption|prolonged-repeat-disruption",
+      "scenario_ids_included": [
+        "compound-drought-grid-crew",
+        "grid-disruption",
+        "prolonged-repeat-disruption"
+      ],
+      "scenario_ids_excluded": [
+        "nominal-operations",
+        "seasonal-drought"
+      ],
+      "scenario_count": 3,
+      "strategy_results": [
+        {
+          "strategy_id": "adaptive_staged",
+          "pass_count": 2,
+          "scenario_count": 3,
+          "robust_pass_fraction": 0.6666666666666666
+        },
+        {
+          "strategy_id": "equity_static",
+          "pass_count": 0,
+          "scenario_count": 3,
+          "robust_pass_fraction": 0
+        },
+        {
+          "strategy_id": "output_only_static",
+          "pass_count": 0,
+          "scenario_count": 3,
+          "robust_pass_fraction": 0
+        }
+      ],
+      "top_rank_strategy_ids": [
+        "adaptive_staged"
+      ]
+    },
+    {
+      "subset_id": "set:nominal-operations|prolonged-repeat-disruption",
+      "scenario_ids_included": [
+        "nominal-operations",
+        "prolonged-repeat-disruption"
+      ],
+      "scenario_ids_excluded": [
+        "compound-drought-grid-crew",
+        "grid-disruption",
+        "seasonal-drought"
+      ],
+      "scenario_count": 2,
+      "strategy_results": [
+        {
+          "strategy_id": "adaptive_staged",
+          "pass_count": 1,
+          "scenario_count": 2,
+          "robust_pass_fraction": 0.5
+        },
+        {
+          "strategy_id": "equity_static",
+          "pass_count": 1,
+          "scenario_count": 2,
+          "robust_pass_fraction": 0.5
+        },
+        {
+          "strategy_id": "output_only_static",
+          "pass_count": 0,
+          "scenario_count": 2,
+          "robust_pass_fraction": 0
+        }
+      ],
+      "top_rank_strategy_ids": [
+        "adaptive_staged",
+        "equity_static"
+      ]
+    },
+    {
+      "subset_id": "set:compound-drought-grid-crew|nominal-operations|prolonged-repeat-disruption",
+      "scenario_ids_included": [
+        "compound-drought-grid-crew",
+        "nominal-operations",
+        "prolonged-repeat-disruption"
+      ],
+      "scenario_ids_excluded": [
+        "grid-disruption",
+        "seasonal-drought"
+      ],
+      "scenario_count": 3,
+      "strategy_results": [
+        {
+          "strategy_id": "adaptive_staged",
+          "pass_count": 2,
+          "scenario_count": 3,
+          "robust_pass_fraction": 0.6666666666666666
+        },
+        {
+          "strategy_id": "equity_static",
+          "pass_count": 1,
+          "scenario_count": 3,
+          "robust_pass_fraction": 0.3333333333333333
+        },
+        {
+          "strategy_id": "output_only_static",
+          "pass_count": 0,
+          "scenario_count": 3,
+          "robust_pass_fraction": 0
+        }
+      ],
+      "top_rank_strategy_ids": [
+        "adaptive_staged"
+      ]
+    },
+    {
+      "subset_id": "set:grid-disruption|nominal-operations|prolonged-repeat-disruption",
+      "scenario_ids_included": [
+        "grid-disruption",
+        "nominal-operations",
+        "prolonged-repeat-disruption"
+      ],
+      "scenario_ids_excluded": [
+        "compound-drought-grid-crew",
+        "seasonal-drought"
+      ],
+      "scenario_count": 3,
+      "strategy_results": [
+        {
+          "strategy_id": "adaptive_staged",
+          "pass_count": 2,
+          "scenario_count": 3,
+          "robust_pass_fraction": 0.6666666666666666
+        },
+        {
+          "strategy_id": "equity_static",
+          "pass_count": 1,
+          "scenario_count": 3,
+          "robust_pass_fraction": 0.3333333333333333
+        },
+        {
+          "strategy_id": "output_only_static",
+          "pass_count": 0,
+          "scenario_count": 3,
+          "robust_pass_fraction": 0
+        }
+      ],
+      "top_rank_strategy_ids": [
+        "adaptive_staged"
+      ]
+    },
+    {
+      "subset_id": "set:compound-drought-grid-crew|grid-disruption|nominal-operations|prolonged-repeat-disruption",
+      "scenario_ids_included": [
+        "compound-drought-grid-crew",
+        "grid-disruption",
+        "nominal-operations",
+        "prolonged-repeat-disruption"
+      ],
+      "scenario_ids_excluded": [
+        "seasonal-drought"
+      ],
+      "scenario_count": 4,
+      "strategy_results": [
+        {
+          "strategy_id": "adaptive_staged",
+          "pass_count": 3,
+          "scenario_count": 4,
+          "robust_pass_fraction": 0.75
+        },
+        {
+          "strategy_id": "equity_static",
+          "pass_count": 1,
+          "scenario_count": 4,
+          "robust_pass_fraction": 0.25
+        },
+        {
+          "strategy_id": "output_only_static",
+          "pass_count": 0,
+          "scenario_count": 4,
+          "robust_pass_fraction": 0
+        }
+      ],
+      "top_rank_strategy_ids": [
+        "adaptive_staged"
+      ]
+    },
+    {
+      "subset_id": "set:seasonal-drought",
+      "scenario_ids_included": [
+        "seasonal-drought"
+      ],
+      "scenario_ids_excluded": [
+        "compound-drought-grid-crew",
+        "grid-disruption",
+        "nominal-operations",
+        "prolonged-repeat-disruption"
+      ],
+      "scenario_count": 1,
+      "strategy_results": [
+        {
+          "strategy_id": "adaptive_staged",
+          "pass_count": 1,
+          "scenario_count": 1,
+          "robust_pass_fraction": 1
+        },
+        {
+          "strategy_id": "equity_static",
+          "pass_count": 0,
+          "scenario_count": 1,
+          "robust_pass_fraction": 0
+        },
+        {
+          "strategy_id": "output_only_static",
+          "pass_count": 0,
+          "scenario_count": 1,
+          "robust_pass_fraction": 0
+        }
+      ],
+      "top_rank_strategy_ids": [
+        "adaptive_staged"
+      ]
+    },
+    {
+      "subset_id": "set:compound-drought-grid-crew|seasonal-drought",
+      "scenario_ids_included": [
+        "compound-drought-grid-crew",
+        "seasonal-drought"
+      ],
+      "scenario_ids_excluded": [
+        "grid-disruption",
+        "nominal-operations",
+        "prolonged-repeat-disruption"
+      ],
+      "scenario_count": 2,
+      "strategy_results": [
+        {
+          "strategy_id": "adaptive_staged",
+          "pass_count": 2,
+          "scenario_count": 2,
+          "robust_pass_fraction": 1
+        },
+        {
+          "strategy_id": "equity_static",
+          "pass_count": 0,
+          "scenario_count": 2,
+          "robust_pass_fraction": 0
+        },
+        {
+          "strategy_id": "output_only_static",
+          "pass_count": 0,
+          "scenario_count": 2,
+          "robust_pass_fraction": 0
+        }
+      ],
+      "top_rank_strategy_ids": [
+        "adaptive_staged"
+      ]
+    },
+    {
+      "subset_id": "set:grid-disruption|seasonal-drought",
+      "scenario_ids_included": [
+        "grid-disruption",
+        "seasonal-drought"
+      ],
+      "scenario_ids_excluded": [
+        "compound-drought-grid-crew",
+        "nominal-operations",
+        "prolonged-repeat-disruption"
+      ],
+      "scenario_count": 2,
+      "strategy_results": [
+        {
+          "strategy_id": "adaptive_staged",
+          "pass_count": 2,
+          "scenario_count": 2,
+          "robust_pass_fraction": 1
+        },
+        {
+          "strategy_id": "equity_static",
+          "pass_count": 0,
+          "scenario_count": 2,
+          "robust_pass_fraction": 0
+        },
+        {
+          "strategy_id": "output_only_static",
+          "pass_count": 0,
+          "scenario_count": 2,
+          "robust_pass_fraction": 0
+        }
+      ],
+      "top_rank_strategy_ids": [
+        "adaptive_staged"
+      ]
+    },
+    {
+      "subset_id": "set:compound-drought-grid-crew|grid-disruption|seasonal-drought",
+      "scenario_ids_included": [
+        "compound-drought-grid-crew",
+        "grid-disruption",
+        "seasonal-drought"
+      ],
+      "scenario_ids_excluded": [
+        "nominal-operations",
+        "prolonged-repeat-disruption"
+      ],
+      "scenario_count": 3,
+      "strategy_results": [
+        {
+          "strategy_id": "adaptive_staged",
+          "pass_count": 3,
+          "scenario_count": 3,
+          "robust_pass_fraction": 1
+        },
+        {
+          "strategy_id": "equity_static",
+          "pass_count": 0,
+          "scenario_count": 3,
+          "robust_pass_fraction": 0
+        },
+        {
+          "strategy_id": "output_only_static",
+          "pass_count": 0,
+          "scenario_count": 3,
+          "robust_pass_fraction": 0
+        }
+      ],
+      "top_rank_strategy_ids": [
+        "adaptive_staged"
+      ]
+    },
+    {
+      "subset_id": "set:nominal-operations|seasonal-drought",
+      "scenario_ids_included": [
+        "nominal-operations",
+        "seasonal-drought"
+      ],
+      "scenario_ids_excluded": [
+        "compound-drought-grid-crew",
+        "grid-disruption",
+        "prolonged-repeat-disruption"
+      ],
+      "scenario_count": 2,
+      "strategy_results": [
+        {
+          "strategy_id": "adaptive_staged",
+          "pass_count": 2,
+          "scenario_count": 2,
+          "robust_pass_fraction": 1
+        },
+        {
+          "strategy_id": "equity_static",
+          "pass_count": 1,
+          "scenario_count": 2,
+          "robust_pass_fraction": 0.5
+        },
+        {
+          "strategy_id": "output_only_static",
+          "pass_count": 0,
+          "scenario_count": 2,
+          "robust_pass_fraction": 0
+        }
+      ],
+      "top_rank_strategy_ids": [
+        "adaptive_staged"
+      ]
+    },
+    {
+      "subset_id": "set:compound-drought-grid-crew|nominal-operations|seasonal-drought",
+      "scenario_ids_included": [
+        "compound-drought-grid-crew",
+        "nominal-operations",
+        "seasonal-drought"
+      ],
+      "scenario_ids_excluded": [
+        "grid-disruption",
+        "prolonged-repeat-disruption"
+      ],
+      "scenario_count": 3,
+      "strategy_results": [
+        {
+          "strategy_id": "adaptive_staged",
+          "pass_count": 3,
+          "scenario_count": 3,
+          "robust_pass_fraction": 1
+        },
+        {
+          "strategy_id": "equity_static",
+          "pass_count": 1,
+          "scenario_count": 3,
+          "robust_pass_fraction": 0.3333333333333333
+        },
+        {
+          "strategy_id": "output_only_static",
+          "pass_count": 0,
+          "scenario_count": 3,
+          "robust_pass_fraction": 0
+        }
+      ],
+      "top_rank_strategy_ids": [
+        "adaptive_staged"
+      ]
+    },
+    {
+      "subset_id": "set:grid-disruption|nominal-operations|seasonal-drought",
+      "scenario_ids_included": [
+        "grid-disruption",
+        "nominal-operations",
+        "seasonal-drought"
+      ],
+      "scenario_ids_excluded": [
+        "compound-drought-grid-crew",
+        "prolonged-repeat-disruption"
+      ],
+      "scenario_count": 3,
+      "strategy_results": [
+        {
+          "strategy_id": "adaptive_staged",
+          "pass_count": 3,
+          "scenario_count": 3,
+          "robust_pass_fraction": 1
+        },
+        {
+          "strategy_id": "equity_static",
+          "pass_count": 1,
+          "scenario_count": 3,
+          "robust_pass_fraction": 0.3333333333333333
+        },
+        {
+          "strategy_id": "output_only_static",
+          "pass_count": 0,
+          "scenario_count": 3,
+          "robust_pass_fraction": 0
+        }
+      ],
+      "top_rank_strategy_ids": [
+        "adaptive_staged"
+      ]
+    },
+    {
+      "subset_id": "set:compound-drought-grid-crew|grid-disruption|nominal-operations|seasonal-drought",
+      "scenario_ids_included": [
+        "compound-drought-grid-crew",
+        "grid-disruption",
+        "nominal-operations",
+        "seasonal-drought"
+      ],
+      "scenario_ids_excluded": [
+        "prolonged-repeat-disruption"
+      ],
+      "scenario_count": 4,
+      "strategy_results": [
+        {
+          "strategy_id": "adaptive_staged",
+          "pass_count": 4,
+          "scenario_count": 4,
+          "robust_pass_fraction": 1
+        },
+        {
+          "strategy_id": "equity_static",
+          "pass_count": 1,
+          "scenario_count": 4,
+          "robust_pass_fraction": 0.25
+        },
+        {
+          "strategy_id": "output_only_static",
+          "pass_count": 0,
+          "scenario_count": 4,
+          "robust_pass_fraction": 0
+        }
+      ],
+      "top_rank_strategy_ids": [
+        "adaptive_staged"
+      ]
+    },
+    {
+      "subset_id": "set:prolonged-repeat-disruption|seasonal-drought",
+      "scenario_ids_included": [
+        "prolonged-repeat-disruption",
+        "seasonal-drought"
+      ],
+      "scenario_ids_excluded": [
+        "compound-drought-grid-crew",
+        "grid-disruption",
+        "nominal-operations"
+      ],
+      "scenario_count": 2,
+      "strategy_results": [
+        {
+          "strategy_id": "adaptive_staged",
+          "pass_count": 1,
+          "scenario_count": 2,
+          "robust_pass_fraction": 0.5
+        },
+        {
+          "strategy_id": "equity_static",
+          "pass_count": 0,
+          "scenario_count": 2,
+          "robust_pass_fraction": 0
+        },
+        {
+          "strategy_id": "output_only_static",
+          "pass_count": 0,
+          "scenario_count": 2,
+          "robust_pass_fraction": 0
+        }
+      ],
+      "top_rank_strategy_ids": [
+        "adaptive_staged"
+      ]
+    },
+    {
+      "subset_id": "set:compound-drought-grid-crew|prolonged-repeat-disruption|seasonal-drought",
+      "scenario_ids_included": [
+        "compound-drought-grid-crew",
+        "prolonged-repeat-disruption",
+        "seasonal-drought"
+      ],
+      "scenario_ids_excluded": [
+        "grid-disruption",
+        "nominal-operations"
+      ],
+      "scenario_count": 3,
+      "strategy_results": [
+        {
+          "strategy_id": "adaptive_staged",
+          "pass_count": 2,
+          "scenario_count": 3,
+          "robust_pass_fraction": 0.6666666666666666
+        },
+        {
+          "strategy_id": "equity_static",
+          "pass_count": 0,
+          "scenario_count": 3,
+          "robust_pass_fraction": 0
+        },
+        {
+          "strategy_id": "output_only_static",
+          "pass_count": 0,
+          "scenario_count": 3,
+          "robust_pass_fraction": 0
+        }
+      ],
+      "top_rank_strategy_ids": [
+        "adaptive_staged"
+      ]
+    },
+    {
+      "subset_id": "set:grid-disruption|prolonged-repeat-disruption|seasonal-drought",
+      "scenario_ids_included": [
+        "grid-disruption",
+        "prolonged-repeat-disruption",
+        "seasonal-drought"
+      ],
+      "scenario_ids_excluded": [
+        "compound-drought-grid-crew",
+        "nominal-operations"
+      ],
+      "scenario_count": 3,
+      "strategy_results": [
+        {
+          "strategy_id": "adaptive_staged",
+          "pass_count": 2,
+          "scenario_count": 3,
+          "robust_pass_fraction": 0.6666666666666666
+        },
+        {
+          "strategy_id": "equity_static",
+          "pass_count": 0,
+          "scenario_count": 3,
+          "robust_pass_fraction": 0
+        },
+        {
+          "strategy_id": "output_only_static",
+          "pass_count": 0,
+          "scenario_count": 3,
+          "robust_pass_fraction": 0
+        }
+      ],
+      "top_rank_strategy_ids": [
+        "adaptive_staged"
+      ]
+    },
+    {
+      "subset_id": "set:compound-drought-grid-crew|grid-disruption|prolonged-repeat-disruption|seasonal-drought",
+      "scenario_ids_included": [
+        "compound-drought-grid-crew",
+        "grid-disruption",
+        "prolonged-repeat-disruption",
+        "seasonal-drought"
+      ],
+      "scenario_ids_excluded": [
+        "nominal-operations"
+      ],
+      "scenario_count": 4,
+      "strategy_results": [
+        {
+          "strategy_id": "adaptive_staged",
+          "pass_count": 3,
+          "scenario_count": 4,
+          "robust_pass_fraction": 0.75
+        },
+        {
+          "strategy_id": "equity_static",
+          "pass_count": 0,
+          "scenario_count": 4,
+          "robust_pass_fraction": 0
+        },
+        {
+          "strategy_id": "output_only_static",
+          "pass_count": 0,
+          "scenario_count": 4,
+          "robust_pass_fraction": 0
+        }
+      ],
+      "top_rank_strategy_ids": [
+        "adaptive_staged"
+      ]
+    },
+    {
+      "subset_id": "set:nominal-operations|prolonged-repeat-disruption|seasonal-drought",
+      "scenario_ids_included": [
+        "nominal-operations",
+        "prolonged-repeat-disruption",
+        "seasonal-drought"
+      ],
+      "scenario_ids_excluded": [
+        "compound-drought-grid-crew",
+        "grid-disruption"
+      ],
+      "scenario_count": 3,
+      "strategy_results": [
+        {
+          "strategy_id": "adaptive_staged",
+          "pass_count": 2,
+          "scenario_count": 3,
+          "robust_pass_fraction": 0.6666666666666666
+        },
+        {
+          "strategy_id": "equity_static",
+          "pass_count": 1,
+          "scenario_count": 3,
+          "robust_pass_fraction": 0.3333333333333333
+        },
+        {
+          "strategy_id": "output_only_static",
+          "pass_count": 0,
+          "scenario_count": 3,
+          "robust_pass_fraction": 0
+        }
+      ],
+      "top_rank_strategy_ids": [
+        "adaptive_staged"
+      ]
+    },
+    {
+      "subset_id": "set:compound-drought-grid-crew|nominal-operations|prolonged-repeat-disruption|seasonal-drought",
+      "scenario_ids_included": [
+        "compound-drought-grid-crew",
+        "nominal-operations",
+        "prolonged-repeat-disruption",
+        "seasonal-drought"
+      ],
+      "scenario_ids_excluded": [
+        "grid-disruption"
+      ],
+      "scenario_count": 4,
+      "strategy_results": [
+        {
+          "strategy_id": "adaptive_staged",
+          "pass_count": 3,
+          "scenario_count": 4,
+          "robust_pass_fraction": 0.75
+        },
+        {
+          "strategy_id": "equity_static",
+          "pass_count": 1,
+          "scenario_count": 4,
+          "robust_pass_fraction": 0.25
+        },
+        {
+          "strategy_id": "output_only_static",
+          "pass_count": 0,
+          "scenario_count": 4,
+          "robust_pass_fraction": 0
+        }
+      ],
+      "top_rank_strategy_ids": [
+        "adaptive_staged"
+      ]
+    },
+    {
+      "subset_id": "set:grid-disruption|nominal-operations|prolonged-repeat-disruption|seasonal-drought",
+      "scenario_ids_included": [
+        "grid-disruption",
+        "nominal-operations",
+        "prolonged-repeat-disruption",
+        "seasonal-drought"
+      ],
+      "scenario_ids_excluded": [
+        "compound-drought-grid-crew"
+      ],
+      "scenario_count": 4,
+      "strategy_results": [
+        {
+          "strategy_id": "adaptive_staged",
+          "pass_count": 3,
+          "scenario_count": 4,
+          "robust_pass_fraction": 0.75
+        },
+        {
+          "strategy_id": "equity_static",
+          "pass_count": 1,
+          "scenario_count": 4,
+          "robust_pass_fraction": 0.25
+        },
+        {
+          "strategy_id": "output_only_static",
+          "pass_count": 0,
+          "scenario_count": 4,
+          "robust_pass_fraction": 0
+        }
+      ],
+      "top_rank_strategy_ids": [
+        "adaptive_staged"
+      ]
+    },
+    {
+      "subset_id": "set:compound-drought-grid-crew|grid-disruption|nominal-operations|prolonged-repeat-disruption|seasonal-drought",
+      "scenario_ids_included": [
+        "compound-drought-grid-crew",
+        "grid-disruption",
+        "nominal-operations",
+        "prolonged-repeat-disruption",
+        "seasonal-drought"
+      ],
+      "scenario_ids_excluded": [],
+      "scenario_count": 5,
+      "strategy_results": [
+        {
+          "strategy_id": "adaptive_staged",
+          "pass_count": 4,
+          "scenario_count": 5,
+          "robust_pass_fraction": 0.8
+        },
+        {
+          "strategy_id": "equity_static",
+          "pass_count": 1,
+          "scenario_count": 5,
+          "robust_pass_fraction": 0.2
+        },
+        {
+          "strategy_id": "output_only_static",
+          "pass_count": 0,
+          "scenario_count": 5,
+          "robust_pass_fraction": 0
+        }
+      ],
+      "top_rank_strategy_ids": [
+        "adaptive_staged"
+      ]
+    }
+  ],
+  "caveats": [
+    "Current policy outcomes are hand-authored synthetic assumptions and remain unchanged.",
+    "The 31 subsets are not 31 equally likely futures or a probability sample.",
+    "Subsetting can change a robust pass fraction without changing any underlying outcome; publish the exact scenario manifest and denominator.",
+    "A new easy scenario can improve a fraction, and a new failing scenario can reduce it; no universal monotonicity rule is valid.",
+    "Scenario selection sensitivity does not replace physically consistent scenario generation, source calibration, or held-out evaluation."
+  ]
+}
