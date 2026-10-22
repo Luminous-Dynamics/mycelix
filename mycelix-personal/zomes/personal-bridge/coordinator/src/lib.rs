@@ -437,7 +437,7 @@ fn canonical_identity_disclosure_fields(
     canonical.sort_by_key(|field| {
         ALLOWED_IDENTITY_DISCLOSURE_FIELDS
             .iter()
-            .position(|allowed| *allowed == field)
+            .position(|allowed| *allowed == field.as_str())
             .unwrap_or(usize::MAX)
     });
     Ok(canonical)
