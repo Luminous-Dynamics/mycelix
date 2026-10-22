@@ -1,0 +1,13 @@
+[package]
+name = "life-proof-shape"
+version = "0.1.0"
+edition = "2024"
+license = "AGPL-3.0-or-later"
+publish = false
+description = "Synthetic benchmark for residual correlation in selectively disclosed proof structure"
+
+[[bin]]
+name = "life-proof-shape"
+path = "src/main.rs"
+
+[workspace]
