@@ -1,8 +1,8 @@
 use finance_liquidity_reordering::{
     bounded_insertion_search, evaluate_order, exact_pareto_frontier, exact_permutation_oracle,
     heuristic_portfolio, input_order, net_position_liquidity_lower_bound,
-    receiver_ready_event_driven, receiver_ready_greedy, simulated_annealing, Evaluation,
-    Payment, Problem, ReorderError, MAX_GREEDY_PAYMENTS, MAX_SEARCH_WORK_UNITS,
+    receiver_ready_event_driven, receiver_ready_greedy, simulated_annealing, Evaluation, Payment,
+    Problem, ReorderError, MAX_GREEDY_PAYMENTS, MAX_SEARCH_WORK_UNITS,
 };
 use std::cmp::Ordering;
 
@@ -241,26 +241,62 @@ fn net_position_lower_bound_is_order_independent_and_never_exceeds_realized_need
 
     let fifo = input_order(&original).unwrap();
     let greedy = receiver_ready_greedy(&original).unwrap();
-    assert!(fifo.evaluation.aggregate_required_initial_liquidity_minor
-        >= bound.aggregate_required_initial_liquidity_minor);
-    assert!(fifo.evaluation.max_participant_required_initial_liquidity_minor
-        >= bound.max_participant_required_initial_liquidity_minor);
-    assert_eq!(greedy.evaluation.aggregate_required_initial_liquidity_minor, 10);
-    assert_eq!(greedy.evaluation.max_participant_required_initial_liquidity_minor, 10);
+    assert!(
+        fifo.evaluation.aggregate_required_initial_liquidity_minor
+            >= bound.aggregate_required_initial_liquidity_minor
+    );
+    assert!(
+        fifo.evaluation
+            .max_participant_required_initial_liquidity_minor
+            >= bound.max_participant_required_initial_liquidity_minor
+    );
+    assert_eq!(
+        greedy.evaluation.aggregate_required_initial_liquidity_minor,
+        10
+    );
+    assert_eq!(
+        greedy
+            .evaluation
+            .max_participant_required_initial_liquidity_minor,
+        10
+    );
 
     let cycle = problem(
         3,
         vec![
-            Payment { id: "ab".into(), from: 0, to: 1, amount_minor: 10 },
-            Payment { id: "bc".into(), from: 1, to: 2, amount_minor: 10 },
-            Payment { id: "ca".into(), from: 2, to: 0, amount_minor: 10 },
+            Payment {
+                id: "ab".into(),
+                from: 0,
+                to: 1,
+                amount_minor: 10,
+            },
+            Payment {
+                id: "bc".into(),
+                from: 1,
+                to: 2,
+                amount_minor: 10,
+            },
+            Payment {
+                id: "ca".into(),
+                from: 2,
+                to: 0,
+                amount_minor: 10,
+            },
         ],
     );
     let cycle_bound = net_position_liquidity_lower_bound(&cycle).unwrap();
     let cycle_exact = exact_permutation_oracle(&cycle).unwrap();
     assert_eq!(cycle_bound.aggregate_required_initial_liquidity_minor, 0);
-    assert_eq!(cycle_bound.max_participant_required_initial_liquidity_minor, 0);
-    assert!(cycle_exact.evaluation.aggregate_required_initial_liquidity_minor > 0);
+    assert_eq!(
+        cycle_bound.max_participant_required_initial_liquidity_minor,
+        0
+    );
+    assert!(
+        cycle_exact
+            .evaluation
+            .aggregate_required_initial_liquidity_minor
+            > 0
+    );
 }
 
 #[test]
@@ -362,11 +398,15 @@ fn all_heuristics_are_feasible_and_never_beat_the_exact_oracle() {
             let remeasured = evaluate_order(&problem, &candidate.order).unwrap();
             assert_eq!(remeasured, candidate.evaluation);
             assert!(
-                candidate.evaluation.aggregate_required_initial_liquidity_minor
+                candidate
+                    .evaluation
+                    .aggregate_required_initial_liquidity_minor
                     >= lower_bound.aggregate_required_initial_liquidity_minor
             );
             assert!(
-                candidate.evaluation.max_participant_required_initial_liquidity_minor
+                candidate
+                    .evaluation
+                    .max_participant_required_initial_liquidity_minor
                     >= lower_bound.max_participant_required_initial_liquidity_minor
             );
             assert!(
@@ -429,29 +469,50 @@ fn exact_pareto_frontier_exposes_aggregate_vs_single_participant_tradeoff() {
         .map(|point| {
             (
                 point.evaluation.aggregate_required_initial_liquidity_minor,
-                point.evaluation.max_participant_required_initial_liquidity_minor,
+                point
+                    .evaluation
+                    .max_participant_required_initial_liquidity_minor,
             )
         })
         .collect::<Vec<_>>();
 
     assert_eq!(frontier.evaluated_orders, 24);
-    assert!(metrics.contains(&(7, 7)), "missing lower aggregate-liquidity option");
-    assert!(metrics.contains(&(9, 6)), "missing lower peak-participant option");
+    assert!(
+        metrics.contains(&(7, 7)),
+        "missing lower aggregate-liquidity option"
+    );
+    assert!(
+        metrics.contains(&(9, 6)),
+        "missing lower peak-participant option"
+    );
     for (index, &(aggregate, maximum)) in metrics.iter().enumerate() {
         assert!(
-            !metrics.iter().enumerate().any(|(other_index, &(other_aggregate, other_max))| {
-                other_index != index
-                    && other_aggregate <= aggregate
-                    && other_max <= maximum
-                    && (other_aggregate < aggregate || other_max < maximum)
-            }),
+            !metrics
+                .iter()
+                .enumerate()
+                .any(|(other_index, &(other_aggregate, other_max))| {
+                    other_index != index
+                        && other_aggregate <= aggregate
+                        && other_max <= maximum
+                        && (other_aggregate < aggregate || other_max < maximum)
+                }),
             "frontier contains a dominated point ({aggregate}, {maximum})"
         );
     }
 
     let lexicographic = exact_permutation_oracle(&problem).unwrap();
-    assert_eq!(lexicographic.evaluation.aggregate_required_initial_liquidity_minor, 7);
-    assert_eq!(lexicographic.evaluation.max_participant_required_initial_liquidity_minor, 7);
+    assert_eq!(
+        lexicographic
+            .evaluation
+            .aggregate_required_initial_liquidity_minor,
+        7
+    );
+    assert_eq!(
+        lexicographic
+            .evaluation
+            .max_participant_required_initial_liquidity_minor,
+        7
+    );
 }
 
 #[test]
@@ -497,15 +558,29 @@ fn every_optimizer_and_exact_oracle_respects_hard_precedence() {
     assert_eq!(exact.candidate_evaluations, 3);
     assert_eq!(frontier.evaluated_orders, 3);
     for point in &frontier.points {
-        assert!(point.order.iter().position(|&index| index == 1).unwrap()
-            < point.order.iter().position(|&index| index == 0).unwrap());
+        assert!(
+            point.order.iter().position(|&index| index == 1).unwrap()
+                < point.order.iter().position(|&index| index == 0).unwrap()
+        );
     }
-    for candidate in [fifo, greedy, event_driven, local, annealed, portfolio, exact] {
+    for candidate in [
+        fifo,
+        greedy,
+        event_driven,
+        local,
+        annealed,
+        portfolio,
+        exact,
+    ] {
         let mut positions = vec![0; candidate.order.len()];
         for (position, &index) in candidate.order.iter().enumerate() {
             positions[index] = position;
         }
-        assert!(positions[1] < positions[0], "precedence violated by {:?}", candidate.order);
+        assert!(
+            positions[1] < positions[0],
+            "precedence violated by {:?}",
+            candidate.order
+        );
         assert_eq!(
             evaluate_order(&problem, &candidate.order).unwrap(),
             candidate.evaluation
@@ -514,7 +589,10 @@ fn every_optimizer_and_exact_oracle_respects_hard_precedence() {
 
     assert!(matches!(
         evaluate_order(&problem, &[0, 1, 2]),
-        Err(ReorderError::PrecedenceViolation { before: 1, after: 0 })
+        Err(ReorderError::PrecedenceViolation {
+            before: 1,
+            after: 0
+        })
     ));
 }
 
@@ -523,15 +601,25 @@ fn malformed_and_cyclic_precedence_constraints_fail_closed() {
     let base = chain_problem(3, false);
     assert!(matches!(
         base.clone().with_precedence_constraints(vec![(0, 0)]),
-        Err(ReorderError::InvalidPrecedenceConstraint { before: 0, after: 0 })
+        Err(ReorderError::InvalidPrecedenceConstraint {
+            before: 0,
+            after: 0
+        })
     ));
     assert!(matches!(
         base.clone().with_precedence_constraints(vec![(0, 9)]),
-        Err(ReorderError::InvalidPrecedenceConstraint { before: 0, after: 9 })
+        Err(ReorderError::InvalidPrecedenceConstraint {
+            before: 0,
+            after: 9
+        })
     ));
     assert!(matches!(
-        base.clone().with_precedence_constraints(vec![(0, 1), (0, 1)]),
-        Err(ReorderError::DuplicatePrecedenceConstraint { before: 0, after: 1 })
+        base.clone()
+            .with_precedence_constraints(vec![(0, 1), (0, 1)]),
+        Err(ReorderError::DuplicatePrecedenceConstraint {
+            before: 0,
+            after: 1
+        })
     ));
     assert!(matches!(
         base.with_precedence_constraints(vec![(0, 1), (1, 0)]),
@@ -579,12 +667,20 @@ fn exact_oracle_and_pareto_frontier_are_input_order_invariant() {
     let exact_forward = exact_permutation_oracle(&forward).unwrap();
     let exact_reverse = exact_permutation_oracle(&reverse).unwrap();
     assert_eq!(
-        exact_forward.evaluation.aggregate_required_initial_liquidity_minor,
-        exact_reverse.evaluation.aggregate_required_initial_liquidity_minor
+        exact_forward
+            .evaluation
+            .aggregate_required_initial_liquidity_minor,
+        exact_reverse
+            .evaluation
+            .aggregate_required_initial_liquidity_minor
     );
     assert_eq!(
-        exact_forward.evaluation.max_participant_required_initial_liquidity_minor,
-        exact_reverse.evaluation.max_participant_required_initial_liquidity_minor
+        exact_forward
+            .evaluation
+            .max_participant_required_initial_liquidity_minor,
+        exact_reverse
+            .evaluation
+            .max_participant_required_initial_liquidity_minor
     );
     assert_eq!(
         order_ids(&forward, &exact_forward.order),
@@ -600,7 +696,9 @@ fn exact_oracle_and_pareto_frontier_are_input_order_invariant() {
             .map(|point| {
                 (
                     point.evaluation.aggregate_required_initial_liquidity_minor,
-                    point.evaluation.max_participant_required_initial_liquidity_minor,
+                    point
+                        .evaluation
+                        .max_participant_required_initial_liquidity_minor,
                     order_ids(problem, &point.order),
                 )
             })
@@ -687,7 +785,10 @@ fn heuristic_portfolio_uses_event_driven_path_above_full_scan_limit() {
     let p = chain_problem(MAX_GREEDY_PAYMENTS + 1, false);
     let result = heuristic_portfolio(&p, 10, 7, 10).unwrap();
     assert_eq!(result.order.len(), p.payments().len());
-    assert_eq!(evaluate_order(&p, &result.order).unwrap(), result.evaluation);
+    assert_eq!(
+        evaluate_order(&p, &result.order).unwrap(),
+        result.evaluation
+    );
     assert_eq!(
         result.evaluation.aggregate_required_initial_liquidity_minor,
         10
