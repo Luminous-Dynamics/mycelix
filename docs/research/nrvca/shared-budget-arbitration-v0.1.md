@@ -38,7 +38,7 @@ The approach composes with established adaptive pathways and robust infrastructu
 - Resource-contention case verifies that a rejected crew-consuming action does not consume budget, allowing an independent reserve action to remain feasible.
 - Empty candidate set, candidate-order permutations, budget sweep, and malformed-input mutations are explicit controls.
 
-The four-candidate compound case has (4! = 24) possible input orders. The Rust test asserts all permutations produce the same canonical receipt. A budget sweep at 3, 4, 5, and 6 synthetic units checks budget reconciliation and that increasing the budget does not revoke an action already selected by this fixed-priority policy.
+The four-candidate compound case has (4! = 24) possible input orders. The Rust test asserts all permutations produce the same canonical receipt. A budget sweep at 3, 4, 5, and 6 synthetic units checks budget reconciliation and the frozen selection set for those points. The non-decreasing selected set observed here is fixture-specific; fixed-priority allocation does not guarantee monotonic selection for every possible action-cost portfolio.
 
 ## Benchmark programme: acceptance targets, not achieved results
 
