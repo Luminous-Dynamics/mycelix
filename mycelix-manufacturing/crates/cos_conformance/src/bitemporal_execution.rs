@@ -67,7 +67,7 @@ pub enum PlacementStateDecision {
     Rejected,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Ord, PartialOrd, Serialize, Deserialize)]
 pub enum ExecutionEvidenceViolationCode {
     EmptyObservationId,
     DuplicateObservationId,
