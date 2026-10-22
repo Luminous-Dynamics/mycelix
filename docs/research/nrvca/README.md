@@ -147,7 +147,7 @@ The first source-discovery pass is recorded in [South Africa NRVCA Source Catalo
 ## Synthetic follow-on benchmarks
 
 - [Economic decomposition v0.1](./economic-decomposition-v0.1.md) and its [known-answer fixture](../../../fixtures/nrvca-economic-decomposition-golden-v0.1.json) distinguish transfer incidence, modelled deadweight loss, fixed-cost recovery, resource costs of rent capture, physical externality measurement and valuation sensitivity. Nine declared demand/cost-slope settings test whether the toy-model invariants hold.
-- [Decision-value benchmark v0.1](./decision-value-benchmark-v0.1.md) and its [synthetic fixture](../../../fixtures/nrvca-decision-value-synthetic-v0.1.json) exhaustively evaluate all 16 allocations in a four-intervention example. A service-only baseline is compared with an explicitly declared service/equity/reliability/environmental constraint profile. The profile is a policy choice; the result is not a universal welfare ranking.
+- [Decision-value benchmark v0.1](./decision-value-benchmark-v0.1.md) and its [synthetic fixture](../../../fixtures/nrvca-decision-value-synthetic-v0.1.json) exhaustively evaluate all 16 allocations in a four-intervention example. A service-only baseline is compared with explicit service/equity/reliability/environmental constraints, four alternative policy profiles, robust interval endpoints for service-weighted reliability, and explicit infeasibility outcomes. The profile is a policy choice; the result is not a universal welfare ranking. The next tier must add correlated and physically admissible scenarios rather than treating interval endpoints as a probability distribution.
 - [NRVCA-003 draft PR #5394](https://github.com/Luminous-Dynamics/mycelix/pull/5394) and [NRVCA-004 draft PR #5400](https://github.com/Luminous-Dynamics/mycelix/pull/5400) contain these prototypes. Static known-answer audits are recorded in the PRs; successful Rust execution must be established separately on each exact head.
 
 ## Linked work
@@ -156,6 +156,7 @@ The first source-discovery pass is recorded in [South Africa NRVCA Source Catalo
 - NRVCA-002: https://github.com/Luminous-Dynamics/mycelix/issues/5382 (source-vintage acquisition and historical reconciliation)
 - NRVCA-003: https://github.com/Luminous-Dynamics/mycelix/issues/5387 (transfers, rents, resource costs, deadweight loss and external damages)
 - NRVCA-004: https://github.com/Luminous-Dynamics/mycelix/issues/5399 (decision value under explicit service and equity constraints)
+- Robust Decision Making under deep uncertainty: https://ppp.worldbank.org/library/investment-decision-making-under-deep-uncertainty
 - Mycelix FIN-SYS-003: https://github.com/Luminous-Dynamics/mycelix/issues/3072
 - Mycelix CIV-ECON-006: https://github.com/Luminous-Dynamics/mycelix/issues/4816
 - Mycelix CIV-IMPACT-001: https://github.com/Luminous-Dynamics/mycelix/issues/5046
