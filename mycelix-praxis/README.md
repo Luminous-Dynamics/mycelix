@@ -46,6 +46,18 @@ Praxis reimagines learning by putting **learners in control** of their data. The
 
 ---
 
+## Create and share lessons
+
+**New to the project? Start with the [Lesson Authoring Guide](authoring/README.md).** Copy the [starter lesson pack](authoring/examples/lesson-pack.json), adapt one learning objective, then run the standalone checker before submitting a draft:
+
+```sh
+cargo run -p praxis-curriculum-audit -- --check-lesson authoring/drafts/my-lesson.json --format=markdown
+```
+
+The [lesson-pack schema](authoring/lesson-pack-v1.schema.json) defines the interoperable format. A clean static check does not replace subject review, rights clearance, accessibility review or learner-outcome evidence.
+
+---
+
 ## Quick Start
 
 Praxis currently expects the surrounding Mycelix workspace layout because the Leptos application consumes shared crates from the workspace `crates/` directory. See [`apps/leptos/SETUP.md`](apps/leptos/SETUP.md) for the full environment.
