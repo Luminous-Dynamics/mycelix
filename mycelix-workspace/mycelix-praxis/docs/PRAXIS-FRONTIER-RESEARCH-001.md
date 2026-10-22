@@ -46,6 +46,8 @@ Sources:
 - https://aclanthology.org/2026.acl-long.1371/
 - https://arxiv.org/abs/2502.18940
 
+Praxis implementation follow-up: [PRAXIS-TUTOR-HISTORY-001 #5455](https://github.com/Luminous-Dynamics/mycelix/issues/5455) defines a synthetic, privacy-minimized first benchmark slice for history-grounded teaching actions.
+
 ### 1.3 AI support can help recovery after errors without guaranteeing broad transfer
 
 An August 2026 NBER working paper reports a randomized field experiment with more than 6,000 middle-school students using an established computer-assisted mathematics platform. Students were assigned to AI versus conventional platform support, mastery versus non-mastery progression, and one of two math topics. AI users attempted fewer questions and progressed more slowly, but were more accurate conditional on attempting and recovered to correct answers in fewer attempts after mistakes. The delayed assessment was mixed: the most encouraging improvement was concentrated on practiced material in the AI-plus-mastery workflow.
