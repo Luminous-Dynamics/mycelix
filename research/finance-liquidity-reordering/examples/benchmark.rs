@@ -1,8 +1,7 @@
 use finance_liquidity_reordering::{
-    bounded_insertion_search, exact_pareto_frontier, exact_permutation_oracle,
-    heuristic_portfolio, input_order, net_position_liquidity_lower_bound,
-    receiver_ready_event_driven, receiver_ready_greedy, simulated_annealing, Payment, Problem,
-    ReorderError, SearchResult,
+    bounded_insertion_search, exact_pareto_frontier, exact_permutation_oracle, heuristic_portfolio,
+    input_order, net_position_liquidity_lower_bound, receiver_ready_event_driven,
+    receiver_ready_greedy, simulated_annealing, Payment, Problem, ReorderError, SearchResult,
 };
 use std::collections::BTreeSet;
 use std::error::Error;
@@ -198,23 +197,35 @@ where
         .aggregate_required_initial_liquidity_minor
         .checked_sub(lower_bound.aggregate_required_initial_liquidity_minor)
         .ok_or_else(|| {
-            std::io::Error::new(std::io::ErrorKind::InvalidData, "aggregate result under lower bound")
+            std::io::Error::new(
+                std::io::ErrorKind::InvalidData,
+                "aggregate result under lower bound",
+            )
         })?;
     let max_participant_lower_bound_gap = result
         .evaluation
         .max_participant_required_initial_liquidity_minor
         .checked_sub(lower_bound.max_participant_required_initial_liquidity_minor)
         .ok_or_else(|| {
-            std::io::Error::new(std::io::ErrorKind::InvalidData, "participant result under lower bound")
+            std::io::Error::new(
+                std::io::ErrorKind::InvalidData,
+                "participant result under lower bound",
+            )
         })?;
     let baseline = input_order(problem)?;
     let aggregate_saving = signed_saving(
-        baseline.evaluation.aggregate_required_initial_liquidity_minor,
+        baseline
+            .evaluation
+            .aggregate_required_initial_liquidity_minor,
         result.evaluation.aggregate_required_initial_liquidity_minor,
     );
     let max_participant_reduction = signed_saving(
-        baseline.evaluation.max_participant_required_initial_liquidity_minor,
-        result.evaluation.max_participant_required_initial_liquidity_minor,
+        baseline
+            .evaluation
+            .max_participant_required_initial_liquidity_minor,
+        result
+            .evaluation
+            .max_participant_required_initial_liquidity_minor,
     );
     let measured = finance_liquidity_reordering::evaluate_order(problem, &result.order)?;
     if measured != result.evaluation {
