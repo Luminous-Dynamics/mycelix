@@ -245,8 +245,7 @@ fn project_profile_fields(
                     profile
                         .bio
                         .clone()
-                        .map(serde_json::Value::String)
-                        .unwrap_or(serde_json::Value::Null),
+                        .map_or(serde_json::Value::Null, serde_json::Value::String),
                 );
             }
             "avatar" => {
