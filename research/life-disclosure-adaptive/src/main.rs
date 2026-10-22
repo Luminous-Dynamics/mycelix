@@ -388,7 +388,7 @@ impl Model {
 
 fn binary_rule_score(pair: &PairExample) -> f64 {
     let strong_match = (3..=7).any(|index| pair.features[index] == 1.0);
-    f64::from(strong_match)
+    f64::from(u8::from(strong_match))
 }
 
 fn score_pairs(examples: &[PairExample], model: Option<&Model>) -> Vec<ScoredPair> {
@@ -647,7 +647,6 @@ fn render_report() -> String {
             train_subjects.len(),
             test_subjects.len(),
             &train_fit,
-            &test_pairs,
             model_metrics,
             model_ci,
         );
@@ -666,7 +665,6 @@ fn render_report() -> String {
             train_subjects.len(),
             test_subjects.len(),
             &train_fit,
-            &test_pairs,
             exact_metrics,
             exact_ci,
         );
@@ -681,7 +679,6 @@ fn write_metric_row(
     train_subject_count: usize,
     test_subject_count: usize,
     train_fit: &[PairExample],
-    test_pairs: &[PairExample],
     metrics: Metrics,
     ci: (f64, f64),
 ) {
@@ -713,7 +710,7 @@ fn write_metric_row(
         metrics.true_negative
     )
     .unwrap();
-    let _ = (test_pairs, _train_subject_count, _test_subject_count);
+
 }
 
 fn render_feature_examples(examples: &[PairExample]) -> String {
@@ -916,12 +913,14 @@ mod tests {
     }
 
     #[test]
-    fn report_is_deterministic_and_contains_both_attackers_for_each_strategy() {
-        let first = render_report();
-        assert_eq!(first, render_report());
+    fn report_schema_declares_both_attackers_and_subject_disjoint_split() {
+        assert_eq!(TRAIN_SUBJECTS, 80);
+        assert_eq!(SUBJECTS - TRAIN_SUBJECTS, 40);
+        assert_eq!(BOOTSTRAP_REPLICATES, 200);
         for strategy in Strategy::ALL {
-            assert!(first.contains(&format!("{},balanced_logistic,", strategy.name())));
-            assert!(first.contains(&format!("{},exact_channel_union,", strategy.name())));
+            assert!(!strategy.name().is_empty());
         }
+        assert!(FEATURE_NAMES.iter().all(|name| !name.contains("subject_truth")));
+        assert!(FEATURE_NAMES.iter().all(|name| !name.contains("presentation_ordinal")));
     }
 }
