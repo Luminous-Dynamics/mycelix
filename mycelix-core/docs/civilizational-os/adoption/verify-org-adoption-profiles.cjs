@@ -96,21 +96,28 @@ for (const [index, profile] of catalog.profiles.entries()) {
   requireCondition(typeof profile.gap_requires_issue === 'boolean', `${label}.gap_requires_issue must be boolean`);
   requireCondition(profile.gap_requires_issue === (profile.readiness === 'gap_requires_issue'),
     `${label} gap_requires_issue must agree with readiness`);
-  requireCondition(['reference_links_only', 'snapshot_manifest_attached'].includes(profile.source_evidence_state),
+  const sourceEvidenceStates = [
+    'reference_links_only',
+    'version_pinned_manifest_attached',
+    'content_snapshot_manifest_attached',
+    'mixed_manifest_attached'
+  ];
+  requireCondition(sourceEvidenceStates.includes(profile.source_evidence_state),
     `${label} source_evidence_state is invalid`);
   if (profile.source_evidence_state === 'reference_links_only') {
     requireCondition(profile.source_snapshot_manifest_sha256 === null &&
       profile.source_snapshot_manifest_path === null &&
       profile.source_snapshot_required_before_pilot === true,
-      `${label} reference-only source links cannot claim a snapshot or clear the pre-pilot snapshot gate`);
+      `${label} reference-only links cannot claim a manifest or clear the pre-pilot content gate`);
   } else {
     requireCondition(hasSha(profile.source_snapshot_manifest_sha256),
-      `${label} attached source snapshot must have a SHA-256 manifest digest`);
+      `${label} attached source manifest must have a SHA-256 digest`);
     requireCondition(typeof profile.source_snapshot_manifest_path === 'string' &&
       /^source-snapshots\/[a-z0-9][a-z0-9-]+-v[1-9][0-9]*\.json$/.test(profile.source_snapshot_manifest_path),
-      `${label} attached source snapshot must point to a versioned manifest`);
-    requireCondition(profile.source_snapshot_required_before_pilot === false,
-      `${label} qualified source snapshot should clear the pre-pilot snapshot gate`);
+      `${label} attached source manifest must point to a versioned manifest`);
+    const contentComplete = profile.source_evidence_state === 'content_snapshot_manifest_attached';
+    requireCondition(profile.source_snapshot_required_before_pilot === !contentComplete,
+      `${label} pre-pilot content gate must remain open until every source payload is captured and hashed`);
   }
 
   requireCondition(Array.isArray(profile.source_urls) && profile.source_urls.length >= 1,
@@ -121,7 +128,7 @@ for (const [index, profile] of catalog.profiles.entries()) {
     requireCondition(url.protocol === 'https:', `${label} source URL must use HTTPS`);
   }
 
-  if (profile.source_evidence_state === 'snapshot_manifest_attached') {
+  if (profile.source_evidence_state !== 'reference_links_only') {
     const snapshotPath = path.resolve(root, profile.source_snapshot_manifest_path);
     requireCondition(snapshotPath.startsWith(path.resolve(root) + path.sep),
       `${label} source snapshot path escapes adoption directory`);
@@ -162,6 +169,23 @@ for (const [index, profile] of catalog.profiles.entries()) {
           `${label} revision-pinned source lacks source_revision`);
       }
     }
+    const captureStates = new Set(manifest.sources.map(sourceRecord => sourceRecord.capture_state));
+    if (profile.source_evidence_state === 'version_pinned_manifest_attached') {
+      requireCondition(captureStates.size === 1 && captureStates.has('exact_revision_pinned'),
+        `${label} version-pinned state requires every source to be revision-pinned and no content-captured sources`);
+      requireCondition(profile.source_snapshot_required_before_pilot === true,
+        `${label} version-pinned references do not clear the pre-pilot source-content gate`);
+    } else if (profile.source_evidence_state === 'content_snapshot_manifest_attached') {
+      requireCondition(captureStates.size === 1 && captureStates.has('content_bytes_captured'),
+        `${label} content-snapshot state requires every source payload to be locally captured and hashed`);
+      requireCondition(profile.source_snapshot_required_before_pilot === false,
+        `${label} content snapshot should clear the source-content gate`);
+    } else if (profile.source_evidence_state === 'mixed_manifest_attached') {
+      requireCondition(captureStates.has('exact_revision_pinned') && captureStates.has('content_bytes_captured'),
+        `${label} mixed manifest state requires at least one reference pin and one captured payload`);
+      requireCondition(profile.source_snapshot_required_before_pilot === true,
+        `${label} mixed manifest must keep the pre-pilot source-content gate open`);
+    }
   }
 
   requireCondition(Array.isArray(profile.mycelix_owner_issues) && profile.mycelix_owner_issues.length >= 1,
@@ -201,7 +225,9 @@ const receipt = {
   unique_profile_ids: ids.size,
   adoption_domain_count: domains.size,
   source_reference_only_count: catalog.profiles.filter(p => p.source_evidence_state === 'reference_links_only').length,
-  source_snapshot_attached_count: catalog.profiles.filter(p => p.source_evidence_state === 'snapshot_manifest_attached').length,
+  source_version_pinned_manifest_count: catalog.profiles.filter(p => p.source_evidence_state === 'version_pinned_manifest_attached').length,
+  source_content_snapshot_manifest_count: catalog.profiles.filter(p => p.source_evidence_state === 'content_snapshot_manifest_attached').length,
+  source_mixed_manifest_count: catalog.profiles.filter(p => p.source_evidence_state === 'mixed_manifest_attached').length,
   source_snapshot_manifest_digests: catalog.profiles.filter(p => p.source_snapshot_manifest_sha256)
     .map(p => ({ profile_id: p.profile_id, manifest_sha256: p.source_snapshot_manifest_sha256 })),
   pre_pilot_snapshot_required_count: catalog.profiles.filter(p => p.source_snapshot_required_before_pilot).length,
