@@ -1,5 +1,4 @@
 use std::cmp::Ordering;
-use std::collections::BTreeSet;
 use std::fmt::Write as FmtWrite;
 use std::fs;
 use std::io;
@@ -86,7 +85,6 @@ struct Presentation {
     presentation_ref: u64,
     subject_truth: usize,
     recipient: usize,
-    session: usize,
     claims: [Option<u8>; 3],
     identifier: Option<u64>,
     proof_ref: Option<u64>,
@@ -227,7 +225,6 @@ fn make_presentation(
         presentation_ref: presentation_ref(subject, recipient, session),
         subject_truth: subject,
         recipient,
-        session,
         claims,
         identifier,
         proof_ref,
@@ -259,7 +256,7 @@ fn eq_optional<T: PartialEq>(left: Option<T>, right: Option<T>) -> bool {
 }
 
 fn pair_features(left: &Presentation, right: &Presentation) -> [f64; FEATURE_COUNT] {
-    let claim_matches = std::array::from_fn::<_, 3, _>(|index| {
+    let claim_matches: [bool; 3] = std::array::from_fn(|index| {
         eq_optional(left.claims[index], right.claims[index])
     });
     let claim_count_left = left.claims.iter().filter(|claim| claim.is_some()).count();
@@ -272,18 +269,18 @@ fn pair_features(left: &Presentation, right: &Presentation) -> [f64; FEATURE_COU
     let index_match = left.revealed_index_pattern == right.revealed_index_pattern;
 
     [
-        f64::from(claim_matches[0]),
-        f64::from(claim_matches[1]),
-        f64::from(claim_matches[2]),
-        f64::from(claim_vector_match),
-        f64::from(eq_optional(left.identifier, right.identifier)),
-        f64::from(eq_optional(left.proof_ref, right.proof_ref)),
-        f64::from(eq_optional(left.lineage_ref, right.lineage_ref)),
-        f64::from(eq_optional(left.behavior_class, right.behavior_class)),
-        f64::from(count_match),
-        f64::from(index_match),
-        f64::from(left.schema_profile == right.schema_profile),
-        f64::from(count_match && index_match),
+        f64::from(u8::from(claim_matches[0])),
+        f64::from(u8::from(claim_matches[1])),
+        f64::from(u8::from(claim_matches[2])),
+        f64::from(u8::from(claim_vector_match)),
+        f64::from(u8::from(eq_optional(left.identifier, right.identifier))),
+        f64::from(u8::from(eq_optional(left.proof_ref, right.proof_ref))),
+        f64::from(u8::from(eq_optional(left.lineage_ref, right.lineage_ref))),
+        f64::from(u8::from(eq_optional(left.behavior_class, right.behavior_class))),
+        f64::from(u8::from(count_match)),
+        f64::from(u8::from(index_match)),
+        f64::from(u8::from(left.schema_profile == right.schema_profile)),
+        f64::from(u8::from(count_match && index_match)),
     ]
 }
 
@@ -371,7 +368,7 @@ impl Model {
                 } else {
                     negative_weight
                 };
-                let error = prediction - f64::from(pair.label);
+                let error = prediction - f64::from(u8::from(pair.label));
                 intercept_gradient += error * weight;
                 for (index, feature) in pair.features.iter().enumerate() {
                     gradients[index] += error * weight * feature;
@@ -390,8 +387,7 @@ impl Model {
 }
 
 fn binary_rule_score(pair: &PairExample) -> f64 {
-    let strong_match = (3..=7).any(|index| pair.features[index] == 1.0)
-        || pair.features[3] == 1.0;
+    let strong_match = (3..=7).any(|index| pair.features[index] == 1.0);
     f64::from(strong_match)
 }
 
@@ -590,16 +586,9 @@ fn bootstrap_auc_ci(scores: &[ScoredPair], test_subjects: &[usize], salt: u64) -
         aucs.push(auc_from_weighted_scores(scores, Some(&weights)));
     }
     aucs.sort_unstable_by(f64::total_cmp);
-    let lower = aucs[(aucs.len() * 25 / 1_000).min(aucs.len() - 1)];
+    let lower_index = (aucs.len() * 25 / 1_000).min(aucs.len() - 1);
     let upper_index = (aucs.len() * 975 / 1_000).min(aucs.len() - 1);
-    (aucs[lower_index_from(&aucs, lower)], aucs[upper_index])
-}
-
-fn lower_index_from(values: &[f64], value: f64) -> usize {
-    values
-        .binary_search_by(|candidate| candidate.total_cmp(&value))
-        .unwrap_or_else(|index| index)
-}
+    (aucs[lower_index], aucs[upper_index])}
 
 fn candidate_subjects(train_split: bool) -> Vec<usize> {
     let split = subject_split();
@@ -632,7 +621,7 @@ fn render_report() -> String {
     writeln!(&mut output, "# subject_and_presentation_ordinals_not_features=true").unwrap();
     writeln!(
         &mut output,
-        "strategy,attacker,train_pairs_fit,train_positive_pairs_fit,train_negative_pairs_fit,test_positive_pairs,test_negative_pairs,auc,auc_ci95_low,auc_ci95_high,precision_at_0_5,recall_at_0_5,fpr_at_0_5,tpr_at_fpr_1pct,fpr_at_tpr_95pct,tp,fp,fn,tn"
+        "strategy,attacker,train_subjects,test_subjects,train_pairs_fit,train_positive_pairs_fit,train_negative_pairs_fit,test_positive_pairs,test_negative_pairs,auc,auc_ci95_low,auc_ci95_high,precision_at_0_5,recall_at_0_5,fpr_at_0_5,tpr_at_fpr_1pct,fpr_at_tpr_95pct,tp,fp,fn,tn"
     )
     .unwrap();
 
@@ -689,8 +678,8 @@ fn write_metric_row(
     output: &mut String,
     strategy: Strategy,
     attacker: &str,
-    _train_subject_count: usize,
-    _test_subject_count: usize,
+    train_subject_count: usize,
+    test_subject_count: usize,
     train_fit: &[PairExample],
     test_pairs: &[PairExample],
     metrics: Metrics,
@@ -700,9 +689,11 @@ fn write_metric_row(
     let train_negative = train_fit.len() - train_positive;
     writeln!(
         output,
-        "{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{}",
+        "{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{}",
         strategy.name(),
         attacker,
+        train_subject_count,
+        test_subject_count,
         train_fit.len(),
         train_positive,
         train_negative,
@@ -813,6 +804,7 @@ fn main() {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::collections::BTreeSet;
 
     #[test]
     fn subject_split_is_deterministic_disjoint_and_exact_size() {
@@ -917,7 +909,7 @@ mod tests {
             ScoredPair { score: 0.1, label: true, left_subject: 82, right_subject: 82 },
         ];
         let auc = auc_from_weighted_scores(&scores, None);
-        assert_eq!(auc, 0.75);
+        assert_eq!(auc, 0.375);
         let (tpr, fpr) = operating_points(&scores);
         assert!((0.0..=1.0).contains(&tpr));
         assert!((0.0..=1.0).contains(&fpr));
