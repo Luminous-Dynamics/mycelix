@@ -181,7 +181,7 @@
   "authoring": {
     "format_version": 1,
     "status": "draft",
-    "license": "CC BY 4.0 (confirm contributor has authority to license every included element)",
-    "author_credit": "Replace with the contributor's preferred public attribution or pseudonym."
+    "license": "UNDECIDED — choose an actual license before publication; do not assume you own rights to third-party materials.",
+    "author_credit": "Example contributor"
   }
 }
