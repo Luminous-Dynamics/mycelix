@@ -183,7 +183,9 @@ pub enum SuccessfulSourceRead<T> {
         records: NonEmptyVec<T>,
         evidence: SourceEvidence,
     },
-    ConfirmedEmpty { evidence: SourceEvidence },
+    ConfirmedEmpty {
+        evidence: SourceEvidence,
+    },
 }
 
 /// One failed component of a multi-part read. The error reason is a code, not
@@ -285,9 +287,7 @@ pub enum SourceObservation<T> {
         evidence: SourceEvidence,
     },
     /// A successful read returned no records at the stated read time.
-    ConfirmedEmpty {
-        evidence: SourceEvidence,
-    },
+    ConfirmedEmpty { evidence: SourceEvidence },
     /// Some components succeeded and some failed. Component outcomes are
     /// preserved rather than flattened into either success or total failure.
     Partial { observation: PartialObservation<T> },
@@ -444,10 +444,8 @@ mod tests {
 
     #[test]
     fn only_prior_live_evidence_can_be_carried_forward_as_stale() {
-        let live = SourceObservation::from_successful_read(
-            vec![4_u8, 5],
-            evidence("profile-service"),
-        );
+        let live =
+            SourceObservation::from_successful_read(vec![4_u8, 5], evidence("profile-service"));
         let stale = live
             .stale_snapshot(Some(1_800_000_000_300), StaleReason::SourceUnavailable)
             .expect("prior live evidence can be retained as stale");
