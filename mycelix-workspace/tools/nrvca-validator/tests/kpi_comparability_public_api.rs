@@ -146,8 +146,28 @@ fn decisions_and_field_receipts_are_symmetric_for_all_frozen_pairs() {
         assert_eq!(forward.measurement.status, reverse.measurement.status, "{}", item["case_id"]);
         assert_eq!(forward.measurement.changed_fields, reverse.measurement.changed_fields, "{}", item["case_id"]);
         assert_eq!(forward.measurement.unknown_fields, reverse.measurement.unknown_fields, "{}", item["case_id"]);
+        assert_eq!(forward.measurement.unsupported_fields, reverse.measurement.unsupported_fields, "{}", item["case_id"]);
         assert_eq!(forward.target_policy.status, reverse.target_policy.status, "{}", item["case_id"]);
         assert_eq!(forward.target_policy.changed_fields, reverse.target_policy.changed_fields, "{}", item["case_id"]);
         assert_eq!(forward.target_policy.unknown_fields, reverse.target_policy.unknown_fields, "{}", item["case_id"]);
+        assert_eq!(forward.target_policy.unsupported_fields, reverse.target_policy.unsupported_fields, "{}", item["case_id"]);
     }
+}
+
+#[test]
+fn new_unversioned_policy_fields_force_abstention() {
+    let root = fixture();
+    let base = case(&root, "exact-same-contract");
+    let mut left = base["left"].clone();
+    let mut right = base["right"].clone();
+    left["target"]["comparison_operator"] = json!("at_least");
+    right["target"]["comparison_operator"] = json!("at_most");
+
+    let result = compare_kpi_contracts(&left, &right);
+    assert_eq!(result.measurement.status, MeasurementStatus::Comparable);
+    assert_eq!(result.target_policy.status, TargetPolicyStatus::Indeterminate);
+    assert_eq!(
+        result.target_policy.unsupported_fields,
+        vec!["comparison_operator".to_owned()]
+    );
 }
