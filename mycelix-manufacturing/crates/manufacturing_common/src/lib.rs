@@ -12,6 +12,9 @@ use serde::{Deserialize, Serialize};
 /// Wood/lumber batch lineage and dry-mass process accounting contracts.
 pub mod wood_products;
 
+/// Field observation provenance for the forestry robotics contract.
+pub mod forest_robotics;
+
 // ============================================================================
 // Work Orders
 // ============================================================================
