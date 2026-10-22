@@ -7,7 +7,7 @@
 use serde_json::{json, Value};
 use sha2::{Digest, Sha256};
 use std::{
-    collections::{BTreeMap, BTreeSet},
+    collections::BTreeMap,
     fs::{self, File, OpenOptions},
     io::{Read, Write},
     path::{Path, PathBuf},
@@ -68,15 +68,18 @@ fn valid_sha256(text: &str) -> bool {
     text.len() == 64 && text.bytes().all(|b| b.is_ascii_hexdigit())
 }
 
-fn sha256_hex(bytes: &[u8]) -> String {
-    let digest = Sha256::digest(bytes);
-    let mut hex = String::with_capacity(64);
-    for byte in digest {
+fn hex_encode(bytes: &[u8]) -> String {
+    let mut hex = String::with_capacity(bytes.len() * 2);
+    for byte in bytes {
         use std::fmt::Write as _;
         // Writing to a String is infallible.
         let _ = write!(&mut hex, "{byte:02x}");
     }
     hex
+}
+
+fn sha256_hex(bytes: &[u8]) -> String {
+    hex_encode(&Sha256::digest(bytes))
 }
 
 fn rights_are_coherent(metadata: &SourceMetadata) -> bool {
@@ -174,7 +177,7 @@ fn hash_source_file(
     if !before.is_file() {
         return Err(format!("source input must be a regular file: {}", resolved.display()));
     }
-    let before_modified = before.modified().ok();
+    let before_modified = before.modified().map_err(|error| format!("cannot read source modification time: {error}"))?;
     let before_size = before.len();
 
     let mut hasher = Sha256::new();
@@ -190,20 +193,13 @@ fn hash_source_file(
     }
 
     let after = file.metadata().map_err(|error| format!("cannot restat source file: {error}"))?;
-    let after_modified = after.modified().ok();
+    let after_modified = after.modified().map_err(|error| format!("cannot reread source modification time: {error}"))?;
     if bytes_hashed != before_size || after.len() != before_size || before_modified != after_modified {
         return Err("source file size or modification time changed during hashing; freeze/copy the file and retry".to_owned());
     }
 
     let digest_bytes = hasher.finalize();
-    let digest = {
-        let mut hex = String::with_capacity(64);
-        for byte in digest_bytes {
-            use std::fmt::Write as _;
-            let _ = write!(&mut hex, "{byte:02x}");
-        }
-        hex
-    };
+    let digest = hex_encode(&digest_bytes);
     if let Some(expected) = expected_sha256 {
         if !digest.eq_ignore_ascii_case(expected) {
             return Err(format!("source SHA-256 mismatch: expected {}, computed {}", expected.to_ascii_lowercase(), digest));
