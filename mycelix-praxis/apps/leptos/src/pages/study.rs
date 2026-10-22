@@ -269,8 +269,17 @@ fn PracticeProblemCard(
         <div class="praxis-problem">
             <div class="praxis-problem-q">{index + 1}". "{question}</div>
             <div class="praxis-problem-meta">{difficulty}" | "{bloom_level}</div>
-            {move || if let Some(options) = choices.clone() {
-                if let Some(is_correct) = scored_result.get() {
+            {move || {
+                // Clone owned lesson text for this reactive render so nested
+                // move closures can own copies without consuming retained
+                // values on a later state update.
+                let answer = answer.clone();
+                let explanation = explanation.clone();
+                let hint_text = hint_text.clone();
+                let choices_for_render = choices.clone();
+
+                if let Some(options) = choices_for_render {
+                    if let Some(is_correct) = scored_result.get() {
                     view! {
                         <div class="praxis-problem-a" style="margin-top: 0.5rem">
                             "Correct answer: "{answer.clone()}
@@ -444,7 +453,8 @@ fn PracticeProblemCard(
                     } else {
                         view! { <span></span> }.into_any()
                     }}
-                }.into_any()
+                    }.into_any()
+                }
             }}
         </div>
     }
