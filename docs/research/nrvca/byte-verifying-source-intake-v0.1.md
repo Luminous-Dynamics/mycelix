@@ -45,7 +45,7 @@ All metadata flags are required; `--rights-status` accepts `open_reuse`, `permis
 - **This computes the digest from bytes actually read**, unlike entering a digest string in JSON.
 - An optional expected digest detects disagreement with an independently obtained fingerprint if one is available.
 - The implementation streams rather than loading an entire PDF or dataset into memory.
-- It rejects a non-regular file, malformed expected digest, invalid RFC 3339 capture timestamp, incoherent rights flags, and a detectable size/modification-time change during hashing.
+- It rejects a non-regular file, malformed expected digest, invalid RFC 3339 capture timestamp in the accepted normal-seconds form (the rare `:60` leap-second notation is rejected), incoherent rights flags, and a detectable size/modification-time change during hashing.
 - Output is created with create-new semantics to avoid silently overwriting an existing receipt.
 - This does not prove publisher authenticity, source origin, license validity, source truth, extraction correctness, or semantic equivalence. File metadata checks reduce common concurrent-modification hazards but do not provide an operating-system snapshot guarantee; hash an immutable captured copy where possible.
 - The canonical local path may disclose a username, mounted volume, or other machine details. **Treat the raw receipt as local/private evidence. Sanitize or remove `acquisition_receipt.resolved_path` before publishing the manifest**, while retaining the unmodified receipt in an appropriately controlled store. Do not commit restricted source content.
