@@ -308,7 +308,9 @@ pub fn export_all() -> String {
     );
 
     let bundle = ExportBundle {
-        version: 1,
+        // Version 2 adds provisional mastery and distinct self-report/activity
+        // fields. Older apps must not silently interpret these as verified mastery.
+        version: 2,
         exported_at,
         progress: load::<ProgressStore>("praxis_progress").map(|mut progress| {
             if progress.migrate_legacy_progress() {
@@ -329,7 +331,7 @@ pub fn import_all(json: &str) -> Result<String, String> {
     let bundle: ExportBundle =
         serde_json::from_str(json).map_err(|e| format!("Invalid format: {}", e))?;
 
-    if bundle.version > 1 {
+    if bundle.version > 2 {
         return Err("This export is from a newer version of Praxis. Please update the app.".into());
     }
 
