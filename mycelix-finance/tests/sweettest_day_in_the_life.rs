@@ -38,15 +38,17 @@
 
 use finance_bridge_integrity::CollateralHealth;
 use finance_wire_types::{
-    ApplyDemurrageInput, AssetType, BalanceInfo, DemurrageResult, FeeTierResponse,
-    FinanceBridgeHealth, GetBalanceInput, RegisterCollateralInput, SapBalanceResponse,
-    UpdateCollateralHealthInput,
+    ApplyDemurrageInput, AssetType, DemurrageResult, FeeTierResponse, FinanceBridgeHealth,
+    RegisterCollateralInput, SapBalanceResponse, UpdateCollateralHealthInput,
 };
 use recognition::{
     ContributionType, InitializeMemberInput, MemberMycelState, RecognitionEvent,
     RecognizeMemberInput,
 };
-use tend::{ExchangeRecord, ExchangeStatus, RecordExchangeInput, ServiceCategory};
+use tend::{
+    BalanceInfo, ExchangeRecord, ExchangeStatus, GetBalanceInput, RecordExchangeInput,
+    ServiceCategory,
+};
 use treasury::{ContributeToCommonsInput, CreateCommonsPoolInput};
 use treasury_integrity::CommonsPool;
 use holochain::sweettest::*;
