@@ -284,7 +284,10 @@ pub fn resolve_placement_state(
         .saturating_sub(known_events.len());
     let held_by_occurred_time = known_events
         .iter()
-        .filter(|event| event.occurred_tick > cutoff.as_of_occurred_tick)
+        .filter(|event| {
+            event.timebase_id == timebase_id
+                && event.occurred_tick > cutoff.as_of_occurred_tick
+        })
         .count();
 
     let mut seen_ids = BTreeSet::new();
@@ -309,10 +312,10 @@ pub fn resolve_placement_state(
             validate_visible_observation(event, timebase_id, &mut violations);
             continue;
         }
-        if event.occurred_tick > cutoff.as_of_occurred_tick {
-            continue;
-        }
 
+        // Validate records known to this consumer even when their occurrence is later than the
+        // requested physical cutoff. Such records are held out of the state claim below, but cannot
+        // hide malformed clocks, missing provenance or duplicate identity.
         validate_visible_observation(event, timebase_id, &mut violations);
         if !event.observation_id.trim().is_empty()
             && !seen_ids.insert(event.observation_id.as_str())
@@ -321,8 +324,11 @@ pub fn resolve_placement_state(
                 &mut violations,
                 ExecutionEvidenceViolationCode::DuplicateObservationId,
                 &event.observation_id,
-                "visible observation identities must be unique",
+                "known observation identities must be unique",
             );
+        }
+        if event.occurred_tick > cutoff.as_of_occurred_tick {
+            continue;
         }
         visible_observation_ids.push(event.observation_id.clone());
 
@@ -510,6 +516,49 @@ mod tests {
             &[observation("scan-7", PhysicalObservationKind::PlacementOccupancyObserved, 7, 7)],
         );
         assert_eq!(result.decision, PlacementStateDecision::Indeterminate);
+    }
+
+    #[test]
+    fn event_known_by_recorded_cutoff_but_after_occurrence_cutoff_is_held_not_used() {
+        let result = resolve_placement_state(
+            "placement-a",
+            "clear-block-a",
+            "yard-clock-v1",
+            cutoff(8, 10),
+            &[observation(
+                "scan-9",
+                PhysicalObservationKind::PlacementOccupancyObserved,
+                9,
+                10,
+            )],
+        );
+        assert_eq!(result.decision, PlacementStateDecision::Indeterminate);
+        assert_eq!(result.held_by_occurred_time, 1);
+        assert!(result.visible_observation_ids.is_empty());
+    }
+
+    #[test]
+    fn malformed_known_future_event_is_not_hidden_by_occurrence_cutoff() {
+        let mut event = observation(
+            "scan-future",
+            PhysicalObservationKind::PlacementOccupancyObserved,
+            9,
+            8,
+        );
+        let result = resolve_placement_state(
+            "placement-a",
+            "clear-block-a",
+            "yard-clock-v1",
+            cutoff(8, 10),
+            &[event.clone()],
+        );
+        event.recorded_tick = 10;
+        event.occurred_tick = 9;
+        let _ = event;
+        assert_eq!(result.decision, PlacementStateDecision::Rejected);
+        assert!(result.violations.iter().any(|v| {
+            v.code == ExecutionEvidenceViolationCode::RecordedBeforeOccurrence
+        }));
     }
 
     #[test]
