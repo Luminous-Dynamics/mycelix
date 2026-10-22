@@ -10,6 +10,7 @@
 //! - Supplementary resource links
 
 use leptos::prelude::*;
+use rand::seq::SliceRandom;
 use praxis_core::{
     GET_MY_PROGRESS_FN, LEARNING_COORDINATOR_ZOME, ProgressSnapshot, ProgressSyncInput,
     ProgressSyncReceipt, SYNC_PROGRESS_FN, curriculum_node_course_id,
@@ -19,7 +20,7 @@ use wasm_bindgen::prelude::*;
 use wasm_bindgen_futures::{JsFuture, spawn_local};
 
 use crate::curriculum::{
-    BktState, ProgressStatus, curriculum_graph, use_progress, use_set_progress,
+    BktState, ProgressStatus, SelfAssessment, curriculum_graph, use_progress, use_set_progress,
 };
 use crate::games;
 use crate::holochain::{ConnectionStatus, use_holochain};
@@ -84,6 +85,246 @@ struct PracticeProblem {
     #[serde(default)]
     distractors: Vec<String>,
 }
+
+fn normalized_choice(text: &str) -> String {
+    text.split_whitespace()
+        .collect::<Vec<_>>()
+        .join(" ")
+        .trim()
+        .trim_end_matches(['.', '!', '?'])
+        .to_lowercase()
+}
+
+fn answer_first_choices(problem: &PracticeProblem) -> Option<Vec<String>> {
+    if problem.distractors.len() != 3 || problem.answer.trim().is_empty() {
+        return None;
+    }
+    let mut choices = problem.distractors.clone();
+    choices.push(problem.answer.clone());
+    let normalized = choices.iter().map(|choice| normalized_choice(choice)).collect::<Vec<_>>();
+    if normalized.iter().any(String::is_empty) || normalized.iter().any(|choice| choice == &normalized_choice(&problem.answer)) && normalized.iter().filter(|choice| **choice == normalized_choice(&problem.answer)).count() != 1 {
+        return None;
+    }
+    if normalized.iter().collect::<std::collections::BTreeSet<_>>().len() != choices.len() {
+        return None;
+    }
+    choices.shuffle(&mut rand::thread_rng());
+    Some(choices)
+}
+
+#[component]
+fn PracticeProblemCard(
+    problem: PracticeProblem,
+    index: usize,
+    node_id: String,
+) -> impl IntoView {
+    let choices = answer_first_choices(&problem);
+    let answer = problem.answer.clone();
+    let question = problem.question.clone();
+    let explanation = problem.explanation.clone();
+    let hints = problem.hints.clone();
+    let difficulty = match problem.difficulty_permille {
+        0..=300 => "Gentle soil",
+        301..=600 => "Steady ground",
+        601..=800 => "Rocky terrain",
+        _ => "Mountain path",
+    };
+    let bloom_level = problem.bloom_level.clone();
+    let (selected_choice, set_selected_choice) = signal(None::<String>);
+    let (scored_result, set_scored_result) = signal(None::<bool>);
+    let (revealed_solution, set_revealed_solution) = signal(false);
+    let (self_assessment, set_self_assessment) = signal(None::<SelfAssessment>);
+    let (show_hint, set_show_hint) = signal(false);
+    let hint_text = hints.first().cloned().unwrap_or_default();
+    let progress = use_set_progress();
+    let scored_node_id = node_id.clone();
+    let reflection_node_id = node_id.clone();
+
+    view! {
+        <div class="praxis-problem">
+            <div class="praxis-problem-q">{index + 1}". "{question}</div>
+            <div class="praxis-problem-meta">{difficulty}" | "{bloom_level}</div>
+            {move || if let Some(options) = choices.clone() {
+                if let Some(is_correct) = scored_result.get() {
+                    view! {
+                        <div class="praxis-problem-a" style="margin-top: 0.5rem">
+                            "Correct answer: "{answer.clone()}
+                        </div>
+                        <div role="status" style="margin-top: 0.5rem; font-size: 0.85rem; color: var(--text-secondary)">
+                            {if is_correct {
+                                "Correct. Your choice was recorded before the answer was revealed."
+                            } else {
+                                "Not correct yet. Review the explanation and try a new problem later."
+                            }}
+                        </div>
+                        <div style="font-size: 0.8rem; color: var(--text-secondary); margin-top: 0.25rem">
+                            {explanation.clone()}
+                        </div>
+                    }.into_any()
+                } else {
+                    view! {
+                        <p style="font-size: 0.8rem; color: var(--text-secondary); margin: 0.5rem 0">
+                            "Choose an answer before seeing the solution."
+                        </p>
+                        <div role="group" aria-label="Answer choices" style="display: flex; flex-direction: column; gap: 0.4rem; margin-top: 0.5rem">
+                            {options.iter().map(|choice| {
+                                let choice_value = choice.clone();
+                                let choice_for_class = choice.clone();
+                                let choice_for_click = choice.clone();
+                                view! {
+                                    <button
+                                        type="button"
+                                        class=move || {
+                                            if selected_choice.get().as_deref() == Some(choice_for_class.as_str()) {
+                                                "praxis-filter-btn active"
+                                            } else {
+                                                "praxis-filter-btn"
+                                            }
+                                        }
+                                        aria-pressed=move || selected_choice.get().as_deref() == Some(choice_value.as_str())
+                                        on:click=move |_| set_selected_choice.set(Some(choice_for_click.clone()))
+                                    >{choice.clone()}</button>
+                                }
+                            }).collect::<Vec<_>>()}
+                        </div>
+                        <div style="margin-top: 0.5rem; display: flex; gap: 0.5rem">
+                            <button
+                                type="button"
+                                class="praxis-filter-btn active"
+                                disabled=move || selected_choice.get().is_none()
+                                on:click={
+                                    let target_node = scored_node_id.clone();
+                                    let correct_answer = answer.clone();
+                                    move |_| {
+                                        if let Some(choice) = selected_choice.get_untracked() {
+                                            let correct = normalized_choice(&choice) == normalized_choice(&correct_answer);
+                                            progress.update(|store| store.record_response(&target_node, correct));
+                                            set_scored_result.set(Some(correct));
+                                        }
+                                    }
+                                }
+                            >"Check answer"</button>
+                            {if !hint_text.is_empty() {
+                                view! {
+                                    <button
+                                        type="button"
+                                        class="praxis-filter-btn"
+                                        on:click=move |_| set_show_hint.set(true)
+                                    >"Hint"</button>
+                                }.into_any()
+                            } else {
+                                view! { <span></span> }.into_any()
+                            }}
+                        </div>
+                        {move || if show_hint.get() {
+                            view! {
+                                <div style="font-size: 0.8rem; color: var(--warning); margin-top: 0.4rem; font-style: italic">
+                                    {hint_text.clone()}
+                                </div>
+                            }.into_any()
+                        } else {
+                            view! { <span></span> }.into_any()
+                        }}
+                    }.into_any()
+                }
+            } else if revealed_solution.get() {
+                view! {
+                    <div class="praxis-problem-a" style="margin-top: 0.5rem">
+                        "Solution: "{answer.clone()}
+                    </div>
+                    <div style="font-size: 0.8rem; color: var(--text-secondary); margin-top: 0.25rem">
+                        {explanation.clone()}
+                    </div>
+                    {move || if let Some(reflection) = self_assessment.get() {
+                        view! {
+                            <div role="status" style="margin-top: 0.5rem; font-size: 0.8rem; color: var(--text-tertiary)">
+                                {match reflection {
+                                    SelfAssessment::FeelsUnderstood => "Reflection saved: you feel you understand this item.",
+                                    SelfAssessment::NeedsMorePractice => "Reflection saved: you want more practice.",
+                                }}
+                                " This is self-report, not a scored response or verified mastery."
+                            </div>
+                        }.into_any()
+                    } else {
+                        view! {
+                            <div style="margin-top: 0.5rem; font-size: 0.8rem; color: var(--text-secondary)">
+                                "This item lacks a usable four-choice set. You can save a reflection, but it will not count as a scored response."
+                            </div>
+                            <div style="display: flex; gap: 0.5rem; margin-top: 0.5rem">
+                                <button
+                                    type="button"
+                                    class="praxis-filter-btn"
+                                    on:click={
+                                        let target_node = reflection_node_id.clone();
+                                        move |_| {
+                                            progress.update(|store| {
+                                                store.record_self_assessment(
+                                                    &target_node,
+                                                    SelfAssessment::FeelsUnderstood
+                                                );
+                                            });
+                                            set_self_assessment.set(Some(SelfAssessment::FeelsUnderstood));
+                                        }
+                                    }
+                                >"I feel I understand"</button>
+                                <button
+                                    type="button"
+                                    class="praxis-filter-btn"
+                                    on:click={
+                                        let target_node = reflection_node_id.clone();
+                                        move |_| {
+                                            progress.update(|store| {
+                                                store.record_self_assessment(
+                                                    &target_node,
+                                                    SelfAssessment::NeedsMorePractice
+                                                );
+                                            });
+                                            set_self_assessment.set(Some(SelfAssessment::NeedsMorePractice));
+                                        }
+                                    }
+                                >"I need more practice"</button>
+                            </div>
+                        }.into_any()
+                    }}
+                }.into_any()
+            } else {
+                view! {
+                    <p style="font-size: 0.8rem; color: var(--text-secondary); margin: 0.5rem 0">
+                        "This item does not have four distinct answer choices. Try it first, then reveal the solution; reflection will be recorded separately from scored practice."
+                    </p>
+                    <div style="margin-top: 0.5rem; display: flex; gap: 0.5rem">
+                        <button
+                            type="button"
+                            class="praxis-filter-btn active"
+                            on:click=move |_| set_revealed_solution.set(true)
+                        >"Reveal solution"</button>
+                        {if !hint_text.is_empty() {
+                            view! {
+                                <button
+                                    type="button"
+                                    class="praxis-filter-btn"
+                                    on:click=move |_| set_show_hint.set(true)
+                                >"Hint"</button>
+                            }.into_any()
+                        } else {
+                            view! { <span></span> }.into_any()
+                        }}
+                    </div>
+                    {move || if show_hint.get() {
+                        view! {
+                            <div style="font-size: 0.8rem; color: var(--warning); margin-top: 0.4rem; font-style: italic">
+                                {hint_text.clone()}
+                            </div>
+                        }.into_any()
+                    } else {
+                        view! { <span></span> }.into_any()
+                    }}
+                }.into_any()
+            }}
+        </div>
+    }
+}
+
 
 #[derive(Clone, Debug, Deserialize)]
 struct VocabTerm {
@@ -386,106 +627,14 @@ pub fn StudyPage(node_id: String) -> impl IntoView {
                                                 }
                                             }
                                         }
-                                        <p style="font-size: 0.8rem; color: var(--text-tertiary); margin-bottom: 1rem">"Try to solve each problem before revealing the answer. Your responses shape the difficulty."</p>
-                                        {problems.iter().enumerate().map(|(i, p)| {
-                                            let question = p.question.clone();
-                                            let answer = p.answer.clone();
-                                            let diff = match p.difficulty_permille {
-                                                0..=300 => "Gentle soil",
-                                                301..=600 => "Steady ground",
-                                                601..=800 => "Rocky terrain",
-                                                _ => "Mountain path",
-                                            };
-                                            let bloom_level = p.bloom_level.clone();
-                                            let explanation = p.explanation.clone();
-                                            let hints = p.hints.clone();
-                                            let (revealed, set_revealed) = signal(false);
-                                            let (show_hint, set_show_hint) = signal(false);
-                                            let (evaluated, set_evaluated) = signal(false);
-                                            let nid_correct = node_id_for_status.clone();
-                                            let nid_wrong = node_id_for_status.clone();
+                                        <p style="font-size: 0.8rem; color: var(--text-tertiary); margin-bottom: 1rem">"Answer choices are scored before feedback appears. Reflection-only items do not update scored mastery."</p>
+                                        {problems.iter().cloned().enumerate().map(|(i, problem)| {
                                             view! {
-                                                <div class="praxis-problem" style="cursor: pointer">
-                                                    <div class="praxis-problem-q">{i + 1}". "{question}</div>
-                                                    <div class="praxis-problem-meta">{diff}" | "{bloom_level}</div>
-                                                    {move || if revealed.get() {
-                                                        view! {
-                                                            <div class="praxis-problem-a" style="margin-top: 0.5rem">
-                                                                "Answer: "{answer.clone()}
-                                                            </div>
-                                                            <div style="font-size: 0.8rem; color: var(--text-secondary); margin-top: 0.25rem">
-                                                                {explanation.clone()}
-                                                            </div>
-                                                            // Self-evaluation — feeds BKT
-                                                            {
-                                                                let nid_c = nid_correct.clone();
-                                                                let nid_w = nid_wrong.clone();
-                                                                move || if !evaluated.get() {
-                                                                    let nc = nid_c.clone();
-                                                                    let nw = nid_w.clone();
-                                                                    view! {
-                                                                        <div style="margin-top: 0.5rem; display: flex; gap: 0.5rem">
-                                                                            <button
-                                                                                class="praxis-filter-btn"
-                                                                                style="font-size: 0.75rem; border-color: var(--mastery-green); color: var(--mastery-green)"
-                                                                                on:click=move |_| {
-                                                                                    set_progress.update(|p| p.record_response(&nc, true));
-                                                                                    set_evaluated.set(true);
-                                                                                }
-                                                                            >"I got this right"</button>
-                                                                            <button
-                                                                                class="praxis-filter-btn"
-                                                                                style="font-size: 0.75rem; opacity: 0.7"
-                                                                                on:click=move |_| {
-                                                                                    set_progress.update(|p| p.record_response(&nw, false));
-                                                                                    set_evaluated.set(true);
-                                                                                }
-                                                                            >"Still learning"</button>
-                                                                        </div>
-                                                                    }.into_any()
-                                                                } else {
-                                                                    view! {
-                                                                        <div style="font-size: 0.75rem; color: var(--text-tertiary); margin-top: 0.5rem; font-style: italic">
-                                                                            "Recorded — your path is adapting"
-                                                                        </div>
-                                                                    }.into_any()
-                                                                }
-                                                            }
-                                                        }.into_any()
-                                                    } else {
-                                                        let hints_available = !hints.is_empty();
-                                                        let hint_text = hints.first().cloned().unwrap_or_default();
-                                                        view! {
-                                                            <div style="margin-top: 0.5rem; display: flex; gap: 0.5rem">
-                                                                <button
-                                                                    class="praxis-filter-btn active"
-                                                                    style="font-size: 0.75rem"
-                                                                    on:click=move |_| set_revealed.set(true)
-                                                                >"Reveal Answer"</button>
-                                                                {if hints_available {
-                                                                    view! {
-                                                                        <button
-                                                                            class="praxis-filter-btn"
-                                                                            style="font-size: 0.75rem"
-                                                                            on:click=move |_| set_show_hint.set(true)
-                                                                        >"Hint"</button>
-                                                                    }.into_any()
-                                                                } else {
-                                                                    view! { <span></span> }.into_any()
-                                                                }}
-                                                            </div>
-                                                            {move || if show_hint.get() {
-                                                                view! {
-                                                                    <div style="font-size: 0.8rem; color: var(--warning); margin-top: 0.25rem; font-style: italic">
-                                                                        {hint_text.clone()}
-                                                                    </div>
-                                                                }.into_any()
-                                                            } else {
-                                                                view! { <span></span> }.into_any()
-                                                            }}
-                                                        }.into_any()
-                                                    }}
-                                                </div>
+                                                <PracticeProblemCard
+                                                    problem=problem
+                                                    index=i
+                                                    node_id=node_id_for_status.clone()
+                                                />
                                             }
                                         }).collect::<Vec<_>>()}
                                     </div>
