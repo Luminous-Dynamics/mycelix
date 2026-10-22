@@ -7,7 +7,7 @@
 use serde_json::{json, Value};
 use sha2::{Digest, Sha256};
 use std::{
-    collections::BTreeMap,
+    collections::{BTreeMap, BTreeSet},
     fs::{self, File, OpenOptions},
     io::{Read, Write},
     path::{Path, PathBuf},
@@ -632,6 +632,7 @@ fn audit_content_store(store_dir: &Path) -> Result<Value, String> {
                 "entries_scanned": 0,
                 "objects_verified": 0,
                 "objects_failed": 0,
+                "bytes_verified": 0,
                 "diagnostics": []
             }));
         }
@@ -644,6 +645,7 @@ fn audit_content_store(store_dir: &Path) -> Result<Value, String> {
             "entries_scanned": 0,
             "objects_verified": 0,
             "objects_failed": 0,
+            "bytes_verified": 0,
             "diagnostics": [{
                 "path": "objects",
                 "code": "STORE-OBJECTS-DIR",
@@ -685,6 +687,7 @@ fn audit_content_store(store_dir: &Path) -> Result<Value, String> {
     let mut diagnostics = Vec::new();
     let mut entries_scanned = 0usize;
     let mut objects_verified = 0usize;
+    let mut bytes_verified = 0u64;
     let mut objects_failed = BTreeSet::new();
     let mut shards = fs::read_dir(&object_root)
         .map_err(|error| format!("cannot list object root: {error}"))?
@@ -757,7 +760,8 @@ fn audit_content_store(store_dir: &Path) -> Result<Value, String> {
                         audit_failure(&mut diagnostics, &relative, "STORE-OBJECT-PERMISSIONS", error);
                         continue;
                     }
-                    let _ = byte_count;
+                    bytes_verified = bytes_verified.checked_add(byte_count)
+                        .ok_or_else(|| "verified byte counter overflow".to_owned())?;
                     objects_verified += 1;
                 }
                 Err(error) => {
@@ -785,6 +789,7 @@ fn audit_content_store(store_dir: &Path) -> Result<Value, String> {
         "entries_scanned": entries_scanned,
         "objects_verified": objects_verified,
         "objects_failed": objects_failed.len(),
+        "bytes_verified": bytes_verified,
         "diagnostics": diagnostics
     }))
 }
