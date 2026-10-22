@@ -225,7 +225,7 @@ This sequence deliberately builds on the current authoring/audit/benchmark PR fa
 
 **Acceptance:** each metric is either mapped to one canonical implementation or marked explicitly as proposed; no duplicate evaluator or contradictory target is silently introduced.
 
-### Work item 2 — author-to-export contract test
+### Work item 2 — author-to-export contract test ([implementation issue #5450](https://github.com/Luminous-Dynamics/mycelix/issues/5450))
 
 On the existing creator workflow, freeze one small, rights-cleared example set containing:
 - one explanatory lesson with a worked example and practice items;
