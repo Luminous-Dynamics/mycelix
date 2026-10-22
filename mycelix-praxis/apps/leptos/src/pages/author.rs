@@ -732,7 +732,8 @@ pub fn LessonAuthorPage() -> impl IntoView {
                                 }
                             });
                             reader.set_onloadend(Some(onload.as_ref().unchecked_ref()));
-                            if reader.read_as_text(&file).is_err() {
+                            let blob: &web_sys::Blob = file.unchecked_ref();
+                            if reader.read_as_text(blob).is_err() {
                                 set_notice.set("Could not start reading the selected file.".into());
                                 return;
                             }
