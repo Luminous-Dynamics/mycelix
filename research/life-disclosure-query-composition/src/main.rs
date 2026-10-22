@@ -125,8 +125,8 @@ fn choose_query(
     let mut best_feature = None;
     let mut best_minority_count = 0;
 
-    for feature in 0..FEATURE_COUNT {
-        if asked[feature] {
+    for (feature, already_asked) in asked.iter().enumerate() {
+        if *already_asked {
             continue;
         }
 
@@ -150,13 +150,13 @@ fn adaptive_cohorts(people: &[Person]) -> Vec<Vec<Vec<usize>>> {
     let mut by_depth =
         vec![Vec::<Vec<usize>>::with_capacity(people.len()); MAX_ADAPTIVE_QUERIES + 1];
 
-    for target_id in 0..people.len() {
-        let target_features = people[target_id].features();
+    for (target_id, target) in people.iter().enumerate() {
+        let target_features = target.features();
         let mut candidates = initial_cohort(people, target_id, BaseDisclosure::TaskResult);
         let mut asked = [false; FEATURE_COUNT];
 
-        for depth in 0..=MAX_ADAPTIVE_QUERIES {
-            by_depth[depth].push(candidates.clone());
+        for (depth, depth_cohorts) in by_depth.iter_mut().enumerate() {
+            depth_cohorts.push(candidates.clone());
 
             if depth == MAX_ADAPTIVE_QUERIES || candidates.len() <= 1 {
                 continue;
@@ -263,14 +263,20 @@ fn summarize(people: &[Person], cohorts: &[Vec<usize>], disclosure: BaseDisclosu
 
 fn report() -> String {
     let people = synthetic_population();
-    let task_result = (0..people.len())
-        .map(|target_id| initial_cohort(&people, target_id, BaseDisclosure::TaskResult))
+    let task_result = people
+        .iter()
+        .enumerate()
+        .map(|(target_id, _)| initial_cohort(&people, target_id, BaseDisclosure::TaskResult))
         .collect::<Vec<_>>();
-    let task_inputs = (0..people.len())
-        .map(|target_id| initial_cohort(&people, target_id, BaseDisclosure::TaskInputs))
+    let task_inputs = people
+        .iter()
+        .enumerate()
+        .map(|(target_id, _)| initial_cohort(&people, target_id, BaseDisclosure::TaskInputs))
         .collect::<Vec<_>>();
-    let full_attributes = (0..people.len())
-        .map(|target_id| initial_cohort(&people, target_id, BaseDisclosure::FullAttributes))
+    let full_attributes = people
+        .iter()
+        .enumerate()
+        .map(|(target_id, _)| initial_cohort(&people, target_id, BaseDisclosure::FullAttributes))
         .collect::<Vec<_>>();
     let adaptive = adaptive_cohorts(&people);
 
@@ -361,11 +367,12 @@ mod tests {
         let people = synthetic_population();
         let cohorts = adaptive_cohorts(&people);
 
-        for depth in 1..cohorts.len() {
-            for target_id in 0..people.len() {
+        for (depth, (previous, current)) in cohorts.iter().zip(cohorts.iter().skip(1)).enumerate() {
+            for (target_id, current_cohort) in current.iter().enumerate() {
                 assert!(
-                    cohorts[depth][target_id].len() <= cohorts[depth - 1][target_id].len(),
-                    "target {target_id} gained candidates at query depth {depth}"
+                    current_cohort.len() <= previous[target_id].len(),
+                    "target {target_id} gained candidates at query depth {}",
+                    depth + 1
                 );
             }
         }
@@ -375,7 +382,7 @@ mod tests {
     fn full_attribute_cohort_is_subset_of_task_result_cohort() {
         let people = synthetic_population();
 
-        for target_id in 0..people.len() {
+        for (target_id, _) in people.iter().enumerate() {
             let result_cohort = initial_cohort(&people, target_id, BaseDisclosure::TaskResult);
             let full_cohort =
                 initial_cohort(&people, target_id, BaseDisclosure::FullAttributes);
