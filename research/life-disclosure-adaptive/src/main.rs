@@ -997,12 +997,23 @@ mod tests {
     }
 
     #[test]
-    fn report_schema_declares_both_attackers_and_subject_disjoint_split() {
+    fn report_is_deterministic_and_contains_all_three_attackers() {
+        let report = render_report();
+        assert_eq!(report, render_report());
         assert_eq!(TRAIN_SUBJECTS, 80);
         assert_eq!(SUBJECTS - TRAIN_SUBJECTS, 40);
         assert_eq!(BOOTSTRAP_REPLICATES, 200);
+
+        let rows: Vec<&str> = report
+            .lines()
+            .filter(|line| !line.starts_with('#'))
+            .collect();
+        assert_eq!(rows.len(), 1 + Strategy::ALL.len() * 3);
+        assert!(rows[0].starts_with("strategy,attacker,train_subjects,test_subjects,"));
         for strategy in Strategy::ALL {
-            assert!(!strategy.name().is_empty());
+            assert!(report.contains(&format!("{},balanced_logistic,", strategy.name())));
+            assert!(report.contains(&format!("{},exact_channel_union,", strategy.name())));
+            assert!(report.contains(&format!("{},seeded_random_control,", strategy.name())));
         }
         assert!(FEATURE_NAMES.iter().all(|name| !name.contains("subject_truth")));
         assert!(FEATURE_NAMES.iter().all(|name| !name.contains("presentation_ordinal")));
