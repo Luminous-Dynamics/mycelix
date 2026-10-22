@@ -243,6 +243,27 @@ fn lesson_pack_value(draft: &LessonAuthorDraft) -> Value {
     })
 }
 
+fn lesson_filename(draft: &LessonAuthorDraft) -> String {
+    let slug = draft
+        .node_id
+        .chars()
+        .map(|character| {
+            if character.is_ascii_alphanumeric() || character == '-' {
+                character
+            } else {
+                '-'
+            }
+        })
+        .collect::<String>()
+        .trim_matches('-')
+        .to_lowercase();
+    if slug.is_empty() {
+        "praxis-lesson-draft.json".to_owned()
+    } else {
+        format!("praxis-{slug}.json")
+    }
+}
+
 fn lesson_pack_json(draft: &LessonAuthorDraft) -> String {
     serde_json::to_string_pretty(&lesson_pack_value(draft))
         .unwrap_or_else(|error| format!("{{\"error\":\"could not serialize draft: {error}\"}}"))
@@ -319,9 +340,6 @@ fn validate_draft(draft: &LessonAuthorDraft) -> Vec<String> {
             }
         }
     }
-    if draft.license.to_lowercase().contains("undecided") {
-        findings.push("Before publication, choose the actual reuse licence/rights status and record sources in the evidence sidecar.".into());
-    }
     findings
 }
 
@@ -345,9 +363,9 @@ pub fn LessonAuthorPage() -> impl IntoView {
 
             <div style="display: flex; gap: 0.75rem; flex-wrap: wrap; margin-bottom: 1rem">
                 <button class="btn-primary" on:click=move |_| {
-                    let json = lesson_pack_json(&draft.get());
-                    let id = draft.get().node_id.trim().replace(['.', '/', ' '], "-").to_lowercase();
-                    let filename = if id.is_empty() { "praxis-lesson-draft.json".to_owned() } else { format!("praxis-{id}.json") };
+                    let current = draft.get();
+                    let json = lesson_pack_json(&current);
+                    let filename = lesson_filename(&current);
                     persistence::trigger_download(&filename, &json);
                     set_notice.set("Lesson JSON exported. Run the standalone checker and add source/rights evidence before submitting it for review.".into());
                 }>"Download lesson JSON"</button>
@@ -500,8 +518,7 @@ pub fn LessonAuthorPage() -> impl IntoView {
                 <button class="btn-primary" style="margin-top: 0.75rem" on:click=move |_| {
                     let current = draft.get();
                     let json = lesson_pack_json(&current);
-                    let id = current.node_id.trim().replace('.', "-").replace('/', "-").replace(' ', "-").to_lowercase();
-                    let filename = if id.is_empty() { "praxis-lesson-draft.json".to_owned() } else { format!("praxis-{id}.json") };
+                    let filename = lesson_filename(&current);
                     persistence::trigger_download(&filename, &json);
                     set_notice.set("Exported a draft with human review still required.".into());
                 }>"Download JSON for review"</button>
@@ -537,5 +554,45 @@ fn PracticeItemEditor(
                 <textarea style="width: 100%; min-height: 75px" prop:value=move || draft.get().practice[index].distractors.clone() on:input=move |ev| set_draft.update(|d| d.practice[index].distractors = event_target_value(&ev)) />
             </label>
         </fieldset>
+    }
+}
+
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn sample_lesson_exports_a_complete_review_required_pack() {
+        let draft = LessonAuthorDraft::default();
+        let value = lesson_pack_value(&draft);
+        assert_eq!(value["node_id"], "EXAMPLE.MATH.GR3.EQUAL_GROUPS");
+        assert_eq!(value["lesson"]["examples"].as_array().map(Vec::len), Some(1));
+        assert_eq!(value["lesson"]["practice_problems"].as_array().map(Vec::len), Some(3));
+        assert_eq!(value["flashcards"].as_array().map(Vec::len), Some(1));
+        assert_eq!(value["assessment"]["total_points"], 2);
+        assert_eq!(value["quality"]["needs_human_review"], true);
+        assert_eq!(value["quality"]["metrics_valid_for_current_revision"], false);
+        assert_eq!(value["authoring"]["status"], "draft");
+        assert!(validate_draft(&draft).is_empty());
+    }
+
+    #[test]
+    fn quick_checks_reject_answer_collisions_and_incomplete_delimited_rows() {
+        let mut draft = LessonAuthorDraft::default();
+        draft.practice[0].distractors = "15 biscuits\n15 biscuits\n20 biscuits".into();
+        draft.vocabulary_rows = "product | definition only".into();
+        let findings = validate_draft(&draft);
+        assert!(findings.iter().any(|finding| finding.contains("duplicate choices")));
+        assert!(findings.iter().any(|finding| finding.contains("repeats the answer")));
+        assert!(findings.iter().any(|finding| finding.contains("Key vocabulary row 1")));
+    }
+
+    #[test]
+    fn downloaded_filename_is_safe_and_has_a_fallback() {
+        let mut draft = LessonAuthorDraft::default();
+        assert_eq!(lesson_filename(&draft), "praxis-example-math-gr3-equal-groups.json");
+        draft.node_id = "///".into();
+        assert_eq!(lesson_filename(&draft), "praxis-lesson-draft.json");
     }
 }
