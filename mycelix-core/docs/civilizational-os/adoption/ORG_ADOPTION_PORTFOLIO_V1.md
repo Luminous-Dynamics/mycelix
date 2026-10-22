@@ -132,6 +132,27 @@ The companion `benchmark-org-adoption-pilot-bundle.cjs` generates fixtures up to
 
 JSON Schema validation is a separate lane; the zero-dependency evaluator does not pretend to be a general Draft 2020-12 implementation. The example is a contract witness only. It does not execute either named implementation, run a vendor integration, or prove the scenario happened in the physical world.
 
+## Common Planet / Creditism semantic-boundary corpus
+
+The Common Planet P0 profile now points to a versioned, synthetic semantic-boundary corpus built from existing Mycelix owner contracts—not a new currency or finance kernel:
+
+- [21-case known-answer corpus](./common-planet-creditism-semantic-boundary-v1.json)
+- [Corpus schema](./common-planet-creditism-semantic-boundary-v1.schema.json)
+- [Reference evaluator and mutation suite](./verify-common-planet-creditism-semantic-boundary.cjs)
+
+The corpus composes [#4572](https://github.com/Luminous-Dynamics/mycelix/issues/4572) instrument/accounting semantics, [#4573](https://github.com/Luminous-Dynamics/mycelix/issues/4573) evidence-bound contribution verification and appeal, [#4771](https://github.com/Luminous-Dynamics/mycelix/issues/4771) capacity/commons boundaries, [#5366](https://github.com/Luminous-Dynamics/mycelix/issues/5366) the Integral water-loop comparison, and Symthaea [#7031](https://github.com/Luminous-Dynamics/symthaea/issues/7031) Creditism mechanism semantics.
+
+It covers Personal Credit baseline issuance and deletion; prohibited transfer/lending/collateral/interest/investment/inheritance; contribution evidence, duplicate prevention and appeal; Community Credit capacity and authorization; outcome Bonus double-counting; separate buyer deletion/seller re-credit events; unknown SNA mappings; privacy-preserving proof; and housing as a real-capacity decision rather than a balance threshold.
+
+### Local reference-mirror result
+
+- **21/21** named known-answer cases matched the reference evaluator.
+- **11/11** input mutation transitions produced their required fail-closed state (reject, indeterminate, or pending appeal).
+- Two meta-controls separately detected a tampered expected answer and removal of a required semantic-separation invariant.
+- The corpus schema declares Draft 2020-12. Structural fields and the declared operation set were checked in the local mirror; this is not represented as execution of an external schema engine or the exact remote CJS verifier.
+
+This is a **synthetic semantic contract**, not a production ledger, a complete measurement of human contribution, or evidence that the real-world Creditism model is fair or economically superior. A `ProfileMapped` result says only that a declared synthetic operation satisfies this profile's local boundary. It does not prove that a work claim is true, that a result was caused, or that any resource was physically delivered.
+
 ## Version-pinned GS1 semantic-loss fixture
 
 The GS1 profile now has a minimal, effects-free event mapping fixture:
