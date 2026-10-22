@@ -295,9 +295,36 @@ pub fn resolve_placement_state(
     let mut occupancy_witness_count = 0usize;
 
     for event in known_events {
+        // A known event on another clock cannot be compared with this cutoff, even to decide
+        // whether its occurrence is in the future. Ignore unrelated events; reject related ones.
+        let targets_placement =
+            event.placement_reservation_id.as_deref() == Some(placement_reservation_id);
+        let targets_operation = event.operation_id == bound_clearance_operation_id;
+        if !targets_placement && !targets_operation {
+            continue;
+        }
+        if event.timebase_id.trim().is_empty() {
+            push(
+                &mut violations,
+                ExecutionEvidenceViolationCode::EmptyTimebaseId,
+                &event.observation_id,
+                "timebase identity is required",
+            );
+            continue;
+        }
+        if event.timebase_id != timebase_id {
+            push(
+                &mut violations,
+                ExecutionEvidenceViolationCode::TimebaseMismatch,
+                &event.observation_id,
+                "event and decision cutoff must use the same normalized timebase",
+            );
+            continue;
+        }
         if event.occurred_tick > cutoff.as_of_occurred_tick {
             continue;
         }
+
         validate_visible_observation(event, timebase_id, &mut violations);
         if !event.observation_id.trim().is_empty()
             && !seen_ids.insert(event.observation_id.as_str())
@@ -311,22 +338,25 @@ pub fn resolve_placement_state(
         }
         visible_observation_ids.push(event.observation_id.clone());
 
-        let Some(target_placement) = event.placement_reservation_id.as_deref() else {
-            // Generic lifecycle events are intentionally not physical-placement claims.
-            continue;
-        };
-        if target_placement != placement_reservation_id {
-            continue;
-        }
-        if event.kind == PhysicalObservationKind::PlacementClearanceConfirmed
+        let target_placement = event.placement_reservation_id.as_deref();
+        if target_placement == Some(placement_reservation_id)
+            && matches!(
+                event.kind,
+                PhysicalObservationKind::PlacementClearanceConfirmed
+                    | PhysicalObservationKind::PlacementOccupancyObserved
+            )
             && event.operation_id != bound_clearance_operation_id
         {
             push(
                 &mut violations,
                 ExecutionEvidenceViolationCode::BindingOperationMismatch,
                 &event.observation_id,
-                "clearance evidence does not match the explicitly bound operation",
+                "physical placement evidence does not match the explicitly bound operation",
             );
+            continue;
+        }
+        if target_placement != Some(placement_reservation_id) {
+            // A generic event for the bound operation is preserved, but cannot prove placement state.
             continue;
         }
         if !event.mapping_losses.is_empty() {
@@ -455,6 +485,28 @@ mod tests {
         );
         assert_eq!(result.decision, PlacementStateDecision::OccupiedAtDecision);
         assert_eq!(result.visible_observation_ids, vec!["scan-8"]);
+    }
+
+    #[test]
+    fn placement_observation_bound_to_another_operation_is_rejected() {
+        let mut event = observation(
+            "scan-8",
+            PhysicalObservationKind::PlacementOccupancyObserved,
+            8,
+            8,
+        );
+        event.operation_id = "unrelated-operation".to_owned();
+        let result = resolve_placement_state(
+            "placement-a",
+            "clear-block-a",
+            "yard-clock-v1",
+            cutoff(8, 8),
+            &[event],
+        );
+        assert_eq!(result.decision, PlacementStateDecision::Rejected);
+        assert!(result.violations.iter().any(|v| {
+            v.code == ExecutionEvidenceViolationCode::BindingOperationMismatch
+        }));
     }
 
     #[test]
