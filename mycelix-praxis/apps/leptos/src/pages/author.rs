@@ -885,6 +885,16 @@ pub fn LessonAuthorPage() -> impl IntoView {
                     set_notice.set("Restored the sample lesson in this browser.".into());
                 }>"Reset to example"</button>
             </div>
+            <p role="status" aria-live="polite" style="padding: 0.75rem; border: 1px solid var(--border); border-radius: 8px; color: var(--text-secondary); margin-bottom: 0.5rem">
+                {move || {
+                    let findings = validate_draft(&draft.get());
+                    if findings.is_empty() {
+                        "Live quick check: no obvious structural blockers. Content accuracy, rights, accessibility and educator review still matter.".to_owned()
+                    } else {
+                        format!("Live quick check: {} item(s) to complete or review. Select “Check my draft” for the detailed checklist.", findings.len())
+                    }
+                }}
+            </p>
             <p role="status" aria-live="polite" style="padding: 0.75rem; border: 1px solid var(--border); border-radius: 8px; color: var(--text-secondary); margin-bottom: 1rem">{move || notice.get()}</p>
 
             <section style="padding: 1rem; border: 1px solid var(--border); border-radius: 12px; margin-bottom: 1rem">
@@ -1209,6 +1219,43 @@ mod tests {
             "missing items must be blank, not copied from the sample lesson"
         );
         assert_eq!(draft.practice[2].question, "");
+    }
+
+    #[test]
+    fn blank_starter_contains_no_sample_lesson_text() {
+        let draft = blank_lesson_draft();
+        assert!(draft.node_id.is_empty());
+        assert!(draft.title.is_empty());
+        assert!(draft.learning_objective.is_empty());
+        assert!(draft.explanation.is_empty());
+        assert!(draft.practice.iter().all(|item| item.question.is_empty()));
+        assert!(draft.source_pack.is_none());
+        assert!(draft.license.contains("UNDECIDED"));
+        let findings = validate_draft(&draft);
+        assert!(findings.iter().any(|finding| finding.contains("Lesson title is required")));
+        assert!(findings.iter().any(|finding| finding.contains("Practice item 1 needs a question")));
+    }
+
+    #[test]
+    fn hands_on_activity_template_has_concrete_investigation_steps_and_valid_practice() {
+        let draft = hands_on_activity_draft();
+        assert_eq!(draft.node_id, "COMMUNITY.STEM.PAPER_BRIDGE");
+        assert!(draft.learning_objective.contains("test it with equal loads"));
+        assert!(draft.example_step_one_result.contains("same paper"));
+        assert!(draft.example_step_two_result.contains("record"));
+        assert_eq!(draft.practice.len(), 3);
+        assert!(draft.practice.iter().all(|item| {
+            !item.question.is_empty()
+                && !item.answer.is_empty()
+                && item.distractors.lines().filter(|line| !line.trim().is_empty()).count() == 3
+        }));
+        let findings = validate_draft(&draft);
+        assert_eq!(
+            findings.len(),
+            1,
+            "template should pass structural checks but keep the unresolved licence visible: {findings:?}"
+        );
+        assert!(findings[0].contains("choose the actual reuse licence"));
     }
 
     #[test]
