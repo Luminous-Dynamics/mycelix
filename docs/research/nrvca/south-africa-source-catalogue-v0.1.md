@@ -1,10 +1,18 @@
 # South Africa NRVCA Source Catalogue v0.1
 
-**As-of date:** 2026-10-21  
+**As-of date:** 2026-10-22  
 **Status:** discovery catalogue; no source bytes ingested or licensed for production use yet.  
 **Purpose:** choose a small, evidence-bounded pilot and specify what must be recorded before a source can feed a report.
 
 This is a register of candidates identified through publisher pages. It is **not** a claim that every listed dataset is current, openly licensed, downloadable in machine-readable form, complete, or suitable for national estimation. A publication page being accessible does not settle dataset licensing. Before ingest, pin the exact downloaded bytes, publisher revision/vintage, extraction code, schema, units, geographic/time scope, and terms of use.
+
+## National accounts rebasing watch — do this before data ingest
+
+Stats SA's Q2 2026 GDP release states that national accounts are being rebased to a 2022 base year and benchmarked using additional periodic datasets, with rebased/benchmarked estimates expected in October 2026. The release summary reports real production-measured GDP fell 0.2% quarter-on-quarter in Q2 2026 after a 0.4% increase in Q1. See the [official Q2 2026 release](https://www.statssa.gov.za/publications/P0441/P04412ndQuarter2026.pdf) and [publisher publication page](https://www.statssa.gov.za/?PPN=P0441&page_id=1854).
+
+As of 22 October 2026, the source file bytes and current status of any rebased replacement have **not** been pinned in this research environment. The browser search can read the official release summary but cannot ingest the linked XLSX directly; this is not a successful workbook download or a file digest. Treat release status as requiring direct confirmation from Stats SA before selecting a baseline.
+
+**Do not overwrite or blend vintages.** Preserve the pre-rebase workbook and any post-rebase version as distinct content-addressed source records. For overlapping quarters, build an explicit bridge for revisions to historical values, price/reference-year basis, benchmark data, sector classifications, and methods. Only then decide which vintages are admissible for a historical replay or nowcast, and only compare metrics at compatible price basis and series definition.
 
 ## Recommended first vertical slice
 
@@ -22,7 +30,7 @@ This sequence can establish a small historical crosswalk without pretending that
 
 | ID | Publisher/source | Known scope | Status and permitted initial use | Main caveat |
 |---|---|---|---|---|
-| SA-GDP-P0441-Q2-2026 | [Stats SA P0441, GDP Q2 2026](https://www.statssa.gov.za/?PPN=P0441&page_id=1854) | National quarterly GDP; release page dated 8 Sep 2026; offers the publication and GDP time-series download | **Official statistical baseline.** Reconstruct a few published aggregates, preserve the release vintage and price basis | GDP is a revised monetary production flow; don't mix nominal/real values, quarterly/annual values, or subsequent revisions |
+| SA-GDP-P0441-Q2-2026 | [Stats SA P0441, GDP Q2 2026](https://www.statssa.gov.za/?PPN=P0441&page_id=1854) | National quarterly GDP; release page dated 8 Sep 2026; offers the publication and GDP time-series download | **Official statistical baseline.** Reconstruct a few published aggregates, preserve the release vintage and price basis | GDP is a revised monetary production flow; don't mix nominal/real values, quarterly/annual values, pre-/post-rebase series, or subsequent revisions |
 | SA-PEFA-2022 | [Stats SA D0401.7, Physical Energy Flow Accounts for 2022](https://www.statssa.gov.za/?PPN=D0401.7&SCH=74271&page_id=1856) | Physical energy flows; extends South African PEFA history to reference year 2022, following 2015–2021 | **Experimental statistics.** Compare physical energy input/use flows to the monetary production baseline at explicitly aligned years and sector definitions | Stats SA describes this as a discussion document with experimental accounts, not official statistics. It is not an energy reliability, affordability, or welfare measure |
 | SA-WATER-CATCHMENT-2015-2021 | [Stats SA D0401.4, Sub-national Water Resource Accounts](https://www.statssa.gov.za/?PPN=D0401.4&page_id=1854) | Six hydrological years 2015/16–2020/21; Breede, uMngeni and Mooi catchments in two Water Management Areas; hydrological years run October–September | **Experimental/sub-national accounts.** Establish time and unit alignment, reproduce selected source tables, then relate water accounts to spatial and service context | Not national coverage; catchments were selected for water supply relevance to major cities. These are resource accounts, not a complete measure of municipal delivery, quality, access, or value |
 | SA-NCA-ECOSYSTEM-INVENTORY | [Stats SA ecosystem accounting catalogue](https://www.statssa.gov.za/?page_id=14717) | Inventory identifies land and terrestrial ecosystem accounts 1990–2014; protected areas 1900–2020; strategic water source areas 1990–2020; sub-national water accounts 2015–2021; experimental biodiversity-based tourism estimates 2013–2019 | **Discovery / experimental account index.** Use to plan later joins and avoid re-creating published accounts | Inventory is not a single homogeneous dataset; definitions, granularity, periods, account status and file formats differ by publication |
@@ -32,6 +40,10 @@ This sequence can establish a small historical crosswalk without pretending that
 | SA-DWS-NO-DROP-2021-22 | [DWS National State of Water Report 2023, water security section](https://www.dws.gov.za/Projects/National%20State%20of%20Water%20Report/Documents/National%20State%20of%20Water%20Report%202023-%20Water%20Security%208.pdf) | Describes national water-loss benchmarking using 2021/22 data and No Drop Watch 2023; the cited report says 88 datasets (61%) were received from water services authorities and documents high/medium/low confidence categories | **Coverage/quality context.** Use the confidence taxonomy to design missingness and evidence-status rules; later obtain underlying data if permissible | The report is not a full 2026 service observation. It notes that non-submitting WSAs may have water balances calculated, extrapolated or estimated; those values must retain a modelled/estimated status rather than be mislabeled as observed. Submitted-data coverage and confidence vary; nonresponse is not zero consumption or zero water loss |
 
 Source-level statuses above reflect the linked publisher materials, not a fresh data-file audit. The JSON companion records license_status unknown and ingest_state discovery_only until the source's exact terms and bytes have been reviewed.
+
+## Vintage handling as a hard gate
+
+The machine-readable source catalogue now carries a `vintage_break_watch` for the announced 2022-base national-accounts rebasing. The watch does not claim the new series is or is not already released; its verification state is explicitly `release_status_requires_current_publisher_confirmation_before_ingest`. A vintage-dependent benchmark remains blocked until the publisher's current state, exact artifacts, rights decision and byte digests are resolved. Historical results must preserve the original pre-rebase series rather than silently overwrite values after rebasing.
 
 ## First crosswalk: monetary output × physical capability
 
