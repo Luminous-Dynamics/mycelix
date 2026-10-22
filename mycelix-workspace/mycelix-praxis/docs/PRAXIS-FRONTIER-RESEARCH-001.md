@@ -21,11 +21,13 @@ The existing Mycelix Praxis proposals already cover community authoring, curricu
 
 ### 1.1 Authoring UX is a live competitive area
 
-H5P's 21 August 2026 product roadmap prioritizes faster creation from existing materials, in-editor editing assistance, a clearer draft-to-publish journey, accessibility and consistency, reuse, aggregated usage/difficulty views, exports, and smoother LMS integration. H5P describes several of these as work in progress or exploration, not delivered commitments.
+H5P's 21 August 2026 product roadmap prioritizes faster creation from existing materials, in-editor editing assistance, a clearer draft-to-publish journey, accessibility and consistency, reuse, aggregated usage/difficulty views, exports, and smoother LMS integration. H5P describes several of these as work in progress or exploration, not delivered commitments. The comparison must also reflect shipped capabilities: H5P's 26 August 2026 release announced **Smart Import**, a two-step workflow that turns supplied source material into chosen H5P activities, available on Premium and Enterprise plans.
 
-**Implication:** "AI makes a lesson draft" is not a defensible differentiator by itself. Praxis must demonstrate a lower total cost from rough idea to reviewed, rights-clear, accessible, portable learning object. It should also make provenance, contribution history, curriculum relationships, and outcome evidence first-class rather than relying on usage analytics alone.
+**Implication:** "AI makes a lesson draft" is not a defensible differentiator by itself. CreatorBench must compare against current Smart Import where available—not a straw-man blank form—and record plan restrictions, supported content types, manual cleanup, rights handling, accessibility, export, and actual time to a valid activity. Praxis must demonstrate a lower total cost from rough idea to reviewed, rights-clear, accessible, portable learning object. Its strongest distinctiveness is likely the combination of provenance, contribution history, curriculum relationships, learner-controlled evidence, and independently measured outcomes, not generation alone.
 
-Source: https://h5p.com/resources/blog/whats-coming-next-for-h5p
+Sources:
+- https://h5p.com/resources/blog/whats-coming-next-for-h5p
+- https://help.h5p.com/hc/en-us/articles/38478563354781-Release-Note-August-2026
 
 ### 1.2 Tutoring requires pedagogical diagnosis, not merely correct answers
 
@@ -33,10 +35,15 @@ MMTutorBench, published in the ACL 2026 long-paper proceedings, evaluates 770 ma
 
 MathTutorBench (2025) also reports that subject-matter problem-solving ability does not automatically translate into effective tutoring. Open-ended dialogue becomes more challenging as tutoring conversations lengthen.
 
-**Implication:** Praxis tutor evaluations must include misconception diagnosis, appropriate hint selection, answer withholding when useful, explanation quality, error recovery, and long-dialog consistency. Correct final answers and superficial response similarity are insufficient.
+LongTutor, also published in the ACL 2026 long-paper proceedings, addresses a complementary gap: long-term personalization. It uses expert-annotated real-world learning logs and evaluates historical evidence acquisition, knowledge-state diagnosis, and adaptive teaching actions. The authors report that models can acquire historical evidence but struggle to use it reliably for diagnosis and adaptive teaching.
+
+**Implication:** Praxis needs both local pedagogical quality and longitudinal coherence. A future tutor benchmark should use privacy-minimized synthetic or permissioned learning histories to test whether a system distinguishes observation from inference, notices contradictory or stale evidence, identifies an appropriate next action, and avoids overconfident claims about learner state. This does not require sending raw learner records to a central model.
+
+**Implication:** Praxis tutor evaluations must include misconception diagnosis, appropriate hint selection, answer withholding when useful, explanation quality, error recovery, history-grounded adaptation, and long-dialog consistency. Correct final answers and superficial response similarity are insufficient.
 
 Sources:
 - https://aclanthology.org/2026.acl-long.1068/
+- https://aclanthology.org/2026.acl-long.1371/
 - https://arxiv.org/abs/2502.18940
 
 ### 1.3 AI support can help recovery after errors without guaranteeing broad transfer
