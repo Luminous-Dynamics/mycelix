@@ -3,23 +3,24 @@
 
 use leptos::ev::SubmitEvent;
 use leptos::prelude::*;
-use leptos_router::components::{Route, Router, Routes, A};
+use leptos::text_prop::TextProp;
+use leptos_router::components::{A, Route, Router, Routes};
 use leptos_router::hooks::use_location;
 use leptos_router::path;
 use wasm_bindgen_futures::spawn_local;
 
 use mycelix_leptos_core::consciousness::refresh_consciousness_from_conductor;
 use mycelix_leptos_core::{
-    init_consciousness_ui, provide_consciousness_context, provide_homeostasis_context,
-    provide_local_identity, provide_theme_context, provide_thermodynamic_context,
-    provide_toast_context, use_toasts, ActivityFeed, ActivityFeedItem, AppShell, AvailabilityState,
-    AvailabilityStateKind, ConnectStrategy, EmptyState, FreshnessBadge, FreshnessLevel,
-    HolochainProviderAuto, HolochainProviderConfig, NavLink, NavTab, ToastContainer, ToastKind,
+    ActivityFeed, ActivityFeedItem, AppShell, AvailabilityState, AvailabilityStateKind,
+    ConnectStrategy, EmptyState, FreshnessBadge, FreshnessLevel, HolochainProviderAuto,
+    HolochainProviderConfig, NavLink, NavTab, ToastContainer, ToastKind, init_consciousness_ui,
+    provide_consciousness_context, provide_homeostasis_context, provide_local_identity,
+    provide_theme_context, provide_thermodynamic_context, provide_toast_context, use_toasts,
 };
 use personal_leptos_types::{ConsentGrantView, CredentialType, StoredCredentialView};
 
 use crate::context::{
-    provide_cultural_context, provide_personal_context, refresh_health_state,
+    SymbolRegistry, provide_cultural_context, provide_personal_context, refresh_health_state,
     refresh_identity_state, refresh_preferences_state, use_cultural, use_personal,
 };
 use crate::telemetry::ConstellationTelemetry;
@@ -317,19 +318,19 @@ fn VaultPage() -> impl IntoView {
                             action={None}
                         />
                     }.into_any()
-                } else if !ctx.live_sync_ready.get() {
+                } else if !ctx.any_live_source_read_succeeded.get() {
                     view! {
                         <AvailabilityState
-                            kind=AvailabilityStateKind::Empty
-                            title="Live Vault, Empty Summary"
-                            description="Connected to a live conductor, but Personal view endpoints have not returned records yet."
+                            kind=AvailabilityStateKind::Degraded
+                            title="Live Personal sources unavailable"
+                            description="No Personal source view was successfully read. This is not confirmation that the vault is empty; check the source-status notice and retry when the relevant source is reachable."
                             action={Some(view! {
                                 <A href="/identity" attr:class="btn btn-primary">"Review Identity"</A>
                             }.into_any())}
                         />
                     }.into_any()
                 } else {
-                    view! { <></> }.into_any()
+                    ().into_any()
                 }
             }}
 
@@ -360,6 +361,7 @@ fn VaultPage() -> impl IntoView {
                 <VaultStat label="Credentials" value=move || ctx.credentials.get().len().to_string() />
                 <VaultStat label=move || format!("Active {} consents", symbols.get().hearth_alias.to_lowercase()) value=move || active_consents.get().to_string() />
                 <VaultStat label="Health records" value=move || ctx.health_record_count.get().to_string() />
+                <VaultStat label="Revoked credentials" value=move || revoked_credentials.get().to_string() />
                 <VaultStat label=move || format!("{} status", symbols.get().mycel_alias) value=move || "Resonant".to_string() />
             </div>
 
@@ -407,6 +409,8 @@ fn format_relative_micros(timestamp_micros: i64) -> String {
 #[component]
 fn IdentityPage() -> impl IntoView {
     let ctx = use_personal();
+    let profile_source = ctx.profile_source;
+    let keys_source = ctx.keys_source;
     let location = use_location();
     let hc = mycelix_leptos_core::holochain_provider::use_holochain();
     let toasts = use_toasts();
@@ -459,9 +463,17 @@ fn IdentityPage() -> impl IntoView {
                 }
             />
 
+            <PersonalSourceNotice />
+
             <div class="two-up">
                 <section class="vault-card">
                     <SectionTitle title="Profile" />
+                    <p class="supporting-copy" role="status" aria-live="polite">
+                        {move || {
+                            let state = profile_source.get().kind();
+                            format!("Profile source: {}. {}", state.label(), state.explanation())
+                        }}
+                    </p>
                     <form on:submit=save_profile class="profile-form">
                         <label class="field-block">
                             <span>"Display name"</span>
@@ -496,6 +508,12 @@ fn IdentityPage() -> impl IntoView {
 
                 <section class="vault-card">
                     <SectionTitle title="Key posture" />
+                    <p class="supporting-copy" role="status" aria-live="polite">
+                        {move || {
+                            let state = keys_source.get().kind();
+                            format!("Identity-key source: {}. {}", state.label(), state.explanation())
+                        }}
+                    </p>
                     <div class="key-list">
                         <For
                             each=move || ctx.keys.get()
@@ -520,6 +538,8 @@ fn WalletPage() -> impl IntoView {
                 title="Portable proof inventory"
                 summary="Stored credentials, proof posture, and trust-bearing materials live here.".to_string()
             />
+
+            <PersonalSourceNotice />
 
             <section class="vault-card">
                 <SectionTitle title="Credentials" />
@@ -595,6 +615,8 @@ fn HealthPage() -> impl IntoView {
                 summary="Personal owns posture and disclosure. Health owns deeper medical workflows.".to_string()
             />
 
+            <PersonalSourceNotice />
+
             <div class="two-up">
                 <section class="vault-card">
                     <SectionTitle title="Recent biometrics" />
@@ -660,6 +682,8 @@ fn PreferencesPage() -> impl IntoView {
                 summary=ctx.status_note.get_untracked()
             />
 
+            <PersonalSourceNotice />
+
             <div class="two-up">
                 <section class="vault-card">
                     <SectionTitle title="Domain posture" />
@@ -710,6 +734,8 @@ fn ActivityPage() -> impl IntoView {
                 title="What left the vault, and why"
                 summary="This page will eventually reflect bridge queries, events, and disclosures directly.".to_string()
             />
+
+            <PersonalSourceNotice />
             <section class="vault-card">
                 <SectionTitle title="Disclosure and handoff log" />
                 <ul class="activity-list">
@@ -744,12 +770,28 @@ fn UnlockPage() -> impl IntoView {
 }
 
 #[component]
-fn PageHeader(eyebrow: &'static str, title: &'static str, summary: String) -> impl IntoView {
+fn PersonalSourceNotice() -> impl IntoView {
+    let ctx = use_personal();
+    view! {
+        <section class="vault-card source-status-card">
+            <p class="supporting-copy" role="status" aria-live="polite">
+                {move || ctx.status_note.get()}
+            </p>
+        </section>
+    }
+}
+
+#[component]
+fn PageHeader(
+    #[prop(into)] eyebrow: TextProp,
+    #[prop(into)] title: TextProp,
+    #[prop(into)] summary: TextProp,
+) -> impl IntoView {
     view! {
         <header class="page-header">
-            <span class="page-eyebrow">{eyebrow}</span>
-            <h1>{title}</h1>
-            <p>{summary}</p>
+            <span class="page-eyebrow">{move || eyebrow.get()}</span>
+            <h1>{move || title.get()}</h1>
+            <p>{move || summary.get()}</p>
         </header>
     }
 }
@@ -760,14 +802,14 @@ fn SectionTitle(title: &'static str) -> impl IntoView {
 }
 
 #[component]
-fn VaultStat<F>(label: &'static str, value: F) -> impl IntoView
+fn VaultStat<F>(#[prop(into)] label: TextProp, value: F) -> impl IntoView
 where
-    F: Fn() -> String + 'static,
+    F: Fn() -> String + Send + Sync + 'static,
 {
     view! {
         <div class="vault-stat">
-            <span class="vault-stat-label">{label}</span>
-            <strong class="vault-stat-value">{value()}</strong>
+            <span class="vault-stat-label">{move || label.get()}</span>
+            <strong class="vault-stat-value">{move || value()}</strong>
         </div>
     }
 }
