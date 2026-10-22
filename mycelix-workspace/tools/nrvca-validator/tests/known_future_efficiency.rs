@@ -308,23 +308,32 @@ fn oracle_is_invariant_to_strategy_and_scenario_row_order() {
 
 #[test]
 fn a_hard_constraint_mutation_can_make_a_previously_feasible_scenario_infeasible() {
-    let mut fixture = stress_fixture();
-    let adaptive = fixture["strategies"]
-        .as_array_mut()
-        .unwrap()
-        .iter_mut()
-        .find(|strategy| strategy_id(strategy) == "adaptive_staged")
-        .unwrap();
-    let drought = adaptive["scenario_results"]
-        .as_array_mut()
-        .unwrap()
-        .iter_mut()
-        .find(|row| scenario_id(row) == "seasonal-drought")
-        .unwrap();
-    assert!(feasible_cost(&fixture, adaptive, drought).is_some());
-    drought["service_units_lower_bound"] = json!(799);
+    let original = stress_fixture();
+    let original_strategy = unique_strategy(&original, "adaptive_staged");
+    let original_drought = unique_scenario_row(original_strategy, "seasonal-drought");
+    assert!(feasible_cost(&original, original_strategy, original_drought).is_some());
+
+    let mut fixture = original;
+    {
+        let adaptive = fixture["strategies"]
+            .as_array_mut()
+            .unwrap()
+            .iter_mut()
+            .find(|strategy| strategy_id(strategy) == "adaptive_staged")
+            .unwrap();
+        let drought = adaptive["scenario_results"]
+            .as_array_mut()
+            .unwrap()
+            .iter_mut()
+            .find(|row| scenario_id(row) == "seasonal-drought")
+            .unwrap();
+        drought["service_units_lower_bound"] = json!(799);
+    }
+
+    let altered_strategy = unique_strategy(&fixture, "adaptive_staged");
+    let altered_drought = unique_scenario_row(altered_strategy, "seasonal-drought");
     assert!(
-        feasible_cost(&fixture, adaptive, drought).is_none(),
+        feasible_cost(&fixture, altered_strategy, altered_drought).is_none(),
         "a high score in other dimensions must not compensate for a violated service floor"
     );
     assert_eq!(
