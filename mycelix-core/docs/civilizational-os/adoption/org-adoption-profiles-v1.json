@@ -50,7 +50,8 @@
         "Unsupported conventional accounting/SNA mapping preserves the Mycelix-native instrument and separate conventional liabilities as Unknown/Unsupported; no implicit FX offset is inferred.",
         "Same-outcome Bonus double-counting is rejected, and housing rights require separately qualified eligibility, stewardship and known dwelling capacity.",
         "The corpus explicitly protects valuable low-observability care/maintenance from frequency-based exclusion while still requiring qualified evidence; delayed negative evidence opens a separate appealable review and cannot silently rewrite prior recognition.",
-        "Qualified delayed negative evidence opens a separate review only with a valid appeal route and review-authority scope; if either is missing, the decision remains PendingAppeal and the prior recognition event remains preserved."
+        "Qualified delayed negative evidence opens a separate review only with a valid appeal route and review-authority scope; if either is missing, the decision remains PendingAppeal and the prior recognition event remains preserved.",
+        "Qualified delayed negative evidence with a missing appeal route or review-authority scope must remain PendingAppeal and preserve prior recognition rather than reversing it silently."
       ],
       "negative_controls": [
         "Attempt to transfer, lend, collateralize, accrue interest on, invest or inherit concentrated Personal Credit under a profile that forbids it.",
@@ -65,7 +66,8 @@
         "Grant housing from a credit balance alone or with unknown/unavailable dwelling capacity, eligibility or stewardship evidence.",
         "Deny a care/maintenance contribution solely because its activity is low-observability when declared criteria, bounded completion evidence and qualified corroboration are satisfied.",
         "Automatically reverse prior contribution recognition from later negative evidence without checking temporal ordering, qualification, independent review and an appeal route.",
-        "Treat qualified delayed negative evidence with a missing appeal route or missing review-authority scope as immediately reversible; the result must remain PendingAppeal while preserving prior recognition."
+        "Treat qualified delayed negative evidence with a missing appeal route or missing review-authority scope as immediately reversible; the result must remain PendingAppeal while preserving prior recognition.",
+        "Allow a delayed-negative-evidence review to advance without a valid appeal route and review-authority scope, or silently alter prior recognition."
       ],
       "deployment_assumptions": [
         "Synthetic data only for initial benchmark.",
