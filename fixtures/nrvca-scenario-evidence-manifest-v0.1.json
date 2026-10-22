@@ -291,5 +291,6 @@
     "official_observation_gate": "Exact source identity, access/retrieval record, valid time, unit, geography/coverage, licensing state and SHA-256 digest of acquired bytes where bytes are available.",
     "model_output_gate": "Model identity/version, configuration digest, input-manifest digest, outputs with valid time/unit/coverage, explicit validation status and retained failure cases.",
     "empirical_claim_ceiling": "A sourced observation or model output is not by itself evidence of causality, policy effectiveness, or a calibrated counterfactual."
-  }
+  },
+  "evidence_sources": []
 }
