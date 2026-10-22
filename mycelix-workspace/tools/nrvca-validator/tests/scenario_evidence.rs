@@ -58,7 +58,7 @@ fn validate_definition(manifest: &Value, definition: &Value) -> Result<(), Strin
         .ok_or_else(|| format!("unrecognized evidence tier: {status}"))?;
 
     for field in strings(&tier["required_fields"])? {
-        if !definition.get(&field).is_some_and(is_nonempty) {
+        if !definition.get(field.as_str()).is_some_and(is_nonempty) {
             return Err(format!("{status} definition is missing required field {field}"));
         }
     }
