@@ -15,7 +15,13 @@ fn context() -> ClearingContext {
     }
 }
 
-fn route(id: &str, from: &str, to: &str, capacity_minor: u64, cost_units_per_minor: u64) -> SettlementRoute {
+fn route(
+    id: &str,
+    from: &str,
+    to: &str,
+    capacity_minor: u64,
+    cost_units_per_minor: u64,
+) -> SettlementRoute {
     SettlementRoute {
         route_id: id.into(),
         network_id: "oracle-network".into(),
@@ -149,15 +155,40 @@ fn min_cost_max_flow_matches_exhaustive_oracle_on_256_deterministic_networks() {
             },
         ];
         let routes = [
-            route("a-c", "A", "C", next_bounded(&mut seed, 3), next_bounded(&mut seed, 10)),
-            route("a-d", "A", "D", next_bounded(&mut seed, 3), next_bounded(&mut seed, 10)),
-            route("b-c", "B", "C", next_bounded(&mut seed, 3), next_bounded(&mut seed, 10)),
-            route("b-d", "B", "D", next_bounded(&mut seed, 3), next_bounded(&mut seed, 10)),
+            route(
+                "a-c",
+                "A",
+                "C",
+                next_bounded(&mut seed, 3),
+                next_bounded(&mut seed, 10),
+            ),
+            route(
+                "a-d",
+                "A",
+                "D",
+                next_bounded(&mut seed, 3),
+                next_bounded(&mut seed, 10),
+            ),
+            route(
+                "b-c",
+                "B",
+                "C",
+                next_bounded(&mut seed, 3),
+                next_bounded(&mut seed, 10),
+            ),
+            route(
+                "b-d",
+                "B",
+                "D",
+                next_bounded(&mut seed, 3),
+                next_bounded(&mut seed, 10),
+            ),
         ];
 
         let expected = exhaustive_oracle(&positions, &routes);
-        let actual = optimize(&context(), &positions, &routes)
-            .unwrap_or_else(|error| panic!("case={case_id}: optimizer rejected valid graph: {error}"));
+        let actual = optimize(&context(), &positions, &routes).unwrap_or_else(|error| {
+            panic!("case={case_id}: optimizer rejected valid graph: {error}")
+        });
 
         assert_eq!(
             (actual.total_allocated_minor, actual.total_modeled_cost_units),
@@ -197,9 +228,9 @@ fn min_cost_max_flow_matches_exhaustive_oracle_on_256_deterministic_networks() {
                 "debtor liquidity exceeded for case={case_id}, member={member}"
             );
         }
-        for (index, member) in ["C", "D"].iter().enumerate() {
+        for member in ["C", "D"] {
             assert!(
-                received.get(*member).copied().unwrap_or(0) <= 2,
+                received.get(member).copied().unwrap_or(0) <= 2,
                 "creditor receivable exceeded for case={case_id}, member={member}"
             );
             assert_eq!(
@@ -208,14 +239,13 @@ fn min_cost_max_flow_matches_exhaustive_oracle_on_256_deterministic_networks() {
                         actual
                             .residual_creditors
                             .iter()
-                            .find(|residual| residual.member_id == *member)
+                            .find(|residual| residual.member_id == member)
                             .map(|residual| residual.amount_minor)
                             .unwrap_or(0)
                     ),
                 2,
                 "creditor conservation mismatch for case={case_id}, member={member}"
             );
-            let _ = index;
         }
         for (route_id, used) in route_used {
             assert!(
@@ -231,6 +261,9 @@ fn min_cost_max_flow_matches_exhaustive_oracle_on_256_deterministic_networks() {
         reversed_routes.reverse();
         let reordered = optimize(&context(), &reversed_positions, &reversed_routes)
             .unwrap_or_else(|error| panic!("reordered case={case_id}: {error}"));
-        assert_eq!(actual, reordered, "input-order dependence for case={case_id}");
+        assert_eq!(
+            actual, reordered,
+            "input-order dependence for case={case_id}"
+        );
     }
 }
