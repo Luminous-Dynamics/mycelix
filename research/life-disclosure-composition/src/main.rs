@@ -113,7 +113,11 @@ fn utility_accuracy_permille(targets: &[usize], depth: usize, profile: Profile) 
         }
     }
 
-    if total == 0 { 1_000 } else { correct * 1_000 / total }
+    if total == 0 {
+        1_000
+    } else {
+        correct * 1_000 / total
+    }
 }
 
 fn nearest_rank(values: &[usize], numerator: usize, denominator: usize) -> usize {
@@ -195,9 +199,12 @@ mod tests {
     fn field_mapping_is_a_bijection_over_the_complete_cartesian_corpus() {
         let mut seen = vec![false; SUBJECT_COUNT];
         for index in 0..SUBJECT_COUNT {
-            let code = fields(index).iter().enumerate().fold(0_usize, |acc, (i, value)| {
-                acc | (usize::from(*value) << (i * 2))
-            });
+            let code = fields(index)
+                .iter()
+                .enumerate()
+                .fold(0_usize, |acc, (i, value)| {
+                    acc | (usize::from(*value) << (i * 2))
+                });
             assert!(!seen[code], "duplicate tuple for synthetic index {index}");
             seen[code] = true;
         }
