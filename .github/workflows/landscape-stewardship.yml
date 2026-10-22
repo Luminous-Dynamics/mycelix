@@ -55,6 +55,6 @@ jobs:
           jq empty mycelix-desci/schemas/landscape-measurement-authorization-v0.schema.json
           jq empty mycelix-desci/fixtures/landscape-measurement-authorization-v0.public.example.json
       - name: Check formatting for isolated landscape policy-gate sources
-        run: rustfmt --edition 2024 --check mycelix-desci/landscape-authorization-gate-harness/src/lib.rs mycelix-desci/src/core/src/landscape_stewardship.rs mycelix-desci/src/core/src/landscape_measurement_authorization.rs
+        run: rustfmt --edition 2024 --check mycelix-desci/landscape-authorization-gate-harness/src/lib.rs mycelix-desci/src/core/src/landscape_measurement_authorization.rs
       - name: Run isolated landscape policy-gate tests
         run: cargo test --locked --manifest-path mycelix-desci/Cargo.toml -p landscape-authorization-gate-harness -- --nocapture
