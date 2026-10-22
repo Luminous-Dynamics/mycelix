@@ -36,14 +36,21 @@
 //! cargo test --release --test sweettest_day_in_the_life -- --ignored --test-threads=1
 //! ```
 
-use finance_leptos_types::{ContributionType, ExchangeStatus, ServiceCategory};
+use finance_bridge_integrity::CollateralHealth;
 use finance_wire_types::{
-    ApplyDemurrageInput, BalanceInfo, CommonsPool, ContributeToCommonsInput, CreateCommonsPoolInput,
-    DemurrageResult, ExchangeRecord, FeeTierResponse, FinanceBridgeHealth, GetBalanceInput,
-    InitializeMemberInput, MemberMycelState, RecognitionEvent, RecognizeMemberInput,
-    RecordExchangeInput, RegisterCollateralInput, SapBalanceResponse, UpdateCollateralHealthInput,
-    AssetType, CollateralHealth,
+    ApplyDemurrageInput, AssetType, DemurrageResult, FeeTierResponse, FinanceBridgeHealth,
+    RegisterCollateralInput, SapBalanceResponse, UpdateCollateralHealthInput,
 };
+use recognition::{
+    ContributionType, InitializeMemberInput, MemberMycelState, RecognitionEvent,
+    RecognizeMemberInput,
+};
+use tend::{
+    BalanceInfo, ExchangeRecord, ExchangeStatus, GetBalanceInput, RecordExchangeInput,
+    ServiceCategory,
+};
+use treasury::{ContributeToCommonsInput, CreateCommonsPoolInput};
+use treasury_integrity::CommonsPool;
 use holochain::sweettest::*;
 use std::path::PathBuf;
 
@@ -491,13 +498,13 @@ async fn day_in_the_life_community() {
     let pool: CommonsPool = decode_entry(&pool_record).expect("Failed to decode CommonsPool");
     assert!(!pool.id.is_empty(), "Pool should have an ID");
     assert!(
-        pool.demurrage_exempt.unwrap_or(false),
+        pool.demurrage_exempt,
         "Commons pool must be demurrage exempt"
     );
     println!(
         "  OK: Commons pool created (id: {}, demurrage_exempt={})",
         pool.id,
-        pool.demurrage_exempt.unwrap_or(false)
+        pool.demurrage_exempt
     );
 
     // Naledi contributes 2,000 SAP
@@ -602,13 +609,13 @@ async fn day_in_the_life_community() {
         "Full member initial MYCEL should be 0.3"
     );
     assert!(
-        !sipho_mycel.is_apprentice.unwrap_or(false),
+        !sipho_mycel.is_apprentice,
         "Sipho should not be an apprentice"
     );
     println!(
         "  OK: Members initialized (Sipho MYCEL: {}, apprentice: {})",
         sipho_mycel.mycel_score,
-        sipho_mycel.is_apprentice.unwrap_or(false)
+        sipho_mycel.is_apprentice
     );
 
     // Naledi recognizes Sipho for eldercare
@@ -685,6 +692,7 @@ async fn day_in_the_life_community() {
             "apply_demurrage",
             ApplyDemurrageInput {
                 member_did: thandi_did.clone(),
+                currency_id: "SAP".into(),
                 local_commons_pool_id: Some(pool.id.clone()),
                 regional_commons_pool_id: None,
                 global_commons_pool_id: None,
