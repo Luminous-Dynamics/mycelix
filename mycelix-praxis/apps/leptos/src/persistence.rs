@@ -357,6 +357,9 @@ pub fn import_all(json: &str) -> Result<String, String> {
                 existing_node.self_reported_attempts = imp_node.self_reported_attempts;
                 existing_node.self_reported_correct = imp_node.self_reported_correct;
             }
+            if imp_node.activity_completions > existing_node.activity_completions {
+                existing_node.activity_completions = imp_node.activity_completions;
+            }
             if imp_node.last_reviewed.unwrap_or(0.0) > existing_node.last_reviewed.unwrap_or(0.0) {
                 existing_node.last_reviewed = imp_node.last_reviewed;
                 if imp_node.self_assessment.is_some() {
