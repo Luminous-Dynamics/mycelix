@@ -21,6 +21,22 @@ fn by_id<'a>(values: &'a [Value], field: &str, key: &str) -> Option<&'a Value> {
     values.iter().find(|item| item[field].as_str() == Some(key))
 }
 
+fn semantic_signature(definition: &Value) -> Value {
+    // Derive comparability from the actual fields instead of trusting a label
+    // or a manually copied fingerprint. Unknown denominator/numerator details
+    // remain part of the signature as declared evidence limitations.
+    json!({
+        "metric_id": definition["metric_id"],
+        "eligibility": definition["eligibility"],
+        "numerator_definition": definition["numerator_definition"],
+        "denominator_definition": definition["denominator_definition"],
+        "deadline_rule": definition["deadline_rule"],
+        "deadline_hours": definition["deadline_hours"],
+        "category_deadlines_hours": definition["category_deadlines_hours"],
+        "unit": definition["unit"]
+    })
+}
+
 fn validate(root: &Value) -> Result<(), String> {
     if root["schema_version"].as_str() != Some("nrvca-utility-service-kpi-vintage-bridge/0.1")
         || root["artifact_status"].as_str() != Some("official_reported_values_discovery_only_unpinned") {
@@ -159,10 +175,10 @@ fn validate(root: &Value) -> Result<(), String> {
         if earlier_def["metric_id"] != later_def["metric_id"] {
             return Err(format!("{id}: comparison crosses metric identity"));
         }
-        let same_fingerprint = earlier_def["semantic_fingerprint"] == later_def["semantic_fingerprint"];
+        let same_signature = semantic_signature(earlier_def) == semantic_signature(later_def);
         match comparison["comparability"].as_str() {
             Some("not_comparable") => {
-                if same_fingerprint || !comparison["actual_delta_percentage_points"].is_null() {
+                if same_signature || !comparison["actual_delta_percentage_points"].is_null() {
                     return Err(format!("{id}: non-comparable comparison must suppress numeric trend"));
                 }
                 if comparison["reason_codes"].as_array().is_none_or(|codes| codes.is_empty()) {
@@ -170,7 +186,7 @@ fn validate(root: &Value) -> Result<(), String> {
                 }
             }
             Some("provisional_definition_comparable_denominator_unknown") => {
-                if !same_fingerprint {
+                if !same_signature {
                     return Err(format!("{id}: changed semantic fingerprint cannot support trend"));
                 }
                 let actual_delta = num(comparison, "actual_delta_percentage_points")?;
@@ -243,7 +259,7 @@ fn source_hashes_targets_and_variances_fail_closed_when_mutated() {
 }
 
 #[test]
-fn semantic_fingerprint_and_denominator_uncertainty_cannot_be_silently_ignored() {
+fn semantic_signature_and_denominator_uncertainty_cannot_be_silently_ignored() {
     let mut relabel = fixture();
     relabel["comparisons"][0]["comparability"] = json!("provisional_definition_comparable_denominator_unknown");
     relabel["comparisons"][0]["actual_delta_percentage_points"] = json!(73.54);
@@ -252,6 +268,14 @@ fn semantic_fingerprint_and_denominator_uncertainty_cannot_be_silently_ignored()
     let mut same_label_new_deadline = fixture();
     same_label_new_deadline["definitions"][3]["deadline_hours"] = json!(24);
     assert!(validate(&same_label_new_deadline).is_err());
+
+    let mut denominator_drift = fixture();
+    denominator_drift["definitions"][3]["denominator_definition"] = json!("denominator changed: all hydrant assets rather than notifications");
+    assert!(validate(&denominator_drift).is_err());
+
+    let mut numerator_drift = fixture();
+    numerator_drift["definitions"][3]["numerator_definition"] = json!("numerator changed: repairs merely assigned rather than completed");
+    assert!(validate(&numerator_drift).is_err());
 
     let mut drop_uncertainty = fixture();
     drop_uncertainty["comparisons"][1]["reason_codes"] = json!(["same_published_48h_definition"]);
