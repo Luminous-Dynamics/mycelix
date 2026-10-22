@@ -89,3 +89,5 @@ jobs:
         run: cargo test --manifest-path mycelix-praxis/apps/leptos/Cargo.toml edge_semantics_tests
       - name: Test local-first lesson authoring behavior
         run: cargo test --manifest-path mycelix-praxis/apps/leptos/Cargo.toml pages::author::tests
+      - name: Test fail-closed hardware authorization policy
+        run: cargo test --manifest-path mycelix-praxis/apps/leptos/Cargo.toml components::hardware::tests
