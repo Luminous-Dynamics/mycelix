@@ -23,10 +23,17 @@ fn make_case(
     };
     let mut positions = Vec::with_capacity(side * 2);
     for i in 0..side {
+        let available_liquidity_minor = match scenario {
+            // Four of every five debtors can supply only half their obligation;
+            // the fifth has no window liquidity. Route capacity remains unconstrained.
+            "liquidity-stress" if i % 5 == 0 => 0,
+            "liquidity-stress" => 500,
+            _ => 1_000,
+        };
         positions.push(ParticipantNet {
             member_id: format!("D{i:04}"),
             net_minor: 1_000,
-            available_liquidity_minor: 1_000,
+            available_liquidity_minor,
         });
     }
     for i in 0..side {
@@ -83,7 +90,7 @@ fn make_case(
             // deficit even when the global flow is allocated optimally.
             "capacity-stress" => route.capacity_minor = 400,
             "route-outage" if source_index % 11 == 0 => route.enabled = false,
-            "route-outage" => {}
+            "route-outage" | "liquidity-stress" => {}
             _ => panic!("unknown benchmark scenario"),
         }
     }
@@ -103,7 +110,7 @@ fn main() {
         "scenario,route_arcs,participants,optimized_flow_minor,optimized_cost_units,optimized_full,greedy_flow_minor,greedy_cost_units,greedy_full,flow_gain_minor,same_flow_cost_savings_units,opt_p50_us,opt_p95_us,opt_p99_us,greedy_p50_us,greedy_p95_us,greedy_p99_us"
     );
 
-    for scenario in ["cyclic", "capacity-stress", "route-outage"] {
+    for scenario in ["cyclic", "capacity-stress", "route-outage", "liquidity-stress"] {
         for route_count in [10_usize, 30, 70, 140, 700] {
             let (context, positions, routes) = make_case(route_count, scenario);
 
@@ -163,6 +170,7 @@ fn main() {
                 "cyclic" => side as u128 * 1_000,
                 "capacity-stress" => side as u128 * 800,
                 "route-outage" => (0..side).filter(|i| i % 11 != 0).count() as u128 * 1_000,
+                "liquidity-stress" => (0..side).filter(|i| i % 5 != 0).count() as u128 * 500,
                 _ => unreachable!("scenario list is fixed above"),
             };
             assert_eq!(
