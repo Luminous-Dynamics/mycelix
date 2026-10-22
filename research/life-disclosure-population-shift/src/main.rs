@@ -589,6 +589,18 @@ mod tests {
         assert_eq!(summary.task_answer_utility_ppm, MILLION);
         assert_eq!(summary.below_k_subject_count, 83);
         assert_eq!(summary.below_k_subject_rate_ppm, 162_109);
+        assert!(summary.max_high_income_confidence_uplift_ppm > 100_000);
+
+        let dual_policy = QueryPolicy {
+            name: "dual_k32_uplift100k",
+            min_branch_size: 32,
+            max_sensitive_uplift_ppm: 100_000,
+        };
+        let dual_summary =
+            summarize(&attacker, &evaluate(&reference, &attacker, dual_policy), dual_policy);
+        assert_eq!(dual_summary.below_k_subject_count, 0);
+        assert!(dual_summary.max_high_income_confidence_uplift_ppm <= 100_000);
+        assert!(dual_summary.max_debt_risk_confidence_uplift_ppm <= 100_000);
     }
 
     #[test]
@@ -614,6 +626,9 @@ mod tests {
             summarize(&attacker, &evaluate(&reference, &attacker, dual_policy), dual_policy);
         assert_eq!(dual_summary.below_k_subject_count, 0);
         assert_eq!(dual_summary.task_answer_utility_ppm, MILLION);
+        assert!(branch_summary.max_debt_risk_confidence_uplift_ppm > 100_000);
+        assert!(dual_summary.max_high_income_confidence_uplift_ppm <= 100_000);
+        assert!(dual_summary.max_debt_risk_confidence_uplift_ppm <= 100_000);
     }
 
     #[test]
