@@ -71,3 +71,19 @@ jobs:
 
       - name: Enforce no known instructional blockers
         run: cargo run -p praxis-curriculum-audit -- --format=markdown --fail-on-blockers
+
+  curriculum-graph-semantics:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: mycelix-praxis/apps/leptos
+      - name: Check Leptos curriculum formatting
+        run: cargo fmt --manifest-path mycelix-praxis/apps/leptos/Cargo.toml -- --check
+      - name: Test hard-prerequisite and relationship edge semantics
+        run: cargo test --manifest-path mycelix-praxis/apps/leptos/Cargo.toml edge_semantics_tests
