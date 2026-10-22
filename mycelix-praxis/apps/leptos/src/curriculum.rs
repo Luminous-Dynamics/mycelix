@@ -835,9 +835,10 @@ impl ProgressStore {
         }
 
         // No trusted, independently verified mastery receipt is represented in
-        // this browser-local model yet. Therefore a persisted Mastered flag,
-        // even in a version-1 store, is not sufficient evidence and must not
-        // unlock prerequisites or hardware-related UI.
+        // this browser-local model yet. Therefore any persisted Mastered flag,
+        // even in a version-1 store, invalidates the associated local score/BKT
+        // evidence: those data may have been produced by the prior post-reveal UI
+        // or by an untrusted import. Preserve them only as self-report history.
         let unverified_mastered_ids = self
             .nodes
             .iter()
@@ -845,19 +846,26 @@ impl ProgressStore {
             .map(|(node_id, _)| node_id.clone())
             .collect::<Vec<_>>();
         for node_id in unverified_mastered_ids {
-            let bkt = self.bkt_states.get(&node_id);
+            let old_bkt = self.bkt_states.remove(&node_id);
             if let Some(progress) = self.nodes.get_mut(&node_id) {
+                let legacy_attempts = progress
+                    .attempts
+                    .max(old_bkt.as_ref().map_or(0, |bkt| bkt.attempts));
+                let legacy_correct = progress
+                    .correct
+                    .max(old_bkt.as_ref().map_or(0, |bkt| bkt.correct))
+                    .min(legacy_attempts);
+                progress.self_reported_attempts = progress
+                    .self_reported_attempts
+                    .saturating_add(legacy_attempts);
+                progress.self_reported_correct = progress
+                    .self_reported_correct
+                    .saturating_add(legacy_correct);
                 progress.self_assessment = Some(SelfAssessment::FeelsUnderstood);
-                progress.status = if bkt.is_some_and(BktState::is_likely_mastered) {
-                    ProgressStatus::ProvisionalMastery
-                } else {
-                    ProgressStatus::Studying
-                };
-                if let Some(bkt) = bkt {
-                    progress.mastery_permille = (bkt.p_mastery * 1000.0) as u16;
-                } else {
-                    progress.mastery_permille = 0;
-                }
+                progress.attempts = 0;
+                progress.correct = 0;
+                progress.mastery_permille = 0;
+                progress.status = ProgressStatus::Studying;
             }
             changed = true;
         }
@@ -1437,6 +1445,43 @@ mod evidence_first_progress_tests {
             !progress.migrate_legacy_progress(),
             "migration must not erase new scored responses on a later load"
         );
+    }
+
+    #[test]
+    fn schema_v1_mastered_flags_are_still_scrubbed_without_a_trusted_receipt() {
+        let mut progress = ProgressStore {
+            schema_version: 1,
+            ..ProgressStore::default()
+        };
+        progress.nodes.insert(
+            "math.fractions".to_owned(),
+            NodeProgress {
+                mastery_permille: 1000,
+                attempts: 5,
+                correct: 5,
+                status: ProgressStatus::Mastered,
+                ..NodeProgress::default()
+            },
+        );
+        progress.bkt_states.insert(
+            "math.fractions".to_owned(),
+            BktState {
+                p_mastery: 0.99,
+                attempts: 5,
+                correct: 5,
+            },
+        );
+
+        assert!(progress.migrate_legacy_progress());
+        let node = progress.get("math.fractions");
+        assert_eq!(node.status, ProgressStatus::Studying);
+        assert_eq!(node.mastery_permille, 0);
+        assert_eq!(node.attempts, 0);
+        assert_eq!(node.correct, 0);
+        assert_eq!(node.self_reported_attempts, 5);
+        assert_eq!(node.self_reported_correct, 5);
+        assert_eq!(progress.bkt("math.fractions").attempts, 0);
+        assert!(progress.mastered_ids().is_empty());
     }
 
     #[test]
