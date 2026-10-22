@@ -330,7 +330,7 @@ fn render_report(populations: &[(PopulationKind, Vec<Record>)]) -> String {
 
 fn render_features(records: &[Record]) -> String {
     let mut output = String::from(
-        "attribute_0\\tattribute_1\\tattribute_2\\tattribute_3\\tattribute_4\\tattribute_5\\n",
+        "attribute_0\tattribute_1\tattribute_2\tattribute_3\tattribute_4\tattribute_5\n",
     );
     for record in records {
         writeln!(
