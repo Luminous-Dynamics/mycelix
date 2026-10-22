@@ -9,7 +9,8 @@
     "lesson",
     "assessment",
     "flashcards",
-    "quality"
+    "quality",
+    "authoring"
   ],
   "properties": {
     "node_id": {
@@ -251,7 +252,15 @@
           "description": "BCP 47 language tag, e.g. en-ZA, zu-ZA, af-ZA. Do not claim language proficiency or review that has not occurred."
         }
       },
-      "additionalProperties": true
+      "additionalProperties": true,
+      "required": [
+        "format_version",
+        "status",
+        "language",
+        "learning_objective",
+        "license",
+        "author_credit"
+      ]
     }
   },
   "$defs": {
