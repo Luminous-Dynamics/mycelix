@@ -3,11 +3,11 @@
 //! Knowledge Garden / Skill Map — Dynamic, Context-Aware Node Exploration.
 
 use crate::components::gl_canvas::GardenCanvas;
-use crate::components::hardware::{HardwareScanner, PresenceValidator, SafetyGuard};
+use crate::components::hardware::{PresenceValidator, SafetyGuard};
 use crate::components::voice_ops::VoiceCommandCenter;
 use crate::curriculum::{
-    CurriculumNode, Grade, ProgressStatus, Subject, curriculum_graph, display_subject,
-    use_progress, use_set_progress,
+    CurriculumNode, Grade, ProgressStatus, SelfAssessment, Subject, curriculum_graph,
+    display_subject, use_progress, use_set_progress,
 };
 use crate::location::use_biome;
 use leptos::prelude::*;
@@ -273,7 +273,9 @@ fn NodeDetail(node: CurriculumNode, on_close: impl Fn() + 'static) -> impl IntoV
                 <button
                     class="btn-outline"
                     title="Save that you feel you understand this topic. This does not verify mastery."
-                    on:click=move |_| set_progress.update(|p| p.set_status(&node_id, ProgressStatus::Mastered))
+                    on:click=move |_| set_progress.update(|p| {
+                        p.record_self_assessment(&node_id, SelfAssessment::FeelsUnderstood)
+                    })
                 >
                     "I feel I understand this"
                 </button>
