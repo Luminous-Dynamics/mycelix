@@ -185,7 +185,7 @@ fn temporal_vintage_test_is_separate_from_primary_provider_split_map() {
     let diagnostics = validate_benchmark_bundle(&root);
     assert!(!has_code(&diagnostics, "PROVIDER-LEAKAGE"));
     assert!(!has_code(&diagnostics, "CONTRACT-LEAKAGE"));
-    assert!(has_code(&diagnostics, "PAIR-CROSS-SPLIT"));
+    assert!(!has_code(&diagnostics, "PAIR-CROSS-SPLIT"));
 }
 
 #[test]
@@ -209,4 +209,15 @@ fn weakened_preregistration_cannot_remove_provider_holdout_or_sample_targets() {
     assert!(has_code(&diagnostics, "SPLIT-POLICY"));
     assert!(has_code(&diagnostics, "ACCEPTANCE-TARGETS"));
     assert!(has_code(&diagnostics, "REPORTING-POLICY"));
+}
+
+#[test]
+fn identical_underlying_contract_pair_cannot_be_reused_across_splits() {
+    let mut root = populated_bundle();
+    let mut duplicate = root["pairs"][0].clone();
+    duplicate["pair_id"] = json!("P1-duplicate");
+    duplicate["split"] = json!("provider_held_out_test");
+    root["pairs"].as_array_mut().unwrap().push(duplicate);
+    let diagnostics = validate_benchmark_bundle(&root);
+    assert!(has_code(&diagnostics, "PAIR-CROSS-SPLIT"));
 }
