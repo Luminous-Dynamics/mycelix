@@ -193,6 +193,26 @@ fn choice_numeric_value(text: &str) -> Option<(String, Option<&'static str>)> {
     choice_number_key(&normalized).map(|key| (key, None))
 }
 
+fn practice_item_evidence_id(node_id: &str, problem: &PracticeProblem) -> String {
+    // Bind the idempotency key to the full answer-choice set, not merely the
+    // prompt. A revised item with changed options is a new item revision; order
+    // does not matter because the displayed choices are shuffled per attempt.
+    let mut choices = problem
+        .distractors
+        .iter()
+        .map(|choice| normalized_choice(choice))
+        .collect::<Vec<_>>();
+    choices.push(normalized_choice(&problem.answer));
+    choices.sort_unstable();
+    format!(
+        "{}::{}::{}::{}",
+        node_id,
+        normalized_choice(&problem.question),
+        normalized_choice(&problem.answer),
+        choices.join("\u{1f}")
+    )
+}
+
 fn numeric_choices_collide(answer: &str, distractor: &str) -> bool {
     let Some((answer_value, answer_unit)) = choice_numeric_value(answer) else {
         return false;
@@ -264,12 +284,7 @@ fn PracticeProblemCard(
     let hint_text = hints.first().cloned().unwrap_or_default();
     let progress = use_set_progress();
     let scored_node_id = node_id.clone();
-    let scored_item_id = format!(
-        "{}::{}::{}",
-        node_id,
-        normalized_choice(&problem.question),
-        normalized_choice(&problem.answer)
-    );
+    let scored_item_id = practice_item_evidence_id(&node_id, &problem);
     let reflection_node_id = node_id.clone();
 
     view! {
@@ -1144,6 +1159,32 @@ mod answer_first_choice_tests {
             explanation: "Subtract the smaller count from the larger count.".to_owned(),
             distractors: distractors.into_iter().map(str::to_owned).collect(),
         }
+    }
+
+    #[test]
+    fn scored_item_id_changes_when_answer_or_choice_set_changes_but_not_order() {
+        let base = problem("3 children", ["13 children", "2 children", "5 children"]);
+        let same_choices_different_order =
+            problem("3 children", ["5 children", "13 children", "2 children"]);
+        let revised_distractor = problem("3 children", ["13 children", "2 children", "4 children"]);
+        let revised_answer = problem("4 children", ["13 children", "2 children", "5 children"]);
+
+        let base_id = practice_item_evidence_id("CAPS.Mathematics.Gr3.DAT", &base);
+        assert_eq!(
+            base_id,
+            practice_item_evidence_id(
+                "CAPS.Mathematics.Gr3.DAT",
+                &same_choices_different_order
+            )
+        );
+        assert_ne!(
+            base_id,
+            practice_item_evidence_id("CAPS.Mathematics.Gr3.DAT", &revised_distractor)
+        );
+        assert_ne!(
+            base_id,
+            practice_item_evidence_id("CAPS.Mathematics.Gr3.DAT", &revised_answer)
+        );
     }
 
     #[test]
