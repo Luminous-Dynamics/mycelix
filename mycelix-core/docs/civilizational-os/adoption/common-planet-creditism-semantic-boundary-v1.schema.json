@@ -286,6 +286,7 @@
         "title",
         "case_id",
         "input_variants",
+        "varied_fields",
         "expected_relation"
       ],
       "properties": {
@@ -337,6 +338,16 @@
         },
         "expected_relation": {
           "const": "evaluation_outputs_equal"
+        },
+        "varied_fields": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 4,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9_]*(?:\\.[a-z][a-z0-9_]*)*$"
+          }
         }
       }
     }
