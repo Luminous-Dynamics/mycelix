@@ -28,7 +28,24 @@
       ],
       "ingest_state": "discovery_only_bytes_not_fetched",
       "license_status": "unknown",
-      "next_action": "Before ingest, check whether the announced 2022-base rebased/benchmarked series has been published; pin pre- and post-rebase vintages separately, then record exact workbook bytes SHA-256, price basis, revisions, units and tables."
+      "next_action": "Before ingest, check whether the announced 2022-base rebased/benchmarked series has been published; pin pre- and post-rebase vintages separately, then record exact workbook bytes SHA-256, price basis, revisions, units and tables.",
+      "direct_artifact_link_state": "publisher_direct_xlsx_url_identified_bytes_not_acquired",
+      "artifacts": [
+        {
+          "artifact_id": "SA-GDP-P0441-Q2-2026-TIMESERIES",
+          "title": "GDP P0441 - GDP Time series Q2 2026",
+          "artifact_url": "https://www.statssa.gov.za/publications/P0441/GDP%20P0441%20-%20GDP%20Time%20series%20Q2%202026.xlsx",
+          "format": "xlsx",
+          "source_page": "https://www.statssa.gov.za/?PPN=P0441&page_id=1854",
+          "publisher_link_verified": true,
+          "release_date": "2026-09-08",
+          "series_basis_from_release": "The Q2 release PDF reports constant 2015 prices for the published real-GDP tables. Workbook sheet-level price/reference-year basis has not been inspected; do not infer that it contains a 2022-base rebased series.",
+          "download_attempt_status": "browser_fetch_rejected_unsupported_spreadsheet_mime_and_container_download_failed",
+          "bytes_acquired": false,
+          "sha256": null,
+          "license_status": "unknown"
+        }
+      ]
     },
     {
       "source_id": "SA-PEFA-2022",
@@ -217,6 +234,8 @@
     "status_check_date": "2026-10-22",
     "latest_official_status_source": "https://www.statssa.gov.za/?PPN=P0441&SCH=74517&page_id=1856",
     "latest_official_status_observed": "The available official key-findings page for annual estimates of 2025 still describes rebasing/benchmarking to a 2022 base year as in progress, with rebased/benchmarked estimates expected later in 2026.",
-    "interpretation": "This official page does not establish whether a post-rebase release is already available elsewhere or absent. Do not infer non-publication from the page wording alone. Directly verify the current release page and obtain the actual source artifact before freezing a vintage."
+    "interpretation": "This official page does not establish whether a post-rebase release is already available elsewhere or absent. Do not infer non-publication from the page wording alone. Directly verify the current release page and obtain the actual source artifact before freezing a vintage.",
+    "direct_artifact_url_identified_but_bytes_not_acquired": true,
+    "artifact_status_caveat": "The official publication page exposes a direct time-series XLSX link. URL identification is not acquisition, exact-byte hashing, rights verification, worksheet inspection, or confirmation that an announced rebased vintage has or has not been released."
   }
 }
