@@ -45,35 +45,40 @@ pub fn PresenceValidator(
     }
 }
 
+/// Must remain false until a separate, independently verified authorization
+/// provider is integrated and audited. Lesson progress is deliberately not input.
+fn trusted_hardware_authorization_provider_ready() -> bool {
+    false
+}
+
 #[component]
 pub fn SafetyGuard(children: ChildrenFn) -> impl IntoView {
-    // Deliberately do not read browser-local progress here. A self-selected
-    // Mastered status, BKT estimate, lesson completion or local self-attestation
-    // is not a trusted hardware authorization. Until an independent verifier and
-    // authorization service are wired and audited, never render the children.
-    let _ = children;
     view! {
-        <div class="safety-lockout" role="alert" style="padding: 2rem; background: var(--error-low); border: 2px solid var(--error); border-radius: 12px; text-align: center">
-            <div style="font-size: 2rem; margin-bottom: 1rem">"⚠️"</div>
-            <h4 style="color: var(--error)">"PHYSICAL LOCKOUT ACTIVE"</h4>
-            <p style="font-size: 0.85rem">
-                "This build has no trusted hardware authorization provider. Marking a lesson as mastered, earning a local self-attestation, or passing a simulated scan does not unlock physical hardware."
-            </p>
-            <a href="/study/VOC-000-S" class="btn-sm btn-primary" style="margin-top: 1rem; background: var(--error); border-color: var(--error)">
-                "Review the Safety Protocol (does not unlock hardware)"
-            </a>
-        </div>
+        {move || if trusted_hardware_authorization_provider_ready() {
+            children().into_any()
+        } else {
+            view! {
+                <div class="safety-lockout" role="alert" style="padding: 2rem; background: var(--error-low); border: 2px solid var(--error); border-radius: 12px; text-align: center">
+                    <div style="font-size: 2rem; margin-bottom: 1rem">"⚠️"</div>
+                    <h4 style="color: var(--error)">"PHYSICAL LOCKOUT ACTIVE"</h4>
+                    <p style="font-size: 0.85rem">
+                        "This build has no trusted hardware authorization provider. Marking a lesson as mastered, earning a local self-attestation, or passing a simulated scan does not unlock physical hardware."
+                    </p>
+                    <a href="/study/VOC-000-S" class="btn-sm btn-primary" style="margin-top: 1rem; background: var(--error); border-color: var(--error)">
+                        "Review the Safety Protocol (does not unlock hardware)"
+                    </a>
+                </div>
+            }.into_any()
+        }}
     }
 }
 
 #[cfg(test)]
 mod tests {
+    use super::trusted_hardware_authorization_provider_ready;
+
     #[test]
-    fn hardware_authorization_has_no_success_path_without_a_trusted_provider() {
-        // This build intentionally supplies no verified external hardware
-        // authorization evidence. The user interface must remain fail-closed.
-        let trusted_provider_configured = false;
-        let independently_verified_authorization = false;
-        assert!(!(trusted_provider_configured && independently_verified_authorization));
+    fn hardware_authorization_provider_is_unavailable_by_default() {
+        assert!(!trusted_hardware_authorization_provider_ready());
     }
 }
