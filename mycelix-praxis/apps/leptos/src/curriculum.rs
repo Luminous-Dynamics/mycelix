@@ -695,6 +695,7 @@ impl ProgressStore {
             self_assessment: None,
             self_reported_attempts: 0,
             self_reported_correct: 0,
+            activity_completions: 0,
         };
         self.nodes.get(node_id).unwrap_or(&DEFAULT)
     }
