@@ -11,8 +11,6 @@ const COHORT_COUNT: usize = 16;
 const COHORT_SIZES: [usize; COHORT_COUNT] = [
     1, 2, 3, 5, 8, 13, 21, 34, 55, 89, 144, 233, 377, 610, 987, 1_514,
 ];
-const SEED: u64 = 0xC011_A710_2026_1022;
-
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 enum PopulationKind {
     BalancedIndependent,
@@ -280,7 +278,7 @@ fn summarize(
 fn render_report(populations: &[(PopulationKind, Vec<Record>)]) -> String {
     let mut output = String::new();
     writeln!(&mut output, "# benchmark=life-disclosure-correlated-v1").unwrap();
-    writeln!(&mut output, "# seed=0x{SEED:016x}").unwrap();
+    writeln!(&mut output, "# fixture_profile=correlated-cohort-v1").unwrap();
     writeln!(&mut output, "# population_size={POPULATION_SIZE}").unwrap();
     writeln!(
         &mut output,
