@@ -183,11 +183,11 @@ fn nearest_rank(values: &[usize], numerator: usize, denominator: usize) -> usize
     values[rank.saturating_sub(1)]
 }
 
-fn rate_permille(numerator: usize, denominator: usize) -> usize {
+fn rate_ppm(numerator: usize, denominator: usize) -> usize {
     if denominator == 0 {
         0
     } else {
-        numerator * 1_000 / denominator
+        numerator * 1_000_000 / denominator
     }
 }
 
@@ -241,9 +241,9 @@ fn summarize(
     let p90 = nearest_rank(&sizes, 90, 100);
     let p95 = nearest_rank(&sizes, 95, 100);
     let maximum = sizes[sizes.len() - 1];
-    let unique = sizes.iter().filter(|&&size| size == 1).count();
-    let at_most_10 = sizes.iter().filter(|&&size| size <= 10).count();
-    let at_most_100 = sizes.iter().filter(|&&size| size <= 100).count();
+    let unique_count = sizes.iter().filter(|&&size| size == 1).count();
+    let at_most_10_count = sizes.iter().filter(|&&size| size <= 10).count();
+    let at_most_100_count = sizes.iter().filter(|&&size| size <= 100).count();
     let previous_p50 = if depth == 1 {
         POPULATION_SIZE
     } else {
@@ -251,12 +251,12 @@ fn summarize(
         previous.sort_unstable();
         nearest_rank(&previous, 50, 100)
     };
-    let retention = rate_permille(p50, previous_p50);
+    let retention = rate_ppm(p50, previous_p50);
     let utility = task_utility_permille(records, depth, profile);
 
     assert_eq!(utility, 1_000, "the disclosure profile must preserve task outcomes");
     format!(
-        "{},{},{},{},{},{},{},{},{},{},{},{},{},{},{}",
+        "{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{}",
         population.name(),
         profile.name(),
         depth,
@@ -266,9 +266,12 @@ fn summarize(
         p90,
         p95,
         maximum,
-        rate_permille(unique, sizes.len()),
-        rate_permille(at_most_10, sizes.len()),
-        rate_permille(at_most_100, sizes.len()),
+        unique_count,
+        rate_ppm(unique_count, sizes.len()),
+        at_most_10_count,
+        rate_ppm(at_most_10_count, sizes.len()),
+        at_most_100_count,
+        rate_ppm(at_most_100_count, sizes.len()),
         retention,
         utility,
         sizes.len()
@@ -304,9 +307,9 @@ fn render_report(populations: &[(PopulationKind, Vec<Record>)]) -> String {
         &mut output,
         concat!(
             "population,profile,depth,min_candidates,p05_candidates,p50_candidates,",
-            "p90_candidates,p95_candidates,max_candidates,unique_rate_permille,",
-            "at_most_10_rate_permille,at_most_100_rate_permille,",
-            "candidate_retention_permille,task_utility_accuracy_permille,record_count"
+            "p90_candidates,p95_candidates,max_candidates,unique_count,unique_rate_ppm,",
+            "at_most_10_count,at_most_10_rate_ppm,at_most_100_count,at_most_100_rate_ppm,",
+            "candidate_retention_ppm,task_utility_accuracy_permille,record_count"
         )
     )
     .unwrap();
@@ -397,6 +400,54 @@ mod tests {
                 .filter(|record| record.cohort_truth == Some(COHORT_COUNT - 1))
                 .count(),
             COHORT_SIZES[COHORT_COUNT - 1]
+        );
+    }
+
+    #[test]
+    fn cohort_attribute_mapping_matches_frozen_golden_vectors() {
+        let expected: [[u8; ATTRIBUTE_COUNT]; COHORT_COUNT] = [
+            [0, 0, 0, 0, 0, 0],
+            [1, 0, 1, 0, 0, 1],
+            [2, 0, 2, 0, 0, 2],
+            [3, 0, 3, 1, 0, 0],
+            [0, 1, 0, 2, 1, 1],
+            [1, 1, 1, 2, 1, 2],
+            [2, 1, 2, 3, 1, 0],
+            [3, 1, 3, 3, 1, 1],
+            [0, 2, 0, 0, 2, 2],
+            [1, 2, 1, 0, 2, 0],
+            [2, 2, 2, 1, 2, 1],
+            [3, 2, 3, 1, 2, 2],
+            [0, 3, 0, 2, 3, 0],
+            [1, 3, 1, 2, 3, 1],
+            [2, 3, 2, 3, 3, 2],
+            [3, 3, 3, 3, 3, 0],
+        ];
+        for (cohort, expected_attributes) in expected.into_iter().enumerate() {
+            assert_eq!(cohort_attributes(cohort), expected_attributes);
+        }
+    }
+
+    #[test]
+    fn correlated_distribution_summary_matches_frozen_known_answers() {
+        let records = build_population(PopulationKind::CorrelatedSkewed);
+        assert_eq!(
+            summarize(
+                &records,
+                PopulationKind::CorrelatedSkewed,
+                DisclosureProfile::ExactAttribute,
+                2
+            ),
+            "correlated_skewed,exact_attribute,2,1,89,987,1514,1514,1514,1,244,19,4638,231,56396,854,1000,4096"
+        );
+        assert_eq!(
+            summarize(
+                &records,
+                PopulationKind::CorrelatedSkewed,
+                DisclosureProfile::PredicateOnly,
+                3
+            ),
+            "correlated_skewed,predicate_only,3,9,432,1131,1747,1747,1747,0,0,9,2197,87,21240,392,1000,4096"
         );
     }
 
