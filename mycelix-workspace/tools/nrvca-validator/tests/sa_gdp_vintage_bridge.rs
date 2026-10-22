@@ -98,8 +98,9 @@ fn validate(root: &Value) -> Result<(), String> {
             || row["source_locator"]["table_id"].as_str() != Some("table_1") {
             return Err(format!("{period}: row locator missing"));
         }
-        let values = row["values"].as_object().ok_or_else(|| format!("{period}: values missing"))?;
-        if values.len() != metrics.len() { return Err(format!("{period}: metric coverage incomplete")); }
+        let values = &row["values"];
+        let value_object = values.as_object().ok_or_else(|| format!("{period}: values missing"))?;
+        if value_object.len() != metrics.len() { return Err(format!("{period}: metric coverage incomplete")); }
         for id in &metric_ids {
             let n = values[id.as_str()].as_i64().ok_or_else(|| format!("{period}: {id} not integer"))?;
             if n < 0 { return Err(format!("{period}: negative level for {id}")); }
