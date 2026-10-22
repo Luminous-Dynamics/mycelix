@@ -1,0 +1,113 @@
+name: Life Identity Disclosure Fail-Closed Qualification
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - "mycelix-personal/zomes/identity-vault/coordinator/src/lib.rs"
+      - "mycelix-personal/zomes/personal-bridge/coordinator/src/lib.rs"
+      - "mycelix-personal/crates/personal-types/src/lib.rs"
+      - "mycelix-workspace/mycelix-personal/zomes/identity-vault/coordinator/src/lib.rs"
+      - "mycelix-workspace/mycelix-personal/zomes/personal-bridge/coordinator/src/lib.rs"
+      - "mycelix-workspace/mycelix-personal/crates/personal-types/src/lib.rs"
+      - ".github/workflows/life-identity-disclosure-qualification.yml"
+  pull_request:
+    branches:
+      - main
+    paths:
+      - "mycelix-personal/zomes/identity-vault/coordinator/src/lib.rs"
+      - "mycelix-personal/zomes/personal-bridge/coordinator/src/lib.rs"
+      - "mycelix-personal/crates/personal-types/src/lib.rs"
+      - "mycelix-workspace/mycelix-personal/zomes/identity-vault/coordinator/src/lib.rs"
+      - "mycelix-workspace/mycelix-personal/zomes/personal-bridge/coordinator/src/lib.rs"
+      - "mycelix-workspace/mycelix-personal/crates/personal-types/src/lib.rs"
+      - ".github/workflows/life-identity-disclosure-qualification.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: life-identity-disclosure-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  exact-head-qualification:
+    name: Exact-head identity disclosure qualification
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    env:
+      QUALIFIED_SHA: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
+      CARGO_TERM_COLOR: always
+    steps:
+      - name: Checkout exact qualification subject
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          ref: ${{ env.QUALIFIED_SHA }}
+          persist-credentials: false
+
+      - name: Assert exact commit
+        run: test "$(git rev-parse HEAD)" = "$QUALIFIED_SHA"
+
+      - name: Install pinned Rust toolchain
+        uses: dtolnay/rust-toolchain@e97e2d8cc328f1b50210efc529dca0028893a2d9 # pinned action
+        with:
+          toolchain: 1.96.0
+          components: rustfmt, clippy
+
+      - name: Assert toolchain identity
+        run: |
+          test "$(rustc +1.96.0 --version)" = "rustc 1.96.0 (ac68faa20 2026-05-25)"
+          cargo +1.96.0 --version
+          rustfmt +1.96.0 --version
+
+      - name: Generate dependency locks for both checked workspaces
+        run: |
+          cargo +1.96.0 generate-lockfile --manifest-path mycelix-personal/Cargo.toml
+          cargo +1.96.0 generate-lockfile --manifest-path mycelix-workspace/mycelix-personal/Cargo.toml
+
+      - name: Check formatting in both mirrored workspaces
+        run: |
+          cargo +1.96.0 fmt --manifest-path mycelix-personal/Cargo.toml --package identity_vault --package personal_bridge --package personal-types -- --check
+          cargo +1.96.0 fmt --manifest-path mycelix-workspace/mycelix-personal/Cargo.toml --package identity_vault --package personal_bridge --package personal-types -- --check
+
+      - name: Run targeted unit tests in primary workspace
+        run: cargo +1.96.0 test --locked --manifest-path mycelix-personal/Cargo.toml -p identity_vault -p personal_bridge -p personal-types
+
+      - name: Run targeted unit tests in workspace mirror
+        run: cargo +1.96.0 test --locked --manifest-path mycelix-workspace/mycelix-personal/Cargo.toml -p identity_vault -p personal_bridge -p personal-types
+
+      - name: Run strict Clippy in both workspaces
+        run: |
+          cargo +1.96.0 clippy --locked --manifest-path mycelix-personal/Cargo.toml -p identity_vault -p personal_bridge -p personal-types --all-targets -- -D warnings
+          cargo +1.96.0 clippy --locked --manifest-path mycelix-workspace/mycelix-personal/Cargo.toml -p identity_vault -p personal_bridge -p personal-types --all-targets -- -D warnings
+
+      - name: Emit exact-head qualification receipt
+        run: |
+          mkdir -p target/life-identity-disclosure
+          {
+            echo "LIFE IDENTITY DISCLOSURE QUALIFICATION"
+            echo "status=targeted-unit-tests-and-strict-clippy-passed"
+            echo "commit=$QUALIFIED_SHA"
+            echo "workflow=$GITHUB_WORKFLOW"
+            echo "workflow_ref=$GITHUB_WORKFLOW_REF"
+            echo "run_id=$GITHUB_RUN_ID"
+            echo "run_attempt=$GITHUB_RUN_ATTEMPT"
+            echo "event=$GITHUB_EVENT_NAME"
+            echo "rust=$(rustc --version)"
+            echo "cargo=$(cargo --version)"
+            echo "primary_lock_sha256=$(sha256sum mycelix-personal/Cargo.lock | cut -d' ' -f1)"
+            echo "mirror_lock_sha256=$(sha256sum mycelix-workspace/mycelix-personal/Cargo.lock | cut -d' ' -f1)"
+            echo "identity_vault_blob=$(git hash-object mycelix-personal/zomes/identity-vault/coordinator/src/lib.rs)"
+            echo "personal_bridge_blob=$(git hash-object mycelix-personal/zomes/personal-bridge/coordinator/src/lib.rs)"
+            echo "personal_types_blob=$(git hash-object mycelix-personal/crates/personal-types/src/lib.rs)"
+            echo "claim_ceiling=LegacyProjectionScopeAndShapeChecksOnly"
+          } | tee target/life-identity-disclosure/qualification.txt
+          sha256sum mycelix-personal/Cargo.lock mycelix-workspace/mycelix-personal/Cargo.lock target/life-identity-disclosure/qualification.txt > target/life-identity-disclosure/sha256sums.txt
+
+      - name: Upload qualification evidence
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: life-identity-disclosure-${{ env.QUALIFIED_SHA }}
+          path: target/life-identity-disclosure/
+          if-no-files-found: error
