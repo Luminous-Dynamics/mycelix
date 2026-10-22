@@ -211,16 +211,12 @@ pub fn get_my_keys_view(_: ()) -> ExternResult<Vec<MasterKeyView>> {
 
 const ALLOWED_PROFILE_DISCLOSURE_FIELDS: &[&str] = &["display_name", "bio", "avatar"];
 
-/// Project only an explicit, validated field set. Unknown, duplicate, and empty
-/// scopes are rejected rather than silently broadened or collapsed to an empty object.
-fn project_profile_fields(
-    profile: &Profile,
-    fields: &[String],
-) -> Result<serde_json::Map<String, serde_json::Value>, &'static str> {
+/// Validate scope before reading profile state, so invalid requests fail
+/// identically whether or not a profile exists.
+fn validate_profile_disclosure_fields(fields: &[String]) -> Result<(), &'static str> {
     if fields.is_empty() {
         return Err("Identity disclosure scope must contain at least one field");
     }
-
     for (index, field) in fields.iter().enumerate() {
         if !ALLOWED_PROFILE_DISCLOSURE_FIELDS.contains(&field.as_str()) {
             return Err("Identity disclosure scope contains an unsupported field");
@@ -229,6 +225,16 @@ fn project_profile_fields(
             return Err("Identity disclosure scope contains a duplicate field");
         }
     }
+    Ok(())
+}
+
+/// Project only an explicit, validated field set. Unknown, duplicate, and empty
+/// scopes are rejected rather than silently broadened or collapsed to an empty object.
+fn project_profile_fields(
+    profile: &Profile,
+    fields: &[String],
+) -> Result<serde_json::Map<String, serde_json::Value>, &'static str> {
+    validate_profile_disclosure_fields(fields)?;
 
     let mut disclosed = serde_json::Map::new();
     for field in fields {
@@ -271,6 +277,8 @@ fn project_profile_fields(
 /// population. A missing profile is an error, not an empty JSON object.
 #[hdk_extern]
 pub fn disclose_profile(fields: Vec<String>) -> ExternResult<String> {
+    validate_profile_disclosure_fields(&fields)
+        .map_err(|reason| wasm_error!(WasmErrorInner::Guest(reason.into())))?;
     let profile_record = get_my_profile(())?;
     let profile = match profile_record {
         Some(record) => record
