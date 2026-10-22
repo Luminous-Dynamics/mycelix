@@ -12,8 +12,6 @@ const SEED: u64 = 0xBB5_2026_10_22;
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 struct Presentation {
-    // Stable row handle input; never exported as an attacker feature.
-    presentation_id: u32,
     // Ground-truth label is kept in memory only and never exported.
     subject_truth: usize,
     recipient: u8,
@@ -165,7 +163,6 @@ fn build_corpus() -> Vec<Presentation> {
                 let presentation_index =
                     (subject * RECIPIENTS * SESSIONS + recipient * SESSIONS + session) as u64;
                 records.push(Presentation {
-                    presentation_id: presentation_index as u32,
                     subject_truth: subject,
                     recipient: recipient as u8,
                     session: session as u8,
@@ -282,20 +279,21 @@ fn render_metrics(corpus: &[Presentation]) -> String {
     output
 }
 
-fn opaque_presentation_ref(presentation_id: u32) -> u64 {
-    // Domain-separated per-presentation row handle. It is not a subject identifier.
-    splitmix64(SEED ^ 0x4f50_4151_5545_5f31 ^ u64::from(presentation_id))
-}
-
 fn render_feature_corpus(corpus: &[Presentation]) -> String {
     let mut output = String::from(
-        "presentation_ref\trecipient\tsession\tproof_tag\tstatement_count\trevealed_index_pattern\tschema_profile\tglobal_id\n",
+        "recipient\tsession\tproof_tag\tstatement_count\trevealed_index_pattern\tschema_profile\tglobal_id\n",
     );
-    for item in corpus {
+    // Reorder rows by an independent domain-separated value over the opaque
+    // per-presentation proof token. Never serialize a subject-derived ordinal or
+    // a reference that maps directly back to generation order.
+    let mut ordered: Vec<&Presentation> = corpus.iter().collect();
+    ordered.sort_unstable_by_key(|item| {
+        splitmix64(SEED ^ 0x524f_575f_5348_5546 ^ item.proof_tag)
+    });
+    for item in ordered {
         writeln!(
             &mut output,
-            "{:016x}\t{}\t{}\t{:016x}\t{}\t{:04x}\t{}\t{}",
-            opaque_presentation_ref(item.presentation_id),
+            "{}\t{}\t{:016x}\t{}\t{:04x}\t{}\t{}",
             item.recipient,
             item.session,
             item.proof_tag,
@@ -520,7 +518,7 @@ mod tests {
     }
 
     #[test]
-    fn metrics_and_export_are_deterministic_without_truth_or_sequential_ordinals() {
+    fn metrics_and_export_are_deterministic_without_subject_ordinals_or_row_handles() {
         let corpus = build_corpus();
         assert_eq!(render_metrics(&corpus), render_metrics(&build_corpus()));
         let features = render_feature_corpus(&corpus);
@@ -528,22 +526,16 @@ mod tests {
 
         let mut rows = features.lines();
         let header = rows.next().unwrap();
-        assert!(header.starts_with("presentation_ref\trecipient\tsession"));
+        assert!(header.starts_with("recipient\tsession\tproof_tag"));
         assert!(!header.contains("subject_truth"));
         assert!(!header.contains("ground_truth"));
         assert!(!header.contains("subject_index"));
         assert!(!header.contains("presentation_ordinal"));
+        assert!(!header.contains("presentation_ref"));
 
         let rows: Vec<&str> = features.lines().skip(1).collect();
         assert_eq!(rows.len(), PRESENTATIONS);
-        assert!(rows.iter().all(|row| row.split('\t').count() == 8));
-
-        let mut presentation_refs: Vec<&str> = rows
-            .iter()
-            .map(|row| row.split('\t').next().unwrap())
-            .collect();
-        presentation_refs.sort_unstable();
-        presentation_refs.dedup();
-        assert_eq!(presentation_refs.len(), PRESENTATIONS);
+        assert!(rows.iter().all(|row| row.split('\t').count() == 7));
+        assert_ne!(rows.first(), rows.last());
     }
 }
