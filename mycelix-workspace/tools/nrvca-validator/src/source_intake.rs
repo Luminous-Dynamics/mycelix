@@ -359,6 +359,26 @@ fn hash_regular_file(path: &Path) -> Result<(String, u64), String> {
     Ok((hex_encode(&hasher.finalize()), count))
 }
 
+fn ensure_real_directory(path: &Path) -> Result<bool, String> {
+    match fs::symlink_metadata(path) {
+        Ok(metadata) => {
+            if metadata.file_type().is_symlink() || !metadata.is_dir() {
+                return Err(format!("content store directory must be a real directory, not a symlink or other file: {}", path.display()));
+            }
+            Ok(false)
+        }
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
+            fs::create_dir(path)
+                .map_err(|create_error| format!("cannot create content store directory {}: {create_error}", path.display()))?;
+            if let Some(parent) = path.parent() {
+                sync_directory(parent)?;
+            }
+            Ok(true)
+        }
+        Err(error) => Err(format!("cannot inspect content store directory {}: {error}", path.display())),
+    }
+}
+
 #[cfg(unix)]
 fn sync_directory(path: &Path) -> Result<(), String> {
     File::open(path)
@@ -401,9 +421,10 @@ fn capture_source_file(
     if !fs::metadata(&store_root).map_err(|error| format!("cannot stat content store: {error}"))?.is_dir() {
         return Err("content store root must be a directory".to_owned());
     }
-    let object_root = store_root.join("objects").join("sha256");
-    fs::create_dir_all(&object_root)
-        .map_err(|error| format!("cannot create object directory {}: {error}", object_root.display()))?;
+    let objects_dir = store_root.join("objects");
+    ensure_real_directory(&objects_dir)?;
+    let object_root = objects_dir.join("sha256");
+    ensure_real_directory(&object_root)?;
     let object_root = fs::canonicalize(&object_root)
         .map_err(|error| format!("cannot resolve object directory: {error}"))?;
     if !object_root.starts_with(&store_root) {
@@ -441,8 +462,7 @@ fn capture_source_file(
 
     let prefix = &digest[..2];
     let shard_path = object_root.join(prefix);
-    fs::create_dir_all(&shard_path)
-        .map_err(|error| format!("cannot create digest shard: {error}"))?;
+    ensure_real_directory(&shard_path)?;
     let shard_path = fs::canonicalize(&shard_path)
         .map_err(|error| format!("cannot resolve digest shard: {error}"))?;
     if !shard_path.starts_with(&object_root) {
@@ -474,6 +494,7 @@ fn capture_source_file(
         Err(error) => return Err(format!("atomic no-overwrite promotion failed for {}: {error}", object_path.display())),
     }
     sync_directory(&shard_path)?;
+    sync_directory(&object_root)?;
     let (stored_digest, stored_size) = hash_regular_file(&object_path)?;
     if stored_digest != digest || stored_size != bytes_captured {
         return Err("stored object did not verify after promotion".to_owned());
@@ -808,7 +829,7 @@ mod tests {
             fs::remove_dir_all(linked_store.0.join("objects")).ok();
             symlink(&outside.0, linked_store.0.join("objects")).expect("create escaping object-root symlink");
             let error = capture_from_cli(&capture_args_for(&input.0, &linked_store.0)).unwrap_err();
-            assert!(error.contains("escapes the selected content store") || error.contains("escapes the object root"));
+            assert!(error.contains("escapes the selected content store") || error.contains("escapes the object root") || error.contains("real directory"));
         }
     }
 
