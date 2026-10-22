@@ -192,6 +192,67 @@
                 }
               }
             }
+          },
+          {
+            "if": {
+              "properties": {
+                "outcome": {
+                  "const": "correct"
+                }
+              },
+              "required": [
+                "outcome"
+              ]
+            },
+            "then": {
+              "properties": {
+                "score": {
+                  "const": 1
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "outcome": {
+                  "const": "partially_correct"
+                }
+              },
+              "required": [
+                "outcome"
+              ]
+            },
+            "then": {
+              "properties": {
+                "score": {
+                  "exclusiveMinimum": 0,
+                  "exclusiveMaximum": 1
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "outcome": {
+                  "enum": [
+                    "incorrect",
+                    "not_attempted"
+                  ]
+                }
+              },
+              "required": [
+                "outcome"
+              ]
+            },
+            "then": {
+              "properties": {
+                "score": {
+                  "const": 0
+                }
+              }
+            }
           }
         ]
       }
