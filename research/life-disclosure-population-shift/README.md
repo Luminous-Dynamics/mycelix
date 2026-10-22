@@ -18,10 +18,13 @@ The generator is deterministic and has no external dependencies. Every populatio
 - matched_control: reference population reused as the attacker population, an optimistic control.
 - independent_seed: a second independently generated population with the same generator family.
 - debt_correlation_reversed: target-population debt-risk is changed to income_band >= 4, explicitly breaking the reference relationship.
+- debt_risk_rewired_to_transit: target-population debt-risk is set equal to an observable public-transit feature that does not define debt-risk in the policy's reference population.
 - income_marginal_shift: income bands are shifted modulo six without changing age or jurisdiction, so eligibility answers are preserved.
 - rare_tail: every 29th record enters a synthetic long-tail feature combination.
 
 Compare three query policies: unrestricted; a branch-size guard requiring both answer branches to contain at least k=32 reference records; and a dual guard that also caps each protected label's posterior-confidence uplift at 100,000 ppm (10 percentage points) for either possible answer branch.
+
+The debt_risk_rewired_to_transit fixture is deliberately adversarial: it demonstrates that the dual guard can pass its own reference-population rule and keep every observed attacker cohort at or above k, while the protected-attribute confidence uplift in the shifted attacker population exceeds the 10-percentage-point tolerance. This is a counterexample to generalizing a reference-population policy bound across unknown distributions—not a claim about the frequency of such a shift in real data.
 
 The gate's admission function receives only the reference population, current reference cohort, candidate predicate, and policy. It receives neither the target ID nor its next answer. It checks both possible branches before the caller uses the target's answer to update the cohorts. This is important because a guard whose allow/deny result depends on the answer it is trying to protect creates a side channel of its own.
 
