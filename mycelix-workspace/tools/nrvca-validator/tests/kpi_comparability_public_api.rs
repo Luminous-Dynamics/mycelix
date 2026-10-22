@@ -136,3 +136,18 @@ fn unknown_axis_shapes_fail_closed_and_receipts_are_deterministic() {
         compare_kpi_contracts(&item["left"], &item["right"])
     );
 }
+
+#[test]
+fn decisions_and_field_receipts_are_symmetric_for_all_frozen_pairs() {
+    let root = fixture();
+    for item in root["cases"].as_array().expect("cases array") {
+        let forward = compare_kpi_contracts(&item["left"], &item["right"]);
+        let reverse = compare_kpi_contracts(&item["right"], &item["left"]);
+        assert_eq!(forward.measurement.status, reverse.measurement.status, "{}", item["case_id"]);
+        assert_eq!(forward.measurement.changed_fields, reverse.measurement.changed_fields, "{}", item["case_id"]);
+        assert_eq!(forward.measurement.unknown_fields, reverse.measurement.unknown_fields, "{}", item["case_id"]);
+        assert_eq!(forward.target_policy.status, reverse.target_policy.status, "{}", item["case_id"]);
+        assert_eq!(forward.target_policy.changed_fields, reverse.target_policy.changed_fields, "{}", item["case_id"]);
+        assert_eq!(forward.target_policy.unknown_fields, reverse.target_policy.unknown_fields, "{}", item["case_id"]);
+    }
+}
