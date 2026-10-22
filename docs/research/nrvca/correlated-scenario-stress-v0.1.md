@@ -28,7 +28,7 @@ Every strategy-scenario outcome has service lower bound, underserved-service low
 - **Robust success fraction:** count of scenarios where every hard guardrail passes, divided by the declared scenario count, unweighted unless defensible probabilities are separately preregistered. This is a stress-set statistic, not a probability of success.
 - **Worst-case shortfalls:** service, underserved coverage and reliability floor deficits; max emissions/cost cap excess.
 - **Vulnerability map:** scenario IDs and stressor combinations where each strategy fails.
-- **Trigger audit:** action IDs follow explicit, observable stressor conditions; every triggered action and cost appears in the scenario record.
+- **Trigger and cost audit:** action IDs follow explicit stressor conditions; every strategy's base cost must fit the primary budget; every scenario's incremental cost must fit the contingency reserve, and total cost must fit the overall cap.
 - **Coverage:** every strategy must contain exactly one outcome for every declared scenario; no silent omission, duplicate cell or favorable scenario selection.
 - **Regret and adaptive value:** future extension should compare feasible strategies to per-scenario oracle choices and assess whether triggered options improve worst-case outcomes at acceptable reserve cost.
 
@@ -51,7 +51,7 @@ The adaptive strategy still fails the prolonged/repeated-disruption case. This i
 - Zero scenario probability inferred from scenario counts; weighted metrics only when probability basis is separately justified.
 - Adding a new failing scenario cannot improve the robust pass fraction; added pass scenarios may increase it, so always publish the scenario denominator and full set.
 - Changing a descriptive label or attaching probability metadata cannot change scenario-neutral metrics.
-- Missing results, failed evaluations and unresolved trigger rules fail closed.
+- Missing results, failed evaluations and unresolved trigger rules fail closed. Base-budget violations, reserve overruns and total-budget overruns are rejected independently.
 - No unsubstantiated calibration, water-security, national-economy or causal claim.
 
 ## Next tier
