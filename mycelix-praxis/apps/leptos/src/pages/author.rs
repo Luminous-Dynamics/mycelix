@@ -1176,6 +1176,8 @@ pub fn LessonAuthorPage() -> impl IntoView {
                 <p style="color: var(--text-secondary)">"Do not upload copyrighted textbook pages, private student work, or materials you cannot redistribute. A source link is not permission. Publication still requires the lesson evidence sidecar and reviewer approval."</p>
             </section>
 
+            <LessonLearnerPreview draft=draft />
+
             <section style="padding: 1rem; border: 1px solid var(--border); border-radius: 12px; margin-bottom: 1rem">
                 <h2>"Export preview"</h2>
                 <p style="color: var(--text-secondary)">"This is the JSON that will be downloaded. You can inspect it, but you do not need to edit it by hand."</p>
@@ -1189,6 +1191,95 @@ pub fn LessonAuthorPage() -> impl IntoView {
                 }>"Download JSON for review"</button>
             </section>
             <p style="color: var(--text-tertiary); font-size: 0.85rem">"Local-first: drafts stay in this browser. Exporting creates a file; it does not publish, issue credentials, activate a curriculum node, or prove learning effectiveness."</p>
+        </section>
+    }
+}
+
+#[component]
+fn LessonLearnerPreview(draft: ReadSignal<LessonAuthorDraft>) -> impl IntoView {
+    view! {
+        <section style="padding: 1rem; border: 1px solid var(--border); border-radius: 12px; margin-bottom: 1rem">
+            <h2>"Preview as a learner"</h2>
+            <p style="color: var(--text-secondary)">"Review the lesson in plain language before exporting. Practice answer keys and feedback stay collapsed in this preview so you can first read each question as a learner would. Imported items not edited by this form remain preserved in the exported pack."</p>
+            <article style="padding: 0.85rem; border: 1px solid var(--border); border-radius: 10px">
+                <h3>{move || {
+                    let title = draft.get().title;
+                    if title.trim().is_empty() { "Your lesson title will appear here".to_owned() } else { title }
+                }}</h3>
+                <p style="color: var(--text-secondary)">{move || {
+                    let current = draft.get();
+                    format!("{} · {}", current.grade_level, current.language)
+                }}</p>
+                <h4>"What you will learn"</h4>
+                <p>{move || {
+                    let objective = draft.get().learning_objective;
+                    if objective.trim().is_empty() { "Add a learning objective describing what someone will be able to do.".to_owned() } else { objective }
+                }}</p>
+                <h4>"Explanation"</h4>
+                <p style="white-space: pre-wrap">{move || {
+                    let explanation = draft.get().explanation;
+                    if explanation.trim().is_empty() { "Your explanation will appear here.".to_owned() } else { explanation }
+                }}</p>
+                <h4>"Worked example"</h4>
+                <p style="font-weight: 600">{move || {
+                    let problem = draft.get().example_problem;
+                    if problem.trim().is_empty() { "Add a worked-example question.".to_owned() } else { problem }
+                }}</p>
+                <ol>
+                    <li>
+                        <p>{move || draft.get().example_step_one.clone()}</p>
+                        <p style="color: var(--text-secondary)">{move || draft.get().example_step_one_result.clone()}</p>
+                    </li>
+                    <li>
+                        <p>{move || draft.get().example_step_two.clone()}</p>
+                        <p style="color: var(--text-secondary)">{move || draft.get().example_step_two_result.clone()}</p>
+                    </li>
+                </ol>
+                <details>
+                    <summary>"Show worked-example answer"</summary>
+                    <p>{move || draft.get().example_answer.clone()}</p>
+                    <p style="color: var(--text-secondary)">{move || draft.get().visual_description.clone()}</p>
+                </details>
+            </article>
+
+            <h3 style="margin-top: 1rem">"Try these questions"</h3>
+            {move || {
+                draft.get().practice.iter().enumerate().map(|(index, item)| {
+                    let question = item.question.clone();
+                    let answer = item.answer.clone();
+                    let explanation = item.explanation.clone();
+                    let hint = item.hint.clone();
+                    let distractors = item.distractors.clone();
+                    view! {
+                        <article style="padding: 0.85rem; border: 1px solid var(--border); border-radius: 10px; margin: 0.75rem 0">
+                            <h4>{format!("Practice {}", index + 1)}</h4>
+                            <p>{if question.trim().is_empty() { "Add a practice question.".to_owned() } else { question }}</p>
+                            <details>
+                                <summary>"Show author answer and feedback"</summary>
+                                <p><strong>"Expected answer: "</strong>{answer}</p>
+                                <p><strong>"Why: "</strong>{explanation}</p>
+                                <p><strong>"Hint: "</strong>{hint}</p>
+                                <p><strong>"Wrong-answer choices: "</strong><span style="white-space: pre-wrap">{distractors}</span></p>
+                            </details>
+                        </article>
+                    }
+                }).collect_view()
+            }}
+
+            <h3>"Check understanding"</h3>
+            <p style="font-weight: 600">{move || draft.get().assessment_question.clone()}</p>
+            <details>
+                <summary>"Show expected answer and rubric"</summary>
+                <p>{move || draft.get().assessment_answer.clone()}</p>
+                <p>{move || draft.get().assessment_rubric.clone()}</p>
+                <p style="color: var(--text-secondary)">{move || draft.get().assessment_hint.clone()}</p>
+            </details>
+            <h3>"Remember"</h3>
+            <p><strong>{move || draft.get().flashcard_front.clone()}</strong></p>
+            <details>
+                <summary>"Show flashcard back"</summary>
+                <p>{move || draft.get().flashcard_back.clone()}</p>
+            </details>
         </section>
     }
 }
