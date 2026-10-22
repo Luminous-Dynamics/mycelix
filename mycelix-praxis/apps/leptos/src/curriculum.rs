@@ -739,6 +739,16 @@ impl ProgressStore {
     pub fn record_self_assessment(&mut self, node_id: &str, assessment: SelfAssessment) {
         let bkt = self.bkt_states.get(node_id).cloned();
         let entry = self.nodes.entry(node_id.to_string()).or_default();
+        if entry.status == ProgressStatus::Mastered {
+            entry.self_reported_attempts = entry
+                .self_reported_attempts
+                .saturating_add(entry.attempts);
+            entry.self_reported_correct = entry
+                .self_reported_correct
+                .saturating_add(entry.correct.min(entry.attempts));
+            entry.attempts = 0;
+            entry.correct = 0;
+        }
         entry.self_assessment = Some(assessment);
         entry.self_reported_attempts = entry.self_reported_attempts.saturating_add(1);
         if assessment == SelfAssessment::FeelsUnderstood {
