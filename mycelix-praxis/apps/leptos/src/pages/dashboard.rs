@@ -1255,9 +1255,10 @@ fn ProgressCard() -> impl IntoView {
     let counts = Memo::new(move |_| {
         let p = progress.get();
         let total = graph.nodes.len();
-        let mastered = p.mastered_count();
+        let verified = p.mastered_count();
+        let provisional = p.provisional_mastery_count();
         let studying = p.studying_count();
-        (total, mastered, studying)
+        (total, verified, provisional, studying)
     });
 
     // Find highest-weight unmastered Gr12 topics
@@ -1299,24 +1300,24 @@ fn ProgressCard() -> impl IntoView {
             <div class="praxis-progress-grid">
                 // Overall
                 <div>
-                    <div style="font-size: 0.8rem; color: var(--text-secondary); margin-bottom: 0.25rem">"Overall"</div>
+                    <div style="font-size: 0.8rem; color: var(--text-secondary); margin-bottom: 0.25rem">"Verified mastery"</div>
                     {move || {
-                        let (total, mastered, studying) = counts.get();
-                        let pct = if total > 0 { mastered * 100 / total } else { 0 };
+                        let (total, verified, provisional, studying) = counts.get();
+                        let pct = if total > 0 { verified * 100 / total } else { 0 };
                         view! {
-                            <div style="font-size: 1.5rem; font-weight: 700">{mastered}"/" {total}</div>
+                            <div style="font-size: 1.5rem; font-weight: 700">{verified}"/" {total}</div>
                             <div class="progress-bar">
                                 <div class="progress-bar-fill success" style=format!("width: {}%", pct)></div>
                             </div>
                             <div style="font-size: 0.75rem; color: var(--text-secondary); margin-top: 0.25rem">
-                                {studying}" studying, "{total - mastered - studying}" remaining"
+                                {provisional}" provisional, "{studying}" studying, "{total - verified - provisional - studying}" unassessed"
                             </div>
                         }
                     }}
                 </div>
                 // Mathematics
                 <div>
-                    <div style="font-size: 0.8rem; color: var(--subject-math); margin-bottom: 0.25rem">"Mathematics"</div>
+                    <div style="font-size: 0.8rem; color: var(--subject-math); margin-bottom: 0.25rem">"Mathematics (BKT estimate)"</div>
                     {move || {
                         let m = math_mastery.get();
                         view! {
@@ -1329,7 +1330,7 @@ fn ProgressCard() -> impl IntoView {
                 </div>
                 // Physical Sciences
                 <div>
-                    <div style="font-size: 0.8rem; color: var(--subject-physics); margin-bottom: 0.25rem">"Physical Sciences"</div>
+                    <div style="font-size: 0.8rem; color: var(--subject-physics); margin-bottom: 0.25rem">"Physical Sciences (BKT estimate)"</div>
                     {move || {
                         let m = physics_mastery.get();
                         view! {
@@ -1344,9 +1345,9 @@ fn ProgressCard() -> impl IntoView {
                 <div>
                     <div style="font-size: 0.8rem; color: var(--info); margin-bottom: 0.25rem">"Local Progress"</div>
                     {move || {
-                        let (_, mastered, studying) = counts.get();
+                        let (_, verified, provisional, studying) = counts.get();
                         view! {
-                            <div style="font-size: 1.5rem; font-weight: 700">{mastered + studying}</div>
+                            <div style="font-size: 1.5rem; font-weight: 700">{verified + provisional + studying}</div>
                             <div style="font-size: 0.75rem; color: var(--text-secondary); margin-top: 0.25rem">
                                 "Topics with browser-local progress"
                             </div>
