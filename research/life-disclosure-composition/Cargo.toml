@@ -1,0 +1,13 @@
+[package]
+name = "life-disclosure-composition"
+version = "0.1.0"
+edition = "2024"
+license = "AGPL-3.0-or-later"
+publish = false
+description = "Deterministic synthetic benchmark for cumulative disclosure composition"
+
+[[bin]]
+name = "life-disclosure-composition"
+path = "src/main.rs"
+
+[workspace]
