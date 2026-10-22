@@ -743,7 +743,9 @@ impl ProgressStore {
         if status == ProgressStatus::Mastered {
             let bkt = self.bkt_states.get(node_id).cloned();
             let entry = self.nodes.entry(node_id.to_string()).or_default();
-            if entry.status == ProgressStatus::Mastered {
+            if entry.status == ProgressStatus::Mastered
+                && entry.scored_practice_receipts.is_empty()
+            {
                 entry.self_reported_attempts = entry
                     .self_reported_attempts
                     .saturating_add(entry.attempts);
@@ -805,7 +807,9 @@ impl ProgressStore {
     pub fn record_self_assessment(&mut self, node_id: &str, assessment: SelfAssessment) {
         let bkt = self.bkt_states.get(node_id).cloned();
         let entry = self.nodes.entry(node_id.to_string()).or_default();
-        if entry.status == ProgressStatus::Mastered {
+        if entry.status == ProgressStatus::Mastered
+            && entry.scored_practice_receipts.is_empty()
+        {
             entry.self_reported_attempts = entry
                 .self_reported_attempts
                 .saturating_add(entry.attempts);
@@ -825,7 +829,9 @@ impl ProgressStore {
             entry.status,
             ProgressStatus::NotStarted | ProgressStatus::Mastered
         ) {
-            entry.status = if bkt.as_ref().is_some_and(BktState::is_likely_mastered) {
+            entry.status = if !entry.scored_practice_receipts.is_empty()
+                && bkt.as_ref().is_some_and(BktState::is_likely_mastered)
+            {
                 ProgressStatus::ProvisionalMastery
             } else {
                 ProgressStatus::Studying
