@@ -29,7 +29,7 @@
     },
     "source_manifest_sha256": {
       "type": "string",
-      "const": "d96381be7a7bbfdd6cafb6286834a575268a1f5b423a5e1345d8d1af4c3156e6"
+      "const": "c1ee59514524c7eb0535e58f3fc19c3c3f309d05adb0ca896ac59ef5b3abcf92"
     },
     "recorded_at_utc": {
       "type": "string",
@@ -114,10 +114,10 @@
         },
         "requested_url": {
           "enum": [
-            "https://ref.gs1.org/standards/epcis/2.0.1/artefacts/epcis-context.jsonld",
-            "https://ref.gs1.org/standards/epcis/2.0.1/artefacts/epcis-json-schema.json",
-            "https://ref.gs1.org/standards/epcis/2.0.1/artefacts/epcis-shacl.ttl",
-            "https://ref.gs1.org/standards/epcis/2.0.1/artefacts/cbv-ontology.jsonld"
+            "https://ref.gs1.org/standards/epcis/2.0.1/epcis-context.jsonld",
+            "https://ref.gs1.org/standards/epcis/2.0.1/epcis-json-schema.json",
+            "https://ref.gs1.org/standards/epcis/2.0.1/epcis-shacl.ttl",
+            "https://ref.gs1.org/standards/epcis/2.0.1/cbv-ontology.jsonld"
           ]
         },
         "source_revision": {
