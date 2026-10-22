@@ -153,7 +153,11 @@ struct AdaptiveRun {
     stopped_by_guard: Vec<bool>,
 }
 
-fn adaptive_cohorts_with_min_branch(people: &[Person], min_branch_size: usize) -> AdaptiveRun {
+fn adaptive_cohorts_with_policy(
+    people: &[Person],
+    min_branch_size: usize,
+    max_sensitive_uplift_ppm: u64,
+) -> AdaptiveRun {
     let mut by_depth =
         vec![Vec::<Vec<usize>>::with_capacity(people.len()); MAX_ADAPTIVE_QUERIES + 1];
     let mut queries_by_depth =
@@ -186,26 +190,41 @@ fn adaptive_cohorts_with_min_branch(people: &[Person], min_branch_size: usize) -
                 continue;
             };
 
-            let yes_count = candidates
-                .iter()
-                .filter(|candidate_id| people[**candidate_id].features()[feature])
-                .count();
-            let no_count = candidates.len() - yes_count;
+            let mut yes_candidates = Vec::new();
+            let mut no_candidates = Vec::new();
+            for candidate_id in candidates.iter().copied() {
+                if people[candidate_id].features()[feature] {
+                    yes_candidates.push(candidate_id);
+                } else {
+                    no_candidates.push(candidate_id);
+                }
+            }
 
             // Evaluate both potential answers before observing the target's bit.
             // This avoids making the allow/deny result itself disclose which branch
             // the target would have taken.
-            if yes_count < min_branch_size || no_count < min_branch_size {
-                stopped = min_branch_size > 1;
+            let branch_too_small = yes_candidates.len() < min_branch_size
+                || no_candidates.len() < min_branch_size;
+            let current_confidence = maximum_sensitive_confidence_ppm(people, &candidates);
+            let branch_leaks_too_much = [&yes_candidates, &no_candidates]
+                .into_iter()
+                .any(|branch| {
+                    maximum_sensitive_confidence_ppm(people, branch)
+                        .saturating_sub(current_confidence)
+                        > max_sensitive_uplift_ppm
+                });
+            if branch_too_small || branch_leaks_too_much {
+                stopped = min_branch_size > 1 || max_sensitive_uplift_ppm < MILLION;
                 continue;
             }
 
             asked[feature] = true;
             accepted_queries += 1;
-            let answer = target_features[feature];
-            candidates.retain(|candidate_id| {
-                people[*candidate_id].features()[feature] == answer
-            });
+            candidates = if target_features[feature] {
+                yes_candidates
+            } else {
+                no_candidates
+            };
         }
 
         stopped_by_guard.push(stopped);
@@ -216,6 +235,28 @@ fn adaptive_cohorts_with_min_branch(people: &[Person], min_branch_size: usize) -
         queries_by_depth,
         stopped_by_guard,
     }
+}
+
+fn maximum_sensitive_confidence_ppm(people: &[Person], candidates: &[usize]) -> u64 {
+    if candidates.is_empty() {
+        return MILLION;
+    }
+
+    let high_income = candidates
+        .iter()
+        .filter(|candidate_id| people[**candidate_id].high_income())
+        .count();
+    let debt_risk = candidates
+        .iter()
+        .filter(|candidate_id| people[**candidate_id].debt_risk)
+        .count();
+    let total = candidates.len() as u64;
+
+    let high_income_confidence = high_income.max(candidates.len() - high_income) as u64 * MILLION
+        / total;
+    let debt_risk_confidence =
+        debt_risk.max(candidates.len() - debt_risk) as u64 * MILLION / total;
+    high_income_confidence.max(debt_risk_confidence)
 }
 
 #[derive(Debug, PartialEq, Eq)]
@@ -333,9 +374,10 @@ fn report() -> String {
         .enumerate()
         .map(|(target_id, _)| initial_cohort(&people, target_id, BaseDisclosure::FullAttributes))
         .collect::<Vec<_>>();
-    let adaptive = adaptive_cohorts_with_min_branch(&people, 1);
-    let guarded_32 = adaptive_cohorts_with_min_branch(&people, 32);
-    let guarded_64 = adaptive_cohorts_with_min_branch(&people, 64);
+    let adaptive = adaptive_cohorts_with_policy(&people, 1, MILLION);
+    let guarded_32 = adaptive_cohorts_with_policy(&people, 32, MILLION);
+    let guarded_64 = adaptive_cohorts_with_policy(&people, 64, MILLION);
+    let dual_guard_32 = adaptive_cohorts_with_policy(&people, 32, 100_000);
     let zero_queries = vec![0; people.len()];
     let no_guard_stops = vec![false; people.len()];
 
@@ -388,6 +430,7 @@ fn report() -> String {
     for (profile, min_branch, run) in [
         ("risk_guard_k32", 32, &guarded_32),
         ("risk_guard_k64", 64, &guarded_64),
+        ("dual_guard_k32_uplift100k", 32, &dual_guard_32),
     ] {
         write_row(
             &mut output,
@@ -470,7 +513,7 @@ mod tests {
     #[test]
     fn adaptive_questions_never_increase_candidate_sets() {
         let people = synthetic_population();
-        let run = adaptive_cohorts_with_min_branch(&people, 1);
+        let run = adaptive_cohorts_with_policy(&people, 1);
 
         for (depth, (previous, current)) in run
             .by_depth
@@ -493,7 +536,7 @@ mod tests {
         let people = synthetic_population();
 
         for threshold in [32, 64] {
-            let run = adaptive_cohorts_with_min_branch(&people, threshold);
+            let run = adaptive_cohorts_with_policy(&people, threshold, MILLION);
             for (depth, cohorts) in run.by_depth.iter().enumerate() {
                 for (target_id, candidates) in cohorts.iter().enumerate() {
                     assert!(
@@ -509,8 +552,8 @@ mod tests {
     #[test]
     fn risk_guard_stops_queries_without_changing_task_answers() {
         let people = synthetic_population();
-        let unbounded = adaptive_cohorts_with_min_branch(&people, 1);
-        let guarded = adaptive_cohorts_with_min_branch(&people, 32);
+        let unbounded = adaptive_cohorts_with_policy(&people, 1);
+        let guarded = adaptive_cohorts_with_policy(&people, 32, MILLION);
         let last = MAX_ADAPTIVE_QUERIES;
         let unbounded_mean = unbounded.queries_by_depth[last].iter().sum::<usize>();
         let guarded_mean = guarded.queries_by_depth[last].iter().sum::<usize>();
@@ -546,21 +589,42 @@ mod tests {
     }
 
     #[test]
-    fn guarded_policy_stops_before_learning_the_target_answer() {
+    fn guarded_policy_records_stops_without_breaching_threshold() {
         let people = synthetic_population();
         let threshold = 32;
-        let run = adaptive_cohorts_with_min_branch(&people, threshold);
+        let run = adaptive_cohorts_with_policy(&people, threshold, MILLION);
         let target_id = run
             .stopped_by_guard
             .iter()
             .position(|stopped| *stopped)
             .expect("at least one adaptive query should be denied");
 
-        // The guard decides using both possible branch sizes before inspecting
-        // this target's next answer. Recomputing the chosen query confirms the
-        // accepted cohort remains above the threshold.
         let final_cohort = &run.by_depth[MAX_ADAPTIVE_QUERIES][target_id];
         assert!(final_cohort.len() >= threshold);
+    }
+
+    #[test]
+    fn sensitive_inference_guard_bounds_each_admitted_query_uplift() {
+        let people = synthetic_population();
+        let max_uplift_ppm = 100_000;
+        let run = adaptive_cohorts_with_policy(&people, 32, max_uplift_ppm);
+
+        for (previous, current) in run.by_depth.iter().zip(run.by_depth.iter().skip(1)) {
+            for (target_id, current_cohort) in current.iter().enumerate() {
+                let before = maximum_sensitive_confidence_ppm(&people, &previous[target_id]);
+                let after = maximum_sensitive_confidence_ppm(&people, current_cohort);
+                assert!(
+                    after.saturating_sub(before) <= max_uplift_ppm,
+                    "sensitive confidence uplift exceeded threshold for target {target_id}: {before} -> {after}"
+                );
+            }
+        }
+
+        let branch_only = adaptive_cohorts_with_policy(&people, 32, MILLION);
+        assert!(
+            run.queries_by_depth[MAX_ADAPTIVE_QUERIES].iter().sum::<usize>()
+                < branch_only.queries_by_depth[MAX_ADAPTIVE_QUERIES].iter().sum::<usize>()
+        );
     }
 
     #[test]
