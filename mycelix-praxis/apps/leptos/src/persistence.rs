@@ -310,7 +310,12 @@ pub fn export_all() -> String {
     let bundle = ExportBundle {
         version: 1,
         exported_at,
-        progress: load::<ProgressStore>("praxis_progress"),
+        progress: load::<ProgressStore>("praxis_progress").map(|mut progress| {
+            if progress.migrate_legacy_progress() {
+                save("praxis_progress", &progress);
+            }
+            progress
+        }),
         study_tracker: load::<StudyTracker>("praxis_study_tracker"),
         profile: load::<StudentProfile>("praxis_profile"),
     };
