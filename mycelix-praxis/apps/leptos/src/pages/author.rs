@@ -579,6 +579,7 @@ fn validate_draft(draft: &LessonAuthorDraft) -> Vec<String> {
         ("Objective ID", draft.node_id.trim()),
         ("Lesson title", draft.title.trim()),
         ("Grade or course level", draft.grade_level.trim()),
+        ("Language / locale", draft.language.trim()),
         ("Learning objective", draft.learning_objective.trim()),
         ("Explanation", draft.explanation.trim()),
         ("Worked example problem", draft.example_problem.trim()),
