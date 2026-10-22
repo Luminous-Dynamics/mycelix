@@ -46,7 +46,7 @@
     ],
     "uncertainty_policy": "Unknown or disputed inputs do not grant optimistic capacity or authorize issuance; preserve an explicit Unknown/Indeterminate/PendingAppeal disposition."
   },
-  "case_count": 36,
+  "case_count": 37,
   "cases": [
     {
       "id": "cp-pc-baseline-issuance",
@@ -1000,6 +1000,37 @@
         "prohibited_inferences": [
           "unqualified_negative_evidence_cannot_reverse",
           "no_silent_reversal"
+        ]
+      }
+    },
+    {
+      "id": "cp-delayed-negative-evidence-qualified-no-appeal-stays-pending",
+      "category": "appeal-and-governance",
+      "title": "Qualified delayed negative evidence without an appeal route stays pending and preserves prior recognition",
+      "input": {
+        "operation": "review_delayed_negative_evidence",
+        "prior_recognition_event_id": "urn:uuid:10000000-0000-4000-8000-000000000303",
+        "prior_recognition_state": "recognized",
+        "prior_recognition_time": "2026-10-01T10:00:00Z",
+        "negative_evidence_ref": "urn:mycelix:evidence:delayed-negative-no-appeal-303",
+        "negative_evidence_time": "2026-10-18T10:00:00Z",
+        "evidence_time_relation": "after_recognition",
+        "corroboration_state": "qualified",
+        "dispute_state": "none",
+        "appeal_route": null,
+        "review_authority_scope": "contribution-review:project-12"
+      },
+      "expected": {
+        "decision": "PendingAppeal",
+        "disposition": "Unknown",
+        "effects": [
+          "prior_recognition_event_preserved"
+        ],
+        "prohibited_inferences": [
+          "retroactive_silent_reversal",
+          "contribution_issuance_before_review",
+          "moral_worth_score",
+          "appeal_route_and_authority_required"
         ]
       }
     }
