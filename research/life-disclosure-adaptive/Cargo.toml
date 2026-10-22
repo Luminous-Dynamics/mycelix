@@ -1,0 +1,13 @@
+[package]
+name = "life-disclosure-adaptive"
+version = "0.1.0"
+edition = "2024"
+license = "AGPL-3.0-or-later"
+publish = false
+description = "Held-out synthetic adaptive attacker benchmark for cross-recipient disclosure linkability"
+
+[[bin]]
+name = "life-disclosure-adaptive"
+path = "src/main.rs"
+
+[workspace]
