@@ -646,6 +646,64 @@ mod tests {
     }
 
     #[test]
+    fn frozen_adaptive_guard_metrics_match_reference_answers() {
+        let people = synthetic_population();
+        let feature_rows = precompute_feature_rows(&people);
+        let no_guard_stops = vec![false; people.len()];
+        let zero_stops = vec![0; people.len()];
+        let last = MAX_ADAPTIVE_QUERIES;
+
+        assert_eq!(people.iter().filter(|person| person.eligible()).count(), 461);
+
+        let unbounded = adaptive_cohorts_with_policy(&people, &feature_rows, 1, MILLION);
+        let unbounded_metrics = summarize(
+            &people,
+            &unbounded.by_depth[last],
+            BaseDisclosure::TaskResult,
+            &unbounded.queries_by_depth[last],
+            &no_guard_stops,
+        );
+        assert_eq!(unbounded_metrics.p50_candidates, 3);
+        assert_eq!(unbounded_metrics.singleton_rate_ppm, 170_898);
+        assert_eq!(unbounded_metrics.mean_queries_answered_milli, 7_859);
+
+        let branch_guard = adaptive_cohorts_with_policy(&people, &feature_rows, 32, MILLION);
+        let branch_metrics = summarize(
+            &people,
+            &branch_guard.by_depth[last],
+            BaseDisclosure::TaskResult,
+            &branch_guard.queries_by_depth[last],
+            &branch_guard.stopped_by_guard,
+        );
+        assert_eq!(branch_metrics.p05_candidates, 34);
+        assert_eq!(branch_metrics.p50_candidates, 56);
+        assert_eq!(branch_metrics.p95_candidates, 73);
+        assert_eq!(branch_metrics.singleton_rate_ppm, 0);
+        assert_eq!(branch_metrics.mean_queries_answered_milli, 3_233);
+        assert_eq!(branch_metrics.stopped_by_guard_ppm, MILLION);
+        assert_eq!(branch_metrics.high_income_inference_accuracy_ppm, 869_140);
+        assert_eq!(branch_metrics.debt_risk_inference_accuracy_ppm, MILLION);
+
+        let dual_guard = adaptive_cohorts_with_policy(&people, &feature_rows, 32, 100_000);
+        let dual_metrics = summarize(
+            &people,
+            &dual_guard.by_depth[last],
+            BaseDisclosure::TaskResult,
+            &dual_guard.queries_by_depth[last],
+            &dual_guard.stopped_by_guard,
+        );
+        assert_eq!(dual_metrics.p50_candidates, 563);
+        assert_eq!(dual_metrics.mean_queries_answered_milli, 450);
+        assert_eq!(dual_metrics.stopped_by_guard_ppm, MILLION);
+        assert_eq!(dual_metrics.high_income_inference_accuracy_ppm, 669_921);
+        assert_eq!(dual_metrics.debt_risk_inference_accuracy_ppm, 512_695);
+        assert_eq!(dual_metrics.task_utility_ppm, MILLION);
+
+        // Prevent unused vectors from masking a future change to the output model.
+        assert_eq!(zero_stops.len(), people.len());
+    }
+
+    #[test]
     fn report_is_byte_for_byte_deterministic() {
         assert_eq!(report(), report());
     }
