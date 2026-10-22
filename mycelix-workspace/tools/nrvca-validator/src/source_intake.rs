@@ -12,10 +12,13 @@ use std::{
     io::{Read, Write},
     path::{Path, PathBuf},
     time::{SystemTime, UNIX_EPOCH},
+    sync::atomic::{AtomicU64, Ordering},
 };
 
 const HASH_BUFFER_BYTES: usize = 64 * 1024;
+static NEXT_TEMP_OBJECT: AtomicU64 = AtomicU64::new(0);
 pub const HASH_SOURCE_USAGE: &str = "Usage: nrvca-validator hash-source --file PATH --source-id ID --publisher NAME --source-uri URI --publication-id ID --vintage VINTAGE --captured-at RFC3339 --rights-status open_reuse|permission_granted|evaluation_only|restricted|prohibited|unknown --rights-evidence-uri URI --evaluation-allowed true|false --redistribution-allowed true|false --locator-id ID --locator TEXT --extraction-method METHOD --tool-version VERSION [--expected-sha256 HEX] [--output PATH]";
+pub const CAPTURE_SOURCE_USAGE: &str = "Usage: nrvca-validator capture-source --file PATH --store-dir DIR --source-id ID --publisher NAME --source-uri URI --publication-id ID --vintage VINTAGE --captured-at RFC3339 --rights-status open_reuse|permission_granted|evaluation_only|restricted|prohibited|unknown --rights-evidence-uri URI --evaluation-allowed true|false --redistribution-allowed true|false --locator-id ID --locator TEXT --extraction-method METHOD --tool-version VERSION [--expected-sha256 HEX] [--output PATH]";
 const KNOWN_FLAGS: [&str; 17] = [
     "--file",
     "--source-id",
@@ -186,9 +189,15 @@ fn parse_arguments(args: &[String]) -> Result<BTreeMap<String, String>, String> 
     Ok(values)
 }
 
-/// Parse the hash-source CLI flags, hash the actual input file, optionally
-/// compare a supplied digest, and build a JSON source record for NRVCA-016.
-pub fn receipt_from_cli(args: &[String]) -> Result<HashSourceOutput, String> {
+#[derive(Debug, Clone)]
+struct ParsedSourceArgs {
+    metadata: SourceMetadata,
+    input_path: PathBuf,
+    expected_sha256: Option<String>,
+    output_path: Option<PathBuf>,
+}
+
+fn parse_source_args(args: &[String]) -> Result<ParsedSourceArgs, String> {
     let values = parse_arguments(args)?;
     let metadata = SourceMetadata {
         source_id: required(&values, "--source-id")?.to_owned(),
@@ -210,17 +219,352 @@ pub fn receipt_from_cli(args: &[String]) -> Result<HashSourceOutput, String> {
         return Err("--captured-at must be a valid RFC 3339 timestamp with a timezone".to_owned());
     }
     if !rights_are_coherent(&metadata) {
-        return Err("rights status/evaluation/redistribution flags are inconsistent; hash was not admitted as a valid source receipt".to_owned());
+        return Err("rights status/evaluation/redistribution flags are inconsistent; source was not admitted".to_owned());
     }
 
-    let expected = values.get("--expected-sha256").map(String::as_str);
-    if expected.is_some_and(|digest| !valid_sha256(digest)) {
+    let expected_sha256 = values.get("--expected-sha256").cloned();
+    if expected_sha256.as_deref().is_some_and(|digest| !valid_sha256(digest)) {
         return Err("--expected-sha256 must be exactly 64 hexadecimal characters".to_owned());
     }
-    let input = required(&values, "--file")?;
-    let receipt = hash_source_file(Path::new(input), &metadata, expected)?;
+    let input_path = PathBuf::from(required(&values, "--file")?);
     let output_path = values.get("--output").map(PathBuf::from);
-    Ok(HashSourceOutput { receipt, output_path })
+    Ok(ParsedSourceArgs { metadata, input_path, expected_sha256, output_path })
+}
+
+/// Parse hash-source flags, hash the actual input file, and build a source record.
+pub fn receipt_from_cli(args: &[String]) -> Result<HashSourceOutput, String> {
+    let parsed = parse_source_args(args)?;
+    let receipt = hash_source_file(&parsed.input_path, &parsed.metadata, parsed.expected_sha256.as_deref())?;
+    Ok(HashSourceOutput { receipt, output_path: parsed.output_path })
+}
+
+fn strip_store_dir(args: &[String]) -> Result<(Vec<String>, PathBuf), String> {
+    if args.len() == 1 && matches!(args[0].as_str(), "--help" | "-h") {
+        return Err(CAPTURE_SOURCE_USAGE.to_owned());
+    }
+    if args.len() % 2 != 0 {
+        return Err("each capture-source flag must have exactly one value".to_owned());
+    }
+    let mut filtered = Vec::with_capacity(args.len());
+    let mut store_dir: Option<PathBuf> = None;
+    for pair in args.chunks_exact(2) {
+        if pair[0] == "--store-dir" {
+            if store_dir.is_some() {
+                return Err("duplicate capture-source argument: --store-dir".to_owned());
+            }
+            if !nonempty(&pair[1]) {
+                return Err("--store-dir must be nonempty".to_owned());
+            }
+            store_dir = Some(PathBuf::from(&pair[1]));
+        } else {
+            filtered.push(pair[0].clone());
+            filtered.push(pair[1].clone());
+        }
+    }
+    let store_dir = store_dir.ok_or_else(|| "missing required argument --store-dir".to_owned())?;
+    Ok((filtered, store_dir))
+}
+
+/// Capture actual input bytes into a content-addressed store in the same pass
+/// that computes SHA-256. The public receipt contains only a store-relative path.
+pub fn capture_from_cli(args: &[String]) -> Result<HashSourceOutput, String> {
+    let (source_args, store_dir) = strip_store_dir(args)?;
+    let parsed = parse_source_args(&source_args)?;
+    let receipt = capture_source_file(
+        &parsed.input_path,
+        &store_dir,
+        &parsed.metadata,
+        parsed.expected_sha256.as_deref(),
+    )?;
+    Ok(HashSourceOutput { receipt, output_path: parsed.output_path })
+}
+
+struct TemporaryObject(PathBuf);
+impl Drop for TemporaryObject {
+    fn drop(&mut self) {
+        let _ = fs::remove_file(&self.0);
+    }
+}
+
+fn create_private_new_file(path: &Path) -> Result<File, std::io::Error> {
+    let mut options = OpenOptions::new();
+    options.write(true).create_new(true);
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::OpenOptionsExt;
+        options.mode(0o600);
+    }
+    options.open(path)
+}
+
+fn make_object_read_only(path: &Path) -> Result<(), String> {
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        fs::set_permissions(path, fs::Permissions::from_mode(0o400))
+            .map_err(|error| format!("cannot restrict object permissions {}: {error}", path.display()))
+    }
+    #[cfg(not(unix))]
+    {
+        let mut permissions = fs::metadata(path)
+            .map_err(|error| format!("cannot inspect object permissions: {error}"))?
+            .permissions();
+        permissions.set_readonly(true);
+        fs::set_permissions(path, permissions)
+            .map_err(|error| format!("cannot mark object read-only {}: {error}", path.display()))
+    }
+}
+
+fn ensure_object_permissions(path: &Path) -> Result<(), String> {
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        let permissions = fs::metadata(path)
+            .map_err(|error| format!("cannot inspect existing object permissions: {error}"))?
+            .permissions();
+        if permissions.mode() & 0o777 != 0o400 {
+            return Err(format!("pre-existing digest object permissions are not owner-read-only (0400): {}", path.display()));
+        }
+        Ok(())
+    }
+    #[cfg(not(unix))]
+    {
+        let permissions = fs::metadata(path)
+            .map_err(|error| format!("cannot inspect existing object permissions: {error}"))?
+            .permissions();
+        if !permissions.readonly() {
+            return Err(format!("pre-existing digest object is writable: {}", path.display()));
+        }
+        Ok(())
+    }
+}
+
+fn create_temporary_object(staging_dir: &Path) -> Result<(PathBuf, File), String> {
+    for _ in 0..32 {
+        let sequence = NEXT_TEMP_OBJECT.fetch_add(1, Ordering::Relaxed);
+        let path = staging_dir.join(format!(".capture-{}-{sequence}.tmp", std::process::id()));
+        match create_private_new_file(&path) {
+            Ok(file) => return Ok((path, file)),
+            Err(error) if error.kind() == std::io::ErrorKind::AlreadyExists => continue,
+            Err(error) => return Err(format!("cannot create private temporary content object {}: {error}", path.display())),
+        }
+    }
+    Err("could not allocate a unique temporary content object after 32 attempts".to_owned())
+}
+
+fn hash_regular_file(path: &Path) -> Result<(String, u64), String> {
+    let metadata = fs::symlink_metadata(path)
+        .map_err(|error| format!("cannot stat existing content object {}: {error}", path.display()))?;
+    if metadata.file_type().is_symlink() || !metadata.is_file() {
+        return Err(format!("content-addressed object must be a regular non-symlink file: {}", path.display()));
+    }
+    let mut file = File::open(path)
+        .map_err(|error| format!("cannot open existing content object {}: {error}", path.display()))?;
+    let opened = file.metadata().map_err(|error| format!("cannot stat opened content object: {error}"))?;
+    if !opened.is_file() {
+        return Err(format!("opened content object is not regular: {}", path.display()));
+    }
+    let initial_size = opened.len();
+    let initial_modified = opened.modified().map_err(|error| format!("cannot read object modification time: {error}"))?;
+    let mut hasher = Sha256::new();
+    let mut buffer = [0u8; HASH_BUFFER_BYTES];
+    let mut count = 0u64;
+    loop {
+        let read = file.read(&mut buffer).map_err(|error| format!("cannot verify existing object: {error}"))?;
+        if read == 0 { break; }
+        hasher.update(&buffer[..read]);
+        count = count.checked_add(read as u64).ok_or_else(|| "object byte count overflow".to_owned())?;
+    }
+    let after = file.metadata().map_err(|error| format!("cannot restat object: {error}"))?;
+    let after_modified = after.modified().map_err(|error| format!("cannot reread object modification time: {error}"))?;
+    if count != initial_size || after.len() != initial_size || initial_modified != after_modified {
+        return Err(format!("existing content object changed during verification: {}", path.display()));
+    }
+    Ok((hex_encode(&hasher.finalize()), count))
+}
+
+fn ensure_real_directory(path: &Path) -> Result<bool, String> {
+    match fs::symlink_metadata(path) {
+        Ok(metadata) => {
+            if metadata.file_type().is_symlink() || !metadata.is_dir() {
+                return Err(format!("content store directory must be a real directory, not a symlink or other file: {}", path.display()));
+            }
+            Ok(false)
+        }
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
+            fs::create_dir(path)
+                .map_err(|create_error| format!("cannot create content store directory {}: {create_error}", path.display()))?;
+            if let Some(parent) = path.parent() {
+                sync_directory(parent)?;
+            }
+            Ok(true)
+        }
+        Err(error) => Err(format!("cannot inspect content store directory {}: {error}", path.display())),
+    }
+}
+
+#[cfg(unix)]
+fn sync_directory(path: &Path) -> Result<(), String> {
+    File::open(path)
+        .and_then(|file| file.sync_all())
+        .map_err(|error| format!("cannot sync directory {}: {error}", path.display()))
+}
+
+#[cfg(not(unix))]
+fn sync_directory(_path: &Path) -> Result<(), String> {
+    // Standard library has no portable directory-handle fsync API.
+    Ok(())
+}
+
+fn capture_source_file(
+    input_path: &Path,
+    store_dir: &Path,
+    metadata: &SourceMetadata,
+    expected_sha256: Option<&str>,
+) -> Result<Value, String> {
+    let input_resolved = fs::canonicalize(input_path)
+        .map_err(|error| format!("cannot resolve input file {}: {error}", input_path.display()))?;
+    let path_metadata = fs::metadata(&input_resolved)
+        .map_err(|error| format!("cannot stat input path {}: {error}", input_resolved.display()))?;
+    if !path_metadata.is_file() {
+        return Err(format!("source input must be a regular file: {}", input_resolved.display()));
+    }
+    let mut input = File::open(&input_resolved)
+        .map_err(|error| format!("cannot open source bytes {}: {error}", input_resolved.display()))?;
+    let before = input.metadata().map_err(|error| format!("cannot stat opened input: {error}"))?;
+    if !before.is_file() {
+        return Err(format!("opened source input is not a regular file: {}", input_resolved.display()));
+    }
+    let before_size = before.len();
+    let before_modified = before.modified().map_err(|error| format!("cannot read input modification time: {error}"))?;
+
+    fs::create_dir_all(store_dir)
+        .map_err(|error| format!("cannot create content store {}: {error}", store_dir.display()))?;
+    let store_root = fs::canonicalize(store_dir)
+        .map_err(|error| format!("cannot resolve content store {}: {error}", store_dir.display()))?;
+    if !fs::metadata(&store_root).map_err(|error| format!("cannot stat content store: {error}"))?.is_dir() {
+        return Err("content store root must be a directory".to_owned());
+    }
+    let objects_dir = store_root.join("objects");
+    ensure_real_directory(&objects_dir)?;
+    let object_root = objects_dir.join("sha256");
+    ensure_real_directory(&object_root)?;
+    let object_root = fs::canonicalize(&object_root)
+        .map_err(|error| format!("cannot resolve object directory: {error}"))?;
+    if !object_root.starts_with(&store_root) {
+        return Err("resolved object directory escapes the selected content store".to_owned());
+    }
+
+    let (temp_path, mut temp_file) = create_temporary_object(&object_root)?;
+    let _temporary_object = TemporaryObject(temp_path.clone());
+    let mut hasher = Sha256::new();
+    let mut buffer = [0u8; HASH_BUFFER_BYTES];
+    let mut bytes_captured = 0u64;
+    loop {
+        let count = input.read(&mut buffer).map_err(|error| format!("failed reading source bytes: {error}"))?;
+        if count == 0 { break; }
+        temp_file.write_all(&buffer[..count]).map_err(|error| format!("failed writing staged object: {error}"))?;
+        hasher.update(&buffer[..count]);
+        bytes_captured = bytes_captured.checked_add(count as u64)
+            .ok_or_else(|| "captured source byte count overflow".to_owned())?;
+    }
+    temp_file.flush().map_err(|error| format!("cannot flush staged object: {error}"))?;
+    temp_file.sync_all().map_err(|error| format!("cannot sync staged object: {error}"))?;
+
+    let after = input.metadata().map_err(|error| format!("cannot restat input file: {error}"))?;
+    let after_modified = after.modified().map_err(|error| format!("cannot reread input modification time: {error}"))?;
+    if bytes_captured != before_size || after.len() != before_size || before_modified != after_modified {
+        return Err("source file size or modification time changed during capture; use an immutable copy and retry".to_owned());
+    }
+
+    let digest = hex_encode(&hasher.finalize());
+    if let Some(expected) = expected_sha256 {
+        if !digest.eq_ignore_ascii_case(expected) {
+            return Err(format!("source SHA-256 mismatch: expected {}, captured {}", expected.to_ascii_lowercase(), digest));
+        }
+    }
+
+    let prefix = &digest[..2];
+    let shard_path = object_root.join(prefix);
+    ensure_real_directory(&shard_path)?;
+    let shard_path = fs::canonicalize(&shard_path)
+        .map_err(|error| format!("cannot resolve digest shard: {error}"))?;
+    if !shard_path.starts_with(&object_root) {
+        return Err("resolved digest shard escapes the object root".to_owned());
+    }
+    let object_path = shard_path.join(&digest);
+    let relative_object_path = PathBuf::from("objects").join("sha256").join(prefix).join(&digest);
+
+    // Make the staged inode read-only before the atomic no-overwrite promotion.
+    temp_file.flush().map_err(|error| format!("cannot flush staged object before promotion: {error}"))?;
+    make_object_read_only(&temp_path)?;
+    temp_file.sync_all().map_err(|error| format!("cannot sync protected staged object: {error}"))?;
+    drop(temp_file);
+
+    match fs::hard_link(&temp_path, &object_path) {
+        Ok(()) => {}
+        Err(error) if error.kind() == std::io::ErrorKind::AlreadyExists => {
+            let object_meta = fs::symlink_metadata(&object_path)
+                .map_err(|error| format!("cannot inspect pre-existing content object: {error}"))?;
+            if object_meta.file_type().is_symlink() || !object_meta.is_file() {
+                return Err(format!("pre-existing digest path is not a regular file: {}", object_path.display()));
+            }
+            let (existing_digest, existing_size) = hash_regular_file(&object_path)?;
+            if existing_digest != digest || existing_size != bytes_captured {
+                return Err(format!("pre-existing content object failed digest/size verification: {}", object_path.display()));
+            }
+            // Never chmod a pre-existing inode: it may be hard-linked elsewhere.
+            // Verify safe permissions and fail closed instead of mutating shared state.
+            ensure_object_permissions(&object_path)?;
+        }
+        Err(error) => return Err(format!("atomic no-overwrite promotion failed for {}: {error}", object_path.display())),
+    }
+    sync_directory(&shard_path)?;
+    sync_directory(&object_root)?;
+    let (stored_digest, stored_size) = hash_regular_file(&object_path)?;
+    if stored_digest != digest || stored_size != bytes_captured {
+        return Err("stored object did not verify after promotion".to_owned());
+    }
+
+    let hashed_at_unix_seconds = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map_err(|error| format!("system clock is before Unix epoch: {error}"))?
+        .as_secs();
+    let relative_object_path_string = relative_object_path.to_string_lossy().replace('\\', "/");
+    Ok(json!({
+        "source_id": metadata.source_id,
+        "publisher": metadata.publisher,
+        "source_uri": metadata.source_uri,
+        "publication_id": metadata.publication_id,
+        "vintage": metadata.vintage,
+        "captured_at": metadata.captured_at,
+        "bytes_acquired": true,
+        "sha256": digest,
+        "file_size_bytes": bytes_captured,
+        "extraction": {
+            "method": metadata.extraction_method,
+            "tool_version": metadata.tool_version
+        },
+        "locators": [{
+            "locator_id": metadata.locator_id,
+            "locator": metadata.locator
+        }],
+        "rights": {
+            "status": metadata.rights_status,
+            "evaluation_allowed": metadata.evaluation_allowed,
+            "redistribution_allowed": metadata.redistribution_allowed,
+            "evidence_uri": metadata.rights_evidence_uri
+        },
+        "acquisition_receipt": {
+            "method": "content_addressed_store_capture_sha256",
+            "object_uri": format!("sha256:{digest}"),
+            "object_path": relative_object_path_string,
+            "bytes_hashed": bytes_captured,
+            "hashed_at_unix_seconds": hashed_at_unix_seconds,
+            "consistency_check": "captured_stream_and_stored_object_digest_size_verified",
+            "storage_policy": "read_only_by_default_no_overwrite_verify_existing_object"
+        }
+    }))
 }
 
 fn hash_source_file(
@@ -318,8 +662,8 @@ fn hash_source_file(
 pub fn write_receipt_new(path: &Path, receipt: &Value) -> Result<(), String> {
     let serialized = serde_json::to_vec_pretty(receipt)
         .map_err(|error| format!("cannot serialize source receipt: {error}"))?;
-    let mut file = OpenOptions::new().write(true).create_new(true).open(path)
-        .map_err(|error| format!("cannot create receipt {} without overwriting: {error}", path.display()))?;
+    let mut file = create_private_new_file(path)
+        .map_err(|error| format!("cannot create private receipt {} without overwriting: {error}", path.display()))?;
     if let Err(error) = file.write_all(&serialized).and_then(|_| file.write_all(b"\n")).and_then(|_| file.sync_all()) {
         let _ = fs::remove_file(path);
         return Err(format!("cannot persist receipt {}: {error}", path.display()));
@@ -345,6 +689,25 @@ mod tests {
     }
     impl Drop for TempFile {
         fn drop(&mut self) { let _ = fs::remove_file(&self.0); }
+    }
+
+    struct TempDir(PathBuf);
+    impl TempDir {
+        fn new() -> Self {
+            let id = NEXT.fetch_add(1, Ordering::Relaxed);
+            let path = std::env::temp_dir().join(format!("nrvca-store-{}-{id}", std::process::id()));
+            fs::create_dir(&path).expect("create unique test store");
+            Self(path)
+        }
+    }
+    impl Drop for TempDir {
+        fn drop(&mut self) { let _ = fs::remove_dir_all(&self.0); }
+    }
+
+    fn capture_args_for(path: &Path, store: &Path) -> Vec<String> {
+        let mut args = args_for(path);
+        args.extend(["--store-dir".into(), store.display().to_string()]);
+        args
     }
 
     fn args_for(path: &Path) -> Vec<String> {
@@ -413,6 +776,108 @@ mod tests {
         let args = args_for(&std::env::temp_dir());
         let error = receipt_from_cli(&args).unwrap_err();
         assert!(error.contains("regular file"));
+    }
+
+    #[test]
+    fn capture_stores_the_exact_bytes_under_the_computed_digest() {
+        let input = TempFile::with_bytes(b"content-addressed test bytes");
+        let store = TempDir::new();
+        let output = capture_from_cli(&capture_args_for(&input.0, &store.0)).expect("capture source bytes");
+        let digest = sha256_hex(b"content-addressed test bytes");
+        assert_eq!(output.receipt["sha256"], digest);
+        assert_eq!(output.receipt["file_size_bytes"], b"content-addressed test bytes".len() as u64);
+        assert_eq!(output.receipt["acquisition_receipt"]["object_uri"], format!("sha256:{digest}"));
+        assert_eq!(output.receipt["acquisition_receipt"]["object_path"], format!("objects/sha256/{}/{digest}", &digest[..2]));
+        assert!(output.receipt["acquisition_receipt"].get("resolved_path").is_none());
+
+        let relative = output.receipt["acquisition_receipt"]["object_path"].as_str().unwrap();
+        let object = store.0.join(relative);
+        assert_eq!(fs::read(&object).expect("read captured object"), b"content-addressed test bytes");
+        assert!(fs::metadata(object).expect("object metadata").permissions().readonly());
+        let admission = crate::external_validity::validate_source_record(&output.receipt, "/source");
+        assert!(admission.is_empty(), "captured receipt must meet source admission contract: {admission:?}");
+    }
+
+    #[test]
+    fn identical_bytes_reuse_verified_object_without_overwriting_it() {
+        let input_a = TempFile::with_bytes(b"same bytes");
+        let input_b = TempFile::with_bytes(b"same bytes");
+        let store = TempDir::new();
+        let first = capture_from_cli(&capture_args_for(&input_a.0, &store.0)).expect("first capture");
+        let second = capture_from_cli(&capture_args_for(&input_b.0, &store.0)).expect("repeat identical capture");
+        assert_eq!(first.receipt["sha256"], second.receipt["sha256"]);
+        assert_eq!(first.receipt["acquisition_receipt"]["object_path"], second.receipt["acquisition_receipt"]["object_path"]);
+        let object_root = store.0.join("objects").join("sha256");
+        let digest = first.receipt["sha256"].as_str().unwrap();
+        let files: Vec<_> = fs::read_dir(object_root.join(&digest[..2]))
+            .expect("read digest shard").collect();
+        assert_eq!(files.len(), 1);
+    }
+
+    #[test]
+    fn mismatch_does_not_promote_a_content_object() {
+        let input = TempFile::with_bytes(b"must not be promoted");
+        let store = TempDir::new();
+        let mut args = capture_args_for(&input.0, &store.0);
+        args.extend(["--expected-sha256".into(), "0".repeat(64)]);
+        let error = capture_from_cli(&args).unwrap_err();
+        assert!(error.contains("SHA-256 mismatch"));
+        let object_root = store.0.join("objects").join("sha256");
+        assert_eq!(fs::read_dir(object_root).expect("read empty object root").count(), 0);
+    }
+
+    #[test]
+    fn tampered_preexisting_digest_object_is_rejected_on_reuse() {
+        let input = TempFile::with_bytes(b"expected immutable content");
+        let store = TempDir::new();
+        let digest = sha256_hex(b"expected immutable content");
+        let shard = store.0.join("objects").join("sha256").join(&digest[..2]);
+        fs::create_dir_all(&shard).expect("create shard");
+        let object = shard.join(&digest);
+        fs::write(&object, b"corrupt bytes").expect("write counterfeit object");
+        let error = capture_from_cli(&capture_args_for(&input.0, &store.0)).unwrap_err();
+        assert!(error.contains("failed digest/size verification") || error.contains("stored object"));
+    }
+
+    #[test]
+    fn writable_preexisting_object_is_rejected_without_permission_side_effects() {
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            let input = TempFile::with_bytes(b"already present but writable");
+            let store = TempDir::new();
+            let digest = sha256_hex(b"already present but writable");
+            let shard = store.0.join("objects").join("sha256").join(&digest[..2]);
+            fs::create_dir_all(&shard).expect("create shard");
+            let object = shard.join(&digest);
+            fs::write(&object, b"already present but writable").expect("write existing object");
+            fs::set_permissions(&object, fs::Permissions::from_mode(0o644)).expect("make object writable");
+
+            let error = capture_from_cli(&capture_args_for(&input.0, &store.0)).unwrap_err();
+            assert!(error.contains("owner-read-only (0400)"));
+            let mode = fs::metadata(&object).expect("inspect unchanged object").permissions().mode() & 0o777;
+            assert_eq!(mode, 0o644, "the intake path must not chmod a pre-existing inode");
+        }
+    }
+
+    #[test]
+    fn duplicate_store_dir_and_escaping_store_symlinks_fail_closed() {
+        let input = TempFile::with_bytes(b"store containment");
+        let store = TempDir::new();
+        let mut duplicate = capture_args_for(&input.0, &store.0);
+        duplicate.extend(["--store-dir".into(), store.0.display().to_string()]);
+        assert!(capture_from_cli(&duplicate).unwrap_err().contains("duplicate"));
+
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::symlink;
+            let outside = TempDir::new();
+            let linked_store = TempDir::new();
+            fs::remove_dir_all(linked_store.0.join("objects")).ok();
+            symlink(&outside.0, linked_store.0.join("objects")).expect("create escaping object-root symlink");
+            let error = capture_from_cli(&capture_args_for(&input.0, &linked_store.0)).unwrap_err();
+            assert!(error.contains("escapes the selected content store") || error.contains("escapes the object root") || error.contains("real directory"));
+        }
     }
 
     #[test]

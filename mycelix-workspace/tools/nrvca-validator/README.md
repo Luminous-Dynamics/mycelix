@@ -38,6 +38,29 @@ cargo run --manifest-path mycelix-workspace/tools/nrvca-validator/Cargo.toml -- 
 
 The tool does not download the source, authenticate its publisher, adjudicate rights, verify source truth, or enable evaluation automatically. It records the canonical local path in the receipt, which may reveal machine-specific details; sanitize that field before publishing a public bundle. Hash an immutable captured copy where possible. Existing receipt paths are never overwritten.
 
+
+## Content-addressed evidence capture
+
+For source material that must remain reproducible after intake, prefer `capture-source` over `hash-source`. The latter fingerprints a file where it currently resides; the former copies and hashes the actual byte stream in one pass, then stores the result under `objects/sha256/<prefix>/<digest>` using atomic no-overwrite promotion and verification on reuse.
+
+```sh
+cargo run --manifest-path mycelix-workspace/tools/nrvca-validator/Cargo.toml -- capture-source \
+  --file ./captured.pdf --store-dir ./private-evidence-store \
+  --source-id source-001 --publisher "Publisher name" \
+  --source-uri "https://example.org/report.pdf" --publication-id REPORT-2026 \
+  --vintage 2026 --captured-at "2026-10-22T17:00:00+02:00" \
+  --rights-status evaluation_only --rights-evidence-uri "https://example.org/permission" \
+  --evaluation-allowed true --redistribution-allowed false \
+  --locator-id table-1-row-2 --locator "PDF page 4, Table 1, row 2" \
+  --extraction-method "PDF table extraction" --tool-version "extractor-version" \
+  --expected-sha256 "INDEPENDENTLY-RECORDED-64-HEX-DIGEST" \
+  --output ./private-evidence-store/source-001.json
+```
+
+All values above are examples, not a claim that any source was acquired or permission granted. Omit `--expected-sha256` if no independent digest exists; the captured stream is still hashed, but publisher/source authenticity remains unproven. The command does not enable evaluation.
+
+On Unix, newly staged bytes are created owner-only, content objects are owner-read-only by default (0400), and output receipts are owner read/write (0600). The receipt uses a store-relative object path and avoids storing the input's absolute path. The store itself is not cryptographically immutable: use access controls and independently verify objects when reused. No real source was captured by the current tests.
+
 ## What this checks
 
 - report status and period/jurisdiction essentials;

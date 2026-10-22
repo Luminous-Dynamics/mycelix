@@ -56,3 +56,6 @@ All metadata flags are required; `--rights-status` accepts `open_reuse`, `permis
 Unit tests cover SHA-256 known-answer vectors, actual temporary-file hashing and receipt fields, NRVCA-016 source-record admission, case-insensitive expected-digest confirmation, mismatch failure, malformed digest, rights incoherence, missing/duplicate/unknown flags, capture timestamp validation, and repeat-hash determinism. End-to-end integration tests invoke the actual binary to check JSON stdout, nonzero exit and empty stdout on digest mismatch, no-overwrite behavior, and successful subcommand help.
 
 The intended qualification gate is a Rust test pass on the exact PR head followed by real sources that are permitted for the intended evaluation. Synthetic bytes in unit tests are only software test data.
+
+
+**Preserving the bytes:** `hash-source` records a computed digest but leaves the original file in place. For evidence that must be retained and re-read reproducibly, use the NRVCA-018 `capture-source` command and content-addressed store instead: [NRVCA-018 design](./content-addressed-evidence-store-v0.1.md).
