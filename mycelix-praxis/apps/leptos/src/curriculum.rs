@@ -555,6 +555,18 @@ impl CurriculumGraph {
 // Progress tracking
 // ============================================================
 
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
+pub struct ScoredPracticeReceipt {
+    /// Opaque hash of node ID, prompt, answer, and normalized answer-choice set.
+    /// Raw learner text or selected choice is not stored in this record.
+    pub item_id: String,
+    pub correct: bool,
+    pub recorded_at_ms: f64,
+    /// Monotonic within the node on one local profile; timestamps dominate
+    /// across imports, with item_id providing a deterministic final tie-break.
+    pub sequence: u64,
+}
+
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
 pub struct NodeProgress {
     /// Estimated mastery from scored answer choices only (0-1000).
@@ -576,10 +588,14 @@ pub struct NodeProgress {
     /// Completed interactive activities; this is exposure/participation, not mastery.
     #[serde(default)]
     pub activity_completions: u32,
-    /// Stable local identifiers of practice items already counted by BKT.
+    /// Stable identifiers of practice items already counted by BKT.
     /// Replays of the same prompt must not inflate the posterior.
     #[serde(default)]
     pub scored_item_ids: Vec<String>,
+    /// Private local evidence ledger for answer-first scored choices. It stores
+    /// an opaque item hash, outcome and time—not the student's selected text.
+    #[serde(default)]
+    pub scored_practice_receipts: Vec<ScoredPracticeReceipt>,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -701,6 +717,7 @@ impl ProgressStore {
             self_reported_correct: 0,
             activity_completions: 0,
             scored_item_ids: Vec::new(),
+            scored_practice_receipts: Vec::new(),
         };
         self.nodes.get(node_id).unwrap_or(&DEFAULT)
     }
@@ -1119,15 +1136,69 @@ impl ProgressStore {
         item_id: &str,
         correct: bool,
     ) -> bool {
+        let progress = self.nodes.entry(node_id.to_string()).or_default();
+        if progress.scored_item_ids.iter().any(|seen| seen == item_id)
+            || progress
+                .scored_practice_receipts
+                .iter()
+                .any(|receipt| receipt.item_id == item_id)
         {
-            let progress = self.nodes.entry(node_id.to_string()).or_default();
-            if progress.scored_item_ids.iter().any(|seen| seen == item_id) {
-                return false;
-            }
-            progress.scored_item_ids.push(item_id.to_owned());
+            return false;
         }
-        self.record_response(node_id, correct);
+
+        progress.scored_item_ids.push(item_id.to_owned());
+        let sequence = progress
+            .scored_practice_receipts
+            .iter()
+            .map(|receipt| receipt.sequence)
+            .max()
+            .unwrap_or(0)
+            .saturating_add(1);
+        progress.scored_practice_receipts.push(ScoredPracticeReceipt {
+            item_id: item_id.to_owned(),
+            correct,
+            recorded_at_ms: js_sys::Date::now(),
+            sequence,
+        });
+        self.rebuild_bkt_from_practice_receipts(node_id);
         true
+    }
+
+    /// Rebuild the BKT posterior deterministically from the merged, deduplicated
+    /// response ledger. The ledger contains outcomes but no raw learner answers.
+    pub fn rebuild_bkt_from_practice_receipts(&mut self, node_id: &str) {
+        let mut receipts = self
+            .nodes
+            .get(node_id)
+            .map(|progress| progress.scored_practice_receipts.clone())
+            .unwrap_or_default();
+        receipts.sort_by(|left, right| {
+            left.recorded_at_ms
+                .total_cmp(&right.recorded_at_ms)
+                .then_with(|| left.sequence.cmp(&right.sequence))
+                .then_with(|| left.item_id.cmp(&right.item_id))
+        });
+
+        if receipts.is_empty() {
+            return;
+        }
+
+        let mut rebuilt = BktState::default();
+        for receipt in &receipts {
+            rebuilt.update(receipt.correct);
+        }
+        self.bkt_states.insert(node_id.to_owned(), rebuilt.clone());
+
+        let progress = self.nodes.entry(node_id.to_owned()).or_default();
+        progress.attempts = rebuilt.attempts;
+        progress.correct = rebuilt.correct;
+        progress.mastery_permille = (rebuilt.p_mastery * 1000.0) as u16;
+        progress.self_assessment = None;
+        progress.status = if rebuilt.is_likely_mastered() {
+            ProgressStatus::ProvisionalMastery
+        } else {
+            ProgressStatus::Studying
+        };
     }
 
     /// Record completion of an interactive activity. Activity completion is a
@@ -1528,6 +1599,56 @@ mod evidence_first_progress_tests {
         assert_eq!(node.mastery_permille, 0);
         assert_eq!(progress.bkt("math.fractions").attempts, 0);
         assert_eq!(node.status, ProgressStatus::Studying);
+    }
+
+    #[test]
+    fn scored_practice_receipts_are_private_item_outcomes_and_rebuild_posterior() {
+        let mut progress = ProgressStore::default();
+        assert!(progress.record_response_for_item(
+            "math.multiplication",
+            "practice-item-a1",
+            true
+        ));
+        assert!(progress.record_response_for_item(
+            "math.multiplication",
+            "practice-item-a2",
+            false
+        ));
+
+        let receipts = &progress.get("math.multiplication").scored_practice_receipts;
+        assert_eq!(receipts.len(), 2);
+        assert!(receipts.iter().any(|receipt| receipt.correct));
+        assert!(receipts.iter().any(|receipt| !receipt.correct));
+        assert!(
+            receipts.iter().all(|receipt| {
+                receipt.item_id.starts_with("practice-item-")
+                    && receipt.recorded_at_ms.is_finite()
+            }),
+            "the ledger stores opaque item IDs, outcomes and times only"
+        );
+
+        let mut rebuilt = ProgressStore::default();
+        rebuilt.nodes.insert(
+            "math.multiplication".to_owned(),
+            progress.get("math.multiplication").clone()
+        );
+        rebuilt.bkt_states.insert(
+            "math.multiplication".to_owned(),
+            BktState {
+                p_mastery: 0.99,
+                attempts: 90,
+                correct: 90,
+            }
+        );
+        rebuilt.rebuild_bkt_from_practice_receipts("math.multiplication");
+        assert_eq!(rebuilt.bkt("math.multiplication").attempts, 2);
+        assert_eq!(rebuilt.bkt("math.multiplication").correct, 1);
+        assert_eq!(rebuilt.get("math.multiplication").attempts, 2);
+        assert_eq!(rebuilt.get("math.multiplication").correct, 1);
+        assert_eq!(
+            rebuilt.get("math.multiplication").mastery_permille,
+            (rebuilt.bkt("math.multiplication").p_mastery * 1000.0) as u16
+        );
     }
 
     #[test]
