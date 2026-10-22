@@ -186,7 +186,7 @@ fn choice_numeric_value(text: &str) -> Option<(String, Option<&'static str>)> {
     ];
 
     for (suffix, unit) in UNITS {
-        if let Some(number) = normalized.strip_suffix(suffix) {
+        if let Some(number) = normalized.strip_suffix(*suffix) {
             let number = number.trim();
             return choice_number_key(number).map(|key| (key, Some(*unit)));
         }
@@ -1095,4 +1095,68 @@ fn LiveProgressSync(node_id: String) -> impl IntoView {
             })}
         </div>
     }.into_any()
+}
+
+
+#[cfg(test)]
+mod answer_first_choice_tests {
+    use super::*;
+
+    fn problem(answer: &str, distractors: [&str; 3]) -> PracticeProblem {
+        PracticeProblem {
+            question: "How many more children chose soccer?".to_owned(),
+            answer: answer.to_owned(),
+            difficulty_permille: 250,
+            bloom_level: "Apply".to_owned(),
+            hints: vec!["Compare the two counts.".to_owned()],
+            explanation: "Subtract the smaller count from the larger count.".to_owned(),
+            distractors: distractors.into_iter().map(str::to_owned).collect(),
+        }
+    }
+
+    #[test]
+    fn answer_first_choices_include_one_answer_and_three_distinct_wrong_choices() {
+        let item = problem("3 children", ["13 children", "2 children", "5 children"]);
+        let choices = answer_first_choices(&item).expect("valid choice set should be usable");
+        assert_eq!(choices.len(), 4);
+        assert!(
+            choices
+                .iter()
+                .any(|choice| normalized_choice(choice) == normalized_choice("3 children"))
+        );
+        assert_eq!(
+            choices
+                .iter()
+                .map(|choice| normalized_choice(choice))
+                .collect::<std::collections::BTreeSet<_>>()
+                .len(),
+            4
+        );
+    }
+
+    #[test]
+    fn answer_first_choices_reject_duplicate_or_missing_distractors() {
+        assert!(answer_first_choices(&problem("3", ["1", "1", "4"])).is_none());
+
+        let mut incomplete = problem("3", ["1", "2", "4"]);
+        incomplete.distractors.pop();
+        assert!(answer_first_choices(&incomplete).is_none());
+    }
+
+    #[test]
+    fn answer_first_choices_reject_numeric_answer_with_omitted_unit() {
+        let item = problem("3 children", ["13", "2 children", "3"]);
+        assert!(numeric_choices_collide("3 children", "3"));
+        assert!(answer_first_choices(&item).is_none());
+    }
+
+    #[test]
+    fn answer_first_choices_reject_equivalent_fraction_and_decimal_choices() {
+        assert!(numeric_choices_collide("1/2", "2/4"));
+        assert!(numeric_choices_collide("0.5", "1/2"));
+        assert!(!numeric_choices_collide("12 cm", "12 square units"));
+
+        let item = problem("1/2", ["2/4", "1/3", "3/4"]);
+        assert!(answer_first_choices(&item).is_none());
+    }
 }
