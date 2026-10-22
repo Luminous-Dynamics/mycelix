@@ -116,13 +116,7 @@ pub fn ProjectileExplorer(node_id: String) -> impl IntoView {
                     set_show_success.set(false);
                     set_challenge_idx.set(next);
                     if next >= 3 {
-                        set_progress.update(|p| {
-                            let e = p.nodes.entry(node_id).or_default();
-                            e.mastery_permille = e.mastery_permille.max(800);
-                            if e.status == ProgressStatus::NotStarted {
-                                e.status = ProgressStatus::Studying;
-                            }
-                        });
+                        set_progress.update(|p| p.record_activity_completion(&node_id));
                     }
                 });
             }

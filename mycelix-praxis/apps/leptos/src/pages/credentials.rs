@@ -71,33 +71,25 @@ impl From<CredentialSummary> for CredentialView {
 // Local and demo data
 // ---------------------------------------------------------------------------
 
-/// Generate local self-attestations from mastered topics.
+/// Generate clearly labeled local self-attestations from learner reflection.
+/// These records are not graded, independently verified, signed credentials,
+/// or evidence of accredited completion.
 fn local_credentials() -> Vec<CredentialView> {
-    let progress = crate::persistence::load::<crate::curriculum::ProgressStore>("praxis_progress")
-        .unwrap_or_default();
+    let progress = crate::curriculum::load_progress_store();
     let graph = crate::curriculum::curriculum_graph();
 
     let mut creds = Vec::new();
     let mut cred_num = 0u32;
 
     for node in &graph.nodes {
-        let np = progress.get(&node.id);
-        if np.status != crate::curriculum::ProgressStatus::Mastered {
+        let node_progress = progress.get(&node.id);
+        if node_progress.self_assessment
+            != Some(crate::curriculum::SelfAssessment::FeelsUnderstood)
+        {
             continue;
         }
 
         cred_num += 1;
-        let bkt = progress.bkt(&node.id);
-        let score = (bkt.p_mastery * 100.0).min(100.0);
-        let band = match score as u32 {
-            90..=100 => "A+",
-            80..=89 => "A",
-            70..=79 => "B",
-            60..=69 => "C",
-            50..=59 => "D",
-            _ => "Pass",
-        };
-
         let now = js_sys::Date::new_0();
         let date = format!(
             "{:04}-{:02}-{:02}T00:00:00Z",
@@ -107,50 +99,28 @@ fn local_credentials() -> Vec<CredentialView> {
         );
 
         creds.push(CredentialView {
-            credential_id: format!("vc:praxis:local_{}", cred_num),
+            credential_id: format!("vc:praxis:local_self_assessment_{}", cred_num),
             course_name: node.title.clone(),
             course_id: node.id.clone(),
-            issuer: "Praxis local self-attestation".into(),
+            issuer: "Learner self-attestation (browser-local, unverified)".into(),
             issuance_date: date.clone(),
             expiration_date: None,
-            score: Some(score),
-            score_band: band.into(),
-            proof_type: "LocalAttestation".into(),
+            score: None,
+            score_band: "Self-assessed — not scored".into(),
+            proof_type: "LocalSelfAttestation".into(),
             proof_created: date,
             verification_method: "Browser localStorage (untrusted local record)".into(),
             proof_purpose: "assertionMethod".into(),
-            proof_value: format!("local-bkt-mastery-{:.3}", bkt.p_mastery),
+            proof_value: "learner-reports-feels-understood".into(),
             status_purpose: Some(
-                "Self-attested only — not issued, signed, or cryptographically verified".into(),
+                "Self-attested only — not independently assessed, signed, cryptographically verified, or accredited".into(),
             ),
-            epistemic_empirical: Some(1), // Testimonial, not cryptographically verified
+            epistemic_empirical: Some(1), // Testimonial, not a verified observation
             epistemic_normative: Some(0), // Personal
             epistemic_materiality: Some(2),
         });
     }
 
-    if creds.is_empty() {
-        // Show encouragement for new users
-        creds.push(CredentialView {
-            credential_id: "vc:praxis:placeholder".into(),
-            course_name: "Your first credential awaits".into(),
-            course_id: "".into(),
-            issuer: "Praxis".into(),
-            issuance_date: "".into(),
-            expiration_date: None,
-            score: None,
-            score_band: "".into(),
-            proof_type: "".into(),
-            proof_created: "".into(),
-            verification_method: "".into(),
-            proof_purpose: "".into(),
-            proof_value: "".into(),
-            status_purpose: Some("Complete your first topic in the Knowledge Garden to create a local self-attestation. Verified credentials require Live mode and a responding credential coordinator.".into()),
-            epistemic_empirical: None,
-            epistemic_normative: None,
-            epistemic_materiality: None,
-        });
-    }
     creds
 }
 

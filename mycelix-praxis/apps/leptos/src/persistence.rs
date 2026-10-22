@@ -308,9 +308,16 @@ pub fn export_all() -> String {
     );
 
     let bundle = ExportBundle {
-        version: 1,
+        // Version 3 adds private item-level scored-practice receipts and the
+        // receipt-derived BKT merge contract.
+        version: 3,
         exported_at,
-        progress: load::<ProgressStore>("praxis_progress"),
+        progress: load::<ProgressStore>("praxis_progress").map(|mut progress| {
+            if progress.migrate_legacy_progress() {
+                save("praxis_progress", &progress);
+            }
+            progress
+        }),
         study_tracker: load::<StudyTracker>("praxis_study_tracker"),
         profile: load::<StudentProfile>("praxis_profile"),
     };
@@ -324,7 +331,7 @@ pub fn import_all(json: &str) -> Result<String, String> {
     let bundle: ExportBundle =
         serde_json::from_str(json).map_err(|e| format!("Invalid format: {}", e))?;
 
-    if bundle.version > 1 {
+    if bundle.version > 3 {
         return Err("This export is from a newer version of Praxis. Please update the app.".into());
     }
 
@@ -332,9 +339,16 @@ pub fn import_all(json: &str) -> Result<String, String> {
 
     // Merge progress (keep higher mastery, more recent reviews)
     if let Some(imported) = bundle.progress {
-        let mut existing = load::<ProgressStore>("praxis_progress").unwrap_or_default();
+        // Imports may come from older app versions whose "attempts" were
+        // recorded after answer reveal and whose Mastered state was self-set.
+        // Normalize that data before merging; do not reintroduce unverified
+        // mastery or a self-reported BKT posterior into the current store.
+        let mut imported = imported;
+        imported.migrate_legacy_progress();
+        let mut existing = crate::curriculum::load_progress_store();
         let mut merged_count = 0u32;
 
+        existing.schema_version = existing.schema_version.max(imported.schema_version);
         for (id, imp_node) in &imported.nodes {
             let existing_node = existing.nodes.entry(id.clone()).or_default();
             if imp_node.mastery_permille > existing_node.mastery_permille {
@@ -346,18 +360,48 @@ pub fn import_all(json: &str) -> Result<String, String> {
                 existing_node.attempts = imp_node.attempts;
                 existing_node.correct = imp_node.correct;
             }
+            if imp_node.self_reported_attempts > existing_node.self_reported_attempts {
+                existing_node.self_reported_attempts = imp_node.self_reported_attempts;
+                existing_node.self_reported_correct = imp_node.self_reported_correct;
+            }
+            if imp_node.activity_completions > existing_node.activity_completions {
+                existing_node.activity_completions = imp_node.activity_completions;
+            }
+            for item_id in &imp_node.scored_item_ids {
+                if !existing_node.scored_item_ids.iter().any(|seen| seen == item_id) {
+                    existing_node.scored_item_ids.push(item_id.clone());
+                }
+            }
+
             if imp_node.last_reviewed.unwrap_or(0.0) > existing_node.last_reviewed.unwrap_or(0.0) {
                 existing_node.last_reviewed = imp_node.last_reviewed;
+                if imp_node.self_assessment.is_some() {
+                    existing_node.self_assessment = imp_node.self_assessment;
+                }
+            } else if existing_node.self_assessment.is_none() && imp_node.self_assessment.is_some() {
+                existing_node.self_assessment = imp_node.self_assessment;
             }
         }
 
-        // Merge BKT states
+        // Merge legacy aggregate BKT states for topics with no item receipts.
+        // For topics with receipts, rebuild below from the deduplicated union so
+        // importing the same profile twice cannot add evidence twice or simply
+        // select whichever device claims the larger mastery posterior.
         for (id, imp_bkt) in &imported.bkt_states {
+            let has_receipts = existing
+                .nodes
+                .get(id)
+                .is_some_and(|node| !node.scored_practice_receipts.is_empty());
+            if has_receipts {
+                continue;
+            }
             let existing_bkt = existing.bkt_states.entry(id.clone()).or_default();
             if imp_bkt.p_mastery > existing_bkt.p_mastery {
                 *existing_bkt = imp_bkt.clone();
             }
         }
+
+        let merged_receipts = existing.merge_scored_practice_evidence(&imported);
 
         // Merge SRS cards
         for (id, imp_card) in &imported.srs_cards {
@@ -369,6 +413,12 @@ pub fn import_all(json: &str) -> Result<String, String> {
 
         save("praxis_progress", &existing);
         summary.push(format!("{} topics merged", imported.nodes.len()));
+        if merged_receipts > 0 {
+            summary.push(format!(
+                "{} unique scored practice receipts merged",
+                merged_receipts
+            ));
+        }
         if merged_count > 0 {
             summary.push(format!("{} mastery levels updated", merged_count));
         }

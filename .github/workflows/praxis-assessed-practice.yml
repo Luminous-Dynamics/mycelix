@@ -1,0 +1,43 @@
+name: Praxis Assessed Practice
+
+on:
+  pull_request:
+    paths:
+      - "mycelix-praxis/apps/leptos/**"
+      - ".github/workflows/praxis-assessed-practice.yml"
+  push:
+    branches: [main]
+    paths:
+      - "mycelix-praxis/apps/leptos/**"
+      - ".github/workflows/praxis-assessed-practice.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: praxis-assessed-practice-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  format:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt
+      - name: Check Leptos Rust formatting
+        run: cargo fmt --manifest-path mycelix-praxis/apps/leptos/Cargo.toml -- --check
+
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: mycelix-praxis/apps/leptos
+      - name: Test the learner progress contract and assessed practice
+        run: cargo test --manifest-path mycelix-praxis/apps/leptos/Cargo.toml

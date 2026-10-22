@@ -120,18 +120,25 @@ pub fn CareerPathPage() -> impl IntoView {
                 }
             })
             .map(|n| {
-                // Calculate coverage based on mastered prerequisites
+                // Career exploration uses progression readiness, not verified mastery.
+                // A BKT estimate can surface the next learning step, but is never
+                // presented as an accredited result or a safety/credential grant.
                 let prereqs = graph.prereqs_for(&n.id);
-                let mastered_set = p.mastered_ids();
+                let ready_set = p.progression_ready_ids();
 
                 let missing: Vec<(String, bool)> = prereqs
                     .iter()
-                    .filter(|pid| p.get(*pid).status != ProgressStatus::Mastered)
+                    .filter(|pid| {
+                        !matches!(
+                            p.get(*pid).status,
+                            ProgressStatus::ProvisionalMastery | ProgressStatus::Mastered
+                        )
+                    })
                     .map(|pid| {
                         let is_ready = graph
                             .prereqs_for(pid)
                             .iter()
-                            .all(|ppid| mastered_set.contains(*ppid));
+                            .all(|ppid| ready_set.contains(*ppid));
                         let title = graph
                             .node(pid)
                             .map(|node| node.title.clone())
@@ -147,15 +154,17 @@ pub fn CareerPathPage() -> impl IntoView {
                         0
                     }
                 } else {
-                    let mastered_count = prereqs
+                    let ready_count = prereqs
                         .iter()
-                        .filter(|pid| mastered_set.contains(**pid))
+                        .filter(|pid| ready_set.contains(**pid))
                         .count();
-                    ((mastered_count as f32 / prereqs.len() as f32) * 100.0) as u8
+                    ((ready_count as f32 / prereqs.len() as f32) * 100.0) as u8
                 };
 
                 let status = if p.get(&n.id).status == ProgressStatus::Mastered {
-                    "Mastered locally"
+                    "Verified mastery recorded"
+                } else if p.get(&n.id).status == ProgressStatus::ProvisionalMastery {
+                    "Provisional practice estimate; independent check pending"
                 } else if coverage >= 80 {
                     "Most prerequisites recorded"
                 } else if coverage > 0 {

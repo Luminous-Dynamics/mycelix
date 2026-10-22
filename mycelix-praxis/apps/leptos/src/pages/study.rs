@@ -19,7 +19,7 @@ use wasm_bindgen::prelude::*;
 use wasm_bindgen_futures::{JsFuture, spawn_local};
 
 use crate::curriculum::{
-    BktState, ProgressStatus, curriculum_graph, use_progress, use_set_progress,
+    BktState, ProgressStatus, SelfAssessment, curriculum_graph, use_progress, use_set_progress,
 };
 use crate::games;
 use crate::holochain::{ConnectionStatus, use_holochain};
@@ -84,6 +84,425 @@ struct PracticeProblem {
     #[serde(default)]
     distractors: Vec<String>,
 }
+
+fn normalized_choice(text: &str) -> String {
+    text.split_whitespace()
+        .collect::<Vec<_>>()
+        .join(" ")
+        .trim()
+        .trim_end_matches(['.', '!', '?'])
+        .to_lowercase()
+}
+
+fn choice_gcd(mut left: u128, mut right: u128) -> u128 {
+    while right != 0 {
+        let remainder = left % right;
+        left = right;
+        right = remainder;
+    }
+    left.max(1)
+}
+
+fn choice_ratio_key(numerator: i128, denominator: i128) -> Option<String> {
+    if denominator == 0 {
+        return None;
+    }
+    let negative = (numerator < 0) ^ (denominator < 0);
+    let numerator = numerator.unsigned_abs();
+    let denominator = denominator.unsigned_abs();
+    let divisor = choice_gcd(numerator, denominator);
+    let sign = if negative { "-" } else { "" };
+    Some(format!("{sign}{}/{}", numerator / divisor, denominator / divisor))
+}
+
+fn choice_number_key(text: &str) -> Option<String> {
+    let number = text.trim();
+    if let Some((numerator, denominator)) = number.split_once('/') {
+        return choice_ratio_key(
+            numerator.trim().parse::<i128>().ok()?,
+            denominator.trim().parse::<i128>().ok()?,
+        );
+    }
+    if let Some((whole, fractional)) = number.split_once('.') {
+        if fractional.is_empty() || !fractional.chars().all(|ch| ch.is_ascii_digit()) {
+            return None;
+        }
+        let negative = whole.starts_with('-');
+        let whole_digits = whole.trim_start_matches('-');
+        let whole_value = if whole_digits.is_empty() {
+            0
+        } else {
+            whole_digits.parse::<i128>().ok()?
+        };
+        let denominator = 10_i128.checked_pow(u32::try_from(fractional.len()).ok()?)?;
+        let fractional_value = fractional.parse::<i128>().ok()?;
+        let numerator = whole_value
+            .checked_mul(denominator)?
+            .checked_add(fractional_value)?
+            .checked_mul(if negative { -1 } else { 1 })?;
+        return choice_ratio_key(numerator, denominator);
+    }
+    choice_ratio_key(number.parse::<i128>().ok()?, 1)
+}
+
+fn choice_numeric_value(text: &str) -> Option<(String, Option<&'static str>)> {
+    let normalized = normalized_choice(text);
+    const UNITS: &[(&str, &str)] = &[
+        (" square centimeters", "area_cm2"),
+        (" square centimetres", "area_cm2"),
+        (" square meters", "area_m2"),
+        (" square metres", "area_m2"),
+        (" square units", "area_unit"),
+        (" square unit", "area_unit"),
+        (" centimeters", "length_cm"),
+        (" centimetres", "length_cm"),
+        (" millimeters", "length_mm"),
+        (" millimetres", "length_mm"),
+        (" children", "count"),
+        (" child", "count"),
+        (" learners", "count"),
+        (" learner", "count"),
+        (" students", "count"),
+        (" student", "count"),
+        (" objects", "count"),
+        (" object", "count"),
+        (" counters", "count"),
+        (" counter", "count"),
+        (" books", "count"),
+        (" book", "count"),
+        (" minutes", "time_min"),
+        (" minute", "time_min"),
+        (" seconds", "time_s"),
+        (" second", "time_s"),
+        (" hours", "time_h"),
+        (" hour", "time_h"),
+        (" square cm", "area_cm2"),
+        (" square m", "area_m2"),
+        (" cm", "length_cm"),
+        (" mm", "length_mm"),
+        (" kg", "mass_kg"),
+        (" m", "length_m"),
+    ];
+
+    for (suffix, unit) in UNITS {
+        if let Some(number) = normalized.strip_suffix(*suffix) {
+            let number = number.trim();
+            return choice_number_key(number).map(|key| (key, Some(*unit)));
+        }
+    }
+    choice_number_key(&normalized).map(|key| (key, None))
+}
+
+fn practice_item_evidence_id(node_id: &str, problem: &PracticeProblem) -> String {
+    // Store a compact deterministic fingerprint rather than the question, answer,
+    // or distractor text. This is an idempotency key, not a security signature.
+    let mut parts = vec![
+        node_id.to_owned(),
+        normalized_choice(&problem.question),
+        normalized_choice(&problem.answer),
+    ];
+    let mut choices = problem
+        .distractors
+        .iter()
+        .map(|choice| normalized_choice(choice))
+        .collect::<Vec<_>>();
+    choices.push(normalized_choice(&problem.answer));
+    choices.sort_unstable();
+    parts.extend(choices);
+
+    // FNV-1a 128-bit with length-prefixing for deterministic, collision-resistant
+    // local deduplication across refreshes without storing item content in export.
+    let mut hash: u128 = 0x6c62272e07bb014262b821756295c58d;
+    const PRIME: u128 = 0x0000000001000000000000000000013b;
+    for part in &parts {
+        for byte in (part.len() as u64).to_le_bytes().into_iter().chain(part.bytes()) {
+            hash ^= u128::from(byte);
+            hash = hash.wrapping_mul(PRIME);
+        }
+    }
+    format!("practice-item-v1:{hash:032x}")
+}
+
+fn numeric_choices_collide(answer: &str, distractor: &str) -> bool {
+    let Some((answer_value, answer_unit)) = choice_numeric_value(answer) else {
+        return false;
+    };
+    let Some((distractor_value, distractor_unit)) = choice_numeric_value(distractor) else {
+        return false;
+    };
+    answer_value == distractor_value
+        && (answer_unit.is_none()
+            || distractor_unit.is_none()
+            || answer_unit == distractor_unit)
+}
+
+fn answer_first_choices(problem: &PracticeProblem) -> Option<Vec<String>> {
+    if problem.distractors.len() != 3 || problem.answer.trim().is_empty() {
+        return None;
+    }
+    let answer_key = normalized_choice(&problem.answer);
+    let mut choices = problem.distractors.clone();
+    choices.push(problem.answer.clone());
+    let normalized = choices
+        .iter()
+        .map(|choice| normalized_choice(choice))
+        .collect::<Vec<_>>();
+    if normalized.iter().any(String::is_empty) {
+        return None;
+    }
+    if normalized.iter().collect::<std::collections::BTreeSet<_>>().len() != choices.len() {
+        return None;
+    }
+    if problem.distractors.iter().any(|choice| {
+        normalized_choice(choice) == answer_key || numeric_choices_collide(&problem.answer, choice)
+    }) {
+        return None;
+    }
+    // Fisher–Yates using the existing browser/WASM Math binding. Do not add a
+    // Rust RNG dependency just to randomize four answer choices.
+    for index in (1..choices.len()).rev() {
+        let swap_index = (js_sys::Math::random() * (index + 1) as f64) as usize;
+        choices.swap(index, swap_index.min(index));
+    }
+    Some(choices)
+}
+
+#[component]
+fn PracticeProblemCard(
+    problem: PracticeProblem,
+    index: usize,
+    node_id: String,
+) -> impl IntoView {
+    let choices = answer_first_choices(&problem);
+    let answer = problem.answer.clone();
+    let question = problem.question.clone();
+    let explanation = problem.explanation.clone();
+    let hints = problem.hints.clone();
+    let difficulty = match problem.difficulty_permille {
+        0..=300 => "Gentle soil",
+        301..=600 => "Steady ground",
+        601..=800 => "Rocky terrain",
+        _ => "Mountain path",
+    };
+    let bloom_level = problem.bloom_level.clone();
+    let (selected_choice, set_selected_choice) = signal(None::<String>);
+    let (scored_result, set_scored_result) = signal(None::<bool>);
+    let (repeated_scored_item, set_repeated_scored_item) = signal(false);
+    let (revealed_solution, set_revealed_solution) = signal(false);
+    let (self_assessment, set_self_assessment) = signal(None::<SelfAssessment>);
+    let (show_hint, set_show_hint) = signal(false);
+    let hint_text = hints.first().cloned().unwrap_or_default();
+    let progress = use_set_progress();
+    let scored_node_id = node_id.clone();
+    let scored_item_id = practice_item_evidence_id(&node_id, &problem);
+    let reflection_node_id = node_id.clone();
+
+    view! {
+        <div class="praxis-problem">
+            <div class="praxis-problem-q">{index + 1}". "{question}</div>
+            <div class="praxis-problem-meta">{difficulty}" | "{bloom_level}</div>
+            {move || {
+                // Clone owned lesson text for this reactive render so nested
+                // move closures can own copies without consuming retained
+                // values on a later state update.
+                let answer = answer.clone();
+                let explanation = explanation.clone();
+                let hint_text = hint_text.clone();
+                let choices_for_render = choices.clone();
+
+                if let Some(options) = choices_for_render {
+                    if let Some(is_correct) = scored_result.get() {
+                    view! {
+                        <div class="praxis-problem-a" style="margin-top: 0.5rem">
+                            "Correct answer: "{answer.clone()}
+                        </div>
+                        <div role="status" style="margin-top: 0.5rem; font-size: 0.85rem; color: var(--text-secondary)">
+                            {if repeated_scored_item.get() {
+                                "This exact prompt was already scored in this local profile. This replay revealed feedback but did not update BKT; try a different item for new practice evidence."
+                            } else if is_correct {
+                                "Correct. Your choice was recorded before the answer was revealed."
+                            } else {
+                                "Not correct yet. Review the explanation and try a new problem later."
+                            }}
+                        </div>
+                        <div style="font-size: 0.8rem; color: var(--text-secondary); margin-top: 0.25rem">
+                            {explanation.clone()}
+                        </div>
+                    }.into_any()
+                } else {
+                    view! {
+                        <p style="font-size: 0.8rem; color: var(--text-secondary); margin: 0.5rem 0">
+                            "Choose an answer before seeing the solution."
+                        </p>
+                        <div role="group" aria-label="Answer choices" style="display: flex; flex-direction: column; gap: 0.4rem; margin-top: 0.5rem">
+                            {options.iter().map(|choice| {
+                                let choice_value = choice.clone();
+                                let choice_for_class = choice.clone();
+                                let choice_for_click = choice.clone();
+                                view! {
+                                    <button
+                                        type="button"
+                                        class=move || {
+                                            if selected_choice.get().as_deref() == Some(choice_for_class.as_str()) {
+                                                "praxis-filter-btn active"
+                                            } else {
+                                                "praxis-filter-btn"
+                                            }
+                                        }
+                                        aria-pressed=move || selected_choice.get().as_deref() == Some(choice_value.as_str())
+                                        on:click=move |_| set_selected_choice.set(Some(choice_for_click.clone()))
+                                    >{choice.clone()}</button>
+                                }
+                            }).collect::<Vec<_>>()}
+                        </div>
+                        <div style="margin-top: 0.5rem; display: flex; gap: 0.5rem">
+                            <button
+                                type="button"
+                                class="praxis-filter-btn active"
+                                disabled=move || selected_choice.get().is_none()
+                                on:click={
+                                    let target_node = scored_node_id.clone();
+                                    let target_item = scored_item_id.clone();
+                                    let correct_answer = answer.clone();
+                                    move |_| {
+                                        if let Some(choice) = selected_choice.get_untracked() {
+                                            let correct = normalized_choice(&choice) == normalized_choice(&correct_answer);
+                                            let recorded = std::cell::Cell::new(false);
+                                            progress.update(|store| {
+                                                recorded.set(store.record_response_for_item(
+                                                    &target_node,
+                                                    &target_item,
+                                                    correct,
+                                                ));
+                                            });
+                                            set_repeated_scored_item.set(!recorded.get());
+                                            set_scored_result.set(Some(correct));
+                                        }
+                                    }
+                                }
+                            >"Check answer"</button>
+                            {if !hint_text.is_empty() {
+                                view! {
+                                    <button
+                                        type="button"
+                                        class="praxis-filter-btn"
+                                        on:click=move |_| set_show_hint.set(true)
+                                    >"Hint"</button>
+                                }.into_any()
+                            } else {
+                                view! { <span></span> }.into_any()
+                            }}
+                        </div>
+                        {move || if show_hint.get() {
+                            view! {
+                                <div style="font-size: 0.8rem; color: var(--warning); margin-top: 0.4rem; font-style: italic">
+                                    {hint_text.clone()}
+                                </div>
+                            }.into_any()
+                        } else {
+                            view! { <span></span> }.into_any()
+                        }}
+                    }.into_any()
+                }
+            } else if revealed_solution.get() {
+                view! {
+                    <div class="praxis-problem-a" style="margin-top: 0.5rem">
+                        "Solution: "{answer.clone()}
+                    </div>
+                    <div style="font-size: 0.8rem; color: var(--text-secondary); margin-top: 0.25rem">
+                        {explanation.clone()}
+                    </div>
+                    {move || if let Some(reflection) = self_assessment.get() {
+                        view! {
+                            <div role="status" style="margin-top: 0.5rem; font-size: 0.8rem; color: var(--text-tertiary)">
+                                {match reflection {
+                                    SelfAssessment::FeelsUnderstood => "Reflection saved: you feel you understand this item.",
+                                    SelfAssessment::NeedsMorePractice => "Reflection saved: you want more practice.",
+                                }}
+                                " This is self-report, not a scored response or verified mastery."
+                            </div>
+                        }.into_any()
+                    } else {
+                        view! {
+                            <div style="margin-top: 0.5rem; font-size: 0.8rem; color: var(--text-secondary)">
+                                "This item lacks a usable four-choice set. You can save a reflection, but it will not count as a scored response."
+                            </div>
+                            <div style="display: flex; gap: 0.5rem; margin-top: 0.5rem">
+                                <button
+                                    type="button"
+                                    class="praxis-filter-btn"
+                                    on:click={
+                                        let target_node = reflection_node_id.clone();
+                                        move |_| {
+                                            progress.update(|store| {
+                                                store.record_self_assessment(
+                                                    &target_node,
+                                                    SelfAssessment::FeelsUnderstood
+                                                );
+                                            });
+                                            set_self_assessment.set(Some(SelfAssessment::FeelsUnderstood));
+                                        }
+                                    }
+                                >"I feel I understand"</button>
+                                <button
+                                    type="button"
+                                    class="praxis-filter-btn"
+                                    on:click={
+                                        let target_node = reflection_node_id.clone();
+                                        move |_| {
+                                            progress.update(|store| {
+                                                store.record_self_assessment(
+                                                    &target_node,
+                                                    SelfAssessment::NeedsMorePractice
+                                                );
+                                            });
+                                            set_self_assessment.set(Some(SelfAssessment::NeedsMorePractice));
+                                        }
+                                    }
+                                >"I need more practice"</button>
+                            </div>
+                        }.into_any()
+                    }}
+                }.into_any()
+            } else {
+                view! {
+                    <p style="font-size: 0.8rem; color: var(--text-secondary); margin: 0.5rem 0">
+                        "This item does not have four distinct answer choices. Try it first, then reveal the solution; reflection will be recorded separately from scored practice."
+                    </p>
+                    <div style="margin-top: 0.5rem; display: flex; gap: 0.5rem">
+                        <button
+                            type="button"
+                            class="praxis-filter-btn active"
+                            on:click=move |_| set_revealed_solution.set(true)
+                        >"Reveal solution"</button>
+                        {if !hint_text.is_empty() {
+                            view! {
+                                <button
+                                    type="button"
+                                    class="praxis-filter-btn"
+                                    on:click=move |_| set_show_hint.set(true)
+                                >"Hint"</button>
+                            }.into_any()
+                        } else {
+                            view! { <span></span> }.into_any()
+                        }}
+                    </div>
+                    {move || if show_hint.get() {
+                        view! {
+                            <div style="font-size: 0.8rem; color: var(--warning); margin-top: 0.4rem; font-style: italic">
+                                {hint_text.clone()}
+                            </div>
+                        }.into_any()
+                    } else {
+                        view! { <span></span> }.into_any()
+                    }}
+                    }.into_any()
+                }
+            }}
+        </div>
+    }
+}
+
 
 #[derive(Clone, Debug, Deserialize)]
 struct VocabTerm {
@@ -250,14 +669,21 @@ pub fn StudyPage(node_id: String) -> impl IntoView {
                         >"Studying"</button>
                         <button
                             class=move || {
-                                let s = progress.get().get(&id_m).status;
-                                if s == ProgressStatus::Mastered { "praxis-status-btn active-mastered" } else { "praxis-status-btn" }
+                                let learner_state = progress.get().get(&id_m).self_assessment;
+                                if learner_state == Some(SelfAssessment::FeelsUnderstood) {
+                                    "praxis-status-btn active-studying"
+                                } else {
+                                    "praxis-status-btn"
+                                }
                             }
                             on:click={
                                 let id = id_m2.clone();
-                                move |_| set_progress.update(|p| p.set_status(&id, ProgressStatus::Mastered))
+                                move |_| set_progress.update(|p| {
+                                    p.record_self_assessment(&id, SelfAssessment::FeelsUnderstood)
+                                })
                             }
-                        >"Mastered"</button>
+                            title="Self-assessment only; this does not verify mastery."
+                        >"I feel I understand"</button>
                     }
                 }
             </div>
@@ -376,7 +802,7 @@ pub fn StudyPage(node_id: String) -> impl IntoView {
                                                 view! {
                                                     <div style="display: flex; align-items: center; gap: 0.75rem; margin-bottom: 1rem; padding: 0.5rem 0.75rem; background: var(--soil-rich); border-radius: 8px">
                                                         <div style="font-size: 0.8rem; color: var(--text-secondary)">
-                                                            "Understanding: "
+                                                            "Estimated understanding (BKT): "
                                                             <strong style="color: var(--text)">{pct}"%"</strong>
                                                         </div>
                                                         <div style="font-size: 0.75rem; color: var(--text-tertiary); font-style: italic">
@@ -386,106 +812,14 @@ pub fn StudyPage(node_id: String) -> impl IntoView {
                                                 }
                                             }
                                         }
-                                        <p style="font-size: 0.8rem; color: var(--text-tertiary); margin-bottom: 1rem">"Try to solve each problem before revealing the answer. Your responses shape the difficulty."</p>
-                                        {problems.iter().enumerate().map(|(i, p)| {
-                                            let question = p.question.clone();
-                                            let answer = p.answer.clone();
-                                            let diff = match p.difficulty_permille {
-                                                0..=300 => "Gentle soil",
-                                                301..=600 => "Steady ground",
-                                                601..=800 => "Rocky terrain",
-                                                _ => "Mountain path",
-                                            };
-                                            let bloom_level = p.bloom_level.clone();
-                                            let explanation = p.explanation.clone();
-                                            let hints = p.hints.clone();
-                                            let (revealed, set_revealed) = signal(false);
-                                            let (show_hint, set_show_hint) = signal(false);
-                                            let (evaluated, set_evaluated) = signal(false);
-                                            let nid_correct = node_id_for_status.clone();
-                                            let nid_wrong = node_id_for_status.clone();
+                                        <p style="font-size: 0.8rem; color: var(--text-tertiary); margin: 0 0 1rem">"BKT is a practice estimate, not proof of durable or independent mastery. Answer choices are scored before feedback appears; reflection-only items do not update scored mastery."</p>
+                                        {problems.iter().cloned().enumerate().map(|(i, problem)| {
                                             view! {
-                                                <div class="praxis-problem" style="cursor: pointer">
-                                                    <div class="praxis-problem-q">{i + 1}". "{question}</div>
-                                                    <div class="praxis-problem-meta">{diff}" | "{bloom_level}</div>
-                                                    {move || if revealed.get() {
-                                                        view! {
-                                                            <div class="praxis-problem-a" style="margin-top: 0.5rem">
-                                                                "Answer: "{answer.clone()}
-                                                            </div>
-                                                            <div style="font-size: 0.8rem; color: var(--text-secondary); margin-top: 0.25rem">
-                                                                {explanation.clone()}
-                                                            </div>
-                                                            // Self-evaluation — feeds BKT
-                                                            {
-                                                                let nid_c = nid_correct.clone();
-                                                                let nid_w = nid_wrong.clone();
-                                                                move || if !evaluated.get() {
-                                                                    let nc = nid_c.clone();
-                                                                    let nw = nid_w.clone();
-                                                                    view! {
-                                                                        <div style="margin-top: 0.5rem; display: flex; gap: 0.5rem">
-                                                                            <button
-                                                                                class="praxis-filter-btn"
-                                                                                style="font-size: 0.75rem; border-color: var(--mastery-green); color: var(--mastery-green)"
-                                                                                on:click=move |_| {
-                                                                                    set_progress.update(|p| p.record_response(&nc, true));
-                                                                                    set_evaluated.set(true);
-                                                                                }
-                                                                            >"I got this right"</button>
-                                                                            <button
-                                                                                class="praxis-filter-btn"
-                                                                                style="font-size: 0.75rem; opacity: 0.7"
-                                                                                on:click=move |_| {
-                                                                                    set_progress.update(|p| p.record_response(&nw, false));
-                                                                                    set_evaluated.set(true);
-                                                                                }
-                                                                            >"Still learning"</button>
-                                                                        </div>
-                                                                    }.into_any()
-                                                                } else {
-                                                                    view! {
-                                                                        <div style="font-size: 0.75rem; color: var(--text-tertiary); margin-top: 0.5rem; font-style: italic">
-                                                                            "Recorded — your path is adapting"
-                                                                        </div>
-                                                                    }.into_any()
-                                                                }
-                                                            }
-                                                        }.into_any()
-                                                    } else {
-                                                        let hints_available = !hints.is_empty();
-                                                        let hint_text = hints.first().cloned().unwrap_or_default();
-                                                        view! {
-                                                            <div style="margin-top: 0.5rem; display: flex; gap: 0.5rem">
-                                                                <button
-                                                                    class="praxis-filter-btn active"
-                                                                    style="font-size: 0.75rem"
-                                                                    on:click=move |_| set_revealed.set(true)
-                                                                >"Reveal Answer"</button>
-                                                                {if hints_available {
-                                                                    view! {
-                                                                        <button
-                                                                            class="praxis-filter-btn"
-                                                                            style="font-size: 0.75rem"
-                                                                            on:click=move |_| set_show_hint.set(true)
-                                                                        >"Hint"</button>
-                                                                    }.into_any()
-                                                                } else {
-                                                                    view! { <span></span> }.into_any()
-                                                                }}
-                                                            </div>
-                                                            {move || if show_hint.get() {
-                                                                view! {
-                                                                    <div style="font-size: 0.8rem; color: var(--warning); margin-top: 0.25rem; font-style: italic">
-                                                                        {hint_text.clone()}
-                                                                    </div>
-                                                                }.into_any()
-                                                            } else {
-                                                                view! { <span></span> }.into_any()
-                                                            }}
-                                                        }.into_any()
-                                                    }}
-                                                </div>
+                                                <PracticeProblemCard
+                                                    problem=problem
+                                                    index=i
+                                                    node_id=node_id_for_status.clone()
+                                                />
                                             }
                                         }).collect::<Vec<_>>()}
                                     </div>
@@ -726,7 +1060,9 @@ fn LiveProgressSync(node_id: String) -> impl IntoView {
         let course_id = curriculum_node_course_id(&node_id_for_click);
         let progress_percent = match local.status {
             ProgressStatus::NotStarted => 0.0,
-            ProgressStatus::Studying => local.mastery_permille as f32 / 10.0,
+            ProgressStatus::Studying | ProgressStatus::ProvisionalMastery => {
+                local.mastery_permille as f32 / 10.0
+            }
             ProgressStatus::Mastered => 100.0,
         };
         let input = ProgressSyncInput {
@@ -816,4 +1152,97 @@ fn LiveProgressSync(node_id: String) -> impl IntoView {
             })}
         </div>
     }.into_any()
+}
+
+
+#[cfg(test)]
+mod answer_first_choice_tests {
+    use super::*;
+
+    fn problem(answer: &str, distractors: [&str; 3]) -> PracticeProblem {
+        PracticeProblem {
+            question: "How many more children chose soccer?".to_owned(),
+            answer: answer.to_owned(),
+            difficulty_permille: 250,
+            bloom_level: "Apply".to_owned(),
+            hints: vec!["Compare the two counts.".to_owned()],
+            explanation: "Subtract the smaller count from the larger count.".to_owned(),
+            distractors: distractors.into_iter().map(str::to_owned).collect(),
+        }
+    }
+
+    #[test]
+    fn scored_item_id_changes_when_answer_or_choice_set_changes_but_not_order() {
+        let base = problem("3 children", ["13 children", "2 children", "5 children"]);
+        let same_choices_different_order =
+            problem("3 children", ["5 children", "13 children", "2 children"]);
+        let revised_distractor = problem("3 children", ["13 children", "2 children", "4 children"]);
+        let revised_answer = problem("4 children", ["13 children", "2 children", "5 children"]);
+
+        let base_id = practice_item_evidence_id("CAPS.Mathematics.Gr3.DAT", &base);
+        assert!(base_id.starts_with("practice-item-v1:"));
+        assert_eq!(base_id.len(), "practice-item-v1:".len() + 32);
+        assert!(!base_id.contains("children"));
+        assert_eq!(
+            base_id,
+            practice_item_evidence_id(
+                "CAPS.Mathematics.Gr3.DAT",
+                &same_choices_different_order
+            )
+        );
+        assert_ne!(
+            base_id,
+            practice_item_evidence_id("CAPS.Mathematics.Gr3.DAT", &revised_distractor)
+        );
+        assert_ne!(
+            base_id,
+            practice_item_evidence_id("CAPS.Mathematics.Gr3.DAT", &revised_answer)
+        );
+    }
+
+    #[test]
+    fn answer_first_choices_include_one_answer_and_three_distinct_wrong_choices() {
+        let item = problem("3 children", ["13 children", "2 children", "5 children"]);
+        let choices = answer_first_choices(&item).expect("valid choice set should be usable");
+        assert_eq!(choices.len(), 4);
+        assert!(
+            choices
+                .iter()
+                .any(|choice| normalized_choice(choice) == normalized_choice("3 children"))
+        );
+        assert_eq!(
+            choices
+                .iter()
+                .map(|choice| normalized_choice(choice))
+                .collect::<std::collections::BTreeSet<_>>()
+                .len(),
+            4
+        );
+    }
+
+    #[test]
+    fn answer_first_choices_reject_duplicate_or_missing_distractors() {
+        assert!(answer_first_choices(&problem("3", ["1", "1", "4"])).is_none());
+
+        let mut incomplete = problem("3", ["1", "2", "4"]);
+        incomplete.distractors.pop();
+        assert!(answer_first_choices(&incomplete).is_none());
+    }
+
+    #[test]
+    fn answer_first_choices_reject_numeric_answer_with_omitted_unit() {
+        let item = problem("3 children", ["13", "2 children", "3"]);
+        assert!(numeric_choices_collide("3 children", "3"));
+        assert!(answer_first_choices(&item).is_none());
+    }
+
+    #[test]
+    fn answer_first_choices_reject_equivalent_fraction_and_decimal_choices() {
+        assert!(numeric_choices_collide("1/2", "2/4"));
+        assert!(numeric_choices_collide("0.5", "1/2"));
+        assert!(!numeric_choices_collide("12 cm", "12 square units"));
+
+        let item = problem("1/2", ["2/4", "1/3", "3/4"]);
+        assert!(answer_first_choices(&item).is_none());
+    }
 }

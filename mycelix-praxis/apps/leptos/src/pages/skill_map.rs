@@ -3,11 +3,11 @@
 //! Knowledge Garden / Skill Map — Dynamic, Context-Aware Node Exploration.
 
 use crate::components::gl_canvas::GardenCanvas;
-use crate::components::hardware::{HardwareScanner, PresenceValidator, SafetyGuard};
+use crate::components::hardware::{PresenceValidator, SafetyGuard};
 use crate::components::voice_ops::VoiceCommandCenter;
 use crate::curriculum::{
-    CurriculumNode, Grade, ProgressStatus, Subject, curriculum_graph, display_subject,
-    use_progress, use_set_progress,
+    CurriculumNode, Grade, ProgressStatus, SelfAssessment, Subject, curriculum_graph,
+    display_subject, use_progress, use_set_progress,
 };
 use crate::location::use_biome;
 use leptos::prelude::*;
@@ -245,31 +245,21 @@ fn NodeDetail(node: CurriculumNode, on_close: impl Fn() + 'static) -> impl IntoV
                 })
             }
 
-            // Holonic Lab: Capability Grants (Proof of Access)
+            // Hardware capabilities are shown as explicitly disabled. This
+            // browser UI does not verify signed safety credentials and cannot
+            // grant physical-device authorization from local progress.
             {
-                let node_title = node.title.clone();
                 let tags = node.tags.clone();
-                let mastered = status() == ProgressStatus::Mastered;
-                move || if mastered && (tags.contains(&"solar".to_string()) || tags.contains(&"mfg".to_string()) || tags.contains(&"robotics".to_string())) {
-                    // Fresh clone per call -- the view! macro's component-prop
-                    // codegen moves this into HardwareScanner's props, so the
-                    // outer captured `node_title` must never be consumed
-                    // directly (this closure needs to implement `Fn`/`FnMut`,
-                    // called on every reactive update, not just once).
-                    let node_title = node_title.clone();
+                move || if tags.iter().any(|tag| {
+                    tag == "solar" || tag == "mfg" || tag == "robotics"
+                }) {
                     view! {
                         <SafetyGuard>
                             <section class="hardware-grants" style="margin-top: 2rem; padding: 1.5rem; background: var(--surface-high); border: 2px solid var(--accent); border-radius: 8px">
-                                <h4 style="margin: 0; color: var(--accent)">"Holonic Lab Access"</h4>
+                                <h4 style="margin: 0; color: var(--accent)">"Physical hardware controls"</h4>
                                 <p style="font-size: 0.75rem; line-height: 1.4; margin: 0.5rem 0 1rem 0">
-                                    "As a master of this node, you are eligible for a physical hardware control key."
+                                    "Hardware remains disabled until a trusted controller verifies an independently issued safety credential. Local progress and self-assessment are not authorization."
                                 </p>
-                                <HardwareScanner
-                                    device_type=node_title.clone()
-                                    on_linked=move |_grant| {
-                                        // Store capability grant locally
-                                    }
-                                />
                             </section>
                         </SafetyGuard>
                     }.into_any()
@@ -278,13 +268,16 @@ fn NodeDetail(node: CurriculumNode, on_close: impl Fn() + 'static) -> impl IntoV
                 }
             }
 
-            // Status Control
+            // Self-assessment: this is a learner reflection, not a mastery grant.
             <footer style="margin-top: 2rem; display: flex; gap: 0.5rem">
                 <button
-                    class=move || if status() == ProgressStatus::Mastered { "btn-primary active" } else { "btn-outline" }
-                    on:click=move |_| set_progress.update(|p| p.set_status(&node_id, ProgressStatus::Mastered))
+                    class="btn-outline"
+                    title="Save that you feel you understand this topic. This does not verify mastery."
+                    on:click=move |_| set_progress.update(|p| {
+                        p.record_self_assessment(&node_id, SelfAssessment::FeelsUnderstood)
+                    })
                 >
-                    "Mark Mastered"
+                    "I feel I understand this"
                 </button>
 
                 <button

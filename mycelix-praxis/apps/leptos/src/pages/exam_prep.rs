@@ -8,7 +8,7 @@
 
 use leptos::prelude::*;
 
-use crate::curriculum::{ProgressStatus, curriculum_graph, use_progress, use_set_progress};
+use crate::curriculum::{SelfAssessment, ProgressStatus, curriculum_graph, use_progress, use_set_progress};
 use crate::student_profile::use_profile;
 
 #[component]
@@ -73,11 +73,15 @@ pub fn ExamPrepPage() -> impl IntoView {
     let math_stats = Memo::new(move |_| {
         let topics = exam_topics.get();
         let math: Vec<_> = topics.iter().filter(|t| t.2 == "Mathematics").collect();
-        let mastered = math
+        let verified = math
             .iter()
             .filter(|t| t.7 == ProgressStatus::Mastered)
             .count();
-        (math.len(), mastered)
+        let provisional = math
+            .iter()
+            .filter(|t| t.7 == ProgressStatus::ProvisionalMastery)
+            .count();
+        (math.len(), verified, provisional)
     });
 
     // Physics totals
@@ -87,11 +91,15 @@ pub fn ExamPrepPage() -> impl IntoView {
             .iter()
             .filter(|t| t.2 == "PhysicalSciences")
             .collect();
-        let mastered = phys
+        let verified = phys
             .iter()
             .filter(|t| t.7 == ProgressStatus::Mastered)
             .count();
-        (phys.len(), mastered)
+        let provisional = phys
+            .iter()
+            .filter(|t| t.7 == ProgressStatus::ProvisionalMastery)
+            .count();
+        (phys.len(), verified, provisional)
     });
 
     view! {
@@ -102,7 +110,7 @@ pub fn ExamPrepPage() -> impl IntoView {
 
             <h1 style="font-size: 1.5rem; margin: 1rem 0 0.5rem">"Exam Preparation"</h1>
             <p style="color: var(--text-secondary); margin-bottom: 1rem">
-                "Topics ranked by priority: exam weight \u{00D7} (1 \u{2212} mastery)"
+                "Topics ranked by exam weight and the BKT practice estimate; this is a planning aid, not verified mastery."
             </p>
 
             // Mock exam link
@@ -115,20 +123,22 @@ pub fn ExamPrepPage() -> impl IntoView {
                 <div class="praxis-detail" style="text-align: center">
                     <div style="font-size: 0.8rem; color: var(--subject-math)">"Mathematics"</div>
                     {move || {
-                        let (total, mastered) = math_stats.get();
+                        let (total, verified, provisional) = math_stats.get();
                         view! {
-                            <div style="font-size: 2rem; font-weight: 700">{mastered}"/" {total}</div>
-                            <div style="font-size: 0.75rem; color: var(--text-secondary)">"topics mastered"</div>
+                            <div style="font-size: 2rem; font-weight: 700">{verified}"/" {total}</div>
+                            <div style="font-size: 0.75rem; color: var(--text-secondary)">"verified mastery"</div>
+                            <div style="font-size: 0.75rem; color: var(--info); margin-top: 0.25rem">{provisional}" provisional practice estimates"</div>
                         }
                     }}
                 </div>
                 <div class="praxis-detail" style="text-align: center">
                     <div style="font-size: 0.8rem; color: var(--subject-physics)">"Physical Sciences"</div>
                     {move || {
-                        let (total, mastered) = phys_stats.get();
+                        let (total, verified, provisional) = phys_stats.get();
                         view! {
-                            <div style="font-size: 2rem; font-weight: 700">{mastered}"/" {total}</div>
-                            <div style="font-size: 0.75rem; color: var(--text-secondary)">"topics mastered"</div>
+                            <div style="font-size: 2rem; font-weight: 700">{verified}"/" {total}</div>
+                            <div style="font-size: 0.75rem; color: var(--text-secondary)">"verified mastery"</div>
+                            <div style="font-size: 0.75rem; color: var(--info); margin-top: 0.25rem">{provisional}" provisional practice estimates"</div>
                         }
                     }}
                 </div>
@@ -257,7 +267,8 @@ pub fn ExamPrepPage() -> impl IntoView {
                     let href = format!("/study/{}", id);
                     let subject_color = if subject == "Mathematics" { "var(--subject-math)" } else { "var(--subject-physics)" };
                     let status_label = status.label();
-                    let status_class = status.css_class();
+                    let self_assessed_ready = progress.get().get(&id).self_assessment
+                        == Some(SelfAssessment::FeelsUnderstood);
                     let opacity = if status == ProgressStatus::Mastered { "0.5" } else { "1" };
 
                     let id_for_toggle = id.clone();
@@ -274,18 +285,26 @@ pub fn ExamPrepPage() -> impl IntoView {
                                 <span class="praxis-badge praxis-badge-exam">{marks}</span>
                             </span>
                             <button
-                                class=format!("praxis-status-btn {}", if status == ProgressStatus::Mastered { "active-mastered" } else { "" })
-                                style="width: 80px; font-size: 0.7rem"
+                                class=if self_assessed_ready { "praxis-status-btn active-studying" } else { "praxis-status-btn" }
+                                style="width: 142px; font-size: 0.7rem"
+                                disabled=status == ProgressStatus::Mastered || self_assessed_ready
+                                title="Self-assessment only; this does not certify mastery or completion."
                                 on:click=move |_| {
-                                    let new_status = if status == ProgressStatus::Mastered {
-                                        ProgressStatus::NotStarted
-                                    } else {
-                                        ProgressStatus::Mastered
-                                    };
-                                    set_progress.update(|p| p.set_status(&id_for_toggle, new_status));
+                                    set_progress.update(|p| {
+                                        p.record_self_assessment(
+                                            &id_for_toggle,
+                                            SelfAssessment::FeelsUnderstood
+                                        )
+                                    });
                                 }
                             >
-                                {if status == ProgressStatus::Mastered { "\u{2714} Mastered" } else { "Mark done" }}
+                                {if status == ProgressStatus::Mastered {
+                                    "Verified mastery"
+                                } else if self_assessed_ready {
+                                    "Self-assessed ready"
+                                } else {
+                                    "I feel ready"
+                                }}
                             </button>
                         </div>
                     }
