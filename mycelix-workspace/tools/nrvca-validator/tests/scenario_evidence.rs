@@ -43,6 +43,12 @@ fn is_sha256(value: &Value) -> bool {
 }
 
 fn source_by_id<'a>(manifest: &'a Value, source_id: &str) -> Option<&'a Value> {
+    if let Some(source) = manifest["evidence_sources"]
+        .as_array()
+        .and_then(|sources| sources.iter().find(|source| source["source_id"].as_str() == Some(source_id)))
+    {
+        return Some(source);
+    }
     manifest["methodological_sources"]
         .as_array()?
         .iter()
@@ -360,7 +366,7 @@ fn empirical_claim_needs_a_real_role_and_well_formed_digest() {
     assert!(validate_definition(&evidence, &candidate).is_err(),
         "a method guide cannot substantiate an observation");
 
-    evidence["methodological_sources"].as_array_mut().unwrap().push(json!({
+    evidence["evidence_sources"].as_array_mut().unwrap().push(json!({
         "source_id": "test-data-source",
         "role": "empirical_data_source",
         "url": "https://example.invalid/source.csv"
@@ -371,6 +377,38 @@ fn empirical_claim_needs_a_real_role_and_well_formed_digest() {
     candidate["content_sha256"] = json!("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa");
     assert!(validate_definition(&evidence, &candidate).is_ok(),
         "the contract validates required provenance shape; digest-to-byte verification is a separate acquisition step");
+}
+
+
+#[test]
+fn model_output_needs_role_version_configuration_and_input_provenance() {
+    let mut evidence = evidence_manifest();
+    let mut candidate = evidence["stressor_definitions"][0].clone();
+    candidate["evidence_status"] = json!("model_output");
+    candidate["model_id"] = json!("test-hydraulic-model");
+    candidate["model_version"] = json!("0.0-test");
+    candidate["model_configuration_sha256"] = json!("invalid");
+    candidate["input_manifest_sha256"] = json!("invalid");
+    candidate["validation_status"] = json!("not_validated");
+    candidate["valid_time"] = json!("synthetic-period");
+    candidate["unit"] = json!("m3/day");
+    candidate["geographic_coverage"] = json!("test-area");
+    candidate["source_refs"] = json!(["test-model-artifact"]);
+
+    evidence["evidence_sources"].as_array_mut().unwrap().push(json!({
+        "source_id": "test-model-artifact",
+        "role": "model_artifact",
+        "url": "https://example.invalid/model"
+    }));
+    assert!(validate_definition(&evidence, &candidate).is_err(),
+        "malformed model configuration and input digests must fail");
+
+    candidate["model_configuration_sha256"] =
+        json!("bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb");
+    candidate["input_manifest_sha256"] =
+        json!("cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc");
+    assert!(validate_definition(&evidence, &candidate).is_ok(),
+        "well-formed metadata can represent an unvalidated model output without promoting its validation status");
 }
 
 #[test]
