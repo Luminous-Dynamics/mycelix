@@ -279,15 +279,20 @@ fn render_metrics(corpus: &[Presentation]) -> String {
     output
 }
 
+fn opaque_presentation_ref(presentation_id: u32) -> u64 {
+    // Domain-separated per-presentation row handle. It is not a subject identifier.
+    splitmix64(SEED ^ 0x4f50_4151_5545_5f31 ^ u64::from(presentation_id))
+}
+
 fn render_feature_corpus(corpus: &[Presentation]) -> String {
     let mut output = String::from(
-        "presentation_ordinal\trecipient\tsession\tproof_tag\tstatement_count\trevealed_index_pattern\tschema_profile\tglobal_id\n",
+        "presentation_ref\trecipient\tsession\tproof_tag\tstatement_count\trevealed_index_pattern\tschema_profile\tglobal_id\n",
     );
-    for (ordinal, item) in corpus.iter().enumerate() {
+    for item in corpus {
         writeln!(
             &mut output,
-            "{}\t{}\t{}\t{:016x}\t{}\t{:04x}\t{}\t{}",
-            ordinal,
+            "{:016x}\t{}\t{}\t{:016x}\t{}\t{:04x}\t{}\t{}",
+            opaque_presentation_ref(item.presentation_id),
             item.recipient,
             item.session,
             item.proof_tag,
@@ -512,13 +517,30 @@ mod tests {
     }
 
     #[test]
-    fn metrics_and_export_are_deterministic_and_export_has_no_truth_column() {
+    fn metrics_and_export_are_deterministic_without_truth_or_sequential_ordinals() {
         let corpus = build_corpus();
         assert_eq!(render_metrics(&corpus), render_metrics(&build_corpus()));
         let features = render_feature_corpus(&corpus);
         assert_eq!(features, render_feature_corpus(&build_corpus()));
-        assert!(!features.lines().next().unwrap().contains("subject_truth"));
-        assert!(!features.lines().next().unwrap().contains("ground_truth"));
-        assert!(!features.lines().next().unwrap().contains("subject_index"));
+
+        let mut rows = features.lines();
+        let header = rows.next().unwrap();
+        assert!(header.starts_with("presentation_ref\\trecipient\\tsession"));
+        assert!(!header.contains("subject_truth"));
+        assert!(!header.contains("ground_truth"));
+        assert!(!header.contains("subject_index"));
+        assert!(!header.contains("presentation_ordinal"));
+
+        let rows: Vec<&str> = features.lines().skip(1).collect();
+        assert_eq!(rows.len(), PRESENTATIONS);
+        assert!(rows.iter().all(|row| row.split('\\t').count() == 8));
+
+        let mut presentation_refs: Vec<&str> = rows
+            .iter()
+            .map(|row| row.split('\\t').next().unwrap())
+            .collect();
+        presentation_refs.sort_unstable();
+        presentation_refs.dedup();
+        assert_eq!(presentation_refs.len(), PRESENTATIONS);
     }
 }
