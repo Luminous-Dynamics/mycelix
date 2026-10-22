@@ -464,7 +464,8 @@ fn random_pair_baseline(presentations: &[Presentation]) -> Metrics {
             }
             let pair_key =
                 (u64::from(left.presentation_id) << 32) | u64::from(right.presentation_id);
-            let predicted_link = splitmix64(pair_key ^ 0xD1CE_BA5E) % u64::from(SUBJECTS) == 0;
+            let predicted_link =
+                splitmix64(pair_key ^ 0xD1CE_BA5E).is_multiple_of(u64::from(SUBJECTS));
             metrics.observe(
                 left.synthetic_subject_id == right.synthetic_subject_id,
                 predicted_link,
