@@ -95,17 +95,138 @@ fn normalized_choice(text: &str) -> String {
         .to_lowercase()
 }
 
+fn choice_gcd(mut left: u128, mut right: u128) -> u128 {
+    while right != 0 {
+        let remainder = left % right;
+        left = right;
+        right = remainder;
+    }
+    left.max(1)
+}
+
+fn choice_ratio_key(numerator: i128, denominator: i128) -> Option<String> {
+    if denominator == 0 {
+        return None;
+    }
+    let negative = (numerator < 0) ^ (denominator < 0);
+    let numerator = numerator.unsigned_abs();
+    let denominator = denominator.unsigned_abs();
+    let divisor = choice_gcd(numerator, denominator);
+    let sign = if negative { "-" } else { "" };
+    Some(format!("{sign}{}/{}", numerator / divisor, denominator / divisor))
+}
+
+fn choice_number_key(text: &str) -> Option<String> {
+    let number = text.trim();
+    if let Some((numerator, denominator)) = number.split_once('/') {
+        return choice_ratio_key(
+            numerator.trim().parse::<i128>().ok()?,
+            denominator.trim().parse::<i128>().ok()?,
+        );
+    }
+    if let Some((whole, fractional)) = number.split_once('.') {
+        if fractional.is_empty() || !fractional.chars().all(|ch| ch.is_ascii_digit()) {
+            return None;
+        }
+        let negative = whole.starts_with('-');
+        let whole_digits = whole.trim_start_matches('-');
+        let whole_value = if whole_digits.is_empty() {
+            0
+        } else {
+            whole_digits.parse::<i128>().ok()?
+        };
+        let denominator = 10_i128.checked_pow(u32::try_from(fractional.len()).ok()?)?;
+        let fractional_value = fractional.parse::<i128>().ok()?;
+        let numerator = whole_value
+            .checked_mul(denominator)?
+            .checked_add(fractional_value)?
+            .checked_mul(if negative { -1 } else { 1 })?;
+        return choice_ratio_key(numerator, denominator);
+    }
+    choice_ratio_key(number.parse::<i128>().ok()?, 1)
+}
+
+fn choice_numeric_value(text: &str) -> Option<(String, Option<&'static str>)> {
+    let normalized = normalized_choice(text);
+    const UNITS: &[(&str, &str)] = &[
+        (" square centimeters", "area_cm2"),
+        (" square centimetres", "area_cm2"),
+        (" square meters", "area_m2"),
+        (" square metres", "area_m2"),
+        (" square units", "area_unit"),
+        (" square unit", "area_unit"),
+        (" centimeters", "length_cm"),
+        (" centimetres", "length_cm"),
+        (" millimeters", "length_mm"),
+        (" millimetres", "length_mm"),
+        (" children", "count"),
+        (" child", "count"),
+        (" learners", "count"),
+        (" learner", "count"),
+        (" students", "count"),
+        (" student", "count"),
+        (" objects", "count"),
+        (" object", "count"),
+        (" counters", "count"),
+        (" counter", "count"),
+        (" books", "count"),
+        (" book", "count"),
+        (" minutes", "time_min"),
+        (" minute", "time_min"),
+        (" seconds", "time_s"),
+        (" second", "time_s"),
+        (" hours", "time_h"),
+        (" hour", "time_h"),
+        (" square cm", "area_cm2"),
+        (" square m", "area_m2"),
+        (" cm", "length_cm"),
+        (" mm", "length_mm"),
+        (" kg", "mass_kg"),
+        (" m", "length_m"),
+    ];
+
+    for (suffix, unit) in UNITS {
+        if let Some(number) = normalized.strip_suffix(suffix) {
+            let number = number.trim();
+            return choice_number_key(number).map(|key| (key, Some(*unit)));
+        }
+    }
+    choice_number_key(&normalized).map(|key| (key, None))
+}
+
+fn numeric_choices_collide(answer: &str, distractor: &str) -> bool {
+    let Some((answer_value, answer_unit)) = choice_numeric_value(answer) else {
+        return false;
+    };
+    let Some((distractor_value, distractor_unit)) = choice_numeric_value(distractor) else {
+        return false;
+    };
+    answer_value == distractor_value
+        && (answer_unit.is_none()
+            || distractor_unit.is_none()
+            || answer_unit == distractor_unit)
+}
+
 fn answer_first_choices(problem: &PracticeProblem) -> Option<Vec<String>> {
     if problem.distractors.len() != 3 || problem.answer.trim().is_empty() {
         return None;
     }
+    let answer_key = normalized_choice(&problem.answer);
     let mut choices = problem.distractors.clone();
     choices.push(problem.answer.clone());
-    let normalized = choices.iter().map(|choice| normalized_choice(choice)).collect::<Vec<_>>();
-    if normalized.iter().any(String::is_empty) || normalized.iter().any(|choice| choice == &normalized_choice(&problem.answer)) && normalized.iter().filter(|choice| **choice == normalized_choice(&problem.answer)).count() != 1 {
+    let normalized = choices
+        .iter()
+        .map(|choice| normalized_choice(choice))
+        .collect::<Vec<_>>();
+    if normalized.iter().any(String::is_empty) {
         return None;
     }
     if normalized.iter().collect::<std::collections::BTreeSet<_>>().len() != choices.len() {
+        return None;
+    }
+    if problem.distractors.iter().any(|choice| {
+        normalized_choice(choice) == answer_key || numeric_choices_collide(&problem.answer, choice)
+    }) {
         return None;
     }
     choices.shuffle(&mut rand::thread_rng());
