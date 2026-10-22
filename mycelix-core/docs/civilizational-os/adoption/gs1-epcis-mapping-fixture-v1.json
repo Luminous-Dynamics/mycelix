@@ -9,13 +9,13 @@
       "standard_id": "GS1-EPCIS",
       "version": "2.0.1",
       "source_snapshot_manifest_path": "source-snapshots/gs1-epcis-cbv-v1.json",
-      "source_snapshot_manifest_sha256": "c1ee59514524c7eb0535e58f3fc19c3c3f309d05adb0ca896ac59ef5b3abcf92"
+      "source_snapshot_manifest_sha256": "acb4eee1c6b5ec625047f6857e466408716bb4b09b911029faac303c990cb647"
     },
     {
       "standard_id": "GS1-CBV",
       "version": "2.0.0",
       "source_snapshot_manifest_path": "source-snapshots/gs1-epcis-cbv-v1.json",
-      "source_snapshot_manifest_sha256": "c1ee59514524c7eb0535e58f3fc19c3c3f309d05adb0ca896ac59ef5b3abcf92"
+      "source_snapshot_manifest_sha256": "acb4eee1c6b5ec625047f6857e466408716bb4b09b911029faac303c990cb647"
     }
   ],
   "projection_policy_id": "mycelix-epcis-loss-aware-v1",
@@ -86,7 +86,7 @@
   "fixture_scope": "minimal_epcis_document_with_isolated_object_event_cases",
   "epcis_document": {
     "@context": [
-      "https://ref.gs1.org/standards/epcis/2.0.1/epcis-context.jsonld"
+      "https://ref.gs1.org/standards/epcis/2.0.0/epcis-context.jsonld"
     ],
     "type": "EPCISDocument",
     "schemaVersion": "2.0",
