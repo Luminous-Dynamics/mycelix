@@ -174,8 +174,8 @@ function main() {
   const mutations = selfTest ? [
     mutationMustFail(receipt, manifest, manifestBytes, 'invented-hash-without-bytes',
       r => { r.artifacts[0].content_sha256 = 'a'.repeat(64); }),
-    mutationMustFail(receipt, manifest, manifestBytes, 'invented-http-404-without-response',
-      r => { r.artifacts[0].http_status = 404; }),
+    mutationMustFail(receipt, manifest, manifestBytes, 'http-response-in-not-fetched-state',
+      r => { r.artifacts[0].fetch_state = 'not_fetched'; r.artifacts[0].http_status = 404; }),
     mutationMustFail(receipt, manifest, manifestBytes, 'falsely-complete',
       r => { r.receipt_state = 'complete'; }),
     mutationMustFail(receipt, manifest, manifestBytes, 'duplicate-artifact-row',
