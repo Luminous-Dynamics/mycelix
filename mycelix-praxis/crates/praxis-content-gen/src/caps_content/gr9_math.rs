@@ -175,3 +175,41 @@ stub_topic!(
     "Probability measures how likely an event is to occur, on a scale from 0 (impossible) to 1 (certain). P(event) = number of favourable outcomes / total number of outcomes. The probability of an event NOT happening is 1 - P(event). Tree diagrams show all possible outcomes for two or more events and help calculate combined probabilities.",
     "probability"
 );
+
+#[cfg(test)]
+mod algebra_distractor_tests {
+    use super::*;
+
+    #[test]
+    fn algebra_practice_distractors_do_not_repeat_the_key_across_difficulty_bands() {
+        let topic = Gr9AlgebraExpressionsTopic;
+        for difficulty in [100, 250, 350, 450, 600, 700, 900] {
+            let item = topic.practice_problem(difficulty);
+            let lines = item.lines().collect::<Vec<_>>();
+            assert!(lines.len() >= 4, "practice item is incomplete at difficulty {difficulty}");
+            let answer = lines[1].trim().to_lowercase();
+            let choices = lines[3]
+                .split(',')
+                .map(str::trim)
+                .map(str::to_lowercase)
+                .collect::<Vec<_>>();
+            assert_eq!(
+                choices.len(),
+                3,
+                "expected three choices at difficulty {difficulty}: {item}"
+            );
+            assert!(
+                choices.iter().all(|choice| choice != &answer),
+                "the correct answer was repeated as a distractor at difficulty {difficulty}: {item}"
+            );
+        }
+
+        let factorisation = topic.practice_problem(600);
+        let choices = factorisation.lines().nth(3).unwrap_or_default();
+        assert!(
+            !choices.contains("2(4x + 6)"),
+            "an algebraically equivalent factorisation must not appear as a distractor"
+        );
+    }
+}
+
