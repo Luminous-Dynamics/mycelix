@@ -1,0 +1,410 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://mycelix.net/schemas/praxis/lesson-pack-v1.schema.json",
+  "title": "Praxis Lesson Pack v1",
+  "description": "Author-facing schema for one complete, standalone Praxis lesson asset. Passing the schema is structural validation only; it is not educator approval, factual verification, rights clearance, or evidence of learning efficacy.",
+  "type": "object",
+  "required": [
+    "node_id",
+    "lesson",
+    "assessment",
+    "flashcards",
+    "quality"
+  ],
+  "properties": {
+    "node_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 512,
+      "description": "Stable curriculum objective ID. Reuse an existing ID only if the learning objective is genuinely the same."
+    },
+    "lesson": {
+      "type": "object",
+      "required": [
+        "standard_code",
+        "title",
+        "grade_level",
+        "bloom_level",
+        "explanation",
+        "examples",
+        "practice_problems",
+        "hints"
+      ],
+      "properties": {
+        "standard_code": {
+          "type": "string",
+          "minLength": 1
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1
+        },
+        "grade_level": {
+          "type": "string",
+          "minLength": 1
+        },
+        "bloom_level": {
+          "enum": [
+            "Remember",
+            "Understand",
+            "Apply",
+            "Analyze",
+            "Evaluate",
+            "Create"
+          ]
+        },
+        "explanation": {
+          "type": "string",
+          "minLength": 80
+        },
+        "examples": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/workedExample"
+          }
+        },
+        "practice_problems": {
+          "type": "array",
+          "minItems": 3,
+          "items": {
+            "$ref": "#/$defs/practiceProblem"
+          }
+        },
+        "hints": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "key_vocabulary": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "term",
+              "definition",
+              "example_usage"
+            ],
+            "properties": {
+              "term": {
+                "type": "string",
+                "minLength": 1
+              },
+              "definition": {
+                "type": "string",
+                "minLength": 1
+              },
+              "example_usage": {
+                "type": "string",
+                "minLength": 1
+              }
+            }
+          }
+        },
+        "misconceptions": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "misconception",
+              "correction",
+              "why_students_think_this"
+            ],
+            "properties": {
+              "misconception": {
+                "type": "string",
+                "minLength": 1
+              },
+              "correction": {
+                "type": "string",
+                "minLength": 1
+              },
+              "why_students_think_this": {
+                "type": "string",
+                "minLength": 1
+              }
+            }
+          }
+        },
+        "generation_quality": {
+          "type": "object"
+        }
+      },
+      "additionalProperties": true
+    },
+    "assessment": {
+      "type": "object",
+      "required": [
+        "standard_code",
+        "title",
+        "items",
+        "total_points",
+        "estimated_minutes"
+      ],
+      "properties": {
+        "standard_code": {
+          "type": "string",
+          "minLength": 1
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1
+        },
+        "items": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/assessmentItem"
+          }
+        },
+        "total_points": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "estimated_minutes": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "bloom_distribution": {
+          "type": "array"
+        }
+      },
+      "additionalProperties": true
+    },
+    "flashcards": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": [
+          "front",
+          "back"
+        ],
+        "properties": {
+          "front": {
+            "type": "string",
+            "minLength": 1
+          },
+          "back": {
+            "type": "string",
+            "minLength": 1
+          },
+          "tags": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "difficulty_permille": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 1000
+          }
+        }
+      }
+    },
+    "quality": {
+      "type": "object",
+      "required": [
+        "needs_human_review",
+        "review_status",
+        "metrics_valid_for_current_revision"
+      ],
+      "properties": {
+        "needs_human_review": {
+          "const": true
+        },
+        "review_status": {
+          "const": "draft_requires_educator_review"
+        },
+        "metrics_valid_for_current_revision": {
+          "const": false
+        }
+      },
+      "additionalProperties": true
+    },
+    "generated_at": {
+      "type": "string"
+    },
+    "authoring": {
+      "type": "object",
+      "properties": {
+        "format_version": {
+          "const": 1
+        },
+        "status": {
+          "const": "draft"
+        },
+        "license": {
+          "type": "string"
+        },
+        "author_credit": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": true
+    }
+  },
+  "$defs": {
+    "workedExample": {
+      "type": "object",
+      "required": [
+        "problem",
+        "steps",
+        "answer"
+      ],
+      "properties": {
+        "problem": {
+          "type": "string",
+          "minLength": 1
+        },
+        "steps": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "required": [
+              "instruction",
+              "result"
+            ],
+            "properties": {
+              "instruction": {
+                "type": "string",
+                "minLength": 1
+              },
+              "result": {
+                "type": "string",
+                "minLength": 1
+              }
+            }
+          }
+        },
+        "answer": {
+          "type": "string",
+          "minLength": 1
+        },
+        "visual_description": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "additionalProperties": true
+    },
+    "practiceProblem": {
+      "type": "object",
+      "required": [
+        "question",
+        "answer",
+        "difficulty_permille",
+        "bloom_level",
+        "hints",
+        "explanation",
+        "distractors"
+      ],
+      "properties": {
+        "question": {
+          "type": "string",
+          "minLength": 1
+        },
+        "answer": {
+          "type": "string",
+          "minLength": 1
+        },
+        "difficulty_permille": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 1000
+        },
+        "bloom_level": {
+          "enum": [
+            "Remember",
+            "Understand",
+            "Apply",
+            "Analyze",
+            "Evaluate",
+            "Create"
+          ]
+        },
+        "hints": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "explanation": {
+          "type": "string",
+          "minLength": 1
+        },
+        "distractors": {
+          "type": "array",
+          "minItems": 3,
+          "maxItems": 3,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      },
+      "additionalProperties": true
+    },
+    "assessmentItem": {
+      "type": "object",
+      "required": [
+        "question",
+        "item_type",
+        "correct_answer",
+        "points",
+        "bloom_level"
+      ],
+      "properties": {
+        "question": {
+          "type": "string",
+          "minLength": 1
+        },
+        "item_type": {
+          "type": "string",
+          "minLength": 1
+        },
+        "correct_answer": {
+          "type": "string",
+          "minLength": 1
+        },
+        "points": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "bloom_level": {
+          "enum": [
+            "Remember",
+            "Understand",
+            "Apply",
+            "Analyze",
+            "Evaluate",
+            "Create"
+          ]
+        },
+        "rubric": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "hint": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "additionalProperties": true
+    }
+  },
+  "additionalProperties": true
+}
