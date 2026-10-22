@@ -398,10 +398,12 @@ fn merge_imported_pack(original: &Value, mut generated: Value) -> Value {
     preserve_unedited_array_tail(&mut flashcards, original.get("flashcards"), 1);
     generated["flashcards"] = flashcards;
 
-    generated["quality"] =
+    let merged_quality =
         merge_object_preserving_unknown(original.get("quality"), &generated["quality"]);
-    generated["authoring"] =
+    generated["quality"] = merged_quality;
+    let merged_authoring =
         merge_object_preserving_unknown(original.get("authoring"), &generated["authoring"]);
+    generated["authoring"] = merged_authoring;
 
     let mut root = original.as_object().cloned().unwrap_or_default();
     if let Some(replacement) = generated.as_object() {
@@ -1053,9 +1055,8 @@ mod tests {
     #[test]
     fn import_does_not_fill_missing_practice_items_with_sample_content() {
         let mut original = lesson_pack_value(&LessonAuthorDraft::default());
-        original["lesson"]["practice_problems"] = json!([
-            original["lesson"]["practice_problems"][0].clone()
-        ]);
+        let first_practice = original["lesson"]["practice_problems"][0].clone();
+        original["lesson"]["practice_problems"] = json!([first_practice]);
         let draft = pack_to_draft(&original).expect("one-item lesson should import");
         assert_eq!(
             draft.practice[1].question,
