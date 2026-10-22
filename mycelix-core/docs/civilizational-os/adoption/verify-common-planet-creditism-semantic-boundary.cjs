@@ -60,6 +60,24 @@ function uniqueNonEmptyStrings(values) {
     new Set(values).size === values.length;
 }
 
+const SUPPORTED_OPERATIONS = Object.freeze([
+  'issue_personal_credit',
+  'delete_personal_credit',
+  'retain_personal_credit_balance',
+  'recognize_contribution',
+  'transfer_personal_credit',
+  'lend_personal_credit',
+  'collateralize_personal_credit',
+  'accrue_interest',
+  'invest_for_return',
+  'inherit_concentrated_personal_credit',
+  'allocate_community_credit',
+  'recognize_bonus',
+  'exchange_pair',
+  'project_to_sna',
+  'grant_housing_right'
+]);
+
 const FORBIDDEN_PERSONAL_CREDIT_OPERATIONS = Object.freeze({
   transfer_personal_credit: ['recipient_balance_change', 'gift_or_transfer_authority'],
   lend_personal_credit: ['loan_claim', 'borrower_debt'],
@@ -317,6 +335,8 @@ function corpusErrors(corpus) {
     if (item) ids.add(item.id);
     add(item && item.input && typeof item.input.operation === 'string',
       label + ' has invalid input operation');
+    add(item && item.input && SUPPORTED_OPERATIONS.includes(item.input.operation),
+      label + ' uses an operation outside the versioned profile contract');
     add(item && item.expected && ['Allow', 'Reject', 'Indeterminate', 'PendingAppeal'].includes(item.expected.decision),
       label + ' has invalid expected decision');
     if (item && item.expected) {
@@ -341,6 +361,12 @@ function corpusErrors(corpus) {
     add(property && Array.isArray(property.input_variants) && property.input_variants.length === 2,
       label + ' must have exactly two input variants');
     if (property && Array.isArray(property.input_variants) && property.input_variants.length === 2) {
+      for (const [variantIndex, variant] of property.input_variants.entries()) {
+        add(variant && typeof variant === 'object' && !Array.isArray(variant),
+          label + ' input variant ' + variantIndex + ' must be an object');
+        add(variant && SUPPORTED_OPERATIONS.includes(variant.operation),
+          label + ' input variant ' + variantIndex + ' uses an unsupported operation');
+      }
       const [left, right] = property.input_variants.map(evaluate);
       add(equalJson(left, right),
         label + ' violates its claimed non-interference/equivalence property');
@@ -448,8 +474,14 @@ function main() {
       schema.properties.metamorphic_properties.minItems !== 9) {
     fail('schema corpus/metamorphic count contract changed');
   }
-  if (!schema.$defs.case.properties.input.properties.operation.enum.includes('retain_personal_credit_balance')) {
-    fail('schema operation enum is missing retained Personal Credit handling');
+  if (!equalJson(schema.$defs.case.properties.input.properties.operation.enum, SUPPORTED_OPERATIONS)) {
+    fail('schema operation enum differs from the evaluator supported-operation contract');
+  }
+  if (!equalJson(schema.properties.metamorphic_properties.items.$ref, '#/$defs/metamorphicProperty')) {
+    fail('schema metamorphic property reference changed');
+  }
+  if (schema.$defs.metamorphicProperty.properties.expected_relation.const !== 'evaluation_outputs_equal') {
+    fail('schema metamorphic relation must remain equality-based');
   }
 
   const mutations = selfTest ? runMutationTests(corpus) : [];
