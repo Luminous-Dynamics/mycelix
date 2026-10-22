@@ -173,7 +173,10 @@ fn finance_dna_path() -> PathBuf {
 /// Extract a string field from a Record's entry via msgpack deserialization.
 fn extract_entry_field(record: &::holochain::prelude::Record, field: &str) -> Option<String> {
     let entry = record.entry().as_option()?;
-    let bytes: Vec<u8> = entry.clone().into();
+    let bytes: Vec<u8> = match entry {
+        ::holochain::prelude::Entry::App(app_entry_bytes) => app_entry_bytes.bytes().clone(),
+        _ => return None,
+    };
     // Holochain entries are msgpack-encoded; try msgpack first, then JSON fallback
     if let Ok(value) = rmp_serde::from_slice::<serde_json::Value>(&bytes) {
         if let Some(s) = value.get(field).and_then(|v| v.as_str()) {
@@ -442,10 +445,10 @@ async fn test_oracle_rate_attestation_rejection() {
     };
 
     // These may fail due to consciousness gating in isolated test (acceptable)
-    let _ = conductor
+    let _: Result<::holochain::prelude::Record, _> = conductor
         .call_fallible(&alice.zome("price_oracle"), "report_price", report1)
         .await;
-    let _ = conductor
+    let _: Result<::holochain::prelude::Record, _> = conductor
         .call_fallible(&alice.zome("price_oracle"), "report_price", report2)
         .await;
 
