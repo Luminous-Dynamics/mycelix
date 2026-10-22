@@ -173,9 +173,9 @@ fn adaptive_cohorts_with_policy(
         vec![Vec::<usize>::with_capacity(people.len()); MAX_ADAPTIVE_QUERIES + 1];
     let mut stopped_by_guard = Vec::with_capacity(people.len());
 
-    for (target_id, target) in people.iter().enumerate() {
-        let target_features = feature_rows[target_id];
-        let mut candidates = initial_cohort(people, feature_rows, target_id, BaseDisclosure::TaskResult);
+    for (target_id, target_features) in feature_rows.iter().enumerate() {
+        let mut candidates =
+            initial_cohort(people, feature_rows, target_id, BaseDisclosure::TaskResult);
         let mut asked = [false; FEATURE_COUNT];
         let mut accepted_queries = 0;
         let mut stopped = false;
@@ -545,10 +545,11 @@ mod tests {
     #[test]
     fn risk_guard_never_allows_a_candidate_cohort_below_its_threshold() {
         let people = synthetic_population();
+        let feature_rows = precompute_feature_rows(&people);
 
         for (threshold, max_uplift_ppm) in [(32, MILLION), (64, MILLION), (32, 100_000)] {
-            let feature_rows = precompute_feature_rows(&people);
-            let run = adaptive_cohorts_with_policy(&people, &feature_rows, threshold, max_uplift_ppm);
+            let run =
+                adaptive_cohorts_with_policy(&people, &feature_rows, threshold, max_uplift_ppm);
             for (depth, cohorts) in run.by_depth.iter().enumerate() {
                 for (target_id, candidates) in cohorts.iter().enumerate() {
                     assert!(
@@ -564,6 +565,7 @@ mod tests {
     #[test]
     fn risk_guard_stops_queries_without_changing_task_answers() {
         let people = synthetic_population();
+        let feature_rows = precompute_feature_rows(&people);
         let unbounded = adaptive_cohorts_with_policy(&people, &feature_rows, 1, MILLION);
         let guarded = adaptive_cohorts_with_policy(&people, &feature_rows, 32, MILLION);
         let last = MAX_ADAPTIVE_QUERIES;
@@ -578,6 +580,7 @@ mod tests {
     #[test]
     fn full_attribute_cohort_is_subset_of_task_result_cohort() {
         let people = synthetic_population();
+        let feature_rows = precompute_feature_rows(&people);
 
         for (target_id, _) in people.iter().enumerate() {
             let result_cohort = initial_cohort(&people, &feature_rows, target_id, BaseDisclosure::TaskResult);
