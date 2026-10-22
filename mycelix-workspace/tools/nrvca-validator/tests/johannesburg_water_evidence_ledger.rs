@@ -7,7 +7,7 @@ fn fixture() -> Value {
     serde_json::from_str(LEDGER).expect("water evidence ledger parses")
 }
 
-fn non_empty(value: &Value, field: &str) -> Result<&str, String> {
+fn non_empty<'a>(value: &'a Value, field: &str) -> Result<&'a str, String> {
     value[field]
         .as_str()
         .filter(|text| !text.trim().is_empty())
@@ -46,6 +46,9 @@ fn validate(root: &Value) -> Result<(), String> {
         non_empty(source, "publisher")?;
         non_empty(source, "url")?;
         non_empty(source, "source_class")?;
+        if source.get("sha256").is_none() {
+            return Err(format!("{id}: digest field must exist even when explicitly null"));
+        }
         if source["sha256"].is_null() {
             if source["source_html_bytes_acquired"].as_bool() == Some(true)
                 || source["linked_asset_bytes_acquired"].as_bool() == Some(true)
@@ -195,6 +198,10 @@ fn no_digest_is_asserted_for_unacquired_source_bytes() {
     let mut acquired_without_digest = fixture();
     acquired_without_digest["source_registry"][0]["source_html_bytes_acquired"] = json!(true);
     assert!(validate(&acquired_without_digest).is_err());
+
+    let mut missing_digest_field = fixture();
+    missing_digest_field["source_registry"][0].as_object_mut().unwrap().remove("sha256");
+    assert!(validate(&missing_digest_field).is_err());
 }
 
 #[test]
