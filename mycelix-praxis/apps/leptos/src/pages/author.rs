@@ -305,7 +305,7 @@ fn validate_draft(draft: &LessonAuthorDraft) -> Vec<String> {
             findings.push(format!("Practice item {} has duplicate choices.", index + 1));
         }
         let answer = item.answer.trim().to_lowercase().trim_end_matches(['.', '!', '?']).to_owned();
-        if normalized.iter().any(|choice| choice.trim_end_matches(['.', '!', '?']) == answer) {
+        if normalized.iter().any(|choice| choice.trim_end_matches(['.', '!', '?']) == answer.as_str()) {
             findings.push(format!("Practice item {} repeats the answer among the wrong-answer choices.", index + 1));
         }
     }
@@ -323,16 +323,6 @@ fn validate_draft(draft: &LessonAuthorDraft) -> Vec<String> {
         findings.push("Before publication, choose the actual reuse licence/rights status and record sources in the evidence sidecar.".into());
     }
     findings
-}
-
-fn update_text_field(
-    set_draft: WriteSignal<LessonAuthorDraft>,
-    field: impl Fn(&mut LessonAuthorDraft, String) + 'static,
-) -> impl Fn(leptos::ev::Event) + 'static {
-    move |event| {
-        let value = event_target_value(&event);
-        set_draft.update(|draft| field(draft, value));
-    }
 }
 
 #[component]
@@ -510,7 +500,7 @@ pub fn LessonAuthorPage() -> impl IntoView {
                 <button class="btn-primary" style="margin-top: 0.75rem" on:click=move |_| {
                     let current = draft.get();
                     let json = lesson_pack_json(&current);
-                    let id = current.node_id.trim().replace(['.', '/', ' '], "-").to_lowercase();
+                    let id = current.node_id.trim().replace('.', "-").replace('/', "-").replace(' ', "-").to_lowercase();
                     let filename = if id.is_empty() { "praxis-lesson-draft.json".to_owned() } else { format!("praxis-{id}.json") };
                     persistence::trigger_download(&filename, &json);
                     set_notice.set("Exported a draft with human review still required.".into());
