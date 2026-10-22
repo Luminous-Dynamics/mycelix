@@ -169,7 +169,7 @@ This portfolio adds the adoption-facing traceability and target requirements; it
 
 The Common Planet P0 profile now points to a versioned, synthetic semantic-boundary corpus built from existing Mycelix owner contracts—not a new currency or finance kernel:
 
-- [36-case known-answer corpus + 11 metamorphic properties](./common-planet-creditism-semantic-boundary-v1.json)
+- [37-case known-answer corpus + 11 metamorphic properties](./common-planet-creditism-semantic-boundary-v1.json)
 - [Corpus schema](./common-planet-creditism-semantic-boundary-v1.schema.json)
 - [Reference evaluator and mutation suite](./verify-common-planet-creditism-semantic-boundary.cjs)
 
@@ -180,7 +180,7 @@ node verify-common-planet-creditism-semantic-boundary.cjs
 node verify-common-planet-creditism-semantic-boundary.cjs --self-test
 ```
 
-The output receipt binds the exact corpus and schema SHA-256 values, counts known-answer and metamorphic outcomes, and identifies whether the mutation lane ran. The corpus has now been extended to **36 known-answer cases** and **11 metamorphic properties**, adding explicit low-observability care/maintenance cases and a separate delayed-negative-evidence review operation. The evaluator also adds three transition controls so that care without corroboration remains indeterminate, negative evidence must post-date recognition, and unqualified negative evidence cannot reverse the prior recognition. These updated counts are target contract coverage until the exact evaluator is executed end-to-end; the current environment has inspected the fetched source and mirrored individual cases, not executed the remote Node process. This is not an external-schema-engine or domain-system certification result.
+The output receipt binds the exact corpus and schema SHA-256 values, counts known-answer and metamorphic outcomes, and identifies whether the mutation lane ran. The corpus has now been extended to **37 known-answer cases** and **11 metamorphic properties**, adding explicit low-observability care/maintenance cases and a separate delayed-negative-evidence review operation. The evaluator also adds four transition controls so that care without corroboration remains indeterminate, negative evidence must post-date recognition, unqualified negative evidence cannot reverse the prior recognition, and qualified late evidence without an appeal route stays pending. These updated counts are target contract coverage until the exact evaluator is executed end-to-end; the current environment has inspected the fetched source and mirrored individual cases, not executed the remote Node process. This is not an external-schema-engine or domain-system certification result.
 
 The corpus composes [#4572](https://github.com/Luminous-Dynamics/mycelix/issues/4572) instrument/accounting semantics, [#4573](https://github.com/Luminous-Dynamics/mycelix/issues/4573) evidence-bound contribution verification and appeal, [#4771](https://github.com/Luminous-Dynamics/mycelix/issues/4771) capacity/commons boundaries, [#5366](https://github.com/Luminous-Dynamics/mycelix/issues/5366) the Integral water-loop comparison, and Symthaea [#7031](https://github.com/Luminous-Dynamics/symthaea/issues/7031) Creditism mechanism semantics.
 
@@ -188,7 +188,7 @@ It covers Personal Credit issuance, retention, purchase deletion and prohibited 
 
 ### Local reference-mirror result
 
-- The corpus has **36** named known-answer cases and **11** metamorphic properties in the current branch. New cases distinguish qualified low-observability care from unqualified claims and make late negative evidence a separate, appealable review rather than a silent mutation of history.
+- The corpus has **37** named known-answer cases and **11** metamorphic properties in the current branch. Five new cases distinguish qualified low-observability care from unqualified claims, qualified late evidence with an appeal route, qualified late evidence without an appeal route, and unqualified late evidence. Late negative evidence is a separate review rather than a silent mutation of history.
 - The evaluator self-test declares **23** input-transition controls plus **4** corpus mutation controls (tampered expected answer, missing semantic invariant, broken metamorphic relation, and incorrect varied-field declaration). These are declared controls, not claimed as executed by the exact remote Node process in this environment.
 - The corpus schema declares Draft 2020-12 and the new delayed-review operation; a future independent run should emit the full receipt, including digest-bound counts and mutation results.
 
@@ -199,7 +199,7 @@ Common Planet's own public [Creditism architecture](https://common-planet.org/cr
 Use two complementary external baselines rather than forcing a false one-to-one comparison:
 
 - [OpenFisca's simulation model](https://openfisca.org/doc/simulate/index.html) supports structured test cases, bulk/population simulations and tracing of computed rules. Use it as a reproducibility, rule-evaluation and scale-design reference. It does not supply Creditism-specific semantic guarantees by itself.
-- The World Bank's [MANAGE-WB / CGE practice](https://www.worldbank.org/en/programs/economicpolicy-macro-modeling/cge) evaluates economy-wide counterfactuals under resource constraints using calibrated social-accounting data. Use such macroeconomic models for calibrated economy-wide scenario comparison when the data and assumptions are available; do not treat this 36-case synthetic semantic-boundary fixture as an alternative to CGE calibration.
+- The World Bank's [MANAGE-WB / CGE practice](https://www.worldbank.org/en/programs/economicpolicy-macro-modeling/cge) evaluates economy-wide counterfactuals under resource constraints using calibrated social-accounting data. Use such macroeconomic models for calibrated economy-wide scenario comparison when the data and assumptions are available; do not treat this 37-case synthetic semantic-boundary fixture as an alternative to CGE calibration.
 
 The next measurable benchmark should report: semantic known-answer accuracy; forbidden-operation rejection; evidence-loss and duplicate/replay rejection; proportion of disputed cases that remain pending rather than issued; capacity-bound invariants; metamorphic non-interference across evaluator identity, hidden outcomes, event IDs, nominal scale and demand; decision latency and memory at declared event scales; and reconciliation/operator workload in a permitted shadow pilot. A macroeconomic superiority claim additionally needs a calibrated baseline, sensitivity analysis and out-of-sample or real pilot evidence. Do not combine these into a single fairness/productivity number.
 
