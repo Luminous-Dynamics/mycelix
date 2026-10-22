@@ -391,16 +391,24 @@ impl CurriculumGraph {
         let mut cross_subject: HashMap<String, Vec<usize>> = HashMap::new();
 
         for (edge_idx, edge) in raw.edges.iter().enumerate() {
-            prerequisites
-                .entry(edge.to.clone())
-                .or_default()
-                .push(edge.from.clone());
-            dependents
-                .entry(edge.from.clone())
-                .or_default()
-                .push(edge.to.clone());
+            // Only an explicit Requires edge is a hard learning prerequisite.
+            // Recommends (the knowledge-zome name) and Recommended (used by
+            // some authored curriculum graphs) are soft guidance; LeadsTo,
+            // PartOf, AlternativeTo and Specializes remain relationships. Keep
+            // every edge in the graph, but don't let non-Require edges block the
+            // learner from entering the zone of proximal development.
+            if edge.edge_type == "Requires" {
+                prerequisites
+                    .entry(edge.to.clone())
+                    .or_default()
+                    .push(edge.from.clone());
+                dependents
+                    .entry(edge.from.clone())
+                    .or_default()
+                    .push(edge.to.clone());
+            }
 
-            // Index cross-subject edges (AppliedIn/RelatedTo)
+            // Index cross-subject edges independently from prerequisite edges.
             if edge.edge_type == "AppliedIn" || edge.edge_type == "RelatedTo" {
                 cross_subject
                     .entry(edge.from.clone())
@@ -1114,3 +1122,113 @@ pub fn set_node_status(node_id: &str, status: ProgressStatus, topic_title: &str)
         });
     }
 }
+
+
+#[cfg(test)]
+mod edge_semantics_tests {
+    use super::*;
+    use serde_json::json;
+    use std::collections::HashSet;
+
+    fn graph_with_edge(edge_type: &str) -> CurriculumGraph {
+        let raw: RawCurriculumDocument = serde_json::from_value(json!({
+            "metadata": {
+                "title": "Edge semantics test graph",
+                "total_standards": 2
+            },
+            "nodes": [
+                {
+                    "id": "foundation",
+                    "title": "Foundational skill",
+                    "description": "A prerequisite concept.",
+                    "node_type": "Skill",
+                    "difficulty": "Foundational",
+                    "domain": "Mathematics",
+                    "subdomain": "Number",
+                    "tags": [],
+                    "estimated_hours": 1,
+                    "grade_levels": ["Grade3"],
+                    "bloom_level": "Understand",
+                    "subject_area": "Mathematics"
+                },
+                {
+                    "id": "next-skill",
+                    "title": "Next skill",
+                    "description": "A skill that could follow.",
+                    "node_type": "Skill",
+                    "difficulty": "Intermediate",
+                    "domain": "Mathematics",
+                    "subdomain": "Number",
+                    "tags": [],
+                    "estimated_hours": 1,
+                    "grade_levels": ["Grade3"],
+                    "bloom_level": "Apply",
+                    "subject_area": "Mathematics"
+                }
+            ],
+            "edges": [{
+                "from": "foundation",
+                "to": "next-skill",
+                "edge_type": edge_type,
+                "strength_permille": 900,
+                "rationale": "Fixture edge"
+            }]
+        }))
+        .expect("test curriculum graph must deserialize");
+
+        CurriculumGraph::from_raw(raw)
+    }
+
+    #[test]
+    fn only_requires_edges_gate_learning_progression() {
+        let required = graph_with_edge("Requires");
+        assert_eq!(required.prereqs_for("next-skill"), vec!["foundation"]);
+        assert!(
+            !required
+                .zpd_nodes(&HashSet::new())
+                .iter()
+                .any(|node| node.id == "next-skill"),
+            "an unmet explicit prerequisite must keep the skill out of the ZPD"
+        );
+
+        for edge_type in [
+            "Recommended",
+            "Recommends",
+            "LeadsTo",
+            "PartOf",
+            "AlternativeTo",
+            "Specializes",
+        ] {
+            let graph = graph_with_edge(edge_type);
+            assert!(
+                graph.prereqs_for("next-skill").is_empty(),
+                "{edge_type} must not become a hard prerequisite"
+            );
+            assert!(
+                graph
+                    .zpd_nodes(&HashSet::new())
+                    .iter()
+                    .any(|node| node.id == "next-skill"),
+                "{edge_type} must not block the target by itself"
+            );
+            assert_eq!(graph.edges[0].edge_type, edge_type);
+        }
+    }
+
+    #[test]
+    fn cross_subject_edges_remain_queryable_without_gating_prerequisites() {
+        for edge_type in ["AppliedIn", "RelatedTo"] {
+            let graph = graph_with_edge(edge_type);
+            assert!(
+                graph.prereqs_for("next-skill").is_empty(),
+                "{edge_type} must remain relational rather than a hard prerequisite"
+            );
+            let neighbors = graph.cross_subject_neighbors("foundation");
+            assert_eq!(neighbors.len(), 1);
+            assert_eq!(neighbors[0].0.id, "next-skill");
+            assert_eq!(neighbors[0].1.edge_type, edge_type);
+            assert_eq!(graph.edges[0].edge_type, edge_type);
+        }
+    }
+}
+

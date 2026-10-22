@@ -1,0 +1,93 @@
+name: Praxis Curriculum Qualification
+
+on:
+  pull_request:
+    paths:
+      - "mycelix-praxis/**"
+      - ".github/workflows/praxis-curriculum-qualification.yml"
+  push:
+    branches: [main]
+    paths:
+      - "mycelix-praxis/**"
+      - ".github/workflows/praxis-curriculum-qualification.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: praxis-curriculum-qualification-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  format:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: mycelix-praxis
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt
+      - name: Check Rust formatting
+        run: cargo fmt -p praxis-curriculum-audit -- --check
+
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: mycelix-praxis
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: mycelix-praxis
+      - name: Test coverage auditor
+        run: cargo test -p praxis-curriculum-audit --lib
+      - name: Lint coverage auditor
+        run: cargo clippy -p praxis-curriculum-audit --all-targets -- -D warnings
+      - name: Validate existing curriculum manifest
+        run: python3 scripts/validate_curriculum.py
+      - name: Emit exact-checkout quality reports
+        run: |
+          cargo run -p praxis-curriculum-audit -- --format=json > curriculum-quality-report.json
+          cargo run -p praxis-curriculum-audit -- --format=markdown > curriculum-coverage-report.md
+
+      - name: Upload curriculum audit reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: praxis-curriculum-audit-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            mycelix-praxis/curriculum-quality-report.json
+            mycelix-praxis/curriculum-coverage-report.md
+          if-no-files-found: warn
+
+      - name: Enforce no known instructional blockers
+        run: cargo run -p praxis-curriculum-audit -- --format=markdown --fail-on-blockers
+
+  curriculum-graph-semantics:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: mycelix-praxis/apps/leptos
+      - name: Check Leptos curriculum formatting
+        run: cargo fmt --manifest-path mycelix-praxis/apps/leptos/Cargo.toml -- --check
+      - name: Test hard-prerequisite and relationship edge semantics
+        run: cargo test --manifest-path mycelix-praxis/apps/leptos/Cargo.toml edge_semantics_tests
+      - name: Test local-first lesson authoring behavior
+        run: cargo test --manifest-path mycelix-praxis/apps/leptos/Cargo.toml pages::author::tests
+      - name: Test fail-closed hardware authorization policy
+        run: cargo test --manifest-path mycelix-praxis/apps/leptos/Cargo.toml components::hardware::tests

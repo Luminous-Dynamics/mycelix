@@ -1,0 +1,1030 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://mycelix.net/schemas/praxis/lesson-evidence-record-v1.schema.json",
+  "title": "Mycelix Praxis Lesson Evidence Record v1",
+  "description": "A backward-compatible sidecar describing the provenance, rights, review state, required checks, and learning-evaluation evidence for one immutable lesson asset revision. A valid record is not proof that a pedagogical claim is true and is not a student record or an accreditation claim.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "lesson_id",
+    "lesson_digest_blake3",
+    "language",
+    "objective_refs",
+    "source_records",
+    "content_rights",
+    "review_state",
+    "checks",
+    "reviews",
+    "learning_studies"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": 1
+    },
+    "lesson_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 512
+    },
+    "lesson_digest_blake3": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$",
+      "description": "BLAKE3 digest of the exact lesson asset bytes reviewed. Metadata edits do not change this digest."
+    },
+    "language": {
+      "type": "string",
+      "minLength": 2,
+      "maxLength": 64,
+      "description": "BCP 47 language tag, for example en, en-ZA, zu-ZA, or af-ZA."
+    },
+    "jurisdiction": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128,
+      "description": "Applicable curriculum or legal jurisdiction when relevant. Omit rather than guess."
+    },
+    "objective_refs": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/objectiveRef"
+      }
+    },
+    "source_records": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/sourceRecord"
+      }
+    },
+    "content_rights": {
+      "$ref": "#/$defs/contentRights"
+    },
+    "review_state": {
+      "type": "string",
+      "enum": [
+        "draft",
+        "machine_validated",
+        "human_reviewed",
+        "pilot_tested",
+        "independently_evaluated"
+      ],
+      "description": "Highest substantiated stage for this exact lesson digest. State names describe evidence stage, not learner worth or universal quality."
+    },
+    "checks": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "structural_integrity",
+        "objective_alignment",
+        "content_accuracy",
+        "assessment_alignment",
+        "accessibility",
+        "content_rights",
+        "age_and_safety"
+      ],
+      "properties": {
+        "structural_integrity": {
+          "$ref": "#/$defs/check"
+        },
+        "objective_alignment": {
+          "$ref": "#/$defs/check"
+        },
+        "content_accuracy": {
+          "$ref": "#/$defs/check"
+        },
+        "assessment_alignment": {
+          "$ref": "#/$defs/check"
+        },
+        "accessibility": {
+          "$ref": "#/$defs/check"
+        },
+        "content_rights": {
+          "$ref": "#/$defs/check"
+        },
+        "age_and_safety": {
+          "$ref": "#/$defs/check"
+        }
+      }
+    },
+    "reviews": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/review"
+      },
+      "description": "Review receipts identify role, scope, date, decision, and the digest reviewed. Avoid storing private reviewer details that the public record does not need."
+    },
+    "learning_studies": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/learningStudy"
+      },
+      "description": "May be empty until learner-outcome evidence exists. Only cohort-level, privacy-reviewed summaries belong here; never add student names, account IDs, raw chat logs, or row-level learner histories."
+    },
+    "known_limitations": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 2000
+      }
+    },
+    "supersedes_record_digest_blake3": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$",
+      "description": "Optional digest of an earlier sidecar record. Historical records are append-only; corrections should supersede, not rewrite, prior evidence."
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "review_state": {
+            "enum": [
+              "human_reviewed",
+              "pilot_tested",
+              "independently_evaluated"
+            ]
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "reviews": {
+            "minItems": 1
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "review_state": {
+            "enum": [
+              "pilot_tested",
+              "independently_evaluated"
+            ]
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "learning_studies": {
+            "minItems": 1
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "review_state": {
+            "const": "independently_evaluated"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "reviews": {
+            "contains": {
+              "type": "object",
+              "properties": {
+                "role": {
+                  "const": "independent_evaluator"
+                }
+              },
+              "required": [
+                "role"
+              ]
+            },
+            "minContains": 1
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "review_state": {
+            "enum": [
+              "human_reviewed",
+              "pilot_tested",
+              "independently_evaluated"
+            ]
+          }
+        },
+        "required": [
+          "review_state"
+        ]
+      },
+      "then": {
+        "properties": {
+          "content_rights": {
+            "properties": {
+              "status": {
+                "enum": [
+                  "open_license",
+                  "public_domain",
+                  "permission_granted",
+                  "link_only"
+                ]
+              }
+            }
+          },
+          "checks": {
+            "properties": {
+              "structural_integrity": {
+                "properties": {
+                  "status": {
+                    "enum": [
+                      "pass",
+                      "not_applicable"
+                    ]
+                  }
+                }
+              },
+              "objective_alignment": {
+                "properties": {
+                  "status": {
+                    "enum": [
+                      "pass",
+                      "not_applicable"
+                    ]
+                  }
+                }
+              },
+              "content_accuracy": {
+                "properties": {
+                  "status": {
+                    "enum": [
+                      "pass",
+                      "not_applicable"
+                    ]
+                  }
+                }
+              },
+              "assessment_alignment": {
+                "properties": {
+                  "status": {
+                    "enum": [
+                      "pass",
+                      "not_applicable"
+                    ]
+                  }
+                }
+              },
+              "accessibility": {
+                "properties": {
+                  "status": {
+                    "enum": [
+                      "pass",
+                      "not_applicable"
+                    ]
+                  }
+                }
+              },
+              "content_rights": {
+                "properties": {
+                  "status": {
+                    "enum": [
+                      "pass",
+                      "not_applicable"
+                    ]
+                  }
+                }
+              },
+              "age_and_safety": {
+                "properties": {
+                  "status": {
+                    "enum": [
+                      "pass",
+                      "not_applicable"
+                    ]
+                  }
+                }
+              }
+            }
+          },
+          "reviews": {
+            "contains": {
+              "type": "object",
+              "properties": {
+                "role": {
+                  "enum": [
+                    "subject_matter_expert",
+                    "educator",
+                    "accessibility_reviewer",
+                    "rights_reviewer",
+                    "child_safety_reviewer"
+                  ]
+                },
+                "outcome": {
+                  "enum": [
+                    "approved",
+                    "limited_approval"
+                  ]
+                }
+              },
+              "required": [
+                "role",
+                "outcome"
+              ]
+            },
+            "minContains": 1
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "review_state": {
+            "const": "independently_evaluated"
+          }
+        },
+        "required": [
+          "review_state"
+        ]
+      },
+      "then": {
+        "properties": {
+          "learning_studies": {
+            "contains": {
+              "type": "object",
+              "properties": {
+                "independent_evaluation": {
+                  "const": true
+                }
+              },
+              "required": [
+                "independent_evaluation"
+              ]
+            },
+            "minContains": 1
+          }
+        }
+      }
+    }
+  ],
+  "$defs": {
+    "objectiveRef": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "framework",
+        "framework_version",
+        "objective_code",
+        "mapping_status",
+        "rationale"
+      ],
+      "properties": {
+        "framework": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        },
+        "framework_version": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "jurisdiction": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "objective_code": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        },
+        "source_uri": {
+          "type": "string",
+          "format": "uri"
+        },
+        "mapping_status": {
+          "type": "string",
+          "enum": [
+            "direct",
+            "aligned",
+            "not_applicable"
+          ]
+        },
+        "rationale": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 2000
+        },
+        "reviewer_ref": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 512
+        }
+      }
+    },
+    "sourceRecord": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "source_uri",
+        "source_type",
+        "scope",
+        "reuse_status"
+      ],
+      "properties": {
+        "source_uri": {
+          "type": "string",
+          "format": "uri"
+        },
+        "source_type": {
+          "type": "string",
+          "enum": [
+            "official_standard",
+            "primary_source",
+            "secondary_reference",
+            "open_educational_resource",
+            "dataset",
+            "generated_example",
+            "prior_lesson",
+            "external_review"
+          ]
+        },
+        "title": {
+          "type": "string",
+          "maxLength": 512
+        },
+        "creator_or_publisher": {
+          "type": "string",
+          "maxLength": 512
+        },
+        "version_or_date": {
+          "type": "string",
+          "maxLength": 128
+        },
+        "accessed_on": {
+          "type": "string",
+          "format": "date"
+        },
+        "scope": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 2000,
+          "description": "What claim or part of the lesson this source supports. A source URL alone does not prove that the lesson's claim follows from it."
+        },
+        "reuse_status": {
+          "type": "string",
+          "enum": [
+            "cited_only",
+            "public_domain_verified",
+            "open_license_verified",
+            "permission_verified",
+            "link_only",
+            "unknown"
+          ]
+        },
+        "license_uri": {
+          "type": "string",
+          "format": "uri"
+        },
+        "required_attribution": {
+          "type": "string",
+          "maxLength": 2000
+        },
+        "content_digest_blake3": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "modifications": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 1000
+          }
+        },
+        "public_domain_basis": {
+          "type": "string",
+          "maxLength": 2000
+        },
+        "jurisdiction": {
+          "type": "string",
+          "maxLength": 128
+        },
+        "permission_record_ref": {
+          "type": "string",
+          "maxLength": 512
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "reuse_status": {
+                "const": "open_license_verified"
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "license_uri",
+              "required_attribution"
+            ]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "reuse_status": {
+                "const": "public_domain_verified"
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "required_attribution"
+            ]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "reuse_status": {
+                "const": "public_domain_verified"
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "public_domain_basis",
+              "jurisdiction"
+            ]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "reuse_status": {
+                "const": "permission_verified"
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "permission_record_ref"
+            ]
+          }
+        }
+      ]
+    },
+    "contentRights": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "status",
+        "scope"
+      ],
+      "properties": {
+        "status": {
+          "type": "string",
+          "enum": [
+            "unknown",
+            "open_license",
+            "public_domain",
+            "permission_granted",
+            "link_only",
+            "not_reusable"
+          ]
+        },
+        "scope": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 2000,
+          "description": "Rights determination for the lesson asset as a whole. Embedded third-party sources still need resource-level review."
+        },
+        "license_identifier": {
+          "type": "string",
+          "maxLength": 256
+        },
+        "license_uri": {
+          "type": "string",
+          "format": "uri"
+        },
+        "required_attribution": {
+          "type": "string",
+          "maxLength": 2000
+        },
+        "public_domain_basis": {
+          "type": "string",
+          "maxLength": 2000
+        },
+        "jurisdiction": {
+          "type": "string",
+          "maxLength": 128
+        },
+        "permission_record_ref": {
+          "type": "string",
+          "maxLength": 512
+        },
+        "canonical_uri": {
+          "type": "string",
+          "format": "uri"
+        },
+        "commercial_reuse_allowed": {
+          "type": "boolean"
+        },
+        "derivatives_allowed": {
+          "type": "boolean"
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "status": {
+                "const": "open_license"
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "license_identifier",
+              "license_uri",
+              "required_attribution",
+              "commercial_reuse_allowed",
+              "derivatives_allowed"
+            ]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "status": {
+                "const": "public_domain"
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "public_domain_basis",
+              "jurisdiction",
+              "commercial_reuse_allowed",
+              "derivatives_allowed"
+            ]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "status": {
+                "const": "permission_granted"
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "permission_record_ref",
+              "commercial_reuse_allowed",
+              "derivatives_allowed"
+            ]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "status": {
+                "const": "link_only"
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "canonical_uri"
+            ]
+          }
+        }
+      ]
+    },
+    "check": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "status"
+      ],
+      "properties": {
+        "status": {
+          "type": "string",
+          "enum": [
+            "not_run",
+            "pass",
+            "fail",
+            "not_applicable"
+          ]
+        },
+        "rationale": {
+          "type": "string",
+          "maxLength": 2000
+        },
+        "evidence_refs": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 512
+          }
+        },
+        "policy_version": {
+          "type": "string",
+          "maxLength": 128
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "status": {
+                "const": "not_applicable"
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "rationale"
+            ]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "status": {
+                "enum": [
+                  "pass",
+                  "fail"
+                ]
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "rationale",
+              "evidence_refs"
+            ],
+            "properties": {
+              "evidence_refs": {
+                "type": "array",
+                "minItems": 1
+              }
+            }
+          }
+        }
+      ]
+    },
+    "review": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "review_id",
+        "role",
+        "reviewer_ref",
+        "reviewed_digest_blake3",
+        "reviewed_at",
+        "outcome",
+        "scope"
+      ],
+      "properties": {
+        "review_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 512
+        },
+        "role": {
+          "type": "string",
+          "enum": [
+            "subject_matter_expert",
+            "educator",
+            "accessibility_reviewer",
+            "rights_reviewer",
+            "child_safety_reviewer",
+            "independent_evaluator"
+          ]
+        },
+        "reviewer_ref": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 512
+        },
+        "reviewed_digest_blake3": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "reviewed_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "outcome": {
+          "type": "string",
+          "enum": [
+            "approved",
+            "changes_requested",
+            "limited_approval"
+          ]
+        },
+        "scope": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 2000
+        },
+        "limitations": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 1000
+          }
+        }
+      }
+    },
+    "learningStudy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "study_id",
+        "study_design",
+        "population_description",
+        "sample_size",
+        "outcome_name",
+        "outcome_type",
+        "timepoint",
+        "comparator",
+        "estimate",
+        "uncertainty",
+        "limitations",
+        "evaluator_ref"
+      ],
+      "properties": {
+        "study_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 512
+        },
+        "study_design": {
+          "type": "string",
+          "enum": [
+            "preregistered_randomized_trial",
+            "quasi_experimental",
+            "observational",
+            "classroom_pilot"
+          ]
+        },
+        "protocol_digest_blake3": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$",
+          "description": "Required by research policy for preregistered efficacy studies; this schema leaves the requirement to a study-design validator."
+        },
+        "population_description": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 2000
+        },
+        "sample_size": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "outcome_name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 512
+        },
+        "outcome_type": {
+          "type": "string",
+          "enum": [
+            "immediate_learning",
+            "delayed_retention",
+            "transfer",
+            "practical_performance",
+            "accessibility",
+            "course_completion",
+            "time_to_competency",
+            "learner_wellbeing",
+            "other"
+          ]
+        },
+        "timepoint": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "comparator": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 2000
+        },
+        "estimate": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "value",
+            "unit"
+          ],
+          "properties": {
+            "value": {
+              "type": "number"
+            },
+            "unit": {
+              "type": "string",
+              "enum": [
+                "standardized_mean_difference",
+                "percentage_points",
+                "relative_percent",
+                "raw_score_points",
+                "minutes",
+                "other"
+              ]
+            },
+            "measure_definition": {
+              "type": "string",
+              "maxLength": 1000
+            }
+          }
+        },
+        "uncertainty": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "method",
+            "lower",
+            "upper",
+            "confidence_level"
+          ],
+          "properties": {
+            "method": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 256
+            },
+            "lower": {
+              "type": "number"
+            },
+            "upper": {
+              "type": "number"
+            },
+            "confidence_level": {
+              "type": "number",
+              "exclusiveMinimum": 0,
+              "exclusiveMaximum": 1
+            }
+          }
+        },
+        "protocol_uri": {
+          "type": "string",
+          "format": "uri"
+        },
+        "results_uri": {
+          "type": "string",
+          "format": "uri"
+        },
+        "evaluator_ref": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 512
+        },
+        "independent_evaluation": {
+          "type": "boolean"
+        },
+        "limitations": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 2000
+          }
+        },
+        "equity_review_summary": {
+          "type": "string",
+          "maxLength": 2000
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "study_design": {
+                "enum": [
+                  "preregistered_randomized_trial",
+                  "quasi_experimental"
+                ]
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "protocol_digest_blake3",
+              "protocol_uri"
+            ]
+          }
+        }
+      ]
+    }
+  }
+}

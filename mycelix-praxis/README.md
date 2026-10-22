@@ -46,6 +46,18 @@ Praxis reimagines learning by putting **learners in control** of their data. The
 
 ---
 
+## Create and share lessons
+
+**New to the project? Start with the [Lesson Authoring Guide](authoring/README.md).** Copy the [starter lesson pack](authoring/examples/lesson-pack.json), adapt one learning objective, then run the standalone checker before submitting a draft:
+
+```sh
+cargo run -p praxis-curriculum-audit -- --check-lesson authoring/drafts/my-lesson.json --format=markdown
+```
+
+The [lesson-pack schema](authoring/lesson-pack-v1.schema.json) defines the interoperable format. The `/author` form imports lesson packs for remixing, preserves extra untouched content, and offers existing curriculum objective IDs plus an explicit language/locale field. Read the [Community Content Commons plan](authoring/community-content-commons.md) for interoperability (Common Cartridge/QTI/H5P/LTI), rights, contribution trust and proposed usability/quality benchmarks. A clean static check does not replace subject review, rights clearance, accessibility review or learner-outcome evidence.
+
+---
+
 ## Quick Start
 
 Praxis currently expects the surrounding Mycelix workspace layout because the Leptos application consumes shared crates from the workspace `crates/` directory. See [`apps/leptos/SETUP.md`](apps/leptos/SETUP.md) for the full environment.
@@ -119,6 +131,7 @@ mycelix-praxis/
 - **[Threat Model](docs/threat-model.md)**: Security threats and mitigations
 - **[Privacy Model](docs/privacy.md)**: Data handling, DP, selective disclosure
 - **[Curriculum and content contract](docs/content-contract.md)**: Graph and lesson integrity rules
+- **[Learning completeness: Grades 1–12 and college access](docs/learning-completeness-grades-1-12-college.md)**: Coverage model, instructional quality, efficacy benchmarks, accessibility, licensing, and delivery plan
 - **[Learning client contract](docs/learning-contract.md)**: Versioned browser/coordinator DTOs and privacy boundary
 - **[Live data lifecycle](docs/live-data-lifecycle.md)**: Reactive readiness, reconnect, and honest resource states
 - **[Governance](GOVERNANCE.md)**: Decision-making processes, roles, DAO alignment
@@ -133,6 +146,15 @@ See [`docs/adr/`](docs/adr/) for all ADRs.
 
 - **[VC Schema: EduAchievementCredential](schemas/vc/EduAchievementCredential.schema.json)**
 - **[DHT Entries](schemas/dht/entries.md)**: Holochain entry definitions
+- **[Lesson Evidence Record v1](schemas/lesson-evidence-record-v1.schema.json)**: Backward-compatible sidecar for source/rights provenance, review status, accessibility checks, and learning-study evidence
+- **[Learner Mastery Evidence v1](schemas/learner-mastery-evidence-v1.schema.json)**: Private per-learner evidence contract; a mastered state requires independent unaided transfer and delayed-retention evidence plus a scheduled review
+- **[Learning experiment preregistration template](docs/experiment-preregistration-template.md)**: Freeze hypotheses, comparators, primary outcomes, uncertainty, privacy, and replication criteria before analyzing results
+- **[Praxis-PedBench v1 specification](benchmarks/pedbench-v1/README.md)**: Human-anchored evaluation of objective alignment, error diagnosis, actionable hints, answer leakage, explanation validity, cognitive engagement, accessibility and learner agency
+- **[PedBench synthetic seed cases](benchmarks/pedbench-v1/seed-cases.json)**: Ten adversarial cases spanning misconceptions, answer leakage, mastery overclaim, language access, source integrity, science and writing; explicitly unvalidated pending educator annotation
+- **[PedBench run-receipt schema](benchmarks/pedbench-v1/run-receipt.schema.json)**: Binds split, model/configuration, policy/rubric digests, per-case results, uncertainty and held-out replication requirements for strong claims
+- **[Learning Impact Protocol v1](benchmarks/pedbench-v1/learning-impact-protocol.md)**: Separates content validity, tutor behaviour, learner outcomes, and independent replication; defines delayed unaided transfer and the aided-to-unaided gap
+- **[Community authoring quick-start](docs/community-authoring.md)**: Plain-language workflow from choosing a starter to local validation and review-ready export
+- **[CreatorBench v1](benchmarks/creatorbench-v1/README.md)**: Proposed usability, accessibility, safe-remix and reviewer-efficiency benchmarks for non-programmer contributors
 
 ### Policies
 
@@ -153,6 +175,11 @@ make build       # Build Rust workspace + web app
 make test        # Run all tests (Rust + web)
 make check       # Quick sanity check (fmt + clippy + test)
 make bench       # Run performance benchmarks
+
+# Curriculum evidence and coverage audit (from this workspace)
+cargo test -p praxis-curriculum-audit --lib
+cargo run -p praxis-curriculum-audit -- --format=markdown
+cargo run -p praxis-curriculum-audit -- --format=markdown --fail-on-blockers
 make fmt         # Format all code
 make lint        # Run linters
 make clean       # Clean build artifacts

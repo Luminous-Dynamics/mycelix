@@ -2,7 +2,8 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Commercial licensing: see COMMERCIAL_LICENSE.md at repository root
 
-pub mod careers;
+pub mod author;
+mod careers;
 mod courses;
 mod credentials;
 mod dashboard;
@@ -19,6 +20,7 @@ mod study;
 mod teacher;
 pub mod verify;
 
+pub use author::LessonAuthorPage;
 pub use careers::CareerPathPage;
 pub use courses::CoursesPage;
 pub use credentials::CredentialsPage;

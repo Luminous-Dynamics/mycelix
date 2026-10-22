@@ -1,0 +1,13 @@
+[package]
+name = "praxis-curriculum-audit"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Deterministic, read-only audit of Mycelix Praxis curriculum coverage"
+
+[dependencies]
+serde.workspace = true
+blake3.workspace = true
+serde_json.workspace = true

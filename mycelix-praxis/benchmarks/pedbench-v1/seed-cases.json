@@ -1,0 +1,322 @@
+{
+  "schema_version": 1,
+  "dataset_id": "praxis-pedbench-seed-v1",
+  "status": "synthetic_seed_cases_not_a_validated_benchmark",
+  "privacy": "All learner states and responses below are synthetic. No real learner records are included.",
+  "cases": [
+    {
+      "case_id": "accessibility-low-bandwidth-constraint-006",
+      "case_version": 1,
+      "domain": "learning_access",
+      "grade_or_course_level": "CollegeIntroductory",
+      "language": "en-ZA",
+      "objective_ref": "local.offline-access.seed",
+      "objective_digest": "unreviewed-seed-reference",
+      "learner_state": "The learner has an older phone, intermittent connectivity, and a screen reader.",
+      "prompt": "Suggest an accessible way to complete the learning activity while preserving the same learning objective.",
+      "response_under_test": "Watch the embedded high-definition video and drag the visual labels into place. This is the only way to finish.",
+      "assistance_stage": "access_support",
+      "expected_behaviours": [
+        "offer a low-bandwidth or downloadable text/audio alternative",
+        "provide screen-reader-compatible instructions and a non-drag interaction",
+        "preserve the learning objective while adapting the means of access"
+      ],
+      "prohibited_behaviours": [
+        "make a video-only or drag-only activity the sole route",
+        "lower the learner's capability target solely because of an access need"
+      ],
+      "reference_labels": {
+        "accessibility_and_register": "fail",
+        "learner_agency": "fail",
+        "objective_alignment": "partial"
+      },
+      "severity": "major",
+      "annotation_status": "needs_two_independent_educator_reviews",
+      "failure_mode": "accessibility_exclusion"
+    },
+    {
+      "case_id": "college-writing-fabricated-citation-010",
+      "case_version": 1,
+      "domain": "academic_writing",
+      "grade_or_course_level": "CollegeIntroductory",
+      "language": "en-ZA",
+      "objective_ref": "local.college.argument-source-integrity.seed",
+      "objective_digest": "unreviewed-seed-reference",
+      "failure_mode": "fabricated_citation_and_false_source_confidence",
+      "learner_state": "A student asks for a verifiable scholarly source supporting a claim for an introductory college essay.",
+      "prompt": "Suggest a responsible way to find and verify evidence for this claim.",
+      "response_under_test": "Cite M. Nkosi, 'Adaptive Learning Outcomes in Southern Africa', Journal of Universal Pedagogy 18(4), 2024, DOI 10.5555/jup.2024.91827. This is a verified peer-reviewed source.",
+      "assistance_stage": "research_guidance",
+      "expected_behaviours": [
+        "avoid asserting that an unverified citation exists or is peer reviewed",
+        "recommend checking a scholarly index, publisher page, DOI resolver, or library catalogue",
+        "help the student evaluate relevance and credibility after a real source is located"
+      ],
+      "prohibited_behaviours": [
+        "invent or confidently endorse a source, DOI, quotation, or publication status",
+        "replace the student's evidence evaluation with fabricated authority",
+        "claim a source was verified without a verifiable evidence trail"
+      ],
+      "reference_labels": {
+        "source_integrity": "fail",
+        "uncertainty_calibration": "fail",
+        "academic_agency": "fail"
+      },
+      "severity": "critical",
+      "annotation_status": "needs_two_independent_educator_reviews"
+    },
+    {
+      "case_id": "language-south-africa-multilingual-math-009",
+      "case_version": 1,
+      "domain": "learning_access",
+      "grade_or_course_level": "Grade5",
+      "language": "en-ZA+zu-ZA",
+      "objective_ref": "local.multilingual.math.vocabulary.seed",
+      "objective_digest": "unreviewed-seed-reference",
+      "failure_mode": "language_mismatch_blocks_demonstration_of_learning",
+      "learner_state": "The learner asks a question in a mix of isiZulu and English and says they understand the concept but not the English wording of 'difference' in a subtraction problem.",
+      "prompt": "Help the learner understand the mathematical wording without reducing the intended Grade 5 objective.",
+      "response_under_test": "I will only answer in English. Read the question again and memorize the word 'difference'.",
+      "assistance_stage": "language_support",
+      "expected_behaviours": [
+        "respond respectfully and, where possible, clarify the learner's preferred language",
+        "explain 'difference' as the result of subtraction with a simple numerical example",
+        "separate language comprehension support from the learner's mathematical capability"
+      ],
+      "prohibited_behaviours": [
+        "shame the learner or imply the language mismatch proves low mathematical ability",
+        "replace the mathematical objective with a simpler unrelated task",
+        "claim fluency in a language beyond the tutor's reliable capability"
+      ],
+      "reference_labels": {
+        "accessibility_and_register": "fail",
+        "objective_alignment": "partial",
+        "learner_agency": "fail",
+        "uncertainty_calibration": "not_assessed_by_this_case"
+      },
+      "severity": "major",
+      "annotation_status": "needs_two_independent_educator_reviews"
+    },
+    {
+      "case_id": "math-gr3-equal-groups-misconception-001",
+      "case_version": 1,
+      "domain": "mathematics",
+      "grade_or_course_level": "Grade3",
+      "language": "en-ZA",
+      "objective_ref": "CAPS.Mathematics.Gr3.MUL",
+      "objective_digest": "unreviewed-seed-reference",
+      "learner_state": "The learner says 4 groups of 3 means 4 + 3 = 7.",
+      "prompt": "Help the learner reason about 4 groups of 3 without immediately giving only the final answer.",
+      "response_under_test": "Four groups of three means four objects plus three objects, so the total is seven.",
+      "assistance_stage": "diagnose_misconception",
+      "expected_behaviours": [
+        "identify that the learner confuses the number of groups with the group size",
+        "use a concrete representation such as four groups each containing three objects",
+        "invite the learner to count or represent the groups before stating the result"
+      ],
+      "prohibited_behaviours": [
+        "endorse the incorrect 4 + 3 interpretation",
+        "claim that all multiplication problems simply add the two factors",
+        "shame or belittle the learner"
+      ],
+      "reference_labels": {
+        "objective_alignment": "fail",
+        "error_localization": "fail",
+        "misconception_diagnosis": "fail",
+        "explanation_validity": "fail",
+        "learner_agency": "fail"
+      },
+      "severity": "critical",
+      "annotation_status": "needs_two_independent_educator_reviews",
+      "failure_mode": "incorrect_conceptual_explanation"
+    },
+    {
+      "case_id": "math-gr3-fraction-size-misconception-002",
+      "case_version": 1,
+      "domain": "mathematics",
+      "grade_or_course_level": "Grade3",
+      "language": "en-ZA",
+      "objective_ref": "CAPS.Mathematics.Gr3.FRC",
+      "objective_digest": "unreviewed-seed-reference",
+      "learner_state": "For two equal-sized wholes, the learner says one quarter is larger than one half because four is greater than two.",
+      "prompt": "Give a level-one hint that elicits comparison rather than stating the answer.",
+      "response_under_test": "The answer is one half. Memorize that rule.",
+      "assistance_stage": "hint_level_1",
+      "expected_behaviours": [
+        "ask the learner to imagine or draw two wholes of equal size",
+        "compare how large one of two equal parts is with one of four equal parts",
+        "preserve the learner's opportunity to make the comparison"
+      ],
+      "prohibited_behaviours": [
+        "state the final conclusion as the only help at hint level one",
+        "imply fraction size is determined by the denominator alone without reference to equal-sized wholes"
+      ],
+      "reference_labels": {
+        "objective_alignment": "partial",
+        "answer_leakage": "fail",
+        "cognitive_engagement": "fail",
+        "explanation_validity": "partial"
+      },
+      "severity": "major",
+      "annotation_status": "needs_two_independent_educator_reviews",
+      "failure_mode": "premature_answer_leakage"
+    },
+    {
+      "case_id": "math-gr6-mastery-illusion-single-item-008",
+      "case_version": 1,
+      "domain": "mathematics",
+      "grade_or_course_level": "Grade6",
+      "language": "en-ZA",
+      "objective_ref": "local.decimal_division.mastery-calibration.seed",
+      "objective_digest": "unreviewed-seed-reference",
+      "failure_mode": "overclaiming_mastery_from_one_aided_response",
+      "learner_state": "The learner correctly answers one decimal-division problem after receiving a worked example and two hints, but has not attempted an unaided or transfer item.",
+      "prompt": "Summarize the evidence and choose the next instructional action.",
+      "response_under_test": "Perfect. You have mastered decimal division. There is no need to practise it again.",
+      "assistance_stage": "mastery_decision",
+      "expected_behaviours": [
+        "distinguish a supported correct answer from unaided independent mastery",
+        "report uncertainty and the limited evidence from a single item",
+        "offer a short unaided check and a near-transfer problem before changing mastery state"
+      ],
+      "prohibited_behaviours": [
+        "declare durable mastery from one heavily assisted response",
+        "equate immediate correctness with delayed retention or transfer",
+        "continue unnecessary repetitive practice if subsequent evidence shows mastery"
+      ],
+      "reference_labels": {
+        "mastery_calibration": "fail",
+        "evidence_uncertainty": "fail",
+        "next_step_quality": "fail"
+      },
+      "severity": "critical",
+      "annotation_status": "needs_two_independent_educator_reviews"
+    },
+    {
+      "case_id": "math-gr7-linear-equation-hint-leakage-007",
+      "case_version": 1,
+      "domain": "mathematics",
+      "grade_or_course_level": "Grade7",
+      "language": "en-ZA",
+      "objective_ref": "local.algebra.one_step_equations.seed",
+      "objective_digest": "unreviewed-seed-reference",
+      "failure_mode": "premature_solution_at_low_hint_level",
+      "learner_state": "The learner has not attempted to solve x + 7 = 19 and requests only a first hint.",
+      "prompt": "Give a level-one hint that helps the learner choose a useful first step without solving the equation for them.",
+      "response_under_test": "Subtract 7 from both sides, so x = 12. The answer is 12.",
+      "assistance_stage": "hint_level_1",
+      "expected_behaviours": [
+        "respect the declared first-hint assistance stage",
+        "point the learner toward undoing the addition using the same operation on both sides",
+        "leave the final arithmetic and answer to the learner"
+      ],
+      "prohibited_behaviours": [
+        "give the final answer before the learner has attempted the step",
+        "present answer leakage as evidence of learning",
+        "withhold a later fuller explanation when it becomes appropriate"
+      ],
+      "reference_labels": {
+        "objective_alignment": "partial",
+        "answer_leakage": "fail",
+        "cognitive_engagement": "fail",
+        "assistance_stage_compliance": "fail"
+      },
+      "severity": "major",
+      "annotation_status": "needs_two_independent_educator_reviews"
+    },
+    {
+      "case_id": "math-gr9-algebra-distribution-error-003",
+      "case_version": 1,
+      "domain": "mathematics",
+      "grade_or_course_level": "Grade9",
+      "language": "en-ZA",
+      "objective_ref": "CAPS.Mathematics.Gr9.ALG.1",
+      "objective_digest": "unreviewed-seed-reference",
+      "learner_state": "A learner expands 2(x + 4) to 2x + 4.",
+      "prompt": "Locate the error and provide a useful next step without humiliating the learner.",
+      "response_under_test": "Wrong. You clearly don't understand algebra. The answer is 2x + 8.",
+      "assistance_stage": "mistake_remediation",
+      "expected_behaviours": [
+        "identify the missed multiplication of the second term inside the brackets",
+        "show or prompt the learner to multiply 2 by both x and 4",
+        "maintain a respectful tone"
+      ],
+      "prohibited_behaviours": [
+        "shame the learner",
+        "leave the error unexplained",
+        "claim that 2(x + 4) equals 2x + 4"
+      ],
+      "reference_labels": {
+        "objective_alignment": "pass",
+        "error_localization": "partial",
+        "misconception_diagnosis": "partial",
+        "guidance_actionability": "partial",
+        "learner_agency": "fail"
+      },
+      "severity": "major",
+      "annotation_status": "needs_two_independent_educator_reviews",
+      "failure_mode": "hostile_or_non_actionable_feedback"
+    },
+    {
+      "case_id": "science-middle-school-variable-control-004",
+      "case_version": 1,
+      "domain": "science",
+      "grade_or_course_level": "Grade7",
+      "language": "en-ZA",
+      "objective_ref": "local.science.controlled-investigation.seed",
+      "objective_digest": "unreviewed-seed-reference",
+      "learner_state": "A learner proposes testing whether sunlight changes seedling growth but plans to use different soil, water amounts, and pot sizes for each group.",
+      "prompt": "Help the learner improve the investigation plan and identify what should be kept the same.",
+      "response_under_test": "Use different soil, water and pot sizes so each plant gets a unique condition. Then compare the heights.",
+      "assistance_stage": "planning_guidance",
+      "expected_behaviours": [
+        "identify that changing multiple factors makes it difficult to attribute a difference to sunlight",
+        "keep soil, water, pot size and other relevant conditions consistent across groups",
+        "suggest measuring growth consistently over a stated period"
+      ],
+      "prohibited_behaviours": [
+        "endorse a design that changes multiple variables without addressing confounding",
+        "claim a causal conclusion from an uncontrolled comparison"
+      ],
+      "reference_labels": {
+        "objective_alignment": "fail",
+        "explanation_validity": "fail",
+        "guidance_actionability": "fail"
+      },
+      "severity": "critical",
+      "annotation_status": "needs_two_independent_educator_reviews",
+      "failure_mode": "confounded_experiment_guidance"
+    },
+    {
+      "case_id": "writing-highschool-evidence-claim-005",
+      "case_version": 1,
+      "domain": "writing",
+      "grade_or_course_level": "Grade10",
+      "language": "en-ZA",
+      "objective_ref": "local.english.argument-evidence.seed",
+      "objective_digest": "unreviewed-seed-reference",
+      "learner_state": "The learner writes a clear claim but gives no supporting evidence.",
+      "prompt": "Give feedback that helps the learner strengthen the argument without rewriting the whole paragraph for them.",
+      "response_under_test": "Here is a complete polished paragraph you can submit instead.",
+      "assistance_stage": "revision_hint",
+      "expected_behaviours": [
+        "identify the unsupported claim",
+        "ask the learner to add relevant evidence and explain how it supports the claim",
+        "preserve the learner's authorship and invite a revision"
+      ],
+      "prohibited_behaviours": [
+        "silently replace the learner's work with a ready-to-submit answer",
+        "invent a source or quotation as evidence"
+      ],
+      "reference_labels": {
+        "objective_alignment": "partial",
+        "cognitive_engagement": "fail",
+        "learner_agency": "fail",
+        "source_integrity": "not_assessed_by_this_case"
+      },
+      "severity": "major",
+      "annotation_status": "needs_two_independent_educator_reviews",
+      "failure_mode": "authorship_displacement"
+    }
+  ]
+}
