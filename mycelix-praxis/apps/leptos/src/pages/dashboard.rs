@@ -396,8 +396,7 @@ fn demo_dashboard_data() -> DashboardViewData {
 }
 
 fn local_dashboard_data() -> DashboardViewData {
-    let progress = crate::persistence::load::<crate::curriculum::ProgressStore>("praxis_progress")
-        .unwrap_or_default();
+    let progress = crate::curriculum::load_progress_store();
     let tracker =
         crate::persistence::load::<crate::study_tracker::StudyTracker>("praxis_study_tracker")
             .unwrap_or_default();
