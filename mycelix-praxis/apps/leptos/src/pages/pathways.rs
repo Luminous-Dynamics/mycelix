@@ -313,6 +313,7 @@ fn render_level(
         let title = n.title.clone();
         let (icon, color) = match status {
             ProgressStatus::Mastered => ("\u{1F333}", "var(--mastery-green)"),
+            ProgressStatus::ProvisionalMastery => ("\u{1F7E0}", "var(--info)"),
             ProgressStatus::Studying => ("\u{1F33F}", "var(--mastery-yellow)"),
             ProgressStatus::NotStarted => ("\u{1F331}", "var(--text-tertiary)"),
         };
