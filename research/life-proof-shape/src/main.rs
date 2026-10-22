@@ -537,7 +537,7 @@ mod tests {
 
         let mut presentation_refs: Vec<&str> = rows
             .iter()
-            .map(|row| row.split('\\t').next().unwrap())
+            .map(|row| row.split('\t').next().unwrap())
             .collect();
         presentation_refs.sort_unstable();
         presentation_refs.dedup();
