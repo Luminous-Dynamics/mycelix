@@ -80,11 +80,7 @@ fn visible_value(profile: DisclosureProfile, attribute: usize, value: u8) -> u8 
     }
 }
 
-fn disclosure_signature(
-    record: &Record,
-    depth: usize,
-    profile: DisclosureProfile,
-) -> Vec<u8> {
+fn disclosure_signature(record: &Record, depth: usize, profile: DisclosureProfile) -> Vec<u8> {
     record
         .attributes
         .iter()
@@ -116,11 +112,7 @@ fn build_population(kind: PopulationKind) -> Vec<Record> {
     }
 }
 
-fn candidate_counts(
-    records: &[Record],
-    depth: usize,
-    profile: DisclosureProfile,
-) -> Vec<usize> {
+fn candidate_counts(records: &[Record], depth: usize, profile: DisclosureProfile) -> Vec<usize> {
     let mut buckets: BTreeMap<Vec<u8>, usize> = BTreeMap::new();
     for record in records {
         *buckets
@@ -193,11 +185,7 @@ fn rate_ppm(numerator: usize, denominator: usize) -> usize {
     }
 }
 
-fn task_utility_permille(
-    records: &[Record],
-    depth: usize,
-    profile: DisclosureProfile,
-) -> usize {
+fn task_utility_permille(records: &[Record], depth: usize, profile: DisclosureProfile) -> usize {
     let mut correct = 0_usize;
     let mut total = 0_usize;
     for record in records {
@@ -256,7 +244,10 @@ fn summarize(
     let retention = rate_ppm(p50, previous_p50);
     let utility = task_utility_permille(records, depth, profile);
 
-    assert_eq!(utility, 1_000, "the disclosure profile must preserve task outcomes");
+    assert_eq!(
+        utility, 1_000,
+        "the disclosure profile must preserve task outcomes"
+    );
     format!(
         "{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{}",
         population.name(),
@@ -304,7 +295,11 @@ fn render_report(populations: &[(PopulationKind, Vec<Record>)]) -> String {
         )
         .unwrap();
     }
-    writeln!(&mut output, "# output_label_policy=no_subject_or_cohort_labels").unwrap();
+    writeln!(
+        &mut output,
+        "# output_label_policy=no_subject_or_cohort_labels"
+    )
+    .unwrap();
     writeln!(
         &mut output,
         concat!(
@@ -319,12 +314,7 @@ fn render_report(populations: &[(PopulationKind, Vec<Record>)]) -> String {
     for (kind, records) in populations {
         for profile in DisclosureProfile::ALL {
             for depth in 1..=ATTRIBUTE_COUNT {
-                writeln!(
-                    &mut output,
-                    "{}",
-                    summarize(records, *kind, profile, depth)
-                )
-                .unwrap();
+                writeln!(&mut output, "{}", summarize(records, *kind, profile, depth)).unwrap();
             }
         }
     }
@@ -394,9 +384,11 @@ mod tests {
         assert_eq!(records.len(), POPULATION_SIZE);
         assert_eq!(records[0].attributes, cohort_attributes(0));
         let last_cohort_start = POPULATION_SIZE - COHORT_SIZES[COHORT_COUNT - 1];
-        assert!(records[last_cohort_start..]
-            .iter()
-            .all(|record| record.attributes == cohort_attributes(COHORT_COUNT - 1)));
+        assert!(
+            records[last_cohort_start..]
+                .iter()
+                .all(|record| record.attributes == cohort_attributes(COHORT_COUNT - 1))
+        );
         assert_eq!(
             records[last_cohort_start..].len(),
             COHORT_SIZES[COHORT_COUNT - 1]
@@ -473,12 +465,9 @@ mod tests {
                 for (cohort, &cohort_size) in COHORT_SIZES.iter().enumerate() {
                     let expected = correlated_cohort_oracle(cohort, depth, profile);
                     let cohort_end = cohort_start + cohort_size;
-                    for (offset, &observed) in
-                        sizes[cohort_start..cohort_end].iter().enumerate()
-                    {
+                    for (offset, &observed) in sizes[cohort_start..cohort_end].iter().enumerate() {
                         assert_eq!(
-                            observed,
-                            expected,
+                            observed, expected,
                             "profile={profile:?}, depth={depth}, cohort={cohort}, row_offset={offset}"
                         );
                     }
