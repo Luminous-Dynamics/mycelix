@@ -10,7 +10,8 @@
 
 The comparability rule is no longer intended to live only inside integration-test logic. This increment promotes it to a public typed Rust API so future KPI bridge/report code can reuse the same decision and field-level evidence instead of reimplementing the policy.
 
-The result is a vector, not one opaque score:
+The result is a vector, not one opaque score. The public module requires nonempty strings for semantic metadata fields and a finite numeric target value; missing, null, empty, and ill-typed values are unknown. Numeric target equality is compared as exact decimal values, so integer/decimal encodings such as 90 and 90.0 agree without collapsing distinct large integers through floating-point rounding.
+
 
 - `measurement.status`: `comparable`, `not_comparable`, or `indeterminate`.
 - `target_policy.status`: `same_target_policy`, `changed_target_policy`, or `indeterminate`.
