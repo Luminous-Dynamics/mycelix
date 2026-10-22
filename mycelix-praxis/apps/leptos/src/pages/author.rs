@@ -40,6 +40,7 @@ struct LessonAuthorDraft {
     node_id: String,
     title: String,
     grade_level: String,
+    language: String,
     bloom_level: String,
     learning_objective: String,
     explanation: String,
@@ -76,6 +77,7 @@ impl Default for LessonAuthorDraft {
             node_id: "EXAMPLE.MATH.GR3.EQUAL_GROUPS".into(),
             title: "Multiplication as equal groups".into(),
             grade_level: "Grade3".into(),
+            language: "en-ZA".into(),
             bloom_level: "Understand".into(),
             learning_objective: "Represent equal groups as multiplication and explain what each factor means.".into(),
             explanation: "Multiplication can describe equal groups. In 4 × 3, the first number tells us there are 4 groups and the second number tells us each group contains 3 objects. We can draw four circles and put three counters in each circle. Counting all the counters gives 12, so 4 × 3 = 12. Repeated addition shows the same idea: 3 + 3 + 3 + 3 = 12. Keep the two meanings separate: 4 groups of 3 is not the same as 4 + 3. Drawing or arranging objects is a useful way to check the meaning before memorising a multiplication fact.".into(),
@@ -152,6 +154,7 @@ fn pack_to_draft(value: &Value) -> Result<LessonAuthorDraft, String> {
     draft.node_id.clear();
     draft.title.clear();
     draft.grade_level.clear();
+    draft.language.clear();
     draft.bloom_level.clear();
     draft.learning_objective.clear();
     draft.explanation.clear();
@@ -300,6 +303,7 @@ fn pack_to_draft(value: &Value) -> Result<LessonAuthorDraft, String> {
         );
         draft.author_credit = value_text(authoring.get("author_credit"), &draft.author_credit);
         draft.license = value_text(authoring.get("license"), &draft.license);
+        draft.language = value_text(authoring.get("language"), &draft.language);
         if let Some(notes) = authoring.get("source_and_attribution_notes") {
             draft.source_notes = match notes {
                 Value::String(note) => note.clone(),
@@ -531,6 +535,7 @@ fn lesson_pack_value(draft: &LessonAuthorDraft) -> Value {
             "format_version": 1,
             "status": "draft",
             "learning_objective": draft.learning_objective,
+            "language": draft.language,
             "author_credit": draft.author_credit,
             "license": draft.license,
             "source_and_attribution_notes": draft.source_notes.lines().map(str::trim).filter(|line| !line.is_empty()).collect::<Vec<_>>()
@@ -798,6 +803,15 @@ pub fn LessonAuthorPage() -> impl IntoView {
                     <label>"Learner level (grade or course)"
                         <input style="width: 100%" prop:value=move || draft.get().grade_level.clone() on:input=move |ev| set_draft.update(|d| d.grade_level = event_target_value(&ev)) />
                     </label>
+                    <label>"Language / locale (BCP 47)"
+                        <input
+                            style="width: 100%"
+                            placeholder="en-ZA, zu-ZA, af-ZA"
+                            aria-label="Lesson language or locale"
+                            prop:value=move || draft.get().language.clone()
+                            on:input=move |ev| set_draft.update(|d| d.language = event_target_value(&ev))
+                        />
+                    </label>
                     <label>"Bloom level"
                         <select style="width: 100%" prop:value=move || draft.get().bloom_level.clone() on:change=move |ev| set_draft.update(|d| d.bloom_level = event_target_value(&ev))>
                             <option value="Remember">"Remember"</option>
@@ -972,6 +986,7 @@ mod tests {
         assert_eq!(value["lesson"]["practice_problems"].as_array().map(Vec::len), Some(3));
         assert_eq!(value["flashcards"].as_array().map(Vec::len), Some(1));
         assert_eq!(value["assessment"]["total_points"], 2);
+        assert_eq!(value["authoring"]["language"], "en-ZA");
         assert_eq!(value["quality"]["needs_human_review"], true);
         assert_eq!(value["quality"]["metrics_valid_for_current_revision"], false);
         assert_eq!(value["authoring"]["status"], "draft");
