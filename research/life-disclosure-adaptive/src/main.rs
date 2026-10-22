@@ -748,7 +748,7 @@ fn render_pair_labels(examples: &[PairExample]) -> String {
     output
 }
 
-fn write_artifacts(dir: &Path) -> io::Result<()> {
+fn write_artifacts(dir: &Path, report: &str) -> io::Result<()> {
     fs::create_dir_all(dir)?;
     for strategy in Strategy::ALL {
         let train_all = build_pairs(strategy, true);
@@ -772,7 +772,7 @@ fn write_artifacts(dir: &Path) -> io::Result<()> {
             render_pair_labels(&test_pairs),
         )?;
     }
-    fs::write(dir.join("metrics.csv"), render_report())?;
+    fs::write(dir.join("metrics.csv"), report)?;
     fs::write(
         dir.join("README.txt"),
         "Synthetic pairwise data only. Train/test splits are subject-disjoint. Do not join test labels into model fitting. Features contain only observable equality channels; subject labels and presentation ordinals are stored only in separate label files / internal evaluator. Row references are opaque handles, not identity claims. These are not cryptographic credentials or production attack measurements.\n",
@@ -782,14 +782,15 @@ fn write_artifacts(dir: &Path) -> io::Result<()> {
 
 fn main() {
     let args: Vec<String> = env::args().skip(1).collect();
+    let report = render_report();
     match args.as_slice() {
-        [] => print!("{}", render_report()),
+        [] => print!("{report}"),
         [flag, dir] if flag == "--write-corpus-dir" => {
-            if let Err(error) = write_artifacts(Path::new(dir)) {
+            if let Err(error) = write_artifacts(Path::new(dir), &report) {
                 eprintln!("could not write adaptive benchmark artifacts: {error}");
                 process::exit(1);
             }
-            print!("{}", render_report());
+            print!("{report}");
         }
         _ => {
             eprintln!("usage: life-disclosure-adaptive [--write-corpus-dir <directory>]");
