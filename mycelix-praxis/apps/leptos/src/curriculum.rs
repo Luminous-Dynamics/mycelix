@@ -8,7 +8,7 @@
 
 use leptos::prelude::*;
 use serde::{Deserialize, Serialize};
-use std::collections::{BTreeSet, HashMap};
+use std::collections::{BTreeMap, BTreeSet, HashMap};
 use std::fmt;
 use std::sync::OnceLock;
 
@@ -1180,7 +1180,7 @@ impl ProgressStore {
 
     /// Rebuild the BKT posterior deterministically from the merged, deduplicated
     /// response ledger. The ledger contains outcomes but no raw learner answers.
-    pub fn rebuild_bkt_from_practice_receipts(&mut self, node_id: &str) {
+    pub fn rebuild_bkt_from_practice_receipts(&mut self, node_id: &str) -> bool {
         let mut receipts = self
             .nodes
             .get(node_id)
@@ -1193,26 +1193,58 @@ impl ProgressStore {
                 .then_with(|| left.item_id.cmp(&right.item_id))
         });
 
+        // Keep only the first, time-ordered observation for each item ID even
+        // if a corrupted/imported browser record contains duplicate receipts.
+        let mut seen = BTreeSet::new();
+        receipts.retain(|receipt| seen.insert(receipt.item_id.clone()));
         if receipts.is_empty() {
-            return;
+            return false;
         }
 
+        let receipt_ids = receipts
+            .iter()
+            .map(|receipt| receipt.item_id.clone())
+            .collect::<BTreeSet<_>>();
         let mut rebuilt = BktState::default();
         for receipt in &receipts {
             rebuilt.update(receipt.correct);
         }
-        self.bkt_states.insert(node_id.to_owned(), rebuilt.clone());
 
+        let old_bkt = self.bkt_states.get(node_id);
+        let bkt_changed = old_bkt.is_none_or(|old| {
+            old.p_mastery != rebuilt.p_mastery
+                || old.attempts != rebuilt.attempts
+                || old.correct != rebuilt.correct
+        });
         let progress = self.nodes.entry(node_id.to_owned()).or_default();
-        progress.attempts = rebuilt.attempts;
-        progress.correct = rebuilt.correct;
-        progress.mastery_permille = (rebuilt.p_mastery * 1000.0) as u16;
-        progress.self_assessment = None;
-        progress.status = if rebuilt.is_likely_mastered() {
+        let new_mastery = (rebuilt.p_mastery * 1000.0) as u16;
+        let new_status = if rebuilt.is_likely_mastered() {
             ProgressStatus::ProvisionalMastery
         } else {
             ProgressStatus::Studying
         };
+        let progress_changed = progress.attempts != rebuilt.attempts
+            || progress.correct != rebuilt.correct
+            || progress.mastery_permille != new_mastery
+            || progress.status != new_status
+            || progress.self_assessment.is_some()
+            || progress.scored_item_ids.len() != receipt_ids.len()
+            || progress
+                .scored_item_ids
+                .iter()
+                .any(|item_id| !receipt_ids.contains(item_id))
+            || progress.scored_practice_receipts.len() != receipts.len();
+
+        self.bkt_states.insert(node_id.to_owned(), rebuilt.clone());
+        progress.attempts = rebuilt.attempts;
+        progress.correct = rebuilt.correct;
+        progress.mastery_permille = new_mastery;
+        progress.status = new_status;
+        progress.self_assessment = None;
+        progress.scored_item_ids = receipt_ids.into_iter().collect();
+        progress.scored_practice_receipts = receipts;
+
+        bkt_changed || progress_changed
     }
 
     /// Merge answer-first practice outcomes by opaque item ID, then rebuild
