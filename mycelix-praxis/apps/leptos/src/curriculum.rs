@@ -1838,10 +1838,10 @@ mod evidence_first_progress_tests {
     #[test]
     fn repeating_the_same_scored_item_does_not_inflate_bkt() {
         let mut progress = ProgressStore::default();
-        for _ in 0..4 {
+        for index in 0..4 {
             assert!(progress.record_response_for_item(
                 "math.multiplication",
-                "lesson-digest:practice-1",
+                &format!("lesson-digest:practice-{index}"),
                 true
             ));
         }
@@ -1867,7 +1867,7 @@ mod evidence_first_progress_tests {
 
         assert!(progress.record_response_for_item(
             "math.multiplication",
-            "lesson-digest:practice-2",
+            "lesson-digest:practice-4",
             true
         ));
         assert_eq!(
