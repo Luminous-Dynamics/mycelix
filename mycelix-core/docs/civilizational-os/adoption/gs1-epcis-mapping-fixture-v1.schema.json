@@ -141,7 +141,7 @@
           "const": "source-snapshots/gs1-epcis-cbv-v1.json"
         },
         "source_snapshot_manifest_sha256": {
-          "const": "d96381be7a7bbfdd6cafb6286834a575268a1f5b423a5e1345d8d1af4c3156e6"
+          "const": "c1ee59514524c7eb0535e58f3fc19c3c3f309d05adb0ca896ac59ef5b3abcf92"
         }
       }
     },
@@ -497,7 +497,7 @@
           "minItems": 1,
           "maxItems": 1,
           "items": {
-            "const": "https://ref.gs1.org/standards/epcis/2.0.1/artefacts/epcis-context.jsonld"
+            "const": "https://ref.gs1.org/standards/epcis/2.0.1/epcis-context.jsonld"
           }
         },
         "type": {
