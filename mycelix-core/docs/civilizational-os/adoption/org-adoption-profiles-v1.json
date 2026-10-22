@@ -101,18 +101,37 @@
         {
           "issue_id": "mycelix#5366",
           "role": "decision/authorization/execution/observation/review witness"
+        },
+        {
+          "issue_id": "mycelix#3332",
+          "role": "five-system requirements coverage and source-status audit"
+        },
+        {
+          "issue_id": "mycelix#3334",
+          "role": "executable COS adversarial conformance harness"
         }
       ],
-      "pilot_scope": "Build a network-free source manifest with exact blob/revision identity and source-status classification, then trace one synthetic proposal through decision, mandate, authorization, execution attempt, observation and review.",
+      "pilot_scope": "Compose the exact revision-pinned Integral source manifest with the existing OAD/COS requirements and COS conformance owners. Trace one synthetic design/requirement through production plan, current availability, assignment, observed work, material consumption, QA/safety qualification, output/disposition, and later interpretation without collapsing proposal, authorization, effect, or evidence provenance. Do not create a parallel COS kernel; extend #3332/#3334/#3336.",
       "acceptance_metrics": [
         "Every source record retains an exact identity or is explicitly unqualified.",
         "A changed or missing source raises a compatibility flag without rewriting the adapter.",
-        "A draft/pending source is never promoted to ratified authority by a local mapping."
+        "A draft/pending source is never promoted to ratified authority by a local mapping.",
+        "Every lifecycle stage is labeled as proposal, plan, current availability, assignment, observation, qualification, authorization, effect receipt, or interpretation; no stage silently satisfies a later stage.",
+        "All OAD/COS external-source claims retain exact source-generation identity and maturity/status; a repository revision pin remains distinct from captured bytes and does not imply ratification.",
+        "The COS conformance corpus must pair the required negative cases with positive counterparts and trace each to COS-FV-001..010; unknown, stale, foreign-origin, and superseded evidence fails closed.",
+        "Local capability metrics explicitly account for external procurement, imported materials, and non-local dependencies rather than silently counting them as local productive capacity.",
+        "FRS/analytical interpretation may annotate observations but cannot overwrite source-owned COS observations or authorize operational effects."
       ],
       "negative_controls": [
         "Mutate a source digest, status, or revision.",
         "Remove a previously observed source or add a duplicate source identifier.",
-        "Present a website observation as an exact versioned schema."
+        "Present a website observation as an exact versioned schema.",
+        "Treat an OAD design/certification as production authorization or proof that a production run occurred.",
+        "Treat a work plan, worker skill, machine capability, or scheduled assignment as current availability or observed work.",
+        "Treat planned BOM/materials as consumed material, or count externally procured dependencies as local production without explicit provenance.",
+        "Use stale QA/calibration evidence to satisfy a current requirement or allow a later success to erase historical failure.",
+        "Promote FRS prediction, a distribution-complete record, or foreign attestation into source observation, safety qualification, or local-origin evidence.",
+        "Allow a recommendation to execute without explicit authorization and an effect receipt."
       ],
       "deployment_assumptions": [
         "Read-only source snapshots; no claim to decide Integral's own source authority.",
