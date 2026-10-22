@@ -1,0 +1,328 @@
+{
+  "schema_version": "nrvca-robust-stress/0.1",
+  "status": "synthetic_scenario_neutral",
+  "purpose": "A fully synthetic stress-test evaluator. Scenario outcomes are hand-authored for known-answer testing, not produced by a calibrated water, energy, climate, labor, or economic simulation. This fixture is not a South African operational assessment.",
+  "scoring_policy": {
+    "scenario_weights_used": false,
+    "probability_interpretation": "none",
+    "primary_budget": 10,
+    "contingency_reserve_cap": 4,
+    "total_cost_upper_bound": 14,
+    "min_service_units_lower_bound": 800,
+    "min_underserved_service_units_lower_bound": 800,
+    "min_reliability_lower_bound": 0.95,
+    "max_emissions_tonnes_co2e_upper_bound": 12,
+    "robust_success_rule": "Every hard floor and cap is met in a scenario; no weighted score can offset a hard constraint violation.",
+    "normative_note": "Thresholds are synthetic policy choices to test transparent trade-offs. They are not official service standards or empirically calibrated thresholds."
+  },
+  "scenario_manifest": [
+    {
+      "scenario_id": "nominal-operations",
+      "stressors": [],
+      "description": "Normal source availability, grid and staffing."
+    },
+    {
+      "scenario_id": "seasonal-drought",
+      "stressors": [
+        "source_availability_low",
+        "heat_demand_high"
+      ],
+      "description": "Low inflow co-occurs with higher demand."
+    },
+    {
+      "scenario_id": "grid-disruption",
+      "stressors": [
+        "grid_disruption",
+        "powered_pressure_system_down"
+      ],
+      "description": "Power disruption affects powered pressure-management equipment."
+    },
+    {
+      "scenario_id": "compound-drought-grid-crew",
+      "stressors": [
+        "source_availability_low",
+        "heat_demand_high",
+        "grid_disruption",
+        "powered_pressure_system_down",
+        "repair_crew_delay"
+      ],
+      "description": "Source shortage, high demand, grid disruption and crew delays co-occur."
+    },
+    {
+      "scenario_id": "prolonged-repeat-disruption",
+      "stressors": [
+        "source_availability_low",
+        "grid_disruption",
+        "powered_pressure_system_down",
+        "repair_crew_delay",
+        "reserve_depleted"
+      ],
+      "description": "A repeated event arrives after reserve capacity is depleted."
+    }
+  ],
+  "trigger_rules": [
+    {
+      "action_id": "release_storage_reserve",
+      "trigger_if_any": [
+        "source_availability_low"
+      ]
+    },
+    {
+      "action_id": "deploy_backup_power",
+      "trigger_if_any": [
+        "grid_disruption",
+        "powered_pressure_system_down"
+      ]
+    },
+    {
+      "action_id": "preposition_repair_crews",
+      "trigger_if_any": [
+        "repair_crew_delay"
+      ]
+    }
+  ],
+  "strategies": [
+    {
+      "strategy_id": "output_only_static",
+      "label": "Output-only static allocation",
+      "kind": "static",
+      "base_cost": 10,
+      "description": "Fictional central-main repair plus pressure management. Optimizes nominal output but does not enforce the declared equity or emissions constraints.",
+      "scenario_results": [
+        {
+          "scenario_id": "nominal-operations",
+          "service_units_lower_bound": 1350,
+          "underserved_service_units_lower_bound": 410,
+          "reliability_lower_bound": 0.9589,
+          "emissions_tonnes_co2e_upper_bound": 13.5,
+          "total_cost": 10,
+          "triggered_actions": [],
+          "evidence_status": "synthetic_stress_assumption"
+        },
+        {
+          "scenario_id": "seasonal-drought",
+          "service_units_lower_bound": 700,
+          "underserved_service_units_lower_bound": 220,
+          "reliability_lower_bound": 0.82,
+          "emissions_tonnes_co2e_upper_bound": 13.5,
+          "total_cost": 10,
+          "triggered_actions": [],
+          "evidence_status": "synthetic_stress_assumption"
+        },
+        {
+          "scenario_id": "grid-disruption",
+          "service_units_lower_bound": 640,
+          "underserved_service_units_lower_bound": 320,
+          "reliability_lower_bound": 0.77,
+          "emissions_tonnes_co2e_upper_bound": 13,
+          "total_cost": 10,
+          "triggered_actions": [],
+          "evidence_status": "synthetic_stress_assumption"
+        },
+        {
+          "scenario_id": "compound-drought-grid-crew",
+          "service_units_lower_bound": 320,
+          "underserved_service_units_lower_bound": 120,
+          "reliability_lower_bound": 0.45,
+          "emissions_tonnes_co2e_upper_bound": 12.8,
+          "total_cost": 10,
+          "triggered_actions": [],
+          "evidence_status": "synthetic_stress_assumption"
+        },
+        {
+          "scenario_id": "prolonged-repeat-disruption",
+          "service_units_lower_bound": 250,
+          "underserved_service_units_lower_bound": 80,
+          "reliability_lower_bound": 0.38,
+          "emissions_tonnes_co2e_upper_bound": 12.6,
+          "total_cost": 10,
+          "triggered_actions": [],
+          "evidence_status": "synthetic_stress_assumption"
+        }
+      ]
+    },
+    {
+      "strategy_id": "equity_static",
+      "label": "Equity-constrained static allocation",
+      "kind": "static",
+      "base_cost": 9,
+      "description": "Fictional peripheral leak repair plus pressure management. Meets the nominal policy profile but has no explicit contingency actions.",
+      "scenario_results": [
+        {
+          "scenario_id": "nominal-operations",
+          "service_units_lower_bound": 1150,
+          "underserved_service_units_lower_bound": 900,
+          "reliability_lower_bound": 0.9504,
+          "emissions_tonnes_co2e_upper_bound": 9.5,
+          "total_cost": 9,
+          "triggered_actions": [],
+          "evidence_status": "synthetic_stress_assumption"
+        },
+        {
+          "scenario_id": "seasonal-drought",
+          "service_units_lower_bound": 660,
+          "underserved_service_units_lower_bound": 500,
+          "reliability_lower_bound": 0.9,
+          "emissions_tonnes_co2e_upper_bound": 9.8,
+          "total_cost": 9,
+          "triggered_actions": [],
+          "evidence_status": "synthetic_stress_assumption"
+        },
+        {
+          "scenario_id": "grid-disruption",
+          "service_units_lower_bound": 750,
+          "underserved_service_units_lower_bound": 650,
+          "reliability_lower_bound": 0.88,
+          "emissions_tonnes_co2e_upper_bound": 10,
+          "total_cost": 9,
+          "triggered_actions": [],
+          "evidence_status": "synthetic_stress_assumption"
+        },
+        {
+          "scenario_id": "compound-drought-grid-crew",
+          "service_units_lower_bound": 360,
+          "underserved_service_units_lower_bound": 250,
+          "reliability_lower_bound": 0.62,
+          "emissions_tonnes_co2e_upper_bound": 9.6,
+          "total_cost": 9,
+          "triggered_actions": [],
+          "evidence_status": "synthetic_stress_assumption"
+        },
+        {
+          "scenario_id": "prolonged-repeat-disruption",
+          "service_units_lower_bound": 300,
+          "underserved_service_units_lower_bound": 200,
+          "reliability_lower_bound": 0.58,
+          "emissions_tonnes_co2e_upper_bound": 9.6,
+          "total_cost": 9,
+          "triggered_actions": [],
+          "evidence_status": "synthetic_stress_assumption"
+        }
+      ]
+    },
+    {
+      "strategy_id": "adaptive_staged",
+      "label": "Adaptive staged policy",
+      "kind": "adaptive",
+      "base_cost": 9,
+      "description": "Fictional staged policy with explicit storage, backup-power and repair-crew triggers. Outcomes are hand-authored to test evaluation logic; not generated by a physical simulator.",
+      "trigger_rule_ids": [
+        "release_storage_reserve",
+        "deploy_backup_power",
+        "preposition_repair_crews"
+      ],
+      "scenario_results": [
+        {
+          "scenario_id": "nominal-operations",
+          "service_units_lower_bound": 1150,
+          "underserved_service_units_lower_bound": 900,
+          "reliability_lower_bound": 0.9504,
+          "emissions_tonnes_co2e_upper_bound": 9.5,
+          "total_cost": 9,
+          "triggered_actions": [],
+          "evidence_status": "synthetic_stress_assumption"
+        },
+        {
+          "scenario_id": "seasonal-drought",
+          "service_units_lower_bound": 950,
+          "underserved_service_units_lower_bound": 820,
+          "reliability_lower_bound": 0.951,
+          "emissions_tonnes_co2e_upper_bound": 11.5,
+          "total_cost": 12,
+          "triggered_actions": [
+            "release_storage_reserve"
+          ],
+          "evidence_status": "synthetic_stress_assumption"
+        },
+        {
+          "scenario_id": "grid-disruption",
+          "service_units_lower_bound": 930,
+          "underserved_service_units_lower_bound": 810,
+          "reliability_lower_bound": 0.9505,
+          "emissions_tonnes_co2e_upper_bound": 11.8,
+          "total_cost": 12,
+          "triggered_actions": [
+            "deploy_backup_power"
+          ],
+          "evidence_status": "synthetic_stress_assumption"
+        },
+        {
+          "scenario_id": "compound-drought-grid-crew",
+          "service_units_lower_bound": 850,
+          "underserved_service_units_lower_bound": 805,
+          "reliability_lower_bound": 0.9501,
+          "emissions_tonnes_co2e_upper_bound": 12,
+          "total_cost": 13,
+          "triggered_actions": [
+            "release_storage_reserve",
+            "deploy_backup_power",
+            "preposition_repair_crews"
+          ],
+          "evidence_status": "synthetic_stress_assumption"
+        },
+        {
+          "scenario_id": "prolonged-repeat-disruption",
+          "service_units_lower_bound": 790,
+          "underserved_service_units_lower_bound": 760,
+          "reliability_lower_bound": 0.93,
+          "emissions_tonnes_co2e_upper_bound": 12,
+          "total_cost": 13,
+          "triggered_actions": [
+            "release_storage_reserve",
+            "deploy_backup_power",
+            "preposition_repair_crews"
+          ],
+          "evidence_status": "synthetic_stress_assumption"
+        }
+      ]
+    }
+  ],
+  "expected_summaries": [
+    {
+      "strategy_id": "output_only_static",
+      "robust_pass_count": 0,
+      "scenario_count": 5,
+      "robust_pass_fraction": 0,
+      "worst_service_shortfall": 550,
+      "worst_underserved_shortfall": 720,
+      "worst_reliability_shortfall": 0.57,
+      "worst_emissions_excess": 1.5,
+      "failed_scenarios": [
+        "nominal-operations",
+        "seasonal-drought",
+        "grid-disruption",
+        "compound-drought-grid-crew",
+        "prolonged-repeat-disruption"
+      ]
+    },
+    {
+      "strategy_id": "equity_static",
+      "robust_pass_count": 1,
+      "scenario_count": 5,
+      "robust_pass_fraction": 0.2,
+      "worst_service_shortfall": 500,
+      "worst_underserved_shortfall": 600,
+      "worst_reliability_shortfall": 0.37,
+      "worst_emissions_excess": 0,
+      "failed_scenarios": [
+        "seasonal-drought",
+        "grid-disruption",
+        "compound-drought-grid-crew",
+        "prolonged-repeat-disruption"
+      ]
+    },
+    {
+      "strategy_id": "adaptive_staged",
+      "robust_pass_count": 4,
+      "scenario_count": 5,
+      "robust_pass_fraction": 0.8,
+      "worst_service_shortfall": 10,
+      "worst_underserved_shortfall": 40,
+      "worst_reliability_shortfall": 0.02,
+      "worst_emissions_excess": 0,
+      "failed_scenarios": [
+        "prolonged-repeat-disruption"
+      ]
+    }
+  ]
+}
