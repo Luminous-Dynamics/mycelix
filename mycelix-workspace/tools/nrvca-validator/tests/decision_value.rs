@@ -39,7 +39,7 @@ fn evaluate_mask(root: &Value, mask: usize) -> Allocation {
         emissions_upper: 0.0,
         weighted_reliability_lower: 0.0,
     };
-    let mut reliability_numerator = 0.0;
+    let mut selected_items: Vec<&Value> = Vec::new();
     for (i, item) in interventions.iter().enumerate() {
         if mask & (1usize << i) == 0 {
             continue;
@@ -50,11 +50,33 @@ fn evaluate_mask(root: &Value, mask: usize) -> Allocation {
         result.service_lower += num(&item["service_units"]["lower"]);
         result.underserved_lower += num(&item["underserved_service_units"]["lower"]);
         result.emissions_upper += num(&item["emissions_tonnes_co2e"]["upper"]);
-        reliability_numerator +=
-            num(&item["service_units"]["lower"]) * num(&item["reliability"]["lower"]);
+        selected_items.push(item);
     }
-    result.weighted_reliability_lower = if result.service_lower > 0.0 {
-        reliability_numerator / result.service_lower
+
+    // Calculate a conservative lower bound for the service-weighted reliability
+    // across every lower/upper service-volume endpoint combination. Weighting
+    // every reliability by service lower bounds alone is not generally a valid
+    // worst-case ratio: an intervention with lower reliability could deliver
+    // its upper-bound volume while a more reliable intervention delivers less.
+    let mut worst_reliability = f64::INFINITY;
+    for endpoint_mask in 0..(1usize << selected_items.len()) {
+        let mut volume = 0.0;
+        let mut reliable_volume = 0.0;
+        for (i, item) in selected_items.iter().enumerate() {
+            let service = if endpoint_mask & (1usize << i) == 0 {
+                num(&item["service_units"]["lower"])
+            } else {
+                num(&item["service_units"]["upper"])
+            };
+            volume += service;
+            reliable_volume += service * num(&item["reliability"]["lower"]);
+        }
+        if volume > 0.0 {
+            worst_reliability = worst_reliability.min(reliable_volume / volume);
+        }
+    }
+    result.weighted_reliability_lower = if worst_reliability.is_finite() {
+        worst_reliability
     } else {
         0.0
     };
