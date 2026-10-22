@@ -1809,6 +1809,34 @@ fn audit_authoring_contract(
         "lesson.bloom_level",
         value.pointer("/lesson/bloom_level"),
     );
+    add_required_text_finding(
+        audit,
+        &lesson_id,
+        asset_path,
+        "authoring.language",
+        value.pointer("/authoring/language"),
+    );
+    add_required_text_finding(
+        audit,
+        &lesson_id,
+        asset_path,
+        "authoring.learning_objective",
+        value.pointer("/authoring/learning_objective"),
+    );
+    add_required_text_finding(
+        audit,
+        &lesson_id,
+        asset_path,
+        "authoring.author_credit",
+        value.pointer("/authoring/author_credit"),
+    );
+    add_required_text_finding(
+        audit,
+        &lesson_id,
+        asset_path,
+        "authoring.license",
+        value.pointer("/authoring/license"),
+    );
 
     let hints = value.pointer("/lesson/hints").and_then(Value::as_array);
     if hints.is_none_or(Vec::is_empty) {
