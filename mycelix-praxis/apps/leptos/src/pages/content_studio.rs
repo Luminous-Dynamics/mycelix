@@ -1209,4 +1209,163 @@ mod tests {
         assert!(errors.iter().any(|error| error.contains("instruction => result")));
         assert!(errors.iter().any(|error| error.contains("duplicate wrong answers")));
     }
+
+
+    #[test]
+    fn exported_pack_round_trip_preserves_sources_rights_and_accessibility_notes() {
+        let mut draft = valid_draft();
+        draft.license_id = "CC-BY-4.0".to_string();
+        draft.rights_confirmed = true;
+        draft.source_title = "Open geometry reference".to_string();
+        draft.source_url = "https://example.org/geometry".to_string();
+        draft.source_rights_note = "CC BY 4.0; attribution required".to_string();
+        draft.accessibility_notes =
+            "Describe diagrams in text.\nDo not communicate meaning by colour alone.".to_string();
+
+        let encoded = build_lesson_pack(&draft).expect("complete source metadata should export");
+        let exported: Value = serde_json::from_str(&encoded).expect("export must be JSON");
+        assert_eq!(exported["contribution"]["sources"][0]["title"], "Open geometry reference");
+        assert_eq!(exported["contribution"]["sources"][0]["url"], "https://example.org/geometry");
+        assert_eq!(
+            exported["contribution"]["sources"][0]["license_or_rights_note"],
+            "CC BY 4.0; attribution required"
+        );
+        assert_eq!(exported["contribution"]["license_id"], "CC-BY-4.0");
+        assert_eq!(exported["contribution"]["license_url"], "https://creativecommons.org/licenses/by/4.0/");
+        assert_eq!(exported["contribution"]["rights_confirmed"], true);
+        assert_eq!(
+            exported["contribution"]["accessibility_notes"],
+            json!([
+                "Describe diagrams in text.",
+                "Do not communicate meaning by colour alone."
+            ])
+        );
+
+        // JSON export/import through the generic value representation must preserve
+        // the fields this creator workflow explicitly promises to carry.
+        let reencoded = serde_json::to_string(&exported).expect("value should re-encode");
+        let round_tripped: Value =
+            serde_json::from_str(&reencoded).expect("re-encoded pack should parse");
+        for pointer in [
+            "/contribution/sources/0/title",
+            "/contribution/sources/0/url",
+            "/contribution/sources/0/license_or_rights_note",
+            "/contribution/license_id",
+            "/contribution/license_url",
+            "/contribution/rights_confirmed",
+            "/contribution/accessibility_notes/0",
+            "/contribution/accessibility_notes/1",
+        ] {
+            assert_eq!(
+                round_tripped.pointer(pointer),
+                exported.pointer(pointer),
+                "round-trip changed contract field {pointer}"
+            );
+        }
+    }
+
+    #[test]
+    fn incomplete_or_unsafe_source_metadata_is_rejected() {
+        let mut draft = valid_draft();
+        draft.source_title = "Reference".to_string();
+
+        let errors = build_lesson_pack(&draft).expect_err("partial source metadata must fail");
+        assert!(errors.iter().any(|error| error.contains("Source URL")));
+        assert!(errors.iter().any(|error| error.contains("Source licence / rights note")));
+
+        draft.source_url = "javascript:alert(1)".to_string();
+        draft.source_rights_note = "Rights unknown".to_string();
+        let errors = build_lesson_pack(&draft).expect_err("non-HTTP source locator must fail");
+        assert!(errors.iter().any(|error| error.contains("source URL must begin")));
+    }
+
+    #[test]
+    fn confirming_reuse_rights_never_publishes_or_reviews_the_lesson() {
+        let mut draft = valid_draft();
+        draft.license_id = "CC-BY-4.0".to_string();
+        draft.rights_confirmed = true;
+
+        let encoded = build_lesson_pack(&draft).expect("valid draft should export");
+        let pack: Value = serde_json::from_str(&encoded).expect("export must be JSON");
+
+        assert_eq!(pack["contribution"]["rights_confirmed"], true);
+        assert_eq!(pack["contribution"]["status"], "draft");
+        assert_eq!(pack["contribution"]["visibility"], "private_draft");
+        assert_eq!(pack["quality"]["needs_human_review"], true);
+        assert_eq!(pack["quality"]["metrics_valid_for_current_revision"], false);
+        assert_eq!(
+            pack["lesson"]["generation_quality"]["needs_human_review"],
+            true
+        );
+        assert_eq!(
+            pack["lesson"]["generation_quality"]["metrics_valid_for_current_revision"],
+            false
+        );
+        assert!(
+            pack["contribution"]["review_note"]
+                .as_str()
+                .unwrap()
+                .contains("private draft")
+        );
+    }
+
+    #[test]
+    fn assessment_and_flashcards_remain_bound_to_the_same_practice_items() {
+        let pack: Value = serde_json::from_str(
+            &build_lesson_pack(&valid_draft()).expect("valid draft should export"),
+        )
+        .expect("export must be JSON");
+
+        let practice = pack["lesson"]["practice_problems"]
+            .as_array()
+            .expect("practice problems should be an array");
+        let assessment = pack["assessment"]["items"]
+            .as_array()
+            .expect("assessment items should be an array");
+        let flashcards = pack["flashcards"]
+            .as_array()
+            .expect("flashcards should be an array");
+
+        assert_eq!(practice.len(), 3);
+        assert_eq!(assessment.len(), practice.len());
+        assert_eq!(flashcards.len(), practice.len());
+        for index in 0..practice.len() {
+            assert_eq!(
+                assessment[index]["question"],
+                practice[index]["question"],
+                "assessment prompt drifted at index {index}"
+            );
+            assert_eq!(
+                assessment[index]["correct_answer"],
+                practice[index]["answer"],
+                "assessment answer drifted at index {index}"
+            );
+            assert_eq!(
+                flashcards[index]["front"],
+                practice[index]["question"],
+                "flashcard front drifted at index {index}"
+            );
+            assert_eq!(
+                flashcards[index]["back"],
+                practice[index]["answer"],
+                "flashcard back drifted at index {index}"
+            );
+        }
+    }
+
+    #[test]
+    fn blank_target_is_explicitly_exported_as_a_draft_mapping_placeholder() {
+        let mut draft = valid_draft();
+        draft.node_id.clear();
+
+        let pack: Value = serde_json::from_str(
+            &build_lesson_pack(&draft).expect("valid lesson draft should export"),
+        )
+        .expect("export must be JSON");
+
+        assert_eq!(pack["node_id"], "DRAFT.MAP_ME");
+        assert_eq!(pack["contribution"]["status"], "draft");
+        assert_eq!(pack["contribution"]["visibility"], "private_draft");
+        assert_eq!(pack["quality"]["needs_human_review"], true);
+    }
 }
