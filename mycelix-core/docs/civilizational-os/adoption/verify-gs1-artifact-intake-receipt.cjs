@@ -12,27 +12,27 @@ const crypto = require('node:crypto');
 const root = __dirname;
 const receiptDefault = path.join(root, 'gs1-normative-artifact-intake-example-v1.json');
 const manifestDefault = path.join(root, 'source-snapshots/gs1-epcis-cbv-v1.json');
-const MANIFEST_SHA = 'c1ee59514524c7eb0535e58f3fc19c3c3f309d05adb0ca896ac59ef5b3abcf92';
+const MANIFEST_SHA = 'acb4eee1c6b5ec625047f6857e466408716bb4b09b911029faac303c990cb647';
 const ARTIFACTS = Object.freeze([
   {
-    artifact_id: 'gs1-epcis-2-0-1-context',
+    artifact_id: 'gs1-epcis-2-0-0-context',
     artifact_kind: 'jsonld_context',
-    requested_url: 'https://ref.gs1.org/standards/epcis/2.0.1/epcis-context.jsonld'
+    requested_url: 'https://ref.gs1.org/standards/epcis/2.0.0/epcis-context.jsonld'
   },
   {
-    artifact_id: 'gs1-epcis-2-0-1-json-schema',
+    artifact_id: 'gs1-epcis-2-0-0-json-schema',
     artifact_kind: 'json_schema_draft07',
-    requested_url: 'https://ref.gs1.org/standards/epcis/2.0.1/epcis-json-schema.json'
+    requested_url: 'https://ref.gs1.org/standards/epcis/2.0.0/epcis-json-schema.json'
   },
   {
-    artifact_id: 'gs1-epcis-2-0-1-shacl',
+    artifact_id: 'gs1-epcis-2-0-0-shacl',
     artifact_kind: 'shacl_shapes',
-    requested_url: 'https://ref.gs1.org/standards/epcis/2.0.1/epcis-shacl.ttl'
+    requested_url: 'https://ref.gs1.org/standards/epcis/2.0.0/epcis-shacl.ttl'
   },
   {
     artifact_id: 'gs1-cbv-2-0-0-ontology-jsonld',
     artifact_kind: 'cbv_ontology_jsonld',
-    requested_url: 'https://ref.gs1.org/standards/epcis/2.0.1/cbv-ontology.jsonld'
+    requested_url: 'https://ref.gs1.org/standards/epcis/2.0.0/cbv-ontology.jsonld'
   }
 ]);
 const SHA = /^[0-9a-f]{64}$/;
