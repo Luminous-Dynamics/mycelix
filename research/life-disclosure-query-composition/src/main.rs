@@ -188,10 +188,7 @@ fn adaptive_cohorts_with_policy(
             depth_cohorts.push(candidates.clone());
             depth_queries.push(accepted_queries);
 
-            if depth == MAX_ADAPTIVE_QUERIES
-                || candidates.len() <= 1
-                || stopped
-            {
+            if depth == MAX_ADAPTIVE_QUERIES || candidates.len() <= 1 || stopped {
                 continue;
             }
 
@@ -650,7 +647,6 @@ mod tests {
         let people = synthetic_population();
         let feature_rows = precompute_feature_rows(&people);
         let no_guard_stops = vec![false; people.len()];
-        let zero_stops = vec![0; people.len()];
         let last = MAX_ADAPTIVE_QUERIES;
 
         assert_eq!(people.iter().filter(|person| person.eligible()).count(), 461);
@@ -699,8 +695,6 @@ mod tests {
         assert_eq!(dual_metrics.debt_risk_inference_accuracy_ppm, 512_695);
         assert_eq!(dual_metrics.task_utility_ppm, MILLION);
 
-        // Prevent unused vectors from masking a future change to the output model.
-        assert_eq!(zero_stops.len(), people.len());
     }
 
     #[test]
