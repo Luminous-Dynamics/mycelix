@@ -745,7 +745,7 @@ pub fn StudyPage(node_id: String) -> impl IntoView {
                                                 view! {
                                                     <div style="display: flex; align-items: center; gap: 0.75rem; margin-bottom: 1rem; padding: 0.5rem 0.75rem; background: var(--soil-rich); border-radius: 8px">
                                                         <div style="font-size: 0.8rem; color: var(--text-secondary)">
-                                                            "Understanding: "
+                                                            "Estimated understanding (BKT): "
                                                             <strong style="color: var(--text)">{pct}"%"</strong>
                                                         </div>
                                                         <div style="font-size: 0.75rem; color: var(--text-tertiary); font-style: italic">
@@ -755,7 +755,7 @@ pub fn StudyPage(node_id: String) -> impl IntoView {
                                                 }
                                             }
                                         }
-                                        <p style="font-size: 0.8rem; color: var(--text-tertiary); margin-bottom: 1rem">"Answer choices are scored before feedback appears. Reflection-only items do not update scored mastery."</p>
+                                        <p style="font-size: 0.8rem; color: var(--text-tertiary); margin: 0 0 1rem">"BKT is a practice estimate, not proof of durable or independent mastery. Answer choices are scored before feedback appears; reflection-only items do not update scored mastery."</p>
                                         {problems.iter().cloned().enumerate().map(|(i, problem)| {
                                             view! {
                                                 <PracticeProblemCard
