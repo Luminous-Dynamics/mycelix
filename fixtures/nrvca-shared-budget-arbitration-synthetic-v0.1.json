@@ -1,0 +1,476 @@
+{
+  "schema_version": "nrvca-shared-budget-arbitration/0.1",
+  "status": "synthetic_test_contract",
+  "purpose": "Known-answer tests for deterministic arbitration of concurrent action recommendations under shared budget and resource constraints. All costs, ranks, capacities and scenarios are illustrative, uncalibrated, and fictional.",
+  "action_authority": {
+    "execution_mode": "recommendation_only",
+    "automatic_dispatch_enabled": false,
+    "decision_rights": "The arbiter emits receipts only. An authorized operator must review and authorize any real action.",
+    "no_probability_inference": true
+  },
+  "policy": {
+    "budget": 4,
+    "cost_unit": "synthetic_cost_units",
+    "protected_policy_class": "protected_service_floor",
+    "protected_class_atomic": true,
+    "protected_class_infeasibility": "If eligible protected actions cannot all fit the budget or their required preconditions are missing, select nothing and require manual review. Do not substitute lower-priority actions.",
+    "candidate_ordering": [
+      "class_rank_ascending",
+      "priority_rank_ascending",
+      "action_id_ascending",
+      "candidate_id_ascending"
+    ],
+    "optional_action_policy": "After protected actions are feasible and selected, consider discretionary candidates in deterministic order. Reject no candidate silently; preserve one terminal disposition and budget arithmetic.",
+    "evaluation_order": [
+      "validate_candidate_and_authoritative_cost",
+      "check_protected_preconditions_and_bundle_feasibility",
+      "select_protected_bundle",
+      "for_each_discretionary_candidate_check_preconditions_then_resource_capacity_then_budget"
+    ],
+    "resource_conflicts": "Resource claims share a capacity pool; selections may not exceed any declared capacity."
+  },
+  "hard_contract": {
+    "max_single_action_cost": 4,
+    "budget_must_be_nonnegative_integer": true,
+    "action_cost_is_authoritative": true,
+    "one_terminal_disposition_per_candidate": true,
+    "full_budget_receipt_required": true,
+    "all_values_uncalibrated": true
+  },
+  "resource_capacities": {
+    "backup_system": 1,
+    "tanker_fleet": 1,
+    "repair_crews": 1,
+    "storage_release_slot": 1
+  },
+  "actions": [
+    {
+      "action_id": "deploy_backup_power",
+      "description": "Synthetic backup-power recommendation.",
+      "cost": 3,
+      "cost_unit": "synthetic_cost_units",
+      "policy_class": "protected_service_floor",
+      "class_rank": 0,
+      "priority_rank": 0,
+      "required_preconditions": [
+        "action_plan_authorized",
+        "backup_system_available"
+      ],
+      "resource_claims": {
+        "backup_system": 1
+      }
+    },
+    {
+      "action_id": "deliver_emergency_water",
+      "description": "Synthetic emergency water-delivery recommendation.",
+      "cost": 2,
+      "cost_unit": "synthetic_cost_units",
+      "policy_class": "protected_service_floor",
+      "class_rank": 0,
+      "priority_rank": 0,
+      "required_preconditions": [
+        "action_plan_authorized",
+        "water_delivery_available"
+      ],
+      "resource_claims": {
+        "tanker_fleet": 1
+      }
+    },
+    {
+      "action_id": "preposition_repair_crews",
+      "description": "Synthetic repair-crew recommendation.",
+      "cost": 1,
+      "cost_unit": "synthetic_cost_units",
+      "policy_class": "discretionary_recovery",
+      "class_rank": 1,
+      "priority_rank": 1,
+      "required_preconditions": [
+        "action_plan_authorized",
+        "crew_available"
+      ],
+      "resource_claims": {
+        "repair_crews": 1
+      }
+    },
+    {
+      "action_id": "inspect_distribution_line",
+      "description": "Synthetic distribution-line inspection recommendation.",
+      "cost": 1,
+      "cost_unit": "synthetic_cost_units",
+      "policy_class": "discretionary_recovery",
+      "class_rank": 1,
+      "priority_rank": 2,
+      "required_preconditions": [
+        "action_plan_authorized",
+        "inspection_team_available"
+      ],
+      "resource_claims": {
+        "repair_crews": 1
+      }
+    },
+    {
+      "action_id": "release_storage_reserve",
+      "description": "Synthetic storage-reserve recommendation.",
+      "cost": 2,
+      "cost_unit": "synthetic_cost_units",
+      "policy_class": "discretionary_recovery",
+      "class_rank": 1,
+      "priority_rank": 3,
+      "required_preconditions": [
+        "action_plan_authorized",
+        "reserve_capacity_available"
+      ],
+      "resource_claims": {
+        "storage_release_slot": 1
+      }
+    }
+  ],
+  "cases": [
+    {
+      "case_id": "compound-trigger-overload",
+      "status": "synthetic_assumption",
+      "budget": 4,
+      "candidates": [
+        {
+          "candidate_id": "reserve-signal",
+          "action_id": "release_storage_reserve",
+          "available_preconditions": [
+            "action_plan_authorized",
+            "reserve_capacity_available"
+          ]
+        },
+        {
+          "candidate_id": "line-inspection-signal",
+          "action_id": "inspect_distribution_line",
+          "available_preconditions": [
+            "action_plan_authorized",
+            "inspection_team_available"
+          ]
+        },
+        {
+          "candidate_id": "backup-signal",
+          "action_id": "deploy_backup_power",
+          "available_preconditions": [
+            "action_plan_authorized",
+            "backup_system_available"
+          ]
+        },
+        {
+          "candidate_id": "crew-signal",
+          "action_id": "preposition_repair_crews",
+          "available_preconditions": [
+            "action_plan_authorized",
+            "crew_available"
+          ]
+        }
+      ],
+      "expected_status": "arbitration_complete",
+      "expected_selected_actions": [
+        "deploy_backup_power",
+        "preposition_repair_crews"
+      ],
+      "expected_total_selected_cost": 4,
+      "expected_remaining_budget": 0,
+      "expected_decisions": [
+        {
+          "candidate_id": "backup-signal",
+          "action_id": "deploy_backup_power",
+          "disposition": "selected",
+          "reason": "selected_within_shared_budget_and_resource_capacity",
+          "cost": 3,
+          "budget_before": 4,
+          "budget_after": 1
+        },
+        {
+          "candidate_id": "crew-signal",
+          "action_id": "preposition_repair_crews",
+          "disposition": "selected",
+          "reason": "selected_within_shared_budget_and_resource_capacity",
+          "cost": 1,
+          "budget_before": 1,
+          "budget_after": 0
+        },
+        {
+          "candidate_id": "line-inspection-signal",
+          "action_id": "inspect_distribution_line",
+          "disposition": "deferred_resource_conflict",
+          "reason": "resource_capacity_exhausted_by_higher_priority_selection",
+          "cost": 1,
+          "budget_before": 0,
+          "budget_after": 0
+        },
+        {
+          "candidate_id": "reserve-signal",
+          "action_id": "release_storage_reserve",
+          "disposition": "deferred_shared_budget",
+          "reason": "insufficient_shared_budget_after_higher_priority_selections",
+          "cost": 2,
+          "budget_before": 0,
+          "budget_after": 0
+        }
+      ]
+    },
+    {
+      "case_id": "protected-floor-infeasible",
+      "status": "synthetic_assumption",
+      "budget": 4,
+      "candidates": [
+        {
+          "candidate_id": "crew-signal",
+          "action_id": "preposition_repair_crews",
+          "available_preconditions": [
+            "action_plan_authorized",
+            "crew_available"
+          ]
+        },
+        {
+          "candidate_id": "water-signal",
+          "action_id": "deliver_emergency_water",
+          "available_preconditions": [
+            "action_plan_authorized",
+            "water_delivery_available"
+          ]
+        },
+        {
+          "candidate_id": "backup-signal",
+          "action_id": "deploy_backup_power",
+          "available_preconditions": [
+            "action_plan_authorized",
+            "backup_system_available"
+          ]
+        }
+      ],
+      "expected_status": "manual_review_infeasible_protected_tier",
+      "expected_selected_actions": [],
+      "expected_total_selected_cost": 0,
+      "expected_remaining_budget": 4,
+      "expected_decisions": [
+        {
+          "candidate_id": "backup-signal",
+          "action_id": "deploy_backup_power",
+          "disposition": "manual_review_infeasible_protected_tier",
+          "reason": "protected_service_floor_bundle_exceeds_shared_budget",
+          "cost": 3,
+          "budget_before": 4,
+          "budget_after": 4
+        },
+        {
+          "candidate_id": "water-signal",
+          "action_id": "deliver_emergency_water",
+          "disposition": "manual_review_infeasible_protected_tier",
+          "reason": "protected_service_floor_bundle_exceeds_shared_budget",
+          "cost": 2,
+          "budget_before": 4,
+          "budget_after": 4
+        },
+        {
+          "candidate_id": "crew-signal",
+          "action_id": "preposition_repair_crews",
+          "disposition": "blocked_by_protected_review",
+          "reason": "blocked_pending_operator_review_of_protected_floor_feasibility",
+          "cost": 1,
+          "budget_before": 4,
+          "budget_after": 4
+        }
+      ]
+    },
+    {
+      "case_id": "protected-precondition-missing",
+      "status": "synthetic_assumption",
+      "budget": 4,
+      "candidates": [
+        {
+          "candidate_id": "crew-signal",
+          "action_id": "preposition_repair_crews",
+          "available_preconditions": [
+            "action_plan_authorized",
+            "crew_available"
+          ]
+        },
+        {
+          "candidate_id": "backup-signal",
+          "action_id": "deploy_backup_power",
+          "available_preconditions": [
+            "action_plan_authorized"
+          ]
+        }
+      ],
+      "expected_status": "manual_review_protected_precondition",
+      "expected_selected_actions": [],
+      "expected_total_selected_cost": 0,
+      "expected_remaining_budget": 4,
+      "expected_decisions": [
+        {
+          "candidate_id": "backup-signal",
+          "action_id": "deploy_backup_power",
+          "disposition": "manual_review_precondition_missing",
+          "reason": "protected_action_missing_required_precondition",
+          "cost": 3,
+          "budget_before": 4,
+          "budget_after": 4
+        },
+        {
+          "candidate_id": "crew-signal",
+          "action_id": "preposition_repair_crews",
+          "disposition": "blocked_by_protected_review",
+          "reason": "blocked_pending_operator_review_of_protected_floor_feasibility",
+          "cost": 1,
+          "budget_before": 4,
+          "budget_after": 4
+        }
+      ]
+    },
+    {
+      "case_id": "optional-resource-contention",
+      "status": "synthetic_assumption",
+      "budget": 4,
+      "candidates": [
+        {
+          "candidate_id": "line-inspection-signal",
+          "action_id": "inspect_distribution_line",
+          "available_preconditions": [
+            "action_plan_authorized",
+            "inspection_team_available"
+          ]
+        },
+        {
+          "candidate_id": "reserve-signal",
+          "action_id": "release_storage_reserve",
+          "available_preconditions": [
+            "action_plan_authorized",
+            "reserve_capacity_available"
+          ]
+        },
+        {
+          "candidate_id": "crew-signal",
+          "action_id": "preposition_repair_crews",
+          "available_preconditions": [
+            "action_plan_authorized",
+            "crew_available"
+          ]
+        }
+      ],
+      "expected_status": "arbitration_complete",
+      "expected_selected_actions": [
+        "preposition_repair_crews",
+        "release_storage_reserve"
+      ],
+      "expected_total_selected_cost": 3,
+      "expected_remaining_budget": 1,
+      "expected_decisions": [
+        {
+          "candidate_id": "crew-signal",
+          "action_id": "preposition_repair_crews",
+          "disposition": "selected",
+          "reason": "selected_within_shared_budget_and_resource_capacity",
+          "cost": 1,
+          "budget_before": 4,
+          "budget_after": 3
+        },
+        {
+          "candidate_id": "line-inspection-signal",
+          "action_id": "inspect_distribution_line",
+          "disposition": "deferred_resource_conflict",
+          "reason": "resource_capacity_exhausted_by_higher_priority_selection",
+          "cost": 1,
+          "budget_before": 3,
+          "budget_after": 3
+        },
+        {
+          "candidate_id": "reserve-signal",
+          "action_id": "release_storage_reserve",
+          "disposition": "selected",
+          "reason": "selected_within_shared_budget_and_resource_capacity",
+          "cost": 2,
+          "budget_before": 3,
+          "budget_after": 1
+        }
+      ]
+    },
+    {
+      "case_id": "empty-candidate-set",
+      "status": "synthetic_assumption",
+      "budget": 4,
+      "candidates": [],
+      "expected_status": "no_candidates",
+      "expected_selected_actions": [],
+      "expected_total_selected_cost": 0,
+      "expected_remaining_budget": 4,
+      "expected_decisions": []
+    }
+  ],
+  "budget_sweep": {
+    "description": "Same fixed candidate set, evaluated at increasing synthetic budgets. A larger budget may unlock an action but must not change the deterministic ordering or revoke a previously selected action.",
+    "case_id": "compound-trigger-overload",
+    "budgets": [
+      3,
+      4,
+      5,
+      6
+    ],
+    "expected_selected_actions_by_budget": {
+      "3": [
+        "deploy_backup_power"
+      ],
+      "4": [
+        "deploy_backup_power",
+        "preposition_repair_crews"
+      ],
+      "5": [
+        "deploy_backup_power",
+        "preposition_repair_crews"
+      ],
+      "6": [
+        "deploy_backup_power",
+        "preposition_repair_crews",
+        "release_storage_reserve"
+      ]
+    }
+  },
+  "adversarial_mutations": [
+    {
+      "mutation_id": "negative-budget",
+      "expected_disposition": "reject_case"
+    },
+    {
+      "mutation_id": "unknown-action",
+      "expected_disposition": "reject_case"
+    },
+    {
+      "mutation_id": "duplicate-candidate-id",
+      "expected_disposition": "reject_case"
+    },
+    {
+      "mutation_id": "non-authoritative-cost-override",
+      "expected_disposition": "reject_case"
+    },
+    {
+      "mutation_id": "negative-action-cost",
+      "expected_disposition": "reject_contract"
+    },
+    {
+      "mutation_id": "resource-claim-above-capacity",
+      "expected_disposition": "reject_contract"
+    },
+    {
+      "mutation_id": "automatic-dispatch-enabled",
+      "expected_disposition": "reject_contract"
+    }
+  ],
+  "claim_ceiling": {
+    "evidence_status": "synthetic_assumption",
+    "calibration_status": "not_calibrated",
+    "geographic_scope": "fictional_only",
+    "permits_claims": [
+      "deterministic arbitration semantics in frozen synthetic cases"
+    ],
+    "does_not_permit_claims": [
+      "real utility costs",
+      "optimal public policy",
+      "calibrated service priority",
+      "empirical resilience uplift",
+      "automatic dispatch",
+      "Johannesburg or South African operational recommendations"
+    ]
+  }
+}
