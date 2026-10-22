@@ -113,7 +113,10 @@ fn utility_accuracy_permille(targets: &[usize], depth: usize, profile: Profile) 
         }
     }
 
-    correct.saturating_mul(1_000).checked_div(total).unwrap_or(1_000)
+    correct
+        .saturating_mul(1_000)
+        .checked_div(total)
+        .unwrap_or(1_000)
 }
 
 fn nearest_rank(values: &[usize], numerator: usize, denominator: usize) -> usize {
@@ -216,11 +219,7 @@ mod tests {
             }
         }
         for (attribute, &positive_count) in positives.iter().enumerate() {
-            assert_eq!(
-                positive_count,
-                SUBJECT_COUNT / 2,
-                "attribute {attribute}"
-            );
+            assert_eq!(positive_count, SUBJECT_COUNT / 2, "attribute {attribute}");
         }
     }
 
