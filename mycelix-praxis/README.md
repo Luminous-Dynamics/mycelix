@@ -153,6 +153,8 @@ See [`docs/adr/`](docs/adr/) for all ADRs.
 - **[PedBench synthetic seed cases](benchmarks/pedbench-v1/seed-cases.json)**: Ten adversarial cases spanning misconceptions, answer leakage, mastery overclaim, language access, source integrity, science and writing; explicitly unvalidated pending educator annotation
 - **[PedBench run-receipt schema](benchmarks/pedbench-v1/run-receipt.schema.json)**: Binds split, model/configuration, policy/rubric digests, per-case results, uncertainty and held-out replication requirements for strong claims
 - **[Learning Impact Protocol v1](benchmarks/pedbench-v1/learning-impact-protocol.md)**: Separates content validity, tutor behaviour, learner outcomes, and independent replication; defines delayed unaided transfer and the aided-to-unaided gap
+- **[Community authoring quick-start](docs/community-authoring.md)**: Plain-language workflow from choosing a starter to local validation and review-ready export
+- **[CreatorBench v1](benchmarks/creatorbench-v1/README.md)**: Proposed usability, accessibility, safe-remix and reviewer-efficiency benchmarks for non-programmer contributors
 
 ### Policies
 
