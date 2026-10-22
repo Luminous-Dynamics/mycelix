@@ -262,6 +262,37 @@ pub fn validate_measurement_authorization(record: &Value) -> Result<(), Vec<Stri
     }
 }
 
+/// Check only the record's *declared* validity window at a caller-supplied decision time.
+/// This is not signature verification, authority resolution, revocation lookup, or site permission.
+pub fn declared_validity_window_active_at(
+    record: &Value,
+    now: DateTime<chrono::FixedOffset>,
+) -> Result<(), Vec<String>> {
+    validate_measurement_authorization(record)?;
+    let parse_time = |field: &str| -> Result<DateTime<chrono::FixedOffset>, Vec<String>> {
+        record
+            .get(field)
+            .and_then(Value::as_str)
+            .and_then(|raw| DateTime::parse_from_rfc3339(raw).ok())
+            .ok_or_else(|| vec![format!("$.{field}: expected a valid RFC 3339 timestamp")])
+    };
+    let start = parse_time("valid_from")?;
+    let end = parse_time("valid_until")?;
+    if now < start {
+        return Err(vec![
+            "$.valid_from: declared authorization window is not active yet".to_owned(),
+        ]);
+    }
+    // The end is exclusive: an authorization is no longer in its declared
+    // interval at valid_until itself.
+    if now >= end {
+        return Err(vec![
+            "$.valid_until: declared authorization window has expired".to_owned(),
+        ]);
+    }
+    Ok(())
+}
+
 fn validate_evidence_binding(
     record: &Value,
     status_field: &str,
@@ -465,6 +496,27 @@ mod tests {
                 .iter()
                 .any(|error| error.contains("strictly later than valid_from"))
         );
+    }
+
+    #[test]
+    fn declared_validity_window_is_half_open_and_uses_decision_time() {
+        let record = fixture();
+        let at_start = DateTime::parse_from_rfc3339("2026-10-21T00:00:00Z").unwrap();
+        let just_before_start =
+            DateTime::parse_from_rfc3339("2026-10-20T23:59:59Z").unwrap();
+        let at_end = DateTime::parse_from_rfc3339("2026-12-31T23:59:59Z").unwrap();
+        let just_before_end = DateTime::parse_from_rfc3339("2026-12-31T23:59:58Z").unwrap();
+
+        assert!(declared_validity_window_active_at(&record, at_start).is_ok());
+        assert!(declared_validity_window_active_at(&record, just_before_end).is_ok());
+        assert!(declared_validity_window_active_at(&record, just_before_start)
+            .unwrap_err()
+            .iter()
+            .any(|error| error.contains("not active yet")));
+        assert!(declared_validity_window_active_at(&record, at_end)
+            .unwrap_err()
+            .iter()
+            .any(|error| error.contains("has expired")));
     }
 
     #[test]
