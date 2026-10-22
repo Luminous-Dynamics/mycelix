@@ -69,10 +69,10 @@ fn task_predicate(attribute: usize, value: u8) -> bool {
     match attribute {
         0 => value >= 2,
         1 => value >= 2,
-        2 => value % 2 == 1,
+        2 => value & 1 == 1,
         3 => value >= 2,
         4 => value <= 1,
-        5 => value % 2 == 0,
+        5 => value & 1 == 0,
         _ => unreachable!("attribute index is bounded by ATTRIBUTE_COUNT"),
     }
 }
@@ -89,8 +89,12 @@ fn disclosure_signature(
     depth: usize,
     profile: DisclosureProfile,
 ) -> Vec<u8> {
-    (0..depth)
-        .map(|attribute| visible_value(profile, attribute, record.attributes[attribute]))
+    record
+        .attributes
+        .iter()
+        .enumerate()
+        .take(depth)
+        .map(|(attribute, &value)| visible_value(profile, attribute, value))
         .collect()
 }
 
@@ -152,9 +156,11 @@ fn correlated_cohort_oracle(
     for candidate_cohort in 0..COHORT_COUNT {
         let candidate = cohort_attributes(candidate_cohort);
         let mut matches = true;
-        for attribute in 0..depth {
-            if visible_value(profile, attribute, target[attribute])
-                != visible_value(profile, attribute, candidate[attribute])
+        for (attribute, (&target_value, &candidate_value)) in
+            target.iter().zip(candidate.iter()).enumerate().take(depth)
+        {
+            if visible_value(profile, attribute, target_value)
+                != visible_value(profile, attribute, candidate_value)
             {
                 matches = false;
                 break;
@@ -195,8 +201,7 @@ fn task_utility_permille(
     let mut correct = 0_usize;
     let mut total = 0_usize;
     for record in records {
-        for attribute in 0..depth {
-            let original = record.attributes[attribute];
+        for (attribute, &original) in record.attributes.iter().enumerate().take(depth) {
             let observed = visible_value(profile, attribute, original);
             let answer = match profile {
                 DisclosureProfile::ExactAttribute => task_predicate(attribute, observed),
@@ -299,7 +304,12 @@ fn render_report(populations: &[(PopulationKind, Vec<Record>)]) -> String {
     writeln!(&mut output, "# output_label_policy=no_subject_or_cohort_labels").unwrap();
     writeln!(
         &mut output,
-        "population,profile,depth,min_candidates,p05_candidates,p50_candidates,p90_candidates,p95_candidates,max_candidates,unique_rate_permille,at_most_10_rate_permille,at_most_100_rate_permille,candidate_retention_permille,task_utility_accuracy_permille,record_count"
+        concat!(
+            "population,profile,depth,min_candidates,p05_candidates,p50_candidates,",
+            "p90_candidates,p95_candidates,max_candidates,unique_rate_permille,",
+            "at_most_10_rate_permille,at_most_100_rate_permille,",
+            "candidate_retention_permille,task_utility_accuracy_permille,record_count"
+        )
     )
     .unwrap();
 
@@ -319,7 +329,9 @@ fn render_report(populations: &[(PopulationKind, Vec<Record>)]) -> String {
 }
 
 fn render_features(records: &[Record]) -> String {
-    let mut output = String::from("attribute_0\tattribute_1\tattribute_2\tattribute_3\tattribute_4\tattribute_5\n");
+    let mut output = String::from(
+        "attribute_0\\tattribute_1\\tattribute_2\\tattribute_3\\tattribute_4\\tattribute_5\\n",
+    );
     for record in records {
         writeln!(
             &mut output,
@@ -429,10 +441,11 @@ mod tests {
         for kind in PopulationKind::ALL {
             let records = build_population(kind);
             for record in &records {
-                for attribute in 0..ATTRIBUTE_COUNT {
-                    let original = record.attributes[attribute];
-                    let exact = visible_value(DisclosureProfile::ExactAttribute, attribute, original);
-                    let predicate = visible_value(DisclosureProfile::PredicateOnly, attribute, original);
+                for (attribute, &original) in record.attributes.iter().enumerate() {
+                    let exact =
+                        visible_value(DisclosureProfile::ExactAttribute, attribute, original);
+                    let predicate =
+                        visible_value(DisclosureProfile::PredicateOnly, attribute, original);
                     assert_eq!(
                         task_predicate(attribute, exact),
                         predicate == 1,
@@ -451,11 +464,14 @@ mod tests {
                 let series: Vec<Vec<usize>> = (1..=ATTRIBUTE_COUNT)
                     .map(|depth| candidate_counts(&records, depth, profile))
                     .collect();
-                for index in 0..records.len() {
-                    for depth in 1..series.len() {
+                for (depth, pair) in series.windows(2).enumerate() {
+                    for (index, (previous, current)) in
+                        pair[0].iter().zip(pair[1].iter()).enumerate()
+                    {
                         assert!(
-                            series[depth][index] <= series[depth - 1][index],
-                            "candidate set expanded for {kind:?}/{profile:?}, record={index}"
+                            current <= previous,
+                            "candidate set expanded for {kind:?}/{profile:?}, record={index}, depth={}",
+                            depth + 2
                         );
                     }
                 }
