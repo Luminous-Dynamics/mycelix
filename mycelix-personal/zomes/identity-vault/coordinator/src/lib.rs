@@ -254,8 +254,7 @@ fn project_profile_fields(
                     profile
                         .avatar
                         .clone()
-                        .map(serde_json::Value::String)
-                        .unwrap_or(serde_json::Value::Null),
+                        .map_or(serde_json::Value::Null, serde_json::Value::String),
                 );
             }
             _ => return Err("Identity disclosure scope contains an unsupported field"),
