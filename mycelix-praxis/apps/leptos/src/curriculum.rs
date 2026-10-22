@@ -576,6 +576,10 @@ pub struct NodeProgress {
     /// Completed interactive activities; this is exposure/participation, not mastery.
     #[serde(default)]
     pub activity_completions: u32,
+    /// Stable local identifiers of practice items already counted by BKT.
+    /// Replays of the same prompt must not inflate the posterior.
+    #[serde(default)]
+    pub scored_item_ids: Vec<String>,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -696,6 +700,7 @@ impl ProgressStore {
             self_reported_attempts: 0,
             self_reported_correct: 0,
             activity_completions: 0,
+            scored_item_ids: Vec::new(),
         };
         self.nodes.get(node_id).unwrap_or(&DEFAULT)
     }
@@ -1105,6 +1110,26 @@ impl ProgressStore {
         }
     }
 
+    /// Record a scored response only once per stable item identifier. This
+    /// prevents replaying the same prompt from repeatedly inflating BKT. Returns
+    /// false when that item was already scored for this node.
+    pub fn record_response_for_item(
+        &mut self,
+        node_id: &str,
+        item_id: &str,
+        correct: bool,
+    ) -> bool {
+        {
+            let progress = self.nodes.entry(node_id.to_string()).or_default();
+            if progress.scored_item_ids.iter().any(|seen| seen == item_id) {
+                return false;
+            }
+            progress.scored_item_ids.push(item_id.to_owned());
+        }
+        self.record_response(node_id, correct);
+        true
+    }
+
     /// Record completion of an interactive activity. Activity completion is a
     /// separate participation signal: it does not increase mastery, attempts,
     /// correctness, or the BKT posterior.
@@ -1503,6 +1528,47 @@ mod evidence_first_progress_tests {
         assert_eq!(node.mastery_permille, 0);
         assert_eq!(progress.bkt("math.fractions").attempts, 0);
         assert_eq!(node.status, ProgressStatus::Studying);
+    }
+
+    #[test]
+    fn repeating_the_same_scored_item_does_not_inflate_bkt() {
+        let mut progress = ProgressStore::default();
+        for _ in 0..4 {
+            assert!(progress.record_response_for_item(
+                "math.multiplication",
+                "lesson-digest:practice-1",
+                true
+            ));
+        }
+        let attempts_before_repeat = progress.get("math.multiplication").attempts;
+        let bkt_before_repeat = progress.bkt("math.multiplication").p_mastery;
+
+        assert!(
+            !progress.record_response_for_item(
+                "math.multiplication",
+                "lesson-digest:practice-1",
+                true
+            ),
+            "a replayed item must not count as new evidence"
+        );
+        assert_eq!(
+            progress.get("math.multiplication").attempts,
+            attempts_before_repeat
+        );
+        assert_eq!(
+            progress.bkt("math.multiplication").p_mastery,
+            bkt_before_repeat
+        );
+
+        assert!(progress.record_response_for_item(
+            "math.multiplication",
+            "lesson-digest:practice-2",
+            true
+        ));
+        assert_eq!(
+            progress.get("math.multiplication").attempts,
+            attempts_before_repeat + 1
+        );
     }
 
     #[test]
