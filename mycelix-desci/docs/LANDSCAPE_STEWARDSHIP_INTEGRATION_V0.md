@@ -50,7 +50,7 @@ A separate [landscape-measurement-authorization-v0.schema.json](../schemas/lands
 
 A positive consent state requires a corresponding SHA-256 evidence reference; denied, withdrawn, expired or unknown states must not claim positive evidence. Site-access authorization is governed by the same rule. Public publication requires separate granted publication consent and may not expose exact coordinates. No coordinates, names or contact details are carried in this authorization payload.
 
-The module at mycelix-desci/src/core/src/landscape_measurement_authorization.rs provides validate_measurement_authorization, a structural safety gate for these invariants. The Rust gate also rejects undeclared properties, matching the schema's additionalProperties=false policy rather than relying on schema linting alone. The example is explicitly synthetic and not-verified; its hashes are placeholders. This validator does not authenticate the digest target, signatures, land rights, current time window, or authority resolution. A host must resolve the references against trusted Mycelix records, verify signed evidence, check expiry/revocation at decision time, and only then decide whether a real operation is authorized. A shape-valid digest never grants site access.
+The module at mycelix-desci/src/core/src/landscape_measurement_authorization.rs provides validate_measurement_authorization, a structural safety gate for these invariants. The Rust gate rejects undeclared properties, parses the RFC 3339 creation/validity timestamps, and rejects a validity window that is empty or reversed, matching the schema's closed-object policy rather than relying on schema linting alone. These checks do not decide whether the interval is active now; the trusted host must check current time and revocation when making an authorization decision. The example is explicitly synthetic and not-verified; its hashes are placeholders. This validator does not authenticate the digest target, signatures, land rights, current time window, or authority resolution. A host must resolve the references against trusted Mycelix records, verify signed evidence, check expiry/revocation at decision time, and only then decide whether a real operation is authorized. A shape-valid digest never grants site access.
 
 ### Runtime safety gate (policy invariants only)
 
@@ -79,6 +79,8 @@ Maintenance commitments are promises with a responsible-party reference, cadence
 ## Executable contract tests
 
 The path-filtered workflow [landscape-stewardship.yml](../../.github/workflows/landscape-stewardship.yml) checks JSON syntax, Rust formatting, the stewardship profile safety-gate tests, and the scoped measurement-authorization tests for draft PRs as well as ready PRs. It intentionally does not claim that the profile is persisted through the signed event API yet.
+
+The exact source modules and their unit tests run through a small isolated Cargo harness. This is deliberate: the broader core package currently contains an unrelated missing `scientific_credentials.rs` module reference, which causes package-wide `cargo fmt` to stop before it reaches these files. The harness does not claim the entire Mycelix core crate compiled.
 
 ## Acceptance gates for runtime integration
 
