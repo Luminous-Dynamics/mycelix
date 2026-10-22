@@ -82,6 +82,61 @@ fn sha256_hex(bytes: &[u8]) -> String {
     hex_encode(&Sha256::digest(bytes))
 }
 
+fn valid_rfc3339(value: &str) -> bool {
+    let bytes = value.as_bytes();
+    if bytes.len() < 20
+        || bytes.get(4) != Some(&b'-')
+        || bytes.get(7) != Some(&b'-')
+        || !matches!(bytes.get(10), Some(b'T' | b't'))
+        || bytes.get(13) != Some(&b':')
+        || bytes.get(16) != Some(&b':')
+    {
+        return false;
+    }
+    let number = |start: usize, length: usize| -> Option<u32> {
+        let slice = bytes.get(start..start + length)?;
+        if !slice.iter().all(u8::is_ascii_digit) {
+            return None;
+        }
+        std::str::from_utf8(slice).ok()?.parse().ok()
+    };
+    let (Some(month), Some(day), Some(hour), Some(minute), Some(second)) = (
+        number(5, 2), number(8, 2), number(11, 2), number(14, 2), number(17, 2)
+    ) else { return false; };
+    let Some(year) = number(0, 4) else { return false; };
+    let leap = year % 4 == 0 && (year % 100 != 0 || year % 400 == 0);
+    let month_days = match month {
+        1 | 3 | 5 | 7 | 8 | 10 | 12 => 31,
+        4 | 6 | 9 | 11 => 30,
+        2 if leap => 29,
+        2 => 28,
+        _ => return false,
+    };
+    if day == 0 || day > month_days || hour > 23 || minute > 59 || second > 60 {
+        return false;
+    }
+
+    let mut cursor = 19usize;
+    if bytes.get(cursor) == Some(&b'.') {
+        cursor += 1;
+        let start = cursor;
+        while bytes.get(cursor).is_some_and(u8::is_ascii_digit) { cursor += 1; }
+        if cursor == start { return false; }
+    }
+    match bytes.get(cursor) {
+        Some(b'Z' | b'z') => cursor + 1 == bytes.len(),
+        Some(b'+' | b'-') => {
+            if cursor + 6 != bytes.len() || bytes.get(cursor + 3) != Some(&b':') {
+                return false;
+            }
+            let Some(offset_hour) = number(cursor + 1, 2) else { return false; };
+            let Some(offset_minute) = number(cursor + 4, 2) else { return false; };
+            offset_hour <= 23 && offset_minute <= 59
+        }
+        _ => false,
+    }
+}
+
 fn rights_are_coherent(metadata: &SourceMetadata) -> bool {
     match metadata.rights_status.as_str() {
         "open_reuse" => metadata.evaluation_allowed && metadata.redistribution_allowed,
@@ -111,7 +166,7 @@ fn required_bool(values: &BTreeMap<String, String>, flag: &str) -> Result<bool, 
 }
 
 fn parse_arguments(args: &[String]) -> Result<BTreeMap<String, String>, String> {
-    if args.iter().any(|argument| argument == "--help" || argument == "-h") {
+    if args.len() == 1 && (args[0] == "--help" || args[0] == "-h") {
         return Err("USAGE: nrvca-validator hash-source --file PATH --source-id ID --publisher NAME --source-uri URI --publication-id ID --vintage VINTAGE --captured-at RFC3339 --rights-status open_reuse|permission_granted|evaluation_only|restricted|prohibited|unknown --rights-evidence-uri URI --evaluation-allowed true|false --redistribution-allowed true|false --locator-id ID --locator TEXT --extraction-method METHOD --tool-version VERSION [--expected-sha256 HEX] [--output PATH]".to_owned());
     }
     if args.len() % 2 != 0 {
@@ -150,6 +205,9 @@ pub fn receipt_from_cli(args: &[String]) -> Result<HashSourceOutput, String> {
         extraction_method: required(&values, "--extraction-method")?.to_owned(),
         tool_version: required(&values, "--tool-version")?.to_owned(),
     };
+    if !valid_rfc3339(&metadata.captured_at) {
+        return Err("--captured-at must be a valid RFC 3339 timestamp with a timezone".to_owned());
+    }
     if !rights_are_coherent(&metadata) {
         return Err("rights status/evaluation/redistribution flags are inconsistent; hash was not admitted as a valid source receipt".to_owned());
     }
@@ -299,6 +357,15 @@ mod tests {
             "--extraction-method".into(), "PDF text extraction".into(),
             "--tool-version".into(), "test-intake-0".into(),
         ]
+    }
+
+    #[test]
+    fn capture_timestamp_requires_timezone_and_valid_calendar_fields() {
+        assert!(valid_rfc3339("2026-10-22T17:00:00+02:00"));
+        assert!(valid_rfc3339("2024-02-29T23:59:60Z"));
+        assert!(!valid_rfc3339("2026-02-29T17:00:00Z"));
+        assert!(!valid_rfc3339("2026-10-22T17:00:00"));
+        assert!(!valid_rfc3339("2026-13-22T17:00:00Z"));
     }
 
     #[test]
