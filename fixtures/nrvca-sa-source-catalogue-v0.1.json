@@ -210,9 +210,13 @@
     "announcement_source": "https://www.statssa.gov.za/publications/P0441/P04412ndQuarter2026.pdf",
     "as_announced": "Stats SA said national accounts would be rebased to a 2022 base year, with periodic datasets incorporated, and expected the benchmarked/rebased estimates in October 2026.",
     "as_of_date": "2026-10-22",
-    "verification_state": "release_status_requires_current_publisher_confirmation_before_ingest",
+    "verification_state": "publisher_page_still_reports_expected_later_in_2026_direct_artifact_status_unverified",
     "methodological_implication": "Do not assume the Q2 2026 workbook is the latest comparable vintage. Pin the pre-rebase publication and any newly published post-rebase version separately, then document overlap-period revisions, base-year/price-basis change, benchmark-source additions, classification changes, and reconciliation differences.",
     "latest_release_page": "https://www.statssa.gov.za/?PPN=P0441&page_id=1854",
-    "no_overwrite_rule": "A post-rebase release creates a new source-vintage record and new digest; do not overwrite the pre-rebase bytes or splice series without a declared linking method."
+    "no_overwrite_rule": "A post-rebase release creates a new source-vintage record and new digest; do not overwrite the pre-rebase bytes or splice series without a declared linking method.",
+    "status_check_date": "2026-10-22",
+    "latest_official_status_source": "https://www.statssa.gov.za/?PPN=P0441&SCH=74517&page_id=1856",
+    "latest_official_status_observed": "The available official key-findings page for annual estimates of 2025 still describes rebasing/benchmarking to a 2022 base year as in progress, with rebased/benchmarked estimates expected later in 2026.",
+    "interpretation": "This official page does not establish whether a post-rebase release is already available elsewhere or absent. Do not infer non-publication from the page wording alone. Directly verify the current release page and obtain the actual source artifact before freezing a vintage."
   }
 }
