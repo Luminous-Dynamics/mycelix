@@ -473,7 +473,9 @@ mod tests {
                 for (cohort, &cohort_size) in COHORT_SIZES.iter().enumerate() {
                     let expected = correlated_cohort_oracle(cohort, depth, profile);
                     let cohort_end = cohort_start + cohort_size;
-                    for (offset, &observed) in sizes[cohort_start..cohort_end].iter().enumerate() {
+                    for (offset, &observed) in
+                        sizes[cohort_start..cohort_end].iter().enumerate()
+                    {
                         assert_eq!(
                             observed,
                             expected,
