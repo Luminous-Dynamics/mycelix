@@ -1,0 +1,9 @@
+[package]
+name = "finance-route-clearing-optimizer"
+version = "0.1.0"
+edition = "2021"
+license = "AGPL-3.0-or-later"
+description = "Pure Rust reference min-cost flow planner for liquidity-bounded mutual-credit settlement routes"
+
+[lib]
+path = "src/lib.rs"
