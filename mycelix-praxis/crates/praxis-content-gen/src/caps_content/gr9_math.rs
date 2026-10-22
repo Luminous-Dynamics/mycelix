@@ -72,13 +72,13 @@ impl TopicContent for Gr9AlgebraExpressionsTopic {
 
     fn practice_problem(&self, difficulty: u16) -> String {
         match difficulty {
-            0..=200 => "Simplify 2x + 3x.\n5x\nBoth terms are like terms, so add the coefficients 2 + 3 and keep x.\n2x, 5x, 5x^2\nHint: Check whether both terms have the same variable part.\nHint: Add the coefficients; do not multiply the x symbols.".to_string(),
-            201..=300 => "Expand 3(x + 2).\n3x + 6\nMultiply 3 by both terms inside the brackets: 3 times x and 3 times 2.\n3x + 2, 3x + 6, x + 6\nHint: The outside factor must multiply every term inside the brackets.\nHint: Calculate 3 times x and 3 times 2 separately.".to_string(),
+            0..=200 => "Simplify 2x + 3x.\n5x\nBoth terms are like terms, so add the coefficients 2 + 3 and keep x.\n2x, 8x, 5x^2\nHint: Check whether both terms have the same variable part.\nHint: Add the coefficients; do not multiply the x symbols.".to_string(),
+            201..=300 => "Expand 3(x + 2).\n3x + 6\nMultiply 3 by both terms inside the brackets: 3 times x and 3 times 2.\n3x + 2, 3x + 5, x + 6\nHint: The outside factor must multiply every term inside the brackets.\nHint: Calculate 3 times x and 3 times 2 separately.".to_string(),
             301..=400 => "Simplify 4a + 3a - a.\n6a\nCombine the coefficients: 4 + 3 - 1 = 6, then keep the variable a.\n6, 8a, 6a^2\nHint: The terms all contain the same variable a.\nHint: Work out 4 + 3 - 1.".to_string(),
-            401..=550 => "Simplify 2(x + 5) + 3x.\n5x + 10\nFirst expand to 2x + 10 + 3x, then combine 2x and 3x to get 5x + 10.\n5x + 5, 5x + 10, 5x + 15\nHint: Expand the brackets before collecting like terms.\nHint: Combine the x terms and leave the constant 10.".to_string(),
-            551..=650 => "Factorise 8x + 12 using the highest common factor.\n4(2x + 3)\nThe highest common factor is 4; 8x divided by 4 is 2x and 12 divided by 4 is 3.\n2(4x + 6), 4(2x + 3), 8(x + 12)\nHint: Find the greatest number that divides both 8 and 12.\nHint: Divide every term by that factor and place it outside the brackets.".to_string(),
+            401..=550 => "Simplify 2(x + 5) + 3x.\n5x + 10\nFirst expand to 2x + 10 + 3x, then combine 2x and 3x to get 5x + 10.\n5x + 5, 5x + 12, 5x + 15\nHint: Expand the brackets before collecting like terms.\nHint: Combine the x terms and leave the constant 10.".to_string(),
+            551..=650 => "Factorise 8x + 12 using the highest common factor.\n4(2x + 3)\nThe highest common factor is 4; 8x divided by 4 is 2x and 12 divided by 4 is 3.\n2(4x + 6), 4(2x + 2), 8(x + 12)\nHint: Find the greatest number that divides both 8 and 12.\nHint: Divide every term by that factor and place it outside the brackets.".to_string(),
             651..=800 => "Solve 3x + 5 = 20.\nx = 5\nSubtract 5 from both sides to get 3x = 15, then divide both sides by 3.\n3, 5, 25\nHint: Undo addition before undoing multiplication.\nHint: Keep both sides balanced when applying inverse operations.".to_string(),
-            _ => "Simplify 2(3x + 4) - x.\n5x + 8\nExpand to 6x + 8 - x, then combine 6x - x to get 5x + 8.\n5x + 8, 6x + 8, 5x + 4\nHint: Apply the distributive law to both terms in the brackets.\nHint: After expansion, combine only terms with the same variable part.".to_string(),
+            _ => "Simplify 2(3x + 4) - x.\n5x + 8\nExpand to 6x + 8 - x, then combine 6x - x to get 5x + 8.\n5x + 7, 6x + 8, 5x + 4\nHint: Apply the distributive law to both terms in the brackets.\nHint: After expansion, combine only terms with the same variable part.".to_string(),
         }
     }
 
