@@ -205,13 +205,13 @@ fn adaptive_cohorts_with_policy(
             // the target would have taken.
             let branch_too_small = yes_candidates.len() < min_branch_size
                 || no_candidates.len() < min_branch_size;
-            let current_confidence = maximum_sensitive_confidence_ppm(people, &candidates);
+            let current_confidence = sensitive_confidence_ppm(people, &candidates);
             let branch_leaks_too_much = [&yes_candidates, &no_candidates]
                 .into_iter()
                 .any(|branch| {
-                    maximum_sensitive_confidence_ppm(people, branch)
-                        .saturating_sub(current_confidence)
-                        > max_sensitive_uplift_ppm
+                    let after = sensitive_confidence_ppm(people, branch);
+                    after.0.saturating_sub(current_confidence.0) > max_sensitive_uplift_ppm
+                        || after.1.saturating_sub(current_confidence.1) > max_sensitive_uplift_ppm
                 });
             if branch_too_small || branch_leaks_too_much {
                 stopped = min_branch_size > 1 || max_sensitive_uplift_ppm < MILLION;
@@ -237,9 +237,9 @@ fn adaptive_cohorts_with_policy(
     }
 }
 
-fn maximum_sensitive_confidence_ppm(people: &[Person], candidates: &[usize]) -> u64 {
+fn sensitive_confidence_ppm(people: &[Person], candidates: &[usize]) -> (u64, u64) {
     if candidates.is_empty() {
-        return MILLION;
+        return (MILLION, MILLION);
     }
 
     let high_income = candidates
@@ -256,7 +256,7 @@ fn maximum_sensitive_confidence_ppm(people: &[Person], candidates: &[usize]) -> 
         / total;
     let debt_risk_confidence =
         debt_risk.max(candidates.len() - debt_risk) as u64 * MILLION / total;
-    high_income_confidence.max(debt_risk_confidence)
+    (high_income_confidence, debt_risk_confidence)
 }
 
 #[derive(Debug, PartialEq, Eq)]
@@ -513,7 +513,7 @@ mod tests {
     #[test]
     fn adaptive_questions_never_increase_candidate_sets() {
         let people = synthetic_population();
-        let run = adaptive_cohorts_with_policy(&people, 1);
+        let run = adaptive_cohorts_with_policy(&people, 1, MILLION);
 
         for (depth, (previous, current)) in run
             .by_depth
@@ -552,7 +552,7 @@ mod tests {
     #[test]
     fn risk_guard_stops_queries_without_changing_task_answers() {
         let people = synthetic_population();
-        let unbounded = adaptive_cohorts_with_policy(&people, 1);
+        let unbounded = adaptive_cohorts_with_policy(&people, 1, MILLION);
         let guarded = adaptive_cohorts_with_policy(&people, 32, MILLION);
         let last = MAX_ADAPTIVE_QUERIES;
         let unbounded_mean = unbounded.queries_by_depth[last].iter().sum::<usize>();
@@ -611,11 +611,12 @@ mod tests {
 
         for (previous, current) in run.by_depth.iter().zip(run.by_depth.iter().skip(1)) {
             for (target_id, current_cohort) in current.iter().enumerate() {
-                let before = maximum_sensitive_confidence_ppm(&people, &previous[target_id]);
-                let after = maximum_sensitive_confidence_ppm(&people, current_cohort);
+                let before = sensitive_confidence_ppm(&people, &previous[target_id]);
+                let after = sensitive_confidence_ppm(&people, current_cohort);
                 assert!(
-                    after.saturating_sub(before) <= max_uplift_ppm,
-                    "sensitive confidence uplift exceeded threshold for target {target_id}: {before} -> {after}"
+                    after.0.saturating_sub(before.0) <= max_uplift_ppm
+                        && after.1.saturating_sub(before.1) <= max_uplift_ppm,
+                    "sensitive confidence uplift exceeded threshold for target {target_id}: {before:?} -> {after:?}"
                 );
             }
         }
