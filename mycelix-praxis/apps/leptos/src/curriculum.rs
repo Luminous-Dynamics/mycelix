@@ -495,7 +495,7 @@ impl CurriculumGraph {
             .collect();
         candidates.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal));
 
-        // First pass: highest-weight node with all prereqs mastered
+        // First pass: highest-weight not-yet-ready node with progression-ready prerequisites
         for &(idx, _) in &candidates {
             let node = &self.nodes[idx];
             let prereqs = self.prereqs_for(&node.id);
@@ -504,7 +504,7 @@ impl CurriculumGraph {
             }
         }
 
-        // Fallback: first unmastered node with no prerequisites
+        // Fallback: first not-yet-ready node with no prerequisites
         for &(idx, _) in &candidates {
             let node = &self.nodes[idx];
             if self.prereqs_for(&node.id).is_empty() {
