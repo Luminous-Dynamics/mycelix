@@ -6,6 +6,8 @@
 //! teaching materials (lessons, assessments, flashcards) by making multiple
 //! calls to a [`ContentGenerator`] with appropriate [`ContentChannels`].
 
+use std::collections::BTreeSet;
+
 use serde::{Deserialize, Serialize};
 
 use crate::channels::ContentChannels;
@@ -19,7 +21,12 @@ use crate::types::*;
 /// for development, use [`MockGenerator`](crate::mock::MockGenerator).
 pub trait ContentGenerator {
     /// Generate text given channel configuration, context prompt, and token budget.
-    fn generate(&self, channels: &ContentChannels, context: &str, max_tokens: usize) -> GenerationOutput;
+    fn generate(
+        &self,
+        channels: &ContentChannels,
+        context: &str,
+        max_tokens: usize,
+    ) -> GenerationOutput;
 }
 
 /// Output from a single generation call.
@@ -53,9 +60,13 @@ pub struct StandardInput {
 /// Errors from the content generation pipeline.
 #[derive(Debug, thiserror::Error)]
 pub enum ContentGenError {
-    /// All retry attempts produced content below the quality threshold.
+    /// All retry attempts produced low-coherence, hallucination-flagged, or
+    /// known-placeholder content.
     #[error("content quality below threshold after {0} attempts")]
     QualityBelowThreshold(u32),
+    /// A parsed practice item failed deterministic answer/distractor validation.
+    #[error("practice problem failed validation after {attempts} attempts: {reason}")]
+    InvalidPracticeProblem { attempts: u32, reason: &'static str },
     /// The generator returned empty text.
     #[error("generator returned empty text")]
     EmptyGeneration,
@@ -100,9 +111,7 @@ impl<G: ContentGenerator> ContentPipeline<G> {
         match grade_level {
             "PreK" => 0,
             "Kindergarten" => 1,
-            s if s.starts_with("Grade") => {
-                s[5..].parse::<u8>().unwrap_or(6) + 1
-            }
+            s if s.starts_with("Grade") => s[5..].parse::<u8>().unwrap_or(6) + 1,
             "College" => 14,
             "Undergraduate" => 15,
             "Graduate" => 16,
@@ -115,7 +124,10 @@ impl<G: ContentGenerator> ContentPipeline<G> {
     }
 
     /// Generate a complete lesson for a standard.
-    pub fn generate_lesson(&self, standard: &StandardInput) -> Result<GeneratedLesson, ContentGenError> {
+    pub fn generate_lesson(
+        &self,
+        standard: &StandardInput,
+    ) -> Result<GeneratedLesson, ContentGenError> {
         let grade_ord = Self::grade_ordinal(&standard.grade_level);
 
         // 1. Main explanation
@@ -204,7 +216,14 @@ impl<G: ContentGenerator> ContentPipeline<G> {
         num_items: usize,
     ) -> Result<GeneratedAssessment, ContentGenError> {
         let grade_ord = Self::grade_ordinal(&standard.grade_level);
-        let blooms = ["Remember", "Understand", "Apply", "Analyze", "Evaluate", "Create"];
+        let blooms = [
+            "Remember",
+            "Understand",
+            "Apply",
+            "Analyze",
+            "Evaluate",
+            "Create",
+        ];
 
         let items: Vec<AssessmentItem> = (0..num_items)
             .map(|i| {
@@ -285,7 +304,10 @@ impl<G: ContentGenerator> ContentPipeline<G> {
             if output.text.is_empty() {
                 continue;
             }
-            if output.coherence >= self.quality_threshold && !output.hallucination_flag {
+            if output.coherence >= self.quality_threshold
+                && !output.hallucination_flag
+                && !is_placeholder_content(&output.text)
+            {
                 return Ok(output);
             }
         }
@@ -313,13 +335,42 @@ impl<G: ContentGenerator> ContentPipeline<G> {
         grade_ord: u8,
         difficulty: u16,
     ) -> Result<PracticeProblem, ContentGenError> {
-        let output = self.generate_with_retry(
-            &ContentChannels::practice_problem().for_grade(grade_ord),
-            &templates::practice_problem_context(standard, difficulty),
-            256,
-        )?;
+        let channels = ContentChannels::practice_problem().for_grade(grade_ord);
+        let context = templates::practice_problem_context(standard, difficulty);
+        let mut last_reason = "no generation attempt was made";
+        let mut last_failure_was_quality = false;
 
-        Ok(parse_practice_problem(&output.text, difficulty))
+        for _attempt in 0..self.max_retries {
+            // Keep the outer attempt budget truthful: wrapping generate_with_retry
+            // here would turn N practice attempts into as many as N squared model calls.
+            let output = self.generator.generate(&channels, &context, 256);
+            if output.text.trim().is_empty()
+                || output.coherence < self.quality_threshold
+                || output.hallucination_flag
+                || is_placeholder_content(&output.text)
+            {
+                last_failure_was_quality = true;
+                continue;
+            }
+
+            let problem = parse_practice_problem(&output.text, difficulty);
+            match validate_practice_problem(&problem) {
+                Ok(()) => return Ok(problem),
+                Err(reason) => {
+                    last_reason = reason;
+                    last_failure_was_quality = false;
+                }
+            }
+        }
+
+        if last_failure_was_quality {
+            Err(ContentGenError::QualityBelowThreshold(self.max_retries))
+        } else {
+            Err(ContentGenError::InvalidPracticeProblem {
+                attempts: self.max_retries,
+                reason: last_reason,
+            })
+        }
     }
 
     fn generate_hint(
@@ -352,6 +403,55 @@ impl<G: ContentGenerator> ContentPipeline<G> {
     }
 }
 
+/// Conservatively reject known template/fallback strings that are structurally
+/// non-empty but do not teach or assess the declared skill.
+///
+/// This is a deterministic guardrail, not a semantic proof of correctness.
+/// Passing it does not mean content is accurate, aligned, accessible, or
+/// pedagogically effective; those claims need separate checks and review.
+fn is_placeholder_content(text: &str) -> bool {
+    let normalized = text
+        .split_whitespace()
+        .collect::<Vec<_>>()
+        .join(" ")
+        .to_lowercase();
+
+    if normalized.is_empty() {
+        return true;
+    }
+    let core = normalized.trim_end_matches(['.', '!', '?']).trim();
+
+    let exact_placeholders = [
+        "grade 3 mathematics content",
+        "a common mistake in grade 3 mathematics",
+        "the correct way",
+        "used in grade 3 maths",
+        "lorem ipsum",
+        "todo",
+        "placeholder",
+        "answer",
+    ];
+    if exact_placeholders.contains(&core) {
+        return true;
+    }
+
+    let template_phrases = [
+        "answer: see worked solution",
+        "what is important about grade 3 mathematics?",
+        "a key word in this topic",
+        "try the method for grade 3 mathematics.",
+        "start with what you know about grade 3 mathematics.",
+        "let's explore this concept together!",
+        "every expert was once a beginner.",
+    ];
+
+    template_phrases
+        .iter()
+        .any(|phrase| normalized.contains(phrase))
+        || (normalized.contains("solve a grade ") && normalized.contains(" mathematics problem"))
+        || (core.starts_with("explain grade ") && core.contains(" mathematics"))
+        || (core.starts_with("grade ") && core.ends_with(" mathematics content"))
+}
 // ---- Parsing helpers ----
 
 /// Parse vocabulary from generated text. In mock mode, text is pre-formatted
@@ -474,10 +574,203 @@ fn parse_practice_problem(text: &str, difficulty: u16) -> PracticeProblem {
         bloom_level: "Apply".to_string(),
         hints: lines.iter().skip(4).map(|l| l.to_string()).collect(),
         explanation: lines.get(2).unwrap_or(&"").to_string(),
-        distractors: lines.get(3).map(|l| {
-            l.split(',').map(|s| s.trim().to_string()).collect()
-        }).unwrap_or_default(),
+        distractors: lines
+            .get(3)
+            .map(|l| l.split(',').map(|s| s.trim().to_string()).collect())
+            .unwrap_or_default(),
     }
+}
+
+fn normalize_answer_choice(text: &str) -> String {
+    text.split_whitespace()
+        .collect::<Vec<_>>()
+        .join(" ")
+        .trim()
+        .trim_end_matches(['.', '!', '?'])
+        .to_lowercase()
+}
+
+fn greatest_common_divisor(mut left: u128, mut right: u128) -> u128 {
+    while right != 0 {
+        let remainder = left % right;
+        left = right;
+        right = remainder;
+    }
+    left.max(1)
+}
+
+fn rational_key(numerator: i128, denominator: i128) -> Option<String> {
+    if denominator == 0 {
+        return None;
+    }
+    let sign = if (numerator < 0) ^ (denominator < 0) {
+        "-"
+    } else {
+        ""
+    };
+    let numerator_magnitude = numerator.unsigned_abs();
+    let denominator_magnitude = denominator.unsigned_abs();
+    let divisor = greatest_common_divisor(numerator_magnitude, denominator_magnitude);
+    Some(format!(
+        "{sign}{}/{}",
+        numerator_magnitude / divisor,
+        denominator_magnitude / divisor
+    ))
+}
+
+fn scalar_number_key(token: &str) -> Option<String> {
+    if let Some(percent) = token.strip_suffix('%') {
+        let (numerator, denominator) = if let Some((left, right)) = percent.split_once('/') {
+            let numerator = left.parse::<i128>().ok()?;
+            let denominator = right.parse::<i128>().ok()?.checked_mul(100)?;
+            (numerator, denominator)
+        } else {
+            (percent.parse::<i128>().ok()?, 100)
+        };
+        return rational_key(numerator, denominator);
+    }
+    if let Some((left, right)) = token.split_once('/') {
+        return rational_key(left.parse::<i128>().ok()?, right.parse::<i128>().ok()?);
+    }
+    if let Ok(integer) = token.parse::<i128>() {
+        return rational_key(integer, 1);
+    }
+    if let Some((whole, fraction)) = token.split_once('.') {
+        if fraction.is_empty() || !fraction.chars().all(|char| char.is_ascii_digit()) {
+            return None;
+        }
+        let sign = if whole.starts_with('-') { -1 } else { 1 };
+        let whole_digits = whole.trim_start_matches('-');
+        let whole_value = if whole_digits.is_empty() {
+            0
+        } else {
+            whole_digits.parse::<i128>().ok()?
+        };
+        let denominator = 10_i128.checked_pow(u32::try_from(fraction.len()).ok()?)?;
+        let fraction_value = fraction.parse::<i128>().ok()?;
+        let numerator = whole_value
+            .checked_mul(denominator)?
+            .checked_add(fraction_value)?
+            .checked_mul(sign)?;
+        return rational_key(numerator, denominator);
+    }
+    None
+}
+
+fn scalar_answer_key(text: &str) -> Option<(String, Option<&'static str>)> {
+    let normalized = normalize_answer_choice(text);
+    let units: [(&str, &str); 27] = [
+        ("square centimetres", "area_cm2"),
+        ("square centimeters", "area_cm2"),
+        ("square metres", "area_m2"),
+        ("square meters", "area_m2"),
+        ("square units", "area_unit"),
+        ("square unit", "area_unit"),
+        ("square cm", "area_cm2"),
+        ("square m", "area_m2"),
+        ("centimetres", "length_cm"),
+        ("centimeters", "length_cm"),
+        ("millimetres", "length_mm"),
+        ("millimeters", "length_mm"),
+        ("kilograms", "mass_kg"),
+        ("kilometres", "length_km"),
+        ("kilometers", "length_km"),
+        ("minutes", "time_min"),
+        ("seconds", "time_s"),
+        ("hours", "time_h"),
+        ("learners", "count"),
+        ("children", "count"),
+        ("counters", "count"),
+        ("objects", "count"),
+        ("oranges", "count"),
+        ("students", "count"),
+        ("books", "count"),
+        ("cm", "length_cm"),
+        ("mm", "length_mm"),
+    ];
+    for (unit, canonical_unit) in units {
+        if let Some(number) = normalized.strip_suffix(unit)
+            && (number.is_empty() || number.ends_with(' '))
+        {
+            let number = number.trim();
+            if let Some(key) = scalar_number_key(number) {
+                return Some((key, Some(canonical_unit)));
+            }
+        }
+    }
+    let tokens = normalized.split_whitespace().collect::<Vec<_>>();
+    if tokens.len() == 2 {
+        let unit = match tokens[1] {
+            "learner" | "child" | "student" | "object" | "counter" | "orange" | "book" | "desk"
+            | "cone" | "car" | "star" | "slice" | "group" | "groups" => Some("count"),
+            "m" => Some("length_m"),
+            "kg" => Some("mass_kg"),
+            _ => None,
+        };
+        if let Some(unit) = unit {
+            return scalar_number_key(tokens[0]).map(|key| (key, Some(unit)));
+        }
+    }
+    if tokens.len() == 1 {
+        return scalar_number_key(tokens[0]).map(|key| (key, None));
+    }
+    None
+}
+
+fn numeric_answer_choices_collide(answer: &str, distractor: &str) -> bool {
+    let Some((answer_value, answer_unit)) = scalar_answer_key(answer) else {
+        return false;
+    };
+    let Some((distractor_value, distractor_unit)) = scalar_answer_key(distractor) else {
+        return false;
+    };
+    answer_value == distractor_value
+        && (answer_unit.is_none() || distractor_unit.is_none() || answer_unit == distractor_unit)
+}
+
+fn validate_practice_problem(problem: &PracticeProblem) -> Result<(), &'static str> {
+    if problem.question.trim().is_empty() {
+        return Err("question is empty");
+    }
+    if problem.answer.trim().is_empty() {
+        return Err("correct answer is empty");
+    }
+    if problem.explanation.trim().is_empty() {
+        return Err("explanation is empty");
+    }
+    if problem.distractors.len() != 3 {
+        return Err("exactly three distractors are required");
+    }
+
+    let normalized_answer = normalize_answer_choice(&problem.answer);
+    let normalized_distractors = problem
+        .distractors
+        .iter()
+        .map(|distractor| normalize_answer_choice(distractor))
+        .collect::<Vec<_>>();
+    if normalized_distractors.iter().any(String::is_empty) {
+        return Err("a distractor is empty");
+    }
+    if normalized_distractors
+        .iter()
+        .any(|distractor| distractor == &normalized_answer)
+    {
+        return Err("the correct answer also appears as a distractor");
+    }
+    if problem
+        .distractors
+        .iter()
+        .any(|distractor| numeric_answer_choices_collide(&problem.answer, distractor))
+    {
+        return Err("a distractor is numerically equivalent to the correct answer");
+    }
+
+    let distinct_distractors = normalized_distractors.iter().collect::<BTreeSet<_>>();
+    if distinct_distractors.len() != normalized_distractors.len() {
+        return Err("duplicate distractors were generated");
+    }
+
+    Ok(())
 }
 
 /// Parse an assessment item from generated text.
@@ -525,21 +818,38 @@ fn split_flashcard(text: &str) -> (String, String) {
 /// Infer Bloom's level from standard code and description.
 fn infer_bloom_level(code: &str, description: &str) -> String {
     let desc_lower = description.to_lowercase();
-    if desc_lower.contains("create") || desc_lower.contains("design") || desc_lower.contains("construct") {
+    if desc_lower.contains("create")
+        || desc_lower.contains("design")
+        || desc_lower.contains("construct")
+    {
         "Create".to_string()
-    } else if desc_lower.contains("evaluate") || desc_lower.contains("judge") || desc_lower.contains("justify") {
+    } else if desc_lower.contains("evaluate")
+        || desc_lower.contains("judge")
+        || desc_lower.contains("justify")
+    {
         "Evaluate".to_string()
-    } else if desc_lower.contains("analyze") || desc_lower.contains("compare") || desc_lower.contains("distinguish") {
+    } else if desc_lower.contains("analyze")
+        || desc_lower.contains("compare")
+        || desc_lower.contains("distinguish")
+    {
         "Analyze".to_string()
-    } else if desc_lower.contains("solve") || desc_lower.contains("apply") || desc_lower.contains("use")
-        || desc_lower.contains("determine") || desc_lower.contains("multiply") || desc_lower.contains("divide")
+    } else if desc_lower.contains("solve")
+        || desc_lower.contains("apply")
+        || desc_lower.contains("use")
+        || desc_lower.contains("determine")
+        || desc_lower.contains("multiply")
+        || desc_lower.contains("divide")
     {
         "Apply".to_string()
-    } else if desc_lower.contains("interpret") || desc_lower.contains("explain") || desc_lower.contains("understand")
-        || desc_lower.contains("describe") || desc_lower.contains("represent")
+    } else if desc_lower.contains("interpret")
+        || desc_lower.contains("explain")
+        || desc_lower.contains("understand")
+        || desc_lower.contains("describe")
+        || desc_lower.contains("represent")
     {
         "Understand".to_string()
-    } else if code.contains(".7") || desc_lower.contains("fluently") || desc_lower.contains("know") {
+    } else if code.contains(".7") || desc_lower.contains("fluently") || desc_lower.contains("know")
+    {
         "Remember".to_string()
     } else {
         "Understand".to_string()
@@ -620,7 +930,8 @@ mod tests {
             sample_standard(),
             StandardInput {
                 code: "3.NF.A.1".to_string(),
-                description: "Understand a fraction 1/b as the quantity formed by 1 part".to_string(),
+                description: "Understand a fraction 1/b as the quantity formed by 1 part"
+                    .to_string(),
                 grade_level: "Grade3".to_string(),
                 domain: "Number & Operations - Fractions".to_string(),
                 prerequisites: vec!["Equal parts".to_string()],
@@ -631,6 +942,234 @@ mod tests {
         assert_eq!(lessons.len(), 2);
         assert_eq!(lessons[0].standard_code, "3.OA.A.1");
         assert_eq!(lessons[1].standard_code, "3.NF.A.1");
+    }
+
+    #[test]
+    fn placeholder_detector_rejects_non_empty_generic_fallbacks() {
+        for text in [
+            "Solve a Grade 3 Mathematics problem.",
+            "Explain Grade 3 Mathematics.",
+            "Answer: See worked solution",
+            "What is important about Grade 3 Mathematics?",
+            "Grade 3 mathematics content",
+            "Grade 3 mathematics content.",
+            "A key word in this topic",
+            "A common mistake in Grade 3 Mathematics.",
+            "The correct way.",
+            "Answer.",
+            "Let's explore this concept together! Mathematics is about finding patterns and solving problems. We'll start with something you already know and build from there. Remember: every expert was once a beginner.",
+        ] {
+            assert!(
+                is_placeholder_content(text),
+                "expected placeholder to be rejected: {text}"
+            );
+        }
+
+        assert!(!is_placeholder_content(
+            "Multiplication represents equal groups. Four groups of three objects make twelve objects: 3 + 3 + 3 + 3 = 12, so 4 × 3 = 12."
+        ));
+        assert!(!is_placeholder_content("42"));
+        assert!(!is_placeholder_content(
+            "A useful explanation tells learners how to check their answer."
+        ));
+        assert!(!is_placeholder_content(
+            "Answers vary; any valid rectangle with perimeter 16 cm is acceptable."
+        ));
+    }
+
+    #[test]
+    fn practice_problem_validation_rejects_answer_key_collisions_and_duplicate_choices() {
+        let mut problem = PracticeProblem {
+            question: "What is 6 × 7?".to_string(),
+            answer: "42".to_string(),
+            difficulty_permille: 250,
+            bloom_level: "Apply".to_string(),
+            hints: vec!["Use a known fact.".to_string()],
+            explanation: "6 groups of 7 make 42.".to_string(),
+            distractors: vec!["36".to_string(), " 42 ".to_string(), "48".to_string()],
+        };
+        assert_eq!(
+            validate_practice_problem(&problem),
+            Err("the correct answer also appears as a distractor")
+        );
+
+        problem.distractors = vec!["36".to_string(), " 36 ".to_string(), "48".to_string()];
+        assert_eq!(
+            validate_practice_problem(&problem),
+            Err("duplicate distractors were generated")
+        );
+
+        problem.distractors = vec!["36".to_string(), "45".to_string(), "48".to_string()];
+        assert!(validate_practice_problem(&problem).is_ok());
+    }
+
+    #[test]
+    fn practice_problem_validation_rejects_missing_fields_and_incomplete_choices() {
+        let valid = PracticeProblem {
+            question: "What is 6 × 7?".to_string(),
+            answer: "42".to_string(),
+            difficulty_permille: 250,
+            bloom_level: "Apply".to_string(),
+            hints: vec!["Use a known fact.".to_string()],
+            explanation: "Six groups of seven make 42.".to_string(),
+            distractors: vec!["36".to_string(), "45".to_string(), "48".to_string()],
+        };
+
+        let mut invalid = valid.clone();
+        invalid.question.clear();
+        assert_eq!(
+            validate_practice_problem(&invalid),
+            Err("question is empty")
+        );
+
+        let mut invalid = valid.clone();
+        invalid.answer.clear();
+        assert_eq!(
+            validate_practice_problem(&invalid),
+            Err("correct answer is empty")
+        );
+
+        let mut invalid = valid.clone();
+        invalid.explanation.clear();
+        assert_eq!(
+            validate_practice_problem(&invalid),
+            Err("explanation is empty")
+        );
+
+        let mut invalid = valid.clone();
+        invalid.distractors.pop();
+        assert_eq!(
+            validate_practice_problem(&invalid),
+            Err("exactly three distractors are required")
+        );
+
+        let mut invalid = valid;
+        invalid.distractors[0] = " ".to_string();
+        assert_eq!(
+            validate_practice_problem(&invalid),
+            Err("a distractor is empty")
+        );
+    }
+
+    #[test]
+    fn practice_problem_validation_rejects_equivalent_numbers_with_missing_units() {
+        let problem = PracticeProblem {
+            question: "How many more children chose soccer?".to_string(),
+            answer: "3 children".to_string(),
+            difficulty_permille: 250,
+            bloom_level: "Apply".to_string(),
+            hints: vec!["Compare the two counts.".to_string()],
+            explanation: "8 minus 5 is 3 children.".to_string(),
+            distractors: vec!["13".to_string(), "2".to_string(), "3".to_string()],
+        };
+        assert_eq!(
+            validate_practice_problem(&problem),
+            Err("a distractor is numerically equivalent to the correct answer")
+        );
+
+        assert!(numeric_answer_choices_collide("1/2", "2/4"));
+        assert!(numeric_answer_choices_collide("20 cm", "20"));
+        assert!(!numeric_answer_choices_collide("12 cm", "12 square units"));
+    }
+
+    #[test]
+    fn mock_fraction_practice_does_not_include_an_equivalent_fraction_distractor() {
+        let standard = StandardInput {
+            code: "3.NF.A.1".to_string(),
+            description: "Understand a fraction 1/b as the quantity formed by 1 part".to_string(),
+            grade_level: "Grade3".to_string(),
+            domain: "Number & Operations - Fractions".to_string(),
+            prerequisites: vec!["Equal parts".to_string()],
+        };
+        let pipeline = ContentPipeline::new(crate::mock::MockGenerator);
+        let problem = pipeline
+            .generate_practice_problem(&standard, 4, 250)
+            .expect("fraction practice should pass its answer-choice quality gate");
+        assert_eq!(problem.answer, "2/6");
+        assert!(
+            problem
+                .distractors
+                .iter()
+                .all(|choice| !numeric_answer_choices_collide(&problem.answer, choice)),
+            "equivalent forms such as 1/3 must not be used as distractors for 2/6"
+        );
+    }
+
+    #[test]
+    fn generation_retries_practice_items_with_invalid_distractors() {
+        use std::sync::{
+            Arc,
+            atomic::{AtomicUsize, Ordering},
+        };
+
+        struct InvalidChoiceGenerator {
+            calls: Arc<AtomicUsize>,
+        }
+
+        impl ContentGenerator for InvalidChoiceGenerator {
+            fn generate(&self, _: &ContentChannels, _: &str, _: usize) -> GenerationOutput {
+                self.calls.fetch_add(1, Ordering::SeqCst);
+                GenerationOutput {
+                    text: "What is 6 × 7?\\n42\\nSix groups of seven make 42.\\n36, 42, 48\\nUse a known fact.\\nCheck by repeated addition.".to_string(),
+                    coherence: 0.99,
+                    hallucination_flag: false,
+                    veto_count: 0,
+                }
+            }
+        }
+
+        let calls = Arc::new(AtomicUsize::new(0));
+        let pipeline = ContentPipeline::new(InvalidChoiceGenerator {
+            calls: Arc::clone(&calls),
+        })
+        .with_max_retries(2);
+        let result = pipeline.generate_practice_problem(&sample_standard(), 4, 250);
+        assert!(matches!(
+            result,
+            Err(ContentGenError::InvalidPracticeProblem {
+                attempts: 2,
+                reason: _
+            })
+        ));
+        assert_eq!(
+            calls.load(Ordering::SeqCst),
+            2,
+            "each configured practice retry must make exactly one generator call"
+        );
+    }
+
+    #[test]
+    fn high_coherence_does_not_override_placeholder_content() {
+        struct PlaceholderGenerator;
+
+        impl ContentGenerator for PlaceholderGenerator {
+            fn generate(&self, _: &ContentChannels, _: &str, _: usize) -> GenerationOutput {
+                GenerationOutput {
+                    text: "Solve a Grade 3 Mathematics problem.".to_string(),
+                    coherence: 0.99,
+                    hallucination_flag: false,
+                    veto_count: 0,
+                }
+            }
+        }
+
+        let pipeline = ContentPipeline::new(PlaceholderGenerator).with_max_retries(2);
+        assert!(pipeline.generate_lesson(&sample_standard()).is_err());
+    }
+
+    #[test]
+    fn unknown_caps_standard_fails_closed_instead_of_publishing_mock_fallback() {
+        let standard = StandardInput {
+            code: "CAPS.Mathematics.Gr3.MUL".to_string(),
+            description: "Times tables 2-10; multiply two-digit numbers by one digit; division"
+                .to_string(),
+            grade_level: "Grade3".to_string(),
+            domain: "Mathematics".to_string(),
+            prerequisites: vec!["Addition".to_string()],
+        };
+
+        let pipeline = ContentPipeline::new(MockGenerator);
+        assert!(pipeline.generate_lesson(&standard).is_err());
     }
 
     #[test]
@@ -676,26 +1215,68 @@ mod tests {
     #[test]
     fn test_grade_ordinal_parsing() {
         assert_eq!(ContentPipeline::<MockGenerator>::grade_ordinal("PreK"), 0);
-        assert_eq!(ContentPipeline::<MockGenerator>::grade_ordinal("Kindergarten"), 1);
+        assert_eq!(
+            ContentPipeline::<MockGenerator>::grade_ordinal("Kindergarten"),
+            1
+        );
         assert_eq!(ContentPipeline::<MockGenerator>::grade_ordinal("Grade1"), 2);
         assert_eq!(ContentPipeline::<MockGenerator>::grade_ordinal("Grade3"), 4);
-        assert_eq!(ContentPipeline::<MockGenerator>::grade_ordinal("Grade12"), 13);
-        assert_eq!(ContentPipeline::<MockGenerator>::grade_ordinal("College"), 14);
-        assert_eq!(ContentPipeline::<MockGenerator>::grade_ordinal("Undergraduate"), 15);
-        assert_eq!(ContentPipeline::<MockGenerator>::grade_ordinal("Graduate"), 16);
-        assert_eq!(ContentPipeline::<MockGenerator>::grade_ordinal("Doctoral"), 17);
-        assert_eq!(ContentPipeline::<MockGenerator>::grade_ordinal("PostDoctoral"), 18);
-        assert_eq!(ContentPipeline::<MockGenerator>::grade_ordinal("Professional"), 19);
+        assert_eq!(
+            ContentPipeline::<MockGenerator>::grade_ordinal("Grade12"),
+            13
+        );
+        assert_eq!(
+            ContentPipeline::<MockGenerator>::grade_ordinal("College"),
+            14
+        );
+        assert_eq!(
+            ContentPipeline::<MockGenerator>::grade_ordinal("Undergraduate"),
+            15
+        );
+        assert_eq!(
+            ContentPipeline::<MockGenerator>::grade_ordinal("Graduate"),
+            16
+        );
+        assert_eq!(
+            ContentPipeline::<MockGenerator>::grade_ordinal("Doctoral"),
+            17
+        );
+        assert_eq!(
+            ContentPipeline::<MockGenerator>::grade_ordinal("PostDoctoral"),
+            18
+        );
+        assert_eq!(
+            ContentPipeline::<MockGenerator>::grade_ordinal("Professional"),
+            19
+        );
         assert_eq!(ContentPipeline::<MockGenerator>::grade_ordinal("Adult"), 20);
     }
 
     #[test]
     fn test_infer_bloom_level() {
-        assert_eq!(infer_bloom_level("3.OA.A.1", "Interpret products"), "Understand");
-        assert_eq!(infer_bloom_level("3.OA.A.3", "Solve word problems"), "Apply");
-        assert_eq!(infer_bloom_level("3.OA.C.7", "Fluently multiply and divide"), "Apply");
-        assert_eq!(infer_bloom_level("3.OA.C.7", "Know from memory all products of two one-digit numbers"), "Remember");
-        assert_eq!(infer_bloom_level("3.OA.A.4", "Determine the unknown"), "Apply");
+        assert_eq!(
+            infer_bloom_level("3.OA.A.1", "Interpret products"),
+            "Understand"
+        );
+        assert_eq!(
+            infer_bloom_level("3.OA.A.3", "Solve word problems"),
+            "Apply"
+        );
+        assert_eq!(
+            infer_bloom_level("3.OA.C.7", "Fluently multiply and divide"),
+            "Apply"
+        );
+        assert_eq!(
+            infer_bloom_level(
+                "3.OA.C.7",
+                "Know from memory all products of two one-digit numbers"
+            ),
+            "Remember"
+        );
+        assert_eq!(
+            infer_bloom_level("3.OA.A.4", "Determine the unknown"),
+            "Apply"
+        );
     }
 
     #[test]

@@ -133,18 +133,100 @@ fn detect_topic(context: &str) -> Box<dyn TopicContent> {
         // Grade-first routing confirmed working
     }
     match grade {
-        Some(1) => Box::new(gr1_math::Gr1MathFallbackTopic),
-        Some(2) => Box::new(gr2_math::Gr2MathFallbackTopic),
-        Some(3) => Box::new(gr3_math::Gr3MathFallbackTopic),
-        Some(4) => Box::new(gr4_math::Gr4MathFallbackTopic),
-        Some(5) => Box::new(gr5_math::Gr5MathFallbackTopic),
-        Some(6) => Box::new(gr6_math::Gr6MathFallbackTopic),
-        Some(7) => Box::new(gr7_math::Gr7MathFallbackTopic),
-        Some(8) => Box::new(gr8_math::Gr8MathFallbackTopic),
+        Some(1) => detect_gr1_topic(context),
+        Some(2) => detect_gr2_topic(context),
+        Some(3) => detect_gr3_topic(context),
+        Some(4) => detect_gr4_topic(context),
+        Some(5) => detect_gr5_topic(context),
+        Some(6) => detect_gr6_topic(context),
+        Some(7) => detect_gr7_topic(context),
+        Some(8) => detect_gr8_topic(context),
         Some(9) => detect_gr9_topic(context),
         Some(10) => detect_gr10_topic(context),
         Some(11) => detect_gr11_topic(context),
         _ => detect_gr12_topic(context),
+    }
+}
+
+fn detect_gr1_topic(context: &str) -> Box<dyn TopicContent> {
+    let lower = context.to_lowercase();
+    if context.contains(".ADD") || lower.contains("addition") || lower.contains("subtraction") {
+        Box::new(gr1_math::Gr1Addition)
+    } else if context.contains(".NUM") || context.contains(".COUNT") || lower.contains("counting") {
+        Box::new(gr1_math::Gr1Counting)
+    } else {
+        Box::new(gr1_math::Gr1MathFallbackTopic)
+    }
+}
+
+fn detect_gr2_topic(context: &str) -> Box<dyn TopicContent> {
+    if context.contains("BOND") || context.to_lowercase().contains("number bonds") {
+        Box::new(gr2_math::Gr2NumberBonds)
+    } else {
+        Box::new(gr2_math::Gr2MathFallbackTopic)
+    }
+}
+
+fn detect_gr3_topic(context: &str) -> Box<dyn TopicContent> {
+    if context.contains(".MUL") || context.to_lowercase().contains("multiplication") {
+        Box::new(gr3_math::Gr3Multiplication)
+    } else {
+        Box::new(gr3_math::Gr3MathFallbackTopic)
+    }
+}
+
+fn detect_gr4_topic(context: &str) -> Box<dyn TopicContent> {
+    let lower = context.to_lowercase();
+    if context.contains(".FRC") || lower.contains("fraction") {
+        Box::new(gr4_math::Gr4Fractions)
+    } else if context.contains(".NUM") || lower.contains("whole number") || lower.contains("place value") {
+        Box::new(gr4_math::Gr4WholeNumbers)
+    } else {
+        Box::new(gr4_math::Gr4MathFallbackTopic)
+    }
+}
+
+fn detect_gr5_topic(context: &str) -> Box<dyn TopicContent> {
+    let lower = context.to_lowercase();
+    if context.contains(".DEC") || lower.contains("decimal") {
+        Box::new(gr5_math::Gr5Decimals)
+    } else if context.contains(".MUL") || lower.contains("multiplication") {
+        Box::new(gr5_math::Gr5Multiplication)
+    } else {
+        Box::new(gr5_math::Gr5MathFallbackTopic)
+    }
+}
+
+fn detect_gr6_topic(context: &str) -> Box<dyn TopicContent> {
+    let lower = context.to_lowercase();
+    if context.contains(".INT") || lower.contains("integer") {
+        Box::new(gr6_math::Gr6Integers)
+    } else if context.contains(".RATIO") || context.contains(".RATE") || lower.contains("ratio") || lower.contains("rate") {
+        Box::new(gr6_math::Gr6RatioRate)
+    } else {
+        Box::new(gr6_math::Gr6MathFallbackTopic)
+    }
+}
+
+fn detect_gr7_topic(context: &str) -> Box<dyn TopicContent> {
+    let lower = context.to_lowercase();
+    if context.contains(".EXP") || lower.contains("exponent") {
+        Box::new(gr7_math::Gr7Exponents)
+    } else if context.contains(".ALG") || lower.contains("algebra") || lower.contains("variable") {
+        Box::new(gr7_math::Gr7AlgebraIntro)
+    } else {
+        Box::new(gr7_math::Gr7MathFallbackTopic)
+    }
+}
+
+fn detect_gr8_topic(context: &str) -> Box<dyn TopicContent> {
+    let lower = context.to_lowercase();
+    if context.contains(".PYT") || lower.contains("pythagoras") || lower.contains("right-angled triangle") {
+        Box::new(gr8_math::Gr8Pythagoras)
+    } else if context.contains(".ALG") || lower.contains("algebra") || lower.contains("factorise") {
+        Box::new(gr8_math::Gr8Algebra)
+    } else {
+        Box::new(gr8_math::Gr8MathFallbackTopic)
     }
 }
 
@@ -206,9 +288,12 @@ fn detect_gr10_topic(context: &str) -> Box<dyn TopicContent> {
         Box::new(gr10_physics::Gr10SoundTopic)
     } else if context.contains("PHY.5") || context.contains("Electromagnetic Radiation") {
         Box::new(gr10_physics::Gr10EMRadiationTopic)
-    } else if context.contains("PHY.6") || context.contains("Electrostatics") || context.contains("Coulomb") {
-        Box::new(gr12_physics::ElectricityTopic) // electrostatics uses same concepts
-    } else if context.contains("PHY.7") || context.contains("Electric Circuits") {
+    } else if context.contains("PHY.6")
+        || context.contains("Electrostatics")
+        || context.contains("Coulomb")
+        || context.contains("PHY.7")
+        || context.contains("Electric Circuits")
+    {
         Box::new(gr12_physics::ElectricityTopic)
     // Chemistry
     } else if context.contains("CHM.1") || context.contains("Atomic Structure") || context.contains("electron configuration") {
@@ -293,9 +378,13 @@ fn detect_gr11_topic(context: &str) -> Box<dyn TopicContent> {
         Box::new(gr11_math::Gr11FunctionsTopic)
     } else if context.contains("FN.2") || context.contains("Inverse") {
         Box::new(gr11_math::Gr11InverseFunctionsTopic)
-    } else if context.contains("TRIG.1") || context.contains("Compound") || context.contains("Double") {
-        Box::new(gr12_math::TrigonometryTopic)
-    } else if context.contains("TRIG.2") || context.contains("Sine") || context.contains("Cosine") && context.contains("rule") {
+    } else if context.contains("TRIG.1")
+        || context.contains("Compound")
+        || context.contains("Double")
+        || context.contains("TRIG.2")
+        || context.contains("Sine")
+        || (context.contains("Cosine") && context.contains("rule"))
+    {
         Box::new(gr12_math::TrigonometryTopic)
     } else if context.contains("GEOM") || context.contains("Circle Geometry") {
         Box::new(gr12_math::GeometryTopic)
@@ -419,8 +508,8 @@ mod tests {
 
     #[test]
     fn test_gr9_alg1_via_pipeline() {
-        let gen = CapsContentGenerator;
-        let pipeline = crate::pipeline::ContentPipeline::new(gen);
+        let generator = CapsContentGenerator;
+        let pipeline = crate::pipeline::ContentPipeline::new(generator);
         let standard = crate::pipeline::StandardInput {
             code: "CAPS.Mathematics.Gr9.ALG.1".to_string(),
             description: "Identify and classify like terms".to_string(),
@@ -441,9 +530,9 @@ mod tests {
 
     #[test]
     fn test_caps_generator_produces_content() {
-        let gen = CapsContentGenerator;
+        let generator = CapsContentGenerator;
         let ch = ContentChannels::teaching_factual();
-        let out = gen.generate(&ch, "Standard: CAPS.Mathematics.Gr12.P1.CALC - Differential Calculus", 500);
+        let out = generator.generate(&ch, "Standard: CAPS.Mathematics.Gr12.P1.CALC - Differential Calculus", 500);
         assert!(out.text.contains("deriv") || out.text.contains("rate of change"));
         assert!(out.coherence >= 0.85);
     }

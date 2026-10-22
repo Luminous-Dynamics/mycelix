@@ -230,10 +230,10 @@ mod tests {
         // All channels should be in valid ranges
         for (i, &v) in tc.iter().enumerate() {
             match i {
-                9 => assert!(v >= -1.0 && v <= 1.0, "Channel {i} out of range: {v}"),
-                17 => assert!(v >= 0.0 && v <= 2.0, "Channel {i} out of range: {v}"),
-                19 => assert!(v >= 0.0 && v <= 10.0, "Channel {i} out of range: {v}"),
-                _ => assert!(v >= 0.0 && v <= 5.0, "Channel {i} out of range: {v}"),
+                9 => assert!((-1.0..=1.0).contains(&v), "Channel {i} out of range: {v}"),
+                17 => assert!((0.0..=2.0).contains(&v), "Channel {i} out of range: {v}"),
+                19 => assert!((0.0..=10.0).contains(&v), "Channel {i} out of range: {v}"),
+                _ => assert!((0.0..=5.0).contains(&v), "Channel {i} out of range: {v}"),
             }
         }
     }
