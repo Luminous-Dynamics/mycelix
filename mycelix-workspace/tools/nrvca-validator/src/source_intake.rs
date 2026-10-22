@@ -15,7 +15,8 @@ use std::{
 };
 
 const HASH_BUFFER_BYTES: usize = 64 * 1024;
-const KNOWN_FLAGS: [&str; 18] = [
+pub const HASH_SOURCE_USAGE: &str = "Usage: nrvca-validator hash-source --file PATH --source-id ID --publisher NAME --source-uri URI --publication-id ID --vintage VINTAGE --captured-at RFC3339 --rights-status open_reuse|permission_granted|evaluation_only|restricted|prohibited|unknown --rights-evidence-uri URI --evaluation-allowed true|false --redistribution-allowed true|false --locator-id ID --locator TEXT --extraction-method METHOD --tool-version VERSION [--expected-sha256 HEX] [--output PATH]";
+const KNOWN_FLAGS: [&str; 17] = [
     "--file",
     "--source-id",
     "--publisher",
@@ -33,7 +34,6 @@ const KNOWN_FLAGS: [&str; 18] = [
     "--tool-version",
     "--expected-sha256",
     "--output",
-    "--help",
 ];
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -78,6 +78,7 @@ fn hex_encode(bytes: &[u8]) -> String {
     hex
 }
 
+#[cfg(test)]
 fn sha256_hex(bytes: &[u8]) -> String {
     hex_encode(&Sha256::digest(bytes))
 }
@@ -112,7 +113,7 @@ fn valid_rfc3339(value: &str) -> bool {
         2 => 28,
         _ => return false,
     };
-    if day == 0 || day > month_days || hour > 23 || minute > 59 || second > 60 {
+    if day == 0 || day > month_days || hour > 23 || minute > 59 || second > 59 {
         return false;
     }
 
@@ -167,7 +168,7 @@ fn required_bool(values: &BTreeMap<String, String>, flag: &str) -> Result<bool, 
 
 fn parse_arguments(args: &[String]) -> Result<BTreeMap<String, String>, String> {
     if args.len() == 1 && (args[0] == "--help" || args[0] == "-h") {
-        return Err("USAGE: nrvca-validator hash-source --file PATH --source-id ID --publisher NAME --source-uri URI --publication-id ID --vintage VINTAGE --captured-at RFC3339 --rights-status open_reuse|permission_granted|evaluation_only|restricted|prohibited|unknown --rights-evidence-uri URI --evaluation-allowed true|false --redistribution-allowed true|false --locator-id ID --locator TEXT --extraction-method METHOD --tool-version VERSION [--expected-sha256 HEX] [--output PATH]".to_owned());
+        return Err(HASH_SOURCE_USAGE.to_owned());
     }
     if args.len() % 2 != 0 {
         return Err("each hash-source flag must have exactly one value".to_owned());
@@ -362,7 +363,8 @@ mod tests {
     #[test]
     fn capture_timestamp_requires_timezone_and_valid_calendar_fields() {
         assert!(valid_rfc3339("2026-10-22T17:00:00+02:00"));
-        assert!(valid_rfc3339("2024-02-29T23:59:60Z"));
+        assert!(valid_rfc3339("2024-02-29T23:59:59Z"));
+        assert!(!valid_rfc3339("2024-02-29T23:59:60Z"));
         assert!(!valid_rfc3339("2026-02-29T17:00:00Z"));
         assert!(!valid_rfc3339("2026-10-22T17:00:00"));
         assert!(!valid_rfc3339("2026-13-22T17:00:00Z"));
