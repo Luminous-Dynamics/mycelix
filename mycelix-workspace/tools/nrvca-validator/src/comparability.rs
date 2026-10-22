@@ -116,8 +116,8 @@ fn compare_fields(
 
     for field in fields {
         match (
-            left_axis.and_then(|axis| axis.get(field)),
-            right_axis.and_then(|axis| axis.get(field)),
+            left_axis.and_then(|axis| axis.get(*field)),
+            right_axis.and_then(|axis| axis.get(*field)),
         ) {
             (Some(left), Some(right)) if !left.is_null() && !right.is_null() => {
                 if !values_equal(left, right) {
