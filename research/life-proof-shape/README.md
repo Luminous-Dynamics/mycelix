@@ -19,7 +19,7 @@ The report compares fresh proof-value equality, statement-count equality, disclo
 
 Every channel reports TP/FP/FN/TN, precision, recall and false-positive rate. A global ID is an intentionally unsafe positive control. A fresh proof value is intentionally unique and should not match across presentations; it does not protect any other feature channel.
 
-The feature export contains attacker-visible fields only and does not contain the hidden subject label. It does include the deliberate global-ID control so the leakage is explicit in this synthetic corpus.
+The feature export contains attacker-visible fields only and does not contain the hidden subject label. Each presentation row has a unique deterministic `presentation_ref` used only to group that presentation's fields; it is not a cross-session identity signal. The exported table intentionally does not include a sequential presentation ordinal, because the generator groups rows by subject internally and an ordinal would reveal those groups. It does include the deliberate global-ID control so the leakage is explicit in this synthetic corpus.
 
 ## Standards context
 
