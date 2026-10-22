@@ -100,24 +100,20 @@ fn utility_accuracy_permille(targets: &[usize], depth: usize, profile: Profile) 
 
     for &index in targets {
         let target = fields(index);
-        for attribute in 0..depth {
-            let observed = observation(profile, attribute, target[attribute]);
+        for (attribute, &value) in target.iter().enumerate().take(depth) {
+            let observed = observation(profile, attribute, value);
             let answer = match profile {
                 Profile::ExactAttribute => required_answer(attribute, observed),
                 Profile::PredicateOnly => observed == 1,
             };
-            if answer == required_answer(attribute, target[attribute]) {
+            if answer == required_answer(attribute, value) {
                 correct += 1;
             }
             total += 1;
         }
     }
 
-    if total == 0 {
-        1_000
-    } else {
-        correct * 1_000 / total
-    }
+    correct.saturating_mul(1_000).checked_div(total).unwrap_or(1_000)
 }
 
 fn nearest_rank(values: &[usize], numerator: usize, denominator: usize) -> usize {
@@ -213,14 +209,18 @@ mod tests {
 
     #[test]
     fn each_required_predicate_splits_the_fixture_in_half() {
-        for attribute in 0..ATTRIBUTE_COUNT {
-            let positives = (0..SUBJECT_COUNT)
-                .filter(|&index| {
-                    let tuple = fields(index);
-                    required_answer(attribute, tuple[attribute])
-                })
-                .count();
-            assert_eq!(positives, SUBJECT_COUNT / 2, "attribute {attribute}");
+        let mut positives = [0_usize; ATTRIBUTE_COUNT];
+        for index in 0..SUBJECT_COUNT {
+            for (attribute, &value) in fields(index).iter().enumerate() {
+                positives[attribute] += usize::from(required_answer(attribute, value));
+            }
+        }
+        for (attribute, &positive_count) in positives.iter().enumerate() {
+            assert_eq!(
+                positive_count,
+                SUBJECT_COUNT / 2,
+                "attribute {attribute}"
+            );
         }
     }
 
@@ -245,10 +245,9 @@ mod tests {
     fn predicate_only_answers_preserve_every_requested_task_result() {
         for index in 0..SUBJECT_COUNT {
             let tuple = fields(index);
-            for attribute in 0..ATTRIBUTE_COUNT {
-                let exact = observation(Profile::ExactAttribute, attribute, tuple[attribute]);
-                let predicate =
-                    observation(Profile::PredicateOnly, attribute, tuple[attribute]) == 1;
+            for (attribute, &value) in tuple.iter().enumerate() {
+                let exact = observation(Profile::ExactAttribute, attribute, value);
+                let predicate = observation(Profile::PredicateOnly, attribute, value) == 1;
                 assert_eq!(
                     required_answer(attribute, exact),
                     predicate,
