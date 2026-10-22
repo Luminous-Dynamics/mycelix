@@ -1941,6 +1941,32 @@ mod tests {
                 }),
             "evidence records must distinguish independent scoring from unaided attempts"
         );
+        let score_rules = schema
+            .pointer("/properties/evidence/items/allOf")
+            .and_then(Value::as_array)
+            .expect("evidence scoring needs consistency rules");
+        assert!(
+            score_rules.iter().any(|rule| {
+                rule.pointer("/if/properties/outcome/const").and_then(Value::as_str)
+                    == Some("correct")
+                    && rule.pointer("/then/properties/score/const")
+                        == Some(&Value::Number(1.into()))
+            }),
+            "correct evidence must receive full credit"
+        );
+        assert!(
+            score_rules.iter().any(|rule| {
+                rule.pointer("/if/properties/outcome/enum")
+                    .and_then(Value::as_array)
+                    .is_some_and(|outcomes| {
+                        outcomes.iter().any(|outcome| outcome.as_str() == Some("incorrect"))
+                            && outcomes.iter().any(|outcome| outcome.as_str() == Some("not_attempted"))
+                    })
+                    && rule.pointer("/then/properties/score/const")
+                        == Some(&Value::Number(0.into()))
+            }),
+            "incorrect or unattempted evidence must not receive credit"
+        );
         assert!(
             schema["properties"]["learner_ref"]["description"]
                 .as_str()
