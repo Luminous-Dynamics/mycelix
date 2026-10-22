@@ -341,6 +341,7 @@ pub fn import_all(json: &str) -> Result<String, String> {
         let mut existing = crate::curriculum::load_progress_store();
         let mut merged_count = 0u32;
 
+        existing.schema_version = existing.schema_version.max(imported.schema_version);
         for (id, imp_node) in &imported.nodes {
             let existing_node = existing.nodes.entry(id.clone()).or_default();
             if imp_node.mastery_permille > existing_node.mastery_permille {
@@ -352,8 +353,17 @@ pub fn import_all(json: &str) -> Result<String, String> {
                 existing_node.attempts = imp_node.attempts;
                 existing_node.correct = imp_node.correct;
             }
+            if imp_node.self_reported_attempts > existing_node.self_reported_attempts {
+                existing_node.self_reported_attempts = imp_node.self_reported_attempts;
+                existing_node.self_reported_correct = imp_node.self_reported_correct;
+            }
             if imp_node.last_reviewed.unwrap_or(0.0) > existing_node.last_reviewed.unwrap_or(0.0) {
                 existing_node.last_reviewed = imp_node.last_reviewed;
+                if imp_node.self_assessment.is_some() {
+                    existing_node.self_assessment = imp_node.self_assessment;
+                }
+            } else if existing_node.self_assessment.is_none() && imp_node.self_assessment.is_some() {
+                existing_node.self_assessment = imp_node.self_assessment;
             }
         }
 
