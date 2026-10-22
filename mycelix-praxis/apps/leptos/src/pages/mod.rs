@@ -4,6 +4,7 @@
 
 pub mod careers;
 mod courses;
+mod content_studio;
 mod credentials;
 mod dashboard;
 mod employer;
@@ -21,6 +22,7 @@ pub mod verify;
 
 pub use careers::CareerPathPage;
 pub use courses::CoursesPage;
+pub use content_studio::ContentStudioPage;
 pub use credentials::CredentialsPage;
 pub use dashboard::DashboardPage;
 pub use employer::EmployerPortal;

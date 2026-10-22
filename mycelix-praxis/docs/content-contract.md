@@ -16,6 +16,8 @@ to one or more generated lesson files.
 - The application never guesses lesson paths from a node's spelling, grade, or
   subject. Missing content is reported as unavailable.
 
+For a beginner-friendly authoring workflow, use the [community content creation guide](content-creation/README.md), [editable starter JSON](../examples/community-content/lesson-starter.json), and [Community Lesson v1 schema](../schemas/community-lesson-v1.schema.json). These drafts do not become runtime-reachable until they are mapped to a valid active node and deliberately registered.
+
 Run the validator after editing curriculum or generated lessons:
 
 ```bash

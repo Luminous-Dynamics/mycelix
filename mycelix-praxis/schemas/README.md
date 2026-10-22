@@ -2,6 +2,11 @@
 
 This directory contains schema definitions for Mycelix Praxis.
 
+## Community-authored lessons
+
+- [`community-lesson-v1.schema.json`](community-lesson-v1.schema.json) defines the portable lesson asset used by the [content-creation guide](../docs/content-creation/README.md). It keeps instructional fields compatible with Praxis lesson assets while recording creator attribution, source/rights notes, visibility and review state. Schema validity is not proof of factual accuracy or learning efficacy.
+- The guided Leptos authoring page is available at `/create` through `apps/leptos/src/pages/content_studio.rs`; it autosaves locally and exports draft JSON without publishing.
+
 ## Structure
 
 ```

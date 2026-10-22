@@ -1,0 +1,216 @@
+{
+  "node_id": "REPLACE_WITH_EXISTING_CURRICULUM_NODE_ID",
+  "lesson": {
+    "standard_code": "REPLACE_WITH_STANDARD_OR_OBJECTIVE",
+    "title": "Write a clear, learner-facing title",
+    "grade_level": "Grade5",
+    "bloom_level": "Understand",
+    "explanation": "Explain the idea in plain language. Start with what a learner already knows, introduce the new idea, and explain why it matters. Replace this text with at least a few complete sentences and a concrete example.",
+    "examples": [
+      {
+        "problem": "Write one representative problem here.",
+        "steps": [
+          {
+            "instruction": "State the first action and why it is useful.",
+            "result": "Show the intermediate result."
+          },
+          {
+            "instruction": "Continue the reasoning.",
+            "result": "Show the next result."
+          }
+        ],
+        "answer": "State the final answer and units where relevant.",
+        "visual_description": null
+      }
+    ],
+    "practice_problems": [
+      {
+        "question": "Write a straightforward practice question.",
+        "answer": "Correct answer",
+        "difficulty_permille": 250,
+        "bloom_level": "Remember",
+        "hints": [
+          "Offer a gentle nudge, not the answer."
+        ],
+        "explanation": "Explain why the answer is correct.",
+        "distractors": [
+          "Plausible wrong answer A",
+          "Plausible wrong answer B",
+          "Plausible wrong answer C"
+        ]
+      },
+      {
+        "question": "Write a question that checks whether the learner understands why the method works.",
+        "answer": "Correct answer",
+        "difficulty_permille": 500,
+        "bloom_level": "Understand",
+        "hints": [
+          "Point to the key concept.",
+          "Offer a more specific hint without doing all the work."
+        ],
+        "explanation": "Explain the reasoning in steps.",
+        "distractors": [
+          "Plausible wrong answer A",
+          "Plausible wrong answer B",
+          "Plausible wrong answer C"
+        ]
+      },
+      {
+        "question": "Write a new example that applies the idea in a different context.",
+        "answer": "Correct answer",
+        "difficulty_permille": 650,
+        "bloom_level": "Apply",
+        "hints": [
+          "Help the learner choose a first step."
+        ],
+        "explanation": "Explain why this is the right method for the new context.",
+        "distractors": [
+          "Plausible wrong answer A",
+          "Plausible wrong answer B",
+          "Plausible wrong answer C"
+        ]
+      }
+    ],
+    "hints": [
+      "Start with a question or representation.",
+      "Give a more specific next step.",
+      "Reveal the full worked solution only when appropriate."
+    ],
+    "key_vocabulary": [
+      {
+        "term": "Key term",
+        "definition": "A concise learner-friendly definition.",
+        "example_usage": "Use the term in a sentence from this subject."
+      }
+    ],
+    "misconceptions": [
+      {
+        "misconception": "Describe one plausible learner error.",
+        "correction": "Explain the correct idea without shaming the learner.",
+        "why_students_think_this": "Explain what makes the incorrect idea understandable."
+      }
+    ],
+    "generation_quality": {
+      "coherence": 0,
+      "hallucination_detected": false,
+      "veto_count": 0,
+      "epistemic_confidence": 0,
+      "needs_human_review": true,
+      "metrics_valid_for_current_revision": false,
+      "review_notes": "Creator-authored template: no instructional quality or learning-efficacy review has been performed."
+    }
+  },
+  "assessment": {
+    "standard_code": "REPLACE_WITH_STANDARD_OR_OBJECTIVE",
+    "title": "Check understanding",
+    "items": [
+      {
+        "question": "Ask for a core idea in the learner's own words.",
+        "item_type": "ShortAnswer",
+        "correct_answer": "Expected key idea",
+        "points": 1,
+        "bloom_level": "Understand",
+        "rubric": "Award credit for the key idea even if wording differs.",
+        "hint": "Think about the definition."
+      },
+      {
+        "question": "Ask the learner to solve a new instance.",
+        "item_type": "ShortAnswer",
+        "correct_answer": "Correct answer",
+        "points": 2,
+        "bloom_level": "Apply",
+        "rubric": "Check the result and method.",
+        "hint": "Use the worked example as a guide."
+      },
+      {
+        "question": "Ask the learner to identify or correct a misconception.",
+        "item_type": "ShortAnswer",
+        "correct_answer": "Correct explanation",
+        "points": 2,
+        "bloom_level": "Analyze",
+        "rubric": "Credit a correct diagnosis and an accurate correction.",
+        "hint": "Compare the reasoning with the definition."
+      }
+    ],
+    "total_points": 5,
+    "estimated_minutes": 8,
+    "bloom_distribution": [
+      [
+        "Understand",
+        1
+      ],
+      [
+        "Apply",
+        1
+      ],
+      [
+        "Analyze",
+        1
+      ]
+    ]
+  },
+  "flashcards": [
+    {
+      "front": "What is the key idea?",
+      "back": "Write a concise answer.",
+      "tags": [
+        "topic",
+        "concept"
+      ],
+      "difficulty_permille": 200
+    },
+    {
+      "front": "What mistake should you watch for?",
+      "back": "Explain the misconception and the correction.",
+      "tags": [
+        "topic",
+        "misconception"
+      ],
+      "difficulty_permille": 400
+    },
+    {
+      "front": "When would you use this method?",
+      "back": "Give a short use case.",
+      "tags": [
+        "topic",
+        "transfer"
+      ],
+      "difficulty_permille": 600
+    }
+  ],
+  "quality": {
+    "coherence": 0,
+    "hallucination_detected": false,
+    "needs_human_review": true,
+    "veto_count": 0,
+    "review_status": "draft_requires_educator_review",
+    "metrics_valid_for_current_revision": false,
+    "review_notes": "Starter template only. Verify all facts, answers, rights, accessibility and standards alignment before publication."
+  },
+  "contribution": {
+    "schema_version": 1,
+    "status": "draft",
+    "visibility": "private_draft",
+    "creator": {
+      "display_name": "Your chosen display name",
+      "profile_url": null,
+      "attribution_statement": "Created by Your chosen display name."
+    },
+    "license_id": "UNDECIDED",
+    "license_url": null,
+    "rights_confirmed": false,
+    "language": "en-ZA",
+    "audience_note": "Who is this for, and what should learners already know?",
+    "accessibility_notes": [
+      "Provide text descriptions for important visuals.",
+      "Do not make meaning depend on colour alone.",
+      "Use language appropriate for the intended learner."
+    ],
+    "sources": [],
+    "review_note": "Draft only. Select a licence and record sources before sharing publicly.",
+    "change_log": [
+      "Initial draft"
+    ]
+  },
+  "$schema": "https://raw.githubusercontent.com/Luminous-Dynamics/mycelix/main/mycelix-praxis/schemas/community-lesson-v1.schema.json"
+}

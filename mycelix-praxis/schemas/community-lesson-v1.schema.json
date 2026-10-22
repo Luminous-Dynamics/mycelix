@@ -1,0 +1,869 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/Luminous-Dynamics/mycelix/main/mycelix-praxis/schemas/community-lesson-v1.schema.json",
+  "title": "Praxis Community Lesson v1",
+  "description": "A portable, creator-authored Praxis lesson asset. Runtime instructional fields intentionally match Praxis generated lesson assets; contribution metadata records creator choice and review state without implying efficacy.",
+  "type": "object",
+  "additionalProperties": true,
+  "required": [
+    "node_id",
+    "lesson",
+    "assessment",
+    "flashcards",
+    "quality",
+    "contribution"
+  ],
+  "properties": {
+    "node_id": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Exact ID of an existing curriculum node. Drafts may use a clearly marked placeholder; do not expect a placeholder ID to be reachable in the app."
+    },
+    "generated_at": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "date-time"
+    },
+    "lesson": {
+      "type": "object",
+      "required": [
+        "standard_code",
+        "title",
+        "grade_level",
+        "bloom_level",
+        "explanation",
+        "examples",
+        "practice_problems",
+        "hints",
+        "key_vocabulary",
+        "misconceptions",
+        "generation_quality"
+      ],
+      "properties": {
+        "standard_code": {
+          "type": "string",
+          "minLength": 1
+        },
+        "title": {
+          "type": "string",
+          "minLength": 3
+        },
+        "grade_level": {
+          "type": "string",
+          "minLength": 1
+        },
+        "bloom_level": {
+          "enum": [
+            "Remember",
+            "Understand",
+            "Apply",
+            "Analyze",
+            "Evaluate",
+            "Create"
+          ]
+        },
+        "explanation": {
+          "type": "string",
+          "minLength": 80
+        },
+        "examples": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/workedExample"
+          }
+        },
+        "practice_problems": {
+          "type": "array",
+          "minItems": 3,
+          "items": {
+            "$ref": "#/$defs/practiceProblem"
+          }
+        },
+        "hints": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "key_vocabulary": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/vocabularyTerm"
+          }
+        },
+        "misconceptions": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/misconception"
+          }
+        },
+        "generation_quality": {
+          "$ref": "#/$defs/generationQuality"
+        }
+      },
+      "additionalProperties": true
+    },
+    "assessment": {
+      "type": "object",
+      "required": [
+        "standard_code",
+        "title",
+        "items",
+        "total_points",
+        "estimated_minutes",
+        "bloom_distribution"
+      ],
+      "properties": {
+        "standard_code": {
+          "type": "string",
+          "minLength": 1
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1
+        },
+        "items": {
+          "type": "array",
+          "minItems": 3,
+          "items": {
+            "$ref": "#/$defs/assessmentItem"
+          }
+        },
+        "total_points": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "estimated_minutes": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "bloom_distribution": {
+          "type": "array",
+          "items": {
+            "type": "array",
+            "prefixItems": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "integer",
+                "minimum": 0
+              }
+            ],
+            "minItems": 2,
+            "maxItems": 2
+          }
+        }
+      },
+      "additionalProperties": true
+    },
+    "flashcards": {
+      "type": "array",
+      "minItems": 3,
+      "items": {
+        "$ref": "#/$defs/flashcard"
+      }
+    },
+    "quality": {
+      "$ref": "#/$defs/quality"
+    },
+    "contribution": {
+      "type": "object",
+      "required": [
+        "schema_version",
+        "status",
+        "visibility",
+        "creator",
+        "license_id",
+        "license_url",
+        "rights_confirmed",
+        "sources",
+        "review_note"
+      ],
+      "properties": {
+        "schema_version": {
+          "const": 1
+        },
+        "status": {
+          "enum": [
+            "draft",
+            "submitted_for_review",
+            "educator_reviewed",
+            "published",
+            "rejected",
+            "retired"
+          ]
+        },
+        "visibility": {
+          "enum": [
+            "private_draft",
+            "group",
+            "public"
+          ]
+        },
+        "creator": {
+          "type": "object",
+          "required": [
+            "display_name",
+            "attribution_statement"
+          ],
+          "properties": {
+            "display_name": {
+              "type": "string",
+              "minLength": 1
+            },
+            "profile_url": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "format": "uri"
+            },
+            "attribution_statement": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "additionalProperties": false
+        },
+        "license_id": {
+          "enum": [
+            "UNDECIDED",
+            "CC0-1.0",
+            "CC-BY-4.0",
+            "CC-BY-SA-4.0",
+            "CC-BY-NC-4.0",
+            "CC-BY-NC-SA-4.0",
+            "CC-BY-ND-4.0",
+            "CC-BY-NC-ND-4.0",
+            "All-Rights-Reserved",
+            "Custom"
+          ]
+        },
+        "license_url": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "uri"
+        },
+        "rights_confirmed": {
+          "type": "boolean"
+        },
+        "language": {
+          "type": "string",
+          "minLength": 2
+        },
+        "audience_note": {
+          "type": "string"
+        },
+        "accessibility_notes": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "sources": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/source"
+          }
+        },
+        "review_note": {
+          "type": "string",
+          "minLength": 1
+        },
+        "change_log": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "additionalProperties": true
+    }
+  },
+  "$defs": {
+    "workedExample": {
+      "type": "object",
+      "required": [
+        "problem",
+        "steps",
+        "answer"
+      ],
+      "properties": {
+        "problem": {
+          "type": "string",
+          "minLength": 1
+        },
+        "steps": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "required": [
+              "instruction",
+              "result"
+            ],
+            "properties": {
+              "instruction": {
+                "type": "string",
+                "minLength": 1
+              },
+              "result": {
+                "type": "string",
+                "minLength": 1
+              }
+            },
+            "additionalProperties": true
+          }
+        },
+        "answer": {
+          "type": "string",
+          "minLength": 1
+        },
+        "visual_description": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "additionalProperties": true
+    },
+    "practiceProblem": {
+      "type": "object",
+      "required": [
+        "question",
+        "answer",
+        "difficulty_permille",
+        "bloom_level",
+        "hints",
+        "explanation",
+        "distractors"
+      ],
+      "properties": {
+        "question": {
+          "type": "string",
+          "minLength": 1
+        },
+        "answer": {
+          "type": "string",
+          "minLength": 1
+        },
+        "difficulty_permille": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 1000
+        },
+        "bloom_level": {
+          "enum": [
+            "Remember",
+            "Understand",
+            "Apply",
+            "Analyze",
+            "Evaluate",
+            "Create"
+          ]
+        },
+        "hints": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "explanation": {
+          "type": "string",
+          "minLength": 1
+        },
+        "distractors": {
+          "type": "array",
+          "minItems": 3,
+          "maxItems": 3,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      },
+      "additionalProperties": true
+    },
+    "vocabularyTerm": {
+      "type": "object",
+      "required": [
+        "term",
+        "definition",
+        "example_usage"
+      ],
+      "properties": {
+        "term": {
+          "type": "string",
+          "minLength": 1
+        },
+        "definition": {
+          "type": "string",
+          "minLength": 1
+        },
+        "example_usage": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "additionalProperties": true
+    },
+    "misconception": {
+      "type": "object",
+      "required": [
+        "misconception",
+        "correction",
+        "why_students_think_this"
+      ],
+      "properties": {
+        "misconception": {
+          "type": "string",
+          "minLength": 1
+        },
+        "correction": {
+          "type": "string",
+          "minLength": 1
+        },
+        "why_students_think_this": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "additionalProperties": true
+    },
+    "assessmentItem": {
+      "type": "object",
+      "required": [
+        "question",
+        "item_type",
+        "correct_answer",
+        "points",
+        "bloom_level"
+      ],
+      "properties": {
+        "question": {
+          "type": "string",
+          "minLength": 1
+        },
+        "item_type": {
+          "oneOf": [
+            {
+              "type": "string",
+              "enum": [
+                "ShortAnswer",
+                "TrueFalse"
+              ]
+            },
+            {
+              "type": "object",
+              "properties": {
+                "MultipleChoice": {
+                  "type": "object",
+                  "required": [
+                    "options"
+                  ],
+                  "properties": {
+                    "options": {
+                      "type": "array",
+                      "minItems": 2,
+                      "items": {
+                        "type": "string"
+                      }
+                    }
+                  },
+                  "additionalProperties": true
+                }
+              },
+              "required": [
+                "MultipleChoice"
+              ]
+            },
+            {
+              "type": "object",
+              "properties": {
+                "OpenEnded": {
+                  "type": "object",
+                  "required": [
+                    "rubric_criteria"
+                  ],
+                  "properties": {
+                    "rubric_criteria": {
+                      "type": "array",
+                      "minItems": 1,
+                      "items": {
+                        "type": "string"
+                      }
+                    }
+                  },
+                  "additionalProperties": true
+                }
+              },
+              "required": [
+                "OpenEnded"
+              ]
+            },
+            {
+              "type": "object",
+              "properties": {
+                "FillInBlank": {
+                  "type": "object",
+                  "required": [
+                    "template"
+                  ],
+                  "properties": {
+                    "template": {
+                      "type": "string",
+                      "pattern": "___"
+                    }
+                  },
+                  "additionalProperties": true
+                }
+              },
+              "required": [
+                "FillInBlank"
+              ]
+            }
+          ]
+        },
+        "correct_answer": {
+          "type": "string",
+          "minLength": 1
+        },
+        "points": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "bloom_level": {
+          "enum": [
+            "Remember",
+            "Understand",
+            "Apply",
+            "Analyze",
+            "Evaluate",
+            "Create"
+          ]
+        },
+        "rubric": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "hint": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "additionalProperties": true
+    },
+    "flashcard": {
+      "type": "object",
+      "required": [
+        "front",
+        "back",
+        "tags",
+        "difficulty_permille"
+      ],
+      "properties": {
+        "front": {
+          "type": "string",
+          "minLength": 1
+        },
+        "back": {
+          "type": "string",
+          "minLength": 1
+        },
+        "tags": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "difficulty_permille": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 1000
+        }
+      },
+      "additionalProperties": true
+    },
+    "quality": {
+      "type": "object",
+      "required": [
+        "coherence",
+        "hallucination_detected",
+        "needs_human_review",
+        "veto_count",
+        "review_status",
+        "metrics_valid_for_current_revision",
+        "review_notes"
+      ],
+      "properties": {
+        "coherence": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "hallucination_detected": {
+          "type": "boolean"
+        },
+        "needs_human_review": {
+          "type": "boolean"
+        },
+        "veto_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "epistemic_confidence": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "review_status": {
+          "enum": [
+            "draft_requires_educator_review",
+            "in_review",
+            "educator_reviewed",
+            "rejected"
+          ]
+        },
+        "metrics_valid_for_current_revision": {
+          "const": false
+        },
+        "review_notes": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "additionalProperties": true
+    },
+    "source": {
+      "type": "object",
+      "required": [
+        "title",
+        "url",
+        "use_type",
+        "license_or_rights_note"
+      ],
+      "properties": {
+        "title": {
+          "type": "string",
+          "minLength": 1
+        },
+        "url": {
+          "type": "string",
+          "format": "uri"
+        },
+        "use_type": {
+          "enum": [
+            "original",
+            "standard_alignment",
+            "quoted_excerpt",
+            "adaptation",
+            "image",
+            "audio",
+            "video",
+            "dataset",
+            "other"
+          ]
+        },
+        "license_or_rights_note": {
+          "type": "string",
+          "minLength": 1
+        },
+        "attribution": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": true
+    },
+    "generationQuality": {
+      "type": "object",
+      "required": [
+        "coherence",
+        "hallucination_detected",
+        "needs_human_review",
+        "veto_count",
+        "epistemic_confidence",
+        "metrics_valid_for_current_revision",
+        "review_notes"
+      ],
+      "properties": {
+        "coherence": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "hallucination_detected": {
+          "type": "boolean"
+        },
+        "needs_human_review": {
+          "type": "boolean"
+        },
+        "veto_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "epistemic_confidence": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "metrics_valid_for_current_revision": {
+          "const": false
+        },
+        "review_notes": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "additionalProperties": true
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "contribution": {
+            "properties": {
+              "status": {
+                "const": "published"
+              }
+            },
+            "required": [
+              "status"
+            ]
+          }
+        },
+        "required": [
+          "contribution"
+        ]
+      },
+      "then": {
+        "properties": {
+          "contribution": {
+            "properties": {
+              "visibility": {
+                "const": "public"
+              },
+              "rights_confirmed": {
+                "const": true
+              },
+              "license_id": {
+                "enum": [
+                  "CC0-1.0",
+                  "CC-BY-4.0",
+                  "CC-BY-SA-4.0",
+                  "CC-BY-NC-4.0",
+                  "CC-BY-NC-SA-4.0",
+                  "CC-BY-ND-4.0",
+                  "CC-BY-NC-ND-4.0",
+                  "Custom"
+                ]
+              },
+              "license_url": {
+                "type": "string",
+                "format": "uri"
+              }
+            },
+            "required": [
+              "creator",
+              "license_id",
+              "license_url",
+              "rights_confirmed",
+              "sources",
+              "review_note"
+            ]
+          },
+          "quality": {
+            "properties": {
+              "needs_human_review": {
+                "const": false
+              },
+              "review_status": {
+                "const": "educator_reviewed"
+              }
+            }
+          },
+          "lesson": {
+            "properties": {
+              "generation_quality": {
+                "properties": {
+                  "needs_human_review": {
+                    "const": false
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "contribution": {
+            "properties": {
+              "visibility": {
+                "const": "public"
+              }
+            },
+            "required": [
+              "visibility"
+            ]
+          }
+        },
+        "required": [
+          "contribution"
+        ]
+      },
+      "then": {
+        "properties": {
+          "contribution": {
+            "required": [
+              "sources",
+              "creator",
+              "license_id",
+              "license_url",
+              "rights_confirmed"
+            ],
+            "properties": {
+              "rights_confirmed": {
+                "const": true
+              },
+              "license_id": {
+                "enum": [
+                  "CC0-1.0",
+                  "CC-BY-4.0",
+                  "CC-BY-SA-4.0",
+                  "CC-BY-NC-4.0",
+                  "CC-BY-NC-SA-4.0",
+                  "CC-BY-ND-4.0",
+                  "CC-BY-NC-ND-4.0",
+                  "Custom"
+                ]
+              },
+              "license_url": {
+                "type": "string",
+                "format": "uri"
+              }
+            }
+          }
+        }
+      }
+    }
+  ]
+}

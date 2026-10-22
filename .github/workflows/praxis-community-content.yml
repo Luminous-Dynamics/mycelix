@@ -1,0 +1,105 @@
+name: Praxis Community Content Qualification
+
+on:
+  pull_request:
+    paths:
+      - "mycelix-praxis/schemas/community-lesson-v1.schema.json"
+      - "mycelix-praxis/examples/community-content/**"
+      - "mycelix-praxis/benchmarks/community-creator-v1/**"
+      - "mycelix-praxis/docs/content-creation/**"
+      - "mycelix-praxis/apps/leptos/src/pages/content_studio.rs"
+      - "mycelix-praxis/apps/leptos/src/app.rs"
+      - "mycelix-praxis/apps/leptos/src/pages/mod.rs"
+      - ".github/workflows/praxis-community-content.yml"
+  push:
+    branches: [main]
+    paths:
+      - "mycelix-praxis/schemas/community-lesson-v1.schema.json"
+      - "mycelix-praxis/examples/community-content/**"
+      - "mycelix-praxis/benchmarks/community-creator-v1/**"
+      - "mycelix-praxis/docs/content-creation/**"
+      - "mycelix-praxis/apps/leptos/src/pages/content_studio.rs"
+      - "mycelix-praxis/apps/leptos/src/app.rs"
+      - "mycelix-praxis/apps/leptos/src/pages/mod.rs"
+      - ".github/workflows/praxis-community-content.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: praxis-community-content-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  validate-community-packs:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+      - name: Install pinned JSON Schema validator
+        run: python -m pip install jsonschema==4.26.0
+      - name: Validate schema and starter packs
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          from jsonschema import Draft202012Validator, FormatChecker
+
+          root = Path("mycelix-praxis")
+          schema_path = root / "schemas/community-lesson-v1.schema.json"
+          schema = json.loads(schema_path.read_text(encoding="utf-8"))
+          Draft202012Validator.check_schema(schema)
+          validator = Draft202012Validator(schema, format_checker=FormatChecker())
+
+          for relative in (
+              "examples/community-content/lesson-starter.json",
+              "examples/community-content/area-vs-perimeter.json",
+          ):
+              path = root / relative
+              document = json.loads(path.read_text(encoding="utf-8"))
+              errors = sorted(validator.iter_errors(document), key=lambda error: list(map(str, error.absolute_path)))
+              if errors:
+                  print(f"{path}: validation failed")
+                  for error in errors:
+                      field = "/".join(map(str, error.absolute_path)) or "<root>"
+                      print(f"  - {field}: {error.message}")
+                  raise SystemExit(1)
+              print(f"{path}: valid against Community Lesson v1")
+
+          example = json.loads((root / "examples/community-content/area-vs-perimeter.json").read_text(encoding="utf-8"))
+          assert example["contribution"]["status"] == "draft"
+          assert example["contribution"]["visibility"] == "private_draft"
+          assert example["quality"]["needs_human_review"] is True
+          assert example["quality"]["metrics_valid_for_current_revision"] is False
+
+          public_gate = next(
+              rule for rule in schema["allOf"]
+              if rule.get("if", {}).get("properties", {}).get("contribution", {})
+                    .get("properties", {}).get("visibility", {}).get("const") == "public"
+          )["then"]["properties"]["contribution"]
+          assert public_gate["properties"]["rights_confirmed"]["const"] is True
+          assert "UNDECIDED" not in public_gate["properties"]["license_id"]["enum"]
+          assert public_gate["properties"]["license_url"]["format"] == "uri"
+          print("Draft/publication, rights, licence and quality guardrails: valid")
+          PY
+
+  check-creator-studio:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+          components: rustfmt
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: mycelix-praxis/apps/leptos
+      - name: Check creator-studio formatting
+        run: cargo fmt --manifest-path mycelix-praxis/apps/leptos/Cargo.toml -- --check
+      - name: Compile browser application and creator tests for WASM
+        run: cargo check --tests --manifest-path mycelix-praxis/apps/leptos/Cargo.toml --target wasm32-unknown-unknown
