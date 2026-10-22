@@ -7,8 +7,7 @@
 
 use crate::{
     evaluate_order, heuristic_portfolio, net_position_liquidity_lower_bound,
-    receiver_ready_event_driven, Evaluation, Payment, Problem, ReorderError,
-    MAX_SEARCH_WORK_UNITS,
+    receiver_ready_event_driven, Evaluation, Payment, Problem, ReorderError, MAX_SEARCH_WORK_UNITS,
 };
 use std::collections::BTreeSet;
 use std::error::Error;
@@ -105,7 +104,11 @@ fn batch_order(
     if strategy == OnlineBatchStrategy::EarliestDeadlineFirst {
         let mut result = batch.to_vec();
         result.sort_by_key(|&index| {
-            (config.deadline_ticks[index], config.release_ticks[index], index)
+            (
+                config.deadline_ticks[index],
+                config.release_ticks[index],
+                index,
+            )
         });
         return Ok(result);
     }
@@ -131,7 +134,11 @@ fn batch_order(
             heuristic_portfolio(&subproblem, budget, 41, budget)?
         }
     };
-    Ok(result.order.into_iter().map(|local_index| batch[local_index]).collect())
+    Ok(result
+        .order
+        .into_iter()
+        .map(|local_index| batch[local_index])
+        .collect())
 }
 
 /// Replay a time-stamped payment stream using bounded look-ahead batches.
