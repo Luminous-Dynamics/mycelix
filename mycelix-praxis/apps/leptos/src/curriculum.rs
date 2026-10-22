@@ -8,7 +8,7 @@
 
 use leptos::prelude::*;
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
+use std::collections::{BTreeSet, HashMap};
 use std::fmt;
 use std::sync::OnceLock;
 
@@ -557,11 +557,28 @@ impl CurriculumGraph {
 
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
 pub struct NodeProgress {
+    /// Estimated mastery from scored answer choices only (0-1000).
     pub mastery_permille: u16,
+    /// Answer choices submitted before feedback was revealed.
     pub attempts: u32,
+    /// Correct answer choices submitted before feedback was revealed.
     pub correct: u32,
     pub status: ProgressStatus,
     pub last_reviewed: Option<f64>, // JS timestamp
+    /// Self-reported confidence is retained separately and never feeds BKT.
+    #[serde(default)]
+    pub self_assessment: Option<SelfAssessment>,
+    /// Legacy responses recorded after answer reveal; not valid mastery evidence.
+    #[serde(default)]
+    pub self_reported_attempts: u32,
+    #[serde(default)]
+    pub self_reported_correct: u32,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub enum SelfAssessment {
+    FeelsUnderstood,
+    NeedsMorePractice,
 }
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
@@ -569,6 +586,9 @@ pub enum ProgressStatus {
     #[default]
     NotStarted,
     Studying,
+    /// A BKT estimate based on recent answered items, not durable mastery.
+    ProvisionalMastery,
+    /// Reserved for mastery verified by an independent, evidence-backed workflow.
     Mastered,
 }
 
@@ -577,7 +597,8 @@ impl ProgressStatus {
         match self {
             ProgressStatus::NotStarted => "Not Started",
             ProgressStatus::Studying => "Studying",
-            ProgressStatus::Mastered => "Mastered",
+            ProgressStatus::ProvisionalMastery => "Provisional Mastery",
+            ProgressStatus::Mastered => "Verified Mastery",
         }
     }
 
@@ -585,6 +606,7 @@ impl ProgressStatus {
         match self {
             ProgressStatus::NotStarted => "status-not-started",
             ProgressStatus::Studying => "status-studying",
+            ProgressStatus::ProvisionalMastery => "status-provisional-mastery",
             ProgressStatus::Mastered => "status-mastered",
         }
     }
@@ -592,6 +614,9 @@ impl ProgressStatus {
 
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
 pub struct ProgressStore {
+    /// Version of the local progress semantics/migration.
+    #[serde(default)]
+    pub schema_version: u32,
     pub nodes: HashMap<String, NodeProgress>,
     pub exam_date: Option<String>, // ISO date
     /// SRS flashcard state — keyed by card_id (e.g., "math:3")
@@ -664,16 +689,100 @@ impl ProgressStore {
             correct: 0,
             status: ProgressStatus::NotStarted,
             last_reviewed: None,
+            self_assessment: None,
+            self_reported_attempts: 0,
+            self_reported_correct: 0,
         };
         self.nodes.get(node_id).unwrap_or(&DEFAULT)
     }
 
+    /// Change the learner-facing progress state. A client-side request to mark
+    /// a node Mastered is deliberately downgraded to a self-assessment; only a
+    /// trusted evidence workflow may restore the verified Mastered state.
     pub fn set_status(&mut self, node_id: &str, status: ProgressStatus) {
         let entry = self.nodes.entry(node_id.to_string()).or_default();
-        entry.status = status;
         if status == ProgressStatus::Mastered {
-            entry.mastery_permille = entry.mastery_permille.max(900);
+            entry.self_assessment = Some(SelfAssessment::FeelsUnderstood);
+            entry.self_reported_attempts = entry.self_reported_attempts.saturating_add(1);
+            entry.self_reported_correct = entry.self_reported_correct.saturating_add(1);
+            if entry.status == ProgressStatus::NotStarted {
+                entry.status = ProgressStatus::Studying;
+            }
+            return;
         }
+        entry.status = status;
+    }
+
+    /// Record a learner reflection separately from scored answers. This never
+    /// changes the BKT posterior, correctness counts, or verified mastery.
+    pub fn record_self_assessment(&mut self, node_id: &str, assessment: SelfAssessment) {
+        let entry = self.nodes.entry(node_id.to_string()).or_default();
+        entry.self_assessment = Some(assessment);
+        entry.self_reported_attempts = entry.self_reported_attempts.saturating_add(1);
+        if assessment == SelfAssessment::FeelsUnderstood {
+            entry.self_reported_correct = entry.self_reported_correct.saturating_add(1);
+        }
+        entry.last_reviewed = Some(js_sys::Date::now());
+        if entry.status == ProgressStatus::NotStarted {
+            entry.status = ProgressStatus::Studying;
+        }
+    }
+
+    /// One-time migration: previous Praxis versions recorded BKT responses only
+    /// after showing the answer and allowed a manual Mastered toggle. Such data
+    /// is preserved as self-report history, but cannot be treated as scored
+    /// attempts, a BKT estimate, or verified mastery.
+    pub fn migrate_legacy_progress(&mut self) -> bool {
+        if self.schema_version >= 1 {
+            return false;
+        }
+
+        let node_ids: BTreeSet<String> = self
+            .nodes
+            .keys()
+            .chain(self.bkt_states.keys())
+            .cloned()
+            .collect();
+        for node_id in node_ids {
+            let old_bkt = self.bkt_states.get(&node_id).cloned();
+            let progress = self.nodes.entry(node_id.clone()).or_default();
+            if progress.status == ProgressStatus::Mastered {
+                progress.self_assessment = Some(SelfAssessment::FeelsUnderstood);
+            }
+
+            let legacy_attempts = progress
+                .attempts
+                .max(old_bkt.as_ref().map_or(0, |bkt| bkt.attempts));
+            let legacy_correct = progress
+                .correct
+                .max(old_bkt.as_ref().map_or(0, |bkt| bkt.correct))
+                .min(legacy_attempts);
+            if legacy_attempts > 0 || legacy_correct > 0 {
+                progress.self_reported_attempts = progress
+                    .self_reported_attempts
+                    .saturating_add(legacy_attempts);
+                progress.self_reported_correct = progress
+                    .self_reported_correct
+                    .saturating_add(legacy_correct);
+            }
+
+            if old_bkt.is_some() || legacy_attempts > 0 || legacy_correct > 0
+                || progress.status == ProgressStatus::Mastered
+            {
+                progress.attempts = 0;
+                progress.correct = 0;
+                progress.mastery_permille = 0;
+                if progress.status == ProgressStatus::Mastered
+                    || progress.status == ProgressStatus::ProvisionalMastery
+                {
+                    progress.status = ProgressStatus::Studying;
+                }
+                self.bkt_states.remove(&node_id);
+            }
+        }
+
+        self.schema_version = 1;
+        true
     }
 
     pub fn mastered_count(&self) -> usize {
@@ -820,10 +929,20 @@ impl ProgressStore {
         }
         progress.mastery_permille = (bkt.p_mastery * 1000.0) as u16;
 
-        // Auto-promote status based on BKT
+        // BKT supports only provisional mastery. Durable mastery requires
+        // independent transfer and delayed-retention evidence, not a posterior
+        // threshold over a short practice session.
         if bkt.is_likely_mastered() && progress.status != ProgressStatus::Mastered {
-            progress.status = ProgressStatus::Mastered;
-        } else if bkt.attempts > 0 && progress.status == ProgressStatus::NotStarted {
+            progress.status = ProgressStatus::ProvisionalMastery;
+        } else if bkt.attempts > 0
+            && matches!(
+                progress.status,
+                ProgressStatus::NotStarted
+                    | ProgressStatus::Studying
+                    | ProgressStatus::ProvisionalMastery
+            )
+            && !bkt.is_likely_mastered()
+        {
             progress.status = ProgressStatus::Studying;
         }
     }
@@ -1027,12 +1146,21 @@ impl Grade {
     }
 }
 
+/// Load local progress and normalize records created by prior semantics.
+pub fn load_progress_store() -> ProgressStore {
+    let mut progress = persistence::load::<ProgressStore>(PROGRESS_KEY).unwrap_or_default();
+    if progress.migrate_legacy_progress() {
+        persistence::save(PROGRESS_KEY, &progress);
+    }
+    progress
+}
+
 /// Provide curriculum context. Call once at app root.
 pub fn provide_curriculum_context() -> Result<(), &'static CurriculumLoadError> {
     // Validate before routes or graph consumers are rendered.
     let _ = try_curriculum_graph()?;
 
-    let initial_progress = persistence::load::<ProgressStore>(PROGRESS_KEY).unwrap_or_default();
+    let initial_progress = load_progress_store();
 
     // Default grade from student profile (so constellation shows relevant content)
     let profile_grade =
