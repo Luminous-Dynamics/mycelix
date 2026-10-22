@@ -1,0 +1,448 @@
+{
+  "schema_version": "nrvca-pareto-stress/0.1",
+  "status": "synthetic_expected_answers",
+  "purpose": "Frozen expected outputs for direction-aware Pareto analysis and unit-preserving hard-constraint violations over NRVCA-005's hand-authored synthetic fixture. Not an empirical system ranking.",
+  "linked_fixture": {
+    "path": "fixtures/nrvca-correlated-stress-synthetic-v0.1.json",
+    "schema_version": "nrvca-robust-stress/0.1",
+    "scenario_count": 5,
+    "strategy_count": 3,
+    "outcome_cell_count": 15
+  },
+  "objective_contract": {
+    "aggregation": "none",
+    "weights_used": false,
+    "dominance_rule": "A strictly dominates B iff A is no worse on every declared objective in its declared direction and strictly better on at least one. Exact duplicate vectors remain jointly non-dominated.",
+    "metrics": [
+      {
+        "metric_id": "service_units_lower_bound",
+        "direction": "maximize",
+        "unit": "synthetic_service_units",
+        "meaning": "Conservative lower bound for total delivered service."
+      },
+      {
+        "metric_id": "underserved_service_units_lower_bound",
+        "direction": "maximize",
+        "unit": "synthetic_service_units",
+        "meaning": "Conservative lower bound for service delivered to the underserved group."
+      },
+      {
+        "metric_id": "reliability_lower_bound",
+        "direction": "maximize",
+        "unit": "fraction_0_to_1",
+        "meaning": "Conservative lower bound for the reliability fraction."
+      },
+      {
+        "metric_id": "emissions_tonnes_co2e_upper_bound",
+        "direction": "minimize",
+        "unit": "synthetic_tonnes_CO2e",
+        "meaning": "Upper bound on emissions burden."
+      },
+      {
+        "metric_id": "total_cost",
+        "direction": "minimize",
+        "unit": "synthetic_cost_units",
+        "meaning": "Total scenario cost, including contingency actions."
+      }
+    ]
+  },
+  "constraint_contract": {
+    "all_constraints_non_compensable": true,
+    "pass_rule": "All listed violations are exactly zero within numeric tolerance; never add violations across different units.",
+    "constraints": [
+      {
+        "constraint_id": "primary_budget",
+        "kind": "upper_bound",
+        "basis": "strategy.base_cost",
+        "limit": 10,
+        "unit": "synthetic_cost_units",
+        "description": "Base plan must fit the primary budget."
+      },
+      {
+        "constraint_id": "contingency_reserve",
+        "kind": "upper_bound",
+        "basis": "scenario.total_cost_minus_strategy.base_cost",
+        "limit": 4,
+        "unit": "synthetic_cost_units",
+        "description": "Incremental scenario cost must fit contingency reserve."
+      },
+      {
+        "constraint_id": "total_cost",
+        "kind": "upper_bound",
+        "basis": "scenario.total_cost",
+        "limit": 14,
+        "unit": "synthetic_cost_units",
+        "description": "Total scenario cost must fit the global cost cap."
+      },
+      {
+        "constraint_id": "service_floor",
+        "kind": "lower_bound",
+        "basis": "scenario.service_units_lower_bound",
+        "limit": 800,
+        "unit": "synthetic_service_units",
+        "description": "Lower-bound delivered service must meet the policy floor."
+      },
+      {
+        "constraint_id": "underserved_service_floor",
+        "kind": "lower_bound",
+        "basis": "scenario.underserved_service_units_lower_bound",
+        "limit": 800,
+        "unit": "synthetic_service_units",
+        "description": "Lower-bound underserved service must meet the policy floor."
+      },
+      {
+        "constraint_id": "reliability_floor",
+        "kind": "lower_bound",
+        "basis": "scenario.reliability_lower_bound",
+        "limit": 0.95,
+        "unit": "fraction_0_to_1",
+        "description": "Lower-bound reliability must meet the policy floor."
+      },
+      {
+        "constraint_id": "emissions_cap",
+        "kind": "upper_bound",
+        "basis": "scenario.emissions_tonnes_co2e_upper_bound",
+        "limit": 12,
+        "unit": "synthetic_tonnes_CO2e",
+        "description": "Upper-bound emissions must remain below the policy cap."
+      },
+      {
+        "constraint_id": "cost_not_below_base",
+        "kind": "lower_bound",
+        "basis": "scenario.total_cost",
+        "limit": "strategy.base_cost",
+        "unit": "synthetic_cost_units",
+        "description": "Scenario total cost must not be lower than base plan cost."
+      }
+    ]
+  },
+  "expected_summaries": [
+    {
+      "scenario_id": "nominal-operations",
+      "pareto_front_all_strategies": [
+        "adaptive_staged",
+        "equity_static",
+        "output_only_static"
+      ],
+      "dominated_strategy_ids": [],
+      "feasible_strategy_ids": [
+        "adaptive_staged",
+        "equity_static"
+      ],
+      "feasible_pareto_front_strategy_ids": [
+        "adaptive_staged",
+        "equity_static"
+      ],
+      "feasible_front_empty": false,
+      "feasible_count": 2,
+      "constraint_violation_vectors": [
+        {
+          "strategy_id": "adaptive_staged",
+          "scenario_id": "nominal-operations",
+          "feasible": true,
+          "violations": {
+            "primary_budget_excess": 0,
+            "contingency_reserve_excess": 0,
+            "total_cost_excess": 0,
+            "service_floor_shortfall": 0,
+            "underserved_service_floor_shortfall": 0,
+            "reliability_floor_shortfall": 0,
+            "emissions_cap_excess": 0,
+            "cost_below_base_shortfall": 0
+          }
+        },
+        {
+          "strategy_id": "equity_static",
+          "scenario_id": "nominal-operations",
+          "feasible": true,
+          "violations": {
+            "primary_budget_excess": 0,
+            "contingency_reserve_excess": 0,
+            "total_cost_excess": 0,
+            "service_floor_shortfall": 0,
+            "underserved_service_floor_shortfall": 0,
+            "reliability_floor_shortfall": 0,
+            "emissions_cap_excess": 0,
+            "cost_below_base_shortfall": 0
+          }
+        },
+        {
+          "strategy_id": "output_only_static",
+          "scenario_id": "nominal-operations",
+          "feasible": false,
+          "violations": {
+            "primary_budget_excess": 0,
+            "contingency_reserve_excess": 0,
+            "total_cost_excess": 0,
+            "service_floor_shortfall": 0,
+            "underserved_service_floor_shortfall": 390,
+            "reliability_floor_shortfall": 0,
+            "emissions_cap_excess": 1.5,
+            "cost_below_base_shortfall": 0
+          }
+        }
+      ]
+    },
+    {
+      "scenario_id": "seasonal-drought",
+      "pareto_front_all_strategies": [
+        "adaptive_staged",
+        "equity_static",
+        "output_only_static"
+      ],
+      "dominated_strategy_ids": [],
+      "feasible_strategy_ids": [
+        "adaptive_staged"
+      ],
+      "feasible_pareto_front_strategy_ids": [
+        "adaptive_staged"
+      ],
+      "feasible_front_empty": false,
+      "feasible_count": 1,
+      "constraint_violation_vectors": [
+        {
+          "strategy_id": "adaptive_staged",
+          "scenario_id": "seasonal-drought",
+          "feasible": true,
+          "violations": {
+            "primary_budget_excess": 0,
+            "contingency_reserve_excess": 0,
+            "total_cost_excess": 0,
+            "service_floor_shortfall": 0,
+            "underserved_service_floor_shortfall": 0,
+            "reliability_floor_shortfall": 0,
+            "emissions_cap_excess": 0,
+            "cost_below_base_shortfall": 0
+          }
+        },
+        {
+          "strategy_id": "equity_static",
+          "scenario_id": "seasonal-drought",
+          "feasible": false,
+          "violations": {
+            "primary_budget_excess": 0,
+            "contingency_reserve_excess": 0,
+            "total_cost_excess": 0,
+            "service_floor_shortfall": 140,
+            "underserved_service_floor_shortfall": 300,
+            "reliability_floor_shortfall": 0.04999999999999993,
+            "emissions_cap_excess": 0,
+            "cost_below_base_shortfall": 0
+          }
+        },
+        {
+          "strategy_id": "output_only_static",
+          "scenario_id": "seasonal-drought",
+          "feasible": false,
+          "violations": {
+            "primary_budget_excess": 0,
+            "contingency_reserve_excess": 0,
+            "total_cost_excess": 0,
+            "service_floor_shortfall": 100,
+            "underserved_service_floor_shortfall": 580,
+            "reliability_floor_shortfall": 0.13,
+            "emissions_cap_excess": 1.5,
+            "cost_below_base_shortfall": 0
+          }
+        }
+      ]
+    },
+    {
+      "scenario_id": "grid-disruption",
+      "pareto_front_all_strategies": [
+        "adaptive_staged",
+        "equity_static"
+      ],
+      "dominated_strategy_ids": [
+        "output_only_static"
+      ],
+      "feasible_strategy_ids": [
+        "adaptive_staged"
+      ],
+      "feasible_pareto_front_strategy_ids": [
+        "adaptive_staged"
+      ],
+      "feasible_front_empty": false,
+      "feasible_count": 1,
+      "constraint_violation_vectors": [
+        {
+          "strategy_id": "adaptive_staged",
+          "scenario_id": "grid-disruption",
+          "feasible": true,
+          "violations": {
+            "primary_budget_excess": 0,
+            "contingency_reserve_excess": 0,
+            "total_cost_excess": 0,
+            "service_floor_shortfall": 0,
+            "underserved_service_floor_shortfall": 0,
+            "reliability_floor_shortfall": 0,
+            "emissions_cap_excess": 0,
+            "cost_below_base_shortfall": 0
+          }
+        },
+        {
+          "strategy_id": "equity_static",
+          "scenario_id": "grid-disruption",
+          "feasible": false,
+          "violations": {
+            "primary_budget_excess": 0,
+            "contingency_reserve_excess": 0,
+            "total_cost_excess": 0,
+            "service_floor_shortfall": 50,
+            "underserved_service_floor_shortfall": 150,
+            "reliability_floor_shortfall": 0.06999999999999995,
+            "emissions_cap_excess": 0,
+            "cost_below_base_shortfall": 0
+          }
+        },
+        {
+          "strategy_id": "output_only_static",
+          "scenario_id": "grid-disruption",
+          "feasible": false,
+          "violations": {
+            "primary_budget_excess": 0,
+            "contingency_reserve_excess": 0,
+            "total_cost_excess": 0,
+            "service_floor_shortfall": 160,
+            "underserved_service_floor_shortfall": 480,
+            "reliability_floor_shortfall": 0.17999999999999994,
+            "emissions_cap_excess": 1,
+            "cost_below_base_shortfall": 0
+          }
+        }
+      ]
+    },
+    {
+      "scenario_id": "compound-drought-grid-crew",
+      "pareto_front_all_strategies": [
+        "adaptive_staged",
+        "equity_static"
+      ],
+      "dominated_strategy_ids": [
+        "output_only_static"
+      ],
+      "feasible_strategy_ids": [
+        "adaptive_staged"
+      ],
+      "feasible_pareto_front_strategy_ids": [
+        "adaptive_staged"
+      ],
+      "feasible_front_empty": false,
+      "feasible_count": 1,
+      "constraint_violation_vectors": [
+        {
+          "strategy_id": "adaptive_staged",
+          "scenario_id": "compound-drought-grid-crew",
+          "feasible": true,
+          "violations": {
+            "primary_budget_excess": 0,
+            "contingency_reserve_excess": 0,
+            "total_cost_excess": 0,
+            "service_floor_shortfall": 0,
+            "underserved_service_floor_shortfall": 0,
+            "reliability_floor_shortfall": 0,
+            "emissions_cap_excess": 0,
+            "cost_below_base_shortfall": 0
+          }
+        },
+        {
+          "strategy_id": "equity_static",
+          "scenario_id": "compound-drought-grid-crew",
+          "feasible": false,
+          "violations": {
+            "primary_budget_excess": 0,
+            "contingency_reserve_excess": 0,
+            "total_cost_excess": 0,
+            "service_floor_shortfall": 440,
+            "underserved_service_floor_shortfall": 550,
+            "reliability_floor_shortfall": 0.32999999999999996,
+            "emissions_cap_excess": 0,
+            "cost_below_base_shortfall": 0
+          }
+        },
+        {
+          "strategy_id": "output_only_static",
+          "scenario_id": "compound-drought-grid-crew",
+          "feasible": false,
+          "violations": {
+            "primary_budget_excess": 0,
+            "contingency_reserve_excess": 0,
+            "total_cost_excess": 0,
+            "service_floor_shortfall": 480,
+            "underserved_service_floor_shortfall": 680,
+            "reliability_floor_shortfall": 0.49999999999999994,
+            "emissions_cap_excess": 0.8000000000000007,
+            "cost_below_base_shortfall": 0
+          }
+        }
+      ]
+    },
+    {
+      "scenario_id": "prolonged-repeat-disruption",
+      "pareto_front_all_strategies": [
+        "adaptive_staged",
+        "equity_static"
+      ],
+      "dominated_strategy_ids": [
+        "output_only_static"
+      ],
+      "feasible_strategy_ids": [],
+      "feasible_pareto_front_strategy_ids": [],
+      "feasible_front_empty": true,
+      "feasible_count": 0,
+      "constraint_violation_vectors": [
+        {
+          "strategy_id": "adaptive_staged",
+          "scenario_id": "prolonged-repeat-disruption",
+          "feasible": false,
+          "violations": {
+            "primary_budget_excess": 0,
+            "contingency_reserve_excess": 0,
+            "total_cost_excess": 0,
+            "service_floor_shortfall": 10,
+            "underserved_service_floor_shortfall": 40,
+            "reliability_floor_shortfall": 0.019999999999999907,
+            "emissions_cap_excess": 0,
+            "cost_below_base_shortfall": 0
+          }
+        },
+        {
+          "strategy_id": "equity_static",
+          "scenario_id": "prolonged-repeat-disruption",
+          "feasible": false,
+          "violations": {
+            "primary_budget_excess": 0,
+            "contingency_reserve_excess": 0,
+            "total_cost_excess": 0,
+            "service_floor_shortfall": 500,
+            "underserved_service_floor_shortfall": 600,
+            "reliability_floor_shortfall": 0.37,
+            "emissions_cap_excess": 0,
+            "cost_below_base_shortfall": 0
+          }
+        },
+        {
+          "strategy_id": "output_only_static",
+          "scenario_id": "prolonged-repeat-disruption",
+          "feasible": false,
+          "violations": {
+            "primary_budget_excess": 0,
+            "contingency_reserve_excess": 0,
+            "total_cost_excess": 0,
+            "service_floor_shortfall": 550,
+            "underserved_service_floor_shortfall": 720,
+            "reliability_floor_shortfall": 0.57,
+            "emissions_cap_excess": 0.5999999999999996,
+            "cost_below_base_shortfall": 0
+          }
+        }
+      ]
+    }
+  ],
+  "caveats": [
+    "All strategy outcomes are hand-authored synthetic values.",
+    "A Pareto front is relative only to the candidate set supplied; it does not establish global optimality.",
+    "No scalar regret or probability of success is reported.",
+    "The feasible Pareto front is empty if all candidate strategies violate at least one hard constraint."
+  ]
+}
