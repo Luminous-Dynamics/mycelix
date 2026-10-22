@@ -74,6 +74,7 @@ fn AppInner() -> impl IntoView {
                 <a href="/" class="logo">"Praxis"</a>
                 <div class="nav-links">
                     <RoleNav role=role />
+                    <A href="/author">"Create lesson"</A>
                     <crate::components::sync_hud::SyncStatusHud />
                 </div>
                 <crate::search::SearchBar />
@@ -92,6 +93,7 @@ fn AppInner() -> impl IntoView {
                 <Routes fallback=|| view! { <p>"Page not found"</p> }>
                     <Route path=path!("/") view=HomePage />
                     <Route path=path!("/courses") view=CoursesPage />
+                    <Route path=path!("/author") view=LessonAuthorPage />
                     <Route path=path!("/review") view=ReviewPage />
                     <Route path=path!("/dashboard") view=DashboardPage />
                     <Route path=path!("/employer") view=EmployerPortal />
