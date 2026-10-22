@@ -731,6 +731,21 @@ impl ProgressStore {
             return;
         }
 
+        if status == ProgressStatus::ProvisionalMastery {
+            let bkt = self.bkt_states.get(node_id).cloned();
+            let entry = self.nodes.entry(node_id.to_string()).or_default();
+            entry.mastery_permille = bkt
+                .as_ref()
+                .map_or(0, |state| (state.p_mastery * 1000.0) as u16);
+            entry.status = if bkt.as_ref().is_some_and(BktState::is_likely_mastered) {
+                ProgressStatus::ProvisionalMastery
+            } else {
+                ProgressStatus::Studying
+            };
+            entry.self_assessment = None;
+            return;
+        }
+
         let entry = self.nodes.entry(node_id.to_string()).or_default();
         entry.status = status;
         if matches!(status, ProgressStatus::NotStarted | ProgressStatus::Studying) {
@@ -872,6 +887,34 @@ impl ProgressStore {
                 progress.status = ProgressStatus::Studying;
             }
             changed = true;
+        }
+
+        // ProvisionalMastery is also a derived state, not an independent
+        // browser assertion. Recompute it from the stored BKT posterior, and
+        // downgrade stale or forged flags when there is no supporting posterior.
+        let provisional_ids = self
+            .nodes
+            .iter()
+            .filter(|(_, progress)| progress.status == ProgressStatus::ProvisionalMastery)
+            .map(|(node_id, _)| node_id.clone())
+            .collect::<Vec<_>>();
+        for node_id in provisional_ids {
+            let bkt = self.bkt_states.get(&node_id).cloned();
+            if let Some(progress) = self.nodes.get_mut(&node_id) {
+                let score = bkt
+                    .as_ref()
+                    .map_or(0, |state| (state.p_mastery * 1000.0) as u16);
+                let status = if bkt.as_ref().is_some_and(BktState::is_likely_mastered) {
+                    ProgressStatus::ProvisionalMastery
+                } else {
+                    ProgressStatus::Studying
+                };
+                if progress.mastery_permille != score || progress.status != status {
+                    progress.mastery_permille = score;
+                    progress.status = status;
+                    changed = true;
+                }
+            }
         }
 
         changed
@@ -1536,6 +1579,55 @@ mod evidence_first_progress_tests {
             !progress.migrate_legacy_progress(),
             "migration must not erase new scored responses on a later load"
         );
+    }
+
+    #[test]
+    fn provisional_status_is_recomputed_from_bkt_on_load() {
+        let mut unsupported = ProgressStore {
+            schema_version: 1,
+            ..ProgressStore::default()
+        };
+        unsupported.nodes.insert(
+            "math.fractions".to_owned(),
+            NodeProgress {
+                status: ProgressStatus::ProvisionalMastery,
+                mastery_permille: 990,
+                ..NodeProgress::default()
+            },
+        );
+        assert!(unsupported.migrate_legacy_progress());
+        assert_eq!(
+            unsupported.get("math.fractions").status,
+            ProgressStatus::Studying
+        );
+        assert_eq!(unsupported.get("math.fractions").mastery_permille, 0);
+
+        let mut supported = ProgressStore {
+            schema_version: 1,
+            ..ProgressStore::default()
+        };
+        supported.nodes.insert(
+            "math.fractions".to_owned(),
+            NodeProgress {
+                status: ProgressStatus::ProvisionalMastery,
+                mastery_permille: 800,
+                ..NodeProgress::default()
+            },
+        );
+        supported.bkt_states.insert(
+            "math.fractions".to_owned(),
+            BktState {
+                p_mastery: 0.97,
+                attempts: 8,
+                correct: 8,
+            },
+        );
+        assert!(supported.migrate_legacy_progress());
+        assert_eq!(
+            supported.get("math.fractions").status,
+            ProgressStatus::ProvisionalMastery
+        );
+        assert_eq!(supported.get("math.fractions").mastery_permille, 970);
     }
 
     #[test]
