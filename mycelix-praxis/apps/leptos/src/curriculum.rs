@@ -832,68 +832,149 @@ impl ProgressStore {
     pub fn migrate_legacy_progress(&mut self) -> bool {
         let mut changed = false;
 
+        // Version 0 recorded a self-reported result only after showing the key.
+        // Preserve those counters as reflection history, except where there is
+        // already an item-level receipt from the answer-first scoring path.
         if self.schema_version < 1 {
-            let node_ids: BTreeSet<String> = self
+            let node_ids = self
                 .nodes
                 .keys()
                 .chain(self.bkt_states.keys())
                 .cloned()
-                .collect();
+                .collect::<BTreeSet<_>>();
             for node_id in node_ids {
                 let old_bkt = self.bkt_states.get(&node_id).cloned();
                 let progress = self.nodes.entry(node_id.clone()).or_default();
+                let receipt_count = progress.scored_practice_receipts.len() as u32;
+                let receipt_correct = progress
+                    .scored_practice_receipts
+                    .iter()
+                    .filter(|receipt| receipt.correct)
+                    .count() as u32;
+                let old_attempts = progress
+                    .attempts
+                    .max(old_bkt.as_ref().map_or(0, |bkt| bkt.attempts));
+                let old_correct = progress
+                    .correct
+                    .max(old_bkt.as_ref().map_or(0, |bkt| bkt.correct))
+                    .min(old_attempts);
+                let unbound_attempts = old_attempts.saturating_sub(receipt_count);
+                let unbound_correct = old_correct
+                    .saturating_sub(receipt_correct)
+                    .min(unbound_attempts);
+                progress.self_reported_attempts = progress
+                    .self_reported_attempts
+                    .saturating_add(unbound_attempts);
+                progress.self_reported_correct = progress
+                    .self_reported_correct
+                    .saturating_add(unbound_correct);
                 if progress.status == ProgressStatus::Mastered {
                     progress.self_assessment = Some(SelfAssessment::FeelsUnderstood);
                 }
-
-                // In the previous UI, BKT was updated only after the answer had
-                // been revealed and the learner self-rated. Preserve those
-                // counts as self-report history, but invalidate them as scored
-                // attempts and discard the resulting BKT posterior.
-                let legacy_attempts = progress
-                    .attempts
-                    .max(old_bkt.as_ref().map_or(0, |bkt| bkt.attempts));
-                let legacy_correct = progress
-                    .correct
-                    .max(old_bkt.as_ref().map_or(0, |bkt| bkt.correct))
-                    .min(legacy_attempts);
-                if legacy_attempts > 0 || legacy_correct > 0 {
-                    progress.self_reported_attempts = progress
-                        .self_reported_attempts
-                        .saturating_add(legacy_attempts);
-                    progress.self_reported_correct = progress
-                        .self_reported_correct
-                        .saturating_add(legacy_correct);
-                }
-                if progress.status == ProgressStatus::Mastered
-                    || old_bkt.is_some()
-                    || legacy_attempts > 0
-                    || legacy_correct > 0
-                {
-                    progress.attempts = 0;
-                    progress.correct = 0;
-                    progress.mastery_permille = 0;
-                    if matches!(
-                        progress.status,
-                        ProgressStatus::Mastered | ProgressStatus::ProvisionalMastery
-                    ) || progress.status == ProgressStatus::NotStarted
+                progress.attempts = receipt_count;
+                progress.correct = receipt_correct;
+                progress.scored_item_ids = progress
+                    .scored_practice_receipts
+                    .iter()
+                    .map(|receipt| receipt.item_id.clone())
+                    .collect();
+                progress.mastery_permille = 0;
+                progress.status = if progress.scored_practice_receipts.is_empty() {
+                    if old_attempts > 0
+                        || matches!(
+                            progress.status,
+                            ProgressStatus::Mastered | ProgressStatus::ProvisionalMastery
+                        )
                     {
-                        progress.status = ProgressStatus::Studying;
+                        ProgressStatus::Studying
+                    } else {
+                        progress.status
                     }
-                }
-                if old_bkt.is_some() {
-                    self.bkt_states.remove(&node_id);
-                }
+                } else {
+                    ProgressStatus::Studying
+                };
+                self.bkt_states.remove(&node_id);
             }
             self.schema_version = 1;
             changed = true;
         }
 
-        // No trusted, independently verified mastery receipt is represented in
-        // this browser-local model yet. Therefore any persisted Mastered flag,
-        // even in a version-1 store, invalidates the associated local score/BKT
-        // evidence: those data may have been produced by the prior post-reveal UI
-        // or by an untrusted import. Preserve them only as self-report history.
+        // Version 1 can contain aggregate BKT numbers without enough item-level
+        // evidence to deduplicate imports or audit which prompts produced them.
+        // Move only that unbound aggregate to self-report history; receipt-backed
+        // attempts remain scored and are reconstructed from the receipt ledger.
+        if self.schema_version < 2 {
+            let node_ids = self
+                .nodes
+                .keys()
+                .chain(self.bkt_states.keys())
+                .cloned()
+                .collect::<BTreeSet<_>>();
+            for node_id in node_ids {
+                let old_bkt = self.bkt_states.get(&node_id).cloned();
+                let progress = self.nodes.entry(node_id.clone()).or_default();
+                let mut receipts = progress.scored_practice_receipts.clone();
+                receipts.sort_by(|left, right| {
+                    left.recorded_at_ms
+                        .total_cmp(&right.recorded_at_ms)
+                        .then_with(|| left.sequence.cmp(&right.sequence))
+                        .then_with(|| left.item_id.cmp(&right.item_id))
+                });
+                let mut seen = BTreeSet::new();
+                receipts.retain(|receipt| seen.insert(receipt.item_id.clone()));
+                let receipt_count = receipts.len() as u32;
+                let receipt_correct =
+                    receipts.iter().filter(|receipt| receipt.correct).count() as u32;
+                let old_attempts = progress
+                    .attempts
+                    .max(old_bkt.as_ref().map_or(0, |bkt| bkt.attempts));
+                let old_correct = progress
+                    .correct
+                    .max(old_bkt.as_ref().map_or(0, |bkt| bkt.correct))
+                    .min(old_attempts);
+                let unbound_attempts = old_attempts.saturating_sub(receipt_count);
+                let unbound_correct = old_correct
+                    .saturating_sub(receipt_correct)
+                    .min(unbound_attempts);
+                progress.self_reported_attempts = progress
+                    .self_reported_attempts
+                    .saturating_add(unbound_attempts);
+                progress.self_reported_correct = progress
+                    .self_reported_correct
+                    .saturating_add(unbound_correct);
+                if progress.status == ProgressStatus::Mastered {
+                    progress.self_assessment = Some(SelfAssessment::FeelsUnderstood);
+                }
+                progress.scored_practice_receipts = receipts;
+                progress.scored_item_ids = progress
+                    .scored_practice_receipts
+                    .iter()
+                    .map(|receipt| receipt.item_id.clone())
+                    .collect();
+                progress.attempts = receipt_count;
+                progress.correct = receipt_correct;
+                progress.mastery_permille = 0;
+                if progress.scored_practice_receipts.is_empty()
+                    && (old_attempts > 0
+                        || old_correct > 0
+                        || matches!(
+                            progress.status,
+                            ProgressStatus::Mastered | ProgressStatus::ProvisionalMastery
+                        ))
+                {
+                    progress.status = ProgressStatus::Studying;
+                } else if !progress.scored_practice_receipts.is_empty() {
+                    progress.status = ProgressStatus::Studying;
+                }
+                self.bkt_states.remove(&node_id);
+            }
+            self.schema_version = 2;
+            changed = true;
+        }
+
+        // No browser-local state can issue verified mastery. A stale Mastered
+        // flag is a self-assessment; if it has item receipts, those receipts can
+        // still produce a provisional navigation estimate after the next rebuild.
         let unverified_mastered_ids = self
             .nodes
             .iter()
@@ -901,56 +982,73 @@ impl ProgressStore {
             .map(|(node_id, _)| node_id.clone())
             .collect::<Vec<_>>();
         for node_id in unverified_mastered_ids {
-            let old_bkt = self.bkt_states.remove(&node_id);
             if let Some(progress) = self.nodes.get_mut(&node_id) {
-                let legacy_attempts = progress
-                    .attempts
-                    .max(old_bkt.as_ref().map_or(0, |bkt| bkt.attempts));
-                let legacy_correct = progress
-                    .correct
-                    .max(old_bkt.as_ref().map_or(0, |bkt| bkt.correct))
-                    .min(legacy_attempts);
-                progress.self_reported_attempts = progress
-                    .self_reported_attempts
-                    .saturating_add(legacy_attempts);
-                progress.self_reported_correct = progress
-                    .self_reported_correct
-                    .saturating_add(legacy_correct);
+                if progress.scored_practice_receipts.is_empty() {
+                    progress.self_reported_attempts = progress
+                        .self_reported_attempts
+                        .saturating_add(progress.attempts);
+                    progress.self_reported_correct = progress
+                        .self_reported_correct
+                        .saturating_add(progress.correct.min(progress.attempts));
+                    progress.attempts = 0;
+                    progress.correct = 0;
+                    progress.mastery_permille = 0;
+                    progress.scored_item_ids.clear();
+                }
                 progress.self_assessment = Some(SelfAssessment::FeelsUnderstood);
-                progress.attempts = 0;
-                progress.correct = 0;
-                progress.mastery_permille = 0;
                 progress.status = ProgressStatus::Studying;
             }
+            self.bkt_states.remove(&node_id);
             changed = true;
         }
 
-        // ProvisionalMastery is also a derived state, not an independent
-        // browser assertion. Recompute it from the stored BKT posterior, and
-        // downgrade stale or forged flags when there is no supporting posterior.
-        let provisional_ids = self
+        // Scores, counts and provisional state are derived from item-level
+        // receipts only. Unbound attempts and BKT snapshots cannot unlock the ZPD.
+        let receipt_node_ids = self
             .nodes
             .iter()
-            .filter(|(_, progress)| progress.status == ProgressStatus::ProvisionalMastery)
+            .filter(|(_, progress)| !progress.scored_practice_receipts.is_empty())
             .map(|(node_id, _)| node_id.clone())
             .collect::<Vec<_>>();
-        for node_id in provisional_ids {
-            let bkt = self.bkt_states.get(&node_id).cloned();
+        for node_id in receipt_node_ids {
+            changed |= self.rebuild_bkt_from_practice_receipts(&node_id);
+        }
+
+        // Remove BKT-only progress records that have no scored-item receipts.
+        let unbound_node_ids = self
+            .nodes
+            .iter()
+            .filter(|(_, progress)| {
+                progress.scored_practice_receipts.is_empty()
+                    && (progress.attempts > 0
+                        || progress.correct > 0
+                        || progress.mastery_permille > 0
+                        || !progress.scored_item_ids.is_empty()
+                        || self.bkt_states.contains_key(_))
+            })
+            .map(|(node_id, _)| node_id.clone())
+            .collect::<Vec<_>>();
+        for node_id in unbound_node_ids {
+            let old_bkt = self.bkt_states.remove(&node_id);
             if let Some(progress) = self.nodes.get_mut(&node_id) {
-                let score = bkt
-                    .as_ref()
-                    .map_or(0, |state| (state.p_mastery * 1000.0) as u16);
-                let status = if bkt.as_ref().is_some_and(BktState::is_likely_mastered) {
-                    ProgressStatus::ProvisionalMastery
-                } else {
-                    ProgressStatus::Studying
-                };
-                if progress.mastery_permille != score || progress.status != status {
-                    progress.mastery_permille = score;
-                    progress.status = status;
-                    changed = true;
+                progress.self_reported_attempts = progress
+                    .self_reported_attempts
+                    .saturating_add(progress.attempts.max(old_bkt.as_ref().map_or(0, |bkt| bkt.attempts)));
+                progress.self_reported_correct = progress
+                    .self_reported_correct
+                    .saturating_add(progress.correct.max(old_bkt.as_ref().map_or(0, |bkt| bkt.correct)));
+                progress.attempts = 0;
+                progress.correct = 0;
+                progress.mastery_permille = 0;
+                progress.scored_item_ids.clear();
+                if matches!(
+                    progress.status,
+                    ProgressStatus::ProvisionalMastery | ProgressStatus::Mastered
+                ) {
+                    progress.status = ProgressStatus::Studying;
                 }
             }
+            changed = true;
         }
 
         changed
