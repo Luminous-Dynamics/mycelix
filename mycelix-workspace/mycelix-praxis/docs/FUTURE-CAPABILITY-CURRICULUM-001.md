@@ -334,6 +334,9 @@ This is a pilot proposal, not a decision that the same path should be first for 
 
 ## References and design anchors
 
+For the current competitive research, paradigm-shift thesis, industry comparison rules, benchmark matrix, and ordered engineering work items, see [PRAXIS-FRONTIER-RESEARCH-001](PRAXIS-FRONTIER-RESEARCH-001.md). That companion is a research proposal, not measured evidence of superiority.
+
+
 - UNESCO, [Open Educational Resources](https://www.unesco.org/en/open-educational-resources): open licensing, reuse, adaptation, and redistribution.
 - CAST, [Universal Design for Learning Guidelines 3.0](https://udlguidelines.cast.org/): barrier-aware access and multiple means of engagement, representation, and expression.
 - UNESCO, [AI competency framework for students](https://www.unesco.org/en/articles/ai-competency-framework-students): human-centred mindset, AI ethics, techniques/applications, and system design, with Understand / Apply / Create progression.
