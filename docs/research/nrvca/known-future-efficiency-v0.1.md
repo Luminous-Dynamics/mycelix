@@ -43,6 +43,17 @@ The expected policy summaries are:
 
 This reveals that the synthetic fixture's binding limitation is not excess cost among feasible policies. It is **coverage of feasible policies**: the prolonged/repeated case has no available action that meets all declared floors. The correct next modeling task is to add and evidence new recovery options (or change the scenario only when source-backed evidence justifies it), not tune cost weights to conceal infeasibility.
 
+For the existing adaptive row in that prolonged/repeated case, the separately reported **native-unit margins** are:
+- primary budget: +1 budget unit;
+- contingency reserve: 0 reserve units remaining under the declared cap;
+- total cost: +1 budget unit below its cap;
+- total service: -10 service units;
+- underserved service: -40 service units;
+- reliability: -0.02 against the declared lower bound;
+- emissions: 0 tonnes of margin under the declared cap.
+
+The last four hard-constraint margins must remain separately visible. A score that rewards its acceptable budget/emissions while averaging away the service, equity, and reliability failures would be a policy error. These values are synthetic fixture margins, not measured shortages.
+
 ## Required next benchmark stage
 
 Before any comparative effectiveness claim:
