@@ -87,3 +87,5 @@ jobs:
         run: cargo fmt --manifest-path mycelix-praxis/apps/leptos/Cargo.toml -- --check
       - name: Test hard-prerequisite and relationship edge semantics
         run: cargo test --manifest-path mycelix-praxis/apps/leptos/Cargo.toml edge_semantics_tests
+      - name: Test local-first lesson authoring behavior
+        run: cargo test --manifest-path mycelix-praxis/apps/leptos/Cargo.toml pages::author::tests
