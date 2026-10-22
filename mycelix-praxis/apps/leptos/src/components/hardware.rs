@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 //! Hardware Integration Components — WebBluetooth and Physical Presence.
 
-use crate::curriculum::{ProgressStatus, use_progress};
 use leptos::prelude::*;
 
 #[component]
@@ -90,27 +89,49 @@ pub fn PresenceValidator(
     }
 }
 
+/// Physical hardware must never be unlocked by a browser-local progress toggle.
+///
+/// This pre-alpha has no controller-verified safety credential, trusted hardware
+/// interlock, or remote authorization receipt. Keep the demo fail-closed until
+/// that complete path exists and is independently tested.
+const VERIFIED_HARDWARE_AUTHORIZATION_CONNECTED: bool = false;
+
+fn hardware_access_is_authorized() -> bool {
+    VERIFIED_HARDWARE_AUTHORIZATION_CONNECTED
+}
+
 #[component]
 pub fn SafetyGuard(children: ChildrenFn) -> impl IntoView {
-    let progress = use_progress();
-    let is_safe = move || progress.get().get("VOC-000-S").status == ProgressStatus::Mastered;
+    if hardware_access_is_authorized() {
+        children().into_any()
+    } else {
+        // Do not render the guarded controls in this demo. A self-selected
+        // "Mastered" status and simulated QR/handshake are not authorization.
+        let _unused_guarded_controls = children;
+        view! {
+            <div class="safety-lockout" role="alert" style="padding: 2rem; background: var(--error-low); border: 2px solid var(--error); border-radius: 12px; text-align: center">
+                <div style="font-size: 2rem; margin-bottom: 1rem">"\u{26A0}\u{FE0F}"</div>
+                <h4 style="color: var(--error)">"PHYSICAL HARDWARE ACCESS DISABLED"</h4>
+                <p style="font-size: 0.85rem">
+                    "This preview has no verified hardware authorization path. Local progress, self-reported mastery, and simulated scans are not safety credentials."
+                </p>
+                <p style="font-size: 0.85rem">
+                    "Access can only be enabled after controller-verified authorization and the required physical interlock are implemented and tested."
+                </p>
+            </div>
+        }.into_any()
+    }
+}
 
-    view! {
-        {move || if is_safe() {
-            children().into_any()
-        } else {
-            view! {
-                <div class="safety-lockout" style="padding: 2rem; background: var(--error-low); border: 2px solid var(--error); border-radius: 12px; text-align: center">
-                    <div style="font-size: 2rem; margin-bottom: 1rem">"\u{26A0}\u{FE0F}"</div>
-                    <h4 style="color: var(--error)">"PHYSICAL LOCKOUT ACTIVE"</h4>
-                    <p style="font-size: 0.85rem">
-                        "Access to physical hardware requires mastery of the mandatory Safety Protocol."
-                    </p>
-                    <a href="/study/VOC-000-S" class="btn-sm btn-primary" style="margin-top: 1rem; background: var(--error); border-color: var(--error)">
-                        "Master VOC-000-S Now"
-                    </a>
-                </div>
-            }.into_any()
-        }}
+#[cfg(test)]
+mod safety_guard_tests {
+    use super::hardware_access_is_authorized;
+
+    #[test]
+    fn hardware_access_fails_closed_until_verified_authorization_exists() {
+        assert!(
+            !hardware_access_is_authorized(),
+            "browser-local lesson progress must not authorize physical hardware"
+        );
     }
 }
