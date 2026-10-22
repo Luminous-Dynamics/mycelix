@@ -759,7 +759,9 @@ impl ProgressStore {
             entry.mastery_permille = bkt
                 .as_ref()
                 .map_or(0, |state| (state.p_mastery * 1000.0) as u16);
-            entry.status = if bkt.as_ref().is_some_and(BktState::is_likely_mastered) {
+            entry.status = if !entry.scored_practice_receipts.is_empty()
+                && bkt.as_ref().is_some_and(BktState::is_likely_mastered)
+            {
                 ProgressStatus::ProvisionalMastery
             } else {
                 ProgressStatus::Studying
@@ -769,11 +771,20 @@ impl ProgressStore {
 
         if status == ProgressStatus::ProvisionalMastery {
             let bkt = self.bkt_states.get(node_id).cloned();
+            let has_receipts = self
+                .nodes
+                .get(node_id)
+                .is_some_and(|progress| !progress.scored_practice_receipts.is_empty());
             let entry = self.nodes.entry(node_id.to_string()).or_default();
-            entry.mastery_permille = bkt
-                .as_ref()
-                .map_or(0, |state| (state.p_mastery * 1000.0) as u16);
-            entry.status = if bkt.as_ref().is_some_and(BktState::is_likely_mastered) {
+            entry.mastery_permille = if has_receipts {
+                bkt.as_ref()
+                    .map_or(0, |state| (state.p_mastery * 1000.0) as u16)
+            } else {
+                0
+            };
+            entry.status = if has_receipts
+                && bkt.as_ref().is_some_and(BktState::is_likely_mastered)
+            {
                 ProgressStatus::ProvisionalMastery
             } else {
                 ProgressStatus::Studying
@@ -1231,32 +1242,6 @@ impl ProgressStore {
     }
 
     /// Record a practice response and update BKT.
-    pub fn record_response(&mut self, node_id: &str, correct: bool) {
-        let bkt = self.bkt_states.entry(node_id.to_string()).or_default();
-        bkt.update(correct);
-
-        // Also update basic progress
-        let progress = self.nodes.entry(node_id.to_string()).or_default();
-        // A new scored observation supersedes a prior confidence-only reflection.
-        progress.self_assessment = None;
-        progress.attempts += 1;
-        if correct {
-            progress.correct += 1;
-        }
-        progress.mastery_permille = (bkt.p_mastery * 1000.0) as u16;
-
-        // Browser-scored practice can only grant provisional mastery.
-        // A correct-response streak never preserves or creates verified Mastered.
-        if bkt.is_likely_mastered() {
-            progress.status = ProgressStatus::ProvisionalMastery;
-        } else if bkt.attempts > 0 {
-            progress.status = ProgressStatus::Studying;
-        }
-    }
-
-    /// Record a scored response only once per stable item identifier. This
-    /// prevents replaying the same prompt from repeatedly inflating BKT. Returns
-    /// false when that item was already scored for this node.
     pub fn record_response_for_item(
         &mut self,
         node_id: &str,
@@ -1936,8 +1921,12 @@ mod evidence_first_progress_tests {
     #[test]
     fn scored_responses_can_reach_provisional_but_not_verified_mastery() {
         let mut progress = ProgressStore::default();
-        for _ in 0..5 {
-            progress.record_response("math.multiplication", true);
+        for index in 0..5 {
+            assert!(progress.record_response_for_item(
+                "math.multiplication",
+                &format!("practice-item-{index}"),
+                true
+            ));
         }
 
         assert_eq!(
