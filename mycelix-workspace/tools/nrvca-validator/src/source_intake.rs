@@ -615,6 +615,25 @@ mod tests {
         fn drop(&mut self) { let _ = fs::remove_file(&self.0); }
     }
 
+    struct TempDir(PathBuf);
+    impl TempDir {
+        fn new() -> Self {
+            let id = NEXT.fetch_add(1, Ordering::Relaxed);
+            let path = std::env::temp_dir().join(format!("nrvca-store-{}-{id}", std::process::id()));
+            fs::create_dir(&path).expect("create unique test store");
+            Self(path)
+        }
+    }
+    impl Drop for TempDir {
+        fn drop(&mut self) { let _ = fs::remove_dir_all(&self.0); }
+    }
+
+    fn capture_args_for(path: &Path, store: &Path) -> Vec<String> {
+        let mut args = args_for(path);
+        args.extend(["--store-dir".into(), store.display().to_string()]);
+        args
+    }
+
     fn args_for(path: &Path) -> Vec<String> {
         vec![
             "--file".into(), path.display().to_string(),
@@ -681,6 +700,86 @@ mod tests {
         let args = args_for(&std::env::temp_dir());
         let error = receipt_from_cli(&args).unwrap_err();
         assert!(error.contains("regular file"));
+    }
+
+    #[test]
+    fn capture_stores_the_exact_bytes_under_the_computed_digest() {
+        let input = TempFile::with_bytes(b"content-addressed test bytes");
+        let store = TempDir::new();
+        let output = capture_from_cli(&capture_args_for(&input.0, &store.0)).expect("capture source bytes");
+        let digest = sha256_hex(b"content-addressed test bytes");
+        assert_eq!(output.receipt["sha256"], digest);
+        assert_eq!(output.receipt["file_size_bytes"], b"content-addressed test bytes".len() as u64);
+        assert_eq!(output.receipt["acquisition_receipt"]["object_uri"], format!("sha256:{digest}"));
+        assert_eq!(output.receipt["acquisition_receipt"]["object_path"], format!("objects/sha256/{}/{digest}", &digest[..2]));
+        assert!(output.receipt["acquisition_receipt"].get("resolved_path").is_none());
+
+        let relative = output.receipt["acquisition_receipt"]["object_path"].as_str().unwrap();
+        let object = store.0.join(relative);
+        assert_eq!(fs::read(&object).expect("read captured object"), b"content-addressed test bytes");
+        assert!(fs::metadata(object).expect("object metadata").permissions().readonly());
+        let admission = crate::external_validity::validate_source_record(&output.receipt, "/source");
+        assert!(admission.is_empty(), "captured receipt must meet source admission contract: {admission:?}");
+    }
+
+    #[test]
+    fn identical_bytes_reuse_verified_object_without_overwriting_it() {
+        let input_a = TempFile::with_bytes(b"same bytes");
+        let input_b = TempFile::with_bytes(b"same bytes");
+        let store = TempDir::new();
+        let first = capture_from_cli(&capture_args_for(&input_a.0, &store.0)).expect("first capture");
+        let second = capture_from_cli(&capture_args_for(&input_b.0, &store.0)).expect("repeat identical capture");
+        assert_eq!(first.receipt["sha256"], second.receipt["sha256"]);
+        assert_eq!(first.receipt["acquisition_receipt"]["object_path"], second.receipt["acquisition_receipt"]["object_path"]);
+        let object_root = store.0.join("objects").join("sha256");
+        let files: Vec<_> = fs::read_dir(object_root.join(first.receipt["sha256"].as_str().unwrap().get(..2).unwrap()))
+            .expect("read digest shard").collect();
+        assert_eq!(files.len(), 1);
+    }
+
+    #[test]
+    fn mismatch_does_not_promote_a_content_object() {
+        let input = TempFile::with_bytes(b"must not be promoted");
+        let store = TempDir::new();
+        let mut args = capture_args_for(&input.0, &store.0);
+        args.extend(["--expected-sha256".into(), "0".repeat(64)]);
+        let error = capture_from_cli(&args).unwrap_err();
+        assert!(error.contains("SHA-256 mismatch"));
+        let object_root = store.0.join("objects").join("sha256");
+        assert_eq!(fs::read_dir(object_root).expect("read empty object root").count(), 0);
+    }
+
+    #[test]
+    fn tampered_preexisting_digest_object_is_rejected_on_reuse() {
+        let input = TempFile::with_bytes(b"expected immutable content");
+        let store = TempDir::new();
+        let digest = sha256_hex(b"expected immutable content");
+        let shard = store.0.join("objects").join("sha256").join(&digest[..2]);
+        fs::create_dir_all(&shard).expect("create shard");
+        let object = shard.join(&digest);
+        fs::write(&object, b"corrupt bytes").expect("write counterfeit object");
+        let error = capture_from_cli(&capture_args_for(&input.0, &store.0)).unwrap_err();
+        assert!(error.contains("failed digest/size verification") || error.contains("stored object"));
+    }
+
+    #[test]
+    fn duplicate_store_dir_and_escaping_store_symlinks_fail_closed() {
+        let input = TempFile::with_bytes(b"store containment");
+        let store = TempDir::new();
+        let mut duplicate = capture_args_for(&input.0, &store.0);
+        duplicate.extend(["--store-dir".into(), store.0.display().to_string()]);
+        assert!(capture_from_cli(&duplicate).unwrap_err().contains("duplicate"));
+
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::symlink;
+            let outside = TempDir::new();
+            let linked_store = TempDir::new();
+            fs::remove_dir_all(linked_store.0.join("objects")).ok();
+            symlink(&outside.0, linked_store.0.join("objects")).expect("create escaping object-root symlink");
+            let error = capture_from_cli(&capture_args_for(&input.0, &linked_store.0)).unwrap_err();
+            assert!(error.contains("escapes the selected content store") || error.contains("escapes the object root"));
+        }
     }
 
     #[test]
