@@ -1,0 +1,271 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/Luminous-Dynamics/mycelix/blob/main/mycelix-core/docs/civilizational-os/adoption/common-planet-creditism-semantic-boundary-v1.schema.json",
+  "title": "Common Planet Creditism semantic-boundary corpus v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "benchmark_id",
+    "profile_id",
+    "evaluation_state",
+    "claim_ceiling",
+    "data_classification",
+    "units",
+    "related_owners",
+    "source_semantics",
+    "case_count",
+    "cases",
+    "nonclaims"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "1.0.0"
+    },
+    "benchmark_id": {
+      "const": "CP-CREDITISM-SEMANTIC-BOUNDARY-001"
+    },
+    "profile_id": {
+      "const": "common-planet-creditism"
+    },
+    "evaluation_state": {
+      "const": "contract_fixture_only"
+    },
+    "claim_ceiling": {
+      "const": "ReferenceModelOnly"
+    },
+    "data_classification": {
+      "const": "synthetic"
+    },
+    "units": {
+      "type": "string",
+      "minLength": 20
+    },
+    "related_owners": {
+      "type": "array",
+      "minItems": 4,
+      "maxItems": 10,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "pattern": "^(mycelix|symthaea)#[0-9]{1,6}$"
+      }
+    },
+    "source_semantics": {
+      "$ref": "#/$defs/sourceSemantics"
+    },
+    "case_count": {
+      "const": 21
+    },
+    "cases": {
+      "type": "array",
+      "minItems": 21,
+      "maxItems": 21,
+      "items": {
+        "$ref": "#/$defs/case"
+      }
+    },
+    "nonclaims": {
+      "type": "array",
+      "minItems": 5,
+      "maxItems": 15,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "minLength": 20,
+        "maxLength": 500
+      }
+    }
+  },
+  "$defs": {
+    "sourceSemantics": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "personal_credit",
+        "community_credit",
+        "separation_invariants",
+        "uncertainty_policy"
+      ],
+      "properties": {
+        "personal_credit": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "transferable",
+            "lendable",
+            "collateralizable",
+            "interest_bearing",
+            "autonomous_investment_return",
+            "inherit_as_concentrated_power"
+          ],
+          "properties": {
+            "transferable": {
+              "const": false
+            },
+            "lendable": {
+              "const": false
+            },
+            "collateralizable": {
+              "const": false
+            },
+            "interest_bearing": {
+              "const": false
+            },
+            "autonomous_investment_return": {
+              "const": false
+            },
+            "inherit_as_concentrated_power": {
+              "const": false
+            }
+          }
+        },
+        "community_credit": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "transferable_to_personal_credit",
+            "requires_declared_authorization",
+            "requires_known_physical_capacity"
+          ],
+          "properties": {
+            "transferable_to_personal_credit": {
+              "const": false
+            },
+            "requires_declared_authorization": {
+              "const": true
+            },
+            "requires_known_physical_capacity": {
+              "const": true
+            }
+          }
+        },
+        "separation_invariants": {
+          "type": "array",
+          "minItems": 7,
+          "maxItems": 20,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 10
+          }
+        },
+        "uncertainty_policy": {
+          "type": "string",
+          "minLength": 40,
+          "maxLength": 500
+        }
+      }
+    },
+    "case": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "category",
+        "title",
+        "input",
+        "expected"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^cp-[a-z0-9]+(?:-[a-z0-9]+)*$"
+        },
+        "category": {
+          "enum": [
+            "issuance-accounting",
+            "settlement-separation",
+            "contribution-evidence",
+            "instrument-restrictions",
+            "real-capacity",
+            "bonus-and-double-counting",
+            "accounting-interoperability",
+            "appeal-and-governance",
+            "privacy-and-appeal",
+            "housing-and-real-capacity"
+          ]
+        },
+        "title": {
+          "type": "string",
+          "minLength": 15,
+          "maxLength": 200
+        },
+        "input": {
+          "type": "object",
+          "required": [
+            "operation"
+          ],
+          "properties": {
+            "operation": {
+              "enum": [
+                "issue_personal_credit",
+                "delete_personal_credit",
+                "recognize_contribution",
+                "transfer_personal_credit",
+                "lend_personal_credit",
+                "collateralize_personal_credit",
+                "accrue_interest",
+                "invest_for_return",
+                "inherit_concentrated_personal_credit",
+                "allocate_community_credit",
+                "recognize_bonus",
+                "exchange_pair",
+                "project_to_sna",
+                "grant_housing_right"
+              ]
+            }
+          },
+          "minProperties": 1
+        },
+        "expected": {
+          "$ref": "#/$defs/evaluation"
+        }
+      }
+    },
+    "evaluation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "decision",
+        "disposition",
+        "effects",
+        "prohibited_inferences"
+      ],
+      "properties": {
+        "decision": {
+          "enum": [
+            "Allow",
+            "Reject",
+            "Indeterminate",
+            "PendingAppeal"
+          ]
+        },
+        "disposition": {
+          "enum": [
+            "ProfileMapped",
+            "Unsupported",
+            "Unknown"
+          ]
+        },
+        "effects": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9_]*$"
+          }
+        },
+        "prohibited_inferences": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9_]*$"
+          }
+        }
+      }
+    }
+  }
+}
