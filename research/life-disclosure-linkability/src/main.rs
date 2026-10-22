@@ -128,12 +128,7 @@ fn add_feature(
     });
 }
 
-fn make_presentation(
-    strategy: Strategy,
-    subject: u32,
-    recipient: u8,
-    session: u8,
-) -> Presentation {
+fn make_presentation(strategy: Strategy, subject: u32, recipient: u8, session: u8) -> Presentation {
     let mut features = Vec::new();
 
     // Two claim profiles deliberately model different disclosure utility/privacy
@@ -633,13 +628,7 @@ mod tests {
         let first = build_corpus(Strategy::MetadataMinimized);
         let second = build_corpus(Strategy::MetadataMinimized);
         let baseline = build_corpus(Strategy::StableGlobalId);
-        assert_eq!(
-            fnv1a64_fingerprint(&first),
-            fnv1a64_fingerprint(&second)
-        );
-        assert_ne!(
-            fnv1a64_fingerprint(&first),
-            fnv1a64_fingerprint(&baseline)
-        );
+        assert_eq!(fnv1a64_fingerprint(&first), fnv1a64_fingerprint(&second));
+        assert_ne!(fnv1a64_fingerprint(&first), fnv1a64_fingerprint(&baseline));
     }
 }
