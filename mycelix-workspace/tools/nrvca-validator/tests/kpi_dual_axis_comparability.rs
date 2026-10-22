@@ -26,12 +26,15 @@ fn fields_diff(left: &Value, right: &Value, fields: &[String]) -> (BTreeSet<Stri
     let mut changed = BTreeSet::new();
     let mut unknown = BTreeSet::new();
     for field in fields {
-        let a = left.get(field).unwrap_or(&Value::Null);
-        let b = right.get(field).unwrap_or(&Value::Null);
-        if a.is_null() || b.is_null() {
-            unknown.insert(field.clone());
-        } else if a != b {
-            changed.insert(field.clone());
+        match (left.get(field), right.get(field)) {
+            (Some(a), Some(b)) if !a.is_null() && !b.is_null() => {
+                if a != b {
+                    changed.insert(field.clone());
+                }
+            }
+            _ => {
+                unknown.insert(field.clone());
+            }
         }
     }
     (changed, unknown)
