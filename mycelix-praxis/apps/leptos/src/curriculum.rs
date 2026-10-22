@@ -1015,16 +1015,27 @@ impl ProgressStore {
         }
 
         // Remove BKT-only progress records that have no scored-item receipts.
+        for node_id in self.bkt_states.keys().cloned().collect::<Vec<_>>() {
+            if !self.nodes.contains_key(&node_id) {
+                self.nodes.insert(node_id, NodeProgress::default());
+                changed = true;
+            }
+        }
+
         let unbound_node_ids = self
             .nodes
             .iter()
-            .filter(|(_, progress)| {
+            .filter(|(node_id, progress)| {
                 progress.scored_practice_receipts.is_empty()
                     && (progress.attempts > 0
                         || progress.correct > 0
                         || progress.mastery_permille > 0
                         || !progress.scored_item_ids.is_empty()
-                        || self.bkt_states.contains_key(_))
+                        || matches!(
+                            progress.status,
+                            ProgressStatus::ProvisionalMastery | ProgressStatus::Mastered
+                        )
+                        || self.bkt_states.contains_key(*node_id))
             })
             .map(|(node_id, _)| node_id.clone())
             .collect::<Vec<_>>();
@@ -1321,7 +1332,8 @@ impl ProgressStore {
         } else {
             ProgressStatus::Studying
         };
-        let progress_changed = progress.attempts != rebuilt.attempts
+        let progress_changed = progress.scored_practice_receipts != receipts
+            || progress.attempts != rebuilt.attempts
             || progress.correct != rebuilt.correct
             || progress.mastery_permille != new_mastery
             || progress.status != new_status
