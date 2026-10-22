@@ -9,6 +9,9 @@
 use hdi::prelude::*;
 use serde::{Deserialize, Serialize};
 
+/// Wood/lumber batch lineage and dry-mass process accounting contracts.
+pub mod wood_products;
+
 // ============================================================================
 // Work Orders
 // ============================================================================
