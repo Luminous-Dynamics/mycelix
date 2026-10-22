@@ -257,12 +257,14 @@ fn PracticeProblemCard(
     let bloom_level = problem.bloom_level.clone();
     let (selected_choice, set_selected_choice) = signal(None::<String>);
     let (scored_result, set_scored_result) = signal(None::<bool>);
+    let (repeated_scored_item, set_repeated_scored_item) = signal(false);
     let (revealed_solution, set_revealed_solution) = signal(false);
     let (self_assessment, set_self_assessment) = signal(None::<SelfAssessment>);
     let (show_hint, set_show_hint) = signal(false);
     let hint_text = hints.first().cloned().unwrap_or_default();
     let progress = use_set_progress();
     let scored_node_id = node_id.clone();
+    let scored_item_id = format!("{}::{}", node_id, normalized_choice(&problem.question));
     let reflection_node_id = node_id.clone();
 
     view! {
@@ -285,7 +287,9 @@ fn PracticeProblemCard(
                             "Correct answer: "{answer.clone()}
                         </div>
                         <div role="status" style="margin-top: 0.5rem; font-size: 0.85rem; color: var(--text-secondary)">
-                            {if is_correct {
+                            {if repeated_scored_item.get() {
+                                "This exact prompt was already scored in this local profile. This replay revealed feedback but did not update BKT; try a different item for new practice evidence."
+                            } else if is_correct {
                                 "Correct. Your choice was recorded before the answer was revealed."
                             } else {
                                 "Not correct yet. Review the explanation and try a new problem later."
@@ -328,11 +332,20 @@ fn PracticeProblemCard(
                                 disabled=move || selected_choice.get().is_none()
                                 on:click={
                                     let target_node = scored_node_id.clone();
+                                    let target_item = scored_item_id.clone();
                                     let correct_answer = answer.clone();
                                     move |_| {
                                         if let Some(choice) = selected_choice.get_untracked() {
                                             let correct = normalized_choice(&choice) == normalized_choice(&correct_answer);
-                                            progress.update(|store| store.record_response(&target_node, correct));
+                                            let recorded = std::cell::Cell::new(false);
+                                            progress.update(|store| {
+                                                recorded.set(store.record_response_for_item(
+                                                    &target_node,
+                                                    &target_item,
+                                                    correct,
+                                                ));
+                                            });
+                                            set_repeated_scored_item.set(!recorded.get());
                                             set_scored_result.set(Some(correct));
                                         }
                                     }
