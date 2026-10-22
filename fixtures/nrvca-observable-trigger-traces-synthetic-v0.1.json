@@ -1,0 +1,673 @@
+{
+  "schema_version": "nrvca-observable-triggers/0.1",
+  "status": "synthetic_test_contract",
+  "purpose": "Synthetic known-answer tests for observable adaptive-policy triggers. Values, thresholds, lead times, costs and event traces are illustrative and uncalibrated; this fixture does not authorize or dispatch real infrastructure actions.",
+  "action_authority": {
+    "execution_mode": "recommendation_only",
+    "automatic_dispatch_enabled": false,
+    "decision_rights": "Triggers create audit events and recommendations only. An authorized operator must review and authorize any real action.",
+    "missing_or_stale_data_policy": "Fail closed for automated recommendations; emit a data-quality/manual-review event. Do not substitute zero, last value, or normal operation.",
+    "probability_policy": "No event or policy probability is inferred from trace counts."
+  },
+  "operational_clock": {
+    "time_unit": "synthetic_step",
+    "monotonic_required": true,
+    "duplicate_evaluation_steps": "reject_trace",
+    "freshness_rule": "Observation is usable only when quality_status=valid, value is non-null, unit matches, observation step is not after evaluation step, and age is no greater than the rule's max_age_steps."
+  },
+  "hard_contract": {
+    "max_single_action_cost": 4,
+    "cost_unit": "synthetic_cost_units",
+    "requires_rule_version_in_audit": true,
+    "requires_input_observation_id_in_audit": true,
+    "requires_fallback_on_every_rule": true,
+    "requires_lead_time_comparison": true
+  },
+  "indicators": [
+    {
+      "indicator_id": "source_availability_ratio",
+      "unit": "ratio_0_to_1",
+      "description": "Synthetic source-availability signpost.",
+      "allowed_min": 0,
+      "allowed_max": 1,
+      "evidence_status": "synthetic_assumption",
+      "calibration_status": "not_calibrated",
+      "geographic_scope": "fictional_only"
+    },
+    {
+      "indicator_id": "grid_availability_ratio",
+      "unit": "ratio_0_to_1",
+      "description": "Synthetic powered-grid availability signpost.",
+      "allowed_min": 0,
+      "allowed_max": 1,
+      "evidence_status": "synthetic_assumption",
+      "calibration_status": "not_calibrated",
+      "geographic_scope": "fictional_only"
+    },
+    {
+      "indicator_id": "predicted_repair_delay_hours",
+      "unit": "hours",
+      "description": "Synthetic predicted crew/repair delay signpost.",
+      "allowed_min": 0,
+      "allowed_max": 1000,
+      "evidence_status": "synthetic_assumption",
+      "calibration_status": "not_calibrated",
+      "geographic_scope": "fictional_only"
+    }
+  ],
+  "rules": [
+    {
+      "rule_id": "source_reserve_rule_v0_1",
+      "version": "0.1",
+      "indicator_id": "source_availability_ratio",
+      "unit": "ratio_0_to_1",
+      "activate_operator": "less_than_or_equal",
+      "activate_threshold": 0.65,
+      "persistence_valid_samples": 2,
+      "recover_operator": "greater_than_or_equal",
+      "recover_threshold": 0.75,
+      "recovery_valid_samples": 2,
+      "max_age_steps": 1,
+      "cooldown_steps": 3,
+      "action_id": "release_storage_reserve",
+      "fallback": "manual_review_no_automated_action",
+      "decision_right": "recommendation_only",
+      "claim_ceiling": "synthetic_trigger_logic_only"
+    },
+    {
+      "rule_id": "grid_backup_rule_v0_1",
+      "version": "0.1",
+      "indicator_id": "grid_availability_ratio",
+      "unit": "ratio_0_to_1",
+      "activate_operator": "less_than_or_equal",
+      "activate_threshold": 0.2,
+      "persistence_valid_samples": 1,
+      "recover_operator": "greater_than_or_equal",
+      "recover_threshold": 0.8,
+      "recovery_valid_samples": 2,
+      "max_age_steps": 1,
+      "cooldown_steps": 4,
+      "action_id": "deploy_backup_power",
+      "fallback": "manual_review_no_automated_action",
+      "decision_right": "recommendation_only",
+      "claim_ceiling": "synthetic_trigger_logic_only"
+    },
+    {
+      "rule_id": "crew_preposition_rule_v0_1",
+      "version": "0.1",
+      "indicator_id": "predicted_repair_delay_hours",
+      "unit": "hours",
+      "activate_operator": "greater_than_or_equal",
+      "activate_threshold": 24,
+      "persistence_valid_samples": 2,
+      "recover_operator": "less_than_or_equal",
+      "recover_threshold": 18,
+      "recovery_valid_samples": 2,
+      "max_age_steps": 1,
+      "cooldown_steps": 2,
+      "action_id": "preposition_repair_crews",
+      "fallback": "manual_review_no_automated_action",
+      "decision_right": "recommendation_only",
+      "claim_ceiling": "synthetic_trigger_logic_only"
+    }
+  ],
+  "actions": [
+    {
+      "action_id": "release_storage_reserve",
+      "description": "Recommend reserve release for operator review.",
+      "lead_time_steps": 1,
+      "cost": 2,
+      "cost_unit": "synthetic_cost_units",
+      "required_preconditions": [
+        "action_plan_authorized",
+        "reserve_capacity_available"
+      ],
+      "failure_fallback": "manual_review_no_automated_action",
+      "automatic_dispatch_allowed": false
+    },
+    {
+      "action_id": "deploy_backup_power",
+      "description": "Recommend backup-power deployment for operator review.",
+      "lead_time_steps": 0,
+      "cost": 3,
+      "cost_unit": "synthetic_cost_units",
+      "required_preconditions": [
+        "action_plan_authorized",
+        "backup_system_available"
+      ],
+      "failure_fallback": "manual_review_no_automated_action",
+      "automatic_dispatch_allowed": false
+    },
+    {
+      "action_id": "preposition_repair_crews",
+      "description": "Recommend repair-crew prepositioning for operator review.",
+      "lead_time_steps": 1,
+      "cost": 1,
+      "cost_unit": "synthetic_cost_units",
+      "required_preconditions": [
+        "action_plan_authorized",
+        "crew_available"
+      ],
+      "failure_fallback": "manual_review_no_automated_action",
+      "automatic_dispatch_allowed": false
+    }
+  ],
+  "traces": [
+    {
+      "trace_id": "reserve-persistence-hysteresis",
+      "indicator_id": "source_availability_ratio",
+      "status": "synthetic_assumption",
+      "available_preconditions": [
+        "action_plan_authorized",
+        "reserve_capacity_available"
+      ],
+      "observations": [
+        {
+          "observation_id": "reserve-n0",
+          "evaluation_step": 0,
+          "observed_at_step": 0,
+          "value": 0.8,
+          "unit": "ratio_0_to_1",
+          "quality_status": "valid",
+          "time_to_floor_breach_steps": 5
+        },
+        {
+          "observation_id": "reserve-n1",
+          "evaluation_step": 1,
+          "observed_at_step": 1,
+          "value": 0.62,
+          "unit": "ratio_0_to_1",
+          "quality_status": "valid",
+          "time_to_floor_breach_steps": 4
+        },
+        {
+          "observation_id": "reserve-n2",
+          "evaluation_step": 2,
+          "observed_at_step": 2,
+          "value": 0.6,
+          "unit": "ratio_0_to_1",
+          "quality_status": "valid",
+          "time_to_floor_breach_steps": 2
+        },
+        {
+          "observation_id": "reserve-n3",
+          "evaluation_step": 3,
+          "observed_at_step": 3,
+          "value": 0.62,
+          "unit": "ratio_0_to_1",
+          "quality_status": "valid",
+          "time_to_floor_breach_steps": 2
+        },
+        {
+          "observation_id": "reserve-n4",
+          "evaluation_step": 4,
+          "observed_at_step": 4,
+          "value": 0.78,
+          "unit": "ratio_0_to_1",
+          "quality_status": "valid",
+          "time_to_floor_breach_steps": 2
+        },
+        {
+          "observation_id": "reserve-n5",
+          "evaluation_step": 5,
+          "observed_at_step": 5,
+          "value": 0.8,
+          "unit": "ratio_0_to_1",
+          "quality_status": "valid",
+          "time_to_floor_breach_steps": 2
+        },
+        {
+          "observation_id": "reserve-n6",
+          "evaluation_step": 6,
+          "observed_at_step": 6,
+          "value": 0.64,
+          "unit": "ratio_0_to_1",
+          "quality_status": "valid",
+          "time_to_floor_breach_steps": 2
+        },
+        {
+          "observation_id": "reserve-n7",
+          "evaluation_step": 7,
+          "observed_at_step": 7,
+          "value": 0.81,
+          "unit": "ratio_0_to_1",
+          "quality_status": "valid",
+          "time_to_floor_breach_steps": 3
+        },
+        {
+          "observation_id": "reserve-n8",
+          "evaluation_step": 8,
+          "observed_at_step": 8,
+          "value": 0.63,
+          "unit": "ratio_0_to_1",
+          "quality_status": "valid",
+          "time_to_floor_breach_steps": 1
+        },
+        {
+          "observation_id": "reserve-n9",
+          "evaluation_step": 9,
+          "observed_at_step": 9,
+          "value": 0.61,
+          "unit": "ratio_0_to_1",
+          "quality_status": "valid",
+          "time_to_floor_breach_steps": 0
+        }
+      ],
+      "expected_events": [
+        {
+          "evaluation_step": 2,
+          "observation_id": "reserve-n2",
+          "rule_id": "source_reserve_rule_v0_1",
+          "action_id": "release_storage_reserve",
+          "late_warning": false
+        },
+        {
+          "evaluation_step": 9,
+          "observation_id": "reserve-n9",
+          "rule_id": "source_reserve_rule_v0_1",
+          "action_id": "release_storage_reserve",
+          "late_warning": true
+        }
+      ],
+      "expected_review_steps": []
+    },
+    {
+      "trace_id": "grid-cooldown-and-rearm",
+      "indicator_id": "grid_availability_ratio",
+      "status": "synthetic_assumption",
+      "available_preconditions": [
+        "action_plan_authorized",
+        "backup_system_available"
+      ],
+      "observations": [
+        {
+          "observation_id": "grid-0",
+          "evaluation_step": 0,
+          "observed_at_step": 0,
+          "value": 1,
+          "unit": "ratio_0_to_1",
+          "quality_status": "valid",
+          "time_to_floor_breach_steps": 5
+        },
+        {
+          "observation_id": "grid-1",
+          "evaluation_step": 1,
+          "observed_at_step": 1,
+          "value": 0.1,
+          "unit": "ratio_0_to_1",
+          "quality_status": "valid",
+          "time_to_floor_breach_steps": 0
+        },
+        {
+          "observation_id": "grid-2",
+          "evaluation_step": 2,
+          "observed_at_step": 2,
+          "value": 0.9,
+          "unit": "ratio_0_to_1",
+          "quality_status": "valid",
+          "time_to_floor_breach_steps": 1
+        },
+        {
+          "observation_id": "grid-3",
+          "evaluation_step": 3,
+          "observed_at_step": 3,
+          "value": 0.9,
+          "unit": "ratio_0_to_1",
+          "quality_status": "valid",
+          "time_to_floor_breach_steps": 2
+        },
+        {
+          "observation_id": "grid-4",
+          "evaluation_step": 4,
+          "observed_at_step": 4,
+          "value": 0.1,
+          "unit": "ratio_0_to_1",
+          "quality_status": "valid",
+          "time_to_floor_breach_steps": 0
+        },
+        {
+          "observation_id": "grid-5",
+          "evaluation_step": 5,
+          "observed_at_step": 5,
+          "value": 0.1,
+          "unit": "ratio_0_to_1",
+          "quality_status": "valid",
+          "time_to_floor_breach_steps": 0
+        },
+        {
+          "observation_id": "grid-6",
+          "evaluation_step": 6,
+          "observed_at_step": 6,
+          "value": 0.9,
+          "unit": "ratio_0_to_1",
+          "quality_status": "valid",
+          "time_to_floor_breach_steps": 2
+        },
+        {
+          "observation_id": "grid-7",
+          "evaluation_step": 7,
+          "observed_at_step": 7,
+          "value": 0.9,
+          "unit": "ratio_0_to_1",
+          "quality_status": "valid",
+          "time_to_floor_breach_steps": 2
+        },
+        {
+          "observation_id": "grid-8",
+          "evaluation_step": 8,
+          "observed_at_step": 8,
+          "value": 0.1,
+          "unit": "ratio_0_to_1",
+          "quality_status": "valid",
+          "time_to_floor_breach_steps": 0
+        }
+      ],
+      "expected_events": [
+        {
+          "evaluation_step": 1,
+          "observation_id": "grid-1",
+          "rule_id": "grid_backup_rule_v0_1",
+          "action_id": "deploy_backup_power",
+          "late_warning": false
+        },
+        {
+          "evaluation_step": 8,
+          "observation_id": "grid-8",
+          "rule_id": "grid_backup_rule_v0_1",
+          "action_id": "deploy_backup_power",
+          "late_warning": false
+        }
+      ],
+      "expected_review_steps": []
+    },
+    {
+      "trace_id": "crew-two-period-delay",
+      "indicator_id": "predicted_repair_delay_hours",
+      "status": "synthetic_assumption",
+      "available_preconditions": [
+        "action_plan_authorized",
+        "crew_available"
+      ],
+      "observations": [
+        {
+          "observation_id": "crew-0",
+          "evaluation_step": 0,
+          "observed_at_step": 0,
+          "value": 8,
+          "unit": "hours",
+          "quality_status": "valid",
+          "time_to_floor_breach_steps": 5
+        },
+        {
+          "observation_id": "crew-1",
+          "evaluation_step": 1,
+          "observed_at_step": 1,
+          "value": 30,
+          "unit": "hours",
+          "quality_status": "valid",
+          "time_to_floor_breach_steps": 3
+        },
+        {
+          "observation_id": "crew-2",
+          "evaluation_step": 2,
+          "observed_at_step": 2,
+          "value": 32,
+          "unit": "hours",
+          "quality_status": "valid",
+          "time_to_floor_breach_steps": 3
+        },
+        {
+          "observation_id": "crew-3",
+          "evaluation_step": 3,
+          "observed_at_step": 3,
+          "value": 10,
+          "unit": "hours",
+          "quality_status": "valid",
+          "time_to_floor_breach_steps": 3
+        },
+        {
+          "observation_id": "crew-4",
+          "evaluation_step": 4,
+          "observed_at_step": 4,
+          "value": 12,
+          "unit": "hours",
+          "quality_status": "valid",
+          "time_to_floor_breach_steps": 3
+        },
+        {
+          "observation_id": "crew-5",
+          "evaluation_step": 5,
+          "observed_at_step": 5,
+          "value": 30,
+          "unit": "hours",
+          "quality_status": "valid",
+          "time_to_floor_breach_steps": 2
+        },
+        {
+          "observation_id": "crew-6",
+          "evaluation_step": 6,
+          "observed_at_step": 6,
+          "value": 32,
+          "unit": "hours",
+          "quality_status": "valid",
+          "time_to_floor_breach_steps": 2
+        }
+      ],
+      "expected_events": [
+        {
+          "evaluation_step": 2,
+          "observation_id": "crew-2",
+          "rule_id": "crew_preposition_rule_v0_1",
+          "action_id": "preposition_repair_crews",
+          "late_warning": false
+        },
+        {
+          "evaluation_step": 6,
+          "observation_id": "crew-6",
+          "rule_id": "crew_preposition_rule_v0_1",
+          "action_id": "preposition_repair_crews",
+          "late_warning": false
+        }
+      ],
+      "expected_review_steps": []
+    },
+    {
+      "trace_id": "crew-one-sample-spike",
+      "indicator_id": "predicted_repair_delay_hours",
+      "status": "synthetic_assumption",
+      "available_preconditions": [
+        "action_plan_authorized",
+        "crew_available"
+      ],
+      "observations": [
+        {
+          "observation_id": "spike-0",
+          "evaluation_step": 0,
+          "observed_at_step": 0,
+          "value": 8,
+          "unit": "hours",
+          "quality_status": "valid",
+          "time_to_floor_breach_steps": 5
+        },
+        {
+          "observation_id": "spike-1",
+          "evaluation_step": 1,
+          "observed_at_step": 1,
+          "value": 30,
+          "unit": "hours",
+          "quality_status": "valid",
+          "time_to_floor_breach_steps": 2
+        },
+        {
+          "observation_id": "spike-2",
+          "evaluation_step": 2,
+          "observed_at_step": 2,
+          "value": 8,
+          "unit": "hours",
+          "quality_status": "valid",
+          "time_to_floor_breach_steps": 2
+        },
+        {
+          "observation_id": "spike-3",
+          "evaluation_step": 3,
+          "observed_at_step": 3,
+          "value": 8,
+          "unit": "hours",
+          "quality_status": "valid",
+          "time_to_floor_breach_steps": 2
+        }
+      ],
+      "expected_events": [],
+      "expected_review_steps": []
+    },
+    {
+      "trace_id": "missing-and-stale-reserve-data",
+      "indicator_id": "source_availability_ratio",
+      "status": "synthetic_assumption",
+      "available_preconditions": [
+        "action_plan_authorized",
+        "reserve_capacity_available"
+      ],
+      "observations": [
+        {
+          "observation_id": "ms-0",
+          "evaluation_step": 0,
+          "observed_at_step": 0,
+          "value": 0.62,
+          "unit": "ratio_0_to_1",
+          "quality_status": "valid",
+          "time_to_floor_breach_steps": 4
+        },
+        {
+          "observation_id": "ms-1",
+          "evaluation_step": 1,
+          "observed_at_step": 1,
+          "value": null,
+          "unit": "ratio_0_to_1",
+          "quality_status": "missing",
+          "time_to_floor_breach_steps": 4
+        },
+        {
+          "observation_id": "ms-2",
+          "evaluation_step": 2,
+          "observed_at_step": -1,
+          "value": 0.6,
+          "unit": "ratio_0_to_1",
+          "quality_status": "valid",
+          "time_to_floor_breach_steps": 3
+        },
+        {
+          "observation_id": "ms-3",
+          "evaluation_step": 3,
+          "observed_at_step": 3,
+          "value": 0.6,
+          "unit": "ratio_0_to_1",
+          "quality_status": "valid",
+          "time_to_floor_breach_steps": 2
+        },
+        {
+          "observation_id": "ms-4",
+          "evaluation_step": 4,
+          "observed_at_step": 4,
+          "value": 0.62,
+          "unit": "ratio_0_to_1",
+          "quality_status": "valid",
+          "time_to_floor_breach_steps": 1
+        }
+      ],
+      "expected_events": [
+        {
+          "evaluation_step": 4,
+          "observation_id": "ms-4",
+          "rule_id": "source_reserve_rule_v0_1",
+          "action_id": "release_storage_reserve",
+          "late_warning": false
+        }
+      ],
+      "expected_review_steps": [
+        1,
+        2
+      ]
+    },
+    {
+      "trace_id": "precondition-unavailable",
+      "indicator_id": "source_availability_ratio",
+      "status": "synthetic_assumption",
+      "available_preconditions": [
+        "action_plan_authorized"
+      ],
+      "observations": [
+        {
+          "observation_id": "pre-0",
+          "evaluation_step": 0,
+          "observed_at_step": 0,
+          "value": 0.6,
+          "unit": "ratio_0_to_1",
+          "quality_status": "valid",
+          "time_to_floor_breach_steps": 3
+        },
+        {
+          "observation_id": "pre-1",
+          "evaluation_step": 1,
+          "observed_at_step": 1,
+          "value": 0.6,
+          "unit": "ratio_0_to_1",
+          "quality_status": "valid",
+          "time_to_floor_breach_steps": 2
+        }
+      ],
+      "expected_events": [],
+      "expected_review_steps": [
+        1
+      ],
+      "expected_suppressed_actions": [
+        {
+          "evaluation_step": 1,
+          "action_id": "release_storage_reserve",
+          "reason": "precondition_not_met"
+        }
+      ]
+    }
+  ],
+  "invalid_trace_mutations": [
+    {
+      "mutation_id": "duplicate-evaluation-step",
+      "description": "Two observations share the same evaluation step in one trace.",
+      "expected_disposition": "reject_trace"
+    },
+    {
+      "mutation_id": "unit-mismatch",
+      "description": "Indicator's declared unit is changed from ratio_0_to_1 to percent.",
+      "expected_disposition": "reject_trace"
+    },
+    {
+      "mutation_id": "out-of-range-ratio",
+      "description": "A ratio observation is 1.2.",
+      "expected_disposition": "reject_trace"
+    },
+    {
+      "mutation_id": "future-observation",
+      "description": "Observation time occurs after evaluation time.",
+      "expected_disposition": "fail_closed_manual_review"
+    },
+    {
+      "mutation_id": "unknown-indicator",
+      "description": "Trace references an indicator ID with no definition.",
+      "expected_disposition": "reject_trace"
+    }
+  ],
+  "expected_audit_fields": [
+    "trace_id",
+    "evaluation_step",
+    "observation_id",
+    "rule_id",
+    "rule_version",
+    "action_id",
+    "decision",
+    "reason",
+    "lead_time_steps",
+    "time_to_floor_breach_steps",
+    "late_warning",
+    "evidence_status"
+  ]
+}
