@@ -869,6 +869,7 @@ pub fn LessonAuthorPage() -> impl IntoView {
                 <p style="color: var(--accent); font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; font-size: 0.75rem">"Community authoring"</p>
                 <h1 style="margin-bottom: 0.5rem">"Create a lesson for someone else"</h1>
                 <p style="max-width: 760px; color: var(--text-secondary)">"Share a skill you know. This form builds a reusable lesson pack, saves your draft locally, and lets you export a JSON file for review. You do not need to write JSON by hand."</p>
+                <p style="margin-top: 0.5rem"><a href="https://github.com/Luminous-Dynamics/mycelix/blob/docs/praxis-k12-college-learning-quality-2026-10-21/mycelix-praxis/docs/community-authoring.md">"Read the community authoring quick-start"</a></p>
             </header>
 
             <section style="padding: 1rem; border: 1px solid var(--border); border-radius: 12px; margin-bottom: 1rem">
