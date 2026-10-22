@@ -2251,6 +2251,52 @@ mod tests {
     }
 
     #[test]
+    fn authoring_lesson_pack_schema_and_example_are_versioned() {
+        let schema: Value = serde_json::from_str(include_str!(
+            "../../../authoring/lesson-pack-v1.schema.json"
+        ))
+        .expect("authoring lesson-pack schema must be valid JSON");
+        let example: Value = serde_json::from_str(include_str!(
+            "../../../authoring/examples/lesson-pack.json"
+        ))
+        .expect("authoring lesson-pack example must be valid JSON");
+
+        assert_eq!(
+            schema["$schema"],
+            "https://json-schema.org/draft/2020-12/schema"
+        );
+        assert_eq!(
+            schema["$id"],
+            "https://mycelix.net/schemas/praxis/lesson-pack-v1.schema.json"
+        );
+        for field in ["node_id", "lesson", "assessment", "flashcards", "quality"] {
+            assert!(
+                schema["required"]
+                    .as_array()
+                    .is_some_and(|fields| {
+                        fields.iter().any(|candidate| candidate.as_str() == Some(field))
+                    }),
+                "authoring schema must require {field}"
+            );
+            assert!(
+                example.get(field).is_some(),
+                "starter example must include {field}"
+            );
+        }
+        assert_eq!(schema["properties"]["lesson"]["properties"]["practice_problems"]["minItems"], 3);
+        assert_eq!(schema["properties"]["lesson"]["properties"]["explanation"]["minLength"], 80);
+        assert_eq!(example["quality"]["needs_human_review"], true);
+        assert_eq!(example["quality"]["metrics_valid_for_current_revision"], false);
+        assert_eq!(example["authoring"]["status"], "draft");
+        assert!(
+            example["authoring"]["license"]
+                .as_str()
+                .is_some_and(|license| license.starts_with("UNDECIDED")),
+            "the sample must not imply third-party licensing authority"
+        );
+    }
+
+    #[test]
     fn lesson_authoring_starter_passes_the_standalone_content_contract() {
         let value: Value = serde_json::from_str(include_str!(
             "../../../authoring/examples/lesson-pack.json"
