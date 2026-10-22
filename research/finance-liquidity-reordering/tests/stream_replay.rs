@@ -73,9 +73,14 @@ fn each_strategy_preserves_unique_payments_release_times_precedence_and_outage_t
         for (offset, &index) in result.order.iter().enumerate() {
             positions[index] = offset;
             assert!(result.settlement_ticks[index] >= config.release_ticks[index]);
-            assert!(!config.unavailable_ticks.contains(&result.settlement_ticks[index]));
+            assert!(!config
+                .unavailable_ticks
+                .contains(&result.settlement_ticks[index]));
         }
-        assert!(positions[0] < positions[1], "precedence violation in {strategy:?}");
+        assert!(
+            positions[0] < positions[1],
+            "precedence violation in {strategy:?}"
+        );
         assert_eq!(
             result.deadline_misses,
             result
@@ -93,7 +98,9 @@ fn each_strategy_preserves_unique_payments_release_times_precedence_and_outage_t
                 >= result.lower_bound_aggregate_liquidity_minor
         );
         assert!(
-            result.evaluation.max_participant_required_initial_liquidity_minor
+            result
+                .evaluation
+                .max_participant_required_initial_liquidity_minor
                 >= result.lower_bound_max_participant_liquidity_minor
         );
     }
@@ -125,9 +132,19 @@ fn bounded_batch_wait_trades_delay_for_lower_liquidity_need() {
     .unwrap();
 
     assert_eq!(immediate.order, vec![0, 1]);
-    assert_eq!(immediate.evaluation.aggregate_required_initial_liquidity_minor, 10);
+    assert_eq!(
+        immediate
+            .evaluation
+            .aggregate_required_initial_liquidity_minor,
+        10
+    );
     assert_eq!(bounded_wait.order, vec![1, 0]);
-    assert_eq!(bounded_wait.evaluation.aggregate_required_initial_liquidity_minor, 5);
+    assert_eq!(
+        bounded_wait
+            .evaluation
+            .aggregate_required_initial_liquidity_minor,
+        5
+    );
     assert!(bounded_wait.total_queue_wait_ticks > immediate.total_queue_wait_ticks);
     assert_eq!(bounded_wait.deadline_misses, 0);
 }
