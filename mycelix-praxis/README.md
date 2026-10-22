@@ -27,6 +27,7 @@ Praxis reimagines learning by putting **learners in control** of their data. The
 
 - **Agent-Centric Learning**: Holochain hApp architecture, offline-friendly
 - **Adaptive local learning**: SM-2 review, Bayesian Knowledge Tracing, exam preparation, and generated lessons
+- **Community lesson creation**: Guided local-first authoring, autosaved drafts, reusable JSON packs, attribution/licensing metadata, and explicit educator-review gates
 - **Credential research**: W3C-compatible data structures with issuance and cryptographic verification still under development
 - **Governance and FL research**: Protocol scaffolds for future community coordination and collaborative learning
 - **Provenance Tracking**: Every model traceable to its training round and contributors
@@ -119,6 +120,8 @@ mycelix-praxis/
 - **[Threat Model](docs/threat-model.md)**: Security threats and mitigations
 - **[Privacy Model](docs/privacy.md)**: Data handling, DP, selective disclosure
 - **[Curriculum and content contract](docs/content-contract.md)**: Graph and lesson integrity rules
+- **[Create and share educational content](docs/content-creation/README.md)**: Beginner-friendly authoring guide, lesson starter, complete example and community lesson schema
+- **[Community Creator Benchmark v1](benchmarks/community-creator-v1/README.md)**: Proposed usability, rights/provenance, accessibility, review-quality and interoperability targets
 - **[Learning client contract](docs/learning-contract.md)**: Versioned browser/coordinator DTOs and privacy boundary
 - **[Live data lifecycle](docs/live-data-lifecycle.md)**: Reactive readiness, reconnect, and honest resource states
 - **[Governance](GOVERNANCE.md)**: Decision-making processes, roles, DAO alignment
@@ -133,6 +136,7 @@ See [`docs/adr/`](docs/adr/) for all ADRs.
 
 - **[VC Schema: EduAchievementCredential](schemas/vc/EduAchievementCredential.schema.json)**
 - **[DHT Entries](schemas/dht/entries.md)**: Holochain entry definitions
+- **[Community Lesson v1](schemas/community-lesson-v1.schema.json)**: Portable lesson asset format with attribution, source, rights and review metadata
 
 ### Policies
 

@@ -93,6 +93,7 @@ Holochain Conductor (port 8888):
 |-------|-----------|-------------|
 | `/` | `HomePage` | Feature cards linking to core workflows |
 | `/courses` | `CoursesPage` | Course listing and enrollment |
+| `/create` | `ContentStudioPage` | Local-first lesson authoring, inline checks and draft JSON export |
 | `/review` | `ReviewPage` | SM-2 flashcard review with quality ratings (0-5) |
 | `/dashboard` | `DashboardPage` | XP/level, streak, due reviews, skills, consciousness, recommendations, activity |
 | `/skill-map` | `SkillMapPage` | Tiered curriculum tree with mastery nodes, filter by grade/subject, detail panel |

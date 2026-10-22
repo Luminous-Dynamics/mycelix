@@ -1,0 +1,231 @@
+{
+  "node_id": "REPLACE_WITH_EXISTING_CURRICULUM_NODE_ID",
+  "lesson": {
+    "standard_code": "LOCAL.MATHS.AREA-PERIMETER.01",
+    "title": "Area and perimeter measure different things",
+    "grade_level": "Grade5",
+    "bloom_level": "Understand",
+    "explanation": "Perimeter is the distance all the way around the outside edge of a flat shape. Area is how much surface the shape covers. Imagine a rectangular garden that is 5 metres long and 3 metres wide. Its perimeter is 5 + 3 + 5 + 3 = 16 metres. Its area is 5 × 3 = 15 square metres. Perimeter uses length units; area uses square units. The two numbers describe different properties, so they do not need to be equal.",
+    "examples": [
+      {
+        "problem": "A rectangle is 5 m long and 3 m wide. Find its perimeter and area.",
+        "steps": [
+          {
+            "instruction": "Perimeter means the total distance around the outside. Add all four sides.",
+            "result": "5 + 3 + 5 + 3 = 16 m."
+          },
+          {
+            "instruction": "Area counts the square metres that cover the inside. Multiply length by width.",
+            "result": "5 × 3 = 15 m²."
+          },
+          {
+            "instruction": "Check that the units match the quantity.",
+            "result": "Perimeter is 16 m; area is 15 m²."
+          }
+        ],
+        "answer": "Perimeter = 16 m. Area = 15 m².",
+        "visual_description": "A rectangle marked 5 m along the top and bottom and 3 m along the left and right sides."
+      }
+    ],
+    "practice_problems": [
+      {
+        "question": "A rectangle is 4 cm long and 2 cm wide. What is its perimeter?",
+        "answer": "12 cm",
+        "difficulty_permille": 250,
+        "bloom_level": "Apply",
+        "hints": [
+          "Count the four sides.",
+          "Add 4 + 2 + 4 + 2."
+        ],
+        "explanation": "Perimeter is the outside boundary: 4 + 2 + 4 + 2 = 12 cm.",
+        "distractors": [
+          "8 cm",
+          "6 cm",
+          "10 cm"
+        ]
+      },
+      {
+        "question": "A rectangle is 4 cm long and 2 cm wide. What is its area?",
+        "answer": "8 square centimetres",
+        "difficulty_permille": 350,
+        "bloom_level": "Apply",
+        "hints": [
+          "Think about rows and columns of unit squares.",
+          "Multiply length by width."
+        ],
+        "explanation": "Area = length × width = 4 × 2 = 8 square centimetres.",
+        "distractors": [
+          "12 square centimetres",
+          "6 square centimetres",
+          "8 cm"
+        ]
+      },
+      {
+        "question": "A learner says the area of a 5 m by 3 m rectangle is 16 m. What is the mistake?",
+        "answer": "16 m is the perimeter; the area is 15 m².",
+        "difficulty_permille": 600,
+        "bloom_level": "Analyze",
+        "hints": [
+          "Which quantity is found by adding the four sides?",
+          "Which quantity is found by multiplying length and width?"
+        ],
+        "explanation": "Adding the sides gives perimeter (16 m). Multiplying 5 × 3 gives area (15 m²).",
+        "distractors": [
+          "Area and perimeter are always equal.",
+          "The area is 16 m².",
+          "Perimeter is measured in square metres."
+        ]
+      }
+    ],
+    "hints": [
+      "Ask whether the question is about the boundary or the inside.",
+      "Perimeter adds side lengths; area multiplies length by width for a rectangle.",
+      "Check the units: m for perimeter and m² for area."
+    ],
+    "key_vocabulary": [
+      {
+        "term": "Perimeter",
+        "definition": "The total distance around the outside of a flat shape.",
+        "example_usage": "A rectangle with sides 5 m and 3 m has a perimeter of 16 m."
+      },
+      {
+        "term": "Area",
+        "definition": "The amount of surface covered inside a flat shape.",
+        "example_usage": "A 5 m by 3 m rectangle has an area of 15 m²."
+      }
+    ],
+    "misconceptions": [
+      {
+        "misconception": "Area and perimeter always have the same value.",
+        "correction": "They measure different properties and use different units.",
+        "why_students_think_this": "Both describe the same shape and may sometimes have the same numeric value by coincidence."
+      },
+      {
+        "misconception": "Area is measured in metres.",
+        "correction": "Area uses square units, such as square metres or square centimetres.",
+        "why_students_think_this": "Learners may confuse a side length with the surface covered by the whole shape."
+      }
+    ],
+    "generation_quality": {
+      "coherence": 0,
+      "hallucination_detected": false,
+      "veto_count": 0,
+      "epistemic_confidence": 0,
+      "needs_human_review": true,
+      "metrics_valid_for_current_revision": false,
+      "review_notes": "Illustrative starter-kit lesson generated for schema demonstration. No educator review or evidence of learning efficacy has been performed."
+    }
+  },
+  "assessment": {
+    "standard_code": "LOCAL.MATHS.AREA-PERIMETER.01",
+    "title": "Area and perimeter check",
+    "items": [
+      {
+        "question": "What does perimeter measure?",
+        "item_type": "ShortAnswer",
+        "correct_answer": "The distance around the outside of a shape.",
+        "points": 1,
+        "bloom_level": "Remember",
+        "rubric": "Accept equivalent wording that clearly describes the outer boundary.",
+        "hint": "Imagine walking around the edge."
+      },
+      {
+        "question": "Find the area of a rectangle 6 cm long and 4 cm wide.",
+        "item_type": "ShortAnswer",
+        "correct_answer": "24 square centimetres (24 cm²).",
+        "points": 2,
+        "bloom_level": "Apply",
+        "rubric": "Award credit for 6 × 4 = 24 with square units.",
+        "hint": "Multiply length by width."
+      },
+      {
+        "question": "A learner adds 6 + 4 + 6 + 4 to find area. Explain the error.",
+        "item_type": "ShortAnswer",
+        "correct_answer": "That sum finds perimeter, not area; area is 6 × 4 = 24 cm².",
+        "points": 2,
+        "bloom_level": "Analyze",
+        "rubric": "Identify the mix-up and state the correct operation for area.",
+        "hint": "Compare what addition and multiplication measure here."
+      }
+    ],
+    "total_points": 5,
+    "estimated_minutes": 8,
+    "bloom_distribution": [
+      [
+        "Remember",
+        1
+      ],
+      [
+        "Apply",
+        1
+      ],
+      [
+        "Analyze",
+        1
+      ]
+    ]
+  },
+  "flashcards": [
+    {
+      "front": "What is perimeter?",
+      "back": "The total distance around the outside of a shape.",
+      "tags": [
+        "area-perimeter",
+        "definition"
+      ],
+      "difficulty_permille": 200
+    },
+    {
+      "front": "What unit measures area?",
+      "back": "Square units, such as cm² or m².",
+      "tags": [
+        "area-perimeter",
+        "units"
+      ],
+      "difficulty_permille": 250
+    },
+    {
+      "front": "How do you find the area of a rectangle?",
+      "back": "Multiply its length by its width.",
+      "tags": [
+        "area-perimeter",
+        "method"
+      ],
+      "difficulty_permille": 350
+    }
+  ],
+  "quality": {
+    "coherence": 0,
+    "hallucination_detected": false,
+    "needs_human_review": true,
+    "veto_count": 0,
+    "review_status": "draft_requires_educator_review",
+    "metrics_valid_for_current_revision": false,
+    "review_notes": "Illustrative starter-kit lesson. Do not treat this metadata as educational validation; select a licence and request review before public sharing."
+  },
+  "contribution": {
+    "schema_version": 1,
+    "status": "draft",
+    "visibility": "private_draft",
+    "creator": {
+      "display_name": "Community lesson example",
+      "profile_url": null,
+      "attribution_statement": "Illustrative community lesson example; replace this attribution before sharing."
+    },
+    "license_id": "UNDECIDED",
+    "license_url": null,
+    "rights_confirmed": false,
+    "language": "en-ZA",
+    "audience_note": "Illustrative Grade 5 mathematics lesson. Replace the placeholder node_id before attempting to register it in the app.",
+    "accessibility_notes": [
+      "Visual descriptions are supplied where useful.",
+      "Use text labels and units; do not rely on colour alone."
+    ],
+    "sources": [],
+    "review_note": "Draft example only. Select a licence, verify rights, map to a real curriculum node, and request educator review before public sharing.",
+    "change_log": [
+      "Initial starter-kit example"
+    ]
+  },
+  "$schema": "https://raw.githubusercontent.com/Luminous-Dynamics/mycelix/main/mycelix-praxis/schemas/community-lesson-v1.schema.json"
+}
