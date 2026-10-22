@@ -147,8 +147,11 @@ fn validate_contract(root: &Value) -> Result<(), String> {
         .ok_or_else(|| "policy cost_unit must be a non-empty string".to_owned())?;
     let max_cost = integer(&root["hard_contract"], "max_single_action_cost")?;
     let max_candidates = integer(&root["hard_contract"], "max_candidates_per_case")?;
-    if max_cost < 0 || max_candidates <= 0 {
-        return Err("single-action cost and case-size limits must be non-negative/positive".to_owned());
+    if max_cost < 0 || max_candidates <= 0 || max_candidates > 1_000_000 {
+        return Err("single-action cost and case-size limits are outside supported bounds".to_owned());
+    }
+    if max_cost > i64::MAX / max_candidates {
+        return Err("single-action cost cap could overflow a full candidate set".to_owned());
     }
 
     for act in actions {
@@ -306,13 +309,19 @@ fn resource_bundle_fits(
     capacities: &BTreeMap<String, i64>,
 ) -> bool {
     let mut claims: BTreeMap<String, i64> = BTreeMap::new();
+    let mut overflowed = false;
     for candidate in candidates {
         let act = action(root, text(candidate, "action_id")).expect("validated action");
         for (resource_id, units) in resource_claims(act).expect("validated claims") {
-            *claims.entry(resource_id).or_default() += units;
+            let total = claims.entry(resource_id).or_default();
+            if let Some(next) = total.checked_add(units) {
+                *total = next;
+            } else {
+                overflowed = true;
+            }
         }
     }
-    claims.into_iter().all(|(resource_id, total)| {
+    !overflowed && claims.into_iter().all(|(resource_id, total)| {
         capacities.get(&resource_id).is_some_and(|capacity| total <= *capacity)
     })
 }
@@ -323,8 +332,9 @@ fn resource_claim_fits(
     capacities: &BTreeMap<String, i64>,
 ) -> bool {
     resource_claims(act).expect("validated claims").into_iter().all(|(resource_id, units)| {
-        used.get(&resource_id).copied().unwrap_or(0) + units
-            <= capacities.get(&resource_id).copied().unwrap_or(-1)
+        used.get(&resource_id).copied().unwrap_or(0)
+            .checked_add(units)
+            .is_some_and(|total| capacities.get(&resource_id).is_some_and(|capacity| total <= *capacity))
     })
 }
 
