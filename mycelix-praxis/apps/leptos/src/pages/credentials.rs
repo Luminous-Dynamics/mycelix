@@ -73,8 +73,7 @@ impl From<CredentialSummary> for CredentialView {
 
 /// Generate local self-attestations from mastered topics.
 fn local_credentials() -> Vec<CredentialView> {
-    let progress = crate::persistence::load::<crate::curriculum::ProgressStore>("praxis_progress")
-        .unwrap_or_default();
+    let progress = crate::curriculum::load_progress_store();
     let graph = crate::curriculum::curriculum_graph();
 
     let mut creds = Vec::new();
