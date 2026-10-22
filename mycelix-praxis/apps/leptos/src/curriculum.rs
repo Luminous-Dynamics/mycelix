@@ -705,9 +705,15 @@ impl ProgressStore {
             entry.self_assessment = Some(SelfAssessment::FeelsUnderstood);
             entry.self_reported_attempts = entry.self_reported_attempts.saturating_add(1);
             entry.self_reported_correct = entry.self_reported_correct.saturating_add(1);
-            if entry.status == ProgressStatus::NotStarted {
-                entry.status = ProgressStatus::Studying;
-            }
+            entry.status = if self
+                .bkt_states
+                .get(node_id)
+                .is_some_and(BktState::is_likely_mastered)
+            {
+                ProgressStatus::ProvisionalMastery
+            } else {
+                ProgressStatus::Studying
+            };
             return;
         }
         entry.status = status;
@@ -726,7 +732,10 @@ impl ProgressStore {
             entry.self_reported_correct = entry.self_reported_correct.saturating_add(1);
         }
         entry.last_reviewed = Some(js_sys::Date::now());
-        if entry.status == ProgressStatus::NotStarted {
+        if matches!(
+            entry.status,
+            ProgressStatus::NotStarted | ProgressStatus::Mastered
+        ) {
             entry.status = ProgressStatus::Studying;
         }
     }
@@ -972,20 +981,11 @@ impl ProgressStore {
         }
         progress.mastery_permille = (bkt.p_mastery * 1000.0) as u16;
 
-        // BKT supports only provisional mastery. Durable mastery requires
-        // independent transfer and delayed-retention evidence, not a posterior
-        // threshold over a short practice session.
-        if bkt.is_likely_mastered() && progress.status != ProgressStatus::Mastered {
+        // Browser-scored practice can only grant provisional mastery.
+        // A correct-response streak never preserves or creates verified Mastered.
+        if bkt.is_likely_mastered() {
             progress.status = ProgressStatus::ProvisionalMastery;
-        } else if bkt.attempts > 0
-            && matches!(
-                progress.status,
-                ProgressStatus::NotStarted
-                    | ProgressStatus::Studying
-                    | ProgressStatus::ProvisionalMastery
-            )
-            && !bkt.is_likely_mastered()
-        {
+        } else if bkt.attempts > 0 {
             progress.status = ProgressStatus::Studying;
         }
     }
