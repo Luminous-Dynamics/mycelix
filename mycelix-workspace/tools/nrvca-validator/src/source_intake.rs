@@ -385,6 +385,8 @@ mod tests {
         assert_eq!(parsed.receipt["acquisition_receipt"]["bytes_hashed"], bytes.len() as u64);
         assert!(parsed.receipt["acquisition_receipt"]["resolved_path"].as_str().unwrap().ends_with("nrvca-intake"));
         assert!(parsed.receipt["rights"]["evaluation_allowed"].as_bool().unwrap());
+        let admission = crate::external_validity::validate_source_record(&parsed.receipt, "/source");
+        assert!(admission.is_empty(), "receipt should satisfy NRVCA-016 source manifest: {admission:?}");
         assert_eq!(parsed.output_path, None);
     }
 
