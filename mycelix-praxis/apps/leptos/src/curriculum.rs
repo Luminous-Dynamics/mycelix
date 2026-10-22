@@ -729,7 +729,7 @@ impl ProgressStore {
 
         let entry = self.nodes.entry(node_id.to_string()).or_default();
         entry.status = status;
-        if status == ProgressStatus::NotStarted {
+        if matches!(status, ProgressStatus::NotStarted | ProgressStatus::Studying) {
             entry.self_assessment = None;
         }
     }
@@ -1297,30 +1297,11 @@ pub fn use_set_progress() -> WriteSignal<ProgressStore> {
     expect_context::<WriteSignal<ProgressStore>>()
 }
 
-/// Set a node's status with celebration trigger for Mastered.
-pub fn set_node_status(node_id: &str, status: ProgressStatus, topic_title: &str) {
+/// Update learner-facing progress. Self-assessment and BKT estimates do not
+/// trigger a verified-mastery celebration; that needs a future trusted evidence path.
+pub fn set_node_status(node_id: &str, status: ProgressStatus, _topic_title: &str) {
     let set_progress = use_set_progress();
     set_progress.update(|p| p.set_status(node_id, status));
-
-    // Asking for "Mastered" through the local UI is now recorded only as a
-    // self-assessment by ProgressStore::set_status. It must not trigger a
-    // verified-mastery celebration.
-    if status == ProgressStatus::Mastered {
-        return;
-    }
-
-    if status == ProgressStatus::ProvisionalMastery {
-        let set_celebrating = expect_context::<WriteSignal<bool>>();
-        let set_celebration_topic = expect_context::<WriteSignal<String>>();
-        set_celebrating.set(true);
-        set_celebration_topic.set(topic_title.to_string());
-
-        // Auto-dismiss after 2 seconds
-        wasm_bindgen_futures::spawn_local(async move {
-            gloo_timers::future::sleep(std::time::Duration::from_millis(2000)).await;
-            set_celebrating.set(false);
-        });
-    }
 }
 
 
@@ -1341,6 +1322,16 @@ mod evidence_first_progress_tests {
         assert_eq!(node.correct, 0);
         assert_eq!(progress.mastered_count(), 0);
         assert!(progress.mastered_ids().is_empty());
+    }
+
+    #[test]
+    fn selecting_studying_clears_the_previous_confidence_reflection() {
+        let mut progress = ProgressStore::default();
+        progress.record_self_assessment("math.geometry", SelfAssessment::FeelsUnderstood);
+        progress.set_status("math.geometry", ProgressStatus::Studying);
+        assert_eq!(progress.get("math.geometry").self_assessment, None);
+        assert_eq!(progress.get("math.geometry").status, ProgressStatus::Studying);
+        assert_eq!(progress.get("math.geometry").self_reported_attempts, 1);
     }
 
     #[test]
