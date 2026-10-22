@@ -136,7 +136,7 @@ jobs:
           # industry RTGS superiority claim.
           awk -F, '
             NR == 1 {
-              if ($4 != "optimized_flow_minor" || $7 != "greedy_flow_minor" || $12 != "opt_p50_us" || $13 != "opt_p95_us") exit 2
+              if ($4 != "optimized_flow_minor" || $7 != "greedy_flow_minor" || $12 != "opt_p50_us" || $13 != "opt_p95_us" || $14 != "opt_p99_us" || $15 != "greedy_p50_us" || $16 != "greedy_p95_us" || $17 != "greedy_p99_us") exit 2
               next
             }
             {
@@ -145,7 +145,7 @@ jobs:
               if ($4 < $7) failed = 1
               if ($4 == $7 && $5 > $8) failed = 1
               if ($10 != $4 - $7 || $11 !~ /^[0-9]+$/) failed = 1
-              if ($12 !~ /^[0-9]+$/ || $13 !~ /^[0-9]+$/ || $14 !~ /^[0-9]+$/ || $15 !~ /^[0-9]+$/) failed = 1
+              if ($12 !~ /^[0-9]+$/ || $13 !~ /^[0-9]+$/ || $14 !~ /^[0-9]+$/ || $15 !~ /^[0-9]+$/ || $16 !~ /^[0-9]+$/ || $17 !~ /^[0-9]+$/) failed = 1
               if ($2 == 700) {
                 stress_cases++
                 if ($13 > 100000) failed = 1
