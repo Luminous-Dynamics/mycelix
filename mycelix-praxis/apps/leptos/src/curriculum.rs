@@ -700,22 +700,24 @@ impl ProgressStore {
     /// a node Mastered is deliberately downgraded to a self-assessment; only a
     /// trusted evidence workflow may restore the verified Mastered state.
     pub fn set_status(&mut self, node_id: &str, status: ProgressStatus) {
-        let entry = self.nodes.entry(node_id.to_string()).or_default();
         if status == ProgressStatus::Mastered {
+            let bkt = self.bkt_states.get(node_id).cloned();
+            let entry = self.nodes.entry(node_id.to_string()).or_default();
             entry.self_assessment = Some(SelfAssessment::FeelsUnderstood);
             entry.self_reported_attempts = entry.self_reported_attempts.saturating_add(1);
             entry.self_reported_correct = entry.self_reported_correct.saturating_add(1);
-            entry.status = if self
-                .bkt_states
-                .get(node_id)
-                .is_some_and(BktState::is_likely_mastered)
-            {
+            entry.mastery_permille = bkt
+                .as_ref()
+                .map_or(0, |state| (state.p_mastery * 1000.0) as u16);
+            entry.status = if bkt.as_ref().is_some_and(BktState::is_likely_mastered) {
                 ProgressStatus::ProvisionalMastery
             } else {
                 ProgressStatus::Studying
             };
             return;
         }
+
+        let entry = self.nodes.entry(node_id.to_string()).or_default();
         entry.status = status;
         if status == ProgressStatus::NotStarted {
             entry.self_assessment = None;
@@ -723,8 +725,9 @@ impl ProgressStore {
     }
 
     /// Record a learner reflection separately from scored answers. This never
-    /// changes the BKT posterior, correctness counts, or verified mastery.
+    /// changes the BKT posterior or correctness counts.
     pub fn record_self_assessment(&mut self, node_id: &str, assessment: SelfAssessment) {
+        let bkt = self.bkt_states.get(node_id).cloned();
         let entry = self.nodes.entry(node_id.to_string()).or_default();
         entry.self_assessment = Some(assessment);
         entry.self_reported_attempts = entry.self_reported_attempts.saturating_add(1);
@@ -736,8 +739,15 @@ impl ProgressStore {
             entry.status,
             ProgressStatus::NotStarted | ProgressStatus::Mastered
         ) {
-            entry.status = ProgressStatus::Studying;
+            entry.status = if bkt.as_ref().is_some_and(BktState::is_likely_mastered) {
+                ProgressStatus::ProvisionalMastery
+            } else {
+                ProgressStatus::Studying
+            };
         }
+        entry.mastery_permille = bkt
+            .as_ref()
+            .map_or(0, |state| (state.p_mastery * 1000.0) as u16);
     }
 
     /// One-time migration: previous Praxis versions recorded BKT responses only
@@ -1311,6 +1321,36 @@ mod evidence_first_progress_tests {
         assert_eq!(node.correct, 0);
         assert_eq!(progress.mastered_count(), 0);
         assert!(progress.mastered_ids().is_empty());
+    }
+
+    #[test]
+    fn a_stale_mastered_value_cannot_keep_a_high_score_after_self_assessment() {
+        let mut progress = ProgressStore::default();
+        progress.nodes.insert(
+            "math.stale".to_owned(),
+            NodeProgress {
+                mastery_permille: 1000,
+                attempts: 8,
+                correct: 8,
+                status: ProgressStatus::Mastered,
+                ..NodeProgress::default()
+            },
+        );
+
+        progress.set_status("math.stale", ProgressStatus::Mastered);
+        let node = progress.get("math.stale");
+        assert_eq!(node.status, ProgressStatus::Studying);
+        assert_eq!(node.mastery_permille, 0);
+        assert_eq!(node.attempts, 8);
+        assert_eq!(node.correct, 8);
+        assert_eq!(node.self_assessment, Some(SelfAssessment::FeelsUnderstood));
+        assert!(progress.mastered_ids().is_empty());
+
+        progress.record_self_assessment("math.stale", SelfAssessment::NeedsMorePractice);
+        let node = progress.get("math.stale");
+        assert_eq!(node.status, ProgressStatus::Studying);
+        assert_eq!(node.mastery_permille, 0);
+        assert_eq!(node.self_assessment, Some(SelfAssessment::NeedsMorePractice));
     }
 
     #[test]
