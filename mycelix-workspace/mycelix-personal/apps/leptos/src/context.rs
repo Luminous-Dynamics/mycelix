@@ -11,8 +11,8 @@
 use leptos::prelude::*;
 use wasm_bindgen_futures::spawn_local;
 
-use mycelix_leptos_core::holochain_provider::{HolochainCtx, use_holochain};
 use crate::source_state::{SourceEvidence, SourceFailure, SourceObservation, StaleReason};
+use mycelix_leptos_core::holochain_provider::{HolochainCtx, use_holochain};
 use personal_leptos_types::{
     ActivityItemView, BiometricView, ConsentGrantView, DataSharingPreferenceView, HealthRecordView,
     MasterKeyView, PreferenceChangeLogView, ProfileView, StoredCredentialView,
@@ -117,10 +117,8 @@ fn unavailable_from_prior<T: Clone>(
     prior: &SourceObservation<T>,
 ) -> SourceObservation<T> {
     let attempted_at_unix_ms = observed_now_unix_ms();
-    let last_known = prior.stale_snapshot(
-        Some(attempted_at_unix_ms),
-        StaleReason::SourceUnavailable,
-    );
+    let last_known =
+        prior.stale_snapshot(Some(attempted_at_unix_ms), StaleReason::SourceUnavailable);
     SourceObservation::from_failed_read(
         source_id,
         Some(attempted_at_unix_ms),
@@ -225,10 +223,11 @@ pub fn provide_personal_context() {
                 .await
             {
                 Ok(profile) => {
-                    ctx.profile_source.set(SourceObservation::from_successful_read(
-                        profile.clone().into_iter().collect(),
-                        source_read_evidence(PROFILE_SOURCE_ID),
-                    ));
+                    ctx.profile_source
+                        .set(SourceObservation::from_successful_read(
+                            profile.clone().into_iter().collect(),
+                            source_read_evidence(PROFILE_SOURCE_ID),
+                        ));
                     let profile = profile.unwrap_or_else(empty_profile);
                     ctx.profile.set(profile.clone());
                     ctx.draft_profile.set(profile);
@@ -242,7 +241,7 @@ pub fn provide_personal_context() {
                         None,
                     ));
                     unavailable_sources.push("profile");
-                },
+                }
             }
 
             match hc
@@ -269,7 +268,7 @@ pub fn provide_personal_context() {
                         None,
                     ));
                     unavailable_sources.push("identity keys");
-                },
+                }
             }
 
             match hc
@@ -377,7 +376,8 @@ pub fn provide_personal_context() {
                 Err(_) => unavailable_sources.push("activity history"),
             }
 
-            ctx.any_live_source_read_succeeded.set(!successful_sources.is_empty());
+            ctx.any_live_source_read_succeeded
+                .set(!successful_sources.is_empty());
             ctx.status_note.set(live_source_status(
                 &successful_sources,
                 &unavailable_sources,
@@ -398,10 +398,11 @@ pub async fn refresh_identity_state(ctx: PersonalCtx, hc: HolochainCtx) {
         .await
     {
         Ok(profile) => {
-            ctx.profile_source.set(SourceObservation::from_successful_read(
-                profile.clone().into_iter().collect(),
-                source_read_evidence(PROFILE_SOURCE_ID),
-            ));
+            ctx.profile_source
+                .set(SourceObservation::from_successful_read(
+                    profile.clone().into_iter().collect(),
+                    source_read_evidence(PROFILE_SOURCE_ID),
+                ));
             let profile = profile.unwrap_or_else(empty_profile);
             ctx.profile.set(profile.clone());
             ctx.draft_profile.set(profile);
