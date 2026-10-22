@@ -106,7 +106,9 @@ fn utility_accuracy_permille(targets: &[usize], depth: usize, profile: Profile) 
                 Profile::ExactAttribute => required_answer(attribute, observed),
                 Profile::PredicateOnly => observed == 1,
             };
-            if answer == required_answer(attribute, target[attribute]) {\n                correct += 1;\n            }
+            if answer == required_answer(attribute, target[attribute]) {
+                correct += 1;
+            }
             total += 1;
         }
     }
