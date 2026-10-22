@@ -3,7 +3,6 @@
 //! Hardware Integration Components — WebBluetooth and Physical Presence.
 
 use leptos::prelude::*;
-use leptos::prelude::*;
 
 #[component]
 pub fn HardwareScanner(
