@@ -4,6 +4,7 @@ members = [
     "src/core",
     "src/api",
     "src/cli",
+    "landscape-authorization-gate-harness",
 ]
 exclude = ["apps/leptos"]
 resolver = "2"

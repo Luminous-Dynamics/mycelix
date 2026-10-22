@@ -1,0 +1,34 @@
+{
+  "schema": "mycelix.landscape-stewardship-profile.v0",
+  "schema_uri": "https://luminousdynamics.io/schemas/landscape-stewardship-profile-v0.schema.json",
+  "record_id": "fixture-stewardship-profile-v0-public",
+  "record_type": "project-version-review",
+  "created_at": "2026-10-21T00:00:00Z",
+  "project_id": "fixture-project-not-real",
+  "project_snapshot": {
+    "system": "sol-atlas",
+    "schema": "luminous.landscape-design.v0",
+    "schema_uri": "https://luminousdynamics.io/schemas/landscape-design-v0.schema.json",
+    "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "scope": "site-parcel",
+    "coordinate_frame_kind": "LOCAL_CARTESIAN_DRAWING_UNITS",
+    "georeferenced": false,
+    "geometry_status": "schematic-design-intent"
+  },
+  "actor_authority": {
+    "actor_id": "did:example:123",
+    "role": "designer",
+    "authority_kind": "project-role",
+    "authority_reference": "fixture-authority-reference-not-real",
+    "consent_reference": "fixture-consent-reference-not-real",
+    "publication_consent": "granted",
+    "publication_authority_reference": "fixture-publication-reference-not-real"
+  },
+  "access_policy": {
+    "visibility": "public",
+    "coordinate_disclosure": "coarse",
+    "sensitive_site_data_included": false
+  },
+  "evidence_class": "curated",
+  "statement": "Conformance fixture only. The digest, actor ID, and authority/consent references are illustrative sentinels, not resolvable records, verified identities, legal rights, or evidence of impact."
+}
