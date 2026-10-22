@@ -169,7 +169,7 @@ fn build_corpus() -> Vec<Presentation> {
                     proof_tag: splitmix64(SEED ^ presentation_index),
                     statement_count: 4 + (subject % 5) as u8,
                     revealed_index_pattern: index_pattern(subject),
-                    schema_profile: (subject % 3) as u8,
+                    schema_profile: (subject % 2) as u8,
                     global_id: format!("urn:synthetic:subject:{subject:03}"),
                 });
             }
@@ -398,12 +398,18 @@ mod tests {
     }
 
     #[test]
-    fn no_attacker_channel_reads_hidden_subject_labels() {
+    fn attacker_channel_features_do_not_depend_on_hidden_ground_truth_labels() {
         let corpus = build_corpus();
         let left = &corpus[0];
         let right = &corpus[1];
-        assert_eq!(left.subject_truth, right.subject_truth);
-        assert!(!Channel::GlobalId.matches(left, right) || left.global_id == right.global_id);
+        for channel in Channel::ALL {
+            let expected = channel.matches(left, right);
+            let mut left_without_truth = left.clone();
+            let mut right_without_truth = right.clone();
+            left_without_truth.subject_truth = usize::MAX;
+            right_without_truth.subject_truth = usize::MAX - 1;
+            assert_eq!(expected, channel.matches(&left_without_truth, &right_without_truth));
+        }
     }
 
     #[test]
