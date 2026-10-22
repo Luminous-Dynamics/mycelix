@@ -1688,12 +1688,36 @@ mod evidence_first_progress_tests {
     #[test]
     fn provisional_mastery_unlocks_learning_navigation_but_not_verified_mastery() {
         let mut progress = ProgressStore::default();
+        let receipts = (0..5)
+            .map(|index| ScoredPracticeReceipt {
+                item_id: format!("practice-item-v1:{index:032x}"),
+                correct: true,
+                recorded_at_ms: index as f64,
+                sequence: index,
+            })
+            .collect::<Vec<_>>();
+        let scored_item_ids = receipts
+            .iter()
+            .map(|receipt| receipt.item_id.clone())
+            .collect::<Vec<_>>();
         progress.nodes.insert(
             "foundation".to_owned(),
             NodeProgress {
                 status: ProgressStatus::ProvisionalMastery,
-                mastery_permille: 960,
+                mastery_permille: 990,
+                attempts: 5,
+                correct: 5,
+                scored_item_ids,
+                scored_practice_receipts: receipts,
                 ..NodeProgress::default()
+            },
+        );
+        progress.bkt_states.insert(
+            "foundation".to_owned(),
+            BktState {
+                p_mastery: 0.99,
+                attempts: 5,
+                correct: 5,
             },
         );
 
@@ -1710,6 +1734,26 @@ mod evidence_first_progress_tests {
         progress.nodes.insert("verified".to_owned(), verified);
         assert!(progress.progression_ready_ids().contains("verified"));
         assert!(progress.mastered_ids().contains("verified"));
+    }
+
+    #[test]
+    fn bkt_without_scored_item_receipts_cannot_be_promoted_to_provisional() {
+        let mut progress = ProgressStore::default();
+        progress.bkt_states.insert(
+            "math.fractions".to_owned(),
+            BktState {
+                p_mastery: 0.99,
+                attempts: 20,
+                correct: 20,
+            },
+        );
+
+        progress.set_status("math.fractions", ProgressStatus::ProvisionalMastery);
+        let node = progress.get("math.fractions");
+        assert_eq!(node.status, ProgressStatus::Studying);
+        assert_eq!(node.mastery_permille, 0);
+        assert!(node.scored_practice_receipts.is_empty());
+        assert!(!progress.progression_ready_ids().contains("math.fractions"));
     }
 
     #[test]
