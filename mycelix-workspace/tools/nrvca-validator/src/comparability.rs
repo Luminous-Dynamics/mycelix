@@ -73,7 +73,7 @@ pub struct MeasurementDecision {
     pub status: MeasurementStatus,
     /// Known, non-null field values that differ, in canonical field order.
     pub changed_fields: Vec<&'static str>,
-    /// Missing or null fields on either side, in canonical field order.
+    /// Missing, null, empty, or incorrectly typed fields on either side.
     pub unknown_fields: Vec<&'static str>,
 }
 
@@ -82,7 +82,7 @@ pub struct TargetPolicyDecision {
     pub status: TargetPolicyStatus,
     /// Known, non-null policy fields that differ, in canonical field order.
     pub changed_fields: Vec<&'static str>,
-    /// Missing or null policy fields on either side, in canonical field order.
+    /// Missing, null, empty, or incorrectly typed policy fields.
     pub unknown_fields: Vec<&'static str>,
 }
 
@@ -92,34 +92,84 @@ pub struct KpiComparability {
     pub target_policy: TargetPolicyDecision,
 }
 
+/// Returns a canonical exact-decimal tuple: sign, significant digits, and
+/// base-10 exponent. It avoids f64 rounding when comparing large integer targets.
+fn canonical_number(value: &Value) -> Option<(bool, String, i64)> {
+    let raw = value.as_number()?.to_string();
+    let (mantissa, exponent) = if let Some((mantissa, exponent)) = raw.split_once('e') {
+        (mantissa, exponent.parse::<i64>().ok()?)
+    } else if let Some((mantissa, exponent)) = raw.split_once('E') {
+        (mantissa, exponent.parse::<i64>().ok()?)
+    } else {
+        (raw.as_str(), 0)
+    };
+
+    let negative = mantissa.starts_with('-');
+    let unsigned = mantissa.strip_prefix('-').unwrap_or(mantissa);
+    let mut parts = unsigned.split('.');
+    let whole = parts.next()?;
+    let fractional = parts.next().unwrap_or("");
+    if parts.next().is_some() {
+        return None;
+    }
+
+    let mut digits = format!("{whole}{fractional}");
+    let Some(first_nonzero) = digits.find(|character| character != '0') else {
+        return Some((false, "0".to_owned(), 0));
+    };
+    digits = digits[first_nonzero..].to_owned();
+    let mut exponent = exponent.checked_sub(i64::try_from(fractional.len()).ok()?)?;
+    while digits.ends_with('0') {
+        digits.pop();
+        exponent = exponent.checked_add(1)?;
+    }
+    Some((negative, digits, exponent))
+}
+
 fn values_equal(left: &Value, right: &Value) -> bool {
     if left == right {
         return true;
     }
-
-    // JSON producers often encode mathematically identical numbers as 90 and
-    // 90.0. Treat finite numeric encodings of the same value as equal, without
-    // applying a tolerance that could hide a policy threshold change.
-    match (left.as_f64(), right.as_f64()) {
-        (Some(a), Some(b)) => a.is_finite() && b.is_finite() && a == b,
-        _ => false,
+    if left.is_number() && right.is_number() {
+        return match (canonical_number(left), canonical_number(right)) {
+            (Some(left), Some(right)) => left == right,
+            _ => false,
+        };
     }
+    false
+}
+
+fn known_field<'a>(axis: Option<&'a Value>, field: &str, target_axis: bool) -> Option<&'a Value> {
+    let value = axis?.get(field)?;
+    if value.is_null() {
+        return None;
+    }
+
+    if target_axis && field == "value" {
+        if !value.as_number().and_then(|number| number.as_f64()).is_some_and(|n| n.is_finite()) {
+            return None;
+        }
+    } else if value.as_str().is_none_or(|text| text.trim().is_empty()) {
+        return None;
+    }
+    Some(value)
 }
 
 fn compare_fields(
     left_axis: Option<&Value>,
     right_axis: Option<&Value>,
     fields: &[&'static str],
+    target_axis: bool,
 ) -> (Vec<&'static str>, Vec<&'static str>) {
     let mut changed = Vec::new();
     let mut unknown = Vec::new();
 
     for field in fields {
         match (
-            left_axis.and_then(|axis| axis.get(*field)),
-            right_axis.and_then(|axis| axis.get(*field)),
+            known_field(left_axis, field, target_axis),
+            known_field(right_axis, field, target_axis),
         ) {
-            (Some(left), Some(right)) if !left.is_null() && !right.is_null() => {
+            (Some(left), Some(right)) => {
                 if !values_equal(left, right) {
                     changed.push(*field);
                 }
@@ -133,15 +183,18 @@ fn compare_fields(
 
 /// Compare two KPI contracts on separate measurement and target-policy axes.
 ///
-/// Known mismatches take precedence over unknowns: a known semantic conflict
-/// makes the pair not directly comparable even if some other critical field is
-/// missing. Unknowns with no known mismatch produce an indeterminate result.
-/// This function never infers values or trusts caller-provided fingerprints.
+/// Critical string fields must be nonempty strings; target `value` must be a
+/// finite JSON number. A missing, null, empty, or malformed field is unknown,
+/// not a guessed value. Known mismatches take precedence over unknowns: a known
+/// semantic conflict makes the pair not directly comparable even when another
+/// field is missing. Unknowns with no known mismatch produce an indeterminate
+/// result. The function never infers values or trusts caller-supplied fingerprints.
 pub fn compare_kpi_contracts(left: &Value, right: &Value) -> KpiComparability {
     let (measurement_changed, measurement_unknown) = compare_fields(
         left.get("measurement"),
         right.get("measurement"),
         &MEASUREMENT_FIELDS,
+        false,
     );
     let measurement_status = if !measurement_changed.is_empty() {
         MeasurementStatus::NotComparable
@@ -155,6 +208,7 @@ pub fn compare_kpi_contracts(left: &Value, right: &Value) -> KpiComparability {
         left.get("target"),
         right.get("target"),
         &TARGET_POLICY_FIELDS,
+        true,
     );
     let target_status = if !target_changed.is_empty() {
         TargetPolicyStatus::ChangedTargetPolicy
@@ -189,6 +243,26 @@ mod tests {
         let right = json!({"measurement": {}, "target": {"value": 90.0}});
         let result = compare_kpi_contracts(&left, &right);
         assert!(!result.target_policy.changed_fields.contains(&"value"));
+    }
+
+    #[test]
+    fn distinct_large_integer_targets_do_not_collapse_through_f64() {
+        let left = json!({"measurement": {}, "target": {"value": 9_007_199_254_740_992_u64}});
+        let right = json!({"measurement": {}, "target": {"value": 9_007_199_254_740_993_u64}});
+        let result = compare_kpi_contracts(&left, &right);
+        assert_eq!(result.target_policy.status, TargetPolicyStatus::ChangedTargetPolicy);
+        assert!(result.target_policy.changed_fields.contains(&"value"));
+    }
+
+    #[test]
+    fn malformed_types_abstain_instead_of_becoming_comparable() {
+        let left = json!({"measurement": {"unit": false}, "target": {"value": "90"}});
+        let right = json!({"measurement": {"unit": false}, "target": {"value": "90"}});
+        let result = compare_kpi_contracts(&left, &right);
+        assert_eq!(result.measurement.status, MeasurementStatus::Indeterminate);
+        assert!(result.measurement.unknown_fields.contains(&"unit"));
+        assert_eq!(result.target_policy.status, TargetPolicyStatus::Indeterminate);
+        assert!(result.target_policy.unknown_fields.contains(&"value"));
     }
 
     #[test]
