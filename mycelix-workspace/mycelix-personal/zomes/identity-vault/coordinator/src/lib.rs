@@ -209,29 +209,35 @@ pub fn get_my_keys_view(_: ()) -> ExternResult<Vec<MasterKeyView>> {
     Ok(keys)
 }
 
-/// Selective disclosure: return profile fields filtered by requested scope.
-///
-/// Used by personal_bridge to fulfill cross-cluster identity queries
-/// without revealing the full profile.
-#[hdk_extern]
-pub fn disclose_profile(fields: Vec<String>) -> ExternResult<String> {
-    let profile_record = get_my_profile(())?;
-    let profile = match profile_record {
-        Some(record) => {
-            let p: Profile = record
-                .entry()
-                .to_app_option()
-                .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
-                .ok_or(wasm_error!(WasmErrorInner::Guest(
-                    "Invalid profile entry".into()
-                )))?;
-            p
+const ALLOWED_PROFILE_DISCLOSURE_FIELDS: &[&str] = &["display_name", "bio", "avatar"];
+
+/// Validate scope before reading profile state, so invalid requests fail
+/// identically whether or not a profile exists.
+fn validate_profile_disclosure_fields(fields: &[String]) -> Result<(), &'static str> {
+    if fields.is_empty() {
+        return Err("Identity disclosure scope must contain at least one field");
+    }
+    for (index, field) in fields.iter().enumerate() {
+        if !ALLOWED_PROFILE_DISCLOSURE_FIELDS.contains(&field.as_str()) {
+            return Err("Identity disclosure scope contains an unsupported field");
         }
-        None => return Ok("{}".into()),
-    };
+        if fields[..index].iter().any(|prior| prior == field) {
+            return Err("Identity disclosure scope contains a duplicate field");
+        }
+    }
+    Ok(())
+}
+
+/// Project only an explicit, validated field set. Unknown, duplicate, and empty
+/// scopes are rejected rather than silently broadened or collapsed to an empty object.
+fn project_profile_fields(
+    profile: &Profile,
+    fields: &[String],
+) -> Result<serde_json::Map<String, serde_json::Value>, &'static str> {
+    validate_profile_disclosure_fields(fields)?;
 
     let mut disclosed = serde_json::Map::new();
-    for field in &fields {
+    for field in fields {
         match field.as_str() {
             "display_name" => {
                 disclosed.insert(
@@ -240,18 +246,57 @@ pub fn disclose_profile(fields: Vec<String>) -> ExternResult<String> {
                 );
             }
             "bio" => {
-                if let Some(ref bio) = profile.bio {
-                    disclosed.insert("bio".into(), serde_json::Value::String(bio.clone()));
-                }
+                disclosed.insert(
+                    "bio".into(),
+                    profile
+                        .bio
+                        .clone()
+                        .map_or(serde_json::Value::Null, serde_json::Value::String),
+                );
             }
             "avatar" => {
-                if let Some(ref avatar) = profile.avatar {
-                    disclosed.insert("avatar".into(), serde_json::Value::String(avatar.clone()));
-                }
+                disclosed.insert(
+                    "avatar".into(),
+                    profile
+                        .avatar
+                        .clone()
+                        .map_or(serde_json::Value::Null, serde_json::Value::String),
+                );
             }
-            _ => {} // Unknown fields are silently ignored
+            _ => return Err("Identity disclosure scope contains an unsupported field"),
         }
     }
+    Ok(disclosed)
+}
+
+/// Legacy field projection only; this does not produce a cryptographic proof,
+/// bind a verifier/nonce, or establish permission to disclose.
+///
+/// Optional requested fields are returned as JSON null when no value is stored,
+/// keeping output shape dependent on the requested scope rather than profile
+/// population. A missing profile is an error, not an empty JSON object.
+#[hdk_extern]
+pub fn disclose_profile(fields: Vec<String>) -> ExternResult<String> {
+    validate_profile_disclosure_fields(&fields)
+        .map_err(|reason| wasm_error!(WasmErrorInner::Guest(reason.into())))?;
+    let profile_record = get_my_profile(())?;
+    let profile = match profile_record {
+        Some(record) => record
+            .entry()
+            .to_app_option::<Profile>()
+            .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
+            .ok_or(wasm_error!(WasmErrorInner::Guest(
+                "Invalid profile entry".into()
+            )))?,
+        None => {
+            return Err(wasm_error!(WasmErrorInner::Guest(
+                "No profile is available for identity disclosure".into()
+            )));
+        }
+    };
+
+    let disclosed = project_profile_fields(&profile, &fields)
+        .map_err(|reason| wasm_error!(WasmErrorInner::Guest(reason.into())))?;
 
     serde_json::to_string(&disclosed)
         .map_err(|e| wasm_error!(WasmErrorInner::Guest(format!("Serialization error: {}", e))))
@@ -260,6 +305,94 @@ pub fn disclose_profile(fields: Vec<String>) -> ExternResult<String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn disclosure_scope_rejects_empty_field_sets() {
+        let profile = Profile {
+            display_name: "Ada".into(),
+            avatar: None,
+            bio: None,
+            metadata: std::collections::HashMap::new(),
+            updated_at: Timestamp::from_micros(1),
+            mineralized_at: None,
+        };
+        assert_eq!(
+            project_profile_fields(&profile, &[]).unwrap_err(),
+            "Identity disclosure scope must contain at least one field"
+        );
+    }
+
+    #[test]
+    fn disclosure_scope_rejects_unknown_and_case_variant_fields() {
+        let profile = Profile {
+            display_name: "Ada".into(),
+            avatar: None,
+            bio: None,
+            metadata: std::collections::HashMap::new(),
+            updated_at: Timestamp::from_micros(1),
+            mineralized_at: None,
+        };
+        for field in ["email", "metadata", "Display_Name"] {
+            assert_eq!(
+                project_profile_fields(&profile, &[field.into()]).unwrap_err(),
+                "Identity disclosure scope contains an unsupported field"
+            );
+        }
+    }
+
+    #[test]
+    fn disclosure_scope_rejects_duplicate_fields() {
+        let profile = Profile {
+            display_name: "Ada".into(),
+            avatar: None,
+            bio: None,
+            metadata: std::collections::HashMap::new(),
+            updated_at: Timestamp::from_micros(1),
+            mineralized_at: None,
+        };
+        assert_eq!(
+            project_profile_fields(&profile, &["bio".into(), "bio".into()]).unwrap_err(),
+            "Identity disclosure scope contains a duplicate field"
+        );
+    }
+
+    #[test]
+    fn disclosure_projection_contains_only_requested_keys_and_stable_nulls() {
+        let profile = Profile {
+            display_name: "Ada".into(),
+            avatar: None,
+            bio: None,
+            metadata: std::collections::HashMap::new(),
+            updated_at: Timestamp::from_micros(1),
+            mineralized_at: None,
+        };
+        let projected = project_profile_fields(&profile, &["bio".into(), "avatar".into()])
+            .expect("known, distinct fields should be projected");
+        assert_eq!(projected.len(), 2);
+        assert_eq!(projected.get("bio"), Some(&serde_json::Value::Null));
+        assert_eq!(projected.get("avatar"), Some(&serde_json::Value::Null));
+        assert!(!projected.contains_key("display_name"));
+        assert!(!projected.contains_key("metadata"));
+    }
+
+    #[test]
+    fn disclosure_projection_returns_only_the_explicit_display_name() {
+        let profile = Profile {
+            display_name: "Ada".into(),
+            avatar: Some("private-avatar".into()),
+            bio: Some("private-bio".into()),
+            metadata: std::collections::HashMap::new(),
+            updated_at: Timestamp::from_micros(1),
+            mineralized_at: None,
+        };
+        let projected = project_profile_fields(&profile, &["display_name".into()])
+            .expect("known field should be projected");
+        assert_eq!(projected.len(), 1);
+        assert_eq!(
+            projected.get("display_name"),
+            Some(&serde_json::Value::String("Ada".into()))
+        );
+    }
 
     #[test]
     fn profile_entry_type_exists() {

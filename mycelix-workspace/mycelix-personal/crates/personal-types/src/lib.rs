@@ -155,10 +155,13 @@ pub enum AttestationStatus {
 // Presentation Types
 // ============================================================================
 
-/// A signed attestation that can be presented via the personal bridge.
+/// Legacy presentation envelope for an identity or credential payload.
 ///
-/// This is the output format for credential presentations — the bridge
-/// wraps raw credentials into this structure before sending cross-cluster.
+/// **This type does not itself carry a cryptographic proof/signature, verifier
+/// audience binding, transaction nonce, expiry, or consent/policy receipt.**
+/// Consumers must not treat a serialized `CredentialPresentation` as a
+/// cryptographically verifiable presentation or evidence that disclosure was
+/// authorized. Prefer a protocol-specific, request-bound type for new APIs.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CredentialPresentation {
     /// Type of credential being presented.
