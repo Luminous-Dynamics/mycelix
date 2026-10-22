@@ -67,6 +67,41 @@ fn validate(root: &Value) -> Result<(), String> {
         if definition["unit"].as_str() != Some("percent") {
             return Err(format!("{id}: unexpected unit"));
         }
+        // The fingerprint is checked against the actual semantic fields; it is
+        // not accepted as a caller-supplied label that can mask a changed rule.
+        match (definition["metric_id"].as_str(), definition["definition_vintage"].as_str()) {
+            (Some("JW-SS1"), Some("2023/24")) => {
+                if definition["deadline_hours"].as_i64() != Some(12)
+                    || definition["semantic_fingerprint"].as_str()
+                        != Some("water_interruptions|within_12h_from_notification|planned_and_unplanned_inclusion_unknown|denominator_details_unknown")
+                    || definition["eligibility"].as_str()
+                        != Some("water-supply interruptions; planned/unplanned inclusion not disambiguated in the displayed label") {
+                    return Err(format!("{id}: SS1 2023/24 semantic fingerprint does not match fields"));
+                }
+            }
+            (Some("JW-SS1"), Some("2024/25")) => {
+                if !definition["deadline_hours"].is_null()
+                    || definition["category_deadlines_hours"]["A"].as_i64() != Some(12)
+                    || definition["category_deadlines_hours"]["B"].as_i64() != Some(24)
+                    || definition["category_deadlines_hours"]["C"].as_i64() != Some(72)
+                    || definition["semantic_fingerprint"].as_str()
+                        != Some("planned_water_interruptions|category_deadline_A12_B24_C72|denominator_details_unknown")
+                    || definition["eligibility"].as_str()
+                        != Some("planned water-supply interruptions by category A, B or C") {
+                    return Err(format!("{id}: SS1 2024/25 category semantics do not match fingerprint"));
+                }
+            }
+            (Some("JW-SS2"), Some("2023/24" | "2024/25")) => {
+                if definition["deadline_hours"].as_i64() != Some(48)
+                    || definition["semantic_fingerprint"].as_str()
+                        != Some("fire_hydrant_repairs|within_48h_from_notification|denominator_details_unknown")
+                    || definition["eligibility"].as_str()
+                        != Some("fire hydrant repair notifications") {
+                    return Err(format!("{id}: SS2 48-hour semantics do not match fingerprint"));
+                }
+            }
+            _ => return Err(format!("{id}: unsupported metric definition vintage")),
+        }
         if definition["numerator_definition"].as_str().is_none()
             || definition["denominator_definition"].as_str().is_none()
             || definition["missing_semantics"].as_array().is_none() {
