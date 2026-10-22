@@ -46,14 +46,22 @@ impl SourceStateKind {
     pub const fn explanation(self) -> &'static str {
         match self {
             Self::NotChecked => "This source has not been checked yet.",
-            Self::LiveWithRecords => "The source returned records for this read; claim truth and authority are not automatically established.",
-            Self::ConfirmedEmpty => "The source successfully returned no records at this read time.",
+            Self::LiveWithRecords => {
+                "The source returned records for this read; claim truth and authority are not automatically established."
+            }
+            Self::ConfirmedEmpty => {
+                "The source successfully returned no records at this read time."
+            }
             Self::Partial => "Some subreads succeeded and others failed; the result is incomplete.",
-            Self::Unavailable => "The read failed; absence has not been established. Any retained last-known value is stale.",
+            Self::Unavailable => {
+                "The read failed; absence has not been established. Any retained last-known value is stale."
+            }
             Self::Stale => "Last-known evidence exists but must not be treated as current.",
             Self::Mock => "These are synthetic fixtures, not live source records.",
             Self::Disputed => "Attributable claims conflict; no winner has been selected.",
-            Self::NotIntegrated => "No source adapter is configured; this is not evidence of absence.",
+            Self::NotIntegrated => {
+                "No source adapter is configured; this is not evidence of absence."
+            }
         }
     }
 }
@@ -175,9 +183,7 @@ pub enum SuccessfulSourceRead<T> {
         records: NonEmptyVec<T>,
         evidence: SourceEvidence,
     },
-    ConfirmedEmpty {
-        evidence: SourceEvidence,
-    },
+    ConfirmedEmpty { evidence: SourceEvidence },
 }
 
 /// One failed component of a multi-part read. The error reason is a code, not
@@ -272,9 +278,7 @@ impl<T> ConflictingClaims<T> {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum SourceObservation<T> {
     /// No source read has completed for this view.
-    NotChecked {
-        source_id: String,
-    },
+    NotChecked { source_id: String },
     /// A successful read returned at least one record.
     LiveWithRecords {
         records: NonEmptyVec<T>,
@@ -286,9 +290,7 @@ pub enum SourceObservation<T> {
     },
     /// Some components succeeded and some failed. Component outcomes are
     /// preserved rather than flattened into either success or total failure.
-    Partial {
-        observation: PartialObservation<T>,
-    },
+    Partial { observation: PartialObservation<T> },
     /// The current read failed. Any retained previous value is separately
     /// represented as stale and must not be shown as a current source result.
     Unavailable {
@@ -299,9 +301,7 @@ pub enum SourceObservation<T> {
     },
     /// Previously observed records are retained, but a domain freshness policy
     /// has determined that they must not be presented as current.
-    Stale {
-        observation: StaleObservation<T>,
-    },
+    Stale { observation: StaleObservation<T> },
     /// Explicit fixtures only. This variant must never be emitted as live
     /// evidence or used to authorize real disclosure or action.
     Mock {
@@ -316,7 +316,10 @@ pub enum SourceObservation<T> {
         reason: ConflictReason,
     },
     /// No adapter exists for this source in this product/build.
-    NotIntegrated { source_id: String, reason: NotIntegratedReason },
+    NotIntegrated {
+        source_id: String,
+        reason: NotIntegratedReason,
+    },
 }
 
 impl<T: Clone> SourceObservation<T> {
@@ -425,16 +428,12 @@ mod tests {
 
     #[test]
     fn read_adapter_maps_empty_and_non_empty_successes_to_distinct_states() {
-        let empty = SourceObservation::<u8>::from_successful_read(
-            Vec::new(),
-            evidence("profile-service"),
-        );
+        let empty =
+            SourceObservation::<u8>::from_successful_read(Vec::new(), evidence("profile-service"));
         assert_eq!(empty.kind(), SourceStateKind::ConfirmedEmpty);
 
-        let populated = SourceObservation::from_successful_read(
-            vec![9_u8, 10],
-            evidence("profile-service"),
-        );
+        let populated =
+            SourceObservation::from_successful_read(vec![9_u8, 10], evidence("profile-service"));
         match populated {
             SourceObservation::LiveWithRecords { records, .. } => {
                 assert_eq!(records.into_vec(), vec![9, 10]);
@@ -461,9 +460,10 @@ mod tests {
             fixture_id: "synthetic-v1".into(),
             records: vec![4_u8],
         };
-        assert!(mock
-            .stale_snapshot(Some(1_800_000_000_300), StaleReason::SourceUnavailable)
-            .is_none());
+        assert!(
+            mock.stale_snapshot(Some(1_800_000_000_300), StaleReason::SourceUnavailable)
+                .is_none()
+        );
     }
 
     #[test]
@@ -562,9 +562,11 @@ mod tests {
                 }),
             },
         };
-        assert!(partial
-            .stale_snapshot(Some(1_800_000_000_600), StaleReason::SourceUnavailable)
-            .is_none());
+        assert!(
+            partial
+                .stale_snapshot(Some(1_800_000_000_600), StaleReason::SourceUnavailable)
+                .is_none()
+        );
     }
 
     #[test]
@@ -647,46 +649,64 @@ mod tests {
     #[test]
     fn user_facing_labels_preserve_uncertainty() {
         assert_eq!(SourceStateKind::LiveWithRecords.label(), "Records returned");
-        assert!(SourceStateKind::LiveWithRecords
-            .explanation()
-            .contains("not automatically established"));
+        assert!(
+            SourceStateKind::LiveWithRecords
+                .explanation()
+                .contains("not automatically established")
+        );
 
         assert_eq!(SourceStateKind::ConfirmedEmpty.label(), "Confirmed empty");
         assert_eq!(SourceStateKind::Partial.label(), "Partial result");
-        assert!(SourceStateKind::Partial
-            .explanation()
-            .contains("result is incomplete"));
-        assert!(SourceStateKind::ConfirmedEmpty
-            .explanation()
-            .contains("at this read time"));
+        assert!(
+            SourceStateKind::Partial
+                .explanation()
+                .contains("result is incomplete")
+        );
+        assert!(
+            SourceStateKind::ConfirmedEmpty
+                .explanation()
+                .contains("at this read time")
+        );
 
         assert_eq!(SourceStateKind::Unavailable.label(), "Unavailable");
-        assert!(SourceStateKind::Unavailable
-            .explanation()
-            .contains("absence has not been established"));
-        assert!(SourceStateKind::Unavailable
-            .explanation()
-            .contains("retained last-known value is stale"));
+        assert!(
+            SourceStateKind::Unavailable
+                .explanation()
+                .contains("absence has not been established")
+        );
+        assert!(
+            SourceStateKind::Unavailable
+                .explanation()
+                .contains("retained last-known value is stale")
+        );
 
         assert_eq!(SourceStateKind::Stale.label(), "Stale evidence");
-        assert!(SourceStateKind::Stale
-            .explanation()
-            .contains("must not be treated as current"));
+        assert!(
+            SourceStateKind::Stale
+                .explanation()
+                .contains("must not be treated as current")
+        );
 
         assert_eq!(SourceStateKind::Mock.label(), "Demo data");
-        assert!(SourceStateKind::Mock
-            .explanation()
-            .contains("not live source records"));
+        assert!(
+            SourceStateKind::Mock
+                .explanation()
+                .contains("not live source records")
+        );
 
         assert_eq!(SourceStateKind::Disputed.label(), "Disputed");
-        assert!(SourceStateKind::Disputed
-            .explanation()
-            .contains("no winner has been selected"));
+        assert!(
+            SourceStateKind::Disputed
+                .explanation()
+                .contains("no winner has been selected")
+        );
 
         assert_eq!(SourceStateKind::NotIntegrated.label(), "Not integrated");
-        assert!(SourceStateKind::NotIntegrated
-            .explanation()
-            .contains("not evidence of absence"));
+        assert!(
+            SourceStateKind::NotIntegrated
+                .explanation()
+                .contains("not evidence of absence")
+        );
     }
 
     #[test]
@@ -732,11 +752,9 @@ mod tests {
             (
                 SourceObservation::Partial {
                     observation: PartialObservation {
-                        successful_reads: NonEmptyVec::new(
-                            SuccessfulSourceRead::ConfirmedEmpty {
-                                evidence: evidence("partial-empty-source"),
-                            },
-                        ),
+                        successful_reads: NonEmptyVec::new(SuccessfulSourceRead::ConfirmedEmpty {
+                            evidence: evidence("partial-empty-source"),
+                        }),
                         failed_reads: NonEmptyVec::new(SourceReadFailure {
                             source_id: "partial-failed-source".into(),
                             attempted_at_unix_ms: Some(1_800_000_000_450),
@@ -835,13 +853,12 @@ mod tests {
                     }
                 }
                 _ => {
-                    let observation: SourceObservation<u64> =
-                        SourceObservation::from_failed_read(
-                            "stress-source",
-                            Some(index),
-                            SourceFailure::Timeout,
-                            None,
-                        );
+                    let observation: SourceObservation<u64> = SourceObservation::from_failed_read(
+                        "stress-source",
+                        Some(index),
+                        SourceFailure::Timeout,
+                        None,
+                    );
                     assert_eq!(
                         observation.kind(),
                         SourceStateKind::Unavailable,
