@@ -8,6 +8,30 @@ fn read_json(path: &str) -> Result<Value, String> {
 }
 
 fn run() -> Result<(), String> {
+    let all_args: Vec<String> = env::args().skip(1).collect();
+    if all_args.first().map(String::as_str) == Some("hash-source") {
+        if all_args.len() == 2 && matches!(all_args[1].as_str(), "--help" | "-h") {
+            println!("{}", nrvca_validator::source_intake::HASH_SOURCE_USAGE);
+            return Ok(());
+        }
+        let output = nrvca_validator::source_intake::receipt_from_cli(&all_args[1..])?;
+        if let Some(path) = &output.output_path {
+            nrvca_validator::source_intake::write_receipt_new(path, &output.receipt)?;
+            println!(
+                "SOURCE RECEIPT WRITTEN: {} sha256={}",
+                path.display(),
+                output.receipt["sha256"].as_str().unwrap_or("missing")
+            );
+        } else {
+            println!(
+                "{}",
+                serde_json::to_string_pretty(&output.receipt)
+                    .map_err(|error| format!("cannot format source receipt: {error}"))?
+            );
+        }
+        return Ok(());
+    }
+
     let mut fixture = "fixtures/nrvca-synthetic-golden-v0.1.json".to_owned();
     let mut corpus = "fixtures/nrvca-adversarial-corpus-v0.1.json".to_owned();
     let mut schema = "schemas/nrvca-result-v0.1.schema.json".to_owned();
@@ -26,6 +50,7 @@ fn run() -> Result<(), String> {
             "--mode" => Some(&mut mode),
             "--help" | "-h" => {
                 println!("Usage: cargo run --manifest-path mycelix-workspace/tools/nrvca-validator/Cargo.toml -- [--fixture PATH] [--corpus PATH] [--schema PATH] [--benchmark PATH] [--benchmark-schema PATH] [--mode all|validate|corpus]");
+                println!("       cargo run --manifest-path mycelix-workspace/tools/nrvca-validator/Cargo.toml -- hash-source --file PATH --source-id ID --publisher NAME --source-uri URI --publication-id ID --vintage VINTAGE --captured-at RFC3339 --rights-status STATUS --rights-evidence-uri URI --evaluation-allowed true|false --redistribution-allowed true|false --locator-id ID --locator TEXT --extraction-method METHOD --tool-version VERSION [--expected-sha256 HEX] [--output PATH]");
                 return Ok(());
             }
             other => return Err(format!("unknown argument: {other}")),

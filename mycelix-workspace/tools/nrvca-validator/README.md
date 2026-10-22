@@ -16,6 +16,28 @@ Modes:
 
 Optional paths: `--benchmark PATH` and `--benchmark-schema PATH` override the default preregistration record/schema.
 
+
+## Byte-verified source intake
+
+Run `cargo run --manifest-path mycelix-workspace/tools/nrvca-validator/Cargo.toml -- hash-source --help` for the full argument contract. The `hash-source` subcommand requires a local regular file and explicit source identity, capture timestamp, extraction locator, and rights declarations. It streams the file through SHA-256 and emits an NRVCA-016-compatible source record. An optional `--expected-sha256` must match the digest actually computed from the file; mismatch exits unsuccessfully without emitting a receipt.
+
+Example with placeholder metadata (replace these values; this does not assert any source was acquired):
+
+```sh
+cargo run --manifest-path mycelix-workspace/tools/nrvca-validator/Cargo.toml -- hash-source \
+  --file ./captured.pdf --source-id source-001 \
+  --publisher "Publisher name" --source-uri "https://example.org/report.pdf" \
+  --publication-id "REPORT-2026" --vintage "2026" \
+  --captured-at "2026-10-22T17:00:00+02:00" \
+  --rights-status evaluation_only --rights-evidence-uri "https://example.org/permission" \
+  --evaluation-allowed true --redistribution-allowed false \
+  --locator-id "table-1-row-2" --locator "PDF page 4, Table 1, row 2" \
+  --extraction-method "PDF table extraction" --tool-version "extractor-version" \
+  --output ./private-source-receipt.json
+```
+
+The tool does not download the source, authenticate its publisher, adjudicate rights, verify source truth, or enable evaluation automatically. It records the canonical local path in the receipt, which may reveal machine-specific details; sanitize that field before publishing a public bundle. Hash an immutable captured copy where possible. Existing receipt paths are never overwritten.
+
 ## What this checks
 
 - report status and period/jurisdiction essentials;
