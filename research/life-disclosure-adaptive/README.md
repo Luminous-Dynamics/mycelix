@@ -12,14 +12,17 @@ The original linkability baseline uses fixed exact-match rules. This crate adds 
 - 80 subjects assigned to train and 40 to held-out test by deterministic hash ranking. Split occurs **before pairs are constructed**.
 - Exactly 76,800 cross-recipient train pairs (960 positive same-subject pairs) and 19,200 cross-recipient test pairs (480 positive same-subject pairs).
 - Each strategy has a separate model and identical train/test subject membership.
-- Five profiles: stable global ID; pairwise ID with reusable proof; pairwise ID with fresh proof but stable lineage/behavior; pairwise ID with fresh proof and minimized metadata; predicate-only claims.
+- Five profiles: stable global ID; pairwise ID with reusable proof; pairwise ID with fresh proof but stable lineage/behavior; pairwise ID with fresh proof and structural metadata removed; predicate-only claims with structural metadata removed.
+- In the `metadata_minimized` and `predicate_only` profiles, statement count, disclosed-index pattern, and schema profile are explicitly absent (not merely assumed to be hidden); the feature extractor does not award an equality match for two absent values. A test locks this boundary.
 - Training negatives are deterministically downsampled to 5 negatives per positive for optimization. Test metrics use the complete held-out pair set.
 - The pair-feature vector includes per-claim equality, whole-claim-vector equality, identifier/proof/lineage/behavior equality, statement-count equality, disclosed-index equality, schema-profile equality, and the count-plus-index interaction.
 - Features are all observable equality indicators. The internal subject labels only define pair labels and bootstrap clusters; they do not enter feature extraction or model fitting as input values.
 
 ## Attacker and evaluation
 
-A full-batch logistic regression is fit deterministically with fixed optimizer steps, learning rate, class-balanced weights and L2 penalty. The same held-out pairs are evaluated using a declared exact-channel-union rule. This is a small transparent reference adversary, not a general-purpose machine-learning search.
+A full-batch logistic regression is fit deterministically with fixed optimizer steps, learning rate, class-balanced weights and L2 penalty. The same held-out pairs are evaluated using a declared exact-channel-union rule (predict a link if any observable equality channel matches). Because training uses class-balanced weights and negative downsampling, the logistic score is a ranking score for this experiment, **not a calibrated real-world posterior probability**. This is a small transparent reference adversary, not a general-purpose machine-learning search.
+
+The subject-cluster bootstrap sorts each test score vector once and reuses that ordering across bootstrap replicates; each replicate recomputes only cluster weights and tie-group totals. This preserves the metric while keeping repeated report generation practical in CI.
 
 For each strategy and attacker, the report includes:
 - positive and negative test pairs and TP/FP/FN/TN at score threshold 0.5;
