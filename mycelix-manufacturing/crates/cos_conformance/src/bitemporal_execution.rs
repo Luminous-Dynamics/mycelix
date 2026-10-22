@@ -543,7 +543,12 @@ mod tests {
 
     #[test]
     fn known_mapping_loss_preserves_record_but_blocks_physical_state_promotion() {
-        let mut event = observation("clear-5", PhysicalObservationKind::PlacementClearanceConfirmed, 5, 5);
+        let mut event = observation(
+            "clear-5",
+            PhysicalObservationKind::PlacementClearanceConfirmed,
+            5,
+            5,
+        );
         event.mapping_losses.push("source event lacks placement identity".to_owned());
         let result = resolve_placement_state(
             "placement-a",
@@ -569,8 +574,14 @@ mod tests {
             &[event],
         );
         assert_eq!(result.decision, PlacementStateDecision::Rejected);
-        assert!(result.violations.iter().any(|v| v.code == ExecutionEvidenceViolationCode::TimebaseMismatch));
-        assert!(result.violations.iter().any(|v| v.code == ExecutionEvidenceViolationCode::MappingLossNotAssessed));
+        assert!(result
+            .violations
+            .iter()
+            .any(|v| v.code == ExecutionEvidenceViolationCode::TimebaseMismatch));
+        assert!(result
+            .violations
+            .iter()
+            .any(|v| v.code == ExecutionEvidenceViolationCode::MappingLossNotAssessed));
     }
 
     #[test]
@@ -582,8 +593,20 @@ mod tests {
         let mut reverse = events.clone();
         reverse.reverse();
         assert_eq!(
-            resolve_placement_state("placement-a", "clear-block-a", "yard-clock-v1", cutoff(8, 8), &events),
-            resolve_placement_state("placement-a", "clear-block-a", "yard-clock-v1", cutoff(8, 8), &reverse),
+            resolve_placement_state(
+                "placement-a",
+                "clear-block-a",
+                "yard-clock-v1",
+                cutoff(8, 8),
+                &events,
+            ),
+            resolve_placement_state(
+                "placement-a",
+                "clear-block-a",
+                "yard-clock-v1",
+                cutoff(8, 8),
+                &reverse,
+            ),
         );
     }
 }
