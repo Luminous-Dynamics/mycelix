@@ -36,9 +36,7 @@ impl Scenario {
     }
 }
 
-fn make_case(
-    scenario: Scenario,
-) -> Result<(Problem, StreamReplayConfig), Box<dyn Error>> {
+fn make_case(scenario: Scenario) -> Result<(Problem, StreamReplayConfig), Box<dyn Error>> {
     let payments = (0..PAYMENT_COUNT)
         .map(|i| {
             let from = (i * 7 + 3) % PARTICIPANT_COUNT;
@@ -82,9 +80,7 @@ fn make_case(
         deadline_ticks.push(release.saturating_add(slack));
     }
 
-    let unavailable_ticks = (35_u64..=39)
-        .chain(105_u64..=110)
-        .collect::<BTreeSet<_>>();
+    let unavailable_ticks = (35_u64..=39).chain(105_u64..=110).collect::<BTreeSet<_>>();
     Ok((
         problem,
         StreamReplayConfig {
@@ -127,10 +123,7 @@ fn measure(
         last = Some(result);
     }
     samples.sort_unstable();
-    Ok((
-        last.ok_or("no measured replay")?,
-        samples,
-    ))
+    Ok((last.ok_or("no measured replay")?, samples))
 }
 
 fn emit(
@@ -174,9 +167,13 @@ fn emit(
         result.max_queue_wait_ticks,
         result.p95_queue_wait_ticks,
         result.evaluation.aggregate_required_initial_liquidity_minor,
-        result.evaluation.max_participant_required_initial_liquidity_minor,
+        result
+            .evaluation
+            .max_participant_required_initial_liquidity_minor,
         signed_delta(
-            baseline.evaluation.aggregate_required_initial_liquidity_minor,
+            baseline
+                .evaluation
+                .aggregate_required_initial_liquidity_minor,
             result.evaluation.aggregate_required_initial_liquidity_minor
         ),
         signed_delta(
@@ -214,18 +211,9 @@ fn main() -> Result<(), Box<dyn Error>> {
                 ] {
                     base_config.batch_size = batch_size;
                     base_config.max_batch_wait_ticks = max_wait;
-                    let config_baseline = replay_stream(
-                        &problem,
-                        &base_config,
-                        OnlineBatchStrategy::Fifo,
-                    )?;
-                    emit(
-                        scenario,
-                        &problem,
-                        &base_config,
-                        strategy,
-                        &config_baseline,
-                    )?;
+                    let config_baseline =
+                        replay_stream(&problem, &base_config, OnlineBatchStrategy::Fifo)?;
+                    emit(scenario, &problem, &base_config, strategy, &config_baseline)?;
                 }
             }
         }
