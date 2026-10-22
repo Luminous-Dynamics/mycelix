@@ -10,10 +10,12 @@ Praxis should let people share useful knowledge without requiring them to be pro
 4. Explain the idea and show a worked example. Then add three practice questions. Each practice item needs an answer, a useful explanation, a hint, and three genuinely incorrect answer choices.
 5. Add an assessment question and expected answer, one flashcard, and (where useful) vocabulary and common misconceptions.
 6. Record author credit or a pseudonym, your intended licence/rights status, and sources. A public URL by itself does not mean the source can legally be reused.
-7. Watch the live quick-check count and select **Check my draft** for the detailed list. Correct the issues you can; ask a subject expert for any content claim you cannot verify.
-8. Download the JSON and keep it as a local draft. Export is **not** publication: it does not activate a curriculum node, issue a credential, or establish that learners have mastered the topic.
+7. Read **Preview as a learner** to check whether the explanation, worked example, practice questions and assessment make sense in sequence. Practice answers stay behind expandable author-only details.
+8. Watch the live quick-check count and select **Check my draft** for the detailed list. Correct the issues you can; ask a subject expert for any content claim you cannot verify.
+9. Use the licence suggestions only if you are authorized to grant that licence. “All rights reserved” blocks the lesson from being treated as a publicly redistributable resource; use the draft privately or obtain permission before sharing.
+10. Download the JSON and keep it as a local draft. Export is **not** publication: it does not activate a curriculum node, issue a credential, or establish that learners have mastered the topic.
 
-Draft content is saved in this browser. The authoring page does not upload the draft as a side effect. Download a copy before switching templates if you need to preserve your current work. Imported content is treated as a remixable draft and still needs review.
+Draft content is saved in this browser. The authoring page does not upload the draft as a side effect. Download a copy before switching templates if you need to preserve your current work. Imported content is treated as a remixable draft and still needs review. The learner preview focuses on fields edited in the form; unedited imported items are preserved in the export even when they are not all shown in that preview.
 
 ## What makes a good community lesson?
 
