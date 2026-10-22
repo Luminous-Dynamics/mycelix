@@ -56,12 +56,12 @@
       "$ref": "#/$defs/sourceSemantics"
     },
     "case_count": {
-      "const": 36
+      "const": 37
     },
     "cases": {
       "type": "array",
-      "minItems": 36,
-      "maxItems": 36,
+      "minItems": 37,
+      "maxItems": 37,
       "items": {
         "$ref": "#/$defs/case"
       }
