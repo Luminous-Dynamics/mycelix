@@ -35,6 +35,8 @@ The next robustness tier should replace independent interval endpoints with expl
 - Zero allocations accepted if they violate declared budget, equity, emissions or reliability constraints.
 - A stricter policy floor that cannot be met must yield infeasibility, not a silently relaxed floor.
 - Increasing budget cannot shrink the set of feasible allocations.
+- Relaxing any one declared policy guardrail (lowering an equity/reliability floor or raising the emissions cap) cannot shrink the feasible set.
+- Service-weighted reliability must be computed as a conservative lower bound across lower/upper service-volume endpoint combinations, not just by averaging reliability with lower service volumes.
 - Changing a descriptive/marketing label cannot change numeric outcomes or the optimum.
 - Evidence status and uncertainty bounds remain explicit; missing values must not become zero.
 - Keep service, distribution, reliability and physical burden in their own units in reports. The scalar objective here is only a declared selection rule inside one toy constrained optimization problem.
