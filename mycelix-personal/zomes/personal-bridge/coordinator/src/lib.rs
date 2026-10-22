@@ -414,6 +414,61 @@ pub fn get_recent_activity_view(_: ()) -> ExternResult<Vec<ActivityItemView>> {
     Ok(items)
 }
 
+const ALLOWED_IDENTITY_DISCLOSURE_FIELDS: &[&str] = &["display_name", "bio", "avatar"];
+
+/// Treat the requested projection as a set and normalize its wire order.
+/// The legacy endpoint does not provide verifier, purpose, nonce, or consent binding.
+fn canonical_identity_disclosure_fields(
+    fields: &[String],
+) -> Result<Vec<String>, &'static str> {
+    if fields.is_empty() {
+        return Err("Identity disclosure scope must contain at least one field");
+    }
+    for (index, field) in fields.iter().enumerate() {
+        if !ALLOWED_IDENTITY_DISCLOSURE_FIELDS.contains(&field.as_str()) {
+            return Err("Identity disclosure scope contains an unsupported field");
+        }
+        if fields[..index].iter().any(|prior| prior == field) {
+            return Err("Identity disclosure scope contains a duplicate field");
+        }
+    }
+
+    let mut canonical = fields.to_vec();
+    canonical.sort_by_key(|field| {
+        ALLOWED_IDENTITY_DISCLOSURE_FIELDS
+            .iter()
+            .position(|allowed| *allowed == field)
+            .unwrap_or(usize::MAX)
+    });
+    Ok(canonical)
+}
+
+/// Accept only valid UTF-8 JSON objects that return exactly the requested keys.
+/// This guards the bridge against over-disclosure or silently omitted requested fields.
+fn validate_identity_projection_response(
+    fields: &[String],
+    response: &[u8],
+) -> Result<String, &'static str> {
+    let json_text = std::str::from_utf8(response)
+        .map_err(|_| "Identity vault returned a non-UTF-8 disclosure payload")?;
+    let value: serde_json::Value = serde_json::from_str(json_text)
+        .map_err(|_| "Identity vault returned malformed JSON")?;
+    let object = value
+        .as_object()
+        .ok_or("Identity vault disclosure payload must be a JSON object")?;
+
+    for field in fields {
+        if !object.contains_key(field) {
+            return Err("Identity vault omitted a requested disclosure field");
+        }
+    }
+    if object.keys().any(|key| !fields.iter().any(|field| field == key)) {
+        return Err("Identity vault returned an unrequested disclosure field");
+    }
+
+    serde_json::to_string(&value).map_err(|_| "Identity vault disclosure payload could not be serialized")
+}
+
 // ============================================================================
 // Credential Presentation (cross-cluster API)
 // ============================================================================
@@ -454,11 +509,14 @@ pub fn present_phi_credential(_: ()) -> ExternResult<CredentialPresentation> {
     }
 }
 
-/// Present an identity proof for cross-cluster verification.
+/// Return a legacy unverified identity field projection.
 ///
-/// Discloses only the requested fields from the identity vault.
+/// This endpoint is not a cryptographic verifiable presentation: the legacy
+/// request is not bound to a verifier/audience, nonce, purpose, expiry or consent receipt.
 #[hdk_extern]
 pub fn present_identity_proof(fields: Vec<String>) -> ExternResult<CredentialPresentation> {
+    let fields = canonical_identity_disclosure_fields(&fields)
+        .map_err(|reason| wasm_error!(WasmErrorInner::Guest(reason.into())))?;
     let dispatch = DispatchInput {
         zome: "identity_vault".into(),
         fn_name: "disclose_profile".into(),
@@ -468,25 +526,25 @@ pub fn present_identity_proof(fields: Vec<String>) -> ExternResult<CredentialPre
     };
 
     let result = bridge::dispatch_call_checked(&dispatch, ALLOWED_ZOMES)?;
-    let now = sys_time()?;
-
-    if result.success {
-        let data = result
-            .response
-            .map(|bytes| String::from_utf8_lossy(&bytes).to_string())
-            .unwrap_or_else(|| "{}".to_string());
-        Ok(CredentialPresentation {
-            credential_type: CredentialType::Identity,
-            disclosed_data: data,
-            scope: DisclosureScope::SelectedFields(fields),
-            presented_at: now,
-        })
-    } else {
-        Err(wasm_error!(WasmErrorInner::Guest(
+    if !result.success {
+        return Err(wasm_error!(WasmErrorInner::Guest(
             "Failed to disclose identity fields".into()
-        )))
+        )));
     }
+    let response = result.response.ok_or(wasm_error!(WasmErrorInner::Guest(
+        "Identity vault reported success without a disclosure payload".into()
+    )))?;
+    let data = validate_identity_projection_response(&fields, &response)
+        .map_err(|reason| wasm_error!(WasmErrorInner::Guest(reason.into())))?;
+
+    Ok(CredentialPresentation {
+        credential_type: CredentialType::Identity,
+        disclosed_data: data,
+        scope: DisclosureScope::SelectedFields(fields),
+        presented_at: sys_time()?,
+    })
 }
+
 
 /// Present a K-vector credential for governance trust scoring.
 #[hdk_extern]
@@ -1023,6 +1081,43 @@ mod tests {
     fn rate_limit_at_threshold_rejects() {
         let err = check_rate_limit_count(100).unwrap_err();
         assert!(err.contains("Rate limit exceeded"));
+    }
+
+    // ---- Identity disclosure boundary ----
+
+    #[test]
+    fn identity_field_scope_rejects_empty_unknown_and_duplicate_fields() {
+        assert!(canonical_identity_disclosure_fields(&[]).is_err());
+        assert!(canonical_identity_disclosure_fields(&["email".into()]).is_err());
+        assert!(
+            canonical_identity_disclosure_fields(&["bio".into(), "bio".into()]).is_err()
+        );
+    }
+
+    #[test]
+    fn identity_field_scope_is_canonicalized_as_a_set() {
+        let first = canonical_identity_disclosure_fields(&["avatar".into(), "bio".into()])
+            .expect("known distinct fields should pass");
+        let second = canonical_identity_disclosure_fields(&["bio".into(), "avatar".into()])
+            .expect("same fields in another order should pass");
+        assert_eq!(first, second);
+        assert_eq!(first, vec!["bio".to_string(), "avatar".to_string()]);
+    }
+
+    #[test]
+    fn identity_projection_response_rejects_missing_extra_malformed_and_non_utf8_payloads() {
+        let fields = vec!["bio".to_string()];
+        assert!(validate_identity_projection_response(&fields, br#"{"bio":null}"#).is_ok());
+        assert!(
+            validate_identity_projection_response(&fields, br#"{"avatar":null}"#).is_err()
+        );
+        assert!(
+            validate_identity_projection_response(&fields, br#"{"bio":null,"avatar":null}"#)
+                .is_err()
+        );
+        assert!(validate_identity_projection_response(&fields, b"not-json").is_err());
+        assert!(validate_identity_projection_response(&fields, &[0xff, 0xfe]).is_err());
+        assert!(validate_identity_projection_response(&fields, b"[]").is_err());
     }
 
     // ---- Presentation types serde ----
