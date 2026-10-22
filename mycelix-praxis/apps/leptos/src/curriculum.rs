@@ -782,7 +782,8 @@ impl ProgressStore {
                     if matches!(
                         progress.status,
                         ProgressStatus::Mastered | ProgressStatus::ProvisionalMastery
-                    ) {
+                    ) || progress.status == ProgressStatus::NotStarted
+                    {
                         progress.status = ProgressStatus::Studying;
                     }
                 }
@@ -1383,6 +1384,43 @@ mod evidence_first_progress_tests {
             !progress.migrate_legacy_progress(),
             "migration must not erase new scored responses on a later load"
         );
+    }
+
+    #[test]
+    fn old_progress_json_remains_deserializable_and_is_migrated() {
+        let old_json = serde_json::json!({
+            "nodes": {
+                "math.geometry": {
+                    "mastery_permille": 990,
+                    "attempts": 7,
+                    "correct": 6,
+                    "status": "Mastered",
+                    "last_reviewed": null
+                }
+            },
+            "exam_date": null,
+            "bkt_states": {
+                "math.geometry": {
+                    "p_mastery": 0.98,
+                    "attempts": 7,
+                    "correct": 6
+                }
+            }
+        });
+        let mut progress: ProgressStore =
+            serde_json::from_value(old_json).expect("old progress must remain readable");
+        assert_eq!(progress.schema_version, 0);
+        assert!(progress.migrate_legacy_progress());
+        let node = progress.get("math.geometry");
+        assert_eq!(progress.schema_version, 1);
+        assert_eq!(node.status, ProgressStatus::Studying);
+        assert_eq!(node.self_assessment, Some(SelfAssessment::FeelsUnderstood));
+        assert_eq!(node.self_reported_attempts, 7);
+        assert_eq!(node.self_reported_correct, 6);
+        assert_eq!(node.attempts, 0);
+        assert_eq!(node.correct, 0);
+        assert_eq!(node.mastery_permille, 0);
+        assert_eq!(progress.bkt("math.geometry").attempts, 0);
     }
 
     #[test]
