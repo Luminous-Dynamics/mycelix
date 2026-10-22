@@ -617,7 +617,10 @@ fn average_precision_from_sorted_scores(
     average_precision
 }
 
-fn average_precision_from_scores(scores: &[ScoredPair], cluster_weights: Option<&[usize; SUBJECTS]>) -> f64 {
+fn average_precision_from_scores(
+    scores: &[ScoredPair],
+    cluster_weights: Option<&[usize; SUBJECTS]>,
+) -> f64 {
     let mut sorted = scores.to_vec();
     sorted.sort_unstable_by(|left, right| right.score.total_cmp(&left.score));
     average_precision_from_sorted_scores(&sorted, cluster_weights)
@@ -925,7 +928,6 @@ fn write_metric_row(
         metrics.true_negative
     )
     .unwrap();
-
 }
 
 fn render_feature_examples(examples: &[PairExample]) -> String {
@@ -1155,6 +1157,13 @@ mod tests {
         );
         let auc = auc_from_weighted_scores(&first, None);
         assert!((auc - 0.5).abs() < 0.05, "random control AUC was {auc}");
+        let average_precision = average_precision_from_scores(&first, None);
+        let prevalence = examples.iter().filter(|pair| pair.label).count() as f64
+            / examples.len() as f64;
+        assert!(
+            (average_precision - prevalence).abs() < 0.01,
+            "random control AP {average_precision} differs from prevalence {prevalence}"
+        );
     }
 
     #[test]
