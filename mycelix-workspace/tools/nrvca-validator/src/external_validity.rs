@@ -245,8 +245,14 @@ pub fn validate_benchmark_bundle(bundle: &Value) -> Vec<EvidenceDiagnostic> {
     if string_field(bundle, "schema_version") != Some("nrvca-external-validity-bundle/0.1") {
         push(&mut out, "SCHEMA-VERSION", "/schema_version", "expected nrvca-external-validity-bundle/0.1");
     }
-    if string_field(bundle, "artifact_status") != Some("preregistered_not_executed") {
-        push(&mut out, "ARTIFACT-STATUS", "/artifact_status", "new protocol must remain explicitly preregistered_not_executed until real evaluation is run");
+    let execution_enabled = bundle["external_evaluation_enabled"].as_bool() == Some(true);
+    let expected_status = if execution_enabled {
+        "external_evaluation_dataset"
+    } else {
+        "preregistered_not_executed"
+    };
+    if string_field(bundle, "artifact_status") != Some(expected_status) {
+        push(&mut out, "ARTIFACT-STATUS", "/artifact_status", format!("expected {expected_status} for the current execution gate"));
     }
     let protocol = &bundle["protocol"];
     if !protocol.is_object() {
