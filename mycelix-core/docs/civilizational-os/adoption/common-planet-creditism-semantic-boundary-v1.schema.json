@@ -16,6 +16,7 @@
     "source_semantics",
     "case_count",
     "cases",
+    "metamorphic_properties",
     "nonclaims"
   ],
   "properties": {
@@ -55,12 +56,12 @@
       "$ref": "#/$defs/sourceSemantics"
     },
     "case_count": {
-      "const": 21
+      "const": 32
     },
     "cases": {
       "type": "array",
-      "minItems": 21,
-      "maxItems": 21,
+      "minItems": 32,
+      "maxItems": 32,
       "items": {
         "$ref": "#/$defs/case"
       }
@@ -74,6 +75,14 @@
         "type": "string",
         "minLength": 20,
         "maxLength": 500
+      }
+    },
+    "metamorphic_properties": {
+      "type": "array",
+      "minItems": 9,
+      "maxItems": 15,
+      "items": {
+        "$ref": "#/$defs/metamorphicProperty"
       }
     }
   },
@@ -142,7 +151,7 @@
         },
         "separation_invariants": {
           "type": "array",
-          "minItems": 7,
+          "minItems": 13,
           "maxItems": 20,
           "uniqueItems": true,
           "items": {
@@ -183,7 +192,8 @@
             "accounting-interoperability",
             "appeal-and-governance",
             "privacy-and-appeal",
-            "housing-and-real-capacity"
+            "housing-and-real-capacity",
+            "external-trade-boundary"
           ]
         },
         "title": {
@@ -212,7 +222,8 @@
                 "recognize_bonus",
                 "exchange_pair",
                 "project_to_sna",
-                "grant_housing_right"
+                "grant_housing_right",
+                "retain_personal_credit_balance"
               ]
             }
           },
@@ -264,6 +275,68 @@
             "type": "string",
             "pattern": "^[a-z][a-z0-9_]*$"
           }
+        }
+      }
+    },
+    "metamorphicProperty": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "property_id",
+        "title",
+        "case_id",
+        "input_variants",
+        "expected_relation"
+      ],
+      "properties": {
+        "property_id": {
+          "type": "string",
+          "pattern": "^cp-meta-[a-z0-9]+(?:-[a-z0-9]+)*$"
+        },
+        "title": {
+          "type": "string",
+          "minLength": 20,
+          "maxLength": 200
+        },
+        "case_id": {
+          "type": "string",
+          "pattern": "^cp-[a-z0-9]+(?:-[a-z0-9]+)*$"
+        },
+        "input_variants": {
+          "type": "array",
+          "minItems": 2,
+          "maxItems": 2,
+          "items": {
+            "type": "object",
+            "required": [
+              "operation"
+            ],
+            "properties": {
+              "operation": {
+                "enum": [
+                  "issue_personal_credit",
+                  "delete_personal_credit",
+                  "recognize_contribution",
+                  "transfer_personal_credit",
+                  "lend_personal_credit",
+                  "collateralize_personal_credit",
+                  "accrue_interest",
+                  "invest_for_return",
+                  "inherit_concentrated_personal_credit",
+                  "allocate_community_credit",
+                  "recognize_bonus",
+                  "exchange_pair",
+                  "project_to_sna",
+                  "grant_housing_right",
+                  "retain_personal_credit_balance"
+                ]
+              }
+            },
+            "minProperties": 1
+          }
+        },
+        "expected_relation": {
+          "const": "evaluation_outputs_equal"
         }
       }
     }
