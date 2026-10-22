@@ -34,11 +34,11 @@ fn fields(index: usize) -> [u8; ATTRIBUTE_COUNT] {
 fn required_answer(attribute: usize, value: u8) -> bool {
     match attribute {
         0 => value >= 2,
-        1 => value % 2 == 1,
+        1 => value & 1 == 1,
         2 => value >= 2,
         3 => value <= 1,
         4 => value < 2,
-        5 => value % 2 == 0,
+        5 => value & 1 == 0,
         _ => unreachable!("attribute index is bounded by ATTRIBUTE_COUNT"),
     }
 }
@@ -139,7 +139,7 @@ fn render_report() -> String {
     .unwrap();
     writeln!(
         &mut out,
-        "profile,depth,min_candidates,p50_candidates,p90_candidates,p95_candidates,max_candidates,unique_rate_permille,at_most_10_rate_permille,shrinkage_permille,task_utility_accuracy_permille"
+        "profile,depth,min_candidates,p50_candidates,p90_candidates,p95_candidates,max_candidates,unique_rate_permille,at_most_10_rate_permille,candidate_retention_permille,task_utility_accuracy_permille"
     )
     .unwrap();
 
@@ -165,14 +165,14 @@ fn render_report() -> String {
             } else {
                 known_answer(depth - 1, profile)
             };
-            let shrinkage = p50 * 1_000 / previous;
+            let candidate_retention = p50 * 1_000 / previous;
             let utility = utility_accuracy_permille(&targets, depth, profile);
 
             assert_eq!(p50, known_answer(depth, profile));
             assert_eq!(utility, 1_000, "required task outcome must not regress");
             writeln!(
                 &mut out,
-                "{},{depth},{min},{p50},{p90},{p95},{max},{unique_rate},{at_most_k_rate},{shrinkage},{utility}",
+                "{},{depth},{min},{p50},{p90},{p95},{max},{unique_rate},{at_most_k_rate},{candidate_retention},{utility}",
                 profile.name()
             )
             .unwrap();
