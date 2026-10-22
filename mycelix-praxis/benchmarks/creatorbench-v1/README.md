@@ -84,13 +84,13 @@ The UI should not require contributors to understand every field. Ask for the pr
 
 ## 7. Current scope and next work
 
-The current Leptos editor at `/author` is local-first: it saves to browser storage, accepts a lesson-pack JSON for remix, performs quick checks, and exports JSON. It does not publish to the live curriculum automatically. The new template starters reduce the blank-page problem, and a live quick-check count makes progress visible.
+The current Leptos editor at `/author` is local-first: it saves to browser storage, accepts a lesson-pack JSON for remix, performs quick checks, previews the learner-facing explanation/worked example/practice/assessment, and exports JSON. It now offers an explanation starter, a hands-on investigation starter and a blank draft, plus suggested reuse-licence options with an explicit warning for reserved-rights content. It does not publish to the live curriculum automatically. The author-side numeric check catches simple fractions and values repeated with omitted units, but semantic paraphrases still need educator review.
 
 Next:
-1. Add preview-as-learner and a structured, downloadable validation report.
-2. Add a guided open-licence chooser with plain-language explanations, source-per-item attribution, and compatibility warnings; do not select a licence on the author’s behalf.
-3. Build an exact-digest review-request bundle with the lesson pack, evidence sidecar, checker result and an explicit list of remaining blockers.
-4. Run usability sessions against the targets above; iterate based on observed abandonment and errors, not preferences alone.
+1. Add a structured, downloadable validation report and an exact-digest review-request bundle with the lesson pack, evidence sidecar, checker result and explicit remaining blockers.
+2. Add source-per-item attribution and licence-compatibility checks; never select a licence on the author’s behalf or infer permission from a URL.
+3. Run usability sessions against the targets above, with novice contributors, educators, practitioner-authors, local-language authors and assistive-technology users. Iterate based on observed abandonment and errors, not preferences alone.
+4. Test WCAG 2.2 A/AA behaviour of the editor itself, including keyboard-only operation, screen reader feedback, reflow/zoom and accessible form errors.
 5. Only then broaden into branching lessons, question banks, richer multimedia and collaborative co-authoring.
 
 The north-star metric is **the number of independently reviewed, reusable learning objects that help learners demonstrate durable capability per contributor hour**, disaggregated by language and audience. Raw exports and generated asset counts are not success measures.
