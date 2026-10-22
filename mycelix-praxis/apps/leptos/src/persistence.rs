@@ -367,6 +367,11 @@ pub fn import_all(json: &str) -> Result<String, String> {
             if imp_node.activity_completions > existing_node.activity_completions {
                 existing_node.activity_completions = imp_node.activity_completions;
             }
+            for item_id in &imp_node.scored_item_ids {
+                if !existing_node.scored_item_ids.iter().any(|seen| seen == item_id) {
+                    existing_node.scored_item_ids.push(item_id.clone());
+                }
+            }
             if imp_node.last_reviewed.unwrap_or(0.0) > existing_node.last_reviewed.unwrap_or(0.0) {
                 existing_node.last_reviewed = imp_node.last_reviewed;
                 if imp_node.self_assessment.is_some() {
