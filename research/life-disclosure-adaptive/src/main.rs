@@ -78,6 +78,13 @@ impl Strategy {
             Self::StableGlobalId | Self::PairwiseIdOnly | Self::PairwiseIdFreshProof
         )
     }
+
+    const fn has_structural_metadata(self) -> bool {
+        matches!(
+            self,
+            Self::StableGlobalId | Self::PairwiseIdOnly | Self::PairwiseIdFreshProof
+        )
+    }
 }
 
 #[derive(Clone, Debug)]
@@ -90,9 +97,9 @@ struct Presentation {
     proof_ref: Option<u64>,
     lineage_ref: Option<u64>,
     behavior_class: Option<u8>,
-    statement_count: u8,
-    revealed_index_pattern: u16,
-    schema_profile: u8,
+    statement_count: Option<u8>,
+    revealed_index_pattern: Option<u16>,
+    schema_profile: Option<u8>,
 }
 
 #[derive(Clone, Debug)]
@@ -221,6 +228,8 @@ fn make_presentation(
         (None, None)
     };
 
+    let structural_metadata = strategy.has_structural_metadata();
+
     Presentation {
         presentation_ref: presentation_ref(subject, recipient, session),
         subject_truth: subject,
@@ -230,9 +239,9 @@ fn make_presentation(
         proof_ref,
         lineage_ref,
         behavior_class,
-        statement_count: 4 + (subject % 5) as u8,
-        revealed_index_pattern: index_pattern(subject),
-        schema_profile: (subject % 2) as u8,
+        statement_count: structural_metadata.then_some(4 + (subject % 5) as u8),
+        revealed_index_pattern: structural_metadata.then_some(index_pattern(subject)),
+        schema_profile: structural_metadata.then_some((subject % 2) as u8),
     }
 }
 
@@ -265,8 +274,10 @@ fn pair_features(left: &Presentation, right: &Presentation) -> [f64; FEATURE_COU
         && claim_count_left > 0
         && left.claims == right.claims;
 
-    let count_match = left.statement_count == right.statement_count;
-    let index_match = left.revealed_index_pattern == right.revealed_index_pattern;
+    let count_match = eq_optional(left.statement_count, right.statement_count);
+    let index_match =
+        eq_optional(left.revealed_index_pattern, right.revealed_index_pattern);
+    let schema_match = eq_optional(left.schema_profile, right.schema_profile);
 
     [
         f64::from(u8::from(claim_matches[0])),
@@ -279,7 +290,7 @@ fn pair_features(left: &Presentation, right: &Presentation) -> [f64; FEATURE_COU
         f64::from(u8::from(eq_optional(left.behavior_class, right.behavior_class))),
         f64::from(u8::from(count_match)),
         f64::from(u8::from(index_match)),
-        f64::from(u8::from(left.schema_profile == right.schema_profile)),
+        f64::from(u8::from(schema_match)),
         f64::from(u8::from(count_match && index_match)),
     ]
 }
@@ -387,8 +398,8 @@ impl Model {
 }
 
 fn binary_rule_score(pair: &PairExample) -> f64 {
-    let strong_match = (3..=7).any(|index| pair.features[index] == 1.0);
-    f64::from(u8::from(strong_match))
+    let any_channel_matches = pair.features.iter().any(|&feature| feature == 1.0);
+    f64::from(u8::from(any_channel_matches))
 }
 
 fn score_pairs(examples: &[PairExample], model: Option<&Model>) -> Vec<ScoredPair> {
@@ -409,34 +420,33 @@ fn score_pairs(examples: &[PairExample], model: Option<&Model>) -> Vec<ScoredPai
         .collect()
 }
 
-fn auc_from_weighted_scores(scores: &[ScoredPair], cluster_weights: Option<&[usize; SUBJECTS]>) -> f64 {
-    let mut values: Vec<(f64, bool, u64)> = scores
-        .iter()
-        .filter_map(|pair| {
-            let weight = match cluster_weights {
-                Some(weights) if pair.left_subject == pair.right_subject => {
-                    weights[pair.left_subject] as u64
-                }
-                Some(weights) => {
-                    (weights[pair.left_subject] as u64) * (weights[pair.right_subject] as u64)
-                }
-                None => 1,
-            };
-            (weight > 0).then_some((pair.score, pair.label, weight))
-        })
-        .collect();
+fn pair_cluster_weight(
+    pair: &ScoredPair,
+    cluster_weights: Option<&[usize; SUBJECTS]>,
+) -> u64 {
+    match cluster_weights {
+        Some(weights) if pair.label => weights[pair.left_subject] as u64,
+        Some(weights) => {
+            (weights[pair.left_subject] as u64) * (weights[pair.right_subject] as u64)
+        }
+        None => 1,
+    }
+}
 
-    values.sort_unstable_by(|left, right| left.0.total_cmp(&right.0));
-    let positive_total: u64 = values
-        .iter()
-        .filter(|value| value.1)
-        .map(|value| value.2)
-        .sum();
-    let negative_total: u64 = values
-        .iter()
-        .filter(|value| !value.1)
-        .map(|value| value.2)
-        .sum();
+fn auc_from_sorted_scores(
+    scores: &[ScoredPair],
+    cluster_weights: Option<&[usize; SUBJECTS]>,
+) -> f64 {
+    let mut positive_total = 0_u64;
+    let mut negative_total = 0_u64;
+    for pair in scores {
+        let weight = pair_cluster_weight(pair, cluster_weights);
+        if pair.label {
+            positive_total += weight;
+        } else {
+            negative_total += weight;
+        }
+    }
     if positive_total == 0 || negative_total == 0 {
         return 0.5;
     }
@@ -444,22 +454,22 @@ fn auc_from_weighted_scores(scores: &[ScoredPair], cluster_weights: Option<&[usi
     let mut negatives_below = 0_u64;
     let mut numerator = 0.0_f64;
     let mut start = 0;
-    while start < values.len() {
-        let score = values[start].0;
+    while start < scores.len() {
+        let score = scores[start].score;
         let mut end = start + 1;
-        while end < values.len() && values[end].0.total_cmp(&score) == Ordering::Equal {
+        while end < scores.len() && scores[end].score.total_cmp(&score) == Ordering::Equal {
             end += 1;
         }
-        let group_positive: u64 = values[start..end]
-            .iter()
-            .filter(|value| value.1)
-            .map(|value| value.2)
-            .sum();
-        let group_negative: u64 = values[start..end]
-            .iter()
-            .filter(|value| !value.1)
-            .map(|value| value.2)
-            .sum();
+        let mut group_positive = 0_u64;
+        let mut group_negative = 0_u64;
+        for pair in &scores[start..end] {
+            let weight = pair_cluster_weight(pair, cluster_weights);
+            if pair.label {
+                group_positive += weight;
+            } else {
+                group_negative += weight;
+            }
+        }
         numerator += group_positive as f64
             * (negatives_below as f64 + 0.5 * group_negative as f64);
         negatives_below += group_negative;
@@ -468,6 +478,14 @@ fn auc_from_weighted_scores(scores: &[ScoredPair], cluster_weights: Option<&[usi
     numerator / (positive_total as f64 * negative_total as f64)
 }
 
+fn auc_from_weighted_scores(
+    scores: &[ScoredPair],
+    cluster_weights: Option<&[usize; SUBJECTS]>,
+) -> f64 {
+    let mut sorted = scores.to_vec();
+    sorted.sort_unstable_by(|left, right| left.score.total_cmp(&right.score));
+    auc_from_sorted_scores(&sorted, cluster_weights)
+}
 fn rate_at_threshold(scores: &[ScoredPair], threshold: f64) -> (f64, f64, f64) {
     let mut tp = 0_usize;
     let mut fp = 0_usize;
@@ -572,6 +590,9 @@ fn evaluate_scores(scores: &[ScoredPair]) -> Metrics {
 }
 
 fn bootstrap_auc_ci(scores: &[ScoredPair], test_subjects: &[usize], salt: u64) -> (f64, f64) {
+    let mut sorted_scores = scores.to_vec();
+    sorted_scores.sort_unstable_by(|left, right| left.score.total_cmp(&right.score));
+
     let mut aucs = Vec::with_capacity(BOOTSTRAP_REPLICATES);
     let mut weights = [0_usize; SUBJECTS];
     for replicate in 0..BOOTSTRAP_REPLICATES {
@@ -583,13 +604,13 @@ fn bootstrap_auc_ci(scores: &[ScoredPair], test_subjects: &[usize], salt: u64) -
                 % test_subjects.len();
             weights[test_subjects[choice]] += 1;
         }
-        aucs.push(auc_from_weighted_scores(scores, Some(&weights)));
+        aucs.push(auc_from_sorted_scores(&sorted_scores, Some(&weights)));
     }
     aucs.sort_unstable_by(f64::total_cmp);
     let lower_index = (aucs.len() * 25 / 1_000).min(aucs.len() - 1);
     let upper_index = (aucs.len() * 975 / 1_000).min(aucs.len() - 1);
-    (aucs[lower_index], aucs[upper_index])}
-
+    (aucs[lower_index], aucs[upper_index])
+}
 fn candidate_subjects(train_split: bool) -> Vec<usize> {
     let split = subject_split();
     (0..SUBJECTS).filter(|&subject| split[subject] == train_split).collect()
@@ -853,6 +874,19 @@ mod tests {
         changed.subject_truth = 999;
         assert_eq!(before, pair_features(&changed, &b));
         assert_ne!(a.presentation_ref, b.presentation_ref);
+    }
+
+    #[test]
+    fn metadata_minimization_actually_removes_structural_observations() {
+        let minimized_a = make_presentation(Strategy::MetadataMinimized, 11, 0, 0);
+        let minimized_b = make_presentation(Strategy::MetadataMinimized, 11, 1, 0);
+        let minimized = pair_features(&minimized_a, &minimized_b);
+        assert!(minimized[8..=11].iter().all(|&feature| feature == 0.0));
+
+        let structural_a = make_presentation(Strategy::PairwiseIdFreshProof, 11, 0, 0);
+        let structural_b = make_presentation(Strategy::PairwiseIdFreshProof, 11, 1, 0);
+        let structural = pair_features(&structural_a, &structural_b);
+        assert!(structural[8..=11].iter().any(|&feature| feature == 1.0));
     }
 
     #[test]
