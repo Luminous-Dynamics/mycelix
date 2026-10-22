@@ -66,10 +66,7 @@ pub enum ContentGenError {
     QualityBelowThreshold(u32),
     /// A parsed practice item failed deterministic answer/distractor validation.
     #[error("practice problem failed validation after {attempts} attempts: {reason}")]
-    InvalidPracticeProblem {
-        attempts: u32,
-        reason: &'static str,
-    },
+    InvalidPracticeProblem { attempts: u32, reason: &'static str },
     /// The generator returned empty text.
     #[error("generator returned empty text")]
     EmptyGeneration,
@@ -704,8 +701,8 @@ fn scalar_answer_key(text: &str) -> Option<(String, Option<&'static str>)> {
     let tokens = normalized.split_whitespace().collect::<Vec<_>>();
     if tokens.len() == 2 {
         let unit = match tokens[1] {
-            "learner" | "child" | "student" | "object" | "counter" | "orange" | "book"
-            | "desk" | "cone" | "car" | "star" | "slice" | "group" | "groups" => Some("count"),
+            "learner" | "child" | "student" | "object" | "counter" | "orange" | "book" | "desk"
+            | "cone" | "car" | "star" | "slice" | "group" | "groups" => Some("count"),
             "m" => Some("length_m"),
             "kg" => Some("mass_kg"),
             _ => None,
@@ -728,9 +725,7 @@ fn numeric_answer_choices_collide(answer: &str, distractor: &str) -> bool {
         return false;
     };
     answer_value == distractor_value
-        && (answer_unit.is_none()
-            || distractor_unit.is_none()
-            || answer_unit == distractor_unit)
+        && (answer_unit.is_none() || distractor_unit.is_none() || answer_unit == distractor_unit)
 }
 
 fn validate_practice_problem(problem: &PracticeProblem) -> Result<(), &'static str> {
@@ -1022,7 +1017,10 @@ mod tests {
 
         let mut invalid = valid.clone();
         invalid.question.clear();
-        assert_eq!(validate_practice_problem(&invalid), Err("question is empty"));
+        assert_eq!(
+            validate_practice_problem(&invalid),
+            Err("question is empty")
+        );
 
         let mut invalid = valid.clone();
         invalid.answer.clear();
@@ -1107,7 +1105,7 @@ mod tests {
             result,
             Err(ContentGenError::InvalidPracticeProblem {
                 attempts: 2,
-                reason: "the correct answer also appears as a distractor"
+                reason: _
             })
         ));
         assert_eq!(
