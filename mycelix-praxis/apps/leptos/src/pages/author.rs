@@ -23,6 +23,18 @@ struct PracticeDraft {
     distractors: String,
 }
 
+impl PracticeDraft {
+    fn blank() -> Self {
+        Self {
+            question: String::new(),
+            answer: String::new(),
+            explanation: String::new(),
+            hint: String::new(),
+            distractors: String::new(),
+        }
+    }
+}
+
 #[derive(Clone, Debug, Serialize, Deserialize)]
 struct LessonAuthorDraft {
     node_id: String,
@@ -53,6 +65,9 @@ struct LessonAuthorDraft {
     author_credit: String,
     license: String,
     source_notes: String,
+    /// Original imported content so remixing preserves material this form does not edit.
+    #[serde(default)]
+    source_pack: Option<Value>,
 }
 
 impl Default for LessonAuthorDraft {
@@ -108,6 +123,7 @@ impl Default for LessonAuthorDraft {
             author_credit: "Example contributor".into(),
             license: "UNDECIDED — choose a licence before publication.".into(),
             source_notes: "Original example draft; verify all claims and record any sources before publication.".into(),
+            source_pack: None,
         }
     }
 }
@@ -131,6 +147,37 @@ fn pack_to_draft(value: &Value) -> Result<LessonAuthorDraft, String> {
         return Err("That file is not a Praxis lesson pack: the lesson object is missing.".into());
     };
     let mut draft = LessonAuthorDraft::default();
+    // Never mix sample content into an imported pack. Missing source fields remain
+    // blank so contributors can see and fill the gaps before export.
+    draft.node_id.clear();
+    draft.title.clear();
+    draft.grade_level.clear();
+    draft.bloom_level.clear();
+    draft.learning_objective.clear();
+    draft.explanation.clear();
+    draft.example_problem.clear();
+    draft.example_step_one.clear();
+    draft.example_step_one_result.clear();
+    draft.example_step_two.clear();
+    draft.example_step_two_result.clear();
+    draft.example_answer.clear();
+    draft.visual_description.clear();
+    draft.general_hint_one.clear();
+    draft.general_hint_two.clear();
+    draft.vocabulary_rows.clear();
+    draft.misconception_rows.clear();
+    draft.practice = std::array::from_fn(|_| PracticeDraft::blank());
+    draft.assessment_question.clear();
+    draft.assessment_answer.clear();
+    draft.assessment_rubric.clear();
+    draft.assessment_hint.clear();
+    draft.assessment_points.clear();
+    draft.flashcard_front.clear();
+    draft.flashcard_back.clear();
+    draft.author_credit.clear();
+    draft.license = "UNDECIDED — confirm you have rights before publication.".into();
+    draft.source_notes.clear();
+    draft.source_pack = Some(value.clone());
     draft.node_id = value_text(
         value.get("node_id").or_else(|| lesson.get("standard_code")),
         &draft.node_id,
@@ -269,6 +316,102 @@ fn pack_to_draft(value: &Value) -> Result<LessonAuthorDraft, String> {
     Ok(draft)
 }
 
+fn preserve_unedited_array_tail(
+    edited: &mut Value,
+    original: Option<&Value>,
+    editable_count: usize,
+) {
+    let Some(edited_items) = edited.as_array_mut() else {
+        return;
+    };
+    let Some(original_items) = original.and_then(Value::as_array) else {
+        return;
+    };
+    edited_items.extend(original_items.iter().skip(editable_count).cloned());
+}
+
+fn merge_object_preserving_unknown(source: Option<&Value>, replacement: &Value) -> Value {
+    let mut object = source
+        .and_then(Value::as_object)
+        .cloned()
+        .unwrap_or_default();
+    if let Some(replacement) = replacement.as_object() {
+        for (key, value) in replacement {
+            object.insert(key.clone(), value.clone());
+        }
+    }
+    Value::Object(object)
+}
+
+fn merge_imported_pack(original: &Value, mut generated: Value) -> Value {
+    let original_lesson = original.get("lesson");
+    let mut lesson = generated["lesson"].clone();
+    preserve_unedited_array_tail(
+        &mut lesson["examples"],
+        original_lesson.and_then(|value| value.get("examples")),
+        1,
+    );
+    preserve_unedited_array_tail(
+        &mut lesson["practice_problems"],
+        original_lesson.and_then(|value| value.get("practice_problems")),
+        3,
+    );
+    preserve_unedited_array_tail(
+        &mut lesson["hints"],
+        original_lesson.and_then(|value| value.get("hints")),
+        2,
+    );
+    generated["lesson"] = merge_object_preserving_unknown(original_lesson, &lesson);
+
+    let original_assessment = original.get("assessment");
+    let mut assessment = generated["assessment"].clone();
+    preserve_unedited_array_tail(
+        &mut assessment["items"],
+        original_assessment.and_then(|value| value.get("items")),
+        1,
+    );
+    let assessment_items = assessment["items"]
+        .as_array()
+        .cloned()
+        .unwrap_or_default();
+    let total_points = assessment_items
+        .iter()
+        .filter_map(|item| item.get("points").and_then(Value::as_u64))
+        .sum::<u64>();
+    assessment["total_points"] = json!(total_points);
+    let mut bloom_counts = std::collections::BTreeMap::<String, u64>::new();
+    for item in &assessment_items {
+        if let Some(level) = item.get("bloom_level").and_then(Value::as_str) {
+            *bloom_counts.entry(level.to_owned()).or_default() += 1;
+        }
+    }
+    assessment["bloom_distribution"] = Value::Array(
+        bloom_counts
+            .into_iter()
+            .map(|(level, count)| json!([level, count]))
+            .collect(),
+    );
+    generated["assessment"] =
+        merge_object_preserving_unknown(original_assessment, &assessment);
+
+    let mut flashcards = generated["flashcards"].clone();
+    preserve_unedited_array_tail(&mut flashcards, original.get("flashcards"), 1);
+    generated["flashcards"] = flashcards;
+
+    generated["quality"] =
+        merge_object_preserving_unknown(original.get("quality"), &generated["quality"]);
+    generated["authoring"] =
+        merge_object_preserving_unknown(original.get("authoring"), &generated["authoring"]);
+
+    let mut root = original.as_object().cloned().unwrap_or_default();
+    if let Some(replacement) = generated.as_object() {
+        for (key, value) in replacement {
+            root.insert(key.clone(), value.clone());
+        }
+    }
+    Value::Object(root)
+}
+
 fn lesson_pack_value(draft: &LessonAuthorDraft) -> Value {
     let practice_bloom = ["Apply", "Apply", "Analyze"];
     let practice_difficulty = [250_u16, 400_u16, 550_u16];
@@ -321,7 +464,7 @@ fn lesson_pack_value(draft: &LessonAuthorDraft) -> Value {
         .filter(|value| *value > 0)
         .unwrap_or(1);
     let id = draft.node_id.trim();
-    json!({
+    let generated = json!({
         "node_id": id,
         "lesson": {
             "standard_code": id,
@@ -390,7 +533,11 @@ fn lesson_pack_value(draft: &LessonAuthorDraft) -> Value {
             "license": draft.license,
             "source_and_attribution_notes": draft.source_notes.lines().map(str::trim).filter(|line| !line.is_empty()).collect::<Vec<_>>()
         }
-    })
+    });
+    match draft.source_pack.as_ref() {
+        Some(original) => merge_imported_pack(original, generated),
+        None => generated,
+    }
 }
 
 fn lesson_filename(draft: &LessonAuthorDraft) -> String {
@@ -842,6 +989,80 @@ mod tests {
         let error = pack_to_draft(&serde_json::json!({"node_id":"example"}))
             .expect_err("arbitrary JSON must not be treated as a lesson pack");
         assert!(error.contains("lesson object is missing"));
+    }
+
+    #[test]
+    fn remix_export_preserves_unedited_items_and_unknown_metadata() {
+        let mut original = lesson_pack_value(&LessonAuthorDraft::default());
+        original["lesson"]["examples"]
+            .as_array_mut()
+            .unwrap()
+            .push(json!({
+                "problem": "Unedited second example",
+                "steps": [{"instruction":"Keep this step","result":"Keep this result"}],
+                "answer": "Second answer"
+            }));
+        original["lesson"]["practice_problems"]
+            .as_array_mut()
+            .unwrap()
+            .push(json!({
+                "question":"Unedited fourth practice item",
+                "answer":"Keep the answer",
+                "explanation":"Keep the explanation",
+                "distractors":["A","B","C"]
+            }));
+        original["assessment"]["items"]
+            .as_array_mut()
+            .unwrap()
+            .push(json!({
+                "question":"Unedited second assessment item",
+                "correct_answer":"Keep assessment answer",
+                "points":4,
+                "bloom_level":"Apply"
+            }));
+        original["flashcards"]
+            .as_array_mut()
+            .unwrap()
+            .push(json!({"front":"Unedited second card","back":"Keep the card"}));
+        original["lesson"]["localization_note"] = json!("Preserve this unknown field");
+
+        let mut draft = pack_to_draft(&original).expect("lesson pack should import");
+        draft.title = "Remixed title".into();
+        let exported = lesson_pack_value(&draft);
+
+        assert_eq!(exported["lesson"]["title"], "Remixed title");
+        assert_eq!(exported["lesson"]["examples"].as_array().unwrap().len(), 2);
+        assert_eq!(
+            exported["lesson"]["examples"][1]["problem"],
+            "Unedited second example"
+        );
+        assert_eq!(exported["lesson"]["practice_problems"].as_array().unwrap().len(), 4);
+        assert_eq!(
+            exported["lesson"]["practice_problems"][3]["question"],
+            "Unedited fourth practice item"
+        );
+        assert_eq!(exported["assessment"]["items"].as_array().unwrap().len(), 2);
+        assert_eq!(exported["assessment"]["total_points"], 6);
+        assert_eq!(exported["flashcards"].as_array().unwrap().len(), 2);
+        assert_eq!(
+            exported["lesson"]["localization_note"],
+            "Preserve this unknown field"
+        );
+    }
+
+    #[test]
+    fn import_does_not_fill_missing_practice_items_with_sample_content() {
+        let mut original = lesson_pack_value(&LessonAuthorDraft::default());
+        original["lesson"]["practice_problems"] = json!([
+            original["lesson"]["practice_problems"][0].clone()
+        ]);
+        let draft = pack_to_draft(&original).expect("one-item lesson should import");
+        assert_eq!(
+            draft.practice[1].question,
+            "",
+            "missing items must be blank, not copied from the sample lesson"
+        );
+        assert_eq!(draft.practice[2].question, "");
     }
 
     #[test]
