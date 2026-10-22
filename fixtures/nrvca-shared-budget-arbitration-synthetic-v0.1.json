@@ -456,6 +456,22 @@
     {
       "mutation_id": "automatic-dispatch-enabled",
       "expected_disposition": "reject_contract"
+    },
+    {
+      "mutation_id": "cost-unit-mismatch",
+      "expected_disposition": "reject_contract"
+    },
+    {
+      "mutation_id": "policy-rank-inconsistent-with-class",
+      "expected_disposition": "reject_contract"
+    },
+    {
+      "mutation_id": "joint-protected-resource-conflict",
+      "expected_disposition": "manual_review_infeasible_protected_resources"
+    },
+    {
+      "mutation_id": "excessive-candidate-count",
+      "expected_disposition": "reject_case"
     }
   ],
   "claim_ceiling": {
