@@ -1822,6 +1822,47 @@ fn audit_authoring_contract(
         );
     }
 
+    if let Some(problems) = value.pointer("/lesson/practice_problems").and_then(Value::as_array) {
+        for (index, problem) in problems.iter().enumerate() {
+            let Some(choices) = problem.get("distractors").and_then(Value::as_array) else {
+                add_structure_finding(
+                    audit,
+                    &lesson_id,
+                    asset_path,
+                    &format!("lesson.practice_problems[{index}].distractors"),
+                    "missing_distractors",
+                    "Every practice item in the starter format requires three wrong-answer choices.",
+                );
+                continue;
+            };
+            if choices.len() != 3 || choices.iter().any(|choice| nonempty_string(Some(choice)).is_none()) {
+                add_structure_finding(
+                    audit,
+                    &lesson_id,
+                    asset_path,
+                    &format!("lesson.practice_problems[{index}].distractors"),
+                    "invalid_distractor_set",
+                    "Practice items must provide exactly three non-empty distractors.",
+                );
+            }
+            let mut normalized = BTreeSet::new();
+            for choice in choices.iter().filter_map(Value::as_str) {
+                let key = normalize_content(choice).trim_end_matches(['.', '!', '?']).to_owned();
+                if !normalized.insert(key) {
+                    add_structure_finding(
+                        audit,
+                        &lesson_id,
+                        asset_path,
+                        &format!("lesson.practice_problems[{index}].distractors"),
+                        "duplicate_distractor_choice",
+                        "Each distractor must be distinct after normalization.",
+                    );
+                    break;
+                }
+            }
+        }
+    }
+
     let Some(items) = value.pointer("/assessment/items").and_then(Value::as_array) else {
         add_structure_finding(
             audit,
@@ -2207,6 +2248,60 @@ mod tests {
             ],
             "edges": [{"from":"n1","to":"n2"}]
         })
+    }
+
+    #[test]
+    fn lesson_authoring_starter_passes_the_standalone_content_contract() {
+        let value: Value = serde_json::from_str(include_str!(
+            "../../../authoring/examples/lesson-pack.json"
+        ))
+        .expect("authoring starter must be valid JSON");
+        let mut audit = ContentQualityAudit::default();
+        audit_lesson_value("authoring/examples/lesson-pack.json", &value, &mut audit);
+        audit_authoring_contract("authoring/examples/lesson-pack.json", &value, &mut audit);
+        let blockers = audit
+            .findings
+            .iter()
+            .filter(|finding| finding.severity == "blocker")
+            .collect::<Vec<_>>();
+        assert!(
+            blockers.is_empty(),
+            "authoring starter must pass deterministic checks: {blockers:#?}"
+        );
+        assert!(
+            audit.findings.is_empty(),
+            "authoring starter should not have known instructional findings: {:#?}",
+            audit.findings
+        );
+    }
+
+    #[test]
+    fn lesson_authoring_contract_blocks_missing_assessment_and_duplicate_distractors() {
+        let mut value: Value = serde_json::from_str(include_str!(
+            "../../../authoring/examples/lesson-pack.json"
+        ))
+        .expect("authoring starter must be valid JSON");
+        value["assessment"]["total_points"] = Value::from(99);
+        value["lesson"]["practice_problems"][0]["distractors"] = serde_json::json!([
+            "8 biscuits",
+            " 8 biscuits ",
+            "20 biscuits"
+        ]);
+        let mut audit = ContentQualityAudit::default();
+        audit_authoring_contract("draft.json", &value, &mut audit);
+        assert!(audit.findings.iter().any(|finding| {
+            finding.code == "assessment_points_mismatch" && finding.severity == "blocker"
+        }));
+        assert!(audit.findings.iter().any(|finding| {
+            finding.code == "duplicate_distractor_choice" && finding.severity == "blocker"
+        }));
+
+        value.as_object_mut().unwrap().remove("assessment");
+        let mut missing_assessment = ContentQualityAudit::default();
+        audit_authoring_contract("draft.json", &value, &mut missing_assessment);
+        assert!(missing_assessment.findings.iter().any(|finding| {
+            finding.code == "missing_assessment" && finding.severity == "blocker"
+        }));
     }
 
     #[test]
