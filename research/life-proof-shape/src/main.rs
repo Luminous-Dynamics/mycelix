@@ -180,10 +180,8 @@ fn build_corpus() -> Vec<Presentation> {
 
 fn confusion_for(corpus: &[Presentation], channel: Channel) -> Confusion {
     let mut confusion = Confusion::default();
-    for left_index in 0..corpus.len() {
-        for right_index in (left_index + 1)..corpus.len() {
-            let left = &corpus[left_index];
-            let right = &corpus[right_index];
+    for (left_index, left) in corpus.iter().enumerate() {
+        for right in corpus.iter().skip(left_index + 1) {
             if left.recipient == right.recipient {
                 continue;
             }
@@ -196,9 +194,9 @@ fn confusion_for(corpus: &[Presentation], channel: Channel) -> Confusion {
 
 fn cross_recipient_pair_count(corpus: &[Presentation]) -> usize {
     let mut count = 0;
-    for left_index in 0..corpus.len() {
-        for right_index in (left_index + 1)..corpus.len() {
-            if corpus[left_index].recipient != corpus[right_index].recipient {
+    for (left_index, left) in corpus.iter().enumerate() {
+        for right in corpus.iter().skip(left_index + 1) {
+            if left.recipient != right.recipient {
                 count += 1;
             }
         }
