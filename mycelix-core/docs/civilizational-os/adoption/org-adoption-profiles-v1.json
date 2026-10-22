@@ -114,9 +114,9 @@
         "Does not authorize an operational action."
       ],
       "gap_requires_issue": false,
-      "source_evidence_state": "snapshot_manifest_attached",
+      "source_evidence_state": "version_pinned_manifest_attached",
       "source_snapshot_manifest_sha256": "cd7148a62c2ce63f874a1289de66227d3bff31b9936a96593aa7b9bd93bbb2fd",
-      "source_snapshot_required_before_pilot": false,
+      "source_snapshot_required_before_pilot": true,
       "source_snapshot_manifest_path": "source-snapshots/integral-collective-specifications-v1.json"
     },
     {
@@ -1559,10 +1559,10 @@
         "Does not establish regulatory compliance, product authenticity, physical delivery, legal title, or source-record truth.",
         "Does not establish superiority over EPCIS-compatible systems until a fair independent baseline/candidate evaluation has been run."
       ],
-      "source_evidence_state": "snapshot_manifest_attached",
+      "source_evidence_state": "version_pinned_manifest_attached",
       "source_snapshot_manifest_path": "source-snapshots/gs1-epcis-cbv-v1.json",
       "source_snapshot_manifest_sha256": "c1ee59514524c7eb0535e58f3fc19c3c3f309d05adb0ca896ac59ef5b3abcf92",
-      "source_snapshot_required_before_pilot": false
+      "source_snapshot_required_before_pilot": true
     }
   ]
 }
