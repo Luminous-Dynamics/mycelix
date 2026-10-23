@@ -28,6 +28,7 @@
     "population_prior",
     "exact_cohort_peer_majority",
     "coarse_neighborhood_peer_majority",
+    "overlapping_group_union_peer_majority",
     "randomized_peer_negative_control",
     "uncorrelated_target_negative_control"
   ],
@@ -59,5 +60,12 @@
     750000,
     875000,
     950000
-  ]
+  ],
+  "relation_model": {
+    "primary_membership": "one primary cohort",
+    "secondary_membership": "one independently indexed cross-cohort group",
+    "secondary_group_count": "max(1, floor(primary_cohort_count / 4))",
+    "attacker_union_rule": "candidate shares primary cohort OR secondary group",
+    "visibility": "relationship metadata is explicit attacker side information"
+  }
 }
