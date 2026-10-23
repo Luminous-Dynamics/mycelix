@@ -47,6 +47,8 @@
         "scheduled_learning_tasks",
         "attempted_learning_tasks",
         "completed_learning_tasks",
+        "course_platform_sessions",
+        "course_platform_active_seconds",
         "independent_practice_attempts"
       ],
       "properties": {
@@ -85,6 +87,12 @@
           "$ref": "#/$defs/NullableCount"
         },
         "independent_practice_attempts": {
+          "$ref": "#/$defs/NullableCount"
+        },
+        "course_platform_sessions": {
+          "$ref": "#/$defs/NullableCount"
+        },
+        "course_platform_active_seconds": {
           "$ref": "#/$defs/NullableCount"
         }
       }
