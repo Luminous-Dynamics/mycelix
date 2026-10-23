@@ -1078,8 +1078,7 @@ mod tests {
     #[test]
     fn independent_secret_control_has_no_hidden_truth_feature() {
         let (_, summary) = fit_and_predict(Profile::UncorrelatedTargetNegativeControl, 41, 800_000);
-        let accuracy_ppm = summary.correct.saturating_mul(1_000_000)
-            / summary.target_count;
+        let accuracy_ppm = summary.correct.saturating_mul(1_000_000) / summary.target_count;
         assert!(
             accuracy_ppm.abs_diff(500_000) <= 150_000,
             "uncorrelated control accuracy ppm={accuracy_ppm}"
