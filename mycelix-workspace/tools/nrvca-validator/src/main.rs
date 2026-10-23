@@ -9,6 +9,27 @@ fn read_json(path: &str) -> Result<Value, String> {
 
 fn run() -> Result<(), String> {
     let all_args: Vec<String> = env::args().skip(1).collect();
+    if all_args.first().map(String::as_str) == Some("verify-store") {
+        if all_args.len() == 2 && matches!(all_args[1].as_str(), "--help" | "-h") {
+            println!("{}", nrvca_validator::source_intake::VERIFY_STORE_USAGE);
+            return Ok(());
+        }
+        let report = nrvca_validator::source_intake::verify_store_from_cli(&all_args[1..])?;
+        println!(
+            "{}",
+            serde_json::to_string_pretty(&report)
+                .map_err(|error| format!("cannot format store audit report: {error}"))?
+        );
+        match report["status"].as_str() {
+            Some("failed") => return Err(format!(
+                "content store integrity audit failed with {} diagnostic(s)",
+                report["diagnostics"].as_array().map_or(0, Vec::len)
+            )),
+            Some("empty") => return Err("content store is empty; no evidence objects were verified".to_owned()),
+            _ => {}
+        }
+        return Ok(());
+    }
     if all_args.first().map(String::as_str) == Some("capture-source") {
         if all_args.len() == 2 && matches!(all_args[1].as_str(), "--help" | "-h") {
             println!("{}", nrvca_validator::source_intake::CAPTURE_SOURCE_USAGE);
@@ -74,6 +95,7 @@ fn run() -> Result<(), String> {
                 println!("Usage: cargo run --manifest-path mycelix-workspace/tools/nrvca-validator/Cargo.toml -- [--fixture PATH] [--corpus PATH] [--schema PATH] [--benchmark PATH] [--benchmark-schema PATH] [--mode all|validate|corpus]");
                 println!("       cargo run --manifest-path mycelix-workspace/tools/nrvca-validator/Cargo.toml -- hash-source --file PATH --source-id ID --publisher NAME --source-uri URI --publication-id ID --vintage VINTAGE --captured-at RFC3339 --rights-status STATUS --rights-evidence-uri URI --evaluation-allowed true|false --redistribution-allowed true|false --locator-id ID --locator TEXT --extraction-method METHOD --tool-version VERSION [--expected-sha256 HEX] [--output PATH]");
                 println!("       cargo run --manifest-path mycelix-workspace/tools/nrvca-validator/Cargo.toml -- capture-source --file PATH --store-dir DIR --source-id ID --publisher NAME --source-uri URI --publication-id ID --vintage VINTAGE --captured-at RFC3339 --rights-status STATUS --rights-evidence-uri URI --evaluation-allowed true|false --redistribution-allowed true|false --locator-id ID --locator TEXT --extraction-method METHOD --tool-version VERSION [--expected-sha256 HEX] [--output PATH]");
+                println!("       cargo run --manifest-path mycelix-workspace/tools/nrvca-validator/Cargo.toml -- verify-store --store-dir DIR");
                 return Ok(());
             }
             other => return Err(format!("unknown argument: {other}")),

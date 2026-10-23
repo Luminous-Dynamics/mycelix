@@ -7,7 +7,7 @@
 use serde_json::{json, Value};
 use sha2::{Digest, Sha256};
 use std::{
-    collections::BTreeMap,
+    collections::{BTreeMap, BTreeSet},
     fs::{self, File, OpenOptions},
     io::{Read, Write},
     path::{Path, PathBuf},
@@ -19,6 +19,7 @@ const HASH_BUFFER_BYTES: usize = 64 * 1024;
 static NEXT_TEMP_OBJECT: AtomicU64 = AtomicU64::new(0);
 pub const HASH_SOURCE_USAGE: &str = "Usage: nrvca-validator hash-source --file PATH --source-id ID --publisher NAME --source-uri URI --publication-id ID --vintage VINTAGE --captured-at RFC3339 --rights-status open_reuse|permission_granted|evaluation_only|restricted|prohibited|unknown --rights-evidence-uri URI --evaluation-allowed true|false --redistribution-allowed true|false --locator-id ID --locator TEXT --extraction-method METHOD --tool-version VERSION [--expected-sha256 HEX] [--output PATH]";
 pub const CAPTURE_SOURCE_USAGE: &str = "Usage: nrvca-validator capture-source --file PATH --store-dir DIR --source-id ID --publisher NAME --source-uri URI --publication-id ID --vintage VINTAGE --captured-at RFC3339 --rights-status open_reuse|permission_granted|evaluation_only|restricted|prohibited|unknown --rights-evidence-uri URI --evaluation-allowed true|false --redistribution-allowed true|false --locator-id ID --locator TEXT --extraction-method METHOD --tool-version VERSION [--expected-sha256 HEX] [--output PATH]";
+pub const VERIFY_STORE_USAGE: &str = "Usage: nrvca-validator verify-store --store-dir DIR";
 const KNOWN_FLAGS: [&str; 17] = [
     "--file",
     "--source-id",
@@ -567,6 +568,264 @@ fn capture_source_file(
     }))
 }
 
+fn store_argument(args: &[String], command: &str, usage: &str) -> Result<PathBuf, String> {
+    if args.len() == 1 && matches!(args[0].as_str(), "--help" | "-h") {
+        return Err(usage.to_owned());
+    }
+    if args.len() % 2 != 0 {
+        return Err(format!("{command} requires each flag to have exactly one value"));
+    }
+    let mut store_dir: Option<PathBuf> = None;
+    for pair in args.chunks_exact(2) {
+        if pair[0] != "--store-dir" {
+            return Err(format!("unknown {command} argument: {}", pair[0]));
+        }
+        if store_dir.is_some() {
+            return Err(format!("duplicate {command} argument: --store-dir"));
+        }
+        if !nonempty(&pair[1]) {
+            return Err("--store-dir must be nonempty".to_owned());
+        }
+        store_dir = Some(PathBuf::from(&pair[1]));
+    }
+    store_dir.ok_or_else(|| format!("missing required argument --store-dir for {command}"))
+}
+
+fn valid_lower_hex(text: &str, length: usize) -> bool {
+    text.len() == length && text.bytes().all(|byte| byte.is_ascii_digit() || (b'a'..=b'f').contains(&byte))
+}
+
+fn audit_failure(
+    diagnostics: &mut Vec<Value>,
+    path: &str,
+    code: &str,
+    message: impl Into<String>,
+) {
+    diagnostics.push(json!({
+        "path": path,
+        "code": code,
+        "message": message.into()
+    }));
+}
+
+/// Read-only audit of every object under objects/sha256. It checks the actual
+/// bytes against their digest names and verifies the store layout and permissions.
+pub fn verify_store_from_cli(args: &[String]) -> Result<Value, String> {
+    let store_dir = store_argument(args, "verify-store", VERIFY_STORE_USAGE)?;
+    audit_content_store(&store_dir)
+}
+
+fn audit_content_store(store_dir: &Path) -> Result<Value, String> {
+    let root = fs::canonicalize(store_dir)
+        .map_err(|error| format!("cannot resolve content store {}: {error}", store_dir.display()))?;
+    if !fs::metadata(&root).map_err(|error| format!("cannot stat content store: {error}"))?.is_dir() {
+        return Err("content store root must be a directory".to_owned());
+    }
+
+    let objects_dir = root.join("objects");
+    let objects_meta = match fs::symlink_metadata(&objects_dir) {
+        Ok(metadata) => metadata,
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
+            return Ok(json!({
+                "schema_version": "nrvca-content-store-audit/0.1",
+                "status": "empty",
+                "entries_scanned": 0,
+                "objects_verified": 0,
+                "objects_failed": 0,
+                "bytes_verified": 0,
+                "diagnostics_count": 0,
+                "diagnostics": []
+            }));
+        }
+        Err(error) => return Err(format!("cannot inspect object directory: {error}")),
+    };
+    if objects_meta.file_type().is_symlink() || !objects_meta.is_dir() {
+        return Ok(json!({
+            "schema_version": "nrvca-content-store-audit/0.1",
+            "status": "failed",
+            "entries_scanned": 0,
+            "objects_verified": 0,
+            "objects_failed": 0,
+            "bytes_verified": 0,
+            "diagnostics": [{
+                "path": "objects",
+                "code": "STORE-OBJECTS-DIR",
+                "message": "objects path must be a real directory, not a symlink or other file"
+            }],
+            "diagnostics_count": 1
+        }));
+    }
+
+    let mut unexpected_children: Vec<String> = Vec::new();
+    for entry in fs::read_dir(&objects_dir)
+        .map_err(|error| format!("cannot list objects directory: {error}"))?
+    {
+        let entry = entry.map_err(|error| format!("cannot enumerate objects directory: {error}"))?;
+        let name = entry.file_name();
+        if name != std::ffi::OsStr::new("sha256") {
+            unexpected_children.push(format!("objects/{}", name.to_string_lossy()));
+        }
+    }
+    if !unexpected_children.is_empty() {
+        unexpected_children.sort();
+        let diagnostic_count = unexpected_children.len();
+        return Ok(json!({
+            "schema_version": "nrvca-content-store-audit/0.1",
+            "status": "failed",
+            "entries_scanned": diagnostic_count,
+            "objects_verified": 0,
+            "objects_failed": 0,
+            "bytes_verified": 0,
+            "diagnostics": unexpected_children.iter().map(|path| {
+                json!({
+                    "path": path,
+                    "code": "STORE-UNEXPECTED-ENTRY",
+                    "message": "objects directory may contain only the sha256 object root"
+                })
+            }).collect::<Vec<_>>(),
+            "diagnostics_count": diagnostic_count
+        }));
+    }
+
+    let object_root = objects_dir.join("sha256");
+    let root_meta = match fs::symlink_metadata(&object_root) {
+        Ok(metadata) => metadata,
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
+            return Ok(json!({
+                "schema_version": "nrvca-content-store-audit/0.1",
+                "status": "empty",
+                "entries_scanned": 0,
+                "objects_verified": 0,
+                "objects_failed": 0,
+                "bytes_verified": 0,
+                "diagnostics": [],
+                "diagnostics_count": 0
+            }));
+        }
+        Err(error) => return Err(format!("cannot inspect SHA-256 object root: {error}")),
+    };
+    if root_meta.file_type().is_symlink() || !root_meta.is_dir() {
+        return Ok(json!({
+            "schema_version": "nrvca-content-store-audit/0.1",
+            "status": "failed",
+            "entries_scanned": 0,
+            "objects_verified": 0,
+            "objects_failed": 0,
+            "bytes_verified": 0,
+            "diagnostics": [{
+                "path": "objects/sha256",
+                "code": "STORE-SHA256-DIR",
+                "message": "SHA-256 object root must be a real directory, not a symlink or other file"
+            }],
+            "diagnostics_count": 1
+        }));
+    }
+
+    let mut diagnostics = Vec::new();
+    let mut entries_scanned = 0usize;
+    let mut objects_verified = 0usize;
+    let mut bytes_verified = 0u64;
+    let mut objects_failed = BTreeSet::new();
+    for shard in fs::read_dir(&object_root)
+        .map_err(|error| format!("cannot list object root: {error}"))?
+    {
+        let shard = shard.map_err(|error| format!("cannot enumerate object root: {error}"))?;
+        entries_scanned += 1;
+        let shard_name = match shard.file_name().to_str().map(str::to_owned) {
+            Some(name) => name,
+            None => {
+                audit_failure(&mut diagnostics, "objects/sha256/<non-utf8>", "STORE-SHARD-NAME", "shard name must be UTF-8");
+                continue;
+            }
+        };
+        let shard_rel = format!("objects/sha256/{shard_name}");
+        let shard_type = shard.file_type().map_err(|error| format!("cannot inspect {shard_rel}: {error}"))?;
+        if shard_type.is_symlink() || !shard_type.is_dir() {
+            audit_failure(&mut diagnostics, &shard_rel, "STORE-SHARD-TYPE", "shard must be a real directory");
+            continue;
+        }
+        if !valid_lower_hex(&shard_name, 2) {
+            audit_failure(&mut diagnostics, &shard_rel, "STORE-SHARD-NAME", "shard names must be two lowercase hexadecimal characters");
+            continue;
+        }
+        for entry in fs::read_dir(shard.path())
+            .map_err(|error| format!("cannot list shard {shard_rel}: {error}"))?
+        {
+            let entry = entry.map_err(|error| format!("cannot enumerate shard {shard_rel}: {error}"))?;
+            entries_scanned += 1;
+            let name = match entry.file_name().to_str().map(str::to_owned) {
+                Some(name) => name,
+                None => {
+                    let relative = format!("{shard_rel}/<non-utf8>");
+                    objects_failed.insert(relative.clone());
+                    audit_failure(&mut diagnostics, &relative, "STORE-OBJECT-NAME", "object name must be UTF-8");
+                    continue;
+                }
+            };
+            let relative = format!("{shard_rel}/{name}");
+            let file_type = entry.file_type().map_err(|error| format!("cannot inspect {relative}: {error}"))?;
+            if file_type.is_symlink() || !file_type.is_file() {
+                objects_failed.insert(relative.clone());
+                audit_failure(&mut diagnostics, &relative, "STORE-OBJECT-TYPE", "object entry must be a regular non-symlink file");
+                continue;
+            }
+            if !valid_lower_hex(&name, 64) || !name.starts_with(&shard_name) {
+                objects_failed.insert(relative.clone());
+                audit_failure(&mut diagnostics, &relative, "STORE-OBJECT-NAME", "object filename must be a lowercase SHA-256 digest whose first two characters match its shard");
+                continue;
+            }
+            match hash_regular_file(&entry.path()) {
+                Ok((actual_digest, byte_count)) => {
+                    if actual_digest != name {
+                        objects_failed.insert(relative.clone());
+                        audit_failure(
+                            &mut diagnostics,
+                            &relative,
+                            "STORE-DIGEST-MISMATCH",
+                            format!("filename digest {name} does not match actual byte digest {actual_digest}"),
+                        );
+                        continue;
+                    }
+                    if let Err(error) = ensure_object_permissions(&entry.path()) {
+                        objects_failed.insert(relative.clone());
+                        audit_failure(&mut diagnostics, &relative, "STORE-OBJECT-PERMISSIONS", error);
+                        continue;
+                    }
+                    bytes_verified = bytes_verified.checked_add(byte_count)
+                        .ok_or_else(|| "verified byte counter overflow".to_owned())?;
+                    objects_verified += 1;
+                }
+                Err(error) => {
+                    objects_failed.insert(relative.clone());
+                    audit_failure(&mut diagnostics, &relative, "STORE-OBJECT-READ", error);
+                }
+            }
+        }
+    }
+
+    diagnostics.sort_by(|a, b| {
+        a["path"].as_str().cmp(&b["path"].as_str())
+            .then_with(|| a["code"].as_str().cmp(&b["code"].as_str()))
+    });
+    let status = if !diagnostics.is_empty() {
+        "failed"
+    } else if objects_verified == 0 {
+        "empty"
+    } else {
+        "pass"
+    };
+    Ok(json!({
+        "schema_version": "nrvca-content-store-audit/0.1",
+        "status": status,
+        "entries_scanned": entries_scanned,
+        "objects_verified": objects_verified,
+        "objects_failed": objects_failed.len(),
+        "bytes_verified": bytes_verified,
+        "diagnostics_count": diagnostics.len(),
+        "diagnostics": diagnostics
+    }))
+}
+
 fn hash_source_file(
     input_path: &Path,
     metadata: &SourceMetadata,
@@ -925,6 +1184,160 @@ mod tests {
         assert!(error.contains("without overwriting"));
         assert_eq!(fs::read(&path).expect("read sentinel"), b"preserve-existing");
         let _ = fs::remove_file(path);
+    }
+
+    fn capture_test_bytes(store: &TempDir, bytes: &[u8]) -> Value {
+        let input = TempFile::with_bytes(bytes);
+        capture_from_cli(&capture_args_for(&input.0, &store.0))
+            .expect("capture synthetic fixture bytes")
+            .receipt
+    }
+
+    #[test]
+    fn audit_verifies_objects_and_is_deterministic() {
+        let store = TempDir::new();
+        let bytes = b"store audit baseline";
+        capture_test_bytes(&store, bytes);
+        let first = audit_content_store(&store.0).expect("audit healthy store");
+        let second = audit_content_store(&store.0).expect("repeat healthy audit");
+        assert_eq!(first, second, "audit report must not include unstable timestamps or iteration order");
+        assert_eq!(first["status"], "pass");
+        assert_eq!(first["objects_verified"], 1);
+        assert_eq!(first["objects_failed"], 0);
+        assert_eq!(first["bytes_verified"], bytes.len() as u64);
+        assert_eq!(first["diagnostics"].as_array().unwrap().len(), 0);
+    }
+
+    #[test]
+    fn audit_distinguishes_empty_store_from_passing_nonempty_store() {
+        let empty = TempDir::new();
+        let report = audit_content_store(&empty.0).expect("audit empty store");
+        assert_eq!(report["status"], "empty");
+        assert_eq!(report["objects_verified"], 0);
+        assert_eq!(report["objects_failed"], 0);
+    }
+
+    #[test]
+    fn audit_detects_corrupted_bytes_without_repairing_them() {
+        let store = TempDir::new();
+        let receipt = capture_test_bytes(&store, b"must stay unchanged by audit");
+        let object = store.0.join(receipt["acquisition_receipt"]["object_path"].as_str().unwrap());
+        let original_permissions = fs::metadata(&object).expect("object metadata").permissions();
+        let mut writable = original_permissions.clone();
+        writable.set_readonly(false);
+        fs::set_permissions(&object, writable).expect("temporarily make object writable");
+        fs::write(&object, b"tampered bytes with altered length").expect("tamper object");
+        let tampered_bytes = fs::read(&object).expect("capture tampered baseline");
+        let report = audit_content_store(&store.0).expect("audit corrupted store");
+        assert_eq!(report["status"], "failed");
+        assert_eq!(report["objects_verified"], 0);
+        assert!(report["diagnostics"].as_array().unwrap().iter().any(|d| d["code"] == "STORE-DIGEST-MISMATCH"));
+        assert_eq!(fs::read(&object).expect("audit must not mutate corrupt object"), tampered_bytes);
+    }
+
+    #[test]
+    fn audit_detects_objects_in_the_wrong_shard_or_with_non_digest_names() {
+        let store = TempDir::new();
+        let root = store.0.join("objects").join("sha256");
+        fs::create_dir_all(root.join("zz")).expect("create malformed shard");
+        fs::write(root.join("unexpected-entry"), b"not a shard").expect("write staging-like entry");
+        let report = audit_content_store(&store.0).expect("audit malformed layout");
+        assert_eq!(report["status"], "failed");
+        let diagnostics = report["diagnostics"].as_array().unwrap();
+        assert!(diagnostics.iter().any(|d| d["code"] == "STORE-SHARD-NAME"));
+        assert!(diagnostics.iter().any(|d| d["code"] == "STORE-SHARD-TYPE"));
+    }
+
+    #[test]
+    fn audit_reports_unexpected_entries_next_to_sha256_directory() {
+        let store = TempDir::new();
+        fs::create_dir_all(store.0.join("objects").join("sha256")).expect("create object root");
+        fs::write(store.0.join("objects").join("unexpected"), b"unexpected").expect("write extra entry");
+        let report = audit_content_store(&store.0).expect("audit unexpected object child");
+        assert_eq!(report["status"], "failed");
+        assert_eq!(report["diagnostics"][0]["code"], "STORE-UNEXPECTED-ENTRY");
+    }
+
+    #[test]
+    fn audit_detects_symlinked_objects_on_unix() {
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::symlink;
+            let store = TempDir::new();
+            let receipt = capture_test_bytes(&store, b"valid sibling");
+            let object = store.0.join(receipt["acquisition_receipt"]["object_path"].as_str().unwrap());
+            let digest = receipt["sha256"].as_str().unwrap();
+            let shard = store.0.join("objects").join("sha256").join(&digest[..2]);
+            let linked = shard.join(format!("{digest}-symlink"));
+            symlink(&object, &linked).expect("create object symlink");
+            let report = audit_content_store(&store.0).expect("audit symlinked object");
+            assert_eq!(report["status"], "failed");
+            assert!(report["diagnostics"].as_array().unwrap().iter().any(|d| d["code"] == "STORE-OBJECT-TYPE"));
+        }
+    }
+
+    #[test]
+    fn audit_is_non_destructive_for_valid_objects() {
+        let store = TempDir::new();
+        let receipt = capture_test_bytes(&store, b"do not touch this immutable object");
+        let object = store.0.join(receipt["acquisition_receipt"]["object_path"].as_str().unwrap());
+        let before_bytes = fs::read(&object).expect("read object before audit");
+        let before_permissions = fs::metadata(&object).expect("permissions before audit").permissions();
+        let before_mode = {
+            #[cfg(unix)] {
+                use std::os::unix::fs::PermissionsExt;
+                before_permissions.mode() & 0o777
+            }
+            #[cfg(not(unix))] {
+                if before_permissions.readonly() { 1 } else { 0 }
+            }
+        };
+        let report = audit_content_store(&store.0).expect("audit valid object");
+        assert_eq!(report["status"], "pass");
+        assert_eq!(fs::read(&object).expect("read object after audit"), before_bytes);
+        let after_permissions = fs::metadata(&object).expect("permissions after audit").permissions();
+        let after_mode = {
+            #[cfg(unix)] {
+                use std::os::unix::fs::PermissionsExt;
+                after_permissions.mode() & 0o777
+            }
+            #[cfg(not(unix))] {
+                if after_permissions.readonly() { 1 } else { 0 }
+            }
+        };
+        assert_eq!(before_mode, after_mode, "audit must never chmod evidence objects");
+    }
+
+    #[test]
+    fn audit_flags_non_utf8_extra_object_directory_entries_on_unix() {
+        #[cfg(unix)]
+        {
+            use std::{ffi::OsString, os::unix::ffi::OsStringExt};
+            let store = TempDir::new();
+            let objects = store.0.join("objects");
+            fs::create_dir(&objects).expect("create objects directory");
+            fs::write(objects.join(OsString::from_vec(vec![0xff, b'x'])), b"malformed name")
+                .expect("create non-UTF8 entry");
+            let report = audit_content_store(&store.0).expect("audit invalid name");
+            assert_eq!(report["status"], "failed");
+            assert_eq!(report["diagnostics_count"], 1);
+            assert_eq!(report["diagnostics"][0]["code"], "STORE-UNEXPECTED-ENTRY");
+        }
+    }
+
+    #[test]
+    fn audit_rejects_writable_objects_on_unix() {
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            let store = TempDir::new();
+            let receipt = capture_test_bytes(&store, b"permissions baseline");
+            let object = store.0.join(receipt["acquisition_receipt"]["object_path"].as_str().unwrap());
+            fs::set_permissions(&object, fs::Permissions::from_mode(0o600)).expect("weaken object permissions");
+            let report = audit_content_store(&store.0).expect("audit unsafe permissions");
+            assert_eq!(report["status"], "failed");
+            assert!(report["diagnostics"].as_array().unwrap().iter().any(|d| d["code"] == "STORE-OBJECT-PERMISSIONS"));
+        }
     }
 
     #[test]
