@@ -58,7 +58,7 @@ The initial consumer contract is in `praxis_core::symthaea_advisor`, with no new
 
 The response commits to the exact UTF-8 request bytes passed through the adapter. A mismatch prevents acceptance. Evidence references must exist in the request; options must be available and policy-permitted; a course policy that prohibits AI cannot be bypassed because a model is available. Stated accessibility requirements and protected human-support constraints are enforced by Praxis-side validation.
 
-The request's evidence-snapshot digest is only syntax-checked by this boundary. The caller still needs to verify the source snapshot bytes and provenance. Likewise, a build/feature digest labels a Symthaea configuration but does not independently authenticate the binary.
+The request's evidence-snapshot digest is only syntax-checked by this boundary. The caller still needs to verify the source snapshot bytes and provenance. V1 does not infer whether each evidence item is recent enough for a decision; the caller must apply source-specific freshness/currentness policy before dispatch and mark insufficient or conflicting evidence honestly. Likewise, a build/feature digest labels a Symthaea configuration but does not independently authenticate the binary.
 
 ## A critical semantic separation
 
