@@ -18,6 +18,34 @@ struct Subject {
     randomized_peer_proxy: bool,
 }
 
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+struct AttackerView {
+    cohort_id: u64,
+    coarse_bucket: u64,
+    peer_proxy: bool,
+    randomized_peer_proxy: bool,
+}
+
+impl From<&Subject> for AttackerView {
+    fn from(subject: &Subject) -> Self {
+        Self {
+            cohort_id: subject.cohort_id,
+            coarse_bucket: subject.coarse_bucket,
+            peer_proxy: subject.peer_proxy,
+            randomized_peer_proxy: subject.randomized_peer_proxy,
+        }
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+struct PredictionRecord {
+    predicted: bool,
+    confidence_score_ppm: u64,
+    peer_observations_used: u64,
+    peer_observation_delta_vs_exact_cohort: i64,
+}
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 enum Profile {
     PopulationPrior,
@@ -191,7 +219,7 @@ fn prior_confidence_ppm(training: &[Subject], profile: Profile) -> u64 {
     ratio_ppm(positive.max(total - positive), total)
 }
 
-fn peer_signal(subject: &Subject, profile: Profile) -> bool {
+fn peer_signal(subject: &AttackerView, profile: Profile) -> bool {
     if matches!(profile, Profile::RandomizedPeerNegativeControl) {
         subject.randomized_peer_proxy
     } else {
@@ -199,41 +227,23 @@ fn peer_signal(subject: &Subject, profile: Profile) -> bool {
     }
 }
 
-fn majority(values: impl Iterator<Item = bool>, prior: bool) -> bool {
-    let mut positive = 0_u64;
-    let mut negative = 0_u64;
-    for value in values {
-        if value {
-            positive += 1;
-        } else {
-            negative += 1;
-        }
-    }
-
-    if positive == negative {
-        prior
-    } else {
-        positive > negative
-    }
-}
-
-fn evaluate_profile(
-    training: &[Subject],
-    test: &[Subject],
+// This function receives only the intentionally visible fields. It cannot
+// inspect a target's protected label or independent evaluation-only secret.
+fn predict_attacker(
+    views: &[AttackerView],
     cohort_size: usize,
     profile: Profile,
-) -> Vec<OutcomeRecord> {
-    let prior_prediction = prior_for(training, profile);
-    let prior_confidence = prior_confidence_ppm(training, profile);
-    let mut outcomes = Vec::with_capacity(test.len());
+    prior_prediction: bool,
+    prior_confidence: u64,
+) -> Vec<PredictionRecord> {
+    let mut predictions = Vec::with_capacity(views.len());
 
-    for (target_index, target) in test.iter().enumerate() {
-        // The protected target value is withheld. Only relationship metadata
-        // and peer proxy fields define candidate observations in this arm.
+    for (target_index, target) in views.iter().enumerate() {
         let peer_indices = if matches!(profile, Profile::PopulationPrior) {
             Vec::new()
         } else {
-            test.iter()
+            views
+                .iter()
                 .enumerate()
                 .filter_map(|(candidate_index, candidate)| {
                     if candidate_index == target_index {
@@ -257,7 +267,7 @@ fn evaluate_profile(
 
         let peer_signals = peer_indices
             .iter()
-            .map(|index| peer_signal(&test[*index], profile))
+            .map(|index| peer_signal(&views[*index], profile))
             .collect::<Vec<_>>();
         let predicted = if matches!(profile, Profile::PopulationPrior) {
             prior_prediction
@@ -277,20 +287,51 @@ fn evaluate_profile(
 
         let peer_count = peer_indices.len() as u64;
         let exact_peer_count = cohort_size.saturating_sub(1) as u64;
-        outcomes.push(OutcomeRecord {
-            truth: truth_for(target, profile),
+        predictions.push(PredictionRecord {
             predicted,
-            prior_predicted: prior_prediction,
             confidence_score_ppm,
             peer_observations_used: peer_count,
             peer_observation_delta_vs_exact_cohort: peer_count as i64 - exact_peer_count as i64,
-            // The target's protected value/claim is never an attacker feature;
-            // group membership is intentionally modeled as side information.
-            direct_target_protected_disclosures: 0,
         });
     }
 
-    outcomes
+    predictions
+}
+
+fn evaluate_profile(
+    training: &[Subject],
+    test: &[Subject],
+    cohort_size: usize,
+    profile: Profile,
+) -> Vec<OutcomeRecord> {
+    let prior_prediction = prior_for(training, profile);
+    let prior_confidence = prior_confidence_ppm(training, profile);
+
+    // Drop protected labels before constructing the attacker's data plane.
+    let views = test.iter().map(AttackerView::from).collect::<Vec<_>>();
+    let predictions = predict_attacker(
+        &views,
+        cohort_size,
+        profile,
+        prior_prediction,
+        prior_confidence,
+    );
+
+    // Evaluation truth is joined only after predictions have been produced.
+    test.iter()
+        .zip(predictions)
+        .map(|(target, prediction)| OutcomeRecord {
+            truth: truth_for(target, profile),
+            predicted: prediction.predicted,
+            prior_predicted: prior_prediction,
+            confidence_score_ppm: prediction.confidence_score_ppm,
+            peer_observations_used: prediction.peer_observations_used,
+            peer_observation_delta_vs_exact_cohort: prediction
+                .peer_observation_delta_vs_exact_cohort,
+            // No direct protected-value/claim field is passed to the attacker.
+            direct_target_protected_disclosures: 0,
+        })
+        .collect()
 }
 
 fn summarize(outcomes: &[OutcomeRecord]) -> Summary {
@@ -500,6 +541,42 @@ mod tests {
         let test_ids: BTreeSet<u64> = test.iter().map(|subject| subject.cohort_id).collect();
         assert!(training_ids.is_disjoint(&test_ids));
         assert!(test_ids.iter().all(|id| *id >= 1_000_000));
+    }
+
+    #[test]
+    fn changing_protected_labels_cannot_change_attacker_predictions() {
+        let (training, test) = populations(8, 850_000, 64, 11);
+        let mut label_flipped = test.clone();
+        for subject in &mut label_flipped {
+            subject.protected = !subject.protected;
+        }
+
+        let original_views = test.iter().map(AttackerView::from).collect::<Vec<_>>();
+        let flipped_views = label_flipped
+            .iter()
+            .map(AttackerView::from)
+            .collect::<Vec<_>>();
+        assert_eq!(original_views, flipped_views);
+
+        for profile in Profile::ALL {
+            let prior_prediction = prior_for(&training, profile);
+            let prior_confidence = prior_confidence_ppm(&training, profile);
+            let original = predict_attacker(
+                &original_views,
+                8,
+                profile,
+                prior_prediction,
+                prior_confidence,
+            );
+            let flipped = predict_attacker(
+                &flipped_views,
+                8,
+                profile,
+                prior_prediction,
+                prior_confidence,
+            );
+            assert_eq!(original, flipped, "profile {}", profile.name());
+        }
     }
 
     #[test]
