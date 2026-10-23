@@ -716,13 +716,6 @@ fn audit_outcomes(outcomes: &[OutcomeRecord]) -> Audit {
     audit
 }
 
-fn model_labels(subjects: &[Subject], profile: Profile) -> Vec<bool> {
-    subjects
-        .iter()
-        .map(|subject| training_label(subject, profile))
-        .collect()
-}
-
 fn run_profile(
     profile: Profile,
     train_subjects: &[Subject],
@@ -732,7 +725,6 @@ fn run_profile(
     test_subjects: &[Subject],
     test_features: &[FeatureVector],
 ) -> (Vec<OutcomeRecord>, Summary, Audit) {
-    let training_labels = model_labels(train_subjects, profile);
     let fitted = fit_model(profile, train_features, train_subjects);
     let prior_probability = protected_prevalence(train_subjects);
 
