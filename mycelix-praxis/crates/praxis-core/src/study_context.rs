@@ -34,11 +34,17 @@ pub struct StudyContextObservation {
     pub support_availability: SupportAvailability,
     pub observation_status: ObservationStatus,
     /// Missing values are null; zero means the metric was observed and its value was zero.
+    #[serde(deserialize_with = "deserialize_required_option")]
     pub support_invocations: Option<u32>,
+    #[serde(deserialize_with = "deserialize_required_option")]
     pub support_seconds: Option<u32>,
+    #[serde(deserialize_with = "deserialize_required_option")]
     pub scheduled_learning_tasks: Option<u32>,
+    #[serde(deserialize_with = "deserialize_required_option")]
     pub attempted_learning_tasks: Option<u32>,
+    #[serde(deserialize_with = "deserialize_required_option")]
     pub completed_learning_tasks: Option<u32>,
+    #[serde(deserialize_with = "deserialize_required_option")]
     pub independent_practice_attempts: Option<u32>,
 }
 
@@ -324,6 +330,14 @@ pub fn validate_study_context_binding(
     } else {
         Err(issues)
     }
+}
+
+fn deserialize_required_option<'de, D, T>(deserializer: D) -> Result<Option<T>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+    T: Deserialize<'de>,
+{
+    Option::<T>::deserialize(deserializer)
 }
 
 fn validate_measurement_status(
