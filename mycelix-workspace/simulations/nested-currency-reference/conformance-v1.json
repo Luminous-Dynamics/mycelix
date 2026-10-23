@@ -1,0 +1,331 @@
+{
+  "schema": "mycelix.nested-currency-conformance",
+  "schema_version": "1.0.0",
+  "profile": "NCF-1",
+  "tracking_issue": "https://github.com/Luminous-Dynamics/mycelix/issues/5464",
+  "implementation_pr": "https://github.com/Luminous-Dynamics/mycelix/pull/5465",
+  "status": "proposed_not_qualified",
+  "execution_evidence": {
+    "status": "not_run",
+    "reason": "This corpus is a test contract. A test definition is not a passing result. Exact-head Rust execution and verifier-bound receipts remain outstanding."
+  },
+  "claim_ceiling": [
+    "Reference-model conformance only when executed against a named source revision.",
+    "Does not prove Holochain DHT integrity, key custody, real-world service delivery, legal tender status, reserve adequacy, FX parity, or external settlement finality.",
+    "Does not prove that production zomes enforce the same properties until separately qualified against exact source and multi-agent runtime evidence."
+  ],
+  "invariants": [
+    {
+      "id": "NCF-I-001",
+      "name": "Instrument identity is not ticker identity",
+      "statement": "Distinct canonical instrument IDs remain distinct even when symbol, display name, or numeric amount is identical."
+    },
+    {
+      "id": "NCF-I-002",
+      "name": "Canonical profile binding",
+      "statement": "Authorization and value mutations resolve instrument properties from a canonical registry; a caller cannot supply an alternate profile at the operation boundary."
+    },
+    {
+      "id": "NCF-I-003",
+      "name": "Action-scoped authority",
+      "statement": "A capability is valid only for its exact issuer, delegate, instrument, action, current revision, expiry, and declared amount ceiling."
+    },
+    {
+      "id": "NCF-I-004",
+      "name": "Mutual-credit conservation",
+      "statement": "Each accepted mutual-credit event changes provider and receiver positions by equal and opposite amounts within that instrument."
+    },
+    {
+      "id": "NCF-I-005",
+      "name": "Atomic rejection",
+      "statement": "A rejected event changes neither balances, outstanding obligations, nor consumed event IDs."
+    },
+    {
+      "id": "NCF-I-006",
+      "name": "Idempotent replay",
+      "statement": "An exact retry has one effect; reusing an event ID with a different payload is rejected."
+    },
+    {
+      "id": "NCF-I-007",
+      "name": "Bounded federation exposure",
+      "statement": "Outstanding obligations remain within both their peering-edge cap and any configured aggregate gross-exposure cap for each participating community."
+    },
+    {
+      "id": "NCF-I-008",
+      "name": "Risk stop with safe unwind",
+      "statement": "Pausing new obligations blocks new exposure while allowing separately authorized settlement of already-incurred obligations."
+    }
+  ],
+  "conformance_cases": [
+    {
+      "id": "NCF-AUTH-001",
+      "title": "Bounded capability accepts an in-limit action",
+      "class": "positive_control",
+      "attack": null,
+      "expected": "accept",
+      "code_test": "delegated_authority_is_instrument_action_revision_and_expiry_scoped",
+      "execution_status": "defined_not_run"
+    },
+    {
+      "id": "NCF-AUTH-002",
+      "title": "Capability cannot be used by a different actor or for an ungranted action",
+      "class": "authorization_bypass",
+      "attack": "Impersonate the named delegate or reuse a capability for another action.",
+      "expected": "reject",
+      "code_test": "delegated_authority_is_instrument_action_revision_and_expiry_scoped",
+      "execution_status": "defined_not_run"
+    },
+    {
+      "id": "NCF-AUTH-003",
+      "title": "Amount ceiling fails closed when amount is missing",
+      "class": "fail_open",
+      "attack": "Call a mutation with a bounded capability but omit the amount.",
+      "expected": "reject",
+      "code_test": "delegated_authority_is_instrument_action_revision_and_expiry_scoped",
+      "execution_status": "defined_not_run"
+    },
+    {
+      "id": "NCF-AUTH-004",
+      "title": "Negative amount cannot bypass a ceiling",
+      "class": "input_validation",
+      "attack": "Submit a negative amount where a bounded operation is expected.",
+      "expected": "reject",
+      "code_test": "delegated_authority_is_instrument_action_revision_and_expiry_scoped",
+      "execution_status": "defined_not_run"
+    },
+    {
+      "id": "NCF-AUTH-005",
+      "title": "Unbounded issuance capability is rejected",
+      "class": "unbounded_authority",
+      "attack": "Attempt issuance without a declared maximum amount.",
+      "expected": "reject",
+      "code_test": "delegated_authority_is_instrument_action_revision_and_expiry_scoped",
+      "execution_status": "defined_not_run"
+    },
+    {
+      "id": "NCF-AUTH-006",
+      "title": "Inactive instrument rejects new issuance",
+      "class": "lifecycle_bypass",
+      "attack": "Issue while instrument is inactive, using a capability matching the registered issuer and revision.",
+      "expected": "reject",
+      "code_test": "delegated_authority_is_instrument_action_revision_and_expiry_scoped",
+      "execution_status": "defined_not_run"
+    },
+    {
+      "id": "NCF-AUTH-007",
+      "title": "Paused or inactive instrument can permit separately authorized settlement",
+      "class": "recovery_positive_control",
+      "attack": null,
+      "expected": "accept",
+      "code_test": "delegated_authority_is_instrument_action_revision_and_expiry_scoped",
+      "execution_status": "defined_not_run"
+    },
+    {
+      "id": "NCF-PROFILE-001",
+      "title": "Duplicate ticker does not alias distinct instruments",
+      "class": "identity_confusion",
+      "attack": "Register two distinct instrument IDs with the same display symbol.",
+      "expected": "accept_both_distinct",
+      "code_test": "ticker_is_not_identity_and_duplicate_ids_are_rejected;equal_tickers_do_not_share_balances_or_net_positions",
+      "execution_status": "defined_not_run"
+    },
+    {
+      "id": "NCF-PROFILE-002",
+      "title": "Reusing an instrument ID with another issuer is rejected",
+      "class": "issuer_confusion",
+      "attack": "Register an existing canonical instrument ID under an attacker-controlled issuer.",
+      "expected": "reject_duplicate_id",
+      "code_test": "ticker_is_not_identity_and_duplicate_ids_are_rejected",
+      "execution_status": "defined_not_run"
+    },
+    {
+      "id": "NCF-LEDGER-001",
+      "title": "Mutual-credit event conserves net position",
+      "class": "accounting_invariant",
+      "attack": null,
+      "expected": "accepted_event_has_zero_net_position",
+      "code_test": "mutual_credit_is_zero_sum_atomic_and_idempotent;one_million_generated_exchanges_preserve_net_position",
+      "execution_status": "defined_not_run"
+    },
+    {
+      "id": "NCF-LEDGER-002",
+      "title": "Stale profile revision cannot authorize a new mutation",
+      "class": "stale_policy",
+      "attack": "Submit an event created for revision N to a registry that contains revision N+1.",
+      "expected": "reject_stale_revision",
+      "code_test": "mutual_credit_is_zero_sum_atomic_and_idempotent",
+      "execution_status": "defined_not_run"
+    },
+    {
+      "id": "NCF-LEDGER-003",
+      "title": "Wrong instrument family cannot use mutual-credit operations",
+      "class": "semantic_confusion",
+      "attack": "Use a resource-credit profile in the mutual-credit exchange API.",
+      "expected": "reject_wrong_family",
+      "code_test": "family_and_limit_fail_closed_without_partial_mutation",
+      "execution_status": "defined_not_run"
+    },
+    {
+      "id": "NCF-LEDGER-004",
+      "title": "Balance limit rejection is atomic",
+      "class": "partial_write",
+      "attack": "Submit an exchange that would exceed a participant balance limit.",
+      "expected": "reject_without_balance_or_event_change",
+      "code_test": "family_and_limit_fail_closed_without_partial_mutation",
+      "execution_status": "defined_not_run"
+    },
+    {
+      "id": "NCF-LEDGER-005",
+      "title": "Same event ID and same payload is idempotent",
+      "class": "replay",
+      "attack": "Retry an already accepted event without changing its payload.",
+      "expected": "duplicate_no_second_effect",
+      "code_test": "mutual_credit_is_zero_sum_atomic_and_idempotent;one_hundred_thousand_duplicate_retries_never_reapply_credit",
+      "execution_status": "defined_not_run"
+    },
+    {
+      "id": "NCF-LEDGER-006",
+      "title": "Same event ID with changed payload is rejected",
+      "class": "replay_confusion",
+      "attack": "Reuse an accepted exchange ID with a changed amount.",
+      "expected": "reject_replay_mismatch",
+      "code_test": "mutual_credit_is_zero_sum_atomic_and_idempotent",
+      "execution_status": "defined_not_run"
+    },
+    {
+      "id": "NCF-FED-001",
+      "title": "Per-edge exposure limit is enforced",
+      "class": "credit_limit_bypass",
+      "attack": "Increase one peering obligation beyond its bilateral cap.",
+      "expected": "reject_without_state_change",
+      "code_test": "federation_exposure_is_per_edge_and_paused_edges_still_settle",
+      "execution_status": "defined_not_run"
+    },
+    {
+      "id": "NCF-FED-002",
+      "title": "Aggregate gross exposure across edges is enforced",
+      "class": "double_pledge",
+      "attack": "Commit exposure on one federation edge, then overcommit aggregate capacity through another edge.",
+      "expected": "reject_without_state_change",
+      "code_test": "aggregate_gross_exposure_cannot_be_double_committed_across_federations",
+      "execution_status": "defined_not_run"
+    },
+    {
+      "id": "NCF-FED-003",
+      "title": "Rejected over-cap event ID is not consumed",
+      "class": "partial_write",
+      "attack": "Retry the same event ID with a valid in-cap amount after an over-cap attempt is rejected.",
+      "expected": "second_attempt_applies_once",
+      "code_test": "aggregate_gross_exposure_cannot_be_double_committed_across_federations",
+      "execution_status": "defined_not_run"
+    },
+    {
+      "id": "NCF-FED-004",
+      "title": "Stale agreement revision is rejected",
+      "class": "stale_policy",
+      "attack": "Post an obligation using a revision other than the registered agreement revision.",
+      "expected": "reject_stale_revision",
+      "code_test": "federation_exposure_is_per_edge_and_paused_edges_still_settle;settlement_cannot_overrun_outstanding_and_wrong_instrument_is_rejected",
+      "execution_status": "defined_not_run"
+    },
+    {
+      "id": "NCF-FED-005",
+      "title": "Pause blocks new obligations but permits existing settlement",
+      "class": "safe_unwind",
+      "attack": null,
+      "expected": "new_obligation_rejected_existing_settlement_accepted",
+      "code_test": "federation_exposure_is_per_edge_and_paused_edges_still_settle",
+      "execution_status": "defined_not_run"
+    },
+    {
+      "id": "NCF-SET-001",
+      "title": "Settlement cannot exceed outstanding obligation",
+      "class": "over_settlement",
+      "attack": "Settle a value greater than the remaining signed obligation.",
+      "expected": "reject_without_state_change",
+      "code_test": "settlement_cannot_overrun_outstanding_and_wrong_instrument_is_rejected",
+      "execution_status": "defined_not_run"
+    },
+    {
+      "id": "NCF-SET-002",
+      "title": "Settlement retry is idempotent and payload-bound",
+      "class": "settlement_replay",
+      "attack": "Retry a settlement ID once with the same payload and once with a changed amount.",
+      "expected": "same_payload_duplicate_changed_payload_rejected",
+      "code_test": "federation_exposure_is_per_edge_and_paused_edges_still_settle",
+      "execution_status": "defined_not_run"
+    }
+  ],
+  "benchmark_campaigns": [
+    {
+      "id": "NCF-BENCH-001",
+      "name": "Mutual-credit conservation and idempotency stress",
+      "target": "0 net-position drift and exactly one state effect per unique event",
+      "participants": 31,
+      "generated_operations_target": 1000000,
+      "duplicate_retry_target": 100000,
+      "seed": "0x4d5943454c495831",
+      "required_output": [
+        "source_commit",
+        "test_binary_digest",
+        "toolchain_identity",
+        "seed",
+        "operation_count",
+        "net_position_by_instrument",
+        "event_count",
+        "elapsed_time",
+        "peak_memory_bytes"
+      ],
+      "execution_status": "defined_not_run"
+    },
+    {
+      "id": "NCF-BENCH-002",
+      "name": "Federation scale and partition behavior",
+      "participant_counts": [100, 1000, 10000],
+      "community_counts": [1, 10, 100],
+      "federation_depths": [1, 3, 10],
+      "partition_durations_seconds": [0, 10, 60, 300],
+      "required_metrics": [
+        "local_exchange_throughput",
+        "clearing_throughput",
+        "p50_latency_ms",
+        "p95_latency_ms",
+        "p99_latency_ms",
+        "max_gross_exposure",
+        "recovery_time_seconds",
+        "reconciliation_operations",
+        "unrelated_edges_unavailable",
+        "bytes_per_transaction"
+      ],
+      "execution_status": "defined_not_run"
+    },
+    {
+      "id": "NCF-BENCH-003",
+      "name": "Comparative institutional welfare and risk vector",
+      "baselines": [
+        "no_local_currency",
+        "local_mutual_credit",
+        "bilateral_clearing",
+        "shared_federation_instrument",
+        "CES_LETS_like_exchange"
+      ],
+      "metrics": [
+        "liquidity_availability",
+        "credit_utilization",
+        "default_rate",
+        "loss_severity",
+        "time_to_clear",
+        "dispute_cost",
+        "newcomer_participation",
+        "essential_access",
+        "authority_concentration",
+        "issuer_concentration",
+        "privacy_burden",
+        "exit_cost",
+        "cross_federation_loss_spillover"
+      ],
+      "method": "Matched workload and shock traces, fixed and held-out shocks, multiple recorded seeds, ablations, and independent recomputation. Do not collapse metrics into one score.",
+      "execution_status": "design_not_run"
+    }
+  ]
+}
