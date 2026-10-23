@@ -48,7 +48,7 @@
     {
       "id": "NCF-I-007",
       "name": "Bounded federation exposure",
-      "statement": "Outstanding obligations remain within both their peering-edge cap and any configured aggregate gross-exposure cap for each participating community."
+      "statement": "Outstanding obligations remain within each peering-edge cap and any configured aggregate gross-exposure cap scoped to that exact instrument; raw amounts from unlike instruments are never summed."
     },
     {
       "id": "NCF-I-008",
@@ -64,6 +64,11 @@
       "id": "NCF-I-010",
       "name": "Same-revision profile consistency",
       "statement": "A profile's policy fields cannot change without a revision change; revisioned updates must preserve immutable issuer, family, and denomination semantics."
+    },
+    {
+      "id": "NCF-I-011",
+      "name": "Aggregate exposure is instrument-scoped",
+      "statement": "Aggregate gross exposure compares amounts only within the same canonical instrument/unit domain; unlike currencies require a separately qualified conversion/risk model before risk-value aggregation."
     }
   ],
   "conformance_cases": [
@@ -290,6 +295,15 @@
       "attack": null,
       "expected": "accept_versioned_policy_update",
       "code_test": "mutual_credit_is_zero_sum_atomic_and_idempotent",
+      "execution_status": "defined_not_run"
+    },
+    {
+      "id": "NCF-FED-006",
+      "title": "Aggregate exposure does not sum raw amounts across unlike instruments",
+      "class": "unit_semantics",
+      "attack": "Open an obligation in another instrument while a same-instrument peer-edge cap is nearly or fully used.",
+      "expected": "evaluate_each_instrument_cap_independently",
+      "code_test": "aggregate_gross_exposure_cannot_be_double_committed_across_federations",
       "execution_status": "defined_not_run"
     }
   ],
