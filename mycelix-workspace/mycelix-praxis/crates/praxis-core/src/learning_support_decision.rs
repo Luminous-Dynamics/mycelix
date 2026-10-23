@@ -190,13 +190,13 @@ impl SupportDecisionManifest {
             issue(&mut issues, None, "insufficient_case_count", "v1 requires at least 12 cases");
         }
 
-        let mut by_id: BTreeMap<&str, &SupportDecisionCase> = BTreeMap::new();
+        let mut by_id: BTreeMap<String, &SupportDecisionCase> = BTreeMap::new();
         for case in &self.cases {
             if !valid_case_id(&case.case_id) {
-                issue(&mut issues, Some(&case.case_id), "invalid_case_id", "case_id must match LSDB-NNN");
+                issue(&mut issues, Some(case.case_id.as_str()), "invalid_case_id", "case_id must match LSDB-NNN");
             }
-            if by_id.insert(&case.case_id, case).is_some() {
-                issue(&mut issues, Some(&case.case_id), "duplicate_case_id", "case_id must be unique");
+            if by_id.insert(case.case_id.clone(), case).is_some() {
+                issue(&mut issues, Some(case.case_id.as_str()), "duplicate_case_id", "case_id must be unique");
             }
             self.validate_case(case, &mut issues);
         }
@@ -318,7 +318,7 @@ impl SupportDecisionManifest {
     fn validate_counterfactual(
         &self,
         case: &SupportDecisionCase,
-        by_id: &BTreeMap<&str, &SupportDecisionCase>,
+        by_id: &BTreeMap<String, &SupportDecisionCase>,
         issues: &mut Vec<SupportDecisionIssue>,
     ) {
         let id = case.case_id.as_str();
