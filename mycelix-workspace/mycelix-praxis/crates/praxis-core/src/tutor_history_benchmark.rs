@@ -543,6 +543,56 @@ mod tests {
     }
 
     #[test]
+    fn semantically_correct_claim_without_evidence_is_not_acceptable() {
+        let (manifest, _) = validate_history_bundle(OBSERVATIONS, ORACLE).expect("valid bundle");
+        let predictions = manifest.cases.into_iter().map(|case| {
+            if case.case_id == "TH008" {
+                HistoryPrediction {
+                    case_id: case.case_id,
+                    disposition: HistoryDisposition::Claim,
+                    diagnosis: Some(HistoryDiagnosis::ProvenUnassistedProgress),
+                    next_action: Some(HistoryAction::SpacedRetrieval),
+                    supporting_evidence_ids: vec![],
+                    contradicting_evidence_ids: vec![],
+                    requested_evidence: None,
+                }
+            } else {
+                abstaining_prediction(case.case_id)
+            }
+        }).collect();
+        let raw = serde_json::to_string(&prediction_manifest(predictions)).expect("serialize");
+        let score = score_history_predictions(OBSERVATIONS, ORACLE, &raw).expect("valid shape");
+        assert!(score.decision_fit_rate > score.acceptable_decision_rate);
+        assert_eq!(score.evidence_grounded_claims, 0);
+        assert_eq!(score.claim_count, 1);
+    }
+
+    #[test]
+    fn fully_cited_accepted_claim_is_grounded() {
+        let (manifest, _) = validate_history_bundle(OBSERVATIONS, ORACLE).expect("valid bundle");
+        let predictions = manifest.cases.into_iter().map(|case| {
+            if case.case_id == "TH008" {
+                HistoryPrediction {
+                    case_id: case.case_id,
+                    disposition: HistoryDisposition::Claim,
+                    diagnosis: Some(HistoryDiagnosis::ProvenUnassistedProgress),
+                    next_action: Some(HistoryAction::SpacedRetrieval),
+                    supporting_evidence_ids: vec!["th008-e1".into(), "th008-e2".into(), "th008-e4".into()],
+                    contradicting_evidence_ids: vec!["th008-e3".into()],
+                    requested_evidence: None,
+                }
+            } else {
+                abstaining_prediction(case.case_id)
+            }
+        }).collect();
+        let raw = serde_json::to_string(&prediction_manifest(predictions)).expect("serialize");
+        let score = score_history_predictions(OBSERVATIONS, ORACLE, &raw).expect("valid shape");
+        assert_eq!(score.evidence_grounded_claims, 1);
+        assert_eq!(score.claim_count, 1);
+        assert!(score.acceptable_decisions > score.case_count / 3);
+    }
+
+    #[test]
     fn same_surface_accuracy_with_different_assistance_has_different_labels() {
         let (manifest, oracle) = validate_history_bundle(OBSERVATIONS, ORACLE).expect("valid bundle");
         let labels: BTreeMap<&str, &HistoryOracleLabel> = oracle.labels.iter().map(|label| (label.case_id.as_str(), label)).collect();
