@@ -74,6 +74,11 @@
       "id": "NCF-I-012",
       "name": "Gross obligations do not implicitly net",
       "statement": "Opposing directional obligations remain separately outstanding by default. Signed net position is diagnostic only and may not substitute for gross exposure limits; settlement must identify the direction being reduced. Netting requires a separately qualified agreement and enforcement path."
+    },
+    {
+      "id": "NCF-I-013",
+      "name": "Clearing agreements bind a canonical instrument profile",
+      "statement": "A clearing agreement can be created only for a registered instrument and pins the exact profile revision. Unknown IDs and stale profile revisions fail closed; non-transferable reputation-family instruments cannot be used as spendable clearing instruments."
     }
   ],
   "conformance_cases": [
@@ -345,6 +350,33 @@
       "attack": "Record an obligation from A to B followed by a reverse obligation from B to A; risk checks must use the sum of both unsettled directions, not the signed net.",
       "expected": "reject_without_state_change_if_gross_cap_would_be_exceeded",
       "code_test": "opposing_obligations_remain_gross_until_directionally_settled",
+      "execution_status": "defined_not_run"
+    },
+    {
+      "id": "NCF-FED-011",
+      "title": "Clearing agreement cannot reference an unregistered instrument",
+      "class": "unknown_instrument_binding",
+      "attack": "Attempt to create a peer clearing agreement for an instrument ID absent from the canonical registry.",
+      "expected": "reject_unknown_instrument",
+      "code_test": "clearing_agreements_require_a_registered_non_reputation_instrument_revision",
+      "execution_status": "defined_not_run"
+    },
+    {
+      "id": "NCF-FED-012",
+      "title": "Clearing agreement must pin the current instrument profile revision",
+      "class": "stale_profile_binding",
+      "attack": "Create an agreement whose instrument_revision differs from the canonical registry's profile revision.",
+      "expected": "reject_stale_profile_revision",
+      "code_test": "clearing_agreements_require_a_registered_non_reputation_instrument_revision",
+      "execution_status": "defined_not_run"
+    },
+    {
+      "id": "NCF-FED-013",
+      "title": "Non-transferable reputation cannot be used as a spendable clearing instrument",
+      "class": "instrument_family_confusion",
+      "attack": "Attempt to bind a reputation-family instrument such as MYCEL to a clearing agreement.",
+      "expected": "reject_wrong_instrument_family",
+      "code_test": "clearing_agreements_require_a_registered_non_reputation_instrument_revision",
       "execution_status": "defined_not_run"
     },
     {
