@@ -58,7 +58,7 @@ struct OutcomeRecord {
     prior_predicted: bool,
     confidence_score_ppm: u64,
     peer_observations_used: u64,
-    evidence_loss_vs_exact_peer_rows: u64,
+    peer_observation_delta_vs_exact_cohort: i64,
     direct_target_protected_disclosures: u64,
 }
 
@@ -73,7 +73,7 @@ struct Summary {
     false_positive: u64,
     false_negative: u64,
     peer_observations_used: u64,
-    evidence_loss_vs_exact_peer_rows: u64,
+    peer_observation_delta_vs_exact_cohort: i64,
     direct_target_protected_disclosures: u64,
 }
 
@@ -283,7 +283,7 @@ fn evaluate_profile(
             prior_predicted: prior_prediction,
             confidence_score_ppm,
             peer_observations_used: peer_count,
-            evidence_loss_vs_exact_peer_rows: exact_peer_count.saturating_sub(peer_count),
+            peer_observation_delta_vs_exact_cohort: peer_count as i64 - exact_peer_count as i64,
             // The target's protected value/claim is never an attacker feature;
             // group membership is intentionally modeled as side information.
             direct_target_protected_disclosures: 0,
@@ -302,7 +302,7 @@ fn summarize(outcomes: &[OutcomeRecord]) -> Summary {
         result.correct += (record.predicted == record.truth) as u64;
         result.prior_correct += (record.prior_predicted == record.truth) as u64;
         result.peer_observations_used += record.peer_observations_used;
-        result.evidence_loss_vs_exact_peer_rows += record.evidence_loss_vs_exact_peer_rows;
+        result.peer_observation_delta_vs_exact_cohort += record.peer_observation_delta_vs_exact_cohort;
         result.direct_target_protected_disclosures += record.direct_target_protected_disclosures;
 
         match (record.truth, record.predicted) {
@@ -379,7 +379,7 @@ fn render_report() -> String {
     let mut report = String::new();
     writeln!(
         &mut report,
-        "profile,cohort_size,peer_signal_ppm,coarsening_factor,target_count,positive_targets,accuracy_ppm,balanced_accuracy_ppm,prior_accuracy_ppm,lift_vs_prior_ppm,mean_peer_observations,evidence_loss_vs_exact_peer_rows,direct_target_protected_disclosures,audit_target_count,audit_correct_count,audit_direct_target_protected_disclosures,decision_threshold_ppm,selective_coverage_ppm,selective_accuracy_ppm,abstained_targets"
+        "profile,cohort_size,peer_signal_ppm,coarsening_factor,target_count,positive_targets,accuracy_ppm,balanced_accuracy_ppm,prior_accuracy_ppm,lift_vs_prior_ppm,mean_peer_observations,peer_observation_delta_vs_exact_cohort,direct_target_protected_disclosures,audit_target_count,audit_correct_count,audit_direct_target_protected_disclosures,decision_threshold_ppm,selective_coverage_ppm,selective_accuracy_ppm,abstained_targets"
     )
     .expect("writing to String cannot fail");
 
@@ -427,7 +427,7 @@ fn render_report() -> String {
                         prior_accuracy,
                         lift,
                         mean_peers,
-                        summary.evidence_loss_vs_exact_peer_rows,
+                        summary.peer_observation_delta_vs_exact_cohort,
                         summary.direct_target_protected_disclosures,
                         audit.target_count,
                         audit.correct_count,
@@ -615,7 +615,7 @@ mod tests {
     }
 
     #[test]
-    fn privacy_metric_and_evidence_access_are_separate_columns() {
+    fn privacy_metric_and_peer_evidence_access_are_separate_columns() {
         let (training, test) = populations(8, 850_000, 64, 53);
         let prior = summarize(&evaluate_profile(&training, &test, 8, Profile::PopulationPrior));
         let exact = summarize(&evaluate_profile(
@@ -625,7 +625,16 @@ mod tests {
             Profile::ExactCohortPeerMajority,
         ));
         assert!(prior.peer_observations_used < exact.peer_observations_used);
-        assert!(prior.evidence_loss_vs_exact_peer_rows > exact.evidence_loss_vs_exact_peer_rows);
+        assert!(prior.peer_observation_delta_vs_exact_cohort < exact.peer_observation_delta_vs_exact_cohort);
+
+        let coarse = summarize(&evaluate_profile(
+            &training,
+            &test,
+            8,
+            Profile::CoarseNeighborhoodPeerMajority,
+        ));
+        assert!(coarse.peer_observations_used > exact.peer_observations_used);
+        assert!(coarse.peer_observation_delta_vs_exact_cohort > exact.peer_observation_delta_vs_exact_cohort);
     }
 }
 
