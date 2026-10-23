@@ -360,6 +360,11 @@ mod tests {
         assert_eq!(book.settle("settle:1", &k1, 40), Ok(ReservationApply::Applied));
         assert_eq!(book.outstanding(&k1), Ok(0));
         assert_eq!(book.outstanding(&k2), Ok(0));
+        // Settlement on shard 1 cannot transfer its released 40-unit slice to shard 2.
+        assert_eq!(
+            book.record_obligation("tx:wrong-shard", &k2, 61),
+            Err(ReservationError::CapacityExceeded)
+        );
         assert_eq!(book.record_obligation("tx:2", &k1, 40), Ok(ReservationApply::Applied));
         assert_eq!(book.outstanding_for_community("a", "unit:local"), Ok(40));
     }
@@ -383,6 +388,41 @@ mod tests {
         );
         assert_eq!(book.allocated_to_community("a", "unit:hours"), Ok(50));
         assert_eq!(book.allocated_to_community("a", "unit:water"), Ok(80));
+    }
+
+    #[test]
+    fn zero_community_or_agreement_cap_prevents_new_reservations() {
+        let mut book = ReservationBook::default();
+        book.set_community_cap("a", "unit:local", 0).unwrap();
+        book.set_community_cap("b", "unit:local", 100).unwrap();
+        book.set_agreement_cap("edge:ab", "unit:local", 100).unwrap();
+        assert_eq!(
+            book.reserve(key("edge:ab", "unit:local", "shard-1", 1), "a", "b", 1),
+            Err(ReservationError::CapacityExceeded)
+        );
+
+        book.set_community_cap("a", "unit:local", 100).unwrap();
+        book.set_agreement_cap("edge:ab", "unit:local", 0).unwrap();
+        assert_eq!(
+            book.reserve(key("edge:ab", "unit:local", "shard-1", 1), "a", "b", 1),
+            Err(ReservationError::CapacityExceeded)
+        );
+    }
+
+    #[test]
+    fn event_id_cannot_be_replayed_against_a_different_reservation() {
+        let mut book = configured_book(100, 100);
+        let k1 = key("edge:ab", "unit:local", "shard-1", 1);
+        let k2 = key("edge:ab", "unit:local", "shard-2", 1);
+        book.reserve(k1.clone(), "a", "b", 40).unwrap();
+        book.reserve(k2.clone(), "a", "b", 60).unwrap();
+        assert_eq!(book.record_obligation("tx:global", &k1, 10), Ok(ReservationApply::Applied));
+        assert_eq!(
+            book.record_obligation("tx:global", &k2, 10),
+            Err(ReservationError::ReplayMismatch)
+        );
+        assert_eq!(book.outstanding(&k1), Ok(10));
+        assert_eq!(book.outstanding(&k2), Ok(0));
     }
 
     #[test]
