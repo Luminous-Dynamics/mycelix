@@ -11,6 +11,46 @@ use mycelix_finance_types::{CurrencyStatus, compute_minted_demurrage};
 use crate::helpers::*;
 use crate::{ActivateCurrencyInput, AmendCurrencyParamsInput, CreateCurrencyInput};
 
+/// Require an explicit, successful approval result for the exact proposal ID.
+/// Any transport, response-shape, or decoding error is a rejection (fail closed).
+fn require_approved_governance_proposal(proposal_id: &str) -> ExternResult<()> {
+    let approval: Result<bool, String> = match call(
+        CallTargetCell::Local,
+        ZomeName::from("finance_bridge"),
+        FunctionName::from("verify_governance_proposal"),
+        None,
+        proposal_id.to_string(),
+    ) {
+        Ok(ZomeCallResponse::Ok(result)) => result
+            .decode::<bool>()
+            .map_err(|error| format!("proposal result decode failed: {:?}", error)),
+        Ok(other) => Err(format!("unexpected proposal-verification response: {:?}", other)),
+        Err(error) => Err(format!("proposal-verification call failed: {:?}", error)),
+    };
+
+    ensure_proposal_approved(approval, proposal_id)
+        .map_err(|reason| wasm_error!(WasmErrorInner::Guest(reason)))
+}
+
+/// Pure policy function so approval/rejection/error handling has local negative controls.
+fn ensure_proposal_approved(
+    approval: Result<bool, String>,
+    proposal_id: &str,
+) -> Result<(), String> {
+    match approval {
+        Ok(true) => Ok(()),
+        Ok(false) => Err(format!(
+            "Governance proposal '{}' not found or not in Approved/Executed state",
+            proposal_id
+        )),
+        Err(reason) => Err(format!(
+            "Governance proposal '{}' verification failed closed: {}",
+            proposal_id, reason
+        )),
+    }
+}
+
+
 /// Create a new community currency (starts in Draft status).
 ///
 /// Parameters are validated against constitutional limits by the integrity zome.
@@ -65,24 +105,12 @@ pub fn create_currency(input: CreateCurrencyInput) -> ExternResult<CurrencyDefin
             }
         }
 
-        // Verify the referenced governance proposal exists and is approved
-        if let Some(ref proposal_id) = input.governance_proposal_id {
-            if let Ok(ZomeCallResponse::Ok(result)) = call(
-                CallTargetCell::Local,
-                ZomeName::from("finance_bridge"),
-                FunctionName::from("verify_governance_proposal"),
-                None,
-                proposal_id.clone(),
-            ) {
-                if !result.decode::<bool>().unwrap_or(false) {
-                    return Err(wasm_error!(WasmErrorInner::Guest(format!(
-                        "Governance proposal '{}' not found or not in Approved/Executed state",
-                        proposal_id
-                    ))));
-                }
-            }
-            // Bridge unreachable — fail closed (proposal verification required)
-        }
+    }
+
+    // Verify any supplied proposal. Large communities already require one above;
+    // if a small community supplies one, it must not become unchecked metadata.
+    if let Some(ref proposal_id) = input.governance_proposal_id {
+        require_approved_governance_proposal(proposal_id)?;
     }
 
     let now = sys_time()?;
@@ -444,24 +472,12 @@ pub fn amend_currency_params(input: AmendCurrencyParamsInput) -> ExternResult<Cu
             }
         }
 
-        // Verify the referenced governance proposal exists and is approved
-        if let Some(ref proposal_id) = input.governance_proposal_id {
-            if let Ok(ZomeCallResponse::Ok(result)) = call(
-                CallTargetCell::Local,
-                ZomeName::from("finance_bridge"),
-                FunctionName::from("verify_governance_proposal"),
-                None,
-                proposal_id.clone(),
-            ) {
-                if !result.decode::<bool>().unwrap_or(false) {
-                    return Err(wasm_error!(WasmErrorInner::Guest(format!(
-                        "Governance proposal '{}' not found or not in Approved/Executed state",
-                        proposal_id
-                    ))));
-                }
-            }
-            // Bridge unreachable — fail closed (proposal verification required)
-        }
+    }
+
+    // Verify any supplied proposal. Large communities already require one above;
+    // if a small community supplies one, it must not become unchecked metadata.
+    if let Some(ref proposal_id) = input.governance_proposal_id {
+        require_approved_governance_proposal(proposal_id)?;
     }
 
     let updated = CurrencyDefinition {
@@ -476,4 +492,47 @@ pub fn amend_currency_params(input: AmendCurrencyParamsInput) -> ExternResult<Cu
     )?;
 
     Ok(updated)
+}
+
+
+#[cfg(test)]
+mod proposal_approval_tests {
+    use super::ensure_proposal_approved;
+
+    #[test]
+    fn approved_proposal_is_accepted() {
+        assert_eq!(ensure_proposal_approved(Ok(true), "proposal-1"), Ok(()));
+    }
+
+    #[test]
+    fn rejected_or_missing_proposal_is_rejected() {
+        assert_eq!(
+            ensure_proposal_approved(Ok(false), "proposal-1"),
+            Err("Governance proposal 'proposal-1' not found or not in Approved/Executed state".into())
+        );
+    }
+
+    #[test]
+    fn malformed_response_fails_closed() {
+        assert!(ensure_proposal_approved(
+            Err("proposal result decode failed".into()),
+            "proposal-1"
+        ).is_err());
+    }
+
+    #[test]
+    fn unexpected_response_fails_closed() {
+        assert!(ensure_proposal_approved(
+            Err("unexpected proposal-verification response".into()),
+            "proposal-1"
+        ).is_err());
+    }
+
+    #[test]
+    fn bridge_error_fails_closed() {
+        assert!(ensure_proposal_approved(
+            Err("proposal-verification call failed".into()),
+            "proposal-1"
+        ).is_err());
+    }
 }
