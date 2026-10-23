@@ -263,6 +263,21 @@ fn invalid_digest_and_unknown_wire_fields_are_rejected() {
 }
 
 #[test]
+fn required_nullable_fields_must_be_present_even_when_the_value_is_missing() {
+    let mut wire = serde_json::to_value(fixture()).unwrap();
+    wire["observations"][0]
+        .as_object_mut()
+        .unwrap()
+        .remove("support_invocations");
+
+    let parsed: Result<StudyContextRun, _> = serde_json::from_value(wire);
+    assert!(
+        parsed.is_err(),
+        "a missing key must not be silently collapsed into the explicit null value"
+    );
+}
+
+#[test]
 fn assessment_protocol_mismatch_is_rejected() {
     let mut context = fixture();
     context.protocol_id = "different-protocol".into();
