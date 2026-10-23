@@ -18,7 +18,6 @@ struct Subject {
     randomized_peer_proxy: bool,
 }
 
-
 #[derive(Clone, Debug, PartialEq, Eq)]
 struct AttackerView {
     cohort_id: u64,
@@ -120,7 +119,11 @@ struct Rng {
 impl Rng {
     fn new(seed: u64) -> Self {
         Self {
-            state: if seed == 0 { 0xa076_1d64_78bd_642f } else { seed },
+            state: if seed == 0 {
+                0xa076_1d64_78bd_642f
+            } else {
+                seed
+            },
         }
     }
 
@@ -256,11 +259,7 @@ fn predict_attacker(
                         candidate.cohort_id == target.cohort_id
                     };
 
-                    if related {
-                        Some(candidate_index)
-                    } else {
-                        None
-                    }
+                    if related { Some(candidate_index) } else { None }
                 })
                 .collect::<Vec<_>>()
         };
@@ -343,7 +342,8 @@ fn summarize(outcomes: &[OutcomeRecord]) -> Summary {
         result.correct += (record.predicted == record.truth) as u64;
         result.prior_correct += (record.prior_predicted == record.truth) as u64;
         result.peer_observations_used += record.peer_observations_used;
-        result.peer_observation_delta_vs_exact_cohort += record.peer_observation_delta_vs_exact_cohort;
+        result.peer_observation_delta_vs_exact_cohort +=
+            record.peer_observation_delta_vs_exact_cohort;
         result.direct_target_protected_disclosures += record.direct_target_protected_disclosures;
 
         match (record.truth, record.predicted) {
@@ -412,7 +412,11 @@ fn selective_metrics(outcomes: &[OutcomeRecord], threshold_ppm: u64) -> (u64, u6
     let total = outcomes.len() as u64;
     let coverage_ppm = ratio_ppm(accepted, total);
     let selective_accuracy_ppm = ratio_ppm(correct, accepted);
-    (coverage_ppm, selective_accuracy_ppm, total.saturating_sub(accepted))
+    (
+        coverage_ppm,
+        selective_accuracy_ppm,
+        total.saturating_sub(accepted),
+    )
 }
 
 fn render_report() -> String {
@@ -519,7 +523,11 @@ mod tests {
     fn manifest_freezes_attacker_arms_and_selective_thresholds() {
         assert!(MANIFEST.contains("\"target_protected_value_available_to_attacker\": false"));
         for profile in Profile::ALL {
-            assert!(MANIFEST.contains(profile.name()), "missing {}", profile.name());
+            assert!(
+                MANIFEST.contains(profile.name()),
+                "missing {}",
+                profile.name()
+            );
         }
         for threshold_ppm in CONFIDENCE_THRESHOLDS {
             let threshold = threshold_ppm.to_string();
@@ -586,7 +594,11 @@ mod tests {
         for profile in Profile::ALL {
             let outcomes = evaluate_profile(&training, &test, 8, profile);
             assert_eq!(outcomes.len(), test.len());
-            assert!(outcomes.iter().all(|row| row.direct_target_protected_disclosures == 0));
+            assert!(
+                outcomes
+                    .iter()
+                    .all(|row| row.direct_target_protected_disclosures == 0)
+            );
         }
     }
 
@@ -619,7 +631,10 @@ mod tests {
             Profile::RandomizedPeerNegativeControl,
         ));
         let difference = accuracy_ppm(&summary).abs_diff(prior_accuracy_ppm(&summary));
-        assert!(difference <= 100_000, "accuracy/prior delta was {difference} ppm");
+        assert!(
+            difference <= 100_000,
+            "accuracy/prior delta was {difference} ppm"
+        );
     }
 
     #[test]
@@ -632,7 +647,10 @@ mod tests {
             Profile::UncorrelatedTargetNegativeControl,
         ));
         let difference = accuracy_ppm(&summary).abs_diff(prior_accuracy_ppm(&summary));
-        assert!(difference <= 100_000, "accuracy/prior delta was {difference} ppm");
+        assert!(
+            difference <= 100_000,
+            "accuracy/prior delta was {difference} ppm"
+        );
     }
 
     #[test]
@@ -645,7 +663,10 @@ mod tests {
             assert_eq!(audit.target_count, outcomes.len() as u64);
             assert_eq!(audit.correct_count, summary.correct);
             assert_eq!(audit.direct_target_protected_disclosures, 0);
-            assert_eq!(audit.direct_target_protected_disclosures, summary.direct_target_protected_disclosures);
+            assert_eq!(
+                audit.direct_target_protected_disclosures,
+                summary.direct_target_protected_disclosures
+            );
         }
     }
 
@@ -671,12 +692,7 @@ mod tests {
     #[test]
     fn selective_risk_coverage_exposes_abstention_tradeoff() {
         let (training, test) = populations(16, 850_000, 64, 47);
-        let outcomes = evaluate_profile(
-            &training,
-            &test,
-            16,
-            Profile::ExactCohortPeerMajority,
-        );
+        let outcomes = evaluate_profile(&training, &test, 16, Profile::ExactCohortPeerMajority);
         let (low_coverage, _, low_abstentions) = selective_metrics(&outcomes, 500_000);
         assert_eq!(low_coverage, PPM);
         assert_eq!(low_abstentions, 0);
@@ -700,7 +716,12 @@ mod tests {
     #[test]
     fn privacy_metric_and_peer_evidence_access_are_separate_columns() {
         let (training, test) = populations(8, 850_000, 64, 53);
-        let prior = summarize(&evaluate_profile(&training, &test, 8, Profile::PopulationPrior));
+        let prior = summarize(&evaluate_profile(
+            &training,
+            &test,
+            8,
+            Profile::PopulationPrior,
+        ));
         let exact = summarize(&evaluate_profile(
             &training,
             &test,
@@ -708,7 +729,10 @@ mod tests {
             Profile::ExactCohortPeerMajority,
         ));
         assert!(prior.peer_observations_used < exact.peer_observations_used);
-        assert!(prior.peer_observation_delta_vs_exact_cohort < exact.peer_observation_delta_vs_exact_cohort);
+        assert!(
+            prior.peer_observation_delta_vs_exact_cohort
+                < exact.peer_observation_delta_vs_exact_cohort
+        );
 
         let coarse = summarize(&evaluate_profile(
             &training,
@@ -717,7 +741,10 @@ mod tests {
             Profile::CoarseNeighborhoodPeerMajority,
         ));
         assert!(coarse.peer_observations_used > exact.peer_observations_used);
-        assert!(coarse.peer_observation_delta_vs_exact_cohort > exact.peer_observation_delta_vs_exact_cohort);
+        assert!(
+            coarse.peer_observation_delta_vs_exact_cohort
+                > exact.peer_observation_delta_vs_exact_cohort
+        );
     }
 }
 
