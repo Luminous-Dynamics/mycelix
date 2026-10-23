@@ -128,7 +128,7 @@ struct Metrics {
 }
 
 fn percentile(sorted: &[usize], percentile: usize) -> usize {
-    let rank = (percentile * sorted.len() + 99) / 100;
+    let rank = (percentile * sorted.len()).div_ceil(100);
     sorted[rank.saturating_sub(1)]
 }
 
