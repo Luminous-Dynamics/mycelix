@@ -5,11 +5,25 @@
   "seed_hex": "52454c4154494f4e",
   "training_cohorts": 96,
   "test_cohorts": 96,
-  "cohort_sizes": [4, 8, 16, 32],
-  "peer_signal_probability_ppm": [550000, 650000, 750000, 850000, 950000],
+  "cohort_sizes": [
+    4,
+    8,
+    16,
+    32
+  ],
+  "peer_signal_probability_ppm": [
+    550000,
+    650000,
+    750000,
+    850000,
+    950000
+  ],
   "coarsening_factor": 4,
   "target_protected_value_available_to_attacker": false,
-  "attacker_side_information": ["exact_cohort_membership_in_exact_arm", "coarsened_bucket_membership_in_coarse_arm"],
+  "attacker_side_information": [
+    "exact_cohort_membership_in_exact_arm",
+    "coarsened_bucket_membership_in_coarse_arm"
+  ],
   "attacker_profiles": [
     "population_prior",
     "exact_cohort_peer_majority",
@@ -24,7 +38,11 @@
     "lift_vs_prior_ppm",
     "mean_peer_observations",
     "evidence_loss_vs_exact_peer_rows",
-    "direct_target_protected_disclosures"
+    "direct_target_protected_disclosures",
+    "decision_threshold_ppm",
+    "selective_coverage_ppm",
+    "selective_accuracy_ppm",
+    "abstained_targets"
   ],
   "claim_ceiling": "synthetic_cross_subject_inference_attack",
   "nonclaims": [
@@ -33,5 +51,13 @@
     "anonymity",
     "causality",
     "production_protocol_assurance"
+  ],
+  "confidence_score": "uncalibrated_max_vote_share_or_training_prior_majority_share",
+  "decision_threshold_ppm": [
+    500000,
+    625000,
+    750000,
+    875000,
+    950000
   ]
 }
