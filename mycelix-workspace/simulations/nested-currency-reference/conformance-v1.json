@@ -355,6 +355,15 @@
       "expected": "only_selected_direction_reduced",
       "code_test": "opposing_obligations_remain_gross_until_directionally_settled",
       "execution_status": "defined_not_run"
+    },
+    {
+      "id": "NCF-SET-004",
+      "title": "Settlement event identity is bound to direction",
+      "class": "settlement_direction_replay",
+      "attack": "Reuse a settlement ID with the same amount and agreement but the opposite direction; the retry must reject instead of settling a different obligation leg.",
+      "expected": "reject_changed_direction_under_reused_id",
+      "code_test": "opposing_obligations_remain_gross_until_directionally_settled",
+      "execution_status": "defined_not_run"
     }
   ],
   "benchmark_campaigns": [
@@ -438,7 +447,7 @@
         "bytes_per_transaction",
         "directional_gross_outstanding",
         "signed_net_outstanding",
-        "gross_vs_net_understatement",
+        "gross_minus_absolute_net",
         "rejected_gross_cap_breaches",
         "directional_settlement_accuracy"
       ],
