@@ -21,7 +21,7 @@ This deliberately tests a privacy externality: a target may reveal nothing and s
 - randomized_peer_negative_control: use randomly assigned peer proxy labels; the attacker should fall back toward its prior.
 - uncorrelated_target_negative_control: score an independent target secret against cohort-correlated peer proxies; the peers should not improve inference materially.
 
-Training and test cohort identifiers occupy disjoint ranges. The report uses a deterministic xorshift64* generator with a fixed seed derivation and no third-party dependencies. The experiment sweeps 4, 8, 16 and 32 subjects per primary cohort and peer-signal probabilities from 0.55 to 0.95. Secondary-group identifiers are assigned independently of protected labels and cross primary-cohort boundaries. The overlapping attacker uses the union of primary-cohort and secondary-group neighbors, with a subject counted once.
+Training and test cohort identifiers occupy disjoint ranges. The report uses a deterministic xorshift64* generator with a frozen five-seed schedule (`1, 7, 23, 41, 97`) and no third-party dependencies. Every seed/configuration result is retained as a distinct CSV row; do not select or quote only the most favorable seed. Aggregate comparisons should report the across-seed distribution as well as each seed's raw value. The experiment sweeps 4, 8, 16 and 32 subjects per primary cohort and peer-signal probabilities from 0.55 to 0.95. The report includes a predeclared five-seed schedule and records `seed_id` on each output row so variance and seed sensitivity remain visible. Secondary-group identifiers are assigned independently of protected labels and cross primary-cohort boundaries. The overlapping attacker uses the union of primary-cohort and secondary-group neighbors, with a subject counted once.
 
 ## Metrics
 
@@ -29,7 +29,7 @@ Accuracy and balanced accuracy are reported in parts per million (ppm), along wi
 
 Evidence access and inference accuracy remain separate. The signed peer-observation delta is relative to exposing the exact cohort (positive means more peer records are visible, negative means fewer); it is not a user-utility metric, calibrated privacy loss, or a monotone guarantee that coarsening improves privacy. The regression suite also flips the protected labels and independent evaluation secrets while holding attacker-visible views fixed and requires all predictions/confidence records to remain identical. A real utility / fairness evaluation requires a separate task-specific benchmark.
 
-A post-hoc audit recomputes target count, correct predictions and protected-claim disclosure count from per-target outcome records rather than trusting the evaluator's summary counters. Both values appear in the CSV for comparison. The benchmark also emits selective risk–coverage rows at fixed confidence thresholds of 0.50, 0.625, 0.75, 0.875 and 0.95. Each row reports coverage, accuracy among non-abstained targets and abstention count. Confidence is the maximum peer vote share (or the training prior's majority share when no peer evidence is available); it is **uncalibrated**, and must not be interpreted as a posterior probability.
+A post-hoc audit recomputes target count, correct predictions and protected-claim disclosure count from per-target outcome records rather than trusting the evaluator's summary counters. Both values appear in the CSV for comparison. The benchmark emits distinct raw results across the predeclared seed schedule and selective risk–coverage rows at fixed confidence thresholds of 0.50, 0.625, 0.75, 0.875 and 0.95. Each row reports coverage, accuracy among non-abstained targets and abstention count. Confidence is the maximum peer vote share (or the training prior's majority share when no peer evidence is available); it is **uncalibrated**, and must not be interpreted as a posterior probability.
 
 ## Run
 
@@ -46,6 +46,7 @@ The dedicated workflow checks out and asserts the exact PR-head commit, runs for
 
 - Zero direct protected-attribute/claim disclosures in all profiles.
 - Identical report bytes for identical source and manifest.
+- All five predeclared seed IDs are present for every configuration; do not discard unfavorable seeds after looking at results.
 - Randomized-peer and uncorrelated-target controls remain within the frozen 100,000 ppm absolute accuracy-vs-prior tolerance.
 - At the frozen large-cohort positive control, strong peer correlation exceeds weak peer correlation by at least 200,000 ppm accuracy.
 - The independent audit agrees with outcome-record-derived counts.
