@@ -428,34 +428,6 @@ pub fn validate_symthaea_advice_for_request(
         issue(&mut issues, "alternative_actions", "selected_action_repeated_as_alternative", "selected action must not also appear as an alternative");
     }
 
-    if matches!(request.evidence_sufficiency, EvidenceSufficiency::Insufficient | EvidenceSufficiency::Conflicting)
-        && !matches!(
-            response.selected_action,
-            AdvisorAction::AskClarifyingQuestion
-                | AdvisorAction::AbstainAndEscalate
-                | AdvisorAction::HumanSupport
-        )
-    {
-        issue(&mut issues, "selected_action", "insufficient_evidence_requires_clarification", "insufficient or conflicting context must lead to clarification, abstention, or human support");
-    }
-
-    if request.contextually_requires_accessible_support()
-        && matches!(response.selected_action, AdvisorAction::AskClarifyingQuestion | AdvisorAction::NoIntervention)
-    {
-        issue(&mut issues, "selected_action", "accessibility_needs_unresolved", "a stated accessibility requirement cannot be left unaddressed by a clarification-free no-op");
-    }
-
-    if request.human_support_must_be_preserved && request.displacement_risk == DisplacementRisk::Material {
-        if response.selected_action == AdvisorAction::AiHintThenRetrieval {
-            issue(&mut issues, "selected_action", "protected_human_support_displacement", "AI-only support cannot replace protected human support under material displacement risk");
-        }
-        if request.support_options.iter().any(|option| option.action == AdvisorAction::HumanSupport && option.available && option.policy_permitted)
-            && !matches!(response.selected_action, AdvisorAction::HumanSupport | AdvisorAction::EducatorCopilot)
-        {
-            issue(&mut issues, "selected_action", "human_support_not_preserved", "selected action must preserve available human support or augment the educator");
-        }
-    }
-
     Ok(issues)
 }
 
@@ -471,6 +443,33 @@ fn validate_selected_action(
     field: &str,
     issues: &mut Vec<SymthaeaAdvisorIssue>,
 ) {
+    if request.assessment_policy == AssessmentPolicy::ProhibitsAiAssistance && action.is_ai_action() {
+        issue(issues, field, "prohibited_ai_support_selected", "advice cannot select or suggest AI assistance when the assessment policy explicitly prohibits it");
+    }
+
+    if matches!(request.evidence_sufficiency, EvidenceSufficiency::Insufficient | EvidenceSufficiency::Conflicting)
+        && !matches!(action, AdvisorAction::AskClarifyingQuestion | AdvisorAction::AbstainAndEscalate | AdvisorAction::HumanSupport)
+    {
+        issue(issues, field, "insufficient_evidence_requires_clarification", "insufficient or conflicting context must lead to clarification, abstention, or human support");
+    }
+
+    if request.contextually_requires_accessible_support()
+        && matches!(action, AdvisorAction::AskClarifyingQuestion | AdvisorAction::NoIntervention)
+    {
+        issue(issues, field, "accessibility_needs_unresolved", "a stated accessibility requirement cannot be left unresolved by a clarification-free no-op");
+    }
+
+    if request.human_support_must_be_preserved && request.displacement_risk == DisplacementRisk::Material {
+        if action == AdvisorAction::AiHintThenRetrieval {
+            issue(issues, field, "protected_human_support_displacement", "AI-only support cannot replace protected human support under material displacement risk");
+        }
+        if request.support_options.iter().any(|option| option.action == AdvisorAction::HumanSupport && option.available && option.policy_permitted)
+            && !matches!(action, AdvisorAction::HumanSupport | AdvisorAction::EducatorCopilot)
+        {
+            issue(issues, field, "human_support_not_preserved", "action must preserve available human support or augment the educator");
+        }
+    }
+
     if action.is_protocol_action() {
         return;
     }
@@ -484,11 +483,8 @@ fn validate_selected_action(
     if !option.policy_permitted {
         issue(issues, field, "selected_support_not_policy_permitted", "advice cannot select a support option prohibited by local policy");
     }
-    if request.assessment_policy == AssessmentPolicy::ProhibitsAiAssistance && action.is_ai_action() {
-        issue(issues, field, "prohibited_ai_support_selected", "advice cannot select AI assistance when the assessment policy explicitly prohibits it");
-    }
     if request.contextually_requires_accessible_support() && !option.accessible_for_context {
-        issue(issues, field, "inaccessible_support_selected", "selected support is not marked accessible for the declared context");
+        issue(issues, field, "inaccessible_support_selected", "selected or alternative support is not marked accessible for the declared context");
     }
 }
 
