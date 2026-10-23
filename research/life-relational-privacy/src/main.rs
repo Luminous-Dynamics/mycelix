@@ -573,10 +573,18 @@ mod tests {
             let threshold = threshold_ppm.to_string();
             assert!(MANIFEST.contains(threshold.as_str()), "missing {threshold}");
         }
-        for seed_id in EVALUATION_SEEDS {
-            let seed = seed_id.to_string();
-            assert!(MANIFEST.contains(seed.as_str()), "missing seed {seed}");
-        }
+        let seed_section = MANIFEST
+            .split("\\"evaluation_seeds\\": [")
+            .nth(1)
+            .expect("manifest must declare evaluation_seeds")
+            .split(']')
+            .next()
+            .expect("seed array must close");
+        let manifest_seeds = seed_section
+            .split(',')
+            .filter_map(|part| part.trim().parse::<u64>().ok())
+            .collect::<Vec<_>>();
+        assert_eq!(manifest_seeds, EVALUATION_SEEDS);
     }
 
     #[test]
