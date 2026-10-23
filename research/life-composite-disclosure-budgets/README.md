@@ -47,6 +47,10 @@ cargo +1.96.0 run --release --locked --manifest-path research/life-composite-dis
 
 The dedicated GitHub Actions workflow checks out the exact PR head and asserts the checked-out SHA, runs format/tests/strict Clippy, compares two report files byte-for-byte, and stores the report, frozen manifest, SHA-256 sums and qualification receipt.
 
+## Current verification note
+
+The first exact-head run passed formatting but exposed two test-fixture errors. The composite rejection assertion tried a cost-2 request against 6 spent / budget 8, so it was correctly accepted at the boundary; the fixture now tries cost 3 to exceed the cap. The manifest assertion now matches the actual pretty-printed JSON punctuation. The next exact-head run must qualify these corrections; the earlier run is not a pass.
+
 ## Proposed acceptance criteria (not achieved results)
 
 - Zero accepted over-budget releases under the composite policy.
