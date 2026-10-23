@@ -318,15 +318,15 @@ pub fn validate_symthaea_advisor_request(
             }
         }
         for reference in &option.basis_evidence_refs {
-            if !evidence_ids.contains(reference.as_str()) {
+            if !evidence_ids.iter().any(|evidence_id| *evidence_id == reference.as_str()) {
                 issue(&mut issues, "support_options.basis_evidence_refs", "unknown_support_basis_reference", "support-option basis must cite evidence supplied in this request");
             }
         }
-        if request.assessment_policy == AssessmentPolicy::ProhibitsAiAssistance
-            && option.action.is_ai_action()
-            && option.policy_permitted
-        {
-            issue(&mut issues, "support_options.policy_permitted", "ai_policy_conflict", "AI assistance cannot be marked policy-permitted under an explicit prohibition");
+        if matches!(
+            request.assessment_policy,
+            AssessmentPolicy::ProhibitsAiAssistance | AssessmentPolicy::Unknown
+        ) && option.action.is_ai_action() && option.policy_permitted {
+            issue(&mut issues, "support_options.policy_permitted", "ai_policy_conflict", "AI assistance cannot be marked policy-permitted while the assessment policy is prohibited or unresolved");
         }
     }
 
@@ -417,7 +417,7 @@ pub fn validate_symthaea_advice_for_request(
     }
     let mut cited = BTreeSet::new();
     for reference in &response.evidence_refs {
-        if !supplied_evidence.contains(reference.as_str()) {
+        if !supplied_evidence.iter().any(|evidence_id| *evidence_id == reference.as_str()) {
             issue(&mut issues, "evidence_refs", "unknown_advice_evidence_reference", "advice may cite only evidence ids supplied in the request");
         }
         if !cited.insert(reference.as_str()) {
@@ -455,6 +455,9 @@ fn validate_selected_action(
     if request.assessment_policy == AssessmentPolicy::ProhibitsAiAssistance && action.is_ai_action() {
         issue(issues, field, "prohibited_ai_support_selected", "advice cannot select or suggest AI assistance when the assessment policy explicitly prohibits it");
     }
+    if request.assessment_policy == AssessmentPolicy::Unknown && action.is_ai_action() {
+        issue(issues, field, "unresolved_assessment_policy_for_ai_support", "AI assistance cannot be selected or suggested until an unknown assessment policy is resolved or explicitly marked not applicable");
+    }
 
     if matches!(request.evidence_sufficiency, EvidenceSufficiency::Insufficient | EvidenceSufficiency::Conflicting)
         && !matches!(action, AdvisorAction::AskClarifyingQuestion | AdvisorAction::AbstainAndEscalate | AdvisorAction::HumanSupport)
@@ -468,7 +471,7 @@ fn validate_selected_action(
         issue(issues, field, "accessibility_needs_unresolved", "a stated accessibility requirement cannot be left unresolved by a no-op; clarification and safe escalation remain allowed");
     }
 
-    if request.human_support_must_be_preserved && request.displacement_risk == DisplacementRisk::Material {
+    if request.human_support_must_be_preserved {
         if action == AdvisorAction::AiHintThenRetrieval {
             issue(issues, field, "protected_human_support_displacement", "AI-only support cannot replace protected human support under material displacement risk");
         }
@@ -617,6 +620,30 @@ mod tests {
         let response = valid_response_json(&request_json);
         let issues = validate_symthaea_advice_for_request(&request_json, &response).unwrap();
         assert!(has_code(&issues, "prohibited_ai_support_selected"));
+    }
+
+    #[test]
+    fn unresolved_assessment_policy_blocks_ai_even_if_option_is_online() {
+        let mut request: Value = serde_json::from_str(REQUEST_FIXTURE).unwrap();
+        request["assessment_policy"] = serde_json::json!("unknown");
+        request["support_options"][0]["policy_permitted"] = Value::Bool(false);
+        let request_json = serde_json::to_string(&request).unwrap();
+        let response = valid_response_json(&request_json);
+        let issues = validate_symthaea_advice_for_request(&request_json, &response).unwrap();
+        assert!(has_code(&issues, "unresolved_assessment_policy_for_ai_support"));
+    }
+
+    #[test]
+    fn human_support_preservation_flag_is_authoritative_even_without_material_risk_label() {
+        let mut request: Value = serde_json::from_str(REQUEST_FIXTURE).unwrap();
+        request["human_support_must_be_preserved"] = Value::Bool(true);
+        request["displacement_risk"] = serde_json::json!("low");
+        request["support_options"][2]["available"] = Value::Bool(true);
+        let request_json = serde_json::to_string(&request).unwrap();
+        let response = valid_response_json(&request_json);
+        let issues = validate_symthaea_advice_for_request(&request_json, &response).unwrap();
+        assert!(has_code(&issues, "protected_human_support_displacement"));
+        assert!(has_code(&issues, "human_support_not_preserved"));
     }
 
     #[test]
