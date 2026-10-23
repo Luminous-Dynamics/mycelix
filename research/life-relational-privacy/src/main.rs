@@ -5,6 +5,7 @@ const TRAIN_COHORTS: usize = 96;
 const TEST_COHORTS: usize = 96;
 const COARSENING_FACTOR: usize = 4;
 const PPM: u64 = 1_000_000;
+const CONFIDENCE_THRESHOLDS: [u64; 5] = [500_000, 625_000, 750_000, 875_000, 950_000];
 const MANIFEST: &str = include_str!("../manifest.json");
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -409,7 +410,7 @@ fn render_report() -> String {
                 let lift = accuracy as i64 - prior_accuracy as i64;
                 let mean_peers = summary.peer_observations_used / summary.target_count.max(1);
 
-                for threshold_ppm in [500_000_u64, 625_000, 750_000, 875_000, 950_000] {
+                for threshold_ppm in CONFIDENCE_THRESHOLDS {
                     let (coverage_ppm, selective_accuracy, abstained) =
                         selective_metrics(&outcomes, threshold_ppm);
                     writeln!(
@@ -474,6 +475,18 @@ mod tests {
     }
 
     #[test]
+    fn manifest_freezes_attacker_arms_and_selective_thresholds() {
+        assert!(MANIFEST.contains("\"target_protected_value_available_to_attacker\": false"));
+        for profile in Profile::ALL {
+            assert!(MANIFEST.contains(profile.name()), "missing {}", profile.name());
+        }
+        for threshold_ppm in CONFIDENCE_THRESHOLDS {
+            let threshold = threshold_ppm.to_string();
+            assert!(MANIFEST.contains(threshold.as_str()), "missing {threshold}");
+        }
+    }
+
+    #[test]
     fn identical_seed_and_manifest_produce_identical_report() {
         assert!(!MANIFEST.is_empty());
         assert_eq!(render_report(), render_report());
@@ -490,7 +503,7 @@ mod tests {
     }
 
     #[test]
-    fn direct_target_disclosure_is_zero_for_every_profile() {
+    fn target_protected_claim_disclosure_is_zero_for_every_profile() {
         let (training, test) = populations(8, 850_000, 64, 9);
         for profile in Profile::ALL {
             let outcomes = evaluate_profile(&training, &test, 8, profile);
@@ -582,15 +595,23 @@ mod tests {
             Profile::ExactCohortPeerMajority,
         );
         let (low_coverage, _, low_abstentions) = selective_metrics(&outcomes, 500_000);
-        let (high_coverage, _, high_abstentions) = selective_metrics(&outcomes, 950_000);
         assert_eq!(low_coverage, PPM);
         assert_eq!(low_abstentions, 0);
-        assert!(high_coverage <= low_coverage);
-        let expected_high_abstentions = outcomes
-            .iter()
-            .filter(|row| row.confidence_score_ppm < 950_000)
-            .count() as u64;
-        assert_eq!(high_abstentions, expected_high_abstentions);
+
+        let mut previous_coverage = PPM;
+        for threshold_ppm in CONFIDENCE_THRESHOLDS {
+            let (coverage, _, abstentions) = selective_metrics(&outcomes, threshold_ppm);
+            assert!(
+                coverage <= previous_coverage,
+                "coverage increased at threshold {threshold_ppm}"
+            );
+            let expected_abstentions = outcomes
+                .iter()
+                .filter(|row| row.confidence_score_ppm < threshold_ppm)
+                .count() as u64;
+            assert_eq!(abstentions, expected_abstentions);
+            previous_coverage = coverage;
+        }
     }
 
     #[test]
