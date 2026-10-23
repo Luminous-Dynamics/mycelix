@@ -2,13 +2,13 @@
 
 ## Question
 
-Can an observer infer a target's protected attribute from other subjects' public proxy disclosures when the target supplies no direct disclosure?
+Can an observer infer a target's protected attribute from other subjects' public proxy disclosures when the target's protected value and direct protected-claim fields are withheld?
 
 This is a synthetic red-team benchmark. It does not implement a credential protocol, a privacy mechanism, or a calibrated risk model for real people.
 
 ## Paradigm
 
-The unit of analysis is a target inside a relationship structure, not an isolated presentation. Each synthetic cohort has a latent binary property. A subject's protected label and public peer proxy are independently correlated with that latent property at a frozen probability. The target's own row is excluded from the peer evidence for each attack.
+The unit of analysis is a target inside a relationship structure, not an isolated presentation. Each synthetic cohort has a latent binary property. A subject's protected label and public peer proxy are independently correlated with that latent property at a frozen probability. The target's own row is excluded from the peer evidence for each attack. Exact-cohort membership or coarse-bucket membership is deliberately available as side information in the corresponding attacker arm; this relationship metadata is not counted as disclosure of the target's protected value.
 
 This deliberately tests a privacy externality: a target may reveal nothing and still be inferable because peers disclosed correlated data. It is not enough to assert that each person's own disclosure is minimized.
 
@@ -24,7 +24,7 @@ Training and test cohort identifiers occupy disjoint ranges. The report uses a d
 
 ## Metrics
 
-Accuracy and balanced accuracy are reported in parts per million (ppm), along with prior accuracy and lift above the prior. The report also records the number of peer observations consumed, missing peer rows relative to exact-cohort access, and direct target disclosures.
+Accuracy and balanced accuracy are reported in parts per million (ppm), along with prior accuracy and lift above the prior. The report also records the number of peer observations consumed, missing peer rows relative to exact-cohort access, and direct protected-attribute/claim disclosures.
 
 Evidence access and inference accuracy remain separate. Evidence-row counts are not a user-utility metric; they are only an auditable proxy for how much target-linked evidence was available in this synthetic model. A real utility / fairness evaluation requires a separate task-specific benchmark.
 
@@ -43,7 +43,7 @@ The dedicated workflow checks out and asserts the exact PR-head commit, runs for
 
 ## Proposed acceptance criteria
 
-- Zero direct target disclosures in all profiles.
+- Zero direct protected-attribute/claim disclosures in all profiles.
 - Identical report bytes for identical source and manifest.
 - Randomized-peer and uncorrelated-target controls remain within the frozen 100,000 ppm absolute accuracy-vs-prior tolerance.
 - At the frozen large-cohort positive control, strong peer correlation exceeds weak peer correlation by at least 200,000 ppm accuracy.
