@@ -3,7 +3,6 @@ use std::fmt::Write as _;
 
 const INITIAL_POLICY_EPOCH: u64 = 1;
 const INITIAL_MEMBERSHIP_EPOCH: u64 = 1;
-const SEED: u64 = 5_479;
 const MANIFEST: &str = include_str!("../manifest.json");
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -15,6 +14,7 @@ struct BudgetPolicy {
 }
 
 impl BudgetPolicy {
+    #[cfg(test)]
     const fn standard() -> Self {
         Self {
             person_per_domain: 8,
