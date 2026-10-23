@@ -305,6 +305,33 @@
       "expected": "evaluate_each_instrument_cap_independently",
       "code_test": "aggregate_gross_exposure_cannot_be_double_committed_across_federations",
       "execution_status": "defined_not_run"
+    },
+    {
+      "id": "NCF-FED-007",
+      "title": "New obligations require explicit aggregate caps for both communities",
+      "class": "missing_risk_policy",
+      "attack": "Attempt a new obligation when either involved community has not configured an aggregate cap for the exact instrument.",
+      "expected": "reject_without_state_change",
+      "code_test": "clearing_requires_explicit_aggregate_caps_and_zero_cap_disables_new_obligations",
+      "execution_status": "defined_not_run"
+    },
+    {
+      "id": "NCF-FED-008",
+      "title": "A zero aggregate cap explicitly blocks new exposure",
+      "class": "zero_exposure_policy",
+      "attack": "Attempt a new obligation when one community has explicitly set the exact instrument's aggregate cap to zero.",
+      "expected": "reject_without_state_change",
+      "code_test": "clearing_requires_explicit_aggregate_caps_and_zero_cap_disables_new_obligations",
+      "execution_status": "defined_not_run"
+    },
+    {
+      "id": "NCF-FED-009",
+      "title": "Rejected missing-cap and zero-cap attempts do not consume event identity",
+      "class": "retry_after_policy_change",
+      "attack": "Retry the identical event ID after both communities install a positive, adequate cap; it must apply once, not be stuck as a phantom prior event.",
+      "expected": "later_retry_applies_once",
+      "code_test": "clearing_requires_explicit_aggregate_caps_and_zero_cap_disables_new_obligations",
+      "execution_status": "defined_not_run"
     }
   ],
   "benchmark_campaigns": [
