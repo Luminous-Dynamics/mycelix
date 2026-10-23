@@ -57,8 +57,8 @@ pub enum ReservationApply {
 pub struct ReservationBook {
     community_caps: BTreeMap<(String, String), u64>,
     agreement_caps: BTreeMap<(String, String), u64>,
-    /// Counterparty identities are immutable for an agreement/instrument across all shards and epochs.
-    agreement_parties: BTreeMap<(String, String), (String, String)>,
+    /// Counterparty identities are immutable for an agreement across instruments, shards, and epochs.
+    agreement_parties: BTreeMap<String, (String, String)>,
     reservations: BTreeMap<ReservationKey, Reservation>,
     outstanding: BTreeMap<ReservationKey, u64>,
     /// Event IDs are globally unique within this reference ledger. A distributed
@@ -136,7 +136,7 @@ impl ReservationBook {
             };
         }
 
-        let agreement_key = (key.agreement_id.clone(), key.instrument.clone());
+        let agreement_key = key.agreement_id.clone();
         let parties = (community_a.to_owned(), community_b.to_owned());
         if let Some(existing_parties) = self.agreement_parties.get(&agreement_key) {
             if existing_parties != &parties {
@@ -419,6 +419,19 @@ mod tests {
         assert_eq!(book.allocated_to_agreement("edge:ab", "unit:local"), Ok(100));
         assert_eq!(book.allocated_to_community("a", "unit:local"), Ok(100));
         assert_eq!(book.allocated_to_community("b", "unit:local"), Ok(100));
+
+        // The agreement's counterparty pair is stable even when a separate instrument
+        // budget is added under the same agreement ID.
+        for community in ["a", "b", "c"] {
+            book.set_community_cap(community, "unit:water", 20).unwrap();
+        }
+        book.set_agreement_cap("edge:ab", "unit:water", 20).unwrap();
+        let water_key = key("edge:ab", "unit:water", "shard-water", 1);
+        assert_eq!(
+            book.reserve(water_key.clone(), "a", "c", 10),
+            Err(ReservationError::AgreementPartiesMismatch)
+        );
+        assert_eq!(book.reserve(water_key, "a", "b", 20), Ok(ReservationApply::Reserved));
     }
 
     #[test]
