@@ -17,14 +17,15 @@ This deliberately tests a privacy externality: a target may reveal nothing and s
 - population_prior: predict using a majority label learned from separate training cohorts; inspect no target-linked peers.
 - exact_cohort_peer_majority: use only the public proxy observations of other subjects in the target's exact synthetic cohort.
 - coarse_neighborhood_peer_majority: use proxy observations from a coarse bucket that merges four latent cohorts, hiding exact cohort identity but retaining neighborhood linkage.
+- overlapping_group_union_peer_majority: the target has a primary cohort and a second cross-cohort membership. The attacker sees other peers who share either relationship and deduplicates subjects; this models households/co-ops/workplaces overlapping a different community partition.
 - randomized_peer_negative_control: use randomly assigned peer proxy labels; the attacker should fall back toward its prior.
 - uncorrelated_target_negative_control: score an independent target secret against cohort-correlated peer proxies; the peers should not improve inference materially.
 
-Training and test cohort identifiers occupy disjoint ranges. The report uses a deterministic xorshift64* generator with a fixed seed derivation and no third-party dependencies. The experiment sweeps 4, 8, 16 and 32 subjects per cohort and peer-signal probabilities from 0.55 to 0.95.
+Training and test cohort identifiers occupy disjoint ranges. The report uses a deterministic xorshift64* generator with a fixed seed derivation and no third-party dependencies. The experiment sweeps 4, 8, 16 and 32 subjects per primary cohort and peer-signal probabilities from 0.55 to 0.95. Secondary-group identifiers are assigned independently of protected labels and cross primary-cohort boundaries. The overlapping attacker uses the union of primary-cohort and secondary-group neighbors, with a subject counted once.
 
 ## Metrics
 
-Accuracy and balanced accuracy are reported in parts per million (ppm), along with prior accuracy and lift above the prior. The report also records the number of peer observations consumed, signed peer-observation delta relative to exact-cohort access (positive means more peer records exposed; negative means fewer), and direct protected-attribute/claim disclosures.
+Accuracy and balanced accuracy are reported in parts per million (ppm), along with prior accuracy and lift above the prior. The report also records the number of peer observations consumed, signed peer-observation delta relative to exact-cohort access (positive means more peer records exposed; negative means fewer), and direct protected-attribute/claim disclosures. The exact, coarse and overlapping relation arms are deliberately not ranked as “more private” based on metadata coarsening alone: each changes both the attacker-visible relationship partition and number of peers.
 
 Evidence access and inference accuracy remain separate. The signed peer-observation delta is relative to exposing the exact cohort (positive means more peer records are visible, negative means fewer); it is not a user-utility metric, calibrated privacy loss, or a monotone guarantee that coarsening improves privacy. The regression suite also flips the protected labels and independent evaluation secrets while holding attacker-visible views fixed and requires all predictions/confidence records to remain identical. A real utility / fairness evaluation requires a separate task-specific benchmark.
 
