@@ -66,7 +66,7 @@ pub fn authorize(
     }
     if !cap.actions.contains(&action) { return Err(Error::ActionNotGranted); }
     if cap.revision != profile.revision { return Err(Error::StaleRevision); }
-    if now > cap.expires_at { return Err(Error::CapabilityExpired); }
+    if now >= cap.expires_at { return Err(Error::CapabilityExpired); }
     if let (Some(limit), Some(value)) = (cap.max_amount, amount) {
         if value < 0 || value > limit { return Err(Error::ExposureLimit); }
     }
@@ -92,6 +92,7 @@ impl Registry {
 pub struct Exchange {
     pub id: String,
     pub instrument: String,
+    pub profile_revision: u64,
     pub provider: String,
     pub receiver: String,
     pub amount: i64,
@@ -124,6 +125,7 @@ impl MutualCredit {
         }
         profile.validate()?;
         if event.instrument != profile.id { return Err(Error::UnknownInstrument); }
+        if event.profile_revision != profile.revision { return Err(Error::StaleRevision); }
         if profile.family != Family::MutualCredit { return Err(Error::WrongFamily); }
         if !profile.active { return Err(Error::Inactive); }
         if event.provider == event.receiver { return Err(Error::SameParticipant); }
@@ -157,14 +159,15 @@ pub struct Agreement {
     pub community_a: String,
     pub community_b: String,
     pub instrument: String,
+    pub revision: u64,
     pub max_abs_outstanding: i64,
     pub status: AgreementStatus,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 enum ClearingEvent {
-    Obligation { agreement: String, instrument: String, delta: i64 },
-    Settlement { agreement: String, instrument: String, amount: u64 },
+    Obligation { agreement: String, instrument: String, revision: u64, delta: i64 },
+    Settlement { agreement: String, instrument: String, revision: u64, amount: u64 },
 }
 
 #[derive(Default)]
@@ -198,10 +201,10 @@ impl Clearing {
     }
 
     pub fn obligation(&mut self, event_id: &str, agreement_id: &str, instrument: &str,
-        delta: i64) -> Result<Apply, Error> {
+        revision: u64, delta: i64) -> Result<Apply, Error> {
         if event_id.trim().is_empty() { return Err(Error::InvalidEventId); }
         let ev = ClearingEvent::Obligation {
-            agreement: agreement_id.into(), instrument: instrument.into(), delta
+            agreement: agreement_id.into(), instrument: instrument.into(), revision, delta
         };
         if let Some(old) = self.events.get(event_id) {
             return if old == &ev { Ok(Apply::Duplicate) } else { Err(Error::ReplayMismatch) };
@@ -209,6 +212,7 @@ impl Clearing {
         if delta == 0 { return Err(Error::InvalidAmount); }
         let a = self.agreements.get(agreement_id).ok_or(Error::InvalidAgreement)?;
         if a.instrument != instrument { return Err(Error::InvalidAgreement); }
+        if a.revision != revision { return Err(Error::StaleRevision); }
         if a.status != AgreementStatus::Active { return Err(Error::AgreementPaused); }
         let next = self.outstanding(agreement_id)?.checked_add(delta).ok_or(Error::Overflow)?;
         if next.unsigned_abs() > a.max_abs_outstanding as u64 { return Err(Error::ExposureLimit); }
@@ -219,10 +223,10 @@ impl Clearing {
 
     /// Settles existing obligations even when the peering edge is paused.
     pub fn settle(&mut self, event_id: &str, agreement_id: &str, instrument: &str,
-        amount: u64) -> Result<Apply, Error> {
+        revision: u64, amount: u64) -> Result<Apply, Error> {
         if event_id.trim().is_empty() { return Err(Error::InvalidEventId); }
         let ev = ClearingEvent::Settlement {
-            agreement: agreement_id.into(), instrument: instrument.into(), amount
+            agreement: agreement_id.into(), instrument: instrument.into(), revision, amount
         };
         if let Some(old) = self.events.get(event_id) {
             return if old == &ev { Ok(Apply::Duplicate) } else { Err(Error::ReplayMismatch) };
@@ -230,6 +234,7 @@ impl Clearing {
         if amount == 0 { return Err(Error::InvalidAmount); }
         let a = self.agreements.get(agreement_id).ok_or(Error::InvalidAgreement)?;
         if a.instrument != instrument { return Err(Error::InvalidAgreement); }
+        if a.revision != revision { return Err(Error::StaleRevision); }
         let current = self.outstanding(agreement_id)?;
         if current == 0 { return Err(Error::NothingOutstanding); }
         if amount > current.unsigned_abs() { return Err(Error::SettlementTooLarge); }
@@ -251,12 +256,12 @@ mod tests {
             family, revision: 1, active: true, max_abs_balance: 10_000 }
     }
     fn exchange(id: &str, profile: &Profile, amount: i64) -> Exchange {
-        Exchange { id: id.into(), instrument: profile.id.clone(),
+        Exchange { id: id.into(), instrument: profile.id.clone(), profile_revision: profile.revision,
             provider: "alice".into(), receiver: "bob".into(), amount }
     }
     fn agreement(id: &str, instrument: &str, cap: i64) -> Agreement {
         Agreement { id: id.into(), community_a: "a".into(), community_b: "b".into(),
-            instrument: instrument.into(), max_abs_outstanding: cap, status: AgreementStatus::Active }
+            instrument: instrument.into(), revision: 1, max_abs_outstanding: cap, status: AgreementStatus::Active }
     }
 
     #[test]
@@ -280,7 +285,7 @@ mod tests {
             Err(Error::ActionNotGranted));
         assert_eq!(authorize("did:other", &p, Action::Amend, Some(8), 99, &cap),
             Err(Error::InvalidCapability));
-        assert_eq!(authorize("did:federation", &p, Action::Amend, Some(8), 101, &cap),
+        assert_eq!(authorize("did:federation", &p, Action::Amend, Some(8), 100, &cap),
             Err(Error::CapabilityExpired));
         let mut stale = cap.clone(); stale.revision = 0;
         assert_eq!(authorize("did:federation", &p, Action::Amend, Some(8), 99, &stale),
@@ -318,23 +323,23 @@ mod tests {
         let mut c = Clearing::default();
         c.add(agreement("edge:ab", "cc:local", 100)).unwrap();
         c.add(agreement("edge:ac", "cc:local", 100)).unwrap();
-        assert_eq!(c.obligation("ob:1", "edge:ab", "cc:local", 70), Ok(Apply::Applied));
-        assert_eq!(c.obligation("ob:2", "edge:ab", "cc:local", 40), Err(Error::ExposureLimit));
-        assert_eq!(c.obligation("ob:3", "edge:ac", "cc:local", 90), Ok(Apply::Applied));
+        assert_eq!(c.obligation("ob:1", "edge:ab", "cc:local", 1, 70), Ok(Apply::Applied));
+        assert_eq!(c.obligation("ob:2", "edge:ab", "cc:local", 1, 40), Err(Error::ExposureLimit));
+        assert_eq!(c.obligation("ob:3", "edge:ac", "cc:local", 1, 90), Ok(Apply::Applied));
         c.pause("edge:ab").unwrap();
-        assert_eq!(c.obligation("ob:4", "edge:ab", "cc:local", 1), Err(Error::AgreementPaused));
-        assert_eq!(c.settle("set:1", "edge:ab", "cc:local", 20), Ok(Apply::Applied));
+        assert_eq!(c.obligation("ob:4", "edge:ab", "cc:local", 1, 1), Err(Error::AgreementPaused));
+        assert_eq!(c.settle("set:1", "edge:ab", "cc:local", 1, 20), Ok(Apply::Applied));
         assert_eq!(c.outstanding("edge:ab"), Ok(50));
-        assert_eq!(c.settle("set:1", "edge:ab", "cc:local", 20), Ok(Apply::Duplicate));
+        assert_eq!(c.settle("set:1", "edge:ab", "cc:local", 1, 20), Ok(Apply::Duplicate));
     }
 
     #[test]
     fn settlement_cannot_overrun_outstanding_and_wrong_instrument_is_rejected() {
         let mut c = Clearing::default();
         c.add(agreement("edge:ab", "cc:local", 100)).unwrap();
-        c.obligation("ob:1", "edge:ab", "cc:local", -25).unwrap();
-        assert_eq!(c.settle("set:1", "edge:ab", "cc:local", 26), Err(Error::SettlementTooLarge));
-        assert_eq!(c.obligation("ob:2", "edge:ab", "cc:other", 1), Err(Error::InvalidAgreement));
+        c.obligation("ob:1", "edge:ab", "cc:local", 1, -25).unwrap();
+        assert_eq!(c.settle("set:1", "edge:ab", "cc:local", 1, 26), Err(Error::SettlementTooLarge));
+        assert_eq!(c.obligation("ob:2", "edge:ab", "cc:other", 1, 1), Err(Error::InvalidAgreement));
         assert_eq!(c.outstanding("edge:ab"), Ok(-25));
     }
 
@@ -352,7 +357,7 @@ mod tests {
             if receiver == provider { receiver = (receiver + 1) % names.len(); }
             let amount = ((state >> 32) % 3 + 1) as i64;
             let event = Exchange { id: format!("stress:{i}"), instrument: p.id.clone(),
-                provider: names[provider].clone(), receiver: names[receiver].clone(), amount };
+                profile_revision: p.revision, provider: names[provider].clone(), receiver: names[receiver].clone(), amount };
             l.apply(&p, event).unwrap();
             if i % 10_000 == 0 { assert_eq!(l.net(&p.id), 0, "drift at op {i}"); }
         }
