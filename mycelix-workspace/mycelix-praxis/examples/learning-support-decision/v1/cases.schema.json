@@ -57,6 +57,7 @@
         "counterfactual_group",
         "counterfactual_peer",
         "counterfactual_relation",
+        "counterfactual_dimension",
         "prompt",
         "context",
         "acceptable_actions",
@@ -137,6 +138,17 @@
         "rationale": {
           "type": "string",
           "minLength": 10
+        },
+        "counterfactual_dimension": {
+          "type": "string",
+          "enum": [
+            "displacement_risk",
+            "support_availability",
+            "accessibility_availability",
+            "evidence_sufficiency",
+            "peer_availability",
+            "assessment_policy"
+          ]
         }
       }
     },
