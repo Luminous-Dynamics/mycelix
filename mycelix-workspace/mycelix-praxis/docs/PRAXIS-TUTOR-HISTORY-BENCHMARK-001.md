@@ -33,9 +33,9 @@ The v1 taxonomy is finite and deliberately not a universal theory of learning. I
 Report each separately. Do not collapse them into a weighted score that can compensate for safety/evidence failures.
 
 1. **Acceptable-decision rate**: disposition and, when relevant, diagnosis/action/request match the oracle's accepted labels.
-2. **Supporting-evidence coverage** and **contradicting-evidence coverage**: fraction of oracle-required IDs returned in the correct lists.
+2. **Supporting-evidence coverage** and **contradicting-evidence coverage**: fraction of oracle-required IDs returned in the correct lists for claims; safe abstentions do not incur citation-omission penalties.
 3. **Evidence precision**: cited observation IDs that actually exist in that case, separately for support and contradiction.
-4. **Critical violations**: unsupported evidence references, omitted required contradictions, and claims made when the oracle does not permit a claim. Target is zero.
+4. **Critical violations**: unsupported evidence references, omitted required contradictions in claims, and claims made when the oracle does not permit a claim. Target is zero.
 5. **Appropriate uncertainty**: correct requests for missing evidence and abstentions on histories that do not justify a claim; also report unnecessary abstention.
 6. **Metamorphic suite (next stage)**: row-order invariance; invariance to irrelevant evidence; sensitivity to changed assistance labels, recency and missing metadata; rejection of corrupted provenance; whole-trajectory train/dev/test splits.
 
