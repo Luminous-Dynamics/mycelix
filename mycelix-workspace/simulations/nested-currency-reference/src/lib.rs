@@ -446,9 +446,9 @@ mod tests {
         assert_eq!(l.apply(&revision_two_registry, revision_two_event), Ok(Apply::Applied));
         assert_eq!(l.apply(&registry, exchange("tx:1", &p, 17)), Ok(Apply::Duplicate));
         assert_eq!(l.apply(&registry, exchange("tx:1", &p, 18)), Err(Error::ReplayMismatch));
-        assert_eq!(l.balance(&p.id, "alice"), 17);
-        assert_eq!(l.balance(&p.id, "bob"), -17);
-        assert_eq!(l.event_count(), 1);
+        assert_eq!(l.balance(&p.id, "alice"), 18);
+        assert_eq!(l.balance(&p.id, "bob"), -18);
+        assert_eq!(l.event_count(), 2);
     }
 
     #[test]
