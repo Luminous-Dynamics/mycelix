@@ -212,7 +212,7 @@ where
     let mut training: BTreeMap<String, [usize; 2]> = BTreeMap::new();
     for example in data
         .iter()
-        .filter(|row| (row.pair_id / PUBLIC_CONTEXT_BUCKETS) % 2 == 0)
+        .filter(|row| (row.pair_id / PUBLIC_CONTEXT_BUCKETS).is_multiple_of(2))
     {
         let counts = training.entry(feature(&example.trace)).or_insert([0, 0]);
         counts[usize::from(example.protected_label)] += 1;
@@ -225,7 +225,7 @@ where
 
     for example in data
         .iter()
-        .filter(|row| (row.pair_id / PUBLIC_CONTEXT_BUCKETS) % 2 == 1)
+        .filter(|row| !(row.pair_id / PUBLIC_CONTEXT_BUCKETS).is_multiple_of(2))
     {
         let counts = training
             .get(&feature(&example.trace))
@@ -266,15 +266,14 @@ fn write_row(
     let mismatch_rate_ppm = mismatch_count as u64 * MILLION / PAIR_COUNT as u64;
     writeln!(
         output,
-        "{},{},{},{},{},{},{},{}",
+        "{},{},{},{},{},{},{},false",
         scenario.name(),
         observer_channel,
         PAIR_COUNT,
         mismatch_count,
         mismatch_rate_ppm,
         accuracy_ppm,
-        task_result_agreement_ppm(data),
-        false
+        task_result_agreement_ppm(data)
     )
     .expect("write to string");
 }
@@ -316,6 +315,7 @@ fn report() -> String {
 }
 
 fn main() {
+    let _manifest = MANIFEST;
     print!("{}", report());
 }
 
