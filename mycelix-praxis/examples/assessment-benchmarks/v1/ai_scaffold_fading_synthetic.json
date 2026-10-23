@@ -1,0 +1,287 @@
+{
+  "schema_version": 1,
+  "protocol_id": "PRAxis-AI-SCAFFOLD-001",
+  "rubric_version": "debugging-rubric-v1",
+  "require_30_day_retention": true,
+  "arms": [
+    {
+      "arm_id": "active_retrieval",
+      "intervention": "time-matched-active-baseline",
+      "description": "Independent baseline and practice with retrieval prompts and feedback; no AI answer generation.",
+      "allowed_practice_assistance": [
+        "unaided"
+      ]
+    },
+    {
+      "arm_id": "ai_hint_fade",
+      "intervention": "hint-first-scaffold-fading",
+      "description": "Practice provides hints and feedback, then fades assistance; all anchor assessments are unaided.",
+      "allowed_practice_assistance": [
+        "hint",
+        "scaffolded"
+      ]
+    },
+    {
+      "arm_id": "ai_direct_answer",
+      "intervention": "direct-answer-ai",
+      "description": "Practice provides direct-answer assistance; all anchor assessments are unaided.",
+      "allowed_practice_assistance": [
+        "direct_answer"
+      ]
+    }
+  ],
+  "episodes": [
+    {
+      "participant_ref": "synthetic-learner-01",
+      "arm_id": "active_retrieval",
+      "task_family_id": "debugging-basic",
+      "attempts": [
+        {
+          "attempt_id": "synthetic-learner-01-baseline",
+          "phase": "baseline",
+          "task_family_id": "debugging-basic",
+          "task_form_id": "debugging-basic-baseline-A",
+          "task_form_version": "form-v1",
+          "assistance": "unaided",
+          "score_permille": 350,
+          "completed_at_unix_seconds": 1700000000,
+          "rubric_version": "debugging-rubric-v1"
+        },
+        {
+          "attempt_id": "synthetic-learner-01-practice-1",
+          "phase": "practice",
+          "task_family_id": "debugging-basic",
+          "task_form_id": "debugging-basic-practice-X",
+          "task_form_version": "form-v1",
+          "assistance": "unaided",
+          "score_permille": 420,
+          "completed_at_unix_seconds": 1700000500,
+          "rubric_version": "debugging-rubric-v1"
+        },
+        {
+          "attempt_id": "synthetic-learner-01-practice-2",
+          "phase": "practice",
+          "task_family_id": "debugging-basic",
+          "task_form_id": "debugging-basic-practice-X",
+          "task_form_version": "form-v1",
+          "assistance": "unaided",
+          "score_permille": 480,
+          "completed_at_unix_seconds": 1700001000,
+          "rubric_version": "debugging-rubric-v1"
+        },
+        {
+          "attempt_id": "synthetic-learner-01-post",
+          "phase": "immediate_post",
+          "task_family_id": "debugging-basic",
+          "task_form_id": "debugging-basic-post-B",
+          "task_form_version": "form-v1",
+          "assistance": "unaided",
+          "score_permille": 520,
+          "completed_at_unix_seconds": 1700001300,
+          "rubric_version": "debugging-rubric-v1"
+        },
+        {
+          "attempt_id": "synthetic-learner-01-transfer",
+          "phase": "transfer",
+          "task_family_id": "debugging-basic",
+          "task_form_id": "debugging-basic-transfer-C",
+          "task_form_version": "form-v1",
+          "assistance": "unaided",
+          "score_permille": 510,
+          "completed_at_unix_seconds": 1700001500,
+          "rubric_version": "debugging-rubric-v1"
+        },
+        {
+          "attempt_id": "synthetic-learner-01-ret14",
+          "phase": "retention_14_day",
+          "task_family_id": "debugging-basic",
+          "task_form_id": "debugging-basic-retention-D",
+          "task_form_version": "form-v1",
+          "assistance": "unaided",
+          "score_permille": 500,
+          "completed_at_unix_seconds": 1701210700,
+          "rubric_version": "debugging-rubric-v1"
+        },
+        {
+          "attempt_id": "synthetic-learner-01-ret30",
+          "phase": "retention_30_day",
+          "task_family_id": "debugging-basic",
+          "task_form_id": "debugging-basic-retention-E",
+          "task_form_version": "form-v1",
+          "assistance": "unaided",
+          "score_permille": 480,
+          "completed_at_unix_seconds": 1702593100,
+          "rubric_version": "debugging-rubric-v1"
+        }
+      ]
+    },
+    {
+      "participant_ref": "synthetic-learner-02",
+      "arm_id": "ai_hint_fade",
+      "task_family_id": "debugging-basic",
+      "attempts": [
+        {
+          "attempt_id": "synthetic-learner-02-baseline",
+          "phase": "baseline",
+          "task_family_id": "debugging-basic",
+          "task_form_id": "debugging-basic-baseline-A",
+          "task_form_version": "form-v1",
+          "assistance": "unaided",
+          "score_permille": 330,
+          "completed_at_unix_seconds": 1700007200,
+          "rubric_version": "debugging-rubric-v1"
+        },
+        {
+          "attempt_id": "synthetic-learner-02-practice-1",
+          "phase": "practice",
+          "task_family_id": "debugging-basic",
+          "task_form_id": "debugging-basic-practice-X",
+          "task_form_version": "form-v1",
+          "assistance": "hint",
+          "score_permille": 650,
+          "completed_at_unix_seconds": 1700007700,
+          "rubric_version": "debugging-rubric-v1"
+        },
+        {
+          "attempt_id": "synthetic-learner-02-practice-2",
+          "phase": "practice",
+          "task_family_id": "debugging-basic",
+          "task_form_id": "debugging-basic-practice-X",
+          "task_form_version": "form-v1",
+          "assistance": "scaffolded",
+          "score_permille": 740,
+          "completed_at_unix_seconds": 1700008200,
+          "rubric_version": "debugging-rubric-v1"
+        },
+        {
+          "attempt_id": "synthetic-learner-02-post",
+          "phase": "immediate_post",
+          "task_family_id": "debugging-basic",
+          "task_form_id": "debugging-basic-post-B",
+          "task_form_version": "form-v1",
+          "assistance": "unaided",
+          "score_permille": 710,
+          "completed_at_unix_seconds": 1700008500,
+          "rubric_version": "debugging-rubric-v1"
+        },
+        {
+          "attempt_id": "synthetic-learner-02-transfer",
+          "phase": "transfer",
+          "task_family_id": "debugging-basic",
+          "task_form_id": "debugging-basic-transfer-C",
+          "task_form_version": "form-v1",
+          "assistance": "unaided",
+          "score_permille": 690,
+          "completed_at_unix_seconds": 1700008700,
+          "rubric_version": "debugging-rubric-v1"
+        },
+        {
+          "attempt_id": "synthetic-learner-02-ret14",
+          "phase": "retention_14_day",
+          "task_family_id": "debugging-basic",
+          "task_form_id": "debugging-basic-retention-D",
+          "task_form_version": "form-v1",
+          "assistance": "unaided",
+          "score_permille": 660,
+          "completed_at_unix_seconds": 1701217900,
+          "rubric_version": "debugging-rubric-v1"
+        },
+        {
+          "attempt_id": "synthetic-learner-02-ret30",
+          "phase": "retention_30_day",
+          "task_family_id": "debugging-basic",
+          "task_form_id": "debugging-basic-retention-E",
+          "task_form_version": "form-v1",
+          "assistance": "unaided",
+          "score_permille": 630,
+          "completed_at_unix_seconds": 1702600300,
+          "rubric_version": "debugging-rubric-v1"
+        }
+      ]
+    },
+    {
+      "participant_ref": "synthetic-learner-03",
+      "arm_id": "ai_direct_answer",
+      "task_family_id": "debugging-basic",
+      "attempts": [
+        {
+          "attempt_id": "synthetic-learner-03-baseline",
+          "phase": "baseline",
+          "task_family_id": "debugging-basic",
+          "task_form_id": "debugging-basic-baseline-A",
+          "task_form_version": "form-v1",
+          "assistance": "unaided",
+          "score_permille": 340,
+          "completed_at_unix_seconds": 1700014400,
+          "rubric_version": "debugging-rubric-v1"
+        },
+        {
+          "attempt_id": "synthetic-learner-03-practice-1",
+          "phase": "practice",
+          "task_family_id": "debugging-basic",
+          "task_form_id": "debugging-basic-practice-X",
+          "task_form_version": "form-v1",
+          "assistance": "direct_answer",
+          "score_permille": 900,
+          "completed_at_unix_seconds": 1700014900,
+          "rubric_version": "debugging-rubric-v1"
+        },
+        {
+          "attempt_id": "synthetic-learner-03-practice-2",
+          "phase": "practice",
+          "task_family_id": "debugging-basic",
+          "task_form_id": "debugging-basic-practice-X",
+          "task_form_version": "form-v1",
+          "assistance": "direct_answer",
+          "score_permille": 950,
+          "completed_at_unix_seconds": 1700015400,
+          "rubric_version": "debugging-rubric-v1"
+        },
+        {
+          "attempt_id": "synthetic-learner-03-post",
+          "phase": "immediate_post",
+          "task_family_id": "debugging-basic",
+          "task_form_id": "debugging-basic-post-B",
+          "task_form_version": "form-v1",
+          "assistance": "unaided",
+          "score_permille": 620,
+          "completed_at_unix_seconds": 1700015700,
+          "rubric_version": "debugging-rubric-v1"
+        },
+        {
+          "attempt_id": "synthetic-learner-03-transfer",
+          "phase": "transfer",
+          "task_family_id": "debugging-basic",
+          "task_form_id": "debugging-basic-transfer-C",
+          "task_form_version": "form-v1",
+          "assistance": "unaided",
+          "score_permille": 500,
+          "completed_at_unix_seconds": 1700015900,
+          "rubric_version": "debugging-rubric-v1"
+        },
+        {
+          "attempt_id": "synthetic-learner-03-ret14",
+          "phase": "retention_14_day",
+          "task_family_id": "debugging-basic",
+          "task_form_id": "debugging-basic-retention-D",
+          "task_form_version": "form-v1",
+          "assistance": "unaided",
+          "score_permille": 440,
+          "completed_at_unix_seconds": 1701225100,
+          "rubric_version": "debugging-rubric-v1"
+        },
+        {
+          "attempt_id": "synthetic-learner-03-ret30",
+          "phase": "retention_30_day",
+          "task_family_id": "debugging-basic",
+          "task_form_id": "debugging-basic-retention-E",
+          "task_form_version": "form-v1",
+          "assistance": "unaided",
+          "score_permille": 390,
+          "completed_at_unix_seconds": 1702607500,
+          "rubric_version": "debugging-rubric-v1"
+        }
+      ]
+    }
+  ]
+}

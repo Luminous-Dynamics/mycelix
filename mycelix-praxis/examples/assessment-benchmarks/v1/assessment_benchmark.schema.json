@@ -1,0 +1,197 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:mycelix:praxis:assessment-benchmark:v1",
+  "title": "Praxis Assessment Benchmark Run v1",
+  "description": "Wire-format schema for comparative learning assessments. Structural validity does not establish mastery or causal efficacy.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "protocol_id",
+    "rubric_version",
+    "require_30_day_retention",
+    "arms",
+    "episodes"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": 1
+    },
+    "protocol_id": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": ".*\\S.*"
+    },
+    "rubric_version": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": ".*\\S.*"
+    },
+    "require_30_day_retention": {
+      "type": "boolean"
+    },
+    "arms": {
+      "type": "array",
+      "minItems": 2,
+      "items": {
+        "$ref": "#/$defs/BenchmarkArm"
+      }
+    },
+    "episodes": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/AssessmentEpisode"
+      }
+    }
+  },
+  "$defs": {
+    "BenchmarkArm": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "arm_id",
+        "intervention",
+        "description",
+        "allowed_practice_assistance"
+      ],
+      "properties": {
+        "arm_id": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": ".*\\S.*"
+        },
+        "intervention": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": ".*\\S.*"
+        },
+        "description": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": ".*\\S.*"
+        },
+        "allowed_practice_assistance": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/AssistanceMode"
+          }
+        }
+      }
+    },
+    "AssessmentEpisode": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "participant_ref",
+        "arm_id",
+        "task_family_id",
+        "attempts"
+      ],
+      "properties": {
+        "participant_ref": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": ".*\\S.*"
+        },
+        "arm_id": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": ".*\\S.*"
+        },
+        "task_family_id": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": ".*\\S.*"
+        },
+        "attempts": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/AssessmentAttempt"
+          }
+        }
+      }
+    },
+    "AssessmentAttempt": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "attempt_id",
+        "phase",
+        "task_family_id",
+        "task_form_id",
+        "task_form_version",
+        "assistance",
+        "score_permille",
+        "completed_at_unix_seconds",
+        "rubric_version"
+      ],
+      "properties": {
+        "attempt_id": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": ".*\\S.*"
+        },
+        "phase": {
+          "$ref": "#/$defs/AssessmentPhase"
+        },
+        "task_family_id": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": ".*\\S.*"
+        },
+        "task_form_id": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": ".*\\S.*"
+        },
+        "task_form_version": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": ".*\\S.*"
+        },
+        "assistance": {
+          "$ref": "#/$defs/AssistanceMode"
+        },
+        "score_permille": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 1000
+        },
+        "completed_at_unix_seconds": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "rubric_version": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": ".*\\S.*"
+        }
+      }
+    },
+    "AssessmentPhase": {
+      "type": "string",
+      "enum": [
+        "baseline",
+        "practice",
+        "immediate_post",
+        "transfer",
+        "retention_14_day",
+        "retention_30_day"
+      ]
+    },
+    "AssistanceMode": {
+      "type": "string",
+      "enum": [
+        "unaided",
+        "hint",
+        "scaffolded",
+        "tool_assisted",
+        "direct_answer",
+        "unknown"
+      ]
+    }
+  }
+}

@@ -1,0 +1,136 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:mycelix:praxis:study-context:v1",
+  "title": "Praxis Study Context Companion v1",
+  "description": "Context-only measurement contract for assigned support availability, actual use, learning-task participation, and explicit missingness. Does not encode learning efficacy or learner mastery.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "protocol_id",
+    "assessment_run_sha256",
+    "observations"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": 1
+    },
+    "protocol_id": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": ".*\\S.*"
+    },
+    "assessment_run_sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "observations": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/StudyContextObservation"
+      }
+    }
+  },
+  "$defs": {
+    "StudyContextObservation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "participant_ref",
+        "assigned_arm_id",
+        "period",
+        "support_availability",
+        "observation_status",
+        "support_invocations",
+        "support_seconds",
+        "scheduled_learning_tasks",
+        "attempted_learning_tasks",
+        "completed_learning_tasks",
+        "course_platform_sessions",
+        "course_platform_active_seconds",
+        "independent_practice_attempts"
+      ],
+      "properties": {
+        "participant_ref": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": ".*\\S.*"
+        },
+        "assigned_arm_id": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": ".*\\S.*"
+        },
+        "period": {
+          "$ref": "#/$defs/StudyPeriod"
+        },
+        "support_availability": {
+          "$ref": "#/$defs/SupportAvailability"
+        },
+        "observation_status": {
+          "$ref": "#/$defs/ObservationStatus"
+        },
+        "support_invocations": {
+          "$ref": "#/$defs/NullableCount"
+        },
+        "support_seconds": {
+          "$ref": "#/$defs/NullableCount"
+        },
+        "scheduled_learning_tasks": {
+          "$ref": "#/$defs/NullableCount"
+        },
+        "attempted_learning_tasks": {
+          "$ref": "#/$defs/NullableCount"
+        },
+        "completed_learning_tasks": {
+          "$ref": "#/$defs/NullableCount"
+        },
+        "independent_practice_attempts": {
+          "$ref": "#/$defs/NullableCount"
+        },
+        "course_platform_sessions": {
+          "$ref": "#/$defs/NullableCount"
+        },
+        "course_platform_active_seconds": {
+          "$ref": "#/$defs/NullableCount"
+        }
+      }
+    },
+    "NullableCount": {
+      "type": [
+        "integer",
+        "null"
+      ],
+      "minimum": 0
+    },
+    "StudyPeriod": {
+      "type": "string",
+      "enum": [
+        "baseline",
+        "intervention",
+        "follow_up_7_day",
+        "follow_up_30_day"
+      ]
+    },
+    "SupportAvailability": {
+      "type": "string",
+      "enum": [
+        "not_offered",
+        "available",
+        "unavailable",
+        "unknown"
+      ]
+    },
+    "ObservationStatus": {
+      "type": "string",
+      "enum": [
+        "complete",
+        "partial",
+        "not_collected",
+        "lost_to_follow_up",
+        "withdrawn"
+      ]
+    }
+  }
+}
