@@ -642,6 +642,97 @@ mod tests {
     }
 
     #[test]
+    fn omitted_required_contradiction_prevents_full_credit_despite_correct_action() {
+        let (manifest, _) = validate_history_bundle(OBSERVATIONS, ORACLE).expect("valid bundle");
+        let predictions = manifest.cases.into_iter().map(|case| {
+            if case.case_id == "TH001" {
+                HistoryPrediction {
+                    case_id: case.case_id,
+                    disposition: HistoryDisposition::Claim,
+                    diagnosis: Some(HistoryDiagnosis::PersistentMisconception),
+                    next_action: Some(HistoryAction::CollectUnassistedAttempt),
+                    supporting_evidence_ids: vec![
+                        "th001-e1".into(),
+                        "th001-e2".into(),
+                        "th001-e4".into(),
+                    ],
+                    contradicting_evidence_ids: vec![],
+                    requested_evidence: None,
+                }
+            } else {
+                abstaining_prediction(case.case_id)
+            }
+        }).collect();
+        let raw = serde_json::to_string(&prediction_manifest(predictions)).expect("serialize");
+        let score = score_history_predictions(OBSERVATIONS, ORACLE, &raw).expect("valid shape");
+        assert!(score.decision_fit_rate > score.acceptable_decision_rate);
+        assert_eq!(score.evidence_grounded_claims, 0);
+        assert_eq!(score.missing_required_contradictions, 1);
+        assert!(score.critical_violations >= 1);
+    }
+
+    #[test]
+    fn irrelevant_observation_preserves_semantic_scores_but_changes_digest() {
+        let (manifest, _) = validate_history_bundle(OBSERVATIONS, ORACLE).expect("valid bundle");
+        let build_predictions = |observation_json: &str, manifest: HistoryManifest| {
+            let predictions = manifest.cases.into_iter().map(|case| {
+                if case.case_id == "TH008" {
+                    HistoryPrediction {
+                        case_id: case.case_id,
+                        disposition: HistoryDisposition::Claim,
+                        diagnosis: Some(HistoryDiagnosis::ProvenUnassistedProgress),
+                        next_action: Some(HistoryAction::SpacedRetrieval),
+                        supporting_evidence_ids: vec![
+                            "th008-e1".into(),
+                            "th008-e2".into(),
+                            "th008-e4".into(),
+                        ],
+                        contradicting_evidence_ids: vec!["th008-e3".into()],
+                        requested_evidence: None,
+                    }
+                } else {
+                    abstaining_prediction(case.case_id)
+                }
+            }).collect();
+            serde_json::to_string(&HistoryPredictionManifest {
+                schema_version: 1,
+                benchmark_id: BENCHMARK_ID.into(),
+                observation_blake3: blake3::hash(observation_json.as_bytes()).to_hex().to_string(),
+                predictions,
+            }).expect("serialize predictions")
+        };
+        let original_predictions = build_predictions(OBSERVATIONS, manifest.clone());
+        let original_score = score_history_predictions(OBSERVATIONS, ORACLE, &original_predictions).expect("original score");
+
+        let mut mutated: serde_json::Value = serde_json::from_str(OBSERVATIONS).expect("JSON");
+        let cases = mutated["cases"].as_array_mut().expect("cases array");
+        let target = cases.iter_mut()
+            .find(|case| case["case_id"] == "TH008")
+            .expect("TH008 case");
+        target["observations"].as_array_mut().expect("observations array").push(serde_json::json!({
+            "observation_id": "th008-irrelevant-other-skill",
+            "sequence": 99,
+            "skill_id": "unrelated_skill",
+            "task_context": "unrelated_context",
+            "correctness": true,
+            "assistance": "none",
+            "origin": "recorded_attempt"
+        }));
+        let mutated_json = serde_json::to_string(&mutated).expect("serialize mutated observations");
+        let mutated_manifest: HistoryManifest = serde_json::from_str(&mutated_json).expect("parse mutated manifest");
+        let mutated_predictions = build_predictions(&mutated_json, mutated_manifest);
+        let mutated_score = score_history_predictions(&mutated_json, ORACLE, &mutated_predictions).expect("mutated score");
+
+        assert_ne!(original_score.observation_blake3, mutated_score.observation_blake3);
+        assert_eq!(original_score.decision_fit_rate, mutated_score.decision_fit_rate);
+        assert_eq!(original_score.acceptable_decision_rate, mutated_score.acceptable_decision_rate);
+        assert_eq!(original_score.evidence_grounded_claim_rate, mutated_score.evidence_grounded_claim_rate);
+        assert_eq!(original_score.required_supporting_evidence_coverage, mutated_score.required_supporting_evidence_coverage);
+        assert_eq!(original_score.required_contradicting_evidence_coverage, mutated_score.required_contradicting_evidence_coverage);
+        assert_eq!(original_score.critical_violations, mutated_score.critical_violations);
+    }
+
+    #[test]
     fn same_surface_accuracy_with_different_assistance_has_different_labels() {
         let (manifest, oracle) = validate_history_bundle(OBSERVATIONS, ORACLE).expect("valid bundle");
         let labels: BTreeMap<&str, &HistoryOracleLabel> = oracle.labels.iter().map(|label| (label.case_id.as_str(), label)).collect();
