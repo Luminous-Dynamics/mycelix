@@ -18,15 +18,27 @@ From the repository root, with a stable Rust toolchain installed:
 
 ```sh
 cargo fmt --manifest-path mycelix-workspace/simulations/nested-currency-reference/Cargo.toml -- --check
-cargo test --manifest-path mycelix-workspace/simulations/nested-currency-reference/Cargo.toml
+cargo test --locked --manifest-path mycelix-workspace/simulations/nested-currency-reference/Cargo.toml
 ```
 
-The test corpus contains deterministic negative controls plus a million-operation conservation stress test and 100,000 retry checks. It includes profile-registry binding, missing/negative amount caps, stale revision rejection, aggregate exposure caps, failed-operation state preservation, ticker-collision isolation, and settlement-after-pause semantics. These are **targets encoded as tests**, not evidence of a passing run until the exact committed revision has been compiled and executed.
+The test corpus contains deterministic negative controls plus a million-operation conservation stress test and 100,000 retry checks. It includes profile-registry binding, missing/negative amount caps, stale revision rejection, aggregate exposure caps scoped to the exact instrument, failed-operation state preservation, ticker-collision isolation, denomination stability, and settlement-after-pause semantics. These are **targets encoded as tests**, not evidence of a passing run until the exact committed revision has been compiled and executed.
+
+## Run a reproducible benchmark
+
+The release benchmark refuses to emit a record unless source SHA, NCF-1 spec digest, rustc version, and toolchain identity are supplied. The wrapper calculates these from the clean checkout and stores a checksum receipt outside the repository by default. It also keeps Cargo build output outside the checkout.
+
+```sh
+bash mycelix-workspace/simulations/nested-currency-reference/run-bench.sh 1000000 1000 0x4d5943454c495831
+```
+
+Arguments are operation count, participant count, and deterministic seed. Defaults are 1,000,000 operations, 1,000 participants, and the same seed. The runner bounds the workload at two million operations; use larger scale campaigns only after the memory and runtime envelope has been qualified. Override `NCF_OUTPUT_FILE` and `NCF_RECEIPT_FILE` to choose output paths.
+
+The JSON record measures one-process reference-model throughput and p50/p95/p99 *batch* latency, checking zero net position after each batch. Its throughput includes registry lookup, event persistence, BTreeMap accounting and conservation scans. It is **not** a Holochain/DHT, multi-agent, external-settlement or production throughput claim. Compare builds only under matched source/toolchain/hardware/workload settings, across multiple recorded seeds, and retain the output SHA-256 receipt.
 
 ## Next qualification stages
 
-- Add proptest or equivalent generated operation sequences with reproducible seeds.
+- Add property-based operation sequences with reproducible seeds.
 - Add multi-agent tests for concurrent submissions, replay, reordering, and partial-write recovery.
-- Bind all operations to canonical serialized profile/policy digests and consumed authorization IDs.
+- Bind production operations to canonical serialized profile/policy digests and consumed authorization IDs.
 - Extend profile-version tests into signed policy-digest and authorized migration receipts; the in-memory snapshot is not a cryptographic authority proof.
-- Integrate only after the existing Finance author-binding, typed-amount, and settlement/finality requirements qualify.
+- Integrate only after the existing Finance author-binding, issuer-scoped capability, typed-amount, and settlement/finality requirements qualify.
