@@ -567,7 +567,7 @@ mod tests {
         assert_eq!(c.obligation("ob:4", "edge:ab", "cc:local", 1, 1), Err(Error::AgreementPaused));
         assert_eq!(c.settle("set:1", "edge:ab", "cc:local", 1, ObligationDirection::AtoB, 20), Ok(Apply::Applied));
         assert_eq!(c.outstanding("edge:ab"), Ok(50));
-        assert_eq!(c.settle("set:1", "edge:ab", "cc:local", 1, 20), Ok(Apply::Duplicate));
+        assert_eq!(c.settle("set:1", "edge:ab", "cc:local", 1, ObligationDirection::AtoB, 20), Ok(Apply::Duplicate));
         assert_eq!(c.settle("set:1", "edge:ab", "cc:local", 1, ObligationDirection::AtoB, 21), Err(Error::ReplayMismatch));
     }
 
