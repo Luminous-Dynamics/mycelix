@@ -464,9 +464,15 @@ fn validate_selected_action(
             issue(issues, field, "protected_human_support_displacement", "AI-only support cannot replace protected human support under material displacement risk");
         }
         if request.support_options.iter().any(|option| option.action == AdvisorAction::HumanSupport && option.available && option.policy_permitted)
-            && !matches!(action, AdvisorAction::HumanSupport | AdvisorAction::EducatorCopilot)
+            && !matches!(
+                action,
+                AdvisorAction::HumanSupport
+                    | AdvisorAction::EducatorCopilot
+                    | AdvisorAction::AskClarifyingQuestion
+                    | AdvisorAction::AbstainAndEscalate
+            )
         {
-            issue(issues, field, "human_support_not_preserved", "action must preserve available human support or augment the educator");
+            issue(issues, field, "human_support_not_preserved", "action must preserve available human support, augment the educator, or safely escalate instead of replacing it");
         }
     }
 
