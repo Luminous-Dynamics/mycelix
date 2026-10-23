@@ -168,7 +168,7 @@ fn generate_population(
     let mut rng = Rng::new(seed);
     let mut subjects = Vec::with_capacity(group_count.saturating_mul(cohort_size));
 
-    let secondary_group_count = group_count.saturating_div(2).max(1);
+    let secondary_group_count = group_count.saturating_div(4).max(1);
     for group in 0..group_count {
         let latent = rng.bit();
         let cohort_id = cohort_id_base + group as u64;
