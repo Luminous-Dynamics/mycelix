@@ -132,6 +132,16 @@ The default clearing semantics are **gross-by-direction**: an obligation from A 
 
 A system may support netting only when a versioned agreement explicitly defines the legal/operational right of set-off, the eligible obligations and cycle, participant-default treatment, settlement finality, and how historical gross legs remain auditable. NCF-1's reference model does not implement qualified netting; it therefore preserves both directions and binds each settlement to the direction it reduces. This is deliberately conservative and is not a claim that gross-only accounting is optimal for all payment arrangements.
 
+### Partition-safe exposure slices
+
+Recomputing aggregate exposure from a global snapshot is safe in this sequential reference model, but is not by itself a distributed concurrency protocol. During a partition, two independent writers cannot assume the same unallocated community risk limit is available.
+
+For operations that must remain available offline, allocate non-overlapping gross-exposure reservations before the partition. The reservation identity includes the exact instrument, agreement, shard/owner, and epoch. A reservation consumes capacity against **both** involved communities' per-instrument caps and the agreement's cap. Each shard can admit new obligations only inside its own assigned slice; opposite-direction obligations still consume gross capacity.
+
+This deliberately trades some capacity utilization for safety. A settlement restores reusable room inside the same live reservation, but does not transfer that room to another shard. Unreachable or potentially stale owners retain their allocation until a separately qualified fencing/reconciliation step proves the old right can no longer be spent. A lease timeout alone is not proof of fencing. This first reference module does not implement reservation transfer, owner revocation, or capacity reclamation; no production availability claim should be inferred from it.
+
+The benchmark must report reserved capacity, used capacity, unused/stranded capacity by shard, global cap utilization, rejected over-slice attempts, and capacity unavailable while waiting for fencing. Safety and utilization are separate metrics.
+
 ## 7. Failure isolation and repair
 
 A failure in one currency or peering edge must not silently alter unrelated local ledgers. The default response should be to bound or pause the affected edge, preserve evidence, and initiate the previously agreed dispute/recovery path.
@@ -144,6 +154,7 @@ Required behavior includes:
 - a community's aggregate gross commitment across all peering edges remains within an explicitly configured cap for each exact instrument; if either community lacks that cap, new obligations fail closed rather than treating absence as unlimited permission; a zero cap deliberately disables new exposure; raw amounts from unlike instruments must not be summed as if they shared a unit;
 - policy fields cannot change under the same profile revision; limit changes must use an explicit new revision while issuer, family, and denomination semantics remain stable;
 - a network partition cannot increase a peer's exposure above its already qualified offline limit;
+- partitioned writers consume only disjoint, pre-allocated reservation slices; capacity from an unreachable owner is not reassigned without explicit fencing/reconciliation;
 - a currency can be suspended without silently confiscating balances or erasing claims;
 - correction and reversal events append a traceable reason and evidence; they do not rewrite history;
 - a federation-level guarantee or common risk pool is explicit, capped, funded under its own rules, and independently auditable;
@@ -233,6 +244,7 @@ These are proposed qualification targets, not achieved results.
 Benchmark 100, 1,000, and 10,000 participants across 1, 10, and 100 interconnected communities, varying transaction rate, credit exposure, federation depth, network partition duration, and clearing cadence. Report:
 - throughput and p50/p95/p99 latency for local exchange, clearing, and conversion separately;
 - directional gross outstanding vs signed net outstanding, gross-minus-absolute-net (the amount hidden by netting), rejected gross-cap breaches, and directional-settlement accuracy;
+- reserved vs used exposure capacity, unused/stranded capacity by shard, cap utilization, rejected over-slice attempts, and capacity unavailable pending owner fencing;
 - write amplification and bytes per transaction;
 - recovery time and reconciliation work after crash/partition;
 - maximum exposure when a peer disappears;
