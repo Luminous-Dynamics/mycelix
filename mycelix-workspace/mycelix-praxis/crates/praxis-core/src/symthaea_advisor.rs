@@ -225,6 +225,25 @@ pub enum SymthaeaAdvisorPortError {
     Transport(String),
 }
 
+/// Failure from the guarded request -> provider -> response-validation path.
+#[derive(Debug, thiserror::Error)]
+pub enum SymthaeaAdvisorInvocationError {
+    #[error("advisor request/response JSON is invalid: {0}")]
+    InvalidWireJson(#[from] serde_json::Error),
+    #[error("Praxis rejected the advisor request ({issue_count} validation finding(s))")]
+    InvalidRequest {
+        issue_count: usize,
+        issues: Vec<SymthaeaAdvisorIssue>,
+    },
+    #[error(transparent)]
+    Provider(#[from] SymthaeaAdvisorPortError),
+    #[error("Praxis rejected the advisor response ({issue_count} validation finding(s))")]
+    InvalidResponse {
+        issue_count: usize,
+        issues: Vec<SymthaeaAdvisorIssue>,
+    },
+}
+
 /// Parse with a strict typed contract. Unknown fields and unknown enum values fail.
 pub fn parse_symthaea_advisor_request(
     input: &str,
@@ -430,6 +449,37 @@ pub fn validate_symthaea_advice_for_request(
     Ok(issues)
 }
 
+/// Invoke an optional adviser through the only intended consumer path.
+///
+/// Praxis validates the request before calling the provider, then checks the
+/// response against the exact same request bytes. Provider unavailability is
+/// preserved as a distinct error so callers can fall back to deterministic
+/// Praxis planning without treating a failed call as a recommendation.
+pub fn invoke_symthaea_advisor<P: SymthaeaAdvisorPort>(
+    port: &P,
+    request_json: &str,
+) -> Result<SymthaeaAdvisorResponse, SymthaeaAdvisorInvocationError> {
+    let request = parse_symthaea_advisor_request(request_json)?;
+    let request_issues = validate_symthaea_advisor_request(&request);
+    if !request_issues.is_empty() {
+        return Err(SymthaeaAdvisorInvocationError::InvalidRequest {
+            issue_count: request_issues.len(),
+            issues: request_issues,
+        });
+    }
+
+    let response_json = port.advise(request_json)?;
+    let response_issues = validate_symthaea_advice_for_request(request_json, &response_json)?;
+    if !response_issues.is_empty() {
+        return Err(SymthaeaAdvisorInvocationError::InvalidResponse {
+            issue_count: response_issues.len(),
+            issues: response_issues,
+        });
+    }
+
+    Ok(parse_symthaea_advisor_response(&response_json)?)
+}
+
 impl SymthaeaAdvisorRequest {
     fn contextually_requires_accessible_support(&self) -> bool {
         !self.accessibility_requirements.is_empty()
@@ -564,6 +614,83 @@ mod tests {
 
     fn has_code(issues: &[SymthaeaAdvisorIssue], code: &str) -> bool {
         issues.iter().any(|issue| issue.code == code)
+    }
+
+    struct TestPort {
+        response: String,
+        called: std::cell::Cell<bool>,
+        unavailable: bool,
+    }
+
+    impl SymthaeaAdvisorPort for TestPort {
+        fn advise(&self, _request_json: &str) -> Result<String, SymthaeaAdvisorPortError> {
+            self.called.set(true);
+            if self.unavailable {
+                Err(SymthaeaAdvisorPortError::Unavailable)
+            } else {
+                Ok(self.response.clone())
+            }
+        }
+    }
+
+    #[test]
+    fn guarded_invocation_returns_only_a_validated_response() {
+        let port = TestPort {
+            response: valid_response_json(REQUEST_FIXTURE),
+            called: std::cell::Cell::new(false),
+            unavailable: false,
+        };
+        let response = invoke_symthaea_advisor(&port, REQUEST_FIXTURE)
+            .expect("mock response should satisfy the contract");
+        assert_eq!(response.disposition, AdviceDisposition::Recommend);
+        assert!(port.called.get());
+    }
+
+    #[test]
+    fn guarded_invocation_rejects_invalid_request_before_provider_dispatch() {
+        let mut request: Value = serde_json::from_str(REQUEST_FIXTURE).unwrap();
+        request["advisory_consent_granted"] = Value::Bool(false);
+        let request_json = serde_json::to_string(&request).unwrap();
+        let port = TestPort {
+            response: valid_response_json(&request_json),
+            called: std::cell::Cell::new(false),
+            unavailable: false,
+        };
+        let error = invoke_symthaea_advisor(&port, &request_json).unwrap_err();
+        assert!(matches!(error, SymthaeaAdvisorInvocationError::InvalidRequest { .. }));
+        assert!(!port.called.get(), "invalid request must not reach provider");
+    }
+
+    #[test]
+    fn guarded_invocation_rejects_digest_mismatched_provider_response() {
+        let mut response: Value = serde_json::from_str(&valid_response_json(REQUEST_FIXTURE)).unwrap();
+        response["request_digest_blake3"] = serde_json::json!("0".repeat(64));
+        let port = TestPort {
+            response: serde_json::to_string(&response).unwrap(),
+            called: std::cell::Cell::new(false),
+            unavailable: false,
+        };
+        let error = invoke_symthaea_advisor(&port, REQUEST_FIXTURE).unwrap_err();
+        match error {
+            SymthaeaAdvisorInvocationError::InvalidResponse { issues, .. } => {
+                assert!(has_code(&issues, "request_digest_mismatch"));
+            }
+            other => panic!("expected invalid response, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn guarded_invocation_preserves_provider_unavailable_for_fallback() {
+        let port = TestPort {
+            response: String::new(),
+            called: std::cell::Cell::new(false),
+            unavailable: true,
+        };
+        let error = invoke_symthaea_advisor(&port, REQUEST_FIXTURE).unwrap_err();
+        assert!(matches!(
+            error,
+            SymthaeaAdvisorInvocationError::Provider(SymthaeaAdvisorPortError::Unavailable)
+        ));
     }
 
     #[test]
