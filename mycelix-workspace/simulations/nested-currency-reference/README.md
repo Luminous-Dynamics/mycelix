@@ -21,7 +21,7 @@ cargo fmt --manifest-path mycelix-workspace/simulations/nested-currency-referenc
 cargo test --locked --manifest-path mycelix-workspace/simulations/nested-currency-reference/Cargo.toml
 ```
 
-The test corpus contains deterministic negative controls plus a million-operation conservation stress test and 100,000 retry checks. It includes profile-registry binding, missing/negative amount caps, stale revision rejection, aggregate exposure caps scoped to the exact instrument, missing-cap and zero-cap negative controls, failure atomicity, ticker-collision isolation, denomination stability, settlement-after-pause semantics, and a reverse-direction obligation regression proving gross amounts do not implicitly net. These are **targets encoded as tests**, not evidence of a passing run until the exact committed revision has been compiled and executed.
+The test corpus contains deterministic negative controls plus a million-operation conservation stress test and 100,000 retry checks. It includes profile-registry binding, missing/negative amount caps, stale revision rejection, aggregate exposure caps scoped to the exact instrument, missing-cap and zero-cap negative controls, failure atomicity, ticker-collision isolation, denomination stability, settlement-after-pause semantics, and a reverse-direction obligation regression proving gross amounts do not implicitly net; direction-bound settlement IDs prevent a retry from switching the obligation leg. These are **targets encoded as tests**, not evidence of a passing run until the exact committed revision has been compiled and executed.
 
 ## Run a reproducible benchmark
 
