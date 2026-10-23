@@ -23,7 +23,10 @@ The 24 train / 24 calibration / 24 test community counts, cohort sizes, peer-sig
 - `overlapping_group_union_majority`: union of exact-cohort and secondary-community peers, deduplicated.
 - `randomized_peer_control`: uses independent/randomized peer proxies rather than the correlated public proxy.
 - `logistic_ridge`: fixed-schedule, L2-regularized logistic regression using all seven attacker-visible summary features.
-- `gaussian_naive_bayes`: independent Gaussian naive Bayes model family over those same features.
+- `logistic_exact_only_ablation`: logistic model with only exact-cohort proxy fraction and degree.
+- `logistic_coarse_only_ablation`: logistic model with only coarse-neighborhood proxy fraction and degree.
+- `logistic_overlap_only_ablation`: logistic model with only overlapping-group union proxy fraction and degree.
+- `gaussian_naive_bayes`: independent Gaussian naive Bayes model family over all seven attacker-visible features.
 - `uncorrelated_target_negative_control`: logistic model trained on an independent synthetic target secret instead of the protected label; its final attack score is evaluated against the protected label and should not beat the prior materially.
 
 The `AttackerView` Rust type includes only IDs/group metadata and public proxy values. It excludes both the protected label and the independent evaluation secret. Features are built only from `AttackerView` values; evaluator truth is attached only after prediction. A regression test flips both hidden labels with visible views held fixed and requires identical view/features.
@@ -36,7 +39,7 @@ Probability columns are empirical scores on a held-out synthetic distribution. P
 
 ## Why this is stronger than one attacker
 
-A privacy guard that defeats a majority rule may remain vulnerable to another classifier or a relational partition that gives access to more peer records. The benchmark tests two supervised model families and four transparent non-learned baselines, compares the randomized-proxy control, and measures calibration / selective risk rather than reporting raw accuracy alone.
+A privacy guard that defeats a majority rule may remain vulnerable to another classifier or a relational partition that gives access to more peer records. The benchmark tests two supervised model families, three relation-specific logistic ablations and four transparent non-learned baselines, compares the randomized-proxy control, and measures calibration / selective risk rather than reporting raw accuracy alone. The ablations isolate whether exact, coarse or overlapping relation features carry the predictive signal.
 
 This is not an SOTA claim. A fair industry comparison still needs matched, version-pinned real SD-JWT/BBS/OpenID4VP implementations and identical task, transport, verifier/audience, nonce, cohort split and hardware conditions. Protocol conformance, attack accuracy, calibration, latency/resource cost and utility must be reported as separate axes.
 
