@@ -131,7 +131,7 @@ Required behavior includes:
 - stale or missing oracle/FX evidence causes a fail-closed rejection or an explicitly declared degraded path with stricter limits; never silently fall back to an unverified claimant value;
 - duplicate, reordered, and retried messages cannot create double credit or settlement;
 - missing amount fields, negative amounts, stale profile revisions, and changed payloads under a reused idempotency key fail closed;
-- a community's aggregate gross commitment across all peering edges remains within its configured cap, not merely each edge in isolation;
+- a community's aggregate gross commitment across all peering edges remains within its configured cap for each exact instrument; raw amounts from unlike instruments must not be summed as if they shared a unit;
 - policy fields cannot change under the same profile revision; limit changes must use an explicit new revision while issuer, family, and denomination semantics remain stable;
 - a network partition cannot increase a peer's exposure above its already qualified offline limit;
 - a currency can be suspended without silently confiscating balances or erasing claims;
@@ -174,7 +174,8 @@ Make these negative-first tests part of the qualification contract before enabli
 - mutual-credit exchange replayed, reordered, raced, or partially recovered;
 - duplicate settlement ID or idempotency key used with a different payload;
 - a child belongs to two federations and one edge's negative balance is incorrectly netted against the other;
-- a community stays below each bilateral limit but exceeds its aggregate exposure cap by opening more federation edges;
+- a community stays below each bilateral limit but exceeds its aggregate exposure cap by opening more federation edges in the same instrument;
+- aggregate exposure calculation incorrectly sums raw numeric balances from unlike instrument/unit domains;
 - a rejected over-cap obligation partially changes state or consumes an event ID before failing;
 - an amount-limited capability omits the amount, uses a negative amount, or attempts new issuance with no ceiling;
 - same numeric amount across two currencies is added, netted, or treated as parity;
