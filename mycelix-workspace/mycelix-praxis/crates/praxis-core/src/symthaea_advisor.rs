@@ -639,6 +639,36 @@ mod tests {
     }
 
     #[test]
+    fn unavailable_alternative_is_rejected_too() {
+        let mut response: Value = serde_json::from_str(&valid_response_json(REQUEST_FIXTURE)).unwrap();
+        response["alternative_actions"] = serde_json::json!(["peer_collaboration"]);
+        let issues = validate_symthaea_advice_for_request(
+            REQUEST_FIXTURE,
+            &serde_json::to_string(&response).unwrap(),
+        ).unwrap();
+        assert!(has_code(&issues, "action_not_in_request"));
+    }
+
+    #[test]
+    fn advisor_can_safely_abstain_when_no_accessible_option_is_available() {
+        let mut request: Value = serde_json::from_str(REQUEST_FIXTURE).unwrap();
+        request["accessibility_requirements"] = serde_json::json!(["screen_reader_compatible_representation"]);
+        for option in request["support_options"].as_array_mut().unwrap() {
+            option["accessible_for_context"] = Value::Bool(false);
+        }
+        let request_json = serde_json::to_string(&request).unwrap();
+        let mut response: Value = serde_json::from_str(&valid_response_json(&request_json)).unwrap();
+        response["disposition"] = serde_json::json!("abstain");
+        response["selected_action"] = serde_json::json!("abstain_and_escalate");
+        response["alternative_actions"] = serde_json::json!([]);
+        let issues = validate_symthaea_advice_for_request(
+            &request_json,
+            &serde_json::to_string(&response).unwrap(),
+        ).unwrap();
+        assert!(issues.is_empty(), "safe abstention should be accepted: {issues:#?}");
+    }
+
+    #[test]
     fn unknown_fields_fail_closed() {
         let mut request: Value = serde_json::from_str(REQUEST_FIXTURE).unwrap();
         request["unexpected_authority"] = Value::Bool(true);
