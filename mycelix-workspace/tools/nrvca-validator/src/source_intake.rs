@@ -654,6 +654,31 @@ fn audit_content_store(store_dir: &Path) -> Result<Value, String> {
         }));
     }
 
+    let mut object_children = fs::read_dir(&objects_dir)
+        .map_err(|error| format!("cannot list objects directory: {error}"))?
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(|error| format!("cannot enumerate objects directory: {error}"))?;
+    object_children.sort_by_key(|entry| entry.file_name());
+    let unexpected_children: Vec<String> = object_children.iter()
+        .filter_map(|entry| entry.file_name().to_str().map(str::to_owned))
+        .filter(|name| name != "sha256")
+        .collect();
+    if !unexpected_children.is_empty() {
+        return Ok(json!({
+            "schema_version": "nrvca-content-store-audit/0.1",
+            "status": "failed",
+            "entries_scanned": unexpected_children.len(),
+            "objects_verified": 0,
+            "objects_failed": 0,
+            "bytes_verified": 0,
+            "diagnostics": unexpected_children.iter().map(|name| json!({
+                "path": format!("objects/{name}"),
+                "code": "STORE-UNEXPECTED-ENTRY",
+                "message": "objects directory may contain only the sha256 object root"
+            })).collect::<Vec<_>>()
+        }));
+    }
+
     let object_root = objects_dir.join("sha256");
     let root_meta = match fs::symlink_metadata(&object_root) {
         Ok(metadata) => metadata,
@@ -1152,6 +1177,111 @@ mod tests {
         assert!(error.contains("without overwriting"));
         assert_eq!(fs::read(&path).expect("read sentinel"), b"preserve-existing");
         let _ = fs::remove_file(path);
+    }
+
+    fn capture_test_bytes(store: &TempDir, bytes: &[u8]) -> Value {
+        let input = TempFile::with_bytes(bytes);
+        capture_from_cli(&capture_args_for(&input.0, &store.0))
+            .expect("capture synthetic fixture bytes")
+            .receipt
+    }
+
+    #[test]
+    fn audit_verifies_objects_and_is_deterministic() {
+        let store = TempDir::new();
+        let bytes = b"store audit baseline";
+        capture_test_bytes(&store, bytes);
+        let first = audit_content_store(&store.0).expect("audit healthy store");
+        let second = audit_content_store(&store.0).expect("repeat healthy audit");
+        assert_eq!(first, second, "audit report must not include unstable timestamps or iteration order");
+        assert_eq!(first["status"], "pass");
+        assert_eq!(first["objects_verified"], 1);
+        assert_eq!(first["objects_failed"], 0);
+        assert_eq!(first["bytes_verified"], bytes.len() as u64);
+        assert_eq!(first["diagnostics"].as_array().unwrap().len(), 0);
+    }
+
+    #[test]
+    fn audit_distinguishes_empty_store_from_passing_nonempty_store() {
+        let empty = TempDir::new();
+        let report = audit_content_store(&empty.0).expect("audit empty store");
+        assert_eq!(report["status"], "empty");
+        assert_eq!(report["objects_verified"], 0);
+        assert_eq!(report["objects_failed"], 0);
+    }
+
+    #[test]
+    fn audit_detects_corrupted_bytes_without_repairing_them() {
+        let store = TempDir::new();
+        let receipt = capture_test_bytes(&store, b"must stay unchanged by audit");
+        let object = store.0.join(receipt["acquisition_receipt"]["object_path"].as_str().unwrap());
+        let original_permissions = fs::metadata(&object).expect("object metadata").permissions();
+        let mut writable = original_permissions.clone();
+        writable.set_readonly(false);
+        fs::set_permissions(&object, writable).expect("temporarily make object writable");
+        fs::write(&object, b"tampered bytes with altered length").expect("tamper object");
+        let tampered_bytes = fs::read(&object).expect("capture tampered baseline");
+        let report = audit_content_store(&store.0).expect("audit corrupted store");
+        assert_eq!(report["status"], "failed");
+        assert_eq!(report["objects_verified"], 0);
+        assert!(report["diagnostics"].as_array().unwrap().iter().any(|d| d["code"] == "STORE-DIGEST-MISMATCH"));
+        assert_eq!(fs::read(&object).expect("audit must not mutate corrupt object"), tampered_bytes);
+    }
+
+    #[test]
+    fn audit_detects_objects_in_the_wrong_shard_or_with_non_digest_names() {
+        let store = TempDir::new();
+        let root = store.0.join("objects").join("sha256");
+        fs::create_dir_all(root.join("zz")).expect("create malformed shard");
+        fs::write(root.join("unexpected-entry"), b"not a shard").expect("write staging-like entry");
+        let report = audit_content_store(&store.0).expect("audit malformed layout");
+        assert_eq!(report["status"], "failed");
+        let diagnostics = report["diagnostics"].as_array().unwrap();
+        assert!(diagnostics.iter().any(|d| d["code"] == "STORE-SHARD-NAME"));
+        assert!(diagnostics.iter().any(|d| d["code"] == "STORE-SHARD-TYPE"));
+    }
+
+    #[test]
+    fn audit_reports_unexpected_entries_next_to_sha256_directory() {
+        let store = TempDir::new();
+        fs::create_dir_all(store.0.join("objects").join("sha256")).expect("create object root");
+        fs::write(store.0.join("objects").join("unexpected"), b"unexpected").expect("write extra entry");
+        let report = audit_content_store(&store.0).expect("audit unexpected object child");
+        assert_eq!(report["status"], "failed");
+        assert_eq!(report["diagnostics"][0]["code"], "STORE-UNEXPECTED-ENTRY");
+    }
+
+    #[test]
+    fn audit_detects_symlinked_objects_on_unix() {
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::symlink;
+            let store = TempDir::new();
+            let receipt = capture_test_bytes(&store, b"valid sibling");
+            let object = store.0.join(receipt["acquisition_receipt"]["object_path"].as_str().unwrap());
+            let digest = receipt["sha256"].as_str().unwrap();
+            let shard = store.0.join("objects").join("sha256").join(&digest[..2]);
+            let linked = shard.join(format!("{digest}-symlink"));
+            symlink(&object, &linked).expect("create object symlink");
+            let report = audit_content_store(&store.0).expect("audit symlinked object");
+            assert_eq!(report["status"], "failed");
+            assert!(report["diagnostics"].as_array().unwrap().iter().any(|d| d["code"] == "STORE-OBJECT-TYPE"));
+        }
+    }
+
+    #[test]
+    fn audit_rejects_writable_objects_on_unix() {
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            let store = TempDir::new();
+            let receipt = capture_test_bytes(&store, b"permissions baseline");
+            let object = store.0.join(receipt["acquisition_receipt"]["object_path"].as_str().unwrap());
+            fs::set_permissions(&object, fs::Permissions::from_mode(0o600)).expect("weaken object permissions");
+            let report = audit_content_store(&store.0).expect("audit unsafe permissions");
+            assert_eq!(report["status"], "failed");
+            assert!(report["diagnostics"].as_array().unwrap().iter().any(|d| d["code"] == "STORE-OBJECT-PERMISSIONS"));
+        }
     }
 
     #[test]
