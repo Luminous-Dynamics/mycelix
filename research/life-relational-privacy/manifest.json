@@ -33,6 +33,7 @@
     "uncorrelated_target_negative_control"
   ],
   "primary_metrics": [
+    "seed_id",
     "accuracy_ppm",
     "balanced_accuracy_ppm",
     "prior_accuracy_ppm",
@@ -67,5 +68,18 @@
     "secondary_group_count": "max(1, floor(primary_cohort_count / 4))",
     "attacker_union_rule": "candidate shares primary cohort OR secondary group",
     "visibility": "relationship metadata is explicit attacker side information"
-  }
+  },
+  "evaluation_seeds": [
+    1,
+    7,
+    23,
+    41,
+    97
+  ],
+  "report_grain": [
+    "profile",
+    "seed_id",
+    "cohort_size",
+    "peer_signal_probability"
+  ]
 }
