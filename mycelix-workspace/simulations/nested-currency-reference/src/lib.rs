@@ -286,7 +286,7 @@ impl Clearing {
         // Enforce gross exposure across all peering edges, not only the edge being mutated.
         // Count the replacement balance once; do not mutate any ledger until all caps pass.
         for community in [&a.community_a, &a.community_b] {
-            let cap_key = (community.clone(), instrument.to_string());
+            let cap_key = (community.to_string(), instrument.to_string());
             if let Some(cap) = self.community_gross_caps.get(&cap_key) {
                 let before = self.gross_exposure(community, instrument)?;
                 let after = before.checked_sub(current.unsigned_abs())
