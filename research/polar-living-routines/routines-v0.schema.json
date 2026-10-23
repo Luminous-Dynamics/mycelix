@@ -105,7 +105,7 @@
         "required": [
           "id",
           "title",
-          "year",
+          "publication_year",
           "url",
           "population",
           "finding",
@@ -119,11 +119,6 @@
           "title": {
             "type": "string",
             "minLength": 5
-          },
-          "year": {
-            "type": "integer",
-            "minimum": 2000,
-            "maximum": 2026
           },
           "url": {
             "type": "string",
@@ -140,6 +135,14 @@
           "limitation": {
             "type": "string",
             "minLength": 5
+          },
+          "publication_year": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "minimum": 2000,
+            "maximum": 2026
           }
         }
       }

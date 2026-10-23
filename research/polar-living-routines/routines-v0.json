@@ -32,56 +32,56 @@
     {
       "id": "polar-light-meta-analysis-2024",
       "title": "Effect of daily light exposure on sleep in polar regions: A meta-analysis",
-      "year": 2024,
       "url": "https://onlinelibrary.wiley.com/doi/10.1111/jsr.14144",
       "population": "18 studies; 986 polar participants",
       "finding": "Mixed evidence across light conditions; no universal intervention conclusion.",
-      "limitation": "Heterogeneity and study design limit causal/generalized prescriptions."
+      "limitation": "Heterogeneity and study design limit causal/generalized prescriptions.",
+      "publication_year": 2024
     },
     {
       "id": "arctic-light-activity-study-2025",
       "title": "Phase coupling of light exposure and activity differs between Arctic Natives and Non-Natives",
-      "year": 2025,
       "url": "https://www.tandfonline.com/doi/full/10.1080/09291016.2025.2507077",
       "population": "63 Arctic residents studied across seasonal periods",
       "finding": "Reported differences in coupling between resident groups.",
-      "limitation": "Observational/association evidence; not a personalized treatment protocol or basis for demographic inference."
+      "limitation": "Observational/association evidence; not a personalized treatment protocol or basis for demographic inference.",
+      "publication_year": 2025
     },
     {
       "id": "arctic-thriving-policy-2022",
       "title": "From Resilient to Thriving: Policy Recommendations to Support Health and Well-being in the Arctic",
-      "year": 2022,
       "url": "https://journalhosting.ucalgary.ca/index.php/arctic/article/view/73953",
       "population": "Collaborative work by Indigenous and non-Indigenous contributors across Arctic regions",
       "finding": "Emphasizes Indigenous rights/knowledge, community-led research and well-being context.",
-      "limitation": "Policy recommendations do not prove efficacy of any single routine."
+      "limitation": "Policy recommendations do not prove efficacy of any single routine.",
+      "publication_year": 2022
     },
     {
       "id": "inuit-decolonized-health-review-2022",
       "title": "Shifting paradigm from biomedical to decolonised methods in Inuit public health research in Canada: a scoping review",
-      "year": 2022,
       "url": "https://doi.org/10.1136/bmjgh-2021-008311",
       "population": "Scoping review of 356 studies",
       "finding": "Community engagement and Indigenous methodologies were limited across much of the literature.",
-      "limitation": "Literature review; context and governance requirements differ by community."
+      "limitation": "Literature review; context and governance requirements differ by community.",
+      "publication_year": 2022
     },
     {
       "id": "nwt-northern-facilities-guide",
       "title": "Northwest Territories Good Building Practice for Northern Facilities, 4th edition",
-      "year": 2024,
       "url": "https://www.gov.nt.ca/en/newsroom/gnwt-releases-4th-edition-good-building-practice-northern-facilities-design-guide",
       "population": "Northern facilities and their operators",
       "finding": "Covers northern facility design, climate, geotechnical/environmental issues and practice.",
-      "limitation": "Not evidence of efficacy of a personal habit or clinical intervention."
+      "limitation": "Not evidence of efficacy of a personal habit or clinical intervention.",
+      "publication_year": 2021
     },
     {
       "id": "arctic-emergency-preparedness",
       "title": "Arctic Council Emergency Prevention, Preparedness and Response",
-      "year": 2026,
       "url": "https://www.admin.arctic-council.org/about/working-groups/eppr/",
       "population": "Arctic emergency preparedness context",
       "finding": "Cold, darkness, remoteness and limited infrastructure complicate emergency response.",
-      "limitation": "Operational context, not a health-effect or routine-efficacy study."
+      "limitation": "Operational context, not a health-effect or routine-efficacy study.",
+      "publication_year": null
     }
   ],
   "routines": [
