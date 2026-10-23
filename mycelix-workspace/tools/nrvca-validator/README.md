@@ -71,7 +71,7 @@ cargo run --manifest-path mycelix-workspace/tools/nrvca-validator/Cargo.toml -- 
   --store-dir ./private-evidence-store
 ```
 
-The command prints a deterministic JSON report. `status` is `pass`, `empty`, or `failed`; `failed` returns a nonzero exit code while preserving the JSON report on stdout. `empty` is intentionally not a successful validation of evidence because it verifies no objects. See [the audit contract and benchmark protocol](../../docs/research/nrvca/content-store-audit-v0.1.md).
+The command prints a deterministic JSON report. `status` is `pass`, `empty`, or `failed`; `failed` returns a nonzero exit code while preserving the JSON report on stdout. `empty` is intentionally not a successful validation of evidence because it verifies no objects. See [the audit contract and benchmark protocol](../../../docs/research/nrvca/content-store-audit-v0.1.md).
 
 ## What this checks
 
