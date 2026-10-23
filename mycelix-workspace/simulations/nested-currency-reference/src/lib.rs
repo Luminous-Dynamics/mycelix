@@ -59,7 +59,7 @@ pub enum Error {
     WrongFamily, Inactive, SameParticipant, InvalidAmount, Overflow, BalanceLimit, InstrumentSemanticsChanged,
     InvalidEventId, ReplayMismatch, InvalidCapability, CapabilityExpired,
     StaleRevision, ProfileConflict, ActionNotGranted, InvalidAgreement, AgreementPaused,
-    ExposureLimit, NothingOutstanding, SettlementTooLarge,
+    ExposureLimit, MissingGrossExposureCap, NothingOutstanding, SettlementTooLarge,
 }
 
 pub fn authorize(
@@ -238,7 +238,7 @@ impl Clearing {
     pub fn set_community_gross_cap(
         &mut self, community: &str, instrument: &str, cap: u64
     ) -> Result<(), Error> {
-        if community.trim().is_empty() || instrument.trim().is_empty() || cap == 0 {
+        if community.trim().is_empty() || instrument.trim().is_empty() {
             return Err(Error::InvalidAmount);
         }
         if self.gross_exposure(community, instrument)? > cap {
@@ -279,6 +279,15 @@ impl Clearing {
         if a.instrument != instrument { return Err(Error::InvalidAgreement); }
         if a.revision != revision { return Err(Error::StaleRevision); }
         if a.status != AgreementStatus::Active { return Err(Error::AgreementPaused); }
+        // A missing aggregate limit is not permission for unbounded federation exposure.
+        // Both communities must explicitly configure the exact instrument's cap before
+        // any new obligation can be recorded. A zero cap deliberately disables new risk.
+        for community in [&a.community_a, &a.community_b] {
+            let key = (community.to_string(), instrument.to_string());
+            if !self.community_gross_caps.contains_key(&key) {
+                return Err(Error::MissingGrossExposureCap);
+            }
+        }
         let current = self.outstanding(agreement_id)?;
         let next = current.checked_add(delta).ok_or(Error::Overflow)?;
         if next.unsigned_abs() > a.max_abs_outstanding as u64 { return Err(Error::ExposureLimit); }
@@ -287,13 +296,13 @@ impl Clearing {
         // Count the replacement balance once; do not mutate any ledger until all caps pass.
         for community in [&a.community_a, &a.community_b] {
             let cap_key = (community.to_string(), instrument.to_string());
-            if let Some(cap) = self.community_gross_caps.get(&cap_key) {
-                let before = self.gross_exposure(community, instrument)?;
-                let after = before.checked_sub(current.unsigned_abs())
-                    .and_then(|n| n.checked_add(next.unsigned_abs()))
-                    .ok_or(Error::Overflow)?;
-                if after > *cap { return Err(Error::ExposureLimit); }
-            }
+            let cap = self.community_gross_caps.get(&cap_key)
+                .ok_or(Error::MissingGrossExposureCap)?;
+            let before = self.gross_exposure(community, instrument)?;
+            let after = before.checked_sub(current.unsigned_abs())
+                .and_then(|n| n.checked_add(next.unsigned_abs()))
+                .ok_or(Error::Overflow)?;
+            if after > *cap { return Err(Error::ExposureLimit); }
         }
         self.outstanding.insert(agreement_id.into(), next);
         self.events.insert(event_id.into(), ev);
@@ -482,6 +491,9 @@ mod tests {
         let mut c = Clearing::default();
         c.add(agreement("edge:ab", "cc:local", 100)).unwrap();
         c.add(agreement("edge:ac", "cc:local", 100)).unwrap();
+        c.set_community_gross_cap("a", "cc:local", 300).unwrap();
+        c.set_community_gross_cap("b", "cc:local", 300).unwrap();
+        c.set_community_gross_cap("c", "cc:local", 300).unwrap();
         assert_eq!(c.obligation("ob:stale", "edge:ab", "cc:local", 2, 7),
             Err(Error::StaleRevision));
         assert_eq!(c.outstanding("edge:ab"), Ok(0));
@@ -500,6 +512,8 @@ mod tests {
     fn settlement_cannot_overrun_outstanding_and_wrong_instrument_is_rejected() {
         let mut c = Clearing::default();
         c.add(agreement("edge:ab", "cc:local", 100)).unwrap();
+        c.set_community_gross_cap("a", "cc:local", 100).unwrap();
+        c.set_community_gross_cap("b", "cc:local", 100).unwrap();
         c.obligation("ob:1", "edge:ab", "cc:local", 1, -25).unwrap();
         assert_eq!(c.settle("set:1", "edge:ab", "cc:local", 1, 26), Err(Error::SettlementTooLarge));
         assert_eq!(c.obligation("ob:2", "edge:ab", "cc:other", 1, 1), Err(Error::InvalidAgreement));
@@ -514,6 +528,10 @@ mod tests {
         c.add(agreement("edge:ac", "cc:local", 100)).unwrap();
         c.add(agreement("edge:ad", "cc:other", 100)).unwrap();
         c.set_community_gross_cap("a", "cc:local", 100).unwrap();
+        c.set_community_gross_cap("b", "cc:local", 100).unwrap();
+        c.set_community_gross_cap("c", "cc:local", 100).unwrap();
+        c.set_community_gross_cap("a", "cc:other", 100).unwrap();
+        c.set_community_gross_cap("d", "cc:other", 100).unwrap();
         c.obligation("ob:ab-70", "edge:ab", "cc:local", 1, 70).unwrap();
         // Unlike instruments have distinct amount domains and are not summed by raw magnitude.
         c.obligation("ob:ad-90", "edge:ad", "cc:other", 1, 90).unwrap();
@@ -528,6 +546,29 @@ mod tests {
         assert_eq!(c.outstanding("edge:ab"), Ok(70));
         assert_eq!(c.outstanding("edge:ac"), Ok(30));
         assert_eq!(c.outstanding("edge:ad"), Ok(90));
+    }
+
+    #[test]
+    fn clearing_requires_explicit_aggregate_caps_and_zero_cap_disables_new_obligations() {
+        let mut c = Clearing::default();
+        c.add(agreement("edge:ab", "cc:local", 100)).unwrap();
+
+        // Missing aggregate policy is not treated as unlimited credit.
+        assert_eq!(c.obligation("ob:1", "edge:ab", "cc:local", 1, 10),
+            Err(Error::MissingGrossExposureCap));
+        assert_eq!(c.outstanding("edge:ab"), Ok(0));
+
+        // A zero cap explicitly means no new exposure; the failed event ID is not consumed.
+        c.set_community_gross_cap("a", "cc:local", 0).unwrap();
+        c.set_community_gross_cap("b", "cc:local", 50).unwrap();
+        assert_eq!(c.obligation("ob:1", "edge:ab", "cc:local", 1, 10),
+            Err(Error::ExposureLimit));
+        assert_eq!(c.outstanding("edge:ab"), Ok(0));
+
+        // Once both communities explicitly permit the exposure, that exact event can retry.
+        c.set_community_gross_cap("a", "cc:local", 50).unwrap();
+        assert_eq!(c.obligation("ob:1", "edge:ab", "cc:local", 1, 10), Ok(Apply::Applied));
+        assert_eq!(c.outstanding("edge:ab"), Ok(10));
     }
 
     #[test]
