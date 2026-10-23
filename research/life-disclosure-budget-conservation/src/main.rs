@@ -434,10 +434,13 @@ fn audit_accepted_history(accepted_requests: &[Request], budget_units: u32) -> A
     let mut spent_units = 0_u32;
 
     for request in accepted_requests {
-        if identities.contains_key(&request.id) {
-            duplicate_request_ids = duplicate_request_ids.saturating_add(1);
-        } else {
-            identities.insert(request.id, request.clone());
+        match identities.entry(request.id) {
+            std::collections::btree_map::Entry::Occupied(_) => {
+                duplicate_request_ids = duplicate_request_ids.saturating_add(1);
+            }
+            std::collections::btree_map::Entry::Vacant(entry) => {
+                entry.insert(request.clone());
+            }
         }
         spent_units = spent_units.saturating_add(request.cost);
     }
@@ -685,6 +688,22 @@ mod tests {
         assert_eq!(stale_audit.spent_units, 12);
         assert_eq!(stale_audit.overspend_units, 2);
 
+        let mut shared = SharedLedger::new(GLOBAL_BUDGET, ACTIVE_EPOCH);
+        for item in [
+            request(81, 0, 2, ACTIVE_EPOCH),
+            request(82, 1, 3, ACTIVE_EPOCH),
+            request(83, 2, 4, ACTIVE_EPOCH),
+            request(84, 3, 4, ACTIVE_EPOCH),
+        ] {
+            shared.admit(item);
+        }
+        let shared_metrics = shared.metrics();
+        let shared_audit =
+            audit_accepted_history(&shared_metrics.accepted_requests, GLOBAL_BUDGET);
+        assert_eq!(shared_audit.spent_units, shared_metrics.spent_units);
+        assert_eq!(shared_audit.overspend_units, 0);
+        assert_eq!(shared_audit.duplicate_request_ids, 0);
+
         let cloned = cloned_escrow_replicas(GLOBAL_BUDGET, ACTIVE_EPOCH, &[3, 3, 2, 2]);
         let cloned_audit = audit_accepted_history(&cloned.accepted_requests, GLOBAL_BUDGET);
         assert_eq!(cloned_audit.accepted_records, 8);
@@ -692,6 +711,19 @@ mod tests {
         assert_eq!(cloned_audit.duplicate_request_ids, 0);
         assert_eq!(cloned_audit.spent_units, 20);
         assert_eq!(cloned_audit.overspend_units, 10);
+    }
+
+    #[test]
+    fn independent_auditor_flags_duplicate_request_records() {
+        let mut history = baseline_requests();
+        history.push(history[0].clone());
+
+        let audit = audit_accepted_history(&history, GLOBAL_BUDGET);
+        assert_eq!(audit.accepted_records, 5);
+        assert_eq!(audit.distinct_request_ids, 4);
+        assert_eq!(audit.duplicate_request_ids, 1);
+        assert_eq!(audit.spent_units, 15);
+        assert_eq!(audit.overspend_units, 5);
     }
 
     #[test]
