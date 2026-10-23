@@ -412,6 +412,12 @@ fn availability_for(case: &SupportDecisionCase, action: SupportAction) -> Option
         .map(|option| option.available)
 }
 
+/// A counterfactual can claim an availability change only when both cases
+/// explicitly observe the same option. Missing records are not observations.
+fn availability_changed_when_observed(left: Option<bool>, right: Option<bool>) -> bool {
+    matches!((left, right), (Some(left), Some(right)) if left != right)
+}
+
 fn dimension_changed(left: &SupportDecisionCase, right: &SupportDecisionCase) -> bool {
     match left.counterfactual_dimension {
         CounterfactualDimension::DisplacementRisk =>
@@ -421,16 +427,25 @@ fn dimension_changed(left: &SupportDecisionCase, right: &SupportDecisionCase) ->
                 .chain(&right.context.support_options)
                 .map(|option| option.action)
                 .collect();
-            actions.into_iter().any(|action| availability_for(left, action) != availability_for(right, action))
+            actions.into_iter().any(|action| {
+                availability_changed_when_observed(
+                    availability_for(left, action),
+                    availability_for(right, action),
+                )
+            })
         }
         CounterfactualDimension::AccessibilityAvailability =>
-            availability_for(left, SupportAction::AccessibilityAdaptation)
-                != availability_for(right, SupportAction::AccessibilityAdaptation),
+            availability_changed_when_observed(
+                availability_for(left, SupportAction::AccessibilityAdaptation),
+                availability_for(right, SupportAction::AccessibilityAdaptation),
+            ),
         CounterfactualDimension::EvidenceSufficiency =>
             left.context.evidence_sufficiency != right.context.evidence_sufficiency,
         CounterfactualDimension::PeerAvailability =>
-            availability_for(left, SupportAction::PeerCollaboration)
-                != availability_for(right, SupportAction::PeerCollaboration),
+            availability_changed_when_observed(
+                availability_for(left, SupportAction::PeerCollaboration),
+                availability_for(right, SupportAction::PeerCollaboration),
+            ),
         CounterfactualDimension::AssessmentPolicy =>
             left.context.assessment_policy != right.context.assessment_policy,
     }
@@ -503,6 +518,19 @@ mod tests {
             .find(|case| case.case_id == "LSDB-002").expect("fixture case");
         case.context.displacement_risk = DisplacementRisk::Material;
         assert!(has_code(&manifest.validate(), "counterfactual_dimension_not_changed"));
+    }
+
+    #[test]
+    fn missing_option_is_not_treated_as_an_observed_availability_change() {
+        let mut manifest = fixture();
+        let case = manifest.cases.iter_mut()
+            .find(|case| case.case_id == "LSDB-010").expect("fixture case");
+        case.context.support_options
+            .retain(|option| option.action != SupportAction::PeerCollaboration);
+        assert!(has_code(
+            &manifest.validate(),
+            "counterfactual_dimension_not_changed"
+        ));
     }
 
     #[test]
