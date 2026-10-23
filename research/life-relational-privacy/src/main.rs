@@ -408,11 +408,10 @@ fn audit_outcomes(outcomes: &[OutcomeRecord]) -> Audit {
 }
 
 fn ratio_ppm(numerator: u64, denominator: u64) -> u64 {
-    if denominator == 0 {
-        0
-    } else {
-        numerator.saturating_mul(PPM) / denominator
-    }
+    numerator
+        .saturating_mul(PPM)
+        .checked_div(denominator)
+        .unwrap_or(0)
 }
 
 fn accuracy_ppm(summary: &Summary) -> u64 {
@@ -528,6 +527,11 @@ fn render_report() -> String {
     }
 
     report
+}
+
+fn main() {
+    let _manifest = MANIFEST;
+    print!("{}", render_report());
 }
 
 #[cfg(test)]
@@ -814,7 +818,4 @@ mod tests {
     }
 }
 
-fn main() {
-    let _manifest = MANIFEST;
-    print!("{}", render_report());
-}
+
