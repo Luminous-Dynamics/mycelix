@@ -1,4 +1,3 @@
-use std::collections::BTreeSet;
 use std::fmt::Write as _;
 
 const PPM: f64 = 1_000_000.0;
@@ -116,12 +115,6 @@ impl Profile {
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 struct FeatureVector([f64; FEATURE_COUNT]);
-
-#[derive(Clone, Debug, PartialEq)]
-struct Prediction {
-    raw_probability: f64,
-    calibrated_probability: f64,
-}
 
 #[derive(Clone, Debug, PartialEq)]
 struct OutcomeRecord {
@@ -750,11 +743,10 @@ fn selective_metrics(outcomes: &[OutcomeRecord], threshold_ppm: u64) -> (u64, u6
         } else {
             accepted * 1_000_000 / outcomes.len() as u64
         },
-        if accepted == 0 {
-            0
-        } else {
-            correct * 1_000_000 / accepted
-        },
+        correct
+            .saturating_mul(1_000_000)
+            .checked_div(accepted)
+            .unwrap_or(0),
         outcomes.len() as u64 - accepted,
     )
 }
@@ -889,7 +881,11 @@ fn render_report() -> String {
                             signal_ppm,
                             summary.target_count,
                             summary.positive_targets,
-                            if summary.target_count == 0 { 0 } else { summary.correct * 1_000_000 / summary.target_count },
+                            summary
+                                .correct
+                                .saturating_mul(1_000_000)
+                                .checked_div(summary.target_count)
+                                .unwrap_or(0),
                             balanced_accuracy_ppm(&summary),
                             fpr,
                             fnr,
@@ -926,6 +922,7 @@ fn main() {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::collections::BTreeSet;
 
     fn make_split(seed: u64, cohort_size: usize, signal_ppm: u32, base: u64) -> Vec<Subject> {
         generate_split(seed, cohort_size, signal_ppm, 24, base)
@@ -1081,7 +1078,8 @@ mod tests {
     #[test]
     fn independent_secret_control_has_no_hidden_truth_feature() {
         let (_, summary) = fit_and_predict(Profile::UncorrelatedTargetNegativeControl, 41, 800_000);
-        let accuracy_ppm = summary.correct as u64 * 1_000_000 / summary.target_count;
+        let accuracy_ppm = summary.correct.saturating_mul(1_000_000)
+            / summary.target_count;
         assert!(
             accuracy_ppm.abs_diff(500_000) <= 150_000,
             "uncorrelated control accuracy ppm={accuracy_ppm}"
