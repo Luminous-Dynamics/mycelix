@@ -158,10 +158,14 @@ impl Ledger {
     fn admit(&mut self, request: Request) -> AdmissionOutcome {
         self.metrics.offered = self.metrics.offered.saturating_add(1);
 
-        if let Some((previous, _)) = self.seen.get(&request.id) {
+        if let Some((previous, previous_outcome)) = self.seen.get(&request.id) {
             if previous == &request {
                 self.metrics.duplicate_replays = self.metrics.duplicate_replays.saturating_add(1);
-                return AdmissionOutcome::DuplicateReplay;
+                return if *previous_outcome == AdmissionOutcome::Accepted {
+                    AdmissionOutcome::DuplicateReplay
+                } else {
+                    *previous_outcome
+                };
             }
             self.metrics.conflicts = self.metrics.conflicts.saturating_add(1);
             self.metrics.denied = self.metrics.denied.saturating_add(1);
@@ -811,6 +815,22 @@ mod tests {
         let audit = scenario.ledger.audit();
         assert_eq!(audit.total_spend, 7);
         assert_eq!(audit.max_group_spend, 7);
+    }
+
+    #[test]
+    fn retry_of_denied_request_preserves_original_denial_without_respending() {
+        let mut ledger = Ledger::new(
+            memberships(&[(1, &[100])]),
+            BudgetPolicy::standard(),
+            EnforcementMode::CompositeScopes,
+        );
+        let stale = request(91, 1, 1, 1, 1, INITIAL_POLICY_EPOCH, 0);
+        assert_eq!(ledger.admit(stale.clone()), AdmissionOutcome::StaleMembershipEpoch);
+        assert_eq!(ledger.admit(stale), AdmissionOutcome::StaleMembershipEpoch);
+        assert_eq!(ledger.metrics.stale_membership_denials, 1);
+        assert_eq!(ledger.metrics.duplicate_replays, 1);
+        assert_eq!(ledger.metrics.accepted_unique, 0);
+        assert_eq!(ledger.audit().total_spend, 0);
     }
 
     #[test]
