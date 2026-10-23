@@ -2,6 +2,7 @@ use std::collections::BTreeMap;
 use std::fmt::Write as _;
 
 const PAIR_COUNT: usize = 256;
+const PUBLIC_CONTEXT_BUCKETS: usize = 8;
 const SESSIONS_PER_WORLD: usize = 4;
 const MILLION: u64 = 1_000_000;
 const REQUIRED_TASK_RESULT: &str = "ELIGIBLE";
@@ -93,6 +94,7 @@ impl Scenario {
 #[derive(Clone, Debug, PartialEq, Eq)]
 struct Trace {
     task_result: &'static str,
+    public_context_bucket: u8,
     admission_sequence: &'static str,
     reason_detail_sequence: &'static str,
     response_bytes_total: u32,
@@ -101,12 +103,13 @@ struct Trace {
     retry_count: u8,
 }
 
-fn observe(scenario: Scenario, protected_label: bool) -> Trace {
+fn observe(scenario: Scenario, protected_label: bool, pair_id: usize) -> Trace {
     let correlated = |channel| scenario.leaks_channel(channel) && protected_label;
     let session_count = SESSIONS_PER_WORLD as u8;
 
     Trace {
         task_result: REQUIRED_TASK_RESULT,
+        public_context_bucket: (pair_id % PUBLIC_CONTEXT_BUCKETS) as u8,
         admission_sequence: if correlated(Channel::Admission) {
             "DENY,DENY,DENY,DENY"
         } else {
@@ -154,7 +157,7 @@ fn examples(scenario: Scenario) -> Vec<Example> {
             result.push(Example {
                 pair_id,
                 protected_label,
-                trace: observe(scenario, protected_label),
+                trace: observe(scenario, protected_label, pair_id),
             });
         }
     }
@@ -174,8 +177,9 @@ fn channel_value(trace: &Trace, channel: Channel) -> String {
 
 fn trace_signature(trace: &Trace) -> String {
     format!(
-        "{}|{}|{}|{}|{}|{}|{}",
+        "{}|{}|{}|{}|{}|{}|{}|{}",
         trace.task_result,
+        trace.public_context_bucket,
         trace.admission_sequence,
         trace.reason_detail_sequence,
         trace.response_bytes_total,
@@ -187,9 +191,9 @@ fn trace_signature(trace: &Trace) -> String {
 
 fn paired_mismatches(scenario: Scenario, channel: Option<Channel>) -> usize {
     (0..PAIR_COUNT)
-        .filter(|_| {
-            let public_world = observe(scenario, false);
-            let protected_world = observe(scenario, true);
+        .filter(|pair_id| {
+            let public_world = observe(scenario, false, *pair_id);
+            let protected_world = observe(scenario, true, *pair_id);
             match channel {
                 Some(field) => {
                     channel_value(&public_world, field) != channel_value(&protected_world, field)
@@ -280,8 +284,7 @@ fn report() -> String {
     for scenario in Scenario::ALL {
         let data = examples(scenario);
         for channel in Channel::ALL {
-            let accuracy =
-                held_out_balanced_accuracy(&data, |trace| channel_value(trace, channel));
+            let accuracy = held_out_balanced_accuracy(&data, |trace| channel_value(trace, channel));
             write_row(
                 &mut output,
                 scenario,
@@ -329,24 +332,39 @@ mod tests {
     fn required_task_result_is_identical_in_both_counterfactual_worlds() {
         for scenario in Scenario::ALL {
             for protected_label in [false, true] {
-                assert_eq!(observe(scenario, protected_label).task_result, REQUIRED_TASK_RESULT);
+                assert_eq!(
+                    observe(scenario, protected_label, 0).task_result,
+                    REQUIRED_TASK_RESULT
+                );
             }
             assert_eq!(task_result_agreement_ppm(&examples(scenario)), MILLION);
         }
     }
 
     #[test]
-    fn each_single_channel_profile_changes_only_its_declared_field() {
+    fn each_profile_changes_only_its_declared_channels() {
         for scenario in Scenario::ALL {
-            let public_world = observe(scenario, false);
-            let protected_world = observe(scenario, true);
+            let public_world = observe(scenario, false, 0);
+            let protected_world = observe(scenario, true, 0);
             for channel in Channel::ALL {
                 let public_value = channel_value(&public_world, channel);
                 let protected_value = channel_value(&protected_world, channel);
                 if scenario.leaks_channel(channel) {
-                    assert_ne!(public_value, protected_value, "{} / {}", scenario.name(), channel.name());
+                    assert_ne!(
+                        public_value,
+                        protected_value,
+                        "{} / {}",
+                        scenario.name(),
+                        channel.name()
+                    );
                 } else {
-                    assert_eq!(public_value, protected_value, "{} / {}", scenario.name(), channel.name());
+                    assert_eq!(
+                        public_value,
+                        protected_value,
+                        "{} / {}",
+                        scenario.name(),
+                        channel.name()
+                    );
                 }
             }
         }
@@ -379,7 +397,9 @@ mod tests {
         ] {
             assert_eq!(paired_mismatches(scenario, Some(channel)), PAIR_COUNT);
             assert_eq!(
-                held_out_balanced_accuracy(&examples(scenario), |trace| channel_value(trace, channel)),
+                held_out_balanced_accuracy(&examples(scenario), |trace| {
+                    channel_value(trace, channel)
+                }),
                 MILLION
             );
         }

@@ -10,7 +10,7 @@ The work follows the adaptive guard (#5456), population-shift stress test (#5458
 
 A per-query counterfactual check asks whether the admission decision changes when the target's *next* answer bit changes. Transcript noninterference asks a broader question: can an observer distinguish two otherwise-matched worlds from the history of public behavior over repeated sessions?
 
-The frozen synthetic fixture includes 256 paired contexts. Each context has two counterfactual worlds that differ only in a protected Boolean label. Both worlds produce the same required task result (`ELIGIBLE`) over four sessions. Observable trace fields are controlled independently to expose the effect of admission sequences, reason details, response size, protocol round trips, status/schema lookups, and retry behavior.
+The frozen synthetic fixture includes 256 paired contexts across eight public-context buckets. Each context has two counterfactual worlds that differ only in a protected Boolean label. Both worlds produce the same required task result (`ELIGIBLE`) over four sessions. Observable trace fields are controlled independently to expose the effect of admission sequences, reason details, response size, protocol round trips, status/schema lookups, and retry behavior.
 
 Profiles include a no-secret-correlation control, one profile per channel, and a deliberately leaky all-channel positive control. These are abstract observer features, not claims that a particular production API behaves this way. The response-size and round-trip values are synthetic counters, not measured latency.
 

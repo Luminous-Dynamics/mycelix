@@ -3,11 +3,14 @@
   "experiment": "LIFE-DISCLOSURE-TRACE-001",
   "fixture": {
     "kind": "synthetic-counterfactual-pairs",
-    "seed": "0x4c49464554524143",
     "paired_subject_contexts": 256,
+    "public_context_buckets": 8,
     "sessions_per_world": 4,
     "required_task_result": "ELIGIBLE"
   },
+  "invariant_fields": [
+    {"id": "public_context_bucket", "rule": "same within each counterfactual pair; independent of protected-label value"}
+  ],
   "channels": [
     {"id": "admission", "observer_field": "admission_sequence", "units": "four-session sequence"},
     {"id": "reason_detail", "observer_field": "reason_detail_sequence", "units": "four-session sequence"},
