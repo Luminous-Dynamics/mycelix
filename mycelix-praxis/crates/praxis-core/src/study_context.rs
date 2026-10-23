@@ -44,6 +44,12 @@ pub struct StudyContextObservation {
     pub attempted_learning_tasks: Option<u32>,
     #[serde(deserialize_with = "deserialize_required_option")]
     pub completed_learning_tasks: Option<u32>,
+    /// Observed sessions in the existing course platform, distinct from AI tutor invocations.
+    #[serde(deserialize_with = "deserialize_required_option")]
+    pub course_platform_sessions: Option<u32>,
+    /// Observed active seconds in the existing course platform; not a measure of learning.
+    #[serde(deserialize_with = "deserialize_required_option")]
+    pub course_platform_active_seconds: Option<u32>,
     #[serde(deserialize_with = "deserialize_required_option")]
     pub independent_practice_attempts: Option<u32>,
 }
@@ -351,6 +357,8 @@ fn validate_measurement_status(
         observation.scheduled_learning_tasks,
         observation.attempted_learning_tasks,
         observation.completed_learning_tasks,
+        observation.course_platform_sessions,
+        observation.course_platform_active_seconds,
         observation.independent_practice_attempts,
     ];
     let present_count = values.iter().filter(|value| value.is_some()).count();
@@ -450,6 +458,19 @@ fn validate_count_relations(
             "support_duration_without_invocation",
             format!("{path}.support_seconds"),
             "positive support duration requires at least one recorded invocation",
+        );
+    }
+
+    if observation.course_platform_sessions == Some(0)
+        && observation
+            .course_platform_active_seconds
+            .is_some_and(|seconds| seconds > 0)
+    {
+        push_issue(
+            issues,
+            "platform_time_without_session",
+            format!("{path}.course_platform_active_seconds"),
+            "positive platform activity time requires at least one recorded session",
         );
     }
     if observation.support_invocations.is_some_and(|count| count > 0)
