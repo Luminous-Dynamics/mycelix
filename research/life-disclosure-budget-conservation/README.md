@@ -45,6 +45,8 @@ The benchmark emits deterministic CSV and a workflow receipt bound to the exact 
 - Escrow baseline: local allocations [3, 3, 2, 2], with each verifier's request cost equal to its allocation.
 - Invalid escrow control: allocations [4, 4, 4, 4], whose sum exceeds the global limit.
 - Stale-epoch control: requests from epoch 1 against active epoch 2.
+- Policy rollover: spend 7 of 10 units in epoch 1, advance the policy epoch, then show that a cost-4 request is still denied while a cost-3 request can consume the remaining balance.
+- Escrow rollover: spend 4 of verifier 0's 5 allocated units before an epoch change; afterward cost 2 is denied and cost 1 is accepted, proving that policy revision did not replenish that verifier's consumed quota.
 
 Additional tests enumerate every permutation of a mixed-cost request batch, exercise duplicate acknowledgement replay and conflicting idempotency-key reuse, and reject zero-cost/stale-epoch/missing-allocation cases.
 

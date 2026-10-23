@@ -286,6 +286,20 @@ fn run_report() -> String {
         escrow.admit(item);
     }
 
+    let mut shared_rollover = SharedLedger::new(GLOBAL_BUDGET, ACTIVE_EPOCH);
+    shared_rollover.admit(request(21, 0, 7, ACTIVE_EPOCH));
+    shared_rollover.advance_epoch(ACTIVE_EPOCH + 1);
+    shared_rollover.admit(request(22, 1, 4, ACTIVE_EPOCH + 1));
+    shared_rollover.admit(request(23, 1, 3, ACTIVE_EPOCH + 1));
+
+    let mut escrow_rollover =
+        EscrowLedger::new(GLOBAL_BUDGET, ACTIVE_EPOCH, vec![5, 5])
+            .expect("rollover escrow allocation must be valid");
+    escrow_rollover.admit(request(31, 0, 4, ACTIVE_EPOCH));
+    escrow_rollover.advance_epoch(ACTIVE_EPOCH + 1);
+    escrow_rollover.admit(request(32, 0, 2, ACTIVE_EPOCH + 1));
+    escrow_rollover.admit(request(33, 0, 1, ACTIVE_EPOCH + 1));
+
     let mut invalid_escrow = Metrics::new(GLOBAL_BUDGET, false);
     invalid_escrow.offered = VERIFIER_COUNT as u32;
     invalid_escrow.denied = VERIFIER_COUNT as u32;
@@ -333,6 +347,18 @@ fn run_report() -> String {
         &mut output,
         "stale_policy_epoch",
         &stale_epoch.metrics(),
+        budget_semantics_declared,
+    );
+    write_metrics_row(
+        &mut output,
+        "policy_epoch_rollover_shared_ledger",
+        &shared_rollover.metrics(),
+        budget_semantics_declared,
+    );
+    write_metrics_row(
+        &mut output,
+        "policy_epoch_rollover_escrow",
+        &escrow_rollover.metrics(),
         budget_semantics_declared,
     );
     output

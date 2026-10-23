@@ -10,7 +10,9 @@
     {"id": "serialized_shared_ledger", "role": "safety_baseline"},
     {"id": "bounded_escrow", "role": "partition-tolerant bounded authorization"},
     {"id": "invalid_overallocated_escrow", "role": "negative_control"},
-    {"id": "stale_policy_epoch", "role": "negative_control"}
+    {"id": "stale_policy_epoch", "role": "negative_control"},
+    {"id": "policy_epoch_rollover_shared_ledger", "role": "no-implicit-budget-reset regression"},
+    {"id": "policy_epoch_rollover_escrow", "role": "no-implicit-budget-reset regression"}
   ],
   "required_invariants": [
     "accepted unique optional-disclosure cost never exceeds global budget in qualified profiles",
