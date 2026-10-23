@@ -211,7 +211,7 @@ pub struct Clearing {
     agreements: BTreeMap<String, Agreement>,
     outstanding: BTreeMap<String, i64>,
     events: BTreeMap<String, ClearingEvent>,
-    community_gross_caps: BTreeMap<String, u64>,
+    community_gross_caps: BTreeMap<(String, String), u64>,
 }
 
 impl Clearing {
@@ -233,17 +233,26 @@ impl Clearing {
 
     /// Set a conservative gross-exposure cap across every peering edge that touches a community.
     /// Existing commitments are counted before the new cap is accepted.
-    pub fn set_community_gross_cap(&mut self, community: &str, cap: u64) -> Result<(), Error> {
-        if community.trim().is_empty() || cap == 0 { return Err(Error::InvalidAmount); }
-        if self.gross_exposure(community)? > cap { return Err(Error::ExposureLimit); }
-        self.community_gross_caps.insert(community.into(), cap);
+    /// Set a conservative gross-exposure cap for one community in one exact instrument.
+    /// Raw amounts from unlike instrument domains are never summed together.
+    pub fn set_community_gross_cap(
+        &mut self, community: &str, instrument: &str, cap: u64
+    ) -> Result<(), Error> {
+        if community.trim().is_empty() || instrument.trim().is_empty() || cap == 0 {
+            return Err(Error::InvalidAmount);
+        }
+        if self.gross_exposure(community, instrument)? > cap {
+            return Err(Error::ExposureLimit);
+        }
+        self.community_gross_caps.insert((community.into(), instrument.into()), cap);
         Ok(())
     }
 
-    fn gross_exposure(&self, community: &str) -> Result<u64, Error> {
+    fn gross_exposure(&self, community: &str, instrument: &str) -> Result<u64, Error> {
         let mut total = 0_u64;
         for agreement in self.agreements.values().filter(|a|
-            a.community_a.as_str() == community || a.community_b.as_str() == community) {
+            (a.community_a.as_str() == community || a.community_b.as_str() == community)
+                && a.instrument == instrument) {
             total = total.checked_add(self.outstanding(&agreement.id)?.unsigned_abs())
                 .ok_or(Error::Overflow)?;
         }
@@ -277,8 +286,9 @@ impl Clearing {
         // Enforce gross exposure across all peering edges, not only the edge being mutated.
         // Count the replacement balance once; do not mutate any ledger until all caps pass.
         for community in [&a.community_a, &a.community_b] {
-            if let Some(cap) = self.community_gross_caps.get(community) {
-                let before = self.gross_exposure(community)?;
+            let cap_key = (community.clone(), instrument.to_string());
+            if let Some(cap) = self.community_gross_caps.get(&cap_key) {
+                let before = self.gross_exposure(community, instrument)?;
                 let after = before.checked_sub(current.unsigned_abs())
                     .and_then(|n| n.checked_add(next.unsigned_abs()))
                     .ok_or(Error::Overflow)?;
@@ -502,17 +512,22 @@ mod tests {
         let mut c = Clearing::default();
         c.add(agreement("edge:ab", "cc:local", 100)).unwrap();
         c.add(agreement("edge:ac", "cc:local", 100)).unwrap();
-        c.set_community_gross_cap("a", 100).unwrap();
+        c.add(agreement("edge:ad", "cc:other", 100)).unwrap();
+        c.set_community_gross_cap("a", "cc:local", 100).unwrap();
         c.obligation("ob:ab-70", "edge:ab", "cc:local", 1, 70).unwrap();
+        // Unlike instruments have distinct amount domains and are not summed by raw magnitude.
+        c.obligation("ob:ad-90", "edge:ad", "cc:other", 1, 90).unwrap();
         assert_eq!(c.obligation("ob:ac-pending", "edge:ac", "cc:local", 1, 40),
             Err(Error::ExposureLimit));
         assert_eq!(c.outstanding("edge:ac"), Ok(0));
         // A rejected event ID is not consumed: the same ID can retry with an allowed payload.
         assert_eq!(c.obligation("ob:ac-pending", "edge:ac", "cc:local", 1, 30),
             Ok(Apply::Applied));
-        assert_eq!(c.gross_exposure("a"), Ok(100));
+        assert_eq!(c.gross_exposure("a", "cc:local"), Ok(100));
+        assert_eq!(c.gross_exposure("a", "cc:other"), Ok(90));
         assert_eq!(c.outstanding("edge:ab"), Ok(70));
         assert_eq!(c.outstanding("edge:ac"), Ok(30));
+        assert_eq!(c.outstanding("edge:ad"), Ok(90));
     }
 
     #[test]
