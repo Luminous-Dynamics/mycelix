@@ -1,0 +1,82 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://mycelix.net/schemas/praxis-learning-support-decision/v1/predictions.schema.json",
+  "title": "Praxis Learning Support Decision Prediction Set v1",
+  "description": "Strict, reproducibility-bound output from one learning-support selection policy. Predictions are not learner mastery or efficacy claims.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "benchmark_id",
+    "policy_id",
+    "policy_version",
+    "policy_digest_blake3",
+    "fixture_digest_blake3",
+    "predictions"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": 1
+    },
+    "benchmark_id": {
+      "const": "PRAXIS-LSDB-001"
+    },
+    "policy_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "policy_version": {
+      "type": "string",
+      "minLength": 1
+    },
+    "policy_digest_blake3": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "fixture_digest_blake3": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "predictions": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/prediction"
+      }
+    }
+  },
+  "$defs": {
+    "action": {
+      "type": "string",
+      "enum": [
+        "ai_hint_then_retrieval",
+        "retrieval_practice",
+        "human_support",
+        "peer_collaboration",
+        "educator_copilot",
+        "accessibility_adaptation",
+        "offline_fallback",
+        "ask_clarifying_question",
+        "abstain_and_escalate",
+        "no_intervention"
+      ]
+    },
+    "prediction": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "case_id",
+        "selected_action"
+      ],
+      "properties": {
+        "case_id": {
+          "type": "string",
+          "pattern": "^LSDB-[0-9]{3}$"
+        },
+        "selected_action": {
+          "$ref": "#/$defs/action"
+        }
+      }
+    }
+  }
+}

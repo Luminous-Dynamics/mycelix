@@ -19,6 +19,7 @@ pub mod contracts;
 pub mod crypto;
 pub mod errors;
 pub mod export_formats;
+pub mod learning_support_decision;
 pub mod proof_of_learning;
 pub mod provenance;
 pub mod types;

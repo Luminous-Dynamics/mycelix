@@ -1,0 +1,254 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://mycelix.net/schemas/praxis-learning-support-decision/v1/cases.schema.json",
+  "title": "Praxis Learning Support Decision Benchmark v1",
+  "description": "Strict synthetic benchmark manifest for cross-mode learning-support selection. It is not learner data or an efficacy result.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "benchmark_id",
+    "dataset_kind",
+    "non_empirical",
+    "cases"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": 1
+    },
+    "benchmark_id": {
+      "const": "PRAXIS-LSDB-001"
+    },
+    "dataset_kind": {
+      "const": "synthetic_policy_probes"
+    },
+    "non_empirical": {
+      "const": true
+    },
+    "cases": {
+      "type": "array",
+      "minItems": 12,
+      "items": {
+        "$ref": "#/$defs/case"
+      }
+    }
+  },
+  "$defs": {
+    "action": {
+      "type": "string",
+      "enum": [
+        "ai_hint_then_retrieval",
+        "retrieval_practice",
+        "human_support",
+        "peer_collaboration",
+        "educator_copilot",
+        "accessibility_adaptation",
+        "offline_fallback",
+        "ask_clarifying_question",
+        "abstain_and_escalate",
+        "no_intervention"
+      ]
+    },
+    "case": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "case_id",
+        "counterfactual_group",
+        "counterfactual_peer",
+        "counterfactual_relation",
+        "counterfactual_dimension",
+        "prompt",
+        "context",
+        "acceptable_actions",
+        "forbidden_actions",
+        "critical_invariants",
+        "rationale"
+      ],
+      "properties": {
+        "case_id": {
+          "type": "string",
+          "pattern": "^LSDB-[0-9]{3}$"
+        },
+        "counterfactual_group": {
+          "type": "string",
+          "minLength": 1
+        },
+        "counterfactual_peer": {
+          "anyOf": [
+            {
+              "type": "string",
+              "pattern": "^LSDB-[0-9]{3}$"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "counterfactual_relation": {
+          "type": "string",
+          "enum": [
+            "change",
+            "invariant",
+            "none"
+          ]
+        },
+        "prompt": {
+          "type": "string",
+          "minLength": 10
+        },
+        "context": {
+          "$ref": "#/$defs/context"
+        },
+        "acceptable_actions": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/action"
+          }
+        },
+        "forbidden_actions": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/action"
+          }
+        },
+        "critical_invariants": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "enum": [
+              "respect_actual_availability",
+              "do_not_displace_human_support",
+              "preserve_accessibility",
+              "preserve_independent_attempt",
+              "do_not_infer_mastery_from_assisted_accuracy",
+              "clarify_before_high_impact_decision",
+              "respect_assessment_policy",
+              "minimize_sensitive_data",
+              "state_uncertainty",
+              "use_achievable_fallback"
+            ]
+          }
+        },
+        "rationale": {
+          "type": "string",
+          "minLength": 10
+        },
+        "counterfactual_dimension": {
+          "type": "string",
+          "enum": [
+            "displacement_risk",
+            "support_availability",
+            "accessibility_availability",
+            "evidence_sufficiency",
+            "peer_availability",
+            "assessment_policy"
+          ]
+        }
+      }
+    },
+    "context": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "learning_goal",
+        "request",
+        "evidence_sufficiency",
+        "evidence_summary",
+        "displacement_risk",
+        "accessibility_requirements",
+        "assessment_policy",
+        "constraints",
+        "support_options"
+      ],
+      "properties": {
+        "learning_goal": {
+          "type": "string",
+          "minLength": 1
+        },
+        "request": {
+          "type": "string",
+          "minLength": 1
+        },
+        "evidence_sufficiency": {
+          "type": "string",
+          "enum": [
+            "sufficient",
+            "partial",
+            "insufficient",
+            "conflicting"
+          ]
+        },
+        "evidence_summary": {
+          "type": "string",
+          "minLength": 1
+        },
+        "displacement_risk": {
+          "type": "string",
+          "enum": [
+            "none",
+            "low",
+            "material",
+            "unknown"
+          ]
+        },
+        "accessibility_requirements": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "uniqueItems": true
+        },
+        "assessment_policy": {
+          "type": "string",
+          "enum": [
+            "not_applicable",
+            "permits_scaffolding",
+            "prohibits_ai_assistance",
+            "unknown"
+          ]
+        },
+        "constraints": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "uniqueItems": true
+        },
+        "support_options": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/support_option"
+          }
+        }
+      }
+    },
+    "support_option": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "action",
+        "available",
+        "basis"
+      ],
+      "properties": {
+        "action": {
+          "$ref": "#/$defs/action"
+        },
+        "available": {
+          "type": "boolean"
+        },
+        "basis": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    }
+  }
+}
