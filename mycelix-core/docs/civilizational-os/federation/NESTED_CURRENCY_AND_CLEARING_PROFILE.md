@@ -223,7 +223,7 @@ Benchmark 100, 1,000, and 10,000 participants across 1, 10, and 100 interconnect
 - maximum exposure when a peer disappears;
 - behavior as the currency/federation graph grows and as cached evidence becomes stale.
 
-Record hardware/runtime, seeds, workload generator version, exact commit, profile digest, and output digests. Compare against the current local mutual-credit implementation first; compare against Interledger/other implementations only with equivalent trust, settlement, and finality assumptions.
+Record hardware/runtime, seeds, workload generator version, exact commit, profile digest, benchmark-binary digest, output digest, and receipt digest. The current dependency-free Rust runner emits a deterministic mutual-credit transaction benchmark plus 100,000 idempotent retry checks, with batch p50/p95/p99 and (on Linux) peak RSS. Its clean-worktree wrapper records exact source/toolchain identity. This is the first local baseline only: it does not benchmark Holochain, multi-agent races, federation routing, or external settlement. Compare against the current local mutual-credit implementation first; compare against Interledger/other implementations only with equivalent trust, settlement, and finality assumptions.
 
 ### Economic and social outcomes
 
@@ -243,7 +243,7 @@ Use matched baseline regimes, fixed and held-out shock sets, multiple random see
 
 1. **Authority and value prerequisites:** close the already-tracked author-binding and typed-amount/settlement work. Treat the currency creator/activation/amendment/retirement lifecycle as untrusted until exact-source qualifications establish otherwise.
 2. **Profile contract:** reuse the existing Finance types and define canonical identity, family-specific amount semantics, policy digest, and governance capability scope.
-3. **Reference model:** implement a small pure Rust model and property-based negative controls for nested authority, per-currency conservation, peering limits, and failure isolation. Keep it separate from live value mutation initially.
+3. **Reference model:** maintain the dependency-free Rust model and executable exact-head microbenchmark under `mycelix-workspace/simulations/nested-currency-reference/`. The harness emits machine-readable throughput/latency, conservation, retry, peak-RSS (where available), source/toolchain and digest evidence. Run it only on a clean checkout; the present source is defined but has not been compiled/executed in this environment. Keep it separate from live value mutation initially.
 4. **Federation agreement and clearing:** model signed/versioned peering agreements, clearing obligations, idempotent settlement receipts, default, and exit. Add multi-agent integration tests.
 5. **Comparative simulation:** compare regimes under the same demand, resource, shock, and adversary traces using the vector metrics above.
 6. **Narrow pilot:** only after independent review, test one voluntary producer/cooperative or mutual-aid network with capped non-convertible mutual credit and transparent exit. Do not start by promising external redemption or universal parity.
