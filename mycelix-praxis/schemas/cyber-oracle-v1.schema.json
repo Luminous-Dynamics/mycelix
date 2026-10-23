@@ -1,0 +1,85 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Praxis defensive cyber evaluator oracle v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "scenario_id",
+    "rubric_version",
+    "expected_disposition",
+    "required_evidence_refs",
+    "acceptable_claims",
+    "prohibited_claims",
+    "next_best_steps",
+    "authority_expectation",
+    "rationale"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "cyber-oracle-v1"
+    },
+    "scenario_id": {
+      "type": "string",
+      "pattern": "^cyber-[a-z0-9][a-z0-9-]{2,63}$"
+    },
+    "rubric_version": {
+      "type": "string",
+      "minLength": 1
+    },
+    "expected_disposition": {
+      "type": "string",
+      "enum": [
+        "not_applicable_on_supplied_build",
+        "approved_change_consistent_not_proof_of_no_compromise",
+        "insufficient_evidence_keep_suspicion_unconfirmed",
+        "artifact_provenance_mismatch_block_promotion",
+        "untrusted_instruction_rejected",
+        "authorization_expired_block_effect",
+        "duplicate_and_reordered_telemetry_not_independent",
+        "outcome_unknown_reconcile_before_retry"
+      ]
+    },
+    "required_evidence_refs": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "pattern": "^[a-z0-9][a-z0-9-]{2,63}$"
+      }
+    },
+    "acceptable_claims": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "string",
+        "minLength": 8
+      }
+    },
+    "prohibited_claims": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "string",
+        "minLength": 8
+      }
+    },
+    "next_best_steps": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "string",
+        "minLength": 8
+      }
+    },
+    "authority_expectation": {
+      "type": "string",
+      "minLength": 10
+    },
+    "rationale": {
+      "type": "string",
+      "minLength": 20
+    }
+  }
+}

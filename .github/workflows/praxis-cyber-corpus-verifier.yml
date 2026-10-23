@@ -1,0 +1,51 @@
+name: Praxis Cyber Corpus Verifier
+
+on:
+  pull_request:
+    paths:
+      - "mycelix-praxis/tools/cyber-corpus-verifier/**"
+      - "mycelix-praxis/docs/fixtures/cyber-public-seed-v1*"
+      - "mycelix-praxis/schemas/cyber-*-v1.schema.json"
+      - ".github/workflows/praxis-cyber-corpus-verifier.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout exact tested source revision
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+
+      - name: Install stable Rust toolchain
+        uses: actions-rust-lang/setup-rust-toolchain@166cdcfd11aee3cb47222f9ddb555ce30ddb9659
+        with:
+          toolchain: stable
+
+      - name: Run verifier negative controls and fixture tests
+        run: cargo test --manifest-path mycelix-praxis/tools/cyber-corpus-verifier/Cargo.toml
+
+      - name: Generate source-bound structural receipt
+        env:
+          SOURCE_COMMIT: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          cargo run --manifest-path mycelix-praxis/tools/cyber-corpus-verifier/Cargo.toml -- mycelix-praxis docs/fixtures/cyber-public-seed-v1.manifest.json "$SOURCE_COMMIT" > cyber-corpus-structural-report.json
+          cat cyber-corpus-structural-report.json
+          jq -e --arg commit "$SOURCE_COMMIT" '.verifier_source_commit == $commit and .disposition == "STRUCTURAL_PASS_NOT_CAPABILITY_PASS" and .case_count == 8 and .oracle_count == 8 and (.files | length) == 4 and .schema_validation == "DRAFT_2020_12_META_AND_INSTANCE_VALIDATION_PASS"' cyber-corpus-structural-report.json
+
+      - name: Preserve structural receipt
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: cyber-corpus-structural-report-${{ github.sha }}
+          path: cyber-corpus-structural-report.json
+          if-no-files-found: error
+          retention-days: 14
