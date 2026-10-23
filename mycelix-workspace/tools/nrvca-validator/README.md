@@ -61,6 +61,18 @@ All values above are examples, not a claim that any source was acquired or permi
 
 On Unix, newly staged bytes are created owner-only, content objects are owner-read-only by default (0400), and output receipts are owner read/write (0600). The receipt uses a store-relative object path and avoids storing the input's absolute path. The store itself is not cryptographically immutable: use access controls and independently verify objects when reused. No real source was captured by the current tests.
 
+
+## Read-only content-store audit
+
+Use `verify-store` to re-hash each object in the NRVCA-018 content-addressed store, validate digest/path/shard agreement, and flag malformed entries, symlinks, digest corruption and unsafe object permissions. It never repairs or changes objects.
+
+```sh
+cargo run --manifest-path mycelix-workspace/tools/nrvca-validator/Cargo.toml -- verify-store \
+  --store-dir ./private-evidence-store
+```
+
+The command prints a deterministic JSON report. `status` is `pass`, `empty`, or `failed`; `failed` returns a nonzero exit code while preserving the JSON report on stdout. `empty` is intentionally not a successful validation of evidence because it verifies no objects. See [the audit contract and benchmark protocol](../../docs/research/nrvca/content-store-audit-v0.1.md).
+
 ## What this checks
 
 - report status and period/jurisdiction essentials;
