@@ -8,6 +8,7 @@ on:
       - "mycelix-praxis/crates/praxis-core/**"
       - "mycelix-praxis/examples/assessment-benchmarks/**"
       - "mycelix-praxis/docs/ASSESSMENT_EVIDENCE_BENCHMARK_V1.md"
+      - "mycelix-praxis/docs/STUDY_CONTEXT_NONHARM_V1.md"
       - ".github/workflows/praxis-assessment-evidence.yml"
   push:
     branches: [main]
@@ -15,6 +16,7 @@ on:
       - "mycelix-praxis/crates/praxis-core/**"
       - "mycelix-praxis/examples/assessment-benchmarks/**"
       - "mycelix-praxis/docs/ASSESSMENT_EVIDENCE_BENCHMARK_V1.md"
+      - "mycelix-praxis/docs/STUDY_CONTEXT_NONHARM_V1.md"
       - ".github/workflows/praxis-assessment-evidence.yml"
 
 permissions:
