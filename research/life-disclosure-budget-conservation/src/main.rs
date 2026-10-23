@@ -270,11 +270,7 @@ fn baseline_requests() -> Vec<Request> {
         .collect()
 }
 
-fn cloned_escrow_replicas(
-    budget_units: u32,
-    active_epoch: u64,
-    allocations: &[u32],
-) -> Metrics {
+fn cloned_escrow_replicas(budget_units: u32, active_epoch: u64, allocations: &[u32]) -> Metrics {
     // Both replicas start from the same unspent allocation checkpoint.
     // Their independent local ledgers each accept the full quota, exposing clone/rollback risk.
     let mut aggregate = Metrics::new(budget_units, true);
@@ -336,16 +332,14 @@ fn run_report() -> String {
     shared_rollover.admit(request(22, 1, 4, ACTIVE_EPOCH + 1));
     shared_rollover.admit(request(23, 1, 3, ACTIVE_EPOCH + 1));
 
-    let mut escrow_rollover =
-        EscrowLedger::new(GLOBAL_BUDGET, ACTIVE_EPOCH, vec![5, 5])
-            .expect("rollover escrow allocation must be valid");
+    let mut escrow_rollover = EscrowLedger::new(GLOBAL_BUDGET, ACTIVE_EPOCH, vec![5, 5])
+        .expect("rollover escrow allocation must be valid");
     escrow_rollover.admit(request(31, 0, 4, ACTIVE_EPOCH));
     escrow_rollover.advance_epoch(ACTIVE_EPOCH + 1);
     escrow_rollover.admit(request(32, 0, 2, ACTIVE_EPOCH + 1));
     escrow_rollover.admit(request(33, 0, 1, ACTIVE_EPOCH + 1));
 
-    let cloned_escrow =
-        cloned_escrow_replicas(GLOBAL_BUDGET, ACTIVE_EPOCH, &[3, 3, 2, 2]);
+    let cloned_escrow = cloned_escrow_replicas(GLOBAL_BUDGET, ACTIVE_EPOCH, &[3, 3, 2, 2]);
 
     let mut invalid_escrow = Metrics::new(GLOBAL_BUDGET, false);
     invalid_escrow.offered = VERIFIER_COUNT as u32;
@@ -550,12 +544,30 @@ mod tests {
         assert_eq!(ledger.metrics().duplicate_replays, 1);
 
         let conflicting_requests = [
-            Request { cost: 5, ..original.clone() },
-            Request { payload_digest: 0xdead_beef, ..original.clone() },
-            Request { subject_ref: 78, ..original.clone() },
-            Request { purpose_ref: 10, ..original.clone() },
-            Request { verifier: 1, ..original.clone() },
-            Request { policy_epoch: ACTIVE_EPOCH + 1, ..original.clone() },
+            Request {
+                cost: 5,
+                ..original.clone()
+            },
+            Request {
+                payload_digest: 0xdead_beef,
+                ..original.clone()
+            },
+            Request {
+                subject_ref: 78,
+                ..original.clone()
+            },
+            Request {
+                purpose_ref: 10,
+                ..original.clone()
+            },
+            Request {
+                verifier: 1,
+                ..original.clone()
+            },
+            Request {
+                policy_epoch: ACTIVE_EPOCH + 1,
+                ..original.clone()
+            },
         ];
 
         for changed in conflicting_requests {
@@ -698,8 +710,7 @@ mod tests {
             shared.admit(item);
         }
         let shared_metrics = shared.metrics();
-        let shared_audit =
-            audit_accepted_history(&shared_metrics.accepted_requests, GLOBAL_BUDGET);
+        let shared_audit = audit_accepted_history(&shared_metrics.accepted_requests, GLOBAL_BUDGET);
         assert_eq!(shared_audit.spent_units, shared_metrics.spent_units);
         assert_eq!(shared_audit.overspend_units, 0);
         assert_eq!(shared_audit.duplicate_request_ids, 0);
@@ -732,8 +743,16 @@ mod tests {
         let mut rows = report.lines();
         let header = rows.next().expect("report header must exist");
         let width = header.split(',').count();
-        assert!(header.split(',').any(|column| column == "audit_spent_units"));
-        assert!(header.split(',').any(|column| column == "audit_overspend_units"));
+        assert!(
+            header
+                .split(',')
+                .any(|column| column == "audit_spent_units")
+        );
+        assert!(
+            header
+                .split(',')
+                .any(|column| column == "audit_overspend_units")
+        );
 
         let mut row_count = 0;
         for row in rows {
