@@ -14,7 +14,9 @@
       "scheduled_learning_tasks": 6,
       "attempted_learning_tasks": 6,
       "completed_learning_tasks": 4,
-      "independent_practice_attempts": 2
+      "independent_practice_attempts": 2,
+      "course_platform_sessions": 1,
+      "course_platform_active_seconds": 600
     },
     {
       "participant_ref": "synthetic-learner-01",
@@ -27,7 +29,9 @@
       "scheduled_learning_tasks": 6,
       "attempted_learning_tasks": 6,
       "completed_learning_tasks": 5,
-      "independent_practice_attempts": 3
+      "independent_practice_attempts": 3,
+      "course_platform_sessions": 2,
+      "course_platform_active_seconds": 1200
     },
     {
       "participant_ref": "synthetic-learner-01",
@@ -40,7 +44,9 @@
       "scheduled_learning_tasks": 4,
       "attempted_learning_tasks": 4,
       "completed_learning_tasks": 3,
-      "independent_practice_attempts": 2
+      "independent_practice_attempts": 2,
+      "course_platform_sessions": 1,
+      "course_platform_active_seconds": 600
     },
     {
       "participant_ref": "synthetic-learner-01",
@@ -53,7 +59,9 @@
       "scheduled_learning_tasks": 4,
       "attempted_learning_tasks": 3,
       "completed_learning_tasks": 3,
-      "independent_practice_attempts": 2
+      "independent_practice_attempts": 2,
+      "course_platform_sessions": 1,
+      "course_platform_active_seconds": 600
     },
     {
       "participant_ref": "synthetic-learner-02",
@@ -66,7 +74,9 @@
       "scheduled_learning_tasks": 6,
       "attempted_learning_tasks": 6,
       "completed_learning_tasks": 4,
-      "independent_practice_attempts": 2
+      "independent_practice_attempts": 2,
+      "course_platform_sessions": 1,
+      "course_platform_active_seconds": 600
     },
     {
       "participant_ref": "synthetic-learner-02",
@@ -79,7 +89,9 @@
       "scheduled_learning_tasks": 6,
       "attempted_learning_tasks": 4,
       "completed_learning_tasks": 3,
-      "independent_practice_attempts": 1
+      "independent_practice_attempts": 1,
+      "course_platform_sessions": 2,
+      "course_platform_active_seconds": 1200
     },
     {
       "participant_ref": "synthetic-learner-02",
@@ -92,7 +104,9 @@
       "scheduled_learning_tasks": 4,
       "attempted_learning_tasks": 3,
       "completed_learning_tasks": 3,
-      "independent_practice_attempts": 2
+      "independent_practice_attempts": 2,
+      "course_platform_sessions": 1,
+      "course_platform_active_seconds": 600
     },
     {
       "participant_ref": "synthetic-learner-02",
@@ -105,7 +119,9 @@
       "scheduled_learning_tasks": null,
       "attempted_learning_tasks": null,
       "completed_learning_tasks": null,
-      "independent_practice_attempts": null
+      "independent_practice_attempts": null,
+      "course_platform_sessions": null,
+      "course_platform_active_seconds": null
     },
     {
       "participant_ref": "synthetic-learner-03",
@@ -118,7 +134,9 @@
       "scheduled_learning_tasks": 6,
       "attempted_learning_tasks": 6,
       "completed_learning_tasks": 4,
-      "independent_practice_attempts": 2
+      "independent_practice_attempts": 2,
+      "course_platform_sessions": 1,
+      "course_platform_active_seconds": 600
     },
     {
       "participant_ref": "synthetic-learner-03",
@@ -131,7 +149,9 @@
       "scheduled_learning_tasks": 6,
       "attempted_learning_tasks": 3,
       "completed_learning_tasks": null,
-      "independent_practice_attempts": 0
+      "independent_practice_attempts": 0,
+      "course_platform_sessions": 2,
+      "course_platform_active_seconds": 1200
     },
     {
       "participant_ref": "synthetic-learner-03",
@@ -144,7 +164,9 @@
       "scheduled_learning_tasks": 4,
       "attempted_learning_tasks": 2,
       "completed_learning_tasks": 2,
-      "independent_practice_attempts": 1
+      "independent_practice_attempts": 1,
+      "course_platform_sessions": 1,
+      "course_platform_active_seconds": 600
     },
     {
       "participant_ref": "synthetic-learner-03",
@@ -157,7 +179,9 @@
       "scheduled_learning_tasks": null,
       "attempted_learning_tasks": null,
       "completed_learning_tasks": null,
-      "independent_practice_attempts": null
+      "independent_practice_attempts": null,
+      "course_platform_sessions": null,
+      "course_platform_active_seconds": null
     }
   ]
 }
