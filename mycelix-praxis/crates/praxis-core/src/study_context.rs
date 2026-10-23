@@ -7,9 +7,7 @@
 //! This does not change assessment-evidence v1, calculate intervention effects,
 //! or determine mastery. Counts and availability are context measures, not outcomes.
 
-use crate::assessment_evidence::{
-    validate_assessment_benchmark, AssessmentBenchmarkRun, ValidationIssue as AssessmentIssue,
-};
+use crate::assessment_evidence::{validate_assessment_benchmark, AssessmentBenchmarkRun};
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -486,14 +484,4 @@ fn push_issue(
         path: path.into(),
         message: message.into(),
     });
-}
-
-impl From<AssessmentIssue> for StudyContextIssue {
-    fn from(issue: AssessmentIssue) -> Self {
-        Self {
-            code: format!("assessment_{}", issue.code),
-            path: format!("assessment{}", issue.path.trim_start_matches('$')),
-            message: issue.message,
-        }
-    }
 }
