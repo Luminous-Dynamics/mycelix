@@ -60,7 +60,7 @@ enum Profile {
 }
 
 impl Profile {
-    const ALL: [Self; 5] = [
+    const ALL: [Self; 6] = [
         Self::PopulationPrior,
         Self::ExactCohortPeerMajority,
         Self::CoarseNeighborhoodPeerMajority,
