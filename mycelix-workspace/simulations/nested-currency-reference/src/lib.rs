@@ -61,14 +61,30 @@ pub fn authorize(
     actor: &str, profile: &Profile, action: Action, amount: Option<i64>,
     now: u64, cap: &Capability,
 ) -> Result<(), Error> {
+    profile.validate()?;
     if cap.issuer != profile.issuer || cap.delegate != actor || cap.instrument != profile.id {
         return Err(Error::InvalidCapability);
     }
     if !cap.actions.contains(&action) { return Err(Error::ActionNotGranted); }
     if cap.revision != profile.revision { return Err(Error::StaleRevision); }
     if now >= cap.expires_at { return Err(Error::CapabilityExpired); }
-    if let (Some(limit), Some(value)) = (cap.max_amount, amount) {
-        if value < 0 || value > limit { return Err(Error::ExposureLimit); }
+
+    if let Some(value) = amount {
+        if value < 0 { return Err(Error::InvalidAmount); }
+    }
+    let amount_bearing = matches!(action, Action::Issue | Action::Clear);
+    if amount_bearing && !profile.active { return Err(Error::Inactive); }
+    if amount_bearing && amount.is_none() { return Err(Error::InvalidAmount); }
+    if amount_bearing && cap.max_amount.is_none() { return Err(Error::InvalidCapability); }
+
+    match (cap.max_amount, amount) {
+        (Some(limit), Some(value)) => {
+            if limit < 0 { return Err(Error::InvalidCapability); }
+            if value > limit { return Err(Error::ExposureLimit); }
+            if amount_bearing && value == 0 { return Err(Error::InvalidAmount); }
+        }
+        (Some(_), None) => return Err(Error::InvalidAmount),
+        _ => {}
     }
     Ok(())
 }
@@ -175,13 +191,14 @@ pub struct Clearing {
     agreements: BTreeMap<String, Agreement>,
     outstanding: BTreeMap<String, i64>,
     events: BTreeMap<String, ClearingEvent>,
+    community_gross_caps: BTreeMap<String, u64>,
 }
 
 impl Clearing {
     pub fn add(&mut self, a: Agreement) -> Result<(), Error> {
         if a.id.trim().is_empty() || a.community_a.trim().is_empty()
             || a.community_b.trim().is_empty() || a.community_a == a.community_b
-            || a.instrument.trim().is_empty() || a.max_abs_outstanding <= 0
+            || a.instrument.trim().is_empty() || a.revision == 0 || a.max_abs_outstanding <= 0
             || self.agreements.contains_key(&a.id) {
             return Err(Error::InvalidAgreement);
         }
@@ -192,6 +209,25 @@ impl Clearing {
 
     pub fn outstanding(&self, id: &str) -> Result<i64, Error> {
         self.outstanding.get(id).copied().ok_or(Error::InvalidAgreement)
+    }
+
+    /// Set a conservative gross-exposure cap across every peering edge that touches a community.
+    /// Existing commitments are counted before the new cap is accepted.
+    pub fn set_community_gross_cap(&mut self, community: &str, cap: u64) -> Result<(), Error> {
+        if community.trim().is_empty() || cap == 0 { return Err(Error::InvalidAmount); }
+        if self.gross_exposure(community)? > cap { return Err(Error::ExposureLimit); }
+        self.community_gross_caps.insert(community.into(), cap);
+        Ok(())
+    }
+
+    fn gross_exposure(&self, community: &str) -> Result<u64, Error> {
+        let mut total = 0_u64;
+        for agreement in self.agreements.values().filter(|a|
+            a.community_a == community || a.community_b == community) {
+            total = total.checked_add(self.outstanding(&agreement.id)?.unsigned_abs())
+                .ok_or(Error::Overflow)?;
+        }
+        Ok(total)
     }
 
     pub fn pause(&mut self, id: &str) -> Result<(), Error> {
@@ -214,8 +250,21 @@ impl Clearing {
         if a.instrument != instrument { return Err(Error::InvalidAgreement); }
         if a.revision != revision { return Err(Error::StaleRevision); }
         if a.status != AgreementStatus::Active { return Err(Error::AgreementPaused); }
-        let next = self.outstanding(agreement_id)?.checked_add(delta).ok_or(Error::Overflow)?;
+        let current = self.outstanding(agreement_id)?;
+        let next = current.checked_add(delta).ok_or(Error::Overflow)?;
         if next.unsigned_abs() > a.max_abs_outstanding as u64 { return Err(Error::ExposureLimit); }
+
+        // Enforce gross exposure across all peering edges, not only the edge being mutated.
+        // Count the replacement balance once; do not mutate any ledger until all caps pass.
+        for community in [&a.community_a, &a.community_b] {
+            if let Some(cap) = self.community_gross_caps.get(community) {
+                let before = self.gross_exposure(community)?;
+                let after = before.checked_sub(current.unsigned_abs())
+                    .and_then(|n| n.checked_add(next.unsigned_abs()))
+                    .ok_or(Error::Overflow)?;
+                if after > *cap { return Err(Error::ExposureLimit); }
+            }
+        }
         self.outstanding.insert(agreement_id.into(), next);
         self.events.insert(event_id.into(), ev);
         Ok(Apply::Applied)
@@ -290,6 +339,25 @@ mod tests {
         let mut stale = cap.clone(); stale.revision = 0;
         assert_eq!(authorize("did:federation", &p, Action::Amend, Some(8), 99, &stale),
             Err(Error::StaleRevision));
+
+        // Regression: Some(limit) + None(amount) must not bypass the capability ceiling.
+        assert_eq!(authorize("did:federation", &p, Action::Amend, None, 99, &cap),
+            Err(Error::InvalidAmount));
+        assert_eq!(authorize("did:federation", &p, Action::Amend, Some(-1), 99, &cap),
+            Err(Error::InvalidAmount));
+
+        let issue_cap = Capability { actions: [Action::Issue].into_iter().collect(),
+            max_amount: None, ..cap.clone() };
+        assert_eq!(authorize("did:federation", &p, Action::Issue, Some(1), 99, &issue_cap),
+            Err(Error::InvalidCapability));
+        assert_eq!(authorize("did:federation", &p, Action::Issue, None, 99, &cap),
+            Err(Error::InvalidAmount));
+        let inactive = Profile { active: false, ..p.clone() };
+        assert_eq!(authorize("did:federation", &inactive, Action::Issue, Some(1), 99, &cap),
+            Err(Error::StaleRevision)); // changed profile requires re-authorizing first
+        let inactive_cap = Capability { revision: inactive.revision, ..cap };
+        assert_eq!(authorize("did:federation", &inactive, Action::Issue, Some(1), 99, &inactive_cap),
+            Err(Error::ActionNotGranted)); // Issue was not delegated
     }
 
     #[test]
@@ -346,7 +414,24 @@ mod tests {
         c.obligation("ob:1", "edge:ab", "cc:local", 1, -25).unwrap();
         assert_eq!(c.settle("set:1", "edge:ab", "cc:local", 1, 26), Err(Error::SettlementTooLarge));
         assert_eq!(c.obligation("ob:2", "edge:ab", "cc:other", 1, 1), Err(Error::InvalidAgreement));
+        assert_eq!(c.obligation("ob:3", "edge:ab", "cc:local", 2, 1), Err(Error::StaleRevision));
         assert_eq!(c.outstanding("edge:ab"), Ok(-25));
+    }
+
+    #[test]
+    fn aggregate_gross_exposure_cannot_be_double_committed_across_federations() {
+        let mut c = Clearing::default();
+        c.add(agreement("edge:ab", "cc:local", 100)).unwrap();
+        c.add(agreement("edge:ac", "cc:local", 100)).unwrap();
+        c.set_community_gross_cap("a", 100).unwrap();
+        c.obligation("ob:ab-70", "edge:ab", "cc:local", 1, 70).unwrap();
+        assert_eq!(c.obligation("ob:ac-40", "edge:ac", "cc:local", 1, 40),
+            Err(Error::ExposureLimit));
+        assert_eq!(c.outstanding("edge:ac"), Ok(0));
+        c.obligation("ob:ac-30", "edge:ac", "cc:local", 1, 30).unwrap();
+        assert_eq!(c.gross_exposure("a"), Ok(100));
+        assert_eq!(c.outstanding("edge:ab"), Ok(70));
+        assert_eq!(c.outstanding("edge:ac"), Ok(30));
     }
 
     #[test]
