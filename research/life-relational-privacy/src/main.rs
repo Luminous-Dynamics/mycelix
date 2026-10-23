@@ -12,6 +12,7 @@ const MANIFEST: &str = include_str!("../manifest.json");
 struct Subject {
     cohort_id: u64,
     coarse_bucket: u64,
+    secondary_group_id: u64,
     protected: bool,
     independent_secret: bool,
     peer_proxy: bool,
@@ -22,6 +23,7 @@ struct Subject {
 struct AttackerView {
     cohort_id: u64,
     coarse_bucket: u64,
+    secondary_group_id: u64,
     peer_proxy: bool,
     randomized_peer_proxy: bool,
 }
@@ -31,6 +33,7 @@ impl From<&Subject> for AttackerView {
         Self {
             cohort_id: subject.cohort_id,
             coarse_bucket: subject.coarse_bucket,
+            secondary_group_id: subject.secondary_group_id,
             peer_proxy: subject.peer_proxy,
             randomized_peer_proxy: subject.randomized_peer_proxy,
         }
@@ -50,6 +53,7 @@ enum Profile {
     PopulationPrior,
     ExactCohortPeerMajority,
     CoarseNeighborhoodPeerMajority,
+    OverlappingGroupUnionPeerMajority,
     RandomizedPeerNegativeControl,
     UncorrelatedTargetNegativeControl,
 }
@@ -59,6 +63,7 @@ impl Profile {
         Self::PopulationPrior,
         Self::ExactCohortPeerMajority,
         Self::CoarseNeighborhoodPeerMajority,
+        Self::OverlappingGroupUnionPeerMajority,
         Self::RandomizedPeerNegativeControl,
         Self::UncorrelatedTargetNegativeControl,
     ];
@@ -68,6 +73,7 @@ impl Profile {
             Self::PopulationPrior => "population_prior",
             Self::ExactCohortPeerMajority => "exact_cohort_peer_majority",
             Self::CoarseNeighborhoodPeerMajority => "coarse_neighborhood_peer_majority",
+            Self::OverlappingGroupUnionPeerMajority => "overlapping_group_union_peer_majority",
             Self::RandomizedPeerNegativeControl => "randomized_peer_negative_control",
             Self::UncorrelatedTargetNegativeControl => "uncorrelated_target_negative_control",
         }
@@ -162,13 +168,19 @@ fn generate_population(
     let mut rng = Rng::new(seed);
     let mut subjects = Vec::with_capacity(group_count.saturating_mul(cohort_size));
 
+    let secondary_group_count = group_count.saturating_div(2).max(1);
     for group in 0..group_count {
         let latent = rng.bit();
         let cohort_id = cohort_id_base + group as u64;
         let coarse_bucket =
             cohort_id_base / COARSENING_FACTOR as u64 + (group / COARSENING_FACTOR) as u64;
 
-        for _ in 0..cohort_size {
+        for member in 0..cohort_size {
+            // A second membership crosses the primary cohort partition. It is
+            // independent of the protected signal generation and acts as
+            // explicit relation-metadata side information to the attacker.
+            let secondary_group_id =
+                ((group * 7 + member * 11) % secondary_group_count) as u64;
             let protected = if rng.chance_ppm(peer_signal_ppm) {
                 latent
             } else {
@@ -183,6 +195,7 @@ fn generate_population(
             subjects.push(Subject {
                 cohort_id,
                 coarse_bucket,
+                secondary_group_id,
                 protected,
                 independent_secret: rng.bit(),
                 peer_proxy,
@@ -271,10 +284,15 @@ fn predict_attacker(
                         return None;
                     }
 
-                    let related = if profile == Profile::CoarseNeighborhoodPeerMajority {
-                        candidate.coarse_bucket == target.coarse_bucket
-                    } else {
-                        candidate.cohort_id == target.cohort_id
+                    let related = match profile {
+                        Profile::CoarseNeighborhoodPeerMajority => {
+                            candidate.coarse_bucket == target.coarse_bucket
+                        }
+                        Profile::OverlappingGroupUnionPeerMajority => {
+                            candidate.cohort_id == target.cohort_id
+                                || candidate.secondary_group_id == target.secondary_group_id
+                        }
+                        _ => candidate.cohort_id == target.cohort_id,
                     };
 
                     if related { Some(candidate_index) } else { None }
@@ -761,6 +779,18 @@ mod tests {
         assert!(coarse.peer_observations_used > exact.peer_observations_used);
         assert!(
             coarse.peer_observation_delta_vs_exact_cohort
+                > exact.peer_observation_delta_vs_exact_cohort
+        );
+
+        let overlapping = summarize(&evaluate_profile(
+            &training,
+            &test,
+            8,
+            Profile::OverlappingGroupUnionPeerMajority,
+        ));
+        assert!(overlapping.peer_observations_used > exact.peer_observations_used);
+        assert!(
+            overlapping.peer_observation_delta_vs_exact_cohort
                 > exact.peer_observation_delta_vs_exact_cohort
         );
     }
