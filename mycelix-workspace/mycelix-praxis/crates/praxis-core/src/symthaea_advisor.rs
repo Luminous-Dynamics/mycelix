@@ -330,16 +330,6 @@ pub fn validate_symthaea_advisor_request(
         }
     }
 
-    if request.human_support_must_be_preserved && request.displacement_risk == DisplacementRisk::Material {
-        if !request.support_options.iter().any(|option| {
-            option.action == AdvisorAction::HumanSupport
-                && option.available
-                && option.policy_permitted
-        }) {
-            issue(&mut issues, "support_options", "protected_human_support_missing", "material displacement risk requires the preserved human-support option to be explicit and available");
-        }
-    }
-
     issues
 }
 
@@ -473,9 +463,14 @@ fn validate_selected_action(
 
     if request.human_support_must_be_preserved {
         if action == AdvisorAction::AiHintThenRetrieval {
-            issue(issues, field, "protected_human_support_displacement", "AI-only support cannot replace protected human support under material displacement risk");
+            issue(issues, field, "protected_human_support_displacement", "AI-only support cannot replace protected human support");
         }
-        if request.support_options.iter().any(|option| option.action == AdvisorAction::HumanSupport && option.available && option.policy_permitted)
+        let human_path_available = request.support_options.iter().any(|option| {
+            matches!(option.action, AdvisorAction::HumanSupport | AdvisorAction::EducatorCopilot)
+                && option.available
+                && option.policy_permitted
+        });
+        if human_path_available
             && !matches!(
                 action,
                 AdvisorAction::HumanSupport
@@ -485,6 +480,10 @@ fn validate_selected_action(
             )
         {
             issue(issues, field, "human_support_not_preserved", "action must preserve available human support, augment the educator, or safely escalate instead of replacing it");
+        } else if !human_path_available
+            && !matches!(action, AdvisorAction::AskClarifyingQuestion | AdvisorAction::AbstainAndEscalate)
+        {
+            issue(issues, field, "protected_human_support_unavailable_requires_abstention", "when preservation is required but no human/educator path is available, advice must clarify or abstain");
         }
     }
 
@@ -620,6 +619,40 @@ mod tests {
         let response = valid_response_json(&request_json);
         let issues = validate_symthaea_advice_for_request(&request_json, &response).unwrap();
         assert!(has_code(&issues, "prohibited_ai_support_selected"));
+    }
+
+    #[test]
+    fn unresolved_assessment_policy_cannot_mark_ai_support_permitted() {
+        let mut request: Value = serde_json::from_str(REQUEST_FIXTURE).unwrap();
+        request["assessment_policy"] = serde_json::json!("unknown");
+        let parsed = parse_symthaea_advisor_request(&serde_json::to_string(&request).unwrap()).unwrap();
+        assert!(has_code(
+            &validate_symthaea_advisor_request(&parsed),
+            "ai_policy_conflict"
+        ));
+    }
+
+    #[test]
+    fn missing_preserved_human_path_can_abstain_instead_of_invalidating_request() {
+        let mut request: Value = serde_json::from_str(REQUEST_FIXTURE).unwrap();
+        request["human_support_must_be_preserved"] = Value::Bool(true);
+        request["displacement_risk"] = serde_json::json!("material");
+        request["support_options"] = serde_json::json!([
+            {"action":"ai_hint_then_retrieval","available":true,"accessible_for_context":true,"policy_permitted":true,"basis_evidence_refs":["goal-001","availability-001","policy-001"]},
+            {"action":"offline_fallback","available":true,"accessible_for_context":true,"policy_permitted":true,"basis_evidence_refs":["availability-001"]}
+        ]);
+        let request_json = serde_json::to_string(&request).unwrap();
+        let parsed = parse_symthaea_advisor_request(&request_json).unwrap();
+        assert!(validate_symthaea_advisor_request(&parsed).is_empty());
+        let mut response: Value = serde_json::from_str(&valid_response_json(&request_json)).unwrap();
+        response["disposition"] = serde_json::json!("abstain");
+        response["selected_action"] = serde_json::json!("abstain_and_escalate");
+        response["alternative_actions"] = serde_json::json!([]);
+        let issues = validate_symthaea_advice_for_request(
+            &request_json,
+            &serde_json::to_string(&response).unwrap(),
+        ).unwrap();
+        assert!(issues.is_empty(), "abstention should pass: {issues:#?}");
     }
 
     #[test]
