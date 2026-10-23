@@ -1,0 +1,13 @@
+[package]
+name = "life-disclosure-budget-conservation"
+version = "0.1.0"
+edition = "2024"
+license = "AGPL-3.0-or-later"
+publish = false
+description = "Synthetic state-machine benchmark for federated disclosure-budget conservation"
+
+[[bin]]
+name = "life-disclosure-budget-conservation"
+path = "src/main.rs"
+
+[workspace]
