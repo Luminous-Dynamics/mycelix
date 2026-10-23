@@ -399,7 +399,7 @@ mod tests {
     }
 
     #[test]
-    fn replay_is_idempotent_and_key_reuse_with_changed_content_conflicts() {
+    fn replay_is_idempotent_and_any_request_scope_reuse_conflicts() {
         let mut ledger = SharedLedger::new(GLOBAL_BUDGET, ACTIVE_EPOCH);
         let original = request(7, 0, 4, ACTIVE_EPOCH);
         assert_eq!(ledger.admit(original.clone()), Outcome::Accepted);
@@ -409,14 +409,20 @@ mod tests {
         assert_eq!(ledger.metrics().spent_units, spent_after_first);
         assert_eq!(ledger.metrics().duplicate_replays, 1);
 
-        let changed = Request {
-            cost: 5,
-            payload_digest: 0xdead_beef,
-            ..original
-        };
-        assert_eq!(ledger.admit(changed), Outcome::Conflict);
+        let conflicting_requests = [
+            Request { cost: 5, ..original.clone() },
+            Request { payload_digest: 0xdead_beef, ..original.clone() },
+            Request { subject_ref: 78, ..original.clone() },
+            Request { purpose_ref: 10, ..original.clone() },
+            Request { verifier: 1, ..original.clone() },
+            Request { policy_epoch: ACTIVE_EPOCH + 1, ..original.clone() },
+        ];
+
+        for changed in conflicting_requests {
+            assert_eq!(ledger.admit(changed), Outcome::Conflict);
+        }
         assert_eq!(ledger.metrics().spent_units, spent_after_first);
-        assert_eq!(ledger.metrics().conflicting_reuse, 1);
+        assert_eq!(ledger.metrics().conflicting_reuse, 6);
     }
 
     #[test]
