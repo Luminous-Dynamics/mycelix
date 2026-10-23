@@ -52,7 +52,7 @@ jobs:
           cargo run --quiet --locked --manifest-path research/life-disclosure-observable-traces/Cargo.toml > report-b.csv
           cmp report-a.csv report-b.csv
           sha256sum report-a.csv research/life-disclosure-observable-traces/channel-manifest.json > report.sha256
-          printf 'commit=%s\n' "$GITHUB_SHA" > qualification.txt
+          printf 'commit=%s\n' "$QUALIFIED_SHA" > qualification.txt
           cat report.sha256 >> qualification.txt
           cat qualification.txt
 
