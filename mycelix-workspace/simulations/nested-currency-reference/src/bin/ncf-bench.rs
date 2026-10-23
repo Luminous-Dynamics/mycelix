@@ -13,6 +13,7 @@ const DEFAULT_SEED: u64 = 0x4d59_4345_4c49_5831;
 const MAX_OPERATIONS: usize = 2_000_000;
 const MAX_PARTICIPANTS: usize = 1_000_000;
 const BATCH_SIZE: usize = 1_000;
+const DUPLICATE_RETRY_COUNT: usize = 100_000;
 
 fn required_env(name: &str) -> Result<String, String> {
     let value = env::var(name).map_err(|_| format!("required environment variable {name} is missing"))?;
@@ -183,6 +184,48 @@ fn run() -> Result<(), String> {
         ));
     }
     let throughput_ops_s = operations as f64 * 1_000_000_000.0 / elapsed_ns.max(1) as f64;
+
+    // Separate replay benchmark: a unique event may apply once; exact retries must not move balances.
+    let retry_provider = members[0].clone();
+    let retry_receiver = members[1].clone();
+    let provider_before = ledger.balance(&instrument_id, &retry_provider);
+    let receiver_before = ledger.balance(&instrument_id, &retry_receiver);
+    let retry_event = Exchange {
+        id: "bench:dedupe:once".into(),
+        instrument: instrument_id.clone(),
+        profile_revision: profile.revision,
+        provider: retry_provider.clone(),
+        receiver: retry_receiver.clone(),
+        amount: 1,
+    };
+    match ledger.apply(&registry, retry_event.clone())
+        .map_err(|e| format!("initial idempotency event failed: {e:?}"))? {
+        Apply::Applied => {}
+        Apply::Duplicate => return Err("benchmark retry event ID unexpectedly collided".into()),
+    }
+    let retry_start = Instant::now();
+    for attempt in 0..DUPLICATE_RETRY_COUNT {
+        match ledger.apply(&registry, retry_event.clone())
+            .map_err(|e| format!("duplicate retry {attempt} failed: {e:?}"))? {
+            Apply::Duplicate => {}
+            Apply::Applied => return Err(format!("duplicate retry {attempt} changed state")),
+        }
+    }
+    let retry_elapsed_ns = retry_start.elapsed().as_nanos();
+    let expected_provider = provider_before.checked_add(1)
+        .ok_or_else(|| "provider balance overflow in retry control".to_string())?;
+    let expected_receiver = receiver_before.checked_sub(1)
+        .ok_or_else(|| "receiver balance overflow in retry control".to_string())?;
+    if ledger.balance(&instrument_id, &retry_provider) != expected_provider
+        || ledger.balance(&instrument_id, &retry_receiver) != expected_receiver {
+        return Err("retry idempotency invariant failed: participant balances changed more than once".into());
+    }
+    if ledger.net(&instrument_id) != 0 || ledger.event_count() != operations + 1 {
+        return Err("post-retry conservation/event-count invariant failed".into());
+    }
+    let retry_checks_per_second =
+        DUPLICATE_RETRY_COUNT as f64 * 1_000_000_000.0 / retry_elapsed_ns.max(1) as f64;
+
     batch_latency_ns.sort_unstable();
     let p50 = percentile(&batch_latency_ns, 50);
     let p95 = percentile(&batch_latency_ns, 95);
@@ -200,8 +243,8 @@ fn run() -> Result<(), String> {
             "  \"rustc_version\": \"{}\",\n",
             "  \"toolchain_id\": \"{}\",\n",
             "  \"parameters\": {{\"operations\": {}, \"participants\": {}, \"seed\": \"0x{:016x}\", \"batch_size\": {}}},\n",
-            "  \"metrics\": {{\"elapsed_ns\": {}, \"throughput_ops_per_second\": {:.3}, \"batch_count\": {}, \"batch_latency_ns_p50\": {}, \"batch_latency_ns_p95\": {}, \"batch_latency_ns_p99\": {}, \"net_position\": {}, \"accepted_event_count\": {}, \"peak_rss_bytes\": {}}},\n",
-            "  \"measurement_notes\": [\"Batch latency includes the post-batch conservation scan.\", \"Throughput includes registry lookups, BTreeMap accounting, event persistence, and the conservation scan.\", \"peak_rss_bytes reads Linux /proc VmHWM and is null on unsupported platforms.\", \"This is a single-process reference-model benchmark, not a Holochain/DHT or external settlement benchmark.\", \"One result is not SOTA evidence; repeat across seeds, machines, toolchains, and matched implementations.\" ]\n",
+            "  \"metrics\": {{\"elapsed_ns\": {}, \"throughput_ops_per_second\": {:.3}, \"batch_count\": {}, \"batch_latency_ns_p50\": {}, \"batch_latency_ns_p95\": {}, \"batch_latency_ns_p99\": {}, \"net_position\": {}, \"generated_operation_count\": {}, \"total_unique_event_count\": {}, \"duplicate_retry_count\": {}, \"duplicate_retry_elapsed_ns\": {}, \"duplicate_retry_checks_per_second\": {:.3}, \"peak_rss_bytes\": {}}},\n",
+            "  \"measurement_notes\": [\"Batch latency includes the post-batch conservation scan.\", \"Throughput includes registry lookups, BTreeMap accounting, event persistence, and the conservation scan.\", \"Duplicate-retry rate measures 100000 exact replays after the event was accepted once.\", \"peak_rss_bytes reads Linux /proc VmHWM and is null on unsupported platforms.\", \"This is a single-process reference-model benchmark, not a Holochain/DHT or external settlement benchmark.\", \"One result is not SOTA evidence; repeat across seeds, machines, toolchains, and matched implementations.\" ]\n",
             "}}"
         ),
         json_escape(&source_sha),
@@ -219,7 +262,11 @@ fn run() -> Result<(), String> {
         p95,
         p99,
         ledger.net(&instrument_id),
+        operations,
         ledger.event_count(),
+        DUPLICATE_RETRY_COUNT,
+        retry_elapsed_ns,
+        retry_checks_per_second,
         peak_rss,
     );
     Ok(())
