@@ -132,6 +132,7 @@ Required behavior includes:
 - duplicate, reordered, and retried messages cannot create double credit or settlement;
 - missing amount fields, negative amounts, stale profile revisions, and changed payloads under a reused idempotency key fail closed;
 - a community's aggregate gross commitment across all peering edges remains within its configured cap, not merely each edge in isolation;
+- policy fields cannot change under the same profile revision; limit changes must use an explicit new revision while issuer, family, and denomination semantics remain stable;
 - a network partition cannot increase a peer's exposure above its already qualified offline limit;
 - a currency can be suspended without silently confiscating balances or erasing claims;
 - correction and reversal events append a traceable reason and evidence; they do not rewrite history;
@@ -160,6 +161,8 @@ Make these negative-first tests part of the qualification contract before enabli
 ### Authority and identity
 - two instruments with the same symbol but different issuers;
 - same instrument ID is presented with a changed unit or decimal scale under the same revision after balances exist;
+- same instrument ID and revision are presented with a more permissive credit limit after an earlier operation;
+- a policy revision changes its credit limit while preserving issuer, family, unit identity, and scale;
 - creator authenticates as a valid member but not as an authorized agent of the declared issuer;
 - small-community path attempts to bypass issuer authorization;
 - child attempts to mutate a parent profile;
