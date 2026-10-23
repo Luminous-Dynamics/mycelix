@@ -349,6 +349,21 @@ pub fn validate_symthaea_advisor_request(
         }
     }
 
+    let protected_human_support_available = request.support_options.iter().any(|option| {
+        option.action == AdvisorAction::HumanSupport && option.available && option.policy_permitted
+    });
+    if request.displacement_risk == DisplacementRisk::Material
+        && protected_human_support_available
+        && !request.human_support_must_be_preserved
+    {
+        issue(
+            &mut issues,
+            "human_support_must_be_preserved",
+            "material_displacement_requires_explicit_policy",
+            "material displacement risk with available human support requires an explicit preserve-or-replace policy decision",
+        );
+    }
+
     issues
 }
 
@@ -746,6 +761,18 @@ mod tests {
         let response = valid_response_json(&request_json);
         let issues = validate_symthaea_advice_for_request(&request_json, &response).unwrap();
         assert!(has_code(&issues, "prohibited_ai_support_selected"));
+    }
+
+    #[test]
+    fn material_displacement_requires_explicit_human_support_policy() {
+        let mut request: Value = serde_json::from_str(REQUEST_FIXTURE).unwrap();
+        request["displacement_risk"] = serde_json::json!("material");
+        request["support_options"][2]["available"] = Value::Bool(true);
+        request["human_support_must_be_preserved"] = Value::Bool(false);
+        let request: SymthaeaAdvisorRequest =
+            serde_json::from_value(request).expect("typed request");
+        let issues = validate_symthaea_advisor_request(&request);
+        assert!(has_code(&issues, "material_displacement_requires_explicit_policy"));
     }
 
     #[test]
