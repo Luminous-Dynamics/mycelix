@@ -99,7 +99,8 @@ fn cli_empty_store_is_not_misreported_as_pass() {
     let store = root.0.join("empty-store");
     fs::create_dir(&store).expect("create empty store");
     let output = run(&["--store-dir".into(), store.display().to_string()]);
-    assert!(output.status.success(), "empty is distinct from failure: {}", String::from_utf8_lossy(&output.stderr));
+    assert!(!output.status.success(), "empty store must not pass a fail-closed evidence gate");
+    assert!(String::from_utf8_lossy(&output.stderr).contains("no evidence objects were verified"));
     let report: Value = serde_json::from_slice(&output.stdout).expect("valid empty report");
     assert_eq!(report["status"], "empty");
     assert_eq!(report["objects_verified"], 0);
