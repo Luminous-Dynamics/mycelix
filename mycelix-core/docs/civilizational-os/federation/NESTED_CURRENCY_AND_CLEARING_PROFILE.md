@@ -122,6 +122,12 @@ Use separate explicit modes:
 
 No mode may assume a 1:1 rate, common backing, or unlimited settlement guarantee. If a community exits, the agreement must specify how existing obligations are reconciled without granting new authority to the federation over unrelated local balances.
 
+### Netting is a governed capability, not arithmetic
+
+The default clearing semantics are **gross-by-direction**: an obligation from A to B and a reverse obligation from B to A remain separately outstanding. Their signed net may be displayed for reporting, but it must not be substituted for per-agreement or community gross-exposure calculations. For example, 70 units owed A→B plus 60 units owed B→A represent 130 units of gross unsettled obligations, even though the signed net is 10.
+
+A system may support netting only when a versioned agreement explicitly defines the legal/operational right of set-off, the eligible obligations and cycle, participant-default treatment, settlement finality, and how historical gross legs remain auditable. NCF-1's reference model does not implement qualified netting; it therefore preserves both directions and binds each settlement to the direction it reduces. This is deliberately conservative and is not a claim that gross-only accounting is optimal for all payment arrangements.
+
 ## 7. Failure isolation and repair
 
 A failure in one currency or peering edge must not silently alter unrelated local ledgers. The default response should be to bound or pause the affected edge, preserve evidence, and initiate the previously agreed dispute/recovery path.
@@ -177,6 +183,8 @@ Make these negative-first tests part of the qualification contract before enabli
 - a community stays below each bilateral limit but exceeds its aggregate exposure cap by opening more federation edges in the same instrument;
 - an obligation is accepted when either involved community has no configured aggregate cap, or when a zero cap is interpreted as missing configuration instead of an explicit no-new-risk policy;
 - aggregate exposure calculation incorrectly sums raw numeric balances from unlike instrument/unit domains;
+- equal-and-opposite obligations are implicitly netted, so low signed net balance hides high gross unsettled exposure;
+- a settlement for one direction accidentally consumes or cancels the opposite obligation;
 - a rejected over-cap obligation partially changes state or consumes an event ID before failing;
 - an amount-limited capability omits the amount, uses a negative amount, or attempts new issuance with no ceiling;
 - same numeric amount across two currencies is added, netted, or treated as parity;
@@ -219,6 +227,7 @@ These are proposed qualification targets, not achieved results.
 
 Benchmark 100, 1,000, and 10,000 participants across 1, 10, and 100 interconnected communities, varying transaction rate, credit exposure, federation depth, network partition duration, and clearing cadence. Report:
 - throughput and p50/p95/p99 latency for local exchange, clearing, and conversion separately;
+- directional gross outstanding vs signed net outstanding, gross/net understatement ratio, rejected gross-cap breaches, and directional-settlement accuracy;
 - write amplification and bytes per transaction;
 - recovery time and reconciliation work after crash/partition;
 - maximum exposure when a peer disappears;
