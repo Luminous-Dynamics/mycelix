@@ -308,6 +308,15 @@ pub fn validate_symthaea_advisor_request(
         if !actions.insert(option.action) {
             issue(&mut issues, "support_options", "duplicate_support_option", "each support action may appear only once");
         }
+        if option.basis_evidence_refs.is_empty() {
+            issue(&mut issues, "support_options.basis_evidence_refs", "missing_support_basis", "each support option must cite at least one input evidence reference");
+        }
+        let mut basis_references = BTreeSet::new();
+        for reference in &option.basis_evidence_refs {
+            if !basis_references.insert(reference.as_str()) {
+                issue(&mut issues, "support_options.basis_evidence_refs", "duplicate_support_basis_reference", "support-option basis references must be unique");
+            }
+        }
         for reference in &option.basis_evidence_refs {
             if !evidence_ids.contains(reference.as_str()) {
                 issue(&mut issues, "support_options.basis_evidence_refs", "unknown_support_basis_reference", "support-option basis must cite evidence supplied in this request");
