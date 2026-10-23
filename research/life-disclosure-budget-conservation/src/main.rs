@@ -53,6 +53,7 @@ struct Metrics {
     spent_units: u32,
     budget_units: u32,
     policy_valid: bool,
+    accepted_requests: Vec<Request>,
 }
 
 impl Metrics {
@@ -67,6 +68,7 @@ impl Metrics {
             spent_units: 0,
             budget_units,
             policy_valid,
+            accepted_requests: Vec::new(),
         }
     }
 
@@ -135,6 +137,7 @@ impl SharedLedger {
             self.spent_units += request.cost;
             self.metrics.spent_units = self.spent_units;
             self.metrics.accepted_unique += 1;
+            self.metrics.accepted_requests.push(request.clone());
             Outcome::Accepted
         };
 
@@ -214,6 +217,7 @@ impl EscrowLedger {
                         self.spent_by_verifier[request.verifier] += request.cost;
                         self.metrics.spent_units = self.spent_by_verifier.iter().sum();
                         self.metrics.accepted_unique += 1;
+                        self.metrics.accepted_requests.push(request.clone());
                         Outcome::Accepted
                     }
                 }
@@ -253,6 +257,7 @@ fn independent_stale_replicas(requests: &[Request], budget: u32) -> Metrics {
             metrics.denied += 1;
         } else {
             metrics.accepted_unique += 1;
+            metrics.accepted_requests.push(item.clone());
             metrics.spent_units = metrics.spent_units.saturating_add(item.cost);
         }
     }
@@ -297,6 +302,9 @@ fn cloned_escrow_replicas(
             .stale_epoch_rejections
             .saturating_add(local.stale_epoch_rejections);
         aggregate.spent_units = aggregate.spent_units.saturating_add(local.spent_units);
+        aggregate
+            .accepted_requests
+            .extend(local.accepted_requests.iter().cloned());
     }
     aggregate
 }
@@ -355,7 +363,7 @@ fn run_report() -> String {
     let mut output = String::new();
     writeln!(
         output,
-        "policy,requests_offered,accepted_unique,denied,duplicate_replays,conflicting_reuse,stale_epoch_rejections,spent_units,budget_units,overspend_units,availability_ppm,policy_valid,budget_semantics_declared"
+        "policy,requests_offered,accepted_unique,denied,duplicate_replays,conflicting_reuse,stale_epoch_rejections,spent_units,budget_units,overspend_units,availability_ppm,policy_valid,budget_semantics_declared,audit_accepted_records,audit_distinct_request_ids,audit_duplicate_request_ids,audit_spent_units,audit_overspend_units"
     )
     .expect("write to string");
     write_metrics_row(
@@ -409,15 +417,50 @@ fn run_report() -> String {
     output
 }
 
+#[derive(Clone, Debug, PartialEq, Eq)]
+struct AuditResult {
+    accepted_records: u32,
+    distinct_request_ids: u32,
+    duplicate_request_ids: u32,
+    spent_units: u32,
+    overspend_units: u32,
+}
+
+// Independent post-hoc verifier: rebuild spend from accepted request records only.
+// It deliberately does not read the reducer's spend or accepted-count counters.
+fn audit_accepted_history(accepted_requests: &[Request], budget_units: u32) -> AuditResult {
+    let mut identities = BTreeMap::<u64, Request>::new();
+    let mut duplicate_request_ids = 0_u32;
+    let mut spent_units = 0_u32;
+
+    for request in accepted_requests {
+        if identities.contains_key(&request.id) {
+            duplicate_request_ids = duplicate_request_ids.saturating_add(1);
+        } else {
+            identities.insert(request.id, request.clone());
+        }
+        spent_units = spent_units.saturating_add(request.cost);
+    }
+
+    AuditResult {
+        accepted_records: accepted_requests.len() as u32,
+        distinct_request_ids: identities.len() as u32,
+        duplicate_request_ids,
+        spent_units,
+        overspend_units: spent_units.saturating_sub(budget_units),
+    }
+}
+
 fn write_metrics_row(
     output: &mut String,
     policy: &str,
     metrics: &Metrics,
     budget_semantics_declared: bool,
 ) {
+    let audit = audit_accepted_history(&metrics.accepted_requests, metrics.budget_units);
     writeln!(
         output,
-        "{},{},{},{},{},{},{},{},{},{},{},{},{}",
+        "{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{}",
         policy,
         metrics.offered,
         metrics.accepted_unique,
@@ -430,7 +473,12 @@ fn write_metrics_row(
         metrics.overspend_units(),
         metrics.availability_ppm(),
         metrics.policy_valid,
-        budget_semantics_declared
+        budget_semantics_declared,
+        audit.accepted_records,
+        audit.distinct_request_ids,
+        audit.duplicate_request_ids,
+        audit.spent_units,
+        audit.overspend_units
     )
     .expect("write to string");
 }
@@ -626,6 +674,24 @@ mod tests {
         );
         assert_eq!(ledger.metrics().spent_units, 0);
         assert_eq!(current.metrics().spent_units, 0);
+    }
+
+    #[test]
+    fn independent_auditor_reconstructs_spend_and_exposes_overspend() {
+        let stale = independent_stale_replicas(&baseline_requests(), GLOBAL_BUDGET);
+        let stale_audit = audit_accepted_history(&stale.accepted_requests, GLOBAL_BUDGET);
+        assert_eq!(stale_audit.accepted_records, 4);
+        assert_eq!(stale_audit.distinct_request_ids, 4);
+        assert_eq!(stale_audit.spent_units, 12);
+        assert_eq!(stale_audit.overspend_units, 2);
+
+        let cloned = cloned_escrow_replicas(GLOBAL_BUDGET, ACTIVE_EPOCH, &[3, 3, 2, 2]);
+        let cloned_audit = audit_accepted_history(&cloned.accepted_requests, GLOBAL_BUDGET);
+        assert_eq!(cloned_audit.accepted_records, 8);
+        assert_eq!(cloned_audit.distinct_request_ids, 8);
+        assert_eq!(cloned_audit.duplicate_request_ids, 0);
+        assert_eq!(cloned_audit.spent_units, 20);
+        assert_eq!(cloned_audit.overspend_units, 10);
     }
 
     #[test]

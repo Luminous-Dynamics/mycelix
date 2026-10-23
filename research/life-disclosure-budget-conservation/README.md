@@ -34,7 +34,7 @@ cargo +1.96.0 clippy --locked --manifest-path research/life-disclosure-budget-co
 cargo +1.96.0 run --release --locked --manifest-path research/life-disclosure-budget-conservation/Cargo.toml
 ```
 
-The benchmark emits deterministic CSV and a workflow receipt bound to the exact PR-head commit. It records accepted/denied optional requests, duplicates, conflicting key reuse, stale-epoch rejection, aggregate spend, overspend, and acceptance availability. Safety and availability are independent columns; no composite score is calculated.
+The benchmark emits deterministic CSV and a workflow receipt bound to the exact PR-head commit. It records accepted/denied optional requests, duplicates, conflicting key reuse, stale-epoch rejection, aggregate spend, overspend, and acceptance availability. A separate post-hoc auditor reconstructs spend from the accepted-request history without reading the state reducer's spend/count counters. Reported reducer counters and independently reconstructed audit totals remain separate columns. Safety and availability are independent columns; no composite score is calculated.
 
 ## Frozen initial fixtures
 
