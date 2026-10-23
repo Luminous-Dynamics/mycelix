@@ -222,6 +222,24 @@ fn prior_confidence_ppm(training: &[Subject], profile: Profile) -> u64 {
     ratio_ppm(positive.max(total - positive), total)
 }
 
+fn majority(values: impl Iterator<Item = bool>, prior: bool) -> bool {
+    let mut positive = 0_u64;
+    let mut negative = 0_u64;
+    for value in values {
+        if value {
+            positive += 1;
+        } else {
+            negative += 1;
+        }
+    }
+
+    if positive == negative {
+        prior
+    } else {
+        positive > negative
+    }
+}
+
 fn peer_signal(subject: &AttackerView, profile: Profile) -> bool {
     if matches!(profile, Profile::RandomizedPeerNegativeControl) {
         subject.randomized_peer_proxy
