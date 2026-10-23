@@ -586,7 +586,11 @@ mod tests {
         assert_eq!(low_coverage, PPM);
         assert_eq!(low_abstentions, 0);
         assert!(high_coverage <= low_coverage);
-        assert_eq!(high_abstentions, outcomes.len() as u64 - high_coverage * outcomes.len() as u64 / PPM);
+        let expected_high_abstentions = outcomes
+            .iter()
+            .filter(|row| row.confidence_score_ppm < 950_000)
+            .count() as u64;
+        assert_eq!(high_abstentions, expected_high_abstentions);
     }
 
     #[test]
