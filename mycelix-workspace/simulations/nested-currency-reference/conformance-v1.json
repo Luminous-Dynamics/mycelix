@@ -54,6 +54,11 @@
       "id": "NCF-I-008",
       "name": "Risk stop with safe unwind",
       "statement": "Pausing new obligations blocks new exposure while allowing separately authorized settlement of already-incurred obligations."
+    },
+    {
+      "id": "NCF-I-009",
+      "name": "Denomination stability",
+      "statement": "An instrument ID cannot silently change its denomination identity or scale; migration requires a new instrument identity or an explicit qualified migration."
     }
   ],
   "conformance_cases": [
@@ -254,6 +259,15 @@
       "expected": "same_payload_duplicate_changed_payload_rejected",
       "code_test": "federation_exposure_is_per_edge_and_paused_edges_still_settle",
       "execution_status": "defined_not_run"
+    },
+    {
+      "id": "NCF-PROFILE-003",
+      "title": "Same instrument ID cannot silently change unit or scale",
+      "class": "semantic_migration",
+      "attack": "Present a same-ID, same-revision profile with changed denomination semantics after balances exist.",
+      "expected": "reject_instrument_semantics_changed",
+      "code_test": "mutual_credit_is_zero_sum_atomic_and_idempotent",
+      "execution_status": "defined_not_run"
     }
   ],
   "benchmark_campaigns": [
@@ -281,10 +295,27 @@
     {
       "id": "NCF-BENCH-002",
       "name": "Federation scale and partition behavior",
-      "participant_counts": [100, 1000, 10000],
-      "community_counts": [1, 10, 100],
-      "federation_depths": [1, 3, 10],
-      "partition_durations_seconds": [0, 10, 60, 300],
+      "participant_counts": [
+        100,
+        1000,
+        10000
+      ],
+      "community_counts": [
+        1,
+        10,
+        100
+      ],
+      "federation_depths": [
+        1,
+        3,
+        10
+      ],
+      "partition_durations_seconds": [
+        0,
+        10,
+        60,
+        300
+      ],
       "required_metrics": [
         "local_exchange_throughput",
         "clearing_throughput",
