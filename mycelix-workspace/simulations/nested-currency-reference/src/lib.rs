@@ -58,9 +58,10 @@ pub enum Error {
 }
 
 pub fn authorize(
-    actor: &str, profile: &Profile, action: Action, amount: Option<i64>,
-    now: u64, cap: &Capability,
+    actor: &str, registry: &Registry, instrument_id: &str, action: Action,
+    amount: Option<i64>, now: u64, cap: &Capability,
 ) -> Result<(), Error> {
+    let profile = registry.get(instrument_id)?;
     profile.validate()?;
     if cap.issuer != profile.issuer || cap.delegate != actor || cap.instrument != profile.id {
         return Err(Error::InvalidCapability);
@@ -136,13 +137,13 @@ impl MutualCredit {
     }
     pub fn event_count(&self) -> usize { self.events.len() }
 
-    pub fn apply(&mut self, profile: &Profile, event: Exchange) -> Result<Apply, Error> {
+    pub fn apply(&mut self, registry: &Registry, event: Exchange) -> Result<Apply, Error> {
         if event.id.trim().is_empty() { return Err(Error::InvalidEventId); }
         if let Some(prior) = self.events.get(&event.id) {
             return if prior == &event { Ok(Apply::Duplicate) } else { Err(Error::ReplayMismatch) };
         }
+        let profile = registry.get(&event.instrument)?;
         profile.validate()?;
-        if event.instrument != profile.id { return Err(Error::UnknownInstrument); }
         if event.profile_revision != profile.revision { return Err(Error::StaleRevision); }
         if profile.family != Family::MutualCredit { return Err(Error::WrongFamily); }
         if !profile.active { return Err(Error::Inactive); }
@@ -328,54 +329,61 @@ mod tests {
     #[test]
     fn delegated_authority_is_instrument_action_revision_and_expiry_scoped() {
         let p = profile("cc:child", "did:child", Family::MutualCredit);
+        let mut registry = Registry::default();
+        registry.register(p.clone()).unwrap();
         let cap = Capability { issuer: p.issuer.clone(), delegate: "did:federation".into(),
             instrument: p.id.clone(), actions: [Action::Amend].into_iter().collect(),
             revision: 1, expires_at: 100, max_amount: Some(10) };
-        assert_eq!(authorize("did:federation", &p, Action::Amend, Some(8), 99, &cap), Ok(()));
-        assert_eq!(authorize("did:federation", &p, Action::Issue, Some(8), 99, &cap),
+        assert_eq!(authorize("did:federation", &registry, &p.id, Action::Amend, Some(8), 99, &cap), Ok(()));
+        assert_eq!(authorize("did:federation", &registry, &p.id, Action::Issue, Some(8), 99, &cap),
             Err(Error::ActionNotGranted));
-        assert_eq!(authorize("did:other", &p, Action::Amend, Some(8), 99, &cap),
+        assert_eq!(authorize("did:other", &registry, &p.id, Action::Amend, Some(8), 99, &cap),
             Err(Error::InvalidCapability));
-        assert_eq!(authorize("did:federation", &p, Action::Amend, Some(8), 100, &cap),
+        assert_eq!(authorize("did:federation", &registry, &p.id, Action::Amend, Some(8), 100, &cap),
             Err(Error::CapabilityExpired));
         let mut stale = cap.clone(); stale.revision = 0;
-        assert_eq!(authorize("did:federation", &p, Action::Amend, Some(8), 99, &stale),
+        assert_eq!(authorize("did:federation", &registry, &p.id, Action::Amend, Some(8), 99, &stale),
             Err(Error::StaleRevision));
 
         // Regression: Some(limit) + None(amount) must not bypass the capability ceiling.
-        assert_eq!(authorize("did:federation", &p, Action::Amend, None, 99, &cap),
+        assert_eq!(authorize("did:federation", &registry, &p.id, Action::Amend, None, 99, &cap),
             Err(Error::InvalidAmount));
-        assert_eq!(authorize("did:federation", &p, Action::Amend, Some(-1), 99, &cap),
+        assert_eq!(authorize("did:federation", &registry, &p.id, Action::Amend, Some(-1), 99, &cap),
             Err(Error::InvalidAmount));
 
         let issue_cap = Capability { actions: [Action::Issue].into_iter().collect(),
             max_amount: None, ..cap.clone() };
-        assert_eq!(authorize("did:federation", &p, Action::Issue, Some(1), 99, &issue_cap),
+        assert_eq!(authorize("did:federation", &registry, &p.id, Action::Issue, Some(1), 99, &issue_cap),
             Err(Error::InvalidCapability));
 
         let bounded_issue_cap = Capability { max_amount: Some(10), ..issue_cap.clone() };
-        assert_eq!(authorize("did:federation", &p, Action::Issue, None, 99, &bounded_issue_cap),
+        assert_eq!(authorize("did:federation", &registry, &p.id, Action::Issue, None, 99, &bounded_issue_cap),
             Err(Error::InvalidAmount));
-        assert_eq!(authorize("did:federation", &p, Action::Issue, Some(1), 99, &bounded_issue_cap), Ok(()));
+        assert_eq!(authorize("did:federation", &registry, &p.id, Action::Issue, Some(1), 99, &bounded_issue_cap), Ok(()));
 
         let inactive = Profile { active: false, ..p.clone() };
+        let mut inactive_registry = Registry::default();
+        inactive_registry.register(inactive.clone()).unwrap();
         let inactive_cap = Capability { revision: inactive.revision, ..bounded_issue_cap };
-        assert_eq!(authorize("did:federation", &inactive, Action::Issue, Some(1), 99, &inactive_cap),
+        assert_eq!(authorize("did:federation", &inactive_registry, &inactive.id, Action::Issue, Some(1), 99, &inactive_cap),
             Err(Error::Inactive));
 
         // Suspending new issuance must not prevent a separately authorized unwind.
         let settle_cap = Capability { actions: [Action::Settle].into_iter().collect(),
             ..inactive_cap };
-        assert_eq!(authorize("did:federation", &inactive, Action::Settle, Some(1), 99, &settle_cap), Ok(()));
+        assert_eq!(authorize("did:federation", &inactive_registry, &inactive.id, Action::Settle, Some(1), 99, &settle_cap), Ok(()));
     }
 
     #[test]
     fn equal_tickers_do_not_share_balances_or_net_positions() {
         let orchard = profile("cc:orchard", "did:orchard", Family::MutualCredit);
         let makers = profile("cc:makers", "did:makers", Family::MutualCredit);
+        let mut registry = Registry::default();
+        registry.register(orchard.clone()).unwrap();
+        registry.register(makers.clone()).unwrap();
         let mut l = MutualCredit::default();
-        l.apply(&orchard, exchange("orchard:tx:1", &orchard, 50)).unwrap();
-        l.apply(&makers, exchange("makers:tx:1", &makers, 20)).unwrap();
+        l.apply(&registry, exchange("orchard:tx:1", &orchard, 50)).unwrap();
+        l.apply(&registry, exchange("makers:tx:1", &makers, 20)).unwrap();
         assert_eq!(l.net(&orchard.id), 0);
         assert_eq!(l.net(&makers.id), 0);
         assert_eq!(l.balance(&orchard.id, "alice"), 50);
@@ -387,14 +395,18 @@ mod tests {
     #[test]
     fn mutual_credit_is_zero_sum_atomic_and_idempotent() {
         let p = profile("cc:orchard", "did:orchard", Family::MutualCredit);
+        let mut registry = Registry::default();
+        registry.register(p.clone()).unwrap();
         let mut l = MutualCredit::default();
-        assert_eq!(l.apply(&p, exchange("tx:1", &p, 17)), Ok(Apply::Applied));
+        assert_eq!(l.apply(&registry, exchange("tx:1", &p, 17)), Ok(Apply::Applied));
         assert_eq!(l.net(&p.id), 0);
         let changed_revision = Profile { revision: 2, ..p.clone() };
-        assert_eq!(l.apply(&changed_revision, exchange("tx:stale", &p, 1)),
+        let mut newer_registry = Registry::default();
+        newer_registry.register(changed_revision).unwrap();
+        assert_eq!(l.apply(&newer_registry, exchange("tx:stale", &p, 1)),
             Err(Error::StaleRevision));
-        assert_eq!(l.apply(&p, exchange("tx:1", &p, 17)), Ok(Apply::Duplicate));
-        assert_eq!(l.apply(&p, exchange("tx:1", &p, 18)), Err(Error::ReplayMismatch));
+        assert_eq!(l.apply(&registry, exchange("tx:1", &p, 17)), Ok(Apply::Duplicate));
+        assert_eq!(l.apply(&registry, exchange("tx:1", &p, 18)), Err(Error::ReplayMismatch));
         assert_eq!(l.balance(&p.id, "alice"), 17);
         assert_eq!(l.balance(&p.id, "bob"), -17);
         assert_eq!(l.event_count(), 1);
@@ -404,13 +416,16 @@ mod tests {
     fn family_and_limit_fail_closed_without_partial_mutation() {
         let mut p = profile("cc:small", "did:small", Family::MutualCredit);
         p.max_abs_balance = 5;
+        let mut registry = Registry::default();
+        registry.register(p.clone()).unwrap();
         let mut l = MutualCredit::default();
-        assert_eq!(l.apply(&p, exchange("tx:1", &p, 6)), Err(Error::BalanceLimit));
+        assert_eq!(l.apply(&registry, exchange("tx:1", &p, 6)), Err(Error::BalanceLimit));
         assert_eq!(l.balance(&p.id, "alice"), 0);
         assert_eq!(l.balance(&p.id, "bob"), 0);
         assert_eq!(l.event_count(), 0);
         let r = profile("resource:water", "did:watershed", Family::ResourceCredit);
-        assert_eq!(l.apply(&r, exchange("tx:2", &r, 1)), Err(Error::WrongFamily));
+        registry.register(r.clone()).unwrap();
+        assert_eq!(l.apply(&registry, exchange("tx:2", &r, 1)), Err(Error::WrongFamily));
     }
 
     #[test]
@@ -464,6 +479,8 @@ mod tests {
     #[test]
     fn one_million_generated_exchanges_preserve_net_position() {
         let p = profile("cc:stress", "did:stress", Family::MutualCredit);
+        let mut registry = Registry::default();
+        registry.register(p.clone()).unwrap();
         let mut l = MutualCredit::default();
         let names: Vec<String> = (0..31).map(|i| format!("member:{i}")).collect();
         let mut state: u64 = 0x4d59_4345_4c49_5831;
@@ -476,7 +493,7 @@ mod tests {
             let amount = ((state >> 32) % 3 + 1) as i64;
             let event = Exchange { id: format!("stress:{i}"), instrument: p.id.clone(),
                 profile_revision: p.revision, provider: names[provider].clone(), receiver: names[receiver].clone(), amount };
-            l.apply(&p, event).unwrap();
+            l.apply(&registry, event).unwrap();
             if i % 10_000 == 0 { assert_eq!(l.net(&p.id), 0, "drift at op {i}"); }
         }
         assert_eq!(l.net(&p.id), 0);
@@ -486,10 +503,12 @@ mod tests {
     #[test]
     fn one_hundred_thousand_duplicate_retries_never_reapply_credit() {
         let p = profile("cc:retry", "did:retry", Family::MutualCredit);
+        let mut registry = Registry::default();
+        registry.register(p.clone()).unwrap();
         let mut l = MutualCredit::default();
         let event = exchange("retry:1", &p, 9);
-        assert_eq!(l.apply(&p, event.clone()), Ok(Apply::Applied));
-        for _ in 0..100_000 { assert_eq!(l.apply(&p, event.clone()), Ok(Apply::Duplicate)); }
+        assert_eq!(l.apply(&registry, event.clone()), Ok(Apply::Applied));
+        for _ in 0..100_000 { assert_eq!(l.apply(&registry, event.clone()), Ok(Apply::Duplicate)); }
         assert_eq!(l.balance(&p.id, "alice"), 9);
         assert_eq!(l.balance(&p.id, "bob"), -9);
         assert_eq!(l.event_count(), 1);
