@@ -69,6 +69,11 @@
       "id": "NCF-I-011",
       "name": "Aggregate exposure is instrument-scoped",
       "statement": "Aggregate gross exposure compares amounts only within the same canonical instrument/unit domain; unlike currencies require a separately qualified conversion/risk model before risk-value aggregation."
+    },
+    {
+      "id": "NCF-I-012",
+      "name": "Gross obligations do not implicitly net",
+      "statement": "Opposing directional obligations remain separately outstanding by default. Signed net position is diagnostic only and may not substitute for gross exposure limits; settlement must identify the direction being reduced. Netting requires a separately qualified agreement and enforcement path."
     }
   ],
   "conformance_cases": [
@@ -332,6 +337,24 @@
       "expected": "later_retry_applies_once",
       "code_test": "clearing_requires_explicit_aggregate_caps_and_zero_cap_disables_new_obligations",
       "execution_status": "defined_not_run"
+    },
+    {
+      "id": "NCF-FED-010",
+      "title": "Opposing obligations do not silently net against gross-exposure caps",
+      "class": "implicit_netting",
+      "attack": "Record an obligation from A to B followed by a reverse obligation from B to A; risk checks must use the sum of both unsettled directions, not the signed net.",
+      "expected": "reject_without_state_change_if_gross_cap_would_be_exceeded",
+      "code_test": "opposing_obligations_remain_gross_until_directionally_settled",
+      "execution_status": "defined_not_run"
+    },
+    {
+      "id": "NCF-SET-003",
+      "title": "Settlement reduces only the explicitly selected obligation direction",
+      "class": "cross_direction_settlement",
+      "attack": "Create outstanding obligations in both directions and submit a settlement for only one direction; verify the opposite direction remains outstanding.",
+      "expected": "only_selected_direction_reduced",
+      "code_test": "opposing_obligations_remain_gross_until_directionally_settled",
+      "execution_status": "defined_not_run"
     }
   ],
   "benchmark_campaigns": [
@@ -412,7 +435,12 @@
         "recovery_time_seconds",
         "reconciliation_operations",
         "unrelated_edges_unavailable",
-        "bytes_per_transaction"
+        "bytes_per_transaction",
+        "directional_gross_outstanding",
+        "signed_net_outstanding",
+        "gross_vs_net_understatement",
+        "rejected_gross_cap_breaches",
+        "directional_settlement_accuracy"
       ],
       "execution_status": "defined_not_run"
     },
