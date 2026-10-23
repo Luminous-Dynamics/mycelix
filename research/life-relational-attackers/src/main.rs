@@ -418,8 +418,8 @@ impl GaussianNaiveBayesModel {
             let count = counts[class].max(1) as f64;
             for index in 0..FEATURE_COUNT {
                 means[class][index] = sums[class][index] / count;
-                let variance = sums_sq[class][index] / count
-                    - means[class][index] * means[class][index];
+                let variance =
+                    sums_sq[class][index] / count - means[class][index] * means[class][index];
                 variances[class][index] = variance.max(0.01);
             }
         }
@@ -596,11 +596,7 @@ fn metric_log_loss(probabilities: &[f64], labels: &[bool]) -> f64 {
             .zip(labels.iter())
             .map(|(probability, label)| {
                 let p = probability.clamp(1.0e-12, 1.0 - 1.0e-12);
-                if *label {
-                    -p.ln()
-                } else {
-                    -(1.0 - p).ln()
-                }
+                if *label { -p.ln() } else { -(1.0 - p).ln() }
             }),
     )
 }
@@ -614,8 +610,8 @@ fn metric_ece(probabilities: &[f64], labels: &[bool]) -> f64 {
     let mut label_sums = [0.0; CALIBRATION_BINS];
 
     for (probability, label) in probabilities.iter().zip(labels.iter()) {
-        let bin = ((*probability * CALIBRATION_BINS as f64).floor() as usize)
-            .min(CALIBRATION_BINS - 1);
+        let bin =
+            ((*probability * CALIBRATION_BINS as f64).floor() as usize).min(CALIBRATION_BINS - 1);
         counts[bin] += 1;
         confidence_sums[bin] += probability;
         label_sums[bin] += *label as u8 as f64;
@@ -665,7 +661,9 @@ fn probabilities_for(
 ) -> Vec<f64> {
     features
         .iter()
-        .map(|feature| raw_probability(profile, feature, fitted, prior_probability).clamp(1.0e-9, 1.0 - 1.0e-9))
+        .map(|feature| {
+            raw_probability(profile, feature, fitted, prior_probability).clamp(1.0e-9, 1.0 - 1.0e-9)
+        })
         .collect()
 }
 
@@ -673,14 +671,16 @@ fn evaluate_predictions(raw: &[f64], calibrated: &[f64], truths: &[bool]) -> Vec
     raw.iter()
         .zip(calibrated.iter())
         .zip(truths.iter())
-        .map(|((raw_probability, calibrated_probability), truth)| OutcomeRecord {
-            truth: *truth,
-            prediction: *calibrated_probability >= 0.5,
-            raw_probability: *raw_probability,
-            calibrated_probability: *calibrated_probability,
-            // The protected truth is evaluator-only and joined after inference/calibration.
-            direct_target_protected_disclosures: 0,
-        })
+        .map(
+            |((raw_probability, calibrated_probability), truth)| OutcomeRecord {
+                truth: *truth,
+                prediction: *calibrated_probability >= 0.5,
+                raw_probability: *raw_probability,
+                calibrated_probability: *calibrated_probability,
+                // The protected truth is evaluator-only and joined after inference/calibration.
+                direct_target_protected_disclosures: 0,
+            },
+        )
         .collect()
 }
 
@@ -703,8 +703,14 @@ fn summarize(outcomes: &[OutcomeRecord]) -> Summary {
     }
 
     let labels = outcomes.iter().map(|row| row.truth).collect::<Vec<_>>();
-    let raw = outcomes.iter().map(|row| row.raw_probability).collect::<Vec<_>>();
-    let calibrated = outcomes.iter().map(|row| row.calibrated_probability).collect::<Vec<_>>();
+    let raw = outcomes
+        .iter()
+        .map(|row| row.raw_probability)
+        .collect::<Vec<_>>();
+    let calibrated = outcomes
+        .iter()
+        .map(|row| row.calibrated_probability)
+        .collect::<Vec<_>>();
     summary.raw_brier = metric_brier(&raw, &labels);
     summary.calibrated_brier = metric_brier(&calibrated, &labels);
     summary.raw_log_loss = metric_log_loss(&raw, &labels);
@@ -730,7 +736,9 @@ fn selective_metrics(outcomes: &[OutcomeRecord], threshold_ppm: u64) -> (u64, u6
     let mut accepted = 0_u64;
     let mut correct = 0_u64;
     for outcome in outcomes {
-        let confidence = outcome.calibrated_probability.max(1.0 - outcome.calibrated_probability);
+        let confidence = outcome
+            .calibrated_probability
+            .max(1.0 - outcome.calibrated_probability);
         if to_ppm(confidence) >= threshold_ppm {
             accepted += 1;
             correct += (outcome.prediction == outcome.truth) as u64;
@@ -776,8 +784,12 @@ fn run_profile(
     let fitted = fit_model(profile, &model_train_features, train_subjects);
     let prior_probability = protected_prevalence(train_subjects);
 
-    let calibration_raw =
-        probabilities_for(profile, &model_calibration_features, &fitted, prior_probability);
+    let calibration_raw = probabilities_for(
+        profile,
+        &model_calibration_features,
+        &fitted,
+        prior_probability,
+    );
     // The calibration map is fit on disjoint calibration communities and protected labels.
     let calibration_truth = calibration_subjects
         .iter()
@@ -814,7 +826,8 @@ fn render_report() -> String {
     for seed in EVALUATION_SEEDS {
         for cohort_size in COHORT_SIZES {
             for signal_ppm in SIGNAL_LEVELS_PPM {
-                let train_subjects = generate_split(seed, cohort_size, signal_ppm, TRAIN_COHORTS, 0);
+                let train_subjects =
+                    generate_split(seed, cohort_size, signal_ppm, TRAIN_COHORTS, 0);
                 let calibration_subjects = generate_split(
                     seed,
                     cohort_size,
@@ -824,12 +837,18 @@ fn render_report() -> String {
                 );
                 let test_subjects =
                     generate_split(seed, cohort_size, signal_ppm, TEST_COHORTS, 2_000_000);
-                let train_views = train_subjects.iter().map(AttackerView::from).collect::<Vec<_>>();
+                let train_views = train_subjects
+                    .iter()
+                    .map(AttackerView::from)
+                    .collect::<Vec<_>>();
                 let calibration_views = calibration_subjects
                     .iter()
                     .map(AttackerView::from)
                     .collect::<Vec<_>>();
-                let test_views = test_subjects.iter().map(AttackerView::from).collect::<Vec<_>>();
+                let test_views = test_subjects
+                    .iter()
+                    .map(AttackerView::from)
+                    .collect::<Vec<_>>();
 
                 let train_features = build_features(&train_views, cohort_size);
                 let calibration_features = build_features(&calibration_views, cohort_size);
@@ -912,12 +931,19 @@ mod tests {
         generate_split(seed, cohort_size, signal_ppm, 24, base)
     }
 
-    fn fit_and_predict(profile: Profile, seed: u64, signal_ppm: u32) -> (Vec<OutcomeRecord>, Summary) {
+    fn fit_and_predict(
+        profile: Profile,
+        seed: u64,
+        signal_ppm: u32,
+    ) -> (Vec<OutcomeRecord>, Summary) {
         let train = make_split(seed, 8, signal_ppm, 0);
         let calibration = make_split(seed, 8, signal_ppm, 1_000_000);
         let test = make_split(seed, 8, signal_ppm, 2_000_000);
         let train_views = train.iter().map(AttackerView::from).collect::<Vec<_>>();
-        let calibration_views = calibration.iter().map(AttackerView::from).collect::<Vec<_>>();
+        let calibration_views = calibration
+            .iter()
+            .map(AttackerView::from)
+            .collect::<Vec<_>>();
         let test_views = test.iter().map(AttackerView::from).collect::<Vec<_>>();
         let train_features = build_features(&train_views, 8);
         let calibration_features = build_features(&calibration_views, 8);
@@ -953,7 +979,11 @@ mod tests {
     fn manifest_freezes_profiles_seeds_signals_and_thresholds() {
         assert!(MANIFEST.contains("attacker_profiles"));
         for profile in Profile::ALL {
-            assert!(MANIFEST.contains(profile.name()), "missing {}", profile.name());
+            assert!(
+                MANIFEST.contains(profile.name()),
+                "missing {}",
+                profile.name()
+            );
         }
         assert_eq!(
             manifest_integer_array("evaluation_seeds"),
@@ -961,11 +991,17 @@ mod tests {
         );
         assert_eq!(
             manifest_integer_array("cohort_sizes"),
-            COHORT_SIZES.iter().map(|value| *value as u64).collect::<Vec<_>>()
+            COHORT_SIZES
+                .iter()
+                .map(|value| *value as u64)
+                .collect::<Vec<_>>()
         );
         assert_eq!(
             manifest_integer_array("peer_signal_probability_ppm"),
-            SIGNAL_LEVELS_PPM.iter().map(|value| u64::from(*value)).collect::<Vec<_>>()
+            SIGNAL_LEVELS_PPM
+                .iter()
+                .map(|value| u64::from(*value))
+                .collect::<Vec<_>>()
         );
         assert_eq!(
             manifest_integer_array("decision_threshold_ppm"),
@@ -978,7 +1014,12 @@ mod tests {
         let train = make_split(7, 8, 800_000, 0);
         let calibration = make_split(7, 8, 800_000, 1_000_000);
         let test = make_split(7, 8, 800_000, 2_000_000);
-        let ids = |subjects: &[Subject]| subjects.iter().map(|s| s.cohort_id).collect::<BTreeSet<_>>();
+        let ids = |subjects: &[Subject]| {
+            subjects
+                .iter()
+                .map(|s| s.cohort_id)
+                .collect::<BTreeSet<_>>()
+        };
         let train_ids = ids(&train);
         let calibration_ids = ids(&calibration);
         let test_ids = ids(&test);
@@ -1023,7 +1064,10 @@ mod tests {
         let (low, _) = fit_and_predict(Profile::ExactCohortMajority, 23, 650_000);
         let (high, _) = fit_and_predict(Profile::ExactCohortMajority, 23, 950_000);
         let accuracy = |outcomes: &[OutcomeRecord]| {
-            outcomes.iter().filter(|row| row.prediction == row.truth).count() as f64
+            outcomes
+                .iter()
+                .filter(|row| row.prediction == row.truth)
+                .count() as f64
                 / outcomes.len() as f64
         };
         assert!(
@@ -1051,7 +1095,10 @@ mod tests {
         assert_eq!(audit.target_count, outcomes.len() as u64);
         assert_eq!(audit.correct_count, summary.correct);
         assert_eq!(audit.direct_target_protected_disclosures, 0);
-        assert_eq!(audit.direct_target_protected_disclosures, summary.direct_target_protected_disclosures);
+        assert_eq!(
+            audit.direct_target_protected_disclosures,
+            summary.direct_target_protected_disclosures
+        );
     }
 
     #[test]
@@ -1061,9 +1108,15 @@ mod tests {
         for threshold in CONFIDENCE_THRESHOLDS_PPM {
             let (coverage, _, abstained) = selective_metrics(&outcomes, threshold);
             assert!(coverage <= prior_coverage);
-            let expected = outcomes.iter().filter(|row| {
-                to_ppm(row.calibrated_probability.max(1.0 - row.calibrated_probability)) < threshold
-            }).count() as u64;
+            let expected = outcomes
+                .iter()
+                .filter(|row| {
+                    to_ppm(
+                        row.calibrated_probability
+                            .max(1.0 - row.calibrated_probability),
+                    ) < threshold
+                })
+                .count() as u64;
             assert_eq!(abstained, expected);
             prior_coverage = coverage;
         }
