@@ -310,7 +310,7 @@
   "benchmark_campaigns": [
     {
       "id": "NCF-BENCH-001",
-      "name": "Mutual-credit conservation and idempotency stress",
+      "name": "Mutual-credit conservation, throughput, and idempotency stress",
       "target": "0 net-position drift and exactly one state effect per unique event",
       "participants": 31,
       "generated_operations_target": 1000000,
@@ -318,16 +318,38 @@
       "seed": "0x4d5943454c495831",
       "required_output": [
         "source_commit",
-        "test_binary_digest",
-        "toolchain_identity",
+        "profile_digest_sha256",
+        "rustc_version",
+        "toolchain_id",
         "seed",
-        "operation_count",
-        "net_position_by_instrument",
-        "event_count",
-        "elapsed_time",
-        "peak_memory_bytes"
+        "operations",
+        "participants",
+        "elapsed_ns",
+        "throughput_ops_per_second",
+        "batch_latency_ns_p50",
+        "batch_latency_ns_p95",
+        "batch_latency_ns_p99",
+        "net_position",
+        "generated_operation_count",
+        "total_unique_event_count",
+        "duplicate_retry_count",
+        "duplicate_retry_elapsed_ns",
+        "duplicate_retry_checks_per_second",
+        "peak_rss_bytes"
       ],
-      "execution_status": "defined_not_run"
+      "execution_status": "defined_not_run",
+      "required_receipt_fields": [
+        "source_commit",
+        "profile_digest_sha256",
+        "rustc_version",
+        "rustc_commit",
+        "cargo_version",
+        "command",
+        "benchmark_binary_sha256",
+        "benchmark_output_sha256"
+      ],
+      "harness": "mycelix-workspace/simulations/nested-currency-reference/run-bench.sh",
+      "methodology": "Run the exact-head wrapper on a clean checkout. Keep the JSON output and receipt SHA-256. Repeat with multiple recorded seeds and matched hardware/toolchains before comparative claims."
     },
     {
       "id": "NCF-BENCH-002",
