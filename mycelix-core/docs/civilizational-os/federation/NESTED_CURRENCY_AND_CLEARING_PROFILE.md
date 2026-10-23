@@ -227,7 +227,7 @@ These are proposed qualification targets, not achieved results.
 
 Benchmark 100, 1,000, and 10,000 participants across 1, 10, and 100 interconnected communities, varying transaction rate, credit exposure, federation depth, network partition duration, and clearing cadence. Report:
 - throughput and p50/p95/p99 latency for local exchange, clearing, and conversion separately;
-- directional gross outstanding vs signed net outstanding, gross/net understatement ratio, rejected gross-cap breaches, and directional-settlement accuracy;
+- directional gross outstanding vs signed net outstanding, gross-minus-absolute-net (the amount hidden by netting), rejected gross-cap breaches, and directional-settlement accuracy;
 - write amplification and bytes per transaction;
 - recovery time and reconciliation work after crash/partition;
 - maximum exposure when a peer disappears;
