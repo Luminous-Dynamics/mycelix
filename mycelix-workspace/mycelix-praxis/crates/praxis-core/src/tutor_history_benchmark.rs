@@ -202,6 +202,12 @@ pub fn validate_history_bundle(
     };
     let mut findings = Vec::new();
 
+    if observations.cases.is_empty() {
+        findings.push(finding("empty_observation_manifest", None, "at least one observation case is required"));
+    }
+    if oracle.labels.is_empty() {
+        findings.push(finding("empty_oracle", None, "at least one oracle label is required"));
+    }
     if observations.schema_version != 1 || oracle.schema_version != 1 {
         findings.push(finding("unsupported_schema_version", None, "only schema_version 1 is supported"));
     }
@@ -373,17 +379,21 @@ pub fn score_history_predictions(
             contradiction_refs += 1;
             if known.contains(id.as_str()) { grounded_contradiction_refs += 1; } else { unsupported += 1; critical += 1; }
         }
-        for required in &label.required_supporting_evidence_ids {
-            required_support_total += 1;
-            if prediction.supporting_evidence_ids.contains(required) { required_support_found += 1; }
-        }
-        for required in &label.required_contradicting_evidence_ids {
-            required_contradiction_total += 1;
-            if prediction.contradicting_evidence_ids.contains(required) {
-                required_contradiction_found += 1;
-            } else {
-                missing_contradictions += 1;
-                critical += 1;
+        // A candidate that abstains is not penalized for omitting claim citations.
+        // Evidence coverage and contradiction omission become decision-critical only for claims.
+        if prediction.disposition == HistoryDisposition::Claim {
+            for required in &label.required_supporting_evidence_ids {
+                required_support_total += 1;
+                if prediction.supporting_evidence_ids.contains(required) { required_support_found += 1; }
+            }
+            for required in &label.required_contradicting_evidence_ids {
+                required_contradiction_total += 1;
+                if prediction.contradicting_evidence_ids.contains(required) {
+                    required_contradiction_found += 1;
+                } else {
+                    missing_contradictions += 1;
+                    critical += 1;
+                }
             }
         }
     }
