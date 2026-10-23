@@ -567,4 +567,74 @@ mod tests {
         assert!(verify_artifacts(&root, &value).unwrap_err().contains("unknown source_id"));
         fs::remove_dir_all(root).expect("cleanup");
     }
+
+    #[test]
+    fn verify_rejects_source_byte_count_mismatch() {
+        let root = temp_root();
+        put(&root, "data/source.csv", b"short");
+        let (source_hash, source_len) = hash(&root.join("data/source.csv"));
+        let (subject_hash, _) = {
+            put(&root, "result.json", b"result");
+            hash(&root.join("result.json"))
+        };
+        let mut value = fixture();
+        value["run_status"] = json!("executed");
+        value["subject"]["artifact_path"] = json!("result.json");
+        value["subject"]["artifact_sha256"] = json!(subject_hash);
+        value["sources"] = json!([{
+            "source_id":"src-count",
+            "url":"https://example.org/source.csv",
+            "observed_at":"2026-10-22T00:00:00Z",
+            "media_type":"text/csv",
+            "raw_bytes_ingested":true,
+            "byte_count":source_len + 1,
+            "sha256":source_hash,
+            "artifact_path":"data/source.csv",
+            "rights_status":"open_license",
+            "contact_status":"not_required",
+            "temporal_coverage":null,
+            "spatial_coverage":null,
+            "metadata_conflicts":[]
+        }]);
+        assert!(verify_artifacts(&root, &value).unwrap_err().contains("byte-count mismatch"));
+        fs::remove_dir_all(root).expect("cleanup");
+    }
+
+    #[test]
+    fn verify_rejects_transform_output_hash_mismatch() {
+        let root = temp_root();
+        put(&root, "derived/normalized.json", b"derived bytes");
+        let mut value = fixture();
+        value["transforms"] = json!([{
+            "name":"normalize",
+            "version":"1",
+            "implementation_commit":null,
+            "parameters_sha256":null,
+            "command_digest":null,
+            "input_source_ids":[],
+            "output_artifact_sha256":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "output_artifact_path":"derived/normalized.json",
+            "notes":"test only"
+        }]);
+        assert!(verify_artifacts(&root, &value).unwrap_err().contains("SHA-256 mismatch"));
+        fs::remove_dir_all(root).expect("cleanup");
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn verify_rejects_symlink_escape_from_artifact_root() {
+        use std::os::unix::fs::symlink;
+        let root = temp_root();
+        let outside = temp_root();
+        put(&outside, "outside.bin", b"outside");
+        symlink(outside.join("outside.bin"), root.join("escape.bin")).expect("create symlink");
+        let mut value = fixture();
+        value["run_status"] = json!("executed");
+        value["subject"]["artifact_path"] = json!("escape.bin");
+        value["subject"]["artifact_sha256"] = json!("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa");
+        assert!(verify_artifacts(&root, &value).unwrap_err().contains("escapes declared root"));
+        fs::remove_dir_all(root).expect("cleanup");
+        fs::remove_dir_all(outside).expect("cleanup");
+    }
+
 }
