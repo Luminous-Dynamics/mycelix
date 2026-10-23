@@ -32,9 +32,15 @@ The release benchmark refuses to emit a record unless source SHA, NCF-1 spec dig
 bash mycelix-workspace/simulations/nested-currency-reference/run-bench.sh 1000000 1000 0x4d5943454c495831
 ```
 
+The partition-safe reservation model has its own exact-head runner. Arguments are operation count, shard count, and deterministic seed; use at least two shards to exercise cross-reservation replay controls:
+
+```sh
+bash mycelix-workspace/simulations/nested-currency-reference/run-reservation-bench.sh 1000000 100 0x4d5943454c495831
+```
+
 Arguments are operation count, participant count, and deterministic seed. Defaults are 1,000,000 operations, 1,000 participants, and the same seed. The runner bounds the workload at two million operations; use larger scale campaigns only after the memory and runtime envelope has been qualified. Override `NCF_OUTPUT_FILE` and `NCF_RECEIPT_FILE` to choose output paths.
 
-The JSON record measures one-process reference-model throughput and p50/p95/p99 *batch* latency, checking zero net position after each batch. Its throughput includes registry lookup, event persistence, BTreeMap accounting and conservation scans. It is **not** a Holochain/DHT, multi-agent, external-settlement or production throughput claim. Compare builds only under matched source/toolchain/hardware/workload settings, across multiple recorded seeds, and retain the output SHA-256 receipt.
+The mutual-credit JSON record measures one-process reference-model throughput and p50/p95/p99 *batch* latency, checking zero net position after each batch. The reservation JSON record measures allocated/used/unused capacity, cap utilization, per-shard outstanding, accepted obligations, settlements, over-slice rejections, retry controls, throughput, and batch latency. Both runners are single-process reference measurements, not distributed/Holochain production benchmarks. Its throughput includes registry lookup, event persistence, BTreeMap accounting and conservation scans. It is **not** a Holochain/DHT, multi-agent, external-settlement or production throughput claim. Compare builds only under matched source/toolchain/hardware/workload settings, across multiple recorded seeds, and retain the output SHA-256 receipt.
 
 ## Next qualification stages
 
