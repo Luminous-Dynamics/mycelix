@@ -4,7 +4,7 @@
 //! Output is a machine-readable measurement record, never a qualification verdict.
 
 use nested_currency_reference::{Apply, Exchange, Family, MutualCredit, Profile, Registry};
-use std::env;
+use std::{env, fs};
 use std::time::Instant;
 
 const DEFAULT_OPERATIONS: usize = 1_000_000;
@@ -62,6 +62,19 @@ fn percentile(sorted: &[u128], percent: usize) -> u128 {
     }
     let index = ((sorted.len() - 1) * percent) / 100;
     sorted[index]
+}
+
+/// Linux VmHWM reports the process's high-water resident set size in KiB.
+/// Non-Linux platforms return None rather than inventing a memory value.
+fn peak_rss_bytes() -> Option<u64> {
+    let status = fs::read_to_string("/proc/self/status").ok()?;
+    let line = status.lines().find(|line| line.starts_with("VmHWM:"))?;
+    let kib = line.split_whitespace().nth(1)?.parse::<u64>().ok()?;
+    kib.checked_mul(1024)
+}
+
+fn json_optional_u64(value: Option<u64>) -> String {
+    value.map(|number| number.to_string()).unwrap_or_else(|| "null".into())
 }
 
 fn main() {
@@ -174,6 +187,7 @@ fn run() -> Result<(), String> {
     let p50 = percentile(&batch_latency_ns, 50);
     let p95 = percentile(&batch_latency_ns, 95);
     let p99 = percentile(&batch_latency_ns, 99);
+    let peak_rss = json_optional_u64(peak_rss_bytes());
 
     println!(
         concat!(
@@ -186,8 +200,8 @@ fn run() -> Result<(), String> {
             "  \"rustc_version\": \"{}\",\n",
             "  \"toolchain_id\": \"{}\",\n",
             "  \"parameters\": {{\"operations\": {}, \"participants\": {}, \"seed\": \"0x{:016x}\", \"batch_size\": {}}},\n",
-            "  \"metrics\": {{\"elapsed_ns\": {}, \"throughput_ops_per_second\": {:.3}, \"batch_count\": {}, \"batch_latency_ns_p50\": {}, \"batch_latency_ns_p95\": {}, \"batch_latency_ns_p99\": {}, \"net_position\": {}, \"accepted_event_count\": {}}},\n",
-            "  \"measurement_notes\": [\"Batch latency includes the post-batch conservation scan.\", \"Throughput includes registry lookups, BTreeMap accounting, event persistence, and the conservation scan.\", \"This is a single-process reference-model benchmark, not a Holochain/DHT or external settlement benchmark.\", \"One result is not SOTA evidence; repeat across seeds, machines, toolchains, and matched implementations.\" ]\n",
+            "  \"metrics\": {{\"elapsed_ns\": {}, \"throughput_ops_per_second\": {:.3}, \"batch_count\": {}, \"batch_latency_ns_p50\": {}, \"batch_latency_ns_p95\": {}, \"batch_latency_ns_p99\": {}, \"net_position\": {}, \"accepted_event_count\": {}, \"peak_rss_bytes\": {}}},\n",
+            "  \"measurement_notes\": [\"Batch latency includes the post-batch conservation scan.\", \"Throughput includes registry lookups, BTreeMap accounting, event persistence, and the conservation scan.\", \"peak_rss_bytes reads Linux /proc VmHWM and is null on unsupported platforms.\", \"This is a single-process reference-model benchmark, not a Holochain/DHT or external settlement benchmark.\", \"One result is not SOTA evidence; repeat across seeds, machines, toolchains, and matched implementations.\" ]\n",
             "}}"
         ),
         json_escape(&source_sha),
@@ -206,6 +220,7 @@ fn run() -> Result<(), String> {
         p99,
         ledger.net(&instrument_id),
         ledger.event_count(),
+        peak_rss,
     );
     Ok(())
 }
