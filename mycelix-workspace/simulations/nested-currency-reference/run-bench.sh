@@ -31,6 +31,12 @@ CARGO_TARGET_DIR="$target_dir" \
   cargo run --locked --manifest-path "$manifest" --release --bin ncf-bench -- "$@" > "$output"
 
 output_digest="$(sha256sum "$output" | awk '{print $1}')"
+benchmark_binary="$target_dir/release/ncf-bench"
+if [[ ! -s "$benchmark_binary" ]]; then
+  echo "Benchmark binary was not found at the expected release path." >&2
+  exit 2
+fi
+binary_digest="$(sha256sum "$benchmark_binary" | awk '{print $1}')"
 {
   printf 'status=benchmark-completed-invariant-checked\n'
   printf 'source_commit=%s\n' "$source_sha"
@@ -41,10 +47,15 @@ output_digest="$(sha256sum "$output" | awk '{print $1}')"
   printf 'command='
   printf '%q ' cargo run --locked --manifest-path "$manifest" --release --bin ncf-bench -- "$@"
   printf '\n'
+  printf 'benchmark_binary=%s\n' "$benchmark_binary"
+  printf 'benchmark_binary_sha256=%s\n' "$binary_digest"
   printf 'benchmark_output=%s\n' "$output"
   printf 'benchmark_output_sha256=%s\n' "$output_digest"
 } > "$receipt"
+receipt_digest="$(sha256sum "$receipt" | awk '{print $1}')"
 
 printf 'benchmark_output=%s\n' "$output"
 printf 'benchmark_output_sha256=%s\n' "$output_digest"
+printf 'benchmark_binary_sha256=%s\n' "$binary_digest"
 printf 'evidence_receipt=%s\n' "$receipt"
+printf 'evidence_receipt_sha256=%s\n' "$receipt_digest"
