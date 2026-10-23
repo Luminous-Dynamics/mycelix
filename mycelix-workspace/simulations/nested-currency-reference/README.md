@@ -8,7 +8,7 @@ It models these narrow properties:
 2. Authorization and mutual-credit mutations resolve profiles from a canonical registry rather than accepting arbitrary caller-supplied profiles; denomination identity and scale cannot silently change for an instrument ID, and same-revision policy mutations are rejected.
 3. Delegated authority binds issuer, delegate, instrument, action, profile revision, expiry, and an amount ceiling; missing or negative amounts fail closed.
 4. Community mutual-credit updates are atomic at the model boundary, replay-idempotent, and preserve zero net position per instrument.
-5. Federation clearing enforces per-edge and aggregate community gross-exposure limits, binds instrument/agreement revision, and allows already-incurred obligations to settle after new obligations are paused.
+5. Federation clearing enforces per-edge and per-instrument aggregate community gross-exposure limits; unlike instrument units are not added together as raw numbers. Agreements bind instrument/revision and allow already-incurred obligations to settle after new obligations are paused.
 
 It does **not** prove real-world service delivery, legal status, collateral/reserves, key security, Holochain DHT integrity, multi-agent race safety, external settlement finality, or that every production code path enforces these rules.
 
