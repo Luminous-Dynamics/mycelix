@@ -424,8 +424,8 @@
       "id": "NCF-PART-003",
       "title": "Settlement restores reusable capacity only within its own reservation",
       "class": "cross_shard_capacity_reuse",
-      "attack": "Settle an obligation on shard A and attempt to consume the released capacity from shard B, which has no remaining slice.",
-      "expected": "only_original_reservation_capacity_reusable",
+      "attack": "Settle 40 units on shard A, then attempt to use 61 units on shard B whose reservation is 60; only A's own reservation may reuse the released 40.",
+      "expected": "reject_cross_shard_capacity_transfer",
       "code_test": "settlement_releases_capacity_only_within_the_same_reservation",
       "execution_status": "defined_not_run"
     },
@@ -445,6 +445,24 @@
       "attack": "Try to allocate the same capacity to a new epoch while the old reservation has not been retired/fenced.",
       "expected": "reject_capacity_reuse_until_rebalance",
       "code_test": "old_epoch_capacity_is_not_reused_without_rebalancing",
+      "execution_status": "defined_not_run"
+    },
+    {
+      "id": "NCF-PART-006",
+      "title": "Explicit zero community or agreement cap prevents reservations",
+      "class": "zero_reservation_budget",
+      "attack": "Attempt to allocate a positive shard reservation when either community cap or the agreement cap is zero.",
+      "expected": "reject_reservation",
+      "code_test": "zero_community_or_agreement_cap_prevents_new_reservations",
+      "execution_status": "defined_not_run"
+    },
+    {
+      "id": "NCF-PART-007",
+      "title": "Event ID cannot be replayed against another shard reservation",
+      "class": "cross_reservation_replay",
+      "attack": "Reuse an accepted event ID with a different reservation key/shard; the conflicting replay must reject with no second obligation.",
+      "expected": "reject_conflicting_reservation_replay_without_state_change",
+      "code_test": "event_id_cannot_be_replayed_against_a_different_reservation",
       "execution_status": "defined_not_run"
     }
   ],
