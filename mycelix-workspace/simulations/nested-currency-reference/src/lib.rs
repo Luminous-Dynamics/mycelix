@@ -637,6 +637,9 @@ mod tests {
         // to B remains outstanding and still contributes to gross exposure.
         assert_eq!(c.settle("set:b-to-a", "edge:ab", "cc:local", 1,
             ObligationDirection::BtoA, 60), Ok(Apply::Applied));
+        // A reused settlement ID cannot be replayed against the opposite obligation leg.
+        assert_eq!(c.settle("set:b-to-a", "edge:ab", "cc:local", 1,
+            ObligationDirection::AtoB, 60), Err(Error::ReplayMismatch));
         assert_eq!(c.outstanding("edge:ab"), Ok(70));
         assert_eq!(c.gross_outstanding("edge:ab"), Ok((70, 0)));
     }
