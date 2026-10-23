@@ -2,7 +2,6 @@
   "benchmark_id": "LIFE-COMPOSITE-BUDGET-001",
   "version": "0.1.0",
   "status": "synthetic_research_only",
-  "seed": 5479,
   "policy_epoch_initial": 1,
   "membership_epoch_initial": 1,
   "default_budgets_abstract_units": {
