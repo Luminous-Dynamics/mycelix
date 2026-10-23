@@ -1,0 +1,376 @@
+{
+  "schema_version": "0.1.0",
+  "artifact_kind": "voluntary-polar-routine-catalog",
+  "status": "proposed",
+  "evidence_tier": "S0",
+  "claim_ceiling": "design_hypothesis_only",
+  "deployment_status": "not_for_deployment",
+  "created_date": "2026-10-23",
+  "governing_principles": [
+    "Personal autonomy and voluntary participation",
+    "Community-led and Indigenous self-determination where applicable",
+    "No clinical diagnosis, treatment or medical prescription",
+    "No individual adherence/compliance score",
+    "No personal or sensitive health data collection by default",
+    "No personal data or routine/health information written to an immutable or distributed ledger",
+    "Negative outcomes and withdrawal remain visible without penalty",
+    "Routines cannot replace employer/site safety procedures, qualified engineering, or clinical care"
+  ],
+  "privacy_defaults": {
+    "personal_data_collected": false,
+    "sensitive_health_data_collected": false,
+    "personal_location_history_collected": false,
+    "individual_adherence_scoring": false,
+    "default_storage": "none",
+    "optional_personal_notes_storage": "local_device_only_under_user_control",
+    "retention_of_personal_data": "none_by_default",
+    "aggregate_reporting": "only_opt_in_aggregate_after_disclosure_review",
+    "distributed_ledger_personal_data": false,
+    "participation": "voluntary"
+  },
+  "evidence_sources": [
+    {
+      "id": "polar-light-meta-analysis-2024",
+      "title": "Effect of daily light exposure on sleep in polar regions: A meta-analysis",
+      "year": 2024,
+      "url": "https://onlinelibrary.wiley.com/doi/10.1111/jsr.14144",
+      "population": "18 studies; 986 polar participants",
+      "finding": "Mixed evidence across light conditions; no universal intervention conclusion.",
+      "limitation": "Heterogeneity and study design limit causal/generalized prescriptions."
+    },
+    {
+      "id": "arctic-light-activity-study-2025",
+      "title": "Phase coupling of light exposure and activity differs between Arctic Natives and Non-Natives",
+      "year": 2025,
+      "url": "https://www.tandfonline.com/doi/full/10.1080/09291016.2025.2507077",
+      "population": "63 Arctic residents studied across seasonal periods",
+      "finding": "Reported differences in coupling between resident groups.",
+      "limitation": "Observational/association evidence; not a personalized treatment protocol or basis for demographic inference."
+    },
+    {
+      "id": "arctic-thriving-policy-2022",
+      "title": "From Resilient to Thriving: Policy Recommendations to Support Health and Well-being in the Arctic",
+      "year": 2022,
+      "url": "https://journalhosting.ucalgary.ca/index.php/arctic/article/view/73953",
+      "population": "Collaborative work by Indigenous and non-Indigenous contributors across Arctic regions",
+      "finding": "Emphasizes Indigenous rights/knowledge, community-led research and well-being context.",
+      "limitation": "Policy recommendations do not prove efficacy of any single routine."
+    },
+    {
+      "id": "inuit-decolonized-health-review-2022",
+      "title": "Shifting paradigm from biomedical to decolonised methods in Inuit public health research in Canada: a scoping review",
+      "year": 2022,
+      "url": "https://doi.org/10.1136/bmjgh-2021-008311",
+      "population": "Scoping review of 356 studies",
+      "finding": "Community engagement and Indigenous methodologies were limited across much of the literature.",
+      "limitation": "Literature review; context and governance requirements differ by community."
+    },
+    {
+      "id": "nwt-northern-facilities-guide",
+      "title": "Northwest Territories Good Building Practice for Northern Facilities, 4th edition",
+      "year": 2024,
+      "url": "https://www.gov.nt.ca/en/newsroom/gnwt-releases-4th-edition-good-building-practice-northern-facilities-design-guide",
+      "population": "Northern facilities and their operators",
+      "finding": "Covers northern facility design, climate, geotechnical/environmental issues and practice.",
+      "limitation": "Not evidence of efficacy of a personal habit or clinical intervention."
+    },
+    {
+      "id": "arctic-emergency-preparedness",
+      "title": "Arctic Council Emergency Prevention, Preparedness and Response",
+      "year": 2026,
+      "url": "https://www.admin.arctic-council.org/about/working-groups/eppr/",
+      "population": "Arctic emergency preparedness context",
+      "finding": "Cold, darkness, remoteness and limited infrastructure complicate emergency response.",
+      "limitation": "Operational context, not a health-effect or routine-efficacy study."
+    }
+  ],
+  "routines": [
+    {
+      "id": "POLAR-HABIT-001",
+      "name": "Flexible sleep opportunity planning",
+      "category": "sleep_rhythm",
+      "trigger": "At the start of a work block, season or shift change, if the person wants to review their own routine.",
+      "options": [
+        "Choose a consistent wake window when work and family responsibilities allow.",
+        "Plan quiet/rest opportunities around rotating shifts rather than imposing one universal schedule.",
+        "Offer a private personal planner that stores entries only on the person's device, if they choose to use it."
+      ],
+      "autonomy_note": "Personal choice; not an attendance, productivity or compliance target.",
+      "avoid": [
+        "Do not prescribe a universal sleep duration or schedule.",
+        "Do not infer health status from a routine preference.",
+        "Do not expose individual sleep details to employers, supervisors or a distributed ledger."
+      ],
+      "evidence_class": "research_hypothesis",
+      "evidence_note": "Polar light/sleep studies are heterogeneous; individual and seasonal context matters. The catalogue does not claim this routine improves health.",
+      "evaluation": [
+        "voluntary usefulness rating",
+        "perceived scheduling flexibility",
+        "opt-out rate reported only in aggregate if participants consent"
+      ],
+      "impact_claim": "none",
+      "evidence_source_ids": [
+        "polar-light-meta-analysis-2024",
+        "arctic-light-activity-study-2025"
+      ]
+    },
+    {
+      "id": "POLAR-HABIT-002",
+      "name": "Light-environment choices",
+      "category": "light_environment",
+      "trigger": "When adjusting home/work lighting or planning a seasonal transition, if local conditions and the person make it useful.",
+      "options": [
+        "Provide adjustable, glare-aware lighting choices for different tasks.",
+        "Let people choose preferred light timing and intensity within safety and building requirements.",
+        "Offer a reflection prompt about daylight access and evening lighting rather than a prescriptive regimen."
+      ],
+      "autonomy_note": "No fixed light dose or clinical light-therapy protocol is provided.",
+      "avoid": [
+        "Do not assert that one lighting pattern works for every Arctic resident.",
+        "Do not treat light-sensor telemetry as a proxy for personal health.",
+        "Do not ignore task visibility, accessibility, cultural practice or night-work safety."
+      ],
+      "evidence_class": "research_hypothesis",
+      "evidence_note": "A 2024 meta-analysis of 18 studies and 986 polar participants found mixed outcomes; it did not establish a universal light intervention or clear sleep-duration benefit for each lighting type.",
+      "evaluation": [
+        "lighting option usability",
+        "self-reported usefulness if voluntarily shared",
+        "glare and accessibility complaints"
+      ],
+      "impact_claim": "none",
+      "evidence_source_ids": [
+        "polar-light-meta-analysis-2024",
+        "arctic-light-activity-study-2025"
+      ]
+    },
+    {
+      "id": "POLAR-HABIT-003",
+      "name": "Accessible movement choices",
+      "category": "movement",
+      "trigger": "When weather, workload, access and personal preference permit.",
+      "options": [
+        "Offer short indoor movement options and safe accessible routes.",
+        "Make options adaptable for disability, injury, age, pregnancy or different fitness levels without asking users to disclose diagnoses.",
+        "Allow rest or non-participation without penalty."
+      ],
+      "autonomy_note": "Options are invitations, not exercise prescriptions or performance quotas.",
+      "avoid": [
+        "Do not prescribe intensity, duration or treatment.",
+        "Do not score individuals on participation.",
+        "Do not frame a safety/weather-related absence as noncompliance."
+      ],
+      "evidence_class": "community_guidance",
+      "evidence_note": "This is a co-design hypothesis for routine accessibility, not a proven polar-specific health intervention.",
+      "evaluation": [
+        "accessibility across roles",
+        "perceived choice",
+        "barriers identified in voluntary feedback"
+      ],
+      "impact_claim": "none",
+      "evidence_source_ids": [
+        "arctic-thriving-policy-2022",
+        "inuit-decolonized-health-review-2022"
+      ]
+    },
+    {
+      "id": "POLAR-HABIT-004",
+      "name": "Protected breaks and meal access",
+      "category": "daily_rhythm",
+      "trigger": "During a shift plan or community schedule review.",
+      "options": [
+        "Protect realistic break opportunities within work planning.",
+        "Provide reliable access to preferred meals and drinks suitable to the local setting.",
+        "Allow cultural, family, religious and individual preferences to shape timing and options."
+      ],
+      "autonomy_note": "Design the system to make breaks possible; do not blame individuals for workload or supply constraints.",
+      "avoid": [
+        "Do not prescribe a diet or medical hydration target.",
+        "Do not log food choices at individual level for employers.",
+        "Do not assume supply or kitchen availability is equal for every role."
+      ],
+      "evidence_class": "community_guidance",
+      "evidence_note": "A systems and access design hypothesis. Food provision and work scheduling are institutional responsibilities, not merely habit problems.",
+      "evaluation": [
+        "break feasibility",
+        "availability/access gaps",
+        "perceived burden"
+      ],
+      "impact_claim": "none",
+      "evidence_source_ids": [
+        "arctic-thriving-policy-2022"
+      ]
+    },
+    {
+      "id": "POLAR-HABIT-005",
+      "name": "Opt-in social connection",
+      "category": "social_connection",
+      "trigger": "When the person or group wants a low-pressure opportunity for contact.",
+      "options": [
+        "Offer optional shared meals, hobby time or informal gatherings.",
+        "Offer asynchronous messages or quiet alternatives for people who do not want group interaction.",
+        "Let participants choose boundaries and frequency."
+      ],
+      "autonomy_note": "Participation is opt-in; choosing solitude is not a risk score.",
+      "avoid": [
+        "Do not infer loneliness or mental-health status from silence.",
+        "Do not publish participation lists.",
+        "Do not use social rituals as employee monitoring."
+      ],
+      "evidence_class": "community_guidance",
+      "evidence_note": "Community-led Arctic wellbeing research emphasizes culture, social context and self-determination; local communities must decide whether any activity fits.",
+      "evaluation": [
+        "perceived belonging if voluntarily reported",
+        "accessibility and unwanted-pressure complaints",
+        "withdrawal without penalty"
+      ],
+      "impact_claim": "none",
+      "evidence_source_ids": [
+        "arctic-thriving-policy-2022",
+        "inuit-decolonized-health-review-2022"
+      ]
+    },
+    {
+      "id": "POLAR-HABIT-006",
+      "name": "Seasonal-transition reflection",
+      "category": "seasonal_adaptation",
+      "trigger": "Before a major change in daylight, shifts, travel or work patterns.",
+      "options": [
+        "Invite a personal reflection on what routines should change or remain stable.",
+        "Offer optional planning for lighting, leisure, movement, social opportunities and rest.",
+        "Make support options visible without requiring personal explanations."
+      ],
+      "autonomy_note": "No model should infer an individual's circadian phase from this reflection.",
+      "avoid": [
+        "Do not impose a universal seasonal schedule.",
+        "Do not make clinical claims from calendar or light inputs.",
+        "Do not collect personal reflections unless the person explicitly stores them locally."
+      ],
+      "evidence_class": "research_hypothesis",
+      "evidence_note": "Seasonal light and activity rhythms vary across people and populations; a 2025 study reported different coupling patterns across resident groups, which argues against one-size-fits-all rules.",
+      "evaluation": [
+        "usefulness across seasons",
+        "choice and adaptability",
+        "voluntary feedback on barriers"
+      ],
+      "impact_claim": "none",
+      "evidence_source_ids": [
+        "polar-light-meta-analysis-2024",
+        "arctic-light-activity-study-2025"
+      ]
+    },
+    {
+      "id": "POLAR-HABIT-007",
+      "name": "End-of-shift decompression options",
+      "category": "shift_transition",
+      "trigger": "At an individual-defined transition out of demanding work, when feasible.",
+      "options": [
+        "Offer a quiet transition period or a preferred low-demand activity.",
+        "Make handover time adequate so workers do not need to choose between recovery and safe transfer of responsibility.",
+        "Allow people to decline prompts."
+      ],
+      "autonomy_note": "This does not replace staffing, fatigue management, occupational safety or clinical care.",
+      "avoid": [
+        "Do not treat self-reported fatigue as a misconduct signal.",
+        "Do not use the routine to authorize unsafe work or override stop-work procedures.",
+        "Do not collect identifiable fatigue history by default."
+      ],
+      "evidence_class": "operational_context",
+      "evidence_note": "A work-design hypothesis; effectiveness must be evaluated in local shift patterns, staffing and safety governance.",
+      "evaluation": [
+        "handover feasibility",
+        "perceived transition burden",
+        "safety-procedure omissions and near misses with reporting bias accounted for"
+      ],
+      "impact_claim": "none",
+      "evidence_source_ids": [
+        "arctic-thriving-policy-2022",
+        "arctic-emergency-preparedness"
+      ]
+    },
+    {
+      "id": "POLAR-HABIT-008",
+      "name": "Home and shared-space comfort check",
+      "category": "environmental_comfort",
+      "trigger": "At a user-chosen household or shared-space check-in, or after noticeable indoor-condition changes.",
+      "options": [
+        "Make temperature, humidity, ventilation and condensation information understandable where those systems are monitored.",
+        "Provide simple routes for reporting drafts, moisture, frozen fixtures or ventilation problems.",
+        "Make it clear that building systems and maintenance teams own remediation."
+      ],
+      "autonomy_note": "This is a reporting/accessibility prompt, not a substitute for inspection or certified building controls.",
+      "avoid": [
+        "Do not ask residents to fix unsafe systems themselves.",
+        "Do not infer health status from comfort reports.",
+        "Do not substitute a habit checklist for instrumented system testing."
+      ],
+      "evidence_class": "operational_context",
+      "evidence_note": "A building-operations hypothesis; actual limits must come from applicable building/health rules and qualified engineers.",
+      "evaluation": [
+        "time to acknowledge reported faults",
+        "fault resolution time",
+        "accessibility of the report path"
+      ],
+      "impact_claim": "none",
+      "evidence_source_ids": [
+        "nwt-northern-facilities-guide"
+      ]
+    },
+    {
+      "id": "POLAR-HABIT-009",
+      "name": "Optional maintenance micro-routine",
+      "category": "shared_maintenance",
+      "trigger": "At an owner-approved interval for a low-risk, non-invasive check that is within the person's role and competence.",
+      "options": [
+        "Display the current approved inspection checklist for filters, frost/moisture indicators or visible alarms when relevant.",
+        "Offer a simple report/escalation path rather than asking users to diagnose or repair equipment.",
+        "Keep a documented boundary between observation and authorized maintenance."
+      ],
+      "autonomy_note": "Required safety procedures remain governed by the approved site procedure; this routine catalogue cannot waive or replace them.",
+      "avoid": [
+        "Do not ask unauthorized people to open energized or pressurized systems.",
+        "Do not mark a checklist as passed without a recorded authorized inspection where required.",
+        "Do not treat a reminder as proof of maintenance completion."
+      ],
+      "evidence_class": "operational_context",
+      "evidence_note": "The prompt itself is not evidence that an inspection or repair occurred. Critical tasks require approved procedures and qualified personnel.",
+      "evaluation": [
+        "fault-reporting accessibility",
+        "time to triage",
+        "false assurance incidents"
+      ],
+      "impact_claim": "none",
+      "evidence_source_ids": [
+        "nwt-northern-facilities-guide",
+        "arctic-emergency-preparedness"
+      ]
+    },
+    {
+      "id": "POLAR-HABIT-010",
+      "name": "Voluntary preparation and buddy preferences",
+      "category": "outdoor_readiness",
+      "trigger": "Before optional outdoor activity or as a reminder to check the established site procedure.",
+      "options": [
+        "Show the approved local weather/route/communications/PPE procedure.",
+        "Offer opt-in buddy/check-in choices suitable to the activity and risk assessment.",
+        "Let the person view current conditions without disclosing personal routine history."
+      ],
+      "autonomy_note": "Formal work and emergency requirements are defined by the responsible authority; this routine cannot replace them.",
+      "avoid": [
+        "Do not invent universal wind-chill cutoffs or outdoor exposure durations.",
+        "Do not let habit prompts override local emergency instructions.",
+        "Do not expose a person's movement/location history by default."
+      ],
+      "evidence_class": "operational_context",
+      "evidence_note": "A UI/reminder concept only. Safe limits and task controls require a site-specific risk assessment and authorized procedures.",
+      "evaluation": [
+        "clarity of approved instructions",
+        "accessibility under gloves/poor visibility",
+        "false-reassurance reports"
+      ],
+      "impact_claim": "none",
+      "evidence_source_ids": [
+        "arctic-emergency-preparedness"
+      ]
+    }
+  ]
+}

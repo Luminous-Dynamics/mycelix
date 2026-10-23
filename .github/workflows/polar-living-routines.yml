@@ -1,0 +1,25 @@
+name: Polar Living Routine Safeguards
+on:
+  pull_request:
+    paths:
+      - "research/polar-living-routines/**"
+      - "scripts/check-polar-routines.sh"
+      - ".github/workflows/polar-living-routines.yml"
+  push:
+    branches: ["main"]
+    paths:
+      - "research/polar-living-routines/**"
+      - "scripts/check-polar-routines.sh"
+      - ".github/workflows/polar-living-routines.yml"
+permissions:
+  contents: read
+jobs:
+  routine-catalog:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - name: Syntax-check validator
+        run: bash -n scripts/check-polar-routines.sh
+      - name: Check routine catalog and negative controls
+        run: bash scripts/check-polar-routines.sh --self-test
