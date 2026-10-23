@@ -480,6 +480,7 @@ fn write_metrics_row(
     .expect("write to string");
 }
 
+#[cfg(test)]
 fn all_permutations(items: &mut [Request], start: usize, output: &mut Vec<Vec<Request>>) {
     if start == items.len() {
         output.push(items.to_vec());
