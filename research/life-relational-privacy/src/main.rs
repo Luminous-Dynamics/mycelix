@@ -490,8 +490,7 @@ fn render_report() -> String {
                     let accuracy = accuracy_ppm(&summary);
                     let prior_accuracy = prior_accuracy_ppm(&summary);
                     let lift = accuracy as i64 - prior_accuracy as i64;
-                    let mean_peers =
-                        summary.peer_observations_used / summary.target_count.max(1);
+                    let mean_peers = summary.peer_observations_used / summary.target_count.max(1);
 
                     for threshold_ppm in CONFIDENCE_THRESHOLDS {
                         let (coverage_ppm, selective_accuracy, abstained) =
@@ -738,7 +737,10 @@ mod tests {
             assert_eq!(line.split(',').count(), header_width, "bad row: {line}");
             data_rows += 1;
         }
-        assert_eq!(data_rows, 4 * 5 * EVALUATION_SEEDS.len() * Profile::ALL.len() * CONFIDENCE_THRESHOLDS.len());
+        assert_eq!(
+            data_rows,
+            4 * 5 * EVALUATION_SEEDS.len() * Profile::ALL.len() * CONFIDENCE_THRESHOLDS.len()
+        );
     }
 
     #[test]
