@@ -179,8 +179,7 @@ fn generate_population(
             // A second membership crosses the primary cohort partition. It is
             // independent of the protected signal generation and acts as
             // explicit relation-metadata side information to the attacker.
-            let secondary_group_id =
-                ((group * 7 + member * 11) % secondary_group_count) as u64;
+            let secondary_group_id = ((group * 7 + member * 11) % secondary_group_count) as u64;
             let protected = if rng.chance_ppm(peer_signal_ppm) {
                 latent
             } else {
