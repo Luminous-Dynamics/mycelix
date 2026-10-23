@@ -293,20 +293,13 @@ pub fn validate_study_context_binding(
         );
     }
 
-    let declared_arms = assessment
-        .arms
-        .iter()
-        .map(|arm| arm.arm_id.as_str())
-        .collect::<BTreeSet<_>>();
-    let participant_arms = assessment
-        .episodes
-        .iter()
-        .map(|episode| (episode.participant_ref.as_str(), episode.arm_id.as_str()))
-        .collect::<BTreeMap<_, _>>();
-
     for (index, observation) in context.observations.iter().enumerate() {
         let path = format!("$.observations[{index}]");
-        if !declared_arms.contains(observation.assigned_arm_id.as_str()) {
+        if !assessment
+            .arms
+            .iter()
+            .any(|arm| arm.arm_id == observation.assigned_arm_id)
+        {
             push_issue(
                 &mut issues,
                 "unknown_assessment_arm",
@@ -314,14 +307,18 @@ pub fn validate_study_context_binding(
                 "assigned arm is not declared by the assessment benchmark",
             );
         }
-        match participant_arms.get(observation.participant_ref.as_str()) {
+        match assessment
+            .episodes
+            .iter()
+            .find(|episode| episode.participant_ref == observation.participant_ref)
+        {
             None => push_issue(
                 &mut issues,
                 "unknown_assessment_participant",
                 format!("{path}.participant_ref"),
                 "participant_ref is absent from the bound assessment benchmark",
             ),
-            Some(assessment_arm) if *assessment_arm != observation.assigned_arm_id => push_issue(
+            Some(episode) if episode.arm_id != observation.assigned_arm_id => push_issue(
                 &mut issues,
                 "assessment_arm_mismatch",
                 format!("{path}.assigned_arm_id"),
