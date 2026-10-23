@@ -653,8 +653,13 @@ mod tests {
     fn report_has_rectangular_csv_schema_and_audit_fields() {
         let report = render_report();
         let mut lines = report.lines();
-        let header_width = lines.next().expect("header exists").split(',').count();
+        let header = lines.next().expect("header exists");
+        let header_width = header.split(',').count();
         assert_eq!(header_width, 20);
+        assert!(header.contains("peer_observation_delta_vs_exact_cohort"));
+        assert!(header.contains("selective_coverage_ppm"));
+        assert!(header.contains("selective_accuracy_ppm"));
+        assert!(header.contains("direct_target_protected_disclosures"));
         let mut data_rows = 0;
         for line in lines {
             assert_eq!(line.split(',').count(), header_width, "bad row: {line}");
