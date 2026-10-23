@@ -38,7 +38,7 @@ jq -e '
    and (.evidence_source_ids|length>=1)
    and ((.autonomy_note|length)>=10)
  )
- and all(.routines[] as $routine; all($routine.evidence_source_ids[]; . as $id | [$id] | length == 1))
+ and all(.routines[]; (.evidence_source_ids | unique | length) == (.evidence_source_ids | length))
  and ([.evidence_sources[].id] as $source_ids
       | all(.routines[]; all(.evidence_source_ids[]; . as $id | $source_ids | index($id) != null)))
 ' "$FILE" >/dev/null || { echo "ERROR: routine catalog violates structural safeguards" >&2; exit 1; }
