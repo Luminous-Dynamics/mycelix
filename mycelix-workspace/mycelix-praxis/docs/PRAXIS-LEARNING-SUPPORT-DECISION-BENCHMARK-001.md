@@ -40,7 +40,7 @@ Every case names:
 3. support options and whether each is actually available;
 4. accessibility needs, constraints, and displacement risk;
 5. a set of acceptable decisions, forbidden decisions, and non-compensable invariants;
-6. a paired case and whether the relevant counterfactual should change the decision.
+6. a paired case, a named decision-relevant counterfactual dimension, and whether the decision should change.
 
 A support option marked unavailable must never be selected merely because it is present in the option list. A strong overall score cannot offset a critical violation.
 
