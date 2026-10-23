@@ -25,6 +25,26 @@ Research motivates a cross-mode decision test:
 
 **Positioning:** LSDB is an additive proposal, not a replacement for LongTutor, MMTutorBench, assessments of independent retention/transfer, or live educational trials. It must not claim superiority until those systems and comparable policies are evaluated on a harmonized protocol with independent review.
 
+## 2a. Industry comparison and the intended edge
+
+| Existing surface | What it measures or ships | Praxis complement—not a replacement |
+|---|---|---|
+| Scale Labs **TutorBench** | A 1,490-prompt, expert-curated tutoring benchmark focused on adaptive explanations, actionable feedback, hints, and multimodal learner work. <https://labs.scale.com/leaderboard/tutorbench> | Test whether those tutoring capabilities should be invoked in this context at all, under availability, accessibility, course-policy, evidence, and displacement constraints. |
+| **MMTutorBench** | 770 key-step multimodal math problems with fine-grained rubrics across insight discovery, operation formulation, and operation execution. <https://aclanthology.org/2026.acl-long.1068/> | Add decision-level counterfactuals; math-tutoring correctness alone cannot tell whether AI is the appropriate support mode. |
+| **LongTutor** | Historical evidence acquisition, knowledge-state diagnosis, and adaptive teaching action, using expert-annotated real-world learning logs. <https://aclanthology.org/2026.acl-long.1371/> | Add explicit constraint feasibility and cross-mode support selection, while preserving LongTutor as the long-history baseline. |
+| **H5P Smart Import / Organization API** | Content transformation and interactive-object authoring, with enterprise APIs for content metadata, programmatic creation, users, and folders. <https://help.h5p.com/hc/en-us/articles/40044541802013-Release-Note-October-2026> | Do not try to win simply by duplicating bulk authoring. Differentiate on exportable evidence/rights, capability-to-assessment mapping, support selection, and independently measured durable learning outcomes. H5P documents stronger current performance on declarative than procedural material. <https://help.h5p.com/hc/en-us/articles/8229514747805-Smart-Import-Introduction> |
+| Field trials / human tutoring | Outcome studies reveal engagement, usage, transfer, and implementation effects that prompt benchmarks cannot establish. Recent results are context-dependent and mixed; see the studies above. | Preserve a clean boundary between synthetic decision quality and real learning impact. Carry the same policy through delayed retention/transfer and displacement measurement before making efficacy claims. |
+
+**Paradigm shift:** measure the *value of the decision to deploy a support*, not only the quality of the support after deployment. A polished explanation can still be the wrong intervention if it replaces planned teaching, violates task rules, excludes a learner, or removes productive independent effort.
+
+**Competitive plan:**
+1. Freeze the current 12 synthetic cases as contract probes; do not advertise them as a competitive leaderboard.
+2. Grow to at least **120 adjudicated cases (60 paired counterfactuals, 10 pairs per each of six dimensions)**, plus a separately held-out set, before interpreting ADR/CDA as comparative evidence. Reviewers should record disagreement and rationale; revise cases rather than silently force consensus.
+3. Run simple rule-based/offline/no-assistance baselines, hint-first, direct-answer negative control, and human-support policy before comparing model APIs. Use identical cases, tool access, context budget, latency/cost recording, and exact model/policy versions.
+4. Report quality, hard-gate violations, latency/cost, independent attempt rate, protected-human-support displacement, and delayed outcomes separately. Do not use a single blended score to hide failure.
+
+The aspiration is not an unsupported "beats SOTA" statement. It is a public, reproducible benchmark that may demonstrate an advantage in *decision correctness and constraint handling* while remaining compatible with the established content-quality and long-history benchmarks.
+
 ## 3. v1 artifact contract
 
 Files in this directory:
