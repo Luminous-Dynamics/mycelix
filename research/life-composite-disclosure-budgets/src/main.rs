@@ -259,8 +259,10 @@ impl Ledger {
                     self.metrics.purpose_budget_denials.saturating_add(1);
             }
             AdmissionOutcome::DeniedObserverDomainBudget => {
-                self.metrics.observer_domain_budget_denials =
-                    self.metrics.observer_domain_budget_denials.saturating_add(1);
+                self.metrics.observer_domain_budget_denials = self
+                    .metrics
+                    .observer_domain_budget_denials
+                    .saturating_add(1);
             }
             AdmissionOutcome::Accepted
             | AdmissionOutcome::DuplicateReplay
@@ -326,12 +328,8 @@ impl Ledger {
             .collect::<BTreeSet<_>>();
         for group in additions {
             for observer_domain in &domains {
-                let proposed_spend = group_spend_in(
-                    &self.accepted,
-                    &candidate,
-                    group,
-                    *observer_domain,
-                );
+                let proposed_spend =
+                    group_spend_in(&self.accepted, &candidate, group, *observer_domain);
                 if proposed_spend > self.budgets.group_per_domain {
                     self.metrics.membership_updates_denied =
                         self.metrics.membership_updates_denied.saturating_add(1);
@@ -367,7 +365,11 @@ impl Ledger {
     }
 
     fn audit(&self) -> AuditResult {
-        audit_accepted_history(&self.accepted, &self.memberships, self.budgets.group_per_domain)
+        audit_accepted_history(
+            &self.accepted,
+            &self.memberships,
+            self.budgets.group_per_domain,
+        )
     }
 }
 
@@ -403,7 +405,12 @@ fn audit_accepted_history(
         }
     }
 
-    result.max_group_spend = result.group_domain_spend.values().copied().max().unwrap_or(0);
+    result.max_group_spend = result
+        .group_domain_spend
+        .values()
+        .copied()
+        .max()
+        .unwrap_or(0);
     result.group_overrun_count = result
         .group_domain_spend
         .values()
@@ -437,12 +444,7 @@ fn empty_memberships(subjects: &[u64]) -> BTreeMap<u64, BTreeSet<u64>> {
 fn memberships(entries: &[(u64, &[u64])]) -> BTreeMap<u64, BTreeSet<u64>> {
     entries
         .iter()
-        .map(|(subject, groups)| {
-            (
-                *subject,
-                groups.iter().copied().collect::<BTreeSet<_>>(),
-            )
-        })
+        .map(|(subject, groups)| (*subject, groups.iter().copied().collect::<BTreeSet<_>>()))
         .collect()
 }
 
@@ -473,12 +475,7 @@ struct ScenarioRow {
 }
 
 fn unsafe_person_only_scenario() -> ScenarioRow {
-    let membership = memberships(&[
-        (1, &[100]),
-        (2, &[100]),
-        (3, &[100]),
-        (4, &[100]),
-    ]);
+    let membership = memberships(&[(1, &[100]), (2, &[100]), (3, &[100]), (4, &[100])]);
     let budgets = BudgetPolicy {
         person_per_domain: 5,
         group_per_domain: 8,
@@ -509,12 +506,7 @@ fn unsafe_person_only_scenario() -> ScenarioRow {
 }
 
 fn composite_scope_scenario() -> ScenarioRow {
-    let membership = memberships(&[
-        (1, &[100]),
-        (2, &[100]),
-        (3, &[100]),
-        (4, &[100]),
-    ]);
+    let membership = memberships(&[(1, &[100]), (2, &[100]), (3, &[100]), (4, &[100])]);
     let budgets = BudgetPolicy {
         person_per_domain: 8,
         group_per_domain: 8,
@@ -550,10 +542,42 @@ fn overlapping_group_scenario() -> ScenarioRow {
     };
     let mut ledger = Ledger::new(membership, budgets, EnforcementMode::CompositeScopes);
     let requests = [
-        request(1, 1, 1, 1, 2, INITIAL_POLICY_EPOCH, INITIAL_MEMBERSHIP_EPOCH),
-        request(2, 3, 1, 1, 2, INITIAL_POLICY_EPOCH, INITIAL_MEMBERSHIP_EPOCH),
-        request(3, 2, 1, 1, 2, INITIAL_POLICY_EPOCH, INITIAL_MEMBERSHIP_EPOCH),
-        request(4, 1, 1, 2, 2, INITIAL_POLICY_EPOCH, INITIAL_MEMBERSHIP_EPOCH),
+        request(
+            1,
+            1,
+            1,
+            1,
+            2,
+            INITIAL_POLICY_EPOCH,
+            INITIAL_MEMBERSHIP_EPOCH,
+        ),
+        request(
+            2,
+            3,
+            1,
+            1,
+            2,
+            INITIAL_POLICY_EPOCH,
+            INITIAL_MEMBERSHIP_EPOCH,
+        ),
+        request(
+            3,
+            2,
+            1,
+            1,
+            2,
+            INITIAL_POLICY_EPOCH,
+            INITIAL_MEMBERSHIP_EPOCH,
+        ),
+        request(
+            4,
+            1,
+            1,
+            2,
+            2,
+            INITIAL_POLICY_EPOCH,
+            INITIAL_MEMBERSHIP_EPOCH,
+        ),
     ];
     for req in requests {
         let _ = ledger.admit(req);
@@ -825,7 +849,10 @@ mod tests {
             EnforcementMode::CompositeScopes,
         );
         let stale = request(91, 1, 1, 1, 1, INITIAL_POLICY_EPOCH, 0);
-        assert_eq!(ledger.admit(stale.clone()), AdmissionOutcome::StaleMembershipEpoch);
+        assert_eq!(
+            ledger.admit(stale.clone()),
+            AdmissionOutcome::StaleMembershipEpoch
+        );
         assert_eq!(ledger.admit(stale), AdmissionOutcome::StaleMembershipEpoch);
         assert_eq!(ledger.metrics.stale_membership_denials, 1);
         assert_eq!(ledger.metrics.duplicate_replays, 1);
