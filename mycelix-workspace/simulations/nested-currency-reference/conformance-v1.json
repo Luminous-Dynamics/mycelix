@@ -59,6 +59,11 @@
       "id": "NCF-I-009",
       "name": "Denomination stability",
       "statement": "An instrument ID cannot silently change its denomination identity or scale; migration requires a new instrument identity or an explicit qualified migration."
+    },
+    {
+      "id": "NCF-I-010",
+      "name": "Same-revision profile consistency",
+      "statement": "A profile's policy fields cannot change without a revision change; revisioned updates must preserve immutable issuer, family, and denomination semantics."
     }
   ],
   "conformance_cases": [
@@ -266,6 +271,24 @@
       "class": "semantic_migration",
       "attack": "Present a same-ID, same-revision profile with changed denomination semantics after balances exist.",
       "expected": "reject_instrument_semantics_changed",
+      "code_test": "mutual_credit_is_zero_sum_atomic_and_idempotent",
+      "execution_status": "defined_not_run"
+    },
+    {
+      "id": "NCF-PROFILE-004",
+      "title": "Same-revision credit-limit widening is rejected",
+      "class": "policy_version_bypass",
+      "attack": "Present a registry profile with the same instrument ID and revision but a more permissive balance limit after a previous operation.",
+      "expected": "reject_profile_conflict",
+      "code_test": "mutual_credit_is_zero_sum_atomic_and_idempotent",
+      "execution_status": "defined_not_run"
+    },
+    {
+      "id": "NCF-PROFILE-005",
+      "title": "Revisioned policy update preserves instrument identity and denomination",
+      "class": "positive_control",
+      "attack": null,
+      "expected": "accept_versioned_policy_update",
       "code_test": "mutual_credit_is_zero_sum_atomic_and_idempotent",
       "execution_status": "defined_not_run"
     }
