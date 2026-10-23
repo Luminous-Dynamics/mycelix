@@ -113,7 +113,7 @@ fn run() -> Result<(), String> {
             shard_id: format!("shard:{index}"),
             epoch: 1,
         };
-        let capacity = base_slice + u64::from((index as u64) < remainder);
+        let capacity = base_slice + if (index as u64) < remainder { 1 } else { 0 };
         book.reserve(key.clone(), "community:a", "community:b", capacity)
             .map_err(|e| format!("reserve slice for shard {index}: {e:?}"))?;
         allocated_capacity = allocated_capacity.checked_add(capacity)
