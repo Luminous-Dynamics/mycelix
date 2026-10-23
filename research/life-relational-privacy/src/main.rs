@@ -55,6 +55,7 @@ struct OutcomeRecord {
     truth: bool,
     predicted: bool,
     prior_predicted: bool,
+    confidence_score_ppm: u64,
     peer_observations_used: u64,
     evidence_loss_vs_exact_peer_rows: u64,
     direct_target_protected_disclosures: u64,
@@ -177,6 +178,18 @@ fn prior_for(training: &[Subject], profile: Profile) -> bool {
     positive.saturating_mul(2) >= training.len()
 }
 
+fn prior_confidence_ppm(training: &[Subject], profile: Profile) -> u64 {
+    if training.is_empty() {
+        return 0;
+    }
+    let positive = training
+        .iter()
+        .filter(|subject| truth_for(subject, profile))
+        .count() as u64;
+    let total = training.len() as u64;
+    ratio_ppm(positive.max(total - positive), total)
+}
+
 fn peer_signal(subject: &Subject, profile: Profile) -> bool {
     if matches!(profile, Profile::RandomizedPeerNegativeControl) {
         subject.randomized_peer_proxy
@@ -210,11 +223,12 @@ fn evaluate_profile(
     profile: Profile,
 ) -> Vec<OutcomeRecord> {
     let prior_prediction = prior_for(training, profile);
+    let prior_confidence = prior_confidence_ppm(training, profile);
     let mut outcomes = Vec::with_capacity(test.len());
 
     for (target_index, target) in test.iter().enumerate() {
-        // Only peer proxy observations are fed to the majority attacker.
-        // The target row is excluded by index before observations are read.
+        // The protected target value is withheld. Only relationship metadata
+        // and peer proxy fields define candidate observations in this arm.
         let peer_indices = if matches!(profile, Profile::PopulationPrior) {
             Vec::new()
         } else {
@@ -240,14 +254,23 @@ fn evaluate_profile(
                 .collect::<Vec<_>>()
         };
 
+        let peer_signals = peer_indices
+            .iter()
+            .map(|index| peer_signal(&test[*index], profile))
+            .collect::<Vec<_>>();
         let predicted = if matches!(profile, Profile::PopulationPrior) {
             prior_prediction
         } else {
-            majority(
-                peer_indices
-                    .iter()
-                    .map(|index| peer_signal(&test[*index], profile)),
-                prior_prediction,
+            majority(peer_signals.iter().copied(), prior_prediction)
+        };
+        let confidence_score_ppm = if peer_signals.is_empty() {
+            prior_confidence
+        } else {
+            let positive_votes = peer_signals.iter().filter(|value| **value).count() as u64;
+            let negative_votes = peer_signals.len() as u64 - positive_votes;
+            ratio_ppm(
+                positive_votes.max(negative_votes),
+                peer_signals.len() as u64,
             )
         };
 
@@ -257,9 +280,11 @@ fn evaluate_profile(
             truth: truth_for(target, profile),
             predicted,
             prior_predicted: prior_prediction,
+            confidence_score_ppm,
             peer_observations_used: peer_count,
             evidence_loss_vs_exact_peer_rows: exact_peer_count.saturating_sub(peer_count),
-            // The target's protected value/claim is never an attacker feature; cohort membership is explicit side information.
+            // The target's protected value/claim is never an attacker feature;
+            // group membership is intentionally modeled as side information.
             direct_target_protected_disclosures: 0,
         });
     }
@@ -332,12 +357,28 @@ fn balanced_accuracy_ppm(summary: &Summary) -> u64 {
     (sensitivity + specificity) / 2
 }
 
+fn selective_metrics(outcomes: &[OutcomeRecord], threshold_ppm: u64) -> (u64, u64, u64) {
+    let mut accepted = 0_u64;
+    let mut correct = 0_u64;
+    for outcome in outcomes {
+        if outcome.confidence_score_ppm >= threshold_ppm {
+            accepted += 1;
+            correct += (outcome.predicted == outcome.truth) as u64;
+        }
+    }
+
+    let total = outcomes.len() as u64;
+    let coverage_ppm = ratio_ppm(accepted, total);
+    let selective_accuracy_ppm = ratio_ppm(correct, accepted);
+    (coverage_ppm, selective_accuracy_ppm, total.saturating_sub(accepted))
+}
+
 fn render_report() -> String {
     debug_assert!(!MANIFEST.is_empty());
     let mut report = String::new();
     writeln!(
         &mut report,
-        "profile,cohort_size,peer_signal_ppm,coarsening_factor,target_count,positive_targets,accuracy_ppm,balanced_accuracy_ppm,prior_accuracy_ppm,lift_vs_prior_ppm,mean_peer_observations,evidence_loss_vs_exact_peer_rows,direct_target_protected_disclosures,audit_target_count,audit_correct_count,audit_direct_target_protected_disclosures"
+        "profile,cohort_size,peer_signal_ppm,coarsening_factor,target_count,positive_targets,accuracy_ppm,balanced_accuracy_ppm,prior_accuracy_ppm,lift_vs_prior_ppm,mean_peer_observations,evidence_loss_vs_exact_peer_rows,direct_target_protected_disclosures,audit_target_count,audit_correct_count,audit_direct_target_protected_disclosures,decision_threshold_ppm,selective_coverage_ppm,selective_accuracy_ppm,abstained_targets"
     )
     .expect("writing to String cannot fail");
 
@@ -368,27 +409,35 @@ fn render_report() -> String {
                 let lift = accuracy as i64 - prior_accuracy as i64;
                 let mean_peers = summary.peer_observations_used / summary.target_count.max(1);
 
-                writeln!(
-                    &mut report,
-                    "{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{}",
-                    profile.name(),
-                    cohort_size,
-                    signal_ppm,
-                    COARSENING_FACTOR,
-                    summary.target_count,
-                    summary.positive_targets,
-                    accuracy,
-                    balanced_accuracy_ppm(&summary),
-                    prior_accuracy,
-                    lift,
-                    mean_peers,
-                    summary.evidence_loss_vs_exact_peer_rows,
-                    summary.direct_target_protected_disclosures,
-                    audit.target_count,
-                    audit.correct_count,
-                    audit.direct_target_protected_disclosures,
-                )
-                .expect("writing to String cannot fail");
+                for threshold_ppm in [500_000_u64, 625_000, 750_000, 875_000, 950_000] {
+                    let (coverage_ppm, selective_accuracy, abstained) =
+                        selective_metrics(&outcomes, threshold_ppm);
+                    writeln!(
+                        &mut report,
+                        "{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{}",
+                        profile.name(),
+                        cohort_size,
+                        signal_ppm,
+                        COARSENING_FACTOR,
+                        summary.target_count,
+                        summary.positive_targets,
+                        accuracy,
+                        balanced_accuracy_ppm(&summary),
+                        prior_accuracy,
+                        lift,
+                        mean_peers,
+                        summary.evidence_loss_vs_exact_peer_rows,
+                        summary.direct_target_protected_disclosures,
+                        audit.target_count,
+                        audit.correct_count,
+                        audit.direct_target_protected_disclosures,
+                        threshold_ppm,
+                        coverage_ppm,
+                        selective_accuracy,
+                        abstained,
+                    )
+                    .expect("writing to String cannot fail");
+                }
             }
         }
     }
@@ -514,13 +563,30 @@ mod tests {
         let report = render_report();
         let mut lines = report.lines();
         let header_width = lines.next().expect("header exists").split(',').count();
-        assert_eq!(header_width, 16);
+        assert_eq!(header_width, 20);
         let mut data_rows = 0;
         for line in lines {
             assert_eq!(line.split(',').count(), header_width, "bad row: {line}");
             data_rows += 1;
         }
-        assert_eq!(data_rows, 4 * 5 * Profile::ALL.len());
+        assert_eq!(data_rows, 4 * 5 * Profile::ALL.len() * 5);
+    }
+
+    #[test]
+    fn selective_risk_coverage_exposes_abstention_tradeoff() {
+        let (training, test) = populations(16, 850_000, 64, 47);
+        let outcomes = evaluate_profile(
+            &training,
+            &test,
+            16,
+            Profile::ExactCohortPeerMajority,
+        );
+        let (low_coverage, _, low_abstentions) = selective_metrics(&outcomes, 500_000);
+        let (high_coverage, _, high_abstentions) = selective_metrics(&outcomes, 950_000);
+        assert_eq!(low_coverage, PPM);
+        assert_eq!(low_abstentions, 0);
+        assert!(high_coverage <= low_coverage);
+        assert_eq!(high_abstentions, outcomes.len() as u64 - high_coverage * outcomes.len() as u64 / PPM);
     }
 
     #[test]
