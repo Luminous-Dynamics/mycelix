@@ -38,6 +38,7 @@ pub enum ReservationError {
     MissingAgreementCap,
     CapacityExceeded,
     ReservationConflict,
+    AgreementPartiesMismatch,
     UnknownReservation,
     ReplayMismatch,
     NothingOutstanding,
@@ -56,6 +57,8 @@ pub enum ReservationApply {
 pub struct ReservationBook {
     community_caps: BTreeMap<(String, String), u64>,
     agreement_caps: BTreeMap<(String, String), u64>,
+    /// Counterparty identities are immutable for an agreement/instrument across all shards and epochs.
+    agreement_parties: BTreeMap<(String, String), (String, String)>,
     reservations: BTreeMap<ReservationKey, Reservation>,
     outstanding: BTreeMap<ReservationKey, u64>,
     /// Event IDs are globally unique within this reference ledger. A distributed
@@ -133,6 +136,14 @@ impl ReservationBook {
             };
         }
 
+        let agreement_key = (key.agreement_id.clone(), key.instrument.clone());
+        let parties = (community_a.to_owned(), community_b.to_owned());
+        if let Some(existing_parties) = self.agreement_parties.get(&agreement_key) {
+            if existing_parties != &parties {
+                return Err(ReservationError::AgreementPartiesMismatch);
+            }
+        }
+
         for community in [community_a, community_b] {
             if !self.community_caps.contains_key(&(community.into(), key.instrument.clone())) {
                 return Err(ReservationError::MissingCommunityCap);
@@ -157,6 +168,7 @@ impl ReservationBook {
         }
 
         self.outstanding.insert(key.clone(), 0);
+        self.agreement_parties.entry(agreement_key).or_insert(parties);
         self.reservations.insert(key, candidate);
         Ok(ReservationApply::Reserved)
     }
@@ -388,6 +400,25 @@ mod tests {
         );
         assert_eq!(book.allocated_to_community("a", "unit:hours"), Ok(50));
         assert_eq!(book.allocated_to_community("a", "unit:water"), Ok(80));
+    }
+
+    #[test]
+    fn agreement_party_pair_is_stable_across_shards_and_epochs() {
+        let mut book = configured_book(100, 100);
+        book.set_community_cap("c", "unit:local", 100).unwrap();
+        let first = key("edge:ab", "unit:local", "shard-1", 1);
+        let second = key("edge:ab", "unit:local", "shard-2", 1);
+        assert_eq!(book.reserve(first, "a", "b", 40), Ok(ReservationApply::Reserved));
+        assert_eq!(
+            book.reserve(second.clone(), "a", "c", 10),
+            Err(ReservationError::AgreementPartiesMismatch)
+        );
+        assert_eq!(book.allocated_to_community("c", "unit:local"), Ok(0));
+        // Rejected counterparty substitution did not consume the slice or ID.
+        assert_eq!(book.reserve(second, "a", "b", 60), Ok(ReservationApply::Reserved));
+        assert_eq!(book.allocated_to_agreement("edge:ab", "unit:local"), Ok(100));
+        assert_eq!(book.allocated_to_community("a", "unit:local"), Ok(100));
+        assert_eq!(book.allocated_to_community("b", "unit:local"), Ok(100));
     }
 
     #[test]
