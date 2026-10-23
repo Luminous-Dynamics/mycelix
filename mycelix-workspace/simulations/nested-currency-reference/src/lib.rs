@@ -34,8 +34,8 @@ impl Profile {
     }
 }
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub enum Action { Create, Activate, Amend, Suspend, Retire, Issue, Clear }
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd)]
+pub enum Action { Create, Activate, Amend, Suspend, Retire, Issue, Clear, Settle }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Capability {
@@ -72,8 +72,10 @@ pub fn authorize(
     if let Some(value) = amount {
         if value < 0 { return Err(Error::InvalidAmount); }
     }
-    let amount_bearing = matches!(action, Action::Issue | Action::Clear);
-    if amount_bearing && !profile.active { return Err(Error::Inactive); }
+    let amount_bearing = matches!(action, Action::Issue | Action::Clear | Action::Settle);
+    if matches!(action, Action::Issue | Action::Clear) && !profile.active {
+        return Err(Error::Inactive);
+    }
     if amount_bearing && amount.is_none() { return Err(Error::InvalidAmount); }
     if amount_bearing && cap.max_amount.is_none() { return Err(Error::InvalidCapability); }
 
@@ -360,6 +362,11 @@ mod tests {
         let inactive_cap = Capability { revision: inactive.revision, ..bounded_issue_cap };
         assert_eq!(authorize("did:federation", &inactive, Action::Issue, Some(1), 99, &inactive_cap),
             Err(Error::Inactive));
+
+        // Suspending new issuance must not prevent a separately authorized unwind.
+        let settle_cap = Capability { actions: [Action::Settle].into_iter().collect(),
+            ..inactive_cap };
+        assert_eq!(authorize("did:federation", &inactive, Action::Settle, Some(1), 99, &settle_cap), Ok(()));
     }
 
     #[test]
