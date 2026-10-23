@@ -463,9 +463,9 @@ fn validate_selected_action(
     }
 
     if request.contextually_requires_accessible_support()
-        && matches!(action, AdvisorAction::AskClarifyingQuestion | AdvisorAction::NoIntervention)
+        && action == AdvisorAction::NoIntervention
     {
-        issue(issues, field, "accessibility_needs_unresolved", "a stated accessibility requirement cannot be left unresolved by a clarification-free no-op");
+        issue(issues, field, "accessibility_needs_unresolved", "a stated accessibility requirement cannot be left unresolved by a no-op; clarification and safe escalation remain allowed");
     }
 
     if request.human_support_must_be_preserved && request.displacement_risk == DisplacementRisk::Material {
@@ -681,6 +681,41 @@ mod tests {
             &serde_json::to_string(&response).unwrap(),
         ).unwrap();
         assert!(issues.is_empty(), "safe abstention should be accepted: {issues:#?}");
+    }
+
+    #[test]
+    fn clarification_is_allowed_when_accessible_support_is_not_yet_known() {
+        let mut request: Value = serde_json::from_str(REQUEST_FIXTURE).unwrap();
+        request["accessibility_requirements"] = serde_json::json!(["screen_reader_compatible_representation"]);
+        for option in request["support_options"].as_array_mut().unwrap() {
+            option["accessible_for_context"] = Value::Bool(false);
+        }
+        let request_json = serde_json::to_string(&request).unwrap();
+        let mut response: Value = serde_json::from_str(&valid_response_json(&request_json)).unwrap();
+        response["disposition"] = serde_json::json!("clarify");
+        response["selected_action"] = serde_json::json!("ask_clarifying_question");
+        response["alternative_actions"] = serde_json::json!([]);
+        response["clarifying_questions"] = serde_json::json!(["Which accessible format works for this activity?"]);
+        let issues = validate_symthaea_advice_for_request(
+            &request_json,
+            &serde_json::to_string(&response).unwrap(),
+        ).unwrap();
+        assert!(issues.is_empty(), "clarification should be allowed: {issues:#?}");
+    }
+
+    #[test]
+    fn no_op_cannot_silently_skip_accessibility_requirements() {
+        let mut request: Value = serde_json::from_str(REQUEST_FIXTURE).unwrap();
+        request["accessibility_requirements"] = serde_json::json!(["screen_reader_compatible_representation"]);
+        let request_json = serde_json::to_string(&request).unwrap();
+        let mut response: Value = serde_json::from_str(&valid_response_json(&request_json)).unwrap();
+        response["selected_action"] = serde_json::json!("no_intervention");
+        response["alternative_actions"] = serde_json::json!([]);
+        let issues = validate_symthaea_advice_for_request(
+            &request_json,
+            &serde_json::to_string(&response).unwrap(),
+        ).unwrap();
+        assert!(has_code(&issues, "accessibility_needs_unresolved"));
     }
 
     #[test]
