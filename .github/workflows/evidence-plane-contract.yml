@@ -1,0 +1,42 @@
+name: Evidence Plane Contract
+
+on:
+  pull_request:
+    paths:
+      - "research/evidence-plane/**"
+      - ".github/workflows/evidence-plane-contract.yml"
+  push:
+    branches:
+      - main
+    paths:
+      - "research/evidence-plane/**"
+      - ".github/workflows/evidence-plane-contract.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: evidence-plane-contract-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  receipt-schema:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout exact revision
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+
+      - name: Confirm Rust toolchain
+        run: |
+          rustc --version
+          cargo --version
+
+      - name: Validate schema and artifact-verification mutation controls
+        run: cargo test --manifest-path research/evidence-plane/validator/Cargo.toml
+
+      - name: Validate canonical synthetic fixture
+        run: cargo run --quiet --manifest-path research/evidence-plane/validator/Cargo.toml -- validate research/evidence-plane/receipt-v0.schema.json research/evidence-plane/examples/synthetic-planned-receipt-v0.json
+
+      - name: Verify planned fixture offline
+        run: cargo run --quiet --manifest-path research/evidence-plane/validator/Cargo.toml -- verify research/evidence-plane/receipt-v0.schema.json research/evidence-plane/examples/synthetic-planned-receipt-v0.json --artifact-root .

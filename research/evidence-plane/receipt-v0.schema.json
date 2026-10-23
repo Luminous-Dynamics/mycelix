@@ -1,0 +1,1107 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/Luminous-Dynamics/mycelix/blob/main/research/evidence-plane/receipt-v0.schema.json",
+  "title": "Evidence Plane Run Receipt v0",
+  "description": "Structural contract only; cannot prove hashes, scientific truth, source permissions or operational validity.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "receipt_id",
+    "created_at",
+    "run_status",
+    "evidence_tier",
+    "claim_ceiling",
+    "subject",
+    "sources",
+    "transforms",
+    "benchmark",
+    "gates",
+    "independent_verification",
+    "limitations"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "0.1.0"
+    },
+    "receipt_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 200
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "run_status": {
+      "enum": [
+        "planned",
+        "executed",
+        "independently_checked",
+        "domain_validated",
+        "rejected",
+        "superseded"
+      ]
+    },
+    "evidence_tier": {
+      "enum": [
+        "S0",
+        "S1",
+        "S2",
+        "S3",
+        "S4"
+      ]
+    },
+    "claim_ceiling": {
+      "enum": [
+        "synthetic_only",
+        "transcription_only",
+        "source_reproducible",
+        "independently_reproduced",
+        "domain_validated"
+      ]
+    },
+    "subject": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "repository",
+        "commit",
+        "artifact_path",
+        "artifact_sha256"
+      ],
+      "properties": {
+        "repository": {
+          "type": "string",
+          "minLength": 1
+        },
+        "commit": {
+          "oneOf": [
+            {
+              "type": "string",
+              "pattern": "^[a-fA-F0-9]{40,64}$"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "artifact_path": {
+          "type": "string",
+          "minLength": 1
+        },
+        "artifact_sha256": {
+          "$ref": "#/$defs/hashOrNull"
+        }
+      }
+    },
+    "sources": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/source"
+      }
+    },
+    "transforms": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/transform"
+      }
+    },
+    "benchmark": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "protocol_id",
+        "protocol_sha256",
+        "pre_registered_at",
+        "split_strategy",
+        "split_lock_sha256",
+        "budget",
+        "baseline_arms",
+        "primary_metrics",
+        "results_summary"
+      ],
+      "properties": {
+        "protocol_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "protocol_sha256": {
+          "$ref": "#/$defs/hashOrNull"
+        },
+        "pre_registered_at": {
+          "oneOf": [
+            {
+              "type": "string",
+              "format": "date-time"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "split_strategy": {
+          "enum": [
+            "not_applicable",
+            "random",
+            "grouped_by_site",
+            "temporal_holdout",
+            "spatiotemporal_holdout",
+            "leave_one_episode_out",
+            "custom"
+          ]
+        },
+        "split_lock_sha256": {
+          "$ref": "#/$defs/hashOrNull"
+        },
+        "budget": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "wall_clock_seconds",
+            "cpu_core_seconds",
+            "gpu_seconds",
+            "peak_memory_bytes",
+            "network_policy"
+          ],
+          "properties": {
+            "wall_clock_seconds": {
+              "type": "number",
+              "minimum": 0
+            },
+            "cpu_core_seconds": {
+              "type": "number",
+              "minimum": 0
+            },
+            "gpu_seconds": {
+              "type": "number",
+              "minimum": 0
+            },
+            "peak_memory_bytes": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "network_policy": {
+              "enum": [
+                "none",
+                "cache_only",
+                "recorded_allowed"
+              ]
+            }
+          }
+        },
+        "baseline_arms": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "name",
+              "version",
+              "implementation_commit",
+              "budget_profile"
+            ],
+            "properties": {
+              "name": {
+                "type": "string",
+                "minLength": 1
+              },
+              "version": {
+                "type": "string",
+                "minLength": 1
+              },
+              "implementation_commit": {
+                "oneOf": [
+                  {
+                    "type": "string",
+                    "pattern": "^[a-fA-F0-9]{40,64}$"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "budget_profile": {
+                "type": "string",
+                "minLength": 1
+              }
+            }
+          }
+        },
+        "primary_metrics": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "results_summary": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "state",
+            "observed_result_count",
+            "note"
+          ],
+          "properties": {
+            "state": {
+              "enum": [
+                "not_run",
+                "available",
+                "invalidated"
+              ]
+            },
+            "observed_result_count": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "note": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    },
+    "gates": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "source_integrity",
+        "rights_stewardship",
+        "transform_reproducibility",
+        "split_lock",
+        "budget_parity",
+        "negative_controls",
+        "exact_head",
+        "safety_critical_regression",
+        "independent_verification",
+        "domain_validation"
+      ],
+      "properties": {
+        "source_integrity": {
+          "$ref": "#/$defs/gate"
+        },
+        "rights_stewardship": {
+          "$ref": "#/$defs/gate"
+        },
+        "transform_reproducibility": {
+          "$ref": "#/$defs/gate"
+        },
+        "split_lock": {
+          "$ref": "#/$defs/gate"
+        },
+        "budget_parity": {
+          "$ref": "#/$defs/gate"
+        },
+        "negative_controls": {
+          "$ref": "#/$defs/gate"
+        },
+        "exact_head": {
+          "$ref": "#/$defs/gate"
+        },
+        "safety_critical_regression": {
+          "$ref": "#/$defs/gate"
+        },
+        "independent_verification": {
+          "$ref": "#/$defs/gate"
+        },
+        "domain_validation": {
+          "$ref": "#/$defs/gate"
+        }
+      }
+    },
+    "independent_verification": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "status",
+        "verifier_kind",
+        "verifier_ref",
+        "replayed_commit",
+        "note"
+      ],
+      "properties": {
+        "status": {
+          "enum": [
+            "none",
+            "pending",
+            "passed",
+            "failed"
+          ]
+        },
+        "verifier_kind": {
+          "enum": [
+            "none",
+            "independent_person",
+            "independent_implementation",
+            "independent_organization"
+          ]
+        },
+        "verifier_ref": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "replayed_commit": {
+          "oneOf": [
+            {
+              "type": "string",
+              "pattern": "^[a-fA-F0-9]{40,64}$"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "note": {
+          "type": "string"
+        }
+      }
+    },
+    "limitations": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "supersedes_receipt_ids": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "extensions": {
+      "type": "object"
+    }
+  },
+  "$defs": {
+    "hashOrNull": {
+      "oneOf": [
+        {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "gate": {
+      "enum": [
+        "pass",
+        "fail",
+        "unknown",
+        "not_applicable"
+      ]
+    },
+    "source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "source_id",
+        "url",
+        "observed_at",
+        "media_type",
+        "raw_bytes_ingested",
+        "byte_count",
+        "sha256",
+        "rights_status",
+        "contact_status",
+        "temporal_coverage",
+        "spatial_coverage",
+        "metadata_conflicts",
+        "artifact_path"
+      ],
+      "properties": {
+        "source_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "url": {
+          "type": "string",
+          "format": "uri"
+        },
+        "observed_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "media_type": {
+          "type": "string",
+          "minLength": 1
+        },
+        "raw_bytes_ingested": {
+          "type": "boolean"
+        },
+        "byte_count": {
+          "oneOf": [
+            {
+              "type": "integer",
+              "minimum": 0
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "sha256": {
+          "$ref": "#/$defs/hashOrNull"
+        },
+        "rights_status": {
+          "enum": [
+            "unknown",
+            "public_domain",
+            "open_license",
+            "permitted",
+            "permission_confirmed",
+            "requires_steward_contact",
+            "prohibited"
+          ]
+        },
+        "contact_status": {
+          "enum": [
+            "unknown",
+            "required_not_contacted",
+            "acknowledged_not_contacted",
+            "contacted",
+            "permission_confirmed",
+            "denied",
+            "not_required"
+          ]
+        },
+        "temporal_coverage": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "spatial_coverage": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "metadata_conflicts": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "attribution_text": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "artifact_path": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "minLength": 1
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "raw_bytes_ingested": {
+                "const": true
+              }
+            },
+            "required": [
+              "raw_bytes_ingested"
+            ]
+          },
+          "then": {
+            "properties": {
+              "byte_count": {
+                "type": "integer",
+                "minimum": 1
+              },
+              "sha256": {
+                "type": "string",
+                "pattern": "^[a-f0-9]{64}$"
+              },
+              "artifact_path": {
+                "type": "string",
+                "minLength": 1
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "rights_status": {
+                "const": "prohibited"
+              }
+            },
+            "required": [
+              "rights_status"
+            ]
+          },
+          "then": {
+            "properties": {
+              "raw_bytes_ingested": {
+                "const": false
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "raw_bytes_ingested": {
+                "const": true
+              },
+              "rights_status": {
+                "const": "requires_steward_contact"
+              }
+            },
+            "required": [
+              "raw_bytes_ingested",
+              "rights_status"
+            ]
+          },
+          "then": {
+            "properties": {
+              "contact_status": {
+                "const": "permission_confirmed"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "transform": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "name",
+        "version",
+        "implementation_commit",
+        "parameters_sha256",
+        "command_digest",
+        "input_source_ids",
+        "output_artifact_sha256",
+        "notes",
+        "output_artifact_path"
+      ],
+      "properties": {
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "version": {
+          "type": "string",
+          "minLength": 1
+        },
+        "implementation_commit": {
+          "oneOf": [
+            {
+              "type": "string",
+              "pattern": "^[a-fA-F0-9]{40,64}$"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "parameters_sha256": {
+          "$ref": "#/$defs/hashOrNull"
+        },
+        "command_digest": {
+          "$ref": "#/$defs/hashOrNull"
+        },
+        "input_source_ids": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "output_artifact_sha256": {
+          "$ref": "#/$defs/hashOrNull"
+        },
+        "notes": {
+          "type": "string"
+        },
+        "output_artifact_path": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "minLength": 1
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "output_artifact_sha256": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "output_artifact_sha256"
+            ]
+          },
+          "then": {
+            "properties": {
+              "output_artifact_path": {
+                "type": "string",
+                "minLength": 1
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "output_artifact_path": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "output_artifact_path"
+            ]
+          },
+          "then": {
+            "properties": {
+              "output_artifact_sha256": {
+                "type": "string",
+                "pattern": "^[a-f0-9]{64}$"
+              }
+            }
+          }
+        }
+      ]
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "run_status": {
+            "const": "planned"
+          }
+        },
+        "required": [
+          "run_status"
+        ]
+      },
+      "then": {
+        "properties": {
+          "evidence_tier": {
+            "const": "S0"
+          },
+          "claim_ceiling": {
+            "const": "synthetic_only"
+          },
+          "subject": {
+            "properties": {
+              "commit": {
+                "type": "null"
+              },
+              "artifact_sha256": {
+                "type": "null"
+              }
+            }
+          },
+          "benchmark": {
+            "properties": {
+              "protocol_sha256": {
+                "type": "null"
+              },
+              "pre_registered_at": {
+                "type": "null"
+              },
+              "split_lock_sha256": {
+                "type": "null"
+              },
+              "results_summary": {
+                "properties": {
+                  "state": {
+                    "const": "not_run"
+                  },
+                  "observed_result_count": {
+                    "const": 0
+                  }
+                }
+              }
+            }
+          },
+          "gates": {
+            "properties": {
+              "source_integrity": {
+                "const": "unknown"
+              },
+              "rights_stewardship": {
+                "const": "unknown"
+              },
+              "transform_reproducibility": {
+                "const": "unknown"
+              },
+              "split_lock": {
+                "const": "unknown"
+              },
+              "budget_parity": {
+                "const": "unknown"
+              },
+              "negative_controls": {
+                "const": "unknown"
+              },
+              "exact_head": {
+                "const": "unknown"
+              },
+              "safety_critical_regression": {
+                "const": "unknown"
+              },
+              "independent_verification": {
+                "const": "unknown"
+              },
+              "domain_validation": {
+                "const": "unknown"
+              }
+            }
+          },
+          "independent_verification": {
+            "properties": {
+              "status": {
+                "enum": [
+                  "none",
+                  "pending"
+                ]
+              },
+              "verifier_kind": {
+                "const": "none"
+              },
+              "replayed_commit": {
+                "type": "null"
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "evidence_tier": {
+            "const": "S0"
+          }
+        },
+        "required": [
+          "evidence_tier"
+        ]
+      },
+      "then": {
+        "properties": {
+          "claim_ceiling": {
+            "const": "synthetic_only"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "evidence_tier": {
+            "const": "S1"
+          }
+        },
+        "required": [
+          "evidence_tier"
+        ]
+      },
+      "then": {
+        "properties": {
+          "claim_ceiling": {
+            "enum": [
+              "synthetic_only",
+              "transcription_only"
+            ]
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "evidence_tier": {
+            "const": "S2"
+          }
+        },
+        "required": [
+          "evidence_tier"
+        ]
+      },
+      "then": {
+        "properties": {
+          "claim_ceiling": {
+            "enum": [
+              "synthetic_only",
+              "transcription_only",
+              "source_reproducible"
+            ]
+          },
+          "sources": {
+            "minItems": 1,
+            "items": {
+              "properties": {
+                "raw_bytes_ingested": {
+                  "const": true
+                },
+                "sha256": {
+                  "type": "string",
+                  "pattern": "^[a-f0-9]{64}$"
+                },
+                "rights_status": {
+                  "enum": [
+                    "public_domain",
+                    "open_license",
+                    "permitted",
+                    "permission_confirmed"
+                  ]
+                },
+                "contact_status": {
+                  "enum": [
+                    "permission_confirmed",
+                    "not_required"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "evidence_tier": {
+            "enum": [
+              "S3",
+              "S4"
+            ]
+          }
+        },
+        "required": [
+          "evidence_tier"
+        ]
+      },
+      "then": {
+        "properties": {
+          "subject": {
+            "properties": {
+              "commit": {
+                "type": "string",
+                "pattern": "^[a-fA-F0-9]{40,64}$"
+              },
+              "artifact_sha256": {
+                "type": "string",
+                "pattern": "^[a-f0-9]{64}$"
+              }
+            }
+          },
+          "independent_verification": {
+            "properties": {
+              "status": {
+                "const": "passed"
+              }
+            }
+          },
+          "gates": {
+            "properties": {
+              "independent_verification": {
+                "const": "pass"
+              },
+              "negative_controls": {
+                "const": "pass"
+              },
+              "exact_head": {
+                "const": "pass"
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "run_status": {
+            "const": "independently_checked"
+          }
+        },
+        "required": [
+          "run_status"
+        ]
+      },
+      "then": {
+        "properties": {
+          "evidence_tier": {
+            "enum": [
+              "S3",
+              "S4"
+            ]
+          },
+          "claim_ceiling": {
+            "enum": [
+              "independently_reproduced",
+              "domain_validated"
+            ]
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "evidence_tier": {
+            "const": "S4"
+          }
+        },
+        "required": [
+          "evidence_tier"
+        ]
+      },
+      "then": {
+        "properties": {
+          "claim_ceiling": {
+            "const": "domain_validated"
+          },
+          "gates": {
+            "properties": {
+              "domain_validation": {
+                "const": "pass"
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "run_status": {
+            "const": "domain_validated"
+          }
+        },
+        "required": [
+          "run_status"
+        ]
+      },
+      "then": {
+        "properties": {
+          "evidence_tier": {
+            "const": "S4"
+          },
+          "claim_ceiling": {
+            "const": "domain_validated"
+          },
+          "gates": {
+            "properties": {
+              "domain_validation": {
+                "const": "pass"
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "evidence_tier": {
+            "enum": [
+              "S2",
+              "S3",
+              "S4"
+            ]
+          },
+          "run_status": {
+            "enum": [
+              "executed",
+              "independently_checked",
+              "domain_validated"
+            ]
+          }
+        },
+        "required": [
+          "evidence_tier",
+          "run_status"
+        ]
+      },
+      "then": {
+        "properties": {
+          "subject": {
+            "properties": {
+              "artifact_sha256": {
+                "type": "string",
+                "pattern": "^[a-f0-9]{64}$"
+              }
+            }
+          },
+          "gates": {
+            "properties": {
+              "source_integrity": {
+                "const": "pass"
+              },
+              "rights_stewardship": {
+                "const": "pass"
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "evidence_tier": {
+            "enum": [
+              "S3",
+              "S4"
+            ]
+          }
+        },
+        "required": [
+          "evidence_tier"
+        ]
+      },
+      "then": {
+        "properties": {
+          "transforms": {
+            "items": {
+              "properties": {
+                "parameters_sha256": {
+                  "type": "string",
+                  "pattern": "^[a-f0-9]{64}$"
+                },
+                "command_digest": {
+                  "type": "string",
+                  "pattern": "^[a-f0-9]{64}$"
+                },
+                "output_artifact_sha256": {
+                  "type": "string",
+                  "pattern": "^[a-f0-9]{64}$"
+                },
+                "output_artifact_path": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  ]
+}
