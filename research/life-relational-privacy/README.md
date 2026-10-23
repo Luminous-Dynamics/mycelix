@@ -28,7 +28,7 @@ Accuracy and balanced accuracy are reported in parts per million (ppm), along wi
 
 Evidence access and inference accuracy remain separate. Evidence-row counts are not a user-utility metric; they are only an auditable proxy for how much target-linked evidence was available in this synthetic model. A real utility / fairness evaluation requires a separate task-specific benchmark.
 
-A post-hoc audit recomputes target count, correct predictions and direct-disclosure count from per-target outcome records rather than trusting the evaluator's summary counters. Both values appear in the CSV for comparison.
+A post-hoc audit recomputes target count, correct predictions and protected-claim disclosure count from per-target outcome records rather than trusting the evaluator's summary counters. Both values appear in the CSV for comparison. The benchmark also emits selective risk–coverage rows at fixed confidence thresholds of 0.50, 0.625, 0.75, 0.875 and 0.95. Each row reports coverage, accuracy among non-abstained targets and abstention count. Confidence is the maximum peer vote share (or the training prior's majority share when no peer evidence is available); it is **uncalibrated**, and must not be interpreted as a posterior probability.
 
 ## Run
 
@@ -48,7 +48,8 @@ The dedicated workflow checks out and asserts the exact PR-head commit, runs for
 - Randomized-peer and uncorrelated-target controls remain within the frozen 100,000 ppm absolute accuracy-vs-prior tolerance.
 - At the frozen large-cohort positive control, strong peer correlation exceeds weak peer correlation by at least 200,000 ppm accuracy.
 - The independent audit agrees with outcome-record-derived counts.
-- CSV width remains rectangular and includes explicit privacy and evidence-access columns.
+- Higher confidence thresholds cannot increase accepted coverage; abstention counts are recomputed from individual outcomes.
+- CSV width remains rectangular and includes explicit privacy, evidence-access and selective-risk/coverage columns.
 
 These are proposed synthetic-test gates, not measured benchmark results yet.
 
