@@ -57,10 +57,11 @@ These are proposed synthetic-test gates, not measured benchmark results yet.
 
 ## Research grounding
 
-The W3C Verifiable Credentials Data Model 2.0 cautions that unlinkable signatures are not a complete solution: disclosed attributes, identifiers, metadata and validation behavior can still enable correlation. NIST SP 800-226 explains that differential privacy's guarantee depends on its unit of privacy and identifies group privacy as a separate concern. This harness is motivated by those concerns but does **not** implement differential privacy or prove group privacy.
+The W3C Verifiable Credentials Data Model 2.0 Recommendation cautions that unlinkable signatures are not a complete solution: disclosed attributes, identifiers, metadata and validation behavior can still enable correlation. The current W3C Verifiable Credentials Data Model 2.1 Working Draft (published 22 October 2026) further organizes concerns around identifier/signature correlation, status and revocation lookups, patterns of use, aggregation and metadata. NIST SP 800-226 explains that differential privacy's guarantee depends on its unit of privacy, and NIST defines group privacy as a weaker guarantee whose degradation depends on group size and the chosen unit. This harness is motivated by those concerns but does **not** implement differential privacy or prove group privacy.
 
 References:
 - https://www.w3.org/TR/2025/REC-vc-data-model-2.0-20250515/
+- https://www.w3.org/TR/vc-data-model-2.1/
 - https://csrc.nist.gov/pubs/sp/800/226/final
 - https://csrc.nist.gov/glossary/term/group_privacy
 
