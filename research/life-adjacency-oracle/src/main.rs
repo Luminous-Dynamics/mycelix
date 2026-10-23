@@ -20,9 +20,7 @@ impl Mechanism {
 
     const fn name(self) -> &'static str {
         match self {
-            Self::RandomizedResponseAllChangedFacts => {
-                "randomized_response_all_changed_facts"
-            }
+            Self::RandomizedResponseAllChangedFacts => "randomized_response_all_changed_facts",
             Self::RandomizedRecordsPublishRelationEdgesRaw => {
                 "randomized_records_publish_relation_edges_raw"
             }
@@ -233,16 +231,18 @@ mod tests {
 
     #[test]
     fn manifest_freezes_units_mechanisms_and_exact_enumeration_limit() {
-        for adjacency in [
-            "record",
-            "person",
-            "group",
-            "relational_graph",
-        ] {
-            assert!(MANIFEST.contains(adjacency), "missing adjacency unit {adjacency}");
+        for adjacency in ["record", "person", "group", "relational_graph"] {
+            assert!(
+                MANIFEST.contains(adjacency),
+                "missing adjacency unit {adjacency}"
+            );
         }
         for mechanism in Mechanism::ALL {
-            assert!(MANIFEST.contains(mechanism.name()), "missing {}", mechanism.name());
+            assert!(
+                MANIFEST.contains(mechanism.name()),
+                "missing {}",
+                mechanism.name()
+            );
         }
         assert!(MANIFEST.contains("\"true_value_release_probability\": \"3/4\""));
         assert!(MANIFEST.contains("\"base_epsilon\": \"ln(3)\""));
@@ -289,12 +289,18 @@ mod tests {
             .expect("graph case");
 
         let record_row = evaluate_case(*record, Mechanism::RandomizedResponseAllChangedFacts);
-        let person_row =
-            evaluate_case(*person_three_records, Mechanism::RandomizedResponseAllChangedFacts);
-        let group_row =
-            evaluate_case(*group_four_by_three, Mechanism::RandomizedResponseAllChangedFacts);
-        let graph_row =
-            evaluate_case(*graph_four_by_three, Mechanism::RandomizedResponseAllChangedFacts);
+        let person_row = evaluate_case(
+            *person_three_records,
+            Mechanism::RandomizedResponseAllChangedFacts,
+        );
+        let group_row = evaluate_case(
+            *group_four_by_three,
+            Mechanism::RandomizedResponseAllChangedFacts,
+        );
+        let graph_row = evaluate_case(
+            *graph_four_by_three,
+            Mechanism::RandomizedResponseAllChangedFacts,
+        );
 
         assert_eq!(record_row.privatized_channel_max_log3_ratio_exponent, 1);
         assert_eq!(person_row.privatized_channel_max_log3_ratio_exponent, 3);
@@ -316,10 +322,7 @@ mod tests {
                     && case.records_per_person == 3
             })
             .expect("graph case");
-        let leaky = evaluate_case(
-            graph,
-            Mechanism::RandomizedRecordsPublishRelationEdgesRaw,
-        );
+        let leaky = evaluate_case(graph, Mechanism::RandomizedRecordsPublishRelationEdgesRaw);
         assert!(!leaky.finite_epsilon);
         assert_eq!(leaky.epsilon_nats, "INF");
         assert!(leaky.relation_output_support_disjoint);
@@ -336,10 +339,7 @@ mod tests {
             .into_iter()
             .find(|case| case.name == "record_adjacency")
             .expect("record case");
-        let row = evaluate_case(
-            record,
-            Mechanism::RandomizedRecordsPublishRelationEdgesRaw,
-        );
+        let row = evaluate_case(record, Mechanism::RandomizedRecordsPublishRelationEdgesRaw);
         assert!(row.finite_epsilon);
         assert!(!row.relation_output_support_disjoint);
         assert_eq!(row.privatized_channel_max_log3_ratio_exponent, 1);
@@ -368,7 +368,10 @@ mod tests {
         }
         let rows = lines.collect::<Vec<_>>();
         assert_eq!(rows.len(), frozen_cases().len() * Mechanism::ALL.len());
-        assert!(rows.iter().any(|row| row.contains(",INF,false,1000000,true,")));
+        assert!(
+            rows.iter()
+                .any(|row| row.contains(",INF,false,1000000,true,"))
+        );
         for row in rows {
             assert_eq!(row.split(',').count(), width, "bad row: {row}");
         }
