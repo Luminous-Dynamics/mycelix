@@ -57,7 +57,7 @@ struct OutcomeRecord {
     prior_predicted: bool,
     peer_observations_used: u64,
     evidence_loss_vs_exact_peer_rows: u64,
-    direct_target_disclosures: u64,
+    direct_target_protected_disclosures: u64,
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
@@ -72,14 +72,14 @@ struct Summary {
     false_negative: u64,
     peer_observations_used: u64,
     evidence_loss_vs_exact_peer_rows: u64,
-    direct_target_disclosures: u64,
+    direct_target_protected_disclosures: u64,
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 struct Audit {
     target_count: u64,
     correct_count: u64,
-    direct_target_disclosures: u64,
+    direct_target_protected_disclosures: u64,
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -259,8 +259,8 @@ fn evaluate_profile(
             prior_predicted: prior_prediction,
             peer_observations_used: peer_count,
             evidence_loss_vs_exact_peer_rows: exact_peer_count.saturating_sub(peer_count),
-            // The target's direct record is never an attacker feature in this model.
-            direct_target_disclosures: 0,
+            // The target's protected value/claim is never an attacker feature; cohort membership is explicit side information.
+            direct_target_protected_disclosures: 0,
         });
     }
 
@@ -277,7 +277,7 @@ fn summarize(outcomes: &[OutcomeRecord]) -> Summary {
         result.prior_correct += (record.prior_predicted == record.truth) as u64;
         result.peer_observations_used += record.peer_observations_used;
         result.evidence_loss_vs_exact_peer_rows += record.evidence_loss_vs_exact_peer_rows;
-        result.direct_target_disclosures += record.direct_target_disclosures;
+        result.direct_target_protected_disclosures += record.direct_target_protected_disclosures;
 
         match (record.truth, record.predicted) {
             (true, true) => result.true_positive += 1,
@@ -299,7 +299,7 @@ fn audit_outcomes(outcomes: &[OutcomeRecord]) -> Audit {
         if outcome.predicted == outcome.truth {
             audit.correct_count += 1;
         }
-        audit.direct_target_disclosures += outcome.direct_target_disclosures;
+        audit.direct_target_protected_disclosures += outcome.direct_target_protected_disclosures;
     }
     audit
 }
@@ -337,7 +337,7 @@ fn render_report() -> String {
     let mut report = String::new();
     writeln!(
         &mut report,
-        "profile,cohort_size,peer_signal_ppm,coarsening_factor,target_count,positive_targets,accuracy_ppm,balanced_accuracy_ppm,prior_accuracy_ppm,lift_vs_prior_ppm,mean_peer_observations,evidence_loss_vs_exact_peer_rows,direct_target_disclosures,audit_target_count,audit_correct_count,audit_direct_target_disclosures"
+        "profile,cohort_size,peer_signal_ppm,coarsening_factor,target_count,positive_targets,accuracy_ppm,balanced_accuracy_ppm,prior_accuracy_ppm,lift_vs_prior_ppm,mean_peer_observations,evidence_loss_vs_exact_peer_rows,direct_target_protected_disclosures,audit_target_count,audit_correct_count,audit_direct_target_protected_disclosures"
     )
     .expect("writing to String cannot fail");
 
@@ -383,10 +383,10 @@ fn render_report() -> String {
                     lift,
                     mean_peers,
                     summary.evidence_loss_vs_exact_peer_rows,
-                    summary.direct_target_disclosures,
+                    summary.direct_target_protected_disclosures,
                     audit.target_count,
                     audit.correct_count,
-                    audit.direct_target_disclosures,
+                    audit.direct_target_protected_disclosures,
                 )
                 .expect("writing to String cannot fail");
             }
@@ -446,7 +446,7 @@ mod tests {
         for profile in Profile::ALL {
             let outcomes = evaluate_profile(&training, &test, 8, profile);
             assert_eq!(outcomes.len(), test.len());
-            assert!(outcomes.iter().all(|row| row.direct_target_disclosures == 0));
+            assert!(outcomes.iter().all(|row| row.direct_target_protected_disclosures == 0));
         }
     }
 
@@ -504,8 +504,8 @@ mod tests {
             let audit = audit_outcomes(&outcomes);
             assert_eq!(audit.target_count, outcomes.len() as u64);
             assert_eq!(audit.correct_count, summary.correct);
-            assert_eq!(audit.direct_target_disclosures, 0);
-            assert_eq!(audit.direct_target_disclosures, summary.direct_target_disclosures);
+            assert_eq!(audit.direct_target_protected_disclosures, 0);
+            assert_eq!(audit.direct_target_protected_disclosures, summary.direct_target_protected_disclosures);
         }
     }
 
