@@ -1002,6 +1002,23 @@ mod tests {
     }
 
     #[test]
+    fn relation_ablation_profiles_expose_only_their_declared_features() {
+        let features = [FeatureVector([0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7])];
+        assert_eq!(
+            features_for_profile(&features, Profile::LogisticExactOnly)[0],
+            FeatureVector([0.1, 0.0, 0.0, 0.0, 0.5, 0.0, 0.0])
+        );
+        assert_eq!(
+            features_for_profile(&features, Profile::LogisticCoarseOnly)[0],
+            FeatureVector([0.0, 0.2, 0.0, 0.0, 0.0, 0.6, 0.0])
+        );
+        assert_eq!(
+            features_for_profile(&features, Profile::LogisticOverlapOnly)[0],
+            FeatureVector([0.0, 0.0, 0.3, 0.0, 0.0, 0.0, 0.7])
+        );
+    }
+
+    #[test]
     fn strong_signal_improves_exact_cohort_attack_vs_weak_signal() {
         let (low, _) = fit_and_predict(Profile::ExactCohortMajority, 23, 650_000);
         let (high, _) = fit_and_predict(Profile::ExactCohortMajority, 23, 950_000);
