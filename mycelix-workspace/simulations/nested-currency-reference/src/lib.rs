@@ -1,5 +1,7 @@
 #![forbid(unsafe_code)]
 
+pub mod reservation;
+
 //! Dependency-free safety reference model for nested community currencies.
 //! This is not a Holochain zome, production ledger, or proof of real-world backing.
 //! It models identifier non-aliasing, narrow delegated authority, mutual-credit
