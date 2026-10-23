@@ -1,0 +1,96 @@
+{
+  "benchmark_id": "LIFE-RELATIONAL-003",
+  "version": "0.1.0",
+  "status": "synthetic_research_only",
+  "training_community_count": 24,
+  "calibration_community_count": 24,
+  "test_community_count": 24,
+  "cohort_sizes": [
+    4,
+    8,
+    16
+  ],
+  "peer_signal_probability_ppm": [
+    650000,
+    800000,
+    950000
+  ],
+  "evaluation_seeds": [
+    1,
+    7,
+    23,
+    41,
+    97
+  ],
+  "coarsening_factor": 4,
+  "decision_threshold_ppm": [
+    500000,
+    625000,
+    750000,
+    875000,
+    950000
+  ],
+  "attacker_profiles": [
+    "population_prior",
+    "exact_cohort_majority",
+    "coarse_neighborhood_majority",
+    "overlapping_group_union_majority",
+    "randomized_peer_control",
+    "logistic_exact_only_ablation",
+    "logistic_coarse_only_ablation",
+    "logistic_overlap_only_ablation",
+    "logistic_ridge",
+    "gaussian_naive_bayes",
+    "uncorrelated_target_negative_control"
+  ],
+  "attacker_visible_features": [
+    "exact_cohort_peer_proxy_fraction",
+    "coarse_neighborhood_peer_proxy_fraction",
+    "overlapping_group_union_proxy_fraction",
+    "randomized_overlapping_peer_proxy_fraction",
+    "exact_cohort_peer_degree_ratio",
+    "coarse_neighborhood_peer_degree_ratio",
+    "overlapping_peer_degree_ratio"
+  ],
+  "calibration": "Platt scaling fitted only on communities disjoint from model training and final evaluation",
+  "calibration_bins": 10,
+  "regularization": "fixed ridge penalty and fixed batch-gradient schedule, no tuning on test communities",
+  "primary_metrics": [
+    "accuracy_ppm",
+    "balanced_accuracy_ppm",
+    "false_positive_rate_ppm",
+    "false_negative_rate_ppm",
+    "raw_brier_ppm",
+    "calibrated_brier_ppm",
+    "raw_log_loss_micros",
+    "calibrated_log_loss_micros",
+    "raw_expected_calibration_error_ppm",
+    "calibrated_expected_calibration_error_ppm",
+    "selective_coverage_ppm",
+    "selective_accuracy_ppm",
+    "abstained_targets"
+  ],
+  "claim_ceiling": "synthetic_held_out_relational_inference_attacker_comparison",
+  "nonclaims": [
+    "differential_privacy",
+    "real_world_group_privacy",
+    "anonymity",
+    "causal_inference",
+    "production_protocol_assurance",
+    "calibrated_real_user_risk"
+  ],
+  "feature_ablations": {
+    "logistic_exact_only_ablation": [
+      "exact_cohort_peer_proxy_fraction",
+      "exact_cohort_peer_degree_ratio"
+    ],
+    "logistic_coarse_only_ablation": [
+      "coarse_neighborhood_peer_proxy_fraction",
+      "coarse_neighborhood_peer_degree_ratio"
+    ],
+    "logistic_overlap_only_ablation": [
+      "overlapping_group_union_proxy_fraction",
+      "overlapping_peer_degree_ratio"
+    ]
+  }
+}
