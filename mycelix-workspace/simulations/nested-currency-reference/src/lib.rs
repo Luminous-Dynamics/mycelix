@@ -370,6 +370,21 @@ mod tests {
     }
 
     #[test]
+    fn equal_tickers_do_not_share_balances_or_net_positions() {
+        let orchard = profile("cc:orchard", "did:orchard", Family::MutualCredit);
+        let makers = profile("cc:makers", "did:makers", Family::MutualCredit);
+        let mut l = MutualCredit::default();
+        l.apply(&orchard, exchange("orchard:tx:1", &orchard, 50)).unwrap();
+        l.apply(&makers, exchange("makers:tx:1", &makers, 20)).unwrap();
+        assert_eq!(l.net(&orchard.id), 0);
+        assert_eq!(l.net(&makers.id), 0);
+        assert_eq!(l.balance(&orchard.id, "alice"), 50);
+        assert_eq!(l.balance(&makers.id, "alice"), 20);
+        assert_eq!(l.balance(&orchard.id, "bob"), -50);
+        assert_eq!(l.balance(&makers.id, "bob"), -20);
+    }
+
+    #[test]
     fn mutual_credit_is_zero_sum_atomic_and_idempotent() {
         let p = profile("cc:orchard", "did:orchard", Family::MutualCredit);
         let mut l = MutualCredit::default();
@@ -414,6 +429,7 @@ mod tests {
         assert_eq!(c.settle("set:1", "edge:ab", "cc:local", 1, 20), Ok(Apply::Applied));
         assert_eq!(c.outstanding("edge:ab"), Ok(50));
         assert_eq!(c.settle("set:1", "edge:ab", "cc:local", 1, 20), Ok(Apply::Duplicate));
+        assert_eq!(c.settle("set:1", "edge:ab", "cc:local", 1, 21), Err(Error::ReplayMismatch));
     }
 
     #[test]
@@ -434,10 +450,12 @@ mod tests {
         c.add(agreement("edge:ac", "cc:local", 100)).unwrap();
         c.set_community_gross_cap("a", 100).unwrap();
         c.obligation("ob:ab-70", "edge:ab", "cc:local", 1, 70).unwrap();
-        assert_eq!(c.obligation("ob:ac-40", "edge:ac", "cc:local", 1, 40),
+        assert_eq!(c.obligation("ob:ac-pending", "edge:ac", "cc:local", 1, 40),
             Err(Error::ExposureLimit));
         assert_eq!(c.outstanding("edge:ac"), Ok(0));
-        c.obligation("ob:ac-30", "edge:ac", "cc:local", 1, 30).unwrap();
+        // A rejected event ID is not consumed: the same ID can retry with an allowed payload.
+        assert_eq!(c.obligation("ob:ac-pending", "edge:ac", "cc:local", 1, 30),
+            Ok(Apply::Applied));
         assert_eq!(c.gross_exposure("a"), Ok(100));
         assert_eq!(c.outstanding("edge:ab"), Ok(70));
         assert_eq!(c.outstanding("edge:ac"), Ok(30));
