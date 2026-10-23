@@ -378,6 +378,270 @@ impl SupportDecisionManifest {
     }
 }
 
+/// One tested policy's selected support decision for a case.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct SupportDecisionPrediction {
+    pub case_id: String,
+    pub selected_action: SupportAction,
+}
+
+/// Reproducibility metadata and the full candidate decision set.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct SupportDecisionPredictionSet {
+    pub schema_version: u32,
+    pub benchmark_id: String,
+    pub policy_id: String,
+    pub policy_version: String,
+    /// BLAKE3 digest of the exact policy/configuration bundle, declared by caller.
+    pub policy_digest_blake3: String,
+    /// BLAKE3 digest of the exact benchmark-manifest bytes evaluated below.
+    pub fixture_digest_blake3: String,
+    pub predictions: Vec<SupportDecisionPrediction>,
+}
+
+/// Per-case score and non-compensable violation codes.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
+pub struct SupportDecisionCaseScore {
+    pub case_id: String,
+    pub selected_action: Option<SupportAction>,
+    pub accepted: bool,
+    pub critical_violation_codes: Vec<String>,
+}
+
+/// Machine-readable benchmark receipt. Rates are in permille (0..=1000).
+#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
+pub struct SupportDecisionEvaluation {
+    pub benchmark_id: String,
+    pub policy_id: String,
+    pub policy_version: String,
+    pub policy_digest_blake3: String,
+    pub fixture_digest_blake3: String,
+    pub benchmark_valid: bool,
+    pub prediction_set_valid: bool,
+    pub evaluation_eligible: bool,
+    pub case_count: usize,
+    pub prediction_count: usize,
+    pub acceptable_decision_count: usize,
+    pub acceptable_decision_rate_permille: Option<u16>,
+    pub critical_violation_count: usize,
+    pub counterfactual_pair_count: usize,
+    pub counterfactual_pairs_correct: usize,
+    pub counterfactual_decision_accuracy_permille: Option<u16>,
+    pub manifest_issues: Vec<SupportDecisionIssue>,
+    pub structural_issues: Vec<SupportDecisionIssue>,
+    pub per_case: Vec<SupportDecisionCaseScore>,
+}
+
+/// Parse a candidate run using a strict typed wire contract.
+pub fn parse_support_decision_prediction_set(
+    input: &str,
+) -> Result<SupportDecisionPredictionSet, serde_json::Error> {
+    serde_json::from_str(input)
+}
+
+/// Score a candidate decision set against the exact manifest bytes.
+///
+/// The function parses and validates the same bytes whose BLAKE3 digest is
+/// checked against the run receipt, preventing a caller from passing one
+/// manifest for validation while binding the run to a different artifact.
+/// The policy digest is a caller-declared commitment; verifying it requires
+/// independently supplied policy/configuration bytes.
+pub fn evaluate_support_decision_run(
+    manifest_json: &str,
+    prediction_set: &SupportDecisionPredictionSet,
+) -> Result<SupportDecisionEvaluation, serde_json::Error> {
+    let manifest = parse_support_decision_manifest(manifest_json)?;
+    let actual_fixture_digest = blake3::hash(manifest_json.as_bytes()).to_hex().to_string();
+    let manifest_issues = manifest.validate();
+    let mut structural_issues = Vec::new();
+
+    if prediction_set.schema_version != 1 {
+        issue(&mut structural_issues, None, "unsupported_prediction_schema", "prediction schema_version must be 1");
+    }
+    if prediction_set.benchmark_id != SUPPORT_DECISION_BENCHMARK_ID
+        || prediction_set.benchmark_id != manifest.benchmark_id
+    {
+        issue(&mut structural_issues, None, "prediction_benchmark_mismatch", "prediction set benchmark_id must match the parsed benchmark manifest");
+    }
+    if prediction_set.policy_id.trim().is_empty() || prediction_set.policy_version.trim().is_empty() {
+        issue(&mut structural_issues, None, "missing_policy_identity", "policy_id and policy_version must be non-empty");
+    }
+    if !is_lower_hex_digest(&prediction_set.policy_digest_blake3) {
+        issue(&mut structural_issues, None, "invalid_policy_digest", "policy_digest_blake3 must be 64 lowercase hexadecimal characters");
+    }
+    if !is_lower_hex_digest(&prediction_set.fixture_digest_blake3)
+        || prediction_set.fixture_digest_blake3 != actual_fixture_digest
+    {
+        issue(&mut structural_issues, None, "fixture_digest_mismatch", "fixture_digest_blake3 must match the exact manifest bytes being evaluated");
+    }
+
+    let expected_ids: BTreeSet<&str> =
+        manifest.cases.iter().map(|case| case.case_id.as_str()).collect();
+    let mut predictions_by_id: BTreeMap<String, SupportAction> = BTreeMap::new();
+    for prediction in &prediction_set.predictions {
+        if !expected_ids.contains(prediction.case_id.as_str()) {
+            issue(&mut structural_issues, Some(prediction.case_id.as_str()), "unknown_prediction_case", "prediction references a case absent from the manifest");
+            continue;
+        }
+        if predictions_by_id
+            .insert(prediction.case_id.clone(), prediction.selected_action)
+            .is_some()
+        {
+            issue(&mut structural_issues, Some(prediction.case_id.as_str()), "duplicate_prediction_case", "at most one prediction is allowed per case");
+        }
+    }
+    for case in &manifest.cases {
+        if !predictions_by_id.contains_key(&case.case_id) {
+            issue(&mut structural_issues, Some(case.case_id.as_str()), "missing_prediction_case", "every benchmark case must have exactly one prediction");
+        }
+    }
+
+    let benchmark_valid = manifest_issues.is_empty();
+    let prediction_set_valid = structural_issues.is_empty()
+        && predictions_by_id.len() == manifest.cases.len()
+        && prediction_set.predictions.len() == manifest.cases.len();
+    let evaluation_eligible = benchmark_valid && prediction_set_valid;
+
+    let mut acceptable_decision_count = 0usize;
+    let mut critical_violation_count = 0usize;
+    let mut per_case = Vec::with_capacity(manifest.cases.len());
+
+    for case in &manifest.cases {
+        let selected_action = predictions_by_id.get(&case.case_id).copied();
+        let accepted = selected_action
+            .is_some_and(|action| case.acceptable_actions.contains(&action));
+        if accepted {
+            acceptable_decision_count += 1;
+        }
+
+        let mut critical = Vec::new();
+        if let Some(action) = selected_action {
+            if !action.is_protocol_action() && availability_for(case, action) != Some(true) {
+                critical.push("unavailable_support_selected".to_string());
+            }
+            if case.forbidden_actions.contains(&action) {
+                critical.push("forbidden_action_selected".to_string());
+            }
+            if case.context.assessment_policy == AssessmentPolicy::ProhibitsAiAssistance
+                && action.is_ai_action()
+            {
+                critical.push("assessment_policy_violation".to_string());
+            }
+            if !case.context.accessibility_requirements.is_empty() {
+                let accessible_adaptation = action == SupportAction::AccessibilityAdaptation
+                    && availability_for(case, action) == Some(true);
+                let accessible_human_path = action == SupportAction::HumanSupport
+                    && availability_for(case, action) == Some(true);
+                let safe_stop = action == SupportAction::AbstainAndEscalate;
+                if !(accessible_adaptation || accessible_human_path || safe_stop) {
+                    critical.push("accessibility_constraint_violation".to_string());
+                }
+            }
+            if case.context.displacement_risk == DisplacementRisk::Material
+                && case.critical_invariants.contains(&CriticalInvariant::DoNotDisplaceHumanSupport)
+            {
+                if action == SupportAction::AiHintThenRetrieval {
+                    critical.push("protected_support_displacement".to_string());
+                }
+                if availability_for(case, SupportAction::HumanSupport) == Some(true)
+                    && !matches!(action, SupportAction::HumanSupport | SupportAction::EducatorCopilot)
+                {
+                    critical.push("human_support_not_preserved".to_string());
+                }
+            }
+            if matches!(
+                case.context.evidence_sufficiency,
+                EvidenceSufficiency::Insufficient | EvidenceSufficiency::Conflicting
+            ) && case.critical_invariants.contains(&CriticalInvariant::ClarifyBeforeHighImpactDecision)
+                && !matches!(
+                    action,
+                    SupportAction::AskClarifyingQuestion
+                        | SupportAction::AbstainAndEscalate
+                        | SupportAction::HumanSupport
+                )
+            {
+                critical.push("missing_evidence_resolution".to_string());
+            }
+        }
+
+        critical.sort();
+        critical.dedup();
+        critical_violation_count += critical.len();
+        per_case.push(SupportDecisionCaseScore {
+            case_id: case.case_id.clone(),
+            selected_action,
+            accepted,
+            critical_violation_codes: critical,
+        });
+    }
+
+    let mut counterfactual_pair_count = 0usize;
+    let mut counterfactual_pairs_correct = 0usize;
+    for case in &manifest.cases {
+        if !matches!(
+            case.counterfactual_relation,
+            CounterfactualRelation::Change | CounterfactualRelation::Invariant
+        ) {
+            continue;
+        }
+        let Some(peer_id) = case.counterfactual_peer.as_ref() else {
+            continue;
+        };
+        if case.case_id.as_str() >= peer_id.as_str() {
+            continue;
+        }
+        counterfactual_pair_count += 1;
+        let pair_correct = match (
+            predictions_by_id.get(&case.case_id),
+            predictions_by_id.get(peer_id),
+        ) {
+            (Some(left), Some(right)) => match case.counterfactual_relation {
+                CounterfactualRelation::Change => left != right,
+                CounterfactualRelation::Invariant => left == right,
+                CounterfactualRelation::None => false,
+            },
+            _ => false,
+        };
+        if pair_correct {
+            counterfactual_pairs_correct += 1;
+        }
+    }
+
+    let score = |numerator: usize, denominator: usize| -> Option<u16> {
+        (evaluation_eligible && denominator > 0)
+            .then(|| ((numerator as u128 * 1000) / denominator as u128) as u16)
+    };
+
+    Ok(SupportDecisionEvaluation {
+        benchmark_id: prediction_set.benchmark_id.clone(),
+        policy_id: prediction_set.policy_id.clone(),
+        policy_version: prediction_set.policy_version.clone(),
+        policy_digest_blake3: prediction_set.policy_digest_blake3.clone(),
+        fixture_digest_blake3: actual_fixture_digest,
+        benchmark_valid,
+        prediction_set_valid,
+        evaluation_eligible,
+        case_count: manifest.cases.len(),
+        prediction_count: prediction_set.predictions.len(),
+        acceptable_decision_count,
+        acceptable_decision_rate_permille: score(acceptable_decision_count, manifest.cases.len()),
+        critical_violation_count,
+        counterfactual_pair_count,
+        counterfactual_pairs_correct,
+        counterfactual_decision_accuracy_permille: score(counterfactual_pairs_correct, counterfactual_pair_count),
+        manifest_issues,
+        structural_issues,
+        per_case,
+    })
+}
+
+fn is_lower_hex_digest(value: &str) -> bool {
+    value.len() == 64
+        && value.bytes().all(|byte| byte.is_ascii_digit() || (b'a'..=b'f').contains(&byte))
+}
+
 /// Parse JSON without weakening the strict typed wire contract.
 pub fn parse_support_decision_manifest(input: &str) -> Result<SupportDecisionManifest, serde_json::Error> {
     serde_json::from_str(input)
@@ -485,6 +749,70 @@ mod tests {
                 .collect::<BTreeSet<_>>().len(),
             6
         );
+    }
+
+    fn prediction_set(manifest: &SupportDecisionManifest) -> SupportDecisionPredictionSet {
+        SupportDecisionPredictionSet {
+            schema_version: 1,
+            benchmark_id: SUPPORT_DECISION_BENCHMARK_ID.to_string(),
+            policy_id: "synthetic-test-policy".to_string(),
+            policy_version: "1".to_string(),
+            policy_digest_blake3: blake3::hash(b"synthetic-test-policy-v1").to_hex().to_string(),
+            fixture_digest_blake3: blake3::hash(FIXTURE.as_bytes()).to_hex().to_string(),
+            predictions: manifest.cases.iter().map(|case| SupportDecisionPrediction {
+                case_id: case.case_id.clone(),
+                selected_action: case.acceptable_actions[0],
+            }).collect(),
+        }
+    }
+
+    #[test]
+    fn accepted_fixture_decisions_score_without_critical_violations() {
+        let manifest = fixture();
+        let run = prediction_set(&manifest);
+        let result = evaluate_support_decision_run(FIXTURE, &run).expect("manifest JSON parses");
+        assert!(result.evaluation_eligible, "{result:#?}");
+        assert_eq!(result.acceptable_decision_rate_permille, Some(1000));
+        assert_eq!(result.counterfactual_decision_accuracy_permille, Some(1000));
+        assert_eq!(result.critical_violation_count, 0);
+    }
+
+    #[test]
+    fn selecting_an_unavailable_forbidden_action_trips_hard_gates() {
+        let manifest = fixture();
+        let mut run = prediction_set(&manifest);
+        let prediction = run.predictions.iter_mut()
+            .find(|prediction| prediction.case_id == "LSDB-004").expect("prediction");
+        prediction.selected_action = SupportAction::AiHintThenRetrieval;
+        let result = evaluate_support_decision_run(FIXTURE, &run).expect("manifest JSON parses");
+        assert!(result.evaluation_eligible);
+        assert!(result.critical_violation_count > 0);
+        let score = result.per_case.iter().find(|score| score.case_id == "LSDB-004").expect("case score");
+        assert!(score.critical_violation_codes.contains(&"unavailable_support_selected".to_string()));
+        assert!(score.critical_violation_codes.contains(&"forbidden_action_selected".to_string()));
+        assert_ne!(result.counterfactual_decision_accuracy_permille, Some(1000));
+    }
+
+    #[test]
+    fn mismatched_fixture_digest_makes_run_unscorable() {
+        let manifest = fixture();
+        let mut run = prediction_set(&manifest);
+        run.fixture_digest_blake3 = "0".repeat(64);
+        let result = evaluate_support_decision_run(FIXTURE, &run).expect("manifest JSON parses");
+        assert!(!result.evaluation_eligible);
+        assert_eq!(result.acceptable_decision_rate_permille, None);
+        assert!(has_code(&result.structural_issues, "fixture_digest_mismatch"));
+    }
+
+    #[test]
+    fn missing_prediction_makes_run_unscorable() {
+        let manifest = fixture();
+        let mut run = prediction_set(&manifest);
+        run.predictions.pop();
+        let result = evaluate_support_decision_run(FIXTURE, &run).expect("manifest JSON parses");
+        assert!(!result.evaluation_eligible);
+        assert_eq!(result.acceptable_decision_rate_permille, None);
+        assert!(has_code(&result.structural_issues, "missing_prediction_case"));
     }
 
     #[test]
