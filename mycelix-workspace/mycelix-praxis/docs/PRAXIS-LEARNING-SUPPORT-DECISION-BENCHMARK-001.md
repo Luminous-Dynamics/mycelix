@@ -1,6 +1,6 @@
 # Praxis Learning Support Decision Benchmark v1
 
-**Identifier:** \`PRAXIS-LSDB-001\`  
+**Identifier:** `PRAXIS-LSDB-001`  
 **Status:** Research / synthetic benchmark proposal; not yet independently adjudicated  
 **Version:** 1  
 **Related work:** [#5467](https://github.com/Luminous-Dynamics/mycelix/issues/5467), [#5455](https://github.com/Luminous-Dynamics/mycelix/issues/5455), [#5461](https://github.com/Luminous-Dynamics/mycelix/issues/5461), [#5294](https://github.com/Luminous-Dynamics/mycelix/pull/5294)
@@ -49,8 +49,10 @@ The aspiration is not an unsupported "beats SOTA" statement. It is a public, rep
 
 Files in this directory:
 
-- \`cases.schema.json\`: strict JSON Schema 2020-12 for the benchmark manifest.
-- \`synthetic_cases.json\`: 12 synthetic policy probes, arranged as six paired counterfactual groups.
+- `cases.schema.json`: strict JSON Schema 2020-12 for the benchmark manifest.
+- `synthetic_cases.json`: 12 synthetic policy probes, arranged as six paired counterfactual groups.
+- `predictions.schema.json`: strict schema for policy outputs, including policy identity/version and BLAKE3 commitments for policy configuration and exact manifest bytes.
+- `praxis_core::learning_support_decision`: typed Rust parser, cross-field contract validator, and deterministic candidate-policy scorer that emits per-case decisions, acceptable-decision rate, paired-counterfactual accuracy, and hard-gate violation codes.
 
 The fixture contains no real learner data, outcome estimates, or production telemetry. Labels are provisional policy hypotheses. Before the fixture is treated as a scored benchmark, qualified educators plus accessibility and safeguarding reviewers must adjudicate the cases, document disagreement, and version any changes. The benchmark must not encode one institution's local assessment rules as universal law.
 
@@ -63,6 +65,8 @@ Every case names:
 6. a paired case, a named decision-relevant counterfactual dimension, and whether the decision should change.
 
 A support option marked unavailable must never be selected merely because it is present in the option list. A strong overall score cannot offset a critical violation.
+
+Each prediction set binds a policy ID/version and a caller-declared BLAKE3 digest for its policy/configuration bundle to the BLAKE3 digest of the exact benchmark-manifest bytes. The scorer computes and checks the manifest digest itself, rejects unknown/duplicate/missing case predictions, and suppresses comparative rates when the manifest or prediction set is structurally invalid. The policy digest remains a declared commitment until the exact policy/configuration bytes are independently provided and hashed; it is not an authenticity claim.
 
 ## 4. Scoring protocol
 
@@ -97,7 +101,7 @@ The following must be a non-compensable gate, not a weighted metric:
 Required negative controls for the executable evaluator:
 
 1. Flip an option from available to unavailable; selection of that option must fail.
-2. Toggle material displacement risk in a paired case; a policy claiming the same choice must fail where the adjudicated relation is \`change\`.
+2. Toggle material displacement risk in a paired case; a policy claiming the same choice must fail where the adjudicated relation is `change`.
 3. Remove a required accessible alternative; the policy must choose an available accessible human path or abstain/escalate, not silently proceed with inaccessible material.
 4. Delete a decision-critical field; the evaluator must reject the case or require clarification, never default missing to zero/false.
 5. Change only a clearly irrelevant feature; the policy should be invariant.
@@ -107,9 +111,9 @@ Required negative controls for the executable evaluator:
 
 ## 6. Proposed rollout
 
-**P0 — Contract and probes (this PR):** schema, synthetic fixtures, documented metrics/non-claims, independent structural replay.
+**P0 — Contract and baseline scorer (this PR):** strict manifest and prediction schemas, synthetic fixtures, typed Rust parsing, cross-field validation, per-case scoring, paired-counterfactual accuracy, and non-compensable hard-gate codes. No production tutor behavior or new dependency is introduced.
 
-**P1 — Deterministic Rust evaluator:** strict deserialization, cross-field invariants, paired-case graph validation, machine-readable per-case outcomes, stable issue identifiers, and exact fixture/schema digests. Do not add production tutor behavior or new dependencies without need.
+**P1 — Qualification and adversarial hardening:** format/compile/test on the supported Rust toolchain, add missing/duplicate/unknown/digest-negative controls, check native/WASM determinism if the module is later included in WASM builds, and freeze exact benchmark/policy bytes plus replayable score receipts.
 
 **P2 — Independent adjudication:** at least two reviewers per case, educator and accessibility review, disagreement log, label revision protocol, sealed test cases, and version freeze.
 
