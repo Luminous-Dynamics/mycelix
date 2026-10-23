@@ -574,7 +574,7 @@ mod tests {
             assert!(MANIFEST.contains(threshold.as_str()), "missing {threshold}");
         }
         let seed_section = MANIFEST
-            .split("\\"evaluation_seeds\\": [")
+            .split("\"evaluation_seeds\": [")
             .nth(1)
             .expect("manifest must declare evaluation_seeds")
             .split(']')
