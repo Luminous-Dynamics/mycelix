@@ -62,6 +62,25 @@ References:
 - https://csrc.nist.gov/pubs/sp/800/226/final
 - https://csrc.nist.gov/glossary/term/group_privacy
 
+## How this complements industry baselines
+
+This benchmark is not a replacement for standards conformance and does not claim to beat credential cryptography. It adds a different attack axis those protocol tests alone cannot establish.
+
+| Baseline | What it provides | What this synthetic experiment adds |
+|---|---|---|
+| W3C VC Data Model 2.0 and presentation profiles | Credential semantics and explicit privacy warnings about identifiers, signatures, metadata and validation correlation | An executable test where the target's protected value is withheld but inference can arise from other subjects' disclosures |
+| OpenID4VP 1.0 | A standardized presentation-request/response protocol, including verifier/client and transaction nonce binding to mitigate replay | Measures whether peer disclosures still expose a target even if a presentation is correctly bound to its intended verifier/session |
+| SD-JWT / BBS implementations | Concrete selective-disclosure and proof-format behavior that must be evaluated in real, version-pinned implementations | A protocol-independent attack corpus to run alongside those real implementations; the synthetic model does not imitate their cryptography |
+| NIST SP 800-226 | Guidance for evaluating systems that claim differential privacy and for identifying common DP hazards | Relational inference measurements that must not be mislabeled as differential privacy or group privacy |
+
+Standards status matters for reproducibility: OpenID4VP 1.0 is a Final Specification published in July 2025. The W3C publication-history page lists Data Integrity BBS Cryptosuites v1.0 as a Candidate Recommendation Draft on 10 September 2026. A future protocol comparison must pin exact documents, code revisions, suites and profile settings, and report conformance separately from privacy attack outcomes.
+
+Sources:
+- W3C VC Data Model 2.0: https://www.w3.org/TR/2025/REC-vc-data-model-2.0-20250515/
+- OpenID4VP 1.0 Final: https://openid.net/specs/openid-4-verifiable-presentations-1_0-final.html
+- W3C BBS publication history: https://www.w3.org/standards/history/vc-di-bbs/
+- NIST SP 800-226: https://csrc.nist.gov/pubs/sp/800/226/final
+
 ## Claim ceiling
 
 A passing run covers only this synthetic model, source commit, manifest and deterministic seed. It does not establish real-world group privacy, anonymity, causal inference, regulatory compliance, or production safety. Do not interpret abstract signal probabilities as estimates for health, finance, employment, housing or any live Mycelix service.
