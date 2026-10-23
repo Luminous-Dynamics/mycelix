@@ -24,6 +24,10 @@ Local-first and Rust-first: Git stores small schemas, manifests, protocols, code
 
 See [INDUSTRY_BENCHMARKS.md](INDUSTRY_BENCHMARKS.md) for research-backed scorecards connecting Antarctic controller testing to IEEE 2030.8/NREL-NLR practice, and mapping shared benchmark principles to Sol Atlas and Symthaea.
 
+## Polar infrastructure, habits and resource evidence
+
+See [POLAR_SYSTEMS_RESEARCH.md](POLAR_SYSTEMS_RESEARCH.md) for a cross-project research plan covering location-specific Arctic/Antarctic design envelopes, infrastructure stress tests, voluntary polar living routines, and an evidence-audited Arctic hydrocarbon resource/trade-off atlas.
+
 ## Evidence maturity ladder
 
 | Tier | Minimum evidence | Maximum generic claim |
