@@ -39,12 +39,12 @@ Report each separately. Do not collapse them into a weighted score that can comp
 5. **Critical violations**: unsupported evidence references, omitted required contradictions in claims, and claims made when the oracle does not permit a claim. Target is zero. **Appropriate uncertainty** separately measures correct requests for missing evidence and abstentions on histories that do not justify a claim; also report unnecessary abstention.
 6. **Metamorphic suite (next stage)**: row-order invariance; invariance to irrelevant evidence; sensitivity to changed assistance labels, recency and missing metadata; rejection of corrupted provenance; whole-trajectory train/dev/test splits.
 
-The Rust scorer enforces exact case cardinality and binds predictions to the exact observation JSON bytes. The digest proves byte identity only; the caller still owns the custody of the bytes and the isolation of the oracle.
+The Rust scorer enforces exact case cardinality and binds predictions to the exact observation JSON bytes. It reports semantic decision fit separately from evidence-grounded acceptable decisions, so the right label with missing required citations does not receive full credit. The digest proves byte identity only; the caller still owns the custody of the bytes and the isolation of the oracle.
 
 ## Qualification ladder
 
 - **Level 0 — artifact conformance:** strict parsing, schema/Rust parity, unique cases/events, exact evidence references and digest negative controls.
-- **Level 1 — synthetic evaluator conformance:** deterministic oracle replay, metamorphic negative controls, row-order permutations, and full report reproducibility.
+- **Level 1 — synthetic evaluator conformance:** deterministic oracle replay, metamorphic negative controls, row-order permutations whose semantic scores remain invariant despite different byte digests, and full report reproducibility.
 - **Level 2 — expert adjudication:** at least 120 trajectories from at least 8 diagnostic families, double-reviewed independently with disagreement resolution; hold out complete trajectory families, not turns. Report inter-rater agreement and confidence intervals.
 - **Level 3 — external benchmark comparison:** map taxonomy carefully to LongTutor/MMTutorBench/TutorBench where constructs overlap; run the actual released benchmark under its rules and pinned model/configuration. A synthetic pass is not comparable to their leaderboard scores.
 - **Level 4 — efficacy and non-harm:** preregistered, ethically reviewed study with independent assessment, delayed retention, transfer, assistance exposure, engagement/displacement, and subgroup analysis. Assisted correctness is not an outcome proxy.
