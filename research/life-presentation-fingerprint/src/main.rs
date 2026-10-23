@@ -75,7 +75,7 @@ fn next_random(state: &mut u64) -> u64 {
 fn make_optional_index_mask(state: &mut u64) -> u16 {
     let mut mask = 0_u16;
     while mask.count_ones() < 3 {
-        let bit = (next_random(state) % 8) as u32;
+        let bit = ((next_random(state) >> 32) % 8) as u32;
         mask |= 1_u16 << bit;
     }
     mask
@@ -85,7 +85,7 @@ fn generate_subjects() -> Vec<Subject> {
     let mut state = SEED;
     (0..SUBJECTS)
         .map(|index| Subject {
-            statement_count: 8 + (next_random(&mut state) % 24) as u8,
+            statement_count: 8 + ((next_random(&mut state) >> 32) % 24) as u8,
             optional_index_mask: make_optional_index_mask(&mut state),
             stable_identifier: 0xA11C_E000_0000_0000_u64 | index as u64,
         })
@@ -300,6 +300,24 @@ mod tests {
             assert_eq!(row.split(',').count(), header_columns);
         }
         assert_eq!(first.lines().count(), PROFILES.len() + 1);
+    }
+
+
+    #[test]
+    fn generator_preserves_count_and_index_pattern_diversity() {
+        let subjects = generate_subjects();
+        let distinct_counts: std::collections::BTreeSet<u8> =
+            subjects.iter().map(|subject| subject.statement_count).collect();
+        let distinct_masks: std::collections::BTreeSet<u16> =
+            subjects.iter().map(|subject| subject.optional_index_mask).collect();
+        assert!(
+            distinct_counts.len() >= 20,
+            "high-bit generator should exercise at least 20 of 24 count values"
+        );
+        assert!(
+            distinct_masks.len() >= 50,
+            "high-bit generator should exercise at least 50 of 56 three-index patterns"
+        );
     }
 
     #[test]
