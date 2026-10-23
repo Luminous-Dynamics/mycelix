@@ -5,7 +5,7 @@ This standalone, dependency-free crate is a **reference model**, not a Holochain
 It models these narrow properties:
 
 1. Instrument IDs are authoritative; ticker collisions do not alias instruments or balances.
-2. Authorization and mutual-credit mutations resolve profiles from a canonical registry rather than accepting arbitrary caller-supplied profiles.
+2. Authorization and mutual-credit mutations resolve profiles from a canonical registry rather than accepting arbitrary caller-supplied profiles; denomination identity and scale cannot silently change for an instrument ID.
 3. Delegated authority binds issuer, delegate, instrument, action, profile revision, expiry, and an amount ceiling; missing or negative amounts fail closed.
 4. Community mutual-credit updates are atomic at the model boundary, replay-idempotent, and preserve zero net position per instrument.
 5. Federation clearing enforces per-edge and aggregate community gross-exposure limits, binds instrument/agreement revision, and allows already-incurred obligations to settle after new obligations are paused.
