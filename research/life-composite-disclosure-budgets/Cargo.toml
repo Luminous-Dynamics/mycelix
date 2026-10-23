@@ -1,0 +1,9 @@
+[package]
+name = "life-composite-disclosure-budgets"
+version = "0.1.0"
+edition = "2024"
+publish = false
+
+[[bin]]
+name = "life-composite-disclosure-budgets"
+path = "src/main.rs"
