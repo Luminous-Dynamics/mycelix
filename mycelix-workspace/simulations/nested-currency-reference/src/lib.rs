@@ -16,6 +16,10 @@ pub struct Profile {
     pub issuer: String,
     pub symbol: String,
     pub family: Family,
+    /// Immutable denomination identity; unit changes require a new instrument ID or explicit migration.
+    pub unit_code: String,
+    /// Number of fractional decimal places represented by the unit code.
+    pub scale: u8,
     pub revision: u64,
     pub active: bool,
     pub max_abs_balance: i64,
@@ -27,6 +31,7 @@ impl Profile {
             return Err(Error::InvalidIdentity);
         }
         if self.symbol.trim().is_empty() { return Err(Error::InvalidSymbol); }
+        if self.unit_code.trim().is_empty() || self.scale > 18 { return Err(Error::InvalidProfile); }
         if self.revision == 0 || self.max_abs_balance <= 0 {
             return Err(Error::InvalidProfile);
         }
@@ -51,7 +56,7 @@ pub struct Capability {
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum Error {
     InvalidIdentity, InvalidSymbol, InvalidProfile, DuplicateId, UnknownInstrument,
-    WrongFamily, Inactive, SameParticipant, InvalidAmount, Overflow, BalanceLimit,
+    WrongFamily, Inactive, SameParticipant, InvalidAmount, Overflow, BalanceLimit, InstrumentSemanticsChanged,
     InvalidEventId, ReplayMismatch, InvalidCapability, CapabilityExpired,
     StaleRevision, ActionNotGranted, InvalidAgreement, AgreementPaused,
     ExposureLimit, NothingOutstanding, SettlementTooLarge,
@@ -124,6 +129,7 @@ pub enum Apply { Applied, Duplicate }
 pub struct MutualCredit {
     balances: BTreeMap<(String, String), i64>,
     events: BTreeMap<String, Exchange>,
+    instrument_units: BTreeMap<String, (String, u8)>,
 }
 
 impl MutualCredit {
@@ -145,6 +151,10 @@ impl MutualCredit {
         let profile = registry.get(&event.instrument)?;
         profile.validate()?;
         if event.profile_revision != profile.revision { return Err(Error::StaleRevision); }
+        let semantics = (profile.unit_code.clone(), profile.scale);
+        if let Some(existing) = self.instrument_units.get(&profile.id) {
+            if existing != &semantics { return Err(Error::InstrumentSemanticsChanged); }
+        }
         if profile.family != Family::MutualCredit { return Err(Error::WrongFamily); }
         if !profile.active { return Err(Error::Inactive); }
         if event.provider == event.receiver { return Err(Error::SameParticipant); }
@@ -164,6 +174,7 @@ impl MutualCredit {
         // Check all constraints before mutating either account.
         self.balances.insert(pk, p1);
         self.balances.insert(rk, r1);
+        self.instrument_units.entry(profile.id.clone()).or_insert(semantics);
         self.events.insert(event.id.clone(), event);
         Ok(Apply::Applied)
     }
@@ -305,7 +316,8 @@ mod tests {
 
     fn profile(id: &str, issuer: &str, family: Family) -> Profile {
         Profile { id: id.into(), issuer: issuer.into(), symbol: "LOCAL".into(),
-            family, revision: 1, active: true, max_abs_balance: 10_000 }
+            family, unit_code: format!("unit:{id}"), scale: 0,
+            revision: 1, active: true, max_abs_balance: 10_000 }
     }
     fn exchange(id: &str, profile: &Profile, amount: i64) -> Exchange {
         Exchange { id: id.into(), instrument: profile.id.clone(), profile_revision: profile.revision,
@@ -405,6 +417,12 @@ mod tests {
         newer_registry.register(changed_revision).unwrap();
         assert_eq!(l.apply(&newer_registry, exchange("tx:stale", &p, 1)),
             Err(Error::StaleRevision));
+        // A same-revision registry that silently changes units must also be rejected.
+        let changed_units = Profile { unit_code: "unit:changed".into(), ..p.clone() };
+        let mut changed_unit_registry = Registry::default();
+        changed_unit_registry.register(changed_units).unwrap();
+        assert_eq!(l.apply(&changed_unit_registry, exchange("tx:unit-change", &p, 1)),
+            Err(Error::InstrumentSemanticsChanged));
         assert_eq!(l.apply(&registry, exchange("tx:1", &p, 17)), Ok(Apply::Duplicate));
         assert_eq!(l.apply(&registry, exchange("tx:1", &p, 18)), Err(Error::ReplayMismatch));
         assert_eq!(l.balance(&p.id, "alice"), 17);
