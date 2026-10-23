@@ -21,13 +21,17 @@ The existing Mycelix Praxis proposals already cover community authoring, curricu
 
 ### 1.1 Authoring UX is a live competitive area
 
-H5P's 21 August 2026 product roadmap prioritizes faster creation from existing materials, in-editor editing assistance, a clearer draft-to-publish journey, accessibility and consistency, reuse, aggregated usage/difficulty views, exports, and smoother LMS integration. H5P describes several of these as work in progress or exploration, not delivered commitments. The comparison must also reflect shipped capabilities: H5P's 26 August 2026 release announced **Smart Import**, a two-step workflow that turns supplied source material into chosen H5P activities, available on Premium and Enterprise plans.
+H5P's 21 August 2026 product roadmap prioritizes faster creation from existing materials, in-editor editing assistance, a clearer draft-to-publish journey, accessibility and consistency, reuse, aggregated usage/difficulty views, exports, and smoother LMS integration. Subsequent releases matter too: the 26 August release shipped a redesigned two-step **Smart Import** workflow on Premium/Enterprise plans; the 21 October release added an Organization API for enterprise customers, including content metadata access and programmatic content creation, along with accessibility and import-reliability fixes.
 
-**Implication:** "AI makes a lesson draft" is not a defensible differentiator by itself. CreatorBench must compare against current Smart Import where available—not a straw-man blank form—and record plan restrictions, supported content types, manual cleanup, rights handling, accessibility, export, and actual time to a valid activity. Praxis must demonstrate a lower total cost from rough idea to reviewed, rights-clear, accessible, portable learning object. Its strongest distinctiveness is likely the combination of provenance, contribution history, curriculum relationships, learner-controlled evidence, and independently measured outcomes, not generation alone.
+H5P's own Smart Import documentation says the current engine performs best on structured declarative knowledge and may struggle with procedural/higher-order material; it currently ignores equations, chemical reactions, physics numericals, spreadsheets, and diagrams/drawings. These are the vendor's documented limits, not an independent quality audit.
+
+**Implication:** "AI makes a lesson draft" is not a defensible differentiator by itself. CreatorBench must compare with the currently shipped Smart Import and Organization API where applicable—not a straw-man blank form—and record plan restrictions, supported content types, manual cleanup, rights handling, accessibility, export, and actual time to a valid activity. Praxis should test whether its structured worked-example, source/provenance, hands-on/procedural, diagram-accessibility, and curriculum pathways preserve content H5P says Smart Import currently ignores. This is a hypothesis to test; it is not a claim that Praxis already performs better.
 
 Sources:
 - https://h5p.com/resources/blog/whats-coming-next-for-h5p
 - https://help.h5p.com/hc/en-us/articles/38478563354781-Release-Note-August-2026
+- https://help.h5p.com/hc/en-us/articles/40044541802013-Release-Note-October-2026
+- https://help.h5p.com/hc/en-us/articles/8229514747805-Smart-Import-Introduction
 
 ### 1.2 Tutoring requires pedagogical diagnosis, not merely correct answers
 
@@ -46,6 +50,11 @@ Sources:
 - https://aclanthology.org/2026.acl-long.1371/
 - https://arxiv.org/abs/2502.18940
 
+Praxis implementation follow-ups:
+- [PRAXIS-EXPORT-001 #5450](https://github.com/Luminous-Dynamics/mycelix/issues/5450): deterministic creator-to-export fixture tranche.
+- [PRAXIS-TUTOR-HISTORY-001 #5455](https://github.com/Luminous-Dynamics/mycelix/issues/5455): history-grounded teaching-action evaluation.
+- [PRAXIS-LEARNING-NONHARM-001 #5461](https://github.com/Luminous-Dynamics/mycelix/issues/5461): AI-support non-harm and displacement protocol.
+
 Praxis implementation follow-up: [PRAXIS-TUTOR-HISTORY-001 #5455](https://github.com/Luminous-Dynamics/mycelix/issues/5455) defines a synthetic, privacy-minimized first benchmark slice for history-grounded teaching actions.
 
 ### 1.3 AI support can help recovery after errors without guaranteeing broad transfer
@@ -58,7 +67,20 @@ This is a working-paper result in a specific population and platform, not proof 
 
 Source: https://www.nber.org/papers/w35621
 
-### 1.4 Access does not guarantee adoption or effectiveness
+### 1.4 AI support can displace existing learning activity
+
+An October 2026 IZA Discussion Paper reports a randomized trial involving 2,379 undergraduates and 30 instructors across multiple disciplines at a large U.S. public university. Offering access to a course-integrated generative-AI tutor reduced final grades by 0.37 standard deviations and learning-management-system participation by 0.90 standard deviations in the studied comparison. The paper also reports larger estimated academic losses for first-generation students. This is a recent working-paper result in one institution and intervention; it does not establish that every AI tutor or hint-first design harms learning.
+
+That result sits alongside, but is not interchangeable with, the August 2026 middle-school math field experiment: there AI-assisted students were more accurate when attempting questions and recovered from mistakes in fewer attempts, while delayed gains were mixed and most evident on practiced material in a specific AI-plus-mastery workflow. Together, these studies argue against assuming that access, accuracy, speed, engagement, or course completion alone is an adequate learning outcome.
+
+**Implication:** Treat displacement and adverse effects as first-class outcomes. Measure conventional task participation, independent practice, attempts, time/effort, unaided transfer, delayed retention, and subgroup effects. Compare AI-support policies with an active baseline and freeze a domain-specific non-inferiority or meaningful-benefit threshold before outcome inspection. The system should not market AI availability as an educational benefit without evidence that it improves or at least does not materially harm the relevant learning outcomes in the target context.
+
+Sources:
+- https://www.iza.org/publications/dp/18989/the-effects-of-course-integrated-ai-tutoring-on-student-performance-and-engagement-a-randomized-university-trial
+- https://edworkingpapers.com/ai26-1598
+- https://www.nber.org/papers/w35621
+
+### 1.5 Access does not guarantee adoption or effectiveness
 
 A June 2026 education working paper describes two randomized trials of an AI-literacy platform for elementary students. Nearly half of students in a control condition never used the platform; students who used it averaged only 2–5 minutes per week. Human tutors focused on engagement increased usage and engagement, but reading achievement did not improve.
 
@@ -66,7 +88,7 @@ A June 2026 education working paper describes two randomized trials of an AI-lit
 
 Source: https://eric.ed.gov/?id=ED681902
 
-### 1.5 Retrieval and distributed practice are promising, but domain matters
+### 1.6 Retrieval and distributed practice are promising, but domain matters
 
 A systematic review in health-professions education identified 63 experiments across 56 included studies; 43 reported significant benefits from distributed practice and/or retrieval practice over controls or comparisons. The study population and domain limit generalization, but the evidence supports testing spacing and retrieval rather than assuming rereading or content exposure is enough.
 
@@ -74,7 +96,7 @@ A systematic review in health-professions education identified 63 experiments ac
 
 Source: https://pubmed.ncbi.nlm.nih.gov/37615780/
 
-### 1.6 Standards are an interoperability opportunity, not a reinvention target
+### 1.7 Standards are an interoperability opportunity, not a reinvention target
 
 1EdTech Common Cartridge describes standardized packaging and exchange of learning resources and assessments; its ecosystem also connects to QTI, LTI, and CASE competency identifiers. CASE 1.1 defines exchange of academic standards, competencies, skills, associations, and rubric structures.
 
@@ -84,7 +106,7 @@ Sources:
 - https://www.1edtech.org/standards/cc
 - https://standards.1edtech.org/case/
 
-### 1.7 Future capability frameworks must be plural and updateable
+### 1.8 Future capability frameworks must be plural and updateable
 
 UNESCO's AI competency framework for students has 12 competencies across human-centred mindset, AI ethics, AI techniques and applications, and AI system design, with progression through Understand, Apply, and Create.
 
@@ -142,6 +164,12 @@ Measure whether people can start, continue, receive necessary support, learn, an
 
 **Testable advantage:** a transparent relationship between accessibility/usability, meaningful exposure, and independently demonstrated capability.
 
+### Shift I — AI availability must earn its place through net learning benefit
+
+Treat adding a tutor as an intervention that may help, distract, displace existing study, increase dependence, or create unequal effects. Make AI optional and controllable; where appropriate, use learner attempts, graduated hints, and scaffold fading. Allow learners to request a direct explanation or accessibility accommodation without rigidly enforcing one pedagogical path.
+
+**Testable advantage:** in a defined learner population and task, the policy improves a preregistered independent outcome or meets a justified non-inferiority threshold without unacceptable displacement, burden, or subgroup harm. A synthetic contract test cannot establish this outcome.
+
 ## 3. Industry comparison: compare like with like
 
 Do not publish one leaderboard that mixes article quality, content-authoring speed, tutor dialogue, learning gains, accessibility, and portability. These are different tasks with different validity conditions.
@@ -175,6 +203,7 @@ Existing proposals in Praxis already name CreatorBench v1 and PedBench v1. Prese
 | ContentBench / curriculum audit | Is an object internally sound, traceable, safe for its declared context, and connected to a real capability? | Factual defect adjudication, claim/source coverage, stale source response, graph integrity, answer-key defects, accessibility findings, reviewer minutes per object. | Fabricated citation, valid unusual content, incorrect key, missing prerequisite, duplicated ID, superseded guidance, prohibited reuse. |
 | TutorBench integration | Does a tutor diagnose and guide rather than simply answer? | Key-step accuracy, misconception diagnosis, hint appropriateness, explanation quality, justified answer withholding, error recovery, longitudinal consistency. | Student misconception, ambiguous prompt, unanswerable item, prompt injection, visually misleading input, tutoring request outside competence. |
 | LearnBench | Does use produce independent, retained capability? | Unaided near/far transfer, delayed retention, next-attempt recovery, assistance exposure, learner burden, adverse effects. | Reused test item, answer leakage, AI unavailable, no-help arm, assistance mislabelled as independent work. |
+| Learning non-harm gate | Does optional AI support help without displacing learning or worsening outcomes? | Independent transfer, delayed retention, conventional-task participation, effort/attempts, availability vs. uptake, subgroup outcomes, missing follow-up. | Assisted accuracy mistaken for learning; participation displacement; underpowered null results called equivalent; accessibility accommodation blocked. |
 | PortabilityBench | Can materials leave Praxis without losing important meaning? | Import/export pass rate by feature, semantic preservation, provenance preservation, rights metadata preservation, manual rework. | Unknown extension, unsupported interaction, malformed package, rights mismatch, dropped accessibility metadata. |
 | LocalisationBench | Can a community adapt materials without breaking meaning or provenance? | Translation review time, concept/rubric preservation, local relevance review, source/version linkage, linguistic and accessibility defect rates. | False cognates, changed units, jurisdiction mismatch, erased upstream attribution, stale translated safety advice. |
 | ParticipationBench | Do people actually use and return to the resource under real conditions? | Time to first use, abandonment, successful completion, support requested, return/application rate, accessibility and bandwidth differences. | Required support absent, unreliable connection, misleading completion state, excluded participant groups. |
@@ -252,13 +281,19 @@ Create realistic task cards and preregister measures before implementation optim
 
 **Acceptance:** a published baseline report includes raw task-level outcomes, sample size, time distribution, error/retry counts, rights comprehension, accessibility limitations, and all missed targets. No task-completion claim is inferred solely from maintainer use.
 
-### Work item 4 — first learner study
+### Work item 4 — AI-support non-harm protocol and synthetic trace slice ([issue #5461](https://github.com/Luminous-Dynamics/mycelix/issues/5461))
+
+Use the recent randomized university trial and the different-context middle-school math trial to define a measured comparison between conventional study, optional hint-first AI with scaffold fading, and other relevant support modes. Begin with a synthetic evaluator contract; do not collect real learner data until consent, privacy, and appropriate ethics review are in place.
+
+**Acceptance:** availability and actual uptake are separate; independent transfer is primary; delayed retention and existing-task participation are predeclared; a justified domain-specific non-inferiority or meaningful-benefit threshold and sample-size rationale are frozen before the study; missing outcomes and subgroup limitations remain visible. A synthetic PASS establishes only evaluator conformance.
+
+### Work item 5 — first learner study
 
 Choose a narrow, low-risk pilot with an assessable outcome. Compare the existing workflow with the proposed instructional intervention using an active comparator. Obtain appropriate review and consent before involving people or collecting learner data.
 
-**Acceptance:** a preregistration exists before outcome analysis; test items are held out from practice; unaided transfer and delayed retention are measured independently; results include uncertainty, exclusions, and negative findings. No credential or "mastered" authorization flows from a benchmark score.
+**Acceptance:** a preregistration exists before outcome analysis; test items are held out from practice; unaided transfer and delayed retention are measured independently; results include uncertainty, exclusions, displacement measures, and negative findings. No credential or "mastered" authorization flows from a benchmark score.
 
-### Work item 5 — standards adapter spike
+### Work item 6 — standards adapter spike
 
 Audit Common Cartridge, QTI, CASE, and applicable accessibility metadata requirements against a small source object. Implement the smallest adapter only after mapping exact field correspondence and unsupported features.
 
@@ -293,10 +328,11 @@ That is the standard needed to make the system better rather than merely bigger.
 
 ## References
 
-- H5P, "What's coming next for H5P," 21 August 2026. https://h5p.com/resources/blog/whats-coming-next-for-h5p
+- H5P, "What's coming next for H5P," 21 August 2026; Smart Import releases August/September 2026 and Organization API/accessibility release October 2026. https://h5p.com/resources/blog/whats-coming-next-for-h5p ; https://help.h5p.com/hc/en-us/articles/40044541802013-Release-Note-October-2026 ; https://help.h5p.com/hc/en-us/articles/8229514747805-Smart-Import-Introduction
 - Yang et al., "MMTutorBench: The First Multimodal Benchmark for AI Math Tutoring," ACL 2026. https://aclanthology.org/2026.acl-long.1068/
 - Macina et al., "MathTutorBench: A Benchmark for Measuring Open-ended Pedagogical Capabilities of LLM Tutors," 2025. https://arxiv.org/abs/2502.18940
 - Oreopoulos et al., "Making AI Tutoring Productive: Evidence from a Mastery-Based Math Practice Experiment," NBER Working Paper 35621, August 2026. https://www.nber.org/papers/w35621
+- Liu et al., "The Effects of Course-Integrated AI Tutoring on Student Performance and Engagement: A Randomized University Trial," IZA Discussion Paper 18989 / EdWorkingPaper 26-1598, October 2026. https://edworkingpapers.com/ai26-1598
 - Robinson et al., "Access Is Not Enough: Human Support Improves Engagement with AI Tutoring," EdWorkingPaper 26-1451, June 2026. https://eric.ed.gov/?id=ED681902
 - Trumble et al., systematic review of distributed and retrieval practice in health-professions education, 2024. https://pubmed.ncbi.nlm.nih.gov/37615780/
 - 1EdTech Common Cartridge. https://www.1edtech.org/standards/cc
