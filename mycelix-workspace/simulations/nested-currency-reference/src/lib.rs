@@ -58,7 +58,7 @@ pub enum Error {
     InvalidIdentity, InvalidSymbol, InvalidProfile, DuplicateId, UnknownInstrument,
     WrongFamily, Inactive, SameParticipant, InvalidAmount, Overflow, BalanceLimit, InstrumentSemanticsChanged,
     InvalidEventId, ReplayMismatch, InvalidCapability, CapabilityExpired,
-    StaleRevision, ActionNotGranted, InvalidAgreement, AgreementPaused,
+    StaleRevision, ProfileConflict, ActionNotGranted, InvalidAgreement, AgreementPaused,
     ExposureLimit, NothingOutstanding, SettlementTooLarge,
 }
 
@@ -129,7 +129,7 @@ pub enum Apply { Applied, Duplicate }
 pub struct MutualCredit {
     balances: BTreeMap<(String, String), i64>,
     events: BTreeMap<String, Exchange>,
-    instrument_units: BTreeMap<String, (String, u8)>,
+    instrument_profiles: BTreeMap<String, Profile>,
 }
 
 impl MutualCredit {
@@ -151,9 +151,15 @@ impl MutualCredit {
         let profile = registry.get(&event.instrument)?;
         profile.validate()?;
         if event.profile_revision != profile.revision { return Err(Error::StaleRevision); }
-        let semantics = (profile.unit_code.clone(), profile.scale);
-        if let Some(existing) = self.instrument_units.get(&profile.id) {
-            if existing != &semantics { return Err(Error::InstrumentSemanticsChanged); }
+        if let Some(existing) = self.instrument_profiles.get(&profile.id) {
+            if existing.issuer != profile.issuer || existing.family != profile.family
+                || existing.unit_code != profile.unit_code || existing.scale != profile.scale {
+                return Err(Error::InstrumentSemanticsChanged);
+            }
+            if profile.revision < existing.revision { return Err(Error::StaleRevision); }
+            if profile.revision == existing.revision && existing != profile {
+                return Err(Error::ProfileConflict);
+            }
         }
         if profile.family != Family::MutualCredit { return Err(Error::WrongFamily); }
         if !profile.active { return Err(Error::Inactive); }
@@ -174,7 +180,7 @@ impl MutualCredit {
         // Check all constraints before mutating either account.
         self.balances.insert(pk, p1);
         self.balances.insert(rk, r1);
-        self.instrument_units.entry(profile.id.clone()).or_insert(semantics);
+        self.instrument_profiles.insert(profile.id.clone(), profile.clone());
         self.events.insert(event.id.clone(), event);
         Ok(Apply::Applied)
     }
@@ -423,6 +429,21 @@ mod tests {
         changed_unit_registry.register(changed_units).unwrap();
         assert_eq!(l.apply(&changed_unit_registry, exchange("tx:unit-change", &p, 1)),
             Err(Error::InstrumentSemanticsChanged));
+
+        // A same-revision policy mutation cannot silently enlarge the credit limit.
+        let changed_limit = Profile { max_abs_balance: i64::MAX, ..p.clone() };
+        let mut changed_limit_registry = Registry::default();
+        changed_limit_registry.register(changed_limit).unwrap();
+        assert_eq!(l.apply(&changed_limit_registry, exchange("tx:limit-bypass", &p, 1)),
+            Err(Error::ProfileConflict));
+
+        // A policy revision can change limits explicitly while preserving identity and units.
+        let revision_two = Profile { revision: 2, max_abs_balance: 20, ..p.clone() };
+        let mut revision_two_registry = Registry::default();
+        revision_two_registry.register(revision_two.clone()).unwrap();
+        let revision_two_event = Exchange { id: "tx:v2".into(), instrument: revision_two.id.clone(),
+            profile_revision: 2, provider: "alice".into(), receiver: "bob".into(), amount: 1 };
+        assert_eq!(l.apply(&revision_two_registry, revision_two_event), Ok(Apply::Applied));
         assert_eq!(l.apply(&registry, exchange("tx:1", &p, 17)), Ok(Apply::Duplicate));
         assert_eq!(l.apply(&registry, exchange("tx:1", &p, 18)), Err(Error::ReplayMismatch));
         assert_eq!(l.balance(&p.id, "alice"), 17);
