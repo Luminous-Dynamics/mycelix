@@ -265,6 +265,42 @@ fn baseline_requests() -> Vec<Request> {
         .collect()
 }
 
+fn cloned_escrow_replicas(
+    budget_units: u32,
+    active_epoch: u64,
+    allocations: &[u32],
+) -> Metrics {
+    // Both replicas start from the same unspent allocation checkpoint.
+    // Their independent local ledgers each accept the full quota, exposing clone/rollback risk.
+    let mut aggregate = Metrics::new(budget_units, true);
+    for replica_index in 0..2_u64 {
+        let mut replica = EscrowLedger::new(budget_units, active_epoch, allocations.to_vec())
+            .expect("each local escrow allocation must be valid");
+        for (verifier, cost) in allocations.iter().copied().enumerate() {
+            let request_id = 1_000 + replica_index * 100 + verifier as u64;
+            replica.admit(request(request_id, verifier, cost, active_epoch));
+        }
+
+        let local = replica.metrics();
+        aggregate.offered = aggregate.offered.saturating_add(local.offered);
+        aggregate.accepted_unique = aggregate
+            .accepted_unique
+            .saturating_add(local.accepted_unique);
+        aggregate.denied = aggregate.denied.saturating_add(local.denied);
+        aggregate.duplicate_replays = aggregate
+            .duplicate_replays
+            .saturating_add(local.duplicate_replays);
+        aggregate.conflicting_reuse = aggregate
+            .conflicting_reuse
+            .saturating_add(local.conflicting_reuse);
+        aggregate.stale_epoch_rejections = aggregate
+            .stale_epoch_rejections
+            .saturating_add(local.stale_epoch_rejections);
+        aggregate.spent_units = aggregate.spent_units.saturating_add(local.spent_units);
+    }
+    aggregate
+}
+
 fn run_report() -> String {
     let requests = baseline_requests();
     let stale = independent_stale_replicas(&requests, GLOBAL_BUDGET);
@@ -299,6 +335,9 @@ fn run_report() -> String {
     escrow_rollover.advance_epoch(ACTIVE_EPOCH + 1);
     escrow_rollover.admit(request(32, 0, 2, ACTIVE_EPOCH + 1));
     escrow_rollover.admit(request(33, 0, 1, ACTIVE_EPOCH + 1));
+
+    let cloned_escrow =
+        cloned_escrow_replicas(GLOBAL_BUDGET, ACTIVE_EPOCH, &[3, 3, 2, 2]);
 
     let mut invalid_escrow = Metrics::new(GLOBAL_BUDGET, false);
     invalid_escrow.offered = VERIFIER_COUNT as u32;
@@ -335,6 +374,12 @@ fn run_report() -> String {
         &mut output,
         "bounded_escrow",
         &escrow.metrics(),
+        budget_semantics_declared,
+    );
+    write_metrics_row(
+        &mut output,
+        "cloned_escrow_replicas",
+        &cloned_escrow,
         budget_semantics_declared,
     );
     write_metrics_row(
@@ -546,6 +591,17 @@ mod tests {
             Outcome::DeniedEscrow
         );
         assert_eq!(ledger.metrics().spent_units, 0);
+    }
+
+    #[test]
+    fn cloned_escrow_checkpoint_can_double_spend_globally() {
+        let metrics = cloned_escrow_replicas(GLOBAL_BUDGET, ACTIVE_EPOCH, &[3, 3, 2, 2]);
+        assert!(metrics.policy_valid);
+        assert_eq!(metrics.offered, 8);
+        assert_eq!(metrics.accepted_unique, 8);
+        assert_eq!(metrics.spent_units, 2 * GLOBAL_BUDGET);
+        assert_eq!(metrics.overspend_units(), GLOBAL_BUDGET);
+        assert_eq!(metrics.availability_ppm(), MILLION);
     }
 
     #[test]

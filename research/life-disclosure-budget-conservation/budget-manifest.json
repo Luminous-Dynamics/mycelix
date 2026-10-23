@@ -9,6 +9,7 @@
     {"id": "independent_stale_replicas", "role": "negative_control"},
     {"id": "serialized_shared_ledger", "role": "safety_baseline"},
     {"id": "bounded_escrow", "role": "partition-tolerant bounded authorization"},
+    {"id": "cloned_escrow_replicas", "role": "negative_control for duplicated or rolled-back local quota state"},
     {"id": "invalid_overallocated_escrow", "role": "negative_control"},
     {"id": "stale_policy_epoch", "role": "negative_control"},
     {"id": "policy_epoch_rollover_shared_ledger", "role": "no-implicit-budget-reset regression"},
