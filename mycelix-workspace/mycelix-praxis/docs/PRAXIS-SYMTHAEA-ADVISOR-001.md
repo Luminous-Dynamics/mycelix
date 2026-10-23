@@ -86,6 +86,8 @@ Send a bounded context summary and opaque evidence IDs, not the learner's identi
 
 No response may write to the DHT, mutate learner history, alter course rules, publish evidence, invoke tools, issue credentials or authorize effects. Any future effect remains behind its own Praxis/Mycelix authority and reconciliation boundary.
 
+An unresolved assessment policy fails closed for AI assistance until the caller supplies an applicable policy or explicitly marks the policy not applicable. The explicit human-support-preservation flag is a hard constraint; a low displacement-risk label cannot override it. Clarification or abstention remains a valid outcome when accessible support or policy context is unresolved.
+
 ## Benchmarks and comparison plan
 
 The baseline is the existing deterministic planner/BKT/SRS path without Symthaea. The comparison treatment adds a pinned Symthaea build and named feature profile but leaves the hard gates and final policy validator unchanged. Use identical case bytes, learner-goal inputs, budgets and scoring rules.
