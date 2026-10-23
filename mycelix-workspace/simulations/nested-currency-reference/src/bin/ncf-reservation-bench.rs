@@ -85,8 +85,8 @@ fn run() -> Result<(), String> {
     if operations == 0 || operations > MAX_OPERATIONS {
         return Err(format!("operation count must be between 1 and {MAX_OPERATIONS}"));
     }
-    if shards == 0 || shards > MAX_SHARDS || shards as u64 > TOTAL_CAPACITY {
-        return Err(format!("shard count must be between 1 and {}", MAX_SHARDS.min(TOTAL_CAPACITY as usize)));
+    if shards < 2 || shards > MAX_SHARDS || shards as u64 > TOTAL_CAPACITY {
+        return Err(format!("shard count must be between 2 and {}", MAX_SHARDS.min(TOTAL_CAPACITY as usize)));
     }
 
     let source_sha = require_hex("NCF_SOURCE_SHA", &[40, 64])?;
@@ -193,6 +193,18 @@ fn run() -> Result<(), String> {
         if used > book.reservation_capacity(key).map_err(|e| format!("read reservation: {e:?}"))? {
             return Err("final invariant violation: a shard exceeded its reserved capacity".into());
         }
+    }
+    let allocated_a = book.allocated_to_community("community:a", "unit:local")
+        .map_err(|e| format!("verify community A allocation: {e:?}"))?;
+    let allocated_b = book.allocated_to_community("community:b", "unit:local")
+        .map_err(|e| format!("verify community B allocation: {e:?}"))?;
+    let allocated_agreement = book.allocated_to_agreement("edge:a-b", "unit:local")
+        .map_err(|e| format!("verify agreement allocation: {e:?}"))?;
+    if allocated_a != allocated_capacity || allocated_b != allocated_capacity
+        || allocated_agreement != allocated_capacity
+        || allocated_capacity > TOTAL_CAPACITY
+    {
+        return Err("final invariant violation: reservations exceed a configured risk cap".into());
     }
     let unused_reserved_capacity = allocated_capacity.checked_sub(used_capacity)
         .ok_or_else(|| "used capacity exceeded aggregate reservation".to_string())?;
