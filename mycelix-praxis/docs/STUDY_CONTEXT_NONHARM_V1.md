@@ -28,7 +28,7 @@ Each opaque participant reference and study period separates:
 - **Assigned arm**: the study condition the participant was assigned to. It does not infer actual use.
 - **Support availability**: not offered, available, unavailable, or unknown.
 - **Support uptake**: observed invocation count and seconds of use.
-- **Ordinary learning activity**: scheduled, attempted, and completed learning tasks, plus independent-practice attempts.
+- **Ordinary learning activity**: scheduled, attempted, and completed learning tasks; independent-practice attempts; and observed sessions/active seconds on the existing course platform. Platform activity is a participation/context metric, not a learning outcome.
 - **Observation status**: complete, partial, not collected, lost to follow-up, or withdrawn.
 
 Periods are baseline, intervention, 7-day follow-up, and 30-day follow-up. Protocol-specific tasks and outcome scores remain in the assessment artifact. Context measures cannot replace the primary independently scored, unaided transfer outcome or delayed retention.
@@ -42,6 +42,7 @@ The validator rejects:
 - partial records with no observed measurements;
 - missing/lost/withdrawn records with counters that would disguise missingness as zero;
 - attempts beyond scheduled opportunities or completions beyond attempts;
+- positive course-platform active time with zero recorded platform sessions;
 - positive support use when support was not offered, unavailable, or not recorded as available;
 - duplicate participant-period records or arm changes across periods.
 
@@ -55,7 +56,7 @@ The binding function also validates the supplied assessment run against the curr
 
 ## Synthetic fixture and limitations
 
-The fixture contains 12 observations across three synthetic participants, three assigned arms, and multiple periods. It intentionally includes:
+The fixture contains 12 observations across three synthetic participants, three assigned arms, and multiple periods. Complete observations include explicit course-platform session and active-time values so actual zero activity can be distinguished from missing telemetry. It intentionally includes:
 - a conventional no-AI comparison;
 - AI support that was available and used;
 - an assigned AI condition in which support was unavailable;
