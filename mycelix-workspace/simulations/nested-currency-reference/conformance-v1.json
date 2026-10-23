@@ -84,6 +84,11 @@
       "id": "NCF-I-014",
       "name": "Partitioned exposure rights are preallocated and non-overlapping",
       "statement": "During disconnected operation, each shard may consume only its previously allocated reservation. Reservation slices across shards, agreements and epochs are counted against the exact community/instrument cap; prior-epoch slices are not reclaimed without coordinated fencing/reconciliation."
+    },
+    {
+      "id": "NCF-I-015",
+      "name": "Reservation agreement identity binds counterparties",
+      "statement": "A reservation agreement ID identifies one immutable community pair across instruments, shards, and epochs. Budget slices cannot be reassigned to a different counterparty pair by reusing the agreement identifier."
     }
   ],
   "conformance_cases": [
@@ -463,6 +468,15 @@
       "attack": "Reuse an accepted event ID with a different reservation key/shard; the conflicting replay must reject with no second obligation.",
       "expected": "reject_conflicting_reservation_replay_without_state_change",
       "code_test": "event_id_cannot_be_replayed_against_a_different_reservation",
+      "execution_status": "defined_not_run"
+    },
+    {
+      "id": "NCF-PART-008",
+      "title": "Reservation slices preserve one immutable counterparty pair per agreement ID",
+      "class": "agreement_identity_confusion",
+      "attack": "Try to reserve another shard or instrument under an existing agreement ID but substitute one community; the shared identifier must not silently represent a different bilateral agreement.",
+      "expected": "reject_counterparty_mismatch_without_consuming_capacity",
+      "code_test": "agreement_party_pair_is_stable_across_shards_and_epochs",
       "execution_status": "defined_not_run"
     }
   ],
