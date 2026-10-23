@@ -2,12 +2,13 @@
 
 This standalone, dependency-free crate is a **reference model**, not a Holochain zome, payment rail, cryptographic authorization implementation, or production ledger.
 
-It models four narrow properties:
+It models these narrow properties:
 
-1. Instrument IDs are authoritative; ticker collisions do not alias instruments.
-2. Delegated authority binds issuer, delegate, instrument, action, profile revision, expiry, and an optional amount ceiling.
-3. Community mutual-credit updates are atomic at the model boundary, replay-idempotent, and preserve zero net position per instrument.
-4. Federation clearing exposure is isolated per agreement, binds instrument and agreement revision, and permits existing obligations to settle after new obligations are paused.
+1. Instrument IDs are authoritative; ticker collisions do not alias instruments or balances.
+2. Authorization and mutual-credit mutations resolve profiles from a canonical registry rather than accepting arbitrary caller-supplied profiles.
+3. Delegated authority binds issuer, delegate, instrument, action, profile revision, expiry, and an amount ceiling; missing or negative amounts fail closed.
+4. Community mutual-credit updates are atomic at the model boundary, replay-idempotent, and preserve zero net position per instrument.
+5. Federation clearing enforces per-edge and aggregate community gross-exposure limits, binds instrument/agreement revision, and allows already-incurred obligations to settle after new obligations are paused.
 
 It does **not** prove real-world service delivery, legal status, collateral/reserves, key security, Holochain DHT integrity, multi-agent race safety, external settlement finality, or that every production code path enforces these rules.
 
@@ -20,7 +21,7 @@ cargo fmt --manifest-path mycelix-workspace/simulations/nested-currency-referenc
 cargo test --manifest-path mycelix-workspace/simulations/nested-currency-reference/Cargo.toml
 ```
 
-The test corpus contains deterministic negative controls plus a million-operation conservation stress test and 100,000 retry checks. These are **targets encoded as tests**, not evidence of a passing run until the exact committed revision has been compiled and executed.
+The test corpus contains deterministic negative controls plus a million-operation conservation stress test and 100,000 retry checks. It includes profile-registry binding, missing/negative amount caps, stale revision rejection, aggregate exposure caps, failed-operation state preservation, ticker-collision isolation, and settlement-after-pause semantics. These are **targets encoded as tests**, not evidence of a passing run until the exact committed revision has been compiled and executed.
 
 ## Next qualification stages
 
