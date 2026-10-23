@@ -504,8 +504,13 @@ mod tests {
 
     #[test]
     fn same_surface_accuracy_with_different_assistance_has_different_labels() {
-        let (_, oracle) = validate_history_bundle(OBSERVATIONS, ORACLE).expect("valid bundle");
+        let (manifest, oracle) = validate_history_bundle(OBSERVATIONS, ORACLE).expect("valid bundle");
         let labels: BTreeMap<&str, &HistoryOracleLabel> = oracle.labels.iter().map(|label| (label.case_id.as_str(), label)).collect();
+        let cases: BTreeMap<&str, &HistoryCase> = manifest.cases.iter().map(|case| (case.case_id.as_str(), case)).collect();
+        let correct_count = |case: &HistoryCase| case.observations.iter().filter(|event| event.correctness == Some(true)).count();
+        let assisted_count = |case: &HistoryCase| case.observations.iter().filter(|event| event.assistance != AssistanceLevel::None && event.assistance != AssistanceLevel::Unknown).count();
+        assert_eq!(correct_count(cases["TH007"]), correct_count(cases["TH008"]));
+        assert!(assisted_count(cases["TH007"]) > assisted_count(cases["TH008"]));
         assert_eq!(labels["TH007"].acceptable_diagnoses, vec![HistoryDiagnosis::ScaffoldDependence]);
         assert_eq!(labels["TH008"].acceptable_diagnoses, vec![HistoryDiagnosis::ProvenUnassistedProgress]);
     }
