@@ -553,6 +553,29 @@
               }
             }
           }
+        },
+        {
+          "if": {
+            "properties": {
+              "raw_bytes_ingested": {
+                "const": true
+              },
+              "rights_status": {
+                "const": "requires_steward_contact"
+              }
+            },
+            "required": [
+              "raw_bytes_ingested",
+              "rights_status"
+            ]
+          },
+          "then": {
+            "properties": {
+              "contact_status": {
+                "const": "permission_confirmed"
+              }
+            }
+          }
         }
       ]
     },
@@ -1023,6 +1046,16 @@
               "artifact_sha256": {
                 "type": "string",
                 "pattern": "^[a-f0-9]{64}$"
+              }
+            }
+          },
+          "gates": {
+            "properties": {
+              "source_integrity": {
+                "const": "pass"
+              },
+              "rights_stewardship": {
+                "const": "pass"
               }
             }
           }

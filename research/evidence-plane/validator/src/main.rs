@@ -637,4 +637,57 @@ mod tests {
         fs::remove_dir_all(outside).expect("cleanup");
     }
 
+
+    #[test]
+    fn ingested_data_requiring_steward_contact_must_be_contact_cleared() {
+        let mut value = fixture();
+        value["run_status"] = json!("executed");
+        value["evidence_tier"] = json!("S1");
+        value["claim_ceiling"] = json!("transcription_only");
+        value["sources"] = json!([{
+            "source_id":"contact-required",
+            "url":"https://example.org/data.csv",
+            "observed_at":"2026-10-23T00:00:00Z",
+            "media_type":"text/csv",
+            "raw_bytes_ingested":true,
+            "byte_count":1,
+            "sha256":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "artifact_path":"data/source.csv",
+            "rights_status":"requires_steward_contact",
+            "contact_status":"acknowledged_not_contacted",
+            "temporal_coverage":null,
+            "spatial_coverage":null,
+            "metadata_conflicts":[]
+        }]);
+        assert!(!errors(&value).is_empty());
+    }
+
+    #[test]
+    fn s2_requires_source_integrity_and_stewardship_gates() {
+        let mut value = fixture();
+        value["run_status"] = json!("executed");
+        value["evidence_tier"] = json!("S2");
+        value["claim_ceiling"] = json!("source_reproducible");
+        value["subject"]["artifact_sha256"] = json!("bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb");
+        value["sources"] = json!([{
+            "source_id":"source-cleared",
+            "url":"https://example.org/data.csv",
+            "observed_at":"2026-10-23T00:00:00Z",
+            "media_type":"text/csv",
+            "raw_bytes_ingested":true,
+            "byte_count":1,
+            "sha256":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "artifact_path":"data/source.csv",
+            "rights_status":"open_license",
+            "contact_status":"not_required",
+            "temporal_coverage":null,
+            "spatial_coverage":null,
+            "metadata_conflicts":[]
+        }]);
+        assert!(!errors(&value).is_empty());
+        value["gates"]["source_integrity"] = json!("pass");
+        value["gates"]["rights_stewardship"] = json!("pass");
+        assert!(errors(&value).is_empty(), "{:?}", errors(&value));
+    }
+
 }

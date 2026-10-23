@@ -20,6 +20,10 @@ Local-first and Rust-first: Git stores small schemas, manifests, protocols, code
 8. Independent verifier: a small Rust CLI validates schema, computes digests, checks exact commit identity, replays permitted transforms and runs mutation controls. Schema validation alone cannot verify hashes or scientific truth.
 9. Consumers: Symthaea for scientific/model evaluation; Symtropy for simulation and resilience; Sol Atlas for spatiotemporal presentation; Mycelix may anchor receipt hashes later. Offline verification must not depend on the DHT.
 
+## Industry benchmark alignment
+
+See [INDUSTRY_BENCHMARKS.md](INDUSTRY_BENCHMARKS.md) for research-backed scorecards connecting Antarctic controller testing to IEEE 2030.8/NREL-NLR practice, and mapping shared benchmark principles to Sol Atlas and Symthaea.
+
 ## Evidence maturity ladder
 
 | Tier | Minimum evidence | Maximum generic claim |
