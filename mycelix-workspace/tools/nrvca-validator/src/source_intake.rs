@@ -633,6 +633,7 @@ fn audit_content_store(store_dir: &Path) -> Result<Value, String> {
                 "objects_verified": 0,
                 "objects_failed": 0,
                 "bytes_verified": 0,
+                "diagnostics_count": 0,
                 "diagnostics": []
             }));
         }
@@ -655,31 +656,34 @@ fn audit_content_store(store_dir: &Path) -> Result<Value, String> {
         }));
     }
 
-    let mut object_children = fs::read_dir(&objects_dir)
+    let mut unexpected_children: Vec<String> = Vec::new();
+    for entry in fs::read_dir(&objects_dir)
         .map_err(|error| format!("cannot list objects directory: {error}"))?
-        .collect::<Result<Vec<_>, _>>()
-        .map_err(|error| format!("cannot enumerate objects directory: {error}"))?;
-    object_children.sort_by_key(|entry| entry.file_name());
-    let unexpected_children: Vec<std::ffi::OsString> = object_children.iter()
-        .map(|entry| entry.file_name())
-        .filter(|name| name != std::ffi::OsStr::new("sha256"))
-        .collect();
+    {
+        let entry = entry.map_err(|error| format!("cannot enumerate objects directory: {error}"))?;
+        let name = entry.file_name();
+        if name != std::ffi::OsStr::new("sha256") {
+            unexpected_children.push(format!("objects/{}", name.to_string_lossy()));
+        }
+    }
     if !unexpected_children.is_empty() {
+        unexpected_children.sort();
+        let diagnostic_count = unexpected_children.len();
         return Ok(json!({
             "schema_version": "nrvca-content-store-audit/0.1",
             "status": "failed",
-            "entries_scanned": unexpected_children.len(),
+            "entries_scanned": diagnostic_count,
             "objects_verified": 0,
             "objects_failed": 0,
             "bytes_verified": 0,
-            "diagnostics": unexpected_children.iter().map(|name| {
+            "diagnostics": unexpected_children.iter().map(|path| {
                 json!({
-                    "path": format!("objects/{}", name.to_string_lossy()),
+                    "path": path,
                     "code": "STORE-UNEXPECTED-ENTRY",
                     "message": "objects directory may contain only the sha256 object root"
                 })
             }).collect::<Vec<_>>(),
-            "diagnostics_count": unexpected_children.len()
+            "diagnostics_count": diagnostic_count
         }));
     }
 
@@ -707,6 +711,7 @@ fn audit_content_store(store_dir: &Path) -> Result<Value, String> {
             "entries_scanned": 0,
             "objects_verified": 0,
             "objects_failed": 0,
+            "bytes_verified": 0,
             "diagnostics": [{
                 "path": "objects/sha256",
                 "code": "STORE-SHA256-DIR",
@@ -721,13 +726,10 @@ fn audit_content_store(store_dir: &Path) -> Result<Value, String> {
     let mut objects_verified = 0usize;
     let mut bytes_verified = 0u64;
     let mut objects_failed = BTreeSet::new();
-    let mut shards = fs::read_dir(&object_root)
+    for shard in fs::read_dir(&object_root)
         .map_err(|error| format!("cannot list object root: {error}"))?
-        .collect::<Result<Vec<_>, _>>()
-        .map_err(|error| format!("cannot enumerate object root: {error}"))?;
-    shards.sort_by_key(|entry| entry.file_name());
-
-    for shard in shards {
+    {
+        let shard = shard.map_err(|error| format!("cannot enumerate object root: {error}"))?;
         entries_scanned += 1;
         let shard_name = match shard.file_name().to_str().map(str::to_owned) {
             Some(name) => name,
@@ -746,13 +748,10 @@ fn audit_content_store(store_dir: &Path) -> Result<Value, String> {
             audit_failure(&mut diagnostics, &shard_rel, "STORE-SHARD-NAME", "shard names must be two lowercase hexadecimal characters");
             continue;
         }
-        let mut objects = fs::read_dir(shard.path())
+        for entry in fs::read_dir(shard.path())
             .map_err(|error| format!("cannot list shard {shard_rel}: {error}"))?
-            .collect::<Result<Vec<_>, _>>()
-            .map_err(|error| format!("cannot enumerate shard {shard_rel}: {error}"))?;
-        objects.sort_by_key(|entry| entry.file_name());
-
-        for entry in objects {
+        {
+            let entry = entry.map_err(|error| format!("cannot enumerate shard {shard_rel}: {error}"))?;
             entries_scanned += 1;
             let name = match entry.file_name().to_str().map(str::to_owned) {
                 Some(name) => name,
