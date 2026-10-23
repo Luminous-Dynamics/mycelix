@@ -210,7 +210,7 @@ where
 {
     // Split whole counterfactual pairs, preventing related worlds from crossing the split.
     let mut training: BTreeMap<String, [usize; 2]> = BTreeMap::new();
-    for example in data.iter().filter(|row| row.pair_id % 2 == 0) {
+    for example in data.iter().filter(|row| (row.pair_id / PUBLIC_CONTEXT_BUCKETS) % 2 == 0) {
         let counts = training.entry(feature(&example.trace)).or_insert([0, 0]);
         counts[usize::from(example.protected_label)] += 1;
     }
@@ -220,7 +220,7 @@ where
     let mut negative_correct = 0usize;
     let mut negative_total = 0usize;
 
-    for example in data.iter().filter(|row| row.pair_id % 2 == 1) {
+    for example in data.iter().filter(|row| (row.pair_id / PUBLIC_CONTEXT_BUCKETS) % 2 == 1) {
         let counts = training
             .get(&feature(&example.trace))
             .copied()
