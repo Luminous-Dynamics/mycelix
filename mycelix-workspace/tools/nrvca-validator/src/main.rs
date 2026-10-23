@@ -21,12 +21,13 @@ fn run() -> Result<(), String> {
                 .map_err(|error| format!("cannot format store audit report: {error}"))?
         );
         match report["status"].as_str() {
-            Some("failed") => Err(format!(
+            Some("failed") => return Err(format!(
                 "content store integrity audit failed with {} diagnostic(s)",
                 report["diagnostics"].as_array().map_or(0, Vec::len)
             )),
-            _ => Ok(()),
-        }?;
+            Some("empty") => return Err("content store is empty; no evidence objects were verified".to_owned()),
+            _ => {}
+        }
         return Ok(());
     }
     if all_args.first().map(String::as_str) == Some("capture-source") {
