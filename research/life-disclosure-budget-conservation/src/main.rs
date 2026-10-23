@@ -102,6 +102,15 @@ impl SharedLedger {
         }
     }
 
+    // Policy revision changes admission rules; it does not erase disclosure history.
+    fn advance_epoch(&mut self, next_epoch: u64) -> bool {
+        if next_epoch <= self.active_epoch {
+            return false;
+        }
+        self.active_epoch = next_epoch;
+        true
+    }
+
     fn admit(&mut self, request: Request) -> Outcome {
         self.metrics.offered += 1;
 
@@ -165,6 +174,15 @@ impl EscrowLedger {
             records: BTreeMap::new(),
             metrics: Metrics::new(budget_units, true),
         })
+    }
+
+    // Keep consumed escrow spent across policy revisions within the same budget scope.
+    fn advance_epoch(&mut self, next_epoch: u64) -> bool {
+        if next_epoch <= self.active_epoch {
+            return false;
+        }
+        self.active_epoch = next_epoch;
+        true
     }
 
     fn admit(&mut self, request: Request) -> Outcome {
@@ -426,6 +444,30 @@ mod tests {
     }
 
     #[test]
+    fn policy_epoch_rollover_does_not_refund_shared_budget() {
+        let mut ledger = SharedLedger::new(GLOBAL_BUDGET, ACTIVE_EPOCH);
+        assert_eq!(
+            ledger.admit(request(51, 0, 7, ACTIVE_EPOCH)),
+            Outcome::Accepted
+        );
+        assert!(ledger.advance_epoch(ACTIVE_EPOCH + 1));
+        assert_eq!(ledger.metrics().spent_units, 7);
+
+        assert_eq!(
+            ledger.admit(request(52, 1, 4, ACTIVE_EPOCH + 1)),
+            Outcome::DeniedBudget
+        );
+        assert_eq!(
+            ledger.admit(request(53, 1, 3, ACTIVE_EPOCH + 1)),
+            Outcome::Accepted
+        );
+        assert_eq!(ledger.metrics().spent_units, GLOBAL_BUDGET);
+        assert!(!ledger.advance_epoch(ACTIVE_EPOCH + 1));
+        assert!(!ledger.advance_epoch(ACTIVE_EPOCH));
+        assert_eq!(ledger.metrics().spent_units, GLOBAL_BUDGET);
+    }
+
+    #[test]
     fn bounded_escrow_conserves_global_limit_and_allows_within_quota_offline() {
         let allocations = vec![3, 3, 2, 2];
         let mut ledger = EscrowLedger::new(GLOBAL_BUDGET, ACTIVE_EPOCH, allocations.clone())
@@ -442,6 +484,31 @@ mod tests {
         assert_eq!(metrics.accepted_unique, 4);
         assert_eq!(metrics.spent_units, GLOBAL_BUDGET);
         assert_eq!(metrics.overspend_units(), 0);
+    }
+
+    #[test]
+    fn policy_epoch_rollover_does_not_refund_consumed_escrow() {
+        let mut ledger = EscrowLedger::new(GLOBAL_BUDGET, ACTIVE_EPOCH, vec![5, 5])
+            .expect("allocation sum is within global budget");
+
+        assert_eq!(
+            ledger.admit(request(61, 0, 4, ACTIVE_EPOCH)),
+            Outcome::Accepted
+        );
+        assert!(ledger.advance_epoch(ACTIVE_EPOCH + 1));
+        assert_eq!(ledger.metrics().spent_units, 4);
+
+        assert_eq!(
+            ledger.admit(request(62, 0, 2, ACTIVE_EPOCH + 1)),
+            Outcome::DeniedEscrow
+        );
+        assert_eq!(
+            ledger.admit(request(63, 0, 1, ACTIVE_EPOCH + 1)),
+            Outcome::Accepted
+        );
+        assert_eq!(ledger.metrics().spent_units, 5);
+        assert!(!ledger.advance_epoch(ACTIVE_EPOCH));
+        assert_eq!(ledger.metrics().spent_units, 5);
     }
 
     #[test]

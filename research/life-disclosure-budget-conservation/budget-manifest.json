@@ -18,6 +18,7 @@
     "reusing request identity for different content is rejected",
     "offline escrow allocations sum to no more than the global budget",
     "stale policy epoch is rejected",
+    "advancing policy epoch does not reset already-consumed budget within the same budget scope",
     "optional disclosure denial never changes the separately required task decision"
   ],
   "claim_boundary": "Synthetic state-machine evaluation only; not a distributed consensus protocol, differential-privacy guarantee, credential conformance result, or production safety proof."

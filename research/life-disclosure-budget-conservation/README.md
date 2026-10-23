@@ -54,6 +54,8 @@ The required task decision is explicitly separate from optional disclosure. Deny
 
 The serialized ledger is a semantic baseline, not a production implementation of a consensus protocol. The escrow model tests a bounded offline-authorization pattern in a deterministic state machine; it does not establish how leases are issued, revoked, reconciled or made tamper-resistant in a live federation.
 
+**Policy epoch is not budget reset.** Advancing policy revision preserves already-consumed budget in both the shared-ledger and escrow models. A real system must scope any reset to an explicit, versioned budget-window identity and justify why earlier exposures no longer compose (for example, a rigorously separated subject/audience/dataset scope). A new policy revision alone cannot erase disclosures an observer has already seen. The first slice deliberately denies implicit reset; it does not yet implement or justify any explicit budget-window reset protocol.
+
 Before integrating with Holochain or Mycelix runtime code, an independent design must specify authority, policy epochs, lease expiry, durable idempotency, revocation/currentness and unresolved-conflict semantics. A DHT observation alone must not be described as a globally atomic reservation. Under missing or stale required evidence, optional disclosure should be denied or marked inconclusive rather than silently expanded.
 
 ## Industry comparison
