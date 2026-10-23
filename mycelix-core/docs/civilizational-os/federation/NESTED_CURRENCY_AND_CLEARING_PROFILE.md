@@ -101,7 +101,11 @@ A child group cannot issue or amend a parent instrument. A federation cannot cha
 
 ## 6. Federation and clearing modes
 
-Peering is opt-in and described by a versioned agreement between named parties. It must bind:
+Peering is opt-in and described by a versioned agreement between named parties. The reference implementation must resolve the instrument ID through the canonical registry when the agreement is admitted and pin the exact instrument-profile revision. Unknown IDs, mismatched profile revisions, or non-transferable reputation instruments are rejected; a free-form string is not sufficient proof that an instrument exists or may be spent. The model stores the resolved profile binding with the agreement so obligation calls cannot substitute a caller-provided profile.
+
+A profile revision and a peer-agreement revision are separate namespaces: one describes the instrument's semantics; the other describes the counterparties' clearing and risk contract. An agreement names both. Any future profile migration requires an explicit requalification of the agreement rather than silently changing the unit or liability domain.
+
+The agreement must bind:
 
 - participating community and instrument identities;
 - which activities and transaction directions are permitted;
@@ -184,6 +188,7 @@ Make these negative-first tests part of the qualification contract before enabli
 - an obligation is accepted when either involved community has no configured aggregate cap, or when a zero cap is interpreted as missing configuration instead of an explicit no-new-risk policy;
 - aggregate exposure calculation incorrectly sums raw numeric balances from unlike instrument/unit domains;
 - equal-and-opposite obligations are implicitly netted, so low signed net balance hides high gross unsettled exposure;
+- a clearing agreement is created from an unknown/free-form instrument ID, stale profile revision, or reputation score treated as spendable value;
 - a settlement for one direction accidentally consumes or cancels the opposite obligation;
 - a rejected over-cap obligation partially changes state or consumes an event ID before failing;
 - an amount-limited capability omits the amount, uses a negative amount, or attempts new issuance with no ceiling;
