@@ -477,11 +477,11 @@ pub fn evaluate_support_decision_run(
         issue(&mut structural_issues, None, "fixture_digest_mismatch", "fixture_digest_blake3 must match the exact manifest bytes being evaluated");
     }
 
-    let expected_ids: BTreeSet<&str> =
-        manifest.cases.iter().map(|case| case.case_id.as_str()).collect();
+    let expected_ids: BTreeSet<String> =
+        manifest.cases.iter().map(|case| case.case_id.clone()).collect();
     let mut predictions_by_id: BTreeMap<String, SupportAction> = BTreeMap::new();
     for prediction in &prediction_set.predictions {
-        if !expected_ids.contains(prediction.case_id.as_str()) {
+        if !expected_ids.contains(&prediction.case_id) {
             issue(&mut structural_issues, Some(prediction.case_id.as_str()), "unknown_prediction_case", "prediction references a case absent from the manifest");
             continue;
         }
