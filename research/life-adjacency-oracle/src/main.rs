@@ -2,7 +2,6 @@ use std::fmt::Write as _;
 
 const RECORD_COUNTS_PER_PERSON: [usize; 2] = [1, 3];
 const GROUP_SIZES: [usize; 3] = [1, 2, 4];
-const BASE_FACT_EPSILON: f64 = 3.0_f64.ln();
 const MAX_EXACT_ENUMERATION_FACTS: usize = 16;
 const PPM: u64 = 1_000_000;
 const MANIFEST: &str = include_str!("../manifest.json");
@@ -160,9 +159,10 @@ fn evaluate_case(case: AdjacencyCase, mechanism: Mechanism) -> ReportRow {
         0
     };
     let epsilon_nats = if finite_epsilon {
+        let base_fact_epsilon = 3.0_f64.ln();
         format!(
             "{:.9}",
-            ratio.max_log3_ratio_exponent as f64 * BASE_FACT_EPSILON
+            ratio.max_log3_ratio_exponent as f64 * base_fact_epsilon
         )
     } else {
         "INF".to_owned()
