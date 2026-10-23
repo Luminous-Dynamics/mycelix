@@ -156,8 +156,15 @@ pub struct HistoryBenchmarkScore {
     pub observation_blake3: String,
     pub oracle_blake3: String,
     pub case_count: usize,
+    /// Semantic disposition/diagnosis/action fit, not yet evidence-grounded.
+    pub decision_fit_decisions: usize,
+    pub decision_fit_rate: f64,
+    /// End-to-end acceptable decisions: semantic fit plus complete required evidence.
     pub acceptable_decisions: usize,
     pub acceptable_decision_rate: f64,
+    pub claim_count: usize,
+    pub evidence_grounded_claims: usize,
+    pub evidence_grounded_claim_rate: Option<f64>,
     pub required_supporting_evidence_coverage: Option<f64>,
     pub required_contradicting_evidence_coverage: Option<f64>,
     pub supporting_reference_precision: Option<f64>,
@@ -339,7 +346,10 @@ pub fn score_history_predictions(
     }
 
     let prediction_by_case: BTreeMap<&str, &HistoryPrediction> = predictions.predictions.iter().map(|prediction| (prediction.case_id.as_str(), prediction)).collect();
+    let mut decision_fit_count = 0usize;
     let mut acceptable = 0usize;
+    let mut claim_count = 0usize;
+    let mut evidence_grounded_claims = 0usize;
     let mut required_support_total = 0usize;
     let mut required_support_found = 0usize;
     let mut required_contradiction_total = 0usize;
@@ -365,11 +375,21 @@ pub fn score_history_predictions(
                 HistoryDisposition::RequestMoreEvidence => prediction.requested_evidence == label.requested_evidence,
                 HistoryDisposition::Abstain => true,
             };
-        if decision_acceptable { acceptable += 1; }
+        if decision_acceptable { decision_fit_count += 1; }
         if prediction.disposition == HistoryDisposition::Claim
             && !label.accepted_dispositions.contains(&HistoryDisposition::Claim)
         {
             critical += 1;
+        }
+        let mut current_claim_grounded = true;
+        if prediction.disposition == HistoryDisposition::Claim {
+            claim_count += 1;
+            if prediction.supporting_evidence_ids.is_empty()
+                || label.required_supporting_evidence_ids.iter().any(|id| !prediction.supporting_evidence_ids.contains(id))
+                || label.required_contradicting_evidence_ids.iter().any(|id| !prediction.contradicting_evidence_ids.contains(id))
+            {
+                current_claim_grounded = false;
+            }
         }
         for id in &prediction.supporting_evidence_ids {
             support_refs += 1;
@@ -377,7 +397,22 @@ pub fn score_history_predictions(
         }
         for id in &prediction.contradicting_evidence_ids {
             contradiction_refs += 1;
-            if known.contains(id.as_str()) { grounded_contradiction_refs += 1; } else { unsupported += 1; critical += 1; }
+            if known.contains(id.as_str()) { grounded_contradiction_refs += 1; } else {
+                unsupported += 1;
+                critical += 1;
+                if prediction.disposition == HistoryDisposition::Claim { current_claim_grounded = false; }
+            }
+        }
+        if prediction.disposition == HistoryDisposition::Claim {
+            if prediction.supporting_evidence_ids.iter().any(|id| !known.contains(id.as_str())) {
+                current_claim_grounded = false;
+            }
+            if current_claim_grounded { evidence_grounded_claims += 1; }
+            if decision_acceptable && current_claim_grounded { acceptable += 1; }
+        } else if decision_acceptable {
+            // Safe abstentions and correctly targeted evidence requests can be acceptable
+            // without citations because they assert no diagnosis.
+            acceptable += 1;
         }
         // A candidate that abstains is not penalized for omitting claim citations.
         // Evidence coverage and contradiction omission become decision-critical only for claims.
@@ -406,8 +441,13 @@ pub fn score_history_predictions(
         observation_blake3: observation_digest,
         oracle_blake3: oracle_digest,
         case_count: cases.len(),
+        decision_fit_decisions: decision_fit_count,
+        decision_fit_rate: decision_fit_count as f64 / cases.len() as f64,
         acceptable_decisions: acceptable,
         acceptable_decision_rate: acceptable as f64 / cases.len() as f64,
+        claim_count,
+        evidence_grounded_claims,
+        evidence_grounded_claim_rate: ratio(evidence_grounded_claims, claim_count),
         required_supporting_evidence_coverage: ratio(required_support_found, required_support_total),
         required_contradicting_evidence_coverage: ratio(required_contradiction_found, required_contradiction_total),
         supporting_reference_precision: ratio(grounded_support_refs, support_refs),
