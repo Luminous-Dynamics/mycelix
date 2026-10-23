@@ -2,9 +2,9 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Commercial licensing: see COMMERCIAL_LICENSE.md at repository root
 
-use praxis_core::assessment_evidence::{AssessmentBenchmarkRun, ValidationIssue};
+use praxis_core::assessment_evidence::AssessmentBenchmarkRun;
 use praxis_core::study_context::{
-    ObservationStatus, StudyContextIssue, StudyContextRun, StudyPeriod, SupportAvailability,
+    ObservationStatus, StudyContextIssue, StudyContextRun, StudyContextSummary, StudyPeriod, SupportAvailability,
     validate_study_context, validate_study_context_binding,
 };
 use serde_json::{Value, json};
@@ -24,7 +24,7 @@ fn assessment_fixture() -> AssessmentBenchmarkRun {
     .expect("assessment fixture must parse")
 }
 
-fn has_code(result: Result<impl Sized, Vec<StudyContextIssue>>, code: &str) -> bool {
+fn has_code(result: Result<StudyContextSummary, Vec<StudyContextIssue>>, code: &str) -> bool {
     result
         .err()
         .unwrap_or_default()
@@ -32,9 +32,6 @@ fn has_code(result: Result<impl Sized, Vec<StudyContextIssue>>, code: &str) -> b
         .any(|issue| issue.code == code)
 }
 
-fn has_assessment_code(issues: &[StudyContextIssue], code: &str) -> bool {
-    issues.iter().any(|issue| issue.code == code)
-}
 
 #[test]
 fn schema_matches_rust_wire_fields_and_enum_values() {
