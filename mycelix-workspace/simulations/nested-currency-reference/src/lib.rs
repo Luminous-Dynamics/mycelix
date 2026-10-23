@@ -298,6 +298,9 @@ mod tests {
         let mut l = MutualCredit::default();
         assert_eq!(l.apply(&p, exchange("tx:1", &p, 17)), Ok(Apply::Applied));
         assert_eq!(l.net(&p.id), 0);
+        let changed_revision = Profile { revision: 2, ..p.clone() };
+        assert_eq!(l.apply(&changed_revision, exchange("tx:stale", &p, 1)),
+            Err(Error::StaleRevision));
         assert_eq!(l.apply(&p, exchange("tx:1", &p, 17)), Ok(Apply::Duplicate));
         assert_eq!(l.apply(&p, exchange("tx:1", &p, 18)), Err(Error::ReplayMismatch));
         assert_eq!(l.balance(&p.id, "alice"), 17);
@@ -323,6 +326,9 @@ mod tests {
         let mut c = Clearing::default();
         c.add(agreement("edge:ab", "cc:local", 100)).unwrap();
         c.add(agreement("edge:ac", "cc:local", 100)).unwrap();
+        assert_eq!(c.obligation("ob:stale", "edge:ab", "cc:local", 2, 7),
+            Err(Error::StaleRevision));
+        assert_eq!(c.outstanding("edge:ab"), Ok(0));
         assert_eq!(c.obligation("ob:1", "edge:ab", "cc:local", 1, 70), Ok(Apply::Applied));
         assert_eq!(c.obligation("ob:2", "edge:ab", "cc:local", 1, 40), Err(Error::ExposureLimit));
         assert_eq!(c.obligation("ob:3", "edge:ac", "cc:local", 1, 90), Ok(Apply::Applied));
