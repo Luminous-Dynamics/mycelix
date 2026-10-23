@@ -15,6 +15,7 @@
 //! - Structured error handling with descriptive messages
 
 pub mod assessment_evidence;
+pub mod study_context;
 mod benchmarks;
 pub mod contracts;
 pub mod crypto;
