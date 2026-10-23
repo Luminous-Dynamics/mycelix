@@ -37,12 +37,12 @@
     "prior_accuracy_ppm",
     "lift_vs_prior_ppm",
     "mean_peer_observations",
-    "evidence_loss_vs_exact_peer_rows",
     "direct_target_protected_disclosures",
     "decision_threshold_ppm",
     "selective_coverage_ppm",
     "selective_accuracy_ppm",
-    "abstained_targets"
+    "abstained_targets",
+    "peer_observation_delta_vs_exact_cohort"
   ],
   "claim_ceiling": "synthetic_cross_subject_inference_attack",
   "nonclaims": [
