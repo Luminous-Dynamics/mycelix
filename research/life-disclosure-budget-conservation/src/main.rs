@@ -727,6 +727,23 @@ mod tests {
     }
 
     #[test]
+    fn report_schema_is_rectangular_and_includes_independent_audit() {
+        let report = run_report();
+        let mut rows = report.lines();
+        let header = rows.next().expect("report header must exist");
+        let width = header.split(',').count();
+        assert!(header.split(',').any(|column| column == "audit_spent_units"));
+        assert!(header.split(',').any(|column| column == "audit_overspend_units"));
+
+        let mut row_count = 0;
+        for row in rows {
+            assert_eq!(row.split(',').count(), width, "non-rectangular row: {row}");
+            row_count += 1;
+        }
+        assert_eq!(row_count, 8);
+    }
+
+    #[test]
     fn report_is_byte_for_byte_deterministic_and_claims_no_dp_parameters() {
         assert_eq!(run_report(), run_report());
         assert!(MANIFEST.contains("not epsilon, delta"));
