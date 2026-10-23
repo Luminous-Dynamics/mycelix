@@ -136,7 +136,7 @@ A system may support netting only when a versioned agreement explicitly defines 
 
 Recomputing aggregate exposure from a global snapshot is safe in this sequential reference model, but is not by itself a distributed concurrency protocol. During a partition, two independent writers cannot assume the same unallocated community risk limit is available.
 
-For operations that must remain available offline, allocate non-overlapping gross-exposure reservations before the partition. The reservation identity includes the exact instrument, agreement, shard/owner, and epoch. A reservation consumes capacity against **both** involved communities' per-instrument caps and the agreement's cap. Each shard can admit new obligations only inside its own assigned slice; opposite-direction obligations still consume gross capacity.
+For operations that must remain available offline, allocate non-overlapping gross-exposure reservations before the partition. The reservation identity includes the exact instrument, agreement, shard/owner, and epoch. One agreement ID is bound to one immutable community pair across all instruments, shards, and epochs; reusing the ID with a different counterparty rejects. A reservation consumes capacity against **both** involved communities' per-instrument caps and the agreement's cap. Each shard can admit new obligations only inside its own assigned slice; opposite-direction obligations still consume gross capacity.
 
 This deliberately trades some capacity utilization for safety. A settlement restores reusable room inside the same live reservation, but does not transfer that room to another shard. Unreachable or potentially stale owners retain their allocation until a separately qualified fencing/reconciliation step proves the old right can no longer be spent. A lease timeout alone is not proof of fencing. This first reference module does not implement reservation transfer, owner revocation, or capacity reclamation; no production availability claim should be inferred from it.
 
@@ -200,6 +200,7 @@ Make these negative-first tests part of the qualification contract before enabli
 - aggregate exposure calculation incorrectly sums raw numeric balances from unlike instrument/unit domains;
 - equal-and-opposite obligations are implicitly netted, so low signed net balance hides high gross unsettled exposure;
 - a clearing agreement is created from an unknown/free-form instrument ID, stale profile revision, or reputation score treated as spendable value;
+- one agreement ID is reused for a different counterparty pair across shard or instrument reservations;
 - a settlement for one direction accidentally consumes or cancels the opposite obligation;
 - a rejected over-cap obligation partially changes state or consumes an event ID before failing;
 - an amount-limited capability omits the amount, uses a negative amount, or attempts new issuance with no ceiling;
