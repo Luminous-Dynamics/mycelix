@@ -159,6 +159,7 @@ Make these negative-first tests part of the qualification contract before enabli
 
 ### Authority and identity
 - two instruments with the same symbol but different issuers;
+- same instrument ID is presented with a changed unit or decimal scale under the same revision after balances exist;
 - creator authenticates as a valid member but not as an authorized agent of the declared issuer;
 - small-community path attempts to bypass issuer authorization;
 - child attempts to mutate a parent profile;
@@ -189,6 +190,7 @@ Make these negative-first tests part of the qualification contract before enabli
 ### Property-level invariants
 - Every accepted mutation has a verifiable, action-bound authority proof.
 - Cross-currency arithmetic is rejected absent an explicit, versioned conversion/clearing policy.
+- An instrument ID cannot silently change unit identity or scale; migration requires a new instrument identity or an explicit, qualified migration.
 - Mutual-credit net positions conserve value within the right instrument and transaction domain.
 - An accepted operation is idempotent under retry; rejected or stale operations create no hidden balance change.
 - Currency/profile/policy identity survives all adapters and exported receipts.
