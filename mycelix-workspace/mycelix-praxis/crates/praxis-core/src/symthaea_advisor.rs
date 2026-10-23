@@ -211,6 +211,20 @@ pub struct SymthaeaAdvisorIssue {
     pub message: String,
 }
 
+/// A small provider boundary. Implementations may be in-process or isolated sidecars;
+/// they must return an advisory response and must not perform learning or ledger writes.
+pub trait SymthaeaAdvisorPort {
+    fn advise(&self, request_json: &str) -> Result<String, SymthaeaAdvisorPortError>;
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, thiserror::Error)]
+pub enum SymthaeaAdvisorPortError {
+    #[error("Symthaea advisor is unavailable")]
+    Unavailable,
+    #[error("Symthaea adapter transport failed: {0}")]
+    Transport(String),
+}
+
 /// Parse with a strict typed contract. Unknown fields and unknown enum values fail.
 pub fn parse_symthaea_advisor_request(
     input: &str,
@@ -273,6 +287,22 @@ pub fn validate_symthaea_advisor_request(
         }
     }
 
+    if request.support_options.is_empty() {
+        issue(&mut issues, "support_options", "missing_support_options", "at least one support option must be enumerated");
+    }
+    let mut preferred = BTreeSet::new();
+    for action in &request.preferred_actions {
+        if !preferred.insert(*action) {
+            issue(&mut issues, "preferred_actions", "duplicate_preferred_action", "preferred actions must be unique");
+        }
+    }
+    let mut accessibility = BTreeSet::new();
+    for requirement in &request.accessibility_requirements {
+        if requirement.trim().is_empty() || !accessibility.insert(requirement.as_str()) {
+            issue(&mut issues, "accessibility_requirements", "invalid_accessibility_requirement", "accessibility requirements must be non-empty and unique");
+        }
+    }
+
     let mut actions = BTreeSet::new();
     for option in &request.support_options {
         if !actions.insert(option.action) {
@@ -289,14 +319,6 @@ pub fn validate_symthaea_advisor_request(
         {
             issue(&mut issues, "support_options.policy_permitted", "ai_policy_conflict", "AI assistance cannot be marked policy-permitted under an explicit prohibition");
         }
-    }
-
-    if request.contextually_requires_accessible_support()
-        && !request.support_options.iter().any(|option| {
-            option.available && option.accessible_for_context && option.policy_permitted
-        })
-    {
-        issue(&mut issues, "support_options", "no_accessible_support_option", "no available, accessible and policy-permitted support is represented; only a safe abstention path may be advised");
     }
 
     if request.human_support_must_be_preserved && request.displacement_risk == DisplacementRisk::Material {
@@ -415,6 +437,12 @@ pub fn validate_symthaea_advice_for_request(
         )
     {
         issue(&mut issues, "selected_action", "insufficient_evidence_requires_clarification", "insufficient or conflicting context must lead to clarification, abstention, or human support");
+    }
+
+    if request.contextually_requires_accessible_support()
+        && matches!(response.selected_action, AdvisorAction::AskClarifyingQuestion | AdvisorAction::NoIntervention)
+    {
+        issue(&mut issues, "selected_action", "accessibility_needs_unresolved", "a stated accessibility requirement cannot be left unaddressed by a clarification-free no-op");
     }
 
     if request.human_support_must_be_preserved && request.displacement_risk == DisplacementRisk::Material {
