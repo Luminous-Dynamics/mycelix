@@ -732,8 +732,8 @@ mod tests {
         ] {
             assert!(MANIFEST.contains(fixture), "missing fixture {fixture}");
         }
-        assert!(MANIFEST.contains("\"group_per_domain\": 8"));
-        assert!(MANIFEST.contains("\"purpose_per_domain\": 12"));
+        assert!(MANIFEST.contains("\"group_per_domain\": 8,"));
+        assert!(MANIFEST.contains("\"purpose_per_domain\": 12,"));
     }
 
     #[test]
@@ -762,7 +762,7 @@ mod tests {
             4,
             1,
             99,
-            2,
+            3,
             INITIAL_POLICY_EPOCH,
             INITIAL_MEMBERSHIP_EPOCH,
         );
