@@ -2,7 +2,7 @@
 set -euo pipefail
 
 repo_root="$(git rev-parse --show-toplevel)"
-if [[ -n "$(git -C "$repo_root" status --porcelain) " ]]; then
+if [[ -n "$(git -C "$repo_root" status --porcelain)" ]]; then
   echo "Refusing to benchmark a dirty worktree; commit or discard changes first." >&2
   exit 2
 fi
