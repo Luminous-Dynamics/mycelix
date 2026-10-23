@@ -199,6 +199,9 @@ pub struct Agreement {
     pub community_a: String,
     pub community_b: String,
     pub instrument: String,
+    /// Version of the canonical instrument profile pinned by this agreement.
+    pub instrument_revision: u64,
+    /// Revision of this peer agreement and its clearing/risk terms.
     pub revision: u64,
     /// Maximum total unsettled gross obligations in both directions, not net balance.
     pub max_gross_outstanding: i64,
@@ -245,20 +248,39 @@ enum ClearingEvent {
 #[derive(Default)]
 pub struct Clearing {
     agreements: BTreeMap<String, Agreement>,
+    /// Canonical registry-resolved profile snapshots pinned when an agreement is admitted.
+    /// Operations cannot substitute an arbitrary caller-provided instrument profile.
+    instrument_profiles: BTreeMap<String, Profile>,
     outstanding: BTreeMap<String, GrossOutstanding>,
     events: BTreeMap<String, ClearingEvent>,
     community_gross_caps: BTreeMap<(String, String), u64>,
 }
 
 impl Clearing {
-    pub fn add(&mut self, a: Agreement) -> Result<(), Error> {
+    pub fn add(&mut self, registry: &Registry, a: Agreement) -> Result<(), Error> {
         if a.id.trim().is_empty() || a.community_a.trim().is_empty()
             || a.community_b.trim().is_empty() || a.community_a == a.community_b
-            || a.instrument.trim().is_empty() || a.revision == 0 || a.max_gross_outstanding <= 0
+            || a.instrument.trim().is_empty() || a.instrument_revision == 0
+            || a.revision == 0 || a.max_gross_outstanding <= 0
             || self.agreements.contains_key(&a.id) {
             return Err(Error::InvalidAgreement);
         }
+
+        // Resolve once against the canonical registry and pin the exact instrument
+        // revision to the agreement. Unknown IDs never become clearing instruments.
+        let profile = registry.get(&a.instrument)?;
+        profile.validate()?;
+        if profile.revision != a.instrument_revision {
+            return Err(Error::StaleRevision);
+        }
+        // MYCEL reputation is non-transferable; it must not become a spendable
+        // clearing asset simply because it has a numeric representation.
+        if profile.family == Family::Reputation {
+            return Err(Error::WrongFamily);
+        }
+
         self.outstanding.insert(a.id.clone(), GrossOutstanding::default());
+        self.instrument_profiles.insert(a.id.clone(), profile.clone());
         self.agreements.insert(a.id.clone(), a);
         Ok(())
     }
@@ -323,6 +345,12 @@ impl Clearing {
         let a = self.agreements.get(agreement_id).ok_or(Error::InvalidAgreement)?;
         if a.instrument != instrument { return Err(Error::InvalidAgreement); }
         if a.revision != revision { return Err(Error::StaleRevision); }
+        let profile = self.instrument_profiles.get(agreement_id).ok_or(Error::InvalidAgreement)?;
+        if profile.id != a.instrument || profile.revision != a.instrument_revision {
+            return Err(Error::StaleRevision);
+        }
+        if !profile.active { return Err(Error::Inactive); }
+        if profile.family == Family::Reputation { return Err(Error::WrongFamily); }
         if a.status != AgreementStatus::Active { return Err(Error::AgreementPaused); }
 
         // Missing policy never means unlimited risk. Each party explicitly defines
@@ -413,7 +441,16 @@ mod tests {
     }
     fn agreement(id: &str, instrument: &str, cap: i64) -> Agreement {
         Agreement { id: id.into(), community_a: "a".into(), community_b: "b".into(),
-            instrument: instrument.into(), revision: 1, max_gross_outstanding: cap, status: AgreementStatus::Active }
+            instrument: instrument.into(), instrument_revision: 1, revision: 1,
+            max_gross_outstanding: cap, status: AgreementStatus::Active }
+    }
+
+    fn clearing_registry(ids: &[&str]) -> Registry {
+        let mut registry = Registry::default();
+        for id in ids {
+            registry.register(profile(id, &format!("did:issuer:{id}"), Family::MutualCredit)).unwrap();
+        }
+        registry
     }
 
     #[test]
@@ -552,8 +589,9 @@ mod tests {
     #[test]
     fn federation_exposure_is_per_edge_and_paused_edges_still_settle() {
         let mut c = Clearing::default();
-        c.add(agreement("edge:ab", "cc:local", 100)).unwrap();
-        c.add(agreement("edge:ac", "cc:local", 100)).unwrap();
+        let registry = clearing_registry(&["cc:local", "cc:other"]);
+        c.add(&registry, agreement("edge:ab", "cc:local", 100)).unwrap();
+        c.add(&registry, agreement("edge:ac", "cc:local", 100)).unwrap();
         c.set_community_gross_cap("a", "cc:local", 300).unwrap();
         c.set_community_gross_cap("b", "cc:local", 300).unwrap();
         c.set_community_gross_cap("c", "cc:local", 300).unwrap();
@@ -574,7 +612,8 @@ mod tests {
     #[test]
     fn settlement_cannot_overrun_outstanding_and_wrong_instrument_is_rejected() {
         let mut c = Clearing::default();
-        c.add(agreement("edge:ab", "cc:local", 100)).unwrap();
+        let registry = clearing_registry(&["cc:local", "cc:other"]);
+        c.add(&registry, agreement("edge:ab", "cc:local", 100)).unwrap();
         c.set_community_gross_cap("a", "cc:local", 100).unwrap();
         c.set_community_gross_cap("b", "cc:local", 100).unwrap();
         c.obligation("ob:1", "edge:ab", "cc:local", 1, -25).unwrap();
@@ -587,9 +626,10 @@ mod tests {
     #[test]
     fn aggregate_gross_exposure_cannot_be_double_committed_across_federations() {
         let mut c = Clearing::default();
-        c.add(agreement("edge:ab", "cc:local", 100)).unwrap();
-        c.add(agreement("edge:ac", "cc:local", 100)).unwrap();
-        c.add(agreement("edge:ad", "cc:other", 100)).unwrap();
+        let registry = clearing_registry(&["cc:local", "cc:other"]);
+        c.add(&registry, agreement("edge:ab", "cc:local", 100)).unwrap();
+        c.add(&registry, agreement("edge:ac", "cc:local", 100)).unwrap();
+        c.add(&registry, agreement("edge:ad", "cc:other", 100)).unwrap();
         c.set_community_gross_cap("a", "cc:local", 100).unwrap();
         c.set_community_gross_cap("b", "cc:local", 100).unwrap();
         c.set_community_gross_cap("c", "cc:local", 100).unwrap();
@@ -612,9 +652,30 @@ mod tests {
     }
 
     #[test]
+    fn clearing_agreements_require_a_registered_non_reputation_instrument_revision() {
+        let mut clearing = Clearing::default();
+        let registry = clearing_registry(&["cc:local"]);
+        assert_eq!(
+            clearing.add(&registry, agreement("edge:unknown", "cc:missing", 100)),
+            Err(Error::UnknownInstrument)
+        );
+
+        let stale = Agreement { instrument_revision: 2, ..agreement("edge:stale", "cc:local", 100) };
+        assert_eq!(clearing.add(&registry, stale), Err(Error::StaleRevision));
+
+        let mut reputation_registry = Registry::default();
+        reputation_registry.register(profile("MYCEL", "did:mycelix:reputation", Family::Reputation)).unwrap();
+        assert_eq!(
+            clearing.add(&reputation_registry, agreement("edge:reputation", "MYCEL", 100)),
+            Err(Error::WrongFamily)
+        );
+    }
+
+    #[test]
     fn opposing_obligations_remain_gross_until_directionally_settled() {
         let mut c = Clearing::default();
-        c.add(agreement("edge:ab", "cc:local", 200)).unwrap();
+        let registry = clearing_registry(&["cc:local", "cc:other"]);
+        c.add(&registry, agreement("edge:ab", "cc:local", 200)).unwrap();
         c.set_community_gross_cap("a", "cc:local", 120).unwrap();
         c.set_community_gross_cap("b", "cc:local", 120).unwrap();
 
@@ -647,7 +708,8 @@ mod tests {
     #[test]
     fn clearing_requires_explicit_aggregate_caps_and_zero_cap_disables_new_obligations() {
         let mut c = Clearing::default();
-        c.add(agreement("edge:ab", "cc:local", 100)).unwrap();
+        let registry = clearing_registry(&["cc:local", "cc:other"]);
+        c.add(&registry, agreement("edge:ab", "cc:local", 100)).unwrap();
 
         // Missing aggregate policy is not treated as unlimited credit.
         assert_eq!(c.obligation("ob:1", "edge:ab", "cc:local", 1, 10),
