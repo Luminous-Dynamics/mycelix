@@ -167,8 +167,8 @@ pub struct HistoryBenchmarkScore {
     pub evidence_grounded_claim_rate: Option<f64>,
     pub required_supporting_evidence_coverage: Option<f64>,
     pub required_contradicting_evidence_coverage: Option<f64>,
-    pub supporting_reference_precision: Option<f64>,
-    pub contradicting_reference_precision: Option<f64>,
+    pub supporting_reference_validity: Option<f64>,
+    pub contradicting_reference_validity: Option<f64>,
     pub unsupported_evidence_references: usize,
     pub missing_required_contradictions: usize,
     pub critical_violations: usize,
@@ -450,8 +450,8 @@ pub fn score_history_predictions(
         evidence_grounded_claim_rate: ratio(evidence_grounded_claims, claim_count),
         required_supporting_evidence_coverage: ratio(required_support_found, required_support_total),
         required_contradicting_evidence_coverage: ratio(required_contradiction_found, required_contradiction_total),
-        supporting_reference_precision: ratio(grounded_support_refs, support_refs),
-        contradicting_reference_precision: ratio(grounded_contradiction_refs, contradiction_refs),
+        supporting_reference_validity: ratio(grounded_support_refs, support_refs),
+        contradicting_reference_validity: ratio(grounded_contradiction_refs, contradiction_refs),
         unsupported_evidence_references: unsupported,
         missing_required_contradictions: missing_contradictions,
         critical_violations: critical,
@@ -499,6 +499,55 @@ mod tests {
         let events = value["cases"][0]["observations"].as_array_mut().expect("array");
         events.swap(0, 3);
         assert!(validate_history_bundle(&value.to_string(), ORACLE).is_ok());
+    }
+
+    #[test]
+    fn row_order_permutation_preserves_semantic_scores_but_changes_byte_binding() {
+        let (manifest, _) = validate_history_bundle(OBSERVATIONS, ORACLE).expect("valid bundle");
+        let make_predictions = |manifest: HistoryManifest| -> Vec<HistoryPrediction> {
+            manifest.cases.into_iter().map(|case| {
+                if case.case_id == "TH008" {
+                    HistoryPrediction {
+                        case_id: case.case_id,
+                        disposition: HistoryDisposition::Claim,
+                        diagnosis: Some(HistoryDiagnosis::ProvenUnassistedProgress),
+                        next_action: Some(HistoryAction::SpacedRetrieval),
+                        supporting_evidence_ids: vec!["th008-e1".into(), "th008-e2".into(), "th008-e4".into()],
+                        contradicting_evidence_ids: vec!["th008-e3".into()],
+                        requested_evidence: None,
+                    }
+                } else {
+                    abstaining_prediction(case.case_id)
+                }
+            }).collect()
+        };
+        let raw_original_predictions = serde_json::to_string(&HistoryPredictionManifest {
+            schema_version: 1,
+            benchmark_id: BENCHMARK_ID.into(),
+            observation_blake3: blake3::hash(OBSERVATIONS.as_bytes()).to_hex().to_string(),
+            predictions: make_predictions(manifest.clone()),
+        }).expect("serialize original predictions");
+        let original_score = score_history_predictions(OBSERVATIONS, ORACLE, &raw_original_predictions).expect("original score");
+
+        let mut reordered: serde_json::Value = serde_json::from_str(OBSERVATIONS).expect("JSON");
+        let events = reordered["cases"].as_array_mut().expect("cases")
+            .iter_mut().find(|case| case["case_id"] == "TH008")
+            .expect("TH008")["observations"].as_array_mut().expect("events");
+        events.swap(0, 3);
+        let reordered_json = reordered.to_string();
+        assert_ne!(blake3::hash(OBSERVATIONS.as_bytes()).to_hex().as_str(), blake3::hash(reordered_json.as_bytes()).to_hex().as_str());
+        let reordered_manifest: HistoryManifest = serde_json::from_str(&reordered_json).expect("parse reordered");
+        let reordered_predictions = serde_json::to_string(&HistoryPredictionManifest {
+            schema_version: 1,
+            benchmark_id: BENCHMARK_ID.into(),
+            observation_blake3: blake3::hash(reordered_json.as_bytes()).to_hex().to_string(),
+            predictions: make_predictions(reordered_manifest),
+        }).expect("serialize reordered predictions");
+        let reordered_score = score_history_predictions(&reordered_json, ORACLE, &reordered_predictions).expect("reordered score");
+        assert_eq!(original_score.decision_fit_rate, reordered_score.decision_fit_rate);
+        assert_eq!(original_score.acceptable_decision_rate, reordered_score.acceptable_decision_rate);
+        assert_eq!(original_score.evidence_grounded_claim_rate, reordered_score.evidence_grounded_claim_rate);
+        assert_ne!(original_score.observation_blake3, reordered_score.observation_blake3);
     }
 
     #[test]
