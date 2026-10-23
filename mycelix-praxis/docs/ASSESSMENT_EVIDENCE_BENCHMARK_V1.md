@@ -9,6 +9,7 @@ The contract, language-neutral schema, and synthetic comparison fixture are:
 - `crates/praxis-core/src/assessment_evidence.rs` — executable semantic validator.
 - `examples/assessment-benchmarks/v1/assessment_benchmark.schema.json` — JSON Schema 2020-12 wire shape.
 - `examples/assessment-benchmarks/v1/ai_scaffold_fading_synthetic.json` — synthetic comparison fixture.
+- `crates/praxis-core/src/study_context.rs`, `examples/assessment-benchmarks/v1/study_context.schema.json`, and `examples/assessment-benchmarks/v1/study_context_synthetic.json` — an additive context companion for availability, actual uptake, ordinary task participation, and explicit missingness; see [Study Context Companion v1](STUDY_CONTEXT_NONHARM_V1.md).
 
 The checked-in fixture contains three **synthetic examples**, one per arm, with 21 total assessment events. These records are only test data for schema and negative-control behavior. They are far too small to estimate learning effects and must never be reported as user results.
 
@@ -28,6 +29,10 @@ The main outcomes remain separate:
 - rubric and task form/version.
 
 This addresses a meaningful failure mode: a tool can increase task throughput without increasing durable capability. A 2025 *PNAS* field experiment with nearly 1,000 high-school mathematics students reported that GPT-4 help improved practice performance, yet students using a less learning-protective tutor performed worse than the no-AI comparison when the tool was removed; a hint-oriented design mitigated much of that effect. A separate 2025 randomized study of 120 undergraduates reported lower scores on a surprise 45-day retention test in the ChatGPT-supported group than in the traditional-study group. Both results are bounded by their populations and learning domains; they do not show that all AI assistance is harmful.
+
+An October 2026 IZA Discussion Paper reports a randomized university trial involving 2,379 undergraduates and 30 instructors across multiple disciplines. In the studied setting, access to a course-integrated AI tutor reduced final grades by 0.37 standard deviations and LMS participation by 0.90 standard deviations; estimated academic losses were greater for first-generation students. This is a working-paper result from one institution, not proof that every AI tutor harms learning. It makes availability, actual uptake, displacement of ordinary study activity, unaided transfer, delayed retention, and subgroup outcomes essential to evaluate separately.
+
+Source: Liu et al. (2026), *The Effects of Course-Integrated AI Tutoring on Student Performance and Engagement: A Randomized University Trial*: https://edworkingpapers.com/ai26-1598.
 
 Sources:
 - Bastani et al., *Generative AI can harm learning*, PNAS (2025): https://doi.org/10.1073/pnas.2422633122
@@ -131,3 +136,4 @@ Local Cargo tests have not been executed in the current authoring environment. T
 3. Define form-equivalence evidence and rater calibration before field studies.
 4. Preregister an appropriately powered comparison and independently review task materials.
 5. Add Open Badges / VC export only after agreement on the actual claim and evidence semantics; do not convert this validator's summary into a credential automatically.
+6. Reconcile the additive study-context companion with [PRAXIS-LEARNING-NONHARM-001 #5461](https://github.com/Luminous-Dynamics/mycelix/issues/5461); do not treat synthetic structural qualification as evidence of efficacy or non-harm.
