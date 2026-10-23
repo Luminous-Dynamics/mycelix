@@ -49,7 +49,9 @@ pub struct StudyContextObservation {
 pub enum StudyPeriod {
     Baseline,
     Intervention,
+    #[serde(rename = "follow_up_7_day")]
     FollowUp7Day,
+    #[serde(rename = "follow_up_30_day")]
     FollowUp30Day,
 }
 
