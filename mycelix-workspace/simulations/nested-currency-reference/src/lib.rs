@@ -189,6 +189,10 @@ impl MutualCredit {
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum AgreementStatus { Active, Paused }
 
+/// Direction names the community whose outstanding obligation is payable to the other.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum ObligationDirection { AtoB, BtoA }
+
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Agreement {
     pub id: String,
@@ -196,20 +200,52 @@ pub struct Agreement {
     pub community_b: String,
     pub instrument: String,
     pub revision: u64,
-    pub max_abs_outstanding: i64,
+    /// Maximum total unsettled gross obligations in both directions, not net balance.
+    pub max_gross_outstanding: i64,
     pub status: AgreementStatus,
+}
+
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
+struct GrossOutstanding {
+    /// Amount community A owes community B.
+    a_to_b: u64,
+    /// Amount community B owes community A.
+    b_to_a: u64,
+}
+
+impl GrossOutstanding {
+    fn total(self) -> Result<u64, Error> {
+        self.a_to_b.checked_add(self.b_to_a).ok_or(Error::Overflow)
+    }
+
+    /// Signed net position is diagnostic only; risk limits use gross amounts.
+    fn net(self) -> Result<i64, Error> {
+        if self.a_to_b >= self.b_to_a {
+            i64::try_from(self.a_to_b - self.b_to_a).map_err(|_| Error::Overflow)
+        } else {
+            i64::try_from(self.b_to_a - self.a_to_b)
+                .map(|value| -value)
+                .map_err(|_| Error::Overflow)
+        }
+    }
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 enum ClearingEvent {
     Obligation { agreement: String, instrument: String, revision: u64, delta: i64 },
-    Settlement { agreement: String, instrument: String, revision: u64, amount: u64 },
+    Settlement {
+        agreement: String,
+        instrument: String,
+        revision: u64,
+        direction: ObligationDirection,
+        amount: u64,
+    },
 }
 
 #[derive(Default)]
 pub struct Clearing {
     agreements: BTreeMap<String, Agreement>,
-    outstanding: BTreeMap<String, i64>,
+    outstanding: BTreeMap<String, GrossOutstanding>,
     events: BTreeMap<String, ClearingEvent>,
     community_gross_caps: BTreeMap<(String, String), u64>,
 }
@@ -218,22 +254,29 @@ impl Clearing {
     pub fn add(&mut self, a: Agreement) -> Result<(), Error> {
         if a.id.trim().is_empty() || a.community_a.trim().is_empty()
             || a.community_b.trim().is_empty() || a.community_a == a.community_b
-            || a.instrument.trim().is_empty() || a.revision == 0 || a.max_abs_outstanding <= 0
+            || a.instrument.trim().is_empty() || a.revision == 0 || a.max_gross_outstanding <= 0
             || self.agreements.contains_key(&a.id) {
             return Err(Error::InvalidAgreement);
         }
-        self.outstanding.insert(a.id.clone(), 0);
+        self.outstanding.insert(a.id.clone(), GrossOutstanding::default());
         self.agreements.insert(a.id.clone(), a);
         Ok(())
     }
 
+    /// Signed diagnostic net: positive means A owes B; negative means B owes A.
+    /// This value is never used for exposure accounting or limits.
     pub fn outstanding(&self, id: &str) -> Result<i64, Error> {
-        self.outstanding.get(id).copied().ok_or(Error::InvalidAgreement)
+        self.outstanding.get(id).copied().ok_or(Error::InvalidAgreement)?.net()
     }
 
-    /// Set a conservative gross-exposure cap across every peering edge that touches a community.
-    /// Existing commitments are counted before the new cap is accepted.
-    /// Set a conservative gross-exposure cap for one community in one exact instrument.
+    /// Returns (A-owes-B gross, B-owes-A gross), before any legally qualified netting.
+    pub fn gross_outstanding(&self, id: &str) -> Result<(u64, u64), Error> {
+        let value = self.outstanding.get(id).copied().ok_or(Error::InvalidAgreement)?;
+        Ok((value.a_to_b, value.b_to_a))
+    }
+
+    /// Set a conservative gross-exposure cap for one community and exact instrument.
+    /// It includes both directions on every edge touching that community.
     /// Raw amounts from unlike instrument domains are never summed together.
     pub fn set_community_gross_cap(
         &mut self, community: &str, instrument: &str, cap: u64
@@ -250,11 +293,11 @@ impl Clearing {
 
     fn gross_exposure(&self, community: &str, instrument: &str) -> Result<u64, Error> {
         let mut total = 0_u64;
-        for agreement in self.agreements.values().filter(|a|
+        for (id, agreement) in self.agreements.iter().filter(|(_, a)|
             (a.community_a.as_str() == community || a.community_b.as_str() == community)
                 && a.instrument == instrument) {
-            total = total.checked_add(self.outstanding(&agreement.id)?.unsigned_abs())
-                .ok_or(Error::Overflow)?;
+            let value = self.outstanding.get(id).copied().ok_or(Error::InvalidAgreement)?;
+            total = total.checked_add(value.total()?).ok_or(Error::Overflow)?;
         }
         Ok(total)
     }
@@ -265,6 +308,8 @@ impl Clearing {
         Ok(())
     }
 
+    /// Positive delta records A owes B; negative delta records B owes A.
+    /// Opposing obligations remain gross and do not implicitly cancel each other.
     pub fn obligation(&mut self, event_id: &str, agreement_id: &str, instrument: &str,
         revision: u64, delta: i64) -> Result<Apply, Error> {
         if event_id.trim().is_empty() { return Err(Error::InvalidEventId); }
@@ -279,42 +324,57 @@ impl Clearing {
         if a.instrument != instrument { return Err(Error::InvalidAgreement); }
         if a.revision != revision { return Err(Error::StaleRevision); }
         if a.status != AgreementStatus::Active { return Err(Error::AgreementPaused); }
-        // A missing aggregate limit is not permission for unbounded federation exposure.
-        // Both communities must explicitly configure the exact instrument's cap before
-        // any new obligation can be recorded. A zero cap deliberately disables new risk.
+
+        // Missing policy never means unlimited risk. Each party explicitly defines
+        // a cap for this exact instrument; zero is an intentional no-new-risk policy.
         for community in [&a.community_a, &a.community_b] {
             let key = (community.to_string(), instrument.to_string());
             if !self.community_gross_caps.contains_key(&key) {
                 return Err(Error::MissingGrossExposureCap);
             }
         }
-        let current = self.outstanding(agreement_id)?;
-        let next = current.checked_add(delta).ok_or(Error::Overflow)?;
-        if next.unsigned_abs() > a.max_abs_outstanding as u64 { return Err(Error::ExposureLimit); }
 
-        // Enforce gross exposure across all peering edges, not only the edge being mutated.
-        // Count the replacement balance once; do not mutate any ledger until all caps pass.
+        let current = self.outstanding.get(agreement_id).copied().ok_or(Error::InvalidAgreement)?;
+        let mut next = current;
+        let amount = delta.unsigned_abs();
+        if delta > 0 {
+            next.a_to_b = next.a_to_b.checked_add(amount).ok_or(Error::Overflow)?;
+        } else {
+            next.b_to_a = next.b_to_a.checked_add(amount).ok_or(Error::Overflow)?;
+        }
+
+        // Agreement limits are gross in both directions; equal and opposite claims
+        // cannot hide each other unless a future profile explicitly qualifies netting.
+        let current_total = current.total()?;
+        let next_total = next.total()?;
+        if next_total > a.max_gross_outstanding as u64 {
+            return Err(Error::ExposureLimit);
+        }
+
+        // Enforce each community's aggregate cap across all peer edges before mutation.
+        // Only after every limit passes do we commit the new directional obligation.
         for community in [&a.community_a, &a.community_b] {
             let cap_key = (community.to_string(), instrument.to_string());
-            let cap = self.community_gross_caps.get(&cap_key)
+            let cap = *self.community_gross_caps.get(&cap_key)
                 .ok_or(Error::MissingGrossExposureCap)?;
             let before = self.gross_exposure(community, instrument)?;
-            let after = before.checked_sub(current.unsigned_abs())
-                .and_then(|n| n.checked_add(next.unsigned_abs()))
+            let after = before.checked_sub(current_total)
+                .and_then(|n| n.checked_add(next_total))
                 .ok_or(Error::Overflow)?;
-            if after > *cap { return Err(Error::ExposureLimit); }
+            if after > cap { return Err(Error::ExposureLimit); }
         }
         self.outstanding.insert(agreement_id.into(), next);
         self.events.insert(event_id.into(), ev);
         Ok(Apply::Applied)
     }
 
-    /// Settles existing obligations even when the peering edge is paused.
+    /// Settle only the selected directional obligation. Paused edges still permit
+    /// unwind, but settlement never silently nets or consumes the opposite side.
     pub fn settle(&mut self, event_id: &str, agreement_id: &str, instrument: &str,
-        revision: u64, amount: u64) -> Result<Apply, Error> {
+        revision: u64, direction: ObligationDirection, amount: u64) -> Result<Apply, Error> {
         if event_id.trim().is_empty() { return Err(Error::InvalidEventId); }
         let ev = ClearingEvent::Settlement {
-            agreement: agreement_id.into(), instrument: instrument.into(), revision, amount
+            agreement: agreement_id.into(), instrument: instrument.into(), revision, direction, amount
         };
         if let Some(old) = self.events.get(event_id) {
             return if old == &ev { Ok(Apply::Duplicate) } else { Err(Error::ReplayMismatch) };
@@ -323,12 +383,15 @@ impl Clearing {
         let a = self.agreements.get(agreement_id).ok_or(Error::InvalidAgreement)?;
         if a.instrument != instrument { return Err(Error::InvalidAgreement); }
         if a.revision != revision { return Err(Error::StaleRevision); }
-        let current = self.outstanding(agreement_id)?;
-        if current == 0 { return Err(Error::NothingOutstanding); }
-        if amount > current.unsigned_abs() { return Err(Error::SettlementTooLarge); }
-        let n = i64::try_from(amount).map_err(|_| Error::Overflow)?;
-        let next = if current > 0 { current.checked_sub(n) } else { current.checked_add(n) }
-            .ok_or(Error::Overflow)?;
+
+        let mut next = self.outstanding.get(agreement_id).copied().ok_or(Error::InvalidAgreement)?;
+        let leg = match direction {
+            ObligationDirection::AtoB => &mut next.a_to_b,
+            ObligationDirection::BtoA => &mut next.b_to_a,
+        };
+        if *leg == 0 { return Err(Error::NothingOutstanding); }
+        if amount > *leg { return Err(Error::SettlementTooLarge); }
+        *leg = leg.checked_sub(amount).ok_or(Error::Overflow)?;
         self.outstanding.insert(agreement_id.into(), next);
         self.events.insert(event_id.into(), ev);
         Ok(Apply::Applied)
@@ -350,7 +413,7 @@ mod tests {
     }
     fn agreement(id: &str, instrument: &str, cap: i64) -> Agreement {
         Agreement { id: id.into(), community_a: "a".into(), community_b: "b".into(),
-            instrument: instrument.into(), revision: 1, max_abs_outstanding: cap, status: AgreementStatus::Active }
+            instrument: instrument.into(), revision: 1, max_gross_outstanding: cap, status: AgreementStatus::Active }
     }
 
     #[test]
@@ -502,10 +565,10 @@ mod tests {
         assert_eq!(c.obligation("ob:3", "edge:ac", "cc:local", 1, 90), Ok(Apply::Applied));
         c.pause("edge:ab").unwrap();
         assert_eq!(c.obligation("ob:4", "edge:ab", "cc:local", 1, 1), Err(Error::AgreementPaused));
-        assert_eq!(c.settle("set:1", "edge:ab", "cc:local", 1, 20), Ok(Apply::Applied));
+        assert_eq!(c.settle("set:1", "edge:ab", "cc:local", 1, ObligationDirection::AtoB, 20), Ok(Apply::Applied));
         assert_eq!(c.outstanding("edge:ab"), Ok(50));
         assert_eq!(c.settle("set:1", "edge:ab", "cc:local", 1, 20), Ok(Apply::Duplicate));
-        assert_eq!(c.settle("set:1", "edge:ab", "cc:local", 1, 21), Err(Error::ReplayMismatch));
+        assert_eq!(c.settle("set:1", "edge:ab", "cc:local", 1, ObligationDirection::AtoB, 21), Err(Error::ReplayMismatch));
     }
 
     #[test]
@@ -515,7 +578,7 @@ mod tests {
         c.set_community_gross_cap("a", "cc:local", 100).unwrap();
         c.set_community_gross_cap("b", "cc:local", 100).unwrap();
         c.obligation("ob:1", "edge:ab", "cc:local", 1, -25).unwrap();
-        assert_eq!(c.settle("set:1", "edge:ab", "cc:local", 1, 26), Err(Error::SettlementTooLarge));
+        assert_eq!(c.settle("set:1", "edge:ab", "cc:local", 1, ObligationDirection::BtoA, 26), Err(Error::SettlementTooLarge));
         assert_eq!(c.obligation("ob:2", "edge:ab", "cc:other", 1, 1), Err(Error::InvalidAgreement));
         assert_eq!(c.obligation("ob:3", "edge:ab", "cc:local", 2, 1), Err(Error::StaleRevision));
         assert_eq!(c.outstanding("edge:ab"), Ok(-25));
@@ -546,6 +609,36 @@ mod tests {
         assert_eq!(c.outstanding("edge:ab"), Ok(70));
         assert_eq!(c.outstanding("edge:ac"), Ok(30));
         assert_eq!(c.outstanding("edge:ad"), Ok(90));
+    }
+
+    #[test]
+    fn opposing_obligations_remain_gross_until_directionally_settled() {
+        let mut c = Clearing::default();
+        c.add(agreement("edge:ab", "cc:local", 200)).unwrap();
+        c.set_community_gross_cap("a", "cc:local", 120).unwrap();
+        c.set_community_gross_cap("b", "cc:local", 120).unwrap();
+
+        assert_eq!(c.obligation("ob:a-to-b", "edge:ab", "cc:local", 1, 70), Ok(Apply::Applied));
+        // Equal-and-opposite direction increases gross exposure from 70 to 130;
+        // it must not net the diagnostic balance down to 10 to evade the caps.
+        assert_eq!(c.obligation("ob:b-to-a", "edge:ab", "cc:local", 1, -60),
+            Err(Error::ExposureLimit));
+        assert_eq!(c.outstanding("edge:ab"), Ok(70));
+        assert_eq!(c.gross_outstanding("edge:ab"), Ok((70, 0)));
+
+        // Rejected ID is unconsumed. Raising both explicit caps permits the same event.
+        c.set_community_gross_cap("a", "cc:local", 150).unwrap();
+        c.set_community_gross_cap("b", "cc:local", 150).unwrap();
+        assert_eq!(c.obligation("ob:b-to-a", "edge:ab", "cc:local", 1, -60), Ok(Apply::Applied));
+        assert_eq!(c.outstanding("edge:ab"), Ok(10));
+        assert_eq!(c.gross_outstanding("edge:ab"), Ok((70, 60)));
+
+        // Settling B's obligation to A reduces only that direction; A's obligation
+        // to B remains outstanding and still contributes to gross exposure.
+        assert_eq!(c.settle("set:b-to-a", "edge:ab", "cc:local", 1,
+            ObligationDirection::BtoA, 60), Ok(Apply::Applied));
+        assert_eq!(c.outstanding("edge:ab"), Ok(70));
+        assert_eq!(c.gross_outstanding("edge:ab"), Ok((70, 0)));
     }
 
     #[test]
