@@ -549,6 +549,7 @@ mod tests {
         let mut label_flipped = test.clone();
         for subject in &mut label_flipped {
             subject.protected = !subject.protected;
+            subject.independent_secret = !subject.independent_secret;
         }
 
         let original_views = test.iter().map(AttackerView::from).collect::<Vec<_>>();
