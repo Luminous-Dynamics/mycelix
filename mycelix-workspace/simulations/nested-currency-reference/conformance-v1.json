@@ -79,6 +79,11 @@
       "id": "NCF-I-013",
       "name": "Clearing agreements bind a canonical instrument profile",
       "statement": "A clearing agreement can be created only for a registered instrument and pins the exact profile revision. Unknown IDs and stale profile revisions fail closed; non-transferable reputation-family instruments cannot be used as spendable clearing instruments."
+    },
+    {
+      "id": "NCF-I-014",
+      "name": "Partitioned exposure rights are preallocated and non-overlapping",
+      "statement": "During disconnected operation, each shard may consume only its previously allocated reservation. Reservation slices across shards, agreements and epochs are counted against the exact community/instrument cap; prior-epoch slices are not reclaimed without coordinated fencing/reconciliation."
     }
   ],
   "conformance_cases": [
@@ -396,6 +401,51 @@
       "expected": "reject_changed_direction_under_reused_id",
       "code_test": "opposing_obligations_remain_gross_until_directionally_settled",
       "execution_status": "defined_not_run"
+    },
+    {
+      "id": "NCF-PART-001",
+      "title": "Partitioned shards cannot exceed their pre-allocated gross-risk slices",
+      "class": "partition_double_spend",
+      "attack": "Two disconnected writers attempt to consume more than their disjoint reservations collectively permit.",
+      "expected": "reject_over_slice_without_global_cap_breach",
+      "code_test": "partitioned_shards_can_consume_only_disjoint_preallocated_slices",
+      "execution_status": "defined_not_run"
+    },
+    {
+      "id": "NCF-PART-002",
+      "title": "Reservation allocation requires explicit community and agreement caps",
+      "class": "missing_reservation_policy",
+      "attack": "Attempt to reserve capacity before either involved community or the agreement has a configured cap.",
+      "expected": "reject_missing_cap",
+      "code_test": "reservations_require_explicit_caps_and_are_idempotent",
+      "execution_status": "defined_not_run"
+    },
+    {
+      "id": "NCF-PART-003",
+      "title": "Settlement restores reusable capacity only within its own reservation",
+      "class": "cross_shard_capacity_reuse",
+      "attack": "Settle an obligation on shard A and attempt to consume the released capacity from shard B, which has no remaining slice.",
+      "expected": "only_original_reservation_capacity_reusable",
+      "code_test": "settlement_releases_capacity_only_within_the_same_reservation",
+      "execution_status": "defined_not_run"
+    },
+    {
+      "id": "NCF-PART-004",
+      "title": "Reservation caps are not summed across unlike instrument units",
+      "class": "cross_unit_budget_alias",
+      "attack": "Allocate separate hour and water units for the same communities and verify that each exact instrument has its own cap.",
+      "expected": "independent_instrument_budget_domains",
+      "code_test": "different_instruments_have_independent_budget_domains",
+      "execution_status": "defined_not_run"
+    },
+    {
+      "id": "NCF-PART-005",
+      "title": "Old-epoch reservation remains charged until explicit coordinated rebalancing",
+      "class": "stale_owner_budget_reuse",
+      "attack": "Try to allocate the same capacity to a new epoch while the old reservation has not been retired/fenced.",
+      "expected": "reject_capacity_reuse_until_rebalance",
+      "code_test": "old_epoch_capacity_is_not_reused_without_rebalancing",
+      "execution_status": "defined_not_run"
     }
   ],
   "benchmark_campaigns": [
@@ -481,7 +531,13 @@
         "signed_net_outstanding",
         "gross_minus_absolute_net",
         "rejected_gross_cap_breaches",
-        "directional_settlement_accuracy"
+        "directional_settlement_accuracy",
+        "reserved_capacity",
+        "used_capacity",
+        "unused_reserved_capacity_by_shard",
+        "global_cap_utilization",
+        "capacity_unavailable_pending_fence",
+        "over_slice_attempts_rejected"
       ],
       "execution_status": "defined_not_run"
     },
