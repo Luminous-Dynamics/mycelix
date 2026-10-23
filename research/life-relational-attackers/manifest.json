@@ -5,17 +5,40 @@
   "training_community_count": 24,
   "calibration_community_count": 24,
   "test_community_count": 24,
-  "cohort_sizes": [4, 8, 16],
-  "peer_signal_probability_ppm": [650000, 800000, 950000],
-  "evaluation_seeds": [1, 7, 23, 41, 97],
+  "cohort_sizes": [
+    4,
+    8,
+    16
+  ],
+  "peer_signal_probability_ppm": [
+    650000,
+    800000,
+    950000
+  ],
+  "evaluation_seeds": [
+    1,
+    7,
+    23,
+    41,
+    97
+  ],
   "coarsening_factor": 4,
-  "decision_threshold_ppm": [500000, 625000, 750000, 875000, 950000],
+  "decision_threshold_ppm": [
+    500000,
+    625000,
+    750000,
+    875000,
+    950000
+  ],
   "attacker_profiles": [
     "population_prior",
     "exact_cohort_majority",
     "coarse_neighborhood_majority",
     "overlapping_group_union_majority",
     "randomized_peer_control",
+    "logistic_exact_only_ablation",
+    "logistic_coarse_only_ablation",
+    "logistic_overlap_only_ablation",
     "logistic_ridge",
     "gaussian_naive_bayes",
     "uncorrelated_target_negative_control"
@@ -55,5 +78,19 @@
     "causal_inference",
     "production_protocol_assurance",
     "calibrated_real_user_risk"
-  ]
+  ],
+  "feature_ablations": {
+    "logistic_exact_only_ablation": [
+      "exact_cohort_peer_proxy_fraction",
+      "exact_cohort_peer_degree_ratio"
+    ],
+    "logistic_coarse_only_ablation": [
+      "coarse_neighborhood_peer_proxy_fraction",
+      "coarse_neighborhood_peer_degree_ratio"
+    ],
+    "logistic_overlap_only_ablation": [
+      "overlapping_group_union_proxy_fraction",
+      "overlapping_peer_degree_ratio"
+    ]
+  }
 }
