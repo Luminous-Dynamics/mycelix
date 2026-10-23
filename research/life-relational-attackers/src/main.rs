@@ -58,18 +58,24 @@ enum Profile {
     CoarseNeighborhoodMajority,
     OverlappingGroupUnionMajority,
     RandomizedPeerControl,
+    LogisticExactOnly,
+    LogisticCoarseOnly,
+    LogisticOverlapOnly,
     LogisticRidge,
     GaussianNaiveBayes,
     UncorrelatedTargetNegativeControl,
 }
 
 impl Profile {
-    const ALL: [Self; 8] = [
+    const ALL: [Self; 11] = [
         Self::PopulationPrior,
         Self::ExactCohortMajority,
         Self::CoarseNeighborhoodMajority,
         Self::OverlappingGroupUnionMajority,
         Self::RandomizedPeerControl,
+        Self::LogisticExactOnly,
+        Self::LogisticCoarseOnly,
+        Self::LogisticOverlapOnly,
         Self::LogisticRidge,
         Self::GaussianNaiveBayes,
         Self::UncorrelatedTargetNegativeControl,
@@ -82,6 +88,9 @@ impl Profile {
             Self::CoarseNeighborhoodMajority => "coarse_neighborhood_majority",
             Self::OverlappingGroupUnionMajority => "overlapping_group_union_majority",
             Self::RandomizedPeerControl => "randomized_peer_control",
+            Self::LogisticExactOnly => "logistic_exact_only_ablation",
+            Self::LogisticCoarseOnly => "logistic_coarse_only_ablation",
+            Self::LogisticOverlapOnly => "logistic_overlap_only_ablation",
             Self::LogisticRidge => "logistic_ridge",
             Self::GaussianNaiveBayes => "gaussian_naive_bayes",
             Self::UncorrelatedTargetNegativeControl => "uncorrelated_target_negative_control",
@@ -95,7 +104,10 @@ impl Profile {
     const fn uses_fitted_model(self) -> bool {
         matches!(
             self,
-            Self::LogisticRidge
+            Self::LogisticExactOnly
+                | Self::LogisticCoarseOnly
+                | Self::LogisticOverlapOnly
+                | Self::LogisticRidge
                 | Self::GaussianNaiveBayes
                 | Self::UncorrelatedTargetNegativeControl
         )
@@ -446,6 +458,31 @@ enum FittedModel {
     GaussianNaiveBayes(GaussianNaiveBayesModel),
 }
 
+fn features_for_profile(features: &[FeatureVector], profile: Profile) -> Vec<FeatureVector> {
+    features
+        .iter()
+        .map(|feature| {
+            let mut selected = [0.0; FEATURE_COUNT];
+            match profile {
+                Profile::LogisticExactOnly => {
+                    selected[0] = feature.0[0];
+                    selected[4] = feature.0[4];
+                }
+                Profile::LogisticCoarseOnly => {
+                    selected[1] = feature.0[1];
+                    selected[5] = feature.0[5];
+                }
+                Profile::LogisticOverlapOnly => {
+                    selected[2] = feature.0[2];
+                    selected[6] = feature.0[6];
+                }
+                _ => return *feature,
+            }
+            FeatureVector(selected)
+        })
+        .collect()
+}
+
 fn fit_model(profile: Profile, features: &[FeatureVector], subjects: &[Subject]) -> FittedModel {
     if !profile.uses_fitted_model() {
         return FittedModel::None;
@@ -456,7 +493,11 @@ fn fit_model(profile: Profile, features: &[FeatureVector], subjects: &[Subject])
         .map(|subject| training_label(subject, profile))
         .collect::<Vec<_>>();
     match profile {
-        Profile::LogisticRidge | Profile::UncorrelatedTargetNegativeControl => {
+        Profile::LogisticExactOnly
+        | Profile::LogisticCoarseOnly
+        | Profile::LogisticOverlapOnly
+        | Profile::LogisticRidge
+        | Profile::UncorrelatedTargetNegativeControl => {
             FittedModel::Logistic(LogisticModel::fit(features, &labels))
         }
         Profile::GaussianNaiveBayes => {
@@ -478,7 +519,11 @@ fn raw_probability(
         Profile::CoarseNeighborhoodMajority => feature.0[1],
         Profile::OverlappingGroupUnionMajority => feature.0[2],
         Profile::RandomizedPeerControl => feature.0[3],
-        Profile::LogisticRidge | Profile::UncorrelatedTargetNegativeControl => match fitted {
+        Profile::LogisticExactOnly
+        | Profile::LogisticCoarseOnly
+        | Profile::LogisticOverlapOnly
+        | Profile::LogisticRidge
+        | Profile::UncorrelatedTargetNegativeControl => match fitted {
             FittedModel::Logistic(model) => model.predict(feature),
             _ => prior_probability,
         },
@@ -725,10 +770,14 @@ fn run_profile(
     test_subjects: &[Subject],
     test_features: &[FeatureVector],
 ) -> (Vec<OutcomeRecord>, Summary, Audit) {
-    let fitted = fit_model(profile, train_features, train_subjects);
+    let model_train_features = features_for_profile(train_features, profile);
+    let model_calibration_features = features_for_profile(calibration_features, profile);
+    let model_test_features = features_for_profile(test_features, profile);
+    let fitted = fit_model(profile, &model_train_features, train_subjects);
     let prior_probability = protected_prevalence(train_subjects);
 
-    let calibration_raw = probabilities_for(profile, calibration_features, &fitted, prior_probability);
+    let calibration_raw =
+        probabilities_for(profile, &model_calibration_features, &fitted, prior_probability);
     // The calibration map is fit on disjoint calibration communities and protected labels.
     let calibration_truth = calibration_subjects
         .iter()
@@ -736,7 +785,7 @@ fn run_profile(
         .collect::<Vec<_>>();
     let calibrator = PlattCalibrator::fit(&calibration_raw, &calibration_truth);
 
-    let test_raw = probabilities_for(profile, test_features, &fitted, prior_probability);
+    let test_raw = probabilities_for(profile, &model_test_features, &fitted, prior_probability);
     let test_calibrated = test_raw
         .iter()
         .map(|probability| calibrator.apply(*probability))
