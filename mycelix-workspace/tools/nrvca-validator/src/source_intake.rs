@@ -1277,6 +1277,55 @@ mod tests {
     }
 
     #[test]
+    fn audit_is_non_destructive_for_valid_objects() {
+        let store = TempDir::new();
+        let receipt = capture_test_bytes(&store, b"do not touch this immutable object");
+        let object = store.0.join(receipt["acquisition_receipt"]["object_path"].as_str().unwrap());
+        let before_bytes = fs::read(&object).expect("read object before audit");
+        let before_permissions = fs::metadata(&object).expect("permissions before audit").permissions();
+        let before_mode = {
+            #[cfg(unix)] {
+                use std::os::unix::fs::PermissionsExt;
+                before_permissions.mode() & 0o777
+            }
+            #[cfg(not(unix))] {
+                if before_permissions.readonly() { 1 } else { 0 }
+            }
+        };
+        let report = audit_content_store(&store.0).expect("audit valid object");
+        assert_eq!(report["status"], "pass");
+        assert_eq!(fs::read(&object).expect("read object after audit"), before_bytes);
+        let after_permissions = fs::metadata(&object).expect("permissions after audit").permissions();
+        let after_mode = {
+            #[cfg(unix)] {
+                use std::os::unix::fs::PermissionsExt;
+                after_permissions.mode() & 0o777
+            }
+            #[cfg(not(unix))] {
+                if after_permissions.readonly() { 1 } else { 0 }
+            }
+        };
+        assert_eq!(before_mode, after_mode, "audit must never chmod evidence objects");
+    }
+
+    #[test]
+    fn audit_flags_non_utf8_extra_object_directory_entries_on_unix() {
+        #[cfg(unix)]
+        {
+            use std::{ffi::OsString, os::unix::ffi::OsStringExt};
+            let store = TempDir::new();
+            let objects = store.0.join("objects");
+            fs::create_dir(&objects).expect("create objects directory");
+            fs::write(objects.join(OsString::from_vec(vec![0xff, b'x'])), b"malformed name")
+                .expect("create non-UTF8 entry");
+            let report = audit_content_store(&store.0).expect("audit invalid name");
+            assert_eq!(report["status"], "failed");
+            assert_eq!(report["diagnostics_count"], 1);
+            assert_eq!(report["diagnostics"][0]["code"], "STORE-UNEXPECTED-ENTRY");
+        }
+    }
+
+    #[test]
     fn audit_rejects_writable_objects_on_unix() {
         #[cfg(unix)]
         {
