@@ -1,6 +1,6 @@
 # Praxis–Symthaea Advisor Integration v1
 
-**Contract:** \`PRAXIS-SYMTHAEA-ADVISOR-001\`  
+**Contract:** `PRAXIS-SYMTHAEA-ADVISOR-001`  
 **Status:** Draft interface and conformance implementation; no live Symthaea adapter is qualified  
 **Owner:** Praxis consumer contract; Symthaea is an optional advisory provider  
 **Related:** [Mycelix #5472](https://github.com/Luminous-Dynamics/mycelix/issues/5472), [support-decision benchmark #5467](https://github.com/Luminous-Dynamics/mycelix/issues/5467), [planner and durable-learning experiment #5286](https://github.com/Luminous-Dynamics/mycelix/issues/5286), [evidence-bearing cyber-learning track #5124](https://github.com/Luminous-Dynamics/mycelix/issues/5124)
@@ -20,7 +20,7 @@ Do not use the first integration to generate a whole curriculum autonomously, ma
 
 ## Why the boundary matters
 
-Symthaea's public repository describes a broad experimental Rust cognitive architecture with HDC/CfC, a causal/counterfactual reasoning surface, and a seven-step reasoning engine gated by the \`reasoning_engine\` feature. The repository's feature map declares that enabling the reasoning engine also enables \`magi_loop\` and \`symthaea-causal-reasoning/counterfactual\`. Its native \`ReasoningContext\` expects Symthaea-specific theory metrics, \`phi\`, planning actions, epistemic-quality inputs, and a time budget; this is not yet a stable, direct learner-advice DTO. See the [current repository](https://github.com/Luminous-Dynamics/symthaea), [feature map](https://github.com/Luminous-Dynamics/symthaea/blob/main/docs/FEATURE_FLAGS.md), and [reasoning-engine types](https://github.com/Luminous-Dynamics/symthaea/blob/main/src/consciousness/reasoning_engine/types.rs).
+Symthaea's public repository describes a broad experimental Rust cognitive architecture with HDC/CfC, a causal/counterfactual reasoning surface, and a seven-step reasoning engine gated by the `reasoning_engine` feature. The repository's feature map declares that enabling the reasoning engine also enables `magi_loop` and `symthaea-causal-reasoning/counterfactual`. Its native `ReasoningContext` expects Symthaea-specific theory metrics, `phi`, planning actions, epistemic-quality inputs, and a time budget; this is not yet a stable, direct learner-advice DTO. See the [current repository](https://github.com/Luminous-Dynamics/symthaea), [feature map](https://github.com/Luminous-Dynamics/symthaea/blob/main/docs/FEATURE_FLAGS.md), and [reasoning-engine types](https://github.com/Luminous-Dynamics/symthaea/blob/main/src/consciousness/reasoning_engine/types.rs).
 
 There is also a reason to be ambitious *and* evidence-led. Symthaea's own public README discloses limits and retractions, including a corrected 56.2% overall Hendrycks Ethics result and an internal review in which only one of twelve consciousness-indicator probes has empirical support so far. Those claims are not tutoring benchmarks and should not be used as educational-efficacy evidence. They are examples of the research discipline Praxis should preserve: reproducible comparisons, visible negative results, and explicit claim limits.
 
@@ -28,7 +28,7 @@ Educational research supports a similarly bounded role. LongTutor reports that l
 
 ## Architecture
 
-\`\`\`text
+```text
 Praxis goal + local progress + purpose-limited evidence
   -> versioned request / exact evidence snapshot
   -> optional Symthaea advisory port
@@ -43,18 +43,18 @@ Praxis goal + local progress + purpose-limited evidence
   -> learner / educator may accept, edit, reject, or ask
   -> Praxis records the actual attempt and its assistance
   -> later independent assessment of retention and transfer
-\`\`\`
+```
 
 Symthaea is not in the trusted execution path for learner data mutation or credentials. If it is unavailable, declined, malformed, stale, over budget or unable to cite input evidence, Praxis continues with its deterministic planner and ordinary BKT/SRS workflow. The advisory response never becomes canonical learner evidence merely because it is well-formed.
 
 ## Rust and wire-contract implementation
 
-The initial consumer contract is in \`praxis_core::symthaea_advisor\`, with no new crate dependency and no direct dependency on the Symthaea workspace.
+The initial consumer contract is in `praxis_core::symthaea_advisor`, with no new crate dependency and no direct dependency on the Symthaea workspace.
 
-- \`schemas/symthaea-advisor/v1/request.schema.json\`: strict request shape.
-- \`schemas/symthaea-advisor/v1/advice.schema.json\`: strict response shape.
-- \`examples/symthaea-advisor/v1/synthetic_request.json\`: synthetic, non-identifying conformance request.
-- \`crates/praxis-core/src/symthaea_advisor.rs\`: typed DTOs, strict deserialization, an optional-provider port trait, cross-field checks and exact-request BLAKE3 binding.
+- `schemas/symthaea-advisor/v1/request.schema.json`: strict request shape.
+- `schemas/symthaea-advisor/v1/advice.schema.json`: strict response shape.
+- `examples/symthaea-advisor/v1/synthetic_request.json`: synthetic, non-identifying conformance request.
+- `crates/praxis-core/src/symthaea_advisor.rs`: typed DTOs, strict deserialization, an optional-provider port trait, cross-field checks and exact-request BLAKE3 binding.
 
 The response commits to the exact UTF-8 request bytes passed through the adapter. A mismatch prevents acceptance. Evidence references must exist in the request; options must be available and policy-permitted; a course policy that prohibits AI cannot be bypassed because a model is available. Stated accessibility requirements and protected human-support constraints are enforced by Praxis-side validation.
 
@@ -62,7 +62,7 @@ The request's evidence-snapshot digest is only syntax-checked by this boundary. 
 
 ## A critical semantic separation
 
-\`\`\`text
+```text
 Symthaea Phi / consciousness-related metric
     != learner proficiency
     != probability the learner knows a skill
@@ -74,9 +74,9 @@ Symthaea proposal
     != learner action
     != independent performance evidence
     != mastery / credential eligibility
-\`\`\`
+```
 
-Do not map raw \`phi\`, theory conflict scores, model confidence, language fluency, time-on-platform or assistance use into a mastery score. Praxis may later use separately calibrated predictive models as advisory estimates only; they must be named/versioned and validated against independent assessments.
+Do not map raw `phi`, theory conflict scores, model confidence, language fluency, time-on-platform or assistance use into a mastery score. Praxis may later use separately calibrated predictive models as advisory estimates only; they must be named/versioned and validated against independent assessments.
 
 ## Privacy and permission
 
