@@ -650,7 +650,8 @@ fn audit_content_store(store_dir: &Path) -> Result<Value, String> {
                 "path": "objects",
                 "code": "STORE-OBJECTS-DIR",
                 "message": "objects path must be a real directory, not a symlink or other file"
-            }]
+            }],
+            "diagnostics_count": 1
         }));
     }
 
@@ -659,9 +660,9 @@ fn audit_content_store(store_dir: &Path) -> Result<Value, String> {
         .collect::<Result<Vec<_>, _>>()
         .map_err(|error| format!("cannot enumerate objects directory: {error}"))?;
     object_children.sort_by_key(|entry| entry.file_name());
-    let unexpected_children: Vec<String> = object_children.iter()
-        .filter_map(|entry| entry.file_name().to_str().map(str::to_owned))
-        .filter(|name| name != "sha256")
+    let unexpected_children: Vec<std::ffi::OsString> = object_children.iter()
+        .map(|entry| entry.file_name())
+        .filter(|name| name != std::ffi::OsStr::new("sha256"))
         .collect();
     if !unexpected_children.is_empty() {
         return Ok(json!({
@@ -671,11 +672,14 @@ fn audit_content_store(store_dir: &Path) -> Result<Value, String> {
             "objects_verified": 0,
             "objects_failed": 0,
             "bytes_verified": 0,
-            "diagnostics": unexpected_children.iter().map(|name| json!({
-                "path": format!("objects/{name}"),
-                "code": "STORE-UNEXPECTED-ENTRY",
-                "message": "objects directory may contain only the sha256 object root"
-            })).collect::<Vec<_>>()
+            "diagnostics": unexpected_children.iter().map(|name| {
+                json!({
+                    "path": format!("objects/{}", name.to_string_lossy()),
+                    "code": "STORE-UNEXPECTED-ENTRY",
+                    "message": "objects directory may contain only the sha256 object root"
+                })
+            }).collect::<Vec<_>>(),
+            "diagnostics_count": unexpected_children.len()
         }));
     }
 
@@ -689,7 +693,9 @@ fn audit_content_store(store_dir: &Path) -> Result<Value, String> {
                 "entries_scanned": 0,
                 "objects_verified": 0,
                 "objects_failed": 0,
-                "diagnostics": []
+                "bytes_verified": 0,
+                "diagnostics": [],
+                "diagnostics_count": 0
             }));
         }
         Err(error) => return Err(format!("cannot inspect SHA-256 object root: {error}")),
@@ -705,7 +711,8 @@ fn audit_content_store(store_dir: &Path) -> Result<Value, String> {
                 "path": "objects/sha256",
                 "code": "STORE-SHA256-DIR",
                 "message": "SHA-256 object root must be a real directory, not a symlink or other file"
-            }]
+            }],
+            "diagnostics_count": 1
         }));
     }
 
@@ -815,6 +822,7 @@ fn audit_content_store(store_dir: &Path) -> Result<Value, String> {
         "objects_verified": objects_verified,
         "objects_failed": objects_failed.len(),
         "bytes_verified": bytes_verified,
+        "diagnostics_count": diagnostics.len(),
         "diagnostics": diagnostics
     }))
 }
