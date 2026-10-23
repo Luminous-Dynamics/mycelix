@@ -243,7 +243,7 @@ impl Clearing {
     fn gross_exposure(&self, community: &str) -> Result<u64, Error> {
         let mut total = 0_u64;
         for agreement in self.agreements.values().filter(|a|
-            a.community_a == community || a.community_b == community) {
+            a.community_a.as_str() == community || a.community_b.as_str() == community) {
             total = total.checked_add(self.outstanding(&agreement.id)?.unsigned_abs())
                 .ok_or(Error::Overflow)?;
         }
