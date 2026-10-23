@@ -732,8 +732,8 @@ mod tests {
         ] {
             assert!(MANIFEST.contains(fixture), "missing fixture {fixture}");
         }
-        assert!(MANIFEST.contains("\"group_per_domain\": 8,"));
-        assert!(MANIFEST.contains("\"purpose_per_domain\": 12,"));
+        assert!(MANIFEST.contains("\"group_per_observer_domain\": 8,"));
+        assert!(MANIFEST.contains("\"purpose_per_observer_domain\": 12,"));
     }
 
     #[test]
