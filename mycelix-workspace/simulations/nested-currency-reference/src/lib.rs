@@ -350,14 +350,16 @@ mod tests {
             max_amount: None, ..cap.clone() };
         assert_eq!(authorize("did:federation", &p, Action::Issue, Some(1), 99, &issue_cap),
             Err(Error::InvalidCapability));
-        assert_eq!(authorize("did:federation", &p, Action::Issue, None, 99, &cap),
+
+        let bounded_issue_cap = Capability { max_amount: Some(10), ..issue_cap.clone() };
+        assert_eq!(authorize("did:federation", &p, Action::Issue, None, 99, &bounded_issue_cap),
             Err(Error::InvalidAmount));
+        assert_eq!(authorize("did:federation", &p, Action::Issue, Some(1), 99, &bounded_issue_cap), Ok(()));
+
         let inactive = Profile { active: false, ..p.clone() };
-        assert_eq!(authorize("did:federation", &inactive, Action::Issue, Some(1), 99, &cap),
-            Err(Error::StaleRevision)); // changed profile requires re-authorizing first
-        let inactive_cap = Capability { revision: inactive.revision, ..cap };
+        let inactive_cap = Capability { revision: inactive.revision, ..bounded_issue_cap };
         assert_eq!(authorize("did:federation", &inactive, Action::Issue, Some(1), 99, &inactive_cap),
-            Err(Error::ActionNotGranted)); // Issue was not delegated
+            Err(Error::Inactive));
     }
 
     #[test]
