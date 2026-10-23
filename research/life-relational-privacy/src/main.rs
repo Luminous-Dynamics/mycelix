@@ -6,6 +6,7 @@ const TEST_COHORTS: usize = 96;
 const COARSENING_FACTOR: usize = 4;
 const PPM: u64 = 1_000_000;
 const CONFIDENCE_THRESHOLDS: [u64; 5] = [500_000, 625_000, 750_000, 875_000, 950_000];
+const EVALUATION_SEEDS: [u64; 5] = [1, 7, 23, 41, 97];
 const MANIFEST: &str = include_str!("../manifest.json");
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -459,65 +460,69 @@ fn render_report() -> String {
     let mut report = String::new();
     writeln!(
         &mut report,
-        "profile,cohort_size,peer_signal_ppm,coarsening_factor,target_count,positive_targets,accuracy_ppm,balanced_accuracy_ppm,prior_accuracy_ppm,lift_vs_prior_ppm,mean_peer_observations,peer_observation_delta_vs_exact_cohort,direct_target_protected_disclosures,audit_target_count,audit_correct_count,audit_direct_target_protected_disclosures,decision_threshold_ppm,selective_coverage_ppm,selective_accuracy_ppm,abstained_targets"
+        "profile,seed_id,cohort_size,peer_signal_ppm,coarsening_factor,target_count,positive_targets,accuracy_ppm,balanced_accuracy_ppm,prior_accuracy_ppm,lift_vs_prior_ppm,mean_peer_observations,peer_observation_delta_vs_exact_cohort,direct_target_protected_disclosures,audit_target_count,audit_correct_count,audit_direct_target_protected_disclosures,decision_threshold_ppm,selective_coverage_ppm,selective_accuracy_ppm,abstained_targets"
     )
     .expect("writing to String cannot fail");
 
     for cohort_size in [4_usize, 8, 16, 32] {
         for signal_ppm in [550_000_u32, 650_000, 750_000, 850_000, 950_000] {
-            let training = generate_population(
-                TRAIN_COHORTS,
-                cohort_size,
-                signal_ppm,
-                0,
-                seeded(0, cohort_size, signal_ppm, 0x1111),
-            );
-            // Training and test cohorts have disjoint, explicit identifier ranges.
-            let test = generate_population(
-                TEST_COHORTS,
-                cohort_size,
-                signal_ppm,
-                1_000_000,
-                seeded(0, cohort_size, signal_ppm, 0x9999),
-            );
+            for seed_id in EVALUATION_SEEDS {
+                let training = generate_population(
+                    TRAIN_COHORTS,
+                    cohort_size,
+                    signal_ppm,
+                    0,
+                    seeded(seed_id, cohort_size, signal_ppm, 0x1111),
+                );
+                // Training and test cohorts have disjoint, explicit identifier ranges.
+                let test = generate_population(
+                    TEST_COHORTS,
+                    cohort_size,
+                    signal_ppm,
+                    1_000_000,
+                    seeded(seed_id, cohort_size, signal_ppm, 0x9999),
+                );
 
-            for profile in Profile::ALL {
-                let outcomes = evaluate_profile(&training, &test, cohort_size, profile);
-                let summary = summarize(&outcomes);
-                let audit = audit_outcomes(&outcomes);
-                let accuracy = accuracy_ppm(&summary);
-                let prior_accuracy = prior_accuracy_ppm(&summary);
-                let lift = accuracy as i64 - prior_accuracy as i64;
-                let mean_peers = summary.peer_observations_used / summary.target_count.max(1);
+                for profile in Profile::ALL {
+                    let outcomes = evaluate_profile(&training, &test, cohort_size, profile);
+                    let summary = summarize(&outcomes);
+                    let audit = audit_outcomes(&outcomes);
+                    let accuracy = accuracy_ppm(&summary);
+                    let prior_accuracy = prior_accuracy_ppm(&summary);
+                    let lift = accuracy as i64 - prior_accuracy as i64;
+                    let mean_peers =
+                        summary.peer_observations_used / summary.target_count.max(1);
 
-                for threshold_ppm in CONFIDENCE_THRESHOLDS {
-                    let (coverage_ppm, selective_accuracy, abstained) =
-                        selective_metrics(&outcomes, threshold_ppm);
-                    writeln!(
-                        &mut report,
-                        "{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{}",
-                        profile.name(),
-                        cohort_size,
-                        signal_ppm,
-                        COARSENING_FACTOR,
-                        summary.target_count,
-                        summary.positive_targets,
-                        accuracy,
-                        balanced_accuracy_ppm(&summary),
-                        prior_accuracy,
-                        lift,
-                        mean_peers,
-                        summary.peer_observation_delta_vs_exact_cohort,
-                        summary.direct_target_protected_disclosures,
-                        audit.target_count,
-                        audit.correct_count,
-                        audit.direct_target_protected_disclosures,
-                        threshold_ppm,
-                        coverage_ppm,
-                        selective_accuracy,
-                        abstained,
-                    )
-                    .expect("writing to String cannot fail");
+                    for threshold_ppm in CONFIDENCE_THRESHOLDS {
+                        let (coverage_ppm, selective_accuracy, abstained) =
+                            selective_metrics(&outcomes, threshold_ppm);
+                        writeln!(
+                            &mut report,
+                            "{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{}",
+                            profile.name(),
+                            seed_id,
+                            cohort_size,
+                            signal_ppm,
+                            COARSENING_FACTOR,
+                            summary.target_count,
+                            summary.positive_targets,
+                            accuracy,
+                            balanced_accuracy_ppm(&summary),
+                            prior_accuracy,
+                            lift,
+                            mean_peers,
+                            summary.peer_observation_delta_vs_exact_cohort,
+                            summary.direct_target_protected_disclosures,
+                            audit.target_count,
+                            audit.correct_count,
+                            audit.direct_target_protected_disclosures,
+                            threshold_ppm,
+                            coverage_ppm,
+                            selective_accuracy,
+                            abstained,
+                        )
+                        .expect("writing to String cannot fail");
+                    }
                 }
             }
         }
@@ -567,6 +572,10 @@ mod tests {
         for threshold_ppm in CONFIDENCE_THRESHOLDS {
             let threshold = threshold_ppm.to_string();
             assert!(MANIFEST.contains(threshold.as_str()), "missing {threshold}");
+        }
+        for seed_id in EVALUATION_SEEDS {
+            let seed = seed_id.to_string();
+            assert!(MANIFEST.contains(seed.as_str()), "missing seed {seed}");
         }
     }
 
@@ -711,7 +720,7 @@ mod tests {
         let mut lines = report.lines();
         let header = lines.next().expect("header exists");
         let header_width = header.split(',').count();
-        assert_eq!(header_width, 20);
+        assert_eq!(header_width, 21);
         assert!(header.contains("peer_observation_delta_vs_exact_cohort"));
         assert!(header.contains("selective_coverage_ppm"));
         assert!(header.contains("selective_accuracy_ppm"));
@@ -721,7 +730,7 @@ mod tests {
             assert_eq!(line.split(',').count(), header_width, "bad row: {line}");
             data_rows += 1;
         }
-        assert_eq!(data_rows, 4 * 5 * Profile::ALL.len() * 5);
+        assert_eq!(data_rows, 4 * 5 * EVALUATION_SEEDS.len() * Profile::ALL.len() * CONFIDENCE_THRESHOLDS.len());
     }
 
     #[test]
