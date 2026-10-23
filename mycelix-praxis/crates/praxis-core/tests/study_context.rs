@@ -172,6 +172,17 @@ fn support_use_is_rejected_when_support_was_unavailable() {
 }
 
 #[test]
+fn platform_activity_time_requires_a_recorded_session() {
+    let mut run = fixture();
+    run.observations[0].course_platform_sessions = Some(0);
+    run.observations[0].course_platform_active_seconds = Some(900);
+    assert!(has_code(
+        validate_study_context(&run),
+        "platform_time_without_session"
+    ));
+}
+
+#[test]
 fn participant_assignment_cannot_drift_across_periods() {
     let mut run = fixture();
     run.observations[1].assigned_arm_id = "ai_hint_fade".into();
