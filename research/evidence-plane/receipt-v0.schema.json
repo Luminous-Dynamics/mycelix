@@ -414,7 +414,8 @@
         "contact_status",
         "temporal_coverage",
         "spatial_coverage",
-        "metadata_conflicts"
+        "metadata_conflicts",
+        "artifact_path"
       ],
       "properties": {
         "source_id": {
@@ -496,6 +497,13 @@
             "string",
             "null"
           ]
+        },
+        "artifact_path": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "minLength": 1
         }
       },
       "allOf": [
@@ -519,6 +527,10 @@
               "sha256": {
                 "type": "string",
                 "pattern": "^[a-f0-9]{64}$"
+              },
+              "artifact_path": {
+                "type": "string",
+                "minLength": 1
               }
             }
           }
@@ -555,7 +567,8 @@
         "command_digest",
         "input_source_ids",
         "output_artifact_sha256",
-        "notes"
+        "notes",
+        "output_artifact_path"
       ],
       "properties": {
         "name": {
@@ -595,8 +608,57 @@
         },
         "notes": {
           "type": "string"
+        },
+        "output_artifact_path": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "minLength": 1
         }
-      }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "output_artifact_sha256": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "output_artifact_sha256"
+            ]
+          },
+          "then": {
+            "properties": {
+              "output_artifact_path": {
+                "type": "string",
+                "minLength": 1
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "output_artifact_path": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "output_artifact_path"
+            ]
+          },
+          "then": {
+            "properties": {
+              "output_artifact_sha256": {
+                "type": "string",
+                "pattern": "^[a-f0-9]{64}$"
+              }
+            }
+          }
+        }
+      ]
     }
   },
   "allOf": [
@@ -925,6 +987,83 @@
             "properties": {
               "domain_validation": {
                 "const": "pass"
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "evidence_tier": {
+            "enum": [
+              "S2",
+              "S3",
+              "S4"
+            ]
+          },
+          "run_status": {
+            "enum": [
+              "executed",
+              "independently_checked",
+              "domain_validated"
+            ]
+          }
+        },
+        "required": [
+          "evidence_tier",
+          "run_status"
+        ]
+      },
+      "then": {
+        "properties": {
+          "subject": {
+            "properties": {
+              "artifact_sha256": {
+                "type": "string",
+                "pattern": "^[a-f0-9]{64}$"
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "evidence_tier": {
+            "enum": [
+              "S3",
+              "S4"
+            ]
+          }
+        },
+        "required": [
+          "evidence_tier"
+        ]
+      },
+      "then": {
+        "properties": {
+          "transforms": {
+            "items": {
+              "properties": {
+                "parameters_sha256": {
+                  "type": "string",
+                  "pattern": "^[a-f0-9]{64}$"
+                },
+                "command_digest": {
+                  "type": "string",
+                  "pattern": "^[a-f0-9]{64}$"
+                },
+                "output_artifact_sha256": {
+                  "type": "string",
+                  "pattern": "^[a-f0-9]{64}$"
+                },
+                "output_artifact_path": {
+                  "type": "string",
+                  "minLength": 1
+                }
               }
             }
           }

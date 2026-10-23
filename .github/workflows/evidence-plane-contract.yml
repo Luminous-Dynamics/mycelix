@@ -32,8 +32,11 @@ jobs:
           rustc --version
           cargo --version
 
-      - name: Validate schema and mutation controls
+      - name: Validate schema and artifact-verification mutation controls
         run: cargo test --manifest-path research/evidence-plane/validator/Cargo.toml
 
-      - name: Validate canonical synthetic fixture using the CLI
-        run: cargo run --quiet --manifest-path research/evidence-plane/validator/Cargo.toml -- research/evidence-plane/receipt-v0.schema.json research/evidence-plane/examples/synthetic-planned-receipt-v0.json
+      - name: Validate canonical synthetic fixture
+        run: cargo run --quiet --manifest-path research/evidence-plane/validator/Cargo.toml -- validate research/evidence-plane/receipt-v0.schema.json research/evidence-plane/examples/synthetic-planned-receipt-v0.json
+
+      - name: Verify planned fixture offline
+        run: cargo run --quiet --manifest-path research/evidence-plane/validator/Cargo.toml -- verify research/evidence-plane/receipt-v0.schema.json research/evidence-plane/examples/synthetic-planned-receipt-v0.json --artifact-root .

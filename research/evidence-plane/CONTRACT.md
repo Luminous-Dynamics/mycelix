@@ -6,7 +6,7 @@ Status: proposed contract. MUST/MUST NOT/SHOULD/MAY use their usual standards se
 
 Every receipt includes a unique ID, schema version, UTC creation time, run state, evidence tier, claim ceiling, subject, sources, transforms, benchmark protocol/budget, gates, independent-verification state and limitations. The subject identifies repository, exact commit when applicable, artifact path and SHA-256 when bytes exist. Branch names alone are not immutable identity.
 
-Hashes cover exact bytes. An unavailable or prohibited artifact may have a null digest only with explicit explanation and a lower claim ceiling. V0 hashes exact UTF-8 receipt bytes; any later canonicalization must be versioned and cross-implementation tested. Corrections create new append-only receipts that supersede old IDs rather than overwriting failure history. Signatures bind exact receipt digest and key identity.
+Hashes cover exact bytes. The Rust CLI `verify` mode recomputes the subject, ingested source and transform-output digests from files beneath an explicitly supplied artifact root; it never fetches URLs. It also checks byte counts, known source IDs and path containment. `validate` checks structure only. An unavailable or prohibited artifact may have a null digest only with explicit explanation and a lower claim ceiling. V0 hashes exact UTF-8 receipt bytes; any later canonicalization must be versioned and cross-implementation tested. Corrections create new append-only receipts that supersede old IDs rather than overwriting failure history. Signatures bind exact receipt digest and key identity.
 
 ## Sources and stewardship
 

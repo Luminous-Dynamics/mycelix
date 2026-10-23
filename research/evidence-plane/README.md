@@ -53,7 +53,7 @@ These are evidence classes, not a universal measure of truth or risk. Stronger c
 
 ## Stages and acceptance targets
 
-V0 contract: schema, examples, threat model, benchmark protocol and integration map. Require a real Draft 2020-12 validator, a passing positive fixture, at least ten expected failing single-field mutations, and review of claim ceilings.
+V0 contract: schema, examples, threat model, benchmark protocol and integration map. The initial validator checks structure only; artifact verification is a separate explicit mode. Require a real Draft 2020-12 validator, a passing positive fixture, at least ten expected failing single-field mutations, and review of claim ceilings.
 
 V1 Rust CLI: receipt validation, hash checking, lineage checks and mutation suite; pinned dependencies and offline normal mode. Test wrong hash/commit, missing parent, path traversal, units/CRS drift, forbidden reuse, missing gates, result tampering and synthetic-to-physical escalation.
 
