@@ -873,16 +873,7 @@ mod tests {
         let train_features = build_features(&train_views, 8);
         let calibration_features = build_features(&calibration_views, 8);
         let test_features = build_features(&test_views, 8);
-        let (_, summary, _) = run_profile(
-            profile,
-            &train,
-            &train_features,
-            &calibration,
-            &calibration_features,
-            &test,
-            &test_features,
-        );
-        let (outcomes, _, _) = run_profile(
+        let (outcomes, summary, _) = run_profile(
             profile,
             &train,
             &train_features,
@@ -894,21 +885,43 @@ mod tests {
         (outcomes, summary)
     }
 
+    fn manifest_integer_array(key: &str) -> Vec<u64> {
+        let marker = format!("\"{key}\": [");
+        let section = MANIFEST
+            .split(marker.as_str())
+            .nth(1)
+            .expect("manifest array must exist")
+            .split(']')
+            .next()
+            .expect("manifest array must close");
+        section
+            .split(',')
+            .filter_map(|value| value.trim().parse::<u64>().ok())
+            .collect()
+    }
+
     #[test]
     fn manifest_freezes_profiles_seeds_signals_and_thresholds() {
         assert!(MANIFEST.contains("attacker_profiles"));
         for profile in Profile::ALL {
             assert!(MANIFEST.contains(profile.name()), "missing {}", profile.name());
         }
-        for seed in EVALUATION_SEEDS {
-            assert!(MANIFEST.contains(&seed.to_string()), "missing seed {seed}");
-        }
-        for signal in SIGNAL_LEVELS_PPM {
-            assert!(MANIFEST.contains(&signal.to_string()), "missing signal {signal}");
-        }
-        for threshold in CONFIDENCE_THRESHOLDS_PPM {
-            assert!(MANIFEST.contains(&threshold.to_string()), "missing threshold {threshold}");
-        }
+        assert_eq!(
+            manifest_integer_array("evaluation_seeds"),
+            EVALUATION_SEEDS.to_vec()
+        );
+        assert_eq!(
+            manifest_integer_array("cohort_sizes"),
+            COHORT_SIZES.iter().map(|value| *value as u64).collect::<Vec<_>>()
+        );
+        assert_eq!(
+            manifest_integer_array("peer_signal_probability_ppm"),
+            SIGNAL_LEVELS_PPM.iter().map(|value| u64::from(*value)).collect::<Vec<_>>()
+        );
+        assert_eq!(
+            manifest_integer_array("decision_threshold_ppm"),
+            CONFIDENCE_THRESHOLDS_PPM.to_vec()
+        );
     }
 
     #[test]
