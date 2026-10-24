@@ -103,7 +103,7 @@
           "valid_until_unix": null,
           "status": "retracted",
           "supersedes": [],
-          "occurred_at_uncertainty_seconds": 0,
+          "occurred_at_uncertainty_seconds": 60,
           "occurrence_time_provenance": "educator_attested",
           "recorded_at_uncertainty_seconds": 0,
           "record_time_provenance": "server_receipt"
@@ -121,7 +121,7 @@
           "valid_until_unix": null,
           "status": "active",
           "supersedes": [],
-          "occurred_at_uncertainty_seconds": 0,
+          "occurred_at_uncertainty_seconds": 60,
           "occurrence_time_provenance": "educator_attested",
           "recorded_at_uncertainty_seconds": 0,
           "record_time_provenance": "server_receipt"
@@ -142,7 +142,7 @@
             "te003-original",
             "te003-prior-active"
           ],
-          "occurred_at_uncertainty_seconds": 0,
+          "occurred_at_uncertainty_seconds": 60,
           "occurrence_time_provenance": "educator_attested",
           "recorded_at_uncertainty_seconds": 0,
           "record_time_provenance": "server_receipt"
@@ -310,7 +310,7 @@
           "valid_until_unix": null,
           "status": "retracted",
           "supersedes": [],
-          "occurred_at_uncertainty_seconds": 0,
+          "occurred_at_uncertainty_seconds": 60,
           "occurrence_time_provenance": "educator_attested",
           "recorded_at_uncertainty_seconds": 0,
           "record_time_provenance": "server_receipt"
