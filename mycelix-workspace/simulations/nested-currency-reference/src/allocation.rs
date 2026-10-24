@@ -28,6 +28,10 @@ pub enum AllocationPolicy {
     EqualSplit,
     /// Weight rights by the ceiling of the mean historical demand.
     DemandWeighted,
+    /// Reserve an explicit fraction of discretionary capacity as equal per-shard
+    /// slices, then distribute the remainder by historical mean demand. This trades
+    /// some stationary utilization for resilience to demand shifts.
+    DemandWeightedWithEqualFloor { equal_floor_ppm: u32 },
     /// Weight rights by a nearest-rank historical quantile plus a proportional margin.
     /// Quantile uses basis points: 5_000 = 50th percentile, 9_500 = 95th percentile.
     RobustQuantile {
@@ -65,6 +69,7 @@ pub enum AllocationError {
     InvalidShardId,
     DuplicateShardId,
     ReserveOutOfRange,
+    FloorOutOfRange,
     QuantileOutOfRange,
     MarginOutOfRange,
     MissingDemandSamples,
@@ -175,11 +180,22 @@ pub fn allocate_static_escrow(
         return Err(AllocationError::InsufficientCapacityForMinimums);
     }
 
+    let equal_floor_ppm = match policy {
+        AllocationPolicy::DemandWeightedWithEqualFloor { equal_floor_ppm } => {
+            if equal_floor_ppm > PARTS_PER_MILLION {
+                return Err(AllocationError::FloorOutOfRange);
+            }
+            equal_floor_ppm
+        }
+        _ => 0,
+    };
+
     let mut weights = Vec::with_capacity(shards.len());
     for shard in shards {
         let weight = match policy {
             AllocationPolicy::EqualSplit => 1,
-            AllocationPolicy::DemandWeighted => mean_ceiling(&shard.samples)?,
+            AllocationPolicy::DemandWeighted
+            | AllocationPolicy::DemandWeightedWithEqualFloor { .. } => mean_ceiling(&shard.samples)?,
             AllocationPolicy::RobustQuantile { quantile_basis_points, margin_ppm } => {
                 if !(1..=BASIS_POINTS).contains(&quantile_basis_points) {
                     return Err(AllocationError::QuantileOutOfRange);
@@ -202,34 +218,20 @@ pub fn allocate_static_escrow(
         weights.fill(1);
     }
 
-    let total_weight = weights.iter().try_fold(0_u64, |total, weight| {
-        total.checked_add(*weight).ok_or(AllocationError::Overflow)
-    })?;
     let distributable = spendable.checked_sub(minimum_total).ok_or(AllocationError::Overflow)?;
+    let equal_floor_budget = (u128::from(distributable) * u128::from(equal_floor_ppm)
+        / u128::from(PARTS_PER_MILLION)) as u64;
+    let weighted_budget = distributable.checked_sub(equal_floor_budget).ok_or(AllocationError::Overflow)?;
 
-    // Largest-remainder apportionment is integer-only and deterministic. Product of
-    // two u64 values fits u128; tie breaks are always lexical shard IDs.
-    let mut extra = vec![0_u64; shards.len()];
-    let mut remainders = Vec::with_capacity(shards.len());
-    let mut distributed = 0_u64;
-    for (index, weight) in weights.iter().enumerate() {
-        let product = u128::from(distributable) * u128::from(*weight);
-        let share = (product / u128::from(total_weight)) as u64;
-        let remainder = product % u128::from(total_weight);
-        extra[index] = share;
-        distributed = distributed.checked_add(share).ok_or(AllocationError::Overflow)?;
-        remainders.push((index, remainder, shards[index].shard_id.as_str()));
-    }
-
-    let leftover = distributable.checked_sub(distributed).ok_or(AllocationError::Overflow)?;
-    remainders.sort_by(|a, b| b.1.cmp(&a.1).then_with(|| a.2.cmp(b.2)));
-    let leftover_usize = usize::try_from(leftover).map_err(|_| AllocationError::Overflow)?;
-    if leftover_usize > remainders.len() {
-        return Err(AllocationError::InternalAccountingViolation);
-    }
-    for (index, _, _) in remainders.iter().take(leftover_usize) {
-        extra[*index] = extra[*index].checked_add(1).ok_or(AllocationError::Overflow)?;
-    }
+    // The equal floor is a pre-authorized placement preference, not permission to
+    // resize allocations after a partition. Both portions use the same deterministic
+    // integer apportionment and their sum remains bounded by the original budget.
+    let equal_weights = vec![1_u64; shards.len()];
+    let equal_floor_extra = apportion_largest_remainder(equal_floor_budget, &equal_weights, shards)?;
+    let weighted_extra = apportion_largest_remainder(weighted_budget, &weights, shards)?;
+    let extra: Vec<u64> = equal_floor_extra.iter().zip(&weighted_extra).map(|(equal, weighted)| {
+        equal.checked_add(*weighted).ok_or(AllocationError::Overflow)
+    }).collect::<Result<_, AllocationError>>()?;
 
     let mut slices: Vec<AllocationSlice> = shards.iter().enumerate().map(|(index, shard)| {
         Ok(AllocationSlice {
@@ -252,6 +254,47 @@ pub fn allocate_static_escrow(
     };
     plan.validate()?;
     Ok(plan)
+}
+
+fn apportion_largest_remainder(
+    budget: u64,
+    weights: &[u64],
+    shards: &[ShardDemand],
+) -> Result<Vec<u64>, AllocationError> {
+    if shards.is_empty() || weights.len() != shards.len() {
+        return Err(AllocationError::InternalAccountingViolation);
+    }
+    let total_weight = weights.iter().try_fold(0_u64, |total, weight| {
+        total.checked_add(*weight).ok_or(AllocationError::Overflow)
+    })?;
+    if total_weight == 0 {
+        return Err(AllocationError::InternalAccountingViolation);
+    }
+
+    // Largest-remainder apportionment is integer-only and deterministic. Product of
+    // two u64 values fits u128; ties are always broken by lexical canonical shard ID.
+    let mut shares = vec![0_u64; shards.len()];
+    let mut remainders = Vec::with_capacity(shards.len());
+    let mut distributed = 0_u64;
+    for (index, weight) in weights.iter().enumerate() {
+        let product = u128::from(budget) * u128::from(*weight);
+        let share = (product / u128::from(total_weight)) as u64;
+        let remainder = product % u128::from(total_weight);
+        shares[index] = share;
+        distributed = distributed.checked_add(share).ok_or(AllocationError::Overflow)?;
+        remainders.push((index, remainder, shards[index].shard_id.as_str()));
+    }
+
+    let leftover = budget.checked_sub(distributed).ok_or(AllocationError::Overflow)?;
+    remainders.sort_by(|a, b| b.1.cmp(&a.1).then_with(|| a.2.cmp(b.2)));
+    let leftover_usize = usize::try_from(leftover).map_err(|_| AllocationError::Overflow)?;
+    if leftover_usize > remainders.len() {
+        return Err(AllocationError::InternalAccountingViolation);
+    }
+    for (index, _, _) in remainders.iter().take(leftover_usize) {
+        shares[*index] = shares[*index].checked_add(1).ok_or(AllocationError::Overflow)?;
+    }
+    Ok(shares)
 }
 
 fn mean_ceiling(samples: &[u64]) -> Result<u64, AllocationError> {
@@ -343,6 +386,38 @@ mod tests {
         assert_eq!(plan.slice_for("b"), Some(20));
         assert_eq!(plan.slice_for("c"), Some(30));
         plan.validate().unwrap();
+    }
+
+    #[test]
+    fn demand_weighted_equal_floor_trades_peak_utilization_for_shift_resilience() {
+        let input = vec![shard("a", &[10], 0), shard("b", &[90], 0)];
+        let weighted = allocate_static_escrow(&input, 100, 0, AllocationPolicy::DemandWeighted).unwrap();
+        let hybrid = allocate_static_escrow(
+            &input,
+            100,
+            0,
+            AllocationPolicy::DemandWeightedWithEqualFloor { equal_floor_ppm: 500_000 },
+        ).unwrap();
+        assert_eq!(weighted.slice_for("a"), Some(10));
+        assert_eq!(weighted.slice_for("b"), Some(90));
+        assert_eq!(hybrid.slice_for("a"), Some(30));
+        assert_eq!(hybrid.slice_for("b"), Some(70));
+        assert_eq!(hybrid.total_allocated().unwrap(), 100);
+        hybrid.validate().unwrap();
+    }
+
+    #[test]
+    fn full_equal_floor_matches_equal_split_after_minimums() {
+        let input = vec![shard("a", &[10], 5), shard("b", &[90], 5)];
+        let equal = allocate_static_escrow(&input, 100, 0, AllocationPolicy::EqualSplit).unwrap();
+        let hybrid = allocate_static_escrow(
+            &input,
+            100,
+            0,
+            AllocationPolicy::DemandWeightedWithEqualFloor { equal_floor_ppm: PARTS_PER_MILLION },
+        ).unwrap();
+        assert_eq!(equal.slice_for("a"), hybrid.slice_for("a"));
+        assert_eq!(equal.slice_for("b"), hybrid.slice_for("b"));
     }
 
     #[test]
