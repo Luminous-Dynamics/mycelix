@@ -18,7 +18,11 @@
           "recorded_at_unix": 1791504000,
           "valid_until_unix": null,
           "status": "active",
-          "supersedes": []
+          "supersedes": [],
+          "occurred_at_uncertainty_seconds": 0,
+          "occurrence_time_provenance": "assessment_server",
+          "recorded_at_uncertainty_seconds": 0,
+          "record_time_provenance": "server_receipt"
         },
         {
           "observation_id": "te001-assisted-success",
@@ -32,7 +36,11 @@
           "recorded_at_unix": 1790812800,
           "valid_until_unix": null,
           "status": "active",
-          "supersedes": []
+          "supersedes": [],
+          "occurred_at_uncertainty_seconds": 0,
+          "occurrence_time_provenance": "assessment_server",
+          "recorded_at_uncertainty_seconds": 0,
+          "record_time_provenance": "server_receipt"
         },
         {
           "observation_id": "te001-current-failure",
@@ -46,7 +54,11 @@
           "recorded_at_unix": 1791504000,
           "valid_until_unix": null,
           "status": "active",
-          "supersedes": []
+          "supersedes": [],
+          "occurred_at_uncertainty_seconds": 0,
+          "occurrence_time_provenance": "assessment_server",
+          "recorded_at_uncertainty_seconds": 0,
+          "record_time_provenance": "server_receipt"
         }
       ]
     },
@@ -66,7 +78,11 @@
           "recorded_at_unix": 1790812800,
           "valid_until_unix": 1791504000,
           "status": "active",
-          "supersedes": []
+          "supersedes": [],
+          "occurred_at_uncertainty_seconds": 0,
+          "occurrence_time_provenance": "assessment_server",
+          "recorded_at_uncertainty_seconds": 0,
+          "record_time_provenance": "server_receipt"
         }
       ]
     },
@@ -86,7 +102,11 @@
           "recorded_at_unix": 1790812800,
           "valid_until_unix": null,
           "status": "retracted",
-          "supersedes": []
+          "supersedes": [],
+          "occurred_at_uncertainty_seconds": 0,
+          "occurrence_time_provenance": "educator_attested",
+          "recorded_at_uncertainty_seconds": 0,
+          "record_time_provenance": "server_receipt"
         },
         {
           "observation_id": "te003-prior-active",
@@ -100,7 +120,11 @@
           "recorded_at_unix": 1791504000,
           "valid_until_unix": null,
           "status": "active",
-          "supersedes": []
+          "supersedes": [],
+          "occurred_at_uncertainty_seconds": 0,
+          "occurrence_time_provenance": "educator_attested",
+          "recorded_at_uncertainty_seconds": 0,
+          "record_time_provenance": "server_receipt"
         },
         {
           "observation_id": "te003-correction",
@@ -114,7 +138,14 @@
           "recorded_at_unix": 1792108800,
           "valid_until_unix": null,
           "status": "active",
-          "supersedes": ["te003-original", "te003-prior-active"]
+          "supersedes": [
+            "te003-original",
+            "te003-prior-active"
+          ],
+          "occurred_at_uncertainty_seconds": 0,
+          "occurrence_time_provenance": "educator_attested",
+          "recorded_at_uncertainty_seconds": 0,
+          "record_time_provenance": "server_receipt"
         }
       ]
     },
@@ -134,7 +165,11 @@
           "recorded_at_unix": 1790812800,
           "valid_until_unix": null,
           "status": "active",
-          "supersedes": []
+          "supersedes": [],
+          "occurred_at_uncertainty_seconds": 0,
+          "occurrence_time_provenance": "assessment_server",
+          "recorded_at_uncertainty_seconds": 0,
+          "record_time_provenance": "server_receipt"
         },
         {
           "observation_id": "te004-transfer-failure",
@@ -148,7 +183,11 @@
           "recorded_at_unix": 1791504000,
           "valid_until_unix": null,
           "status": "active",
-          "supersedes": []
+          "supersedes": [],
+          "occurred_at_uncertainty_seconds": 0,
+          "occurrence_time_provenance": "assessment_server",
+          "recorded_at_uncertainty_seconds": 0,
+          "record_time_provenance": "server_receipt"
         }
       ]
     },
@@ -168,7 +207,11 @@
           "recorded_at_unix": 1791504000,
           "valid_until_unix": null,
           "status": "active",
-          "supersedes": []
+          "supersedes": [],
+          "occurred_at_uncertainty_seconds": 0,
+          "occurrence_time_provenance": "assessment_server",
+          "recorded_at_uncertainty_seconds": 0,
+          "record_time_provenance": "server_receipt"
         },
         {
           "observation_id": "te005-conflict-failure",
@@ -179,10 +222,14 @@
           "assistance": "none",
           "origin": "recorded_attempt",
           "occurred_at_unix": 1791504000,
-          "recorded_at_unix": 1791504000,
+          "recorded_at_unix": 1792800000,
           "valid_until_unix": null,
           "status": "active",
-          "supersedes": []
+          "supersedes": [],
+          "occurred_at_uncertainty_seconds": 0,
+          "occurrence_time_provenance": "assessment_server",
+          "recorded_at_uncertainty_seconds": 3600,
+          "record_time_provenance": "local_store"
         }
       ]
     },
@@ -202,7 +249,11 @@
           "recorded_at_unix": 1792108800,
           "valid_until_unix": null,
           "status": "active",
-          "supersedes": []
+          "supersedes": [],
+          "occurred_at_uncertainty_seconds": 86400,
+          "occurrence_time_provenance": "imported_unverified",
+          "recorded_at_uncertainty_seconds": 0,
+          "record_time_provenance": "server_receipt"
         },
         {
           "observation_id": "te006-current-failure",
@@ -216,7 +267,11 @@
           "recorded_at_unix": 1791504000,
           "valid_until_unix": null,
           "status": "active",
-          "supersedes": []
+          "supersedes": [],
+          "occurred_at_uncertainty_seconds": 0,
+          "occurrence_time_provenance": "assessment_server",
+          "recorded_at_uncertainty_seconds": 0,
+          "record_time_provenance": "server_receipt"
         }
       ]
     },
@@ -236,7 +291,11 @@
           "recorded_at_unix": 1767225600,
           "valid_until_unix": 1790812800,
           "status": "active",
-          "supersedes": []
+          "supersedes": [],
+          "occurred_at_uncertainty_seconds": 0,
+          "occurrence_time_provenance": "assessment_server",
+          "recorded_at_uncertainty_seconds": 0,
+          "record_time_provenance": "server_receipt"
         },
         {
           "observation_id": "te007-retracted-current",
@@ -250,7 +309,11 @@
           "recorded_at_unix": 1791504000,
           "valid_until_unix": null,
           "status": "retracted",
-          "supersedes": []
+          "supersedes": [],
+          "occurred_at_uncertainty_seconds": 0,
+          "occurrence_time_provenance": "educator_attested",
+          "recorded_at_uncertainty_seconds": 0,
+          "record_time_provenance": "server_receipt"
         }
       ]
     },
@@ -270,7 +333,11 @@
           "recorded_at_unix": 1792108800,
           "valid_until_unix": null,
           "status": "active",
-          "supersedes": []
+          "supersedes": [],
+          "occurred_at_uncertainty_seconds": 0,
+          "occurrence_time_provenance": "assessment_server",
+          "recorded_at_uncertainty_seconds": 0,
+          "record_time_provenance": "server_receipt"
         },
         {
           "observation_id": "te008-same-time-failure",
@@ -284,7 +351,11 @@
           "recorded_at_unix": 1792108800,
           "valid_until_unix": null,
           "status": "active",
-          "supersedes": []
+          "supersedes": [],
+          "occurred_at_uncertainty_seconds": 0,
+          "occurrence_time_provenance": "assessment_server",
+          "recorded_at_uncertainty_seconds": 0,
+          "record_time_provenance": "server_receipt"
         }
       ]
     },
@@ -304,7 +375,11 @@
           "recorded_at_unix": 1790812800,
           "valid_until_unix": null,
           "status": "active",
-          "supersedes": []
+          "supersedes": [],
+          "occurred_at_uncertainty_seconds": 86400,
+          "occurrence_time_provenance": "derived_estimate",
+          "recorded_at_uncertainty_seconds": 0,
+          "record_time_provenance": "server_receipt"
         }
       ]
     }
