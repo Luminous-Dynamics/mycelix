@@ -374,6 +374,34 @@ mod tests {
         let r=analyze_learning_outcomes_json(&serde_json::to_string(&p).unwrap(),&dataset(120,false),REVISION).unwrap_err();
         assert!(r.iter().any(|f|f.code=="unsupported_missing_data_plan"));
     }
+    #[test] fn missing_reason_is_required_when_value_is_null() {
+        let p=registered_protocol();let mut d:Value=serde_json::from_str(&dataset(120,false)).unwrap();
+        d["rows"][0]["value_milli"]=Value::Null;
+        let r=analyze_learning_outcomes_json(&p,&serde_json::to_string(&d).unwrap(),REVISION).unwrap_err();
+        assert!(r.iter().any(|f|f.code=="missing_reason_required"));
+    }
+    #[test] fn missing_reason_is_forbidden_when_value_is_present() {
+        let p=registered_protocol();let mut d:Value=serde_json::from_str(&dataset(120,false)).unwrap();
+        d["rows"][0]["missing_reason"]=json!("assessment_not_completed");
+        let r=analyze_learning_outcomes_json(&p,&serde_json::to_string(&d).unwrap(),REVISION).unwrap_err();
+        assert!(r.iter().any(|f|f.code=="missing_reason_on_observed_outcome"));
+    }
+    #[test] fn wrong_endpoint_is_rejected() {
+        let p=registered_protocol();let mut d:Value=serde_json::from_str(&dataset(120,false)).unwrap();
+        d["endpoint_id"]=json!("posthoc-endpoint");
+        let r=analyze_learning_outcomes_json(&p,&serde_json::to_string(&d).unwrap(),REVISION).unwrap_err();
+        assert!(r.iter().any(|f|f.code=="endpoint_id_mismatch"));
+    }
+    #[test] fn below_planned_sample_size_withholds_interval() {
+        let r=analyze_learning_outcomes_json(&registered_protocol(),&dataset(40,false),REVISION).unwrap();
+        assert_eq!(r.status,OutcomeAnalysisStatus::InsufficientSample);
+        assert!(r.observed_case_difference_value_milli_micros.is_some());
+        assert!(r.confidence_interval.is_none());
+    }
+    #[test] fn malformed_dataset_json_is_rejected() {
+        let r=analyze_learning_outcomes_json(&registered_protocol(),"{",REVISION).unwrap_err();
+        assert!(r.iter().any(|f|f.code=="dataset_parse_error"));
+    }
     #[test] fn unknown_arm_is_rejected() {
         let p=registered_protocol();let mut d:Value=serde_json::from_str(&dataset(120,false)).unwrap();d["rows"][0]["arm_id"]=json!("post_hoc_arm");
         let r=analyze_learning_outcomes_json(&p,&serde_json::to_string(&d).unwrap(),REVISION).unwrap_err();
