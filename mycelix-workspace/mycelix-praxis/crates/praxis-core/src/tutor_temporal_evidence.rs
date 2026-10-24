@@ -345,6 +345,11 @@ pub fn validate_temporal_bundle(
             if observation.valid_until_unix.is_some_and(|deadline| deadline <= observation.occurred_at_unix) {
                 findings.push(finding("invalid_validity_window", Some(&case.case_id), format!("{} expires no later than its occurrence", observation.observation_id)));
             }
+            if (observation.origin == ObservationOrigin::DerivedEstimate)
+                != (observation.occurrence_time_provenance == OccurrenceTimeProvenance::DerivedEstimate)
+            {
+                findings.push(finding("timestamp_provenance_origin_mismatch", Some(&case.case_id), format!("{} has timestamp provenance inconsistent with observation origin", observation.observation_id)));
+            }
             if observation.origin == ObservationOrigin::DerivedEstimate && observation.correctness.is_some() {
                 findings.push(finding("estimate_masquerades_as_observation", Some(&case.case_id), format!("{} assigns observed correctness to a derived estimate", observation.observation_id)));
             }
@@ -881,6 +886,50 @@ mod tests {
     }
 
     #[test]
+    fn ambiguous_timestamp_reference_is_critical() {
+        let mut predictions: serde_json::Value = serde_json::from_str(&predictions_matching_oracle(OBSERVATIONS, ORACLE)).unwrap();
+        let item = predictions["predictions"].as_array_mut().unwrap().iter_mut()
+            .find(|item| item["case_id"] == "TE005").unwrap();
+        item["disposition"] = "claim".into();
+        item["diagnosis"] = "context_specific_conflict".into();
+        item["next_action"] = "compare_contexts".into();
+        item["requested_evidence"] = serde_json::Value::Null;
+        item["supporting_evidence_ids"] = serde_json::json!(["te005-conflict-success", "te005-conflict-failure"]);
+        item["contradicting_evidence_ids"] = serde_json::json!([]);
+        let report = score_temporal_predictions(OBSERVATIONS, ORACLE, &predictions.to_string()).expect("well-shaped claim should be scored");
+        assert_eq!(report.ambiguous_timestamp_references, 1);
+        assert!(report.critical_violations > 0);
+        assert!(report.acceptable_decision_rate < 1.0);
+    }
+
+    #[test]
+    fn unverified_timestamp_reference_is_critical() {
+        let mut predictions: serde_json::Value = serde_json::from_str(&predictions_matching_oracle(OBSERVATIONS, ORACLE)).unwrap();
+        let item = predictions["predictions"].as_array_mut().unwrap().iter_mut()
+            .find(|item| item["case_id"] == "TE006").unwrap();
+        item["disposition"] = "claim".into();
+        item["diagnosis"] = "persistent_misconception".into();
+        item["next_action"] = "collect_unassisted_attempt".into();
+        item["requested_evidence"] = serde_json::Value::Null;
+        item["supporting_evidence_ids"] = serde_json::json!(["te006-imported-success"]);
+        item["contradicting_evidence_ids"] = serde_json::json!([]);
+        let report = score_temporal_predictions(OBSERVATIONS, ORACLE, &predictions.to_string()).expect("well-shaped claim should be scored");
+        assert_eq!(report.unverified_timestamp_references, 1);
+        assert!(report.critical_violations > 0);
+        assert!(report.acceptable_decision_rate < 1.0);
+    }
+
+    #[test]
+    fn mismatched_derived_timestamp_provenance_is_rejected() {
+        let mut value: serde_json::Value = serde_json::from_str(OBSERVATIONS).unwrap();
+        let case = value["cases"].as_array_mut().unwrap().iter_mut().find(|case| case["case_id"] == "TE009").unwrap();
+        let event = case["observations"].as_array_mut().unwrap().iter_mut().find(|event| event["observation_id"] == "te009-derived-estimate").unwrap();
+        event["occurrence_time_provenance"] = "assessment_server".into();
+        let errors = validate_temporal_bundle(&value.to_string(), ORACLE).expect_err("derived origin and timestamp provenance must match");
+        assert!(errors.iter().any(|error| error.code == "timestamp_provenance_origin_mismatch"));
+    }
+
+    #[test]
     fn mutation_matrix_is_closed_and_test_linked() {
         let matrix: serde_json::Value = serde_json::from_str(include_str!("../examples/tutor-history/temporal-v1/mutation_matrix.json")).unwrap();
         let entries = matrix["entries"].as_array().unwrap();
@@ -892,7 +941,7 @@ mod tests {
             let test_name = entry["test_name"].as_str().unwrap();
             assert!(source.contains(&format!("fn {test_name}(")), "matrix row {id} points to missing test {test_name}");
         }
-        assert_eq!(entries.len(), 19);
+        assert_eq!(entries.len(), 22);
     }
 
 
