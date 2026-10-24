@@ -741,7 +741,7 @@
       "attack": "A shard misses its heartbeat but is still potentially live; a different owner requests its slice.",
       "expected": "reject_transfer_or_keep_capacity_charged",
       "code_test": null,
-      "execution_status": "spec_only_not_implemented"
+      "execution_status": "planned_not_implemented_or_not_fully_qualified"
     },
     {
       "id": "NCF-FEN-002",
@@ -749,8 +749,8 @@
       "class": "stale_epoch_write",
       "attack": "An owner submits a new obligation referencing an epoch closed by a valid fencing receipt.",
       "expected": "reject_old_epoch_operation",
-      "code_test": null,
-      "execution_status": "spec_only_not_implemented"
+      "code_test": "old_epoch_cannot_create_exposure_after_drain_or_fence",
+      "execution_status": "reference_test_defined_not_run"
     },
     {
       "id": "NCF-FEN-003",
@@ -758,8 +758,8 @@
       "class": "early_successor_spend",
       "attack": "The successor presents an allocation proposal but no verifiable committed transfer receipt.",
       "expected": "reject_new_epoch_operation",
-      "code_test": null,
-      "execution_status": "spec_only_not_implemented"
+      "code_test": "old_epoch_cannot_create_exposure_after_drain_or_fence",
+      "execution_status": "reference_test_defined_not_run"
     },
     {
       "id": "NCF-FEN-004",
@@ -767,8 +767,8 @@
       "class": "incomplete_reconciliation",
       "attack": "One dependency or operation through the proposed terminal watermark is unavailable.",
       "expected": "unknown_or_reject_without_reallocation",
-      "code_test": null,
-      "execution_status": "spec_only_not_implemented"
+      "code_test": "incomplete_or_stale_reconciliation_cannot_fence",
+      "execution_status": "reference_test_defined_not_run"
     },
     {
       "id": "NCF-FEN-005",
@@ -776,8 +776,8 @@
       "class": "fencing_receipt_replay",
       "attack": "A receipt ID is reused with a changed owner, amount, epoch, predecessor or policy digest.",
       "expected": "reject_conflicting_replay",
-      "code_test": null,
-      "execution_status": "spec_only_not_implemented"
+      "code_test": "identical_drain_fence_and_transfer_retries_are_idempotent",
+      "execution_status": "reference_test_defined_not_run"
     },
     {
       "id": "NCF-FEN-006",
@@ -786,7 +786,7 @@
       "attack": "Inject a crash after each durable step of drain, reconcile, fence, prepare, debit, credit and commit.",
       "expected": "one_recoverable_state_no_duplicate_capacity",
       "code_test": null,
-      "execution_status": "spec_only_not_implemented"
+      "execution_status": "planned_not_implemented_or_not_fully_qualified"
     },
     {
       "id": "NCF-FEN-007",
@@ -795,7 +795,7 @@
       "attack": "A relevant cap or profile revision changes after the allocation snapshot was read.",
       "expected": "reject_stale_revision",
       "code_test": null,
-      "execution_status": "spec_only_not_implemented"
+      "execution_status": "planned_not_implemented_or_not_fully_qualified"
     },
     {
       "id": "NCF-FEN-008",
@@ -804,7 +804,7 @@
       "attack": "Race 100 attempts against one remaining unit using the selected control authority.",
       "expected": "at_most_one_successful_transition",
       "code_test": null,
-      "execution_status": "spec_only_not_implemented"
+      "execution_status": "planned_not_implemented_or_not_fully_qualified"
     },
     {
       "id": "NCF-FEN-009",
@@ -813,7 +813,7 @@
       "attack": "The old owner is partitioned and cannot provide a drain acknowledgement; no qualified linearizable/quorum fence is available.",
       "expected": "no_capacity_reclamation",
       "code_test": null,
-      "execution_status": "spec_only_not_implemented"
+      "execution_status": "planned_not_implemented_or_not_fully_qualified"
     },
     {
       "id": "NCF-FEN-010",
@@ -822,7 +822,7 @@
       "attack": "Deliver valid receipt dependencies out of order and then make all required dependencies available.",
       "expected": "deterministic_final_state_no_early_spend",
       "code_test": null,
-      "execution_status": "spec_only_not_implemented"
+      "execution_status": "planned_not_implemented_or_not_fully_qualified"
     },
     {
       "id": "NCF-FEN-011",
@@ -831,7 +831,7 @@
       "attack": "The terminal outstanding amount is known but one possible in-flight operation cannot be reconciled.",
       "expected": "no_successful_transfer",
       "code_test": null,
-      "execution_status": "spec_only_not_implemented"
+      "execution_status": "planned_not_implemented_or_not_fully_qualified"
     },
     {
       "id": "NCF-FEN-012",
@@ -840,7 +840,7 @@
       "attack": "Interrupt transfer between old-allocation debit and new-allocation credit, then run deterministic recovery.",
       "expected": "capacity_remains_charged_until_single_commit",
       "code_test": null,
-      "execution_status": "spec_only_not_implemented"
+      "execution_status": "planned_not_implemented_or_not_fully_qualified"
     }
   ]
 }
