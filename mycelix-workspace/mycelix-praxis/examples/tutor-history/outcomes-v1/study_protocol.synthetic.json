@@ -22,7 +22,9 @@
     "independent_assessment": true,
     "assessor_blinded": true,
     "uses_unpracticed_items": true,
-    "minimum_delay_hours": 168
+    "minimum_delay_hours": 168,
+    "unit": "proportion_correct",
+    "favorable_direction": "higher_is_better"
   },
   "secondary_endpoints": [
     {
@@ -36,7 +38,9 @@
       "independent_assessment": true,
       "assessor_blinded": true,
       "uses_unpracticed_items": false,
-      "minimum_delay_hours": 0
+      "minimum_delay_hours": 0,
+      "unit": "active_session_rate",
+      "favorable_direction": "interpretation_sensitive"
     },
     {
       "endpoint_id": "time-on-task-session",
@@ -49,7 +53,9 @@
       "independent_assessment": true,
       "assessor_blinded": true,
       "uses_unpracticed_items": false,
-      "minimum_delay_hours": 0
+      "minimum_delay_hours": 0,
+      "unit": "minutes",
+      "favorable_direction": "interpretation_sensitive"
     },
     {
       "endpoint_id": "cost-per-gain-session",
@@ -62,7 +68,9 @@
       "independent_assessment": true,
       "assessor_blinded": true,
       "uses_unpracticed_items": false,
-      "minimum_delay_hours": 0
+      "minimum_delay_hours": 0,
+      "unit": "usd_per_gain_point",
+      "favorable_direction": "lower_is_better"
     },
     {
       "endpoint_id": "independent-practice-displacement",
@@ -75,7 +83,9 @@
       "independent_assessment": true,
       "assessor_blinded": true,
       "uses_unpracticed_items": false,
-      "minimum_delay_hours": 0
+      "minimum_delay_hours": 0,
+      "unit": "independent_practice_minutes_displaced",
+      "favorable_direction": "lower_is_better"
     },
     {
       "endpoint_id": "adverse-events",
@@ -88,7 +98,9 @@
       "independent_assessment": true,
       "assessor_blinded": true,
       "uses_unpracticed_items": false,
-      "minimum_delay_hours": 0
+      "minimum_delay_hours": 0,
+      "unit": "events_per_learner",
+      "favorable_direction": "lower_is_better"
     },
     {
       "endpoint_id": "retention-7d",
@@ -101,7 +113,9 @@
       "independent_assessment": true,
       "assessor_blinded": true,
       "uses_unpracticed_items": false,
-      "minimum_delay_hours": 168
+      "minimum_delay_hours": 168,
+      "unit": "proportion_correct",
+      "favorable_direction": "higher_is_better"
     },
     {
       "endpoint_id": "immediate-gain",
@@ -114,7 +128,9 @@
       "independent_assessment": true,
       "assessor_blinded": true,
       "uses_unpracticed_items": false,
-      "minimum_delay_hours": 0
+      "minimum_delay_hours": 0,
+      "unit": "proportion_correct",
+      "favorable_direction": "higher_is_better"
     },
     {
       "endpoint_id": "error-recovery",
@@ -127,7 +143,9 @@
       "independent_assessment": true,
       "assessor_blinded": true,
       "uses_unpracticed_items": false,
-      "minimum_delay_hours": 0
+      "minimum_delay_hours": 0,
+      "unit": "attempts_to_correct",
+      "favorable_direction": "lower_is_better"
     }
   ],
   "analysis_plan": {
