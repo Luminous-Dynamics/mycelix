@@ -29,6 +29,24 @@ pub enum RecordStatus {
     Retracted,
 }
 
+#[derive(Clone, Copy, Debug, Deserialize, Serialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum OccurrenceTimeProvenance {
+    AssessmentServer,
+    LearnerDevice,
+    EducatorAttested,
+    ImportedUnverified,
+    DerivedEstimate,
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, Serialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum RecordTimeProvenance {
+    ServerReceipt,
+    LocalStore,
+    ImportedUnverified,
+}
+
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
 #[serde(deny_unknown_fields)]
 pub struct TemporalObservation {
@@ -42,10 +60,18 @@ pub struct TemporalObservation {
     pub correctness: Option<bool>,
     pub assistance: AssistanceLevel,
     pub origin: ObservationOrigin,
-    /// When the learner event or assessment being described occurred (Unix seconds).
+    /// Estimated centre of when the learner event occurred (Unix seconds).
     pub occurred_at_unix: i64,
-    /// When this exact record entered the evidence store (Unix seconds).
+    /// Maximum absolute uncertainty around occurred_at_unix, in seconds.
+    pub occurred_at_uncertainty_seconds: u32,
+    /// Declared origin of the event timestamp; this field is not itself cryptographic proof.
+    pub occurrence_time_provenance: OccurrenceTimeProvenance,
+    /// Estimated centre of when this record entered the evidence store (Unix seconds).
     pub recorded_at_unix: i64,
+    /// Maximum absolute uncertainty around recorded_at_unix, in seconds.
+    pub recorded_at_uncertainty_seconds: u32,
+    /// Declared origin of the ingestion timestamp; this field is not itself cryptographic proof.
+    pub record_time_provenance: RecordTimeProvenance,
     /// Optional, explicit end of the record's current-state validity window.
     /// Null means "no expiry asserted", not "permanently valid".
     #[serde(deserialize_with = "required_option")]
@@ -98,6 +124,9 @@ pub enum TemporalEligibility {
     Superseded,
     FutureOccurrence,
     NotRecordedAtEvaluation,
+    AmbiguousOccurrenceTime,
+    AmbiguousRecordTime,
+    UnverifiedTemporalProvenance,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -119,25 +148,60 @@ fn parse_error(field: &'static str, error: serde_json::Error) -> Vec<TemporalFin
     vec![finding("json_parse", None, format!("{field}: {error}"))]
 }
 
-/// Classify whether an observation can support a claim about the state at the
-/// case's evaluation time. Old observations can remain useful historical context;
-/// only an explicit validity deadline expires current-state support.
+fn lower_time_bound(timestamp: i64, uncertainty_seconds: u32) -> i64 {
+    timestamp.saturating_sub(i64::from(uncertainty_seconds))
+}
+
+fn upper_time_bound(timestamp: i64, uncertainty_seconds: u32) -> i64 {
+    timestamp.saturating_add(i64::from(uncertainty_seconds))
+}
+
+/// Classify evidence against a fixed evaluation cut-off using closed uncertainty
+/// intervals. If an interval straddles the cutoff, the order is ambiguous, not
+/// silently rounded to whichever timestamp centre is convenient.
 pub fn temporal_eligibility(
     case: &TemporalCase,
     observation: &TemporalObservation,
 ) -> TemporalEligibility {
-    if observation.occurred_at_unix > case.evaluation_time_unix {
+    let occurrence_lower = lower_time_bound(
+        observation.occurred_at_unix,
+        observation.occurred_at_uncertainty_seconds,
+    );
+    let occurrence_upper = upper_time_bound(
+        observation.occurred_at_unix,
+        observation.occurred_at_uncertainty_seconds,
+    );
+    if occurrence_lower > case.evaluation_time_unix {
         return TemporalEligibility::FutureOccurrence;
     }
-    if observation.recorded_at_unix > case.evaluation_time_unix {
+    if occurrence_upper > case.evaluation_time_unix {
+        return TemporalEligibility::AmbiguousOccurrenceTime;
+    }
+
+    let record_lower = lower_time_bound(
+        observation.recorded_at_unix,
+        observation.recorded_at_uncertainty_seconds,
+    );
+    let record_upper = upper_time_bound(
+        observation.recorded_at_unix,
+        observation.recorded_at_uncertainty_seconds,
+    );
+    if record_lower > case.evaluation_time_unix {
         return TemporalEligibility::NotRecordedAtEvaluation;
     }
+    if record_upper > case.evaluation_time_unix {
+        return TemporalEligibility::AmbiguousRecordTime;
+    }
+
     if observation.status == RecordStatus::Retracted {
         return TemporalEligibility::Retracted;
     }
     if case.observations.iter().any(|candidate| {
         candidate.status == RecordStatus::Active
-            && candidate.recorded_at_unix <= case.evaluation_time_unix
+            && lower_time_bound(candidate.recorded_at_unix, candidate.recorded_at_uncertainty_seconds)
+                <= case.evaluation_time_unix
+            && upper_time_bound(candidate.recorded_at_unix, candidate.recorded_at_uncertainty_seconds)
+                <= case.evaluation_time_unix
             && candidate.supersedes.iter().any(|id| id == &observation.observation_id)
     }) {
         return TemporalEligibility::Superseded;
@@ -147,6 +211,13 @@ pub fn temporal_eligibility(
         .is_some_and(|deadline| case.evaluation_time_unix > deadline)
     {
         return TemporalEligibility::Expired;
+    }
+    if matches!(
+        observation.occurrence_time_provenance,
+        OccurrenceTimeProvenance::ImportedUnverified | OccurrenceTimeProvenance::DerivedEstimate
+    ) || observation.record_time_provenance == RecordTimeProvenance::ImportedUnverified
+    {
+        return TemporalEligibility::UnverifiedTemporalProvenance;
     }
     TemporalEligibility::Eligible
 }
@@ -185,6 +256,8 @@ pub struct TemporalBenchmarkScore {
     pub expired_support_references: usize,
     pub retracted_or_superseded_references: usize,
     pub future_or_unavailable_references: usize,
+    pub ambiguous_timestamp_references: usize,
+    pub unverified_timestamp_references: usize,
     pub unsupported_evidence_references: usize,
     pub missing_required_contradictions: usize,
     pub critical_violations: usize,
@@ -242,14 +315,32 @@ pub fn validate_temporal_bundle(
             if observation.occurred_at_unix <= 0 || observation.recorded_at_unix <= 0 {
                 findings.push(finding("invalid_timestamp", Some(&case.case_id), "occurrence and record timestamps must be positive Unix seconds"));
             }
-            if observation.recorded_at_unix < observation.occurred_at_unix {
-                findings.push(finding("recorded_before_occurred", Some(&case.case_id), format!("{} was recorded before its declared occurrence", observation.observation_id)));
+            let occurrence_lower = lower_time_bound(observation.occurred_at_unix, observation.occurred_at_uncertainty_seconds);
+            let occurrence_upper = upper_time_bound(observation.occurred_at_unix, observation.occurred_at_uncertainty_seconds);
+            let record_lower = lower_time_bound(observation.recorded_at_unix, observation.recorded_at_uncertainty_seconds);
+            let record_upper = upper_time_bound(observation.recorded_at_unix, observation.recorded_at_uncertainty_seconds);
+
+            if record_upper < occurrence_lower {
+                findings.push(finding("recorded_before_occurred", Some(&case.case_id), format!("{} is definitely recorded before its occurrence, even after accounting for uncertainty", observation.observation_id)));
             }
-            if observation.occurred_at_unix > case.evaluation_time_unix {
-                findings.push(finding("future_occurrence_leakage", Some(&case.case_id), format!("{} occurs after the case evaluation time", observation.observation_id)));
+            if occurrence_lower > case.evaluation_time_unix {
+                findings.push(finding("future_occurrence_leakage", Some(&case.case_id), format!("{} occurs after the case evaluation time even at its earliest plausible timestamp", observation.observation_id)));
             }
-            if observation.recorded_at_unix > case.evaluation_time_unix {
-                findings.push(finding("future_record_leakage", Some(&case.case_id), format!("{} was not recorded by the case evaluation time", observation.observation_id)));
+            if record_lower > case.evaluation_time_unix {
+                findings.push(finding("future_record_leakage", Some(&case.case_id), format!("{} was not recorded by the case evaluation time even at its earliest plausible timestamp", observation.observation_id)));
+            }
+            if occurrence_upper < occurrence_lower || record_upper < record_lower {
+                findings.push(finding("invalid_timestamp_interval", Some(&case.case_id), format!("{} has an invalid timestamp uncertainty interval", observation.observation_id)));
+            }
+            if matches!(observation.occurrence_time_provenance, OccurrenceTimeProvenance::ImportedUnverified | OccurrenceTimeProvenance::DerivedEstimate)
+                && observation.occurred_at_uncertainty_seconds == 0
+            {
+                findings.push(finding("unverified_occurrence_has_zero_uncertainty", Some(&case.case_id), format!("{} declares unverified/derived event time with zero uncertainty", observation.observation_id)));
+            }
+            if observation.record_time_provenance == RecordTimeProvenance::ImportedUnverified
+                && observation.recorded_at_uncertainty_seconds == 0
+            {
+                findings.push(finding("unverified_record_time_has_zero_uncertainty", Some(&case.case_id), format!("{} declares unverified record time with zero uncertainty", observation.observation_id)));
             }
             if observation.valid_until_unix.is_some_and(|deadline| deadline <= observation.occurred_at_unix) {
                 findings.push(finding("invalid_validity_window", Some(&case.case_id), format!("{} expires no later than its occurrence", observation.observation_id)));
@@ -274,10 +365,17 @@ pub fn validate_temporal_bundle(
                 }
                 match observations_by_id.get(target_id) {
                     None => findings.push(finding("supersession_target_missing", Some(&case.case_id), format!("{} supersedes unknown ID {target_id}", observation.observation_id))),
-                    Some(target) if observation.recorded_at_unix < target.recorded_at_unix => {
-                        findings.push(finding("supersession_time_inversion", Some(&case.case_id), format!("{} was recorded before the record it supersedes", observation.observation_id)));
+                    Some(target) => {
+                        let source_lower = lower_time_bound(observation.recorded_at_unix, observation.recorded_at_uncertainty_seconds);
+                        let source_upper = upper_time_bound(observation.recorded_at_unix, observation.recorded_at_uncertainty_seconds);
+                        let target_lower = lower_time_bound(target.recorded_at_unix, target.recorded_at_uncertainty_seconds);
+                        let target_upper = upper_time_bound(target.recorded_at_unix, target.recorded_at_uncertainty_seconds);
+                        if source_upper < target_lower {
+                            findings.push(finding("supersession_time_inversion", Some(&case.case_id), format!("{} was definitely recorded before the record it supersedes", observation.observation_id)));
+                        } else if source_lower <= target_upper {
+                            findings.push(finding("supersession_time_order_ambiguous", Some(&case.case_id), format!("the time intervals do not prove that {} was recorded after the record it supersedes", observation.observation_id)));
+                        }
                     }
-                    Some(_) => {}
                 }
             }
         }
@@ -420,6 +518,8 @@ pub fn score_temporal_predictions(
     let mut expired_support = 0usize;
     let mut retracted_or_superseded = 0usize;
     let mut future_or_unavailable = 0usize;
+    let mut ambiguous_timestamps = 0usize;
+    let mut unverified_timestamps = 0usize;
     let mut unsupported = 0usize;
     let mut missing_contradictions = 0usize;
     let mut critical = 0usize;
@@ -463,6 +563,16 @@ pub fn score_temporal_predictions(
                 }
                 TemporalEligibility::FutureOccurrence | TemporalEligibility::NotRecordedAtEvaluation => {
                     future_or_unavailable += 1;
+                    critical += 1;
+                    claim_grounded = false;
+                }
+                TemporalEligibility::AmbiguousOccurrenceTime | TemporalEligibility::AmbiguousRecordTime => {
+                    ambiguous_timestamps += 1;
+                    critical += 1;
+                    claim_grounded = false;
+                }
+                TemporalEligibility::UnverifiedTemporalProvenance => {
+                    unverified_timestamps += 1;
                     critical += 1;
                     claim_grounded = false;
                 }
@@ -513,6 +623,8 @@ pub fn score_temporal_predictions(
         expired_support_references: expired_support,
         retracted_or_superseded_references: retracted_or_superseded,
         future_or_unavailable_references: future_or_unavailable,
+        ambiguous_timestamp_references: ambiguous_timestamps,
+        unverified_timestamp_references: unverified_timestamps,
         unsupported_evidence_references: unsupported,
         missing_required_contradictions: missing_contradictions,
         critical_violations: critical,
