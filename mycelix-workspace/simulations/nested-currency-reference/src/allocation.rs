@@ -545,6 +545,7 @@ mod tests {
                 let sample_count = 1 + (rng.next() % 8) as usize;
                 let samples = (0..sample_count).map(|_| rng.next() % 10_001).collect();
                 ShardDemand {
+                    instrument_id: "instrument:unit".into(),
                     shard_id: format!("shard-{index:03}"),
                     samples,
                     minimum_capacity: 0,
