@@ -336,7 +336,11 @@ impl FenceBook {
             outstanding: 0,
         };
         if let Some(previous) = &self.successor {
-            return if previous == &candidate {
+            let same_transfer = previous.receipt_id == candidate.receipt_id
+                && previous.owner == candidate.owner
+                && previous.epoch == candidate.epoch
+                && previous.capacity == candidate.capacity;
+            return if same_transfer {
                 Ok(Apply::Duplicate)
             } else {
                 Err(Error::ReplayMismatch)
