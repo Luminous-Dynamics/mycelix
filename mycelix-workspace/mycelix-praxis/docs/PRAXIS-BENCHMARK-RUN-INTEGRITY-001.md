@@ -54,7 +54,7 @@ The base system ID/revision and model/prompt configuration must be identical; on
 
 ## Synthetic negative controls
 
-The 12-row matrix exercises valid run identity, duplicate-trajectory rejection, diagnostic-family leakage, held-out-family declaration mismatch, exact-byte split binding, attempted oracle visibility, and B0/B1 drift in policy gates or test trajectories. It also self-audits mutation IDs against named Rust test definitions.
+The 15-row matrix exercises valid run identity, duplicate-trajectory rejection, diagnostic-family leakage, held-out-family declaration mismatch, exact-byte split and candidate-data binding (including formatting-only mutations), attempted oracle visibility, all-splits data leakage, and B0/B1 drift in policy gates, base model/prompt/revision, or test trajectories. It also self-audits mutation IDs against named Rust test definitions.
 
 ## Proposed qualification targets
 
