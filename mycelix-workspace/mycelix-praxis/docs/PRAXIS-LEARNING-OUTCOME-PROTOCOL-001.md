@@ -41,7 +41,7 @@ These studies do not share a common outcome scale or population. Their results m
 | Displacement | Whether assisted use replaces independent retrieval/practice or teacher contact | Must be measured, not presumed beneficial |
 | Adverse events | Predefined safety, dependency, distress, or other domain-relevant harms | No observed events is not proof of no risk |
 
-The schema stores scale values as integers scaled by 1,000 to avoid float serialization drift. The instrument and scoring/calculation procedure have separate digests.
+The schema stores scale values as integers scaled by 1,000 to avoid float serialization drift. Every endpoint also declares a unit and favorable direction: learning-score endpoints must improve upward, error-recovery attempt counts, cost, displaced practice, and adverse-event counts must improve downward, while engagement and time-on-task are interpretation-sensitive rather than mechanically rewarded. Instrument and scoring/calculation procedures have separate digests.
 
 ## Study and analysis discipline
 
@@ -56,7 +56,7 @@ The schema stores scale values as integers scaled by 1,000 to avoid float serial
 
 `study_protocol.synthetic.json` is a shape/conformance fixture with illustrative arm counts (120 per arm), placeholder digest strings, a draft status, and no participant records or study results. **The counts are not a power calculation or sample-size recommendation; the digest-shaped placeholders are not cryptographic receipts.** The fixture must never be cited as evidence that tutoring improves learning.
 
-The mutation matrix lists 16 positive/negative protocol controls and links each to a named Rust test. Static source checks can verify schema shape, field parity, fixture consistency, unique control IDs, and test-name linkage. They cannot substitute for compiling/running the Rust tests, validating the schema with a full Draft 2020-12 implementation, independent educator adjudication, a real model benchmark, or a governed learning study.
+The mutation matrix lists 18 positive/negative protocol controls and links each to a named Rust test. Static source checks can verify schema shape, field parity, fixture consistency, unique control IDs, and test-name linkage. They cannot substitute for compiling/running the Rust tests, validating the schema with a full Draft 2020-12 implementation, independent educator adjudication, a real model benchmark, or a governed learning study.
 
 ## Qualification targets
 
