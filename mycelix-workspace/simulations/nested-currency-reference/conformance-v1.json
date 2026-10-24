@@ -7,7 +7,7 @@
   "status": "proposed_not_qualified",
   "execution_evidence": {
     "status": "not_run",
-    "reason": "Static allocator source and test definitions have not been compiled or executed in this environment. Exact-head Rust/TLA+ receipts and distributed/multi-agent qualification remain outstanding."
+    "reason": "Static allocator unit tests, the 10,000-case generated sweep and matched-trace benchmark have been committed as definitions but have not been compiled or executed in this environment. Exact-head Rust receipts and distributed/multi-agent qualification remain outstanding."
   },
   "claim_ceiling": [
     "Reference-model conformance only when executed against a named source revision.",
@@ -1351,6 +1351,17 @@
       "expected": "fail_closed_missing_history_error_or_explicitly_configured_cold_start_floor",
       "code_test": "demand_weighted_policy_does_not_treat_missing_history_as_zero_demand",
       "execution_status": "reference_test_defined_not_run"
+    },
+    {
+      "id": "NCF-ALLOC-011",
+      "title": "Ten thousand generated allocation plans preserve capacity and input-order determinism",
+      "class": "generated_static_allocation_property_sweep",
+      "attack": "Generate 10,000 fixed-seed inputs varying shard count, capacity, contingency reserve, allocation policy, demand samples and robust-quantile parameters; repeat each with reversed input order.",
+      "expected": "all_plans_validate_capacity_conservation_and_reversed_inputs_produce_identical_plans",
+      "code_test": "ten_thousand_generated_allocation_plans_conserve_capacity_and_ignore_input_order",
+      "execution_status": "reference_test_defined_not_run",
+      "seed": "0x4e43462d414c4c31",
+      "scenarios": 10000
     }
   ],
   "qualification_campaigns": [
@@ -1494,7 +1505,8 @@
         "insufficient_capacity_for_minimums_rejects_before_allocation",
         "demand_history_overflow_rejects_instead_of_wrapping",
         "allocation_plan_slices_fit_the_reservation_book_caps",
-        "demand_weighted_policy_does_not_treat_missing_history_as_zero_demand"
+        "demand_weighted_policy_does_not_treat_missing_history_as_zero_demand",
+        "ten_thousand_generated_allocation_plans_conserve_capacity_and_ignore_input_order"
       ],
       "required_benchmark_reports": 6,
       "safety_gate": "Every allocation plan validates and every policy/mode report must have zero accounting violations; any overflow, malformed input, or unaccounted capacity fails the campaign.",
@@ -1513,7 +1525,18 @@
         "receipt_sha256"
       ],
       "receipt_sha256_method": "SHA-256 of the closed receipt file, reported externally by runner stdout/workflow metadata; do not put self-hash inside the receipt.",
-      "claim_ceiling": "Unit tests plus synthetic single-process matched-trace evaluation only; real-demand validity and distributed/Holochain safety remain separate."
+      "claim_ceiling": "Unit tests plus synthetic single-process matched-trace evaluation only; real-demand validity and distributed/Holochain safety remain separate.",
+      "generated_case_sweep": {
+        "test_name": "ten_thousand_generated_allocation_plans_conserve_capacity_and_ignore_input_order",
+        "cases": 10000,
+        "seed": "0x4e43462d414c4c31",
+        "properties": [
+          "capacity plus reserve conserved",
+          "plan validates",
+          "allocation is invariant to reversed input order"
+        ],
+        "execution_status": "test_defined_not_run"
+      }
     }
   ]
 }
