@@ -41,6 +41,18 @@ Interledger's published settlement-engine guidance requires persisted idempotenc
 
 For Holochain adapters, distinguish an invalid action from an unresolved dependency: Holochain validation explicitly supports indeterminate/unresolved dependencies and retries validation when data becomes available ([validation docs](https://developer.holochain.org/build/validation/)). An unresolved transfer should remain unavailable, not be promoted to success and not be silently erased.
 
+## Paradigm shift: optimize rights before the network partitions
+
+Safe utilization gains do not have to begin with more aggressive online reclamation. Under the same immutable risk budget, test how the initial disjoint slices are placed:
+
+- **Equal split:** transparent baseline with predictable fragmentation.
+- **Demand-weighted allocation:** use previously observed demand to place more rights where they are likely to be consumed.
+- **Robust quantile allocation:** use a conservative upper demand quantile and safety margin, with held-out and distribution-shift traces to quantify forecast error.
+
+All three must allocate non-overlapping rights before the partition and must not resize or transfer them during the partition. This tests whether better *placement* of authorized capacity improves served demand while retaining the same safety invariant. It is categorically different from reclaiming an unreachable owner's rights, which still requires a qualified fence.
+
+The new `NCF-BENCH-005` machine-readable campaign compares these allocation baselines with acknowledged drain/fence and future coordinated-authority modes. Report per-shard unserved demand, capacity used/stranded, quota fragmentation, essential-service demand served, forecast error, tail latency, recovery time, and compute cost independently. Never let an aggregate utilization score hide a violation or make a forecast an authority to spend.
+
 ## Next benchmark gates
 
 1. Explore at least 10,000 reproducible crash/restart/retry schedules after the finite model and transition oracle are qualified. Include crashes before and after every durable transition, lost commit responses, duplicate/reordered control receipts, and retry of identical versus conflicting payloads.
