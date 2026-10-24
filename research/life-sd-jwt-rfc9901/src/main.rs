@@ -66,7 +66,7 @@ fn digest_pair(encoded: &str) -> Result<(String, String), String> {
 
 fn run() -> Result<(), String> {
     println!(
-        "vector_id,source_section,expected_sha256_b64url,affinidi_sd_jwt_0_1_8,reallyme_sd_jwt_0_4_1,match"
+        "vector_id,source_section,expected_sha256_b64url,affinidi_sd_jwt_0_1_5,reallyme_sd_jwt_0_4_1,match"
     );
 
     for vector in RFC_VECTORS {
