@@ -78,6 +78,13 @@
       "mutation": "Check mutation IDs and named test linkage.",
       "expected": "All mutation IDs are unique and every row points to a test function.",
       "test_name": "mutation_matrix_is_closed_and_test_linked"
+    },
+    {
+      "id": "RUN-012",
+      "kind": "negative_control",
+      "mutation": "Change the base system revision, model configuration, or prompt configuration between B0 and B1 while keeping the same policy-gate hash.",
+      "expected": "Reject the paired ablation because the advisor is no longer the only intervention being tested.",
+      "test_name": "b0_b1_model_prompt_and_revision_drift_are_rejected"
     }
   ]
 }
