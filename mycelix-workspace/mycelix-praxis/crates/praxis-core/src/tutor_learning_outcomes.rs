@@ -70,6 +70,27 @@ pub enum EndpointKind {
 
 #[derive(Clone, Copy, Debug, Deserialize, Serialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
+pub enum EndpointUnit {
+    ProportionCorrect,
+    StandardizedEffect,
+    AttemptsToCorrect,
+    ActiveSessionRate,
+    Minutes,
+    UsdPerGainPoint,
+    IndependentPracticeMinutesDisplaced,
+    EventsPerLearner,
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, Serialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum FavorableDirection {
+    HigherIsBetter,
+    LowerIsBetter,
+    InterpretationSensitive,
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, Serialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
 pub enum EndpointTimepoint {
     Baseline,
     ImmediatePost,
@@ -90,6 +111,8 @@ impl EndpointTimepoint {
 pub struct OutcomeEndpoint {
     pub endpoint_id: String,
     pub kind: EndpointKind,
+    pub unit: EndpointUnit,
+    pub favorable_direction: FavorableDirection,
     pub timepoint: EndpointTimepoint,
     /// Digest of the assessment instrument or measurement procedure.
     pub instrument_blake3: String,
@@ -214,6 +237,46 @@ fn validate_endpoint(endpoint: &OutcomeEndpoint, is_primary: bool) -> Vec<Protoc
         findings.push(finding(
             "invalid_endpoint_scale",
             format!("{} must have scale_min_milli < scale_max_milli", endpoint.endpoint_id),
+        ));
+    }
+
+    let unit_matches = match endpoint.kind {
+        EndpointKind::ImmediateGain
+        | EndpointKind::DelayedRetention
+        | EndpointKind::NearTransfer
+        | EndpointKind::FarTransfer => matches!(
+            endpoint.unit,
+            EndpointUnit::ProportionCorrect | EndpointUnit::StandardizedEffect
+        ),
+        EndpointKind::ErrorRecovery => endpoint.unit == EndpointUnit::AttemptsToCorrect,
+        EndpointKind::Engagement => endpoint.unit == EndpointUnit::ActiveSessionRate,
+        EndpointKind::TimeOnTask => endpoint.unit == EndpointUnit::Minutes,
+        EndpointKind::CostPerGain => endpoint.unit == EndpointUnit::UsdPerGainPoint,
+        EndpointKind::Displacement => endpoint.unit == EndpointUnit::IndependentPracticeMinutesDisplaced,
+        EndpointKind::AdverseEvents => endpoint.unit == EndpointUnit::EventsPerLearner,
+    };
+    if !unit_matches {
+        findings.push(finding(
+            "endpoint_unit_mismatch",
+            format!("{} uses a unit incompatible with {:?}", endpoint.endpoint_id, endpoint.kind),
+        ));
+    }
+
+    let expected_direction = match endpoint.kind {
+        EndpointKind::ImmediateGain
+        | EndpointKind::DelayedRetention
+        | EndpointKind::NearTransfer
+        | EndpointKind::FarTransfer => FavorableDirection::HigherIsBetter,
+        EndpointKind::ErrorRecovery
+        | EndpointKind::CostPerGain
+        | EndpointKind::Displacement
+        | EndpointKind::AdverseEvents => FavorableDirection::LowerIsBetter,
+        EndpointKind::Engagement | EndpointKind::TimeOnTask => FavorableDirection::InterpretationSensitive,
+    };
+    if endpoint.favorable_direction != expected_direction {
+        findings.push(finding(
+            "endpoint_direction_mismatch",
+            format!("{} has a post-hoc or incompatible favorable direction", endpoint.endpoint_id),
         ));
     }
 
@@ -427,9 +490,21 @@ mod tests {
         let index = id.bytes().fold(0_u32, |acc, byte| acc.wrapping_add(u32::from(byte))) % 20;
         let instrument_char = char::from_u32(u32::from(b'a') + index).unwrap();
         let scoring_char = char::from_u32(u32::from(b'a') + ((index + 7) % 26)).unwrap();
+        let (unit, favorable_direction) = match kind {
+            EndpointKind::ImmediateGain | EndpointKind::DelayedRetention | EndpointKind::NearTransfer | EndpointKind::FarTransfer =>
+                (EndpointUnit::ProportionCorrect, FavorableDirection::HigherIsBetter),
+            EndpointKind::ErrorRecovery => (EndpointUnit::AttemptsToCorrect, FavorableDirection::LowerIsBetter),
+            EndpointKind::Engagement => (EndpointUnit::ActiveSessionRate, FavorableDirection::InterpretationSensitive),
+            EndpointKind::TimeOnTask => (EndpointUnit::Minutes, FavorableDirection::InterpretationSensitive),
+            EndpointKind::CostPerGain => (EndpointUnit::UsdPerGainPoint, FavorableDirection::LowerIsBetter),
+            EndpointKind::Displacement => (EndpointUnit::IndependentPracticeMinutesDisplaced, FavorableDirection::LowerIsBetter),
+            EndpointKind::AdverseEvents => (EndpointUnit::EventsPerLearner, FavorableDirection::LowerIsBetter),
+        };
         OutcomeEndpoint {
             endpoint_id: id.to_owned(),
             kind,
+            unit,
+            favorable_direction,
             timepoint,
             instrument_blake3: digest(instrument_char),
             scoring_blake3: digest(scoring_char),
@@ -587,6 +662,21 @@ mod tests {
         let mut protocol = valid_protocol();
         protocol.analysis_plan.target_power_milli = 700;
         assert!(validate_learning_outcome_protocol(&protocol).iter().any(|f| f.code == "invalid_power_plan"));
+    }
+
+    #[test]
+    fn endpoint_units_must_match_metric_kind() {
+        let mut protocol = valid_protocol();
+        protocol.secondary_endpoints[0].unit = EndpointUnit::Minutes;
+        assert!(validate_learning_outcome_protocol(&protocol).iter().any(|f| f.code == "endpoint_unit_mismatch"));
+    }
+
+    #[test]
+    fn harm_direction_cannot_be_flipped() {
+        let mut protocol = valid_protocol();
+        let harm = protocol.secondary_endpoints.iter_mut().find(|endpoint| endpoint.kind == EndpointKind::AdverseEvents).unwrap();
+        harm.favorable_direction = FavorableDirection::HigherIsBetter;
+        assert!(validate_learning_outcome_protocol(&protocol).iter().any(|f| f.code == "endpoint_direction_mismatch"));
     }
 
     #[test]
