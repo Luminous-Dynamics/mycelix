@@ -154,6 +154,11 @@
       "id": "NCF-FEN-I-011",
       "name": "Conflicting idempotency payloads are rejected",
       "statement": "Reusing a committed transfer ID with any changed canonical payload is rejected, returns no success receipt, and produces no economic mutation."
+    },
+    {
+      "id": "NCF-FEN-I-012",
+      "name": "Replay protection outlives the declared offline horizon",
+      "statement": "A committed operation ID or replay-prevention tombstone is retained until every protocol-defined stale-owner and offline-replay condition has been closed. If the safe replay horizon is unknown, the ID is not recycled."
     }
   ],
   "conformance_cases": [
@@ -904,7 +909,12 @@
         "unknown_outcomes",
         "throughput_ops_per_second",
         "cpu_time_ns",
-        "peak_rss_bytes"
+        "peak_rss_bytes",
+        "idempotency_index_bytes",
+        "tombstone_bytes_per_operation",
+        "replay_lookup_latency_ms_p50",
+        "replay_lookup_latency_ms_p99",
+        "replay_protection_retention_days"
       ],
       "required_output": [
         "source_commit",
@@ -926,7 +936,13 @@
         "partition_recovery_time_ms",
         "throughput_ops_per_second",
         "runner_digest_sha256",
-        "receipt_sha256"
+        "receipt_sha256",
+        "replay_retention_policy_id",
+        "replay_protection_retention_days",
+        "idempotency_index_bytes",
+        "tombstone_bytes_per_operation",
+        "replay_lookup_latency_ms_p50",
+        "replay_lookup_latency_ms_p99"
       ],
       "methodology": "Run the exact same deterministic demand/fault traces against each implemented policy and matched hardware/toolchains. Report results only after hard safety gates pass. Plot a Pareto frontier across economic demand served, safely reclaimable versus stranded capacity, tail latency, and compute cost; do not collapse outcomes into a single weighted score. Separate unreachable-owner partitions from honest crash/restart and byzantine-owner campaigns. Include ablations for priority classes and rebalancing policy.",
       "execution_status": "design_not_run",
@@ -1150,6 +1166,18 @@
       "negative_control_config": "formal/NCF_RECOVERY_1_CommitReplayMutant.cfg",
       "formal_invariant": "NoDoubleCommit",
       "execution_status": "formal_negative_control_defined_not_run"
+    },
+    {
+      "id": "NCF-FEN-020",
+      "title": "A long-offline member cannot replay a transfer after short-lived idempotency cache expiry",
+      "class": "long_horizon_replay",
+      "attack": "A community remains partitioned beyond the normal online retry window, reconnects later, and resubmits a previously committed transfer using its old operation ID.",
+      "expected": "original_result_returned_or_conflicting_replay_rejected_without_second_effect",
+      "code_test": null,
+      "implementation_layer": "persistent_receipt_or_replay_tombstone_store",
+      "formal_model": null,
+      "execution_status": "planned_not_implemented_or_not_fully_qualified",
+      "rationale": "This requires a persistence/replay-horizon model; a bounded lifecycle model with no time or tombstone-retention state does not qualify it."
     }
   ],
   "qualification_campaigns": [
