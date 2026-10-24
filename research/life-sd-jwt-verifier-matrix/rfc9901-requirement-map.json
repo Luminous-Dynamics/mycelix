@@ -26,7 +26,7 @@
         "tampered_issuer_signature",
         "duplicate_disclosure",
         "unissued_disclosure",
-        "typed_disclosure_cache_is_not_authoritative_for_verification"
+        "wire_reparse_restores_issuer_bound_disclosure_value"
       ],
       "limits": "Synthetic claims and test-only HMAC signing; not the full official RFC vector suite."
     },
@@ -129,9 +129,9 @@
       "id": "RFC9901-4.2.3-disclosure-digest",
       "clause": "4.2.3",
       "requirement": "Digest ASCII bytes of the base64url-encoded disclosure rather than decoded JSON.",
-      "status": "tested_in_related_pr",
+      "status": "partially_tested",
       "related_evidence": "https://github.com/Luminous-Dynamics/mycelix/pull/5496",
-      "limits": "That PR's source-compatible cross-implementation harness still awaits exact-head qualification."
+      "limits": "Related PR #5496 source-compatible cross-implementation harness still awaits exact-head qualification."
     }
   ],
   "excluded_conformance_profiles": [
