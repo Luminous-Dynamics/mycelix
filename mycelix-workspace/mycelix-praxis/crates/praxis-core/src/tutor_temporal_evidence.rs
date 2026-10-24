@@ -827,6 +827,55 @@ mod tests {
     }
 
     #[test]
+    fn uncertainty_crossing_evaluation_cutoff_is_ambiguous() {
+        let (manifest, _) = validate_temporal_bundle(OBSERVATIONS, ORACLE).expect("valid fixture");
+        let case = manifest.cases.iter().find(|case| case.case_id == "TE005").unwrap();
+        let uncertain_record = case.observations.iter().find(|observation| observation.observation_id == "te005-conflict-failure").unwrap();
+        assert_eq!(uncertain_record.recorded_at_unix, case.evaluation_time_unix);
+        assert_eq!(temporal_eligibility(case, uncertain_record), TemporalEligibility::AmbiguousRecordTime);
+    }
+
+    #[test]
+    fn uncertainty_straddling_occurrence_cutoff_is_not_silently_ordered() {
+        let mut value: serde_json::Value = serde_json::from_str(OBSERVATIONS).unwrap();
+        let case = value["cases"].as_array_mut().unwrap().iter_mut().find(|case| case["case_id"] == "TE002").unwrap();
+        case["observations"].as_array_mut().unwrap()[0]["occurred_at_unix"] = case["evaluation_time_unix"].clone();
+        case["observations"].as_array_mut().unwrap()[0]["occurred_at_uncertainty_seconds"] = 600.into();
+        let changed = value.to_string();
+        let (manifest, _) = validate_temporal_bundle(&changed, ORACLE).expect("cutoff-straddling interval is ambiguous, not impossible");
+        let case = manifest.cases.iter().find(|case| case.case_id == "TE002").unwrap();
+        assert_eq!(temporal_eligibility(case, &case.observations[0]), TemporalEligibility::AmbiguousOccurrenceTime);
+    }
+
+    #[test]
+    fn imported_timestamp_provenance_is_not_exact_temporal_proof() {
+        let (manifest, _) = validate_temporal_bundle(OBSERVATIONS, ORACLE).expect("valid fixture");
+        let case = manifest.cases.iter().find(|case| case.case_id == "TE006").unwrap();
+        let imported = case.observations.iter().find(|observation| observation.observation_id == "te006-imported-success").unwrap();
+        assert_eq!(temporal_eligibility(case, imported), TemporalEligibility::UnverifiedTemporalProvenance);
+    }
+
+    #[test]
+    fn unverified_timestamp_requires_nonzero_uncertainty() {
+        let mut value: serde_json::Value = serde_json::from_str(OBSERVATIONS).unwrap();
+        let case = value["cases"].as_array_mut().unwrap().iter_mut().find(|case| case["case_id"] == "TE006").unwrap();
+        let imported = case["observations"].as_array_mut().unwrap().iter_mut().find(|event| event["observation_id"] == "te006-imported-success").unwrap();
+        imported["occurred_at_uncertainty_seconds"] = 0.into();
+        let errors = validate_temporal_bundle(&value.to_string(), ORACLE).expect_err("unverified time cannot assert exactness");
+        assert!(errors.iter().any(|error| error.code == "unverified_occurrence_has_zero_uncertainty"));
+    }
+
+    #[test]
+    fn supersession_with_overlapping_time_intervals_is_rejected() {
+        let mut value: serde_json::Value = serde_json::from_str(OBSERVATIONS).unwrap();
+        let case = value["cases"].as_array_mut().unwrap().iter_mut().find(|case| case["case_id"] == "TE003").unwrap();
+        let correction = case["observations"].as_array_mut().unwrap().iter_mut().find(|event| event["observation_id"] == "te003-correction").unwrap();
+        correction["recorded_at_uncertainty_seconds"] = 700_000.into();
+        let errors = validate_temporal_bundle(&value.to_string(), ORACLE).expect_err("overlapping time intervals cannot prove supersession order");
+        assert!(errors.iter().any(|error| error.code == "supersession_time_order_ambiguous"));
+    }
+
+    #[test]
     fn mutation_matrix_is_closed_and_test_linked() {
         let matrix: serde_json::Value = serde_json::from_str(include_str!("../examples/tutor-history/temporal-v1/mutation_matrix.json")).unwrap();
         let entries = matrix["entries"].as_array().unwrap();
@@ -838,7 +887,7 @@ mod tests {
             let test_name = entry["test_name"].as_str().unwrap();
             assert!(source.contains(&format!("fn {test_name}(")), "matrix row {id} points to missing test {test_name}");
         }
-        assert_eq!(entries.len(), 14);
+        assert_eq!(entries.len(), 19);
     }
 
 
