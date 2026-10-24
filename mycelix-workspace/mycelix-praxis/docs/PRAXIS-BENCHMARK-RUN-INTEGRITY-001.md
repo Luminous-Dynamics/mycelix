@@ -46,15 +46,15 @@ This detects an inconsistent or self-contradictory run manifest; it does **not**
 
 - the same held-out test split and exactly the same complete test trajectories;
 - the same observation, candidate-schema, oracle, scorer, verifier, protocol, and mutation-matrix digests;
-- identical policy-gate digests and evaluator revision;
+- identical base system ID/revision, model and prompt configurations, policy-gate digests, and evaluator revision;
 - identical sampling settings and execution-environment digest;
 - distinct run IDs, no advisor artifact for B0, and a pinned advisor artifact digest for B1.
 
-System/model/prompt/advisor identities can differ as prescribed by the ablation; policy gates, data, evaluator, sample set, and sampling budget cannot. The pair validator does not itself execute a model, prove causation, or compute outcome statistics.
+The base system ID/revision and model/prompt configuration must be identical; only the advisor mode, pinned advisor artifact, run ID, and run output can differ. Policy gates, data, evaluator, sample set, sampling budget, and execution environment cannot drift. The pair validator does not itself execute a model, prove causation, or compute outcome statistics.
 
 ## Synthetic negative controls
 
-The 11-row matrix exercises valid run identity, duplicate-trajectory rejection, diagnostic-family leakage, held-out-family declaration mismatch, exact-byte split binding, attempted oracle visibility, and B0/B1 drift in policy gates or test trajectories. It also self-audits mutation IDs against named Rust test definitions.
+The 12-row matrix exercises valid run identity, duplicate-trajectory rejection, diagnostic-family leakage, held-out-family declaration mismatch, exact-byte split binding, attempted oracle visibility, and B0/B1 drift in policy gates or test trajectories. It also self-audits mutation IDs against named Rust test definitions.
 
 ## Proposed qualification targets
 
