@@ -51,14 +51,14 @@ bash mycelix-workspace/simulations/nested-currency-reference/run-allocation-benc
   16 32 1000 100000 50000 0x4d5943454c495831
 ```
 
-Arguments are shard count, historical samples per shard, evaluation scenarios per mode, total capacity, contingency reserve in ppm, and seed. The wrapper binds the result to the exact commit, profile digest, Rust compiler/toolchain, binary digest, output digest, and receipt digest. JSON output reports all three allocation policies over stationary and shifted demand, including requested/served/unserved demand, unused reserved-capacity units over time, demand-served ppm, allocated-capacity utilization, worst-scenario service, safety accounting checks, and the actual per-shard slices.
+Arguments are shard count, historical samples per shard, evaluation scenarios per mode, total capacity, contingency reserve in ppm, and seed. The wrapper binds the result to the exact commit, profile digest, Rust compiler/toolchain, binary digest, output digest, and receipt digest. JSON output reports all six allocation policies—including the three equal-floor hybrids—over stationary and shifted demand, including requested/served/unserved demand, unused reserved-capacity units over time, demand-served ppm, allocated-capacity utilization, worst-scenario service, safety accounting checks, and the actual per-shard slices.
 
 The synthetic generator deliberately has an uneven historical demand profile, bounded jitter, occasional bursts, and a second evaluation mode that rotates the demand profile to simulate distribution shift. The same stationary and shifted traces are shared by all policies. This makes comparisons fair within a benchmark run, but it is a synthetic workload—not evidence of real community demand or an industry performance result.
 
 ## Required experiments before a strong claim
 
 1. Run unit tests and the exact-head benchmark with several recorded seeds.
-2. Compare equal split, mean-weighted, and robust-quantile allocation on stationary, shifted, bursty, and held-out traces.
+2. Compare equal split, mean-weighted, robust-quantile, and 25%/50%/75% equal-floor policies on stationary, shifted, bursty, and held-out traces.
 3. Tune any weights or quantile only on a training corpus; do not select them on the held-out evaluation set.
 4. Add workload-derived traces and independent seeds; report per-shard unmet demand and essential-service classes, not just aggregate utilization.
 5. Compare all policies under the same community/agreement caps and same total contingency reserve.
