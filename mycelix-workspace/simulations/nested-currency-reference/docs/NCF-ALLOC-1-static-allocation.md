@@ -69,6 +69,23 @@ The policy primitives are not claimed as novel. Escrow allocation and invariant 
 
 Mycelix's testable contribution here is a deterministic policy interface whose output is itself a conserved risk-right plan, paired with held-out demand-shift evaluation and a hard rule that forecast optimization cannot resize active rights during a partition. Any improvement must be demonstrated as a Pareto improvement under matched traces, with zero safety violations; do not claim state-of-the-art performance from a synthetic single-process run.
 
+## Industry comparison and a meaningful performance target
+
+Do not benchmark a reference allocator by comparing its single-process operation count to a payment-rail TPS figure. The workloads and semantics differ.
+
+The BIS Innovation Hub's **Project FuSSE** report (29 January 2026) describes a modular settlement-engine proof of concept that reached 10,000 transactions per second under controlled test conditions and demonstrated independent scaling of services. The report explicitly says it is not a performance benchmark or implementation reference, and does not claim PFMI compliance. It also warns that microservices increase operational complexity and attack surface, while post-quantum cryptography may add computational and bandwidth cost ([BIS report](https://www.bis.org/publications/project-fusse-exploring-flexible-scalable-and-secure-settlement-engines)). Interledger separately defines peer-specific credit limits and idempotent settlement behavior ([Settlement Engines RFC](https://interledger.org/developers/rfcs/settlement-engines/)). These are useful comparison points, not direct evidence that Mycelix is faster or safer.
+
+For a future three-node Mycelix/Holochain deployment, use a staged performance target **after** semantic and distributed correctness are qualified:
+
+- **Functional gate:** zero cap, replay, double-transfer, and post-fence violations during a 10-million-operation mixed workload and injected recovery faults.
+- **Initial load target:** sustain 1,000 accepted local ledger operations per second for 30 minutes, while separately reporting local acceptance and finality/settlement latency.
+- **Stretch load target:** 10,000 accepted local obligation/settlement events per second on a declared 16-shard testbed, with p99 local-accept latency below 100 ms under the published healthy-network workload. This is an aspirational engineering target, not an asserted achievable result and not comparable to the BIS result until the event semantics, hardware, security settings, and end-to-end finality boundaries are matched.
+- **Scale target:** publish throughput and tail latency at 1, 4, 8, and 16 workers; report efficiency as throughput gain divided by worker-count gain, plus memory, CPU, storage I/O, network bytes, receipt verification cost, and cryptographic verification cost.
+- **Fault target:** run the same 10-million-operation trace with partitions, stale owner retries and crash/restart injection. Any safety violation invalidates the run irrespective of throughput.
+- **Security-agility target:** measure receipt size, CPU cost, and p95/p99 latency for each approved signature/verification profile separately; preserve the exact cryptographic profile and software versions in every receipt.
+
+A benchmark receipt must record hardware model/CPU count/RAM, OS/kernel, Rust commit and compiler, build profile, shard/peer topology, durability settings, security profile, trace digest, seeds, warmup and measurement intervals, source commit, binary digest, output digest, and run-to-run variation. Do not report a single best run as the headline; publish repeated runs and distributions.
+
 ## Claim ceiling
 
 A future passing result can establish only that this Rust reference allocator and the named synthetic traces satisfied the declared integer accounting checks on an exact source/toolchain. It does not prove a global distributed cap, safe ownership transfer, the quality of any real demand forecast, production Holochain enforcement, solvency, legal tender status, or economic welfare.
