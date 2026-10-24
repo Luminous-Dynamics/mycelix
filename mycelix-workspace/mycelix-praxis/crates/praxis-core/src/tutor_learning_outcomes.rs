@@ -407,7 +407,9 @@ pub fn validate_learning_outcome_protocol(
     }
     if !matches!(protocol.analysis_plan.confidence_level_percent, 90 | 95 | 99)
         || protocol.analysis_plan.alpha_milli == 0
-        || protocol.analysis_plan.confidence_level_percent * 10 + protocol.analysis_plan.alpha_milli != 1000
+        || u64::from(protocol.analysis_plan.confidence_level_percent) * 10
+            + u64::from(protocol.analysis_plan.alpha_milli)
+            != 1000
     {
         findings.push(finding(
             "inconsistent_uncertainty_plan",
@@ -706,7 +708,7 @@ mod tests {
             assert!(ids.insert(id), "duplicate mutation control {id}");
             assert!(source.contains(&format!("fn {test}(")), "missing test definition {test}");
         }
-        assert_eq!(controls.len(), 16);
+        assert_eq!(controls.len(), 18);
     }
 
     #[test]
