@@ -12,7 +12,7 @@ A credential should not be judged by one boolean called "valid". The harness exe
 - Wrong issuer key and issuer signature tampering.
 - Duplicate disclosure and a disclosure issued under a different credential.
 - Required key binding with no KB-JWT.
-- Valid key-bound presentation, wrong nonce, wrong audience, absent caller-provided holder verifier and wrong holder key.
+- Valid key-bound presentation, fresh/stale/future KB-JWT `iat`, wrong nonce, wrong audience, absent caller-provided holder verifier and wrong holder key.
 - Mutating the disclosure set while keeping the old KB-JWT, which should invalidate the `sd_hash` binding.
 - Same-nonce replay behavior. A stateless verifier can accept a cryptographically valid presentation again when the same nonce is supplied; one-time nonce consumption is therefore a separate application policy and must be enforced atomically by the deployment.
 
@@ -20,7 +20,7 @@ A credential should not be judged by one boolean called "valid". The harness exe
 
 The crate's `_test-utils` HMAC signer/verifier is **not suitable for production**, uses symmetric test keys, and is only used to create deterministic trust relationships for behavioral tests. The synthetic `cnf.jwk` is not a general-purpose public-key resolver. Production must bind the holder verifier to the issuer-authenticated `cnf.jwk`, enforce allowed algorithms, and validate the request/session context.
 
-The local `SingleUseNonceLedger` is a sequential reference model, not a distributed replay service: production needs atomic, expiry-aware, verifier-scoped nonce consumption with collision-resistant nonces and concurrency tests.
+The verifier API exposes a separate freshness-window check for KB-JWT `iat`; the matrix covers in-window, stale, and excessive-future timestamps with a fixed synthetic clock. The local `SingleUseNonceLedger` is a sequential reference model, not a distributed replay service: production needs atomic, expiry-aware, verifier-scoped nonce consumption with collision-resistant nonces and concurrency tests.
 
 ## Run
 
