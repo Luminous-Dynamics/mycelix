@@ -143,11 +143,15 @@ fn compile_observer_view(
 ) -> ObserverView {
     let mut count_fields = [0_u8; ROUNDS];
     let mut index_fields = [None; ROUNDS];
-    for round in 0..ROUNDS {
-        count_fields[round] = plan.rounds[round]
+    for (round, (count_field, index_field)) in count_fields
+        .iter_mut()
+        .zip(index_fields.iter_mut())
+        .enumerate()
+    {
+        *count_field = plan.rounds[round]
             .count
             .observable(subject.statement_counts[round]);
-        index_fields[round] = plan.rounds[round]
+        *index_field = plan.rounds[round]
             .index
             .observable(subject.index_masks[round]);
     }
@@ -188,14 +192,19 @@ fn generate_subjects() -> Vec<Subject> {
             let mut statement_counts = [0_u8; ROUNDS];
             let mut index_masks = [0_u16; ROUNDS];
             let mut task_answers = [0_u8; ROUNDS];
-            for round in 0..ROUNDS {
+            for (round, ((statement_count, index_mask), task_answer)) in statement_counts
+                .iter_mut()
+                .zip(index_masks.iter_mut())
+                .zip(task_answers.iter_mut())
+                .enumerate()
+            {
                 let round_u64 = round as u64;
                 let count_seed = SEED
                     ^ index_u64.wrapping_mul(0xD6E8_FEB8_6659_FD93)
                     ^ round_u64.wrapping_mul(0xA076_1D64_78BD_642F);
-                statement_counts[round] = 8 + (splitmix64(count_seed) % 24) as u8;
-                index_masks[round] = generated_index_mask(index, round);
-                task_answers[round] = ((index >> (round % 3)) & 1) as u8;
+                *statement_count = 8 + (splitmix64(count_seed) % 24) as u8;
+                *index_mask = generated_index_mask(index, round);
+                *task_answer = ((index >> (round % 3)) & 1) as u8;
             }
             Subject {
                 task_answers,
