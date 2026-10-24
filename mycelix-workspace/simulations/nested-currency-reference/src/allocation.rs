@@ -477,6 +477,61 @@ mod tests {
     }
 
     #[test]
+    fn ten_thousand_generated_allocation_plans_conserve_capacity_and_ignore_input_order() {
+        struct Rng(u64);
+        impl Rng {
+            fn next(&mut self) -> u64 {
+                self.0 = self.0.wrapping_mul(6_364_136_223_846_793_005)
+                    .wrapping_add(1_442_695_040_888_963_407);
+                self.0
+            }
+        }
+
+        let mut rng = Rng(0x4e43462d414c4c31);
+        for case_index in 0..10_000 {
+            let count = 2 + (rng.next() % 15) as usize;
+            let capacity = count as u64 + rng.next() % 100_000;
+            let reserve_ppm = (rng.next() % 500_001) as u32;
+            let policy = match case_index % 3 {
+                0 => AllocationPolicy::EqualSplit,
+                1 => AllocationPolicy::DemandWeighted,
+                _ => AllocationPolicy::RobustQuantile {
+                    quantile_basis_points: (rng.next() % u64::from(BASIS_POINTS) + 1) as u16,
+                    margin_ppm: (rng.next() % u64::from(PARTS_PER_MILLION) + 1) as u32,
+                },
+            };
+            let input: Vec<ShardDemand> = (0..count).map(|index| {
+                let sample_count = 1 + (rng.next() % 8) as usize;
+                let samples = (0..sample_count).map(|_| rng.next() % 10_001).collect();
+                ShardDemand {
+                    shard_id: format!("shard-{index:03}"),
+                    samples,
+                    minimum_capacity: 0,
+                }
+            }).collect();
+
+            let plan = allocate_static_escrow(&input, capacity, reserve_ppm, policy)
+                .unwrap_or_else(|error| panic!("case {case_index} failed: {error:?}"));
+            plan.validate().unwrap_or_else(|error| panic!("case {case_index} invalid: {error:?}"));
+            assert_eq!(
+                plan.total_allocated().unwrap().checked_add(plan.contingency_reserve),
+                Some(plan.total_capacity),
+                "capacity conservation failed for generated case {case_index}",
+            );
+
+            let mut reversed = input.clone();
+            reversed.reverse();
+            let permuted_plan = allocate_static_escrow(&reversed, capacity, reserve_ppm, policy)
+                .unwrap_or_else(|error| panic!("permuted case {case_index} failed: {error:?}"));
+            assert_eq!(
+                plan,
+                permuted_plan,
+                "input order changed rights in generated case {case_index}",
+            );
+        }
+    }
+
+    #[test]
     fn demand_history_overflow_rejects_instead_of_wrapping() {
         assert_eq!(
             allocate_static_escrow(
