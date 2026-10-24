@@ -2,7 +2,7 @@
 set -Eeuo pipefail
 
 # Reproducible bounded TLC campaign for the NCF-FEN-1 and NCF-ESCROW-1 safe
-# models plus three deliberately unsafe mutants. Each mutant must fail for its named invariant;
+# models plus four deliberately unsafe mutants. Each mutant must fail for its named invariant;
 # parser/tool failures are not successful negative-control detections.
 
 repo_root="$(git rev-parse --show-toplevel)"
@@ -31,8 +31,10 @@ escrow_model="$formal_dir/NCF_ESCROW_1.tla"
 escrow_config="$formal_dir/NCF_ESCROW_1.cfg"
 duplicate_mutant="$formal_dir/NCF_ESCROW_1_DuplicateAllocationMutant.tla"
 duplicate_config="$formal_dir/NCF_ESCROW_1_DuplicateAllocationMutant.cfg"
+resize_mutant="$formal_dir/NCF_ESCROW_1_PartitionResizeMutant.tla"
+resize_config="$formal_dir/NCF_ESCROW_1_PartitionResizeMutant.cfg"
 
-for path in "$model" "$config" "$timeout_mutant" "$timeout_config" "$stale_mutant" "$stale_config" "$escrow_model" "$escrow_config" "$duplicate_mutant" "$duplicate_config"; do
+for path in "$model" "$config" "$timeout_mutant" "$timeout_config" "$stale_mutant" "$stale_config" "$escrow_model" "$escrow_config" "$duplicate_mutant" "$duplicate_config" "$resize_mutant" "$resize_config"; do
   [[ -f "$path" ]] || { echo "missing model artifact: $path" >&2; exit 2; }
 done
 
@@ -43,6 +45,7 @@ timeout_log="$out_dir/timeout-mutant.log"
 stale_log="$out_dir/stale-owner-mutant.log"
 escrow_log="$out_dir/escrow-model.log"
 duplicate_log="$out_dir/duplicate-allocation-mutant.log"
+resize_log="$out_dir/partition-resize-mutant.log"
 receipt="$out_dir/receipt.json"
 
 model_sha="$(sha256sum "$model" | awk '{print $1}')"
@@ -55,6 +58,8 @@ escrow_sha="$(sha256sum "$escrow_model" | awk '{print $1}')"
 escrow_config_sha="$(sha256sum "$escrow_config" | awk '{print $1}')"
 duplicate_sha="$(sha256sum "$duplicate_mutant" | awk '{print $1}')"
 duplicate_config_sha="$(sha256sum "$duplicate_config" | awk '{print $1}')"
+resize_sha="$(sha256sum "$resize_mutant" | awk '{print $1}')"
+resize_config_sha="$(sha256sum "$resize_config" | awk '{print $1}')"
 jar_sha="$(sha256sum "$jar" | awk '{print $1}')"
 java_version="$(java -version 2>&1 | sed -n '1p' | tr -cd '[:alnum:]._- ')"
 
@@ -128,12 +133,14 @@ run_expected_mutant() {
 run_expected_mutant "$timeout_mutant" "$timeout_config" "$timeout_log" "NoTransferWithoutFence" "timeout-reallocation"
 run_expected_mutant "$stale_mutant" "$stale_config" "$stale_log" "NoOldWriteOutsideActive" "stale-owner-write"
 run_expected_mutant "$duplicate_mutant" "$duplicate_config" "$duplicate_log" "ReservedCapacityBound" "duplicate-allocation"
+run_expected_mutant "$resize_mutant" "$resize_config" "$resize_log" "PartitionedReservationsStayFixed" "partition-resize"
 
 safe_log_sha="$(sha256sum "$safe_log" | awk '{print $1}')"
 timeout_log_sha="$(sha256sum "$timeout_log" | awk '{print $1}')"
 stale_log_sha="$(sha256sum "$stale_log" | awk '{print $1}')"
 escrow_log_sha="$(sha256sum "$escrow_log" | awk '{print $1}')"
 duplicate_log_sha="$(sha256sum "$duplicate_log" | awk '{print $1}')"
+resize_log_sha="$(sha256sum "$resize_log" | awk '{print $1}')"
 cat >"$receipt" <<EOF
 {
   "schema": "mycelix.ncf-fen-tlc-receipt",
@@ -150,6 +157,8 @@ cat >"$receipt" <<EOF
   "escrow_config_sha256": "$escrow_config_sha",
   "duplicate_allocation_mutant_sha256": "$duplicate_sha",
   "duplicate_allocation_mutant_config_sha256": "$duplicate_config_sha",
+  "partition_resize_mutant_sha256": "$resize_sha",
+  "partition_resize_mutant_config_sha256": "$resize_config_sha",
   "tla2tools_jar_sha256": "$jar_sha",
   "java_version": "$java_version",
   "safe_model_status": "passed",
@@ -159,6 +168,8 @@ cat >"$receipt" <<EOF
   "stale_owner_mutant_invariant": "NoOldWriteOutsideActive",
   "duplicate_allocation_mutant_status": "expected_failure_detected",
   "duplicate_allocation_mutant_invariant": "ReservedCapacityBound",
+  "partition_resize_mutant_status": "expected_failure_detected",
+  "partition_resize_mutant_invariant": "PartitionedReservationsStayFixed",
   "safe_model_state_statistics_line": "$safe_stats",
   "escrow_model_status": "passed",
   "escrow_model_state_statistics_line": "$escrow_stats",
@@ -167,6 +178,7 @@ cat >"$receipt" <<EOF
   "stale_owner_mutant_log_sha256": "$stale_log_sha",
   "escrow_model_log_sha256": "$escrow_log_sha",
   "duplicate_allocation_mutant_log_sha256": "$duplicate_log_sha",
+  "partition_resize_mutant_log_sha256": "$resize_log_sha",
   "claim_ceiling": "bounded TLA+ abstraction only; not a proof of production Holochain, cryptographic authority, or unbounded distributed safety"
 }
 EOF
@@ -180,3 +192,4 @@ echo "timeout mutant log sha256: $timeout_log_sha"
 echo "stale-owner mutant log sha256: $stale_log_sha"
 echo "escrow model log sha256: $escrow_log_sha"
 echo "duplicate-allocation mutant log sha256: $duplicate_log_sha"
+echo "partition-resize mutant log sha256: $resize_log_sha"
