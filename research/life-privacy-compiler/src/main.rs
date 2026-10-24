@@ -138,6 +138,10 @@ fn compile_observer_view(subject: &Subject, strategy: Strategy) -> ObserverView 
     }
 }
 
+fn task_answer_equivalent(subject: &Subject, strategy: Strategy) -> bool {
+    compile_observer_view(subject, strategy).task_answers == subject.task_answers
+}
+
 fn splitmix64(input: u64) -> u64 {
     let mut z = input.wrapping_add(0x9E37_79B9_7F4A_7C15);
     z = (z ^ (z >> 30)).wrapping_mul(0xBF58_476D_1CE4_E5B9);
@@ -293,6 +297,9 @@ fn render_report(subjects: &[Subject]) -> String {
     );
     for (index, strategy) in strategies.iter().enumerate() {
         let metric = &metrics[index];
+        let task_equivalence = subjects
+            .iter()
+            .all(|subject| task_answer_equivalent(subject, *strategy));
         writeln!(
             report,
             "{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{}",
@@ -302,7 +309,7 @@ fn render_report(subjects: &[Subject]) -> String {
             strategy.stable_identifier_visible,
             strategy.overhead(),
             subjects.len(),
-            true,
+            task_equivalence,
             metric.unique_candidate_count,
             ppm(metric.unique_candidate_count, subjects.len()),
             metric.under_k_count,
@@ -335,6 +342,11 @@ mod tests {
         let subjects = generate_subjects();
         for strategy in strategies() {
             for subject in &subjects {
+                assert!(
+                    task_answer_equivalent(subject, strategy),
+                    "task answers changed under {}",
+                    strategy.label()
+                );
                 let view = compile_observer_view(subject, strategy);
                 assert_eq!(
                     view.task_answers, subject.task_answers,
