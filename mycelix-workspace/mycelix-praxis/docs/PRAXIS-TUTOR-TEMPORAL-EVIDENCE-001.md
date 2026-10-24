@@ -50,7 +50,7 @@ The Rust module `tutor_temporal_evidence.rs` provides:
 - a scorecard that separates semantic decision fit from evidence-grounded acceptability;
 - counters for expired support, retracted/superseded citations, future/unavailable references, missing required contradictions, and critical violations;
 - an exact-byte BLAKE3 binding between the input observations and the predictions;
-- a 14-entry adversarial/m metamorphic matrix linked to named Rust test definitions.
+- a 14-entry adversarial and metamorphic matrix linked to named Rust test definitions.
 
 Expired evidence may still be cited to explain historical context, but it cannot support a current-state claim. Retracted, superseded, future, or not-yet-recorded sources are not accepted as evidence citations. Abstention and a correctly targeted evidence request do not incur claim-citation penalties.
 
