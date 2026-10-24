@@ -26,6 +26,7 @@
   },
   "cases": [
     "valid_partial_disclosure",
+    "wire_reparse_restores_issuer_bound_disclosure_value",
     "wrong_issuer_key",
     "tampered_issuer_signature",
     "duplicate_disclosure",
@@ -58,6 +59,7 @@
     "holder-key substitution rejects",
     "KB-JWT cannot be reused with a changed disclosure set",
     "the stateless verifier outcome is separated from application-level one-time nonce policy",
+    "wire serialization and re-parsing restore authoritative disclosure fields before the verifier trust decision",
     "repeated report includes stable case IDs and stable outcomes only"
   ],
   "claim_ceiling": "SyntheticAffinidiSdJwt015VerifierBehaviorWithHmacTestFixturesAndSingleUseNoncePolicy",
@@ -67,6 +69,7 @@
     "OpenID4VP or HAIP conformance",
     "production cryptographic security",
     "automatic JWK-to-verifier construction or key-rotation policy",
+    "safety of arbitrary caller-mutated in-memory SD-JWT structs without canonical re-parse",
     "concurrent distributed nonce-ledger correctness",
     "anonymity or unlinkability",
     "differential privacy",
