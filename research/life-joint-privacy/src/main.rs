@@ -309,7 +309,7 @@ fn evaluate(subjects: &[Subject], plan: Plan) -> Metrics {
             (2 * class_counts[1]).abs_diff(total) * 500_000 / total
         })
         .max()
-        .unwrap_or(0);
+        .unwrap_or_default();
 
     let majority_correct: usize = groups
         .values()
@@ -528,6 +528,17 @@ mod tests {
         for plan in enumerate_plans() {
             assert!(task_answers_preserved(&populations, plan), "{}", plan.label());
         }
+    }
+
+
+    #[test]
+    fn exact_metadata_baseline_fails_candidate_support_floor() {
+        let populations = scenarios();
+        let exact_plan = Plan {
+            rounds: [ROUND_PROFILES_EXACT; ROUNDS],
+        };
+        let metric = evaluate(&populations[1], exact_plan);
+        assert!(metric.p05_candidates < MIN_P05_CANDIDATES);
     }
 
     #[test]
