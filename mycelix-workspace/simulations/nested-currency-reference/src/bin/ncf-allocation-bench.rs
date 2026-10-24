@@ -264,6 +264,15 @@ fn run() -> Result<(), String> {
             quantile_basis_points: 9_500,
             margin_ppm: 250_000,
         }),
+        ("demand_weighted_equal_floor_25", AllocationPolicy::DemandWeightedWithEqualFloor {
+            equal_floor_ppm: 250_000,
+        }),
+        ("demand_weighted_equal_floor_50", AllocationPolicy::DemandWeightedWithEqualFloor {
+            equal_floor_ppm: 500_000,
+        }),
+        ("demand_weighted_equal_floor_75", AllocationPolicy::DemandWeightedWithEqualFloor {
+            equal_floor_ppm: 750_000,
+        }),
     ];
 
     let started = Instant::now();
