@@ -10,6 +10,8 @@ on:
       - mycelix-workspace/simulations/nested-currency-reference/src/lib.rs
       - mycelix-workspace/simulations/nested-currency-reference/src/bin/ncf-allocation-bench.rs
       - mycelix-workspace/simulations/nested-currency-reference/run-allocation-bench.sh
+      - mycelix-workspace/simulations/nested-currency-reference/Cargo.toml
+      - mycelix-workspace/simulations/nested-currency-reference/Cargo.lock
       - mycelix-core/docs/civilizational-os/federation/NESTED_CURRENCY_AND_CLEARING_PROFILE.md
   pull_request:
     branches: [main]
@@ -20,6 +22,8 @@ on:
       - mycelix-workspace/simulations/nested-currency-reference/src/lib.rs
       - mycelix-workspace/simulations/nested-currency-reference/src/bin/ncf-allocation-bench.rs
       - mycelix-workspace/simulations/nested-currency-reference/run-allocation-bench.sh
+      - mycelix-workspace/simulations/nested-currency-reference/Cargo.toml
+      - mycelix-workspace/simulations/nested-currency-reference/Cargo.lock
       - mycelix-core/docs/civilizational-os/federation/NESTED_CURRENCY_AND_CLEARING_PROFILE.md
   workflow_dispatch:
 
