@@ -277,6 +277,7 @@ fn key_binding_freshness_accepts(
         expected_audience,
         Some(HOLDER_KEY),
     ) || !signed_kb_jwt_has_typ(presentation, "kb+jwt")
+        || !synthetic_cnf_matches_holder_key(presentation, HOLDER_KEY)
     {
         return false;
     }
