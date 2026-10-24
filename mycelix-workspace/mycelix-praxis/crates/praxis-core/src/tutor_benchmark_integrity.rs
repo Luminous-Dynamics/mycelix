@@ -662,6 +662,16 @@ mod tests {
     }
 
     #[test]
+    fn changed_candidate_observation_bytes_invalidate_run_binding() {
+        let candidate_data = candidate_dataset_for_role(SPLIT, SplitRole::Test);
+        let run = run_manifest(SPLIT, AdvisorMode::Baseline, "b0-test-run");
+        let changed = format!("\\n{candidate_data}");
+        let errors = validate_benchmark_run(&serde_json::to_string(&run).unwrap(), SPLIT, &changed)
+            .expect_err("byte-level candidate input changes must invalidate the run binding");
+        assert!(errors.iter().any(|error| error.code == "observation_manifest_digest_mismatch"));
+    }
+
+    #[test]
     fn candidate_receiving_all_trajectories_is_rejected_as_split_leakage() {
         let run = run_manifest(SPLIT, AdvisorMode::Baseline, "b0-test-run");
         let errors = validate_benchmark_run(
@@ -761,6 +771,6 @@ mod tests {
             let test_name = entry["test_name"].as_str().unwrap();
             assert!(source.contains(&format!("fn {test_name}(")), "matrix row {id} points to missing test {test_name}");
         }
-        assert_eq!(entries.len(), 14);
+        assert_eq!(entries.len(), 15);
     }
 }
