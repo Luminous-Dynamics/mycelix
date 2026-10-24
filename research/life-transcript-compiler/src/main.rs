@@ -373,7 +373,7 @@ fn render_report(subjects: &[Subject]) -> String {
     let stable_id_metrics = evaluate(subjects, stable_id_plan, true);
     writeln!(
         report,
-        "control,stable_id_negative_control,{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},false,false",
+        "control,stable_id_negative_control,{},{},{},{},{},{},{},{},{},{},{},{},{},false,false",
         ROUNDS,
         stable_id_plan.cost(),
         subjects.len(),
