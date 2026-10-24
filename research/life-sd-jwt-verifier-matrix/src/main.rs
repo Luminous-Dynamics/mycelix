@@ -7,7 +7,7 @@ use base64::{Engine as _, engine::general_purpose::URL_SAFE_NO_PAD};
 use affinidi_sd_jwt::{
     Disclosure, SdJwt, Sha256Hasher, holder, issuer, verifier,
     holder::KbJwtInput,
-    signer::test_utils::{HmacSha256Signer, HmacSha256Verifier},
+    signer::{JwtSigner, test_utils::{HmacSha256Signer, HmacSha256Verifier}},
     verifier::VerificationOptions,
 };
 use serde_json::{Value, json};
@@ -128,65 +128,29 @@ fn key_bound_presentation_at_iat(nonce: &str, audience: &str, iat: u64) -> SdJwt
         .expect("synthetic key-bound presentation must be created")
 }
 
-fn key_binding_freshness_accepts(
-    presentation: &SdJwt,
-    expected_nonce: &str,
-    expected_audience: &str,
-    now: i64,
-    max_age_secs: i64,
-) -> bool {
-    let Some(canonical) = parse_wire(presentation) else {
-        return false;
-    };
-    let issuer_verifier = HmacSha256Verifier::new(ISSUER_KEY);
-    let holder_verifier = HmacSha256Verifier::new(HOLDER_KEY);
-    let options = VerificationOptions {
-        verify_kb: true,
-        expected_audience: Some(expected_audience),
-        expected_nonce: Some(expected_nonce),
-    };
-
-    // First verify issuer signature, holder signature, KB-JWT typ, nonce,
-    // audience, and sd_hash with the published 0.1.5 verifier API. Apply the
-    // profile's fixed-clock freshness window only after cryptographic success.
-    let verified = verifier::verify(
-        &canonical,
-        &issuer_verifier,
-        &Sha256Hasher,
-        &options,
-        Some(&holder_verifier),
-    );
-    if !verified.is_ok_and(|result| result.kb_verified == Some(true)) {
-        return false;
-    }
-
-    let Some(kb_jwt) = canonical.kb_jwt.as_deref() else {
-        return false;
-    };
+fn key_bound_presentation_with_typ(typ: &str) -> SdJwt {
+    let original = key_bound_presentation(NONCE, AUDIENCE);
+    let kb_jwt = original.kb_jwt.as_deref().expect("fixture has KB-JWT");
     let mut parts = kb_jwt.split('.');
-    let (Some(_header), Some(payload), Some(_signature), None) =
-        (parts.next(), parts.next(), parts.next(), parts.next())
-    else {
-        return false;
-    };
-    let Ok(payload_bytes) = URL_SAFE_NO_PAD.decode(payload) else {
-        return false;
-    };
-    let Ok(payload) = serde_json::from_slice::<Value>(&payload_bytes) else {
-        return false;
-    };
-    let Some(iat) = payload.get("iat").and_then(Value::as_i64) else {
-        return false;
-    };
-
-    let latest_allowed = now.saturating_add(60);
-    if iat > latest_allowed {
-        return false;
-    }
-    now.saturating_sub(iat) <= max_age_secs
+    let (_header, payload_b64, _signature) = (
+        parts.next().expect("header"),
+        parts.next().expect("payload"),
+        parts.next().expect("signature"),
+    );
+    assert!(parts.next().is_none(), "KB-JWT must be compact");
+    let payload_bytes = URL_SAFE_NO_PAD.decode(payload_b64).expect("payload base64url");
+    let payload: Value = serde_json::from_slice(&payload_bytes).expect("KB-JWT payload JSON");
+    let signer = HmacSha256Signer::new(HOLDER_KEY);
+    let header = json!({ "alg": "HS256", "typ": typ });
+    let signed_kb_jwt = signer.sign_jwt(&header, &payload).expect("signed synthetic KB-JWT");
+    SdJwt::new(
+        original.jws.clone(),
+        original.disclosures.clone(),
+        Some(signed_kb_jwt),
+    )
 }
 
-fn key_binding_accepts(
+fn library_key_binding_accepts(
     presentation: &SdJwt,
     expected_nonce: &str,
     expected_audience: &str,
@@ -222,6 +186,86 @@ fn key_binding_accepts(
         )
         .is_ok_and(|result| result.kb_verified == Some(true)),
     }
+}
+
+fn signed_kb_jwt_has_typ(presentation: &SdJwt, expected_typ: &str) -> bool {
+    let Some(kb_jwt) = presentation.kb_jwt.as_deref() else {
+        return false;
+    };
+    let mut parts = kb_jwt.split('.');
+    let Some(header_b64) = parts.next() else {
+        return false;
+    };
+    if parts.next().is_none() || parts.next().is_none() || parts.next().is_some() {
+        return false;
+    }
+    let Ok(header_bytes) = URL_SAFE_NO_PAD.decode(header_b64) else {
+        return false;
+    };
+    let Ok(header) = serde_json::from_slice::<Value>(&header_bytes) else {
+        return false;
+    };
+    header.get("typ").and_then(Value::as_str) == Some(expected_typ)
+}
+
+fn key_binding_accepts(
+    presentation: &SdJwt,
+    expected_nonce: &str,
+    expected_audience: &str,
+    holder_key: Option<&[u8]>,
+) -> bool {
+    // The pinned 0.1.5 verifier checks signature, audience, nonce and sd_hash
+    // but doesn't enforce RFC 9901's KB-JWT typ. Enforce typ as a separate
+    // profile policy after the signature-verified result succeeds.
+    library_key_binding_accepts(presentation, expected_nonce, expected_audience, holder_key)
+        && signed_kb_jwt_has_typ(presentation, "kb+jwt")
+}
+
+fn key_binding_freshness_accepts(
+    presentation: &SdJwt,
+    expected_nonce: &str,
+    expected_audience: &str,
+    now: i64,
+    max_age_secs: i64,
+) -> bool {
+    // Run published verifier checks first; never apply local freshness policy
+    // to an unverified timestamp.
+    if !library_key_binding_accepts(
+        presentation,
+        expected_nonce,
+        expected_audience,
+        Some(HOLDER_KEY),
+    ) || !signed_kb_jwt_has_typ(presentation, "kb+jwt")
+    {
+        return false;
+    }
+
+    let Some(canonical) = parse_wire(presentation) else {
+        return false;
+    };
+    let Some(kb_jwt) = canonical.kb_jwt.as_deref() else {
+        return false;
+    };
+    let mut parts = kb_jwt.split('.');
+    let (Some(_header), Some(payload), Some(_signature), None) =
+        (parts.next(), parts.next(), parts.next(), parts.next())
+    else {
+        return false;
+    };
+    let Ok(payload_bytes) = URL_SAFE_NO_PAD.decode(payload) else {
+        return false;
+    };
+    let Ok(payload) = serde_json::from_slice::<Value>(&payload_bytes) else {
+        return false;
+    };
+    let Some(iat) = payload.get("iat").and_then(Value::as_i64) else {
+        return false;
+    };
+
+    if iat > now.saturating_add(60) {
+        return false;
+    }
+    now.saturating_sub(iat) <= max_age_secs
 }
 
 fn mutate_signature(jws: &str) -> String {
@@ -351,6 +395,17 @@ fn run_matrix() -> Vec<CaseResult> {
         true,
         key_binding_accepts(&good_kb, NONCE, AUDIENCE, Some(HOLDER_KEY)),
     ));
+    let wrong_typ_kb = key_bound_presentation_with_typ("JWT");
+    cases.push(CaseResult::new(
+        "published_verifier_accepts_signed_wrong_kb_typ",
+        true,
+        library_key_binding_accepts(&wrong_typ_kb, NONCE, AUDIENCE, Some(HOLDER_KEY)),
+    ));
+    cases.push(CaseResult::new(
+        "application_policy_rejects_signed_wrong_kb_typ",
+        false,
+        key_binding_accepts(&wrong_typ_kb, NONCE, AUDIENCE, Some(HOLDER_KEY)),
+    ));
     let fresh_now = ISSUED_AT as i64 + 30;
     let fresh_kb = key_bound_presentation_at_iat(NONCE, AUDIENCE, ISSUED_AT);
     cases.push(CaseResult::new(
@@ -471,7 +526,7 @@ mod tests {
     #[test]
     fn verifier_decision_matrix_matches_frozen_expected_outcomes() {
         let cases = run_matrix();
-        assert_eq!(cases.len(), 19);
+        assert_eq!(cases.len(), 21);
         for case in &cases {
             assert!(
                 case.passed(),
