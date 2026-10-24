@@ -55,6 +55,15 @@ jobs:
           cache-bin: false
           rustflags: "-D warnings"
 
+      - name: Check formatting
+        run: cargo fmt --manifest-path mycelix-workspace/simulations/nested-currency-reference/Cargo.toml -- --check
+
+      - name: Test reference model and allocator
+        run: cargo test --locked --manifest-path mycelix-workspace/simulations/nested-currency-reference/Cargo.toml
+
+      - name: Check clippy
+        run: cargo clippy --locked --manifest-path mycelix-workspace/simulations/nested-currency-reference/Cargo.toml --all-targets -- -D warnings
+
       - name: Check benchmark runner syntax
         run: bash -n mycelix-workspace/simulations/nested-currency-reference/run-allocation-bench.sh
 
