@@ -71,9 +71,11 @@ This is an executable test definition, not an observed pass. It is separate from
 1. Verify that the safe model has no invariant violation under the published bounds.
 2. Verify that the timeout mutant is rejected by `NoTransferWithoutFence`.
 3. Verify that the stale-owner mutant is rejected by `NoOldWriteOutsideActive`.
-4. Preserve and review both minimized counterexample traces; a parser error does not count as mutant detection.
-5. Cross-check generated transitions against the Rust reference model, then replay every counterexample as a Rust regression test.
-6. Only after the abstract model is qualified, add bounded multi-owner/distributed schedules (or a Rust-native model such as Stateright) and real multi-agent/Holochain integration.
-7. Record exact commit, model/config digests, tool versions, state/transition counts, invariant outcomes and raw counterexample digests. Keep defined, queued, failed, expected-negative and passed results distinct.
+4. Verify that the duplicate-allocation mutant is rejected by `ReservedCapacityBound`.
+5. Verify that the partition-resize mutant is rejected by `PartitionedReservationsStayFixed`.
+6. Preserve and review every minimized counterexample trace; a parser error does not count as mutant detection.
+7. Cross-check generated transitions against the Rust reference model, then replay every counterexample as a Rust regression test.
+8. Only after the abstract model is qualified, add bounded multi-owner/distributed schedules (or a Rust-native model such as Stateright) and real multi-agent/Holochain integration.
+9. Record exact commit, model/config digests, tool versions, state/transition counts, invariant outcomes and raw counterexample digests. Keep defined, queued, failed, expected-negative and passed results distinct.
 
 This follows the repository's model-check-first pattern in [#5091](https://github.com/Luminous-Dynamics/mycelix/issues/5091) and complements the revision-fenced reservation boundary in [#5153](https://github.com/Luminous-Dynamics/mycelix/issues/5153).
