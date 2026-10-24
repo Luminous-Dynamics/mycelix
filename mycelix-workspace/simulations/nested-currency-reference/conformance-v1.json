@@ -129,6 +129,11 @@
       "id": "NCF-FEN-I-008",
       "name": "Crash recovery preserves last verified state",
       "statement": "Recovery after any failed transition does not create duplicated spendable capacity or advance beyond the last verified committed control receipt."
+    },
+    {
+      "id": "NCF-FEN-I-009",
+      "name": "Ledger and control operations share one idempotency namespace",
+      "statement": "A monetary event ID cannot alias a drain, fencing, or transfer receipt ID; every transition ID is globally unique within the allocation reference model and payload-bound."
     }
   ],
   "conformance_cases": [
@@ -841,6 +846,15 @@
       "expected": "capacity_remains_charged_until_single_commit",
       "code_test": null,
       "execution_status": "planned_not_implemented_or_not_fully_qualified"
+    },
+    {
+      "id": "NCF-FEN-013",
+      "title": "Ledger events cannot alias lifecycle receipt IDs",
+      "class": "idempotency_namespace_confusion",
+      "attack": "Reuse the same identifier across a ledger obligation or settlement and a drain, fence, or transfer control operation.",
+      "expected": "reject_cross_namespace_identifier_collision_without_second_effect",
+      "code_test": "ledger_and_control_operations_share_one_idempotency_namespace",
+      "execution_status": "reference_test_defined_not_run"
     }
   ]
 }
