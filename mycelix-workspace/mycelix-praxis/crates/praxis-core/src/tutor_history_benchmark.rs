@@ -249,6 +249,58 @@ pub fn validate_history_bundle(
         case_observation_ids.insert(case.case_id.clone(), known_ids);
     }
 
+    // In v1, each declared counterfactual group is an assistance-only pair.
+    // All other ordered observation semantics must match; a group that does not
+    // actually vary assistance is not a valid counterfactual control.
+    let mut counterfactual_groups: BTreeMap<String, Vec<&HistoryCase>> = BTreeMap::new();
+    for case in &observations.cases {
+        if let Some(group_id) = &case.counterfactual_group {
+            if group_id.trim().is_empty() {
+                findings.push(finding("empty_counterfactual_group", Some(case.case_id.as_str()), "counterfactual group IDs must be non-empty when present"));
+            } else {
+                counterfactual_groups.entry(group_id.clone()).or_default().push(case);
+            }
+        }
+    }
+    for (group_id, group_cases) in &counterfactual_groups {
+        if group_cases.len() != 2 {
+            findings.push(finding("counterfactual_group_cardinality", None, format!("group {group_id} must contain exactly two cases in v1")));
+            continue;
+        }
+        let ordered_events = |case: &HistoryCase| {
+            let mut events: Vec<&HistoryObservation> = case.observations.iter().collect();
+            events.sort_by_key(|event| event.sequence);
+            events
+        };
+        let left = ordered_events(group_cases[0]);
+        let right = ordered_events(group_cases[1]);
+        if left.len() != right.len() {
+            findings.push(finding("counterfactual_length_mismatch", None, format!("group {group_id} must preserve the event count")));
+            continue;
+        }
+        let mut assistance_differs = false;
+        let mut non_assistance_differs = false;
+        for (left_event, right_event) in left.iter().zip(right.iter()) {
+            if left_event.sequence != right_event.sequence
+                || left_event.skill_id != right_event.skill_id
+                || left_event.task_context != right_event.task_context
+                || left_event.correctness != right_event.correctness
+                || left_event.origin != right_event.origin
+            {
+                non_assistance_differs = true;
+            }
+            if left_event.assistance != right_event.assistance {
+                assistance_differs = true;
+            }
+        }
+        if non_assistance_differs {
+            findings.push(finding("counterfactual_non_target_drift", None, format!("group {group_id} changes fields beyond assistance; v1 pairs must isolate assistance")));
+        }
+        if !assistance_differs {
+            findings.push(finding("counterfactual_dimension_unchanged", None, format!("group {group_id} does not change assistance labels")));
+        }
+    }
+
     let mut label_ids = BTreeSet::new();
     for label in &oracle.labels {
         if label.case_id.trim().is_empty() || !label_ids.insert(label.case_id.clone()) {
@@ -730,6 +782,45 @@ mod tests {
         assert_eq!(original_score.required_supporting_evidence_coverage, mutated_score.required_supporting_evidence_coverage);
         assert_eq!(original_score.required_contradicting_evidence_coverage, mutated_score.required_contradicting_evidence_coverage);
         assert_eq!(original_score.critical_violations, mutated_score.critical_violations);
+    }
+
+    #[test]
+    fn counterfactual_pair_must_change_only_assistance() {
+        let mut value: serde_json::Value = serde_json::from_str(OBSERVATIONS).expect("JSON");
+        let cases = value["cases"].as_array_mut().expect("cases array");
+        let left_idx = cases.iter().position(|case| case["case_id"] == "TH007").expect("TH007");
+        let right_idx = cases.iter().position(|case| case["case_id"] == "TH008").expect("TH008");
+        let left_events = cases[left_idx]["observations"].as_array().expect("left events").clone();
+        let right_events = cases[right_idx]["observations"].as_array_mut().expect("right events");
+        for right_event in right_events.iter_mut() {
+            let sequence = right_event["sequence"].as_u64().expect("sequence");
+            let left_event = left_events.iter().find(|event| event["sequence"].as_u64() == Some(sequence)).expect("matching sequence");
+            right_event["assistance"] = left_event["assistance"].clone();
+        }
+        let mutated = value.to_string();
+        let error = validate_history_bundle(&mutated, ORACLE).expect_err("no counterfactual dimension changed");
+        assert!(error.iter().any(|item| item.code == "counterfactual_dimension_unchanged"));
+    }
+
+    #[test]
+    fn counterfactual_pair_rejects_non_target_drift() {
+        let mut value: serde_json::Value = serde_json::from_str(OBSERVATIONS).expect("JSON");
+        let cases = value["cases"].as_array_mut().expect("cases array");
+        let right = cases.iter_mut().find(|case| case["case_id"] == "TH008").expect("TH008");
+        right["observations"][0]["task_context"] = serde_json::Value::String("changed_context".into());
+        let error = validate_history_bundle(&value.to_string(), ORACLE).expect_err("non-target drift");
+        assert!(error.iter().any(|item| item.code == "counterfactual_non_target_drift"));
+    }
+
+    #[test]
+    fn counterfactual_group_requires_exactly_two_cases() {
+        let mut value: serde_json::Value = serde_json::from_str(OBSERVATIONS).expect("JSON");
+        let cases = value["cases"].as_array_mut().expect("cases array");
+        let mut duplicate = cases.iter().find(|case| case["case_id"] == "TH008").expect("TH008").clone();
+        duplicate["case_id"] = serde_json::Value::String("TH010".into());
+        cases.push(duplicate);
+        let error = validate_history_bundle(&value.to_string(), ORACLE).expect_err("group cardinality");
+        assert!(error.iter().any(|item| item.code == "counterfactual_group_cardinality"));
     }
 
     #[test]
