@@ -15,7 +15,7 @@ It does **not** prove real-world service delivery, legal status, collateral/rese
 
 ## Static escrow allocation frontier
 
-The new dependency-free [allocation module](src/allocation.rs) builds deterministic pre-partition risk-right plans using equal split, demand-weighted mean, or robust-quantile weighting with an explicit margin. It uses checked integer arithmetic and stable largest-remainder tie-breaking; an optional contingency reserve remains unallocated and cannot be spent by disconnected shards.
+The new dependency-free [allocation module](src/allocation.rs) builds deterministic pre-partition risk-right plans using equal split, demand-weighted mean, or robust-quantile weighting with an explicit margin. Each demand and plan is bound to one canonical `instrument_id`; mixed/missing instrument identity is rejected. Demand-dependent policies also reject missing per-shard history rather than treating an unobserved community as zero demand. It uses checked integer arithmetic and stable largest-remainder tie-breaking; an optional contingency reserve remains unallocated and cannot be spent by disconnected shards.
 
 The [NCF-ALLOC-1 specification](docs/NCF-ALLOC-1-static-allocation.md) defines the algorithm boundary and claim ceiling. The [matched-trace benchmark binary](src/bin/ncf-allocation-bench.rs) compares all three policies on synthetic stationary and shifted-demand scenarios, while [the runner](run-allocation-bench.sh) binds output and binary hashes to the exact source/toolchain. The dedicated [allocation workflow](../../../../.github/workflows/ncf-allocation-benchmark.yml) checks formatting, runs the crate tests and clippy, and then emits the simulation receipt.
 
