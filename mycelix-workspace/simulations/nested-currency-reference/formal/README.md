@@ -59,6 +59,12 @@ The workflow has been committed, but no completed result is asserted here. A job
 
 The model has one old allocation and one successor, integer capacities in a small finite domain, and a simplified completeness flag. It has no cryptographic receipt validation, real distributed control authority, quorum membership, DHT operations, independent counterparty histories, instrument/profile migration, multi-edge aggregate caps, external settlement, clock/lease semantics, or network stack. TLC's exhaustive result is only for this declared abstraction and finite configuration.
 
+## Rust generated lifecycle regression
+
+The standalone Rust module now also defines `ten_thousand_generated_fencing_lifecycles_preserve_capacity_bound`: a fixed-seed, dependency-free sweep over 10,000 generated **sequential** lifecycles. It varies capacity, outstanding exposure, settlement placement, pending exposure, incomplete reconciliation, failed transfer/spend attempts, and successor amounts. Every scenario checks that old outstanding + unresolved pending + successor outstanding never exceeds the original capacity.
+
+This is an executable test definition, not an observed pass. It is separate from TLC: the sweep explores generated inputs to the Rust reference model, while TLC explores finite state transitions and verifies that the unsafe mutants are detected. Neither substitutes for concurrent multi-agent/Holochain fault testing.
+
 ## Qualification discipline
 
 1. Verify that the safe model has no invariant violation under the published bounds.
