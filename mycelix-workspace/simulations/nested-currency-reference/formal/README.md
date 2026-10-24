@@ -29,7 +29,7 @@ java -cp /path/to/tla2tools.jar tlc2.TLC -config NCF_FEN_1_StaleOwnerMutant.cfg 
 
 Run the two-shard model with `java -cp /path/to/tla2tools.jar tlc2.TLC -config NCF_ESCROW_1.cfg NCF_ESCROW_1.tla`; this should complete without invariant violations. Run its duplicate-allocation mutant with `java -cp /path/to/tla2tools.jar tlc2.TLC -config NCF_ESCROW_1_DuplicateAllocationMutant.cfg NCF_ESCROW_1_DuplicateAllocationMutant.tla`; it should violate `ReservedCapacityBound`. These expected outcomes have **not yet been confirmed** by running TLC. The commands alone are not evidence.
 
-The repository wrapper runs the safe model and both unsafe mutants and rejects unexpected outcomes, including parser failures masquerading as successful negative controls:
+The repository wrapper runs both safe models and all three unsafe mutants and rejects unexpected outcomes, including parser failures masquerading as successful negative controls:
 
 ```sh
 TLA2TOOLS_JAR=/absolute/path/to/tla2tools.jar \
