@@ -134,6 +134,27 @@
       "mutation": "Widen a correction's record-time uncertainty until its interval overlaps the record it supersedes.",
       "expected": "Reject the supersession edge because temporal order is not proven.",
       "test_name": "supersession_with_overlapping_time_intervals_is_rejected"
+    },
+    {
+      "id": "TEMP-020",
+      "kind": "negative_control",
+      "mutation": "Cite the record whose ingestion-time uncertainty crosses the evaluation cutoff in an otherwise plausible claim.",
+      "expected": "Count an ambiguous-timestamp violation; the claim cannot be accepted as temporally grounded.",
+      "test_name": "ambiguous_timestamp_reference_is_critical"
+    },
+    {
+      "id": "TEMP-021",
+      "kind": "negative_control",
+      "mutation": "Cite an imported/unverified timestamp as exact proof of current-state evidence.",
+      "expected": "Count an unverified-timestamp violation and reject the claim as temporally ungrounded.",
+      "test_name": "unverified_timestamp_reference_is_critical"
+    },
+    {
+      "id": "TEMP-022",
+      "kind": "negative_control",
+      "mutation": "Mark a derived estimate as having an assessment-server occurrence timestamp.",
+      "expected": "Reject the inconsistent source/provenance declaration.",
+      "test_name": "mismatched_derived_timestamp_provenance_is_rejected"
     }
   ]
 }
