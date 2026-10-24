@@ -222,6 +222,9 @@ impl FenceBook {
         if amount == 0 {
             return Err(Error::InvalidAmount);
         }
+        if self.phase() == Phase::Reconciled {
+            return Err(Error::InvalidTransition);
+        }
         if owner != self.owner || epoch != self.epoch {
             return Err(Error::WrongOwnerOrEpoch);
         }
