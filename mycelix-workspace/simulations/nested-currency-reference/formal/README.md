@@ -7,7 +7,8 @@ This folder contains an **independent TLA+ abstraction** of the risk-right fenci
 - `NCF_FEN_1.tla`: small finite model of old-owner obligations/settlement, drain, evidence resolution, terminal-sequence reconciliation, fence, transfer and successor spending.
 - `NCF_FEN_1.cfg`: bounded check with `Capacity = 2` and `MaxSteps = 4`.
 - `NCF_FEN_1_TimeoutMutant.tla`: negative control that transfers capacity while merely `DRAIN_REQUESTED`, before evidence resolution/reconciliation/fencing.
-- `NCF_FEN_1_TimeoutMutant.cfg`: checks the same invariants against the unsafe mutant. **Expected result: fail** on `NoTransferWithoutFence`. A passing mutant is a test-harness/semantic failure, not success.
+- `NCF_FEN_1_TimeoutMutant.cfg`: **expected failure** on `NoTransferWithoutFence`.
+- `NCF_FEN_1_StaleOwnerMutant.tla` and its config: a second negative control accepts an old-owner write after transfer; **expected failure** on `NoOldWriteOutsideActive`.
 
 ## Running TLC
 
@@ -18,7 +19,13 @@ java -cp /path/to/tla2tools.jar tlc2.TLC -config NCF_FEN_1.cfg NCF_FEN_1.tla
 java -cp /path/to/tla2tools.jar tlc2.TLC -config NCF_FEN_1_TimeoutMutant.cfg NCF_FEN_1_TimeoutMutant.tla
 ```
 
-The first command should terminate with no invariant violation for the configured finite model. The second should produce a counterexample to `NoTransferWithoutFence`. These expected outcomes have **not yet been confirmed** by running TLC. The commands alone are not evidence.
+The first command should terminate with no invariant violation for the configured finite model. The second should produce a counterexample to `NoTransferWithoutFence`. A third command must fail on `NoOldWriteOutsideActive`:
+
+```sh
+java -cp /path/to/tla2tools.jar tlc2.TLC -config NCF_FEN_1_StaleOwnerMutant.cfg NCF_FEN_1_StaleOwnerMutant.tla
+```
+
+These expected outcomes have **not yet been confirmed** by running TLC. The commands alone are not evidence.
 
 The repository wrapper performs the paired safe/unsafe checks and rejects unexpected outcomes, including parser failures masquerading as a successful mutant test:
 
@@ -27,7 +34,7 @@ TLA2TOOLS_JAR=/absolute/path/to/tla2tools.jar \
   bash mycelix-workspace/simulations/nested-currency-reference/run-ncf-fen-tlc.sh
 ```
 
-It requires a clean checkout, writes raw logs and a receipt outside the repository, and binds them to the exact source/tree, model/config digests and JAR digest. The current environment has Java but no local `tla2tools.jar`; outbound DNS/download is unavailable, so this wrapper has not been executed here.
+It requires a clean checkout, runs one safe model and both expected-failing mutants, writes raw logs and a receipt outside the repository, and binds them to the exact source/tree, all model/config digests and the JAR digest. The current environment has Java but no local `tla2tools.jar`; outbound DNS/download is unavailable, so this wrapper has not been executed here.
 
 ## Dedicated GitHub Actions qualification
 
@@ -35,7 +42,9 @@ The draft branch now includes [`.github/workflows/ncf-fen-model-check.yml`](../.
 
 TLA+ v1.8.0 upstream lists the JAR SHA-1 as `82d950354adcc694e98df3918f687c4400c47d8d`. The workflow verifies that checksum and records a computed SHA-256 in the receipt. See the [upstream TLA+ release notes](https://github.com/tlaplus/tlaplus/releases/tag/v1.8.0). The checksum is upstream-published SHA-1, not a SHA-256 signature; the job does not claim otherwise.
 
-The workflow has been committed, but no completed result is asserted here. A job that is queued/running/skipped—or a log that only shows a parser failure—does not qualify the model. Qualification requires the safe model to complete with no invariant violations and the mutant to fail specifically on `NoTransferWithoutFence`.
+The pinned tool is fetched from an immutable build mirror rather than the upstream `v1.8.0` rolling prerelease URL. The upstream project documents that release assets changed without a version bump ([tlaplus/tlaplus#1399](https://github.com/tlaplus/tlaplus/issues/1399)). The mirror release is tagged `tla2tools-2026.08.11.125311`, identifies the mirrored upstream build, marks the release immutable, and publishes SHA-256 `ab323b79802aedc3203b3f9af37c6aca3ed43f4e0225b36f2aa77b26de46c05f` ([mirror release](https://github.com/zactionsz/tla-tools/releases/tag/tla2tools-2026.08.11.125311)). The workflow verifies this SHA-256 before execution.
+
+The workflow has been committed, but no completed result is asserted here. A job that is queued/running/skipped—or a log that only shows a parser failure—does not qualify the model. Qualification requires the safe model to complete with no invariant violations, the timeout mutant to fail specifically on `NoTransferWithoutFence`, and the stale-owner mutant to fail specifically on `NoOldWriteOutsideActive`.
 
 ## What this model captures
 
