@@ -967,6 +967,18 @@
       "formal_config": "formal/NCF_ESCROW_1_DuplicateAllocationMutant.cfg",
       "formal_invariant": "ReservedCapacityBound",
       "execution_status": "formal_negative_control_defined_not_run"
+    },
+    {
+      "id": "NCF-FEN-016",
+      "title": "Ten thousand deterministic lifecycle variants preserve the aggregate exposure bound",
+      "class": "generated_reference_model_stress",
+      "attack": "Generate 10,000 reproducible combinations of capacity, old exposure, settlements, pending exposure, reconciliation failures, transfer attempts, and successor spends. Every accepted state must preserve the exact aggregate capacity bound.",
+      "expected": "zero_capacity_bound_violations_across_10000_generated_lifecycles",
+      "code_test": "ten_thousand_generated_fencing_lifecycles_preserve_capacity_bound",
+      "execution_status": "reference_test_defined_not_run",
+      "seed": "0x4e43462d46454e31",
+      "scenarios": 10000,
+      "claim_ceiling": "Deterministic generated sequential Rust reference-model regression only; not concurrent interleavings, exhaustive formal proof, or Holochain multi-agent evidence."
     }
   ],
   "qualification_campaigns": [
@@ -1006,6 +1018,35 @@
         "clippy_log_sha256"
       ],
       "claim_ceiling": "Formatting, tests and clippy for the exact standalone Rust reference crate only. Does not establish distributed/Holochain safety, cryptographic fencing, external settlement finality or production ledger correctness."
+    },
+    {
+      "id": "NCF-QUAL-002",
+      "name": "Deterministic generated fencing lifecycle sweep",
+      "execution_status": "defined_not_run",
+      "test_name": "ten_thousand_generated_fencing_lifecycles_preserve_capacity_bound",
+      "scenario_count": 10000,
+      "seed": "0x4e43462d46454e31",
+      "invariants_checked": [
+        "old exposure stays within capacity",
+        "new exposure is rejected after drain/fence",
+        "incomplete reconciliation cannot authorize transfer",
+        "failed transfer and spend attempts do not consume idempotency identity",
+        "transferred slice does not exceed verified free capacity",
+        "old outstanding + unresolved pending + successor outstanding never exceeds aggregate capacity",
+        "successor outstanding never exceeds successor reservation"
+      ],
+      "method": "A dependency-free deterministic LCG selects small capacities, initial gross exposure, settlements before/during drain, exposure extensions, pending exposure, and successor spend amounts. All 10,000 generated scenarios execute through FenceBook and assert the aggregate capacity relation. The fixed seed is stored in source. This is sequential generated testing, not a concurrent schedule explorer; it must be complemented by TLC and multi-agent fault tests.",
+      "required_receipt_fields": [
+        "source_commit",
+        "fencing_module_sha256",
+        "test_name",
+        "seed",
+        "scenario_count",
+        "cargo_test_exit_code",
+        "rust_toolchain_log_sha256",
+        "test_log_sha256"
+      ],
+      "claim_ceiling": "Generated sequential Rust reference-model stress only; not distributed/Holochain concurrency safety or production settlement proof."
     }
   ]
 }
