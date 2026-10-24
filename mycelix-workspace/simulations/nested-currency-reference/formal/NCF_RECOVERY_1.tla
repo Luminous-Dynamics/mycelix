@@ -306,8 +306,7 @@ RejectConflictingRetry ==
                oldPending, newOutstanding, oldSequence, terminalSequence,
                reconciledOutstanding, reconciled, fenced, preparedAmount,
                commitRecorded, commitCount, crashed, commitTransferId,
-               commitPayloadAmount, commitReceiptId, responseState,
-               conflictingRetryAttempted, conflictAccepted >>
+               commitPayloadAmount, commitReceiptId, responseState >>
 
 NewSpend ==
     \E amount \in 1..Capacity:
