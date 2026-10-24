@@ -19,7 +19,7 @@ Every solver-visible temporal observation carries:
 - `status`: `active` or `retracted`.
 - `supersedes`: provenance links to source records this record replaces. The old record remains in history; a replacement does not silently delete the audit trail.
 
-Each case has a fixed `evaluation_time_unix`. The verifier treats timestamps as closed intervals, not exact points. If the entire interval is after the evaluation cutoff, it is leakage and invalidates the bundle; if the interval straddles the cutoff, the observation is marked ambiguous instead of silently ordered. Unverified/imported or derived timestamps must declare nonzero uncertainty and cannot alone establish temporal proof. Supersession edges must resolve, be acyclic, and have a definitely later record-time interval than the source they replace.
+Each case has a fixed `evaluation_time_unix`. The verifier treats timestamps as closed intervals, not exact points. If the entire interval is after the evaluation cutoff, it is leakage and invalidates the bundle; if the interval straddles the cutoff, the observation is marked ambiguous instead of silently ordered. All non-server timestamp sources must declare nonzero uncertainty; imported-unverified and derived timestamps cannot alone establish temporal proof. Supersession edges must resolve, be acyclic, and have a definitely later record-time interval than the source they replace.
 
 **Important policy choice:** recency is not truth. A recent import does not make an old attempt recent; equal timestamps do not establish an order; a newer attempt in a different task context does not automatically override an older one; and age alone does not expire an observation when no validity deadline is declared. The tutor should preserve contradictory historical evidence and request a fresh, context-matched attempt when the evidence cannot support a current-state claim.
 
@@ -51,7 +51,7 @@ The Rust module `tutor_temporal_evidence.rs` provides:
 - a scorecard that separates semantic decision fit from evidence-grounded acceptability;
 - counters for expired support, retracted/superseded citations, future/unavailable references, ambiguous and unverified timestamps, missing required contradictions, and critical violations;
 - an exact-byte BLAKE3 binding between the input observations and the predictions;
-- a 22-entry adversarial and metamorphic matrix linked to 22 named Rust test definitions, including interval/cutoff ambiguity, unverified-import handling, provenance/origin mismatch, and supersession-order uncertainty.
+- a 23-entry adversarial and metamorphic matrix linked to 23 named Rust test definitions, including interval/cutoff ambiguity, unverified-import handling, provenance/origin mismatch, and supersession-order uncertainty.
 
 Expired evidence may still be cited to explain historical context, but it cannot support a current-state claim. Retracted, superseded, future, or not-yet-recorded sources are not accepted as evidence citations. Abstention and a correctly targeted evidence request do not incur claim-citation penalties.
 
