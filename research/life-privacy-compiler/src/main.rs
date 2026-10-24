@@ -118,8 +118,24 @@ impl Strategy {
         !self.stable_identifier_visible
     }
 
-    fn emits_task_answers(self, subject: &Subject) -> u8 {
-        subject.task_answers
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+struct ObserverView {
+    task_answers: u8,
+    statement_count_field: Option<u8>,
+    index_pattern_field: Option<u8>,
+    stable_identifier_field: Option<u16>,
+}
+
+fn compile_observer_view(subject: &Subject, strategy: Strategy) -> ObserverView {
+    ObserverView {
+        task_answers: subject.task_answers,
+        statement_count_field: Some(strategy.count_mode.observable(subject)),
+        index_pattern_field: strategy.index_mode.observable(subject),
+        stable_identifier_field: strategy
+            .stable_identifier_visible
+            .then_some(subject.stable_identifier),
     }
 }
 
@@ -196,19 +212,7 @@ fn percentile(sorted: &[usize], percentile: usize) -> usize {
 }
 
 fn observable_match(left: &Subject, right: &Subject, strategy: Strategy) -> bool {
-    if left.task_answers != right.task_answers {
-        return false;
-    }
-    if strategy.count_mode.observable(left) != strategy.count_mode.observable(right) {
-        return false;
-    }
-    if strategy.index_mode.observable(left) != strategy.index_mode.observable(right) {
-        return false;
-    }
-    if strategy.stable_identifier_visible && left.stable_identifier != right.stable_identifier {
-        return false;
-    }
-    true
+    compile_observer_view(left, strategy) == compile_observer_view(right, strategy)
 }
 
 fn candidate_count(target: &Subject, subjects: &[Subject], strategy: Strategy) -> usize {
@@ -333,9 +337,9 @@ mod tests {
         let subjects = generate_subjects();
         for strategy in strategies() {
             for subject in &subjects {
+                let view = compile_observer_view(subject, strategy);
                 assert_eq!(
-                    strategy.emits_task_answers(subject),
-                    subject.task_answers,
+                    view.task_answers, subject.task_answers,
                     "task answers changed under {}",
                     strategy.label()
                 );
