@@ -929,5 +929,44 @@
       "formal_invariant": "NoOldWriteOutsideActive",
       "execution_status": "formal_negative_control_defined_not_run"
     }
+  ],
+  "qualification_campaigns": [
+    {
+      "id": "NCF-QUAL-001",
+      "name": "Exact-head Rust reference-model qualification",
+      "execution_status": "defined_not_run",
+      "manifest": "mycelix-workspace/simulations/nested-currency-reference/Cargo.toml",
+      "lockfile": "mycelix-workspace/simulations/nested-currency-reference/Cargo.lock",
+      "toolchain": "1.99.1",
+      "runner_path": "mycelix-workspace/simulations/nested-currency-reference/run-ncf-rust-qualification.sh",
+      "workflow_path": ".github/workflows/ncf-rust-model.yml",
+      "required_checks": [
+        "cargo fmt --manifest-path <manifest> -- --check",
+        "cargo test --locked --manifest-path <manifest>",
+        "cargo clippy --locked --manifest-path <manifest> --all-targets -- -D warnings"
+      ],
+      "method": "Run format, tests, and clippy independently; continue after a failed check so the receipt captures all three outcomes. Require the overall result to pass only when all checks pass. Checkout is exact-head, the worktree must be clean, CARGO_TARGET_DIR and logs live outside the checkout, and the receipt binds the source commit/tree, manifest/lock/source digests, compiler identity and per-check log digests.",
+      "required_receipt_fields": [
+        "source_commit",
+        "source_tree",
+        "manifest_sha256",
+        "lockfile_sha256",
+        "lib_sha256",
+        "reservation_module_sha256",
+        "fencing_module_sha256",
+        "rust_toolchain_log_sha256",
+        "fmt_status",
+        "fmt_exit_code",
+        "test_status",
+        "test_exit_code",
+        "clippy_status",
+        "clippy_exit_code",
+        "overall_status",
+        "fmt_log_sha256",
+        "test_log_sha256",
+        "clippy_log_sha256"
+      ],
+      "claim_ceiling": "Formatting, tests and clippy for the exact standalone Rust reference crate only. Does not establish distributed/Holochain safety, cryptographic fencing, external settlement finality or production ledger correctness."
+    }
   ]
 }
