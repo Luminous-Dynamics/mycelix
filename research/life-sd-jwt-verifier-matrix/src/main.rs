@@ -131,6 +131,9 @@ fn key_binding_freshness_accepts(
     now: i64,
     max_age_secs: i64,
 ) -> bool {
+    let Some(canonical) = parse_wire(presentation) else {
+        return false;
+    };
     let issuer_verifier = HmacSha256Verifier::new(ISSUER_KEY);
     let holder_verifier = HmacSha256Verifier::new(HOLDER_KEY);
     let options = VerificationOptions {
@@ -140,7 +143,7 @@ fn key_binding_freshness_accepts(
     };
     let freshness = verifier::KbFreshness::new(now, max_age_secs);
     verifier::verify_with_kb_freshness(
-        presentation,
+        &canonical,
         &issuer_verifier,
         &Sha256Hasher,
         &options,
