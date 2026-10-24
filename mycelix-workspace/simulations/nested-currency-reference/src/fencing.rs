@@ -678,4 +678,234 @@ mod tests {
         assert_eq!(book.successor_capacity(), Some(70));
     }
 
+    #[test]
+    fn ten_thousand_generated_fencing_lifecycles_preserve_capacity_bound() {
+        fn next_random(state: &mut u64) -> u64 {
+            *state = state
+                .wrapping_mul(6_364_136_223_846_793_005)
+                .wrapping_add(1_442_695_040_888_963_407);
+            *state
+        }
+
+        let mut rng = 0x4e43_462d_4645_4e31_u64;
+        for case_id in 0..10_000_u64 {
+            let capacity = 1 + next_random(&mut rng) % 31;
+            let mut book = FenceBook::new("owner-a", 1, capacity).unwrap();
+
+            let initial = next_random(&mut rng) % (capacity + 1);
+            if initial > 0 {
+                assert_eq!(
+                    book.record_obligation(
+                        &format!("old:{case_id}:initial"),
+                        "owner-a",
+                        1,
+                        initial,
+                    ),
+                    Ok(Apply::Applied)
+                );
+            }
+
+            if book.outstanding() > 0 && next_random(&mut rng) % 2 == 0 {
+                let amount = 1 + next_random(&mut rng) % book.outstanding();
+                assert_eq!(
+                    book.settle(
+                        &format!("old:{case_id}:settle-before-drain"),
+                        "owner-a",
+                        1,
+                        amount,
+                    ),
+                    Ok(Apply::Applied)
+                );
+            }
+
+            let free_before_extension = capacity - book.outstanding();
+            let extension = next_random(&mut rng) % (free_before_extension + 1);
+            if extension > 0 {
+                assert_eq!(
+                    book.record_obligation(
+                        &format!("old:{case_id}:extension"),
+                        "owner-a",
+                        1,
+                        extension,
+                    ),
+                    Ok(Apply::Applied)
+                );
+            }
+
+            let rejected_id = format!("old:{case_id}:retry-after-release");
+            let over_capacity = capacity - book.outstanding() + 1;
+            assert_eq!(
+                book.record_obligation(&rejected_id, "owner-a", 1, over_capacity),
+                Err(Error::CapacityExceeded)
+            );
+
+            // Release one unit (when available) and retry with the same event ID.
+            // Rejected attempts must not poison the idempotency namespace.
+            if book.outstanding() > 0 {
+                assert_eq!(
+                    book.settle(
+                        &format!("old:{case_id}:release-for-retry"),
+                        "owner-a",
+                        1,
+                        1,
+                    ),
+                    Ok(Apply::Applied)
+                );
+            }
+            assert_eq!(
+                book.record_obligation(&rejected_id, "owner-a", 1, 1),
+                Ok(Apply::Applied)
+            );
+            assert!(book.outstanding() <= capacity);
+
+            book.request_drain(&format!("drain:{case_id}")).unwrap();
+            assert_eq!(
+                book.record_obligation(
+                    &format!("old:{case_id}:late-write"),
+                    "owner-a",
+                    1,
+                    1,
+                ),
+                Err(Error::NewExposureClosed)
+            );
+
+            if book.outstanding() > 0 && next_random(&mut rng) % 2 == 0 {
+                assert_eq!(
+                    book.settle(
+                        &format!("old:{case_id}:settle-during-drain"),
+                        "owner-a",
+                        1,
+                        1,
+                    ),
+                    Ok(Apply::Applied)
+                );
+            }
+
+            let terminal_outstanding = book.outstanding();
+            let unresolved_pending = next_random(&mut rng)
+                % (capacity - terminal_outstanding + 1);
+            let terminal_sequence = book.operation_sequence();
+
+            assert_eq!(
+                book.reconcile(
+                    terminal_sequence,
+                    terminal_outstanding,
+                    unresolved_pending,
+                    false,
+                ),
+                Err(Error::IncompleteReconciliation)
+            );
+            assert_eq!(
+                book.fence(
+                    &format!("fence:{case_id}"),
+                    terminal_sequence,
+                ),
+                Err(Error::InvalidTransition)
+            );
+
+            assert_eq!(
+                book.reconcile(
+                    terminal_sequence,
+                    terminal_outstanding,
+                    unresolved_pending,
+                    true,
+                ),
+                Ok(Apply::Applied)
+            );
+            assert_eq!(
+                book.settle(
+                    &format!("old:{case_id}:too-late-to-change-cut"),
+                    "owner-a",
+                    1,
+                    1,
+                ),
+                Err(Error::InvalidTransition)
+            );
+
+            let transferable = capacity - terminal_outstanding - unresolved_pending;
+            assert_eq!(book.transferable_capacity(), Some(transferable));
+            let transfer_id = format!("transfer:{case_id}");
+            assert_eq!(
+                book.transfer(&transfer_id, "owner-b", 2, transferable.max(1)),
+                Err(Error::InvalidTransition)
+            );
+
+            assert_eq!(
+                book.fence(&format!("fence:{case_id}"), terminal_sequence),
+                Ok(Apply::Applied)
+            );
+
+            if transferable == 0 {
+                assert_eq!(
+                    book.transfer(&transfer_id, "owner-b", 2, 1),
+                    Err(Error::CapacityExceeded)
+                );
+                assert_eq!(book.successor_capacity(), None);
+                assert_eq!(book.successor_outstanding(), 0);
+            } else {
+                assert_eq!(
+                    book.transfer(&transfer_id, "owner-b", 2, transferable + 1),
+                    Err(Error::CapacityExceeded)
+                );
+                assert_eq!(
+                    book.transfer(&transfer_id, "owner-b", 2, transferable),
+                    Ok(Apply::Applied)
+                );
+
+                let successor_event = format!("successor:{case_id}:retry-after-rejection");
+                assert_eq!(
+                    book.record_successor_obligation(
+                        &successor_event,
+                        "owner-b",
+                        2,
+                        transferable + 1,
+                    ),
+                    Err(Error::CapacityExceeded)
+                );
+                let valid_spend = 1 + next_random(&mut rng) % transferable;
+                assert_eq!(
+                    book.record_successor_obligation(
+                        &successor_event,
+                        "owner-b",
+                        2,
+                        valid_spend,
+                    ),
+                    Ok(Apply::Applied)
+                );
+                assert_eq!(
+                    book.record_successor_obligation(
+                        &format!("successor:{case_id}:over-slice"),
+                        "owner-b",
+                        2,
+                        transferable + 1,
+                    ),
+                    Err(Error::CapacityExceeded)
+                );
+
+                assert_eq!(
+                    book.transfer(&transfer_id, "owner-b", 2, transferable),
+                    Ok(Apply::Duplicate)
+                );
+                assert_eq!(
+                    book.record_obligation(
+                        &format!("old:{case_id}:after-transfer"),
+                        "owner-a",
+                        1,
+                        1,
+                    ),
+                    Err(Error::NewExposureClosed)
+                );
+            }
+
+            assert!(
+                book.outstanding()
+                    + unresolved_pending
+                    + book.successor_outstanding()
+                    <= capacity,
+                "aggregate exposure exceeded capacity in generated case {case_id}"
+            );
+            assert!(book.successor_outstanding() <= book.successor_capacity().unwrap_or(0));
+        }
+    }
+
 }
