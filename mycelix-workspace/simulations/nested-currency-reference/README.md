@@ -13,6 +13,16 @@ It models these narrow properties:
 
 It does **not** prove real-world service delivery, legal status, collateral/reserves, key security, Holochain DHT integrity, multi-agent race safety, external settlement finality, or that every production code path enforces these rules. The reservation model assumes reservation ownership is unique and stable; it does not implement signed fencing receipts, reservation transfer, or safe capacity reclamation after a partition. Those require a separate coordinated protocol.
 
+## Exact-head Rust qualification
+
+The dedicated [Rust reference qualification workflow](../../../../.github/workflows/ncf-rust-model.yml) runs even on draft PRs, pins the source checkout to the triggering SHA, installs Rust 1.99.1 with rustfmt/clippy, and retains the logs and receipt for 30 days. Its [runner](run-ncf-rust-qualification.sh) runs format, test, and clippy independently, then emits one receipt only after recording each result. Build output and logs stay outside the source checkout.
+
+This workflow is **defined but not yet qualified**. No pass is claimed until the exact-head receipt shows `fmt_status=test_status=clippy_status=passed`; a skipped generic run is not evidence. Clippy and tests qualify the sequential reference crate only, not multi-agent or Holochain safety.
+
+```sh
+bash mycelix-workspace/simulations/nested-currency-reference/run-ncf-rust-qualification.sh
+```
+
 ## Run locally
 
 From the repository root, with a stable Rust toolchain installed:
