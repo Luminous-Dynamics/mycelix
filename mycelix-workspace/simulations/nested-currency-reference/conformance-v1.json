@@ -7,7 +7,7 @@
   "status": "proposed_not_qualified",
   "execution_evidence": {
     "status": "not_run",
-    "reason": "Allocation code, integration tests, and benchmark runner are defined and committed but have not been compiled/executed here. Exact-head Rust/TLA+ receipts and multi-agent qualification remain outstanding."
+    "reason": "Static allocator source and test definitions have not been compiled or executed in this environment. Exact-head Rust/TLA+ receipts and distributed/multi-agent qualification remain outstanding."
   },
   "claim_ceiling": [
     "Reference-model conformance only when executed against a named source revision.",
@@ -174,6 +174,11 @@
       "id": "NCF-ALLOC-I-003",
       "name": "Forecast signals never authorize partition-time reallocation",
       "statement": "Historical demand samples affect only the pre-partition allocation plan. The allocator cannot mutate active rights or reclaim an unreachable owner's reservation."
+    },
+    {
+      "id": "NCF-ALLOC-I-004",
+      "name": "Missing demand history is not interpreted as zero demand",
+      "statement": "A demand-dependent allocation policy rejects incomplete per-shard history unless an explicit cold-start/fairness rule is configured; a new or unobserved shard is not silently assigned zero weight."
     }
   ],
   "conformance_cases": [
@@ -1337,6 +1342,15 @@
       "expected": "all_slices_fit_and_community_agreement_allocations_equal_spendable_capacity",
       "code_test": "allocation_plan_slices_fit_the_reservation_book_caps",
       "execution_status": "reference_test_defined_not_run"
+    },
+    {
+      "id": "NCF-ALLOC-010",
+      "title": "Demand-weighted allocation rejects missing shard history rather than starving an unobserved shard",
+      "class": "cold_start_allocation_fairness",
+      "attack": "One shard has valid nonzero history while a newly admitted shard has no demand samples.",
+      "expected": "fail_closed_missing_history_error_or_explicitly_configured_cold_start_floor",
+      "code_test": "demand_weighted_policy_does_not_treat_missing_history_as_zero_demand",
+      "execution_status": "reference_test_defined_not_run"
     }
   ],
   "qualification_campaigns": [
@@ -1479,7 +1493,8 @@
         "robust_policy_fails_closed_without_samples_or_with_bad_parameters",
         "insufficient_capacity_for_minimums_rejects_before_allocation",
         "demand_history_overflow_rejects_instead_of_wrapping",
-        "allocation_plan_slices_fit_the_reservation_book_caps"
+        "allocation_plan_slices_fit_the_reservation_book_caps",
+        "demand_weighted_policy_does_not_treat_missing_history_as_zero_demand"
       ],
       "required_benchmark_reports": 6,
       "safety_gate": "Every allocation plan validates and every policy/mode report must have zero accounting violations; any overflow, malformed input, or unaccounted capacity fails the campaign.",
