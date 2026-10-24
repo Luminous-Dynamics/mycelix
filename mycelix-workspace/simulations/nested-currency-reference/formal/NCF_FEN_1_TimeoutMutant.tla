@@ -6,6 +6,7 @@ EXTENDS NCF_FEN_1
 TimeoutReallocate ==
     \E amount \in 1..Capacity:
         /\ phase = "DRAIN_REQUESTED"
+        /\ evidenceComplete = FALSE
         /\ amount <= Capacity - outstanding - pending
         /\ phase' = "TRANSFERRED"
         /\ successorCapacity' = amount
