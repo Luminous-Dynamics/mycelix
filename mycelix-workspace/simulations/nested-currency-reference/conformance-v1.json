@@ -735,15 +735,17 @@
         "formal_checker_version",
         "formal_model_sha256",
         "formal_config_sha256",
-        "model_state_count",
-        "model_transition_count",
         "negative_control_expected_failure",
         "negative_control_violated_invariant",
-        "counterexample_trace_sha256"
+        "counterexample_trace_sha256",
+        "safe_model_state_statistics_line",
+        "safe_model_log_sha256",
+        "negative_control_log_sha256",
+        "receipt_sha256"
       ],
       "execution_status": "design_not_run",
       "claim_ceiling": "A deterministic state-machine/model-checker result only for the declared authority and fault model. It does not prove production Holochain behavior, legal settlement, cryptographic key security or safety outside the explored model.",
-      "methodology": "Run the bounded TLC safe model at Capacity=2, MaxSteps=4 and require no invariant violations; run the intentionally unsafe timeout mutant and require a counterexample to NoTransferWithoutFence. These results are not yet confirmed. Then qualify the independent transition oracle and exhaust small interleavings. Extend with at least 10,000 reproducible schedules for retries, duplicate/reordered/dropped receipts, stale-owner writes, crashes and partition/heal traces. Keep honest-crash and adversarial-owner campaigns separate. Compare static-quota, acknowledged-drain and any linearizable/quorum mode under identical traces. Any safety violation fails the campaign; utilization and latency are reported only alongside correctness results.",
+      "methodology": "Run the bounded TLC safe model at Capacity=2, MaxSteps=4 and require no invariant violations; run the intentionally unsafe timeout mutant and require a counterexample to NoTransferWithoutFence. These results are not yet confirmed. Then qualify the independent transition oracle and exhaust small interleavings. Extend with at least 10,000 reproducible schedules for retries, duplicate/reordered/dropped receipts, stale-owner writes, crashes and partition/heal traces. Keep honest-crash and adversarial-owner campaigns separate. Compare static-quota, acknowledged-drain and any linearizable/quorum mode under identical traces. Any safety violation fails the campaign; utilization and latency are reported only alongside correctness results. The fail-closed runner requires a clean checkout and a caller-supplied TLA2TOOLS_JAR; it records source/model/config/JAR hashes and both raw logs outside the repository. The unsafe run counts as detected only if the checker fails and the log identifies the expected NoTransferWithoutFence invariant; a parse failure does not qualify.",
       "formal_model_path": "mycelix-workspace/simulations/nested-currency-reference/formal/NCF_FEN_1.tla",
       "formal_config_path": "mycelix-workspace/simulations/nested-currency-reference/formal/NCF_FEN_1.cfg",
       "negative_control_model_path": "mycelix-workspace/simulations/nested-currency-reference/formal/NCF_FEN_1_TimeoutMutant.tla",
@@ -753,7 +755,8 @@
       "formal_bounds": {
         "Capacity": 2,
         "MaxSteps": 4
-      }
+      },
+      "runner_path": "mycelix-workspace/simulations/nested-currency-reference/run-ncf-fen-tlc.sh"
     }
   ],
   "planned_conformance_cases": [
