@@ -1,0 +1,188 @@
+{
+  "schema_version": 1,
+  "benchmark_id": "PRAXIS-TUTOR-TEMPORAL-EVIDENCE-001",
+  "entries": [
+    {
+      "id": "TEMP-001",
+      "kind": "positive_control",
+      "mutation": "Load the nine-case temporal fixture with its separated oracle.",
+      "expected": "Accept the bundle; case IDs and oracle IDs match exactly.",
+      "test_name": "temporal_fixture_and_oracle_validate"
+    },
+    {
+      "id": "TEMP-002",
+      "kind": "metamorphic_control",
+      "mutation": "Compare occurrence and ingestion timestamps for a late-imported historical attempt.",
+      "expected": "Ingestion time must not rewrite event time; an old event is not automatically expired without an explicit validity deadline.",
+      "test_name": "eligibility_uses_occurrence_time_not_import_time"
+    },
+    {
+      "id": "TEMP-003",
+      "kind": "negative_control",
+      "mutation": "Use evidence whose explicit validity deadline precedes the evaluation time.",
+      "expected": "Classify as expired at the evaluation time; the separate scoring control TEMP-012 verifies that citing this observation as current support is critical.",
+      "test_name": "explicitly_expired_evidence_cannot_support_current_state"
+    },
+    {
+      "id": "TEMP-004",
+      "kind": "negative_control",
+      "mutation": "Present a retracted record and a replacement record.",
+      "expected": "Retracted source is inadmissible; replacement remains separately auditable.",
+      "test_name": "source_retraction_and_supersession_are_distinct_from_age"
+    },
+    {
+      "id": "TEMP-005",
+      "kind": "negative_control",
+      "mutation": "Cite a record superseded by a later active source revision.",
+      "expected": "Do not accept superseded record as current-state support; preserve it in historical data.",
+      "test_name": "superseded_record_is_not_current_support_but_remains_in_history"
+    },
+    {
+      "id": "TEMP-006",
+      "kind": "negative_control",
+      "mutation": "Change a record timestamp so the record was not available at the case evaluation time.",
+      "expected": "Reject the manifest with future_record_leakage.",
+      "test_name": "future_record_mutation_is_rejected_as_leakage"
+    },
+    {
+      "id": "TEMP-007",
+      "kind": "negative_control",
+      "mutation": "Point a supersession edge at a nonexistent observation.",
+      "expected": "Reject the manifest with supersession_target_missing.",
+      "test_name": "unknown_supersession_target_is_rejected"
+    },
+    {
+      "id": "TEMP-008",
+      "kind": "negative_control",
+      "mutation": "Give a derived estimate a recorded correctness boolean.",
+      "expected": "Reject the manifest with estimate_masquerades_as_observation.",
+      "test_name": "derived_estimates_cannot_masquerade_as_observed_correctness"
+    },
+    {
+      "id": "TEMP-009",
+      "kind": "negative_control",
+      "mutation": "Introduce a directed cycle in the supersession graph.",
+      "expected": "Reject the manifest with supersession_cycle.",
+      "test_name": "supersession_cycles_are_rejected"
+    },
+    {
+      "id": "TEMP-010",
+      "kind": "negative_control",
+      "mutation": "Change observation-manifest bytes while retaining the original prediction digest.",
+      "expected": "Reject scoring with observation_digest_mismatch.",
+      "test_name": "changed_observation_bytes_invalidate_prediction_binding"
+    },
+    {
+      "id": "TEMP-011",
+      "kind": "metamorphic_control",
+      "mutation": "Two same-context observations carry conflicting correctness at the same timestamp.",
+      "expected": "Timestamp equality does not create an ordering; retain the conflict and request more evidence.",
+      "test_name": "equal_timestamps_do_not_supply_ordering"
+    },
+    {
+      "id": "TEMP-012",
+      "kind": "negative_control",
+      "mutation": "Make an otherwise plausible claim using only an explicitly expired observation as support.",
+      "expected": "Count an expired-support violation; the claim is not evidence-grounded.",
+      "test_name": "expired_evidence_support_is_critical"
+    },
+    {
+      "id": "TEMP-013",
+      "kind": "metamorphic_control",
+      "mutation": "Reverse observation row order and recompute the exact-byte digest.",
+      "expected": "Semantic decision and acceptable-decision metrics remain unchanged; exact-byte digest changes.",
+      "test_name": "row_order_permutation_preserves_semantic_scores"
+    },
+    {
+      "id": "TEMP-014",
+      "kind": "verifier_self_audit",
+      "mutation": "Check mutation IDs and test-name linkage.",
+      "expected": "All matrix IDs are unique and each row points to a defined Rust test.",
+      "test_name": "mutation_matrix_is_closed_and_test_linked"
+    },
+    {
+      "id": "TEMP-015",
+      "kind": "negative_control",
+      "mutation": "Place a record-time uncertainty interval across the evaluation cutoff.",
+      "expected": "Classify the event as temporally ambiguous rather than treating the centre timestamp as decisive.",
+      "test_name": "uncertainty_crossing_evaluation_cutoff_is_ambiguous"
+    },
+    {
+      "id": "TEMP-016",
+      "kind": "negative_control",
+      "mutation": "Place an occurrence-time uncertainty interval across the evaluation cutoff.",
+      "expected": "Classify as ambiguous occurrence time; do not round to before or after the cutoff.",
+      "test_name": "uncertainty_straddling_occurrence_cutoff_is_not_silently_ordered"
+    },
+    {
+      "id": "TEMP-017",
+      "kind": "negative_control",
+      "mutation": "Use a timestamp declared as imported and unverified while its interval is otherwise before the cutoff.",
+      "expected": "Do not accept unverified timestamp provenance as precise temporal proof.",
+      "test_name": "imported_timestamp_provenance_is_not_exact_temporal_proof"
+    },
+    {
+      "id": "TEMP-018",
+      "kind": "negative_control",
+      "mutation": "Declare an imported/derived timestamp unverified but give it zero uncertainty.",
+      "expected": "Reject with a stable missing-uncertainty violation code.",
+      "test_name": "unverified_timestamp_requires_nonzero_uncertainty"
+    },
+    {
+      "id": "TEMP-019",
+      "kind": "negative_control",
+      "mutation": "Widen a correction's record-time uncertainty until its interval overlaps the record it supersedes.",
+      "expected": "Reject the supersession edge because temporal order is not proven.",
+      "test_name": "supersession_with_overlapping_time_intervals_is_rejected"
+    },
+    {
+      "id": "TEMP-020",
+      "kind": "negative_control",
+      "mutation": "Cite the record whose ingestion-time uncertainty crosses the evaluation cutoff in an otherwise plausible claim.",
+      "expected": "Count an ambiguous-timestamp violation; the claim cannot be accepted as temporally grounded.",
+      "test_name": "ambiguous_timestamp_reference_is_critical"
+    },
+    {
+      "id": "TEMP-021",
+      "kind": "negative_control",
+      "mutation": "Cite an imported/unverified timestamp as exact proof of current-state evidence.",
+      "expected": "Count an unverified-timestamp violation and reject the claim as temporally ungrounded.",
+      "test_name": "unverified_timestamp_reference_is_critical"
+    },
+    {
+      "id": "TEMP-022",
+      "kind": "negative_control",
+      "mutation": "Mark a derived estimate as having an assessment-server occurrence timestamp.",
+      "expected": "Reject the inconsistent source/provenance declaration.",
+      "test_name": "mismatched_derived_timestamp_provenance_is_rejected"
+    },
+    {
+      "id": "TEMP-023",
+      "kind": "negative_control",
+      "mutation": "Assign zero uncertainty to a local-store timestamp.",
+      "expected": "Reject the manifest; only the declared assessment-server event time and server-receipt record time classes may use zero uncertainty.",
+      "test_name": "local_store_timestamp_requires_nonzero_uncertainty"
+    },
+    {
+      "id": "TEMP-024",
+      "kind": "negative_control",
+      "mutation": "Give an observation occurrence-time interval that overlaps its record-time interval even though both are before the evaluation cutoff.",
+      "expected": "Classify event-vs-record chronology as ambiguous instead of accepting the point estimates as ordered.",
+      "test_name": "overlapping_event_record_intervals_are_ambiguous"
+    },
+    {
+      "id": "TEMP-025",
+      "kind": "metamorphic_control",
+      "mutation": "Increase occurrence-time uncertainty over a fixed sequence of bounds while event and record centers coincide.",
+      "expected": "Once event-record order becomes ambiguous, any larger uncertainty must not restore eligible status.",
+      "test_name": "widening_time_uncertainty_never_turns_ambiguous_evidence_eligible"
+    },
+    {
+      "id": "TEMP-026",
+      "kind": "negative_control",
+      "mutation": "Use evidence with overlapping event/record time intervals as the sole supporting reference for a claim.",
+      "expected": "Reject it as temporally ungrounded and count a dedicated ambiguous event-record-order violation.",
+      "test_name": "claim_citing_ambiguous_event_record_order_is_critical"
+    }
+  ]
+}

@@ -1,0 +1,387 @@
+{
+  "schema_version": 1,
+  "benchmark_id": "PRAXIS-TUTOR-TEMPORAL-EVIDENCE-001",
+  "cases": [
+    {
+      "case_id": "TE001",
+      "evaluation_time_unix": 1792800000,
+      "observations": [
+        {
+          "observation_id": "te001-old-failure",
+          "sequence": 1,
+          "skill_id": "fraction_equivalence",
+          "task_context": "unassisted_free_response",
+          "correctness": false,
+          "assistance": "none",
+          "origin": "recorded_attempt",
+          "occurred_at_unix": 1735689600,
+          "recorded_at_unix": 1791504000,
+          "valid_until_unix": null,
+          "status": "active",
+          "supersedes": [],
+          "occurred_at_uncertainty_seconds": 0,
+          "occurrence_time_provenance": "assessment_server",
+          "recorded_at_uncertainty_seconds": 0,
+          "record_time_provenance": "server_receipt"
+        },
+        {
+          "observation_id": "te001-assisted-success",
+          "sequence": 2,
+          "skill_id": "fraction_equivalence",
+          "task_context": "unassisted_free_response",
+          "correctness": true,
+          "assistance": "full_solution",
+          "origin": "recorded_attempt",
+          "occurred_at_unix": 1790812800,
+          "recorded_at_unix": 1790812800,
+          "valid_until_unix": null,
+          "status": "active",
+          "supersedes": [],
+          "occurred_at_uncertainty_seconds": 0,
+          "occurrence_time_provenance": "assessment_server",
+          "recorded_at_uncertainty_seconds": 0,
+          "record_time_provenance": "server_receipt"
+        },
+        {
+          "observation_id": "te001-current-failure",
+          "sequence": 3,
+          "skill_id": "fraction_equivalence",
+          "task_context": "unassisted_free_response",
+          "correctness": false,
+          "assistance": "none",
+          "origin": "recorded_attempt",
+          "occurred_at_unix": 1791504000,
+          "recorded_at_unix": 1791504000,
+          "valid_until_unix": null,
+          "status": "active",
+          "supersedes": [],
+          "occurred_at_uncertainty_seconds": 0,
+          "occurrence_time_provenance": "assessment_server",
+          "recorded_at_uncertainty_seconds": 0,
+          "record_time_provenance": "server_receipt"
+        }
+      ]
+    },
+    {
+      "case_id": "TE002",
+      "evaluation_time_unix": 1792800000,
+      "observations": [
+        {
+          "observation_id": "te002-expired-success",
+          "sequence": 1,
+          "skill_id": "linear_equations",
+          "task_context": "unassisted_free_response",
+          "correctness": true,
+          "assistance": "none",
+          "origin": "recorded_attempt",
+          "occurred_at_unix": 1790812800,
+          "recorded_at_unix": 1790812800,
+          "valid_until_unix": 1791504000,
+          "status": "active",
+          "supersedes": [],
+          "occurred_at_uncertainty_seconds": 0,
+          "occurrence_time_provenance": "assessment_server",
+          "recorded_at_uncertainty_seconds": 0,
+          "record_time_provenance": "server_receipt"
+        }
+      ]
+    },
+    {
+      "case_id": "TE003",
+      "evaluation_time_unix": 1792800000,
+      "observations": [
+        {
+          "observation_id": "te003-original",
+          "sequence": 1,
+          "skill_id": "decimal_place_value",
+          "task_context": "unassisted_free_response",
+          "correctness": false,
+          "assistance": "none",
+          "origin": "educator_observation",
+          "occurred_at_unix": 1790812800,
+          "recorded_at_unix": 1790812800,
+          "valid_until_unix": null,
+          "status": "retracted",
+          "supersedes": [],
+          "occurred_at_uncertainty_seconds": 60,
+          "occurrence_time_provenance": "educator_attested",
+          "recorded_at_uncertainty_seconds": 0,
+          "record_time_provenance": "server_receipt"
+        },
+        {
+          "observation_id": "te003-prior-active",
+          "sequence": 2,
+          "skill_id": "decimal_place_value",
+          "task_context": "unassisted_free_response",
+          "correctness": false,
+          "assistance": "none",
+          "origin": "educator_observation",
+          "occurred_at_unix": 1790812800,
+          "recorded_at_unix": 1791504000,
+          "valid_until_unix": null,
+          "status": "active",
+          "supersedes": [],
+          "occurred_at_uncertainty_seconds": 60,
+          "occurrence_time_provenance": "educator_attested",
+          "recorded_at_uncertainty_seconds": 0,
+          "record_time_provenance": "server_receipt"
+        },
+        {
+          "observation_id": "te003-correction",
+          "sequence": 3,
+          "skill_id": "decimal_place_value",
+          "task_context": "unassisted_free_response",
+          "correctness": true,
+          "assistance": "none",
+          "origin": "educator_observation",
+          "occurred_at_unix": 1790812800,
+          "recorded_at_unix": 1792108800,
+          "valid_until_unix": null,
+          "status": "active",
+          "supersedes": [
+            "te003-original",
+            "te003-prior-active"
+          ],
+          "occurred_at_uncertainty_seconds": 60,
+          "occurrence_time_provenance": "educator_attested",
+          "recorded_at_uncertainty_seconds": 0,
+          "record_time_provenance": "server_receipt"
+        }
+      ]
+    },
+    {
+      "case_id": "TE004",
+      "evaluation_time_unix": 1792800000,
+      "observations": [
+        {
+          "observation_id": "te004-worked-success",
+          "sequence": 1,
+          "skill_id": "proportional_reasoning",
+          "task_context": "worked_example",
+          "correctness": true,
+          "assistance": "hint",
+          "origin": "recorded_attempt",
+          "occurred_at_unix": 1790812800,
+          "recorded_at_unix": 1790812800,
+          "valid_until_unix": null,
+          "status": "active",
+          "supersedes": [],
+          "occurred_at_uncertainty_seconds": 0,
+          "occurrence_time_provenance": "assessment_server",
+          "recorded_at_uncertainty_seconds": 0,
+          "record_time_provenance": "server_receipt"
+        },
+        {
+          "observation_id": "te004-transfer-failure",
+          "sequence": 2,
+          "skill_id": "proportional_reasoning",
+          "task_context": "transfer_problem",
+          "correctness": false,
+          "assistance": "none",
+          "origin": "recorded_attempt",
+          "occurred_at_unix": 1791504000,
+          "recorded_at_unix": 1791504000,
+          "valid_until_unix": null,
+          "status": "active",
+          "supersedes": [],
+          "occurred_at_uncertainty_seconds": 0,
+          "occurrence_time_provenance": "assessment_server",
+          "recorded_at_uncertainty_seconds": 0,
+          "record_time_provenance": "server_receipt"
+        }
+      ]
+    },
+    {
+      "case_id": "TE005",
+      "evaluation_time_unix": 1792800000,
+      "observations": [
+        {
+          "observation_id": "te005-conflict-success",
+          "sequence": 1,
+          "skill_id": "linear_equations",
+          "task_context": "unassisted_free_response",
+          "correctness": true,
+          "assistance": "none",
+          "origin": "recorded_attempt",
+          "occurred_at_unix": 1791504000,
+          "recorded_at_unix": 1791504000,
+          "valid_until_unix": null,
+          "status": "active",
+          "supersedes": [],
+          "occurred_at_uncertainty_seconds": 0,
+          "occurrence_time_provenance": "assessment_server",
+          "recorded_at_uncertainty_seconds": 0,
+          "record_time_provenance": "server_receipt"
+        },
+        {
+          "observation_id": "te005-conflict-failure",
+          "sequence": 2,
+          "skill_id": "linear_equations",
+          "task_context": "unassisted_free_response",
+          "correctness": false,
+          "assistance": "none",
+          "origin": "recorded_attempt",
+          "occurred_at_unix": 1791504000,
+          "recorded_at_unix": 1792800000,
+          "valid_until_unix": null,
+          "status": "active",
+          "supersedes": [],
+          "occurred_at_uncertainty_seconds": 0,
+          "occurrence_time_provenance": "assessment_server",
+          "recorded_at_uncertainty_seconds": 3600,
+          "record_time_provenance": "local_store"
+        }
+      ]
+    },
+    {
+      "case_id": "TE006",
+      "evaluation_time_unix": 1792800000,
+      "observations": [
+        {
+          "observation_id": "te006-imported-success",
+          "sequence": 1,
+          "skill_id": "integer_operations",
+          "task_context": "unassisted_free_response",
+          "correctness": true,
+          "assistance": "none",
+          "origin": "imported_summary",
+          "occurred_at_unix": 1735689600,
+          "recorded_at_unix": 1792108800,
+          "valid_until_unix": null,
+          "status": "active",
+          "supersedes": [],
+          "occurred_at_uncertainty_seconds": 86400,
+          "occurrence_time_provenance": "imported_unverified",
+          "recorded_at_uncertainty_seconds": 0,
+          "record_time_provenance": "server_receipt"
+        },
+        {
+          "observation_id": "te006-current-failure",
+          "sequence": 2,
+          "skill_id": "integer_operations",
+          "task_context": "unassisted_free_response",
+          "correctness": false,
+          "assistance": "none",
+          "origin": "recorded_attempt",
+          "occurred_at_unix": 1791504000,
+          "recorded_at_unix": 1791504000,
+          "valid_until_unix": null,
+          "status": "active",
+          "supersedes": [],
+          "occurred_at_uncertainty_seconds": 0,
+          "occurrence_time_provenance": "assessment_server",
+          "recorded_at_uncertainty_seconds": 0,
+          "record_time_provenance": "server_receipt"
+        }
+      ]
+    },
+    {
+      "case_id": "TE007",
+      "evaluation_time_unix": 1792800000,
+      "observations": [
+        {
+          "observation_id": "te007-expired-old",
+          "sequence": 1,
+          "skill_id": "geometry",
+          "task_context": "unassisted_free_response",
+          "correctness": true,
+          "assistance": "none",
+          "origin": "recorded_attempt",
+          "occurred_at_unix": 1767225600,
+          "recorded_at_unix": 1767225600,
+          "valid_until_unix": 1790812800,
+          "status": "active",
+          "supersedes": [],
+          "occurred_at_uncertainty_seconds": 0,
+          "occurrence_time_provenance": "assessment_server",
+          "recorded_at_uncertainty_seconds": 0,
+          "record_time_provenance": "server_receipt"
+        },
+        {
+          "observation_id": "te007-retracted-current",
+          "sequence": 2,
+          "skill_id": "geometry",
+          "task_context": "unassisted_free_response",
+          "correctness": false,
+          "assistance": "none",
+          "origin": "educator_observation",
+          "occurred_at_unix": 1791504000,
+          "recorded_at_unix": 1791504000,
+          "valid_until_unix": null,
+          "status": "retracted",
+          "supersedes": [],
+          "occurred_at_uncertainty_seconds": 60,
+          "occurrence_time_provenance": "educator_attested",
+          "recorded_at_uncertainty_seconds": 0,
+          "record_time_provenance": "server_receipt"
+        }
+      ]
+    },
+    {
+      "case_id": "TE008",
+      "evaluation_time_unix": 1792800000,
+      "observations": [
+        {
+          "observation_id": "te008-same-time-success",
+          "sequence": 1,
+          "skill_id": "statistics",
+          "task_context": "unassisted_free_response",
+          "correctness": true,
+          "assistance": "none",
+          "origin": "recorded_attempt",
+          "occurred_at_unix": 1792108800,
+          "recorded_at_unix": 1792108800,
+          "valid_until_unix": null,
+          "status": "active",
+          "supersedes": [],
+          "occurred_at_uncertainty_seconds": 0,
+          "occurrence_time_provenance": "assessment_server",
+          "recorded_at_uncertainty_seconds": 0,
+          "record_time_provenance": "server_receipt"
+        },
+        {
+          "observation_id": "te008-same-time-failure",
+          "sequence": 2,
+          "skill_id": "statistics",
+          "task_context": "unassisted_free_response",
+          "correctness": false,
+          "assistance": "none",
+          "origin": "recorded_attempt",
+          "occurred_at_unix": 1792108800,
+          "recorded_at_unix": 1792108800,
+          "valid_until_unix": null,
+          "status": "active",
+          "supersedes": [],
+          "occurred_at_uncertainty_seconds": 0,
+          "occurrence_time_provenance": "assessment_server",
+          "recorded_at_uncertainty_seconds": 0,
+          "record_time_provenance": "server_receipt"
+        }
+      ]
+    },
+    {
+      "case_id": "TE009",
+      "evaluation_time_unix": 1792800000,
+      "observations": [
+        {
+          "observation_id": "te009-derived-estimate",
+          "sequence": 1,
+          "skill_id": "skill_inference",
+          "task_context": "unknown",
+          "correctness": null,
+          "assistance": "unknown",
+          "origin": "derived_estimate",
+          "occurred_at_unix": 1790812800,
+          "recorded_at_unix": 1790812800,
+          "valid_until_unix": null,
+          "status": "active",
+          "supersedes": [],
+          "occurred_at_uncertainty_seconds": 86400,
+          "occurrence_time_provenance": "derived_estimate",
+          "recorded_at_uncertainty_seconds": 0,
+          "record_time_provenance": "server_receipt"
+        }
+      ]
+    }
+  ]
+}

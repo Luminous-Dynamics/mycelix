@@ -1,0 +1,183 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://mycelix.net/schemas/praxis-tutor-temporal-evidence/v1/observations.schema.json",
+  "title": "Praxis tutor temporal evidence observations v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "benchmark_id",
+    "cases"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": 1
+    },
+    "benchmark_id": {
+      "const": "PRAXIS-TUTOR-TEMPORAL-EVIDENCE-001"
+    },
+    "cases": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/case"
+      }
+    }
+  },
+  "$defs": {
+    "case": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "case_id",
+        "evaluation_time_unix",
+        "observations"
+      ],
+      "properties": {
+        "case_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "evaluation_time_unix": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "observations": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/observation"
+          }
+        }
+      }
+    },
+    "observation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "observation_id",
+        "sequence",
+        "skill_id",
+        "task_context",
+        "correctness",
+        "assistance",
+        "origin",
+        "occurred_at_unix",
+        "recorded_at_unix",
+        "valid_until_unix",
+        "status",
+        "supersedes",
+        "occurred_at_uncertainty_seconds",
+        "occurrence_time_provenance",
+        "recorded_at_uncertainty_seconds",
+        "record_time_provenance"
+      ],
+      "properties": {
+        "observation_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "sequence": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "skill_id": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "task_context": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "correctness": {
+          "type": [
+            "boolean",
+            "null"
+          ]
+        },
+        "assistance": {
+          "enum": [
+            "none",
+            "hint",
+            "partial_solution",
+            "full_solution",
+            "unknown"
+          ]
+        },
+        "origin": {
+          "enum": [
+            "recorded_attempt",
+            "educator_observation",
+            "imported_summary",
+            "derived_estimate"
+          ]
+        },
+        "occurred_at_unix": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "recorded_at_unix": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "valid_until_unix": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 1
+        },
+        "status": {
+          "enum": [
+            "active",
+            "retracted"
+          ]
+        },
+        "supersedes": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "occurred_at_uncertainty_seconds": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "occurrence_time_provenance": {
+          "$ref": "#/$defs/occurrence_time_provenance"
+        },
+        "recorded_at_uncertainty_seconds": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "record_time_provenance": {
+          "$ref": "#/$defs/record_time_provenance"
+        }
+      }
+    },
+    "occurrence_time_provenance": {
+      "type": "string",
+      "enum": [
+        "assessment_server",
+        "learner_device",
+        "educator_attested",
+        "imported_unverified",
+        "derived_estimate"
+      ]
+    },
+    "record_time_provenance": {
+      "type": "string",
+      "enum": [
+        "server_receipt",
+        "local_store",
+        "imported_unverified"
+      ]
+    }
+  }
+}

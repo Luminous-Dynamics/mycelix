@@ -1,0 +1,129 @@
+{
+  "schema_version": 1,
+  "benchmark_id": "PRAXIS-TUTOR-TEMPORAL-EVIDENCE-001",
+  "labels": [
+    {
+      "case_id": "TE001",
+      "accepted_dispositions": [
+        "claim"
+      ],
+      "acceptable_diagnoses": [
+        "persistent_misconception"
+      ],
+      "acceptable_actions": [
+        "collect_unassisted_attempt"
+      ],
+      "required_supporting_evidence_ids": [
+        "te001-old-failure",
+        "te001-current-failure"
+      ],
+      "required_contradicting_evidence_ids": [
+        "te001-assisted-success"
+      ],
+      "requested_evidence": null
+    },
+    {
+      "case_id": "TE002",
+      "accepted_dispositions": [
+        "request_more_evidence",
+        "abstain"
+      ],
+      "acceptable_diagnoses": [],
+      "acceptable_actions": [],
+      "required_supporting_evidence_ids": [],
+      "required_contradicting_evidence_ids": [],
+      "requested_evidence": "unassisted_attempt"
+    },
+    {
+      "case_id": "TE003",
+      "accepted_dispositions": [
+        "request_more_evidence",
+        "abstain"
+      ],
+      "acceptable_diagnoses": [],
+      "acceptable_actions": [],
+      "required_supporting_evidence_ids": [],
+      "required_contradicting_evidence_ids": [],
+      "requested_evidence": "unassisted_attempt"
+    },
+    {
+      "case_id": "TE004",
+      "accepted_dispositions": [
+        "claim",
+        "request_more_evidence"
+      ],
+      "acceptable_diagnoses": [
+        "context_specific_conflict"
+      ],
+      "acceptable_actions": [
+        "compare_contexts"
+      ],
+      "required_supporting_evidence_ids": [
+        "te004-worked-success",
+        "te004-transfer-failure"
+      ],
+      "required_contradicting_evidence_ids": [],
+      "requested_evidence": "context_matched_attempt"
+    },
+    {
+      "case_id": "TE005",
+      "accepted_dispositions": [
+        "request_more_evidence",
+        "abstain"
+      ],
+      "acceptable_diagnoses": [],
+      "acceptable_actions": [],
+      "required_supporting_evidence_ids": [],
+      "required_contradicting_evidence_ids": [],
+      "requested_evidence": "unassisted_attempt"
+    },
+    {
+      "case_id": "TE006",
+      "accepted_dispositions": [
+        "request_more_evidence",
+        "abstain"
+      ],
+      "acceptable_diagnoses": [],
+      "acceptable_actions": [],
+      "required_supporting_evidence_ids": [],
+      "required_contradicting_evidence_ids": [],
+      "requested_evidence": "unassisted_attempt"
+    },
+    {
+      "case_id": "TE007",
+      "accepted_dispositions": [
+        "request_more_evidence",
+        "abstain"
+      ],
+      "acceptable_diagnoses": [],
+      "acceptable_actions": [],
+      "required_supporting_evidence_ids": [],
+      "required_contradicting_evidence_ids": [],
+      "requested_evidence": "unassisted_attempt"
+    },
+    {
+      "case_id": "TE008",
+      "accepted_dispositions": [
+        "request_more_evidence",
+        "abstain"
+      ],
+      "acceptable_diagnoses": [],
+      "acceptable_actions": [],
+      "required_supporting_evidence_ids": [],
+      "required_contradicting_evidence_ids": [],
+      "requested_evidence": "context_matched_attempt"
+    },
+    {
+      "case_id": "TE009",
+      "accepted_dispositions": [
+        "request_more_evidence",
+        "abstain"
+      ],
+      "acceptable_diagnoses": [],
+      "acceptable_actions": [],
+      "required_supporting_evidence_ids": [],
+      "required_contradicting_evidence_ids": [],
+      "requested_evidence": "skill_metadata"
+    }
+  ]
+}
