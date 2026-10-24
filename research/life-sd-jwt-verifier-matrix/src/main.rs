@@ -79,10 +79,17 @@ fn partial_presentation(credential: &SdJwt) -> SdJwt {
     .expect("synthetic partial presentation must be created")
 }
 
+fn parse_wire(presentation: &SdJwt) -> Option<SdJwt> {
+    SdJwt::parse(&presentation.serialize(), &Sha256Hasher).ok()
+}
+
 fn basic_accepts(presentation: &SdJwt, issuer_key: &[u8]) -> bool {
+    let Some(canonical) = parse_wire(presentation) else {
+        return false;
+    };
     let issuer_verifier = HmacSha256Verifier::new(issuer_key);
     verifier::verify(
-        presentation,
+        &canonical,
         &issuer_verifier,
         &Sha256Hasher,
         &VerificationOptions::default(),
@@ -149,6 +156,9 @@ fn key_binding_accepts(
     expected_audience: &str,
     holder_key: Option<&[u8]>,
 ) -> bool {
+    let Some(canonical) = parse_wire(presentation) else {
+        return false;
+    };
     let issuer_verifier = HmacSha256Verifier::new(ISSUER_KEY);
     let options = VerificationOptions {
         verify_kb: true,
@@ -159,7 +169,7 @@ fn key_binding_accepts(
         Some(key) => {
             let holder_verifier = HmacSha256Verifier::new(key);
             verifier::verify(
-                presentation,
+                &canonical,
                 &issuer_verifier,
                 &Sha256Hasher,
                 &options,
@@ -168,7 +178,7 @@ fn key_binding_accepts(
             .is_ok_and(|result| result.kb_verified == Some(true))
         }
         None => verifier::verify(
-            presentation,
+            &canonical,
             &issuer_verifier,
             &Sha256Hasher,
             &options,
@@ -217,6 +227,27 @@ fn run_matrix() -> Vec<CaseResult> {
             && verified.claims["sub"] == "synthetic-subject-001"
     });
     cases.push(CaseResult::new("valid_partial_disclosure", true, utility_ok));
+
+    // The library exposes mutable parsed claim fields. Re-parse the exact wire
+    // representation at the verifier boundary so those cached fields cannot
+    // disagree with the issuer-bound encoded disclosure.
+    let mut mutated_cache = partial.clone();
+    mutated_cache.disclosures[0].claim_value = json!("Mallory");
+    let canonical = parse_wire(&mutated_cache).expect("serialized presentation must parse");
+    let issuer_verifier = HmacSha256Verifier::new(ISSUER_KEY);
+    let cache_integrity_ok = verifier::verify(
+        &canonical,
+        &issuer_verifier,
+        &Sha256Hasher,
+        &VerificationOptions::default(),
+        None,
+    )
+    .is_ok_and(|verified| verified.claims["given_name"] == "Asha");
+    cases.push(CaseResult::new(
+        "wire_reparse_restores_issuer_bound_disclosure_value",
+        true,
+        cache_integrity_ok,
+    ));
 
     // The exact same signed material must not verify under a wrong issuer key.
     cases.push(CaseResult::new(
@@ -400,7 +431,7 @@ mod tests {
     #[test]
     fn verifier_decision_matrix_matches_frozen_expected_outcomes() {
         let cases = run_matrix();
-        assert_eq!(cases.len(), 18);
+        assert_eq!(cases.len(), 19);
         for case in &cases {
             assert!(
                 case.passed(),
@@ -428,6 +459,40 @@ mod tests {
 
         assert_eq!(result.claims["given_name"], "Asha");
         assert!(result.claims.get("family_name").is_none());
+    }
+
+    #[test]
+    fn typed_disclosure_cache_is_not_authoritative_for_verification() {
+        let credential = base_credential(None);
+        let mut presentation = partial_presentation(&credential);
+        presentation.disclosures[0].claim_value = json!("Mallory");
+
+        // Direct typed-object verification can observe caller-mutated cached
+        // fields even though serialized disclosure bytes still encode "Asha".
+        let issuer_verifier = HmacSha256Verifier::new(ISSUER_KEY);
+        let direct = verifier::verify(
+            &presentation,
+            &issuer_verifier,
+            &Sha256Hasher,
+            &VerificationOptions::default(),
+            None,
+        )
+        .expect("underlying signed wire bytes remain valid");
+        assert_eq!(direct.claims["given_name"], "Mallory");
+
+        // Re-parsing the exact serialized presentation makes the signed wire
+        // representation authoritative and reconstructs the issuer-bound value.
+        let canonical = parse_wire(&presentation).expect("presentation wire must parse");
+        let issuer_verifier = HmacSha256Verifier::new(ISSUER_KEY);
+        let reparsed = verifier::verify(
+            &canonical,
+            &issuer_verifier,
+            &Sha256Hasher,
+            &VerificationOptions::default(),
+            None,
+        )
+        .expect("canonical wire representation must verify");
+        assert_eq!(reparsed.claims["given_name"], "Asha");
     }
 
     #[test]
