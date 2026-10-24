@@ -263,7 +263,11 @@ pub fn validate_temporal_bundle(
         // historical event. Targets must exist and the correction cannot predate
         // the record it claims to replace.
         for observation in &case.observations {
+            let mut unique_targets = BTreeSet::new();
             for target_id in &observation.supersedes {
+                if !unique_targets.insert(target_id) {
+                    findings.push(finding("duplicate_supersession_target", Some(&case.case_id), format!("{} repeats supersession target {target_id}", observation.observation_id)));
+                }
                 if target_id == &observation.observation_id {
                     findings.push(finding("self_supersession", Some(&case.case_id), format!("{} supersedes itself", observation.observation_id)));
                     continue;
@@ -587,10 +591,16 @@ mod tests {
     #[test]
     fn derived_estimates_cannot_masquerade_as_observed_correctness() {
         let mut value: serde_json::Value = serde_json::from_str(OBSERVATIONS).unwrap();
-        let target = value["cases"].as_array_mut().unwrap().iter_mut()
-            .flat_map(|case| case["observations"].as_array_mut().unwrap().iter_mut())
-            .find(|event| event["origin"] == "derived_estimate").unwrap();
-        target["correctness"] = serde_json::Value::Bool(true);
+        let mut found = false;
+        for case in value["cases"].as_array_mut().unwrap() {
+            let events = case["observations"].as_array_mut().unwrap();
+            if let Some(target) = events.iter_mut().find(|event| event["origin"] == "derived_estimate") {
+                target["correctness"] = serde_json::Value::Bool(true);
+                found = true;
+                break;
+            }
+        }
+        assert!(found, "fixture should contain one derived estimate");
         let errors = validate_temporal_bundle(&value.to_string(), ORACLE).expect_err("derived estimate must fail");
         assert!(errors.iter().any(|error| error.code == "estimate_masquerades_as_observation"));
     }
