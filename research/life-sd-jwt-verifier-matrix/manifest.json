@@ -69,6 +69,7 @@
     "published library result and application profile policy are reported separately for KB-JWT typ",
     "holder verifier supplied by caller must match the issuer-authenticated synthetic cnf.jwk key",
     "concurrent in-process consumption of one verifier-scoped nonce has exactly one winner",
+    "freshness policy only runs after issuer-authenticated cnf matches the holder test key",
     "nonce uniqueness is scoped by verifier identifier",
     "wire serialization and re-parsing restore authoritative disclosure fields before the verifier trust decision",
     "repeated report includes stable case IDs and stable outcomes only"
