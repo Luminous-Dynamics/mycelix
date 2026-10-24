@@ -32,7 +32,7 @@ Every run records:
 - BLAKE3 of the emitted prediction artifact;
 - an artifact catalog with unique IDs, roles, digests, and declared access audience.
 
-The exact split-manifest bytes and the exact candidate-visible observation-manifest bytes are bound into the run. The validator receives both artifacts and checks that candidate case IDs equal exactly the complete trajectories assigned to the run's split role. Passing the full all-splits dataset to a test run is rejected even if the run metadata claims only test trajectory IDs. Any byte change makes the old run manifest invalid until a new manifest and digest are emitted. Other artifact digests are recorded here, but callers must separately verify those digests against the actual artifact bytes; this validator does not receive those bytes.
+The public `materialize_candidate_observations` function projects the full source fixture into a candidate-visible manifest containing only complete trajectories assigned to the requested role. It first requires source case IDs to equal the split manifest's entire trajectory universe, so missing source cases fail closed. The exact split-manifest bytes and exact split-specific candidate-visible observation bytes are then bound into the run. The run validator receives both artifacts and checks that visible case IDs equal exactly the complete trajectories assigned to that role. Passing the full all-splits dataset to a test run is rejected even if the run metadata claims only test trajectory IDs. Any byte change makes the old run manifest invalid until a new manifest and digest are emitted. Other artifact digests are recorded here, but callers must separately verify those digests against the actual artifact bytes; this validator does not receive those bytes.
 
 ## Candidate/evaluator separation
 
@@ -54,7 +54,7 @@ The base system ID/revision and model/prompt configuration must be identical; on
 
 ## Synthetic negative controls
 
-The 15-row matrix exercises valid run identity, duplicate-trajectory rejection, diagnostic-family leakage, held-out-family declaration mismatch, exact-byte split and candidate-data binding (including formatting-only mutations), attempted oracle visibility, all-splits data leakage, and B0/B1 drift in policy gates, base model/prompt/revision, or test trajectories. It also self-audits mutation IDs against named Rust test definitions.
+The 17-row matrix exercises valid run identity, duplicate-trajectory rejection, diagnostic-family leakage, held-out-family declaration mismatch, exact-byte split and candidate-data binding (including formatting-only mutations), attempted oracle visibility, all-splits data leakage, and B0/B1 drift in policy gates, base model/prompt/revision, or test trajectories. It also self-audits mutation IDs against named Rust test definitions.
 
 ## Proposed qualification targets
 
