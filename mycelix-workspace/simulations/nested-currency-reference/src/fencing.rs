@@ -642,4 +642,40 @@ mod tests {
         assert_eq!(book.successor_outstanding(), 0);
     }
 
+    #[test]
+    fn transfer_is_rejected_before_complete_reconciliation_and_fence() {
+        let mut book = ready_book(100, 20);
+        let cut = book.operation_sequence();
+
+        // A drain request or a timeout is not itself a fencing decision.
+        assert_eq!(
+            book.transfer("transfer:retry", "owner-b", 2, 70),
+            Err(Error::InvalidTransition)
+        );
+        assert_eq!(
+            book.reconcile(cut, 20, 10, false),
+            Err(Error::IncompleteReconciliation)
+        );
+        assert_eq!(
+            book.transfer("transfer:retry", "owner-b", 2, 70),
+            Err(Error::InvalidTransition)
+        );
+
+        // Even complete reconciliation alone does not authorize the successor.
+        assert_eq!(book.reconcile(cut, 20, 10, true), Ok(Apply::Applied));
+        assert_eq!(
+            book.transfer("transfer:retry", "owner-b", 2, 70),
+            Err(Error::InvalidTransition)
+        );
+
+        // Failed preconditions did not consume the receipt ID or the capacity.
+        assert_eq!(book.transferable_capacity(), Some(70));
+        assert_eq!(book.fence("fence:1", cut), Ok(Apply::Applied));
+        assert_eq!(
+            book.transfer("transfer:retry", "owner-b", 2, 70),
+            Ok(Apply::Applied)
+        );
+        assert_eq!(book.successor_capacity(), Some(70));
+    }
+
 }
