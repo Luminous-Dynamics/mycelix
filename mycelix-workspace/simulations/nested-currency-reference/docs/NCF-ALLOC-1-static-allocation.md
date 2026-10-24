@@ -20,6 +20,7 @@ The dependency-free Rust module is `src/allocation.rs`.
 - **EqualSplit:** equal integer weights, satisfying explicit per-shard minimum slices first.
 - **DemandWeighted:** weight by the ceiling of the mean of the declared integer demand samples.
 - **RobustQuantile:** weight by a nearest-rank historical quantile plus an explicit proportional margin. Quantiles are in basis points (9,500 = 95th percentile); margin is in parts per million.
+- **DemandWeightedWithEqualFloor:** split a declared fraction of discretionary capacity equally, then allocate the remainder by historical mean demand. The current matched-trace campaign compares 25%, 50%, and 75% equal-floor variants to expose the trade-off between stationary utilization and shift resilience. The floor affects only pre-partition placement, never post-partition rights.
 
 The plan may also preserve an explicit contingency reserve that is not allocated to an isolated shard. Every shard demand carries a canonical `instrument_id`; the allocator rejects missing or mixed identities, and the resulting plan retains that exact identity. Ticker/display text is not identity. Samples must be normalized to the same instrument/unit and comparable training window. Demand history is a forecast signal, never spending authority. Data-dependent policies fail closed when any shard has no samples: missing history is unknown demand, not zero demand. A legitimate cold-start policy must be explicit, such as a declared minimum slice, or the operator must use EqualSplit until adequate observations exist.
 
@@ -41,7 +42,7 @@ The module exposes `AllocationPlan::validate` so downstream code can check instr
 
 ## Matched-trace experiment
 
-The benchmark binary is `src/bin/ncf-allocation-bench.rs`; the clean-checkout wrapper is `run-allocation-bench.sh`.
+The benchmark binary is `src/bin/ncf-allocation-bench.rs`; the clean-checkout wrapper is `run-allocation-bench.sh`. It compares six policies across stationary and shifted workloads (12 reports total).
 
 Example:
 
