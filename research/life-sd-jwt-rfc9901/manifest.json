@@ -34,6 +34,8 @@
     "both implementations return the same digest",
     "object-property versus array-element disclosure shape is checked",
     "both parsers reject malformed base64url disclosure input",
+    "both parsers reject malformed disclosure JSON and invalid array shapes",
+    "both parsers reject non-string salts and object-property names",
     "repeated report generation is byte-identical"
   ],
   "claim_ceiling": "RFC9901PublishedExampleDisclosureDigestCrossImplementationCompatibility",
