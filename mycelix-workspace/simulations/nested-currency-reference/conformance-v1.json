@@ -7,7 +7,7 @@
   "status": "proposed_not_qualified",
   "execution_evidence": {
     "status": "not_run",
-    "reason": "Definitions and benchmark harnesses are committed but not executed here. Exact-head Rust compilation/tests, TLA+ runs, raw receipts, real-demand validation, and multi-agent qualification remain outstanding."
+    "reason": "Allocation code, integration tests, and benchmark runner are defined and committed but have not been compiled/executed here. Exact-head Rust/TLA+ receipts and multi-agent qualification remain outstanding."
   },
   "claim_ceiling": [
     "Reference-model conformance only when executed against a named source revision.",
@@ -1328,6 +1328,15 @@
       "code_test": null,
       "benchmark": "NCF-BENCH-005",
       "execution_status": "benchmark_defined_not_run"
+    },
+    {
+      "id": "NCF-ALLOC-009",
+      "title": "Planned static allocation slices are accepted by the reservation reference without crossing caps",
+      "class": "allocation_to_reservation_integration",
+      "attack": "Allocate a budget with a contingency reserve, then reserve every returned slice against both community caps and the agreement cap.",
+      "expected": "all_slices_fit_and_community_agreement_allocations_equal_spendable_capacity",
+      "code_test": "allocation_plan_slices_fit_the_reservation_book_caps",
+      "execution_status": "reference_test_defined_not_run"
     }
   ],
   "qualification_campaigns": [
@@ -1469,7 +1478,8 @@
         "duplicate_or_empty_shard_ids_reject",
         "robust_policy_fails_closed_without_samples_or_with_bad_parameters",
         "insufficient_capacity_for_minimums_rejects_before_allocation",
-        "demand_history_overflow_rejects_instead_of_wrapping"
+        "demand_history_overflow_rejects_instead_of_wrapping",
+        "allocation_plan_slices_fit_the_reservation_book_caps"
       ],
       "required_benchmark_reports": 6,
       "safety_gate": "Every allocation plan validates and every policy/mode report must have zero accounting violations; any overflow, malformed input, or unaccounted capacity fails the campaign.",
