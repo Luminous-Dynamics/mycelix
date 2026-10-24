@@ -1,0 +1,37 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://mycelix.net/schemas/praxis-benchmark-run-integrity/v1/split_manifest.schema.json",
+  "title": "Praxis whole-trajectory and diagnostic-family split manifest v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "benchmark_id", "split_id", "split_unit", "whole_family_holdout", "held_out_diagnostic_families", "assignments"],
+  "properties": {
+    "schema_version": {"const": 1},
+    "benchmark_id": {"const": "PRAXIS-TUTOR-TEMPORAL-EVIDENCE-001"},
+    "split_id": {"type": "string", "minLength": 1},
+    "split_unit": {"const": "trajectory"},
+    "whole_family_holdout": {"type": "boolean"},
+    "held_out_diagnostic_families": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {"type": "string", "minLength": 1}
+    },
+    "assignments": {
+      "type": "array",
+      "minItems": 3,
+      "items": {"$ref": "#/$defs/assignment"}
+    }
+  },
+  "$defs": {
+    "assignment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["trajectory_id", "diagnostic_family_id", "split"],
+      "properties": {
+        "trajectory_id": {"type": "string", "minLength": 1},
+        "diagnostic_family_id": {"type": "string", "minLength": 1},
+        "split": {"enum": ["train", "validation", "test"]}
+      }
+    }
+  }
+}
