@@ -586,15 +586,9 @@ mod tests {
 
     #[test]
     fn derived_estimates_cannot_masquerade_as_observed_correctness() {
-        let changed = OBSERVATIONS.replace(
-            "\"origin\": \"derived_estimate\",\n          \"occurred_at_unix\": 1790812800,\n          \"recorded_at_unix\": 1790812800,\n          \"valid_until_unix\": null,\n          \"status\": \"active\",\n          \"supersedes\": []",
-            "\"origin\": \"derived_estimate\",\n          \"occurred_at_unix\": 1790812800,\n          \"recorded_at_unix\": 1790812800,\n          \"valid_until_unix\": null,\n          \"status\": \"active\",\n          \"supersedes\": []",
-        );
-        // Directly mutate one JSON correctness field next to a derived-estimate origin.
-        let parsed: serde_json::Value = serde_json::from_str(&changed).unwrap();
-        let mut value = parsed;
-        let observations = value["cases"].as_array_mut().unwrap();
-        let target = observations.iter_mut().flat_map(|case| case["observations"].as_array_mut().unwrap().iter_mut())
+        let mut value: serde_json::Value = serde_json::from_str(OBSERVATIONS).unwrap();
+        let target = value["cases"].as_array_mut().unwrap().iter_mut()
+            .flat_map(|case| case["observations"].as_array_mut().unwrap().iter_mut())
             .find(|event| event["origin"] == "derived_estimate").unwrap();
         target["correctness"] = serde_json::Value::Bool(true);
         let errors = validate_temporal_bundle(&value.to_string(), ORACLE).expect_err("derived estimate must fail");
@@ -603,12 +597,7 @@ mod tests {
 
     #[test]
     fn supersession_cycles_are_rejected() {
-        let changed = OBSERVATIONS.replace(
-            "\"observation_id\": \"te003-original\"",
-            "\"observation_id\": \"te003-original\"",
-        );
-        // Build a tiny closed cycle without relying on mutation ordering in the fixture.
-        let mut value: serde_json::Value = serde_json::from_str(&changed).unwrap();
+        let mut value: serde_json::Value = serde_json::from_str(OBSERVATIONS).unwrap();
         let case = value["cases"].as_array_mut().unwrap().iter_mut().find(|case| case["case_id"] == "TE003").unwrap();
         let events = case["observations"].as_array_mut().unwrap();
         events.iter_mut().find(|event| event["observation_id"] == "te003-original").unwrap()["status"] = "active".into();
@@ -618,19 +607,117 @@ mod tests {
         assert!(errors.iter().any(|error| error.code == "supersession_cycle"));
     }
 
-    #[test]
-    fn changed_observation_bytes_invalidate_prediction_binding() {
-        let (manifest, _) = validate_temporal_bundle(OBSERVATIONS, ORACLE).expect("valid fixture");
-        let predictions = TemporalPredictionManifest {
+    fn predictions_matching_oracle(observations_json: &str, oracle_json: &str) -> String {
+        let oracle: TemporalOracle = serde_json::from_str(oracle_json).unwrap();
+        let predictions = oracle.labels.iter().map(|label| {
+            if label.accepted_dispositions.contains(&HistoryDisposition::Claim) {
+                HistoryPrediction {
+                    case_id: label.case_id.clone(),
+                    disposition: HistoryDisposition::Claim,
+                    diagnosis: label.acceptable_diagnoses.first().copied(),
+                    next_action: label.acceptable_actions.first().copied(),
+                    supporting_evidence_ids: label.required_supporting_evidence_ids.clone(),
+                    contradicting_evidence_ids: label.required_contradicting_evidence_ids.clone(),
+                    requested_evidence: None,
+                }
+            } else if label.accepted_dispositions.contains(&HistoryDisposition::RequestMoreEvidence) {
+                HistoryPrediction {
+                    case_id: label.case_id.clone(),
+                    disposition: HistoryDisposition::RequestMoreEvidence,
+                    diagnosis: None,
+                    next_action: None,
+                    supporting_evidence_ids: vec![],
+                    contradicting_evidence_ids: vec![],
+                    requested_evidence: label.requested_evidence,
+                }
+            } else {
+                HistoryPrediction {
+                    case_id: label.case_id.clone(),
+                    disposition: HistoryDisposition::Abstain,
+                    diagnosis: None,
+                    next_action: None,
+                    supporting_evidence_ids: vec![],
+                    contradicting_evidence_ids: vec![],
+                    requested_evidence: None,
+                }
+            }
+        }).collect();
+        let manifest = TemporalPredictionManifest {
             schema_version: 1,
             benchmark_id: BENCHMARK_ID.to_owned(),
-            observation_blake3: blake3::hash(OBSERVATIONS.as_bytes()).to_hex().to_string(),
-            predictions: vec![],
+            observation_blake3: blake3::hash(observations_json.as_bytes()).to_hex().to_string(),
+            predictions,
         };
-        let prediction_json = serde_json::to_string(&predictions).unwrap();
+        serde_json::to_string(&manifest).unwrap()
+    }
+
+    #[test]
+    fn changed_observation_bytes_invalidate_prediction_binding() {
+        let predictions = predictions_matching_oracle(OBSERVATIONS, ORACLE);
         let changed = format!("\n{OBSERVATIONS}");
-        assert_ne!(manifest.cases.len(), 0);
-        let errors = score_temporal_predictions(&changed, ORACLE, &prediction_json).expect_err("exact-byte change must invalidate binding");
+        let errors = score_temporal_predictions(&changed, ORACLE, &predictions).expect_err("exact-byte change must invalidate binding");
         assert!(errors.iter().any(|error| error.code == "observation_digest_mismatch"));
     }
+
+    #[test]
+    fn equal_timestamps_do_not_supply_ordering() {
+        let (manifest, oracle) = validate_temporal_bundle(OBSERVATIONS, ORACLE).expect("valid fixture");
+        let case = manifest.cases.iter().find(|case| case.case_id == "TE008").unwrap();
+        assert_eq!(case.observations[0].occurred_at_unix, case.observations[1].occurred_at_unix);
+        assert_eq!(temporal_eligibility(case, &case.observations[0]), TemporalEligibility::Eligible);
+        assert_eq!(temporal_eligibility(case, &case.observations[1]), TemporalEligibility::Eligible);
+        let label = oracle.labels.iter().find(|label| label.case_id == "TE008").unwrap();
+        assert!(label.accepted_dispositions.contains(&HistoryDisposition::RequestMoreEvidence));
+    }
+
+    #[test]
+    fn expired_evidence_support_is_critical() {
+        let mut predictions: serde_json::Value = serde_json::from_str(&predictions_matching_oracle(OBSERVATIONS, ORACLE)).unwrap();
+        let item = predictions["predictions"].as_array_mut().unwrap().iter_mut()
+            .find(|item| item["case_id"] == "TE002").unwrap();
+        item["disposition"] = "claim".into();
+        item["diagnosis"] = "persistent_misconception".into();
+        item["next_action"] = "spaced_retrieval".into();
+        item["requested_evidence"] = serde_json::Value::Null;
+        item["supporting_evidence_ids"] = serde_json::json!(["te002-expired-success"]);
+        item["contradicting_evidence_ids"] = serde_json::json!([]);
+        let report = score_temporal_predictions(OBSERVATIONS, ORACLE, &predictions.to_string()).expect("well-shaped but wrong prediction is scored");
+        assert_eq!(report.expired_support_references, 1);
+        assert!(report.critical_violations > 0);
+        assert!(report.acceptable_decision_rate < 1.0);
+    }
+
+    #[test]
+    fn row_order_permutation_preserves_semantic_scores() {
+        let original_predictions = predictions_matching_oracle(OBSERVATIONS, ORACLE);
+        let original = score_temporal_predictions(OBSERVATIONS, ORACLE, &original_predictions).unwrap();
+        let mut value: serde_json::Value = serde_json::from_str(OBSERVATIONS).unwrap();
+        for case in value["cases"].as_array_mut().unwrap() {
+            case["observations"].as_array_mut().unwrap().reverse();
+        }
+        let permuted_observations = serde_json::to_string_pretty(&value).unwrap();
+        let permuted_predictions = predictions_matching_oracle(&permuted_observations, ORACLE);
+        let permuted = score_temporal_predictions(&permuted_observations, ORACLE, &permuted_predictions).unwrap();
+        assert_eq!(original.decision_fit_rate, permuted.decision_fit_rate);
+        assert_eq!(original.acceptable_decision_rate, permuted.acceptable_decision_rate);
+        assert_eq!(original.critical_violations, permuted.critical_violations);
+        assert_ne!(original.observation_blake3, permuted.observation_blake3);
+    }
+
+    #[test]
+    fn mutation_matrix_is_closed_and_test_linked() {
+        let matrix: serde_json::Value = serde_json::from_str(include_str!("../examples/tutor-history/temporal-v1/mutation_matrix.json")).unwrap();
+        let entries = matrix["entries"].as_array().unwrap();
+        let source = include_str!("tutor_temporal_evidence.rs");
+        let mut ids = BTreeSet::new();
+        for entry in entries {
+            let id = entry["id"].as_str().unwrap();
+            assert!(ids.insert(id.to_owned()), "duplicate mutation ID {id}");
+            let test_name = entry["test_name"].as_str().unwrap();
+            assert!(source.contains(&format!("fn {test_name}(")), "matrix row {id} points to missing test {test_name}");
+        }
+        assert_eq!(entries.len(), 14);
+    }
+
+
 }
