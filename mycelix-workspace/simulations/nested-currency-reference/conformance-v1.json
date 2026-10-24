@@ -847,7 +847,9 @@
       "id": "NCF-BENCH-005",
       "name": "Safety-qualified liquidity and capacity-utilization frontier",
       "baselines": [
-        "static_non_overlapping_escrow",
+        "static_equal_split_escrow",
+        "static_demand_weighted_escrow",
+        "static_robust_quantile_escrow",
         "acknowledged_drain_and_fence",
         "linearizable_control_authority",
         "quorum_control_authority_when_implemented"
@@ -857,7 +859,9 @@
         "80_20_hot_shard_skew",
         "bursty_demand_with_recovery",
         "deterministic_zipf_like_skew",
-        "essential_vs_discretionary_priority_classes"
+        "essential_vs_discretionary_priority_classes",
+        "held_out_demand_shift_after_partition",
+        "forecast_error_and_misallocation_stress"
       ],
       "topology": {
         "participant_counts": [
@@ -914,7 +918,13 @@
         "tombstone_bytes_per_operation",
         "replay_lookup_latency_ms_p50",
         "replay_lookup_latency_ms_p99",
-        "replay_protection_retention_days"
+        "replay_protection_retention_days",
+        "per_shard_unserved_demand",
+        "quota_fragmentation",
+        "held_out_demand_served_fraction",
+        "forecast_error",
+        "prepartition_reallocation_overhead_ns",
+        "essential_service_demand_served_fraction"
       ],
       "required_output": [
         "source_commit",
@@ -942,11 +952,33 @@
         "idempotency_index_bytes",
         "tombstone_bytes_per_operation",
         "replay_lookup_latency_ms_p50",
-        "replay_lookup_latency_ms_p99"
+        "replay_lookup_latency_ms_p99",
+        "per_shard_unserved_demand",
+        "quota_fragmentation",
+        "held_out_demand_served_fraction",
+        "forecast_error",
+        "prepartition_reallocation_overhead_ns",
+        "essential_service_demand_served_fraction"
       ],
-      "methodology": "Run the exact same deterministic demand/fault traces against each implemented policy and matched hardware/toolchains. Report results only after hard safety gates pass. Plot a Pareto frontier across economic demand served, safely reclaimable versus stranded capacity, tail latency, and compute cost; do not collapse outcomes into a single weighted score. Separate unreachable-owner partitions from honest crash/restart and byzantine-owner campaigns. Include ablations for priority classes and rebalancing policy.",
+      "methodology": "Run the exact same deterministic demand/fault traces against each implemented policy and matched hardware/toolchains. Report results only after hard safety gates pass. Plot a Pareto frontier across economic demand served, safely reclaimable versus stranded capacity, tail latency, and compute cost; do not collapse outcomes into a single weighted score. Separate unreachable-owner partitions from honest crash/restart and byzantine-owner campaigns. Include ablations for priority classes and rebalancing policy. Add a low-risk paradigm-shift baseline: optimize the placement of already-authorized, non-overlapping slices before the partition, using training demand traces and robust quantiles. Evaluate on held-out and shifted workloads, and never allow the forecast to enlarge/reassign rights during the partition. This isolates safe capacity-placement improvements from risky online reclamation.",
       "execution_status": "design_not_run",
-      "claim_ceiling": "Comparative simulation/implementation evidence for declared workloads and tested fault models only; not a universal ranking, production financial-risk certification, or legal claim."
+      "claim_ceiling": "Comparative simulation/implementation evidence for declared workloads and tested fault models only; not a universal ranking, production financial-risk certification, or legal claim.",
+      "reservation_policy_experiment": {
+        "hypothesis": "Demand-aware allocation of non-overlapping rights before a partition can improve economic demand served without relaxing partition safety or requiring any partition-time reallocation.",
+        "policies": [
+          "equal_split_baseline",
+          "historical_demand_weighted",
+          "robust_upper_quantile_with_safety_margin"
+        ],
+        "constraints": [
+          "sum_of_reservations_never_exceeds_each_community_cap",
+          "sum_of_reservations_never_exceeds_each_agreement_cap",
+          "reservations_are_immutable_during_partition",
+          "no_online_demand_forecast_changes_spend_rights_mid_partition"
+        ],
+        "evaluation": "Train allocation weights only on recorded training traces; evaluate on held-out and distribution-shift traces. Report per-shard unserved demand, safe capacity usage, fragmented/unused quota, forecast error, and essential-service demand served. Any safety violation disqualifies the policy regardless of utilization.",
+        "claim_boundary": "An optimization of pre-authorized quota placement, not a method for safely reclaiming an unreachable owner's active rights."
+      }
     }
   ],
   "planned_conformance_cases": [
