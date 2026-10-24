@@ -464,6 +464,10 @@ pub fn validate_comparable_pair(
         || baseline.verifier_blake3 != augmented.verifier_blake3
         || baseline.protocol_blake3 != augmented.protocol_blake3
         || baseline.mutation_matrix_blake3 != augmented.mutation_matrix_blake3
+        || baseline.system.system_id != augmented.system.system_id
+        || baseline.system.system_revision != augmented.system.system_revision
+        || baseline.system.model_config_blake3 != augmented.system.model_config_blake3
+        || baseline.system.prompt_config_blake3 != augmented.system.prompt_config_blake3
         || baseline.system.policy_gate_blake3 != augmented.system.policy_gate_blake3
         || baseline.evaluator_revision != augmented.evaluator_revision
         || baseline.sampling != augmented.sampling
@@ -501,10 +505,10 @@ mod tests {
             .map(|assignment| assignment.trajectory_id.clone())
             .collect();
         let system = SystemIdentity {
-            system_id: match mode { AdvisorMode::Baseline => "praxis-b0", AdvisorMode::SymthaeaAssisted => "praxis-b1" }.to_owned(),
-            system_revision: match mode { AdvisorMode::Baseline => revision('1'), AdvisorMode::SymthaeaAssisted => revision('2') },
+            system_id: "praxis-tutor".to_owned(),
+            system_revision: revision('1'),
             model_config_blake3: digest('a'),
-            prompt_config_blake3: match mode { AdvisorMode::Baseline => digest('b'), AdvisorMode::SymthaeaAssisted => digest('c') },
+            prompt_config_blake3: digest('b'),
             policy_gate_blake3: digest('d'),
             advisor_mode: mode,
             advisor_artifact_blake3: match mode { AdvisorMode::Baseline => None, AdvisorMode::SymthaeaAssisted => Some(digest('e')) },
@@ -521,7 +525,7 @@ mod tests {
             ("mutation-matrix", ArtifactRole::MutationMatrix, ArtifactAudience::EvaluatorOnly, digest('7')),
         ];
         let artifacts = artifact_defs.iter().map(|(id, role, audience, digest)| RunArtifact {
-            artifact_id: (*id).to_owned(), role: *role, audience: *audience, digest_blake3: digest.clone()
+            artifact_id: (*id).to_owned(), role: *role, audience: *audience, digest_blake3: (*digest).clone()
         }).collect();
         BenchmarkRunManifest {
             schema_version: 1,
@@ -653,6 +657,28 @@ mod tests {
     }
 
     #[test]
+    fn b0_b1_model_prompt_and_revision_drift_are_rejected() {
+        let baseline = run_manifest(SPLIT, AdvisorMode::Baseline, "b0-test-run");
+        let mut augmented = run_manifest(SPLIT, AdvisorMode::SymthaeaAssisted, "b1-test-run");
+        augmented.system.prompt_config_blake3 = digest('c');
+        let errors = validate_comparable_pair(
+            &serde_json::to_string(&baseline).unwrap(),
+            &serde_json::to_string(&augmented).unwrap(),
+            SPLIT,
+        ).expect_err("prompt drift must fail");
+        assert!(errors.iter().any(|error| error.code == "paired_run_protocol_drift"));
+
+        augmented = run_manifest(SPLIT, AdvisorMode::SymthaeaAssisted, "b1-test-run");
+        augmented.system.system_revision = revision('2');
+        let errors = validate_comparable_pair(
+            &serde_json::to_string(&baseline).unwrap(),
+            &serde_json::to_string(&augmented).unwrap(),
+            SPLIT,
+        ).expect_err("system revision drift must fail");
+        assert!(errors.iter().any(|error| error.code == "paired_run_protocol_drift"));
+    }
+
+    #[test]
     fn mutation_matrix_is_closed_and_test_linked() {
         let matrix: serde_json::Value = serde_json::from_str(include_str!("../examples/tutor-history/temporal-v1/run_integrity_mutation_matrix.json")).unwrap();
         let entries = matrix["entries"].as_array().unwrap();
@@ -664,6 +690,6 @@ mod tests {
             let test_name = entry["test_name"].as_str().unwrap();
             assert!(source.contains(&format!("fn {test_name}(")), "matrix row {id} points to missing test {test_name}");
         }
-        assert_eq!(entries.len(), 11);
+        assert_eq!(entries.len(), 12);
     }
 }
