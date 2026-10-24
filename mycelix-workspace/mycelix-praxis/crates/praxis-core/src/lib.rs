@@ -24,6 +24,7 @@ pub mod provenance;
 pub mod tutor_history_benchmark;
 pub mod tutor_temporal_evidence;
 pub mod tutor_benchmark_integrity;
+pub mod tutor_benchmark_integrity;
 pub mod types;
 pub mod validation;
 
