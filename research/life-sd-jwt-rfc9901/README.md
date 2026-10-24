@@ -4,12 +4,12 @@ This is the first executable bridge from the synthetic LIFE privacy studies to r
 
 ## Frozen dependencies
 
-- `affinidi-sd-jwt = 0.1.8`
+- `affinidi-sd-jwt = 0.1.5`
 - `reallyme-sd-jwt = 0.4.1`
 - Rust toolchain: 1.96.0
 - Edition: 2024
 
-The first workflow invocation generates a dependency lockfile and retains it as an artifact so it can be reviewed and committed as a follow-up before this benchmark is treated as reproducibly pinned. A passing bootstrap run is not yet the final locked qualification.
+The Affinidi dependency is pinned to 0.1.5, a published crates.io release (rather than the newer unreleased `0.1.8` version visible in the upstream repository manifest). The first workflow invocation generates a dependency lockfile and retains it as an artifact so it can be reviewed and committed as a follow-up before this benchmark is treated as reproducibly pinned. A passing bootstrap run is not yet the final locked qualification.
 
 ## Run
 
