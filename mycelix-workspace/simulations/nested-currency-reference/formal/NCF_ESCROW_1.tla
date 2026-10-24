@@ -60,7 +60,7 @@ SettleInSlice(s, amount) ==
     /\ eventCount < MaxOps
     /\ outstanding' = [outstanding EXCEPT ![s] = @ - amount]
     /\ eventCount' = eventCount + 1
-    /\ UNCHANGED << reserved, partitioned >>
+    /\ UNCHANGED << reserved, partitioned, partitionSnapshotReserved >>
 
 Next ==
     \/ \E s \in Shards, amount \in 1..Capacity: Reserve(s, amount)
