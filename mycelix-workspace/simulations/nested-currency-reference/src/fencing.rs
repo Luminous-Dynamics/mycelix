@@ -63,17 +63,17 @@ struct Successor {
 
 /// One allocation's retirement lifecycle. The original owner remains responsible
 /// for its already-incurred outstanding exposure after the unused slice is transferred.
-#[derive(Default)]
 pub struct FenceBook {
     owner: String,
     epoch: u64,
     capacity: u64,
     outstanding: u64,
     sequence: u64,
-    phase: Option<Phase>,
+    phase: Phase,
     drain_id: Option<String>,
     reconciliation: Option<Reconciliation>,
     fence_id: Option<String>,
+    fence_sequence: Option<u64>,
     successor: Option<Successor>,
     events: BTreeMap<String, Event>,
 }
@@ -92,17 +92,18 @@ impl FenceBook {
             capacity,
             outstanding: 0,
             sequence: 0,
-            phase: Some(Phase::Active),
+            phase: Phase::Active,
             drain_id: None,
             reconciliation: None,
             fence_id: None,
+            fence_sequence: None,
             successor: None,
             events: BTreeMap::new(),
         })
     }
 
     pub fn phase(&self) -> Phase {
-        self.phase.unwrap_or(Phase::Active)
+        self.phase
     }
 
     pub fn owner(&self) -> &str {
@@ -202,7 +203,7 @@ impl FenceBook {
             return Err(Error::InvalidTransition);
         }
         self.drain_id = Some(drain_id.into());
-        self.phase = Some(Phase::DrainRequested);
+        self.phase = Phase::DrainRequested;
         Ok(Apply::Applied)
     }
 
@@ -285,7 +286,7 @@ impl FenceBook {
         }
 
         self.reconciliation = Some(candidate);
-        self.phase = Some(Phase::Reconciled);
+        self.phase = Phase::Reconciled;
         Ok(Apply::Applied)
     }
 
@@ -296,7 +297,7 @@ impl FenceBook {
             return Err(Error::InvalidIdentity);
         }
         if let Some(previous) = &self.fence_id {
-            return if previous == fence_id {
+            return if previous == fence_id && self.fence_sequence == Some(terminal_sequence) {
                 Ok(Apply::Duplicate)
             } else {
                 Err(Error::ReplayMismatch)
@@ -311,7 +312,8 @@ impl FenceBook {
         }
 
         self.fence_id = Some(fence_id.into());
-        self.phase = Some(Phase::Fenced);
+        self.fence_sequence = Some(terminal_sequence);
+        self.phase = Phase::Fenced;
         Ok(Apply::Applied)
     }
 
@@ -361,7 +363,7 @@ impl FenceBook {
         }
 
         self.successor = Some(candidate);
-        self.phase = Some(Phase::Transferred);
+        self.phase = Phase::Transferred;
         Ok(Apply::Applied)
     }
 
@@ -495,7 +497,10 @@ mod tests {
         assert_eq!(book.reconcile(cut, 20, 0, true), Ok(Apply::Duplicate));
         assert_eq!(book.fence("fence:1", cut), Ok(Apply::Applied));
         assert_eq!(book.fence("fence:1", cut), Ok(Apply::Duplicate));
+        assert_eq!(book.fence("fence:1", cut + 1), Err(Error::ReplayMismatch));
         assert_eq!(book.transfer("transfer:1", "owner-b", 2, 80), Ok(Apply::Applied));
+        assert_eq!(book.transfer("transfer:1", "owner-b", 2, 80), Ok(Apply::Duplicate));
+        book.record_successor_obligation("new:1", "owner-b", 2, 1).unwrap();
         assert_eq!(book.transfer("transfer:1", "owner-b", 2, 80), Ok(Apply::Duplicate));
         assert_eq!(book.transfer("transfer:1", "owner-c", 2, 80), Err(Error::ReplayMismatch));
     }
