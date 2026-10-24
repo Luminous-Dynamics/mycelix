@@ -1,0 +1,550 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://mycelix.net/schemas/praxis-learning-outcome-protocol/v1/study_protocol.schema.json",
+  "title": "Praxis outcome-first tutoring study protocol v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "protocol_id",
+    "study_id",
+    "status",
+    "preregistration_uri",
+    "preregistration_blake3",
+    "design",
+    "assignment_unit",
+    "intervention_arm_id",
+    "comparator_arm_id",
+    "planned_n_intervention",
+    "planned_n_comparator",
+    "primary_endpoint",
+    "secondary_endpoints",
+    "analysis_plan",
+    "predeclared_subgroups"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": 1
+    },
+    "protocol_id": {
+      "const": "PRAXIS-LEARNING-OUTCOME-PROTOCOL-001"
+    },
+    "study_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "status": {
+      "enum": [
+        "draft",
+        "preregistered",
+        "complete"
+      ]
+    },
+    "preregistration_uri": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "uri"
+    },
+    "preregistration_blake3": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/blake3"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "design": {
+      "enum": [
+        "individual_randomized",
+        "cluster_randomized",
+        "observational_pilot"
+      ]
+    },
+    "assignment_unit": {
+      "enum": [
+        "learner",
+        "classroom",
+        "school"
+      ]
+    },
+    "intervention_arm_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "comparator_arm_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "planned_n_intervention": {
+      "type": "integer",
+      "minimum": 2
+    },
+    "planned_n_comparator": {
+      "type": "integer",
+      "minimum": 2
+    },
+    "primary_endpoint": {
+      "$ref": "#/$defs/primary_endpoint"
+    },
+    "secondary_endpoints": {
+      "type": "array",
+      "minItems": 5,
+      "items": {
+        "$ref": "#/$defs/endpoint"
+      }
+    },
+    "analysis_plan": {
+      "$ref": "#/$defs/analysis_plan"
+    },
+    "predeclared_subgroups": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    }
+  },
+  "$defs": {
+    "blake3": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "endpoint": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "endpoint_id",
+        "kind",
+        "favorable_direction",
+        "unit",
+        "timepoint",
+        "instrument_blake3",
+        "scoring_blake3",
+        "scale_min_milli",
+        "scale_max_milli",
+        "independent_assessment",
+        "assessor_blinded",
+        "uses_unpracticed_items",
+        "minimum_delay_hours"
+      ],
+      "properties": {
+        "endpoint_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "kind": {
+          "enum": [
+            "immediate_gain",
+            "delayed_retention",
+            "near_transfer",
+            "far_transfer",
+            "error_recovery",
+            "engagement",
+            "time_on_task",
+            "cost_per_gain",
+            "displacement",
+            "adverse_events"
+          ]
+        },
+        "timepoint": {
+          "enum": [
+            "baseline",
+            "immediate_post",
+            "during_intervention",
+            "delayed24h",
+            "delayed7d",
+            "delayed28d"
+          ]
+        },
+        "instrument_blake3": {
+          "$ref": "#/$defs/blake3"
+        },
+        "scoring_blake3": {
+          "$ref": "#/$defs/blake3"
+        },
+        "scale_min_milli": {
+          "type": "integer"
+        },
+        "scale_max_milli": {
+          "type": "integer"
+        },
+        "independent_assessment": {
+          "type": "boolean"
+        },
+        "assessor_blinded": {
+          "type": "boolean"
+        },
+        "uses_unpracticed_items": {
+          "type": "boolean"
+        },
+        "minimum_delay_hours": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "unit": {
+          "enum": [
+            "proportion_correct",
+            "standardized_effect",
+            "attempts_to_correct",
+            "active_session_rate",
+            "minutes",
+            "usd_per_gain_point",
+            "independent_practice_minutes_displaced",
+            "events_per_learner"
+          ]
+        },
+        "favorable_direction": {
+          "enum": [
+            "higher_is_better",
+            "lower_is_better",
+            "interpretation_sensitive"
+          ]
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "kind": {
+                "enum": [
+                  "delayed_retention",
+                  "near_transfer",
+                  "far_transfer"
+                ]
+              }
+            },
+            "required": [
+              "kind"
+            ]
+          },
+          "then": {
+            "properties": {
+              "timepoint": {
+                "enum": [
+                  "delayed24h",
+                  "delayed7d",
+                  "delayed28d"
+                ]
+              },
+              "minimum_delay_hours": {
+                "minimum": 24
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "kind": {
+                "enum": [
+                  "near_transfer",
+                  "far_transfer"
+                ]
+              }
+            },
+            "required": [
+              "kind"
+            ]
+          },
+          "then": {
+            "properties": {
+              "uses_unpracticed_items": {
+                "const": true
+              }
+            }
+          }
+        }
+      ]
+    },
+    "primary_endpoint": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/endpoint"
+        },
+        {
+          "properties": {
+            "kind": {
+              "enum": [
+                "delayed_retention",
+                "near_transfer",
+                "far_transfer"
+              ]
+            },
+            "independent_assessment": {
+              "const": true
+            },
+            "assessor_blinded": {
+              "const": true
+            }
+          },
+          "required": [
+            "kind",
+            "independent_assessment",
+            "assessor_blinded"
+          ]
+        }
+      ]
+    },
+    "analysis_plan": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "estimand",
+        "estimator",
+        "confidence_level_percent",
+        "alpha_milli",
+        "multiplicity_correction",
+        "missing_data_plan",
+        "target_power_milli",
+        "minimum_detectable_effect_milli",
+        "sample_size_justification_blake3"
+      ],
+      "properties": {
+        "estimand": {
+          "const": "intention_to_treat"
+        },
+        "estimator": {
+          "enum": [
+            "difference_in_means",
+            "covariate_adjusted_difference",
+            "cluster_robust_difference"
+          ]
+        },
+        "confidence_level_percent": {
+          "enum": [
+            90,
+            95,
+            99
+          ]
+        },
+        "alpha_milli": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 100
+        },
+        "multiplicity_correction": {
+          "enum": [
+            "holm",
+            "benjamini_hochberg",
+            "hierarchical_gatekeeping"
+          ]
+        },
+        "missing_data_plan": {
+          "enum": [
+            "report_by_arm_and_sensitivity",
+            "multiple_imputation_with_sensitivity"
+          ]
+        },
+        "target_power_milli": {
+          "type": "integer",
+          "minimum": 800,
+          "maximum": 950
+        },
+        "minimum_detectable_effect_milli": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "sample_size_justification_blake3": {
+          "$ref": "#/$defs/blake3"
+        }
+      },
+      "allOf": []
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "design": {
+            "const": "individual_randomized"
+          }
+        },
+        "required": [
+          "design"
+        ]
+      },
+      "then": {
+        "properties": {
+          "assignment_unit": {
+            "const": "learner"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "design": {
+            "const": "cluster_randomized"
+          }
+        },
+        "required": [
+          "design"
+        ]
+      },
+      "then": {
+        "properties": {
+          "assignment_unit": {
+            "enum": [
+              "classroom",
+              "school"
+            ]
+          },
+          "analysis_plan": {
+            "properties": {
+              "estimator": {
+                "const": "cluster_robust_difference"
+              }
+            },
+            "required": [
+              "estimator"
+            ]
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "status": {
+            "enum": [
+              "preregistered",
+              "complete"
+            ]
+          }
+        },
+        "required": [
+          "status"
+        ]
+      },
+      "then": {
+        "properties": {
+          "preregistration_uri": {
+            "type": "string",
+            "format": "uri"
+          },
+          "preregistration_blake3": {
+            "$ref": "#/$defs/blake3"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "status": {
+            "const": "draft"
+          }
+        },
+        "required": [
+          "status"
+        ]
+      },
+      "then": {
+        "properties": {
+          "preregistration_uri": {
+            "type": "null"
+          },
+          "preregistration_blake3": {
+            "type": "null"
+          }
+        }
+      }
+    },
+    {
+      "properties": {
+        "secondary_endpoints": {
+          "contains": {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "const": "engagement"
+              }
+            },
+            "required": [
+              "kind"
+            ]
+          },
+          "minContains": 1
+        }
+      }
+    },
+    {
+      "properties": {
+        "secondary_endpoints": {
+          "contains": {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "const": "time_on_task"
+              }
+            },
+            "required": [
+              "kind"
+            ]
+          },
+          "minContains": 1
+        }
+      }
+    },
+    {
+      "properties": {
+        "secondary_endpoints": {
+          "contains": {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "const": "cost_per_gain"
+              }
+            },
+            "required": [
+              "kind"
+            ]
+          },
+          "minContains": 1
+        }
+      }
+    },
+    {
+      "properties": {
+        "secondary_endpoints": {
+          "contains": {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "const": "displacement"
+              }
+            },
+            "required": [
+              "kind"
+            ]
+          },
+          "minContains": 1
+        }
+      }
+    },
+    {
+      "properties": {
+        "secondary_endpoints": {
+          "contains": {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "const": "adverse_events"
+              }
+            },
+            "required": [
+              "kind"
+            ]
+          },
+          "minContains": 1
+        }
+      }
+    }
+  ]
+}
