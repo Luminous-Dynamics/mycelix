@@ -1,6 +1,6 @@
 # NCF-FEN-1 bounded formal model
 
-This folder contains independent TLA+ abstractions of the risk-right fencing lifecycle and the two-shard escrow budget, plus three deliberately unsafe mutants. Neither has been executed in the current environment; treat them as model definitions, not proof receipts.
+This folder contains independent TLA+ abstractions of the risk-right fencing lifecycle and the two-shard escrow budget, plus three deliberately unsafe mutants. None of the models or mutants has been executed in the current environment; treat them as model definitions, not proof receipts.
 
 ## Contents
 
