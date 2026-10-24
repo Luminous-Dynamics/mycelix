@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
 
-# Reproducible bounded TLC campaign for the NCF-FEN-1 safe model and its
-# deliberately unsafe timeout-only transfer mutant. The mutant must fail for
-# the expected safety invariant; a parse/tool failure is not a successful test.
+# Reproducible bounded TLC campaign for the NCF-FEN-1 safe model and two
+# deliberately unsafe mutants. Each mutant must fail for its named invariant;
+# parser/tool failures are not successful negative-control detections.
 
 repo_root="$(git rev-parse --show-toplevel)"
 formal_dir="$repo_root/mycelix-workspace/simulations/nested-currency-reference/formal"
@@ -23,24 +23,28 @@ source_commit="$(git -C "$repo_root" rev-parse HEAD)"
 source_tree="$(git -C "$repo_root" rev-parse 'HEAD^{tree}')"
 model="$formal_dir/NCF_FEN_1.tla"
 config="$formal_dir/NCF_FEN_1.cfg"
-mutant="$formal_dir/NCF_FEN_1_TimeoutMutant.tla"
-mutant_config="$formal_dir/NCF_FEN_1_TimeoutMutant.cfg"
-expected_invariant="NoTransferWithoutFence"
+timeout_mutant="$formal_dir/NCF_FEN_1_TimeoutMutant.tla"
+timeout_config="$formal_dir/NCF_FEN_1_TimeoutMutant.cfg"
+stale_mutant="$formal_dir/NCF_FEN_1_StaleOwnerMutant.tla"
+stale_config="$formal_dir/NCF_FEN_1_StaleOwnerMutant.cfg"
 
-for path in "$model" "$config" "$mutant" "$mutant_config"; do
+for path in "$model" "$config" "$timeout_mutant" "$timeout_config" "$stale_mutant" "$stale_config"; do
   [[ -f "$path" ]] || { echo "missing model artifact: $path" >&2; exit 2; }
 done
 
 out_dir="${NCF_TLC_OUTPUT_DIR:-${TMPDIR:-/tmp}/ncf-fen-tlc-$source_commit}"
 mkdir -p "$out_dir"
 safe_log="$out_dir/safe-model.log"
-mutant_log="$out_dir/timeout-mutant.log"
+timeout_log="$out_dir/timeout-mutant.log"
+stale_log="$out_dir/stale-owner-mutant.log"
 receipt="$out_dir/receipt.json"
 
 model_sha="$(sha256sum "$model" | awk '{print $1}')"
 config_sha="$(sha256sum "$config" | awk '{print $1}')"
-mutant_sha="$(sha256sum "$mutant" | awk '{print $1}')"
-mutant_config_sha="$(sha256sum "$mutant_config" | awk '{print $1}')"
+timeout_sha="$(sha256sum "$timeout_mutant" | awk '{print $1}')"
+timeout_config_sha="$(sha256sum "$timeout_config" | awk '{print $1}')"
+stale_sha="$(sha256sum "$stale_mutant" | awk '{print $1}')"
+stale_config_sha="$(sha256sum "$stale_config" | awk '{print $1}')"
 jar_sha="$(sha256sum "$jar" | awk '{print $1}')"
 java_version="$(java -version 2>&1 | sed -n '1p' | tr -cd '[:alnum:]._- ')"
 
@@ -61,27 +65,40 @@ if [[ -z "$safe_stats" ]]; then
 fi
 safe_stats="$(printf '%s' "$safe_stats" | tr -cd '[:alnum:],. _-')"
 
-set +e
-(
-  cd "$formal_dir"
-  java -cp "$jar" tlc2.TLC -config "$(basename "$mutant_config")" "$(basename "$mutant")"
-) >"$mutant_log" 2>&1
-mutant_status=$?
-set -e
+run_expected_mutant() {
+  local model_file="$1"
+  local config_file="$2"
+  local log_file="$3"
+  local invariant="$4"
+  local label="$5"
+  local status=0
 
-if [[ "$mutant_status" -eq 0 ]]; then
-  cat "$mutant_log" >&2
-  echo "unsafe timeout mutant unexpectedly passed all invariants" >&2
-  exit 1
-fi
-if ! grep -Eiq "Invariant .*${expected_invariant}.*violated|${expected_invariant}.*violated" "$mutant_log"; then
-  cat "$mutant_log" >&2
-  echo "mutant failed, but not with the expected $expected_invariant counterexample" >&2
-  exit 1
-fi
+  set +e
+  (
+    cd "$formal_dir"
+    java -cp "$jar" tlc2.TLC -config "$(basename "$config_file")" "$(basename "$model_file")"
+  ) >"$log_file" 2>&1
+  status=$?
+  set -e
+
+  if [[ "$status" -eq 0 ]]; then
+    cat "$log_file" >&2
+    echo "unsafe $label mutant unexpectedly passed all invariants" >&2
+    exit 1
+  fi
+  if ! grep -Eiq "Invariant .* ${invariant} .*violated|${invariant}.*violated" "$log_file"; then
+    cat "$log_file" >&2
+    echo "$label mutant failed, but not with expected invariant $invariant" >&2
+    exit 1
+  fi
+}
+
+run_expected_mutant "$timeout_mutant" "$timeout_config" "$timeout_log" "NoTransferWithoutFence" "timeout-reallocation"
+run_expected_mutant "$stale_mutant" "$stale_config" "$stale_log" "NoOldWriteOutsideActive" "stale-owner-write"
 
 safe_log_sha="$(sha256sum "$safe_log" | awk '{print $1}')"
-mutant_log_sha="$(sha256sum "$mutant_log" | awk '{print $1}')"
+timeout_log_sha="$(sha256sum "$timeout_log" | awk '{print $1}')"
+stale_log_sha="$(sha256sum "$stale_log" | awk '{print $1}')"
 cat >"$receipt" <<EOF
 {
   "schema": "mycelix.ncf-fen-tlc-receipt",
@@ -90,16 +107,21 @@ cat >"$receipt" <<EOF
   "source_tree": "$source_tree",
   "safe_model_sha256": "$model_sha",
   "safe_config_sha256": "$config_sha",
-  "mutant_model_sha256": "$mutant_sha",
-  "mutant_config_sha256": "$mutant_config_sha",
+  "timeout_mutant_sha256": "$timeout_sha",
+  "timeout_mutant_config_sha256": "$timeout_config_sha",
+  "stale_owner_mutant_sha256": "$stale_sha",
+  "stale_owner_mutant_config_sha256": "$stale_config_sha",
   "tla2tools_jar_sha256": "$jar_sha",
   "java_version": "$java_version",
   "safe_model_status": "passed",
-  "negative_control_status": "expected_failure_detected",
-  "negative_control_invariant": "$expected_invariant",
+  "timeout_mutant_status": "expected_failure_detected",
+  "timeout_mutant_invariant": "NoTransferWithoutFence",
+  "stale_owner_mutant_status": "expected_failure_detected",
+  "stale_owner_mutant_invariant": "NoOldWriteOutsideActive",
   "safe_model_state_statistics_line": "$safe_stats",
   "safe_log_sha256": "$safe_log_sha",
-  "negative_control_log_sha256": "$mutant_log_sha",
+  "timeout_mutant_log_sha256": "$timeout_log_sha",
+  "stale_owner_mutant_log_sha256": "$stale_log_sha",
   "claim_ceiling": "bounded TLA+ abstraction only; not a proof of production Holochain, cryptographic authority, or unbounded distributed safety"
 }
 EOF
@@ -109,4 +131,5 @@ receipt_sha="$(sha256sum "$receipt" | awk '{print $1}')"
 echo "receipt: $receipt"
 echo "receipt sha256: $receipt_sha"
 echo "safe log sha256: $safe_log_sha"
-echo "expected-negative-control log sha256: $mutant_log_sha"
+echo "timeout mutant log sha256: $timeout_log_sha"
+echo "stale-owner mutant log sha256: $stale_log_sha"
