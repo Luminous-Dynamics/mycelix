@@ -7,7 +7,7 @@
   "status": "proposed_not_qualified",
   "execution_evidence": {
     "status": "not_run",
-    "reason": "Static allocator unit tests, the 10,000-case generated sweep and matched-trace benchmark have been committed as definitions but have not been compiled or executed in this environment. Exact-head Rust receipts and distributed/multi-agent qualification remain outstanding."
+    "reason": "Static allocator source, generated property-style tests, and benchmark harness are committed but not compiled/executed here. Exact-head Rust receipts, TLA+ results, and distributed/multi-agent qualification remain outstanding."
   },
   "claim_ceiling": [
     "Reference-model conformance only when executed against a named source revision.",
@@ -179,6 +179,11 @@
       "id": "NCF-ALLOC-I-004",
       "name": "Missing demand history is not interpreted as zero demand",
       "statement": "A demand-dependent allocation policy rejects incomplete per-shard history unless an explicit cold-start/fairness rule is configured; a new or unobserved shard is not silently assigned zero weight."
+    },
+    {
+      "id": "NCF-ALLOC-I-005",
+      "name": "An allocation plan is bound to one canonical instrument",
+      "statement": "All shard demand samples and returned rights in a plan share one exact canonical instrument ID; mixed-instrument inputs are rejected and no display ticker substitutes for identity."
     }
   ],
   "conformance_cases": [
@@ -1362,6 +1367,15 @@
       "execution_status": "reference_test_defined_not_run",
       "seed": "0x4e43462d414c4c31",
       "scenarios": 10000
+    },
+    {
+      "id": "NCF-ALLOC-012",
+      "title": "Allocator rejects mixed or missing canonical instrument identity",
+      "class": "cross_instrument_allocation_confusion",
+      "attack": "Supply shard samples from two different canonical instrument IDs or omit the instrument identity.",
+      "expected": "reject_mixed_or_missing_instrument_without_returning_plan",
+      "code_test": "plans_reject_mixed_or_missing_instrument_identity",
+      "execution_status": "reference_test_defined_not_run"
     }
   ],
   "qualification_campaigns": [
@@ -1506,7 +1520,8 @@
         "demand_history_overflow_rejects_instead_of_wrapping",
         "allocation_plan_slices_fit_the_reservation_book_caps",
         "demand_weighted_policy_does_not_treat_missing_history_as_zero_demand",
-        "ten_thousand_generated_allocation_plans_conserve_capacity_and_ignore_input_order"
+        "ten_thousand_generated_allocation_plans_conserve_capacity_and_ignore_input_order",
+        "plans_reject_mixed_or_missing_instrument_identity"
       ],
       "required_benchmark_reports": 6,
       "safety_gate": "Every allocation plan validates and every policy/mode report must have zero accounting violations; any overflow, malformed input, or unaccounted capacity fails the campaign.",
@@ -1536,7 +1551,10 @@
           "allocation is invariant to reversed input order"
         ],
         "execution_status": "test_defined_not_run"
-      }
+      },
+      "required_receipt_fields": [
+        "instrument_id"
+      ]
     }
   ]
 }
