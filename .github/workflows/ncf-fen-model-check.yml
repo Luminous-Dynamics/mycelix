@@ -53,12 +53,13 @@ jobs:
         shell: bash
         run: |
           set -Eeuo pipefail
+          # The upstream v1.8.0 tag is a rolling prerelease channel and its JAR
+          # has changed without a version bump (tlaplus/tlaplus#1399). Use the
+          # immutable mirror release pinned by build tag and SHA-256 instead.
           curl --fail --location --retry 3 --connect-timeout 15 \
-            https://github.com/tlaplus/tlaplus/releases/download/v1.8.0/tla2tools.jar \
+            https://github.com/zactionsz/tla-tools/releases/download/tla2tools-2026.08.11.125311/tla2tools.jar \
             --output "$TLA2TOOLS_JAR"
-          # TLA+ v1.8.0 release publishes this upstream SHA-1 checksum.
-          # TLS protects transport; compute SHA-256 as well for the run receipt.
-          echo "82d950354adcc694e98df3918f687c4400c47d8d  $TLA2TOOLS_JAR" | sha1sum --check --strict
+          echo "ab323b79802aedc3203b3f9af37c6aca3ed43f4e0225b36f2aa77b26de46c05f  $TLA2TOOLS_JAR" | sha256sum --check --strict
           sha256sum "$TLA2TOOLS_JAR"
 
       - name: Check runner shell syntax
