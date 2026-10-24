@@ -12,11 +12,12 @@ This complements (rather than reproduces) LongTutor's three task families—hist
 
 - `examples/tutor-history/v1/observations.json`: solver-visible, fixed-ID synthetic trajectories only.
 - `examples/tutor-history/v1/oracle.json`: evaluation labels and required evidence IDs; keep this input isolated from the system under test.
-- Both have strict JSON Schema 2020-12 files.
+- `examples/tutor-history/v1/mutation_matrix.json`: a versioned mutation/control catalogue mapping 16 negative and positive controls to named Rust tests.
+- Observations, oracle and mutation matrix each have strict JSON Schema 2020-12 files.
 - `crates/praxis-core/src/tutor_history_benchmark.rs`: strict Rust data types, cross-file invariants, exact-byte BLAKE3 binding, and an outcome scorer.
 - The oracle is not an input feature. A test harness must send only observations to the candidate, then score candidate predictions against the separate oracle.
 
-The example set intentionally includes short histories and ambiguous histories, not just clean positive examples. It distinguishes raw observations and imported summaries from derived estimates. The v1 counterfactual groups are assistance-only pairs: they must have exactly two cases, preserve all non-assistance event semantics, and actually change assistance labels. No direct learner identifiers, free-text answers, or private learner logs are present.
+The example set intentionally includes short histories and ambiguous histories, not just clean positive examples. The mutation matrix is part of the evaluator contract: it enumerates digest tampering, event-order permutations, irrelevant observations, missing citations, omitted contradictions, fabricated IDs, malformed provenance, invalid counterfactuals, sequence collisions, omitted nullable fields and prediction cardinality faults. It distinguishes raw observations and imported summaries from derived estimates. The v1 counterfactual groups are assistance-only pairs: they must have exactly two cases, preserve all non-assistance event semantics, and actually change assistance labels. No direct learner identifiers, free-text answers, or private learner logs are present.
 
 ## Output contract
 
