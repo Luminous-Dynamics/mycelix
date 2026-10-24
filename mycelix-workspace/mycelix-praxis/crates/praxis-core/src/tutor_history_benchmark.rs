@@ -862,7 +862,8 @@ mod tests {
         #[serde(deny_unknown_fields)]
         struct MutationEntry {
             mutation_id: String,
-            expected: String,
+            attack: String,
+            expected_outcome: String,
             test_name: String,
         }
         const MATRIX_JSON: &str = include_str!("../../../examples/tutor-history/v1/mutation_matrix.json");
@@ -874,7 +875,8 @@ mod tests {
         let ids: BTreeSet<&str> = matrix.mutations.iter().map(|entry| entry.mutation_id.as_str()).collect();
         assert_eq!(ids.len(), matrix.mutations.len(), "mutation IDs must be unique");
         for entry in &matrix.mutations {
-            assert!(!entry.expected.trim().is_empty());
+            assert!(!entry.attack.trim().is_empty());
+            assert!(!entry.expected_outcome.trim().is_empty());
             assert!(!entry.test_name.trim().is_empty());
             assert!(SELF_SOURCE.contains(&format!("fn {}(", entry.test_name)), "missing test for {}", entry.mutation_id);
         }
