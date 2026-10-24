@@ -1,6 +1,7 @@
 {
   "benchmark_id": "LIFE-SD-JWT-VERIFY-MATRIX-001",
   "version": "0.1.0",
+  "requirement_map": "rfc9901-requirement-map.json",
   "status": "synthetic_end_to_end_verifier_behavior_harness_pending_exact_head_qualification",
   "standard": {
     "id": "RFC 9901",
