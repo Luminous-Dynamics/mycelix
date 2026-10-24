@@ -1,0 +1,110 @@
+{
+  "schema_version": 1,
+  "analysis_protocol_id": "PRAXIS-LEARNING-OUTCOME-ANALYSIS-001",
+  "controls": [
+    {
+      "control_id": "OLA-001",
+      "mutation_class": "positive",
+      "mutation": "Registered protocol; 120 complete outcomes per arm; supported estimator.",
+      "expected_result": "interval_available",
+      "expected_finding_code": null,
+      "rust_test": "registered_complete_data_returns_deterministic_interval"
+    },
+    {
+      "control_id": "OLA-002",
+      "mutation_class": "metamorphic",
+      "mutation": "Reverse participant row order without changing any row.",
+      "expected_result": "same_semantic_estimate_new_byte_digest",
+      "expected_finding_code": null,
+      "rust_test": "row_permutation_preserves_estimates_but_changes_input_digest"
+    },
+    {
+      "control_id": "OLA-003",
+      "mutation_class": "negative",
+      "mutation": "Make one primary outcome missing but provide a declared reason.",
+      "expected_result": "effect_suppressed_bounds_reported",
+      "expected_finding_code": "inferential_effect_suppressed_for_missing_outcomes",
+      "rust_test": "missing_primary_outcome_suppresses_effect_and_reports_bounds"
+    },
+    {
+      "control_id": "OLA-004",
+      "mutation_class": "negative",
+      "mutation": "Use a draft protocol for inferential analysis.",
+      "expected_result": "rejected",
+      "expected_finding_code": "protocol_not_preregistered",
+      "rust_test": "draft_protocol_cannot_be_used_for_inferential_analysis"
+    },
+    {
+      "control_id": "OLA-005",
+      "mutation_class": "negative",
+      "mutation": "Duplicate a participant token across dataset rows.",
+      "expected_result": "rejected",
+      "expected_finding_code": "duplicate_participant",
+      "rust_test": "duplicate_participant_is_rejected"
+    },
+    {
+      "control_id": "OLA-006",
+      "mutation_class": "negative",
+      "mutation": "Set an endpoint value above its registered scale.",
+      "expected_result": "rejected",
+      "expected_finding_code": "outcome_out_of_range",
+      "rust_test": "out_of_range_outcome_is_rejected"
+    },
+    {
+      "control_id": "OLA-007",
+      "mutation_class": "negative",
+      "mutation": "Select multiple imputation before it is implemented by the engine.",
+      "expected_result": "rejected",
+      "expected_finding_code": "unsupported_missing_data_plan",
+      "rust_test": "unsupported_multiple_imputation_fails_closed"
+    },
+    {
+      "control_id": "OLA-008",
+      "mutation_class": "negative",
+      "mutation": "Remove the missing reason for a null outcome.",
+      "expected_result": "rejected",
+      "expected_finding_code": "missing_reason_required",
+      "rust_test": "missing_reason_is_required_when_value_is_null"
+    },
+    {
+      "control_id": "OLA-009",
+      "mutation_class": "negative",
+      "mutation": "Attach a missing reason to an observed outcome value.",
+      "expected_result": "rejected",
+      "expected_finding_code": "missing_reason_on_observed_outcome",
+      "rust_test": "missing_reason_is_forbidden_when_value_is_present"
+    },
+    {
+      "control_id": "OLA-010",
+      "mutation_class": "negative",
+      "mutation": "Substitute an endpoint not registered as the primary endpoint.",
+      "expected_result": "rejected",
+      "expected_finding_code": "endpoint_id_mismatch",
+      "rust_test": "wrong_endpoint_is_rejected"
+    },
+    {
+      "control_id": "OLA-011",
+      "mutation_class": "negative",
+      "mutation": "Provide fewer randomized participants than the predeclared targets.",
+      "expected_result": "descriptive_only_no_interval",
+      "expected_finding_code": "inferential_interval_suppressed_for_sample_size",
+      "rust_test": "below_planned_sample_size_withholds_interval"
+    },
+    {
+      "control_id": "OLA-012",
+      "mutation_class": "negative",
+      "mutation": "Provide malformed participant-outcome JSON.",
+      "expected_result": "rejected",
+      "expected_finding_code": "dataset_parse_error",
+      "rust_test": "malformed_dataset_json_is_rejected"
+    },
+    {
+      "control_id": "OLA-013",
+      "mutation_class": "negative",
+      "mutation": "Assign a participant to a post-hoc or unregistered arm.",
+      "expected_result": "rejected",
+      "expected_finding_code": "unknown_arm",
+      "rust_test": "unknown_arm_is_rejected"
+    }
+  ]
+}

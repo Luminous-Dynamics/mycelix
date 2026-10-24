@@ -1,0 +1,1449 @@
+{
+  "schema_version": 1,
+  "protocol_id": "PRAXIS-LEARNING-OUTCOME-PROTOCOL-001",
+  "dataset_id": "synthetic-not-evidence-v1",
+  "study_id": "synthetic-protocol-fixture",
+  "endpoint_id": "far-transfer-7d",
+  "rows": [
+    {
+      "participant_id": "synthetic-t-001",
+      "arm_id": "treatment",
+      "value_milli": 650,
+      "missing_reason": null
+    },
+    {
+      "participant_id": "synthetic-c-001",
+      "arm_id": "usual_practice",
+      "value_milli": 400,
+      "missing_reason": null
+    },
+    {
+      "participant_id": "synthetic-t-002",
+      "arm_id": "treatment",
+      "value_milli": 687,
+      "missing_reason": null
+    },
+    {
+      "participant_id": "synthetic-c-002",
+      "arm_id": "usual_practice",
+      "value_milli": 437,
+      "missing_reason": null
+    },
+    {
+      "participant_id": "synthetic-t-003",
+      "arm_id": "treatment",
+      "value_milli": 724,
+      "missing_reason": null
+    },
+    {
+      "participant_id": "synthetic-c-003",
+      "arm_id": "usual_practice",
+      "value_milli": 474,
+      "missing_reason": null
+    },
+    {
+      "participant_id": "synthetic-t-004",
+      "arm_id": "treatment",
+      "value_milli": 761,
+      "missing_reason": null
+    },
+    {
+      "participant_id": "synthetic-c-004",
+      "arm_id": "usual_practice",
+      "value_milli": 511,
+      "missing_reason": null
+    },
+    {
+      "participant_id": "synthetic-t-005",
+      "arm_id": "treatment",
+      "value_milli": 798,
+      "missing_reason": null
+    },
+    {
+      "participant_id": "synthetic-c-005",
+      "arm_id": "usual_practice",
+      "value_milli": 548,
+      "missing_reason": null
+    },
+    {
+      "participant_id": "synthetic-t-006",
+      "arm_id": "treatment",
+      "value_milli": 835,
+      "missing_reason": null
+    },
+    {
+      "participant_id": "synthetic-c-006",
+      "arm_id": "usual_practice",
+      "value_milli": 585,
+      "missing_reason": null
+    },
+    {
+      "participant_id": "synthetic-t-007",
+      "arm_id": "treatment",
+      "value_milli": 872,
+      "missing_reason": null
+    },
+    {
+      "participant_id": "synthetic-c-007",
+      "arm_id": "usual_practice",
+      "value_milli": 622,
+      "missing_reason": null
+    },
+    {
+      "participant_id": "synthetic-t-008",
+      "arm_id": "treatment",
+      "value_milli": 909,
+      "missing_reason": null
+    },
+    {
+      "participant_id": "synthetic-c-008",
+      "arm_id": "usual_practice",
+      "value_milli": 659,
+      "missing_reason": null
+    },
+    {
+      "participant_id": "synthetic-t-009",
+      "arm_id": "treatment",
+      "value_milli": 946,
+      "missing_reason": null
+    },
+    {
+      "participant_id": "synthetic-c-009",
+      "arm_id": "usual_practice",
+      "value_milli": 696,
+      "missing_reason": null
+    },
+    {
+      "participant_id": "synthetic-t-010",
+      "arm_id": "treatment",
+      "value_milli": 682,
+      "missing_reason": null
+    },
+    {
+      "participant_id": "synthetic-c-010",
+      "arm_id": "usual_practice",
+      "value_milli": 432,
+      "missing_reason": null
+    },
+    {
+      "participant_id": "synthetic-t-011",
+      "arm_id": "treatment",
+      "value_milli": 719,
+      "missing_reason": null
+    },
+    {
+      "participant_id": "synthetic-c-011",
+      "arm_id": "usual_practice",
+      "value_milli": 469,
+      "missing_reason": null
+    },
+    {
+      "participant_id": "synthetic-t-012",
+      "arm_id": "treatment",
+      "value_milli": 756,
+      "missing_reason": null
+    },
+    {
+      "participant_id": "synthetic-c-012",
+      "arm_id": "usual_practice",
+      "value_milli": 506,
+      "missing_reason": null
+    },
+    {
+      "participant_id": "synthetic-t-013",
+      "arm_id": "treatment",
+      "value_milli": 793,
+      "missing_reason": null
+    },
+    {
+      "participant_id": "synthetic-c-013",
+      "arm_id": "usual_practice",
+      "value_milli": 543,
+      "missing_reason": null
+    },
+    {
+      "participant_id": "synthetic-t-014",
+      "arm_id": "treatment",
+      "value_milli": 830,
+      "missing_reason": null
+    },
+    {
+      "participant_id": "synthetic-c-014",
+      "arm_id": "usual_practice",
+      "value_milli": 580,
+      "missing_reason": null
+    },
+    {
+      "participant_id": "synthetic-t-015",
+      "arm_id": "treatment",
+      "value_milli": 867,
+      "missing_reason": null
+    },
+    {
+      "participant_id": "synthetic-c-015",
+      "arm_id": "usual_practice",
+      "value_milli": 617,
+      "missing_reason": null
+    },
+    {
+      "participant_id": "synthetic-t-016",
+      "arm_id": "treatment",
+      "value_milli": 904,
+      "missing_reason": null
+    },
+    {
+      "participant_id": "synthetic-c-016",
+      "arm_id": "usual_practice",
+      "value_milli": 654,
+      "missing_reason": null
+    },
+    {
+      "participant_id": "synthetic-t-017",
+      "arm_id": "treatment",
+      "value_milli": 941,
+      "missing_reason": null
+    },
+    {
+      "participant_id": "synthetic-c-017",
+      "arm_id": "usual_practice",
+      "value_milli": 691,
+      "missing_reason": null
+    },
+    {
+      "participant_id": "synthetic-t-018",
+      "arm_id": "treatment",
+      "value_milli": 677,
+      "missing_reason": null
+    },
+    {
+      "participant_id": "synthetic-c-018",
+      "arm_id": "usual_practice",
+      "value_milli": 427,
+      "missing_reason": null
+    },
+    {
+      "participant_id": "synthetic-t-019",
+      "arm_id": "treatment",
+      "value_milli": 714,
+      "missing_reason": null
+    },
+    {
+      "participant_id": "synthetic-c-019",
+      "arm_id": "usual_practice",
+      "value_milli": 464,
+      "missing_reason": null
+    },
+    {
+      "participant_id": "synthetic-t-020",
+      "arm_id": "treatment",
+      "value_milli": 751,
+      "missing_reason": null
+    },
+    {
+      "participant_id": "synthetic-c-020",
+      "arm_id": "usual_practice",
+      "value_milli": 501,
+      "missing_reason": null
+    },
+    {
+      "participant_id": "synthetic-t-021",
+      "arm_id": "treatment",
+      "value_milli": 788,
+      "missing_reason": null
+    },
+    {
+      "participant_id": "synthetic-c-021",
+      "arm_id": "usual_practice",
+      "value_milli": 538,
+      "missing_reason": null
+    },
+    {
+      "participant_id": "synthetic-t-022",
+      "arm_id": "treatment",
+      "value_milli": 825,
+      "missing_reason": null
+    },
+    {
+      "participant_id": "synthetic-c-022",
+      "arm_id": "usual_practice",
+      "value_milli": 575,
+      "missing_reason": null
+    },
+    {
+      "participant_id": "synthetic-t-023",
+      "arm_id": "treatment",
+      "value_milli": 862,
+      "missing_reason": null
+    },
+    {
+      "participant_id": "synthetic-c-023",
+      "arm_id": "usual_practice",
+      "value_milli": 612,
+      "missing_reason": null
+    },
+    {
+      "participant_id": "synthetic-t-024",
+      "arm_id": "treatment",
+      "value_milli": 899,
+      "missing_reason": null
+    },
+    {
+      "participant_id": "synthetic-c-024",
+      "arm_id": "usual_practice",
+      "value_milli": 649,
+      "missing_reason": null
+    },
+    {
+      "participant_id": "synthetic-t-025",
+      "arm_id": "treatment",
+      "value_milli": 936,
+      "missing_reason": null
+    },
+    {
+      "participant_id": "synthetic-c-025",
+      "arm_id": "usual_practice",
+      "value_milli": 686,
+      "missing_reason": null
+    },
+    {
+      "participant_id": "synthetic-t-026",
+      "arm_id": "treatment",
+      "value_milli": 672,
+      "missing_reason": null
+    },
+    {
+      "participant_id": "synthetic-c-026",
+      "arm_id": "usual_practice",
+      "value_milli": 422,
+      "missing_reason": null
+    },
+    {
+      "participant_id": "synthetic-t-027",
+      "arm_id": "treatment",
+      "value_milli": 709,
+      "missing_reason": null
+    },
+    {
+      "participant_id": "synthetic-c-027",
+      "arm_id": "usual_practice",
+      "value_milli": 459,
+      "missing_reason": null
+    },
+    {
+      "participant_id": "synthetic-t-028",
+      "arm_id": "treatment",
+      "value_milli": 746,
+      "missing_reason": null
+    },
+    {
+      "participant_id": "synthetic-c-028",
+      "arm_id": "usual_practice",
+      "value_milli": 496,
+      "missing_reason": null
+    },
+    {
+      "participant_id": "synthetic-t-029",
+      "arm_id": "treatment",
+      "value_milli": 783,
+      "missing_reason": null
+    },
+    {
+      "participant_id": "synthetic-c-029",
+      "arm_id": "usual_practice",
+      "value_milli": 533,
+      "missing_reason": null
+    },
+    {
+      "participant_id": "synthetic-t-030",
+      "arm_id": "treatment",
+      "value_milli": 820,
+      "missing_reason": null
+    },
+    {
+      "participant_id": "synthetic-c-030",
+      "arm_id": "usual_practice",
+      "value_milli": 570,
+      "missing_reason": null
+    },
+    {
+      "participant_id": "synthetic-t-031",
+      "arm_id": "treatment",
+      "value_milli": 857,
+      "missing_reason": null
+    },
+    {
+      "participant_id": "synthetic-c-031",
+      "arm_id": "usual_practice",
+      "value_milli": 607,
+      "missing_reason": null
+    },
+    {
+      "participant_id": "synthetic-t-032",
+      "arm_id": "treatment",
+      "value_milli": 894,
+      "missing_reason": null
+    },
+    {
+      "participant_id": "synthetic-c-032",
+      "arm_id": "usual_practice",
+      "value_milli": 644,
+      "missing_reason": null
+    },
+    {
+      "participant_id": "synthetic-t-033",
+      "arm_id": "treatment",
+      "value_milli": 931,
+      "missing_reason": null
+    },
+    {
+      "participant_id": "synthetic-c-033",
+      "arm_id": "usual_practice",
+      "value_milli": 681,
+      "missing_reason": null
+    },
+    {
+      "participant_id": "synthetic-t-034",
+      "arm_id": "treatment",
+      "value_milli": 667,
+      "missing_reason": null
+    },
+    {
+      "participant_id": "synthetic-c-034",
+      "arm_id": "usual_practice",
+      "value_milli": 417,
+      "missing_reason": null
+    },
+    {
+      "participant_id": "synthetic-t-035",
+      "arm_id": "treatment",
+      "value_milli": 704,
+      "missing_reason": null
+    },
+    {
+      "participant_id": "synthetic-c-035",
+      "arm_id": "usual_practice",
+      "value_milli": 454,
+      "missing_reason": null
+    },
+    {
+      "participant_id": "synthetic-t-036",
+      "arm_id": "treatment",
+      "value_milli": 741,
+      "missing_reason": null
+    },
+    {
+      "participant_id": "synthetic-c-036",
+      "arm_id": "usual_practice",
+      "value_milli": 491,
+      "missing_reason": null
+    },
+    {
+      "participant_id": "synthetic-t-037",
+      "arm_id": "treatment",
+      "value_milli": 778,
+      "missing_reason": null
+    },
+    {
+      "participant_id": "synthetic-c-037",
+      "arm_id": "usual_practice",
+      "value_milli": 528,
+      "missing_reason": null
+    },
+    {
+      "participant_id": "synthetic-t-038",
+      "arm_id": "treatment",
+      "value_milli": 815,
+      "missing_reason": null
+    },
+    {
+      "participant_id": "synthetic-c-038",
+      "arm_id": "usual_practice",
+      "value_milli": 565,
+      "missing_reason": null
+    },
+    {
+      "participant_id": "synthetic-t-039",
+      "arm_id": "treatment",
+      "value_milli": 852,
+      "missing_reason": null
+    },
+    {
+      "participant_id": "synthetic-c-039",
+      "arm_id": "usual_practice",
+      "value_milli": 602,
+      "missing_reason": null
+    },
+    {
+      "participant_id": "synthetic-t-040",
+      "arm_id": "treatment",
+      "value_milli": 889,
+      "missing_reason": null
+    },
+    {
+      "participant_id": "synthetic-c-040",
+      "arm_id": "usual_practice",
+      "value_milli": 639,
+      "missing_reason": null
+    },
+    {
+      "participant_id": "synthetic-t-041",
+      "arm_id": "treatment",
+      "value_milli": 926,
+      "missing_reason": null
+    },
+    {
+      "participant_id": "synthetic-c-041",
+      "arm_id": "usual_practice",
+      "value_milli": 676,
+      "missing_reason": null
+    },
+    {
+      "participant_id": "synthetic-t-042",
+      "arm_id": "treatment",
+      "value_milli": 662,
+      "missing_reason": null
+    },
+    {
+      "participant_id": "synthetic-c-042",
+      "arm_id": "usual_practice",
+      "value_milli": 412,
+      "missing_reason": null
+    },
+    {
+      "participant_id": "synthetic-t-043",
+      "arm_id": "treatment",
+      "value_milli": 699,
+      "missing_reason": null
+    },
+    {
+      "participant_id": "synthetic-c-043",
+      "arm_id": "usual_practice",
+      "value_milli": 449,
+      "missing_reason": null
+    },
+    {
+      "participant_id": "synthetic-t-044",
+      "arm_id": "treatment",
+      "value_milli": 736,
+      "missing_reason": null
+    },
+    {
+      "participant_id": "synthetic-c-044",
+      "arm_id": "usual_practice",
+      "value_milli": 486,
+      "missing_reason": null
+    },
+    {
+      "participant_id": "synthetic-t-045",
+      "arm_id": "treatment",
+      "value_milli": 773,
+      "missing_reason": null
+    },
+    {
+      "participant_id": "synthetic-c-045",
+      "arm_id": "usual_practice",
+      "value_milli": 523,
+      "missing_reason": null
+    },
+    {
+      "participant_id": "synthetic-t-046",
+      "arm_id": "treatment",
+      "value_milli": 810,
+      "missing_reason": null
+    },
+    {
+      "participant_id": "synthetic-c-046",
+      "arm_id": "usual_practice",
+      "value_milli": 560,
+      "missing_reason": null
+    },
+    {
+      "participant_id": "synthetic-t-047",
+      "arm_id": "treatment",
+      "value_milli": 847,
+      "missing_reason": null
+    },
+    {
+      "participant_id": "synthetic-c-047",
+      "arm_id": "usual_practice",
+      "value_milli": 597,
+      "missing_reason": null
+    },
+    {
+      "participant_id": "synthetic-t-048",
+      "arm_id": "treatment",
+      "value_milli": 884,
+      "missing_reason": null
+    },
+    {
+      "participant_id": "synthetic-c-048",
+      "arm_id": "usual_practice",
+      "value_milli": 634,
+      "missing_reason": null
+    },
+    {
+      "participant_id": "synthetic-t-049",
+      "arm_id": "treatment",
+      "value_milli": 921,
+      "missing_reason": null
+    },
+    {
+      "participant_id": "synthetic-c-049",
+      "arm_id": "usual_practice",
+      "value_milli": 671,
+      "missing_reason": null
+    },
+    {
+      "participant_id": "synthetic-t-050",
+      "arm_id": "treatment",
+      "value_milli": 657,
+      "missing_reason": null
+    },
+    {
+      "participant_id": "synthetic-c-050",
+      "arm_id": "usual_practice",
+      "value_milli": 407,
+      "missing_reason": null
+    },
+    {
+      "participant_id": "synthetic-t-051",
+      "arm_id": "treatment",
+      "value_milli": 694,
+      "missing_reason": null
+    },
+    {
+      "participant_id": "synthetic-c-051",
+      "arm_id": "usual_practice",
+      "value_milli": 444,
+      "missing_reason": null
+    },
+    {
+      "participant_id": "synthetic-t-052",
+      "arm_id": "treatment",
+      "value_milli": 731,
+      "missing_reason": null
+    },
+    {
+      "participant_id": "synthetic-c-052",
+      "arm_id": "usual_practice",
+      "value_milli": 481,
+      "missing_reason": null
+    },
+    {
+      "participant_id": "synthetic-t-053",
+      "arm_id": "treatment",
+      "value_milli": 768,
+      "missing_reason": null
+    },
+    {
+      "participant_id": "synthetic-c-053",
+      "arm_id": "usual_practice",
+      "value_milli": 518,
+      "missing_reason": null
+    },
+    {
+      "participant_id": "synthetic-t-054",
+      "arm_id": "treatment",
+      "value_milli": 805,
+      "missing_reason": null
+    },
+    {
+      "participant_id": "synthetic-c-054",
+      "arm_id": "usual_practice",
+      "value_milli": 555,
+      "missing_reason": null
+    },
+    {
+      "participant_id": "synthetic-t-055",
+      "arm_id": "treatment",
+      "value_milli": 842,
+      "missing_reason": null
+    },
+    {
+      "participant_id": "synthetic-c-055",
+      "arm_id": "usual_practice",
+      "value_milli": 592,
+      "missing_reason": null
+    },
+    {
+      "participant_id": "synthetic-t-056",
+      "arm_id": "treatment",
+      "value_milli": 879,
+      "missing_reason": null
+    },
+    {
+      "participant_id": "synthetic-c-056",
+      "arm_id": "usual_practice",
+      "value_milli": 629,
+      "missing_reason": null
+    },
+    {
+      "participant_id": "synthetic-t-057",
+      "arm_id": "treatment",
+      "value_milli": 916,
+      "missing_reason": null
+    },
+    {
+      "participant_id": "synthetic-c-057",
+      "arm_id": "usual_practice",
+      "value_milli": 666,
+      "missing_reason": null
+    },
+    {
+      "participant_id": "synthetic-t-058",
+      "arm_id": "treatment",
+      "value_milli": 652,
+      "missing_reason": null
+    },
+    {
+      "participant_id": "synthetic-c-058",
+      "arm_id": "usual_practice",
+      "value_milli": 402,
+      "missing_reason": null
+    },
+    {
+      "participant_id": "synthetic-t-059",
+      "arm_id": "treatment",
+      "value_milli": 689,
+      "missing_reason": null
+    },
+    {
+      "participant_id": "synthetic-c-059",
+      "arm_id": "usual_practice",
+      "value_milli": 439,
+      "missing_reason": null
+    },
+    {
+      "participant_id": "synthetic-t-060",
+      "arm_id": "treatment",
+      "value_milli": 726,
+      "missing_reason": null
+    },
+    {
+      "participant_id": "synthetic-c-060",
+      "arm_id": "usual_practice",
+      "value_milli": 476,
+      "missing_reason": null
+    },
+    {
+      "participant_id": "synthetic-t-061",
+      "arm_id": "treatment",
+      "value_milli": 763,
+      "missing_reason": null
+    },
+    {
+      "participant_id": "synthetic-c-061",
+      "arm_id": "usual_practice",
+      "value_milli": 513,
+      "missing_reason": null
+    },
+    {
+      "participant_id": "synthetic-t-062",
+      "arm_id": "treatment",
+      "value_milli": 800,
+      "missing_reason": null
+    },
+    {
+      "participant_id": "synthetic-c-062",
+      "arm_id": "usual_practice",
+      "value_milli": 550,
+      "missing_reason": null
+    },
+    {
+      "participant_id": "synthetic-t-063",
+      "arm_id": "treatment",
+      "value_milli": 837,
+      "missing_reason": null
+    },
+    {
+      "participant_id": "synthetic-c-063",
+      "arm_id": "usual_practice",
+      "value_milli": 587,
+      "missing_reason": null
+    },
+    {
+      "participant_id": "synthetic-t-064",
+      "arm_id": "treatment",
+      "value_milli": 874,
+      "missing_reason": null
+    },
+    {
+      "participant_id": "synthetic-c-064",
+      "arm_id": "usual_practice",
+      "value_milli": 624,
+      "missing_reason": null
+    },
+    {
+      "participant_id": "synthetic-t-065",
+      "arm_id": "treatment",
+      "value_milli": 911,
+      "missing_reason": null
+    },
+    {
+      "participant_id": "synthetic-c-065",
+      "arm_id": "usual_practice",
+      "value_milli": 661,
+      "missing_reason": null
+    },
+    {
+      "participant_id": "synthetic-t-066",
+      "arm_id": "treatment",
+      "value_milli": 948,
+      "missing_reason": null
+    },
+    {
+      "participant_id": "synthetic-c-066",
+      "arm_id": "usual_practice",
+      "value_milli": 698,
+      "missing_reason": null
+    },
+    {
+      "participant_id": "synthetic-t-067",
+      "arm_id": "treatment",
+      "value_milli": 684,
+      "missing_reason": null
+    },
+    {
+      "participant_id": "synthetic-c-067",
+      "arm_id": "usual_practice",
+      "value_milli": 434,
+      "missing_reason": null
+    },
+    {
+      "participant_id": "synthetic-t-068",
+      "arm_id": "treatment",
+      "value_milli": 721,
+      "missing_reason": null
+    },
+    {
+      "participant_id": "synthetic-c-068",
+      "arm_id": "usual_practice",
+      "value_milli": 471,
+      "missing_reason": null
+    },
+    {
+      "participant_id": "synthetic-t-069",
+      "arm_id": "treatment",
+      "value_milli": 758,
+      "missing_reason": null
+    },
+    {
+      "participant_id": "synthetic-c-069",
+      "arm_id": "usual_practice",
+      "value_milli": 508,
+      "missing_reason": null
+    },
+    {
+      "participant_id": "synthetic-t-070",
+      "arm_id": "treatment",
+      "value_milli": 795,
+      "missing_reason": null
+    },
+    {
+      "participant_id": "synthetic-c-070",
+      "arm_id": "usual_practice",
+      "value_milli": 545,
+      "missing_reason": null
+    },
+    {
+      "participant_id": "synthetic-t-071",
+      "arm_id": "treatment",
+      "value_milli": 832,
+      "missing_reason": null
+    },
+    {
+      "participant_id": "synthetic-c-071",
+      "arm_id": "usual_practice",
+      "value_milli": 582,
+      "missing_reason": null
+    },
+    {
+      "participant_id": "synthetic-t-072",
+      "arm_id": "treatment",
+      "value_milli": 869,
+      "missing_reason": null
+    },
+    {
+      "participant_id": "synthetic-c-072",
+      "arm_id": "usual_practice",
+      "value_milli": 619,
+      "missing_reason": null
+    },
+    {
+      "participant_id": "synthetic-t-073",
+      "arm_id": "treatment",
+      "value_milli": 906,
+      "missing_reason": null
+    },
+    {
+      "participant_id": "synthetic-c-073",
+      "arm_id": "usual_practice",
+      "value_milli": 656,
+      "missing_reason": null
+    },
+    {
+      "participant_id": "synthetic-t-074",
+      "arm_id": "treatment",
+      "value_milli": 943,
+      "missing_reason": null
+    },
+    {
+      "participant_id": "synthetic-c-074",
+      "arm_id": "usual_practice",
+      "value_milli": 693,
+      "missing_reason": null
+    },
+    {
+      "participant_id": "synthetic-t-075",
+      "arm_id": "treatment",
+      "value_milli": 679,
+      "missing_reason": null
+    },
+    {
+      "participant_id": "synthetic-c-075",
+      "arm_id": "usual_practice",
+      "value_milli": 429,
+      "missing_reason": null
+    },
+    {
+      "participant_id": "synthetic-t-076",
+      "arm_id": "treatment",
+      "value_milli": 716,
+      "missing_reason": null
+    },
+    {
+      "participant_id": "synthetic-c-076",
+      "arm_id": "usual_practice",
+      "value_milli": 466,
+      "missing_reason": null
+    },
+    {
+      "participant_id": "synthetic-t-077",
+      "arm_id": "treatment",
+      "value_milli": 753,
+      "missing_reason": null
+    },
+    {
+      "participant_id": "synthetic-c-077",
+      "arm_id": "usual_practice",
+      "value_milli": 503,
+      "missing_reason": null
+    },
+    {
+      "participant_id": "synthetic-t-078",
+      "arm_id": "treatment",
+      "value_milli": 790,
+      "missing_reason": null
+    },
+    {
+      "participant_id": "synthetic-c-078",
+      "arm_id": "usual_practice",
+      "value_milli": 540,
+      "missing_reason": null
+    },
+    {
+      "participant_id": "synthetic-t-079",
+      "arm_id": "treatment",
+      "value_milli": 827,
+      "missing_reason": null
+    },
+    {
+      "participant_id": "synthetic-c-079",
+      "arm_id": "usual_practice",
+      "value_milli": 577,
+      "missing_reason": null
+    },
+    {
+      "participant_id": "synthetic-t-080",
+      "arm_id": "treatment",
+      "value_milli": 864,
+      "missing_reason": null
+    },
+    {
+      "participant_id": "synthetic-c-080",
+      "arm_id": "usual_practice",
+      "value_milli": 614,
+      "missing_reason": null
+    },
+    {
+      "participant_id": "synthetic-t-081",
+      "arm_id": "treatment",
+      "value_milli": 901,
+      "missing_reason": null
+    },
+    {
+      "participant_id": "synthetic-c-081",
+      "arm_id": "usual_practice",
+      "value_milli": 651,
+      "missing_reason": null
+    },
+    {
+      "participant_id": "synthetic-t-082",
+      "arm_id": "treatment",
+      "value_milli": 938,
+      "missing_reason": null
+    },
+    {
+      "participant_id": "synthetic-c-082",
+      "arm_id": "usual_practice",
+      "value_milli": 688,
+      "missing_reason": null
+    },
+    {
+      "participant_id": "synthetic-t-083",
+      "arm_id": "treatment",
+      "value_milli": 674,
+      "missing_reason": null
+    },
+    {
+      "participant_id": "synthetic-c-083",
+      "arm_id": "usual_practice",
+      "value_milli": 424,
+      "missing_reason": null
+    },
+    {
+      "participant_id": "synthetic-t-084",
+      "arm_id": "treatment",
+      "value_milli": 711,
+      "missing_reason": null
+    },
+    {
+      "participant_id": "synthetic-c-084",
+      "arm_id": "usual_practice",
+      "value_milli": 461,
+      "missing_reason": null
+    },
+    {
+      "participant_id": "synthetic-t-085",
+      "arm_id": "treatment",
+      "value_milli": 748,
+      "missing_reason": null
+    },
+    {
+      "participant_id": "synthetic-c-085",
+      "arm_id": "usual_practice",
+      "value_milli": 498,
+      "missing_reason": null
+    },
+    {
+      "participant_id": "synthetic-t-086",
+      "arm_id": "treatment",
+      "value_milli": 785,
+      "missing_reason": null
+    },
+    {
+      "participant_id": "synthetic-c-086",
+      "arm_id": "usual_practice",
+      "value_milli": 535,
+      "missing_reason": null
+    },
+    {
+      "participant_id": "synthetic-t-087",
+      "arm_id": "treatment",
+      "value_milli": 822,
+      "missing_reason": null
+    },
+    {
+      "participant_id": "synthetic-c-087",
+      "arm_id": "usual_practice",
+      "value_milli": 572,
+      "missing_reason": null
+    },
+    {
+      "participant_id": "synthetic-t-088",
+      "arm_id": "treatment",
+      "value_milli": 859,
+      "missing_reason": null
+    },
+    {
+      "participant_id": "synthetic-c-088",
+      "arm_id": "usual_practice",
+      "value_milli": 609,
+      "missing_reason": null
+    },
+    {
+      "participant_id": "synthetic-t-089",
+      "arm_id": "treatment",
+      "value_milli": 896,
+      "missing_reason": null
+    },
+    {
+      "participant_id": "synthetic-c-089",
+      "arm_id": "usual_practice",
+      "value_milli": 646,
+      "missing_reason": null
+    },
+    {
+      "participant_id": "synthetic-t-090",
+      "arm_id": "treatment",
+      "value_milli": 933,
+      "missing_reason": null
+    },
+    {
+      "participant_id": "synthetic-c-090",
+      "arm_id": "usual_practice",
+      "value_milli": 683,
+      "missing_reason": null
+    },
+    {
+      "participant_id": "synthetic-t-091",
+      "arm_id": "treatment",
+      "value_milli": 669,
+      "missing_reason": null
+    },
+    {
+      "participant_id": "synthetic-c-091",
+      "arm_id": "usual_practice",
+      "value_milli": 419,
+      "missing_reason": null
+    },
+    {
+      "participant_id": "synthetic-t-092",
+      "arm_id": "treatment",
+      "value_milli": 706,
+      "missing_reason": null
+    },
+    {
+      "participant_id": "synthetic-c-092",
+      "arm_id": "usual_practice",
+      "value_milli": 456,
+      "missing_reason": null
+    },
+    {
+      "participant_id": "synthetic-t-093",
+      "arm_id": "treatment",
+      "value_milli": 743,
+      "missing_reason": null
+    },
+    {
+      "participant_id": "synthetic-c-093",
+      "arm_id": "usual_practice",
+      "value_milli": 493,
+      "missing_reason": null
+    },
+    {
+      "participant_id": "synthetic-t-094",
+      "arm_id": "treatment",
+      "value_milli": 780,
+      "missing_reason": null
+    },
+    {
+      "participant_id": "synthetic-c-094",
+      "arm_id": "usual_practice",
+      "value_milli": 530,
+      "missing_reason": null
+    },
+    {
+      "participant_id": "synthetic-t-095",
+      "arm_id": "treatment",
+      "value_milli": 817,
+      "missing_reason": null
+    },
+    {
+      "participant_id": "synthetic-c-095",
+      "arm_id": "usual_practice",
+      "value_milli": 567,
+      "missing_reason": null
+    },
+    {
+      "participant_id": "synthetic-t-096",
+      "arm_id": "treatment",
+      "value_milli": 854,
+      "missing_reason": null
+    },
+    {
+      "participant_id": "synthetic-c-096",
+      "arm_id": "usual_practice",
+      "value_milli": 604,
+      "missing_reason": null
+    },
+    {
+      "participant_id": "synthetic-t-097",
+      "arm_id": "treatment",
+      "value_milli": 891,
+      "missing_reason": null
+    },
+    {
+      "participant_id": "synthetic-c-097",
+      "arm_id": "usual_practice",
+      "value_milli": 641,
+      "missing_reason": null
+    },
+    {
+      "participant_id": "synthetic-t-098",
+      "arm_id": "treatment",
+      "value_milli": 928,
+      "missing_reason": null
+    },
+    {
+      "participant_id": "synthetic-c-098",
+      "arm_id": "usual_practice",
+      "value_milli": 678,
+      "missing_reason": null
+    },
+    {
+      "participant_id": "synthetic-t-099",
+      "arm_id": "treatment",
+      "value_milli": 664,
+      "missing_reason": null
+    },
+    {
+      "participant_id": "synthetic-c-099",
+      "arm_id": "usual_practice",
+      "value_milli": 414,
+      "missing_reason": null
+    },
+    {
+      "participant_id": "synthetic-t-100",
+      "arm_id": "treatment",
+      "value_milli": 701,
+      "missing_reason": null
+    },
+    {
+      "participant_id": "synthetic-c-100",
+      "arm_id": "usual_practice",
+      "value_milli": 451,
+      "missing_reason": null
+    },
+    {
+      "participant_id": "synthetic-t-101",
+      "arm_id": "treatment",
+      "value_milli": 738,
+      "missing_reason": null
+    },
+    {
+      "participant_id": "synthetic-c-101",
+      "arm_id": "usual_practice",
+      "value_milli": 488,
+      "missing_reason": null
+    },
+    {
+      "participant_id": "synthetic-t-102",
+      "arm_id": "treatment",
+      "value_milli": 775,
+      "missing_reason": null
+    },
+    {
+      "participant_id": "synthetic-c-102",
+      "arm_id": "usual_practice",
+      "value_milli": 525,
+      "missing_reason": null
+    },
+    {
+      "participant_id": "synthetic-t-103",
+      "arm_id": "treatment",
+      "value_milli": 812,
+      "missing_reason": null
+    },
+    {
+      "participant_id": "synthetic-c-103",
+      "arm_id": "usual_practice",
+      "value_milli": 562,
+      "missing_reason": null
+    },
+    {
+      "participant_id": "synthetic-t-104",
+      "arm_id": "treatment",
+      "value_milli": 849,
+      "missing_reason": null
+    },
+    {
+      "participant_id": "synthetic-c-104",
+      "arm_id": "usual_practice",
+      "value_milli": 599,
+      "missing_reason": null
+    },
+    {
+      "participant_id": "synthetic-t-105",
+      "arm_id": "treatment",
+      "value_milli": 886,
+      "missing_reason": null
+    },
+    {
+      "participant_id": "synthetic-c-105",
+      "arm_id": "usual_practice",
+      "value_milli": 636,
+      "missing_reason": null
+    },
+    {
+      "participant_id": "synthetic-t-106",
+      "arm_id": "treatment",
+      "value_milli": 923,
+      "missing_reason": null
+    },
+    {
+      "participant_id": "synthetic-c-106",
+      "arm_id": "usual_practice",
+      "value_milli": 673,
+      "missing_reason": null
+    },
+    {
+      "participant_id": "synthetic-t-107",
+      "arm_id": "treatment",
+      "value_milli": 659,
+      "missing_reason": null
+    },
+    {
+      "participant_id": "synthetic-c-107",
+      "arm_id": "usual_practice",
+      "value_milli": 409,
+      "missing_reason": null
+    },
+    {
+      "participant_id": "synthetic-t-108",
+      "arm_id": "treatment",
+      "value_milli": 696,
+      "missing_reason": null
+    },
+    {
+      "participant_id": "synthetic-c-108",
+      "arm_id": "usual_practice",
+      "value_milli": 446,
+      "missing_reason": null
+    },
+    {
+      "participant_id": "synthetic-t-109",
+      "arm_id": "treatment",
+      "value_milli": 733,
+      "missing_reason": null
+    },
+    {
+      "participant_id": "synthetic-c-109",
+      "arm_id": "usual_practice",
+      "value_milli": 483,
+      "missing_reason": null
+    },
+    {
+      "participant_id": "synthetic-t-110",
+      "arm_id": "treatment",
+      "value_milli": 770,
+      "missing_reason": null
+    },
+    {
+      "participant_id": "synthetic-c-110",
+      "arm_id": "usual_practice",
+      "value_milli": 520,
+      "missing_reason": null
+    },
+    {
+      "participant_id": "synthetic-t-111",
+      "arm_id": "treatment",
+      "value_milli": 807,
+      "missing_reason": null
+    },
+    {
+      "participant_id": "synthetic-c-111",
+      "arm_id": "usual_practice",
+      "value_milli": 557,
+      "missing_reason": null
+    },
+    {
+      "participant_id": "synthetic-t-112",
+      "arm_id": "treatment",
+      "value_milli": 844,
+      "missing_reason": null
+    },
+    {
+      "participant_id": "synthetic-c-112",
+      "arm_id": "usual_practice",
+      "value_milli": 594,
+      "missing_reason": null
+    },
+    {
+      "participant_id": "synthetic-t-113",
+      "arm_id": "treatment",
+      "value_milli": 881,
+      "missing_reason": null
+    },
+    {
+      "participant_id": "synthetic-c-113",
+      "arm_id": "usual_practice",
+      "value_milli": 631,
+      "missing_reason": null
+    },
+    {
+      "participant_id": "synthetic-t-114",
+      "arm_id": "treatment",
+      "value_milli": 918,
+      "missing_reason": null
+    },
+    {
+      "participant_id": "synthetic-c-114",
+      "arm_id": "usual_practice",
+      "value_milli": 668,
+      "missing_reason": null
+    },
+    {
+      "participant_id": "synthetic-t-115",
+      "arm_id": "treatment",
+      "value_milli": 654,
+      "missing_reason": null
+    },
+    {
+      "participant_id": "synthetic-c-115",
+      "arm_id": "usual_practice",
+      "value_milli": 404,
+      "missing_reason": null
+    },
+    {
+      "participant_id": "synthetic-t-116",
+      "arm_id": "treatment",
+      "value_milli": 691,
+      "missing_reason": null
+    },
+    {
+      "participant_id": "synthetic-c-116",
+      "arm_id": "usual_practice",
+      "value_milli": 441,
+      "missing_reason": null
+    },
+    {
+      "participant_id": "synthetic-t-117",
+      "arm_id": "treatment",
+      "value_milli": 728,
+      "missing_reason": null
+    },
+    {
+      "participant_id": "synthetic-c-117",
+      "arm_id": "usual_practice",
+      "value_milli": 478,
+      "missing_reason": null
+    },
+    {
+      "participant_id": "synthetic-t-118",
+      "arm_id": "treatment",
+      "value_milli": 765,
+      "missing_reason": null
+    },
+    {
+      "participant_id": "synthetic-c-118",
+      "arm_id": "usual_practice",
+      "value_milli": 515,
+      "missing_reason": null
+    },
+    {
+      "participant_id": "synthetic-t-119",
+      "arm_id": "treatment",
+      "value_milli": 802,
+      "missing_reason": null
+    },
+    {
+      "participant_id": "synthetic-c-119",
+      "arm_id": "usual_practice",
+      "value_milli": 552,
+      "missing_reason": null
+    },
+    {
+      "participant_id": "synthetic-t-120",
+      "arm_id": "treatment",
+      "value_milli": 839,
+      "missing_reason": null
+    },
+    {
+      "participant_id": "synthetic-c-120",
+      "arm_id": "usual_practice",
+      "value_milli": 589,
+      "missing_reason": null
+    }
+  ]
+}
