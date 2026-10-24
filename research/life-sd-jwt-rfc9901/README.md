@@ -20,7 +20,7 @@ cargo +1.96.0 clippy --manifest-path research/life-sd-jwt-rfc9901/Cargo.toml --a
 cargo +1.96.0 run --release --manifest-path research/life-sd-jwt-rfc9901/Cargo.toml
 ```
 
-The executable emits a deterministic CSV report with each expected digest, both implementation outputs, and a per-vector comparison. Tests also assert the published salt, claim name, scalar value or full address fields for every vector, so matching digests cannot conceal a mislabeled fixture. Parser negative controls also feed malformed JSON, invalid array lengths, and non-string salt/name fields into both implementations. The CI workflow asserts its checkout is the exact subject SHA, runs strict formatting/tests/Clippy, compares repeated reports byte-for-byte, and retains the report, generated lockfile, manifest, and SHA-256 receipt.
+The executable emits a deterministic CSV report with each expected digest, both implementation outputs, and a per-vector comparison. Tests also assert published salts, claim names, disclosure kinds, scalar values and full address fields in both implementations, so matching digests cannot conceal a mislabeled or semantically divergent fixture. Parser negative controls also feed malformed JSON, invalid array lengths, and non-string salt/name fields into both implementations. The CI workflow asserts its checkout is the exact subject SHA, runs strict formatting/tests/Clippy, compares repeated reports byte-for-byte, and retains the report, generated lockfile, manifest, and SHA-256 receipt.
 
 ## Scope and claim ceiling
 
