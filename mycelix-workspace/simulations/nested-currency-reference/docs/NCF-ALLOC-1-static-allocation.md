@@ -21,7 +21,7 @@ The dependency-free Rust module is `src/allocation.rs`.
 - **DemandWeighted:** weight by the ceiling of the mean of the declared integer demand samples.
 - **RobustQuantile:** weight by a nearest-rank historical quantile plus an explicit proportional margin. Quantiles are in basis points (9,500 = 95th percentile); margin is in parts per million.
 
-The plan may also preserve an explicit contingency reserve that is not allocated to an isolated shard. Inputs must already be normalized to the same exact canonical instrument/unit and comparable training window. Demand history is a forecast signal, never spending authority.
+The plan may also preserve an explicit contingency reserve that is not allocated to an isolated shard. Inputs must already be normalized to the same exact canonical instrument/unit and comparable training window. Demand history is a forecast signal, never spending authority. Data-dependent policies fail closed when any shard has no samples: missing history is unknown demand, not zero demand. A legitimate cold-start policy must be explicit, such as a declared minimum slice, or the operator must use EqualSplit until adequate observations exist.
 
 ## Integer and reproducibility contract
 
@@ -33,6 +33,7 @@ For total capacity C, contingency reserve R, and slice amounts a_i:
 - `a_i >= minimum_i` for every shard
 - `R >= 0` and no shard is allocated the reserve
 - the sum of minima must fit within `C - R`, otherwise allocation fails closed
+- missing history under DemandWeighted or RobustQuantile is an explicit error; it cannot silently assign a new shard zero weight
 - no output slice can expand a configured community/agreement budget
 - this function does not mutate an existing reservation or transfer rights between owners
 
