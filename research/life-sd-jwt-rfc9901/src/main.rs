@@ -153,6 +153,28 @@ mod tests {
     }
 
     #[test]
+    fn both_parsers_reject_malformed_json_and_invalid_disclosure_shapes() {
+        use base64::{engine::general_purpose::URL_SAFE_NO_PAD, Engine as _};
+
+        let hasher = Sha256Hasher;
+        let invalid_json = URL_SAFE_NO_PAD.encode(b"{not json");
+        let invalid_shapes = [
+            URL_SAFE_NO_PAD.encode(br#"["salt"]"#),
+            URL_SAFE_NO_PAD.encode(br#"["salt","name","value","extra"]"#),
+            URL_SAFE_NO_PAD.encode(br#"[7,"name","value"]"#),
+            URL_SAFE_NO_PAD.encode(br#"["salt",7,"value"]"#),
+        ];
+
+        assert!(Disclosure::parse(&invalid_json, &hasher).is_err());
+        assert!(decode_disclosure(&invalid_json).is_err());
+
+        for encoded in invalid_shapes {
+            assert!(Disclosure::parse(&encoded, &hasher).is_err(), "{encoded}");
+            assert!(decode_disclosure(&encoded).is_err(), "{encoded}");
+        }
+    }
+
+    #[test]
     fn distinct_published_disclosures_have_distinct_digests() {
         let digests: Vec<String> = RFC_VECTORS
             .iter()
