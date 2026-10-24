@@ -824,6 +824,63 @@ mod tests {
     }
 
     #[test]
+    fn duplicate_event_sequence_is_rejected() {
+        let mut value: serde_json::Value = serde_json::from_str(OBSERVATIONS).expect("JSON");
+        value["cases"][0]["observations"][1]["sequence"] = serde_json::json!(1);
+        let error = validate_history_bundle(&value.to_string(), ORACLE).expect_err("duplicate sequence");
+        assert!(error.iter().any(|item| item.code == "duplicate_or_zero_sequence"));
+    }
+
+    #[test]
+    fn omitted_nullable_field_is_not_silently_defaulted_to_null() {
+        let mut value: serde_json::Value = serde_json::from_str(OBSERVATIONS).expect("JSON");
+        value["cases"][3]["observations"][0].as_object_mut().expect("object").remove("correctness");
+        let error = validate_history_bundle(&value.to_string(), ORACLE).expect_err("omitted field");
+        assert!(error.iter().any(|item| item.code == "json_parse"));
+    }
+
+    #[test]
+    fn missing_prediction_row_rejects_scorecard() {
+        let (manifest, _) = validate_history_bundle(OBSERVATIONS, ORACLE).expect("valid bundle");
+        let mut predictions: Vec<HistoryPrediction> = manifest.cases.into_iter().map(|case| abstaining_prediction(case.case_id)).collect();
+        predictions.pop();
+        let raw = serde_json::to_string(&prediction_manifest(predictions)).expect("serialize");
+        let error = score_history_predictions(OBSERVATIONS, ORACLE, &raw).expect_err("prediction cardinality");
+        assert!(error.iter().any(|item| item.code == "prediction_cardinality_mismatch"));
+    }
+
+    #[test]
+    fn mutation_matrix_is_versioned_and_every_required_control_has_a_test() {
+        #[derive(Deserialize)]
+        #[serde(deny_unknown_fields)]
+        struct MutationMatrix {
+            schema_version: u32,
+            benchmark_id: String,
+            mutations: Vec<MutationEntry>,
+        }
+        #[derive(Deserialize)]
+        #[serde(deny_unknown_fields)]
+        struct MutationEntry {
+            mutation_id: String,
+            expected: String,
+            test_name: String,
+        }
+        const MATRIX_JSON: &str = include_str!("../../../examples/tutor-history/v1/mutation_matrix.json");
+        const SELF_SOURCE: &str = include_str!("tutor_history_benchmark.rs");
+        let matrix: MutationMatrix = serde_json::from_str(MATRIX_JSON).expect("valid mutation matrix");
+        assert_eq!(matrix.schema_version, 1);
+        assert_eq!(matrix.benchmark_id, BENCHMARK_ID);
+        assert!(matrix.mutations.len() >= 12);
+        let ids: BTreeSet<&str> = matrix.mutations.iter().map(|entry| entry.mutation_id.as_str()).collect();
+        assert_eq!(ids.len(), matrix.mutations.len(), "mutation IDs must be unique");
+        for entry in &matrix.mutations {
+            assert!(!entry.expected.trim().is_empty());
+            assert!(!entry.test_name.trim().is_empty());
+            assert!(SELF_SOURCE.contains(&format!("fn {}(", entry.test_name)), "missing test for {}", entry.mutation_id);
+        }
+    }
+
+    #[test]
     fn same_surface_accuracy_with_different_assistance_has_different_labels() {
         let (manifest, oracle) = validate_history_bundle(OBSERVATIONS, ORACLE).expect("valid bundle");
         let labels: BTreeMap<&str, &HistoryOracleLabel> = oracle.labels.iter().map(|label| (label.case_id.as_str(), label)).collect();
