@@ -1,0 +1,74 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://mycelix.net/schemas/praxis-learning-outcome-protocol/v1/mutation_matrix.schema.json",
+  "title": "Praxis learning-outcome protocol mutation matrix v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "protocol_id",
+    "controls"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": 1
+    },
+    "protocol_id": {
+      "const": "PRAXIS-LEARNING-OUTCOME-PROTOCOL-001"
+    },
+    "controls": {
+      "type": "array",
+      "minItems": 16,
+      "items": {
+        "$ref": "#/$defs/control"
+      }
+    }
+  },
+  "$defs": {
+    "control": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "control_id",
+        "mutation_class",
+        "mutation",
+        "expected_result",
+        "expected_finding_code",
+        "rust_test"
+      ],
+      "properties": {
+        "control_id": {
+          "type": "string",
+          "pattern": "^LOP-[0-9]{3}$"
+        },
+        "mutation_class": {
+          "enum": [
+            "positive",
+            "negative"
+          ]
+        },
+        "mutation": {
+          "type": "string",
+          "minLength": 1
+        },
+        "expected_result": {
+          "enum": [
+            "accepted",
+            "rejected",
+            "parse_error"
+          ]
+        },
+        "expected_finding_code": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "rust_test": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_]+$"
+        }
+      }
+    }
+  }
+}
