@@ -79,6 +79,9 @@ impl AllocationPlan {
         if self.instrument_id.trim().is_empty() {
             return Err(AllocationError::InvalidInstrumentId);
         }
+        if self.slices.is_empty() {
+            return Err(AllocationError::NoShards);
+        }
         if self.contingency_reserve > self.total_capacity
             || self.spendable_capacity.checked_add(self.contingency_reserve)
                 != Some(self.total_capacity)
@@ -88,13 +91,16 @@ impl AllocationPlan {
         let mut sum = 0_u64;
         let mut previous: Option<&str> = None;
         for slice in &self.slices {
+            if slice.shard_id.trim().is_empty() {
+                return Err(AllocationError::InvalidShardId);
+            }
             if slice.capacity < slice.minimum_capacity {
                 return Err(AllocationError::InternalAccountingViolation);
             }
             if previous.is_some_and(|value| value >= slice.shard_id.as_str()) {
                 return Err(AllocationError::InternalAccountingViolation);
             }
-            previous = Some(&slice.shard_id);
+            previous = Some(slice.shard_id.as_str());
             sum = sum.checked_add(slice.capacity).ok_or(AllocationError::Overflow)?;
         }
         if sum != self.spendable_capacity {
