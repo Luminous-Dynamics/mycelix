@@ -117,7 +117,6 @@ impl Strategy {
     fn policy_eligible(self) -> bool {
         !self.stable_identifier_visible
     }
-
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -164,8 +163,7 @@ fn generate_subjects() -> Vec<Subject> {
     (0..SUBJECTS)
         .map(|index| {
             let index_u64 = index as u64;
-            let count_seed =
-                SEED ^ index_u64.wrapping_mul(0xD6E8_FEB8_6659_FD93);
+            let count_seed = SEED ^ index_u64.wrapping_mul(0xD6E8_FEB8_6659_FD93);
             Subject {
                 task_answers: (index % (1 << TASK_BITS)) as u8,
                 statement_count: 8 + (splitmix64(count_seed) % 24) as u8,
