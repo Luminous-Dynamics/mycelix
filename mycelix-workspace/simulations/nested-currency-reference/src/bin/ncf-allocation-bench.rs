@@ -105,6 +105,7 @@ fn make_training_demands(shards: usize, samples: usize, seed: u64) -> Vec<ShardD
             ((u128::from(base) * u128::from(factor)) / u128::from(PARTS_PER_MILLION)) as u64
         }).collect();
         ShardDemand {
+            instrument_id: "instrument:local".into(),
             shard_id: format!("shard-{index:05}"),
             samples: history,
             minimum_capacity: 0,
@@ -209,8 +210,8 @@ fn metric_json(name: &str, mode: &str, plan: &AllocationPlan, metrics: &Metrics)
         json_escape(&slice.shard_id), slice.capacity, slice.minimum_capacity, slice.allocation_weight
     )).collect::<Vec<_>>().join(",");
     format!(
-        "{{\"policy\":\"{}\",\"demand_mode\":\"{}\",\"scenarios\":{},\"total_capacity\":{},\"spendable_capacity\":{},\"contingency_reserve\":{},\"requested_demand_units\":{},\"served_demand_units\":{},\"unserved_demand_units\":{},\"stranded_reserved_unit_scenarios\":{},\"demand_served_ppm\":{},\"allocation_utilization_ppm\":{},\"worst_scenario_unserved_units\":{},\"worst_scenario_served_ppm\":{},\"safety_violations\":{},\"slices\":[{}]}}",
-        name, mode, metrics.scenarios, plan.total_capacity, plan.spendable_capacity,
+        "{{\"policy\":\"{}\",\"demand_mode\":\"{}\",\"instrument_id\":\"{}\",\"scenarios\":{},\"total_capacity\":{},\"spendable_capacity\":{},\"contingency_reserve\":{},\"requested_demand_units\":{},\"served_demand_units\":{},\"unserved_demand_units\":{},\"stranded_reserved_unit_scenarios\":{},\"demand_served_ppm\":{},\"allocation_utilization_ppm\":{},\"worst_scenario_unserved_units\":{},\"worst_scenario_served_ppm\":{},\"safety_violations\":{},\"slices\":[{}]}}",
+        name, mode, json_escape(&plan.instrument_id), metrics.scenarios, plan.total_capacity, plan.spendable_capacity,
         plan.contingency_reserve, metrics.requested, metrics.served, metrics.unserved,
         metrics.stranded, demand_served_ppm, allocated_utilization_ppm,
         metrics.worst_scenario_unserved, metrics.worst_scenario_served_ppm,
