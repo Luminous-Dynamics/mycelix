@@ -7,7 +7,7 @@ use base64::{Engine as _, engine::general_purpose::URL_SAFE_NO_PAD};
 use affinidi_sd_jwt::{
     Disclosure, SdJwt, Sha256Hasher, holder, issuer, verifier,
     holder::KbJwtInput,
-    signer::{JwtSigner, test_utils::{HmacSha256Signer, HmacSha256Verifier}},
+    signer::{JwtSigner, JwtVerifier, test_utils::{HmacSha256Signer, HmacSha256Verifier}},
     verifier::VerificationOptions,
 };
 use serde_json::{Value, json};
@@ -115,9 +115,20 @@ fn key_bound_presentation(nonce: &str, audience: &str) -> SdJwt {
 }
 
 fn key_bound_presentation_at_iat(nonce: &str, audience: &str, iat: u64) -> SdJwt {
+    key_bound_presentation_at_iat_with_key(nonce, audience, iat, HOLDER_KEY)
+}
+
+fn key_bound_presentation_at_iat_with_key(
+    nonce: &str,
+    audience: &str,
+    iat: u64,
+    holder_signing_key: &[u8],
+) -> SdJwt {
+    // The issuer always binds cnf.jwk to HOLDER_KEY. This helper can deliberately
+    // sign with another key to test that callers enforce the cnf/verifier link.
     let credential = issue_holder_bound();
     let selected = select_given_name(&credential);
-    let holder_signer = HmacSha256Signer::new(HOLDER_KEY);
+    let holder_signer = HmacSha256Signer::new(holder_signing_key);
     let kb_input = KbJwtInput {
         audience,
         nonce,
@@ -188,6 +199,28 @@ fn library_key_binding_accepts(
     }
 }
 
+fn synthetic_cnf_matches_holder_key(presentation: &SdJwt, holder_key: &[u8]) -> bool {
+    let Some(canonical) = parse_wire(presentation) else {
+        return false;
+    };
+    let issuer_verifier = HmacSha256Verifier::new(ISSUER_KEY);
+    // cnf.jwk is trusted only after the issuer's signed JWS is verified.
+    let Ok(payload) = issuer_verifier.verify_jwt(&canonical.jws) else {
+        return false;
+    };
+    let Some(encoded_key) = payload
+        .get("cnf")
+        .and_then(|cnf| cnf.get("jwk"))
+        .and_then(|jwk| jwk.get("k"))
+        .and_then(Value::as_str)
+    else {
+        return false;
+    };
+    URL_SAFE_NO_PAD
+        .decode(encoded_key)
+        .is_ok_and(|encoded| encoded.as_slice() == holder_key)
+}
+
 fn signed_kb_jwt_has_typ(presentation: &SdJwt, expected_typ: &str) -> bool {
     let Some(kb_jwt) = presentation.kb_jwt.as_deref() else {
         return false;
@@ -214,11 +247,19 @@ fn key_binding_accepts(
     expected_audience: &str,
     holder_key: Option<&[u8]>,
 ) -> bool {
-    // The pinned 0.1.5 verifier checks signature, audience, nonce and sd_hash
-    // but doesn't enforce RFC 9901's KB-JWT typ. Enforce typ as a separate
-    // profile policy after the signature-verified result succeeds.
-    library_key_binding_accepts(presentation, expected_nonce, expected_audience, holder_key)
-        && signed_kb_jwt_has_typ(presentation, "kb+jwt")
+    let Some(holder_key) = holder_key else {
+        return false;
+    };
+    // The pinned 0.1.5 verifier checks signature, audience, nonce, and sd_hash,
+    // but the caller must enforce both KB-JWT typ and the issuer-authenticated
+    // cnf.jwk -> holder-verifier binding.
+    library_key_binding_accepts(
+        presentation,
+        expected_nonce,
+        expected_audience,
+        Some(holder_key),
+    ) && signed_kb_jwt_has_typ(presentation, "kb+jwt")
+        && synthetic_cnf_matches_holder_key(presentation, holder_key)
 }
 
 fn key_binding_freshness_accepts(
@@ -406,6 +447,18 @@ fn run_matrix() -> Vec<CaseResult> {
         false,
         key_binding_accepts(&wrong_typ_kb, NONCE, AUDIENCE, Some(HOLDER_KEY)),
     ));
+    let wrong_key_kb =
+        key_bound_presentation_at_iat_with_key(NONCE, AUDIENCE, ISSUED_AT, WRONG_HOLDER_KEY);
+    cases.push(CaseResult::new(
+        "published_verifier_accepts_non_cnf_holder_key",
+        true,
+        library_key_binding_accepts(&wrong_key_kb, NONCE, AUDIENCE, Some(WRONG_HOLDER_KEY)),
+    ));
+    cases.push(CaseResult::new(
+        "application_policy_rejects_non_cnf_holder_key",
+        false,
+        key_binding_accepts(&wrong_key_kb, NONCE, AUDIENCE, Some(WRONG_HOLDER_KEY)),
+    ));
     let fresh_now = ISSUED_AT as i64 + 30;
     let fresh_kb = key_bound_presentation_at_iat(NONCE, AUDIENCE, ISSUED_AT);
     cases.push(CaseResult::new(
@@ -526,7 +579,7 @@ mod tests {
     #[test]
     fn verifier_decision_matrix_matches_frozen_expected_outcomes() {
         let cases = run_matrix();
-        assert_eq!(cases.len(), 21);
+        assert_eq!(cases.len(), 23);
         for case in &cases {
             assert!(
                 case.passed(),
