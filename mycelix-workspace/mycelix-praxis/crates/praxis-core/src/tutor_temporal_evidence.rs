@@ -126,6 +126,7 @@ pub enum TemporalEligibility {
     NotRecordedAtEvaluation,
     AmbiguousOccurrenceTime,
     AmbiguousRecordTime,
+    AmbiguousEventRecordOrder,
     UnverifiedTemporalProvenance,
 }
 
@@ -206,6 +207,12 @@ pub fn temporal_eligibility(
     }) {
         return TemporalEligibility::Superseded;
     }
+    // To prove that a record was captured after the event it describes, the
+    // earliest plausible record time must be no earlier than the latest plausible
+    // event time. Overlapping intervals are ambiguous, even when their centres are equal.
+    if record_lower < occurrence_upper {
+        return TemporalEligibility::AmbiguousEventRecordOrder;
+    }
     if observation
         .valid_until_unix
         .is_some_and(|deadline| case.evaluation_time_unix > deadline)
@@ -257,6 +264,7 @@ pub struct TemporalBenchmarkScore {
     pub retracted_or_superseded_references: usize,
     pub future_or_unavailable_references: usize,
     pub ambiguous_timestamp_references: usize,
+    pub ambiguous_event_record_order_references: usize,
     pub unverified_timestamp_references: usize,
     pub unsupported_evidence_references: usize,
     pub missing_required_contradictions: usize,
@@ -524,6 +532,7 @@ pub fn score_temporal_predictions(
     let mut retracted_or_superseded = 0usize;
     let mut future_or_unavailable = 0usize;
     let mut ambiguous_timestamps = 0usize;
+    let mut ambiguous_event_record_order = 0usize;
     let mut unverified_timestamps = 0usize;
     let mut unsupported = 0usize;
     let mut missing_contradictions = 0usize;
@@ -573,6 +582,11 @@ pub fn score_temporal_predictions(
                 }
                 TemporalEligibility::AmbiguousOccurrenceTime | TemporalEligibility::AmbiguousRecordTime => {
                     ambiguous_timestamps += 1;
+                    critical += 1;
+                    claim_grounded = false;
+                }
+                TemporalEligibility::AmbiguousEventRecordOrder => {
+                    ambiguous_event_record_order += 1;
                     critical += 1;
                     claim_grounded = false;
                 }
@@ -629,6 +643,7 @@ pub fn score_temporal_predictions(
         retracted_or_superseded_references: retracted_or_superseded,
         future_or_unavailable_references: future_or_unavailable,
         ambiguous_timestamp_references: ambiguous_timestamps,
+        ambiguous_event_record_order_references: ambiguous_event_record_order,
         unverified_timestamp_references: unverified_timestamps,
         unsupported_evidence_references: unsupported,
         missing_required_contradictions: missing_contradictions,
@@ -940,6 +955,60 @@ mod tests {
     }
 
     #[test]
+    fn overlapping_event_record_intervals_are_ambiguous() {
+        let (manifest, _) = validate_temporal_bundle(OBSERVATIONS, ORACLE).expect("valid fixture");
+        let case = manifest.cases.iter().find(|case| case.case_id == "TE002").unwrap();
+        let mut event = case.observations[0].clone();
+        event.valid_until_unix = None;
+        event.occurred_at_uncertainty_seconds = 60;
+        event.recorded_at_uncertainty_seconds = 0;
+        event.recorded_at_unix = event.occurred_at_unix;
+        assert_eq!(temporal_eligibility(case, &event), TemporalEligibility::AmbiguousEventRecordOrder);
+    }
+
+    #[test]
+    fn widening_time_uncertainty_never_turns_ambiguous_evidence_eligible() {
+        let (manifest, _) = validate_temporal_bundle(OBSERVATIONS, ORACLE).expect("valid fixture");
+        let case = manifest.cases.iter().find(|case| case.case_id == "TE002").unwrap();
+        let mut event = case.observations[0].clone();
+        event.valid_until_unix = None;
+        event.occurred_at_uncertainty_seconds = 0;
+        event.recorded_at_uncertainty_seconds = 0;
+        event.recorded_at_unix = event.occurred_at_unix;
+        assert_eq!(temporal_eligibility(case, &event), TemporalEligibility::Eligible);
+        for uncertainty in [1_u32, 2, 10, 60, 600, 3_600, 86_400] {
+            event.occurred_at_uncertainty_seconds = uncertainty;
+            let status = temporal_eligibility(case, &event);
+            assert_ne!(status, TemporalEligibility::Eligible, "uncertainty={uncertainty}");
+            assert_eq!(status, TemporalEligibility::AmbiguousEventRecordOrder, "uncertainty={uncertainty}");
+        }
+    }
+
+    #[test]
+    fn claim_citing_ambiguous_event_record_order_is_critical() {
+        let mut predictions: serde_json::Value = serde_json::from_str(&predictions_matching_oracle(OBSERVATIONS, ORACLE)).unwrap();
+        let item = predictions["predictions"].as_array_mut().unwrap().iter_mut()
+            .find(|item| item["case_id"] == "TE002").unwrap();
+        item["disposition"] = "claim".into();
+        item["diagnosis"] = "persistent_misconception".into();
+        item["next_action"] = "spaced_retrieval".into();
+        item["requested_evidence"] = serde_json::Value::Null;
+        item["supporting_evidence_ids"] = serde_json::json!(["te002-expired-success"]);
+        item["contradicting_evidence_ids"] = serde_json::json!([]);
+        let mut observations: serde_json::Value = serde_json::from_str(OBSERVATIONS).unwrap();
+        let case = observations["cases"].as_array_mut().unwrap().iter_mut().find(|case| case["case_id"] == "TE002").unwrap();
+        let event = case["observations"].as_array_mut().unwrap().iter_mut().find(|event| event["observation_id"] == "te002-expired-success").unwrap();
+        event["valid_until_unix"] = serde_json::Value::Null;
+        event["occurred_at_uncertainty_seconds"] = 60.into();
+        let changed_observations = observations.to_string();
+        predictions["observation_blake3"] = blake3::hash(changed_observations.as_bytes()).to_hex().to_string().into();
+        let report = score_temporal_predictions(&changed_observations, ORACLE, &predictions.to_string()).expect("ambiguous but well-shaped claim should be scored");
+        assert_eq!(report.ambiguous_event_record_order_references, 1);
+        assert!(report.critical_violations > 0);
+        assert!(report.acceptable_decision_rate < 1.0);
+    }
+
+    #[test]
     fn mutation_matrix_is_closed_and_test_linked() {
         let matrix: serde_json::Value = serde_json::from_str(include_str!("../examples/tutor-history/temporal-v1/mutation_matrix.json")).unwrap();
         let entries = matrix["entries"].as_array().unwrap();
@@ -951,7 +1020,7 @@ mod tests {
             let test_name = entry["test_name"].as_str().unwrap();
             assert!(source.contains(&format!("fn {test_name}(")), "matrix row {id} points to missing test {test_name}");
         }
-        assert_eq!(entries.len(), 23);
+        assert_eq!(entries.len(), 26);
     }
 
 
