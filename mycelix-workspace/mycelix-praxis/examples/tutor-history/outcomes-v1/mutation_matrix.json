@@ -1,0 +1,134 @@
+{
+  "schema_version": 1,
+  "protocol_id": "PRAXIS-LEARNING-OUTCOME-PROTOCOL-001",
+  "controls": [
+    {
+      "control_id": "LOP-001",
+      "mutation_class": "positive",
+      "mutation": "Use the valid synthetic draft protocol unchanged.",
+      "expected_result": "accepted",
+      "expected_finding_code": null,
+      "rust_test": "valid_delayed_transfer_protocol_is_accepted"
+    },
+    {
+      "control_id": "LOP-002",
+      "mutation_class": "negative",
+      "mutation": "Replace delayed-transfer primary endpoint with immediate gain.",
+      "expected_result": "rejected",
+      "expected_finding_code": "primary_endpoint_not_delayed_learning",
+      "rust_test": "immediate_gain_cannot_be_primary_endpoint"
+    },
+    {
+      "control_id": "LOP-003",
+      "mutation_class": "negative",
+      "mutation": "Mark far-transfer primary items as practiced.",
+      "expected_result": "rejected",
+      "expected_finding_code": "transfer_uses_practiced_items",
+      "rust_test": "transfer_must_use_unpracticed_items"
+    },
+    {
+      "control_id": "LOP-004",
+      "mutation_class": "negative",
+      "mutation": "Set a transfer delay shorter than 24 hours.",
+      "expected_result": "rejected",
+      "expected_finding_code": "delayed_measurement_not_delayed",
+      "rust_test": "transfer_must_be_delayed"
+    },
+    {
+      "control_id": "LOP-005",
+      "mutation_class": "negative",
+      "mutation": "Unblind the primary assessor.",
+      "expected_result": "rejected",
+      "expected_finding_code": "primary_assessment_not_independent",
+      "rust_test": "primary_assessment_must_be_independent_and_blinded"
+    },
+    {
+      "control_id": "LOP-006",
+      "mutation_class": "negative",
+      "mutation": "Reuse the primary endpoint ID in a secondary endpoint.",
+      "expected_result": "rejected",
+      "expected_finding_code": "duplicate_endpoint_id",
+      "rust_test": "duplicate_endpoint_ids_are_rejected"
+    },
+    {
+      "control_id": "LOP-007",
+      "mutation_class": "negative",
+      "mutation": "Remove displacement from secondary outcomes.",
+      "expected_result": "rejected",
+      "expected_finding_code": "required_outcome_dimension_missing",
+      "rust_test": "required_harm_and_operational_dimensions_cannot_be_omitted"
+    },
+    {
+      "control_id": "LOP-008",
+      "mutation_class": "negative",
+      "mutation": "Mark a protocol preregistered without URI and digest receipt.",
+      "expected_result": "rejected",
+      "expected_finding_code": "missing_preregistration_receipt",
+      "rust_test": "preregistered_protocol_requires_receipt"
+    },
+    {
+      "control_id": "LOP-009",
+      "mutation_class": "negative",
+      "mutation": "Replace instrument BLAKE3 with malformed text.",
+      "expected_result": "rejected",
+      "expected_finding_code": "invalid_instrument_digest",
+      "rust_test": "invalid_digest_is_rejected"
+    },
+    {
+      "control_id": "LOP-010",
+      "mutation_class": "negative",
+      "mutation": "Set instrument digest equal to the scoring-procedure digest.",
+      "expected_result": "rejected",
+      "expected_finding_code": "instrument_scoring_digest_collision",
+      "rust_test": "instrument_and_scoring_digests_must_be_distinct"
+    },
+    {
+      "control_id": "LOP-011",
+      "mutation_class": "negative",
+      "mutation": "Use a non-cluster-robust estimator for a cluster-randomized trial.",
+      "expected_result": "rejected",
+      "expected_finding_code": "cluster_estimator_required",
+      "rust_test": "cluster_trial_requires_cluster_robust_estimator"
+    },
+    {
+      "control_id": "LOP-012",
+      "mutation_class": "negative",
+      "mutation": "Assign classrooms while declaring individual randomization.",
+      "expected_result": "rejected",
+      "expected_finding_code": "randomization_unit_mismatch",
+      "rust_test": "assignment_unit_must_match_randomization_design"
+    },
+    {
+      "control_id": "LOP-013",
+      "mutation_class": "negative",
+      "mutation": "Set primary scale minimum equal to maximum.",
+      "expected_result": "rejected",
+      "expected_finding_code": "invalid_endpoint_scale",
+      "rust_test": "invalid_primary_scale_is_rejected"
+    },
+    {
+      "control_id": "LOP-014",
+      "mutation_class": "negative",
+      "mutation": "Set planned statistical power below 80 percent.",
+      "expected_result": "rejected",
+      "expected_finding_code": "invalid_power_plan",
+      "rust_test": "underpowered_or_unpinned_power_plan_is_rejected"
+    },
+    {
+      "control_id": "LOP-015",
+      "mutation_class": "negative",
+      "mutation": "Pass malformed JSON to the protocol parser.",
+      "expected_result": "parse_error",
+      "expected_finding_code": "json_parse",
+      "rust_test": "malformed_json_fails_closed"
+    },
+    {
+      "control_id": "LOP-016",
+      "mutation_class": "negative",
+      "mutation": "Attach a preregistration receipt while status remains draft.",
+      "expected_result": "rejected",
+      "expected_finding_code": "draft_has_preregistration",
+      "rust_test": "draft_must_not_claim_preregistration"
+    }
+  ]
+}
