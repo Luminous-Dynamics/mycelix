@@ -415,6 +415,51 @@ mod tests {
     }
 
     #[test]
+    fn allocation_plan_slices_fit_the_reservation_book_caps() {
+        use crate::reservation::{ReservationApply, ReservationBook, ReservationKey};
+
+        let input = vec![
+            shard("shard-c", &[30, 32, 28], 0),
+            shard("shard-a", &[10, 11, 9], 0),
+            shard("shard-b", &[20, 21, 19], 0),
+        ];
+        let plan = allocate_static_escrow(
+            &input,
+            600,
+            60_000,
+            AllocationPolicy::DemandWeighted,
+        ).unwrap();
+
+        let mut book = ReservationBook::default();
+        for community in ["community:a", "community:b"] {
+            book.set_community_cap(community, "instrument:unit", 600).unwrap();
+        }
+        book.set_agreement_cap("agreement:a-b", "instrument:unit", 600).unwrap();
+
+        for slice in &plan.slices {
+            let result = book.reserve(
+                ReservationKey {
+                    agreement_id: "agreement:a-b".into(),
+                    instrument: "instrument:unit".into(),
+                    shard_id: slice.shard_id.clone(),
+                    epoch: 1,
+                },
+                "community:a",
+                "community:b",
+                slice.capacity,
+            ).unwrap();
+            assert_eq!(result, ReservationApply::Reserved);
+        }
+        assert_eq!(book.allocated_to_community("community:a", "instrument:unit").unwrap(),
+            plan.spendable_capacity);
+        assert_eq!(book.allocated_to_community("community:b", "instrument:unit").unwrap(),
+            plan.spendable_capacity);
+        assert_eq!(book.allocated_to_agreement("agreement:a-b", "instrument:unit").unwrap(),
+            plan.spendable_capacity);
+        assert_eq!(plan.total_allocated() + plan.contingency_reserve, plan.total_capacity);
+    }
+
+    #[test]
     fn demand_history_overflow_rejects_instead_of_wrapping() {
         assert_eq!(
             allocate_static_escrow(
