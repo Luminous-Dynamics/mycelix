@@ -134,6 +134,11 @@
       "id": "NCF-FEN-I-009",
       "name": "Ledger and control operations share one idempotency namespace",
       "statement": "A monetary event ID cannot alias a drain, fencing, or transfer receipt ID; every transition ID is globally unique within the allocation reference model and payload-bound."
+    },
+    {
+      "id": "NCF-PART-I-001",
+      "name": "Aggregate reservation rights are non-overlapping across shards",
+      "statement": "For each exact capacity/instrument domain, the sum of shard reservations never exceeds the configured aggregate budget; every shard's outstanding exposure remains within its own allocated slice, including during partitioned operation."
     }
   ],
   "conformance_cases": [
@@ -751,11 +756,19 @@
         "timeout_mutant_detected_expected_invariant",
         "stale_owner_mutant_detected_expected_invariant",
         "tla2tools_build_tag",
-        "tla2tools_jar_expected_sha256"
+        "tla2tools_jar_expected_sha256",
+        "escrow_model_sha256",
+        "escrow_config_sha256",
+        "escrow_model_log_sha256",
+        "escrow_model_state_statistics_line",
+        "duplicate_allocation_mutant_sha256",
+        "duplicate_allocation_mutant_config_sha256",
+        "duplicate_allocation_mutant_log_sha256",
+        "duplicate_allocation_mutant_detected_expected_invariant"
       ],
       "execution_status": "design_not_run",
       "claim_ceiling": "A deterministic state-machine/model-checker result only for the declared authority and fault model. It does not prove production Holochain behavior, legal settlement, cryptographic key security or safety outside the explored model.",
-      "methodology": "Run the bounded TLC safe model at Capacity=2, MaxSteps=4 and require no invariant violations. Run the timeout-reallocation mutant and require a counterexample to NoTransferWithoutFence; run the stale-owner-write mutant and require a counterexample to NoOldWriteOutsideActive. The runner must reject parser/tool failures as non-qualifying outcomes. These results are not yet confirmed. Then qualify the independent transition oracle and exhaust small interleavings. Extend with at least 10,000 reproducible schedules for retries, duplicate/reordered/dropped receipts, stale-owner writes, crashes and partition/heal traces. Keep honest-crash and adversarial-owner campaigns separate. Compare static-quota, acknowledged-drain and any linearizable/quorum mode under identical traces. Any safety violation fails the campaign; utilization and latency are reported only alongside correctness results. The fail-closed runner requires a clean checkout and a caller-supplied TLA2TOOLS_JAR; it records source/model/config/JAR hashes and raw logs outside the repository. The immutable TLA+ build is tagged tla2tools-2026.08.11.125311 and verified against SHA-256 ab323b79802aedc3203b3f9af37c6aca3ed43f4e0225b36f2aa77b26de46c05f.",
+      "methodology": "Run the bounded NCF-FEN safe lifecycle model and the NCF-ESCROW two-shard safe model at Capacity=2, MaxSteps/MaxOps=4; require both to complete without invariant violations. Then require three unsafe mutants to be detected specifically: timeout-only reallocation -> NoTransferWithoutFence; stale-owner write after transfer -> NoOldWriteOutsideActive; duplicate full-budget allocation across shards -> ReservedCapacityBound. Parser/tool failures do not count as detection. These results are not yet confirmed. Then qualify the independent transition oracle and exhaust small interleavings. Extend with at least 10,000 reproducible schedules for retries, duplicate/reordered/dropped receipts, stale-owner writes, crashes and partition/heal traces. Keep honest-crash and adversarial-owner campaigns separate. Compare static-quota, acknowledged-drain and any linearizable/quorum mode under identical traces. Any safety violation fails the campaign; utilization and latency are reported only alongside correctness results. The fail-closed runner requires a clean checkout and caller-supplied TLA2TOOLS_JAR; it records source/model/config/JAR hashes and raw logs outside the repository.",
       "formal_model_path": "mycelix-workspace/simulations/nested-currency-reference/formal/NCF_FEN_1.tla",
       "formal_config_path": "mycelix-workspace/simulations/nested-currency-reference/formal/NCF_FEN_1.cfg",
       "negative_control_model_path": "mycelix-workspace/simulations/nested-currency-reference/formal/NCF_FEN_1_TimeoutMutant.tla",
@@ -768,7 +781,7 @@
       },
       "runner_path": "mycelix-workspace/simulations/nested-currency-reference/run-ncf-fen-tlc.sh",
       "workflow_path": ".github/workflows/ncf-fen-model-check.yml",
-      "workflow_claim_ceiling": "The dedicated draft-PR workflow verifies bounded TLA+ invariants and sensitivity to two deliberately unsafe mutants only; it does not qualify the Rust implementation, distributed concurrency, Holochain validators, or 10,000-schedule model checking.",
+      "workflow_claim_ceiling": "The dedicated draft-PR workflow checks two finite TLA+ models and sensitivity to three deliberately unsafe mutants only; it does not qualify the Rust implementation, distributed concurrency, Holochain validators, or 10,000-schedule model checking.",
       "negative_control_mutants": [
         {
           "name": "timeout_reallocation",
@@ -781,10 +794,24 @@
           "model": "formal/NCF_FEN_1_StaleOwnerMutant.tla",
           "config": "formal/NCF_FEN_1_StaleOwnerMutant.cfg",
           "expected_invariant": "NoOldWriteOutsideActive"
+        },
+        {
+          "name": "duplicate_allocation",
+          "model": "formal/NCF_ESCROW_1_DuplicateAllocationMutant.tla",
+          "config": "formal/NCF_ESCROW_1_DuplicateAllocationMutant.cfg",
+          "expected_invariant": "ReservedCapacityBound"
         }
       ],
       "tla2tools_build_tag": "tla2tools-2026.08.11.125311",
-      "tla2tools_jar_expected_sha256": "ab323b79802aedc3203b3f9af37c6aca3ed43f4e0225b36f2aa77b26de46c05f"
+      "tla2tools_jar_expected_sha256": "ab323b79802aedc3203b3f9af37c6aca3ed43f4e0225b36f2aa77b26de46c05f",
+      "formal_model_paths": [
+        "mycelix-workspace/simulations/nested-currency-reference/formal/NCF_FEN_1.tla",
+        "mycelix-workspace/simulations/nested-currency-reference/formal/NCF_ESCROW_1.tla"
+      ],
+      "formal_config_paths": [
+        "mycelix-workspace/simulations/nested-currency-reference/formal/NCF_FEN_1.cfg",
+        "mycelix-workspace/simulations/nested-currency-reference/formal/NCF_ESCROW_1.cfg"
+      ]
     }
   ],
   "planned_conformance_cases": [
@@ -927,6 +954,18 @@
       "formal_model": "formal/NCF_FEN_1_StaleOwnerMutant.tla",
       "formal_config": "formal/NCF_FEN_1_StaleOwnerMutant.cfg",
       "formal_invariant": "NoOldWriteOutsideActive",
+      "execution_status": "formal_negative_control_defined_not_run"
+    },
+    {
+      "id": "NCF-PART-010",
+      "title": "Independent formal checker detects duplicate full-budget allocation across shards",
+      "class": "aggregate_reservation_double_commit",
+      "attack": "Use a deliberately unsafe allocation action that gives a second shard the entire aggregate capacity while a first shard already owns a non-zero slice.",
+      "expected": "counterexample_violating_ReservedCapacityBound",
+      "code_test": null,
+      "formal_model": "formal/NCF_ESCROW_1_DuplicateAllocationMutant.tla",
+      "formal_config": "formal/NCF_ESCROW_1_DuplicateAllocationMutant.cfg",
+      "formal_invariant": "ReservedCapacityBound",
       "execution_status": "formal_negative_control_defined_not_run"
     }
   ],
