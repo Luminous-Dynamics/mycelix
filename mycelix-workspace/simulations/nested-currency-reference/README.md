@@ -44,7 +44,7 @@ The mutual-credit JSON record measures one-process reference-model throughput an
 
 ## Fencing protocol
 
-The next design boundary is documented in [NCF-FEN-1: fencing and safe reallocation of partitioned risk rights](docs/NCF-FEN-1.md). It specifies the state machine, receipt bindings, fence proof modes, required failure injections, independent-oracle benchmarks, and conditions for ever reclaiming capacity from an old epoch. This is a proposal, not implementation or test evidence. Until a fencing authority is chosen and qualified, potentially live old-epoch capacity remains charged.
+The next design boundary is documented in [NCF-FEN-1: fencing and safe reallocation of partitioned risk rights](docs/NCF-FEN-1.md). It specifies the state machine, receipt bindings, fence proof modes, required failure injections, independent-oracle benchmarks, and conditions for ever reclaiming capacity from an old epoch. The machine-readable corpus adds 12 spec-only NCF-FEN cases (not backed by Rust tests yet), eight fencing invariants, and a fourth model-checking campaign. This is a proposal, not implementation or test evidence. Until a fencing authority is chosen and qualified, potentially live old-epoch capacity remains charged.
 
 ## Next qualification stages
 
