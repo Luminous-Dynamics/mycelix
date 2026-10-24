@@ -120,6 +120,8 @@
       "required": [
         "endpoint_id",
         "kind",
+        "favorable_direction",
+        "unit",
         "timepoint",
         "instrument_blake3",
         "scoring_blake3",
@@ -183,6 +185,25 @@
         "minimum_delay_hours": {
           "type": "integer",
           "minimum": 0
+        },
+        "unit": {
+          "enum": [
+            "proportion_correct",
+            "standardized_effect",
+            "attempts_to_correct",
+            "active_session_rate",
+            "minutes",
+            "usd_per_gain_point",
+            "independent_practice_minutes_displaced",
+            "events_per_learner"
+          ]
+        },
+        "favorable_direction": {
+          "enum": [
+            "higher_is_better",
+            "lower_is_better",
+            "interpretation_sensitive"
+          ]
         }
       },
       "allOf": [
@@ -332,21 +353,7 @@
           "$ref": "#/$defs/blake3"
         }
       },
-      "allOf": [
-        {
-          "if": {
-            "properties": {
-              "estimator": {
-                "const": "cluster_robust_difference"
-              }
-            },
-            "required": [
-              "estimator"
-            ]
-          },
-          "then": {}
-        }
-      ]
+      "allOf": []
     }
   },
   "allOf": [
