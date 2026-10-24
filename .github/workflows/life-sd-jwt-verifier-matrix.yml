@@ -1,0 +1,83 @@
+name: LIFE SD-JWT verifier behavior matrix
+
+on:
+  pull_request:
+    paths:
+      - "research/life-sd-jwt-verifier-matrix/**"
+      - ".github/workflows/life-sd-jwt-verifier-matrix.yml"
+  push:
+    paths:
+      - "research/life-sd-jwt-verifier-matrix/**"
+      - ".github/workflows/life-sd-jwt-verifier-matrix.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  qualify:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    env:
+      QUALIFIED_SHA: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
+      CARGO_TERM_COLOR: always
+    steps:
+      - name: Checkout exact benchmark subject
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          ref: ${{ env.QUALIFIED_SHA }}
+          persist-credentials: false
+
+      - name: Assert exact commit
+        run: test "$(git rev-parse HEAD)" = "$QUALIFIED_SHA"
+
+      - name: Install pinned Rust toolchain
+        uses: dtolnay/rust-toolchain@e97e2d8cc328f1b50210efc529dca0028893a2d9
+        with:
+          toolchain: 1.96.0
+          components: rustfmt, clippy
+
+      - name: Generate initial dependency lock
+        run: cargo +1.96.0 generate-lockfile --manifest-path research/life-sd-jwt-verifier-matrix/Cargo.toml
+
+      - name: Check formatting
+        run: cargo +1.96.0 fmt --manifest-path research/life-sd-jwt-verifier-matrix/Cargo.toml --all -- --check
+
+      - name: Run tests
+        run: cargo +1.96.0 test --locked --manifest-path research/life-sd-jwt-verifier-matrix/Cargo.toml
+
+      - name: Run strict Clippy
+        run: cargo +1.96.0 clippy --locked --manifest-path research/life-sd-jwt-verifier-matrix/Cargo.toml --all-targets -- -D warnings
+
+      - name: Compare deterministic reports and emit receipt
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p target/life-sd-jwt-verifier-matrix
+          cargo +1.96.0 run --release --locked --manifest-path research/life-sd-jwt-verifier-matrix/Cargo.toml > target/life-sd-jwt-verifier-matrix/report-a.csv
+          cargo +1.96.0 run --release --locked --manifest-path research/life-sd-jwt-verifier-matrix/Cargo.toml > target/life-sd-jwt-verifier-matrix/report-b.csv
+          cmp target/life-sd-jwt-verifier-matrix/report-a.csv target/life-sd-jwt-verifier-matrix/report-b.csv
+          mv target/life-sd-jwt-verifier-matrix/report-a.csv target/life-sd-jwt-verifier-matrix/report.csv
+          rm target/life-sd-jwt-verifier-matrix/report-b.csv
+          {
+            echo "status=synthetic-verifier-matrix-passed"
+            echo "commit=$QUALIFIED_SHA"
+            echo "run_id=$GITHUB_RUN_ID"
+            echo "run_attempt=$GITHUB_RUN_ATTEMPT"
+            echo "rust=$(rustc +1.96.0 --version)"
+            echo "manifest_sha256=$(sha256sum research/life-sd-jwt-verifier-matrix/manifest.json | cut -d' ' -f1)"
+            echo "lock_sha256=$(sha256sum research/life-sd-jwt-verifier-matrix/Cargo.lock | cut -d' ' -f1)"
+            echo "report_sha256=$(sha256sum target/life-sd-jwt-verifier-matrix/report.csv | cut -d' ' -f1)"
+            echo "claim_ceiling=SyntheticAffinidiSdJwt015VerifierBehaviorWithHmacTestFixturesAndSingleUseNoncePolicy"
+          } | tee target/life-sd-jwt-verifier-matrix/qualification.txt
+          sha256sum target/life-sd-jwt-verifier-matrix/report.csv target/life-sd-jwt-verifier-matrix/qualification.txt > target/life-sd-jwt-verifier-matrix/sha256sums.txt
+
+      - name: Upload benchmark evidence and generated lock
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: life-sd-jwt-verifier-matrix-${{ env.QUALIFIED_SHA }}
+          path: |
+            target/life-sd-jwt-verifier-matrix/
+            research/life-sd-jwt-verifier-matrix/Cargo.lock
+            research/life-sd-jwt-verifier-matrix/manifest.json
+          if-no-files-found: error

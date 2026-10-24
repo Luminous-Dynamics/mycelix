@@ -1,0 +1,508 @@
+use std::collections::HashSet;
+
+use affinidi_sd_jwt::{
+    Disclosure, SdJwt, Sha256Hasher, holder, issuer, verifier,
+    holder::KbJwtInput,
+    signer::test_utils::{HmacSha256Signer, HmacSha256Verifier},
+    verifier::VerificationOptions,
+};
+use serde_json::{Value, json};
+
+const ISSUER_KEY: &[u8] = b"test-key-for-hmac-256-signing!!";
+const WRONG_ISSUER_KEY: &[u8] = b"wrong-key-for-hmac-256-signing!";
+const HOLDER_KEY: &[u8] = b"holder-key-for-hmac-signing!!!";
+const WRONG_HOLDER_KEY: &[u8] = b"wrong-holder-key-for-hmac-signing";
+const HOLDER_JWK_K: &str = "aG9sZGVyLWtleS1mb3ItaG1hYy1zaWduaW5nISEh";
+const AUDIENCE: &str = "https://verifier.example.test";
+const NONCE: &str = "test-nonce-0001";
+const ISSUED_AT: u64 = 1_800_000_000;
+
+#[derive(Debug)]
+struct CaseResult {
+    id: &'static str,
+    expected: &'static str,
+    actual: &'static str,
+}
+
+impl CaseResult {
+    fn new(id: &'static str, expected_accept: bool, actual_accept: bool) -> Self {
+        Self {
+            id,
+            expected: outcome(expected_accept),
+            actual: outcome(actual_accept),
+        }
+    }
+
+    fn passed(&self) -> bool {
+        self.expected == self.actual
+    }
+}
+
+fn outcome(accepted: bool) -> &'static str {
+    if accepted { "ACCEPT" } else { "REJECT" }
+}
+
+fn issue(claims: &Value, frame: &Value, holder_jwk: Option<&Value>) -> SdJwt {
+    let signer = HmacSha256Signer::new(ISSUER_KEY);
+    issuer::issue(claims, frame, &signer, &Sha256Hasher, holder_jwk)
+        .expect("fixed synthetic fixture must issue")
+}
+
+fn base_claims() -> Value {
+    json!({
+        "sub": "synthetic-subject-001",
+        "given_name": "Asha",
+        "family_name": "Ndlovu",
+        "credential_type": "SyntheticEmploymentCredential"
+    })
+}
+
+fn base_frame() -> Value {
+    json!({ "_sd": ["given_name", "family_name"] })
+}
+
+fn base_credential(holder_jwk: Option<&Value>) -> SdJwt {
+    issue(&base_claims(), &base_frame(), holder_jwk)
+}
+
+fn select_given_name(credential: &SdJwt) -> Vec<&Disclosure> {
+    holder::select_disclosures(credential, &["given_name"])
+}
+
+fn partial_presentation(credential: &SdJwt) -> SdJwt {
+    holder::present(
+        credential,
+        &select_given_name(credential),
+        None,
+        &Sha256Hasher,
+    )
+    .expect("synthetic partial presentation must be created")
+}
+
+fn parse_wire(presentation: &SdJwt) -> Option<SdJwt> {
+    SdJwt::parse(&presentation.serialize(), &Sha256Hasher).ok()
+}
+
+fn basic_accepts(presentation: &SdJwt, issuer_key: &[u8]) -> bool {
+    let Some(canonical) = parse_wire(presentation) else {
+        return false;
+    };
+    let issuer_verifier = HmacSha256Verifier::new(issuer_key);
+    verifier::verify(
+        &canonical,
+        &issuer_verifier,
+        &Sha256Hasher,
+        &VerificationOptions::default(),
+        None,
+    )
+    .is_ok_and(|result| result.is_verified())
+}
+
+fn issue_holder_bound() -> SdJwt {
+    let jwk = json!({
+        "kty": "oct",
+        "k": HOLDER_JWK_K
+    });
+    base_credential(Some(&jwk))
+}
+
+fn key_bound_presentation(nonce: &str, audience: &str) -> SdJwt {
+    key_bound_presentation_at_iat(nonce, audience, ISSUED_AT)
+}
+
+fn key_bound_presentation_at_iat(nonce: &str, audience: &str, iat: u64) -> SdJwt {
+    let credential = issue_holder_bound();
+    let selected = select_given_name(&credential);
+    let holder_signer = HmacSha256Signer::new(HOLDER_KEY);
+    let kb_input = KbJwtInput {
+        audience,
+        nonce,
+        signer: &holder_signer,
+        iat,
+    };
+    holder::present(&credential, &selected, Some(&kb_input), &Sha256Hasher)
+        .expect("synthetic key-bound presentation must be created")
+}
+
+fn key_binding_freshness_accepts(
+    presentation: &SdJwt,
+    expected_nonce: &str,
+    expected_audience: &str,
+    now: i64,
+    max_age_secs: i64,
+) -> bool {
+    let Some(canonical) = parse_wire(presentation) else {
+        return false;
+    };
+    let issuer_verifier = HmacSha256Verifier::new(ISSUER_KEY);
+    let holder_verifier = HmacSha256Verifier::new(HOLDER_KEY);
+    let options = VerificationOptions {
+        verify_kb: true,
+        expected_audience: Some(expected_audience),
+        expected_nonce: Some(expected_nonce),
+    };
+    let freshness = verifier::KbFreshness::new(now, max_age_secs);
+    verifier::verify_with_kb_freshness(
+        &canonical,
+        &issuer_verifier,
+        &Sha256Hasher,
+        &options,
+        Some(&holder_verifier),
+        &freshness,
+    )
+    .is_ok_and(|result| result.kb_verified == Some(true))
+}
+
+fn key_binding_accepts(
+    presentation: &SdJwt,
+    expected_nonce: &str,
+    expected_audience: &str,
+    holder_key: Option<&[u8]>,
+) -> bool {
+    let Some(canonical) = parse_wire(presentation) else {
+        return false;
+    };
+    let issuer_verifier = HmacSha256Verifier::new(ISSUER_KEY);
+    let options = VerificationOptions {
+        verify_kb: true,
+        expected_audience: Some(expected_audience),
+        expected_nonce: Some(expected_nonce),
+    };
+    match holder_key {
+        Some(key) => {
+            let holder_verifier = HmacSha256Verifier::new(key);
+            verifier::verify(
+                &canonical,
+                &issuer_verifier,
+                &Sha256Hasher,
+                &options,
+                Some(&holder_verifier),
+            )
+            .is_ok_and(|result| result.kb_verified == Some(true))
+        }
+        None => verifier::verify(
+            &canonical,
+            &issuer_verifier,
+            &Sha256Hasher,
+            &options,
+            None,
+        )
+        .is_ok_and(|result| result.kb_verified == Some(true)),
+    }
+}
+
+fn mutate_signature(jws: &str) -> String {
+    let mut parts: Vec<String> = jws.split('.').map(str::to_owned).collect();
+    assert_eq!(parts.len(), 3, "fixture JWS must be compact");
+    let replacement = if parts[2].starts_with('A') { "B" } else { "A" };
+    parts[2].replace_range(0..1, replacement);
+    parts.join(".")
+}
+
+#[derive(Default)]
+struct SingleUseNonceLedger {
+    consumed: HashSet<String>,
+}
+
+impl SingleUseNonceLedger {
+    fn consume(&mut self, nonce: &str) -> bool {
+        self.consumed.insert(nonce.to_owned())
+    }
+}
+
+fn run_matrix() -> Vec<CaseResult> {
+    let mut cases = Vec::new();
+
+    // Positive utility control: only the selected claim is returned.
+    let credential = base_credential(None);
+    let partial = partial_presentation(&credential);
+    let issuer_verifier = HmacSha256Verifier::new(ISSUER_KEY);
+    let result = verifier::verify(
+        &partial,
+        &issuer_verifier,
+        &Sha256Hasher,
+        &VerificationOptions::default(),
+        None,
+    );
+    let utility_ok = result.is_ok_and(|verified| {
+        verified.claims["given_name"] == "Asha"
+            && verified.claims.get("family_name").is_none()
+            && verified.claims["sub"] == "synthetic-subject-001"
+    });
+    cases.push(CaseResult::new("valid_partial_disclosure", true, utility_ok));
+
+    // The library exposes mutable parsed claim fields. Re-parse the exact wire
+    // representation at the verifier boundary so those cached fields cannot
+    // disagree with the issuer-bound encoded disclosure.
+    let mut mutated_cache = partial.clone();
+    mutated_cache.disclosures[0].claim_value = json!("Mallory");
+    let canonical = parse_wire(&mutated_cache).expect("serialized presentation must parse");
+    let issuer_verifier = HmacSha256Verifier::new(ISSUER_KEY);
+    let cache_integrity_ok = verifier::verify(
+        &canonical,
+        &issuer_verifier,
+        &Sha256Hasher,
+        &VerificationOptions::default(),
+        None,
+    )
+    .is_ok_and(|verified| verified.claims["given_name"] == "Asha");
+    cases.push(CaseResult::new(
+        "wire_reparse_restores_issuer_bound_disclosure_value",
+        true,
+        cache_integrity_ok,
+    ));
+
+    // The exact same signed material must not verify under a wrong issuer key.
+    cases.push(CaseResult::new(
+        "wrong_issuer_key",
+        false,
+        basic_accepts(&partial, WRONG_ISSUER_KEY),
+    ));
+
+    let tampered_jws = mutate_signature(&partial.jws);
+    let tampered_signature = SdJwt::new(
+        tampered_jws,
+        partial.disclosures.clone(),
+        partial.kb_jwt.clone(),
+    );
+    cases.push(CaseResult::new(
+        "tampered_issuer_signature",
+        false,
+        basic_accepts(&tampered_signature, ISSUER_KEY),
+    ));
+
+    let duplicated = SdJwt::new(
+        partial.jws.clone(),
+        vec![
+            partial.disclosures[0].clone(),
+            partial.disclosures[0].clone(),
+        ],
+        None,
+    );
+    cases.push(CaseResult::new(
+        "duplicate_disclosure",
+        false,
+        basic_accepts(&duplicated, ISSUER_KEY),
+    ));
+
+    let other_claims = json!({
+        "sub": "synthetic-subject-002",
+        "department": "sensitive-department"
+    });
+    let other_credential = issue(&other_claims, &json!({ "_sd": ["department"] }), None);
+    let mut disclosures = partial.disclosures.clone();
+    disclosures.push(other_credential.disclosures[0].clone());
+    let unissued = SdJwt::new(partial.jws.clone(), disclosures, None);
+    cases.push(CaseResult::new(
+        "unissued_disclosure",
+        false,
+        basic_accepts(&unissued, ISSUER_KEY),
+    ));
+
+    // When the RP requires key binding, a holder proof must be present.
+    let holder_bound = issue_holder_bound();
+    let no_kb = partial_presentation(&holder_bound);
+    cases.push(CaseResult::new(
+        "key_binding_required_but_missing",
+        false,
+        key_binding_accepts(&no_kb, NONCE, AUDIENCE, Some(HOLDER_KEY)),
+    ));
+
+    let good_kb = key_bound_presentation(NONCE, AUDIENCE);
+    cases.push(CaseResult::new(
+        "valid_key_binding",
+        true,
+        key_binding_accepts(&good_kb, NONCE, AUDIENCE, Some(HOLDER_KEY)),
+    ));
+    let fresh_now = ISSUED_AT as i64 + 30;
+    let fresh_kb = key_bound_presentation_at_iat(NONCE, AUDIENCE, ISSUED_AT);
+    cases.push(CaseResult::new(
+        "key_binding_iat_within_freshness_window",
+        true,
+        key_binding_freshness_accepts(&fresh_kb, NONCE, AUDIENCE, fresh_now, 300),
+    ));
+    cases.push(CaseResult::new(
+        "stale_key_binding_iat_rejected",
+        false,
+        key_binding_freshness_accepts(
+            &fresh_kb,
+            NONCE,
+            AUDIENCE,
+            ISSUED_AT as i64 + 500,
+            300,
+        ),
+    ));
+    let future_kb = key_bound_presentation_at_iat(NONCE, AUDIENCE, ISSUED_AT + 1000);
+    cases.push(CaseResult::new(
+        "future_key_binding_iat_rejected",
+        false,
+        key_binding_freshness_accepts(
+            &future_kb,
+            NONCE,
+            AUDIENCE,
+            ISSUED_AT as i64,
+            300,
+        ),
+    ));
+    cases.push(CaseResult::new(
+        "wrong_nonce",
+        false,
+        key_binding_accepts(&good_kb, "different-nonce", AUDIENCE, Some(HOLDER_KEY)),
+    ));
+    cases.push(CaseResult::new(
+        "wrong_audience",
+        false,
+        key_binding_accepts(&good_kb, NONCE, "https://other.example.test", Some(HOLDER_KEY)),
+    ));
+    cases.push(CaseResult::new(
+        "missing_holder_verifier",
+        false,
+        key_binding_accepts(&good_kb, NONCE, AUDIENCE, None),
+    ));
+    cases.push(CaseResult::new(
+        "wrong_holder_key",
+        false,
+        key_binding_accepts(&good_kb, NONCE, AUDIENCE, Some(WRONG_HOLDER_KEY)),
+    ));
+
+    // The KB-JWT's sd_hash binds the holder proof to this exact disclosure set.
+    let altered_disclosure_set = SdJwt::new(
+        good_kb.jws.clone(),
+        Vec::new(),
+        good_kb.kb_jwt.clone(),
+    );
+    cases.push(CaseResult::new(
+        "key_binding_disclosure_set_mutated",
+        false,
+        key_binding_accepts(
+            &altered_disclosure_set,
+            NONCE,
+            AUDIENCE,
+            Some(HOLDER_KEY),
+        ),
+    ));
+
+    // A valid signed proof can be cryptographically replayed if the exact same
+    // nonce is accepted more than once. The app-level single-use ledger closes
+    // that gap; it is intentionally reported as a separate policy layer.
+    let stateless_accepts_replay =
+        key_binding_accepts(&good_kb, NONCE, AUDIENCE, Some(HOLDER_KEY));
+    cases.push(CaseResult::new(
+        "stateless_same_nonce_replay_is_cryptographically_valid",
+        true,
+        stateless_accepts_replay,
+    ));
+
+    let mut ledger = SingleUseNonceLedger::default();
+    let first_accepted = stateless_accepts_replay && ledger.consume(NONCE);
+    cases.push(CaseResult::new(
+        "single_use_nonce_first_consumption",
+        true,
+        first_accepted,
+    ));
+    let second_accepted = stateless_accepts_replay && ledger.consume(NONCE);
+    cases.push(CaseResult::new(
+        "single_use_nonce_replay_rejected_by_policy",
+        false,
+        second_accepted,
+    ));
+
+    cases
+}
+
+fn main() {
+    let cases = run_matrix();
+    println!("case_id,expected,actual,pass");
+    for case in &cases {
+        println!(
+            "{},{},{},{}",
+            case.id,
+            case.expected,
+            case.actual,
+            if case.passed() { "true" } else { "false" }
+        );
+    }
+    if cases.iter().any(|case| !case.passed()) {
+        std::process::exit(1);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn verifier_decision_matrix_matches_frozen_expected_outcomes() {
+        let cases = run_matrix();
+        assert_eq!(cases.len(), 19);
+        for case in &cases {
+            assert!(
+                case.passed(),
+                "case {} expected {}, got {}",
+                case.id,
+                case.expected,
+                case.actual
+            );
+        }
+    }
+
+    #[test]
+    fn selected_claim_is_returned_without_unselected_claims() {
+        let credential = base_credential(None);
+        let presentation = partial_presentation(&credential);
+        let issuer_verifier = HmacSha256Verifier::new(ISSUER_KEY);
+        let result = verifier::verify(
+            &presentation,
+            &issuer_verifier,
+            &Sha256Hasher,
+            &VerificationOptions::default(),
+            None,
+        )
+        .expect("valid partial presentation must verify");
+
+        assert_eq!(result.claims["given_name"], "Asha");
+        assert!(result.claims.get("family_name").is_none());
+    }
+
+    #[test]
+    fn typed_disclosure_cache_is_not_authoritative_for_verification() {
+        let credential = base_credential(None);
+        let mut presentation = partial_presentation(&credential);
+        presentation.disclosures[0].claim_value = json!("Mallory");
+
+        // Direct typed-object verification can observe caller-mutated cached
+        // fields even though serialized disclosure bytes still encode "Asha".
+        let issuer_verifier = HmacSha256Verifier::new(ISSUER_KEY);
+        let direct = verifier::verify(
+            &presentation,
+            &issuer_verifier,
+            &Sha256Hasher,
+            &VerificationOptions::default(),
+            None,
+        )
+        .expect("underlying signed wire bytes remain valid");
+        assert_eq!(direct.claims["given_name"], "Mallory");
+
+        // Re-parsing the exact serialized presentation makes the signed wire
+        // representation authoritative and reconstructs the issuer-bound value.
+        let canonical = parse_wire(&presentation).expect("presentation wire must parse");
+        let issuer_verifier = HmacSha256Verifier::new(ISSUER_KEY);
+        let reparsed = verifier::verify(
+            &canonical,
+            &issuer_verifier,
+            &Sha256Hasher,
+            &VerificationOptions::default(),
+            None,
+        )
+        .expect("canonical wire representation must verify");
+        assert_eq!(reparsed.claims["given_name"], "Asha");
+    }
+
+    #[test]
+    fn nonce_ledger_rejects_second_consumption() {
+        let mut ledger = SingleUseNonceLedger::default();
+        assert!(ledger.consume("one-time-test-nonce"));
+        assert!(!ledger.consume("one-time-test-nonce"));
+        assert!(ledger.consume("different-test-nonce"));
+    }
+}
