@@ -194,7 +194,8 @@ fn generated_reference_mask(subject: usize, round: usize) -> u16 {
 fn index_masks_by_parity(parity: u32) -> Vec<u16> {
     (0_u16..256)
         .filter(|mask| {
-            mask.count_ones() == 3 && (u32::from((mask & 0x0f).count_ones() % 2) == parity)
+            let value = *mask;
+            value.count_ones() == 3 && ((value & 0x0f).count_ones() % 2) == parity
         })
         .collect()
 }
@@ -233,7 +234,7 @@ fn generate_subjects(scenario: Scenario) -> Vec<Subject> {
                         } else {
                             20 + (((cohort_position - 12) + offset) % 12) as u8
                         };
-                        let parity = usize::from(!shifted_low);
+                        let parity = if shifted_low { 0 } else { 1 };
                         let pool = &parity_pools[parity];
                         let mask_seed = SEED
                             ^ index_u64.wrapping_mul(0xD6E8_FEB8_6659_FD93)
@@ -284,6 +285,7 @@ fn percentile(sorted: &[usize], percentile: usize) -> usize {
     sorted[rank - 1]
 }
 
+#[cfg(test)]
 fn candidate_count_for_subject(
     target: &Subject,
     subjects: &[Subject],
