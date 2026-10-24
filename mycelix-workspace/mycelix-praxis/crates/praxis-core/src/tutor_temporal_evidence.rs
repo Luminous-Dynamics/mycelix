@@ -332,15 +332,15 @@ pub fn validate_temporal_bundle(
             if occurrence_upper < occurrence_lower || record_upper < record_lower {
                 findings.push(finding("invalid_timestamp_interval", Some(&case.case_id), format!("{} has an invalid timestamp uncertainty interval", observation.observation_id)));
             }
-            if matches!(observation.occurrence_time_provenance, OccurrenceTimeProvenance::ImportedUnverified | OccurrenceTimeProvenance::DerivedEstimate)
+            if observation.occurrence_time_provenance != OccurrenceTimeProvenance::AssessmentServer
                 && observation.occurred_at_uncertainty_seconds == 0
             {
-                findings.push(finding("unverified_occurrence_has_zero_uncertainty", Some(&case.case_id), format!("{} declares unverified/derived event time with zero uncertainty", observation.observation_id)));
+                findings.push(finding("non_server_occurrence_has_zero_uncertainty", Some(&case.case_id), format!("{} declares a non-server event timestamp with zero uncertainty", observation.observation_id)));
             }
-            if observation.record_time_provenance == RecordTimeProvenance::ImportedUnverified
+            if observation.record_time_provenance != RecordTimeProvenance::ServerReceipt
                 && observation.recorded_at_uncertainty_seconds == 0
             {
-                findings.push(finding("unverified_record_time_has_zero_uncertainty", Some(&case.case_id), format!("{} declares unverified record time with zero uncertainty", observation.observation_id)));
+                findings.push(finding("non_server_record_time_has_zero_uncertainty", Some(&case.case_id), format!("{} declares a non-server record timestamp with zero uncertainty", observation.observation_id)));
             }
             if observation.valid_until_unix.is_some_and(|deadline| deadline <= observation.occurred_at_unix) {
                 findings.push(finding("invalid_validity_window", Some(&case.case_id), format!("{} expires no later than its occurrence", observation.observation_id)));
@@ -872,7 +872,7 @@ mod tests {
         let imported = case["observations"].as_array_mut().unwrap().iter_mut().find(|event| event["observation_id"] == "te006-imported-success").unwrap();
         imported["occurred_at_uncertainty_seconds"] = 0.into();
         let errors = validate_temporal_bundle(&value.to_string(), ORACLE).expect_err("unverified time cannot assert exactness");
-        assert!(errors.iter().any(|error| error.code == "unverified_occurrence_has_zero_uncertainty"));
+        assert!(errors.iter().any(|error| error.code == "non_server_occurrence_has_zero_uncertainty"));
     }
 
     #[test]
@@ -920,6 +920,16 @@ mod tests {
     }
 
     #[test]
+    fn local_store_timestamp_requires_nonzero_uncertainty() {
+        let mut value: serde_json::Value = serde_json::from_str(OBSERVATIONS).unwrap();
+        let case = value["cases"].as_array_mut().unwrap().iter_mut().find(|case| case["case_id"] == "TE005").unwrap();
+        let event = case["observations"].as_array_mut().unwrap().iter_mut().find(|event| event["observation_id"] == "te005-conflict-failure").unwrap();
+        event["recorded_at_uncertainty_seconds"] = 0.into();
+        let errors = validate_temporal_bundle(&value.to_string(), ORACLE).expect_err("local-store timestamps need declared uncertainty");
+        assert!(errors.iter().any(|error| error.code == "non_server_record_time_has_zero_uncertainty"));
+    }
+
+    #[test]
     fn mismatched_derived_timestamp_provenance_is_rejected() {
         let mut value: serde_json::Value = serde_json::from_str(OBSERVATIONS).unwrap();
         let case = value["cases"].as_array_mut().unwrap().iter_mut().find(|case| case["case_id"] == "TE009").unwrap();
@@ -941,7 +951,7 @@ mod tests {
             let test_name = entry["test_name"].as_str().unwrap();
             assert!(source.contains(&format!("fn {test_name}(")), "matrix row {id} points to missing test {test_name}");
         }
-        assert_eq!(entries.len(), 22);
+        assert_eq!(entries.len(), 23);
     }
 
 
