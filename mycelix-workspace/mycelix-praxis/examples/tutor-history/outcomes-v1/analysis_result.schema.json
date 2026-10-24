@@ -1,0 +1,246 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://mycelix.net/schemas/praxis-learning-outcome-analysis/v1/analysis_result.schema.json",
+  "title": "Praxis deterministic primary learning-outcome analysis result v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "analysis_protocol_id",
+    "study_id",
+    "dataset_id",
+    "endpoint_id",
+    "input_protocol_blake3",
+    "input_dataset_blake3",
+    "analysis_revision",
+    "endpoint_kind",
+    "estimator",
+    "estimand",
+    "status",
+    "confidence_level_percent",
+    "intervention",
+    "comparator",
+    "observed_case_difference_value_milli_micros",
+    "confidence_interval",
+    "missing_outcome_bounds",
+    "findings"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": 1
+    },
+    "analysis_protocol_id": {
+      "const": "PRAXIS-LEARNING-OUTCOME-ANALYSIS-001"
+    },
+    "study_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "dataset_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "endpoint_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "input_protocol_blake3": {
+      "$ref": "#/$defs/digest"
+    },
+    "input_dataset_blake3": {
+      "$ref": "#/$defs/digest"
+    },
+    "analysis_revision": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{40}$"
+    },
+    "endpoint_kind": {
+      "enum": [
+        "immediate_gain",
+        "delayed_retention",
+        "near_transfer",
+        "far_transfer",
+        "error_recovery",
+        "engagement",
+        "time_on_task",
+        "cost_per_gain",
+        "displacement",
+        "adverse_events"
+      ]
+    },
+    "estimator": {
+      "const": "difference_in_means"
+    },
+    "estimand": {
+      "const": "intention_to_treat"
+    },
+    "status": {
+      "enum": [
+        "inferential_interval_available",
+        "missing_primary_outcomes",
+        "insufficient_sample",
+        "degenerate_variance"
+      ]
+    },
+    "confidence_level_percent": {
+      "enum": [
+        90,
+        95,
+        99
+      ]
+    },
+    "intervention": {
+      "$ref": "#/$defs/arm_summary"
+    },
+    "comparator": {
+      "$ref": "#/$defs/arm_summary"
+    },
+    "observed_case_difference_value_milli_micros": {
+      "type": [
+        "integer",
+        "null"
+      ]
+    },
+    "confidence_interval": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/interval"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "missing_outcome_bounds": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/bounds"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "findings": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/finding"
+      }
+    }
+  },
+  "$defs": {
+    "digest": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "arm_summary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "arm_id",
+        "n_randomized",
+        "n_observed",
+        "n_missing",
+        "observed_mean_value_milli_micros",
+        "observed_sample_sd_value_milli_micros"
+      ],
+      "properties": {
+        "arm_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "n_randomized": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "n_observed": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "n_missing": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "observed_mean_value_milli_micros": {
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "observed_sample_sd_value_milli_micros": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0
+        }
+      }
+    },
+    "interval": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "confidence_level_percent",
+        "lower_value_milli_micros",
+        "upper_value_milli_micros",
+        "method"
+      ],
+      "properties": {
+        "confidence_level_percent": {
+          "enum": [
+            90,
+            95,
+            99
+          ]
+        },
+        "lower_value_milli_micros": {
+          "type": "integer"
+        },
+        "upper_value_milli_micros": {
+          "type": "integer"
+        },
+        "method": {
+          "const": "welch_t_interval_cornish_fisher_critical_approximation"
+        }
+      }
+    },
+    "bounds": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "lower_value_milli_micros",
+        "upper_value_milli_micros",
+        "method"
+      ],
+      "properties": {
+        "lower_value_milli_micros": {
+          "type": "integer"
+        },
+        "upper_value_milli_micros": {
+          "type": "integer"
+        },
+        "method": {
+          "const": "worst_case_bounded_outcome_bounds"
+        }
+      }
+    },
+    "finding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "code",
+        "detail"
+      ],
+      "properties": {
+        "code": {
+          "type": "string",
+          "minLength": 1
+        },
+        "detail": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    }
+  }
+}
