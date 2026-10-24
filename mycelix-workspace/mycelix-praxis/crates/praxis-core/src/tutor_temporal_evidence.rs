@@ -7,8 +7,7 @@
 //! retractions/supersessions from historical learner behavior.
 
 use super::tutor_history_benchmark::{
-    AssistanceLevel, HistoryAction, HistoryDiagnosis, HistoryDisposition, HistoryOracleLabel,
-    HistoryPrediction, ObservationOrigin,
+    AssistanceLevel, HistoryDisposition, HistoryOracleLabel, HistoryPrediction, ObservationOrigin,
 };
 use serde::{de::Deserializer, Deserialize, Serialize};
 use std::collections::{BTreeMap, BTreeSet};
@@ -613,6 +612,7 @@ mod tests {
         let case = value["cases"].as_array_mut().unwrap().iter_mut().find(|case| case["case_id"] == "TE003").unwrap();
         let events = case["observations"].as_array_mut().unwrap();
         events.iter_mut().find(|event| event["observation_id"] == "te003-original").unwrap()["status"] = "active".into();
+        events.iter_mut().find(|event| event["observation_id"] == "te003-original").unwrap()["supersedes"] = serde_json::json!(["te003-prior-active"]);
         events.iter_mut().find(|event| event["observation_id"] == "te003-prior-active").unwrap()["supersedes"] = serde_json::json!(["te003-correction"]);
         let errors = validate_temporal_bundle(&value.to_string(), ORACLE).expect_err("cycle must fail");
         assert!(errors.iter().any(|error| error.code == "supersession_cycle"));
