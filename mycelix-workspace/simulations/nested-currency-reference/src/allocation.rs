@@ -11,6 +11,9 @@ pub const BASIS_POINTS: u16 = 10_000;
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct ShardDemand {
+    /// Canonical currency/instrument identity for every demand sample and slice.
+    /// Ticker symbols and display labels are not valid authority identifiers.
+    pub instrument_id: String,
     /// Stable, canonical shard identifier. It is also the deterministic tie-break key.
     pub shard_id: String,
     /// Integer demand samples from a declared training window, in one canonical unit.
@@ -44,6 +47,8 @@ pub struct AllocationSlice {
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct AllocationPlan {
+    /// Exact instrument whose risk rights this plan allocates.
+    pub instrument_id: String,
     pub total_capacity: u64,
     pub spendable_capacity: u64,
     pub contingency_reserve: u64,
@@ -55,6 +60,8 @@ pub struct AllocationPlan {
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum AllocationError {
     NoShards,
+    InvalidInstrumentId,
+    InstrumentMismatch,
     InvalidShardId,
     DuplicateShardId,
     ReserveOutOfRange,
@@ -69,6 +76,9 @@ pub enum AllocationError {
 impl AllocationPlan {
     /// Recheck the integer conservation invariants independently of allocation policy.
     pub fn validate(&self) -> Result<(), AllocationError> {
+        if self.instrument_id.trim().is_empty() {
+            return Err(AllocationError::InvalidInstrumentId);
+        }
         if self.contingency_reserve > self.total_capacity
             || self.spendable_capacity.checked_add(self.contingency_reserve)
                 != Some(self.total_capacity)
@@ -126,8 +136,20 @@ pub fn allocate_static_escrow(
         return Err(AllocationError::ReserveOutOfRange);
     }
 
+    let instrument_id = shards[0].instrument_id.trim();
+    if instrument_id.is_empty() {
+        return Err(AllocationError::InvalidInstrumentId);
+    }
+    let canonical_instrument = shards[0].instrument_id.clone();
+
     let mut ids = BTreeSet::new();
     for shard in shards {
+        if shard.instrument_id.trim().is_empty() {
+            return Err(AllocationError::InvalidInstrumentId);
+        }
+        if shard.instrument_id != canonical_instrument {
+            return Err(AllocationError::InstrumentMismatch);
+        }
         if shard.shard_id.trim().is_empty() {
             return Err(AllocationError::InvalidShardId);
         }
@@ -262,10 +284,28 @@ mod tests {
 
     fn shard(id: &str, samples: &[u64], minimum_capacity: u64) -> ShardDemand {
         ShardDemand {
+            instrument_id: "instrument:unit".to_owned(),
             shard_id: id.to_owned(),
             samples: samples.to_vec(),
             minimum_capacity,
         }
+    }
+
+    #[test]
+    fn plans_reject_mixed_or_missing_instrument_identity() {
+        let mut mixed = vec![shard("a", &[10], 0), shard("b", &[20], 0)];
+        mixed[1].instrument_id = "instrument:other".into();
+        assert_eq!(
+            allocate_static_escrow(&mixed, 100, 0, AllocationPolicy::EqualSplit),
+            Err(AllocationError::InstrumentMismatch),
+        );
+
+        let mut missing = vec![shard("a", &[10], 0)];
+        missing[0].instrument_id.clear();
+        assert_eq!(
+            allocate_static_escrow(&missing, 100, 0, AllocationPolicy::EqualSplit),
+            Err(AllocationError::InvalidInstrumentId),
+        );
     }
 
     #[test]
