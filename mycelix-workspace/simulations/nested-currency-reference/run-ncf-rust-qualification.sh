@@ -43,16 +43,16 @@ run_check() {
   shift 2
   local status=0
 
-  echo "Running $label: $*"
+  echo "Running $label: $*" >&2
   set +e
   "$@" >"$logfile" 2>&1
   status=$?
   set -e
 
   if [[ "$status" -eq 0 ]]; then
-    echo "$label: PASS"
+    echo "$label: PASS" >&2
   else
-    echo "$label: FAIL (exit $status)"
+    echo "$label: FAIL (exit $status)" >&2
     cat "$logfile" >&2
   fi
   printf '%s\n' "$status"
