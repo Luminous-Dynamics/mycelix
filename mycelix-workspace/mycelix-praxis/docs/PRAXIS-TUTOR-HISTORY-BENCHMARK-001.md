@@ -16,7 +16,7 @@ This complements (rather than reproduces) LongTutor's three task families—hist
 - `crates/praxis-core/src/tutor_history_benchmark.rs`: strict Rust data types, cross-file invariants, exact-byte BLAKE3 binding, and an outcome scorer.
 - The oracle is not an input feature. A test harness must send only observations to the candidate, then score candidate predictions against the separate oracle.
 
-The example set intentionally includes short histories and ambiguous histories, not just clean positive examples. It distinguishes raw observations and imported summaries from derived estimates. No direct learner identifiers, free-text answers, or private learner logs are present.
+The example set intentionally includes short histories and ambiguous histories, not just clean positive examples. It distinguishes raw observations and imported summaries from derived estimates. The v1 counterfactual groups are assistance-only pairs: they must have exactly two cases, preserve all non-assistance event semantics, and actually change assistance labels. No direct learner identifiers, free-text answers, or private learner logs are present.
 
 ## Output contract
 
@@ -44,7 +44,7 @@ The Rust scorer enforces exact case cardinality and binds predictions to the exa
 ## Qualification ladder
 
 - **Level 0 — artifact conformance:** strict parsing, schema/Rust parity, unique cases/events, exact evidence references and digest negative controls.
-- **Level 1 — synthetic evaluator conformance:** deterministic oracle replay, metamorphic negative controls, row-order permutations whose semantic scores remain invariant despite different byte digests, and full report reproducibility.
+- **Level 1 — synthetic evaluator conformance:** deterministic oracle replay, counterfactual-pair invariants, mutation negative controls, irrelevant-observation and row-order transformations whose semantic scores remain invariant despite different byte digests, and full report reproducibility.
 - **Level 2 — expert adjudication:** at least 120 trajectories from at least 8 diagnostic families, double-reviewed independently with disagreement resolution; hold out complete trajectory families, not turns. Report inter-rater agreement and confidence intervals.
 - **Level 3 — external benchmark comparison:** map taxonomy carefully to LongTutor/MMTutorBench/TutorBench where constructs overlap; run the actual released benchmark under its rules and pinned model/configuration. Add StudentBench-style independently assessed learning-gain/cost measurements as a separate outcome track. A synthetic pass is not comparable to their leaderboard scores.
 - **Level 4 — efficacy and non-harm:** preregistered, ethically reviewed study with independent assessment, delayed retention, transfer, assistance exposure, engagement/displacement, and subgroup analysis. Assisted correctness is not an outcome proxy.
