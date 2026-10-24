@@ -20,7 +20,7 @@ A credential should not be judged by one boolean called "valid". The harness exe
 
 The crate's `_test-utils` HMAC signer/verifier is **not suitable for production**, uses symmetric test keys, and is only used to create deterministic trust relationships for behavioral tests. The synthetic `cnf.jwk` is not a general-purpose public-key resolver. Production must bind the holder verifier to the issuer-authenticated `cnf.jwk`, enforce allowed algorithms, and validate the request/session context.
 
-The verifier API exposes a separate freshness-window check for KB-JWT `iat`; the matrix covers in-window, stale, and excessive-future timestamps with a fixed synthetic clock. The local `SingleUseNonceLedger` is a sequential reference model, not a distributed replay service: production needs atomic, expiry-aware, verifier-scoped nonce consumption with collision-resistant nonces and concurrency tests.
+The verifier API exposes a separate freshness-window check for KB-JWT `iat`; the matrix covers in-window, stale, and excessive-future timestamps with a fixed synthetic clock. The pinned library represents parsed disclosures with publicly mutable fields. A source-level probe shows that mutating the cached `claim_value` can diverge from the encoded disclosure; the harness therefore canonicalizes through `serialize()` plus `SdJwt::parse()` at its trust boundary. This is an integration hardening rule, not a claim that an attacker can mutate arbitrary in-process memory over the wire. The local `SingleUseNonceLedger` is a sequential reference model, not a distributed replay service: production needs atomic, expiry-aware, verifier-scoped nonce consumption with collision-resistant nonces and concurrency tests.
 
 ## Run
 
