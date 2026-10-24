@@ -6,6 +6,7 @@
 //! not authenticate remote providers or prove that the candidate never saw a
 //! hidden artifact: those require trusted harness isolation and signed receipts.
 
+use super::tutor_temporal_evidence::TemporalManifest;
 use serde::{de::Deserializer, Deserialize, Serialize};
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -286,12 +287,14 @@ fn digest_for_role(run: &BenchmarkRunManifest, role: ArtifactRole) -> &str {
     }
 }
 
-/// Validate a run against the exact split artifact bytes. This checks declared
-/// metadata and digests; it cannot prove that a remote model never received a
-/// hidden artifact, nor verify artifact bytes not passed to this function.
+/// Validate a run against the exact split and candidate-visible observation bytes.
+/// The supplied candidate dataset must contain only the complete trajectories for
+/// the declared split role. This checks the local artifact boundary, but it cannot
+/// prove a remote model never received hidden content outside this harness.
 pub fn validate_benchmark_run(
     run_json: &str,
     split_json: &str,
+    candidate_observations_json: &str,
 ) -> Result<(BenchmarkRunManifest, TrajectorySplitManifest), Vec<IntegrityFinding>> {
     let mut findings = Vec::new();
     let run: BenchmarkRunManifest = match serde_json::from_str(run_json) {
@@ -367,6 +370,31 @@ pub fn validate_benchmark_run(
         findings.push(finding("run_trajectory_set_mismatch", "run must cover exactly the complete trajectories assigned to its declared split role"));
     }
 
+    let candidate_observations: TemporalManifest = match serde_json::from_str(candidate_observations_json) {
+        Ok(value) => value,
+        Err(error) => return Err(parse_error("candidate_observations", error)),
+    };
+    if candidate_observations.schema_version != 1 || candidate_observations.benchmark_id != TUTOR_BENCHMARK_ID {
+        findings.push(finding("candidate_observation_identity_mismatch", "candidate observation manifest has an unsupported schema or benchmark ID"));
+    }
+    let mut candidate_trajectory_ids = BTreeSet::new();
+    for case in &candidate_observations.cases {
+        if !nonempty(&case.case_id) || !candidate_trajectory_ids.insert(case.case_id.clone()) {
+            findings.push(finding("duplicate_or_empty_candidate_trajectory", "candidate observation case IDs must be non-empty and unique"));
+        }
+    }
+    if candidate_trajectory_ids != assignments_for_role {
+        let all_assigned: BTreeSet<String> = split.assignments.iter().map(|assignment| assignment.trajectory_id.clone()).collect();
+        if candidate_trajectory_ids.iter().any(|id| all_assigned.contains(id) && !assignments_for_role.contains(id)) {
+            findings.push(finding("candidate_split_leakage", "candidate-visible observations include trajectories assigned to a different split role"));
+        } else {
+            findings.push(finding("candidate_trajectory_set_mismatch", "candidate-visible observations must contain exactly the full trajectories assigned to this split role"));
+        }
+    }
+    if run.observation_manifest_blake3 != exact_digest(candidate_observations_json.as_bytes()) {
+        findings.push(finding("observation_manifest_digest_mismatch", "run is not bound to the exact candidate-visible observation-manifest bytes"));
+    }
+
     let mut artifacts_by_id: BTreeMap<String, &RunArtifact> = BTreeMap::new();
     let mut roles = BTreeSet::new();
     let mut candidate_ids = BTreeSet::new();
@@ -438,9 +466,10 @@ pub fn validate_comparable_pair(
     baseline_json: &str,
     augmented_json: &str,
     split_json: &str,
+    candidate_observations_json: &str,
 ) -> Result<(BenchmarkRunManifest, BenchmarkRunManifest), Vec<IntegrityFinding>> {
-    let (baseline, _) = validate_benchmark_run(baseline_json, split_json)?;
-    let (augmented, _) = validate_benchmark_run(augmented_json, split_json)?;
+    let (baseline, _) = validate_benchmark_run(baseline_json, split_json, candidate_observations_json)?;
+    let (augmented, _) = validate_benchmark_run(augmented_json, split_json, candidate_observations_json)?;
     let mut findings = Vec::new();
 
     if baseline.run_id == augmented.run_id {
@@ -487,6 +516,7 @@ mod tests {
     use super::*;
 
     const SPLIT: &str = include_str!("../examples/tutor-history/temporal-v1/split_manifest.json");
+    const OBSERVATIONS: &str = include_str!("../examples/tutor-history/temporal-v1/observations.json");
 
     fn digest(char_: char) -> String {
         std::iter::repeat(char_).take(64).collect()
@@ -496,9 +526,24 @@ mod tests {
         std::iter::repeat(char_).take(40).collect()
     }
 
+    fn candidate_dataset_for_role(split_json: &str, role: SplitRole) -> String {
+        let split: TrajectorySplitManifest = serde_json::from_str(split_json).unwrap();
+        let wanted: BTreeSet<String> = split.assignments.iter()
+            .filter(|assignment| assignment.split == role)
+            .map(|assignment| assignment.trajectory_id.clone())
+            .collect();
+        let mut dataset: serde_json::Value = serde_json::from_str(OBSERVATIONS).unwrap();
+        dataset["cases"].as_array_mut().unwrap().retain(|case| {
+            case["case_id"].as_str().is_some_and(|id| wanted.contains(id))
+        });
+        serde_json::to_string_pretty(&dataset).unwrap()
+    }
+
     fn run_manifest(split_json: &str, mode: AdvisorMode, run_id: &str) -> BenchmarkRunManifest {
+        let candidate_observations_json = candidate_dataset_for_role(split_json, SplitRole::Test);
         let split: TrajectorySplitManifest = serde_json::from_str(split_json).unwrap();
         let split_digest = exact_digest(split_json.as_bytes());
+        let observation_digest = exact_digest(candidate_observations_json.as_bytes());
         let role = SplitRole::Test;
         let trajectory_ids = split.assignments.iter()
             .filter(|assignment| assignment.split == role)
@@ -514,7 +559,7 @@ mod tests {
             advisor_artifact_blake3: match mode { AdvisorMode::Baseline => None, AdvisorMode::SymthaeaAssisted => Some(digest('e')) },
         };
         let artifact_defs = [
-            ("observations", ArtifactRole::ObservationManifest, ArtifactAudience::CandidateVisible, digest('1')),
+            ("observations", ArtifactRole::ObservationManifest, ArtifactAudience::CandidateVisible, observation_digest.clone()),
             ("observation-schema", ArtifactRole::ObservationSchema, ArtifactAudience::CandidateVisible, digest('2')),
             ("candidate-policy", ArtifactRole::CandidatePolicy, ArtifactAudience::CandidateVisible, digest('d')),
             ("oracle", ArtifactRole::Oracle, ArtifactAudience::EvaluatorOnly, digest('3')),
@@ -540,7 +585,7 @@ mod tests {
             sampling: SamplingConfig { temperature_milli: 0, top_p_milli: 1000, max_output_tokens: 2048, seed: 7 },
             execution_environment_blake3: digest('8'),
             candidate_schema_blake3: digest('2'),
-            observation_manifest_blake3: digest('1'),
+            observation_manifest_blake3: observation_digest,
             oracle_blake3: digest('3'),
             scorer_blake3: digest('4'),
             verifier_blake3: digest('5'),
@@ -593,7 +638,7 @@ mod tests {
     fn valid_run_binds_all_required_artifact_roles_and_exact_split_bytes() {
         let run = run_manifest(SPLIT, AdvisorMode::Baseline, "b0-test-run");
         let run_json = serde_json::to_string(&run).unwrap();
-        let (validated, split) = validate_benchmark_run(&run_json, SPLIT).expect("valid run");
+        let (validated, split) = validate_benchmark_run(&run_json, SPLIT, &candidate_dataset_for_role(SPLIT, SplitRole::Test)).expect("valid run");
         assert_eq!(validated.trajectory_ids.len(), 3);
         assert_eq!(split.split_id, "praxis-temporal-synthetic-v1");
     }
@@ -603,15 +648,36 @@ mod tests {
         let run = run_manifest(SPLIT, AdvisorMode::Baseline, "b0-test-run");
         let run_json = serde_json::to_string(&run).unwrap();
         let changed_split = format!("\n{SPLIT}");
-        let errors = validate_benchmark_run(&run_json, &changed_split).expect_err("exact byte change must invalidate split binding");
+        let errors = validate_benchmark_run(&run_json, &changed_split, &candidate_dataset_for_role(SPLIT, SplitRole::Test)).expect_err("exact byte change must invalidate split binding");
         assert!(errors.iter().any(|error| error.code == "split_digest_mismatch"));
+    }
+
+    #[test]
+    fn candidate_observation_digest_binds_exact_split_subset_bytes() {
+        let candidate_data = candidate_dataset_for_role(SPLIT, SplitRole::Test);
+        let run = run_manifest(SPLIT, AdvisorMode::Baseline, "b0-test-run");
+        let result = validate_benchmark_run(&serde_json::to_string(&run).unwrap(), SPLIT, &candidate_data)
+            .expect("split-only candidate dataset is correctly bound");
+        assert_eq!(result.0.trajectory_ids.len(), 3);
+    }
+
+    #[test]
+    fn candidate_receiving_all_trajectories_is_rejected_as_split_leakage() {
+        let run = run_manifest(SPLIT, AdvisorMode::Baseline, "b0-test-run");
+        let errors = validate_benchmark_run(
+            &serde_json::to_string(&run).unwrap(),
+            SPLIT,
+            OBSERVATIONS,
+        ).expect_err("full manifest must not be visible to the test-only candidate run");
+        assert!(errors.iter().any(|error| error.code == "candidate_split_leakage"));
+        assert!(errors.iter().any(|error| error.code == "observation_manifest_digest_mismatch"));
     }
 
     #[test]
     fn evaluator_only_oracle_cannot_be_added_to_candidate_inputs() {
         let mut run = run_manifest(SPLIT, AdvisorMode::Baseline, "b0-test-run");
         run.candidate_visible_artifact_ids.push("oracle".to_owned());
-        let errors = validate_benchmark_run(&serde_json::to_string(&run).unwrap(), SPLIT)
+        let errors = validate_benchmark_run(&serde_json::to_string(&run).unwrap(), SPLIT, &candidate_dataset_for_role(SPLIT, SplitRole::Test))
             .expect_err("oracle cannot be candidate visible");
         assert!(errors.iter().any(|error| error.code == "candidate_artifact_set_mismatch"));
     }
@@ -624,6 +690,7 @@ mod tests {
             &serde_json::to_string(&baseline).unwrap(),
             &serde_json::to_string(&augmented).unwrap(),
             SPLIT,
+            &candidate_dataset_for_role(SPLIT, SplitRole::Test),
         ).expect("valid paired test runs");
         assert_eq!(result.0.system.advisor_mode, AdvisorMode::Baseline);
         assert_eq!(result.1.system.advisor_mode, AdvisorMode::SymthaeaAssisted);
@@ -639,6 +706,7 @@ mod tests {
             &serde_json::to_string(&baseline).unwrap(),
             &serde_json::to_string(&augmented).unwrap(),
             SPLIT,
+            &candidate_dataset_for_role(SPLIT, SplitRole::Test),
         ).expect_err("policy gate drift must fail");
         assert!(errors.iter().any(|error| error.code == "paired_run_protocol_drift"));
     }
@@ -652,6 +720,7 @@ mod tests {
             &serde_json::to_string(&baseline).unwrap(),
             &serde_json::to_string(&augmented).unwrap(),
             SPLIT,
+            &candidate_dataset_for_role(SPLIT, SplitRole::Test),
         ).expect_err("paired runs must use identical test trajectories");
         assert!(errors.iter().any(|error| error.code == "run_trajectory_set_mismatch"));
     }
@@ -665,6 +734,7 @@ mod tests {
             &serde_json::to_string(&baseline).unwrap(),
             &serde_json::to_string(&augmented).unwrap(),
             SPLIT,
+            &candidate_dataset_for_role(SPLIT, SplitRole::Test),
         ).expect_err("prompt drift must fail");
         assert!(errors.iter().any(|error| error.code == "paired_run_protocol_drift"));
 
@@ -674,6 +744,7 @@ mod tests {
             &serde_json::to_string(&baseline).unwrap(),
             &serde_json::to_string(&augmented).unwrap(),
             SPLIT,
+            &candidate_dataset_for_role(SPLIT, SplitRole::Test),
         ).expect_err("system revision drift must fail");
         assert!(errors.iter().any(|error| error.code == "paired_run_protocol_drift"));
     }
@@ -690,6 +761,6 @@ mod tests {
             let test_name = entry["test_name"].as_str().unwrap();
             assert!(source.contains(&format!("fn {test_name}(")), "matrix row {id} points to missing test {test_name}");
         }
-        assert_eq!(entries.len(), 12);
+        assert_eq!(entries.len(), 14);
     }
 }
