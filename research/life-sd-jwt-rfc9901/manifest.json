@@ -34,7 +34,7 @@
     "each SHA-256 base64url digest matches the RFC example",
     "both implementations return the same digest",
     "object-property versus array-element disclosure shape is checked",
-    "published salts, claim names, and decoded claim contents match expected RFC example values",
+    "both implementations agree on published salts, claim names, disclosure kinds, and decoded claim contents",
     "both parsers reject malformed base64url disclosure input",
     "both parsers reject malformed disclosure JSON and invalid array shapes",
     "both parsers reject non-string salts and object-property names",
