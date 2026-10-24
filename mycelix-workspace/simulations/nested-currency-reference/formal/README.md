@@ -28,16 +28,16 @@ The first command should terminate with no invariant violation. The second shoul
 java -cp /path/to/tla2tools.jar tlc2.TLC -config NCF_FEN_1_StaleOwnerMutant.cfg NCF_FEN_1_StaleOwnerMutant.tla
 ```
 
-Run the two-shard model with `java -cp /path/to/tla2tools.jar tlc2.TLC -config NCF_ESCROW_1.cfg NCF_ESCROW_1.tla`; this should complete without invariant violations. Run its duplicate-allocation mutant with `java -cp /path/to/tla2tools.jar tlc2.TLC -config NCF_ESCROW_1_DuplicateAllocationMutant.cfg NCF_ESCROW_1_DuplicateAllocationMutant.tla`; it should violate `ReservedCapacityBound`. These expected outcomes have **not yet been confirmed** by running TLC. The commands alone are not evidence.
+Run the two-shard model with `java -cp /path/to/tla2tools.jar tlc2.TLC -config NCF_ESCROW_1.cfg NCF_ESCROW_1.tla`; this should complete without invariant violations. Run its duplicate-allocation mutant with `java -cp /path/to/tla2tools.jar tlc2.TLC -config NCF_ESCROW_1_DuplicateAllocationMutant.cfg NCF_ESCROW_1_DuplicateAllocationMutant.tla`; it should violate `ReservedCapacityBound`. Run the partition-resize mutant with `java -cp /path/to/tla2tools.jar tlc2.TLC -config NCF_ESCROW_1_PartitionResizeMutant.cfg NCF_ESCROW_1_PartitionResizeMutant.tla`; it should violate `PartitionedReservationsStayFixed` while keeping total reservations within the global cap. These expected outcomes have **not yet been confirmed** by running TLC. The commands alone are not evidence.
 
-The repository wrapper runs both safe models and all three unsafe mutants and rejects unexpected outcomes, including parser failures masquerading as successful negative controls:
+The repository wrapper runs both safe models and all four unsafe mutants and rejects unexpected outcomes, including parser failures masquerading as successful negative controls:
 
 ```sh
 TLA2TOOLS_JAR=/absolute/path/to/tla2tools.jar \
   bash mycelix-workspace/simulations/nested-currency-reference/run-ncf-fen-tlc.sh
 ```
 
-It requires a clean checkout, runs both safe models and all three expected-failing mutants, directs each TLC metadata database to a distinct directory under the external output directory, writes raw logs and a receipt outside the repository, and binds them to the exact source/tree, all model/config digests and the JAR digest. The current environment has Java but no local `tla2tools.jar`; outbound DNS/download is unavailable, so this wrapper has not been executed here.
+It requires a clean checkout, runs both safe models and all four expected-failing mutants, directs each TLC metadata database to a distinct directory under the external output directory, writes raw logs and a receipt outside the repository, and binds them to the exact source/tree, all model/config digests and the JAR digest. The current environment has Java but no local `tla2tools.jar`; outbound DNS/download is unavailable, so this wrapper has not been executed here.
 
 ## Dedicated GitHub Actions qualification
 
