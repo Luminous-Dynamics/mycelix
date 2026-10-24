@@ -729,7 +729,7 @@ mod tests {
     fn changed_candidate_observation_bytes_invalidate_run_binding() {
         let candidate_data = candidate_dataset_for_role(SPLIT, SplitRole::Test);
         let run = run_manifest(SPLIT, AdvisorMode::Baseline, "b0-test-run");
-        let changed = format!("\\n{candidate_data}");
+        let changed = format!("\n{candidate_data}");
         let errors = validate_benchmark_run(&serde_json::to_string(&run).unwrap(), SPLIT, &changed)
             .expect_err("byte-level candidate input changes must invalidate the run binding");
         assert!(errors.iter().any(|error| error.code == "observation_manifest_digest_mismatch"));
