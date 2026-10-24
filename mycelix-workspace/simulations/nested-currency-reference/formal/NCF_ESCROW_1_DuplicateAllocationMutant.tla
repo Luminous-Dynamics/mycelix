@@ -9,7 +9,7 @@ DuplicateAllocation(s) ==
     /\ reserved[s] = 0
     /\ TotalReserved > 0
     /\ reserved' = [reserved EXCEPT ![s] = Capacity]
-    /\ UNCHANGED << outstanding, partitioned, eventCount >>
+    /\ UNCHANGED << outstanding, partitioned, eventCount, partitionSnapshotReserved >>
 
 DuplicateAllocationMutantNext == Next \/ \E s \in Shards: DuplicateAllocation(s)
 DuplicateAllocationMutantSpec == Init /\ [][DuplicateAllocationMutantNext]_vars
