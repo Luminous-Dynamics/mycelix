@@ -7,7 +7,7 @@
   "status": "proposed_not_qualified",
   "execution_evidence": {
     "status": "not_run",
-    "reason": "Static allocator source, generated property-style tests, and benchmark harness are committed but not compiled/executed here. Exact-head Rust receipts, TLA+ results, and distributed/multi-agent qualification remain outstanding."
+    "reason": "Static allocator tests, generated sweep, and benchmark are definitions only until the exact-head Rust workflow emits logs and receipts. TLA+ and multi-agent/Holochain qualification remain outstanding."
   },
   "claim_ceiling": [
     "Reference-model conformance only when executed against a named source revision.",
@@ -949,9 +949,11 @@
         "held_out_demand_served_fraction",
         "forecast_error",
         "prepartition_reallocation_overhead_ns",
-        "essential_service_demand_served_fraction"
+        "essential_service_demand_served_fraction",
+        "instrument_id_bound"
       ],
       "required_output": [
+        "instrument_id",
         "source_commit",
         "workload_digest_sha256",
         "seed",
@@ -1537,7 +1539,8 @@
         "expected_policy_mode_reports",
         "observed_policy_mode_reports",
         "safety_violation_reports",
-        "receipt_sha256"
+        "receipt_sha256",
+        "instrument_id"
       ],
       "receipt_sha256_method": "SHA-256 of the closed receipt file, reported externally by runner stdout/workflow metadata; do not put self-hash inside the receipt.",
       "claim_ceiling": "Unit tests plus synthetic single-process matched-trace evaluation only; real-demand validity and distributed/Holochain safety remain separate.",
