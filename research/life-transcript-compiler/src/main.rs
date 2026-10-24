@@ -23,8 +23,6 @@ enum CountMode {
 }
 
 impl CountMode {
-    const ALL: [Self; 3] = [Self::Exact, Self::Bucketed, Self::Padded];
-
     fn label(self) -> &'static str {
         match self {
             Self::Exact => "exact",
@@ -58,8 +56,6 @@ enum IndexMode {
 }
 
 impl IndexMode {
-    const ALL: [Self; 3] = [Self::Exact, Self::Coarse, Self::Omitted];
-
     fn label(self) -> &'static str {
         match self {
             Self::Exact => "exact",
