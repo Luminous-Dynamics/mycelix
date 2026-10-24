@@ -1,0 +1,91 @@
+{
+  "benchmark_id": "LIFE-SD-JWT-VERIFY-MATRIX-001",
+  "version": "0.1.0",
+  "requirement_map": "rfc9901-requirement-map.json",
+  "status": "synthetic_end_to_end_verifier_behavior_harness_pending_exact_head_qualification",
+  "standard": {
+    "id": "RFC 9901",
+    "url": "https://datatracker.ietf.org/doc/rfc9901/",
+    "scope": "SD-JWT issuance, selective disclosure, issuer verification, and optional KB-JWT validation"
+  },
+  "implementation": {
+    "crate": "affinidi-sd-jwt",
+    "version": "0.1.5",
+    "registry": "https://docs.rs/crate/affinidi-sd-jwt/0.1.5",
+    "test_feature": "_test-utils",
+    "test_signatures": "HMAC-SHA256 only; never use this fixture implementation in production",
+    "freshness": "application-level fixed-clock iat policy checked only after published verifier API validates the signed KB-JWT",
+    "kb_jwt_typ": "profile policy explicitly checks typ=kb+jwt after signature verification because the pinned 0.1.5 API does not expose this check"
+  },
+  "fixture": {
+    "claims": "synthetic only",
+    "issuer_key": "fixed, non-secret HMAC test key",
+    "holder_key": "fixed, non-secret HMAC test key",
+    "time": 1800000000,
+    "audience": "https://verifier.example.test",
+    "nonce": "test-nonce-0001",
+    "network_resolution": false
+  },
+  "cases": [
+    "valid_partial_disclosure",
+    "wire_reparse_restores_issuer_bound_disclosure_value",
+    "wrong_issuer_key",
+    "tampered_issuer_signature",
+    "duplicate_disclosure",
+    "unissued_disclosure",
+    "key_binding_required_but_missing",
+    "valid_key_binding",
+    "published_verifier_accepts_signed_wrong_kb_typ",
+    "application_policy_rejects_signed_wrong_kb_typ",
+    "published_verifier_accepts_non_cnf_holder_key",
+    "application_policy_rejects_non_cnf_holder_key",
+    "key_binding_iat_within_freshness_window",
+    "stale_key_binding_iat_rejected",
+    "future_key_binding_iat_rejected",
+    "wrong_nonce",
+    "wrong_audience",
+    "missing_holder_verifier",
+    "wrong_holder_key",
+    "key_binding_disclosure_set_mutated",
+    "stateless_same_nonce_replay_is_cryptographically_valid",
+    "single_use_nonce_first_consumption",
+    "single_use_nonce_replay_rejected_by_policy",
+    "concurrent_nonce_race_has_exactly_one_winner",
+    "nonce_ledger_rejects_replay_but_namespaces_verifiers"
+  ],
+  "decision_layers": [
+    "RFC-aligned cryptographic and disclosure processing behavior",
+    "caller-supplied holder-verifier/key selection boundary",
+    "application policy for single-use nonce consumption and replay rejection"
+  ],
+  "invariants": [
+    "valid partial disclosure preserves the subject decision inputs while omitting unselected claims",
+    "invalid issuer signature or key rejects",
+    "duplicate and unissued disclosures reject",
+    "required KB-JWT rejects when missing or unverifiable",
+    "wrong nonce and audience reject",
+    "holder-key substitution rejects",
+    "KB-JWT cannot be reused with a changed disclosure set",
+    "the stateless verifier outcome is separated from application-level one-time nonce policy",
+    "published library result and application profile policy are reported separately for KB-JWT typ",
+    "holder verifier supplied by caller must match the issuer-authenticated synthetic cnf.jwk key",
+    "concurrent in-process consumption of one verifier-scoped nonce has exactly one winner",
+    "freshness policy only runs after issuer-authenticated cnf matches the holder test key",
+    "nonce uniqueness is scoped by verifier identifier",
+    "wire serialization and re-parsing restore authoritative disclosure fields before the verifier trust decision",
+    "repeated report includes stable case IDs and stable outcomes only"
+  ],
+  "claim_ceiling": "SyntheticAffinidiSdJwt015VerifierBehaviorWithHmacTestFixturesAndSingleUseNoncePolicy",
+  "nonclaims": [
+    "full RFC 9901 conformance",
+    "SD-JWT VC profile conformance",
+    "OpenID4VP or HAIP conformance",
+    "production cryptographic security",
+    "general-purpose JWK-to-verifier construction or key-rotation policy",
+    "safety of arbitrary caller-mutated in-memory SD-JWT structs without canonical re-parse",
+    "distributed database transaction or cross-process replay protection",
+    "anonymity or unlinkability",
+    "differential privacy",
+    "performance or SOTA superiority"
+  ]
+}

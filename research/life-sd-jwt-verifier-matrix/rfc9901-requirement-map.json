@@ -1,0 +1,148 @@
+{
+  "profile_id": "LIFE-SD-JWT-VERIFY-MATRIX-001",
+  "normative_anchor": "IETF RFC 9901",
+  "normative_url": "https://datatracker.ietf.org/doc/rfc9901/",
+  "tested_implementation": {
+    "crate": "affinidi-sd-jwt",
+    "version": "0.1.5",
+    "maturity": "published registry release",
+    "signatures": "test-only HMAC-SHA256 fixtures; no production cryptographic claim"
+  },
+  "status_vocabulary": [
+    "tested_by_harness",
+    "application_policy",
+    "partially_tested",
+    "not_covered"
+  ],
+  "requirements": [
+    {
+      "id": "RFC9901-7.1-issuer-signature-and-disclosures",
+      "clause": "7.1",
+      "requirement": "Validate the issuer-signed SD-JWT and process the disclosed values under the specification rules.",
+      "status": "partially_tested",
+      "cases": [
+        "valid_partial_disclosure",
+        "wrong_issuer_key",
+        "tampered_issuer_signature",
+        "duplicate_disclosure",
+        "unissued_disclosure",
+        "wire_reparse_restores_issuer_bound_disclosure_value"
+      ],
+      "limits": "Synthetic claims and test-only HMAC signing; not the full official RFC vector suite."
+    },
+    {
+      "id": "RFC9901-7.3-step-1",
+      "clause": "7.3 step 1",
+      "requirement": "The decision whether to require key binding is fixed by verifier policy, not by the mere presence of a KB-JWT.",
+      "status": "partially_tested",
+      "cases": ["key_binding_required_but_missing", "valid_key_binding"],
+      "limits": "Two fixed policy branches only; no complete relying-party request-profile implementation."
+    },
+    {
+      "id": "RFC9901-7.3-step-2",
+      "clause": "7.3 step 2",
+      "requirement": "Reject SD-JWT without a KB-JWT when key binding is required.",
+      "status": "tested_by_harness",
+      "cases": ["key_binding_required_but_missing"]
+    },
+    {
+      "id": "RFC9901-7.3-step-5a",
+      "clause": "7.3 step 5.a",
+      "requirement": "Determine the holder public key from the issuer-authenticated cnf claim.",
+      "status": "application_policy",
+      "cases": [
+        "published_verifier_accepts_non_cnf_holder_key",
+        "application_policy_rejects_non_cnf_holder_key"
+      ],
+      "limits": "A synthetic octet-key consistency check only; no general JWK parser, algorithm binding, key rotation, remote key resolution, or asymmetric key support."
+    },
+    {
+      "id": "RFC9901-7.3-step-5b",
+      "clause": "7.3 step 5.b",
+      "requirement": "Require an algorithm deemed secure for the application; do not accept alg=none.",
+      "status": "not_covered",
+      "cases": [],
+      "limits": "HMAC-SHA256 is fixed for deterministic tests; there is no production algorithm allowlist or algorithm-confusion suite."
+    },
+    {
+      "id": "RFC9901-7.3-step-5c",
+      "clause": "7.3 step 5.c",
+      "requirement": "Validate the KB-JWT signature with the holder key.",
+      "status": "partially_tested",
+      "cases": ["valid_key_binding", "wrong_holder_key"],
+      "limits": "Synthetic HMAC only. Correct key selection must still be performed by the application using cnf.jwk."
+    },
+    {
+      "id": "RFC9901-7.3-step-5d",
+      "clause": "7.3 step 5.d",
+      "requirement": "Require KB-JWT typ=kb+jwt.",
+      "status": "application_policy",
+      "cases": [
+        "published_verifier_accepts_signed_wrong_kb_typ",
+        "application_policy_rejects_signed_wrong_kb_typ"
+      ],
+      "limits": "The 0.1.5 raw API source does not enforce the typ check; the harness demonstrates an explicit policy wrapper."
+    },
+    {
+      "id": "RFC9901-7.3-step-5e",
+      "clause": "7.3 step 5.e",
+      "requirement": "Check KB-JWT iat is inside an acceptable freshness window.",
+      "status": "application_policy",
+      "cases": [
+        "key_binding_iat_within_freshness_window",
+        "stale_key_binding_iat_rejected",
+        "future_key_binding_iat_rejected"
+      ],
+      "limits": "Synthetic fixed clock and configurable maximum age; not a production clock-skew or transaction-age profile."
+    },
+    {
+      "id": "RFC9901-7.3-step-5f",
+      "clause": "7.3 step 5.f",
+      "requirement": "Bind the key-binding proof to the current verifier transaction using nonce and aud, and prevent replay.",
+      "status": "partially_tested",
+      "cases": [
+        "wrong_nonce",
+        "wrong_audience",
+        "stateless_same_nonce_replay_is_cryptographically_valid",
+        "single_use_nonce_first_consumption",
+        "single_use_nonce_replay_rejected_by_policy",
+        "concurrent_nonce_race_has_exactly_one_winner"
+      ],
+      "limits": "Nonce-store concurrency is modeled with an in-process mutex only; no database, multi-process, or multi-region atomicity is tested."
+    },
+    {
+      "id": "RFC9901-7.3-step-5g",
+      "clause": "7.3 step 5.g",
+      "requirement": "Validate sd_hash over the issuer-signed JWT and exactly selected disclosure bytes.",
+      "status": "tested_by_harness",
+      "cases": ["valid_key_binding", "key_binding_disclosure_set_mutated"]
+    },
+    {
+      "id": "RFC9901-7.3-step-5h",
+      "clause": "7.3 step 5.h",
+      "requirement": "Apply all other applicable JWT and application-profile validity checks.",
+      "status": "not_covered",
+      "cases": [],
+      "limits": "No complete issuer claim validation, expiry/not-before policy, issuer allowlist, typ/profile matrix, or official negative-vector suite."
+    },
+    {
+      "id": "RFC9901-4.2.3-disclosure-digest",
+      "clause": "4.2.3",
+      "requirement": "Digest ASCII bytes of the base64url-encoded disclosure rather than decoded JSON.",
+      "status": "partially_tested",
+      "related_evidence": "https://github.com/Luminous-Dynamics/mycelix/pull/5496",
+      "limits": "Related PR #5496 source-compatible cross-implementation harness still awaits exact-head qualification."
+    }
+  ],
+  "excluded_conformance_profiles": [
+    "full RFC 9901 conformance",
+    "SD-JWT VC profile conformance",
+    "OpenID4VP conformance",
+    "HAIP 1.0 conformance",
+    "production key management",
+    "distributed replay protection",
+    "anonymity or unlinkability",
+    "differential privacy"
+  ],
+  "rule": "A partially tested or application_policy row must never be reported as full normative conformance."
+}
