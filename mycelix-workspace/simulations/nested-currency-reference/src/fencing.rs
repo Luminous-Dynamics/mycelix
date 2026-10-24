@@ -588,4 +588,36 @@ mod tests {
         assert_eq!(book.record_obligation("tx:retry", "owner-a", 1, 1), Ok(Apply::Applied));
         assert_eq!(book.outstanding(), 5);
     }
+    #[test]
+    fn ledger_and_control_operations_share_one_idempotency_namespace() {
+        let mut book = FenceBook::new("owner-a", 1, 20).unwrap();
+        book.record_obligation("drain:collision", "owner-a", 1, 1).unwrap();
+        book.record_obligation("fence:collision", "owner-a", 1, 1).unwrap();
+        book.record_obligation("transfer:collision", "owner-a", 1, 1).unwrap();
+
+        assert_eq!(book.request_drain("drain:collision"), Err(Error::ReplayMismatch));
+        book.request_drain("drain:ok").unwrap();
+        let cut = book.operation_sequence();
+        book.reconcile(cut, 3, 0, true).unwrap();
+
+        assert_eq!(book.fence("fence:collision", cut), Err(Error::ReplayMismatch));
+        assert_eq!(book.fence("drain:ok", cut), Err(Error::ReplayMismatch));
+        book.fence("fence:ok", cut).unwrap();
+
+        assert_eq!(
+            book.transfer("transfer:collision", "owner-b", 2, 17),
+            Err(Error::ReplayMismatch)
+        );
+        assert_eq!(
+            book.transfer("fence:ok", "owner-b", 2, 17),
+            Err(Error::ReplayMismatch)
+        );
+        book.transfer("transfer:ok", "owner-b", 2, 17).unwrap();
+        assert_eq!(
+            book.record_successor_obligation("transfer:ok", "owner-b", 2, 1),
+            Err(Error::ReplayMismatch)
+        );
+        assert_eq!(book.successor_outstanding(), 0);
+    }
+
 }
