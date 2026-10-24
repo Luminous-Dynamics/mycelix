@@ -1287,11 +1287,18 @@
         "safe_model_state_statistics_line",
         "safe_log_sha256",
         "commit_replay_mutant_log_sha256",
-        "conflicting_replay_mutant_log_sha256",
-        "receipt_sha256"
+        "conflicting_replay_mutant_log_sha256"
       ],
       "methodology": "Run the safe finite recovery model and each negative control independently using the pinned TLA+ tools build. Require the named invariant violation for each mutant; parser, module-resolution and generic tool failures do not count. Preserve raw traces and bind the receipts to exact source/model/config/tool hashes.",
-      "claim_ceiling": "Bounded TLA+ result only for declared atomic-durable transition semantics and finite bounds. It does not prove backend durability, production Holochain behavior, cryptographic authorization, or unbounded distributed safety."
+      "claim_ceiling": "Bounded TLA+ result only for declared atomic-durable transition semantics and finite bounds. It does not prove backend durability, production Holochain behavior, cryptographic authorization, or unbounded distributed safety.",
+      "required_external_evidence": [
+        "receipt_sha256",
+        "workflow_run_id",
+        "workflow_run_attempt",
+        "artifact_id_or_url",
+        "workflow_conclusion"
+      ],
+      "receipt_sha256_method": "Compute SHA-256 over the closed receipt file and record it in runner stdout / workflow summary or artifact metadata; do not put a self-hash inside the receipt body."
     }
   ]
 }
