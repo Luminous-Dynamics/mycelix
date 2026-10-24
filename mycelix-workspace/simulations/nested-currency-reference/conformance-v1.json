@@ -7,7 +7,7 @@
   "status": "proposed_not_qualified",
   "execution_evidence": {
     "status": "not_run",
-    "reason": "Static allocator tests, generated sweep, and benchmark are definitions only until the exact-head Rust workflow emits logs and receipts. TLA+ and multi-agent/Holochain qualification remain outstanding."
+    "reason": "The static escrow allocator and its expanded six-policy benchmark remain uncompiled and unexecuted in this environment. Exact-head Rust/TLA+ qualification and multi-agent/Holochain evidence remain outstanding."
   },
   "claim_ceiling": [
     "Reference-model conformance only when executed against a named source revision.",
@@ -184,6 +184,11 @@
       "id": "NCF-ALLOC-I-005",
       "name": "An allocation plan is bound to one canonical instrument",
       "statement": "All shard demand samples and returned rights in a plan share one exact canonical instrument ID; mixed-instrument inputs are rejected and no display ticker substitutes for identity."
+    },
+    {
+      "id": "NCF-ALLOC-I-006",
+      "name": "Equal-floor weighting redistributes only pre-partition discretionary rights",
+      "statement": "An equal-floor demand policy apportions its declared floor equally and its remainder by the declared demand weights, while conserving the same instrument budget and never mutating active reservations."
     }
   ],
   "conformance_cases": [
@@ -987,7 +992,7 @@
         "prepartition_reallocation_overhead_ns",
         "essential_service_demand_served_fraction"
       ],
-      "methodology": "Run the exact same deterministic demand/fault traces against each implemented policy and matched hardware/toolchains. Report results only after hard safety gates pass. Plot a Pareto frontier across economic demand served, safely reclaimable versus stranded capacity, tail latency, and compute cost; do not collapse outcomes into a single weighted score. Separate unreachable-owner partitions from honest crash/restart and byzantine-owner campaigns. Include ablations for priority classes and rebalancing policy. Add a low-risk paradigm-shift baseline: optimize the placement of already-authorized, non-overlapping slices before the partition, using training demand traces and robust quantiles. Evaluate on held-out and shifted workloads, and never allow the forecast to enlarge/reassign rights during the partition. This isolates safe capacity-placement improvements from risky online reclamation. An executable dependency-free Rust allocator and benchmark were added. It uses checked integer arithmetic, stable shard-ID tie-breaking, and largest-remainder apportionment; the benchmark compares three policies on the same generated stationary and shifted trace sets. Its current generator is synthetic and single-process. Run the exact-head wrapper, then replace/augment synthetic traces with independently sourced demand profiles before making real-world claims.",
+      "methodology": "Run the exact same deterministic demand/fault traces against each implemented policy and matched hardware/toolchains. Report results only after hard safety gates pass. Plot a Pareto frontier across economic demand served, safely reclaimable versus stranded capacity, tail latency, and compute cost; do not collapse outcomes into a single weighted score. Separate unreachable-owner partitions from honest crash/restart and byzantine-owner campaigns. Include ablations for priority classes and rebalancing policy. Add a low-risk paradigm-shift baseline: optimize the placement of already-authorized, non-overlapping slices before the partition, using training demand traces and robust quantiles. Evaluate on held-out and shifted workloads, and never allow the forecast to enlarge/reassign rights during the partition. This isolates safe capacity-placement improvements from risky online reclamation. An executable dependency-free Rust allocator and benchmark were added. It uses checked integer arithmetic, stable shard-ID tie-breaking, and largest-remainder apportionment; the benchmark compares three policies on the same generated stationary and shifted trace sets. Its current generator is synthetic and single-process. Run the exact-head wrapper, then replace/augment synthetic traces with independently sourced demand profiles before making real-world claims. The executable simulator includes 25%, 50%, and 75% equal-floor variants, creating a small safety-preserving frontier between historical utilization and resilience to demand-shape changes. These variants affect only the initial static placement and cannot resize allocations in a partition.",
       "execution_status": "defined_not_run",
       "claim_ceiling": "A future passing Rust reference model + synthetic matched-trace simulation only. It does not qualify distributed races, partition-time reallocation, Holochain, demand forecasts from real populations, solvency, or production economic welfare.",
       "reservation_policy_experiment": {
@@ -1024,6 +1029,18 @@
         {
           "id": "robust_quantile_p95_margin25",
           "description": "Nearest-rank 95th percentile plus a 25% proportional margin"
+        },
+        {
+          "id": "demand_weighted_equal_floor_25",
+          "description": "25% of discretionary capacity split equally, remaining 75% weighted by historical mean"
+        },
+        {
+          "id": "demand_weighted_equal_floor_50",
+          "description": "50% equal floor and 50% historical-mean weighted"
+        },
+        {
+          "id": "demand_weighted_equal_floor_75",
+          "description": "75% equal floor and 25% historical-mean weighted"
         }
       ],
       "evaluation_modes": [
@@ -1035,7 +1052,8 @@
           "id": "shifted",
           "description": "Held-out samples after rotating the demand propensity across shards, to expose stale-history fragility"
         }
-      ]
+      ],
+      "required_benchmark_reports": 12
     }
   ],
   "planned_conformance_cases": [
@@ -1363,7 +1381,7 @@
       "id": "NCF-ALLOC-011",
       "title": "Ten thousand generated allocation plans preserve capacity and input-order determinism",
       "class": "generated_static_allocation_property_sweep",
-      "attack": "Generate 10,000 fixed-seed inputs varying shard count, capacity, contingency reserve, allocation policy, demand samples and robust-quantile parameters; repeat each with reversed input order.",
+      "attack": "Generate 10,000 fixed-seed inputs varying shard count, capacity, contingency reserve, equal/demand-weighted/robust-quantile/equal-floor policies, demand samples, and policy parameters; repeat each with reversed input order.",
       "expected": "all_plans_validate_capacity_conservation_and_reversed_inputs_produce_identical_plans",
       "code_test": "ten_thousand_generated_allocation_plans_conserve_capacity_and_ignore_input_order",
       "execution_status": "reference_test_defined_not_run",
@@ -1377,6 +1395,24 @@
       "attack": "Supply shard samples from two different canonical instrument IDs or omit the instrument identity.",
       "expected": "reject_mixed_or_missing_instrument_without_returning_plan",
       "code_test": "plans_reject_mixed_or_missing_instrument_identity",
+      "execution_status": "reference_test_defined_not_run"
+    },
+    {
+      "id": "NCF-ALLOC-013",
+      "title": "Equal-floor demand weighting trades concentrated historical allocation for a shared baseline",
+      "class": "equal_floor_frontier_policy",
+      "attack": "Allocate a skewed two-shard demand history using pure mean weighting and a declared 50% equal floor.",
+      "expected": "hybrid_slice_equals_equal_floor_plus_weighted_remainder_and_total_budget_is_conserved",
+      "code_test": "demand_weighted_equal_floor_trades_peak_utilization_for_shift_resilience",
+      "execution_status": "reference_test_defined_not_run"
+    },
+    {
+      "id": "NCF-ALLOC-014",
+      "title": "A 100% equal floor matches equal split after minimum slices",
+      "class": "equal_floor_boundary",
+      "attack": "Set the equal floor to 100% of discretionary capacity with different per-shard minimums.",
+      "expected": "same_per_shard_rights_as_equal_split_with_same_minimums_and_exact_budget_conservation",
+      "code_test": "full_equal_floor_matches_equal_split_after_minimums",
       "execution_status": "reference_test_defined_not_run"
     }
   ],
@@ -1523,10 +1559,12 @@
         "allocation_plan_slices_fit_the_reservation_book_caps",
         "demand_weighted_policy_does_not_treat_missing_history_as_zero_demand",
         "ten_thousand_generated_allocation_plans_conserve_capacity_and_ignore_input_order",
-        "plans_reject_mixed_or_missing_instrument_identity"
+        "plans_reject_mixed_or_missing_instrument_identity",
+        "demand_weighted_equal_floor_trades_peak_utilization_for_shift_resilience",
+        "full_equal_floor_matches_equal_split_after_minimums"
       ],
-      "required_benchmark_reports": 6,
-      "safety_gate": "Every allocation plan validates and every policy/mode report must have zero accounting violations; any overflow, malformed input, or unaccounted capacity fails the campaign.",
+      "required_benchmark_reports": 12,
+      "safety_gate": "Every allocation plan validates and all twelve policy/mode reports must have zero accounting violations; any overflow, malformed input, mixed instrument identity, or unaccounted capacity fails the campaign.",
       "receipt_fields": [
         "source_commit",
         "source_tree",
