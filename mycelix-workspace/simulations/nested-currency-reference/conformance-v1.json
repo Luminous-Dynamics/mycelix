@@ -731,11 +731,29 @@
         "drain_to_transfer_latency_ms_p95",
         "drain_to_transfer_latency_ms_p99",
         "cpu_time_ns",
-        "peak_rss_bytes"
+        "peak_rss_bytes",
+        "formal_checker_version",
+        "formal_model_sha256",
+        "formal_config_sha256",
+        "model_state_count",
+        "model_transition_count",
+        "negative_control_expected_failure",
+        "negative_control_violated_invariant",
+        "counterexample_trace_sha256"
       ],
       "execution_status": "design_not_run",
       "claim_ceiling": "A deterministic state-machine/model-checker result only for the declared authority and fault model. It does not prove production Holochain behavior, legal settlement, cryptographic key security or safety outside the explored model.",
-      "methodology": "First qualify the transition oracle independently and exhaust small interleavings. Then run at least 10,000 reproducible schedules with retries, duplicate/reordered/dropped receipts, stale-owner writes, crash injection and partition/heal traces. Keep honest-crash and adversarial-owner campaigns separate. Compare static-quota, acknowledged-drain and any linearizable/quorum mode under identical traces. Any safety violation fails the campaign; utilization and latency are reported only alongside correctness results."
+      "methodology": "Run the bounded TLC safe model at Capacity=2, MaxSteps=4 and require no invariant violations; run the intentionally unsafe timeout mutant and require a counterexample to NoTransferWithoutFence. These results are not yet confirmed. Then qualify the independent transition oracle and exhaust small interleavings. Extend with at least 10,000 reproducible schedules for retries, duplicate/reordered/dropped receipts, stale-owner writes, crashes and partition/heal traces. Keep honest-crash and adversarial-owner campaigns separate. Compare static-quota, acknowledged-drain and any linearizable/quorum mode under identical traces. Any safety violation fails the campaign; utilization and latency are reported only alongside correctness results.",
+      "formal_model_path": "mycelix-workspace/simulations/nested-currency-reference/formal/NCF_FEN_1.tla",
+      "formal_config_path": "mycelix-workspace/simulations/nested-currency-reference/formal/NCF_FEN_1.cfg",
+      "negative_control_model_path": "mycelix-workspace/simulations/nested-currency-reference/formal/NCF_FEN_1_TimeoutMutant.tla",
+      "negative_control_config_path": "mycelix-workspace/simulations/nested-currency-reference/formal/NCF_FEN_1_TimeoutMutant.cfg",
+      "expected_negative_control_invariant": "NoTransferWithoutFence",
+      "formal_checker": "TLC (TLA+ tools)",
+      "formal_bounds": {
+        "Capacity": 2,
+        "MaxSteps": 4
+      }
     }
   ],
   "planned_conformance_cases": [
@@ -855,6 +873,18 @@
       "expected": "reject_cross_namespace_identifier_collision_without_second_effect",
       "code_test": "ledger_and_control_operations_share_one_idempotency_namespace",
       "execution_status": "reference_test_defined_not_run"
+    },
+    {
+      "id": "NCF-FEN-014",
+      "title": "Independent formal checker detects timeout-only reallocation",
+      "class": "unsafe_mutant_sensitivity",
+      "attack": "Use the deliberately unsafe timeout mutant to transfer risk capacity while the prior owner is merely draining and before reconciliation or fencing.",
+      "expected": "counterexample_violating_NoTransferWithoutFence",
+      "code_test": null,
+      "formal_model": "formal/NCF_FEN_1_TimeoutMutant.tla",
+      "formal_config": "formal/NCF_FEN_1_TimeoutMutant.cfg",
+      "formal_invariant": "NoTransferWithoutFence",
+      "execution_status": "formal_negative_control_defined_not_run"
     }
   ]
 }
