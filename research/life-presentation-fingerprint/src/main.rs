@@ -41,9 +41,7 @@ impl Profile {
             Self::BucketedStatementCount => "bucketed_statement_count",
             Self::FixedPaddedStatementCount => "fixed_padded_statement_count",
             Self::RevealedIndexPattern => "revealed_index_pattern",
-            Self::FixedPaddedCountPlusRevealedIndices => {
-                "fixed_padded_count_plus_revealed_indices"
-            }
+            Self::FixedPaddedCountPlusRevealedIndices => "fixed_padded_count_plus_revealed_indices",
             Self::ExactCountPlusRevealedIndices => "exact_count_plus_revealed_indices",
             Self::StableDisclosedIdentifier => "stable_disclosed_identifier",
         }
@@ -56,9 +54,7 @@ impl Profile {
             Self::BucketedStatementCount => "statement_count_bucket",
             Self::FixedPaddedStatementCount => "common_padded_count",
             Self::RevealedIndexPattern => "optional_index_mask",
-            Self::FixedPaddedCountPlusRevealedIndices => {
-                "common_padded_count+optional_index_mask"
-            }
+            Self::FixedPaddedCountPlusRevealedIndices => "common_padded_count+optional_index_mask",
             Self::ExactCountPlusRevealedIndices => "exact_statement_count+optional_index_mask",
             Self::StableDisclosedIdentifier => "stable_disclosed_identifier",
         }
@@ -302,14 +298,17 @@ mod tests {
         assert_eq!(first.lines().count(), PROFILES.len() + 1);
     }
 
-
     #[test]
     fn generator_preserves_count_and_index_pattern_diversity() {
         let subjects = generate_subjects();
-        let distinct_counts: std::collections::BTreeSet<u8> =
-            subjects.iter().map(|subject| subject.statement_count).collect();
-        let distinct_masks: std::collections::BTreeSet<u16> =
-            subjects.iter().map(|subject| subject.optional_index_mask).collect();
+        let distinct_counts: std::collections::BTreeSet<u8> = subjects
+            .iter()
+            .map(|subject| subject.statement_count)
+            .collect();
+        let distinct_masks: std::collections::BTreeSet<u16> = subjects
+            .iter()
+            .map(|subject| subject.optional_index_mask)
+            .collect();
         assert!(
             distinct_counts.len() >= 20,
             "high-bit generator should exercise at least 20 of 24 count values"
