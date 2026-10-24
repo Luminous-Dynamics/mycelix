@@ -51,9 +51,15 @@ bash mycelix-workspace/simulations/nested-currency-reference/run-allocation-benc
   16 32 1000 100000 50000 0x4d5943454c495831
 ```
 
-Arguments are shard count, historical samples per shard, evaluation scenarios per mode, total capacity, contingency reserve in ppm, and seed. The wrapper binds the result to the exact commit, profile digest, Rust compiler/toolchain, binary digest, output digest, and receipt digest. JSON output reports all six allocation policies—including the three equal-floor hybrids—over stationary and shifted demand, including requested/served/unserved demand, unused reserved-capacity units over time, demand-served ppm, allocated-capacity utilization, worst-scenario service, safety accounting checks, and the actual per-shard slices.
+Arguments are shard count, historical samples per shard, evaluation scenarios per mode, total capacity, contingency reserve in ppm, and seed. The wrapper binds the result to the exact commit, profile digest, Rust compiler/toolchain, binary digest, output digest, and receipt digest. JSON output reports all six allocation policies—including the three equal-floor hybrids—over stationary and shifted demand, including requested/served/unserved demand, stranded reserved-unit scenarios, demand-served ppm, allocated-capacity utilization, worst-scenario service, worst-shard demand served, safety accounting checks, the allocation slices, and per-shard requested/served/unserved totals. This prevents a high aggregate score from hiding a poorly served community. Distributed tail latency, partition recovery, economic demand classes and network cost remain targets for future multi-agent tests, not outputs of this single-process harness.
 
 The synthetic generator deliberately has an uneven historical demand profile, bounded jitter, occasional bursts, and a second evaluation mode that rotates the demand profile to simulate distribution shift. The same stationary and shifted traces are shared by all policies. This makes comparisons fair within a benchmark run, but it is a synthetic workload—not evidence of real community demand or an industry performance result.
+
+## Fairness is a separate axis from utilization
+
+The harness reports both aggregate demand served and `worst_shard_demand_served_ppm`, plus per-shard demand-served and worst-scenario service. An allocator is not Pareto-superior merely because its aggregate score rises: it may concentrate rights in historically hot shards and make small or new communities unreliable.
+
+For each policy, compare aggregate service, capacity utilization, worst-shard service, the per-shard service vector and its lower tail, worst-scenario service, and stationary-to-shifted degradation. These measurements are diagnostic, not a mandate for one allocation policy. Equal floors and explicit minimums are governance choices to compare against the same fixed budget; the allocator cannot treat them as permission to resize rights after a partition.
 
 ## Required experiments before a strong claim
 
