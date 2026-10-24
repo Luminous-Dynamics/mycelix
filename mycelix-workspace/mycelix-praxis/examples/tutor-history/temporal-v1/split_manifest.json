@@ -1,0 +1,23 @@
+{
+  "schema_version": 1,
+  "benchmark_id": "PRAXIS-TUTOR-TEMPORAL-EVIDENCE-001",
+  "split_id": "praxis-temporal-synthetic-v1",
+  "split_unit": "trajectory",
+  "whole_family_holdout": true,
+  "held_out_diagnostic_families": [
+    "stale_retracted",
+    "equal_timestamp_conflict",
+    "derived_estimate"
+  ],
+  "assignments": [
+    {"trajectory_id": "TE001", "diagnostic_family_id": "assistance_dependence", "split": "train"},
+    {"trajectory_id": "TE002", "diagnostic_family_id": "expiry_validity", "split": "train"},
+    {"trajectory_id": "TE003", "diagnostic_family_id": "retraction_correction", "split": "train"},
+    {"trajectory_id": "TE004", "diagnostic_family_id": "context_transfer", "split": "validation"},
+    {"trajectory_id": "TE005", "diagnostic_family_id": "timestamp_cutoff_ambiguity", "split": "validation"},
+    {"trajectory_id": "TE006", "diagnostic_family_id": "imported_summary", "split": "validation"},
+    {"trajectory_id": "TE007", "diagnostic_family_id": "stale_retracted", "split": "test"},
+    {"trajectory_id": "TE008", "diagnostic_family_id": "equal_timestamp_conflict", "split": "test"},
+    {"trajectory_id": "TE009", "diagnostic_family_id": "derived_estimate", "split": "test"}
+  ]
+}
