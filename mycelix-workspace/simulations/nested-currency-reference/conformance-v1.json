@@ -1,13 +1,13 @@
 {
   "schema": "mycelix.nested-currency-conformance",
-  "schema_version": "1.1.0",
+  "schema_version": "1.2.0",
   "profile": "NCF-1",
   "tracking_issue": "https://github.com/Luminous-Dynamics/mycelix/issues/5464",
   "implementation_pr": "https://github.com/Luminous-Dynamics/mycelix/pull/5465",
   "status": "proposed_not_qualified",
   "execution_evidence": {
     "status": "not_run",
-    "reason": "This corpus is a test contract. Definitions and targets are not passing results. Exact-head Rust execution, TLA+ runs, independent counterexample review and multi-agent qualification remain outstanding."
+    "reason": "Definitions and benchmark harnesses are committed but not executed here. Exact-head Rust compilation/tests, TLA+ runs, raw receipts, real-demand validation, and multi-agent qualification remain outstanding."
   },
   "claim_ceiling": [
     "Reference-model conformance only when executed against a named source revision.",
@@ -159,6 +159,21 @@
       "id": "NCF-FEN-I-012",
       "name": "Replay protection outlives the declared offline horizon",
       "statement": "A committed operation ID or replay-prevention tombstone is retained until every protocol-defined stale-owner and offline-replay condition has been closed. If the safe replay horizon is unknown, the ID is not recycled."
+    },
+    {
+      "id": "NCF-ALLOC-I-001",
+      "name": "Static allocation conserves the risk budget",
+      "statement": "Contingency reserve plus the sum of all static shard rights equals the total configured capacity, with no overflow or overspend."
+    },
+    {
+      "id": "NCF-ALLOC-I-002",
+      "name": "Static allocation is canonical and deterministic",
+      "statement": "The same canonical shard demands, minima, policy parameters, capacity and seed-independent input produce identical per-shard rights regardless of input order; deterministic tie breaks use stable shard IDs."
+    },
+    {
+      "id": "NCF-ALLOC-I-003",
+      "name": "Forecast signals never authorize partition-time reallocation",
+      "statement": "Historical demand samples affect only the pre-partition allocation plan. The allocator cannot mutate active rights or reclaim an unreachable owner's reservation."
     }
   ],
   "conformance_cases": [
@@ -960,9 +975,9 @@
         "prepartition_reallocation_overhead_ns",
         "essential_service_demand_served_fraction"
       ],
-      "methodology": "Run the exact same deterministic demand/fault traces against each implemented policy and matched hardware/toolchains. Report results only after hard safety gates pass. Plot a Pareto frontier across economic demand served, safely reclaimable versus stranded capacity, tail latency, and compute cost; do not collapse outcomes into a single weighted score. Separate unreachable-owner partitions from honest crash/restart and byzantine-owner campaigns. Include ablations for priority classes and rebalancing policy. Add a low-risk paradigm-shift baseline: optimize the placement of already-authorized, non-overlapping slices before the partition, using training demand traces and robust quantiles. Evaluate on held-out and shifted workloads, and never allow the forecast to enlarge/reassign rights during the partition. This isolates safe capacity-placement improvements from risky online reclamation.",
-      "execution_status": "design_not_run",
-      "claim_ceiling": "Comparative simulation/implementation evidence for declared workloads and tested fault models only; not a universal ranking, production financial-risk certification, or legal claim.",
+      "methodology": "Run the exact same deterministic demand/fault traces against each implemented policy and matched hardware/toolchains. Report results only after hard safety gates pass. Plot a Pareto frontier across economic demand served, safely reclaimable versus stranded capacity, tail latency, and compute cost; do not collapse outcomes into a single weighted score. Separate unreachable-owner partitions from honest crash/restart and byzantine-owner campaigns. Include ablations for priority classes and rebalancing policy. Add a low-risk paradigm-shift baseline: optimize the placement of already-authorized, non-overlapping slices before the partition, using training demand traces and robust quantiles. Evaluate on held-out and shifted workloads, and never allow the forecast to enlarge/reassign rights during the partition. This isolates safe capacity-placement improvements from risky online reclamation. An executable dependency-free Rust allocator and benchmark were added. It uses checked integer arithmetic, stable shard-ID tie-breaking, and largest-remainder apportionment; the benchmark compares three policies on the same generated stationary and shifted trace sets. Its current generator is synthetic and single-process. Run the exact-head wrapper, then replace/augment synthetic traces with independently sourced demand profiles before making real-world claims.",
+      "execution_status": "defined_not_run",
+      "claim_ceiling": "A future passing Rust reference model + synthetic matched-trace simulation only. It does not qualify distributed races, partition-time reallocation, Holochain, demand forecasts from real populations, solvency, or production economic welfare.",
       "reservation_policy_experiment": {
         "hypothesis": "Demand-aware allocation of non-overlapping rights before a partition can improve economic demand served without relaxing partition safety or requiring any partition-time reallocation.",
         "policies": [
@@ -978,7 +993,37 @@
         ],
         "evaluation": "Train allocation weights only on recorded training traces; evaluate on held-out and distribution-shift traces. Report per-shard unserved demand, safe capacity usage, fragmented/unused quota, forecast error, and essential-service demand served. Any safety violation disqualifies the policy regardless of utilization.",
         "claim_boundary": "An optimization of pre-authorized quota placement, not a method for safely reclaiming an unreachable owner's active rights."
-      }
+      },
+      "harness_path": "mycelix-workspace/simulations/nested-currency-reference/run-allocation-bench.sh",
+      "binary_path": "mycelix-workspace/simulations/nested-currency-reference/src/bin/ncf-allocation-bench.rs",
+      "allocator_module_path": "mycelix-workspace/simulations/nested-currency-reference/src/allocation.rs",
+      "workflow_path": ".github/workflows/ncf-allocation-benchmark.yml",
+      "documentation_path": "mycelix-workspace/simulations/nested-currency-reference/docs/NCF-ALLOC-1-static-allocation.md",
+      "default_command": "bash mycelix-workspace/simulations/nested-currency-reference/run-allocation-bench.sh 16 32 1000 100000 50000 0x4d5943454c495831",
+      "policies": [
+        {
+          "id": "equal_split",
+          "description": "Equal integer weights after explicit minimums"
+        },
+        {
+          "id": "demand_weighted",
+          "description": "Ceiling mean of historical integer demand samples"
+        },
+        {
+          "id": "robust_quantile_p95_margin25",
+          "description": "Nearest-rank 95th percentile plus a 25% proportional margin"
+        }
+      ],
+      "evaluation_modes": [
+        {
+          "id": "stationary",
+          "description": "Held-out samples from the historical shard demand shape with bounded jitter and bursts"
+        },
+        {
+          "id": "shifted",
+          "description": "Held-out samples after rotating the demand propensity across shards, to expose stale-history fragility"
+        }
+      ]
     }
   ],
   "planned_conformance_cases": [
@@ -1210,6 +1255,79 @@
       "formal_model": null,
       "execution_status": "planned_not_implemented_or_not_fully_qualified",
       "rationale": "This requires a persistence/replay-horizon model; a bounded lifecycle model with no time or tombstone-retention state does not qualify it."
+    },
+    {
+      "id": "NCF-ALLOC-001",
+      "title": "Equal split conserves awkward integer capacity with stable tie breaks",
+      "class": "static_allocation_integer_conservation",
+      "attack": "Allocate an odd capacity across an uneven shard count; permute the input list and compare per-shard results.",
+      "expected": "sum_slices_plus_reserve_equals_total_and_same_slices_by_stable_id",
+      "code_test": "equal_split_is_deterministic_and_conserves_integer_capacity",
+      "execution_status": "reference_test_defined_not_run"
+    },
+    {
+      "id": "NCF-ALLOC-002",
+      "title": "Demand-weighted allocation follows canonical integer weights",
+      "class": "historical_demand_weighted_allocation",
+      "attack": "Provide demand means in a known ratio and verify integer allocation and exact total capacity.",
+      "expected": "allocation_is_proportional_with_deterministic_largest_remainder",
+      "code_test": "demand_weighted_uses_ceiling_mean_and_largest_remainder",
+      "execution_status": "reference_test_defined_not_run"
+    },
+    {
+      "id": "NCF-ALLOC-003",
+      "title": "Robust quantile allocation applies explicit quantile and margin",
+      "class": "robust_quantile_static_allocation",
+      "attack": "Provide outlier-bearing samples and a known percentile/margin; verify weight values and resulting slices.",
+      "expected": "weight_matches_nearest_rank_quantile_plus_declared_margin",
+      "code_test": "robust_quantile_uses_upper_sample_and_explicit_margin",
+      "execution_status": "reference_test_defined_not_run"
+    },
+    {
+      "id": "NCF-ALLOC-004",
+      "title": "Contingency reserve remains unallocated",
+      "class": "static_contingency_reserve",
+      "attack": "Request a nonzero reserve and verify no shard receives the reserved capacity.",
+      "expected": "sum_slices_equals_total_minus_reserve",
+      "code_test": "contingency_reserve_is_not_allocated_to_any_shard",
+      "execution_status": "reference_test_defined_not_run"
+    },
+    {
+      "id": "NCF-ALLOC-005",
+      "title": "Static allocation plan is invariant to input order",
+      "class": "static_allocation_canonical_order",
+      "attack": "Permute the same canonical demand samples and shard IDs across every policy.",
+      "expected": "byte_equivalent_plan_for_every_permutation",
+      "code_test": "policy_reordering_does_not_change_per_shard_rights",
+      "execution_status": "reference_test_defined_not_run"
+    },
+    {
+      "id": "NCF-ALLOC-006",
+      "title": "Insufficient minimum slices fail closed",
+      "class": "static_allocation_minimum_capacity",
+      "attack": "Set per-shard minimums above the spendable budget after contingency reserve.",
+      "expected": "reject_without_producing_a_partial_plan",
+      "code_test": "insufficient_capacity_for_minimums_rejects_before_allocation",
+      "execution_status": "reference_test_defined_not_run"
+    },
+    {
+      "id": "NCF-ALLOC-007",
+      "title": "Malformed demand history cannot overflow the allocator",
+      "class": "static_allocation_arithmetic_overflow",
+      "attack": "Provide integer samples whose accumulation overflows the chosen representation.",
+      "expected": "explicit_overflow_error_no_wrapping",
+      "code_test": "demand_history_overflow_rejects_instead_of_wrapping",
+      "execution_status": "reference_test_defined_not_run"
+    },
+    {
+      "id": "NCF-ALLOC-008",
+      "title": "Demand policy frontier is measured under stationary and shifted traces",
+      "class": "static_allocation_demand_shift",
+      "attack": "Fit slice weights to a stationary training profile then evaluate all policies on matched stationary and rotated-profile traces.",
+      "expected": "machine_readable_metrics_for_all_three_policies_and_both_modes_with_zero_accounting_violations",
+      "code_test": null,
+      "benchmark": "NCF-BENCH-005",
+      "execution_status": "benchmark_defined_not_run"
     }
   ],
   "qualification_campaigns": [
@@ -1331,6 +1449,46 @@
         "workflow_conclusion"
       ],
       "receipt_sha256_method": "Compute SHA-256 over the closed receipt file and record it in runner stdout / workflow summary or artifact metadata; do not put a self-hash inside the receipt body."
+    },
+    {
+      "id": "NCF-QUAL-004",
+      "name": "Exact-head static allocation unit tests and matched-trace frontier",
+      "execution_status": "defined_not_run",
+      "source_module": "mycelix-workspace/simulations/nested-currency-reference/src/allocation.rs",
+      "benchmark_binary": "mycelix-workspace/simulations/nested-currency-reference/src/bin/ncf-allocation-bench.rs",
+      "runner_path": "mycelix-workspace/simulations/nested-currency-reference/run-allocation-bench.sh",
+      "workflow_path": ".github/workflows/ncf-allocation-benchmark.yml",
+      "required_unit_tests": [
+        "equal_split_is_deterministic_and_conserves_integer_capacity",
+        "demand_weighted_uses_ceiling_mean_and_largest_remainder",
+        "robust_quantile_uses_upper_sample_and_explicit_margin",
+        "contingency_reserve_is_not_allocated_to_any_shard",
+        "policy_reordering_does_not_change_per_shard_rights",
+        "explicit_minimum_slices_are_preserved",
+        "all_zero_demand_falls_back_to_equal_without_creating_capacity",
+        "duplicate_or_empty_shard_ids_reject",
+        "robust_policy_fails_closed_without_samples_or_with_bad_parameters",
+        "insufficient_capacity_for_minimums_rejects_before_allocation",
+        "demand_history_overflow_rejects_instead_of_wrapping"
+      ],
+      "required_benchmark_reports": 6,
+      "safety_gate": "Every allocation plan validates and every policy/mode report must have zero accounting violations; any overflow, malformed input, or unaccounted capacity fails the campaign.",
+      "receipt_fields": [
+        "source_commit",
+        "source_tree",
+        "profile_digest_sha256",
+        "rustc_version",
+        "rustc_commit",
+        "cargo_version",
+        "benchmark_binary_sha256",
+        "benchmark_output_sha256",
+        "expected_policy_mode_reports",
+        "observed_policy_mode_reports",
+        "safety_violation_reports",
+        "receipt_sha256"
+      ],
+      "receipt_sha256_method": "SHA-256 of the closed receipt file, reported externally by runner stdout/workflow metadata; do not put self-hash inside the receipt.",
+      "claim_ceiling": "Unit tests plus synthetic single-process matched-trace evaluation only; real-demand validity and distributed/Holochain safety remain separate."
     }
   ]
 }
