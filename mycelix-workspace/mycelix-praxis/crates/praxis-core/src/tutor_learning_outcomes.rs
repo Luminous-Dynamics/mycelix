@@ -410,7 +410,7 @@ mod tests {
     fn endpoint(id: &str, kind: EndpointKind, timepoint: EndpointTimepoint) -> OutcomeEndpoint {
         let index = id.bytes().fold(0_u32, |acc, byte| acc.wrapping_add(u32::from(byte))) % 20;
         let instrument_char = char::from_u32(u32::from(b'a') + index).unwrap();
-        let scoring_char = char::from_u32(u32::from(b'A') + index).unwrap().to_ascii_lowercase();
+        let scoring_char = char::from_u32(u32::from(b'a') + ((index + 7) % 26)).unwrap();
         OutcomeEndpoint {
             endpoint_id: id.to_owned(),
             kind,
@@ -548,10 +548,11 @@ mod tests {
     }
 
     #[test]
-    fn missingness_analysis_cannot_be_removed_from_wire_contract() {
+    fn invalid_primary_scale_is_rejected() {
         let mut protocol = valid_protocol();
-        protocol.analysis_plan.missing_data_plan = MissingDataPlan::ReportByArmAndSensitivity;
-        assert!(validate_learning_outcome_protocol(&protocol).is_empty());
+        protocol.primary_endpoint.scale_min_milli = 1000;
+        protocol.primary_endpoint.scale_max_milli = 1000;
+        assert!(validate_learning_outcome_protocol(&protocol).iter().any(|f| f.code == "invalid_endpoint_scale"));
     }
 
     #[test]
