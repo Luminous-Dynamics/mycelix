@@ -839,8 +839,13 @@ mod tests {
     fn uncertainty_straddling_occurrence_cutoff_is_not_silently_ordered() {
         let mut value: serde_json::Value = serde_json::from_str(OBSERVATIONS).unwrap();
         let case = value["cases"].as_array_mut().unwrap().iter_mut().find(|case| case["case_id"] == "TE002").unwrap();
-        case["observations"].as_array_mut().unwrap()[0]["occurred_at_unix"] = case["evaluation_time_unix"].clone();
-        case["observations"].as_array_mut().unwrap()[0]["occurred_at_uncertainty_seconds"] = 600.into();
+        let evaluation_time = case["evaluation_time_unix"].clone();
+        let event = &mut case["observations"].as_array_mut().unwrap()[0];
+        event["occurred_at_unix"] = evaluation_time.clone();
+        event["occurred_at_uncertainty_seconds"] = 600.into();
+        event["recorded_at_unix"] = evaluation_time;
+        event["recorded_at_uncertainty_seconds"] = 600.into();
+        event["valid_until_unix"] = serde_json::Value::Null;
         let changed = value.to_string();
         let (manifest, _) = validate_temporal_bundle(&changed, ORACLE).expect("cutoff-straddling interval is ambiguous, not impossible");
         let case = manifest.cases.iter().find(|case| case.case_id == "TE002").unwrap();
