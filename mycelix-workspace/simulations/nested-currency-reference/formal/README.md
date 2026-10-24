@@ -27,7 +27,7 @@ java -cp /path/to/tla2tools.jar tlc2.TLC -config NCF_FEN_1_StaleOwnerMutant.cfg 
 
 These expected outcomes have **not yet been confirmed** by running TLC. The commands alone are not evidence.
 
-The repository wrapper performs the paired safe/unsafe checks and rejects unexpected outcomes, including parser failures masquerading as a successful mutant test:
+The repository wrapper runs the safe model and both unsafe mutants and rejects unexpected outcomes, including parser failures masquerading as successful negative controls:
 
 ```sh
 TLA2TOOLS_JAR=/absolute/path/to/tla2tools.jar \
@@ -60,10 +60,11 @@ The model has one old allocation and one successor, integer capacities in a smal
 ## Qualification discipline
 
 1. Verify that the safe model has no invariant violation under the published bounds.
-2. Verify that the timeout mutant is rejected by `NoTransferWithoutFence`; preserve the minimized counterexample trace.
-3. Add at least one negative control per critical invariant and ensure each mutant is detected.
-4. Cross-check generated transitions against the Rust reference model, then replay every counterexample as a Rust regression test.
-5. Only after the abstract model is qualified, add bounded multi-owner/distributed schedules (or a Rust-native model such as Stateright) and real multi-agent/Holochain integration.
-6. Record exact commit, model/config digests, tool versions, state/transition counts, invariant outcomes and raw counterexample digests. Keep defined, queued, failed, expected-negative and passed results distinct.
+2. Verify that the timeout mutant is rejected by `NoTransferWithoutFence`.
+3. Verify that the stale-owner mutant is rejected by `NoOldWriteOutsideActive`.
+4. Preserve and review both minimized counterexample traces; a parser error does not count as mutant detection.
+5. Cross-check generated transitions against the Rust reference model, then replay every counterexample as a Rust regression test.
+6. Only after the abstract model is qualified, add bounded multi-owner/distributed schedules (or a Rust-native model such as Stateright) and real multi-agent/Holochain integration.
+7. Record exact commit, model/config digests, tool versions, state/transition counts, invariant outcomes and raw counterexample digests. Keep defined, queued, failed, expected-negative and passed results distinct.
 
 This follows the repository's model-check-first pattern in [#5091](https://github.com/Luminous-Dynamics/mycelix/issues/5091) and complements the revision-fenced reservation boundary in [#5153](https://github.com/Luminous-Dynamics/mycelix/issues/5153).
