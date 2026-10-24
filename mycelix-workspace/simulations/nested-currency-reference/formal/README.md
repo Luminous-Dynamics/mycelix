@@ -20,6 +20,15 @@ java -cp /path/to/tla2tools.jar tlc2.TLC -config NCF_FEN_1_TimeoutMutant.cfg NCF
 
 The first command should terminate with no invariant violation for the configured finite model. The second should produce a counterexample to `NoTransferWithoutFence`. These expected outcomes have **not yet been confirmed** by running TLC. The commands alone are not evidence.
 
+The repository wrapper performs the paired safe/unsafe checks and rejects unexpected outcomes, including parser failures masquerading as a successful mutant test:
+
+```sh
+TLA2TOOLS_JAR=/absolute/path/to/tla2tools.jar \
+  bash mycelix-workspace/simulations/nested-currency-reference/run-ncf-fen-tlc.sh
+```
+
+It requires a clean checkout, writes raw logs and a receipt outside the repository, and binds them to the exact source/tree, model/config digests and JAR digest. The current environment has Java but no local `tla2tools.jar`; outbound DNS/download is unavailable, so this wrapper has not been executed here.
+
 ## What this model captures
 
 - Every accepted old-owner obligation is created only while `ACTIVE`; a stale write attempt after drain is represented as rejected.
