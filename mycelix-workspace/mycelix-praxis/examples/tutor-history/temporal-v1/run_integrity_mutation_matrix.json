@@ -106,6 +106,20 @@
       "mutation": "Reformat or otherwise change the candidate-visible observation bytes while retaining the run's old digest.",
       "expected": "Reject with observation_manifest_digest_mismatch even when parsed trajectory IDs remain unchanged.",
       "test_name": "changed_candidate_observation_bytes_invalidate_run_binding"
+    },
+    {
+      "id": "RUN-016",
+      "kind": "positive_control",
+      "mutation": "Materialize candidate-visible observations from the full source manifest using a validated split manifest.",
+      "expected": "Emit only complete trajectories assigned to the requested role and preserve every observation for each included trajectory.",
+      "test_name": "materializer_emits_only_complete_trajectories_for_requested_role"
+    },
+    {
+      "id": "RUN-017",
+      "kind": "negative_control",
+      "mutation": "Remove a trajectory from the full source dataset while retaining its assignment in the split manifest.",
+      "expected": "Reject split materialization with source_dataset_split_mismatch rather than silently shrinking the evaluation set.",
+      "test_name": "materializer_rejects_incomplete_source_dataset"
     }
   ]
 }
