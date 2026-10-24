@@ -100,6 +100,10 @@ fn issue_holder_bound() -> SdJwt {
 }
 
 fn key_bound_presentation(nonce: &str, audience: &str) -> SdJwt {
+    key_bound_presentation_at_iat(nonce, audience, ISSUED_AT)
+}
+
+fn key_bound_presentation_at_iat(nonce: &str, audience: &str, iat: u64) -> SdJwt {
     let credential = issue_holder_bound();
     let selected = select_given_name(&credential);
     let holder_signer = HmacSha256Signer::new(HOLDER_KEY);
@@ -107,10 +111,36 @@ fn key_bound_presentation(nonce: &str, audience: &str) -> SdJwt {
         audience,
         nonce,
         signer: &holder_signer,
-        iat: ISSUED_AT,
+        iat,
     };
     holder::present(&credential, &selected, Some(&kb_input), &Sha256Hasher)
         .expect("synthetic key-bound presentation must be created")
+}
+
+fn key_binding_freshness_accepts(
+    presentation: &SdJwt,
+    expected_nonce: &str,
+    expected_audience: &str,
+    now: i64,
+    max_age_secs: i64,
+) -> bool {
+    let issuer_verifier = HmacSha256Verifier::new(ISSUER_KEY);
+    let holder_verifier = HmacSha256Verifier::new(HOLDER_KEY);
+    let options = VerificationOptions {
+        verify_kb: true,
+        expected_audience: Some(expected_audience),
+        expected_nonce: Some(expected_nonce),
+    };
+    let freshness = verifier::KbFreshness::new(now, max_age_secs);
+    verifier::verify_with_kb_freshness(
+        presentation,
+        &issuer_verifier,
+        &Sha256Hasher,
+        &options,
+        Some(&holder_verifier),
+        &freshness,
+    )
+    .is_ok_and(|result| result.kb_verified == Some(true))
 }
 
 fn key_binding_accepts(
@@ -250,6 +280,36 @@ fn run_matrix() -> Vec<CaseResult> {
         true,
         key_binding_accepts(&good_kb, NONCE, AUDIENCE, Some(HOLDER_KEY)),
     ));
+    let fresh_now = ISSUED_AT as i64 + 30;
+    let fresh_kb = key_bound_presentation_at_iat(NONCE, AUDIENCE, ISSUED_AT);
+    cases.push(CaseResult::new(
+        "key_binding_iat_within_freshness_window",
+        true,
+        key_binding_freshness_accepts(&fresh_kb, NONCE, AUDIENCE, fresh_now, 300),
+    ));
+    cases.push(CaseResult::new(
+        "stale_key_binding_iat_rejected",
+        false,
+        key_binding_freshness_accepts(
+            &fresh_kb,
+            NONCE,
+            AUDIENCE,
+            ISSUED_AT as i64 + 500,
+            300,
+        ),
+    ));
+    let future_kb = key_bound_presentation_at_iat(NONCE, AUDIENCE, ISSUED_AT + 1000);
+    cases.push(CaseResult::new(
+        "future_key_binding_iat_rejected",
+        false,
+        key_binding_freshness_accepts(
+            &future_kb,
+            NONCE,
+            AUDIENCE,
+            ISSUED_AT as i64,
+            300,
+        ),
+    ));
     cases.push(CaseResult::new(
         "wrong_nonce",
         false,
@@ -340,7 +400,7 @@ mod tests {
     #[test]
     fn verifier_decision_matrix_matches_frozen_expected_outcomes() {
         let cases = run_matrix();
-        assert_eq!(cases.len(), 15);
+        assert_eq!(cases.len(), 18);
         for case in &cases {
             assert!(
                 case.passed(),
