@@ -402,6 +402,20 @@ mod tests {
         let r=analyze_learning_outcomes_json(&registered_protocol(),"{",REVISION).unwrap_err();
         assert!(r.iter().any(|f|f.code=="dataset_parse_error"));
     }
+    #[test] fn analysis_matrix_ids_and_test_links_are_unique() {
+        let matrix:Value=serde_json::from_str(include_str!("../../../examples/tutor-history/outcomes-v1/analysis_mutation_matrix.json")).unwrap();
+        let controls=matrix["controls"].as_array().unwrap();
+        let source=include_str!("tutor_learning_analysis.rs");
+        let mut ids=BTreeSet::new();let mut tests=BTreeSet::new();
+        for control in controls {
+            let id=control["control_id"].as_str().unwrap();
+            let name=control["rust_test"].as_str().unwrap();
+            assert!(ids.insert(id),"duplicate mutation ID {id}");
+            assert!(tests.insert(name),"duplicate test link {name}");
+            assert!(source.contains(&format!("fn {name}(")),"missing Rust test {name}");
+        }
+        assert_eq!(controls.len(),13);
+    }
     #[test] fn unknown_arm_is_rejected() {
         let p=registered_protocol();let mut d:Value=serde_json::from_str(&dataset(120,false)).unwrap();d["rows"][0]["arm_id"]=json!("post_hoc_arm");
         let r=analyze_learning_outcomes_json(&p,&serde_json::to_string(&d).unwrap(),REVISION).unwrap_err();
