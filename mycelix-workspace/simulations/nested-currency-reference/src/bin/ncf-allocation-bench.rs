@@ -40,6 +40,14 @@ enum DemandMode {
     Shifted,
 }
 
+struct PerShardMetrics {
+    shard_id: String,
+    requested: u128,
+    served: u128,
+    unserved: u128,
+    worst_scenario_served_ppm: u64,
+}
+
 struct Metrics {
     scenarios: u128,
     requested: u128,
@@ -48,6 +56,8 @@ struct Metrics {
     stranded: u128,
     worst_scenario_unserved: u64,
     worst_scenario_served_ppm: u64,
+    worst_shard_demand_served_ppm: u64,
+    per_shard: Vec<PerShardMetrics>,
     safety_violations: u64,
 }
 
@@ -156,6 +166,14 @@ fn evaluate(plan: &AllocationPlan, scenarios: &[Vec<u64>]) -> Result<Metrics, St
         stranded: 0,
         worst_scenario_unserved: 0,
         worst_scenario_served_ppm: PARTS_PER_MILLION as u64,
+        worst_shard_demand_served_ppm: PARTS_PER_MILLION as u64,
+        per_shard: plan.slices.iter().map(|slice| PerShardMetrics {
+            shard_id: slice.shard_id.clone(),
+            requested: 0,
+            served: 0,
+            unserved: 0,
+            worst_scenario_served_ppm: PARTS_PER_MILLION as u64,
+        }).collect(),
         safety_violations: 0,
     };
     let per_shard: Vec<(&str, u64)> = plan.slices.iter()
@@ -169,12 +187,23 @@ fn evaluate(plan: &AllocationPlan, scenarios: &[Vec<u64>]) -> Result<Metrics, St
         let mut delivered = 0_u128;
         let mut unused = 0_u128;
         let mut scenario_unserved = 0_u64;
-        for ((_, allocation), demand) in per_shard.iter().zip(scenario) {
+        for (index, ((_, allocation), demand)) in per_shard.iter().zip(scenario).enumerate() {
             let served = (*allocation).min(*demand);
             wanted += u128::from(*demand);
             delivered += u128::from(served);
             scenario_unserved = scenario_unserved.saturating_add(*demand - served);
             unused += u128::from(allocation.saturating_sub(*demand));
+
+            let shard_metrics = &mut result.per_shard[index];
+            shard_metrics.requested += u128::from(*demand);
+            shard_metrics.served += u128::from(served);
+            shard_metrics.unserved += u128::from(*demand - served);
+            if *demand > 0 {
+                let shard_served_ppm =
+                    (u128::from(served) * u128::from(PARTS_PER_MILLION) / u128::from(*demand)) as u64;
+                shard_metrics.worst_scenario_served_ppm =
+                    shard_metrics.worst_scenario_served_ppm.min(shard_served_ppm);
+            }
         }
         result.requested += wanted;
         result.served += delivered;
@@ -188,6 +217,14 @@ fn evaluate(plan: &AllocationPlan, scenarios: &[Vec<u64>]) -> Result<Metrics, St
         } as u64;
         result.worst_scenario_served_ppm = result.worst_scenario_served_ppm.min(scenario_served_ppm);
     }
+    result.worst_shard_demand_served_ppm = result.per_shard.iter()
+        .filter(|shard| shard.requested > 0)
+        .map(|shard| {
+            (shard.served * u128::from(PARTS_PER_MILLION) / shard.requested) as u64
+        })
+        .min()
+        .unwrap_or(PARTS_PER_MILLION as u64);
+
     if result.served + result.stranded > u128::from(plan.spendable_capacity) * result.scenarios {
         result.safety_violations = result.safety_violations.saturating_add(1);
     }
@@ -210,14 +247,66 @@ fn metric_json(name: &str, mode: &str, plan: &AllocationPlan, metrics: &Metrics)
         "{{\"shard_id\":\"{}\",\"capacity\":{},\"minimum_capacity\":{},\"weight\":{}}}",
         json_escape(&slice.shard_id), slice.capacity, slice.minimum_capacity, slice.allocation_weight
     )).collect::<Vec<_>>().join(",");
+    let per_shard = metrics.per_shard.iter().map(|shard| {
+        let shard_demand_served_ppm = if shard.requested == 0 {
+            PARTS_PER_MILLION as u64
+        } else {
+            (shard.served * u128::from(PARTS_PER_MILLION) / shard.requested) as u64
+        };
+        format!(
+            "{{\"shard_id\":\"{}\",\"requested_demand_units\":{},\"served_demand_units\":{},\"unserved_demand_units\":{},\"demand_served_ppm\":{},\"worst_scenario_served_ppm\":{}}}",
+            json_escape(&shard.shard_id), shard.requested, shard.served, shard.unserved,
+            shard_demand_served_ppm, shard.worst_scenario_served_ppm
+        )
+    }).collect::<Vec<_>>().join(",");
     format!(
-        "{{\"policy\":\"{}\",\"demand_mode\":\"{}\",\"instrument_id\":\"{}\",\"scenarios\":{},\"total_capacity\":{},\"spendable_capacity\":{},\"contingency_reserve\":{},\"requested_demand_units\":{},\"served_demand_units\":{},\"unserved_demand_units\":{},\"stranded_reserved_unit_scenarios\":{},\"demand_served_ppm\":{},\"allocation_utilization_ppm\":{},\"worst_scenario_unserved_units\":{},\"worst_scenario_served_ppm\":{},\"safety_violations\":{},\"slices\":[{}]}}",
+        "{{\"policy\":\"{}\",\"demand_mode\":\"{}\",\"instrument_id\":\"{}\",\"scenarios\":{},\"total_capacity\":{},\"spendable_capacity\":{},\"contingency_reserve\":{},\"requested_demand_units\":{},\"served_demand_units\":{},\"unserved_demand_units\":{},\"stranded_reserved_unit_scenarios\":{},\"demand_served_ppm\":{},\"allocation_utilization_ppm\":{},\"worst_scenario_unserved_units\":{},\"worst_scenario_served_ppm\":{},\"worst_shard_demand_served_ppm\":{},\"safety_violations\":{},\"slices\":[{}],\"shard_results\":[{}]}}",
         name, mode, json_escape(&plan.instrument_id), metrics.scenarios, plan.total_capacity, plan.spendable_capacity,
         plan.contingency_reserve, metrics.requested, metrics.served, metrics.unserved,
         metrics.stranded, demand_served_ppm, allocated_utilization_ppm,
         metrics.worst_scenario_unserved, metrics.worst_scenario_served_ppm,
-        metrics.safety_violations, slices
+        metrics.worst_shard_demand_served_ppm, metrics.safety_violations, slices, per_shard
     )
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use nested_currency_reference::allocation::{AllocationSlice, AllocationPolicy};
+
+    #[test]
+    fn per_shard_metrics_expose_underserved_shard_hidden_by_aggregate() {
+        let plan = AllocationPlan {
+            instrument_id: "instrument:test".into(),
+            total_capacity: 100,
+            spendable_capacity: 100,
+            contingency_reserve: 0,
+            policy: AllocationPolicy::DemandWeighted,
+            slices: vec![
+                AllocationSlice {
+                    shard_id: "shard-a".into(),
+                    minimum_capacity: 0,
+                    capacity: 90,
+                    allocation_weight: 9,
+                },
+                AllocationSlice {
+                    shard_id: "shard-b".into(),
+                    minimum_capacity: 0,
+                    capacity: 10,
+                    allocation_weight: 1,
+                },
+            ],
+        };
+        let scenarios = vec![vec![90, 90], vec![90, 90]];
+        let metrics = evaluate(&plan, &scenarios).unwrap();
+        assert_eq!(metrics.worst_shard_demand_served_ppm, 111_111);
+        assert!(metrics.worst_shard_demand_served_ppm < (
+            metrics.served * u128::from(PARTS_PER_MILLION) / metrics.requested
+        ) as u64);
+        let underserved = metrics.per_shard.iter().find(|shard| shard.shard_id == "shard-b").unwrap();
+        assert_eq!(underserved.unserved, 160);
+        assert_eq!(underserved.served, 20);
+    }
 }
 
 fn run() -> Result<(), String> {
