@@ -19,7 +19,7 @@ Every solver-visible temporal observation carries:
 - `status`: `active` or `retracted`.
 - `supersedes`: provenance links to source records this record replaces. The old record remains in history; a replacement does not silently delete the audit trail.
 
-Each case has a fixed `evaluation_time_unix`. The verifier treats timestamps as closed intervals, not exact points. If the entire interval is after the evaluation cutoff, it is leakage and invalidates the bundle; if the interval straddles the cutoff, the observation is marked ambiguous instead of silently ordered. All non-server timestamp sources must declare nonzero uncertainty; imported-unverified and derived timestamps cannot alone establish temporal proof. Supersession edges must resolve, be acyclic, and have a definitely later record-time interval than the source they replace.
+Each case has a fixed `evaluation_time_unix`. The verifier treats timestamps as closed intervals, not exact points. If the entire interval is after the evaluation cutoff, it is leakage and invalidates the bundle; if the interval straddles the cutoff, the observation is marked ambiguous instead of silently ordered. The event-time interval must also be definitely no later than the record-time interval: overlapping event/record intervals are classified as ambiguous chronology. All non-server timestamp sources must declare nonzero uncertainty; imported-unverified and derived timestamps cannot alone establish temporal proof. Supersession edges must resolve, be acyclic, and have a definitely later record-time interval than the source they replace.
 
 **Important policy choice:** recency is not truth. A recent import does not make an old attempt recent; equal timestamps do not establish an order; a newer attempt in a different task context does not automatically override an older one; and age alone does not expire an observation when no validity deadline is declared. The tutor should preserve contradictory historical evidence and request a fresh, context-matched attempt when the evidence cannot support a current-state claim.
 
@@ -48,10 +48,10 @@ The Rust module `tutor_temporal_evidence.rs` provides:
 - strict Serde DTOs that reject unknown fields and omitted required nullable fields;
 - fail-closed temporal, timestamp, identity, provenance-edge, cycle, and oracle-reference validation;
 - a temporal eligibility classifier (`eligible`, `expired`, `retracted`, `superseded`, `future_occurrence`, `not_recorded_at_evaluation`);
-- a scorecard that separates semantic decision fit from evidence-grounded acceptability;
+- a scorecard that separates semantic decision fit from evidence-grounded acceptability, including a dedicated metric for ambiguous event/record chronology;
 - counters for expired support, retracted/superseded citations, future/unavailable references, ambiguous and unverified timestamps, missing required contradictions, and critical violations;
 - an exact-byte BLAKE3 binding between the input observations and the predictions;
-- a 23-entry adversarial and metamorphic matrix linked to 23 named Rust test definitions, including interval/cutoff ambiguity, unverified-import handling, provenance/origin mismatch, and supersession-order uncertainty.
+- a 26-entry adversarial and metamorphic matrix linked to 26 named Rust test definitions, including interval/cutoff ambiguity, unverified-import handling, provenance/origin mismatch, supersession-order uncertainty, and a finite monotonicity sweep that verifies widening uncertainty cannot make an ambiguous observation eligible.
 
 Expired evidence may still be cited to explain historical context, but it cannot support a current-state claim. Retracted, superseded, future, or not-yet-recorded sources are not accepted as evidence citations. Abstention and a correctly targeted evidence request do not incur claim-citation penalties.
 
@@ -63,8 +63,9 @@ Before promoting the benchmark beyond synthetic conformance:
 2. **Zero invalid current-state support:** no accepted claim may rely on expired, retracted, or superseded evidence as current support.
 3. **Zero unsupported references and missed required contradictions** in accepted claims.
 4. **100% semantic invariance** under observation-row permutation, while the exact-byte digest changes.
-5. On an independently adjudicated held-out set, target at least **95% evidence-grounded acceptable decisions**, reported with per-diagnostic-family confidence intervals—not just a pooled score. This is a proposed gate, not a current result.
-6. Report unsafe-claim rate, unnecessary abstention, targeted-clarification precision, family-level calibration, latency, and cost separately. Do not combine them into one tunable leaderboard score.
+5. **Uncertainty monotonicity:** widening a timestamp interval must never turn a previously temporally ambiguous citation into eligible evidence; the test matrix covers boundary sweeps and event/record interval overlap.
+6. On an independently adjudicated held-out set, target at least **95% evidence-grounded acceptable decisions**, reported with per-diagnostic-family confidence intervals—not just a pooled score. This is a proposed gate, not a current result.
+7. Report unsafe-claim rate, unnecessary abstention, targeted-clarification precision, family-level calibration, latency, and cost separately. Do not combine them into one tunable leaderboard score.
 
 ## Comparison plan
 
