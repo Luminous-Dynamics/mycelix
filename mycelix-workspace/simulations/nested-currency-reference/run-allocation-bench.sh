@@ -39,13 +39,13 @@ if ! grep -q '"status":"completed_reference_simulation"' "$output"; then
   exit 1
 fi
 report_count="$(grep -o '"policy":' "$output" | wc -l | tr -d ' ')"
-if [[ "$report_count" != "6" ]]; then
-  echo "expected six policy/mode reports, found $report_count" >&2
+if [[ "$report_count" != "12" ]]; then
+  echo "expected twelve policy/mode reports, found $report_count" >&2
   exit 1
 fi
 safety_report_count="$(grep -o '"safety_violations":' "$output" | wc -l | tr -d ' ')"
-if [[ "$safety_report_count" != "6" ]]; then
-  echo "expected six safety-accounting fields, found $safety_report_count" >&2
+if [[ "$safety_report_count" != "12" ]]; then
+  echo "expected twelve safety-accounting fields, found $safety_report_count" >&2
   exit 1
 fi
 violation_count="$(grep -o '"safety_violations":[1-9][0-9]*' "$output" | wc -l | tr -d ' ')"
@@ -71,7 +71,7 @@ binary_digest="$(sha256sum "$binary" | awk '{print $1}')"
   printf 'command='
   printf '%q ' cargo run --locked --manifest-path "$manifest" --release --bin ncf-allocation-bench -- "$@"
   printf '\n'
-  printf 'expected_policy_mode_reports=6\n'
+  printf 'expected_policy_mode_reports=12\n'
   printf 'observed_policy_mode_reports=%s\n' "$report_count"
   printf 'safety_accounting_reports=%s\n' "$safety_report_count"
   printf 'safety_violation_reports=%s\n' "$violation_count"
