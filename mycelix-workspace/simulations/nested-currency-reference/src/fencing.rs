@@ -467,6 +467,10 @@ mod tests {
         let cut = book.operation_sequence();
         book.reconcile(cut, 25, 0, true).unwrap();
         book.fence("fence:1", cut).unwrap();
+        assert_eq!(
+            book.record_successor_obligation("new:early", "owner-b", 2, 1),
+            Err(Error::InvalidTransition)
+        );
         book.transfer("transfer:1", "owner-b", 2, 75).unwrap();
         assert_eq!(
             book.record_obligation("old:late", "owner-a", 1, 1),
