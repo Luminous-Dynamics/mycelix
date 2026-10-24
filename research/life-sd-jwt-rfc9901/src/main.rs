@@ -145,6 +145,14 @@ mod tests {
     }
 
     #[test]
+    fn both_parsers_reject_padded_base64url_disclosure() {
+        let hasher = Sha256Hasher;
+        let padded = format!("{}=", RFC_VECTORS[0].disclosure);
+        assert!(Disclosure::parse(&padded, &hasher).is_err());
+        assert!(decode_disclosure(&padded).is_err());
+    }
+
+    #[test]
     fn distinct_published_disclosures_have_distinct_digests() {
         let digests: Vec<String> = RFC_VECTORS
             .iter()
