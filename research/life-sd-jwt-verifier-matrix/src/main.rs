@@ -1,4 +1,6 @@
 use std::collections::HashSet;
+use std::sync::{Arc, Barrier, Mutex};
+use std::thread;
 
 use base64::{Engine as _, engine::general_purpose::URL_SAFE_NO_PAD};
 
@@ -231,13 +233,17 @@ fn mutate_signature(jws: &str) -> String {
 }
 
 #[derive(Default)]
-struct SingleUseNonceLedger {
-    consumed: HashSet<String>,
+struct ConcurrentSingleUseNonceLedger {
+    consumed: Mutex<HashSet<(String, String)>>,
 }
 
-impl SingleUseNonceLedger {
-    fn consume(&mut self, nonce: &str) -> bool {
-        self.consumed.insert(nonce.to_owned())
+impl ConcurrentSingleUseNonceLedger {
+    // Namespace nonce uniqueness by verifier identity. A poisoned ledger fails
+    // closed rather than accepting a request whose replay state is uncertain.
+    fn consume(&self, verifier_id: &str, nonce: &str) -> bool {
+        self.consumed
+            .lock()
+            .is_ok_and(|mut consumed| consumed.insert((verifier_id.to_owned(), nonce.to_owned())))
     }
 }
 
@@ -424,14 +430,14 @@ fn run_matrix() -> Vec<CaseResult> {
         stateless_accepts_replay,
     ));
 
-    let mut ledger = SingleUseNonceLedger::default();
-    let first_accepted = stateless_accepts_replay && ledger.consume(NONCE);
+    let ledger = ConcurrentSingleUseNonceLedger::default();
+    let first_accepted = stateless_accepts_replay && ledger.consume(AUDIENCE, NONCE);
     cases.push(CaseResult::new(
         "single_use_nonce_first_consumption",
         true,
         first_accepted,
     ));
-    let second_accepted = stateless_accepts_replay && ledger.consume(NONCE);
+    let second_accepted = stateless_accepts_replay && ledger.consume(AUDIENCE, NONCE);
     cases.push(CaseResult::new(
         "single_use_nonce_replay_rejected_by_policy",
         false,
@@ -530,10 +536,35 @@ mod tests {
     }
 
     #[test]
-    fn nonce_ledger_rejects_second_consumption() {
-        let mut ledger = SingleUseNonceLedger::default();
-        assert!(ledger.consume("one-time-test-nonce"));
-        assert!(!ledger.consume("one-time-test-nonce"));
-        assert!(ledger.consume("different-test-nonce"));
+    fn nonce_ledger_rejects_replay_but_namespaces_verifiers() {
+        let ledger = ConcurrentSingleUseNonceLedger::default();
+        assert!(ledger.consume("verifier-a", "one-time-test-nonce"));
+        assert!(!ledger.consume("verifier-a", "one-time-test-nonce"));
+        assert!(ledger.consume("verifier-a", "different-test-nonce"));
+        assert!(ledger.consume("verifier-b", "one-time-test-nonce"));
+    }
+
+    #[test]
+    fn concurrent_nonce_race_has_exactly_one_winner() {
+        const CONTENDERS: usize = 64;
+        let ledger = Arc::new(ConcurrentSingleUseNonceLedger::default());
+        let barrier = Arc::new(Barrier::new(CONTENDERS));
+        let mut workers = Vec::with_capacity(CONTENDERS);
+
+        for _ in 0..CONTENDERS {
+            let ledger = Arc::clone(&ledger);
+            let barrier = Arc::clone(&barrier);
+            workers.push(thread::spawn(move || {
+                barrier.wait();
+                ledger.consume("verifier-a", "racing-one-time-nonce")
+            }));
+        }
+
+        let accepted = workers
+            .into_iter()
+            .map(|worker| worker.join().expect("nonce contender thread must finish"))
+            .filter(|won| *won)
+            .count();
+        assert_eq!(accepted, 1, "one-time nonce must have exactly one winner");
     }
 }
