@@ -99,6 +99,13 @@
       "mutation": "Give a test-only run the full observation manifest that includes training and validation trajectories.",
       "expected": "Reject with candidate_split_leakage and observation_manifest_digest_mismatch.",
       "test_name": "candidate_receiving_all_trajectories_is_rejected_as_split_leakage"
+    },
+    {
+      "id": "RUN-015",
+      "kind": "negative_control",
+      "mutation": "Reformat or otherwise change the candidate-visible observation bytes while retaining the run's old digest.",
+      "expected": "Reject with observation_manifest_digest_mismatch even when parsed trajectory IDs remain unchanged.",
+      "test_name": "changed_candidate_observation_bytes_invalidate_run_binding"
     }
   ]
 }
