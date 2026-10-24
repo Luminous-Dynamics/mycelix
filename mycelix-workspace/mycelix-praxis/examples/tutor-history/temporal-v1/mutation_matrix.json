@@ -20,7 +20,7 @@
       "id": "TEMP-003",
       "kind": "negative_control",
       "mutation": "Use evidence whose explicit validity deadline precedes the evaluation time.",
-      "expected": "Classify as expired; citation as current-state support must reduce acceptability and raise a critical violation.",
+      "expected": "Classify as expired at the evaluation time; the separate scoring control TEMP-012 verifies that citing this observation as current support is critical.",
       "test_name": "explicitly_expired_evidence_cannot_support_current_state"
     },
     {
