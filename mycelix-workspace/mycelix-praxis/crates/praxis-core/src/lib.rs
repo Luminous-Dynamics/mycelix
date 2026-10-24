@@ -22,6 +22,7 @@ pub mod export_formats;
 pub mod proof_of_learning;
 pub mod provenance;
 pub mod tutor_history_benchmark;
+pub mod tutor_temporal_evidence;
 pub mod types;
 pub mod validation;
 
