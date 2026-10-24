@@ -120,6 +120,13 @@
       "mutation": "Remove a trajectory from the full source dataset while retaining its assignment in the split manifest.",
       "expected": "Reject split materialization with source_dataset_split_mismatch rather than silently shrinking the evaluation set.",
       "test_name": "materializer_rejects_incomplete_source_dataset"
+    },
+    {
+      "id": "RUN-018",
+      "kind": "negative_control",
+      "mutation": "Change the advisor output digest in the B1 run identity without changing the candidate-visible advisor-output artifact digest.",
+      "expected": "Reject with artifact_digest_binding_mismatch; the advice supplied to B1 must be a pinned, auditable candidate input.",
+      "test_name": "b1_advisor_output_digest_must_match_candidate_artifact_catalog"
     }
   ]
 }
