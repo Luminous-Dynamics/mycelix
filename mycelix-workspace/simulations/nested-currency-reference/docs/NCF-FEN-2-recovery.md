@@ -6,7 +6,7 @@
 
 NCF-FEN-1 models drain, reconciliation, fencing, and transfer ordering. That does not by itself qualify the storage boundary at which a transfer becomes durable. A practical failure case is: the transfer commit succeeds, its response is lost, and the caller retries. A retry must return the original result; it must not credit a second successor allocation. Another failure case is a crash after prepare but before commit. Prepared intent must not grant spend authority, and restart must not create two independently spendable rights.
 
-The new bounded model in `formal/NCF_RECOVERY_1.tla` explicitly explores old-owner pending exposure, reconciliation, fencing, transfer preparation, commit, abort-before-commit, old-liability settlement, successor spend, crash, restart, and committed-operation retry. Its deliberate negative control in `formal/NCF_RECOVERY_1_CommitReplayMutant.tla` repeats successor credit after commit and must violate `NoDoubleCommit`.
+The bounded model in `formal/NCF_RECOVERY_1.tla` now explicitly represents an unobserved commit response, response loss, restart, retry with the original transfer ID and canonical amount payload, and the original commit receipt. A valid retry returns that same receipt without changing rights. A retry reusing the same ID with a different amount is rejected without returning a receipt or changing capacity. Two independent negative controls exercise different failure classes: `formal/NCF_RECOVERY_1_CommitReplayMutant.tla` double-credits after lost response and must violate `NoDoubleCommit`; `formal/NCF_RECOVERY_1_ConflictingReplayMutant.tla` accepts a conflicting payload and must violate `NoConflictingReplayAccepted`.
 
 ## Model contract
 
@@ -22,13 +22,16 @@ Safety invariants checked by the safe config:
 - `FenceBeforeSuccessorActivation`: preparation/activation requires the old epoch to be fenced.
 - `ReconciliationCutStable`: the old-operation sequence does not move behind a recorded terminal cut.
 - `PreparedTransferWithinVerifiedRemainder`: prepared transfer is no greater than the verified remainder.
+- `CommitReceiptBound`: the committed transfer identity, payload amount and receipt identity are populated together.
+- `IdempotentRetryReturnsOriginalReceipt`: a same-ID/same-payload retry resolves to the original receipt and does not increment commit count.
+- `ConflictingRetryDoesNotReturnReceipt` and `NoConflictingReplayAccepted`: same-ID/different-payload requests are rejected and cannot be represented as accepted economic effects.
 - `TypeOK`: state stays within the finite model domains.
 
-The negative-control config intentionally checks `NoDoubleCommit` only. A nonzero TLC exit is not enough: the runner must find the expected invariant violation in the trace log. Parser, module-resolution, timeout, or generic tool errors must fail qualification rather than count as mutant detection.
+Each negative-control config checks its specific invariant: `NoDoubleCommit` for duplicated economic effect and `NoConflictingReplayAccepted` for changed-payload replay. A nonzero TLC exit is not enough: the runner must find the expected invariant violation in the trace log. Parser, module-resolution, timeout, or generic tool errors must fail qualification rather than count as mutant detection.
 
 ## Reproducible qualification
 
-The dedicated `.github/workflows/ncf-recovery-model-check.yml` workflow checks out the exact PR-head SHA, verifies the pinned TLA+ tools JAR with SHA-256, runs the safe model and expected-failing mutant, and uploads raw logs plus a provenance receipt. The runner records the source commit/tree, model and config digests, tool digest/version, state-statistics line, log hashes, and expected invariant name. Results are pending until a completed exact-head workflow artifact confirms both safe-model success and the named mutant counterexample.
+The dedicated `.github/workflows/ncf-recovery-model-check.yml` workflow checks out the exact PR-head SHA, verifies the pinned TLA+ tools JAR with SHA-256, runs the safe model and both expected-failing mutants, and uploads raw logs plus a provenance receipt. The runner records the source commit/tree, model and config digests, tool digest/version, state-statistics line, log hashes, and expected invariant names. Results are pending until a completed exact-head workflow artifact confirms safe-model success and both named counterexamples.
 
 ## Next benchmark gates
 
