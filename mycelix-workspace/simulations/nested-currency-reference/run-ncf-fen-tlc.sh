@@ -58,9 +58,11 @@ duplicate_config_sha="$(sha256sum "$duplicate_config" | awk '{print $1}')"
 jar_sha="$(sha256sum "$jar" | awk '{print $1}')"
 java_version="$(java -version 2>&1 | sed -n '1p' | tr -cd '[:alnum:]._- ')"
 
+safe_meta="$out_dir/states-fen-safe"
+mkdir -p "$safe_meta"
 (
   cd "$formal_dir"
-  java -cp "$jar" tlc2.TLC -config "$(basename "$config")" "$(basename "$model")"
+  java -cp "$jar" tlc2.TLC -metadir "$safe_meta" -config "$(basename "$config")" "$(basename "$model")"
 ) >"$safe_log" 2>&1 || {
   cat "$safe_log" >&2
   echo "safe NCF-FEN model failed; inspect $safe_log" >&2
@@ -75,9 +77,11 @@ if [[ -z "$safe_stats" ]]; then
 fi
 safe_stats="$(printf '%s' "$safe_stats" | tr -cd '[:alnum:],. _-')"
 
+escrow_meta="$out_dir/states-escrow-safe"
+mkdir -p "$escrow_meta"
 (
   cd "$formal_dir"
-  java -cp "$jar" tlc2.TLC -config "$(basename "$escrow_config")" "$(basename "$escrow_model")"
+  java -cp "$jar" tlc2.TLC -metadir "$escrow_meta" -config "$(basename "$escrow_config")" "$(basename "$escrow_model")"
 ) >"$escrow_log" 2>&1 || {
   cat "$escrow_log" >&2
   echo "safe NCF-ESCROW model failed; inspect $escrow_log" >&2
@@ -98,11 +102,13 @@ run_expected_mutant() {
   local invariant="$4"
   local label="$5"
   local status=0
+  local metadata_dir="$out_dir/states-$label"
+  mkdir -p "$metadata_dir"
 
   set +e
   (
     cd "$formal_dir"
-    java -cp "$jar" tlc2.TLC -config "$(basename "$config_file")" "$(basename "$model_file")"
+    java -cp "$jar" tlc2.TLC -metadir "$metadata_dir" -config "$(basename "$config_file")" "$(basename "$model_file")"
   ) >"$log_file" 2>&1
   status=$?
   set -e
