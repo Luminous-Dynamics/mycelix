@@ -225,7 +225,9 @@ pub fn allocate_static_escrow(
 
 fn mean_ceiling(samples: &[u64]) -> Result<u64, AllocationError> {
     if samples.is_empty() {
-        return Ok(0);
+        // Missing history is unknown demand, not a measured zero. Data-dependent
+        // policies must not silently starve a new shard because it lacks telemetry.
+        return Err(AllocationError::MissingDemandSamples);
     }
     let total = samples.iter().try_fold(0_u64, |sum, sample| {
         sum.checked_add(*sample).ok_or(AllocationError::Overflow)
@@ -356,11 +358,24 @@ mod tests {
 
     #[test]
     fn all_zero_demand_falls_back_to_equal_without_creating_capacity() {
-        let input = vec![shard("a", &[0, 0], 0), shard("b", &[0], 0), shard("c", &[], 0)];
+        let input = vec![shard("a", &[0, 0], 0), shard("b", &[0], 0), shard("c", &[0, 0], 0)];
         let plan = allocate_static_escrow(&input, 12, 0, AllocationPolicy::DemandWeighted).unwrap();
         assert_eq!(plan.slice_for("a"), Some(4));
         assert_eq!(plan.slice_for("b"), Some(4));
         assert_eq!(plan.slice_for("c"), Some(4));
+    }
+
+    #[test]
+    fn demand_weighted_policy_does_not_treat_missing_history_as_zero_demand() {
+        assert_eq!(
+            allocate_static_escrow(
+                &[shard("known", &[10, 20], 0), shard("new", &[], 0)],
+                100,
+                0,
+                AllocationPolicy::DemandWeighted,
+            ),
+            Err(AllocationError::MissingDemandSamples),
+        );
     }
 
     #[test]
