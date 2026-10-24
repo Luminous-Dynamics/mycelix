@@ -7,9 +7,9 @@ ASSUME Capacity \in Nat \ {0}
 ASSUME MaxOps \in Nat \ {0}
 ASSUME Shards = {"s1", "s2"}
 
-VARIABLES reserved, outstanding, partitioned, eventCount
+VARIABLES reserved, outstanding, partitioned, eventCount, partitionSnapshotReserved
 
-vars == << reserved, outstanding, partitioned, eventCount >>
+vars == << reserved, outstanding, partitioned, eventCount, partitionSnapshotReserved >>
 
 \* The finite model intentionally fixes two shards so the arithmetic is explicit.
 TotalReserved == reserved["s1"] + reserved["s2"]
@@ -20,6 +20,7 @@ Init ==
     /\ outstanding = [s \in Shards |-> 0]
     /\ partitioned = FALSE
     /\ eventCount = 0
+    /\ partitionSnapshotReserved = [s \in Shards |-> 0]
 
 Reserve(s, amount) ==
     /\ s \in Shards
@@ -28,18 +29,19 @@ Reserve(s, amount) ==
     /\ reserved[s] = 0
     /\ TotalReserved + amount <= Capacity
     /\ reserved' = [reserved EXCEPT ![s] = amount]
-    /\ UNCHANGED << outstanding, partitioned, eventCount >>
+    /\ UNCHANGED << outstanding, partitioned, eventCount, partitionSnapshotReserved >>
 
 StartPartition ==
     /\ partitioned = FALSE
     /\ TotalReserved > 0
     /\ partitioned' = TRUE
+    /\ partitionSnapshotReserved' = reserved
     /\ UNCHANGED << reserved, outstanding, eventCount >>
 
 HealPartition ==
     /\ partitioned = TRUE
     /\ partitioned' = FALSE
-    /\ UNCHANGED << reserved, outstanding, eventCount >>
+    /\ UNCHANGED << reserved, outstanding, eventCount, partitionSnapshotReserved >>
 
 SpendInSlice(s, amount) ==
     /\ s \in Shards
@@ -49,7 +51,7 @@ SpendInSlice(s, amount) ==
     /\ eventCount < MaxOps
     /\ outstanding' = [outstanding EXCEPT ![s] = @ + amount]
     /\ eventCount' = eventCount + 1
-    /\ UNCHANGED << reserved, partitioned >>
+    /\ UNCHANGED << reserved, partitioned, partitionSnapshotReserved >>
 
 SettleInSlice(s, amount) ==
     /\ s \in Shards
@@ -70,6 +72,7 @@ Next ==
 TypeOK ==
     /\ reserved \in [Shards -> 0..Capacity]
     /\ outstanding \in [Shards -> 0..Capacity]
+    /\ partitionSnapshotReserved \in [Shards -> 0..Capacity]
     /\ partitioned \in BOOLEAN
     /\ eventCount \in 0..MaxOps
 
@@ -88,9 +91,8 @@ AggregateOutstandingWithinCeiling ==
 NoUnreservedOutstanding ==
     \A s \in Shards: outstanding[s] > 0 => reserved[s] > 0
 
-LocalSpendingDoesNotNeedGlobalRecount ==
-    partitioned /\ TotalReserved <= Capacity =>
-        AggregateOutstandingWithinReservedBudget
+PartitionedReservationsStayFixed ==
+    partitioned => reserved = partitionSnapshotReserved
 
 Spec == Init /\ [][Next]_vars
 
