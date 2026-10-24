@@ -53,6 +53,16 @@ if [[ "$violation_count" != "0" ]]; then
   echo "one or more reports indicated safety accounting violations" >&2
   exit 1
 fi
+worst_shard_count="$(grep -o '"worst_shard_demand_served_ppm":' "$output" | wc -l | tr -d ' ')"
+if [[ "$worst_shard_count" != "12" ]]; then
+  echo "expected twelve worst-shard service fields, found $worst_shard_count" >&2
+  exit 1
+fi
+shard_results_count="$(grep -o '"shard_results":\[' "$output" | wc -l | tr -d ' ')"
+if [[ "$shard_results_count" != "12" ]]; then
+  echo "expected twelve per-shard result arrays, found $shard_results_count" >&2
+  exit 1
+fi
 
 output_digest="$(sha256sum "$output" | awk '{print $1}')"
 binary="$target_dir/release/ncf-allocation-bench"
@@ -75,6 +85,8 @@ binary_digest="$(sha256sum "$binary" | awk '{print $1}')"
   printf 'observed_policy_mode_reports=%s\n' "$report_count"
   printf 'safety_accounting_reports=%s\n' "$safety_report_count"
   printf 'safety_violation_reports=%s\n' "$violation_count"
+  printf 'worst_shard_service_reports=%s\n' "$worst_shard_count"
+  printf 'per_shard_result_arrays=%s\n' "$shard_results_count"
   printf 'benchmark_binary=%s\n' "$binary"
   printf 'benchmark_binary_sha256=%s\n' "$binary_digest"
   printf 'benchmark_output=%s\n' "$output"
