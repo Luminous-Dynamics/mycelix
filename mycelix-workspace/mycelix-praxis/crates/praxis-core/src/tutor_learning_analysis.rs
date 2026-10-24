@@ -341,7 +341,7 @@ mod tests {
         assert_eq!(a,b);assert_eq!(a.status,OutcomeAnalysisStatus::InferentialIntervalAvailable);
         assert!(a.confidence_interval.is_some());assert_eq!(a.input_dataset_blake3,exact_digest(d.as_bytes()));
     }
-    #[test] fn row_permutation_preserves_result_but_changes_input_digest() {
+    #[test] fn row_permutation_preserves_estimates_but_changes_input_digest() {
         let p=registered_protocol();let d=dataset(120,false);let a=analyze_learning_outcomes_json(&p,&d,REVISION).unwrap();
         let mut v:Value=serde_json::from_str(&d).unwrap();v["rows"].as_array_mut().unwrap().reverse();
         let q=serde_json::to_string(&v).unwrap();let b=analyze_learning_outcomes_json(&p,&q,REVISION).unwrap();
