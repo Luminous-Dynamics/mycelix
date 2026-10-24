@@ -55,6 +55,10 @@ struct Reconciliation {
 #[derive(Clone, Debug, Eq, PartialEq)]
 struct Successor {
     receipt_id: String,
+    /// Exact control receipt that closed the prior epoch.
+    predecessor_fence_id: String,
+    /// Terminal sequence captured by the verified reconciliation/fence transition.
+    terminal_sequence: u64,
     owner: String,
     epoch: u64,
     capacity: u64,
@@ -365,8 +369,12 @@ impl FenceBook {
         {
             return Err(Error::ReplayMismatch);
         }
+        let predecessor_fence_id = self.fence_id.clone().ok_or(Error::InvalidTransition)?;
+        let terminal_sequence = self.fence_sequence.ok_or(Error::InvalidTransition)?;
         let candidate = Successor {
             receipt_id: receipt_id.into(),
+            predecessor_fence_id,
+            terminal_sequence,
             owner: new_owner.into(),
             epoch: new_epoch,
             capacity: requested_capacity,
@@ -374,6 +382,8 @@ impl FenceBook {
         };
         if let Some(previous) = &self.successor {
             let same_transfer = previous.receipt_id == candidate.receipt_id
+                && previous.predecessor_fence_id == candidate.predecessor_fence_id
+                && previous.terminal_sequence == candidate.terminal_sequence
                 && previous.owner == candidate.owner
                 && previous.epoch == candidate.epoch
                 && previous.capacity == candidate.capacity;
@@ -498,6 +508,9 @@ mod tests {
         assert_eq!(book.transfer("transfer:1", "owner-b", 2, 61), Err(Error::CapacityExceeded));
         assert_eq!(book.transfer("transfer:1", "owner-b", 2, 60), Ok(Apply::Applied));
         assert_eq!(book.phase(), Phase::Transferred);
+        let successor = book.successor.as_ref().unwrap();
+        assert_eq!(successor.predecessor_fence_id, "fence:1");
+        assert_eq!(successor.terminal_sequence, cut);
         assert_eq!(book.record_successor_obligation("new:1", "owner-b", 2, 60), Ok(Apply::Applied));
         assert_eq!(book.outstanding() + 10 + book.successor_outstanding(), 100);
         assert_eq!(book.record_successor_obligation("new:2", "owner-b", 2, 1), Err(Error::CapacityExceeded));
