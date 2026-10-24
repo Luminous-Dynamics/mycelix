@@ -22,7 +22,7 @@ cargo fmt --manifest-path mycelix-workspace/simulations/nested-currency-referenc
 cargo test --locked --manifest-path mycelix-workspace/simulations/nested-currency-reference/Cargo.toml
 ```
 
-The crate defines 21 Rust test functions across the NCF reference model and the reservation module. Coverage includes canonical registry binding at clearing-agreement creation; unknown-instrument, stale-profile, and reputation-family rejection; amount/cap negative controls; instrument-scoped aggregate limits; failure atomicity; ticker collision and denomination stability; gross-by-direction clearing; direction-bound settlement replay; disjoint shard reservations; zero-cap behavior; cross-reservation replay rejection; and immutable counterparty binding across shards, epochs, and instruments. The existing 1,000,000-operation and 100,000-retry tests remain definitions, not evidence of passing execution. These are **targets encoded as tests**, not evidence of a passing run until the exact committed revision has been compiled and executed.
+The crate defines 29 Rust test functions across the NCF clearing model, reservation module, and sequential fencing model. Coverage includes canonical registry binding at clearing-agreement creation; unknown-instrument, stale-profile, and reputation-family rejection; amount/cap negative controls; instrument-scoped aggregate limits; failure atomicity; ticker collision and denomination stability; gross-by-direction clearing; direction-bound settlement replay; disjoint shard reservations; zero-cap behavior; cross-reservation replay rejection; and immutable counterparty binding across shards, epochs, and instruments. The existing 1,000,000-operation and 100,000-retry tests remain definitions, not evidence of passing execution. These are **targets encoded as tests**, not evidence of a passing run until the exact committed revision has been compiled and executed.
 
 ## Run a reproducible benchmark
 
@@ -44,7 +44,7 @@ The mutual-credit JSON record measures one-process reference-model throughput an
 
 ## Fencing protocol
 
-The next design boundary is documented in [NCF-FEN-1: fencing and safe reallocation of partitioned risk rights](docs/NCF-FEN-1.md). It specifies the state machine, receipt bindings, fence proof modes, required failure injections, independent-oracle benchmarks, and conditions for ever reclaiming capacity from an old epoch. The machine-readable corpus adds 12 spec-only NCF-FEN cases (not backed by Rust tests yet), eight fencing invariants, and a fourth model-checking campaign. This is a proposal, not implementation or test evidence. Until a fencing authority is chosen and qualified, potentially live old-epoch capacity remains charged.
+The next design boundary is documented in [NCF-FEN-1: fencing and safe reallocation of partitioned risk rights](docs/NCF-FEN-1.md). It specifies the state machine, receipt bindings, fence proof modes, required failure injections, independent-oracle benchmarks, and conditions for ever reclaiming capacity from an old epoch. The machine-readable corpus contains 12 planned NCF-FEN scenarios: four now map to reference-model test definitions and eight remain not implemented or fully qualified. All test definitions remain unexecuted. The corpus has 23 invariants and a fourth model-checking campaign; the exhaustive schedule explorer itself is still future work. This is a proposal, not implementation or test evidence. Until a fencing authority is chosen and qualified, potentially live old-epoch capacity remains charged.
 
 ## Next qualification stages
 
