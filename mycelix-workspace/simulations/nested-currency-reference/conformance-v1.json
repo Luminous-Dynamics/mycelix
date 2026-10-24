@@ -794,8 +794,8 @@
       "class": "stale_owner_budget_reuse",
       "attack": "A shard misses its heartbeat but is still potentially live; a different owner requests its slice.",
       "expected": "reject_transfer_or_keep_capacity_charged",
-      "code_test": null,
-      "execution_status": "planned_not_implemented_or_not_fully_qualified"
+      "code_test": "transfer_is_rejected_before_complete_reconciliation_and_fence",
+      "execution_status": "reference_test_defined_not_run"
     },
     {
       "id": "NCF-FEN-002",
