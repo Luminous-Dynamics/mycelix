@@ -749,11 +749,13 @@
         "stale_owner_mutant_config_sha256",
         "stale_owner_mutant_log_sha256",
         "timeout_mutant_detected_expected_invariant",
-        "stale_owner_mutant_detected_expected_invariant"
+        "stale_owner_mutant_detected_expected_invariant",
+        "tla2tools_build_tag",
+        "tla2tools_jar_expected_sha256"
       ],
       "execution_status": "design_not_run",
       "claim_ceiling": "A deterministic state-machine/model-checker result only for the declared authority and fault model. It does not prove production Holochain behavior, legal settlement, cryptographic key security or safety outside the explored model.",
-      "methodology": "Run the bounded TLC safe model at Capacity=2, MaxSteps=4 and require no invariant violations; run the intentionally unsafe timeout-reallocation mutant and require a counterexample to NoTransferWithoutFence; run the stale-owner-write mutant and require a counterexample to NoOldWriteOutsideActive. These results are not yet confirmed. Then qualify the independent transition oracle and exhaust small interleavings. Extend with at least 10,000 reproducible schedules for retries, duplicate/reordered/dropped receipts, stale-owner writes, crashes and partition/heal traces. Keep honest-crash and adversarial-owner campaigns separate. Compare static-quota, acknowledged-drain and any linearizable/quorum mode under identical traces. Any safety violation fails the campaign; utilization and latency are reported only alongside correctness results. The fail-closed runner requires a clean checkout and a caller-supplied TLA2TOOLS_JAR; it records source/model/config/JAR hashes and both raw logs outside the repository. The unsafe run counts as detected only if the checker fails and the log identifies the expected NoTransferWithoutFence invariant; a parse failure does not qualify.",
+      "methodology": "Run the bounded TLC safe model at Capacity=2, MaxSteps=4 and require no invariant violations. Run the timeout-reallocation mutant and require a counterexample to NoTransferWithoutFence; run the stale-owner-write mutant and require a counterexample to NoOldWriteOutsideActive. The runner must reject parser/tool failures as non-qualifying outcomes. These results are not yet confirmed. Then qualify the independent transition oracle and exhaust small interleavings. Extend with at least 10,000 reproducible schedules for retries, duplicate/reordered/dropped receipts, stale-owner writes, crashes and partition/heal traces. Keep honest-crash and adversarial-owner campaigns separate. Compare static-quota, acknowledged-drain and any linearizable/quorum mode under identical traces. Any safety violation fails the campaign; utilization and latency are reported only alongside correctness results. The fail-closed runner requires a clean checkout and a caller-supplied TLA2TOOLS_JAR; it records source/model/config/JAR hashes and raw logs outside the repository. The immutable TLA+ build is tagged tla2tools-2026.08.11.125311 and verified against SHA-256 ab323b79802aedc3203b3f9af37c6aca3ed43f4e0225b36f2aa77b26de46c05f.",
       "formal_model_path": "mycelix-workspace/simulations/nested-currency-reference/formal/NCF_FEN_1.tla",
       "formal_config_path": "mycelix-workspace/simulations/nested-currency-reference/formal/NCF_FEN_1.cfg",
       "negative_control_model_path": "mycelix-workspace/simulations/nested-currency-reference/formal/NCF_FEN_1_TimeoutMutant.tla",
@@ -766,7 +768,7 @@
       },
       "runner_path": "mycelix-workspace/simulations/nested-currency-reference/run-ncf-fen-tlc.sh",
       "workflow_path": ".github/workflows/ncf-fen-model-check.yml",
-      "workflow_claim_ceiling": "The dedicated draft-PR workflow verifies bounded TLA+ invariants and sensitivity to one deliberately unsafe mutant only; it does not qualify the Rust implementation, distributed concurrency, Holochain validators, or 10,000-schedule model checking.",
+      "workflow_claim_ceiling": "The dedicated draft-PR workflow verifies bounded TLA+ invariants and sensitivity to two deliberately unsafe mutants only; it does not qualify the Rust implementation, distributed concurrency, Holochain validators, or 10,000-schedule model checking.",
       "negative_control_mutants": [
         {
           "name": "timeout_reallocation",
@@ -780,7 +782,9 @@
           "config": "formal/NCF_FEN_1_StaleOwnerMutant.cfg",
           "expected_invariant": "NoOldWriteOutsideActive"
         }
-      ]
+      ],
+      "tla2tools_build_tag": "tla2tools-2026.08.11.125311",
+      "tla2tools_jar_expected_sha256": "ab323b79802aedc3203b3f9af37c6aca3ed43f4e0225b36f2aa77b26de46c05f"
     }
   ],
   "planned_conformance_cases": [
