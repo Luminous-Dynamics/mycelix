@@ -11,8 +11,9 @@ VARIABLES reserved, outstanding, partitioned, eventCount
 
 vars == << reserved, outstanding, partitioned, eventCount >>
 
-TotalReserved == \sum s \in Shards: reserved[s]
-TotalOutstanding == \sum s \in Shards: outstanding[s]
+\* The finite model intentionally fixes two shards so the arithmetic is explicit.
+TotalReserved == reserved["s1"] + reserved["s2"]
+TotalOutstanding == outstanding["s1"] + outstanding["s2"]
 
 Init ==
     /\ reserved = [s \in Shards |-> 0]
