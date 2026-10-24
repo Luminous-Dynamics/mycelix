@@ -12,7 +12,8 @@
     "version": "0.1.5",
     "registry": "https://docs.rs/crate/affinidi-sd-jwt/0.1.5",
     "test_feature": "_test-utils",
-    "test_signatures": "HMAC-SHA256 only; never use this fixture implementation in production"
+    "test_signatures": "HMAC-SHA256 only; never use this fixture implementation in production",
+    "freshness": "KB-JWT iat checked through KbFreshness with a fixed synthetic clock"
   },
   "fixture": {
     "claims": "synthetic only",
@@ -31,6 +32,9 @@
     "unissued_disclosure",
     "key_binding_required_but_missing",
     "valid_key_binding",
+    "key_binding_iat_within_freshness_window",
+    "stale_key_binding_iat_rejected",
+    "future_key_binding_iat_rejected",
     "wrong_nonce",
     "wrong_audience",
     "missing_holder_verifier",
