@@ -1,11 +1,14 @@
 #![forbid(unsafe_code)]
 
-pub mod reservation;
-
 //! Dependency-free safety reference model for nested community currencies.
 //! This is not a Holochain zome, production ledger, or proof of real-world backing.
 //! It models identifier non-aliasing, narrow delegated authority, mutual-credit
-//! conservation/replay behavior, and bounded per-agreement federation exposure.
+//! conservation/replay behavior, bounded federation exposure, and a sequential
+//! reservation-fencing lifecycle model. These models do not prove production or
+//! multi-agent safety without separate runtime and adversarial qualification.
+
+pub mod fencing;
+pub mod reservation;
 
 use std::collections::{BTreeMap, BTreeSet};
 
