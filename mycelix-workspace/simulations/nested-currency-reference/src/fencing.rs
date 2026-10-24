@@ -449,6 +449,14 @@ mod tests {
             Err(Error::TerminalSequenceMismatch)
         );
         assert_eq!(book.phase(), Phase::DrainRequested);
+        let cut = book.operation_sequence();
+        assert_eq!(book.reconcile(cut, 30, 10, true), Ok(Apply::Applied));
+        assert_eq!(
+            book.settle("settle:after-cut", "owner-a", 1, 1),
+            Err(Error::InvalidTransition)
+        );
+        assert_eq!(book.reconcile(cut, 30, 10, true), Ok(Apply::Duplicate));
+        assert_eq!(book.fence("fence:1", cut), Ok(Apply::Applied));
     }
 
     #[test]
@@ -464,6 +472,10 @@ mod tests {
         assert_eq!(book.record_successor_obligation("new:1", "owner-b", 2, 60), Ok(Apply::Applied));
         assert_eq!(book.outstanding() + 10 + book.successor_outstanding(), 100);
         assert_eq!(book.record_successor_obligation("new:2", "owner-b", 2, 1), Err(Error::CapacityExceeded));
+        assert_eq!(book.transfer("transfer:1", "owner-b", 2, 60), Ok(Apply::Duplicate));
+        assert_eq!(book.settle("settle:old", "owner-a", 1, 10), Ok(Apply::Applied));
+        assert_eq!(book.reconcile(cut, 30, 10, true), Ok(Apply::Duplicate));
+        assert_eq!(book.outstanding() + 10 + book.successor_outstanding(), 90);
     }
 
     #[test]
