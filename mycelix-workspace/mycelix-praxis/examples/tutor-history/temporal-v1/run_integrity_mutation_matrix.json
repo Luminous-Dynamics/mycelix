@@ -1,0 +1,83 @@
+{
+  "schema_version": 1,
+  "benchmark_id": "PRAXIS-BENCHMARK-RUN-INTEGRITY-001",
+  "entries": [
+    {
+      "id": "RUN-001",
+      "kind": "positive_control",
+      "mutation": "Validate the synthetic trajectory split with all train, validation, and test roles populated.",
+      "expected": "Accept the split and preserve complete trajectory-level grouping.",
+      "test_name": "split_fixture_has_whole_trajectory_and_family_holdout"
+    },
+    {
+      "id": "RUN-002",
+      "kind": "negative_control",
+      "mutation": "Assign the same trajectory to the split manifest twice.",
+      "expected": "Reject with duplicate_trajectory_assignment.",
+      "test_name": "duplicate_trajectory_assignments_are_rejected"
+    },
+    {
+      "id": "RUN-003",
+      "kind": "negative_control",
+      "mutation": "Place a diagnostic family in training and held-out test.",
+      "expected": "Reject diagnostic-family leakage across splits.",
+      "test_name": "diagnostic_family_cannot_cross_train_validation_and_test"
+    },
+    {
+      "id": "RUN-004",
+      "kind": "negative_control",
+      "mutation": "Declare a family held out without assigning it to test.",
+      "expected": "Reject mismatch between declared held-out families and actual test-family assignments.",
+      "test_name": "held_out_family_declaration_must_match_test_families"
+    },
+    {
+      "id": "RUN-005",
+      "kind": "positive_control",
+      "mutation": "Build a run manifest with all required artifact roles, valid digests, exact split digest, and the complete test trajectories.",
+      "expected": "Accept only when run identity and artifact catalog agree.",
+      "test_name": "valid_run_binds_all_required_artifact_roles_and_exact_split_bytes"
+    },
+    {
+      "id": "RUN-006",
+      "kind": "negative_control",
+      "mutation": "Change split-manifest bytes but leave the recorded digest untouched.",
+      "expected": "Reject with split_digest_mismatch.",
+      "test_name": "changed_split_bytes_invalidate_run_binding"
+    },
+    {
+      "id": "RUN-007",
+      "kind": "negative_control",
+      "mutation": "Add the oracle artifact to candidate-visible artifact IDs.",
+      "expected": "Reject candidate/evaluator audience leakage.",
+      "test_name": "evaluator_only_oracle_cannot_be_added_to_candidate_inputs"
+    },
+    {
+      "id": "RUN-008",
+      "kind": "positive_control",
+      "mutation": "Pair a baseline run with a Symthaea-assisted run using identical protocol gates and test trajectories.",
+      "expected": "Accept the B0/B1 pair for a held-out test comparison.",
+      "test_name": "b0_b1_pair_is_comparable_only_under_same_protocol"
+    },
+    {
+      "id": "RUN-009",
+      "kind": "negative_control",
+      "mutation": "Change the policy-gate digest between B0 and B1.",
+      "expected": "Reject the comparison; policy-gate drift confounds the ablation.",
+      "test_name": "b0_b1_policy_gate_drift_is_rejected"
+    },
+    {
+      "id": "RUN-010",
+      "kind": "negative_control",
+      "mutation": "Give the augmented system a different test trajectory set.",
+      "expected": "Reject the run or pair before reporting comparative scores.",
+      "test_name": "b0_b1_different_test_trajectories_are_rejected"
+    },
+    {
+      "id": "RUN-011",
+      "kind": "verifier_self_audit",
+      "mutation": "Check mutation IDs and named test linkage.",
+      "expected": "All mutation IDs are unique and every row points to a test function.",
+      "test_name": "mutation_matrix_is_closed_and_test_linked"
+    }
+  ]
+}
