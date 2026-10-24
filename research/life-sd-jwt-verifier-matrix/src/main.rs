@@ -1,5 +1,7 @@
 use std::collections::HashSet;
 
+use base64::{Engine as _, engine::general_purpose::URL_SAFE_NO_PAD};
+
 use affinidi_sd_jwt::{
     Disclosure, SdJwt, Sha256Hasher, holder, issuer, verifier,
     holder::KbJwtInput,
@@ -141,16 +143,45 @@ fn key_binding_freshness_accepts(
         expected_audience: Some(expected_audience),
         expected_nonce: Some(expected_nonce),
     };
-    let freshness = verifier::KbFreshness::new(now, max_age_secs);
-    verifier::verify_with_kb_freshness(
+
+    // First verify issuer signature, holder signature, KB-JWT typ, nonce,
+    // audience, and sd_hash with the published 0.1.5 verifier API. Apply the
+    // profile's fixed-clock freshness window only after cryptographic success.
+    let verified = verifier::verify(
         &canonical,
         &issuer_verifier,
         &Sha256Hasher,
         &options,
         Some(&holder_verifier),
-        &freshness,
-    )
-    .is_ok_and(|result| result.kb_verified == Some(true))
+    );
+    if !verified.is_ok_and(|result| result.kb_verified == Some(true)) {
+        return false;
+    }
+
+    let Some(kb_jwt) = canonical.kb_jwt.as_deref() else {
+        return false;
+    };
+    let mut parts = kb_jwt.split('.');
+    let (Some(_header), Some(payload), Some(_signature), None) =
+        (parts.next(), parts.next(), parts.next(), parts.next())
+    else {
+        return false;
+    };
+    let Ok(payload_bytes) = URL_SAFE_NO_PAD.decode(payload) else {
+        return false;
+    };
+    let Ok(payload) = serde_json::from_slice::<Value>(&payload_bytes) else {
+        return false;
+    };
+    let Some(iat) = payload.get("iat").and_then(Value::as_i64) else {
+        return false;
+    };
+
+    let latest_allowed = now.saturating_add(60);
+    if iat > latest_allowed {
+        return false;
+    }
+    now.saturating_sub(iat) <= max_age_secs
 }
 
 fn key_binding_accepts(
