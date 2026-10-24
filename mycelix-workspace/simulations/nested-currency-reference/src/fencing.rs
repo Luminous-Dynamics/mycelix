@@ -142,9 +142,20 @@ impl FenceBook {
         self.sequence.checked_add(1).ok_or(Error::Overflow)
     }
 
+    fn control_id_used(&self, id: &str) -> bool {
+        self.drain_id.as_deref() == Some(id)
+            || self.fence_id.as_deref() == Some(id)
+            || self.successor.as_ref().is_some_and(|value| value.receipt_id == id)
+    }
+
     fn replay(&self, event_id: &str, event: &Event) -> Result<Option<Apply>, Error> {
         if event_id.trim().is_empty() {
             return Err(Error::InvalidIdentity);
+        }
+        // Ledger event IDs and lifecycle receipt IDs share one namespace. A caller
+        // cannot reuse a drain/fence/transfer ID as a monetary event (or vice versa).
+        if self.control_id_used(event_id) {
+            return Err(Error::ReplayMismatch);
         }
         match self.events.get(event_id) {
             Some(previous) if previous == event => Ok(Some(Apply::Duplicate)),
@@ -198,6 +209,12 @@ impl FenceBook {
             } else {
                 Err(Error::ReplayMismatch)
             };
+        }
+        if self.events.contains_key(drain_id)
+            || self.fence_id.as_deref() == Some(drain_id)
+            || self.successor.as_ref().is_some_and(|value| value.receipt_id == drain_id)
+        {
+            return Err(Error::ReplayMismatch);
         }
         if self.phase() != Phase::Active {
             return Err(Error::InvalidTransition);
@@ -306,6 +323,12 @@ impl FenceBook {
                 Err(Error::ReplayMismatch)
             };
         }
+        if self.events.contains_key(fence_id)
+            || self.drain_id.as_deref() == Some(fence_id)
+            || self.successor.as_ref().is_some_and(|value| value.receipt_id == fence_id)
+        {
+            return Err(Error::ReplayMismatch);
+        }
         if self.phase() != Phase::Reconciled {
             return Err(Error::InvalidTransition);
         }
@@ -335,6 +358,12 @@ impl FenceBook {
         }
         if requested_capacity == 0 {
             return Err(Error::InvalidAmount);
+        }
+        if self.events.contains_key(receipt_id)
+            || self.drain_id.as_deref() == Some(receipt_id)
+            || self.fence_id.as_deref() == Some(receipt_id)
+        {
+            return Err(Error::ReplayMismatch);
         }
         let candidate = Successor {
             receipt_id: receipt_id.into(),
