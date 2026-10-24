@@ -99,8 +99,10 @@ impl AllocationPlan {
             .map(|slice| slice.capacity)
     }
 
-    pub fn total_allocated(&self) -> u64 {
-        self.slices.iter().map(|slice| slice.capacity).sum()
+    pub fn total_allocated(&self) -> Result<u64, AllocationError> {
+        self.slices.iter().try_fold(0_u64, |sum, slice| {
+            sum.checked_add(slice.capacity).ok_or(AllocationError::Overflow)
+        })
     }
 }
 
@@ -277,7 +279,7 @@ mod tests {
         assert_eq!(plan.slice_for("a"), Some(34));
         assert_eq!(plan.slice_for("b"), Some(34));
         assert_eq!(plan.slice_for("c"), Some(33));
-        assert_eq!(plan.total_allocated(), 101);
+        assert_eq!(plan.total_allocated().unwrap(), 101);
         assert_eq!(plan.contingency_reserve, 0);
         plan.validate().unwrap();
     }
@@ -319,7 +321,7 @@ mod tests {
         let plan = allocate_static_escrow(&input, 1_000, 100_000, AllocationPolicy::DemandWeighted).unwrap();
         assert_eq!(plan.contingency_reserve, 100);
         assert_eq!(plan.spendable_capacity, 900);
-        assert_eq!(plan.total_allocated(), 900);
+        assert_eq!(plan.total_allocated().unwrap(), 900);
         plan.validate().unwrap();
     }
 
@@ -353,7 +355,7 @@ mod tests {
         let plan = allocate_static_escrow(&input, 100, 0, AllocationPolicy::DemandWeighted).unwrap();
         assert!(plan.slice_for("a").unwrap() >= 7);
         assert!(plan.slice_for("b").unwrap() >= 11);
-        assert_eq!(plan.total_allocated(), 100);
+        assert_eq!(plan.total_allocated().unwrap(), 100);
     }
 
     #[test]
@@ -471,7 +473,7 @@ mod tests {
             plan.spendable_capacity);
         assert_eq!(book.allocated_to_agreement("agreement:a-b", "instrument:unit").unwrap(),
             plan.spendable_capacity);
-        assert_eq!(plan.total_allocated() + plan.contingency_reserve, plan.total_capacity);
+        assert_eq!(plan.total_allocated().unwrap().checked_add(plan.contingency_reserve).unwrap(), plan.total_capacity);
     }
 
     #[test]
