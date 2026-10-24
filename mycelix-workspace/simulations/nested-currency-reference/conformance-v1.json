@@ -7,7 +7,7 @@
   "status": "proposed_not_qualified",
   "execution_evidence": {
     "status": "not_run",
-    "reason": "Allocator source, per-shard fairness test, and benchmark outputs are defined but have not been compiled or run here. Exact-head Rust/TLA+ evidence, realistic demand traces, and multi-agent/Holochain qualification remain outstanding."
+    "reason": "Static allocator code, per-shard fairness test, and matched-trace benchmark remain uncompiled/unexecuted in this environment. Exact-head Rust/TLA+ receipts, realistic demand traces, and multi-agent/Holochain qualification remain outstanding."
   },
   "claim_ceiling": [
     "Reference-model conformance only when executed against a named source revision.",
@@ -1001,9 +1001,15 @@
         "policies[].shard_results[].served_demand_units",
         "policies[].shard_results[].unserved_demand_units",
         "policies[].shard_results[].demand_served_ppm",
-        "policies[].shard_results[].worst_scenario_served_ppm"
+        "policies[].shard_results[].worst_scenario_served_ppm",
+        "shard_results[].shard_id",
+        "shard_results[].requested_demand_units",
+        "shard_results[].served_demand_units",
+        "shard_results[].unserved_demand_units",
+        "shard_results[].demand_served_ppm",
+        "shard_results[].worst_scenario_served_ppm"
       ],
-      "methodology": "Run the exact same deterministic demand/fault traces against each implemented policy and matched hardware/toolchains. Report results only after hard safety gates pass. Plot a Pareto frontier across economic demand served, safely reclaimable versus stranded capacity, tail latency, and compute cost; do not collapse outcomes into a single weighted score. Separate unreachable-owner partitions from honest crash/restart and byzantine-owner campaigns. Include ablations for priority classes and rebalancing policy. Add a low-risk paradigm-shift baseline: optimize the placement of already-authorized, non-overlapping slices before the partition, using training demand traces and robust quantiles. Evaluate on held-out and shifted workloads, and never allow the forecast to enlarge/reassign rights during the partition. This isolates safe capacity-placement improvements from risky online reclamation. An executable dependency-free Rust allocator and benchmark were added. It uses checked integer arithmetic, stable shard-ID tie-breaking, and largest-remainder apportionment; the benchmark compares six policies on the same generated stationary and shifted trace sets. Its current generator is synthetic and single-process. Run the exact-head wrapper, then replace/augment synthetic traces with independently sourced demand profiles before making real-world claims. The executable simulator includes 25%, 50%, and 75% equal-floor variants, creating a small safety-preserving frontier between historical utilization and resilience to demand-shape changes. These variants affect only the initial static placement and cannot resize allocations in a partition. Per-shard demand-served and worst-shard service are reported alongside aggregate utilization; do not treat high overall service as fair if the least-served shard is materially worse.",
+      "methodology": "Run the exact same deterministic demand/fault traces against each implemented policy and matched hardware/toolchains. Report results only after hard safety gates pass. Plot a Pareto frontier across economic demand served, safely reclaimable versus stranded capacity, tail latency, and compute cost; do not collapse outcomes into a single weighted score. Separate unreachable-owner partitions from honest crash/restart and byzantine-owner campaigns. Include ablations for priority classes and rebalancing policy. Add a low-risk paradigm-shift baseline: optimize the placement of already-authorized, non-overlapping slices before the partition, using training demand traces and robust quantiles. Evaluate on held-out and shifted workloads, and never allow the forecast to enlarge/reassign rights during the partition. This isolates safe capacity-placement improvements from risky online reclamation. An executable dependency-free Rust allocator and benchmark were added. It uses checked integer arithmetic, stable shard-ID tie-breaking, and largest-remainder apportionment; the benchmark compares six policies on the same generated stationary and shifted trace sets. Its current generator is synthetic and single-process. Run the exact-head wrapper, then replace/augment synthetic traces with independently sourced demand profiles before making real-world claims. The executable simulator includes 25%, 50%, and 75% equal-floor variants, creating a small safety-preserving frontier between historical utilization and resilience to demand-shape changes. These variants affect only the initial static placement and cannot resize allocations in a partition. Per-shard demand-served and worst-shard service are reported alongside aggregate utilization; do not treat high overall service as fair if the least-served shard is materially worse. A dedicated adversarial unit test checks that worst-shard and per-shard service metrics expose an underserved shard that aggregate demand-served percentage alone would hide.",
       "execution_status": "defined_not_run",
       "claim_ceiling": "Current executable: deterministic synthetic single-process allocation simulation with integer budget checks only. It does not emit distributed tail latency, partition recovery, economic-demand classes or network measures. Those are requirements for a future multi-agent implementation benchmark. No runtime result is claimed until exact-head Rust tests/benchmark and receipt succeed.",
       "reservation_policy_experiment": {
@@ -1145,7 +1151,13 @@
         "policies[].shard_results[].served_demand_units",
         "policies[].shard_results[].unserved_demand_units",
         "policies[].shard_results[].demand_served_ppm",
-        "policies[].shard_results[].worst_scenario_served_ppm"
+        "policies[].shard_results[].worst_scenario_served_ppm",
+        "shard_results[].shard_id",
+        "shard_results[].requested_demand_units",
+        "shard_results[].served_demand_units",
+        "shard_results[].unserved_demand_units",
+        "shard_results[].demand_served_ppm",
+        "shard_results[].worst_scenario_served_ppm"
       ],
       "receipt_evidence_fields": [
         "source_commit",
@@ -1527,6 +1539,15 @@
       "expected": "aggregate_demand_served_reported_separately_from_worst_shard_and_per_shard_service",
       "code_test": "per_shard_metrics_expose_underserved_shard_hidden_by_aggregate",
       "execution_status": "reference_test_defined_not_run"
+    },
+    {
+      "id": "NCF-ALLOC-016",
+      "title": "Worst-shard service rate exposes underservice hidden by aggregate allocation metrics",
+      "class": "per_shard_service_fairness",
+      "attack": "Give one shard 90 capacity and another 10 capacity, while both demand 90 per scenario, repeated twice.",
+      "expected": "aggregate_demand_served_and_worst_shard_service_are_reported_separately_and_per_shard_totals_match",
+      "code_test": "per_shard_metrics_expose_underserved_shard_hidden_by_aggregate",
+      "execution_status": "reference_test_defined_not_run"
     }
   ],
   "qualification_campaigns": [
@@ -1674,8 +1695,7 @@
         "ten_thousand_generated_allocation_plans_conserve_capacity_and_ignore_input_order",
         "plans_reject_mixed_or_missing_instrument_identity",
         "demand_weighted_equal_floor_trades_peak_utilization_for_shift_resilience",
-        "full_equal_floor_matches_equal_split_after_minimums",
-        "per_shard_metrics_expose_underserved_shard_hidden_by_aggregate"
+        "full_equal_floor_matches_equal_split_after_minimums"
       ],
       "required_benchmark_reports": 12,
       "safety_gate": "Every allocation plan validates and all twelve policy/mode reports must have zero accounting violations; any overflow, malformed input, mixed instrument identity, or unaccounted capacity fails the campaign.",
@@ -1704,7 +1724,9 @@
         "expected_policy_mode_reports",
         "observed_policy_mode_reports",
         "safety_violation_reports",
-        "instrument_id"
+        "instrument_id",
+        "worst_shard_service_reports",
+        "per_shard_result_arrays"
       ],
       "required_external_evidence": [
         "receipt_sha256",
