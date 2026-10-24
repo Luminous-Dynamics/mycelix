@@ -7,6 +7,10 @@ struct Vector {
     section: &'static str,
     disclosure: &'static str,
     expected_sha256_b64url: &'static str,
+    expected_salt: &'static str,
+    expected_claim_name: Option<&'static str>,
+    expected_scalar_value: Option<&'static str>,
+    expected_address_value: bool,
     object_property: bool,
 }
 
@@ -18,6 +22,10 @@ const RFC_VECTORS: [Vector; 5] = [
         section: "RFC9901-5.1",
         disclosure: "WyIyR0xDNDJzS1F2ZUNmR2ZyeU5STjl3IiwgImdpdmVuX25hbWUiLCAiSm9obiJd",
         expected_sha256_b64url: "jsu9yVulwQQlhFlM_3JlzMaSFzglhQG0DpfayQwLUK4",
+        expected_salt: "2GLC42sKQveCfGfryNRN9w",
+        expected_claim_name: Some("given_name"),
+        expected_scalar_value: Some("John"),
+        expected_address_value: false,
         object_property: true,
     },
     Vector {
@@ -25,6 +33,10 @@ const RFC_VECTORS: [Vector; 5] = [
         section: "RFC9901-5.1",
         disclosure: "WyJlbHVWNU9nM2dTTklJOEVZbnN4QV9BIiwgImZhbWlseV9uYW1lIiwgIkRvZSJd",
         expected_sha256_b64url: "TGf4oLbgwd5JQaHyKVQZU9UdGE0w5rtDsrZzfUaomLo",
+        expected_salt: "eluV5Og3gSNII8EYnsxA_A",
+        expected_claim_name: Some("family_name"),
+        expected_scalar_value: Some("Doe"),
+        expected_address_value: false,
         object_property: true,
     },
     Vector {
@@ -32,6 +44,10 @@ const RFC_VECTORS: [Vector; 5] = [
         section: "RFC9901-5.1",
         disclosure: "WyI2SWo3dE0tYTVpVlBHYm9TNXRtdlZBIiwgImVtYWlsIiwgImpvaG5kb2VAZXhhbXBsZS5jb20iXQ",
         expected_sha256_b64url: "JzYjH4svliH0R3PyEMfeZu6Jt69u5qehZo7F7EPYlSE",
+        expected_salt: "6Ij7tM-a5iVPGboS5tmvVA",
+        expected_claim_name: Some("email"),
+        expected_scalar_value: Some("johndoe@example.com"),
+        expected_address_value: false,
         object_property: true,
     },
     Vector {
@@ -39,6 +55,10 @@ const RFC_VECTORS: [Vector; 5] = [
         section: "RFC9901-5.1",
         disclosure: "WyJBSngtMDk1VlBycFR0TjRRTU9xUk9BIiwgImFkZHJlc3MiLCB7InN0cmVldF9hZGRyZXNzIjogIjEyMyBNYWluIFN0IiwgImxvY2FsaXR5IjogIkFueXRvd24iLCAicmVnaW9uIjogIkFueXN0YXRlIiwgImNvdW50cnkiOiAiVVMifV0",
         expected_sha256_b64url: "XzFrzwscM6Gn6CJDc6vVK8BkMnfG8vOSKfpPIZdAfdE",
+        expected_salt: "AJx-095VPrpTtN4QMOqROA",
+        expected_claim_name: Some("address"),
+        expected_scalar_value: None,
+        expected_address_value: true,
         object_property: true,
     },
     Vector {
@@ -46,6 +66,10 @@ const RFC_VECTORS: [Vector; 5] = [
         section: "RFC9901-5.1",
         disclosure: "WyJsa2x4RjVqTVlsR1RQVW92TU5JdkNBIiwgIlVTIl0",
         expected_sha256_b64url: "pFndjkZ_VCzmyTa6UjlZo3dh-ko8aIKQc9DlGzhaVYo",
+        expected_salt: "lklxF5jMYlGTPUovMNIvCA",
+        expected_claim_name: None,
+        expected_scalar_value: Some("US"),
+        expected_address_value: false,
         object_property: false,
     },
 ];
@@ -123,17 +147,60 @@ mod tests {
     }
 
     #[test]
-    fn object_property_and_array_element_shapes_are_distinguished() {
+    fn published_disclosure_salts_shapes_and_claim_contents_match_rfc() {
         let hasher = Sha256Hasher;
         for vector in RFC_VECTORS {
             let parsed =
                 Disclosure::parse(vector.disclosure, &hasher).expect("RFC disclosure should parse");
+            assert_eq!(parsed.salt, vector.expected_salt, "salt: {}", vector.id);
+            assert_eq!(
+                parsed.claim_name.as_deref(),
+                vector.expected_claim_name,
+                "claim name: {}",
+                vector.id
+            );
             assert_eq!(
                 parsed.claim_name.is_some(),
                 vector.object_property,
-                "shape mismatch: {}",
+                "shape: {}",
                 vector.id
             );
+
+            if let Some(expected) = vector.expected_scalar_value {
+                assert_eq!(
+                    parsed.claim_value.as_str(),
+                    Some(expected),
+                    "scalar value: {}",
+                    vector.id
+                );
+            }
+
+            if vector.expected_address_value {
+                assert_eq!(
+                    parsed.claim_value["street_address"].as_str(),
+                    Some("123 Main St"),
+                    "street address: {}",
+                    vector.id
+                );
+                assert_eq!(
+                    parsed.claim_value["locality"].as_str(),
+                    Some("Anytown"),
+                    "locality: {}",
+                    vector.id
+                );
+                assert_eq!(
+                    parsed.claim_value["region"].as_str(),
+                    Some("Anystate"),
+                    "region: {}",
+                    vector.id
+                );
+                assert_eq!(
+                    parsed.claim_value["country"].as_str(),
+                    Some("US"),
+                    "country: {}",
+                    vector.id
+                );
+            }
         }
     }
 
