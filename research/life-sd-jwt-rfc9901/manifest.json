@@ -12,8 +12,9 @@
   "implementations": [
     {
       "crate": "affinidi-sd-jwt",
-      "version": "0.1.8",
-      "role": "independent Rust disclosure parser and digest implementation"
+      "version": "0.1.5",
+      "role": "independent Rust disclosure parser and digest implementation",
+      "registry": "https://docs.rs/crate/affinidi-sd-jwt/0.1.5"
     },
     {
       "crate": "reallyme-sd-jwt",
