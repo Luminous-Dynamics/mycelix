@@ -1,0 +1,122 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://mycelix.net/schemas/praxis-learning-outcome-analysis/v1/participant_outcomes.schema.json",
+  "title": "Praxis primary-endpoint participant outcomes v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "protocol_id",
+    "dataset_id",
+    "study_id",
+    "endpoint_id",
+    "rows"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": 1
+    },
+    "protocol_id": {
+      "const": "PRAXIS-LEARNING-OUTCOME-PROTOCOL-001"
+    },
+    "dataset_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "study_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "endpoint_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "rows": {
+      "type": "array",
+      "minItems": 4,
+      "items": {
+        "$ref": "#/$defs/row"
+      }
+    }
+  },
+  "$defs": {
+    "row": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "participant_id",
+        "arm_id",
+        "value_milli",
+        "missing_reason"
+      ],
+      "properties": {
+        "participant_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "arm_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "value_milli": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": -2147483648,
+          "maximum": 2147483647
+        },
+        "missing_reason": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "enum": [
+            "learner_withdrew",
+            "assessment_not_completed",
+            "assessment_unavailable",
+            "technical_failure",
+            "other_predefined",
+            null
+          ]
+        }
+      },
+      "oneOf": [
+        {
+          "properties": {
+            "value_milli": {
+              "type": "integer"
+            },
+            "missing_reason": {
+              "type": "null"
+            }
+          },
+          "required": [
+            "value_milli",
+            "missing_reason"
+          ]
+        },
+        {
+          "properties": {
+            "value_milli": {
+              "type": "null"
+            },
+            "missing_reason": {
+              "enum": [
+                "learner_withdrew",
+                "assessment_not_completed",
+                "assessment_unavailable",
+                "technical_failure",
+                "other_predefined"
+              ]
+            }
+          },
+          "required": [
+            "value_milli",
+            "missing_reason"
+          ]
+        }
+      ]
+    }
+  }
+}
