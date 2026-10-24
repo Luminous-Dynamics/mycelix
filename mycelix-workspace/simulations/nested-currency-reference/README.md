@@ -13,6 +13,21 @@ It models these narrow properties:
 
 It does **not** prove real-world service delivery, legal status, collateral/reserves, key security, Holochain DHT integrity, multi-agent race safety, external settlement finality, or that every production code path enforces these rules. The reservation model assumes reservation ownership is unique and stable; it does not implement signed fencing receipts, reservation transfer, or safe capacity reclamation after a partition. Those require a separate coordinated protocol.
 
+## Static escrow allocation frontier
+
+The new dependency-free [allocation module](src/allocation.rs) builds deterministic pre-partition risk-right plans using equal split, demand-weighted mean, or robust-quantile weighting with an explicit margin. It uses checked integer arithmetic and stable largest-remainder tie-breaking; an optional contingency reserve remains unallocated and cannot be spent by disconnected shards.
+
+The [NCF-ALLOC-1 specification](docs/NCF-ALLOC-1-static-allocation.md) defines the algorithm boundary and claim ceiling. The [matched-trace benchmark binary](src/bin/ncf-allocation-bench.rs) compares all three policies on synthetic stationary and shifted-demand scenarios, while [the runner](run-allocation-bench.sh) binds output and binary hashes to the exact source/toolchain. The dedicated [allocation workflow](../../../../.github/workflows/ncf-allocation-benchmark.yml) checks formatting, runs the crate tests and clippy, and then emits the simulation receipt.
+
+Example:
+
+```sh
+bash mycelix-workspace/simulations/nested-currency-reference/run-allocation-bench.sh \
+  16 32 1000 100000 50000 0x4d5943454c495831
+```
+
+The demand generator is synthetic. This is not yet a real-demand or distributed-concurrency benchmark. Static allocation cannot reclaim an unreachable owner's spend rights during a partition; it only experiments with placing already-authorized rights before the partition. Benchmark output must be paired with safety results, and no policy may be selected on held-out evaluation traces.
+
 ## Exact-head Rust qualification
 
 The dedicated [Rust reference qualification workflow](../../../../.github/workflows/ncf-rust-model.yml) runs even on draft PRs, pins the source checkout to the triggering SHA, installs Rust 1.99.1 with rustfmt/clippy, and retains the logs and receipt for 30 days. Its [runner](run-ncf-rust-qualification.sh) runs format, test, and clippy independently, then emits one receipt only after recording each result. Build output and logs stay outside the source checkout.
