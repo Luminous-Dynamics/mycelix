@@ -1,13 +1,13 @@
 {
   "schema": "mycelix.nested-currency-conformance",
-  "schema_version": "1.0.0",
+  "schema_version": "1.1.0",
   "profile": "NCF-1",
   "tracking_issue": "https://github.com/Luminous-Dynamics/mycelix/issues/5464",
   "implementation_pr": "https://github.com/Luminous-Dynamics/mycelix/pull/5465",
   "status": "proposed_not_qualified",
   "execution_evidence": {
     "status": "not_run",
-    "reason": "This corpus is a test contract. A test definition is not a passing result. Exact-head Rust execution and verifier-bound receipts remain outstanding."
+    "reason": "This corpus is a test contract. Definitions and targets are not passing results. Exact-head Rust execution, TLA+ runs, independent counterexample review and multi-agent qualification remain outstanding."
   },
   "claim_ceiling": [
     "Reference-model conformance only when executed against a named source revision.",
@@ -144,6 +144,16 @@
       "id": "NCF-PART-I-002",
       "name": "Shard allocation rights are frozen during a partition",
       "statement": "After a partition begins, the reserved-capacity vector for the affected budget domain remains unchanged until the partition heals or an explicitly coordinated fencing/reconciliation protocol authorizes reallocation."
+    },
+    {
+      "id": "NCF-FEN-I-010",
+      "name": "Lost-response retry preserves the original economic effect",
+      "statement": "After a transfer is durably committed but its response is lost, retrying the same canonical transfer ID and payload returns the original receipt and creates no additional capacity or commit."
+    },
+    {
+      "id": "NCF-FEN-I-011",
+      "name": "Conflicting idempotency payloads are rejected",
+      "statement": "Reusing a committed transfer ID with any changed canonical payload is rejected, returns no success receipt, and produces no economic mutation."
     }
   ],
   "conformance_cases": [
@@ -827,6 +837,100 @@
         "mycelix-workspace/simulations/nested-currency-reference/formal/NCF_FEN_1.cfg",
         "mycelix-workspace/simulations/nested-currency-reference/formal/NCF_ESCROW_1.cfg"
       ]
+    },
+    {
+      "id": "NCF-BENCH-005",
+      "name": "Safety-qualified liquidity and capacity-utilization frontier",
+      "baselines": [
+        "static_non_overlapping_escrow",
+        "acknowledged_drain_and_fence",
+        "linearizable_control_authority",
+        "quorum_control_authority_when_implemented"
+      ],
+      "workloads": [
+        "uniform_demand_across_shards",
+        "80_20_hot_shard_skew",
+        "bursty_demand_with_recovery",
+        "deterministic_zipf_like_skew",
+        "essential_vs_discretionary_priority_classes"
+      ],
+      "topology": {
+        "participant_counts": [
+          100,
+          1000,
+          10000
+        ],
+        "shard_counts": [
+          2,
+          4,
+          16,
+          64
+        ],
+        "community_counts": [
+          1,
+          10,
+          100
+        ],
+        "partition_durations_seconds": [
+          0,
+          10,
+          60,
+          300
+        ]
+      },
+      "required_safety_gates": [
+        "zero_cap_violations",
+        "zero_double_spends",
+        "zero_post_fence_accepted_writes",
+        "zero_duplicate_transfer_commits",
+        "zero_conflicting_idempotency_acceptance"
+      ],
+      "required_metrics": [
+        "economic_demand_served_by_class",
+        "reserved_capacity",
+        "used_capacity",
+        "safely_reclaimable_capacity",
+        "capacity_stranded_by_partition",
+        "capacity_rejected_by_policy",
+        "reallocation_wait_ms_p50",
+        "reallocation_wait_ms_p95",
+        "reallocation_wait_ms_p99",
+        "operation_latency_ms_p50",
+        "operation_latency_ms_p95",
+        "operation_latency_ms_p99",
+        "partition_recovery_time_ms",
+        "reconciliation_operations",
+        "replay_rejections",
+        "unknown_outcomes",
+        "throughput_ops_per_second",
+        "cpu_time_ns",
+        "peak_rss_bytes"
+      ],
+      "required_output": [
+        "source_commit",
+        "workload_digest_sha256",
+        "seed",
+        "proof_mode",
+        "topology",
+        "trace_operations",
+        "elapsed_ns",
+        "safety_violations_by_invariant",
+        "economic_demand_served_by_class",
+        "capacity_stranded_by_partition",
+        "reallocation_wait_ms_p50",
+        "reallocation_wait_ms_p95",
+        "reallocation_wait_ms_p99",
+        "operation_latency_ms_p50",
+        "operation_latency_ms_p95",
+        "operation_latency_ms_p99",
+        "partition_recovery_time_ms",
+        "throughput_ops_per_second",
+        "runner_digest_sha256",
+        "receipt_sha256"
+      ],
+      "methodology": "Run the exact same deterministic demand/fault traces against each implemented policy and matched hardware/toolchains. Report results only after hard safety gates pass. Plot a Pareto frontier across economic demand served, safely reclaimable versus stranded capacity, tail latency, and compute cost; do not collapse outcomes into a single weighted score. Separate unreachable-owner partitions from honest crash/restart and byzantine-owner campaigns. Include ablations for priority classes and rebalancing policy.",
+      "execution_status": "design_not_run",
+      "claim_ceiling": "Comparative simulation/implementation evidence for declared workloads and tested fault models only; not a universal ranking, production financial-risk certification, or legal claim."
     }
   ],
   "planned_conformance_cases": [
@@ -1006,6 +1110,46 @@
       "formal_config": "formal/NCF_ESCROW_1_PartitionResizeMutant.cfg",
       "formal_invariant": "PartitionedReservationsStayFixed",
       "execution_status": "formal_negative_control_defined_not_run"
+    },
+    {
+      "id": "NCF-FEN-017",
+      "title": "Lost transfer response retry returns the original committed receipt",
+      "class": "commit_response_loss_retry",
+      "attack": "The transfer commit is durable, the acknowledgement is lost, and the caller retries with the same transfer ID and canonical amount payload, including after a crash/restart.",
+      "expected": "same_receipt_returned_without_second_commit_or_capacity_change",
+      "code_test": null,
+      "formal_model": "formal/NCF_RECOVERY_1.tla",
+      "formal_config": "formal/NCF_RECOVERY_1.cfg",
+      "formal_invariant": "IdempotentRetryReturnsOriginalReceipt",
+      "execution_status": "formal_model_defined_not_run"
+    },
+    {
+      "id": "NCF-FEN-018",
+      "title": "Same transfer ID with a different amount payload is rejected",
+      "class": "conflicting_idempotency_payload",
+      "attack": "After the original commit response is lost, an adversary or buggy client reuses the transfer ID with a changed amount payload.",
+      "expected": "conflicting_retry_rejected_no_receipt_no_economic_mutation",
+      "code_test": null,
+      "formal_model": "formal/NCF_RECOVERY_1.tla",
+      "formal_config": "formal/NCF_RECOVERY_1.cfg",
+      "negative_control_model": "formal/NCF_RECOVERY_1_ConflictingReplayMutant.tla",
+      "negative_control_config": "formal/NCF_RECOVERY_1_ConflictingReplayMutant.cfg",
+      "formal_invariant": "NoConflictingReplayAccepted",
+      "execution_status": "formal_negative_control_defined_not_run"
+    },
+    {
+      "id": "NCF-FEN-019",
+      "title": "Lost commit acknowledgement across restart cannot duplicate a transfer",
+      "class": "commit_crash_restart_replay",
+      "attack": "A transfer commits durably, the process crashes before the caller observes success, then the process restarts and the same transfer is retried.",
+      "expected": "exactly_one_commit_and_same_receipt",
+      "code_test": null,
+      "formal_model": "formal/NCF_RECOVERY_1.tla",
+      "formal_config": "formal/NCF_RECOVERY_1.cfg",
+      "negative_control_model": "formal/NCF_RECOVERY_1_CommitReplayMutant.tla",
+      "negative_control_config": "formal/NCF_RECOVERY_1_CommitReplayMutant.cfg",
+      "formal_invariant": "NoDoubleCommit",
+      "execution_status": "formal_negative_control_defined_not_run"
     }
   ],
   "qualification_campaigns": [
@@ -1079,6 +1223,47 @@
       "claim_ceiling": "Generated sequential Rust reference-model stress only; not distributed/Holochain concurrency safety or production settlement proof.",
       "runner_receipt_file": "mycelix-workspace/simulations/nested-currency-reference/run-ncf-rust-qualification.sh",
       "note": "The Rust qualification runner now records the fixed seed and 10,000 scenario target in its receipt. This is declared campaign metadata; only the test log and exit status from an actual exact-head run can establish whether it executed and passed."
+    },
+    {
+      "id": "NCF-QUAL-003",
+      "name": "Exact-head crash/recovery and payload-bound transfer retry qualification",
+      "execution_status": "defined_not_run",
+      "formal_models": [
+        "mycelix-workspace/simulations/nested-currency-reference/formal/NCF_RECOVERY_1.tla",
+        "mycelix-workspace/simulations/nested-currency-reference/formal/NCF_RECOVERY_1_CommitReplayMutant.tla",
+        "mycelix-workspace/simulations/nested-currency-reference/formal/NCF_RECOVERY_1_ConflictingReplayMutant.tla"
+      ],
+      "formal_configs": [
+        "mycelix-workspace/simulations/nested-currency-reference/formal/NCF_RECOVERY_1.cfg",
+        "mycelix-workspace/simulations/nested-currency-reference/formal/NCF_RECOVERY_1_CommitReplayMutant.cfg",
+        "mycelix-workspace/simulations/nested-currency-reference/formal/NCF_RECOVERY_1_ConflictingReplayMutant.cfg"
+      ],
+      "runner_path": "mycelix-workspace/simulations/nested-currency-reference/run-ncf-recovery-tlc.sh",
+      "workflow_path": ".github/workflows/ncf-recovery-model-check.yml",
+      "required_outcomes": [
+        "safe model passes all configured invariants",
+        "commit replay mutant violates NoDoubleCommit",
+        "conflicting payload mutant violates NoConflictingReplayAccepted"
+      ],
+      "required_receipt_fields": [
+        "source_commit",
+        "source_tree",
+        "safe_model_sha256",
+        "safe_config_sha256",
+        "commit_replay_mutant_sha256",
+        "commit_replay_mutant_config_sha256",
+        "conflicting_replay_mutant_sha256",
+        "conflicting_replay_mutant_config_sha256",
+        "tla2tools_jar_sha256",
+        "java_version",
+        "safe_model_state_statistics_line",
+        "safe_log_sha256",
+        "commit_replay_mutant_log_sha256",
+        "conflicting_replay_mutant_log_sha256",
+        "receipt_sha256"
+      ],
+      "methodology": "Run the safe finite recovery model and each negative control independently using the pinned TLA+ tools build. Require the named invariant violation for each mutant; parser, module-resolution and generic tool failures do not count. Preserve raw traces and bind the receipts to exact source/model/config/tool hashes.",
+      "claim_ceiling": "Bounded TLA+ result only for declared atomic-durable transition semantics and finite bounds. It does not prove backend durability, production Holochain behavior, cryptographic authorization, or unbounded distributed safety."
     }
   ]
 }
