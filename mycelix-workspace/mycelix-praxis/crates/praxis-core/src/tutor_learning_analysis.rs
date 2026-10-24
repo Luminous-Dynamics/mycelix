@@ -360,7 +360,7 @@ mod tests {
     }
     #[test] fn duplicate_participant_is_rejected() {
         let p=registered_protocol();let mut d:Value=serde_json::from_str(&dataset(120,false)).unwrap();
-        d["rows"][1]["participant_id"]=d["rows"][0]["participant_id"].clone();
+        let duplicate=d["rows"][0]["participant_id"].clone();d["rows"][1]["participant_id"]=duplicate;
         let r=analyze_learning_outcomes_json(&p,&serde_json::to_string(&d).unwrap(),REVISION).unwrap_err();
         assert!(r.iter().any(|f|f.code=="duplicate_participant"));
     }
