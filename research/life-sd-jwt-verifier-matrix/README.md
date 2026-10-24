@@ -33,6 +33,10 @@ cargo +1.96.0 run --release --manifest-path research/life-sd-jwt-verifier-matrix
 
 The workflow checks out the exact PR SHA, pins Rust and action revisions, runs format/tests/strict Clippy, repeats the CSV report and compares bytes, then retains a receipt, manifest and generated Cargo.lock as artifacts. Until the lockfile is committed and exact-head CI passes, this stays a bootstrap benchmark.
 
+## Normative traceability
+
+See [`rfc9901-requirement-map.json`](rfc9901-requirement-map.json) for the explicit mapping from RFC 9901 clauses to test IDs, application-policy checks, and uncovered requirements. A row marked `application_policy`, `partially_tested`, or `not_covered` is not conformance evidence. In particular, algorithm allowlisting, complete JWT validity, general JWK resolution, distributed replay storage, and official conformance vectors remain out of scope.
+
 ## Claim ceiling
 
 This matrix is a synthetic implementation behavior harness using one pinned crate and test-only HMAC. It is not full RFC conformance, OpenID4VP/HAIP conformance, production cryptographic security, automatic JWK-to-verifier validation, distributed replay protection, anonymity, differential privacy, or a performance/SOTA comparison. Protocol correctness, task utility, privacy leakage and operational cost remain separate benchmarks.
