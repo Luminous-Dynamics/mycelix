@@ -1,0 +1,1721 @@
+{
+  "schema": "mycelix.nested-currency-conformance",
+  "schema_version": "1.2.0",
+  "profile": "NCF-1",
+  "tracking_issue": "https://github.com/Luminous-Dynamics/mycelix/issues/5464",
+  "implementation_pr": "https://github.com/Luminous-Dynamics/mycelix/pull/5465",
+  "status": "proposed_not_qualified",
+  "execution_evidence": {
+    "status": "not_run",
+    "reason": "Allocator source, per-shard fairness test, and benchmark outputs are defined but have not been compiled or run here. Exact-head Rust/TLA+ evidence, realistic demand traces, and multi-agent/Holochain qualification remain outstanding."
+  },
+  "claim_ceiling": [
+    "Reference-model conformance only when executed against a named source revision.",
+    "Does not prove Holochain DHT integrity, key custody, real-world service delivery, legal tender status, reserve adequacy, FX parity, or external settlement finality.",
+    "Does not prove that production zomes enforce the same properties until separately qualified against exact source and multi-agent runtime evidence."
+  ],
+  "invariants": [
+    {
+      "id": "NCF-I-001",
+      "name": "Instrument identity is not ticker identity",
+      "statement": "Distinct canonical instrument IDs remain distinct even when symbol, display name, or numeric amount is identical."
+    },
+    {
+      "id": "NCF-I-002",
+      "name": "Canonical profile binding",
+      "statement": "Authorization and value mutations resolve instrument properties from a canonical registry; a caller cannot supply an alternate profile at the operation boundary."
+    },
+    {
+      "id": "NCF-I-003",
+      "name": "Action-scoped authority",
+      "statement": "A capability is valid only for its exact issuer, delegate, instrument, action, current revision, expiry, and declared amount ceiling."
+    },
+    {
+      "id": "NCF-I-004",
+      "name": "Mutual-credit conservation",
+      "statement": "Each accepted mutual-credit event changes provider and receiver positions by equal and opposite amounts within that instrument."
+    },
+    {
+      "id": "NCF-I-005",
+      "name": "Atomic rejection",
+      "statement": "A rejected event changes neither balances, outstanding obligations, nor consumed event IDs."
+    },
+    {
+      "id": "NCF-I-006",
+      "name": "Idempotent replay",
+      "statement": "An exact retry has one effect; reusing an event ID with a different payload is rejected."
+    },
+    {
+      "id": "NCF-I-007",
+      "name": "Bounded federation exposure",
+      "statement": "Outstanding obligations remain within each peering-edge cap and any configured aggregate gross-exposure cap scoped to that exact instrument; raw amounts from unlike instruments are never summed."
+    },
+    {
+      "id": "NCF-I-008",
+      "name": "Risk stop with safe unwind",
+      "statement": "Pausing new obligations blocks new exposure while allowing separately authorized settlement of already-incurred obligations."
+    },
+    {
+      "id": "NCF-I-009",
+      "name": "Denomination stability",
+      "statement": "An instrument ID cannot silently change its denomination identity or scale; migration requires a new instrument identity or an explicit qualified migration."
+    },
+    {
+      "id": "NCF-I-010",
+      "name": "Same-revision profile consistency",
+      "statement": "A profile's policy fields cannot change without a revision change; revisioned updates must preserve immutable issuer, family, and denomination semantics."
+    },
+    {
+      "id": "NCF-I-011",
+      "name": "Aggregate exposure is instrument-scoped",
+      "statement": "Aggregate gross exposure compares amounts only within the same canonical instrument/unit domain; unlike currencies require a separately qualified conversion/risk model before risk-value aggregation."
+    },
+    {
+      "id": "NCF-I-012",
+      "name": "Gross obligations do not implicitly net",
+      "statement": "Opposing directional obligations remain separately outstanding by default. Signed net position is diagnostic only and may not substitute for gross exposure limits; settlement must identify the direction being reduced. Netting requires a separately qualified agreement and enforcement path."
+    },
+    {
+      "id": "NCF-I-013",
+      "name": "Clearing agreements bind a canonical instrument profile",
+      "statement": "A clearing agreement can be created only for a registered instrument and pins the exact profile revision. Unknown IDs and stale profile revisions fail closed; non-transferable reputation-family instruments cannot be used as spendable clearing instruments."
+    },
+    {
+      "id": "NCF-I-014",
+      "name": "Partitioned exposure rights are preallocated and non-overlapping",
+      "statement": "During disconnected operation, each shard may consume only its previously allocated reservation. Reservation slices across shards, agreements and epochs are counted against the exact community/instrument cap; prior-epoch slices are not reclaimed without coordinated fencing/reconciliation."
+    },
+    {
+      "id": "NCF-I-015",
+      "name": "Reservation agreement identity binds counterparties",
+      "statement": "A reservation agreement ID identifies one immutable community pair across instruments, shards, and epochs. Budget slices cannot be reassigned to a different counterparty pair by reusing the agreement identifier."
+    },
+    {
+      "id": "NCF-FEN-I-001",
+      "name": "Fence precedes transfer",
+      "statement": "A successor allocation cannot become spendable until the prior epoch has a verifiable fencing decision in the authoritative control chain."
+    },
+    {
+      "id": "NCF-FEN-I-002",
+      "name": "One active owner per allocation epoch",
+      "statement": "Every spendable allocation has exactly one owner under the verified control chain; old and successor epochs cannot both create accepted exposure against the same rights."
+    },
+    {
+      "id": "NCF-FEN-I-003",
+      "name": "No timeout-only reallocation",
+      "statement": "A timeout, missed heartbeat or local clock comparison alone cannot reclaim risk rights from a potentially live owner."
+    },
+    {
+      "id": "NCF-FEN-I-004",
+      "name": "Complete reconciliation before transfer",
+      "statement": "If the accepted operation set through the terminal cut or pending exposure is unresolved, transferable capacity is unknown and no transfer may succeed."
+    },
+    {
+      "id": "NCF-FEN-I-005",
+      "name": "Risk-right transfer is conserved",
+      "statement": "A transferred unit is debited from the old allocation and credited to at most one successor allocation in a recoverable control-plane transition."
+    },
+    {
+      "id": "NCF-FEN-I-006",
+      "name": "Receipts are canonical and payload-bound",
+      "statement": "Receipts bind scope, instrument/profile, caps/policy revisions, owner, epoch, predecessor and payload digest; exact retries are idempotent and conflicting reuse fails closed."
+    },
+    {
+      "id": "NCF-FEN-I-007",
+      "name": "Stale policy revisions cannot transfer rights",
+      "statement": "Instrument, community-cap or agreement-cap revision mismatch blocks transfer unless an explicit authorized migration is qualified."
+    },
+    {
+      "id": "NCF-FEN-I-008",
+      "name": "Crash recovery preserves last verified state",
+      "statement": "Recovery after any failed transition does not create duplicated spendable capacity or advance beyond the last verified committed control receipt."
+    },
+    {
+      "id": "NCF-FEN-I-009",
+      "name": "Ledger and control operations share one idempotency namespace",
+      "statement": "A monetary event ID cannot alias a drain, fencing, or transfer receipt ID; every transition ID is globally unique within the allocation reference model and payload-bound."
+    },
+    {
+      "id": "NCF-PART-I-001",
+      "name": "Aggregate reservation rights are non-overlapping across shards",
+      "statement": "For each exact capacity/instrument domain, the sum of shard reservations never exceeds the configured aggregate budget; every shard's outstanding exposure remains within its own allocated slice, including during partitioned operation."
+    },
+    {
+      "id": "NCF-PART-I-002",
+      "name": "Shard allocation rights are frozen during a partition",
+      "statement": "After a partition begins, the reserved-capacity vector for the affected budget domain remains unchanged until the partition heals or an explicitly coordinated fencing/reconciliation protocol authorizes reallocation."
+    },
+    {
+      "id": "NCF-FEN-I-010",
+      "name": "Lost-response retry preserves the original economic effect",
+      "statement": "After a transfer is durably committed but its response is lost, retrying the same canonical transfer ID and payload returns the original receipt and creates no additional capacity or commit."
+    },
+    {
+      "id": "NCF-FEN-I-011",
+      "name": "Conflicting idempotency payloads are rejected",
+      "statement": "Reusing a committed transfer ID with any changed canonical payload is rejected, returns no success receipt, and produces no economic mutation."
+    },
+    {
+      "id": "NCF-FEN-I-012",
+      "name": "Replay protection outlives the declared offline horizon",
+      "statement": "A committed operation ID or replay-prevention tombstone is retained until every protocol-defined stale-owner and offline-replay condition has been closed. If the safe replay horizon is unknown, the ID is not recycled."
+    },
+    {
+      "id": "NCF-ALLOC-I-001",
+      "name": "Static allocation conserves the risk budget",
+      "statement": "Contingency reserve plus the sum of all static shard rights equals the total configured capacity, with no overflow or overspend."
+    },
+    {
+      "id": "NCF-ALLOC-I-002",
+      "name": "Static allocation is canonical and deterministic",
+      "statement": "The same canonical shard demands, minima, policy parameters, capacity and seed-independent input produce identical per-shard rights regardless of input order; deterministic tie breaks use stable shard IDs."
+    },
+    {
+      "id": "NCF-ALLOC-I-003",
+      "name": "Forecast signals never authorize partition-time reallocation",
+      "statement": "Historical demand samples affect only the pre-partition allocation plan. The allocator cannot mutate active rights or reclaim an unreachable owner's reservation."
+    },
+    {
+      "id": "NCF-ALLOC-I-004",
+      "name": "Missing demand history is not interpreted as zero demand",
+      "statement": "A demand-dependent allocation policy rejects incomplete per-shard history unless an explicit cold-start/fairness rule is configured; a new or unobserved shard is not silently assigned zero weight."
+    },
+    {
+      "id": "NCF-ALLOC-I-005",
+      "name": "An allocation plan is bound to one canonical instrument",
+      "statement": "All shard demand samples and returned rights in a plan share one exact canonical instrument ID; mixed-instrument inputs are rejected and no display ticker substitutes for identity."
+    },
+    {
+      "id": "NCF-ALLOC-I-006",
+      "name": "Equal-floor weighting redistributes only pre-partition discretionary rights",
+      "statement": "An equal-floor demand policy apportions its declared floor equally and its remainder by the declared demand weights, while conserving the same instrument budget and never mutating active reservations."
+    }
+  ],
+  "conformance_cases": [
+    {
+      "id": "NCF-AUTH-001",
+      "title": "Bounded capability accepts an in-limit action",
+      "class": "positive_control",
+      "attack": null,
+      "expected": "accept",
+      "code_test": "delegated_authority_is_instrument_action_revision_and_expiry_scoped",
+      "execution_status": "defined_not_run"
+    },
+    {
+      "id": "NCF-AUTH-002",
+      "title": "Capability cannot be used by a different actor or for an ungranted action",
+      "class": "authorization_bypass",
+      "attack": "Impersonate the named delegate or reuse a capability for another action.",
+      "expected": "reject",
+      "code_test": "delegated_authority_is_instrument_action_revision_and_expiry_scoped",
+      "execution_status": "defined_not_run"
+    },
+    {
+      "id": "NCF-AUTH-003",
+      "title": "Amount ceiling fails closed when amount is missing",
+      "class": "fail_open",
+      "attack": "Call a mutation with a bounded capability but omit the amount.",
+      "expected": "reject",
+      "code_test": "delegated_authority_is_instrument_action_revision_and_expiry_scoped",
+      "execution_status": "defined_not_run"
+    },
+    {
+      "id": "NCF-AUTH-004",
+      "title": "Negative amount cannot bypass a ceiling",
+      "class": "input_validation",
+      "attack": "Submit a negative amount where a bounded operation is expected.",
+      "expected": "reject",
+      "code_test": "delegated_authority_is_instrument_action_revision_and_expiry_scoped",
+      "execution_status": "defined_not_run"
+    },
+    {
+      "id": "NCF-AUTH-005",
+      "title": "Unbounded issuance capability is rejected",
+      "class": "unbounded_authority",
+      "attack": "Attempt issuance without a declared maximum amount.",
+      "expected": "reject",
+      "code_test": "delegated_authority_is_instrument_action_revision_and_expiry_scoped",
+      "execution_status": "defined_not_run"
+    },
+    {
+      "id": "NCF-AUTH-006",
+      "title": "Inactive instrument rejects new issuance",
+      "class": "lifecycle_bypass",
+      "attack": "Issue while instrument is inactive, using a capability matching the registered issuer and revision.",
+      "expected": "reject",
+      "code_test": "delegated_authority_is_instrument_action_revision_and_expiry_scoped",
+      "execution_status": "defined_not_run"
+    },
+    {
+      "id": "NCF-AUTH-007",
+      "title": "Paused or inactive instrument can permit separately authorized settlement",
+      "class": "recovery_positive_control",
+      "attack": null,
+      "expected": "accept",
+      "code_test": "delegated_authority_is_instrument_action_revision_and_expiry_scoped",
+      "execution_status": "defined_not_run"
+    },
+    {
+      "id": "NCF-PROFILE-001",
+      "title": "Duplicate ticker does not alias distinct instruments",
+      "class": "identity_confusion",
+      "attack": "Register two distinct instrument IDs with the same display symbol.",
+      "expected": "accept_both_distinct",
+      "code_test": "ticker_is_not_identity_and_duplicate_ids_are_rejected;equal_tickers_do_not_share_balances_or_net_positions",
+      "execution_status": "defined_not_run"
+    },
+    {
+      "id": "NCF-PROFILE-002",
+      "title": "Reusing an instrument ID with another issuer is rejected",
+      "class": "issuer_confusion",
+      "attack": "Register an existing canonical instrument ID under an attacker-controlled issuer.",
+      "expected": "reject_duplicate_id",
+      "code_test": "ticker_is_not_identity_and_duplicate_ids_are_rejected",
+      "execution_status": "defined_not_run"
+    },
+    {
+      "id": "NCF-LEDGER-001",
+      "title": "Mutual-credit event conserves net position",
+      "class": "accounting_invariant",
+      "attack": null,
+      "expected": "accepted_event_has_zero_net_position",
+      "code_test": "mutual_credit_is_zero_sum_atomic_and_idempotent;one_million_generated_exchanges_preserve_net_position",
+      "execution_status": "defined_not_run"
+    },
+    {
+      "id": "NCF-LEDGER-002",
+      "title": "Stale profile revision cannot authorize a new mutation",
+      "class": "stale_policy",
+      "attack": "Submit an event created for revision N to a registry that contains revision N+1.",
+      "expected": "reject_stale_revision",
+      "code_test": "mutual_credit_is_zero_sum_atomic_and_idempotent",
+      "execution_status": "defined_not_run"
+    },
+    {
+      "id": "NCF-LEDGER-003",
+      "title": "Wrong instrument family cannot use mutual-credit operations",
+      "class": "semantic_confusion",
+      "attack": "Use a resource-credit profile in the mutual-credit exchange API.",
+      "expected": "reject_wrong_family",
+      "code_test": "family_and_limit_fail_closed_without_partial_mutation",
+      "execution_status": "defined_not_run"
+    },
+    {
+      "id": "NCF-LEDGER-004",
+      "title": "Balance limit rejection is atomic",
+      "class": "partial_write",
+      "attack": "Submit an exchange that would exceed a participant balance limit.",
+      "expected": "reject_without_balance_or_event_change",
+      "code_test": "family_and_limit_fail_closed_without_partial_mutation",
+      "execution_status": "defined_not_run"
+    },
+    {
+      "id": "NCF-LEDGER-005",
+      "title": "Same event ID and same payload is idempotent",
+      "class": "replay",
+      "attack": "Retry an already accepted event without changing its payload.",
+      "expected": "duplicate_no_second_effect",
+      "code_test": "mutual_credit_is_zero_sum_atomic_and_idempotent;one_hundred_thousand_duplicate_retries_never_reapply_credit",
+      "execution_status": "defined_not_run"
+    },
+    {
+      "id": "NCF-LEDGER-006",
+      "title": "Same event ID with changed payload is rejected",
+      "class": "replay_confusion",
+      "attack": "Reuse an accepted exchange ID with a changed amount.",
+      "expected": "reject_replay_mismatch",
+      "code_test": "mutual_credit_is_zero_sum_atomic_and_idempotent",
+      "execution_status": "defined_not_run"
+    },
+    {
+      "id": "NCF-FED-001",
+      "title": "Per-edge exposure limit is enforced",
+      "class": "credit_limit_bypass",
+      "attack": "Increase one peering obligation beyond its bilateral cap.",
+      "expected": "reject_without_state_change",
+      "code_test": "federation_exposure_is_per_edge_and_paused_edges_still_settle",
+      "execution_status": "defined_not_run"
+    },
+    {
+      "id": "NCF-FED-002",
+      "title": "Aggregate gross exposure across edges is enforced",
+      "class": "double_pledge",
+      "attack": "Commit exposure on one federation edge, then overcommit aggregate capacity through another edge.",
+      "expected": "reject_without_state_change",
+      "code_test": "aggregate_gross_exposure_cannot_be_double_committed_across_federations",
+      "execution_status": "defined_not_run"
+    },
+    {
+      "id": "NCF-FED-003",
+      "title": "Rejected over-cap event ID is not consumed",
+      "class": "partial_write",
+      "attack": "Retry the same event ID with a valid in-cap amount after an over-cap attempt is rejected.",
+      "expected": "second_attempt_applies_once",
+      "code_test": "aggregate_gross_exposure_cannot_be_double_committed_across_federations",
+      "execution_status": "defined_not_run"
+    },
+    {
+      "id": "NCF-FED-004",
+      "title": "Stale agreement revision is rejected",
+      "class": "stale_policy",
+      "attack": "Post an obligation using a revision other than the registered agreement revision.",
+      "expected": "reject_stale_revision",
+      "code_test": "federation_exposure_is_per_edge_and_paused_edges_still_settle;settlement_cannot_overrun_outstanding_and_wrong_instrument_is_rejected",
+      "execution_status": "defined_not_run"
+    },
+    {
+      "id": "NCF-FED-005",
+      "title": "Pause blocks new obligations but permits existing settlement",
+      "class": "safe_unwind",
+      "attack": null,
+      "expected": "new_obligation_rejected_existing_settlement_accepted",
+      "code_test": "federation_exposure_is_per_edge_and_paused_edges_still_settle",
+      "execution_status": "defined_not_run"
+    },
+    {
+      "id": "NCF-SET-001",
+      "title": "Settlement cannot exceed outstanding obligation",
+      "class": "over_settlement",
+      "attack": "Settle a value greater than the remaining signed obligation.",
+      "expected": "reject_without_state_change",
+      "code_test": "settlement_cannot_overrun_outstanding_and_wrong_instrument_is_rejected",
+      "execution_status": "defined_not_run"
+    },
+    {
+      "id": "NCF-SET-002",
+      "title": "Settlement retry is idempotent and payload-bound",
+      "class": "settlement_replay",
+      "attack": "Retry a settlement ID once with the same payload and once with a changed amount.",
+      "expected": "same_payload_duplicate_changed_payload_rejected",
+      "code_test": "federation_exposure_is_per_edge_and_paused_edges_still_settle",
+      "execution_status": "defined_not_run"
+    },
+    {
+      "id": "NCF-PROFILE-003",
+      "title": "Same instrument ID cannot silently change unit or scale",
+      "class": "semantic_migration",
+      "attack": "Present a same-ID, same-revision profile with changed denomination semantics after balances exist.",
+      "expected": "reject_instrument_semantics_changed",
+      "code_test": "mutual_credit_is_zero_sum_atomic_and_idempotent",
+      "execution_status": "defined_not_run"
+    },
+    {
+      "id": "NCF-PROFILE-004",
+      "title": "Same-revision credit-limit widening is rejected",
+      "class": "policy_version_bypass",
+      "attack": "Present a registry profile with the same instrument ID and revision but a more permissive balance limit after a previous operation.",
+      "expected": "reject_profile_conflict",
+      "code_test": "mutual_credit_is_zero_sum_atomic_and_idempotent",
+      "execution_status": "defined_not_run"
+    },
+    {
+      "id": "NCF-PROFILE-005",
+      "title": "Revisioned policy update preserves instrument identity and denomination",
+      "class": "positive_control",
+      "attack": null,
+      "expected": "accept_versioned_policy_update",
+      "code_test": "mutual_credit_is_zero_sum_atomic_and_idempotent",
+      "execution_status": "defined_not_run"
+    },
+    {
+      "id": "NCF-FED-006",
+      "title": "Aggregate exposure does not sum raw amounts across unlike instruments",
+      "class": "unit_semantics",
+      "attack": "Open an obligation in another instrument while a same-instrument peer-edge cap is nearly or fully used.",
+      "expected": "evaluate_each_instrument_cap_independently",
+      "code_test": "aggregate_gross_exposure_cannot_be_double_committed_across_federations",
+      "execution_status": "defined_not_run"
+    },
+    {
+      "id": "NCF-FED-007",
+      "title": "New obligations require explicit aggregate caps for both communities",
+      "class": "missing_risk_policy",
+      "attack": "Attempt a new obligation when either involved community has not configured an aggregate cap for the exact instrument.",
+      "expected": "reject_without_state_change",
+      "code_test": "clearing_requires_explicit_aggregate_caps_and_zero_cap_disables_new_obligations",
+      "execution_status": "defined_not_run"
+    },
+    {
+      "id": "NCF-FED-008",
+      "title": "A zero aggregate cap explicitly blocks new exposure",
+      "class": "zero_exposure_policy",
+      "attack": "Attempt a new obligation when one community has explicitly set the exact instrument's aggregate cap to zero.",
+      "expected": "reject_without_state_change",
+      "code_test": "clearing_requires_explicit_aggregate_caps_and_zero_cap_disables_new_obligations",
+      "execution_status": "defined_not_run"
+    },
+    {
+      "id": "NCF-FED-009",
+      "title": "Rejected missing-cap and zero-cap attempts do not consume event identity",
+      "class": "retry_after_policy_change",
+      "attack": "Retry the identical event ID after both communities install a positive, adequate cap; it must apply once, not be stuck as a phantom prior event.",
+      "expected": "later_retry_applies_once",
+      "code_test": "clearing_requires_explicit_aggregate_caps_and_zero_cap_disables_new_obligations",
+      "execution_status": "defined_not_run"
+    },
+    {
+      "id": "NCF-FED-010",
+      "title": "Opposing obligations do not silently net against gross-exposure caps",
+      "class": "implicit_netting",
+      "attack": "Record an obligation from A to B followed by a reverse obligation from B to A; risk checks must use the sum of both unsettled directions, not the signed net.",
+      "expected": "reject_without_state_change_if_gross_cap_would_be_exceeded",
+      "code_test": "opposing_obligations_remain_gross_until_directionally_settled",
+      "execution_status": "defined_not_run"
+    },
+    {
+      "id": "NCF-FED-011",
+      "title": "Clearing agreement cannot reference an unregistered instrument",
+      "class": "unknown_instrument_binding",
+      "attack": "Attempt to create a peer clearing agreement for an instrument ID absent from the canonical registry.",
+      "expected": "reject_unknown_instrument",
+      "code_test": "clearing_agreements_require_a_registered_non_reputation_instrument_revision",
+      "execution_status": "defined_not_run"
+    },
+    {
+      "id": "NCF-FED-012",
+      "title": "Clearing agreement must pin the current instrument profile revision",
+      "class": "stale_profile_binding",
+      "attack": "Create an agreement whose instrument_revision differs from the canonical registry's profile revision.",
+      "expected": "reject_stale_profile_revision",
+      "code_test": "clearing_agreements_require_a_registered_non_reputation_instrument_revision",
+      "execution_status": "defined_not_run"
+    },
+    {
+      "id": "NCF-FED-013",
+      "title": "Non-transferable reputation cannot be used as a spendable clearing instrument",
+      "class": "instrument_family_confusion",
+      "attack": "Attempt to bind a reputation-family instrument such as MYCEL to a clearing agreement.",
+      "expected": "reject_wrong_instrument_family",
+      "code_test": "clearing_agreements_require_a_registered_non_reputation_instrument_revision",
+      "execution_status": "defined_not_run"
+    },
+    {
+      "id": "NCF-SET-003",
+      "title": "Settlement reduces only the explicitly selected obligation direction",
+      "class": "cross_direction_settlement",
+      "attack": "Create outstanding obligations in both directions and submit a settlement for only one direction; verify the opposite direction remains outstanding.",
+      "expected": "only_selected_direction_reduced",
+      "code_test": "opposing_obligations_remain_gross_until_directionally_settled",
+      "execution_status": "defined_not_run"
+    },
+    {
+      "id": "NCF-SET-004",
+      "title": "Settlement event identity is bound to direction",
+      "class": "settlement_direction_replay",
+      "attack": "Reuse a settlement ID with the same amount and agreement but the opposite direction; the retry must reject instead of settling a different obligation leg.",
+      "expected": "reject_changed_direction_under_reused_id",
+      "code_test": "opposing_obligations_remain_gross_until_directionally_settled",
+      "execution_status": "defined_not_run"
+    },
+    {
+      "id": "NCF-PART-001",
+      "title": "Partitioned shards cannot exceed their pre-allocated gross-risk slices",
+      "class": "partition_double_spend",
+      "attack": "Two disconnected writers attempt to consume more than their disjoint reservations collectively permit.",
+      "expected": "reject_over_slice_without_global_cap_breach",
+      "code_test": "partitioned_shards_can_consume_only_disjoint_preallocated_slices",
+      "execution_status": "defined_not_run"
+    },
+    {
+      "id": "NCF-PART-002",
+      "title": "Reservation allocation requires explicit community and agreement caps",
+      "class": "missing_reservation_policy",
+      "attack": "Attempt to reserve capacity before either involved community or the agreement has a configured cap.",
+      "expected": "reject_missing_cap",
+      "code_test": "reservations_require_explicit_caps_and_are_idempotent",
+      "execution_status": "defined_not_run"
+    },
+    {
+      "id": "NCF-PART-003",
+      "title": "Settlement restores reusable capacity only within its own reservation",
+      "class": "cross_shard_capacity_reuse",
+      "attack": "Settle 40 units on shard A, then attempt to use 61 units on shard B whose reservation is 60; only A's own reservation may reuse the released 40.",
+      "expected": "reject_cross_shard_capacity_transfer",
+      "code_test": "settlement_releases_capacity_only_within_the_same_reservation",
+      "execution_status": "defined_not_run"
+    },
+    {
+      "id": "NCF-PART-004",
+      "title": "Reservation caps are not summed across unlike instrument units",
+      "class": "cross_unit_budget_alias",
+      "attack": "Allocate separate hour and water units for the same communities and verify that each exact instrument has its own cap.",
+      "expected": "independent_instrument_budget_domains",
+      "code_test": "different_instruments_have_independent_budget_domains",
+      "execution_status": "defined_not_run"
+    },
+    {
+      "id": "NCF-PART-005",
+      "title": "Old-epoch reservation remains charged until explicit coordinated rebalancing",
+      "class": "stale_owner_budget_reuse",
+      "attack": "Try to allocate the same capacity to a new epoch while the old reservation has not been retired/fenced.",
+      "expected": "reject_capacity_reuse_until_rebalance",
+      "code_test": "old_epoch_capacity_is_not_reused_without_rebalancing",
+      "execution_status": "defined_not_run"
+    },
+    {
+      "id": "NCF-PART-006",
+      "title": "Explicit zero community or agreement cap prevents reservations",
+      "class": "zero_reservation_budget",
+      "attack": "Attempt to allocate a positive shard reservation when either community cap or the agreement cap is zero.",
+      "expected": "reject_reservation",
+      "code_test": "zero_community_or_agreement_cap_prevents_new_reservations",
+      "execution_status": "defined_not_run"
+    },
+    {
+      "id": "NCF-PART-007",
+      "title": "Event ID cannot be replayed against another shard reservation",
+      "class": "cross_reservation_replay",
+      "attack": "Reuse an accepted event ID with a different reservation key/shard; the conflicting replay must reject with no second obligation.",
+      "expected": "reject_conflicting_reservation_replay_without_state_change",
+      "code_test": "event_id_cannot_be_replayed_against_a_different_reservation",
+      "execution_status": "defined_not_run"
+    },
+    {
+      "id": "NCF-PART-008",
+      "title": "Reservation slices preserve one immutable counterparty pair per agreement ID",
+      "class": "agreement_identity_confusion",
+      "attack": "Try to reserve another shard or instrument under an existing agreement ID but substitute one community; the shared identifier must not silently represent a different bilateral agreement.",
+      "expected": "reject_counterparty_mismatch_without_consuming_capacity",
+      "code_test": "agreement_party_pair_is_stable_across_shards_and_epochs",
+      "execution_status": "defined_not_run"
+    }
+  ],
+  "benchmark_campaigns": [
+    {
+      "id": "NCF-BENCH-001",
+      "name": "Mutual-credit conservation, throughput, and idempotency stress",
+      "target": "0 net-position drift and exactly one state effect per unique event",
+      "participants": 31,
+      "generated_operations_target": 1000000,
+      "duplicate_retry_target": 100000,
+      "seed": "0x4d5943454c495831",
+      "required_output": [
+        "source_commit",
+        "profile_digest_sha256",
+        "rustc_version",
+        "toolchain_id",
+        "seed",
+        "operations",
+        "participants",
+        "elapsed_ns",
+        "throughput_ops_per_second",
+        "batch_latency_ns_p50",
+        "batch_latency_ns_p95",
+        "batch_latency_ns_p99",
+        "net_position",
+        "generated_operation_count",
+        "total_unique_event_count",
+        "duplicate_retry_count",
+        "duplicate_retry_elapsed_ns",
+        "duplicate_retry_checks_per_second",
+        "peak_rss_bytes"
+      ],
+      "execution_status": "defined_not_run",
+      "required_receipt_fields": [
+        "source_commit",
+        "profile_digest_sha256",
+        "rustc_version",
+        "rustc_commit",
+        "cargo_version",
+        "command",
+        "benchmark_binary_sha256",
+        "benchmark_output_sha256"
+      ],
+      "harness": "mycelix-workspace/simulations/nested-currency-reference/run-bench.sh",
+      "methodology": "Run the exact-head wrapper on a clean checkout. Keep the JSON output and receipt SHA-256. Repeat with multiple recorded seeds and matched hardware/toolchains before comparative claims."
+    },
+    {
+      "id": "NCF-BENCH-002",
+      "name": "Federation scale and partition behavior",
+      "participant_counts": [
+        100,
+        1000,
+        10000
+      ],
+      "community_counts": [
+        1,
+        10,
+        100
+      ],
+      "federation_depths": [
+        1,
+        3,
+        10
+      ],
+      "partition_durations_seconds": [
+        0,
+        10,
+        60,
+        300
+      ],
+      "required_metrics": [
+        "local_exchange_throughput",
+        "clearing_throughput",
+        "p50_latency_ms",
+        "p95_latency_ms",
+        "p99_latency_ms",
+        "max_gross_exposure",
+        "recovery_time_seconds",
+        "reconciliation_operations",
+        "unrelated_edges_unavailable",
+        "bytes_per_transaction",
+        "directional_gross_outstanding",
+        "signed_net_outstanding",
+        "gross_minus_absolute_net",
+        "rejected_gross_cap_breaches",
+        "directional_settlement_accuracy",
+        "reserved_capacity",
+        "used_capacity",
+        "unused_reserved_capacity_by_shard",
+        "global_cap_utilization",
+        "capacity_unavailable_pending_fence",
+        "over_slice_attempts_rejected"
+      ],
+      "execution_status": "defined_not_run",
+      "reservation_reference_harness": "mycelix-workspace/simulations/nested-currency-reference/run-reservation-bench.sh",
+      "reservation_reference_harness_outputs": [
+        "source_commit",
+        "profile_digest_sha256",
+        "rustc_version",
+        "toolchain_id",
+        "operations",
+        "shards",
+        "seed",
+        "allocated_capacity",
+        "used_capacity",
+        "unused_reserved_capacity",
+        "cap_utilization_ppm",
+        "max_shard_outstanding",
+        "accepted_obligations",
+        "settlements",
+        "capacity_rejections",
+        "event_errors",
+        "replay_control_same_key",
+        "replay_control_cross_reservation",
+        "elapsed_ns",
+        "throughput_ops_per_second",
+        "batch_latency_ns_p50",
+        "batch_latency_ns_p95",
+        "batch_latency_ns_p99",
+        "peak_rss_bytes",
+        "invariants_checked.gross_outstanding_le_reservation",
+        "invariants_checked.sum_reserved_le_configured_caps"
+      ],
+      "reservation_reference_harness_claim_ceiling": "Single-process deterministic reservation-model benchmark only; does not measure network partitions, true concurrent writers, Holochain/DHT, external settlement or distributed fencing.",
+      "reservation_reference_harness_methodology": "Run the clean-checkout wrapper at the exact committed revision with 2+ shards, several fixed seeds, matched toolchain/hardware, and retain the JSON plus binary/output receipt digests. Compare utilization and latency alongside cap-rejection correctness; do not treat unused reserved capacity as free capacity."
+    },
+    {
+      "id": "NCF-BENCH-003",
+      "name": "Comparative institutional welfare and risk vector",
+      "baselines": [
+        "no_local_currency",
+        "local_mutual_credit",
+        "bilateral_clearing",
+        "shared_federation_instrument",
+        "CES_LETS_like_exchange"
+      ],
+      "metrics": [
+        "liquidity_availability",
+        "credit_utilization",
+        "default_rate",
+        "loss_severity",
+        "time_to_clear",
+        "dispute_cost",
+        "newcomer_participation",
+        "essential_access",
+        "authority_concentration",
+        "issuer_concentration",
+        "privacy_burden",
+        "exit_cost",
+        "cross_federation_loss_spillover"
+      ],
+      "method": "Matched workload and shock traces, fixed and held-out shocks, multiple recorded seeds, ablations, and independent recomputation. Do not collapse metrics into one score.",
+      "execution_status": "design_not_run"
+    },
+    {
+      "id": "NCF-BENCH-004",
+      "name": "Partitioned-risk fencing state-machine model checking",
+      "owner_counts": [
+        2,
+        3,
+        4
+      ],
+      "agreement_counts": [
+        1,
+        2
+      ],
+      "generated_schedule_target": 10000,
+      "last_unit_contention_attempts": 100,
+      "failure_injection_points": [
+        "after_drain_request",
+        "after_drain_receipt",
+        "after_reconciliation",
+        "after_fence_decision",
+        "after_prepare",
+        "after_old_allocation_debit",
+        "after_new_allocation_credit",
+        "before_transfer_commit",
+        "after_commit_acknowledgement"
+      ],
+      "required_safety_targets": [
+        "zero_cap_violations",
+        "zero_dual_active_epochs",
+        "zero_post_fence_accepted_obligations",
+        "zero_double_transfers",
+        "zero_conflicting_idempotency_acceptance",
+        "zero_partial_mutation_after_abort"
+      ],
+      "required_output": [
+        "source_commit",
+        "corpus_digest_sha256",
+        "seed",
+        "proof_mode",
+        "owner_count",
+        "agreement_count",
+        "schedules_explored",
+        "interleavings_explored",
+        "accepted_transitions",
+        "rejected_transitions",
+        "unknown_transitions",
+        "violations_by_invariant",
+        "crash_recovery_outcomes",
+        "capacity_used",
+        "capacity_stranded",
+        "partition_duration_ms",
+        "drain_to_transfer_latency_ms_p50",
+        "drain_to_transfer_latency_ms_p95",
+        "drain_to_transfer_latency_ms_p99",
+        "cpu_time_ns",
+        "peak_rss_bytes",
+        "formal_checker_version",
+        "formal_model_sha256",
+        "formal_config_sha256",
+        "negative_control_expected_failure",
+        "negative_control_violated_invariant",
+        "counterexample_trace_sha256",
+        "safe_model_state_statistics_line",
+        "safe_model_log_sha256",
+        "negative_control_log_sha256",
+        "receipt_sha256",
+        "timeout_mutant_model_sha256",
+        "timeout_mutant_config_sha256",
+        "timeout_mutant_log_sha256",
+        "stale_owner_mutant_model_sha256",
+        "stale_owner_mutant_config_sha256",
+        "stale_owner_mutant_log_sha256",
+        "timeout_mutant_detected_expected_invariant",
+        "stale_owner_mutant_detected_expected_invariant",
+        "tla2tools_build_tag",
+        "tla2tools_jar_expected_sha256",
+        "escrow_model_sha256",
+        "escrow_config_sha256",
+        "escrow_model_log_sha256",
+        "escrow_model_state_statistics_line",
+        "duplicate_allocation_mutant_sha256",
+        "duplicate_allocation_mutant_config_sha256",
+        "duplicate_allocation_mutant_log_sha256",
+        "duplicate_allocation_mutant_detected_expected_invariant",
+        "partition_resize_mutant_sha256",
+        "partition_resize_mutant_config_sha256",
+        "partition_resize_mutant_log_sha256",
+        "partition_resize_mutant_detected_expected_invariant"
+      ],
+      "execution_status": "design_not_run",
+      "claim_ceiling": "A deterministic state-machine/model-checker result only for the declared authority and fault model. It does not prove production Holochain behavior, legal settlement, cryptographic key security or safety outside the explored model.",
+      "methodology": "Run the bounded NCF-FEN safe lifecycle model and the NCF-ESCROW two-shard safe model at Capacity=2 and four operation steps; require both to complete without invariant violations. The escrow model freezes its reservation vector during a partition. Then require four unsafe mutants to be detected specifically: timeout-only reallocation -> NoTransferWithoutFence; stale-owner write after transfer -> NoOldWriteOutsideActive; duplicate full-budget allocation across shards -> ReservedCapacityBound; resizing a shard's reservation during a partition -> PartitionedReservationsStayFixed. Parser/tool failures do not count as detection. These results are not yet confirmed. Then qualify the independent transition oracle and exhaust small interleavings. Extend with at least 10,000 reproducible schedules for retries, duplicate/reordered/dropped receipts, stale-owner writes, crashes and partition/heal traces. Keep honest-crash and adversarial-owner campaigns separate. Compare static-quota, acknowledged-drain and any linearizable/quorum mode under identical traces. Any safety violation fails the campaign; utilization and latency are reported only alongside correctness results. The fail-closed runner requires a clean checkout and caller-supplied TLA2TOOLS_JAR; it records source/model/config/JAR hashes and raw logs outside the repository.",
+      "formal_model_path": "mycelix-workspace/simulations/nested-currency-reference/formal/NCF_FEN_1.tla",
+      "formal_config_path": "mycelix-workspace/simulations/nested-currency-reference/formal/NCF_FEN_1.cfg",
+      "negative_control_model_path": "mycelix-workspace/simulations/nested-currency-reference/formal/NCF_FEN_1_TimeoutMutant.tla",
+      "negative_control_config_path": "mycelix-workspace/simulations/nested-currency-reference/formal/NCF_FEN_1_TimeoutMutant.cfg",
+      "expected_negative_control_invariant": "NoTransferWithoutFence",
+      "formal_checker": "TLC (TLA+ tools)",
+      "formal_bounds": {
+        "Capacity": 2,
+        "MaxSteps": 4
+      },
+      "runner_path": "mycelix-workspace/simulations/nested-currency-reference/run-ncf-fen-tlc.sh",
+      "workflow_path": ".github/workflows/ncf-fen-model-check.yml",
+      "workflow_claim_ceiling": "The dedicated draft-PR workflow checks two finite TLA+ models and sensitivity to four deliberately unsafe mutants only; it does not qualify the Rust implementation, distributed concurrency, Holochain validators, or 10,000-schedule model checking.",
+      "negative_control_mutants": [
+        {
+          "name": "timeout_reallocation",
+          "model": "formal/NCF_FEN_1_TimeoutMutant.tla",
+          "config": "formal/NCF_FEN_1_TimeoutMutant.cfg",
+          "expected_invariant": "NoTransferWithoutFence"
+        },
+        {
+          "name": "stale_owner_write",
+          "model": "formal/NCF_FEN_1_StaleOwnerMutant.tla",
+          "config": "formal/NCF_FEN_1_StaleOwnerMutant.cfg",
+          "expected_invariant": "NoOldWriteOutsideActive"
+        },
+        {
+          "name": "duplicate_allocation",
+          "model": "formal/NCF_ESCROW_1_DuplicateAllocationMutant.tla",
+          "config": "formal/NCF_ESCROW_1_DuplicateAllocationMutant.cfg",
+          "expected_invariant": "ReservedCapacityBound"
+        },
+        {
+          "name": "partition_resize",
+          "model": "formal/NCF_ESCROW_1_PartitionResizeMutant.tla",
+          "config": "formal/NCF_ESCROW_1_PartitionResizeMutant.cfg",
+          "expected_invariant": "PartitionedReservationsStayFixed"
+        }
+      ],
+      "tla2tools_build_tag": "tla2tools-2026.08.11.125311",
+      "tla2tools_jar_expected_sha256": "ab323b79802aedc3203b3f9af37c6aca3ed43f4e0225b36f2aa77b26de46c05f",
+      "formal_model_paths": [
+        "mycelix-workspace/simulations/nested-currency-reference/formal/NCF_FEN_1.tla",
+        "mycelix-workspace/simulations/nested-currency-reference/formal/NCF_ESCROW_1.tla"
+      ],
+      "formal_config_paths": [
+        "mycelix-workspace/simulations/nested-currency-reference/formal/NCF_FEN_1.cfg",
+        "mycelix-workspace/simulations/nested-currency-reference/formal/NCF_ESCROW_1.cfg"
+      ]
+    },
+    {
+      "id": "NCF-BENCH-005",
+      "name": "Safety-qualified liquidity and capacity-utilization frontier",
+      "baselines": [
+        "static_equal_split_escrow",
+        "static_demand_weighted_escrow",
+        "static_robust_quantile_escrow",
+        "acknowledged_drain_and_fence",
+        "linearizable_control_authority",
+        "quorum_control_authority_when_implemented"
+      ],
+      "workloads": [
+        "uniform_demand_across_shards",
+        "80_20_hot_shard_skew",
+        "bursty_demand_with_recovery",
+        "deterministic_zipf_like_skew",
+        "essential_vs_discretionary_priority_classes",
+        "held_out_demand_shift_after_partition",
+        "forecast_error_and_misallocation_stress"
+      ],
+      "topology": {
+        "participant_counts": [
+          100,
+          1000,
+          10000
+        ],
+        "shard_counts": [
+          2,
+          4,
+          16,
+          64
+        ],
+        "community_counts": [
+          1,
+          10,
+          100
+        ],
+        "partition_durations_seconds": [
+          0,
+          10,
+          60,
+          300
+        ]
+      },
+      "required_safety_gates": [
+        "zero_cap_violations",
+        "zero_double_spends",
+        "zero_post_fence_accepted_writes",
+        "zero_duplicate_transfer_commits",
+        "zero_conflicting_idempotency_acceptance"
+      ],
+      "required_metrics": [
+        "economic_demand_served_by_class",
+        "reserved_capacity",
+        "used_capacity",
+        "safely_reclaimable_capacity",
+        "capacity_stranded_by_partition",
+        "capacity_rejected_by_policy",
+        "reallocation_wait_ms_p50",
+        "reallocation_wait_ms_p95",
+        "reallocation_wait_ms_p99",
+        "operation_latency_ms_p50",
+        "operation_latency_ms_p95",
+        "operation_latency_ms_p99",
+        "partition_recovery_time_ms",
+        "reconciliation_operations",
+        "replay_rejections",
+        "unknown_outcomes",
+        "throughput_ops_per_second",
+        "cpu_time_ns",
+        "peak_rss_bytes",
+        "idempotency_index_bytes",
+        "tombstone_bytes_per_operation",
+        "replay_lookup_latency_ms_p50",
+        "replay_lookup_latency_ms_p99",
+        "replay_protection_retention_days",
+        "per_shard_unserved_demand",
+        "quota_fragmentation",
+        "held_out_demand_served_fraction",
+        "forecast_error",
+        "prepartition_reallocation_overhead_ns",
+        "essential_service_demand_served_fraction",
+        "instrument_id_bound",
+        "worst_shard_demand_served_ppm",
+        "per_shard_service_distribution",
+        "worst_shard_worst_scenario_served_ppm"
+      ],
+      "required_output": [
+        "schema",
+        "schema_version",
+        "status",
+        "instrument_id",
+        "source_commit",
+        "profile_digest_sha256",
+        "rustc_version",
+        "toolchain_id",
+        "seed",
+        "shards",
+        "training_samples_per_shard",
+        "evaluation_scenarios_per_mode",
+        "capacity",
+        "reserve_ppm",
+        "elapsed_ns",
+        "policies[].policy",
+        "policies[].demand_mode",
+        "policies[].total_capacity",
+        "policies[].spendable_capacity",
+        "policies[].contingency_reserve",
+        "policies[].requested_demand_units",
+        "policies[].served_demand_units",
+        "policies[].unserved_demand_units",
+        "policies[].stranded_reserved_unit_scenarios",
+        "policies[].demand_served_ppm",
+        "policies[].allocation_utilization_ppm",
+        "policies[].worst_scenario_unserved_units",
+        "policies[].worst_scenario_served_ppm",
+        "policies[].safety_violations",
+        "policies[].slices[].shard_id",
+        "policies[].slices[].capacity",
+        "policies[].slices[].minimum_capacity",
+        "policies[].slices[].weight",
+        "worst_shard_demand_served_ppm",
+        "policies[].worst_shard_demand_served_ppm",
+        "policies[].shard_results[].shard_id",
+        "policies[].shard_results[].requested_demand_units",
+        "policies[].shard_results[].served_demand_units",
+        "policies[].shard_results[].unserved_demand_units",
+        "policies[].shard_results[].demand_served_ppm",
+        "policies[].shard_results[].worst_scenario_served_ppm"
+      ],
+      "methodology": "Run the exact same deterministic demand/fault traces against each implemented policy and matched hardware/toolchains. Report results only after hard safety gates pass. Plot a Pareto frontier across economic demand served, safely reclaimable versus stranded capacity, tail latency, and compute cost; do not collapse outcomes into a single weighted score. Separate unreachable-owner partitions from honest crash/restart and byzantine-owner campaigns. Include ablations for priority classes and rebalancing policy. Add a low-risk paradigm-shift baseline: optimize the placement of already-authorized, non-overlapping slices before the partition, using training demand traces and robust quantiles. Evaluate on held-out and shifted workloads, and never allow the forecast to enlarge/reassign rights during the partition. This isolates safe capacity-placement improvements from risky online reclamation. An executable dependency-free Rust allocator and benchmark were added. It uses checked integer arithmetic, stable shard-ID tie-breaking, and largest-remainder apportionment; the benchmark compares six policies on the same generated stationary and shifted trace sets. Its current generator is synthetic and single-process. Run the exact-head wrapper, then replace/augment synthetic traces with independently sourced demand profiles before making real-world claims. The executable simulator includes 25%, 50%, and 75% equal-floor variants, creating a small safety-preserving frontier between historical utilization and resilience to demand-shape changes. These variants affect only the initial static placement and cannot resize allocations in a partition. Per-shard demand-served and worst-shard service are reported alongside aggregate utilization; do not treat high overall service as fair if the least-served shard is materially worse.",
+      "execution_status": "defined_not_run",
+      "claim_ceiling": "Current executable: deterministic synthetic single-process allocation simulation with integer budget checks only. It does not emit distributed tail latency, partition recovery, economic-demand classes or network measures. Those are requirements for a future multi-agent implementation benchmark. No runtime result is claimed until exact-head Rust tests/benchmark and receipt succeed.",
+      "reservation_policy_experiment": {
+        "hypothesis": "Demand-aware allocation of non-overlapping rights before a partition can improve economic demand served without relaxing partition safety or requiring any partition-time reallocation.",
+        "policies": [
+          "equal_split_baseline",
+          "historical_demand_weighted",
+          "robust_upper_quantile_with_safety_margin"
+        ],
+        "constraints": [
+          "sum_of_reservations_never_exceeds_each_community_cap",
+          "sum_of_reservations_never_exceeds_each_agreement_cap",
+          "reservations_are_immutable_during_partition",
+          "no_online_demand_forecast_changes_spend_rights_mid_partition"
+        ],
+        "evaluation": "Train allocation weights only on recorded training traces; evaluate on held-out and distribution-shift traces. Report per-shard unserved demand, safe capacity usage, fragmented/unused quota, forecast error, and essential-service demand served. Any safety violation disqualifies the policy regardless of utilization.",
+        "claim_boundary": "An optimization of pre-authorized quota placement, not a method for safely reclaiming an unreachable owner's active rights."
+      },
+      "harness_path": "mycelix-workspace/simulations/nested-currency-reference/run-allocation-bench.sh",
+      "binary_path": "mycelix-workspace/simulations/nested-currency-reference/src/bin/ncf-allocation-bench.rs",
+      "allocator_module_path": "mycelix-workspace/simulations/nested-currency-reference/src/allocation.rs",
+      "workflow_path": ".github/workflows/ncf-allocation-benchmark.yml",
+      "documentation_path": "mycelix-workspace/simulations/nested-currency-reference/docs/NCF-ALLOC-1-static-allocation.md",
+      "default_command": "bash mycelix-workspace/simulations/nested-currency-reference/run-allocation-bench.sh 16 32 1000 100000 50000 0x4d5943454c495831",
+      "policies": [
+        {
+          "id": "equal_split",
+          "description": "Equal integer weights after explicit minimums"
+        },
+        {
+          "id": "demand_weighted",
+          "description": "Ceiling mean of historical integer demand samples"
+        },
+        {
+          "id": "robust_quantile_p95_margin25",
+          "description": "Nearest-rank 95th percentile plus a 25% proportional margin"
+        },
+        {
+          "id": "demand_weighted_equal_floor_25",
+          "description": "25% of discretionary capacity split equally, remaining 75% weighted by historical mean"
+        },
+        {
+          "id": "demand_weighted_equal_floor_50",
+          "description": "50% equal floor and 50% historical-mean weighted"
+        },
+        {
+          "id": "demand_weighted_equal_floor_75",
+          "description": "75% equal floor and 25% historical-mean weighted"
+        }
+      ],
+      "evaluation_modes": [
+        {
+          "id": "stationary",
+          "description": "Held-out samples from the historical shard demand shape with bounded jitter and bursts"
+        },
+        {
+          "id": "shifted",
+          "description": "Held-out samples after rotating the demand propensity across shards, to expose stale-history fragility"
+        }
+      ],
+      "required_benchmark_reports": 12,
+      "future_distributed_frontier_required_output": [
+        "instrument_id",
+        "source_commit",
+        "workload_digest_sha256",
+        "seed",
+        "proof_mode",
+        "topology",
+        "trace_operations",
+        "elapsed_ns",
+        "safety_violations_by_invariant",
+        "economic_demand_served_by_class",
+        "capacity_stranded_by_partition",
+        "reallocation_wait_ms_p50",
+        "reallocation_wait_ms_p95",
+        "reallocation_wait_ms_p99",
+        "operation_latency_ms_p50",
+        "operation_latency_ms_p95",
+        "operation_latency_ms_p99",
+        "partition_recovery_time_ms",
+        "throughput_ops_per_second",
+        "runner_digest_sha256",
+        "receipt_sha256",
+        "replay_retention_policy_id",
+        "replay_protection_retention_days",
+        "idempotency_index_bytes",
+        "tombstone_bytes_per_operation",
+        "replay_lookup_latency_ms_p50",
+        "replay_lookup_latency_ms_p99",
+        "per_shard_unserved_demand",
+        "quota_fragmentation",
+        "held_out_demand_served_fraction",
+        "forecast_error",
+        "prepartition_reallocation_overhead_ns",
+        "essential_service_demand_served_fraction",
+        "policy",
+        "demand_mode",
+        "policy_mode_report_count"
+      ],
+      "current_harness_outputs": [
+        "schema",
+        "schema_version",
+        "status",
+        "instrument_id",
+        "source_commit",
+        "profile_digest_sha256",
+        "rustc_version",
+        "toolchain_id",
+        "seed",
+        "shards",
+        "training_samples_per_shard",
+        "evaluation_scenarios_per_mode",
+        "capacity",
+        "reserve_ppm",
+        "elapsed_ns",
+        "policies[].policy",
+        "policies[].demand_mode",
+        "policies[].scenarios",
+        "policies[].total_capacity",
+        "policies[].spendable_capacity",
+        "policies[].contingency_reserve",
+        "policies[].requested_demand_units",
+        "policies[].served_demand_units",
+        "policies[].unserved_demand_units",
+        "policies[].stranded_reserved_unit_scenarios",
+        "policies[].demand_served_ppm",
+        "policies[].allocation_utilization_ppm",
+        "policies[].worst_scenario_unserved_units",
+        "policies[].worst_scenario_served_ppm",
+        "policies[].safety_violations",
+        "policies[].slices[].shard_id",
+        "policies[].slices[].capacity",
+        "policies[].slices[].minimum_capacity",
+        "policies[].slices[].weight",
+        "worst_shard_demand_served_ppm",
+        "policies[].worst_shard_demand_served_ppm",
+        "policies[].shard_results[].shard_id",
+        "policies[].shard_results[].requested_demand_units",
+        "policies[].shard_results[].served_demand_units",
+        "policies[].shard_results[].unserved_demand_units",
+        "policies[].shard_results[].demand_served_ppm",
+        "policies[].shard_results[].worst_scenario_served_ppm"
+      ],
+      "receipt_evidence_fields": [
+        "source_commit",
+        "source_tree",
+        "profile_digest_sha256",
+        "rustc_version",
+        "rustc_commit",
+        "cargo_version",
+        "benchmark_binary_sha256",
+        "benchmark_output_sha256",
+        "receipt_sha256"
+      ]
+    }
+  ],
+  "planned_conformance_cases": [
+    {
+      "id": "NCF-FEN-001",
+      "title": "Timeout alone does not reclaim capacity",
+      "class": "stale_owner_budget_reuse",
+      "attack": "A shard misses its heartbeat but is still potentially live; a different owner requests its slice.",
+      "expected": "reject_transfer_or_keep_capacity_charged",
+      "code_test": "transfer_is_rejected_before_complete_reconciliation_and_fence",
+      "execution_status": "reference_test_defined_not_run"
+    },
+    {
+      "id": "NCF-FEN-002",
+      "title": "Stale owner write after a verified fence rejects",
+      "class": "stale_epoch_write",
+      "attack": "An owner submits a new obligation referencing an epoch closed by a valid fencing receipt.",
+      "expected": "reject_old_epoch_operation",
+      "code_test": "old_epoch_cannot_create_exposure_after_drain_or_fence",
+      "execution_status": "reference_test_defined_not_run"
+    },
+    {
+      "id": "NCF-FEN-003",
+      "title": "New owner cannot spend before transfer commit",
+      "class": "early_successor_spend",
+      "attack": "The successor presents an allocation proposal but no verifiable committed transfer receipt.",
+      "expected": "reject_new_epoch_operation",
+      "code_test": "old_epoch_cannot_create_exposure_after_drain_or_fence",
+      "execution_status": "reference_test_defined_not_run"
+    },
+    {
+      "id": "NCF-FEN-004",
+      "title": "Unresolved terminal operation set prevents transfer",
+      "class": "incomplete_reconciliation",
+      "attack": "One dependency or operation through the proposed terminal watermark is unavailable.",
+      "expected": "unknown_or_reject_without_reallocation",
+      "code_test": "incomplete_or_stale_reconciliation_cannot_fence",
+      "execution_status": "reference_test_defined_not_run"
+    },
+    {
+      "id": "NCF-FEN-005",
+      "title": "Conflicting receipt replay rejects",
+      "class": "fencing_receipt_replay",
+      "attack": "A receipt ID is reused with a changed owner, amount, epoch, predecessor or policy digest.",
+      "expected": "reject_conflicting_replay",
+      "code_test": "identical_drain_fence_and_transfer_retries_are_idempotent",
+      "execution_status": "reference_test_defined_not_run"
+    },
+    {
+      "id": "NCF-FEN-006",
+      "title": "Crash at every transition cannot double-allocate",
+      "class": "partial_transfer_crash",
+      "attack": "Inject a crash after each durable step of drain, reconcile, fence, prepare, debit, credit and commit.",
+      "expected": "one_recoverable_state_no_duplicate_capacity",
+      "code_test": null,
+      "execution_status": "planned_not_implemented_or_not_fully_qualified"
+    },
+    {
+      "id": "NCF-FEN-007",
+      "title": "Cap or instrument revision change blocks stale transfer",
+      "class": "stale_transfer_policy",
+      "attack": "A relevant cap or profile revision changes after the allocation snapshot was read.",
+      "expected": "reject_stale_revision",
+      "code_test": null,
+      "execution_status": "planned_not_implemented_or_not_fully_qualified"
+    },
+    {
+      "id": "NCF-FEN-008",
+      "title": "Last-unit race accepts at most one claimant",
+      "class": "concurrent_last_unit",
+      "attack": "Race 100 attempts against one remaining unit using the selected control authority.",
+      "expected": "at_most_one_successful_transition",
+      "code_test": null,
+      "execution_status": "planned_not_implemented_or_not_fully_qualified"
+    },
+    {
+      "id": "NCF-FEN-009",
+      "title": "Unreachable owner retains charged capacity without an authoritative fence",
+      "class": "partitioned_owner_unreachable",
+      "attack": "The old owner is partitioned and cannot provide a drain acknowledgement; no qualified linearizable/quorum fence is available.",
+      "expected": "no_capacity_reclamation",
+      "code_test": null,
+      "execution_status": "planned_not_implemented_or_not_fully_qualified"
+    },
+    {
+      "id": "NCF-FEN-010",
+      "title": "Receipt reordering converges deterministically",
+      "class": "reordered_control_receipts",
+      "attack": "Deliver valid receipt dependencies out of order and then make all required dependencies available.",
+      "expected": "deterministic_final_state_no_early_spend",
+      "code_test": null,
+      "execution_status": "planned_not_implemented_or_not_fully_qualified"
+    },
+    {
+      "id": "NCF-FEN-011",
+      "title": "Unknown pending exposure makes transferable amount unknown",
+      "class": "pending_exposure_unknown",
+      "attack": "The terminal outstanding amount is known but one possible in-flight operation cannot be reconciled.",
+      "expected": "no_successful_transfer",
+      "code_test": null,
+      "execution_status": "planned_not_implemented_or_not_fully_qualified"
+    },
+    {
+      "id": "NCF-FEN-012",
+      "title": "Prepare/commit recovery never frees capacity between owners",
+      "class": "transfer_gap_double_spend",
+      "attack": "Interrupt transfer between old-allocation debit and new-allocation credit, then run deterministic recovery.",
+      "expected": "capacity_remains_charged_until_single_commit",
+      "code_test": null,
+      "execution_status": "planned_not_implemented_or_not_fully_qualified"
+    },
+    {
+      "id": "NCF-FEN-013",
+      "title": "Ledger events cannot alias lifecycle receipt IDs",
+      "class": "idempotency_namespace_confusion",
+      "attack": "Reuse the same identifier across a ledger obligation or settlement and a drain, fence, or transfer control operation.",
+      "expected": "reject_cross_namespace_identifier_collision_without_second_effect",
+      "code_test": "ledger_and_control_operations_share_one_idempotency_namespace",
+      "execution_status": "reference_test_defined_not_run"
+    },
+    {
+      "id": "NCF-FEN-014",
+      "title": "Independent formal checker detects timeout-only reallocation",
+      "class": "unsafe_mutant_sensitivity",
+      "attack": "Use the deliberately unsafe timeout mutant to transfer risk capacity while the prior owner is merely draining and before reconciliation or fencing.",
+      "expected": "counterexample_violating_NoTransferWithoutFence",
+      "code_test": null,
+      "formal_model": "formal/NCF_FEN_1_TimeoutMutant.tla",
+      "formal_config": "formal/NCF_FEN_1_TimeoutMutant.cfg",
+      "formal_invariant": "NoTransferWithoutFence",
+      "execution_status": "formal_negative_control_defined_not_run"
+    },
+    {
+      "id": "NCF-FEN-015",
+      "title": "Independent formal checker detects stale-owner writes after transfer",
+      "class": "stale_epoch_write",
+      "attack": "Run a deliberately unsafe mutant that lets the previous owner create a new obligation after a successor allocation has become active.",
+      "expected": "counterexample_violating_NoOldWriteOutsideActive",
+      "code_test": null,
+      "formal_model": "formal/NCF_FEN_1_StaleOwnerMutant.tla",
+      "formal_config": "formal/NCF_FEN_1_StaleOwnerMutant.cfg",
+      "formal_invariant": "NoOldWriteOutsideActive",
+      "execution_status": "formal_negative_control_defined_not_run"
+    },
+    {
+      "id": "NCF-PART-010",
+      "title": "Independent formal checker detects duplicate full-budget allocation across shards",
+      "class": "aggregate_reservation_double_commit",
+      "attack": "Use a deliberately unsafe allocation action that gives a second shard the entire aggregate capacity while a first shard already owns a non-zero slice.",
+      "expected": "counterexample_violating_ReservedCapacityBound",
+      "code_test": null,
+      "formal_model": "formal/NCF_ESCROW_1_DuplicateAllocationMutant.tla",
+      "formal_config": "formal/NCF_ESCROW_1_DuplicateAllocationMutant.cfg",
+      "formal_invariant": "ReservedCapacityBound",
+      "execution_status": "formal_negative_control_defined_not_run"
+    },
+    {
+      "id": "NCF-FEN-016",
+      "title": "Ten thousand deterministic lifecycle variants preserve the aggregate exposure bound",
+      "class": "generated_reference_model_stress",
+      "attack": "Generate 10,000 reproducible combinations of capacity, old exposure, settlements, pending exposure, reconciliation failures, transfer attempts, and successor spends. Every accepted state must preserve the exact aggregate capacity bound.",
+      "expected": "zero_capacity_bound_violations_across_10000_generated_lifecycles",
+      "code_test": "ten_thousand_generated_fencing_lifecycles_preserve_capacity_bound",
+      "execution_status": "reference_test_defined_not_run",
+      "seed": "0x4e43462d46454e31",
+      "scenarios": 10000,
+      "claim_ceiling": "Deterministic generated sequential Rust reference-model regression only; not concurrent interleavings, exhaustive formal proof, or Holochain multi-agent evidence."
+    },
+    {
+      "id": "NCF-PART-011",
+      "title": "Independent formal checker detects reservation resizing during a partition",
+      "class": "partition_budget_mutation",
+      "attack": "Mutate a shard's allocated slice while the model is partitioned, despite the protocol requiring reservation rights to remain frozen.",
+      "expected": "counterexample_violating_PartitionedReservationsStayFixed",
+      "code_test": null,
+      "formal_model": "formal/NCF_ESCROW_1_PartitionResizeMutant.tla",
+      "formal_config": "formal/NCF_ESCROW_1_PartitionResizeMutant.cfg",
+      "formal_invariant": "PartitionedReservationsStayFixed",
+      "execution_status": "formal_negative_control_defined_not_run"
+    },
+    {
+      "id": "NCF-FEN-017",
+      "title": "Lost transfer response retry returns the original committed receipt",
+      "class": "commit_response_loss_retry",
+      "attack": "The transfer commit is durable, the acknowledgement is lost, and the caller retries with the same transfer ID and canonical amount payload, including after a crash/restart.",
+      "expected": "same_receipt_returned_without_second_commit_or_capacity_change",
+      "code_test": null,
+      "formal_model": "formal/NCF_RECOVERY_1.tla",
+      "formal_config": "formal/NCF_RECOVERY_1.cfg",
+      "formal_invariant": "IdempotentRetryReturnsOriginalReceipt",
+      "execution_status": "formal_model_defined_not_run"
+    },
+    {
+      "id": "NCF-FEN-018",
+      "title": "Same transfer ID with a different amount payload is rejected",
+      "class": "conflicting_idempotency_payload",
+      "attack": "After the original commit response is lost, an adversary or buggy client reuses the transfer ID with a changed amount payload.",
+      "expected": "conflicting_retry_rejected_no_receipt_no_economic_mutation",
+      "code_test": null,
+      "formal_model": "formal/NCF_RECOVERY_1.tla",
+      "formal_config": "formal/NCF_RECOVERY_1.cfg",
+      "negative_control_model": "formal/NCF_RECOVERY_1_ConflictingReplayMutant.tla",
+      "negative_control_config": "formal/NCF_RECOVERY_1_ConflictingReplayMutant.cfg",
+      "formal_invariant": "NoConflictingReplayAccepted",
+      "execution_status": "formal_negative_control_defined_not_run"
+    },
+    {
+      "id": "NCF-FEN-019",
+      "title": "Lost commit acknowledgement across restart cannot duplicate a transfer",
+      "class": "commit_crash_restart_replay",
+      "attack": "A transfer commits durably, the process crashes before the caller observes success, then the process restarts and the same transfer is retried.",
+      "expected": "exactly_one_commit_and_same_receipt",
+      "code_test": null,
+      "formal_model": "formal/NCF_RECOVERY_1.tla",
+      "formal_config": "formal/NCF_RECOVERY_1.cfg",
+      "negative_control_model": "formal/NCF_RECOVERY_1_CommitReplayMutant.tla",
+      "negative_control_config": "formal/NCF_RECOVERY_1_CommitReplayMutant.cfg",
+      "formal_invariant": "NoDoubleCommit",
+      "execution_status": "formal_negative_control_defined_not_run"
+    },
+    {
+      "id": "NCF-FEN-020",
+      "title": "A long-offline member cannot replay a transfer after short-lived idempotency cache expiry",
+      "class": "long_horizon_replay",
+      "attack": "A community remains partitioned beyond the normal online retry window, reconnects later, and resubmits a previously committed transfer using its old operation ID.",
+      "expected": "original_result_returned_or_conflicting_replay_rejected_without_second_effect",
+      "code_test": null,
+      "implementation_layer": "persistent_receipt_or_replay_tombstone_store",
+      "formal_model": null,
+      "execution_status": "planned_not_implemented_or_not_fully_qualified",
+      "rationale": "This requires a persistence/replay-horizon model; a bounded lifecycle model with no time or tombstone-retention state does not qualify it."
+    },
+    {
+      "id": "NCF-ALLOC-001",
+      "title": "Equal split conserves awkward integer capacity with stable tie breaks",
+      "class": "static_allocation_integer_conservation",
+      "attack": "Allocate an odd capacity across an uneven shard count; permute the input list and compare per-shard results.",
+      "expected": "sum_slices_plus_reserve_equals_total_and_same_slices_by_stable_id",
+      "code_test": "equal_split_is_deterministic_and_conserves_integer_capacity",
+      "execution_status": "reference_test_defined_not_run"
+    },
+    {
+      "id": "NCF-ALLOC-002",
+      "title": "Demand-weighted allocation follows canonical integer weights",
+      "class": "historical_demand_weighted_allocation",
+      "attack": "Provide demand means in a known ratio and verify integer allocation and exact total capacity.",
+      "expected": "allocation_is_proportional_with_deterministic_largest_remainder",
+      "code_test": "demand_weighted_uses_ceiling_mean_and_largest_remainder",
+      "execution_status": "reference_test_defined_not_run"
+    },
+    {
+      "id": "NCF-ALLOC-003",
+      "title": "Robust quantile allocation applies explicit quantile and margin",
+      "class": "robust_quantile_static_allocation",
+      "attack": "Provide outlier-bearing samples and a known percentile/margin; verify weight values and resulting slices.",
+      "expected": "weight_matches_nearest_rank_quantile_plus_declared_margin",
+      "code_test": "robust_quantile_uses_upper_sample_and_explicit_margin",
+      "execution_status": "reference_test_defined_not_run"
+    },
+    {
+      "id": "NCF-ALLOC-004",
+      "title": "Contingency reserve remains unallocated",
+      "class": "static_contingency_reserve",
+      "attack": "Request a nonzero reserve and verify no shard receives the reserved capacity.",
+      "expected": "sum_slices_equals_total_minus_reserve",
+      "code_test": "contingency_reserve_is_not_allocated_to_any_shard",
+      "execution_status": "reference_test_defined_not_run"
+    },
+    {
+      "id": "NCF-ALLOC-005",
+      "title": "Static allocation plan is invariant to input order",
+      "class": "static_allocation_canonical_order",
+      "attack": "Permute the same canonical demand samples and shard IDs across every policy.",
+      "expected": "byte_equivalent_plan_for_every_permutation",
+      "code_test": "policy_reordering_does_not_change_per_shard_rights",
+      "execution_status": "reference_test_defined_not_run"
+    },
+    {
+      "id": "NCF-ALLOC-006",
+      "title": "Insufficient minimum slices fail closed",
+      "class": "static_allocation_minimum_capacity",
+      "attack": "Set per-shard minimums above the spendable budget after contingency reserve.",
+      "expected": "reject_without_producing_a_partial_plan",
+      "code_test": "insufficient_capacity_for_minimums_rejects_before_allocation",
+      "execution_status": "reference_test_defined_not_run"
+    },
+    {
+      "id": "NCF-ALLOC-007",
+      "title": "Malformed demand history cannot overflow the allocator",
+      "class": "static_allocation_arithmetic_overflow",
+      "attack": "Provide integer samples whose accumulation overflows the chosen representation.",
+      "expected": "explicit_overflow_error_no_wrapping",
+      "code_test": "demand_history_overflow_rejects_instead_of_wrapping",
+      "execution_status": "reference_test_defined_not_run"
+    },
+    {
+      "id": "NCF-ALLOC-008",
+      "title": "Demand policy frontier is measured under stationary and shifted traces",
+      "class": "static_allocation_demand_shift",
+      "attack": "Fit slice weights to a stationary training profile then evaluate all policies on matched stationary and rotated-profile traces.",
+      "expected": "machine_readable_metrics_for_all_six_policies_and_both_demand_modes_with_zero_accounting_violations",
+      "code_test": null,
+      "benchmark": "NCF-BENCH-005",
+      "execution_status": "benchmark_defined_not_run"
+    },
+    {
+      "id": "NCF-ALLOC-009",
+      "title": "Planned static allocation slices are accepted by the reservation reference without crossing caps",
+      "class": "allocation_to_reservation_integration",
+      "attack": "Allocate a budget with a contingency reserve, then reserve every returned slice against both community caps and the agreement cap.",
+      "expected": "all_slices_fit_and_community_agreement_allocations_equal_spendable_capacity",
+      "code_test": "allocation_plan_slices_fit_the_reservation_book_caps",
+      "execution_status": "reference_test_defined_not_run"
+    },
+    {
+      "id": "NCF-ALLOC-010",
+      "title": "Demand-weighted allocation rejects missing shard history rather than starving an unobserved shard",
+      "class": "cold_start_allocation_fairness",
+      "attack": "One shard has valid nonzero history while a newly admitted shard has no demand samples.",
+      "expected": "fail_closed_missing_history_error_or_explicitly_configured_cold_start_floor",
+      "code_test": "demand_weighted_policy_does_not_treat_missing_history_as_zero_demand",
+      "execution_status": "reference_test_defined_not_run"
+    },
+    {
+      "id": "NCF-ALLOC-011",
+      "title": "Ten thousand generated allocation plans preserve capacity and input-order determinism",
+      "class": "generated_static_allocation_property_sweep",
+      "attack": "Generate 10,000 fixed-seed inputs varying shard count, capacity, contingency reserve, equal/demand-weighted/robust-quantile/equal-floor policies, demand samples, and policy parameters; repeat each with reversed input order.",
+      "expected": "all_plans_validate_capacity_conservation_and_reversed_inputs_produce_identical_plans",
+      "code_test": "ten_thousand_generated_allocation_plans_conserve_capacity_and_ignore_input_order",
+      "execution_status": "reference_test_defined_not_run",
+      "seed": "0x4e43462d414c4c31",
+      "scenarios": 10000
+    },
+    {
+      "id": "NCF-ALLOC-012",
+      "title": "Allocator rejects mixed or missing canonical instrument identity",
+      "class": "cross_instrument_allocation_confusion",
+      "attack": "Supply shard samples from two different canonical instrument IDs or omit the instrument identity.",
+      "expected": "reject_mixed_or_missing_instrument_without_returning_plan",
+      "code_test": "plans_reject_mixed_or_missing_instrument_identity",
+      "execution_status": "reference_test_defined_not_run"
+    },
+    {
+      "id": "NCF-ALLOC-013",
+      "title": "Equal-floor demand weighting trades concentrated historical allocation for a shared baseline",
+      "class": "equal_floor_frontier_policy",
+      "attack": "Allocate a skewed two-shard demand history using pure mean weighting and a declared 50% equal floor.",
+      "expected": "hybrid_slice_equals_equal_floor_plus_weighted_remainder_and_total_budget_is_conserved",
+      "code_test": "demand_weighted_equal_floor_trades_peak_utilization_for_shift_resilience",
+      "execution_status": "reference_test_defined_not_run"
+    },
+    {
+      "id": "NCF-ALLOC-014",
+      "title": "A 100% equal floor matches equal split after minimum slices",
+      "class": "equal_floor_boundary",
+      "attack": "Set the equal floor to 100% of discretionary capacity with different per-shard minimums.",
+      "expected": "same_per_shard_rights_as_equal_split_with_same_minimums_and_exact_budget_conservation",
+      "code_test": "full_equal_floor_matches_equal_split_after_minimums",
+      "execution_status": "reference_test_defined_not_run"
+    },
+    {
+      "id": "NCF-ALLOC-015",
+      "title": "Worst-shard and per-shard service metrics reveal concentration hidden by aggregate demand served",
+      "class": "allocation_service_fairness_metric",
+      "attack": "Create a valid budget plan where one shard receives 90% of capacity and another 10%, then apply equal high demand to both shards over repeated scenarios.",
+      "expected": "aggregate_demand_served_reported_separately_from_worst_shard_and_per_shard_service",
+      "code_test": "per_shard_metrics_expose_underserved_shard_hidden_by_aggregate",
+      "execution_status": "reference_test_defined_not_run"
+    }
+  ],
+  "qualification_campaigns": [
+    {
+      "id": "NCF-QUAL-001",
+      "name": "Exact-head Rust reference-model qualification",
+      "execution_status": "defined_not_run",
+      "manifest": "mycelix-workspace/simulations/nested-currency-reference/Cargo.toml",
+      "lockfile": "mycelix-workspace/simulations/nested-currency-reference/Cargo.lock",
+      "toolchain": "1.99.1",
+      "runner_path": "mycelix-workspace/simulations/nested-currency-reference/run-ncf-rust-qualification.sh",
+      "workflow_path": ".github/workflows/ncf-rust-model.yml",
+      "required_checks": [
+        "cargo fmt --manifest-path <manifest> -- --check",
+        "cargo test --locked --manifest-path <manifest>",
+        "cargo clippy --locked --manifest-path <manifest> --all-targets -- -D warnings"
+      ],
+      "method": "Run format, tests, and clippy independently; continue after a failed check so the receipt captures all three outcomes. Require the overall result to pass only when all checks pass. Checkout is exact-head, the worktree must be clean, CARGO_TARGET_DIR and logs live outside the checkout, and the receipt binds the source commit/tree, manifest/lock/source digests, compiler identity and per-check log digests.",
+      "required_receipt_fields": [
+        "source_commit",
+        "source_tree",
+        "manifest_sha256",
+        "lockfile_sha256",
+        "lib_sha256",
+        "reservation_module_sha256",
+        "fencing_module_sha256",
+        "rust_toolchain_log_sha256",
+        "fmt_status",
+        "fmt_exit_code",
+        "test_status",
+        "test_exit_code",
+        "clippy_status",
+        "clippy_exit_code",
+        "overall_status",
+        "fmt_log_sha256",
+        "test_log_sha256",
+        "clippy_log_sha256"
+      ],
+      "claim_ceiling": "Formatting, tests and clippy for the exact standalone Rust reference crate only. Does not establish distributed/Holochain safety, cryptographic fencing, external settlement finality or production ledger correctness."
+    },
+    {
+      "id": "NCF-QUAL-002",
+      "name": "Deterministic generated fencing lifecycle sweep",
+      "execution_status": "defined_not_run",
+      "test_name": "ten_thousand_generated_fencing_lifecycles_preserve_capacity_bound",
+      "scenario_count": 10000,
+      "seed": "0x4e43462d46454e31",
+      "invariants_checked": [
+        "old exposure stays within capacity",
+        "new exposure is rejected after drain/fence",
+        "incomplete reconciliation cannot authorize transfer",
+        "failed transfer and spend attempts do not consume idempotency identity",
+        "transferred slice does not exceed verified free capacity",
+        "old outstanding + unresolved pending + successor outstanding never exceeds aggregate capacity",
+        "successor outstanding never exceeds successor reservation"
+      ],
+      "method": "A dependency-free deterministic LCG selects small capacities, initial gross exposure, settlements before/during drain, exposure extensions, pending exposure, and successor spend amounts. All 10,000 generated scenarios execute through FenceBook and assert the aggregate capacity relation. The fixed seed is stored in source. This is sequential generated testing, not a concurrent schedule explorer; it must be complemented by TLC and multi-agent fault tests.",
+      "required_receipt_fields": [
+        "source_commit",
+        "fencing_module_sha256",
+        "test_name",
+        "seed",
+        "scenario_count",
+        "cargo_test_exit_code",
+        "rust_toolchain_log_sha256",
+        "test_log_sha256",
+        "generated_fencing_lifecycle_test",
+        "generated_fencing_lifecycle_seed",
+        "generated_fencing_lifecycle_scenarios"
+      ],
+      "claim_ceiling": "Generated sequential Rust reference-model stress only; not distributed/Holochain concurrency safety or production settlement proof.",
+      "runner_receipt_file": "mycelix-workspace/simulations/nested-currency-reference/run-ncf-rust-qualification.sh",
+      "note": "The Rust qualification runner now records the fixed seed and 10,000 scenario target in its receipt. This is declared campaign metadata; only the test log and exit status from an actual exact-head run can establish whether it executed and passed."
+    },
+    {
+      "id": "NCF-QUAL-003",
+      "name": "Exact-head crash/recovery and payload-bound transfer retry qualification",
+      "execution_status": "defined_not_run",
+      "formal_models": [
+        "mycelix-workspace/simulations/nested-currency-reference/formal/NCF_RECOVERY_1.tla",
+        "mycelix-workspace/simulations/nested-currency-reference/formal/NCF_RECOVERY_1_CommitReplayMutant.tla",
+        "mycelix-workspace/simulations/nested-currency-reference/formal/NCF_RECOVERY_1_ConflictingReplayMutant.tla"
+      ],
+      "formal_configs": [
+        "mycelix-workspace/simulations/nested-currency-reference/formal/NCF_RECOVERY_1.cfg",
+        "mycelix-workspace/simulations/nested-currency-reference/formal/NCF_RECOVERY_1_CommitReplayMutant.cfg",
+        "mycelix-workspace/simulations/nested-currency-reference/formal/NCF_RECOVERY_1_ConflictingReplayMutant.cfg"
+      ],
+      "runner_path": "mycelix-workspace/simulations/nested-currency-reference/run-ncf-recovery-tlc.sh",
+      "workflow_path": ".github/workflows/ncf-recovery-model-check.yml",
+      "required_outcomes": [
+        "safe model passes all configured invariants",
+        "commit replay mutant violates NoDoubleCommit",
+        "conflicting payload mutant violates NoConflictingReplayAccepted"
+      ],
+      "required_receipt_fields": [
+        "source_commit",
+        "source_tree",
+        "safe_model_sha256",
+        "safe_config_sha256",
+        "commit_replay_mutant_sha256",
+        "commit_replay_mutant_config_sha256",
+        "conflicting_replay_mutant_sha256",
+        "conflicting_replay_mutant_config_sha256",
+        "tla2tools_jar_sha256",
+        "java_version",
+        "safe_model_state_statistics_line",
+        "safe_log_sha256",
+        "commit_replay_mutant_log_sha256",
+        "conflicting_replay_mutant_log_sha256"
+      ],
+      "methodology": "Run the safe finite recovery model and each negative control independently using the pinned TLA+ tools build. Require the named invariant violation for each mutant; parser, module-resolution and generic tool failures do not count. Preserve raw traces and bind the receipts to exact source/model/config/tool hashes.",
+      "claim_ceiling": "Bounded TLA+ result only for declared atomic-durable transition semantics and finite bounds. It does not prove backend durability, production Holochain behavior, cryptographic authorization, or unbounded distributed safety.",
+      "required_external_evidence": [
+        "receipt_sha256",
+        "workflow_run_id",
+        "workflow_run_attempt",
+        "artifact_id_or_url",
+        "workflow_conclusion"
+      ],
+      "receipt_sha256_method": "Compute SHA-256 over the closed receipt file and record it in runner stdout / workflow summary or artifact metadata; do not put a self-hash inside the receipt body."
+    },
+    {
+      "id": "NCF-QUAL-004",
+      "name": "Exact-head static allocation unit tests and matched-trace frontier",
+      "execution_status": "defined_not_run",
+      "source_module": "mycelix-workspace/simulations/nested-currency-reference/src/allocation.rs",
+      "benchmark_binary": "mycelix-workspace/simulations/nested-currency-reference/src/bin/ncf-allocation-bench.rs",
+      "runner_path": "mycelix-workspace/simulations/nested-currency-reference/run-allocation-bench.sh",
+      "workflow_path": ".github/workflows/ncf-allocation-benchmark.yml",
+      "required_unit_tests": [
+        "equal_split_is_deterministic_and_conserves_integer_capacity",
+        "demand_weighted_uses_ceiling_mean_and_largest_remainder",
+        "robust_quantile_uses_upper_sample_and_explicit_margin",
+        "contingency_reserve_is_not_allocated_to_any_shard",
+        "policy_reordering_does_not_change_per_shard_rights",
+        "explicit_minimum_slices_are_preserved",
+        "all_zero_demand_falls_back_to_equal_without_creating_capacity",
+        "duplicate_or_empty_shard_ids_reject",
+        "robust_policy_fails_closed_without_samples_or_with_bad_parameters",
+        "insufficient_capacity_for_minimums_rejects_before_allocation",
+        "demand_history_overflow_rejects_instead_of_wrapping",
+        "allocation_plan_slices_fit_the_reservation_book_caps",
+        "demand_weighted_policy_does_not_treat_missing_history_as_zero_demand",
+        "ten_thousand_generated_allocation_plans_conserve_capacity_and_ignore_input_order",
+        "plans_reject_mixed_or_missing_instrument_identity",
+        "demand_weighted_equal_floor_trades_peak_utilization_for_shift_resilience",
+        "full_equal_floor_matches_equal_split_after_minimums",
+        "per_shard_metrics_expose_underserved_shard_hidden_by_aggregate"
+      ],
+      "required_benchmark_reports": 12,
+      "safety_gate": "Every allocation plan validates and all twelve policy/mode reports must have zero accounting violations; any overflow, malformed input, mixed instrument identity, or unaccounted capacity fails the campaign.",
+      "receipt_sha256_method": "SHA-256 over the closed receipt file, reported through runner stdout/workflow metadata; do not include a self-hash inside the receipt.",
+      "claim_ceiling": "Unit tests plus synthetic single-process matched-trace evaluation only; real-demand validity and distributed/Holochain safety remain separate.",
+      "generated_case_sweep": {
+        "test_name": "ten_thousand_generated_allocation_plans_conserve_capacity_and_ignore_input_order",
+        "cases": 10000,
+        "seed": "0x4e43462d414c4c31",
+        "properties": [
+          "capacity plus reserve conserved",
+          "plan validates",
+          "allocation is invariant to reversed input order"
+        ],
+        "execution_status": "test_defined_not_run"
+      },
+      "required_receipt_fields": [
+        "source_commit",
+        "source_tree",
+        "profile_digest_sha256",
+        "rustc_version",
+        "rustc_commit",
+        "cargo_version",
+        "benchmark_binary_sha256",
+        "benchmark_output_sha256",
+        "expected_policy_mode_reports",
+        "observed_policy_mode_reports",
+        "safety_violation_reports",
+        "instrument_id"
+      ],
+      "required_external_evidence": [
+        "receipt_sha256",
+        "workflow_run_id",
+        "workflow_run_attempt",
+        "artifact_id_or_url",
+        "workflow_conclusion"
+      ],
+      "required_benchmark_tests": [
+        "per_shard_metrics_expose_underserved_shard_hidden_by_aggregate"
+      ]
+    }
+  ]
+}
