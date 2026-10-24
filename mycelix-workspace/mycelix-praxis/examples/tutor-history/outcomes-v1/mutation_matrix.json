@@ -129,6 +129,22 @@
       "expected_result": "rejected",
       "expected_finding_code": "draft_has_preregistration",
       "rust_test": "draft_must_not_claim_preregistration"
+    },
+    {
+      "control_id": "LOP-017",
+      "mutation_class": "negative",
+      "mutation": "Declare time units for the cost-per-learning-gain endpoint.",
+      "expected_result": "rejected",
+      "expected_finding_code": "endpoint_unit_mismatch",
+      "rust_test": "endpoint_units_must_match_metric_kind"
+    },
+    {
+      "control_id": "LOP-018",
+      "mutation_class": "negative",
+      "mutation": "Mark a higher adverse-event count as favorable.",
+      "expected_result": "rejected",
+      "expected_finding_code": "endpoint_direction_mismatch",
+      "rust_test": "harm_direction_cannot_be_flipped"
     }
   ]
 }
