@@ -42,6 +42,10 @@ Arguments are operation count, participant count, and deterministic seed. Defaul
 
 The mutual-credit JSON record measures one-process reference-model throughput and p50/p95/p99 *batch* latency, checking zero net position after each batch. The reservation JSON record measures allocated/used/unused capacity, cap utilization, per-shard outstanding, accepted obligations, settlements, over-slice rejections, retry controls, throughput, and batch latency. Both runners are single-process reference measurements, not distributed/Holochain production benchmarks. Its throughput includes registry lookup, event persistence, BTreeMap accounting and conservation scans. It is **not** a Holochain/DHT, multi-agent, external-settlement or production throughput claim. Compare builds only under matched source/toolchain/hardware/workload settings, across multiple recorded seeds, and retain the output SHA-256 receipt.
 
+## Fencing protocol
+
+The next design boundary is documented in [NCF-FEN-1: fencing and safe reallocation of partitioned risk rights](docs/NCF-FEN-1.md). It specifies the state machine, receipt bindings, fence proof modes, required failure injections, independent-oracle benchmarks, and conditions for ever reclaiming capacity from an old epoch. This is a proposal, not implementation or test evidence. Until a fencing authority is chosen and qualified, potentially live old-epoch capacity remains charged.
+
 ## Next qualification stages
 
 - Add property-based operation sequences with reproducible seeds.
