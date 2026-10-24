@@ -155,6 +155,13 @@
       "mutation": "Mark a derived estimate as having an assessment-server occurrence timestamp.",
       "expected": "Reject the inconsistent source/provenance declaration.",
       "test_name": "mismatched_derived_timestamp_provenance_is_rejected"
+    },
+    {
+      "id": "TEMP-023",
+      "kind": "negative_control",
+      "mutation": "Assign zero uncertainty to a local-store timestamp.",
+      "expected": "Reject the manifest; only the declared assessment-server event time and server-receipt record time classes may use zero uncertainty.",
+      "test_name": "local_store_timestamp_requires_nonzero_uncertainty"
     }
   ]
 }
