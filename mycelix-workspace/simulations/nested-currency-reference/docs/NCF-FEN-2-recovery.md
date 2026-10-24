@@ -4,7 +4,7 @@
 
 ## Why this is a separate gate
 
-NCF-FEN-1 models drain, reconciliation, fencing, and transfer ordering. That does not by itself qualify the storage boundary at which a transfer becomes durable. A practical failure case is: the transfer commit succeeds, its response is lost, and the caller retries. A retry must return the original result; it must not credit a second successor allocation. Another failure case is a crash after prepare but before commit. Prepared intent must not grant spend authority, and restart must not create two independently spendable rights.
+NCF-FEN-1 models drain, reconciliation, fencing, and transfer ordering. That does not by itself qualify the storage boundary at which a transfer becomes durable. A practical failure case is: the transfer commit succeeds, its response is lost, and the caller retries. A retry must return the original result; it must not credit a second successor allocation. The idempotency record also cannot be treated as a short-lived HTTP cache: a disconnected community may reappear after the ordinary retry window, so a production design must preserve the canonical operation identity or a permanent replay-prevention tombstone for the full protocol replay horizon. Another failure case is a crash after prepare but before commit. Prepared intent must not grant spend authority, and restart must not create two independently spendable rights.
 
 The bounded model in `formal/NCF_RECOVERY_1.tla` now explicitly represents an unobserved commit response, response loss, restart, retry with the original transfer ID and canonical amount payload, and the original commit receipt. A valid retry returns that same receipt without changing rights. A retry reusing the same ID with a different amount is rejected without returning a receipt or changing capacity. Two independent negative controls exercise different failure classes: `formal/NCF_RECOVERY_1_CommitReplayMutant.tla` double-credits after lost response and must violate `NoDoubleCommit`; `formal/NCF_RECOVERY_1_ConflictingReplayMutant.tla` accepts a conflicting payload and must violate `NoConflictingReplayAccepted`.
 
@@ -32,6 +32,14 @@ Each negative-control config checks its specific invariant: `NoDoubleCommit` for
 ## Reproducible qualification
 
 The dedicated `.github/workflows/ncf-recovery-model-check.yml` workflow checks out the exact PR-head SHA, verifies the pinned TLA+ tools JAR with SHA-256, runs the safe model and both expected-failing mutants, and uploads raw logs plus a provenance receipt. The runner records the source commit/tree, model and config digests, tool digest/version, state-statistics line, log hashes, and expected invariant names. Results are pending until a completed exact-head workflow artifact confirms safe-model success and both named counterexamples.
+
+## Replay-retention and three-valued outcomes
+
+Treat an operation result as **committed**, **rejected**, or **unknown/unresolved**. A timeout or missing response is not a fourth way to imply failure or success: it means the caller must retry/query using the exact same canonical operation ID and payload. `unknown` must not release reserved capacity or authorize a second economic effect.
+
+Interledger's published settlement-engine guidance requires persisted idempotency keys and response state and specifies at least 24 hours of retention for those API idempotency records ([Interledger settlement engines](https://interledger.org/developers/rfcs/settlement-engines/)). Mycelix's federation replay horizon can be substantially longer than an ordinary online payment retry window because members may be partitioned or offline for days or weeks. Do not copy the 24-hour minimum as a Mycelix retention policy. Persist a canonical immutable operation/receipt identity or a tombstone until the old epoch can no longer authorize operations and all protocol-defined replay conditions have been closed. If the system cannot establish a safe replay horizon, it must not recycle the ID.
+
+For Holochain adapters, distinguish an invalid action from an unresolved dependency: Holochain validation explicitly supports indeterminate/unresolved dependencies and retries validation when data becomes available ([validation docs](https://developer.holochain.org/build/validation/)). An unresolved transfer should remain unavailable, not be promoted to success and not be silently erased.
 
 ## Next benchmark gates
 
