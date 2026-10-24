@@ -29,6 +29,14 @@ TLA2TOOLS_JAR=/absolute/path/to/tla2tools.jar \
 
 It requires a clean checkout, writes raw logs and a receipt outside the repository, and binds them to the exact source/tree, model/config digests and JAR digest. The current environment has Java but no local `tla2tools.jar`; outbound DNS/download is unavailable, so this wrapper has not been executed here.
 
+## Dedicated GitHub Actions qualification
+
+The draft branch now includes [`.github/workflows/ncf-fen-model-check.yml`](../../../../.github/workflows/ncf-fen-model-check.yml). It is deliberately independent of the repository's generic workflow, which excludes draft pull requests. It checks out the exact PR head/pushed commit, uses full commit-SHA pins for checkout, Java setup, and artifact upload, downloads the TLA+ v1.8.0 tools JAR, verifies the release-published checksum, runs the paired model/mutant wrapper, and retains raw logs plus the provenance receipt for 30 days.
+
+TLA+ v1.8.0 upstream lists the JAR SHA-1 as `82d950354adcc694e98df3918f687c4400c47d8d`. The workflow verifies that checksum and records a computed SHA-256 in the receipt. See the [upstream TLA+ release notes](https://github.com/tlaplus/tlaplus/releases/tag/v1.8.0). The checksum is upstream-published SHA-1, not a SHA-256 signature; the job does not claim otherwise.
+
+The workflow has been committed, but no completed result is asserted here. A job that is queued/running/skipped—or a log that only shows a parser failure—does not qualify the model. Qualification requires the safe model to complete with no invariant violations and the mutant to fail specifically on `NoTransferWithoutFence`.
+
 ## What this model captures
 
 - Every accepted old-owner obligation is created only while `ACTIVE`; a stale write attempt after drain is represented as rejected.
