@@ -463,6 +463,9 @@ mod tests {
                 quantile_basis_points: 6_000,
                 margin_ppm: 250_000,
             },
+            AllocationPolicy::DemandWeightedWithEqualFloor { equal_floor_ppm: 250_000 },
+            AllocationPolicy::DemandWeightedWithEqualFloor { equal_floor_ppm: 500_000 },
+            AllocationPolicy::DemandWeightedWithEqualFloor { equal_floor_ppm: 750_000 },
         ] {
             let a = allocate_static_escrow(&input, 1_007, 10_000, policy).unwrap();
             let b = allocate_static_escrow(&reversed, 1_007, 10_000, policy).unwrap();
@@ -614,13 +617,16 @@ mod tests {
             let count = 2 + (rng.next() % 15) as usize;
             let capacity = count as u64 + rng.next() % 100_000;
             let reserve_ppm = (rng.next() % 500_001) as u32;
-            let policy = match case_index % 3 {
+            let policy = match case_index % 6 {
                 0 => AllocationPolicy::EqualSplit,
                 1 => AllocationPolicy::DemandWeighted,
-                _ => AllocationPolicy::RobustQuantile {
+                2 => AllocationPolicy::RobustQuantile {
                     quantile_basis_points: (rng.next() % u64::from(BASIS_POINTS) + 1) as u16,
                     margin_ppm: (rng.next() % u64::from(PARTS_PER_MILLION) + 1) as u32,
                 },
+                3 => AllocationPolicy::DemandWeightedWithEqualFloor { equal_floor_ppm: 250_000 },
+                4 => AllocationPolicy::DemandWeightedWithEqualFloor { equal_floor_ppm: 500_000 },
+                _ => AllocationPolicy::DemandWeightedWithEqualFloor { equal_floor_ppm: 750_000 },
             };
             let input: Vec<ShardDemand> = (0..count).map(|index| {
                 let sample_count = 1 + (rng.next() % 8) as usize;
