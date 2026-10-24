@@ -257,6 +257,17 @@ impl FenceBook {
         if !operation_set_complete {
             return Err(Error::IncompleteReconciliation);
         }
+        if let Some(previous) = &self.reconciliation {
+            let same_reconciliation = previous.terminal_sequence == terminal_sequence
+                && previous.outstanding == observed_outstanding
+                && previous.pending_exposure == pending_exposure;
+            return if same_reconciliation {
+                Ok(Apply::Duplicate)
+            } else {
+                Err(Error::ReconciliationConflict)
+            };
+        }
+
         let committed = self.outstanding.checked_add(pending_exposure).ok_or(Error::Overflow)?;
         if committed > self.capacity {
             return Err(Error::CapacityExceeded);
@@ -267,14 +278,6 @@ impl FenceBook {
             pending_exposure,
             transferable_capacity: self.capacity - committed,
         };
-
-        if let Some(previous) = &self.reconciliation {
-            return if previous == &candidate {
-                Ok(Apply::Duplicate)
-            } else {
-                Err(Error::ReconciliationConflict)
-            };
-        }
         if self.phase() != Phase::DrainRequested {
             return Err(Error::InvalidTransition);
         }
