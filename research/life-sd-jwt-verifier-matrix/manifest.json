@@ -43,7 +43,9 @@
     "key_binding_disclosure_set_mutated",
     "stateless_same_nonce_replay_is_cryptographically_valid",
     "single_use_nonce_first_consumption",
-    "single_use_nonce_replay_rejected_by_policy"
+    "single_use_nonce_replay_rejected_by_policy",
+    "concurrent_nonce_race_has_exactly_one_winner",
+    "nonce_ledger_rejects_replay_but_namespaces_verifiers"
   ],
   "decision_layers": [
     "RFC-aligned cryptographic and disclosure processing behavior",
@@ -59,6 +61,8 @@
     "holder-key substitution rejects",
     "KB-JWT cannot be reused with a changed disclosure set",
     "the stateless verifier outcome is separated from application-level one-time nonce policy",
+    "concurrent in-process consumption of one verifier-scoped nonce has exactly one winner",
+    "nonce uniqueness is scoped by verifier identifier",
     "wire serialization and re-parsing restore authoritative disclosure fields before the verifier trust decision",
     "repeated report includes stable case IDs and stable outcomes only"
   ],
@@ -70,7 +74,7 @@
     "production cryptographic security",
     "automatic JWK-to-verifier construction or key-rotation policy",
     "safety of arbitrary caller-mutated in-memory SD-JWT structs without canonical re-parse",
-    "concurrent distributed nonce-ledger correctness",
+    "distributed database transaction or cross-process replay protection",
     "anonymity or unlinkability",
     "differential privacy",
     "performance or SOTA superiority"
