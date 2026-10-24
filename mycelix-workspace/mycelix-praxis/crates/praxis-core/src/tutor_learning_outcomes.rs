@@ -595,6 +595,31 @@ mod tests {
     }
 
     #[test]
+    fn synthetic_protocol_fixture_matches_rust_wire_contract() {
+        let fixture = include_str!("../../../examples/tutor-history/outcomes-v1/study_protocol.synthetic.json");
+        let result = validate_learning_outcome_protocol_json(fixture);
+        assert!(result.is_ok(), "fixture did not validate: {result:?}");
+    }
+
+    #[test]
+    fn mutation_matrix_ids_are_unique_and_tests_are_linked() {
+        let matrix: serde_json::Value = serde_json::from_str(include_str!(
+            "../../../examples/tutor-history/outcomes-v1/mutation_matrix.json"
+        ))
+        .unwrap();
+        let controls = matrix["controls"].as_array().expect("controls array");
+        let source = include_str!("tutor_learning_outcomes.rs");
+        let mut ids = BTreeSet::new();
+        for control in controls {
+            let id = control["control_id"].as_str().expect("control ID");
+            let test = control["rust_test"].as_str().expect("Rust test name");
+            assert!(ids.insert(id), "duplicate mutation control {id}");
+            assert!(source.contains(&format!("fn {test}(")), "missing test definition {test}");
+        }
+        assert_eq!(controls.len(), 16);
+    }
+
+    #[test]
     fn draft_must_not_claim_preregistration() {
         let mut protocol = valid_protocol();
         protocol.preregistration_uri = Some("https://example.org/registration".to_owned());
