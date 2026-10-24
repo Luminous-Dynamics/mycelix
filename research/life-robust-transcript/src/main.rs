@@ -365,31 +365,37 @@ fn evaluate_robust(scenarios: &[Vec<Subject>; 2], plan: Plan) -> RobustMetrics {
 }
 
 fn select_plan(plans: &[Plan], metrics: &[RobustMetrics]) -> usize {
-    (0..plans.len())
-        .filter(|&index| metrics[index].feasible())
-        .min_by_key(|&index| {
+    plans
+        .iter()
+        .zip(metrics)
+        .enumerate()
+        .filter(|(_, (_, metric))| metric.feasible())
+        .min_by_key(|(_, (plan, metric))| {
             (
-                plans[index].cost(),
-                Reverse(metrics[index].worst_p05),
-                plans[index].label(),
+                plan.cost(),
+                Reverse(metric.worst_p05),
+                plan.label(),
             )
         })
+        .map(|(index, _)| index)
         .expect("frozen uncertainty set should contain a feasible plan")
 }
 
 fn is_on_frontier(index: usize, plans: &[Plan], metrics: &[RobustMetrics]) -> bool {
     let cost = plans[index].cost();
     let support = metrics[index].worst_p05;
-    !(0..plans.len()).any(|other| {
-        if index == other {
-            return false;
-        }
-        let other_cost = plans[other].cost();
-        let other_support = metrics[other].worst_p05;
-        other_cost <= cost
-            && other_support >= support
-            && (other_cost < cost || other_support > support)
-    })
+    !plans.iter().zip(metrics).enumerate().any(
+        |(other, (other_plan, other_metrics))| {
+            if index == other {
+                return false;
+            }
+            let other_cost = other_plan.cost();
+            let other_support = other_metrics.worst_p05;
+            other_cost <= cost
+                && other_support >= support
+                && (other_cost < cost || other_support > support)
+        },
+    )
 }
 
 fn ppm(count: usize, denominator: usize) -> usize {
@@ -604,18 +610,18 @@ mod tests {
             .iter()
             .map(|&plan| evaluate_robust(&populations, plan))
             .collect();
-        for index in 0..plans.len() {
+        for (index, (current_plan, current_metrics)) in plans.iter().zip(&metrics).enumerate() {
             let dominated = plans.iter().zip(&metrics).enumerate().any(
                 |(other, (other_plan, other_metrics))| {
                     if other == index {
                         return false;
                     }
-                    let cost_no_worse = other_plan.cost() <= plans[index].cost();
+                    let cost_no_worse = other_plan.cost() <= current_plan.cost();
                     let support_no_worse =
-                        other_metrics.worst_p05 >= metrics[index].worst_p05;
+                        other_metrics.worst_p05 >= current_metrics.worst_p05;
                     let at_least_one_better =
-                        other_plan.cost() < plans[index].cost()
-                            || other_metrics.worst_p05 > metrics[index].worst_p05;
+                        other_plan.cost() < current_plan.cost()
+                            || other_metrics.worst_p05 > current_metrics.worst_p05;
                     cost_no_worse && support_no_worse && at_least_one_better
                 },
             );
