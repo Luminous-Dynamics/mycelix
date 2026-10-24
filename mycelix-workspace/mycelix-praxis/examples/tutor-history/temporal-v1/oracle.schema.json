@@ -1,0 +1,55 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://mycelix.net/schemas/praxis-tutor-temporal-evidence/v1/oracle.schema.json",
+  "title": "Praxis tutor temporal evidence oracle v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "benchmark_id", "labels"],
+  "properties": {
+    "schema_version": {"const": 1},
+    "benchmark_id": {"const": "PRAXIS-TUTOR-TEMPORAL-EVIDENCE-001"},
+    "labels": {
+      "type": "array",
+      "minItems": 1,
+      "items": {"$ref": "#/$defs/label"}
+    }
+  },
+  "$defs": {
+    "label": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "case_id", "accepted_dispositions", "acceptable_diagnoses", "acceptable_actions",
+        "required_supporting_evidence_ids", "required_contradicting_evidence_ids", "requested_evidence"
+      ],
+      "properties": {
+        "case_id": {"type": "string", "minLength": 1},
+        "accepted_dispositions": {
+          "type": "array", "minItems": 1,
+          "uniqueItems": true,
+          "items": {"enum": ["claim", "request_more_evidence", "abstain"]}
+        },
+        "acceptable_diagnoses": {
+          "type": "array", "uniqueItems": true,
+          "items": {"enum": ["persistent_misconception", "scaffold_dependence", "recent_unassisted_improvement", "context_specific_conflict", "proven_unassisted_progress"]}
+        },
+        "acceptable_actions": {
+          "type": "array", "uniqueItems": true,
+          "items": {"enum": ["collect_unassisted_attempt", "faded_scaffold_practice", "spaced_retrieval", "clarify_task_context", "compare_contexts"]}
+        },
+        "required_supporting_evidence_ids": {
+          "type": "array", "uniqueItems": true,
+          "items": {"type": "string", "minLength": 1}
+        },
+        "required_contradicting_evidence_ids": {
+          "type": "array", "uniqueItems": true,
+          "items": {"type": "string", "minLength": 1}
+        },
+        "requested_evidence": {
+          "type": ["string", "null"],
+          "enum": ["skill_metadata", "context_matched_attempt", "unassisted_attempt", "delayed_retrieval", "assistance_provenance", null]
+        }
+      }
+    }
+  }
+}
