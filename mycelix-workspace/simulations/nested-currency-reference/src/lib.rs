@@ -7,6 +7,7 @@
 //! reservation-fencing lifecycle model. These models do not prove production or
 //! multi-agent safety without separate runtime and adversarial qualification.
 
+pub mod allocation;
 pub mod fencing;
 pub mod reservation;
 
