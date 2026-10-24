@@ -1,0 +1,51 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://mycelix.net/schemas/praxis-tutor-temporal-evidence/v1/predictions.schema.json",
+  "title": "Praxis tutor temporal evidence predictions v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "benchmark_id", "observation_blake3", "predictions"],
+  "properties": {
+    "schema_version": {"const": 1},
+    "benchmark_id": {"const": "PRAXIS-TUTOR-TEMPORAL-EVIDENCE-001"},
+    "observation_blake3": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+    "predictions": {
+      "type": "array",
+      "items": {"$ref": "#/$defs/prediction"}
+    }
+  },
+  "$defs": {
+    "prediction": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "case_id", "disposition", "diagnosis", "next_action",
+        "supporting_evidence_ids", "contradicting_evidence_ids", "requested_evidence"
+      ],
+      "properties": {
+        "case_id": {"type": "string", "minLength": 1},
+        "disposition": {"enum": ["claim", "request_more_evidence", "abstain"]},
+        "diagnosis": {
+          "type": ["string", "null"],
+          "enum": ["persistent_misconception", "scaffold_dependence", "recent_unassisted_improvement", "context_specific_conflict", "proven_unassisted_progress", null]
+        },
+        "next_action": {
+          "type": ["string", "null"],
+          "enum": ["collect_unassisted_attempt", "faded_scaffold_practice", "spaced_retrieval", "clarify_task_context", "compare_contexts", null]
+        },
+        "supporting_evidence_ids": {
+          "type": "array", "uniqueItems": true,
+          "items": {"type": "string", "minLength": 1}
+        },
+        "contradicting_evidence_ids": {
+          "type": "array", "uniqueItems": true,
+          "items": {"type": "string", "minLength": 1}
+        },
+        "requested_evidence": {
+          "type": ["string", "null"],
+          "enum": ["skill_metadata", "context_matched_attempt", "unassisted_attempt", "delayed_retrieval", "assistance_provenance", null]
+        }
+      }
+    }
+  }
+}
