@@ -1,0 +1,48 @@
+{
+  "benchmark_id": "LIFE-PRESENTATION-FINGERPRINT-001",
+  "version": "0.1.0",
+  "status": "synthetic_structural_leakage_reference_model",
+  "population": {
+    "subjects": 512,
+    "synthetic_only": true,
+    "statement_count_range_inclusive": [8, 31],
+    "optional_index_universe": 8,
+    "optional_indices_per_subject": 3,
+    "seed": "0x5EEDC0DE"
+  },
+  "observable_profiles": [
+    "fresh_proof_only",
+    "exact_statement_count",
+    "bucketed_statement_count",
+    "fixed_padded_statement_count",
+    "revealed_index_pattern",
+    "fixed_padded_count_plus_revealed_indices",
+    "exact_count_plus_revealed_indices",
+    "stable_disclosed_identifier"
+  ],
+  "metrics": [
+    "candidate_set_min_p05_p50_p95_max",
+    "unique_candidate_count_and_ppm",
+    "at_most_10_candidate_count_and_ppm",
+    "raw_denominator",
+    "mean_candidate_count_milli"
+  ],
+  "invariants": [
+    "fresh_proof_only_has_no_cross_presentation_matching_signal",
+    "stable_unique_identifier_links_every_synthetic_subject",
+    "fixed_padding_removes_statement_count_as_a_matching_feature",
+    "revealed_index_pattern_remains_observable_after_count_padding",
+    "coarser_count_bucket_never_narrows_the_exact_count_candidate_set",
+    "candidate_counts_are_computed_from_declared_observer_fields_only",
+    "report_is_rectangular_and_deterministic"
+  ],
+  "claim_ceiling": "synthetic_structural_leakage_reference_model",
+  "nonclaims": [
+    "bbs_cryptographic_implementation",
+    "sd_jwt_or_bbs_conformance",
+    "differential_privacy",
+    "real_world_anonymity_or_unlinkability",
+    "production_protocol_security",
+    "sota_superiority"
+  ]
+}
