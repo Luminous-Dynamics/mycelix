@@ -9,6 +9,7 @@ use nested_currency_reference::allocation::{
 };
 use std::{env, time::Instant};
 
+const INSTRUMENT_ID: &str = "instrument:local";
 const DEFAULT_SHARDS: usize = 16;
 const DEFAULT_TRAINING_SAMPLES: usize = 32;
 const DEFAULT_EVAL_SCENARIOS: usize = 1_000;
@@ -105,7 +106,7 @@ fn make_training_demands(shards: usize, samples: usize, seed: u64) -> Vec<ShardD
             ((u128::from(base) * u128::from(factor)) / u128::from(PARTS_PER_MILLION)) as u64
         }).collect();
         ShardDemand {
-            instrument_id: "instrument:local".into(),
+            instrument_id: INSTRUMENT_ID.into(),
             shard_id: format!("shard-{index:05}"),
             samples: history,
             minimum_capacity: 0,
@@ -287,8 +288,8 @@ fn run() -> Result<(), String> {
     }
     let elapsed_ns = started.elapsed().as_nanos();
     let output = format!(
-        "{{\"schema\":\"mycelix.ncf-allocation-benchmark\",\"schema_version\":\"1.0.0\",\"status\":\"completed_reference_simulation\",\"source_commit\":\"{}\",\"profile_digest_sha256\":\"{}\",\"rustc_version\":\"{}\",\"toolchain_id\":\"{}\",\"seed\":{},\"shards\":{},\"training_samples_per_shard\":{},\"evaluation_scenarios_per_mode\":{},\"capacity\":{},\"reserve_ppm\":{},\"elapsed_ns\":{},\"policies\":[{}]}}",
-        source_sha, json_escape(&profile_digest), json_escape(&rustc_version), json_escape(&toolchain_id),
+        "{{\"schema\":\"mycelix.ncf-allocation-benchmark\",\"schema_version\":\"1.0.0\",\"status\":\"completed_reference_simulation\",\"instrument_id\":\"{}\",\"source_commit\":\"{}\",\"profile_digest_sha256\":\"{}\",\"rustc_version\":\"{}\",\"toolchain_id\":\"{}\",\"seed\":{},\"shards\":{},\"training_samples_per_shard\":{},\"evaluation_scenarios_per_mode\":{},\"capacity\":{},\"reserve_ppm\":{},\"elapsed_ns\":{},\"policies\":[{}]}}",
+        INSTRUMENT_ID, source_sha, json_escape(&profile_digest), json_escape(&rustc_version), json_escape(&toolchain_id),
         seed, shards, training_samples, eval_scenarios, capacity, reserve_ppm, elapsed_ns, reports.join(",")
     );
     println!("{output}");
