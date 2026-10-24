@@ -527,10 +527,19 @@ mod tests {
         book.reconcile(cut, 25, 0, true).unwrap();
         book.fence("fence:1", cut).unwrap();
         assert_eq!(
+            book.record_obligation("old:fenced", "owner-a", 1, 1),
+            Err(Error::NewExposureClosed)
+        );
+        assert_eq!(
             book.record_successor_obligation("new:early", "owner-b", 2, 1),
             Err(Error::InvalidTransition)
         );
         book.transfer("transfer:1", "owner-b", 2, 75).unwrap();
+        // The failed pre-transfer attempt did not consume the event ID.
+        assert_eq!(
+            book.record_successor_obligation("new:early", "owner-b", 2, 1),
+            Ok(Apply::Applied)
+        );
         assert_eq!(
             book.record_obligation("old:late", "owner-a", 1, 1),
             Err(Error::NewExposureClosed)
