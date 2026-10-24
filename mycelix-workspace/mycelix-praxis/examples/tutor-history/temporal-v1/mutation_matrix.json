@@ -99,6 +99,41 @@
       "mutation": "Check mutation IDs and test-name linkage.",
       "expected": "All matrix IDs are unique and each row points to a defined Rust test.",
       "test_name": "mutation_matrix_is_closed_and_test_linked"
+    },
+    {
+      "id": "TEMP-015",
+      "kind": "negative_control",
+      "mutation": "Place a record-time uncertainty interval across the evaluation cutoff.",
+      "expected": "Classify the event as temporally ambiguous rather than treating the centre timestamp as decisive.",
+      "test_name": "uncertainty_crossing_evaluation_cutoff_is_ambiguous"
+    },
+    {
+      "id": "TEMP-016",
+      "kind": "negative_control",
+      "mutation": "Place an occurrence-time uncertainty interval across the evaluation cutoff.",
+      "expected": "Classify as ambiguous occurrence time; do not round to before or after the cutoff.",
+      "test_name": "uncertainty_straddling_occurrence_cutoff_is_not_silently_ordered"
+    },
+    {
+      "id": "TEMP-017",
+      "kind": "negative_control",
+      "mutation": "Use a timestamp declared as imported and unverified while its interval is otherwise before the cutoff.",
+      "expected": "Do not accept unverified timestamp provenance as precise temporal proof.",
+      "test_name": "imported_timestamp_provenance_is_not_exact_temporal_proof"
+    },
+    {
+      "id": "TEMP-018",
+      "kind": "negative_control",
+      "mutation": "Declare an imported/derived timestamp unverified but give it zero uncertainty.",
+      "expected": "Reject with a stable missing-uncertainty violation code.",
+      "test_name": "unverified_timestamp_requires_nonzero_uncertainty"
+    },
+    {
+      "id": "TEMP-019",
+      "kind": "negative_control",
+      "mutation": "Widen a correction's record-time uncertainty until its interval overlaps the record it supersedes.",
+      "expected": "Reject the supersession edge because temporal order is not proven.",
+      "test_name": "supersession_with_overlapping_time_intervals_is_rejected"
     }
   ]
 }
