@@ -32,7 +32,7 @@ Every run records:
 - BLAKE3 of the emitted prediction artifact;
 - an artifact catalog with unique IDs, roles, digests, and declared access audience.
 
-The exact split-manifest bytes are bound into the run. Any byte change makes the old run manifest invalid until a new manifest and digest are emitted. Other artifact digests are recorded here, but callers must separately verify those digests against the actual artifact bytes; this validator does not receive those bytes.
+The exact split-manifest bytes and the exact candidate-visible observation-manifest bytes are bound into the run. The validator receives both artifacts and checks that candidate case IDs equal exactly the complete trajectories assigned to the run's split role. Passing the full all-splits dataset to a test run is rejected even if the run metadata claims only test trajectory IDs. Any byte change makes the old run manifest invalid until a new manifest and digest are emitted. Other artifact digests are recorded here, but callers must separately verify those digests against the actual artifact bytes; this validator does not receive those bytes.
 
 ## Candidate/evaluator separation
 
