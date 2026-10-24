@@ -89,6 +89,46 @@
       "id": "NCF-I-015",
       "name": "Reservation agreement identity binds counterparties",
       "statement": "A reservation agreement ID identifies one immutable community pair across instruments, shards, and epochs. Budget slices cannot be reassigned to a different counterparty pair by reusing the agreement identifier."
+    },
+    {
+      "id": "NCF-FEN-I-001",
+      "name": "Fence precedes transfer",
+      "statement": "A successor allocation cannot become spendable until the prior epoch has a verifiable fencing decision in the authoritative control chain."
+    },
+    {
+      "id": "NCF-FEN-I-002",
+      "name": "One active owner per allocation epoch",
+      "statement": "Every spendable allocation has exactly one owner under the verified control chain; old and successor epochs cannot both create accepted exposure against the same rights."
+    },
+    {
+      "id": "NCF-FEN-I-003",
+      "name": "No timeout-only reallocation",
+      "statement": "A timeout, missed heartbeat or local clock comparison alone cannot reclaim risk rights from a potentially live owner."
+    },
+    {
+      "id": "NCF-FEN-I-004",
+      "name": "Complete reconciliation before transfer",
+      "statement": "If the accepted operation set through the terminal cut or pending exposure is unresolved, transferable capacity is unknown and no transfer may succeed."
+    },
+    {
+      "id": "NCF-FEN-I-005",
+      "name": "Risk-right transfer is conserved",
+      "statement": "A transferred unit is debited from the old allocation and credited to at most one successor allocation in a recoverable control-plane transition."
+    },
+    {
+      "id": "NCF-FEN-I-006",
+      "name": "Receipts are canonical and payload-bound",
+      "statement": "Receipts bind scope, instrument/profile, caps/policy revisions, owner, epoch, predecessor and payload digest; exact retries are idempotent and conflicting reuse fails closed."
+    },
+    {
+      "id": "NCF-FEN-I-007",
+      "name": "Stale policy revisions cannot transfer rights",
+      "statement": "Instrument, community-cap or agreement-cap revision mismatch blocks transfer unless an explicit authorized migration is qualified."
+    },
+    {
+      "id": "NCF-FEN-I-008",
+      "name": "Crash recovery preserves last verified state",
+      "statement": "Recovery after any failed transition does not create duplicated spendable capacity or advance beyond the last verified committed control receipt."
     }
   ],
   "conformance_cases": [
@@ -631,6 +671,176 @@
       ],
       "method": "Matched workload and shock traces, fixed and held-out shocks, multiple recorded seeds, ablations, and independent recomputation. Do not collapse metrics into one score.",
       "execution_status": "design_not_run"
+    },
+    {
+      "id": "NCF-BENCH-004",
+      "name": "Partitioned-risk fencing state-machine model checking",
+      "owner_counts": [
+        2,
+        3,
+        4
+      ],
+      "agreement_counts": [
+        1,
+        2
+      ],
+      "generated_schedule_target": 10000,
+      "last_unit_contention_attempts": 100,
+      "failure_injection_points": [
+        "after_drain_request",
+        "after_drain_receipt",
+        "after_reconciliation",
+        "after_fence_decision",
+        "after_prepare",
+        "after_old_allocation_debit",
+        "after_new_allocation_credit",
+        "before_transfer_commit",
+        "after_commit_acknowledgement"
+      ],
+      "required_safety_targets": [
+        "zero_cap_violations",
+        "zero_dual_active_epochs",
+        "zero_post_fence_accepted_obligations",
+        "zero_double_transfers",
+        "zero_conflicting_idempotency_acceptance",
+        "zero_partial_mutation_after_abort"
+      ],
+      "required_output": [
+        "source_commit",
+        "corpus_digest_sha256",
+        "seed",
+        "proof_mode",
+        "owner_count",
+        "agreement_count",
+        "schedules_explored",
+        "interleavings_explored",
+        "accepted_transitions",
+        "rejected_transitions",
+        "unknown_transitions",
+        "violations_by_invariant",
+        "crash_recovery_outcomes",
+        "capacity_used",
+        "capacity_stranded",
+        "partition_duration_ms",
+        "drain_to_transfer_latency_ms_p50",
+        "drain_to_transfer_latency_ms_p95",
+        "drain_to_transfer_latency_ms_p99",
+        "cpu_time_ns",
+        "peak_rss_bytes"
+      ],
+      "execution_status": "design_not_run",
+      "claim_ceiling": "A deterministic state-machine/model-checker result only for the declared authority and fault model. It does not prove production Holochain behavior, legal settlement, cryptographic key security or safety outside the explored model.",
+      "methodology": "First qualify the transition oracle independently and exhaust small interleavings. Then run at least 10,000 reproducible schedules with retries, duplicate/reordered/dropped receipts, stale-owner writes, crash injection and partition/heal traces. Keep honest-crash and adversarial-owner campaigns separate. Compare static-quota, acknowledged-drain and any linearizable/quorum mode under identical traces. Any safety violation fails the campaign; utilization and latency are reported only alongside correctness results."
+    }
+  ],
+  "planned_conformance_cases": [
+    {
+      "id": "NCF-FEN-001",
+      "title": "Timeout alone does not reclaim capacity",
+      "class": "stale_owner_budget_reuse",
+      "attack": "A shard misses its heartbeat but is still potentially live; a different owner requests its slice.",
+      "expected": "reject_transfer_or_keep_capacity_charged",
+      "code_test": null,
+      "execution_status": "spec_only_not_implemented"
+    },
+    {
+      "id": "NCF-FEN-002",
+      "title": "Stale owner write after a verified fence rejects",
+      "class": "stale_epoch_write",
+      "attack": "An owner submits a new obligation referencing an epoch closed by a valid fencing receipt.",
+      "expected": "reject_old_epoch_operation",
+      "code_test": null,
+      "execution_status": "spec_only_not_implemented"
+    },
+    {
+      "id": "NCF-FEN-003",
+      "title": "New owner cannot spend before transfer commit",
+      "class": "early_successor_spend",
+      "attack": "The successor presents an allocation proposal but no verifiable committed transfer receipt.",
+      "expected": "reject_new_epoch_operation",
+      "code_test": null,
+      "execution_status": "spec_only_not_implemented"
+    },
+    {
+      "id": "NCF-FEN-004",
+      "title": "Unresolved terminal operation set prevents transfer",
+      "class": "incomplete_reconciliation",
+      "attack": "One dependency or operation through the proposed terminal watermark is unavailable.",
+      "expected": "unknown_or_reject_without_reallocation",
+      "code_test": null,
+      "execution_status": "spec_only_not_implemented"
+    },
+    {
+      "id": "NCF-FEN-005",
+      "title": "Conflicting receipt replay rejects",
+      "class": "fencing_receipt_replay",
+      "attack": "A receipt ID is reused with a changed owner, amount, epoch, predecessor or policy digest.",
+      "expected": "reject_conflicting_replay",
+      "code_test": null,
+      "execution_status": "spec_only_not_implemented"
+    },
+    {
+      "id": "NCF-FEN-006",
+      "title": "Crash at every transition cannot double-allocate",
+      "class": "partial_transfer_crash",
+      "attack": "Inject a crash after each durable step of drain, reconcile, fence, prepare, debit, credit and commit.",
+      "expected": "one_recoverable_state_no_duplicate_capacity",
+      "code_test": null,
+      "execution_status": "spec_only_not_implemented"
+    },
+    {
+      "id": "NCF-FEN-007",
+      "title": "Cap or instrument revision change blocks stale transfer",
+      "class": "stale_transfer_policy",
+      "attack": "A relevant cap or profile revision changes after the allocation snapshot was read.",
+      "expected": "reject_stale_revision",
+      "code_test": null,
+      "execution_status": "spec_only_not_implemented"
+    },
+    {
+      "id": "NCF-FEN-008",
+      "title": "Last-unit race accepts at most one claimant",
+      "class": "concurrent_last_unit",
+      "attack": "Race 100 attempts against one remaining unit using the selected control authority.",
+      "expected": "at_most_one_successful_transition",
+      "code_test": null,
+      "execution_status": "spec_only_not_implemented"
+    },
+    {
+      "id": "NCF-FEN-009",
+      "title": "Unreachable owner retains charged capacity without an authoritative fence",
+      "class": "partitioned_owner_unreachable",
+      "attack": "The old owner is partitioned and cannot provide a drain acknowledgement; no qualified linearizable/quorum fence is available.",
+      "expected": "no_capacity_reclamation",
+      "code_test": null,
+      "execution_status": "spec_only_not_implemented"
+    },
+    {
+      "id": "NCF-FEN-010",
+      "title": "Receipt reordering converges deterministically",
+      "class": "reordered_control_receipts",
+      "attack": "Deliver valid receipt dependencies out of order and then make all required dependencies available.",
+      "expected": "deterministic_final_state_no_early_spend",
+      "code_test": null,
+      "execution_status": "spec_only_not_implemented"
+    },
+    {
+      "id": "NCF-FEN-011",
+      "title": "Unknown pending exposure makes transferable amount unknown",
+      "class": "pending_exposure_unknown",
+      "attack": "The terminal outstanding amount is known but one possible in-flight operation cannot be reconciled.",
+      "expected": "no_successful_transfer",
+      "code_test": null,
+      "execution_status": "spec_only_not_implemented"
+    },
+    {
+      "id": "NCF-FEN-012",
+      "title": "Prepare/commit recovery never frees capacity between owners",
+      "class": "transfer_gap_double_spend",
+      "attack": "Interrupt transfer between old-allocation debit and new-allocation credit, then run deterministic recovery.",
+      "expected": "capacity_remains_charged_until_single_commit",
+      "code_test": null,
+      "execution_status": "spec_only_not_implemented"
     }
   ]
 }
