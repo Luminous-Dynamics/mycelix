@@ -28,6 +28,7 @@ Every run records:
 - exact split-manifest BLAKE3 and the complete trajectory ID set for the selected role;
 - immutable 40-hex system and evaluator revisions;
 - model, prompt, policy-gate, candidate schema, observations, oracle, scorer, verifier, protocol, mutation-matrix, and execution-environment digests;
+- for B1, separate digests for the pinned Symthaea advisor implementation/configuration and the exact advice payload supplied to the tutor;
 - explicit sampling configuration (temperature/top-p scaled integers, maximum output tokens, seed);
 - BLAKE3 of the emitted prediction artifact;
 - an artifact catalog with unique IDs, roles, digests, and declared access audience.
@@ -36,7 +37,7 @@ The public `materialize_candidate_observations` function projects the full sourc
 
 ## Candidate/evaluator separation
 
-The only candidate-visible artifact roles are observation manifest, observation schema, and candidate policy. Oracle, split assignments, scorer, verifier, protocol, and mutation matrix are evaluator-only. The validator requires the catalog and explicit audience lists to match, with each required role present exactly once.
+The candidate-visible artifact roles are observation manifest, observation schema, and candidate policy; B1 additionally declares the exact Symthaea advice payload as an advisor-output artifact. Oracle, split assignments, scorer, verifier, protocol, and mutation matrix are evaluator-only. B0 must not declare an advisor implementation or output. The validator requires the catalog and explicit audience lists to match, with each required role present exactly once.
 
 This detects an inconsistent or self-contradictory run manifest; it does **not** prove that a remote model never received hidden content. Real evaluation must enforce separation in the harness and, where possible, produce independently verifiable access/ingestion receipts. A declaration in a JSON file is not a security boundary.
 
@@ -48,13 +49,13 @@ This detects an inconsistent or self-contradictory run manifest; it does **not**
 - the same observation, candidate-schema, oracle, scorer, verifier, protocol, and mutation-matrix digests;
 - identical base system ID/revision, model and prompt configurations, policy-gate digests, and evaluator revision;
 - identical sampling settings and execution-environment digest;
-- distinct run IDs, no advisor artifact for B0, and a pinned advisor artifact digest for B1.
+- distinct run IDs; no advisor implementation or output artifact for B0; and pinned advisor implementation plus advice-output digests for B1.
 
-The base system ID/revision and model/prompt configuration must be identical; only the advisor mode, pinned advisor artifact, run ID, and run output can differ. Policy gates, data, evaluator, sample set, sampling budget, and execution environment cannot drift. The pair validator does not itself execute a model, prove causation, or compute outcome statistics.
+The base system ID/revision and model/prompt configuration must be identical; only advisor mode, the B1-only pinned advisor implementation/output artifacts, run ID, and prediction output can differ. Policy gates, data, evaluator, sample set, sampling budget, and execution environment cannot drift. The pair validator does not itself execute a model, prove causation, or compute outcome statistics.
 
 ## Synthetic negative controls
 
-The 17-row matrix exercises valid run identity, duplicate-trajectory rejection, diagnostic-family leakage, held-out-family declaration mismatch, exact-byte split and candidate-data binding (including formatting-only mutations), attempted oracle visibility, all-splits data leakage, and B0/B1 drift in policy gates, base model/prompt/revision, or test trajectories. It also self-audits mutation IDs against named Rust test definitions.
+The 18-row matrix exercises valid run identity, duplicate-trajectory rejection, diagnostic-family leakage, held-out-family declaration mismatch, exact-byte split and candidate-data binding (including formatting-only mutations), attempted oracle visibility, all-splits data leakage, and B0/B1 drift in policy gates, base model/prompt/revision, or test trajectories. It also self-audits mutation IDs against named Rust test definitions.
 
 ## Proposed qualification targets
 
