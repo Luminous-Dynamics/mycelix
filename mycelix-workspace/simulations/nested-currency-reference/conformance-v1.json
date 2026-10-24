@@ -139,6 +139,11 @@
       "id": "NCF-PART-I-001",
       "name": "Aggregate reservation rights are non-overlapping across shards",
       "statement": "For each exact capacity/instrument domain, the sum of shard reservations never exceeds the configured aggregate budget; every shard's outstanding exposure remains within its own allocated slice, including during partitioned operation."
+    },
+    {
+      "id": "NCF-PART-I-002",
+      "name": "Shard allocation rights are frozen during a partition",
+      "statement": "After a partition begins, the reserved-capacity vector for the affected budget domain remains unchanged until the partition heals or an explicitly coordinated fencing/reconciliation protocol authorizes reallocation."
     }
   ],
   "conformance_cases": [
@@ -764,11 +769,15 @@
         "duplicate_allocation_mutant_sha256",
         "duplicate_allocation_mutant_config_sha256",
         "duplicate_allocation_mutant_log_sha256",
-        "duplicate_allocation_mutant_detected_expected_invariant"
+        "duplicate_allocation_mutant_detected_expected_invariant",
+        "partition_resize_mutant_sha256",
+        "partition_resize_mutant_config_sha256",
+        "partition_resize_mutant_log_sha256",
+        "partition_resize_mutant_detected_expected_invariant"
       ],
       "execution_status": "design_not_run",
       "claim_ceiling": "A deterministic state-machine/model-checker result only for the declared authority and fault model. It does not prove production Holochain behavior, legal settlement, cryptographic key security or safety outside the explored model.",
-      "methodology": "Run the bounded NCF-FEN safe lifecycle model and the NCF-ESCROW two-shard safe model at Capacity=2, MaxSteps/MaxOps=4; require both to complete without invariant violations. Then require three unsafe mutants to be detected specifically: timeout-only reallocation -> NoTransferWithoutFence; stale-owner write after transfer -> NoOldWriteOutsideActive; duplicate full-budget allocation across shards -> ReservedCapacityBound. Parser/tool failures do not count as detection. These results are not yet confirmed. Then qualify the independent transition oracle and exhaust small interleavings. Extend with at least 10,000 reproducible schedules for retries, duplicate/reordered/dropped receipts, stale-owner writes, crashes and partition/heal traces. Keep honest-crash and adversarial-owner campaigns separate. Compare static-quota, acknowledged-drain and any linearizable/quorum mode under identical traces. Any safety violation fails the campaign; utilization and latency are reported only alongside correctness results. The fail-closed runner requires a clean checkout and caller-supplied TLA2TOOLS_JAR; it records source/model/config/JAR hashes and raw logs outside the repository.",
+      "methodology": "Run the bounded NCF-FEN safe lifecycle model and the NCF-ESCROW two-shard safe model at Capacity=2 and four operation steps; require both to complete without invariant violations. The escrow model freezes its reservation vector during a partition. Then require four unsafe mutants to be detected specifically: timeout-only reallocation -> NoTransferWithoutFence; stale-owner write after transfer -> NoOldWriteOutsideActive; duplicate full-budget allocation across shards -> ReservedCapacityBound; resizing a shard's reservation during a partition -> PartitionedReservationsStayFixed. Parser/tool failures do not count as detection. These results are not yet confirmed. Then qualify the independent transition oracle and exhaust small interleavings. Extend with at least 10,000 reproducible schedules for retries, duplicate/reordered/dropped receipts, stale-owner writes, crashes and partition/heal traces. Keep honest-crash and adversarial-owner campaigns separate. Compare static-quota, acknowledged-drain and any linearizable/quorum mode under identical traces. Any safety violation fails the campaign; utilization and latency are reported only alongside correctness results. The fail-closed runner requires a clean checkout and caller-supplied TLA2TOOLS_JAR; it records source/model/config/JAR hashes and raw logs outside the repository.",
       "formal_model_path": "mycelix-workspace/simulations/nested-currency-reference/formal/NCF_FEN_1.tla",
       "formal_config_path": "mycelix-workspace/simulations/nested-currency-reference/formal/NCF_FEN_1.cfg",
       "negative_control_model_path": "mycelix-workspace/simulations/nested-currency-reference/formal/NCF_FEN_1_TimeoutMutant.tla",
@@ -781,7 +790,7 @@
       },
       "runner_path": "mycelix-workspace/simulations/nested-currency-reference/run-ncf-fen-tlc.sh",
       "workflow_path": ".github/workflows/ncf-fen-model-check.yml",
-      "workflow_claim_ceiling": "The dedicated draft-PR workflow checks two finite TLA+ models and sensitivity to three deliberately unsafe mutants only; it does not qualify the Rust implementation, distributed concurrency, Holochain validators, or 10,000-schedule model checking.",
+      "workflow_claim_ceiling": "The dedicated draft-PR workflow checks two finite TLA+ models and sensitivity to four deliberately unsafe mutants only; it does not qualify the Rust implementation, distributed concurrency, Holochain validators, or 10,000-schedule model checking.",
       "negative_control_mutants": [
         {
           "name": "timeout_reallocation",
@@ -800,6 +809,12 @@
           "model": "formal/NCF_ESCROW_1_DuplicateAllocationMutant.tla",
           "config": "formal/NCF_ESCROW_1_DuplicateAllocationMutant.cfg",
           "expected_invariant": "ReservedCapacityBound"
+        },
+        {
+          "name": "partition_resize",
+          "model": "formal/NCF_ESCROW_1_PartitionResizeMutant.tla",
+          "config": "formal/NCF_ESCROW_1_PartitionResizeMutant.cfg",
+          "expected_invariant": "PartitionedReservationsStayFixed"
         }
       ],
       "tla2tools_build_tag": "tla2tools-2026.08.11.125311",
@@ -979,6 +994,18 @@
       "seed": "0x4e43462d46454e31",
       "scenarios": 10000,
       "claim_ceiling": "Deterministic generated sequential Rust reference-model regression only; not concurrent interleavings, exhaustive formal proof, or Holochain multi-agent evidence."
+    },
+    {
+      "id": "NCF-PART-011",
+      "title": "Independent formal checker detects reservation resizing during a partition",
+      "class": "partition_budget_mutation",
+      "attack": "Mutate a shard's allocated slice while the model is partitioned, despite the protocol requiring reservation rights to remain frozen.",
+      "expected": "counterexample_violating_PartitionedReservationsStayFixed",
+      "code_test": null,
+      "formal_model": "formal/NCF_ESCROW_1_PartitionResizeMutant.tla",
+      "formal_config": "formal/NCF_ESCROW_1_PartitionResizeMutant.cfg",
+      "formal_invariant": "PartitionedReservationsStayFixed",
+      "execution_status": "formal_negative_control_defined_not_run"
     }
   ],
   "qualification_campaigns": [
