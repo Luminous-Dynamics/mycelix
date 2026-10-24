@@ -266,6 +266,56 @@ pub fn validate_trajectory_split(
     if findings.is_empty() { Ok(split) } else { Err(findings) }
 }
 
+/// Materialize a candidate-visible dataset containing exactly the complete
+/// trajectories assigned to one split role. This is the split firewall used
+/// before model invocation; the candidate never receives the split manifest,
+/// oracle, scorer, verifier, or mutation matrix through this projection.
+pub fn materialize_candidate_observations(
+    full_observations_json: &str,
+    split_json: &str,
+    role: SplitRole,
+) -> Result<String, Vec<IntegrityFinding>> {
+    let mut observations: TemporalManifest = match serde_json::from_str(full_observations_json) {
+        Ok(value) => value,
+        Err(error) => return Err(parse_error("full_observations", error)),
+    };
+    let split = validate_trajectory_split(split_json)?;
+    let mut findings = Vec::new();
+    if observations.schema_version != 1 || observations.benchmark_id != TUTOR_BENCHMARK_ID {
+        findings.push(finding("candidate_observation_identity_mismatch", "source observation manifest has an unsupported schema or benchmark ID"));
+    }
+
+    let expected_all: BTreeSet<String> = split.assignments.iter()
+        .map(|assignment| assignment.trajectory_id.clone())
+        .collect();
+    let mut observed_all = BTreeSet::new();
+    for case in &observations.cases {
+        if !nonempty(&case.case_id) || !observed_all.insert(case.case_id.clone()) {
+            findings.push(finding("duplicate_or_empty_source_trajectory", "source observation case IDs must be non-empty and unique"));
+        }
+        if case.observations.is_empty() {
+            findings.push(finding("empty_source_trajectory", format!("trajectory {} has no observations", case.case_id)));
+        }
+    }
+    if observed_all != expected_all {
+        findings.push(finding("source_dataset_split_mismatch", "the full source observation manifest must cover exactly the trajectories in the validated split manifest"));
+    }
+    if !findings.is_empty() {
+        return Err(findings);
+    }
+
+    let wanted: BTreeSet<String> = split.assignments.iter()
+        .filter(|assignment| assignment.split == role)
+        .map(|assignment| assignment.trajectory_id.clone())
+        .collect();
+    observations.cases.retain(|case| wanted.contains(&case.case_id));
+    if observations.cases.is_empty() {
+        return Err(vec![finding("empty_materialized_split", "materialized candidate observation manifest cannot be empty")]);
+    }
+    serde_json::to_string_pretty(&observations)
+        .map_err(|error| parse_error("materialized_observations", error))
+}
+
 fn expected_audience(role: ArtifactRole) -> ArtifactAudience {
     match role {
         ArtifactRole::ObservationManifest | ArtifactRole::ObservationSchema | ArtifactRole::CandidatePolicy => ArtifactAudience::CandidateVisible,
@@ -527,16 +577,7 @@ mod tests {
     }
 
     fn candidate_dataset_for_role(split_json: &str, role: SplitRole) -> String {
-        let split: TrajectorySplitManifest = serde_json::from_str(split_json).unwrap();
-        let wanted: BTreeSet<String> = split.assignments.iter()
-            .filter(|assignment| assignment.split == role)
-            .map(|assignment| assignment.trajectory_id.clone())
-            .collect();
-        let mut dataset: serde_json::Value = serde_json::from_str(OBSERVATIONS).unwrap();
-        dataset["cases"].as_array_mut().unwrap().retain(|case| {
-            case["case_id"].as_str().is_some_and(|id| wanted.contains(id))
-        });
-        serde_json::to_string_pretty(&dataset).unwrap()
+        materialize_candidate_observations(OBSERVATIONS, split_json, role).expect("valid source/split fixture")
     }
 
     fn run_manifest(split_json: &str, mode: AdvisorMode, run_id: &str) -> BenchmarkRunManifest {
@@ -597,6 +638,29 @@ mod tests {
             evaluator_only_artifact_ids: vec!["oracle".to_owned(), "split-assignments".to_owned(), "scorer".to_owned(), "verifier".to_owned(), "protocol".to_owned(), "mutation-matrix".to_owned()],
             artifacts,
         }
+    }
+
+    #[test]
+    fn materializer_emits_only_complete_trajectories_for_requested_role() {
+        let candidate_json = candidate_dataset_for_role(SPLIT, SplitRole::Test);
+        let candidate: TemporalManifest = serde_json::from_str(&candidate_json).unwrap();
+        let ids: BTreeSet<String> = candidate.cases.iter().map(|case| case.case_id.clone()).collect();
+        let split = validate_trajectory_split(SPLIT).unwrap();
+        let expected: BTreeSet<String> = split.assignments.iter()
+            .filter(|assignment| assignment.split == SplitRole::Test)
+            .map(|assignment| assignment.trajectory_id.clone())
+            .collect();
+        assert_eq!(ids, expected);
+        assert_eq!(candidate.cases.len(), 3);
+    }
+
+    #[test]
+    fn materializer_rejects_incomplete_source_dataset() {
+        let mut source: serde_json::Value = serde_json::from_str(OBSERVATIONS).unwrap();
+        source["cases"].as_array_mut().unwrap().remove(0);
+        let errors = materialize_candidate_observations(&source.to_string(), SPLIT, SplitRole::Test)
+            .expect_err("incomplete source data must not be used to construct a split");
+        assert!(errors.iter().any(|error| error.code == "source_dataset_split_mismatch"));
     }
 
     #[test]
@@ -771,6 +835,6 @@ mod tests {
             let test_name = entry["test_name"].as_str().unwrap();
             assert!(source.contains(&format!("fn {test_name}(")), "matrix row {id} points to missing test {test_name}");
         }
-        assert_eq!(entries.len(), 15);
+        assert_eq!(entries.len(), 17);
     }
 }
