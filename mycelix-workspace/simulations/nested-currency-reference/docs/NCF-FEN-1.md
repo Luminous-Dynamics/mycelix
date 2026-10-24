@@ -92,7 +92,7 @@ Compare static-quota baseline, acknowledged-drain mode, and any linearizable/quo
 
 ### Independent bounded model and negative control
 
-An independent finite TLA+ abstraction is now drafted under [`formal/NCF_FEN_1.tla`](../formal/NCF_FEN_1.tla), with a small TLC configuration and a deliberately unsafe timeout-reallocation mutant. The mutant should violate `NoTransferWithoutFence` by transferring while merely `DRAIN_REQUESTED`. The safe check should have no invariant violations at `Capacity = 2`, `MaxSteps = 4`; the mutant check should return a counterexample. **Neither outcome has been executed or confirmed yet.**
+An independent finite TLA+ abstraction is now drafted under [`formal/NCF_FEN_1.tla`](../formal/NCF_FEN_1.tla), with a small TLC configuration and two deliberately unsafe mutants. The timeout-reallocation mutant should violate `NoTransferWithoutFence` by transferring while merely `DRAIN_REQUESTED`; the stale-owner mutant should violate `NoOldWriteOutsideActive` by allowing the prior owner to commit a new obligation after transfer. The safe check should have no invariant violations at `Capacity = 2`, `MaxSteps = 4`; each mutant check should return a counterexample to its named invariant. **None of these outcomes has been executed or confirmed yet.**
 
 See [the formal model instructions](../formal/README.md). This follows the established Mycelix model-checking pattern in [#5091](https://github.com/Luminous-Dynamics/mycelix/issues/5091): the positive model is insufficient unless deliberately unsafe mutations are detected. TLC is useful for exhaustive exploration of the declared finite abstraction; it is not an unbounded proof or a substitute for a distributed runtime test.
 
