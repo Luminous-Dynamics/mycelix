@@ -237,6 +237,7 @@ pub fn allocate_static_escrow(
     slices.sort_by(|a, b| a.shard_id.cmp(&b.shard_id));
 
     let plan = AllocationPlan {
+        instrument_id: canonical_instrument,
         total_capacity,
         spendable_capacity: spendable,
         contingency_reserve: reserve,
