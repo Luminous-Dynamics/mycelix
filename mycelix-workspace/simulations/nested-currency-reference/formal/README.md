@@ -1,6 +1,6 @@
 # NCF-FEN-1 bounded formal model
 
-This folder contains independent TLA+ abstractions of the risk-right fencing lifecycle and the two-shard escrow budget, plus three deliberately unsafe mutants. None of the models or mutants has been executed in the current environment; treat them as model definitions, not proof receipts.
+This folder contains independent TLA+ abstractions of the risk-right fencing lifecycle and the two-shard escrow budget, plus four deliberately unsafe mutants. None of the models or mutants has been executed in the current environment; treat them as model definitions, not proof receipts.
 
 ## Contents
 
@@ -11,6 +11,7 @@ This folder contains independent TLA+ abstractions of the risk-right fencing lif
 - `NCF_FEN_1_StaleOwnerMutant.tla` and its config: a stale old owner writes after transfer; **expected failure** on `NoOldWriteOutsideActive`.
 - `NCF_ESCROW_1.tla` and config: two-shard escrow model with disjoint reservations, bounded local spending, and aggregate-cap invariants.
 - `NCF_ESCROW_1_DuplicateAllocationMutant.tla` and config: gives a second shard the full budget while another shard already owns a slice; **expected failure** on `ReservedCapacityBound`.
+- `NCF_ESCROW_1_PartitionResizeMutant.tla` and config: mutates a shard reservation while partitioned; **expected failure** on `PartitionedReservationsStayFixed`.
 
 ## Running TLC
 
@@ -44,7 +45,7 @@ The draft branch includes [`.github/workflows/ncf-fen-model-check.yml`](../../..
 
 The upstream TLA+ v1.8.0 tag is a rolling prerelease channel, not an immutable byte-level pin; the project has documented artifact changes without a version bump ([tlaplus/tlaplus#1399](https://github.com/tlaplus/tlaplus/issues/1399)). The workflow therefore uses the immutable mirror release `tla2tools-2026.08.11.125311`, which identifies its mirrored build and publishes SHA-256 `ab323b79802aedc3203b3f9af37c6aca3ed43f4e0225b36f2aa77b26de46c05f` ([mirror release](https://github.com/zactionsz/tla-tools/releases/tag/tla2tools-2026.08.11.125311)). The checksum is verified before running the model.
 
-The workflow has been committed, but no completed result is asserted here. A job that is queued/running/skipped—or a log that only shows a parser failure—does not qualify the model. Qualification requires both safe models to complete with no invariant violations, the timeout mutant to fail specifically on `NoTransferWithoutFence`, the stale-owner mutant to fail specifically on `NoOldWriteOutsideActive`, and the duplicate-allocation mutant to fail specifically on `ReservedCapacityBound`.
+The workflow has been committed, but no completed result is asserted here. A job that is queued/running/skipped—or a log that only shows a parser failure—does not qualify the model. Qualification requires both safe models to complete with no invariant violations, the timeout mutant to fail specifically on `NoTransferWithoutFence`, the stale-owner mutant to fail specifically on `NoOldWriteOutsideActive`, the duplicate-allocation mutant to fail specifically on `ReservedCapacityBound`, and the partition-resize mutant to fail specifically on `PartitionedReservationsStayFixed`.
 
 ## What this model captures
 
