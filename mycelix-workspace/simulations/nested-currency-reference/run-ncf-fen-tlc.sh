@@ -53,6 +53,14 @@ java_version="$(java -version 2>&1 | sed -n '1p' | tr -cd '[:alnum:]._- ')"
   exit 1
 }
 
+safe_stats="$(grep -E 'states generated, .*distinct states found' "$safe_log" | tail -n 1 || true)"
+if [[ -z "$safe_stats" ]]; then
+  cat "$safe_log" >&2
+  echo "could not identify TLC state statistics in the safe-model log" >&2
+  exit 1
+fi
+safe_stats="$(printf '%s' "$safe_stats" | tr -cd '[:alnum:],. _-')"
+
 set +e
 (
   cd "$formal_dir"
@@ -89,6 +97,7 @@ cat >"$receipt" <<EOF
   "safe_model_status": "passed",
   "negative_control_status": "expected_failure_detected",
   "negative_control_invariant": "$expected_invariant",
+  "safe_model_state_statistics_line": "$safe_stats",
   "safe_log_sha256": "$safe_log_sha",
   "negative_control_log_sha256": "$mutant_log_sha",
   "claim_ceiling": "bounded TLA+ abstraction only; not a proof of production Holochain, cryptographic authority, or unbounded distributed safety"
@@ -96,6 +105,8 @@ cat >"$receipt" <<EOF
 EOF
 
 echo "NCF-FEN bounded formal campaign qualified for this exact checkout."
+receipt_sha="$(sha256sum "$receipt" | awk '{print $1}')"
 echo "receipt: $receipt"
+echo "receipt sha256: $receipt_sha"
 echo "safe log sha256: $safe_log_sha"
 echo "expected-negative-control log sha256: $mutant_log_sha"
