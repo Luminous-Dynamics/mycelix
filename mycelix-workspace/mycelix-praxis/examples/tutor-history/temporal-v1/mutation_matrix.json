@@ -162,6 +162,27 @@
       "mutation": "Assign zero uncertainty to a local-store timestamp.",
       "expected": "Reject the manifest; only the declared assessment-server event time and server-receipt record time classes may use zero uncertainty.",
       "test_name": "local_store_timestamp_requires_nonzero_uncertainty"
+    },
+    {
+      "id": "TEMP-024",
+      "kind": "negative_control",
+      "mutation": "Give an observation occurrence-time interval that overlaps its record-time interval even though both are before the evaluation cutoff.",
+      "expected": "Classify event-vs-record chronology as ambiguous instead of accepting the point estimates as ordered.",
+      "test_name": "overlapping_event_record_intervals_are_ambiguous"
+    },
+    {
+      "id": "TEMP-025",
+      "kind": "metamorphic_control",
+      "mutation": "Increase occurrence-time uncertainty over a fixed sequence of bounds while event and record centers coincide.",
+      "expected": "Once event-record order becomes ambiguous, any larger uncertainty must not restore eligible status.",
+      "test_name": "widening_time_uncertainty_never_turns_ambiguous_evidence_eligible"
+    },
+    {
+      "id": "TEMP-026",
+      "kind": "negative_control",
+      "mutation": "Use evidence with overlapping event/record time intervals as the sole supporting reference for a claim.",
+      "expected": "Reject it as temporally ungrounded and count a dedicated ambiguous event-record-order violation.",
+      "test_name": "claim_citing_ambiguous_event_record_order_is_critical"
     }
   ]
 }
