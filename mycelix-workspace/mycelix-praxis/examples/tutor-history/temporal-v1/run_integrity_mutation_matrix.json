@@ -85,6 +85,20 @@
       "mutation": "Change the base system revision, model configuration, or prompt configuration between B0 and B1 while keeping the same policy-gate hash.",
       "expected": "Reject the paired ablation because the advisor is no longer the only intervention being tested.",
       "test_name": "b0_b1_model_prompt_and_revision_drift_are_rejected"
+    },
+    {
+      "id": "RUN-013",
+      "kind": "positive_control",
+      "mutation": "Create a candidate-visible observation manifest containing exactly the complete trajectories assigned to the run's split role and bind the exact bytes.",
+      "expected": "Accept the run only when the visible case set and exact observation-manifest digest both match.",
+      "test_name": "candidate_observation_digest_binds_exact_split_subset_bytes"
+    },
+    {
+      "id": "RUN-014",
+      "kind": "negative_control",
+      "mutation": "Give a test-only run the full observation manifest that includes training and validation trajectories.",
+      "expected": "Reject with candidate_split_leakage and observation_manifest_digest_mismatch.",
+      "test_name": "candidate_receiving_all_trajectories_is_rejected_as_split_leakage"
     }
   ]
 }
