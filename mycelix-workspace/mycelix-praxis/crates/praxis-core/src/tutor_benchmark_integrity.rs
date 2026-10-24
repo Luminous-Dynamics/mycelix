@@ -90,6 +90,7 @@ pub enum ArtifactRole {
     ObservationManifest,
     ObservationSchema,
     CandidatePolicy,
+    AdvisorOutput,
     Oracle,
     SplitAssignments,
     Scorer,
@@ -124,8 +125,12 @@ pub struct SystemIdentity {
     pub prompt_config_blake3: String,
     pub policy_gate_blake3: String,
     pub advisor_mode: AdvisorMode,
+    /// Pinned advisor implementation/configuration artifact (B1 only).
     #[serde(deserialize_with = "required_option")]
     pub advisor_artifact_blake3: Option<String>,
+    /// Exact digest of the suggestion payload supplied to the candidate (B1 only).
+    #[serde(deserialize_with = "required_option")]
+    pub advisor_output_blake3: Option<String>,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
@@ -318,7 +323,7 @@ pub fn materialize_candidate_observations(
 
 fn expected_audience(role: ArtifactRole) -> ArtifactAudience {
     match role {
-        ArtifactRole::ObservationManifest | ArtifactRole::ObservationSchema | ArtifactRole::CandidatePolicy => ArtifactAudience::CandidateVisible,
+        ArtifactRole::ObservationManifest | ArtifactRole::ObservationSchema | ArtifactRole::CandidatePolicy | ArtifactRole::AdvisorOutput => ArtifactAudience::CandidateVisible,
         ArtifactRole::Oracle | ArtifactRole::SplitAssignments | ArtifactRole::Scorer | ArtifactRole::Verifier | ArtifactRole::BenchmarkProtocol | ArtifactRole::MutationMatrix => ArtifactAudience::EvaluatorOnly,
     }
 }
@@ -328,6 +333,7 @@ fn digest_for_role(run: &BenchmarkRunManifest, role: ArtifactRole) -> &str {
         ArtifactRole::ObservationManifest => &run.observation_manifest_blake3,
         ArtifactRole::ObservationSchema => &run.candidate_schema_blake3,
         ArtifactRole::CandidatePolicy => &run.system.policy_gate_blake3,
+        ArtifactRole::AdvisorOutput => run.system.advisor_output_blake3.as_deref().unwrap_or(""),
         ArtifactRole::Oracle => &run.oracle_blake3,
         ArtifactRole::SplitAssignments => &run.split_manifest_blake3,
         ArtifactRole::Scorer => &run.scorer_blake3,
@@ -399,11 +405,16 @@ pub fn validate_benchmark_run(
     if run.sampling.temperature_milli > 5000 {
         findings.push(finding("invalid_sampling_config", "temperature exceeds the protocol's 5.0 limit"));
     }
-    match (run.system.advisor_mode, run.system.advisor_artifact_blake3.as_deref()) {
-        (AdvisorMode::Baseline, None) => {}
-        (AdvisorMode::Baseline, Some(_)) => findings.push(finding("baseline_has_advisor_artifact", "baseline runs must not include an advisor artifact")),
-        (AdvisorMode::SymthaeaAssisted, Some(digest)) if is_digest(digest) => {}
-        (AdvisorMode::SymthaeaAssisted, _) => findings.push(finding("missing_advisor_artifact", "Symthaea-assisted runs require a pinned advisor artifact digest")),
+    match (
+        run.system.advisor_mode,
+        run.system.advisor_artifact_blake3.as_deref(),
+        run.system.advisor_output_blake3.as_deref(),
+    ) {
+        (AdvisorMode::Baseline, None, None) => {}
+        (AdvisorMode::Baseline, _, _) => findings.push(finding("baseline_has_advisor_artifact", "baseline runs must not include an advisor implementation or output artifact")),
+        (AdvisorMode::SymthaeaAssisted, Some(artifact_digest), Some(output_digest))
+            if is_digest(artifact_digest) && is_digest(output_digest) => {}
+        (AdvisorMode::SymthaeaAssisted, _, _) => findings.push(finding("missing_advisor_artifact", "Symthaea-assisted runs require pinned advisor implementation and output digests")),
     }
 
     let assignments_for_role: BTreeSet<String> = split.assignments.iter()
@@ -474,7 +485,7 @@ pub fn validate_benchmark_run(
         }
     }
 
-    let required_roles = [
+    let mut required_roles = [
         ArtifactRole::ObservationManifest,
         ArtifactRole::ObservationSchema,
         ArtifactRole::CandidatePolicy,
@@ -485,6 +496,9 @@ pub fn validate_benchmark_run(
         ArtifactRole::BenchmarkProtocol,
         ArtifactRole::MutationMatrix,
     ].into_iter().collect::<BTreeSet<_>>();
+    if run.system.advisor_mode == AdvisorMode::SymthaeaAssisted {
+        required_roles.insert(ArtifactRole::AdvisorOutput);
+    }
     if roles != required_roles {
         findings.push(finding("artifact_role_set_mismatch", "run artifact catalog must contain each required role exactly once"));
     }
@@ -598,8 +612,9 @@ mod tests {
             policy_gate_blake3: digest('d'),
             advisor_mode: mode,
             advisor_artifact_blake3: match mode { AdvisorMode::Baseline => None, AdvisorMode::SymthaeaAssisted => Some(digest('e')) },
+            advisor_output_blake3: match mode { AdvisorMode::Baseline => None, AdvisorMode::SymthaeaAssisted => Some(digest('g')) },
         };
-        let artifact_defs = [
+        let mut artifact_defs = vec![
             ("observations", ArtifactRole::ObservationManifest, ArtifactAudience::CandidateVisible, observation_digest.clone()),
             ("observation-schema", ArtifactRole::ObservationSchema, ArtifactAudience::CandidateVisible, digest('2')),
             ("candidate-policy", ArtifactRole::CandidatePolicy, ArtifactAudience::CandidateVisible, digest('d')),
@@ -610,6 +625,9 @@ mod tests {
             ("protocol", ArtifactRole::BenchmarkProtocol, ArtifactAudience::EvaluatorOnly, digest('6')),
             ("mutation-matrix", ArtifactRole::MutationMatrix, ArtifactAudience::EvaluatorOnly, digest('7')),
         ];
+        if mode == AdvisorMode::SymthaeaAssisted {
+            artifact_defs.push(("advisor-output", ArtifactRole::AdvisorOutput, ArtifactAudience::CandidateVisible, digest('g')));
+        }
         let artifacts = artifact_defs.iter().map(|(id, role, audience, digest)| RunArtifact {
             artifact_id: (*id).to_owned(), role: *role, audience: *audience, digest_blake3: (*digest).clone()
         }).collect();
@@ -634,7 +652,11 @@ mod tests {
             mutation_matrix_blake3: digest('7'),
             evaluator_revision: revision('9'),
             predictions_blake3: digest('f'),
-            candidate_visible_artifact_ids: vec!["observations".to_owned(), "observation-schema".to_owned(), "candidate-policy".to_owned()],
+            candidate_visible_artifact_ids: {
+                let mut ids = vec!["observations".to_owned(), "observation-schema".to_owned(), "candidate-policy".to_owned()];
+                if mode == AdvisorMode::SymthaeaAssisted { ids.push("advisor-output".to_owned()); }
+                ids
+            },
             evaluator_only_artifact_ids: vec!["oracle".to_owned(), "split-assignments".to_owned(), "scorer".to_owned(), "verifier".to_owned(), "protocol".to_owned(), "mutation-matrix".to_owned()],
             artifacts,
         }
@@ -824,6 +846,16 @@ mod tests {
     }
 
     #[test]
+    fn b1_advisor_output_digest_must_match_candidate_artifact_catalog() {
+        let split_data = candidate_dataset_for_role(SPLIT, SplitRole::Test);
+        let mut augmented = run_manifest(SPLIT, AdvisorMode::SymthaeaAssisted, "b1-test-run");
+        augmented.system.advisor_output_blake3 = Some(digest('0'));
+        let errors = validate_benchmark_run(&serde_json::to_string(&augmented).unwrap(), SPLIT, &split_data)
+            .expect_err("advisor output digest and candidate artifact catalog must agree");
+        assert!(errors.iter().any(|error| error.code == "artifact_digest_binding_mismatch"));
+    }
+
+    #[test]
     fn mutation_matrix_is_closed_and_test_linked() {
         let matrix: serde_json::Value = serde_json::from_str(include_str!("../examples/tutor-history/temporal-v1/run_integrity_mutation_matrix.json")).unwrap();
         let entries = matrix["entries"].as_array().unwrap();
@@ -835,6 +867,6 @@ mod tests {
             let test_name = entry["test_name"].as_str().unwrap();
             assert!(source.contains(&format!("fn {test_name}(")), "matrix row {id} points to missing test {test_name}");
         }
-        assert_eq!(entries.len(), 17);
+        assert_eq!(entries.len(), 18);
     }
 }
