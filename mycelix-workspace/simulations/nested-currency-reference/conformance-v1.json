@@ -7,7 +7,7 @@
   "status": "proposed_not_qualified",
   "execution_evidence": {
     "status": "not_run",
-    "reason": "The static escrow allocator and its expanded six-policy benchmark remain uncompiled and unexecuted in this environment. Exact-head Rust/TLA+ qualification and multi-agent/Holochain evidence remain outstanding."
+    "reason": "Allocator tests and the expanded six-policy, twelve-report benchmark are committed but have not been compiled or run here. Exact-head Rust/TLA+ evidence and distributed/multi-agent qualification remain outstanding."
   },
   "claim_ceiling": [
     "Reference-model conformance only when executed against a named source revision.",
@@ -990,9 +990,12 @@
         "held_out_demand_served_fraction",
         "forecast_error",
         "prepartition_reallocation_overhead_ns",
-        "essential_service_demand_served_fraction"
+        "essential_service_demand_served_fraction",
+        "policy",
+        "demand_mode",
+        "policy_mode_report_count"
       ],
-      "methodology": "Run the exact same deterministic demand/fault traces against each implemented policy and matched hardware/toolchains. Report results only after hard safety gates pass. Plot a Pareto frontier across economic demand served, safely reclaimable versus stranded capacity, tail latency, and compute cost; do not collapse outcomes into a single weighted score. Separate unreachable-owner partitions from honest crash/restart and byzantine-owner campaigns. Include ablations for priority classes and rebalancing policy. Add a low-risk paradigm-shift baseline: optimize the placement of already-authorized, non-overlapping slices before the partition, using training demand traces and robust quantiles. Evaluate on held-out and shifted workloads, and never allow the forecast to enlarge/reassign rights during the partition. This isolates safe capacity-placement improvements from risky online reclamation. An executable dependency-free Rust allocator and benchmark were added. It uses checked integer arithmetic, stable shard-ID tie-breaking, and largest-remainder apportionment; the benchmark compares three policies on the same generated stationary and shifted trace sets. Its current generator is synthetic and single-process. Run the exact-head wrapper, then replace/augment synthetic traces with independently sourced demand profiles before making real-world claims. The executable simulator includes 25%, 50%, and 75% equal-floor variants, creating a small safety-preserving frontier between historical utilization and resilience to demand-shape changes. These variants affect only the initial static placement and cannot resize allocations in a partition.",
+      "methodology": "Run the exact same deterministic demand/fault traces against each implemented policy and matched hardware/toolchains. Report results only after hard safety gates pass. Plot a Pareto frontier across economic demand served, safely reclaimable versus stranded capacity, tail latency, and compute cost; do not collapse outcomes into a single weighted score. Separate unreachable-owner partitions from honest crash/restart and byzantine-owner campaigns. Include ablations for priority classes and rebalancing policy. Add a low-risk paradigm-shift baseline: optimize the placement of already-authorized, non-overlapping slices before the partition, using training demand traces and robust quantiles. Evaluate on held-out and shifted workloads, and never allow the forecast to enlarge/reassign rights during the partition. This isolates safe capacity-placement improvements from risky online reclamation. An executable dependency-free Rust allocator and benchmark were added. It uses checked integer arithmetic, stable shard-ID tie-breaking, and largest-remainder apportionment; the benchmark compares six policies on the same generated stationary and shifted trace sets. Its current generator is synthetic and single-process. Run the exact-head wrapper, then replace/augment synthetic traces with independently sourced demand profiles before making real-world claims. The executable simulator includes 25%, 50%, and 75% equal-floor variants, creating a small safety-preserving frontier between historical utilization and resilience to demand-shape changes. These variants affect only the initial static placement and cannot resize allocations in a partition.",
       "execution_status": "defined_not_run",
       "claim_ceiling": "A future passing Rust reference model + synthetic matched-trace simulation only. It does not qualify distributed races, partition-time reallocation, Holochain, demand forecasts from real populations, solvency, or production economic welfare.",
       "reservation_policy_experiment": {
@@ -1354,7 +1357,7 @@
       "title": "Demand policy frontier is measured under stationary and shifted traces",
       "class": "static_allocation_demand_shift",
       "attack": "Fit slice weights to a stationary training profile then evaluate all policies on matched stationary and rotated-profile traces.",
-      "expected": "machine_readable_metrics_for_all_three_policies_and_both_modes_with_zero_accounting_violations",
+      "expected": "machine_readable_metrics_for_all_six_policies_and_both_demand_modes_with_zero_accounting_violations",
       "code_test": null,
       "benchmark": "NCF-BENCH-005",
       "execution_status": "benchmark_defined_not_run"
