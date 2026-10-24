@@ -16,7 +16,7 @@
       "mutation": "Reverse participant row order without changing any row.",
       "expected_result": "same_semantic_estimate_new_byte_digest",
       "expected_finding_code": null,
-      "rust_test": "row_permutation_preserves_result_but_changes_input_digest"
+      "rust_test": "row_permutation_preserves_estimates_but_changes_input_digest"
     },
     {
       "control_id": "OLA-003",
