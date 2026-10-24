@@ -1,5 +1,5 @@
 use affinidi_sd_jwt::{Disclosure, Sha256Hasher};
-use reallyme_sd_jwt::{decode_disclosure, digest_disclosure, SdJwtHashAlgorithm};
+use reallyme_sd_jwt::{decode_disclosure, digest_disclosure, DisclosureKind, SdJwtHashAlgorithm};
 
 #[derive(Clone, Copy, Debug)]
 struct Vector {
@@ -200,6 +200,49 @@ mod tests {
                     "country: {}",
                     vector.id
                 );
+            }
+
+            let independently_parsed = decode_disclosure(vector.disclosure)
+                .expect("published disclosure should parse in reallyme");
+            assert_eq!(
+                independently_parsed.salt(),
+                vector.expected_salt,
+                "reallyme salt: {}",
+                vector.id
+            );
+            match independently_parsed.kind() {
+                DisclosureKind::ObjectProperty { claim_name, claim_value } => {
+                    assert_eq!(
+                        Some(claim_name.as_str()),
+                        vector.expected_claim_name,
+                        "reallyme claim name: {}",
+                        vector.id
+                    );
+                    if let Some(expected) = vector.expected_scalar_value {
+                        assert_eq!(
+                            claim_value.as_str(),
+                            Some(expected),
+                            "reallyme scalar value: {}",
+                            vector.id
+                        );
+                    }
+                    if vector.expected_address_value {
+                        assert_eq!(claim_value["street_address"].as_str(), Some("123 Main St"));
+                        assert_eq!(claim_value["locality"].as_str(), Some("Anytown"));
+                        assert_eq!(claim_value["region"].as_str(), Some("Anystate"));
+                        assert_eq!(claim_value["country"].as_str(), Some("US"));
+                    }
+                }
+                DisclosureKind::ArrayElement { claim_value } => {
+                    assert_eq!(vector.expected_claim_name, None, "reallyme array shape: {}", vector.id);
+                    assert_eq!(
+                        claim_value.as_str(),
+                        vector.expected_scalar_value,
+                        "reallyme array value: {}",
+                        vector.id
+                    );
+                }
+                _ => panic!("unexpected disclosure kind for {}", vector.id),
             }
         }
     }
