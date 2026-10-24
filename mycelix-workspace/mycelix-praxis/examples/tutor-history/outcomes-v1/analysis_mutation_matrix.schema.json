@@ -1,0 +1,77 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://mycelix.net/schemas/praxis-learning-outcome-analysis/v1/mutation_matrix.schema.json",
+  "title": "Praxis outcome analysis adversarial control matrix v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "analysis_protocol_id",
+    "controls"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": 1
+    },
+    "analysis_protocol_id": {
+      "const": "PRAXIS-LEARNING-OUTCOME-ANALYSIS-001"
+    },
+    "controls": {
+      "type": "array",
+      "minItems": 13,
+      "items": {
+        "$ref": "#/$defs/control"
+      }
+    }
+  },
+  "$defs": {
+    "control": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "control_id",
+        "mutation_class",
+        "mutation",
+        "expected_result",
+        "expected_finding_code",
+        "rust_test"
+      ],
+      "properties": {
+        "control_id": {
+          "type": "string",
+          "pattern": "^OLA-[0-9]{3}$"
+        },
+        "mutation_class": {
+          "enum": [
+            "positive",
+            "metamorphic",
+            "negative"
+          ]
+        },
+        "mutation": {
+          "type": "string",
+          "minLength": 1
+        },
+        "expected_result": {
+          "enum": [
+            "interval_available",
+            "same_semantic_estimate_new_byte_digest",
+            "effect_suppressed_bounds_reported",
+            "rejected",
+            "descriptive_only_no_interval"
+          ]
+        },
+        "expected_finding_code": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "rust_test": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_]+$"
+        }
+      }
+    }
+  }
+}
