@@ -7,7 +7,7 @@
 use nested_currency_reference::allocation::{
     allocate_static_escrow, AllocationPlan, AllocationPolicy, ShardDemand, PARTS_PER_MILLION,
 };
-use std::{env, fs, time::Instant};
+use std::{env, time::Instant};
 
 const DEFAULT_SHARDS: usize = 16;
 const DEFAULT_TRAINING_SAMPLES: usize = 32;
@@ -171,7 +171,7 @@ fn evaluate(plan: &AllocationPlan, scenarios: &[Vec<u64>]) -> Result<Metrics, St
             let served = (*allocation).min(*demand);
             wanted += u128::from(*demand);
             delivered += u128::from(served);
-            scenario_unserved = scenario_unserved.saturating_add(demand - served);
+            scenario_unserved = scenario_unserved.saturating_add(*demand - served);
             unused += u128::from(allocation.saturating_sub(*demand));
         }
         result.requested += wanted;
