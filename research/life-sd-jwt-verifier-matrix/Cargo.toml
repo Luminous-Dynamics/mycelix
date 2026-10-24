@@ -1,0 +1,9 @@
+[package]
+name = "life-sd-jwt-verifier-matrix"
+version = "0.1.0"
+edition = "2024"
+publish = false
+
+[dependencies]
+affinidi-sd-jwt = { version = "=0.1.5", features = ["_test-utils"] }
+serde_json = "1"
