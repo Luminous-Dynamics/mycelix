@@ -1,81 +1,77 @@
-# NCF-FEN-1 bounded formal model
+# NCF-FEN bounded formal models
 
-This folder contains independent TLA+ abstractions of the risk-right fencing lifecycle and the two-shard escrow budget, plus four deliberately unsafe mutants. None of the models or mutants has been executed in the current environment; treat them as model definitions, not proof receipts.
+This folder contains independent TLA+ abstractions of risk-right fencing, two-shard escrow, and transfer crash/recovery, plus deliberately unsafe mutants. These are model definitions until an exact-head qualification receipt confirms an actual TLC run; do not treat workflow definitions or expected mutant outcomes as proof receipts.
 
 ## Contents
 
 - `NCF_FEN_1.tla`: small finite model of old-owner obligations/settlement, drain, evidence resolution, terminal-sequence reconciliation, fence, transfer and successor spending.
 - `NCF_FEN_1.cfg`: bounded check with `Capacity = 2` and `MaxSteps = 4`.
-- `NCF_FEN_1_TimeoutMutant.tla`: negative control that transfers capacity while merely `DRAIN_REQUESTED`, before evidence resolution/reconciliation/fencing.
-- `NCF_FEN_1_TimeoutMutant.cfg`: **expected failure** on `NoTransferWithoutFence`.
-- `NCF_FEN_1_StaleOwnerMutant.tla` and its config: a stale old owner writes after transfer; **expected failure** on `NoOldWriteOutsideActive`.
+- `NCF_FEN_1_TimeoutMutant.tla`: negative control that transfers capacity while merely `DRAIN_REQUESTED`, before evidence resolution/reconciliation/fencing; expected failure on `NoTransferWithoutFence`.
+- `NCF_FEN_1_StaleOwnerMutant.tla` and its config: a stale old owner writes after transfer; expected failure on `NoOldWriteOutsideActive`.
 - `NCF_ESCROW_1.tla` and config: two-shard escrow model with disjoint reservations, bounded local spending, and aggregate-cap invariants.
-- `NCF_ESCROW_1_DuplicateAllocationMutant.tla` and config: gives a second shard the full budget while another shard already owns a slice; **expected failure** on `ReservedCapacityBound`.
-- `NCF_ESCROW_1_PartitionResizeMutant.tla` and config: mutates a shard reservation while partitioned; **expected failure** on `PartitionedReservationsStayFixed`.
+- `NCF_ESCROW_1_DuplicateAllocationMutant.tla` and config: gives a second shard the full budget while another shard already owns a slice; expected failure on `ReservedCapacityBound`.
+- `NCF_ESCROW_1_PartitionResizeMutant.tla` and config: mutates a shard reservation while partitioned; expected failure on `PartitionedReservationsStayFixed`.
+- `NCF_RECOVERY_1.tla` and config: transfer prepare/commit, abort before commit, lost-response retries, crash/restart, old-liability settlement, and successor spending. Small bounds are `Capacity = 2` and `MaxOps = 2`.
+- `NCF_RECOVERY_1_CommitReplayMutant.tla` and config: deliberately credits the successor a second time after a committed transfer retry; expected failure on `NoDoubleCommit`.
 
-## Running TLC
+## Running the NCF-FEN models
 
-Use a pinned, locally available TLA+ tools JAR and record its version/hash. Run from this directory so the mutant can resolve its extended module:
+Use a pinned, locally available TLA+ tools JAR and record its version/hash. Run from this directory so extended modules resolve:
 
 ```sh
 java -cp /path/to/tla2tools.jar tlc2.TLC -config NCF_FEN_1.cfg NCF_FEN_1.tla
 java -cp /path/to/tla2tools.jar tlc2.TLC -config NCF_FEN_1_TimeoutMutant.cfg NCF_FEN_1_TimeoutMutant.tla
-```
-
-The first command should terminate with no invariant violation. The second should produce a counterexample to `NoTransferWithoutFence`. A third should fail on `NoOldWriteOutsideActive`:
-
-```sh
 java -cp /path/to/tla2tools.jar tlc2.TLC -config NCF_FEN_1_StaleOwnerMutant.cfg NCF_FEN_1_StaleOwnerMutant.tla
+java -cp /path/to/tla2tools.jar tlc2.TLC -config NCF_ESCROW_1.cfg NCF_ESCROW_1.tla
+java -cp /path/to/tla2tools.jar tlc2.TLC -config NCF_ESCROW_1_DuplicateAllocationMutant.cfg NCF_ESCROW_1_DuplicateAllocationMutant.tla
+java -cp /path/to/tla2tools.jar tlc2.TLC -config NCF_ESCROW_1_PartitionResizeMutant.cfg NCF_ESCROW_1_PartitionResizeMutant.tla
 ```
 
-Run the two-shard model with `java -cp /path/to/tla2tools.jar tlc2.TLC -config NCF_ESCROW_1.cfg NCF_ESCROW_1.tla`; this should complete without invariant violations. Run its duplicate-allocation mutant with `java -cp /path/to/tla2tools.jar tlc2.TLC -config NCF_ESCROW_1_DuplicateAllocationMutant.cfg NCF_ESCROW_1_DuplicateAllocationMutant.tla`; it should violate `ReservedCapacityBound`. Run the partition-resize mutant with `java -cp /path/to/tla2tools.jar tlc2.TLC -config NCF_ESCROW_1_PartitionResizeMutant.cfg NCF_ESCROW_1_PartitionResizeMutant.tla`; it should violate `PartitionedReservationsStayFixed` while keeping total reservations within the global cap. These expected outcomes have **not yet been confirmed** by running TLC. The commands alone are not evidence.
+The two safe models should terminate without invariant violations. The mutants should fail on their named invariants. Parser/tool errors are not successful detections.
 
-The repository wrapper runs both safe models and all four unsafe mutants and rejects unexpected outcomes, including parser failures masquerading as successful negative controls:
+The exact-head wrapper runs these safe models and all four original mutants. It requires a clean checkout and stores logs, metadata, and a receipt outside the repository:
 
 ```sh
 TLA2TOOLS_JAR=/absolute/path/to/tla2tools.jar \
   bash mycelix-workspace/simulations/nested-currency-reference/run-ncf-fen-tlc.sh
 ```
 
-It requires a clean checkout, runs both safe models and all four expected-failing mutants, directs each TLC metadata database to a distinct directory under the external output directory, writes raw logs and a receipt outside the repository, and binds them to the exact source/tree, all model/config digests and the JAR digest. The current environment has Java but no local `tla2tools.jar`; outbound DNS/download is unavailable, so this wrapper has not been executed here.
+The current environment previously lacked a local `tla2tools.jar` and outbound DNS was unavailable, so no local result is claimed. The pinned toolchain must be obtained and the exact-head workflow receipt inspected before treating this campaign as qualified.
 
-## Dedicated GitHub Actions qualification
+## Running NCF-RECOVERY
 
-The draft branch includes [`.github/workflows/ncf-fen-model-check.yml`](../../../../.github/workflows/ncf-fen-model-check.yml), independent of the generic workflow that excludes draft pull requests. It checks out the exact PR head/pushed commit, pins checkout / Java setup / artifact upload by full commit SHA, downloads a versioned TLA+ tools build, verifies SHA-256 before execution, runs the safe model and both expected-failing mutants, and retains raw logs plus the provenance receipt for 30 days.
+`NCF_RECOVERY_1.tla` models a finite crash/restart system with an atomic durable commit boundary. Its safe configuration checks `TypeOK`, `CapacityConserved`, old/new liability bounds, aggregate exposure, no successor spending before commit, no double commit, fence-before-successor activation, reconciliation-cut stability, and the prepared-transfer bound.
 
-The upstream TLA+ v1.8.0 tag is a rolling prerelease channel, not an immutable byte-level pin; the project has documented artifact changes without a version bump ([tlaplus/tlaplus#1399](https://github.com/tlaplus/tlaplus/issues/1399)). The workflow therefore uses the immutable mirror release `tla2tools-2026.08.11.125311`, which identifies its mirrored build and publishes SHA-256 `ab323b79802aedc3203b3f9af37c6aca3ed43f4e0225b36f2aa77b26de46c05f` ([mirror release](https://github.com/zactionsz/tla-tools/releases/tag/tla2tools-2026.08.11.125311)). The checksum is verified before running the model.
+Run both the safe model and its deliberately unsafe retry mutant from this directory:
 
-The workflow has been committed, but no completed result is asserted here. A job that is queued/running/skipped—or a log that only shows a parser failure—does not qualify the model. Qualification requires both safe models to complete with no invariant violations, the timeout mutant to fail specifically on `NoTransferWithoutFence`, the stale-owner mutant to fail specifically on `NoOldWriteOutsideActive`, the duplicate-allocation mutant to fail specifically on `ReservedCapacityBound`, and the partition-resize mutant to fail specifically on `PartitionedReservationsStayFixed`.
+```sh
+java -cp /path/to/tla2tools.jar tlc2.TLC -config NCF_RECOVERY_1.cfg NCF_RECOVERY_1.tla
+java -cp /path/to/tla2tools.jar tlc2.TLC -config NCF_RECOVERY_1_CommitReplayMutant.cfg NCF_RECOVERY_1_CommitReplayMutant.tla
+```
 
-## What this model captures
+The safe model must pass all listed invariants. The mutant must fail specifically on `NoDoubleCommit`, not merely exit with an arbitrary tool error. The wrapper checks this distinction and binds the logs/receipt to the exact source tree:
 
-- Every accepted old-owner obligation is created only while `ACTIVE`; a stale write attempt after drain is represented as rejected.
-- Reconciliation cannot proceed until evidence completeness is resolved and captures the exact old-operation sequence and outstanding/pending amounts.
-- The fence binds to the reconciled terminal sequence.
-- The successor gets no more than the proven free allocation; spend is bounded by both the successor slice and aggregate risk capacity.
-- Old liabilities may settle after fencing/transfer, but settlement cannot reopen old-epoch exposure.
-- Risk-right conservation and actual-exposure conservation are checked separately.
+```sh
+TLA2TOOLS_JAR=/absolute/path/to/tla2tools.jar \
+  bash mycelix-workspace/simulations/nested-currency-reference/run-ncf-recovery-tlc.sh
+```
 
-## What it deliberately does not capture
+The dedicated workflow [`.github/workflows/ncf-recovery-model-check.yml`](../../../../.github/workflows/ncf-recovery-model-check.yml) checks out the exact PR head, verifies the pinned TLA+ JAR by SHA-256, runs the safe model and expected-failing retry mutant, and uploads logs and the receipt. It is a model qualification path, not proof that any current implementation has been qualified. The additional contract is documented in [NCF-FEN-2 recovery](../docs/NCF-FEN-2-recovery.md).
 
-The model has one old allocation and one successor, integer capacities in a small finite domain, and a simplified completeness flag. It has no cryptographic receipt validation, real distributed control authority, quorum membership, DHT operations, independent counterparty histories, instrument/profile migration, multi-edge aggregate caps, external settlement, clock/lease semantics, or network stack. TLC's exhaustive result is only for this declared abstraction and finite configuration.
+## Dedicated NCF-FEN Actions qualification
 
-## Rust generated lifecycle regression
+The original draft branch includes [`.github/workflows/ncf-fen-model-check.yml`](../../../../.github/workflows/ncf-fen-model-check.yml), independent of generic CI that excludes draft pull requests. It checks out the exact PR-head/pushed commit, pins checkout / Java setup / artifact upload by full commit SHA, downloads the immutable TLA+ tools mirror release, verifies SHA-256, runs the safe models and four expected-failing mutants, and retains raw logs plus a provenance receipt for 30 days.
 
-The standalone Rust module now also defines `ten_thousand_generated_fencing_lifecycles_preserve_capacity_bound`: a fixed-seed, dependency-free sweep over 10,000 generated **sequential** lifecycles. It varies capacity, outstanding exposure, settlement placement, pending exposure, incomplete reconciliation, failed transfer/spend attempts, and successor amounts. Every scenario checks that old outstanding + unresolved pending + successor outstanding never exceeds the original capacity.
+The upstream TLA+ v1.8.0 tag is a rolling prerelease channel, not an immutable byte-level pin; the project documented artifact changes without a version bump ([tlaplus/tlaplus#1399](https://github.com/tlaplus/tlaplus/issues/1399)). The workflow uses mirror release `tla2tools-2026.08.11.125311` with SHA-256 `ab323b79802aedc3203b3f9af37c6aca3ed43f4e0225b36f2aa77b26de46c05f` ([release](https://github.com/zactionsz/tla-tools/releases/tag/tla2tools-2026.08.11.125311)).
 
-This is an executable test definition, not an observed pass. It is separate from TLC: the sweep explores generated inputs to the Rust reference model, while TLC explores finite state transitions and verifies that the unsafe mutants are detected. Neither substitutes for concurrent multi-agent/Holochain fault testing.
+A job that is queued/running/skipped—or a log that only shows parser failure—does not qualify the model. Qualification requires the safe models to complete with no invariant violations and each mutant to fail specifically on its target invariant. All results must be tied to the exact source SHA and reviewed receipt artifact.
 
-## Qualification discipline
+## Model boundary and subsequent steps
 
-1. Verify that the safe model has no invariant violation under the published bounds.
-2. Verify that the timeout mutant is rejected by `NoTransferWithoutFence`.
-3. Verify that the stale-owner mutant is rejected by `NoOldWriteOutsideActive`.
-4. Verify that the duplicate-allocation mutant is rejected by `ReservedCapacityBound`.
-5. Verify that the partition-resize mutant is rejected by `PartitionedReservationsStayFixed`.
-6. Preserve and review every minimized counterexample trace; a parser error does not count as mutant detection.
-7. Cross-check generated transitions against the Rust reference model, then replay every counterexample as a Rust regression test.
-8. Only after the abstract model is qualified, add bounded multi-owner/distributed schedules (or a Rust-native model such as Stateright) and real multi-agent/Holochain integration.
-9. Record exact commit, model/config digests, tool versions, state/transition counts, invariant outcomes and raw counterexample digests. Keep defined, queued, failed, expected-negative and passed results distinct.
+These models do not implement cryptographic receipt validation, a real distributed control authority, quorum membership, DHT operations, multi-edge aggregate caps, real external settlement, or a production storage stack. TLC is exhaustive only over the declared finite abstraction and bounds. The recovery model assumes state transitions marked durable are atomic and survive restart; real backend-specific crash tests must establish whether that assumption holds.
+
+The next steps after the bounded model passes are: compare every TLA+ transition with the Rust state-machine oracle; replay counterexamples as deterministic Rust regressions; exhaust small retry/receipt-reordering schedules; then run crash injection at every actual storage/Holochain commit boundary and a 100-contender last-unit race. A proposed target is 10,000 reproducible adversarial schedules with zero cap violations, double transfers, old-epoch writes, or conflicting idempotency acceptance. Those are qualification targets, not achieved results.
+
+The Rust function `ten_thousand_generated_fencing_lifecycles_preserve_capacity_bound` is itself only a definition until an exact-head test receipt confirms it ran. Its generated sequential input sweep is not a concurrent schedule explorer. Keep model-checking, generated sequential tests, concurrency tests, and real multi-agent integration as separate evidence classes.
 
 This follows the repository's model-check-first pattern in [#5091](https://github.com/Luminous-Dynamics/mycelix/issues/5091) and complements the revision-fenced reservation boundary in [#5153](https://github.com/Luminous-Dynamics/mycelix/issues/5153).
