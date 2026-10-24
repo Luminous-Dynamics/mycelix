@@ -140,6 +140,12 @@ pub struct AnalysisPlan {
     pub alpha_milli: u32,
     pub multiplicity_correction: MultiplicityCorrection,
     pub missing_data_plan: MissingDataPlan,
+    /// Target power multiplied by 1,000; v1 requires at least 80% before enrollment.
+    pub target_power_milli: u32,
+    /// Predeclared standardized minimum detectable effect multiplied by 1,000.
+    pub minimum_detectable_effect_milli: u32,
+    /// Digest of the retained sample-size/power calculation and its assumptions.
+    pub sample_size_justification_blake3: String,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
@@ -346,6 +352,16 @@ pub fn validate_learning_outcome_protocol(
         ));
     }
 
+    if !(800..=950).contains(&protocol.analysis_plan.target_power_milli)
+        || protocol.analysis_plan.minimum_detectable_effect_milli == 0
+        || !is_blake3(&protocol.analysis_plan.sample_size_justification_blake3)
+    {
+        findings.push(finding(
+            "invalid_power_plan",
+            "power plan requires 80-95% target power, a positive predeclared MDE, and a valid digest of the calculation",
+        ));
+    }
+
     if !matches!(
         protocol.primary_endpoint.kind,
         EndpointKind::DelayedRetention | EndpointKind::NearTransfer | EndpointKind::FarTransfer
@@ -458,6 +474,9 @@ mod tests {
                 alpha_milli: 50,
                 multiplicity_correction: MultiplicityCorrection::HierarchicalGatekeeping,
                 missing_data_plan: MissingDataPlan::ReportByArmAndSensitivity,
+                target_power_milli: 800,
+                minimum_detectable_effect_milli: 200,
+                sample_size_justification_blake3: digest('9'),
             },
             predeclared_subgroups: vec!["prior_attainment_band".to_owned()],
         }
@@ -561,6 +580,13 @@ mod tests {
         protocol.analysis_plan.confidence_level_percent = 95;
         protocol.analysis_plan.alpha_milli = 100;
         assert!(validate_learning_outcome_protocol(&protocol).iter().any(|f| f.code == "inconsistent_uncertainty_plan"));
+    }
+
+    #[test]
+    fn underpowered_or_unpinned_power_plan_is_rejected() {
+        let mut protocol = valid_protocol();
+        protocol.analysis_plan.target_power_milli = 700;
+        assert!(validate_learning_outcome_protocol(&protocol).iter().any(|f| f.code == "invalid_power_plan"));
     }
 
     #[test]
