@@ -8,11 +8,19 @@ THREADS="${PG_NCF_THREADS:-4}"
 DURATION="${PG_NCF_DURATION_SECONDS:-30}"
 OUT_DIR="${PG_NCF_OUTPUT_DIR:-$(mktemp -d "${TMPDIR:-/tmp}/ncf-pgbench.XXXXXX")}"
 mkdir -p "$OUT_DIR"
-TMP="$OUT_DIR/run-$(date -u +%Y%m%dT%H%M%SZ)-$"
-mkdir -p "$TMP"
+# mktemp prevents same-second reruns from sharing raw logs or mixing transaction counts.
+TMP="$(mktemp -d "$OUT_DIR/run-$(date -u +%Y%m%dT%H%M%SZ)-XXXXXX")"
 
 if ! command -v pgbench >/dev/null 2>&1; then
   echo "pgbench executable is required (install the PostgreSQL client tools)" >&2
+  exit 2
+fi
+if ! command -v psql >/dev/null 2>&1; then
+  echo "psql executable is required (install the PostgreSQL client tools)" >&2
+  exit 2
+fi
+if ! command -v python3 >/dev/null 2>&1; then
+  echo "python3 is required to create the benchmark receipt" >&2
   exit 2
 fi
 if ! [[ "$CLIENTS" =~ ^[1-9][0-9]*$ && "$THREADS" =~ ^[1-9][0-9]*$ && "$DURATION" =~ ^[1-9][0-9]*$ ]]; then
@@ -39,70 +47,37 @@ if [[ "$rc" -ne 0 ]]; then
   exit "$rc"
 fi
 
-python3 - "$TMP" <<'PY'
-import glob, json, math, pathlib, re, statistics, sys
-root=pathlib.Path(sys.argv[1])
-samples=[]; failed=[]
-for path in glob.glob(str(root/"pgbench.*")):
-    p=pathlib.Path(path)
-    if p.name=="pgbench.stdout": continue
-    try:
-        rows=p.read_text(encoding="utf-8").splitlines()
-    except (OSError, UnicodeError):
-        continue
-    for row in rows:
-        parts=row.split()
-        if len(parts)<6: continue
-        latency=parts[2]
-        if latency in {"failed","serialization","deadlock","skipped"}:
-            failed.append({"file":p.name,"row":row})
-            continue
-        try:
-            samples.append(float(latency)/1000.0)  # pgbench transaction time is microseconds
-        except ValueError:
-            failed.append({"file":p.name,"row":row})
-def pct(a,p):
-    if not a: return None
-    a=sorted(a)
-    return round(a[max(0, math.ceil(p*len(a))-1)],4)
-summary={
- "pgbench_transaction_log_files":len(glob.glob(str(root/"pgbench.*"))),
- "logged_successful_transactions":len(samples),
- "logged_failed_or_unparseable_transactions":len(failed),
- "latency_ms":{"p50":pct(samples,.50),"p95":pct(samples,.95),"p99":pct(samples,.99),"max":round(max(samples),4) if samples else None},
- "claim_ceiling":"PostgreSQL shared-coordinator function benchmark only; this is not Holochain DHT throughput or distributed/offline settlement throughput."
-}
-(root/"latency-summary.json").write_text(json.dumps(summary,indent=2)+"\n",encoding="utf-8")
-print(json.dumps(summary,indent=2))
-if not samples or failed:
-    sys.exit(3)
-PY
+# Parse microsecond transaction logs and cross-check stdout before reconciling SQL state.
+python3 "$ROOT/summarize_pgbench.py" "$TMP"
 
 python3 - "$TMP" "$SERVER_INFO" "$PGBENCH_INFO" "$CLIENTS" "$THREADS" "$DURATION" "$ROOT" <<'PY'
 import hashlib, json, pathlib, sys
 root=pathlib.Path(sys.argv[1]); server=sys.argv[2]; client_version=sys.argv[3]
 summary_path=root/"latency-summary.json"
 o=json.loads(summary_path.read_text(encoding="utf-8"))
+successful_count=int((root/"successful-count.txt").read_text(encoding="utf-8").strip())
+if successful_count != o["logged_successful_transactions"]:
+    raise SystemExit(f"successful-count receipt mismatch: file={successful_count} logs={o['logged_successful_transactions']}")
+if o["pgbench_failed_transactions"] != 0 or o["logged_failed_or_unparseable_transactions"] != 0:
+    raise SystemExit("refusing benchmark receipt with failed or unparseable transaction rows")
+if o["pgbench_processed_transactions"] != successful_count:
+    raise SystemExit("pgbench stdout count does not match successful per-transaction log count")
+if not successful_count:
+    raise SystemExit("refusing empty benchmark receipt")
 o["runtime"]={"postgres_server":server,"pgbench_client":client_version}
 o["parameters"]={"clients":int(sys.argv[4]),"threads":int(sys.argv[5]),"duration_seconds":int(sys.argv[6]),"query_mode":"simple","retry_limit":1}
+source=pathlib.Path(sys.argv[7])
 o["source_sha256"]={
-  "schema":hashlib.sha256((pathlib.Path(sys.argv[7])/"001_schema.sql").read_bytes()).hexdigest(),
-  "transaction_functions":hashlib.sha256((pathlib.Path(sys.argv[7])/"002_functions.sql").read_bytes()).hexdigest(),
-  "pgbench_script":hashlib.sha256((pathlib.Path(sys.argv[7])/"pgbench_admit.sql").read_bytes()).hexdigest(),
-  "runner":hashlib.sha256((pathlib.Path(sys.argv[7])/"run-pgbench-benchmark.sh").read_bytes()).hexdigest()
+  "schema":hashlib.sha256((source/"001_schema.sql").read_bytes()).hexdigest(),
+  "transaction_functions":hashlib.sha256((source/"002_functions.sql").read_bytes()).hexdigest(),
+  "pgbench_script":hashlib.sha256((source/"pgbench_admit.sql").read_bytes()).hexdigest(),
+  "runner":hashlib.sha256((source/"run-pgbench-benchmark.sh").read_bytes()).hexdigest(),
+  "log_parser":hashlib.sha256((source/"summarize_pgbench.py").read_bytes()).hexdigest(),
+  "log_parser_tests":hashlib.sha256((source/"test_summarize_pgbench.py").read_bytes()).hexdigest()
 }
-stdout=(root/"pgbench.stdout").read_text(encoding="utf-8")
-o["pgbench_stdout"]=stdout
-match=re.search(r"\\btps = ([0-9.]+)",stdout)
-o["pgbench_reported_tps"]=float(match.group(1)) if match else None
-match=re.search(r"number of transactions actually processed: ([0-9]+)",stdout)
-o["pgbench_processed_transactions"]=int(match.group(1)) if match else None
-match=re.search(r"number of failed transactions: ([0-9]+)",stdout)
-o["pgbench_failed_transactions"]=int(match.group(1)) if match else None
-match=re.search(r"latency average = ([0-9.]+) ms",stdout)
-o["pgbench_reported_average_latency_ms"]=float(match.group(1)) if match else None
-summary_path.write_text(json.dumps(o,indent=2)+"\\n",encoding="utf-8")
-print("Benchmark receipt enriched with runtime, parameters and exact source SHA-256 values.")
+o["pgbench_stdout"]=(root/"pgbench.stdout").read_text(encoding="utf-8")
+summary_path.write_text(json.dumps(o,indent=2)+"\n",encoding="utf-8")
+print("Benchmark receipt enriched with runtime, exact source hashes, and verified log/stdout transaction counts.")
 PY
 
 psql "$DATABASE_URL" -XAt -v ON_ERROR_STOP=1 <<'SQL' | tee "$TMP/reconciliation.txt"
