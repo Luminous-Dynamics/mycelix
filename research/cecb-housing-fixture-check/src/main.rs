@@ -481,7 +481,9 @@ fn build_paired_plan() -> Value {
                 "numeric_scenario_value_mapping": "unresolved_labels_only",
                 "policy_adapter_mapping": "pending",
                 "execution_authorized": false,
-                "exogenous_rng_contract": "event_keyed_preferred; named streams require event-level draw alignment",
+                "exogenous_rng_contract": concat!(
+                    "event_keyed_preferred; named streams require event-level draw alignment"
+                ),
                 "policy_internal_rng": "separate_namespace_required"
             }
         },
@@ -528,7 +530,9 @@ fn build_paired_plan() -> Value {
                 "invalid_output",
                 "guardrail_failed"
             ],
-            "failure_rule": "Every planned slot has exactly one terminal result; no silent omissions.",
+            "failure_rule": concat!(
+                "Every planned slot has exactly one terminal result; no silent omissions."
+            ),
             "missing_outcome_policy": "unknown_not_zero",
             "forbidden_aggregate_field": "universal_welfare_scalar"
         },
@@ -1429,8 +1433,14 @@ mod tests {
         assert_eq!(plan["scheduled_run_count"], 32_400);
         assert_eq!(plan["design"]["model_binding"]["execution_authorized"], false);
         assert_eq!(plan["outcome_contract"].as_array().map(Vec::len), Some(12));
-        assert_eq!(plan["run_result_contract"]["schema_version"], "cecb.housing.policy_result.v0.1");
-        assert_eq!(plan["run_result_contract"]["required_fields"].as_array().map(Vec::len), Some(14));
+        assert_eq!(
+            plan["run_result_contract"]["schema_version"],
+            "cecb.housing.policy_result.v0.1"
+        );
+        assert_eq!(
+            plan["run_result_contract"]["required_fields"].as_array().map(Vec::len),
+            Some(14)
+        );
 
         let runs = plan["runs"].as_array().expect("runs array");
         assert_eq!(runs.len(), 32_400);
