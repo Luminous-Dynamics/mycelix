@@ -15,7 +15,9 @@ CREATE OR REPLACE FUNCTION ncf.allocate_reservation_slice(
     p_manifest_digest bytea
 ) RETURNS jsonb
 LANGUAGE plpgsql
-AS $$
+SECURITY DEFINER
+SET search_path = pg_catalog, ncf
+AS $
 DECLARE
     v_agreement ncf.clearing_agreement%ROWTYPE;
     v_cap ncf.community_instrument_cap%ROWTYPE;
@@ -130,7 +132,9 @@ CREATE OR REPLACE FUNCTION ncf.admit_obligation(
     p_verifier_receipt_digest bytea
 ) RETURNS jsonb
 LANGUAGE plpgsql
-AS $$
+SECURITY DEFINER
+SET search_path = pg_catalog, ncf
+AS $
 DECLARE
     v_binding ncf.request_binding%ROWTYPE;
     v_receipt jsonb;
@@ -376,7 +380,9 @@ CREATE OR REPLACE FUNCTION ncf.settle_obligation(
     p_settlement_digest bytea
 ) RETURNS jsonb
 LANGUAGE plpgsql
-AS $$
+SECURITY DEFINER
+SET search_path = pg_catalog, ncf
+AS $
 DECLARE
     v_before ncf.obligation%ROWTYPE;
     v_obligation ncf.obligation%ROWTYPE;
@@ -483,5 +489,12 @@ EXCEPTION WHEN unique_violation THEN
     RAISE;
 END;
 $$;
+
+REVOKE EXECUTE ON FUNCTION ncf.allocate_reservation_slice(uuid, uuid, text, text, text, text, bigint, numeric, bytea) FROM PUBLIC;
+REVOKE EXECUTE ON FUNCTION ncf.admit_obligation(uuid, bytea, text, text, text, integer, numeric, bytea, uuid, text, uuid, text, bigint, text, bytea) FROM PUBLIC;
+REVOKE EXECUTE ON FUNCTION ncf.settle_obligation(uuid, bigint, bytea) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION ncf.allocate_reservation_slice(uuid, uuid, text, text, text, text, bigint, numeric, bytea) TO ncf_app;
+GRANT EXECUTE ON FUNCTION ncf.admit_obligation(uuid, bytea, text, text, text, integer, numeric, bytea, uuid, text, uuid, text, bigint, text, bytea) TO ncf_app;
+GRANT EXECUTE ON FUNCTION ncf.settle_obligation(uuid, bigint, bytea) TO ncf_app;
 
 COMMIT;
