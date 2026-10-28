@@ -28,8 +28,9 @@ The default fixture is embedded at compile time using `include_str!`, so it is v
 - Per-case arithmetic/physical constraints for the ten canonical fixtures.
 - Grantor/recipient transfer closure and refinancing decomposition.
 - Housing suitability and maintenance capacity changes.
-- Candidate-observation separation from evaluator facts, including a recursive intersection check for future oracle field names.
-- Mutation tests that deliberately break each case's known truth or inject oracle-only data.
+- Candidate observation fields are exact-allowlisted per case, including nested mirrored-source claim objects; new unreviewed fields fail closed.
+- Candidate-observation separation also includes a recursive intersection check for field names shared with evaluator facts.
+- Mutation tests deliberately break each case's known truth, inject oracle-only data, or add unregistered top-level/nested observation fields.
 
 ## Known limitations
 
