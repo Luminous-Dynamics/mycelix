@@ -26,7 +26,9 @@
     "unverified_or_malformed_evidence_fails_closed_without_consuming_id",
     "rejected_cap_attempt_can_be_retried_after_corrected_amount",
     "accepted_backlog_is_independent_of_shard_alias_count",
-    "same_obligation_id_binds_canonical_obligation_payload_digest"
+    "same_obligation_id_binds_canonical_obligation_payload_digest",
+    "canonical_work_digest_is_accepted_once_across_request_id_aliases",
+    "same_canonical_digest_with_conflicting_amount_principal_or_instrument_rejects"
   ],
   "required_metrics": [
     "alias_count",
@@ -37,14 +39,14 @@
     "original_receipt_preserved"
   ],
   "execution_evidence": {
-    "unit_tests": "9 NCF-ALLOC-5 tests passed as part of combined 24-test Python suite on 2026-10-28",
+    "unit_tests": "11 passed as part of combined 34-test Python suite on 2026-10-28",
     "rust": "not_run",
     "cryptographic_verifier": "not_implemented",
     "concurrent_database": "not_run",
     "holochain_multi_agent": "not_run",
     "tla": "not_run"
   },
-  "claim_ceiling": "Sequential Python reference model that assumes verifier_receipt_ok is supplied by an independent trustworthy verifier. It is not cryptographic identity, real-work verification, concurrent linearizability, Holochain qualification, or production evidence. The canonical payload digest is computed by the model for test determinism; its presence does not authenticate the underlying work or identity.",
-  "source_sha256": "de2ac4ba5ee6855b2739f100f2a4aecb9a7f66d0bdcec27d3e8f41ccddc20b46",
+  "claim_ceiling": "Sequential Python reference model that assumes verifier_receipt_ok is supplied by an independent trustworthy verifier. It is not cryptographic identity, real-work verification, concurrent linearizability, Holochain qualification, or production evidence. The canonical payload digest is computed by the model for test determinism; its presence does not authenticate the underlying work or identity. The reference model treats a verifier-derived canonical work digest as a unique-work key, but it does not verify the source work or authenticate the digest.",
+  "source_sha256": "e93c372136a104820c7295809458b5284d4f606b42d7d8d55fa478a9c7531afe",
   "results_sha256": "e8bc17f8c4d66e6f972e2c18a9fffb517d0cb0989611d96c450e59d78ad2c2b1"
 }
