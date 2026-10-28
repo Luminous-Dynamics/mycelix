@@ -892,10 +892,7 @@
         "deterministic_zipf_like_skew",
         "essential_vs_discretionary_priority_classes",
         "held_out_demand_shift_after_partition",
-        "forecast_error_and_misallocation_stress",
-        "minority_claim_inflation_two_to_twenty_x",
-        "legitimate_four_x_hotspot_cap_tradeoff",
-        "median_controlled_by_colluding_majority_negative_control"
+        "forecast_error_and_misallocation_stress"
       ],
       "topology": {
         "participant_counts": [
@@ -1012,7 +1009,7 @@
         "shard_results[].demand_served_ppm",
         "shard_results[].worst_scenario_served_ppm"
       ],
-      "methodology": "Run the exact same deterministic demand/fault traces against each implemented policy and matched hardware/toolchains. Report results only after hard safety gates pass. Plot a Pareto frontier across economic demand served, safely reclaimable versus stranded capacity, tail latency, and compute cost; do not collapse outcomes into a single weighted score. Separate unreachable-owner partitions from honest crash/restart and byzantine-owner campaigns. Include ablations for priority classes and rebalancing policy. Add a low-risk paradigm-shift baseline: optimize the placement of already-authorized, non-overlapping slices before the partition, using training demand traces and robust quantiles. Evaluate on held-out and shifted workloads, and never allow the forecast to enlarge/reassign rights during the partition. This isolates safe capacity-placement improvements from risky online reclamation. An executable dependency-free Rust allocator and benchmark were added. It uses checked integer arithmetic, stable shard-ID tie-breaking, and largest-remainder apportionment; the benchmark compares six policies on the same generated stationary and shifted trace sets. Its current generator is synthetic and single-process. Run the exact-head wrapper, then replace/augment synthetic traces with independently sourced demand profiles before making real-world claims. The executable simulator includes 25%, 50%, and 75% equal-floor variants, creating a small safety-preserving frontier between historical utilization and resilience to demand-shape changes. These variants affect only the initial static placement and cannot resize allocations in a partition. Per-shard demand-served and worst-shard service are reported alongside aggregate utilization; do not treat high overall service as fair if the least-served shard is materially worse. A dedicated adversarial unit test checks that worst-shard and per-shard service metrics expose an underserved shard that aggregate demand-served percentage alone would hide. The matched-trace benchmark now includes two lower-median-capped equal-floor variants (2x and 4x) alongside the original six, yielding sixteen policy/mode reports. These caps limit extreme historical mean weights only under a stable identity set and a minority-attacker assumption; they are not demand authentication or Sybil resistance. A separate NCF-BENCH-006 research campaign compares these trade-offs under inflated claims.",
+      "methodology": "Run the exact same deterministic demand/fault traces against each implemented policy and matched hardware/toolchains. Report results only after hard safety gates pass. Plot a Pareto frontier across economic demand served, safely reclaimable versus stranded capacity, tail latency, and compute cost; do not collapse outcomes into a single weighted score. Separate unreachable-owner partitions from honest crash/restart and byzantine-owner campaigns. Include ablations for priority classes and rebalancing policy. Add a low-risk paradigm-shift baseline: optimize the placement of already-authorized, non-overlapping slices before the partition, using training demand traces and robust quantiles. Evaluate on held-out and shifted workloads, and never allow the forecast to enlarge/reassign rights during the partition. This isolates safe capacity-placement improvements from risky online reclamation. An executable dependency-free Rust allocator and benchmark were added. It uses checked integer arithmetic, stable shard-ID tie-breaking, and largest-remainder apportionment; the benchmark compares six policies on the same generated stationary and shifted trace sets. Its current generator is synthetic and single-process. Run the exact-head wrapper, then replace/augment synthetic traces with independently sourced demand profiles before making real-world claims. The executable simulator includes 25%, 50%, and 75% equal-floor variants, creating a small safety-preserving frontier between historical utilization and resilience to demand-shape changes. These variants affect only the initial static placement and cannot resize allocations in a partition. Per-shard demand-served and worst-shard service are reported alongside aggregate utilization; do not treat high overall service as fair if the least-served shard is materially worse. A dedicated adversarial unit test checks that worst-shard and per-shard service metrics expose an underserved shard that aggregate demand-served percentage alone would hide. The matched-trace benchmark now includes two lower-median-capped equal-floor variants (2x and 4x) alongside the original six, yielding sixteen policy/mode reports. These caps limit extreme historical mean weights only under a stable identity set and a minority-attacker assumption; they are not demand authentication or Sybil resistance. The separate NCF-BENCH-006 research campaign compares these trade-offs under inflated claims.",
       "execution_status": "defined_not_run",
       "claim_ceiling": "Current executable: deterministic synthetic single-process allocation simulation with integer budget checks only. It does not emit distributed tail latency, partition recovery, economic-demand classes or network measures. Those are requirements for a future multi-agent implementation benchmark. No runtime result is claimed until exact-head Rust tests/benchmark and receipt succeed. Median caps are experimental bounded-influence heuristics only; they do not authenticate queues, prevent cheap Sybil creation, or represent evidence of adversarial distributed safety.",
       "reservation_policy_experiment": {
@@ -1651,7 +1648,7 @@
       "class": "invalid_policy_parameter",
       "attack": "Configure the bounded-influence policy with cap_multiple equal to zero.",
       "expected": "allocation_fails_closed_with_CapMultipleOutOfRange_without_producing_a_plan",
-      "code_test": "median_cap_exposes_honest_hotspot_tradeoff_and_cap_four_preserves_four_x_demand",
+      "code_test": "invalid_median_cap_multiple_rejects",
       "execution_status": "reference_test_defined_not_run"
     }
   ],
@@ -1802,7 +1799,8 @@
         "demand_weighted_equal_floor_trades_peak_utilization_for_shift_resilience",
         "full_equal_floor_matches_equal_split_after_minimums",
         "median_cap_reduces_inflated_claim_influence_under_contention",
-        "median_cap_exposes_honest_hotspot_tradeoff_and_cap_four_preserves_four_x_demand"
+        "median_cap_exposes_honest_hotspot_tradeoff_and_cap_four_preserves_four_x_demand",
+        "invalid_median_cap_multiple_rejects"
       ],
       "required_benchmark_reports": 16,
       "safety_gate": "Every allocation plan validates and all sixteen policy/mode reports must have zero accounting violations; any overflow, malformed input, mixed instrument identity, or unaccounted capacity fails the campaign.",
