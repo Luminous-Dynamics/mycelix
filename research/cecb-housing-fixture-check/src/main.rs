@@ -220,7 +220,7 @@ fn validate_fixture(input: &str) -> Result<(Value, bool), String> {
         "global_violations": global_violations,
         "case_results": case_results,
         "claim_ceiling": concat!(
-            "Validates fixture consistency only; it neither executes policies nor proves real-world impact. ",
+            "Fixture consistency only; not policy simulation or real-world evidence. ",
             "economic policies and is not evidence of real-world impact."
         )
     });
@@ -685,7 +685,7 @@ fn validate_h007(case: &Value, errors: &mut Vec<String>) {
     ) {
         if face.saturating_sub(repaid) != remaining || remaining != net_new {
             errors.push(
-                "new loan must split between predecessor repayment and residual proceeds".to_owned(),
+                "refinancing must separate repayment from net-new proceeds".to_owned(),
             );
         }
     }
