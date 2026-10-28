@@ -1,4 +1,4 @@
-# LIFE Privacy Evaluation: held-out linkability metrics v0.1
+# LIFE Privacy Evaluation: held-out linkability metrics and paired mitigation evidence v0.2
 
 This crate is a **metric evaluator**, not a credential verifier and not a linkability attacker. It evaluates scores emitted by an independently implemented attacker using only verifier-observable presentation artifacts. It never invents attack features or hand-selects feature weights.
 
@@ -46,6 +46,24 @@ cargo run --locked --release -- \\
 \`\`\`
 
 Use \`-\` as the report path to write JSON to stdout. Repeated invocations with the same bytes, bootstrap count, and seed produce deterministic metric output.
+
+
+## Paired mitigation comparison (v0.2)
+
+The compare command evaluates baseline and treatment scores on the same exact truth rows. Example:
+
+    cargo run --locked --release -- compare \
+      fixtures/truth.tsv \
+      fixtures/paired-baseline-positive-control.tsv \
+      fixtures/paired-treatment-no-signal-control.tsv \
+      fixtures/training-subjects.txt \
+      paired-report.json 1000 9901 0.55
+
+The two score files must have identical unique pair IDs, and each independently passes the same truth join and train/test subject-disjointness checks. The evaluator uses the existing canonical ROC-AUC implementation and resamples the same subject multiplicities for baseline and treatment, reporting a percentile 95% interval for treatment-minus-baseline AUC. A negative upper bound means the supplied treatment ranked linkage pairs less effectively on this cohort; intervals crossing zero are inconclusive.
+
+The proposed AUC upper-bound target defaults to 0.55 and can be overridden per preregistered profile. Smoke-sized inputs cannot qualify a privacy profile: the evaluator first requires the 10,000-pair / 2,000-subject screening floor. Even when this floor is met, the output is only a provisional profile result requiring review. Overall release status remains not evaluated until task utility and applicable official conformance evidence are separately supplied.
+
+The checked-in baseline/treatment files are a deliberately synthetic evaluator known-answer control (perfect-ranking baseline versus tied-score treatment), not an attack model or a real mitigation result. Task-utility and conformance flags remain false by design.
 
 ## Metrics
 
