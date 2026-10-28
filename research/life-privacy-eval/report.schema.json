@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "title": "LIFE privacy evaluation metrics report",
+  "title": "LIFE privacy evaluation metrics report v1.1",
   "type": "object",
   "required": [
     "schema_version",
@@ -23,7 +23,7 @@
   ],
   "properties": {
     "schema_version": {
-      "const": "1.0"
+      "const": "1.1"
     },
     "evaluator_version": {
       "type": "string"
