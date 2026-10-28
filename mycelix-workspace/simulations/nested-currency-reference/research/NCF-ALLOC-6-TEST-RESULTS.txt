@@ -1,0 +1,27 @@
+NCF-ALLOC-6 local reference-model test run — 2026-10-28
+
+test_atomic_idempotency_accepts_one_canonical_work_once ... ok
+test_enumerates_all_70_order_preserving_interleavings ... ok
+test_naive_distinct_work_can_overshoot_cap ... ok
+test_naive_same_request_id_can_accept_conflicting_payloads ... ok
+test_naive_same_work_check_then_commit_can_accept_duplicate_work ... ok
+test_research_scenario_marks_claim_ceiling ... ok
+test_serializable_oracle_is_safe_for_both_request_orders ... ok
+test_snapshot_overwrite_can_understate_accepted_liability ... ok
+
+Ran 8 NCF-ALLOC-6 tests — OK.
+Combined local run: 34 tests passed across NCF-ALLOC-3/4/5/6 on 2026-10-28.
+
+local_executed_source_sha256=1b017002bfc4c1cd2b1ceee68b57c6ca4a93554238ff98f8884b20998cfcb2cc
+local_results_sha256=cdacd97dadfda3d39b6251b558c4f8920873103ac33a62e863173292560ad2b9
+checked_in_source_sha256=b30a375c8cc50444c8c43dbb33c11eea1abbd6a6b932b194d9383eb94dd93328
+
+Results:
+- 3 scenarios x 70 order-preserving interleavings each.
+- Distinct 60-unit obligations with cap 100: 60 of 70 naive schedules accepted both and overshot the cap by 20.
+- Same underlying work via distinct request IDs: 60 of 70 naive schedules accepted duplicate work; stale check + atomic increment overshot cap by 20.
+- Same request ID with conflicting payloads: 60 of 70 naive schedules accepted both payloads.
+- Snapshot-overwrite model understated accepted liabilities in 60 schedules in the race cases above.
+- Serializable atomic oracle: zero modeled violations in both transaction orders for each scenario.
+
+Evidence ceiling: finite Python state-space model only. Checked-in source and executed local source hashes differ because the source was synchronized through separate edits; this is not a checksum-bound CI artifact. No Rust, database, TLC, multi-agent, Holochain or production settlement result is claimed.
