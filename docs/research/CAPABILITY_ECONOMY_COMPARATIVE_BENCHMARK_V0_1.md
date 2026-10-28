@@ -198,6 +198,12 @@ These cases prevent “capability first” from becoming a rule that the desired
 
 ## 9. Statistical and qualification protocol
 
+### Evaluation architecture: adapt TEVV, do not invent a new measurement bureaucracy
+
+NIST's 2026 draft TEVV-Athlon framework structures evaluation around assessment objectives, Events and Tools, and Blocks tied to measurement concepts. CECB should borrow this modularity for the software/policy evaluation layer: each scenario event should state which instrument/tool observes it, which metric it informs, and which limitations attach to the observation. This framework is a current draft, not a completed regulatory requirement or proof of the benchmark's validity. Source: https://www.nist.gov/artificial-intelligence/ai-research/tevv-athlon-framework-evaluating-ai-systems
+
+For the institutional/field layer, the OECD's 2026 locally led monitoring, evaluation and learning guidance emphasizes local actors helping define success, evaluation questions and interpretation. A Johannesburg pilot should therefore have affected residents, local operators and domain practitioners co-define relevant outcomes and review unintended effects; this is a governance requirement for the proposed study, not something software can replace. Source: https://www.oecd.org/en/publications/practical-guidelines-for-supporting-locally-led-development_eaecf72b-en/full-report/action-area-locally-led-monitoring-evaluation-and-learning_8a830675.html
+
 ### Before confirmatory scoring
 Freeze and publish:
 - scenario manifest and generator version;
@@ -292,5 +298,6 @@ The intended result is a reusable experiment that can reveal **which institution
 6. Loomio Cooperative, about and open-source governance product: https://www.loomio.com/about/
 7. South African Reserve Bank, Quarterly Bulletin, September 2026: https://www.reservebank.co.za/en/home/publications/publication-detail-pages/quarterly-bulletins/quarterly-bulletin-publications/2026/september
 8. IMF, South Africa: 2025 Article IV Consultation, published 2026: https://www.elibrary.imf.org/view/journals/002/2026/034/article-A001-en.xml
+9. NIST, The TEVV-Athlon Framework for Evaluating AI Systems (draft, August 2026): https://www.nist.gov/artificial-intelligence/ai-research/tevv-athlon-framework-evaluating-ai-systems
 
 External research supports the selection of reference frameworks and the need for context-dependent tests; it does not validate the proposed Capability Economy architecture.
