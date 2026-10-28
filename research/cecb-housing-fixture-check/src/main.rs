@@ -220,7 +220,7 @@ fn validate_fixture(input: &str) -> Result<(Value, bool), String> {
         "global_violations": global_violations,
         "case_results": case_results,
         "claim_ceiling": concat!(
-            "Validates internal consistency only; it does not execute or rank economic policies or establish ",
+            "Validates fixture consistency only; it neither executes policies nor proves real-world impact. ",
             "economic policies and is not evidence of real-world impact."
         )
     });
@@ -410,7 +410,7 @@ fn validate_h002(case: &Value, errors: &mut Vec<String>) {
     ) {
         if before.saturating_add(added) != after {
             errors.push(
-                "post-completion capacity must equal prior capacity plus completed units".to_owned(),
+                "completed capacity must equal prior capacity plus units added".to_owned(),
             );
         }
     }
@@ -685,7 +685,7 @@ fn validate_h007(case: &Value, errors: &mut Vec<String>) {
     ) {
         if face.saturating_sub(repaid) != remaining || remaining != net_new {
             errors.push(
-                "new loan face value must split into predecessor repayment and remaining proceeds".to_owned(),
+                "new loan must split between predecessor repayment and residual proceeds".to_owned(),
             );
         }
     }
@@ -767,7 +767,7 @@ fn validate_h009(case: &Value, errors: &mut Vec<String>) {
     ) {
         if housed > capacity || housed.saturating_add(unmet) != demand {
             errors.push(
-                "accessible allocation must respect suitability capacity and demand closure".to_owned(),
+                "accessibility allocation must respect capacity and demand closure".to_owned(),
             );
         }
     }
