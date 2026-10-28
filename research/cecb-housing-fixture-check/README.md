@@ -34,6 +34,12 @@ The default fixture is embedded at compile time using `include_str!`, so it is v
 ## Known limitations
 
 - The checker validates fixed v0.1 fixture expectations; it is not a general-purpose economic simulator or a generic JSON Schema engine.
+
+## Exact-run evidence receipt
+
+The path-scoped GitHub Actions job creates a `cecb.ci_run_receipt.v0.1` JSON receipt and uploads it with the test logs, validation report, candidate policy view, and resolved `Cargo.lock` when available. It records the exact source commit, run ID/attempt, Rust/Cargo versions, SHA-256 hashes of the fixture and checker inputs, output hashes, and each qualification step's outcome. The artifact is designed to remain useful when a check fails; a missing artifact or a skipped job is not a passing result.
+
+The receipt's evidence class is explicitly E0 synthetic-fixture contract validation. It must not be cited as a policy-performance result or as real-world impact.
 - It has not been run against the Rust toolchain as part of authoring where runner/toolchain access was unavailable. A skipped GitHub Actions run must not be represented as a pass.
 - The fixture is synthetic. No result from this checker may be cited as evidence that a particular financing, ownership, or allocation regime works better in a real community.
 - The evaluator code is not a security boundary if candidate code can read the original fixture or share process memory. Keep evaluator and candidate execution separated in the future runner, and pass only the generated policy-view artifact across that boundary.
