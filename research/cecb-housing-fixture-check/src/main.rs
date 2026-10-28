@@ -793,7 +793,7 @@ mod tests {
     #[test]
     fn rejects_future_oracle_fields_leaking_without_a_denylist_update() {
         rejects_mutation(fixture_value(), |fixture| {
-            fixture["cases"][9]["policy_observation"]["independent_confirmation_count"] = json!(1);
+            fixture["cases"][9]["policy_observation"]["unique_source_event_count"] = json!(1);
         });
     }
 
