@@ -8,6 +8,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from enum import Enum
 import hashlib, json
+from pathlib import Path
 from typing import Optional
 
 class Decision(str, Enum):
@@ -138,6 +139,7 @@ def main() -> None:
     result = {"schema": "ncf-alloc5-obligation-admission-v1", "status": "INDEPENDENT_PYTHON_REFERENCE_MODEL_NOT_CRYPTOGRAPHIC_NOT_RUST_NOT_CI_NOT_PRODUCTION",
               "profile": profile, "alias_scenarios": rows,
               "claim_ceiling": "This proves only the Python model's sequential deduplication and principal-cap logic under an assumed valid verifier receipt. It does not authenticate identities or work, model concurrent writes, or establish Holochain/distributed correctness."}
+    result["source_sha256"] = hashlib.sha256(Path(__file__).read_bytes()).hexdigest()
     print(json.dumps(result, indent=2, sort_keys=True))
 
 if __name__ == "__main__": main()
