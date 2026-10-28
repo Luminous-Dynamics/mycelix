@@ -55,7 +55,68 @@
       }
     }
   ],
-  "claim_ceiling": "This proves only the Python model's sequential deduplication and principal-cap logic under an assumed valid verifier receipt. It does not authenticate identities or work, model concurrent writes, or establish Holochain/distributed correctness.",
+  "canonical_digest_alias_scenarios": [
+    {
+      "accepted_unique_obligations": 1,
+      "alias_count": 1,
+      "all_aliases_return_original_receipt": true,
+      "canonical_work_units": 4000,
+      "claim_ceiling": "Test assumes canonical payload digest is derived by a trusted verifier from a unique eligible work item; model does not authenticate real work.",
+      "outcome_counts": {
+        "accepted": 1
+      },
+      "principal_instrument_exposure_units": 4000
+    },
+    {
+      "accepted_unique_obligations": 1,
+      "alias_count": 4,
+      "all_aliases_return_original_receipt": true,
+      "canonical_work_units": 4000,
+      "claim_ceiling": "Test assumes canonical payload digest is derived by a trusted verifier from a unique eligible work item; model does not authenticate real work.",
+      "outcome_counts": {
+        "accepted": 1,
+        "idempotent_replay": 3
+      },
+      "principal_instrument_exposure_units": 4000
+    },
+    {
+      "accepted_unique_obligations": 1,
+      "alias_count": 8,
+      "all_aliases_return_original_receipt": true,
+      "canonical_work_units": 4000,
+      "claim_ceiling": "Test assumes canonical payload digest is derived by a trusted verifier from a unique eligible work item; model does not authenticate real work.",
+      "outcome_counts": {
+        "accepted": 1,
+        "idempotent_replay": 7
+      },
+      "principal_instrument_exposure_units": 4000
+    },
+    {
+      "accepted_unique_obligations": 1,
+      "alias_count": 16,
+      "all_aliases_return_original_receipt": true,
+      "canonical_work_units": 4000,
+      "claim_ceiling": "Test assumes canonical payload digest is derived by a trusted verifier from a unique eligible work item; model does not authenticate real work.",
+      "outcome_counts": {
+        "accepted": 1,
+        "idempotent_replay": 15
+      },
+      "principal_instrument_exposure_units": 4000
+    },
+    {
+      "accepted_unique_obligations": 1,
+      "alias_count": 32,
+      "all_aliases_return_original_receipt": true,
+      "canonical_work_units": 4000,
+      "claim_ceiling": "Test assumes canonical payload digest is derived by a trusted verifier from a unique eligible work item; model does not authenticate real work.",
+      "outcome_counts": {
+        "accepted": 1,
+        "idempotent_replay": 31
+      },
+      "principal_instrument_exposure_units": 4000
+    }
+  ],
+  "claim_ceiling": "This proves only the model's sequential deduplication and principal-cap logic under an assumed valid verifier receipt. It does not authenticate identities or work, model concurrent writes, or establish Holochain/distributed correctness.",
   "profile": {
     "alias_counts": [
       1,
@@ -69,6 +130,6 @@
     "same_underlying_obligation_units": 4000
   },
   "schema": "ncf-alloc5-obligation-admission-v1",
-  "source_sha256": "de2ac4ba5ee6855b2739f100f2a4aecb9a7f66d0bdcec27d3e8f41ccddc20b46",
+  "source_sha256": "e93c372136a104820c7295809458b5284d4f606b42d7d8d55fa478a9c7531afe",
   "status": "INDEPENDENT_PYTHON_REFERENCE_MODEL_NOT_CRYPTOGRAPHIC_NOT_RUST_NOT_CI_NOT_PRODUCTION"
 }
