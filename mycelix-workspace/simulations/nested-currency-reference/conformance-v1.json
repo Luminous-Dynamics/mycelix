@@ -1327,7 +1327,6 @@
         "documentation_path": "mycelix-workspace/simulations/nested-currency-reference/research/NCF-ALLOC-4-identity-splitting.md",
         "test_execution_record": "mycelix-workspace/simulations/nested-currency-reference/research/NCF-ALLOC-4-TEST-RESULTS.txt",
         "source_sha256": "df7a46bb32690ceb264495890eeb5673eef84b81737a85f840b1c4b69d684044",
-        "summary_sha256": "8e896ae3b4ce9182b08126e20a82bf761aca209214027fdec57335db7f7610a4",
         "unit_tests_passed": 5,
         "case_profiles": 8
       }
