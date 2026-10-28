@@ -8,6 +8,7 @@ on:
       - .github/workflows/ncf-allocation-benchmark.yml
       - mycelix-workspace/simulations/nested-currency-reference/src/allocation.rs
       - mycelix-workspace/simulations/nested-currency-reference/src/lib.rs
+      - mycelix-workspace/simulations/nested-currency-reference/src/obligation.rs
       - mycelix-workspace/simulations/nested-currency-reference/src/bin/ncf-allocation-bench.rs
       - mycelix-workspace/simulations/nested-currency-reference/run-allocation-bench.sh
       - mycelix-workspace/simulations/nested-currency-reference/Cargo.toml
@@ -20,6 +21,7 @@ on:
       - .github/workflows/ncf-allocation-benchmark.yml
       - mycelix-workspace/simulations/nested-currency-reference/src/allocation.rs
       - mycelix-workspace/simulations/nested-currency-reference/src/lib.rs
+      - mycelix-workspace/simulations/nested-currency-reference/src/obligation.rs
       - mycelix-workspace/simulations/nested-currency-reference/src/bin/ncf-allocation-bench.rs
       - mycelix-workspace/simulations/nested-currency-reference/run-allocation-bench.sh
       - mycelix-workspace/simulations/nested-currency-reference/Cargo.toml
