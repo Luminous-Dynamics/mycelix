@@ -82,6 +82,7 @@ jobs:
               - 'docs/integral/cos-reference-node-v1.md'
               - 'mycelix-manufacturing/tests/cos_reference_conformance.md'
             cecb:
+              - '.github/workflows/ci.yml'
               - 'research/cecb-housing-fixture-check/**'
               - 'docs/research/fixtures/CECB_HOUSING_KNOWN_TRUTH_V0_1.json'
               - 'docs/research/CAPABILITY_ECONOMY_COMPARATIVE_BENCHMARK_V0_1.md'
@@ -234,6 +235,13 @@ jobs:
               },
               claim_ceiling: "Synthetic fixture conformance only; not policy-performance evidence or real-world impact."
             }' > artifacts/cecb/run-receipt.json
+          jq -e '
+            .schema_version == "cecb.ci_run_receipt.v0.1" and
+            (.source_commit | length == 40) and
+            (.input_sha256.fixture | length == 64) and
+            (.input_sha256.validator | length == 64) and
+            (.step_outcomes.tests != "")
+          ' artifacts/cecb/run-receipt.json > /dev/null
       - uses: actions/upload-artifact@v4
         name: Upload CECB exact-run evidence
         if: always()
