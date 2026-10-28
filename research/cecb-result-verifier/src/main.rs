@@ -2442,6 +2442,32 @@ mod tests {
         assert!(!safe_relative_artifact_path(r"c:\outside\artifact.bin"));
     }
 
+    #[cfg(unix)]
+    #[test]
+    fn rejects_symlink_escape_from_artifact_root() {
+        use std::os::unix::fs::symlink;
+
+        let plan = test_plan();
+        let bundle = test_bundle(&plan);
+        let root = test_artifact_root("symlink-escape");
+        fs::create_dir_all(&root).unwrap();
+        write_test_artifacts(&root, &bundle, None, None);
+
+        let outside = root.with_extension("outside");
+        fs::write(&outside, b"outside-root").unwrap();
+        let relative = bundle["results"][0]["artifact_paths"]["result_trace"]
+            .as_str()
+            .expect("trace path");
+        let link_path = root.join(relative);
+        fs::remove_file(&link_path).unwrap();
+        symlink(&outside, &link_path).unwrap();
+
+        let (_, errors) = verify_artifact_contents(&bundle, &root);
+        assert!(errors.iter().any(|error| error.contains("resolves outside")));
+        fs::remove_dir_all(root).unwrap();
+        fs::remove_file(outside).unwrap();
+    }
+
     #[test]
     fn rejects_reused_artifact_path_across_runs() {
         let plan = test_plan();
