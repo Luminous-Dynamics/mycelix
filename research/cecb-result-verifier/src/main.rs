@@ -1713,12 +1713,12 @@ fn verify_bundle(plan: &Value, bundle: &Value) -> Value {
         "planned_run_count": expected_runs.len(),
         "result_row_count": rows.len(),
         "terminal_disposition_counts": disposition_counts,
-        "completed_guardrail_clear_run_count": if verified {
+        "completed_guardrail_clear_run_count": if bundle_contract_valid {
             completed_guardrail_clear_count
         } else {
             0
         },
-        "complete_outcome_vector_run_count": if verified {
+        "complete_outcome_vector_run_count": if bundle_contract_valid {
             complete_outcome_vector_count
         } else {
             0
@@ -1890,7 +1890,10 @@ fn parse_args() -> Result<Option<Args>, String> {
             "--help" | "-h" => {
                 println!(
                     concat!(
-                        "cecb-result-verifier --plan PLAN.json --results BUNDLE.json --artifact-root DIR [--report REPORT.json]                );
+                        "cecb-result-verifier --plan PLAN.json --results BUNDLE.json ",
+                        "--artifact-root DIR [--report REPORT.json]"
+                    )
+                );
                 return Ok(None);
             }
             "--plan" => {
