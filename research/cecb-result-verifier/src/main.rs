@@ -659,7 +659,7 @@ fn validate_contract(plan: &Value, errors: &mut Vec<String>) {
             let expected_set = RUN_FIELDS.iter().copied().collect::<BTreeSet<_>>();
             if fields.len() != RUN_FIELDS.len() || actual_set != expected_set {
                 errors.push(
-                    "run-result required_fields do not exactly match the v0.1 contract"
+                    "run-result required_fields do not exactly match the v0.2 contract"
                         .to_owned(),
                 );
             }
