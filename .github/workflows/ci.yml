@@ -187,6 +187,27 @@ jobs:
           ! grep -q 'oracle_facts' /tmp/cecb-policy-view.json
           ! grep -q 'true_safe_suitable_capacity' /tmp/cecb-policy-view.json
           ! grep -q 'H001_FIXED_CAPACITY_CEILING' /tmp/cecb-policy-view.json
+      - id: paired_plan
+        name: Materialize matched allocation-only experiment design
+        run: |
+          cargo run --quiet --manifest-path research/cecb-housing-fixture-check/Cargo.toml -- --paired-plan-out /tmp/cecb-paired-plan.json > /dev/null
+          jq -e '
+            .schema_version == "cecb.housing.paired_design.v0.1" and
+            .status == "design_only_no_policy_execution" and
+            .scenario_config_count == 216 and
+            .paired_seed_count == 30 and
+            .arm_count == 5 and
+            .scheduled_run_count == 32400 and
+            (.runs | length == 32400) and
+            ([.runs[].run_id] | unique | length == 32400) and
+            all(.runs[]; .status == "not_executed" and .disposition == "not_started")
+          ' /tmp/cecb-paired-plan.json > /dev/null
+          jq -e '
+            .runs | group_by(.pair_block_id) |
+            all(.[]; (length == 5) and
+              ([.[].seed_hex] | unique | length == 1) and
+              ([.[].arm_id] | unique | length == 5))
+          ' /tmp/cecb-paired-plan.json > /dev/null
       # Preserve a machine-checkable run receipt, dependency lock and logs even
       # on test failure. A skipped job has no receipt and is not a PASS.
       - name: Build exact-run evidence receipt
@@ -198,6 +219,7 @@ jobs:
           cp /tmp/cecb-cargo-test.log artifacts/cecb/ 2>/dev/null || true
           cp /tmp/cecb-validation.json artifacts/cecb/ 2>/dev/null || true
           cp /tmp/cecb-policy-view.json artifacts/cecb/ 2>/dev/null || true
+          cp /tmp/cecb-paired-plan.json artifacts/cecb/ 2>/dev/null || true
           cp research/cecb-housing-fixture-check/Cargo.lock artifacts/cecb/ 2>/dev/null || true
           sha_or_missing() {
             if [ -f "$1" ]; then sha256sum "$1" | cut -d ' ' -f 1; else printf ''; fi
@@ -205,7 +227,7 @@ jobs:
           rustc_version="$(rustc --version 2>/dev/null || echo unavailable)"
           cargo_version="$(cargo --version 2>/dev/null || echo unavailable)"
           jq -n \
-            --arg schema_version "cecb.ci_run_receipt.v0.1" \
+            --arg schema_version "cecb.ci_run_receipt.v0.2" \
             --arg evidence_class "E0 synthetic fixture contract validation only" \
             --arg source_commit "$GITHUB_SHA" \
             --arg run_id "$GITHUB_RUN_ID" \
@@ -218,10 +240,12 @@ jobs:
             --arg lock_sha256 "$(sha_or_missing research/cecb-housing-fixture-check/Cargo.lock)" \
             --arg report_sha256 "$(sha_or_missing /tmp/cecb-validation.json)" \
             --arg policy_view_sha256 "$(sha_or_missing /tmp/cecb-policy-view.json)" \
+            --arg paired_plan_sha256 "$(sha_or_missing /tmp/cecb-paired-plan.json)" \
             --arg rustfmt_outcome "${{ steps.rustfmt.outcome }}" \
             --arg tests_outcome "${{ steps.test.outcome }}" \
             --arg canonical_outcome "${{ steps.canonical.outcome }}" \
             --arg policy_view_outcome "${{ steps.policy_view.outcome }}" \
+            --arg paired_plan_outcome "${{ steps.paired_plan.outcome }}" \
             '{
               schema_version: $schema_version,
               evidence_class: $evidence_class,
@@ -237,22 +261,26 @@ jobs:
               },
               output_sha256: {
                 validation_report: $report_sha256,
-                candidate_policy_view: $policy_view_sha256
+                candidate_policy_view: $policy_view_sha256,
+                paired_plan: $paired_plan_sha256
               },
               step_outcomes: {
                 rustfmt: $rustfmt_outcome,
                 tests: $tests_outcome,
                 canonical_report: $canonical_outcome,
-                policy_view_isolation: $policy_view_outcome
+                policy_view_isolation: $policy_view_outcome,
+                paired_plan: $paired_plan_outcome
               },
               claim_ceiling: "Synthetic fixture conformance only; not policy-performance evidence or real-world impact."
             }' > artifacts/cecb/run-receipt.json
           jq -e '
-            .schema_version == "cecb.ci_run_receipt.v0.1" and
+            .schema_version == "cecb.ci_run_receipt.v0.2" and
             (.source_commit | length == 40) and
             (.input_sha256.fixture | length == 64) and
             (.input_sha256.validator | length == 64) and
-            (.step_outcomes.tests != "")
+            (.step_outcomes.tests != "") and
+            (.step_outcomes.paired_plan != "") and
+            (.output_sha256.paired_plan | length == 64)
           ' artifacts/cecb/run-receipt.json > /dev/null
       - uses: actions/upload-artifact@v4
         name: Upload CECB exact-run evidence
