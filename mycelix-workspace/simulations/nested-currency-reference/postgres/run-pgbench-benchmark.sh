@@ -19,7 +19,10 @@ if ! [[ "$CLIENTS" =~ ^[1-9][0-9]*$ && "$THREADS" =~ ^[1-9][0-9]*$ && "$DURATION
   exit 2
 fi
 
-psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 -c "SELECT version(), current_setting('transaction_isolation'), current_setting('synchronous_commit'), current_setting('fsync');"
+SERVER_INFO="$(psql "$DATABASE_URL" -XAt -v ON_ERROR_STOP=1 -c "SELECT version() || ' | isolation=' || current_setting('transaction_isolation') || ' | synchronous_commit=' || current_setting('synchronous_commit') || ' | fsync=' || current_setting('fsync');")"
+PGBENCH_INFO="$(pgbench --version)"
+echo "$SERVER_INFO"
+echo "$PGBENCH_INFO"
 psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 -f "$ROOT/920_pgbench_setup.sql"
 
 set +e
@@ -72,6 +75,24 @@ summary={
 print(json.dumps(summary,indent=2))
 if not samples or failed:
     sys.exit(3)
+PY
+
+python3 - "$TMP" "$SERVER_INFO" "$PGBENCH_INFO" "$CLIENTS" "$THREADS" "$DURATION" "$ROOT" <<'PY'
+import hashlib, json, pathlib, sys
+root=pathlib.Path(sys.argv[1]); server=sys.argv[2]; client_version=sys.argv[3]
+summary_path=root/"latency-summary.json"
+o=json.loads(summary_path.read_text(encoding="utf-8"))
+o["runtime"]={"postgres_server":server,"pgbench_client":client_version}
+o["parameters"]={"clients":int(sys.argv[4]),"threads":int(sys.argv[5]),"duration_seconds":int(sys.argv[6]),"query_mode":"simple","retry_limit":1}
+o["source_sha256"]={
+  "schema":hashlib.sha256((pathlib.Path(sys.argv[7])/"001_schema.sql").read_bytes()).hexdigest(),
+  "transaction_functions":hashlib.sha256((pathlib.Path(sys.argv[7])/"002_functions.sql").read_bytes()).hexdigest(),
+  "pgbench_script":hashlib.sha256((pathlib.Path(sys.argv[7])/"pgbench_admit.sql").read_bytes()).hexdigest(),
+  "runner":hashlib.sha256((pathlib.Path(sys.argv[7])/"run-pgbench-benchmark.sh").read_bytes()).hexdigest()
+}
+o["pgbench_stdout"]=(root/"pgbench.stdout").read_text(encoding="utf-8")
+summary_path.write_text(json.dumps(o,indent=2)+"\\n",encoding="utf-8")
+print("Benchmark receipt enriched with runtime, parameters and exact source SHA-256 values.")
 PY
 
 psql "$DATABASE_URL" -XAt -v ON_ERROR_STOP=1 <<'SQL' | tee "$TMP/reconciliation.txt"
