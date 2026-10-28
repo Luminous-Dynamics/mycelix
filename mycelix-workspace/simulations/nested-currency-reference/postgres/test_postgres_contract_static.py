@@ -76,5 +76,50 @@ class SqlFunctionInstallabilityTests(unittest.TestCase):
                     "SECURITY DEFINER functions must force the temp schema last",
                 )
 
+
+class PostgreSqlRoleSeparationTests(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.schema = (ROOT / "001_schema.sql").read_text(encoding="utf-8")
+        cls.functions = FUNCTIONS.read_text(encoding="utf-8")
+        cls.smoke = SMOKE.read_text(encoding="utf-8")
+
+    def test_all_postgres_sql_files_have_balanced_dollar_delimiters(self):
+        import re
+        for path in sorted(ROOT.glob("*.sql")):
+            sql = path.read_text(encoding="utf-8")
+            with self.subTest(path=path.name):
+                openers = re.findall(r"(?m)^\\s*(?:AS|DO) \\$\\$", sql)
+                closers = re.findall(r"(?m)^\\s*\\$\\$;\\s*$", sql)
+                self.assertEqual(len(openers), len(closers), path.name)
+                self.assertNotRegex(sql, r"(?m)^\\s*(?:AS|DO) \\$\\s*$", path.name)
+                self.assertNotRegex(sql, r"(?m)^\\s*\\$;\\s*$", path.name)
+
+    def test_schema_declares_distinct_nologin_capability_roles(self):
+        for role in ("ncf_app", "ncf_dispatcher", "ncf_observer"):
+            with self.subTest(role=role):
+                self.assertIn("CREATE ROLE " + role + " NOLOGIN", self.schema)
+                self.assertIn("GRANT USAGE ON SCHEMA ncf TO ncf_app, ncf_dispatcher, ncf_observer", self.schema)
+
+    def test_economic_functions_only_granted_to_app_role(self):
+        for grant in (
+            "ncf.allocate_reservation_slice",
+            "ncf.admit_obligation",
+            "ncf.settle_obligation",
+        ):
+            self.assertRegex(self.functions, r"(?m)^GRANT EXECUTE ON FUNCTION " + re.escape(grant) + r"\\([^;]+ TO ncf_app;$")
+        self.assertNotIn("TO ncf_app;\nGRANT EXECUTE ON FUNCTION ncf.record_validation_receipts", self.functions)
+
+    def test_dispatch_and_receipt_functions_are_separated_from_app(self):
+        self.assertIn("GRANT EXECUTE ON FUNCTION ncf.lease_outbox_batch(text, integer, integer) TO ncf_dispatcher;", self.functions)
+        self.assertIn("GRANT EXECUTE ON FUNCTION ncf.mark_outbox_retry(bigint, text, text, integer) TO ncf_dispatcher;", self.functions)
+        self.assertIn("GRANT EXECUTE ON FUNCTION ncf.record_holochain_dispatch(bigint, text, text, text, text, text) TO ncf_dispatcher;", self.functions)
+        self.assertIn("GRANT EXECUTE ON FUNCTION ncf.record_validation_receipts(text, text, integer, integer) TO ncf_observer;", self.functions)
+        self.assertIn("REVOKE EXECUTE ON ALL FUNCTIONS IN SCHEMA ncf FROM ncf_app, ncf_dispatcher, ncf_observer;", self.functions)
+        self.assertIn("ncf_app must not control dispatch or DHT validation observations", self.smoke)
+        self.assertIn("ncf_dispatcher capability boundary is incorrect", self.smoke)
+        self.assertIn("ncf_observer capability boundary is incorrect", self.smoke)
+
+
 if __name__ == "__main__":
     unittest.main()
