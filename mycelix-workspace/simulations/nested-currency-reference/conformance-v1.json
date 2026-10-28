@@ -2172,7 +2172,7 @@
         "cargo test --locked --manifest-path <manifest>",
         "cargo clippy --locked --manifest-path <manifest> --all-targets -- -D warnings"
       ],
-      "method": "Run format, tests, and clippy independently; continue after a failed check so the receipt captures all three outcomes. Require the overall result to pass only when all checks pass. Checkout is exact-head, the worktree must be clean, CARGO_TARGET_DIR and logs live outside the checkout, and the receipt binds the source commit/tree, manifest/lock/source digests, compiler identity and per-check log digests.",
+      "method": "Run format, tests, and clippy independently; continue after a failed check so the receipt captures all three outcomes. Require the overall result to pass only when all checks pass. Checkout is exact-head, the worktree must be clean, CARGO_TARGET_DIR and logs live outside the checkout, and the receipt binds the source commit/tree, manifest/lock/source digests, compiler identity and per-check log digests. The receipt explicitly includes allocation and obligation module digests alongside the source-tree SHA, so the exact policy/admission modules are named in the evidence artifact.",
       "required_receipt_fields": [
         "source_commit",
         "source_tree",
@@ -2191,7 +2191,9 @@
         "overall_status",
         "fmt_log_sha256",
         "test_log_sha256",
-        "clippy_log_sha256"
+        "clippy_log_sha256",
+        "allocation_module_sha256",
+        "obligation_module_sha256"
       ],
       "claim_ceiling": "Formatting, tests and clippy for the exact standalone Rust reference crate only. Does not establish distributed/Holochain safety, cryptographic fencing, external settlement finality or production ledger correctness."
     },
@@ -2425,7 +2427,7 @@
       ],
       "execution_status": "rust_source_and_eleven_test_definitions_added_not_compiled_or_run",
       "claim_ceiling": "Sequential in-memory Rust oracle only. VerifiedObligation is constructible only inside the crate as an explicit future verifier trust boundary; this module does not authenticate signatures, principals, or real-world work and does not implement durable/concurrent/distributed uniqueness.",
-      "acceptance": "undefined The accepted request ID also binds verifier version and verifier-receipt digest. Changing either under the same ID must reject without mutating the original receipt or exposure; this is a source/test definition, not a passing test result."
+      "acceptance": "All eleven declared Rust unit tests must pass under the exact pinned toolchain, formatting and Clippy gates, with source/tree/module hashes in the receipt. The accepted request ID also binds verifier version and verifier-receipt digest: changing either under the same ID must reject without mutating the original receipt or exposure. The module does not authenticate signatures or real-world work, and these tests remain defined but unexecuted."
     },
     {
       "id": "NCF-QUAL-008",
