@@ -82,7 +82,16 @@ jobs:
             target/life-privacy-eval/report-b.json 300 9901
           cmp target/life-privacy-eval/report-a.json target/life-privacy-eval/report-b.json
           grep -q 'SMOKE_ONLY_BELOW_MINIMUM' target/life-privacy-eval/report-a.json
-          python3 -m json.tool target/life-privacy-eval/report-a.json >/dev/null
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          schema = json.loads(Path("research/life-privacy-eval/report.schema.json").read_text())
+          report = json.loads(Path("target/life-privacy-eval/report-a.json").read_text())
+          assert set(schema["required"]).issubset(report)
+          assert report["low_fpr_threshold_selection"] == "empirical_test_curve_descriptive_not_locked"
+          assert report["low_fpr_metrics_are_certification_ready"] is False
+          assert report["evaluation_status"] == "SMOKE_ONLY_BELOW_MINIMUM"
+          PY
           mv target/life-privacy-eval/report-a.json target/life-privacy-eval/report.json
           rm target/life-privacy-eval/report-b.json
 
@@ -137,6 +146,10 @@ jobs:
           from pathlib import Path
           report_path = Path("target/life-privacy-eval/calibrated-report-a.json")
           report = json.loads(report_path.read_text())
+          calibrated_schema = json.loads(Path("research/life-privacy-eval/calibrated-operating-point.schema.json").read_text())
+          assert set(calibrated_schema["required"]).issubset(report)
+          assert report["operating_point_gate"] in calibrated_schema["properties"]["operating_point_gate"]["enum"]
+          assert report["rare_event_inference_status"] in calibrated_schema["properties"]["rare_event_inference_status"]["enum"]
           assert report["evaluation_mode"] == "validation_locked_operating_point"
           assert report["threshold_source"] == "validation_only_locked_before_test"
           assert report["calibration_threshold"] == 0.9
@@ -173,6 +186,11 @@ jobs:
             echo "rust=$(rustc +1.96.0 --version)"
             echo "manifest_sha256=$(sha256sum research/life-privacy-eval/benchmark-manifest.json | cut -d' ' -f1)"
             echo "scenario_matrix_sha256=$(sha256sum research/life-privacy-eval/attack-scenario-matrix.json | cut -d' ' -f1)"
+            echo "report_schema_sha256=$(sha256sum research/life-privacy-eval/report.schema.json | cut -d' ' -f1)"
+            echo "calibration_truth_sha256=$(sha256sum research/life-privacy-eval/fixtures/calibration-truth.tsv | cut -d' ' -f1)"
+            echo "calibration_scores_sha256=$(sha256sum research/life-privacy-eval/fixtures/calibration-scores.tsv | cut -d' ' -f1)"
+            echo "test_truth_sha256=$(sha256sum research/life-privacy-eval/fixtures/truth.tsv | cut -d' ' -f1)"
+            echo "test_scores_sha256=$(sha256sum research/life-privacy-eval/fixtures/scores.tsv | cut -d' ' -f1)"
             echo "paired_schema_sha256=$(sha256sum research/life-privacy-eval/paired-comparison.schema.json | cut -d' ' -f1)"
             echo "paired_report_sha256=$(sha256sum target/life-privacy-eval/paired-report.json | cut -d' ' -f1)"
             echo "calibrated_schema_sha256=$(sha256sum research/life-privacy-eval/calibrated-operating-point.schema.json | cut -d' ' -f1)"
