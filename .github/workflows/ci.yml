@@ -228,7 +228,7 @@ jobs:
           cargo_version="$(cargo --version 2>/dev/null || echo unavailable)"
           jq -n \
             --arg schema_version "cecb.ci_run_receipt.v0.2" \
-            --arg evidence_class "E0 synthetic fixture contract validation only" \
+            --arg evidence_class "E0 fixture contract and design-manifest validation only" \
             --arg source_commit "$GITHUB_SHA" \
             --arg run_id "$GITHUB_RUN_ID" \
             --arg run_attempt "$GITHUB_RUN_ATTEMPT" \
@@ -271,7 +271,7 @@ jobs:
                 policy_view_isolation: $policy_view_outcome,
                 paired_plan: $paired_plan_outcome
               },
-              claim_ceiling: "Synthetic fixture conformance only; not policy-performance evidence or real-world impact."
+              claim_ceiling: "Synthetic fixture and experiment-plan conformance only; not policy-performance evidence or real-world impact."
             }' > artifacts/cecb/run-receipt.json
           jq -e '
             .schema_version == "cecb.ci_run_receipt.v0.2" and
