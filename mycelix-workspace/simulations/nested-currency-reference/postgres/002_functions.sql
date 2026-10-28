@@ -16,8 +16,8 @@ CREATE OR REPLACE FUNCTION ncf.allocate_reservation_slice(
 ) RETURNS jsonb
 LANGUAGE plpgsql
 SECURITY DEFINER
-SET search_path = pg_catalog, ncf
-AS $
+SET search_path = pg_catalog, ncf, pg_temp
+AS $$
 DECLARE
     v_agreement ncf.clearing_agreement%ROWTYPE;
     v_cap ncf.community_instrument_cap%ROWTYPE;
@@ -150,8 +150,8 @@ CREATE OR REPLACE FUNCTION ncf.admit_obligation(
 ) RETURNS jsonb
 LANGUAGE plpgsql
 SECURITY DEFINER
-SET search_path = pg_catalog, ncf
-AS $
+SET search_path = pg_catalog, ncf, pg_temp
+AS $$
 DECLARE
     v_binding ncf.request_binding%ROWTYPE;
     v_receipt jsonb;
@@ -420,8 +420,8 @@ CREATE OR REPLACE FUNCTION ncf.settle_obligation(
 ) RETURNS jsonb
 LANGUAGE plpgsql
 SECURITY DEFINER
-SET search_path = pg_catalog, ncf
-AS $
+SET search_path = pg_catalog, ncf, pg_temp
+AS $$
 DECLARE
     v_before ncf.obligation%ROWTYPE;
     v_obligation ncf.obligation%ROWTYPE;
@@ -546,8 +546,8 @@ CREATE OR REPLACE FUNCTION ncf.lease_outbox_batch(
 ) RETURNS SETOF ncf.holochain_outbox
 LANGUAGE plpgsql
 SECURITY DEFINER
-SET search_path = pg_catalog, ncf
-AS $
+SET search_path = pg_catalog, ncf, pg_temp
+AS $$
 BEGIN
     IF p_worker IS NULL OR length(btrim(p_worker)) = 0
        OR p_batch_size IS NULL OR p_batch_size < 1 OR p_batch_size > 100
@@ -574,7 +574,7 @@ BEGIN
      WHERE o.outbox_id = selected.outbox_id
     RETURNING o.*;
 END;
-$;
+$$;
 
 CREATE OR REPLACE FUNCTION ncf.mark_outbox_retry(
     p_outbox_id bigint,
@@ -584,8 +584,8 @@ CREATE OR REPLACE FUNCTION ncf.mark_outbox_retry(
 ) RETURNS jsonb
 LANGUAGE plpgsql
 SECURITY DEFINER
-SET search_path = pg_catalog, ncf
-AS $
+SET search_path = pg_catalog, ncf, pg_temp
+AS $$
 DECLARE
     v_outbox ncf.holochain_outbox%ROWTYPE;
     v_state text;
@@ -613,7 +613,7 @@ BEGIN
 
     RETURN jsonb_build_object('decision', v_state, 'outbox_id', p_outbox_id, 'attempt_count', v_outbox.attempt_count);
 END;
-$;
+$$;
 
 CREATE OR REPLACE FUNCTION ncf.record_holochain_dispatch(
     p_outbox_id bigint,
@@ -625,8 +625,8 @@ CREATE OR REPLACE FUNCTION ncf.record_holochain_dispatch(
 ) RETURNS jsonb
 LANGUAGE plpgsql
 SECURITY DEFINER
-SET search_path = pg_catalog, ncf
-AS $
+SET search_path = pg_catalog, ncf, pg_temp
+AS $$
 DECLARE
     v_outbox ncf.holochain_outbox%ROWTYPE;
     v_observation_state text := 'authored';
@@ -679,7 +679,7 @@ BEGIN
 
     RETURN jsonb_build_object('decision', 'published', 'outbox_id', p_outbox_id, 'action_hash', p_action_hash);
 END;
-$;
+$$;
 
 CREATE OR REPLACE FUNCTION ncf.record_validation_receipts(
     p_dna_hash text,
@@ -689,8 +689,8 @@ CREATE OR REPLACE FUNCTION ncf.record_validation_receipts(
 ) RETURNS jsonb
 LANGUAGE plpgsql
 SECURITY DEFINER
-SET search_path = pg_catalog, ncf
-AS $
+SET search_path = pg_catalog, ncf, pg_temp
+AS $$
 DECLARE
     v_observation ncf.holochain_action_observation%ROWTYPE;
     v_new_count integer;
@@ -727,7 +727,7 @@ BEGIN
         'required_count', p_required_count
     );
 END;
-$;
+$$;
 
 REVOKE EXECUTE ON FUNCTION ncf.allocate_reservation_slice(uuid, uuid, text, text, text, text, bigint, numeric, bytea) FROM PUBLIC;
 REVOKE EXECUTE ON FUNCTION ncf.admit_obligation(uuid, bytea, text, text, text, integer, numeric, bytea, uuid, text, uuid, text, bigint, text, bytea) FROM PUBLIC;
