@@ -196,6 +196,30 @@ Required negative controls:
 
 These cases prevent “capability first” from becoming a rule that the desired profile must win every scenario.
 
+### Executable paired allocation design (v0.1)
+
+The standalone checker now exposes `--paired-plan-out`, which produces a machine-readable `cecb.housing.paired_design.v0.1` manifest. The initial plan uses a full-factorial **stress design** across six dimensions:
+
+| Dimension | Levels |
+|---|---|
+| Supply condition | adequate, constrained, severe |
+| Construction delay | short, long |
+| Income shock | none, moderate, severe |
+| Observation quality | current, stale, conflicted |
+| Accessibility mix | low, high |
+| Maintenance backlog | low, high |
+
+The full grid is (3 \times 2 \times 3 \times 3 \times 2 \times 2 = 216) configurations. It crosses these configurations with 30 deterministic public development seeds and five allocation-rule arms—price, queue, lottery, need-priority and hybrid—for **32,400 scheduled run slots**. The output lists every run ID, paired block, seed, configuration, arm and initial disposition, instead of asking downstream consumers to reconstruct a partly specified schedule.
+
+This is intentionally an **allocation-only isolation panel**: financing events, ownership/stewardship and service-floor rules are designated held-constant, so allocation-rule effects are not casually attributed to a full institutional bundle. The five policy arms are still marked `adapter_pending`. The manifest does not implement or execute those policies, and does not assert that the full grid maps to currently executable Civilization Twin factors. Before E1 scoring, crosswalk each dimension and fixed profile to #4816, stock-flow rules in #4808, physical production dependencies in #4814 and allocation semantics in #4574. Reject or version any factor combination that those contracts cannot represent honestly.
+
+**Critical paired-randomness rule:** assigning the same seed to each arm in a paired block is necessary but not sufficient for common random numbers. If an arm consumes random draws differently, a single sequential PRNG may desynchronize later exogenous shocks. The Twin adapter should key world-shock draws by stable event/entity/factor coordinates, or use independent named streams for exogenous world events and policy-internal randomization. Add metamorphic tests showing the *exogenous* schedule remains byte-for-byte identical when the allocation arm changes; arm-specific lottery or tie-breaking randomness belongs in a separate namespace. Record the RNG algorithm/version and every seed in the manifest/receipt.
+
+Current plan statuses are `not_executed` / `not_started`; the seed schedule is public and deterministic for development/replay, not cryptographic and not a blind evaluation set. The CI job validates that each of the 216 × 30 paired blocks contains exactly one slot for each of five arms, that all five share the same seed, and that run IDs are unique. The receipt binds the manifest digest under `cecb.ci_run_receipt.v0.2`. **A generated plan is experimental design evidence, not policy-performance evidence.**
+
+The next extension should add separate registered panels for finance-only and stewardship-only interventions, followed by a powered interaction/factorial design. Avoid jumping immediately to a confounded comparison of five different bundles.
+
+
 ## 9. Statistical and qualification protocol
 
 ### Evaluation architecture: adapt TEVV, do not invent a new measurement bureaucracy
