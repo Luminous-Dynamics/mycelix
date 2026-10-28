@@ -1,15 +1,172 @@
 {
   "campaign": "NCF-ALLOC-9",
-  "execution_source_sha256": "e429db1a25427a707be54778dd5c400a06534914114981e7504128a8dc54ee91",
-  "execution_source_git_blob_sha": "24106e44118c0f607a4178f738103e3915e28ee6",
+  "execution_source_sha256": "77a38876f219cc781ef1fb06feea4fd579b1cfe65f0611c7d76a2de6b17076ca",
+  "execution_source_git_blob_sha": "d87d4bf4aa843ba8bfa74bbb278383d186d72885",
   "repository_source_bytewise_match": true,
-  "environment": {"python":"3.13.5","sqlite":"3.46.1","platform":"linux","host":"single local filesystem/host"},
+  "environment": {
+    "python": "3.13.5",
+    "sqlite": "3.46.1",
+    "platform": "linux",
+    "host": "single local filesystem/host"
+  },
   "claim_ceiling": "Local Python/SQLite application-level checkpoint/read/write stress on one host. Does not reproduce the SQLite internal WAL-reset bug; does not establish power-loss, multi-host, Rust, Holochain, or production qualification.",
   "results": {
-    "1k": {"result_file_sha256":"921c8e7a5f184fb526f4f084266ecc5ec4f8dbd2ec530897e74923a818af4770","writes":1000,"accepted":1000,"seconds":0.4176,"accepted_writes_per_second":2394.6,"checkpoint_attempts":750,"complete_checkpoints":749,"busy_or_partial_checkpoints":1,"snapshots":900,"consistent_snapshots":900,"write_latency_ms":{"p50":0.2732,"p95":0.6033,"p99":0.9974},"checkpoint_latency_ms":{"p50":0.0039,"p95":0.0065,"p99":0.0613},"final_checkpoint":[0,0,0],"final_state":{"used_units":4879,"unique_obligation_units":4879,"obligations":1000,"unique_work_digests":1000,"integrity_check":"ok","foreign_key_violations":0},"invariant_failures":0},
-    "8k": {"result_file_sha256":"2bcd59579bfad51d1710ed9aed093c71642d8449484dc68a175c57a274897554","writes":8000,"accepted":8000,"seconds":3.4357,"accepted_writes_per_second":2328.5,"checkpoint_attempts":2500,"complete_checkpoints":2430,"busy_or_partial_checkpoints":70,"snapshots":4000,"consistent_snapshots":4000,"write_latency_ms":{"p50":0.3024,"p95":0.7233,"p99":2.4975},"checkpoint_latency_ms":{"p50":0.004,"p95":0.008,"p99":0.325},"final_checkpoint":[0,0,0],"final_state":{"used_units":39822,"unique_obligation_units":39822,"obligations":8000,"unique_work_digests":8000,"integrity_check":"ok","foreign_key_violations":0},"invariant_failures":0},
-    "20k_run_1": {"result_file_sha256":"73b8767e4aa761affbaa6da91582cd4f073ba1b32dd5b770df2dd13db98c82e7","writes":20000,"accepted":20000,"seconds":6.2342,"accepted_writes_per_second":3208.1,"checkpoint_attempts":5000,"complete_checkpoints":3557,"busy_or_partial_checkpoints":1443,"snapshots":6000,"consistent_snapshots":6000,"write_latency_ms":{"p50":0.237,"p95":0.4823,"p99":1.4555},"checkpoint_latency_ms":{"p50":0.0039,"p95":0.0063,"p99":0.0577},"final_checkpoint":[0,0,0],"final_state":{"used_units":99992,"unique_obligation_units":99992,"obligations":20000,"unique_work_digests":20000,"integrity_check":"ok","foreign_key_violations":0},"invariant_failures":0},
-    "20k_run_2": {"result_file_sha256":"8b516e035128d1abb2e1f96ec052cdabd2fe2f8ef7eb869743b144ac1414c788","writes":20000,"accepted":20000,"seconds":5.8155,"accepted_writes_per_second":3439.1,"checkpoint_attempts":5000,"complete_checkpoints":4625,"busy_or_partial_checkpoints":375,"snapshots":6000,"consistent_snapshots":6000,"write_latency_ms":{"p50":0.2172,"p95":0.4524,"p99":1.1195},"checkpoint_latency_ms":{"p50":0.004,"p95":0.0109,"p99":0.1884},"final_checkpoint":[0,0,0],"final_state":{"used_units":99992,"unique_obligation_units":99992,"obligations":20000,"unique_work_digests":20000,"integrity_check":"ok","foreign_key_violations":0},"invariant_failures":0}
+    "1k": {
+      "result_path": "ncf-alloc9-checkpoint-results-1k.json",
+      "result_file_sha256": "035ca72dcffce60239a260e55c14155d12c1cec614eb39bf48505e702b9d740f",
+      "write_operations_requested": 1000,
+      "write_operations_accepted": 1000,
+      "elapsed_seconds": 0.425,
+      "accepted_operations_per_second": 2352.94,
+      "checkpoint_observations": 750,
+      "checkpoints_complete": 749,
+      "checkpoints_busy_or_partial": 1,
+      "reader_snapshot_observations": 900,
+      "consistent_reader_snapshots": 900,
+      "write_latency_ms": {
+        "p50": 0.2732,
+        "p95": 0.6033,
+        "p99": 0.9974
+      },
+      "checkpoint_latency_ms": {
+        "p50": 0.0039,
+        "p95": 0.0065,
+        "p99": 0.0613
+      },
+      "final_checkpoint_result": [
+        0,
+        0,
+        0
+      ],
+      "final_checkpoint_ok": true,
+      "final_state": {
+        "used_units": 4879,
+        "unique_obligation_units": 4879,
+        "obligations": 1000,
+        "unique_work_digests": 1000,
+        "integrity_check": "ok",
+        "foreign_key_violations": 0
+      },
+      "failure_count": 0,
+      "result_source_sha256": "77a38876f219cc781ef1fb06feea4fd579b1cfe65f0611c7d76a2de6b17076ca"
+    },
+    "8k": {
+      "result_path": "ncf-alloc9-checkpoint-results-8k.json",
+      "result_file_sha256": "7d5484a5f3499a3e2e136333aeaa4fd43f27fadf935bcd12dffe270264ffd9a8",
+      "write_operations_requested": 8000,
+      "write_operations_accepted": 8000,
+      "elapsed_seconds": 2.5275,
+      "accepted_operations_per_second": 3165.18,
+      "checkpoint_observations": 2500,
+      "checkpoints_complete": 2430,
+      "checkpoints_busy_or_partial": 70,
+      "reader_snapshot_observations": 4000,
+      "consistent_reader_snapshots": 4000,
+      "write_latency_ms": {
+        "p50": 0.3024,
+        "p95": 0.7233,
+        "p99": 2.4975
+      },
+      "checkpoint_latency_ms": {
+        "p50": 0.004,
+        "p95": 0.008,
+        "p99": 0.325
+      },
+      "final_checkpoint_result": [
+        0,
+        0,
+        0
+      ],
+      "final_checkpoint_ok": true,
+      "final_state": {
+        "used_units": 39822,
+        "unique_obligation_units": 39822,
+        "obligations": 8000,
+        "unique_work_digests": 8000,
+        "integrity_check": "ok",
+        "foreign_key_violations": 0
+      },
+      "failure_count": 0,
+      "result_source_sha256": "77a38876f219cc781ef1fb06feea4fd579b1cfe65f0611c7d76a2de6b17076ca"
+    },
+    "20k_run_1": {
+      "result_path": "ncf-alloc9-checkpoint-results-20k.json",
+      "result_file_sha256": "0050d501b22a6961afd2a8316c69c6cb4d2ae8b6f308839000a9be795ae9a1a6",
+      "write_operations_requested": 20000,
+      "write_operations_accepted": 20000,
+      "elapsed_seconds": 6.5242,
+      "accepted_operations_per_second": 3065.53,
+      "checkpoint_observations": 5000,
+      "checkpoints_complete": 4327,
+      "checkpoints_busy_or_partial": 673,
+      "reader_snapshot_observations": 6000,
+      "consistent_reader_snapshots": 6000,
+      "write_latency_ms": {
+        "p50": 0.237,
+        "p95": 0.4823,
+        "p99": 1.4555
+      },
+      "checkpoint_latency_ms": {
+        "p50": 0.0039,
+        "p95": 0.0063,
+        "p99": 0.0577
+      },
+      "final_checkpoint_result": [
+        0,
+        0,
+        0
+      ],
+      "final_checkpoint_ok": true,
+      "final_state": {
+        "used_units": 99992,
+        "unique_obligation_units": 99992,
+        "obligations": 20000,
+        "unique_work_digests": 20000,
+        "integrity_check": "ok",
+        "foreign_key_violations": 0
+      },
+      "failure_count": 0,
+      "result_source_sha256": "77a38876f219cc781ef1fb06feea4fd579b1cfe65f0611c7d76a2de6b17076ca"
+    },
+    "20k_run_2": {
+      "result_path": "ncf-alloc9-checkpoint-results-20k-repeat2.json",
+      "result_file_sha256": "645c023c062ec591523013a901cb7ca657a31d8c5f28d49bcca5680d7c434c3f",
+      "write_operations_requested": 20000,
+      "write_operations_accepted": 20000,
+      "elapsed_seconds": 6.9588,
+      "accepted_operations_per_second": 2874.05,
+      "checkpoint_observations": 5000,
+      "checkpoints_complete": 4987,
+      "checkpoints_busy_or_partial": 13,
+      "reader_snapshot_observations": 6000,
+      "consistent_reader_snapshots": 6000,
+      "write_latency_ms": {
+        "p50": 0.2172,
+        "p95": 0.4524,
+        "p99": 1.1195
+      },
+      "checkpoint_latency_ms": {
+        "p50": 0.004,
+        "p95": 0.0109,
+        "p99": 0.1884
+      },
+      "final_checkpoint_result": [
+        0,
+        0,
+        0
+      ],
+      "final_checkpoint_ok": true,
+      "final_state": {
+        "used_units": 99992,
+        "unique_obligation_units": 99992,
+        "obligations": 20000,
+        "unique_work_digests": 20000,
+        "integrity_check": "ok",
+        "foreign_key_violations": 0
+      },
+      "failure_count": 0,
+      "result_source_sha256": "77a38876f219cc781ef1fb06feea4fd579b1cfe65f0611c7d76a2de6b17076ca"
+    }
   },
   "note": "The result_file_sha256 values identify the exact local JSON artifacts linked in the downloadable research bundle. The summary is a normalized transcription; it is not itself the raw per-run JSON."
 }
