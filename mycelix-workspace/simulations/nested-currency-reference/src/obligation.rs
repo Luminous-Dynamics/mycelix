@@ -250,7 +250,9 @@ mod tests {
             .admit(verified("ob-1", "principal-A", "instrument-1", "s-0", 1, 1, 4_000, 7).unwrap())
             .unwrap();
         let retry = book
-            .admit(verified("ob-1", "principal-A", "instrument-1", "s-9", 99, 900, 4_000, 7).unwrap())
+            .admit(verified(
+                "ob-1", "principal-A", "instrument-1", "s-9", 99, 900, 4_000, 7,
+            ).unwrap())
             .unwrap();
         let AdmissionOutcome::Accepted(original) = first else {
             panic!("first submission should be accepted");
@@ -282,7 +284,11 @@ mod tests {
     #[test]
     fn same_id_different_amount_rejects_without_mutation() {
         let mut book = book(10_000);
-        book.admit(verified("ob-1", "principal-A", "instrument-1", "s-0", 1, 1, 100, 7).unwrap()).unwrap();
+        book
+            .admit(verified(
+                "ob-1", "principal-A", "instrument-1", "s-0", 1, 1, 100, 7,
+            ).unwrap())
+            .unwrap();
         assert_eq!(
             book.admit(verified(
                 "ob-1", "principal-A", "instrument-1", "s-1", 1, 2, 101, 7,
@@ -299,7 +305,11 @@ mod tests {
         caps.insert(("principal-B".to_owned(), "instrument-1".to_owned()), 1_000);
         caps.insert(("principal-A".to_owned(), "instrument-2".to_owned()), 1_000);
         let mut book = ObligationBook::new(caps).unwrap();
-        book.admit(verified("ob-1", "principal-A", "instrument-1", "s-0", 1, 1, 100, 7).unwrap()).unwrap();
+        book
+            .admit(verified(
+                "ob-1", "principal-A", "instrument-1", "s-0", 1, 1, 100, 7,
+            ).unwrap())
+            .unwrap();
         assert_eq!(
             book.admit(verified(
                 "ob-1", "principal-B", "instrument-1", "s-1", 1, 2, 100, 7,
@@ -318,7 +328,11 @@ mod tests {
     #[test]
     fn distinct_obligations_share_principal_cap_across_shards() {
         let mut book = book(150);
-        book.admit(verified("ob-1", "principal-A", "instrument-1", "s-0", 1, 1, 100, 7).unwrap()).unwrap();
+        book
+            .admit(verified(
+                "ob-1", "principal-A", "instrument-1", "s-0", 1, 1, 100, 7,
+            ).unwrap())
+            .unwrap();
         assert_eq!(
             book.admit(verified(
                 "ob-2", "principal-A", "instrument-1", "s-1", 1, 2, 51, 8,
