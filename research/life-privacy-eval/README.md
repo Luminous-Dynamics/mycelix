@@ -65,6 +65,19 @@ The proposed AUC upper-bound target defaults to 0.55 and can be overridden per p
 
 The checked-in baseline/treatment files are a deliberately synthetic evaluator known-answer control (perfect-ranking baseline versus tied-score treatment), not an attack model or a real mitigation result. Task-utility and conformance flags remain false by design.
 
+
+## Validation-locked low-FPR operating point (v0.3)
+
+The original metrics command reports TPR at empirical FPR caps by reading the complete test ROC curve. Those are exploratory ranking summaries, not deployable thresholds, because they are selected from the same labels being evaluated. The default report schema flags this limitation.
+
+The `calibrated` subcommand selects a threshold on an independent validation cohort, then applies the frozen threshold to test scores. Example:
+
+    cargo run --locked --release --manifest-path research/life-privacy-eval/Cargo.toml -- calibrated research/life-privacy-eval/fixtures/calibration-truth.tsv research/life-privacy-eval/fixtures/calibration-scores.tsv research/life-privacy-eval/fixtures/truth.tsv research/life-privacy-eval/fixtures/scores.tsv research/life-privacy-eval/fixtures/training-subjects.txt locked-operating-point-report.json 0.01 1000 9901
+
+Calibration and test subject sets and pair handles must be disjoint; both partitions must contain positive and negative pairs and must be disjoint from declared training subjects. The threshold maximizes validation TPR subject to the configured empirical validation FPR cap, with tied scores kept together. It is never re-tuned on test labels.
+
+The report includes test TP/FP counts, fixed-threshold TPR/FPR, subject-cluster bootstrap intervals and empirical FPR resolution (one false positive divided by negative test pairs). **Zero observed false positives remain inconclusive for rare-event risk**: a zero-width bootstrap interval cannot bound unobserved tail events. The checked-in controls are synthetic; task utility and official conformance are intentionally absent, so overall release status remains not evaluated.
+
 ## Metrics
 
 - **ROC-AUC**: probability that a random positive pair ranks above a random negative pair, with half-credit for ties.
