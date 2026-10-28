@@ -16,6 +16,7 @@ from pathlib import Path
 import random
 import sqlite3
 import statistics
+import sys
 import tempfile
 import threading
 import time
@@ -62,6 +63,31 @@ def init_db(path: str, cap_units: int = 10**12) -> None:
 
 def stable_digest(value: str) -> str:
     return hashlib.sha256(value.encode("utf-8")).hexdigest()
+
+
+WAL_RESET_FIX_MINIMUM = (3, 51, 3)
+
+
+def version_tuple(version: str) -> tuple[int, ...]:
+    try:
+        return tuple(int(part) for part in version.split(".")[:3])
+    except (TypeError, ValueError) as exc:
+        raise ValueError(f"invalid SQLite version string: {version!r}") from exc
+
+
+def runtime_sqlite_info() -> dict:
+    with closing(sqlite3.connect(":memory:")) as conn:
+        source_id = conn.execute("SELECT sqlite_source_id()").fetchone()[0]
+    version = sqlite3.sqlite_version
+    fixed_gate = version_tuple(version) >= WAL_RESET_FIX_MINIMUM
+    return {
+        "version": version,
+        "version_info": list(sqlite3.sqlite_version_info),
+        "source_id": source_id,
+        "wal_reset_fix_version_gate_passed": fixed_gate,
+        "required_minimum_version": "3.51.3",
+        "claim_note": "A version gate is necessary but not a substitute for validating the linked build/source ID or running SQLite's special WAL-reset regression test."
+    }
 
 
 def writer(path: str, writer_id: int, count: int, start: threading.Barrier,
@@ -242,7 +268,7 @@ def run_campaign(writers: int = 4, writes_per_writer: int = 250, checkpoint_cycl
     return {
       "campaign":"NCF-ALLOC-9",
       "method":"Concurrent file-backed SQLite WAL writer transactions + PASSIVE/RESTART/TRUNCATE checkpoint calls + consistent read snapshots; thread barrier starts participants together",
-      "environment":{"python":__import__('sys').version.split()[0],"sqlite":sqlite3.sqlite_version,"platform":__import__('sys').platform,"host":"single local filesystem/host"},
+      "environment":{"python":sys.version.split()[0],"sqlite":sqlite3.sqlite_version,"sqlite_runtime":runtime_sqlite_info(),"platform":sys.platform,"host":"single local filesystem/host"},
       "parameters":{"writers":writers,"writes_per_writer":writes_per_writer,"checkpoint_cycles":checkpoint_cycles,"readers":readers,"reads_per_reader":reads_per_reader},
       "write_operations_requested":requested_writes,
       "write_operations_accepted":accepted_writes,
@@ -313,6 +339,19 @@ class CheckpointStressTests(unittest.TestCase):
             self.assertEqual(state["integrity_check"],"ok")
 
 
+
+    def test_sqlite_wal_reset_version_gate_rejects_affected_runtime(self):
+        self.assertFalse(version_tuple("3.46.1") >= WAL_RESET_FIX_MINIMUM)
+        self.assertFalse(version_tuple("3.51.2") >= WAL_RESET_FIX_MINIMUM)
+        self.assertTrue(version_tuple("3.51.3") >= WAL_RESET_FIX_MINIMUM)
+        self.assertTrue(version_tuple("3.54.1") >= WAL_RESET_FIX_MINIMUM)
+
+    def test_runtime_records_sqlite_source_id_and_open_gate(self):
+        info = runtime_sqlite_info()
+        self.assertEqual(info["version"], sqlite3.sqlite_version)
+        self.assertTrue(info["source_id"])
+        self.assertEqual(info["wal_reset_fix_version_gate_passed"], version_tuple(sqlite3.sqlite_version) >= WAL_RESET_FIX_MINIMUM)
+
 def main():
     parser=argparse.ArgumentParser()
     parser.add_argument("--campaign",action="store_true")
@@ -322,7 +361,11 @@ def main():
     parser.add_argument("--readers",type=int,default=3)
     parser.add_argument("--reads-per-reader",type=int,default=300)
     parser.add_argument("--output",default="ncf-alloc9-checkpoint-results.json")
+    parser.add_argument("--require-fixed-sqlite",action="store_true",help="fail closed unless linked SQLite runtime is at least 3.51.3")
     args=parser.parse_args()
+    if args.require_fixed_sqlite and not runtime_sqlite_info()["wal_reset_fix_version_gate_passed"]:
+        print(json.dumps({"qualification":"NOT_QUALIFIED","reason":"linked SQLite runtime is older than the WAL-reset fix floor","runtime":runtime_sqlite_info()}, indent=2), file=sys.stderr)
+        return 2
     if args.campaign:
         result=run_campaign(args.writers,args.writes_per_writer,args.checkpoint_cycles,args.readers,args.reads_per_reader)
         result["source_sha256"]=hashlib.sha256(Path(__file__).read_bytes()).hexdigest()
