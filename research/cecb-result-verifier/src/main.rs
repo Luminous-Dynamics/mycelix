@@ -728,7 +728,7 @@ fn build_expected_runs(plan: &Value, errors: &mut Vec<String>) -> BTreeMap<Strin
                 if config
                     .get("resolved_parameters")
                     .and_then(Value::as_object)
-                    .is_none_or(Map::is_empty)
+                    .is_none_or(|parameters| parameters.is_empty())
                 {
                     errors.push(format!(
                         "{label} requires a non-empty resolved_parameters object"
@@ -1205,12 +1205,18 @@ fn validate_result_row(
     if privacy_guardrail_count.is_some_and(|count| count > 0) {
         if disposition != "guardrail_failed" {
             errors.push(format!(
-                "run {run_id:?} reports privacy/authority guardrail violations without guardrail_failed disposition"
+                concat!(
+                    "run {run_id:?} reports privacy/authority guardrail violations ",
+                    "without guardrail_failed disposition"
+                )
             ));
         }
         if violation_count == 0 {
             errors.push(format!(
-                "run {run_id:?} reports privacy/authority guardrail violations but lists no guardrail violation"
+                concat!(
+                    "run {run_id:?} reports privacy/authority guardrail violations ",
+                    "but lists no guardrail violation"
+                )
             ));
         }
     }
@@ -1797,6 +1803,46 @@ mod tests {
     fn refuses_configurations_without_resolved_parameters() {
         let mut plan = test_plan();
         plan["configurations"][0].as_object_mut().unwrap().remove("resolved_parameters");
+        let bundle = test_bundle(&plan);
+        assert!(!verified(&plan, &bundle));
+    }
+
+    #[test]
+    fn rejects_extra_root_field_that_changes_the_contract() {
+        let mut plan = test_plan();
+        plan["universal_welfare_scalar"] = json!(1.0);
+        let bundle = test_bundle(&plan);
+        assert!(!verified(&plan, &bundle));
+    }
+
+    #[test]
+    fn rejects_counts_that_disagree_with_pinned_collections() {
+        let mut plan = test_plan();
+        plan["scenario_config_count"] = json!(99);
+        let bundle = test_bundle(&plan);
+        assert!(!verified(&plan, &bundle));
+    }
+
+    #[test]
+    fn rejects_changed_factor_vocabulary_under_the_same_schema_version() {
+        let mut plan = test_plan();
+        plan["design"]["factor_levels"]["supply_condition"] = json!(["adequate", "constrained"]);
+        let bundle = test_bundle(&plan);
+        assert!(!verified(&plan, &bundle));
+    }
+
+    #[test]
+    fn rejects_unregistered_configuration_fields() {
+        let mut plan = test_plan();
+        plan["configurations"][0]["unreviewed_policy_hint"] = json!(true);
+        let bundle = test_bundle(&plan);
+        assert!(!verified(&plan, &bundle));
+    }
+
+    #[test]
+    fn rejects_pair_block_that_does_not_match_configuration_and_replicate() {
+        let mut plan = test_plan();
+        plan["runs"][0]["pair_block_id"] = json!("C99-R99");
         let bundle = test_bundle(&plan);
         assert!(!verified(&plan, &bundle));
     }
