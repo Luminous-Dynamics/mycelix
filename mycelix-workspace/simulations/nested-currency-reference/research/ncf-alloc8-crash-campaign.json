@@ -2,13 +2,60 @@
   "id": "NCF-BENCH-012",
   "name": "Crash-boundary recovery and independent-process admission",
   "status": "bounded_local_research",
-  "runtime": {"python": "3.13.5", "sqlite": "3.46.1", "platform": "Linux", "topology": "one host, one local file-backed SQLite database per trial"},
-  "configuration": {"journal_mode": "WAL", "synchronous": "FULL", "write_transaction": "BEGIN IMMEDIATE", "crash_injection": "os._exit from an independent child process", "barrier": "two independent writer processes released by parent after both signal ready"},
-  "crash_stages": ["after_begin", "after_canonical_insert", "after_request_insert", "after_cap_update", "before_commit", "after_commit_before_ack"],
-  "race_cases": ["distinct_work_cap", "same_work_alias", "same_request_conflict"],
-  "repetitions": {"per_crash_stage": 3, "per_race_case": 3},
-  "acceptance_gates": ["pre_commit_crash_reopens_with_no_partial_obligation", "post_commit_pre_ack_crash_reopens_with_complete_obligation", "exact_retry_never_debits_twice", "request_id_binds_one_payload", "canonical_work_debits_once", "used_units_equal_sum_of_unique_canonical_work", "used_units_never_exceed_cap", "sqlite_integrity_check_equals_ok"],
+  "runtime": {
+    "python": "3.13.5",
+    "sqlite": "3.46.1",
+    "platform": "Linux",
+    "topology": "one host, one local file-backed SQLite database per trial"
+  },
+  "configuration": {
+    "journal_mode": "WAL",
+    "synchronous": "FULL",
+    "write_transaction": "BEGIN IMMEDIATE",
+    "crash_injection": "os._exit from an independent child process",
+    "barrier": "two independent writer processes released by parent after both signal ready"
+  },
+  "crash_stages": [
+    "after_begin",
+    "after_canonical_insert",
+    "after_request_insert",
+    "after_cap_update",
+    "before_commit",
+    "after_commit_before_ack"
+  ],
+  "race_cases": [
+    "distinct_work_cap",
+    "same_work_alias",
+    "same_request_conflict"
+  ],
+  "repetitions": {
+    "per_crash_stage": 3,
+    "per_race_case": 3
+  },
+  "acceptance_gates": [
+    "pre_commit_crash_reopens_with_no_partial_obligation",
+    "post_commit_pre_ack_crash_reopens_with_complete_obligation",
+    "exact_retry_never_debits_twice",
+    "request_id_binds_one_payload",
+    "canonical_work_debits_once",
+    "used_units_equal_sum_of_unique_canonical_work",
+    "used_units_never_exceed_cap",
+    "sqlite_integrity_check_equals_ok"
+  ],
   "claim_ceiling": "Application-process crash recovery and independent-process contention on one local host only. Not kernel crash/power-loss simulation, storage-fault testing, multi-host consensus, Holochain, cryptographic verifier validation, Rust qualification, or production settlement.",
-  "known_follow_up": "Larger 5 crash repetitions x 10 race repetitions run exceeded the 120-second tool limit and is incomplete. Diagnose harness scaling and add per-worker timing/partial logs before increasing repetitions.",
-  "engine_gate": "Local SQLite 3.46.1 is older than the upstream fix for the documented WAL-reset bug. Repeat on SQLite 3.51.3 or later, or a verified vendor backport, and add checkpoint-concurrency testing before stronger WAL/checkpoint claims."
+  "known_follow_up": "A follow-up 5 crash-repetitions x 10 race-repetitions run completed in 45.6385 seconds and wrote a complete artifact: 30 crash injections, 30 independent-process pair trials, zero observed invariant failures. The initial terminal invocation returned a timeout despite the result file having been completed; artifact presence and source SHA were checked separately. A resource-safe source revision is also available as ncf_alloc8_crash_consistency_v2.py and passed six tests with ResourceWarning promoted to error.",
+  "engine_gate": "Local SQLite 3.46.1 is older than the upstream fix for the documented WAL-reset bug. Repeat on SQLite 3.51.3 or later, or a verified vendor backport, and add checkpoint-concurrency testing before stronger WAL/checkpoint claims.",
+  "repeated_campaign": {
+    "results_path": "mycelix-workspace/simulations/nested-currency-reference/research/ncf-alloc8-crash-results-5x10.json",
+    "source_sha256": "2b479098258a3594fd0651b84ef32d3b55ef54ab5072d7914cf57a9b7297794d",
+    "elapsed_seconds": 45.6385,
+    "crash_trials": 30,
+    "independent_process_pair_trials": 30,
+    "observed_invariant_failures": 0
+  },
+  "resource_safe_revision": {
+    "source_path": "mycelix-workspace/simulations/nested-currency-reference/research/ncf_alloc8_crash_consistency_v2.py",
+    "source_sha256": "d2fda8ec66a8d3c0c1d364c99e3266e9dff445d9afb0bb6bc4b239e1ac402b23",
+    "note": "Explicitly closes SQLite handles; six tests pass with ResourceWarning promoted to error."
+  }
 }
