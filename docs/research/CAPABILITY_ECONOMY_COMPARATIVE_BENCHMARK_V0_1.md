@@ -220,7 +220,7 @@ Do not use the scored holdout to tune a policy or rewrite its threshold.
 
 ### Blindness and evaluator independence
 
-The candidate-view export is now cecb.housing.policy_view.v0.2: it emits candidate-visible observations with non-semantic case_token values and omits the fixture's semantic case_id and purpose text. This removes an avoidable answer cue; it is **not** a blind or secure evaluation while candidate authors can inspect the same repository. Tokens are currently assigned in fixture order. Do not claim anti-gaming protection or hidden-test validity from this exporter alone.
+The candidate-view export is now cecb.housing.policy_view.v0.2: it emits candidate-visible observations with non-semantic case_token values and omits the fixture's semantic case_id and purpose text. This removes an avoidable answer cue; it is **not** a blind or secure evaluation while candidate authors can inspect the same repository. Tokens are currently assigned in fixture order. Do not claim anti-gaming protection or hidden-test validity from this exporter alone. The fixture validator also enforces exact per-case allowlists for top-level observations and nested mirrored-claim records, so an unreviewed field cannot silently flow into the candidate view.
 
 Before policy ranking, the runner must:
 - execute candidate code in a separate process/container with no access to the source fixture, oracle, scorer, evaluation key, or shared evaluator memory;
