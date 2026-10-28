@@ -57,9 +57,26 @@ jobs:
           manifest = json.loads((root / "benchmark-manifest.json").read_text())
           schema = json.loads((root / "report.schema.json").read_text())
           matrix = json.loads((root / "attack-scenario-matrix.json").read_text())
+          coverage = json.loads((root / "threat-coverage-matrix.json").read_text())
           ids = [scenario["id"] for scenario in matrix["scenarios"]]
-          assert len(ids) == 11 and len(set(ids)) == 11
+          id_set = set(ids)
+          assert len(ids) == 11 and len(id_set) == 11
           assert manifest["declared_scenario_count"] == len(ids)
+          assert manifest["threat_coverage_matrix_file"] == "threat-coverage-matrix.json"
+          assert manifest["threat_coverage_matrix_schema_version"] == coverage["schema_version"] == "1.0"
+          assert manifest["threat_coverage_entry_count"] == len(coverage["threats"]) == 15
+          assert manifest["attack_profile_count"] == len(coverage["attack_profiles"]) == 6
+          threat_ids = [item["w3c_threat_id"] for item in coverage["threats"]]
+          assert len(threat_ids) == len(set(threat_ids))
+          profile_ids = [item["id"] for item in coverage["attack_profiles"]]
+          assert len(profile_ids) == len(set(profile_ids))
+          assert all(item["name"] and item["claim_ceiling"] and item["minimum_channels"] for item in coverage["threats"])
+          assert all(sid in id_set for item in coverage["threats"] for sid in item["scenario_ids"])
+          assert all(item["status"] in coverage["status_vocabulary"] for item in coverage["threats"])
+          assert any(item["w3c_threat_id"] == "T8" and item["status"] == "separate_gate_not_linkability" for item in coverage["threats"])
+          assert any(item["w3c_threat_id"] == "T22" and item["status"] == "external_telemetry" for item in coverage["threats"])
+          assert coverage["explicit_noncoverage"] and "not evidence" in coverage["claim_ceiling"]
+          assert all(s["required"] for s in matrix["scenarios"])
           paired_schema = json.loads((root / "paired-comparison.schema.json").read_text())
           calibrated_schema = json.loads((root / "calibrated-operating-point.schema.json").read_text())
           assert schema["$schema"] == "https://json-schema.org/draft/2020-12/schema"
@@ -186,6 +203,7 @@ jobs:
             echo "rust=$(rustc +1.96.0 --version)"
             echo "manifest_sha256=$(sha256sum research/life-privacy-eval/benchmark-manifest.json | cut -d' ' -f1)"
             echo "scenario_matrix_sha256=$(sha256sum research/life-privacy-eval/attack-scenario-matrix.json | cut -d' ' -f1)"
+            echo "threat_coverage_matrix_sha256=$(sha256sum research/life-privacy-eval/threat-coverage-matrix.json | cut -d' ' -f1)"
             echo "report_schema_sha256=$(sha256sum research/life-privacy-eval/report.schema.json | cut -d' ' -f1)"
             echo "calibration_truth_sha256=$(sha256sum research/life-privacy-eval/fixtures/calibration-truth.tsv | cut -d' ' -f1)"
             echo "calibration_scores_sha256=$(sha256sum research/life-privacy-eval/fixtures/calibration-scores.tsv | cut -d' ' -f1)"
@@ -210,6 +228,7 @@ jobs:
             research/life-privacy-eval/Cargo.lock
             research/life-privacy-eval/benchmark-manifest.json
             research/life-privacy-eval/attack-scenario-matrix.json
+            research/life-privacy-eval/threat-coverage-matrix.json
             research/life-privacy-eval/report.schema.json
             research/life-privacy-eval/paired-comparison.schema.json
             research/life-privacy-eval/calibrated-operating-point.schema.json
