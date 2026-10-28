@@ -19,7 +19,7 @@ The model requires a canonical payload digest, but computes that digest from cal
 
 ## Local test and deterministic result
 
-The three Python suites now contain **23 tests total**: 10 NCF-ALLOC-3, 5 NCF-ALLOC-4 and 8 NCF-ALLOC-5. The latest combined run passed all 23. The NCF-ALLOC-5 deterministic scenarios replay one 4,000-unit underlying obligation through 1, 4, 8, 16 or 32 shard aliases; every case records one unique accepted obligation, 4,000 outstanding units, one initial acceptance and alias_count - 1 idempotent replays.
+The three Python suites now contain **24 tests total**: 10 NCF-ALLOC-3, 5 NCF-ALLOC-4 and 9 NCF-ALLOC-5. The latest combined run passed all 24. The NCF-ALLOC-5 deterministic scenarios replay one 4,000-unit underlying obligation through 1, 4, 8, 16 or 32 shard aliases; every case records one unique accepted obligation, 4,000 outstanding units, one initial acceptance and alias_count - 1 idempotent replays.
 
 Files:
 
