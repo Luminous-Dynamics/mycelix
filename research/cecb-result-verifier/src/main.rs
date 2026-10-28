@@ -106,6 +106,9 @@ const FACTOR_LEVELS: &[(&str, &[&str])] = &[
 
 const BUNDLE_SCHEMA: &str = "cecb.housing.policy_result_bundle.v0.1";
 const REPORT_SCHEMA: &str = "cecb.housing.result_verification_report.v0.1";
+const VERIFIER_SOURCE_COMMIT: &str = env!("CECB_VERIFIER_SOURCE_COMMIT");
+const VERIFIER_CARGO_LOCK_SHA256: &str = env!("CECB_VERIFIER_CARGO_LOCK_SHA256");
+const VERIFIER_PACKAGE_VERSION: &str = env!("CARGO_PKG_VERSION");
 const RESULT_SCHEMA: &str = "cecb.housing.policy_result.v0.1";
 const JCS_PROFILE: &str = "RFC 8785 JSON Canonicalization Scheme";
 const SCENARIO_DIGEST_PROFILE: &str = "RFC 8785 JCS followed by SHA-256";
@@ -1392,6 +1395,12 @@ fn validate_result_row(
 
 fn verify_bundle(plan: &Value, bundle: &Value) -> Value {
     let mut errors = Vec::<String>::new();
+    if !is_hex(VERIFIER_SOURCE_COMMIT, 40) {
+        errors.push("verifier source commit could not be pinned".to_owned());
+    }
+    if !is_hex(VERIFIER_CARGO_LOCK_SHA256, 64) {
+        errors.push("verifier Cargo.lock digest could not be pinned".to_owned());
+    }
     validate_jcs_number_safety(plan, "plan", &mut errors);
     validate_jcs_number_safety(bundle, "result_bundle", &mut errors);
     validate_contract(plan, &mut errors);
@@ -1522,6 +1531,9 @@ fn verify_bundle(plan: &Value, bundle: &Value) -> Value {
     json!({
         "schema_version": REPORT_SCHEMA,
         "status": if verified { "PASS" } else { "FAIL" },
+        "verifier_package_version": VERIFIER_PACKAGE_VERSION,
+        "verifier_source_commit_sha": VERIFIER_SOURCE_COMMIT,
+        "verifier_cargo_lock_sha256": VERIFIER_CARGO_LOCK_SHA256,
         "verified": verified,
         "design_id": design_id,
         "design_manifest_sha256": plan_digest,
@@ -1931,6 +1943,9 @@ mod tests {
         assert_eq!(report["complete_outcome_vector_run_count"], 8);
         assert_eq!(report["unknown_outcome_cell_count"], 0);
         assert!(report["claim_ceiling"].as_str().is_some());
+        assert_eq!(report["verifier_package_version"], VERIFIER_PACKAGE_VERSION);
+        assert_eq!(report["verifier_source_commit_sha"], VERIFIER_SOURCE_COMMIT);
+        assert_eq!(report["verifier_cargo_lock_sha256"], VERIFIER_CARGO_LOCK_SHA256);
     }
 
     #[test]
