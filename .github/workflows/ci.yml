@@ -170,11 +170,23 @@ jobs:
           cargo run --quiet --manifest-path research/cecb-housing-fixture-check/Cargo.toml -- > /tmp/cecb-validation.json
           jq -e '.status == "PASS" and .case_count == 10 and .case_fail_count == 0' /tmp/cecb-validation.json
       - id: policy_view
-        name: Verify candidate view excludes evaluator truth
+        name: Verify candidate view is semantically blinded and truth-free
         run: |
           cargo run --quiet --manifest-path research/cecb-housing-fixture-check/Cargo.toml -- --policy-view-out /tmp/cecb-policy-view.json > /dev/null
+          jq -e '
+            .schema_version == "cecb.housing.policy_view.v0.2" and
+            (.cases | length == 10) and
+            ([.cases[].case_token] | unique | length == 10) and
+            all(.cases[];
+              (.case_token | type == "string") and
+              has("observation") and
+              (has("case_id") | not) and
+              (has("purpose") | not)
+            )
+          ' /tmp/cecb-policy-view.json > /dev/null
           ! grep -q 'oracle_facts' /tmp/cecb-policy-view.json
           ! grep -q 'true_safe_suitable_capacity' /tmp/cecb-policy-view.json
+          ! grep -q 'H001_FIXED_CAPACITY_CEILING' /tmp/cecb-policy-view.json
       # Preserve a machine-checkable run receipt, dependency lock and logs even
       # on test failure. A skipped job has no receipt and is not a PASS.
       - name: Build exact-run evidence receipt
