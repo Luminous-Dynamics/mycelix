@@ -532,10 +532,11 @@ fn validate_h004(case: &Value, errors: &mut Vec<String>) {
                 "D3 inspection age must exceed the declared maximum when marked stale".to_owned(),
             ),
             None => errors.push(
-                "D3 inspection month must not be in the future or overflow age arithmetic".to_owned(),
+                "D3 inspection month must not be future-dated or overflow age arithmetic".to_owned(),
             ),
         }
-    }}
+    }
+}
 
 fn validate_h005(case: &Value, errors: &mut Vec<String>) {
     expect_u64(case, &["world", "initial_safe_suitable_units"], 2, "initial capacity", errors);
