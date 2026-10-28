@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Static guardrails for PostgreSQL SQL contract; not a substitute for live SQL tests."""
 from pathlib import Path
+import re
 import unittest
 
 ROOT = Path(__file__).parent
@@ -64,7 +65,6 @@ class SqlFunctionInstallabilityTests(unittest.TestCase):
         self.assertNotRegex(self.functions, r"(?m)^\s*\$;\s*$", "single-dollar function terminator is malformed")
 
     def test_all_security_definer_functions_put_pg_temp_last(self):
-        import re
         definitions = re.split(r"(?m)(?=^CREATE OR REPLACE FUNCTION )", self.functions)
         definers = [definition for definition in definitions if "SECURITY DEFINER" in definition]
         self.assertEqual(len(definers), 7, "keep this assertion synchronized with the seven privileged NCF functions")
@@ -85,7 +85,6 @@ class PostgreSqlRoleSeparationTests(unittest.TestCase):
         cls.smoke = SMOKE.read_text(encoding="utf-8")
 
     def test_all_postgres_sql_files_have_balanced_dollar_delimiters(self):
-        import re
         for path in sorted(ROOT.glob("*.sql")):
             sql = path.read_text(encoding="utf-8")
             with self.subTest(path=path.name):
