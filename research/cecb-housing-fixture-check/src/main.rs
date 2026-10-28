@@ -121,12 +121,13 @@ fn parse_args() -> Result<Option<Cli>, String> {
     while index < args.len() {
         match args[index].as_str() {
             "--help" | "-h" => {
-                println!(
-                    "cecb-housing-fixture-check [--fixture PATH] [--policy-view-out PATH] [--paired-plan-out PATH]\n\\
-                     Validates the v0.1 synthetic known-truth fixture. The policy view strips\n\\
-                     semantic case labels and excludes world/oracle truth. Paired plan output\n\\
-                     is a design manifest only and does not execute policy arms."
-                );
+                println!(concat!(
+                    "cecb-housing-fixture-check [--fixture PATH] ",
+                    "[--policy-view-out PATH] [--paired-plan-out PATH]\\n",
+                    "Validates the v0.1 synthetic known-truth fixture. The policy view ",
+                    "strips semantic case labels and excludes world/oracle truth. ",
+                    "Paired plan output is a design manifest only; it does not execute policy arms."
+                ));
                 return Ok(None);
             }
             "--fixture" => {
