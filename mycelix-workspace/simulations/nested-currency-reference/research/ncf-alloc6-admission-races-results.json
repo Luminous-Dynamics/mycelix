@@ -1,0 +1,91 @@
+{
+  "schema": "ncf-alloc6-admission-races-v1",
+  "status": "INDEPENDENT_PYTHON_STATE_SPACE_MODEL_NOT_DATABASE_NOT_RUST_NOT_CI_NOT_PRODUCTION",
+  "profile": {
+    "clients": 2,
+    "per_client_steps": [
+      "read_dedup",
+      "read_used",
+      "check",
+      "commit"
+    ],
+    "interleavings_per_case": 70,
+    "cap_units": 100,
+    "request_amount_units": 60
+  },
+  "source_provenance": {
+    "local_executed_source_sha256": "1b017002bfc4c1cd2b1ceee68b57c6ca4a93554238ff98f8884b20998cfcb2cc",
+    "checked_in_source_sha256": "b30a375c8cc50444c8c43dbb33c11eea1abbd6a6b932b194d9383eb94dd93328",
+    "note": "The checked-in source is a manually synchronized copy of the model and is not byte-identical to the local script used for this execution. The result is therefore explicitly a local research result, not a checksum-bound CI artifact."
+  },
+  "case_results": {
+    "distinct_work_contends_for_last_capacity": {
+      "same_underlying_work": false,
+      "naive_modes": {
+        "atomic_increment": {
+          "schedule_count": 70,
+          "unsafe_schedules": 60,
+          "cap_violation_schedules": 60,
+          "duplicate_accept_schedules": 0,
+          "counter_understatement_schedules": 0,
+          "worst_overshoot_units": 20
+        },
+        "snapshot_overwrite": {
+          "schedule_count": 70,
+          "unsafe_schedules": 60,
+          "cap_violation_schedules": 60,
+          "duplicate_accept_schedules": 0,
+          "counter_understatement_schedules": 60,
+          "worst_overshoot_units": 20
+        }
+      },
+      "atomic_serializable_orders_with_violation": 0
+    },
+    "same_work_different_request_ids": {
+      "same_underlying_work": true,
+      "naive_modes": {
+        "atomic_increment": {
+          "schedule_count": 70,
+          "unsafe_schedules": 60,
+          "cap_violation_schedules": 60,
+          "duplicate_accept_schedules": 60,
+          "counter_understatement_schedules": 0,
+          "worst_overshoot_units": 20
+        },
+        "snapshot_overwrite": {
+          "schedule_count": 70,
+          "unsafe_schedules": 60,
+          "cap_violation_schedules": 60,
+          "duplicate_accept_schedules": 60,
+          "counter_understatement_schedules": 60,
+          "worst_overshoot_units": 20
+        }
+      },
+      "atomic_serializable_orders_with_violation": 0
+    },
+    "same_request_id_conflicting_work": {
+      "same_underlying_work": false,
+      "naive_modes": {
+        "atomic_increment": {
+          "schedule_count": 70,
+          "unsafe_schedules": 60,
+          "cap_violation_schedules": 0,
+          "duplicate_accept_schedules": 60,
+          "counter_understatement_schedules": 0,
+          "worst_overshoot_units": 0
+        },
+        "snapshot_overwrite": {
+          "schedule_count": 70,
+          "unsafe_schedules": 60,
+          "cap_violation_schedules": 0,
+          "duplicate_accept_schedules": 60,
+          "counter_understatement_schedules": 60,
+          "worst_overshoot_units": 0
+        }
+      },
+      "atomic_serializable_orders_with_violation": 0
+    }
+  },
+  "design_conclusion": "Idempotency, canonical-work uniqueness and cap accounting must linearize in one durable transaction or a correctly proved invariant-confluent protocol. A sequential oracle passing is insufficient.",
+  "claim_ceiling": "Finite synthetic scheduler only; does not test threads, disk durability, real databases, network partition behavior, Holochain, signatures or production code."
+}
