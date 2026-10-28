@@ -60,7 +60,10 @@ jobs:
           ids = [scenario["id"] for scenario in matrix["scenarios"]]
           assert len(ids) == 11 and len(set(ids)) == 11
           assert manifest["declared_scenario_count"] == len(ids)
+          paired_schema = json.loads((root / "paired-comparison.schema.json").read_text())
           assert schema["$schema"] == "https://json-schema.org/draft/2020-12/schema"
+          assert paired_schema["$schema"] == "https://json-schema.org/draft/2020-12/schema"
+          assert paired_schema["properties"]["overall_release_gate"]["const"] == "NOT_EVALUATED_REQUIRED_UTILITY_AND_CONFORMANCE_MISSING"
           assert all(scenario["required"] for scenario in matrix["scenarios"])
           PY
           mkdir -p target/life-privacy-eval
@@ -79,6 +82,37 @@ jobs:
           python3 -m json.tool target/life-privacy-eval/report-a.json >/dev/null
           mv target/life-privacy-eval/report-a.json target/life-privacy-eval/report.json
           rm target/life-privacy-eval/report-b.json
+
+          cargo +1.96.0 run --quiet --locked --release --manifest-path research/life-privacy-eval/Cargo.toml -- compare \
+            research/life-privacy-eval/fixtures/truth.tsv \
+            research/life-privacy-eval/fixtures/paired-baseline-positive-control.tsv \
+            research/life-privacy-eval/fixtures/paired-treatment-no-signal-control.tsv \
+            research/life-privacy-eval/fixtures/training-subjects.txt \
+            target/life-privacy-eval/paired-report-a.json 300 9901 0.55
+          cargo +1.96.0 run --quiet --locked --release --manifest-path research/life-privacy-eval/Cargo.toml -- compare \
+            research/life-privacy-eval/fixtures/truth.tsv \
+            research/life-privacy-eval/fixtures/paired-baseline-positive-control.tsv \
+            research/life-privacy-eval/fixtures/paired-treatment-no-signal-control.tsv \
+            research/life-privacy-eval/fixtures/training-subjects.txt \
+            target/life-privacy-eval/paired-report-b.json 300 9901 0.55
+          cmp target/life-privacy-eval/paired-report-a.json target/life-privacy-eval/paired-report-b.json
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          report_path = Path("target/life-privacy-eval/paired-report-a.json")
+          report = json.loads(report_path.read_text())
+          assert report["evaluation_mode"] == "paired_mitigation_comparison"
+          assert report["linkability_change_status"] == "REDUCTION_SUPPORTED"
+          assert report["sample_size_gate"] == "SMOKE_ONLY_BELOW_MINIMUM"
+          assert report["overall_release_gate"] == "NOT_EVALUATED_REQUIRED_UTILITY_AND_CONFORMANCE_MISSING"
+          assert report["task_utility_evidence_present"] is False
+          assert report["official_conformance_evidence_present"] is False
+          assert report["paired_delta_auc_cluster_bootstrap_ci95"]["high"] < 0
+          assert report["treatment_metrics"]["roc_auc"] == 0.5
+          assert report["baseline_metrics"]["roc_auc"] == 1.0
+          PY
+          mv target/life-privacy-eval/paired-report-a.json target/life-privacy-eval/paired-report.json
+          rm target/life-privacy-eval/paired-report-b.json
 
       - name: Negative control — training/test identity overlap must fail closed
         shell: bash
@@ -105,6 +139,8 @@ jobs:
             echo "rust=$(rustc +1.96.0 --version)"
             echo "manifest_sha256=$(sha256sum research/life-privacy-eval/benchmark-manifest.json | cut -d' ' -f1)"
             echo "scenario_matrix_sha256=$(sha256sum research/life-privacy-eval/attack-scenario-matrix.json | cut -d' ' -f1)"
+            echo "paired_schema_sha256=$(sha256sum research/life-privacy-eval/paired-comparison.schema.json | cut -d' ' -f1)"
+            echo "paired_report_sha256=$(sha256sum target/life-privacy-eval/paired-report.json | cut -d' ' -f1)"
             echo "lock_sha256=$(sha256sum research/life-privacy-eval/Cargo.lock | cut -d' ' -f1)"
             echo "report_sha256=$(sha256sum target/life-privacy-eval/report.json | cut -d' ' -f1)"
             echo "claim_ceiling=MetricsEvaluatorOnSyntheticScoresNotCredentialConformanceOrPrivacyGuarantee"
@@ -121,4 +157,6 @@ jobs:
             research/life-privacy-eval/benchmark-manifest.json
             research/life-privacy-eval/attack-scenario-matrix.json
             research/life-privacy-eval/report.schema.json
+            research/life-privacy-eval/paired-comparison.schema.json
+            target/life-privacy-eval/paired-report.json
           if-no-files-found: error
