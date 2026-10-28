@@ -51,7 +51,10 @@
     "elapsed_seconds": 45.6385,
     "crash_trials": 30,
     "independent_process_pair_trials": 30,
-    "observed_invariant_failures": 0
+    "observed_invariant_failures": 0,
+    "source_path": "mycelix-workspace/simulations/nested-currency-reference/research/ncf_alloc8_crash_consistency_v1_original.py",
+    "source_git_blob_sha": "9c17eff8301e5c58495c6b1047ba49f39e95bedb",
+    "note": "The exact source bytes are preserved under the immutable v1_original filename; its Git blob was verified against the original committed source."
   },
   "resource_safe_revision": {
     "source_path": "mycelix-workspace/simulations/nested-currency-reference/research/ncf_alloc8_crash_consistency_v2.py",
