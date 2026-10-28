@@ -734,6 +734,8 @@ struct ExpectedRun {
     arm_id: String,
     policy_digest: String,
     simulator_digest: String,
+    registered_group_ids: BTreeSet<String>,
+    resource_ids: BTreeSet<String>,
 }
 
 fn design_replicates(plan: &Value) -> Option<u64> {
@@ -742,8 +744,43 @@ fn design_replicates(plan: &Value) -> Option<u64> {
         .as_u64()
 }
 
+fn parse_unique_string_set(value: Option<&Value>) -> Option<BTreeSet<String>> {
+    let values = value?.as_array()?;
+    if values.is_empty() {
+        return None;
+    }
+
+    let mut output = BTreeSet::<String>::new();
+    for item in values {
+        let value = item.as_str()?;
+        if value.trim().is_empty() || !output.insert(value.to_owned()) {
+            return None;
+        }
+    }
+    Some(output)
+}
+
+fn parse_resource_units(value: Option<&Value>) -> Option<BTreeSet<String>> {
+    let resources = value?.as_object()?;
+    if resources.is_empty() {
+        return None;
+    }
+
+    let mut output = BTreeSet::<String>::new();
+    for (resource_id, unit) in resources {
+        let unit = unit.as_str()?;
+        if resource_id.trim().is_empty() || unit.trim().is_empty() {
+            return None;
+        }
+        output.insert(resource_id.to_owned());
+    }
+    Some(output)
+}
+
 fn build_expected_runs(plan: &Value, errors: &mut Vec<String>) -> BTreeMap<String, ExpectedRun> {
     let mut configurations = BTreeMap::<String, String>::new();
+    let mut configuration_groups = BTreeMap::<String, BTreeSet<String>>::new();
+    let mut configuration_resources = BTreeMap::<String, BTreeSet<String>>::new();
     match plan.get("configurations").and_then(Value::as_array) {
         Some(entries) => {
             if entries.is_empty() {
@@ -782,9 +819,36 @@ fn build_expected_runs(plan: &Value, errors: &mut Vec<String>) -> BTreeMap<Strin
                     ));
                     continue;
                 }
+                let parameters = config
+                    .get("resolved_parameters")
+                    .and_then(Value::as_object);
+                let group_ids = match parse_unique_string_set(
+                    parameters.and_then(|value| value.get("registered_group_ids")),
+                ) {
+                    Some(groups) => groups,
+                    None => {
+                        errors.push(format!(
+                            "{label} resolved_parameters.registered_group_ids must be a non-empty unique string array"
+                        ));
+                        BTreeSet::new()
+                    }
+                };
+                let resource_ids = match parse_resource_units(
+                    parameters.and_then(|value| value.get("resource_units")),
+                ) {
+                    Some(resources) => resources,
+                    None => {
+                        errors.push(format!(
+                            "{label} resolved_parameters.resource_units must map resource IDs to non-empty units"
+                        ));
+                        BTreeSet::new()
+                    }
+                };
                 match jcs_sha256(config) {
                     Ok(digest) => {
                         configurations.insert(id.to_owned(), digest);
+                        configuration_groups.insert(id.to_owned(), group_ids);
+                        configuration_resources.insert(id.to_owned(), resource_ids);
                     }
                     Err(error) => errors.push(format!("{label}: {error}")),
                 }
@@ -968,6 +1032,14 @@ fn build_expected_runs(plan: &Value, errors: &mut Vec<String>) -> BTreeMap<Strin
                 arm_id: arm_id.to_owned(),
                 policy_digest: policy_digest.to_owned(),
                 simulator_digest: simulator_digest.clone(),
+                registered_group_ids: configuration_groups
+                    .get(config_id)
+                    .cloned()
+                    .unwrap_or_default(),
+                resource_ids: configuration_resources
+                    .get(config_id)
+                    .cloned()
+                    .unwrap_or_default(),
             },
         );
     }
@@ -1101,6 +1173,8 @@ fn metric_value_valid(metric: &str, value: &Value, errors: &mut Vec<String>, lab
 fn validate_outcomes(
     value: &Value,
     run_id: &str,
+    registered_group_ids: &BTreeSet<String>,
+    resource_ids: &BTreeSet<String>,
     errors: &mut Vec<String>,
 ) -> (u64, BTreeMap<String, u64>) {
     let mut unknown_total = 0_u64;
@@ -1120,6 +1194,28 @@ fn validate_outcomes(
     for metric in OUTCOME_METRICS {
         match object.get(*metric) {
             Some(value) => {
+                if !value.is_null() {
+                    let expected_keys = match *metric {
+                        "debt_service_to_disposable_income" | "groupwise_unmet_need_rate" => {
+                            Some(registered_group_ids)
+                        }
+                        "resource_use_by_resource_id" => Some(resource_ids),
+                        _ => None,
+                    };
+                    if let Some(expected_keys) = expected_keys {
+                        match value.as_object() {
+                            Some(values) => {
+                                let actual = values.keys().cloned().collect::<BTreeSet<_>>();
+                                if actual != *expected_keys {
+                                    errors.push(format!(
+                                        "run {run_id:?} outcome {metric:?} must report every registered group/resource ID exactly once"
+                                    ));
+                                }
+                            }
+                            None => {}
+                        }
+                    }
+                }
                 let count = metric_value_valid(
                     metric,
                     value,
@@ -1234,7 +1330,13 @@ fn validate_result_row(
     }
 
     let (unknown_count, unknown_by_metric) = match result.get("outcomes") {
-        Some(outcomes) => validate_outcomes(outcomes, run_id, errors),
+        Some(outcomes) => validate_outcomes(
+            outcomes,
+            run_id,
+            &planned.registered_group_ids,
+            &planned.resource_ids,
+            errors,
+        ),
         None => {
             errors.push(format!("run {run_id:?} is missing outcomes"));
             (0, BTreeMap::new())
@@ -1575,7 +1677,12 @@ mod tests {
                 "observation_quality": "current",
                 "accessibility_mix": "low",
                 "maintenance_backlog": "low",
-                "resolved_parameters": {"safe_units": 5, "households_with_need": 4}
+                "resolved_parameters": {
+                    "safe_units": 5,
+                    "households_with_need": 4,
+                    "registered_group_ids": ["group-a", "group-b"],
+                    "resource_units": {"water_litre": "litre", "steel_kg": "kilogram"}
+                }
             }),
             json!({
                 "config_id": "C02",
@@ -1585,7 +1692,12 @@ mod tests {
                 "observation_quality": "stale",
                 "accessibility_mix": "high",
                 "maintenance_backlog": "high",
-                "resolved_parameters": {"safe_units": 2, "households_with_need": 4}
+                "resolved_parameters": {
+                    "safe_units": 2,
+                    "households_with_need": 4,
+                    "registered_group_ids": ["group-a", "group-b"],
+                    "resource_units": {"water_litre": "litre", "steel_kg": "kilogram"}
+                }
             }),
         ];
         let seeds = vec![
@@ -1743,9 +1855,15 @@ mod tests {
                     .iter()
                     .map(|metric| {
                         let value = match *metric {
-                            "debt_service_to_disposable_income" => json!({"group-a": 0.2}),
-                            "groupwise_unmet_need_rate" => json!({"group-a": 0.1}),
-                            "resource_use_by_resource_id" => json!({"water_litre": 12.0}),
+                            "debt_service_to_disposable_income" => {
+                                json!({"group-a": 0.2, "group-b": 0.25})
+                            }
+                            "groupwise_unmet_need_rate" => {
+                                json!({"group-a": 0.1, "group-b": 0.15})
+                            }
+                            "resource_use_by_resource_id" => {
+                                json!({"water_litre": 12.0, "steel_kg": 3.0})
+                            }
                             "evidence_coverage_fraction" => json!(0.95),
                             "privacy_authority_guardrail_violation_count" => json!(0),
                             "safe_suitable_household_months"
@@ -1946,6 +2064,33 @@ mod tests {
         let mut plan = test_plan();
         plan["configurations"][0]["unverified_large_integer"] =
             json!(9_007_199_254_740_992_u64);
+        let bundle = test_bundle(&plan);
+        assert!(!verified(&plan, &bundle));
+    }
+
+    #[test]
+    fn rejects_missing_registered_group_from_groupwise_outcome() {
+        let plan = test_plan();
+        let mut bundle = test_bundle(&plan);
+        bundle["results"][0]["outcomes"]["groupwise_unmet_need_rate"] =
+            json!({"group-a": 0.1});
+        assert!(!verified(&plan, &bundle));
+    }
+
+    #[test]
+    fn rejects_missing_registered_resource_from_resource_vector() {
+        let plan = test_plan();
+        let mut bundle = test_bundle(&plan);
+        bundle["results"][0]["outcomes"]["resource_use_by_resource_id"] =
+            json!({"water_litre": 12.0});
+        assert!(!verified(&plan, &bundle));
+    }
+
+    #[test]
+    fn rejects_duplicate_registered_group_ids_in_scenario_contract() {
+        let mut plan = test_plan();
+        plan["configurations"][0]["resolved_parameters"]["registered_group_ids"] =
+            json!(["group-a", "group-a"]);
         let bundle = test_bundle(&plan);
         assert!(!verified(&plan, &bundle));
     }
