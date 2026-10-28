@@ -2,6 +2,19 @@
 
 This standalone, dependency-free crate is a **reference model**, not a Holochain zome, payment rail, cryptographic authorization implementation, or production ledger.
 
+## Production architecture direction — PostgreSQL + Holochain
+
+The reference crate is not the production backend. The active architecture target is a two-boundary system:
+
+- **PostgreSQL** is the shared ACID coordinator for online monetary admission, canonical-work uniqueness within that authority domain, instrument/community/agreement/slice exposure accounting, request/evidence binding, settlement, and transactional outbox.
+- **Holochain** is the agent-authored signed provenance and DHT validation layer. An external Rust dispatcher publishes committed outbox events using stable IDs and reconciles lost acknowledgements. DHT validation receipts are evidence of recent validation/storage progress, not an atomic SQL commit or global settlement finality.
+- **Offline operation** uses preallocated disjoint signed reservation slices and an explicit home-shard/ownership policy. No design may claim global uniqueness across disconnected database instances merely because local SQL or DHT lookups return no match.
+- **SQLite** is retained only for narrow reference regression studies (transaction semantics, replay, application-process crash recovery, SQLite-specific checkpoint/size-limit behavior). It is not the target online coordinator, and more SQLite-only benchmark expansion is paused unless it diagnoses a specific SQLite mechanism.
+
+See [NCF-ARCH-001 — PostgreSQL authority + Holochain evidence](docs/NCF-ARCH-001-postgres-holochain-responsibility-split.md), the [PostgreSQL test/benchmark profile](postgres/README.md), and the [PostgreSQL↔Holochain integration contract](holochain/NCF-POSTGRES-HOLOCHAIN-CONTRACT.md).
+
+**Qualification status:** PostgreSQL 18.6 schema, transactional functions, independent-session race tests, and pgbench workload are checked in; the editor environment has no local PostgreSQL server/client. The new pgbench parser has seven local unit tests, but those do not count as live PostgreSQL conformance. Holochain entry/zome/Sweettest integration still needs implementation and exact-head multi-agent execution. A workflow run with zero jobs is not database evidence; only non-empty exact-head test logs and reconciliation receipts can satisfy these gates.
+
 It models these narrow properties:
 
 1. Instrument IDs are authoritative; ticker collisions do not alias instruments or balances.
