@@ -1,0 +1,26 @@
+NCF-ALLOC-10 LOCAL TEST RECORD
+==============================
+
+Command:
+  PYTHONWARNINGS=error::ResourceWarning python3 -m unittest -v ncf_alloc10_sqlite_full_atomicity.py
+
+Result:
+  Ran 4 tests in 0.168s
+  OK
+
+Source SHA-256:
+  b472cef5ac7a241c91ab08bc42c8c4a69e9281969970599237a8b6ccf06820ac
+Git blob SHA:
+  2916f463e9092ffad77c4e6afe1ee488f52b84e6
+
+Result JSON SHA-256:
+  854448e69ca210ee8125def5eb11d6b51c616062115507f4181ec33682b44c29
+
+Environment:
+  Python 3.13.5
+  SQLite 3.46.1
+  sqlite_source_id(): 2024-08-13 09:16:08 c9c2ab54ba1f5f46360f1b4f35d849cd3f080e6fc2b6c60e91b16c63f69aalt1
+
+The injected database-size limit returned SQLITE_FULL (code 13). The transaction rolled back a liability-counter update attempted before the failing obligation insert. The database remained integrity_check=ok, used units equalled accepted obligation units, and no duplicate work digest was present. Restoring the page limit allowed the same request to accept once and then replay without a second debit.
+
+Important: PRAGMA max_page_count simulates a SQLite database-size cap, not physical device ENOSPC/EIO or power loss. This is not a Rust/Holochain/multi-host or production qualification.
