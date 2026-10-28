@@ -451,6 +451,7 @@ fn build_paired_plan() -> Value {
         ),
         "design": {
             "comparison_axis": "allocation_rule_only",
+            "scenario_config_digest_profile": "RFC 8785 JCS followed by SHA-256",
             "held_constant": {
                 "initial_world_within_pair": true,
                 "exogenous_seed_within_pair": true,
@@ -1448,6 +1449,10 @@ mod tests {
         assert_eq!(
             plan["run_result_contract"]["canonicalization_profile"],
             "RFC 8785 JSON Canonicalization Scheme"
+        );
+        assert_eq!(
+            plan["design"]["scenario_config_digest_profile"],
+            "RFC 8785 JCS followed by SHA-256"
         );
         assert_eq!(
             plan["run_result_contract"]["forbidden_aggregate_field"],
