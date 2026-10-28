@@ -35,3 +35,21 @@ The editor environment has no psql, pgbench, PostgreSQL server, cargo/rustc, doc
 ## Completion gate
 
 The PostgreSQL workflow must complete its SQL smoke and independent-session race jobs. The load job must produce raw pgbench logs, stdout, parser receipt, exact source/runtime identities, and a final SQL reconciliation where all three transaction counts agree. Holochain is a separate gate requiring actual built DNA/WASM hashes and conductor/agent evidence. No backend boundary can be promoted to production solely because parser tests pass.
+
+
+## SQL installability and privileged-path preflight — 2026-10-28
+
+A source audit caught an exact-head PostgreSQL installation blocker before the queued SQL job ran: all seven PL/pgSQL functions had malformed single-dollar body openers (`AS $`); four of the matching function terminators were also single-dollar. PostgreSQL dollar-quoted function bodies require matching delimiters, so the migration was not installable as written.
+
+Fixed in `postgres/002_functions.sql`:
+- All seven function bodies now use matching `AS $$ ... $$;` delimiters.
+- All seven `SECURITY DEFINER` functions now set `search_path = pg_catalog, ncf, pg_temp`, putting the temporary schema last as required by PostgreSQL's documented safe pattern.
+- Added static regression tests for matched dollar delimiters and the privileged-function search path in `test_postgres_contract_static.py`. The workflow executes those guards before applying SQL.
+
+Exact repository identities after the repair:
+- `002_functions.sql` Git blob: `cab4c0c7f671e96bb3b4f5260ad12db10f6e4f71`
+- `test_postgres_contract_static.py` Git blob: `c3aca9eaed78982d83185ed4ffe7c1bb3902bccc`
+
+Source-level lexical checks against the fetched exact file confirm seven balanced open/close pairs, zero malformed single-dollar delimiters, and seven secure search-path declarations. This is not a PostgreSQL parser or live SQL PASS; the dedicated workflow must still apply the migration, execute the smoke/concurrency suites, and reconcile benchmark output.
+
+The security-path change follows PostgreSQL's official guidance that `SECURITY DEFINER` functions should put `pg_temp` last to prevent temporary objects from masking intended relations: https://www.postgresql.org/docs/18/sql-createfunction.html.
