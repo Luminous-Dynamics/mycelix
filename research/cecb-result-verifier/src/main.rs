@@ -317,6 +317,12 @@ fn validate_contract(plan: &Value, errors: &mut Vec<String>) {
             let mut ids = BTreeSet::<String>::new();
             for (index, entry) in entries.iter().enumerate() {
                 let label = format!("outcome_contract[{index}]");
+                exact_keys(
+                    entry,
+                    &["metric_id", "unit", "aggregation", "direction", "missing_policy"],
+                    &label,
+                    errors,
+                );
                 let Some(id) = str_at(entry, "metric_id") else {
                     errors.push(format!("{label} is missing metric_id"));
                     continue;
@@ -856,17 +862,20 @@ fn verify_bundle(plan: &Value, bundle: &Value) -> Value {
             errors.push(format!("unexpected result run_id {run_id:?}"));
             continue;
         };
+        let mut row_errors = Vec::<String>::new();
         let (unknown_count, eligible, guardrail_failed, metric_unknowns) =
-            validate_result_row(result, planned, plan, &plan_digest, &mut errors);
+            validate_result_row(result, planned, plan, &plan_digest, &mut row_errors);
+        let row_verified = row_errors.is_empty();
+        errors.extend(row_errors);
         unknown_total = unknown_total.saturating_add(unknown_count);
         for (metric, count) in metric_unknowns {
             let total = unknown_by_metric.entry(metric).or_default();
             *total = total.saturating_add(count);
         }
-        if eligible {
+        if row_verified && eligible {
             eligible_count = eligible_count.saturating_add(1);
         }
-        if guardrail_failed {
+        if row_verified && guardrail_failed {
             guardrail_failed_count = guardrail_failed_count.saturating_add(1);
         }
         let disposition = str_at(result, "disposition").unwrap_or("invalid");
