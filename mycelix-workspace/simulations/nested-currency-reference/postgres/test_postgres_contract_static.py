@@ -89,11 +89,11 @@ class PostgreSqlRoleSeparationTests(unittest.TestCase):
         for path in sorted(ROOT.glob("*.sql")):
             sql = path.read_text(encoding="utf-8")
             with self.subTest(path=path.name):
-                openers = re.findall(r"(?m)^\\s*(?:AS|DO) \\$\\$", sql)
-                closers = re.findall(r"(?m)^\\s*\\$\\$;\\s*$", sql)
+                openers = re.findall(r"(?m)^\s*(?:AS|DO) \$\$", sql)
+                closers = re.findall(r"(?m)^\s*\$\$;\s*$", sql)
                 self.assertEqual(len(openers), len(closers), path.name)
-                self.assertNotRegex(sql, r"(?m)^\\s*(?:AS|DO) \\$\\s*$", path.name)
-                self.assertNotRegex(sql, r"(?m)^\\s*\\$;\\s*$", path.name)
+                self.assertNotRegex(sql, r"(?m)^\s*(?:AS|DO) \$\s*$", path.name)
+                self.assertNotRegex(sql, r"(?m)^\s*\$;\s*$", path.name)
 
     def test_schema_declares_distinct_nologin_capability_roles(self):
         for role in ("ncf_app", "ncf_dispatcher", "ncf_observer"):
@@ -107,7 +107,7 @@ class PostgreSqlRoleSeparationTests(unittest.TestCase):
             "ncf.admit_obligation",
             "ncf.settle_obligation",
         ):
-            self.assertRegex(self.functions, r"(?m)^GRANT EXECUTE ON FUNCTION " + re.escape(grant) + r"\\([^;]+ TO ncf_app;$")
+            self.assertRegex(self.functions, r"(?m)^GRANT EXECUTE ON FUNCTION " + re.escape(grant) + r"\([^;]+ TO ncf_app;$")
         self.assertNotIn("TO ncf_app;\nGRANT EXECUTE ON FUNCTION ncf.record_validation_receipts", self.functions)
 
     def test_dispatch_and_receipt_functions_are_separated_from_app(self):
