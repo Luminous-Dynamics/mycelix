@@ -13,6 +13,87 @@ use std::{
 };
 
 const PLAN_SCHEMA: &str = "cecb.housing.paired_design.v0.1";
+const PLAN_FIELDS: &[&str] = &[
+    "schema_version",
+    "design_id",
+    "status",
+    "claim_ceiling",
+    "design",
+    "policy_arms",
+    "configurations",
+    "paired_seeds",
+    "scenario_config_count",
+    "paired_seed_count",
+    "arm_count",
+    "scheduled_run_count",
+    "required_terminal_dispositions",
+    "run_result_contract",
+    "outcome_contract",
+    "runs",
+];
+
+const DESIGN_FIELDS: &[&str] = &[
+    "comparison_axis",
+    "scenario_config_digest_profile",
+    "held_constant",
+    "factor_levels",
+    "paired_seed_algorithm",
+    "paired_seed_base_hex",
+    "replicates_per_configuration",
+    "run_expansion_rule",
+    "model_binding",
+];
+
+const MODEL_BINDING_FIELDS: &[&str] = &[
+    "civilization_twin_contract_mapping",
+    "numeric_scenario_value_mapping",
+    "policy_adapter_mapping",
+    "execution_authorized",
+    "exogenous_rng_contract",
+    "policy_internal_rng",
+    "simulator_digest_sha256",
+];
+
+const HELD_CONSTANT_FIELDS: &[&str] = &[
+    "initial_world_within_pair",
+    "exogenous_seed_within_pair",
+    "financing_event_schedule",
+    "ownership_stewardship",
+    "service_floor",
+    "observation_budget",
+    "resource_and_compute_budget",
+    "implementation_status",
+];
+
+const FACTOR_FIELDS: &[&str] = &[
+    "supply_condition",
+    "construction_delay",
+    "income_shock",
+    "observation_quality",
+    "accessibility_mix",
+    "maintenance_backlog",
+];
+
+const CONFIG_FIELDS: &[&str] = &[
+    "config_id",
+    "supply_condition",
+    "construction_delay",
+    "income_shock",
+    "observation_quality",
+    "accessibility_mix",
+    "maintenance_backlog",
+    "resolved_parameters",
+];
+
+const FACTOR_LEVELS: &[(&str, &[&str])] = &[
+    ("supply_condition", &["adequate", "constrained", "severe"]),
+    ("construction_delay", &["short", "long"]),
+    ("income_shock", &["none", "moderate", "severe"]),
+    ("observation_quality", &["current", "stale", "conflicted"]),
+    ("accessibility_mix", &["low", "high"]),
+    ("maintenance_backlog", &["low", "high"]),
+];
+
 const BUNDLE_SCHEMA: &str = "cecb.housing.policy_result_bundle.v0.1";
 const REPORT_SCHEMA: &str = "cecb.housing.result_verification_report.v0.1";
 const RESULT_SCHEMA: &str = "cecb.housing.policy_result.v0.1";
@@ -382,14 +463,20 @@ fn validate_contract(plan: &Value, errors: &mut Vec<String>) {
         errors.push("plan is not marked ready_for_execution".to_owned());
     }
 
+    if plan.get("claim_ceiling").and_then(Value::as_str).is_none_or(str::is_empty) {
+        errors.push("plan claim_ceiling must be a non-empty string".to_owned());
+    }
+    exact_keys(plan, PLAN_FIELDS, "plan", errors);
     let Some(design) = plan.get("design") else {
         errors.push("plan is missing design object".to_owned());
         return;
     };
+    exact_keys(design, DESIGN_FIELDS, "plan.design", errors);
     let Some(binding) = design.get("model_binding") else {
         errors.push("plan is missing design.model_binding".to_owned());
         return;
     };
+    exact_keys(binding, MODEL_BINDING_FIELDS, "plan.design.model_binding", errors);
     if binding.get("execution_authorized").and_then(Value::as_bool) != Some(true) {
         errors.push("plan model_binding.execution_authorized must be true".to_owned());
     }
@@ -407,6 +494,58 @@ fn validate_contract(plan: &Value, errors: &mut Vec<String>) {
     }
     if str_at(design, "scenario_config_digest_profile") != Some(SCENARIO_DIGEST_PROFILE) {
         errors.push("plan scenario configuration digest profile is unsupported".to_owned());
+    }
+    if str_at(design, "comparison_axis") != Some("allocation_rule_only") {
+        errors.push("plan comparison_axis must be allocation_rule_only for v0.1".to_owned());
+    }
+    if let Some(held_constant) = design.get("held_constant") {
+        exact_keys(
+            held_constant,
+            HELD_CONSTANT_FIELDS,
+            "plan.design.held_constant",
+            errors,
+        );
+    } else {
+        errors.push("plan design.held_constant is required".to_owned());
+    }
+    if let Some(factor_levels) = design.get("factor_levels") {
+        exact_keys(factor_levels, FACTOR_FIELDS, "plan.design.factor_levels", errors);
+        for (field, expected_levels) in FACTOR_LEVELS {
+            let values = array_of_strings(factor_levels.get(*field));
+            match values {
+                Some(values) => {
+                    let actual = values.iter().copied().collect::<BTreeSet<_>>();
+                    let expected = expected_levels.iter().copied().collect::<BTreeSet<_>>();
+                    if values.len() != expected_levels.len() || actual != expected {
+                        errors.push(format!(
+                            "plan.design.factor_levels.{field} differs from registered v0.1 levels"
+                        ));
+                    }
+                }
+                None => errors.push(format!(
+                    "plan.design.factor_levels.{field} must be an array of strings"
+                )),
+            }
+        }
+    } else {
+        errors.push("plan design.factor_levels is required".to_owned());
+    }
+    if let Some(base_seed) = str_at(design, "paired_seed_base_hex") {
+        if !is_hex(base_seed, 16) {
+            errors.push("paired_seed_base_hex must be 16 lowercase hex characters".to_owned());
+        }
+    } else {
+        errors.push("paired_seed_base_hex must be present".to_owned());
+    }
+    if str_at(design, "paired_seed_algorithm")
+        != Some("splitmix64-v1 public deterministic development schedule")
+    {
+        errors.push("paired_seed_algorithm differs from registered v0.1".to_owned());
+    }
+    if str_at(design, "run_expansion_rule")
+        != Some("Cartesian product of configurations x paired seeds x arms; run_id and pair_block_id are stable and unique")
+    {
+        errors.push("run_expansion_rule differs from registered v0.1".to_owned());
     }
 
     let Some(contract) = plan.get("run_result_contract") else {
@@ -543,6 +682,12 @@ struct ExpectedRun {
     simulator_digest: String,
 }
 
+fn design_replicates(plan: &Value) -> Option<u64> {
+    plan.get("design")?
+        .get("replicates_per_configuration")?
+        .as_u64()
+}
+
 fn build_expected_runs(plan: &Value, errors: &mut Vec<String>) -> BTreeMap<String, ExpectedRun> {
     let mut configurations = BTreeMap::<String, String>::new();
     match plan.get("configurations").and_then(Value::as_array) {
@@ -552,6 +697,15 @@ fn build_expected_runs(plan: &Value, errors: &mut Vec<String>) -> BTreeMap<Strin
             }
             for (index, config) in entries.iter().enumerate() {
                 let label = format!("configurations[{index}]");
+                exact_keys(config, CONFIG_FIELDS, &label, errors);
+                for (factor, levels) in FACTOR_LEVELS {
+                    match str_at(config, factor) {
+                        Some(value) if levels.contains(&value) => {}
+                        _ => errors.push(format!(
+                            "{label} factor {factor:?} has missing or unregistered level"
+                        )),
+                    }
+                }
                 let Some(id) = str_at(config, "config_id") else {
                     errors.push(format!("{label} is missing config_id"));
                     continue;
@@ -768,6 +922,30 @@ fn build_expected_runs(plan: &Value, errors: &mut Vec<String>) -> BTreeMap<Strin
         .len()
         .saturating_mul(seeds.len())
         .saturating_mul(policies.len());
+    for (field, actual) in [
+        ("scenario_config_count", configurations.len()),
+        ("paired_seed_count", seeds.len()),
+        ("arm_count", policies.len()),
+        ("scheduled_run_count", planned_rows.len()),
+    ] {
+        if plan.get(field).and_then(Value::as_u64) != Some(actual as u64) {
+            errors.push(format!(
+                "plan {field} does not match the verified collection length"
+            ));
+        }
+    }
+    if let Some(required_dispositions) = array_of_strings(plan.get("required_terminal_dispositions")) {
+        let actual = required_dispositions.iter().copied().collect::<BTreeSet<_>>();
+        let expected = TERMINAL_DISPOSITIONS.iter().copied().collect::<BTreeSet<_>>();
+        if required_dispositions.len() != TERMINAL_DISPOSITIONS.len() || actual != expected {
+            errors.push("plan required_terminal_dispositions differ from registered v0.1".to_owned());
+        }
+    } else {
+        errors.push("plan required_terminal_dispositions must be a string array".to_owned());
+    }
+    if design_replicates(plan) != Some(seeds.len() as u64) {
+        errors.push("design.replicates_per_configuration must match paired_seeds length".to_owned());
+    }
     if expected_slots != planned_rows.len() || expected.len() != expected_slots {
         errors.push(format!(
             concat!(
@@ -1295,11 +1473,21 @@ mod tests {
             json!({
                 "config_id": "C01",
                 "supply_condition": "adequate",
+                "construction_delay": "short",
+                "income_shock": "none",
+                "observation_quality": "current",
+                "accessibility_mix": "low",
+                "maintenance_backlog": "low",
                 "resolved_parameters": {"safe_units": 5, "households_with_need": 4}
             }),
             json!({
                 "config_id": "C02",
                 "supply_condition": "constrained",
+                "construction_delay": "long",
+                "income_shock": "severe",
+                "observation_quality": "stale",
+                "accessibility_mix": "high",
+                "maintenance_backlog": "high",
                 "resolved_parameters": {"safe_units": 2, "households_with_need": 4}
             }),
         ];
@@ -1346,21 +1534,52 @@ mod tests {
         json!({
             "schema_version": PLAN_SCHEMA,
             "design_id": "CECB-TEST-PLAN",
-            "source_commit_sha": source_commit,
             "status": "ready_for_execution",
+            "claim_ceiling": "Synthetic verifier fixture only; no policy performance inference.",
+            "source_commit_sha": source_commit,
             "design": {
+                "comparison_axis": "allocation_rule_only",
                 "scenario_config_digest_profile": SCENARIO_DIGEST_PROFILE,
+                "held_constant": {
+                    "initial_world_within_pair": true,
+                    "exogenous_seed_within_pair": true,
+                    "financing_event_schedule": "identical_across_arms",
+                    "ownership_stewardship": "held_constant_across_arms",
+                    "service_floor": "held_constant_across_arms",
+                    "observation_budget": "identical_across_arms",
+                    "resource_and_compute_budget": "same_budget",
+                    "implementation_status": "ready"
+                },
+                "factor_levels": {
+                    "supply_condition": ["adequate", "constrained", "severe"],
+                    "construction_delay": ["short", "long"],
+                    "income_shock": ["none", "moderate", "severe"],
+                    "observation_quality": ["current", "stale", "conflicted"],
+                    "accessibility_mix": ["low", "high"],
+                    "maintenance_backlog": ["low", "high"]
+                },
+                "paired_seed_algorithm": "splitmix64-v1 public deterministic development schedule",
+                "paired_seed_base_hex": "0000000000000001",
+                "replicates_per_configuration": 2,
+                "run_expansion_rule": "Cartesian product of configurations x paired seeds x arms; run_id and pair_block_id are stable and unique",
                 "model_binding": {
                     "execution_authorized": true,
                     "civilization_twin_contract_mapping": "civ-twin-housing-adapter.v1",
                     "numeric_scenario_value_mapping": "housing-scenario-values.v1",
                     "policy_adapter_mapping": "housing-allocation-policies.v1",
+                    "exogenous_rng_contract": "event_keyed_preferred; named streams require event-level draw alignment",
+                    "policy_internal_rng": "separate_namespace_required",
                     "simulator_digest_sha256": simulator_digest
                 }
             },
             "configurations": configurations,
             "paired_seeds": seeds,
             "policy_arms": arms,
+            "scenario_config_count": configurations.len(),
+            "paired_seed_count": seeds.len(),
+            "arm_count": arms.len(),
+            "scheduled_run_count": runs.len(),
+            "required_terminal_dispositions": TERMINAL_DISPOSITIONS,
             "runs": runs,
             "run_result_contract": {
                 "schema_version": RESULT_SCHEMA,
