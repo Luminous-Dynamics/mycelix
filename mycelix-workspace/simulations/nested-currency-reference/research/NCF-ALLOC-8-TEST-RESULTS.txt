@@ -1,0 +1,36 @@
+NCF-ALLOC-8 LOCAL TEST RECORD
+=============================
+
+Command:
+  python3 ncf_alloc8_crash_consistency.py
+
+Result:
+  Ran 6 tests in 6.215s
+  OK
+
+Runtime:
+  Python 3.13.5
+  SQLite 3.46.1
+  Linux
+
+Test coverage:
+  - five pre-commit abrupt-process-exit boundaries recover no partial claim and retry once
+  - post-commit/pre-ack process death recovers original receipt and exact replay does not debit twice
+  - distinct concurrent claims across independent processes do not overshoot cap
+  - canonical work submitted under different request IDs is debited once
+  - one request ID cannot bind two conflicting payloads
+  - cap ledger equals sum of canonical obligation units; SQLite integrity_check is ok
+
+Campaign:
+  18 crash-injection trials across six boundaries
+  9 synchronized independent-process pair trials across three race cases
+  0 observed invariant failures in the bounded campaign
+
+Exact campaign source SHA-256:
+  ee6c32f5205e180bd98287f124e3f097717d2575fd09f3e9c8d1d854f0421756
+
+Important caveats:
+  - application-process death only; not kernel crash, power loss, or storage-fault simulation
+  - single local host and SQLite only; not multi-host or Holochain qualification
+  - installed SQLite 3.46.1 predates the upstream fix for the documented rare WAL-reset bug; this campaign did not deliberately exercise that internal bug
+  - a higher-repetition run exceeded the 120-second tool limit and is incomplete; it is excluded, not counted as a pass
