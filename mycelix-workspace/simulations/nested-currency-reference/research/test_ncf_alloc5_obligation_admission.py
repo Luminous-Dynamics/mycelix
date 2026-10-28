@@ -23,6 +23,15 @@ class ObligationAdmissionTests(unittest.TestCase):
         self.assertEqual(first.decision,Decision.ACCEPTED); self.assertEqual(second.decision,Decision.REJECTED)
         self.assertEqual(second.reason,"obligation_id_conflicts_with_accepted_payload")
         self.assertEqual(book.outstanding_for("principal-A","instrument-1"),100)
+    def test_same_id_different_obligation_digest_rejects_without_mutation(self):
+        book=ObligationBook({("principal-A","instrument-1"):1000})
+        first=book.apply(evidence("ob-1",amount_units=100,obligation_payload="invoice-123-line-1"))
+        changed=book.apply(evidence("ob-1",amount_units=100,obligation_payload="invoice-999-line-1"))
+        self.assertEqual(first.decision,Decision.ACCEPTED)
+        self.assertEqual(changed.decision,Decision.REJECTED)
+        self.assertEqual(changed.reason,"obligation_id_conflicts_with_accepted_payload")
+        self.assertEqual(book.outstanding_for("principal-A","instrument-1"),100)
+        self.assertEqual(changed.receipt,first.receipt)
     def test_same_id_different_principal_or_instrument_rejects(self):
         book=ObligationBook({("principal-A","instrument-1"):1000,("principal-B","instrument-1"):1000,("principal-A","instrument-2"):1000})
         self.assertEqual(book.apply(evidence("ob-1")).decision,Decision.ACCEPTED)
