@@ -46,6 +46,18 @@ const BUNDLE_FIELDS: &[&str] = &[
     "results",
 ];
 
+const PLAN_SLOT_FIELDS: &[&str] = &[
+    "run_id",
+    "pair_block_id",
+    "config_id",
+    "replicate_id",
+    "seed_hex",
+    "arm_id",
+    "status",
+    "disposition",
+];
+
+
 const TERMINAL_DISPOSITIONS: &[&str] = &[
     "completed",
     "abstained",
@@ -582,6 +594,7 @@ fn build_expected_runs(plan: &Value, errors: &mut Vec<String>) -> BTreeMap<Strin
             }
             for (index, seed) in entries.iter().enumerate() {
                 let label = format!("paired_seeds[{index}]");
+                exact_keys(seed, &["replicate_id", "seed_hex"], &label, errors);
                 let Some(replicate) = str_at(seed, "replicate_id") else {
                     errors.push(format!("{label} is missing replicate_id"));
                     continue;
@@ -616,6 +629,17 @@ fn build_expected_runs(plan: &Value, errors: &mut Vec<String>) -> BTreeMap<Strin
             }
             for (index, arm) in entries.iter().enumerate() {
                 let label = format!("policy_arms[{index}]");
+                exact_keys(
+                    arm,
+                    &[
+                        "arm_id",
+                        "allocation_rule",
+                        "implementation_status",
+                        "policy_profile_digest_sha256",
+                    ],
+                    &label,
+                    errors,
+                );
                 let Some(id) = str_at(arm, "arm_id") else {
                     errors.push(format!("{label} is missing arm_id"));
                     continue;
@@ -662,8 +686,13 @@ fn build_expected_runs(plan: &Value, errors: &mut Vec<String>) -> BTreeMap<Strin
     let mut tuples = BTreeSet::<(String, String, String)>::new();
     for (index, row) in planned_rows.iter().enumerate() {
         let label = format!("plan.runs[{index}]");
+        exact_keys(row, PLAN_SLOT_FIELDS, &label, errors);
         let Some(run_id) = str_at(row, "run_id") else {
             errors.push(format!("{label} missing run_id"));
+            continue;
+        };
+        let Some(pair_block_id) = str_at(row, "pair_block_id") else {
+            errors.push(format!("{label} missing pair_block_id"));
             continue;
         };
         let Some(config_id) = str_at(row, "config_id") else {
@@ -697,6 +726,16 @@ fn build_expected_runs(plan: &Value, errors: &mut Vec<String>) -> BTreeMap<Strin
         };
         if registered_seed != seed_hex {
             errors.push(format!("{label} seed_hex does not match paired_seeds entry"));
+        }
+        if pair_block_id != format!("{config_id}-{replicate_id}") {
+            errors.push(format!("{label} pair_block_id does not match config/replicate IDs"));
+        }
+        if str_at(row, "status") != Some("not_executed")
+            || str_at(row, "disposition") != Some("not_started")
+        {
+            errors.push(format!(
+                "{label} plan status/disposition must start as not_executed/not_started"
+            ));
         }
         let tuple = (
             config_id.to_owned(),
@@ -1290,6 +1329,7 @@ mod tests {
                     let arm_id = arm["arm_id"].as_str().expect("arm ID");
                     runs.push(json!({
                         "run_id": format!("{config_id}-{replicate}-{arm_id}"),
+                        "pair_block_id": format!("{config_id}-{replicate}"),
                         "config_id": config_id,
                         "replicate_id": replicate,
                         "seed_hex": seed_hex,
