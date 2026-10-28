@@ -475,7 +475,15 @@ fn build_paired_plan() -> Value {
             "run_expansion_rule": concat!(
                 "Cartesian product of configurations x paired seeds x arms; ",
                 "run_id and pair_block_id are stable and unique"
-            )
+            ),
+            "model_binding": {
+                "civilization_twin_contract_mapping": "pending",
+                "numeric_scenario_value_mapping": "unresolved_labels_only",
+                "policy_adapter_mapping": "pending",
+                "execution_authorized": false,
+                "exogenous_rng_contract": "must be event-keyed or use named shared streams",
+                "policy_internal_rng": "separate_namespace_required"
+            }
         },
         "policy_arms": arms,
         "configurations": configurations,
@@ -493,19 +501,91 @@ fn build_paired_plan() -> Value {
             "invalid_output",
             "guardrail_failed"
         ],
-        "outcome_dimensions": [
-            "safe_suitable_household_months",
-            "unmet_essential_need_household_months",
-            "wait_duration_months",
-            "fully_loaded_cost",
-            "debt_service_and_default",
-            "new_vs_existing_capacity",
-            "maintenance_and_depletion",
-            "groupwise_access_gap",
-            "tail_wait_and_shortfall",
-            "physical_resource_use",
-            "privacy_authority_guardrail_breaches",
-            "evidence_coverage_and_uncertainty"
+        "outcome_contract": [
+            {
+                "metric_id": "safe_suitable_household_months",
+                "unit": "household_month",
+                "aggregation": "sum",
+                "direction": "maximize",
+                "missing_policy": "unknown_not_zero"
+            },
+            {
+                "metric_id": "unmet_essential_need_household_months",
+                "unit": "household_month",
+                "aggregation": "sum",
+                "direction": "minimize",
+                "missing_policy": "unknown_not_zero"
+            },
+            {
+                "metric_id": "wait_duration_p95_months",
+                "unit": "month",
+                "aggregation": "p95",
+                "direction": "minimize",
+                "missing_policy": "unknown_not_zero"
+            },
+            {
+                "metric_id": "fully_loaded_cost_cu",
+                "unit": "synthetic_community_unit",
+                "aggregation": "sum",
+                "direction": "minimize_subject_to_registered_guardrails",
+                "missing_policy": "unknown_not_zero"
+            },
+            {
+                "metric_id": "debt_service_to_disposable_income",
+                "unit": "ratio",
+                "aggregation": "distribution_and_groupwise",
+                "direction": "report_not_universally_ranked",
+                "missing_policy": "unknown_not_zero"
+            },
+            {
+                "metric_id": "defaults_count",
+                "unit": "household",
+                "aggregation": "count",
+                "direction": "minimize",
+                "missing_policy": "unknown_not_zero"
+            },
+            {
+                "metric_id": "new_safe_suitable_units_completed",
+                "unit": "dwelling",
+                "aggregation": "count",
+                "direction": "maximize_only_when_demand_and_inputs_are_supported",
+                "missing_policy": "unknown_not_zero"
+            },
+            {
+                "metric_id": "maintenance_capacity_lost_dwelling_months",
+                "unit": "dwelling_month",
+                "aggregation": "sum",
+                "direction": "minimize",
+                "missing_policy": "unknown_not_zero"
+            },
+            {
+                "metric_id": "groupwise_unmet_need_rate",
+                "unit": "fraction_by_preregistered_group",
+                "aggregation": "per_group",
+                "direction": "report_distribution",
+                "missing_policy": "unknown_not_zero"
+            },
+            {
+                "metric_id": "resource_use_by_resource_id",
+                "unit": "resource_specific_units_no_cross_resource_sum",
+                "aggregation": "per_resource",
+                "direction": "report_vector",
+                "missing_policy": "unknown_not_zero"
+            },
+            {
+                "metric_id": "privacy_authority_guardrail_violation_count",
+                "unit": "violation",
+                "aggregation": "count",
+                "direction": "hard_fail_if_nonzero",
+                "missing_policy": "unknown_is_not_pass"
+            },
+            {
+                "metric_id": "evidence_coverage_fraction",
+                "unit": "fraction",
+                "aggregation": "per_metric_and_group",
+                "direction": "maximize_without_weakening_validity",
+                "missing_policy": "unknown_not_zero"
+            }
         ],
         "runs": runs
     })
@@ -1316,6 +1396,8 @@ mod tests {
         assert_eq!(plan["paired_seed_count"], 30);
         assert_eq!(plan["arm_count"], 5);
         assert_eq!(plan["scheduled_run_count"], 32_400);
+        assert_eq!(plan["design"]["model_binding"]["execution_authorized"], false);
+        assert_eq!(plan["outcome_contract"].as_array().map(Vec::len), Some(12));
 
         let runs = plan["runs"].as_array().expect("runs array");
         assert_eq!(runs.len(), 32_400);
