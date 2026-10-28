@@ -828,7 +828,10 @@ fn build_expected_runs(plan: &Value, errors: &mut Vec<String>) -> BTreeMap<Strin
                     Some(groups) => groups,
                     None => {
                         errors.push(format!(
-                            "{label} resolved_parameters.registered_group_ids must be a non-empty unique string array"
+                            concat!(
+                                "{label} resolved_parameters.registered_group_ids must be a ",
+                                "non-empty unique string array"
+                            )
                         ));
                         BTreeSet::new()
                     }
@@ -839,7 +842,10 @@ fn build_expected_runs(plan: &Value, errors: &mut Vec<String>) -> BTreeMap<Strin
                     Some(resources) => resources,
                     None => {
                         errors.push(format!(
-                            "{label} resolved_parameters.resource_units must map resource IDs to non-empty units"
+                            concat!(
+                                "{label} resolved_parameters.resource_units must map resource ",
+                                "IDs to non-empty units"
+                            )
                         ));
                         BTreeSet::new()
                     }
@@ -1206,9 +1212,12 @@ fn validate_outcomes(
                         match value.as_object() {
                             Some(values) => {
                                 let actual = values.keys().cloned().collect::<BTreeSet<_>>();
-                                if actual != *expected_keys {
+                                if &actual != expected_keys {
                                     errors.push(format!(
-                                        "run {run_id:?} outcome {metric:?} must report every registered group/resource ID exactly once"
+                                        concat!(
+                                            "run {run_id:?} outcome {metric:?} must report ",
+                                            "every registered group/resource ID exactly once"
+                                        )
                                     ));
                                 }
                             }
