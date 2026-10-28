@@ -1310,11 +1310,13 @@ mod tests {
         let arms = vec![
             json!({
                 "arm_id": "allocation_price",
+                "allocation_rule": "price",
                 "implementation_status": "ready",
                 "policy_profile_digest_sha256": profile_one
             }),
             json!({
                 "arm_id": "allocation_queue",
+                "allocation_rule": "queue",
                 "implementation_status": "ready",
                 "policy_profile_digest_sha256": profile_two
             }),
