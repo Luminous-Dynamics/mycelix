@@ -71,6 +71,21 @@ const OUTCOME_METRICS: &[&str] = &[
     "evidence_coverage_fraction",
 ];
 
+const OUTCOME_CONTRACT: &[(&str, &str, &str, &str, &str)] = &[
+    ("safe_suitable_household_months", "household_month", "sum", "maximize", "unknown_not_zero"),
+    ("unmet_essential_need_household_months", "household_month", "sum", "minimize", "unknown_not_zero"),
+    ("wait_duration_p95_months", "month", "p95", "minimize", "unknown_not_zero"),
+    ("fully_loaded_cost_cu", "synthetic_community_unit", "sum", "minimize_subject_to_registered_guardrails", "unknown_not_zero"),
+    ("debt_service_to_disposable_income", "ratio", "distribution_and_groupwise", "report_not_universally_ranked", "unknown_not_zero"),
+    ("defaults_count", "household", "count", "minimize", "unknown_not_zero"),
+    ("new_safe_suitable_units_completed", "dwelling", "count", "maximize_only_when_demand_and_inputs_are_supported", "unknown_not_zero"),
+    ("maintenance_capacity_lost_dwelling_months", "dwelling_month", "sum", "minimize", "unknown_not_zero"),
+    ("groupwise_unmet_need_rate", "fraction_by_preregistered_group", "per_group", "report_distribution", "unknown_not_zero"),
+    ("resource_use_by_resource_id", "resource_specific_units_no_cross_resource_sum", "per_resource", "report_vector", "unknown_not_zero"),
+    ("privacy_authority_guardrail_violation_count", "violation", "count", "hard_fail_if_nonzero", "unknown_is_not_pass"),
+    ("evidence_coverage_fraction", "fraction", "per_metric_and_group", "maximize_without_weakening_validity", "unknown_not_zero"),
+];
+
 #[derive(Debug)]
 struct Args {
     plan_path: PathBuf,
@@ -183,6 +198,38 @@ fn parse_strict_json(input: &str, label: &str) -> Result<Value, String> {
         .end()
         .map_err(|error| format!("{label}: trailing or malformed input: {error}"))?;
     Ok(value.0)
+}
+
+fn validate_jcs_number_safety(value: &Value, path: &str, errors: &mut Vec<String>) {
+    const MAX_SAFE_INTEGER: u64 = 9_007_199_254_740_991;
+    match value {
+        Value::Number(number) => {
+            if let Some(unsigned) = number.as_u64() {
+                if unsigned > MAX_SAFE_INTEGER {
+                    errors.push(format!(
+                        "{path} integer exceeds the RFC 8785 IEEE-754 safe-integer boundary; encode exact large quantities as strings in a versioned schema"
+                    ));
+                }
+            } else if let Some(signed) = number.as_i64() {
+                if signed < -(MAX_SAFE_INTEGER as i64) {
+                    errors.push(format!(
+                        "{path} integer exceeds the RFC 8785 IEEE-754 safe-integer boundary; encode exact large quantities as strings in a versioned schema"
+                    ));
+                }
+            }
+        }
+        Value::Array(items) => {
+            for (index, item) in items.iter().enumerate() {
+                validate_jcs_number_safety(item, &format!("{path}[{index}]"), errors);
+            }
+        }
+        Value::Object(object) => {
+            for (key, child) in object {
+                validate_jcs_number_safety(child, &format!("{path}.{key}"), errors);
+            }
+        }
+        Value::Null | Value::Bool(_) | Value::String(_) => {}
+    }
 }
 
 fn sha256_hex(bytes: &[u8]) -> String {
@@ -335,10 +382,19 @@ fn validate_contract(plan: &Value, errors: &mut Vec<String>) {
                         errors.push(format!("{label} field {field:?} must be a string"));
                     }
                 }
-                if str_at(entry, "missing_policy") != Some("unknown_not_zero")
-                    && str_at(entry, "missing_policy") != Some("unknown_is_not_pass")
-                {
-                    errors.push(format!("{label} has unsupported missing policy"));
+                match OUTCOME_CONTRACT.iter().find(|registered| registered.0 == id) {
+                    Some((_, unit, aggregation, direction, missing_policy)) => {
+                        if str_at(entry, "unit") != Some(*unit)
+                            || str_at(entry, "aggregation") != Some(*aggregation)
+                            || str_at(entry, "direction") != Some(*direction)
+                            || str_at(entry, "missing_policy") != Some(*missing_policy)
+                        {
+                            errors.push(format!(
+                                "{label} metadata differs from the registered v0.1 metric contract"
+                            ));
+                        }
+                    }
+                    None => errors.push(format!("{label} has unregistered metric_id {id:?}")),
                 }
             }
             let expected = OUTCOME_METRICS.iter().copied().collect::<BTreeSet<_>>();
@@ -788,6 +844,8 @@ fn validate_result_row(
 
 fn verify_bundle(plan: &Value, bundle: &Value) -> Value {
     let mut errors = Vec::<String>::new();
+    validate_jcs_number_safety(plan, "plan", &mut errors);
+    validate_jcs_number_safety(bundle, "result_bundle", &mut errors);
     validate_contract(plan, &mut errors);
 
     let design_id = str_at(plan, "design_id").unwrap_or_default().to_owned();
@@ -1026,15 +1084,15 @@ mod tests {
     use super::*;
 
     fn test_outcome_contract() -> Vec<Value> {
-        OUTCOME_METRICS
+        OUTCOME_CONTRACT
             .iter()
-            .map(|metric| {
+            .map(|(metric, unit, aggregation, direction, missing_policy)| {
                 json!({
                     "metric_id": metric,
-                    "unit": "test-unit",
-                    "aggregation": "test",
-                    "direction": "report",
-                    "missing_policy": "unknown_not_zero"
+                    "unit": unit,
+                    "aggregation": aggregation,
+                    "direction": direction,
+                    "missing_policy": missing_policy
                 })
             })
             .collect()
@@ -1244,6 +1302,23 @@ mod tests {
         for arm in plan["policy_arms"].as_array_mut().unwrap() {
             arm["implementation_status"] = json!("adapter_pending");
         }
+        let bundle = test_bundle(&plan);
+        assert!(!verified(&plan, &bundle));
+    }
+
+    #[test]
+    fn rejects_changed_outcome_units_even_when_the_ids_match() {
+        let mut plan = test_plan();
+        plan["outcome_contract"][0]["unit"] = json!("unrelated_unit");
+        let bundle = test_bundle(&plan);
+        assert!(!verified(&plan, &bundle));
+    }
+
+    #[test]
+    fn rejects_integer_outside_jcs_safe_integer_range() {
+        let mut plan = test_plan();
+        plan["configurations"][0]["unverified_large_integer"] =
+            json!(9_007_199_254_740_992_u64);
         let bundle = test_bundle(&plan);
         assert!(!verified(&plan, &bundle));
     }
