@@ -26,20 +26,22 @@ def percentile(values: list[float], p: float) -> float | None:
 
 
 def parse_pgbench_stdout(stdout: str) -> dict:
+    # Timed (-T/--time) runs print only the actual count; count-based runs
+    # print actual/target. The runner uses --time, so accepting both forms is required.
     processed = re.search(
-        r"number of transactions actually processed:\s*([0-9]+)\s*/\s*([0-9]+)",
+        r"number of transactions actually processed:\s*(?:([0-9]+)\s*/\s*([0-9]+)|([0-9]+))",
         stdout,
     )
     failed = re.search(r"number of failed transactions:\s*([0-9]+)", stdout)
     tps = re.search(r"\btps = ([0-9.]+)", stdout)
     average = re.search(r"latency average = ([0-9.]+) ms", stdout)
     if not processed:
-        raise ValueError("pgbench stdout lacks transaction actual/target count")
+        raise ValueError("pgbench stdout lacks processed-transaction count")
     if not failed:
         raise ValueError("pgbench stdout lacks failed-transaction count")
     data = {
-        "pgbench_processed_transactions": int(processed.group(1)),
-        "pgbench_scheduled_transactions": int(processed.group(2)),
+        "pgbench_processed_transactions": int(processed.group(1) or processed.group(3)),
+        "pgbench_scheduled_transactions": int(processed.group(2)) if processed.group(2) else None,
         "pgbench_failed_transactions": int(failed.group(1)),
         "pgbench_reported_tps": float(tps.group(1)) if tps else None,
         "pgbench_reported_average_latency_ms": float(average.group(1)) if average else None,
