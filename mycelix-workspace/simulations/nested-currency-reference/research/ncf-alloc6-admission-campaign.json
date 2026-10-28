@@ -42,7 +42,8 @@
     "rust": "not_run",
     "database_transaction": "not_implemented",
     "distributed_concurrency": "not_run",
-    "holochain_multi_agent": "not_run"
+    "holochain_multi_agent": "not_run",
+    "combined_python_tests": "35 passed across NCF-ALLOC-3/4/5/6 on 2026-10-28"
   },
   "source_provenance": {
     "local_executed_source_sha256": "1b017002bfc4c1cd2b1ceee68b57c6ca4a93554238ff98f8884b20998cfcb2cc",
@@ -50,7 +51,9 @@
     "note": "Local run source and output hashes are not a checksum-bound CI receipt; the checked-in source and results summary are separately identified.",
     "checked_in_test_sha256": "3060fd362b07dab529782c953b4e69655a261e039ba5aeafa0ab65463504f6be",
     "checked_in_test_count": 8,
-    "local_results_sha256": "cdacd97dadfda3d39b6251b558c4f8920873103ac33a62e863173292560ad2b9"
+    "local_results_sha256": "cdacd97dadfda3d39b6251b558c4f8920873103ac33a62e863173292560ad2b9",
+    "local_test_sha256": "c131242727bc51a7a8b2891ff8663b85c8fb1f89f1fee9d835fd506e811b5b37",
+    "repository_test_sha256": "3060fd362b07dab529782c953b4e69655a261e039ba5aeafa0ab65463504f6be"
   },
   "claim_ceiling": "Finite synthetic scheduler only. It does not test threads, disk durability, real databases, network partitions, Holochain, signatures or production code.",
   "decision_rule": "Require atomic durable uniqueness, cap check/debit, accepted obligation persistence and response receipt (or a separately proven invariant-confluent protocol). A sequential passing test is insufficient."
