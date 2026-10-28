@@ -12,12 +12,13 @@ The public CECB paired-plan generator currently emits paired_design.v0.1 as a de
 
     cargo fmt --manifest-path research/cecb-result-verifier/Cargo.toml -- --check
     cargo test --locked --manifest-path research/cecb-result-verifier/Cargo.toml
-    cargo run --manifest-path research/cecb-result-verifier/Cargo.toml -- \
+    cargo run --locked --manifest-path research/cecb-result-verifier/Cargo.toml -- \
       --plan /path/to/authorized-plan.json \
       --results /path/to/result-bundle.json \
+      --artifact-root /path/to/run-artifacts \
       --report /path/to/verification-report.json
 
-Exit codes: 0 only after the manifest and bundle contract pass and every referenced artifact byte digest verifies; 1 for an invalid contract, missing/tampered artifact or digest/path mismatch; and 2 for invocation or input parsing/I/O errors.
+`--artifact-root` is mandatory. A final exit code of 0 is returned only after the manifest/bundle contract passes and every required referenced artifact's bytes match its declared digest. Exit code 1 means contract failure, missing/tampered artifact or digest/path mismatch; exit code 2 means invocation, strict JSON parsing or input/output error.
 
 ## Contract checks
 
@@ -29,6 +30,12 @@ Exit codes: 0 only after the manifest and bundle contract pass and every referen
 - Requires each result to list artifact SHA-256 digests and a terminal disposition. Any non-empty guardrail-violation list must be labelled guardrail_failed; guardrail-failed runs are reported but never counted among completed guardrail-clear runs. The report separately counts completed guardrail-clear runs and complete outcome vectors; any vector with unknown cells is excluded from the latter.
 - Rejects unknown result fields, including attempted addition of a universal welfare scalar.
 - Emits a deterministic report with contract status, coverage counts, terminal dispositions, completed guardrail-clear counts, complete outcome-vector counts, unknown outcome-cell counts, verifier package version, verifier source commit SHA, Cargo.lock SHA-256 and all verification errors. A PASS is refused if the verifier cannot embed a valid source commit and dependency-lock digest. Unit tests cover successful artifact reads, tampered bytes, missing artifacts, unsafe paths and duplicate path aliases. A completed run with unknown privacy/authority guardrail evidence is not counted as guardrail-clear; a result vector can remain complete even when its terminal disposition is a declared guardrail failure.
+
+
+
+## Artifact content verification
+
+The final CLI PASS is not a shape-only result. For each result row, `artifact_paths` must have exactly the same keys as `artifact_digests` and include `result_trace`, `initial_world_state` and `exogenous_event_stream`. Paths must be safe relative paths beneath the caller-supplied root; absolute paths, parent traversal, backslash paths, symlink escapes, duplicate/aliased paths, missing files and digest mismatches fail closed. The verifier reads each referenced file, calculates SHA-256 over the actual bytes and compares it with the declared digest. A digest still proves byte identity—not that the trace faithfully represents a truthful model execution.
 
 ## Known limitations
 
