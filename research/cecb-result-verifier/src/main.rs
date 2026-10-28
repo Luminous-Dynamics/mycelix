@@ -1746,8 +1746,10 @@ fn safe_relative_artifact_path(value: &str) -> bool {
     for component in path.components() {
         match component {
             Component::Normal(_) => has_normal_component = true,
-            Component::CurDir => {}
-            Component::ParentDir | Component::RootDir | Component::Prefix(_) => return false,
+            Component::CurDir
+            | Component::ParentDir
+            | Component::RootDir
+            | Component::Prefix(_) => return false,
         }
     }
     has_normal_component
@@ -1780,6 +1782,7 @@ fn verify_artifact_contents(
         return (0, vec!["result bundle results must be an array".to_owned()]);
     };
     let mut seen_paths = BTreeMap::<String, String>::new();
+    let mut seen_canonical_paths = BTreeMap::<PathBuf, String>::new();
     let mut checked_files = 0_u64;
 
     for (index, result) in results.iter().enumerate() {
@@ -1839,6 +1842,14 @@ fn verify_artifact_contents(
             if !canonical.starts_with(&root) || !canonical.is_file() {
                 errors.push(format!(
                     "run {run_id:?} artifact {artifact_name:?} resolves outside the artifact root or is not a file"
+                ));
+                continue;
+            }
+            if let Some(previous_run) =
+                seen_canonical_paths.insert(canonical.clone(), run_id.to_owned())
+            {
+                errors.push(format!(
+                    "canonical artifact path for run {run_id:?} aliases a path already used by run {previous_run:?}"
                 ));
                 continue;
             }
