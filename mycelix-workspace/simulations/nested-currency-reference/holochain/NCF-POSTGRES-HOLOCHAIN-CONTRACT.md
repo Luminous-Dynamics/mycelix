@@ -47,6 +47,22 @@ For source-chain determinism, do not resolve "the latest key" through an unconst
 
 The canonical PostgreSQL receipt digest remains a content-binding checksum, not signer identity. Its immutable fields should include stable event ID, obligation/request IDs, canonical-work digest, principal/community, instrument/profile revision, integer amount string, gross direction/agreement, reservation/slice/shard/epoch, verifier version/evidence digest, and SQL receipt digest. The Holochain claim action's author signature attests to the envelope under the registered authority key. A malicious or compromised authorized authority can still lie about SQL state; mitigating that requires tighter key custody, independent audits/witnesses, or a separately designed threshold authority policy.
 
+## Canonical cross-language claim digest
+
+The claim's immutable content binding uses the versioned `NCF-AUTHORITY-CLAIM-V1` profile and the golden fixture `ncf-authority-claim-v1-vectors.json`. Producers and Holochain validators must use the same bytes, not independently serialize JSON and hope that map ordering, numeric representation, Unicode normalization, or JSONB formatting happen to agree.
+
+Encoding is normative:
+
+1. Prefix the preimage with the exact domain separator bytes `NCF-AUTHORITY-CLAIM-V1\0` (the characters `\0` here denote one zero byte).
+2. Encode exactly these 19 fields in this exact order: `schema_version`, `outbox_event_id`, `obligation_id`, `request_id`, `canonical_work_digest`, `principal_id`, `community_id`, `instrument_id`, `profile_revision`, `amount_units`, `agreement_id`, `direction`, `reservation_id`, `shard_id`, `epoch`, `verifier_version`, `verifier_receipt_digest`, `sql_receipt_digest`, `authority_manifest_digest`.
+3. Every field value is a NUL-free ASCII string. Before each field value, append its length as a 4-byte unsigned big-endian integer; then append the exact field bytes. Do not include field names in the framed payload because the order is fixed by the profile version.
+4. UUID fields use canonical lowercase hyphenated text. Decimal integer fields use base 10 without leading zeros; amount and epoch are strings, not JSON numbers, and arbitrary-precision integer values must remain exact. Digest fields are 64 lowercase hexadecimal ASCII characters. Direction is exactly `a_to_b` or `b_to_a`.
+5. Compute SHA-256 over the complete domain-prefixed framed byte sequence. Any field order, type, spelling, or value difference changes the digest.
+
+Two golden vectors cover a basic claim and an amount `9007199254740993`, which exceeds JavaScript's exact integer range. Their expected digests and framing lengths are frozen in the JSON fixture. The separate Python reference test currently passes 11 local tests, but the checked-in test source has not yet been proven byte-identical to the locally tested copy; therefore this is reference-model evidence, not exact-source qualification. The same vectors must be consumed by a Rust implementation and a Holochain integrity-zome test before cross-language conformance can be claimed.
+
+**Digest versus signature:** this digest is content binding only. It does not prove SQL commit, signer identity, or real-world service delivery. The `sql_receipt_digest` field is an opaque receipt identifier inside the envelope until a separate SQL-receipt canonicalization profile is specified; do not recompute it using PostgreSQL JSONB text in another language. The actual Holochain action signature authenticates the author, and deterministic integrity validation must additionally verify that author against the pinned governance-authorized AuthorityManifest and its scope/epoch. A compromised authorized authority can still issue false claims; this profile does not eliminate key-custody risk.
+
 ## Proposed entry types
 
 These are the first reviewable data contracts; they are not yet implemented entry definitions.
