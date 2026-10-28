@@ -73,16 +73,64 @@ const OUTCOME_METRICS: &[&str] = &[
 
 const OUTCOME_CONTRACT: &[(&str, &str, &str, &str, &str)] = &[
     ("safe_suitable_household_months", "household_month", "sum", "maximize", "unknown_not_zero"),
-    ("unmet_essential_need_household_months", "household_month", "sum", "minimize", "unknown_not_zero"),
+    (
+        "unmet_essential_need_household_months",
+        "household_month",
+        "sum",
+        "minimize",
+        "unknown_not_zero",
+    ),
     ("wait_duration_p95_months", "month", "p95", "minimize", "unknown_not_zero"),
-    ("fully_loaded_cost_cu", "synthetic_community_unit", "sum", "minimize_subject_to_registered_guardrails", "unknown_not_zero"),
-    ("debt_service_to_disposable_income", "ratio", "distribution_and_groupwise", "report_not_universally_ranked", "unknown_not_zero"),
+    (
+        "fully_loaded_cost_cu",
+        "synthetic_community_unit",
+        "sum",
+        "minimize_subject_to_registered_guardrails",
+        "unknown_not_zero",
+    ),
+    (
+        "debt_service_to_disposable_income",
+        "ratio",
+        "distribution_and_groupwise",
+        "report_not_universally_ranked",
+        "unknown_not_zero",
+    ),
     ("defaults_count", "household", "count", "minimize", "unknown_not_zero"),
-    ("new_safe_suitable_units_completed", "dwelling", "count", "maximize_only_when_demand_and_inputs_are_supported", "unknown_not_zero"),
-    ("maintenance_capacity_lost_dwelling_months", "dwelling_month", "sum", "minimize", "unknown_not_zero"),
-    ("groupwise_unmet_need_rate", "fraction_by_preregistered_group", "per_group", "report_distribution", "unknown_not_zero"),
-    ("resource_use_by_resource_id", "resource_specific_units_no_cross_resource_sum", "per_resource", "report_vector", "unknown_not_zero"),
-    ("privacy_authority_guardrail_violation_count", "violation", "count", "hard_fail_if_nonzero", "unknown_is_not_pass"),
+    (
+        "new_safe_suitable_units_completed",
+        "dwelling",
+        "count",
+        "maximize_only_when_demand_and_inputs_are_supported",
+        "unknown_not_zero",
+    ),
+    (
+        "maintenance_capacity_lost_dwelling_months",
+        "dwelling_month",
+        "sum",
+        "minimize",
+        "unknown_not_zero",
+    ),
+    (
+        "groupwise_unmet_need_rate",
+        "fraction_by_preregistered_group",
+        "per_group",
+        "report_distribution",
+        "unknown_not_zero",
+    ),
+    (
+        "resource_use_by_resource_id",
+        "resource_specific_units_no_cross_resource_sum",
+        "per_resource",
+        "report_vector",
+        "unknown_not_zero",
+    ),
+    (
+        "privacy_authority_guardrail_violation_count",
+        "violation",
+        "count",
+        "hard_fail_if_nonzero",
+        "unknown_is_not_pass",
+    ),
     ("evidence_coverage_fraction", "fraction", "per_metric_and_group", "maximize_without_weakening_validity", "unknown_not_zero"),
 ];
 
@@ -207,13 +255,19 @@ fn validate_jcs_number_safety(value: &Value, path: &str, errors: &mut Vec<String
             if let Some(unsigned) = number.as_u64() {
                 if unsigned > MAX_SAFE_INTEGER {
                     errors.push(format!(
-                        "{path} integer exceeds the RFC 8785 IEEE-754 safe-integer boundary; encode exact large quantities as strings in a versioned schema"
-                    ));
+                        "{path} integer exceeds the RFC 8785 IEEE-754 safe-integer boundary; ",
+                    ) + "encode exact large quantities as strings in a versioned schema");
                 }
             } else if let Some(signed) = number.as_i64() {
                 if signed < -(MAX_SAFE_INTEGER as i64) {
                     errors.push(format!(
-                        "{path} integer exceeds the RFC 8785 IEEE-754 safe-integer boundary; encode exact large quantities as strings in a versioned schema"
+                        "{path} integer exceeds the RFC 8785 IEEE-754 safe-integer boundary; ",
+                    ) + "encode exact large quantities as strings in a versioned schema");
+                }
+            } else if let Some(float) = number.as_f64() {
+                if float.abs() > MAX_SAFE_INTEGER as f64 && float.fract() == 0.0 {
+                    errors.push(format!(
+                        "{path} integer-valued number exceeds the RFC 8785 IEEE-754 safe-integer boundary"
                     ));
                 }
             }
