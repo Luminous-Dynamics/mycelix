@@ -13,7 +13,7 @@ NCF-ALLOC-5 shifts the unit of account from **reported shard demand** to **uniqu
 - The accepted payload also includes a canonical obligation-payload digest; reusing an ID for different underlying work is rejected even when amount/principal/instrument match.
 - Principal/instrument caps aggregate distinct obligations across all shard aliases.
 - Missing caps, malformed identifiers, malformed verifier receipt digests, and verifier-rejected evidence fail closed without consuming the ID.
-- A rejected cap attempt does not burn the obligation ID; a corrected amount can be retried.
+- A rejected cap attempt does not burn the obligation ID; a corrected amount can be retried. The model also computes a canonical digest for the underlying eligible-work payload, so the same work submitted under different request IDs or shard aliases is treated as one obligation. Rebinding an accepted request ID to another payload, or reusing the same work digest with a different principal/instrument/amount, is rejected without mutation. This still assumes a trusted verifier derives that digest from real eligible work; the digest itself is not proof of work.
 
 The model requires a canonical payload digest, but computes that digest from caller-supplied test content; digest binding is not proof of the truth of that content. The reference model's verifier_receipt_ok flag is an assumption supplied to the model. Hashes are deterministic test receipt digests, not signatures. No cryptographic principal resolution, verifier, database transaction, or distributed linearizability is implemented here.
 
@@ -48,3 +48,8 @@ Files:
 First port the oracle to typed Rust, reuse existing authorization/reservation primitives rather than duplicate them, and add property tests for duplicate and reordered histories. Then use a durable idempotency store and fault injection for concurrent retries, crashes and partitions. Only after the source-level state transition and authoritative verifier are established should a multi-agent/Holochain test attempt to qualify cross-agent duplicate rejection.
 
 The expected safety gates are zero duplicate accepted obligation IDs, zero cap overshoot, no mutation on rejection, exact receipt replay for matching payloads, rejection of conflicting payloads, and zero acknowledged obligation loss. Performance should be reported for the full admission and settlement path, not just the allocation formula.
+
+
+## Follow-on finding: sequential admission still needs atomic concurrency semantics
+
+The next [NCF-ALLOC-6 campaign](NCF-ALLOC-6-admission-races.md) enumerates 70 order-preserving interleavings of two four-stage requests. It shows why a correct sequential obligation book does not establish a safe concurrent admission path: stale dedup and cap reads may race before commit. See its separate results and caveat; the model is not a database test.
