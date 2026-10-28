@@ -1,13 +1,13 @@
 {
   "schema": "mycelix.nested-currency-conformance",
-  "schema_version": "1.7.0",
+  "schema_version": "1.8.0",
   "profile": "NCF-1",
   "tracking_issue": "https://github.com/Luminous-Dynamics/mycelix/issues/5464",
   "implementation_pr": "https://github.com/Luminous-Dynamics/mycelix/pull/5465",
   "status": "proposed_not_qualified",
   "execution_evidence": {
     "status": "not_run",
-    "reason": "Static Rust allocator changes, including the new median-capped policy variants, per-shard fairness test, and matched-trace benchmark remain uncompiled/unexecuted in this environment. The separate NCF-ALLOC-3 Python attack sweep is explicitly research-reference evidence only. Exact-head Rust/TLA+ receipts, real demand traces, and multi-agent/Holochain qualification remain outstanding. NCF-ALLOC-3 source, tests, results, campaign specification, run guide, and limitations documentation are checked in under research/; their execution records identify Python-only evidence separately from the Rust qualification gate. NCF-ALLOC-4 additionally models one fixed 4,000-unit attacker backlog split across 1..32 shard IDs while retaining fifteen honest identities. Five Python tests pass; cryptographic identity, admission economics, Rust and distributed qualification are explicitly not run. A follow-up static audit found that deriving a cap from positive weights when the lower median was zero could let rare positive outliers define their own cap. The median-capped allocator now zeroes the relative weights in that case and triggers the existing equal-share cold-start fallback; mirrored Python/Rust regression definitions were added. Python-only suite now has 10 NCF-ALLOC-3 tests plus 5 NCF-ALLOC-4 tests; Rust still not run. The corpus now also has NCF-ALLOC-022 for sparse positive claims with a zero lower median, requiring the bounded-cap policy to use equal cold-start rights rather than let positive outliers set their own relative cap. NCF-ALLOC-5 adds a sequential obligation-admission oracle, eight Python regressions and a fixed alias-replay result profile. It assumes independently validated verifier evidence and does not imply the verifier is implemented, nor prove concurrent/distributed uniqueness. NCF-ALLOC-5 now binds the immutable accepted record to a canonical obligation-payload digest in addition to principal, instrument and amount; the NCF-ALLOC-027 regression rejects same-ID/same-amount rebindings to different work. This is only downstream admission logic given a verifier result, not a verifier implementation. NCF-ALLOC-5 is now represented by a typed Rust sequential reference module with ten test definitions and an explicit crate-internal verified-evidence trust boundary. NCF-QUAL-007 remains not run. NCF-BENCH-009 defines end-to-end admission/replay/cap-contention performance gates; all throughput targets are aspirational and unmeasured. NCF-ALLOC-6 enumerates 70 interleavings of two four-step admission requests across three scenarios. Eight Python model tests pass locally and the combined NCF-ALLOC-3/4/5/6 test run has 35 passes. The checked-in NCF-ALLOC-6 source is a manually synchronized, bytewise different copy of the local executed script; results are explicitly not checksum-bound CI, and Rust/database/TLC/distributed tests remain not run. NCF-ALLOC-5 now has a typed Rust sequential model with eleven unit-test definitions; the new verifier-evidence-binding regression itself remains uncompiled/unrun. NCF-ALLOC-6 adds finite Python interleaving research with eight locally passed tests, but database/Rust/Holochain concurrency remains unqualified. The Rust obligation constructor missing-field issue was caught by static inspection and fixed by initializing canonical_id_by_payload_digest. The Rust module now has a separate AcceptedObligation verifier-evidence binding per request ID, so aliases can return the original canonical receipt yet still replay consistently against their own first accepted verifier version/digest. A regression is defined for this. The module now declares fourteen test cases; no local Rust compilation is possible here. A new static audit found and fixed a missing canonical_id_by_payload_digest initialization in ObligationBook::new. The Rust accepted record now stores request-ID-specific verifier version/digest separately from the original canonical receipt, so canonical aliases have consistent retry semantics. The Rust module now declares fourteen tests; exact-head build/test/Clippy is still not confirmed. NCF-ALLOC-7 adds a local file-backed SQLite WAL/synchronous-FULL transactional admission baseline. Seven Python tests passed; 150 local concurrent race trials showed zero observed invariant failures and the local 2,000-attempt run measured 1,098.59 attempts/s, p50 1.1528 ms/p95 1.8039 ms/p99 2.1586 ms. These results are single-host SQLite research only. The checked-in source is a condensed, semantically synchronized copy and not byte-identical to the locally executed source. Rust, Holochain/multi-agent, multi-host and production paths remain unqualified. NCF-ALLOC-8 adds six local Python tests, 18 application-process crash injections across six transaction boundaries, and nine synchronized two-process race trials with zero observed invariant failures. A higher-repetition run timed out and is incomplete. Execution used SQLite 3.46.1, so WAL/checkpoint qualification remains blocked pending SQLite 3.51.3 or a verified backport and explicit checkpoint stress; Rust/Holochain/multi-host/power-loss qualification remains not run. NCF-ALLOC-8 follow-up completed a 5x10 campaign with 30 crash injections and 30 process-pair trials, zero observed invariant failures; the terminal tool returned a timeout after the complete artifact was written. NCF-ALLOC-9 added exact-source checkpoint/read stress: 1k, 8k, and two 20k write campaigns, zero recorded invariant failures, plus a held-reader busy-checkpoint regression. Runtime remains SQLite 3.46.1, so the documented WAL-reset engine bug still requires a 3.53.3 (or at minimum 3.51.3/backport) rerun and dedicated low-level qualification. Rust/Holochain/multi-host/power-loss tests remain not run. NCF-ALLOC-9 checkpoint stress now records SQLite sqlite_source_id() and offers --require-fixed-sqlite. On the current 3.46.1 runtime, that guard exits NOT_QUALIFIED as expected. The current official SQLite release observed on 2026-10-28 is 3.54.1; a fixed-engine rerun and special WAL-reset regression still remain open. NCF-ALLOC-10 adds a deterministic SQLite database-size-limit failure: SQLITE_FULL after a prior cap-counter update rolls back to no partial obligation, earlier accepted state is preserved, and restoring capacity permits exact retry once followed by replay. Four local tests passed; combined NCF-ALLOC-8/9/10 tests total 15. This is a database-size-capacity model only, not physical disk-full or I/O fault qualification. NCF-ARCH-001 explicitly prioritizes PostgreSQL as the online shared transaction coordinator and Holochain as the agent-authored provenance/DHT validation layer; SQLite remains narrow reference research. PostgreSQL pgbench runner defects were repaired and seven local parser tests pass, including timed-mode actual-count parsing and fail-closed log/stdout accounting. The dedicated workflow now has a push trigger, but observed workflow attempts had zero jobs; no live PostgreSQL pass is claimed. Holochain Sweettest integration remains a separate unexecuted gate."
+    "reason": "Static Rust allocator changes, including the new median-capped policy variants, per-shard fairness test, and matched-trace benchmark remain uncompiled/unexecuted in this environment. The separate NCF-ALLOC-3 Python attack sweep is explicitly research-reference evidence only. Exact-head Rust/TLA+ receipts, real demand traces, and multi-agent/Holochain qualification remain outstanding. NCF-ALLOC-3 source, tests, results, campaign specification, run guide, and limitations documentation are checked in under research/; their execution records identify Python-only evidence separately from the Rust qualification gate. NCF-ALLOC-4 additionally models one fixed 4,000-unit attacker backlog split across 1..32 shard IDs while retaining fifteen honest identities. Five Python tests pass; cryptographic identity, admission economics, Rust and distributed qualification are explicitly not run. A follow-up static audit found that deriving a cap from positive weights when the lower median was zero could let rare positive outliers define their own cap. The median-capped allocator now zeroes the relative weights in that case and triggers the existing equal-share cold-start fallback; mirrored Python/Rust regression definitions were added. Python-only suite now has 10 NCF-ALLOC-3 tests plus 5 NCF-ALLOC-4 tests; Rust still not run. The corpus now also has NCF-ALLOC-022 for sparse positive claims with a zero lower median, requiring the bounded-cap policy to use equal cold-start rights rather than let positive outliers set their own relative cap. NCF-ALLOC-5 adds a sequential obligation-admission oracle, eight Python regressions and a fixed alias-replay result profile. It assumes independently validated verifier evidence and does not imply the verifier is implemented, nor prove concurrent/distributed uniqueness. NCF-ALLOC-5 now binds the immutable accepted record to a canonical obligation-payload digest in addition to principal, instrument and amount; the NCF-ALLOC-027 regression rejects same-ID/same-amount rebindings to different work. This is only downstream admission logic given a verifier result, not a verifier implementation. NCF-ALLOC-5 is now represented by a typed Rust sequential reference module with ten test definitions and an explicit crate-internal verified-evidence trust boundary. NCF-QUAL-007 remains not run. NCF-BENCH-009 defines end-to-end admission/replay/cap-contention performance gates; all throughput targets are aspirational and unmeasured. NCF-ALLOC-6 enumerates 70 interleavings of two four-step admission requests across three scenarios. Eight Python model tests pass locally and the combined NCF-ALLOC-3/4/5/6 test run has 35 passes. The checked-in NCF-ALLOC-6 source is a manually synchronized, bytewise different copy of the local executed script; results are explicitly not checksum-bound CI, and Rust/database/TLC/distributed tests remain not run. NCF-ALLOC-5 now has a typed Rust sequential model with eleven unit-test definitions; the new verifier-evidence-binding regression itself remains uncompiled/unrun. NCF-ALLOC-6 adds finite Python interleaving research with eight locally passed tests, but database/Rust/Holochain concurrency remains unqualified. The Rust obligation constructor missing-field issue was caught by static inspection and fixed by initializing canonical_id_by_payload_digest. The Rust module now has a separate AcceptedObligation verifier-evidence binding per request ID, so aliases can return the original canonical receipt yet still replay consistently against their own first accepted verifier version/digest. A regression is defined for this. The module now declares fourteen test cases; no local Rust compilation is possible here. A new static audit found and fixed a missing canonical_id_by_payload_digest initialization in ObligationBook::new. The Rust accepted record now stores request-ID-specific verifier version/digest separately from the original canonical receipt, so canonical aliases have consistent retry semantics. The Rust module now declares fourteen tests; exact-head build/test/Clippy is still not confirmed. NCF-ALLOC-7 adds a local file-backed SQLite WAL/synchronous-FULL transactional admission baseline. Seven Python tests passed; 150 local concurrent race trials showed zero observed invariant failures and the local 2,000-attempt run measured 1,098.59 attempts/s, p50 1.1528 ms/p95 1.8039 ms/p99 2.1586 ms. These results are single-host SQLite research only. The checked-in source is a condensed, semantically synchronized copy and not byte-identical to the locally executed source. Rust, Holochain/multi-agent, multi-host and production paths remain unqualified. NCF-ALLOC-8 adds six local Python tests, 18 application-process crash injections across six transaction boundaries, and nine synchronized two-process race trials with zero observed invariant failures. A higher-repetition run timed out and is incomplete. Execution used SQLite 3.46.1, so WAL/checkpoint qualification remains blocked pending SQLite 3.51.3 or a verified backport and explicit checkpoint stress; Rust/Holochain/multi-host/power-loss qualification remains not run. NCF-ALLOC-8 follow-up completed a 5x10 campaign with 30 crash injections and 30 process-pair trials, zero observed invariant failures; the terminal tool returned a timeout after the complete artifact was written. NCF-ALLOC-9 added exact-source checkpoint/read stress: 1k, 8k, and two 20k write campaigns, zero recorded invariant failures, plus a held-reader busy-checkpoint regression. Runtime remains SQLite 3.46.1, so the documented WAL-reset engine bug still requires a 3.53.3 (or at minimum 3.51.3/backport) rerun and dedicated low-level qualification. Rust/Holochain/multi-host/power-loss tests remain not run. NCF-ALLOC-9 checkpoint stress now records SQLite sqlite_source_id() and offers --require-fixed-sqlite. On the current 3.46.1 runtime, that guard exits NOT_QUALIFIED as expected. The current official SQLite release observed on 2026-10-28 is 3.54.1; a fixed-engine rerun and special WAL-reset regression still remain open. NCF-ALLOC-10 adds a deterministic SQLite database-size-limit failure: SQLITE_FULL after a prior cap-counter update rolls back to no partial obligation, earlier accepted state is preserved, and restoring capacity permits exact retry once followed by replay. Four local tests passed; combined NCF-ALLOC-8/9/10 tests total 15. This is a database-size-capacity model only, not physical disk-full or I/O fault qualification. NCF-ARCH-001 explicitly prioritizes PostgreSQL as the online shared transaction coordinator and Holochain as the agent-authored provenance/DHT validation layer; SQLite remains narrow reference research. PostgreSQL pgbench runner defects were repaired and seven local parser tests pass, including timed-mode actual-count parsing and fail-closed log/stdout accounting. The dedicated workflow now has a push trigger, but observed workflow attempts had zero jobs; no live PostgreSQL pass is claimed. Holochain Sweettest integration remains a separate unexecuted gate. NCF-ARCH-001 and the PostgreSQL↔Holochain contract now specify an authority-agent trust model: signed claims must be authored by a governance-authorized Holochain agent and pin an immutable AuthorityManifest/action hash and epoch. Five new planned negative tests cover copied receipt hashes, scope violations, unresolved manifest dependencies, key rotation, and event ID payload rebind. The zome types/validation and Sweettest remain unimplemented/unexecuted."
   },
   "claim_ceiling": [
     "Reference-model conformance only when executed against a named source revision.",
@@ -31,7 +31,8 @@
     "NCF-ALLOC-10 uses PRAGMA max_page_count to simulate a database-size cap and test SQLITE_FULL rollback. It does not simulate physical disk exhaustion, filesystem EIO, kernel crash, power loss, or distributed behavior.",
     "Architecture target is PostgreSQL shared-coordinator authority plus Holochain agent-authored evidence/DHT validation. The SQLite NCF-ALLOC-7..10 experiments are narrow local reference probes, not production backend qualification.",
     "PostgreSQL parser tests and runner fixes do not qualify actual PostgreSQL SQL. The current Actions attempts for the NCF PostgreSQL workflow produced zero jobs; only non-empty exact-head job logs and SQL reconciliation receipts can count as database evidence.",
-    "Holochain validation-receipt counts are not settlement finality. PostgreSQL and the Holochain DHT are not one distributed atomic transaction; outbox delivery is at-least-once and must use stable event identities plus idempotent reconciliation."
+    "Holochain validation-receipt counts are not settlement finality. PostgreSQL and the Holochain DHT are not one distributed atomic transaction; outbox delivery is at-least-once and must use stable event identities plus idempotent reconciliation.",
+    "The PostgreSQL receipt digest is content binding only. Holochain authority claims require an author key registered through governance, a pinned immutable AuthorityManifest/epoch, and deterministic scope checks; key custody/compromise and policy revocation remain separate qualification areas."
   ],
   "invariants": [
     {
@@ -286,6 +287,11 @@
       "id": "NCF-ALLOC-I-021",
       "name": "Benchmark success requires three-way transaction-accounting reconciliation",
       "statement": "A PostgreSQL load result is accepted only when pgbench successful per-transaction logs, pgbench stdout's actual count, and committed canonical obligation/request/outbox totals match; malformed logs, failed transactions, or count divergence fail closed."
+    },
+    {
+      "id": "NCF-ALLOC-I-022",
+      "name": "Authority receipts require an authorized Holochain author and pinned manifest",
+      "statement": "A PostgreSQL receipt digest proves content binding only, not identity or authorization. An accepted Holochain monetary claim must be authored by a governance-registered monetary-authority AgentPubKey, pin an immutable AuthorityManifest/action hash and epoch, and satisfy that manifest's community/instrument/operation scope; unavailable dependencies are unresolved, not silently accepted."
     }
   ],
   "conformance_cases": [
@@ -2042,7 +2048,12 @@
         "repeat stable event ID and same action hash",
         "same outbox item returns a second action hash",
         "DHT receipt threshold below then above policy floor",
-        "multiple agents submit same canonical work under partition"
+        "multiple agents submit same canonical work under partition",
+        "unauthorized agent copies a valid receipt digest",
+        "authorized authority exceeds manifest scope",
+        "authority manifest dependency unresolved during DHT propagation",
+        "key rotation/revocation at later policy epoch",
+        "event ID replay changes signed claim payload"
       ],
       "topology": {
         "postgres": "shared coordinator DB",
@@ -2057,7 +2068,13 @@
         "additional_action_hash_is_duplicate_evidence_not_new_debit",
         "outbox_recovers_after_dispatcher_restart",
         "below_threshold_state_not_settled",
-        "home_shard_policy_prevents_unqualified_offline_duplicate_acceptance"
+        "home_shard_policy_prevents_unqualified_offline_duplicate_acceptance",
+        "receipt_digest_not_treated_as_signature",
+        "claim_author_matches_governance_authorized_manifest",
+        "claim_within_manifest_scope",
+        "missing_manifest_dependency_is_unresolved",
+        "epoch_rotation_rule_is_explicit",
+        "same_event_id_cannot_rebind_authority_payload"
       ],
       "required_metrics": [
         "outbox_pending_age",
@@ -2070,12 +2087,13 @@
         "DNA_and_WASM_hashes"
       ],
       "methodology": "Run against the existing Mycelix Finance hApp with actual built DNA and 3–5 conductors/agents. Fault inject dispatcher crash before authorship, after authorship but before SQL acknowledgement, during receipt observation, and with PostgreSQL or conductor unavailable. The run is not qualified by a mocked zome call or SQL-only unit test. Stable event identity is retried/reconciled; a DHT receipt count is not settlement finality.",
-      "execution_status": "integration_contract_written_Sweettest_implementation_and_execution_pending",
+      "execution_status": "authority_manifest_and_signature_trust_model_added_to_contract; 17_Sweettest_cases_specified; AuthorityManifest_zome_and_Sweettest_execution_pending",
       "claim_ceiling": "No Holochain execution or production/outbox convergence claim is currently established.",
       "research_reference": {
         "contract": "mycelix-workspace/simulations/nested-currency-reference/holochain/NCF-POSTGRES-HOLOCHAIN-CONTRACT.md",
         "architecture": "mycelix-workspace/simulations/nested-currency-reference/docs/NCF-ARCH-001-postgres-holochain-responsibility-split.md",
-        "existing_finance_tests": "mycelix-workspace/mycelix-finance/tests/sweettest_multi_agent.rs"
+        "existing_finance_tests": "mycelix-workspace/mycelix-finance/tests/sweettest_multi_agent.rs",
+        "authority_model_doc": "mycelix-workspace/simulations/nested-currency-reference/holochain/NCF-POSTGRES-HOLOCHAIN-CONTRACT.md"
       }
     }
   ],
@@ -2915,6 +2933,51 @@
       "expected": "SQL canonical obligation and debit remain singular; matching action acknowledgement replays; additional action is recorded as duplicate evidence rather than a new obligation; DHT receipt state is not labeled settled.",
       "code_test": "mycelix-finance/tests/sweettest_multi_agent.rs (integration coverage to add)",
       "execution_status": "contract_defined_holochain_Sweettest_case_pending"
+    },
+    {
+      "id": "NCF-ALLOC-068",
+      "title": "SQL receipt digest does not substitute for authority authentication",
+      "class": "authority_attestation_not_hash_only",
+      "attack": "A claimant copies a valid PostgreSQL receipt JSON and digest but authors it from an agent not registered as a monetary authority.",
+      "expected": "Holochain integrity validation rejects the claim because action.author does not equal an authorized AuthorityManifest agent key.",
+      "code_test": "HC-NCF-013",
+      "execution_status": "contract_only_authority_manifest_zome_not_implemented"
+    },
+    {
+      "id": "NCF-ALLOC-069",
+      "title": "AuthorityManifest scopes bound permitted economic claims",
+      "class": "authority_manifest_scope",
+      "attack": "A valid authorized authority agent submits a claim for a community, instrument/profile revision, direction, or operation type outside its registered manifest scope.",
+      "expected": "Claim is rejected without creating a new authorized economic assertion.",
+      "code_test": "HC-NCF-014",
+      "execution_status": "contract_only_authority_manifest_zome_not_implemented"
+    },
+    {
+      "id": "NCF-ALLOC-070",
+      "title": "Pinned missing authority manifest remains unresolved rather than falsely invalid",
+      "class": "authority_manifest_unresolved_dependency",
+      "attack": "A claim references a governance-authorized immutable manifest whose DHT dependency has not yet arrived at the validator.",
+      "expected": "Validation returns an unresolved/retryable result until the pinned dependency is available; it does not convert incomplete data into a false permanent rejection.",
+      "code_test": "HC-NCF-015",
+      "execution_status": "contract_only_holochain_validation_not_run"
+    },
+    {
+      "id": "NCF-ALLOC-071",
+      "title": "Authority key rotation is epoch-bound and deterministic",
+      "class": "authority_manifest_rotation_revocation",
+      "attack": "A monetary authority key rotates or is revoked in a later manifest epoch while earlier claims remain addressable.",
+      "expected": "Claims pin an immutable authority manifest and epoch; new claims follow the active policy and historical claims follow an explicit grandfather/dispute rule.",
+      "code_test": "HC-NCF-016",
+      "execution_status": "contract_only_policy_and_Sweettest_not_implemented"
+    },
+    {
+      "id": "NCF-ALLOC-072",
+      "title": "Outbox event ID cannot be rebound to a different signed claim",
+      "class": "authority_claim_idempotency_conflict",
+      "attack": "The dispatcher retries a previously accepted outbox event ID but changes amount, instrument, verifier evidence, or authority manifest.",
+      "expected": "The conflicting envelope rejects; no extra PostgreSQL debit or second accepted Holochain authority claim is created.",
+      "code_test": "HC-NCF-017",
+      "execution_status": "contract_only_no_Holochain_Sweettest_pass"
     }
   ],
   "qualification_campaigns": [
@@ -3341,17 +3404,24 @@
         "HC-NCF-008",
         "HC-NCF-010",
         "HC-NCF-011",
-        "HC-NCF-012"
+        "HC-NCF-012",
+        "HC-NCF-013",
+        "HC-NCF-014",
+        "HC-NCF-015",
+        "HC-NCF-016",
+        "HC-NCF-017"
       ],
       "required_artifacts": [
         "holochain/NCF-POSTGRES-HOLOCHAIN-CONTRACT.md",
         "docs/NCF-ARCH-001-postgres-holochain-responsibility-split.md",
         "Mycelix Finance DNA SHA-256",
         "coordinator and integrity WASM SHA-256",
-        "Sweettest exact-head receipt and raw logs"
+        "Sweettest exact-head receipt and raw logs",
+        "mycelix-finance/zomes/bridge/integrity/src/lib.rs",
+        "PostgreSQL authority manifest registration and key-lifecycle policy"
       ],
-      "execution_status": "contract_only_no_new_zome_or_Sweettest_result_claimed",
-      "acceptance": "Pass only after real built DNA and 3–5 conductors/agents execute the stable-event/outbox lost-ack, duplicate-action, unresolved dependency, receipt-threshold, restart recovery and home-shard duplicate scenarios on an exact pinned source/WASM head. SQL-only tests cannot qualify Holochain authored provenance or DHT receipt semantics."
+      "execution_status": "authority_manifest_policy_and_five_additional_negative_tests_specified; no_Holochain_implementation_or_Sweettest_result_claimed",
+      "acceptance": "All 17 contract scenarios must execute against an actual built Mycelix Finance DNA with 3-5 conductors/agents. The five newest negative cases prove that copied receipt hashes are not signatures, authority scope is enforced, missing manifest dependencies remain unresolved, key rotation is epoch-bound, and event IDs cannot rebind payloads. Exact-head build, DNA/WASM hashes, conductor version, operation histories, and raw Sweettest logs are required. None are currently pass evidence."
     }
   ]
 }
