@@ -210,36 +210,26 @@ CREATE TRIGGER instrument_profile_revision_immutable
 BEFORE UPDATE OR DELETE ON ncf.instrument_profile_revision
 FOR EACH ROW EXECUTE FUNCTION ncf.reject_immutable_identity_mutation();
 
--- App sessions may inspect state and execute the audited functions, but must not
--- write economic rows directly. Membership/login role management stays outside this migration.
-DO $
+-- Service-role separation. These are NOLOGIN capability roles; deployment grants
+-- authenticated service identities membership out-of-band.
+DO $$
 BEGIN
   IF NOT EXISTS (SELECT 1 FROM pg_catalog.pg_roles WHERE rolname = 'ncf_app') THEN
     CREATE ROLE ncf_app NOLOGIN;
   END IF;
-END;
-$;
-
-REVOKE ALL ON ALL TABLES IN SCHEMA ncf FROM PUBLIC;
-REVOKE ALL ON ALL SEQUENCES IN SCHEMA ncf FROM PUBLIC;
-REVOKE EXECUTE ON ALL FUNCTIONS IN SCHEMA ncf FROM PUBLIC;
-GRANT USAGE ON SCHEMA ncf TO ncf_app;
-GRANT SELECT ON ALL TABLES IN SCHEMA ncf TO ncf_app;
-
--- App sessions may inspect state and execute the audited functions, but must not
--- write economic rows directly. Membership/login role management stays outside this migration.
-DO $
-BEGIN
-  IF NOT EXISTS (SELECT 1 FROM pg_catalog.pg_roles WHERE rolname = 'ncf_app') THEN
-    CREATE ROLE ncf_app NOLOGIN;
+  IF NOT EXISTS (SELECT 1 FROM pg_catalog.pg_roles WHERE rolname = 'ncf_dispatcher') THEN
+    CREATE ROLE ncf_dispatcher NOLOGIN;
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_catalog.pg_roles WHERE rolname = 'ncf_observer') THEN
+    CREATE ROLE ncf_observer NOLOGIN;
   END IF;
 END;
-$;
+$$;
 
 REVOKE ALL ON ALL TABLES IN SCHEMA ncf FROM PUBLIC;
 REVOKE ALL ON ALL SEQUENCES IN SCHEMA ncf FROM PUBLIC;
 REVOKE EXECUTE ON ALL FUNCTIONS IN SCHEMA ncf FROM PUBLIC;
-GRANT USAGE ON SCHEMA ncf TO ncf_app;
+GRANT USAGE ON SCHEMA ncf TO ncf_app, ncf_dispatcher, ncf_observer;
 GRANT SELECT ON ALL TABLES IN SCHEMA ncf TO ncf_app;
 
 COMMIT;
