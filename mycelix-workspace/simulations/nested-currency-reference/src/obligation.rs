@@ -144,7 +144,14 @@ impl ObligationBook {
                 prior.amount_units,
                 prior.payload_digest,
             );
-            if payload == prior_payload {
+            // The request ID also binds the verifier evidence that was
+            // accepted originally. A retry may move shards/epochs/sequences,
+            // but cannot silently substitute a different verifier version or
+            // receipt digest under the same idempotency key.
+            let same_verifier_evidence =
+                claim.verifier_version == prior.receipt.verifier_version
+                    && claim.verifier_receipt_digest == prior.receipt.verifier_receipt_digest;
+            if payload == prior_payload && same_verifier_evidence {
                 return Ok(AdmissionOutcome::IdempotentReplay(prior.receipt.clone()));
             }
             return Err(AdmissionError::ConflictingObligationId);
@@ -374,6 +381,43 @@ mod tests {
         );
         assert_eq!(book.accepted_count(), 1);
         assert_eq!(book.outstanding_for("principal-A", "instrument-1"), 100);
+    }
+
+    #[test]
+    fn same_id_replay_with_changed_verifier_evidence_rejects_without_mutation() {
+        let mut book = book(1_000);
+        book.admit(
+            verified("ob-1", "principal-A", "instrument-1", "s-0", 1, 1, 100, 7)
+                .unwrap(),
+        )
+        .unwrap();
+
+        let mut changed_receipt = verified(
+            "ob-1", "principal-A", "instrument-1", "s-1", 99, 800, 100, 7,
+        )
+        .unwrap()
+        .0;
+        changed_receipt.verifier_receipt_digest = [99; 32];
+        assert_eq!(
+            book.admit(VerifiedObligation::from_trusted_verifier(changed_receipt).unwrap()),
+            Err(AdmissionError::ConflictingObligationId),
+        );
+
+        let mut changed_version = verified(
+            "ob-1", "principal-A", "instrument-1", "s-2", 100, 900, 100, 7,
+        )
+        .unwrap()
+        .0;
+        changed_version.verifier_version = "test-verifier-v2".to_owned();
+        assert_eq!(
+            book.admit(VerifiedObligation::from_trusted_verifier(changed_version).unwrap()),
+            Err(AdmissionError::ConflictingObligationId),
+        );
+        assert_eq!(book.accepted_count(), 1);
+        assert_eq!(book.outstanding_for("principal-A", "instrument-1"), 100);
+        let receipt = book.receipt_for("ob-1").unwrap();
+        assert_eq!(receipt.verifier_version, "test-verifier-v1");
+        assert_eq!(receipt.verifier_receipt_digest, [8; 32]);
     }
 
     #[test]
