@@ -131,5 +131,11 @@
   },
   "schema": "ncf-alloc5-obligation-admission-v1",
   "source_sha256": "e93c372136a104820c7295809458b5284d4f606b42d7d8d55fa478a9c7531afe",
-  "status": "INDEPENDENT_PYTHON_REFERENCE_MODEL_NOT_CRYPTOGRAPHIC_NOT_RUST_NOT_CI_NOT_PRODUCTION"
+  "status": "INDEPENDENT_PYTHON_REFERENCE_MODEL_NOT_CRYPTOGRAPHIC_NOT_RUST_NOT_CI_NOT_PRODUCTION",
+  "source_provenance": {
+    "local_executed_source_sha256": "e93c372136a104820c7295809458b5284d4f606b42d7d8d55fa478a9c7531afe",
+    "checked_in_source_sha256": "93bdaacfdf190ff5fc90786e63dce4d4e44e59292c159e31a5f38e0adc99ac06",
+    "local_results_sha256": "44a78b3467dcfad0374f0fd7894f3ee77d1ff8939ffac6e4f618834cda37ab17",
+    "note": "This JSON reproduces the local Python result summary; repository source is not byte-identical to the executed local script, so this is not checksum-bound CI evidence."
+  }
 }
