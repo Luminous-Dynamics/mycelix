@@ -274,6 +274,21 @@ fn validate_case(case: &Value) -> Vec<String> {
         }
     }
 
+    // Catch future oracle fields automatically, not only names enumerated above.
+    if let (Some(observation), Some(oracle_facts)) =
+        (case.get("policy_observation"), case.get("oracle_facts"))
+    {
+        let mut observation_keys = BTreeSet::<String>::new();
+        let mut oracle_keys = BTreeSet::<String>::new();
+        collect_object_keys(observation, &mut observation_keys);
+        collect_object_keys(oracle_facts, &mut oracle_keys);
+        for leaked_key in observation_keys.intersection(&oracle_keys) {
+            errors.push(format!(
+                "candidate-visible observation duplicates evaluator-only oracle key {leaked_key:?}"
+            ));
+        }
+    }
+
     match id {
         "H001_FIXED_CAPACITY_CEILING" => validate_h001(case, &mut errors),
         "H002_DEBT_FINANCING_IS_NOT_CAPACITY" => validate_h002(case, &mut errors),
@@ -640,6 +655,23 @@ fn contains_key_recursive(value: &Value, target: &str) -> bool {
     }
 }
 
+fn collect_object_keys(value: &Value, keys: &mut BTreeSet<String>) {
+    match value {
+        Value::Object(object) => {
+            for (key, child) in object {
+                keys.insert(key.clone());
+                collect_object_keys(child, keys);
+            }
+        }
+        Value::Array(array) => {
+            for child in array {
+                collect_object_keys(child, keys);
+            }
+        }
+        _ => {}
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -756,6 +788,21 @@ mod tests {
         rejects_mutation(fixture_value(), |fixture| {
             fixture["cases"][0]["policy_observation"]["true_safe_suitable_capacity"] = json!(2);
         });
+    }
+
+    #[test]
+    fn rejects_future_oracle_fields_leaking_without_a_denylist_update() {
+        rejects_mutation(fixture_value(), |fixture| {
+            fixture["cases"][9]["policy_observation"]["independent_confirmation_count"] = json!(1);
+        });
+    }
+
+    #[test]
+    fn rejects_unregistered_fixture_schema_version() {
+        let mut fixture = fixture_value();
+        fixture["schema_version"] = json!("cecb.housing.known_truth.v0.2");
+        let input = serde_json::to_string(&fixture).expect("fixture serializes");
+        assert!(validate_fixture(&input).is_err());
     }
 
     #[test]
