@@ -164,7 +164,7 @@ impl<'de> Visitor<'de> for UniqueValueVisitor {
         let mut object = Map::<String, Value>::new();
         while let Some(key) = entries.next_key::<String>()? {
             if !seen.insert(key.clone()) {
-                return Err(A::Error::custom(format!(
+                return Err(<A::Error as de::Error>::custom(format!(
                     "duplicate JSON object key {key:?}"
                 )));
             }
@@ -288,7 +288,10 @@ fn validate_contract(plan: &Value, errors: &mut Vec<String>) {
             let actual_set = fields.iter().copied().collect::<BTreeSet<_>>();
             let expected_set = RUN_FIELDS.iter().copied().collect::<BTreeSet<_>>();
             if fields.len() != RUN_FIELDS.len() || actual_set != expected_set {
-                errors.push(\n                    "run-result required_fields do not exactly match the v0.1 contract"\n                        .to_owned(),\n                );
+                errors.push(
+                    "run-result required_fields do not exactly match the v0.1 contract"
+                        .to_owned(),
+                );
             }
         }
         None => errors.push("run-result required_fields must be an array of strings".to_owned()),
@@ -300,7 +303,9 @@ fn validate_contract(plan: &Value, errors: &mut Vec<String>) {
             let actual_set = values.iter().copied().collect::<BTreeSet<_>>();
             let expected_set = TERMINAL_DISPOSITIONS.iter().copied().collect::<BTreeSet<_>>();
             if values.len() != TERMINAL_DISPOSITIONS.len() || actual_set != expected_set {
-                errors.push(\n                    "terminal_dispositions do not match the registered v0.1 set".to_owned(),\n                );
+                errors.push(
+                    "terminal_dispositions do not match the registered v0.1 set".to_owned(),
+                );
             }
         }
         None => errors.push("terminal_dispositions must be an array of strings".to_owned()),
@@ -334,7 +339,10 @@ fn validate_contract(plan: &Value, errors: &mut Vec<String>) {
             if ids.len() != OUTCOME_METRICS.len()
                 || ids.iter().map(String::as_str).collect::<BTreeSet<_>>() != expected
             {
-                errors.push(\n                    "outcome_contract metric IDs do not match the registered v0.1 vector"\n                        .to_owned(),\n                );
+                errors.push(
+                    "outcome_contract metric IDs do not match the registered v0.1 vector"
+                        .to_owned(),
+                );
             }
         }
         None => errors.push("outcome_contract must be an array".to_owned()),
@@ -448,7 +456,10 @@ fn build_expected_runs(plan: &Value, errors: &mut Vec<String>) -> BTreeMap<Strin
         .unwrap_or_default()
         .to_owned();
     if !is_hex(&simulator_digest, 64) {
-        errors.push(\n            "model_binding.simulator_digest_sha256 must be a 64-char lowercase SHA-256 digest"\n                .to_owned(),\n        );
+        errors.push(
+            "model_binding.simulator_digest_sha256 must be a 64-char lowercase SHA-256 digest"
+                .to_owned(),
+        );
     }
 
     let planned_rows = match plan.get("runs").and_then(Value::as_array) {
@@ -531,7 +542,10 @@ fn build_expected_runs(plan: &Value, errors: &mut Vec<String>) -> BTreeMap<Strin
         .saturating_mul(policies.len());
     if expected_slots != planned_rows.len() || expected.len() != expected_slots {
         errors.push(format!(
-            concat!(\n                "plan cross-product is incomplete: {} rows for {} configurations x ",\n                "{} seeds x {} arms = {} slots"\n            ),
+            concat!(
+                "plan cross-product is incomplete: {} rows for {} configurations x ",
+                "{} seeds x {} arms = {} slots"
+            ),
             planned_rows.len(),
             configurations.len(),
             seeds.len(),
@@ -805,7 +819,10 @@ fn verify_bundle(plan: &Value, bundle: &Value) -> Value {
         errors.push("result bundle design_id does not match plan".to_owned());
     }
     if str_at(bundle, "design_manifest_sha256") != Some(plan_digest.as_str()) {
-        errors.push(\n            "result bundle design_manifest_sha256 does not match canonical plan digest"\n                .to_owned(),\n        );
+        errors.push(
+            "result bundle design_manifest_sha256 does not match canonical plan digest"
+                .to_owned(),
+        );
     }
     if str_at(bundle, "source_commit_sha") != Some(source_commit.as_str()) {
         errors.push("result bundle source_commit_sha does not match plan".to_owned());
@@ -885,7 +902,10 @@ fn verify_bundle(plan: &Value, bundle: &Value) -> Value {
         "unknown_outcome_cell_count": unknown_total,
         "unknown_outcome_cells_by_metric": unknown_by_metric,
         "errors": errors,
-        "claim_ceiling": concat!(\n            "Artifact-contract conformance only; not simulator validity, real-world prediction, ",\n            "causal policy effect, or regime superiority."\n        )
+        "claim_ceiling": concat!(
+            "Artifact-contract conformance only; not simulator validity, real-world prediction, ",
+            "causal policy effect, or regime superiority."
+        )
     })
 }
 
@@ -906,7 +926,10 @@ fn parse_args() -> Result<Option<Args>, String> {
         match args[index].as_str() {
             "--help" | "-h" => {
                 println!(
-                    concat!(\n                        "cecb-result-verifier --plan PLAN.json --results BUNDLE.json ",\n                        "[--report REPORT.json]"\n                    )
+                    concat!(
+                        "cecb-result-verifier --plan PLAN.json --results BUNDLE.json ",
+                        "[--report REPORT.json]"
+                    )
                 );
                 return Ok(None);
             }
