@@ -269,14 +269,33 @@ class CheckpointStressTests(unittest.TestCase):
         self.assertEqual(r["final_state"]["integrity_check"],"ok")
         self.assertTrue(r["final_state"]["work_digest_unique"])
 
-    def test_empty_and_busy_or_partial_checkpoint_are_not_counted_as_failures(self):
-        with tempfile.TemporaryDirectory(prefix="ncf9-empty-") as td:
+    def test_checkpoint_with_held_reader_reports_busy_until_reader_releases(self):
+        with tempfile.TemporaryDirectory(prefix="ncf9-busy-") as td:
             db=str(Path(td)/"db.sqlite"); init_db(db)
-            conn=open_conn(db,timeout=1)
-            row=conn.execute("PRAGMA wal_checkpoint(PASSIVE)").fetchone()
-            self.assertEqual(len(row),3)
-            conn.close()
-            self.assertEqual(validate_db(db)["integrity_check"],"ok")
+            reader=open_conn(db,timeout=1)
+            reader.execute("BEGIN")
+            self.assertEqual(reader.execute("SELECT used_units FROM caps WHERE principal='p1' AND instrument='i1'").fetchone()[0],0)
+            writer_conn=open_conn(db,timeout=1)
+            writer_conn.execute("BEGIN IMMEDIATE")
+            work=stable_digest("held-reader-work")
+            writer_conn.execute("INSERT INTO obligations VALUES(?,?,?,?,?,?)",("held-reader",work,"p1","i1",5,"{}"))
+            writer_conn.execute("UPDATE caps SET used_units=used_units+5 WHERE principal='p1' AND instrument='i1'")
+            writer_conn.commit(); writer_conn.close()
+            checkpoint=open_conn(db,timeout=0.01)
+            checkpoint.execute("PRAGMA busy_timeout=0")
+            result=checkpoint.execute("PRAGMA wal_checkpoint(TRUNCATE)").fetchone()
+            self.assertEqual(len(result),3)
+            self.assertEqual(result[0],1,result)
+            self.assertLess(result[2],result[1],result)
+            checkpoint.close()
+            reader.rollback(); reader.close()
+            final=open_conn(db,timeout=1)
+            self.assertEqual(list(final.execute("PRAGMA wal_checkpoint(TRUNCATE)").fetchone()),[0,0,0])
+            final.close()
+            state=validate_db(db)
+            self.assertEqual(state["used_units"],5)
+            self.assertEqual(state["obligation_units"],5)
+            self.assertEqual(state["integrity_check"],"ok")
 
     def test_reopen_ledger_equates_counter_and_unique_obligations(self):
         with tempfile.TemporaryDirectory(prefix="ncf9-reopen-") as td:
