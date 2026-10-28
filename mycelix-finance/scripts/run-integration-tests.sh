@@ -63,6 +63,7 @@ INTEGRATION_TESTS=(
     sweettest_integration
     bridge_test
     tend_test
+    federated_clearing_sweettest
     payments_test
     treasury_test
     staking_test
