@@ -313,14 +313,19 @@ fn validate_case(case: &Value) -> Vec<String> {
     errors
 }
 
-fn validate_exact_object_keys(value: &Value, expected: &[&str], label: &str, errors: &mut Vec<String>) {
+fn validate_exact_object_keys(
+    value: &Value,
+    expected: &[&str],
+    label: &str,
+    errors: &mut Vec<String>,
+) {
     let Some(object) = value.as_object() else {
         errors.push(format!("{label} must be an object"));
         return;
     };
 
     for actual in object.keys() {
-        if !expected.iter().any(|allowed| *allowed == actual) {
+        if !expected.iter().any(|allowed| *allowed == actual.as_str()) {
             errors.push(format!("{label} contains unregistered field {actual:?}"));
         }
     }
