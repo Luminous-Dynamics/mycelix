@@ -16,7 +16,8 @@
   "source_provenance": {
     "local_executed_source_sha256": "1b017002bfc4c1cd2b1ceee68b57c6ca4a93554238ff98f8884b20998cfcb2cc",
     "checked_in_source_sha256": "b30a375c8cc50444c8c43dbb33c11eea1abbd6a6b932b194d9383eb94dd93328",
-    "note": "The checked-in source is a manually synchronized copy of the model and is not byte-identical to the local script used for this execution. The result is therefore explicitly a local research result, not a checksum-bound CI artifact."
+    "note": "The checked-in summary is a compact transcription of the local experiment, not byte-identical to its full raw output. The local source and repository source hashes are recorded separately; this is not a checksum-bound CI result.",
+    "local_results_sha256": "cdacd97dadfda3d39b6251b558c4f8920873103ac33a62e863173292560ad2b9"
   },
   "case_results": {
     "distinct_work_contends_for_last_capacity": {
