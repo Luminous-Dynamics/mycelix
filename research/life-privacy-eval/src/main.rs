@@ -212,13 +212,23 @@ fn run_calibrated(args: &[String]) -> Result<(), Box<dyn Error>> {
     let rates = fixed_operating_rates(&test_rows, selection.threshold);
     let (tpr_interval, fpr_interval) =
         fixed_threshold_cluster_bootstrap(&test_rows, selection.threshold, bootstraps, seed);
+    let report_data = CalibratedReportInput {
+        validation_rows: &validation_rows,
+        test_rows: &test_rows,
+        training_subjects: &training_subjects,
+        selection: &selection,
+        rates: &rates,
+        tpr_interval,
+        fpr_interval,
+        max_fpr,
+        bootstraps,
+        seed,
+    };
     let report = format!(
-        "{}\\n",
-        build_calibrated_report(
-            &validation_rows, &test_rows, &training_subjects, &selection,
-            &rates, tpr_interval, fpr_interval, max_fpr, bootstraps, seed
-        )
+        "{}\n",
+        build_calibrated_report(report_data)
     );
+    
     if report_path == "-" {
         print!("{report}");
     } else {
@@ -391,18 +401,24 @@ fn operating_point_gate(
     }
 }
 
-fn build_calibrated_report(
-    validation_rows: &[TruthRowWithScore],
-    test_rows: &[TruthRowWithScore],
-    training_subjects: &HashSet<String>,
-    selection: &ThresholdSelection,
-    rates: &OperatingRates,
+struct CalibratedReportInput<'a> {
+    validation_rows: &'a [TruthRowWithScore],
+    test_rows: &'a [TruthRowWithScore],
+    training_subjects: &'a HashSet<String>,
+    selection: &'a ThresholdSelection,
+    rates: &'a OperatingRates,
     tpr_interval: Interval,
     fpr_interval: Interval,
     max_fpr: f64,
     bootstraps: usize,
     seed: u64,
-) -> String {
+}
+
+fn build_calibrated_report(input: CalibratedReportInput<'_>) -> String {
+    let CalibratedReportInput {
+        validation_rows, test_rows, training_subjects, selection, rates,
+        tpr_interval, fpr_interval, max_fpr, bootstraps, seed,
+    } = input;
     let calibration_subjects: BTreeSet<&str> = validation_rows.iter()
         .flat_map(|row| [row.subject_a.as_str(), row.subject_b.as_str()]).collect();
     let test_subjects: BTreeSet<&str> = test_rows.iter()
@@ -1177,7 +1193,19 @@ mod tests {
         let selection = select_validation_threshold(&validation, 0.25);
         let rates = fixed_operating_rates(&test, selection.threshold);
         let (tpr_ci, fpr_ci) = fixed_threshold_cluster_bootstrap(&test, selection.threshold, 100, 99);
-        let report = build_calibrated_report(&validation,&test,&HashSet::new(),&selection,&rates,tpr_ci,fpr_ci,0.25,100,99);
+        let training_subjects = HashSet::new();
+        let report = build_calibrated_report(CalibratedReportInput {
+            validation_rows: &validation,
+            test_rows: &test,
+            training_subjects: &training_subjects,
+            selection: &selection,
+            rates: &rates,
+            tpr_interval: tpr_ci,
+            fpr_interval: fpr_ci,
+            max_fpr: 0.25,
+            bootstraps: 100,
+            seed: 99,
+        });
         assert!(report.contains("validation_locked_operating_point"));
         assert!(report.contains("NOT_EVALUATED_REQUIRED_UTILITY_AND_CONFORMANCE_MISSING"));
         assert!(report.contains("ZERO_FALSE_POSITIVES_DO_NOT_CERTIFY_TAIL_RISK"));
