@@ -9,13 +9,13 @@ test_stable_id_order_independence (test_ncf_alloc3.RobustAllocationTests.test_st
 test_sweep_reports_model_claim_ceiling (test_ncf_alloc3.RobustAllocationTests.test_sweep_reports_model_claim_ceiling) ... ok
 
 ----------------------------------------------------------------------
-Ran 9 tests in 0.437s
+Ran 10 tests
 
 OK
 
 Reproduced locally on 2026-10-28:
 output=ncf-alloc3-results.json
-source_sha256=3422c79a7577921ff827be2d0d001cc11df135a089b5c5cc1fbbacdc656d88ed
+source_sha256=e0557bbaae60e57d6dd1ede9748f395bc2fdc930bd20fbcb212df0a02a1b332f
 
 Honest hotspot (served % / worst shard % / fairness %):
   equal: 64.06 / 37.11 / 90.55
