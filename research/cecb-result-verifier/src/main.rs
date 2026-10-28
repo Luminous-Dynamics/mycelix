@@ -8,7 +8,7 @@ use sha2::{Digest, Sha256};
 use std::{
     collections::{BTreeMap, BTreeSet, HashSet},
     env, fs,
-    path::PathBuf,
+    path::{Component, Path, PathBuf},
     process::ExitCode,
 };
 
@@ -138,6 +138,7 @@ const RUN_FIELDS: &[&str] = &[
     "guardrail_violations",
     "runtime_ms",
     "artifact_digests",
+    "artifact_paths",
 ];
 
 const BUNDLE_FIELDS: &[&str] = &[
@@ -276,6 +277,7 @@ const OUTCOME_CONTRACT: &[(&str, &str, &str, &str, &str)] = &[
 struct Args {
     plan_path: PathBuf,
     results_path: PathBuf,
+    artifact_root: PathBuf,
     report_path: Option<PathBuf>,
 }
 
@@ -1698,6 +1700,143 @@ fn verify_bundle(plan: &Value, bundle: &Value) -> Value {
     })
 }
 
+fn safe_relative_artifact_path(value: &str) -> bool {
+    if value.is_empty() || value.contains('\0') || value.contains('\\') {
+        return false;
+    }
+    let path = Path::new(value);
+    if path.is_absolute() {
+        return false;
+    }
+    let mut has_normal_component = false;
+    for component in path.components() {
+        match component {
+            Component::Normal(_) => has_normal_component = true,
+            Component::CurDir => {}
+            Component::ParentDir | Component::RootDir | Component::Prefix(_) => return false,
+        }
+    }
+    has_normal_component
+}
+
+fn verify_artifact_contents(
+    bundle: &Value,
+    artifact_root: &Path,
+) -> (u64, Vec<String>) {
+    let mut errors = Vec::<String>::new();
+    let root = match artifact_root.canonicalize() {
+        Ok(root) if root.is_dir() => root,
+        Ok(_) => {
+            errors.push(format!(
+                "artifact root {} is not a directory",
+                artifact_root.display()
+            ));
+            return (0, errors);
+        }
+        Err(error) => {
+            errors.push(format!(
+                "cannot canonicalize artifact root {}: {error}",
+                artifact_root.display()
+            ));
+            return (0, errors);
+        }
+    };
+
+    let Some(results) = bundle.get("results").and_then(Value::as_array) else {
+        return (0, vec!["result bundle results must be an array".to_owned()]);
+    };
+    let mut seen_paths = BTreeMap::<String, String>::new();
+    let mut checked_files = 0_u64;
+
+    for (index, result) in results.iter().enumerate() {
+        let run_id = str_at(result, "run_id").unwrap_or("<missing-run-id>");
+        let digests = result.get("artifact_digests").and_then(Value::as_object);
+        let paths = result.get("artifact_paths").and_then(Value::as_object);
+        let (Some(digests), Some(paths)) = (digests, paths) else {
+            errors.push(format!(
+                "result[{index}] for run {run_id:?} needs artifact_digests and artifact_paths objects"
+            ));
+            continue;
+        };
+        let digest_keys = digests.keys().cloned().collect::<BTreeSet<_>>();
+        let path_keys = paths.keys().cloned().collect::<BTreeSet<_>>();
+        if digest_keys != path_keys || digest_keys.is_empty() {
+            errors.push(format!(
+                "run {run_id:?} artifact_paths keys must exactly match non-empty artifact_digests keys"
+            ));
+            continue;
+        }
+        for required in ["result_trace", "initial_world_state", "exogenous_event_stream"] {
+            if !digest_keys.contains(required) {
+                errors.push(format!(
+                    "run {run_id:?} is missing required artifact {required:?}"
+                ));
+            }
+        }
+        for (artifact_name, path_value) in paths {
+            let Some(relative) = path_value.as_str() else {
+                errors.push(format!(
+                    "run {run_id:?} artifact path {artifact_name:?} must be a string"
+                ));
+                continue;
+            };
+            if !safe_relative_artifact_path(relative) {
+                errors.push(format!(
+                    "run {run_id:?} artifact path {artifact_name:?} is not a safe relative path"
+                ));
+                continue;
+            }
+            if let Some(previous_run) = seen_paths.insert(relative.to_owned(), run_id.to_owned()) {
+                errors.push(format!(
+                    "artifact path {relative:?} is reused by runs {previous_run:?} and {run_id:?}"
+                ));
+                continue;
+            }
+            let joined = root.join(relative);
+            let canonical = match joined.canonicalize() {
+                Ok(path) => path,
+                Err(error) => {
+                    errors.push(format!(
+                        "run {run_id:?} artifact {artifact_name:?} cannot be resolved: {error}"
+                    ));
+                    continue;
+                }
+            };
+            if !canonical.starts_with(&root) || !canonical.is_file() {
+                errors.push(format!(
+                    "run {run_id:?} artifact {artifact_name:?} resolves outside the artifact root or is not a file"
+                ));
+                continue;
+            }
+            let Some(expected_digest) = digests.get(artifact_name).and_then(Value::as_str) else {
+                errors.push(format!(
+                    "run {run_id:?} artifact {artifact_name:?} has no string digest"
+                ));
+                continue;
+            };
+            let contents = match fs::read(&canonical) {
+                Ok(contents) => contents,
+                Err(error) => {
+                    errors.push(format!(
+                        "run {run_id:?} artifact {artifact_name:?} cannot be read: {error}"
+                    ));
+                    continue;
+                }
+            };
+            let actual_digest = sha256_hex(&contents);
+            if actual_digest != expected_digest {
+                errors.push(format!(
+                    "run {run_id:?} artifact {artifact_name:?} content digest mismatch"
+                ));
+            } else {
+                checked_files = checked_files.saturating_add(1);
+            }
+        }
+    }
+
+    (checked_files, errors)
+}
+
 fn read_json(path: &PathBuf, label: &str) -> Result<Value, String> {
     let input = fs::read_to_string(path)
         .map_err(|error| format!("cannot read {label} {}: {error}", path.display()))?;
@@ -1707,6 +1846,7 @@ fn read_json(path: &PathBuf, label: &str) -> Result<Value, String> {
 fn parse_args() -> Result<Option<Args>, String> {
     let mut plan_path = None;
     let mut results_path = None;
+    let mut artifact_root = None;
     let mut report_path = None;
     let args = env::args().skip(1).collect::<Vec<_>>();
     let mut index = 0;
@@ -1717,7 +1857,7 @@ fn parse_args() -> Result<Option<Args>, String> {
                 println!(
                     concat!(
                         "cecb-result-verifier --plan PLAN.json --results BUNDLE.json ",
-                        "[--report REPORT.json]"
+                        "--artifact-root DIR [--report REPORT.json]"
                     )
                 );
                 return Ok(None);
@@ -1734,6 +1874,12 @@ fn parse_args() -> Result<Option<Args>, String> {
                     args.get(index).ok_or("--results requires a path")?,
                 ));
             }
+            "--artifact-root" => {
+                index += 1;
+                artifact_root = Some(PathBuf::from(
+                    args.get(index).ok_or("--artifact-root requires a directory")?,
+                ));
+            }
             "--report" => {
                 index += 1;
                 report_path = Some(PathBuf::from(
@@ -1748,6 +1894,7 @@ fn parse_args() -> Result<Option<Args>, String> {
     Ok(Some(Args {
         plan_path: plan_path.ok_or("--plan is required")?,
         results_path: results_path.ok_or("--results is required")?,
+        artifact_root: artifact_root.ok_or("--artifact-root is required")?,
         report_path,
     }))
 }
