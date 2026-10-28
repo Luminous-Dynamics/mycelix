@@ -49,7 +49,7 @@ impl VerifiedObligation {
     /// Never call merely because a submitted hash parses or a claimant asserts
     /// that evidence is verified. The caller must already authenticate and
     /// authorize the evidence. No cryptography is implemented in this module.
-    #[allow(dead_code)] // Reserved for the crate-internal verified-evidence adapter; tests exercise the trust boundary.
+    #[allow(dead_code)] // Reserved for the internal verifier adapter.
     pub(crate) fn from_trusted_verifier(
         claim: ObligationClaim,
     ) -> Result<Self, AdmissionError> {
@@ -246,10 +246,18 @@ mod tests {
     #[test]
     fn exact_replay_across_shards_and_epochs_returns_original_receipt() {
         let mut book = book(10_000);
-        let first = book.admit(verified("ob-1", "principal-A", "instrument-1", "s-0", 1, 1, 4_000, 7).unwrap()).unwrap();
-        let retry = book.admit(verified("ob-1", "principal-A", "instrument-1", "s-9", 99, 900, 4_000, 7).unwrap()).unwrap();
-        let AdmissionOutcome::Accepted(original) = first else { panic!("first submission should be accepted"); };
-        let AdmissionOutcome::IdempotentReplay(replayed) = retry else { panic!("second submission should replay"); };
+        let first = book
+            .admit(verified("ob-1", "principal-A", "instrument-1", "s-0", 1, 1, 4_000, 7).unwrap())
+            .unwrap();
+        let retry = book
+            .admit(verified("ob-1", "principal-A", "instrument-1", "s-9", 99, 900, 4_000, 7).unwrap())
+            .unwrap();
+        let AdmissionOutcome::Accepted(original) = first else {
+            panic!("first submission should be accepted");
+        };
+        let AdmissionOutcome::IdempotentReplay(replayed) = retry else {
+            panic!("second submission should replay");
+        };
         assert_eq!(original, replayed);
         assert_eq!(book.accepted_count(), 1);
         assert_eq!(book.outstanding_for("principal-A", "instrument-1"), 4_000);
@@ -258,9 +266,13 @@ mod tests {
     #[test]
     fn same_id_different_payload_digest_rejects_without_mutation() {
         let mut book = book(10_000);
-        book.admit(verified("ob-1", "principal-A", "instrument-1", "s-0", 1, 1, 100, 7).unwrap()).unwrap();
+        book
+            .admit(verified("ob-1", "principal-A", "instrument-1", "s-0", 1, 1, 100, 7).unwrap())
+            .unwrap();
         assert_eq!(
-            book.admit(verified("ob-1", "principal-A", "instrument-1", "s-2", 2, 4, 100, 8).unwrap()),
+            book.admit(verified(
+                "ob-1", "principal-A", "instrument-1", "s-2", 2, 4, 100, 8,
+            ).unwrap()),
             Err(AdmissionError::ConflictingObligationId),
         );
         assert_eq!(book.accepted_count(), 1);
@@ -272,7 +284,9 @@ mod tests {
         let mut book = book(10_000);
         book.admit(verified("ob-1", "principal-A", "instrument-1", "s-0", 1, 1, 100, 7).unwrap()).unwrap();
         assert_eq!(
-            book.admit(verified("ob-1", "principal-A", "instrument-1", "s-1", 1, 2, 101, 7).unwrap()),
+            book.admit(verified(
+                "ob-1", "principal-A", "instrument-1", "s-1", 1, 2, 101, 7,
+            ).unwrap()),
             Err(AdmissionError::ConflictingObligationId),
         );
         assert_eq!(book.outstanding_for("principal-A", "instrument-1"), 100);
@@ -287,11 +301,15 @@ mod tests {
         let mut book = ObligationBook::new(caps).unwrap();
         book.admit(verified("ob-1", "principal-A", "instrument-1", "s-0", 1, 1, 100, 7).unwrap()).unwrap();
         assert_eq!(
-            book.admit(verified("ob-1", "principal-B", "instrument-1", "s-1", 1, 2, 100, 7).unwrap()),
+            book.admit(verified(
+                "ob-1", "principal-B", "instrument-1", "s-1", 1, 2, 100, 7,
+            ).unwrap()),
             Err(AdmissionError::ConflictingObligationId),
         );
         assert_eq!(
-            book.admit(verified("ob-1", "principal-A", "instrument-2", "s-1", 1, 2, 100, 7).unwrap()),
+            book.admit(verified(
+                "ob-1", "principal-A", "instrument-2", "s-1", 1, 2, 100, 7,
+            ).unwrap()),
             Err(AdmissionError::ConflictingObligationId),
         );
         assert_eq!(book.accepted_count(), 1);
@@ -302,13 +320,17 @@ mod tests {
         let mut book = book(150);
         book.admit(verified("ob-1", "principal-A", "instrument-1", "s-0", 1, 1, 100, 7).unwrap()).unwrap();
         assert_eq!(
-            book.admit(verified("ob-2", "principal-A", "instrument-1", "s-1", 1, 2, 51, 8).unwrap()),
+            book.admit(verified(
+                "ob-2", "principal-A", "instrument-1", "s-1", 1, 2, 51, 8,
+            ).unwrap()),
             Err(AdmissionError::PrincipalInstrumentCapExceeded),
         );
         assert_eq!(book.accepted_count(), 1);
         assert_eq!(book.outstanding_for("principal-A", "instrument-1"), 100);
         // The rejected ID is not consumed; corrected evidence can be retried.
-        book.admit(verified("ob-2", "principal-A", "instrument-1", "s-1", 1, 2, 50, 8).unwrap()).unwrap();
+        book
+            .admit(verified("ob-2", "principal-A", "instrument-1", "s-1", 1, 2, 50, 8).unwrap())
+            .unwrap();
         assert_eq!(book.outstanding_for("principal-A", "instrument-1"), 150);
     }
 
@@ -316,7 +338,9 @@ mod tests {
     fn missing_principal_cap_fails_closed() {
         let mut book = ObligationBook::default();
         assert_eq!(
-            book.admit(verified("ob-1", "principal-A", "instrument-1", "s-0", 1, 1, 100, 7).unwrap()),
+            book.admit(verified(
+                "ob-1", "principal-A", "instrument-1", "s-0", 1, 1, 100, 7,
+            ).unwrap()),
             Err(AdmissionError::MissingPrincipalInstrumentCap),
         );
         assert_eq!(book.accepted_count(), 0);
@@ -337,7 +361,11 @@ mod tests {
     #[test]
     fn arithmetic_overflow_rejects_without_mutation() {
         let mut book = book(u64::MAX);
-        book.admit(verified("ob-1", "principal-A", "instrument-1", "s-0", 1, 1, u64::MAX, 7).unwrap()).unwrap();
+        book
+            .admit(verified(
+                "ob-1", "principal-A", "instrument-1", "s-0", 1, 1, u64::MAX, 7,
+            ).unwrap())
+            .unwrap();
         assert_eq!(
             book.admit(verified("ob-2", "principal-A", "instrument-1", "s-0", 1, 2, 1, 8).unwrap()),
             Err(AdmissionError::Overflow),
@@ -367,9 +395,15 @@ mod tests {
             caps.insert((key.0.to_owned(), key.1.to_owned()), 1_000);
         }
         let mut book = ObligationBook::new(caps).unwrap();
-        book.admit(verified("ob-1", "principal-A", "instrument-1", "s-0", 1, 1, 100, 1).unwrap()).unwrap();
-        book.admit(verified("ob-2", "principal-A", "instrument-2", "s-1", 1, 2, 200, 2).unwrap()).unwrap();
-        book.admit(verified("ob-3", "principal-B", "instrument-1", "s-2", 1, 3, 300, 3).unwrap()).unwrap();
+        book
+            .admit(verified("ob-1", "principal-A", "instrument-1", "s-0", 1, 1, 100, 1).unwrap())
+            .unwrap();
+        book
+            .admit(verified("ob-2", "principal-A", "instrument-2", "s-1", 1, 2, 200, 2).unwrap())
+            .unwrap();
+        book
+            .admit(verified("ob-3", "principal-B", "instrument-1", "s-2", 1, 3, 300, 3).unwrap())
+            .unwrap();
         assert_eq!(book.outstanding_for("principal-A", "instrument-1"), 100);
         assert_eq!(book.outstanding_for("principal-A", "instrument-2"), 200);
         assert_eq!(book.outstanding_for("principal-B", "instrument-1"), 300);
