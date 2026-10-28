@@ -2233,12 +2233,19 @@ mod tests {
                     .as_str()
                     .expect("pair block ID");
                 let namespace = &policy_rng_namespaces[arm_id];
-                let initial_world_digest = sha256_hex(
-                    format!("{config_id}-{replicate}-initial-world").as_bytes(),
-                );
-                let exogenous_stream_digest = sha256_hex(
-                    format!("{config_id}-{replicate}-world-events").as_bytes(),
-                );
+                let initial_world_bytes =
+                    format!("{config_id}-{replicate}-initial-world").into_bytes();
+                let initial_world_digest = sha256_hex(&initial_world_bytes);
+                let exogenous_stream_bytes =
+                    format!("{config_id}-{replicate}-world-events").into_bytes();
+                let exogenous_stream_digest = sha256_hex(&exogenous_stream_bytes);
+                let result_trace_bytes = format!("result-trace:{run_id}").into_bytes();
+                let result_trace_digest = sha256_hex(&result_trace_bytes);
+                let artifact_paths = json!({
+                    "result_trace": format!("runs/{run_id}/result-trace.json"),
+                    "exogenous_event_stream": format!("runs/{run_id}/exogenous-events.bin"),
+                    "initial_world_state": format!("runs/{run_id}/initial-world.json")
+                });
                 let outcomes = OUTCOME_METRICS
                     .iter()
                     .map(|metric| {
@@ -2288,10 +2295,11 @@ mod tests {
                     "guardrail_violations": [],
                     "runtime_ms": 25,
                     "artifact_digests": {
-                        "result_trace": "e".repeat(64),
+                        "result_trace": result_trace_digest,
                         "exogenous_event_stream": exogenous_stream_digest,
                         "initial_world_state": initial_world_digest
-                    }
+                    },
+                    "artifact_paths": artifact_paths
                 })
             })
             .collect::<Vec<_>>();
