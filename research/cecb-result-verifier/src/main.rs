@@ -381,6 +381,18 @@ fn validate_contract(plan: &Value, errors: &mut Vec<String>) {
     if binding.get("execution_authorized").and_then(Value::as_bool) != Some(true) {
         errors.push("plan model_binding.execution_authorized must be true".to_owned());
     }
+    for (field, blocked) in [
+        ("civilization_twin_contract_mapping", &["pending"][..]),
+        ("numeric_scenario_value_mapping", &["pending", "unresolved_labels_only"][..]),
+        ("policy_adapter_mapping", &["pending"][..]),
+    ] {
+        match str_at(binding, field) {
+            Some(value) if !value.is_empty() && !blocked.contains(&value) => {}
+            _ => errors.push(format!(
+                "model_binding.{field} must be explicitly resolved before verification"
+            )),
+        }
+    }
     if str_at(design, "scenario_config_digest_profile") != Some(SCENARIO_DIGEST_PROFILE) {
         errors.push("plan scenario configuration digest profile is unsupported".to_owned());
     }
@@ -538,6 +550,16 @@ fn build_expected_runs(plan: &Value, errors: &mut Vec<String>) -> BTreeMap<Strin
                 }
                 if configurations.contains_key(id) {
                     errors.push(format!("duplicate config_id {id:?}"));
+                    continue;
+                }
+                if config
+                    .get("resolved_parameters")
+                    .and_then(Value::as_object)
+                    .is_none_or(Map::is_empty)
+                {
+                    errors.push(format!(
+                        "{label} requires a non-empty resolved_parameters object"
+                    ));
                     continue;
                 }
                 match jcs_sha256(config) {
@@ -1231,8 +1253,16 @@ mod tests {
         let profile_one = "c".repeat(64);
         let profile_two = "d".repeat(64);
         let configurations = vec![
-            json!({"config_id": "C01", "supply_condition": "adequate"}),
-            json!({"config_id": "C02", "supply_condition": "constrained"}),
+            json!({
+                "config_id": "C01",
+                "supply_condition": "adequate",
+                "resolved_parameters": {"safe_units": 5, "households_with_need": 4}
+            }),
+            json!({
+                "config_id": "C02",
+                "supply_condition": "constrained",
+                "resolved_parameters": {"safe_units": 2, "households_with_need": 4}
+            }),
         ];
         let seeds = vec![
             json!({"replicate_id": "R01", "seed_hex": "0000000000000001"}),
@@ -1280,6 +1310,9 @@ mod tests {
                 "scenario_config_digest_profile": SCENARIO_DIGEST_PROFILE,
                 "model_binding": {
                     "execution_authorized": true,
+                    "civilization_twin_contract_mapping": "civ-twin-housing-adapter.v1",
+                    "numeric_scenario_value_mapping": "housing-scenario-values.v1",
+                    "policy_adapter_mapping": "housing-allocation-policies.v1",
                     "simulator_digest_sha256": simulator_digest
                 }
             },
@@ -1444,6 +1477,23 @@ mod tests {
     #[test]
     fn rejects_duplicate_json_keys_at_any_depth() {
         assert!(parse_strict_json(r#"{"outer":{"x":1,"x":2}}"#, "duplicate").is_err());
+    }
+
+    #[test]
+    fn refuses_unresolved_twin_mapping_even_if_execution_flag_is_set() {
+        let mut plan = test_plan();
+        plan["design"]["model_binding"]["numeric_scenario_value_mapping"] =
+            json!("unresolved_labels_only");
+        let bundle = test_bundle(&plan);
+        assert!(!verified(&plan, &bundle));
+    }
+
+    #[test]
+    fn refuses_configurations_without_resolved_parameters() {
+        let mut plan = test_plan();
+        plan["configurations"][0].as_object_mut().unwrap().remove("resolved_parameters");
+        let bundle = test_bundle(&plan);
+        assert!(!verified(&plan, &bundle));
     }
 
     #[test]
