@@ -28,6 +28,7 @@ const EXPECTED_CASES: &[&str] = &[
 struct Cli {
     fixture_path: Option<PathBuf>,
     policy_view_out: Option<PathBuf>,
+    paired_plan_out: Option<PathBuf>,
 }
 
 fn main() -> ExitCode {
@@ -88,6 +89,20 @@ fn main() -> ExitCode {
                 return ExitCode::from(2);
             }
         }
+        if let Some(path) = &cli.paired_plan_out {
+            let plan = build_paired_plan();
+            let output = match serde_json::to_string(&plan) {
+                Ok(output) => output,
+                Err(error) => {
+                    eprintln!("cannot serialize paired experiment plan: {error}");
+                    return ExitCode::from(2);
+                }
+            };
+            if let Err(error) = fs::write(path, format!("{output}\\n")) {
+                eprintln!("cannot write paired experiment plan {}: {error}", path.display());
+                return ExitCode::from(2);
+            }
+        }
         ExitCode::SUCCESS
     } else {
         ExitCode::from(1)
@@ -98,6 +113,7 @@ fn parse_args() -> Result<Option<Cli>, String> {
     let mut cli = Cli {
         fixture_path: None,
         policy_view_out: None,
+        paired_plan_out: None,
     };
     let args: Vec<String> = env::args().skip(1).collect();
     let mut index = 0;
@@ -126,6 +142,13 @@ fn parse_args() -> Result<Option<Cli>, String> {
                     .get(index)
                     .ok_or("--policy-view-out requires a path")?;
                 cli.policy_view_out = Some(PathBuf::from(value));
+            }
+            "--paired-plan-out" => {
+                index += 1;
+                let value = args
+                    .get(index)
+                    .ok_or("--paired-plan-out requires a path")?;
+                cli.paired_plan_out = Some(PathBuf::from(value));
             }
             other => return Err(format!("unknown argument: {other}; use --help")),
         }
@@ -311,6 +334,174 @@ fn validate_case(case: &Value) -> Vec<String> {
         _ => errors.push(format!("unknown v0.1 case_id {id:?}")),
     }
     errors
+}
+
+const PAIRED_SEED_COUNT: usize = 30;
+
+fn build_paired_plan() -> Value {
+    const SUPPLY: &[&str] = &["adequate", "constrained", "severe"];
+    const CONSTRUCTION_DELAY: &[&str] = &["short", "long"];
+    const INCOME_SHOCK: &[&str] = &["none", "moderate", "severe"];
+    const OBSERVATION_QUALITY: &[&str] = &["current", "stale", "conflicted"];
+    const ACCESSIBILITY_MIX: &[&str] = &["low", "high"];
+    const MAINTENANCE_BACKLOG: &[&str] = &["low", "high"];
+
+    let mut configurations = Vec::<Value>::new();
+    let mut config_index = 0_usize;
+    for supply in SUPPLY {
+        for delay in CONSTRUCTION_DELAY {
+            for income in INCOME_SHOCK {
+                for observation in OBSERVATION_QUALITY {
+                    for accessibility in ACCESSIBILITY_MIX {
+                        for maintenance in MAINTENANCE_BACKLOG {
+                            config_index += 1;
+                            configurations.push(json!({
+                                "config_id": format!("HSG-{:03}", config_index),
+                                "supply_condition": supply,
+                                "construction_delay": delay,
+                                "income_shock": income,
+                                "observation_quality": observation,
+                                "accessibility_mix": accessibility,
+                                "maintenance_backlog": maintenance
+                            }));
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    let arms = vec![
+        json!({
+            "arm_id": "allocation_price",
+            "allocation_rule": "price",
+            "implementation_status": "adapter_pending"
+        }),
+        json!({
+            "arm_id": "allocation_queue",
+            "allocation_rule": "queue",
+            "implementation_status": "adapter_pending"
+        }),
+        json!({
+            "arm_id": "allocation_lottery",
+            "allocation_rule": "lottery",
+            "implementation_status": "adapter_pending"
+        }),
+        json!({
+            "arm_id": "allocation_need_priority",
+            "allocation_rule": "need_priority",
+            "implementation_status": "adapter_pending"
+        }),
+        json!({
+            "arm_id": "allocation_hybrid",
+            "allocation_rule": "hybrid",
+            "implementation_status": "adapter_pending"
+        })
+    ];
+
+    // SplitMix64 is used only for a deterministic public development seed schedule.
+    // It is not cryptographic and does not provide evaluation blinding.
+    let mut state = 0xCECB_2026_1028_u64;
+    let mut seeds = Vec::<Value>::with_capacity(PAIRED_SEED_COUNT);
+    for index in 0..PAIRED_SEED_COUNT {
+        state = state.wrapping_add(0x9E37_79B9_7F4A_7C15);
+        let mut mixed = state;
+        mixed = (mixed ^ (mixed >> 30)).wrapping_mul(0xBF58_476D_1CE4_E5B9);
+        mixed = (mixed ^ (mixed >> 27)).wrapping_mul(0x94D0_49BB_1331_11EB);
+        mixed ^= mixed >> 31;
+        seeds.push(json!({
+            "replicate_id": format!("R{:02}", index + 1),
+            "seed_hex": format!("{mixed:016x}")
+        }));
+    }
+
+    // Every arm in a config/replicate block receives the same seed, so exogenous
+    // randomness can be paired when the downstream simulator consumes the schedule.
+    let mut runs = Vec::<Value>::with_capacity(configurations.len() * seeds.len() * arms.len());
+    for config in &configurations {
+        let config_id = config["config_id"].as_str().unwrap_or("invalid-config");
+        for seed in &seeds {
+            let replicate_id = seed["replicate_id"].as_str().unwrap_or("invalid-replicate");
+            let seed_hex = seed["seed_hex"].as_str().unwrap_or("invalid-seed");
+            let pair_block_id = format!("{config_id}-{replicate_id}");
+            for arm in &arms {
+                let arm_id = arm["arm_id"].as_str().unwrap_or("invalid-arm");
+                runs.push(json!({
+                    "run_id": format!("{pair_block_id}-{arm_id}"),
+                    "pair_block_id": pair_block_id,
+                    "config_id": config_id,
+                    "replicate_id": replicate_id,
+                    "seed_hex": seed_hex,
+                    "arm_id": arm_id,
+                    "status": "not_executed",
+                    "disposition": "not_started"
+                }));
+            }
+        }
+    }
+
+    json!({
+        "schema_version": "cecb.housing.paired_design.v0.1",
+        "design_id": "CECB-HOUSING-ALLOCATION-ONLY-V0.1",
+        "status": "design_only_no_policy_execution",
+        "claim_ceiling": "This manifest specifies matched policy-run slots only. It does not implement adapters, execute a simulator, score outcomes, or establish policy superiority.",
+        "design": {
+            "comparison_axis": "allocation_rule_only",
+            "held_constant": {
+                "initial_world_within_pair": true,
+                "exogenous_seed_within_pair": true,
+                "financing_event_schedule": "identical_across_arms",
+                "ownership_stewardship": "held_constant_across_arms",
+                "service_floor": "held_constant_across_arms",
+                "observation_budget": "identical_across_arms",
+                "resource_and_compute_budget": "must_be_identical_or_reported",
+                "implementation_status": "policy adapters not yet bound"
+            },
+            "factor_levels": {
+                "supply_condition": SUPPLY,
+                "construction_delay": CONSTRUCTION_DELAY,
+                "income_shock": INCOME_SHOCK,
+                "observation_quality": OBSERVATION_QUALITY,
+                "accessibility_mix": ACCESSIBILITY_MIX,
+                "maintenance_backlog": MAINTENANCE_BACKLOG
+            },
+            "paired_seed_algorithm": "splitmix64-v1 public deterministic development schedule",
+            "paired_seed_base_hex": "0000cecb20261028",
+            "replicates_per_configuration": PAIRED_SEED_COUNT,
+            "run_expansion_rule": "Cartesian product of configurations x paired seeds x arms; run_id and pair_block_id are stable and unique"
+        },
+        "policy_arms": arms,
+        "configurations": configurations,
+        "paired_seeds": seeds,
+        "scenario_config_count": configurations.len(),
+        "paired_seed_count": seeds.len(),
+        "arm_count": arms.len(),
+        "scheduled_run_count": runs.len(),
+        "required_terminal_dispositions": [
+            "completed",
+            "abstained",
+            "failed",
+            "timed_out",
+            "non_converged",
+            "invalid_output",
+            "guardrail_failed"
+        ],
+        "outcome_dimensions": [
+            "safe_suitable_household_months",
+            "unmet_essential_need_household_months",
+            "wait_duration_months",
+            "fully_loaded_cost",
+            "debt_service_and_default",
+            "new_vs_existing_capacity",
+            "maintenance_and_depletion",
+            "groupwise_access_gap",
+            "tail_wait_and_shortfall",
+            "physical_resource_use",
+            "privacy_authority_guardrail_breaches",
+            "evidence_coverage_and_uncertainty"
+        ],
+        "runs": runs
+    })
 }
 
 fn validate_exact_object_keys(
@@ -1108,6 +1299,42 @@ mod tests {
     fn inspection_age_uses_integer_month_boundaries() {
         assert_eq!(inspection_age_months(0, -3), Some(3));
         assert_eq!(inspection_age_months(0, -4), Some(4));
+    }
+
+    #[test]
+    fn paired_design_has_complete_matched_cross_product() {
+        let plan = build_paired_plan();
+        assert_eq!(plan["schema_version"], "cecb.housing.paired_design.v0.1");
+        assert_eq!(plan["scenario_config_count"], 216);
+        assert_eq!(plan["paired_seed_count"], 30);
+        assert_eq!(plan["arm_count"], 5);
+        assert_eq!(plan["scheduled_run_count"], 32_400);
+
+        let runs = plan["runs"].as_array().expect("runs array");
+        assert_eq!(runs.len(), 32_400);
+        let run_ids = runs
+            .iter()
+            .map(|run| run["run_id"].as_str().expect("run id"))
+            .collect::<BTreeSet<_>>();
+        assert_eq!(run_ids.len(), runs.len(), "run IDs must be unique");
+        assert!(runs.iter().all(|run| {
+            run["status"] == "not_executed" && run["disposition"] == "not_started"
+        }));
+
+        let first_block = runs
+            .iter()
+            .filter(|run| run["pair_block_id"] == "HSG-001-R01")
+            .collect::<Vec<_>>();
+        assert_eq!(first_block.len(), 5);
+        assert_eq!(
+            first_block
+                .iter()
+                .map(|run| run["seed_hex"].as_str().expect("seed"))
+                .collect::<BTreeSet<_>>()
+                .len(),
+            1,
+            "all arms in a paired block must share one seed"
+        );
     }
 
     #[test]
