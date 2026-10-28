@@ -11,7 +11,7 @@ test_unverified_or_malformed_evidence_fails_closed_without_id_consumption ... ok
 Ran 9 tests — OK.
 Combined local run: 24 tests passed (10 NCF-ALLOC-3 + 5 NCF-ALLOC-4 + 9 NCF-ALLOC-5) on 2026-10-28.
 
-source_sha256=d64e23bf6f0f32139494c9544b7c74567c8c0492bb7d6b28f34c653f961a4d04
-results_sha256=0f84af0c70a39294b10e55a799e2551803f6b58376447d2f3fdcedfc182605ab
+source_sha256=de2ac4ba5ee6855b2739f100f2a4aecb9a7f66d0bdcec27d3e8f41ccddc20b46
+results_sha256=e8bc17f8c4d66e6f972e2c18a9fffb517d0cb0989611d96c450e59d78ad2c2b1
 
 Claim ceiling: sequential Python reference only. The model assumes a trustworthy externally verified receipt and does not implement cryptographic identities, verifier security, concurrent uniqueness, Rust/CI/TLC, Holochain or production settlement.
