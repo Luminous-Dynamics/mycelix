@@ -49,6 +49,7 @@ impl VerifiedObligation {
     /// Never call merely because a submitted hash parses or a claimant asserts
     /// that evidence is verified. The caller must already authenticate and
     /// authorize the evidence. No cryptography is implemented in this module.
+    #[allow(dead_code)] // Reserved for the crate-internal verified-evidence adapter; tests exercise the trust boundary.
     pub(crate) fn from_trusted_verifier(
         claim: ObligationClaim,
     ) -> Result<Self, AdmissionError> {
