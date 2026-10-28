@@ -3,7 +3,7 @@ use std::env;
 use std::error::Error;
 use std::fs;
 
-const VERSION: &str = "0.2.0";
+const VERSION: &str = "0.3.0";
 const DEFAULT_BOOTSTRAPS: usize = 1_000;
 const DEFAULT_SEED: u64 = 9_901;
 const MIN_PAIRS_FOR_REVIEW: usize = 10_000;
@@ -52,6 +52,9 @@ fn run() -> Result<(), Box<dyn Error>> {
     if args.get(1).is_some_and(|arg| arg == "compare") {
         return run_compare(&args);
     }
+    if args.get(1).is_some_and(|arg| arg == "calibrated") {
+        return run_calibrated(&args);
+    }
     if args.len() < 5
         || args.len() > 7
         || args
@@ -59,7 +62,7 @@ fn run() -> Result<(), Box<dyn Error>> {
             .is_some_and(|arg| arg == "--help" || arg == "-h")
     {
         eprintln!(
-            "Usage: {} <truth.tsv> <scores.tsv> <training-subjects.txt> <report.json> [bootstrap-replicates=1000] [seed=9901]\n       {} compare <truth.tsv> <baseline-scores.tsv> <treatment-scores.tsv> <training-subjects.txt> <report.json> [bootstrap-replicates=1000] [seed=9901] [max_auc_upper=0.55]\n\ntruth.tsv has pair_id, subject_a, subject_b, label, stratum.\nscores.tsv has only pair_id and score; never give ground-truth fields to the attack scorer. Paired comparison requires identical pair sets in both score files.",
+            "Usage: {} <truth.tsv> <scores.tsv> <training-subjects.txt> <report.json> [bootstrap-replicates=1000] [seed=9901]\n       {} compare <truth.tsv> <baseline-scores.tsv> <treatment-scores.tsv> <training-subjects.txt> <report.json> [bootstrap-replicates=1000] [seed=9901] [max_auc_upper=0.55]\n\ntruth.tsv has pair_id, subject_a, subject_b, label, stratum.\nscores.tsv has only pair_id and score; never give ground-truth fields to the attack scorer. Paired comparison requires identical pair sets. The calibrated subcommand selects a threshold on validation labels and evaluates it on disjoint test subjects.",
             args.first().map_or("life-privacy-eval", String::as_str),
             args.first().map_or("life-privacy-eval", String::as_str)
         );
@@ -176,6 +179,298 @@ fn join_paired_scores(
         });
     }
     Ok(output)
+}
+
+
+fn run_calibrated(args: &[String]) -> Result<(), Box<dyn Error>> {
+    if args.len() < 8 || args.len() > 11 {
+        return Err("calibrated usage: calibrated <validation-truth.tsv> <validation-scores.tsv> <test-truth.tsv> <test-scores.tsv> <training-subjects.txt> <report.json> [max_fpr=0.01] [bootstrap-replicates=1000] [seed=9901]".into());
+    }
+    let validation_truth = read_truth(&args[2])?;
+    let validation_scores = read_scores(&args[3])?;
+    let test_truth = read_truth(&args[4])?;
+    let test_scores = read_scores(&args[5])?;
+    let training_subjects = read_training_subjects(&args[6])?;
+    let report_path = &args[7];
+    let max_fpr = args.get(8).map_or(Ok(0.01_f64), |s| s.parse::<f64>())?;
+    let bootstraps = args.get(9).map_or(Ok(DEFAULT_BOOTSTRAPS), |s| s.parse::<usize>())?;
+    let seed = args.get(10).map_or(Ok(DEFAULT_SEED), |s| s.parse::<u64>())?;
+    if !max_fpr.is_finite() || !(0.0..=1.0).contains(&max_fpr) {
+        return Err("max_fpr must be finite and in [0, 1]".into());
+    }
+    if bootstraps < 100 {
+        return Err("at least 100 subject-cluster bootstrap replicates are required for an interval".into());
+    }
+    let validation_rows = join_and_validate(validation_truth, validation_scores, &training_subjects)?;
+    let test_rows = join_and_validate(test_truth, test_scores, &training_subjects)?;
+    require_both_classes(&validation_rows, "validation")?;
+    require_both_classes(&test_rows, "test")?;
+    ensure_calibration_test_disjoint(&validation_rows, &test_rows)?;
+
+    // Threshold selection reads validation labels only; test labels are used only after threshold lock.
+    let selection = select_validation_threshold(&validation_rows, max_fpr);
+    let rates = fixed_operating_rates(&test_rows, selection.threshold);
+    let (tpr_interval, fpr_interval) =
+        fixed_threshold_cluster_bootstrap(&test_rows, selection.threshold, bootstraps, seed);
+    let report = format!(
+        "{}\\n",
+        build_calibrated_report(
+            &validation_rows, &test_rows, &training_subjects, &selection,
+            &rates, tpr_interval, fpr_interval, max_fpr, bootstraps, seed
+        )
+    );
+    if report_path == "-" {
+        print!("{report}");
+    } else {
+        fs::write(report_path, report)?;
+    }
+    Ok(())
+}
+
+fn require_both_classes(rows: &[TruthRowWithScore], partition: &str) -> Result<(), Box<dyn Error>> {
+    if !rows.iter().any(|row| row.label == 1) || !rows.iter().any(|row| row.label == 0) {
+        return Err(format!("{partition} partition must contain at least one positive and one negative pair").into());
+    }
+    Ok(())
+}
+
+fn ensure_calibration_test_disjoint(
+    validation_rows: &[TruthRowWithScore],
+    test_rows: &[TruthRowWithScore],
+) -> Result<(), Box<dyn Error>> {
+    let validation_subjects: BTreeSet<&str> = validation_rows.iter()
+        .flat_map(|row| [row.subject_a.as_str(), row.subject_b.as_str()]).collect();
+    let test_subjects: BTreeSet<&str> = test_rows.iter()
+        .flat_map(|row| [row.subject_a.as_str(), row.subject_b.as_str()]).collect();
+    if let Some(subject) = validation_subjects.intersection(&test_subjects).next() {
+        return Err(format!("calibration/test subject overlap: {subject}").into());
+    }
+    let validation_pairs: BTreeSet<&str> = validation_rows.iter().map(|row| row.pair_id.as_str()).collect();
+    let test_pairs: BTreeSet<&str> = test_rows.iter().map(|row| row.pair_id.as_str()).collect();
+    if let Some(pair_id) = validation_pairs.intersection(&test_pairs).next() {
+        return Err(format!("calibration/test pair_id overlap: {pair_id}").into());
+    }
+    Ok(())
+}
+
+#[derive(Clone, Copy, Debug)]
+struct ThresholdSelection {
+    threshold: Option<f64>,
+    true_positives: usize,
+    false_positives: usize,
+    positives: usize,
+    negatives: usize,
+}
+impl ThresholdSelection {
+    fn tpr(self) -> f64 { ratio(self.true_positives, self.positives) }
+    fn fpr(self) -> f64 { ratio(self.false_positives, self.negatives) }
+}
+
+#[derive(Clone, Copy, Debug)]
+struct OperatingRates {
+    true_positives: usize,
+    false_positives: usize,
+    positives: usize,
+    negatives: usize,
+}
+impl OperatingRates {
+    fn tpr(self) -> f64 { ratio(self.true_positives, self.positives) }
+    fn fpr(self) -> f64 { ratio(self.false_positives, self.negatives) }
+}
+fn ratio(numerator: usize, denominator: usize) -> f64 {
+    if denominator == 0 { 0.0 } else { numerator as f64 / denominator as f64 }
+}
+
+fn select_validation_threshold(rows: &[TruthRowWithScore], max_fpr: f64) -> ThresholdSelection {
+    let positives = rows.iter().filter(|row| row.label == 1).count();
+    let negatives = rows.len() - positives;
+    let mut sorted: Vec<&TruthRowWithScore> = rows.iter().collect();
+    sorted.sort_by(|a, b| b.score.total_cmp(&a.score));
+    let mut best = ThresholdSelection {
+        threshold: None, true_positives: 0, false_positives: 0, positives, negatives,
+    };
+    let mut tp = 0usize;
+    let mut fp = 0usize;
+    let mut i = 0usize;
+    while i < sorted.len() {
+        let mut j = i + 1;
+        while j < sorted.len() && sorted[j].score == sorted[i].score { j += 1; }
+        tp += sorted[i..j].iter().filter(|row| row.label == 1).count();
+        fp += sorted[i..j].iter().filter(|row| row.label == 0).count();
+        let fpr = ratio(fp, negatives);
+        let tpr = ratio(tp, positives);
+        if fpr <= max_fpr + f64::EPSILON
+            && (tpr > best.tpr() || (tpr == best.tpr() && fpr < best.fpr()))
+        {
+            best.threshold = Some(sorted[i].score);
+            best.true_positives = tp;
+            best.false_positives = fp;
+        }
+        i = j;
+    }
+    best
+}
+
+fn fixed_operating_rates(rows: &[TruthRowWithScore], threshold: Option<f64>) -> OperatingRates {
+    let positives = rows.iter().filter(|row| row.label == 1).count();
+    let negatives = rows.len() - positives;
+    let mut tp = 0usize;
+    let mut fp = 0usize;
+    for row in rows {
+        let predicted_link = threshold.is_some_and(|cutoff| row.score >= cutoff);
+        if predicted_link && row.label == 1 { tp += 1; }
+        if predicted_link && row.label == 0 { fp += 1; }
+    }
+    OperatingRates { true_positives: tp, false_positives: fp, positives, negatives }
+}
+
+fn fixed_threshold_cluster_bootstrap(
+    rows: &[TruthRowWithScore],
+    threshold: Option<f64>,
+    replicates: usize,
+    seed: u64,
+) -> (Interval, Interval) {
+    let subjects: Vec<String> = rows.iter()
+        .flat_map(|row| [row.subject_a.clone(), row.subject_b.clone()])
+        .collect::<BTreeSet<_>>().into_iter().collect();
+    if subjects.is_empty() {
+        let empty = Interval { low: f64::NAN, high: f64::NAN, valid_replicates: 0 };
+        return (empty, empty);
+    }
+    let mut rng = XorShift64::new(seed);
+    let mut tprs = Vec::with_capacity(replicates);
+    let mut fprs = Vec::with_capacity(replicates);
+    for _ in 0..replicates {
+        let mut multiplicity: HashMap<&str, u64> = HashMap::new();
+        for _ in 0..subjects.len() {
+            let index = (rng.next() % subjects.len() as u64) as usize;
+            *multiplicity.entry(subjects[index].as_str()).or_insert(0) += 1;
+        }
+        let mut tp = 0.0;
+        let mut fp = 0.0;
+        let mut positives = 0.0;
+        let mut negatives = 0.0;
+        for row in rows {
+            let a = *multiplicity.get(row.subject_a.as_str()).unwrap_or(&0) as f64;
+            let b = *multiplicity.get(row.subject_b.as_str()).unwrap_or(&0) as f64;
+            let weight = if row.subject_a == row.subject_b { a } else { a * b };
+            if weight == 0.0 { continue; }
+            let predicted_link = threshold.is_some_and(|cutoff| row.score >= cutoff);
+            if row.label == 1 {
+                positives += weight;
+                if predicted_link { tp += weight; }
+            } else {
+                negatives += weight;
+                if predicted_link { fp += weight; }
+            }
+        }
+        if positives > 0.0 && negatives > 0.0 {
+            tprs.push(tp / positives);
+            fprs.push(fp / negatives);
+        }
+    }
+    (percentile_interval(tprs), percentile_interval(fprs))
+}
+
+fn operating_point_gate(
+    sample_size_met: bool,
+    observed_false_positives: usize,
+    fpr_interval: Interval,
+    max_fpr: f64,
+) -> &'static str {
+    if !sample_size_met {
+        "NOT_EVALUATED_BELOW_SAMPLE_MINIMUM"
+    } else if observed_false_positives == 0 {
+        "INCONCLUSIVE_ZERO_FP_CANNOT_BOUND_RARE_EVENT_RISK"
+    } else if fpr_interval.high.is_finite() && fpr_interval.high <= max_fpr {
+        "PROVISIONAL_PASS_REQUIRES_REVIEW"
+    } else if fpr_interval.low.is_finite() && fpr_interval.low > max_fpr {
+        "FAIL"
+    } else {
+        "INCONCLUSIVE"
+    }
+}
+
+fn build_calibrated_report(
+    validation_rows: &[TruthRowWithScore],
+    test_rows: &[TruthRowWithScore],
+    training_subjects: &HashSet<String>,
+    selection: &ThresholdSelection,
+    rates: &OperatingRates,
+    tpr_interval: Interval,
+    fpr_interval: Interval,
+    max_fpr: f64,
+    bootstraps: usize,
+    seed: u64,
+) -> String {
+    let calibration_subjects: BTreeSet<&str> = validation_rows.iter()
+        .flat_map(|row| [row.subject_a.as_str(), row.subject_b.as_str()]).collect();
+    let test_subjects: BTreeSet<&str> = test_rows.iter()
+        .flat_map(|row| [row.subject_a.as_str(), row.subject_b.as_str()]).collect();
+    let sample_size_met =
+        validation_rows.len() >= MIN_PAIRS_FOR_REVIEW
+        && calibration_subjects.len() >= MIN_SUBJECTS_FOR_REVIEW
+        && test_rows.len() >= MIN_PAIRS_FOR_REVIEW
+        && test_subjects.len() >= MIN_SUBJECTS_FOR_REVIEW;
+    let sample_size_gate = if sample_size_met { "MINIMUM_COUNTS_MET_REQUIRES_REVIEW" } else { "SMOKE_ONLY_BELOW_MINIMUM" };
+    let gate = operating_point_gate(sample_size_met, rates.false_positives, fpr_interval, max_fpr);
+    let rare_event_status = if rates.false_positives == 0 {
+        "ZERO_FALSE_POSITIVES_DO_NOT_CERTIFY_TAIL_RISK"
+    } else {
+        "CLUSTER_BOOTSTRAP_INTERVAL_REPORTED_NO_FORMAL_PRIVACY_GUARANTEE"
+    };
+    let valid_replicates = tpr_interval.valid_replicates.min(fpr_interval.valid_replicates);
+    format!(
+r#"{{ 
+  "schema_version": "1.0",
+  "evaluator_version": "{}",
+  "evaluation_mode": "validation_locked_operating_point",
+  "threshold_source": "validation_only_locked_before_test",
+  "seed": {},
+  "requested_bootstrap_replicates": {},
+  "valid_bootstrap_replicates": {},
+  "max_fpr_target": {},
+  "calibration_pairs": {},
+  "calibration_subjects": {},
+  "test_pairs": {},
+  "positive_pairs": {},
+  "negative_pairs": {},
+  "unique_test_subjects": {},
+  "training_subject_count": {},
+  "subject_overlap_count": 0,
+  "calibration_threshold": {},
+  "validation_tpr_at_locked_threshold": {},
+  "validation_fpr_at_locked_threshold": {},
+  "true_positives": {},
+  "false_positives": {},
+  "empirical_fpr_resolution": {},
+  "test_tpr_at_locked_threshold": {},
+  "test_fpr_at_locked_threshold": {},
+  "test_tpr_cluster_bootstrap_ci95": {{"low": {}, "high": {}, "valid_replicates": {}}},
+  "test_fpr_cluster_bootstrap_ci95": {{"low": {}, "high": {}, "valid_replicates": {}}},
+  "observed_zero_false_positives": {},
+  "rare_event_inference_status": "{}",
+  "sample_size_gate": "{}",
+  "operating_point_gate": "{}",
+  "task_utility_evidence_present": false,
+  "official_conformance_evidence_present": false,
+  "overall_release_gate": "NOT_EVALUATED_REQUIRED_UTILITY_AND_CONFORMANCE_MISSING",
+  "interpretation": "Threshold selection uses validation labels only and is frozen before test scoring. Test rates are evaluated at that fixed threshold. Subject-cluster bootstrap intervals describe variability under the declared dyad model; zero observed false positives are not proof of zero tail risk. No task utility or official conformance evidence is provided."
+}}"#,
+        VERSION, seed, bootstraps, valid_replicates, max_fpr,
+        validation_rows.len(), calibration_subjects.len(), test_rows.len(),
+        rates.positives, rates.negatives, test_subjects.len(), training_subjects.len(),
+        metric_or_null(selection.threshold), selection.tpr(), selection.fpr(),
+        rates.true_positives, rates.false_positives, ratio(1, rates.negatives),
+        rates.tpr(), rates.fpr(),
+        metric_or_null(tpr_interval.low.is_finite().then_some(tpr_interval.low)),
+        metric_or_null(tpr_interval.high.is_finite().then_some(tpr_interval.high)),
+        tpr_interval.valid_replicates,
+        metric_or_null(fpr_interval.low.is_finite().then_some(fpr_interval.low)),
+        metric_or_null(fpr_interval.high.is_finite().then_some(fpr_interval.high)),
+        fpr_interval.valid_replicates,
+        rates.false_positives == 0, rare_event_status, sample_size_gate, gate
+    )
 }
 
 fn read_truth(path: &str) -> Result<Vec<TruthRow>, Box<dyn Error>> {
@@ -524,7 +819,7 @@ fn build_report(rows: &[TruthRowWithScore], training_subjects: &HashSet<String>,
         .collect::<Vec<_>>()
         .join(",\n    ");
     format!(
-        "{{\n  \"schema_version\":\"1.0\",\n  \"evaluator_version\":\"{}\",\n  \"evaluation_status\":\"{}\",\n  \"seed\":{},\n  \"requested_bootstrap_replicates\":{},\n  \"valid_bootstrap_replicates\":{},\n  \"pairs\":{},\n  \"positive_pairs\":{},\n  \"negative_pairs\":{},\n  \"unique_test_subjects\":{},\n  \"training_subject_count\":{},\n  \"subject_overlap_count\":0,\n  \"metrics\":{{\n    \"roc_auc\":{},\n    \"average_precision\":{},\n    \"tpr_at_fpr_1pct\":{},\n    \"tpr_at_fpr_5pct\":{},\n    \"roc_auc_cluster_bootstrap_ci95\":{{\"low\":{},\"high\":{}}}\n  }},\n  \"by_stratum\":[\n    {}\n  ],\n  \"interpretation\":\"Metrics describe only the supplied attack scores and synthetic/test cohort. Sample-size status is not a privacy pass; threat model, attack adequacy, dataset provenance, and held-out subject split require review.\"\n}}",
+        "{{\n  \"schema_version\":\"1.0\",\n  \"evaluator_version\":\"{}\",\n  \"evaluation_status\":\"{}\",\n  \"seed\":{},\n  \"requested_bootstrap_replicates\":{},\n  \"valid_bootstrap_replicates\":{},\n  \"pairs\":{},\n  \"positive_pairs\":{},\n  \"negative_pairs\":{},\n  \"unique_test_subjects\":{},\n  \"training_subject_count\":{},\n  \"subject_overlap_count\":0,\n  \"low_fpr_threshold_selection\":\"empirical_test_curve_descriptive_not_locked\",\n  \"low_fpr_metrics_are_certification_ready\":false,\n  \"metrics\":{{\n    \"roc_auc\":{},\n    \"average_precision\":{},\n    \"tpr_at_fpr_1pct\":{},\n    \"tpr_at_fpr_5pct\":{},\n    \"roc_auc_cluster_bootstrap_ci95\":{{\"low\":{},\"high\":{}}}\n  }},\n  \"by_stratum\":[\n    {}\n  ],\n  \"interpretation\":\"Metrics describe only the supplied attack scores and synthetic/test cohort. Low-FPR TPR values are empirical test-curve summaries with no validation-locked threshold and are not deployable operating points. Sample-size status is not a privacy pass; threat model, attack adequacy, dataset provenance, and held-out subject split require review.\"\n}}",
         VERSION, sample_status, seed, bootstraps, interval.valid_replicates, rows.len(), positives, negatives,
         subjects.len(), training_subjects.len(), metrics.roc_auc, metrics.average_precision, metrics.tpr_at_fpr_1pct, metrics.tpr_at_fpr_5pct,
         metric_or_null((!interval.low.is_nan()).then_some(interval.low)), metric_or_null((!interval.high.is_nan()).then_some(interval.high)), by_stratum
@@ -825,6 +1120,67 @@ mod tests {
         assert!(report.contains("SMOKE_ONLY_BELOW_MINIMUM"));
         assert!(report.contains("NOT_EVALUATED_REQUIRED_UTILITY_AND_CONFORMANCE_MISSING"));
         assert!(report.contains("task_utility_evidence_present"));
+    }
+
+
+    fn calibration_fixture_rows() -> Vec<TruthRowWithScore> {
+        vec![
+            TruthRowWithScore { pair_id: "pair_pos_a".into(), subject_a: "person_a".into(), subject_b: "person_a".into(), label: 1, stratum: "test".into(), score: 0.9 },
+            TruthRowWithScore { pair_id: "pair_pos_b".into(), subject_a: "person_b".into(), subject_b: "person_b".into(), label: 1, stratum: "test".into(), score: 0.8 },
+            TruthRowWithScore { pair_id: "pair_neg_ab".into(), subject_a: "person_a".into(), subject_b: "person_b".into(), label: 0, stratum: "test".into(), score: 0.7 },
+            TruthRowWithScore { pair_id: "pair_neg_cd".into(), subject_a: "person_c".into(), subject_b: "person_d".into(), label: 0, stratum: "test".into(), score: 0.1 },
+        ]
+    }
+
+    #[test]
+    fn validation_threshold_meets_empirical_fpr_cap() {
+        let selection = select_validation_threshold(&calibration_fixture_rows(), 0.25);
+        assert_eq!(selection.threshold, Some(0.8));
+        assert_eq!(selection.true_positives, 2);
+        assert_eq!(selection.false_positives, 0);
+    }
+
+    #[test]
+    fn test_operating_point_never_retunes_threshold() {
+        let rows = calibration_fixture_rows();
+        let rates = fixed_operating_rates(&rows, Some(0.65));
+        assert_eq!(rates.true_positives, 2);
+        assert_eq!(rates.false_positives, 1);
+        assert_eq!(rates.fpr(), 0.5);
+    }
+
+    #[test]
+    fn calibration_test_subject_overlap_fails_closed() {
+        let validation = calibration_fixture_rows();
+        let test = vec![TruthRowWithScore {
+            pair_id: "pair_test".into(), subject_a: "person_a".into(), subject_b: "person_a".into(),
+            label: 1, stratum: "test".into(), score: 0.5
+        }];
+        assert!(ensure_calibration_test_disjoint(&validation, &test).is_err());
+    }
+
+    #[test]
+    fn zero_false_positives_do_not_pass_tail_risk_gate() {
+        let interval = Interval { low: 0.0, high: 0.0, valid_replicates: 1000 };
+        assert_eq!(operating_point_gate(true, 0, interval, 0.01), "INCONCLUSIVE_ZERO_FP_CANNOT_BOUND_RARE_EVENT_RISK");
+    }
+
+    #[test]
+    fn calibrated_report_keeps_release_gate_closed_without_utility_and_conformance() {
+        let validation = calibration_fixture_rows();
+        let test: Vec<TruthRowWithScore> = validation.iter().map(|row| TruthRowWithScore {
+            pair_id: format!("test_{}", row.pair_id),
+            subject_a: format!("test_{}", row.subject_a),
+            subject_b: format!("test_{}", row.subject_b),
+            label: row.label, stratum: row.stratum.clone(), score: row.score
+        }).collect();
+        let selection = select_validation_threshold(&validation, 0.25);
+        let rates = fixed_operating_rates(&test, selection.threshold);
+        let (tpr_ci, fpr_ci) = fixed_threshold_cluster_bootstrap(&test, selection.threshold, 100, 99);
+        let report = build_calibrated_report(&validation,&test,&HashSet::new(),&selection,&rates,tpr_ci,fpr_ci,0.25,100,99);
+        assert!(report.contains("validation_locked_operating_point"));
+        assert!(report.contains("NOT_EVALUATED_REQUIRED_UTILITY_AND_CONFORMANCE_MISSING"));
+        assert!(report.contains("ZERO_FALSE_POSITIVES_DO_NOT_CERTIFY_TAIL_RISK"));
     }
 
     fn temp_path(label: &str) -> std::path::PathBuf {
