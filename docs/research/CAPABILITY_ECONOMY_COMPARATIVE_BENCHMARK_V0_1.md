@@ -218,6 +218,20 @@ Freeze and publish:
 
 Do not use the scored holdout to tune a policy or rewrite its threshold.
 
+### Blindness and evaluator independence
+
+The candidate-view export is now cecb.housing.policy_view.v0.2: it emits candidate-visible observations with non-semantic case_token values and omits the fixture's semantic case_id and purpose text. This removes an avoidable answer cue; it is **not** a blind or secure evaluation while candidate authors can inspect the same repository. Tokens are currently assigned in fixture order. Do not claim anti-gaming protection or hidden-test validity from this exporter alone.
+
+Before policy ranking, the runner must:
+- execute candidate code in a separate process/container with no access to the source fixture, oracle, scorer, evaluation key, or shared evaluator memory;
+- use a held-out evaluation corpus not shipped with candidate-facing code;
+- assign a per-run random token mapping whose key remains evaluator-only, shuffle scenario order independently of semantic case order, and log the mapping only in the private receipt;
+- pass a versioned, digest-bound candidate-view artifact over an explicit interface, with bounded resource/time budgets and a declared failure disposition;
+- test deliberate leakage attempts, unknown fields, malformed policies, timeouts, crashes, and output tampering as negative controls.
+
+A repository-local exporter is a development interface, not a competition-grade secrecy boundary. Hiddenness is useful only to prevent adaptation to the evaluation set; it does not replace semantic correctness, public development fixtures, or reproducible scoring.
+
+
 ### Separate evidence levels
 - **E0 — contract correctness:** schemas, accounting identities, state transitions and negative controls.
 - **E1 — synthetic mechanism behavior:** deterministic known-truth scenarios and sensitivity analysis.
@@ -228,7 +242,34 @@ Do not use the scored holdout to tune a policy or rewrite its threshold.
 
 Passing E0 does not imply E1; E1 does not imply E2 or real-world impact. Do not promote benchmark status while required checks are queued or unavailable.
 
+### Proposed release gates and benchmark targets
+
+These are engineering qualification targets, not claims about achieved performance or universal policy effect sizes.
+
+| Gate | Target | Failure interpretation |
+|---|---|---|
+| E0 fixture contract | 10/10 canonical fixtures pass; every preregistered invalid mutation is rejected; canonical fixtures produce no false rejection | Validator/fixture contract is not qualified |
+| Candidate-view integrity | Zero known oracle/world/semantic-label leakage; unique tokens; schema and digest checks pass; separate held-out runner required before a blind-evaluation claim | A leakage or isolation failure invalidates the comparison |
+| Accounting and physical feasibility | 100% of scored run outputs satisfy applicable stock-flow closure, resource/capacity limits, transfer counterpart rules, and authority/privacy guardrails; violations are hard failures, not score penalties | Policy result is ineligible regardless of average outcomes |
+| Synthetic comparison coverage | At least 100 preregistered configurations × 30 paired seeds as an initial floor × at least 5 institutional arms; use common random numbers for paired comparisons | Expand or transparently narrow the design; do not infer that 30 seeds guarantee adequate power |
+| Statistical adequacy | At least 80% prospective power for the registered primary effect as a planning floor, preferably 90% where the decision stakes justify it; calculate required seeds from pilot variance and the stakeholder-set minimum practical effect | Increase sampling or report the comparison as underpowered/inconclusive |
+| Fair baseline | Include simple rule-based, strongest feasible conventional/market, and each preregistered alternative; equalize information, physical constraints, tuning budget, compute/resource budget, and failure accounting | No “better than SOTA” claim when baseline budgets or information differ without explicit justification |
+| Result reporting | Paired effect sizes and uncertainty intervals; full distributions and tails; group-wise outcomes; missingness; operating cost; Pareto frontier; all failures and protocol deviations | Averages or a single composite score are insufficient |
+| Reproducibility | Exact commit, manifests, configuration, seed schedule, toolchain, inputs, outputs, and per-step outcome in a machine-checkable receipt; deterministic E0 output for identical declared inputs | Missing/skipped/queued evidence is not a passing result |
+| Generalization | Holdout or new-site replication at the evidence tier required by the claim; prospective pilot only with consent, governance, legal/privacy review, and an approved counterfactual | Synthetic/retrospective performance cannot be relabeled as field impact |
+
+The current E0 fixture harness is below the full comparison gate: it does not execute policies, does not yet provide a hidden held-out set or randomized evaluator-owned token mapping, and has not been compiled or run on the Rust toolchain in the authoring environment. All future result reports must preserve these boundaries.
+
+### Baseline and decision rule
+
+Use paired scenarios and paired seed schedules so each regime faces the same exogenous world realization wherever the simulator makes this meaningful. Tune each arm only on development scenarios, with the same disclosed optimization budget; score once on held-out scenarios. Compare against a strong, uncomplicated baseline as well as the full conventional profile, since complexity itself is a cost.
+
+Define the primary outcome, minimum practically important effect, confidence/uncertainty method, subgroup checks, and multiplicity treatment before exposing confirmatory results. Do not infer a universal win from a significant result on one endpoint. For a candidate to qualify on a use case, it must pass every non-compensable guardrail and improve the registered primary outcome by the locally agreed practical margin against the strongest fair baseline. Publish all other outcome coordinates. If outcomes trade off, present the Pareto set and the value judgments required to choose among it; never silently collapse housing access, debt burden, autonomy, health, ecological impact, distribution, and rights into an invented total score.
+
+
 ### Success and falsification
+No fixed percentage advantage is specified in advance because a meaningful effect depends on the domain, baseline scarcity, affected population and operational cost. A benchmark must still specify a minimum practical effect before confirmatory scoring. Passing the engineering gates above is necessary for credible comparison; it is not itself evidence that any regime improves real-world capability outcomes.
+
 There is no universal target such as “the capability economy wins by 10%.” For each real use case, affected stakeholders and evaluators must choose a primary outcome and minimum practical effect **before confirmatory outcomes are exposed**.
 
 ### Model adequacy is not a single pass/fail
@@ -263,6 +304,7 @@ If arms trade off outcomes, publish the Pareto frontier and the value choices re
 There is no single software product or economic model that is “the SOTA economy.” Compare each layer with the strongest appropriate reference:
 
 - **Economic measurement:** reconcile against the 2025 UN System of National Accounts where applicable; reuse UN SEEA environmental-economic accounting, World Bank wealth accounting, and OECD well-being indicator frameworks rather than relabeling them as new. NRVCA's potential contribution is the evidence-linked bridge and explicit multi-dimensional evaluation, not invention of measurement beyond GDP.
+  Add the UNECE's 2025 Guidelines on measurement of well-being as a practical indicator-design reference, and preserve distributions and below-threshold shares rather than reporting only means: https://unece.org/statistics/publications/guidelines-measurement-well-being
 - **Debt exposure:** use the BIS debt-service-ratio methodology and the relevant national statistical authority's series as aggregate context; pilot results require disaggregated household/project measures with consent and privacy controls.
 - **Allocation:** compare market/price, queue, entitlement, lottery, need-priority and hybrid mechanisms under equal capacity and explicit objective/authority profiles, as already required by FIN-SYS-007.
 - **Mutual credit:** test both stable and turbulent conditions. A 2025 firm-level study found a nuanced resilience effect for member firms; do not cite it as proof that mutual credit universally dominates conventional credit.
