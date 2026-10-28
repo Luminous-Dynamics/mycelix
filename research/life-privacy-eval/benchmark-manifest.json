@@ -62,5 +62,7 @@
     "zero_false_positive_policy": "zero observed false positives do not qualify rare-event risk; report inconclusive unless a separately justified tail-risk method is provided",
     "overall_release_gate": "NOT_EVALUATED_REQUIRED_UTILITY_AND_CONFORMANCE_MISSING"
   },
-  "calibrated_report_schema_file": "calibrated-operating-point.schema.json"
+  "calibrated_report_schema_file": "calibrated-operating-point.schema.json",
+  "report_schema_version": "1.1",
+  "schema_change_note": "Added explicit fields declaring empirical low-FPR test-curve values are descriptive, not validation-locked operating points."
 }
