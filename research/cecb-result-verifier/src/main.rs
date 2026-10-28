@@ -1194,9 +1194,36 @@ fn validate_result_row(
         }
     };
 
-    let policy_eligible = disposition == "completed" && violation_count == 0;
+    let privacy_guardrail_count = result
+        .get("outcomes")
+        .and_then(Value::as_object)
+        .and_then(|outcomes| {
+            outcomes
+                .get("privacy_authority_guardrail_violation_count")
+        })
+        .and_then(Value::as_u64);
+    if privacy_guardrail_count.is_some_and(|count| count > 0) {
+        if disposition != "guardrail_failed" {
+            errors.push(format!(
+                "run {run_id:?} reports privacy/authority guardrail violations without guardrail_failed disposition"
+            ));
+        }
+        if violation_count == 0 {
+            errors.push(format!(
+                "run {run_id:?} reports privacy/authority guardrail violations but lists no guardrail violation"
+            ));
+        }
+    }
+    let completed_guardrail_clear = disposition == "completed"
+        && violation_count == 0
+        && privacy_guardrail_count == Some(0);
     let guardrail_failed = disposition == "guardrail_failed";
-    (unknown_count, policy_eligible, guardrail_failed, unknown_by_metric)
+    (
+        unknown_count,
+        completed_guardrail_clear,
+        guardrail_failed,
+        unknown_by_metric,
+    )
 }
 
 fn verify_bundle(plan: &Value, bundle: &Value) -> Value {
@@ -1287,8 +1314,12 @@ fn verify_bundle(plan: &Value, bundle: &Value) -> Value {
             continue;
         };
         let mut row_errors = Vec::<String>::new();
-        let (unknown_count, completed_guardrail_clear, guardrail_failed, metric_unknowns) =
-            validate_result_row(result, planned, plan, &plan_digest, &mut row_errors);
+        let (
+            unknown_count,
+            completed_guardrail_clear,
+            guardrail_failed,
+            metric_unknowns,
+        ) = validate_result_row(result, planned, plan, &plan_digest, &mut row_errors);
         let row_verified = row_errors.is_empty();
         errors.extend(row_errors);
         unknown_total = unknown_total.saturating_add(unknown_count);
@@ -1894,6 +1925,27 @@ mod tests {
         assert_eq!(report["guardrail_failed_run_count"], 1);
         assert_eq!(report["completed_guardrail_clear_run_count"], 7);
         assert_eq!(report["complete_outcome_vector_run_count"], 7);
+    }
+
+    #[test]
+    fn unknown_privacy_guardrail_evidence_is_not_counted_as_clear() {
+        let plan = test_plan();
+        let mut bundle = test_bundle(&plan);
+        bundle["results"][0]["outcomes"]
+            ["privacy_authority_guardrail_violation_count"] = Value::Null;
+        let report = verify_bundle(&plan, &bundle);
+        assert_eq!(report["status"], "PASS", "{report:#}");
+        assert_eq!(report["completed_guardrail_clear_run_count"], 7);
+        assert_eq!(report["complete_outcome_vector_run_count"], 7);
+    }
+
+    #[test]
+    fn rejects_positive_privacy_guardrail_count_without_failure_disposition() {
+        let plan = test_plan();
+        let mut bundle = test_bundle(&plan);
+        bundle["results"][0]["outcomes"]
+            ["privacy_authority_guardrail_violation_count"] = json!(1);
+        assert!(!verified(&plan, &bundle));
     }
 
     #[test]
