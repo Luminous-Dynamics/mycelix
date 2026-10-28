@@ -1,0 +1,60 @@
+name: LIFE privacy evaluation metrics
+
+on:
+  pull_request:
+    paths:
+      - 'research/life-privacy-eval/**'
+      - '.github/workflows/life-privacy-eval.yml'
+  push:
+    paths:
+      - 'research/life-privacy-eval/**'
+      - '.github/workflows/life-privacy-eval.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  exact-head:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@1.96.0
+        with:
+          components: rustfmt, clippy
+      - name: Assert checked-out commit is the event commit
+        run: test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+      - name: Format
+        run: cargo fmt --manifest-path research/life-privacy-eval/Cargo.toml -- --check
+      - name: Unit tests
+        run: cargo test --locked --manifest-path research/life-privacy-eval/Cargo.toml
+      - name: Strict Clippy
+        run: cargo clippy --locked --manifest-path research/life-privacy-eval/Cargo.toml --all-targets -- -D warnings
+      - name: Run smoke fixture twice and compare deterministic reports
+        shell: bash
+        run: |
+          set -euo pipefail
+          cargo run --quiet --locked --release --manifest-path research/life-privacy-eval/Cargo.toml -- \
+            research/life-privacy-eval/fixtures/truth.tsv \
+            research/life-privacy-eval/fixtures/scores.tsv \
+            research/life-privacy-eval/fixtures/training-subjects.txt \
+            /tmp/report-a.json 300 9901
+          cargo run --quiet --locked --release --manifest-path research/life-privacy-eval/Cargo.toml -- \
+            research/life-privacy-eval/fixtures/truth.tsv \
+            research/life-privacy-eval/fixtures/scores.tsv \
+            research/life-privacy-eval/fixtures/training-subjects.txt \
+            /tmp/report-b.json 300 9901
+          cmp /tmp/report-a.json /tmp/report-b.json
+          grep -q 'SMOKE_ONLY_BELOW_MINIMUM' /tmp/report-a.json
+          python3 -m json.tool /tmp/report-a.json >/dev/null
+      - name: Negative control — training/test identity overlap must fail closed
+        shell: bash
+        run: |
+          set -euo pipefail
+          printf '%s\n' 'test_subject_000' > /tmp/leaked-training-subjects.txt
+          if cargo run --quiet --locked --manifest-path research/life-privacy-eval/Cargo.toml -- \
+            research/life-privacy-eval/fixtures/truth.tsv \
+            research/life-privacy-eval/fixtures/scores.tsv \
+            /tmp/leaked-training-subjects.txt /tmp/should-not-exist.json 100 9901; then
+            echo 'ERROR: subject-overlap negative control unexpectedly succeeded' >&2
+            exit 1
+          fi
