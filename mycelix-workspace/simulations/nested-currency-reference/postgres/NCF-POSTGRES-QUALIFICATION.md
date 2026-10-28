@@ -30,7 +30,7 @@ Exact hashes are in [NCF-POSTGRES-PARSER-TEST-RESULTS.txt](NCF-POSTGRES-PARSER-T
 - Actual Mycelix Finance DNA build, Holochain zome implementation for the NCF claim/settlement contract, and 3–5 conductor Sweettest.
 - Cross-host uniqueness under partition or production settlement finality.
 
-The editor environment has no psql, pgbench, PostgreSQL server, cargo/rustc, docker, or podman executable, so these runs could not be executed locally. The current GitHub Actions records on prior heads have zero jobs and are not a SQL failure or a SQL pass. The latest workflow definition was updated to correct the job-level runner context; it must yield non-empty jobs/logs before database results can be evaluated.
+The editor environment has no psql, pgbench, PostgreSQL server, cargo/rustc, docker, or podman executable, so these runs could not be executed locally. Prior exact-head attempts had zero jobs. The current workflow definition fixes the step-level runner context and explicitly maps the PostgreSQL service port. Latest exact-head PR workflow run [40741164756](https://github.com/Luminous-Dynamics/mycelix/actions/runs/40741164756) now has four instantiated jobs (SQL/concurrency plus 1/4/16-client load) in queued state. Queued is not PASS; inspect job logs and reconciliation artifacts before promoting any database result.
 
 ## Completion gate
 
