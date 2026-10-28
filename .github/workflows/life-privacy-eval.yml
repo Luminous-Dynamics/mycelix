@@ -3,59 +3,122 @@ name: LIFE privacy evaluation metrics
 on:
   pull_request:
     paths:
-      - 'research/life-privacy-eval/**'
-      - '.github/workflows/life-privacy-eval.yml'
+      - "research/life-privacy-eval/**"
+      - ".github/workflows/life-privacy-eval.yml"
   push:
     paths:
-      - 'research/life-privacy-eval/**'
-      - '.github/workflows/life-privacy-eval.yml'
+      - "research/life-privacy-eval/**"
+      - ".github/workflows/life-privacy-eval.yml"
+  workflow_dispatch:
 
 permissions:
   contents: read
 
 jobs:
-  exact-head:
-    runs-on: ubuntu-latest
+  qualify:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    env:
+      QUALIFIED_SHA: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
+      CARGO_TERM_COLOR: always
     steps:
-      - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@master
+      - name: Checkout exact benchmark subject
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          ref: ${{ env.QUALIFIED_SHA }}
+          persist-credentials: false
+
+      - name: Assert exact commit
+        run: test "$(git rev-parse HEAD)" = "$QUALIFIED_SHA"
+
+      - name: Install pinned Rust toolchain
+        uses: dtolnay/rust-toolchain@e97e2d8cc328f1b50210efc529dca0028893a2d9
         with:
           toolchain: 1.96.0
           components: rustfmt, clippy
-      - name: Assert checked-out commit is the event commit
-        run: test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
-      - name: Format
-        run: cargo fmt --manifest-path research/life-privacy-eval/Cargo.toml -- --check
-      - name: Unit tests
-        run: cargo test --locked --manifest-path research/life-privacy-eval/Cargo.toml
-      - name: Strict Clippy
-        run: cargo clippy --locked --manifest-path research/life-privacy-eval/Cargo.toml --all-targets -- -D warnings
-      - name: Run smoke fixture twice and compare deterministic reports
+
+      - name: Check formatting
+        run: cargo +1.96.0 fmt --manifest-path research/life-privacy-eval/Cargo.toml --all -- --check
+
+      - name: Run tests
+        run: cargo +1.96.0 test --locked --manifest-path research/life-privacy-eval/Cargo.toml
+
+      - name: Run strict Clippy
+        run: cargo +1.96.0 clippy --locked --manifest-path research/life-privacy-eval/Cargo.toml --all-targets -- -D warnings
+
+      - name: Validate scenario manifest and run deterministic smoke fixture twice
         shell: bash
         run: |
           set -euo pipefail
-          cargo run --quiet --locked --release --manifest-path research/life-privacy-eval/Cargo.toml -- \
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          root = Path("research/life-privacy-eval")
+          manifest = json.loads((root / "benchmark-manifest.json").read_text())
+          schema = json.loads((root / "report.schema.json").read_text())
+          matrix = json.loads((root / "attack-scenario-matrix.json").read_text())
+          ids = [scenario["id"] for scenario in matrix["scenarios"]]
+          assert len(ids) == 11 and len(set(ids)) == 11
+          assert manifest["declared_scenario_count"] == len(ids)
+          assert schema["$schema"] == "https://json-schema.org/draft/2020-12/schema"
+          assert all(scenario["required"] for scenario in matrix["scenarios"])
+          PY
+          mkdir -p target/life-privacy-eval
+          cargo +1.96.0 run --quiet --locked --release --manifest-path research/life-privacy-eval/Cargo.toml -- \
             research/life-privacy-eval/fixtures/truth.tsv \
             research/life-privacy-eval/fixtures/scores.tsv \
             research/life-privacy-eval/fixtures/training-subjects.txt \
-            /tmp/report-a.json 300 9901
-          cargo run --quiet --locked --release --manifest-path research/life-privacy-eval/Cargo.toml -- \
+            target/life-privacy-eval/report-a.json 300 9901
+          cargo +1.96.0 run --quiet --locked --release --manifest-path research/life-privacy-eval/Cargo.toml -- \
             research/life-privacy-eval/fixtures/truth.tsv \
             research/life-privacy-eval/fixtures/scores.tsv \
             research/life-privacy-eval/fixtures/training-subjects.txt \
-            /tmp/report-b.json 300 9901
-          cmp /tmp/report-a.json /tmp/report-b.json
-          grep -q 'SMOKE_ONLY_BELOW_MINIMUM' /tmp/report-a.json
-          python3 -m json.tool /tmp/report-a.json >/dev/null
+            target/life-privacy-eval/report-b.json 300 9901
+          cmp target/life-privacy-eval/report-a.json target/life-privacy-eval/report-b.json
+          grep -q 'SMOKE_ONLY_BELOW_MINIMUM' target/life-privacy-eval/report-a.json
+          python3 -m json.tool target/life-privacy-eval/report-a.json >/dev/null
+          mv target/life-privacy-eval/report-a.json target/life-privacy-eval/report.json
+          rm target/life-privacy-eval/report-b.json
+
       - name: Negative control — training/test identity overlap must fail closed
         shell: bash
         run: |
           set -euo pipefail
           printf '%s\n' 'test_subject_000' > /tmp/leaked-training-subjects.txt
-          if cargo run --quiet --locked --manifest-path research/life-privacy-eval/Cargo.toml -- \
+          if cargo +1.96.0 run --quiet --locked --manifest-path research/life-privacy-eval/Cargo.toml -- \
             research/life-privacy-eval/fixtures/truth.tsv \
             research/life-privacy-eval/fixtures/scores.tsv \
             /tmp/leaked-training-subjects.txt /tmp/should-not-exist.json 100 9901; then
             echo 'ERROR: subject-overlap negative control unexpectedly succeeded' >&2
             exit 1
           fi
+
+      - name: Emit qualification receipt and checksums
+        shell: bash
+        run: |
+          set -euo pipefail
+          {
+            echo "status=synthetic-smoke-evaluator-passed"
+            echo "commit=$QUALIFIED_SHA"
+            echo "run_id=$GITHUB_RUN_ID"
+            echo "run_attempt=$GITHUB_RUN_ATTEMPT"
+            echo "rust=$(rustc +1.96.0 --version)"
+            echo "manifest_sha256=$(sha256sum research/life-privacy-eval/benchmark-manifest.json | cut -d' ' -f1)"
+            echo "scenario_matrix_sha256=$(sha256sum research/life-privacy-eval/attack-scenario-matrix.json | cut -d' ' -f1)"
+            echo "lock_sha256=$(sha256sum research/life-privacy-eval/Cargo.lock | cut -d' ' -f1)"
+            echo "report_sha256=$(sha256sum target/life-privacy-eval/report.json | cut -d' ' -f1)"
+            echo "claim_ceiling=MetricsEvaluatorOnSyntheticScoresNotCredentialConformanceOrPrivacyGuarantee"
+          } | tee target/life-privacy-eval/qualification.txt
+          sha256sum target/life-privacy-eval/report.json target/life-privacy-eval/qualification.txt > target/life-privacy-eval/sha256sums.txt
+
+      - name: Upload benchmark evidence
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: life-privacy-eval-${{ env.QUALIFIED_SHA }}
+          path: |
+            target/life-privacy-eval/
+            research/life-privacy-eval/Cargo.lock
+            research/life-privacy-eval/benchmark-manifest.json
+            research/life-privacy-eval/attack-scenario-matrix.json
+            research/life-privacy-eval/report.schema.json
+          if-no-files-found: error
