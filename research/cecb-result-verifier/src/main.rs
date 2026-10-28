@@ -991,7 +991,11 @@ fn verify_bundle(plan: &Value, bundle: &Value) -> Value {
         errors.push("result bundle source_commit_sha does not match plan".to_owned());
     }
 
-    let rows = match bundle.get("results").and_then(Value::as_array) {
+    let rows = match bundle
+        .get("results")
+        .and_then(Value::as_array)
+        .map(Vec::as_slice)
+    {
         Some(rows) if rows.is_empty() => {
             errors.push("result bundle results must not be empty".to_owned());
             rows
