@@ -347,7 +347,6 @@ fn validate_h002(case: &Value, errors: &mut Vec<String>) {
 fn validate_h003(case: &Value, errors: &mut Vec<String>) {
     expect_u64(case, &["world", "renovation_resource_requirement"], 5, "renovation resource requirement", errors);
     expect_u64(case, &["oracle_facts", "physical_resource_consumed_if_completed"], 5, "physical resources consumed", errors);
-    expect_u64(case, &["oracle_facts", "safe_suitable_units_before_completion"], 0, "placeholder", errors);
     // The fixture expresses initial and final capacity through the renovation event.
     expect_u64(case, &["world", "initial_safe_suitable_units"], 1, "initial safe capacity", errors);
     expect_u64(case, &["oracle_facts", "safe_suitable_units_before_completion"], 1, "safe capacity before renovation completion", errors);
