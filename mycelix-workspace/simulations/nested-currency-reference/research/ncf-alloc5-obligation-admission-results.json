@@ -1,0 +1,74 @@
+{
+  "alias_scenarios": [
+    {
+      "accepted_unique_obligations": 1,
+      "actual_unique_obligation_units": 4000,
+      "alias_count": 1,
+      "book_outstanding_units": 4000,
+      "original_receipt_preserved": true,
+      "outcome_counts": {
+        "accepted": 1
+      }
+    },
+    {
+      "accepted_unique_obligations": 1,
+      "actual_unique_obligation_units": 4000,
+      "alias_count": 4,
+      "book_outstanding_units": 4000,
+      "original_receipt_preserved": true,
+      "outcome_counts": {
+        "accepted": 1,
+        "idempotent_replay": 3
+      }
+    },
+    {
+      "accepted_unique_obligations": 1,
+      "actual_unique_obligation_units": 4000,
+      "alias_count": 8,
+      "book_outstanding_units": 4000,
+      "original_receipt_preserved": true,
+      "outcome_counts": {
+        "accepted": 1,
+        "idempotent_replay": 7
+      }
+    },
+    {
+      "accepted_unique_obligations": 1,
+      "actual_unique_obligation_units": 4000,
+      "alias_count": 16,
+      "book_outstanding_units": 4000,
+      "original_receipt_preserved": true,
+      "outcome_counts": {
+        "accepted": 1,
+        "idempotent_replay": 15
+      }
+    },
+    {
+      "accepted_unique_obligations": 1,
+      "actual_unique_obligation_units": 4000,
+      "alias_count": 32,
+      "book_outstanding_units": 4000,
+      "original_receipt_preserved": true,
+      "outcome_counts": {
+        "accepted": 1,
+        "idempotent_replay": 31
+      }
+    }
+  ],
+  "claim_ceiling": "This proves only the Python model's sequential deduplication and principal-cap logic under an assumed valid verifier receipt. It does not authenticate identities or work, model concurrent writes, or establish Holochain/distributed correctness.",
+  "profile": {
+    "alias_counts": [
+      1,
+      4,
+      8,
+      16,
+      32
+    ],
+    "model": "sequential admission/dedup oracle; verifier receipt is assumed externally validated",
+    "principal_cap_units": 10000,
+    "same_underlying_obligation_units": 4000
+  },
+  "schema": "ncf-alloc5-obligation-admission-v1",
+  "source_sha256": "07f40f264609ae960e8b300200c292b6cb0334e163d9ae7c74640bd00b9aca9f",
+  "status": "INDEPENDENT_PYTHON_REFERENCE_MODEL_NOT_CRYPTOGRAPHIC_NOT_RUST_NOT_CI_NOT_PRODUCTION"
+}
