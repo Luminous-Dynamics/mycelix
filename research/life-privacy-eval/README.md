@@ -52,11 +52,11 @@ Use \`-\` as the report path to write JSON to stdout. Repeated invocations with 
 
 The compare command evaluates baseline and treatment scores on the same exact truth rows. Example:
 
-    cargo run --locked --release -- compare \
-      fixtures/truth.tsv \
-      fixtures/paired-baseline-positive-control.tsv \
-      fixtures/paired-treatment-no-signal-control.tsv \
-      fixtures/training-subjects.txt \
+    cargo run --locked --release --manifest-path research/life-privacy-eval/Cargo.toml -- compare \
+      research/life-privacy-eval/fixtures/truth.tsv \
+      research/life-privacy-eval/fixtures/paired-baseline-positive-control.tsv \
+      research/life-privacy-eval/fixtures/paired-treatment-no-signal-control.tsv \
+      research/life-privacy-eval/fixtures/training-subjects.txt \
       paired-report.json 1000 9901 0.55
 
 The two score files must have identical unique pair IDs, and each independently passes the same truth join and train/test subject-disjointness checks. The evaluator uses the existing canonical ROC-AUC implementation and resamples the same subject multiplicities for baseline and treatment, reporting a percentile 95% interval for treatment-minus-baseline AUC. A negative upper bound means the supplied treatment ranked linkage pairs less effectively on this cohort; intervals crossing zero are inconclusive.
