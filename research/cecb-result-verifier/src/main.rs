@@ -13,9 +13,15 @@ use std::{
 };
 
 const PLAN_SCHEMA: &str = "cecb.housing.paired_design.v0.1";
+const RUN_EXPANSION_RULE: &str =
+    "Cartesian product of configurations x paired seeds x arms; run_id and pair_block_id are stable and unique";
+const EXOGENOUS_RNG_CONTRACT: &str =
+    "event_keyed_preferred; named streams require event-level draw alignment";
+
 const PLAN_FIELDS: &[&str] = &[
     "schema_version",
     "design_id",
+    "source_commit_sha",
     "status",
     "claim_ceiling",
     "design",
@@ -542,8 +548,7 @@ fn validate_contract(plan: &Value, errors: &mut Vec<String>) {
     {
         errors.push("paired_seed_algorithm differs from registered v0.1".to_owned());
     }
-    if str_at(design, "run_expansion_rule")
-        != Some("Cartesian product of configurations x paired seeds x arms; run_id and pair_block_id are stable and unique")
+    if str_at(design, "run_expansion_rule") != Some(RUN_EXPANSION_RULE)
     {
         errors.push("run_expansion_rule differs from registered v0.1".to_owned());
     }
@@ -934,17 +939,23 @@ fn build_expected_runs(plan: &Value, errors: &mut Vec<String>) -> BTreeMap<Strin
             ));
         }
     }
-    if let Some(required_dispositions) = array_of_strings(plan.get("required_terminal_dispositions")) {
+    if let Some(required_dispositions) =
+        array_of_strings(plan.get("required_terminal_dispositions"))
+    {
         let actual = required_dispositions.iter().copied().collect::<BTreeSet<_>>();
         let expected = TERMINAL_DISPOSITIONS.iter().copied().collect::<BTreeSet<_>>();
         if required_dispositions.len() != TERMINAL_DISPOSITIONS.len() || actual != expected {
-            errors.push("plan required_terminal_dispositions differ from registered v0.1".to_owned());
+            errors.push(
+                "plan required_terminal_dispositions differ from registered v0.1".to_owned(),
+            );
         }
     } else {
         errors.push("plan required_terminal_dispositions must be a string array".to_owned());
     }
     if design_replicates(plan) != Some(seeds.len() as u64) {
-        errors.push("design.replicates_per_configuration must match paired_seeds length".to_owned());
+        errors.push(
+            "design.replicates_per_configuration must match paired_seeds length".to_owned(),
+        );
     }
     if expected_slots != planned_rows.len() || expected.len() != expected_slots {
         errors.push(format!(
@@ -1561,13 +1572,13 @@ mod tests {
                 "paired_seed_algorithm": "splitmix64-v1 public deterministic development schedule",
                 "paired_seed_base_hex": "0000000000000001",
                 "replicates_per_configuration": 2,
-                "run_expansion_rule": "Cartesian product of configurations x paired seeds x arms; run_id and pair_block_id are stable and unique",
+                "run_expansion_rule": RUN_EXPANSION_RULE,
                 "model_binding": {
                     "execution_authorized": true,
                     "civilization_twin_contract_mapping": "civ-twin-housing-adapter.v1",
                     "numeric_scenario_value_mapping": "housing-scenario-values.v1",
                     "policy_adapter_mapping": "housing-allocation-policies.v1",
-                    "exogenous_rng_contract": "event_keyed_preferred; named streams require event-level draw alignment",
+                    "exogenous_rng_contract": EXOGENOUS_RNG_CONTRACT,
                     "policy_internal_rng": "separate_namespace_required",
                     "simulator_digest_sha256": simulator_digest
                 }
