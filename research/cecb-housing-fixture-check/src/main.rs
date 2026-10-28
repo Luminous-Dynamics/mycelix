@@ -220,8 +220,8 @@ fn validate_fixture(input: &str) -> Result<(Value, bool), String> {
         "global_violations": global_violations,
         "case_results": case_results,
         "claim_ceiling": concat!(
-            "Fixture consistency only; not policy simulation or real-world evidence. ",
-            "economic policies and is not evidence of real-world impact."
+            "Fixture consistency only; it does not execute or rank ",
+            "economic policies or establish real-world impact."
         )
     });
     Ok((report, passed))
