@@ -18,8 +18,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@1.96.0
+      - uses: dtolnay/rust-toolchain@master
         with:
+          toolchain: 1.96.0
           components: rustfmt, clippy
       - name: Assert checked-out commit is the event commit
         run: test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
