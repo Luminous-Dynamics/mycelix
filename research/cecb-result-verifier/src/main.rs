@@ -1453,6 +1453,37 @@ fn validate_result_row(
         }
     }
 
+    let artifact_paths = result.get("artifact_paths").and_then(Value::as_object);
+    match (artifacts, artifact_paths) {
+        (Some(digests), Some(paths)) => {
+            let digest_names = digests.keys().collect::<BTreeSet<_>>();
+            let path_names = paths.keys().collect::<BTreeSet<_>>();
+            if digest_names != path_names {
+                errors.push(format!(
+                    "run {run_id:?} artifact_paths keys must exactly match artifact_digests"
+                ));
+            }
+            for required in ["result_trace", "initial_world_state", "exogenous_event_stream"] {
+                if !digest_names.contains(&required.to_owned()) {
+                    errors.push(format!(
+                        "run {run_id:?} is missing required artifact {required:?}"
+                    ));
+                }
+            }
+            for (name, path) in paths {
+                match path.as_str() {
+                    Some(path) if safe_relative_artifact_path(path) => {}
+                    _ => errors.push(format!(
+                        "run {run_id:?} artifact path {name:?} must be a safe relative path"
+                    )),
+                }
+            }
+        }
+        _ => errors.push(format!(
+            "run {run_id:?} requires both artifact_digests and artifact_paths objects"
+        )),
+    }
+
     let (unknown_count, unknown_by_metric) = match result.get("outcomes") {
         Some(outcomes) => validate_outcomes(
             outcomes,
@@ -1665,14 +1696,17 @@ fn verify_bundle(plan: &Value, bundle: &Value) -> Value {
         ));
     }
 
-    let verified = errors.is_empty();
+    let bundle_contract_valid = errors.is_empty();
     json!({
         "schema_version": REPORT_SCHEMA,
-        "status": if verified { "PASS" } else { "FAIL" },
+        "status": if bundle_contract_valid { "STRUCTURE_PASS" } else { "FAIL" },
         "verifier_package_version": VERIFIER_PACKAGE_VERSION,
         "verifier_source_commit_sha": VERIFIER_SOURCE_COMMIT,
         "verifier_cargo_lock_sha256": VERIFIER_CARGO_LOCK_SHA256,
-        "verified": verified,
+        "bundle_contract_valid": bundle_contract_valid,
+        "artifact_contents_verified": false,
+        "artifact_file_count": 0,
+        "verified": false,
         "design_id": design_id,
         "design_manifest_sha256": plan_digest,
         "source_commit_sha": source_commit,
@@ -1856,10 +1890,7 @@ fn parse_args() -> Result<Option<Args>, String> {
             "--help" | "-h" => {
                 println!(
                     concat!(
-                        "cecb-result-verifier --plan PLAN.json --results BUNDLE.json ",
-                        "--artifact-root DIR [--report REPORT.json]"
-                    )
-                );
+                        "cecb-result-verifier --plan PLAN.json --results BUNDLE.json --artifact-root DIR [--report REPORT.json]                );
                 return Ok(None);
             }
             "--plan" => {
@@ -1923,7 +1954,22 @@ fn main() -> ExitCode {
             return ExitCode::from(2);
         }
     };
-    let report = verify_bundle(&plan, &bundle);
+    let mut report = verify_bundle(&plan, &bundle);
+    if report["bundle_contract_valid"] == true {
+        let (artifact_file_count, artifact_errors) =
+            verify_artifact_contents(&bundle, &args.artifact_root);
+        report["artifact_file_count"] = json!(artifact_file_count);
+        report["artifact_contents_verified"] = json!(artifact_errors.is_empty());
+        if let Some(errors) = report["errors"].as_array_mut() {
+            errors.extend(artifact_errors.into_iter().map(Value::String));
+        }
+        let passed = report["errors"].as_array().is_some_and(Vec::is_empty);
+        report["status"] = json!(if passed { "PASS" } else { "FAIL" });
+        report["verified"] = json!(passed);
+    } else {
+        report["status"] = json!("FAIL");
+        report["verified"] = json!(false);
+    }
     let report_text = match serde_json::to_string_pretty(&report) {
         Ok(text) => text,
         Err(error) => {
@@ -2257,7 +2303,7 @@ mod tests {
     }
 
     fn verified(plan: &Value, bundle: &Value) -> bool {
-        verify_bundle(plan, bundle)["status"] == "PASS"
+        verify_bundle(plan, bundle)["bundle_contract_valid"] == true
     }
 
     #[test]
@@ -2265,7 +2311,7 @@ mod tests {
         let plan = test_plan();
         let bundle = test_bundle(&plan);
         let report = verify_bundle(&plan, &bundle);
-        assert_eq!(report["status"], "PASS", "{report:#}");
+        assert_eq!(report["status"], "STRUCTURE_PASS", "{report:#}");
         assert_eq!(report["planned_run_count"], 8);
         assert_eq!(report["result_row_count"], 8);
         assert_eq!(report["completed_guardrail_clear_run_count"], 8);
@@ -2588,7 +2634,7 @@ mod tests {
         let mut bundle = test_bundle(&plan);
         bundle["results"][0]["outcomes"]["evidence_coverage_fraction"] = Value::Null;
         let report = verify_bundle(&plan, &bundle);
-        assert_eq!(report["status"], "PASS", "{report:#}");
+        assert_eq!(report["status"], "STRUCTURE_PASS", "{report:#}");
         assert_eq!(report["unknown_outcome_cell_count"], 1);
         assert_eq!(report["completed_guardrail_clear_run_count"], 8);
         assert_eq!(report["complete_outcome_vector_run_count"], 7);
@@ -2605,7 +2651,7 @@ mod tests {
         bundle["results"][0]["disposition"] = json!("guardrail_failed");
         bundle["results"][0]["guardrail_violations"] = json!(["HARD-CAPACITY-001"]);
         let report = verify_bundle(&plan, &bundle);
-        assert_eq!(report["status"], "PASS", "{report:#}");
+        assert_eq!(report["status"], "STRUCTURE_PASS", "{report:#}");
         assert_eq!(report["guardrail_failed_run_count"], 1);
         assert_eq!(report["completed_guardrail_clear_run_count"], 7);
         assert_eq!(report["complete_outcome_vector_run_count"], 7);
@@ -2618,7 +2664,7 @@ mod tests {
         bundle["results"][0]["outcomes"]
             ["privacy_authority_guardrail_violation_count"] = Value::Null;
         let report = verify_bundle(&plan, &bundle);
-        assert_eq!(report["status"], "PASS", "{report:#}");
+        assert_eq!(report["status"], "STRUCTURE_PASS", "{report:#}");
         assert_eq!(report["completed_guardrail_clear_run_count"], 7);
         assert_eq!(report["complete_outcome_vector_run_count"], 7);
     }
