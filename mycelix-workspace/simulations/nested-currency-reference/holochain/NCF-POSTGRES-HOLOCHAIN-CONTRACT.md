@@ -29,6 +29,24 @@ Holochain is the signed source-chain and DHT evidence path. It stores authored c
 
 The Holochain WASM zome should not connect directly to PostgreSQL. An external Rust service / conductor client is the bridge: it calls the PostgreSQL transaction API, leases committed outbox rows, submits signed content through the Holochain client, and records the resulting action hash and receipt progress. The service must not promote a missing acknowledgement to a failure or successful commit without idempotent reconciliation.
 
+## Authority attestation and trust model
+
+A PostgreSQL outbox row, JSON receipt, or SHA-256 digest is not a public-key signature and is not independent proof that PostgreSQL committed. The first production bridge must make that trust boundary explicit instead of treating a payload hash as authentication.
+
+The proposed policy is a **registered monetary-authority agent** in Holochain. A narrowly privileged Rust dispatcher uses that agent's conductor-keystore identity to author the claim only after it has read a committed outbox row. The Holochain action signature binds the entry to the author. The integrity zome checks the action author against an immutable, governance-authorized AuthorityManifest that is addressable from the claim. This is an authority attestation of the coordinator receipt, not a zero-knowledge proof of a PostgreSQL transaction. The private signing identity must not be held by untrusted caller processes or embedded in SQL.
+
+AuthorityManifest minimum fields:
+- schema version, authority ID, authorized AgentPubKey, policy epoch, manifest digest;
+- allowed community(s), instrument/profile family/revision range, permitted operation types, and validity interval;
+- governance authorization action hash and previous-manifest/fencing reference; and
+- explicit key activation and revocation semantics.
+
+The claim must carry the manifest action hash/digest and the exact authority epoch it relies on. Validation must check (a) the Holochain action author equals the manifest's authorized AgentPubKey, (b) the operation and community/instrument/direction are inside the manifest scope, (c) the epoch/validity rules are satisfied, and (d) the referenced manifest is itself governance-authorized. If a dependency is temporarily absent from the validator's data, return the correct unresolved-dependency outcome rather than permanently rejecting a valid claim on the basis of an incomplete DHT view.
+
+For source-chain determinism, do not resolve "the latest key" through an unconstrained live lookup during validation. Pin each claim to an immutable authority-manifest action. Revocation is a new manifest/epoch transition; the contract must specify whether it blocks newly authored claims only or also makes previously committed claims disputable. Settlement checks should require the currently applicable policy epoch when policy calls for it. The manifest chain and its governance authorization must have a deterministic genesis/trust root.
+
+The canonical PostgreSQL receipt digest remains a content-binding checksum, not signer identity. Its immutable fields should include stable event ID, obligation/request IDs, canonical-work digest, principal/community, instrument/profile revision, integer amount string, gross direction/agreement, reservation/slice/shard/epoch, verifier version/evidence digest, and SQL receipt digest. The Holochain claim action's author signature attests to the envelope under the registered authority key. A malicious or compromised authorized authority can still lie about SQL state; mitigating that requires tighter key custody, independent audits/witnesses, or a separately designed threshold authority policy.
+
 ## Proposed entry types
 
 These are the first reviewable data contracts; they are not yet implemented entry definitions.
@@ -41,7 +59,7 @@ Integrity validation checks the authorized issuer/governance record, canonical i
 
 ### `ObligationClaim`
 
-Fields: schema version, stable outbox/event ID, canonical obligation ID, request ID, canonical-work digest, principal, community, instrument ID, profile revision, exact amount string, direction, agreement, reservation ID, shard ID, epoch, verifier version/evidence digest, and PostgreSQL canonical-receipt digest.
+Fields: schema version, stable outbox/event ID, canonical obligation ID, request ID, canonical-work digest, principal, community, instrument ID, profile revision, exact amount string, direction, agreement, reservation ID, shard ID, epoch, verifier version/evidence digest, PostgreSQL canonical-receipt digest, AuthorityManifest action hash/digest, and authority policy epoch.
 
 The database transaction and the independently verified claim must agree on every immutable field. Amounts are encoded as integer decimal strings, never floating point. The canonical profile and manifest references are addressable hashes, not mutable ticker names.
 
@@ -84,8 +102,13 @@ Use Rust Sweettest against an actual built DNA and 3–5 conductors/agents. Run 
 | HC-NCF-010 | PostgreSQL has committed but Holochain conductor is unavailable | Outbox remains pending/retry; SQL receipt remains durably queryable; system does not claim DHT replication |
 | HC-NCF-011 | PostgreSQL restart with pending/published outbox rows | Deterministic recovery; reconcile action hashes before generating new events |
 | HC-NCF-012 | DHT validation receipt count below policy threshold | Record authored/unreplicated state separately; do not label globally settled |
+| HC-NCF-013 | Unauthorized agent copies a valid SQL receipt payload | Integrity validation rejects because the action author is not the manifest-authorized monetary authority |
+| HC-NCF-014 | Authorized key submits a claim outside manifest community/instrument/direction scope | Integrity validation rejects without treating the SQL receipt hash as authority |
+| HC-NCF-015 | Claim references an absent authority manifest during DHT propagation | Validation returns unresolved/retryable until the pinned governance-authorized manifest is available |
+| HC-NCF-016 | Key rotates or authority is revoked at a later policy epoch | New claims must pin the currently applicable manifest; prior claims follow the explicitly specified grandfather/dispute policy |
+| HC-NCF-017 | Same event ID is retried with altered amount, instrument, evidence digest, or manifest reference | Stable event binding rejects the conflict; no new SQL debit or accepted Holochain authority claim is created |
 
-Required test receipts bind the Mycelix PR head, DNA hash, coordinator/integrity zome WASM hashes, Sweettest harness source, agent count, conductor version, operation history, and result hashes. All 12 scenarios are plans, not current pass evidence.
+Required test receipts bind the Mycelix PR head, DNA hash, coordinator/integrity zome WASM hashes, Sweettest harness source, agent count, conductor version, operation history, and result hashes. All 17 scenarios are plans, not current pass evidence.
 
 ## Required state machine
 
