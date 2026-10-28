@@ -125,7 +125,8 @@ assert value["accepted_outbox_events"] == n, value
 assert value["community_outstanding"] == n, value
 assert value["edge_outstanding"] == n, value
 assert value["slice_used"] == n, value
-assert value["community_allocated"] == value["edge_allocated"] == value["slice_used"] and value["slice_used"] == n, value
+assert value["community_allocated"] == value["edge_allocated"], value
+assert value["slice_used"] == n and value["community_outstanding"] == n and value["edge_outstanding"] == n, value
 print("NCF PostgreSQL pgbench ledger reconciliation PASS")
 print(json.dumps(value,indent=2))
 PY
