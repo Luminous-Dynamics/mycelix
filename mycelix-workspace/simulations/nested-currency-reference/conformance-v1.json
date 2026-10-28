@@ -7,7 +7,7 @@
   "status": "proposed_not_qualified",
   "execution_evidence": {
     "status": "not_run",
-    "reason": "Static Rust allocator changes, including the new median-capped policy variants, per-shard fairness test, and matched-trace benchmark remain uncompiled/unexecuted in this environment. The separate NCF-ALLOC-3 Python attack sweep is explicitly research-reference evidence only. Exact-head Rust/TLA+ receipts, real demand traces, and multi-agent/Holochain qualification remain outstanding. NCF-ALLOC-3 source, tests, results, campaign specification, run guide, and limitations documentation are checked in under research/; their execution records identify Python-only evidence separately from the Rust qualification gate. NCF-ALLOC-4 additionally models one fixed 4,000-unit attacker backlog split across 1..32 shard IDs while retaining fifteen honest identities. Five Python tests pass; cryptographic identity, admission economics, Rust and distributed qualification are explicitly not run."
+    "reason": "Static Rust allocator changes, including the new median-capped policy variants, per-shard fairness test, and matched-trace benchmark remain uncompiled/unexecuted in this environment. The separate NCF-ALLOC-3 Python attack sweep is explicitly research-reference evidence only. Exact-head Rust/TLA+ receipts, real demand traces, and multi-agent/Holochain qualification remain outstanding. NCF-ALLOC-3 source, tests, results, campaign specification, run guide, and limitations documentation are checked in under research/; their execution records identify Python-only evidence separately from the Rust qualification gate. NCF-ALLOC-4 additionally models one fixed 4,000-unit attacker backlog split across 1..32 shard IDs while retaining fifteen honest identities. Five Python tests pass; cryptographic identity, admission economics, Rust and distributed qualification are explicitly not run. A follow-up static audit found that deriving a cap from positive weights when the lower median was zero could let rare positive outliers define their own cap. The median-capped allocator now zeroes the relative weights in that case and triggers the existing equal-share cold-start fallback; mirrored Python/Rust regression definitions were added. Python-only suite now has 10 NCF-ALLOC-3 tests plus 5 NCF-ALLOC-4 tests; Rust still not run."
   },
   "claim_ceiling": [
     "Reference-model conformance only when executed against a named source revision.",
@@ -1223,7 +1223,8 @@
         "allocation_cap_multiple",
         "claim_inflation_multiplier",
         "source_sha256",
-        "profile_seed"
+        "profile_seed",
+        "zero_median_cold_start_fallback"
       ],
       "required_output": [
         "schema",
@@ -1242,15 +1243,15 @@
         "source_path": "mycelix-workspace/simulations/nested-currency-reference/research/ncf_alloc3.py",
         "test_path": "mycelix-workspace/simulations/nested-currency-reference/research/test_ncf_alloc3.py",
         "results_path": "mycelix-workspace/simulations/nested-currency-reference/research/ncf-alloc3-results.json",
-        "unit_tests_passed": 9,
+        "unit_tests_passed": 10,
         "randomized_attack_cases": 20000,
         "randomized_policy_evaluations": 100000,
         "campaign_path": "mycelix-workspace/simulations/nested-currency-reference/research/ncf-alloc3-campaign.json",
         "run_guide_path": "mycelix-workspace/simulations/nested-currency-reference/research/RUN-NCF-ALLOC-3.md",
         "documentation_path": "mycelix-workspace/simulations/nested-currency-reference/research/NCF-ALLOC-3-bounded-influence.md",
         "test_execution_record": "mycelix-workspace/simulations/nested-currency-reference/research/TEST-RESULTS.txt",
-        "source_sha256": "3422c79a7577921ff827be2d0d001cc11df135a089b5c5cc1fbbacdc656d88ed",
-        "results_sha256": "bbe3b9a9498aff507d6bb0fd8b293929c75aa368d8c034cbd73f4e601401cfa6"
+        "source_sha256": "e0557bbaae60e57d6dd1ede9748f395bc2fdc930bd20fbcb212df0a02a1b332f",
+        "results_sha256": "54ce4a1fde19e7a34b766c12822ddcda478c8698a6c522f6d55c3a802e5742a7"
       }
     },
     {
@@ -1328,7 +1329,8 @@
         "test_execution_record": "mycelix-workspace/simulations/nested-currency-reference/research/NCF-ALLOC-4-TEST-RESULTS.txt",
         "source_sha256": "df7a46bb32690ceb264495890eeb5673eef84b81737a85f840b1c4b69d684044",
         "unit_tests_passed": 5,
-        "case_profiles": 8
+        "case_profiles": 8,
+        "zero_median_fallback_test": "median_cap_with_zero_lower_median_uses_equal_cold_start"
       }
     }
   ],
@@ -1903,12 +1905,13 @@
         "full_equal_floor_matches_equal_split_after_minimums",
         "median_cap_reduces_inflated_claim_influence_under_contention",
         "median_cap_exposes_honest_hotspot_tradeoff_and_cap_four_preserves_four_x_demand",
-        "invalid_median_cap_multiple_rejects"
+        "invalid_median_cap_multiple_rejects",
+        "median_cap_with_zero_lower_median_uses_equal_cold_start"
       ],
       "required_benchmark_reports": 16,
       "safety_gate": "Every allocation plan validates and all sixteen policy/mode reports must have zero accounting violations; any overflow, malformed input, mixed instrument identity, or unaccounted capacity fails the campaign.",
       "receipt_sha256_method": "SHA-256 over the closed receipt file, reported through runner stdout/workflow metadata; do not include a self-hash inside the receipt.",
-      "claim_ceiling": "Unit tests plus synthetic single-process matched-trace evaluation only; real-demand validity and distributed/Holochain safety remain separate. Median caps are not proof of demand or Sybil resistance; the independent Python research sweep is not a Rust or distributed qualification result.",
+      "claim_ceiling": "Unit tests plus synthetic single-process matched-trace evaluation only; real-demand validity and distributed/Holochain safety remain separate. Median caps are not proof of demand or Sybil resistance; the independent Python research sweep is not a Rust or distributed qualification result. When the lower median is zero, the median-capped policy uses equal cold-start allocation rather than deriving a cap from positive outliers alone; this is a defined policy fallback, not a claim that sparse demand is equal in reality.",
       "generated_case_sweep": {
         "test_name": "ten_thousand_generated_allocation_plans_conserve_capacity_and_ignore_input_order",
         "cases": 10000,
