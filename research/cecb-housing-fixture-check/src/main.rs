@@ -1223,6 +1223,11 @@ fn validate_h010(case: &Value, errors: &mut Vec<String>) {
 }
 
 fn make_policy_view(input: &str) -> Result<Value, String> {
+    let (_, fixture_passed) = validate_fixture(input)?;
+    if !fixture_passed {
+        return Err("refusing to export candidate view from an invalid fixture".to_owned());
+    }
+
     let root: Value = serde_json::from_str(input)
         .map_err(|error| format!("invalid JSON: {error}"))?;
     let cases = root
@@ -1414,6 +1419,14 @@ mod tests {
             })
             .collect::<BTreeSet<_>>();
         assert_eq!(tokens.len(), 10, "case tokens must be unique");
+    }
+
+    #[test]
+    fn policy_view_refuses_unregistered_fields_without_prior_cli_validation() {
+        let mut fixture = fixture_value();
+        fixture["cases"][0]["policy_observation"]["unreviewed_candidate_hint"] = json!(2);
+        let input = serde_json::to_string(&fixture).expect("mutated fixture serializes");
+        assert!(make_policy_view(&input).is_err());
     }
 
     #[test]
