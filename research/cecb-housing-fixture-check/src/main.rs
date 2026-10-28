@@ -122,10 +122,10 @@ fn parse_args() -> Result<Option<Cli>, String> {
         match args[index].as_str() {
             "--help" | "-h" => {
                 println!(
-                    "cecb-housing-fixture-check [--fixture PATH] [--policy-view-out PATH]\n\
-                     Validates the v0.1 synthetic known-truth fixture. By default it uses the\n\
-                     repository fixture embedded at compile time. The policy view contains only\n\
-                     candidate-visible observations and excludes world/oracle truth."
+                    "cecb-housing-fixture-check [--fixture PATH] [--policy-view-out PATH] [--paired-plan-out PATH]\n\\
+                     Validates the v0.1 synthetic known-truth fixture. The policy view strips\n\\
+                     semantic case labels and excludes world/oracle truth. Paired plan output\n\\
+                     is a design manifest only and does not execute policy arms."
                 );
                 return Ok(None);
             }
@@ -445,7 +445,7 @@ fn build_paired_plan() -> Value {
         "design_id": "CECB-HOUSING-ALLOCATION-ONLY-V0.1",
         "status": "design_only_no_policy_execution",
         "claim_ceiling": concat!(
-            "This manifest specifies matched policy-run slots only. It does not implement adapters, ",
+            "This specifies matched policy-run slots only; it does not implement adapters, ",
             "execute a simulator, score outcomes, or establish policy superiority."
         ),
         "design": {
