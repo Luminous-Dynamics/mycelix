@@ -710,6 +710,22 @@ mod tests {
     }
 
     #[test]
+    fn invalid_median_cap_multiple_rejects() {
+        assert_eq!(
+            allocate_static_escrow(
+                &[shard("a", &[10], 0), shard("b", &[20], 0)],
+                100,
+                0,
+                AllocationPolicy::DemandWeightedWithEqualFloorAndMedianCap {
+                    equal_floor_ppm: 500_000,
+                    cap_multiple: 0,
+                },
+            ),
+            Err(AllocationError::CapMultipleOutOfRange),
+        );
+    }
+
+    #[test]
     fn demand_history_overflow_rejects_instead_of_wrapping() {
         assert_eq!(
             allocate_static_escrow(
