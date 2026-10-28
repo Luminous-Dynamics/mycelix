@@ -7,7 +7,7 @@
   "status": "proposed_not_qualified",
   "execution_evidence": {
     "status": "not_run",
-    "reason": "Static Rust allocator changes, including the new median-capped policy variants, per-shard fairness test, and matched-trace benchmark remain uncompiled/unexecuted in this environment. The separate NCF-ALLOC-3 Python attack sweep is explicitly research-reference evidence only. Exact-head Rust/TLA+ receipts, real demand traces, and multi-agent/Holochain qualification remain outstanding. NCF-ALLOC-3 source, tests, results, campaign specification, run guide, and limitations documentation are checked in under research/; their execution records identify Python-only evidence separately from the Rust qualification gate. NCF-ALLOC-4 additionally models one fixed 4,000-unit attacker backlog split across 1..32 shard IDs while retaining fifteen honest identities. Five Python tests pass; cryptographic identity, admission economics, Rust and distributed qualification are explicitly not run. A follow-up static audit found that deriving a cap from positive weights when the lower median was zero could let rare positive outliers define their own cap. The median-capped allocator now zeroes the relative weights in that case and triggers the existing equal-share cold-start fallback; mirrored Python/Rust regression definitions were added. Python-only suite now has 10 NCF-ALLOC-3 tests plus 5 NCF-ALLOC-4 tests; Rust still not run."
+    "reason": "Static Rust allocator changes, including the new median-capped policy variants, per-shard fairness test, and matched-trace benchmark remain uncompiled/unexecuted in this environment. The separate NCF-ALLOC-3 Python attack sweep is explicitly research-reference evidence only. Exact-head Rust/TLA+ receipts, real demand traces, and multi-agent/Holochain qualification remain outstanding. NCF-ALLOC-3 source, tests, results, campaign specification, run guide, and limitations documentation are checked in under research/; their execution records identify Python-only evidence separately from the Rust qualification gate. NCF-ALLOC-4 additionally models one fixed 4,000-unit attacker backlog split across 1..32 shard IDs while retaining fifteen honest identities. Five Python tests pass; cryptographic identity, admission economics, Rust and distributed qualification are explicitly not run. A follow-up static audit found that deriving a cap from positive weights when the lower median was zero could let rare positive outliers define their own cap. The median-capped allocator now zeroes the relative weights in that case and triggers the existing equal-share cold-start fallback; mirrored Python/Rust regression definitions were added. Python-only suite now has 10 NCF-ALLOC-3 tests plus 5 NCF-ALLOC-4 tests; Rust still not run. The corpus now also has NCF-ALLOC-022 for sparse positive claims with a zero lower median, requiring the bounded-cap policy to use equal cold-start rights rather than let positive outliers set their own relative cap."
   },
   "claim_ceiling": [
     "Reference-model conformance only when executed against a named source revision.",
@@ -1194,7 +1194,8 @@
         "minority_claim_inflation_2x_to_20x",
         "variable_true_backlog_with_fixed_identity_set",
         "all_claims_truthful_control",
-        "true_backlog_oracle_upper_bound"
+        "true_backlog_oracle_upper_bound",
+        "zero_lower_median_sparse_positive_outlier"
       ],
       "topology": {
         "shard_counts": [
@@ -1755,6 +1756,15 @@
       "expected": "sum_of_attacker_actual_backlog_is_4000_for_every_identity_count",
       "code_test": "test_attacker_true_backlog_is_constant_when_ids_multiply",
       "execution_status": "python_research_test_passed_rust_and_distributed_not_run"
+    },
+    {
+      "id": "NCF-ALLOC-022",
+      "title": "Sparse positive demand must not define its own lower-median cap",
+      "class": "zero_median_cold_start_fallback",
+      "attack": "One shard reports positive historical demand and fifteen shards have zero samples; the lower median is zero, so a cap derived only from positive weights could fail to limit the outlier.",
+      "expected": "bounded_cap_uses_equal_share_cold_start_and_conserves_budget_when_lower_median_is_zero",
+      "code_test": "median_cap_with_zero_lower_median_uses_equal_cold_start",
+      "execution_status": "python_research_test_passed_rust_test_defined_not_run"
     }
   ],
   "qualification_campaigns": [
