@@ -40,7 +40,7 @@ def _is_canonical_decimal(value: str, positive: bool) -> bool:
 
 
 def canonical_preimage(fields: dict[str, object]) -> bytes:
-    """Encode only the ordered string map defined by NCF-AUTHORITY-CLAIM-V1."""
+    """Encode only the canonical ordered string map defined by NCF-AUTHORITY-CLAIM-V1."""
     if tuple(fields.keys()) != FIELD_ORDER:
         raise ValueError("fields must appear in canonical field order")
     if any(not isinstance(fields[name], str) for name in FIELD_ORDER):
@@ -67,7 +67,7 @@ def canonical_preimage(fields: dict[str, object]) -> bytes:
         raise ValueError("invalid direction")
     for name in DIGEST_FIELDS:
         value = fields[name]
-        if len(value) != 64 or any(ch not in "0123456789abcdef" for ch in value):
+        if (len(value) != 64) or any(ch not in "0123456789abcdef" for ch in value):
             raise ValueError(f"invalid digest field: {name}")
     result = bytearray(DOMAIN)
     for name in FIELD_ORDER:
