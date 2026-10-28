@@ -313,11 +313,33 @@ $$;
 
 -- Application sessions must call audited transaction APIs and cannot mutate ledger rows.
 SET ROLE ncf_app;
-DO $
+DO $$
 DECLARE
     v_read_only_replay jsonb;
     v_denied boolean := false;
 BEGIN
+    -- The public online API must not mutate Holochain dispatch or receipt observations.
+    IF NOT has_function_privilege('ncf_app', 'ncf.admit_obligation(uuid,bytea,text,text,text,integer,numeric,bytea,uuid,text,uuid,text,bigint,text,bytea)', 'EXECUTE')
+       OR NOT has_function_privilege('ncf_app', 'ncf.settle_obligation(uuid,bigint,bytea)', 'EXECUTE') THEN
+      RAISE EXCEPTION 'ncf_app is missing an intended economic function grant';
+    END IF;
+    IF has_function_privilege('ncf_app', 'ncf.lease_outbox_batch(text,integer,integer)', 'EXECUTE')
+       OR has_function_privilege('ncf_app', 'ncf.mark_outbox_retry(bigint,text,text,integer)', 'EXECUTE')
+       OR has_function_privilege('ncf_app', 'ncf.record_holochain_dispatch(bigint,text,text,text,text,text)', 'EXECUTE')
+       OR has_function_privilege('ncf_app', 'ncf.record_validation_receipts(text,text,integer,integer)', 'EXECUTE') THEN
+      RAISE EXCEPTION 'ncf_app must not control dispatch or DHT validation observations';
+    END IF;
+    IF NOT has_function_privilege('ncf_dispatcher', 'ncf.lease_outbox_batch(text,integer,integer)', 'EXECUTE')
+       OR NOT has_function_privilege('ncf_dispatcher', 'ncf.record_holochain_dispatch(bigint,text,text,text,text,text)', 'EXECUTE')
+       OR has_function_privilege('ncf_dispatcher', 'ncf.record_validation_receipts(text,text,integer,integer)', 'EXECUTE') THEN
+      RAISE EXCEPTION 'ncf_dispatcher capability boundary is incorrect';
+    END IF;
+    IF NOT has_function_privilege('ncf_observer', 'ncf.record_validation_receipts(text,text,integer,integer)', 'EXECUTE')
+       OR has_function_privilege('ncf_observer', 'ncf.admit_obligation(uuid,bytea,text,text,text,integer,numeric,bytea,uuid,text,uuid,text,bigint,text,bytea)', 'EXECUTE')
+       OR has_function_privilege('ncf_observer', 'ncf.record_holochain_dispatch(bigint,text,text,text,text,text)', 'EXECUTE') THEN
+      RAISE EXCEPTION 'ncf_observer capability boundary is incorrect';
+    END IF;
+
     v_read_only_replay := ncf.admit_obligation(
       '10000000-0000-0000-0000-000000000001',
       decode(repeat('a',64),'hex'),
@@ -340,7 +362,7 @@ BEGIN
       RAISE EXCEPTION 'ncf_app must not directly mutate the obligation ledger';
     END IF;
 END;
-$;
+$$;
 RESET ROLE;
 
 SELECT 'NCF_POSTGRES_SMOKE_PASS' AS result;
