@@ -843,11 +843,8 @@ fn verify_bundle(plan: &Value, bundle: &Value) -> Value {
             validate_result_row(result, planned, plan, &plan_digest, &mut errors);
         unknown_total = unknown_total.saturating_add(unknown_count);
         for (metric, count) in metric_unknowns {
-            *unknown_by_metric.entry(metric).or_default() = unknown_by_metric
-                .get(&metric)
-                .copied()
-                .unwrap_or(0)
-                .saturating_add(count);
+            let total = unknown_by_metric.entry(metric).or_default();
+            *total = total.saturating_add(count);
         }
         if eligible {
             eligible_count = eligible_count.saturating_add(1);
@@ -1137,12 +1134,11 @@ mod tests {
                             "resource_use_by_resource_id" => json!({"water_litre": 12.0}),
                             "evidence_coverage_fraction" => json!(0.95),
                             "privacy_authority_guardrail_violation_count" => json!(0),
-                            _ if metric.ends_with("_count")
-                                || metric.contains("household_months")
-                                || metric.contains("capacity_lost") =>
-                            {
-                                json!(1)
-                            }
+                            "safe_suitable_household_months"
+                            | "unmet_essential_need_household_months"
+                            | "defaults_count"
+                            | "new_safe_suitable_units_completed"
+                            | "maintenance_capacity_lost_dwelling_months" => json!(1),
                             _ => json!(1.0),
                         };
                         ((*metric).to_owned(), value)
