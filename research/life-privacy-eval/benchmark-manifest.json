@@ -64,5 +64,10 @@
   },
   "calibrated_report_schema_file": "calibrated-operating-point.schema.json",
   "report_schema_version": "1.1",
-  "schema_change_note": "Added explicit fields declaring empirical low-FPR test-curve values are descriptive, not validation-locked operating points."
+  "schema_change_note": "Added explicit fields declaring empirical low-FPR test-curve values are descriptive, not validation-locked operating points.",
+  "threat_coverage_matrix_file": "threat-coverage-matrix.json",
+  "threat_coverage_matrix_schema_version": "1.0",
+  "threat_coverage_entry_count": 15,
+  "attack_profile_count": 6,
+  "coverage_contract_change_note": "W3C credential threat-to-evidence mapping is design coverage only; it does not imply implementation, mitigation, conformance, or release qualification."
 }
