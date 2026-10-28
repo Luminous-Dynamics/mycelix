@@ -28,7 +28,7 @@ Exit codes: 0 for a verified artifact bundle, 1 for a structurally readable but 
 - Requires exactly 16 registered result fields and all 12 registered outcome metrics with pinned units, aggregation, direction and missing policy. These metric definitions are checked against the v0.1 contract; matching metric names with relabeled units do not pass. Unknown is represented explicitly as JSON null; omitted metrics are errors and are never replaced by zero. Object-valued group/resource metrics preserve their per-group/per-resource coordinates.
 - Requires each result to list artifact SHA-256 digests and a terminal disposition. Any non-empty guardrail-violation list must be labelled guardrail_failed; guardrail-failed runs are reported but never counted among completed guardrail-clear runs. The report separately counts completed guardrail-clear runs and complete outcome vectors; any vector with unknown cells is excluded from the latter.
 - Rejects unknown result fields, including attempted addition of a universal welfare scalar.
-- Emits a deterministic report with contract status, coverage counts, terminal dispositions, eligible/guardrail counts, unknown outcome-cell counts and all verification errors.
+- Emits a deterministic report with contract status, coverage counts, terminal dispositions, completed guardrail-clear counts, complete outcome-vector counts, unknown outcome-cell counts and all verification errors.
 
 ## Known limitations
 
