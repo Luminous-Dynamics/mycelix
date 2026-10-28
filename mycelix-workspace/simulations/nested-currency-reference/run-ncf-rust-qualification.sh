@@ -35,6 +35,8 @@ lock_sha="$(sha256sum "$source_dir/Cargo.lock" | awk '{print $1}')"
 lib_sha="$(sha256sum "$source_dir/src/lib.rs" | awk '{print $1}')"
 reservation_sha="$(sha256sum "$source_dir/src/reservation.rs" | awk '{print $1}')"
 fencing_sha="$(sha256sum "$source_dir/src/fencing.rs" | awk '{print $1}')"
+allocation_sha="$(sha256sum "$source_dir/src/allocation.rs" | awk '{print $1}')"
+obligation_sha="$(sha256sum "$source_dir/src/obligation.rs" | awk '{print $1}')"
 toolchain_sha="$(sha256sum "$toolchain_log" | awk '{print $1}')"
 
 run_check() {
@@ -86,6 +88,8 @@ cat >"$receipt" <<EOF
   "lib_sha256": "$lib_sha",
   "reservation_module_sha256": "$reservation_sha",
   "fencing_module_sha256": "$fencing_sha",
+  "allocation_module_sha256": "$allocation_sha",
+  "obligation_module_sha256": "$obligation_sha",
   "rust_toolchain_log_sha256": "$toolchain_sha",
   "fmt_status": "$fmt_result",
   "fmt_exit_code": $fmt_status,
