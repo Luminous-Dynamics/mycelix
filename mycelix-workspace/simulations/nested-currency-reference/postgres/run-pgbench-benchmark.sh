@@ -6,8 +6,9 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 CLIENTS="${PG_NCF_CLIENTS:-8}"
 THREADS="${PG_NCF_THREADS:-4}"
 DURATION="${PG_NCF_DURATION_SECONDS:-30}"
-TMP="$(mktemp -d)"
-trap 'rm -rf "$TMP"' EXIT
+OUT_DIR="${PG_NCF_OUTPUT_DIR:-$(mktemp -d "${TMPDIR:-/tmp}/ncf-pgbench.XXXXXX")}"
+mkdir -p "$OUT_DIR"
+TMP="$OUT_DIR"
 
 if ! command -v pgbench >/dev/null 2>&1; then
   echo "pgbench executable is required (install the PostgreSQL client tools)" >&2
@@ -89,10 +90,13 @@ SELECT jsonb_build_object(
 FROM ncf.obligation WHERE instrument_id='NCF-PGBENCH-UNIT';
 SQL
 
-python3 - "$TMP/reconciliation.txt" <<'PY'
+EXPECTED_TRANSACTIONS="$(cat "$TMP/successful-count.txt")"
+python3 - "$TMP/reconciliation.txt" "$EXPECTED_TRANSACTIONS" <<'PY'
 import json,sys
 value=json.loads(open(sys.argv[1],encoding="utf-8").read().strip().splitlines()[-1])
 n=value["obligations"]
+expected=int(sys.argv[2])
+assert n == expected, {"database_committed":n,"pgbench_successful_transactions":expected,"reconciliation":value}
 assert value["obligation_units"] == n, value
 assert value["unique_work_digests"] == n, value
 assert value["request_bindings"] == n, value
@@ -106,4 +110,4 @@ print(json.dumps(value,indent=2))
 PY
 
 cat "$TMP/pgbench.stdout"
-echo "Raw pgbench logs and summaries are generated in $TMP for this run; preserve them as CI artifacts when used in a workflow."
+echo "NCF PostgreSQL benchmark artifacts retained at: $OUT_DIR"
