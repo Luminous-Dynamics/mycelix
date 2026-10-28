@@ -231,6 +231,24 @@ Passing E0 does not imply E1; E1 does not imply E2 or real-world impact. Do not 
 ### Success and falsification
 There is no universal target such as “the capability economy wins by 10%.” For each real use case, affected stakeholders and evaluators must choose a primary outcome and minimum practical effect **before confirmatory outcomes are exposed**.
 
+### Model adequacy is not a single pass/fail
+
+Recent work on agent-based model validation emphasizes that adequacy depends on the question the model is meant to answer; calibration, verification, empirical validation, sensitivity analysis, and policy counterfactuals have different evidentiary roles. CECB should keep the following claims separate:
+
+1. **Implementation verification:** does the code implement the declared equations, accounting identities, event ordering and constraints?
+2. **Mechanism validation:** does a small known-truth example reproduce the declared mechanism, with positive, negative and adversarial controls?
+3. **Calibration:** which parameters were fitted to which observed moments, microdata or stylized facts, with what identifiability limits?
+4. **Untargeted validation:** does the calibrated model reproduce distributional/temporal regularities that were not used to tune it?
+5. **Out-of-sample prediction:** does it beat simple, named baselines on temporally or geographically held-out data?
+6. **Historical retrodiction:** can it recover outcomes from a known prior policy or shock when given only the information that would have been available at the time?
+7. **Policy counterfactual adequacy:** are the mechanisms governing behavior, capacity, adaptation and institutional response supported well enough for this specific proposed counterfactual?
+
+These are not interchangeable. A model may reproduce aggregate values while encoding the wrong mechanism; multiple parameterizations can produce similar outcomes (equifinality). A model can pass its own fixture while remaining empirically wrong. A calibrated fact must not be re-used as an independent holdout. Report uncertainty in data, parameters, structure, scenarios, and scoring, plus sensitivity to plausible alternative mechanisms. If a counterfactual rests on unvalidated adaptation assumptions, label it exploratory rather than causal evidence.
+
+References for this discipline:
+- Grimm et al., “How to keep it adequate: A protocol for ensuring validity in agent-based simulation,” *Environmental Modelling & Software* 159 (2023), 105559: https://doi.org/10.1016/J.ENVSOFT.2022.105559
+- “Agent-Based modeling in financial markets: Modeling frameworks, validation challenges, and emerging applications” (2026): https://doi.org/10.3934/nhm.2026043
+
 A candidate is not eligible to be called superior unless it:
 1. passes the declared accounting, physical-feasibility, authority, privacy and non-discrimination guardrails;
 2. improves the preregistered primary outcome by a practically meaningful margin against the strongest fair baseline, with its registered uncertainty interval excluding no improvement;
@@ -299,5 +317,7 @@ The intended result is a reusable experiment that can reveal **which institution
 7. South African Reserve Bank, Quarterly Bulletin, September 2026: https://www.reservebank.co.za/en/home/publications/publication-detail-pages/quarterly-bulletins/quarterly-bulletin-publications/2026/september
 8. IMF, South Africa: 2025 Article IV Consultation, published 2026: https://www.elibrary.imf.org/view/journals/002/2026/034/article-A001-en.xml
 9. NIST, The TEVV-Athlon Framework for Evaluating AI Systems (draft, August 2026): https://www.nist.gov/artificial-intelligence/ai-research/tevv-athlon-framework-evaluating-ai-systems
+10. Grimm et al., How to keep it adequate: A protocol for ensuring validity in agent-based simulation, *Environmental Modelling & Software* 159 (2023), 105559: https://doi.org/10.1016/J.ENVSOFT.2022.105559
+11. Agent-Based modeling in financial markets: Modeling frameworks, validation challenges, and emerging applications (2026): https://doi.org/10.3934/nhm.2026043
 
 External research supports the selection of reference frameworks and the need for context-dependent tests; it does not validate the proposed Capability Economy architecture.
