@@ -326,14 +326,13 @@ fn cap_weights_to_lower_median(weights: &mut [u64], cap_multiple: u64) -> Result
     }
     let mut ordered = weights.to_vec();
     ordered.sort_unstable();
-    let mut baseline = ordered[(ordered.len() - 1) / 2];
+    let baseline = ordered[(ordered.len() - 1) / 2];
     if baseline == 0 {
-        let mut positive: Vec<u64> = ordered.into_iter().filter(|weight| *weight > 0).collect();
-        if positive.is_empty() {
-            return Ok(());
-        }
-        positive.sort_unstable();
-        baseline = positive[(positive.len() - 1) / 2];
+        // There is no trustworthy nonzero scale for a relative cap. Do not let
+        // the few positive claimants define their own cap; force the explicit
+        // equal-share cold-start fallback below.
+        weights.fill(0);
+        return Ok(());
     }
     let cap = baseline.checked_mul(cap_multiple).ok_or(AllocationError::Overflow)?;
     for weight in weights {
@@ -736,6 +735,27 @@ mod tests {
             ),
             Err(AllocationError::Overflow),
         );
+    }
+
+    #[test]
+    fn median_cap_with_zero_lower_median_uses_equal_cold_start() {
+        let input: Vec<ShardDemand> = (0..16).map(|index| {
+            let samples = if index == 0 { vec![100_000] } else { vec![0] };
+            shard(&format!("shard-{index:02}"), &samples, 0)
+        }).collect();
+        let equal = allocate_static_escrow(&input, 100_000, 50_000, AllocationPolicy::EqualSplit).unwrap();
+        let capped = allocate_static_escrow(
+            &input, 100_000, 50_000,
+            AllocationPolicy::DemandWeightedWithEqualFloorAndMedianCap {
+                equal_floor_ppm: 500_000,
+                cap_multiple: 2,
+            },
+        ).unwrap();
+        for demand in &input {
+            assert_eq!(capped.slice_for(&demand.shard_id), equal.slice_for(&demand.shard_id));
+        }
+        assert!(capped.slices.iter().all(|slice| slice.allocation_weight == 1));
+        capped.validate().unwrap();
     }
 
     #[test]
