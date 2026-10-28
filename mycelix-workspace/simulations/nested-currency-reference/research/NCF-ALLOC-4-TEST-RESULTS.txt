@@ -1,0 +1,15 @@
+NCF-ALLOC-4 identity-splitting research run — 2026-10-28
+
+test_adding_attacker_ids_increases_equal_floor_capture ... ok
+test_attacker_true_backlog_is_constant_when_ids_multiply ... ok
+test_cap_does_not_claim_to_prove_backlog ... ok
+test_capacity_is_conserved_for_all_policies ... ok
+test_median_cap_ceases_to_clip_after_identity_splitting ... ok
+
+Ran 5 tests — OK.
+
+source_sha256=df7a46bb32690ceb264495890eeb5673eef84b81737a85f840b1c4b69d684044
+case_set_sha256=86b5e7f0f9595aaf6f8f2eebaef06b0d25f0a793f6f9ffa90b3c4aac12affcf4
+summary_sha256=8e896ae3b4ce9182b08126e20a82bf761aca209214027fdec57335db7f7610a4
+
+Claim ceiling: independent Python model only; not Rust, CI, TLC, distributed, cryptographic-identity or production evidence.
