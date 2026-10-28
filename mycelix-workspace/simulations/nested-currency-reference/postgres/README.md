@@ -99,6 +99,21 @@ The runner creates its own benchmark fixture, so do not run the setup SQL twice 
 
 The PR workflow includes an isolated 15-second smoke benchmark at 1, 4, and 16 clients. Those are CI smoke measurements, not SOTA claims. For comparative research, run each client count for several minutes, repeat at least five times, preserve all exact source/runtime receipts, compare `READ COMMITTED` with `SERIALIZABLE` plus whole-transaction retry, and separately benchmark a reservation-first sharded-counter design that avoids the global community-cap row on every operation. Never compare this custom admission function directly to vanilla pgbench TPC-B or a payment network’s TPS without a matched workload and durability contract.
 
+### Receipt-parser and runner hardening — 2026-10-28
+
+The pgbench runner now:
+- creates a unique output directory for every run, preventing same-second reruns from mixing transaction logs;
+- parses timed-mode output (number of transactions actually processed: N) as well as transaction-count mode (N/N);
+- parses the documented per-transaction log time field as microseconds and converts it to milliseconds;
+- fixes the TPS-summary regex;
+- writes successful-count.txt from verified per-transaction logs, then requires the count to match pgbench stdout and the final SQL obligation count;
+- rejects failed, skipped, malformed, or unaccounted transaction rows before a benchmark receipt can be accepted; and
+- includes source hashes for the parser and its regression tests in the final receipt.
+
+Offline parser tests live in test_summarize_pgbench.py and are executed before database setup by the dedicated workflow. Seven local tests pass with ResourceWarning promoted to error, including the timed-mode format used by the runner. PostgreSQL itself was not available in the editing container, so these results validate only the parser/runner logic; PostgreSQL 18.6 smoke, contention, and load tests remain unqualified until a non-empty exact-head workflow run executes their jobs and emits a post-run reconciliation artifact.
+
+The dedicated workflow now runs on pushes to the NCF research branch as well as pull-request events. A workflow run with a push event but zero jobs is not a database test result; do not interpret it as either SQL PASS or SQL FAIL.
+
 ## Claim ceiling
 
 The current schema/functions and CI tests are a PostgreSQL implementation attempt. They have not yet been live-tested in this editing environment, do not yet qualify the existing Mycelix Finance Holochain zomes, and do not prove offline double-spend resistance, key security, legal status, real-world work delivery, or external settlement finality. The latest SQL source includes per-agreement directional caps and an app-role privilege regression; it remains unqualified until the dedicated PostgreSQL 18.6 workflow completes on the exact head. See the companion [PostgreSQL↔Holochain contract](../holochain/NCF-POSTGRES-HOLOCHAIN-CONTRACT.md).
