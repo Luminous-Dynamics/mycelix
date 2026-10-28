@@ -523,7 +523,10 @@ fn validate_contract(plan: &Value, errors: &mut Vec<String>) {
     }
     if str_at(binding, "policy_internal_rng") != Some("separate_namespace_required") {
         errors.push(
-            "model_binding.policy_internal_rng must separate policy draws from exogenous world events"
+            concat!(
+                "model_binding.policy_internal_rng must separate policy draws ",
+                "from exogenous world events"
+            )
                 .to_owned(),
         );
     }
@@ -1791,12 +1794,15 @@ fn verify_artifact_contents(
         let paths = result.get("artifact_paths").and_then(Value::as_object);
         let (Some(digests), Some(paths)) = (digests, paths) else {
             errors.push(format!(
-                "result[{index}] for run {run_id:?} needs artifact_digests and artifact_paths objects"
+                concat!(
+                    "result[{index}] for run {run_id:?} needs artifact_digests ",
+                    "and artifact_paths objects"
+                )
             ));
             continue;
         };
-        let digest_keys = digests.keys().cloned().collect::<BTreeSet<_>>();
-        let path_keys = paths.keys().cloned().collect::<BTreeSet<_>>();
+        let digest_keys = digests.keys().cloned().collect::<BTreeSet<String>>();
+        let path_keys = paths.keys().cloned().collect::<BTreeSet<String>>();
         if digest_keys != path_keys || digest_keys.is_empty() {
             errors.push(format!(
                 "run {run_id:?} artifact_paths keys must exactly match non-empty artifact_digests keys"
@@ -1841,7 +1847,10 @@ fn verify_artifact_contents(
             };
             if !canonical.starts_with(&root) || !canonical.is_file() {
                 errors.push(format!(
-                    "run {run_id:?} artifact {artifact_name:?} resolves outside the artifact root or is not a file"
+                    concat!(
+                        "run {run_id:?} artifact {artifact_name:?} resolves outside ",
+                        "the artifact root or is not a file"
+                    )
                 ));
                 continue;
             }
@@ -1849,7 +1858,10 @@ fn verify_artifact_contents(
                 seen_canonical_paths.insert(canonical.clone(), run_id.to_owned())
             {
                 errors.push(format!(
-                    "canonical artifact path for run {run_id:?} aliases a path already used by run {previous_run:?}"
+                    concat!(
+                        "canonical artifact path for run {run_id:?} aliases a path ",
+                        "already used by run {previous_run:?}"
+                    )
                 ));
                 continue;
             }
