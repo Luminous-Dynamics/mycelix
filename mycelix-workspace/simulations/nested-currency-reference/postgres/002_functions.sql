@@ -520,8 +520,8 @@ BEGIN
          WHERE ((state IN ('pending', 'retry') AND next_attempt_at <= clock_timestamp())
              OR (state = 'leased' AND lease_until <= clock_timestamp()))
          ORDER BY next_attempt_at, outbox_id
-         FOR UPDATE SKIP LOCKED
          LIMIT p_batch_size
+         FOR UPDATE SKIP LOCKED
     )
     UPDATE ncf.holochain_outbox AS o
        SET state = 'leased',
