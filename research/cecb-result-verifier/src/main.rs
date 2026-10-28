@@ -514,10 +514,16 @@ fn validate_contract(plan: &Value, errors: &mut Vec<String>) {
         }
     }
     if str_at(binding, "exogenous_rng_contract") != Some(EXOGENOUS_RNG_CONTRACT) {
-        errors.push("model_binding.exogenous_rng_contract must match the registered event-keyed contract".to_owned());
+        errors.push(
+            "model_binding.exogenous_rng_contract must match the registered event-keyed contract"
+                .to_owned(),
+        );
     }
     if str_at(binding, "policy_internal_rng") != Some("separate_namespace_required") {
-        errors.push("model_binding.policy_internal_rng must separate policy draws from exogenous world events".to_owned());
+        errors.push(
+            "model_binding.policy_internal_rng must separate policy draws from exogenous world events"
+                .to_owned(),
+        );
     }
     if str_at(design, "scenario_config_digest_profile") != Some(SCENARIO_DIGEST_PROFILE) {
         errors.push("plan scenario configuration digest profile is unsupported".to_owned());
@@ -1430,6 +1436,20 @@ fn validate_result_row(
             "run {run_id:?} artifact_digests must be an object"
         )),
     }
+    if let Some(artifact_map) = artifacts {
+        for (artifact_name, field) in [
+            ("exogenous_event_stream", "exogenous_event_stream_sha256"),
+            ("initial_world_state", "initial_world_state_sha256"),
+        ] {
+            if artifact_map.get(artifact_name).and_then(Value::as_str)
+                != str_at(result, field)
+            {
+                errors.push(format!(
+                    "run {run_id:?} artifact digest {artifact_name:?} must match {field}"
+                ));
+            }
+        }
+    }
 
     let (unknown_count, unknown_by_metric) = match result.get("outcomes") {
         Some(outcomes) => validate_outcomes(
@@ -2071,7 +2091,11 @@ mod tests {
                     "outcomes": Value::Object(outcomes),
                     "guardrail_violations": [],
                     "runtime_ms": 25,
-                    "artifact_digests": {"result_trace": "e".repeat(64)}
+                    "artifact_digests": {
+                        "result_trace": "e".repeat(64),
+                        "exogenous_event_stream": exogenous_stream_digest,
+                        "initial_world_state": initial_world_digest
+                    }
                 })
             })
             .collect::<Vec<_>>();
@@ -2474,6 +2498,24 @@ mod tests {
         let plan = test_plan();
         let mut bundle = test_bundle(&plan);
         bundle["results"][0]["universal_welfare_scalar"] = json!(0.99);
+        assert!(!verified(&plan, &bundle));
+    }
+
+    #[test]
+    fn rejects_event_stream_digest_that_does_not_match_its_artifact() {
+        let plan = test_plan();
+        let mut bundle = test_bundle(&plan);
+        bundle["results"][0]["artifact_digests"]["exogenous_event_stream"] =
+            json!("f".repeat(64));
+        assert!(!verified(&plan, &bundle));
+    }
+
+    #[test]
+    fn rejects_initial_world_digest_that_does_not_match_its_artifact() {
+        let plan = test_plan();
+        let mut bundle = test_bundle(&plan);
+        bundle["results"][0]["artifact_digests"]["initial_world_state"] =
+            json!("f".repeat(64));
         assert!(!verified(&plan, &bundle));
     }
 
