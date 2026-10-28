@@ -12,9 +12,11 @@ use std::{
     process::ExitCode,
 };
 
-const PLAN_SCHEMA: &str = "cecb.housing.paired_design.v0.1";
-const RUN_EXPANSION_RULE: &str =
-    "Cartesian product of configurations x paired seeds x arms; run_id and pair_block_id are stable and unique";
+const PLAN_SCHEMA: &str = "cecb.housing.paired_design.v0.2";
+const RUN_EXPANSION_RULE: &str = concat!(
+    "Cartesian product of configurations x paired seeds x arms; ",
+    "run_id and pair_block_id are stable and unique"
+);
 const EXOGENOUS_RNG_CONTRACT: &str =
     "event_keyed_preferred; named streams require event-level draw alignment";
 
