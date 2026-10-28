@@ -1,0 +1,14 @@
+{
+  "id": "NCF-BENCH-012",
+  "name": "Crash-boundary recovery and independent-process admission",
+  "status": "bounded_local_research",
+  "runtime": {"python": "3.13.5", "sqlite": "3.46.1", "platform": "Linux", "topology": "one host, one local file-backed SQLite database per trial"},
+  "configuration": {"journal_mode": "WAL", "synchronous": "FULL", "write_transaction": "BEGIN IMMEDIATE", "crash_injection": "os._exit from an independent child process", "barrier": "two independent writer processes released by parent after both signal ready"},
+  "crash_stages": ["after_begin", "after_canonical_insert", "after_request_insert", "after_cap_update", "before_commit", "after_commit_before_ack"],
+  "race_cases": ["distinct_work_cap", "same_work_alias", "same_request_conflict"],
+  "repetitions": {"per_crash_stage": 3, "per_race_case": 3},
+  "acceptance_gates": ["pre_commit_crash_reopens_with_no_partial_obligation", "post_commit_pre_ack_crash_reopens_with_complete_obligation", "exact_retry_never_debits_twice", "request_id_binds_one_payload", "canonical_work_debits_once", "used_units_equal_sum_of_unique_canonical_work", "used_units_never_exceed_cap", "sqlite_integrity_check_equals_ok"],
+  "claim_ceiling": "Application-process crash recovery and independent-process contention on one local host only. Not kernel crash/power-loss simulation, storage-fault testing, multi-host consensus, Holochain, cryptographic verifier validation, Rust qualification, or production settlement.",
+  "known_follow_up": "Larger 5 crash repetitions x 10 race repetitions run exceeded the 120-second tool limit and is incomplete. Diagnose harness scaling and add per-worker timing/partial logs before increasing repetitions.",
+  "engine_gate": "Local SQLite 3.46.1 is older than the upstream fix for the documented WAL-reset bug. Repeat on SQLite 3.51.3 or later, or a verified vendor backport, and add checkpoint-concurrency testing before stronger WAL/checkpoint claims."
+}
