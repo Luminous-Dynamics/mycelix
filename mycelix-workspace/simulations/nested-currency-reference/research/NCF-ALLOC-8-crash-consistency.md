@@ -2,7 +2,7 @@
 
 **Status:** bounded local research; not production qualification.  
 **Scope:** file-backed SQLite WAL, synchronous=FULL, abrupt application-process exit, recovery/retry, and independent writer processes on one host.  
-**Execution source SHA-256:** ee6c32f5205e180bd98287f124e3f097717d2575fd09f3e9c8d1d854f0421756  
+**Execution source SHA-256:** 2b479098258a3594fd0651b84ef32d3b55ef54ab5072d7914cf57a9b7297794d  
 **Runtime:** Python 3.13.5 / SQLite 3.46.1 / Linux.
 
 ## Why this increment matters
