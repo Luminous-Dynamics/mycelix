@@ -40,6 +40,7 @@ From the repository root, prefix the paths with `mycelix-workspace/simulations/n
 2. Exact retry returns the original receipt.
 3. A request ID rebound to a different immutable payload rejects without mutation.
 4. The same canonical work under a second request ID returns replay with no second cap debit.
+   The replay must preserve the original obligation's reservation ID, shard ID, and epoch. A different reservation/shard/epoch is rejected as a canonical-work/home-shard conflict before a replay binding is inserted. Per-request verifier evidence may differ only under the documented verifier policy; it cannot move economic ownership to a different slice.
 5. A claim beyond the available cap/slice rejects without mutation.
 6. Settlement releases cap/slice usage exactly once; exact settlement retry returns replay.
 7. Outbox rows are atomic with the economic transaction.
