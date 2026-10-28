@@ -66,6 +66,8 @@ DECLARE
   v_used numeric;
   v_allocated numeric;
   v_slice_used numeric;
+  v_edge_allocated numeric;
+  v_edge_outstanding numeric;
   v_bindings bigint;
   v_accepted bigint;
   v_replays bigint;
@@ -80,12 +82,17 @@ BEGIN
   SELECT used_units INTO v_slice_used
     FROM ncf.reservation_slice
    WHERE reservation_id='bb000000-0000-0000-0000-000000000002';
+  SELECT allocated_units, outstanding_units
+    INTO v_edge_allocated, v_edge_outstanding
+    FROM ncf.agreement_direction_cap
+   WHERE agreement_id='aa000000-0000-0000-0000-000000000002' AND direction='a_to_b';
   SELECT count(*), count(*) FILTER (WHERE decision='accepted'), count(*) FILTER (WHERE decision='replay')
     INTO v_bindings, v_accepted, v_replays
     FROM ncf.request_binding WHERE instrument_id='NCF-RACE-UNIT';
 
   IF v_obligations <> 3 OR v_amount <> 70 OR v_allocated <> 100
      OR v_used <> 70 OR v_slice_used <> 70
+     OR v_edge_allocated <> 100 OR v_edge_outstanding <> 70
      OR v_bindings <> 4 OR v_accepted <> 3 OR v_replays <> 1 THEN
     RAISE EXCEPTION 'concurrency accounting mismatch: obligations %, amount %, allocated %, outstanding %, slice %, bindings %, accepted %, replays %',
       v_obligations, v_amount, v_allocated, v_used, v_slice_used, v_bindings, v_accepted, v_replays;
