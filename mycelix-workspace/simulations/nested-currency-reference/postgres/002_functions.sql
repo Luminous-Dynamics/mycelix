@@ -496,11 +496,206 @@ EXCEPTION WHEN unique_violation THEN
 END;
 $$;
 
+
+CREATE OR REPLACE FUNCTION ncf.lease_outbox_batch(
+    p_worker text,
+    p_batch_size integer,
+    p_lease_seconds integer
+) RETURNS SETOF ncf.holochain_outbox
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = pg_catalog, ncf
+AS $
+BEGIN
+    IF p_worker IS NULL OR length(btrim(p_worker)) = 0
+       OR p_batch_size IS NULL OR p_batch_size < 1 OR p_batch_size > 100
+       OR p_lease_seconds IS NULL OR p_lease_seconds < 1 OR p_lease_seconds > 600 THEN
+        RAISE EXCEPTION 'invalid outbox lease parameters' USING ERRCODE = '22023';
+    END IF;
+
+    RETURN QUERY
+    WITH selected AS (
+        SELECT outbox_id
+          FROM ncf.holochain_outbox
+         WHERE ((state IN ('pending', 'retry') AND next_attempt_at <= clock_timestamp())
+             OR (state = 'leased' AND lease_until <= clock_timestamp()))
+         ORDER BY next_attempt_at, outbox_id
+         FOR UPDATE SKIP LOCKED
+         LIMIT p_batch_size
+    )
+    UPDATE ncf.holochain_outbox AS o
+       SET state = 'leased',
+           attempt_count = o.attempt_count + 1,
+           lease_owner = p_worker,
+           lease_until = clock_timestamp() + make_interval(secs => p_lease_seconds)
+      FROM selected
+     WHERE o.outbox_id = selected.outbox_id
+    RETURNING o.*;
+END;
+$;
+
+CREATE OR REPLACE FUNCTION ncf.mark_outbox_retry(
+    p_outbox_id bigint,
+    p_worker text,
+    p_error text,
+    p_delay_seconds integer
+) RETURNS jsonb
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = pg_catalog, ncf
+AS $
+DECLARE
+    v_outbox ncf.holochain_outbox%ROWTYPE;
+    v_state text;
+BEGIN
+    SELECT * INTO v_outbox FROM ncf.holochain_outbox
+     WHERE outbox_id = p_outbox_id FOR UPDATE;
+    IF NOT FOUND THEN
+        RETURN jsonb_build_object('decision', 'rejected', 'reason', 'outbox_not_found');
+    END IF;
+    IF v_outbox.state <> 'leased' OR v_outbox.lease_owner <> p_worker THEN
+        RETURN jsonb_build_object('decision', 'rejected', 'reason', 'outbox_lease_not_owned');
+    END IF;
+    IF p_delay_seconds IS NULL OR p_delay_seconds < 0 OR p_delay_seconds > 86400 THEN
+        RETURN jsonb_build_object('decision', 'rejected', 'reason', 'invalid_retry_delay');
+    END IF;
+
+    v_state := CASE WHEN v_outbox.attempt_count >= 20 THEN 'dead' ELSE 'retry' END;
+    UPDATE ncf.holochain_outbox
+       SET state = v_state,
+           next_attempt_at = clock_timestamp() + make_interval(secs => p_delay_seconds),
+           lease_owner = NULL,
+           lease_until = NULL,
+           last_error = left(coalesce(p_error, 'unspecified dispatch error'), 2000)
+     WHERE outbox_id = p_outbox_id;
+
+    RETURN jsonb_build_object('decision', v_state, 'outbox_id', p_outbox_id, 'attempt_count', v_outbox.attempt_count);
+END;
+$;
+
+CREATE OR REPLACE FUNCTION ncf.record_holochain_dispatch(
+    p_outbox_id bigint,
+    p_worker text,
+    p_dna_hash text,
+    p_action_hash text,
+    p_author_agent text,
+    p_entry_hash text
+) RETURNS jsonb
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = pg_catalog, ncf
+AS $
+DECLARE
+    v_outbox ncf.holochain_outbox%ROWTYPE;
+    v_observation_state text := 'authored';
+BEGIN
+    IF p_dna_hash IS NULL OR length(btrim(p_dna_hash)) = 0
+       OR p_action_hash IS NULL OR length(btrim(p_action_hash)) = 0
+       OR p_author_agent IS NULL OR length(btrim(p_author_agent)) = 0 THEN
+        RETURN jsonb_build_object('decision', 'rejected', 'reason', 'invalid_holochain_action_identity');
+    END IF;
+    SELECT * INTO v_outbox FROM ncf.holochain_outbox
+     WHERE outbox_id = p_outbox_id FOR UPDATE;
+    IF NOT FOUND THEN
+        RETURN jsonb_build_object('decision', 'rejected', 'reason', 'outbox_not_found');
+    END IF;
+
+    IF v_outbox.state = 'published' THEN
+        INSERT INTO ncf.holochain_action_observation(
+            dna_hash, action_hash, outbox_id, author_agent, entry_hash,
+            validation_receipt_count, observation_state
+        ) VALUES (p_dna_hash, p_action_hash, p_outbox_id, p_author_agent, p_entry_hash, 0, v_observation_state)
+        ON CONFLICT (dna_hash, action_hash) DO NOTHING;
+        IF v_outbox.holochain_action_hash = p_action_hash THEN
+            RETURN jsonb_build_object('decision', 'replay', 'outbox_id', p_outbox_id, 'action_hash', p_action_hash);
+        END IF;
+        RETURN jsonb_build_object(
+            'decision', 'duplicate_action_observed',
+            'outbox_id', p_outbox_id,
+            'canonical_action_hash', v_outbox.holochain_action_hash,
+            'additional_action_hash', p_action_hash
+        );
+    END IF;
+
+    IF v_outbox.state <> 'leased' OR v_outbox.lease_owner <> p_worker THEN
+        RETURN jsonb_build_object('decision', 'rejected', 'reason', 'outbox_lease_not_owned');
+    END IF;
+
+    UPDATE ncf.holochain_outbox
+       SET state = 'published',
+           holochain_action_hash = p_action_hash,
+           published_at = coalesce(published_at, clock_timestamp()),
+           lease_owner = NULL,
+           lease_until = NULL,
+           last_error = NULL
+     WHERE outbox_id = p_outbox_id;
+    INSERT INTO ncf.holochain_action_observation(
+        dna_hash, action_hash, outbox_id, author_agent, entry_hash,
+        validation_receipt_count, observation_state
+    ) VALUES (p_dna_hash, p_action_hash, p_outbox_id, p_author_agent, p_entry_hash, 0, v_observation_state)
+    ON CONFLICT (dna_hash, action_hash) DO NOTHING;
+
+    RETURN jsonb_build_object('decision', 'published', 'outbox_id', p_outbox_id, 'action_hash', p_action_hash);
+END;
+$;
+
+CREATE OR REPLACE FUNCTION ncf.record_validation_receipts(
+    p_dna_hash text,
+    p_action_hash text,
+    p_receipt_count integer,
+    p_required_count integer
+) RETURNS jsonb
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = pg_catalog, ncf
+AS $
+DECLARE
+    v_observation ncf.holochain_action_observation%ROWTYPE;
+    v_new_count integer;
+    v_state text;
+BEGIN
+    IF p_receipt_count IS NULL OR p_receipt_count < 0
+       OR p_required_count IS NULL OR p_required_count < 1 THEN
+        RETURN jsonb_build_object('decision', 'rejected', 'reason', 'invalid_validation_receipt_threshold');
+    END IF;
+    SELECT * INTO v_observation
+      FROM ncf.holochain_action_observation
+     WHERE dna_hash = p_dna_hash AND action_hash = p_action_hash
+     FOR UPDATE;
+    IF NOT FOUND THEN
+        RETURN jsonb_build_object('decision', 'rejected', 'reason', 'action_observation_not_found');
+    END IF;
+
+    v_new_count := greatest(v_observation.validation_receipt_count, p_receipt_count);
+    v_state := CASE
+      WHEN v_new_count >= p_required_count THEN 'receipts_observed'
+      ELSE 'unresolved'
+    END;
+    UPDATE ncf.holochain_action_observation
+       SET validation_receipt_count = v_new_count,
+           observation_state = v_state,
+           observed_at = clock_timestamp()
+     WHERE dna_hash = p_dna_hash AND action_hash = p_action_hash;
+
+    RETURN jsonb_build_object(
+        'decision', v_state,
+        'dna_hash', p_dna_hash,
+        'action_hash', p_action_hash,
+        'validation_receipt_count', v_new_count,
+        'required_count', p_required_count
+    );
+END;
+$;
+
 REVOKE EXECUTE ON FUNCTION ncf.allocate_reservation_slice(uuid, uuid, text, text, text, text, bigint, numeric, bytea) FROM PUBLIC;
 REVOKE EXECUTE ON FUNCTION ncf.admit_obligation(uuid, bytea, text, text, text, integer, numeric, bytea, uuid, text, uuid, text, bigint, text, bytea) FROM PUBLIC;
 REVOKE EXECUTE ON FUNCTION ncf.settle_obligation(uuid, bigint, bytea) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION ncf.allocate_reservation_slice(uuid, uuid, text, text, text, text, bigint, numeric, bytea) TO ncf_app;
 GRANT EXECUTE ON FUNCTION ncf.admit_obligation(uuid, bytea, text, text, text, integer, numeric, bytea, uuid, text, uuid, text, bigint, text, bytea) TO ncf_app;
 GRANT EXECUTE ON FUNCTION ncf.settle_obligation(uuid, bigint, bytea) TO ncf_app;
+GRANT EXECUTE ON FUNCTION ncf.lease_outbox_batch(text, integer, integer) TO ncf_app;
+GRANT EXECUTE ON FUNCTION ncf.mark_outbox_retry(bigint, text, text, integer) TO ncf_app;
+GRANT EXECUTE ON FUNCTION ncf.record_holochain_dispatch(bigint, text, text, text, text, text) TO ncf_app;
+GRANT EXECUTE ON FUNCTION ncf.record_validation_receipts(text, text, integer, integer) TO ncf_app;
 
 COMMIT;
