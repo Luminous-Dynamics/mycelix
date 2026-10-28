@@ -513,6 +513,12 @@ fn validate_contract(plan: &Value, errors: &mut Vec<String>) {
             )),
         }
     }
+    if str_at(binding, "exogenous_rng_contract") != Some(EXOGENOUS_RNG_CONTRACT) {
+        errors.push("model_binding.exogenous_rng_contract must match the registered event-keyed contract".to_owned());
+    }
+    if str_at(binding, "policy_internal_rng") != Some("separate_namespace_required") {
+        errors.push("model_binding.policy_internal_rng must separate policy draws from exogenous world events".to_owned());
+    }
     if str_at(design, "scenario_config_digest_profile") != Some(SCENARIO_DIGEST_PROFILE) {
         errors.push("plan scenario configuration digest profile is unsupported".to_owned());
     }
@@ -2146,6 +2152,23 @@ mod tests {
     fn refuses_configurations_without_resolved_parameters() {
         let mut plan = test_plan();
         plan["configurations"][0].as_object_mut().unwrap().remove("resolved_parameters");
+        let bundle = test_bundle(&plan);
+        assert!(!verified(&plan, &bundle));
+    }
+
+    #[test]
+    fn rejects_model_binding_that_allows_rng_namespace_coupling() {
+        let mut plan = test_plan();
+        plan["design"]["model_binding"]["policy_internal_rng"] = json!("shared_with_world");
+        let bundle = test_bundle(&plan);
+        assert!(!verified(&plan, &bundle));
+    }
+
+    #[test]
+    fn rejects_model_binding_that_disagrees_with_rng_contract_version() {
+        let mut plan = test_plan();
+        plan["design"]["model_binding"]["exogenous_rng_contract"] =
+            json!("sequential_shared_prng");
         let bundle = test_bundle(&plan);
         assert!(!verified(&plan, &bundle));
     }
