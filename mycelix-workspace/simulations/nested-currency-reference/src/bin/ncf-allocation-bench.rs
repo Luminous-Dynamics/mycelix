@@ -362,6 +362,14 @@ fn run() -> Result<(), String> {
         ("demand_weighted_equal_floor_75", AllocationPolicy::DemandWeightedWithEqualFloor {
             equal_floor_ppm: 750_000,
         }),
+        ("demand_weighted_equal_floor_50_cap2x_median", AllocationPolicy::DemandWeightedWithEqualFloorAndMedianCap {
+            equal_floor_ppm: 500_000,
+            cap_multiple: 2,
+        }),
+        ("demand_weighted_equal_floor_50_cap4x_median", AllocationPolicy::DemandWeightedWithEqualFloorAndMedianCap {
+            equal_floor_ppm: 500_000,
+            cap_multiple: 4,
+        }),
     ];
 
     let started = Instant::now();
