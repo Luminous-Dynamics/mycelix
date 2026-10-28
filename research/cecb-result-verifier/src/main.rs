@@ -957,7 +957,10 @@ fn build_expected_runs(plan: &Value, errors: &mut Vec<String>) -> BTreeMap<Strin
                     namespace_owners.insert(rng_namespace.to_owned(), id.to_owned())
                 {
                     errors.push(format!(
-                        "policy arms {owner:?} and {id:?} share policy RNG namespace {rng_namespace:?}"
+                        concat!(
+                            "policy arms {owner:?} and {id:?} share policy RNG ",
+                            "namespace {rng_namespace:?}"
+                        )
                     ));
                 }
                 policy_rng_namespaces.insert(id.to_owned(), rng_namespace.to_owned());
@@ -977,7 +980,9 @@ fn build_expected_runs(plan: &Value, errors: &mut Vec<String>) -> BTreeMap<Strin
     }
 
     if policies.len() < 2 {
-        errors.push("paired policy comparison requires at least two distinct policy arms".to_owned());
+        errors.push(
+            "paired policy comparison requires at least two distinct policy arms".to_owned(),
+        );
     }
 
     let binding = plan.get("design").and_then(|value| value.get("model_binding"));
@@ -1969,6 +1974,29 @@ mod tests {
                 )
             })
             .collect::<BTreeMap<_, _>>();
+        let policy_rng_namespaces = plan["policy_arms"]
+            .as_array()
+            .expect("policy arms")
+            .iter()
+            .map(|arm| {
+                (
+                    arm["arm_id"].as_str().expect("arm ID").to_owned(),
+                    arm["policy_internal_rng_namespace"]
+                        .as_str()
+                        .expect("policy RNG namespace")
+                        .to_owned(),
+                )
+            })
+            .collect::<BTreeMap<_, _>>();
+        let rng_contract_version = plan["design"]["rng_contract_version"]
+            .as_str()
+            .expect("RNG contract version");
+        let exogenous_schedule_digest = plan["design"]["exogenous_event_schedule_sha256"]
+            .as_str()
+            .expect("exogenous schedule digest");
+        let budget_digest = plan["design"]["held_constant"]["resource_and_compute_budget_sha256"]
+            .as_str()
+            .expect("budget digest");
         let results = plan["runs"]
             .as_array()
             .expect("plan runs")
@@ -1979,6 +2007,16 @@ mod tests {
                 let replicate = planned["replicate_id"].as_str().expect("replicate");
                 let seed = planned["seed_hex"].as_str().expect("seed");
                 let arm_id = planned["arm_id"].as_str().expect("arm ID");
+                let pair_block_id = planned["pair_block_id"]
+                    .as_str()
+                    .expect("pair block ID");
+                let namespace = &policy_rng_namespaces[arm_id];
+                let initial_world_digest = sha256_hex(
+                    format!("{config_id}-{replicate}-initial-world").as_bytes(),
+                );
+                let exogenous_stream_digest = sha256_hex(
+                    format!("{config_id}-{replicate}-world-events").as_bytes(),
+                );
                 let outcomes = OUTCOME_METRICS
                     .iter()
                     .map(|metric| {
@@ -2013,9 +2051,16 @@ mod tests {
                     "scenario_config_digest_sha256": config_digests[config_id],
                     "replicate_id": replicate,
                     "seed_hex": seed,
+                    "pair_block_id": pair_block_id,
                     "arm_id": arm_id,
                     "policy_profile_digest_sha256": profile_digests[arm_id],
                     "simulator_digest_sha256": simulator_digest,
+                    "rng_contract_version": rng_contract_version,
+                    "exogenous_event_schedule_sha256": exogenous_schedule_digest,
+                    "exogenous_event_stream_sha256": exogenous_stream_digest,
+                    "initial_world_state_sha256": initial_world_digest,
+                    "resource_and_compute_budget_sha256": budget_digest,
+                    "policy_internal_rng_namespace": namespace,
                     "disposition": "completed",
                     "outcomes": Value::Object(outcomes),
                     "guardrail_violations": [],
@@ -2272,6 +2317,55 @@ mod tests {
         let plan = test_plan();
         let mut bundle = test_bundle(&plan);
         bundle["results"][0]["policy_profile_digest_sha256"] = json!("f".repeat(64));
+        assert!(!verified(&plan, &bundle));
+    }
+
+    #[test]
+    fn rejects_mismatched_exogenous_schedule_digest() {
+        let plan = test_plan();
+        let mut bundle = test_bundle(&plan);
+        bundle["results"][0]["exogenous_event_schedule_sha256"] = json!("f".repeat(64));
+        assert!(!verified(&plan, &bundle));
+    }
+
+    #[test]
+    fn rejects_wrong_rng_contract_version_in_result() {
+        let plan = test_plan();
+        let mut bundle = test_bundle(&plan);
+        bundle["results"][0]["rng_contract_version"] = json!("sequential_rng.v0");
+        assert!(!verified(&plan, &bundle));
+    }
+
+    #[test]
+    fn rejects_mismatched_equal_budget_profile_digest() {
+        let plan = test_plan();
+        let mut bundle = test_bundle(&plan);
+        bundle["results"][0]["resource_and_compute_budget_sha256"] = json!("f".repeat(64));
+        assert!(!verified(&plan, &bundle));
+    }
+
+    #[test]
+    fn rejects_reused_policy_internal_rng_namespace() {
+        let mut plan = test_plan();
+        let namespace = plan["policy_arms"][0]["policy_internal_rng_namespace"].clone();
+        plan["policy_arms"][1]["policy_internal_rng_namespace"] = namespace;
+        let bundle = test_bundle(&plan);
+        assert!(!verified(&plan, &bundle));
+    }
+
+    #[test]
+    fn rejects_exogenous_stream_divergence_across_paired_arms() {
+        let plan = test_plan();
+        let mut bundle = test_bundle(&plan);
+        bundle["results"][0]["exogenous_event_stream_sha256"] = json!("f".repeat(64));
+        assert!(!verified(&plan, &bundle));
+    }
+
+    #[test]
+    fn rejects_initial_world_divergence_across_paired_arms() {
+        let plan = test_plan();
+        let mut bundle = test_bundle(&plan);
+        bundle["results"][0]["initial_world_state_sha256"] = json!("f".repeat(64));
         assert!(!verified(&plan, &bundle));
     }
 
