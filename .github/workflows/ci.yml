@@ -37,6 +37,7 @@ jobs:
       sdk: ${{ steps.filter.outputs.sdk }}
       prism: ${{ steps.filter.outputs.prism }}
       cos_conformance: ${{ steps.filter.outputs.cos_conformance }}
+      cecb_verifier: ${{ steps.filter.outputs.cecb_verifier }}
     steps:
       - uses: actions/checkout@v4
       - uses: dorny/paths-filter@v3
@@ -80,6 +81,9 @@ jobs:
               - 'mycelix-manufacturing/Cargo.lock'
               - 'docs/integral/cos-reference-node-v1.md'
               - 'mycelix-manufacturing/tests/cos_reference_conformance.md'
+            cecb_verifier:
+              - 'research/cecb-result-verifier/**'
+              - '.github/workflows/ci.yml'
 
   # Format check (always runs when CI is admitted)
   format:
@@ -111,6 +115,126 @@ jobs:
           (cd crates/mycelix-bridge-common && cargo fmt --all --check) || status=1
           (cd crates/mycelix-bridge-entry-types && cargo fmt --all --check) || status=1
           exit $status
+
+  # Independent result-bundle verifier for the Capability-Economy benchmark
+  test-cecb-result-verifier:
+    needs: changes
+    if: needs.changes.outputs.cecb_verifier == 'true' || github.event_name == 'push'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: research/cecb-result-verifier
+      - id: lock
+        name: Resolve the standalone verifier dependency graph
+        run: |
+          set -o pipefail
+          cargo generate-lockfile --manifest-path research/cecb-result-verifier/Cargo.toml 2>&1 | tee /tmp/cecb-verifier-lock.log
+      - id: format
+        name: Check standalone verifier formatting
+        run: |
+          set -o pipefail
+          cargo fmt --manifest-path research/cecb-result-verifier/Cargo.toml -- --check 2>&1 | tee /tmp/cecb-verifier-fmt.log
+      - id: tests
+        name: Run verifier contract and mutation tests against the resolved lock
+        run: |
+          set -o pipefail
+          cargo test --locked --manifest-path research/cecb-result-verifier/Cargo.toml 2>&1 | tee /tmp/cecb-verifier-tests.log
+      - id: cli
+        name: Smoke-test CLI usage against the resolved lock
+        run: |
+          set -o pipefail
+          cargo run --locked --quiet --manifest-path research/cecb-result-verifier/Cargo.toml -- --help 2>&1 | tee /tmp/cecb-verifier-cli.log
+      # Preserve the exact dependency lock, logs and a receipt even on failure.
+      # A skipped job has no receipt; a failed step is never described as a pass.
+      - name: Build exact-run verifier evidence receipt
+        if: always()
+        run: |
+          set -eu
+          mkdir -p artifacts/cecb-verifier
+          cp /tmp/cecb-verifier-lock.log artifacts/cecb-verifier/ 2>/dev/null || true
+          cp /tmp/cecb-verifier-fmt.log artifacts/cecb-verifier/ 2>/dev/null || true
+          cp /tmp/cecb-verifier-tests.log artifacts/cecb-verifier/ 2>/dev/null || true
+          cp /tmp/cecb-verifier-cli.log artifacts/cecb-verifier/ 2>/dev/null || true
+          cp research/cecb-result-verifier/Cargo.lock artifacts/cecb-verifier/ 2>/dev/null || true
+          sha_or_missing() {
+            if [ -f "$1" ]; then sha256sum "$1" | cut -d ' ' -f 1; else printf ''; fi
+          }
+          rustc_version="$(rustc --version 2>/dev/null || echo unavailable)"
+          cargo_version="$(cargo --version 2>/dev/null || echo unavailable)"
+          jq -n \
+            --arg schema_version "cecb.verifier.ci_run_receipt.v0.1" \
+            --arg evidence_class "Rust result-verifier contract tests only; no policy simulation" \
+            --arg source_commit "$GITHUB_SHA" \
+            --arg run_id "$GITHUB_RUN_ID" \
+            --arg run_attempt "$GITHUB_RUN_ATTEMPT" \
+            --arg rustc_version "$rustc_version" \
+            --arg cargo_version "$cargo_version" \
+            --arg manifest_sha256 "$(sha_or_missing research/cecb-result-verifier/Cargo.toml)" \
+            --arg source_sha256 "$(sha_or_missing research/cecb-result-verifier/src/main.rs)" \
+            --arg build_script_sha256 "$(sha_or_missing research/cecb-result-verifier/build.rs)" \
+            --arg readme_sha256 "$(sha_or_missing research/cecb-result-verifier/README.md)" \
+            --arg lock_sha256 "$(sha_or_missing research/cecb-result-verifier/Cargo.lock)" \
+            --arg lock_log_sha256 "$(sha_or_missing /tmp/cecb-verifier-lock.log)" \
+            --arg fmt_log_sha256 "$(sha_or_missing /tmp/cecb-verifier-fmt.log)" \
+            --arg tests_log_sha256 "$(sha_or_missing /tmp/cecb-verifier-tests.log)" \
+            --arg cli_log_sha256 "$(sha_or_missing /tmp/cecb-verifier-cli.log)" \
+            --arg lock_outcome "${{ steps.lock.outcome }}" \
+            --arg format_outcome "${{ steps.format.outcome }}" \
+            --arg tests_outcome "${{ steps.tests.outcome }}" \
+            --arg cli_outcome "${{ steps.cli.outcome }}" \
+            '{
+              schema_version: $schema_version,
+              evidence_class: $evidence_class,
+              source_commit_sha: $source_commit,
+              workflow_run_id: $run_id,
+              workflow_run_attempt: $run_attempt,
+              toolchain: { rustc: $rustc_version, cargo: $cargo_version },
+              input_sha256: {
+                cargo_manifest: $manifest_sha256,
+                verifier_source: $source_sha256,
+                build_script: $build_script_sha256,
+                readme: $readme_sha256,
+                cargo_lock: $lock_sha256
+              },
+              log_sha256: {
+                lock_resolution: $lock_log_sha256,
+                rustfmt: $fmt_log_sha256,
+                tests: $tests_log_sha256,
+                cli_smoke: $cli_log_sha256
+              },
+              step_outcomes: {
+                lock_resolution: $lock_outcome,
+                rustfmt: $format_outcome,
+                tests: $tests_outcome,
+                cli_smoke: $cli_outcome
+              },
+              claim_ceiling: "Verifier code/tests only; not an executed policy comparison or evidence of institutional superiority."
+            }' > artifacts/cecb-verifier/run-receipt.json
+          jq -e '
+            .schema_version == "cecb.verifier.ci_run_receipt.v0.1" and
+            (.source_commit_sha | length == 40) and
+            (.input_sha256.cargo_manifest | length == 64) and
+            (.input_sha256.verifier_source | length == 64) and
+            (.step_outcomes.lock_resolution != "") and
+            (if .step_outcomes.lock_resolution == "success"
+                then (.input_sha256.cargo_lock | length == 64)
+                else true
+             end)
+          ' artifacts/cecb-verifier/run-receipt.json > /dev/null
+      - uses: actions/upload-artifact@v4
+        name: Upload exact-run verifier evidence
+        if: always()
+        with:
+          name: cecb-result-verifier-evidence-${{ github.run_id }}-${{ github.run_attempt }}
+          path: artifacts/cecb-verifier/
+          if-no-files-found: error
+          retention-days: 90
 
   # Per-cluster test jobs
   test-cos-conformance:
@@ -440,6 +564,7 @@ jobs:
     needs:
       - format
       - test-cos-conformance
+      - test-cecb-result-verifier
       - test-commons
       - test-civic
       - test-hearth
@@ -458,6 +583,7 @@ jobs:
         run: |
           echo "Format: ${{ needs.format.result }}"
           echo "COS conformance: ${{ needs.test-cos-conformance.result }}"
+          echo "CECB result verifier: ${{ needs.test-cecb-result-verifier.result }}"
           echo "Commons: ${{ needs.test-commons.result }}"
           echo "Civic: ${{ needs.test-civic.result }}"
           echo "Hearth: ${{ needs.test-hearth.result }}"
@@ -474,7 +600,7 @@ jobs:
           echo "Prism: ${{ needs.test-prism.result }}"
           if [ "${{ needs.format.result }}" = "failure" ]; then exit 1; fi
           # Skipped jobs are OK (path filter didn't match)
-          for result in "${{ needs.test-cos-conformance.result }}" "${{ needs.test-commons.result }}" "${{ needs.test-civic.result }}" "${{ needs.test-hearth.result }}" "${{ needs.test-finance.result }}" "${{ needs.test-governance.result }}" "${{ needs.test-identity.result }}" "${{ needs.test-personal.result }}" "${{ needs.test-attribution.result }}" "${{ needs.test-bridge.result }}" "${{ needs.test-sdk.result }}" "${{ needs.test-prism.result }}"; do
+          for result in "${{ needs.test-cos-conformance.result }}" "${{ needs.test-cecb-result-verifier.result }}" "${{ needs.test-commons.result }}" "${{ needs.test-civic.result }}" "${{ needs.test-hearth.result }}" "${{ needs.test-finance.result }}" "${{ needs.test-governance.result }}" "${{ needs.test-identity.result }}" "${{ needs.test-personal.result }}" "${{ needs.test-attribution.result }}" "${{ needs.test-bridge.result }}" "${{ needs.test-sdk.result }}" "${{ needs.test-prism.result }}"; do
             if [ "$result" = "failure" ]; then exit 1; fi
           done
           echo "All checks passed!"
