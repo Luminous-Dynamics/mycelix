@@ -5,21 +5,21 @@ Command (resource warnings promoted to errors):
   PYTHONWARNINGS=error::ResourceWarning python3 -m unittest -v ncf_alloc8_crash_consistency_v2.py ncf_alloc9_checkpoint_stress.py
 
 Result:
-  Ran 9 tests in 5.788s
+  Ran 9 tests in 6.706s
   OK
 
 Breakdown:
   NCF-ALLOC-8 resource-safe crash suite: 6 tests passed.
-  NCF-ALLOC-9 checkpoint suite: 3 tests passed.
+  NCF-ALLOC-9 checkpoint suite: 3 tests passed, including an explicit held-reader busy-checkpoint regression.
 
 NCF-ALLOC-8 resource-safe v2 source SHA-256:
   d2fda8ec66a8d3c0c1d364c99e3266e9dff445d9afb0bb6bc4b239e1ac402b23
 
 NCF-ALLOC-9 checkpoint source SHA-256:
-  e429db1a25427a707be54778dd5c400a06534914114981e7504128a8dc54ee91
+  77a38876f219cc781ef1fb06feea4fd579b1cfe65f0611c7d76a2de6b17076ca
 
 NCF-ALLOC-9 Git blob SHA:
-  24106e44118c0f607a4178f738103e3915e28ee6
+  d87d4bf4aa843ba8bfa74bbb278383d186d72885
 
 The NCF-ALLOC-9 source SHA-256 and Git blob SHA were checked against the checked-in source. Four local campaigns (1k, 8k, 20k, 20k repeat) completed with zero recorded invariant failures, all requested writes accepted, all read snapshots internally consistent, final ledger reconciled, SQLite integrity_check=ok, zero FK violations, and final TRUNCATE checkpoint [0,0,0].
 
