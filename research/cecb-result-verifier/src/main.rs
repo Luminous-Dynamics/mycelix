@@ -1279,7 +1279,10 @@ mod tests {
                 "digest_algorithm": "SHA-256",
                 "required_fields": RUN_FIELDS,
                 "terminal_dispositions": TERMINAL_DISPOSITIONS,
-                "failure_rule": "Every planned slot has exactly one terminal result; no silent omissions.",
+                "failure_rule": concat!(
+                    "Every planned slot has exactly one terminal result; ",
+                    "no silent omissions."
+                ),
                 "missing_outcome_policy": "unknown_not_zero",
                 "forbidden_aggregate_field": "universal_welfare_scalar"
             },
@@ -1415,6 +1418,12 @@ mod tests {
         let second = parse_strict_json("{ \n \"a\": {\"x\":1,\"y\":true}, \"b\": 2 }", "second")
             .unwrap();
         assert_eq!(jcs_sha256(&first).unwrap(), jcs_sha256(&second).unwrap());
+    }
+
+    #[test]
+    fn rejects_non_json_non_finite_numeric_tokens() {
+        assert!(parse_strict_json(r#"{"value":NaN}"#, "non-finite").is_err());
+        assert!(parse_strict_json(r#"{"value":Infinity}"#, "infinity").is_err());
     }
 
     #[test]
