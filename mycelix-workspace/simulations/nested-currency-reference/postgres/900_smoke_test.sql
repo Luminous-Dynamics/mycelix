@@ -18,6 +18,12 @@ INSERT INTO ncf.clearing_agreement(
 INSERT INTO ncf.community_instrument_cap(community_id, instrument_id, cap_units)
 VALUES ('community-a', 'NCF-TEST-UNIT', 100);
 
+INSERT INTO ncf.agreement_direction_cap(
+  agreement_id, direction, community_id, instrument_id, cap_units, allocated_units, outstanding_units
+) VALUES
+ ('aa000000-0000-0000-0000-000000000001', 'a_to_b', 'community-a', 'NCF-TEST-UNIT', 100, 0, 0),
+ ('aa000000-0000-0000-0000-000000000001', 'b_to_a', 'community-b', 'NCF-TEST-UNIT', 100, 0, 0);
+
 SELECT ncf.allocate_reservation_slice(
   'bb000000-0000-0000-0000-000000000001',
   'aa000000-0000-0000-0000-000000000001',
@@ -53,6 +59,8 @@ DECLARE
     v_allocated numeric;
     v_outstanding numeric;
     v_slice_used numeric;
+    v_edge_allocated numeric;
+    v_edge_outstanding numeric;
 BEGIN
     v_result := ncf.admit_obligation(
       '10000000-0000-0000-0000-000000000001',
@@ -157,8 +165,11 @@ BEGIN
      WHERE community_id='community-a' AND instrument_id='NCF-TEST-UNIT';
     SELECT used_units INTO v_slice_used FROM ncf.reservation_slice
      WHERE reservation_id='bb000000-0000-0000-0000-000000000001';
+    SELECT allocated_units, outstanding_units INTO v_edge_allocated, v_edge_outstanding
+      FROM ncf.agreement_direction_cap
+     WHERE agreement_id='aa000000-0000-0000-0000-000000000001' AND direction='a_to_b';
     IF v_count <> 1 OR v_units <> 60 OR v_allocated <> 100
-       OR v_outstanding <> 60 OR v_slice_used <> 60 THEN
+       OR v_outstanding <> 60 OR v_slice_used <> 60 OR v_edge_allocated <> 100 OR v_edge_outstanding <> 60 THEN
       RAISE EXCEPTION 'admission conservation failure: count %, units %, allocation %, outstanding %, slice-used %',
         v_count, v_units, v_allocated, v_outstanding, v_slice_used;
     END IF;
@@ -188,7 +199,9 @@ BEGIN
      WHERE community_id='community-a' AND instrument_id='NCF-TEST-UNIT';
     SELECT used_units INTO v_slice_used FROM ncf.reservation_slice
      WHERE reservation_id='bb000000-0000-0000-0000-000000000001';
-    IF v_outstanding <> 0 OR v_slice_used <> 0 THEN
+    SELECT outstanding_units INTO v_edge_outstanding FROM ncf.agreement_direction_cap
+     WHERE agreement_id='aa000000-0000-0000-0000-000000000001' AND direction='a_to_b';
+    IF v_outstanding <> 0 OR v_slice_used <> 0 OR v_edge_outstanding <> 0 THEN
       RAISE EXCEPTION 'settlement did not return used capacity: outstanding %, slice-used %', v_outstanding, v_slice_used;
     END IF;
     IF (SELECT count(*) FROM ncf.holochain_outbox WHERE obligation_id=v_obligation_id) <> 2 THEN
