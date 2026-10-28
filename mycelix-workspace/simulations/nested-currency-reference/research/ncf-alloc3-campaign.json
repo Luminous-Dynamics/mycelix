@@ -1,0 +1,57 @@
+{
+  "campaign_id": "NCF-ALLOC-3",
+  "title": "Bounded-influence allocation under adversarial demand claims",
+  "status": "rust_policy_added_python_research_executed_rust_tests_not_run",
+  "python_harness": "ncf_alloc3.py",
+  "python_tests": "test_ncf_alloc3.py",
+  "results": "ncf-alloc3-results.json",
+  "profile": {
+    "shards": 16,
+    "total_capacity_units": 100000,
+    "reserve_ppm": 50000,
+    "spendable_capacity_units": 95000,
+    "equal_floor_ppm": 500000,
+    "randomized_attack_cases": 20000,
+    "seed": 5573559978759378995,
+    "attacker_shards_per_case": "uniform integer 1..4",
+    "claim_inflation_multiplier": "uniform integer 2..20",
+    "actual_demand_units_per_shard": "uniform integer 1000..20000",
+    "cap_rule": "claims capped at 2x or 4x lower median before discretionary allocation"
+  },
+  "policies": [
+    "equal",
+    "weighted_raw_claims",
+    "equal_floor50_raw_claims",
+    "equal_floor50_cap2x_median",
+    "equal_floor50_cap4x_median",
+    "oracle_equal_floor50_true_backlog"
+  ],
+  "required_metrics": [
+    "demand_served_ppm",
+    "worst_shard_service_ppm",
+    "per_shard_service_vector",
+    "jain_fairness_ppm",
+    "unserved_units",
+    "stranded_units",
+    "attacker_allocation_share_ppm",
+    "stable_id_order_independence",
+    "capacity_conservation"
+  ],
+  "hard_invariants": [
+    "sum_allocations_equals_spendable_capacity",
+    "all_allocations_nonnegative",
+    "stable_id_tiebreak_independent_of_input_order",
+    "invalid_identity_and_parameters_fail_closed",
+    "zero_demand_fallback_is_exact_equal_plan"
+  ],
+  "claim_ceiling": "Lower-median capping is not demand authentication or Sybil resistance. The attack sweep has stable identities, <=25% attacker shards and no identity churn. The honest hotspot sweep assumes a new allocation each epoch and does not model partitions or outstanding obligations.",
+  "execution_evidence": {
+    "python_unit_tests": "9 passed",
+    "python_fixed_seed_allocation_sweep": "10000 cases in unit test; each checks stable-ID order independence and capacity conservation",
+    "randomized_attack_sweep": "20000 cases x 5 attack-relevant policies",
+    "rust_build_tests_clippy": "not_run; rustc/cargo unavailable in this environment",
+    "tla_model_check": "not_run",
+    "distributed_benchmark": "not_run"
+  },
+  "decision_rule": "Do not select cap/floor from aggregate demand served alone. Evaluate joint honest-load and adversarial-load frontier, worst-shard service, Jain fairness, stranded rights, identity threat model and recovery correctness."
+}
