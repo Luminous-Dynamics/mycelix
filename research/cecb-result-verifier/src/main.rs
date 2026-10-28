@@ -72,7 +72,13 @@ const OUTCOME_METRICS: &[&str] = &[
 ];
 
 const OUTCOME_CONTRACT: &[(&str, &str, &str, &str, &str)] = &[
-    ("safe_suitable_household_months", "household_month", "sum", "maximize", "unknown_not_zero"),
+    (
+        "safe_suitable_household_months",
+        "household_month",
+        "sum",
+        "maximize",
+        "unknown_not_zero",
+    ),
     (
         "unmet_essential_need_household_months",
         "household_month",
@@ -80,7 +86,13 @@ const OUTCOME_CONTRACT: &[(&str, &str, &str, &str, &str)] = &[
         "minimize",
         "unknown_not_zero",
     ),
-    ("wait_duration_p95_months", "month", "p95", "minimize", "unknown_not_zero"),
+    (
+        "wait_duration_p95_months",
+        "month",
+        "p95",
+        "minimize",
+        "unknown_not_zero",
+    ),
     (
         "fully_loaded_cost_cu",
         "synthetic_community_unit",
@@ -95,7 +107,13 @@ const OUTCOME_CONTRACT: &[(&str, &str, &str, &str, &str)] = &[
         "report_not_universally_ranked",
         "unknown_not_zero",
     ),
-    ("defaults_count", "household", "count", "minimize", "unknown_not_zero"),
+    (
+        "defaults_count",
+        "household",
+        "count",
+        "minimize",
+        "unknown_not_zero",
+    ),
     (
         "new_safe_suitable_units_completed",
         "dwelling",
@@ -131,7 +149,13 @@ const OUTCOME_CONTRACT: &[(&str, &str, &str, &str, &str)] = &[
         "hard_fail_if_nonzero",
         "unknown_is_not_pass",
     ),
-    ("evidence_coverage_fraction", "fraction", "per_metric_and_group", "maximize_without_weakening_validity", "unknown_not_zero"),
+    (
+        "evidence_coverage_fraction",
+        "fraction",
+        "per_metric_and_group",
+        "maximize_without_weakening_validity",
+        "unknown_not_zero",
+    ),
 ];
 
 #[derive(Debug)]
@@ -252,24 +276,19 @@ fn validate_jcs_number_safety(value: &Value, path: &str, errors: &mut Vec<String
     const MAX_SAFE_INTEGER: u64 = 9_007_199_254_740_991;
     match value {
         Value::Number(number) => {
-            if let Some(unsigned) = number.as_u64() {
-                if unsigned > MAX_SAFE_INTEGER {
-                    errors.push(format!(
-                        "{path} integer exceeds the RFC 8785 IEEE-754 safe-integer boundary; ",
-                    ) + "encode exact large quantities as strings in a versioned schema");
-                }
-            } else if let Some(signed) = number.as_i64() {
-                if signed < -(MAX_SAFE_INTEGER as i64) {
-                    errors.push(format!(
-                        "{path} integer exceeds the RFC 8785 IEEE-754 safe-integer boundary; ",
-                    ) + "encode exact large quantities as strings in a versioned schema");
-                }
-            } else if let Some(float) = number.as_f64() {
-                if float.abs() > MAX_SAFE_INTEGER as f64 && float.fract() == 0.0 {
-                    errors.push(format!(
-                        "{path} integer-valued number exceeds the RFC 8785 IEEE-754 safe-integer boundary"
-                    ));
-                }
+            let is_unsafe_integer = number
+                .as_u64()
+                .is_some_and(|unsigned| unsigned > MAX_SAFE_INTEGER)
+                || number
+                    .as_i64()
+                    .is_some_and(|signed| signed < -(MAX_SAFE_INTEGER as i64));
+            let is_large_integer_valued_float = number.as_f64().is_some_and(|float| {
+                float.abs() > MAX_SAFE_INTEGER as f64 && float.fract() == 0.0
+            });
+            if is_unsafe_integer || is_large_integer_valued_float {
+                errors.push(format!(
+                    "{path} exceeds the JCS safe-integer range; exact large values need strings in a versioned schema"
+                ));
             }
         }
         Value::Array(items) => {
@@ -367,6 +386,20 @@ fn validate_contract(plan: &Value, errors: &mut Vec<String>) {
         errors.push("plan is missing run_result_contract".to_owned());
         return;
     };
+    exact_keys(
+        contract,
+        &[
+            "schema_version",
+            "canonicalization_profile",
+            "digest_algorithm",
+            "required_fields",
+            "terminal_dispositions",
+            "missing_outcome_policy",
+            "forbidden_aggregate_field",
+        ],
+        "run_result_contract",
+        errors,
+    );
     if str_at(contract, "schema_version") != Some(RESULT_SCHEMA) {
         errors.push(format!("run-result contract schema must be {RESULT_SCHEMA:?}"));
     }
