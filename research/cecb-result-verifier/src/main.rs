@@ -43,6 +43,8 @@ const PLAN_FIELDS: &[&str] = &[
 const DESIGN_FIELDS: &[&str] = &[
     "comparison_axis",
     "scenario_config_digest_profile",
+    "exogenous_event_schedule_sha256",
+    "rng_contract_version",
     "held_constant",
     "factor_levels",
     "paired_seed_algorithm",
@@ -69,7 +71,7 @@ const HELD_CONSTANT_FIELDS: &[&str] = &[
     "ownership_stewardship",
     "service_floor",
     "observation_budget",
-    "resource_and_compute_budget",
+    "resource_and_compute_budget_sha256",
     "implementation_status",
 ];
 
@@ -107,6 +109,7 @@ const REPORT_SCHEMA: &str = "cecb.housing.result_verification_report.v0.1";
 const RESULT_SCHEMA: &str = "cecb.housing.policy_result.v0.1";
 const JCS_PROFILE: &str = "RFC 8785 JSON Canonicalization Scheme";
 const SCENARIO_DIGEST_PROFILE: &str = "RFC 8785 JCS followed by SHA-256";
+const EVENT_RNG_CONTRACT_VERSION: &str = "cecb.exogenous_rng.event_keyed.v1";
 
 const RUN_FIELDS: &[&str] = &[
     "run_id",
@@ -503,6 +506,17 @@ fn validate_contract(plan: &Value, errors: &mut Vec<String>) {
     if str_at(design, "scenario_config_digest_profile") != Some(SCENARIO_DIGEST_PROFILE) {
         errors.push("plan scenario configuration digest profile is unsupported".to_owned());
     }
+    if str_at(design, "rng_contract_version") != Some(EVENT_RNG_CONTRACT_VERSION) {
+        errors.push("plan rng_contract_version must bind the event-keyed exogenous RNG contract".to_owned());
+    }
+    if str_at(design, "exogenous_event_schedule_sha256")
+        .is_none_or(|digest| !is_hex(digest, 64))
+    {
+        errors.push(
+            "plan exogenous_event_schedule_sha256 must be a 64-character lowercase SHA-256 digest"
+                .to_owned(),
+        );
+    }
     if str_at(design, "comparison_axis") != Some("allocation_rule_only") {
         errors.push("plan comparison_axis must be allocation_rule_only for v0.1".to_owned());
     }
@@ -513,6 +527,35 @@ fn validate_contract(plan: &Value, errors: &mut Vec<String>) {
             "plan.design.held_constant",
             errors,
         );
+        if held_constant.get("initial_world_within_pair").and_then(Value::as_bool) != Some(true)
+            || held_constant
+                .get("exogenous_seed_within_pair")
+                .and_then(Value::as_bool)
+                != Some(true)
+        {
+            errors.push("paired comparison must hold initial world and exogenous seed constant".to_owned());
+        }
+        for (field, expected) in [
+            ("financing_event_schedule", "identical_across_arms"),
+            ("ownership_stewardship", "held_constant_across_arms"),
+            ("service_floor", "held_constant_across_arms"),
+            ("observation_budget", "identical_across_arms"),
+            ("implementation_status", "ready"),
+        ] {
+            if str_at(held_constant, field) != Some(expected) {
+                errors.push(format!(
+                    "plan.design.held_constant.{field} must be {expected:?}"
+                ));
+            }
+        }
+        if str_at(held_constant, "resource_and_compute_budget_sha256")
+            .is_none_or(|digest| !is_hex(digest, 64))
+        {
+            errors.push(
+                "resource_and_compute_budget_sha256 must pin the fair-comparison budget profile"
+                    .to_owned(),
+            );
+        }
     } else {
         errors.push("plan design.held_constant is required".to_owned());
     }
@@ -1590,6 +1633,8 @@ mod tests {
             "design": {
                 "comparison_axis": "allocation_rule_only",
                 "scenario_config_digest_profile": SCENARIO_DIGEST_PROFILE,
+                "exogenous_event_schedule_sha256": "e".repeat(64),
+                "rng_contract_version": EVENT_RNG_CONTRACT_VERSION,
                 "held_constant": {
                     "initial_world_within_pair": true,
                     "exogenous_seed_within_pair": true,
@@ -1597,7 +1642,7 @@ mod tests {
                     "ownership_stewardship": "held_constant_across_arms",
                     "service_floor": "held_constant_across_arms",
                     "observation_budget": "identical_across_arms",
-                    "resource_and_compute_budget": "same_budget",
+                    "resource_and_compute_budget_sha256": "f".repeat(64),
                     "implementation_status": "ready"
                 },
                 "factor_levels": {
