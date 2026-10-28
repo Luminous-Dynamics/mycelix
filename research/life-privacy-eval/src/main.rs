@@ -3,7 +3,7 @@ use std::env;
 use std::error::Error;
 use std::fs;
 
-const VERSION: &str = "0.1.0";
+const VERSION: &str = "0.2.0";
 const DEFAULT_BOOTSTRAPS: usize = 1_000;
 const DEFAULT_SEED: u64 = 9_901;
 const MIN_PAIRS_FOR_REVIEW: usize = 10_000;
@@ -49,6 +49,9 @@ fn main() {
 
 fn run() -> Result<(), Box<dyn Error>> {
     let args: Vec<String> = env::args().collect();
+    if args.get(1).is_some_and(|arg| arg == "compare") {
+        return run_compare(&args);
+    }
     if args.len() < 5
         || args.len() > 7
         || args
@@ -56,7 +59,8 @@ fn run() -> Result<(), Box<dyn Error>> {
             .is_some_and(|arg| arg == "--help" || arg == "-h")
     {
         eprintln!(
-            "Usage: {} <truth.tsv> <scores.tsv> <training-subjects.txt> <report.json> [bootstrap-replicates=1000] [seed=9901]\n\ntruth.tsv has pair_id, subject_a, subject_b, label, stratum.\nscores.tsv has only pair_id and score; never give ground-truth fields to the attack scorer.",
+            "Usage: {} <truth.tsv> <scores.tsv> <training-subjects.txt> <report.json> [bootstrap-replicates=1000] [seed=9901]\n       {} compare <truth.tsv> <baseline-scores.tsv> <treatment-scores.tsv> <training-subjects.txt> <report.json> [bootstrap-replicates=1000] [seed=9901] [max_auc_upper=0.55]\n\ntruth.tsv has pair_id, subject_a, subject_b, label, stratum.\nscores.tsv has only pair_id and score; never give ground-truth fields to the attack scorer. Paired comparison requires identical pair sets in both score files.",
+            args.first().map_or("life-privacy-eval", String::as_str),
             args.first().map_or("life-privacy-eval", String::as_str)
         );
         if args
@@ -95,6 +99,83 @@ fn run() -> Result<(), Box<dyn Error>> {
         fs::write(report_path, report)?;
     }
     Ok(())
+}
+
+
+fn run_compare(args: &[String]) -> Result<(), Box<dyn Error>> {
+    if args.len() < 7 || args.len() > 10 {
+        return Err("compare usage: compare <truth.tsv> <baseline-scores.tsv> <treatment-scores.tsv> <training-subjects.txt> <report.json> [bootstrap-replicates=1000] [seed=9901] [max_auc_upper=0.55]".into());
+    }
+    let truth = read_truth(&args[2])?;
+    let baseline_scores = read_scores(&args[3])?;
+    let treatment_scores = read_scores(&args[4])?;
+    let training_subjects = read_training_subjects(&args[5])?;
+    let report_path = &args[6];
+    let bootstrap_replicates = args.get(7).map_or(Ok(DEFAULT_BOOTSTRAPS), |s| s.parse::<usize>())?;
+    let seed = args.get(8).map_or(Ok(DEFAULT_SEED), |s| s.parse::<u64>())?;
+    let max_auc_upper = args.get(9).map_or(Ok(0.55_f64), |s| s.parse::<f64>())?;
+    if bootstrap_replicates < 100 {
+        return Err("at least 100 subject-cluster bootstrap replicates are required for an interval".into());
+    }
+    if !max_auc_upper.is_finite() || !(0.5..=1.0).contains(&max_auc_upper) {
+        return Err("max_auc_upper must be finite and in the range [0.5, 1.0]".into());
+    }
+    let rows = join_paired_scores(truth, baseline_scores, treatment_scores, &training_subjects)?;
+    if !rows.iter().any(|row| row.label == 1) || !rows.iter().any(|row| row.label == 0) {
+        return Err("paired truth set must contain at least one positive and one negative pair".into());
+    }
+    let report = format!("{}\n", build_paired_report(&rows, &training_subjects, bootstrap_replicates, seed, max_auc_upper));
+    if report_path == "-" {
+        print!("{report}");
+    } else {
+        fs::write(report_path, report)?;
+    }
+    Ok(())
+}
+
+#[derive(Clone, Debug)]
+struct PairedScoreRow {
+    pair_id: String,
+    subject_a: String,
+    subject_b: String,
+    label: u8,
+    stratum: String,
+    baseline_score: f64,
+    treatment_score: f64,
+}
+
+fn join_paired_scores(
+    truth: Vec<TruthRow>,
+    baseline_scores: HashMap<String, f64>,
+    treatment_scores: HashMap<String, f64>,
+    training_subjects: &HashSet<String>,
+) -> Result<Vec<PairedScoreRow>, Box<dyn Error>> {
+    let baseline = join_and_validate(truth.clone(), baseline_scores, training_subjects)?;
+    let treatment = join_and_validate(truth, treatment_scores, training_subjects)?;
+    if baseline.len() != treatment.len() {
+        return Err("baseline and treatment must contain exactly the same pair set".into());
+    }
+    let mut output = Vec::with_capacity(baseline.len());
+    for (left, right) in baseline.into_iter().zip(treatment) {
+        if left.pair_id != right.pair_id
+            || left.subject_a != right.subject_a
+            || left.subject_b != right.subject_b
+            || left.label != right.label
+            || left.stratum != right.stratum
+        {
+            return Err("baseline and treatment rows are not aligned to identical pairs, subjects, labels and strata".into());
+        }
+        output.push(PairedScoreRow {
+            pair_id: left.pair_id,
+            subject_a: left.subject_a,
+            subject_b: left.subject_b,
+            label: left.label,
+            stratum: left.stratum,
+            baseline_score: left.score,
+            treatment_score: right.score,
+        });
+    }
+    Ok(output)
 }
 
 fn read_truth(path: &str) -> Result<Vec<TruthRow>, Box<dyn Error>> {
@@ -379,13 +460,17 @@ fn subject_cluster_bootstrap(rows: &[TruthRowWithScore], replicates: usize, seed
             aucs.push(weighted_auc(&weighted, positive, negative));
         }
     }
-    aucs.sort_by(f64::total_cmp);
-    if aucs.is_empty() {
+    percentile_interval(aucs)
+}
+
+fn percentile_interval(mut values: Vec<f64>) -> Interval {
+    values.sort_by(f64::total_cmp);
+    if values.is_empty() {
         return Interval { low: f64::NAN, high: f64::NAN, valid_replicates: 0 };
     }
-    let low_index = ((aucs.len() as f64 * 0.025).floor() as usize).min(aucs.len() - 1);
-    let high_index = ((aucs.len() as f64 * 0.975).floor() as usize).min(aucs.len() - 1);
-    Interval { low: aucs[low_index], high: aucs[high_index], valid_replicates: aucs.len() }
+    let low_index = ((values.len() as f64 * 0.025).floor() as usize).min(values.len() - 1);
+    let high_index = ((values.len() as f64 * 0.975).floor() as usize).min(values.len() - 1);
+    Interval { low: values[low_index], high: values[high_index], valid_replicates: values.len() }
 }
 
 struct XorShift64 { state: u64 }
@@ -443,6 +528,149 @@ fn build_report(rows: &[TruthRowWithScore], training_subjects: &HashSet<String>,
         VERSION, sample_status, seed, bootstraps, interval.valid_replicates, rows.len(), positives, negatives,
         subjects.len(), training_subjects.len(), metrics.roc_auc, metrics.average_precision, metrics.tpr_at_fpr_1pct, metrics.tpr_at_fpr_5pct,
         metric_or_null((!interval.low.is_nan()).then_some(interval.low)), metric_or_null((!interval.high.is_nan()).then_some(interval.high)), by_stratum
+    )
+}
+
+
+fn paired_auc_delta_bootstrap(rows: &[PairedScoreRow], replicates: usize, seed: u64) -> Interval {
+    let subjects: Vec<String> = rows
+        .iter()
+        .flat_map(|row| [row.subject_a.clone(), row.subject_b.clone()])
+        .collect::<BTreeSet<_>>()
+        .into_iter()
+        .collect();
+    if subjects.is_empty() {
+        return Interval { low: f64::NAN, high: f64::NAN, valid_replicates: 0 };
+    }
+    let mut rng = XorShift64::new(seed);
+    let mut deltas = Vec::with_capacity(replicates);
+    for _ in 0..replicates {
+        let mut multiplicity: HashMap<&str, u64> = HashMap::new();
+        for _ in 0..subjects.len() {
+            let index = (rng.next() % subjects.len() as u64) as usize;
+            *multiplicity.entry(subjects[index].as_str()).or_insert(0) += 1;
+        }
+        let mut baseline_obs = Vec::with_capacity(rows.len());
+        let mut treatment_obs = Vec::with_capacity(rows.len());
+        for row in rows {
+            let a = *multiplicity.get(row.subject_a.as_str()).unwrap_or(&0) as f64;
+            let b = *multiplicity.get(row.subject_b.as_str()).unwrap_or(&0) as f64;
+            let weight = if row.subject_a == row.subject_b { a } else { a * b };
+            if weight > 0.0 {
+                baseline_obs.push(WeightedObservation { score: row.baseline_score, label: row.label, weight });
+                treatment_obs.push(WeightedObservation { score: row.treatment_score, label: row.label, weight });
+            }
+        }
+        if let (Some(baseline), Some(treatment)) = (compute_metrics(&baseline_obs), compute_metrics(&treatment_obs)) {
+            deltas.push(treatment.roc_auc - baseline.roc_auc);
+        }
+    }
+    percentile_interval(deltas)
+}
+
+fn paired_project(rows: &[PairedScoreRow], use_treatment: bool) -> Vec<TruthRowWithScore> {
+    rows.iter()
+        .map(|row| TruthRowWithScore {
+            pair_id: row.pair_id.clone(),
+            subject_a: row.subject_a.clone(),
+            subject_b: row.subject_b.clone(),
+            label: row.label,
+            stratum: row.stratum.clone(),
+            score: if use_treatment { row.treatment_score } else { row.baseline_score },
+        })
+        .collect()
+}
+
+fn build_paired_report(
+    rows: &[PairedScoreRow],
+    training_subjects: &HashSet<String>,
+    bootstraps: usize,
+    seed: u64,
+    max_auc_upper: f64,
+) -> String {
+    let baseline_rows = paired_project(rows, false);
+    let treatment_rows = paired_project(rows, true);
+    let baseline_metrics = compute_metrics(&observations(&baseline_rows)).expect("validated data has positive and negative pairs");
+    let treatment_metrics = compute_metrics(&observations(&treatment_rows)).expect("validated data has positive and negative pairs");
+    let baseline_interval = subject_cluster_bootstrap(&baseline_rows, bootstraps, seed);
+    let treatment_interval = subject_cluster_bootstrap(&treatment_rows, bootstraps, seed);
+    let delta_interval = paired_auc_delta_bootstrap(rows, bootstraps, seed ^ 0xA5A5_9901_1234_5678);
+    let positives = rows.iter().filter(|row| row.label == 1).count();
+    let negatives = rows.len() - positives;
+    let subjects: BTreeSet<&str> = rows
+        .iter()
+        .flat_map(|row| [row.subject_a.as_str(), row.subject_b.as_str()])
+        .collect();
+    let sample_size_met = rows.len() >= MIN_PAIRS_FOR_REVIEW && subjects.len() >= MIN_SUBJECTS_FOR_REVIEW;
+    let sample_size_gate = if sample_size_met { "MINIMUM_COUNTS_MET_REQUIRES_REVIEW" } else { "SMOKE_ONLY_BELOW_MINIMUM" };
+    let unlinkability_auc_gate = if !sample_size_met {
+        "NOT_EVALUATED_BELOW_SAMPLE_MINIMUM"
+    } else if treatment_interval.high.is_finite() && treatment_interval.high <= max_auc_upper {
+        "PROVISIONAL_PASS_REQUIRES_REVIEW"
+    } else if treatment_interval.low.is_finite() && treatment_interval.low > max_auc_upper {
+        "FAIL"
+    } else {
+        "INCONCLUSIVE"
+    };
+    let linkability_change_status = if delta_interval.high.is_finite() && delta_interval.high < 0.0 {
+        "REDUCTION_SUPPORTED"
+    } else if delta_interval.low.is_finite() && delta_interval.low > 0.0 {
+        "LINKABILITY_WORSENED"
+    } else {
+        "INCONCLUSIVE"
+    };
+    let valid_replicates = baseline_interval.valid_replicates
+        .min(treatment_interval.valid_replicates)
+        .min(delta_interval.valid_replicates);
+    format!(
+r#"{{ 
+  "schema_version": "1.0",
+  "evaluator_version": "{}",
+  "evaluation_mode": "paired_mitigation_comparison",
+  "seed": {},
+  "requested_bootstrap_replicates": {},
+  "valid_bootstrap_replicates": {},
+  "pair_count": {},
+  "positive_pairs": {},
+  "negative_pairs": {},
+  "unique_test_subjects": {},
+  "training_subject_count": {},
+  "subject_overlap_count": 0,
+  "baseline_metrics": {},
+  "treatment_metrics": {},
+  "treatment_minus_baseline_auc": {},
+  "paired_delta_auc_cluster_bootstrap_ci95": {{"low": {}, "high": {}, "valid_replicates": {}}},
+  "proposed_max_auc_upper": {},
+  "sample_size_gate": "{}",
+  "linkability_change_status": "{}",
+  "unlinkability_auc_gate": "{}",
+  "task_utility_evidence_present": false,
+  "official_conformance_evidence_present": false,
+  "overall_release_gate": "NOT_EVALUATED_REQUIRED_UTILITY_AND_CONFORMANCE_MISSING",
+  "interpretation": "A paired subject-cluster bootstrap compares baseline and treatment ranking scores on identical pairs. This interval supports only the supplied test cohort and declared score files. Smoke-size data cannot qualify a privacy profile; a supported AUC reduction is not an unlinkability pass. Task utility and official conformance are not inputs and are never inferred."
+}}"#,
+        VERSION, seed, bootstraps, valid_replicates, rows.len(), positives, negatives,
+        subjects.len(), training_subjects.len(),
+        metrics_json(baseline_metrics, baseline_interval),
+        metrics_json(treatment_metrics, treatment_interval),
+        metric_or_null(Some(treatment_metrics.roc_auc - baseline_metrics.roc_auc)),
+        metric_or_null(delta_interval.low.is_finite().then_some(delta_interval.low)),
+        metric_or_null(delta_interval.high.is_finite().then_some(delta_interval.high)),
+        delta_interval.valid_replicates,
+        max_auc_upper, sample_size_gate, linkability_change_status, unlinkability_auc_gate
+    )
+}
+
+fn metrics_json(metrics: Metrics, interval: Interval) -> String {
+    format!(
+        r#"{{"roc_auc":{},"average_precision":{},"tpr_at_fpr_1pct":{},"tpr_at_fpr_5pct":{},"roc_auc_cluster_bootstrap_ci95":{{"low":{},"high":{},"valid_replicates":{}}}}}"#,
+        metric_or_null(Some(metrics.roc_auc)),
+        metric_or_null(Some(metrics.average_precision)),
+        metric_or_null(Some(metrics.tpr_at_fpr_1pct)),
+        metric_or_null(Some(metrics.tpr_at_fpr_5pct)),
+        metric_or_null(interval.low.is_finite().then_some(interval.low)),
+        metric_or_null(interval.high.is_finite().then_some(interval.high)),
+        interval.valid_replicates
     )
 }
 
@@ -527,6 +755,76 @@ mod tests {
         scores.insert("pair_001".to_owned(), 0.7);
         let training = HashSet::from(["test_subject_001".to_owned()]);
         assert!(join_and_validate(truth, scores, &training).is_err());
+    }
+
+
+    fn paired_positive_control_rows() -> Vec<PairedScoreRow> {
+        let mut rows = Vec::new();
+        for i in 0..8 {
+            let subject = format!("test_subject_{i:03}");
+            rows.push(PairedScoreRow {
+                pair_id: format!("pair_positive_{i:03}"),
+                subject_a: subject.clone(),
+                subject_b: subject,
+                label: 1,
+                stratum: "known_answer".to_owned(),
+                baseline_score: 0.9,
+                treatment_score: 0.5,
+            });
+        }
+        for i in 0..8 {
+            rows.push(PairedScoreRow {
+                pair_id: format!("pair_negative_{i:03}"),
+                subject_a: format!("test_subject_{i:03}"),
+                subject_b: format!("test_subject_{:03}", i + 8),
+                label: 0,
+                stratum: "known_answer".to_owned(),
+                baseline_score: 0.1,
+                treatment_score: 0.5,
+            });
+        }
+        rows
+    }
+
+    #[test]
+    fn paired_bootstrap_detects_known_answer_auc_reduction() {
+        let delta = paired_auc_delta_bootstrap(&paired_positive_control_rows(), 300, 9901);
+        assert!(delta.valid_replicates >= 100);
+        assert!((delta.low + 0.5).abs() < 1e-12);
+        assert!((delta.high + 0.5).abs() < 1e-12);
+    }
+
+    #[test]
+    fn paired_bootstrap_is_deterministic() {
+        let rows = paired_positive_control_rows();
+        let a = paired_auc_delta_bootstrap(&rows, 200, 44);
+        let b = paired_auc_delta_bootstrap(&rows, 200, 44);
+        assert_eq!(a.valid_replicates, b.valid_replicates);
+        assert_eq!(a.low.to_bits(), b.low.to_bits());
+        assert_eq!(a.high.to_bits(), b.high.to_bits());
+    }
+
+    #[test]
+    fn paired_join_rejects_different_pair_sets() {
+        let truth = vec![TruthRow {
+            pair_id: "pair_001".to_owned(),
+            subject_a: "test_subject_001".to_owned(),
+            subject_b: "test_subject_001".to_owned(),
+            label: 1,
+            stratum: "known_answer".to_owned(),
+        }];
+        let baseline = HashMap::from([("pair_001".to_owned(), 0.9)]);
+        let treatment = HashMap::from([("pair_999".to_owned(), 0.5)]);
+        assert!(join_paired_scores(truth, baseline, treatment, &HashSet::new()).is_err());
+    }
+
+    #[test]
+    fn paired_report_never_claims_complete_release_without_utility_and_conformance() {
+        let report = build_paired_report(&paired_positive_control_rows(), &HashSet::new(), 100, 9901, 0.55);
+        assert!(report.contains("REDUCTION_SUPPORTED"));
+        assert!(report.contains("SMOKE_ONLY_BELOW_MINIMUM"));
+        assert!(report.contains("NOT_EVALUATED_REQUIRED_UTILITY_AND_CONFORMANCE_MISSING"));
+        assert!(report.contains("task_utility_evidence_present"));
     }
 
     fn temp_path(label: &str) -> std::path::PathBuf {
