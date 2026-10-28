@@ -105,7 +105,7 @@
     "cap_rule": "per-shard cap at 2x or 4x lower median claim",
     "equal_floor_ppm": 500000,
     "reserve_ppm": 50000,
-    "seed": 5573559978759379000,
+    "seed": 5573559978759378995,
     "shards": 16,
     "spendable_capacity_units": 95000,
     "total_capacity_units": 100000
