@@ -198,6 +198,9 @@ jobs:
             .paired_seed_count == 30 and
             .arm_count == 5 and
             .scheduled_run_count == 32400 and
+            .design.model_binding.execution_authorized == false and
+            .design.model_binding.numeric_scenario_value_mapping == "unresolved_labels_only" and
+            (.outcome_contract | length == 12) and
             (.runs | length == 32400) and
             ([.runs[].run_id] | unique | length == 32400) and
             all(.runs[]; .status == "not_executed" and .disposition == "not_started")
