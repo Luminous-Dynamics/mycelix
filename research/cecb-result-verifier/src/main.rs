@@ -1336,9 +1336,9 @@ fn verify_bundle(plan: &Value, bundle: &Value) -> Value {
         if row_verified && completed_guardrail_clear {
             completed_guardrail_clear_count =
                 completed_guardrail_clear_count.saturating_add(1);
-            if unknown_count == 0 {
-                complete_outcome_vector_count = complete_outcome_vector_count.saturating_add(1);
-            }
+        }
+        if row_verified && unknown_count == 0 {
+            complete_outcome_vector_count = complete_outcome_vector_count.saturating_add(1);
         }
         if row_verified && guardrail_failed {
             guardrail_failed_count = guardrail_failed_count.saturating_add(1);
