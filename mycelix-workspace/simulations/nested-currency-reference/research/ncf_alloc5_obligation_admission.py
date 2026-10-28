@@ -24,6 +24,7 @@ class ObligationEvidence:
     epoch: int
     sequence: int
     amount_units: int
+    obligation_payload_digest: str
     verifier_version: str
     verifier_receipt_digest: str
     verifier_receipt_ok: bool
@@ -34,6 +35,7 @@ class Receipt:
     principal_id: str
     instrument_id: str
     amount_units: int
+    obligation_payload_digest: str
     original_epoch: int
     receipt_digest: str
 
@@ -58,6 +60,8 @@ class ObligationBook:
             return "empty_identity_or_verifier_version"
         if e.epoch < 0 or e.sequence < 0 or e.amount_units <= 0:
             return "invalid_epoch_sequence_or_amount"
+        if len(e.obligation_payload_digest) != 64 or any(c not in "0123456789abcdef" for c in e.obligation_payload_digest):
+            return "invalid_obligation_payload_digest"
         if len(e.verifier_receipt_digest) != 64 or any(c not in "0123456789abcdef" for c in e.verifier_receipt_digest):
             return "invalid_verifier_receipt_digest"
         if not e.verifier_receipt_ok:
@@ -70,7 +74,7 @@ class ObligationBook:
             return ApplyResult(Decision.REJECTED, reason)
         # The caller provides verifier_receipt_ok; this model tests downstream policy
         # assuming an independently verified receipt exists. It is not signature proof.
-        payload = (e.principal_id, e.instrument_id, e.amount_units)
+        payload = (e.principal_id, e.instrument_id, e.amount_units, e.obligation_payload_digest)
         prior = self._accepted.get(e.obligation_id)
         if prior:
             prior_payload, prior_receipt = prior
@@ -85,9 +89,10 @@ class ObligationBook:
         if next_used > self._caps[cap_key]:
             return ApplyResult(Decision.REJECTED, "principal_instrument_cap_exceeded")
         # Receipt digest is deterministic for the reference oracle and not a signature.
-        canonical = "|".join((e.obligation_id, e.principal_id, e.instrument_id, str(e.amount_units), str(e.epoch)))
+        canonical = "|".join((e.obligation_id, e.principal_id, e.instrument_id, str(e.amount_units),
+                               e.obligation_payload_digest, str(e.epoch)))
         receipt = Receipt(e.obligation_id, e.principal_id, e.instrument_id, e.amount_units,
-                          e.epoch, hashlib.sha256(canonical.encode()).hexdigest())
+                          e.obligation_payload_digest, e.epoch, hashlib.sha256(canonical.encode()).hexdigest())
         self._accepted[e.obligation_id] = (payload, receipt)
         self._used_by_principal_instrument[cap_key] = next_used
         return ApplyResult(Decision.ACCEPTED, "accepted_verified_obligation_once", receipt)
@@ -104,10 +109,13 @@ class ObligationBook:
 
 def evidence(obligation_id: str, principal_id: str = "principal-A", instrument_id: str = "instrument-1",
              shard_id: str = "shard-0", epoch: int = 1, sequence: int = 1, amount_units: int = 100,
-             verifier_version: str = "queue-verifier-v1", verifier_receipt_ok: bool = True) -> ObligationEvidence:
-    digest = hashlib.sha256(f"receipt|{obligation_id}|{principal_id}|{instrument_id}|{amount_units}".encode()).hexdigest()
+             verifier_version: str = "queue-verifier-v1", verifier_receipt_ok: bool = True,
+             obligation_payload: str | None = None) -> ObligationEvidence:
+    payload = obligation_payload if obligation_payload is not None else f"service|{obligation_id}|{principal_id}|{instrument_id}|{amount_units}"
+    obligation_digest = hashlib.sha256(payload.encode()).hexdigest()
+    digest = hashlib.sha256(f"receipt|{obligation_id}|{principal_id}|{instrument_id}|{amount_units}|{obligation_digest}".encode()).hexdigest()
     return ObligationEvidence(obligation_id, principal_id, instrument_id, shard_id, epoch, sequence,
-                              amount_units, verifier_version, digest, verifier_receipt_ok)
+                              amount_units, obligation_digest, verifier_version, digest, verifier_receipt_ok)
 
 def run_alias_scenario(alias_count: int = 32) -> dict:
     if alias_count < 1: raise ValueError("alias_count must be positive")
