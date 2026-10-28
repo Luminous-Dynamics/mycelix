@@ -481,7 +481,7 @@ fn build_paired_plan() -> Value {
                 "numeric_scenario_value_mapping": "unresolved_labels_only",
                 "policy_adapter_mapping": "pending",
                 "execution_authorized": false,
-                "exogenous_rng_contract": "must be event-keyed or use named shared streams",
+                "exogenous_rng_contract": "event_keyed_preferred; named streams require event-level draw alignment",
                 "policy_internal_rng": "separate_namespace_required"
             }
         },
