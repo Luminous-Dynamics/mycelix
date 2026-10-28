@@ -1805,7 +1805,10 @@ fn verify_artifact_contents(
         let path_keys = paths.keys().cloned().collect::<BTreeSet<String>>();
         if digest_keys != path_keys || digest_keys.is_empty() {
             errors.push(format!(
-                "run {run_id:?} artifact_paths keys must exactly match non-empty artifact_digests keys"
+                concat!(
+                    "run {run_id:?} artifact_paths keys must exactly match non-empty ",
+                    "artifact_digests keys"
+                )
             ));
             continue;
         }
@@ -2435,6 +2438,7 @@ mod tests {
         assert!(!verified(&plan, &bundle));
         assert!(!safe_relative_artifact_path("../../outside/result-trace.json"));
         assert!(!safe_relative_artifact_path("/etc/passwd"));
+        assert!(!safe_relative_artifact_path("./runs/result-trace.json"));
         assert!(!safe_relative_artifact_path(r"c:\outside\artifact.bin"));
     }
 
