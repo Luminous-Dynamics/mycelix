@@ -43,9 +43,10 @@ def capped_claims(claims: list[int], cap_multiple: int) -> list[int]:
     if not claims or any(v < 0 for v in claims): raise ValueError("claims must be non-empty and nonnegative")
     baseline = lower_median(claims)
     if baseline == 0:
-        positive = [v for v in claims if v > 0]
-        if not positive: return [0] * len(claims)
-        baseline = lower_median(positive)
+        # There is no trustworthy nonzero scale for a relative cap. Do not let
+        # the few positive claimants define their own cap; force the caller's
+        # explicit equal-share cold-start fallback instead.
+        return [0] * len(claims)
     cap = baseline * cap_multiple
     return [min(v, cap) for v in claims]
 
