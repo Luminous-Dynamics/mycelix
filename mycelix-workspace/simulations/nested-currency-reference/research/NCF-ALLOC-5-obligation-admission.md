@@ -1,6 +1,6 @@
 # NCF-ALLOC-5 — Canonical obligation evidence and principal-scoped admission
 
-**Status:** sequential Python oracle (nine tests pass) plus a typed Rust reference module with ten test definitions added; Rust has not been compiled or run. Neither implementation is cryptographic verification, concurrent/durable admission, distributed/Holochain behavior, or production settlement.
+**Status:** sequential Python oracle with twelve test definitions, plus a typed Rust reference module with fourteen test definitions; the Rust module has not been compiled or run. Separate SQLite transaction research is documented under NCF-ALLOC-7. Neither implementation is cryptographic verification, concurrent/durable admission, distributed/Holochain behavior, or production settlement.
 
 ## Why the paradigm must change
 
@@ -25,15 +25,15 @@ Fourteen Rust unit-test definitions cover exact replay across shard/epoch aliase
 
 ## Local test and deterministic result
 
-The three Python suites now contain **24 tests total**: 10 NCF-ALLOC-3, 5 NCF-ALLOC-4 and 9 NCF-ALLOC-5; all 24 passed in the recorded local run. Separately, Rust source contains 21 allocation tests and 10 obligation-admission test definitions; neither group has an execution pass recorded. The NCF-ALLOC-5 deterministic scenarios replay one 4,000-unit underlying obligation through 1, 4, 8, 16 or 32 shard aliases; every case records one unique accepted obligation, 4,000 outstanding units, one initial acceptance and alias_count - 1 idempotent replays.
+The four Python research suites contain **35 tests** across NCF-ALLOC-3/4/5/6; the recorded local combined run passed. The separate NCF-ALLOC-7 SQLite suite has seven local tests and 150 concurrent pair trials, with zero observed invariant failures. The Rust allocation tests and fourteen obligation-admission test definitions remain uncompiled/unexecuted; the SQLite results do not qualify the Rust/Holochain path. The NCF-ALLOC-5 deterministic scenarios replay one 4,000-unit underlying obligation through 1, 4, 8, 16 or 32 shard aliases; every case records one unique accepted obligation, 4,000 outstanding units, one initial acceptance and alias_count - 1 idempotent replays.
 
 Files:
 
 - ncf_alloc5_obligation_admission.py — sequential evidence admission model
-- test_ncf_alloc5_obligation_admission.py — nine regression tests
+- test_ncf_alloc5_obligation_admission.py — twelve regression tests
 - ncf-alloc5-obligation-admission-results.json — fixed scenario results with source SHA-256 and explicit claim ceiling
 - ncf-alloc5-obligation-campaign.json — machine-readable Python oracle campaign and acceptance gates
-- src/obligation.rs — typed Rust sequential reference model (10 unrun test definitions)
+- src/obligation.rs — typed Rust sequential reference model (14 unrun test definitions)
 
 ## Production design questions not answered by the model
 
@@ -45,7 +45,7 @@ Files:
 
 ## Qualification path
 
-First port the oracle to typed Rust, reuse existing authorization/reservation primitives rather than duplicate them, and add property tests for duplicate and reordered histories. Then use a durable idempotency store and fault injection for concurrent retries, crashes and partitions. Only after the source-level state transition and authoritative verifier are established should a multi-agent/Holochain test attempt to qualify cross-agent duplicate rejection.
+The typed Rust reference module is now present; next, keep its semantics aligned with the SQLite transaction baseline, then qualify a durable implementation with concurrent retries, crashes and partitions. Reuse existing authorization/reservation primitives rather than duplicating them. Only after the source-level state transition and authoritative verifier are established should a multi-agent/Holochain test attempt to qualify cross-agent duplicate rejection.
 
 The expected safety gates are zero duplicate accepted obligation IDs, zero cap overshoot, no mutation on rejection, exact receipt replay for matching payloads, rejection of conflicting payloads, and zero acknowledged obligation loss. Performance should be reported for the full admission and settlement path, not just the allocation formula.
 
@@ -53,3 +53,8 @@ The expected safety gates are zero duplicate accepted obligation IDs, zero cap o
 ## Follow-on finding: sequential admission still needs atomic concurrency semantics
 
 The next [NCF-ALLOC-6 campaign](NCF-ALLOC-6-admission-races.md) enumerates 70 order-preserving interleavings of two four-stage requests. It shows why a correct sequential obligation book does not establish a safe concurrent admission path: stale dedup and cap reads may race before commit. See its separate results and caveat; the model is not a database test.
+
+
+## NCF-ALLOC-7: concrete local transaction baseline
+
+The [NCF-ALLOC-7 campaign](NCF-ALLOC-7-sqlite-admission.md) adds a file-backed SQLite WAL/synchronous-FULL admission reference that performs canonical-work uniqueness, request-ID evidence binding, cap check/debit, and receipt persistence inside one BEGIN IMMEDIATE transaction. Seven local tests passed, including 50 concurrent trials for each of three race classes, with zero observed invariant failures. A 2,000-attempt mix of 1,000 unique obligations and 1,000 exact retries measured 1,098.59 attempts/s with p95 1.8039 ms / p99 2.1586 ms on Python 3.13.5 + SQLite 3.46.1. The repository source is a condensed non-byte-identical copy of the locally executed source. These local SQLite results are research-only and do not qualify multiple hosts, actual power-loss recovery, Rust, Holochain or production settlement.
