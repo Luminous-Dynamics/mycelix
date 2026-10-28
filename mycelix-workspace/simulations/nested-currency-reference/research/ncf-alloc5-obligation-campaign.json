@@ -39,7 +39,7 @@
     "original_receipt_preserved"
   ],
   "execution_evidence": {
-    "unit_tests": "11 passed as part of combined 34-test Python suite on 2026-10-28",
+    "unit_tests": "12 passed as part of combined 35-test Python suite on 2026-10-28",
     "rust": "not_run",
     "cryptographic_verifier": "not_implemented",
     "concurrent_database": "not_run",
@@ -48,5 +48,11 @@
   },
   "claim_ceiling": "Sequential Python reference model that assumes verifier_receipt_ok is supplied by an independent trustworthy verifier. It is not cryptographic identity, real-work verification, concurrent linearizability, Holochain qualification, or production evidence. The canonical payload digest is computed by the model for test determinism; its presence does not authenticate the underlying work or identity. The reference model treats a verifier-derived canonical work digest as a unique-work key, but it does not verify the source work or authenticate the digest.",
   "source_sha256": "e93c372136a104820c7295809458b5284d4f606b42d7d8d55fa478a9c7531afe",
-  "results_sha256": "e8bc17f8c4d66e6f972e2c18a9fffb517d0cb0989611d96c450e59d78ad2c2b1"
+  "results_sha256": "e8bc17f8c4d66e6f972e2c18a9fffb517d0cb0989611d96c450e59d78ad2c2b1",
+  "source_provenance": {
+    "local_executed_source_sha256": "e93c372136a104820c7295809458b5284d4f606b42d7d8d55fa478a9c7531afe",
+    "checked_in_source_sha256": "93bdaacfdf190ff5fc90786e63dce4d4e44e59292c159e31a5f38e0adc99ac06",
+    "local_results_sha256": "44a78b3467dcfad0374f0fd7894f3ee77d1ff8939ffac6e4f618834cda37ab17",
+    "note": "The repository source is a manually synchronized copy and its bytes differ from the locally executed source. The recorded Python results are local research evidence, not a checksum-bound CI artifact."
+  }
 }
