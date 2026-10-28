@@ -287,7 +287,10 @@ fn validate_jcs_number_safety(value: &Value, path: &str, errors: &mut Vec<String
             });
             if is_unsafe_integer || is_large_integer_valued_float {
                 errors.push(format!(
-                    "{path} exceeds the JCS safe-integer range; exact large values need strings in a versioned schema"
+                    concat!(
+                        "{path} exceeds the JCS safe-integer range; ",
+                        "exact large values need strings in a versioned schema"
+                    )
                 ));
             }
         }
@@ -514,6 +517,9 @@ fn build_expected_runs(plan: &Value, errors: &mut Vec<String>) -> BTreeMap<Strin
     let mut configurations = BTreeMap::<String, String>::new();
     match plan.get("configurations").and_then(Value::as_array) {
         Some(entries) => {
+            if entries.is_empty() {
+                errors.push("plan configurations must not be empty".to_owned());
+            }
             for (index, config) in entries.iter().enumerate() {
                 let label = format!("configurations[{index}]");
                 let Some(id) = str_at(config, "config_id") else {
@@ -543,6 +549,9 @@ fn build_expected_runs(plan: &Value, errors: &mut Vec<String>) -> BTreeMap<Strin
     let mut seen_seed_values = BTreeSet::<String>::new();
     match plan.get("paired_seeds").and_then(Value::as_array) {
         Some(entries) => {
+            if entries.is_empty() {
+                errors.push("plan paired_seeds must not be empty".to_owned());
+            }
             for (index, seed) in entries.iter().enumerate() {
                 let label = format!("paired_seeds[{index}]");
                 let Some(replicate) = str_at(seed, "replicate_id") else {
@@ -574,6 +583,9 @@ fn build_expected_runs(plan: &Value, errors: &mut Vec<String>) -> BTreeMap<Strin
     let mut policies = BTreeMap::<String, String>::new();
     match plan.get("policy_arms").and_then(Value::as_array) {
         Some(entries) => {
+            if entries.is_empty() {
+                errors.push("plan policy_arms must not be empty".to_owned());
+            }
             for (index, arm) in entries.iter().enumerate() {
                 let label = format!("policy_arms[{index}]");
                 let Some(id) = str_at(arm, "arm_id") else {
@@ -980,6 +992,10 @@ fn verify_bundle(plan: &Value, bundle: &Value) -> Value {
     }
 
     let rows = match bundle.get("results").and_then(Value::as_array) {
+        Some(rows) if rows.is_empty() => {
+            errors.push("result bundle results must not be empty".to_owned());
+            rows
+        }
         Some(rows) => rows,
         None => {
             errors.push("result bundle results must be an array".to_owned());
@@ -1051,7 +1067,7 @@ fn verify_bundle(plan: &Value, bundle: &Value) -> Value {
         "planned_run_count": expected_runs.len(),
         "result_row_count": rows.len(),
         "terminal_disposition_counts": disposition_counts,
-        "policy_eligible_run_count": eligible_count,
+        "policy_eligible_run_count": if verified { eligible_count } else { 0 },
         "guardrail_failed_run_count": guardrail_failed_count,
         "unknown_outcome_cell_count": unknown_total,
         "unknown_outcome_cells_by_metric": unknown_by_metric,
@@ -1366,6 +1382,20 @@ mod tests {
         assert_eq!(report["policy_eligible_run_count"], 8);
         assert_eq!(report["unknown_outcome_cell_count"], 0);
         assert!(report["claim_ceiling"].as_str().is_some());
+    }
+
+    #[test]
+    fn canonicalization_and_sha256_match_pinned_golden_vectors() {
+        let value = parse_strict_json(r#"{"b":2,"a":"Hello!"}"#, "golden").unwrap();
+        let bytes = jcs_to_vec(&value).unwrap();
+        assert_eq!(
+            String::from_utf8(bytes).unwrap(),
+            r#"{"a":"Hello!","b":2}"#
+        );
+        assert_eq!(
+            sha256_hex(b"abc"),
+            "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad"
+        );
     }
 
     #[test]
