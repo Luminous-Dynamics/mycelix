@@ -1,6 +1,6 @@
 {
   "name": "LIFE Privacy Evaluation — held-out linkability metrics",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "status": "research-prototype",
   "language": "Rust",
   "dependencies": [],
@@ -15,7 +15,8 @@
     "TPR_at_FPR_le_1pct",
     "TPR_at_FPR_le_5pct",
     "subject_cluster_bootstrap_CI95_AUC",
-    "per_stratum_metrics"
+    "per_stratum_metrics",
+    "paired_treatment_minus_baseline_ROC_AUC_with_subject_cluster_bootstrap_CI95"
   ],
   "bootstrap": {
     "method": "subject-cluster resampling with pair multiplicity weights",
@@ -43,5 +44,15 @@
   ],
   "scenario_matrix_file": "attack-scenario-matrix.json",
   "declared_scenario_count": 11,
-  "comparison_policy": "Run all required observer/scenario pairs where applicable; separately report each attacker and the strongest attacker result. Never treat an inapplicable channel as a privacy pass."
+  "comparison_policy": "Run all required observer/scenario pairs where applicable; separately report each attacker and the strongest attacker result. Never treat an inapplicable channel as a privacy pass.",
+  "paired_comparison": {
+    "command": "compare",
+    "baseline_scores": "pair_id and finite score only",
+    "treatment_scores": "pair_id and finite score only",
+    "pairing": "exact pair IDs, subjects, labels and strata must match; both score files join independently against oracle truth",
+    "uncertainty": "paired subject-cluster bootstrap; same subject multiplicities applied to baseline and treatment; percentile 95% interval for treatment-minus-baseline ROC-AUC",
+    "proposed_max_treatment_auc_upper": 0.55,
+    "claim_ceiling": "a supported paired AUC reduction is not an unlinkability pass; smoke-size inputs cannot qualify a profile; utility and official conformance are not evaluated"
+  },
+  "paired_comparison_schema_file": "paired-comparison.schema.json"
 }
