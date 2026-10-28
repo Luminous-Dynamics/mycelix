@@ -1,0 +1,141 @@
+{
+  "alias_scenarios": [
+    {
+      "accepted_unique_obligations": 1,
+      "actual_unique_obligation_units": 4000,
+      "alias_count": 1,
+      "book_outstanding_units": 4000,
+      "original_receipt_preserved": true,
+      "outcome_counts": {
+        "accepted": 1
+      }
+    },
+    {
+      "accepted_unique_obligations": 1,
+      "actual_unique_obligation_units": 4000,
+      "alias_count": 4,
+      "book_outstanding_units": 4000,
+      "original_receipt_preserved": true,
+      "outcome_counts": {
+        "accepted": 1,
+        "idempotent_replay": 3
+      }
+    },
+    {
+      "accepted_unique_obligations": 1,
+      "actual_unique_obligation_units": 4000,
+      "alias_count": 8,
+      "book_outstanding_units": 4000,
+      "original_receipt_preserved": true,
+      "outcome_counts": {
+        "accepted": 1,
+        "idempotent_replay": 7
+      }
+    },
+    {
+      "accepted_unique_obligations": 1,
+      "actual_unique_obligation_units": 4000,
+      "alias_count": 16,
+      "book_outstanding_units": 4000,
+      "original_receipt_preserved": true,
+      "outcome_counts": {
+        "accepted": 1,
+        "idempotent_replay": 15
+      }
+    },
+    {
+      "accepted_unique_obligations": 1,
+      "actual_unique_obligation_units": 4000,
+      "alias_count": 32,
+      "book_outstanding_units": 4000,
+      "original_receipt_preserved": true,
+      "outcome_counts": {
+        "accepted": 1,
+        "idempotent_replay": 31
+      }
+    }
+  ],
+  "canonical_digest_alias_scenarios": [
+    {
+      "accepted_unique_obligations": 1,
+      "alias_count": 1,
+      "all_aliases_return_original_receipt": true,
+      "canonical_work_units": 4000,
+      "claim_ceiling": "Test assumes canonical payload digest is derived by a trusted verifier from a unique eligible work item; model does not authenticate real work.",
+      "outcome_counts": {
+        "accepted": 1
+      },
+      "principal_instrument_exposure_units": 4000
+    },
+    {
+      "accepted_unique_obligations": 1,
+      "alias_count": 4,
+      "all_aliases_return_original_receipt": true,
+      "canonical_work_units": 4000,
+      "claim_ceiling": "Test assumes canonical payload digest is derived by a trusted verifier from a unique eligible work item; model does not authenticate real work.",
+      "outcome_counts": {
+        "accepted": 1,
+        "idempotent_replay": 3
+      },
+      "principal_instrument_exposure_units": 4000
+    },
+    {
+      "accepted_unique_obligations": 1,
+      "alias_count": 8,
+      "all_aliases_return_original_receipt": true,
+      "canonical_work_units": 4000,
+      "claim_ceiling": "Test assumes canonical payload digest is derived by a trusted verifier from a unique eligible work item; model does not authenticate real work.",
+      "outcome_counts": {
+        "accepted": 1,
+        "idempotent_replay": 7
+      },
+      "principal_instrument_exposure_units": 4000
+    },
+    {
+      "accepted_unique_obligations": 1,
+      "alias_count": 16,
+      "all_aliases_return_original_receipt": true,
+      "canonical_work_units": 4000,
+      "claim_ceiling": "Test assumes canonical payload digest is derived by a trusted verifier from a unique eligible work item; model does not authenticate real work.",
+      "outcome_counts": {
+        "accepted": 1,
+        "idempotent_replay": 15
+      },
+      "principal_instrument_exposure_units": 4000
+    },
+    {
+      "accepted_unique_obligations": 1,
+      "alias_count": 32,
+      "all_aliases_return_original_receipt": true,
+      "canonical_work_units": 4000,
+      "claim_ceiling": "Test assumes canonical payload digest is derived by a trusted verifier from a unique eligible work item; model does not authenticate real work.",
+      "outcome_counts": {
+        "accepted": 1,
+        "idempotent_replay": 31
+      },
+      "principal_instrument_exposure_units": 4000
+    }
+  ],
+  "claim_ceiling": "This proves only the model's sequential deduplication and principal-cap logic under an assumed valid verifier receipt. It does not authenticate identities or work, model concurrent writes, or establish Holochain/distributed correctness.",
+  "profile": {
+    "alias_counts": [
+      1,
+      4,
+      8,
+      16,
+      32
+    ],
+    "model": "sequential admission/dedup oracle; verifier receipt is assumed externally validated",
+    "principal_cap_units": 10000,
+    "same_underlying_obligation_units": 4000
+  },
+  "schema": "ncf-alloc5-obligation-admission-v1",
+  "source_sha256": "e93c372136a104820c7295809458b5284d4f606b42d7d8d55fa478a9c7531afe",
+  "status": "INDEPENDENT_PYTHON_REFERENCE_MODEL_NOT_CRYPTOGRAPHIC_NOT_RUST_NOT_CI_NOT_PRODUCTION",
+  "source_provenance": {
+    "local_executed_source_sha256": "e93c372136a104820c7295809458b5284d4f606b42d7d8d55fa478a9c7531afe",
+    "checked_in_source_sha256": "93bdaacfdf190ff5fc90786e63dce4d4e44e59292c159e31a5f38e0adc99ac06",
+    "local_results_sha256": "44a78b3467dcfad0374f0fd7894f3ee77d1ff8939ffac6e4f618834cda37ab17",
+    "note": "This JSON reproduces the local Python result summary; repository source is not byte-identical to the executed local script, so this is not checksum-bound CI evidence."
+  }
+}

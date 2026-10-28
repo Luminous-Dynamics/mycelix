@@ -1,0 +1,52 @@
+{
+  "campaign_id": "NCF-ALLOC-7",
+  "title": "File-backed SQLite transaction baseline for canonical obligation admission",
+  "status": "local_sqlite_concurrency_tests_executed_rust_holochain_production_not_run",
+  "source": "ncf_alloc7_sqlite_admission.py",
+  "results": "ncf-alloc7-sqlite-results.json",
+  "documentation": "NCF-ALLOC-7-sqlite-admission.md",
+  "profile": {
+    "engine": "SQLite 3.46.1",
+    "mode": "file-backed WAL; synchronous FULL; BEGIN IMMEDIATE",
+    "python_version": "3.13.5",
+    "platform": "Linux-6.18.55-x86_64-with-glibc2.41",
+    "concurrent_trials_per_case": 50,
+    "concurrency_cases": [
+      "two distinct 60-unit obligations against 100-unit cap",
+      "same canonical work under distinct request IDs",
+      "same request ID with conflicting payloads"
+    ],
+    "benchmark_attempts": 2000,
+    "benchmark_unique_accepts": 1000,
+    "benchmark_exact_replays": 1000
+  },
+  "hard_invariants": [
+    "cap_never_exceeded",
+    "same_canonical_work_debited_once",
+    "same_request_id_payload_conflict_rejected",
+    "liability_counter_equals_unique_canonical_obligations",
+    "receipt_persisted_with_admission_transition",
+    "commit_then_lost_ack_retry_returns_original_receipt",
+    "request_id_binds_verifier_version_and_receipt_digest",
+    "canonical_alias_retains_its_own_verifier_evidence"
+  ],
+  "execution_evidence": {
+    "local_unit_tests": "7 passed",
+    "concurrent_trial_count": 150,
+    "observed_invariant_failures": 0,
+    "operations_attempted": 2000,
+    "accepted_unique_obligations": 1000,
+    "exact_replays": 1000,
+    "attempts_per_second": 1098.59,
+    "latency_ms": {
+      "p50": 1.1528,
+      "p95": 1.8039,
+      "p99": 2.1586
+    },
+    "local_executed_source_sha256": "75396f7df53b909b62f42a5e7fd38cefa7ddd0f3c4ae62fbdd8c57e0bdd2cdde",
+    "local_results_sha256": "e2909b56b93573ef8b606ca3eda56593f344df9fd1a24446ebab08f7034d85c8",
+    "checked_in_source_sha256": "2070fde7f5a4d9466cf0243d0b70a084625146c0bc159d3590c76f29ec7e2ec4",
+    "note": "The checked-in Python source is a condensed, semantically synchronized copy and is not byte-identical to the local executable used for this run; the summary is a normalized transcription, not a checksum-bound CI artifact. SQLite results are not Rust/Holochain/production evidence."
+  },
+  "claim_ceiling": "Real file-backed SQLite and local concurrent thread connections only. Does not establish multi-host transactions, crash/power-loss resilience beyond tested restart/replay, cryptographic verification, Holochain semantics or Mycelix production safety."
+}

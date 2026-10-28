@@ -1,0 +1,16 @@
+[package]
+name = "federated_clearing"
+version = "0.1.0"
+edition = "2024"
+license.workspace = true
+description = "Federated clearing coordinator and deterministic evidence index"
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+name = "federated_clearing"
+
+[dependencies]
+hdk = { workspace = true }
+serde = { workspace = true }
+federated_clearing_integrity = { path = "../integrity" }
+mycelix_finance_shared = { path = "../../shared" }

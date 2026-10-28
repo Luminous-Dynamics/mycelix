@@ -1,0 +1,19 @@
+{
+  "claim": "The runtime gate is designed to fail closed; this is the expected NOT_QUALIFIED result on SQLite 3.46.1, not a failed test suite.",
+  "exit_status": 2,
+  "expected_nonzero_result": true,
+  "qualification": "NOT_QUALIFIED",
+  "reason": "linked SQLite runtime is older than the WAL-reset fix floor",
+  "runtime": {
+    "claim_note": "A version gate is necessary but not a substitute for validating the linked build/source ID or running SQLite's special WAL-reset regression test.",
+    "required_minimum_version": "3.51.3",
+    "source_id": "2024-08-13 09:16:08 c9c2ab54ba1f5f46360f1b4f35d849cd3f080e6fc2b6c60e91b16c63f69aalt1",
+    "version": "3.46.1",
+    "version_info": [
+      3,
+      46,
+      1
+    ],
+    "wal_reset_fix_version_gate_passed": false
+  }
+}
