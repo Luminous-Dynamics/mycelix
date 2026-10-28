@@ -8,6 +8,11 @@ Result:
   OK
 Source SHA-256:
   2b479098258a3594fd0651b84ef32d3b55ef54ab5072d7914cf57a9b7297794d
+Preserved exact source path:
+  ncf_alloc8_crash_consistency_v1_original.py
+Git blob SHA:
+  9c17eff8301e5c58495c6b1047ba49f39e95bedb
+The mutable ncf_alloc8_crash_consistency.py path has later default-parameter edits; use the preserved v1_original path to reproduce the 5x10 result.
 
 Resource-safe v2 command (also included in the combined NCF-8/9/10 suite):
   PYTHONWARNINGS=error::ResourceWarning python3 -m unittest -v ncf_alloc8_crash_consistency_v2.py
