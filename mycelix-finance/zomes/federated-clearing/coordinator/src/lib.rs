@@ -58,9 +58,9 @@ where
     for link in links {
         let Some(action_hash) = link.target.clone().into_action_hash() else { continue; };
         let Some(record) = get(action_hash.clone(), GetOptions::default())? else {
-            // A published index whose target is not available is not permission to
-            // author a second claim. Return what is available and let reconciliation retry.
-            continue;
+            // An index hit with an unresolved target is not permission to author
+            // a duplicate. Fail closed and let the dispatcher retry/reconcile.
+            return Err(unavailable_index_target());
         };
         if let Some(entry) = record.entry().to_app_option::<T>()
             .map_err(|e| wasm_error!(WasmErrorInner::Guest(format!("indexed entry decode failed: {e}"))))? {
@@ -70,14 +70,14 @@ where
     Ok(found)
 }
 
-fn receipt_for<T>(action_hash: ActionHash, entry: &T, event_id: String, replayed: bool) -> ExternResult<FederatedPublicationReceipt>
-where
-    T: TryInto<SerializedBytes> + Clone,
-    <T as TryInto<SerializedBytes>>::Error: std::fmt::Display,
-{
-    let entry_hash = hash_entry(entry)
-        .map_err(|e| wasm_error!(WasmErrorInner::Guest(format!("entry hash failed: {e}"))))?;
-    Ok(FederatedPublicationReceipt { replayed, action_hash, entry_hash, event_id })
+fn receipt_for(action_hash: ActionHash, entry_hash: EntryHash, event_id: String, replayed: bool) -> FederatedPublicationReceipt {
+    FederatedPublicationReceipt { replayed, action_hash, entry_hash, event_id }
+}
+
+fn unavailable_index_target() -> WasmError {
+    wasm_error!(WasmErrorInner::Guest(
+        "federated clearing index references an unavailable action; reconcile/retry instead of authoring a duplicate".into()
+    ))
 }
 
 #[hdk_extern]
@@ -91,7 +91,8 @@ pub fn publish_reservation_manifest(manifest: FederatedReservationManifest) -> E
     if !existing.is_empty() {
         for (action_hash, previous) in existing {
             if previous == manifest {
-                return receipt_for(action_hash, &manifest, manifest.manifest_id.clone(), true);
+                let entry_hash = hash_entry(&EntryTypes::FederatedReservationManifest(manifest.clone()))?;
+                return Ok(receipt_for(action_hash, entry_hash, manifest.manifest_id.clone(), true));
             }
             return fail("manifest ID already exists with conflicting immutable contents");
         }
@@ -104,7 +105,7 @@ pub fn publish_reservation_manifest(manifest: FederatedReservationManifest) -> E
         LinkTypes::ReservationManifestById,
         (),
     )?;
-    receipt_for(action_hash, &manifest, manifest.manifest_id.clone(), false)
+    Ok(receipt_for(action_hash, hash_entry(&EntryTypes::FederatedReservationManifest(manifest.clone()))?, manifest.manifest_id.clone(), false))
 }
 
 #[hdk_extern]
@@ -133,7 +134,8 @@ pub fn publish_obligation_claim(claim: FederatedObligationClaim) -> ExternResult
     )?;
     for (action_hash, previous) in existing_event {
         if previous == claim {
-            return receipt_for(action_hash, &claim, claim.event_id.clone(), true);
+            let entry_hash = hash_entry(&EntryTypes::FederatedObligationClaim(claim.clone()))?;
+            return Ok(receipt_for(action_hash, entry_hash, claim.event_id.clone(), true));
         }
         return fail("outbox event ID already exists with conflicting immutable contents");
     }
@@ -155,13 +157,14 @@ pub fn publish_obligation_claim(claim: FederatedObligationClaim) -> ExternResult
             || previous.direction != claim.direction {
             return fail("canonical work already has a conflicting obligation claim");
         }
-        return receipt_for(action_hash, &previous, claim.event_id.clone(), true);
+        let entry_hash = hash_entry(&EntryTypes::FederatedObligationClaim(previous.clone()))?;
+        return Ok(receipt_for(action_hash, entry_hash, previous.event_id.clone(), true));
     }
 
     let action_hash = create_entry(&EntryTypes::FederatedObligationClaim(claim.clone()))?;
     create_link(event_anchor(&claim.event_id)?, action_hash.clone(), LinkTypes::ObligationClaimByEventId, ())?;
     create_link(work_anchor(&claim.canonical_work_digest_hex)?, action_hash.clone(), LinkTypes::ObligationClaimByCanonicalWork, ())?;
-    receipt_for(action_hash, &claim, claim.event_id.clone(), false)
+    Ok(receipt_for(action_hash, hash_entry(&EntryTypes::FederatedObligationClaim(claim.clone()))?, claim.event_id.clone(), false))
 }
 
 #[hdk_extern]
@@ -174,7 +177,8 @@ pub fn publish_settlement_evidence(settlement: FederatedSettlementEvidence) -> E
     )?;
     for (action_hash, previous) in existing {
         if previous == settlement {
-            return receipt_for(action_hash, &settlement, settlement.event_id.clone(), true);
+            let entry_hash = hash_entry(&EntryTypes::FederatedSettlementEvidence(settlement.clone()))?;
+            return Ok(receipt_for(action_hash, entry_hash, settlement.event_id.clone(), true));
         }
         return fail("settlement ID already exists with conflicting immutable contents");
     }
@@ -194,7 +198,7 @@ pub fn publish_settlement_evidence(settlement: FederatedSettlementEvidence) -> E
 
     let action_hash = create_entry(&EntryTypes::FederatedSettlementEvidence(settlement.clone()))?;
     create_link(settlement_anchor(&settlement.settlement_id)?, action_hash.clone(), LinkTypes::SettlementEvidenceById, ())?;
-    receipt_for(action_hash, &settlement, settlement.event_id.clone(), false)
+    Ok(receipt_for(action_hash, hash_entry(&EntryTypes::FederatedSettlementEvidence(settlement.clone()))?, settlement.event_id.clone(), false))
 }
 
 #[hdk_extern]
