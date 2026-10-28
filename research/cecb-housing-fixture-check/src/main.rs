@@ -501,6 +501,37 @@ fn build_paired_plan() -> Value {
             "invalid_output",
             "guardrail_failed"
         ],
+        "run_result_contract": {
+            "schema_version": "cecb.housing.policy_result.v0.1",
+            "required_fields": [
+                "run_id",
+                "design_id",
+                "source_commit_sha",
+                "configuration_id",
+                "replicate_id",
+                "seed_hex",
+                "arm_id",
+                "policy_profile_digest_sha256",
+                "simulator_digest_sha256",
+                "disposition",
+                "outcomes",
+                "guardrail_violations",
+                "runtime_ms",
+                "artifact_digests"
+            ],
+            "terminal_dispositions": [
+                "completed",
+                "abstained",
+                "failed",
+                "timed_out",
+                "non_converged",
+                "invalid_output",
+                "guardrail_failed"
+            ],
+            "failure_rule": "Every planned slot has exactly one terminal result; no silent omissions.",
+            "missing_outcome_policy": "unknown_not_zero",
+            "forbidden_aggregate_field": "universal_welfare_scalar"
+        },
         "outcome_contract": [
             {
                 "metric_id": "safe_suitable_household_months",
@@ -1398,6 +1429,8 @@ mod tests {
         assert_eq!(plan["scheduled_run_count"], 32_400);
         assert_eq!(plan["design"]["model_binding"]["execution_authorized"], false);
         assert_eq!(plan["outcome_contract"].as_array().map(Vec::len), Some(12));
+        assert_eq!(plan["run_result_contract"]["schema_version"], "cecb.housing.policy_result.v0.1");
+        assert_eq!(plan["run_result_contract"]["required_fields"].as_array().map(Vec::len), Some(14));
 
         let runs = plan["runs"].as_array().expect("runs array");
         assert_eq!(runs.len(), 32_400);
