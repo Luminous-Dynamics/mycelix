@@ -35,6 +35,11 @@ class RobustAllocationTests(unittest.TestCase):
     def test_all_zero_claims_fall_back_to_equal(self):
         a=ncf.allocate([0]*ncf.SHARDS,floor_ppm=500_000,cap_multiple=2)
         self.assertLessEqual(max(a.values())-min(a.values()),1)
+    def test_zero_median_uses_equal_cold_start_instead_of_positive_outlier_cap(self):
+        claims=[100_000]+[0]*(ncf.SHARDS-1)
+        a=ncf.allocate(claims,floor_ppm=500_000,cap_multiple=2)
+        self.assertLessEqual(max(a.values())-min(a.values()),1)
+        self.assertEqual(sum(a.values()),ncf.SPENDABLE)
     def test_randomized_10000_cases_conserve_and_reorder(self):
         rng=random.Random(0xA110C3); ids=[f"shard-{i:02d}" for i in range(ncf.SHARDS)]
         for _ in range(10_000):
