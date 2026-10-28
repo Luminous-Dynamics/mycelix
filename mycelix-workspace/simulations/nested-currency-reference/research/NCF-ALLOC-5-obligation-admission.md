@@ -21,7 +21,7 @@ The model requires a canonical payload digest, but computes that digest from cal
 
 The dependency-free `src/obligation.rs` now models the same sequential policy in Rust. `VerifiedObligation` has private fields and a crate-internal constructor reserved for a future verifier adapter; callers must not construct that marker until a trusted verifier has authenticated the principal, payload and receipt. This type boundary is not itself cryptographic authentication, and the repository does not yet implement that verifier or a production call path. The model stores accepted obligations in memory, and it has no settlement/release operation or cross-process durability.
 
-Ten Rust unit-test definitions cover exact replay across shard/epoch aliases, amount/principal/instrument/payload conflicts, principal-cap aggregation, missing cap, malformed/zero input, checked overflow, zero cap, and independent principal/instrument scopes. They require an exact-head Rust 1.99.1 receipt before being described as passing.
+Fourteen Rust unit-test definitions cover exact replay across shard/epoch aliases, amount/principal/instrument/payload conflicts, principal-cap aggregation, missing cap, malformed/zero input, checked overflow, zero cap, and independent principal/instrument scopes. They require an exact-head Rust 1.99.1 receipt before being described as passing.
 
 ## Local test and deterministic result
 
