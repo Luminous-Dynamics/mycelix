@@ -1254,7 +1254,7 @@
         "documentation_path": "mycelix-workspace/simulations/nested-currency-reference/research/NCF-ALLOC-3-bounded-influence.md",
         "test_execution_record": "mycelix-workspace/simulations/nested-currency-reference/research/TEST-RESULTS.txt",
         "source_sha256": "e0557bbaae60e57d6dd1ede9748f395bc2fdc930bd20fbcb212df0a02a1b332f",
-        "results_sha256": "54ce4a1fde19e7a34b766c12822ddcda478c8698a6c522f6d55c3a802e5742a7"
+        "results_sha256": "00a303cb58cce9dc9aa0026047fa790c6b9037c4bf7607c0b206d75e7cbc4a28"
       }
     },
     {
@@ -2041,7 +2041,7 @@
       "required_benchmark_reports": 16,
       "safety_gate": "Every allocation plan validates and all sixteen policy/mode reports must have zero accounting violations; any overflow, malformed input, mixed instrument identity, or unaccounted capacity fails the campaign.",
       "receipt_sha256_method": "SHA-256 over the closed receipt file, reported through runner stdout/workflow metadata; do not include a self-hash inside the receipt.",
-      "claim_ceiling": "Unit tests plus synthetic single-process matched-trace evaluation only; real-demand validity and distributed/Holochain safety remain separate. Median caps are not proof of demand or Sybil resistance; the independent Python research sweep is not a Rust or distributed qualification result. When the lower median is zero, the median-capped policy uses equal cold-start allocation rather than deriving a cap from positive outliers alone; this is a defined policy fallback, not a claim that sparse demand is equal in reality.",
+      "claim_ceiling": "Unit tests plus synthetic single-process matched-trace evaluation only; real-demand validity and distributed/Holochain safety remain separate. Median caps are not proof of demand or Sybil resistance; the independent Python research sweep is not a Rust or distributed qualification result. When the lower median is zero, the median-capped policy uses equal cold-start allocation rather than deriving a cap from positive outliers alone; this is a defined policy fallback, not a claim that sparse demand is equal in reality. Zero-lower-median capped policy falls back to equal-share cold-start; a positive outlier must not define its own cap.",
       "generated_case_sweep": {
         "test_name": "ten_thousand_generated_allocation_plans_conserve_capacity_and_ignore_input_order",
         "cases": 10000,
