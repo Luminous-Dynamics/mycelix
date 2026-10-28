@@ -104,12 +104,12 @@ const FACTOR_LEVELS: &[(&str, &[&str])] = &[
     ("maintenance_backlog", &["low", "high"]),
 ];
 
-const BUNDLE_SCHEMA: &str = "cecb.housing.policy_result_bundle.v0.1";
+const BUNDLE_SCHEMA: &str = "cecb.housing.policy_result_bundle.v0.2";
 const REPORT_SCHEMA: &str = "cecb.housing.result_verification_report.v0.1";
 const VERIFIER_SOURCE_COMMIT: &str = env!("CECB_VERIFIER_SOURCE_COMMIT");
 const VERIFIER_CARGO_LOCK_SHA256: &str = env!("CECB_VERIFIER_CARGO_LOCK_SHA256");
 const VERIFIER_PACKAGE_VERSION: &str = env!("CARGO_PKG_VERSION");
-const RESULT_SCHEMA: &str = "cecb.housing.policy_result.v0.1";
+const RESULT_SCHEMA: &str = "cecb.housing.policy_result.v0.2";
 const JCS_PROFILE: &str = "RFC 8785 JSON Canonicalization Scheme";
 const SCENARIO_DIGEST_PROFILE: &str = "RFC 8785 JCS followed by SHA-256";
 const EVENT_RNG_CONTRACT_VERSION: &str = "cecb.exogenous_rng.event_keyed.v1";
@@ -123,9 +123,16 @@ const RUN_FIELDS: &[&str] = &[
     "scenario_config_digest_sha256",
     "replicate_id",
     "seed_hex",
+    "pair_block_id",
     "arm_id",
     "policy_profile_digest_sha256",
     "simulator_digest_sha256",
+    "rng_contract_version",
+    "exogenous_event_schedule_sha256",
+    "exogenous_event_stream_sha256",
+    "initial_world_state_sha256",
+    "resource_and_compute_budget_sha256",
+    "policy_internal_rng_namespace",
     "disposition",
     "outcomes",
     "guardrail_violations",
@@ -737,6 +744,11 @@ struct ExpectedRun {
     arm_id: String,
     policy_digest: String,
     simulator_digest: String,
+    pair_block_id: String,
+    rng_contract_version: String,
+    exogenous_event_schedule_sha256: String,
+    resource_and_compute_budget_sha256: String,
+    policy_internal_rng_namespace: String,
     registered_group_ids: BTreeSet<String>,
     resource_ids: BTreeSet<String>,
 }
@@ -903,6 +915,8 @@ fn build_expected_runs(plan: &Value, errors: &mut Vec<String>) -> BTreeMap<Strin
     }
 
     let mut policies = BTreeMap::<String, String>::new();
+    let mut policy_rng_namespaces = BTreeMap::<String, String>::new();
+    let mut namespace_owners = BTreeMap::<String, String>::new();
     match plan.get("policy_arms").and_then(Value::as_array) {
         Some(entries) => {
             if entries.is_empty() {
@@ -917,6 +931,7 @@ fn build_expected_runs(plan: &Value, errors: &mut Vec<String>) -> BTreeMap<Strin
                         "allocation_rule",
                         "implementation_status",
                         "policy_profile_digest_sha256",
+                        "policy_internal_rng_namespace",
                     ],
                     &label,
                     errors,
@@ -929,6 +944,23 @@ fn build_expected_runs(plan: &Value, errors: &mut Vec<String>) -> BTreeMap<Strin
                     errors.push(format!("{label} is missing policy_profile_digest_sha256"));
                     continue;
                 };
+                let Some(rng_namespace) = str_at(arm, "policy_internal_rng_namespace") else {
+                    errors.push(format!("{label} is missing policy_internal_rng_namespace"));
+                    continue;
+                };
+                if rng_namespace.trim().is_empty()
+                    || rng_namespace == "exogenous_world_events"
+                {
+                    errors.push(format!("{label} has empty or reserved policy RNG namespace"));
+                }
+                if let Some(owner) =
+                    namespace_owners.insert(rng_namespace.to_owned(), id.to_owned())
+                {
+                    errors.push(format!(
+                        "policy arms {owner:?} and {id:?} share policy RNG namespace {rng_namespace:?}"
+                    ));
+                }
+                policy_rng_namespaces.insert(id.to_owned(), rng_namespace.to_owned());
                 if id.is_empty() || !is_hex(digest, 64) {
                     errors.push(format!("{label} has invalid arm ID or policy profile digest"));
                     continue;
@@ -942,6 +974,10 @@ fn build_expected_runs(plan: &Value, errors: &mut Vec<String>) -> BTreeMap<Strin
             }
         }
         None => errors.push("plan policy_arms must be an array".to_owned()),
+    }
+
+    if policies.len() < 2 {
+        errors.push("paired policy comparison requires at least two distinct policy arms".to_owned());
     }
 
     let binding = plan.get("design").and_then(|value| value.get("model_binding"));
@@ -1030,6 +1066,13 @@ fn build_expected_runs(plan: &Value, errors: &mut Vec<String>) -> BTreeMap<Strin
             errors.push(format!("{label} has empty or duplicate run_id {run_id:?}"));
             continue;
         }
+        let design = plan.get("design");
+        let binding = design.and_then(|value| value.get("model_binding"));
+        let held_constant = design.and_then(|value| value.get("held_constant"));
+        let rng_namespace = policy_rng_namespaces
+            .get(arm_id)
+            .cloned()
+            .unwrap_or_default();
         expected.insert(
             run_id.to_owned(),
             ExpectedRun {
@@ -1041,6 +1084,20 @@ fn build_expected_runs(plan: &Value, errors: &mut Vec<String>) -> BTreeMap<Strin
                 arm_id: arm_id.to_owned(),
                 policy_digest: policy_digest.to_owned(),
                 simulator_digest: simulator_digest.clone(),
+                pair_block_id: pair_block_id.to_owned(),
+                rng_contract_version: design
+                    .and_then(|value| str_at(value, "rng_contract_version"))
+                    .unwrap_or_default()
+                    .to_owned(),
+                exogenous_event_schedule_sha256: design
+                    .and_then(|value| str_at(value, "exogenous_event_schedule_sha256"))
+                    .unwrap_or_default()
+                    .to_owned(),
+                resource_and_compute_budget_sha256: held_constant
+                    .and_then(|value| str_at(value, "resource_and_compute_budget_sha256"))
+                    .unwrap_or_default()
+                    .to_owned(),
+                policy_internal_rng_namespace: rng_namespace,
                 registered_group_ids: configuration_groups
                     .get(config_id)
                     .cloned()
@@ -1264,6 +1321,20 @@ fn validate_result_row(
         ("design_id", design_id),
         ("design_manifest_sha256", plan_digest),
         ("source_commit_sha", source_commit),
+        ("pair_block_id", planned.pair_block_id.as_str()),
+        ("rng_contract_version", planned.rng_contract_version.as_str()),
+        (
+            "exogenous_event_schedule_sha256",
+            planned.exogenous_event_schedule_sha256.as_str(),
+        ),
+        (
+            "resource_and_compute_budget_sha256",
+            planned.resource_and_compute_budget_sha256.as_str(),
+        ),
+        (
+            "policy_internal_rng_namespace",
+            planned.policy_internal_rng_namespace.as_str(),
+        ),
         ("config_id", planned.config_id.as_str()),
         ("scenario_config_digest_sha256", planned.config_digest.as_str()),
         ("replicate_id", planned.replicate_id.as_str()),
@@ -1276,6 +1347,14 @@ fn validate_result_row(
         if str_at(result, field) != Some(expected) {
             errors.push(format!(
                 "run {run_id:?} field {field:?} does not match the pinned plan"
+            ));
+        }
+    }
+
+    for field in ["exogenous_event_stream_sha256", "initial_world_state_sha256"] {
+        if str_at(result, field).is_none_or(|digest| !is_hex(digest, 64)) {
+            errors.push(format!(
+                "run {run_id:?} {field} must be a 64-character lowercase SHA-256 digest"
             ));
         }
     }
@@ -1471,6 +1550,8 @@ fn verify_bundle(plan: &Value, bundle: &Value) -> Value {
     let mut completed_guardrail_clear_count = 0_u64;
     let mut complete_outcome_vector_count = 0_u64;
     let mut guardrail_failed_count = 0_u64;
+    let mut pair_world_digests = BTreeMap::<String, String>::new();
+    let mut pair_exogenous_stream_digests = BTreeMap::<String, String>::new();
 
     for (index, result) in rows.iter().enumerate() {
         let label = format!("result bundle results[{index}]");
@@ -1493,6 +1574,30 @@ fn verify_bundle(plan: &Value, bundle: &Value) -> Value {
             guardrail_failed,
             metric_unknowns,
         ) = validate_result_row(result, planned, plan, &plan_digest, &mut row_errors);
+        if let Some(world_digest) = str_at(result, "initial_world_state_sha256") {
+            if let Some(previous) =
+                pair_world_digests.insert(planned.pair_block_id.clone(), world_digest.to_owned())
+            {
+                if previous != world_digest {
+                    row_errors.push(format!(
+                        "paired block {:?} has divergent initial-world digests",
+                        planned.pair_block_id
+                    ));
+                }
+            }
+        }
+        if let Some(stream_digest) = str_at(result, "exogenous_event_stream_sha256") {
+            if let Some(previous) = pair_exogenous_stream_digests
+                .insert(planned.pair_block_id.clone(), stream_digest.to_owned())
+            {
+                if previous != stream_digest {
+                    row_errors.push(format!(
+                        "paired block {:?} has divergent exogenous event-stream digests",
+                        planned.pair_block_id
+                    ));
+                }
+            }
+        }
         let row_verified = row_errors.is_empty();
         errors.extend(row_errors);
         unknown_total = unknown_total.saturating_add(unknown_count);
@@ -1730,13 +1835,15 @@ mod tests {
                 "arm_id": "allocation_price",
                 "allocation_rule": "price",
                 "implementation_status": "ready",
-                "policy_profile_digest_sha256": profile_one
+                "policy_profile_digest_sha256": profile_one,
+                "policy_internal_rng_namespace": "policy:allocation_price:v1"
             }),
             json!({
                 "arm_id": "allocation_queue",
                 "allocation_rule": "queue",
                 "implementation_status": "ready",
-                "policy_profile_digest_sha256": profile_two
+                "policy_profile_digest_sha256": profile_two,
+                "policy_internal_rng_namespace": "policy:allocation_queue:v1"
             }),
         ];
         let mut runs = Vec::<Value>::new();
