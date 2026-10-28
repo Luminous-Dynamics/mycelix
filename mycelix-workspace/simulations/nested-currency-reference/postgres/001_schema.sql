@@ -121,6 +121,8 @@ CREATE TABLE IF NOT EXISTS ncf.request_binding (
     decision                  text NOT NULL CHECK (decision IN ('accepted', 'replay')),
     receipt_json              jsonb NOT NULL,
     created_at                timestamptz NOT NULL DEFAULT clock_timestamp(),
+    FOREIGN KEY (instrument_id, profile_revision)
+      REFERENCES ncf.instrument_profile_revision(instrument_id, profile_revision),
     CHECK (length(btrim(verifier_version)) > 0 AND length(btrim(shard_id)) > 0)
 );
 
