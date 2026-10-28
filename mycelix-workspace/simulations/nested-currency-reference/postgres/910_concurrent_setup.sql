@@ -16,6 +16,12 @@ INSERT INTO ncf.clearing_agreement(
 INSERT INTO ncf.community_instrument_cap(community_id, instrument_id, cap_units)
 VALUES ('community-a', 'NCF-RACE-UNIT', 100);
 
+INSERT INTO ncf.agreement_direction_cap(
+  agreement_id, direction, community_id, instrument_id, cap_units, allocated_units, outstanding_units
+) VALUES
+ ('aa000000-0000-0000-0000-000000000002', 'a_to_b', 'community-a', 'NCF-RACE-UNIT', 100, 0, 0),
+ ('aa000000-0000-0000-0000-000000000002', 'b_to_a', 'community-b', 'NCF-RACE-UNIT', 100, 0, 0);
+
 SELECT ncf.allocate_reservation_slice(
   'bb000000-0000-0000-0000-000000000002',
   'aa000000-0000-0000-0000-000000000002',
