@@ -1,0 +1,483 @@
+{
+  "schema_version": "1.0",
+  "name": "LIFE W3C threat-to-evidence coverage matrix",
+  "status": "research-proposal",
+  "purpose": "Map privacy and adjacent security threats to explicit observer capabilities, attack scenarios, evidence requirements, and claim ceilings. This is a coverage contract, not proof that a threat is implemented or mitigated.",
+  "sources": [
+    {
+      "id": "W3C-VC-TM-2.1",
+      "url": "https://www.w3.org/TR/vc-data-model-threat-model/",
+      "status": "Group Note Draft dated 2026-09-27; evolving non-normative threat model"
+    },
+    {
+      "id": "RFC-9901",
+      "url": "https://www.rfc-editor.org/rfc/rfc9901.html",
+      "status": "IETF Standards Track; SD-JWT selective disclosure, privacy considerations and unlinkability limits"
+    },
+    {
+      "id": "W3C-BBS",
+      "url": "https://www.w3.org/TR/vc-di-bbs/",
+      "status": "W3C Data Integrity BBS Cryptosuites publication history and current status must be pinned per run"
+    },
+    {
+      "id": "OIDF-CONFORMANCE",
+      "url": "https://openid.net/openid4vp-and-openid4vci-conformance-tests-are-complete-and-open-for-self-certification/",
+      "status": "OpenID Foundation conformance suites for OpenID4VP/OpenID4VCI with HAIP; separate from privacy evaluation"
+    }
+  ],
+  "status_vocabulary": {
+    "mapped_existing_scenario": "An existing scenario is relevant; runnable evidence and implementation coverage still require exact-head verification.",
+    "proposed_extension": "A useful attack/evidence profile is specified but must not be called implemented until the profile and receipt exist.",
+    "separate_gate_not_linkability": "Evaluate in a separate security, task-utility, or protocol-conformance lane; do not encode it as a linkability score.",
+    "external_telemetry": "Requires an explicitly instrumented, consented and privacy-reviewed deployment trace; synthetic payloads alone cannot qualify it."
+  },
+  "principles": [
+    "The threat model is a catalogue of risks, not a claim that all risks are in scope for one metric.",
+    "A coverage mapping is not an implementation result; every release claim binds to an exact commit, data digest, observer profile, attack version, configuration and report digest.",
+    "Attacker-visible features and auxiliary-data budgets must be declared before scoring; labels, subject identities and split metadata stay in the evaluator trust domain.",
+    "Train, validation and test subjects and opaque pair handles must be disjoint; split identities before pair generation.",
+    "Report each attacker independently and the strongest observed attacker; never average away a successful linkage channel.",
+    "No universal credential-format winner or universal unlinkability score is defensible without a fixed task, observer capability, deployment boundary and cohort.",
+    "A lower linkability score is not a pass unless the compared presentations preserve task correctness, security policy and required conformance.",
+    "Inapplicable channels are N/A with a reason, never a privacy win."
+  ],
+  "attack_profiles": [
+    {
+      "id": "P0-no-signal",
+      "priority": "required",
+      "capability": "Opaque pair handle only; no deliberate identity signal",
+      "purpose": "Detect label, row-order, pair-ID, split, or fixture-generation leakage",
+      "fit_data": "none",
+      "expected_behavior": "Chance-consistent discrimination within a preregistered tolerance and uncertainty interval",
+      "status": "required_control"
+    },
+    {
+      "id": "P1-deterministic-channel",
+      "priority": "required",
+      "capability": "Deterministic equality and set-join rules over explicitly allowlisted artifacts",
+      "purpose": "Establish simple, interpretable attack baselines before learned models",
+      "fit_data": "No test fitting; any thresholds/joins are preregistered or trained on training identities",
+      "expected_behavior": "Known-answer positive and negative controls behave as specified",
+      "status": "required_profile"
+    },
+    {
+      "id": "P2-adaptive-tabular",
+      "priority": "required_when_labeled_features_exist",
+      "capability": "Regularized supervised attacker over observable feature vectors",
+      "purpose": "Measure whether combined weak signals outperform any single channel",
+      "fit_data": "Training/tuning identities only; transforms and hyperparameters frozen before test",
+      "expected_behavior": "Held-out subject evaluation, baseline comparison, feature ablations and subject-clustered uncertainty",
+      "status": "existing_related_work_must_be_consolidated"
+    },
+    {
+      "id": "P3-longitudinal",
+      "priority": "required_when_repeated_traces_exist",
+      "capability": "Cross-session order, cadence and repeated-artifact history",
+      "purpose": "Detect linkage that requires multiple interactions",
+      "fit_data": "Entire subjects and their traces are partitioned before feature construction",
+      "expected_behavior": "Held-out identities and separate session-history / content-only ablations",
+      "status": "proposed_extension"
+    },
+    {
+      "id": "P4-colluding-parties",
+      "priority": "required_for_issuer_verifier_claims",
+      "capability": "Declared join of issuer, verifier, status service or multiple verifier logs",
+      "purpose": "Measure residual linkage under explicit collusion assumptions",
+      "fit_data": "Any linkage key available only to a party must remain scoped to that party's declared view",
+      "expected_behavior": "Report exactly which records are shared and which party learns the match",
+      "status": "proposed_extension"
+    },
+    {
+      "id": "P5-network-and-device",
+      "priority": "optional-high-value",
+      "capability": "Consented deployment traces such as timings, network prefix, user-agent class and payload size",
+      "purpose": "Measure transport and device side channels not represented in credential bytes",
+      "fit_data": "Deployment-level train/test partition by subject and collection window",
+      "expected_behavior": "Separate timing-only, size-only, network-only and joint attacks",
+      "status": "external_telemetry"
+    }
+  ],
+  "threats": [
+    {
+      "w3c_threat_id": "T4",
+      "name": "Signature-based correlation",
+      "lane": "linkability",
+      "scenario_ids": [
+        "stable-artifact-reuse",
+        "proof-structure-fingerprint"
+      ],
+      "observer": [
+        "single verifier",
+        "colluding verifiers"
+      ],
+      "minimum_channels": [
+        "serialized credential or presentation artifact",
+        "signature/proof digest",
+        "stable public-key identifier",
+        "message count and disclosed indexes where available"
+      ],
+      "evidence_floor": "Compare repeated artifact against fresh derived presentations while matching claims, task and presentation schedule.",
+      "status": "mapped_existing_scenario",
+      "claim_ceiling": "Different proof bytes alone do not prove unlinkability; claims, disclosed structure, issuer keys and metadata can still link."
+    },
+    {
+      "w3c_threat_id": "T5",
+      "name": "Correlation via status and revocation lookup",
+      "lane": "linkability",
+      "scenario_ids": [
+        "status-lookup-correlation",
+        "network-and-timing",
+        "issuer-verifier-collusion"
+      ],
+      "observer": [
+        "issuer/status service",
+        "verifier",
+        "network observer",
+        "declared colluding parties"
+      ],
+      "minimum_channels": [
+        "status endpoint or list identifier",
+        "status index if observable",
+        "lookup timing",
+        "cache behavior",
+        "request origin where in scope"
+      ],
+      "evidence_floor": "Compare content-only, lookup-only and joined views; record status freshness and revocation latency.",
+      "status": "mapped_existing_scenario",
+      "claim_ceiling": "A privacy score without lookup traces does not cover status-channel correlation."
+    },
+    {
+      "w3c_threat_id": "T8",
+      "name": "Presentation exchange attacks",
+      "lane": "separate_security",
+      "scenario_ids": [],
+      "observer": [
+        "malicious verifier",
+        "network attacker"
+      ],
+      "minimum_channels": [
+        "nonce/challenge",
+        "audience/domain binding",
+        "replay state",
+        "transaction binding"
+      ],
+      "evidence_floor": "Pinned protocol conformance and negative replay/spoofing tests.",
+      "status": "separate_gate_not_linkability",
+      "claim_ceiling": "Do not convert replay resistance or verifier acceptance into a linkability metric."
+    },
+    {
+      "w3c_threat_id": "T9",
+      "name": "Inappropriate or out-of-context credential use",
+      "lane": "separate_security_and_policy",
+      "scenario_ids": [],
+      "observer": [
+        "verifier policy engine",
+        "relying-party application"
+      ],
+      "minimum_channels": [
+        "requested purpose",
+        "audience",
+        "credential type",
+        "approved claim projection",
+        "decision outcome"
+      ],
+      "evidence_floor": "Policy and authorization tests with expected accept/reject outcomes.",
+      "status": "separate_gate_not_linkability",
+      "claim_ceiling": "A credential can be unlinkable yet be disclosed or accepted for the wrong purpose."
+    },
+    {
+      "w3c_threat_id": "T10",
+      "name": "Identifier-based correlation",
+      "lane": "linkability",
+      "scenario_ids": [
+        "quasi-identifier-join",
+        "cross-source-reidentification",
+        "issuer-verifier-collusion"
+      ],
+      "observer": [
+        "single verifier",
+        "colluding verifiers",
+        "declared auxiliary-data holder"
+      ],
+      "minimum_channels": [
+        "stable subject or credential identifiers",
+        "revealed attributes",
+        "external reference values",
+        "identifier equality across presentations"
+      ],
+      "evidence_floor": "Ablate each identifier and combination; report top-k retrieval and held-out re-identification by stratum.",
+      "status": "mapped_existing_scenario",
+      "claim_ceiling": "Selective disclosure of fields does not imply that the revealed combination is non-identifying."
+    },
+    {
+      "w3c_threat_id": "T11",
+      "name": "Untrustworthy holder/user-agent software",
+      "lane": "separate_implementation_security",
+      "scenario_ids": [],
+      "observer": [
+        "compromised wallet or device software"
+      ],
+      "minimum_channels": [
+        "wallet access boundary",
+        "consent record",
+        "secret access",
+        "disclosure decision and actual presentation"
+      ],
+      "evidence_floor": "Wallet security review, permissions tests and consent-to-output checks.",
+      "status": "separate_gate_not_linkability",
+      "claim_ceiling": "Artifact-level evaluation cannot establish trusted user-agent behavior."
+    },
+    {
+      "w3c_threat_id": "T12",
+      "name": "Excessive data disclosure",
+      "lane": "privacy_utility_frontier",
+      "scenario_ids": [
+        "quasi-identifier-join",
+        "cross-source-reidentification"
+      ],
+      "observer": [
+        "verifier",
+        "declared recipient of disclosed claims"
+      ],
+      "minimum_channels": [
+        "requested claims",
+        "actually disclosed claims",
+        "task-required claims",
+        "sensitivity labels or approved projection"
+      ],
+      "evidence_floor": "Measure unauthorized claims and task-completion rate alongside re-identification attack results.",
+      "status": "proposed_extension",
+      "claim_ceiling": "Lower linkage is not an improvement if the task fails or necessary claims are withheld."
+    },
+    {
+      "w3c_threat_id": "T13",
+      "name": "Metadata-based correlation",
+      "lane": "linkability",
+      "scenario_ids": [
+        "proof-structure-fingerprint",
+        "issuer-key-cohort",
+        "network-and-timing"
+      ],
+      "observer": [
+        "verifier",
+        "issuer",
+        "network observer"
+      ],
+      "minimum_channels": [
+        "credential type",
+        "schema/profile tuple",
+        "extension set",
+        "issuer/key cohort",
+        "payload size",
+        "optional-field pattern"
+      ],
+      "evidence_floor": "Compare metadata-only, claims-only and joint attacks; report smallest effective cohort and worst stratum.",
+      "status": "mapped_existing_scenario",
+      "claim_ceiling": "Cryptographic proof unlinkability does not remove metadata or profile-fingerprinting channels."
+    },
+    {
+      "w3c_threat_id": "T14",
+      "name": "Bearer credential reuse and correlation",
+      "lane": "linkability",
+      "scenario_ids": [
+        "stable-artifact-reuse",
+        "multi-session-behavior"
+      ],
+      "observer": [
+        "single verifier",
+        "colluding verifiers"
+      ],
+      "minimum_channels": [
+        "artifact equality",
+        "reuse count",
+        "cross-session handle",
+        "revealed quasi-identifiers"
+      ],
+      "evidence_floor": "Compare single-use and reused-artifact conditions under the same task.",
+      "status": "mapped_existing_scenario",
+      "claim_ceiling": "Absence of a subject ID is not evidence of non-correlation."
+    },
+    {
+      "w3c_threat_id": "T15",
+      "name": "Correlation via patterns of use",
+      "lane": "longitudinal_linkability",
+      "scenario_ids": [
+        "multi-session-behavior",
+        "issuance-and-replenishment",
+        "network-and-timing"
+      ],
+      "observer": [
+        "colluding verifiers",
+        "issuer",
+        "service operator"
+      ],
+      "minimum_channels": [
+        "session timing",
+        "service order",
+        "interaction cadence",
+        "presentation frequency",
+        "renewal/replenishment events"
+      ],
+      "evidence_floor": "Evaluate complete held-out traces; keep each identity's full longitudinal history in one partition.",
+      "status": "proposed_extension",
+      "claim_ceiling": "Independent pair rows are not a substitute for a multi-session attacker."
+    },
+    {
+      "w3c_threat_id": "T16",
+      "name": "Disclosure to a malicious or deceptive verifier",
+      "lane": "privacy_utility_frontier",
+      "scenario_ids": [
+        "cross-source-reidentification",
+        "issuer-verifier-collusion"
+      ],
+      "observer": [
+        "malicious verifier",
+        "colluding verifiers"
+      ],
+      "minimum_channels": [
+        "requested claims",
+        "actual disclosure",
+        "request context",
+        "repeated disclosures",
+        "declared collusion joins"
+      ],
+      "evidence_floor": "Measure task-minimal disclosure, unauthorized claims, and linkage after aggregation across requests.",
+      "status": "proposed_extension",
+      "claim_ceiling": "Verifier-request and consent safety require separate policy tests; pair classification alone is insufficient."
+    },
+    {
+      "w3c_threat_id": "T18",
+      "name": "Issuer-side correlation and privacy subversion",
+      "lane": "longitudinal_and_collusion",
+      "scenario_ids": [
+        "issuer-key-cohort",
+        "issuance-and-replenishment",
+        "issuer-verifier-collusion"
+      ],
+      "observer": [
+        "issuer",
+        "issuer/verifier collusion"
+      ],
+      "minimum_channels": [
+        "issuance timestamp or batch",
+        "key partition",
+        "renewal event",
+        "status events",
+        "presentation-time information known to issuer"
+      ],
+      "evidence_floor": "Write down exactly what the issuer can observe before and after presentation; run a joined-log attack where supported.",
+      "status": "proposed_extension",
+      "claim_ceiling": "Unlinkable derived proofs cannot establish issuer-verifier unlinkability if issuance or operational events remain correlatable."
+    },
+    {
+      "w3c_threat_id": "T22",
+      "name": "Device tracking and fingerprinting",
+      "lane": "external_telemetry",
+      "scenario_ids": [
+        "network-and-timing",
+        "multi-session-behavior"
+      ],
+      "observer": [
+        "network observer",
+        "website/service",
+        "device telemetry provider"
+      ],
+      "minimum_channels": [
+        "consented IP/network-prefix metadata",
+        "user-agent class",
+        "timing",
+        "payload size",
+        "cross-origin identifiers"
+      ],
+      "evidence_floor": "Use privacy-reviewed, consented traces and explicit retention rules; report channel ablations.",
+      "status": "external_telemetry",
+      "claim_ceiling": "Synthetic credential artifacts cannot qualify real network or device fingerprint resistance."
+    },
+    {
+      "w3c_threat_id": "T23",
+      "name": "Credential and data aggregation",
+      "lane": "linkability",
+      "scenario_ids": [
+        "cross-source-reidentification",
+        "quasi-identifier-join"
+      ],
+      "observer": [
+        "recipient with bounded auxiliary data",
+        "multiple colluding data holders"
+      ],
+      "minimum_channels": [
+        "declared auxiliary records",
+        "join keys",
+        "coverage and missingness",
+        "source provenance"
+      ],
+      "evidence_floor": "Publish synthetic or lawful privacy-reviewed auxiliary-data provenance, coverage and join budget; evaluate with/without auxiliary data.",
+      "status": "proposed_extension",
+      "claim_ceiling": "No claim about real-world re-identification can be made from toy data alone."
+    },
+    {
+      "w3c_threat_id": "T24",
+      "name": "Unauthorized post-presentation use of data",
+      "lane": "separate_governance_security",
+      "scenario_ids": [],
+      "observer": [
+        "recipient system",
+        "downstream data processor"
+      ],
+      "minimum_channels": [
+        "approved purpose",
+        "retention policy",
+        "access/deletion logs",
+        "downstream sharing events"
+      ],
+      "evidence_floor": "Access-control, retention and deletion audits; provenance of actual downstream data use.",
+      "status": "separate_gate_not_linkability",
+      "claim_ceiling": "Unlinkability does not prevent downstream misuse after information has been disclosed."
+    }
+  ],
+  "explicit_noncoverage": [
+    {
+      "w3c_threat_ids": [
+        "T1",
+        "T2",
+        "T3",
+        "T6",
+        "T7",
+        "T17",
+        "T19",
+        "T20",
+        "T21",
+        "T25"
+      ],
+      "lane": "separate_security_or_governance",
+      "reason": "Credential tampering, identity proofing, injection, key management, external resource integrity, honeypots, validity, device theft, storage mining and cryptographic obsolescence require dedicated security controls and conformance/evaluation artifacts. No linkability result covers them."
+    }
+  ],
+  "required_report_dimensions": [
+    "observer_profile_id and allowed feature schema",
+    "format/profile/version and implementation commit",
+    "training/validation/test subject split digests and pair-handle disjointness",
+    "attacker implementation, configuration and fit data",
+    "ROC-AUC with subject-clustered uncertainty",
+    "average precision with positive prevalence",
+    "validation-locked operating point and fixed-threshold test counts",
+    "top-1/top-k re-identification and worst-stratum outcomes when a retrieval task is defined",
+    "effective anonymity-set distribution with estimator and assumptions",
+    "task completion and unauthorized-claim disclosure",
+    "payload size, p50/p95/p99 latency, peak memory and measured energy where production profiling is available",
+    "source/corpus/configuration/report digests and exact commit SHA"
+  ],
+  "statistical_claim_ceiling": {
+    "pilot_minimums": {
+      "heldout_pairs": 10000,
+      "distinct_test_subjects": 2000,
+      "meaning": "screening floor only; not sufficient evidence and not an automatic pass"
+    },
+    "low_fpr": "Select thresholds only on a disjoint validation cohort. Report resolution (1 / number of test negatives). Zero observed false positives is inconclusive for rare-event risk.",
+    "dependence": "Pairs sharing subjects are correlated; pair-level binomial intervals alone are optimistic. Use subject- or cluster-aware uncertainty and state all assumptions.",
+    "prevalence": "Report deployment or scenario prevalence explicitly. ROC-AUC is prevalence-insensitive and cannot alone communicate operational precision/false-alarm burden.",
+    "no_universal_score": "No scalar aggregate may conceal a successful attacker, failed utility task, untested channel, or inapplicable format."
+  },
+  "qualification_rule": "Design mapping, synthetic smoke success, real-artifact attack evidence, utility evidence, and official protocol conformance are separate evidence levels. Release qualification requires every applicable gate and exact-head receipts; a queued, skipped, stale, or synthetic-only run is not a privacy pass.",
+  "claim_ceiling": "This matrix is a research coverage proposal, not evidence of complete threat coverage, mitigation efficacy, standard conformance, a differential-privacy guarantee, or SOTA superiority."
+}
