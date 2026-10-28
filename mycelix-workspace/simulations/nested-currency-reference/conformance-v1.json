@@ -7,14 +7,15 @@
   "status": "proposed_not_qualified",
   "execution_evidence": {
     "status": "not_run",
-    "reason": "Static Rust allocator changes, including the new median-capped policy variants, per-shard fairness test, and matched-trace benchmark remain uncompiled/unexecuted in this environment. The separate NCF-ALLOC-3 Python attack sweep is explicitly research-reference evidence only. Exact-head Rust/TLA+ receipts, real demand traces, and multi-agent/Holochain qualification remain outstanding. NCF-ALLOC-3 source, tests, results, campaign specification, run guide, and limitations documentation are checked in under research/; their execution records identify Python-only evidence separately from the Rust qualification gate. NCF-ALLOC-4 additionally models one fixed 4,000-unit attacker backlog split across 1..32 shard IDs while retaining fifteen honest identities. Five Python tests pass; cryptographic identity, admission economics, Rust and distributed qualification are explicitly not run. A follow-up static audit found that deriving a cap from positive weights when the lower median was zero could let rare positive outliers define their own cap. The median-capped allocator now zeroes the relative weights in that case and triggers the existing equal-share cold-start fallback; mirrored Python/Rust regression definitions were added. Python-only suite now has 10 NCF-ALLOC-3 tests plus 5 NCF-ALLOC-4 tests; Rust still not run. The corpus now also has NCF-ALLOC-022 for sparse positive claims with a zero lower median, requiring the bounded-cap policy to use equal cold-start rights rather than let positive outliers set their own relative cap."
+    "reason": "Static Rust allocator changes, including the new median-capped policy variants, per-shard fairness test, and matched-trace benchmark remain uncompiled/unexecuted in this environment. The separate NCF-ALLOC-3 Python attack sweep is explicitly research-reference evidence only. Exact-head Rust/TLA+ receipts, real demand traces, and multi-agent/Holochain qualification remain outstanding. NCF-ALLOC-3 source, tests, results, campaign specification, run guide, and limitations documentation are checked in under research/; their execution records identify Python-only evidence separately from the Rust qualification gate. NCF-ALLOC-4 additionally models one fixed 4,000-unit attacker backlog split across 1..32 shard IDs while retaining fifteen honest identities. Five Python tests pass; cryptographic identity, admission economics, Rust and distributed qualification are explicitly not run. A follow-up static audit found that deriving a cap from positive weights when the lower median was zero could let rare positive outliers define their own cap. The median-capped allocator now zeroes the relative weights in that case and triggers the existing equal-share cold-start fallback; mirrored Python/Rust regression definitions were added. Python-only suite now has 10 NCF-ALLOC-3 tests plus 5 NCF-ALLOC-4 tests; Rust still not run. The corpus now also has NCF-ALLOC-022 for sparse positive claims with a zero lower median, requiring the bounded-cap policy to use equal cold-start rights rather than let positive outliers set their own relative cap. NCF-ALLOC-5 adds a sequential obligation-admission oracle, eight Python regressions and a fixed alias-replay result profile. It assumes independently validated verifier evidence and does not imply the verifier is implemented, nor prove concurrent/distributed uniqueness."
   },
   "claim_ceiling": [
     "Reference-model conformance only when executed against a named source revision.",
     "Does not prove Holochain DHT integrity, key custody, real-world service delivery, legal tender status, reserve adequacy, FX parity, or external settlement finality.",
     "Does not prove that production zomes enforce the same properties until separately qualified against exact source and multi-agent runtime evidence.",
     "Lower-median demand caps are bounded-influence heuristics, not demand authentication or Sybil resistance; assumptions about stable shard identity and minority attackers must remain explicit.",
-    "Median caps and per-shard equal floors are not Sybil-resistant when one principal can multiply identity slots. NCF-ALLOC-4 is an independent Python identity-splitting model, not an implemented cryptographic identity or admission protocol."
+    "Median caps and per-shard equal floors are not Sybil-resistant when one principal can multiply identity slots. NCF-ALLOC-4 is an independent Python identity-splitting model, not an implemented cryptographic identity or admission protocol.",
+    "NCF-ALLOC-5 only tests sequential deduplication/principal-cap policy given an externally verified receipt; the verifier flag and deterministic receipt hash are not cryptographic proof."
   ],
   "invariants": [
     {
@@ -1333,6 +1334,77 @@
         "case_profiles": 8,
         "zero_median_fallback_test": "median_cap_with_zero_lower_median_uses_equal_cold_start"
       }
+    },
+    {
+      "id": "NCF-BENCH-008",
+      "name": "Canonical obligation deduplication and principal-scoped admission",
+      "baselines": [
+        "per_shard_claims_only",
+        "obligation_id_dedup_without_principal_cap",
+        "canonical_principal_plus_obligation_dedup_and_cap"
+      ],
+      "workloads": [
+        "same_unique_obligation_replayed_across_1_4_8_16_32_shard_aliases",
+        "same_id_changed_amount",
+        "same_id_changed_principal",
+        "same_id_changed_instrument",
+        "replay_across_epoch",
+        "cap_rejection_then_corrected_retry",
+        "unverified_receipt_rejection"
+      ],
+      "topology": {
+        "unique_obligation_amount_units": 4000,
+        "alias_counts": [
+          1,
+          4,
+          8,
+          16,
+          32
+        ],
+        "principal_instrument_cap_units": 10000,
+        "model": "sequential reference model; verifier is assumed external"
+      },
+      "required_safety_gates": [
+        "zero_duplicate_accepted_obligation_ids",
+        "exact_replay_returns_original_receipt",
+        "conflicting_payload_rejected_without_mutation",
+        "principal_instrument_caps_aggregate_across_shards",
+        "missing_cap_fails_closed",
+        "rejected_cap_attempt_does_not_consume_id"
+      ],
+      "required_metrics": [
+        "alias_count",
+        "unique_obligation_units",
+        "book_outstanding_units",
+        "accepted_unique_obligations",
+        "replay_count",
+        "rejected_conflict_count",
+        "principal_cap_rejections",
+        "original_receipt_preserved"
+      ],
+      "required_output": [
+        "schema",
+        "status",
+        "profile",
+        "alias_scenarios",
+        "claim_ceiling",
+        "source_sha256"
+      ],
+      "methodology": "Hold one accepted obligation and its principal/instrument/amount fixed, then replay it through increasing shard aliases and epochs. Change exactly one immutable payload field per negative case and require rejection with no change to the accepted ledger projection. Aggregate caps over distinct obligation IDs for the same canonical principal/instrument, independent of shard. The model assumes the verifier receipt was independently authenticated and accepted; verifier cryptography and concurrent/distributed uniqueness remain out of scope.",
+      "execution_status": "python_sequential_reference_executed_rust_concurrent_crypto_holochain_not_run",
+      "claim_ceiling": "Sequential Python model only. A deterministic digest is not a signature; verifier_receipt_ok is a trusted input. Does not prove cryptographic identity, real-work truth, concurrent uniqueness, Holochain validation or production settlement.",
+      "research_reference": {
+        "source_path": "mycelix-workspace/simulations/nested-currency-reference/research/ncf_alloc5_obligation_admission.py",
+        "test_path": "mycelix-workspace/simulations/nested-currency-reference/research/test_ncf_alloc5_obligation_admission.py",
+        "results_path": "mycelix-workspace/simulations/nested-currency-reference/research/ncf-alloc5-obligation-admission-results.json",
+        "campaign_path": "mycelix-workspace/simulations/nested-currency-reference/research/ncf-alloc5-obligation-campaign.json",
+        "documentation_path": "mycelix-workspace/simulations/nested-currency-reference/research/NCF-ALLOC-5-obligation-admission.md",
+        "test_execution_record": "mycelix-workspace/simulations/nested-currency-reference/research/NCF-ALLOC-5-TEST-RESULTS.txt",
+        "source_sha256": "07f40f264609ae960e8b300200c292b6cb0334e163d9ae7c74640bd00b9aca9f",
+        "results_sha256": "f77842b61a00939a10aad6cd2d81e275584c705fec747ce5b279b0f0e4450c0e",
+        "unit_tests_passed": 8,
+        "alias_cases": 5
+      }
     }
   ],
   "planned_conformance_cases": [
@@ -1765,6 +1837,42 @@
       "expected": "bounded_cap_uses_equal_share_cold_start_and_conserves_budget_when_lower_median_is_zero",
       "code_test": "median_cap_with_zero_lower_median_uses_equal_cold_start",
       "execution_status": "python_research_test_passed_rust_test_defined_not_run"
+    },
+    {
+      "id": "NCF-ALLOC-023",
+      "title": "The same unique obligation replayed through multiple shard aliases is admitted once",
+      "class": "obligation_alias_deduplication",
+      "attack": "Replay the same 4,000-unit obligation under one stable principal and instrument through 1, 4, 8, 16 and 32 shard IDs, with some retries in later epochs.",
+      "expected": "one unique accepted obligation, outstanding remains 4,000 units, and all later exact retries return the original receipt",
+      "code_test": "test_same_obligation_replayed_through_many_shards_counts_once",
+      "execution_status": "python_reference_test_passed_rust_and_distributed_not_run"
+    },
+    {
+      "id": "NCF-ALLOC-024",
+      "title": "A same-ID retry with changed amount, principal or instrument cannot mutate an accepted obligation",
+      "class": "obligation_conflicting_replay",
+      "attack": "After accepting an obligation ID, resubmit that ID with exactly one immutable field changed.",
+      "expected": "conflicting retry rejected without changing accepted count, principal exposure, or original receipt",
+      "code_test": "test_same_id_different_principal_or_instrument_rejects",
+      "execution_status": "python_reference_test_passed_rust_and_distributed_not_run"
+    },
+    {
+      "id": "NCF-ALLOC-025",
+      "title": "Principal/instrument cap aggregates distinct obligations across shard aliases",
+      "class": "principal_scoped_exposure_cap",
+      "attack": "Submit distinct obligations from two shard IDs for one principal/instrument so their combined accepted amount exceeds the cap.",
+      "expected": "second over-cap obligation rejected atomically and its ID remains available for corrected retry",
+      "code_test": "test_principal_cap_aggregates_distinct_obligations_across_shards",
+      "execution_status": "python_reference_test_passed_rust_and_distributed_not_run"
+    },
+    {
+      "id": "NCF-ALLOC-026",
+      "title": "Unverified obligation evidence and missing caps fail closed without consuming the ID",
+      "class": "evidence_admission_fail_closed",
+      "attack": "Submit malformed or verifier-rejected evidence, or an otherwise valid record without configured principal/instrument cap.",
+      "expected": "reject without ledger mutation; a corrected verified retry may be accepted",
+      "code_test": "test_unverified_or_malformed_evidence_fails_closed_without_id_consumption",
+      "execution_status": "python_reference_test_passed_rust_and_distributed_not_run"
     }
   ],
   "qualification_campaigns": [
@@ -1979,6 +2087,30 @@
       ],
       "execution_status": "python_tests_passed_rust_distributed_cryptographic_identity_not_run",
       "acceptance": "All five Python model tests pass and all eight profile cases preserve the fixed attacker backlog, show metrics per policy, and retain explicit identity/production claim ceilings. The research result does not qualify identity authentication or Sybil resistance."
+    },
+    {
+      "id": "NCF-QUAL-006",
+      "name": "Obligation admission sequential oracle and replay/cap tests",
+      "required_tests": [
+        "test_same_obligation_replayed_through_many_shards_counts_once",
+        "test_exact_replay_across_epoch_returns_original_receipt",
+        "test_same_id_different_amount_rejects_without_mutation",
+        "test_same_id_different_principal_or_instrument_rejects",
+        "test_principal_cap_aggregates_distinct_obligations_across_shards",
+        "test_unverified_or_malformed_evidence_fails_closed_without_id_consumption",
+        "test_missing_cap_fails_closed",
+        "test_invalid_cap_rejects_on_book_creation"
+      ],
+      "required_artifacts": [
+        "ncf_alloc5_obligation_admission.py",
+        "test_ncf_alloc5_obligation_admission.py",
+        "ncf-alloc5-obligation-admission-results.json",
+        "ncf-alloc5-obligation-campaign.json",
+        "NCF-ALLOC-5-obligation-admission.md",
+        "NCF-ALLOC-5-TEST-RESULTS.txt"
+      ],
+      "execution_status": "python_sequential_reference_tests_passed_rust_crypto_distributed_not_run",
+      "acceptance": "All eight Python tests pass. Identical obligation replay through 1..32 aliases changes no book total; changed amount/principal/instrument rejects without mutation; principal cap aggregates across shard aliases; no cap or untrusted verifier indication fails closed. Does not qualify signature verification, distributed concurrency or Holochain semantics."
     }
   ]
 }
