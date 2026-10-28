@@ -8,7 +8,7 @@ not a Sybil defence or a production identity model.
 from __future__ import annotations
 import argparse, hashlib, json
 from pathlib import Path
-from ncf_alloc3 import allocate, metrics, SPENDABLE, TOTAL_CAPACITY, RESERVE_PPM
+from ncf_alloc3 import allocate, metrics, SPENDABLE, SHARDS, TOTAL_CAPACITY, RESERVE_PPM
 
 HONEST_SHARDS = 15
 ATTACKER_TOTAL_DEMAND = 4_000
