@@ -15,3 +15,6 @@ source_sha256=de2ac4ba5ee6855b2739f100f2a4aecb9a7f66d0bdcec27d3e8f41ccddc20b46
 results_sha256=e8bc17f8c4d66e6f972e2c18a9fffb517d0cb0989611d96c450e59d78ad2c2b1
 
 Claim ceiling: sequential Python reference only. The model assumes a trustworthy externally verified receipt and does not implement cryptographic identities, verifier security, concurrent uniqueness, Rust/CI/TLC, Holochain or production settlement.
+
+checked_in_source_sha256=93bdaacfdf190ff5fc90786e63dce4d4e44e59292c159e31a5f38e0adc99ac06
+Note: checked-in source bytes differ from the local executed source; results are not a checksum-bound CI artifact.
