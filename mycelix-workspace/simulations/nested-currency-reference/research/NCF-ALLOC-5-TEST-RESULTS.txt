@@ -1,0 +1,16 @@
+test_exact_replay_across_epoch_returns_original_receipt ... ok
+test_invalid_cap_rejects_on_book_creation ... ok
+test_missing_cap_fails_closed ... ok
+test_principal_cap_aggregates_distinct_obligations_across_shards ... ok
+test_same_id_different_amount_rejects_without_mutation ... ok
+test_same_id_different_principal_or_instrument_rejects ... ok
+test_same_obligation_replayed_through_many_shards_counts_once ... ok
+test_unverified_or_malformed_evidence_fails_closed_without_id_consumption ... ok
+
+Ran 8 tests — OK.
+Combined local run: 23 tests passed (10 NCF-ALLOC-3 + 5 NCF-ALLOC-4 + 8 NCF-ALLOC-5) on 2026-10-28.
+
+source_sha256=07f40f264609ae960e8b300200c292b6cb0334e163d9ae7c74640bd00b9aca9f
+results_sha256=f77842b61a00939a10aad6cd2d81e275584c705fec747ce5b279b0f0e4450c0e
+
+Claim ceiling: sequential Python reference only. The model assumes a trustworthy externally verified receipt and does not implement cryptographic identities, verifier security, concurrent uniqueness, Rust/CI/TLC, Holochain or production settlement.
