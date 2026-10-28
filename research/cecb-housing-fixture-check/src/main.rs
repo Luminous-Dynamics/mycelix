@@ -220,7 +220,7 @@ fn validate_fixture(input: &str) -> Result<(Value, bool), String> {
         "global_violations": global_violations,
         "case_results": case_results,
         "claim_ceiling": concat!(
-            "Validates internal consistency of this synthetic fixture only. It does not execute or rank ",
+            "Validates internal consistency only; it does not execute or rank economic policies or establish ",
             "economic policies and is not evidence of real-world impact."
         )
     });
@@ -410,7 +410,7 @@ fn validate_h002(case: &Value, errors: &mut Vec<String>) {
     ) {
         if before.saturating_add(added) != after {
             errors.push(
-                "post-completion capacity must equal pre-completion capacity plus completed units".to_owned(),
+                "post-completion capacity must equal prior capacity plus completed units".to_owned(),
             );
         }
     }
@@ -529,7 +529,7 @@ fn validate_h004(case: &Value, errors: &mut Vec<String>) {
         let age_at_scenario_start = 0_i64.saturating_sub(last_inspected) as u64;
         if age_at_scenario_start <= max_age {
             errors.push(
-                "D3 is declared stale but inspection age is not greater than maximum age".to_owned(),
+                "D3 inspection age must exceed the declared maximum when marked stale".to_owned(),
             );
         }
     }
@@ -593,7 +593,7 @@ fn validate_h005(case: &Value, errors: &mut Vec<String>) {
     ) {
         if maintained <= skipped {
             errors.push(
-                "skipping required maintenance must expose the fixture's later capacity loss".to_owned(),
+                "skipping maintenance must expose the encoded later capacity loss".to_owned(),
             );
         }
     }
@@ -685,7 +685,7 @@ fn validate_h007(case: &Value, errors: &mut Vec<String>) {
     ) {
         if face.saturating_sub(repaid) != remaining || remaining != net_new {
             errors.push(
-                "new loan face value must be split between predecessor repayment and remaining proceeds".to_owned(),
+                "new loan face value must split into predecessor repayment and remaining proceeds".to_owned(),
             );
         }
     }
@@ -767,7 +767,7 @@ fn validate_h009(case: &Value, errors: &mut Vec<String>) {
     ) {
         if housed > capacity || housed.saturating_add(unmet) != demand {
             errors.push(
-                "accessible-unit allocation violates suitability capacity or demand closure".to_owned(),
+                "accessible allocation must respect suitability capacity and demand closure".to_owned(),
             );
         }
     }
@@ -871,7 +871,7 @@ fn make_policy_view(input: &str) -> Result<Value, String> {
         "schema_version": "cecb.housing.policy_view.v0.1",
         "source_schema_version": root["schema_version"],
         "claim_ceiling": concat!(
-            "Candidate-visible synthetic observations only. This view excludes world and oracle facts; ",
+            "Candidate-visible synthetic observations only; excludes world and oracle facts; ",
             "it is not real-world data."
         ),
         "cases": visible_cases
