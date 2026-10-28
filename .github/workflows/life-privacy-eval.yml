@@ -67,7 +67,11 @@ jobs:
           assert manifest["threat_coverage_entry_count"] == len(coverage["threats"]) == 15
           assert manifest["attack_profile_count"] == len(coverage["attack_profiles"]) == 6
           threat_ids = [item["w3c_threat_id"] for item in coverage["threats"]]
+          noncoverage_ids = [tid for item in coverage["explicit_noncoverage"] for tid in item["w3c_threat_ids"]]
           assert len(threat_ids) == len(set(threat_ids))
+          assert len(noncoverage_ids) == len(set(noncoverage_ids))
+          assert not (set(threat_ids) & set(noncoverage_ids))
+          assert set(threat_ids) | set(noncoverage_ids) == {f"T{i}" for i in range(1, 26)}
           profile_ids = [item["id"] for item in coverage["attack_profiles"]]
           assert len(profile_ids) == len(set(profile_ids))
           assert all(item["name"] and item["claim_ceiling"] and item["minimum_channels"] for item in coverage["threats"])
