@@ -1,12 +1,257 @@
 {
-  "id":"NCF-BENCH-013",
-  "name":"SQLite WAL checkpoint concurrency and ledger-consistency stress",
-  "status":"bounded_local_stress_completed_engine_bug_not_qualified",
-  "runtime":{"python":"3.13.5","sqlite":"3.46.1","platform":"Linux","topology":"single host, file-backed SQLite WAL"},
-  "configuration":{"journal_mode":"WAL","synchronous":"FULL","writer_transaction":"BEGIN IMMEDIATE","concurrent_roles":["8 writer threads, one transaction per obligation","one checkpoint thread rotates PASSIVE/RESTART/TRUNCATE","four reader snapshot threads"],"runs":["1,000 writes / 750 checkpoint attempts / 900 snapshots","8,000 writes / 2,500 checkpoint attempts / 4,000 snapshots","20,000 writes / 5,000 checkpoint attempts / 6,000 snapshots, repeated twice"]},
-  "acceptance_gates":["all requested writes accepted in this unlimited-cap workload","used_units equals sum of unique canonical obligation amounts","no duplicate work digest groups","all read snapshots observe counter equals obligation sum","PRAGMA integrity_check equals ok","zero foreign-key violations","final quiescent TRUNCATE checkpoint returns [0,0,0]","held-reader TRUNCATE checkpoint is explicitly reported busy/partial until reader release"],
-  "results":{"source_sha256":"77a38876f219cc781ef1fb06feea4fd579b1cfe65f0611c7d76a2de6b17076ca","source_git_blob_sha":"d87d4bf4aa843ba8bfa74bbb278383d186d72885","repository_source_bytewise_match":true,"summary_path":"ncf-alloc9-checkpoint-results-summary.json","tests_passed":3,"combined_tests_passed":9,"combined_test_seconds":6.706,"invariant_failures":0,"runs":{"1k":{"accepted":1000,"seconds":0.425,"checkpoint_attempts":750,"busy_or_partial":1,"snapshots":900,"consistent":900},"8k":{"accepted":8000,"seconds":2.5275,"checkpoint_attempts":2500,"busy_or_partial":797,"snapshots":4000,"consistent":4000},"20k_run_1":{"accepted":20000,"seconds":6.5242,"checkpoint_attempts":5000,"busy_or_partial":673,"snapshots":6000,"consistent":6000},"20k_run_2":{"accepted":20000,"seconds":6.9588,"checkpoint_attempts":5000,"busy_or_partial":13,"snapshots":6000,"consistent":6000}}},
-  "claim_ceiling":"Application-level SQLite WAL checkpoint/read/write stress on one host only. Does not reproduce the SQLite internal WAL-reset bug, prove fixed-version safety, simulate kernel or power failure, or qualify Rust/Holochain/multi-host production paths.",
-  "engine_gate":"Runtime SQLite 3.46.1 is within the range affected by the documented WAL-reset bug. Repeat on SQLite 3.53.3 (latest official release observed 2026-10-28), or at minimum 3.51.3 / verified vendor backport, and use the dedicated low-level regression approach; generic stress is not the bug reproducer.",
-  "research_reference":{"source_path":"mycelix-workspace/simulations/nested-currency-reference/research/ncf_alloc9_checkpoint_stress.py","summary_path":"mycelix-workspace/simulations/nested-currency-reference/research/ncf-alloc9-checkpoint-results-summary.json","documentation_path":"mycelix-workspace/simulations/nested-currency-reference/research/NCF-ALLOC-9-checkpoint-stress.md","test_execution_record":"mycelix-workspace/simulations/nested-currency-reference/research/NCF-ALLOC-9-TEST-RESULTS.txt"}
+  "id": "NCF-BENCH-013",
+  "name": "SQLite WAL checkpoint concurrency and ledger-consistency stress",
+  "status": "bounded_local_stress_completed_engine_bug_not_qualified",
+  "runtime": {
+    "python": "3.13.5",
+    "sqlite": "3.46.1",
+    "sqlite_source_id": "2024-08-13 09:16:08 c9c2ab54ba1f5f46360f1b4f35d849cd3f080e6fc2b6c60e91b16c63f69aalt1",
+    "platform": "Linux",
+    "topology": "single host, file-backed SQLite WAL"
+  },
+  "configuration": {
+    "journal_mode": "WAL",
+    "synchronous": "FULL",
+    "writer_transaction": "BEGIN IMMEDIATE",
+    "concurrent_roles": [
+      "8 writer threads, one transaction per obligation",
+      "one checkpoint thread rotates PASSIVE/RESTART/TRUNCATE",
+      "reader snapshot threads"
+    ],
+    "runs": {
+      "1k": {
+        "writes": 1000,
+        "seconds": 0.5748,
+        "checkpoint_attempts": 750,
+        "busy_or_partial": 1,
+        "snapshots": 900,
+        "consistent_snapshots": 900,
+        "failures": 0
+      },
+      "8k": {
+        "writes": 8000,
+        "seconds": 2.7445,
+        "checkpoint_attempts": 2500,
+        "busy_or_partial": 6,
+        "snapshots": 4000,
+        "consistent_snapshots": 4000,
+        "failures": 0
+      },
+      "20k_run_1": {
+        "writes": 20000,
+        "seconds": 5.9192,
+        "checkpoint_attempts": 5000,
+        "busy_or_partial": 6,
+        "snapshots": 6000,
+        "consistent_snapshots": 6000,
+        "failures": 0
+      },
+      "20k_run_2": {
+        "writes": 20000,
+        "seconds": 6.8891,
+        "checkpoint_attempts": 5000,
+        "busy_or_partial": 323,
+        "snapshots": 6000,
+        "consistent_snapshots": 6000,
+        "failures": 0
+      }
+    }
+  },
+  "acceptance_gates": [
+    "all requested writes accounted for",
+    "used_units equals sum of unique canonical obligation amounts",
+    "no duplicate work digest groups",
+    "all read snapshots observe counter equals obligation sum",
+    "PRAGMA integrity_check equals ok",
+    "zero foreign-key violations",
+    "final quiescent TRUNCATE checkpoint returns [0,0,0]",
+    "held-reader TRUNCATE checkpoint explicitly reports busy/partial"
+  ],
+  "results": {
+    "source_sha256": "534ba9ac776e085b632f453e6cb9282b12c9d8e60f93501146c62a5d7191eeff",
+    "source_git_blob_sha": "436e58d6a48f9be58fb11602069c6c169f035161",
+    "repository_source_bytewise_match": true,
+    "summary_path": "ncf-alloc9-checkpoint-results-summary.json",
+    "tests_passed": 5,
+    "combined_tests_passed": 11,
+    "combined_test_seconds": 6.259,
+    "invariant_failures": 0,
+    "source_gate": "NOT_QUALIFIED on current runtime",
+    "runs": {
+      "1k": {
+        "result_path": "ncf-alloc9-checkpoint-results-1k.json",
+        "result_file_sha256": "a90918c9acc2da2d9b1b94caf1aa8449b37ecba059dfc897df4cefb94bfd6bbe",
+        "write_operations_requested": 1000,
+        "write_operations_accepted": 1000,
+        "elapsed_seconds": 0.5748,
+        "accepted_operations_per_second": 1739.74,
+        "checkpoint_observations": 750,
+        "checkpoints_complete": 749,
+        "checkpoints_busy_or_partial": 1,
+        "reader_snapshot_observations": 900,
+        "expected_reader_snapshots": 900,
+        "consistent_reader_snapshots": 900,
+        "write_latency_ms": {
+          "p50": 0.2473,
+          "p95": 0.5083,
+          "p99": 1.4075
+        },
+        "checkpoint_latency_ms": {
+          "p50": 0.004,
+          "p95": 0.0069,
+          "p99": 0.042
+        },
+        "final_checkpoint_result": [
+          0,
+          0,
+          0
+        ],
+        "final_checkpoint_ok": true,
+        "final_state": {
+          "used_units": 4879,
+          "unique_obligation_units": 4879,
+          "obligation_count": 1000,
+          "unique_work_digests": 1000,
+          "integrity_check": "ok",
+          "foreign_key_violations": 0,
+          "cap_not_overshot": true,
+          "counter_matches_ledger": true,
+          "work_digest_unique": true
+        },
+        "failure_count": 0,
+        "result_source_sha256": "534ba9ac776e085b632f453e6cb9282b12c9d8e60f93501146c62a5d7191eeff"
+      },
+      "8k": {
+        "result_path": "ncf-alloc9-checkpoint-results-8k.json",
+        "result_file_sha256": "3d9725e9d3552da546d6b6808a72c2d9dc342b2e6810a11f709983e582cf5388",
+        "write_operations_requested": 8000,
+        "write_operations_accepted": 8000,
+        "elapsed_seconds": 2.7445,
+        "accepted_operations_per_second": 2914.92,
+        "checkpoint_observations": 2500,
+        "checkpoints_complete": 2494,
+        "checkpoints_busy_or_partial": 6,
+        "reader_snapshot_observations": 4000,
+        "expected_reader_snapshots": 4000,
+        "consistent_reader_snapshots": 4000,
+        "write_latency_ms": {
+          "p50": 0.244,
+          "p95": 0.4955,
+          "p99": 1.067
+        },
+        "checkpoint_latency_ms": {
+          "p50": 0.0041,
+          "p95": 0.013,
+          "p99": 0.1889
+        },
+        "final_checkpoint_result": [
+          0,
+          0,
+          0
+        ],
+        "final_checkpoint_ok": true,
+        "final_state": {
+          "used_units": 39822,
+          "unique_obligation_units": 39822,
+          "obligation_count": 8000,
+          "unique_work_digests": 8000,
+          "integrity_check": "ok",
+          "foreign_key_violations": 0,
+          "cap_not_overshot": true,
+          "counter_matches_ledger": true,
+          "work_digest_unique": true
+        },
+        "failure_count": 0,
+        "result_source_sha256": "534ba9ac776e085b632f453e6cb9282b12c9d8e60f93501146c62a5d7191eeff"
+      },
+      "20k_run_1": {
+        "result_path": "ncf-alloc9-checkpoint-results-20k.json",
+        "result_file_sha256": "4537e1ef47ca9aea8de17fb4fed52afb97b32e40e7c8af47275704e9d3b9d4ce",
+        "write_operations_requested": 20000,
+        "write_operations_accepted": 20000,
+        "elapsed_seconds": 5.9192,
+        "accepted_operations_per_second": 3378.83,
+        "checkpoint_observations": 5000,
+        "checkpoints_complete": 4994,
+        "checkpoints_busy_or_partial": 6,
+        "reader_snapshot_observations": 6000,
+        "expected_reader_snapshots": 6000,
+        "consistent_reader_snapshots": 6000,
+        "write_latency_ms": {
+          "p50": 0.2239,
+          "p95": 0.4683,
+          "p99": 0.9548
+        },
+        "checkpoint_latency_ms": {
+          "p50": 0.0041,
+          "p95": 0.006,
+          "p99": 0.0299
+        },
+        "final_checkpoint_result": [
+          0,
+          0,
+          0
+        ],
+        "final_checkpoint_ok": true,
+        "final_state": {
+          "used_units": 99992,
+          "unique_obligation_units": 99992,
+          "obligation_count": 20000,
+          "unique_work_digests": 20000,
+          "integrity_check": "ok",
+          "foreign_key_violations": 0,
+          "cap_not_overshot": true,
+          "counter_matches_ledger": true,
+          "work_digest_unique": true
+        },
+        "failure_count": 0,
+        "result_source_sha256": "534ba9ac776e085b632f453e6cb9282b12c9d8e60f93501146c62a5d7191eeff"
+      },
+      "20k_run_2": {
+        "result_path": "ncf-alloc9-checkpoint-results-20k-repeat2.json",
+        "result_file_sha256": "32fd6fd12303988b21d1d2f2c484a7d1981fe2b24c29333d3b47b26e3d182471",
+        "write_operations_requested": 20000,
+        "write_operations_accepted": 20000,
+        "elapsed_seconds": 6.8891,
+        "accepted_operations_per_second": 2903.14,
+        "checkpoint_observations": 5000,
+        "checkpoints_complete": 4677,
+        "checkpoints_busy_or_partial": 323,
+        "reader_snapshot_observations": 6000,
+        "expected_reader_snapshots": 6000,
+        "consistent_reader_snapshots": 6000,
+        "write_latency_ms": {
+          "p50": 0.2531,
+          "p95": 0.5517,
+          "p99": 2.2015
+        },
+        "checkpoint_latency_ms": {
+          "p50": 0.0039,
+          "p95": 0.0095,
+          "p99": 0.1486
+        },
+        "final_checkpoint_result": [
+          0,
+          0,
+          0
+        ],
+        "final_checkpoint_ok": true,
+        "final_state": {
+          "used_units": 99992,
+          "unique_obligation_units": 99992,
+          "obligation_count": 20000,
+          "unique_work_digests": 20000,
+          "integrity_check": "ok",
+          "foreign_key_violations": 0,
+          "cap_not_overshot": true,
+          "counter_matches_ledger": true,
+          "work_digest_unique": true
+        },
+        "failure_count": 0,
+        "result_source_sha256": "534ba9ac776e085b632f453e6cb9282b12c9d8e60f93501146c62a5d7191eeff"
+      }
+    }
+  },
+  "claim_ceiling": "Local Python/SQLite application-level checkpoint/read/write stress on one host only. No low-level WAL-reset bug reproduction, power-loss testing, Rust/Holochain/multi-host/production qualification.",
+  "engine_gate": "Runtime SQLite 3.46.1 fails --require-fixed-sqlite. SQLite's current official release as of 2026-10-28 is 3.54.1; minimum fixed version is 3.51.3. A dedicated low-level WAL-reset test remains open."
 }
