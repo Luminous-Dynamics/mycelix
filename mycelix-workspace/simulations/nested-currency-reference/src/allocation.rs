@@ -32,6 +32,13 @@ pub enum AllocationPolicy {
     /// slices, then distribute the remainder by historical mean demand. This trades
     /// some stationary utilization for resilience to demand shifts.
     DemandWeightedWithEqualFloor { equal_floor_ppm: u32 },
+    /// Apply an equal floor, then allocate the remainder by historical mean demand
+    /// clipped to a multiple of the lower median demand weight. This limits the
+    /// influence of extreme reports but is not proof of demand or Sybil resistance.
+    DemandWeightedWithEqualFloorAndMedianCap {
+        equal_floor_ppm: u32,
+        cap_multiple: u64,
+    },
     /// Weight rights by a nearest-rank historical quantile plus a proportional margin.
     /// Quantile uses basis points: 5_000 = 50th percentile, 9_500 = 95th percentile.
     RobustQuantile {
@@ -70,6 +77,7 @@ pub enum AllocationError {
     DuplicateShardId,
     ReserveOutOfRange,
     FloorOutOfRange,
+    CapMultipleOutOfRange,
     QuantileOutOfRange,
     MarginOutOfRange,
     MissingDemandSamples,
@@ -181,7 +189,8 @@ pub fn allocate_static_escrow(
     }
 
     let equal_floor_ppm = match policy {
-        AllocationPolicy::DemandWeightedWithEqualFloor { equal_floor_ppm } => {
+        AllocationPolicy::DemandWeightedWithEqualFloor { equal_floor_ppm }
+        | AllocationPolicy::DemandWeightedWithEqualFloorAndMedianCap { equal_floor_ppm, .. } => {
             if equal_floor_ppm > PARTS_PER_MILLION {
                 return Err(AllocationError::FloorOutOfRange);
             }
@@ -195,7 +204,8 @@ pub fn allocate_static_escrow(
         let weight = match policy {
             AllocationPolicy::EqualSplit => 1,
             AllocationPolicy::DemandWeighted
-            | AllocationPolicy::DemandWeightedWithEqualFloor { .. } => mean_ceiling(&shard.samples)?,
+            | AllocationPolicy::DemandWeightedWithEqualFloor { .. }
+            | AllocationPolicy::DemandWeightedWithEqualFloorAndMedianCap { .. } => mean_ceiling(&shard.samples)?,
             AllocationPolicy::RobustQuantile { quantile_basis_points, margin_ppm } => {
                 if !(1..=BASIS_POINTS).contains(&quantile_basis_points) {
                     return Err(AllocationError::QuantileOutOfRange);
@@ -210,6 +220,13 @@ pub fn allocate_static_escrow(
             }
         };
         weights.push(weight);
+    }
+
+    if let AllocationPolicy::DemandWeightedWithEqualFloorAndMedianCap { cap_multiple, .. } = policy {
+        if cap_multiple == 0 {
+            return Err(AllocationError::CapMultipleOutOfRange);
+        }
+        cap_weights_to_lower_median(&mut weights, cap_multiple)?;
     }
 
     if weights.iter().all(|weight| *weight == 0) {
@@ -295,6 +312,34 @@ fn apportion_largest_remainder(
         shares[*index] = shares[*index].checked_add(1).ok_or(AllocationError::Overflow)?;
     }
     Ok(shares)
+}
+
+/// Bound any one historical mean to a multiple of the lower median of all shard
+/// means. This is only a bounded-influence guardrail: it assumes stable shard IDs
+/// and does not authenticate demand or prevent a Sybil majority from moving the median.
+fn cap_weights_to_lower_median(weights: &mut [u64], cap_multiple: u64) -> Result<(), AllocationError> {
+    if weights.is_empty() {
+        return Err(AllocationError::NoShards);
+    }
+    if cap_multiple == 0 {
+        return Err(AllocationError::CapMultipleOutOfRange);
+    }
+    let mut ordered = weights.to_vec();
+    ordered.sort_unstable();
+    let mut baseline = ordered[(ordered.len() - 1) / 2];
+    if baseline == 0 {
+        let mut positive: Vec<u64> = ordered.into_iter().filter(|weight| *weight > 0).collect();
+        if positive.is_empty() {
+            return Ok(());
+        }
+        positive.sort_unstable();
+        baseline = positive[(positive.len() - 1) / 2];
+    }
+    let cap = baseline.checked_mul(cap_multiple).ok_or(AllocationError::Overflow)?;
+    for weight in weights {
+        *weight = (*weight).min(cap);
+    }
+    Ok(())
 }
 
 fn mean_ceiling(samples: &[u64]) -> Result<u64, AllocationError> {
@@ -466,6 +511,8 @@ mod tests {
             AllocationPolicy::DemandWeightedWithEqualFloor { equal_floor_ppm: 250_000 },
             AllocationPolicy::DemandWeightedWithEqualFloor { equal_floor_ppm: 500_000 },
             AllocationPolicy::DemandWeightedWithEqualFloor { equal_floor_ppm: 750_000 },
+            AllocationPolicy::DemandWeightedWithEqualFloorAndMedianCap { equal_floor_ppm: 500_000, cap_multiple: 2 },
+            AllocationPolicy::DemandWeightedWithEqualFloorAndMedianCap { equal_floor_ppm: 500_000, cap_multiple: 4 },
         ] {
             let a = allocate_static_escrow(&input, 1_007, 10_000, policy).unwrap();
             let b = allocate_static_escrow(&reversed, 1_007, 10_000, policy).unwrap();
@@ -617,7 +664,7 @@ mod tests {
             let count = 2 + (rng.next() % 15) as usize;
             let capacity = count as u64 + rng.next() % 100_000;
             let reserve_ppm = (rng.next() % 500_001) as u32;
-            let policy = match case_index % 6 {
+            let policy = match case_index % 8 {
                 0 => AllocationPolicy::EqualSplit,
                 1 => AllocationPolicy::DemandWeighted,
                 2 => AllocationPolicy::RobustQuantile {
@@ -626,7 +673,9 @@ mod tests {
                 },
                 3 => AllocationPolicy::DemandWeightedWithEqualFloor { equal_floor_ppm: 250_000 },
                 4 => AllocationPolicy::DemandWeightedWithEqualFloor { equal_floor_ppm: 500_000 },
-                _ => AllocationPolicy::DemandWeightedWithEqualFloor { equal_floor_ppm: 750_000 },
+                5 => AllocationPolicy::DemandWeightedWithEqualFloor { equal_floor_ppm: 750_000 },
+                6 => AllocationPolicy::DemandWeightedWithEqualFloorAndMedianCap { equal_floor_ppm: 500_000, cap_multiple: 2 },
+                _ => AllocationPolicy::DemandWeightedWithEqualFloorAndMedianCap { equal_floor_ppm: 500_000, cap_multiple: 4 },
             };
             let input: Vec<ShardDemand> = (0..count).map(|index| {
                 let sample_count = 1 + (rng.next() % 8) as usize;
@@ -670,6 +719,76 @@ mod tests {
                 AllocationPolicy::DemandWeighted,
             ),
             Err(AllocationError::Overflow),
+        );
+    }
+
+    #[test]
+    fn median_cap_reduces_inflated_claim_influence_under_contention() {
+        let mut input: Vec<ShardDemand> = (0..16).map(|index| {
+            shard(&format!("shard-{index:02}"), &[10_000], 0)
+        }).collect();
+        input[0].samples = vec![100_000];
+        input[1].samples = vec![100_000];
+        let raw = allocate_static_escrow(
+            &input, 100_000, 50_000,
+            AllocationPolicy::DemandWeightedWithEqualFloor { equal_floor_ppm: 500_000 },
+        ).unwrap();
+        let capped = allocate_static_escrow(
+            &input, 100_000, 50_000,
+            AllocationPolicy::DemandWeightedWithEqualFloorAndMedianCap {
+                equal_floor_ppm: 500_000, cap_multiple: 2,
+            },
+        ).unwrap();
+        assert!(capped.slice_for("shard-00").unwrap() + capped.slice_for("shard-01").unwrap()
+            < raw.slice_for("shard-00").unwrap() + raw.slice_for("shard-01").unwrap());
+        assert_eq!(capped.slices.iter().find(|slice| slice.shard_id == "shard-00").unwrap().allocation_weight, 20_000);
+        let served = |plan: &AllocationPlan| -> u64 {
+            input.iter().map(|demand| plan.slice_for(&demand.shard_id).unwrap().min(10_000)).sum()
+        };
+        assert!(served(&capped) > served(&raw));
+        raw.validate().unwrap();
+        capped.validate().unwrap();
+    }
+
+    #[test]
+    fn median_cap_exposes_honest_hotspot_tradeoff_and_cap_four_preserves_four_x_demand() {
+        let input: Vec<ShardDemand> = (0..16).map(|index| {
+            let demand = if index < 4 { 16_000 } else { 4_000 };
+            shard(&format!("shard-{index:02}"), &[demand], 0)
+        }).collect();
+        let raw = allocate_static_escrow(
+            &input, 100_000, 50_000,
+            AllocationPolicy::DemandWeightedWithEqualFloor { equal_floor_ppm: 500_000 },
+        ).unwrap();
+        let cap2 = allocate_static_escrow(
+            &input, 100_000, 50_000,
+            AllocationPolicy::DemandWeightedWithEqualFloorAndMedianCap {
+                equal_floor_ppm: 500_000, cap_multiple: 2,
+            },
+        ).unwrap();
+        let cap4 = allocate_static_escrow(
+            &input, 100_000, 50_000,
+            AllocationPolicy::DemandWeightedWithEqualFloorAndMedianCap {
+                equal_floor_ppm: 500_000, cap_multiple: 4,
+            },
+        ).unwrap();
+        let served = |plan: &AllocationPlan| -> u64 {
+            input.iter().map(|demand| plan.slice_for(&demand.shard_id).unwrap()
+                .min(demand.samples[0])).sum()
+        };
+        assert!(served(&cap2) < served(&raw));
+        assert_eq!(served(&cap4), served(&raw));
+        for demand in &input {
+            assert_eq!(raw.slice_for(&demand.shard_id), cap4.slice_for(&demand.shard_id));
+        }
+        assert_eq!(
+            allocate_static_escrow(
+                &input, 100_000, 50_000,
+                AllocationPolicy::DemandWeightedWithEqualFloorAndMedianCap {
+                    equal_floor_ppm: 500_000, cap_multiple: 0,
+                },
+            ),
+            Err(AllocationError::CapMultipleOutOfRange),
         );
     }
 }
