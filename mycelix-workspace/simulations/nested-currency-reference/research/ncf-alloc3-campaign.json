@@ -57,5 +57,5 @@
   "decision_rule": "Do not select cap/floor from aggregate demand served alone. Evaluate joint honest-load and adversarial-load frontier, worst-shard service, Jain fairness, stranded rights, identity threat model and recovery correctness.",
   "required_tests": [],
   "source_sha256": "e0557bbaae60e57d6dd1ede9748f395bc2fdc930bd20fbcb212df0a02a1b332f",
-  "results_sha256": "00a303cb58cce9dc9aa0026047fa790c6b9037c4bf7607c0b206d75e7cbc4a28"
+  "results_sha256": "54ce4a1fde19e7a34b766c12822ddcda478c8698a6c522f6d55c3a802e5742a7"
 }
