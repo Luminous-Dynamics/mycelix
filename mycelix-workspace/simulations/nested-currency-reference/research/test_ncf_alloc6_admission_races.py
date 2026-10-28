@@ -22,6 +22,13 @@ class AdmissionRaceTests(unittest.TestCase):
         bad=[r for r in rows if r["cap_overshoot_units"]>0]
         self.assertGreater(len(bad),0)
         self.assertEqual(max(r["cap_overshoot_units"] for r in bad),20)
+    def test_naive_same_request_id_can_accept_conflicting_payloads(self):
+        a=hashlib.sha256(b"work-a").hexdigest(); b=hashlib.sha256(b"work-b").hexdigest()
+        reqs={"A":Request("shared-id",a,amount=40),"B":Request("shared-id",b,amount=40)}
+        rows=[run_naive(reqs,s,"atomic_increment") for s in interleavings()]
+        conflicts=[r for r in rows if r["conflicting_request_payloads_accepted"]]
+        self.assertGreater(len(conflicts),0)
+        self.assertTrue(all(r["accepted_event_count"]==2 for r in conflicts))
     def test_snapshot_overwrite_can_understate_accepted_liability(self):
         a=hashlib.sha256(b"a").hexdigest(); b=hashlib.sha256(b"b").hexdigest()
         reqs={"A":Request("A",a,amount=40),"B":Request("B",b,amount=40)}
