@@ -93,6 +93,11 @@ struct AcceptedObligation {
     instrument_id: String,
     amount_units: u64,
     payload_digest: [u8; 32],
+    /// Verifier evidence bound to this request ID. A canonical-work alias may
+    /// return another ID's original receipt, but its own ID still binds the
+    /// exact verifier evidence accepted for that alias.
+    verifier_version: String,
+    verifier_receipt_digest: [u8; 32],
     receipt: AdmissionReceipt,
 }
 
@@ -118,6 +123,7 @@ impl ObligationBook {
         Ok(Self {
             principal_caps,
             accepted: BTreeMap::new(),
+            canonical_id_by_payload_digest: BTreeMap::new(),
             outstanding_by_principal_instrument: BTreeMap::new(),
         })
     }
@@ -149,8 +155,8 @@ impl ObligationBook {
             // but cannot silently substitute a different verifier version or
             // receipt digest under the same idempotency key.
             let same_verifier_evidence =
-                claim.verifier_version == prior.receipt.verifier_version
-                    && claim.verifier_receipt_digest == prior.receipt.verifier_receipt_digest;
+                claim.verifier_version == prior.verifier_version
+                    && claim.verifier_receipt_digest == prior.verifier_receipt_digest;
             if payload == prior_payload && same_verifier_evidence {
                 return Ok(AdmissionOutcome::IdempotentReplay(prior.receipt.clone()));
             }
@@ -182,6 +188,8 @@ impl ObligationBook {
                     instrument_id: claim.instrument_id,
                     amount_units: claim.amount_units,
                     payload_digest: claim.payload_digest,
+                    verifier_version: claim.verifier_version,
+                    verifier_receipt_digest: claim.verifier_receipt_digest,
                     receipt: receipt.clone(),
                 },
             );
@@ -213,7 +221,7 @@ impl ObligationBook {
             amount_units: claim.amount_units,
             payload_digest: claim.payload_digest,
             original_epoch: claim.epoch,
-            verifier_version: claim.verifier_version,
+            verifier_version: claim.verifier_version.clone(),
             verifier_receipt_digest: claim.verifier_receipt_digest,
         };
         let accepted = AcceptedObligation {
@@ -221,6 +229,8 @@ impl ObligationBook {
             instrument_id: claim.instrument_id,
             amount_units: claim.amount_units,
             payload_digest: claim.payload_digest,
+            verifier_version: claim.verifier_version,
+            verifier_receipt_digest: claim.verifier_receipt_digest,
             receipt: receipt.clone(),
         };
 
@@ -339,6 +349,58 @@ mod tests {
         );
         assert_eq!(book.accepted_count(), 1);
         assert_eq!(book.outstanding_for("principal-A", "instrument-1"), 100);
+    }
+
+    #[test]
+    fn canonical_work_alias_binds_its_own_verifier_evidence() {
+        let mut book = book(1_000);
+        let original = book
+            .admit(verified(
+                "ob-1", "principal-A", "instrument-1", "s-a", 1, 1, 100, 7,
+            ).unwrap())
+            .unwrap();
+        let AdmissionOutcome::Accepted(original_receipt) = original else {
+            panic!("first work item should be accepted");
+        };
+
+        let mut alias_claim = verified(
+            "ob-alias", "principal-A", "instrument-1", "s-b", 2, 5, 100, 7,
+        )
+        .unwrap()
+        .0;
+        alias_claim.verifier_version = "test-verifier-v2".to_owned();
+        alias_claim.verifier_receipt_digest = [50; 32];
+        let alias = book
+            .admit(VerifiedObligation::from_trusted_verifier(alias_claim.clone()).unwrap())
+            .unwrap();
+        assert_eq!(
+            alias,
+            AdmissionOutcome::IdempotentReplay(original_receipt.clone()),
+        );
+        assert_eq!(book.receipt_for("ob-alias"), Some(&original_receipt));
+        assert_eq!(book.accepted_count(), 1);
+        assert_eq!(book.outstanding_for("principal-A", "instrument-1"), 100);
+
+        // Retry of the alias must use the evidence originally bound to that
+        // alias ID, even though it returns the canonical/original receipt.
+        assert_eq!(
+            book.admit(VerifiedObligation::from_trusted_verifier(alias_claim).unwrap()),
+            Ok(AdmissionOutcome::IdempotentReplay(original_receipt.clone())),
+        );
+        let mut changed_alias_claim = verified(
+            "ob-alias", "principal-A", "instrument-1", "s-c", 99, 800, 100, 7,
+        )
+        .unwrap()
+        .0;
+        changed_alias_claim.verifier_version = "test-verifier-v3".to_owned();
+        changed_alias_claim.verifier_receipt_digest = [60; 32];
+        assert_eq!(
+            book.admit(VerifiedObligation::from_trusted_verifier(changed_alias_claim).unwrap()),
+            Err(AdmissionError::ConflictingObligationId),
+        );
+        assert_eq!(book.accepted_count(), 1);
+        assert_eq!(book.outstanding_for("principal-A", "instrument-1"), 100);
+        assert_eq!(book.receipt_for("ob-alias"), Some(&original_receipt));
     }
 
     #[test]
