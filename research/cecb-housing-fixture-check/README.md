@@ -37,7 +37,8 @@ The default fixture is embedded at compile time using `include_str!`, so it is v
 - The checker validates fixed v0.1 fixture expectations; it is not a general-purpose economic simulator or a generic JSON Schema engine.
 - It has not been run against the Rust toolchain as part of authoring because runner/toolchain access was unavailable. A skipped GitHub Actions run must not be represented as a pass.
 - The fixture is synthetic. No result from this checker may be cited as evidence that a particular financing, ownership, or allocation regime works better in a real community.
-- The exported `case_###` tokens are currently assigned in fixture order; they reduce semantic-label leakage but are not cryptographic blinding. A research candidate with repository access can recover the fixture and token order. A competitive evaluation needs an isolated candidate process, a hidden evaluation set, and a per-run randomized token mapping held by the evaluator.\n- The evaluator code is not a security boundary if candidate code can read the original fixture or share process memory. Keep evaluator and candidate execution separated in the future runner, and pass only the generated policy-view artifact across that boundary.
+- The exported `case_###` tokens are currently assigned in fixture order; they reduce semantic-label leakage but are not cryptographic blinding. A research candidate with repository access can recover the fixture and token order. A competitive evaluation needs an isolated candidate process, a hidden evaluation set, and a per-run randomized token mapping held by the evaluator.
+- The evaluator code is not a security boundary if candidate code can read the original fixture or share process memory. Keep evaluator and candidate execution separated in the future runner, and pass only the generated policy-view artifact across that boundary.
 
 ## Exact-run evidence receipt
 
