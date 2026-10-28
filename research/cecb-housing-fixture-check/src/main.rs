@@ -505,11 +505,15 @@ fn build_paired_plan() -> Value {
         ],
         "run_result_contract": {
             "schema_version": "cecb.housing.policy_result.v0.1",
+            "canonicalization_profile": "RFC 8785 JSON Canonicalization Scheme",
+            "digest_algorithm": "SHA-256",
             "required_fields": [
                 "run_id",
                 "design_id",
+                "design_manifest_sha256",
                 "source_commit_sha",
-                "configuration_id",
+                "config_id",
+                "scenario_config_digest_sha256",
                 "replicate_id",
                 "seed_hex",
                 "arm_id",
@@ -1439,7 +1443,11 @@ mod tests {
         );
         assert_eq!(
             plan["run_result_contract"]["required_fields"].as_array().map(Vec::len),
-            Some(14)
+            Some(16)
+        );
+        assert_eq!(
+            plan["run_result_contract"]["canonicalization_profile"],
+            "RFC 8785 JSON Canonicalization Scheme"
         );
         assert_eq!(
             plan["run_result_contract"]["forbidden_aggregate_field"],
