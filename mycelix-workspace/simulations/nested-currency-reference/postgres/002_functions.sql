@@ -729,19 +729,21 @@ BEGIN
 END;
 $$;
 
-REVOKE EXECUTE ON FUNCTION ncf.allocate_reservation_slice(uuid, uuid, text, text, text, text, bigint, numeric, bytea) FROM PUBLIC;
-REVOKE EXECUTE ON FUNCTION ncf.admit_obligation(uuid, bytea, text, text, text, integer, numeric, bytea, uuid, text, uuid, text, bigint, text, bytea) FROM PUBLIC;
-REVOKE EXECUTE ON FUNCTION ncf.settle_obligation(uuid, bigint, bytea) FROM PUBLIC;
-REVOKE EXECUTE ON FUNCTION ncf.lease_outbox_batch(text, integer, integer) FROM PUBLIC;
-REVOKE EXECUTE ON FUNCTION ncf.mark_outbox_retry(bigint, text, text, integer) FROM PUBLIC;
-REVOKE EXECUTE ON FUNCTION ncf.record_holochain_dispatch(bigint, text, text, text, text, text) FROM PUBLIC;
-REVOKE EXECUTE ON FUNCTION ncf.record_validation_receipts(text, text, integer, integer) FROM PUBLIC;
+-- Revoke inherited/previous capabilities so rerunning the migration remains least-privilege.
+REVOKE EXECUTE ON ALL FUNCTIONS IN SCHEMA ncf FROM PUBLIC;
+REVOKE EXECUTE ON ALL FUNCTIONS IN SCHEMA ncf FROM ncf_app, ncf_dispatcher, ncf_observer;
+
+-- Online economic API: reserve, admit and settle only.
 GRANT EXECUTE ON FUNCTION ncf.allocate_reservation_slice(uuid, uuid, text, text, text, text, bigint, numeric, bytea) TO ncf_app;
 GRANT EXECUTE ON FUNCTION ncf.admit_obligation(uuid, bytea, text, text, text, integer, numeric, bytea, uuid, text, uuid, text, bigint, text, bytea) TO ncf_app;
 GRANT EXECUTE ON FUNCTION ncf.settle_obligation(uuid, bigint, bytea) TO ncf_app;
-GRANT EXECUTE ON FUNCTION ncf.lease_outbox_batch(text, integer, integer) TO ncf_app;
-GRANT EXECUTE ON FUNCTION ncf.mark_outbox_retry(bigint, text, text, integer) TO ncf_app;
-GRANT EXECUTE ON FUNCTION ncf.record_holochain_dispatch(bigint, text, text, text, text, text) TO ncf_app;
-GRANT EXECUTE ON FUNCTION ncf.record_validation_receipts(text, text, integer, integer) TO ncf_app;
+
+-- Holochain dispatcher owns outbox leasing and dispatch acknowledgement.
+GRANT EXECUTE ON FUNCTION ncf.lease_outbox_batch(text, integer, integer) TO ncf_dispatcher;
+GRANT EXECUTE ON FUNCTION ncf.mark_outbox_retry(bigint, text, text, integer) TO ncf_dispatcher;
+GRANT EXECUTE ON FUNCTION ncf.record_holochain_dispatch(bigint, text, text, text, text, text) TO ncf_dispatcher;
+
+-- Observer/receipt-ingestion service records observed DHT validation progress only.
+GRANT EXECUTE ON FUNCTION ncf.record_validation_receipts(text, text, integer, integer) TO ncf_observer;
 
 COMMIT;
