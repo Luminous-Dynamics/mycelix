@@ -37,6 +37,7 @@ DECLARE
     v_replay jsonb;
     v_conflict jsonb;
     v_alias jsonb;
+  v_alias_wrong_shard jsonb;
     v_overshoot jsonb;
     v_settle jsonb;
     v_settle_replay jsonb;
@@ -114,6 +115,21 @@ BEGIN
     IF v_alias->>'decision' <> 'replay'
        OR (v_alias->>'obligation_id')::bigint <> v_obligation_id THEN
       RAISE EXCEPTION 'expected canonical-work alias replay, got %', v_alias;
+    END IF;
+
+    -- A canonical-work alias from another shard must not acquire a new replay binding.
+    v_alias_wrong_shard := ncf.admit_obligation(
+      '10000000-0000-0000-0000-000000000005',
+      decode(repeat('e',64),'hex'),
+      'alice','community-a','NCF-TEST-UNIT',1,60,
+      decode(repeat('b',64),'hex'),
+      'aa000000-0000-0000-0000-000000000001','a_to_b',
+      'bb000000-0000-0000-0000-000000000001','non-home-shard',1,
+      'smoke-verifier-v2',decode(repeat('8',64),'hex')
+    );
+    IF v_alias_wrong_shard->>'decision' <> 'rejected'
+       OR v_alias_wrong_shard->>'reason' <> 'canonical_work_identity_or_home_shard_conflict' THEN
+      RAISE EXCEPTION 'expected cross-shard canonical-work alias rejection, got %', v_alias_wrong_shard;
     END IF;
 
     v_overshoot := ncf.admit_obligation(
