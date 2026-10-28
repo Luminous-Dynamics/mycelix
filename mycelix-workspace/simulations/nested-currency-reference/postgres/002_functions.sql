@@ -25,10 +25,13 @@ DECLARE
 BEGIN
     IF p_reservation_id IS NULL OR p_agreement_id IS NULL
        OR p_community_id IS NULL OR p_instrument_id IS NULL
-       OR p_direction NOT IN ('a_to_b', 'b_to_a')
+       OR p_direction IS NULL OR p_direction NOT IN ('a_to_b', 'b_to_a')
        OR p_shard_id IS NULL OR length(btrim(p_shard_id)) = 0
        OR p_epoch IS NULL OR p_epoch < 0
        OR p_reserved_units IS NULL OR p_reserved_units <= 0
+       OR p_reserved_units::text IN ('NaN', 'Infinity', '-Infinity')
+       OR p_reserved_units <> trunc(p_reserved_units)
+       OR abs(p_reserved_units) >= power(10::numeric, 78)
        OR p_manifest_digest IS NULL OR octet_length(p_manifest_digest) <> 32 THEN
         RETURN jsonb_build_object('decision', 'rejected', 'reason', 'invalid_reservation_input');
     END IF;
@@ -152,8 +155,11 @@ BEGIN
        OR p_community_id IS NULL OR p_instrument_id IS NULL
        OR p_profile_revision IS NULL OR p_profile_revision <= 0
        OR p_amount_units IS NULL OR p_amount_units <= 0
+       OR p_amount_units::text IN ('NaN', 'Infinity', '-Infinity')
+       OR p_amount_units <> trunc(p_amount_units)
+       OR abs(p_amount_units) >= power(10::numeric, 78)
        OR p_canonical_work_digest IS NULL OR octet_length(p_canonical_work_digest) <> 32
-       OR p_agreement_id IS NULL OR p_direction NOT IN ('a_to_b', 'b_to_a')
+       OR p_agreement_id IS NULL OR p_direction IS NULL OR p_direction NOT IN ('a_to_b', 'b_to_a')
        OR p_reservation_id IS NULL OR p_shard_id IS NULL OR length(btrim(p_shard_id)) = 0
        OR p_epoch IS NULL OR p_epoch < 0
        OR p_verifier_version IS NULL OR length(btrim(p_verifier_version)) = 0
@@ -303,7 +309,7 @@ BEGIN
         'community_id', p_community_id,
         'instrument_id', p_instrument_id,
         'profile_revision', p_profile_revision,
-        'amount_units', p_amount_units::text,
+        'amount_units', p_amount_units::numeric(78,0)::text,
         'agreement_id', p_agreement_id,
         'direction', p_direction,
         'reservation_id', p_reservation_id,
