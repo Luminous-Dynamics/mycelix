@@ -98,7 +98,7 @@ fn main() -> ExitCode {
                     return ExitCode::from(2);
                 }
             };
-            if let Err(error) = fs::write(path, format!("{output}\\n")) {
+            if let Err(error) = fs::write(path, format!("{output}\n")) {
                 eprintln!("cannot write paired experiment plan {}: {error}", path.display());
                 return ExitCode::from(2);
             }
@@ -444,7 +444,10 @@ fn build_paired_plan() -> Value {
         "schema_version": "cecb.housing.paired_design.v0.1",
         "design_id": "CECB-HOUSING-ALLOCATION-ONLY-V0.1",
         "status": "design_only_no_policy_execution",
-        "claim_ceiling": "This manifest specifies matched policy-run slots only. It does not implement adapters, execute a simulator, score outcomes, or establish policy superiority.",
+        "claim_ceiling": concat!(
+            "This manifest specifies matched policy-run slots only. It does not implement adapters, ",
+            "execute a simulator, score outcomes, or establish policy superiority."
+        ),
         "design": {
             "comparison_axis": "allocation_rule_only",
             "held_constant": {
@@ -468,7 +471,10 @@ fn build_paired_plan() -> Value {
             "paired_seed_algorithm": "splitmix64-v1 public deterministic development schedule",
             "paired_seed_base_hex": "0000cecb20261028",
             "replicates_per_configuration": PAIRED_SEED_COUNT,
-            "run_expansion_rule": "Cartesian product of configurations x paired seeds x arms; run_id and pair_block_id are stable and unique"
+            "run_expansion_rule": concat!(
+                "Cartesian product of configurations x paired seeds x arms; ",
+                "run_id and pair_block_id are stable and unique"
+            )
         },
         "policy_arms": arms,
         "configurations": configurations,
