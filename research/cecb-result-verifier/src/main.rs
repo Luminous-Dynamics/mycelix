@@ -1016,7 +1016,8 @@ fn verify_bundle(plan: &Value, bundle: &Value) -> Value {
     let mut disposition_counts = BTreeMap::<String, u64>::new();
     let mut unknown_by_metric = BTreeMap::<String, u64>::new();
     let mut unknown_total = 0_u64;
-    let mut eligible_count = 0_u64;
+    let mut completed_guardrail_clear_count = 0_u64;
+    let mut complete_outcome_vector_count = 0_u64;
     let mut guardrail_failed_count = 0_u64;
 
     for (index, result) in rows.iter().enumerate() {
@@ -1034,7 +1035,7 @@ fn verify_bundle(plan: &Value, bundle: &Value) -> Value {
             continue;
         };
         let mut row_errors = Vec::<String>::new();
-        let (unknown_count, eligible, guardrail_failed, metric_unknowns) =
+        let (unknown_count, completed_guardrail_clear, guardrail_failed, metric_unknowns) =
             validate_result_row(result, planned, plan, &plan_digest, &mut row_errors);
         let row_verified = row_errors.is_empty();
         errors.extend(row_errors);
@@ -1043,8 +1044,12 @@ fn verify_bundle(plan: &Value, bundle: &Value) -> Value {
             let total = unknown_by_metric.entry(metric).or_default();
             *total = total.saturating_add(count);
         }
-        if row_verified && eligible {
-            eligible_count = eligible_count.saturating_add(1);
+        if row_verified && completed_guardrail_clear {
+            completed_guardrail_clear_count =
+                completed_guardrail_clear_count.saturating_add(1);
+            if unknown_count == 0 {
+                complete_outcome_vector_count = complete_outcome_vector_count.saturating_add(1);
+            }
         }
         if row_verified && guardrail_failed {
             guardrail_failed_count = guardrail_failed_count.saturating_add(1);
@@ -1077,7 +1082,16 @@ fn verify_bundle(plan: &Value, bundle: &Value) -> Value {
         "planned_run_count": expected_runs.len(),
         "result_row_count": rows.len(),
         "terminal_disposition_counts": disposition_counts,
-        "policy_eligible_run_count": if verified { eligible_count } else { 0 },
+        "completed_guardrail_clear_run_count": if verified {
+            completed_guardrail_clear_count
+        } else {
+            0
+        },
+        "complete_outcome_vector_run_count": if verified {
+            complete_outcome_vector_count
+        } else {
+            0
+        },
         "guardrail_failed_run_count": guardrail_failed_count,
         "unknown_outcome_cell_count": unknown_total,
         "unknown_outcome_cells_by_metric": unknown_by_metric,
@@ -1393,7 +1407,8 @@ mod tests {
         assert_eq!(report["status"], "PASS", "{report:#}");
         assert_eq!(report["planned_run_count"], 8);
         assert_eq!(report["result_row_count"], 8);
-        assert_eq!(report["policy_eligible_run_count"], 8);
+        assert_eq!(report["completed_guardrail_clear_run_count"], 8);
+        assert_eq!(report["complete_outcome_vector_run_count"], 8);
         assert_eq!(report["unknown_outcome_cell_count"], 0);
         assert!(report["claim_ceiling"].as_str().is_some());
     }
@@ -1536,6 +1551,8 @@ mod tests {
         let report = verify_bundle(&plan, &bundle);
         assert_eq!(report["status"], "PASS", "{report:#}");
         assert_eq!(report["unknown_outcome_cell_count"], 1);
+        assert_eq!(report["completed_guardrail_clear_run_count"], 8);
+        assert_eq!(report["complete_outcome_vector_run_count"], 7);
         assert_eq!(
             report["unknown_outcome_cells_by_metric"]["evidence_coverage_fraction"],
             1
@@ -1551,7 +1568,8 @@ mod tests {
         let report = verify_bundle(&plan, &bundle);
         assert_eq!(report["status"], "PASS", "{report:#}");
         assert_eq!(report["guardrail_failed_run_count"], 1);
-        assert_eq!(report["policy_eligible_run_count"], 7);
+        assert_eq!(report["completed_guardrail_clear_run_count"], 7);
+        assert_eq!(report["complete_outcome_vector_run_count"], 7);
     }
 
     #[test]
