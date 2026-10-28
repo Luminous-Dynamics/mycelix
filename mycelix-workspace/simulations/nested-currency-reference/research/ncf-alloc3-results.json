@@ -161,7 +161,7 @@
     },
     "result_digest_sha256": "c49e762a41d6f6e3fda3fcdab122ba631ff1ccd3149a0a5ce7220235435aea32",
     "scenario": "randomized_minority_claim_inflation",
-    "seed": 5573559978759379000
+    "seed": 5573559978759378995
   },
   "schema": "ncf-alloc3-research-v1",
   "source_sha256": "e0557bbaae60e57d6dd1ede9748f395bc2fdc930bd20fbcb212df0a02a1b332f",
