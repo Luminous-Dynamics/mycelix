@@ -259,6 +259,7 @@ fn validate_case(case: &Value) -> Vec<String> {
     }
 
     if let Some(observation) = case.get("policy_observation") {
+        validate_observation_shape(id, case, &mut errors);
         for forbidden in [
             "world",
             "oracle_facts",
@@ -310,6 +311,73 @@ fn validate_case(case: &Value) -> Vec<String> {
         _ => errors.push(format!("unknown v0.1 case_id {id:?}")),
     }
     errors
+}
+
+fn validate_exact_object_keys(value: &Value, expected: &[&str], label: &str, errors: &mut Vec<String>) {
+    let Some(object) = value.as_object() else {
+        errors.push(format!("{label} must be an object"));
+        return;
+    };
+
+    for actual in object.keys() {
+        if !expected.iter().any(|allowed| *allowed == actual) {
+            errors.push(format!("{label} contains unregistered field {actual:?}"));
+        }
+    }
+    for required in expected {
+        if !object.contains_key(*required) {
+            errors.push(format!("{label} is missing registered field {required:?}"));
+        }
+    }
+}
+
+fn validate_observation_shape(case_id: &str, case: &Value, errors: &mut Vec<String>) {
+    let Some(observation) = case.get("policy_observation") else {
+        return;
+    };
+    let allowed: &[&str] = match case_id {
+        "H001_FIXED_CAPACITY_CEILING" => {
+            &["reported_available_units", "reported_construction_completions"]
+        }
+        "H002_DEBT_FINANCING_IS_NOT_CAPACITY" => {
+            &["project_status_at_month_0", "completion_forecast_month"]
+        }
+        "H003_GRANT_HAS_A_REAL_RESOURCE_COST" => &["grant_approved_cu", "renovation_status"],
+        "H004_STALE_LISTING_IS_NOT_SAFE_CAPACITY" => &[
+            "registry_available_listing_count",
+            "listing_D3_last_inspected_month",
+            "declared_max_inspection_age_months",
+        ],
+        "H005_DEFERRED_MAINTENANCE_MOVES_COST_FORWARD" => {
+            &["maintenance_due", "maintenance_cost_resource_units"]
+        }
+        "H006_INTERNAL_MUTUAL_CREDIT_CANNOT_SETTLE_EXTERNAL_INPUT" => {
+            &["internal_credit_balance_cu", "imported_component_price_ext"]
+        }
+        "H007_REFINANCING_IS_NOT_NET_NEW_CAPITAL" => {
+            &["new_loan_face_value_cu", "declared_use"]
+        }
+        "H008_RENT_TRANSFER_DOES_NOT_PROVE_NEW_CAPACITY" => {
+            &["recorded_payment_cu", "payment_label"]
+        }
+        "H009_UNIT_COUNT_DOES_NOT_CAPTURE_ACCESSIBILITY_FIT" => {
+            &["total_listed_safe_units", "listed_accessible_units"]
+        }
+        "H010_MIRRORED_SOURCES_ARE_NOT_INDEPENDENT_CONFIRMATION" => {
+            &["claims", "reported_confirmation_count"]
+        }
+        _ => return,
+    };
+
+    validate_exact_object_keys(observation, allowed, "policy_observation", errors);
+    if case_id == "H010_MIRRORED_SOURCES_ARE_NOT_INDEPENDENT_CONFIRMATION" {
+        if let Some(claims) = observation.get("claims").and_then(Value::as_array) {
+            for (index, claim) in claims.iter().enumerate() {
+                let label = format!("policy_observation.claims[{index}]");
+                validate_exact_object_keys(claim, &["claim_id", "source_event_id"], &label, errors);
+            }
+        }
+    }
 }
 
 fn validate_h001(case: &Value, errors: &mut Vec<String>) {
@@ -1035,6 +1103,21 @@ mod tests {
     fn inspection_age_uses_integer_month_boundaries() {
         assert_eq!(inspection_age_months(0, -3), Some(3));
         assert_eq!(inspection_age_months(0, -4), Some(4));
+    }
+
+    #[test]
+    fn rejects_unregistered_candidate_observation_fields() {
+        rejects_mutation(fixture_value(), |fixture| {
+            fixture["cases"][0]["policy_observation"]["unreviewed_capacity_hint"] = json!(2);
+        });
+    }
+
+    #[test]
+    fn rejects_unregistered_nested_claim_fields() {
+        rejects_mutation(fixture_value(), |fixture| {
+            fixture["cases"][9]["policy_observation"]["claims"][0]["oracle_suitability_hint"] =
+                json!(true);
+        });
     }
 
     #[test]
