@@ -7,13 +7,14 @@
   "status": "proposed_not_qualified",
   "execution_evidence": {
     "status": "not_run",
-    "reason": "Static Rust allocator changes, including the new median-capped policy variants, per-shard fairness test, and matched-trace benchmark remain uncompiled/unexecuted in this environment. The separate NCF-ALLOC-3 Python attack sweep is explicitly research-reference evidence only. Exact-head Rust/TLA+ receipts, real demand traces, and multi-agent/Holochain qualification remain outstanding. NCF-ALLOC-3 source, tests, results, campaign specification, run guide, and limitations documentation are checked in under research/; their execution records identify Python-only evidence separately from the Rust qualification gate."
+    "reason": "Static Rust allocator changes, including the new median-capped policy variants, per-shard fairness test, and matched-trace benchmark remain uncompiled/unexecuted in this environment. The separate NCF-ALLOC-3 Python attack sweep is explicitly research-reference evidence only. Exact-head Rust/TLA+ receipts, real demand traces, and multi-agent/Holochain qualification remain outstanding. NCF-ALLOC-3 source, tests, results, campaign specification, run guide, and limitations documentation are checked in under research/; their execution records identify Python-only evidence separately from the Rust qualification gate. NCF-ALLOC-4 additionally models one fixed 4,000-unit attacker backlog split across 1..32 shard IDs while retaining fifteen honest identities. Five Python tests pass; cryptographic identity, admission economics, Rust and distributed qualification are explicitly not run."
   },
   "claim_ceiling": [
     "Reference-model conformance only when executed against a named source revision.",
     "Does not prove Holochain DHT integrity, key custody, real-world service delivery, legal tender status, reserve adequacy, FX parity, or external settlement finality.",
     "Does not prove that production zomes enforce the same properties until separately qualified against exact source and multi-agent runtime evidence.",
-    "Lower-median demand caps are bounded-influence heuristics, not demand authentication or Sybil resistance; assumptions about stable shard identity and minority attackers must remain explicit."
+    "Lower-median demand caps are bounded-influence heuristics, not demand authentication or Sybil resistance; assumptions about stable shard identity and minority attackers must remain explicit.",
+    "Median caps and per-shard equal floors are not Sybil-resistant when one principal can multiply identity slots. NCF-ALLOC-4 is an independent Python identity-splitting model, not an implemented cryptographic identity or admission protocol."
   ],
   "invariants": [
     {
@@ -1251,6 +1252,85 @@
         "source_sha256": "3422c79a7577921ff827be2d0d001cc11df135a089b5c5cc1fbbacdc656d88ed",
         "results_sha256": "bbe3b9a9498aff507d6bb0fd8b293929c75aa368d8c034cbd73f4e601401cfa6"
       }
+    },
+    {
+      "id": "NCF-BENCH-007",
+      "name": "Identity splitting and Sybil influence on bounded allocation",
+      "baselines": [
+        "equal",
+        "weighted_raw_claims",
+        "equal_floor50_raw_claims",
+        "equal_floor50_cap2x_median",
+        "equal_floor50_cap4x_median",
+        "oracle_equal_floor50_true_backlog"
+      ],
+      "workloads": [
+        "fixed_true_backlog_split_across_1_4_8_12_15_16_24_32_ids",
+        "single_principal_claim_inflation_20x",
+        "lower_median_controlled_by_identity_majority",
+        "equal_floor_identity_multiplication"
+      ],
+      "topology": {
+        "honest_identity_count": 15,
+        "attacker_identity_counts": [
+          1,
+          4,
+          8,
+          12,
+          15,
+          16,
+          24,
+          32
+        ],
+        "attacker_true_backlog_units_fixed": 4000,
+        "capacity_units": 100000,
+        "reserve_ppm": 50000,
+        "spendable_capacity_units": 95000
+      },
+      "required_safety_gates": [
+        "fixed_attacker_true_backlog_across_identity_counts",
+        "zero_capacity_conservation_failures",
+        "nonnegative_slices",
+        "stable_input_order_independence",
+        "identity_assumption_included_in_claim_ceiling"
+      ],
+      "required_metrics": [
+        "attacker_allocation_share_ppm",
+        "attacker_stranded_units",
+        "total_shard_ids",
+        "aggregate_demand_served_ppm",
+        "worst_shard_service_ppm",
+        "jain_fairness_ppm",
+        "unserved_units",
+        "stranded_units",
+        "fixed_actual_workload",
+        "cap_policy_effect"
+      ],
+      "required_output": [
+        "schema",
+        "status",
+        "source_sha256",
+        "case_set_sha256",
+        "profile",
+        "cases",
+        "policy_metric_order",
+        "claim_ceiling"
+      ],
+      "methodology": "Hold the attacker's underlying true backlog at 4,000 units and keep fifteen honest identities at 4,000 units each. Divide the same attacker's fixed workload among increasing numbers of shard IDs, inflate each split claim by 20x, and compare raw weighting, equal-floor, median-capped and true-backlog-oracle policies under the same spendable budget. Retain each case; do not report an averaged score that hides the identity-multiplication boundary. At least one case must show the median cap becoming ineffective. The model does not implement cryptographic identity or admission controls.",
+      "execution_status": "python_research_model_executed_rust_and_cryptographic_identity_qualification_not_run",
+      "claim_ceiling": "Deterministic Python allocation model only. It models one fixed backlog split over multiple IDs, but not cryptographic identity, identity issuance costs, governance, Holochain, distributed concurrency or production settlement. Median caps are not a Sybil defence.",
+      "research_reference": {
+        "source_path": "mycelix-workspace/simulations/nested-currency-reference/research/ncf_alloc4_identity_splitting.py",
+        "test_path": "mycelix-workspace/simulations/nested-currency-reference/research/test_ncf_alloc4_identity_splitting.py",
+        "results_path": "mycelix-workspace/simulations/nested-currency-reference/research/ncf-alloc4-identity-splitting-summary.json",
+        "campaign_path": "mycelix-workspace/simulations/nested-currency-reference/research/ncf-alloc4-identity-campaign.json",
+        "documentation_path": "mycelix-workspace/simulations/nested-currency-reference/research/NCF-ALLOC-4-identity-splitting.md",
+        "test_execution_record": "mycelix-workspace/simulations/nested-currency-reference/research/NCF-ALLOC-4-TEST-RESULTS.txt",
+        "source_sha256": "df7a46bb32690ceb264495890eeb5673eef84b81737a85f840b1c4b69d684044",
+        "summary_sha256": "8e896ae3b4ce9182b08126e20a82bf761aca209214027fdec57335db7f7610a4",
+        "unit_tests_passed": 5,
+        "case_profiles": 8
+      }
     }
   ],
   "planned_conformance_cases": [
@@ -1656,6 +1736,24 @@
       "expected": "allocation_fails_closed_with_CapMultipleOutOfRange_without_producing_a_plan",
       "code_test": "invalid_median_cap_multiple_rejects",
       "execution_status": "reference_test_defined_not_run"
+    },
+    {
+      "id": "NCF-ALLOC-020",
+      "title": "Median-capped allocation is not Sybil-resistant when one backlog is split across shard identities",
+      "class": "identity_splitting_attack",
+      "attack": "One principal keeps a fixed 4,000-unit true backlog and splits it across 1, 4, 8, 12, 15, 16, 24 or 32 shard IDs. Each split claim is inflated 20x; 15 honest IDs remain.",
+      "expected": "attacker_allocation_share_and_stranded_capacity_rise_as_identity_count_grows; at 12 or more identities in this profile the median cap no longer changes equal-floor allocation",
+      "code_test": "test_median_cap_ceases_to_clip_after_identity_splitting",
+      "execution_status": "python_research_test_passed_rust_and_distributed_not_run"
+    },
+    {
+      "id": "NCF-ALLOC-021",
+      "title": "Keep attacker's true work constant while identity count changes",
+      "class": "identity_splitting_workload_conservation",
+      "attack": "Vary virtual attacker IDs but split the same 4,000 units of actual backlog across them.",
+      "expected": "sum_of_attacker_actual_backlog_is_4000_for_every_identity_count",
+      "code_test": "test_attacker_true_backlog_is_constant_when_ids_multiply",
+      "execution_status": "python_research_test_passed_rust_and_distributed_not_run"
     }
   ],
   "qualification_campaigns": [
@@ -1849,6 +1947,26 @@
       "required_benchmark_tests": [
         "per_shard_metrics_expose_underserved_shard_hidden_by_aggregate"
       ]
+    },
+    {
+      "id": "NCF-QUAL-005",
+      "name": "Identity-splitting attack research",
+      "required_tests": [
+        "test_attacker_true_backlog_is_constant_when_ids_multiply",
+        "test_adding_attacker_ids_increases_equal_floor_capture",
+        "test_median_cap_ceases_to_clip_after_identity_splitting",
+        "test_cap_does_not_claim_to_prove_backlog",
+        "test_capacity_is_conserved_for_all_policies"
+      ],
+      "required_artifacts": [
+        "ncf_alloc4_identity_splitting.py",
+        "test_ncf_alloc4_identity_splitting.py",
+        "ncf-alloc4-identity-splitting-summary.json",
+        "ncf-alloc4-identity-campaign.json",
+        "NCF-ALLOC-4-TEST-RESULTS.txt"
+      ],
+      "execution_status": "python_tests_passed_rust_distributed_cryptographic_identity_not_run",
+      "acceptance": "All five Python model tests pass and all eight profile cases preserve the fixed attacker backlog, show metrics per policy, and retain explicit identity/production claim ceilings. The research result does not qualify identity authentication or Sybil resistance."
     }
   ]
 }
