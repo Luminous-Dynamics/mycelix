@@ -15,11 +15,11 @@ From this directory in a Rust toolchain environment:
 ```sh
 cargo test
 cargo run
-cargo run -- --policy-view-out /tmp/cecb-policy-view-v0-1.json
+cargo run -- --policy-view-out /tmp/cecb-policy-view-v0-2.json
 cargo run -- --fixture /path/to/CECB_HOUSING_KNOWN_TRUTH_V0_1.json
 ```
 
-The default fixture is embedded at compile time using `include_str!`, so it is version-bound to the source tree. `--fixture` is intended for explicit mutation testing and alternate copies. A passing report is emitted as JSON to stdout. Exit codes: `0` fixture passes, `1` consistency validation fails, `2` input or invocation error.
+The default fixture is embedded at compile time using `include_str!`, so it is version-bound to the source tree. `--fixture` is intended for explicit mutation testing and alternate copies. A passing report is emitted as JSON to stdout. The candidate-view export uses schema `cecb.housing.policy_view.v0.2`, removes semantic case IDs and purpose prose, and emits only a `case_token` plus candidate-visible `observation`. Exit codes: `0` fixture passes, `1` consistency validation fails, `2` input or invocation error.
 
 ## Checks
 
@@ -36,7 +36,7 @@ The default fixture is embedded at compile time using `include_str!`, so it is v
 - The checker validates fixed v0.1 fixture expectations; it is not a general-purpose economic simulator or a generic JSON Schema engine.
 - It has not been run against the Rust toolchain as part of authoring because runner/toolchain access was unavailable. A skipped GitHub Actions run must not be represented as a pass.
 - The fixture is synthetic. No result from this checker may be cited as evidence that a particular financing, ownership, or allocation regime works better in a real community.
-- The evaluator code is not a security boundary if candidate code can read the original fixture or share process memory. Keep evaluator and candidate execution separated in the future runner, and pass only the generated policy-view artifact across that boundary.
+- The exported `case_###` tokens are currently assigned in fixture order; they reduce semantic-label leakage but are not cryptographic blinding. A research candidate with repository access can recover the fixture and token order. A competitive evaluation needs an isolated candidate process, a hidden evaluation set, and a per-run randomized token mapping held by the evaluator.\n- The evaluator code is not a security boundary if candidate code can read the original fixture or share process memory. Keep evaluator and candidate execution separated in the future runner, and pass only the generated policy-view artifact across that boundary.
 
 ## Exact-run evidence receipt
 
