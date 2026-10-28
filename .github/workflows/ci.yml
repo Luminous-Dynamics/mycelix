@@ -37,6 +37,7 @@ jobs:
       sdk: ${{ steps.filter.outputs.sdk }}
       prism: ${{ steps.filter.outputs.prism }}
       cos_conformance: ${{ steps.filter.outputs.cos_conformance }}
+      cecb: ${{ steps.filter.outputs.cecb }}
     steps:
       - uses: actions/checkout@v4
       - uses: dorny/paths-filter@v3
@@ -80,6 +81,10 @@ jobs:
               - 'mycelix-manufacturing/Cargo.lock'
               - 'docs/integral/cos-reference-node-v1.md'
               - 'mycelix-manufacturing/tests/cos_reference_conformance.md'
+            cecb:
+              - 'research/cecb-housing-fixture-check/**'
+              - 'docs/research/fixtures/CECB_HOUSING_KNOWN_TRUTH_V0_1.json'
+              - 'docs/research/CAPABILITY_ECONOMY_COMPARATIVE_BENCHMARK_V0_1.md'
 
   # Format check (always runs when CI is admitted)
   format:
@@ -132,6 +137,35 @@ jobs:
         run: cd mycelix-manufacturing && cargo run -q -p cos_conformance --bin cos-report > cos-conformance-report.json
       - name: Validate report
         run: test -s mycelix-manufacturing/cos-conformance-report.json && grep -q 'COS-CONF-001' mycelix-manufacturing/cos-conformance-report.json
+
+  # Standalone research validator: keep synthetic fixture qualification separate
+  # from all production clusters and never label it evidence of real-world impact.
+  test-cecb-fixture:
+    needs: changes
+    if: needs.changes.outputs.cecb == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: research/cecb-housing-fixture-check
+      - name: Check standalone Rust formatting
+        run: cargo fmt --manifest-path research/cecb-housing-fixture-check/Cargo.toml -- --check
+      - name: Run validator mutation tests
+        run: cargo test --manifest-path research/cecb-housing-fixture-check/Cargo.toml
+      - name: Validate canonical fixture report
+        run: |
+          cargo run --quiet --manifest-path research/cecb-housing-fixture-check/Cargo.toml -- > /tmp/cecb-validation.json
+          jq -e '.status == "PASS" and .case_count == 10 and .case_fail_count == 0' /tmp/cecb-validation.json
+      - name: Verify candidate view excludes evaluator truth
+        run: |
+          cargo run --quiet --manifest-path research/cecb-housing-fixture-check/Cargo.toml -- --policy-view-out /tmp/cecb-policy-view.json > /dev/null
+          ! grep -q 'oracle_facts' /tmp/cecb-policy-view.json
+          ! grep -q 'true_safe_suitable_capacity' /tmp/cecb-policy-view.json
 
   test-commons:
     needs: changes
@@ -440,6 +474,7 @@ jobs:
     needs:
       - format
       - test-cos-conformance
+      - test-cecb-fixture
       - test-commons
       - test-civic
       - test-hearth
@@ -458,6 +493,7 @@ jobs:
         run: |
           echo "Format: ${{ needs.format.result }}"
           echo "COS conformance: ${{ needs.test-cos-conformance.result }}"
+          echo "CECB fixture checker: ${{ needs.test-cecb-fixture.result }}"
           echo "Commons: ${{ needs.test-commons.result }}"
           echo "Civic: ${{ needs.test-civic.result }}"
           echo "Hearth: ${{ needs.test-hearth.result }}"
@@ -474,7 +510,7 @@ jobs:
           echo "Prism: ${{ needs.test-prism.result }}"
           if [ "${{ needs.format.result }}" = "failure" ]; then exit 1; fi
           # Skipped jobs are OK (path filter didn't match)
-          for result in "${{ needs.test-cos-conformance.result }}" "${{ needs.test-commons.result }}" "${{ needs.test-civic.result }}" "${{ needs.test-hearth.result }}" "${{ needs.test-finance.result }}" "${{ needs.test-governance.result }}" "${{ needs.test-identity.result }}" "${{ needs.test-personal.result }}" "${{ needs.test-attribution.result }}" "${{ needs.test-bridge.result }}" "${{ needs.test-sdk.result }}" "${{ needs.test-prism.result }}"; do
+          for result in "${{ needs.test-cos-conformance.result }}" "${{ needs.test-cecb-fixture.result }}" "${{ needs.test-commons.result }}" "${{ needs.test-civic.result }}" "${{ needs.test-hearth.result }}" "${{ needs.test-finance.result }}" "${{ needs.test-governance.result }}" "${{ needs.test-identity.result }}" "${{ needs.test-personal.result }}" "${{ needs.test-attribution.result }}" "${{ needs.test-bridge.result }}" "${{ needs.test-sdk.result }}" "${{ needs.test-prism.result }}"; do
             if [ "$result" = "failure" ]; then exit 1; fi
           done
           echo "All checks passed!"
