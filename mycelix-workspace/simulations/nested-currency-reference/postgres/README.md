@@ -50,7 +50,7 @@ From the repository root, prefix the paths with `mycelix-workspace/simulations/n
 
 ## Isolation and locking choices
 
-The online profile runs under PostgreSQL's default `READ COMMITTED` isolation and uses explicit row locks plus unique constraints and a per-canonical-work advisory transaction lock. The lock order for new claims is **agreement → community/instrument cap → reservation slice**; settlement uses the same order before locking the obligation. Unique constraints remain final guards; the design does not rely only on a preflight `SELECT`.
+The online profile runs under PostgreSQL's default `READ COMMITTED` isolation and uses explicit row locks plus unique constraints and a per-canonical-work advisory transaction lock. The lock order for admission/reservation/settlement is **agreement → community/instrument cap → agreement-direction cap → reservation slice → obligation**. The community cap bounds total allocations across agreements; the per-agreement directional cap bounds gross exposure for each edge; the reservation slice bounds each shard/epoch. Unique constraints remain final guards; the design does not rely only on a preflight `SELECT`.
 
 This is an initial correctness-oriented choice, not a claim that READ COMMITTED is always faster or safer than SERIALIZABLE. A matched benchmark should compare both profiles. If SERIALIZABLE is chosen, the application must retry the **entire** aborted transaction on SQLSTATE `40001`; PostgreSQL documents that serializable transactions can abort and sometimes still encounter unique-constraint conflicts. See [PostgreSQL transaction isolation](https://www.postgresql.org/docs/current/transaction-iso.html) and [explicit locking](https://www.postgresql.org/docs/current/explicit-locking.html).
 
@@ -83,6 +83,22 @@ Do not confuse these states:
 
 They are separate facts. The outbox is an at-least-once dispatch mechanism, not distributed two-phase commit. Holochain duplicate authored actions can be harmless only if stable event identities and zome validation make the economic claim idempotent; they must never create a second SQL debit.
 
+## PostgreSQL benchmark
+
+The custom `pgbench` script calls `ncf.admit_obligation` itself, not a generic counter-update query. Each successful benchmark transaction creates one canonical obligation and request binding, updates community/edge/slice exposure counters, and writes the transactional outbox event. Per-transaction logs provide latency samples for p50/p95/p99. The runner records the server settings, PostgreSQL version, client version, client/thread count, duration, exact SHA-256 values for schema/functions/script/runner, raw logs, percentile summary, and post-run reconciliation.
+
+Run on a disposable PostgreSQL 18.6 database after applying `001_schema.sql` and `002_functions.sql`:
+
+```sh
+psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 -f 920_pgbench_setup.sql
+PG_NCF_CLIENTS=8 PG_NCF_THREADS=4 PG_NCF_DURATION_SECONDS=60 \
+  bash run-pgbench-benchmark.sh
+```
+
+The runner creates its own benchmark fixture, so do not run the setup SQL twice in the same database. Set `PG_NCF_OUTPUT_DIR` to preserve raw logs and JSON receipts in a known directory. It fails closed if any transaction errors, any successful pgbench transaction does not create exactly one canonical accepted obligation, duplicate work is observed, or cap/edge/slice totals fail to reconcile.
+
+The PR workflow includes an isolated 15-second smoke benchmark at 1, 4, and 16 clients. Those are CI smoke measurements, not SOTA claims. For comparative research, run each client count for several minutes, repeat at least five times, preserve all exact source/runtime receipts, compare `READ COMMITTED` with `SERIALIZABLE` plus whole-transaction retry, and separately benchmark a reservation-first sharded-counter design that avoids the global community-cap row on every operation. Never compare this custom admission function directly to vanilla pgbench TPC-B or a payment network’s TPS without a matched workload and durability contract.
+
 ## Claim ceiling
 
-The current schema/functions and CI tests are a PostgreSQL implementation attempt. They are not yet live-tested in this environment, do not yet qualify the existing Mycelix Finance Holochain zomes, and do not prove offline double-spend resistance, key security, legal status, real-world work delivery, or external settlement finality. See the companion [PostgreSQL↔Holochain contract](../holochain/NCF-POSTGRES-HOLOCHAIN-CONTRACT.md).
+The current schema/functions and CI tests are a PostgreSQL implementation attempt. They have not yet been live-tested in this editing environment, do not yet qualify the existing Mycelix Finance Holochain zomes, and do not prove offline double-spend resistance, key security, legal status, real-world work delivery, or external settlement finality. The latest SQL source includes per-agreement directional caps and an app-role privilege regression; it remains unqualified until the dedicated PostgreSQL 18.6 workflow completes on the exact head. See the companion [PostgreSQL↔Holochain contract](../holochain/NCF-POSTGRES-HOLOCHAIN-CONTRACT.md).
