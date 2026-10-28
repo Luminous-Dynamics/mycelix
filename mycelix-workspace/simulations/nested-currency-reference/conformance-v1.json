@@ -7,12 +7,13 @@
   "status": "proposed_not_qualified",
   "execution_evidence": {
     "status": "not_run",
-    "reason": "Static allocator code, per-shard fairness test, and matched-trace benchmark remain uncompiled/unexecuted in this environment. Exact-head Rust/TLA+ receipts, realistic demand traces, and multi-agent/Holochain qualification remain outstanding."
+    "reason": "Static Rust allocator changes, including the new median-capped policy variants, per-shard fairness test, and matched-trace benchmark remain uncompiled/unexecuted in this environment. The separate NCF-ALLOC-3 Python attack sweep is explicitly research-reference evidence only. Exact-head Rust/TLA+ receipts, real demand traces, and multi-agent/Holochain qualification remain outstanding."
   },
   "claim_ceiling": [
     "Reference-model conformance only when executed against a named source revision.",
     "Does not prove Holochain DHT integrity, key custody, real-world service delivery, legal tender status, reserve adequacy, FX parity, or external settlement finality.",
-    "Does not prove that production zomes enforce the same properties until separately qualified against exact source and multi-agent runtime evidence."
+    "Does not prove that production zomes enforce the same properties until separately qualified against exact source and multi-agent runtime evidence.",
+    "Lower-median demand caps are bounded-influence heuristics, not demand authentication or Sybil resistance; assumptions about stable shard identity and minority attackers must remain explicit."
   ],
   "invariants": [
     {
@@ -891,7 +892,10 @@
         "deterministic_zipf_like_skew",
         "essential_vs_discretionary_priority_classes",
         "held_out_demand_shift_after_partition",
-        "forecast_error_and_misallocation_stress"
+        "forecast_error_and_misallocation_stress",
+        "minority_claim_inflation_two_to_twenty_x",
+        "legitimate_four_x_hotspot_cap_tradeoff",
+        "median_controlled_by_colluding_majority_negative_control"
       ],
       "topology": {
         "participant_counts": [
@@ -1008,9 +1012,9 @@
         "shard_results[].demand_served_ppm",
         "shard_results[].worst_scenario_served_ppm"
       ],
-      "methodology": "Run the exact same deterministic demand/fault traces against each implemented policy and matched hardware/toolchains. Report results only after hard safety gates pass. Plot a Pareto frontier across economic demand served, safely reclaimable versus stranded capacity, tail latency, and compute cost; do not collapse outcomes into a single weighted score. Separate unreachable-owner partitions from honest crash/restart and byzantine-owner campaigns. Include ablations for priority classes and rebalancing policy. Add a low-risk paradigm-shift baseline: optimize the placement of already-authorized, non-overlapping slices before the partition, using training demand traces and robust quantiles. Evaluate on held-out and shifted workloads, and never allow the forecast to enlarge/reassign rights during the partition. This isolates safe capacity-placement improvements from risky online reclamation. An executable dependency-free Rust allocator and benchmark were added. It uses checked integer arithmetic, stable shard-ID tie-breaking, and largest-remainder apportionment; the benchmark compares six policies on the same generated stationary and shifted trace sets. Its current generator is synthetic and single-process. Run the exact-head wrapper, then replace/augment synthetic traces with independently sourced demand profiles before making real-world claims. The executable simulator includes 25%, 50%, and 75% equal-floor variants, creating a small safety-preserving frontier between historical utilization and resilience to demand-shape changes. These variants affect only the initial static placement and cannot resize allocations in a partition. Per-shard demand-served and worst-shard service are reported alongside aggregate utilization; do not treat high overall service as fair if the least-served shard is materially worse. A dedicated adversarial unit test checks that worst-shard and per-shard service metrics expose an underserved shard that aggregate demand-served percentage alone would hide.",
+      "methodology": "Run the exact same deterministic demand/fault traces against each implemented policy and matched hardware/toolchains. Report results only after hard safety gates pass. Plot a Pareto frontier across economic demand served, safely reclaimable versus stranded capacity, tail latency, and compute cost; do not collapse outcomes into a single weighted score. Separate unreachable-owner partitions from honest crash/restart and byzantine-owner campaigns. Include ablations for priority classes and rebalancing policy. Add a low-risk paradigm-shift baseline: optimize the placement of already-authorized, non-overlapping slices before the partition, using training demand traces and robust quantiles. Evaluate on held-out and shifted workloads, and never allow the forecast to enlarge/reassign rights during the partition. This isolates safe capacity-placement improvements from risky online reclamation. An executable dependency-free Rust allocator and benchmark were added. It uses checked integer arithmetic, stable shard-ID tie-breaking, and largest-remainder apportionment; the benchmark compares six policies on the same generated stationary and shifted trace sets. Its current generator is synthetic and single-process. Run the exact-head wrapper, then replace/augment synthetic traces with independently sourced demand profiles before making real-world claims. The executable simulator includes 25%, 50%, and 75% equal-floor variants, creating a small safety-preserving frontier between historical utilization and resilience to demand-shape changes. These variants affect only the initial static placement and cannot resize allocations in a partition. Per-shard demand-served and worst-shard service are reported alongside aggregate utilization; do not treat high overall service as fair if the least-served shard is materially worse. A dedicated adversarial unit test checks that worst-shard and per-shard service metrics expose an underserved shard that aggregate demand-served percentage alone would hide. The matched-trace benchmark now includes two lower-median-capped equal-floor variants (2x and 4x) alongside the original six, yielding sixteen policy/mode reports. These caps limit extreme historical mean weights only under a stable identity set and a minority-attacker assumption; they are not demand authentication or Sybil resistance. A separate NCF-BENCH-006 research campaign compares these trade-offs under inflated claims.",
       "execution_status": "defined_not_run",
-      "claim_ceiling": "Current executable: deterministic synthetic single-process allocation simulation with integer budget checks only. It does not emit distributed tail latency, partition recovery, economic-demand classes or network measures. Those are requirements for a future multi-agent implementation benchmark. No runtime result is claimed until exact-head Rust tests/benchmark and receipt succeed.",
+      "claim_ceiling": "Current executable: deterministic synthetic single-process allocation simulation with integer budget checks only. It does not emit distributed tail latency, partition recovery, economic-demand classes or network measures. Those are requirements for a future multi-agent implementation benchmark. No runtime result is claimed until exact-head Rust tests/benchmark and receipt succeed. Median caps are experimental bounded-influence heuristics only; they do not authenticate queues, prevent cheap Sybil creation, or represent evidence of adversarial distributed safety.",
       "reservation_policy_experiment": {
         "hypothesis": "Demand-aware allocation of non-overlapping rights before a partition can improve economic demand served without relaxing partition safety or requiring any partition-time reallocation.",
         "policies": [
@@ -1057,6 +1061,14 @@
         {
           "id": "demand_weighted_equal_floor_75",
           "description": "75% equal floor and 25% historical-mean weighted"
+        },
+        {
+          "id": "demand_weighted_equal_floor_50_cap2x_median",
+          "description": "50% equal floor; each historical mean weight is capped at 2x the lower median"
+        },
+        {
+          "id": "demand_weighted_equal_floor_50_cap4x_median",
+          "description": "50% equal floor; each historical mean weight is capped at 4x the lower median"
         }
       ],
       "evaluation_modes": [
@@ -1069,7 +1081,7 @@
           "description": "Held-out samples after rotating the demand propensity across shards, to expose stale-history fragility"
         }
       ],
-      "required_benchmark_reports": 12,
+      "required_benchmark_reports": 16,
       "future_distributed_frontier_required_output": [
         "instrument_id",
         "source_commit",
@@ -1168,6 +1180,74 @@
         "benchmark_output_sha256",
         "receipt_sha256"
       ]
+    },
+    {
+      "id": "NCF-BENCH-006",
+      "name": "Bounded-influence demand claims and honest-hotspot trade-off",
+      "baselines": [
+        "demand_weighted_raw_claims",
+        "equal_floor_50_raw_claims",
+        "equal_floor_50_cap2x_median",
+        "equal_floor_50_cap4x_median",
+        "equal_floor_50_true_backlog_oracle"
+      ],
+      "workloads": [
+        "honest_rotating_four_x_hotspot",
+        "minority_claim_inflation_2x_to_20x",
+        "variable_true_backlog_with_fixed_identity_set",
+        "all_claims_truthful_control",
+        "true_backlog_oracle_upper_bound"
+      ],
+      "topology": {
+        "shard_counts": [
+          16
+        ],
+        "total_capacity_units": 100000,
+        "reserve_ppm": 50000,
+        "spendable_capacity_units": 95000,
+        "partition_model": "none in this campaign; partition semantics remain covered by NCF-BENCH-005 / NCF-FEN"
+      },
+      "required_safety_gates": [
+        "zero_capacity_conservation_failures",
+        "zero_negative_slices",
+        "deterministic_stable_id_tiebreak",
+        "honest_hotspot_tradeoff_reported",
+        "median_cap_claim_ceiling_present"
+      ],
+      "required_metrics": [
+        "demand_served_ppm",
+        "worst_shard_service_ppm",
+        "jain_fairness_ppm",
+        "unserved_units",
+        "stranded_units",
+        "attacker_allocation_share_ppm",
+        "per_shard_service_vector",
+        "allocation_cap_multiple",
+        "claim_inflation_multiplier",
+        "source_sha256",
+        "profile_seed"
+      ],
+      "required_output": [
+        "schema",
+        "status",
+        "source_sha256",
+        "profile",
+        "honest_hotspot",
+        "deterministic_attack",
+        "randomized_attack_sweep",
+        "design_conclusion"
+      ],
+      "methodology": "Generate the same true-backlog cases for raw weights, 2x and 4x lower-median caps, and the idealized true-backlog oracle. In adversarial cases, 1 to 4 of 16 shards inflate reports by 2x to 20x without increasing actual backlog. Keep IDs stable, state explicitly that there is no Sybil creation, and evaluate honest 4x hotspot service separately. Preserve the multi-dimensional frontier; do not choose a cap from aggregate throughput alone. A Rust version must later reproduce exact integer allocations / claims where the workload is identical before this campaign can be called Rust-qualified.",
+      "execution_status": "python_research_model_executed_rust_and_distributed_not_run",
+      "claim_ceiling": "20,000-case independent Python research sweep only. No Rust build/test, model-checking, distributed protocol or production result is claimed. Lower-median caps do not authenticate demand and do not resist a Sybil majority or identity churn.",
+      "research_reference": {
+        "source_path": "mycelix-workspace/simulations/nested-currency-reference/research/ncf_alloc3.py",
+        "test_path": "mycelix-workspace/simulations/nested-currency-reference/research/test_ncf_alloc3.py",
+        "results_path": "mycelix-workspace/simulations/nested-currency-reference/research/ncf-alloc3-results.json",
+        "unit_tests_passed": 9,
+        "randomized_attack_cases": 20000,
+        "randomized_policy_evaluations": 100000
+      }
     }
   ],
   "planned_conformance_cases": [
@@ -1546,6 +1626,33 @@
       "expected": "aggregate_demand_served_and_worst_shard_service_are_reported_separately_and_per_shard_totals_match",
       "code_test": "per_shard_metrics_expose_underserved_shard_hidden_by_aggregate",
       "execution_status": "reference_test_defined_not_run"
+    },
+    {
+      "id": "NCF-ALLOC-017",
+      "title": "Median-capped allocation limits minority claim inflation under capacity contention",
+      "class": "bounded_influence_adversarial_demand",
+      "attack": "Two of sixteen shards inflate claimed historical demand from 10,000 to 100,000 while all shards have 10,000 actual demand and total spendable capacity is constrained.",
+      "expected": "median_cap_reduces_inflated_shard_weight_and_increases_actual_demand_served_vs_raw_equal_floor_weighting",
+      "code_test": "median_cap_reduces_inflated_claim_influence_under_contention",
+      "execution_status": "reference_test_defined_not_run"
+    },
+    {
+      "id": "NCF-ALLOC-018",
+      "title": "A lower-median cap exposes the utilization cost of legitimate hotspots",
+      "class": "honest_hotspot_cap_tradeoff",
+      "attack": "Four of sixteen shards have four times the true demand of the other twelve; compare uncapped, 2x-capped and 4x-capped equal-floor weights.",
+      "expected": "2x_cap_reduces_service_for_the_legitimate_hotspot_while_4x_cap_preserves_the_uncapped_plan_for_this_profile",
+      "code_test": "median_cap_exposes_honest_hotspot_tradeoff_and_cap_four_preserves_four_x_demand",
+      "execution_status": "reference_test_defined_not_run"
+    },
+    {
+      "id": "NCF-ALLOC-019",
+      "title": "Median-cap policy rejects a zero cap multiplier",
+      "class": "invalid_policy_parameter",
+      "attack": "Configure the bounded-influence policy with cap_multiple equal to zero.",
+      "expected": "allocation_fails_closed_with_CapMultipleOutOfRange_without_producing_a_plan",
+      "code_test": "median_cap_exposes_honest_hotspot_tradeoff_and_cap_four_preserves_four_x_demand",
+      "execution_status": "reference_test_defined_not_run"
     }
   ],
   "qualification_campaigns": [
@@ -1693,12 +1800,14 @@
         "ten_thousand_generated_allocation_plans_conserve_capacity_and_ignore_input_order",
         "plans_reject_mixed_or_missing_instrument_identity",
         "demand_weighted_equal_floor_trades_peak_utilization_for_shift_resilience",
-        "full_equal_floor_matches_equal_split_after_minimums"
+        "full_equal_floor_matches_equal_split_after_minimums",
+        "median_cap_reduces_inflated_claim_influence_under_contention",
+        "median_cap_exposes_honest_hotspot_tradeoff_and_cap_four_preserves_four_x_demand"
       ],
-      "required_benchmark_reports": 12,
-      "safety_gate": "Every allocation plan validates and all twelve policy/mode reports must have zero accounting violations; any overflow, malformed input, mixed instrument identity, or unaccounted capacity fails the campaign.",
+      "required_benchmark_reports": 16,
+      "safety_gate": "Every allocation plan validates and all sixteen policy/mode reports must have zero accounting violations; any overflow, malformed input, mixed instrument identity, or unaccounted capacity fails the campaign.",
       "receipt_sha256_method": "SHA-256 over the closed receipt file, reported through runner stdout/workflow metadata; do not include a self-hash inside the receipt.",
-      "claim_ceiling": "Unit tests plus synthetic single-process matched-trace evaluation only; real-demand validity and distributed/Holochain safety remain separate.",
+      "claim_ceiling": "Unit tests plus synthetic single-process matched-trace evaluation only; real-demand validity and distributed/Holochain safety remain separate. Median caps are not proof of demand or Sybil resistance; the independent Python research sweep is not a Rust or distributed qualification result.",
       "generated_case_sweep": {
         "test_name": "ten_thousand_generated_allocation_plans_conserve_capacity_and_ignore_input_order",
         "cases": 10000,
