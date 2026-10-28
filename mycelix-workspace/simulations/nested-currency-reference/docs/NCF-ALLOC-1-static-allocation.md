@@ -111,3 +111,8 @@ The production direction is evidence-backed demand: canonical, deduplicated elig
 ## NCF-ALLOC-4: identity splitting invalidates the cap assumption
 
 The [NCF-ALLOC-4 identity-splitting campaign](../research/NCF-ALLOC-4-identity-splitting.md) holds one attacker's true 4,000-unit backlog constant while that principal presents it under 1, 4, 8, 12, 15, 16, 24 or 32 shard IDs. In the independent Python model, the equal-floor raw-claim policy's attacker allocation share rises from 31.70% at one attacker ID to 62.63% at 32 IDs. The 2x/4x caps cease to change the equal-floor plan at 12 IDs in this workload. This does not establish anything about cryptographic identity systems; it demonstrates that allocation arithmetic cannot replace identity governance, admission controls and deduplication of underlying eligible obligations.
+
+
+### Zero-median bounded-cap fallback
+
+The median-capped policy now treats a zero lower median as **no reliable scale for a relative cap**. Rather than calculating a threshold from only positive claims (which would allow sparse outliers to set their own cap), it zeroes the relative weights and uses the allocator's deterministic equal-share cold-start fallback. The regression `median_cap_with_zero_lower_median_uses_equal_cold_start` and Python analogue cover one positive claim among fifteen zero-claim shards. This fallback is conservative policy behavior, not an assertion that all shards have equal true demand.
