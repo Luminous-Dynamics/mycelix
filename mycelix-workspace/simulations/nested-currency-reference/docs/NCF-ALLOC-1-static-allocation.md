@@ -42,7 +42,7 @@ The module exposes `AllocationPlan::validate` so downstream code can check instr
 
 ## Matched-trace experiment
 
-The benchmark binary is `src/bin/ncf-allocation-bench.rs`; the clean-checkout wrapper is `run-allocation-bench.sh`. It compares six policies across stationary and shifted workloads (12 reports total).
+The benchmark binary is `src/bin/ncf-allocation-bench.rs`; the clean-checkout wrapper is `run-allocation-bench.sh`. It compares eight policies across stationary and shifted workloads (16 reports total): the original six plus 50% equal-floor policies whose historical weights are clipped at 2× or 4× the lower median.
 
 Example:
 
@@ -51,7 +51,7 @@ bash mycelix-workspace/simulations/nested-currency-reference/run-allocation-benc
   16 32 1000 100000 50000 0x4d5943454c495831
 ```
 
-Arguments are shard count, historical samples per shard, evaluation scenarios per mode, total capacity, contingency reserve in ppm, and seed. The wrapper binds the result to the exact commit, profile digest, Rust compiler/toolchain, binary digest, output digest, and receipt digest. JSON output reports all six allocation policies—including the three equal-floor hybrids—over stationary and shifted demand, including requested/served/unserved demand, stranded reserved-unit scenarios, demand-served ppm, allocated-capacity utilization, worst-scenario service, worst-shard demand served, safety accounting checks, the allocation slices, and per-shard requested/served/unserved totals. This prevents a high aggregate score from hiding a poorly served community. Distributed tail latency, partition recovery, economic demand classes and network cost remain targets for future multi-agent tests, not outputs of this single-process harness.
+Arguments are shard count, historical samples per shard, evaluation scenarios per mode, total capacity, contingency reserve in ppm, and seed. The wrapper binds the result to the exact commit, profile digest, Rust compiler/toolchain, binary digest, output digest, and receipt digest. JSON output reports all eight allocation policies—including 25%/50%/75% equal-floor hybrids and 2×/4× median-capped variants—over stationary and shifted demand, including requested/served/unserved demand, stranded reserved-unit scenarios, demand-served ppm, allocated-capacity utilization, worst-scenario service, worst-shard demand served, safety accounting checks, the allocation slices, and per-shard requested/served/unserved totals. This prevents a high aggregate score from hiding a poorly served community. Distributed tail latency, partition recovery, economic demand classes and network cost remain targets for future multi-agent tests, not outputs of this single-process harness.
 
 The synthetic generator deliberately has an uneven historical demand profile, bounded jitter, occasional bursts, and a second evaluation mode that rotates the demand profile to simulate distribution shift. The same stationary and shifted traces are shared by all policies. This makes comparisons fair within a benchmark run, but it is a synthetic workload—not evidence of real community demand or an industry performance result.
 
@@ -64,7 +64,7 @@ For each policy, compare aggregate service, capacity utilization, worst-shard se
 ## Required experiments before a strong claim
 
 1. Run unit tests and the exact-head benchmark with several recorded seeds.
-2. Compare equal split, mean-weighted, robust-quantile, and 25%/50%/75% equal-floor policies on stationary, shifted, bursty, and held-out traces.
+2. Compare equal split, mean-weighted, robust-quantile, 25%/50%/75% equal-floor, and 2×/4× lower-median-capped policies on stationary, shifted, bursty, and held-out traces. A tighter cap may reduce attacker influence while under-serving legitimate hotspots; report both sides of the frontier.
 3. Tune any weights or quantile only on a training corpus; do not select them on the held-out evaluation set.
 4. Add workload-derived traces and independent seeds; report per-shard unmet demand and essential-service classes, not just aggregate utilization.
 5. Compare all policies under the same community/agreement caps and same total contingency reserve.
@@ -97,3 +97,12 @@ A benchmark receipt must record hardware model/CPU count/RAM, OS/kernel, Rust co
 ## Claim ceiling
 
 A future passing result can establish only that this Rust reference allocator and the named synthetic traces satisfied the declared integer accounting checks on an exact source/toolchain. It does not prove a global distributed cap, safe ownership transfer, the quality of any real demand forecast, production Holochain enforcement, solvency, legal tender status, or economic welfare.
+
+
+## NCF-ALLOC-3: bounded-influence demand claims
+
+The additional [NCF-ALLOC-3 research note](../research/NCF-ALLOC-3-bounded-influence.md) evaluates a failure mode not covered by historical utilization alone: an adversarial shard can inflate claimed demand, receive excess rights, and strand capacity while honest demand goes unserved. The Rust reference module now defines an optional equal-floor policy with each historical mean weight clipped at 2× or 4× the lower median. The exact-head matched-trace harness includes both policies, expanding from twelve to sixteen policy/mode reports.
+
+Median clipping is not a proof of need and is not Sybil-resistant. It relies on a stable identity set and the assumption that a minority cannot control the median. The independent Python study ran 20,000 randomized minority-claim-inflation cases: a 2× cap improved aggregate service and reduced stranded rights compared with raw claims in that attack distribution, but clipped a legitimate 4× hotspot; a 4× cap preserved the declared honest 4× hotspot but allowed more attacker influence. The results file, seed, source hash and metrics are in the research/ncf-alloc3-results.json file. They are research-reference results only; Rust compilation, model checking and distributed qualification are still not confirmed.
+
+The production direction is evidence-backed demand: canonical, deduplicated eligible queued obligations with explicit instrument/shard/epoch, monotonic sequence/replay treatment, verifier version and audit receipt. Forecasts and caps may prioritize rights placement but must never be treated as spending authority or permission to resize active rights during a partition.
