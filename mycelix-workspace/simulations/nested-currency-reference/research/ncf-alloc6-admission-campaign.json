@@ -1,0 +1,54 @@
+{
+  "campaign_id": "NCF-ALLOC-6",
+  "title": "Atomic obligation admission under adversarial interleavings",
+  "status": "independent_python_state_space_model_executed_rust_database_distributed_not_run",
+  "source": "ncf_alloc6_admission_races.py",
+  "tests": "test_ncf_alloc6_admission_races.py",
+  "results": "ncf-alloc6-admission-races-results.json",
+  "model": {
+    "clients": 2,
+    "ordered_steps": [
+      "read_dedup",
+      "read_used",
+      "check",
+      "commit"
+    ],
+    "interleavings_per_case": 70,
+    "scenarios": [
+      "same_work_different_request_ids",
+      "distinct_work_contends_for_last_capacity",
+      "same_request_id_conflicting_work"
+    ],
+    "cap_units": 100
+  },
+  "hard_invariants": [
+    "no_duplicate_canonical_work_acceptance",
+    "same_request_id_payload_binding",
+    "principal_instrument_cap_not_exceeded",
+    "liability_counter_equals_accepted_obligations",
+    "exact_retry_returns_original_receipt"
+  ],
+  "required_metrics": [
+    "unsafe_schedules",
+    "cap_violation_schedules",
+    "duplicate_accept_schedules",
+    "counter_understatement_schedules",
+    "worst_overshoot_units",
+    "serializable_order_violations"
+  ],
+  "execution_evidence": {
+    "local_python_tests": "8 passed for NCF-ALLOC-6; combined suites 34 passed",
+    "interleavings": "70 per case",
+    "rust": "not_run",
+    "database_transaction": "not_implemented",
+    "distributed_concurrency": "not_run",
+    "holochain_multi_agent": "not_run"
+  },
+  "source_provenance": {
+    "local_executed_source_sha256": "1b017002bfc4c1cd2b1ceee68b57c6ca4a93554238ff98f8884b20998cfcb2cc",
+    "checked_in_source_sha256": "b30a375c8cc50444c8c43dbb33c11eea1abbd6a6b932b194d9383eb94dd93328",
+    "note": "Checked-in source is a manually synchronized copy and is not byte-identical to the executed local file. The result is local research, not checksum-bound CI."
+  },
+  "claim_ceiling": "Finite synthetic scheduler only. It does not test threads, disk durability, real databases, network partitions, Holochain, signatures or production code.",
+  "decision_rule": "Require atomic durable uniqueness, cap check/debit, accepted obligation persistence and response receipt (or a separately proven invariant-confluent protocol). A sequential passing test is insufficient."
+}
