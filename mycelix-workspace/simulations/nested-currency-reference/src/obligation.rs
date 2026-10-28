@@ -10,7 +10,7 @@
 
 use std::collections::BTreeMap;
 
-type PrincipalInstrument = (String, String);
+pub type PrincipalInstrument = (String, String);
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum AdmissionError {
