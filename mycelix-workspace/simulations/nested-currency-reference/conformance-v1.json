@@ -1,13 +1,13 @@
 {
   "schema": "mycelix.nested-currency-conformance",
-  "schema_version": "1.6.0",
+  "schema_version": "1.7.0",
   "profile": "NCF-1",
   "tracking_issue": "https://github.com/Luminous-Dynamics/mycelix/issues/5464",
   "implementation_pr": "https://github.com/Luminous-Dynamics/mycelix/pull/5465",
   "status": "proposed_not_qualified",
   "execution_evidence": {
     "status": "not_run",
-    "reason": "Static Rust allocator changes, including the new median-capped policy variants, per-shard fairness test, and matched-trace benchmark remain uncompiled/unexecuted in this environment. The separate NCF-ALLOC-3 Python attack sweep is explicitly research-reference evidence only. Exact-head Rust/TLA+ receipts, real demand traces, and multi-agent/Holochain qualification remain outstanding. NCF-ALLOC-3 source, tests, results, campaign specification, run guide, and limitations documentation are checked in under research/; their execution records identify Python-only evidence separately from the Rust qualification gate. NCF-ALLOC-4 additionally models one fixed 4,000-unit attacker backlog split across 1..32 shard IDs while retaining fifteen honest identities. Five Python tests pass; cryptographic identity, admission economics, Rust and distributed qualification are explicitly not run. A follow-up static audit found that deriving a cap from positive weights when the lower median was zero could let rare positive outliers define their own cap. The median-capped allocator now zeroes the relative weights in that case and triggers the existing equal-share cold-start fallback; mirrored Python/Rust regression definitions were added. Python-only suite now has 10 NCF-ALLOC-3 tests plus 5 NCF-ALLOC-4 tests; Rust still not run. The corpus now also has NCF-ALLOC-022 for sparse positive claims with a zero lower median, requiring the bounded-cap policy to use equal cold-start rights rather than let positive outliers set their own relative cap. NCF-ALLOC-5 adds a sequential obligation-admission oracle, eight Python regressions and a fixed alias-replay result profile. It assumes independently validated verifier evidence and does not imply the verifier is implemented, nor prove concurrent/distributed uniqueness. NCF-ALLOC-5 now binds the immutable accepted record to a canonical obligation-payload digest in addition to principal, instrument and amount; the NCF-ALLOC-027 regression rejects same-ID/same-amount rebindings to different work. This is only downstream admission logic given a verifier result, not a verifier implementation. NCF-ALLOC-5 is now represented by a typed Rust sequential reference module with ten test definitions and an explicit crate-internal verified-evidence trust boundary. NCF-QUAL-007 remains not run. NCF-BENCH-009 defines end-to-end admission/replay/cap-contention performance gates; all throughput targets are aspirational and unmeasured. NCF-ALLOC-6 enumerates 70 interleavings of two four-step admission requests across three scenarios. Eight Python model tests pass locally and the combined NCF-ALLOC-3/4/5/6 test run has 35 passes. The checked-in NCF-ALLOC-6 source is a manually synchronized, bytewise different copy of the local executed script; results are explicitly not checksum-bound CI, and Rust/database/TLC/distributed tests remain not run. NCF-ALLOC-5 now has a typed Rust sequential model with eleven unit-test definitions; the new verifier-evidence-binding regression itself remains uncompiled/unrun. NCF-ALLOC-6 adds finite Python interleaving research with eight locally passed tests, but database/Rust/Holochain concurrency remains unqualified. The Rust obligation constructor missing-field issue was caught by static inspection and fixed by initializing canonical_id_by_payload_digest. The Rust module now has a separate AcceptedObligation verifier-evidence binding per request ID, so aliases can return the original canonical receipt yet still replay consistently against their own first accepted verifier version/digest. A regression is defined for this. The module now declares fourteen test cases; no local Rust compilation is possible here. A new static audit found and fixed a missing canonical_id_by_payload_digest initialization in ObligationBook::new. The Rust accepted record now stores request-ID-specific verifier version/digest separately from the original canonical receipt, so canonical aliases have consistent retry semantics. The Rust module now declares fourteen tests; exact-head build/test/Clippy is still not confirmed. NCF-ALLOC-7 adds a local file-backed SQLite WAL/synchronous-FULL transactional admission baseline. Seven Python tests passed; 150 local concurrent race trials showed zero observed invariant failures and the local 2,000-attempt run measured 1,098.59 attempts/s, p50 1.1528 ms/p95 1.8039 ms/p99 2.1586 ms. These results are single-host SQLite research only. The checked-in source is a condensed, semantically synchronized copy and not byte-identical to the locally executed source. Rust, Holochain/multi-agent, multi-host and production paths remain unqualified. NCF-ALLOC-8 adds six local Python tests, 18 application-process crash injections across six transaction boundaries, and nine synchronized two-process race trials with zero observed invariant failures. A higher-repetition run timed out and is incomplete. Execution used SQLite 3.46.1, so WAL/checkpoint qualification remains blocked pending SQLite 3.51.3 or a verified backport and explicit checkpoint stress; Rust/Holochain/multi-host/power-loss qualification remains not run. NCF-ALLOC-8 follow-up completed a 5x10 campaign with 30 crash injections and 30 process-pair trials, zero observed invariant failures; the terminal tool returned a timeout after the complete artifact was written. NCF-ALLOC-9 added exact-source checkpoint/read stress: 1k, 8k, and two 20k write campaigns, zero recorded invariant failures, plus a held-reader busy-checkpoint regression. Runtime remains SQLite 3.46.1, so the documented WAL-reset engine bug still requires a 3.53.3 (or at minimum 3.51.3/backport) rerun and dedicated low-level qualification. Rust/Holochain/multi-host/power-loss tests remain not run. NCF-ALLOC-9 checkpoint stress now records SQLite sqlite_source_id() and offers --require-fixed-sqlite. On the current 3.46.1 runtime, that guard exits NOT_QUALIFIED as expected. The current official SQLite release observed on 2026-10-28 is 3.54.1; a fixed-engine rerun and special WAL-reset regression still remain open. NCF-ALLOC-10 adds a deterministic SQLite database-size-limit failure: SQLITE_FULL after a prior cap-counter update rolls back to no partial obligation, earlier accepted state is preserved, and restoring capacity permits exact retry once followed by replay. Four local tests passed; combined NCF-ALLOC-8/9/10 tests total 15. This is a database-size-capacity model only, not physical disk-full or I/O fault qualification."
+    "reason": "Static Rust allocator changes, including the new median-capped policy variants, per-shard fairness test, and matched-trace benchmark remain uncompiled/unexecuted in this environment. The separate NCF-ALLOC-3 Python attack sweep is explicitly research-reference evidence only. Exact-head Rust/TLA+ receipts, real demand traces, and multi-agent/Holochain qualification remain outstanding. NCF-ALLOC-3 source, tests, results, campaign specification, run guide, and limitations documentation are checked in under research/; their execution records identify Python-only evidence separately from the Rust qualification gate. NCF-ALLOC-4 additionally models one fixed 4,000-unit attacker backlog split across 1..32 shard IDs while retaining fifteen honest identities. Five Python tests pass; cryptographic identity, admission economics, Rust and distributed qualification are explicitly not run. A follow-up static audit found that deriving a cap from positive weights when the lower median was zero could let rare positive outliers define their own cap. The median-capped allocator now zeroes the relative weights in that case and triggers the existing equal-share cold-start fallback; mirrored Python/Rust regression definitions were added. Python-only suite now has 10 NCF-ALLOC-3 tests plus 5 NCF-ALLOC-4 tests; Rust still not run. The corpus now also has NCF-ALLOC-022 for sparse positive claims with a zero lower median, requiring the bounded-cap policy to use equal cold-start rights rather than let positive outliers set their own relative cap. NCF-ALLOC-5 adds a sequential obligation-admission oracle, eight Python regressions and a fixed alias-replay result profile. It assumes independently validated verifier evidence and does not imply the verifier is implemented, nor prove concurrent/distributed uniqueness. NCF-ALLOC-5 now binds the immutable accepted record to a canonical obligation-payload digest in addition to principal, instrument and amount; the NCF-ALLOC-027 regression rejects same-ID/same-amount rebindings to different work. This is only downstream admission logic given a verifier result, not a verifier implementation. NCF-ALLOC-5 is now represented by a typed Rust sequential reference module with ten test definitions and an explicit crate-internal verified-evidence trust boundary. NCF-QUAL-007 remains not run. NCF-BENCH-009 defines end-to-end admission/replay/cap-contention performance gates; all throughput targets are aspirational and unmeasured. NCF-ALLOC-6 enumerates 70 interleavings of two four-step admission requests across three scenarios. Eight Python model tests pass locally and the combined NCF-ALLOC-3/4/5/6 test run has 35 passes. The checked-in NCF-ALLOC-6 source is a manually synchronized, bytewise different copy of the local executed script; results are explicitly not checksum-bound CI, and Rust/database/TLC/distributed tests remain not run. NCF-ALLOC-5 now has a typed Rust sequential model with eleven unit-test definitions; the new verifier-evidence-binding regression itself remains uncompiled/unrun. NCF-ALLOC-6 adds finite Python interleaving research with eight locally passed tests, but database/Rust/Holochain concurrency remains unqualified. The Rust obligation constructor missing-field issue was caught by static inspection and fixed by initializing canonical_id_by_payload_digest. The Rust module now has a separate AcceptedObligation verifier-evidence binding per request ID, so aliases can return the original canonical receipt yet still replay consistently against their own first accepted verifier version/digest. A regression is defined for this. The module now declares fourteen test cases; no local Rust compilation is possible here. A new static audit found and fixed a missing canonical_id_by_payload_digest initialization in ObligationBook::new. The Rust accepted record now stores request-ID-specific verifier version/digest separately from the original canonical receipt, so canonical aliases have consistent retry semantics. The Rust module now declares fourteen tests; exact-head build/test/Clippy is still not confirmed. NCF-ALLOC-7 adds a local file-backed SQLite WAL/synchronous-FULL transactional admission baseline. Seven Python tests passed; 150 local concurrent race trials showed zero observed invariant failures and the local 2,000-attempt run measured 1,098.59 attempts/s, p50 1.1528 ms/p95 1.8039 ms/p99 2.1586 ms. These results are single-host SQLite research only. The checked-in source is a condensed, semantically synchronized copy and not byte-identical to the locally executed source. Rust, Holochain/multi-agent, multi-host and production paths remain unqualified. NCF-ALLOC-8 adds six local Python tests, 18 application-process crash injections across six transaction boundaries, and nine synchronized two-process race trials with zero observed invariant failures. A higher-repetition run timed out and is incomplete. Execution used SQLite 3.46.1, so WAL/checkpoint qualification remains blocked pending SQLite 3.51.3 or a verified backport and explicit checkpoint stress; Rust/Holochain/multi-host/power-loss qualification remains not run. NCF-ALLOC-8 follow-up completed a 5x10 campaign with 30 crash injections and 30 process-pair trials, zero observed invariant failures; the terminal tool returned a timeout after the complete artifact was written. NCF-ALLOC-9 added exact-source checkpoint/read stress: 1k, 8k, and two 20k write campaigns, zero recorded invariant failures, plus a held-reader busy-checkpoint regression. Runtime remains SQLite 3.46.1, so the documented WAL-reset engine bug still requires a 3.53.3 (or at minimum 3.51.3/backport) rerun and dedicated low-level qualification. Rust/Holochain/multi-host/power-loss tests remain not run. NCF-ALLOC-9 checkpoint stress now records SQLite sqlite_source_id() and offers --require-fixed-sqlite. On the current 3.46.1 runtime, that guard exits NOT_QUALIFIED as expected. The current official SQLite release observed on 2026-10-28 is 3.54.1; a fixed-engine rerun and special WAL-reset regression still remain open. NCF-ALLOC-10 adds a deterministic SQLite database-size-limit failure: SQLITE_FULL after a prior cap-counter update rolls back to no partial obligation, earlier accepted state is preserved, and restoring capacity permits exact retry once followed by replay. Four local tests passed; combined NCF-ALLOC-8/9/10 tests total 15. This is a database-size-capacity model only, not physical disk-full or I/O fault qualification. NCF-ARCH-001 explicitly prioritizes PostgreSQL as the online shared transaction coordinator and Holochain as the agent-authored provenance/DHT validation layer; SQLite remains narrow reference research. PostgreSQL pgbench runner defects were repaired and seven local parser tests pass, including timed-mode actual-count parsing and fail-closed log/stdout accounting. The dedicated workflow now has a push trigger, but observed workflow attempts had zero jobs; no live PostgreSQL pass is claimed. Holochain Sweettest integration remains a separate unexecuted gate."
   },
   "claim_ceiling": [
     "Reference-model conformance only when executed against a named source revision.",
@@ -28,7 +28,10 @@
     "NCF-ALLOC-8 follow-up 5x10 result artifact completed (30 crash injections plus 30 independent-process race pairs) despite a terminal timeout response; result completeness and exact v1 source hash were checked separately.",
     "NCF-ALLOC-9 now reports sqlite_source_id() and includes --require-fixed-sqlite. The current SQLite 3.46.1 runtime correctly yields NOT_QUALIFIED against the 3.51.3 minimum. The latest official release observed on 2026-10-28 is SQLite 3.54.1; generic stress remains distinct from the dedicated WAL-reset regression.",
     "The NCF-ALLOC-9 harness now records SQLite sqlite_source_id() and fails closed with NOT_QUALIFIED when the runtime is below 3.51.3. Passing local stress on SQLite 3.46.1 is not fixed-engine qualification.",
-    "NCF-ALLOC-10 uses PRAGMA max_page_count to simulate a database-size cap and test SQLITE_FULL rollback. It does not simulate physical disk exhaustion, filesystem EIO, kernel crash, power loss, or distributed behavior."
+    "NCF-ALLOC-10 uses PRAGMA max_page_count to simulate a database-size cap and test SQLITE_FULL rollback. It does not simulate physical disk exhaustion, filesystem EIO, kernel crash, power loss, or distributed behavior.",
+    "Architecture target is PostgreSQL shared-coordinator authority plus Holochain agent-authored evidence/DHT validation. The SQLite NCF-ALLOC-7..10 experiments are narrow local reference probes, not production backend qualification.",
+    "PostgreSQL parser tests and runner fixes do not qualify actual PostgreSQL SQL. The current Actions attempts for the NCF PostgreSQL workflow produced zero jobs; only non-empty exact-head job logs and SQL reconciliation receipts can count as database evidence.",
+    "Holochain validation-receipt counts are not settlement finality. PostgreSQL and the Holochain DHT are not one distributed atomic transaction; outbox delivery is at-least-once and must use stable event identities plus idempotent reconciliation."
   ],
   "invariants": [
     {
@@ -268,6 +271,21 @@
       "id": "NCF-ALLOC-I-018",
       "name": "Storage capacity failure rolls back the entire admission transition",
       "statement": "If storage fails at any point before commit, no partial liability-counter mutation, obligation, request binding, or receipt becomes committed; previous accepted obligations remain unchanged. Storage failure is distinct from policy rejection."
+    },
+    {
+      "id": "NCF-ALLOC-I-019",
+      "name": "PostgreSQL uniqueness is scoped to one shared authority domain",
+      "statement": "PostgreSQL row locks and unique constraints enforce caps and canonical-work uniqueness only for writers in the same authoritative database transaction domain; independent offline databases require separately qualified reservations/routing/quorum policy."
+    },
+    {
+      "id": "NCF-ALLOC-I-020",
+      "name": "SQL commit, Holochain authorship, DHT receipts, and settlement are distinct states",
+      "statement": "A PostgreSQL committed obligation and outbox row do not imply a Holochain action was authored, that validation receipts were observed, or that settlement is final. Each state transition has separate evidence and idempotent recovery."
+    },
+    {
+      "id": "NCF-ALLOC-I-021",
+      "name": "Benchmark success requires three-way transaction-accounting reconciliation",
+      "statement": "A PostgreSQL load result is accepted only when pgbench successful per-transaction logs, pgbench stdout's actual count, and committed canonical obligation/request/outbox totals match; malformed logs, failed transactions, or count divergence fail closed."
     }
   ],
   "conformance_cases": [
@@ -1928,6 +1946,137 @@
         "combined_test_seconds": 7.279,
         "observed_invariant_failures": 0
       }
+    },
+    {
+      "id": "NCF-BENCH-015",
+      "name": "PostgreSQL transactional admission and receipt-reconciled load benchmark",
+      "baselines": [
+        "current READ COMMITTED explicit-locking profile",
+        "SERIALIZABLE with whole-transaction retry (matched comparison target)",
+        "generic pgbench is instrumentation context only, not a semantic baseline",
+        "future Holochain outbox-delivery integration profile"
+      ],
+      "workloads": [
+        "sequential admission/exact replay/payload conflict/canonical alias/settlement/outbox smoke",
+        "independent-session cap contention",
+        "concurrent canonical-work alias",
+        "concurrent request-ID payload conflict",
+        "timed pgbench 1/4/16 clients then 64/128-client repeat campaign",
+        "parser failure/malformed/count-mismatch negative controls",
+        "three-way log/stdout/SQL canonical obligation reconciliation"
+      ],
+      "topology": {
+        "server": "PostgreSQL 18.6",
+        "clients_smoke": [
+          1,
+          4,
+          16
+        ],
+        "threads_smoke": [
+          1,
+          2,
+          4
+        ],
+        "smoke_seconds": 15,
+        "transactions_per_load_call": "ncf.admit_obligation",
+        "durability": "fsync=on and synchronous_commit=on required",
+        "authority_domain": "one PostgreSQL database",
+        "holochain": "outbox evidence contract; DHT/Sweettest not yet run"
+      },
+      "required_safety_gates": [
+        "exact_retry_returns_original_receipt",
+        "changed_payload_rejects_without_mutation",
+        "canonical_work_alias_debits_once",
+        "no_community_edge_or_slice_cap_overshoot",
+        "settlement_releases_used_capacity_once",
+        "outbox_rows_atomic_with_sql_obligation",
+        "independent_session_races_match_expected_decisions",
+        "parser_rejects_failed_or_unparseable_rows",
+        "pgbench_log_count_equals_stdout_count",
+        "pgbench_success_count_equals_sql_accepted_obligation_count",
+        "request_binding_cap_slice_and_outbox_totals_reconcile"
+      ],
+      "required_metrics": [
+        "server_version_and_settings",
+        "schema_and_function_sha256",
+        "pgbench_script_parser_and_runner_sha256",
+        "client_and_thread_count",
+        "run_duration",
+        "successful_admissions_per_second",
+        "replay_and_rejection_counts",
+        "serialization_and_deadlock_retries",
+        "p50_p95_p99_latency",
+        "outbox_pending_count_and_oldest_age",
+        "SQL_vs_log_transaction_reconciliation",
+        "final cap_edge_slice_obligation_and_outbox totals"
+      ],
+      "methodology": "The pgbench script calls the real ncf.admit_obligation function. The receipt parser handles PostgreSQL timed-mode actual-count output and count-mode actual/target output, converts per-transaction microseconds to milliseconds, fails closed on failed/malformed rows, and writes the successful-count receipt. Final SQL reconciliation must equal that count. Run each configuration at least five times after initial exact-head correctness passes; compare isolation levels using identical transactions and whole-transaction retry semantics. Generic pgbench/TPC-B or payment-rail TPS is not a like-for-like baseline.",
+      "execution_status": "seven_local_python_parser_tests_passed; PostgreSQL exact-head workflow trigger_and_parser_step_present but observed workflow attempts had zero jobs; live_SQL_pass_not_claimed",
+      "claim_ceiling": "Local parser/runner testing only. The actual PostgreSQL 18.6 schema, concurrency, settlement, and load result is not qualified until real workflow jobs run and emit non-empty logs plus reconciliation receipts; no Holochain/DHT or offline global-uniqueness claim.",
+      "research_reference": {
+        "schema_path": "mycelix-workspace/simulations/nested-currency-reference/postgres/001_schema.sql",
+        "functions_path": "mycelix-workspace/simulations/nested-currency-reference/postgres/002_functions.sql",
+        "smoke_path": "mycelix-workspace/simulations/nested-currency-reference/postgres/900_smoke_test.sql",
+        "concurrency_runner": "mycelix-workspace/simulations/nested-currency-reference/postgres/run-concurrency-tests.sh",
+        "pgbench_runner": "mycelix-workspace/simulations/nested-currency-reference/postgres/run-pgbench-benchmark.sh",
+        "parser": "mycelix-workspace/simulations/nested-currency-reference/postgres/summarize_pgbench.py",
+        "parser_tests": "mycelix-workspace/simulations/nested-currency-reference/postgres/test_summarize_pgbench.py",
+        "architecture_decision": "mycelix-workspace/simulations/nested-currency-reference/docs/NCF-ARCH-001-postgres-holochain-responsibility-split.md",
+        "local_parser_tests": 7,
+        "local_parser_test_seconds": 0.009
+      }
+    },
+    {
+      "id": "NCF-BENCH-016",
+      "name": "PostgreSQL transactional outbox to Holochain idempotency and convergence",
+      "baselines": [
+        "SQL commit-only state",
+        "SQL + at-least-once outbox dispatch",
+        "outbox dispatch with lost-ack retry",
+        "Holochain receipt threshold progress",
+        "home-shard/non-home shard duplicate-work controls"
+      ],
+      "workloads": [
+        "commit SQL then conductor unavailable",
+        "author Holochain action then lose dispatch acknowledgement",
+        "repeat stable event ID and same action hash",
+        "same outbox item returns a second action hash",
+        "DHT receipt threshold below then above policy floor",
+        "multiple agents submit same canonical work under partition"
+      ],
+      "topology": {
+        "postgres": "shared coordinator DB",
+        "holochain": "3–5 actual conductors/agents using repository-supported Sweettest",
+        "delivery": "at-least-once stable-ID outbox",
+        "offline_policy": "preallocated reservation slices and deterministic home shard"
+      },
+      "required_safety_gates": [
+        "one_SQL_canonical_obligation_per_work",
+        "SQL_commit_does_not_imply_DHT_validation",
+        "same_event_retry_is_idempotent",
+        "additional_action_hash_is_duplicate_evidence_not_new_debit",
+        "outbox_recovers_after_dispatcher_restart",
+        "below_threshold_state_not_settled",
+        "home_shard_policy_prevents_unqualified_offline_duplicate_acceptance"
+      ],
+      "required_metrics": [
+        "outbox_pending_age",
+        "dispatch_attempts_and_replays",
+        "orphan_or_duplicate_action_observations",
+        "time_to_authorship",
+        "time_to_receipt_threshold",
+        "reconciliation_time_after_restart",
+        "agent_count_and_conductor_version",
+        "DNA_and_WASM_hashes"
+      ],
+      "methodology": "Run against the existing Mycelix Finance hApp with actual built DNA and 3–5 conductors/agents. Fault inject dispatcher crash before authorship, after authorship but before SQL acknowledgement, during receipt observation, and with PostgreSQL or conductor unavailable. The run is not qualified by a mocked zome call or SQL-only unit test. Stable event identity is retried/reconciled; a DHT receipt count is not settlement finality.",
+      "execution_status": "integration_contract_written_Sweettest_implementation_and_execution_pending",
+      "claim_ceiling": "No Holochain execution or production/outbox convergence claim is currently established.",
+      "research_reference": {
+        "contract": "mycelix-workspace/simulations/nested-currency-reference/holochain/NCF-POSTGRES-HOLOCHAIN-CONTRACT.md",
+        "architecture": "mycelix-workspace/simulations/nested-currency-reference/docs/NCF-ARCH-001-postgres-holochain-responsibility-split.md",
+        "existing_finance_tests": "mycelix-workspace/mycelix-finance/tests/sweettest_multi_agent.rs"
+      }
     }
   ],
   "planned_conformance_cases": [
@@ -2712,6 +2861,60 @@
       "expected": "Policy case returns rejected with policy reason; storage case returns storage_error and SQLITE_FULL; neither rejection changes committed state.",
       "code_test": "test_capacity_failure_is_distinct_from_policy_cap_rejection",
       "execution_status": "local_python_sqlite_size_cap_fault_passed"
+    },
+    {
+      "id": "NCF-ALLOC-062",
+      "title": "Timed pgbench output format is accepted by receipt parser",
+      "class": "pgbench_timed_output_parse",
+      "attack": "Run pgbench with --time and parse its documented output line where only the actual transaction count is printed, not actual/target.",
+      "expected": "The parsed receipt records actual count, leaves scheduled target null, and does not reject valid timed-mode output.",
+      "code_test": "test_timed_mode_single_count_output_is_accepted",
+      "execution_status": "seven_local_python_parser_tests_passed_postgres_runtime_not_run"
+    },
+    {
+      "id": "NCF-ALLOC-063",
+      "title": "Per-transaction pgbench latency uses documented microsecond units",
+      "class": "pgbench_latency_unit_conversion",
+      "attack": "Feed known pgbench log rows with transaction times of 1000, 2000, and 3000 microseconds.",
+      "expected": "The parser reports 1, 2, and 3 millisecond samples and exact p50/p95/p99; successful-count.txt equals sample count.",
+      "code_test": "test_microseconds_are_converted_to_milliseconds_and_count_is_written",
+      "execution_status": "local_python_parser_test_passed"
+    },
+    {
+      "id": "NCF-ALLOC-064",
+      "title": "Failed, malformed, or missing pgbench log rows fail closed",
+      "class": "pgbench_bad_log_fail_closed",
+      "attack": "Supply failed/serialization rows, malformed rows, no logs, or a stdout count inconsistent with log samples.",
+      "expected": "The parser exits non-zero and creates no success claim for any unaccounted transaction history.",
+      "code_test": "test_failed_transaction_is_fail_closed;test_malformed_log_row_is_rejected;test_log_and_stdout_count_mismatch_is_rejected;test_missing_log_is_rejected",
+      "execution_status": "local_python_parser_tests_passed"
+    },
+    {
+      "id": "NCF-ALLOC-065",
+      "title": "PostgreSQL independent sessions preserve cap and idempotency invariants",
+      "class": "postgres_independent_session_admission",
+      "attack": "Concurrent PostgreSQL sessions submit two distinct 60-unit obligations against cap 100, identical canonical work under different request IDs, and conflicting payloads under one request ID.",
+      "expected": "Outcomes are accept/reject, accept/replay, accept/reject respectively; gross cap, slice, request bindings, canonical obligations, and outbox reconcile.",
+      "code_test": "postgres/run-concurrency-tests.sh",
+      "execution_status": "dedicated_workflow_added_but_current_records_have_zero_jobs; live_database_result_not_claimed"
+    },
+    {
+      "id": "NCF-ALLOC-066",
+      "title": "PostgreSQL runner reconciles pgbench log, stdout, and database accepted count",
+      "class": "postgres_pgbench_three_way_reconciliation",
+      "attack": "Run actual ncf.admit_obligation transactions with per-transaction logging and compare parser sample count, pgbench stdout actual count, and accepted canonical obligation count in SQL.",
+      "expected": "All three counts equal; each accepted transaction corresponds to exactly one canonical obligation, request binding, cap/slice update, and outbox intent; errors/malformed rows fail the run.",
+      "code_test": "postgres/run-pgbench-benchmark.sh",
+      "execution_status": "runner_static_review_and_parser_tests_passed; live_postgres_run_not_claimed"
+    },
+    {
+      "id": "NCF-ALLOC-067",
+      "title": "Repeated Holochain outbox dispatch does not create a second economic obligation",
+      "class": "postgres_holochain_outbox_lost_ack",
+      "attack": "PostgreSQL commits an obligation and outbox row; dispatcher authors the stable action but loses the acknowledgement, then retries/reconciles using the same immutable event ID and action identity.",
+      "expected": "SQL canonical obligation and debit remain singular; matching action acknowledgement replays; additional action is recorded as duplicate evidence rather than a new obligation; DHT receipt state is not labeled settled.",
+      "code_test": "mycelix-finance/tests/sweettest_multi_agent.rs (integration coverage to add)",
+      "execution_status": "contract_defined_holochain_Sweettest_case_pending"
     }
   ],
   "qualification_campaigns": [
@@ -3098,6 +3301,57 @@
       ],
       "execution_status": "four_local_python_tests_passed; combined_NCF8_NCF9_NCF10_15_tests_passed; SQLite_3.46.1_engine_gate_open; physical_disk_IO_Rust_Holochain_multi_host_not_run",
       "acceptance": "Four local Python tests pass with ResourceWarning promoted to error. PRAGMA max_page_count produces SQLITE_FULL code 13 after used-capacity is mutated but before the obligation insert; rollback restores used-capacity to zero and leaves no obligation row. Restoring capacity permits the same request to accept once and then replay; a prior accepted obligation survives a later failed attempt. This simulates SQLite database-size limit only, not physical disk-full, I/O faults, or power loss. No Rust/Holochain/multi-host qualification is claimed."
+    },
+    {
+      "id": "NCF-QUAL-013",
+      "name": "PostgreSQL 18.6 transactional admission and receipt-reconciled benchmark",
+      "required_tests": [
+        "test_microseconds_are_converted_to_milliseconds_and_count_is_written",
+        "test_tps_regex_parses_real_pgbench_line",
+        "test_timed_mode_single_count_output_is_accepted",
+        "test_failed_transaction_is_fail_closed",
+        "test_log_and_stdout_count_mismatch_is_rejected",
+        "test_malformed_log_row_is_rejected",
+        "test_missing_log_is_rejected",
+        "NCF PostgreSQL sequential smoke SQL",
+        "NCF independent-session concurrency shell",
+        "pgbench three-way log/stdout/database reconciliation"
+      ],
+      "required_artifacts": [
+        "postgres/001_schema.sql",
+        "postgres/002_functions.sql",
+        "postgres/900_smoke_test.sql",
+        "postgres/910_concurrent_setup.sql",
+        "postgres/run-concurrency-tests.sh",
+        "postgres/run-pgbench-benchmark.sh",
+        "postgres/summarize_pgbench.py",
+        "postgres/test_summarize_pgbench.py",
+        "postgres/NCF-ALLOC-13-TEST-RESULTS.txt"
+      ],
+      "execution_status": "seven_local_parser_tests_passed; current workflow attempts have zero jobs; live_PostgreSQL_result_not_claimed",
+      "acceptance": "Seven local parser tests pass including timed-mode output, latency-unit conversion, failed/malformed row negative controls, count mismatch, and missing logs. Exact-head PostgreSQL 18.6 qualification additionally requires successful schema/function setup, all sequential and independent-session race tests, zero transaction failures, three-way log/stdout/SQL reconciliation, and preserved runtime/source receipts. A zero-job workflow run is not a pass or SQL failure."
+    },
+    {
+      "id": "NCF-QUAL-014",
+      "name": "PostgreSQL outbox and Holochain multi-agent event idempotency",
+      "required_tests": [
+        "HC-NCF-005",
+        "HC-NCF-006",
+        "HC-NCF-007",
+        "HC-NCF-008",
+        "HC-NCF-010",
+        "HC-NCF-011",
+        "HC-NCF-012"
+      ],
+      "required_artifacts": [
+        "holochain/NCF-POSTGRES-HOLOCHAIN-CONTRACT.md",
+        "docs/NCF-ARCH-001-postgres-holochain-responsibility-split.md",
+        "Mycelix Finance DNA SHA-256",
+        "coordinator and integrity WASM SHA-256",
+        "Sweettest exact-head receipt and raw logs"
+      ],
+      "execution_status": "contract_only_no_new_zome_or_Sweettest_result_claimed",
+      "acceptance": "Pass only after real built DNA and 3–5 conductors/agents execute the stable-event/outbox lost-ack, duplicate-action, unresolved dependency, receipt-threshold, restart recovery and home-shard duplicate scenarios on an exact pinned source/WASM head. SQL-only tests cannot qualify Holochain authored provenance or DHT receipt semantics."
     }
   ]
 }
