@@ -34,7 +34,8 @@
     "Holochain validation-receipt counts are not settlement finality. PostgreSQL and the Holochain DHT are not one distributed atomic transaction; outbox delivery is at-least-once and must use stable event identities plus idempotent reconciliation.",
     "The PostgreSQL receipt digest is content binding only. Holochain authority claims require an author key registered through governance, a pinned immutable AuthorityManifest/epoch, and deterministic scope checks; key custody/compromise and policy revocation remain separate qualification areas.",
     "NCF-AUTHORITY-CLAIM-V1 adds domain-separated, fixed-order, length-framed SHA-256 content binding for 19 fields. A matching digest is not a signature, does not prove PostgreSQL committed, and does not prove real-world work; governance-authorized Holochain action authorship and manifest scope remain separate gates.",
-    "PostgreSQL canonical-work aliases now reject differing reservation/shard/epoch context before writing a replay binding. Source and smoke regression are committed, but PostgreSQL 18.6 execution is pending; this is not yet a live database PASS."
+    "PostgreSQL canonical-work aliases now reject differing reservation/shard/epoch context before writing a replay binding. Source and smoke regression are committed, but PostgreSQL 18.6 execution is pending; this is not yet a live database PASS.",
+    "The PostgreSQL function migration had malformed body delimiters at source level, now fixed and covered by static guard definitions; do not claim the PostgreSQL profile is executable until exact-head PostgreSQL 18.6 applies the migration and passes smoke/concurrency/load reconciliation."
   ],
   "invariants": [
     {
@@ -304,6 +305,16 @@
       "id": "NCF-ALLOC-I-024",
       "name": "Canonical-work aliases preserve original reservation ownership",
       "statement": "A canonical-work alias may replay only if its principal/community/instrument/profile/amount/agreement/direction and reservation ID, shard ID, and epoch match the original obligation. A different home-shard context rejects before any new request binding is stored; alias replay never mutates caps, slices, or outbox."
+    },
+    {
+      "id": "NCF-ALLOC-I-025",
+      "name": "PostgreSQL function bodies have matched dollar-quote delimiters",
+      "statement": "Every PL/pgSQL SECURITY DEFINER function body in the NCF migration has one valid matching dollar-quote opener/closer pair; malformed delimiters block SQL installation and fail preflight."
+    },
+    {
+      "id": "NCF-ALLOC-I-026",
+      "name": "SECURITY DEFINER resolves trusted relations before temporary objects",
+      "statement": "Every privileged NCF function uses a restricted search_path with pg_catalog and the trusted ncf schema, then pg_temp last, so caller-controlled temporary relations cannot mask intended application relations."
     }
   ],
   "conformance_cases": [
@@ -2014,7 +2025,9 @@
         "pgbench_log_count_equals_stdout_count",
         "pgbench_success_count_equals_sql_accepted_obligation_count",
         "request_binding_cap_slice_and_outbox_totals_reconcile",
-        "alias_replay_preserves_home_shard_reservation_and_epoch"
+        "alias_replay_preserves_home_shard_reservation_and_epoch",
+        "function_body_dollar_delimiters_balanced",
+        "security_definer_search_path_has_pg_temp_last"
       ],
       "required_metrics": [
         "server_version_and_settings",
@@ -2028,10 +2041,12 @@
         "p50_p95_p99_latency",
         "outbox_pending_count_and_oldest_age",
         "SQL_vs_log_transaction_reconciliation",
-        "final cap_edge_slice_obligation_and_outbox totals"
+        "final cap_edge_slice_obligation_and_outbox totals",
+        "postgres_function_sql_git_blob_sha",
+        "static_sql_guard_git_blob_sha"
       ],
       "methodology": "The pgbench script calls the real ncf.admit_obligation function. The receipt parser handles PostgreSQL timed-mode actual-count output and count-mode actual/target output, converts per-transaction microseconds to milliseconds, fails closed on failed/malformed rows, and writes the successful-count receipt. Final SQL reconciliation must equal that count. Run each configuration at least five times after initial exact-head correctness passes; compare isolation levels using identical transactions and whole-transaction retry semantics. Generic pgbench/TPC-B or payment-rail TPS is not a like-for-like baseline.",
-      "execution_status": "seven_local_python_parser_tests_passed; exact_head_PR_run_40741164756_has_four_queued_jobs; live_SQL_pass_not_yet_observed",
+      "execution_status": "seven_local_pgbench_parser_tests_passed; SQL delimiter blocker corrected; seven SECURITY DEFINER search paths hardened; static guards committed; exact_head_PostgreSQL_apply_smoke_concurrency_load_pending",
       "claim_ceiling": "Local parser/runner testing only. The actual PostgreSQL 18.6 schema, concurrency, settlement, and load result is not qualified until real workflow jobs run and emit non-empty logs plus reconciliation receipts; no Holochain/DHT or offline global-uniqueness claim.",
       "research_reference": {
         "schema_path": "mycelix-workspace/simulations/nested-currency-reference/postgres/001_schema.sql",
@@ -2059,7 +2074,15 @@
           "PostgreSQL 18 admission load (4 clients)",
           "PostgreSQL 18 admission load (16 clients)"
         ],
-        "home_shard_alias_guard": "NCF-BENCH-018"
+        "home_shard_alias_guard": "NCF-BENCH-018",
+        "function_git_blob_sha": "cab4c0c7f671e96bb3b4f5260ad12db10f6e4f71",
+        "static_guard_path": "mycelix-workspace/simulations/nested-currency-reference/postgres/test_postgres_contract_static.py",
+        "static_guard_git_blob_sha": "c3aca9eaed78982d83185ed4ffe7c1bb3902bccc",
+        "installability_guard_tests": [
+          "test_plpgsql_body_delimiters_are_balanced",
+          "test_all_security_definer_functions_put_pg_temp_last"
+        ],
+        "exact_head_postgres_pass": false
       }
     },
     {
@@ -2240,17 +2263,18 @@
         "postgres_runtime"
       ],
       "methodology": "For each alias negative, first accept a canonical obligation, then submit identical canonical work under a fresh request ID but mutate only reservation/shard/epoch context. Assert conflict rejection before replay binding insertion, no cap/slice delta, and no new outbox row. Preserve a positive same-context alias test. Execute as SQL smoke and concurrent independent PostgreSQL sessions; static source guards are not a substitute for live PostgreSQL.",
-      "execution_status": "function_guard_and_smoke_negative_committed;static_Python_guard_added_to_workflow;exact_head_PostgreSQL_execution_pending",
+      "execution_status": "canonical_alias_home_shard_guard_committed; SQL function quoting fixed; SECURITY DEFINER paths hardened; static guards committed; exact-head PostgreSQL SQL run pending",
       "claim_ceiling": "The source-level rule is implemented, but no live PostgreSQL 18.6 PASS is claimed until the exact-head SQL smoke/concurrency jobs execute and reconcile.",
       "research_reference": {
         "function_path": "mycelix-workspace/simulations/nested-currency-reference/postgres/002_functions.sql",
-        "function_git_blob_sha": "af55594b453505a379d99481c71c12b387cbac33",
+        "function_git_blob_sha": "cab4c0c7f671e96bb3b4f5260ad12db10f6e4f71",
         "smoke_path": "mycelix-workspace/simulations/nested-currency-reference/postgres/900_smoke_test.sql",
         "smoke_git_blob_sha": "74ff18279797fc01f89e1e9743d617652db4bdeb",
         "static_guard_path": "mycelix-workspace/simulations/nested-currency-reference/postgres/test_postgres_contract_static.py",
         "workflow_path": ".github/workflows/ncf-postgres-conformance.yml",
         "workflow_static_guard_added": true,
-        "live_sql_pass": false
+        "live_sql_pass": false,
+        "static_guard_git_blob_sha": "c3aca9eaed78982d83185ed4ffe7c1bb3902bccc"
       }
     }
   ],
@@ -3171,6 +3195,24 @@
       "expected": "The alias returns a deterministic canonical-work/home-shard conflict before writing a request binding; no second debit, slice mutation, or outbox row is created. A same-context alias still returns the original receipt as replay.",
       "code_test": "postgres/900_smoke_test.sql::v_alias_wrong_shard;postgres/test_postgres_contract_static.py",
       "execution_status": "SQL_function_and_smoke_updated;static_guard_added_to_exact_head_workflow;PostgreSQL_execution_pending"
+    },
+    {
+      "id": "NCF-ALLOC-077",
+      "title": "PostgreSQL PL/pgSQL body delimiters are balanced before migration execution",
+      "class": "postgres_sql_migration_installability",
+      "attack": "A function body uses a single-dollar opener with a double-dollar closer or vice versa, leaving invalid SQL before the first runtime test.",
+      "expected": "Static preflight requires every SQL function opener and closer to match, and rejects malformed AS $ or $; lines before psql applies the migration.",
+      "code_test": "test_plpgsql_body_delimiters_are_balanced",
+      "execution_status": "source_blocker_found_and_fixed_exact_head_static_guard_added_live_PostgreSQL_apply_pending"
+    },
+    {
+      "id": "NCF-ALLOC-078",
+      "title": "SECURITY DEFINER functions put pg_temp last in search_path",
+      "class": "postgres_security_definer_search_path",
+      "attack": "A caller creates temporary relations with names that shadow unqualified relations used inside a privileged function.",
+      "expected": "All seven functions use SET search_path = pg_catalog, ncf, pg_temp; the migration static guard rejects a missing or reordered pg_temp.",
+      "code_test": "test_all_security_definer_functions_put_pg_temp_last",
+      "execution_status": "seven_function_search_paths_hardened_static_guard_added_live_PostgreSQL_execution_pending"
     }
   ],
   "qualification_campaigns": [
@@ -3562,6 +3604,8 @@
       "id": "NCF-QUAL-013",
       "name": "PostgreSQL 18.6 transactional admission and receipt-reconciled benchmark",
       "required_tests": [
+        "test_all_security_definer_functions_put_pg_temp_last",
+        "test_plpgsql_body_delimiters_are_balanced",
         "test_microseconds_are_converted_to_milliseconds_and_count_is_written",
         "test_tps_regex_parses_real_pgbench_line",
         "test_timed_mode_single_count_output_is_accepted",
@@ -3584,8 +3628,8 @@
         "postgres/test_summarize_pgbench.py",
         "postgres/NCF-ALLOC-13-TEST-RESULTS.txt"
       ],
-      "execution_status": "seven_local_parser_tests_passed; exact_head_PR_run_40741164756_has_four_queued_jobs; live_PostgreSQL_SQL_not_yet_qualified",
-      "acceptance": "Seven local parser tests pass; parser/test/runner Git blob SHA-1 values match exact local files, and bash syntax / py_compile pass. Latest exact-head run 40741164756 is queued with four jobs. Until the PostgreSQL SQL smoke, independent-session races, pgbench load, and final reconciliation complete with non-empty logs, the database profile remains unqualified."
+      "execution_status": "seven_local_pgbench_parser_tests_passed; exact_head_SQL_installability_blocker_fixed_and_static_guards_added; PostgreSQL18.6_apply_smoke_concurrency_and_load_pending",
+      "acceptance": "Seven local pgbench-parser tests pass. A preflight found malformed dollar quoting in all seven PL/pgSQL function declarations; the exact SQL source is corrected to seven matching AS $$ / $$; pairs. All seven SECURITY DEFINER functions now set search_path to pg_catalog, ncf, pg_temp. Two static guards were added and are executed before schema application in the dedicated workflow. This is source-level repair and guard definition, not a live PostgreSQL parse PASS. PostgreSQL 18.6 schema/function application, smoke tests, independent-session races, load benchmark, and final receipt reconciliation still must complete with non-empty logs."
     },
     {
       "id": "NCF-QUAL-014",
@@ -3665,7 +3709,9 @@
         "test_canonical_alias_requires_same_reservation_shard_and_epoch",
         "test_scope_conflict_rejects_before_request_binding_insert",
         "test_original_context_alias_still_returns_replay_without_second_debit",
-        "test_smoke_has_non_home_shard_negative_control"
+        "test_smoke_has_non_home_shard_negative_control",
+        "test_plpgsql_body_delimiters_are_balanced",
+        "test_all_security_definer_functions_put_pg_temp_last"
       ],
       "required_artifacts": [
         "postgres/002_functions.sql",
@@ -3674,7 +3720,7 @@
         "postgres/NCF-POSTGRES-QUALIFICATION.md",
         "exact-head PostgreSQL smoke/concurrency logs and SQL reconciliation"
       ],
-      "execution_status": "source_guard_committed;CI_static_guard_step_added;live_PostgreSQL_18.6_execution_not_yet_observed",
+      "execution_status": "home_shard_source_guard_committed; SQL function syntax and privileged search paths corrected; static guard definitions committed; live_PostgreSQL_18.6_execution_pending",
       "acceptance": "Same-context canonical aliases replay the original obligation without a new debit. Reservation, shard, or epoch mismatch returns canonical_work_identity_or_home_shard_conflict before request_binding insertion. Final SQL state must show unchanged cap/slice counters, one canonical obligation/outbox row, and zero conflicting replay bindings. Static Python source guards are preparatory only; exact-head PostgreSQL 18.6 smoke and contention tests remain required."
     }
   ]
