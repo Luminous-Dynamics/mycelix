@@ -58,3 +58,64 @@ jobs:
         run: |
           psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 -c "SELECT instrument_id, community_id, cap_units, allocated_units, outstanding_units FROM ncf.community_instrument_cap ORDER BY instrument_id, community_id;"
           psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 -c "SELECT instrument_id, count(*) AS obligations, coalesce(sum(amount_units),0) AS obligation_units, count(distinct canonical_work_digest) AS unique_work FROM ncf.obligation GROUP BY instrument_id ORDER BY instrument_id;"
+
+  postgres-load-benchmark:
+    name: PostgreSQL 18 admission load (${{ matrix.clients }} clients)
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - clients: 1
+            threads: 1
+          - clients: 4
+            threads: 2
+          - clients: 16
+            threads: 4
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:18.6
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: ncf_bench
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d ncf_bench"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+    env:
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/ncf_bench
+      PGCONNECT_TIMEOUT: "5"
+      PG_NCF_CLIENTS: "${{ matrix.clients }}"
+      PG_NCF_THREADS: "${{ matrix.threads }}"
+      PG_NCF_DURATION_SECONDS: "15"
+      PG_NCF_OUTPUT_DIR: "${{ runner.temp }}/ncf-pgbench-results"
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install PostgreSQL client and pgbench
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y postgresql-client postgresql-contrib
+      - name: Record exact source revision
+        run: |
+          git rev-parse HEAD
+          sha256sum mycelix-workspace/simulations/nested-currency-reference/postgres/001_schema.sql
+          sha256sum mycelix-workspace/simulations/nested-currency-reference/postgres/002_functions.sql
+          sha256sum mycelix-workspace/simulations/nested-currency-reference/postgres/pgbench_admit.sql
+      - name: Apply schema and transaction functions
+        run: |
+          psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 -f mycelix-workspace/simulations/nested-currency-reference/postgres/001_schema.sql
+          psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 -f mycelix-workspace/simulations/nested-currency-reference/postgres/002_functions.sql
+      - name: Benchmark the real transactional admission function
+        run: bash mycelix-workspace/simulations/nested-currency-reference/postgres/run-pgbench-benchmark.sh
+      - name: Preserve raw logs and percentile/reconciliation receipt
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ncf-postgres-admission-${{ matrix.clients }}-clients
+          path: ${{ runner.temp }}/ncf-pgbench-results/
+          if-no-files-found: warn
+          retention-days: 30
