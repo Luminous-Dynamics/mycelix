@@ -2313,8 +2313,120 @@ mod tests {
         })
     }
 
+    static NEXT_ARTIFACT_TEST_ID: std::sync::atomic::AtomicU64 =
+        std::sync::atomic::AtomicU64::new(0);
+
+    fn test_artifact_root(label: &str) -> PathBuf {
+        let id = NEXT_ARTIFACT_TEST_ID.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+        env::temp_dir().join(format!(
+            "cecb-verifier-{label}-{}-{id}",
+            std::process::id()
+        ))
+    }
+
+    fn write_test_artifacts(
+        root: &Path,
+        bundle: &Value,
+        omit_name: Option<&str>,
+        tamper_name: Option<&str>,
+    ) {
+        for result in bundle["results"].as_array().expect("results array") {
+            let run_id = result["run_id"].as_str().expect("run ID");
+            let config_id = result["config_id"].as_str().expect("config ID");
+            let replicate = result["replicate_id"].as_str().expect("replicate ID");
+            let paths = result["artifact_paths"].as_object().expect("artifact paths");
+            for (name, path_value) in paths {
+                if omit_name == Some(name.as_str()) {
+                    continue;
+                }
+                let relative = path_value.as_str().expect("relative artifact path");
+                let path = root.join(relative);
+                fs::create_dir_all(path.parent().expect("artifact parent")).unwrap();
+                let mut bytes = match name.as_str() {
+                    "result_trace" => format!("result-trace:{run_id}").into_bytes(),
+                    "exogenous_event_stream" => {
+                        format!("{config_id}-{replicate}-world-events").into_bytes()
+                    }
+                    "initial_world_state" => {
+                        format!("{config_id}-{replicate}-initial-world").into_bytes()
+                    }
+                    other => panic!("unexpected test artifact {other:?}"),
+                };
+                if tamper_name == Some(name.as_str()) {
+                    bytes.extend_from_slice(b"-tampered");
+                }
+                fs::write(path, bytes).unwrap();
+            }
+        }
+    }
+
     fn verified(plan: &Value, bundle: &Value) -> bool {
         verify_bundle(plan, bundle)["bundle_contract_valid"] == true
+    }
+
+    #[test]
+    fn verifies_actual_artifact_bytes_under_the_declared_root() {
+        let plan = test_plan();
+        let bundle = test_bundle(&plan);
+        assert!(verified(&plan, &bundle));
+
+        let root = test_artifact_root("valid");
+        fs::create_dir_all(&root).unwrap();
+        write_test_artifacts(&root, &bundle, None, None);
+        let (checked, errors) = verify_artifact_contents(&bundle, &root);
+        assert!(errors.is_empty(), "{errors:#?}");
+        assert_eq!(checked, 24);
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn rejects_tampered_artifact_bytes_even_when_declared_digest_is_unchanged() {
+        let plan = test_plan();
+        let bundle = test_bundle(&plan);
+        let root = test_artifact_root("tampered");
+        fs::create_dir_all(&root).unwrap();
+        write_test_artifacts(&root, &bundle, None, Some("result_trace"));
+        let (_, errors) = verify_artifact_contents(&bundle, &root);
+        assert!(errors.iter().any(|error| error.contains("content digest mismatch")));
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn rejects_missing_artifact_file() {
+        let plan = test_plan();
+        let bundle = test_bundle(&plan);
+        let root = test_artifact_root("missing");
+        fs::create_dir_all(&root).unwrap();
+        write_test_artifacts(&root, &bundle, Some("result_trace"), None);
+        let (_, errors) = verify_artifact_contents(&bundle, &root);
+        assert!(errors.iter().any(|error| error.contains("cannot be resolved")));
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn rejects_path_traversal_in_artifact_paths_before_reading() {
+        let plan = test_plan();
+        let mut bundle = test_bundle(&plan);
+        bundle["results"][0]["artifact_paths"]["result_trace"] =
+            json!("../../outside/result-trace.json");
+        assert!(!verified(&plan, &bundle));
+        assert!(!safe_relative_artifact_path("../../outside/result-trace.json"));
+        assert!(!safe_relative_artifact_path("/etc/passwd"));
+        assert!(!safe_relative_artifact_path(r"c:\outside\artifact.bin"));
+    }
+
+    #[test]
+    fn rejects_reused_artifact_path_across_runs() {
+        let plan = test_plan();
+        let mut bundle = test_bundle(&plan);
+        let shared = bundle["results"][0]["artifact_paths"]["result_trace"].clone();
+        bundle["results"][1]["artifact_paths"]["result_trace"] = shared;
+        let root = test_artifact_root("duplicate-path");
+        fs::create_dir_all(&root).unwrap();
+        write_test_artifacts(&root, &bundle, None, None);
+        let (_, errors) = verify_artifact_contents(&bundle, &root);
+        assert!(errors.iter().any(|error| error.contains("is reused by runs")));
+        fs::remove_dir_all(root).unwrap();
     }
 
     #[test]
