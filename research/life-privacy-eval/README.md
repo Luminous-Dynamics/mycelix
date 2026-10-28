@@ -109,3 +109,14 @@ References:
 - W3C Threat Model for Decentralized Credentials: https://www.w3.org/TR/2026/DNOTE-threat-model-decentralized-credentials-20260908/
 - W3C Data Integrity BBS Cryptosuites v1.0 CRD: https://www.w3.org/TR/2026/CRD-vc-di-bbs-20260910/
 - OpenID4VP/OpenID4VCI + HAIP conformance self-certification: https://openid.net/openid4vp-and-openid4vci-conformance-tests-are-complete-and-open-for-self-certification/
+
+
+## Threat coverage and claim ceilings — 29 October 2026
+
+The machine-readable `threat-coverage-matrix.json` maps the W3C Verifiable Credentials Data Model Threat Model v2.1 draft to observer capabilities, existing scenario IDs, minimum evidence, and explicit claim ceilings. The workflow checks its threat/profile counts, uniqueness, status vocabulary, and scenario references, then binds its SHA-256 digest into the qualification receipt. This protects the **coverage contract** from silently drifting away from the scenario catalogue; it does not establish that every mapped channel is implemented or tested.
+
+The matrix separates six attacker profiles: no-signal control, deterministic channel matching, adaptive tabular attacker, longitudinal attacker, colluding parties, and network/device telemetry. The last three remain proposed or deployment-dependent unless their exact artifacts and receipts are present. It also explicitly routes replay/context misuse, wallet trust, and post-presentation retention to separate security or governance evidence instead of mislabeling them as linkability metrics.
+
+Standards context: the W3C threat model is a Group Note Draft and must be treated as an evolving threat taxonomy; RFC 9901 is the IETF Standards Track SD-JWT specification; BBS derived-proof properties do not remove every metadata or issuer-key correlation channel. OpenID4VP/OpenID4VCI + HAIP conformance remains a separate official test lane. The evaluator's synthetic smoke controls cannot be presented as credential-format measurements, deployment privacy proof, or a SOTA result.
+
+Release-scale priorities remain: matched real-format implementations and task utility; a preregistered attacker ladder with subject-disjoint splits; top-k retrieval and effective-anonymity-set reporting where retrieval is defined; worst-stratum analysis; longitudinal/collusion traces; validation-locked low-FPR evaluation with rare-event uncertainty; and payload, p50/p95/p99 latency, memory and measured-energy frontier. The 10,000-pair / 2,000-subject floors are screening floors, not sufficient evidence or an automatic pass.
