@@ -16,6 +16,7 @@ From this directory in a Rust toolchain environment:
 cargo test
 cargo run
 cargo run -- --policy-view-out /tmp/cecb-policy-view-v0-2.json
+cargo run -- --paired-plan-out /tmp/cecb-housing-paired-plan-v0-1.json
 cargo run -- --fixture /path/to/CECB_HOUSING_KNOWN_TRUTH_V0_1.json
 ```
 
@@ -32,6 +33,16 @@ The default fixture is embedded at compile time using `include_str!`, so it is v
 - Candidate-observation separation also includes a recursive intersection check for field names shared with evaluator facts.
 - Mutation tests deliberately break each case's known truth, inject oracle-only data, or add unregistered top-level/nested observation fields.
 
+## Paired allocation-only design manifest
+
+The `--paired-plan-out` command materializes `cecb.housing.paired_design.v0.1`. It expands six declared stress dimensions (supply, construction delay, income shock, observation quality, accessibility mix, maintenance backlog) into 216 configurations and crosses each with 30 deterministic paired development seeds and five allocation-rule arms (price, queue, lottery, need-priority, hybrid): 32,400 explicit run slots.
+
+All arms in a configuration/replicate block receive the same seed identifier. This is necessary for pairing but is not, by itself, sufficient to guarantee common exogenous shocks if policy arms consume random draws differently. The Civilization Twin adapter must use event-keyed exogenous draws or separate named RNG streams for world shocks and policy-internal randomness, then test shock-schedule invariance across arms.
+
+Each row begins with `status=not_executed` and `disposition=not_started`. The arms are marked `adapter_pending`. This artifact is an experiment schedule, not a simulator, score, result, or policy ranking. CI validates its schema, exact matrix size, unique run identifiers, one seed and one occurrence of each arm per paired block, and absence of accidental execution claims. The CI receipt schema is `cecb.ci_run_receipt.v0.2` and binds the paired-plan output digest.
+
+The seed schedule is public and deterministic for development/replay. It is not cryptographic and must not be used to claim evaluator blindness. Any later confirmatory holdout requires evaluator-owned seed/token mappings and isolation.
+
 ## Known limitations
 
 - The checker validates fixed v0.1 fixture expectations; it is not a general-purpose economic simulator or a generic JSON Schema engine.
@@ -42,6 +53,6 @@ The default fixture is embedded at compile time using `include_str!`, so it is v
 
 ## Exact-run evidence receipt
 
-The path-scoped GitHub Actions job creates a `cecb.ci_run_receipt.v0.1` JSON receipt and uploads it with the test logs, validation report, candidate policy view, and resolved `Cargo.lock` when available. It records the exact source commit, run ID/attempt, Rust/Cargo versions, SHA-256 hashes of the fixture and checker inputs, output hashes, and each qualification step's outcome. The artifact is designed to remain useful when a check fails; a missing artifact or a skipped job is not a passing result.
+The path-scoped GitHub Actions job creates a `cecb.ci_run_receipt.v0.2` JSON receipt and uploads it with the test logs, validation report, candidate policy view, and resolved `Cargo.lock` when available. It records the exact source commit, run ID/attempt, Rust/Cargo versions, SHA-256 hashes of the fixture and checker inputs, output hashes, and each qualification step's outcome. The artifact is designed to remain useful when a check fails; a missing artifact or a skipped job is not a passing result.
 
 The receipt's evidence class is explicitly E0 synthetic-fixture contract validation. It must not be cited as a policy-performance result or as real-world impact.
