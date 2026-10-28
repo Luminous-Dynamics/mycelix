@@ -46,5 +46,33 @@ class CanonicalAliasHomeShardTests(unittest.TestCase):
         self.assertIn("expected cross-shard canonical-work alias rejection", self.smoke)
 
 
+
+class SqlFunctionInstallabilityTests(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.functions = FUNCTIONS.read_text(encoding="utf-8")
+
+    def test_plpgsql_body_delimiters_are_balanced(self):
+        lines = self.functions.splitlines()
+        openers = sum(line.strip() == "AS $" for line in lines)
+        closers = sum(line.strip() == "$;" for line in lines)
+        self.assertGreaterEqual(openers, 1)
+        self.assertEqual(openers, closers, "every dollar-quoted function body must have a matching close")
+        self.assertNotRegex(self.functions, r"(?m)^\s*AS \$\s*$", "single-dollar AS opener is malformed")
+        self.assertNotRegex(self.functions, r"(?m)^\s*\$;\s*$", "single-dollar function terminator is malformed")
+
+    def test_all_security_definer_functions_put_pg_temp_last(self):
+        import re
+        definitions = re.split(r"(?m)(?=^CREATE OR REPLACE FUNCTION )", self.functions)
+        definers = [definition for definition in definitions if "SECURITY DEFINER" in definition]
+        self.assertEqual(len(definers), 7, "keep this assertion synchronized with the seven privileged NCF functions")
+        for definition in definers:
+            with self.subTest(function=definition.splitlines()[0]):
+                self.assertRegex(
+                    definition,
+                    r"(?m)^SET search_path = pg_catalog, ncf, pg_temp$",
+                    "SECURITY DEFINER functions must force the temp schema last",
+                )
+
 if __name__ == "__main__":
     unittest.main()
