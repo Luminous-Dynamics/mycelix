@@ -1,13 +1,13 @@
 {
   "schema": "mycelix.nested-currency-conformance",
-  "schema_version": "1.2.0",
+  "schema_version": "1.3.0",
   "profile": "NCF-1",
   "tracking_issue": "https://github.com/Luminous-Dynamics/mycelix/issues/5464",
   "implementation_pr": "https://github.com/Luminous-Dynamics/mycelix/pull/5465",
   "status": "proposed_not_qualified",
   "execution_evidence": {
     "status": "not_run",
-    "reason": "Static Rust allocator changes, including the new median-capped policy variants, per-shard fairness test, and matched-trace benchmark remain uncompiled/unexecuted in this environment. The separate NCF-ALLOC-3 Python attack sweep is explicitly research-reference evidence only. Exact-head Rust/TLA+ receipts, real demand traces, and multi-agent/Holochain qualification remain outstanding. NCF-ALLOC-3 source, tests, results, campaign specification, run guide, and limitations documentation are checked in under research/; their execution records identify Python-only evidence separately from the Rust qualification gate. NCF-ALLOC-4 additionally models one fixed 4,000-unit attacker backlog split across 1..32 shard IDs while retaining fifteen honest identities. Five Python tests pass; cryptographic identity, admission economics, Rust and distributed qualification are explicitly not run. A follow-up static audit found that deriving a cap from positive weights when the lower median was zero could let rare positive outliers define their own cap. The median-capped allocator now zeroes the relative weights in that case and triggers the existing equal-share cold-start fallback; mirrored Python/Rust regression definitions were added. Python-only suite now has 10 NCF-ALLOC-3 tests plus 5 NCF-ALLOC-4 tests; Rust still not run. The corpus now also has NCF-ALLOC-022 for sparse positive claims with a zero lower median, requiring the bounded-cap policy to use equal cold-start rights rather than let positive outliers set their own relative cap. NCF-ALLOC-5 adds a sequential obligation-admission oracle, eight Python regressions and a fixed alias-replay result profile. It assumes independently validated verifier evidence and does not imply the verifier is implemented, nor prove concurrent/distributed uniqueness. NCF-ALLOC-5 now binds the immutable accepted record to a canonical obligation-payload digest in addition to principal, instrument and amount; the NCF-ALLOC-027 regression rejects same-ID/same-amount rebindings to different work. This is only downstream admission logic given a verifier result, not a verifier implementation. NCF-ALLOC-5 is now represented by a typed Rust sequential reference module with ten test definitions and an explicit crate-internal verified-evidence trust boundary. NCF-QUAL-007 remains not run. NCF-BENCH-009 defines end-to-end admission/replay/cap-contention performance gates; all throughput targets are aspirational and unmeasured. NCF-ALLOC-6 enumerates 70 interleavings of two four-step admission requests across three scenarios. Eight Python model tests pass locally and the combined NCF-ALLOC-3/4/5/6 test run has 35 passes. The checked-in NCF-ALLOC-6 source is a manually synchronized, bytewise different copy of the local executed script; results are explicitly not checksum-bound CI, and Rust/database/TLC/distributed tests remain not run. NCF-ALLOC-5 now has a typed Rust sequential model with eleven unit-test definitions; the new verifier-evidence-binding regression itself remains uncompiled/unrun. NCF-ALLOC-6 adds finite Python interleaving research with eight locally passed tests, but database/Rust/Holochain concurrency remains unqualified. The Rust obligation constructor missing-field issue was caught by static inspection and fixed by initializing canonical_id_by_payload_digest. The Rust module now has a separate AcceptedObligation verifier-evidence binding per request ID, so aliases can return the original canonical receipt yet still replay consistently against their own first accepted verifier version/digest. A regression is defined for this. The module now declares fourteen test cases; no local Rust compilation is possible here. A new static audit found and fixed a missing canonical_id_by_payload_digest initialization in ObligationBook::new. The Rust accepted record now stores request-ID-specific verifier version/digest separately from the original canonical receipt, so canonical aliases have consistent retry semantics. The Rust module now declares fourteen tests; exact-head build/test/Clippy is still not confirmed. NCF-ALLOC-7 adds a local file-backed SQLite WAL/synchronous-FULL transactional admission baseline. Seven Python tests passed; 150 local concurrent race trials showed zero observed invariant failures and the local 2,000-attempt run measured 1,098.59 attempts/s, p50 1.1528 ms/p95 1.8039 ms/p99 2.1586 ms. These results are single-host SQLite research only. The checked-in source is a condensed, semantically synchronized copy and not byte-identical to the locally executed source. Rust, Holochain/multi-agent, multi-host and production paths remain unqualified."
+    "reason": "Static Rust allocator changes, including the new median-capped policy variants, per-shard fairness test, and matched-trace benchmark remain uncompiled/unexecuted in this environment. The separate NCF-ALLOC-3 Python attack sweep is explicitly research-reference evidence only. Exact-head Rust/TLA+ receipts, real demand traces, and multi-agent/Holochain qualification remain outstanding. NCF-ALLOC-3 source, tests, results, campaign specification, run guide, and limitations documentation are checked in under research/; their execution records identify Python-only evidence separately from the Rust qualification gate. NCF-ALLOC-4 additionally models one fixed 4,000-unit attacker backlog split across 1..32 shard IDs while retaining fifteen honest identities. Five Python tests pass; cryptographic identity, admission economics, Rust and distributed qualification are explicitly not run. A follow-up static audit found that deriving a cap from positive weights when the lower median was zero could let rare positive outliers define their own cap. The median-capped allocator now zeroes the relative weights in that case and triggers the existing equal-share cold-start fallback; mirrored Python/Rust regression definitions were added. Python-only suite now has 10 NCF-ALLOC-3 tests plus 5 NCF-ALLOC-4 tests; Rust still not run. The corpus now also has NCF-ALLOC-022 for sparse positive claims with a zero lower median, requiring the bounded-cap policy to use equal cold-start rights rather than let positive outliers set their own relative cap. NCF-ALLOC-5 adds a sequential obligation-admission oracle, eight Python regressions and a fixed alias-replay result profile. It assumes independently validated verifier evidence and does not imply the verifier is implemented, nor prove concurrent/distributed uniqueness. NCF-ALLOC-5 now binds the immutable accepted record to a canonical obligation-payload digest in addition to principal, instrument and amount; the NCF-ALLOC-027 regression rejects same-ID/same-amount rebindings to different work. This is only downstream admission logic given a verifier result, not a verifier implementation. NCF-ALLOC-5 is now represented by a typed Rust sequential reference module with ten test definitions and an explicit crate-internal verified-evidence trust boundary. NCF-QUAL-007 remains not run. NCF-BENCH-009 defines end-to-end admission/replay/cap-contention performance gates; all throughput targets are aspirational and unmeasured. NCF-ALLOC-6 enumerates 70 interleavings of two four-step admission requests across three scenarios. Eight Python model tests pass locally and the combined NCF-ALLOC-3/4/5/6 test run has 35 passes. The checked-in NCF-ALLOC-6 source is a manually synchronized, bytewise different copy of the local executed script; results are explicitly not checksum-bound CI, and Rust/database/TLC/distributed tests remain not run. NCF-ALLOC-5 now has a typed Rust sequential model with eleven unit-test definitions; the new verifier-evidence-binding regression itself remains uncompiled/unrun. NCF-ALLOC-6 adds finite Python interleaving research with eight locally passed tests, but database/Rust/Holochain concurrency remains unqualified. The Rust obligation constructor missing-field issue was caught by static inspection and fixed by initializing canonical_id_by_payload_digest. The Rust module now has a separate AcceptedObligation verifier-evidence binding per request ID, so aliases can return the original canonical receipt yet still replay consistently against their own first accepted verifier version/digest. A regression is defined for this. The module now declares fourteen test cases; no local Rust compilation is possible here. A new static audit found and fixed a missing canonical_id_by_payload_digest initialization in ObligationBook::new. The Rust accepted record now stores request-ID-specific verifier version/digest separately from the original canonical receipt, so canonical aliases have consistent retry semantics. The Rust module now declares fourteen tests; exact-head build/test/Clippy is still not confirmed. NCF-ALLOC-7 adds a local file-backed SQLite WAL/synchronous-FULL transactional admission baseline. Seven Python tests passed; 150 local concurrent race trials showed zero observed invariant failures and the local 2,000-attempt run measured 1,098.59 attempts/s, p50 1.1528 ms/p95 1.8039 ms/p99 2.1586 ms. These results are single-host SQLite research only. The checked-in source is a condensed, semantically synchronized copy and not byte-identical to the locally executed source. Rust, Holochain/multi-agent, multi-host and production paths remain unqualified. NCF-ALLOC-8 adds six local Python tests, 18 application-process crash injections across six transaction boundaries, and nine synchronized two-process race trials with zero observed invariant failures. A higher-repetition run timed out and is incomplete. Execution used SQLite 3.46.1, so WAL/checkpoint qualification remains blocked pending SQLite 3.51.3 or a verified backport and explicit checkpoint stress; Rust/Holochain/multi-host/power-loss qualification remains not run."
   },
   "claim_ceiling": [
     "Reference-model conformance only when executed against a named source revision.",
@@ -21,7 +21,9 @@
     "A sequential obligation book is not a concurrency proof. NCF-ALLOC-6 is a finite two-client interleaving model; only a tested durable storage transaction or separately proved distributed invariant protocol can qualify concurrent admission.",
     "NCF-ALLOC-6 race counts come from a finite Python scheduler, not real database or distributed concurrency; the Rust obligation module remains sequential and unqualified until exact-head tests and multi-agent evidence exist.",
     "NCF-ALLOC obligation admission Rust tests and constructor fixes remain source-level changes until the dedicated exact-head Rust qualification emits a passing receipt.",
-    "NCF-ALLOC-7 results are local file-backed SQLite and local-thread evidence only; they do not establish multi-host durability, actual power-loss safety, cryptographic verification, Rust/Holochain behavior, or production settlement."
+    "NCF-ALLOC-7 results are local file-backed SQLite and local-thread evidence only; they do not establish multi-host durability, actual power-loss safety, cryptographic verification, Rust/Holochain behavior, or production settlement.",
+    "NCF-ALLOC-8 demonstrates only bounded application-process crash recovery and independent-process contention on one host using SQLite 3.46.1. It does not simulate kernel crash, power loss, faulty storage, multi-host consensus, Holochain multi-agent validation, cryptographic verification, or production settlement.",
+    "SQLite WAL/checkpoint behavior is not qualified by NCF-ALLOC-8 because the local runtime predates the upstream fix for the documented WAL-reset bug; upgrade or verify a backport and run dedicated checkpoint stress before stronger claims."
   ],
   "invariants": [
     {
@@ -223,6 +225,16 @@
       "id": "NCF-ALLOC-I-011",
       "name": "SQLite reference tests do not imply distributed uniqueness",
       "statement": "Local file-backed database transaction results do not qualify multi-host writes, Holochain DHT uniqueness, cryptographic work verification, or production settlement; these require separate exact-source, multi-agent and fault-injection evidence."
+    },
+    {
+      "id": "NCF-ALLOC-I-012",
+      "name": "Admission crash atomicity",
+      "statement": "After application-process termination before the durable commit, recovery exposes none of the obligation, request binding, cap debit, or receipt; after commit, recovery exposes the complete accepted state and exact retry cannot debit again."
+    },
+    {
+      "id": "NCF-ALLOC-I-013",
+      "name": "Recovered liability ledger consistency",
+      "statement": "After restart/recovery, stored used units equal the sum of unique canonical outstanding obligations and remain within the configured principal/instrument cap."
     }
   ],
   "conformance_cases": [
@@ -1660,6 +1672,80 @@
         },
         "note": "The checked-in source is condensed and not byte-identical to the locally executed source; results are local research, not exact-source CI evidence."
       }
+    },
+    {
+      "id": "NCF-BENCH-012",
+      "name": "Crash-boundary recovery and independent-process admission",
+      "baselines": [
+        "NCF-BENCH-011 local-thread SQLite baseline",
+        "pre-commit partial-state negative control",
+        "post-commit lost-ack recovery",
+        "SQLite 3.51.3-or-later engine gate",
+        "future Rust storage adapter",
+        "future Holochain/Tryorama multi-agent path"
+      ],
+      "workloads": [
+        "after_begin crash",
+        "after_canonical_insert crash",
+        "after_request_insert crash",
+        "after_cap_update crash",
+        "before_commit crash",
+        "after_commit_before_ack crash",
+        "independent process distinct-work cap contention",
+        "independent-process canonical-work alias",
+        "independent-process request-ID payload conflict",
+        "post-recovery cap/ledger reconciliation"
+      ],
+      "topology": {
+        "engine": "SQLite local file",
+        "journal_mode": "WAL",
+        "synchronous": "FULL",
+        "transaction": "BEGIN IMMEDIATE",
+        "crash_model": "os._exit in child process; application-process death only",
+        "writer_processes": 2,
+        "crash_trials_per_stage": 3,
+        "race_trials_per_case": 3,
+        "host_count": 1
+      },
+      "required_safety_gates": [
+        "precommit_crash_recovers_no_partial_obligation",
+        "postcommit_preack_recovery_contains_complete_receipt",
+        "retry_never_debits_twice",
+        "zero_cap_overshoots",
+        "zero_duplicate_canonical_work_debits",
+        "zero_conflicting_request_id_payload_acceptance",
+        "liability_counter_equals_unique_obligation_sum",
+        "sqlite_integrity_check_ok"
+      ],
+      "required_metrics": [
+        "crash_stage_trials",
+        "independent_process_pair_trials",
+        "invariant_failures",
+        "precommit_empty_recovery_count",
+        "postcommit_complete_recovery_count",
+        "retry_decisions",
+        "runtime_python",
+        "runtime_sqlite",
+        "local_source_sha256",
+        "repetition_timeout_count"
+      ],
+      "methodology": "Run three repetitions at each of six crash boundaries and three synchronized independent-process race cases. Reopen the file after every child-process exit, validate canonical-work/request/cap/receipt consistency, then retry by idempotency key. A larger 5 x 10 repetition run timed out without a complete artifact and is explicitly excluded. Before stronger WAL claims, repeat on SQLite 3.51.3 or later (or a verified backport) and add concurrent checkpoint/reopen stress.",
+      "execution_status": "bounded_local_python_sqlite_only_18_crash_trials_9_process_pairs_zero_observed_invariant_failures; Rust_Holochain_multi_host_power_loss_not_run",
+      "claim_ceiling": "Application-process crash recovery and independent-process contention on one local host only. Runtime was SQLite 3.46.1, older than the upstream fix for the documented WAL-reset bug; checkpoint/power-loss behavior is not qualified.",
+      "research_reference": {
+        "source_path": "mycelix-workspace/simulations/nested-currency-reference/research/ncf_alloc8_crash_consistency.py",
+        "results_path": "mycelix-workspace/simulations/nested-currency-reference/research/ncf-alloc8-crash-results.json",
+        "campaign_path": "mycelix-workspace/simulations/nested-currency-reference/research/ncf-alloc8-crash-campaign.json",
+        "documentation_path": "mycelix-workspace/simulations/nested-currency-reference/research/NCF-ALLOC-8-crash-consistency.md",
+        "test_execution_record": "mycelix-workspace/simulations/nested-currency-reference/research/NCF-ALLOC-8-TEST-RESULTS.txt",
+        "local_executed_source_sha256": "ee6c32f5205e180bd98287f124e3f097717d2575fd09f3e9c8d1d854f0421756",
+        "local_results_sha256": "f02c303ebbd562f93bd5d68e1738dd7905c4a447846bfed912f74c193b03edcf",
+        "tests_passed": 6,
+        "crash_trials": 18,
+        "independent_process_pair_trials": 9,
+        "observed_invariant_failures": 0,
+        "note": "The checked-in result JSON is a normalized transcription of the locally generated result; the source itself is verified bytewise against the locally executed file. The high-repetition run timed out and is incomplete."
+      }
     }
   ],
   "planned_conformance_cases": [
@@ -2282,6 +2368,60 @@
       "expected": "retry returns the persisted original receipt and used-capacity counter remains unchanged",
       "code_test": "test_commit_then_lost_ack_retry_returns_exact_durable_receipt",
       "execution_status": "local_sqlite_reference_test_passed_crash_power_loss_not_run"
+    },
+    {
+      "id": "NCF-ALLOC-044",
+      "title": "Pre-commit process crashes recover no partial obligation",
+      "class": "process_crash_transaction_atomicity",
+      "attack": "Terminate the writer after BEGIN, after the canonical row, after request binding, after cap mutation, and immediately before COMMIT.",
+      "expected": "Every pre-commit crash recovers with zero accepted obligations, zero request rows, and zero cap debit; retry accepts once.",
+      "code_test": "test_process_crash_before_commit_recovers_no_partial_obligation",
+      "execution_status": "NCF-ALLOC-8_bounded_local_python_sqlite_result; Rust_Holochain_multi_host_and_power_loss_not_qualified"
+    },
+    {
+      "id": "NCF-ALLOC-045",
+      "title": "Commit-before-ack crash recovers the original receipt",
+      "class": "process_crash_lost_ack_recovery",
+      "attack": "Terminate the writer after COMMIT but before the caller sees the acknowledgement, then retry from a new connection.",
+      "expected": "Recovery finds one complete obligation and exact retry returns replay without a second debit.",
+      "code_test": "test_process_crash_after_commit_before_ack_recovers_and_replays",
+      "execution_status": "NCF-ALLOC-8_bounded_local_python_sqlite_result; Rust_Holochain_multi_host_and_power_loss_not_qualified"
+    },
+    {
+      "id": "NCF-ALLOC-046",
+      "title": "Independent processes cannot overshoot the cap",
+      "class": "independent_process_cap_contention",
+      "attack": "Two independent OS processes simultaneously submit distinct 60-unit claims against one 100-unit cap.",
+      "expected": "Exactly one accepts and one is rejected; used units remain 60 and within cap.",
+      "code_test": "test_independent_processes_cannot_overshoot_cap",
+      "execution_status": "NCF-ALLOC-8_bounded_local_python_sqlite_result; Rust_Holochain_multi_host_and_power_loss_not_qualified"
+    },
+    {
+      "id": "NCF-ALLOC-047",
+      "title": "Independent processes deduplicate canonical work across request IDs",
+      "class": "independent_process_canonical_work_race",
+      "attack": "Two OS processes submit the same canonical-work digest using distinct request IDs.",
+      "expected": "One accepts and one receives replay; one canonical debit and two request-key rows persist.",
+      "code_test": "test_independent_processes_deduplicate_same_canonical_work",
+      "execution_status": "NCF-ALLOC-8_bounded_local_python_sqlite_result; Rust_Holochain_multi_host_and_power_loss_not_qualified"
+    },
+    {
+      "id": "NCF-ALLOC-048",
+      "title": "Independent processes bind one payload to a request ID",
+      "class": "independent_process_request_id_conflict",
+      "attack": "Two OS processes concurrently submit one request ID with distinct work digests.",
+      "expected": "Exactly one payload is accepted; the conflicting payload is rejected without a second debit.",
+      "code_test": "test_independent_processes_bind_conflicting_request_id",
+      "execution_status": "NCF-ALLOC-8_bounded_local_python_sqlite_result; Rust_Holochain_multi_host_and_power_loss_not_qualified"
+    },
+    {
+      "id": "NCF-ALLOC-049",
+      "title": "Recovered liability counter equals canonical obligation sum",
+      "class": "crash_recovery_liability_reconciliation",
+      "attack": "Reopen the file-backed database and compare cap usage with unique canonical obligations after commits and process crashes.",
+      "expected": "Counter equals the sum of unique obligation units, never exceeds the cap, and SQLite integrity_check returns ok.",
+      "code_test": "test_integrity_counter_matches_unique_obligation_ledger",
+      "execution_status": "NCF-ALLOC-8_bounded_local_python_sqlite_result; Rust_Holochain_multi_host_and_power_loss_not_qualified"
     }
   ],
   "qualification_campaigns": [
@@ -2604,6 +2744,27 @@
       ],
       "execution_status": "seven_local_python_tests_passed_sqlite_only_rust_holochain_production_not_run",
       "acceptance": "Seven local Python tests passed. Fifty trials per each of three concurrent request pairs showed zero local invariant failures; 2,000 sequential attempts produced 1,000 unique accepts and 1,000 exact replays at 1,098.59 attempts/s, p50 1.1528 ms, p95 1.8039 ms and p99 2.1586 ms. All results are single-host SQLite only and are not comparable to networked settlement throughput. Repository source differs bytewise from execution source."
+    },
+    {
+      "id": "NCF-QUAL-010",
+      "name": "Crash-boundary and independent-process admission reference qualification",
+      "required_tests": [
+        "test_process_crash_before_commit_recovers_no_partial_obligation",
+        "test_process_crash_after_commit_before_ack_recovers_and_replays",
+        "test_independent_processes_cannot_overshoot_cap",
+        "test_independent_processes_deduplicate_same_canonical_work",
+        "test_independent_processes_bind_conflicting_request_id",
+        "test_integrity_counter_matches_unique_obligation_ledger"
+      ],
+      "required_artifacts": [
+        "ncf_alloc8_crash_consistency.py",
+        "ncf-alloc8-crash-results.json",
+        "ncf-alloc8-crash-campaign.json",
+        "NCF-ALLOC-8-crash-consistency.md",
+        "NCF-ALLOC-8-TEST-RESULTS.txt"
+      ],
+      "execution_status": "six_local_python_tests_passed_bounded_campaign_zero_observed_invariant_failures; SQLite_3.46.1_WAL_checkpoint_gate_open; larger_campaign_incomplete; Rust_Holochain_multi_host_kernel_crash_and_power_loss_not_run",
+      "acceptance": "Six local Python unit tests pass. The bounded experiment has 18 crash injections over six transaction boundaries and nine synchronized independent-process pair trials with zero observed invariant failures. This is a local application-process crash result only. Runtime SQLite 3.46.1 predates the upstream fix for a documented rare WAL-reset bug; repeat with SQLite 3.51.3 or a verified backport and stress checkpoints before making broader storage claims. The larger requested run timed out and is excluded."
     }
   ]
 }
