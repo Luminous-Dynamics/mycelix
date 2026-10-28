@@ -5,7 +5,7 @@ Command:
   python3 ncf_alloc8_crash_consistency.py
 
 Result:
-  Ran 6 tests in 6.215s
+  Ran 6 tests in 5.975s
   OK
 
 Runtime:
@@ -27,7 +27,7 @@ Campaign:
   0 observed invariant failures in the bounded campaign
 
 Exact campaign source SHA-256:
-  ee6c32f5205e180bd98287f124e3f097717d2575fd09f3e9c8d1d854f0421756
+  2b479098258a3594fd0651b84ef32d3b55ef54ab5072d7914cf57a9b7297794d
 
 Important caveats:
   - application-process death only; not kernel crash, power loss, or storage-fault simulation
