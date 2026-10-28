@@ -1,0 +1,41 @@
+{
+  "campaign_id": "NCF-ALLOC-5",
+  "title": "Canonical obligation evidence and principal-scoped admission",
+  "status": "python_sequential_reference_executed_rust_crypto_distributed_not_run",
+  "source": "ncf_alloc5_obligation_admission.py",
+  "tests": "test_ncf_alloc5_obligation_admission.py",
+  "results": "ncf-alloc5-obligation-admission-results.json",
+  "profile": {
+    "alias_counts": [1, 4, 8, 16, 32],
+    "unique_obligation_units": 4000,
+    "principal_instrument_cap_units": 10000,
+    "unique_obligation_id": "service-obligation-0001"
+  },
+  "hard_invariants": [
+    "same_obligation_accepted_at_most_once",
+    "exact_retry_returns_original_receipt_without_new_demand",
+    "same_id_changed_amount_principal_or_instrument_rejected_without_mutation",
+    "principal_instrument_cap_aggregates_distinct_obligations_across_shards",
+    "missing_cap_fails_closed",
+    "unverified_or_malformed_evidence_fails_closed_without_consuming_id",
+    "rejected_cap_attempt_can_be_retried_after_corrected_amount",
+    "accepted_backlog_is_independent_of_shard_alias_count"
+  ],
+  "required_metrics": [
+    "alias_count",
+    "actual_unique_obligation_units",
+    "book_outstanding_units",
+    "accepted_unique_obligations",
+    "outcome_counts",
+    "original_receipt_preserved"
+  ],
+  "execution_evidence": {
+    "unit_tests": "8 passed as part of combined 23-test Python suite on 2026-10-28",
+    "rust": "not_run",
+    "cryptographic_verifier": "not_implemented",
+    "concurrent_database": "not_run",
+    "holochain_multi_agent": "not_run",
+    "tla": "not_run"
+  },
+  "claim_ceiling": "Sequential Python reference model that assumes verifier_receipt_ok is supplied by an independent trustworthy verifier. It is not cryptographic identity, real-work verification, concurrent linearizability, Holochain qualification, or production evidence."
+}
