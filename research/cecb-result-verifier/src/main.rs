@@ -507,7 +507,9 @@ fn validate_contract(plan: &Value, errors: &mut Vec<String>) {
         errors.push("plan scenario configuration digest profile is unsupported".to_owned());
     }
     if str_at(design, "rng_contract_version") != Some(EVENT_RNG_CONTRACT_VERSION) {
-        errors.push("plan rng_contract_version must bind the event-keyed exogenous RNG contract".to_owned());
+        errors.push(
+            "plan rng_contract_version must bind the event-keyed exogenous RNG contract".to_owned(),
+        );
     }
     if str_at(design, "exogenous_event_schedule_sha256")
         .is_none_or(|digest| !is_hex(digest, 64))
@@ -533,7 +535,9 @@ fn validate_contract(plan: &Value, errors: &mut Vec<String>) {
                 .and_then(Value::as_bool)
                 != Some(true)
         {
-            errors.push("paired comparison must hold initial world and exogenous seed constant".to_owned());
+            errors.push(
+                "paired comparison must hold initial world and exogenous seed constant".to_owned(),
+            );
         }
         for (field, expected) in [
             ("financing_event_schedule", "identical_across_arms"),
@@ -1848,6 +1852,31 @@ mod tests {
     fn refuses_configurations_without_resolved_parameters() {
         let mut plan = test_plan();
         plan["configurations"][0].as_object_mut().unwrap().remove("resolved_parameters");
+        let bundle = test_bundle(&plan);
+        assert!(!verified(&plan, &bundle));
+    }
+
+    #[test]
+    fn rejects_unregistered_exogenous_rng_contract_version() {
+        let mut plan = test_plan();
+        plan["design"]["rng_contract_version"] = json!("sequential_rng.v0");
+        let bundle = test_bundle(&plan);
+        assert!(!verified(&plan, &bundle));
+    }
+
+    #[test]
+    fn rejects_unpinned_comparison_budget_profile() {
+        let mut plan = test_plan();
+        plan["design"]["held_constant"]["resource_and_compute_budget_sha256"] =
+            json!("same_budget");
+        let bundle = test_bundle(&plan);
+        assert!(!verified(&plan, &bundle));
+    }
+
+    #[test]
+    fn rejects_changed_initial_world_pairing_rule() {
+        let mut plan = test_plan();
+        plan["design"]["held_constant"]["initial_world_within_pair"] = json!(false);
         let bundle = test_bundle(&plan);
         assert!(!verified(&plan, &bundle));
     }
