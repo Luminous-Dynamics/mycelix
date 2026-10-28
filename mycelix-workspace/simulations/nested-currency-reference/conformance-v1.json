@@ -2182,9 +2182,10 @@
         "local_test_count": 11,
         "local_test_seconds": 0.003,
         "test_results_record": "mycelix-workspace/simulations/nested-currency-reference/holochain/NCF-AUTHORITY-CLAIM-V1-TEST-RESULTS.txt",
-        "test_results_record_git_blob_sha": "9f3d7b19",
+        "test_results_record_git_blob_sha": "e946621246b3290a11d40eb6e2836967f4f83849",
         "ci_workflow": ".github/workflows/ncf-postgres-conformance.yml",
-        "ci_test_step_added": true
+        "ci_test_step_added": true,
+        "test_results_record_source_status": "checked-in record; 11 local tests; reference-only"
       }
     }
   ],
