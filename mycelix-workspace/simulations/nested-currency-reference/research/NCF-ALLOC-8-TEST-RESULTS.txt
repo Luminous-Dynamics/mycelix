@@ -1,36 +1,45 @@
 NCF-ALLOC-8 LOCAL TEST RECORD
 =============================
 
-Command:
+Initial v1 command:
   python3 ncf_alloc8_crash_consistency.py
-
 Result:
   Ran 6 tests in 5.975s
   OK
+Source SHA-256:
+  2b479098258a3594fd0651b84ef32d3b55ef54ab5072d7914cf57a9b7297794d
+
+Resource-safe v2 command (also included in the combined NCF-8/9/10 suite):
+  PYTHONWARNINGS=error::ResourceWarning python3 -m unittest -v ncf_alloc8_crash_consistency_v2.py
+Result:
+  6 tests passed, ResourceWarning promoted to error
+Source SHA-256:
+  d2fda8ec66a8d3c0c1d364c99e3266e9dff445d9afb0bb6bc4b239e1ac402b23
+Git blob SHA:
+  72ae85de1c75db919545f65c76cbf333d5e7c06e
 
 Runtime:
   Python 3.13.5
   SQLite 3.46.1
   Linux
 
-Test coverage:
-  - five pre-commit abrupt-process-exit boundaries recover no partial claim and retry once
-  - post-commit/pre-ack process death recovers original receipt and exact replay does not debit twice
-  - distinct concurrent claims across independent processes do not overshoot cap
-  - canonical work submitted under different request IDs is debited once
-  - one request ID cannot bind two conflicting payloads
-  - cap ledger equals sum of canonical obligation units; SQLite integrity_check is ok
-
-Campaign:
-  18 crash-injection trials across six boundaries
+Bounded campaign 1:
+  18 crash-injection trials across six transaction boundaries
   9 synchronized independent-process pair trials across three race cases
-  0 observed invariant failures in the bounded campaign
+  0 observed invariant failures
 
-Exact campaign source SHA-256:
-  2b479098258a3594fd0651b84ef32d3b55ef54ab5072d7914cf57a9b7297794d
+Repeated campaign 5x10 (same v1 source SHA above):
+  30 crash injections across six stages
+  30 independent-process pair trials across three race cases
+  elapsed_seconds = 45.6385
+  0 observed invariant failures
+  result artifact = ncf-alloc8-crash-results-5x10.json
+  result JSON SHA-256 = 0113d4b7d7d5981f8e3e652340c719856e201ceb92dfa7f776d150ff890ae19f
+
+The repeated campaign's complete artifact was written even though the terminal invocation returned a timeout. The artifact and source hash were checked separately. It was completed evidence, not an incomplete run or evidence of a reproduced harness deadlock.
 
 Important caveats:
   - application-process death only; not kernel crash, power loss, or storage-fault simulation
   - single local host and SQLite only; not multi-host or Holochain qualification
-  - installed SQLite 3.46.1 predates the upstream fix for the documented rare WAL-reset bug; this campaign did not deliberately exercise that internal bug
-  - a higher-repetition run exceeded the 120-second tool limit and is incomplete; it is excluded, not counted as a pass
+  - SQLite 3.46.1 predates the documented WAL-reset fix; this campaign did not deliberately exercise that internal bug
+  - repeat on current SQLite 3.54.1 (as of 2026-10-28), or at minimum 3.51.3 / a verified backport, and run the dedicated low-level WAL-reset regression
