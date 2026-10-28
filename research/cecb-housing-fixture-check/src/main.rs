@@ -1441,6 +1441,16 @@ mod tests {
             plan["run_result_contract"]["required_fields"].as_array().map(Vec::len),
             Some(14)
         );
+        assert_eq!(
+            plan["run_result_contract"]["forbidden_aggregate_field"],
+            "universal_welfare_scalar"
+        );
+        assert_eq!(
+            plan["run_result_contract"]["terminal_dispositions"]
+                .as_array()
+                .map(Vec::len),
+            Some(7)
+        );
 
         let runs = plan["runs"].as_array().expect("runs array");
         assert_eq!(runs.len(), 32_400);
