@@ -1319,6 +1319,13 @@ mod tests {
 
         let runs = plan["runs"].as_array().expect("runs array");
         assert_eq!(runs.len(), 32_400);
+        let seeds = plan["paired_seeds"]
+            .as_array()
+            .expect("paired seeds array")
+            .iter()
+            .map(|seed| seed["seed_hex"].as_str().expect("seed"))
+            .collect::<BTreeSet<_>>();
+        assert_eq!(seeds.len(), 30, "development seed values must be unique");
         let run_ids = runs
             .iter()
             .map(|run| run["run_id"].as_str().expect("run id"))
@@ -1341,6 +1348,15 @@ mod tests {
                 .len(),
             1,
             "all arms in a paired block must share one seed"
+        );
+        assert_eq!(
+            first_block
+                .iter()
+                .map(|run| run["arm_id"].as_str().expect("arm ID"))
+                .collect::<BTreeSet<_>>()
+                .len(),
+            5,
+            "every allocation arm must occur exactly once in the paired block"
         );
     }
 
