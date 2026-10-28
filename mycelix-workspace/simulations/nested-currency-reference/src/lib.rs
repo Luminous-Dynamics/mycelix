@@ -9,6 +9,7 @@
 
 pub mod allocation;
 pub mod fencing;
+pub mod obligation;
 pub mod reservation;
 
 use std::collections::{BTreeMap, BTreeSet};
