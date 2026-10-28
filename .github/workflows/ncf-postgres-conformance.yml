@@ -1,6 +1,13 @@
 name: NCF PostgreSQL Conformance
 
 on:
+  push:
+    branches:
+      - "spec/fed-cur-001-nested-currency-2026-10-23"
+    paths:
+      - "mycelix-workspace/simulations/nested-currency-reference/postgres/**"
+      - "mycelix-workspace/simulations/nested-currency-reference/holochain/**"
+      - ".github/workflows/ncf-postgres-conformance.yml"
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review]
     paths:
