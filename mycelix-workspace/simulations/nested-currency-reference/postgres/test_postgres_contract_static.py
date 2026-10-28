@@ -54,8 +54,10 @@ class SqlFunctionInstallabilityTests(unittest.TestCase):
 
     def test_plpgsql_body_delimiters_are_balanced(self):
         lines = self.functions.splitlines()
-        openers = sum(line.strip() == "AS $" for line in lines)
-        closers = sum(line.strip() == "$;" for line in lines)
+        open_delimiter = "AS " + chr(36) * 2
+        close_delimiter = chr(36) * 2 + ";"
+        openers = sum(line.strip() == open_delimiter for line in lines)
+        closers = sum(line.strip() == close_delimiter for line in lines)
         self.assertGreaterEqual(openers, 1)
         self.assertEqual(openers, closers, "every dollar-quoted function body must have a matching close")
         self.assertNotRegex(self.functions, r"(?m)^\s*AS \$\s*$", "single-dollar AS opener is malformed")
