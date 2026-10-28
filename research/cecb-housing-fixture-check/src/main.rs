@@ -219,7 +219,10 @@ fn validate_fixture(input: &str) -> Result<(Value, bool), String> {
         "case_fail_count": cases.len().saturating_sub(pass_count),
         "global_violations": global_violations,
         "case_results": case_results,
-        "claim_ceiling": "Validates internal consistency of this synthetic fixture only. It does not execute or rank economic policies and is not evidence of real-world impact."
+        "claim_ceiling": concat!(
+            "Validates internal consistency of this synthetic fixture only. It does not execute or rank ",
+            "economic policies and is not evidence of real-world impact."
+        )
     });
     Ok((report, passed))
 }
@@ -295,11 +298,15 @@ fn validate_case(case: &Value) -> Vec<String> {
         "H003_GRANT_HAS_A_REAL_RESOURCE_COST" => validate_h003(case, &mut errors),
         "H004_STALE_LISTING_IS_NOT_SAFE_CAPACITY" => validate_h004(case, &mut errors),
         "H005_DEFERRED_MAINTENANCE_MOVES_COST_FORWARD" => validate_h005(case, &mut errors),
-        "H006_INTERNAL_MUTUAL_CREDIT_CANNOT_SETTLE_EXTERNAL_INPUT" => validate_h006(case, &mut errors),
+        "H006_INTERNAL_MUTUAL_CREDIT_CANNOT_SETTLE_EXTERNAL_INPUT" => {
+            validate_h006(case, &mut errors)
+        }
         "H007_REFINANCING_IS_NOT_NET_NEW_CAPITAL" => validate_h007(case, &mut errors),
         "H008_RENT_TRANSFER_DOES_NOT_PROVE_NEW_CAPACITY" => validate_h008(case, &mut errors),
         "H009_UNIT_COUNT_DOES_NOT_CAPTURE_ACCESSIBILITY_FIT" => validate_h009(case, &mut errors),
-        "H010_MIRRORED_SOURCES_ARE_NOT_INDEPENDENT_CONFIRMATION" => validate_h010(case, &mut errors),
+        "H010_MIRRORED_SOURCES_ARE_NOT_INDEPENDENT_CONFIRMATION" => {
+            validate_h010(case, &mut errors)
+        }
         _ => errors.push(format!("unknown v0.1 case_id {id:?}")),
     }
     errors
@@ -307,10 +314,34 @@ fn validate_case(case: &Value) -> Vec<String> {
 
 fn validate_h001(case: &Value, errors: &mut Vec<String>) {
     expect_u64(case, &["world", "households_with_unmet_need"], 3, "household demand", errors);
-    expect_u64(case, &["world", "safe_suitable_vacant_units"], 2, "physical housing capacity", errors);
-    expect_u64(case, &["oracle_facts", "maximum_households_housed_by_end"], 2, "maximum housed households", errors);
-    expect_u64(case, &["oracle_facts", "minimum_unmet_households_by_end"], 1, "minimum unmet households", errors);
-    expect_u64(case, &["world", "new_construction_completions"], 0, "completed construction", errors);
+    expect_u64(
+        case,
+        &["world", "safe_suitable_vacant_units"],
+        2,
+        "physical housing capacity",
+        errors,
+    );
+    expect_u64(
+        case,
+        &["oracle_facts", "maximum_households_housed_by_end"],
+        2,
+        "maximum housed households",
+        errors,
+    );
+    expect_u64(
+        case,
+        &["oracle_facts", "minimum_unmet_households_by_end"],
+        1,
+        "minimum unmet households",
+        errors,
+    );
+    expect_u64(
+        case,
+        &["world", "new_construction_completions"],
+        0,
+        "completed construction",
+        errors,
+    );
 
     if let (Some(demand), Some(housed), Some(unmet)) = (
         u64_at(case, &["world", "households_with_unmet_need"]),
@@ -334,16 +365,40 @@ fn validate_h001(case: &Value, errors: &mut Vec<String>) {
 fn validate_h002(case: &Value, errors: &mut Vec<String>) {
     for (path, expected, label) in [
         (&["world", "initial_safe_suitable_units"][..], 2, "initial capacity"),
-        (&["world", "construction_project", "safe_suitable_units_added_on_completion"][..], 1, "completed units"),
+        (
+            &["world", "construction_project", "safe_suitable_units_added_on_completion"][..],
+            1,
+            "completed units",
+        ),
         (&["world", "construction_project", "completion_month"][..], 2, "completion month"),
         (&["world", "financing_event", "principal_advanced_cu"][..], 10, "loan principal"),
         (&["world", "financing_event", "liability_created_cu"][..], 10, "created liability"),
         (&["oracle_facts", "safe_suitable_units_at_month_0"][..], 2, "capacity at origination"),
-        (&["oracle_facts", "safe_suitable_units_before_completion"][..], 2, "capacity before completion"),
-        (&["oracle_facts", "safe_suitable_units_after_month_2_completion"][..], 3, "capacity after completion"),
-        (&["oracle_facts", "physical_capacity_change_at_origination"][..], 0, "capacity change at loan origination"),
-        (&["oracle_facts", "physical_capacity_change_on_completion"][..], 1, "capacity change on completion"),
-        (&["oracle_facts", "liability_immediately_after_origination_cu"][..], 10, "liability after origination"),
+        (
+            &["oracle_facts", "safe_suitable_units_before_completion"][..],
+            2,
+            "capacity before completion",
+        ),
+        (
+            &["oracle_facts", "safe_suitable_units_after_month_2_completion"][..],
+            3,
+            "capacity after completion",
+        ),
+        (
+            &["oracle_facts", "physical_capacity_change_at_origination"][..],
+            0,
+            "capacity change at loan origination",
+        ),
+        (
+            &["oracle_facts", "physical_capacity_change_on_completion"][..],
+            1,
+            "capacity change on completion",
+        ),
+        (
+            &["oracle_facts", "liability_immediately_after_origination_cu"][..],
+            10,
+            "liability immediately after origination",
+        ),
     ] {
         expect_u64(case, path, expected, label, errors);
     }
@@ -354,20 +409,58 @@ fn validate_h002(case: &Value, errors: &mut Vec<String>) {
         u64_at(case, &["oracle_facts", "safe_suitable_units_after_month_2_completion"]),
     ) {
         if before.saturating_add(added) != after {
-            errors.push("post-completion capacity must equal pre-completion capacity plus completed units".to_owned());
+            errors.push(
+                "post-completion capacity must equal pre-completion capacity plus completed units".to_owned(),
+            );
         }
     }
 }
 
 fn validate_h003(case: &Value, errors: &mut Vec<String>) {
-    expect_u64(case, &["world", "renovation_resource_requirement"], 5, "renovation resource requirement", errors);
-    expect_u64(case, &["oracle_facts", "physical_resource_consumed_if_completed"], 5, "physical resources consumed", errors);
+    expect_u64(
+        case,
+        &["world", "renovation_resource_requirement"],
+        5,
+        "renovation resource requirement",
+        errors,
+    );
+    expect_u64(
+        case,
+        &["oracle_facts", "physical_resource_consumed_if_completed"],
+        5,
+        "physical resources consumed",
+        errors,
+    );
     // The fixture expresses initial and final capacity through the renovation event.
     expect_u64(case, &["world", "initial_safe_suitable_units"], 1, "initial safe capacity", errors);
-    expect_u64(case, &["oracle_facts", "safe_suitable_units_before_completion"], 1, "safe capacity before renovation completion", errors);
-    expect_u64(case, &["oracle_facts", "safe_suitable_units_after_completion"], 2, "safe capacity after renovation completion", errors);
-    expect_i64(case, &["oracle_facts", "grantor_budget_change_cu"], -5, "grantor budget change", errors);
-    expect_i64(case, &["oracle_facts", "recipient_funding_change_cu"], 5, "recipient funding change", errors);
+    expect_u64(
+        case,
+        &["oracle_facts", "safe_suitable_units_before_completion"],
+        1,
+        "safe capacity before renovation completion",
+        errors,
+    );
+    expect_u64(
+        case,
+        &["oracle_facts", "safe_suitable_units_after_completion"],
+        2,
+        "safe capacity after renovation completion",
+        errors,
+    );
+    expect_i64(
+        case,
+        &["oracle_facts", "grantor_budget_change_cu"],
+        -5,
+        "grantor budget change",
+        errors,
+    );
+    expect_i64(
+        case,
+        &["oracle_facts", "recipient_funding_change_cu"],
+        5,
+        "recipient funding change",
+        errors,
+    );
     expect_u64(case, &["world", "grant_cu"], 5, "grant amount", errors);
     if let (Some(grantor), Some(recipient)) = (
         i64_at(case, &["oracle_facts", "grantor_budget_change_cu"]),
@@ -380,11 +473,35 @@ fn validate_h003(case: &Value, errors: &mut Vec<String>) {
 }
 
 fn validate_h004(case: &Value, errors: &mut Vec<String>) {
-    expect_u64(case, &["policy_observation", "registry_available_listing_count"], 3, "reported listings", errors);
-    expect_u64(case, &["policy_observation", "declared_max_inspection_age_months"], 3, "maximum inspection age", errors);
-    expect_u64(case, &["oracle_facts", "true_safe_suitable_capacity"], 2, "true safe, suitable capacity", errors);
+    expect_u64(
+        case,
+        &["policy_observation", "registry_available_listing_count"],
+        3,
+        "reported listings",
+        errors,
+    );
+    expect_u64(
+        case,
+        &["policy_observation", "declared_max_inspection_age_months"],
+        3,
+        "maximum inspection age",
+        errors,
+    );
+    expect_u64(
+        case,
+        &["oracle_facts", "true_safe_suitable_capacity"],
+        2,
+        "true safe, suitable capacity",
+        errors,
+    );
     expect_u64(case, &["oracle_facts", "stale_listings"], 1, "stale listing count", errors);
-    expect_i64(case, &["policy_observation", "listing_D3_last_inspected_month"], -8, "D3 inspection month", errors);
+    expect_i64(
+        case,
+        &["policy_observation", "listing_D3_last_inspected_month"],
+        -8,
+        "D3 inspection month",
+        errors,
+    );
 
     if let Some(dwellings) = value_at(case, &["world", "dwellings"]).and_then(Value::as_array) {
         let true_capacity = dwellings.iter().filter(|dwelling| {
@@ -394,7 +511,9 @@ fn validate_h004(case: &Value, errors: &mut Vec<String>) {
         if true_capacity != 2 {
             errors.push(format!("derived safe/suitable capacity is {true_capacity}; expected 2"));
         }
-        if let Some(fact_capacity) = u64_at(case, &["oracle_facts", "true_safe_suitable_capacity"]) {
+        if let Some(fact_capacity) =
+            u64_at(case, &["oracle_facts", "true_safe_suitable_capacity"])
+        {
             if true_capacity != fact_capacity {
                 errors.push("derived capacity does not match oracle_facts".to_owned());
             }
@@ -409,48 +528,154 @@ fn validate_h004(case: &Value, errors: &mut Vec<String>) {
     ) {
         let age_at_scenario_start = 0_i64.saturating_sub(last_inspected) as u64;
         if age_at_scenario_start <= max_age {
-            errors.push("D3 is declared stale but inspection age is not greater than maximum age".to_owned());
+            errors.push(
+                "D3 is declared stale but inspection age is not greater than maximum age".to_owned(),
+            );
         }
     }
 }
 
 fn validate_h005(case: &Value, errors: &mut Vec<String>) {
     expect_u64(case, &["world", "initial_safe_suitable_units"], 2, "initial capacity", errors);
-    expect_u64(case, &["world", "maintenance_resource_requirement"], 2, "maintenance resources", errors);
-    expect_u64(case, &["oracle_facts", "if_maintained", "safe_units_month_1"], 2, "maintained capacity month 1", errors);
-    expect_u64(case, &["oracle_facts", "if_maintained", "safe_units_month_2"], 2, "maintained capacity month 2", errors);
-    expect_u64(case, &["oracle_facts", "if_maintained", "resource_units_consumed"], 2, "maintenance resources consumed", errors);
-    expect_u64(case, &["oracle_facts", "if_skipped", "safe_units_month_1"], 2, "skipped capacity month 1", errors);
-    expect_u64(case, &["oracle_facts", "if_skipped", "safe_units_month_2"], 1, "skipped capacity month 2", errors);
-    expect_u64(case, &["oracle_facts", "if_skipped", "resource_units_consumed"], 0, "resources consumed when skipped", errors);
+    expect_u64(
+        case,
+        &["world", "maintenance_resource_requirement"],
+        2,
+        "maintenance resources",
+        errors,
+    );
+    expect_u64(
+        case,
+        &["oracle_facts", "if_maintained", "safe_units_month_1"],
+        2,
+        "maintained capacity month 1",
+        errors,
+    );
+    expect_u64(
+        case,
+        &["oracle_facts", "if_maintained", "safe_units_month_2"],
+        2,
+        "maintained capacity month 2",
+        errors,
+    );
+    expect_u64(
+        case,
+        &["oracle_facts", "if_maintained", "resource_units_consumed"],
+        2,
+        "maintenance resources consumed",
+        errors,
+    );
+    expect_u64(
+        case,
+        &["oracle_facts", "if_skipped", "safe_units_month_1"],
+        2,
+        "skipped capacity month 1",
+        errors,
+    );
+    expect_u64(
+        case,
+        &["oracle_facts", "if_skipped", "safe_units_month_2"],
+        1,
+        "skipped capacity month 2",
+        errors,
+    );
+    expect_u64(
+        case,
+        &["oracle_facts", "if_skipped", "resource_units_consumed"],
+        0,
+        "resources consumed when skipped",
+        errors,
+    );
 
     if let (Some(maintained), Some(skipped)) = (
         u64_at(case, &["oracle_facts", "if_maintained", "safe_units_month_2"]),
         u64_at(case, &["oracle_facts", "if_skipped", "safe_units_month_2"]),
     ) {
         if maintained <= skipped {
-            errors.push("skipping required maintenance must expose the fixture's later capacity loss".to_owned());
+            errors.push(
+                "skipping required maintenance must expose the fixture's later capacity loss".to_owned(),
+            );
         }
     }
 }
 
 fn validate_h006(case: &Value, errors: &mut Vec<String>) {
-    expect_u64(case, &["world", "cooperative_internal_credit_balance_cu"], 10, "internal credit balance", errors);
-    expect_u64(case, &["world", "imported_component_cost_ext"], 10, "external component cost", errors);
-    expect_u64(case, &["world", "available_external_settlement_balance_ext"], 0, "external settlement balance", errors);
-    expect_bool(case, &["world", "conversion_or_external_settlement_agreement"], false, "external settlement agreement", errors);
-    expect_bool(case, &["oracle_facts", "imported_component_obtainable"], false, "import feasibility", errors);
-    expect_u64(case, &["oracle_facts", "new_capacity_added"], 0, "capacity without imported component", errors);
-    expect_u64(case, &["oracle_facts", "external_settlement_shortfall_ext"], 10, "external settlement shortfall", errors);
+    expect_u64(
+        case,
+        &["world", "cooperative_internal_credit_balance_cu"],
+        10,
+        "internal credit balance",
+        errors,
+    );
+    expect_u64(
+        case,
+        &["world", "imported_component_cost_ext"],
+        10,
+        "external component cost",
+        errors,
+    );
+    expect_u64(
+        case,
+        &["world", "available_external_settlement_balance_ext"],
+        0,
+        "external settlement balance",
+        errors,
+    );
+    expect_bool(
+        case,
+        &["world", "conversion_or_external_settlement_agreement"],
+        false,
+        "external settlement agreement",
+        errors,
+    );
+    expect_bool(
+        case,
+        &["oracle_facts", "imported_component_obtainable"],
+        false,
+        "import feasibility",
+        errors,
+    );
+    expect_u64(
+        case,
+        &["oracle_facts", "new_capacity_added"],
+        0,
+        "capacity without imported component",
+        errors,
+    );
+    expect_u64(
+        case,
+        &["oracle_facts", "external_settlement_shortfall_ext"],
+        10,
+        "external settlement shortfall",
+        errors,
+    );
 }
 
 fn validate_h007(case: &Value, errors: &mut Vec<String>) {
     expect_u64(case, &["world", "predecessor_loan_balance_cu"], 9, "predecessor liability", errors);
     expect_u64(case, &["world", "new_loan_face_value_cu"], 10, "new loan face value", errors);
-    expect_u64(case, &["world", "proceeds_used_to_repay_predecessor_cu"], 9, "refinancing proceeds", errors);
+    expect_u64(
+        case,
+        &["world", "proceeds_used_to_repay_predecessor_cu"],
+        9,
+        "refinancing proceeds",
+        errors,
+    );
     expect_u64(case, &["world", "proceeds_remaining_cu"], 1, "remaining proceeds", errors);
-    expect_u64(case, &["oracle_facts", "maximum_net_new_financing_from_transaction_cu"], 1, "net new financing", errors);
-    expect_u64(case, &["oracle_facts", "physical_capacity_change"], 0, "physical capacity change", errors);
+    expect_u64(
+        case,
+        &["oracle_facts", "maximum_net_new_financing_from_transaction_cu"],
+        1,
+        "net new financing",
+        errors,
+    );
+    expect_u64(
+        case,
+        &["oracle_facts", "physical_capacity_change"],
+        0,
+        "physical capacity change",
+        errors,
+    );
 
     if let (Some(face), Some(repaid), Some(remaining), Some(net_new)) = (
         u64_at(case, &["world", "new_loan_face_value_cu"]),
@@ -459,7 +684,9 @@ fn validate_h007(case: &Value, errors: &mut Vec<String>) {
         u64_at(case, &["oracle_facts", "maximum_net_new_financing_from_transaction_cu"]),
     ) {
         if face.saturating_sub(repaid) != remaining || remaining != net_new {
-            errors.push("new loan face value must be split between predecessor repayment and remaining proceeds".to_owned());
+            errors.push(
+                "new loan face value must be split between predecessor repayment and remaining proceeds".to_owned(),
+            );
         }
     }
 }
@@ -467,11 +694,23 @@ fn validate_h007(case: &Value, errors: &mut Vec<String>) {
 fn validate_h008(case: &Value, errors: &mut Vec<String>) {
     expect_u64(case, &["world", "initial_safe_suitable_units"], 1, "initial capacity", errors);
     expect_u64(case, &["world", "tenant_to_owner_payment_cu"], 5, "rent payment", errors);
-    expect_bool(case, &["world", "new_construction_event"], false, "new construction event", errors);
+    expect_bool(
+        case,
+        &["world", "new_construction_event"],
+        false,
+        "new construction event",
+        errors,
+    );
     expect_bool(case, &["world", "improvement_event"], false, "improvement event", errors);
     expect_i64(case, &["oracle_facts", "payer_cash_change_cu"], -5, "payer change", errors);
     expect_i64(case, &["oracle_facts", "recipient_cash_change_cu"], 5, "recipient change", errors);
-    expect_u64(case, &["oracle_facts", "physical_capacity_change"], 0, "physical capacity change", errors);
+    expect_u64(
+        case,
+        &["oracle_facts", "physical_capacity_change"],
+        0,
+        "physical capacity change",
+        errors,
+    );
     if let (Some(payer), Some(recipient)) = (
         i64_at(case, &["oracle_facts", "payer_cash_change_cu"]),
         i64_at(case, &["oracle_facts", "recipient_cash_change_cu"]),
@@ -484,11 +723,41 @@ fn validate_h008(case: &Value, errors: &mut Vec<String>) {
 
 fn validate_h009(case: &Value, errors: &mut Vec<String>) {
     expect_u64(case, &["world", "total_safe_vacant_units"], 3, "total safe vacant units", errors);
-    expect_u64(case, &["world", "accessible_safe_vacant_units"], 1, "accessible safe units", errors);
-    expect_u64(case, &["world", "households_requiring_accessible_units"], 2, "households requiring accessible units", errors);
-    expect_u64(case, &["oracle_facts", "maximum_accessible_need_households_housed"], 1, "accessible-need households housed", errors);
-    expect_u64(case, &["oracle_facts", "minimum_accessible_need_households_unmet"], 1, "accessible-need households unmet", errors);
-    expect_bool(case, &["oracle_facts", "total_units_not_equivalent_to_suitable_capacity"], true, "suitability distinction", errors);
+    expect_u64(
+        case,
+        &["world", "accessible_safe_vacant_units"],
+        1,
+        "accessible safe units",
+        errors,
+    );
+    expect_u64(
+        case,
+        &["world", "households_requiring_accessible_units"],
+        2,
+        "households requiring accessible units",
+        errors,
+    );
+    expect_u64(
+        case,
+        &["oracle_facts", "maximum_accessible_need_households_housed"],
+        1,
+        "accessible-need households housed",
+        errors,
+    );
+    expect_u64(
+        case,
+        &["oracle_facts", "minimum_accessible_need_households_unmet"],
+        1,
+        "accessible-need households unmet",
+        errors,
+    );
+    expect_bool(
+        case,
+        &["oracle_facts", "total_units_not_equivalent_to_suitable_capacity"],
+        true,
+        "suitability distinction",
+        errors,
+    );
 
     if let (Some(capacity), Some(housed), Some(unmet), Some(demand)) = (
         u64_at(case, &["world", "accessible_safe_vacant_units"]),
@@ -497,16 +766,42 @@ fn validate_h009(case: &Value, errors: &mut Vec<String>) {
         u64_at(case, &["world", "households_requiring_accessible_units"]),
     ) {
         if housed > capacity || housed.saturating_add(unmet) != demand {
-            errors.push("accessible-unit allocation violates suitability capacity or demand closure".to_owned());
+            errors.push(
+                "accessible-unit allocation violates suitability capacity or demand closure".to_owned(),
+            );
         }
     }
 }
 
 fn validate_h010(case: &Value, errors: &mut Vec<String>) {
-    expect_u64(case, &["policy_observation", "reported_confirmation_count"], 2, "reported confirmations", errors);
-    expect_u64(case, &["oracle_facts", "unique_source_event_count"], 1, "unique source events", errors);
-    expect_u64(case, &["oracle_facts", "independent_confirmation_count"], 1, "independent confirmations", errors);
-    expect_u64(case, &["oracle_facts", "true_available_units"], 2, "true available capacity", errors);
+    expect_u64(
+        case,
+        &["policy_observation", "reported_confirmation_count"],
+        2,
+        "reported confirmations",
+        errors,
+    );
+    expect_u64(
+        case,
+        &["oracle_facts", "unique_source_event_count"],
+        1,
+        "unique source events",
+        errors,
+    );
+    expect_u64(
+        case,
+        &["oracle_facts", "independent_confirmation_count"],
+        1,
+        "independent confirmations",
+        errors,
+    );
+    expect_u64(
+        case,
+        &["oracle_facts", "true_available_units"],
+        2,
+        "true available capacity",
+        errors,
+    );
 
     let claims = value_at(case, &["policy_observation", "claims"]).and_then(Value::as_array);
     if let Some(claims) = claims {
@@ -575,7 +870,10 @@ fn make_policy_view(input: &str) -> Result<Value, String> {
     Ok(json!({
         "schema_version": "cecb.housing.policy_view.v0.1",
         "source_schema_version": root["schema_version"],
-        "claim_ceiling": "Candidate-visible synthetic observations only. This view excludes world and oracle facts; it is not real-world data.",
+        "claim_ceiling": concat!(
+            "Candidate-visible synthetic observations only. This view excludes world and oracle facts; ",
+            "it is not real-world data."
+        ),
         "cases": visible_cases
     }))
 }
@@ -723,14 +1021,16 @@ mod tests {
     #[test]
     fn rejects_grant_that_does_not_reconcile_or_uses_no_real_resources() {
         rejects_mutation(fixture_value(), |fixture| {
-            fixture["cases"][2]["oracle_facts"]["physical_resource_consumed_if_completed"] = json!(0);
+            let facts = &mut fixture["cases"][2]["oracle_facts"];
+            facts["physical_resource_consumed_if_completed"] = json!(0);
         });
     }
 
     #[test]
     fn rejects_listing_claimed_stale_when_inspection_age_is_current() {
         rejects_mutation(fixture_value(), |fixture| {
-            fixture["cases"][3]["policy_observation"]["listing_D3_last_inspected_month"] = json!(-1);
+            let observation = &mut fixture["cases"][3]["policy_observation"];
+            observation["listing_D3_last_inspected_month"] = json!(-1);
         });
     }
 
@@ -751,7 +1051,8 @@ mod tests {
     #[test]
     fn rejects_refinancing_face_value_as_net_new_capital() {
         rejects_mutation(fixture_value(), |fixture| {
-            fixture["cases"][6]["oracle_facts"]["maximum_net_new_financing_from_transaction_cu"] = json!(10);
+            let facts = &mut fixture["cases"][6]["oracle_facts"];
+            facts["maximum_net_new_financing_from_transaction_cu"] = json!(10);
         });
     }
 
@@ -765,7 +1066,8 @@ mod tests {
     #[test]
     fn rejects_nominal_unit_count_as_accessible_capacity() {
         rejects_mutation(fixture_value(), |fixture| {
-            fixture["cases"][8]["oracle_facts"]["maximum_accessible_need_households_housed"] = json!(2);
+            let facts = &mut fixture["cases"][8]["oracle_facts"];
+            facts["maximum_accessible_need_households_housed"] = json!(2);
         });
     }
 
