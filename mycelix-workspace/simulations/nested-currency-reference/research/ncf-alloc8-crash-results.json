@@ -1,0 +1,26 @@
+{
+  "campaign": "NCF-ALLOC-8",
+  "claim_ceiling": "Application-process crash recovery and independent-process contention on one local host only. Not kernel crash/power-loss simulation, storage-fault testing, multi-host consensus, Holochain, cryptographic verifier validation, Rust qualification, or production settlement.",
+  "crash_stages": [
+    {"accepted_before_retry": 0, "empty_before_retry": 3, "expected_pre_retry_state": "no_committed_obligation", "failures": [], "repetitions": 3, "stage": "after_begin"},
+    {"accepted_before_retry": 0, "empty_before_retry": 3, "expected_pre_retry_state": "no_committed_obligation", "failures": [], "repetitions": 3, "stage": "after_canonical_insert"},
+    {"accepted_before_retry": 0, "empty_before_retry": 3, "expected_pre_retry_state": "no_committed_obligation", "failures": [], "repetitions": 3, "stage": "after_request_insert"},
+    {"accepted_before_retry": 0, "empty_before_retry": 3, "expected_pre_retry_state": "no_committed_obligation", "failures": [], "repetitions": 3, "stage": "after_cap_update"},
+    {"accepted_before_retry": 0, "empty_before_retry": 3, "expected_pre_retry_state": "no_committed_obligation", "failures": [], "repetitions": 3, "stage": "before_commit"},
+    {"accepted_before_retry": 3, "empty_before_retry": 0, "expected_pre_retry_state": "one_complete_obligation", "failures": [], "repetitions": 3, "stage": "after_commit_before_ack"}
+  ],
+  "crash_trials_per_stage": 3,
+  "elapsed_seconds": 19.1407,
+  "environment": {"host": "single local filesystem/host", "platform": "linux", "python": "3.13.5", "sqlite": "3.46.1"},
+  "method": "local SQLite WAL + synchronous=FULL; subprocess os._exit crash injection; independent writer processes synchronized at a release barrier",
+  "multiprocess_races": [
+    {"case": "distinct_work_cap", "decision_counts": {"accepted": 3, "rejected": 3}, "failures": [], "invariant_safe_trials": 3, "trials": 3},
+    {"case": "same_work_alias", "decision_counts": {"accepted": 3, "replay": 3}, "failures": [], "invariant_safe_trials": 3, "trials": 3},
+    {"case": "same_request_conflict", "decision_counts": {"accepted": 3, "rejected": 3}, "failures": [], "invariant_safe_trials": 3, "trials": 3}
+  ],
+  "race_trials_per_case": 3,
+  "source_sha256": "ee6c32f5205e180bd98287f124e3f097717d2575fd09f3e9c8d1d854f0421756",
+  "total_crash_trials": 18,
+  "total_invariant_failures": 0,
+  "total_multiprocess_pair_trials": 9
+}
