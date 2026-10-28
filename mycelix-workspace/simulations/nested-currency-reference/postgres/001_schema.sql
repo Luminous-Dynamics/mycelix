@@ -110,13 +110,18 @@ CREATE TABLE IF NOT EXISTS ncf.request_binding (
     profile_revision          integer NOT NULL,
     amount_units              numeric(78,0) NOT NULL CHECK (amount_units > 0),
     canonical_work_digest     bytea NOT NULL CHECK (octet_length(canonical_work_digest) = 32),
+    agreement_id              uuid NOT NULL REFERENCES ncf.clearing_agreement(agreement_id),
+    direction                 text NOT NULL CHECK (direction IN ('a_to_b', 'b_to_a')),
+    reservation_id            uuid NOT NULL REFERENCES ncf.reservation_slice(reservation_id),
+    shard_id                  text NOT NULL,
+    epoch                     bigint NOT NULL CHECK (epoch >= 0),
     verifier_version          text NOT NULL,
     verifier_receipt_digest   bytea NOT NULL CHECK (octet_length(verifier_receipt_digest) = 32),
     obligation_id             bigint NOT NULL REFERENCES ncf.obligation(obligation_id),
     decision                  text NOT NULL CHECK (decision IN ('accepted', 'replay')),
     receipt_json              jsonb NOT NULL,
     created_at                timestamptz NOT NULL DEFAULT clock_timestamp(),
-    CHECK (length(btrim(verifier_version)) > 0)
+    CHECK (length(btrim(verifier_version)) > 0 AND length(btrim(shard_id)) > 0)
 );
 
 CREATE TABLE IF NOT EXISTS ncf.settlement_receipt (
