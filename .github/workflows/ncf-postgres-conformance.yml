@@ -35,6 +35,8 @@ jobs:
       PGCONNECT_TIMEOUT: "5"
     steps:
       - uses: actions/checkout@v4
+      - name: Test pgbench receipt parser without a database
+        run: python3 -m unittest discover -s mycelix-workspace/simulations/nested-currency-reference/postgres -p 'test_summarize_pgbench.py'
       - name: Install PostgreSQL client tools
         run: |
           sudo apt-get update
