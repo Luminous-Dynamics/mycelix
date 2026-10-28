@@ -40,6 +40,19 @@ CREATE TABLE IF NOT EXISTS ncf.clearing_agreement (
     CHECK (length(btrim(community_a)) > 0 AND length(btrim(community_b)) > 0)
 );
 
+CREATE TABLE IF NOT EXISTS ncf.agreement_direction_cap (
+    agreement_id       uuid NOT NULL REFERENCES ncf.clearing_agreement(agreement_id),
+    direction          text NOT NULL CHECK (direction IN ('a_to_b', 'b_to_a')),
+    community_id       text NOT NULL,
+    instrument_id      text NOT NULL REFERENCES ncf.instrument_identity(instrument_id),
+    cap_units          numeric(78,0) NOT NULL CHECK (cap_units >= 0),
+    allocated_units    numeric(78,0) NOT NULL DEFAULT 0 CHECK (allocated_units >= 0),
+    outstanding_units  numeric(78,0) NOT NULL DEFAULT 0 CHECK (outstanding_units >= 0),
+    PRIMARY KEY (agreement_id, direction),
+    CHECK (allocated_units <= cap_units),
+    CHECK (outstanding_units <= allocated_units)
+);
+
 CREATE TABLE IF NOT EXISTS ncf.community_instrument_cap (
     community_id       text NOT NULL,
     instrument_id      text NOT NULL REFERENCES ncf.instrument_identity(instrument_id),
@@ -69,6 +82,8 @@ CREATE TABLE IF NOT EXISTS ncf.reservation_slice (
                        CHECK (state IN ('active', 'paused', 'retired')),
     created_at         timestamptz NOT NULL DEFAULT clock_timestamp(),
     UNIQUE (agreement_id, community_id, direction, shard_id, epoch),
+    FOREIGN KEY (agreement_id, direction)
+      REFERENCES ncf.agreement_direction_cap(agreement_id, direction),
     CHECK (length(btrim(shard_id)) > 0),
     CHECK (used_units <= reserved_units)
 );
@@ -93,6 +108,8 @@ CREATE TABLE IF NOT EXISTS ncf.obligation (
     settled_at             timestamptz,
     FOREIGN KEY (instrument_id, profile_revision)
       REFERENCES ncf.instrument_profile_revision(instrument_id, profile_revision),
+    FOREIGN KEY (agreement_id, direction)
+      REFERENCES ncf.agreement_direction_cap(agreement_id, direction),
     CHECK (length(btrim(principal_id)) > 0 AND length(btrim(community_id)) > 0),
     CHECK (length(btrim(shard_id)) > 0),
     CHECK ((state = 'outstanding' AND settled_at IS NULL)
