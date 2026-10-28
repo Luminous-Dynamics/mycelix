@@ -47,7 +47,10 @@
   "source_provenance": {
     "local_executed_source_sha256": "1b017002bfc4c1cd2b1ceee68b57c6ca4a93554238ff98f8884b20998cfcb2cc",
     "checked_in_source_sha256": "b30a375c8cc50444c8c43dbb33c11eea1abbd6a6b932b194d9383eb94dd93328",
-    "note": "Checked-in source is a manually synchronized copy and is not byte-identical to the executed local file. The result is local research, not checksum-bound CI."
+    "note": "Local run source and output hashes are not a checksum-bound CI receipt; the checked-in source and results summary are separately identified.",
+    "checked_in_test_sha256": "3060fd362b07dab529782c953b4e69655a261e039ba5aeafa0ab65463504f6be",
+    "checked_in_test_count": 8,
+    "local_results_sha256": "cdacd97dadfda3d39b6251b558c4f8920873103ac33a62e863173292560ad2b9"
   },
   "claim_ceiling": "Finite synthetic scheduler only. It does not test threads, disk durability, real databases, network partitions, Holochain, signatures or production code.",
   "decision_rule": "Require atomic durable uniqueness, cap check/debit, accepted obligation persistence and response receipt (or a separately proven invariant-confluent protocol). A sequential passing test is insufficient."
