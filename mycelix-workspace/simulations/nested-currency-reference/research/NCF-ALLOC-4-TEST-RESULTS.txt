@@ -10,6 +10,5 @@ Ran 5 tests — OK.
 
 source_sha256=df7a46bb32690ceb264495890eeb5673eef84b81737a85f840b1c4b69d684044
 case_set_sha256=86b5e7f0f9595aaf6f8f2eebaef06b0d25f0a793f6f9ffa90b3c4aac12affcf4
-summary_sha256=8e896ae3b4ce9182b08126e20a82bf761aca209214027fdec57335db7f7610a4
 
 Claim ceiling: independent Python model only; not Rust, CI, TLC, distributed, cryptographic-identity or production evidence.
