@@ -1,6 +1,6 @@
 # NCF-ALLOC-5 — Canonical obligation evidence and principal-scoped admission
 
-**Status:** independent sequential Python reference model; nine unit tests pass. This is a policy-oracle model, not cryptographic verification, Rust qualification, concurrent execution, distributed/Holochain behavior, or production settlement.
+**Status:** sequential Python oracle (nine tests pass) plus a typed Rust reference module with ten test definitions added; Rust has not been compiled or run. Neither implementation is cryptographic verification, concurrent/durable admission, distributed/Holochain behavior, or production settlement.
 
 ## Why the paradigm must change
 
@@ -17,16 +17,23 @@ NCF-ALLOC-5 shifts the unit of account from **reported shard demand** to **uniqu
 
 The model requires a canonical payload digest, but computes that digest from caller-supplied test content; digest binding is not proof of the truth of that content. The reference model's verifier_receipt_ok flag is an assumption supplied to the model. Hashes are deterministic test receipt digests, not signatures. No cryptographic principal resolution, verifier, database transaction, or distributed linearizability is implemented here.
 
+## Rust reference module
+
+The dependency-free `src/obligation.rs` now models the same sequential policy in Rust. `VerifiedObligation` has private fields and a crate-internal constructor reserved for a future verifier adapter; callers must not construct that marker until a trusted verifier has authenticated the principal, payload and receipt. This type boundary is not itself cryptographic authentication, and the repository does not yet implement that verifier or a production call path. The model stores accepted obligations in memory, and it has no settlement/release operation or cross-process durability.
+
+Ten Rust unit-test definitions cover exact replay across shard/epoch aliases, amount/principal/instrument/payload conflicts, principal-cap aggregation, missing cap, malformed/zero input, checked overflow, zero cap, and independent principal/instrument scopes. They require an exact-head Rust 1.99.1 receipt before being described as passing.
+
 ## Local test and deterministic result
 
-The three Python suites now contain **24 tests total**: 10 NCF-ALLOC-3, 5 NCF-ALLOC-4 and 9 NCF-ALLOC-5. The latest combined run passed all 24. The NCF-ALLOC-5 deterministic scenarios replay one 4,000-unit underlying obligation through 1, 4, 8, 16 or 32 shard aliases; every case records one unique accepted obligation, 4,000 outstanding units, one initial acceptance and alias_count - 1 idempotent replays.
+The three Python suites now contain **24 tests total**: 10 NCF-ALLOC-3, 5 NCF-ALLOC-4 and 9 NCF-ALLOC-5; all 24 passed in the recorded local run. Separately, Rust source contains 21 allocation tests and 10 obligation-admission test definitions; neither group has an execution pass recorded. The NCF-ALLOC-5 deterministic scenarios replay one 4,000-unit underlying obligation through 1, 4, 8, 16 or 32 shard aliases; every case records one unique accepted obligation, 4,000 outstanding units, one initial acceptance and alias_count - 1 idempotent replays.
 
 Files:
 
 - ncf_alloc5_obligation_admission.py — sequential evidence admission model
 - test_ncf_alloc5_obligation_admission.py — nine regression tests
 - ncf-alloc5-obligation-admission-results.json — fixed scenario results with source SHA-256 and explicit claim ceiling
-- ncf-alloc5-obligation-campaign.json — machine-readable campaign and acceptance gates
+- ncf-alloc5-obligation-campaign.json — machine-readable Python oracle campaign and acceptance gates
+- src/obligation.rs — typed Rust sequential reference model (10 unrun test definitions)
 
 ## Production design questions not answered by the model
 
