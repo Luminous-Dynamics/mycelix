@@ -49,6 +49,32 @@ class ObligationAdmissionTests(unittest.TestCase):
         self.assertEqual(book.outstanding_for("principal-A","instrument-1"),100)
         self.assertEqual(book.outstanding_for("principal-B","instrument-1"),0)
 
+    def test_same_underlying_work_under_different_id_is_idempotent(self):
+        book=ObligationBook({("principal-A","instrument-1"):1000})
+        first=book.apply(evidence("ob-1",shard_id="shard-a",epoch=1,amount_units=100,obligation_payload="invoice-123-line-1"))
+        alias=book.apply(evidence("ob-alias",shard_id="shard-b",epoch=99,sequence=800,amount_units=100,obligation_payload="invoice-123-line-1"))
+        self.assertEqual(first.decision,Decision.ACCEPTED)
+        self.assertEqual(alias.decision,Decision.IDEMPOTENT_REPLAY)
+        self.assertEqual(alias.receipt,first.receipt)
+        self.assertEqual(book.accepted_count(),1)
+        self.assertEqual(book.outstanding_for("principal-A","instrument-1"),100)
+        self.assertEqual(book.receipt_for("ob-alias"),first.receipt)
+        changed_alias=book.apply(evidence("ob-alias",amount_units=100,obligation_payload="invoice-999-line-1"))
+        self.assertEqual(changed_alias.decision,Decision.REJECTED)
+        self.assertEqual(changed_alias.receipt,first.receipt)
+
+    def test_same_work_digest_with_conflicting_amount_or_principal_rejects(self):
+        book=ObligationBook({("principal-A","instrument-1"):1000,("principal-B","instrument-1"):1000})
+        first=book.apply(evidence("ob-1",amount_units=100,obligation_payload="canonical-work-123"))
+        changed_amount=book.apply(evidence("ob-2",amount_units=101,obligation_payload="canonical-work-123"))
+        changed_principal=book.apply(evidence("ob-3",principal_id="principal-B",amount_units=100,obligation_payload="canonical-work-123"))
+        self.assertEqual(first.decision,Decision.ACCEPTED)
+        self.assertEqual(changed_amount.decision,Decision.REJECTED)
+        self.assertEqual(changed_principal.decision,Decision.REJECTED)
+        self.assertEqual(book.accepted_count(),1)
+        self.assertEqual(book.outstanding_for("principal-A","instrument-1"),100)
+        self.assertEqual(book.outstanding_for("principal-B","instrument-1"),0)
+
     def test_same_id_different_obligation_digest_rejects_without_mutation(self):
         book=ObligationBook({("principal-A","instrument-1"):1000})
         first=book.apply(evidence("ob-1",amount_units=100,obligation_payload="invoice-123-line-1"))
