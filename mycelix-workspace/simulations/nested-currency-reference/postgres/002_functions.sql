@@ -227,8 +227,11 @@ BEGIN
            OR v_existing.profile_revision <> p_profile_revision
            OR v_existing.amount_units <> p_amount_units
            OR v_existing.agreement_id <> p_agreement_id
-           OR v_existing.direction <> p_direction THEN
-            RETURN jsonb_build_object('decision', 'rejected', 'reason', 'canonical_work_identity_conflict');
+           OR v_existing.direction <> p_direction
+           OR v_existing.reservation_id <> p_reservation_id
+           OR v_existing.shard_id <> p_shard_id
+           OR v_existing.epoch <> p_epoch THEN
+            RETURN jsonb_build_object('decision', 'rejected', 'reason', 'canonical_work_identity_or_home_shard_conflict');
         END IF;
 
         INSERT INTO ncf.request_binding(
