@@ -294,4 +294,37 @@ BEGIN
 END;
 $$;
 
+
+-- Application sessions must call audited transaction APIs and cannot mutate ledger rows.
+SET ROLE ncf_app;
+DO $
+DECLARE
+    v_read_only_replay jsonb;
+    v_denied boolean := false;
+BEGIN
+    v_read_only_replay := ncf.admit_obligation(
+      '10000000-0000-0000-0000-000000000001',
+      decode(repeat('a',64),'hex'),
+      'alice','community-a','NCF-TEST-UNIT',1,60,
+      decode(repeat('b',64),'hex'),
+      'aa000000-0000-0000-0000-000000000001','a_to_b',
+      'bb000000-0000-0000-0000-000000000001','shard-a',1,
+      'smoke-verifier-v1',decode(repeat('c',64),'hex')
+    );
+    IF v_read_only_replay->>'decision' <> 'replay' THEN
+      RAISE EXCEPTION 'ncf_app must be able to invoke the audited transaction API, got %', v_read_only_replay;
+    END IF;
+
+    BEGIN
+      UPDATE ncf.obligation SET amount_units=99 WHERE obligation_id=1;
+    EXCEPTION WHEN insufficient_privilege THEN
+      v_denied := true;
+    END;
+    IF NOT v_denied THEN
+      RAISE EXCEPTION 'ncf_app must not directly mutate the obligation ledger';
+    END IF;
+END;
+$;
+RESET ROLE;
+
 SELECT 'NCF_POSTGRES_SMOKE_PASS' AS result;
