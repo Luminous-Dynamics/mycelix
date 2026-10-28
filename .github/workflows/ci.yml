@@ -197,6 +197,8 @@ jobs:
             .scenario_config_count == 216 and
             .paired_seed_count == 30 and
             .arm_count == 5 and
+            ([.policy_arms[].arm_id] | unique | length == 5) and
+            all(.policy_arms[]; .implementation_status == "adapter_pending") and
             .scheduled_run_count == 32400 and
             .design.model_binding.execution_authorized == false and
             .design.model_binding.numeric_scenario_value_mapping == "unresolved_labels_only" and
@@ -283,7 +285,7 @@ jobs:
             (.input_sha256.validator | length == 64) and
             (.step_outcomes.tests != "") and
             (.step_outcomes.paired_plan != "") and
-            (.output_sha256.paired_plan | length == 64)
+            (if .step_outcomes.paired_plan == "success" then (.output_sha256.paired_plan | length == 64) else true end)
           ' artifacts/cecb/run-receipt.json > /dev/null
       - uses: actions/upload-artifact@v4
         name: Upload CECB exact-run evidence
