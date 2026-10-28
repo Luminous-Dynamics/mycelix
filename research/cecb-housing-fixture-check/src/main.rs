@@ -1403,8 +1403,8 @@ mod tests {
         assert_eq!(view["schema_version"], "cecb.housing.policy_view.v0.2");
         assert!(!serialized.contains("oracle_facts"));
         assert!(!serialized.contains("true_safe_suitable_capacity"));
-        assert!(!serialized.contains("\\"world\\""));
-        assert!(!serialized.contains("\\"purpose\\""));
+        assert!(!serialized.contains("\"world\""));
+        assert!(!serialized.contains("\"purpose\""));
         assert!(!serialized.contains("H001_FIXED_CAPACITY_CEILING"));
         assert_eq!(view["cases"].as_array().map(Vec::len), Some(10));
 
