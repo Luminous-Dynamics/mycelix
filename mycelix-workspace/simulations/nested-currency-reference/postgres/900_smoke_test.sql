@@ -34,6 +34,18 @@ DECLARE
     v_overshoot jsonb;
     v_settle jsonb;
     v_settle_replay jsonb;
+    v_fractional jsonb;
+    v_nan jsonb;
+    v_retry jsonb;
+    v_dispatch jsonb;
+    v_dispatch_replay jsonb;
+    v_duplicate_dispatch jsonb;
+    v_receipts jsonb;
+    v_receipts_high_water jsonb;
+    v_outbox_id bigint;
+    v_second_outbox_id bigint;
+    v_lease_seen bigint;
+    v_observation_count bigint;
     v_obligation_id bigint;
     v_count bigint;
     v_units numeric;
@@ -109,6 +121,34 @@ BEGIN
       RAISE EXCEPTION 'expected cap/slice rejection, got %', v_overshoot;
     END IF;
 
+    v_fractional := ncf.admit_obligation(
+      '10000000-0000-0000-0000-000000000004',
+      decode(repeat('4',64),'hex'),
+      'bob','community-a','NCF-TEST-UNIT',1,1.5,
+      decode(repeat('3',64),'hex'),
+      'aa000000-0000-0000-0000-000000000001','a_to_b',
+      'bb000000-0000-0000-0000-000000000001','shard-a',1,
+      'smoke-verifier-v1',decode(repeat('6',64),'hex')
+    );
+    IF v_fractional->>'decision' <> 'rejected'
+       OR v_fractional->>'reason' <> 'invalid_or_unverified_input' THEN
+      RAISE EXCEPTION 'fractional economic units must fail closed, got %', v_fractional;
+    END IF;
+
+    v_nan := ncf.admit_obligation(
+      '10000000-0000-0000-0000-000000000005',
+      decode(repeat('5',64),'hex'),
+      'bob','community-a','NCF-TEST-UNIT',1,'NaN'::numeric,
+      decode(repeat('4',64),'hex'),
+      'aa000000-0000-0000-0000-000000000001','a_to_b',
+      'bb000000-0000-0000-0000-000000000001','shard-a',1,
+      'smoke-verifier-v1',decode(repeat('7',64),'hex')
+    );
+    IF v_nan->>'decision' <> 'rejected'
+       OR v_nan->>'reason' <> 'invalid_or_unverified_input' THEN
+      RAISE EXCEPTION 'non-finite economic units must fail closed, got %', v_nan;
+    END IF;
+
     SELECT count(*), COALESCE(sum(amount_units),0)
       INTO v_count, v_units FROM ncf.obligation
      WHERE instrument_id='NCF-TEST-UNIT';
@@ -153,6 +193,83 @@ BEGIN
     END IF;
     IF (SELECT count(*) FROM ncf.holochain_outbox WHERE obligation_id=v_obligation_id) <> 2 THEN
       RAISE EXCEPTION 'expected accepted and settled outbox events';
+    END IF;
+
+    SELECT leased.outbox_id INTO v_outbox_id
+      FROM ncf.lease_outbox_batch('smoke-worker', 1, 30) AS leased
+     ORDER BY leased.outbox_id LIMIT 1;
+    IF v_outbox_id IS NULL THEN
+      RAISE EXCEPTION 'expected outbox lease';
+    END IF;
+    v_retry := ncf.mark_outbox_retry(v_outbox_id, 'smoke-worker', 'test lost acknowledgement', 0);
+    IF v_retry->>'decision' <> 'retry' THEN
+      RAISE EXCEPTION 'expected retry state after transient delivery failure, got %', v_retry;
+    END IF;
+
+    SELECT count(*) INTO v_lease_seen
+      FROM ncf.lease_outbox_batch('smoke-worker-2', 10, 30) AS leased
+     WHERE leased.outbox_id = v_outbox_id;
+    IF v_lease_seen <> 1 THEN
+      RAISE EXCEPTION 'expected retried outbox row to be leased again';
+    END IF;
+
+    v_dispatch := ncf.record_holochain_dispatch(
+      v_outbox_id, 'smoke-worker-2', 'dna-smoke', 'action-smoke-1', 'agent-smoke', 'entry-smoke'
+    );
+    IF v_dispatch->>'decision' <> 'published' THEN
+      RAISE EXCEPTION 'expected Holochain authored dispatch, got %', v_dispatch;
+    END IF;
+    v_dispatch_replay := ncf.record_holochain_dispatch(
+      v_outbox_id, 'another-worker', 'dna-smoke', 'action-smoke-1', 'agent-smoke', 'entry-smoke'
+    );
+    IF v_dispatch_replay->>'decision' <> 'replay' THEN
+      RAISE EXCEPTION 'exact dispatch acknowledgement must replay, got %', v_dispatch_replay;
+    END IF;
+    v_duplicate_dispatch := ncf.record_holochain_dispatch(
+      v_outbox_id, 'another-worker', 'dna-smoke', 'action-smoke-duplicate', 'agent-smoke', 'entry-smoke'
+    );
+    IF v_duplicate_dispatch->>'decision' <> 'duplicate_action_observed' THEN
+      RAISE EXCEPTION 'second action hash must be recorded as duplicate evidence, not new SQL obligation, got %', v_duplicate_dispatch;
+    END IF;
+
+    v_receipts := ncf.record_validation_receipts('dna-smoke', 'action-smoke-1', 1, 3);
+    IF v_receipts->>'decision' <> 'unresolved' THEN
+      RAISE EXCEPTION 'sub-threshold DHT receipts must not imply replication readiness, got %', v_receipts;
+    END IF;
+    v_receipts_high_water := ncf.record_validation_receipts('dna-smoke', 'action-smoke-1', 3, 3);
+    IF v_receipts_high_water->>'decision' <> 'receipts_observed' THEN
+      RAISE EXCEPTION 'receipt threshold should be observed at count 3, got %', v_receipts_high_water;
+    END IF;
+    v_receipts_high_water := ncf.record_validation_receipts('dna-smoke', 'action-smoke-1', 2, 3);
+    IF v_receipts_high_water->>'decision' <> 'receipts_observed'
+       OR (v_receipts_high_water->>'validation_receipt_count')::integer <> 3 THEN
+      RAISE EXCEPTION 'receipt count must be monotonic, got %', v_receipts_high_water;
+    END IF;
+
+    SELECT outbox_id INTO v_second_outbox_id
+      FROM ncf.holochain_outbox
+     WHERE obligation_id = v_obligation_id AND outbox_id <> v_outbox_id
+     ORDER BY outbox_id LIMIT 1;
+    IF v_second_outbox_id IS NULL THEN
+      RAISE EXCEPTION 'expected second outbox event for settlement';
+    END IF;
+    v_dispatch := ncf.record_holochain_dispatch(
+      v_second_outbox_id, 'smoke-worker-2', 'dna-smoke', 'action-smoke-settle', 'agent-smoke', 'entry-smoke-settle'
+    );
+    IF v_dispatch->>'decision' <> 'published' THEN
+      RAISE EXCEPTION 'expected settlement event dispatch, got %', v_dispatch;
+    END IF;
+    SELECT count(*) INTO v_observation_count
+      FROM ncf.holochain_action_observation
+     WHERE outbox_id IN (
+       SELECT outbox_id FROM ncf.holochain_outbox WHERE obligation_id = v_obligation_id
+     );
+    IF v_observation_count <> 3 THEN
+      RAISE EXCEPTION 'expected three action observations (two accepted-event attempts and one settlement), got %', v_observation_count;
+    END IF;
+    IF (SELECT count(*) FROM ncf.obligation WHERE instrument_id='NCF-TEST-UNIT') <> 1
+       OR (SELECT outstanding_units FROM ncf.community_instrument_cap WHERE community_id='community-a' AND instrument_id='NCF-TEST-UNIT') <> 0 THEN
+      RAISE EXCEPTION 'outbox retries must not create or settle a second SQL obligation';
     END IF;
 
     BEGIN
