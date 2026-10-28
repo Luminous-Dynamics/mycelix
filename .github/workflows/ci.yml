@@ -153,19 +153,95 @@ jobs:
       - uses: Swatinem/rust-cache@v2
         with:
           workspaces: research/cecb-housing-fixture-check
-      - name: Check standalone Rust formatting
-        run: cargo fmt --manifest-path research/cecb-housing-fixture-check/Cargo.toml -- --check
-      - name: Run validator mutation tests
-        run: cargo test --manifest-path research/cecb-housing-fixture-check/Cargo.toml
-      - name: Validate canonical fixture report
+      - id: rustfmt
+        name: Check standalone Rust formatting
+        run: |
+          set -o pipefail
+          cargo fmt --manifest-path research/cecb-housing-fixture-check/Cargo.toml -- --check 2>&1 | tee /tmp/cecb-rustfmt.log
+      - id: test
+        name: Run validator mutation tests
+        run: |
+          set -o pipefail
+          cargo test --manifest-path research/cecb-housing-fixture-check/Cargo.toml 2>&1 | tee /tmp/cecb-cargo-test.log
+      - id: canonical
+        name: Validate canonical fixture report
         run: |
           cargo run --quiet --manifest-path research/cecb-housing-fixture-check/Cargo.toml -- > /tmp/cecb-validation.json
           jq -e '.status == "PASS" and .case_count == 10 and .case_fail_count == 0' /tmp/cecb-validation.json
-      - name: Verify candidate view excludes evaluator truth
+      - id: policy_view
+        name: Verify candidate view excludes evaluator truth
         run: |
           cargo run --quiet --manifest-path research/cecb-housing-fixture-check/Cargo.toml -- --policy-view-out /tmp/cecb-policy-view.json > /dev/null
           ! grep -q 'oracle_facts' /tmp/cecb-policy-view.json
           ! grep -q 'true_safe_suitable_capacity' /tmp/cecb-policy-view.json
+      # Preserve a machine-checkable run receipt, dependency lock and logs even
+      # on test failure. A skipped job has no receipt and is not a PASS.
+      - name: Build exact-run evidence receipt
+        if: always()
+        run: |
+          set -eu
+          mkdir -p artifacts/cecb
+          cp /tmp/cecb-rustfmt.log artifacts/cecb/ 2>/dev/null || true
+          cp /tmp/cecb-cargo-test.log artifacts/cecb/ 2>/dev/null || true
+          cp /tmp/cecb-validation.json artifacts/cecb/ 2>/dev/null || true
+          cp /tmp/cecb-policy-view.json artifacts/cecb/ 2>/dev/null || true
+          cp research/cecb-housing-fixture-check/Cargo.lock artifacts/cecb/ 2>/dev/null || true
+          sha_or_missing() {
+            if [ -f "$1" ]; then sha256sum "$1" | cut -d ' ' -f 1; else printf ''; fi
+          }
+          rustc_version="$(rustc --version 2>/dev/null || echo unavailable)"
+          cargo_version="$(cargo --version 2>/dev/null || echo unavailable)"
+          jq -n \
+            --arg schema_version "cecb.ci_run_receipt.v0.1" \
+            --arg evidence_class "E0 synthetic fixture contract validation only" \
+            --arg source_commit "$GITHUB_SHA" \
+            --arg run_id "$GITHUB_RUN_ID" \
+            --arg run_attempt "$GITHUB_RUN_ATTEMPT" \
+            --arg rustc_version "$rustc_version" \
+            --arg cargo_version "$cargo_version" \
+            --arg fixture_sha256 "$(sha_or_missing docs/research/fixtures/CECB_HOUSING_KNOWN_TRUTH_V0_1.json)" \
+            --arg validator_sha256 "$(sha_or_missing research/cecb-housing-fixture-check/src/main.rs)" \
+            --arg manifest_sha256 "$(sha_or_missing research/cecb-housing-fixture-check/Cargo.toml)" \
+            --arg lock_sha256 "$(sha_or_missing research/cecb-housing-fixture-check/Cargo.lock)" \
+            --arg report_sha256 "$(sha_or_missing /tmp/cecb-validation.json)" \
+            --arg policy_view_sha256 "$(sha_or_missing /tmp/cecb-policy-view.json)" \
+            --arg rustfmt_outcome "${{ steps.rustfmt.outcome }}" \
+            --arg tests_outcome "${{ steps.test.outcome }}" \
+            --arg canonical_outcome "${{ steps.canonical.outcome }}" \
+            --arg policy_view_outcome "${{ steps.policy_view.outcome }}" \
+            '{
+              schema_version: $schema_version,
+              evidence_class: $evidence_class,
+              source_commit: $source_commit,
+              workflow_run_id: $run_id,
+              workflow_run_attempt: $run_attempt,
+              toolchain: { rustc: $rustc_version, cargo: $cargo_version },
+              input_sha256: {
+                fixture: $fixture_sha256,
+                validator: $validator_sha256,
+                cargo_manifest: $manifest_sha256,
+                cargo_lock: $lock_sha256
+              },
+              output_sha256: {
+                validation_report: $report_sha256,
+                candidate_policy_view: $policy_view_sha256
+              },
+              step_outcomes: {
+                rustfmt: $rustfmt_outcome,
+                tests: $tests_outcome,
+                canonical_report: $canonical_outcome,
+                policy_view_isolation: $policy_view_outcome
+              },
+              claim_ceiling: "Synthetic fixture conformance only; not policy-performance evidence or real-world impact."
+            }' > artifacts/cecb/run-receipt.json
+      - uses: actions/upload-artifact@v4
+        name: Upload CECB exact-run evidence
+        if: always()
+        with:
+          name: cecb-fixture-evidence-${{ github.run_id }}-${{ github.run_attempt }}
+          path: artifacts/cecb/
+          if-no-files-found: error
+          retention-days: 90
 
   test-commons:
     needs: changes
