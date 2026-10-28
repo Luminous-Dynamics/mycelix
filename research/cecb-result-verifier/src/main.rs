@@ -397,6 +397,7 @@ fn validate_contract(plan: &Value, errors: &mut Vec<String>) {
             "digest_algorithm",
             "required_fields",
             "terminal_dispositions",
+            "failure_rule",
             "missing_outcome_policy",
             "forbidden_aggregate_field",
         ],
@@ -411,6 +412,11 @@ fn validate_contract(plan: &Value, errors: &mut Vec<String>) {
     }
     if str_at(contract, "digest_algorithm") != Some("SHA-256") {
         errors.push("run-result contract digest algorithm must be SHA-256".to_owned());
+    }
+    if str_at(contract, "failure_rule")
+        != Some("Every planned slot has exactly one terminal result; no silent omissions.")
+    {
+        errors.push("run-result failure_rule must reject silent run omissions".to_owned());
     }
     if str_at(contract, "missing_outcome_policy") != Some("unknown_not_zero") {
         errors.push("missing_outcome_policy must be unknown_not_zero".to_owned());
@@ -1273,6 +1279,7 @@ mod tests {
                 "digest_algorithm": "SHA-256",
                 "required_fields": RUN_FIELDS,
                 "terminal_dispositions": TERMINAL_DISPOSITIONS,
+                "failure_rule": "Every planned slot has exactly one terminal result; no silent omissions.",
                 "missing_outcome_policy": "unknown_not_zero",
                 "forbidden_aggregate_field": "universal_welfare_scalar"
             },
