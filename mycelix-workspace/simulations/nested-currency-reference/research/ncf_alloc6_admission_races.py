@@ -84,6 +84,11 @@ def run_naive(requests: dict[str, Request], schedule: tuple[str, ...], counter_m
         phase_index[actor] += 1
     actual_accepted_units = sum(amount for _, _, amount in state.accepted_events)
     unique_work_units = sum({digest: amount for _, digest, amount in state.accepted_events}.values())
+    payloads_by_request: dict[str, set[tuple[str, int]]] = {}
+    for request_id, digest, amount in state.accepted_events:
+        payloads_by_request.setdefault(request_id, set()).add((digest, amount))
+    conflicting_request_payloads = any(len(payloads) > 1 for payloads in payloads_by_request.values())
+    duplicate_request_id_accepted = len(payloads_by_request) < len(state.accepted_events)
     return {
         "schedule": "".join(schedule),
         "accepted_event_count": len(state.accepted_events),
@@ -95,6 +100,8 @@ def run_naive(requests: dict[str, Request], schedule: tuple[str, ...], counter_m
         "cap_overshoot_units": max(0, actual_accepted_units - CAP),
         "counter_understates_accepted_units": state.used_counter < actual_accepted_units,
         "duplicate_work_accepted": len({digest for _, digest, _ in state.accepted_events}) < len(state.accepted_events),
+        "duplicate_request_id_accepted": duplicate_request_id_accepted,
+        "conflicting_request_payloads_accepted": conflicting_request_payloads,
         "accepted_events": state.accepted_events,
     }
 
@@ -141,9 +148,9 @@ def scenario(requests: dict[str, Request], same_underlying_work: bool) -> dict:
         rows = [run_naive(requests, schedule, mode) for schedule in schedules]
         modes[mode] = {
             "schedule_count": len(rows),
-            "unsafe_schedules": sum(bool(r["cap_overshoot_units"] or r["duplicate_work_accepted"] or r["counter_understates_accepted_units"]) for r in rows),
+            "unsafe_schedules": sum(bool(r["cap_overshoot_units"] or r["duplicate_work_accepted"] or r["duplicate_request_id_accepted"] or r["conflicting_request_payloads_accepted"] or r["counter_understates_accepted_units"]) for r in rows),
             "cap_violation_schedules": sum(r["cap_overshoot_units"] > 0 for r in rows),
-            "duplicate_accept_schedules": sum(r["duplicate_work_accepted"] for r in rows),
+            "duplicate_accept_schedules": sum(r["duplicate_work_accepted"] or r["duplicate_request_id_accepted"] or r["conflicting_request_payloads_accepted"] for r in rows),
             "counter_understatement_schedules": sum(r["counter_understates_accepted_units"] for r in rows),
             "worst_overshoot_units": max(r["cap_overshoot_units"] for r in rows),
             "first_unsafe_example": next((r for r in rows if r["cap_overshoot_units"] or r["duplicate_work_accepted"] or r["counter_understates_accepted_units"]), None),
