@@ -31,7 +31,7 @@ jobs:
           POSTGRES_PASSWORD: postgres
           POSTGRES_DB: ncf_test
         ports:
-          - 5432:5432
+          - "5432:5432"
         options: >-
           --health-cmd "pg_isready -U postgres -d ncf_test"
           --health-interval 5s
@@ -101,7 +101,6 @@ jobs:
       PG_NCF_CLIENTS: "${{ matrix.clients }}"
       PG_NCF_THREADS: "${{ matrix.threads }}"
       PG_NCF_DURATION_SECONDS: "15"
-      PG_NCF_OUTPUT_DIR: "${{ runner.temp }}/ncf-pgbench-results"
     steps:
       - uses: actions/checkout@v4
       - name: Install PostgreSQL client and pgbench
@@ -119,6 +118,8 @@ jobs:
           psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 -f mycelix-workspace/simulations/nested-currency-reference/postgres/001_schema.sql
           psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 -f mycelix-workspace/simulations/nested-currency-reference/postgres/002_functions.sql
       - name: Benchmark the real transactional admission function
+        env:
+          PG_NCF_OUTPUT_DIR: ${{ runner.temp }}/ncf-pgbench-results
         run: bash mycelix-workspace/simulations/nested-currency-reference/postgres/run-pgbench-benchmark.sh
       - name: Preserve raw logs and percentile/reconciliation receipt
         if: always()
