@@ -19,6 +19,7 @@ pub enum AdmissionError {
     InvalidPrincipalCap,
     MissingPrincipalInstrumentCap,
     ConflictingObligationId,
+    ConflictingCanonicalObligation,
     PrincipalInstrumentCapExceeded,
     Overflow,
 }
@@ -99,6 +100,7 @@ struct AcceptedObligation {
 pub struct ObligationBook {
     principal_caps: BTreeMap<PrincipalInstrument, u64>,
     accepted: BTreeMap<String, AcceptedObligation>,
+    canonical_id_by_payload_digest: BTreeMap<[u8; 32], String>,
     outstanding_by_principal_instrument: BTreeMap<PrincipalInstrument, u64>,
 }
 
@@ -148,6 +150,37 @@ impl ObligationBook {
             return Err(AdmissionError::ConflictingObligationId);
         }
 
+        if let Some(canonical_id) = self.canonical_id_by_payload_digest.get(&claim.payload_digest) {
+            let canonical = self
+                .accepted
+                .get(canonical_id)
+                .expect("payload-digest index must point to an accepted obligation")
+                .clone();
+            let canonical_payload = (
+                canonical.principal_id.clone(),
+                canonical.instrument_id.clone(),
+                canonical.amount_units,
+                canonical.payload_digest,
+            );
+            if payload != canonical_payload {
+                return Err(AdmissionError::ConflictingCanonicalObligation);
+            }
+            // Persist the alias ID, but preserve the original receipt and do not
+            // increase exposure or the unique-obligation count.
+            let receipt = canonical.receipt;
+            self.accepted.insert(
+                claim.obligation_id,
+                AcceptedObligation {
+                    principal_id: claim.principal_id,
+                    instrument_id: claim.instrument_id,
+                    amount_units: claim.amount_units,
+                    payload_digest: claim.payload_digest,
+                    receipt: receipt.clone(),
+                },
+            );
+            return Ok(AdmissionOutcome::IdempotentReplay(receipt));
+        }
+
         let scope = (claim.principal_id.clone(), claim.instrument_id.clone());
         let cap = self
             .principal_caps
@@ -186,13 +219,16 @@ impl ObligationBook {
 
         // All checks precede mutation: rejection leaves the ID namespace and
         // principal exposure unchanged.
+        self.canonical_id_by_payload_digest
+            .insert(claim.payload_digest, claim.obligation_id.clone());
         self.accepted.insert(claim.obligation_id, accepted);
         self.outstanding_by_principal_instrument.insert(scope, next_used);
         Ok(AdmissionOutcome::Accepted(receipt))
     }
 
     pub fn accepted_count(&self) -> usize {
-        self.accepted.len()
+        // Submitted aliases do not inflate the count of unique obligations.
+        self.canonical_id_by_payload_digest.len()
     }
 
     pub fn outstanding_for(&self, principal_id: &str, instrument_id: &str) -> u64 {
@@ -263,6 +299,65 @@ mod tests {
         assert_eq!(original, replayed);
         assert_eq!(book.accepted_count(), 1);
         assert_eq!(book.outstanding_for("principal-A", "instrument-1"), 4_000);
+    }
+
+    #[test]
+    fn same_canonical_work_under_new_id_is_idempotent() {
+        let mut book = book(1_000);
+        let first = book
+            .admit(verified(
+                "ob-1", "principal-A", "instrument-1", "s-a", 1, 1, 100, 7,
+            ).unwrap())
+            .unwrap();
+        let alias = book
+            .admit(verified(
+                "ob-alias", "principal-A", "instrument-1", "s-b", 99, 800, 100, 7,
+            ).unwrap())
+            .unwrap();
+        let AdmissionOutcome::Accepted(original) = first else {
+            panic!("first claim should be accepted");
+        };
+        let AdmissionOutcome::IdempotentReplay(replayed) = alias else {
+            panic!("same canonical work should replay");
+        };
+        assert_eq!(original, replayed);
+        assert_eq!(book.accepted_count(), 1);
+        assert_eq!(book.outstanding_for("principal-A", "instrument-1"), 100);
+        assert_eq!(book.receipt_for("ob-alias"), Some(&original));
+        assert_eq!(
+            book.admit(verified(
+                "ob-alias", "principal-A", "instrument-1", "s-c", 100, 900, 100, 8,
+            ).unwrap()),
+            Err(AdmissionError::ConflictingObligationId),
+        );
+        assert_eq!(book.accepted_count(), 1);
+        assert_eq!(book.outstanding_for("principal-A", "instrument-1"), 100);
+    }
+
+    #[test]
+    fn same_payload_digest_with_conflicting_amount_or_principal_rejects() {
+        let mut caps = BTreeMap::new();
+        caps.insert(("principal-A".to_owned(), "instrument-1".to_owned()), 1_000);
+        caps.insert(("principal-B".to_owned(), "instrument-1".to_owned()), 1_000);
+        let mut book = ObligationBook::new(caps).unwrap();
+        book.admit(verified(
+            "ob-1", "principal-A", "instrument-1", "s-0", 1, 1, 100, 7,
+        ).unwrap()).unwrap();
+        assert_eq!(
+            book.admit(verified(
+                "ob-2", "principal-A", "instrument-1", "s-1", 1, 2, 101, 7,
+            ).unwrap()),
+            Err(AdmissionError::ConflictingCanonicalObligation),
+        );
+        assert_eq!(
+            book.admit(verified(
+                "ob-3", "principal-B", "instrument-1", "s-2", 1, 3, 100, 7,
+            ).unwrap()),
+            Err(AdmissionError::ConflictingCanonicalObligation),
+        );
+        assert_eq!(book.accepted_count(), 1);
+        assert_eq!(book.outstanding_for("principal-A", "instrument-1"), 100);
+        assert_eq!(book.outstanding_for("principal-B", "instrument-1"), 0);
     }
 
     #[test]
