@@ -1,6 +1,6 @@
 # NCF-ALLOC-5 — Canonical obligation evidence and principal-scoped admission
 
-**Status:** independent sequential Python reference model; eight unit tests pass. This is a policy-oracle model, not cryptographic verification, Rust qualification, concurrent execution, distributed/Holochain behavior, or production settlement.
+**Status:** independent sequential Python reference model; nine unit tests pass. This is a policy-oracle model, not cryptographic verification, Rust qualification, concurrent execution, distributed/Holochain behavior, or production settlement.
 
 ## Why the paradigm must change
 
@@ -10,11 +10,12 @@ NCF-ALLOC-5 shifts the unit of account from **reported shard demand** to **uniqu
 
 - A unique obligation_id bound to principal, instrument and amount. Cross-shard or cross-epoch exact retries return the original receipt and do not add demand again.
 - Same-ID changed amount, principal, or instrument is rejected without changing the book.
+- The accepted payload also includes a canonical obligation-payload digest; reusing an ID for different underlying work is rejected even when amount/principal/instrument match.
 - Principal/instrument caps aggregate distinct obligations across all shard aliases.
 - Missing caps, malformed identifiers, malformed verifier receipt digests, and verifier-rejected evidence fail closed without consuming the ID.
 - A rejected cap attempt does not burn the obligation ID; a corrected amount can be retried.
 
-The reference model's verifier_receipt_ok flag is an assumption supplied to the model. Hashes are deterministic test receipt digests, not signatures. No cryptographic principal resolution, verifier, database transaction, or distributed linearizability is implemented here.
+The model requires a canonical payload digest, but computes that digest from caller-supplied test content; digest binding is not proof of the truth of that content. The reference model's verifier_receipt_ok flag is an assumption supplied to the model. Hashes are deterministic test receipt digests, not signatures. No cryptographic principal resolution, verifier, database transaction, or distributed linearizability is implemented here.
 
 ## Local test and deterministic result
 
@@ -23,7 +24,7 @@ The three Python suites now contain **23 tests total**: 10 NCF-ALLOC-3, 5 NCF-AL
 Files:
 
 - ncf_alloc5_obligation_admission.py — sequential evidence admission model
-- test_ncf_alloc5_obligation_admission.py — eight regression tests
+- test_ncf_alloc5_obligation_admission.py — nine regression tests
 - ncf-alloc5-obligation-admission-results.json — fixed scenario results with source SHA-256 and explicit claim ceiling
 - ncf-alloc5-obligation-campaign.json — machine-readable campaign and acceptance gates
 
