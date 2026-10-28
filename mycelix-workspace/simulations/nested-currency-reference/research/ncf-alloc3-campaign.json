@@ -12,7 +12,7 @@
     "spendable_capacity_units": 95000,
     "equal_floor_ppm": 500000,
     "randomized_attack_cases": 20000,
-    "seed": 5573559978759379000,
+    "seed": 5573559978759378995,
     "attacker_shards_per_case": "uniform integer 1..4",
     "claim_inflation_multiplier": "uniform integer 2..20",
     "actual_demand_units_per_shard": "uniform integer 1000..20000",
