@@ -1,0 +1,44 @@
+{
+  "name": "LIFE Privacy Evaluation — held-out linkability metrics",
+  "version": "0.1.0",
+  "status": "research-prototype",
+  "language": "Rust",
+  "dependencies": [],
+  "inputs": {
+    "truth": "oracle-only truth TSV; must never be passed to attack scoring code",
+    "scores": "attack output with pair_id and score only",
+    "training_subjects": "subject IDs available during attacker training/tuning; must be disjoint from test subjects"
+  },
+  "metrics": [
+    "ROC-AUC",
+    "average_precision",
+    "TPR_at_FPR_le_1pct",
+    "TPR_at_FPR_le_5pct",
+    "subject_cluster_bootstrap_CI95_AUC",
+    "per_stratum_metrics"
+  ],
+  "bootstrap": {
+    "method": "subject-cluster resampling with pair multiplicity weights",
+    "default_replicates": 1000,
+    "default_seed": 9901,
+    "interval": "percentile 95% interval; not a formal privacy guarantee"
+  },
+  "pilot_minimums": {
+    "heldout_pairs": 10000,
+    "distinct_test_subjects": 2000,
+    "interpretation": "necessary sample-size gates, not sufficient evidence or an automatic pass"
+  },
+  "nonclaims": [
+    "not a credential verifier",
+    "not a linkability attacker",
+    "not RFC/OIDF/W3C conformance",
+    "not a differential-privacy proof",
+    "not a SOTA claim"
+  ],
+  "source_contracts": [
+    "Cargo.lock has no external dependencies",
+    "scores TSV cannot contain labels or subject IDs",
+    "subject overlap between train and test fails closed",
+    "pair IDs are opaque and unique"
+  ]
+}
