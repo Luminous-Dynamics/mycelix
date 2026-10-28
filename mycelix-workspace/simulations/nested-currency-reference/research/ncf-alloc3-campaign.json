@@ -12,7 +12,7 @@
     "spendable_capacity_units": 95000,
     "equal_floor_ppm": 500000,
     "randomized_attack_cases": 20000,
-    "seed": 5573559978759378995,
+    "seed": 5573559978759379000,
     "attacker_shards_per_case": "uniform integer 1..4",
     "claim_inflation_multiplier": "uniform integer 2..20",
     "actual_demand_units_per_shard": "uniform integer 1000..20000",
@@ -42,16 +42,20 @@
     "all_allocations_nonnegative",
     "stable_id_tiebreak_independent_of_input_order",
     "invalid_identity_and_parameters_fail_closed",
-    "zero_demand_fallback_is_exact_equal_plan"
+    "zero_demand_fallback_is_exact_equal_plan",
+    "zero_lower_median_uses_equal_cold_start_instead_of_self_defined_positive_cap"
   ],
-  "claim_ceiling": "Lower-median capping is not demand authentication or Sybil resistance. The attack sweep has stable identities, <=25% attacker shards and no identity churn. The honest hotspot sweep assumes a new allocation each epoch and does not model partitions or outstanding obligations.",
+  "claim_ceiling": "Lower-median capping is not demand authentication or Sybil resistance. The attack sweep has stable identities, <=25% attacker shards and no identity churn. The honest hotspot sweep assumes a new allocation each epoch and does not model partitions or outstanding obligations. A zero lower median means no reliable relative scale exists; the bounded-cap policy therefore falls back to equal cold-start weights instead of deriving a cap only from positive claims.",
   "execution_evidence": {
-    "python_unit_tests": "9 passed",
+    "python_unit_tests": "10 passed",
     "python_fixed_seed_allocation_sweep": "10000 cases in unit test; each checks stable-ID order independence and capacity conservation",
     "randomized_attack_sweep": "20000 cases x 5 attack-relevant policies",
     "rust_build_tests_clippy": "not_run; rustc/cargo unavailable in this environment",
     "tla_model_check": "not_run",
     "distributed_benchmark": "not_run"
   },
-  "decision_rule": "Do not select cap/floor from aggregate demand served alone. Evaluate joint honest-load and adversarial-load frontier, worst-shard service, Jain fairness, stranded rights, identity threat model and recovery correctness."
+  "decision_rule": "Do not select cap/floor from aggregate demand served alone. Evaluate joint honest-load and adversarial-load frontier, worst-shard service, Jain fairness, stranded rights, identity threat model and recovery correctness.",
+  "required_tests": [],
+  "source_sha256": "e0557bbaae60e57d6dd1ede9748f395bc2fdc930bd20fbcb212df0a02a1b332f",
+  "results_sha256": "54ce4a1fde19e7a34b766c12822ddcda478c8698a6c522f6d55c3a802e5742a7"
 }
