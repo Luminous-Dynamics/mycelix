@@ -79,3 +79,6 @@ The next design boundary is documented in [NCF-FEN-1: fencing and safe reallocat
 - Bind production operations to canonical serialized profile/policy digests and consumed authorization IDs.
 - Extend profile-version tests into signed policy-digest and authorized migration receipts; the in-memory snapshot is not a cryptographic authority proof.
 - Integrate only after the existing Finance author-binding, issuer-scoped capability, typed-amount, and settlement/finality requirements qualify.
+
+
+The next research increment, [NCF-ALLOC-5 obligation admission](research/NCF-ALLOC-5-obligation-admission.md), changes the unit of account from self-reported shard demand to unique eligible obligations scoped to a canonical principal and instrument. Its sequential oracle tests duplicate IDs, cross-shard/cross-epoch retries, conflicting payloads, fail-closed verifier/cap inputs, and principal caps aggregated across aliases. This assumes a trustworthy external verifier and is not cryptographic, concurrent, Rust, or Holochain qualification; the campaign and explicit evidence limits are in `research/ncf-alloc5-obligation-campaign.json`.
