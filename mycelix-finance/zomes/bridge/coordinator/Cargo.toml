@@ -12,6 +12,7 @@ name = "finance_bridge"
 [dependencies]
 mycelix-zome-helpers = { workspace = true }
 holochain_serialized_bytes = { workspace = true }
+holo_hash = { workspace = true }
 hdk = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
