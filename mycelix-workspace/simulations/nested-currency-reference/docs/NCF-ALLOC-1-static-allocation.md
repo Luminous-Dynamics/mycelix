@@ -116,3 +116,8 @@ The [NCF-ALLOC-4 identity-splitting campaign](../research/NCF-ALLOC-4-identity-s
 ### Zero-median bounded-cap fallback
 
 The median-capped policy now treats a zero lower median as **no reliable scale for a relative cap**. Rather than calculating a threshold from only positive claims (which would allow sparse outliers to set their own cap), it zeroes the relative weights and uses the allocator's deterministic equal-share cold-start fallback. The regression `median_cap_with_zero_lower_median_uses_equal_cold_start` and Python analogue cover one positive claim among fifteen zero-claim shards. This fallback is conservative policy behavior, not an assertion that all shards have equal true demand.
+
+
+### Rust obligation admission static audit (2026-10-28)
+
+The typed `src/obligation.rs` sequential reference model was reviewed without a Rust compiler. The audit found a missing initialization for `canonical_id_by_payload_digest` in `ObligationBook::new`, which would prevent compilation; that field is now initialized. It also tightened request-ID replay binding: exact retries must match the verifier version and verifier-receipt digest stored for that request ID. Canonical-work aliases can still return the original canonical receipt, but the alias retains its own verifier evidence so future retries of that alias are consistent. Two test definitions cover a same-ID proof substitution and an alias with its own verifier evidence. The module now has fourteen `#[test]` functions, and `NCF-QUAL-007` names all fourteen. This is a static source correction, not a compile/test pass; Cargo/rustc are unavailable in this environment.
