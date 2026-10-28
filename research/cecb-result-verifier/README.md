@@ -37,6 +37,10 @@ The public CECB paired-plan generator currently emits paired_design.v0.1 as a de
 
 The final CLI PASS is not a shape-only result. For each result row, `artifact_paths` must have exactly the same keys as `artifact_digests` and include `result_trace`, `initial_world_state` and `exogenous_event_stream`. Paths must be safe relative paths beneath the caller-supplied root; absolute paths, parent traversal, backslash paths, symlink escapes, duplicate/aliased paths, missing files and digest mismatches fail closed. The verifier reads each referenced file, calculates SHA-256 over the actual bytes and compares it with the declared digest. A digest still proves byte identity—not that the trace faithfully represents a truthful model execution.
 
+## Current development validation
+
+The current source defines 53 Rust test functions, including positive bundle checks and mutation controls for contract changes, digest mismatches, unknown values, omitted groups/resources, malformed artifact paths, missing files, tampered bytes and symlink escapes. These are authored tests, not a claim of execution: this authoring environment has no `cargo` or `rustc`. Use the exact-head CI receipt to determine whether formatting, compilation and tests actually ran and passed.
+
 ## Known limitations
 
 - The execution-authorized paired_design.v0.2 contract—including event-keyed RNG schedule identity and equal resource/compute-budget profile identity—still needs to be implemented by the plan generator under [CIV-IMPACT-003 / #5506](https://github.com/Luminous-Dynamics/mycelix/issues/5506), with event-stream invariance tests tracked in [#5507](https://github.com/Luminous-Dynamics/mycelix/issues/5507). The existing design-only v0.1 manifest must fail verification; no automated migration or relabelling is implied.
