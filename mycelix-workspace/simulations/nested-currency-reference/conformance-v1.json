@@ -3072,10 +3072,11 @@
         "ncf-alloc9-checkpoint-results-summary.json",
         "ncf-alloc9-checkpoint-campaign.json",
         "NCF-ALLOC-9-checkpoint-stress.md",
-        "NCF-ALLOC-9-TEST-RESULTS.txt"
+        "NCF-ALLOC-9-TEST-RESULTS.txt",
+        "ncf-alloc9-runtime-gate-result.json"
       ],
       "execution_status": "five_NCF9_tests_passed; combined_NCF8_NCF9_NCF10_15_tests_passed; four_campaigns_zero_observed_failures; fixed_engine_gate_fails_closed_on_3.46.1",
-      "acceptance": "The exact checked-in source blob matches locally executed source SHA-256 534ba9ac776e085b632f453e6cb9282b12c9d8e60f93501146c62a5d7191eeff and Git blob 436e58d6a48f9be58fb11602069c6c169f035161. Five NCF-ALLOC-9 tests pass (fifteen combined across NCF-ALLOC-8/9/10). Four local campaigns at 1k, 8k, 20k and 20k writes had zero recorded invariant failures; all snapshots were consistent and final checkpoints returned [0,0,0]. Current SQLite 3.46.1 correctly fails --require-fixed-sqlite; no fixed-engine pass is claimed. Repeat on SQLite 3.54.1 or at minimum 3.51.3 / verified backport and pass the dedicated WAL-reset regression."
+      "acceptance": "The exact checked-in source blob matches locally executed source SHA-256 534ba9ac776e085b632f453e6cb9282b12c9d8e60f93501146c62a5d7191eeff and Git blob 436e58d6a48f9be58fb11602069c6c169f035161. Five NCF-ALLOC-9 tests pass (fifteen combined across NCF-ALLOC-8/9/10). Four local campaigns at 1k, 8k, 20k and 20k writes had zero recorded invariant failures; all snapshots were consistent and final checkpoints returned [0,0,0]. Current SQLite 3.46.1 correctly fails --require-fixed-sqlite; no fixed-engine pass is claimed. Repeat on SQLite 3.54.1 or at minimum 3.51.3 / verified backport and pass the dedicated WAL-reset regression. The expected fail-closed gate receipt is checked in at ncf-alloc9-runtime-gate-result.json (exit status 2; linked runtime SQLite 3.46.1)."
     },
     {
       "id": "NCF-QUAL-012",
