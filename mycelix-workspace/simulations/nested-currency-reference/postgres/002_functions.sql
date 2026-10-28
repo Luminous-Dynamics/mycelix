@@ -21,6 +21,7 @@ AS $
 DECLARE
     v_agreement ncf.clearing_agreement%ROWTYPE;
     v_cap ncf.community_instrument_cap%ROWTYPE;
+    v_edge ncf.agreement_direction_cap%ROWTYPE;
     v_existing ncf.reservation_slice%ROWTYPE;
 BEGIN
     IF p_reservation_id IS NULL OR p_agreement_id IS NULL
@@ -76,7 +77,17 @@ BEGIN
     IF NOT FOUND THEN
         RETURN jsonb_build_object('decision', 'rejected', 'reason', 'missing_community_instrument_cap');
     END IF;
-    IF v_cap.allocated_units + p_reserved_units > v_cap.cap_units THEN
+    SELECT * INTO v_edge
+      FROM ncf.agreement_direction_cap
+     WHERE agreement_id = p_agreement_id AND direction = p_direction
+     FOR UPDATE;
+    IF NOT FOUND
+       OR v_edge.community_id <> p_community_id
+       OR v_edge.instrument_id <> p_instrument_id THEN
+        RETURN jsonb_build_object('decision', 'rejected', 'reason', 'missing_or_mismatched_agreement_direction_cap');
+    END IF;
+    IF v_cap.allocated_units + p_reserved_units > v_cap.cap_units
+       OR v_edge.allocated_units + p_reserved_units > v_edge.cap_units THEN
         RETURN jsonb_build_object('decision', 'rejected', 'reason', 'reservation_exceeds_unallocated_cap');
     END IF;
 
@@ -91,6 +102,9 @@ BEGIN
     UPDATE ncf.community_instrument_cap
        SET allocated_units = allocated_units + p_reserved_units
      WHERE community_id = p_community_id AND instrument_id = p_instrument_id;
+    UPDATE ncf.agreement_direction_cap
+       SET allocated_units = allocated_units + p_reserved_units
+     WHERE agreement_id = p_agreement_id AND direction = p_direction;
 
     RETURN jsonb_build_object(
         'decision', 'accepted',
@@ -144,6 +158,7 @@ DECLARE
     v_existing ncf.obligation%ROWTYPE;
     v_agreement ncf.clearing_agreement%ROWTYPE;
     v_cap ncf.community_instrument_cap%ROWTYPE;
+    v_edge ncf.agreement_direction_cap%ROWTYPE;
     v_slice ncf.reservation_slice%ROWTYPE;
     v_obligation_id bigint;
     v_new_receipt jsonb;
@@ -234,7 +249,7 @@ BEGIN
         );
     END IF;
 
-    -- Lock order for all new-admission paths: agreement -> community cap -> reservation slice.
+    -- Global lock order: agreement -> community/instrument cap -> edge/direction cap -> reservation slice -> obligation.
     SELECT * INTO v_agreement
       FROM ncf.clearing_agreement
      WHERE agreement_id = p_agreement_id
@@ -260,6 +275,16 @@ BEGIN
         RETURN jsonb_build_object('decision', 'rejected', 'reason', 'missing_community_instrument_cap');
     END IF;
 
+    SELECT * INTO v_edge
+      FROM ncf.agreement_direction_cap
+     WHERE agreement_id = p_agreement_id AND direction = p_direction
+     FOR UPDATE;
+    IF NOT FOUND
+       OR v_edge.community_id <> p_community_id
+       OR v_edge.instrument_id <> p_instrument_id THEN
+        RETURN jsonb_build_object('decision', 'rejected', 'reason', 'missing_or_mismatched_agreement_direction_cap');
+    END IF;
+
     SELECT * INTO v_slice
       FROM ncf.reservation_slice
      WHERE reservation_id = p_reservation_id
@@ -276,8 +301,10 @@ BEGIN
     END IF;
 
     IF v_cap.outstanding_units + p_amount_units > v_cap.allocated_units
-       OR v_cap.outstanding_units + p_amount_units > v_cap.cap_units THEN
-        RETURN jsonb_build_object('decision', 'rejected', 'reason', 'community_instrument_cap_exceeded');
+       OR v_cap.outstanding_units + p_amount_units > v_cap.cap_units
+       OR v_edge.outstanding_units + p_amount_units > v_edge.allocated_units
+       OR v_edge.outstanding_units + p_amount_units > v_edge.cap_units THEN
+        RETURN jsonb_build_object('decision', 'rejected', 'reason', 'community_instrument_or_edge_cap_exceeded');
     END IF;
     IF v_slice.used_units + p_amount_units > v_slice.reserved_units THEN
         RETURN jsonb_build_object('decision', 'rejected', 'reason', 'reservation_slice_exhausted');
@@ -286,6 +313,9 @@ BEGIN
     UPDATE ncf.community_instrument_cap
        SET outstanding_units = outstanding_units + p_amount_units
      WHERE community_id = p_community_id AND instrument_id = p_instrument_id;
+    UPDATE ncf.agreement_direction_cap
+       SET outstanding_units = outstanding_units + p_amount_units
+     WHERE agreement_id = p_agreement_id AND direction = p_direction;
     UPDATE ncf.reservation_slice
        SET used_units = used_units + p_amount_units
      WHERE reservation_id = p_reservation_id;
@@ -394,6 +424,7 @@ DECLARE
     v_obligation ncf.obligation%ROWTYPE;
     v_agreement ncf.clearing_agreement%ROWTYPE;
     v_cap ncf.community_instrument_cap%ROWTYPE;
+    v_edge ncf.agreement_direction_cap%ROWTYPE;
     v_slice ncf.reservation_slice%ROWTYPE;
     v_existing ncf.settlement_receipt%ROWTYPE;
     v_receipt jsonb;
@@ -419,12 +450,16 @@ BEGIN
         RETURN jsonb_build_object('decision', 'rejected', 'reason', 'obligation_not_found');
     END IF;
 
-    -- Follow the same lock order as admission to avoid cap/slice/obligation deadlocks.
+    -- Follow admission's lock order: agreement -> community cap -> edge cap -> slice -> obligation.
     SELECT * INTO v_agreement
       FROM ncf.clearing_agreement WHERE agreement_id = v_before.agreement_id FOR SHARE;
     SELECT * INTO v_cap
       FROM ncf.community_instrument_cap
      WHERE community_id = v_before.community_id AND instrument_id = v_before.instrument_id
+     FOR UPDATE;
+    SELECT * INTO v_edge
+      FROM ncf.agreement_direction_cap
+     WHERE agreement_id = v_before.agreement_id AND direction = v_before.direction
      FOR UPDATE;
     SELECT * INTO v_slice
       FROM ncf.reservation_slice WHERE reservation_id = v_before.reservation_id FOR UPDATE;
@@ -442,8 +477,9 @@ BEGIN
     IF v_obligation.state <> 'outstanding' THEN
         RETURN jsonb_build_object('decision', 'rejected', 'reason', 'obligation_not_outstanding');
     END IF;
-    IF v_cap.community_id IS NULL OR v_slice.reservation_id IS NULL
+    IF v_cap.community_id IS NULL OR v_edge.agreement_id IS NULL OR v_slice.reservation_id IS NULL
        OR v_cap.outstanding_units < v_obligation.amount_units
+       OR v_edge.outstanding_units < v_obligation.amount_units
        OR v_slice.used_units < v_obligation.amount_units THEN
         RAISE EXCEPTION 'NCF ledger counters inconsistent before settlement of obligation %', p_obligation_id;
     END IF;
@@ -451,6 +487,9 @@ BEGIN
     UPDATE ncf.community_instrument_cap
        SET outstanding_units = outstanding_units - v_obligation.amount_units
      WHERE community_id = v_obligation.community_id AND instrument_id = v_obligation.instrument_id;
+    UPDATE ncf.agreement_direction_cap
+       SET outstanding_units = outstanding_units - v_obligation.amount_units
+     WHERE agreement_id = v_obligation.agreement_id AND direction = v_obligation.direction;
     UPDATE ncf.reservation_slice
        SET used_units = used_units - v_obligation.amount_units
      WHERE reservation_id = v_obligation.reservation_id;
