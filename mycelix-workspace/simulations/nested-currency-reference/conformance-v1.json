@@ -7,7 +7,7 @@
   "status": "proposed_not_qualified",
   "execution_evidence": {
     "status": "not_run",
-    "reason": "Static Rust allocator changes, including the new median-capped policy variants, per-shard fairness test, and matched-trace benchmark remain uncompiled/unexecuted in this environment. The separate NCF-ALLOC-3 Python attack sweep is explicitly research-reference evidence only. Exact-head Rust/TLA+ receipts, real demand traces, and multi-agent/Holochain qualification remain outstanding."
+    "reason": "Static Rust allocator changes, including the new median-capped policy variants, per-shard fairness test, and matched-trace benchmark remain uncompiled/unexecuted in this environment. The separate NCF-ALLOC-3 Python attack sweep is explicitly research-reference evidence only. Exact-head Rust/TLA+ receipts, real demand traces, and multi-agent/Holochain qualification remain outstanding. NCF-ALLOC-3 source, tests, results, campaign specification, run guide, and limitations documentation are checked in under research/; their execution records identify Python-only evidence separately from the Rust qualification gate."
   },
   "claim_ceiling": [
     "Reference-model conformance only when executed against a named source revision.",
@@ -1243,7 +1243,13 @@
         "results_path": "mycelix-workspace/simulations/nested-currency-reference/research/ncf-alloc3-results.json",
         "unit_tests_passed": 9,
         "randomized_attack_cases": 20000,
-        "randomized_policy_evaluations": 100000
+        "randomized_policy_evaluations": 100000,
+        "campaign_path": "mycelix-workspace/simulations/nested-currency-reference/research/ncf-alloc3-campaign.json",
+        "run_guide_path": "mycelix-workspace/simulations/nested-currency-reference/research/RUN-NCF-ALLOC-3.md",
+        "documentation_path": "mycelix-workspace/simulations/nested-currency-reference/research/NCF-ALLOC-3-bounded-influence.md",
+        "test_execution_record": "mycelix-workspace/simulations/nested-currency-reference/research/TEST-RESULTS.txt",
+        "source_sha256": "3422c79a7577921ff827be2d0d001cc11df135a089b5c5cc1fbbacdc656d88ed",
+        "results_sha256": "bbe3b9a9498aff507d6bb0fd8b293929c75aa368d8c034cbd73f4e601401cfa6"
       }
     }
   ],
