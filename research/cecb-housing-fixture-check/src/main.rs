@@ -526,14 +526,16 @@ fn validate_h004(case: &Value, errors: &mut Vec<String>) {
         i64_at(case, &["policy_observation", "listing_D3_last_inspected_month"]),
         u64_at(case, &["policy_observation", "declared_max_inspection_age_months"]),
     ) {
-        let age_at_scenario_start = 0_i64.saturating_sub(last_inspected) as u64;
-        if age_at_scenario_start <= max_age {
-            errors.push(
+        match inspection_age_months(0, last_inspected) {
+            Some(age) if age > max_age => {}
+            Some(_) => errors.push(
                 "D3 inspection age must exceed the declared maximum when marked stale".to_owned(),
-            );
+            ),
+            None => errors.push(
+                "D3 inspection month must not be in the future or overflow age arithmetic".to_owned(),
+            ),
         }
-    }
-}
+    }}
 
 fn validate_h005(case: &Value, errors: &mut Vec<String>) {
     expect_u64(case, &["world", "initial_safe_suitable_units"], 2, "initial capacity", errors);
@@ -837,15 +839,11 @@ fn make_policy_view(input: &str) -> Result<Value, String> {
         .ok_or("missing cases array")?;
     let mut visible_cases = Vec::<Value>::with_capacity(cases.len());
 
-    for case in cases {
+    for (index, case) in cases.iter().enumerate() {
         let case_id = case
             .get("case_id")
             .and_then(Value::as_str)
             .ok_or("case missing case_id")?;
-        let purpose = case
-            .get("purpose")
-            .and_then(Value::as_str)
-            .ok_or_else(|| format!("case {case_id} missing purpose"))?;
         let observation = case
             .get("policy_observation")
             .cloned()
@@ -860,22 +858,29 @@ fn make_policy_view(input: &str) -> Result<Value, String> {
             ));
         }
 
+        // Candidate-visible identifiers must not repeat semantic case labels. A future
+        // competitive runner should also randomize this mapping per evaluation run.
+        let case_token = format!("case_{:03}", index + 1);
         visible_cases.push(json!({
-            "case_id": case_id,
-            "purpose": purpose,
+            "case_token": case_token,
             "observation": observation
         }));
     }
 
     Ok(json!({
-        "schema_version": "cecb.housing.policy_view.v0.1",
+        "schema_version": "cecb.housing.policy_view.v0.2",
         "source_schema_version": root["schema_version"],
         "claim_ceiling": concat!(
-            "Candidate-visible synthetic observations only; excludes world and oracle facts; ",
-            "it is not real-world data."
+            "Candidate-visible synthetic observations only; excludes fixture labels, ",
+            "purpose text, world and oracle facts; it is not real-world data."
         ),
         "cases": visible_cases
     }))
+}
+
+fn inspection_age_months(current_month: i64, last_inspected_month: i64) -> Option<u64> {
+    let age = current_month.checked_sub(last_inspected_month)?;
+    u64::try_from(age).ok()
 }
 
 fn value_at<'a>(root: &'a Value, path: &[&str]) -> Option<&'a Value> {
@@ -995,13 +1000,40 @@ mod tests {
     }
 
     #[test]
-    fn policy_view_excludes_world_and_oracle_truth() {
+    fn policy_view_excludes_world_truth_and_semantic_fixture_labels() {
         let view = make_policy_view(EMBEDDED_FIXTURE).expect("policy view builds");
         let serialized = serde_json::to_string(&view).expect("policy view serializes");
+        assert_eq!(view["schema_version"], "cecb.housing.policy_view.v0.2");
         assert!(!serialized.contains("oracle_facts"));
         assert!(!serialized.contains("true_safe_suitable_capacity"));
-        assert!(!serialized.contains("\"world\""));
+        assert!(!serialized.contains("\\"world\\""));
+        assert!(!serialized.contains("\\"purpose\\""));
+        assert!(!serialized.contains("H001_FIXED_CAPACITY_CEILING"));
         assert_eq!(view["cases"].as_array().map(Vec::len), Some(10));
+
+        let cases = view["cases"].as_array().expect("candidate cases array");
+        let tokens = cases
+            .iter()
+            .map(|case| {
+                assert!(case.get("case_id").is_none());
+                assert!(case.get("purpose").is_none());
+                assert!(case.get("observation").is_some());
+                case["case_token"].as_str().expect("opaque case token")
+            })
+            .collect::<BTreeSet<_>>();
+        assert_eq!(tokens.len(), 10, "case tokens must be unique");
+    }
+
+    #[test]
+    fn inspection_age_rejects_future_timestamps_and_overflow() {
+        assert_eq!(inspection_age_months(0, 1), None);
+        assert_eq!(inspection_age_months(i64::MAX, i64::MIN), None);
+    }
+
+    #[test]
+    fn inspection_age_uses_integer_month_boundaries() {
+        assert_eq!(inspection_age_months(0, -3), Some(3));
+        assert_eq!(inspection_age_months(0, -4), Some(4));
     }
 
     #[test]
