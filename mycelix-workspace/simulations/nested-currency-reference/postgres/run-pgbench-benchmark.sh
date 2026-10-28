@@ -8,7 +8,8 @@ THREADS="${PG_NCF_THREADS:-4}"
 DURATION="${PG_NCF_DURATION_SECONDS:-30}"
 OUT_DIR="${PG_NCF_OUTPUT_DIR:-$(mktemp -d "${TMPDIR:-/tmp}/ncf-pgbench.XXXXXX")}"
 mkdir -p "$OUT_DIR"
-TMP="$OUT_DIR"
+TMP="$OUT_DIR/run-$(date -u +%Y%m%dT%H%M%SZ)-$"
+mkdir -p "$TMP"
 
 if ! command -v pgbench >/dev/null 2>&1; then
   echo "pgbench executable is required (install the PostgreSQL client tools)" >&2
@@ -39,7 +40,7 @@ if [[ "$rc" -ne 0 ]]; then
 fi
 
 python3 - "$TMP" <<'PY'
-import glob, json, math, pathlib, statistics, sys
+import glob, json, math, pathlib, re, statistics, sys
 root=pathlib.Path(sys.argv[1])
 samples=[]; failed=[]
 for path in glob.glob(str(root/"pgbench.*")):
@@ -90,7 +91,16 @@ o["source_sha256"]={
   "pgbench_script":hashlib.sha256((pathlib.Path(sys.argv[7])/"pgbench_admit.sql").read_bytes()).hexdigest(),
   "runner":hashlib.sha256((pathlib.Path(sys.argv[7])/"run-pgbench-benchmark.sh").read_bytes()).hexdigest()
 }
-o["pgbench_stdout"]=(root/"pgbench.stdout").read_text(encoding="utf-8")
+stdout=(root/"pgbench.stdout").read_text(encoding="utf-8")
+o["pgbench_stdout"]=stdout
+match=re.search(r"\\btps = ([0-9.]+)",stdout)
+o["pgbench_reported_tps"]=float(match.group(1)) if match else None
+match=re.search(r"number of transactions actually processed: ([0-9]+)",stdout)
+o["pgbench_processed_transactions"]=int(match.group(1)) if match else None
+match=re.search(r"number of failed transactions: ([0-9]+)",stdout)
+o["pgbench_failed_transactions"]=int(match.group(1)) if match else None
+match=re.search(r"latency average = ([0-9.]+) ms",stdout)
+o["pgbench_reported_average_latency_ms"]=float(match.group(1)) if match else None
 summary_path.write_text(json.dumps(o,indent=2)+"\\n",encoding="utf-8")
 print("Benchmark receipt enriched with runtime, parameters and exact source SHA-256 values.")
 PY
