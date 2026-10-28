@@ -40,5 +40,8 @@
     "scores TSV cannot contain labels or subject IDs",
     "subject overlap between train and test fails closed",
     "pair IDs are opaque and unique"
-  ]
+  ],
+  "scenario_matrix_file": "attack-scenario-matrix.json",
+  "declared_scenario_count": 11,
+  "comparison_policy": "Run all required observer/scenario pairs where applicable; separately report each attacker and the strongest attacker result. Never treat an inapplicable channel as a privacy pass."
 }
