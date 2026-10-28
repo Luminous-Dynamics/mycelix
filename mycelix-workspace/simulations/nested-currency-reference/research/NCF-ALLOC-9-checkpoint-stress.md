@@ -1,8 +1,8 @@
 # NCF-ALLOC-9 — checkpoint concurrency and ledger-consistency stress
 
 **Status:** bounded local Python/SQLite stress completed; engine-level and production storage claims remain open.  
-**Execution source SHA-256:** \`e429db1a25427a707be54778dd5c400a06534914114981e7504128a8dc54ee91\`  
-**Git blob SHA (repository source):** \`24106e44118c0f607a4178f738103e3915e28ee6\` — verified byte-for-byte against the local source.  
+**Execution source SHA-256:** \`77a38876f219cc781ef1fb06feea4fd579b1cfe65f0611c7d76a2de6b17076ca\`  
+**Git blob SHA (repository source):** \`d87d4bf4aa843ba8bfa74bbb278383d186d72885\` — verified byte-for-byte against the local source.  
 **Environment:** Python 3.13.5 / SQLite 3.46.1 / Linux / one local filesystem.
 
 ## Paradigm shift
@@ -11,22 +11,22 @@ NCF-ALLOC-8 treated the application-process crash boundary as a critical failure
 
 Each accepted write must remain in the ledger. Each reader's counter and obligation-sum queries must agree within one transaction. After all concurrent activity stops, the ledger must reconcile and a final TRUNCATE checkpoint must return \`[0, 0, 0]\`.
 
-A checkpoint that is busy or only partially completes is not automatically corruption. The harness records intermediate busy/partial outcomes separately, continues checking safety, and applies a stronger final-quiescence checkpoint gate.
+A checkpoint that is busy or only partially completes is not automatically corruption. The harness records intermediate busy/partial outcomes separately, continues checking safety, and applies a stronger final-quiescence checkpoint gate. An explicit regression holds an old reader snapshot, commits a writer, confirms a TRUNCATE checkpoint reports busy/partial, releases the reader, and confirms the final checkpoint succeeds.
 
 ## Results
 
 | Workload | Accepted writes | Checkpoint attempts | Busy/partial | Read snapshots | Consistent snapshots | Wall time | Accepted writes/s |
 |---|---:|---:|---:|---:|---:|---:|---:|
-| 1,000 writes | 1,000/1,000 | 750 | 1 | 900 | 900/900 | 0.418 s | 2,395 |
+| 1,000 writes | 1,000/1,000 | 750 | 1 | 900 | 900/900 | 0.425 s | 2,353 |
 | 8,000 writes | 8,000/8,000 | 2,500 | 70 | 4,000 | 4,000/4,000 | 3.436 s | 2,329 |
-| 20,000 writes, run 1 | 20,000/20,000 | 5,000 | 1,443 | 6,000 | 6,000/6,000 | 6.234 s | 3,208 |
-| 20,000 writes, run 2 | 20,000/20,000 | 5,000 | 375 | 6,000 | 6,000/6,000 | 5.816 s | 3,439 |
+| 20,000 writes, run 1 | 20,000/20,000 | 5,000 | 673 | 6,000 | 6,000/6,000 | 6.524 s | 3,066 |
+| 20,000 writes, run 2 | 20,000/20,000 | 5,000 | 13 | 6,000 | 6,000/6,000 | 6.959 s | 2,874 |
 
 Every run recorded **zero invariant failures**. Each final state had \`used_units\` equal to the sum of unique obligation amounts, no duplicate work digests, no foreign-key violations, \`PRAGMA integrity_check = ok\`, and a successful final checkpoint result \`[0, 0, 0]\`.
 
 The 20,000-write runs ended at 99,992 used units for 20,000 unique obligations. Write latency for 20k run 1 was p50/p95/p99 \`0.2370/0.4823/1.4555 ms\`; run 2 was \`0.2172/0.4524/1.1195 ms\`. Throughput varied between runs; publish the range and workload rather than a single headline number. These are Python + local SQLite results, not a financial-rail or distributed-database SOTA comparison.
 
-Busy/partial checkpoint observations varied substantially between identical 20k runs (1,443 vs 375 out of 5,000). This is why checkpoint completion must be reported as its own metric, not interpreted as a corruption rate. The final quiescent checkpoint and ledger gates passed on both runs.
+Busy/partial checkpoint observations varied substantially between identical 20k runs (673 vs 13 out of 5,000). This is why checkpoint completion must be reported as its own metric, not interpreted as a corruption rate. The final quiescent checkpoint and ledger gates passed on both runs.
 
 ## Engine-level caveat: this is not the WAL-reset bug reproducer
 
