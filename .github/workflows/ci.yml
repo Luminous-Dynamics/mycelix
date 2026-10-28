@@ -202,6 +202,9 @@ jobs:
             .scheduled_run_count == 32400 and
             .design.model_binding.execution_authorized == false and
             .design.model_binding.numeric_scenario_value_mapping == "unresolved_labels_only" and
+            .run_result_contract.schema_version == "cecb.housing.policy_result.v0.1" and
+            (.run_result_contract.required_fields | length == 14) and
+            .run_result_contract.forbidden_aggregate_field == "universal_welfare_scalar" and
             (.outcome_contract | length == 12) and
             (.runs | length == 32400) and
             ([.runs[].run_id] | unique | length == 32400) and
