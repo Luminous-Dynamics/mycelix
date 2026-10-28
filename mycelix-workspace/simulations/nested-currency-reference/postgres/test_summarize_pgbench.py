@@ -18,6 +18,12 @@ latency average = 2.000 ms
 tps = 42.5 (without initial connection time)
 """
 
+TIMED_STDOUT = """number of transactions actually processed: 3
+number of failed transactions: 0 (0.000%)
+latency average = 2.000 ms
+tps = 42.5 (without initial connection time)
+"""
+
 
 def make_dir(lines: str, stdout: str = STDOUT):
     owner = tempfile.TemporaryDirectory(prefix="pgbench-parser-test-")
@@ -42,6 +48,11 @@ class PgbenchReceiptTests(unittest.TestCase):
         parsed = summarizer.parse_pgbench_stdout(STDOUT)
         self.assertEqual(parsed["pgbench_reported_tps"], 42.5)
         self.assertEqual(parsed["pgbench_processed_transactions"], 3)
+
+    def test_timed_mode_single_count_output_is_accepted(self):
+        parsed = summarizer.parse_pgbench_stdout(TIMED_STDOUT)
+        self.assertEqual(parsed["pgbench_processed_transactions"], 3)
+        self.assertIsNone(parsed["pgbench_scheduled_transactions"])
 
     def test_failed_transaction_is_fail_closed(self):
         stdout = STDOUT.replace("3/3", "1/2").replace("0 (0.000%)", "1 (50.000%)")
