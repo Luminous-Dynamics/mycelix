@@ -120,3 +120,40 @@ The matrix separates six attacker profiles: no-signal control, deterministic cha
 Standards context: the W3C threat model is a Group Note Draft and must be treated as an evolving threat taxonomy; RFC 9901 is the IETF Standards Track SD-JWT specification; BBS derived-proof properties do not remove every metadata or issuer-key correlation channel. OpenID4VP/OpenID4VCI + HAIP conformance remains a separate official test lane. The evaluator's synthetic smoke controls cannot be presented as credential-format measurements, deployment privacy proof, or a SOTA result.
 
 Release-scale priorities remain: matched real-format implementations and task utility; a preregistered attacker ladder with subject-disjoint splits; top-k retrieval and effective-anonymity-set reporting where retrieval is defined; worst-stratum analysis; longitudinal/collusion traces; validation-locked low-FPR evaluation with rare-event uncertainty; and payload, p50/p95/p99 latency, memory and measured-energy frontier. The 10,000-pair / 2,000-subject floors are screening floors, not sufficient evidence or an automatic pass.
+
+
+## Closed-set retrieval risk — v0.4
+
+Pairwise ROC-AUC does not answer a different operational question: if a verifier has a cohort of candidate identities, how often can it rank the correct person first or among its top few candidates? The `retrieval` subcommand evaluates that question without trying to derive retrieval ranks from pairwise classifier scores.
+
+### Inputs
+
+Oracle-only `retrieval-truth.tsv` has exactly these columns:
+
+```text
+query_id<TAB>query_subject<TAB>candidate_id<TAB>candidate_subject<TAB>true_match<TAB>stratum
+```
+
+Attacker output `retrieval-scores.tsv` contains only `query_id`, `candidate_id`, and finite `score`. Do not expose query/candidate subject identities or `true_match` labels to attack scoring. Pair rows are joined exactly; missing, extra or duplicate query/candidate handles fail closed. Training subjects must be disjoint from every query and candidate subject.
+
+This first implementation deliberately uses a **closed-set** design: each query has exactly one true candidate, the query subject appears in the candidate pool, and every query uses the same candidate pool. Open-set detection (including the case where no candidate matches) is a separate extension and must not be silently mixed into these metrics.
+
+### Metrics and tie semantics
+
+The report includes Top-1/3/5/10 re-identification rate, mean reciprocal rank, expected target rank and median/p95 rank, a uniform-random ranking baseline, per-stratum outcomes, and deterministic query-subject-cluster bootstrap intervals for Top-1, Top-5 and MRR. Equal scores are handled by uniform expected rank within the true target's tie block; this gives fractional Top-k credit and avoids lexical candidate IDs acting as an unstated tie-breaker.
+
+Intervals are explicitly **conditional on the fixed candidate pool**. Query-subject resampling does not measure uncertainty from sampling a different candidate population, and shared candidate pools can induce dependence. Future work should add a preregistered candidate-population resampling design or crossed query/candidate cluster method before making broader population claims.
+
+The evaluator does **not** convert arbitrary scores into posterior probabilities and does not claim an effective anonymity set. Anonymity set size alone ignores uneven attacker probabilities, while entropy-based estimates can also misrepresent identification correctness when the population distribution is non-uniform or heavy-tailed. See [Andersson & Lundin, *On the Fundamentals of Anonymity Metrics*](https://dl.ifip.org/db/conf/ifip9-6/fidis2007/AnderssonL07.pdf) and the 2024 [scaling-law analysis of identification techniques](https://www.nature.com/articles/s41467-024-55296-6). A defensible probability-based effective anonymity metric requires calibrated candidate posterior probabilities and explicit calibration/shift checks; it is not inferred from ranks here.
+
+Run it with:
+
+```sh
+cargo run --locked --manifest-path research/life-privacy-eval/Cargo.toml -- retrieval \\
+  research/life-privacy-eval/fixtures/retrieval-truth.tsv \\
+  research/life-privacy-eval/fixtures/retrieval-scores.tsv \\
+  research/life-privacy-eval/fixtures/retrieval-training-subjects.txt \\
+  /tmp/retrieval-report.json 300 9901
+```
+
+The committed four-query fixture is a synthetic known-answer check only. It is expected to produce Top-1 = 0.375, Top-3 = 0.75, mean reciprocal rank = 0.58333333, and mean expected rank = 2.375. These are fixture semantics, not real-world measurements. Release remains closed without separate utility and official conformance evidence.
