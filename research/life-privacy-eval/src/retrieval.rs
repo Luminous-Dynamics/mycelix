@@ -2,7 +2,7 @@ use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
 use std::error::Error;
 use std::fs;
 
-const VERSION: &str = "0.5.0";
+const VERSION: &str = "0.6.0";
 const DEFAULT_BOOTSTRAPS: usize = 1_000;
 const DEFAULT_SEED: u64 = 9_901;
 const MIN_QUERIES_FOR_REVIEW: usize = 2_000;
