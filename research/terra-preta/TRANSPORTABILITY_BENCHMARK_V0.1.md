@@ -48,6 +48,14 @@ Do not merge this field-observation release with the separate MIR-derived soil-p
 - **Soils4Africa / Africa Soil Information System:** ISRIC announced on 5 October 2026 an initial release of estimates for 19 soil properties derived from MIR spectra for more than 11,000 samples collected at more than 6,100 locations across 21 African countries, alongside a pesticide-residue dataset from 272 topsoil locations. These are regional context and coverage resources. Store property-specific measurement/derivation method, geographic coverage, uncertainty, provenance, and access/license terms; do not silently relabel a spectrally derived estimate as a direct lab measurement. Confirm South African site coverage and access rights from the actual dataset before planning a local analysis.
 - **AquaCrop 7.3:** FAO announced availability on 30 July 2026, including Python source. It is a crop-water productivity comparator when model scope, input data, calibration, and boundary assumptions genuinely match. Keep it as a version-pinned external reference, not an automatic baseline for biochar causal effects or an unreviewed production dependency.
 
+### Acquisition ledger
+
+The machine-readable [source register v0.1](./source-register.v0.1.json) is the authoritative acquisition ledger for this benchmark. Its contract is [source-register.schema.json](./source-register.schema.json). It distinguishes published metadata from files actually acquired, records the known publisher MD5 values for the Soils4Africa README/tableschema/CSV, and leaves our SHA-256 fields null until the unchanged original bytes are obtained and hashed locally. Known source counts and file sizes reported on publisher pages must not be silently converted into exact byte counts.
+
+As of the register's review date (2026-10-29), BiocharDS_V1.0 and its full workbook are not downloaded; the 2025 PNAS long-term paper/supplement is not downloaded; and the Soils4Africa field CSV download attempt failed. Metadata and the tableschema were reviewed, but no raw-source structural audit or South African coverage calculation has been completed. Treat these statuses as open acquisition gates, not as evidence that the files are unavailable from the publisher.
+
+Before any model fit, update the register with exact retrieval time, original URL, version/terms review, publisher checksums, independently computed SHA-256, and artifact-specific audit report. Keep the original bytes immutable; do not replace an existing source version in place when the publisher updates a dataset.
+
 ## 4. Evaluation ladder — never skip a level
 
 ### T0: Data and provenance integrity
