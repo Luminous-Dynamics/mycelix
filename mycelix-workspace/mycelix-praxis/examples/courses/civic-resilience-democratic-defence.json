@@ -124,7 +124,8 @@
         "Identify authority, privacy, accessibility, and legal constraints",
         "Compare service-policy alternatives using a transparent rubric",
         "Present a nonpartisan learning plan and identify open questions",
-        "Use benchmark fixture PRAXIS-NRES-002-FIXTURE-001 to compare service models under explicit synthetic constraints; report uncertainty and hard-fail conditions"
+        "Use benchmark fixture PRAXIS-NRES-002-FIXTURE-001 to compare service models under explicit synthetic constraints; report uncertainty and hard-fail conditions",
+        "Structured capstone workbook with evidence ledger, resource-feasibility checks, and conditional policy recommendation"
       ],
       "estimated_hours": 4
     }
@@ -144,6 +145,9 @@
     "assessment_fixture": "examples/courses/civic-resilience-policy-benchmark-fixture-001.json",
     "benchmark_spec": "docs/curriculum/PRAXIS_NRES_002_BENCHMARK.md",
     "assessment_principle": "criterion-referenced reasoning; no political-affiliation or enlistment-propensity scoring",
-    "fixtures_are_synthetic": true
+    "fixtures_are_synthetic": true,
+    "capstone_workbook": "examples/courses/civic-resilience-capstone-workbook-001.json",
+    "scoring_specification": "docs/curriculum/PRAXIS_NRES_003_SCORING_ANCHORS.md",
+    "study_protocol": "docs/curriculum/PRAXIS_NRES_004_PREREGISTRATION.md"
   }
 }
