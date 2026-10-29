@@ -31,8 +31,6 @@ struct QueryRank {
     query_subject: String,
     stratum: String,
     candidate_count: usize,
-    rank_low: usize,
-    rank_high: usize,
     expected_rank: f64,
     top_1: f64,
     top_3: f64,
@@ -278,7 +276,7 @@ fn validate_and_rank(
         if candidates.iter().filter(|candidate| candidate.true_match).count() != 1 {
             return Err(format!("query {query_id} must have exactly one true candidate").into());
         }
-        results.push(rank_query(query_id, query_subject, stratum, &candidates)?);
+        results.push(rank_query(query_subject, stratum, &candidates)?);
     }
 
     if results.is_empty() {
@@ -288,7 +286,6 @@ fn validate_and_rank(
 }
 
 fn rank_query(
-    _query_id: String,
     query_subject: String,
     stratum: String,
     candidates: &[Candidate],
@@ -316,8 +313,6 @@ fn rank_query(
         query_subject,
         stratum,
         candidate_count: candidates.len(),
-        rank_low,
-        rank_high,
         expected_rank,
         top_1: top_k(1),
         top_3: top_k(3),
@@ -511,12 +506,11 @@ mod tests {
     #[test]
     fn rank_metrics_have_known_answer_for_perfect_ranking() {
         let row = rank_query(
-            "q".into(), "s1".into(), "test".into(),
+            "s1".into(), "test".into(),
             &[candidate("c1", "s1", 0.9, true), candidate("c2", "s2", 0.3, false),
               candidate("c3", "s3", 0.2, false), candidate("c4", "s4", 0.1, false)],
         ).unwrap();
-        assert_eq!(row.rank_low, 1);
-        assert_eq!(row.rank_high, 1);
+        assert!((row.expected_rank - 1.0).abs() < 1e-12);
         assert!((row.top_1 - 1.0).abs() < 1e-12);
         assert!((row.top_3 - 1.0).abs() < 1e-12);
         assert!((row.reciprocal_rank - 1.0).abs() < 1e-12);
@@ -525,12 +519,11 @@ mod tests {
     #[test]
     fn tied_true_candidate_gets_fractional_top1_credit() {
         let row = rank_query(
-            "q".into(), "s1".into(), "test".into(),
+            "s1".into(), "test".into(),
             &[candidate("c1", "s1", 0.5, true), candidate("c2", "s2", 0.5, false),
               candidate("c3", "s3", 0.2, false), candidate("c4", "s4", 0.1, false)],
         ).unwrap();
-        assert_eq!(row.rank_low, 1);
-        assert_eq!(row.rank_high, 2);
+        assert!((row.expected_rank - 1.5).abs() < 1e-12);
         assert!((row.top_1 - 0.5).abs() < 1e-12);
         assert!((row.top_3 - 1.0).abs() < 1e-12);
         assert!((row.reciprocal_rank - 0.75).abs() < 1e-12);
@@ -539,12 +532,11 @@ mod tests {
     #[test]
     fn ranking_metrics_detect_a_weak_match() {
         let row = rank_query(
-            "q".into(), "s3".into(), "test".into(),
+            "s3".into(), "test".into(),
             &[candidate("c1", "s1", 0.9, false), candidate("c2", "s2", 0.6, false),
               candidate("c3", "s3", 0.2, true), candidate("c4", "s4", 0.1, false)],
         ).unwrap();
-        assert_eq!(row.rank_low, 3);
-        assert_eq!(row.rank_high, 3);
+        assert!((row.expected_rank - 3.0).abs() < 1e-12);
         assert_eq!(row.top_1, 0.0);
         assert_eq!(row.top_3, 1.0);
         assert!((row.reciprocal_rank - 1.0 / 3.0).abs() < 1e-12);
@@ -553,9 +545,9 @@ mod tests {
     #[test]
     fn bootstrap_is_deterministic() {
         let rows = vec![
-            QueryRank { query_subject:"s1".into(), stratum:"a".into(), candidate_count:4, rank_low:1, rank_high:1, expected_rank:1.0, top_1:1.0, top_3:1.0, top_5:1.0, top_10:1.0, reciprocal_rank:1.0 },
-            QueryRank { query_subject:"s2".into(), stratum:"a".into(), candidate_count:4, rank_low:1, rank_high:2, expected_rank:1.5, top_1:0.5, top_3:1.0, top_5:1.0, top_10:1.0, reciprocal_rank:0.75 },
-            QueryRank { query_subject:"s3".into(), stratum:"b".into(), candidate_count:4, rank_low:3, rank_high:3, expected_rank:3.0, top_1:0.0, top_3:1.0, top_5:1.0, top_10:1.0, reciprocal_rank:1.0/3.0 },
+            QueryRank { query_subject:"s1".into(), stratum:"a".into(), candidate_count:4, expected_rank:1.0, top_1:1.0, top_3:1.0, top_5:1.0, top_10:1.0, reciprocal_rank:1.0 },
+            QueryRank { query_subject:"s2".into(), stratum:"a".into(), candidate_count:4, expected_rank:1.5, top_1:0.5, top_3:1.0, top_5:1.0, top_10:1.0, reciprocal_rank:0.75 },
+            QueryRank { query_subject:"s3".into(), stratum:"b".into(), candidate_count:4, expected_rank:3.0, top_1:0.0, top_3:1.0, top_5:1.0, top_10:1.0, reciprocal_rank:1.0/3.0 },
         ];
         let a = query_subject_cluster_bootstrap(&rows, 300, 9901);
         let b = query_subject_cluster_bootstrap(&rows, 300, 9901);
