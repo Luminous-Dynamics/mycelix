@@ -527,14 +527,14 @@ fn json_escape(value: &str) -> String {
     let mut escaped = String::with_capacity(value.len());
     for character in value.chars() {
         match character {
-            '\\\\' => escaped.push_str("\\\\\\\\"),
-            '"' => escaped.push_str("\\\\""),
-            '\\n' => escaped.push_str("\\n"),
-            '\\r' => escaped.push_str("\\r"),
-            '\\t' => escaped.push_str("\\t"),
-            '\\u{08}' => escaped.push_str("\\b"),
-            '\\u{0c}' => escaped.push_str("\\f"),
-            ch if ch.is_control() => escaped.push_str(&format!("\\\\u{:04x}", ch as u32)),
+            '\\' => { escaped.push('\\'); escaped.push('\\'); }
+            '"' => { escaped.push('\\'); escaped.push('"'); }
+            '\n' => { escaped.push('\\'); escaped.push('n'); }
+            '\r' => { escaped.push('\\'); escaped.push('r'); }
+            '\t' => { escaped.push('\\'); escaped.push('t'); }
+            '\x08' => escaped.push_str("\\b"),
+            '\x0c' => escaped.push_str("\\f"),
+            ch if ch.is_control() => escaped.push_str(&format!("\\u{:04x}", ch as u32)),
             ch => escaped.push(ch),
         }
     }
