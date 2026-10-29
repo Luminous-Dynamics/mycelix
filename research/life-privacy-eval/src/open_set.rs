@@ -5,8 +5,8 @@ use std::fs;
 const VERSION: &str = "0.5.0";
 const DEFAULT_BOOTSTRAPS: usize = 1_000;
 const DEFAULT_SEED: u64 = 9_901;
-const MIN_PARTITION_QUERIES: usize = 2_000;
-const MIN_PARTITION_SUBJECTS: usize = 2_000;
+const MIN_QUERIES_PER_CLASS: usize = 2_000;
+const MIN_DISTINCT_SUBJECTS_PER_CLASS: usize = 2_000;
 const MIN_CANDIDATES: usize = 10;
 
 #[derive(Clone, Debug)]
@@ -303,10 +303,6 @@ fn validate_partition_disjoint(validation: &[QueryResult], test: &[QueryResult])
     Ok(())
 }
 
-fn distinct_subjects(rows: &[QueryResult]) -> usize {
-    rows.iter().map(|q| q.query_subject.as_str()).collect::<BTreeSet<_>>().len()
-}
-
 fn distinct_subjects_by_class(rows: &[QueryResult], matched: bool) -> usize {
     rows.iter().filter(|q| q.matched == matched).map(|q| q.query_subject.as_str())
         .collect::<BTreeSet<_>>().len()
@@ -318,16 +314,14 @@ fn meets_sample_minimums(validation: &[QueryResult], test: &[QueryResult], candi
     }
     let (val_mated, val_unknown) = class_counts(validation);
     let (test_mated, test_unknown) = class_counts(test);
-    validation.len() >= MIN_PARTITION_QUERIES
-        && test.len() >= MIN_PARTITION_QUERIES
-        && val_mated >= MIN_PARTITION_QUERIES
-        && val_unknown >= MIN_PARTITION_QUERIES
-        && test_mated >= MIN_PARTITION_QUERIES
-        && test_unknown >= MIN_PARTITION_QUERIES
-        && distinct_subjects_by_class(validation, true) >= MIN_PARTITION_SUBJECTS
-        && distinct_subjects_by_class(validation, false) >= MIN_PARTITION_SUBJECTS
-        && distinct_subjects_by_class(test, true) >= MIN_PARTITION_SUBJECTS
-        && distinct_subjects_by_class(test, false) >= MIN_PARTITION_SUBJECTS
+    val_mated >= MIN_QUERIES_PER_CLASS
+        && val_unknown >= MIN_QUERIES_PER_CLASS
+        && test_mated >= MIN_QUERIES_PER_CLASS
+        && test_unknown >= MIN_QUERIES_PER_CLASS
+        && distinct_subjects_by_class(validation, true) >= MIN_DISTINCT_SUBJECTS_PER_CLASS
+        && distinct_subjects_by_class(validation, false) >= MIN_DISTINCT_SUBJECTS_PER_CLASS
+        && distinct_subjects_by_class(test, true) >= MIN_DISTINCT_SUBJECTS_PER_CLASS
+        && distinct_subjects_by_class(test, false) >= MIN_DISTINCT_SUBJECTS_PER_CLASS
         && candidate_count >= MIN_CANDIDATES
 }
 
