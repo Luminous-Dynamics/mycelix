@@ -169,6 +169,24 @@ Each confirmatory run should contain:
 
 No favourable mean score can override a failed gate.
 
+## 10. Leakage-risk stress test informed by recent biochar ML audits
+
+A 2026 review of 64 highly cited biochar machine-learning studies reports potential leakage in all 64 reviewed studies, random point-level splits in 98%, and accuracy inflation up to 86% in five reanalysed datasets. These are the review's findings and should be reproduced against source data where possible—not treated as a universal inflation factor. A separate 2026 comparative study of six approaches to water-retention prediction reports lower performance on a held-out source than on an inner test drawn from the training-source pool. These findings make source-held-out evaluation a primary acceptance test, not optional extra analysis.
+
+**Protocol:**
+
+1. Before model fitting, identify the independent unit for the intended claim. Create a reviewed crosswalk from observation to publication/study, experiment, site, material/feedstock or batch, treatment/comparator arm, time, and repeated-measure identity.
+2. Freeze the primary grouping key and the evaluation split. Run `tools/split-audit/` on the row-level manifest for the chosen key. When required, create separate frozen manifests for study-, site-, batch-, or temporal-holdout evaluation; passing one dimension does not imply passing another.
+3. Keep random-row results only as a **diagnostic comparator** that quantifies how much a naive split can overstate generalization. Never use it as confirmatory evidence or as the main model-ranking criterion.
+4. Perform all preprocessing, feature selection, imputation, transformation, calibration, hyperparameter selection, and threshold choice inside the training portion of each grouped/nested evaluation. Do not inspect the final grouped test to tune the model.
+5. Report candidate and baseline results for random-row diagnostic and grouped holdout separately, including MAE/RMSE/bias, (R^2) where appropriate, prediction-interval coverage and width, per-source scores, and the number of independent groups. Avoid a single "leakage inflation percent" unless the data, split, and estimator define that quantity precisely.
+6. Run hard negative controls: deliberately place repeated rows from one group in multiple splits and confirm the audit fails; duplicate row IDs; supply placeholder identifiers; and put empty required splits in the manifest. A failed negative control blocks confirmatory benchmark status.
+7. Cross-check source IDs across BiocharDS and any long-term synthesis. Different paper titles do not prove independence, and a shared publication, experiment, site, or reused observations must not be treated as an independent validation source.
+
+**Acceptance:** the grouped holdout, source crosswalk, frozen split manifest, model configuration, and prediction report are reviewable together. If a credible grouping key cannot be reconstructed from the source papers/workbook, report the generalization result as not evaluable rather than replacing the missing key with row IDs.
+
+References: Jang et al., “Illusions of Accuracy: Widespread Data Leakage Distorts Machine Learning Results in Biochar Research,” first published 25 August 2026, [doi:10.1111/gcbb.70173](https://doi.org/10.1111/gcbb.70173); “Predicting the Water Retention Behavior of Biochar-Amended Soils: A Comparative Study of Six Machine Learning Approaches,” [Applied Sciences (2026)](https://www.mdpi.com/2076-3417/16/20/10219). The benchmark results reported in those papers are context, not claims about Luminous Dynamics' implementation.
+
 ## References
 
 - Li et al., “A global dataset of biochar application effects on crop yield, soil properties, and greenhouse gas emissions,” *Scientific Data* (2024), [paper](https://doi.org/10.1038/s41597-023-02867-9), [dataset DOI](https://doi.org/10.6084/m9.figshare.24781764.v1).
