@@ -215,7 +215,10 @@ impl FeatureCondition {
         match self {
             Self::Any => true,
             Self::Never => false,
-            Self::Interval(interval) => interval.matches(&[value]),
+            Self::Interval(interval) => {
+                interval.lower_inclusive.map_or(true, |lower| value >= lower)
+                    && interval.upper_inclusive.map_or(true, |upper| value <= upper)
+            }
         }
     }
 
