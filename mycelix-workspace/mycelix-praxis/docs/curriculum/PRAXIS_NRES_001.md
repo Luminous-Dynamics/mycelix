@@ -29,6 +29,10 @@ South Africa's Constitution says the Defence Force's primary object is to defend
 
 South Africa's declaration under the Optional Protocol to the Convention on the Rights of the Child states that the SANDF is a voluntary force and that there is no compulsory conscription. See the [ICRC treaty-database entry for South Africa](https://ihl-databases.icrc.org/en/ihl-treaties/crc-opac-2000/state-parties/za). Any proposal that materially changes this arrangement would be a major public-policy and legal question; this learning document neither proposes an unlawful workaround nor substitutes for qualified South African legal advice.
 
+South Africa is not starting from zero on institutional development. In the May 2026 Defence Budget Vote, the Minister said Cabinet had approved a Long-Term Force Evolution Strategy and Defence Planning Concept for a 30-year horizon, with parliamentary engagement to follow. The speech also described the South African National Service Institute (SANSI), launched in 2024, as a youth-service/learnership partnership, reporting that 581 young people had completed training and entered learnerships, with further intakes planned during 2026. See the [2026/27 Defence Budget Vote](https://www.gov.za/news/speeches/minister-angie-motshekga-defence-and-military-veterans-dept-budget-vote-202627-20-may).
+
+**Implication for Praxis:** do not author a competing official SANDF doctrine or duplicate SANSI. Teach doctrine literacy, create transparent evaluation rubrics, compare public options with documented assumptions, and explore curriculum/credential support that complements official and community programmes. Any collaboration, credential recognition, or deployment would require authorization from the relevant institution.
+
 ## 3. What international comparisons do—and do not—tell us
 
 Service length is a policy choice shaped by force design, security environment, reserve structure, role complexity, training throughput and legal traditions. There is no universal service length that follows from the fact that national defence matters.
@@ -61,7 +65,7 @@ Course completion does not create military, policing, or emergency-response auth
 
 ### Layer B — paid public-resilience service options
 
-Provide multiple ways for volunteers or legally eligible participants to contribute, aligned with their abilities and local needs. Examples include civil protection, emergency medical support, cyber defence, water and energy maintenance, communications, engineering, transport, logistics, food and shelter support, and continuity planning.
+Provide multiple ways for volunteers or legally eligible participants to contribute, aligned with their abilities and local needs. Examples include civil protection, emergency medical support, cyber defence, water and energy maintenance, communications, engineering, transport, logistics, food and shelter support, and continuity planning. In South Africa, investigate how a learning pathway could complement existing SANSI youth-service/learnership activity, TVET providers, accredited first-aid training, municipal disaster-management structures, and established volunteer organisations rather than invent another delivery institution.
 
 A credible programme needs fair compensation, safety, supervision, insurance, accessibility, portable credentials, independent complaints processes, and a clear distinction between volunteer/public-service roles and military command authority.
 
@@ -77,7 +81,7 @@ A legitimate national-service design must address medical fitness, disability ac
 
 ## 6. Better defence doctrine and institutional design
 
-Praxis can teach doctrine design at the institutional and strategic level. It should not become a channel for unaccountable operational commands, weapons instruction, combat tactics, or targeting.
+Praxis can teach doctrine literacy and support independent, public-interest analysis at the institutional and strategic level. South Africa already has a government-led 30-year force-planning process described above; Praxis should help learners understand, evaluate and discuss such public work, not present its own draft as official doctrine. It should not become a channel for unaccountable operational commands, weapons instruction, combat tactics, or targeting.
 
 A better doctrine-learning framework should contain these components:
 
@@ -144,6 +148,7 @@ A policy cannot be called superior just because it enrols more people or keeps t
 ## 10. References and scope
 
 - [Constitution of South Africa, Chapter 11](https://www.justice.gov.za/constitution/chp11.html)
+- [South African Government: Defence Budget Vote 2026/27, including force-planning and SANSI context](https://www.gov.za/news/speeches/minister-angie-motshekga-defence-and-military-veterans-dept-budget-vote-202627-20-may)
 - [ICRC treaty database: South Africa's declaration on voluntary SANDF service](https://ihl-databases.icrc.org/en/ihl-treaties/crc-opac-2000/state-parties/za)
 - [Singapore MINDEF: full-time National Service duration](https://ask.gov.sg/mindef/questions/cmh4fdaqu014juk1bkyuafdnq)
 - [Finnish Defence Forces: Soldier's Guide](https://puolustusvoimat.fi/documents/1948673/2267766/PEVIESTINTAOS_Sotilaan_k%C3%A4sikirja_2020_EN.pdf/2cff30fd-ca71-b12d-6acd-dfde73f21a6e/PEVIESTINTAOS_Sotilaan_k%C3%A4sikirja_2020_EN.pdf)
