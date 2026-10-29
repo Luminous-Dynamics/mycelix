@@ -842,6 +842,31 @@ mod tests {
     }
 
     #[test]
+    fn exact_binomial_bound_has_coverage_at_bonferroni_family_alpha_levels() {
+        let trial_counts = [5_usize, 10, 20, 50, 100];
+        let probabilities = [0.001_f64, 0.01, 0.05, 0.25, 0.5, 0.9, 0.99];
+        let alphas = [0.05_f64, 0.01, 0.05 / 8.0, 0.05 / 64.0, 0.001];
+        for alpha in alphas {
+            for trials in trial_counts {
+                for probability in probabilities {
+                    let coverage: f64 = (0..=trials)
+                        .filter(|&events| {
+                            exact_binomial_upper_bound_with_alpha(events, trials, alpha) + 1e-12
+                                >= probability
+                        })
+                        .map(|events| binomial_pmf(events, trials, probability))
+                        .sum();
+                    assert!(
+                        coverage >= 1.0 - alpha - 1e-10,
+                        "coverage {coverage} below {} for alpha={alpha}, n={trials}, p={probability}",
+                        1.0 - alpha
+                    );
+                }
+            }
+        }
+    }
+
+    #[test]
     fn exact_binomial_upper_bound_is_monotone_in_observed_events() {
         for trials in [5_usize, 10, 50, 100] {
             let mut previous = 0.0;
