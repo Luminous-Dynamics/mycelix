@@ -573,8 +573,7 @@
       "minimum": 100
     },
     "per_draw_subject_risk_bound_policy": {
-      "type": "string",
-      "minLength": 1
+      "const": "exact one-sided Clopper-Pearson with Bonferroni alpha 0.05 / draw_count within each gallery-size and threshold-policy family; assumes independent representative subjects conditional on each realized gallery"
     },
     "per_draw_subject_risk_bound_alpha": {
       "type": "number",
