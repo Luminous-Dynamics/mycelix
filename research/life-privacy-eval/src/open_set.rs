@@ -520,7 +520,7 @@ fn build_report(
   "false_negative_identification_rate_rank5":{:.8},
   "false_negative_identification_rate_rank10":{:.8},
   "false_identifications":{},
-  "false_negative_identifications_rank1":{:.8},
+  "expected_false_negative_identifications_rank1":{:.8},
   "false_positive_identification_rate":{:.8},
   "fpir_resolution":{:.8},
   "correct_identification_precision":{},
