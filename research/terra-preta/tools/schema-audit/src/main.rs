@@ -141,6 +141,51 @@ mod tests {
         serde_json::from_str(SCHEMA_FIXTURES[5].1).unwrap()
     }
 
+    fn prediction_report_schema() -> Value {
+        serde_json::from_str(SCHEMA_FIXTURES[4].1).unwrap()
+    }
+
+    fn valid_prediction_report() -> Value {
+        json!({
+            "audit_version": "0.1.0",
+            "input_label": "held-out-predictions.csv",
+            "input_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "observations": 6,
+            "independent_groups": 3,
+            "bootstrap_seed": 123,
+            "nominal_interval_coverage": 0.9,
+            "candidate": {
+                "observations": 6,
+                "mae": 1.0,
+                "rmse": 1.2,
+                "bias_prediction_minus_actual": -0.2,
+                "empirical_interval_coverage": 1.0,
+                "mean_interval_width": 6.0,
+                "mean_interval_score": 6.0
+            },
+            "baseline": {
+                "observations": 6,
+                "mae": 2.0,
+                "rmse": 2.2,
+                "bias_prediction_minus_actual": -0.5,
+                "empirical_interval_coverage": null,
+                "mean_interval_width": null,
+                "mean_interval_score": null
+            },
+            "relative_mae_improvement": 0.5,
+            "improvement_cluster_bootstrap_95pct": {
+                "confidence_level": 0.95,
+                "replicates_requested": 2000,
+                "replicates_valid": 2000,
+                "relative_mae_improvement_lower": 0.1,
+                "relative_mae_improvement_upper": 0.8,
+                "excludes_zero": true
+            },
+            "warnings": ["synthetic fixture; not efficacy evidence"],
+            "interpretation_boundary": "schema conformance test only"
+        })
+    }
+
     fn valid_split_report() -> Value {
         json!({
             "audit_version": "0.1.0",
@@ -183,6 +228,28 @@ mod tests {
         let mut register: Value = serde_json::from_str(SOURCE_REGISTER).unwrap();
         register["reviewed_on"] = json!("29-10-2026");
         assert!(!validator.is_valid(&register));
+    }
+
+    #[test]
+    fn accepts_prediction_report_with_nominal_level_and_interval_score() {
+        let validator = jsonschema::validator_for(&prediction_report_schema()).unwrap();
+        assert!(validator.is_valid(&valid_prediction_report()));
+    }
+
+    #[test]
+    fn rejects_negative_prediction_interval_score() {
+        let validator = jsonschema::validator_for(&prediction_report_schema()).unwrap();
+        let mut report = valid_prediction_report();
+        report["candidate"]["mean_interval_score"] = json!(-1.0);
+        assert!(!validator.is_valid(&report));
+    }
+
+    #[test]
+    fn rejects_wrong_nominal_interval_coverage() {
+        let validator = jsonschema::validator_for(&prediction_report_schema()).unwrap();
+        let mut report = valid_prediction_report();
+        report["nominal_interval_coverage"] = json!(0.8);
+        assert!(!validator.is_valid(&report));
     }
 
     #[test]
