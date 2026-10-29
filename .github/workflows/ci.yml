@@ -88,7 +88,7 @@ jobs:
               - '.github/workflows/ci.yml'
 
 
-  # CECB model-family split contract: no third-party schema runtime required.
+  # CECB model-family split preregistration: schema + template fail-closed checks.
   cecb-robust-preregistration:
     needs: changes
     if: needs.changes.outputs.cecb_robust_prereg == 'true'
@@ -108,6 +108,50 @@ jobs:
             and .properties.schema_version.const == "cecb.model_family_split_preregistration.v0.1"
             and (.allOf | length == 2)
           ' "$schema" >/dev/null
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Validate JSON Schema lifecycle and negative control
+        run: |
+          set -euo pipefail
+          python -m pip install \
+            "jsonschema==4.26.0" \
+            "attrs==26.1.0" \
+            "jsonschema-specifications==2025.9.1" \
+            "referencing==0.37.0" \
+            "rpds-py==2026.5.1"
+          python - <<'PY'
+          import copy
+          import json
+          from pathlib import Path
+
+          from jsonschema import Draft202012Validator, FormatChecker, ValidationError
+
+          schema = json.loads(Path(
+              "docs/research/schemas/CECB_MODEL_FAMILY_SPLIT_PREREGISTRATION_V0_1.schema.json"
+          ).read_text(encoding="utf-8"))
+          fixture = json.loads(Path(
+              "docs/research/fixtures/CECB_MODEL_FAMILY_SPLIT_PREREGISTRATION_V0_1.template.json"
+          ).read_text(encoding="utf-8"))
+
+          Draft202012Validator.check_schema(schema)
+          validator = Draft202012Validator(schema, format_checker=FormatChecker())
+          validator.validate(fixture)
+
+          mutated = copy.deepcopy(fixture)
+          mutated["status"] = "registered"
+          mutated["claim_ceiling"] = "heldout_model_family_robustness_on_registered_set_only"
+          try:
+              validator.validate(mutated)
+          except ValidationError:
+              pass
+          else:
+              raise SystemExit("fail-closed control: uncommitted template accepted as registered")
+
+          print("JSON Schema meta-validation and template lifecycle negative control passed.")
+          PY
 
       - name: Enforce template cannot be mistaken for a qualified study
         run: |
