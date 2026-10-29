@@ -50,8 +50,7 @@
     "commitment_sha256": null,
     "salt_bits": 256,
     "salt_custody": "not_created",
-    "reveal_condition": "after_policy_outputs_and_scoring_receipt_are_frozen",
-    "registration_receipt": null
+    "reveal_condition": "after_policy_outputs_and_scoring_receipt_are_frozen"
   },
   "split_rules": {
     "generalization_unit": "model_family",
