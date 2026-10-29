@@ -1,0 +1,146 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/Luminous-Dynamics/mycelix/main/research/terra-preta/split-manifest.schema.json",
+  "title": "Terra Preta frozen grouped evaluation split manifest",
+  "description": "Records exact group assignments for leakage-resistant model evaluation. Schema validation alone does not prove that group identifiers are scientifically valid or disjoint.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "manifest_id",
+    "dataset",
+    "target",
+    "grouping",
+    "split_method",
+    "seed",
+    "assignments",
+    "independence_audit",
+    "frozen_at",
+    "limitations"
+  ],
+  "properties": {
+    "schema_version": { "const": "0.1.0" },
+    "manifest_id": { "type": "string", "minLength": 1 },
+    "dataset": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "version", "sha256", "source_uri", "license", "raw_artifact_ref"],
+      "properties": {
+        "name": { "type": "string", "minLength": 1 },
+        "version": { "type": "string", "minLength": 1 },
+        "sha256": { "type": "string", "pattern": "^[a-fA-F0-9]{64}$" },
+        "source_uri": { "type": "string", "format": "uri" },
+        "license": { "type": "string", "minLength": 1 },
+        "raw_artifact_ref": { "type": "string", "minLength": 1 }
+      }
+    },
+    "target": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["endpoint", "estimand", "unit", "contrast_schema_version"],
+      "properties": {
+        "endpoint": { "type": "string", "minLength": 1 },
+        "estimand": { "type": "string", "minLength": 1 },
+        "unit": { "type": "string", "minLength": 1 },
+        "contrast_schema_version": { "const": "0.1.0" }
+      }
+    },
+    "grouping": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["primary_group_key", "source_key_review_state", "nested_group_keys"],
+      "properties": {
+        "primary_group_key": { "type": "string", "minLength": 1 },
+        "source_key_review_state": { "enum": ["reviewed", "provisional", "unavailable", "rejected"] },
+        "nested_group_keys": { "type": "array", "items": { "type": "string", "minLength": 1 }, "uniqueItems": true },
+        "handling_of_multiple_contrasts_per_study": { "type": ["string", "null"] },
+        "cross_dataset_overlap_policy": { "type": "string", "minLength": 1 }
+      }
+    },
+    "split_method": {
+      "enum": [
+        "study_grouped",
+        "site_grouped",
+        "experiment_grouped",
+        "batch_grouped",
+        "study_and_site_grouped",
+        "time_forward",
+        "prospective",
+        "exploratory_only"
+      ]
+    },
+    "seed": { "type": "integer", "minimum": 0 },
+    "assignments": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["train_groups", "validation_groups", "test_groups"],
+      "properties": {
+        "train_groups": { "$ref": "#/$defs/groupIds" },
+        "validation_groups": { "$ref": "#/$defs/groupIds" },
+        "test_groups": { "$ref": "#/$defs/groupIds" },
+        "excluded_groups": { "$ref": "#/$defs/groupIds" }
+      }
+    },
+    "independence_audit": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "group_key_validated",
+        "cross_split_overlap_checked",
+        "cross_split_overlap_count",
+        "related_study_overlap_checked",
+        "preprocessing_fit_on_train_only",
+        "audit_report_ref",
+        "status"
+      ],
+      "properties": {
+        "group_key_validated": { "type": "boolean" },
+        "cross_split_overlap_checked": { "type": "boolean" },
+        "cross_split_overlap_count": { "type": "integer", "minimum": 0 },
+        "related_study_overlap_checked": { "type": "boolean" },
+        "preprocessing_fit_on_train_only": { "type": "boolean" },
+        "audit_report_ref": { "type": ["string", "null"] },
+        "status": { "enum": ["blocked", "passed", "failed", "exploratory_only"] },
+        "failure_reasons": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "frozen_at": { "type": "string", "format": "date-time" },
+    "protocol_commit": { "type": ["string", "null"] },
+    "splitter_code_commit": { "type": ["string", "null"] },
+    "limitations": { "type": "array", "items": { "type": "string" }, "minItems": 1 }
+  },
+  "$defs": {
+    "groupIds": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 },
+      "uniqueItems": true
+    }
+  },
+  "allOf": [
+    {
+      "if": { "properties": { "independence_audit": { "properties": { "status": { "const": "passed" } } } }, "required": ["independence_audit"] },
+      "then": {
+        "properties": {
+          "grouping": { "properties": { "source_key_review_state": { "const": "reviewed" } } },
+          "independence_audit": {
+            "properties": {
+              "group_key_validated": { "const": true },
+              "cross_split_overlap_checked": { "const": true },
+              "cross_split_overlap_count": { "const": 0 },
+              "related_study_overlap_checked": { "const": true },
+              "preprocessing_fit_on_train_only": { "const": true }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": { "properties": { "split_method": { "const": "exploratory_only" } }, "required": ["split_method"] },
+      "then": {
+        "properties": {
+          "independence_audit": { "properties": { "status": { "const": "exploratory_only" } } }
+        }
+      }
+    }
+  ]
+}
