@@ -672,6 +672,146 @@ mod tests {
         discover_univariate_threshold(&view, split.development_oracle_mut(), budget)
     }
 
+    fn fit_cart(
+        split: &mut ProtocolSplit,
+        budget: usize,
+        max_depth: usize,
+    ) -> Result<CartDiscoveryResult, DiscoveryError> {
+        let view = split.candidate_view().clone();
+        discover_cart_tree(
+            &view,
+            split.development_oracle_mut(),
+            budget,
+            max_depth,
+        )
+    }
+
+    #[test]
+    fn cart_depth_one_recovers_axis_aligned_truth_with_one_split() {
+        let mut split = crate::protocol::build_protocol_split(
+            &axis_aligned_landscape(),
+            LabelSource::LatentTruth,
+            41,
+        )
+        .unwrap();
+        let result = fit_cart(&mut split, 41, 1).unwrap();
+        assert_eq!(result.model.development_errors, 0);
+        assert_eq!(result.model.complexity(), 1);
+        assert_eq!(result.development_observations_used, 41);
+        let report = split.evaluate(&result.submission).unwrap();
+        assert_eq!(report.score.true_positive, 13);
+        assert_eq!(report.score.false_positive, 0);
+        assert_eq!(report.score.false_negative, 0);
+        assert_eq!(report.score.true_negative, 27);
+        assert_eq!(report.candidate_query_count, 41);
+    }
+
+    #[test]
+    fn cart_depth_three_improves_boundary_coverage_over_stumps() {
+        for (points, depth_one_errors, depth_three_errors, expected_tp, expected_fn, expected_tn) in [
+            (crate::oblique_landscape(), 9, 1, 8, 4, 28),
+            (crate::nonlinear_interaction_landscape(), 8, 3, 5, 3, 32),
+        ] {
+            let mut stump_split = crate::protocol::build_protocol_split(
+                &points,
+                LabelSource::LatentTruth,
+                41,
+            )
+            .unwrap();
+            let mut tree_split = crate::protocol::build_protocol_split(
+                &points,
+                LabelSource::LatentTruth,
+                41,
+            )
+            .unwrap();
+            let stump = fit_cart(&mut stump_split, 41, 1).unwrap();
+            let tree = fit_cart(&mut tree_split, 41, 3).unwrap();
+            assert_eq!(stump.model.development_errors, depth_one_errors);
+            assert_eq!(tree.model.development_errors, depth_three_errors);
+            assert!(tree.model.complexity() > stump.model.complexity());
+            let stump_report = stump_split.evaluate(&stump.submission).unwrap();
+            let tree_report = tree_split.evaluate(&tree.submission).unwrap();
+            assert!(tree_report.score.true_positive > stump_report.score.true_positive);
+            assert_eq!(tree_report.score.true_positive, expected_tp);
+            assert_eq!(tree_report.score.false_positive, 0);
+            assert_eq!(tree_report.score.false_negative, expected_fn);
+            assert_eq!(tree_report.score.true_negative, expected_tn);
+            assert_eq!(tree_report.candidate_query_count, 41);
+        }
+    }
+
+    #[test]
+    fn cart_tree_is_deterministic_and_fails_on_reversed_family_transfer() {
+        let rows = family_fixture();
+        let mut first_split = build_model_family_split(
+            &rows,
+            "family_b",
+            LabelSource::LatentTruth,
+            9,
+        )
+        .unwrap();
+        let mut second_split = build_model_family_split(
+            &rows,
+            "family_b",
+            LabelSource::LatentTruth,
+            9,
+        )
+        .unwrap();
+        let first = fit_cart(&mut first_split, 9, 3).unwrap();
+        let second = fit_cart(&mut second_split, 9, 3).unwrap();
+        assert_eq!(first, second);
+        assert_eq!(first.model.development_errors, 0);
+        assert_eq!(first.model.complexity(), 1);
+        let report = first_split.evaluate(&first.submission).unwrap();
+        assert_eq!(report.score.true_positive, 0);
+        assert_eq!(report.score.false_positive, 3);
+        assert_eq!(report.score.false_negative, 3);
+        assert_eq!(report.score.true_negative, 3);
+        assert_eq!(report.candidate_query_count, 9);
+    }
+
+    #[test]
+    fn cart_depth_and_budget_fail_closed_without_unbounded_queries() {
+        let mut depth_split = crate::protocol::build_protocol_split(
+            &axis_aligned_landscape(),
+            LabelSource::LatentTruth,
+            5,
+        )
+        .unwrap();
+        let depth_view = depth_split.candidate_view().clone();
+        assert_eq!(
+            discover_cart_tree(
+                &depth_view,
+                depth_split.development_oracle_mut(),
+                5,
+                17
+            ),
+            Err(DiscoveryError::UnsupportedTreeDepth(17))
+        );
+        assert_eq!(depth_split.development_query_count(), 0);
+
+        let mut budget_split = crate::protocol::build_protocol_split(
+            &axis_aligned_landscape(),
+            LabelSource::LatentTruth,
+            3,
+        )
+        .unwrap();
+        let budget_view = budget_split.candidate_view().clone();
+        assert!(matches!(
+            discover_cart_tree(
+                &budget_view,
+                budget_split.development_oracle_mut(),
+                9,
+                3
+            ),
+            Err(DiscoveryError::Oracle(ProtocolError::QueryBudgetExceeded {
+                supplied: 4,
+                maximum: 3
+            }))
+        ));
+        assert_eq!(budget_split.development_query_count(), 3);
+    }
+
     #[test]
     fn exhaustive_box_learner_recovers_axis_aligned_rule() {
         let mut split = crate::protocol::build_protocol_split(
