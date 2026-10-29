@@ -10,6 +10,7 @@ const MIN_QUERY_SUBJECTS_FOR_REVIEW: usize = 2_000;
 
 #[derive(Clone, Debug)]
 struct TruthRow {
+    query_id: String,
     query_subject: String,
     candidate_id: String,
     candidate_subject: String,
@@ -27,7 +28,6 @@ struct Candidate {
 
 #[derive(Clone, Debug)]
 struct QueryRank {
-    query_id: String,
     query_subject: String,
     stratum: String,
     candidate_count: usize,
@@ -553,9 +553,9 @@ mod tests {
     #[test]
     fn bootstrap_is_deterministic() {
         let rows = vec![
-            QueryRank { query_id:"q1".into(), query_subject:"s1".into(), stratum:"a".into(), candidate_count:4, rank_low:1, rank_high:1, expected_rank:1.0, top_1:1.0, top_3:1.0, top_5:1.0, top_10:1.0, reciprocal_rank:1.0 },
-            QueryRank { query_id:"q2".into(), query_subject:"s2".into(), stratum:"a".into(), candidate_count:4, rank_low:1, rank_high:2, expected_rank:1.5, top_1:0.5, top_3:1.0, top_5:1.0, top_10:1.0, reciprocal_rank:0.75 },
-            QueryRank { query_id:"q3".into(), query_subject:"s3".into(), stratum:"b".into(), candidate_count:4, rank_low:3, rank_high:3, expected_rank:3.0, top_1:0.0, top_3:1.0, top_5:1.0, top_10:1.0, reciprocal_rank:1.0/3.0 },
+            QueryRank { query_subject:"s1".into(), stratum:"a".into(), candidate_count:4, rank_low:1, rank_high:1, expected_rank:1.0, top_1:1.0, top_3:1.0, top_5:1.0, top_10:1.0, reciprocal_rank:1.0 },
+            QueryRank { query_subject:"s2".into(), stratum:"a".into(), candidate_count:4, rank_low:1, rank_high:2, expected_rank:1.5, top_1:0.5, top_3:1.0, top_5:1.0, top_10:1.0, reciprocal_rank:0.75 },
+            QueryRank { query_subject:"s3".into(), stratum:"b".into(), candidate_count:4, rank_low:3, rank_high:3, expected_rank:3.0, top_1:0.0, top_3:1.0, top_5:1.0, top_10:1.0, reciprocal_rank:1.0/3.0 },
         ];
         let a = query_subject_cluster_bootstrap(&rows, 300, 9901);
         let b = query_subject_cluster_bootstrap(&rows, 300, 9901);
