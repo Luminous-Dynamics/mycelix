@@ -44,6 +44,26 @@ cat > "$tmp/overlap.json" <<'JSON'
 }
 JSON
 
+cat > "$tmp/excluded-overlap.json" <<'JSON'
+{
+  "grouping": { "source_key_review_state": "reviewed" },
+  "independence_audit": {
+    "status": "passed",
+    "group_key_validated": true,
+    "cross_split_overlap_checked": true,
+    "cross_split_overlap_count": 0,
+    "related_study_overlap_checked": true,
+    "preprocessing_fit_on_train_only": true
+  },
+  "assignments": {
+    "train_groups": ["study-A", "study-B"],
+    "validation_groups": ["study-C"],
+    "test_groups": ["study-D"],
+    "excluded_groups": ["study-B"]
+  }
+}
+JSON
+
 cat > "$tmp/unreviewed.json" <<'JSON'
 {
   "grouping": { "source_key_review_state": "provisional" },
@@ -72,5 +92,9 @@ if bash "$verifier" "$tmp/unreviewed.json" >/dev/null 2>&1; then
   echo "FAIL: unreviewed source-key fixture was incorrectly accepted" >&2
   exit 1
 fi
+if bash "$verifier" "$tmp/excluded-overlap.json" >/dev/null 2>&1; then
+  echo "FAIL: excluded group overlapping with a split was incorrectly accepted" >&2
+  exit 1
+fi
 
-echo "PASS: valid manifest accepted; overlapping and unreviewed manifests rejected"
+echo "PASS: valid manifest accepted; cross-split, excluded-group, and unreviewed-source cases rejected"
