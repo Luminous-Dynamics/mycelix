@@ -52,7 +52,9 @@ fn main() -> Result<(), String> {
         )
         .map_err(|error| format!("discovery failed: {error:?}"))?;
         let trusted_query_count = split.development_query_count();
-        if result.queried_sample_ids.as_slice() != split.queried_development_sample_ids() {
+        if result.development_observations_used != trusted_query_count
+            || result.queried_sample_ids.as_slice() != split.queried_development_sample_ids()
+        {
             return Err("candidate trace does not match trusted query ledger".to_owned());
         }
         let report = split
