@@ -195,7 +195,8 @@ fn audit_bytes(bytes: &[u8], input_label: &str) -> Result<AuditReport, Box<dyn E
     let blank_header_columns: Vec<usize> = normalized
         .iter()
         .enumerate()
-        .filter_map(|(index, name)| name.is_empty().then_some(index))
+        .filter(|(_, name)| name.is_empty())
+        .map(|(index, _)| index)
         .collect();
     let mut normalized_header_indices = BTreeMap::<String, Vec<usize>>::new();
     for (index, name) in normalized.iter().enumerate() {
@@ -208,11 +209,10 @@ fn audit_bytes(bytes: &[u8], input_label: &str) -> Result<AuditReport, Box<dyn E
     }
     let duplicate_normalized_headers: Vec<HeaderCollision> = normalized_header_indices
         .into_iter()
-        .filter_map(|(name, indices)| {
-            (indices.len() > 1).then_some(HeaderCollision {
-                normalized_name: name,
-                column_indices: indices,
-            })
+        .filter(|(_, indices)| indices.len() > 1)
+        .map(|(name, indices)| HeaderCollision {
+            normalized_name: name,
+            column_indices: indices,
         })
         .collect();
     let mut column_stats: Vec<MutableColumnStats> =
@@ -478,7 +478,12 @@ mod tests {
         let report = audit_bytes(csv, "blank-study-key.csv").unwrap();
         assert!(report.study_group_key_candidate_found);
         assert!(!report.study_group_key_has_variation);
-        assert!(report.warnings.iter().any(|warning| warning.contains("cannot support study-held-out")));
+        assert!(
+            report
+                .warnings
+                .iter()
+                .any(|warning| warning.contains("cannot support study-held-out"))
+        );
     }
 
     #[test]
