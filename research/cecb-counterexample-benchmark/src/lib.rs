@@ -1,4 +1,5 @@
 pub mod protocol;
+pub mod discovery;
 
 //! Deterministic synthetic landscapes and a known-truth region scorer for CECB.
 //!
