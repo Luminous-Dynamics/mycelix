@@ -12,7 +12,7 @@
 use csv::{ReaderBuilder, StringRecord};
 use serde::Serialize;
 use sha2::{Digest, Sha256};
-use std::collections::HashSet;
+use std::collections::{BTreeMap, HashSet};
 use std::env;
 use std::error::Error;
 use std::fs;
@@ -30,6 +30,8 @@ struct AuditReport {
     row_count_matches_published_description: bool,
     row_count: usize,
     column_count: usize,
+    blank_header_columns: Vec<usize>,
+    duplicate_normalized_headers: Vec<HeaderCollision>,
     ragged_rows: usize,
     rows_with_more_fields_than_header: usize,
     rows_with_fewer_fields_than_header: usize,
@@ -52,6 +54,12 @@ struct CandidateColumn {
     normalized_name: String,
     unique_non_empty_values: usize,
     missing_cells: usize,
+}
+
+#[derive(Debug, Serialize)]
+struct HeaderCollision {
+    normalized_name: String,
+    column_indices: Vec<usize>,
 }
 
 #[derive(Debug, Serialize)]
@@ -183,6 +191,29 @@ fn audit_bytes(bytes: &[u8], input_label: &str) -> Result<AuditReport, Box<dyn E
         .iter()
         .map(|header| normalize_header(header))
         .collect();
+    let blank_header_columns: Vec<usize> = normalized
+        .iter()
+        .enumerate()
+        .filter_map(|(index, name)| name.is_empty().then_some(index))
+        .collect();
+    let mut normalized_header_indices = BTreeMap::<String, Vec<usize>>::new();
+    for (index, name) in normalized.iter().enumerate() {
+        if !name.is_empty() {
+            normalized_header_indices
+                .entry(name.clone())
+                .or_default()
+                .push(index);
+        }
+    }
+    let duplicate_normalized_headers: Vec<HeaderCollision> = normalized_header_indices
+        .into_iter()
+        .filter_map(|(name, indices)| {
+            (indices.len() > 1).then_some(HeaderCollision {
+                normalized_name: name,
+                column_indices: indices,
+            })
+        })
+        .collect();
     let mut column_stats: Vec<MutableColumnStats> =
         (0..headers.len()).map(|_| MutableColumnStats::new()).collect();
     let mut duplicate_rows_seen = HashSet::<String>::new();
@@ -265,6 +296,18 @@ fn audit_bytes(bytes: &[u8], input_label: &str) -> Result<AuditReport, Box<dyn E
     }
 
     let mut warnings = Vec::new();
+    if !blank_header_columns.is_empty() {
+        warnings.push(format!(
+            "Columns {:?} have blank/non-identifiable headers; map them manually before analysis.",
+            blank_header_columns
+        ));
+    }
+    if !duplicate_normalized_headers.is_empty() {
+        warnings.push(format!(
+            "{} header collision group(s) remain after punctuation/case normalization. Do not merge or rename columns automatically.",
+            duplicate_normalized_headers.len()
+        ));
+    }
     if row_count != PUBLISHED_REFERENCE_ROWS {
         warnings.push(format!(
             "Observed {row_count} data rows; the paper describes 2,439 CSV rows. Verify the downloaded file/version and whether the published count refers to data rows or spreadsheet rows."
@@ -306,6 +349,8 @@ fn audit_bytes(bytes: &[u8], input_label: &str) -> Result<AuditReport, Box<dyn E
         row_count_matches_published_description: row_count == PUBLISHED_REFERENCE_ROWS,
         row_count,
         column_count: headers.len(),
+        blank_header_columns,
+        duplicate_normalized_headers,
         ragged_rows,
         rows_with_more_fields_than_header: more_fields,
         rows_with_fewer_fields_than_header: fewer_fields,
@@ -401,6 +446,9 @@ mod tests {
         let report = audit_bytes(csv, "duplicate-headers.csv").unwrap();
         assert_eq!(report.columns[0].normalized_name, report.columns[1].normalized_name);
         assert_ne!(report.columns[0].index, report.columns[1].index);
+        assert_eq!(report.duplicate_normalized_headers.len(), 1);
+        assert_eq!(report.duplicate_normalized_headers[0].column_indices, vec![0, 1]);
+        assert!(report.warnings.iter().any(|warning| warning.contains("header collision")));
     }
 
     #[test]
