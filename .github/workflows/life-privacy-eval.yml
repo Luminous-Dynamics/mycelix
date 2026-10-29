@@ -89,6 +89,35 @@ jobs:
           assert schema["properties"]["low_fpr_metrics_are_certification_ready"]["const"] is False
           assert paired_schema["properties"]["overall_release_gate"]["const"] == "NOT_EVALUATED_REQUIRED_UTILITY_AND_CONFORMANCE_MISSING"
           assert all(scenario["required"] for scenario in matrix["scenarios"])
+          retrieval_schema = json.loads((root / "retrieval-report.schema.json").read_text())
+          assert retrieval_schema["$schema"] == "https://json-schema.org/draft/2020-12/schema"
+          assert manifest["version"] == "0.4.0"
+          assert manifest["retrieval_report_schema_file"] == "retrieval-report.schema.json"
+          assert manifest["retrieval_evaluation"]["mode"] == "closed_set_ranked_reidentification"
+          assert retrieval_schema["properties"]["overall_release_gate"]["const"] == "NOT_EVALUATED_RETRIEVAL_ONLY_UTILITY_AND_CONFORMANCE_MISSING"
+          assert retrieval_schema["properties"]["rank_tie_policy"]["const"] == "uniform_fractional_credit_across_true_candidate_tie_block"
+          truth_lines = (root / "fixtures/retrieval-truth.tsv").read_text().splitlines()
+          score_lines = (root / "fixtures/retrieval-scores.tsv").read_text().splitlines()
+          assert truth_lines[0].split("\t") == ["query_id", "query_subject", "candidate_id", "candidate_subject", "true_match", "stratum"]
+          assert score_lines[0].split("\t") == ["query_id", "candidate_id", "score"]
+          truth_rows = [line.split("\t") for line in truth_lines[1:] if line.strip()]
+          score_rows = [line.split("\t") for line in score_lines[1:] if line.strip()]
+          assert len(truth_rows) == len(score_rows) == 16
+          assert all(len(row) == 6 for row in truth_rows)
+          assert all(len(row) == 3 for row in score_rows)
+          assert {(row[0], row[2]) for row in truth_rows} == {(row[0], row[1]) for row in score_rows}
+          truth_by_query = {}
+          for row in truth_rows:
+              truth_by_query.setdefault(row[0], []).append(row)
+              assert row[4] in ("0", "1")
+              assert (row[1] == row[3]) == (row[4] == "1")
+          assert len(truth_by_query) == 4
+          assert all(len(rows) == 4 and sum(row[4] == "1" for row in rows) == 1 for rows in truth_by_query.values())
+          candidate_pools = [{row[2] for row in rows} for rows in truth_by_query.values()]
+          assert all(pool == candidate_pools[0] for pool in candidate_pools)
+          assert len({row[3] for row in truth_rows}) == 4
+          train_subjects = set((root / "fixtures/retrieval-training-subjects.txt").read_text().splitlines())
+          assert not train_subjects.intersection({row[1] for row in truth_rows} | {row[3] for row in truth_rows})
           PY
           mkdir -p target/life-privacy-eval
           cargo +1.96.0 run --quiet --locked --release --manifest-path research/life-privacy-eval/Cargo.toml -- \
@@ -182,6 +211,48 @@ jobs:
           mv target/life-privacy-eval/calibrated-report-a.json target/life-privacy-eval/calibrated-report.json
           rm target/life-privacy-eval/calibrated-report-b.json
 
+      - name: Run deterministic closed-set retrieval known-answer fixture twice
+        shell: bash
+        run: |
+          set -euo pipefail
+          cargo +1.96.0 run --quiet --locked --release --manifest-path research/life-privacy-eval/Cargo.toml -- retrieval \
+            research/life-privacy-eval/fixtures/retrieval-truth.tsv \
+            research/life-privacy-eval/fixtures/retrieval-scores.tsv \
+            research/life-privacy-eval/fixtures/retrieval-training-subjects.txt \
+            target/life-privacy-eval/retrieval-report-a.json 300 9901
+          cargo +1.96.0 run --quiet --locked --release --manifest-path research/life-privacy-eval/Cargo.toml -- retrieval \
+            research/life-privacy-eval/fixtures/retrieval-truth.tsv \
+            research/life-privacy-eval/fixtures/retrieval-scores.tsv \
+            research/life-privacy-eval/fixtures/retrieval-training-subjects.txt \
+            target/life-privacy-eval/retrieval-report-b.json 300 9901
+          cmp target/life-privacy-eval/retrieval-report-a.json target/life-privacy-eval/retrieval-report-b.json
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          root = Path("research/life-privacy-eval")
+          schema = json.loads((root / "retrieval-report.schema.json").read_text())
+          report = json.loads(Path("target/life-privacy-eval/retrieval-report-a.json").read_text())
+          assert set(schema["required"]).issubset(report)
+          assert report["evaluation_mode"] == "closed_set_ranked_reidentification"
+          assert report["rank_tie_policy"] == "uniform_fractional_credit_across_true_candidate_tie_block"
+          assert report["uncertainty_scope"] == "query_subject_cluster_bootstrap_conditioned_on_fixed_candidate_pool"
+          assert report["query_count"] == 4 and report["unique_query_subjects"] == 4
+          assert report["candidate_pool_size"] == 4
+          assert report["metrics"]["top_1_reidentification_rate"] == 0.375
+          assert report["metrics"]["top_3_reidentification_rate"] == 0.75
+          assert report["metrics"]["mean_reciprocal_rank"] == 0.58333333
+          assert report["metrics"]["mean_expected_rank"] == 2.375
+          assert report["uniform_chance_baseline"]["top_1"] == 0.25
+          assert report["sample_size_gate"] == "SMOKE_ONLY_BELOW_MINIMUM"
+          assert report["task_utility_evidence_present"] is False
+          assert report["official_conformance_evidence_present"] is False
+          assert report["overall_release_gate"] == "NOT_EVALUATED_RETRIEVAL_ONLY_UTILITY_AND_CONFORMANCE_MISSING"
+          assert "does not estimate an effective anonymity set" in report["interpretation"]
+          assert set(schema["properties"]["metrics"]["required"]).issubset(report["metrics"])
+          PY
+          mv target/life-privacy-eval/retrieval-report-a.json target/life-privacy-eval/retrieval-report.json
+          rm target/life-privacy-eval/retrieval-report-b.json
+
       - name: Negative control — training/test identity overlap must fail closed
         shell: bash
         run: |
@@ -208,6 +279,11 @@ jobs:
             echo "manifest_sha256=$(sha256sum research/life-privacy-eval/benchmark-manifest.json | cut -d' ' -f1)"
             echo "scenario_matrix_sha256=$(sha256sum research/life-privacy-eval/attack-scenario-matrix.json | cut -d' ' -f1)"
             echo "threat_coverage_matrix_sha256=$(sha256sum research/life-privacy-eval/threat-coverage-matrix.json | cut -d' ' -f1)"
+            echo "retrieval_schema_sha256=$(sha256sum research/life-privacy-eval/retrieval-report.schema.json | cut -d' ' -f1)"
+            echo "retrieval_truth_sha256=$(sha256sum research/life-privacy-eval/fixtures/retrieval-truth.tsv | cut -d' ' -f1)"
+            echo "retrieval_scores_sha256=$(sha256sum research/life-privacy-eval/fixtures/retrieval-scores.tsv | cut -d' ' -f1)"
+            echo "retrieval_training_subjects_sha256=$(sha256sum research/life-privacy-eval/fixtures/retrieval-training-subjects.txt | cut -d' ' -f1)"
+            echo "retrieval_report_sha256=$(sha256sum target/life-privacy-eval/retrieval-report.json | cut -d' ' -f1)"
             echo "report_schema_sha256=$(sha256sum research/life-privacy-eval/report.schema.json | cut -d' ' -f1)"
             echo "calibration_truth_sha256=$(sha256sum research/life-privacy-eval/fixtures/calibration-truth.tsv | cut -d' ' -f1)"
             echo "calibration_scores_sha256=$(sha256sum research/life-privacy-eval/fixtures/calibration-scores.tsv | cut -d' ' -f1)"
@@ -233,6 +309,10 @@ jobs:
             research/life-privacy-eval/benchmark-manifest.json
             research/life-privacy-eval/attack-scenario-matrix.json
             research/life-privacy-eval/threat-coverage-matrix.json
+            research/life-privacy-eval/retrieval-report.schema.json
+            research/life-privacy-eval/fixtures/retrieval-truth.tsv
+            research/life-privacy-eval/fixtures/retrieval-scores.tsv
+            research/life-privacy-eval/fixtures/retrieval-training-subjects.txt
             research/life-privacy-eval/report.schema.json
             research/life-privacy-eval/paired-comparison.schema.json
             research/life-privacy-eval/calibrated-operating-point.schema.json
