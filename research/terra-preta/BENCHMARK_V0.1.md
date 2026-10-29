@@ -140,8 +140,25 @@ The goal is not to “beat SOTA” on a single aggregate number. It is to beat a
 
 A positive crop response is not required to pass the scientific benchmark; trustworthy identification of no benefit, harm, or a narrow domain of benefit is valuable.
 
+## 8. Initial dataset strategy and acquisition gates
+
+Start with available external evidence rather than fabricating synthetic labels or waiting for a field trial:
+
+1. **Global biochar treatment-response data:** Li et al.'s BiocharDS_V1.0 dataset is publicly available on [Figshare (CC0 1.0)](https://springernature.figshare.com/articles/dataset/BiocharDS_V1_0_csv/24781764), DOI [10.6084/m9.figshare.24781764.v1](https://doi.org/10.6084/m9.figshare.24781764.v1). Its paper describes data extracted from 367 peer-reviewed studies, including 891 experiments and 2,438 paired items across crop yield, soil properties, and greenhouse-gas outcomes. First step: download the dataset and data dictionary, audit study/treatment identifiers, units, missingness, sampling depth, and duplicated/related observations. This is a *literature-extracted effect dataset*, not a substitute for raw, local calibration time series. Split by source study (and by site where identifiable), never random rows.
+2. **African soil context:** [Soils4Africa / Soil Data of Africa](https://africasis.isric.org/download.html) offers sampled soil properties including texture, bulk density, organic carbon, and chemical properties as CSV/GeoPackage, with regional soil maps. Its own guidance says the recommended application scale is national to continental and discourages field-level use. Use it to stratify hypotheses and help select candidate regions, not as a replacement for soil sampling from a trial plot.
+3. **Standardized profiles and gaps:** [WoSIS](https://isric.org/explore/wosis) is a global, standardized soil-profile resource. Coverage is property-dependent and access is subject to source data-provider licenses. Record exactly which properties are measured versus predicted/harmonized; do not treat a map estimate as a laboratory observation.
+4. **Crop-water reference model:** FAO [AquaCrop v7.3](https://www.fao.org/aquacrop) is an established crop water-productivity model with source code and standalone versions. Use it as a version-pinned *external comparator* for matched crop/water questions when inputs, calibration, and boundary assumptions align. It is not a biochar-specific effect model and must not become an unexamined production dependency in the Rust kernel.
+
+**Dataset go/no-go checklist:** capture the source URI and license; retain the original files unchanged; hash files; audit variables and units; map each row to study, site, soil, crop, material/batch (when supplied), treatment, comparator, and outcome; log missingness and unit conversions; identify repeated measures and correlated comparisons; create group-level split manifests before fitting. Publish the dataset audit before reporting performance.
+
+Maintain four separate data classes: (a) synthetic fixtures for software invariants, (b) literature-extracted published observations, (c) new lab measurements, and (d) controlled/field trial observations. They must never be merged without explicit source labels, compatible measurement definitions, and a documented modeling plan. External datasets alone cannot establish South African field efficacy or local product safety.
+
 ## References
 
+- Li, X. et al. “A global dataset of biochar application effects on crop yield, soil properties, and greenhouse gas emissions,” *Scientific Data* 11, 57 (2024), [paper](https://doi.org/10.1038/s41597-023-02867-9) and [dataset](https://doi.org/10.6084/m9.figshare.24781764.v1).
+- [Soils4Africa observations and maps](https://africasis.isric.org/download.html).
+- [WoSIS standardized soil profile data](https://isric.org/explore/wosis).
+- [FAO AquaCrop v7.3](https://www.fao.org/aquacrop).
 - [Global synthesis of biochar field experiments on yield and water productivity (2024)](https://doi.org/10.1016/j.agwat.2024.109134).
 - [Systematic review: biochar and nutrient cycling in sandy soils (2024)](https://doi.org/10.1186/s13750-024-00326-5).
 - [Long-term soil hydraulic effects meta-analysis (2025)](https://doi.org/10.1016/j.geoderma.2025.117318).
