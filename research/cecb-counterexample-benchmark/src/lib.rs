@@ -750,13 +750,18 @@ mod tests {
                 && candidate.score.true_negative == 54
         }));
         assert_eq!(
-            pareto_box_front(&candidates),
-            pareto_box_front(&candidates)
+            candidates,
+            exhaustive_axis_aligned_boxes(&points, LabelSource::LatentTruth).unwrap()
         );
-        assert!(pareto_box_front(&candidates).iter().all(|candidate| {
-            !pareto_box_front(&candidates)
-                .iter()
-                .any(|other| other.dominates(candidate))
+        let front = pareto_box_front(&candidates);
+        assert!(!front.is_empty());
+        assert!(front.iter().all(|candidate| {
+            !front.iter().any(|other| other.dominates(candidate))
+        }));
+        assert!(front.iter().any(|candidate| {
+            candidate.score.true_positive == 27
+                && candidate.score.false_positive == 0
+                && candidate.complexity == 1
         }));
     }
 
@@ -767,6 +772,20 @@ mod tests {
         assert!(!candidates.iter().any(|candidate| {
             candidate.score.false_positive == 0 && candidate.score.false_negative == 0
         }));
+    }
+
+    #[test]
+    fn exhaustive_box_search_recovers_no_exact_rule_for_interacting_truth() {
+        let points = nonlinear_interaction_landscape();
+        let candidates =
+            exhaustive_axis_aligned_boxes(&points, LabelSource::LatentTruth).unwrap();
+        assert!(!candidates.iter().any(|candidate| {
+            candidate.score.false_positive == 0 && candidate.score.false_negative == 0
+        }));
+        assert_eq!(
+            candidates,
+            exhaustive_axis_aligned_boxes(&points, LabelSource::LatentTruth).unwrap()
+        );
     }
 
     #[test]
