@@ -15,6 +15,7 @@ from typing import Any
 ROOT = Path(__file__).resolve().parents[1]
 FIXTURE_PATH = ROOT / "examples/courses/civic-resilience-policy-benchmark-fixture-001.json"
 COURSE_PATH = ROOT / "examples/courses/civic-resilience-democratic-defence.json"
+WORKBOOK_PATH = ROOT / "examples/courses/civic-resilience-capstone-workbook-001.json"
 
 
 def validate(fixture: dict[str, Any], course: dict[str, Any]) -> list[str]:
@@ -123,6 +124,123 @@ def validate(fixture: dict[str, Any], course: dict[str, Any]) -> list[str]:
     return errors
 
 
+
+def validate_workbook(
+    workbook: dict[str, Any],
+    fixture: dict[str, Any],
+    course: dict[str, Any],
+) -> list[str]:
+    errors: list[str] = []
+
+    if workbook.get("workbook_id") != "PRAXIS-NRES-003-WORKBOOK-001":
+        errors.append("unexpected workbook_id")
+    if workbook.get("schema_version") != "1.0.0":
+        errors.append("unsupported workbook schema_version")
+    if workbook.get("status") != "draft-review-only-not-active":
+        errors.append("workbook must remain a draft and inactive")
+    if workbook.get("active_in_curriculum") is not False:
+        errors.append("workbook must not be activated in the curriculum graph")
+    if workbook.get("course_id") != course.get("course_id"):
+        errors.append("workbook course_id must match the proposal course")
+    if workbook.get("benchmark_fixture") != FIXTURE_PATH.relative_to(ROOT).as_posix():
+        errors.append("workbook must reference the exact public fixture path")
+    if workbook.get("scoring_specification") != "docs/curriculum/PRAXIS_NRES_003_SCORING_ANCHORS.md":
+        errors.append("workbook must reference its anchored scoring specification")
+    if workbook.get("study_protocol") != "docs/curriculum/PRAXIS_NRES_004_PREREGISTRATION.md":
+        errors.append("workbook must reference the study preregistration protocol")
+
+    course_metadata = course.get("metadata", {})
+    if course_metadata.get("capstone_workbook") != WORKBOOK_PATH.relative_to(ROOT).as_posix():
+        errors.append("course metadata must reference the exact capstone workbook")
+    if course_metadata.get("scoring_specification") != workbook.get("scoring_specification"):
+        errors.append("course and workbook scoring-specification references must agree")
+    if course_metadata.get("study_protocol") != workbook.get("study_protocol"):
+        errors.append("course and workbook study-protocol references must agree")
+
+    sections = workbook.get("sections", [])
+    section_ids = [section.get("id") for section in sections if isinstance(section, dict)]
+    if len(sections) != 8:
+        errors.append("workbook must contain exactly eight capstone sections")
+    if len(section_ids) != len(set(section_ids)):
+        errors.append("workbook section IDs must be unique")
+    for section in sections:
+        if not isinstance(section, dict):
+            errors.append("every workbook section must be an object")
+            continue
+        if not section.get("title") or not section.get("prompts") or not section.get("evidence_to_submit"):
+            errors.append(f"workbook section {section.get('id')!r} needs title, prompts and evidence_to_submit")
+
+    expected_dimensions = [dimension.get("id") for dimension in fixture.get("rubric", {}).get("dimensions", [])]
+    if workbook.get("rubric_dimensions") != expected_dimensions:
+        errors.append("workbook rubric dimensions must match the fixture rubric in order")
+    if len(workbook.get("required_submission_sections", [])) < 10:
+        errors.append("workbook required submission contract is incomplete")
+    if len(workbook.get("non_compensable_guardrails", [])) < 5:
+        errors.append("workbook non-compensable guardrails are incomplete")
+
+    expected_labels = fixture.get("required_learner_deliverable", {}).get("required_uncertainty_labels", [])
+    if workbook.get("required_uncertainty_labels") != expected_labels:
+        errors.append("workbook uncertainty labels must match the frozen fixture contract")
+
+    learner_data = workbook.get("learner_data", {})
+    if learner_data.get("default") != "local-only":
+        errors.append("workbook learner data must default to local-only")
+    if learner_data.get("federated_learning_enabled") is not False:
+        errors.append("federated learning must remain disabled for this workbook")
+    if learner_data.get("political_or_enlistment_inference") is not False:
+        errors.append("workbook must prohibit political and enlistment inference")
+
+    validation = workbook.get("validation", {})
+    if validation.get("public_fixture_role") != "development-and-formative-practice-only":
+        errors.append("public fixture must be labeled development/formative only")
+    if validation.get("public_variants_are_held_out") is not False:
+        errors.append("public variants must not be represented as held out")
+    if not validation.get("confirmatory_evaluation_requires"):
+        errors.append("workbook must specify a separate confirmatory holdout requirement")
+    if not validation.get("no_claims"):
+        errors.append("workbook must state its validity and activation non-claims")
+
+    if workbook.get("estimated_hours") != next(
+        (module.get("estimated_hours") for module in course.get("syllabus", []) if module.get("module") == 8),
+        None,
+    ):
+        errors.append("workbook estimated_hours must match the capstone module")
+
+    return errors
+
+
+def self_test_workbook(
+    workbook: dict[str, Any],
+    fixture: dict[str, Any],
+    course: dict[str, Any],
+) -> int:
+    cases: list[tuple[str, dict[str, Any], str]] = []
+
+    active = copy.deepcopy(workbook)
+    active["active_in_curriculum"] = True
+    cases.append(("active workbook", active, "workbook must not be activated"))
+
+    politicized = copy.deepcopy(workbook)
+    politicized["learner_data"]["political_or_enlistment_inference"] = True
+    cases.append(("political inference enabled", politicized, "workbook must prohibit political"))
+
+    leaked = copy.deepcopy(workbook)
+    leaked["validation"]["public_variants_are_held_out"] = True
+    cases.append(("public variants misrepresented as held out", leaked, "public variants must not be represented"))
+
+    rubric_drift = copy.deepcopy(workbook)
+    rubric_drift["rubric_dimensions"] = ["R1"]
+    cases.append(("rubric dimension drift", rubric_drift, "workbook rubric dimensions must match"))
+
+    for name, test_workbook, expected in cases:
+        errors = validate_workbook(test_workbook, fixture, course)
+        if not any(expected in error for error in errors):
+            print(f"SELF-TEST FAIL: {name}: expected rejection containing {expected!r}", file=sys.stderr)
+            return 1
+
+    print(f"SELF-TEST PASS: {len(cases)} workbook negative controls rejected invalid scope, scoring and split mutations")
+    return 0
+
 def self_test(fixture: dict[str, Any], course: dict[str, Any]) -> int:
     cases: list[tuple[str, dict[str, Any], dict[str, Any], str]] = []
 
@@ -165,26 +283,31 @@ def self_test(fixture: dict[str, Any], course: dict[str, Any]) -> int:
 
 
 def main() -> int:
-    if not FIXTURE_PATH.is_file() or not COURSE_PATH.is_file():
-        print("ERROR: required course or fixture file is missing", file=sys.stderr)
+    if not FIXTURE_PATH.is_file() or not COURSE_PATH.is_file() or not WORKBOOK_PATH.is_file():
+        print("ERROR: required course, fixture or capstone workbook file is missing", file=sys.stderr)
         return 2
 
     try:
         fixture = json.loads(FIXTURE_PATH.read_text(encoding="utf-8"))
         course = json.loads(COURSE_PATH.read_text(encoding="utf-8"))
+        workbook = json.loads(WORKBOOK_PATH.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError) as error:
         print(f"ERROR: cannot read valid JSON inputs: {error}", file=sys.stderr)
         return 2
 
     errors = validate(fixture, course)
+    errors.extend(validate_workbook(workbook, fixture, course))
     if errors:
         for error in errors:
             print(f"FAIL: {error}", file=sys.stderr)
         return 1
 
-    print("PASS: fixture/course internal consistency only; no educational or policy-effect claim")
+    print("PASS: course, fixture and workbook internal consistency only; no educational or policy-effect claim")
     if "--self-test" in sys.argv[1:]:
-        return self_test(fixture, course)
+        base_status = self_test(fixture, course)
+        if base_status != 0:
+            return base_status
+        return self_test_workbook(workbook, fixture, course)
     return 0
 
 
