@@ -59,12 +59,26 @@ pub struct SplitManifest {
 
 /// A reproducible benchmark split. Candidate-facing data is separate from the
 /// evaluator object, whose outcome labels are not exposed by public fields.
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, PartialEq, Eq)]
 pub struct ProtocolSplit {
     pub development: Vec<TrainingObservation>,
     pub holdout_inputs: Vec<CandidateInput>,
     pub manifest: SplitManifest,
-    pub evaluator: HoldoutEvaluator,
+    evaluator: HoldoutEvaluator,
+}
+
+// Do not derive Debug here: HoldoutEvaluator contains per-sample holdout labels.
+// Redacting it prevents accidental leakage via format!("{:?}", split).
+impl std::fmt::Debug for ProtocolSplit {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        formatter
+            .debug_struct("ProtocolSplit")
+            .field("development", &self.development)
+            .field("holdout_inputs", &self.holdout_inputs)
+            .field("manifest", &self.manifest)
+            .field("evaluator", &"[REDACTED]")
+            .finish()
+    }
 }
 
 /// The trusted scoring side. Targets are private and there are no getters for
