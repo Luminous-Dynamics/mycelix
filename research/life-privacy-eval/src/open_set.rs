@@ -48,7 +48,7 @@ struct Rates {
     false_negative_rank5: f64,
     false_negative_rank10: f64,
     false_positive_identification_rate: f64,
-    correct_identification_precision: f64,
+    correct_identification_precision: Option<f64>,
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -356,7 +356,7 @@ fn compute_rates(rows: &[QueryResult], threshold: Option<f64>) -> Rates {
     };
     let accepted = rows.iter().filter(|q| threshold.is_some_and(|t| q.max_score >= t)).count();
     let correct_rank1 = mated.iter().map(|q| success_at(q, 1)).sum::<f64>();
-    let correct_identification_precision = if accepted == 0 { 0.0 } else { correct_rank1 / accepted as f64 };
+    let correct_identification_precision = if accepted == 0 { None } else { Some(correct_rank1 / accepted as f64) };
     Rates {
         mated_queries: mated.len(),
         nonmated_queries: nonmated.len(),
@@ -454,10 +454,13 @@ fn build_report(
     for q in test { by_stratum.entry(q.stratum.as_str()).or_default().push(q); }
     let strata_json = by_stratum.iter().map(|(stratum, rows)| {
         let threshold_metrics = compute_rates(rows, threshold);
+        let fnir1 = if threshold_metrics.mated_queries == 0 { "null".to_owned() } else { format!("{:.8}", threshold_metrics.false_negative_rank1) };
+        let fnir5 = if threshold_metrics.mated_queries == 0 { "null".to_owned() } else { format!("{:.8}", threshold_metrics.false_negative_rank5) };
+        let fpir = if threshold_metrics.nonmated_queries == 0 { "null".to_owned() } else { format!("{:.8}", threshold_metrics.false_positive_identification_rate) };
         format!(
-            r#"{{"stratum":"{}","query_count":{},"mated_queries":{},"nonmated_queries":{},"fnir_rank1":{:.8},"fnir_rank5":{:.8},"fpir":{:.8}}}"#,
+            r#"{{"stratum":"{}","query_count":{},"mated_queries":{},"nonmated_queries":{},"fnir_rank1":{},"fnir_rank5":{},"fpir":{}}}"#,
             json_escape(stratum), rows.len(), threshold_metrics.mated_queries, threshold_metrics.nonmated_queries,
-            threshold_metrics.false_negative_rank1, threshold_metrics.false_negative_rank5, threshold_metrics.false_positive_identification_rate
+            fnir1, fnir5, fpir
         )
     }).collect::<Vec<_>>().join(",");
     format!(
@@ -488,7 +491,7 @@ fn build_report(
   "false_negative_identification_rate_rank10":{:.8},
   "false_positive_identification_rate":{:.8},
   "fpir_resolution":{:.8},
-  "correct_identification_precision":{:.8},
+  "correct_identification_precision":{},
   "fnir_rank1_cluster_bootstrap_ci95":{{"low":{:.8},"high":{:.8},"valid_replicates":{}}},
   "fnir_rank5_cluster_bootstrap_ci95":{{"low":{:.8},"high":{:.8},"valid_replicates":{}}},
   "fpir_cluster_bootstrap_ci95":{{"low":{:.8},"high":{:.8},"valid_replicates":{}}},
@@ -508,12 +511,16 @@ fn build_report(
         1.0 / candidate_count.max(1) as f64,
         test_rates.false_negative_rank1, test_rates.false_negative_rank3, test_rates.false_negative_rank5,
         test_rates.false_negative_rank10, test_rates.false_positive_identification_rate, target_res,
-        test_rates.correct_identification_precision,
+        metric_or_null(test_rates.correct_identification_precision),
         intervals.0.low, intervals.0.high, intervals.0.valid_replicates,
         intervals.1.low, intervals.1.high, intervals.1.valid_replicates,
         intervals.2.low, intervals.2.high, intervals.2.valid_replicates,
         rare_event, sample_gate, operating_gate, strata_json
     )
+}
+
+fn metric_or_null(value: Option<f64>) -> String {
+    value.filter(|x| x.is_finite()).map_or_else(|| "null".to_owned(), |x| format!("{x:.8}"))
 }
 
 fn json_escape(value: &str) -> String {
@@ -549,7 +556,7 @@ mod tests {
     #[test]
     fn zero_observed_fp_does_not_pass_rare_event_gate() {
         let interval=Interval{low:0.0,high:0.0,valid_replicates:1000};
-        let rates=Rates{mated_queries:10,nonmated_queries:10,false_negative_rank1:0.5,false_negative_rank3:0.4,false_negative_rank5:0.3,false_negative_rank10:0.0,false_positive_identification_rate:0.0,correct_identification_precision:0.5};
+        let rates=Rates{mated_queries:10,nonmated_queries:10,false_negative_rank1:0.5,false_negative_rank3:0.4,false_negative_rank5:0.3,false_negative_rank10:0.0,false_positive_identification_rate:0.0,correct_identification_precision:Some(0.5)};
         let report=build_report(&[],&[],Some(0.9),0.01,rates,rates,(interval,interval,interval),1000,1,false,10);
         assert!(report.contains("INCONCLUSIVE_ZERO_FPIR_CANNOT_BOUND_RARE_EVENT_RISK"));
     }
