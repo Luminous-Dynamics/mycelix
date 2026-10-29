@@ -2,7 +2,7 @@
 
 **Status:** deterministic synthetic reference landscapes and a scoring oracle. This is not an economic simulator, policy ranking, real-world evidence, or a claim that any discovery method is superior.
 
-The dependency-free Rust crate provides known-truth landscapes, a scorer, a candidate/evaluator protocol, a budgeted univariate-threshold learner, and a bounded exhaustive axis-aligned-box learner for one/two dimensions. It does **not** yet implement PRIM, CART, an oblique tree, or a Symthaea-guided search. These simple, auditable baselines establish a reproducible floor before more sophisticated methods are added.
+The dependency-free Rust crate provides known-truth landscapes, a scorer, a candidate/evaluator protocol, a budgeted univariate-threshold learner, a bounded exhaustive axis-aligned-box learner, and a depth-limited CART-style tree. It does **not** implement PRIM, claim equivalence to a vendor's CART implementation/defaults, provide oblique split predicates, or include Symthaea-guided search. These simple, auditable baselines establish a reproducible floor before more sophisticated methods are added.
 
 ## Run
 
@@ -12,6 +12,7 @@ cargo test --locked --manifest-path research/cecb-counterexample-benchmark/Cargo
 cargo run --locked --manifest-path research/cecb-counterexample-benchmark/Cargo.toml
 cargo run --locked --manifest-path research/cecb-counterexample-benchmark/Cargo.toml --bin cecb-tournament
 cargo run --locked --manifest-path research/cecb-counterexample-benchmark/Cargo.toml --bin cecb-box-tournament
+cargo run --locked --manifest-path research/cecb-counterexample-benchmark/Cargo.toml --bin cecb-cart-tournament
 ```
 
 The CLI emits deterministic JSON Lines: 18 per-rule score records plus three exhaustive box-search summaries. Score records include exact confusion counts and precision/recall numerator-denominator pairs. Search summaries expose the number of distinct prediction regions, Pareto-front size, maximum true positives, minimum false positives at that coverage, and whether exact recovery exists. Undefined precision/recall remains JSON `null`, never silently zero-filled.
@@ -41,6 +42,7 @@ The grid cases enumerate all 81 integer pairs in [-4, 4], except the constrained
 
 - `score_predictions` accepts one Boolean prediction per point, so arbitrary discovery algorithms can be scored without putting their implementation inside the oracle.
 - `score_rule` is a convenience baseline for axis-aligned interval conjunctions.
+- `discover_univariate_threshold`, `discover_exhaustive_axis_box`, and `discover_cart_tree` are separate candidate learners that consume observed development labels only via the budgeted oracle.
 - Only feasible points contribute to confusion counts; infeasible exclusions are counted separately.
 - Latent truth and observed labels remain distinct.
 - Malformed rules, out-of-range features, duplicate feature clauses, inverted intervals, empty datasets, inconsistent dimensions and mismatched prediction lengths fail closed. Exhaustive enumeration above two dimensions fails closed.
@@ -78,6 +80,26 @@ The axis-aligned case is exactly representable by one interval. The oblique and 
 
 Every receipt binds the exact checkout SHA, pull-request head SHA, and SHA-256 of the committed box-tournament manifest. It also records evaluator version, observation policy, query trace, development error, rule complexity, and held-out confusion counts. CI reruns the binary and byte-compares the output before validating the known answers.
 
+## CART-style depth/complexity tournament
+
+The `discover_cart_tree` baseline uses axis-aligned binary splits, Gini impurity reduction, fixed deterministic tie-breaking, majority-class leaves, and a maximum tree depth. The depth is part of the protocol: a depth-1 stump is compared with depth 3 on the same 41 development-label queries and 40-point holdout. The implementation is intentionally described as CART-style rather than claimed to match scikit-learn, R, SAS, or other vendor CART implementations.
+
+The `cecb-cart-tournament` binary emits seven JSONL receipts: the three truth shapes at depths 1 and 3, plus the family-A-to-B transfer negative control. The deterministic known-answer expectations are:
+
+| Truth shape | Max depth | Development errors | Tree splits | Holdout TP | FP | FN | TN |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| Axis-aligned | 1 | 0 | 1 | 13 | 0 | 0 | 27 |
+| Axis-aligned | 3 | 0 | 1 | 13 | 0 | 0 | 27 |
+| Oblique | 1 | 9 | 1 | 0 | 0 | 12 | 28 |
+| Oblique | 3 | 1 | 5 | 8 | 0 | 4 | 28 |
+| Nonlinear interaction | 1 | 8 | 1 | 0 | 0 | 8 | 32 |
+| Nonlinear interaction | 3 | 3 | 5 | 5 | 0 | 3 | 32 |
+| Reversed structural family | 3 | 0 | 1 | 0 | 3 | 3 | 3 |
+
+The oblique and nonlinear cases show why method capacity and complexity should be measured together: depth 3 recovers more held-out failures than depth 1, but requires more splits. The reversed-family control shows that this added capacity does not make the learned relationship transfer to every structural model. These figures are deterministic expectations derived independently and encoded in CI; they are **not Rust-run results until the workflow actually finishes**. The fixtures are public known-answer tests, not blind evaluation evidence.
+
+Receipts bind the exact checkout SHA, PR head SHA and SHA-256 of the committed CART tournament manifest; they also include evaluator/method versions, query traces, depth, development errors, tree complexity and held-out confusion counts. CI checks all seven known-answer rows and byte-compares repeated runs.
+
 ## Candidate/evaluator protocol v0.1
 
 The new Rust protocol module introduces a typed boundary for candidate evaluation:
@@ -91,7 +113,7 @@ The new Rust protocol module introduces a typed boundary for candidate evaluatio
 
 The protocol also has a structural holdout constructor, `build_model_family_split`. It leaves every sample from the named model family out of development. Source IDs and family identity stay in the trusted manifest; candidate records use partition-local IDs and do not reveal family names. Its known-answer fixture combines the two reversed families: a threshold `x >= 2` that detects family A's failures produces TP=0, FP=3, FN=3, TN=3 on held-out family B. This is a deliberately small falsification case showing why random/interleaved splits alone cannot justify transfer claims. It is not evidence about real simulator families; broader conclusions require more independently authored families and repeated leave-family-out evaluations.
 
-The candidate-facing value is a separate CandidateView containing only feature-only development and holdout inputs, plus a candidate-safe manifest. Labels are available only through the query capability. It excludes source row IDs and model-family identity. The evaluator-bearing ProtocolSplit and its trusted manifest remain with the harness; custom debug output redacts both so formatting the whole split does not print per-sample targets or holdout metadata. This remains an API-level leakage barrier, not a process sandbox: untrusted candidate implementations must run separately, and the trusted harness must measure query usage externally. The current PR adds the contract and tests but does not yet include PRIM/CART or a Symthaea search method.
+The candidate-facing value is a separate CandidateView containing only feature-only development and holdout inputs, plus a candidate-safe manifest. Labels are available only through the query capability. It excludes source row IDs and model-family identity. The evaluator-bearing ProtocolSplit and its trusted manifest remain with the harness; custom debug output redacts both so formatting the whole split does not print per-sample targets or holdout metadata. This remains an API-level leakage barrier, not a process sandbox: untrusted candidate implementations must run separately, and the trusted harness must measure query usage externally. The PR includes a small CART-style Gini-split tree, but not a PRIM implementation, a vendor-matched CART configuration, an oblique tree, or a Symthaea-guided search method.
 
 ## Initial qualification targets
 
