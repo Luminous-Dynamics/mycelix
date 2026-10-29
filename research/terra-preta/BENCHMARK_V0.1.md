@@ -54,6 +54,8 @@ Report treatment effects against a matched comparator with uncertainty intervals
 
 A model passes only if it improves on a transparent baseline on held-out data and uncertainty is sufficiently calibrated for the decision at hand. No global yield-accuracy target is set until a dataset audit establishes the number and diversity of independent observations.
 
+**Provisional superiority target (not achieved):** for a preregistered primary endpoint, aim for at least a 10% relative reduction in MAE versus the strongest valid baseline on fully held-out groups, with a 95% cluster-bootstrap interval for improvement that excludes zero. The analysis plan must require an adequate number of independent study/site/batch clusters. If the dataset cannot support that inference, report the comparison as inconclusive rather than lowering the bar after seeing results.
+
 ### Track E — decisions and economics
 
 Report, where data support it:
@@ -74,6 +76,8 @@ Compare Symthaea's constrained experiment ranking against:
 3. a simple uncertainty-based greedy baseline.
 
 Metrics: reduction in uncertainty on preregistered target parameters, decision regret, time/cost to reach a predefined evidence threshold, calibration, and the number of unsafe/disallowed candidates proposed. The target for unsafe/disallowed candidates is exactly zero after the independent safety gate. Include repeated seeds and confidence intervals.
+
+**Provisional efficiency target (not achieved):** at least 20% lower total cost to reach a preregistered uncertainty or decision threshold versus the better of the fixed expert-designed and random schedules, evaluated over repeated seeds with confidence intervals. Lower runtime alone does not count if laboratory, field, review, or safety costs increase. Any proposed candidate bypassing the safety gate is an automatic failure.
 
 ## 3. Required baselines
 
