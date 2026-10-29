@@ -432,7 +432,10 @@ study-c,32,31,26,27,35
         assert_eq!(report.independent_groups, 3);
         assert!(report.candidate.mae < report.baseline.mae);
         assert_eq!(report.candidate.empirical_interval_coverage, Some(1.0));
+        assert_eq!(report.candidate.mean_interval_score, Some(6.0));
         assert_eq!(report.baseline.empirical_interval_coverage, None);
+        assert_eq!(report.baseline.mean_interval_score, None);
+        assert_eq!(report.nominal_interval_coverage, 0.90);
         assert!(report.improvement_cluster_bootstrap_95pct.is_some());
         assert!(
             report
@@ -440,6 +443,15 @@ study-c,32,31,26,27,35
                 .iter()
                 .any(|warning| warning.contains("Only 3 independent groups"))
         );
+    }
+
+    #[test]
+    fn interval_score_penalizes_missed_intervals() {
+        let csv = "group_id,actual,candidate_prediction,baseline_prediction,interval_lower,interval_upper\\nstudy-a,1,1,1,2,3\\nstudy-b,10,10,10,9,11\\n";
+        let records = parse_records(csv.as_bytes()).unwrap();
+        let scored = metrics(&records, &[0], true);
+        // Width 1 + (2 / 0.1) * miss distance 1 = 21.
+        assert_eq!(scored.mean_interval_score, Some(21.0));
     }
 
     #[test]
