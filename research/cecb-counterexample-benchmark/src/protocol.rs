@@ -389,7 +389,7 @@ pub fn build_model_family_split(
 
     let mut development_targets = BTreeMap::new();
     for (source_sample_id, row) in points.iter().enumerate() {
-        if row.family_id == heldout_family_id {
+        if row.family_id.as_str() == heldout_family_id {
             let sample_id = holdout_inputs.len();
             holdout_sample_ids.push(source_sample_id);
             holdout_inputs.push(CandidateInput {
@@ -773,6 +773,30 @@ mod tests {
             ),
             Err(ProtocolError::InsufficientModelFamilies)
         );
+    }
+
+    #[test]
+    fn unknown_development_id_consumes_one_query_and_fails_closed() {
+        let mut split = build_protocol_split(
+            &axis_aligned_landscape(),
+            LabelSource::LatentTruth,
+            2,
+        )
+        .unwrap();
+        assert_eq!(
+            split.development_oracle_mut().query(usize::MAX),
+            Err(ProtocolError::UnknownDevelopmentSampleId(usize::MAX))
+        );
+        assert_eq!(split.development_query_count(), 1);
+        assert_eq!(
+            split.queried_development_sample_ids(),
+            &[usize::MAX]
+        );
+        assert_eq!(
+            split.development_oracle_mut().query(0).unwrap().sample_id,
+            0
+        );
+        assert_eq!(split.development_query_count(), 2);
     }
 
     #[test]
