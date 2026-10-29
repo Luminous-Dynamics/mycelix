@@ -116,7 +116,12 @@ jobs:
           python3 - <<'PY'
           import json
           from pathlib import Path
-          report = json.loads(Path("target/life-privacy-eval-gallery-sweep/coverage-report.json").read_text())
+          coverage_path = Path("target/life-privacy-eval-gallery-sweep/coverage-report.json")
+          report = json.loads(coverage_path.read_text())
+          coverage_schema = json.loads(Path("research/life-privacy-eval/gallery-crossed-bootstrap-coverage.schema.json").read_text())
+          assert set(coverage_schema["required"]).issubset(report)
+          assert coverage_schema["properties"]["known_sparse_event_undercoverage_reproduced"]["const"] is True
+          assert len(report["scenarios"]) == 7
           scenarios = {item["scenario"]: item for item in report["scenarios"]}
           assert report["outer_studies_per_scenario"] == 250
           assert report["bootstrap_replicates_per_study"] == 120
@@ -150,6 +155,7 @@ jobs:
             "$root/fixtures/gallery-training-subjects.txt" \
             "$root/gallery-sweep-report.schema.json" \
             "$root/coverage/gallery_crossed_bootstrap.py" \
+            "$root/gallery-crossed-bootstrap-coverage.schema.json" \
             "$out/coverage-report.json" \
             "$out/report-a.json" > "$out/sha256-receipt.txt"
           cat "$out/sha256-receipt.txt"
