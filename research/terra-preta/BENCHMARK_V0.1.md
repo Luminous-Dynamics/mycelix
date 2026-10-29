@@ -121,12 +121,14 @@ Do not claim superiority over a reference implementation if no matched, reproduc
 
 ## 5. Dataset split and anti-leakage rules
 
-Use grouped splits, with split manifests committed before model fitting:
+Use grouped splits, with frozen manifests committed before model fitting. Record each split with [split-manifest.schema.json](./split-manifest.schema.json), and independently run [verify-split-manifest.sh](./tools/verify-split-manifest.sh) before treating a split as confirmatory:
 - **in-domain holdout:** unseen samples within known soil/site group, if the use case supports it;
 - **batch holdout:** whole biochar/compost batches held out;
 - **soil holdout:** an entire soil class or source location held out;
 - **site/season holdout:** entire sites or growing seasons held out;
 - **prospective evaluation:** protocol and model frozen before new data arrive.
+
+The verifier recomputes train/validation/test group disjointness and refuses a `passed` manifest if the source-key review, cross-split overlap, related-study, or train-only preprocessing assertions fail. Its negative-control fixtures must reject overlapping groups and unreviewed source keys. These checks are necessary but cannot prove the identifiers actually represent independent studies; that still requires a reviewed source crosswalk.
 
 No shared sample, repeat measurement, derived feature, or augmentation from a held-out group may enter training. Any learned preprocessing parameters must be fitted on training groups only. Report both interpolation and extrapolation separately. Results on a random row split alone are insufficient.
 
