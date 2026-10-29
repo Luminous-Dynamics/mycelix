@@ -91,7 +91,7 @@ jobs:
           assert all(scenario["required"] for scenario in matrix["scenarios"])
           retrieval_schema = json.loads((root / "retrieval-report.schema.json").read_text())
           assert retrieval_schema["$schema"] == "https://json-schema.org/draft/2020-12/schema"
-          assert manifest["version"] == "0.6.0"
+          assert manifest["version"] == "0.7.0"
           assert manifest["retrieval_report_schema_file"] == "retrieval-report.schema.json"
           assert manifest["retrieval_evaluation"]["mode"] == "closed_set_ranked_reidentification"
           assert retrieval_schema["properties"]["overall_release_gate"]["const"] == "NOT_EVALUATED_RETRIEVAL_ONLY_UTILITY_AND_CONFORMANCE_MISSING"
@@ -120,8 +120,12 @@ jobs:
           assert not train_subjects.intersection({row[1] for row in truth_rows} | {row[3] for row in truth_rows})
           open_schema = json.loads((root / "open-set-report.schema.json").read_text())
           assert open_schema["$schema"] == "https://json-schema.org/draft/2020-12/schema"
-          assert open_schema["properties"]["schema_version"]["const"] == "1.1"
-          assert manifest["open_set_evaluation"]["subject_level_risk_bound"]["zero_event_subject_clusters_for_target_1pct_at_95pct"] == 14979
+          assert open_schema["properties"]["schema_version"]["const"] == "1.2"
+          assert open_schema["properties"]["subject_fp_rate_bound_method"]["const"] == "one_sided_exact_clopper_pearson_binomial_upper_bound_on_subject_level_any_session_false_identification"
+          assert manifest["open_set_evaluation"]["subject_level_risk_bound"]["zero_event_subject_clusters_for_target_1pct_at_95pct"] == 299
+          gallery_protocol = (root / manifest["gallery_scaling_protocol_file"]).read_text()
+          assert "design-only / not implemented" in gallery_protocol
+          assert "90%" in gallery_protocol and "0.1%" in gallery_protocol
           assert manifest["open_set_evaluation"]["report_schema_file"] == "open-set-report.schema.json"
           assert open_schema["properties"]["evaluation_mode"]["const"] == "validation_locked_open_set_identification"
           assert open_schema["properties"]["overall_release_gate"]["const"] == "NOT_EVALUATED_OPEN_SET_UTILITY_AND_CONFORMANCE_MISSING"
@@ -332,16 +336,18 @@ jobs:
           assert report["false_identifications"] == 0
           assert report["false_positive_identification_rate"] == 0.0
           assert report["fpir_resolution"] == 0.5
-          assert report["subject_fp_rate_bound_method"] == "one_sided_hoeffding_upper_bound_on_subject_level_any_session_false_identification"
+          assert report["subject_fp_rate_bound_method"] == "one_sided_exact_clopper_pearson_binomial_upper_bound_on_subject_level_any_session_false_identification"
           assert report["subject_fp_rate_confidence_level"] == 0.95
           assert report["validation_nonmated_subject_clusters"] == 2
           assert report["validation_subjects_with_any_false_identification"] == 0
           assert report["test_nonmated_subject_clusters"] == 2
           assert report["test_subjects_with_any_false_identification"] == 0
-          expected_upper = min(1.0, math.sqrt(math.log(20.0) / 4.0))
+          expected_upper = -math.expm1(math.log(0.05) / 2.0)
           assert abs(report["test_subject_any_false_identification_upper95"] - expected_upper) < 1e-8
           assert report["test_subject_any_false_identification_upper95"] > report["max_fpir_target"]
-          assert report["nonmated_subject_clusters_required_for_zero_event_bound"] == 14979
+          assert report["nonmated_subject_clusters_required_for_zero_event_bound"] == 299
+          assert math.ceil(math.log(0.05) / math.log1p(-0.001)) == 2995
+          assert manifest["open_set_evaluation"]["subject_level_risk_bound"]["zero_event_subject_clusters_for_target_0_1pct_at_95pct"] == 2995
           assert report["correct_identification_precision"] == 1.0
           assert report["rare_event_inference_status"] == "SUBJECT_CLUSTER_UPPER_BOUND_EXCEEDS_TARGET"
           assert report["sample_size_gate"] == "SMOKE_ONLY_BELOW_MINIMUM"
@@ -418,6 +424,7 @@ jobs:
             research/life-privacy-eval/threat-coverage-matrix.json
             research/life-privacy-eval/retrieval-report.schema.json
             research/life-privacy-eval/open-set-report.schema.json
+            research/life-privacy-eval/GALLERY-SCALING-BENCHMARK.md
             research/life-privacy-eval/fixtures/open-set-validation-truth.tsv
             research/life-privacy-eval/fixtures/open-set-validation-scores.tsv
             research/life-privacy-eval/fixtures/open-set-test-truth.tsv
