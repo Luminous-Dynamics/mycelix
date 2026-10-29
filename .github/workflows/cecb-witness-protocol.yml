@@ -1,0 +1,37 @@
+name: CECB Verified Witness Protocol
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "docs/research/CECB_VERIFIED_WITNESS_PROTOCOL_V0_1.md"
+      - "docs/research/schemas/CECB_VERIFIED_WITNESS_RECEIPT_V0_1.schema.json"
+      - "docs/research/fixtures/CECB_WITNESS_RECEIPT_*.json"
+      - "scripts/validate_cecb_witness_receipts.py"
+      - ".github/workflows/cecb-witness-protocol.yml"
+  push:
+    branches: [main]
+    paths:
+      - "docs/research/CECB_VERIFIED_WITNESS_PROTOCOL_V0_1.md"
+      - "docs/research/schemas/CECB_VERIFIED_WITNESS_RECEIPT_V0_1.schema.json"
+      - "docs/research/fixtures/CECB_WITNESS_RECEIPT_*.json"
+      - "scripts/validate_cecb_witness_receipts.py"
+      - ".github/workflows/cecb-witness-protocol.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  witness-receipts:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install pinned schema validator
+        run: python -m pip install --disable-pip-version-check jsonschema==4.23.0
+      - name: Validate witness receipt schema and semantic controls
+        run: python scripts/validate_cecb_witness_receipts.py

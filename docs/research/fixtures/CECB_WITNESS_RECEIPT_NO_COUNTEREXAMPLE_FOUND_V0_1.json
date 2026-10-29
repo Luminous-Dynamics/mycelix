@@ -1,0 +1,49 @@
+{
+  "schema_version": "cecb.witness_receipt.v0.1",
+  "receipt_id": "budget-exhausted-no-witness",
+  "source_sha": "cccccccccccccccccccccccccccccccccccccccc",
+  "claim": {
+    "claim_id": "fixture.claim.budget-exhausted-no-witness",
+    "candidate_semantics_sha256": "1111111111111111111111111111111111111111111111111111111111111111",
+    "reference_semantics_sha256": "2222222222222222222222222222222222222222222222222222222222222222"
+  },
+  "domain": {
+    "sha256": "3333333333333333333333333333333333333333333333333333333333333333",
+    "kind": "finite_discrete",
+    "size": 16
+  },
+  "verifier_version": "cecb.witness_verifier.v0.1",
+  "method": {
+    "method_id": "fixture.deterministic_search",
+    "method_version": "0.1.0"
+  },
+  "random_seed": 23,
+  "budgets": {
+    "max_label_queries": 2,
+    "label_queries_used": 2,
+    "max_runtime_ms": 1000,
+    "runtime_ms": 23,
+    "peak_memory_bytes": 4096
+  },
+  "query_trace": [
+    {
+      "query_index": 0,
+      "request_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "response_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+    },
+    {
+      "query_index": 1,
+      "request_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "response_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+    }
+  ],
+  "outcome": "no_counterexample_found_within_budget",
+  "verification": {
+    "mode": "budgeted_search",
+    "complete_domain_checked": false,
+    "witness_feasible": false,
+    "mismatch_reproduced": false,
+    "checked_domain_size": null,
+    "proof_artifact_sha256": null
+  }
+}
