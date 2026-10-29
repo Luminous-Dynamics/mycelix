@@ -37,6 +37,7 @@ jobs:
       sdk: ${{ steps.filter.outputs.sdk }}
       prism: ${{ steps.filter.outputs.prism }}
       cos_conformance: ${{ steps.filter.outputs.cos_conformance }}
+      cecb_robust_prereg: ${{ steps.filter.outputs.cecb_robust_prereg }}
     steps:
       - uses: actions/checkout@v4
       - uses: dorny/paths-filter@v3
@@ -80,6 +81,84 @@ jobs:
               - 'mycelix-manufacturing/Cargo.lock'
               - 'docs/integral/cos-reference-node-v1.md'
               - 'mycelix-manufacturing/tests/cos_reference_conformance.md'
+            cecb_robust_prereg:
+              - 'docs/research/CECB_ROBUST_POLICY_TOURNAMENT_V0_1.md'
+              - 'docs/research/schemas/CECB_MODEL_FAMILY_SPLIT_PREREGISTRATION_V0_1.schema.json'
+              - 'docs/research/fixtures/CECB_MODEL_FAMILY_SPLIT_PREREGISTRATION_V0_1.template.json'
+              - '.github/workflows/ci.yml'
+              - '.github/workflows/cecb-robust-preregistration.yml'
+
+
+  # CECB model-family split contract: no third-party schema runtime required.
+  cecb-robust-preregistration:
+    needs: changes
+    if: needs.changes.outputs.cecb_robust_prereg == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Parse schema and template JSON
+        run: |
+          set -euo pipefail
+          schema="docs/research/schemas/CECB_MODEL_FAMILY_SPLIT_PREREGISTRATION_V0_1.schema.json"
+          fixture="docs/research/fixtures/CECB_MODEL_FAMILY_SPLIT_PREREGISTRATION_V0_1.template.json"
+          jq -e . "$schema" >/dev/null
+          jq -e . "$fixture" >/dev/null
+          jq -e '
+            .["\$schema"] == "https://json-schema.org/draft/2020-12/schema"
+            and .properties.schema_version.const == "cecb.model_family_split_preregistration.v0.1"
+            and (.allOf | length == 2)
+          ' "$schema" >/dev/null
+
+      - name: Enforce template cannot be mistaken for a qualified study
+        run: |
+          set -euo pipefail
+          fixture="docs/research/fixtures/CECB_MODEL_FAMILY_SPLIT_PREREGISTRATION_V0_1.template.json"
+          jq -e '
+            .schema_version == "cecb.model_family_split_preregistration.v0.1"
+            and .status == "template_only"
+            and .claim_ceiling == "design_only"
+            and .qualification_holdout.commitment_sha256 == null
+            and .qualification_holdout.salt_custody == "not_created"
+            and .analysis_plan.minimum_practical_effect == null
+            and .study.simulator_contract_sha256 == null
+            and .study.outcome_contract_sha256 == null
+            and .study.policy_set_sha256 == null
+            and .split_rules.qualification_tuning_forbidden == true
+            and .split_rules.holdout_leakage_invalidates_run == true
+          ' "$fixture" >/dev/null
+
+      - name: Recompute development model-family descriptor digests
+        run: |
+          set -euo pipefail
+          fixture="docs/research/fixtures/CECB_MODEL_FAMILY_SPLIT_PREREGISTRATION_V0_1.template.json"
+          count="$(jq '.development_set.model_families | length' "$fixture")"
+          test "$count" -ge 1
+          for index in $(seq 0 "$((count - 1))"); do
+            entry="$(jq -c ".development_set.model_families[$index]" "$fixture")"
+            expected="$(jq -r '.descriptor_sha256' <<<"$entry")"
+            actual="$(jq -cS '.descriptor' <<<"$entry" | sha256sum | cut -d' ' -f1)"
+            test "$actual" = "$expected" || {
+              echo "descriptor digest mismatch for $(jq -r '.descriptor.family_id' <<<"$entry")" >&2
+              exit 1
+            }
+          done
+
+      - name: Enforce required robustness diagnostics
+        run: |
+          set -euo pipefail
+          fixture="docs/research/fixtures/CECB_MODEL_FAMILY_SPLIT_PREREGISTRATION_V0_1.template.json"
+          jq -e '
+            (.analysis_plan.uncertainty_axes | sort) ==
+              ["aleatory","implementation","measurement_scoring","parameter","scenario_distribution","structural"]
+            and (.analysis_plan.required_diagnostics | index("paired_per_outcome_effects") != null)
+            and (.analysis_plan.required_diagnostics | index("tail_and_subgroup_outcomes") != null)
+            and (.analysis_plan.required_diagnostics | index("guardrail_violation_bounds") != null)
+            and (.analysis_plan.required_diagnostics | index("outcome_specific_regret") != null)
+            and (.analysis_plan.required_diagnostics | index("pareto_front_stability") != null)
+            and (.analysis_plan.required_diagnostics | index("policy_by_model_family_failure_matrix") != null)
+            and (.analysis_plan.required_diagnostics | index("complete_run_dispositions") != null)
+          ' "$fixture" >/dev/null
 
   # Format check (always runs when CI is admitted)
   format:
