@@ -3,7 +3,7 @@
 //! Required CSV headers:
 //! group_id,actual,candidate_prediction,baseline_prediction,interval_lower,interval_upper
 //!
-//! Groups must be independently reviewed source-study/site/batch clusters. This
+//! Group IDs must be independently reviewed source-study/site/batch clusters. This
 //! tool cannot validate the scientific truth of those identifiers or the model.
 
 use csv::ReaderBuilder;
@@ -35,8 +35,8 @@ struct Metrics {
     mae: f64,
     rmse: f64,
     bias_prediction_minus_actual: f64,
-    empirical_interval_coverage: f64,
-    mean_interval_width: f64,
+    empirical_interval_coverage: Option<f64>,
+    mean_interval_width: Option<f64>,
 }
 
 #[derive(Debug, Serialize)]
@@ -70,7 +70,8 @@ fn sha256_hex(bytes: &[u8]) -> String {
     let mut output = String::with_capacity(digest.len() * 2);
     for byte in digest {
         use std::fmt::Write as _;
-        write!(&mut output, "{byte:02x}").expect("writing to a String is infallible");
+        write!(&mut output, "{byte:02x}")
+            .expect("writing to a String is infallible");
     }
     output
 }
@@ -100,7 +101,12 @@ fn parse_records(bytes: &[u8]) -> Result<Vec<PredictionRecord>, Box<dyn Error>> 
 
     let mut records = Vec::new();
     for (row_index, row) in reader.deserialize::<PredictionRecord>().enumerate() {
-        let record = row.map_err(|error| format!("invalid CSV record at data row {}: {error}", row_index + 1))?;
+        let record = row.map_err(|error| {
+            format!(
+                "invalid CSV record at data row {}: {error}",
+                row_index + 1
+            )
+        })?;
         if record.group_id.trim().is_empty() {
             return Err(format!("empty group_id at data row {}", row_index + 1).into());
         }
@@ -112,11 +118,17 @@ fn parse_records(bytes: &[u8]) -> Result<Vec<PredictionRecord>, Box<dyn Error>> 
             ("interval_upper", record.interval_upper),
         ] {
             if !value.is_finite() {
-                return Err(format!("{name} is non-finite at data row {}", row_index + 1).into());
+                return Err(
+                    format!("{name} is non-finite at data row {}", row_index + 1).into(),
+                );
             }
         }
         if record.interval_lower > record.interval_upper {
-            return Err(format!("interval_lower exceeds interval_upper at data row {}", row_index + 1).into());
+            return Err(format!(
+                "interval_lower exceeds interval_upper at data row {}",
+                row_index + 1
+            )
+            .into());
         }
         records.push(record);
     }
@@ -158,15 +170,26 @@ fn metrics(records: &[PredictionRecord], indices: &[usize], use_candidate: bool)
         mae: absolute_error_sum / count,
         rmse: (squared_error_sum / count).sqrt(),
         bias_prediction_minus_actual: signed_error_sum / count,
-        empirical_interval_coverage: if use_candidate { covered as f64 / count } else { f64::NAN },
-        mean_interval_width: if use_candidate { interval_width_sum / count } else { f64::NAN },
+        empirical_interval_coverage: if use_candidate {
+            Some(covered as f64 / count)
+        } else {
+            None
+        },
+        mean_interval_width: if use_candidate {
+            Some(interval_width_sum / count)
+        } else {
+            None
+        },
     }
 }
 
 fn group_indices(records: &[PredictionRecord]) -> Vec<Vec<usize>> {
     let mut groups = BTreeMap::<String, Vec<usize>>::new();
     for (index, record) in records.iter().enumerate() {
-        groups.entry(record.group_id.clone()).or_default().push(index);
+        groups
+            .entry(record.group_id.clone())
+            .or_default()
+            .push(index);
     }
     groups.into_values().collect()
 }
@@ -178,7 +201,9 @@ struct XorShift64 {
 
 impl XorShift64 {
     fn new(seed: u64) -> Self {
-        Self { state: if seed == 0 { DEFAULT_SEED } else { seed } }
+        Self {
+            state: if seed == 0 { DEFAULT_SEED } else { seed },
+        }
     }
 
     fn next(&mut self) -> u64 {
@@ -223,7 +248,10 @@ fn cluster_bootstrap(
     }
 
     if improvements.len() < BOOTSTRAP_REPLICATES * 9 / 10 {
-        return Err("too many bootstrap replicates have a zero baseline MAE; relative improvement is unstable".into());
+        return Err(
+            "too many bootstrap replicates have zero baseline MAE; relative improvement is unstable"
+                .into(),
+        );
     }
     improvements.sort_by(f64::total_cmp);
     let lower = percentile(&improvements, 0.025);
@@ -242,14 +270,15 @@ fn audit(bytes: &[u8], input_label: &str, seed: u64) -> Result<AuditReport, Box<
     let records = parse_records(bytes)?;
     let groups = group_indices(&records);
     if groups.len() < 2 {
-        return Err("at least two independently identified groups are required; rows are not independent units".into());
+        return Err(
+            "at least two independently identified groups are required; rows are not independent units"
+                .into(),
+        );
     }
+
     let all_indices: Vec<usize> = (0..records.len()).collect();
     let candidate = metrics(&records, &all_indices, true);
-    let mut baseline = metrics(&records, &all_indices, false);
-    // Baseline has no prediction interval; omit non-applicable JSON metrics.
-    baseline.empirical_interval_coverage = 0.0;
-    baseline.mean_interval_width = 0.0;
+    let baseline = metrics(&records, &all_indices, false);
     let relative_improvement = if baseline.mae > 0.0 {
         Some((baseline.mae - candidate.mae) / baseline.mae)
     } else {
@@ -265,7 +294,10 @@ fn audit(bytes: &[u8], input_label: &str, seed: u64) -> Result<AuditReport, Box<
     let bootstrap = if baseline.mae > 0.0 {
         Some(cluster_bootstrap(&records, &groups, seed)?)
     } else {
-        warnings.push("Baseline MAE is zero; relative MAE improvement and its confidence interval are undefined.".to_owned());
+        warnings.push(
+            "Baseline MAE is zero; relative MAE improvement and its confidence interval are undefined."
+                .to_owned(),
+        );
         None
     };
 
@@ -288,19 +320,28 @@ fn audit(bytes: &[u8], input_label: &str, seed: u64) -> Result<AuditReport, Box<
 fn run() -> Result<(), Box<dyn Error>> {
     let arguments: Vec<String> = env::args().collect();
     if arguments.len() < 3 || arguments.len() > 4 {
-        return Err(format!(
-            "usage: {} <held-out-predictions.csv> <report.json> [bootstrap-seed]",
-            arguments.first().map(String::as_str).unwrap_or("terra-preta-prediction-audit")
-        ).into());
+        return Err(
+            format!(
+                "usage: {} <held-out-predictions.csv> <report.json> [bootstrap-seed]",
+                arguments
+                    .first()
+                    .map(String::as_str)
+                    .unwrap_or("terra-preta-prediction-audit")
+            )
+            .into(),
+        );
     }
     let seed = if let Some(value) = arguments.get(3) {
-        value.parse::<u64>().map_err(|_| "bootstrap seed must be an unsigned integer")?
+        value
+            .parse::<u64>()
+            .map_err(|_| "bootstrap seed must be an unsigned integer")?
     } else {
         DEFAULT_SEED
     };
     let input_path = Path::new(&arguments[1]);
     let bytes = fs::read(input_path)?;
-    let report = audit(&bytes, input_path.display().to_string().as_str(), seed)?;
+    let input_label = input_path.display().to_string();
+    let report = audit(&bytes, &input_label, seed)?;
     let output = serde_json::to_vec_pretty(&report)?;
     fs::write(&arguments[2], output)?;
     println!(
@@ -336,7 +377,8 @@ study-c,32,31,26,27,35
         assert_eq!(report.observations, 6);
         assert_eq!(report.independent_groups, 3);
         assert!(report.candidate.mae < report.baseline.mae);
-        assert_eq!(report.candidate.empirical_interval_coverage, 1.0);
+        assert_eq!(report.candidate.empirical_interval_coverage, Some(1.0));
+        assert_eq!(report.baseline.empirical_interval_coverage, None);
         assert!(report.improvement_cluster_bootstrap_95pct.is_some());
     }
 
@@ -346,8 +388,14 @@ study-c,32,31,26,27,35
         let groups = group_indices(&records);
         let a = cluster_bootstrap(&records, &groups, 12345).unwrap();
         let b = cluster_bootstrap(&records, &groups, 12345).unwrap();
-        assert_eq!(a.relative_mae_improvement_lower, b.relative_mae_improvement_lower);
-        assert_eq!(a.relative_mae_improvement_upper, b.relative_mae_improvement_upper);
+        assert_eq!(
+            a.relative_mae_improvement_lower,
+            b.relative_mae_improvement_lower
+        );
+        assert_eq!(
+            a.relative_mae_improvement_upper,
+            b.relative_mae_improvement_upper
+        );
     }
 
     #[test]
