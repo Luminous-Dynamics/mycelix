@@ -1,0 +1,132 @@
+name: LIFE gallery scaling evaluator
+
+on:
+  pull_request:
+    paths:
+      - "research/life-privacy-eval/**"
+      - ".github/workflows/life-gallery-sweep.yml"
+  push:
+    paths:
+      - "research/life-privacy-eval/**"
+      - ".github/workflows/life-gallery-sweep.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  gallery-sweep:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    env:
+      QUALIFIED_SHA: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
+      CARGO_TERM_COLOR: always
+    steps:
+      - name: Checkout exact benchmark subject
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          ref: ${{ env.QUALIFIED_SHA }}
+          persist-credentials: false
+
+      - name: Assert exact commit
+        run: test "$(git rev-parse HEAD)" = "$QUALIFIED_SHA"
+
+      - name: Install pinned Rust toolchain
+        uses: dtolnay/rust-toolchain@e97e2d8cc328f1b50210efc529dca0028893a2d9
+        with:
+          toolchain: 1.96.0
+          components: rustfmt, clippy
+
+      - name: Check formatting
+        run: cargo +1.96.0 fmt --manifest-path research/life-privacy-eval/Cargo.toml --all -- --check
+
+      - name: Run unit tests
+        run: cargo +1.96.0 test --locked --manifest-path research/life-privacy-eval/Cargo.toml
+
+      - name: Run strict Clippy
+        run: cargo +1.96.0 clippy --locked --manifest-path research/life-privacy-eval/Cargo.toml --all-targets -- -D warnings
+
+      - name: Run deterministic gallery-sweep fixture twice
+        shell: bash
+        run: |
+          set -euo pipefail
+          root=research/life-privacy-eval
+          out=target/life-privacy-eval-gallery-sweep
+          mkdir -p "$out"
+          for suffix in a b; do
+            cargo +1.96.0 run --quiet --locked --release --manifest-path "$root/Cargo.toml" -- \
+              gallery-sweep \
+              "$root/fixtures/gallery-validation-query-truth.tsv" \
+              "$root/fixtures/gallery-validation-scores.tsv" \
+              "$root/fixtures/gallery-test-query-truth.tsv" \
+              "$root/fixtures/gallery-test-scores.tsv" \
+              "$root/fixtures/candidate-frame.tsv" \
+              "$root/fixtures/gallery-training-subjects.txt" \
+              "$out/report-$suffix.json" 0.0 8 300 9901 2,4,8,12 12
+          done
+          cmp "$out/report-a.json" "$out/report-b.json"
+
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          root = Path("research/life-privacy-eval")
+          out = Path("target/life-privacy-eval-gallery-sweep")
+          manifest = json.loads((root / "benchmark-manifest.json").read_text())
+          schema = json.loads((root / "gallery-sweep-report.schema.json").read_text())
+          report = json.loads((out / "report-a.json").read_text())
+          assert manifest["version"] == "0.9.0"
+          contract = manifest["gallery_sweep_evaluation"]
+          assert contract["mode"] == "gallery_scaling_open_set_identification"
+          assert contract["report_schema_file"] == "gallery-sweep-report.schema.json"
+          assert schema["properties"]["overall_release_gate"]["const"] == "NOT_EVALUATED_CROSSED_GALLERY_EVIDENCE_IS_NOT_RELEASE_CERTIFICATION"
+          assert set(schema["required"]).issubset(report)
+          assert report["schema_version"] == "1.0"
+          assert report["evaluation_mode"] == "gallery_scaling_open_set_identification"
+          assert report["gallery_sizes"] == [2, 4, 8, 12]
+          assert report["gallery_sampling"]["candidate_frame_size"] == 12
+          assert report["gallery_sampling"]["draw_count"] == 8
+          assert report["gallery_sampling"]["crossed_bootstrap_coverage_validation_status"] == "NOT_YET_ESTABLISHED_SYNTHETIC_COVERAGE_STUDY_REQUIRED"
+          assert report["overall_release_gate"] == "NOT_EVALUATED_CROSSED_GALLERY_EVIDENCE_IS_NOT_RELEASE_CERTIFICATION"
+          assert report["task_utility_evidence_present"] is False
+          assert report["official_conformance_evidence_present"] is False
+          assert report["frozen_threshold_policy"]["reference_gallery_size"] == 12
+          assert report["frozen_threshold_policy"]["threshold"] == 0.99
+          assert len(report["size_results"]) == 4
+          for item in report["size_results"]:
+              assert item["gallery_size"] in [2, 4, 8, 12]
+              locked = item["validation_locked_operating_point"]
+              frozen = item["frozen_reference_threshold_scaling"]
+              assert locked["operating_point_found"] is True
+              assert locked["threshold"] == 0.99
+              assert locked["test_metrics"]["fpir"] == 0.0
+              assert frozen["threshold"] == 0.99
+              assert frozen["test_metrics"]["fpir"] == 0.0
+              assert len(locked["per_gallery_draw_test_metrics"]) == 8
+              assert len(frozen["per_gallery_draw_test_metrics"]) == 8
+              for policy in (locked, frozen):
+                  ci = policy["test_crossed_bootstrap_ci95"]
+                  assert ci["coverage_validation_status"] == "NOT_YET_ESTABLISHED_SYNTHETIC_COVERAGE_STUDY_REQUIRED"
+                  assert ci["method"] == "crossed_query_subject_and_gallery_draw_cluster_percentile_bootstrap"
+          # Independently check the score-only boundary and complete query x candidate joins.
+          candidates = [line.split("\t") for line in (root / "fixtures/candidate-frame.tsv").read_text().splitlines()[1:] if line.strip()]
+          assert len(candidates) == 12 and all(len(row) == 2 for row in candidates)
+          for part in ("validation", "test"):
+              queries = [line.split("\t") for line in (root / f"fixtures/gallery-{part}-query-truth.tsv").read_text().splitlines()[1:] if line.strip()]
+              scores = [line.split("\t") for line in (root / f"fixtures/gallery-{part}-scores.tsv").read_text().splitlines()[1:] if line.strip()]
+              assert all(len(row) == 3 for row in queries)
+              assert all(len(row) == 3 for row in scores)
+              assert len(scores) == len(queries) * len(candidates)
+              assert {(row[0], row[1]) for row in scores} == {(q[0], c[0]) for q in queries for c in candidates}
+              assert not any("subject" in column or column == "stratum" for row in scores for column in row)
+          PY
+
+          sha256sum \
+            "$root/fixtures/gallery-validation-query-truth.tsv" \
+            "$root/fixtures/gallery-validation-scores.tsv" \
+            "$root/fixtures/gallery-test-query-truth.tsv" \
+            "$root/fixtures/gallery-test-scores.tsv" \
+            "$root/fixtures/candidate-frame.tsv" \
+            "$root/fixtures/gallery-training-subjects.txt" \
+            "$root/gallery-sweep-report.schema.json" \
+            "$out/report-a.json" > "$out/sha256-receipt.txt"
+          cat "$out/sha256-receipt.txt"
