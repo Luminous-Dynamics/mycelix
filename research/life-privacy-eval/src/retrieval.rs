@@ -1,5 +1,4 @@
 use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
-use std::env;
 use std::error::Error;
 use std::fs;
 
@@ -11,7 +10,6 @@ const MIN_QUERY_SUBJECTS_FOR_REVIEW: usize = 2_000;
 
 #[derive(Clone, Debug)]
 struct TruthRow {
-    query_id: String,
     query_subject: String,
     candidate_id: String,
     candidate_subject: String,
@@ -290,7 +288,7 @@ fn validate_and_rank(
 }
 
 fn rank_query(
-    query_id: String,
+    _query_id: String,
     query_subject: String,
     stratum: String,
     candidates: &[Candidate],
@@ -315,7 +313,6 @@ fn rank_query(
         .sum::<f64>() / tied as f64;
 
     Ok(QueryRank {
-        query_id,
         query_subject,
         stratum,
         candidate_count: candidates.len(),
