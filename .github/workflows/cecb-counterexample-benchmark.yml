@@ -69,5 +69,18 @@ jobs:
             and any(.[]; .schema_version == "cecb.counterexample_box_search.v0.1"
               and .case_id == "oblique_2d" and .exact_recovery_exists == false)
             and any(.[]; .schema_version == "cecb.counterexample_box_search.v0.1"
+              and .case_id == "axis_aligned_2d"
+              and .distinct_prediction_regions == 2026 and .pareto_front_count == 2
+              and .maximum_true_positives == 27
+              and .minimum_false_positives_at_maximum_true_positives == 0)
+            and any(.[]; .schema_version == "cecb.counterexample_box_search.v0.1"
+              and .case_id == "oblique_2d"
+              and .distinct_prediction_regions == 2026 and .pareto_front_count == 23
+              and .maximum_true_positives == 21 and .exact_recovery_exists == false)
+            and any(.[]; .schema_version == "cecb.counterexample_box_search.v0.1"
+              and .case_id == "nonlinear_interaction_2d"
+              and .distinct_prediction_regions == 2026 and .pareto_front_count == 40
+              and .maximum_true_positives == 16 and .exact_recovery_exists == false)
+            and any(.[]; .schema_version == "cecb.counterexample_box_search.v0.1"
               and .case_id == "nonlinear_interaction_2d" and .exact_recovery_exists == false)
           ' /tmp/cecb-scores-a.jsonl > /dev/null
