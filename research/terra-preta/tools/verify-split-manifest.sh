@@ -39,7 +39,8 @@ if ! jq -e '
     [
       .assignments.train_groups[],
       .assignments.validation_groups[],
-      .assignments.test_groups[]
+      .assignments.test_groups[],
+      .assignments.excluded_groups[]?
     ] as $all
     | ($all | length) == ($all | unique | length)
   )
