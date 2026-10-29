@@ -68,6 +68,7 @@ pub enum DiscoveryError {
     ZeroObservationBudget,
     InconsistentDimensions,
     UnsupportedDimensions(usize),
+    UnsupportedTreeDepth(usize),
     NoFeasibleTrainingExamples,
     Oracle(ProtocolError),
     RuleSearch(RuleError),
@@ -349,6 +350,286 @@ pub fn discover_exhaustive_axis_box(
     };
 
     Ok(AxisBoxDiscoveryResult {
+        model,
+        submission,
+        development_observations_used: queried_sample_ids.len(),
+        queried_sample_ids,
+    })
+}
+
+/// A small, deterministic classification tree. Split predicates are
+/// `feature[feature_index] <= threshold`; missing feature values fail closed.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum CartNode {
+    Leaf {
+        predicts_failure: bool,
+    },
+    Split {
+        feature_index: usize,
+        threshold: i32,
+        left: Box<CartNode>,
+        right: Box<CartNode>,
+    },
+}
+
+impl CartNode {
+    pub fn predict(&self, features: &[i32]) -> Option<bool> {
+        match self {
+            Self::Leaf { predicts_failure } => Some(*predicts_failure),
+            Self::Split {
+                feature_index,
+                threshold,
+                left,
+                right,
+            } => {
+                let value = *features.get(*feature_index)?;
+                if value <= *threshold {
+                    left.predict(features)
+                } else {
+                    right.predict(features)
+                }
+            }
+        }
+    }
+
+    pub fn complexity(&self) -> usize {
+        match self {
+            Self::Leaf { .. } => 0,
+            Self::Split { left, right, .. } => 1 + left.complexity() + right.complexity(),
+        }
+    }
+}
+
+/// CART-style axis-aligned decision tree fit by Gini reduction on queried labels.
+/// This is a compact reference implementation, not a claim of equivalence to a
+/// particular vendor's CART implementation or default hyperparameters.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct CartTree {
+    pub root: CartNode,
+    pub feature_count: usize,
+    pub max_depth: usize,
+    pub development_errors: usize,
+    pub development_feasible_examples: usize,
+}
+
+impl CartTree {
+    pub fn predict(&self, features: &[i32]) -> Option<bool> {
+        if features.len() != self.feature_count {
+            return None;
+        }
+        self.root.predict(features)
+    }
+
+    pub fn complexity(&self) -> usize {
+        self.root.complexity()
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct CartDiscoveryResult {
+    pub model: CartTree,
+    pub submission: CandidateSubmission,
+    pub development_observations_used: usize,
+    pub queried_sample_ids: Vec<usize>,
+}
+
+fn gini_impurity(positive: usize, negative: usize) -> f64 {
+    let total = positive + negative;
+    if total == 0 {
+        return 0.0;
+    }
+    let positive_fraction = positive as f64 / total as f64;
+    let negative_fraction = negative as f64 / total as f64;
+    1.0 - positive_fraction * positive_fraction - negative_fraction * negative_fraction
+}
+
+fn leaf_majority(rows: &[&TrainingObservation]) -> bool {
+    let positives = rows.iter().filter(|row| row.observed_failure).count();
+    positives * 2 > rows.len()
+}
+
+fn fit_cart_node(
+    rows: &[&TrainingObservation],
+    feature_count: usize,
+    depth: usize,
+    max_depth: usize,
+) -> CartNode {
+    let positives = rows.iter().filter(|row| row.observed_failure).count();
+    let negatives = rows.len().saturating_sub(positives);
+    let majority = positives * 2 > rows.len();
+    if rows.is_empty() || depth >= max_depth || positives == 0 || negatives == 0 {
+        return CartNode::Leaf {
+            predicts_failure: majority,
+        };
+    }
+
+    let parent_impurity = gini_impurity(positives, negatives);
+    let mut best: Option<(f64, usize, i32)> = None;
+
+    for feature_index in 0..feature_count {
+        let mut thresholds = rows
+            .iter()
+            .map(|row| row.features[feature_index])
+            .collect::<Vec<_>>();
+        thresholds.sort_unstable();
+        thresholds.dedup();
+
+        for threshold in thresholds {
+            let left = rows
+                .iter()
+                .copied()
+                .filter(|row| row.features[feature_index] <= threshold)
+                .collect::<Vec<_>>();
+            let right = rows
+                .iter()
+                .copied()
+                .filter(|row| row.features[feature_index] > threshold)
+                .collect::<Vec<_>>();
+            if left.is_empty() || right.is_empty() {
+                continue;
+            }
+
+            let left_positive = left.iter().filter(|row| row.observed_failure).count();
+            let right_positive = right.iter().filter(|row| row.observed_failure).count();
+            let left_negative = left.len() - left_positive;
+            let right_negative = right.len() - right_positive;
+            let count = rows.len() as f64;
+            let weighted_impurity = (left.len() as f64 / count)
+                * gini_impurity(left_positive, left_negative)
+                + (right.len() as f64 / count)
+                    * gini_impurity(right_positive, right_negative);
+            let gain = parent_impurity - weighted_impurity;
+
+            let better = best.as_ref().map_or(true, |(best_gain, best_feature, best_threshold)| {
+                gain > *best_gain + 1.0e-12
+                    || ((gain - *best_gain).abs() <= 1.0e-12
+                        && (feature_index, threshold) < (*best_feature, *best_threshold))
+            });
+            if better {
+                best = Some((gain, feature_index, threshold));
+            }
+        }
+    }
+
+    let Some((gain, feature_index, threshold)) = best else {
+        return CartNode::Leaf {
+            predicts_failure: majority,
+        };
+    };
+    if gain <= 1.0e-12 {
+        return CartNode::Leaf {
+            predicts_failure: majority,
+        };
+    }
+
+    let left = rows
+        .iter()
+        .copied()
+        .filter(|row| row.features[feature_index] <= threshold)
+        .collect::<Vec<_>>();
+    let right = rows
+        .iter()
+        .copied()
+        .filter(|row| row.features[feature_index] > threshold)
+        .collect::<Vec<_>>();
+    CartNode::Split {
+        feature_index,
+        threshold,
+        left: Box::new(fit_cart_node(
+            &left,
+            feature_count,
+            depth + 1,
+            max_depth,
+        )),
+        right: Box::new(fit_cart_node(
+            &right,
+            feature_count,
+            depth + 1,
+            max_depth,
+        )),
+    }
+}
+
+/// Fits a bounded CART-style tree using only labels returned by the development
+/// oracle. At most `max_labeled_observations` oracle requests are made, and the
+/// trusted harness remains responsible for process isolation and timing/memory
+/// accounting. A maximum depth of 0 is the majority-class baseline; depths above
+/// 16 fail closed to keep exhaustive fixture runs bounded.
+pub fn discover_cart_tree(
+    view: &CandidateView,
+    oracle: &mut DevelopmentOracle,
+    max_labeled_observations: usize,
+    max_depth: usize,
+) -> Result<CartDiscoveryResult, DiscoveryError> {
+    if view.development.is_empty() {
+        return Err(DiscoveryError::EmptyDevelopment);
+    }
+    if view.holdout_inputs.is_empty() {
+        return Err(DiscoveryError::EmptyHoldout);
+    }
+    if max_labeled_observations == 0 {
+        return Err(DiscoveryError::ZeroObservationBudget);
+    }
+    if max_depth > 16 {
+        return Err(DiscoveryError::UnsupportedTreeDepth(max_depth));
+    }
+
+    let feature_count = view.development[0].features.len();
+    if feature_count == 0
+        || view.development.iter().any(|row| row.features.len() != feature_count)
+        || view.holdout_inputs.iter().any(|row| row.features.len() != feature_count)
+    {
+        return Err(DiscoveryError::InconsistentDimensions);
+    }
+
+    let selected_inputs = select_budgeted_rows(&view.development, max_labeled_observations);
+    let mut training_rows = Vec::with_capacity(selected_inputs.len());
+    for input in &selected_inputs {
+        training_rows.push(oracle.query(input.sample_id).map_err(DiscoveryError::Oracle)?);
+    }
+    let feasible_rows = training_rows
+        .iter()
+        .filter(|row| row.feasible)
+        .collect::<Vec<_>>();
+    if feasible_rows.is_empty() {
+        return Err(DiscoveryError::NoFeasibleTrainingExamples);
+    }
+
+    let root = fit_cart_node(&feasible_rows, feature_count, 0, max_depth);
+    let development_errors = feasible_rows
+        .iter()
+        .filter(|row| root.predict(&row.features) != Some(row.observed_failure))
+        .count();
+    let model = CartTree {
+        root,
+        feature_count,
+        max_depth,
+        development_errors,
+        development_feasible_examples: feasible_rows.len(),
+    };
+    let predictions = view
+        .holdout_inputs
+        .iter()
+        .map(|input| {
+            Ok(Prediction {
+                sample_id: input.sample_id,
+                predicts_failure: model
+                    .predict(&input.features)
+                    .ok_or(DiscoveryError::InconsistentDimensions)?,
+            })
+        })
+        .collect::<Result<Vec<_>, DiscoveryError>>()?;
+    let queried_sample_ids = training_rows
+        .iter()
+        .map(|row| row.sample_id)
+        .collect::<Vec<_>>();
+    let submission = CandidateSubmission {
+        method_id: "cecb.cart_gini_depth_limited".to_owned(),
+        method_version: "0.1.0".to_owned(),
+        predictions,
+    };
+
+    Ok(CartDiscoveryResult {
         model,
         submission,
         development_observations_used: queried_sample_ids.len(),
