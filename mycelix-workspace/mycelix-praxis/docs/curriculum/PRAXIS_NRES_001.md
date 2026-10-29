@@ -2,6 +2,8 @@
 
 **Status:** proposed curriculum and policy-research brief for community review. Not an active-service directive, recruitment programme, military doctrine approval, or live training qualification.  
 **Course draft:** `examples/courses/civic-resilience-democratic-defence.json`  
+**Assessment fixture:** `examples/courses/civic-resilience-policy-benchmark-fixture-001.json`  
+**Benchmark specification:** `docs/curriculum/PRAXIS_NRES_002_BENCHMARK.md`  
 **Owner boundary:** Praxis owns the learning experience and content lifecycle; Mycelix governance owns course-curation policy; relevant public institutions own official training, service obligations, legal interpretations, and any military doctrine.
 
 ## 1. Decision brief: encourage participation, but do not presume universal two-year active military service
@@ -117,6 +119,8 @@ The teaching style should be open, critical and nonpartisan. Learners should ass
 The draft course defaults to local-only assessment and disables federated learning. It must not create individual enlistment-propensity scores, political-affiliation scores, or citizen trustworthiness profiles. Any future sharing of learner data would require a purpose-limited, consent-aware privacy design.
 
 ## 8. How Praxis should measure whether the course works
+
+A companion benchmark specification and a machine-readable fictional service-disruption/policy-comparison fixture have been added in [PRAXIS-NRES-002](PRAXIS_NRES_002_BENCHMARK.md) and `examples/courses/civic-resilience-policy-benchmark-fixture-001.json`. They define four neutral policy alternatives, eight scoring dimensions, eight scenario perturbations, hard-fail rules and a pre-registered learning-evaluation protocol. The fixture is an unactivated draft: no active curriculum graph change or learning outcome has been qualified.
 
 The course should be evaluated against learning and preparedness outcomes, not ideological conformity or recruitment rate.
 
