@@ -8,6 +8,9 @@ use crate::protocol::{
     CandidateSubmission, CandidateView, DevelopmentInput, DevelopmentOracle, Prediction,
     ProtocolError, TrainingObservation,
 };
+use crate::{
+    exhaustive_axis_aligned_boxes, BoxCandidate, LabelSource, Point, RuleError,
+};
 use std::collections::BTreeSet;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -64,8 +67,18 @@ pub enum DiscoveryError {
     EmptyHoldout,
     ZeroObservationBudget,
     InconsistentDimensions,
+    UnsupportedDimensions(usize),
     NoFeasibleTrainingExamples,
     Oracle(ProtocolError),
+    RuleSearch(RuleError),
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct AxisBoxDiscoveryResult {
+    pub model: BoxCandidate,
+    pub submission: CandidateSubmission,
+    pub development_observations_used: usize,
+    pub queried_sample_ids: Vec<usize>,
 }
 
 fn feasible_errors(
@@ -235,6 +248,114 @@ pub fn discover_univariate_threshold(
     })
 }
 
+/// Exhaustively searches the axis-aligned box hypothesis class over the
+/// observed development rows. This reference learner is intentionally limited
+/// to one or two dimensions; it is useful for measuring the hypothesis-class
+/// ceiling and is not a scalable substitute for PRIM/CART.
+///
+/// Development labels are retrieved one-by-one through the budgeted oracle.
+/// Selection minimizes development errors, then rule complexity, false positives,
+/// and predicted-positive count, with deterministic candidate order as the final
+/// tie-break. The returned prediction covers each holdout input exactly once.
+pub fn discover_exhaustive_axis_box(
+    view: &CandidateView,
+    oracle: &mut DevelopmentOracle,
+    max_labeled_observations: usize,
+) -> Result<AxisBoxDiscoveryResult, DiscoveryError> {
+    if view.development.is_empty() {
+        return Err(DiscoveryError::EmptyDevelopment);
+    }
+    if view.holdout_inputs.is_empty() {
+        return Err(DiscoveryError::EmptyHoldout);
+    }
+    if max_labeled_observations == 0 {
+        return Err(DiscoveryError::ZeroObservationBudget);
+    }
+
+    let dimensions = view.development[0].features.len();
+    if dimensions == 0
+        || view
+            .development
+            .iter()
+            .any(|row| row.features.len() != dimensions)
+        || view
+            .holdout_inputs
+            .iter()
+            .any(|row| row.features.len() != dimensions)
+    {
+        return Err(DiscoveryError::InconsistentDimensions);
+    }
+    if dimensions > 2 {
+        return Err(DiscoveryError::UnsupportedDimensions(dimensions));
+    }
+
+    let selected_inputs = select_budgeted_rows(&view.development, max_labeled_observations);
+    let mut training_rows = Vec::with_capacity(selected_inputs.len());
+    for input in &selected_inputs {
+        training_rows.push(
+            oracle
+                .query(input.sample_id)
+                .map_err(DiscoveryError::Oracle)?,
+        );
+    }
+    if !training_rows.iter().any(|row| row.feasible) {
+        return Err(DiscoveryError::NoFeasibleTrainingExamples);
+    }
+
+    // Latent truth is deliberately a constant and the search is scored on
+    // observed labels only. Holdout targets never enter this candidate object.
+    let training_points = training_rows
+        .iter()
+        .map(|row| Point {
+            features: row.features.clone(),
+            feasible: row.feasible,
+            latent_failure: false,
+            observed_failure: row.observed_failure,
+        })
+        .collect::<Vec<_>>();
+    let candidates = exhaustive_axis_aligned_boxes(
+        &training_points,
+        LabelSource::ObservedLabel,
+    )
+    .map_err(DiscoveryError::RuleSearch)?;
+    let model = candidates
+        .into_iter()
+        .min_by_key(|candidate| {
+            (
+                candidate.score.false_positive + candidate.score.false_negative,
+                candidate.complexity,
+                candidate.score.false_positive,
+                candidate.predicted_failure_points,
+            )
+        })
+        .ok_or(DiscoveryError::NoFeasibleTrainingExamples)?;
+
+    let predictions = view
+        .holdout_inputs
+        .iter()
+        .map(|input| Prediction {
+            sample_id: input.sample_id,
+            predicts_failure: model.matches(&input.features),
+        })
+        .collect();
+    let queried_sample_ids = training_rows
+        .iter()
+        .map(|row| row.sample_id)
+        .collect::<Vec<_>>();
+    let submission = CandidateSubmission {
+        method_id: "cecb.exhaustive_axis_box_1d2d".to_owned(),
+        method_version: "0.1.0".to_owned(),
+        predictions,
+    };
+
+    Ok(AxisBoxDiscoveryResult {
+        model,
+        submission,
+        development_observations_used: queried_sample_ids.len(),
+        queried_sample_ids,
+    })
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -268,6 +389,74 @@ mod tests {
     ) -> Result<DiscoveryResult, DiscoveryError> {
         let view = split.candidate_view().clone();
         discover_univariate_threshold(&view, split.development_oracle_mut(), budget)
+    }
+
+    #[test]
+    fn exhaustive_box_learner_recovers_axis_aligned_rule() {
+        let mut split = crate::protocol::build_protocol_split(
+            &axis_aligned_landscape(),
+            LabelSource::LatentTruth,
+            41,
+        )
+        .unwrap();
+        let view = split.candidate_view().clone();
+        let result = discover_exhaustive_axis_box(
+            &view,
+            split.development_oracle_mut(),
+            41,
+        )
+        .unwrap();
+        assert_eq!(result.model.score.false_positive, 0);
+        assert_eq!(result.model.score.false_negative, 0);
+        assert_eq!(result.development_observations_used, 41);
+        let report = split.evaluate(&result.submission).unwrap();
+        assert_eq!(report.candidate_query_count, 41);
+        assert_eq!(report.score.false_positive, 0);
+        assert_eq!(report.score.false_negative, 0);
+    }
+
+    #[test]
+    fn exhaustive_box_learner_fails_closed_above_two_dimensions_before_querying() {
+        let mut split = crate::protocol::build_protocol_split(
+            &crate::irrelevant_dimensions_landscape(),
+            LabelSource::LatentTruth,
+            512,
+        )
+        .unwrap();
+        let view = split.candidate_view().clone();
+        assert_eq!(
+            discover_exhaustive_axis_box(
+                &view,
+                split.development_oracle_mut(),
+                512,
+            ),
+            Err(DiscoveryError::UnsupportedDimensions(8))
+        );
+        assert_eq!(split.development_query_count(), 0);
+    }
+
+    #[test]
+    fn exhaustive_box_learner_fails_on_reversed_family_transfer() {
+        let mut split = build_model_family_split(
+            &family_fixture(),
+            "family_b",
+            LabelSource::LatentTruth,
+            9,
+        )
+        .unwrap();
+        let view = split.candidate_view().clone();
+        let result = discover_exhaustive_axis_box(
+            &view,
+            split.development_oracle_mut(),
+            9,
+        )
+        .unwrap();
+        let report = split.evaluate(&result.submission).unwrap();
+        assert_eq!(report.score.true_positive, 0);
+        assert_eq!(report.score.false_positive, 3);
+        assert_eq!(report.score.false_negative, 3);
+        assert_eq!(report.score.true_negative, 3);
+        assert_eq!(report.candidate_query_count, 9);
     }
 
     #[test]
