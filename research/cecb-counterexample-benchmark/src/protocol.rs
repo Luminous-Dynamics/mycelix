@@ -1,8 +1,9 @@
 //! Candidate/evaluator separation for the CECB synthetic benchmark.
 //!
 //! This module prevents accidental label leakage through the public API: candidate
-//! discovery receives observed-label development rows and feature-only holdout
-//! inputs; latent/observed holdout targets remain private to the evaluator.
+//! discovery receives feature-only development and holdout inputs. Development
+//! labels are returned one at a time by a budgeted capability; holdout targets
+//! remain private to the evaluator.
 //! It is an API boundary, NOT a security sandbox. Run untrusted candidates in an
 //! isolated process and have the trusted harness measure query counts externally.
 
@@ -87,7 +88,7 @@ pub struct CandidateView {
 
 /// Trusted harness state. Candidates should receive only CandidateView, never
 /// this evaluator-bearing wrapper or its source manifest/target ledger.
-#[derive(Clone, PartialEq, Eq)]
+#[derive(PartialEq, Eq)]
 pub struct ProtocolSplit {
     candidate_view: CandidateView,
     development_oracle: DevelopmentOracle,
@@ -156,7 +157,7 @@ pub enum ProtocolError {
 /// Budget-enforcing capability for querying observed development labels. Its
 /// ledger is private; each successful or unknown-ID attempt consumes budget,
 /// and holdout labels are never present in this object.
-#[derive(Clone, PartialEq, Eq)]
+#[derive(PartialEq, Eq)]
 pub struct DevelopmentOracle {
     targets: BTreeMap<usize, TrainingObservation>,
     max_queries: usize,
@@ -701,12 +702,12 @@ mod tests {
             .trusted_manifest
             .development_sample_ids
             .iter()
-            .all(|sample_id| rows[*sample_id].family_id == "family_a"));
+            .all(|sample_id| rows[*sample_id].family_id.as_str() == "family_a"));
         assert!(split
             .trusted_manifest
             .holdout_sample_ids
             .iter()
-            .all(|sample_id| rows[*sample_id].family_id == "family_b"));
+            .all(|sample_id| rows[*sample_id].family_id.as_str() == "family_b"));
         assert!(split.candidate_view().development.iter().enumerate()
             .all(|(local_id, row)| row.sample_id == local_id));
         assert!(split.candidate_view().holdout_inputs.iter().enumerate()
