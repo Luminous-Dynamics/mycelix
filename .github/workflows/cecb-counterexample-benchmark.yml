@@ -130,3 +130,52 @@ jobs:
               and .threshold == 2 and .development_errors == 0
               and .tp == 0 and .fp == 3 and .fn == 3 and .tn == 3)
           ' /tmp/cecb-tournament-a.jsonl > /dev/null
+
+      - name: Verify matched-budget axis-box hypothesis tournament
+        run: |
+          set -euo pipefail
+          target="research/cecb-counterexample-benchmark/Cargo.toml"
+          source_sha="${{ github.sha }}"
+          pr_head_sha="${{ github.event.pull_request.head.sha || github.sha }}"
+          manifest="research/cecb-counterexample-benchmark/fixtures/CECB_BOX_DISCOVERY_TOURNAMENT_V0_1.json"
+          manifest_sha="$(sha256sum "$manifest" | cut -d ' ' -f1)"
+          export CECB_SOURCE_SHA="$source_sha"
+          export CECB_PR_HEAD_SHA="$pr_head_sha"
+          export CECB_SPLIT_MANIFEST_SHA256="$manifest_sha"
+          cargo run --quiet --locked --manifest-path "$target" --bin cecb-box-tournament > /tmp/cecb-box-a.jsonl
+          cargo run --quiet --locked --manifest-path "$target" --bin cecb-box-tournament > /tmp/cecb-box-b.jsonl
+          diff -u /tmp/cecb-box-a.jsonl /tmp/cecb-box-b.jsonl
+          test "$(wc -l < /tmp/cecb-box-a.jsonl)" -eq 3
+
+          jq -s -e --arg source_sha "$source_sha" --arg pr_head_sha "$pr_head_sha" --arg manifest_sha "$manifest_sha" '
+            length == 3
+            and all(.[]; .schema_version == "cecb.box_discovery_receipt.v0.1"
+              and .source_sha == $source_sha
+              and .pr_head_sha == $pr_head_sha
+              and .source_sha != "unavailable"
+              and .pr_head_sha != "unavailable"
+              and .split_manifest_sha256 == $manifest_sha
+              and (.split_manifest_sha256 | test("^[0-9a-f]{64}$"))
+              and .evaluator_version == "cecb.holdout_evaluator.v0.1"
+              and .random_seed == null
+              and .observation_selection == "all_development_rows_in_source_order_v0.1"
+              and .split_rule == "alternating_input_index_v0.1"
+              and .method_id == "cecb.exhaustive_axis_box_1d2d"
+              and .method_version == "0.1.0"
+              and .label_query_budget == 41
+              and .label_queries_used == 41
+              and .development_point_count == 41
+              and .holdout_sample_count == 40
+              and .candidate_query_count == 41
+              and (.queried_sample_ids | length) == 41
+              and ((.queried_sample_ids | unique | length) == 41))
+            and any(.[]; .case_id == "axis_aligned_2d"
+              and .development_errors == 0 and .rule_complexity == 1
+              and .tp == 13 and .fp == 0 and .fn == 0 and .tn == 27)
+            and any(.[]; .case_id == "oblique_2d"
+              and .development_errors == 3 and .rule_complexity == 2
+              and .tp == 6 and .fp == 0 and .fn == 6 and .tn == 28)
+            and any(.[]; .case_id == "nonlinear_interaction_2d"
+              and .development_errors == 5 and .rule_complexity == 2
+              and .tp == 3 and .fp == 0 and .fn == 5 and .tn == 32)
+          ' /tmp/cecb-box-a.jsonl > /dev/null
