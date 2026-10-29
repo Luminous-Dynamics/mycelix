@@ -865,6 +865,7 @@ mod tests {
         let report = split.evaluate(&exact_axis_submission(split.candidate_view())).unwrap();
         assert_eq!(report.schema_version, SCHEMA_VERSION);
         assert_eq!(report.holdout_sample_count, split.candidate_view().holdout_inputs.len());
+        assert_eq!(report.candidate_query_count, 0);
         assert_eq!(report.score.false_positive, 0);
         assert_eq!(report.score.false_negative, 0);
         assert_eq!(
@@ -890,6 +891,7 @@ mod tests {
         assert_eq!(split.evaluation_label_source(), LabelSource::ObservedLabel);
         let report = split.evaluate(&exact_axis_submission(split.candidate_view())).unwrap();
         assert_eq!(report.label_source, LabelSource::ObservedLabel);
+        assert_eq!(report.candidate_query_count, 1);
     }
 
     #[test]
