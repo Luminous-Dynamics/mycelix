@@ -32,6 +32,8 @@ fn family_fixture() -> Vec<FamilyTaggedPoint> {
 fn main() -> Result<(), String> {
     let source_sha = std::env::var("CECB_SOURCE_SHA")
         .unwrap_or_else(|_| "unavailable".to_owned());
+    let pr_head_sha = std::env::var("CECB_PR_HEAD_SHA")
+        .unwrap_or_else(|_| "unavailable".to_owned());
     let split_manifest_sha256 = std::env::var("CECB_SPLIT_MANIFEST_SHA256")
         .unwrap_or_else(|_| "unavailable".to_owned());
     let points = family_fixture();
@@ -72,6 +74,7 @@ fn main() -> Result<(), String> {
                 "{",
                 "\"schema_version\":\"cecb.discovery_receipt.v0.1\",",
                 "\"source_sha\":\"{}\",",
+                "\"pr_head_sha\":\"{}\",",
                 "\"split_manifest_sha256\":\"{}\",",
                 "\"evaluator_version\":\"cecb.holdout_evaluator.v0.1\",",
                 "\"random_seed\":null,",
@@ -95,6 +98,7 @@ fn main() -> Result<(), String> {
                 "}"
             ),
             source_sha,
+            pr_head_sha,
             split_manifest_sha256,
             split.candidate_view().manifest.split_rule,
             report.method_id,
