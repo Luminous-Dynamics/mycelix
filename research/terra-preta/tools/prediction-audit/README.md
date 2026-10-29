@@ -1,0 +1,36 @@
+# Grouped prediction audit
+
+This standalone Rust CLI computes descriptive metrics and a deterministic group-cluster bootstrap interval for an already-frozen held-out prediction file. It does **not** train a model, decide which groups are independent, validate source labels, or prove agronomic efficacy.
+
+## Input contract
+
+CSV must contain these exact column names:
+
+```csv
+group_id,actual,candidate_prediction,baseline_prediction,interval_lower,interval_upper
+study-a,10.0,11.0,8.0,8.0,13.0
+study-b,20.0,19.0,18.0,16.0,22.0
+```
+
+Each row is one scored observation. `group_id` must identify the true independent cluster used for resampling (for example, a source study, site, or batch consistent with the preregistered split). Do not use row IDs or treat repeated endpoints from one experiment as independent groups. The tool requires at least two groups and rejects blank groups, non-finite numeric values, missing required fields, and reversed prediction intervals.
+
+## Run
+
+```sh
+cargo test --manifest-path research/terra-preta/tools/prediction-audit/Cargo.toml
+cargo run --release --manifest-path research/terra-preta/tools/prediction-audit/Cargo.toml -- \
+  /path/to/held-out-predictions.csv /path/to/prediction-report.json
+```
+
+An optional third argument fixes the bootstrap RNG seed. Otherwise, a stable default is used. The JSON output contains a SHA-256 digest of the exact CSV bytes, observation and group counts, candidate/baseline MAE and RMSE, candidate signed bias, empirical prediction-interval coverage and width, relative MAE improvement, and a 95% percentile interval from 2,000 group-cluster bootstrap replicates.
+
+## Interpretation
+
+- A positive relative MAE improvement means the candidate's MAE is lower than the supplied baseline's MAE on this file.
+- The bootstrap resamples whole groups, preserving all rows in each sampled group; it is not a row-wise bootstrap.
+- Prediction-interval coverage is descriptive for the supplied held-out observations. It does not demonstrate calibration on future or shifted populations.
+- If baseline MAE is zero, relative improvement is undefined and no relative-improvement interval is reported.
+- A confidence interval excluding zero does not prove causal identification, field efficacy, safety, profitability, or regulatory compliance.
+- The input's held-out status, split integrity, source crosswalk, and model freeze must be verified separately. Run the split-manifest verifier and preserve the frozen split manifest alongside the report.
+
+The tool reports metrics only; target thresholds must be predeclared in the benchmark protocol and cannot be chosen after inspecting results. Do not score on the training data or reuse this output as evidence of local South African applicability unless the evaluation level and provenance support that claim.
