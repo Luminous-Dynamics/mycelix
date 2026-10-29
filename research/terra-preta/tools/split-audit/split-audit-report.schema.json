@@ -1,0 +1,48 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/Luminous-Dynamics/mycelix/main/research/terra-preta/tools/split-audit/split-audit-report.schema.json",
+  "title": "Terra Preta row-level split audit report",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "audit_version",
+    "status",
+    "input_label",
+    "input_sha256",
+    "grouping_key",
+    "row_count",
+    "distinct_group_count",
+    "group_assignment_sha256",
+    "split_counts",
+    "warnings",
+    "interpretation_boundary"
+  ],
+  "properties": {
+    "audit_version": { "const": "0.1.0" },
+    "status": { "const": "passed" },
+    "input_label": { "type": "string", "minLength": 1 },
+    "input_sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+    "grouping_key": { "type": "string", "minLength": 1 },
+    "row_count": { "type": "integer", "minimum": 1 },
+    "distinct_group_count": { "type": "integer", "minimum": 3 },
+    "group_assignment_sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+    "split_counts": {
+      "type": "object",
+      "additionalProperties": { "$ref": "#/$defs/split_counts" },
+      "required": ["train", "validation", "test", "excluded"]
+    },
+    "warnings": { "type": "array", "items": { "type": "string" }, "minItems": 1 },
+    "interpretation_boundary": { "type": "string", "minLength": 1 }
+  },
+  "$defs": {
+    "split_counts": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["rows", "groups"],
+      "properties": {
+        "rows": { "type": "integer", "minimum": 0 },
+        "groups": { "type": "integer", "minimum": 0 }
+      }
+    }
+  }
+}
