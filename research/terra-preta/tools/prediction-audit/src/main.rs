@@ -291,6 +291,12 @@ fn audit(bytes: &[u8], input_label: &str, seed: u64) -> Result<AuditReport, Box<
         "Empirical interval coverage is descriptive and does not establish calibration outside this held-out sample.".to_owned(),
         "A lower MAE or nonzero bootstrap interval is not proof of causality, field efficacy, safety, or regulatory approval.".to_owned(),
     ];
+    if groups.len() < 10 {
+        warnings.push(format!(
+            "Only {} independent groups are present; treat the cluster-bootstrap interval as exploratory and do not use it as confirmatory evidence.",
+            groups.len()
+        ));
+    }
     let bootstrap = if baseline.mae > 0.0 {
         Some(cluster_bootstrap(&records, &groups, seed)?)
     } else {
@@ -380,6 +386,10 @@ study-c,32,31,26,27,35
         assert_eq!(report.candidate.empirical_interval_coverage, Some(1.0));
         assert_eq!(report.baseline.empirical_interval_coverage, None);
         assert!(report.improvement_cluster_bootstrap_95pct.is_some());
+        assert!(report
+            .warnings
+            .iter()
+            .any(|warning| warning.contains("Only 3 independent groups")));
     }
 
     #[test]
