@@ -91,7 +91,7 @@ jobs:
           assert all(scenario["required"] for scenario in matrix["scenarios"])
           retrieval_schema = json.loads((root / "retrieval-report.schema.json").read_text())
           assert retrieval_schema["$schema"] == "https://json-schema.org/draft/2020-12/schema"
-          assert manifest["version"] == "0.7.0"
+          assert manifest["version"] == "0.8.0"
           assert manifest["retrieval_report_schema_file"] == "retrieval-report.schema.json"
           assert manifest["retrieval_evaluation"]["mode"] == "closed_set_ranked_reidentification"
           assert retrieval_schema["properties"]["overall_release_gate"]["const"] == "NOT_EVALUATED_RETRIEVAL_ONLY_UTILITY_AND_CONFORMANCE_MISSING"
@@ -122,6 +122,10 @@ jobs:
           assert open_schema["$schema"] == "https://json-schema.org/draft/2020-12/schema"
           assert open_schema["properties"]["schema_version"]["const"] == "1.2"
           assert open_schema["properties"]["subject_fp_rate_bound_method"]["const"] == "one_sided_exact_clopper_pearson_binomial_upper_bound_on_subject_level_any_session_false_identification"
+          coverage_check = manifest["open_set_evaluation"]["subject_level_risk_bound"]["coverage_validation"]
+          assert coverage_check["method"] == "exhaustive_binomial_pmf_sum_for_every_observed_event_count_on_a_preregistered_probability_grid"
+          assert coverage_check["required_minimum_coverage"] == 0.95
+          assert coverage_check["trial_counts"] == [5, 10, 20, 50, 100]
           assert manifest["open_set_evaluation"]["subject_level_risk_bound"]["zero_event_subject_clusters_for_target_1pct_at_95pct"] == 299
           gallery_protocol = (root / manifest["gallery_scaling_protocol_file"]).read_text()
           assert "design-only / not implemented" in gallery_protocol
