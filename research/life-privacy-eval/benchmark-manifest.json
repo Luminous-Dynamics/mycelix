@@ -213,7 +213,25 @@
     ],
     "uncertainty": {
       "method": "crossed resampling of query-subject clusters and gallery-draw clusters",
-      "status": "exploratory; finite-sample coverage simulation is a required follow-up and intervals are not certification evidence"
+      "status": "finite-grid coverage diagnostic executed; sparse-event undercoverage reproduced; exploratory intervals are not certification evidence",
+      "coverage_study_file": "coverage/gallery_crossed_bootstrap.py",
+      "last_coverage_study": {
+        "seed": 990117,
+        "outer_studies_per_scenario": 250,
+        "bootstrap_replicates_per_study": 120,
+        "scenarios": 7,
+        "sparse_iid_p001_observed_coverage": 0.484,
+        "sparse_iid_p001_coverage_mc_wilson_95pct_ci": [
+          0.4228,
+          0.5457
+        ],
+        "crossed_sparse_small_observed_coverage": 0.844,
+        "crossed_sparse_small_coverage_mc_wilson_95pct_ci": [
+          0.7939,
+          0.8837
+        ],
+        "qualification": "finite synthetic diagnostic only; the sparse-event failure is a blocker, not a pass"
+      }
     },
     "nonclaims": [
       "pairwise scores are assumed gallery-invariant",
