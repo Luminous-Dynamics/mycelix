@@ -1,6 +1,6 @@
 {
   "name": "LIFE Privacy Evaluation — held-out linkability metrics",
-  "version": "0.8.0",
+  "version": "0.9.0",
   "status": "research-prototype",
   "language": "Rust",
   "dependencies": [],
@@ -25,7 +25,10 @@
     "validation_locked_open_set_false_positive_identification_rate",
     "FNIR_at_fixed_FPIR_top_1_3_5_10",
     "query_subject_cluster_bootstrap_CI95_for_open_set_FNIR_and_FPIR",
-    "one_sided_95pct_Hoeffding_upper_bound_on_subject_level_any_session_false_identification_rate"
+    "one_sided_exact_Clopper_Pearson_upper_bound_on_subject_level_any_session_false_identification_rate",
+    "gallery_size_specific_validation_locked_FNIR_at_rank_1_3_5_10_and_FPIR",
+    "frozen_reference_threshold_gallery_scaling_curve",
+    "crossed_query_subject_and_gallery_draw_bootstrap_intervals_exploratory"
   ],
   "bootstrap": {
     "method": "subject-cluster resampling with pair multiplicity weights",
@@ -187,5 +190,36 @@
   "open_set_fixture_note": "Four-query-per-partition synthetic control tests validation locking, mated/non-mated separation, candidate-pool consistency, per-subject session aggregation and risk-bound semantics only; no real-credential result is implied.",
   "gallery_scaling_protocol_file": "GALLERY-SCALING-BENCHMARK.md",
   "gallery_scaling_protocol_status": "design_only_not_implemented",
-  "gallery_scaling_protocol_scope": "Preregister operational gallery sizes, nested reproducible identity samples, per-size validation-locked thresholds and crossed query/gallery uncertainty before reporting deployment-scale open-set claims."
+  "gallery_scaling_protocol_scope": "Preregister operational gallery sizes, nested reproducible identity samples, per-size validation-locked thresholds and crossed query/gallery uncertainty before reporting deployment-scale open-set claims.",
+  "gallery_sweep_evaluation": {
+    "mode": "gallery_scaling_open_set_identification",
+    "report_schema_file": "gallery-sweep-report.schema.json",
+    "input_contract": {
+      "query_truth": "query_id, query_subject, stratum; oracle-only",
+      "scores": "query_id, candidate_id, finite score; score grid must be complete over the declared candidate frame",
+      "candidate_frame": "candidate_id, candidate_subject; oracle-only identity-level candidates, one candidate per subject",
+      "training_subjects": "disjoint from all query and candidate subjects"
+    },
+    "gallery_sampling": {
+      "method": "deterministic seeded uniform-without-replacement nested prefix draws",
+      "minimum_draw_count": 2,
+      "largest_size_must_equal_candidate_frame_size": true,
+      "seeded_sampler": "xorshift64",
+      "size_grid": "strictly increasing integer sizes; nested samples within draw"
+    },
+    "threshold_policies": [
+      "validation-locked per-size threshold at declared empirical FPIR cap",
+      "frozen threshold selected at preregistered reference gallery size and reused unchanged across sizes"
+    ],
+    "uncertainty": {
+      "method": "crossed resampling of query-subject clusters and gallery-draw clusters",
+      "status": "exploratory; finite-sample coverage simulation is a required follow-up and intervals are not certification evidence"
+    },
+    "nonclaims": [
+      "pairwise scores are assumed gallery-invariant",
+      "candidate-frame conditional only",
+      "not formal unlinkability or differential privacy",
+      "task utility and official conformance gates remain closed"
+    ]
+  }
 }
