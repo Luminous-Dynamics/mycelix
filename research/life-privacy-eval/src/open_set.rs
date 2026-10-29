@@ -118,12 +118,7 @@ pub fn run(args: &[String]) -> Result<(), Box<dyn Error>> {
     let validation_rates = compute_rates(&validation, threshold);
     let test_rates = compute_rates(&test, threshold);
     let intervals = bootstrap_rates(&test, threshold, bootstraps, seed);
-    let sample_size_met =
-        validation.len() >= MIN_PARTITION_QUERIES
-        && test.len() >= MIN_PARTITION_QUERIES
-        && distinct_subjects(&validation) >= MIN_PARTITION_SUBJECTS
-        && distinct_subjects(&test) >= MIN_PARTITION_SUBJECTS
-        && candidate_count >= MIN_CANDIDATES;
+    let sample_size_met = meets_sample_minimums(&validation, &test, candidate_count);
     let report = build_report(
         &validation, &test, threshold, max_fpir, validation_rates, test_rates,
         intervals, bootstraps, seed, sample_size_met, candidate_count,
@@ -310,6 +305,30 @@ fn validate_partition_disjoint(validation: &[QueryResult], test: &[QueryResult])
 
 fn distinct_subjects(rows: &[QueryResult]) -> usize {
     rows.iter().map(|q| q.query_subject.as_str()).collect::<BTreeSet<_>>().len()
+}
+
+fn distinct_subjects_by_class(rows: &[QueryResult], matched: bool) -> usize {
+    rows.iter().filter(|q| q.matched == matched).map(|q| q.query_subject.as_str())
+        .collect::<BTreeSet<_>>().len()
+}
+
+fn meets_sample_minimums(validation: &[QueryResult], test: &[QueryResult], candidate_count: usize) -> bool {
+    fn class_counts(rows: &[QueryResult]) -> (usize, usize) {
+        (rows.iter().filter(|q| q.matched).count(), rows.iter().filter(|q| !q.matched).count())
+    }
+    let (val_mated, val_unknown) = class_counts(validation);
+    let (test_mated, test_unknown) = class_counts(test);
+    validation.len() >= MIN_PARTITION_QUERIES
+        && test.len() >= MIN_PARTITION_QUERIES
+        && val_mated >= MIN_PARTITION_QUERIES
+        && val_unknown >= MIN_PARTITION_QUERIES
+        && test_mated >= MIN_PARTITION_QUERIES
+        && test_unknown >= MIN_PARTITION_QUERIES
+        && distinct_subjects_by_class(validation, true) >= MIN_PARTITION_SUBJECTS
+        && distinct_subjects_by_class(validation, false) >= MIN_PARTITION_SUBJECTS
+        && distinct_subjects_by_class(test, true) >= MIN_PARTITION_SUBJECTS
+        && distinct_subjects_by_class(test, false) >= MIN_PARTITION_SUBJECTS
+        && candidate_count >= MIN_CANDIDATES
 }
 
 
@@ -571,6 +590,15 @@ mod tests {
             query_id:id.into(), query_subject:subject.into(), stratum:stratum.into(), matched, max_score,
             target_score, target_rank_low:rank.map(|r|r.0), target_rank_high:rank.map(|r|r.1),
         }
+    }
+
+    #[test]
+    fn sample_minimum_requires_both_mated_and_nonmated_cohorts() {
+        let mated_only = (0..4_000).map(|i| query(
+            &format!("m{i}"), &format!("mated{i}"), true, 0.9, Some(0.9), Some((1, 1)), "mated"
+        )).collect::<Vec<_>>();
+        let test_mated_only = mated_only.clone();
+        assert!(!meets_sample_minimums(&mated_only, &test_mated_only, 20));
     }
 
     #[test]
