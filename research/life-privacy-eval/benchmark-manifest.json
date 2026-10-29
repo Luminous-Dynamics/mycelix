@@ -245,9 +245,37 @@
     "per_draw_subject_risk_bound": {
       "method": "one_sided_exact_Clopper_Pearson_binomial_upper_bound",
       "event": "for one realized gallery, a non-mated query subject has any query session whose top candidate score crosses the locked threshold",
-      "alpha_spending": "0.05 divided by gallery draw count, applied separately within each gallery size and threshold-policy family",
+      "alpha_spending": "Bonferroni across all reported gallery-size × gallery-draw × threshold-policy cells: 0.05 / (gallery_size_count * draw_count * 2)",
       "assumptions": "independent representative query-subject clusters conditional on each realized gallery and scorer",
-      "scope_limit": "does not quantify candidate-frame sampling uncertainty; this conditional bound does not qualify the crossed percentile-bootstrap intervals"
+      "scope_limit": "does not quantify candidate-frame sampling uncertainty; this conditional bound does not qualify the crossed percentile-bootstrap intervals",
+      "coverage_regression_grid": {
+        "method": "exact binomial PMF summation over all observed event counts",
+        "alpha_levels": [
+          0.05,
+          0.01,
+          0.00625,
+          0.00078125,
+          0.001
+        ],
+        "trial_counts": [
+          5,
+          10,
+          20,
+          50,
+          100
+        ],
+        "probability_grid": [
+          0.001,
+          0.01,
+          0.05,
+          0.25,
+          0.5,
+          0.9,
+          0.99
+        ],
+        "minimum_coverage_by_grid_point": "1 - alpha (within stated floating-point tolerance)",
+        "test_name": "exact_binomial_bound_has_coverage_at_bonferroni_family_alpha_levels"
+      }
     }
   }
 }
