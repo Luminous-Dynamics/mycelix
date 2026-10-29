@@ -101,6 +101,7 @@ pub enum RuleError {
     DuplicateFeatureClause(usize),
     InvertedInterval(usize),
     PredictionLengthMismatch { expected: usize, actual: usize },
+    UnsupportedExhaustiveDimensions(usize),
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
@@ -198,6 +199,204 @@ pub fn score_rule(
         .map(|point| rule.matches(&point.features))
         .collect::<Vec<_>>();
     score_predictions(points, &predictions, label_source)
+}
+
+/// One condition for an axis-aligned box. `Never` is an explicit empty
+/// region, not a malformed interval.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum FeatureCondition {
+    Any,
+    Never,
+    Interval(Interval),
+}
+
+impl FeatureCondition {
+    fn matches(&self, value: i32) -> bool {
+        match self {
+            Self::Any => true,
+            Self::Never => false,
+            Self::Interval(interval) => interval.matches(&[value]),
+        }
+    }
+
+    fn complexity(&self) -> usize {
+        match self {
+            Self::Any => 0,
+            Self::Never | Self::Interval(_) => 1,
+        }
+    }
+}
+
+/// An exhaustively enumerated axis-aligned box and its evaluator score.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct BoxCandidate {
+    pub conditions: Vec<FeatureCondition>,
+    pub score: Score,
+    pub predicted_failure_points: usize,
+    pub complexity: usize,
+}
+
+impl BoxCandidate {
+    pub fn matches(&self, features: &[i32]) -> bool {
+        features.len() == self.conditions.len()
+            && self.conditions.iter().zip(features.iter().copied())
+                .all(|(condition, value)| condition.matches(value))
+    }
+
+    pub fn dominates(&self, other: &Self) -> bool {
+        self.score.true_positive >= other.score.true_positive
+            && self.score.false_positive <= other.score.false_positive
+            && self.complexity <= other.complexity
+            && (self.score.true_positive > other.score.true_positive
+                || self.score.false_positive < other.score.false_positive
+                || self.complexity < other.complexity)
+    }
+}
+
+/// Enumerates the extensional hypothesis class of axis-aligned boxes for tiny
+/// known-truth spaces (one or two dimensions). It is an oracle baseline, not a
+/// scalable discovery method. Equivalent boxes over the supplied points are
+/// deduplicated by their prediction vector, retaining the least-complex form.
+pub fn exhaustive_axis_aligned_boxes(
+    points: &[Point],
+    label_source: LabelSource,
+) -> Result<Vec<BoxCandidate>, RuleError> {
+    if points.is_empty() {
+        return Err(RuleError::EmptyDataset);
+    }
+    let dimensions = points[0].features.len();
+    if dimensions == 0 || points.iter().any(|point| point.features.len() != dimensions) {
+        return Err(RuleError::InconsistentDimensions);
+    }
+    if dimensions > 2 {
+        return Err(RuleError::UnsupportedExhaustiveDimensions(dimensions));
+    }
+
+    fn condition_options(points: &[Point], feature: usize) -> Vec<FeatureCondition> {
+        use std::collections::BTreeMap;
+        let mut values = points.iter()
+            .map(|point| point.features[feature])
+            .collect::<Vec<_>>();
+        values.sort_unstable();
+        values.dedup();
+
+        let mut options = Vec::new();
+        options.push(FeatureCondition::Any);
+        options.push(FeatureCondition::Never);
+        for &value in &values {
+            options.push(FeatureCondition::Interval(Interval::at_least(feature, value)));
+            options.push(FeatureCondition::Interval(Interval::at_most(feature, value)));
+        }
+        for (left_index, &lower) in values.iter().enumerate() {
+            for &upper in values.iter().skip(left_index) {
+                options.push(FeatureCondition::Interval(Interval {
+                    feature,
+                    lower_inclusive: Some(lower),
+                    upper_inclusive: Some(upper),
+                }));
+            }
+        }
+
+        let mut unique = BTreeMap::<Vec<bool>, FeatureCondition>::new();
+        for condition in options {
+            let mask = points.iter()
+                .map(|point| condition.matches(point.features[feature]))
+                .collect::<Vec<_>>();
+            unique.entry(mask).or_insert(condition);
+        }
+        unique.into_values().collect()
+    }
+
+    let options = (0..dimensions)
+        .map(|feature| condition_options(points, feature))
+        .collect::<Vec<_>>();
+    let mut unique = std::collections::BTreeMap::<Vec<bool>, BoxCandidate>::new();
+
+    if dimensions == 1 {
+        for first in &options[0] {
+            let conditions = vec![first.clone()];
+            let predictions = points.iter()
+                .map(|point| conditions[0].matches(point.features[0]))
+                .collect::<Vec<_>>();
+            insert_candidate(
+                &mut unique,
+                points,
+                conditions,
+                predictions,
+                label_source,
+            )?;
+        }
+    } else {
+        for first in &options[0] {
+            for second in &options[1] {
+                let conditions = vec![first.clone(), second.clone()];
+                let predictions = points.iter()
+                    .map(|point| {
+                        conditions[0].matches(point.features[0])
+                            && conditions[1].matches(point.features[1])
+                    })
+                    .collect::<Vec<_>>();
+                insert_candidate(
+                    &mut unique,
+                    points,
+                    conditions,
+                    predictions,
+                    label_source,
+                )?;
+            }
+        }
+    }
+
+    let mut candidates = unique.into_values().collect::<Vec<_>>();
+    candidates.sort_by_key(|candidate| (
+        candidate.complexity,
+        candidate.score.false_positive,
+        std::cmp::Reverse(candidate.score.true_positive),
+        candidate.predicted_failure_points,
+    ));
+    Ok(candidates)
+}
+
+fn insert_candidate(
+    unique: &mut std::collections::BTreeMap<Vec<bool>, BoxCandidate>,
+    points: &[Point],
+    conditions: Vec<FeatureCondition>,
+    predictions: Vec<bool>,
+    label_source: LabelSource,
+) -> Result<(), RuleError> {
+    let score = score_predictions(points, &predictions, label_source)?;
+    let complexity = conditions.iter().map(FeatureCondition::complexity).sum();
+    let predicted_failure_points = predictions.iter()
+        .zip(points.iter())
+        .filter(|(prediction, point)| **prediction && point.feasible)
+        .count();
+    let candidate = BoxCandidate {
+        conditions,
+        score,
+        predicted_failure_points,
+        complexity,
+    };
+    match unique.entry(predictions) {
+        std::collections::btree_map::Entry::Vacant(entry) => {
+            entry.insert(candidate);
+        }
+        std::collections::btree_map::Entry::Occupied(mut entry) => {
+            if candidate.complexity < entry.get().complexity {
+                entry.insert(candidate);
+            }
+        }
+    }
+    Ok(())
+}
+
+/// Returns the non-dominated candidate subset under three separate criteria:
+/// maximize true positives, minimize false positives, and minimize rule
+/// complexity. No cross-unit weighted sum is formed.
+pub fn pareto_box_front(candidates: &[BoxCandidate]) -> Vec<BoxCandidate> {
+    candidates.iter()
+        .filter(|candidate| !candidates.iter().any(|other| other.dominates(candidate)))
+        .cloned()
+        .collect()
 }
 
 fn point(
@@ -533,6 +732,46 @@ mod tests {
         assert_eq!(
             score_predictions(&points, &[], LabelSource::LatentTruth),
             Err(RuleError::PredictionLengthMismatch { expected: 81, actual: 0 })
+        );
+    }
+
+    #[test]
+    fn exhaustive_boxes_recover_axis_aligned_oracle_and_keep_pareto_tradeoffs() {
+        let points = axis_aligned_landscape();
+        let candidates = exhaustive_axis_aligned_boxes(&points, LabelSource::LatentTruth).unwrap();
+        assert!(!candidates.is_empty());
+        assert!(candidates.iter().any(|candidate| {
+            candidate.score.true_positive == 27
+                && candidate.score.false_positive == 0
+                && candidate.score.false_negative == 0
+                && candidate.score.true_negative == 54
+        }));
+        assert_eq!(
+            pareto_box_front(&candidates),
+            pareto_box_front(&candidates)
+        );
+        assert!(pareto_box_front(&candidates).iter().all(|candidate| {
+            !pareto_box_front(&candidates)
+                .iter()
+                .any(|other| other.dominates(candidate))
+        }));
+    }
+
+    #[test]
+    fn exhaustive_boxes_cannot_claim_exact_axis_box_for_oblique_truth() {
+        let points = oblique_landscape();
+        let candidates = exhaustive_axis_aligned_boxes(&points, LabelSource::LatentTruth).unwrap();
+        assert!(!candidates.iter().any(|candidate| {
+            candidate.score.false_positive == 0 && candidate.score.false_negative == 0
+        }));
+    }
+
+    #[test]
+    fn exhaustive_boxes_fail_closed_above_two_dimensions() {
+        let points = irrelevant_dimensions_landscape();
+        assert_eq!(
+            exhaustive_axis_aligned_boxes(&points, LabelSource::LatentTruth),
+            Err(RuleError::UnsupportedExhaustiveDimensions(8))
         );
     }
 
