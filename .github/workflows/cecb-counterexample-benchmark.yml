@@ -1,0 +1,60 @@
+name: CECB Counterexample Benchmark
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "research/cecb-counterexample-benchmark/**"
+      - ".github/workflows/cecb-counterexample-benchmark.yml"
+  push:
+    branches: [main]
+    paths:
+      - "research/cecb-counterexample-benchmark/**"
+      - ".github/workflows/cecb-counterexample-benchmark.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  known-truth:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt
+
+      - name: Check Rust formatting
+        run: cargo fmt --manifest-path research/cecb-counterexample-benchmark/Cargo.toml -- --check
+
+      - name: Run unit tests
+        run: cargo test --locked --manifest-path research/cecb-counterexample-benchmark/Cargo.toml
+
+      - name: Verify deterministic JSONL score contract
+        run: |
+          set -euo pipefail
+          target="research/cecb-counterexample-benchmark/Cargo.toml"
+          cargo run --quiet --locked --manifest-path "$target" > /tmp/cecb-scores-a.jsonl
+          cargo run --quiet --locked --manifest-path "$target" > /tmp/cecb-scores-b.jsonl
+          diff -u /tmp/cecb-scores-a.jsonl /tmp/cecb-scores-b.jsonl
+          test "$(wc -l < /tmp/cecb-scores-a.jsonl)" -eq 18
+
+          jq -s -e '
+            length == 18
+            and all(.[]; .schema_version == "cecb.counterexample_score.v0.1")
+            and all(.[]; .point_count > 0)
+            and all(.[]; .evaluated_point_count + .infeasible_skipped == .point_count)
+            and any(.[]; .case_id == "axis_aligned_2d" and .rule_id == "axis_rule_x0_ge_2"
+              and .tp == 27 and .fp == 0 and .fn == 0 and .tn == 54)
+            and any(.[]; .case_id == "oblique_2d" and .rule_id == "oracle_latent_evaluator_only"
+              and .tp == 21 and .fp == 0 and .fn == 0 and .tn == 60)
+            and any(.[]; .case_id == "structural_family_b" and .rule_id == "axis_rule_x0_ge_2"
+              and .tp == 0 and .fp == 3 and .fn == 3 and .tn == 3)
+            and ([.[] | select(.case_id == "noisy_boundary_2d" and .rule_id == "axis_rule_x0_ge_2"
+                and .label_source == "observed_label")][0].fn)
+              !=
+              ([.[] | select(.case_id == "noisy_boundary_2d" and .rule_id == "axis_rule_x0_ge_2"
+                and .label_source == "latent_truth")][0].fn)
+          ' /tmp/cecb-scores-a.jsonl > /dev/null
