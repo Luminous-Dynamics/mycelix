@@ -39,22 +39,35 @@ jobs:
           cargo run --quiet --locked --manifest-path "$target" > /tmp/cecb-scores-a.jsonl
           cargo run --quiet --locked --manifest-path "$target" > /tmp/cecb-scores-b.jsonl
           diff -u /tmp/cecb-scores-a.jsonl /tmp/cecb-scores-b.jsonl
-          test "$(wc -l < /tmp/cecb-scores-a.jsonl)" -eq 18
+          test "$(wc -l < /tmp/cecb-scores-a.jsonl)" -eq 21
 
           jq -s -e '
-            length == 18
-            and all(.[]; .schema_version == "cecb.counterexample_score.v0.1")
-            and all(.[]; .point_count > 0)
-            and all(.[]; .evaluated_point_count + .infeasible_skipped == .point_count)
-            and any(.[]; .case_id == "axis_aligned_2d" and .rule_id == "axis_rule_x0_ge_2"
+            length == 21
+            and ([.[] | select(.schema_version == "cecb.counterexample_score.v0.1")] | length == 18)
+            and ([.[] | select(.schema_version == "cecb.counterexample_box_search.v0.1")] | length == 3)
+            and all(.[] | select(.schema_version == "cecb.counterexample_score.v0.1");
+              .point_count > 0
+              and .evaluated_point_count + .infeasible_skipped == .point_count)
+            and any(.[]; .schema_version == "cecb.counterexample_score.v0.1"
+              and .case_id == "axis_aligned_2d" and .rule_id == "axis_rule_x0_ge_2"
               and .tp == 27 and .fp == 0 and .fn == 0 and .tn == 54)
-            and any(.[]; .case_id == "oblique_2d" and .rule_id == "oracle_latent_evaluator_only"
+            and any(.[]; .schema_version == "cecb.counterexample_score.v0.1"
+              and .case_id == "oblique_2d" and .rule_id == "oracle_latent_evaluator_only"
               and .tp == 21 and .fp == 0 and .fn == 0 and .tn == 60)
-            and any(.[]; .case_id == "structural_family_b" and .rule_id == "axis_rule_x0_ge_2"
+            and any(.[]; .schema_version == "cecb.counterexample_score.v0.1"
+              and .case_id == "structural_family_b" and .rule_id == "axis_rule_x0_ge_2"
               and .tp == 0 and .fp == 3 and .fn == 3 and .tn == 3)
-            and ([.[] | select(.case_id == "noisy_boundary_2d" and .rule_id == "axis_rule_x0_ge_2"
+            and ([.[] | select(.schema_version == "cecb.counterexample_score.v0.1"
+                and .case_id == "noisy_boundary_2d" and .rule_id == "axis_rule_x0_ge_2"
                 and .label_source == "observed_label")][0].fn)
               !=
-              ([.[] | select(.case_id == "noisy_boundary_2d" and .rule_id == "axis_rule_x0_ge_2"
+              ([.[] | select(.schema_version == "cecb.counterexample_score.v0.1"
+                and .case_id == "noisy_boundary_2d" and .rule_id == "axis_rule_x0_ge_2"
                 and .label_source == "latent_truth")][0].fn)
+            and any(.[]; .schema_version == "cecb.counterexample_box_search.v0.1"
+              and .case_id == "axis_aligned_2d" and .exact_recovery_exists == true)
+            and any(.[]; .schema_version == "cecb.counterexample_box_search.v0.1"
+              and .case_id == "oblique_2d" and .exact_recovery_exists == false)
+            and any(.[]; .schema_version == "cecb.counterexample_box_search.v0.1"
+              and .case_id == "nonlinear_interaction_2d" and .exact_recovery_exists == false)
           ' /tmp/cecb-scores-a.jsonl > /dev/null
