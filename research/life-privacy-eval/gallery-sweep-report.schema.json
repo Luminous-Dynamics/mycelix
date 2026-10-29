@@ -644,7 +644,10 @@
           "minimum": 0
         },
         "false_identifications": {
-          "type": "integer",
+          "type": [
+            "integer",
+            "null"
+          ],
           "minimum": 0
         },
         "fnir_at_rank_1": {
