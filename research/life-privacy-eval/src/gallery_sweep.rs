@@ -565,14 +565,17 @@ fn metrics_json(rows: &[QueryResult], threshold: Option<f64>) -> String {
     let rates = weighted_metrics(rows, threshold, None, None);
     let mated = rows.iter().filter(|row| row.matched).count();
     let nonmated = rows.len() - mated;
-    let false_identifications = rows.iter().filter(|row| {
-        !row.matched && threshold.is_some_and(|value| row.max_score >= value)
-    }).count();
+    let false_identifications = threshold.map(|value| rows.iter().filter(|row| {
+        !row.matched && row.max_score >= value
+    }).count()).map_or_else(|| "null".to_owned(), |count| count.to_string());
+    let operating_metric = |metric: Option<f64>| {
+        metric_json(if threshold.is_some() { metric } else { None })
+    };
     format!(
         r#"{{"query_draw_observations":{},"mated_query_draw_observations":{},"nonmated_query_draw_observations":{},"false_identifications":{},"fnir_at_rank_1":{},"fnir_at_rank_3":{},"fnir_at_rank_5":{},"fnir_at_rank_10":{},"fpir":{}}}"#,
         rows.len(), mated, nonmated, false_identifications,
-        metric_json(rates.fnir1), metric_json(rates.fnir3), metric_json(rates.fnir5),
-        metric_json(rates.fnir10), metric_json(rates.fpir)
+        operating_metric(rates.fnir1), operating_metric(rates.fnir3), operating_metric(rates.fnir5),
+        operating_metric(rates.fnir10), operating_metric(rates.fpir)
     )
 }
 
@@ -729,8 +732,11 @@ fn draw_results_json(
         draw_json.push(format!(
             r#"{{"draw_id":"{}","mated_queries":{},"nonmated_queries":{},"fnir_at_rank_1":{},"fnir_at_rank_3":{},"fnir_at_rank_5":{},"fnir_at_rank_10":{},"fpir":{},"subject_level_any_false_identification":{}}}"#,
             json_escape(draw_id), mated, nonmated,
-            metric_json(rates.fnir1), metric_json(rates.fnir3), metric_json(rates.fnir5),
-            metric_json(rates.fnir10), metric_json(rates.fpir),
+            metric_json(if threshold.is_some() { rates.fnir1 } else { None }),
+            metric_json(if threshold.is_some() { rates.fnir3 } else { None }),
+            metric_json(if threshold.is_some() { rates.fnir5 } else { None }),
+            metric_json(if threshold.is_some() { rates.fnir10 } else { None }),
+            metric_json(if threshold.is_some() { rates.fpir } else { None }),
             subject_event_risk_json(&draw_rows, threshold, adjusted_alpha)
         ));
     }
@@ -944,6 +950,30 @@ mod tests {
         assert!(!rows[0].matched);
         assert!(!rows[1].matched);
         assert!(rows[0].target_score.is_none());
+    }
+
+    #[test]
+    fn no_validation_threshold_reports_operating_metrics_as_null_not_zero_risk() {
+        let rows = vec![
+            QueryResult {
+                query_subject: "mated".to_owned(), stratum: "s".to_owned(), draw_id: "d".to_owned(),
+                gallery_size: 2, matched: true, max_score: 0.7, target_score: Some(0.7),
+                target_rank_low: Some(1), target_rank_high: Some(1),
+            },
+            QueryResult {
+                query_subject: "unknown".to_owned(), stratum: "s".to_owned(), draw_id: "d".to_owned(),
+                gallery_size: 2, matched: false, max_score: 0.9, target_score: None,
+                target_rank_low: None, target_rank_high: None,
+            },
+        ];
+        let threshold = select_validation_threshold(&rows, 0.0);
+        assert_eq!(threshold, None);
+        let report = metrics_json(&rows, threshold);
+        assert!(report.contains("\"false_identifications\":null"));
+        assert!(report.contains("\"fpir\":null"));
+        assert!(report.contains("\"fnir_at_rank_1\":null"));
+        let risk = subject_event_risk_json(&rows, threshold, 0.01);
+        assert!(risk.contains("\"exact_one_sided_upper_bound\":null"));
     }
 
     #[test]
