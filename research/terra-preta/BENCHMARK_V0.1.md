@@ -193,7 +193,7 @@ Then assign a *contrast class* only when supported by the original paper:
 
 The BiocharDS paper describes the CSV as a simplified version containing target information and says the full workbook includes a `Reference` sheet and an `Explanation and unit` sheet. The paper also warns that treatment classification depends on the control treatment. Therefore, if the CSV lacks a reliable source-study key or arm details, the benchmark **must obtain the full workbook and construct a reviewed crosswalk** before training any model that claims study-level generalization or treatment-effect identification. A header heuristic from the audit tool is a discovery aid, not an approved grouping key.
 
-This is a causal-identifiability gate: if the estimand cannot be recovered from the treatment/comparator pair, report `not_identifiable_from_source` rather than filling gaps with a model assumption.
+This is a causal-identifiability gate: if the estimand cannot be recovered from the treatment/comparator pair, report `not_identifiable_from_source` rather than filling gaps with a model assumption. Each reviewed contrast should be represented using [contrast-record.schema.json](./contrast-record.schema.json); schema validation is necessary but does not itself establish that the record is scientifically correct.
 
 ## 11. Initial dataset strategy and acquisition gates
 
