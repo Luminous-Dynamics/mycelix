@@ -22,15 +22,15 @@ const SCHEMA_FIXTURES: &[(&str, &str)] = &[
     ),
     (
         "biochar-audit-report",
-        include_str!("../../tools/biochar-audit/audit-report.schema.json"),
+        include_str!("../../biochar-audit/audit-report.schema.json"),
     ),
     (
         "prediction-audit-report",
-        include_str!("../../tools/prediction-audit/prediction-report.schema.json"),
+        include_str!("../../prediction-audit/prediction-report.schema.json"),
     ),
     (
         "split-audit-report",
-        include_str!("../../tools/split-audit/split-audit-report.schema.json"),
+        include_str!("../../split-audit/split-audit-report.schema.json"),
     ),
 ];
 
