@@ -56,6 +56,19 @@ A model passes only if it improves on a transparent baseline on held-out data an
 
 **Provisional superiority target (not achieved):** for a preregistered primary endpoint, aim for at least a 10% relative reduction in MAE versus the strongest valid baseline on fully held-out groups, with a 95% cluster-bootstrap interval for improvement that excludes zero. The analysis plan must require an adequate number of independent study/site/batch clusters. If the dataset cannot support that inference, report the comparison as inconclusive rather than lowering the bar after seeing results.
 
+### Track G — longitudinal aging and transfer
+
+Biochar effects are time-dependent. A 2025 meta-analysis of 61 field studies (observations across 1–10 years) reported that available water capacity effects varied with time, with some hydraulic effects peaking around year two and declining thereafter; effect direction and persistence also varied with feedstock and soil texture. This finding motivates a longitudinal benchmark, but it does **not** justify transferring a published application rate or effect size to a new material or South African site. [Jiang, Huang & Meng (2025)](https://doi.org/10.1016/j.geoderma.2025.117318).
+
+Requirements:
+- Record time since application / material age, observation date, soil texture, feedstock class, process conditions, and trial duration when available.
+- Separate immediate response, within-season response, and later-season/annual outcomes; do not pool these into a single undifferentiated target.
+- Compare a static model against a time-aware baseline on grouped held-out studies and, where possible, leave-later-time-period-out evaluation.
+- Test whether uncertainty widens appropriately when forecasting beyond observed follow-up.
+- If longitudinal evidence is absent, the system must not make claims about persistence, durability, or long-term performance.
+
+**Provisional target (not yet measured):** a time-aware model should improve a preregistered longitudinal endpoint against a static baseline on held-out study/time groups, with calibration reported by follow-up horizon. No numeric global persistence target is set until the available longitudinal data and endpoint definitions are audited.
+
 ### Track E — decisions and economics
 
 Report, where data support it:
