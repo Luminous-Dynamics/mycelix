@@ -27,11 +27,19 @@ pub struct Interval {
 
 impl Interval {
     pub fn at_least(feature: usize, value: i32) -> Self {
-        Self { feature, lower_inclusive: Some(value), upper_inclusive: None }
+        Self {
+            feature,
+            lower_inclusive: Some(value),
+            upper_inclusive: None,
+        }
     }
 
     pub fn at_most(feature: usize, value: i32) -> Self {
-        Self { feature, lower_inclusive: None, upper_inclusive: Some(value) }
+        Self {
+            feature,
+            lower_inclusive: None,
+            upper_inclusive: Some(value),
+        }
     }
 
     fn matches(&self, features: &[i32]) -> bool {
@@ -49,7 +57,9 @@ pub struct Rule {
 }
 
 impl Rule {
-    pub fn new(clauses: Vec<Interval>) -> Self { Self { clauses } }
+    pub fn new(clauses: Vec<Interval>) -> Self {
+        Self { clauses }
+    }
 
     pub fn feature_at_least(feature: usize, value: i32) -> Self {
         Self::new(vec![Interval::at_least(feature, value)])
@@ -188,8 +198,18 @@ pub fn score_rule(
     score_predictions(points, &predictions, label_source)
 }
 
-fn point(features: Vec<i32>, feasible: bool, latent_failure: bool, observed_failure: bool) -> Point {
-    Point { features, feasible, latent_failure, observed_failure }
+fn point(
+    features: Vec<i32>,
+    feasible: bool,
+    latent_failure: bool,
+    observed_failure: bool,
+) -> Point {
+    Point {
+        features,
+        feasible,
+        latent_failure,
+        observed_failure,
+    }
 }
 
 fn grid_2d(mut label: impl FnMut(i32, i32) -> (bool, bool)) -> Vec<Point> {
@@ -205,19 +225,28 @@ fn grid_2d(mut label: impl FnMut(i32, i32) -> (bool, bool)) -> Vec<Point> {
 
 /// 81-point landscape: failure iff x0 >= 2. An exact axis rule exists.
 pub fn axis_aligned_landscape() -> Vec<Point> {
-    grid_2d(|x, _y| { let failure = x >= 2; (failure, failure) })
+    grid_2d(|x, _y| {
+        let failure = x >= 2;
+        (failure, failure)
+    })
 }
 
 /// 81-point landscape: failure iff x0 + x1 >= 3. An axis-aligned rule
 /// cannot represent the true diagonal boundary exactly.
 pub fn oblique_landscape() -> Vec<Point> {
-    grid_2d(|x, y| { let failure = x + y >= 3; (failure, failure) })
+    grid_2d(|x, y| {
+        let failure = x + y >= 3;
+        (failure, failure)
+    })
 }
 
 /// 81-point landscape: failure iff x0 * x1 >= 6. Treating either feature as
 /// independently sufficient creates false positives.
 pub fn nonlinear_interaction_landscape() -> Vec<Point> {
-    grid_2d(|x, y| { let failure = x * y >= 6; (failure, failure) })
+    grid_2d(|x, y| {
+        let failure = x * y >= 6;
+        (failure, failure)
+    })
 }
 
 /// Deterministic noisy labels around an oblique latent boundary. The fixture is
@@ -288,7 +317,12 @@ mod tests {
     fn exact_axis_aligned_rule_recovers_known_truth() {
         let points = axis_aligned_landscape();
         assert_eq!(points.len(), 81);
-        let score = score_rule(&points, &Rule::feature_at_least(0, 2), LabelSource::LatentTruth).unwrap();
+        let score = score_rule(
+            &points,
+            &Rule::feature_at_least(0, 2),
+            LabelSource::LatentTruth,
+        )
+        .unwrap();
         assert_eq!(score, Score {
             true_positive: 27, false_positive: 0, false_negative: 0,
             true_negative: 54, infeasible_skipped: 0,
@@ -300,7 +334,12 @@ mod tests {
     #[test]
     fn oblique_boundary_exposes_axis_rule_tradeoffs() {
         let points = oblique_landscape();
-        let score = score_rule(&points, &Rule::feature_at_least(0, 2), LabelSource::LatentTruth).unwrap();
+        let score = score_rule(
+            &points,
+            &Rule::feature_at_least(0, 2),
+            LabelSource::LatentTruth,
+        )
+        .unwrap();
         assert_eq!(score, Score {
             true_positive: 15, false_positive: 12, false_negative: 6,
             true_negative: 48, infeasible_skipped: 0,
@@ -312,7 +351,12 @@ mod tests {
     #[test]
     fn nonlinear_interaction_rejects_single_feature_shortcut() {
         let points = nonlinear_interaction_landscape();
-        let score = score_rule(&points, &Rule::feature_at_least(0, 2), LabelSource::LatentTruth).unwrap();
+        let score = score_rule(
+            &points,
+            &Rule::feature_at_least(0, 2),
+            LabelSource::LatentTruth,
+        )
+        .unwrap();
         assert_eq!(score, Score {
             true_positive: 8, false_positive: 19, false_negative: 8,
             true_negative: 46, infeasible_skipped: 0,
@@ -343,7 +387,12 @@ mod tests {
             .map(|p| p.features[0] * p.features[1] >= 6)
             .collect::<Vec<_>>();
         assert_eq!(
-            score_predictions(&nonlinear, &nonlinear_predictions, LabelSource::LatentTruth).unwrap(),
+            score_predictions(
+                &nonlinear,
+                &nonlinear_predictions,
+                LabelSource::LatentTruth,
+            )
+            .unwrap(),
             Score {
                 true_positive: 16,
                 false_positive: 0,
@@ -376,7 +425,12 @@ mod tests {
             assert_eq!(p.latent_failure, p.features[0] + p.features[1] >= 3);
             assert_eq!(p.observed_failure, p.latent_failure);
         }
-        let score = score_rule(&points, &Rule::feature_at_least(0, 2), LabelSource::LatentTruth).unwrap();
+        let score = score_rule(
+            &points,
+            &Rule::feature_at_least(0, 2),
+            LabelSource::LatentTruth,
+        )
+        .unwrap();
         assert_eq!(score.evaluated_points(), 1024);
     }
 
@@ -386,7 +440,12 @@ mod tests {
         assert_eq!(points.len(), 25);
         assert!(points.iter().all(|p| (p.features[0] - p.features[1]).abs() <= 1));
         points.push(point(vec![4, -4], false, true, true));
-        let score = score_rule(&points, &Rule::feature_at_least(0, 2), LabelSource::LatentTruth).unwrap();
+        let score = score_rule(
+            &points,
+            &Rule::feature_at_least(0, 2),
+            LabelSource::LatentTruth,
+        )
+        .unwrap();
         assert_eq!(score.infeasible_skipped, 1);
         assert_eq!(score.evaluated_points(), 25);
         assert_eq!(score.true_positive, 8);
@@ -430,7 +489,10 @@ mod tests {
             score_rule(&points, &out_of_range, LabelSource::LatentTruth),
             Err(RuleError::FeatureOutOfRange { feature: 2, dimensions: 2 })
         );
-        assert_eq!(score_rule(&[], &Rule::new(vec![]), LabelSource::LatentTruth), Err(RuleError::EmptyDataset));
+        assert_eq!(
+            score_rule(&[], &Rule::new(vec![]), LabelSource::LatentTruth),
+            Err(RuleError::EmptyDataset)
+        );
         assert_eq!(
             score_predictions(&points, &[], LabelSource::LatentTruth),
             Err(RuleError::PredictionLengthMismatch { expected: 81, actual: 0 })
