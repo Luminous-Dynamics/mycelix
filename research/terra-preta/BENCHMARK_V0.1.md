@@ -161,6 +161,14 @@ Every run must report:
 
 Do not publish personal or commercially confidential farm data without permission. Publish de-identified data or reproducible aggregation where appropriate; record any restrictions.
 
+## 7A. Preregistered experimental design
+
+Before any confirmatory pot or field study, complete [TRIAL_DESIGN_TEMPLATE_V0.1.md](./TRIAL_DESIGN_TEMPLATE_V0.1.md) and freeze the primary estimand, endpoint, treatment/comparator arms, experimental unit, randomization, block structure, sample-size/power justification, analysis, missing-data rules, and stopping rules. Use a factorial design only when it identifies a predeclared scientific question; do not add factors merely to maximize the number of combinations.
+
+For water-retention research, keep nutrient management and other relevant inputs comparable when estimating the incremental biochar effect. For nutrient-substitution claims, explicitly compare nutrient programs and account for nutrients contributed by the material. If the treatment contrast cannot identify the claimed effect, classify it as non-identifiable rather than repairing the design after the outcome is observed.
+
+Randomize the true experimental unit, preserve the allocation/seed, and model blocks, sites, and repeated observations at their proper levels. A sample-size target must be justified from an effect of scientific interest and credible variance/clustering assumptions; a familiar replicate count is not itself evidence of adequate power. Report water behavior, crop yield/quality, nutrient status, and economic results separately. A null yield response does not erase a real water-management response, nor does a water-management response establish yield improvement or fertilizer substitution.
+
 ## 8. Release gates
 
 - **B0 — executable spec:** metric definitions, JSON Schema, split rules, and synthetic test cases accepted.
