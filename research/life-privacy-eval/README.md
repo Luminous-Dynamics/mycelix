@@ -38,10 +38,10 @@ The score is an ordering score, **not necessarily a calibrated probability**. Pa
 cargo fmt --all -- --check
 cargo test --locked
 cargo clippy --locked --all-targets -- -D warnings
-cargo run --locked --release -- \\
-  fixtures/truth.tsv \\
-  fixtures/scores.tsv \\
-  fixtures/training-subjects.txt \\
+cargo run --locked --release -- \
+  fixtures/truth.tsv \
+  fixtures/scores.tsv \
+  fixtures/training-subjects.txt \
   report.json 1000 9901
 \`\`\`
 
@@ -149,10 +149,10 @@ The evaluator does **not** convert arbitrary scores into posterior probabilities
 Run it with:
 
 ```sh
-cargo run --locked --manifest-path research/life-privacy-eval/Cargo.toml -- retrieval \\
-  research/life-privacy-eval/fixtures/retrieval-truth.tsv \\
-  research/life-privacy-eval/fixtures/retrieval-scores.tsv \\
-  research/life-privacy-eval/fixtures/retrieval-training-subjects.txt \\
+cargo run --locked --manifest-path research/life-privacy-eval/Cargo.toml -- retrieval \
+  research/life-privacy-eval/fixtures/retrieval-truth.tsv \
+  research/life-privacy-eval/fixtures/retrieval-scores.tsv \
+  research/life-privacy-eval/fixtures/retrieval-training-subjects.txt \
   /tmp/retrieval-report.json 300 9901
 ```
 
