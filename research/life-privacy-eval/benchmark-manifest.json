@@ -1,6 +1,6 @@
 {
   "name": "LIFE Privacy Evaluation — held-out linkability metrics",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "status": "research-prototype",
   "language": "Rust",
   "dependencies": [],
@@ -17,7 +17,11 @@
     "subject_cluster_bootstrap_CI95_AUC",
     "per_stratum_metrics",
     "paired_treatment_minus_baseline_ROC_AUC_with_subject_cluster_bootstrap_CI95",
-    "validation_locked_TPR_FPR_at_fixed_threshold_with_subject_cluster_bootstrap_intervals"
+    "validation_locked_TPR_FPR_at_fixed_threshold_with_subject_cluster_bootstrap_intervals",
+    "closed_set_top_1_top_3_top_5_top_10_reidentification_rate",
+    "mean_reciprocal_rank",
+    "expected_target_rank_distribution",
+    "query_subject_cluster_bootstrap_CI95_conditioned_on_fixed_candidate_pool"
   ],
   "bootstrap": {
     "method": "subject-cluster resampling with pair multiplicity weights",
@@ -69,5 +73,40 @@
   "threat_coverage_matrix_schema_version": "1.0",
   "threat_coverage_entry_count": 15,
   "attack_profile_count": 6,
-  "coverage_contract_change_note": "W3C credential threat-to-evidence mapping is design coverage only; it does not imply implementation, mitigation, conformance, or release qualification."
+  "coverage_contract_change_note": "W3C credential threat-to-evidence mapping is design coverage only; it does not imply implementation, mitigation, conformance, or release qualification.",
+  "retrieval_evaluation": {
+    "command": "retrieval",
+    "version": "1.0",
+    "mode": "closed_set_ranked_reidentification",
+    "truth_schema": "query_id, query_subject, candidate_id, candidate_subject, true_match, stratum; oracle-only and never passed to attack scoring",
+    "score_schema": "query_id, candidate_id, score only; opaque handles and finite score",
+    "cohort_policy": "Every query has exactly one true candidate and exactly the same candidate-handle/subject pool; query subject must be present in the candidate pool",
+    "leakage_guards": [
+      "unique query/candidate pairs",
+      "consistent candidate-handle-to-subject mapping",
+      "training identities disjoint from all query and candidate subjects",
+      "exact truth/score pair join; no missing or extra scores"
+    ],
+    "tie_policy": "Uniform expected rank over the true candidate's tied score block; fractional Top-k credit and expected reciprocal rank prevent identifier-order tie breaks",
+    "metrics": [
+      "top_1_reidentification_rate",
+      "top_3_reidentification_rate",
+      "top_5_reidentification_rate",
+      "top_10_reidentification_rate",
+      "mean_reciprocal_rank",
+      "mean/median/p95 expected rank",
+      "uniform-random Top-k baseline",
+      "per-stratum metrics"
+    ],
+    "uncertainty": "Query-subject cluster bootstrap conditioned on a fixed candidate pool; it does not account for candidate-pool sampling uncertainty",
+    "sample_minimums": {
+      "queries": 2000,
+      "distinct_query_subjects": 2000,
+      "candidate_pool_size": 10,
+      "interpretation": "screening floor only; never an automatic privacy pass"
+    },
+    "claim_ceiling": "Ranked retrieval risk only. Scores are not calibrated posterior probabilities; no effective anonymity set is inferred. Task utility and official conformance are separate gates."
+  },
+  "retrieval_report_schema_file": "retrieval-report.schema.json",
+  "retrieval_fixture_note": "Four-query synthetic known-answer fixture validates ranking and tie semantics only; no real-credential or SOTA claim."
 }
