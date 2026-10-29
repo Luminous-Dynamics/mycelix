@@ -21,7 +21,6 @@ struct CandidateIdentity {
 
 #[derive(Clone, Debug)]
 struct QueryResult {
-    query_id: String,
     query_subject: String,
     stratum: String,
     draw_id: String,
@@ -162,22 +161,22 @@ pub fn run(args: &[String]) -> Result<(), Box<dyn Error>> {
     }
     let frozen_threshold = thresholds[&reference_size];
 
-    let report = build_report(
-        &sizes,
-        &draws,
-        &validation_by_size,
-        &test_by_size,
-        &thresholds,
+    let report = build_report(ReportContext {
+        sizes: &sizes,
+        draws: &draws,
+        validation_by_size: &validation_by_size,
+        test_by_size: &test_by_size,
+        thresholds: &thresholds,
         reference_size,
         frozen_threshold,
-        candidates.len(),
-        &validation_truth,
-        &test_truth,
+        candidate_count: candidates.len(),
+        validation_truth: &validation_truth,
+        test_truth: &test_truth,
         max_fpir,
         draw_count,
         bootstrap_replicates,
         seed,
-    );
+    });
     let report = format!("{report}\n");
     if report_path == "-" {
         print!("{report}");
@@ -439,7 +438,6 @@ fn build_query_results(
             (None, None)
         };
         output.push(QueryResult {
-            query_id: query.query_id.clone(),
             query_subject: query.query_subject.clone(),
             stratum: query.stratum.clone(),
             draw_id: draw_id.to_owned(),
@@ -569,6 +567,20 @@ fn metrics_json(rows: &[QueryResult], threshold: Option<f64>) -> String {
     )
 }
 
+fn stratum_metrics_json(rows: &[QueryResult], threshold: Option<f64>) -> String {
+    let strata: BTreeSet<String> = rows.iter().map(|row| row.stratum.clone()).collect();
+    let mut reports = Vec::new();
+    for stratum in strata {
+        let subset: Vec<QueryResult> = rows.iter().filter(|row| row.stratum == stratum).cloned().collect();
+        reports.push(format!(
+            r#"{{"stratum":"{}","metrics":{}}}"#,
+            json_escape(&stratum),
+            metrics_json(&subset, threshold)
+        ));
+    }
+    format!("[{}]", reports.join(","))
+}
+
 fn percentile(values: &mut [f64], probability: f64) -> Option<f64> {
     if values.is_empty() {
         return None;
@@ -677,22 +689,40 @@ fn draw_results_json(
     format!("[{}]", draw_json.join(","))
 }
 
-fn build_report(
-    sizes: &[usize],
-    draws: &[GalleryDraw],
-    validation_by_size: &BTreeMap<usize, Vec<QueryResult>>,
-    test_by_size: &BTreeMap<usize, Vec<QueryResult>>,
-    thresholds: &BTreeMap<usize, Option<f64>>,
+struct ReportContext<'a> {
+    sizes: &'a [usize],
+    draws: &'a [GalleryDraw],
+    validation_by_size: &'a BTreeMap<usize, Vec<QueryResult>>,
+    test_by_size: &'a BTreeMap<usize, Vec<QueryResult>>,
+    thresholds: &'a BTreeMap<usize, Option<f64>>,
     reference_size: usize,
     frozen_threshold: Option<f64>,
     candidate_count: usize,
-    validation_truth: &[QueryTruth],
-    test_truth: &[QueryTruth],
+    validation_truth: &'a [QueryTruth],
+    test_truth: &'a [QueryTruth],
     max_fpir: f64,
     draw_count: usize,
     bootstrap_replicates: usize,
     seed: u64,
-) -> String {
+}
+
+fn build_report(context: ReportContext<'_>) -> String {
+    let ReportContext {
+        sizes,
+        draws,
+        validation_by_size,
+        test_by_size,
+        thresholds,
+        reference_size,
+        frozen_threshold,
+        candidate_count,
+        validation_truth,
+        test_truth,
+        max_fpir,
+        draw_count,
+        bootstrap_replicates,
+        seed,
+    } = context;
     let draw_ids: Vec<String> = draws.iter().map(|draw| draw.draw_id.clone())
         .collect::<BTreeSet<_>>().into_iter().collect();
     let mut size_json = Vec::new();
@@ -702,7 +732,11 @@ fn build_report(
         let test = &test_by_size[size];
         let threshold = thresholds[size];
         let validation_metrics = metrics_json(validation, threshold);
+        let validation_strata = stratum_metrics_json(validation, threshold);
         let test_metrics = metrics_json(test, threshold);
+        let test_strata_locked = stratum_metrics_json(test, threshold);
+        let validation_frozen_strata = stratum_metrics_json(validation, frozen_threshold);
+        let test_strata_frozen = stratum_metrics_json(test, frozen_threshold);
         let test_intervals = crossed_bootstrap_json(
             test, threshold, bootstrap_replicates,
             seed ^ (*size as u64).rotate_left(13) ^ 0x4753_5745_4550_3031,
@@ -719,12 +753,12 @@ fn build_report(
         let per_draw_frozen = draw_results_json(test, &draw_ids, *size, frozen_threshold);
         let threshold_text = metric_json(threshold);
         size_json.push(format!(
-            r#"{{"gallery_size":{},"validation_query_subjects":{},"test_query_subjects":{},"validation_locked_operating_point":{{"threshold":{},"operating_point_found":{},"validation_metrics":{},"validation_observed_fpir":{},"test_metrics":{},"test_crossed_bootstrap_ci95":{},"per_gallery_draw_test_metrics":{}}},"frozen_reference_threshold_scaling":{{"reference_gallery_size":{},"threshold":{},"test_metrics":{},"test_crossed_bootstrap_ci95":{},"per_gallery_draw_test_metrics":{}}},"validation_metrics_at_frozen_threshold":{}}}"#,
+            r#"{{"gallery_size":{},"validation_query_subjects":{},"test_query_subjects":{},"validation_locked_operating_point":{{"threshold":{},"operating_point_found":{},"validation_metrics":{},"validation_metrics_by_stratum":{},"validation_observed_fpir":{},"test_metrics":{},"test_metrics_by_stratum":{},"test_crossed_bootstrap_ci95":{},"per_gallery_draw_test_metrics":{}}},"frozen_reference_threshold_scaling":{{"reference_gallery_size":{},"threshold":{},"test_metrics":{},"test_metrics_by_stratum":{},"test_crossed_bootstrap_ci95":{},"per_gallery_draw_test_metrics":{}}},"validation_metrics_at_frozen_threshold":{},"validation_metrics_at_frozen_threshold_by_stratum":{}}}"#,
             size, unique_subject_count(validation_truth), unique_subject_count(test_truth),
-            threshold_text, threshold.is_some(), validation_metrics, val_observed_fpir,
-            test_metrics, test_intervals, per_draw_locked,
-            reference_size, metric_json(frozen_threshold), frozen_test_metrics,
-            frozen_test_intervals, per_draw_frozen, frozen_val_metrics
+            threshold_text, threshold.is_some(), validation_metrics, validation_strata, val_observed_fpir,
+            test_metrics, test_strata_locked, test_intervals, per_draw_locked,
+            reference_size, metric_json(frozen_threshold), frozen_test_metrics, test_strata_frozen,
+            frozen_test_intervals, per_draw_frozen, frozen_val_metrics, validation_frozen_strata
         ));
     }
 
@@ -840,10 +874,24 @@ mod tests {
         }
         let thresholds: BTreeMap<usize, Option<f64>> = sizes.iter()
             .map(|size| (*size, select_validation_threshold(&val_by_size[size], 0.01))).collect();
-        let report_a = build_report(&sizes, &draws, &val_by_size, &test_by_size, &thresholds,
-            6, thresholds[&6], candidates.len(), &validation, &test, 0.01, 4, 200, 9901);
-        let report_b = build_report(&sizes, &draws, &val_by_size, &test_by_size, &thresholds,
-            6, thresholds[&6], candidates.len(), &validation, &test, 0.01, 4, 200, 9901);
+        let make_context = || ReportContext {
+            sizes: &sizes,
+            draws: &draws,
+            validation_by_size: &val_by_size,
+            test_by_size: &test_by_size,
+            thresholds: &thresholds,
+            reference_size: 6,
+            frozen_threshold: thresholds[&6],
+            candidate_count: candidates.len(),
+            validation_truth: &validation,
+            test_truth: &test,
+            max_fpir: 0.01,
+            draw_count: 4,
+            bootstrap_replicates: 200,
+            seed: 9901,
+        };
+        let report_a = build_report(make_context());
+        let report_b = build_report(make_context());
         assert_eq!(report_a, report_b);
         assert!(report_a.contains("NOT_YET_ESTABLISHED_SYNTHETIC_COVERAGE_STUDY_REQUIRED"));
         assert!(report_a.contains("NOT_EVALUATED_CROSSED_GALLERY_EVIDENCE_IS_NOT_RELEASE_CERTIFICATION"));
