@@ -87,9 +87,7 @@ fn parse_rows(bytes: &[u8]) -> Result<Vec<ManifestRow>, Box<dyn Error>> {
 
     let mut rows = Vec::new();
     for (index, row) in reader.deserialize::<ManifestRow>().enumerate() {
-        let row = row.map_err(|error| {
-            format!("invalid manifest row {}: {error}", index + 1)
-        })?;
+        let row = row.map_err(|error| format!("invalid manifest row {}: {error}", index + 1))?;
         rows.push(row);
     }
     if rows.is_empty() {
@@ -117,12 +115,19 @@ fn group_assignment_digest(assignments: &BTreeMap<String, String>) -> String {
 
 fn ensure_distinct_paths(input: &Path, output: &Path) -> Result<(), Box<dyn Error>> {
     if output.exists() && fs::canonicalize(input)? == fs::canonicalize(output)? {
-        return Err("input and output paths resolve to the same file; refusing to overwrite the manifest".into());
+        return Err(
+            "input and output paths resolve to the same file; refusing to overwrite the manifest"
+                .into(),
+        );
     }
     Ok(())
 }
 
-fn audit(bytes: &[u8], input_label: &str, grouping_key: &str) -> Result<AuditReport, Box<dyn Error>> {
+fn audit(
+    bytes: &[u8],
+    input_label: &str,
+    grouping_key: &str,
+) -> Result<AuditReport, Box<dyn Error>> {
     if grouping_key.trim().is_empty() || grouping_key.trim() != grouping_key {
         return Err(
             "grouping-key label must be non-empty and have no leading/trailing whitespace".into(),
