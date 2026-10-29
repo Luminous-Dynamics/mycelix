@@ -91,7 +91,7 @@ jobs:
           assert all(scenario["required"] for scenario in matrix["scenarios"])
           retrieval_schema = json.loads((root / "retrieval-report.schema.json").read_text())
           assert retrieval_schema["$schema"] == "https://json-schema.org/draft/2020-12/schema"
-          assert manifest["version"] == "0.4.0"
+          assert manifest["version"] == "0.5.0"
           assert manifest["retrieval_report_schema_file"] == "retrieval-report.schema.json"
           assert manifest["retrieval_evaluation"]["mode"] == "closed_set_ranked_reidentification"
           assert retrieval_schema["properties"]["overall_release_gate"]["const"] == "NOT_EVALUATED_RETRIEVAL_ONLY_UTILITY_AND_CONFORMANCE_MISSING"
@@ -118,6 +118,48 @@ jobs:
           assert len({row[3] for row in truth_rows}) == 4
           train_subjects = set((root / "fixtures/retrieval-training-subjects.txt").read_text().splitlines())
           assert not train_subjects.intersection({row[1] for row in truth_rows} | {row[3] for row in truth_rows})
+          open_schema = json.loads((root / "open-set-report.schema.json").read_text())
+          assert open_schema["$schema"] == "https://json-schema.org/draft/2020-12/schema"
+          assert manifest["open_set_evaluation"]["report_schema_file"] == "open-set-report.schema.json"
+          assert open_schema["properties"]["evaluation_mode"]["const"] == "validation_locked_open_set_identification"
+          assert open_schema["properties"]["overall_release_gate"]["const"] == "NOT_EVALUATED_OPEN_SET_UTILITY_AND_CONFORMANCE_MISSING"
+          assert manifest["open_set_evaluation"]["threshold_selection"].startswith("Validation-only")
+          partitions = {}
+          for label in ("validation", "test"):
+              truth_path = root / f"fixtures/open-set-{label}-truth.tsv"
+              score_path = root / f"fixtures/open-set-{label}-scores.tsv"
+              truth_lines = truth_path.read_text().splitlines()
+              score_lines = score_path.read_text().splitlines()
+              assert truth_lines[0].split("\t") == ["query_id", "query_subject", "candidate_id", "candidate_subject", "true_match", "stratum"]
+              assert score_lines[0].split("\t") == ["query_id", "candidate_id", "score"]
+              rows = [line.split("\t") for line in truth_lines[1:] if line.strip()]
+              scores = [line.split("\t") for line in score_lines[1:] if line.strip()]
+              assert len(rows) == len(scores) == 16
+              assert all(len(row) == 6 for row in rows)
+              assert all(len(row) == 3 for row in scores)
+              assert {(row[0], row[2]) for row in rows} == {(row[0], row[1]) for row in scores}
+              by_query = {}
+              for row in rows:
+                  by_query.setdefault(row[0], []).append(row)
+                  assert row[4] in ("0", "1")
+                  assert (row[1] == row[3]) == (row[4] == "1")
+              assert len(by_query) == 4
+              assert all(len(group) == 4 and sum(row[4] == "1" for row in group) <= 1 for group in by_query.values())
+              assert {any(row[4] == "1" for row in group) for group in by_query.values()} == {True, False}
+              candidate_pools = [{(row[2], row[3]) for row in group} for group in by_query.values()]
+              assert all(pool == candidate_pools[0] for pool in candidate_pools)
+              assert len(candidate_pools[0]) == 4
+              partitions[label] = (by_query, candidate_pools[0])
+          val_queries, val_pool = partitions["validation"]
+          test_queries, test_pool = partitions["test"]
+          assert val_pool == test_pool
+          assert set(val_queries).isdisjoint(test_queries)
+          val_subjects = {rows[0][1] for rows in val_queries.values()}
+          test_subjects = {rows[0][1] for rows in test_queries.values()}
+          assert val_subjects.isdisjoint(test_subjects)
+          open_training = set((root / "fixtures/open-set-training-subjects.txt").read_text().splitlines())
+          all_open_subjects = val_subjects | test_subjects | {subject for _, subject in val_pool}
+          assert open_training.isdisjoint(all_open_subjects)
           PY
           mkdir -p target/life-privacy-eval
           cargo +1.96.0 run --quiet --locked --release --manifest-path research/life-privacy-eval/Cargo.toml -- \
@@ -253,6 +295,42 @@ jobs:
           mv target/life-privacy-eval/retrieval-report-a.json target/life-privacy-eval/retrieval-report.json
           rm target/life-privacy-eval/retrieval-report-b.json
 
+      - name: Run deterministic validation-locked open-set fixture twice
+        shell: bash
+        run: |
+          set -euo pipefail
+          cargo +1.96.0 run --quiet --locked --release --manifest-path research/life-privacy-eval/Cargo.toml -- open-set research/life-privacy-eval/fixtures/open-set-validation-truth.tsv research/life-privacy-eval/fixtures/open-set-validation-scores.tsv research/life-privacy-eval/fixtures/open-set-test-truth.tsv research/life-privacy-eval/fixtures/open-set-test-scores.tsv research/life-privacy-eval/fixtures/open-set-training-subjects.txt target/life-privacy-eval/open-set-report-a.json 0.0 300 9901
+          cargo +1.96.0 run --quiet --locked --release --manifest-path research/life-privacy-eval/Cargo.toml -- open-set research/life-privacy-eval/fixtures/open-set-validation-truth.tsv research/life-privacy-eval/fixtures/open-set-validation-scores.tsv research/life-privacy-eval/fixtures/open-set-test-truth.tsv research/life-privacy-eval/fixtures/open-set-test-scores.tsv research/life-privacy-eval/fixtures/open-set-training-subjects.txt target/life-privacy-eval/open-set-report-b.json 0.0 300 9901
+          cmp target/life-privacy-eval/open-set-report-a.json target/life-privacy-eval/open-set-report-b.json
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          schema = json.loads(Path("research/life-privacy-eval/open-set-report.schema.json").read_text())
+          report = json.loads(Path("target/life-privacy-eval/open-set-report-a.json").read_text())
+          assert set(schema["required"]).issubset(report)
+          assert report["evaluation_mode"] == "validation_locked_open_set_identification"
+          assert report["threshold_selection"] == "validation_only_maximize_rank1_identification_subject_to_fpir_cap"
+          assert report["threshold_source"] == "validation_only_locked_before_test"
+          assert report["threshold"] == 0.95
+          assert report["max_fpir_target"] == 0.0
+          assert report["validation_mated_queries"] == 2 and report["validation_nonmated_queries"] == 2
+          assert report["validation_fnir_rank1"] == 0.5 and report["validation_fpir"] == 0.0
+          assert report["test_mated_queries"] == 2 and report["test_nonmated_queries"] == 2
+          assert report["candidate_pool_size"] == 4
+          assert report["false_negative_identification_rate_rank1"] == 0.5
+          assert report["false_positive_identification_rate"] == 0.0
+          assert report["fpir_resolution"] == 0.5
+          assert report["correct_identification_precision"] == 1.0
+          assert report["rare_event_inference_status"] == "ZERO_FALSE_IDENTIFICATIONS_DO_NOT_CERTIFY_TAIL_RISK"
+          assert report["sample_size_gate"] == "SMOKE_ONLY_BELOW_MINIMUM"
+          assert report["operating_point_gate"] == "NOT_EVALUATED_BELOW_SAMPLE_MINIMUM"
+          assert report["task_utility_evidence_present"] is False
+          assert report["official_conformance_evidence_present"] is False
+          assert report["overall_release_gate"] == "NOT_EVALUATED_OPEN_SET_UTILITY_AND_CONFORMANCE_MISSING"
+          PY
+          mv target/life-privacy-eval/open-set-report-a.json target/life-privacy-eval/open-set-report.json
+          rm target/life-privacy-eval/open-set-report-b.json
+
       - name: Negative control — training/test identity overlap must fail closed
         shell: bash
         run: |
@@ -284,6 +362,13 @@ jobs:
             echo "retrieval_scores_sha256=$(sha256sum research/life-privacy-eval/fixtures/retrieval-scores.tsv | cut -d' ' -f1)"
             echo "retrieval_training_subjects_sha256=$(sha256sum research/life-privacy-eval/fixtures/retrieval-training-subjects.txt | cut -d' ' -f1)"
             echo "retrieval_report_sha256=$(sha256sum target/life-privacy-eval/retrieval-report.json | cut -d' ' -f1)"
+            echo "open_set_schema_sha256=$(sha256sum research/life-privacy-eval/open-set-report.schema.json | cut -d' ' -f1)"
+            echo "open_set_validation_truth_sha256=$(sha256sum research/life-privacy-eval/fixtures/open-set-validation-truth.tsv | cut -d' ' -f1)"
+            echo "open_set_validation_scores_sha256=$(sha256sum research/life-privacy-eval/fixtures/open-set-validation-scores.tsv | cut -d' ' -f1)"
+            echo "open_set_test_truth_sha256=$(sha256sum research/life-privacy-eval/fixtures/open-set-test-truth.tsv | cut -d' ' -f1)"
+            echo "open_set_test_scores_sha256=$(sha256sum research/life-privacy-eval/fixtures/open-set-test-scores.tsv | cut -d' ' -f1)"
+            echo "open_set_training_subjects_sha256=$(sha256sum research/life-privacy-eval/fixtures/open-set-training-subjects.txt | cut -d' ' -f1)"
+            echo "open_set_report_sha256=$(sha256sum target/life-privacy-eval/open-set-report.json | cut -d' ' -f1)"
             echo "report_schema_sha256=$(sha256sum research/life-privacy-eval/report.schema.json | cut -d' ' -f1)"
             echo "calibration_truth_sha256=$(sha256sum research/life-privacy-eval/fixtures/calibration-truth.tsv | cut -d' ' -f1)"
             echo "calibration_scores_sha256=$(sha256sum research/life-privacy-eval/fixtures/calibration-scores.tsv | cut -d' ' -f1)"
@@ -310,6 +395,12 @@ jobs:
             research/life-privacy-eval/attack-scenario-matrix.json
             research/life-privacy-eval/threat-coverage-matrix.json
             research/life-privacy-eval/retrieval-report.schema.json
+            research/life-privacy-eval/open-set-report.schema.json
+            research/life-privacy-eval/fixtures/open-set-validation-truth.tsv
+            research/life-privacy-eval/fixtures/open-set-validation-scores.tsv
+            research/life-privacy-eval/fixtures/open-set-test-truth.tsv
+            research/life-privacy-eval/fixtures/open-set-test-scores.tsv
+            research/life-privacy-eval/fixtures/open-set-training-subjects.txt
             research/life-privacy-eval/fixtures/retrieval-truth.tsv
             research/life-privacy-eval/fixtures/retrieval-scores.tsv
             research/life-privacy-eval/fixtures/retrieval-training-subjects.txt
