@@ -1,4 +1,4 @@
-# LIFE Privacy Evaluation: held-out linkability metrics and paired mitigation evidence v0.3
+# LIFE Privacy Evaluation: held-out linkability and retrieval risk evidence v0.4
 
 This crate is a **metric evaluator**, not a credential verifier and not a linkability attacker. It evaluates scores emitted by an independently implemented attacker using only verifier-observable presentation artifacts. It never invents attack features or hand-selects feature weights.
 
