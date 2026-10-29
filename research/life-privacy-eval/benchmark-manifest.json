@@ -1,6 +1,6 @@
 {
   "name": "LIFE Privacy Evaluation — held-out linkability metrics",
-  "version": "0.6.0",
+  "version": "0.7.0",
   "status": "research-prototype",
   "language": "Rust",
   "dependencies": [],
@@ -139,22 +139,26 @@
       "candidate_pool_size": 10,
       "interpretation": "screening floor per class, not a confidence guarantee or automatic pass; distinct identities, not repeated sessions, must satisfy subject counts"
     },
-    "zero_false_identification_policy": "A zero event count is not a pass by itself. Report the one-sided 95% subject-cluster Hoeffding upper bound; at a 1% target, zero observed events need 14,979 independent non-mated subject clusters before this conservative bound can be at or below target.",
+    "zero_false_identification_policy": "Zero events are not a pass by themselves. Report a one-sided exact Clopper-Pearson upper bound over independent non-mated subject clusters. At 95% confidence, zero events require 299 clusters for a 1% target and 2,995 clusters for a 0.1% target; these exact-binomial calculations assume independent representative Bernoulli subject clusters and remain conditional on the frozen scorer and fixed gallery.",
     "claim_ceiling": "Open-set identification metrics only. Ranking scores are not posterior probabilities; the mode does not claim an effective anonymity set, task utility, official protocol conformance, or a formal privacy guarantee.",
-    "report_schema_version": "1.1",
+    "report_schema_version": "1.2",
     "subject_level_risk_bound": {
-      "method": "one_sided_hoeffding_upper_bound_on_subject_level_any_session_false_identification",
+      "method": "one_sided_exact_clopper_pearson_binomial_upper_bound_on_subject_level_any_session_false_identification",
       "confidence_level": 0.95,
       "unit": "one non-mated query-subject cluster; event=any query from that subject has any candidate score at or above the validation-locked threshold",
-      "formula": "min(1, observed_subject_event_rate + sqrt(ln(1/alpha)/(2*n_subject_clusters)))",
+      "formula": "one-sided exact Clopper-Pearson upper confidence endpoint; for zero events U=1-alpha^(1/n), otherwise solve P[Binomial(n,U) <= observed_events]=alpha",
       "operating_gate": "the independent test upper bound must not exceed max_fpir_target and the query-level FPIR bootstrap upper interval must also not exceed the same target; passing remains provisional and does not imply privacy, utility or conformance",
       "assumptions_and_limits": [
         "subject clusters are treated as independent draws conditional on the frozen scorer and fixed candidate gallery",
         "conditional on the fixed gallery; does not cover gallery-population uncertainty, distribution shift, or dependent subjects",
         "conservative distribution-free bound; not a differential-privacy or formal unlinkability guarantee"
       ],
-      "zero_event_subject_clusters_for_target_1pct_at_95pct": 14979
+      "zero_event_subject_clusters_for_target_1pct_at_95pct": 299,
+      "zero_event_subject_clusters_for_target_0_1pct_at_95pct": 2995
     }
   },
-  "open_set_fixture_note": "Four-query-per-partition synthetic control tests validation locking, mated/non-mated separation, candidate-pool consistency, per-subject session aggregation and risk-bound semantics only; no real-credential result is implied."
+  "open_set_fixture_note": "Four-query-per-partition synthetic control tests validation locking, mated/non-mated separation, candidate-pool consistency, per-subject session aggregation and risk-bound semantics only; no real-credential result is implied.",
+  "gallery_scaling_protocol_file": "GALLERY-SCALING-BENCHMARK.md",
+  "gallery_scaling_protocol_status": "design_only_not_implemented",
+  "gallery_scaling_protocol_scope": "Preregister operational gallery sizes, nested reproducible identity samples, per-size validation-locked thresholds and crossed query/gallery uncertainty before reporting deployment-scale open-set claims."
 }
