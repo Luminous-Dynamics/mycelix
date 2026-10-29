@@ -3,7 +3,7 @@
   "$id": "https://luminousdynamics.io/schemas/cecb.model_family_split_preregistration.v0.1.schema.json",
   "title": "CECB model-family split preregistration",
   "description": "Pre-registers public development model families and a salted commitment to evaluator-held qualification model families. Schema validity does not verify the commitment or model semantics.",
-  "$comment": "When status is registered, commitment_sha256 is SHA-256 over UTF-8 domain separator 'CECB-ROBUST-001:qualification-holdout:v0.1\\n' || 32 raw salt bytes || RFC 8785 JCS bytes of the private holdout manifest. The salt and manifest remain evaluator-held until policy outputs and scoring artifacts are frozen. The Git commit introducing the commitment must be captured in the external evaluation receipt; the file cannot contain its own commit SHA without a follow-up commit.",
+  "$comment": "When status is registered, commitment_sha256 is SHA-256 over UTF-8 domain separator 'CECB-ROBUST-001:qualification-holdout:v0.1\\n' || 32 raw salt bytes || RFC 8785 JCS bytes of the private holdout manifest. The salt and manifest remain evaluator-held until policy outputs and scoring artifacts are frozen. The run/evaluation receipt must bind the Git commit that first contains this exact commitment; do not store a self-referential commit SHA in this manifest.",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -156,8 +156,7 @@
         "commitment_sha256",
         "salt_bits",
         "salt_custody",
-        "reveal_condition",
-        "registration_receipt"
+        "reveal_condition"
       ],
       "properties": {
         "holdout_family_count": {
@@ -185,38 +184,6 @@
         },
         "reveal_condition": {
           "const": "after_policy_outputs_and_scoring_receipt_are_frozen"
-        },
-        "registration_receipt": {
-          "oneOf": [
-            {
-              "type": "null"
-            },
-            {
-              "type": "object",
-              "additionalProperties": false,
-              "required": [
-                "kind",
-                "commitment_commit_sha",
-                "registered_at_utc"
-              ],
-              "properties": {
-                "kind": {
-                  "enum": [
-                    "git_commit",
-                    "transparency_log_receipt"
-                  ]
-                },
-                "commitment_commit_sha": {
-                  "type": "string",
-                  "pattern": "^[0-9a-f]{40}$"
-                },
-                "registered_at_utc": {
-                  "type": "string",
-                  "format": "date-time"
-                }
-              }
-            }
-          ]
         }
       }
     },
@@ -362,9 +329,6 @@
               },
               "salt_custody": {
                 "const": "not_created"
-              },
-              "registration_receipt": {
-                "type": "null"
               }
             }
           },
@@ -399,9 +363,6 @@
               },
               "salt_custody": {
                 "const": "independent_evaluator"
-              },
-              "registration_receipt": {
-                "type": "object"
               }
             }
           },
