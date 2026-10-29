@@ -6,7 +6,7 @@
 
 use crate::protocol::{
     CandidateSubmission, CandidateView, DevelopmentInput, DevelopmentOracle, Prediction,
-    ProtocolError, ProtocolSplit, TrainingObservation,
+    ProtocolError, TrainingObservation,
 };
 use std::collections::BTreeSet;
 
@@ -238,7 +238,7 @@ pub fn discover_univariate_threshold(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::protocol::{build_model_family_split, FamilyTaggedPoint};
+    use crate::protocol::{build_model_family_split, FamilyTaggedPoint, ProtocolSplit};
     use crate::{
         axis_aligned_landscape, structural_family_a, structural_family_b, LabelSource,
     };
