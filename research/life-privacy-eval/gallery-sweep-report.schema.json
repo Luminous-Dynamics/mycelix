@@ -66,7 +66,7 @@
           "const": "conditional_on_candidate_frame; crossed query-subject and gallery-draw resampling"
         },
         "crossed_bootstrap_coverage_validation_status": {
-          "const": "NOT_YET_ESTABLISHED_SYNTHETIC_COVERAGE_STUDY_REQUIRED"
+          "const": "KNOWN_SPARSE_EVENT_UNDERCOVERAGE_DO_NOT_USE_FOR_CERTIFICATION"
         }
       },
       "additionalProperties": true
@@ -433,7 +433,7 @@
           "const": "crossed_query_subject_and_gallery_draw_cluster_percentile_bootstrap"
         },
         "coverage_validation_status": {
-          "const": "NOT_YET_ESTABLISHED_SYNTHETIC_COVERAGE_STUDY_REQUIRED"
+          "const": "KNOWN_SPARSE_EVENT_UNDERCOVERAGE_DO_NOT_USE_FOR_CERTIFICATION"
         },
         "fnir_at_rank_1": {
           "$ref": "#/$defs/interval"
