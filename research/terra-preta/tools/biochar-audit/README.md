@@ -18,7 +18,7 @@ cargo run --release --manifest-path research/terra-preta/tools/biochar-audit/Car
   /path/to/BiocharDS_V1.0.csv /path/to/audit-report.json
 ```
 
-Dependencies resolve in the standalone tool's own Cargo workspace. Save the report alongside the immutable original dataset and record the source URL, download timestamp, and license.
+Dependencies resolve in the standalone tool's own Cargo workspace. Save the report alongside the immutable original dataset and record the source URL, download timestamp, and license. The JSON report records only the input filename, not the full local path.
 
 ## What it reports
 
