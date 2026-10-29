@@ -158,6 +158,9 @@ def validate_workbook(
         errors.append("course and workbook study-protocol references must agree")
 
     sections = workbook.get("sections", [])
+    if not isinstance(sections, list):
+        errors.append("workbook sections must be an array")
+        sections = []
     section_ids = [section.get("id") for section in sections if isinstance(section, dict)]
     if len(sections) != 8:
         errors.append("workbook must contain exactly eight capstone sections")
@@ -173,9 +176,11 @@ def validate_workbook(
     expected_dimensions = [dimension.get("id") for dimension in fixture.get("rubric", {}).get("dimensions", [])]
     if workbook.get("rubric_dimensions") != expected_dimensions:
         errors.append("workbook rubric dimensions must match the fixture rubric in order")
-    if len(workbook.get("required_submission_sections", [])) < 10:
+    required_sections = workbook.get("required_submission_sections", [])
+    if not isinstance(required_sections, list) or len(required_sections) < 10:
         errors.append("workbook required submission contract is incomplete")
-    if len(workbook.get("non_compensable_guardrails", [])) < 5:
+    guardrails = workbook.get("non_compensable_guardrails", [])
+    if not isinstance(guardrails, list) or len(guardrails) < 5:
         errors.append("workbook non-compensable guardrails are incomplete")
 
     expected_labels = fixture.get("required_learner_deliverable", {}).get("required_uncertainty_labels", [])
@@ -183,6 +188,9 @@ def validate_workbook(
         errors.append("workbook uncertainty labels must match the frozen fixture contract")
 
     learner_data = workbook.get("learner_data", {})
+    if not isinstance(learner_data, dict):
+        errors.append("workbook learner_data must be an object")
+        learner_data = {}
     if learner_data.get("default") != "local-only":
         errors.append("workbook learner data must default to local-only")
     if learner_data.get("federated_learning_enabled") is not False:
@@ -191,6 +199,9 @@ def validate_workbook(
         errors.append("workbook must prohibit political and enlistment inference")
 
     validation = workbook.get("validation", {})
+    if not isinstance(validation, dict):
+        errors.append("workbook validation metadata must be an object")
+        validation = {}
     if validation.get("public_fixture_role") != "development-and-formative-practice-only":
         errors.append("public fixture must be labeled development/formative only")
     if validation.get("public_variants_are_held_out") is not False:
@@ -240,6 +251,7 @@ def self_test_workbook(
 
     print(f"SELF-TEST PASS: {len(cases)} workbook negative controls rejected invalid scope, scoring and split mutations")
     return 0
+
 
 def self_test(fixture: dict[str, Any], course: dict[str, Any]) -> int:
     cases: list[tuple[str, dict[str, Any], dict[str, Any], str]] = []
