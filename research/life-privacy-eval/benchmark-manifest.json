@@ -233,7 +233,93 @@
           0.7939,
           0.8837
         ],
-        "qualification": "finite synthetic diagnostic only; the sparse-event failure is a blocker, not a pass"
+        "qualification": "finite synthetic diagnostic only; the sparse-event failure is a blocker, not a pass",
+        "results": [
+          {
+            "scenario": "iid_sparse_p001",
+            "p": 0.001,
+            "subjects": 30,
+            "gallery_draws": 20,
+            "observed_coverage": 0.484,
+            "wilson_95": [
+              0.4227644,
+              0.5457198
+            ],
+            "zero_event_fraction": 0.516
+          },
+          {
+            "scenario": "iid_sparse_p005",
+            "p": 0.005,
+            "subjects": 30,
+            "gallery_draws": 20,
+            "observed_coverage": 0.956,
+            "wilson_95": [
+              0.9229422,
+              0.9752562
+            ],
+            "zero_event_fraction": 0.044
+          },
+          {
+            "scenario": "crossed_sparse_small",
+            "p": 0.01,
+            "subjects": 20,
+            "gallery_draws": 10,
+            "observed_coverage": 0.844,
+            "wilson_95": [
+              0.7938541,
+              0.8837342
+            ],
+            "zero_event_fraction": 0.156
+          },
+          {
+            "scenario": "subject_clustered_p01",
+            "p": 0.01,
+            "subjects": 30,
+            "gallery_draws": 20,
+            "observed_coverage": 0.992,
+            "wilson_95": [
+              0.9713055,
+              0.9978034
+            ],
+            "zero_event_fraction": 0.004
+          },
+          {
+            "scenario": "gallery_clustered_p01",
+            "p": 0.01,
+            "subjects": 30,
+            "gallery_draws": 20,
+            "observed_coverage": 0.992,
+            "wilson_95": [
+              0.9713055,
+              0.9978034
+            ],
+            "zero_event_fraction": 0.004
+          },
+          {
+            "scenario": "crossed_clustered_p10",
+            "p": 0.1,
+            "subjects": 30,
+            "gallery_draws": 20,
+            "observed_coverage": 0.976,
+            "wilson_95": [
+              0.9486379,
+              0.9889552
+            ],
+            "zero_event_fraction": 0
+          },
+          {
+            "scenario": "crossed_clustered_p50",
+            "p": 0.5,
+            "subjects": 30,
+            "gallery_draws": 20,
+            "observed_coverage": 0.968,
+            "wilson_95": [
+              0.9381376,
+              0.9836976
+            ],
+            "zero_event_fraction": 0
+          }
+        ]
       },
       "coverage_report_schema_file": "gallery-crossed-bootstrap-coverage.schema.json"
     },
