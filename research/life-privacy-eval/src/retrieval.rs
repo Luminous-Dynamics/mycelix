@@ -569,7 +569,7 @@ mod tests {
             &[candidate("c1", "s1", 0.4, true), candidate("c2", "s2", 0.4, false), candidate("c3", "s3", 0.4, false)],
         ).unwrap();
         let b = rank_query(
-            "q".into(), "s1".into(), "test".into(),
+            "s1".into(), "test".into(),
             &[candidate("z", "s1", 0.4, true), candidate("a", "s2", 0.4, false), candidate("m", "s3", 0.4, false)],
         ).unwrap();
         assert!((a.top_1 - b.top_1).abs() < 1e-12);
