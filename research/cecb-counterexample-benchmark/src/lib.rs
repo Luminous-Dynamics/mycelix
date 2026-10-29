@@ -116,17 +116,21 @@ impl Score {
     pub fn evaluated_points(&self) -> usize {
         self.true_positive + self.false_positive + self.false_negative + self.true_negative
     }
+
     pub fn predicted_failure_points(&self) -> usize {
         self.true_positive + self.false_positive
     }
+
     pub fn known_failure_points(&self) -> usize {
         self.true_positive + self.false_negative
     }
+
     /// Exact numerator/denominator for precision. Undefined 0/0 remains None.
     pub fn precision_counts(&self) -> Option<(usize, usize)> {
         let denominator = self.predicted_failure_points();
         (denominator != 0).then_some((self.true_positive, denominator))
     }
+
     /// Exact numerator/denominator for recall. Undefined 0/0 remains None.
     pub fn recall_counts(&self) -> Option<(usize, usize)> {
         let denominator = self.known_failure_points();
@@ -134,8 +138,6 @@ impl Score {
     }
 }
 
-/// Scores an axis-aligned conjunction against the known-truth fixture.
-/// Infeasible points are excluded from confusion counts and reported separately.
 /// Scores an arbitrary discovery algorithm's binary predictions against the
 /// known-truth fixture. Predictions must be aligned one-to-one with input points;
 /// infeasible points are excluded from confusion counts and counted separately.
@@ -267,7 +269,8 @@ pub fn irrelevant_dimensions_landscape() -> Vec<Point> {
     for _ in 0..1024 {
         let mut features = Vec::with_capacity(8);
         for _ in 0..8 {
-            state = state.wrapping_mul(6_364_136_223_846_793_005)
+            state = state
+                .wrapping_mul(6_364_136_223_846_793_005)
                 .wrapping_add(1_442_695_040_888_963_407);
             features.push(((state >> 32) % 9) as i32 - 4);
         }
@@ -294,19 +297,23 @@ pub fn correlated_feasible_landscape() -> Vec<Point> {
 
 /// Structural alternative A: failure iff x >= 2.
 pub fn structural_family_a() -> Vec<Point> {
-    (-4..=4).map(|x| {
-        let failure = x >= 2;
-        point(vec![x], true, failure, failure)
-    }).collect()
+    (-4..=4)
+        .map(|x| {
+            let failure = x >= 2;
+            point(vec![x], true, failure, failure)
+        })
+        .collect()
 }
 
 /// Structural alternative B reverses the response: failure iff x <= -2.
 /// High accuracy in family A does not imply transfer to family B.
 pub fn structural_family_b() -> Vec<Point> {
-    (-4..=4).map(|x| {
-        let failure = x <= -2;
-        point(vec![x], true, failure, failure)
-    }).collect()
+    (-4..=4)
+        .map(|x| {
+            let failure = x <= -2;
+            point(vec![x], true, failure, failure)
+        })
+        .collect()
 }
 
 #[cfg(test)]
@@ -323,10 +330,16 @@ mod tests {
             LabelSource::LatentTruth,
         )
         .unwrap();
-        assert_eq!(score, Score {
-            true_positive: 27, false_positive: 0, false_negative: 0,
-            true_negative: 54, infeasible_skipped: 0,
-        });
+        assert_eq!(
+            score,
+            Score {
+                true_positive: 27,
+                false_positive: 0,
+                false_negative: 0,
+                true_negative: 54,
+                infeasible_skipped: 0,
+            }
+        );
         assert_eq!(score.precision_counts(), Some((27, 27)));
         assert_eq!(score.recall_counts(), Some((27, 27)));
     }
@@ -340,10 +353,16 @@ mod tests {
             LabelSource::LatentTruth,
         )
         .unwrap();
-        assert_eq!(score, Score {
-            true_positive: 15, false_positive: 12, false_negative: 6,
-            true_negative: 48, infeasible_skipped: 0,
-        });
+        assert_eq!(
+            score,
+            Score {
+                true_positive: 15,
+                false_positive: 12,
+                false_negative: 6,
+                true_negative: 48,
+                infeasible_skipped: 0,
+            }
+        );
         assert_eq!(score.precision_counts(), Some((15, 27)));
         assert_eq!(score.recall_counts(), Some((15, 21)));
     }
@@ -357,10 +376,16 @@ mod tests {
             LabelSource::LatentTruth,
         )
         .unwrap();
-        assert_eq!(score, Score {
-            true_positive: 8, false_positive: 19, false_negative: 8,
-            true_negative: 46, infeasible_skipped: 0,
-        });
+        assert_eq!(
+            score,
+            Score {
+                true_positive: 8,
+                false_positive: 19,
+                false_negative: 8,
+                true_negative: 46,
+                infeasible_skipped: 0,
+            }
+        );
     }
 
     #[test]
@@ -459,14 +484,26 @@ mod tests {
         let rule = Rule::feature_at_least(0, 2);
         let score_a = score_rule(&structural_family_a(), &rule, LabelSource::LatentTruth).unwrap();
         let score_b = score_rule(&structural_family_b(), &rule, LabelSource::LatentTruth).unwrap();
-        assert_eq!(score_a, Score {
-            true_positive: 3, false_positive: 0, false_negative: 0,
-            true_negative: 6, infeasible_skipped: 0,
-        });
-        assert_eq!(score_b, Score {
-            true_positive: 0, false_positive: 3, false_negative: 3,
-            true_negative: 3, infeasible_skipped: 0,
-        });
+        assert_eq!(
+            score_a,
+            Score {
+                true_positive: 3,
+                false_positive: 0,
+                false_negative: 0,
+                true_negative: 6,
+                infeasible_skipped: 0,
+            }
+        );
+        assert_eq!(
+            score_b,
+            Score {
+                true_positive: 0,
+                false_positive: 3,
+                false_negative: 3,
+                true_negative: 3,
+                infeasible_skipped: 0,
+            }
+        );
     }
 
     #[test]
