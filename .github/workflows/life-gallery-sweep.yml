@@ -178,3 +178,11 @@ jobs:
             "$out/coverage-report.json" \
             "$out/report-a.json" > "$out/sha256-receipt.txt"
           cat "$out/sha256-receipt.txt"
+
+      - name: Publish immutable benchmark evidence bundle
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: life-gallery-sweep-${{ github.sha }}
+          path: target/life-privacy-eval-gallery-sweep/
+          if-no-files-found: error
+          retention-days: 30
