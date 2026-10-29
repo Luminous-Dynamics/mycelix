@@ -560,7 +560,7 @@ mod tests {
     #[test]
     fn fractional_tie_policy_does_not_depend_on_candidate_identifier_order() {
         let a = rank_query(
-            "q".into(), "s1".into(), "test".into(),
+            "s1".into(), "test".into(),
             &[candidate("c1", "s1", 0.4, true), candidate("c2", "s2", 0.4, false), candidate("c3", "s3", 0.4, false)],
         ).unwrap();
         let b = rank_query(
