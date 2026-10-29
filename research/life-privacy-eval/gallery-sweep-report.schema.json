@@ -15,6 +15,9 @@
     "per_draw_subject_risk_bound_alpha",
     "gallery_sampling",
     "gallery_sizes",
+    "declared_operational_gallery_size",
+    "largest_gallery_to_declared_operational_size_ratio",
+    "operational_scale_gate",
     "max_fpir_target",
     "threshold_policy",
     "frozen_threshold_policy",
@@ -588,6 +591,29 @@
     "performance_measurement_scope": {
       "type": "string",
       "minLength": 1
+    },
+    "declared_operational_gallery_size": {
+      "type": [
+        "integer",
+        "null"
+      ],
+      "minimum": 1
+    },
+    "largest_gallery_to_declared_operational_size_ratio": {
+      "type": [
+        "number",
+        "null"
+      ],
+      "minimum": 0,
+      "maximum": 1
+    },
+    "operational_scale_gate": {
+      "enum": [
+        "NOT_DECLARED",
+        "INVALID_DECLARATION",
+        "BELOW_90_PERCENT_OF_DECLARED_OPERATIONAL_SIZE",
+        "LARGEST_GALLERY_AT_LEAST_90_PERCENT_OF_DECLARED_OPERATIONAL_SIZE"
+      ]
     }
   },
   "$defs": {
