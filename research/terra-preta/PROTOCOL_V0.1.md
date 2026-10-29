@@ -174,7 +174,7 @@ The protocol is ready for public research discussion when it provides:
 - South African Department of Agriculture, [Guidelines for registration of Group 3 fertilizers](https://www.dlrrd.gov.za/images/Branches/AgricProducHealthFoodSafety/agriculture-inputs-control/guidelines/guidelines-for-registration-of-group-3-fertilizers.pdf).
 - European Biochar Certificate, [Guidelines and analytical methods](https://www.european-biochar.org/en/certificate).
 - International Biochar Initiative, [Biochar standards](https://biochar-international.org/biochar-standards/).
-- R. L. et al., “Biochar improves the nutrient cycle in sandy-textured soils and increases crop yield: a systematic review,” *Environmental Evidence* (2024), [open article](https://pmc.ncbi.nlm.nih.gov/articles/PMC11376106/).
+- Bekchanova et al., “Biochar improves the nutrient cycle in sandy-textured soils and increases crop yield: a systematic review,” *Environmental Evidence* 13, 3 (2024), [open article](https://doi.org/10.1186/s13750-024-00326-5).
 - “Maximizing crop yield and water productivity through biochar application: A global synthesis of field experiments,” *Agricultural Water Management* (2024), [DOI](https://doi.org/10.1016/j.agwat.2024.109134).
 - “Long-term effects of biochar on the hydraulic properties of soil: A meta-analysis based on 1–10 years field experiments,” *Geoderma* (2025), [DOI](https://doi.org/10.1016/j.geoderma.2025.117318).
 
