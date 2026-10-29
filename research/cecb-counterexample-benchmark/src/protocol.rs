@@ -500,8 +500,13 @@ mod tests {
         assert_eq!(first, second);
         assert_eq!(first.candidate_view().manifest.split_rule, "alternating_input_index_v0.1");
         assert_eq!(
-            first.candidate_view().development.iter().map(|row| row.sample_id).collect::<Vec<_>>(),
-            first.candidate_view().manifest.development_sample_ids
+            first
+                .candidate_view()
+                .development
+                .iter()
+                .map(|row| row.sample_id)
+                .collect::<Vec<_>>(),
+            (0..first.candidate_view().development.len()).collect::<Vec<_>>()
         );
         assert_eq!(
             first
@@ -510,10 +515,16 @@ mod tests {
                 .iter()
                 .map(|row| row.sample_id)
                 .collect::<Vec<_>>(),
-            first.candidate_view().manifest.holdout_sample_ids
+            (0..first.candidate_view().holdout_inputs.len()).collect::<Vec<_>>()
         );
-        assert!(first.candidate_view().development.iter().all(|row| row.sample_id % 2 == 0));
-        assert!(first.candidate_view().holdout_inputs.iter().all(|row| row.sample_id % 2 == 1));
+        assert_eq!(
+            first.trusted_manifest.development_sample_ids,
+            (0..81).filter(|sample_id| sample_id % 2 == 0).collect::<Vec<_>>()
+        );
+        assert_eq!(
+            first.trusted_manifest.holdout_sample_ids,
+            (0..81).filter(|sample_id| sample_id % 2 == 1).collect::<Vec<_>>()
+        );
     }
 
     #[test]
@@ -529,7 +540,7 @@ mod tests {
         }
         assert!(split.candidate_view().holdout_inputs.iter().all(|row| {
             let (features, _feasible, id) = candidate_input_has_no_label(row);
-            !features.is_empty() && id % 2 == 1
+            !features.is_empty() && id < split.candidate_view().holdout_inputs.len()
         }));
     }
 
@@ -554,8 +565,9 @@ mod tests {
 
     #[test]
     fn leave_one_model_family_out_never_places_holdout_family_in_development() {
+        let rows = family_tagged_fixture();
         let split = build_model_family_split(
-            &family_tagged_fixture(),
+            &rows,
             "family_b",
             LabelSource::LatentTruth,
             5,
@@ -565,19 +577,26 @@ mod tests {
             split.candidate_view().manifest.split_rule,
             "leave_one_model_family_out_v0.1"
         );
-        assert_eq!(split.candidate_view().manifest.holdout_family_id.as_deref(), Some("family_b"));
+        assert_eq!(split.trusted_manifest.holdout_family_id.as_deref(), Some("family_b"));
         assert_eq!(split.candidate_view().development.len(), 9);
         assert_eq!(split.candidate_view().holdout_inputs.len(), 9);
         assert!(split
-            .candidate_view()
-            .development
+            .trusted_manifest
+            .development_sample_ids
             .iter()
-            .all(|row| row.model_family_id.as_deref() == Some("family_a")));
+            .all(|sample_id| rows[*sample_id].family_id == "family_a"));
         assert!(split
-            .candidate_view()
-            .holdout_inputs
+            .trusted_manifest
+            .holdout_sample_ids
             .iter()
-            .all(|row| row.model_family_id.as_deref() == Some("family_b")));
+            .all(|sample_id| rows[*sample_id].family_id == "family_b"));
+        assert!(split.candidate_view().development.iter().enumerate()
+            .all(|(local_id, row)| row.sample_id == local_id));
+        assert!(split.candidate_view().holdout_inputs.iter().enumerate()
+            .all(|(local_id, row)| row.sample_id == local_id));
+        let visible = format!("{:?}", split.candidate_view());
+        assert!(!visible.contains("family_a"));
+        assert!(!visible.contains("family_b"));
     }
 
     #[test]
@@ -650,6 +669,9 @@ mod tests {
         assert!(rendered.contains("[REDACTED]"));
         assert!(!rendered.contains("targets:"));
         assert!(!rendered.contains("HoldoutTarget"));
+        assert!(rendered.contains("trusted_manifest"));
+        assert!(rendered.contains("[REDACTED]"));
+        assert!(!rendered.contains("family_b"));
     }
 
     #[test]
