@@ -525,7 +525,7 @@ fn build_report(
 }}"#,
         VERSION, val_threshold, seed, bootstraps, intervals.0.valid_replicates.min(intervals.1.valid_replicates).min(intervals.2.valid_replicates),
         max_fpir, validation.len(), validation_rates.mated_queries, validation_rates.nonmated_queries,
-        validation_rates.false_negative_rank1, validation_rates.false_positive_identification_rate,
+        validation_rates.false_identifications, validation_rates.false_negative_rank1, validation_rates.false_positive_identification_rate,
         test.len(), test_rates.mated_queries, test_rates.nonmated_queries, val_target_pool,
         1.0 / candidate_count.max(1) as f64,
         test_rates.false_negative_rank1, test_rates.false_negative_rank3, test_rates.false_negative_rank5,
