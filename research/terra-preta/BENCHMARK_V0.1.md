@@ -92,6 +92,22 @@ Metrics: reduction in uncertainty on preregistered target parameters, decision r
 
 **Provisional efficiency target (not achieved):** at least 20% lower total cost to reach a preregistered uncertainty or decision threshold versus the better of the fixed expert-designed and random schedules, evaluated over repeated seeds with confidence intervals. Lower runtime alone does not count if laboratory, field, review, or safety costs increase. Any proposed candidate bypassing the safety gate is an automatic failure.
 
+## 2A. Estimand discipline: predict outcomes separately from treatment effects
+
+The primary scientific target should be a *predeclared contrast*, not just a raw crop-yield prediction. A model can predict yield accurately while still estimating the effect of an amendment incorrectly.
+
+For a positive outcome with compatible treatment and comparator measurements, a candidate study-level effect is the log response ratio:
+
+`lnRR = ln(mean_treatment / mean_comparator)`
+
+When outcomes may be zero/negative or the ratio is scientifically inappropriate, predeclare an absolute or standardized difference instead. Use reported sample sizes and variance estimates when available; do not fabricate precision when variance data are missing.
+
+Every contrast must identify the comparator and all treatment components. For example, a biochar-plus-NPK result versus untreated soil does **not** isolate the incremental value of biochar and does not establish that biochar can replace NPK. Such a claim requires a suitable comparator with a matched nutrient program and otherwise comparable conditions. If the required contrast is absent, record the claim as non-identifiable from that dataset.
+
+Because literature-extracted outcomes from the same study can be correlated, use a study-aware hierarchical/meta-regression baseline or a defensible cluster-robust alternative. Report effect direction and magnitude by feedstock, soil properties, time since application, crop, and treatment context where supported. Use study/site grouped validation and leave-study-out evaluation; do not assume thousands of rows imply thousands of independent experiments.
+
+Treat this public dataset as observational literature synthesis, with possible selective reporting, variable methods, and incomplete covariates. Do not upgrade an association to a causal claim just because a model predicts it. Publish evidence provenance, missingness, sensitivity analyses, and the conditions under which the estimand cannot be identified.
+
 ## 3. Required baselines
 
 At minimum, compare to:
