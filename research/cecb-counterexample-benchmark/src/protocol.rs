@@ -16,6 +16,7 @@ const SPLIT_RULE: &str = "alternating_input_index_v0.1";
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct TrainingObservation {
     pub sample_id: usize,
+    pub model_family_id: Option<String>,
     pub features: Vec<i32>,
     pub feasible: bool,
     pub observed_failure: bool,
@@ -25,6 +26,7 @@ pub struct TrainingObservation {
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct CandidateInput {
     pub sample_id: usize,
+    pub model_family_id: Option<String>,
     pub features: Vec<i32>,
     pub feasible: bool,
 }
@@ -53,6 +55,7 @@ pub struct SplitManifest {
     pub split_rule: &'static str,
     pub development_sample_ids: Vec<usize>,
     pub holdout_sample_ids: Vec<usize>,
+    pub holdout_family_id: Option<String>,
     pub evaluation_label_source: LabelSource,
     pub max_candidate_queries: usize,
 }
@@ -112,6 +115,9 @@ pub struct EvaluationReport {
 pub enum ProtocolError {
     EmptyDataset,
     TooFewSamplesForSplit,
+    InsufficientModelFamilies,
+    EmptyModelFamilyId,
+    UnknownHoldoutFamily(String),
     InconsistentDimensions,
     EmptyMethodId,
     EmptyMethodVersion,
@@ -160,6 +166,7 @@ pub fn build_protocol_split(
             development_sample_ids.push(sample_id);
             development.push(TrainingObservation {
                 sample_id,
+                model_family_id: None,
                 features: point.features.clone(),
                 feasible: point.feasible,
                 observed_failure: point.observed_failure,
@@ -168,6 +175,7 @@ pub fn build_protocol_split(
             holdout_sample_ids.push(sample_id);
             holdout_inputs.push(CandidateInput {
                 sample_id,
+                model_family_id: None,
                 features: point.features.clone(),
                 feasible: point.feasible,
             });
@@ -199,6 +207,121 @@ pub fn build_protocol_split(
         split_rule: SPLIT_RULE,
         development_sample_ids,
         holdout_sample_ids,
+        holdout_family_id: None,
+        evaluation_label_source,
+        max_candidate_queries,
+    };
+
+    Ok(ProtocolSplit {
+        development,
+        holdout_inputs,
+        manifest,
+        evaluator,
+    })
+}
+
+/// A point labelled with its originating structural/simulator family.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct FamilyTaggedPoint {
+    pub family_id: String,
+    pub point: Point,
+}
+
+/// Builds a leave-one-model-family-out split. The held-out family is completely
+/// absent from development labels; candidate inputs retain the family identifier
+/// so transfer behaviour can be grouped and reported. At least two distinct
+/// families are required, and the selected holdout family must exist.
+pub fn build_model_family_split(
+    points: &[FamilyTaggedPoint],
+    heldout_family_id: &str,
+    evaluation_label_source: LabelSource,
+    max_candidate_queries: usize,
+) -> Result<ProtocolSplit, ProtocolError> {
+    if points.is_empty() {
+        return Err(ProtocolError::EmptyDataset);
+    }
+    if points.len() < 2 {
+        return Err(ProtocolError::TooFewSamplesForSplit);
+    }
+    if heldout_family_id.trim().is_empty() || points.iter().any(|row| row.family_id.trim().is_empty()) {
+        return Err(ProtocolError::EmptyModelFamilyId);
+    }
+
+    let dimensions = points[0].point.features.len();
+    if dimensions == 0
+        || points
+            .iter()
+            .any(|row| row.point.features.len() != dimensions)
+    {
+        return Err(ProtocolError::InconsistentDimensions);
+    }
+
+    let family_ids = points
+        .iter()
+        .map(|row| row.family_id.as_str())
+        .collect::<BTreeSet<_>>();
+    if family_ids.len() < 2 {
+        return Err(ProtocolError::InsufficientModelFamilies);
+    }
+    if !family_ids.contains(heldout_family_id) {
+        return Err(ProtocolError::UnknownHoldoutFamily(
+            heldout_family_id.to_owned(),
+        ));
+    }
+
+    let mut development = Vec::new();
+    let mut holdout_inputs = Vec::new();
+    let mut development_sample_ids = Vec::new();
+    let mut holdout_sample_ids = Vec::new();
+    let mut targets = BTreeMap::new();
+
+    for (sample_id, row) in points.iter().enumerate() {
+        if row.family_id == heldout_family_id {
+            holdout_sample_ids.push(sample_id);
+            holdout_inputs.push(CandidateInput {
+                sample_id,
+                model_family_id: Some(row.family_id.clone()),
+                features: row.point.features.clone(),
+                feasible: row.point.feasible,
+            });
+            let actual_failure = match evaluation_label_source {
+                LabelSource::LatentTruth => row.point.latent_failure,
+                LabelSource::ObservedLabel => row.point.observed_failure,
+            };
+            targets.insert(
+                sample_id,
+                HoldoutTarget {
+                    feasible: row.point.feasible,
+                    actual_failure,
+                },
+            );
+        } else {
+            development_sample_ids.push(sample_id);
+            development.push(TrainingObservation {
+                sample_id,
+                model_family_id: Some(row.family_id.clone()),
+                features: row.point.features.clone(),
+                feasible: row.point.feasible,
+                observed_failure: row.point.observed_failure,
+            });
+        }
+    }
+
+    if development.is_empty() || holdout_inputs.is_empty() {
+        return Err(ProtocolError::InsufficientModelFamilies);
+    }
+
+    let evaluator = HoldoutEvaluator {
+        targets,
+        max_candidate_queries,
+        label_source: evaluation_label_source,
+    };
+    let manifest = SplitManifest {
+        schema_version: SCHEMA_VERSION,
+        split_rule: "leave_one_model_family_out_v0.1",
+        development_sample_ids,
+        holdout_sample_ids,
+        holdout_family_id: Some(heldout_family_id.to_owned()),
         evaluation_label_source,
         max_candidate_queries,
     };
@@ -344,6 +467,108 @@ mod tests {
             let (features, _feasible, id) = candidate_input_has_no_label(row);
             !features.is_empty() && id % 2 == 1
         }));
+    }
+
+    fn family_tagged_fixture() -> Vec<FamilyTaggedPoint> {
+        let mut rows = crate::structural_family_a()
+            .into_iter()
+            .map(|point| FamilyTaggedPoint {
+                family_id: "family_a".to_owned(),
+                point,
+            })
+            .collect::<Vec<_>>();
+        rows.extend(
+            crate::structural_family_b()
+                .into_iter()
+                .map(|point| FamilyTaggedPoint {
+                    family_id: "family_b".to_owned(),
+                    point,
+                }),
+        );
+        rows
+    }
+
+    #[test]
+    fn leave_one_model_family_out_never_places_holdout_family_in_development() {
+        let split = build_model_family_split(
+            &family_tagged_fixture(),
+            "family_b",
+            LabelSource::LatentTruth,
+            5,
+        )
+        .unwrap();
+        assert_eq!(
+            split.manifest.split_rule,
+            "leave_one_model_family_out_v0.1"
+        );
+        assert_eq!(split.manifest.holdout_family_id.as_deref(), Some("family_b"));
+        assert_eq!(split.development.len(), 9);
+        assert_eq!(split.holdout_inputs.len(), 9);
+        assert!(split
+            .development
+            .iter()
+            .all(|row| row.model_family_id.as_deref() == Some("family_a")));
+        assert!(split
+            .holdout_inputs
+            .iter()
+            .all(|row| row.model_family_id.as_deref() == Some("family_b")));
+    }
+
+    #[test]
+    fn reversed_family_exposes_failure_of_a_transferred_threshold_rule() {
+        let split = build_model_family_split(
+            &family_tagged_fixture(),
+            "family_b",
+            LabelSource::LatentTruth,
+            5,
+        )
+        .unwrap();
+        let submission = CandidateSubmission {
+            method_id: "transferred-x-ge-2".to_owned(),
+            method_version: "1".to_owned(),
+            predictions: split
+                .holdout_inputs
+                .iter()
+                .map(|input| Prediction {
+                    sample_id: input.sample_id,
+                    predicts_failure: input.features[0] >= 2,
+                })
+                .collect(),
+        };
+        let report = split.evaluator.evaluate(&submission, 0).unwrap();
+        assert_eq!(report.score.true_positive, 0);
+        assert_eq!(report.score.false_positive, 3);
+        assert_eq!(report.score.false_negative, 3);
+        assert_eq!(report.score.true_negative, 3);
+    }
+
+    #[test]
+    fn model_family_split_rejects_unknown_empty_and_single_families() {
+        let rows = family_tagged_fixture();
+        assert_eq!(
+            build_model_family_split(&rows, "missing", LabelSource::LatentTruth, 5),
+            Err(ProtocolError::UnknownHoldoutFamily("missing".to_owned()))
+        );
+        assert_eq!(
+            build_model_family_split(&rows, "  ", LabelSource::LatentTruth, 5),
+            Err(ProtocolError::EmptyModelFamilyId)
+        );
+        let single_family = rows
+            .into_iter()
+            .map(|mut row| {
+                row.family_id = "one-family".to_owned();
+                row
+            })
+            .collect::<Vec<_>>();
+        assert_eq!(
+            build_model_family_split(
+                &single_family,
+                "one-family",
+                LabelSource::LatentTruth,
+                5
+            ),
+            Err(ProtocolError::InsufficientModelFamilies)
+        );
     }
 
     #[test]
