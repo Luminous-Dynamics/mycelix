@@ -86,7 +86,7 @@ pub fn run(args: &[String]) -> Result<(), Box<dyn Error>> {
         return Ok(());
     }
     if args.len() < 14 || args.len() > 16 {
-        return Err("gallery-sweep usage: gallery-sweep <validation-query-truth.tsv> <validation-scores.tsv> <test-query-truth.tsv> <test-scores.tsv> <candidate-frame.tsv> <training-subjects.txt> <report.json> <max_fpir=0.01> <gallery-draws=100> <bootstrap-replicates=1000> <seed=9901> <gallery-sizes=100,1000,10000> [reference-size]".into());
+        return Err("gallery-sweep usage: gallery-sweep <validation-query-truth.tsv> <validation-scores.tsv> <test-query-truth.tsv> <test-scores.tsv> <candidate-frame.tsv> <training-subjects.txt> <report.json> <max_fpir=0.01> <gallery-draws=100> <bootstrap-replicates=1000> <seed=9901> <gallery-sizes=100,1000,10000> [reference-size] [intended-operational-size]".into());
     }
 
     let validation_truth = read_query_truth(&args[2], "validation")?;
