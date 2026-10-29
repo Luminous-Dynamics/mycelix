@@ -140,7 +140,19 @@ For each candidate question:
 
 A synthetic simulation can test the loop's software and decision logic but must be labeled synthetic. It cannot turn simulated soil behavior into an observed treatment effect.
 
-## 8. Reproducibility and go/no-go artefacts
+## 8. Industry quality and compliance comparison
+
+Scientific model scores and commercial material qualification are separate workstreams.
+
+- **EBC:** the public guideline update history lists version 10.5E dated 14 August 2025. Treat it as a version-pinned quality/production comparator, and verify the actual class, feedstock eligibility, analytical methods, and current revision before using it as a specification.
+- **World Biochar Certificate (WBC):** the International Biochar Initiative reports that its former separate standards/certification program merged into the WBC administered by Carbon Standards International. The IBI laboratory list was updated in March 2026 and describes laboratory capability for WBC-related analyses. Verify current accreditation, method scope, sampling plan, and batch-specific certificate; do not rely on a brand name alone.
+- **South Africa:** the Department of Agriculture's Agriculture Inputs Control Directorate states that it regulates manufacturing, distribution, importation, sale, use, and advertisement of covered agricultural inputs under Act 36 of 1947, and evaluates efficacy and safety for relevant products. Official registration guidance exists for fertilizer groups, but the exact classification and obligations for a particular biochar/compost formulation depend on the product and proposed claims. Obtain written regulator guidance rather than assuming either that registration applies or that it is exempt.
+
+The research benchmark must therefore report at least two independent outcomes: (1) material identity/quality and compliance status for the exact batch; and (2) measured agronomic performance for the specified site, crop, and management context. A product-quality certificate does not establish a local treatment effect. Strong predictive performance does not establish material safety. Neither can compensate for a failed mandatory gate.
+
+**Current external references:** [EBC guideline history](https://www.european-biochar.org/en/ct/7-Updates), [IBI/WBC laboratory and certification update](https://biochar-international.org/biochar-testing-laboratories-for-certification/), and [South African Agriculture Inputs Control](https://nda.gov.za/index.php/core-business/agricultural-production/inspection-services/agriculture-inputs-control).
+
+## 9. Reproducibility and go/no-go artefacts
 
 Each confirmatory run should contain:
 - exact data-source versions, hashes, license/terms review, and source crosswalk revision;
