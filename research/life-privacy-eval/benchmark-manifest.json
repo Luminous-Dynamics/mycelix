@@ -28,7 +28,9 @@
     "one_sided_exact_Clopper_Pearson_upper_bound_on_subject_level_any_session_false_identification_rate",
     "gallery_size_specific_validation_locked_FNIR_at_rank_1_3_5_10_and_FPIR",
     "frozen_reference_threshold_gallery_scaling_curve",
-    "crossed_query_subject_and_gallery_draw_bootstrap_intervals_exploratory"
+    "crossed_query_subject_and_gallery_draw_bootstrap_intervals_exploratory",
+    "per_gallery_draw_exact_Clopper_Pearson_subject_level_any_false_identification_upper_bound",
+    "Bonferroni_simultaneous_confidence_adjustment_across_gallery_draws_within_each_size_and_threshold_policy"
   ],
   "bootstrap": {
     "method": "subject-cluster resampling with pair multiplicity weights",
@@ -239,6 +241,13 @@
       "candidate-frame conditional only",
       "not formal unlinkability or differential privacy",
       "task utility and official conformance gates remain closed"
-    ]
+    ],
+    "per_draw_subject_risk_bound": {
+      "method": "one_sided_exact_Clopper_Pearson_binomial_upper_bound",
+      "event": "for one realized gallery, a non-mated query subject has any query session whose top candidate score crosses the locked threshold",
+      "alpha_spending": "0.05 divided by gallery draw count, applied separately within each gallery size and threshold-policy family",
+      "assumptions": "independent representative query-subject clusters conditional on each realized gallery and scorer",
+      "scope_limit": "does not quantify candidate-frame sampling uncertainty; this conditional bound does not qualify the crossed percentile-bootstrap intervals"
+    }
   }
 }
