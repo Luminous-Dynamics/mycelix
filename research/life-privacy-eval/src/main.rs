@@ -1,3 +1,4 @@
+mod gallery_sweep;
 mod open_set;
 mod retrieval;
 use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
@@ -5,7 +6,7 @@ use std::env;
 use std::error::Error;
 use std::fs;
 
-const VERSION: &str = "0.8.0";
+const VERSION: &str = "0.9.0";
 const DEFAULT_BOOTSTRAPS: usize = 1_000;
 const DEFAULT_SEED: u64 = 9_901;
 const MIN_PAIRS_FOR_REVIEW: usize = 10_000;
@@ -56,6 +57,9 @@ fn run() -> Result<(), Box<dyn Error>> {
     }
     if args.get(1).is_some_and(|arg| arg == "open-set") {
         return open_set::run(&args);
+    }
+    if args.get(1).is_some_and(|arg| arg == "gallery-sweep") {
+        return gallery_sweep::run(&args);
     }
     if args.get(1).is_some_and(|arg| arg == "compare") {
         return run_compare(&args);
