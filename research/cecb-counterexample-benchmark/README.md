@@ -2,7 +2,7 @@
 
 **Status:** deterministic synthetic reference landscapes and a scoring oracle. This is not an economic simulator, policy ranking, real-world evidence, or a claim that any discovery method is superior.
 
-The dependency-free Rust crate provides known-truth landscapes and a scoring API for comparing counterexample/scenario-discovery methods. It intentionally does **not** implement PRIM, CART, an oblique tree, or a Symthaea-guided search. First establish trustworthy known-answer evaluation, then compare candidate algorithms under matched budgets.
+The dependency-free Rust crate provides known-truth landscapes, a scorer, a candidate/evaluator protocol, and a transparent univariate-threshold discovery baseline. It does **not** yet implement PRIM, CART, an oblique tree, or a Symthaea-guided search. The threshold learner gives us a reproducible reference method before adding more sophisticated methods.
 
 ## Run
 
@@ -10,6 +10,7 @@ The dependency-free Rust crate provides known-truth landscapes and a scoring API
 cargo fmt --manifest-path research/cecb-counterexample-benchmark/Cargo.toml -- --check
 cargo test --locked --manifest-path research/cecb-counterexample-benchmark/Cargo.toml
 cargo run --locked --manifest-path research/cecb-counterexample-benchmark/Cargo.toml
+cargo run --locked --manifest-path research/cecb-counterexample-benchmark/Cargo.toml --bin cecb-tournament
 ```
 
 The CLI emits deterministic JSON Lines: 18 per-rule score records plus three exhaustive box-search summaries. Score records include exact confusion counts and precision/recall numerator-denominator pairs. Search summaries expose the number of distinct prediction regions, Pareto-front size, maximum true positives, minimum false positives at that coverage, and whether exact recovery exists. Undefined precision/recall remains JSON `null`, never silently zero-filled.
@@ -44,6 +45,22 @@ The grid cases enumerate all 81 integer pairs in [-4, 4], except the constrained
 - Malformed rules, out-of-range features, duplicate feature clauses, inverted intervals, empty datasets, inconsistent dimensions and mismatched prediction lengths fail closed. Exhaustive enumeration above two dimensions fails closed.
 - The exhaustive axis-aligned frontier is a bounded hypothesis-class reference, not a universal optimum. The latent-oracle score is an evaluator-only upper bound. It must never be passed to a candidate process as an observation. These public landscapes are for development, not a hidden-test/security boundary.
 
+## First discovery baseline and matched observation budgets
+
+The `discovery` module fits a one-feature threshold from observed development labels only. It considers both `x >= threshold` and `x <= threshold`, minimizes development classification errors, and uses deterministic tie-breaking. When the requested observation budget is smaller than the development set, it selects an evenly spaced subset, records every selected sample ID, and emits predictions for the feature-only holdout inputs. It counts labelled development rows consumed; wall-clock time, peak memory, and any external simulator calls must be measured separately by the trusted runner.
+
+The `cecb-tournament` binary emits three JSONL receipts for budgets 3, 5, and 9 on the reversed structural-family fixture. The known-answer behavior is intentionally revealing:
+
+| Development observation budget | Fitted threshold | Holdout TP | FP | FN | TN |
+|---:|---:|---:|---:|---:|---:|
+| 3 | `x >= 4` | 0 | 1 | 3 | 5 |
+| 5 | `x >= 2` | 0 | 3 | 3 | 3 |
+| 9 | `x >= 2` | 0 | 3 | 3 | 3 |
+
+All three fits are evaluated on family B while discovery sees family A's observed labels. More training examples recover the family-A boundary but do not resolve the structural reversal. The receipts bind the run to the source SHA supplied by CI, record the split and method versions, include selected sample IDs, and expose the confusion counts. The workflow reruns the binary and byte-compares the receipts.
+
+This is one simple baseline and one tiny negative control, **not** a competition against SOTA. The training-row count is a transparent row-consumption budget, not proof that arbitrary candidate code obeyed a query budget. A real tournament must isolate each candidate, instrument all oracle/simulator calls in a trusted harness, and record wall time and peak memory independently.
+
 ## Candidate/evaluator protocol v0.1
 
 The new Rust protocol module introduces a typed boundary for candidate evaluation:
@@ -72,8 +89,8 @@ These are targets encoded by deterministic tests, not achieved algorithm perform
 
 ## Next steps
 
-1. Review and qualify the candidate/evaluator API on exact-head CI; then add a harness that instruments actual query usage and emits immutable evaluation receipts.
-2. Add exhaustive enumeration and random/stratified sampling baselines; then compare reviewed PRIM/CART-compatible implementations.
+1. Qualify the scorer, protocol and new threshold baseline on exact-head CI; then build an isolated harness that instruments actual oracle/simulator usage and peak memory.
+2. Add random/stratified sampling and reviewed PRIM/CART-compatible baselines; then add an oblique hypothesis class and Symthaea-guided discovery only behind the same protocol.
 3. Report coverage-density-complexity-runtime trade-offs, calibration where probabilities exist, and recall-versus-query-budget curves with repeated seeds and uncertainty intervals.
 4. Expand beyond the two reversed fixtures to more independently authored and physically admissible model families, with repeated leave-family-out evaluation.
 5. Connect this benchmark to CECB-ROBUST-001 only after the reference suite, split design, and candidate/evaluator boundary receive review.
