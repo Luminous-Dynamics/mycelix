@@ -328,9 +328,14 @@ fn summarize(rows: &[&QueryRank]) -> Summary {
     let mut ranks: Vec<f64> = rows.iter().map(|row| row.expected_rank).collect();
     ranks.sort_by(f64::total_cmp);
     let percentile = |p: f64| {
-        if ranks.is_empty() { 0.0 } else {
-            let index = ((ranks.len() - 1) as f64 * p).floor() as usize;
-            ranks[index]
+        if ranks.is_empty() {
+            0.0
+        } else {
+            let position = (ranks.len() - 1) as f64 * p;
+            let low = position.floor() as usize;
+            let high = position.ceil() as usize;
+            let fraction = position - low as f64;
+            ranks[low] + (ranks[high] - ranks[low]) * fraction
         }
     };
     Summary {
