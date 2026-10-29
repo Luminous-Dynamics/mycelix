@@ -1,0 +1,91 @@
+{
+  "schema_version": "cecb.model_family_split_preregistration.v0.1",
+  "status": "template_only",
+  "study": {
+    "study_id": "cecb.robust.housing.prototype.v0_1",
+    "question": "Do the relative effects of the registered housing-access policy profiles remain defensible across evaluator-held-out structural model families?",
+    "created_at_utc": "2026-10-29T00:32:00Z",
+    "simulator_contract_sha256": null,
+    "outcome_contract_sha256": null,
+    "policy_set_sha256": null
+  },
+  "development_set": {
+    "model_families": [
+      {
+        "descriptor": {
+          "family_id": "housing_fixed_supply_development_v1",
+          "mechanism_family": "housing_supply_response",
+          "changed_assumptions": [
+            "Housing stock cannot expand except through explicit registered construction events.",
+            "Construction lead time is deterministic within a scenario.",
+            "Marginal capacity is capped by the declared physical stock and input budget."
+          ],
+          "rationale": "Simple known-truth development family for checking capacity and accounting invariants before adding adaptive supply behavior.",
+          "status": "synthetic_assumption_only",
+          "version": "0.1"
+        },
+        "descriptor_sha256": "06065aa9b77d5bedeb5f259545ab41e521b79773bddf007ea49e20ec3a3bbbf0"
+      },
+      {
+        "descriptor": {
+          "family_id": "housing_delayed_supply_development_v1",
+          "mechanism_family": "housing_supply_response",
+          "changed_assumptions": [
+            "Construction events have a registered delay distribution.",
+            "Labor and material caps can bind concurrently.",
+            "Maintenance consumes the same finite input envelope as new construction."
+          ],
+          "rationale": "Development stress family to test whether the policy comparison captures lead time and input bottlenecks without relaxing the overall resource envelope.",
+          "status": "synthetic_assumption_only",
+          "version": "0.1"
+        },
+        "descriptor_sha256": "11cfb9c2888f9b91204955ec51ad1e39aa6e42086264bf64c1dd1eb2ff8c350f"
+      }
+    ],
+    "candidate_access": "public_development_families_only"
+  },
+  "qualification_holdout": {
+    "holdout_family_count": 1,
+    "commitment_scheme": "sha256-jcs-with-random-256-bit-salt.v1",
+    "commitment_sha256": null,
+    "salt_bits": 256,
+    "salt_custody": "not_created",
+    "reveal_condition": "after_policy_outputs_and_scoring_receipt_are_frozen",
+    "registration_receipt": null
+  },
+  "split_rules": {
+    "generalization_unit": "model_family",
+    "qualification_tuning_forbidden": true,
+    "holdout_leakage_invalidates_run": true,
+    "changes_require_new_version": true
+  },
+  "analysis_plan": {
+    "primary_outcome_id": "unmet_safe_housing_person_days",
+    "minimum_practical_effect": null,
+    "non_compensable_guardrail_ids": [
+      "physical_capacity",
+      "stock_flow_closure",
+      "privacy_authority",
+      "non_discrimination"
+    ],
+    "uncertainty_axes": [
+      "aleatory",
+      "parameter",
+      "structural",
+      "scenario_distribution",
+      "measurement_scoring",
+      "implementation"
+    ],
+    "required_diagnostics": [
+      "paired_per_outcome_effects",
+      "tail_and_subgroup_outcomes",
+      "guardrail_violation_bounds",
+      "outcome_specific_regret",
+      "pareto_front_stability",
+      "policy_by_model_family_failure_matrix",
+      "complete_run_dispositions"
+    ],
+    "uncertainty_method": "Register the hierarchical resampling unit and exact method after pilot variance diagnostics; retain model-family results separately and do not assume scenario probabilities."
+  },
+  "claim_ceiling": "design_only"
+}
