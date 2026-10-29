@@ -92,6 +92,19 @@ Use a power analysis based on a defensible minimum detectable effect and expecte
 
 **Stop:** Predefined phytotoxicity, plant-health, contamination, or other safety triggers pause the trial and activate the incident plan.
 
+### Time dependence and aging
+
+Biochar treatment effects may change with material properties, soil texture, and time since application. A 2025 synthesis of field studies reported that several soil hydraulic-property effects peaked around the second year and subsequently declined, with variation by feedstock and soil texture. This is a reason to measure duration explicitly, not a basis for assuming that a new formulation will have the same response. [Jiang, Huang & Meng (2025)](https://doi.org/10.1016/j.geoderma.2025.117318).
+
+For any trial intended to support a persistence or long-term claim:
+- collect and document baseline measurements before treatment;
+- predeclare follow-up times appropriate to the target outcome and crop season;
+- retain time-since-application, batch age, and observation date as separate fields;
+- report each planned follow-up and all missing follow-ups, including null/adverse observations;
+- do not infer multiyear persistence from an initial season or from simulation alone.
+
+The follow-up schedule must be designed with the local agronomy partner and available resources. This protocol does not prescribe an application rate or imply that a multi-year trial is necessary for every narrower laboratory question.
+
 ### Gate 3 — field trials
 
 Only after the previous gates pass and all required approvals are obtained. Use randomized blocks or another justified design; record weather, irrigation, management, soil baseline, crop variety, planting density, and deviations. Start with a narrowly scoped pilot and independent oversight before considering multi-site trials.
