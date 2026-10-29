@@ -43,6 +43,7 @@ struct QueryResult {
 struct Rates {
     mated_queries: usize,
     nonmated_queries: usize,
+    false_identifications: usize,
     false_negative_rank1: f64,
     false_negative_rank3: f64,
     false_negative_rank5: f64,
@@ -351,8 +352,9 @@ fn compute_rates(rows: &[QueryResult], threshold: Option<f64>) -> Rates {
     let false_negative_rank3 = 1.0 - mated.iter().map(|q| success_at(q, 3)).sum::<f64>() / denominator;
     let false_negative_rank5 = 1.0 - mated.iter().map(|q| success_at(q, 5)).sum::<f64>() / denominator;
     let false_negative_rank10 = 1.0 - mated.iter().map(|q| success_at(q, 10)).sum::<f64>() / denominator;
+    let false_identifications = nonmated.iter().filter(|q| threshold.is_some_and(|t| q.max_score >= t)).count();
     let false_positive_identification_rate = if nonmated.is_empty() { 0.0 } else {
-        nonmated.iter().filter(|q| threshold.is_some_and(|t| q.max_score >= t)).count() as f64 / nonmated.len() as f64
+        false_identifications as f64 / nonmated.len() as f64
     };
     let accepted = rows.iter().filter(|q| threshold.is_some_and(|t| q.max_score >= t)).count();
     let correct_rank1 = mated.iter().map(|q| success_at(q, 1)).sum::<f64>();
@@ -360,6 +362,7 @@ fn compute_rates(rows: &[QueryResult], threshold: Option<f64>) -> Rates {
     Rates {
         mated_queries: mated.len(),
         nonmated_queries: nonmated.len(),
+        false_identifications,
         false_negative_rank1, false_negative_rank3, false_negative_rank5, false_negative_rank10,
         false_positive_identification_rate, correct_identification_precision,
     }
@@ -491,6 +494,7 @@ fn build_report(
   "validation_query_count":{},
   "validation_mated_queries":{},
   "validation_nonmated_queries":{},
+  "validation_false_identifications":{},
   "validation_fnir_rank1":{:.8},
   "validation_fpir":{:.8},
   "test_query_count":{},
@@ -502,6 +506,8 @@ fn build_report(
   "false_negative_identification_rate_rank3":{:.8},
   "false_negative_identification_rate_rank5":{:.8},
   "false_negative_identification_rate_rank10":{:.8},
+  "false_identifications":{},
+  "false_negative_identifications_rank1":{:.8},
   "false_positive_identification_rate":{:.8},
   "fpir_resolution":{:.8},
   "correct_identification_precision":{},
@@ -523,7 +529,9 @@ fn build_report(
         test.len(), test_rates.mated_queries, test_rates.nonmated_queries, val_target_pool,
         1.0 / candidate_count.max(1) as f64,
         test_rates.false_negative_rank1, test_rates.false_negative_rank3, test_rates.false_negative_rank5,
-        test_rates.false_negative_rank10, test_rates.false_positive_identification_rate, target_res,
+        test_rates.false_negative_rank10, test_rates.false_identifications,
+        test_rates.false_negative_rank1 * test_rates.mated_queries as f64,
+        test_rates.false_positive_identification_rate, target_res,
         metric_or_null(test_rates.correct_identification_precision),
         intervals.0.low, intervals.0.high, intervals.0.valid_replicates,
         intervals.1.low, intervals.1.high, intervals.1.valid_replicates,
@@ -583,7 +591,7 @@ mod tests {
     #[test]
     fn zero_observed_fp_does_not_pass_rare_event_gate() {
         let interval=Interval{low:0.0,high:0.0,valid_replicates:1000};
-        let rates=Rates{mated_queries:10,nonmated_queries:10,false_negative_rank1:0.5,false_negative_rank3:0.4,false_negative_rank5:0.3,false_negative_rank10:0.0,false_positive_identification_rate:0.0,correct_identification_precision:Some(0.5)};
+        let rates=Rates{mated_queries:10,nonmated_queries:10,false_identifications:0,false_negative_rank1:0.5,false_negative_rank3:0.4,false_negative_rank5:0.3,false_negative_rank10:0.0,false_positive_identification_rate:0.0,correct_identification_precision:Some(0.5)};
         let report=build_report(&[],&[],Some(0.9),0.01,rates,rates,(interval,interval,interval),1000,1,false,10);
         assert!(report.contains("ZERO_FALSE_IDENTIFICATIONS_DO_NOT_CERTIFY_TAIL_RISK"));
         assert_eq!(operating_point_gate(false, 0.0, interval, 0.01), "NOT_EVALUATED_BELOW_SAMPLE_MINIMUM");
