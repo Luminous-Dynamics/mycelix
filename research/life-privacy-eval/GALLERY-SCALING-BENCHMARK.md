@@ -73,7 +73,19 @@ The v0.9 evaluator consumes precomputed attacker scores, so it explicitly report
 
 The v0.9 gallery-sweep implementation now exists, and the first diagnostic is committed at coverage/gallery_crossed_bootstrap.py. It uses a deterministic synthetic crossed-subject / gallery-draw Bernoulli model and compares nominal 95% crossed percentile-bootstrap intervals with the known marginal event probability. This is deliberately a finite diagnostic grid, not a universal proof.
 
-With 250 outer synthetic studies and 120 bootstrap replicates per study (seed 990117), the two-way percentile bootstrap covered a true 0.1% event probability in only 48.4% of studies for the IID sparse-event scenario; Monte Carlo Wilson 95% interval for the coverage estimate was 42.28–54.57%. A small crossed-cluster scenario (20 query subjects, 10 gallery draws, target 1%, subject and gallery log-odds effects of 0.7) achieved 84.4% observed coverage (Monte Carlo Wilson 95% interval 79.39–88.37%). Several moderate/dense scenarios were closer to nominal, but performance is not uniform across conditions.
+With 250 outer synthetic studies and 120 bootstrap replicates per study (seed 990117), the two-way percentile bootstrap covered a true 0.1% event probability in only 48.4% of studies for the IID sparse-event scenario; Monte Carlo Wilson 95% interval for the coverage estimate was 42.28–54.57%. A small crossed-cluster scenario (20 query subjects, 10 gallery draws, target 1%, subject and gallery log-odds effects of 0.7) achieved 84.4% observed coverage (Monte Carlo Wilson 95% interval 79.39–88.37%). The full diagnostic results are:
+
+| Synthetic DGP | True event rate | Observed coverage | Monte Carlo Wilson 95% interval | Zero-event study fraction |
+|---|---:|---:|---:|---:|
+| IID sparse | 0.1% | 48.4% | 42.28–54.57% | 51.6% |
+| IID | 0.5% | 95.6% | 92.29–97.53% | 4.4% |
+| Crossed sparse, 20 subjects × 10 draws | 1% | 84.4% | 79.39–88.37% | 15.6% |
+| Subject-clustered | 1% | 99.2% | 97.13–99.78% | 0.4% |
+| Gallery-clustered | 1% | 99.2% | 97.13–99.78% | 0.4% |
+| Crossed clustered | 10% | 97.6% | 94.86–98.90% | 0.0% |
+| Crossed clustered | 50% | 96.8% | 93.81–98.37% | 0.0% |
+
+Each scenario used 250 outer studies and 120 bootstrap replicates per study. The Wilson intervals quantify Monte Carlo uncertainty in the estimated coverage across those 250 studies, not uncertainty about coverage for an arbitrary real data-generating process. Several moderate/dense scenarios were closer to nominal, but performance is not uniform across conditions.
 
 A separate conditional bound is now reported per realised gallery draw: the one-sided exact Clopper–Pearson upper endpoint for the fraction of non-mated query subjects with any false identification in that draw. Its alpha is allocated as 0.05 / (gallery_size_count × draw_count × 2 threshold policies), applying Bonferroni across every size/draw/policy cell in the report rather than treating each curve as a separate family. A Rust exact-distribution regression checks this Clopper–Pearson endpoint at alpha values 0.05, 0.01, 0.00625, 0.00078125 and 0.001 over a finite trial/probability grid. This verifies numerical behavior on that grid, not the independence/representativeness assumptions or population transportability. It assumes independent representative query-subject clusters conditional on that gallery and scorer and does not account for candidate-frame sampling uncertainty. It is a different estimand from the crossed percentile interval and must not be substituted for it in a way that hides gallery-draw uncertainty. The overall release gate stays closed.
 
