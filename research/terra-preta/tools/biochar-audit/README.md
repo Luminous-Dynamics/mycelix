@@ -23,6 +23,7 @@ Dependencies resolve in the standalone tool's own Cargo workspace. Save the repo
 ## What it reports
 
 - SHA-256 digest of the exact input bytes;
+- a report contract at [audit-report.schema.json](./audit-report.schema.json) for downstream validation;
 - row and column counts, plus an advisory comparison with the published row count;
 - rows that do not match the header width;
 - missingness by column and in aggregate;
