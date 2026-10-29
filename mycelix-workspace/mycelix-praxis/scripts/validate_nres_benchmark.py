@@ -124,7 +124,7 @@ def validate(fixture: dict[str, Any], course: dict[str, Any]) -> list[str]:
 
 
 def self_test(fixture: dict[str, Any], course: dict[str, Any]) -> int:
-    cases: list[tuple[str, Any]] = []
+    cases: list[tuple[str, dict[str, Any], dict[str, Any], str]] = []
 
     duplicate_option = copy.deepcopy(fixture)
     duplicate_option["policy_options_to_compare"][1]["id"] = duplicate_option["policy_options_to_compare"][0]["id"]
