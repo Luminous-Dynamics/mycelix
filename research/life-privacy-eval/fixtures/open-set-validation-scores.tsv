@@ -1,0 +1,17 @@
+query_id	candidate_id	score
+val_q_a	cand_a	0.95
+val_q_a	cand_b	0.40
+val_q_a	cand_c	0.30
+val_q_a	cand_d	0.20
+val_q_b	cand_a	0.85
+val_q_b	cand_b	0.70
+val_q_b	cand_c	0.40
+val_q_b	cand_d	0.20
+val_q_u1	cand_a	0.90
+val_q_u1	cand_b	0.20
+val_q_u1	cand_c	0.10
+val_q_u1	cand_d	0.05
+val_q_u2	cand_a	0.10
+val_q_u2	cand_b	0.15
+val_q_u2	cand_c	0.12
+val_q_u2	cand_d	0.08
