@@ -189,6 +189,72 @@ jobs:
             }
           done
 
+      - name: Check semantic model-family uniqueness and digest negative controls
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import copy
+          import hashlib
+          import json
+          from pathlib import Path
+
+          from jsonschema import Draft202012Validator, FormatChecker
+
+          schema = json.loads(Path(
+              "docs/research/schemas/CECB_MODEL_FAMILY_SPLIT_PREREGISTRATION_V0_1.schema.json"
+          ).read_text(encoding="utf-8"))
+          fixture = json.loads(Path(
+              "docs/research/fixtures/CECB_MODEL_FAMILY_SPLIT_PREREGISTRATION_V0_1.template.json"
+          ).read_text(encoding="utf-8"))
+          validator = Draft202012Validator(schema, format_checker=FormatChecker())
+
+          def descriptor_digest(descriptor):
+              canonical = json.dumps(
+                  descriptor, ensure_ascii=False, sort_keys=True, separators=(",", ":")
+              ).encode("utf-8")
+              return hashlib.sha256(canonical).hexdigest()
+
+          def semantic_errors(manifest):
+              errors = []
+              families = manifest["development_set"]["model_families"]
+              ids = [entry["descriptor"]["family_id"] for entry in families]
+              if len(ids) != len(set(ids)):
+                  errors.append("duplicate model-family ID")
+              for entry in families:
+                  if descriptor_digest(entry["descriptor"]) != entry["descriptor_sha256"]:
+                      errors.append(
+                          "descriptor digest mismatch: " + entry["descriptor"]["family_id"]
+                      )
+              return errors
+
+          validator.validate(fixture)
+          if semantic_errors(fixture):
+              raise SystemExit("template semantic check failed: " + repr(semantic_errors(fixture)))
+
+          # JSON Schema uniqueItems only rejects identical whole objects. Two distinct
+          # descriptors with the same family_id must still be rejected semantically.
+          duplicate = copy.deepcopy(fixture)
+          duplicate_entry = copy.deepcopy(duplicate["development_set"]["model_families"][0])
+          duplicate_entry["descriptor"]["rationale"] += (
+              " A second distinct descriptor deliberately reuses the same family ID."
+          )
+          duplicate_entry["descriptor_sha256"] = descriptor_digest(duplicate_entry["descriptor"])
+          duplicate["development_set"]["model_families"].append(duplicate_entry)
+          validator.validate(duplicate)
+          if "duplicate model-family ID" not in semantic_errors(duplicate):
+              raise SystemExit("negative control failed: duplicate family ID was not detected")
+
+          # A descriptor mutation without a matching hash update must be rejected.
+          tampered = copy.deepcopy(fixture)
+          tampered["development_set"]["model_families"][0]["descriptor"]["rationale"] += (
+              " tampered"
+          )
+          if not any(error.startswith("descriptor digest mismatch:") for error in semantic_errors(tampered)):
+              raise SystemExit("negative control failed: stale descriptor digest was accepted")
+
+          print("Semantic family-identity and descriptor-digest controls passed.")
+          PY
+
       - name: Enforce required robustness diagnostics
         run: |
           set -euo pipefail
