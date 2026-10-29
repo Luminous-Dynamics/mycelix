@@ -1,12 +1,13 @@
 //! Transparent discovery baseline for CECB.
 //!
 //! This module implements a deterministic univariate threshold learner. It is
-//! deliberately a baseline, not a claim of state-of-the-art performance. The
-//! observation budget limits how many labelled development rows the learner
-//! consumes; the trusted harness must enforce process isolation and account for
-//! any additional model/simulator queries independently.
+//! deliberately a baseline, not a claim of state-of-the-art performance. Feature
+//! rows are visible, but development labels are acquired through a budgeted oracle.
 
-use crate::protocol::{CandidateSubmission, CandidateView, Prediction, TrainingObservation};
+use crate::protocol::{
+    CandidateSubmission, CandidateView, DevelopmentInput, DevelopmentOracle, Prediction,
+    ProtocolError, ProtocolSplit, TrainingObservation,
+};
 use std::collections::BTreeSet;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -38,7 +39,7 @@ impl ThresholdDirection {
     }
 }
 
-/// Fitted one-feature threshold selected only from labelled development rows.
+/// Fitted one-feature threshold selected only from labelled oracle responses.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct UnivariateThreshold {
     pub feature_index: usize,
@@ -48,7 +49,7 @@ pub struct UnivariateThreshold {
     pub development_feasible_examples: usize,
 }
 
-/// Candidate result plus an auditable record of the labelled rows it consumed.
+/// Candidate result plus the requested-observation trace for reproducibility.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct DiscoveryResult {
     pub model: UnivariateThreshold,
@@ -64,6 +65,7 @@ pub enum DiscoveryError {
     ZeroObservationBudget,
     InconsistentDimensions,
     NoFeasibleTrainingExamples,
+    Oracle(ProtocolError),
 }
 
 fn feasible_errors(
@@ -87,11 +89,11 @@ fn feasible_errors(
     (errors, feasible_examples)
 }
 
-/// Evenly samples a deterministic subset of development rows.
+/// Evenly samples a deterministic subset of visible feature rows.
 fn select_budgeted_rows(
-    development: &[TrainingObservation],
+    development: &[DevelopmentInput],
     budget: usize,
-) -> Vec<&TrainingObservation> {
+) -> Vec<&DevelopmentInput> {
     let count = budget.min(development.len());
     if count == 0 {
         return Vec::new();
@@ -109,17 +111,17 @@ fn select_budgeted_rows(
 }
 
 /// Fits the minimum-training-error single-feature threshold over an evenly
-/// spaced, deterministic subset of the development observations.
+/// spaced, deterministic subset of development feature rows. Each label is
+/// fetched separately from the budget-enforcing oracle; the candidate view has
+/// no label field and cannot read labels without consuming a query.
 ///
 /// Tie-breaking is fixed: fewer errors, then lower feature index, then
-/// GreaterOrEqual before LessOrEqual, then lower threshold. Only observed
-/// development labels are used; latent truth and holdout labels are not fields
-/// on CandidateView. Holdout examples are predicted exactly once each.
-///
-/// The observation budget counts labelled development rows consumed. It is not
-/// a wall-clock or compute budget; the harness must record those separately.
+/// GreaterOrEqual before LessOrEqual, then lower threshold. Holdout inputs are
+/// predicted exactly once each. The observation budget does not represent
+/// wall-clock or compute budget; the trusted runner must measure those separately.
 pub fn discover_univariate_threshold(
     view: &CandidateView,
+    oracle: &mut DevelopmentOracle,
     max_labeled_observations: usize,
 ) -> Result<DiscoveryResult, DiscoveryError> {
     if view.development.is_empty() {
@@ -146,7 +148,16 @@ pub fn discover_univariate_threshold(
         return Err(DiscoveryError::InconsistentDimensions);
     }
 
-    let selected = select_budgeted_rows(&view.development, max_labeled_observations);
+    let selected_inputs = select_budgeted_rows(&view.development, max_labeled_observations);
+    let mut training_rows = Vec::with_capacity(selected_inputs.len());
+    for input in &selected_inputs {
+        training_rows.push(
+            oracle
+                .query(input.sample_id)
+                .map_err(DiscoveryError::Oracle)?,
+        );
+    }
+    let selected = training_rows.iter().collect::<Vec<_>>();
     let feasible_count = selected.iter().filter(|row| row.feasible).count();
     if feasible_count == 0 {
         return Err(DiscoveryError::NoFeasibleTrainingExamples);
@@ -206,7 +217,10 @@ pub fn discover_univariate_threshold(
             predicts_failure: direction.matches(input.features[feature_index], threshold),
         })
         .collect();
-    let queried_sample_ids = selected.iter().map(|row| row.sample_id).collect::<Vec<_>>();
+    let queried_sample_ids = training_rows
+        .iter()
+        .map(|row| row.sample_id)
+        .collect::<Vec<_>>();
     let submission = CandidateSubmission {
         method_id: "cecb.univariate_threshold".to_owned(),
         method_version: "0.1.0".to_owned(),
@@ -224,10 +238,10 @@ pub fn discover_univariate_threshold(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::protocol::{
-        build_model_family_split, FamilyTaggedPoint,
+    use crate::protocol::{build_model_family_split, FamilyTaggedPoint};
+    use crate::{
+        axis_aligned_landscape, structural_family_a, structural_family_b, LabelSource,
     };
-    use crate::{axis_aligned_landscape, structural_family_a, structural_family_b, LabelSource};
 
     fn family_fixture() -> Vec<FamilyTaggedPoint> {
         let mut rows = structural_family_a()
@@ -248,22 +262,31 @@ mod tests {
         rows
     }
 
+    fn fit(
+        split: &mut ProtocolSplit,
+        budget: usize,
+    ) -> Result<DiscoveryResult, DiscoveryError> {
+        let view = split.candidate_view().clone();
+        discover_univariate_threshold(&view, split.development_oracle_mut(), budget)
+    }
+
     #[test]
     fn recovers_axis_aligned_rule_on_full_development_set() {
-        let split = crate::protocol::build_protocol_split(
+        let mut split = crate::protocol::build_protocol_split(
             &axis_aligned_landscape(),
             LabelSource::LatentTruth,
             41,
         )
         .unwrap();
-        let result = discover_univariate_threshold(split.candidate_view(), 41).unwrap();
+        let result = fit(&mut split, 41).unwrap();
         assert_eq!(result.model.feature_index, 0);
         assert_eq!(result.model.direction, ThresholdDirection::GreaterOrEqual);
         assert_eq!(result.model.threshold, 2);
         assert_eq!(result.model.development_errors, 0);
         assert_eq!(result.development_observations_used, 41);
+        assert_eq!(split.development_query_count(), 41);
         let report = split
-            .evaluate(&result.submission, result.development_observations_used)
+            .evaluate(&result.submission, split.development_query_count())
             .unwrap();
         assert_eq!(report.score.false_positive, 0);
         assert_eq!(report.score.false_negative, 0);
@@ -271,36 +294,43 @@ mod tests {
 
     #[test]
     fn budget_is_respected_and_sample_ids_are_deterministic() {
-        let split = build_model_family_split(
-            &family_fixture(),
+        let rows = family_fixture();
+        let mut first_split = build_model_family_split(
+            &rows,
             "family_b",
             LabelSource::LatentTruth,
             3,
         )
         .unwrap();
-        let first = discover_univariate_threshold(split.candidate_view(), 3).unwrap();
-        let second = discover_univariate_threshold(split.candidate_view(), 3).unwrap();
+        let mut second_split = build_model_family_split(
+            &rows,
+            "family_b",
+            LabelSource::LatentTruth,
+            3,
+        )
+        .unwrap();
+        let first = fit(&mut first_split, 3).unwrap();
+        let second = fit(&mut second_split, 3).unwrap();
         assert_eq!(first, second);
+        assert_eq!(first_split.development_query_count(), 3);
         assert_eq!(first.development_observations_used, 3);
-        assert_eq!(first.queried_sample_ids.len(), 3);
-        assert_eq!(first.queried_sample_ids.first(), Some(&0));
-        assert_eq!(first.queried_sample_ids.last(), Some(&8));
+        assert_eq!(first.queried_sample_ids, vec![0, 4, 8]);
     }
 
     #[test]
     fn fitted_rule_fails_on_reversed_structural_family() {
-        let split = build_model_family_split(
+        let mut split = build_model_family_split(
             &family_fixture(),
             "family_b",
             LabelSource::LatentTruth,
             9,
         )
         .unwrap();
-        let result = discover_univariate_threshold(split.candidate_view(), 9).unwrap();
+        let result = fit(&mut split, 9).unwrap();
         assert_eq!(result.model.direction, ThresholdDirection::GreaterOrEqual);
         assert_eq!(result.model.threshold, 2);
         let report = split
-            .evaluate(&result.submission, result.development_observations_used)
+            .evaluate(&result.submission, split.development_query_count())
             .unwrap();
         assert_eq!(report.score.true_positive, 0);
         assert_eq!(report.score.false_positive, 3);
@@ -315,49 +345,56 @@ mod tests {
         for point in &mut relabelled {
             point.latent_failure = !point.latent_failure;
         }
-        let original_split = crate::protocol::build_protocol_split(
+        let mut original_split = crate::protocol::build_protocol_split(
             &original,
             LabelSource::ObservedLabel,
             41,
         )
         .unwrap();
-        let relabelled_split = crate::protocol::build_protocol_split(
+        let mut relabelled_split = crate::protocol::build_protocol_split(
             &relabelled,
             LabelSource::ObservedLabel,
             41,
         )
         .unwrap();
-        let first = discover_univariate_threshold(original_split.candidate_view(), 41).unwrap();
-        let second = discover_univariate_threshold(relabelled_split.candidate_view(), 41).unwrap();
+        let first = fit(&mut original_split, 41).unwrap();
+        let second = fit(&mut relabelled_split, 41).unwrap();
         assert_eq!(first, second);
+        assert_eq!(original_split.development_query_count(), 41);
     }
 
     #[test]
     fn zero_budget_and_empty_views_fail_closed() {
-        let split = crate::protocol::build_protocol_split(
+        let mut split = crate::protocol::build_protocol_split(
             &axis_aligned_landscape(),
             LabelSource::LatentTruth,
             41,
         )
         .unwrap();
+        let view = split.candidate_view().clone();
         assert_eq!(
-            discover_univariate_threshold(split.candidate_view(), 0),
+            discover_univariate_threshold(&view, split.development_oracle_mut(), 0),
             Err(DiscoveryError::ZeroObservationBudget)
         );
         let empty = CandidateView {
             development: vec![],
             holdout_inputs: vec![],
-            manifest: split.candidate_view().manifest.clone(),
+            manifest: view.manifest.clone(),
         };
         assert_eq!(
-            discover_univariate_threshold(&empty, 1),
+            discover_univariate_threshold(
+                &empty,
+                split.development_oracle_mut(),
+                1
+            ),
             Err(DiscoveryError::EmptyDevelopment)
         );
+        assert_eq!(split.development_query_count(), 0);
     }
 
     #[test]
     fn malformed_feature_dimensions_fail_closed() {
-        let split = crate::protocol::build_protocol_split(
+        let mut split = crate::protocol::build_protocol_split(
             &axis_aligned_landscape(),
             LabelSource::LatentTruth,
             41,
@@ -366,8 +403,9 @@ mod tests {
         let mut view = split.candidate_view().clone();
         view.holdout_inputs[0].features.pop();
         assert_eq!(
-            discover_univariate_threshold(&view, 41),
+            discover_univariate_threshold(&view, split.development_oracle_mut(), 41),
             Err(DiscoveryError::InconsistentDimensions)
         );
+        assert_eq!(split.development_query_count(), 0);
     }
 }
