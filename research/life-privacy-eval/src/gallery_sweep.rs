@@ -619,7 +619,7 @@ fn crossed_bootstrap_json(rows: &[QueryResult], threshold: Option<f64>, replicat
     if subjects.is_empty() || draws.len() < 2 {
         let empty = Interval::default();
         return format!(
-            r#"{{"method":"crossed_query_subject_and_gallery_draw_cluster_percentile_bootstrap","coverage_validation_status":"NOT_YET_ESTABLISHED_SYNTHETIC_COVERAGE_STUDY_REQUIRED","fnir_at_rank_1":{},"fnir_at_rank_3":{},"fnir_at_rank_5":{},"fnir_at_rank_10":{},"fpir":{}}}"#,
+            r#"{{"method":"crossed_query_subject_and_gallery_draw_cluster_percentile_bootstrap","coverage_validation_status":"KNOWN_SPARSE_EVENT_UNDERCOVERAGE_DO_NOT_USE_FOR_CERTIFICATION","fnir_at_rank_1":{},"fnir_at_rank_3":{},"fnir_at_rank_5":{},"fnir_at_rank_10":{},"fpir":{}}}"#,
             interval_json(&empty), interval_json(&empty), interval_json(&empty),
             interval_json(&empty), interval_json(&empty)
         );
@@ -652,7 +652,7 @@ fn crossed_bootstrap_json(rows: &[QueryResult], threshold: Option<f64>, replicat
     }
 
     format!(
-        r#"{{"method":"crossed_query_subject_and_gallery_draw_cluster_percentile_bootstrap","coverage_validation_status":"NOT_YET_ESTABLISHED_SYNTHETIC_COVERAGE_STUDY_REQUIRED","fnir_at_rank_1":{},"fnir_at_rank_3":{},"fnir_at_rank_5":{},"fnir_at_rank_10":{},"fpir":{}}}"#,
+        r#"{{"method":"crossed_query_subject_and_gallery_draw_cluster_percentile_bootstrap","coverage_validation_status":"KNOWN_SPARSE_EVENT_UNDERCOVERAGE_DO_NOT_USE_FOR_CERTIFICATION","fnir_at_rank_1":{},"fnir_at_rank_3":{},"fnir_at_rank_5":{},"fnir_at_rank_10":{},"fpir":{}}}"#,
         interval_json(&interval_from_values(fnir1_values)),
         interval_json(&interval_from_values(fnir3_values)),
         interval_json(&interval_from_values(fnir5_values)),
@@ -763,7 +763,7 @@ fn build_report(context: ReportContext<'_>) -> String {
     }
 
     format!(
-        r#"{{"schema_version":"1.0","evaluator_version":"{}","evaluation_mode":"gallery_scaling_open_set_identification","seed":{},"gallery_sampling":{{"method":"deterministic_seeded_uniform_without_replacement_nested_prefix_draws","rng":"xorshift64","draw_count":{},"candidate_frame_size":{},"candidate_score_semantics":"pairwise_scores_are_assumed_gallery_invariant","uncertainty_scope":"conditional_on_candidate_frame; crossed query-subject and gallery-draw resampling","crossed_bootstrap_coverage_validation_status":"NOT_YET_ESTABLISHED_SYNTHETIC_COVERAGE_STUDY_REQUIRED"}},"gallery_sizes":{:?},"max_fpir_target":{},"validation_query_count":{},"validation_unique_query_subjects":{},"test_query_count":{},"test_unique_query_subjects":{},"threshold_policy":"validation-locked threshold selected independently per gallery size by maximizing expected rank-1 hit rate subject to empirical validation FPIR cap","frozen_threshold_policy":{{"reference_gallery_size":{},"threshold":{}}},"sample_size_gate":"SMOKE_ONLY_OR_RESEARCH_ONLY_UNTIL_PREREGISTERED_RELEASE_FLOORS_ARE_MET","operating_point_gate":"NOT_A_PRIVACY_PASS; validation FPIR is empirical and test uncertainty coverage study is pending","size_results":[{}],"task_utility_evidence_present":false,"official_conformance_evidence_present":false,"overall_release_gate":"NOT_EVALUATED_CROSSED_GALLERY_EVIDENCE_IS_NOT_RELEASE_CERTIFICATION","limitations":["The candidate frame is fixed; inference does not generalize beyond its sampling frame without a separate transportability argument.","Scores are assumed invariant to candidate-set composition. Context-dependent scoring requires a separate score input for each draw and is not implemented in v0.9.","The crossed percentile bootstrap is exploratory until finite-sample coverage simulations pass; its intervals must not be used as certification evidence yet.","The score grid is complete over every query and every candidate in the supplied frame; very large benchmarks may need a streaming implementation.","A threshold selected on validation data is frozen for test evaluation. Test labels never select or retune thresholds.","A reduction in identification rates is not a formal unlinkability or differential-privacy guarantee."]}}"#,
+        r#"{{"schema_version":"1.0","evaluator_version":"{}","evaluation_mode":"gallery_scaling_open_set_identification","seed":{},"gallery_sampling":{{"method":"deterministic_seeded_uniform_without_replacement_nested_prefix_draws","rng":"xorshift64","draw_count":{},"candidate_frame_size":{},"candidate_score_semantics":"pairwise_scores_are_assumed_gallery_invariant","uncertainty_scope":"conditional_on_candidate_frame; crossed query-subject and gallery-draw resampling","crossed_bootstrap_coverage_validation_status":"KNOWN_SPARSE_EVENT_UNDERCOVERAGE_DO_NOT_USE_FOR_CERTIFICATION"}},"gallery_sizes":{:?},"max_fpir_target":{},"validation_query_count":{},"validation_unique_query_subjects":{},"test_query_count":{},"test_unique_query_subjects":{},"threshold_policy":"validation-locked threshold selected independently per gallery size by maximizing expected rank-1 hit rate subject to empirical validation FPIR cap","frozen_threshold_policy":{{"reference_gallery_size":{},"threshold":{}}},"sample_size_gate":"SMOKE_ONLY_OR_RESEARCH_ONLY_UNTIL_PREREGISTERED_RELEASE_FLOORS_ARE_MET","operating_point_gate":"NOT_A_PRIVACY_PASS; validation FPIR is empirical and test uncertainty coverage study is pending","size_results":[{}],"task_utility_evidence_present":false,"official_conformance_evidence_present":false,"overall_release_gate":"NOT_EVALUATED_CROSSED_GALLERY_EVIDENCE_IS_NOT_RELEASE_CERTIFICATION","limitations":["The candidate frame is fixed; inference does not generalize beyond its sampling frame without a separate transportability argument.","Scores are assumed invariant to candidate-set composition. Context-dependent scoring requires a separate score input for each draw and is not implemented in v0.9.","A finite-grid diagnostic reproduced substantial sparse-event undercoverage in the crossed percentile bootstrap; its intervals must not be used as certification evidence.","The score grid is complete over every query and every candidate in the supplied frame; very large benchmarks may need a streaming implementation.","A threshold selected on validation data is frozen for test evaluation. Test labels never select or retune thresholds.","A reduction in identification rates is not a formal unlinkability or differential-privacy guarantee."]}}"#,
         VERSION, seed, draw_count, candidate_count, sizes, max_fpir,
         validation_truth.len(), unique_subject_count(validation_truth),
         test_truth.len(), unique_subject_count(test_truth),
@@ -893,7 +893,7 @@ mod tests {
         let report_a = build_report(make_context());
         let report_b = build_report(make_context());
         assert_eq!(report_a, report_b);
-        assert!(report_a.contains("NOT_YET_ESTABLISHED_SYNTHETIC_COVERAGE_STUDY_REQUIRED"));
+        assert!(report_a.contains("KNOWN_SPARSE_EVENT_UNDERCOVERAGE_DO_NOT_USE_FOR_CERTIFICATION"));
         assert!(report_a.contains("NOT_EVALUATED_CROSSED_GALLERY_EVIDENCE_IS_NOT_RELEASE_CERTIFICATION"));
     }
 
