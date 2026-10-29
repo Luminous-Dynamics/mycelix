@@ -1,0 +1,282 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "LIFE validation-locked open-set identification report v1.0",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "evaluator_version",
+    "evaluation_mode",
+    "threshold_selection",
+    "threshold_source",
+    "threshold",
+    "seed",
+    "requested_bootstrap_replicates",
+    "valid_bootstrap_replicates",
+    "max_fpir_target",
+    "validation_query_count",
+    "validation_mated_queries",
+    "validation_nonmated_queries",
+    "validation_fnir_rank1",
+    "validation_fpir",
+    "test_query_count",
+    "test_mated_queries",
+    "test_nonmated_queries",
+    "candidate_pool_size",
+    "uniform_random_top1_baseline",
+    "false_negative_identification_rate_rank1",
+    "false_negative_identification_rate_rank3",
+    "false_negative_identification_rate_rank5",
+    "false_negative_identification_rate_rank10",
+    "false_positive_identification_rate",
+    "fpir_resolution",
+    "correct_identification_precision",
+    "fnir_rank1_cluster_bootstrap_ci95",
+    "fnir_rank5_cluster_bootstrap_ci95",
+    "fpir_cluster_bootstrap_ci95",
+    "rare_event_inference_status",
+    "sample_size_gate",
+    "operating_point_gate",
+    "task_utility_evidence_present",
+    "official_conformance_evidence_present",
+    "overall_release_gate",
+    "by_stratum",
+    "interpretation"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "1.0"
+    },
+    "evaluator_version": {
+      "type": "string"
+    },
+    "evaluation_mode": {
+      "const": "validation_locked_open_set_identification"
+    },
+    "threshold_selection": {
+      "const": "validation_only_maximize_rank1_identification_subject_to_fpir_cap"
+    },
+    "threshold_source": {
+      "const": "validation_only_locked_before_test"
+    },
+    "threshold": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "seed": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "requested_bootstrap_replicates": {
+      "type": "integer",
+      "minimum": 100
+    },
+    "valid_bootstrap_replicates": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "max_fpir_target": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1
+    },
+    "validation_query_count": {
+      "type": "integer",
+      "minimum": 2
+    },
+    "validation_mated_queries": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "validation_nonmated_queries": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "validation_fnir_rank1": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1
+    },
+    "validation_fpir": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1
+    },
+    "test_query_count": {
+      "type": "integer",
+      "minimum": 2
+    },
+    "test_mated_queries": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "test_nonmated_queries": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "candidate_pool_size": {
+      "type": "integer",
+      "minimum": 2
+    },
+    "uniform_random_top1_baseline": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1
+    },
+    "false_negative_identification_rate_rank1": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1
+    },
+    "false_negative_identification_rate_rank3": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1
+    },
+    "false_negative_identification_rate_rank5": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1
+    },
+    "false_negative_identification_rate_rank10": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1
+    },
+    "false_positive_identification_rate": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1
+    },
+    "fpir_resolution": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1
+    },
+    "correct_identification_precision": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1
+    },
+    "fnir_rank1_cluster_bootstrap_ci95": {
+      "$ref": "#/$defs/interval"
+    },
+    "fnir_rank5_cluster_bootstrap_ci95": {
+      "$ref": "#/$defs/interval"
+    },
+    "fpir_cluster_bootstrap_ci95": {
+      "$ref": "#/$defs/interval"
+    },
+    "rare_event_inference_status": {
+      "enum": [
+        "ZERO_FALSE_IDENTIFICATIONS_DO_NOT_CERTIFY_TAIL_RISK",
+        "CLUSTER_BOOTSTRAP_INTERVAL_REPORTED_NO_FORMAL_PRIVACY_GUARANTEE"
+      ]
+    },
+    "sample_size_gate": {
+      "enum": [
+        "SMOKE_ONLY_BELOW_MINIMUM",
+        "MINIMUM_COUNTS_MET_REQUIRES_REVIEW"
+      ]
+    },
+    "operating_point_gate": {
+      "enum": [
+        "NOT_EVALUATED_BELOW_SAMPLE_MINIMUM",
+        "INCONCLUSIVE_ZERO_FPIR_CANNOT_BOUND_RARE_EVENT_RISK",
+        "PROVISIONAL_PASS_REQUIRES_REVIEW",
+        "FAIL",
+        "INCONCLUSIVE"
+      ]
+    },
+    "task_utility_evidence_present": {
+      "const": false
+    },
+    "official_conformance_evidence_present": {
+      "const": false
+    },
+    "overall_release_gate": {
+      "const": "NOT_EVALUATED_OPEN_SET_UTILITY_AND_CONFORMANCE_MISSING"
+    },
+    "by_stratum": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "stratum",
+          "query_count",
+          "mated_queries",
+          "nonmated_queries",
+          "fnir_rank1",
+          "fnir_rank5",
+          "fpir"
+        ],
+        "properties": {
+          "stratum": {
+            "type": "string",
+            "minLength": 1
+          },
+          "query_count": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "mated_queries": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "nonmated_queries": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "fnir_rank1": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1
+          },
+          "fnir_rank5": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1
+          },
+          "fpir": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    "interpretation": {
+      "type": "string"
+    }
+  },
+  "$defs": {
+    "interval": {
+      "type": "object",
+      "required": [
+        "low",
+        "high",
+        "valid_replicates"
+      ],
+      "properties": {
+        "low": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "high": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "valid_replicates": {
+          "type": "integer",
+          "minimum": 0
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false
+}
