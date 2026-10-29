@@ -243,6 +243,18 @@ def self_test_workbook(
     rubric_drift["rubric_dimensions"] = ["R1"]
     cases.append(("rubric dimension drift", rubric_drift, "workbook rubric dimensions must match"))
 
+    malformed_sections = copy.deepcopy(workbook)
+    malformed_sections["sections"] = None
+    cases.append(("malformed sections", malformed_sections, "workbook sections must be an array"))
+
+    malformed_learner_data = copy.deepcopy(workbook)
+    malformed_learner_data["learner_data"] = None
+    cases.append(("malformed learner data", malformed_learner_data, "workbook learner_data must be an object"))
+
+    malformed_validation = copy.deepcopy(workbook)
+    malformed_validation["validation"] = None
+    cases.append(("malformed validation metadata", malformed_validation, "workbook validation metadata must be an object"))
+
     for name, test_workbook, expected in cases:
         errors = validate_workbook(test_workbook, fixture, course)
         if not any(expected in error for error in errors):
