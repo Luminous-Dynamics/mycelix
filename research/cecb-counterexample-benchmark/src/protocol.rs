@@ -250,7 +250,9 @@ pub fn build_model_family_split(
     if points.len() < 2 {
         return Err(ProtocolError::TooFewSamplesForSplit);
     }
-    if heldout_family_id.trim().is_empty() || points.iter().any(|row| row.family_id.trim().is_empty()) {
+    if heldout_family_id.trim().is_empty()
+        || points.iter().any(|row| row.family_id.trim().is_empty())
+    {
         return Err(ProtocolError::EmptyModelFamilyId);
     }
 
@@ -270,7 +272,10 @@ pub fn build_model_family_split(
     if family_ids.len() < 2 {
         return Err(ProtocolError::InsufficientModelFamilies);
     }
-    if !family_ids.contains(heldout_family_id) {
+    if !family_ids
+        .iter()
+        .any(|family_id| *family_id == heldout_family_id)
+    {
         return Err(ProtocolError::UnknownHoldoutFamily(
             heldout_family_id.to_owned(),
         ));
@@ -475,7 +480,12 @@ mod tests {
             first.candidate_view().manifest.development_sample_ids
         );
         assert_eq!(
-            first.candidate_view().holdout_inputs.iter().map(|row| row.sample_id).collect::<Vec<_>>(),
+            first
+                .candidate_view()
+                .holdout_inputs
+                .iter()
+                .map(|row| row.sample_id)
+                .collect::<Vec<_>>(),
             first.candidate_view().manifest.holdout_sample_ids
         );
         assert!(first.candidate_view().development.iter().all(|row| row.sample_id % 2 == 0));
