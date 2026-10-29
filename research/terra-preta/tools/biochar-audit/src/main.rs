@@ -399,7 +399,11 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     let input_path = Path::new(&input);
     let input_bytes = fs::read(input_path)?;
-    let input_label = input_path.to_string_lossy().into_owned();
+    let input_label = input_path
+        .file_name()
+        .and_then(|name| name.to_str())
+        .unwrap_or("input.csv")
+        .to_owned();
     let report = audit_bytes(&input_bytes, &input_label)?;
     let json = serde_json::to_string_pretty(&report)?;
 
