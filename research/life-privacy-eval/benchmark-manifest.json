@@ -231,7 +231,8 @@
           0.8837
         ],
         "qualification": "finite synthetic diagnostic only; the sparse-event failure is a blocker, not a pass"
-      }
+      },
+      "coverage_report_schema_file": "gallery-crossed-bootstrap-coverage.schema.json"
     },
     "nonclaims": [
       "pairwise scores are assumed gallery-invariant",
