@@ -131,10 +131,12 @@
     ],
     "uncertainty": "Class-stratified query-subject cluster bootstrap for FNIR@rank1, FNIR@rank5 and FPIR; conditional on a fixed candidate pool",
     "pilot_minimums": {
-      "queries_per_partition": 2000,
-      "distinct_query_subjects_per_partition": 2000,
+      "mated_queries_per_partition": 2000,
+      "nonmated_queries_per_partition": 2000,
+      "distinct_mated_subjects_per_partition": 2000,
+      "distinct_nonmated_subjects_per_partition": 2000,
       "candidate_pool_size": 10,
-      "interpretation": "screening floor; never an automatic privacy pass"
+      "interpretation": "screening floor per class, not a confidence guarantee or automatic pass; distinct identities, not repeated sessions, must satisfy subject counts"
     },
     "zero_false_identification_policy": "Zero observed false identifications are inconclusive for rare-event risk.",
     "claim_ceiling": "Open-set identification metrics only. Ranking scores are not posterior probabilities; the mode does not claim an effective anonymity set, task utility, official protocol conformance, or a formal privacy guarantee."
