@@ -8,6 +8,7 @@
     "evaluator_version",
     "evaluation_mode",
     "seed",
+    "requested_bootstrap_replicates",
     "gallery_sampling",
     "gallery_sizes",
     "max_fpir_target",
@@ -310,6 +311,10 @@
       "items": {
         "type": "string"
       }
+    },
+    "requested_bootstrap_replicates": {
+      "type": "integer",
+      "minimum": 100
     }
   },
   "$defs": {
