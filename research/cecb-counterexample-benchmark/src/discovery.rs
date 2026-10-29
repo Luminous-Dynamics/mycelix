@@ -443,11 +443,6 @@ fn gini_impurity(positive: usize, negative: usize) -> f64 {
     1.0 - positive_fraction * positive_fraction - negative_fraction * negative_fraction
 }
 
-fn leaf_majority(rows: &[&TrainingObservation]) -> bool {
-    let positives = rows.iter().filter(|row| row.observed_failure).count();
-    positives * 2 > rows.len()
-}
-
 fn fit_cart_node(
     rows: &[&TrainingObservation],
     feature_count: usize,
@@ -708,7 +703,14 @@ mod tests {
 
     #[test]
     fn cart_depth_three_improves_boundary_coverage_over_stumps() {
-        for (points, depth_one_errors, depth_three_errors, expected_tp, expected_fn, expected_tn) in [
+        for (
+            points,
+            depth_one_errors,
+            depth_three_errors,
+            expected_tp,
+            expected_fn,
+            expected_tn,
+        ) in [
             (crate::oblique_landscape(), 9, 1, 8, 4, 28),
             (crate::nonlinear_interaction_landscape(), 8, 3, 5, 3, 32),
         ] {
