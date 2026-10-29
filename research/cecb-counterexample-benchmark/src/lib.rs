@@ -1,11 +1,12 @@
-pub mod protocol;
-pub mod discovery;
-
 //! Deterministic synthetic landscapes and a known-truth region scorer for CECB.
 //!
-//! This crate does not implement a scenario-discovery algorithm. It provides
-//! independent reference cases and scoring primitives for comparing such
-//! algorithms under a fixed evaluator and budget.
+//! This crate provides known-truth fixtures, independent scoring primitives,
+//! a candidate/evaluator protocol, and a transparent univariate-threshold
+//! baseline. It is a research benchmark, not a claim that any method is
+//! state of the art or that synthetic fixtures establish real-world validity.
+
+pub mod protocol;
+pub mod discovery;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Point {
