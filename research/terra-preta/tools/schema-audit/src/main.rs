@@ -39,6 +39,10 @@ const SCHEMA_FIXTURES: &[(&str, &str)] = &[
         "source-register",
         include_str!("../../../source-register.schema.json"),
     ),
+    (
+        "dependency-audit-report",
+        include_str!("../../dependency-audit/dependency-audit-report.schema.json"),
+    ),
 ];
 
 const SOURCE_REGISTER: &str = include_str!("../../../source-register.v0.1.json");
@@ -228,6 +232,49 @@ mod tests {
         let mut register: Value = serde_json::from_str(SOURCE_REGISTER).unwrap();
         register["reviewed_on"] = json!("29-10-2026");
         assert!(!validator.is_valid(&register));
+    }
+
+    fn dependency_report_schema() -> Value {
+        serde_json::from_str(SCHEMA_FIXTURES[7].1).unwrap()
+    }
+
+    fn valid_dependency_report() -> Value {
+        json!({
+            "audit_version": "0.1.0",
+            "status": "passed",
+            "input_label": "row-manifest.csv",
+            "input_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "row_count": 5,
+            "component_count": 4,
+            "dependency_columns": ["study_id", "site_id"],
+            "component_assignment_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+            "split_counts": {
+                "train": {"rows": 2, "components": 1},
+                "validation": {"rows": 1, "components": 1},
+                "test": {"rows": 1, "components": 1},
+                "excluded": {"rows": 1, "components": 1}
+            },
+            "dependency_key_stats": {
+                "study_id": {"rows_with_value": 5, "rows_missing_value": 0, "distinct_values": 4},
+                "site_id": {"rows_with_value": 4, "rows_missing_value": 1, "distinct_values": 4}
+            },
+            "warnings": ["structural check only"],
+            "interpretation_boundary": "schema test only"
+        })
+    }
+
+    #[test]
+    fn accepts_valid_dependency_audit_report() {
+        let validator = jsonschema::validator_for(&dependency_report_schema()).unwrap();
+        assert!(validator.is_valid(&valid_dependency_report()));
+    }
+
+    #[test]
+    fn rejects_dependency_report_with_too_few_components() {
+        let validator = jsonschema::validator_for(&dependency_report_schema()).unwrap();
+        let mut report = valid_dependency_report();
+        report["component_count"] = json!(2);
+        assert!(!validator.is_valid(&report));
     }
 
     #[test]
