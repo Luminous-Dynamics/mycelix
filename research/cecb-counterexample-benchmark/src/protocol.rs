@@ -335,9 +335,9 @@ pub struct FamilyTaggedPoint {
 }
 
 /// Builds a leave-one-model-family-out split. The held-out family is completely
-/// absent from development labels; candidate inputs retain the family identifier
-/// so transfer behaviour can be grouped and reported. At least two distinct
-/// families are required, and the selected holdout family must exist.
+/// absent from development labels. Family identity and original source IDs are
+/// retained only in the trusted manifest, not candidate-visible input records.
+/// At least two distinct families are required, and the selected family must exist.
 pub fn build_model_family_split(
     points: &[FamilyTaggedPoint],
     heldout_family_id: &str,
