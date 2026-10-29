@@ -368,7 +368,11 @@ fn run() -> Result<(), Box<dyn Error>> {
     let output_path = Path::new(&arguments[2]);
     ensure_distinct_input_output(input_path, output_path)?;
     let bytes = fs::read(input_path)?;
-    let input_label = input_path.display().to_string();
+    let input_label = input_path
+        .file_name()
+        .and_then(|name| name.to_str())
+        .unwrap_or("predictions.csv")
+        .to_owned();
     let report = audit(&bytes, &input_label, seed)?;
     let output = serde_json::to_vec_pretty(&report)?;
     fs::write(output_path, output)?;
