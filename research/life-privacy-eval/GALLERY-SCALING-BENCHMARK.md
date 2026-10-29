@@ -63,6 +63,12 @@ These rules are intended to prevent unsupported claims, not to declare complianc
 5. Every mandatory attack, stratum and gallery size is reported. Missing evidence is inconclusive, not a pass. Official protocol conformance, formal privacy guarantees, and deployment certification remain separate gates.
 
 
+## Operational scale and cost evidence
+
+The `gallery-sweep` command accepts an optional declared intended operational gallery size and reports the evaluated-largest-gallery ratio. An omitted denominator is reported as `NOT_DECLARED`; a ratio below 90% is flagged as below that declared scale. This ratio is descriptive and does not imply standards conformance. NIST SP 800-63A-4 does require a gallery of at least 90% of intended operational size and FPIR of 1:1,000 or better in its narrowly defined 1:N biometric identity-proofing scope; those values are not universal requirements for credential-linkability evaluation. NIST IREX 10 is a useful *evaluation design* reference because it reports FNIR at fixed FPIR, rank-based miss rates, search time and the effect of enrollment size on an operational dataset of 500,000 people, but its iris-matching scores are not comparable to credential linkability scores. See https://pages.nist.gov/IREX10/ and https://pages.nist.gov/800-63-4/sp800-63a.html.
+
+The v0.9 evaluator consumes precomputed attacker scores, so it explicitly reports `NOT_MEASURED_PRECOMPUTED_SCORE_INPUTS` rather than inventing latency, throughput, memory, payload and energy numbers. A future adapter must supply a separate scorer-run receipt with hardware/software identity, workload counts, p50/p95/p99 latency, throughput, peak memory, stored/transmitted bytes, measured energy per query, exclusions/failures, and score/config digests. These cost measurements should remain a separate vector beside privacy and task utility, not collapse into a weighted single score.
+
 ## First finite-grid coverage diagnostic — 29 October 2026
 
 The v0.9 gallery-sweep implementation now exists, and the first diagnostic is committed at coverage/gallery_crossed_bootstrap.py. It uses a deterministic synthetic crossed-subject / gallery-draw Bernoulli model and compares nominal 95% crossed percentile-bootstrap intervals with the known marginal event probability. This is deliberately a finite diagnostic grid, not a universal proof.
