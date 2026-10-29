@@ -11,7 +11,10 @@ use std::fs;
 use std::path::Path;
 
 const SCHEMA_FIXTURES: &[(&str, &str)] = &[
-    ("batch-record", include_str!("../../../batch-record.schema.json")),
+    (
+        "batch-record",
+        include_str!("../../../batch-record.schema.json"),
+    ),
     (
         "contrast-record",
         include_str!("../../../contrast-record.schema.json"),
