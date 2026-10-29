@@ -279,7 +279,7 @@
       }
     },
     "performance_measurements": {
-      "status": "not measured in v0.9",
+      "status": "NOT_MEASURED_PRECOMPUTED_SCORE_INPUTS",
       "reason": "gallery-sweep consumes precomputed attacker score grids and does not execute or profile the attacker",
       "required_for_industry_comparison": [
         "p50/p95/p99 per-query search latency",
@@ -291,6 +291,16 @@
         "failure-to-process and excluded-query counts"
       ],
       "evidence_policy": "populate from a separately instrumented scorer-run receipt; never estimate these fields from evaluator runtime"
+    },
+    "operational_scale_declaration": {
+      "optional_cli_argument": "intended-operational-size",
+      "outputs": [
+        "declared_operational_gallery_size",
+        "largest_gallery_to_declared_operational_size_ratio",
+        "operational_scale_gate"
+      ],
+      "interpretation": "compares the evaluated largest gallery with an explicitly supplied intended gallery size; if omitted, status is NOT_DECLARED",
+      "nonclaim": "a 90% size ratio is only a scale-coverage indicator and is not protocol conformance or a universal credential-privacy requirement"
     }
   }
 }
