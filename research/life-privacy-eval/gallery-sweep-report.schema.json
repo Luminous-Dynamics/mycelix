@@ -20,10 +20,19 @@
     "limitations"
   ],
   "properties": {
-    "schema_version": { "const": "1.0" },
-    "evaluator_version": { "const": "0.9.0" },
-    "evaluation_mode": { "const": "gallery_scaling_open_set_identification" },
-    "seed": { "type": "integer", "minimum": 0 },
+    "schema_version": {
+      "const": "1.0"
+    },
+    "evaluator_version": {
+      "const": "0.9.0"
+    },
+    "evaluation_mode": {
+      "const": "gallery_scaling_open_set_identification"
+    },
+    "seed": {
+      "type": "integer",
+      "minimum": 0
+    },
     "gallery_sampling": {
       "type": "object",
       "required": [
@@ -36,29 +45,66 @@
         "crossed_bootstrap_coverage_validation_status"
       ],
       "properties": {
-        "method": { "const": "deterministic_seeded_uniform_without_replacement_nested_prefix_draws" },
-        "rng": { "const": "xorshift64" },
-        "draw_count": { "type": "integer", "minimum": 2 },
-        "candidate_frame_size": { "type": "integer", "minimum": 2 },
-        "candidate_score_semantics": { "const": "pairwise_scores_are_assumed_gallery_invariant" },
-        "uncertainty_scope": { "const": "conditional_on_candidate_frame; crossed query-subject and gallery-draw resampling" },
-        "crossed_bootstrap_coverage_validation_status": { "const": "NOT_YET_ESTABLISHED_SYNTHETIC_COVERAGE_STUDY_REQUIRED" }
+        "method": {
+          "const": "deterministic_seeded_uniform_without_replacement_nested_prefix_draws"
+        },
+        "rng": {
+          "const": "xorshift64"
+        },
+        "draw_count": {
+          "type": "integer",
+          "minimum": 2
+        },
+        "candidate_frame_size": {
+          "type": "integer",
+          "minimum": 2
+        },
+        "candidate_score_semantics": {
+          "const": "pairwise_scores_are_assumed_gallery_invariant"
+        },
+        "uncertainty_scope": {
+          "const": "conditional_on_candidate_frame; crossed query-subject and gallery-draw resampling"
+        },
+        "crossed_bootstrap_coverage_validation_status": {
+          "const": "NOT_YET_ESTABLISHED_SYNTHETIC_COVERAGE_STUDY_REQUIRED"
+        }
       },
       "additionalProperties": true
     },
     "gallery_sizes": {
       "type": "array",
       "minItems": 2,
-      "items": { "type": "integer", "minimum": 2 }
+      "items": {
+        "type": "integer",
+        "minimum": 2
+      }
     },
-    "max_fpir_target": { "type": "number", "minimum": 0, "maximum": 1 },
-    "threshold_policy": { "type": "string", "minLength": 1 },
+    "max_fpir_target": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1
+    },
+    "threshold_policy": {
+      "type": "string",
+      "minLength": 1
+    },
     "frozen_threshold_policy": {
       "type": "object",
-      "required": ["reference_gallery_size", "threshold"],
+      "required": [
+        "reference_gallery_size",
+        "threshold"
+      ],
       "properties": {
-        "reference_gallery_size": { "type": "integer", "minimum": 2 },
-        "threshold": { "type": ["number", "null"] }
+        "reference_gallery_size": {
+          "type": "integer",
+          "minimum": 2
+        },
+        "threshold": {
+          "type": [
+            "number",
+            "null"
+          ]
+        }
       },
       "additionalProperties": true
     },
@@ -73,31 +119,101 @@
           "test_query_subjects",
           "validation_locked_operating_point",
           "frozen_reference_threshold_scaling",
-          "validation_metrics_at_frozen_threshold"
+          "validation_metrics_at_frozen_threshold",
+          "validation_metrics_at_frozen_threshold_by_stratum"
         ],
         "properties": {
-          "gallery_size": { "type": "integer", "minimum": 2 },
-          "validation_query_subjects": { "type": "integer", "minimum": 1 },
-          "test_query_subjects": { "type": "integer", "minimum": 1 },
+          "gallery_size": {
+            "type": "integer",
+            "minimum": 2
+          },
+          "validation_query_subjects": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "test_query_subjects": {
+            "type": "integer",
+            "minimum": 1
+          },
           "validation_locked_operating_point": {
             "type": "object",
             "required": [
               "threshold",
               "operating_point_found",
               "validation_metrics",
+              "validation_metrics_by_stratum",
               "validation_observed_fpir",
               "test_metrics",
+              "test_metrics_by_stratum",
               "test_crossed_bootstrap_ci95",
               "per_gallery_draw_test_metrics"
             ],
             "properties": {
-              "threshold": { "type": ["number", "null"] },
-              "operating_point_found": { "type": "boolean" },
-              "validation_metrics": { "$ref": "#/$defs/metrics" },
-              "validation_observed_fpir": { "type": ["number", "null"] },
-              "test_metrics": { "$ref": "#/$defs/metrics" },
-              "test_crossed_bootstrap_ci95": { "$ref": "#/$defs/intervals" },
-              "per_gallery_draw_test_metrics": { "type": "array" }
+              "threshold": {
+                "type": [
+                  "number",
+                  "null"
+                ]
+              },
+              "operating_point_found": {
+                "type": "boolean"
+              },
+              "validation_metrics": {
+                "$ref": "#/$defs/metrics"
+              },
+              "validation_observed_fpir": {
+                "type": [
+                  "number",
+                  "null"
+                ]
+              },
+              "test_metrics": {
+                "$ref": "#/$defs/metrics"
+              },
+              "test_crossed_bootstrap_ci95": {
+                "$ref": "#/$defs/intervals"
+              },
+              "per_gallery_draw_test_metrics": {
+                "type": "array"
+              },
+              "validation_metrics_by_stratum": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "required": [
+                    "stratum",
+                    "metrics"
+                  ],
+                  "properties": {
+                    "stratum": {
+                      "type": "string"
+                    },
+                    "metrics": {
+                      "$ref": "#/$defs/metrics"
+                    }
+                  },
+                  "additionalProperties": false
+                }
+              },
+              "test_metrics_by_stratum": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "required": [
+                    "stratum",
+                    "metrics"
+                  ],
+                  "properties": {
+                    "stratum": {
+                      "type": "string"
+                    },
+                    "metrics": {
+                      "$ref": "#/$defs/metrics"
+                    }
+                  },
+                  "additionalProperties": false
+                }
+              }
             },
             "additionalProperties": true
           },
@@ -107,27 +223,94 @@
               "reference_gallery_size",
               "threshold",
               "test_metrics",
+              "test_metrics_by_stratum",
               "test_crossed_bootstrap_ci95",
               "per_gallery_draw_test_metrics"
             ],
             "properties": {
-              "reference_gallery_size": { "type": "integer", "minimum": 2 },
-              "threshold": { "type": ["number", "null"] },
-              "test_metrics": { "$ref": "#/$defs/metrics" },
-              "test_crossed_bootstrap_ci95": { "$ref": "#/$defs/intervals" },
-              "per_gallery_draw_test_metrics": { "type": "array" }
+              "reference_gallery_size": {
+                "type": "integer",
+                "minimum": 2
+              },
+              "threshold": {
+                "type": [
+                  "number",
+                  "null"
+                ]
+              },
+              "test_metrics": {
+                "$ref": "#/$defs/metrics"
+              },
+              "test_crossed_bootstrap_ci95": {
+                "$ref": "#/$defs/intervals"
+              },
+              "per_gallery_draw_test_metrics": {
+                "type": "array"
+              },
+              "test_metrics_by_stratum": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "required": [
+                    "stratum",
+                    "metrics"
+                  ],
+                  "properties": {
+                    "stratum": {
+                      "type": "string"
+                    },
+                    "metrics": {
+                      "$ref": "#/$defs/metrics"
+                    }
+                  },
+                  "additionalProperties": false
+                }
+              }
             },
             "additionalProperties": true
           },
-          "validation_metrics_at_frozen_threshold": { "$ref": "#/$defs/metrics" }
+          "validation_metrics_at_frozen_threshold": {
+            "$ref": "#/$defs/metrics"
+          },
+          "validation_metrics_at_frozen_threshold_by_stratum": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": [
+                "stratum",
+                "metrics"
+              ],
+              "properties": {
+                "stratum": {
+                  "type": "string"
+                },
+                "metrics": {
+                  "$ref": "#/$defs/metrics"
+                }
+              },
+              "additionalProperties": false
+            }
+          }
         },
         "additionalProperties": true
       }
     },
-    "task_utility_evidence_present": { "const": false },
-    "official_conformance_evidence_present": { "const": false },
-    "overall_release_gate": { "const": "NOT_EVALUATED_CROSSED_GALLERY_EVIDENCE_IS_NOT_RELEASE_CERTIFICATION" },
-    "limitations": { "type": "array", "minItems": 1, "items": { "type": "string" } }
+    "task_utility_evidence_present": {
+      "const": false
+    },
+    "official_conformance_evidence_present": {
+      "const": false
+    },
+    "overall_release_gate": {
+      "const": "NOT_EVALUATED_CROSSED_GALLERY_EVIDENCE_IS_NOT_RELEASE_CERTIFICATION"
+    },
+    "limitations": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "string"
+      }
+    }
   },
   "$defs": {
     "metrics": {
@@ -144,25 +327,93 @@
         "fpir"
       ],
       "properties": {
-        "query_draw_observations": { "type": "integer", "minimum": 0 },
-        "mated_query_draw_observations": { "type": "integer", "minimum": 0 },
-        "nonmated_query_draw_observations": { "type": "integer", "minimum": 0 },
-        "false_identifications": { "type": "integer", "minimum": 0 },
-        "fnir_at_rank_1": { "type": ["number", "null"], "minimum": 0, "maximum": 1 },
-        "fnir_at_rank_3": { "type": ["number", "null"], "minimum": 0, "maximum": 1 },
-        "fnir_at_rank_5": { "type": ["number", "null"], "minimum": 0, "maximum": 1 },
-        "fnir_at_rank_10": { "type": ["number", "null"], "minimum": 0, "maximum": 1 },
-        "fpir": { "type": ["number", "null"], "minimum": 0, "maximum": 1 }
+        "query_draw_observations": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "mated_query_draw_observations": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "nonmated_query_draw_observations": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "false_identifications": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "fnir_at_rank_1": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": 0,
+          "maximum": 1
+        },
+        "fnir_at_rank_3": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": 0,
+          "maximum": 1
+        },
+        "fnir_at_rank_5": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": 0,
+          "maximum": 1
+        },
+        "fnir_at_rank_10": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": 0,
+          "maximum": 1
+        },
+        "fpir": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": 0,
+          "maximum": 1
+        }
       },
       "additionalProperties": true
     },
     "interval": {
       "type": "object",
-      "required": ["low", "high", "valid_replicates"],
+      "required": [
+        "low",
+        "high",
+        "valid_replicates"
+      ],
       "properties": {
-        "low": { "type": ["number", "null"], "minimum": 0, "maximum": 1 },
-        "high": { "type": ["number", "null"], "minimum": 0, "maximum": 1 },
-        "valid_replicates": { "type": "integer", "minimum": 0 }
+        "low": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": 0,
+          "maximum": 1
+        },
+        "high": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": 0,
+          "maximum": 1
+        },
+        "valid_replicates": {
+          "type": "integer",
+          "minimum": 0
+        }
       },
       "additionalProperties": false
     },
@@ -178,13 +429,27 @@
         "fpir"
       ],
       "properties": {
-        "method": { "const": "crossed_query_subject_and_gallery_draw_cluster_percentile_bootstrap" },
-        "coverage_validation_status": { "const": "NOT_YET_ESTABLISHED_SYNTHETIC_COVERAGE_STUDY_REQUIRED" },
-        "fnir_at_rank_1": { "$ref": "#/$defs/interval" },
-        "fnir_at_rank_3": { "$ref": "#/$defs/interval" },
-        "fnir_at_rank_5": { "$ref": "#/$defs/interval" },
-        "fnir_at_rank_10": { "$ref": "#/$defs/interval" },
-        "fpir": { "$ref": "#/$defs/interval" }
+        "method": {
+          "const": "crossed_query_subject_and_gallery_draw_cluster_percentile_bootstrap"
+        },
+        "coverage_validation_status": {
+          "const": "NOT_YET_ESTABLISHED_SYNTHETIC_COVERAGE_STUDY_REQUIRED"
+        },
+        "fnir_at_rank_1": {
+          "$ref": "#/$defs/interval"
+        },
+        "fnir_at_rank_3": {
+          "$ref": "#/$defs/interval"
+        },
+        "fnir_at_rank_5": {
+          "$ref": "#/$defs/interval"
+        },
+        "fnir_at_rank_10": {
+          "$ref": "#/$defs/interval"
+        },
+        "fpir": {
+          "$ref": "#/$defs/interval"
+        }
       },
       "additionalProperties": true
     }
