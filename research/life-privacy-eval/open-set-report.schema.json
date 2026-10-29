@@ -29,7 +29,7 @@
     "false_negative_identification_rate_rank5",
     "false_negative_identification_rate_rank10",
     "false_identifications",
-    "false_negative_identifications_rank1",
+    "expected_false_negative_identifications_rank1",
     "false_positive_identification_rate",
     "fpir_resolution",
     "correct_identification_precision",
@@ -273,7 +273,7 @@
       "type": "integer",
       "minimum": 0
     },
-    "false_negative_identifications_rank1": {
+    "expected_false_negative_identifications_rank1": {
       "type": "number",
       "minimum": 0
     }
