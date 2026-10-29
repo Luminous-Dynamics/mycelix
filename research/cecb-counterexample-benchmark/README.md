@@ -135,4 +135,4 @@ These are targets encoded by deterministic tests, not achieved algorithm perform
 4. Expand beyond the two reversed fixtures to more independently authored and physically admissible model families, with repeated leave-family-out evaluation.
 5. Connect this benchmark to CECB-ROBUST-001 only after the reference suite, split design, and candidate/evaluator boundary receive review.
 
-Related work: [CECB-ROBUST-002 / #5512](https://github.com/Luminous-Dynamics/mycelix/issues/5512); [CECB robust tournament PR #5511](https://github.com/Luminous-Dynamics/mycelix/pull/5511).
+Related work: [CECB scorer and discovery PR #5515](https://github.com/Luminous-Dynamics/mycelix/pull/5515); [CECB-ROBUST-001 / #5510](https://github.com/Luminous-Dynamics/mycelix/issues/5510); [CECB-ROBUST-002 / #5512](https://github.com/Luminous-Dynamics/mycelix/issues/5512); [CECB-ROBUST-003 / #5517](https://github.com/Luminous-Dynamics/mycelix/issues/5517); [CECB-WITNESS-001 / #5519](https://github.com/Luminous-Dynamics/mycelix/issues/5519); [related Mycelix robust tournament PR #5511](https://github.com/Luminous-Dynamics/mycelix/pull/5511).
