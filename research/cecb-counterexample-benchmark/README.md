@@ -12,7 +12,7 @@ cargo test --locked --manifest-path research/cecb-counterexample-benchmark/Cargo
 cargo run --locked --manifest-path research/cecb-counterexample-benchmark/Cargo.toml
 ```
 
-The CLI emits deterministic JSON Lines with one score record per case/rule/label source. Each record includes exact confusion counts and precision/recall numerator-denominator pairs. Undefined precision/recall remains JSON `null`, never silently zero-filled.
+The CLI emits deterministic JSON Lines: 18 per-rule score records plus three exhaustive box-search summaries. Score records include exact confusion counts and precision/recall numerator-denominator pairs. Search summaries expose the number of distinct prediction regions, Pareto-front size, maximum true positives, minimum false positives at that coverage, and whether exact recovery exists. Undefined precision/recall remains JSON `null`, never silently zero-filled.
 
 ## Landscapes
 
@@ -29,14 +29,20 @@ The CLI emits deterministic JSON Lines with one score record per case/rule/label
 
 The grid cases enumerate all 81 integer pairs in [-4, 4], except the constrained landscape, which retains 25 feasible points. The eight-dimensional case is a deterministic sample of 1,024 points. It is a software fixture, not a probability model or claim about real-world frequencies.
 
+## Exhaustive box baseline
+
+`exhaustive_axis_aligned_boxes` enumerates the distinct prediction regions representable by axis-aligned boxes over the observed feature values for one- and two-dimensional datasets. Equivalent prediction masks are deduplicated; the least-complex representative is retained. The function refuses dimensions above two rather than silently exploding the search space.
+
+`pareto_box_front` retains candidates not dominated simultaneously on three separate criteria: maximize true positives, minimize false positives, and minimize rule complexity. It does not create a weighted sum. For the axis-aligned landscape the box class can recover the known failure region exactly; for the oblique and nonlinear landscapes it cannot, which exposes a structural limitation of the hypothesis class rather than a scoring error.
+
 ## Scoring API
 
 - `score_predictions` accepts one Boolean prediction per point, so arbitrary discovery algorithms can be scored without putting their implementation inside the oracle.
 - `score_rule` is a convenience baseline for axis-aligned interval conjunctions.
 - Only feasible points contribute to confusion counts; infeasible exclusions are counted separately.
 - Latent truth and observed labels remain distinct.
-- Malformed rules, out-of-range features, duplicate feature clauses, inverted intervals, empty datasets, inconsistent dimensions and mismatched prediction lengths fail closed.
-- The latent-oracle score is an evaluator-only upper bound. It must never be passed to a candidate process as an observation. These public landscapes are for development, not a hidden-test/security boundary.
+- Malformed rules, out-of-range features, duplicate feature clauses, inverted intervals, empty datasets, inconsistent dimensions and mismatched prediction lengths fail closed. Exhaustive enumeration above two dimensions fails closed.
+- The exhaustive axis-aligned frontier is a bounded hypothesis-class reference, not a universal optimum. The latent-oracle score is an evaluator-only upper bound. It must never be passed to a candidate process as an observation. These public landscapes are for development, not a hidden-test/security boundary.
 
 ## Initial qualification targets
 
@@ -44,6 +50,7 @@ These are targets encoded by deterministic tests, not achieved algorithm perform
 
 - Exact confusion counts on axis-aligned, oblique and nonlinear cases.
 - Deterministic labels and score rows for identical inputs.
+- Exhaustive box search is deterministic and finds an exact box for axis-aligned truth, but not for oblique or nonlinear truth.
 - A rule that works in structural family A fails in family B.
 - Infeasible points cannot improve a score and are accounted for.
 - Undefined precision or recall is preserved rather than zero-filled.
