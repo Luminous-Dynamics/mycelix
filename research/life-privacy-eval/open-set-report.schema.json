@@ -1,0 +1,375 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "LIFE validation-locked open-set identification report v1.2",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "evaluator_version",
+    "evaluation_mode",
+    "threshold_selection",
+    "threshold_source",
+    "threshold",
+    "seed",
+    "requested_bootstrap_replicates",
+    "valid_bootstrap_replicates",
+    "max_fpir_target",
+    "validation_query_count",
+    "validation_mated_queries",
+    "validation_nonmated_queries",
+    "validation_false_identifications",
+    "validation_fnir_rank1",
+    "validation_fpir",
+    "test_query_count",
+    "test_mated_queries",
+    "test_nonmated_queries",
+    "candidate_pool_size",
+    "uniform_random_top1_baseline",
+    "false_negative_identification_rate_rank1",
+    "false_negative_identification_rate_rank3",
+    "false_negative_identification_rate_rank5",
+    "false_negative_identification_rate_rank10",
+    "false_identifications",
+    "expected_false_negative_identifications_rank1",
+    "false_positive_identification_rate",
+    "fpir_resolution",
+    "correct_identification_precision",
+    "fnir_rank1_cluster_bootstrap_ci95",
+    "fnir_rank5_cluster_bootstrap_ci95",
+    "fpir_cluster_bootstrap_ci95",
+    "sample_size_gate",
+    "operating_point_gate",
+    "task_utility_evidence_present",
+    "official_conformance_evidence_present",
+    "overall_release_gate",
+    "by_stratum",
+    "interpretation",
+    "subject_fp_rate_bound_method",
+    "subject_fp_rate_confidence_level",
+    "subject_any_false_identification_target",
+    "validation_nonmated_subject_clusters",
+    "validation_subjects_with_any_false_identification",
+    "validation_subject_any_false_identification_rate",
+    "validation_subject_any_false_identification_upper95",
+    "test_nonmated_subject_clusters",
+    "test_subjects_with_any_false_identification",
+    "test_subject_any_false_identification_rate",
+    "test_subject_any_false_identification_upper95",
+    "nonmated_subject_clusters_required_for_zero_event_bound",
+    "rare_event_inference_status"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "1.2"
+    },
+    "evaluator_version": {
+      "type": "string"
+    },
+    "evaluation_mode": {
+      "const": "validation_locked_open_set_identification"
+    },
+    "threshold_selection": {
+      "const": "validation_only_maximize_rank1_identification_subject_to_fpir_cap"
+    },
+    "threshold_source": {
+      "const": "validation_only_locked_before_test"
+    },
+    "threshold": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "seed": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "requested_bootstrap_replicates": {
+      "type": "integer",
+      "minimum": 100
+    },
+    "valid_bootstrap_replicates": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "max_fpir_target": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1
+    },
+    "validation_query_count": {
+      "type": "integer",
+      "minimum": 2
+    },
+    "validation_mated_queries": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "validation_nonmated_queries": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "validation_fnir_rank1": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1
+    },
+    "validation_fpir": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1
+    },
+    "test_query_count": {
+      "type": "integer",
+      "minimum": 2
+    },
+    "test_mated_queries": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "test_nonmated_queries": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "candidate_pool_size": {
+      "type": "integer",
+      "minimum": 2
+    },
+    "uniform_random_top1_baseline": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1
+    },
+    "false_negative_identification_rate_rank1": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1
+    },
+    "false_negative_identification_rate_rank3": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1
+    },
+    "false_negative_identification_rate_rank5": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1
+    },
+    "false_negative_identification_rate_rank10": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1
+    },
+    "false_positive_identification_rate": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1
+    },
+    "fpir_resolution": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1
+    },
+    "correct_identification_precision": {
+      "type": [
+        "number",
+        "null"
+      ],
+      "minimum": 0,
+      "maximum": 1
+    },
+    "fnir_rank1_cluster_bootstrap_ci95": {
+      "$ref": "#/$defs/interval"
+    },
+    "fnir_rank5_cluster_bootstrap_ci95": {
+      "$ref": "#/$defs/interval"
+    },
+    "fpir_cluster_bootstrap_ci95": {
+      "$ref": "#/$defs/interval"
+    },
+    "rare_event_inference_status": {
+      "enum": [
+        "SUBJECT_CLUSTER_UPPER_BOUND_EXCEEDS_TARGET",
+        "SUBJECT_CLUSTER_UPPER_BOUND_WITHIN_TARGET_NO_FORMAL_PRIVACY_GUARANTEE"
+      ]
+    },
+    "sample_size_gate": {
+      "enum": [
+        "SMOKE_ONLY_BELOW_MINIMUM",
+        "MINIMUM_COUNTS_MET_REQUIRES_REVIEW"
+      ]
+    },
+    "operating_point_gate": {
+      "enum": [
+        "NOT_EVALUATED_BELOW_SAMPLE_MINIMUM",
+        "INCONCLUSIVE_SUBJECT_LEVEL_UPPER_BOUND_EXCEEDS_TARGET",
+        "PROVISIONAL_PASS_REQUIRES_REVIEW",
+        "FAIL",
+        "INCONCLUSIVE"
+      ]
+    },
+    "task_utility_evidence_present": {
+      "const": false
+    },
+    "official_conformance_evidence_present": {
+      "const": false
+    },
+    "overall_release_gate": {
+      "const": "NOT_EVALUATED_OPEN_SET_UTILITY_AND_CONFORMANCE_MISSING"
+    },
+    "by_stratum": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "stratum",
+          "query_count",
+          "mated_queries",
+          "nonmated_queries",
+          "fnir_rank1",
+          "fnir_rank5",
+          "fpir"
+        ],
+        "properties": {
+          "stratum": {
+            "type": "string",
+            "minLength": 1
+          },
+          "query_count": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "mated_queries": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "nonmated_queries": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "fnir_rank1": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "minimum": 0,
+            "maximum": 1
+          },
+          "fnir_rank5": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "minimum": 0,
+            "maximum": 1
+          },
+          "fpir": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "minimum": 0,
+            "maximum": 1
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    "interpretation": {
+      "type": "string"
+    },
+    "validation_false_identifications": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "false_identifications": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "expected_false_negative_identifications_rank1": {
+      "type": "number",
+      "minimum": 0
+    },
+    "subject_fp_rate_bound_method": {
+      "const": "one_sided_exact_clopper_pearson_binomial_upper_bound_on_subject_level_any_session_false_identification"
+    },
+    "subject_fp_rate_confidence_level": {
+      "const": 0.95
+    },
+    "subject_any_false_identification_target": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1
+    },
+    "validation_nonmated_subject_clusters": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "validation_subjects_with_any_false_identification": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "test_nonmated_subject_clusters": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "test_subjects_with_any_false_identification": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "validation_subject_any_false_identification_rate": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1
+    },
+    "validation_subject_any_false_identification_upper95": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1
+    },
+    "test_subject_any_false_identification_rate": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1
+    },
+    "test_subject_any_false_identification_upper95": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1
+    },
+    "nonmated_subject_clusters_required_for_zero_event_bound": {
+      "type": [
+        "integer",
+        "null"
+      ],
+      "minimum": 1
+    }
+  },
+  "$defs": {
+    "interval": {
+      "type": "object",
+      "required": [
+        "low",
+        "high",
+        "valid_replicates"
+      ],
+      "properties": {
+        "low": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "high": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "valid_replicates": {
+          "type": "integer",
+          "minimum": 0
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false
+}

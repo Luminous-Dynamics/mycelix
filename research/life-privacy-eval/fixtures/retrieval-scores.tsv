@@ -1,0 +1,17 @@
+query_id	candidate_id	score
+q_9f2c	cand_01	0.9
+q_9f2c	cand_02	0.3
+q_9f2c	cand_03	0.2
+q_9f2c	cand_04	0.1
+q_1a7e	cand_01	0.5
+q_1a7e	cand_02	0.5
+q_1a7e	cand_03	0.2
+q_1a7e	cand_04	0.1
+q_7d0b	cand_01	0.9
+q_7d0b	cand_02	0.6
+q_7d0b	cand_03	0.2
+q_7d0b	cand_04	0.1
+q_4c62	cand_01	0.9
+q_4c62	cand_02	0.8
+q_4c62	cand_03	0.7
+q_4c62	cand_04	0.1

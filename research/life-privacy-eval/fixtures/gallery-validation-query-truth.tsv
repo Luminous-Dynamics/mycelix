@@ -1,0 +1,7 @@
+query_id	query_subject	stratum
+val_q_001	candidate_subject_001	in_frame_probe
+val_q_002	candidate_subject_002	in_frame_probe
+val_q_003	candidate_subject_003	in_frame_probe
+val_q_004	candidate_subject_004	in_frame_probe
+val_q_005	val_external_001	non_mated_probe
+val_q_006	val_external_002	non_mated_probe
