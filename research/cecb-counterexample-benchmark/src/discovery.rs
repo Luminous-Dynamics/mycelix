@@ -286,7 +286,7 @@ mod tests {
         assert_eq!(result.development_observations_used, 41);
         assert_eq!(split.development_query_count(), 41);
         let report = split
-            .evaluate(&result.submission, split.development_query_count())
+            .evaluate(&result.submission)
             .unwrap();
         assert_eq!(report.score.false_positive, 0);
         assert_eq!(report.score.false_negative, 0);
@@ -330,7 +330,7 @@ mod tests {
         assert_eq!(result.model.direction, ThresholdDirection::GreaterOrEqual);
         assert_eq!(result.model.threshold, 2);
         let report = split
-            .evaluate(&result.submission, split.development_query_count())
+            .evaluate(&result.submission)
             .unwrap();
         assert_eq!(report.score.true_positive, 0);
         assert_eq!(report.score.false_positive, 3);
