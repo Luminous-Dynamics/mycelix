@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "title": "LIFE validation-locked open-set identification report v1.1",
+  "title": "LIFE validation-locked open-set identification report v1.2",
   "type": "object",
   "required": [
     "schema_version",
@@ -59,7 +59,7 @@
   ],
   "properties": {
     "schema_version": {
-      "const": "1.1"
+      "const": "1.2"
     },
     "evaluator_version": {
       "type": "string"
@@ -290,7 +290,7 @@
       "minimum": 0
     },
     "subject_fp_rate_bound_method": {
-      "const": "one_sided_hoeffding_upper_bound_on_subject_level_any_session_false_identification"
+      "const": "one_sided_exact_clopper_pearson_binomial_upper_bound_on_subject_level_any_session_false_identification"
     },
     "subject_fp_rate_confidence_level": {
       "const": 0.95
