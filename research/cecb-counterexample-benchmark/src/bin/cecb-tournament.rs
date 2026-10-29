@@ -35,21 +35,30 @@ fn main() -> Result<(), String> {
     let points = family_fixture();
 
     for budget in [3usize, 5, 9] {
-        let split = build_model_family_split(
+        let mut split = build_model_family_split(
             &points,
             "family_b",
             LabelSource::LatentTruth,
             budget,
         )
         .map_err(|error| format!("split failed: {error:?}"))?;
-        let result = discover_univariate_threshold(split.candidate_view(), budget)
-            .map_err(|error| format!("discovery failed: {error:?}"))?;
+        let candidate_view = split.candidate_view().clone();
+        let result = discover_univariate_threshold(
+            &candidate_view,
+            split.development_oracle_mut(),
+            budget,
+        )
+        .map_err(|error| format!("discovery failed: {error:?}"))?;
+        let trusted_query_count = split.development_query_count();
+        if result.queried_sample_ids != split.queried_development_sample_ids() {
+            return Err("candidate trace does not match trusted query ledger".to_owned());
+        }
         let report = split
-            .evaluate(&result.submission, result.development_observations_used)
+            .evaluate(&result.submission, trusted_query_count)
             .map_err(|error| format!("evaluation failed: {error:?}"))?;
 
-        let queried_ids = result
-            .queried_sample_ids
+        let queried_ids = split
+            .queried_development_sample_ids()
             .iter()
             .map(usize::to_string)
             .collect::<Vec<_>>()
@@ -82,7 +91,7 @@ fn main() -> Result<(), String> {
             report.method_id,
             report.method_version,
             budget,
-            result.development_observations_used,
+            trusted_query_count,
             queried_ids,
             result.model.development_errors,
             result.model.development_feasible_examples,
