@@ -22,7 +22,7 @@ cargo run --release --manifest-path research/terra-preta/tools/prediction-audit/
   /path/to/held-out-predictions.csv /path/to/prediction-report.json
 ```
 
-An optional third argument fixes the bootstrap RNG seed. Otherwise, a stable default is used. The JSON output contains a SHA-256 digest of the exact CSV bytes, observation and group counts, candidate/baseline MAE and RMSE, candidate signed bias, empirical prediction-interval coverage and width, relative MAE improvement, and a 95% percentile interval from 2,000 group-cluster bootstrap replicates. The CLI refuses to overwrite the input file if the report path resolves to the same file.
+An optional third argument fixes the bootstrap RNG seed. Otherwise, a stable default is used. The JSON output contains a SHA-256 digest of the exact CSV bytes, observation and group counts, candidate/baseline MAE and RMSE, candidate signed bias, empirical prediction-interval coverage and width, relative MAE improvement, and a 95% percentile interval from 2,000 group-cluster bootstrap replicates. The report stores only the input filename, not the full local path. The CLI refuses to overwrite the input file if the report path resolves to the same file.
 
 ## Interpretation
 
