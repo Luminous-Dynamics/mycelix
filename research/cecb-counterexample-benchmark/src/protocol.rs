@@ -16,7 +16,6 @@ const SPLIT_RULE: &str = "alternating_input_index_v0.1";
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct TrainingObservation {
     pub sample_id: usize,
-    pub model_family_id: Option<String>,
     pub features: Vec<i32>,
     pub feasible: bool,
     pub observed_failure: bool,
@@ -26,7 +25,6 @@ pub struct TrainingObservation {
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct CandidateInput {
     pub sample_id: usize,
-    pub model_family_id: Option<String>,
     pub features: Vec<i32>,
     pub feasible: bool,
 }
@@ -60,21 +58,32 @@ pub struct SplitManifest {
     pub max_candidate_queries: usize,
 }
 
-/// A reproducible benchmark split. Candidate-facing data is separate from the
-/// evaluator object, whose outcome labels are not exposed by public fields.
+/// Candidate-safe split metadata. It intentionally omits source row IDs and
+/// model-family identity so grouped holdout structure is not exposed by default.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct CandidateManifest {
+    pub schema_version: &'static str,
+    pub split_rule: &'static str,
+    pub evaluation_label_source: LabelSource,
+    pub max_candidate_queries: usize,
+}
+
+/// A reproducible candidate-facing view. Sample IDs are local to the partition;
+/// original source IDs and model-family identity remain with the trusted harness.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct CandidateView {
     pub development: Vec<TrainingObservation>,
     pub holdout_inputs: Vec<CandidateInput>,
-    pub manifest: SplitManifest,
+    pub manifest: CandidateManifest,
 }
 
 /// Trusted harness state. Candidates should receive only CandidateView, never
-/// this evaluator-bearing wrapper. The target ledger has no public accessors.
+/// this evaluator-bearing wrapper or its source manifest/target ledger.
 #[derive(Clone, PartialEq, Eq)]
 pub struct ProtocolSplit {
     candidate_view: CandidateView,
     evaluator: HoldoutEvaluator,
+    trusted_manifest: SplitManifest,
 }
 
 // Do not derive Debug here: HoldoutEvaluator contains per-sample holdout labels.
@@ -84,6 +93,7 @@ impl std::fmt::Debug for ProtocolSplit {
         formatter
             .debug_struct("ProtocolSplit")
             .field("candidate_view", &self.candidate_view)
+            .field("trusted_manifest", &"[REDACTED]")
             .field("evaluator", &"[REDACTED]")
             .finish()
     }
@@ -166,21 +176,21 @@ pub fn build_protocol_split(
     let mut holdout_sample_ids = Vec::new();
     let mut targets = BTreeMap::new();
 
-    for (sample_id, point) in points.iter().enumerate() {
-        if sample_id % 2 == 0 {
-            development_sample_ids.push(sample_id);
+    for (source_sample_id, point) in points.iter().enumerate() {
+        if source_sample_id % 2 == 0 {
+            let sample_id = development.len();
+            development_sample_ids.push(source_sample_id);
             development.push(TrainingObservation {
                 sample_id,
-                model_family_id: None,
                 features: point.features.clone(),
                 feasible: point.feasible,
                 observed_failure: point.observed_failure,
             });
         } else {
-            holdout_sample_ids.push(sample_id);
+            let sample_id = holdout_inputs.len();
+            holdout_sample_ids.push(source_sample_id);
             holdout_inputs.push(CandidateInput {
                 sample_id,
-                model_family_id: None,
                 features: point.features.clone(),
                 feasible: point.feasible,
             });
@@ -207,7 +217,7 @@ pub fn build_protocol_split(
         max_candidate_queries,
         label_source: evaluation_label_source,
     };
-    let manifest = SplitManifest {
+    let trusted_manifest = SplitManifest {
         schema_version: SCHEMA_VERSION,
         split_rule: SPLIT_RULE,
         development_sample_ids,
@@ -216,14 +226,21 @@ pub fn build_protocol_split(
         evaluation_label_source,
         max_candidate_queries,
     };
+    let candidate_manifest = CandidateManifest {
+        schema_version: SCHEMA_VERSION,
+        split_rule: SPLIT_RULE,
+        evaluation_label_source,
+        max_candidate_queries,
+    };
 
     Ok(ProtocolSplit {
         candidate_view: CandidateView {
             development,
             holdout_inputs,
-            manifest,
+            manifest: candidate_manifest,
         },
         evaluator,
+        trusted_manifest,
     })
 }
 
@@ -287,12 +304,12 @@ pub fn build_model_family_split(
     let mut holdout_sample_ids = Vec::new();
     let mut targets = BTreeMap::new();
 
-    for (sample_id, row) in points.iter().enumerate() {
+    for (source_sample_id, row) in points.iter().enumerate() {
         if row.family_id == heldout_family_id {
-            holdout_sample_ids.push(sample_id);
+            let sample_id = holdout_inputs.len();
+            holdout_sample_ids.push(source_sample_id);
             holdout_inputs.push(CandidateInput {
                 sample_id,
-                model_family_id: Some(row.family_id.clone()),
                 features: row.point.features.clone(),
                 feasible: row.point.feasible,
             });
@@ -308,10 +325,10 @@ pub fn build_model_family_split(
                 },
             );
         } else {
-            development_sample_ids.push(sample_id);
+            let sample_id = development.len();
+            development_sample_ids.push(source_sample_id);
             development.push(TrainingObservation {
                 sample_id,
-                model_family_id: Some(row.family_id.clone()),
                 features: row.point.features.clone(),
                 feasible: row.point.feasible,
                 observed_failure: row.point.observed_failure,
@@ -328,7 +345,7 @@ pub fn build_model_family_split(
         max_candidate_queries,
         label_source: evaluation_label_source,
     };
-    let manifest = SplitManifest {
+    let trusted_manifest = SplitManifest {
         schema_version: SCHEMA_VERSION,
         split_rule: "leave_one_model_family_out_v0.1",
         development_sample_ids,
@@ -337,14 +354,21 @@ pub fn build_model_family_split(
         evaluation_label_source,
         max_candidate_queries,
     };
+    let candidate_manifest = CandidateManifest {
+        schema_version: SCHEMA_VERSION,
+        split_rule: "leave_one_model_family_out_v0.1",
+        evaluation_label_source,
+        max_candidate_queries,
+    };
 
     Ok(ProtocolSplit {
         candidate_view: CandidateView {
             development,
             holdout_inputs,
-            manifest,
+            manifest: candidate_manifest,
         },
         evaluator,
+        trusted_manifest,
     })
 }
 
