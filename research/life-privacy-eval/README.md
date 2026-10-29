@@ -204,3 +204,33 @@ The exact-head workflow checks the statistical endpoint, nonzero-event behavior,
 The unit suite now validates more than a few known answers for the one-sided Clopper-Pearson subject-level upper bound. For each preregistered pair of sample size (n in {5,10,20,50,100}) and true event probability (p in {0.005,0.01,0.025,0.05,0.1,0.25,0.5,0.75,0.9,0.99}), it sums the exact binomial PMF over all observed event counts whose reported upper bound contains (p). The coverage must be at least 95% (within a stated floating-point tolerance). A separate test checks that the bound is monotone in the observed event count and that the zero-event bound decreases with sample size.
 
 These are deterministic exact-distribution numerical regression checks over a finite grid—not Monte Carlo and not a proof for all possible probabilities or for dependent/nonrepresentative subject clusters. The confidence guarantee still depends on the binomial sampling assumptions and remains conditional on the fixed gallery/scorer.
+
+
+## Gallery-scaling open-set experiment — v0.9.0
+
+The new **gallery-sweep** command is a distinct experiment mode. It samples identity-level galleries with a deterministic seed, builds nested galleries for each draw, selects a threshold on validation queries separately at each gallery size under a declared empirical FPIR cap, and evaluates those locked thresholds on disjoint test query subjects. A second curve locks the threshold selected at a declared reference size (the default is the largest gallery) and reuses it unchanged at every size, making the cost of gallery growth visible.
+
+Example from this directory (the arguments use the fixture paths shown):
+
+    cargo run --locked --release --manifest-path Cargo.toml -- gallery-sweep \
+      fixtures/gallery-validation-query-truth.tsv \
+      fixtures/gallery-validation-scores.tsv \
+      fixtures/gallery-test-query-truth.tsv \
+      fixtures/gallery-test-scores.tsv \
+      fixtures/candidate-frame.tsv \
+      fixtures/gallery-training-subjects.txt \
+      gallery-report.json 0.01 8 300 9901 2,4,8,12 12
+
+Input contracts:
+
+- Query truth contains only query_id, query_subject, and stratum. It is oracle-only and must not be supplied to the attacker.
+- The candidate frame contains candidate_id and candidate_subject; it is also oracle-only. This v0.9 mode permits one candidate per identity, not multiple templates per identity.
+- Attacker scores contain only query_id, candidate_id, and a finite score. The score grid must cover every query against every identity in the declared candidate frame. Query handles and candidate handles must be opaque.
+- Training identities are disjoint from every query and candidate identity. Validation and test query handles and subjects are disjoint.
+- Gallery sizes are strictly increasing. The largest size must equal the candidate-frame size. Each draw shuffles the same sorted candidate frame with the declared seed schedule; smaller galleries are prefixes of that draw's permutation and are therefore nested. Each draw has the same gallery membership across validation and test.
+- Scores are assumed invariant to gallery composition. This is appropriate for pairwise candidate scorers but not for rankers whose score changes with the candidate pool; that is a separate input contract, not silently assumed to work.
+- The report includes per-size FNIR at ranks 1/3/5/10, FPIR, per-draw outcomes, per-size validation-locked thresholds, a frozen-reference-threshold scaling curve, and crossed query-subject/gallery-draw percentile-bootstrap intervals.
+
+**Important qualification boundary:** crossed-bootstrap intervals are marked NOT_YET_ESTABLISHED_SYNTHETIC_COVERAGE_STUDY_REQUIRED. This first implementation is exploratory until a finite-sample coverage study passes across preregistered data-generating processes. The confidence intervals must not be used as certification evidence yet. They are conditional on the submitted candidate frame and do not establish transportability to an unobserved population. The included fixture is a deliberately easy synthetic positive control: it is a test of joins, sampling, locking and reporting, not evidence of a real attack or mitigation.
+
+The evaluator remains fail-closed about the overall release claim: task utility and official conformance evidence are absent, and the overall gate remains NOT_EVALUATED_CROSSED_GALLERY_EVIDENCE_IS_NOT_RELEASE_CERTIFICATION. The gallery protocol preregistration remains the governing research contract; see GALLERY-SCALING-BENCHMARK.md.
