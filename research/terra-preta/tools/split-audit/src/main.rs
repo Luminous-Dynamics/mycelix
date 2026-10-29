@@ -224,7 +224,12 @@ fn run() -> Result<(), Box<dyn Error>> {
     let output = Path::new(&arguments[2]);
     ensure_distinct_paths(input, output)?;
     let bytes = fs::read(input)?;
-    let report = audit(&bytes, &input.display().to_string(), &arguments[3])?;
+    let input_label = input
+        .file_name()
+        .and_then(|name| name.to_str())
+        .unwrap_or("row-manifest.csv")
+        .to_owned();
+    let report = audit(&bytes, &input_label, &arguments[3])?;
     fs::write(output, serde_json::to_vec_pretty(&report)?)?;
     println!(
         "split audit passed: {} rows, {} groups, grouping key {}; report: {}",
