@@ -428,21 +428,34 @@ fn percentile_interval(mut values: Vec<f64>) -> Interval {
     Interval { low: quantile(0.025), high: quantile(0.975), valid_replicates: values.len() }
 }
 
+fn operating_point_gate(
+    sample_size_met: bool,
+    observed_fpir: f64,
+    fpir_interval: Interval,
+    max_fpir: f64,
+) -> &'static str {
+    if !sample_size_met {
+        "NOT_EVALUATED_BELOW_SAMPLE_MINIMUM"
+    } else if observed_fpir == 0.0 {
+        "INCONCLUSIVE_ZERO_FPIR_CANNOT_BOUND_RARE_EVENT_RISK"
+    } else if fpir_interval.high.is_finite() && fpir_interval.high <= max_fpir {
+        "PROVISIONAL_PASS_REQUIRES_REVIEW"
+    } else if fpir_interval.low.is_finite() && fpir_interval.low > max_fpir {
+        "FAIL"
+    } else {
+        "INCONCLUSIVE"
+    }
+}
+
 fn build_report(
     validation: &[QueryResult], test: &[QueryResult], threshold: Option<f64>, max_fpir: f64,
     validation_rates: Rates, test_rates: Rates, intervals: (Interval, Interval, Interval),
     bootstraps: usize, seed: u64, sample_size_met: bool, candidate_count: usize,
 ) -> String {
     let sample_gate = if sample_size_met { "MINIMUM_COUNTS_MET_REQUIRES_REVIEW" } else { "SMOKE_ONLY_BELOW_MINIMUM" };
-    let operating_gate = if !sample_size_met {
-        "NOT_EVALUATED_BELOW_SAMPLE_MINIMUM"
-    } else if test_rates.false_positive_identification_rate == 0.0 {
-        "INCONCLUSIVE_ZERO_FPIR_CANNOT_BOUND_RARE_EVENT_RISK"
-    } else if intervals.2.high <= max_fpir {
-        "PROVISIONAL_PASS_REQUIRES_REVIEW"
-    } else if intervals.2.low > max_fpir {
-        "FAIL"
-    } else { "INCONCLUSIVE" };
+    let operating_gate = operating_point_gate(
+        sample_size_met, test_rates.false_positive_identification_rate, intervals.2, max_fpir
+    );
     let val_threshold = threshold.map_or("null".to_owned(), |x| format!("{x:.8}"));
     let target_res = if test_rates.nonmated_queries == 0 { 0.0 } else { 1.0 / test_rates.nonmated_queries as f64 };
     let rare_event = if test_rates.false_positive_identification_rate == 0.0 {
@@ -572,7 +585,9 @@ mod tests {
         let interval=Interval{low:0.0,high:0.0,valid_replicates:1000};
         let rates=Rates{mated_queries:10,nonmated_queries:10,false_negative_rank1:0.5,false_negative_rank3:0.4,false_negative_rank5:0.3,false_negative_rank10:0.0,false_positive_identification_rate:0.0,correct_identification_precision:Some(0.5)};
         let report=build_report(&[],&[],Some(0.9),0.01,rates,rates,(interval,interval,interval),1000,1,false,10);
-        assert!(report.contains("INCONCLUSIVE_ZERO_FPIR_CANNOT_BOUND_RARE_EVENT_RISK"));
+        assert!(report.contains("ZERO_FALSE_IDENTIFICATIONS_DO_NOT_CERTIFY_TAIL_RISK"));
+        assert_eq!(operating_point_gate(false, 0.0, interval, 0.01), "NOT_EVALUATED_BELOW_SAMPLE_MINIMUM");
+        assert_eq!(operating_point_gate(true, 0.0, interval, 0.01), "INCONCLUSIVE_ZERO_FPIR_CANNOT_BOUND_RARE_EVENT_RISK");
     }
 
     #[test]
