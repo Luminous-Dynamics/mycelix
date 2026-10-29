@@ -270,8 +270,12 @@ fn ensure_distinct_input_output(
     input_path: &Path,
     output_path: &Path,
 ) -> Result<(), Box<dyn Error>> {
-    if output_path.exists() && fs::canonicalize(input_path)? == fs::canonicalize(output_path)? {
-        return Err("input and report paths resolve to the same file; refusing to overwrite source".into());
+    if output_path.exists()
+        && fs::canonicalize(input_path)? == fs::canonicalize(output_path)?
+    {
+        return Err(
+            "input and report paths resolve to the same file; refusing to overwrite source".into(),
+        );
     }
     Ok(())
 }
