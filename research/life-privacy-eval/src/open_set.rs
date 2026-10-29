@@ -30,7 +30,6 @@ struct Candidate {
 #[derive(Clone, Debug)]
 struct QueryResult {
     query_id: String,
-    candidate_count: usize,
     query_subject: String,
     stratum: String,
     matched: bool,
@@ -280,7 +279,7 @@ fn validate_partition(
             (Some(target.score), Some(greater + 1), Some(greater + tied))
         } else { (None, None, None) };
         output.push(QueryResult {
-            query_id, candidate_count: candidates.len(), query_subject, stratum, matched: target.is_some(), max_score,
+            query_id, query_subject, stratum, matched: target.is_some(), max_score,
             target_score, target_rank_low, target_rank_high,
         });
     }
@@ -527,7 +526,7 @@ mod tests {
 
     fn query(id: &str, subject: &str, matched: bool, max_score: f64, target_score: Option<f64>, rank: Option<(usize, usize)>, stratum: &str) -> QueryResult {
         QueryResult {
-            query_id:id.into(), candidate_count:4, query_subject:subject.into(), stratum:stratum.into(), matched, max_score,
+            query_id:id.into(), query_subject:subject.into(), stratum:stratum.into(), matched, max_score,
             target_score, target_rank_low:rank.map(|r|r.0), target_rank_high:rank.map(|r|r.1),
         }
     }
