@@ -60,6 +60,11 @@ struct Interval {
 }
 
 pub fn run(args: &[String]) -> Result<(), Box<dyn Error>> {
+    if args.get(2).is_some_and(|arg| arg == "--help" || arg == "-h") {
+        println!("Usage: {} retrieval <truth.tsv> <scores.tsv> <training-subjects.txt> <report.json> [bootstrap-replicates=1000] [seed=9901]",
+            args.first().map_or("life-privacy-eval", String::as_str));
+        return Ok(());
+    }
     if args.len() < 6 || args.len() > 8 {
         eprintln!(
             "Usage: {} retrieval <truth.tsv> <scores.tsv> <training-subjects.txt> <report.json> [bootstrap-replicates=1000] [seed=9901]\n\
@@ -247,14 +252,12 @@ fn validate_and_rank(
         return Err("closed-set retrieval requires at least two non-empty queries".into());
     }
 
-    let mut query_subjects = BTreeSet::new();
     let mut candidate_pool_ids: Option<BTreeSet<String>> = None;
     let mut results = Vec::with_capacity(grouped.len());
 
     for (query_id, candidates) in grouped {
         let (query_subject, stratum) = query_metadata.remove(&query_id)
             .ok_or_else(|| format!("missing query metadata for {query_id}"))?;
-        query_subjects.insert(query_subject.clone());
         let candidate_ids: BTreeSet<String> = candidates.iter().map(|candidate| candidate.candidate_id.clone()).collect();
         if candidate_pool_ids.as_ref().is_some_and(|pool| pool != &candidate_ids) {
             return Err("every query must use the same closed-set candidate handles".into());
