@@ -624,6 +624,14 @@ fn interval_json(interval: &Interval) -> String {
 }
 
 fn crossed_bootstrap_json(rows: &[QueryResult], threshold: Option<f64>, replicates: usize, seed: u64) -> String {
+    if threshold.is_none() {
+        let empty = Interval::default();
+        return format!(
+            r#"{{"method":"crossed_query_subject_and_gallery_draw_cluster_percentile_bootstrap","coverage_validation_status":"KNOWN_SPARSE_EVENT_UNDERCOVERAGE_DO_NOT_USE_FOR_CERTIFICATION","operating_point_status":"NO_VALIDATION_THRESHOLD_INCONCLUSIVE","fnir_at_rank_1":{},"fnir_at_rank_3":{},"fnir_at_rank_5":{},"fnir_at_rank_10":{},"fpir":{}}}"#,
+            interval_json(&empty), interval_json(&empty), interval_json(&empty),
+            interval_json(&empty), interval_json(&empty)
+        );
+    }
     let subjects: Vec<String> = rows.iter().map(|row| row.query_subject.clone())
         .collect::<BTreeSet<_>>().into_iter().collect();
     let draws: Vec<String> = rows.iter().map(|row| row.draw_id.clone())
@@ -631,7 +639,7 @@ fn crossed_bootstrap_json(rows: &[QueryResult], threshold: Option<f64>, replicat
     if subjects.is_empty() || draws.len() < 2 {
         let empty = Interval::default();
         return format!(
-            r#"{{"method":"crossed_query_subject_and_gallery_draw_cluster_percentile_bootstrap","coverage_validation_status":"KNOWN_SPARSE_EVENT_UNDERCOVERAGE_DO_NOT_USE_FOR_CERTIFICATION","fnir_at_rank_1":{},"fnir_at_rank_3":{},"fnir_at_rank_5":{},"fnir_at_rank_10":{},"fpir":{}}}"#,
+            r#"{{"method":"crossed_query_subject_and_gallery_draw_cluster_percentile_bootstrap","coverage_validation_status":"KNOWN_SPARSE_EVENT_UNDERCOVERAGE_DO_NOT_USE_FOR_CERTIFICATION","operating_point_status":"NO_ELIGIBLE_QUERY_SUBJECTS","fnir_at_rank_1":{},"fnir_at_rank_3":{},"fnir_at_rank_5":{},"fnir_at_rank_10":{},"fpir":{}}}"#,
             interval_json(&empty), interval_json(&empty), interval_json(&empty),
             interval_json(&empty), interval_json(&empty)
         );
@@ -664,7 +672,7 @@ fn crossed_bootstrap_json(rows: &[QueryResult], threshold: Option<f64>, replicat
     }
 
     format!(
-        r#"{{"method":"crossed_query_subject_and_gallery_draw_cluster_percentile_bootstrap","coverage_validation_status":"KNOWN_SPARSE_EVENT_UNDERCOVERAGE_DO_NOT_USE_FOR_CERTIFICATION","fnir_at_rank_1":{},"fnir_at_rank_3":{},"fnir_at_rank_5":{},"fnir_at_rank_10":{},"fpir":{}}}"#,
+        r#"{{"method":"crossed_query_subject_and_gallery_draw_cluster_percentile_bootstrap","coverage_validation_status":"KNOWN_SPARSE_EVENT_UNDERCOVERAGE_DO_NOT_USE_FOR_CERTIFICATION","operating_point_status":"THRESHOLD_LOCKED","fnir_at_rank_1":{},"fnir_at_rank_3":{},"fnir_at_rank_5":{},"fnir_at_rank_10":{},"fpir":{}}}"#,
         interval_json(&interval_from_values(fnir1_values)),
         interval_json(&interval_from_values(fnir3_values)),
         interval_json(&interval_from_values(fnir5_values)),
@@ -987,6 +995,20 @@ mod tests {
         let rates = weighted_metrics(&rows, threshold, None, None);
         assert_eq!(rates.fpir, Some(0.0));
         assert_eq!(rates.fnir1, Some(0.0));
+    }
+
+    #[test]
+    fn crossed_bootstrap_marks_missing_threshold_inconclusive_with_null_intervals() {
+        let rows = vec![
+            test_query("q1", "subject_000"),
+            test_query("q2", "outside_subject"),
+        ];
+        let candidates = candidate_frame(2);
+        let scores = perfect_scores(&rows, &candidates);
+        let observed = build_query_results(&rows, &scores, &candidates, "draw_1", 2).unwrap();
+        let report = crossed_bootstrap_json(&observed, None, 200, 9901);
+        assert!(report.contains("\"operating_point_status\":\"NO_VALIDATION_THRESHOLD_INCONCLUSIVE\""));
+        assert!(report.contains("\"low\":null,\"high\":null,\"valid_replicates\":0"));
     }
 
     #[test]
