@@ -637,6 +637,9 @@ mod tests {
             let (features, _feasible, id) = candidate_input_has_no_label(row);
             !features.is_empty() && id < split.candidate_view().holdout_inputs.len()
         }));
+        let visible = format!("{:?}", split.candidate_view());
+        assert!(!visible.contains("observed_failure"));
+        assert!(!visible.contains("latent_failure"));
     }
 
     fn family_tagged_fixture() -> Vec<FamilyTaggedPoint> {
@@ -753,6 +756,28 @@ mod tests {
     }
 
     #[test]
+    fn development_oracle_enforces_query_budget_and_records_attempts() {
+        let mut split = build_protocol_split(
+            &axis_aligned_landscape(),
+            LabelSource::LatentTruth,
+            1,
+        )
+        .unwrap();
+        let first = split.development_oracle_mut().query(0).unwrap();
+        assert_eq!(first.sample_id, 0);
+        assert_eq!(split.development_query_count(), 1);
+        assert_eq!(
+            split.development_oracle_mut().query(0),
+            Err(ProtocolError::QueryBudgetExceeded {
+                supplied: 2,
+                maximum: 1
+            })
+        );
+        assert_eq!(split.development_query_count(), 1);
+        assert_eq!(split.development_oracle_mut().queried_sample_ids(), &[0]);
+    }
+
+    #[test]
     fn debug_formatting_redacts_private_evaluator_targets() {
         let split = build_protocol_split(
             &axis_aligned_landscape(),
@@ -790,16 +815,20 @@ mod tests {
     }
 
     #[test]
-    fn evaluator_can_score_observed_labels_without_exposing_them_to_candidate() {
-        let split = build_protocol_split(
+    fn observed_development_labels_are_available_only_through_the_oracle() {
+        let mut split = build_protocol_split(
             &noisy_boundary_landscape(),
             LabelSource::ObservedLabel,
             5,
         )
         .unwrap();
-        assert!(split.candidate_view().development.iter().any(|row| row.observed_failure));
+        let visible = format!("{:?}", split.candidate_view());
+        assert!(!visible.contains("observed_failure"));
+        let observation = split.development_oracle_mut().query(30).unwrap();
+        assert!(observation.observed_failure);
+        assert_eq!(split.development_query_count(), 1);
         assert_eq!(split.evaluation_label_source(), LabelSource::ObservedLabel);
-        let report = split.evaluate(&exact_axis_submission(split.candidate_view()), 0).unwrap();
+        let report = split.evaluate(&exact_axis_submission(split.candidate_view()), 1).unwrap();
         assert_eq!(report.label_source, LabelSource::ObservedLabel);
     }
 
