@@ -88,6 +88,9 @@ jobs:
           assert "Bonferroni alpha 0.05 / draw_count" in report["per_draw_subject_risk_bound_policy"]
           assert abs(report["per_draw_subject_risk_bound_alpha"] - (0.05 / (4 * 8 * 2))) < 1e-15
           assert report["gallery_sizes"] == [2, 4, 8, 12]
+          assert report["declared_operational_gallery_size"] is None
+          assert report["largest_gallery_to_declared_operational_size_ratio"] is None
+          assert report["operational_scale_gate"] == "NOT_DECLARED"
           assert report["gallery_sampling"]["candidate_frame_size"] == 12
           assert report["gallery_sampling"]["draw_count"] == 8
           assert report["gallery_sampling"]["crossed_bootstrap_coverage_validation_status"] == "KNOWN_SPARSE_EVENT_UNDERCOVERAGE_DO_NOT_USE_FOR_CERTIFICATION"
