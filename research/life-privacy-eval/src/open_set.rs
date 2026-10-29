@@ -668,7 +668,7 @@ fn build_report(
   "official_conformance_evidence_present":false,
   "overall_release_gate":"NOT_EVALUATED_OPEN_SET_UTILITY_AND_CONFORMANCE_MISSING",
   "by_stratum":[{}],
-  "interpretation":"Threshold is selected only on validation queries and then frozen on test. FPIR is the fraction of non-mated query subjects for which any candidate score crosses the threshold; FNIR at rank K is the fraction of mated queries whose true identity is not accepted within top K. Tie credit is fractional. Bootstrap resamples query-subject clusters separately by mated/non-mated class and is conditional on the fixed candidate pool. The one-sided 95% Hoeffding bound is computed on per-unknown-subject any-session false-identification events, conditional on a frozen scorer and fixed candidate pool. It assumes independent subject clusters, does not cover population shift or gallery-sampling uncertainty, and is not a formal privacy guarantee."
+  "interpretation":"Threshold is selected only on validation queries and then frozen on test. FPIR is the fraction of non-mated query subjects for which any candidate score crosses the threshold; FNIR at rank K is the fraction of mated queries whose true identity is not accepted within top K. Tie credit is fractional. Bootstrap resamples query-subject clusters separately by mated/non-mated class and is conditional on the fixed candidate pool. The one-sided exact Clopper-Pearson 95% upper bound is computed on per-unknown-subject any-session false-identification events, conditional on a frozen scorer and fixed candidate pool. Its independent-subject coverage is checked on a deterministic finite grid in unit tests; those grid checks are not a proof for every distribution. It does not cover population shift or gallery-sampling uncertainty and is not a formal privacy guarantee."
 }}"#,
         VERSION, val_threshold, seed, bootstraps, intervals.0.valid_replicates.min(intervals.1.valid_replicates).min(intervals.2.valid_replicates),
         max_fpir, validation.len(), validation_rates.mated_queries, validation_rates.nonmated_queries,
@@ -778,6 +778,62 @@ mod tests {
         assert_eq!(operating_point_gate(false, interval, 1.0, 0.01), "NOT_EVALUATED_BELOW_SAMPLE_MINIMUM");
         assert_eq!(operating_point_gate(true, interval, 0.03, 0.01), "INCONCLUSIVE_SUBJECT_LEVEL_UPPER_BOUND_EXCEEDS_TARGET");
         assert_eq!(operating_point_gate(true, interval, 0.005, 0.01), "PROVISIONAL_PASS_REQUIRES_REVIEW");
+    }
+
+    fn binomial_pmf(events: usize, trials: usize, probability: f64) -> f64 {
+        if probability <= 0.0 {
+            return if events == 0 { 1.0 } else { 0.0 };
+        }
+        if probability >= 1.0 {
+            return if events == trials { 1.0 } else { 0.0 };
+        }
+        let log_choose: f64 = (0..events)
+            .map(|i| ((trials - i) as f64).ln() - ((i + 1) as f64).ln())
+            .sum();
+        (log_choose
+            + events as f64 * probability.ln()
+            + (trials - events) as f64 * (-probability).ln_1p())
+        .exp()
+    }
+
+    #[test]
+    fn exact_binomial_upper_bound_has_at_least_nominal_grid_coverage() {
+        // Exhaustively sum the binomial probability mass for each grid point.
+        // This is an exact-distribution coverage check (up to floating-point
+        // arithmetic), not a Monte Carlo experiment and not a proof for all p.
+        let trial_counts = [5_usize, 10, 20, 50, 100];
+        let probabilities = [
+            0.005_f64, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 0.75, 0.9, 0.99,
+        ];
+        for trials in trial_counts {
+            for probability in probabilities {
+                let coverage: f64 = (0..=trials)
+                    .filter(|&events| {
+                        exact_binomial_upper_bound_95(events, trials) + 1e-12 >= probability
+                    })
+                    .map(|events| binomial_pmf(events, trials, probability))
+                    .sum();
+                assert!(
+                    coverage >= 0.95 - 1e-10,
+                    "coverage {coverage} below 0.95 for n={trials}, p={probability}"
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn exact_binomial_upper_bound_is_monotone_in_observed_events() {
+        for trials in [5_usize, 10, 50, 100] {
+            let mut previous = 0.0;
+            for events in 0..=trials {
+                let bound = exact_binomial_upper_bound_95(events, trials);
+                assert!(bound + 1e-12 >= previous, "bound decreased at k={events}, n={trials}");
+                previous = bound;
+            }
+        }
+        assert!(
+            exact_binomial_upper_bound_95(0, 100) < exact_binomial_upper_bound_95(0, 20)
+        );
     }
 
     #[test]
