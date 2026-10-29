@@ -1,6 +1,6 @@
 {
   "name": "LIFE Privacy Evaluation — held-out linkability metrics",
-  "version": "0.4.0",
+  "version": "0.5.0",
   "status": "research-prototype",
   "language": "Rust",
   "dependencies": [],
@@ -21,7 +21,10 @@
     "closed_set_top_1_top_3_top_5_top_10_reidentification_rate",
     "mean_reciprocal_rank",
     "expected_target_rank_distribution",
-    "query_subject_cluster_bootstrap_CI95_conditioned_on_fixed_candidate_pool"
+    "query_subject_cluster_bootstrap_CI95_conditioned_on_fixed_candidate_pool",
+    "validation_locked_open_set_false_positive_identification_rate",
+    "FNIR_at_fixed_FPIR_top_1_3_5_10",
+    "query_subject_cluster_bootstrap_CI95_for_open_set_FNIR_and_FPIR"
   ],
   "bootstrap": {
     "method": "subject-cluster resampling with pair multiplicity weights",
@@ -108,5 +111,33 @@
     "claim_ceiling": "Ranked retrieval risk only. Scores are not calibrated posterior probabilities; no effective anonymity set is inferred. Task utility and official conformance are separate gates."
   },
   "retrieval_report_schema_file": "retrieval-report.schema.json",
-  "retrieval_fixture_note": "Four-query synthetic known-answer fixture validates ranking and tie semantics only; no real-credential or SOTA claim."
+  "retrieval_fixture_note": "Four-query synthetic known-answer fixture validates ranking and tie semantics only; no real-credential or SOTA claim.",
+  "open_set_evaluation": {
+    "command": "open-set",
+    "report_schema_file": "open-set-report.schema.json",
+    "mode": "validation_locked_open_set_identification",
+    "definitions": {
+      "mated_query": "Exactly one true candidate exists in the candidate pool.",
+      "nonmated_query": "The query subject is absent from the candidate pool and no candidate row is a true match.",
+      "FPIR": "Fraction of non-mated query subjects for which any candidate score is at least the locked threshold.",
+      "FNIR_at_rank_k": "Fraction of mated queries whose true candidate is not accepted at the locked threshold within top K; tied target rank receives fractional credit."
+    },
+    "threshold_selection": "Validation-only: maximize rank-1 correct identification rate while empirical validation FPIR remains at or below the declared cap; tie-breaking prefers lower observed FPIR. Freeze before test.",
+    "split_policy": [
+      "Validation/test query IDs and query subject identities are disjoint",
+      "Training subjects are disjoint from all query and candidate subjects",
+      "Validation/test candidate handles and subject mappings must match exactly",
+      "Each partition contains mated and non-mated queries; each query has zero or one true match"
+    ],
+    "uncertainty": "Class-stratified query-subject cluster bootstrap for FNIR@rank1, FNIR@rank5 and FPIR; conditional on a fixed candidate pool",
+    "pilot_minimums": {
+      "queries_per_partition": 2000,
+      "distinct_query_subjects_per_partition": 2000,
+      "candidate_pool_size": 10,
+      "interpretation": "screening floor; never an automatic privacy pass"
+    },
+    "zero_false_identification_policy": "Zero observed false identifications are inconclusive for rare-event risk.",
+    "claim_ceiling": "Open-set identification metrics only. Ranking scores are not posterior probabilities; the mode does not claim an effective anonymity set, task utility, official protocol conformance, or a formal privacy guarantee."
+  },
+  "open_set_fixture_note": "Four-query-per-partition synthetic control tests validation locking, mated/non-mated separation, candidate-pool consistency and FNIR@FPIR semantics only; no real-credential result is implied."
 }
