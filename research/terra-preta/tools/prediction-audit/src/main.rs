@@ -70,8 +70,7 @@ fn sha256_hex(bytes: &[u8]) -> String {
     let mut output = String::with_capacity(digest.len() * 2);
     for byte in digest {
         use std::fmt::Write as _;
-        write!(&mut output, "{byte:02x}")
-            .expect("writing to a String is infallible");
+        write!(&mut output, "{byte:02x}").expect("writing to a String is infallible");
     }
     output
 }
@@ -102,10 +101,7 @@ fn parse_records(bytes: &[u8]) -> Result<Vec<PredictionRecord>, Box<dyn Error>> 
     let mut records = Vec::new();
     for (row_index, row) in reader.deserialize::<PredictionRecord>().enumerate() {
         let record = row.map_err(|error| {
-            format!(
-                "invalid CSV record at data row {}: {error}",
-                row_index + 1
-            )
+            format!("invalid CSV record at data row {}: {error}", row_index + 1)
         })?;
         if record.group_id.trim().is_empty() {
             return Err(format!("empty group_id at data row {}", row_index + 1).into());
@@ -118,9 +114,7 @@ fn parse_records(bytes: &[u8]) -> Result<Vec<PredictionRecord>, Box<dyn Error>> 
             ("interval_upper", record.interval_upper),
         ] {
             if !value.is_finite() {
-                return Err(
-                    format!("{name} is non-finite at data row {}", row_index + 1).into(),
-                );
+                return Err(format!("{name} is non-finite at data row {}", row_index + 1).into());
             }
         }
         if record.interval_lower > record.interval_upper {
@@ -270,9 +264,7 @@ fn ensure_distinct_input_output(
     input_path: &Path,
     output_path: &Path,
 ) -> Result<(), Box<dyn Error>> {
-    if output_path.exists()
-        && fs::canonicalize(input_path)? == fs::canonicalize(output_path)?
-    {
+    if output_path.exists() && fs::canonicalize(input_path)? == fs::canonicalize(output_path)? {
         return Err(
             "input and report paths resolve to the same file; refusing to overwrite source".into(),
         );
@@ -340,16 +332,14 @@ fn audit(bytes: &[u8], input_label: &str, seed: u64) -> Result<AuditReport, Box<
 fn run() -> Result<(), Box<dyn Error>> {
     let arguments: Vec<String> = env::args().collect();
     if arguments.len() < 3 || arguments.len() > 4 {
-        return Err(
-            format!(
-                "usage: {} <held-out-predictions.csv> <report.json> [bootstrap-seed]",
-                arguments
-                    .first()
-                    .map(String::as_str)
-                    .unwrap_or("terra-preta-prediction-audit")
-            )
-            .into(),
-        );
+        return Err(format!(
+            "usage: {} <held-out-predictions.csv> <report.json> [bootstrap-seed]",
+            arguments
+                .first()
+                .map(String::as_str)
+                .unwrap_or("terra-preta-prediction-audit")
+        )
+        .into());
     }
     let seed = if let Some(value) = arguments.get(3) {
         value
@@ -384,7 +374,8 @@ fn main() {
 mod tests {
     use super::*;
 
-    const VALID_CSV: &str = "group_id,actual,candidate_prediction,baseline_prediction,interval_lower,interval_upper
+    const VALID_CSV: &str =
+        "group_id,actual,candidate_prediction,baseline_prediction,interval_lower,interval_upper
 study-a,10,10,8,8,12
 study-a,12,11,9,9,13
 study-b,20,19,15,16,22
@@ -402,10 +393,12 @@ study-c,32,31,26,27,35
         assert_eq!(report.candidate.empirical_interval_coverage, Some(1.0));
         assert_eq!(report.baseline.empirical_interval_coverage, None);
         assert!(report.improvement_cluster_bootstrap_95pct.is_some());
-        assert!(report
-            .warnings
-            .iter()
-            .any(|warning| warning.contains("Only 3 independent groups")));
+        assert!(
+            report
+                .warnings
+                .iter()
+                .any(|warning| warning.contains("Only 3 independent groups"))
+        );
     }
 
     #[test]
@@ -438,7 +431,8 @@ study-c,32,31,26,27,35
 
     #[test]
     fn rejects_missing_required_column() {
-        let csv = "group_id,actual,candidate_prediction,baseline_prediction,interval_lower\na,1,1,1,0\n";
+        let csv =
+            "group_id,actual,candidate_prediction,baseline_prediction,interval_lower\na,1,1,1,0\n";
         assert!(parse_records(csv.as_bytes()).is_err());
     }
 
