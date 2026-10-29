@@ -1,6 +1,6 @@
 {
   "name": "LIFE Privacy Evaluation — held-out linkability metrics",
-  "version": "0.7.0",
+  "version": "0.8.0",
   "status": "research-prototype",
   "language": "Rust",
   "dependencies": [],
@@ -154,7 +154,34 @@
         "conservative distribution-free bound; not a differential-privacy or formal unlinkability guarantee"
       ],
       "zero_event_subject_clusters_for_target_1pct_at_95pct": 299,
-      "zero_event_subject_clusters_for_target_0_1pct_at_95pct": 2995
+      "zero_event_subject_clusters_for_target_0_1pct_at_95pct": 2995,
+      "coverage_validation": {
+        "method": "exhaustive_binomial_pmf_sum_for_every_observed_event_count_on_a_preregistered_probability_grid",
+        "trial_counts": [
+          5,
+          10,
+          20,
+          50,
+          100
+        ],
+        "true_event_probabilities": [
+          0.005,
+          0.01,
+          0.025,
+          0.05,
+          0.1,
+          0.25,
+          0.5,
+          0.75,
+          0.9,
+          0.99
+        ],
+        "required_minimum_coverage": 0.95,
+        "interpretation": "deterministic finite-grid numerical regression check only; not a proof for every probability, independence violation, population shift, or gallery uncertainty"
+      },
+      "notes": [
+        "The v0.8 unit suite exhaustively sums the binomial probability mass over observed-event counts for a finite preregistered grid and checks at-least-95% coverage; this is a deterministic finite-grid regression check, not a universal proof."
+      ]
     }
   },
   "open_set_fixture_note": "Four-query-per-partition synthetic control tests validation locking, mated/non-mated separation, candidate-pool consistency, per-subject session aggregation and risk-bound semantics only; no real-credential result is implied.",
