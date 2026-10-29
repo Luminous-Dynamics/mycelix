@@ -156,6 +156,7 @@ Every run must report:
 - dataset version, source citations, license/access restrictions, hashes, group split manifest;
 - batch, soil, crop, site, season, and experimental-unit identifiers (pseudonymous where needed);
 - metric definitions and units, per-group scores, aggregate scores, confidence intervals, missingness, and exclusions;
+- for interval forecasts, nominal coverage level, empirical coverage, mean width, and a preregistered proper interval score (for this v0.1 prediction-audit tool: interval score for nominal 90% intervals, width plus a penalty of 20 times the distance for an out-of-interval miss);
 - baseline comparisons and failure cases;
 - model applicability domain and uncertainty/calibration results;
 - laboratory/approval gate references and status, without treating attestations as proof of the underlying measurement;
