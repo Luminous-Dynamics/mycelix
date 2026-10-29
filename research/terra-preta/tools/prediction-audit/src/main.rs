@@ -106,6 +106,22 @@ fn parse_records(bytes: &[u8]) -> Result<Vec<PredictionRecord>, Box<dyn Error>> 
         if record.group_id.trim().is_empty() {
             return Err(format!("empty group_id at data row {}", row_index + 1).into());
         }
+        if record.group_id.trim() != record.group_id {
+            return Err(format!(
+                "group_id has leading/trailing whitespace at data row {}; refusing ambiguous group aliases",
+                row_index + 1
+            )
+            .into());
+        }
+        if ["na", "n/a", "none", "null", "unknown", "missing", "-"]
+            .contains(&record.group_id.to_ascii_lowercase().as_str())
+        {
+            return Err(format!(
+                "group_id is a placeholder at data row {}; a reviewed independent-group identifier is required",
+                row_index + 1
+            )
+            .into());
+        }
         for (name, value) in [
             ("actual", record.actual),
             ("candidate_prediction", record.candidate_prediction),
@@ -440,6 +456,18 @@ study-c,32,31,26,27,35
     fn rejects_empty_group_id() {
         let csv = "group_id,actual,candidate_prediction,baseline_prediction,interval_lower,interval_upper\n,1,1,1,0,2\nb,2,2,1,1,3\n";
         assert!(audit(csv.as_bytes(), "bad.csv", 1).is_err());
+    }
+
+    #[test]
+    fn rejects_group_id_whitespace_alias() {
+        let csv = "group_id,actual,candidate_prediction,baseline_prediction,interval_lower,interval_upper\nstudy-a,1,1,1,0,2\n study-a,2,2,1,1,3\nstudy-c,3,3,2,2,4\n";
+        assert!(parse_records(csv.as_bytes()).is_err());
+    }
+
+    #[test]
+    fn rejects_placeholder_group_id() {
+        let csv = "group_id,actual,candidate_prediction,baseline_prediction,interval_lower,interval_upper\nunknown,1,1,1,0,2\nstudy-b,2,2,1,1,3\nstudy-c,3,3,2,2,4\n";
+        assert!(parse_records(csv.as_bytes()).is_err());
     }
 
     #[test]
