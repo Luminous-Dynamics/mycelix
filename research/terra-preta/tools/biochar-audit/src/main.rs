@@ -473,6 +473,15 @@ mod tests {
     }
 
     #[test]
+    fn blank_study_key_header_is_not_a_usable_group_key() {
+        let csv = b"Study ID,Treatment,Yield\n,B,1.0\n,BF,2.0\n";
+        let report = audit_bytes(csv, "blank-study-key.csv").unwrap();
+        assert!(report.study_group_key_candidate_found);
+        assert!(!report.study_group_key_has_variation);
+        assert!(report.warnings.iter().any(|warning| warning.contains("cannot support study-held-out")));
+    }
+
+    #[test]
     fn no_study_identifier_emits_a_warning() {
         let csv = b"Treatment,Yield\nB,1.0\nBF,2.0\n";
         let report = audit_bytes(csv, "no-study-key.csv").unwrap();
