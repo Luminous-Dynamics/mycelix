@@ -1,0 +1,133 @@
+{
+  "register_version": "0.1.0",
+  "reviewed_on": "2026-10-29",
+  "interpretation_boundary": "Source acquisition tracking only. An entry in this register is not evidence that the artifact was downloaded, that its data are correct, that its license permits redistribution, or that it is suitable for a confirmatory model.",
+  "sources": [
+    {
+      "source_id": "biochards_v1",
+      "title": "BiocharDS_V1.0",
+      "source_uri": "https://doi.org/10.6084/m9.figshare.24781764.v1",
+      "paper_uri": "https://doi.org/10.1038/s41597-023-02867-9",
+      "version": "V1.0 / DOI version v1",
+      "source_class": "literature_extracted_biochar_response",
+      "license_status": "reported_cc0_requires_landing_page_confirmation",
+      "permitted_research_use": "Exploratory and study-grouped meta-analysis only after source-key, treatment-arm, unit, and repeated-measure review.",
+      "acquisition_status": "metadata_reviewed_not_downloaded",
+      "limitations": [
+        "Published descriptions report 2439 rows and 209 columns and refer to 367 source studies; these are metadata, not an independently audited sample count.",
+        "The full workbook's Reference and Explanation and unit sheets must be obtained and reconciled with the CSV before confirmatory grouped evaluation.",
+        "Biochar-plus-fertilizer versus untreated contrasts do not by themselves identify an incremental biochar effect or fertilizer substitution."
+      ],
+      "artifacts": [
+        {
+          "artifact_id": "biochards_csv",
+          "role": "primary_csv",
+          "filename": "BiocharDS_V1.0.csv",
+          "expected_size_bytes": null,
+          "expected_rows": 2439,
+          "expected_columns": 209,
+          "publisher_md5": null,
+          "sha256": null,
+          "acquisition_status": "not_downloaded",
+          "license_status": "reported_cc0_requires_landing_page_confirmation"
+        },
+        {
+          "artifact_id": "biochards_full_workbook",
+          "role": "source_reference_and_units_workbook",
+          "filename": null,
+          "expected_size_bytes": null,
+          "expected_rows": null,
+          "expected_columns": null,
+          "publisher_md5": null,
+          "sha256": null,
+          "acquisition_status": "not_downloaded",
+          "license_status": "review_required"
+        }
+      ]
+    },
+    {
+      "source_id": "pnas_long_term_biochar_2025",
+      "title": "Sustained benefits of long-term biochar application for food security and climate change mitigation",
+      "source_uri": "https://doi.org/10.1073/PNAS.2509237122",
+      "paper_uri": "https://doi.org/10.1073/PNAS.2509237122",
+      "version": "2025 publication; supplementary version to be pinned on acquisition",
+      "source_class": "longitudinal_literature_synthesis",
+      "license_status": "review_required",
+      "permitted_research_use": "Longitudinal evidence and hypothesis stratification after artifact review, source crosswalk, and overlap reconciliation with BiocharDS.",
+      "acquisition_status": "metadata_reviewed_not_downloaded",
+      "limitations": [
+        "Published paper reports 438 publications, 3229 paired observations, and 29 long-term field experiments; these are publication metadata and not an independently audited count.",
+        "Do not call it an independent validation source until shared publications, sites, experiments, and reused observations with BiocharDS are reconciled."
+      ],
+      "artifacts": [
+        {
+          "artifact_id": "pnas_paper_supplement",
+          "role": "paper_and_supplementary_data",
+          "filename": null,
+          "expected_size_bytes": null,
+          "expected_rows": null,
+          "expected_columns": null,
+          "publisher_md5": null,
+          "sha256": null,
+          "acquisition_status": "not_downloaded",
+          "license_status": "review_required"
+        }
+      ]
+    },
+    {
+      "source_id": "soils4africa_field_data_v1",
+      "title": "Soils4Africa - Field data from a continental soil survey campaign",
+      "source_uri": "https://doi.org/10.5281/zenodo.17699297",
+      "paper_uri": null,
+      "version": "Zenodo version 1; issued 2026-06-26",
+      "source_class": "african_field_context_not_biochar_response",
+      "license_status": "not_stated_in_retrieved_record_confirm_before_use",
+      "permitted_research_use": "Context coverage and hypothesis stratification only after terms review; not a biochar effect-label source.",
+      "acquisition_status": "metadata_and_tableschema_reviewed_csv_not_downloaded",
+      "limitations": [
+        "Publisher says quality control is ongoing and future versions are expected.",
+        "The retrieved landing page has no explicit license value.",
+        "Plot/TSU identifiers are nested sampling identifiers and are not automatically independent experimental units.",
+        "Use country, coordinates, survey date, crop, input, water, and irrigation fields only after column encodings, geographic validity, and missingness are audited."
+      ],
+      "artifacts": [
+        {
+          "artifact_id": "soils4africa_readme",
+          "role": "dataset_readme",
+          "filename": "README.md",
+          "expected_size_bytes": 741,
+          "expected_rows": null,
+          "expected_columns": null,
+          "publisher_md5": "a6c32ae2839f6e6357c2973aba0dfb07",
+          "sha256": null,
+          "acquisition_status": "metadata_viewed_not_downloaded",
+          "license_status": "not_stated_in_retrieved_record_confirm_before_use"
+        },
+        {
+          "artifact_id": "soils4africa_tableschema",
+          "role": "column_dictionary",
+          "filename": "s4a_field_data-tableschema.csv",
+          "expected_size_bytes": 5734,
+          "expected_rows": 55,
+          "expected_columns": 3,
+          "publisher_md5": "4cdfe065de45814241fff7e09a35a405",
+          "sha256": null,
+          "acquisition_status": "metadata_reviewed_not_downloaded",
+          "license_status": "not_stated_in_retrieved_record_confirm_before_use"
+        },
+        {
+          "artifact_id": "soils4africa_field_csv",
+          "role": "field_observations_csv",
+          "filename": "s4a_field_data.csv",
+          "expected_size_bytes": 7759462,
+          "expected_rows": null,
+          "expected_columns": null,
+          "publisher_md5": "23416634c2a7ae89e715980f77021229",
+          "sha256": null,
+          "acquisition_status": "download_attempt_failed",
+          "license_status": "not_stated_in_retrieved_record_confirm_before_use"
+        }
+      ]
+    }
+  ]
+}
