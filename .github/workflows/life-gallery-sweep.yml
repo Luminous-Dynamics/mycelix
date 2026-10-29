@@ -85,7 +85,7 @@ jobs:
           assert report["gallery_sizes"] == [2, 4, 8, 12]
           assert report["gallery_sampling"]["candidate_frame_size"] == 12
           assert report["gallery_sampling"]["draw_count"] == 8
-          assert report["gallery_sampling"]["crossed_bootstrap_coverage_validation_status"] == "NOT_YET_ESTABLISHED_SYNTHETIC_COVERAGE_STUDY_REQUIRED"
+          assert report["gallery_sampling"]["crossed_bootstrap_coverage_validation_status"] == "KNOWN_SPARSE_EVENT_UNDERCOVERAGE_DO_NOT_USE_FOR_CERTIFICATION"
           assert report["overall_release_gate"] == "NOT_EVALUATED_CROSSED_GALLERY_EVIDENCE_IS_NOT_RELEASE_CERTIFICATION"
           assert report["task_utility_evidence_present"] is False
           assert report["official_conformance_evidence_present"] is False
@@ -105,8 +105,24 @@ jobs:
               assert len(frozen["per_gallery_draw_test_metrics"]) == 8
               for policy in (locked, frozen):
                   ci = policy["test_crossed_bootstrap_ci95"]
-                  assert ci["coverage_validation_status"] == "NOT_YET_ESTABLISHED_SYNTHETIC_COVERAGE_STUDY_REQUIRED"
+                  assert ci["coverage_validation_status"] == "KNOWN_SPARSE_EVENT_UNDERCOVERAGE_DO_NOT_USE_FOR_CERTIFICATION"
                   assert ci["method"] == "crossed_query_subject_and_gallery_draw_cluster_percentile_bootstrap"
+          python3 "$root/coverage/gallery_crossed_bootstrap.py" 250 120 990117 > "$out/coverage-report.json"
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          report = json.loads(Path("target/life-privacy-eval-gallery-sweep/coverage-report.json").read_text())
+          scenarios = {item["scenario"]: item for item in report["scenarios"]}
+          assert report["outer_studies_per_scenario"] == 250
+          assert report["bootstrap_replicates_per_study"] == 120
+          assert report["seed"] == 990117
+          assert report["known_sparse_event_undercoverage_reproduced"] is True
+          sparse = scenarios["iid_sparse_p001"]
+          assert sparse["observed_95pct_coverage"] < 0.80
+          assert sparse["fraction_studies_with_zero_events"] > 0.30
+          assert scenarios["crossed_sparse_small"]["observed_95pct_coverage"] < 0.90
+          PY
+
           # Independently check the score-only boundary and complete query x candidate joins.
           candidates = [line.split("\t") for line in (root / "fixtures/candidate-frame.tsv").read_text().splitlines()[1:] if line.strip()]
           assert len(candidates) == 12 and all(len(row) == 2 for row in candidates)
@@ -128,5 +144,7 @@ jobs:
             "$root/fixtures/candidate-frame.tsv" \
             "$root/fixtures/gallery-training-subjects.txt" \
             "$root/gallery-sweep-report.schema.json" \
+            "$root/coverage/gallery_crossed_bootstrap.py" \
+            "$out/coverage-report.json" \
             "$out/report-a.json" > "$out/sha256-receipt.txt"
           cat "$out/sha256-receipt.txt"
