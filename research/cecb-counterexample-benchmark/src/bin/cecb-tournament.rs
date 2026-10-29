@@ -60,7 +60,7 @@ fn main() -> Result<(), String> {
             return Err("candidate trace does not match trusted query ledger".to_owned());
         }
         let report = split
-            .evaluate(&result.submission, trusted_query_count)
+            .evaluate(&result.submission)
             .map_err(|error| format!("evaluation failed: {error:?}"))?;
 
         let queried_ids = split
