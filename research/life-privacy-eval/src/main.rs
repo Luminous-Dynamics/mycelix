@@ -1,9 +1,10 @@
+mod retrieval;
 use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
 use std::env;
 use std::error::Error;
 use std::fs;
 
-const VERSION: &str = "0.3.0";
+const VERSION: &str = "0.4.0";
 const DEFAULT_BOOTSTRAPS: usize = 1_000;
 const DEFAULT_SEED: u64 = 9_901;
 const MIN_PAIRS_FOR_REVIEW: usize = 10_000;
@@ -49,6 +50,9 @@ fn main() {
 
 fn run() -> Result<(), Box<dyn Error>> {
     let args: Vec<String> = env::args().collect();
+    if args.get(1).is_some_and(|arg| arg == "retrieval") {
+        return retrieval::run(&args);
+    }
     if args.get(1).is_some_and(|arg| arg == "compare") {
         return run_compare(&args);
     }
@@ -62,7 +66,8 @@ fn run() -> Result<(), Box<dyn Error>> {
             .is_some_and(|arg| arg == "--help" || arg == "-h")
     {
         eprintln!(
-            "Usage: {} <truth.tsv> <scores.tsv> <training-subjects.txt> <report.json> [bootstrap-replicates=1000] [seed=9901]\n       {} compare <truth.tsv> <baseline-scores.tsv> <treatment-scores.tsv> <training-subjects.txt> <report.json> [bootstrap-replicates=1000] [seed=9901] [max_auc_upper=0.55]\n       {} calibrated <validation-truth.tsv> <validation-scores.tsv> <test-truth.tsv> <test-scores.tsv> <training-subjects.txt> <report.json> [max_fpr=0.01] [bootstrap-replicates=1000] [seed=9901]\n\ntruth.tsv has pair_id, subject_a, subject_b, label, stratum.\nscores.tsv has only pair_id and score; never give ground-truth fields to the attack scorer. Paired comparison requires identical pair sets. The calibrated subcommand selects a threshold on validation labels and evaluates it on disjoint test subjects.",
+            "Usage: {} <truth.tsv> <scores.tsv> <training-subjects.txt> <report.json> [bootstrap-replicates=1000] [seed=9901]\n       {} compare <truth.tsv> <baseline-scores.tsv> <treatment-scores.tsv> <training-subjects.txt> <report.json> [bootstrap-replicates=1000] [seed=9901] [max_auc_upper=0.55]\n       {} calibrated <validation-truth.tsv> <validation-scores.tsv> <test-truth.tsv> <test-scores.tsv> <training-subjects.txt> <report.json> [max_fpr=0.01] [bootstrap-replicates=1000] [seed=9901]\n\ntruth.tsv has pair_id, subject_a, subject_b, label, stratum.\nscores.tsv has only pair_id and score; never give ground-truth fields to the attack scorer. Paired comparison requires identical pair sets. The calibrated subcommand selects a threshold on validation labels and evaluates it on disjoint test subjects.\\n       {} retrieval <truth.tsv> <scores.tsv> <training-subjects.txt> <report.json> [bootstrap-replicates=1000] [seed=9901]",
+            args.first().map_or("life-privacy-eval", String::as_str),
             args.first().map_or("life-privacy-eval", String::as_str),
             args.first().map_or("life-privacy-eval", String::as_str),
             args.first().map_or("life-privacy-eval", String::as_str)
