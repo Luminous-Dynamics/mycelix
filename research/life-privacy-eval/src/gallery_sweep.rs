@@ -680,10 +680,16 @@ fn subject_event_risk_json(rows: &[QueryResult], threshold: Option<f64>, alpha: 
     let subjects = by_subject.len();
     let events = by_subject.values().filter(|&&event| event).count();
     let has_threshold = threshold.is_some();
-    let observed = (subjects > 0 && has_threshold).then_some(events as f64 / subjects as f64);
-    let upper = (subjects > 0 && has_threshold).then_some(
-        crate::open_set::exact_binomial_upper_bound_with_alpha(events, subjects, alpha)
-    );
+    let observed = if subjects > 0 && has_threshold {
+        Some(events as f64 / subjects as f64)
+    } else {
+        None
+    };
+    let upper = if subjects > 0 && has_threshold {
+        Some(crate::open_set::exact_binomial_upper_bound_with_alpha(events, subjects, alpha))
+    } else {
+        None
+    };
     let event_count = has_threshold.then_some(events).map_or_else(|| "null".to_owned(), |value| value.to_string());
     let status = if !has_threshold {
         "NO_VALIDATION_THRESHOLD_INCONCLUSIVE"
@@ -956,6 +962,35 @@ mod tests {
         assert_eq!(report_a, report_b);
         assert!(report_a.contains("KNOWN_SPARSE_EVENT_UNDERCOVERAGE_DO_NOT_USE_FOR_CERTIFICATION"));
         assert!(report_a.contains("NOT_EVALUATED_CROSSED_GALLERY_EVIDENCE_IS_NOT_RELEASE_CERTIFICATION"));
+    }
+
+    #[test]
+    fn exact_subject_risk_groups_repeated_sessions_and_uses_the_shared_bound() {
+        let candidates = candidate_frame(2);
+        let queries = vec![
+            test_query("q1", "unknown_subject"),
+            test_query("q2", "unknown_subject"),
+        ];
+        let mut scores = perfect_scores(&queries, &candidates);
+        scores.insert(("q1".to_owned(), "candidate_000".to_owned()), 0.9);
+        let rows = build_query_results(&queries, &scores, &candidates, "draw_1", 2).unwrap();
+        let risk = subject_event_risk_json(&rows, Some(0.025), 0.025);
+        assert!(risk.contains("\"eligible_nonmated_subjects\":1"));
+        assert!(risk.contains("\"subjects_with_any_false_identification\":1"));
+        assert!(risk.contains("\"exact_one_sided_upper_bound\":1.00000000"));
+        assert!(risk.contains("\"status\":\"CONDITIONAL_SUBJECT_CLUSTER_BOUND\""));
+    }
+
+    #[test]
+    fn absent_threshold_does_not_turn_no_decision_into_zero_risk() {
+        let candidates = candidate_frame(2);
+        let queries = vec![test_query("q1", "unknown_subject")];
+        let scores = perfect_scores(&queries, &candidates);
+        let rows = build_query_results(&queries, &scores, &candidates, "draw_1", 2).unwrap();
+        let risk = subject_event_risk_json(&rows, None, 0.025);
+        assert!(risk.contains("\"observed_rate\":null"));
+        assert!(risk.contains("\"exact_one_sided_upper_bound\":null"));
+        assert!(risk.contains("\"status\":\"NO_VALIDATION_THRESHOLD_INCONCLUSIVE\""));
     }
 
     #[test]
