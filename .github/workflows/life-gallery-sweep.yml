@@ -82,6 +82,7 @@ jobs:
           assert set(schema["required"]).issubset(report)
           assert report["schema_version"] == "1.0"
           assert report["evaluation_mode"] == "gallery_scaling_open_set_identification"
+          assert report["requested_bootstrap_replicates"] == 300
           assert report["gallery_sizes"] == [2, 4, 8, 12]
           assert report["gallery_sampling"]["candidate_frame_size"] == 12
           assert report["gallery_sampling"]["draw_count"] == 8
@@ -98,6 +99,10 @@ jobs:
               frozen = item["frozen_reference_threshold_scaling"]
               assert locked["operating_point_found"] is True
               assert locked["threshold"] == 0.99
+              assert len(locked["validation_metrics_by_stratum"]) == 2
+              assert len(locked["test_metrics_by_stratum"]) == 2
+              assert len(frozen["test_metrics_by_stratum"]) == 2
+              assert len(item["validation_metrics_at_frozen_threshold_by_stratum"]) == 2
               assert locked["test_metrics"]["fpir"] == 0.0
               assert frozen["threshold"] == 0.99
               assert frozen["test_metrics"]["fpir"] == 0.0
