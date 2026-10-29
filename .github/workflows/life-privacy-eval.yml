@@ -124,6 +124,12 @@ jobs:
           assert open_schema["properties"]["evaluation_mode"]["const"] == "validation_locked_open_set_identification"
           assert open_schema["properties"]["overall_release_gate"]["const"] == "NOT_EVALUATED_OPEN_SET_UTILITY_AND_CONFORMANCE_MISSING"
           assert manifest["open_set_evaluation"]["threshold_selection"].startswith("Validation-only")
+          open_floors = manifest["open_set_evaluation"]["pilot_minimums"]
+          assert open_floors["mated_queries_per_partition"] == 2000
+          assert open_floors["nonmated_queries_per_partition"] == 2000
+          assert open_floors["distinct_mated_subjects_per_partition"] == 2000
+          assert open_floors["distinct_nonmated_subjects_per_partition"] == 2000
+          assert open_floors["candidate_pool_size"] == 10
           partitions = {}
           for label in ("validation", "test"):
               truth_path = root / f"fixtures/open-set-{label}-truth.tsv"
