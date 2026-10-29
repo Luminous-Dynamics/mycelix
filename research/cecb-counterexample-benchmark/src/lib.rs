@@ -1,3 +1,5 @@
+pub mod protocol;
+
 //! Deterministic synthetic landscapes and a known-truth region scorer for CECB.
 //!
 //! This crate does not implement a scenario-discovery algorithm. It provides
