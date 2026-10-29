@@ -449,6 +449,11 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: rustfmt, clippy
+      - name: Parse Terra Preta JSON contracts
+        run: |
+          jq empty research/terra-preta/batch-record.schema.json
+          jq empty research/terra-preta/contrast-record.schema.json
+          jq empty research/terra-preta/tools/biochar-audit/audit-report.schema.json
       - name: Format standalone audit tool
         run: cargo fmt --manifest-path research/terra-preta/tools/biochar-audit/Cargo.toml -- --check
       - name: Test standalone audit tool
