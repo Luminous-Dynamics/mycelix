@@ -86,7 +86,7 @@ jobs:
           assert "precomputed scores" in report["performance_measurement_scope"]
           assert schema["properties"]["attacker_performance_status"]["const"] == "NOT_MEASURED_PRECOMPUTED_SCORE_INPUTS"
           assert report["requested_bootstrap_replicates"] == 300
-          assert "Bonferroni alpha 0.05 / draw_count" in report["per_draw_subject_risk_bound_policy"]
+          assert "gallery_size_count * draw_count * 2 threshold policies" in report["per_draw_subject_risk_bound_policy"]
           assert abs(report["per_draw_subject_risk_bound_alpha"] - (0.05 / (4 * 8 * 2))) < 1e-15
           assert report["gallery_sizes"] == [2, 4, 8, 12]
           assert report["declared_operational_gallery_size"] is None
