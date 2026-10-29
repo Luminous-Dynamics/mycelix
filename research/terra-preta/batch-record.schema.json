@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://github.com/Luminous-Dynamics/mycelix/blob/main/research/terra-preta/batch-record.schema.json",
+  "$id": "https://raw.githubusercontent.com/Luminous-Dynamics/mycelix/main/research/terra-preta/batch-record.schema.json",
   "title": "Terra Preta batch and experiment record",
   "description": "Provenance and evidence metadata only. A valid record does not establish safety, efficacy, or regulatory approval.",
   "type": "object",
