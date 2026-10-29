@@ -90,6 +90,7 @@ pub enum RuleError {
     FeatureOutOfRange { feature: usize, dimensions: usize },
     DuplicateFeatureClause(usize),
     InvertedInterval(usize),
+    PredictionLengthMismatch { expected: usize, actual: usize },
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
@@ -125,24 +126,34 @@ impl Score {
 
 /// Scores an axis-aligned conjunction against the known-truth fixture.
 /// Infeasible points are excluded from confusion counts and reported separately.
-pub fn score_rule(
+/// Scores an arbitrary discovery algorithm's binary predictions against the
+/// known-truth fixture. Predictions must be aligned one-to-one with input points;
+/// infeasible points are excluded from confusion counts and counted separately.
+pub fn score_predictions(
     points: &[Point],
-    rule: &Rule,
+    predictions: &[bool],
     label_source: LabelSource,
 ) -> Result<Score, RuleError> {
-    let dimensions = points.first().ok_or(RuleError::EmptyDataset)?.features.len();
+    if points.is_empty() {
+        return Err(RuleError::EmptyDataset);
+    }
+    if predictions.len() != points.len() {
+        return Err(RuleError::PredictionLengthMismatch {
+            expected: points.len(),
+            actual: predictions.len(),
+        });
+    }
+    let dimensions = points[0].features.len();
     if dimensions == 0 || points.iter().any(|point| point.features.len() != dimensions) {
         return Err(RuleError::InconsistentDimensions);
     }
-    rule.validate(dimensions)?;
 
     let mut score = Score::default();
-    for point in points {
+    for (point, predicted_failure) in points.iter().zip(predictions.iter().copied()) {
         if !point.feasible {
             score.infeasible_skipped += 1;
             continue;
         }
-        let predicted_failure = rule.matches(&point.features);
         let actual_failure = match label_source {
             LabelSource::LatentTruth => point.latent_failure,
             LabelSource::ObservedLabel => point.observed_failure,
@@ -155,6 +166,26 @@ pub fn score_rule(
         }
     }
     Ok(score)
+}
+
+/// Scores an interpretable axis-aligned conjunction against the fixture. This is
+/// a baseline convenience wrapper; arbitrary candidate methods should use
+/// score_predictions and supply one prediction per point.
+pub fn score_rule(
+    points: &[Point],
+    rule: &Rule,
+    label_source: LabelSource,
+) -> Result<Score, RuleError> {
+    let dimensions = points.first().ok_or(RuleError::EmptyDataset)?.features.len();
+    if dimensions == 0 || points.iter().any(|point| point.features.len() != dimensions) {
+        return Err(RuleError::InconsistentDimensions);
+    }
+    rule.validate(dimensions)?;
+    let predictions = points
+        .iter()
+        .map(|point| rule.matches(&point.features))
+        .collect::<Vec<_>>();
+    score_predictions(points, &predictions, label_source)
 }
 
 fn point(features: Vec<i32>, feasible: bool, latent_failure: bool, observed_failure: bool) -> Point {
@@ -289,6 +320,41 @@ mod tests {
     }
 
     #[test]
+    fn arbitrary_predictions_can_recover_oblique_and_nonlinear_oracles() {
+        let oblique = oblique_landscape();
+        let oblique_predictions = oblique
+            .iter()
+            .map(|p| p.features[0] + p.features[1] >= 3)
+            .collect::<Vec<_>>();
+        assert_eq!(
+            score_predictions(&oblique, &oblique_predictions, LabelSource::LatentTruth).unwrap(),
+            Score {
+                true_positive: 21,
+                false_positive: 0,
+                false_negative: 0,
+                true_negative: 60,
+                infeasible_skipped: 0,
+            }
+        );
+
+        let nonlinear = nonlinear_interaction_landscape();
+        let nonlinear_predictions = nonlinear
+            .iter()
+            .map(|p| p.features[0] * p.features[1] >= 6)
+            .collect::<Vec<_>>();
+        assert_eq!(
+            score_predictions(&nonlinear, &nonlinear_predictions, LabelSource::LatentTruth).unwrap(),
+            Score {
+                true_positive: 16,
+                false_positive: 0,
+                false_negative: 0,
+                true_negative: 65,
+                infeasible_skipped: 0,
+            }
+        );
+    }
+
+    #[test]
     fn noisy_labels_are_deterministic_and_distinct_from_latent_truth() {
         let first = noisy_boundary_landscape();
         assert_eq!(first, noisy_boundary_landscape());
@@ -365,6 +431,10 @@ mod tests {
             Err(RuleError::FeatureOutOfRange { feature: 2, dimensions: 2 })
         );
         assert_eq!(score_rule(&[], &Rule::new(vec![]), LabelSource::LatentTruth), Err(RuleError::EmptyDataset));
+        assert_eq!(
+            score_predictions(&points, &[], LabelSource::LatentTruth),
+            Err(RuleError::PredictionLengthMismatch { expected: 81, actual: 0 })
+        );
     }
 
     #[test]
