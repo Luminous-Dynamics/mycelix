@@ -5,7 +5,7 @@ use std::env;
 use std::error::Error;
 use std::fs;
 
-const VERSION: &str = "0.7.0";
+const VERSION: &str = "0.8.0";
 const DEFAULT_BOOTSTRAPS: usize = 1_000;
 const DEFAULT_SEED: u64 = 9_901;
 const MIN_PAIRS_FOR_REVIEW: usize = 10_000;
