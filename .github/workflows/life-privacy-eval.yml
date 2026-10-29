@@ -322,6 +322,7 @@ jobs:
           report = json.loads(Path("target/life-privacy-eval/open-set-report-a.json").read_text())
           assert set(schema["required"]).issubset(report)
           assert report["evaluation_mode"] == "validation_locked_open_set_identification"
+          assert report["schema_version"] == "1.2"
           assert report["threshold_selection"] == "validation_only_maximize_rank1_identification_subject_to_fpir_cap"
           assert report["threshold_source"] == "validation_only_locked_before_test"
           assert report["threshold"] == 0.95
