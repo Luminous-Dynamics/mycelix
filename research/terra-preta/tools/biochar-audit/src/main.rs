@@ -38,8 +38,10 @@ struct AuditReport {
     exact_duplicate_rows_after_first_occurrence: usize,
     total_missing_cells: usize,
     missing_cell_rate: f64,
-    study_group_key_found: bool,
-    treatment_group_key_found: bool,
+    study_group_key_candidate_found: bool,
+    study_group_key_has_variation: bool,
+    treatment_group_key_candidate_found: bool,
+    treatment_group_key_has_variation: bool,
     study_group_candidates: Vec<CandidateColumn>,
     treatment_group_candidates: Vec<CandidateColumn>,
     columns: Vec<ColumnStats>,
@@ -322,15 +324,31 @@ fn audit_bytes(bytes: &[u8], input_label: &str) -> Result<AuditReport, Box<dyn E
             "{duplicate_rows} exact duplicate rows occur after their first occurrence; investigate before deciding whether to remove them."
         ));
     }
+    let study_group_key_has_variation = study_candidates
+        .iter()
+        .any(|candidate| candidate.unique_non_empty_values > 1);
+    let treatment_group_key_has_variation = treatment_candidates
+        .iter()
+        .any(|candidate| candidate.unique_non_empty_values > 1);
     if study_candidates.is_empty() {
         warnings.push(
-            "No obvious study/source identifier was detected from header names. Do not run random-row validation or claim study-held-out generalization until a reliable grouping key is established."
+            "No obvious study/source identifier candidate was detected from header names. Do not run random-row validation or claim study-held-out generalization until a reliable grouping key is established."
+                .to_owned(),
+        );
+    } else if !study_group_key_has_variation {
+        warnings.push(
+            "Study/source key header candidates were detected, but no candidate has more than one distinct non-empty value. This input cannot support study-held-out generalization until a usable group key is established."
                 .to_owned(),
         );
     }
     if treatment_candidates.is_empty() {
         warnings.push(
-            "No obvious treatment-group identifier was detected from header names. Inspect the data dictionary and establish treatment/comparator semantics before estimating treatment effects."
+            "No obvious treatment-group identifier candidate was detected from header names. Inspect the data dictionary and establish treatment/comparator semantics before estimating treatment effects."
+                .to_owned(),
+        );
+    } else if !treatment_group_key_has_variation {
+        warnings.push(
+            "Treatment-group key header candidates were detected, but no candidate has more than one distinct non-empty value. Verify whether this input contains a meaningful treatment comparison."
                 .to_owned(),
         );
     }
@@ -356,8 +374,10 @@ fn audit_bytes(bytes: &[u8], input_label: &str) -> Result<AuditReport, Box<dyn E
         exact_duplicate_rows_after_first_occurrence: duplicate_rows,
         total_missing_cells,
         missing_cell_rate: missing_rate,
-        study_group_key_found: !study_candidates.is_empty(),
-        treatment_group_key_found: !treatment_candidates.is_empty(),
+        study_group_key_candidate_found: !study_candidates.is_empty(),
+        study_group_key_has_variation,
+        treatment_group_key_candidate_found: !treatment_candidates.is_empty(),
+        treatment_group_key_has_variation,
         study_group_candidates: study_candidates,
         treatment_group_candidates: treatment_candidates,
         columns,
@@ -405,8 +425,10 @@ mod tests {
         let report = audit_bytes(csv, "fixture.csv").unwrap();
         assert_eq!(report.row_count, 3);
         assert_eq!(report.column_count, 3);
-        assert!(report.study_group_key_found);
-        assert!(report.treatment_group_key_found);
+        assert!(report.study_group_key_candidate_found);
+        assert!(report.study_group_key_has_variation);
+        assert!(report.treatment_group_key_candidate_found);
+        assert!(report.treatment_group_key_has_variation);
         assert_eq!(report.total_missing_cells, 1);
         assert_eq!(report.columns[2].numeric_looking_non_empty_values, 2);
     }
@@ -454,7 +476,8 @@ mod tests {
     fn no_study_identifier_emits_a_warning() {
         let csv = b"Treatment,Yield\nB,1.0\nBF,2.0\n";
         let report = audit_bytes(csv, "no-study-key.csv").unwrap();
-        assert!(!report.study_group_key_found);
+        assert!(!report.study_group_key_candidate_found);
+        assert!(!report.study_group_key_has_variation);
         assert!(report.warnings.iter().any(|warning| warning.contains("random-row validation")));
     }
 }
