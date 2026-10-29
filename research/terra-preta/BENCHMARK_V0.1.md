@@ -128,9 +128,11 @@ Use grouped splits, with frozen manifests committed before model fitting. Record
 - **site/season holdout:** entire sites or growing seasons held out;
 - **prospective evaluation:** protocol and model frozen before new data arrive.
 
-The verifier recomputes train/validation/test group disjointness and refuses a `passed` manifest if the source-key review, cross-split overlap, related-study, or train-only preprocessing assertions fail. Its negative-control fixtures must reject overlapping groups and unreviewed source keys. These checks are necessary but cannot prove the identifiers actually represent independent studies; that still requires a reviewed source crosswalk.
+The group-list verifier recomputes train/validation/test set disjointness and refuses a `passed` manifest if required review assertions fail. The row-level auditor in [tools/split-audit](./tools/split-audit/README.md) independently checks that a reviewed grouping key does not cross split labels and that row identifiers are unique. Run the row-level audit separately for each required dimension (e.g. source study, site, material batch, or time-block). Both are structural checks: neither can prove that identifiers correctly capture related studies, shared sites, repeated observations, or unrecorded source overlap; that still requires a reviewed source crosswalk.
 
-No shared sample, repeat measurement, derived feature, or augmentation from a held-out group may enter training. Any learned preprocessing parameters must be fitted on training groups only. Report both interpolation and extrapolation separately. Results on a random row split alone are insufficient.
+A 2026 review reported potential leakage in 64/64 highly cited biochar ML studies it examined, with 98% using random point-level splits and inflation up to 86% in five reanalyses; those are study findings, not a universal correction factor. Therefore, random-row metrics may be retained only as a diagnostic comparator. Confirmatory rankings must prioritize grouped holdouts with all learned preprocessing, calibration, feature selection, hyperparameter selection, and threshold selection confined to training folds. See [Transportability Benchmark §10](./TRANSPORTABILITY_BENCHMARK_V0.1.md).
+
+No shared sample, repeat measurement, derived feature, or augmentation from a held-out group may enter training. Report both interpolation and extrapolation separately. Results on a random row split alone are insufficient.
 
 ## 6. Safety and evidence gate matrix
 
