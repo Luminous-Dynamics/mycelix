@@ -15,6 +15,6 @@ cargo run --manifest-path research/terra-preta/tools/schema-audit/Cargo.toml -- 
 
 The tool has no default HTTP-resolution features enabled. Terra Preta schemas use local references; introducing remotely resolved schemas would make validation dependent on external network state and is not part of this contract.
 
-The four unit tests meta-validate all six committed contract schemas, then validate a synthetic valid split-audit report and negative controls with an invalid status and malformed digest. These are schema conformance tests, not scientific-data or efficacy tests.
+The four unit tests meta-validate all seven committed contract schemas, then validate a synthetic valid split-audit report and negative controls with an invalid status and malformed digest. These are schema conformance tests, not scientific-data or efficacy tests.
 
 The older `jq empty` syntax checks are not sufficient to establish JSON Schema validity. This tool is intended to make that distinction enforceable in the focused research CI. As with all software dependencies, pin/update and review the validator dependency using the repository's normal supply-chain policy.
