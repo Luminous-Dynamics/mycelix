@@ -156,12 +156,26 @@ pub enum ProtocolError {
 /// Budget-enforcing capability for querying observed development labels. Its
 /// ledger is private; each successful or unknown-ID attempt consumes budget,
 /// and holdout labels are never present in this object.
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, PartialEq, Eq)]
 pub struct DevelopmentOracle {
     targets: BTreeMap<usize, TrainingObservation>,
     max_queries: usize,
     queries_used: usize,
     queried_sample_ids: Vec<usize>,
+}
+
+// The oracle can be passed as a candidate capability, so its debug output must
+// not print the private target ledger containing observed labels.
+impl std::fmt::Debug for DevelopmentOracle {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        formatter
+            .debug_struct("DevelopmentOracle")
+            .field("max_queries", &self.max_queries)
+            .field("queries_used", &self.queries_used)
+            .field("queried_sample_ids", &self.queried_sample_ids)
+            .field("targets", &"[REDACTED]")
+            .finish()
+    }
 }
 
 impl DevelopmentOracle {
@@ -758,6 +772,21 @@ mod tests {
             ),
             Err(ProtocolError::InsufficientModelFamilies)
         );
+    }
+
+    #[test]
+    fn oracle_debug_output_redacts_development_labels() {
+        let mut split = build_protocol_split(
+            &noisy_boundary_landscape(),
+            LabelSource::ObservedLabel,
+            5,
+        )
+        .unwrap();
+        let _ = split.development_oracle_mut().query(30).unwrap();
+        let rendered = format!("{:?}", split.development_oracle_mut());
+        assert!(rendered.contains("[REDACTED]"));
+        assert!(!rendered.contains("observed_failure"));
+        assert!(!rendered.contains("targets: {"));
     }
 
     #[test]
