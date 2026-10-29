@@ -2,7 +2,10 @@
 
 **Status:** benchmark proposal and synthetic fixture for review. This is not a validated educational intervention or a finding about which national-service policy is best.  
 **Composes:** [PRAXIS-NRES-001](PRAXIS_NRES_001.md), [UNESCO Global Citizenship Education assessment guidance](https://unesdoc.unesco.org/in/rest/annotationSVC/DownloadWatermarkedAttachment/attach_import_59f36c73-b9c9-4898-aea4-f93623d8a898?_=232993eng.pdf), and the [UNDRR Strategic Framework 2026–2030](https://www.undrr.org/strategic-framework-2026-2030).  
-**Fixture:** `examples/courses/civic-resilience-policy-benchmark-fixture-001.json`.
+**Fixture:** `examples/courses/civic-resilience-policy-benchmark-fixture-001.json`.  
+**Learner task:** `examples/courses/civic-resilience-capstone-workbook-001.json`.  
+**Scoring anchors:** `PRAXIS_NRES_003_SCORING_ANCHORS.md`.  
+**Study protocol:** `PRAXIS_NRES_004_PREREGISTRATION.md`.
 
 ## 1. Research question
 
@@ -83,7 +86,7 @@ The fixture defines eight perturbations:
 
 A robust learner should revisit the plan and explain the effect of each mutation. A fixed preferred policy that does not change when constraints or objectives materially change is evidence of brittle reasoning, not a successful result.
 
-A future benchmark expansion should add held-out fictional regions, hazard combinations, resource distributions, language/accessibility formats, and source-conflict patterns. The candidate must not train on or view held-out answer keys.
+**Split-integrity requirement:** all eight variants currently committed with the fixture are public development cases, not held-out cases. Never report scores on them as confirmatory generalization evidence. A future benchmark must add a separate pilot/calibration split and genuinely held-out confirmatory cases, with independent custody, preregistered hashes/commitments, exposure logging, a freeze date, and post-analysis disclosure. Expand with held-out fictional regions, hazard combinations, resource distributions, language/accessibility formats, and source-conflict patterns. Course authors and learners must not view confirmatory inputs or scoring keys before the outcome lock.
 
 ## 7. Evaluation protocol
 
@@ -139,7 +142,8 @@ Any known critical rights/authority/data misuse finding blocks a positive overal
 
 1. Keep the course and fixture in draft form; verify the JSON structure and links.
 2. Have educators, civil-protection practitioners, legal reviewers, accessibility specialists, and learners review the content and rubric.
-3. Integrate an appropriate curriculum node and generated lesson only after its stable identity and ownership are confirmed.
+3. Pilot the workbook and rubric on separate calibration cases; do not reuse pilot cases for confirmatory outcomes. The new workbook, rubric and protocol remain draft-only.
+4. Integrate an appropriate curriculum node and generated lesson only after its stable identity and ownership are confirmed.
 4. Run the existing read-only curriculum validator on an exact checkout; verify that the generated manifest matches source assets.
 5. Pilot assessment reliability and usability using synthetic scenarios.
 6. Preregister the confirmatory comparison and held-out variants.
