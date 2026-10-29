@@ -416,6 +416,42 @@ mod tests {
     }
 
     #[test]
+    fn box_candidate_is_independent_of_latent_label_changes() {
+        let original = axis_aligned_landscape();
+        let mut relabelled = original.clone();
+        for point in &mut relabelled {
+            point.latent_failure = !point.latent_failure;
+        }
+        let mut original_split = crate::protocol::build_protocol_split(
+            &original,
+            LabelSource::ObservedLabel,
+            41,
+        )
+        .unwrap();
+        let mut relabelled_split = crate::protocol::build_protocol_split(
+            &relabelled,
+            LabelSource::ObservedLabel,
+            41,
+        )
+        .unwrap();
+        let original_view = original_split.candidate_view().clone();
+        let relabelled_view = relabelled_split.candidate_view().clone();
+        let first = discover_exhaustive_axis_box(
+            &original_view,
+            original_split.development_oracle_mut(),
+            41,
+        )
+        .unwrap();
+        let second = discover_exhaustive_axis_box(
+            &relabelled_view,
+            relabelled_split.development_oracle_mut(),
+            41,
+        )
+        .unwrap();
+        assert_eq!(first, second);
+    }
+
+    #[test]
     fn exhaustive_box_learner_fails_closed_above_two_dimensions_before_querying() {
         let mut split = crate::protocol::build_protocol_split(
             &crate::irrelevant_dimensions_landscape(),
