@@ -266,6 +266,16 @@ fn cluster_bootstrap(
     })
 }
 
+fn ensure_distinct_input_output(
+    input_path: &Path,
+    output_path: &Path,
+) -> Result<(), Box<dyn Error>> {
+    if output_path.exists() && fs::canonicalize(input_path)? == fs::canonicalize(output_path)? {
+        return Err("input and report paths resolve to the same file; refusing to overwrite source".into());
+    }
+    Ok(())
+}
+
 fn audit(bytes: &[u8], input_label: &str, seed: u64) -> Result<AuditReport, Box<dyn Error>> {
     let records = parse_records(bytes)?;
     let groups = group_indices(&records);
@@ -345,11 +355,13 @@ fn run() -> Result<(), Box<dyn Error>> {
         DEFAULT_SEED
     };
     let input_path = Path::new(&arguments[1]);
+    let output_path = Path::new(&arguments[2]);
+    ensure_distinct_input_output(input_path, output_path)?;
     let bytes = fs::read(input_path)?;
     let input_label = input_path.display().to_string();
     let report = audit(&bytes, &input_label, seed)?;
     let output = serde_json::to_vec_pretty(&report)?;
-    fs::write(&arguments[2], output)?;
+    fs::write(output_path, output)?;
     println!(
         "audited {} observations across {} groups; report written to {}",
         report.observations, report.independent_groups, arguments[2]
@@ -406,6 +418,18 @@ study-c,32,31,26,27,35
             a.relative_mae_improvement_upper,
             b.relative_mae_improvement_upper
         );
+    }
+
+    #[test]
+    fn refuses_to_overwrite_input_with_report() {
+        let path = std::env::temp_dir().join(format!(
+            "terra-preta-prediction-audit-alias-{}.csv",
+            std::process::id()
+        ));
+        fs::write(&path, "fixture").unwrap();
+        let result = ensure_distinct_input_output(&path, &path);
+        fs::remove_file(&path).unwrap();
+        assert!(result.is_err());
     }
 
     #[test]
