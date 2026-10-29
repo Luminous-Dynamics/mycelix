@@ -119,6 +119,7 @@ mycelix-praxis/
 - **[Threat Model](docs/threat-model.md)**: Security threats and mitigations
 - **[Privacy Model](docs/privacy.md)**: Data handling, DP, selective disclosure
 - **[Curriculum and content contract](docs/content-contract.md)**: Graph and lesson integrity rules
+- **[NRES policy-learning benchmark](docs/curriculum/PRAXIS_NRES_002_BENCHMARK.md)**: Synthetic, rubric-based civic-resilience and service-policy assessment
 - **[Learning client contract](docs/learning-contract.md)**: Versioned browser/coordinator DTOs and privacy boundary
 - **[Live data lifecycle](docs/live-data-lifecycle.md)**: Reactive readiness, reconnect, and honest resource states
 - **[Governance](GOVERNANCE.md)**: Decision-making processes, roles, DAO alignment
@@ -141,6 +142,18 @@ See [`docs/adr/`](docs/adr/) for all ADRs.
 - **[Security Policy](SECURITY.md)**
 
 ---
+
+## Civic Resilience course proposal
+
+A draft, nonpartisan course about civic preparedness, lawful democratic defence, critical-service continuity, and evidence-based comparison of public-service models is under community review in [PR #5521](https://github.com/Luminous-Dynamics/mycelix/pull/5521). The course and its synthetic assessment fixture are not activated in the production curriculum graph.
+
+For the proposal's offline fixture-structure check, use:
+
+```bash
+python3 scripts/validate_nres_benchmark.py --self-test
+```
+
+This validates internal structure and negative controls only. It does not validate policy claims, legal compliance, educational effectiveness, or first-aid competence.
 
 ## Development
 
