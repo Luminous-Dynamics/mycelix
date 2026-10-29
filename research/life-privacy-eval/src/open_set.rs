@@ -492,13 +492,19 @@ fn binomial_cdf_at_most(events: usize, trials: usize, probability: f64) -> f64 {
     (max_log_mass.exp() * scaled_sum).clamp(0.0, 1.0)
 }
 
-fn exact_binomial_upper_bound_95(events: usize, independent_clusters: usize) -> f64 {
-    if independent_clusters == 0 || events >= independent_clusters {
+pub(crate) fn exact_binomial_upper_bound_with_alpha(
+    events: usize,
+    independent_clusters: usize,
+    alpha: f64,
+) -> f64 {
+    if !alpha.is_finite() || alpha <= 0.0 || alpha >= 1.0
+        || independent_clusters == 0 || events >= independent_clusters
+    {
         return 1.0;
     }
     if events == 0 {
         // Stable exact one-sided Clopper-Pearson endpoint for zero observed events.
-        return -((SUBJECT_RISK_ALPHA.ln() / independent_clusters as f64).exp_m1());
+        return -((alpha.ln() / independent_clusters as f64).exp_m1());
     }
 
     // Clopper-Pearson upper endpoint: choose the smallest p whose lower
@@ -507,13 +513,17 @@ fn exact_binomial_upper_bound_95(events: usize, independent_clusters: usize) -> 
     let mut high = 1.0;
     for _ in 0..80 {
         let mid = low + (high - low) * 0.5;
-        if binomial_cdf_at_most(events, independent_clusters, mid) > SUBJECT_RISK_ALPHA {
+        if binomial_cdf_at_most(events, independent_clusters, mid) > alpha {
             low = mid;
         } else {
             high = mid;
         }
     }
     high
+}
+
+fn exact_binomial_upper_bound_95(events: usize, independent_clusters: usize) -> f64 {
+    exact_binomial_upper_bound_with_alpha(events, independent_clusters, SUBJECT_RISK_ALPHA)
 }
 
 fn subject_risk(rows: &[QueryResult], threshold: Option<f64>) -> SubjectRisk {
@@ -794,6 +804,16 @@ mod tests {
             + events as f64 * probability.ln()
             + (trials - events) as f64 * (-probability).ln_1p())
         .exp()
+    }
+
+    #[test]
+    fn exact_binomial_upper_bound_supports_bonferroni_family_alpha() {
+        let marginal = exact_binomial_upper_bound_with_alpha(0, 100, 0.05);
+        let adjusted = exact_binomial_upper_bound_with_alpha(0, 100, 0.05 / 8.0);
+        assert!(adjusted > marginal);
+        assert!((marginal - (1.0 - 0.05_f64.powf(1.0 / 100.0))).abs() < 1e-12);
+        assert!((adjusted - (1.0 - (0.05_f64 / 8.0).powf(1.0 / 100.0))).abs() < 1e-12);
+        assert_eq!(exact_binomial_upper_bound_with_alpha(1, 10, 1.0), 1.0);
     }
 
     #[test]
