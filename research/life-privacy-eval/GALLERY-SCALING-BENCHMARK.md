@@ -4,7 +4,7 @@
 
 ## Why this is a separate problem
 
-Open-set FPIR depends on gallery/enrollment size, score threshold, and the candidate-list policy. A single fixed-gallery FPIR or Top-k number therefore cannot justify a deployment-scale claim. NIST IREX 10 publishes FNIR at fixed FPIR, rank-based measures, computation timing, and results at different enrollment sizes. In the distinct 1:N biometric identity-proofing scope of NIST SP 800-63A-4, NIST requires an FPIR of 1:1,000 or better and a test gallery no smaller than 90% of intended operational size. These are benchmarks for that defined scope, not universal requirements for credential privacy.
+Open-set FPIR depends on gallery/enrollment size, score threshold, and the candidate-list policy. A single fixed-gallery FPIR or Top-k number therefore cannot justify a deployment-scale claim. NIST IREX 10 publishes FNIR at fixed FPIR, rank-based measures, computation timing, and results at different enrollment sizes. In the distinct 1:N biometric identity-proofing scope of NIST SP 800-63A-4, NIST requires an FPIR of 1:1,000 or better (0.1%) and a test gallery no smaller than 90% of intended operational size. These are benchmarks for that defined scope, not universal requirements for credential privacy.
 
 References:
 - NIST IREX 10 identification track: https://pages.nist.gov/IREX10/
