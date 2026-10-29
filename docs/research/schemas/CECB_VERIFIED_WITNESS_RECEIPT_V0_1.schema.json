@@ -57,16 +57,27 @@
     "domain": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["sha256", "kind", "size"],
+      "required": [
+        "sha256",
+        "kind",
+        "size"
+      ],
       "properties": {
         "sha256": {
           "$ref": "#/$defs/sha256"
         },
         "kind": {
-          "enum": ["finite_discrete", "bounded_continuous", "other_declared"]
+          "enum": [
+            "finite_discrete",
+            "bounded_continuous",
+            "other_declared"
+          ]
         },
         "size": {
-          "type": ["integer", "null"],
+          "type": [
+            "integer",
+            "null"
+          ],
           "minimum": 1
         }
       }
@@ -79,7 +90,10 @@
     "method": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["method_id", "method_version"],
+      "required": [
+        "method_id",
+        "method_version"
+      ],
       "properties": {
         "method_id": {
           "type": "string",
@@ -94,13 +108,19 @@
       }
     },
     "random_seed": {
-      "type": ["integer", "null"],
+      "type": [
+        "integer",
+        "null"
+      ],
       "minimum": 0
     },
     "budgets": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["max_label_queries", "label_queries_used"],
+      "required": [
+        "max_label_queries",
+        "label_queries_used"
+      ],
       "properties": {
         "max_label_queries": {
           "type": "integer",
@@ -111,15 +131,24 @@
           "minimum": 0
         },
         "max_runtime_ms": {
-          "type": ["integer", "null"],
+          "type": [
+            "integer",
+            "null"
+          ],
           "minimum": 0
         },
         "runtime_ms": {
-          "type": ["integer", "null"],
+          "type": [
+            "integer",
+            "null"
+          ],
           "minimum": 0
         },
         "peak_memory_bytes": {
-          "type": ["integer", "null"],
+          "type": [
+            "integer",
+            "null"
+          ],
           "minimum": 0
         }
       }
@@ -130,7 +159,11 @@
       "items": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["query_index", "request_sha256", "response_sha256"],
+        "required": [
+          "query_index",
+          "request_sha256",
+          "response_sha256"
+        ],
         "properties": {
           "query_index": {
             "type": "integer",
@@ -182,7 +215,10 @@
           "type": "boolean"
         },
         "checked_domain_size": {
-          "type": ["integer", "null"],
+          "type": [
+            "integer",
+            "null"
+          ],
           "minimum": 1
         },
         "proof_artifact_sha256": {
@@ -228,7 +264,10 @@
           "$ref": "#/$defs/sha256"
         },
         "diagnosis_id": {
-          "type": ["string", "null"],
+          "type": [
+            "string",
+            "null"
+          ],
           "maxLength": 200
         },
         "repair_patch_sha256": {
@@ -247,14 +286,22 @@
           "oneOf": [
             {
               "properties": {
-                "candidate_prediction": { "const": true },
-                "reference_prediction": { "const": false }
+                "candidate_prediction": {
+                  "const": true
+                },
+                "reference_prediction": {
+                  "const": false
+                }
               }
             },
             {
               "properties": {
-                "candidate_prediction": { "const": false },
-                "reference_prediction": { "const": true }
+                "candidate_prediction": {
+                  "const": false
+                },
+                "reference_prediction": {
+                  "const": true
+                }
               }
             }
           ]
@@ -272,25 +319,39 @@
     {
       "if": {
         "properties": {
-          "outcome": { "const": "valid_counterexample" }
+          "outcome": {
+            "const": "valid_counterexample"
+          }
         },
-        "required": ["outcome"]
+        "required": [
+          "outcome"
+        ]
       },
       "then": {
-        "required": ["witness"],
+        "required": [
+          "witness"
+        ],
         "properties": {
           "witness": {
             "properties": {
-              "feasible": { "const": true }
+              "feasible": {
+                "const": true
+              }
             }
           },
           "verification": {
             "properties": {
               "mode": {
-                "enum": ["candidate_witness_replay", "bounded_domain_exhaustive"]
+                "enum": [
+                  "candidate_witness_replay"
+                ]
               },
-              "witness_feasible": { "const": true },
-              "mismatch_reproduced": { "const": true }
+              "witness_feasible": {
+                "const": true
+              },
+              "mismatch_reproduced": {
+                "const": true
+              }
             }
           }
         }
@@ -299,20 +360,38 @@
     {
       "if": {
         "properties": {
-          "outcome": { "const": "no_counterexample_found_within_budget" }
+          "outcome": {
+            "const": "no_counterexample_found_within_budget"
+          }
         },
-        "required": ["outcome"]
+        "required": [
+          "outcome"
+        ]
       },
       "then": {
-        "not": { "required": ["witness"] },
+        "not": {
+          "required": [
+            "witness"
+          ]
+        },
         "properties": {
           "verification": {
             "properties": {
-              "mode": { "const": "budgeted_search" },
-              "complete_domain_checked": { "const": false },
-              "witness_feasible": { "const": false },
-              "mismatch_reproduced": { "const": false },
-              "proof_artifact_sha256": { "const": null }
+              "mode": {
+                "const": "budgeted_search"
+              },
+              "complete_domain_checked": {
+                "const": false
+              },
+              "witness_feasible": {
+                "const": false
+              },
+              "mismatch_reproduced": {
+                "const": false
+              },
+              "proof_artifact_sha256": {
+                "const": null
+              }
             }
           }
         }
@@ -321,34 +400,90 @@
     {
       "if": {
         "properties": {
-          "outcome": { "const": "verified_no_counterexample_in_bounded_domain" }
+          "outcome": {
+            "const": "verified_no_counterexample_in_bounded_domain"
+          }
         },
-        "required": ["outcome"]
+        "required": [
+          "outcome"
+        ]
       },
       "then": {
-        "not": { "required": ["witness"] },
-        "properties": {
-          "verification": {
-            "oneOf": [
-              {
+        "not": {
+          "required": [
+            "witness"
+          ]
+        },
+        "oneOf": [
+          {
+            "properties": {
+              "verification": {
                 "properties": {
-                  "mode": { "const": "bounded_domain_exhaustive" },
-                  "complete_domain_checked": { "const": true },
-                  "checked_domain_size": { "type": "integer", "minimum": 1 },
-                  "proof_artifact_sha256": { "const": null }
+                  "mode": {
+                    "const": "bounded_domain_exhaustive"
+                  },
+                  "complete_domain_checked": {
+                    "const": true
+                  },
+                  "checked_domain_size": {
+                    "type": "integer",
+                    "minimum": 1
+                  },
+                  "witness_feasible": {
+                    "const": false
+                  },
+                  "mismatch_reproduced": {
+                    "const": false
+                  },
+                  "proof_artifact_sha256": {
+                    "const": null
+                  }
                 }
               },
-              {
+              "domain": {
                 "properties": {
-                  "mode": { "const": "independent_proof_artifact" },
-                  "complete_domain_checked": { "const": true },
-                  "checked_domain_size": { "const": null },
-                  "proof_artifact_sha256": { "$ref": "#/$defs/sha256" }
+                  "kind": {
+                    "const": "finite_discrete"
+                  },
+                  "size": {
+                    "type": "integer",
+                    "minimum": 1
+                  }
+                },
+                "required": [
+                  "kind",
+                  "size"
+                ]
+              }
+            }
+          },
+          {
+            "properties": {
+              "verification": {
+                "properties": {
+                  "mode": {
+                    "const": "independent_proof_artifact"
+                  },
+                  "complete_domain_checked": {
+                    "const": true
+                  },
+                  "checked_domain_size": {
+                    "const": null
+                  },
+                  "witness_feasible": {
+                    "const": false
+                  },
+                  "mismatch_reproduced": {
+                    "const": false
+                  },
+                  "proof_artifact_sha256": {
+                    "$ref": "#/$defs/sha256"
+                  }
                 }
               }
-            ]
+            }
           }
-        }
+        ]
       }
     }
   ]
