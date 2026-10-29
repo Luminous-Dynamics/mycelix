@@ -473,6 +473,11 @@ impl ProtocolSplit {
         self.development_oracle.queries_used()
     }
 
+    /// Trusted query trace used to build receipts independently of candidate output.
+    pub fn queried_development_sample_ids(&self) -> &[usize] {
+        self.development_oracle.queried_sample_ids()
+    }
+
     /// Trusted harness entry point. Do not pass ProtocolSplit itself to a
     /// candidate process; serialize/pass only candidate_view().
     pub fn evaluate(
