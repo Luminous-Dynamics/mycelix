@@ -147,6 +147,8 @@ See [`docs/adr/`](docs/adr/) for all ADRs.
 
 A draft, nonpartisan course about civic preparedness, lawful democratic defence, critical-service continuity, and evidence-based comparison of public-service models is under community review in [PR #5521](https://github.com/Luminous-Dynamics/mycelix/pull/5521). The course and its synthetic assessment fixture are not activated in the production curriculum graph.
 
+The draft now includes a learner-facing [capstone workbook](examples/courses/civic-resilience-capstone-workbook-001.json), [anchored rubric](docs/curriculum/PRAXIS_NRES_003_SCORING_ANCHORS.md), and [study preregistration/split protocol](docs/curriculum/PRAXIS_NRES_004_PREREGISTRATION.md). The public variants are development cases, not held-out evidence. These additions remain draft-only and are not activated in the curriculum graph.
+
 For the proposal's offline fixture-structure check, use:
 
 ```bash
