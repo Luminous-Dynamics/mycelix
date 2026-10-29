@@ -763,8 +763,8 @@ fn build_report(context: ReportContext<'_>) -> String {
     }
 
     format!(
-        r#"{{"schema_version":"1.0","evaluator_version":"{}","evaluation_mode":"gallery_scaling_open_set_identification","seed":{},"gallery_sampling":{{"method":"deterministic_seeded_uniform_without_replacement_nested_prefix_draws","rng":"xorshift64","draw_count":{},"candidate_frame_size":{},"candidate_score_semantics":"pairwise_scores_are_assumed_gallery_invariant","uncertainty_scope":"conditional_on_candidate_frame; crossed query-subject and gallery-draw resampling","crossed_bootstrap_coverage_validation_status":"KNOWN_SPARSE_EVENT_UNDERCOVERAGE_DO_NOT_USE_FOR_CERTIFICATION"}},"gallery_sizes":{:?},"max_fpir_target":{},"validation_query_count":{},"validation_unique_query_subjects":{},"test_query_count":{},"test_unique_query_subjects":{},"threshold_policy":"validation-locked threshold selected independently per gallery size by maximizing expected rank-1 hit rate subject to empirical validation FPIR cap","frozen_threshold_policy":{{"reference_gallery_size":{},"threshold":{}}},"sample_size_gate":"SMOKE_ONLY_OR_RESEARCH_ONLY_UNTIL_PREREGISTERED_RELEASE_FLOORS_ARE_MET","operating_point_gate":"NOT_A_PRIVACY_PASS; validation FPIR is empirical and test uncertainty coverage study is pending","size_results":[{}],"task_utility_evidence_present":false,"official_conformance_evidence_present":false,"overall_release_gate":"NOT_EVALUATED_CROSSED_GALLERY_EVIDENCE_IS_NOT_RELEASE_CERTIFICATION","limitations":["The candidate frame is fixed; inference does not generalize beyond its sampling frame without a separate transportability argument.","Scores are assumed invariant to candidate-set composition. Context-dependent scoring requires a separate score input for each draw and is not implemented in v0.9.","A finite-grid diagnostic reproduced substantial sparse-event undercoverage in the crossed percentile bootstrap; its intervals must not be used as certification evidence.","The score grid is complete over every query and every candidate in the supplied frame; very large benchmarks may need a streaming implementation.","A threshold selected on validation data is frozen for test evaluation. Test labels never select or retune thresholds.","A reduction in identification rates is not a formal unlinkability or differential-privacy guarantee."]}}"#,
-        VERSION, seed, draw_count, candidate_count, sizes, max_fpir,
+        r#"{{"schema_version":"1.0","evaluator_version":"{}","evaluation_mode":"gallery_scaling_open_set_identification","seed":{},"requested_bootstrap_replicates":{},"gallery_sampling":{{"method":"deterministic_seeded_uniform_without_replacement_nested_prefix_draws","rng":"xorshift64","draw_count":{},"candidate_frame_size":{},"candidate_score_semantics":"pairwise_scores_are_assumed_gallery_invariant","uncertainty_scope":"conditional_on_candidate_frame; crossed query-subject and gallery-draw resampling","crossed_bootstrap_coverage_validation_status":"KNOWN_SPARSE_EVENT_UNDERCOVERAGE_DO_NOT_USE_FOR_CERTIFICATION"}},"gallery_sizes":{:?},"max_fpir_target":{},"validation_query_count":{},"validation_unique_query_subjects":{},"test_query_count":{},"test_unique_query_subjects":{},"threshold_policy":"validation-locked threshold selected independently per gallery size by maximizing expected rank-1 hit rate subject to empirical validation FPIR cap","frozen_threshold_policy":{{"reference_gallery_size":{},"threshold":{}}},"sample_size_gate":"SMOKE_ONLY_OR_RESEARCH_ONLY_UNTIL_PREREGISTERED_RELEASE_FLOORS_ARE_MET","operating_point_gate":"NOT_A_PRIVACY_PASS; validation FPIR is empirical and test uncertainty coverage study is pending","size_results":[{}],"task_utility_evidence_present":false,"official_conformance_evidence_present":false,"overall_release_gate":"NOT_EVALUATED_CROSSED_GALLERY_EVIDENCE_IS_NOT_RELEASE_CERTIFICATION","limitations":["The candidate frame is fixed; inference does not generalize beyond its sampling frame without a separate transportability argument.","Scores are assumed invariant to candidate-set composition. Context-dependent scoring requires a separate score input for each draw and is not implemented in v0.9.","A finite-grid diagnostic reproduced substantial sparse-event undercoverage in the crossed percentile bootstrap; its intervals must not be used as certification evidence.","The score grid is complete over every query and every candidate in the supplied frame; very large benchmarks may need a streaming implementation.","A threshold selected on validation data is frozen for test evaluation. Test labels never select or retune thresholds.","A reduction in identification rates is not a formal unlinkability or differential-privacy guarantee."]}}"#,
+        VERSION, seed, bootstrap_replicates, draw_count, candidate_count, sizes, max_fpir,
         validation_truth.len(), unique_subject_count(validation_truth),
         test_truth.len(), unique_subject_count(test_truth),
         reference_size, metric_json(frozen_threshold), size_json.join(",")
@@ -895,6 +895,26 @@ mod tests {
         assert_eq!(report_a, report_b);
         assert!(report_a.contains("KNOWN_SPARSE_EVENT_UNDERCOVERAGE_DO_NOT_USE_FOR_CERTIFICATION"));
         assert!(report_a.contains("NOT_EVALUATED_CROSSED_GALLERY_EVIDENCE_IS_NOT_RELEASE_CERTIFICATION"));
+    }
+
+    #[test]
+    fn query_validation_test_subject_overlap_fails_closed() {
+        let validation = vec![test_query("v1", "same_subject")];
+        let test = vec![test_query("t1", "same_subject")];
+        assert!(validate_query_partitions_disjoint(&validation, &test).is_err());
+    }
+
+    #[test]
+    fn tied_target_gets_fractional_rank_credit_not_arbitrary_tie_break() {
+        let candidates = candidate_frame(2);
+        let query = vec![test_query("q1", "subject_000")];
+        let mut scores = perfect_scores(&query, &candidates);
+        scores.insert(("q1".to_owned(), "candidate_001".to_owned()), 0.99);
+        let rows = build_query_results(&query, &scores, &candidates, "draw_1", 2).unwrap();
+        assert_eq!(rows[0].target_rank_low, Some(1));
+        assert_eq!(rows[0].target_rank_high, Some(2));
+        assert!((hit_credit(&rows[0], 1, Some(0.99)) - 0.5).abs() < 1e-12);
+        assert!((hit_credit(&rows[0], 3, Some(0.99)) - 1.0).abs() < 1e-12);
     }
 
     #[test]
