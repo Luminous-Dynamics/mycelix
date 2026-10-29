@@ -90,16 +90,23 @@ jobs:
           set -euo pipefail
           target="research/cecb-counterexample-benchmark/Cargo.toml"
           source_sha="${{ github.event.pull_request.head.sha || github.sha }}"
+          manifest="research/cecb-counterexample-benchmark/fixtures/CECB_FAMILY_TRANSFER_TOURNAMENT_V0_1.json"
+          manifest_sha="$(sha256sum "$manifest" | cut -d ' ' -f1)"
           export CECB_SOURCE_SHA="$source_sha"
+          export CECB_SPLIT_MANIFEST_SHA256="$manifest_sha"
           cargo run --quiet --locked --manifest-path "$target" --bin cecb-tournament > /tmp/cecb-tournament-a.jsonl
           cargo run --quiet --locked --manifest-path "$target" --bin cecb-tournament > /tmp/cecb-tournament-b.jsonl
           diff -u /tmp/cecb-tournament-a.jsonl /tmp/cecb-tournament-b.jsonl
           test "$(wc -l < /tmp/cecb-tournament-a.jsonl)" -eq 3
 
-          jq -s -e --arg source_sha "$source_sha" '
+          jq -s -e --arg source_sha "$source_sha" --arg manifest_sha "$manifest_sha" '
             length == 3
             and all(.[]; .schema_version == "cecb.discovery_receipt.v0.1"
               and .source_sha == $source_sha
+              and .split_manifest_sha256 == $manifest_sha
+              and .evaluator_version == "cecb.holdout_evaluator.v0.1"
+              and .random_seed == null
+              and .observation_selection == "evenly_spaced_v0.1"
               and .source_sha != "unavailable"
               and .split_rule == "leave_one_model_family_out_v0.1"
               and .development_family == "family_a"
