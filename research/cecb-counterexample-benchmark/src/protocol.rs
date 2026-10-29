@@ -62,11 +62,18 @@ pub struct SplitManifest {
 
 /// A reproducible benchmark split. Candidate-facing data is separate from the
 /// evaluator object, whose outcome labels are not exposed by public fields.
-#[derive(Clone, PartialEq, Eq)]
-pub struct ProtocolSplit {
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct CandidateView {
     pub development: Vec<TrainingObservation>,
     pub holdout_inputs: Vec<CandidateInput>,
     pub manifest: SplitManifest,
+}
+
+/// Trusted harness state. Candidates should receive only CandidateView, never
+/// this evaluator-bearing wrapper. The target ledger has no public accessors.
+#[derive(Clone, PartialEq, Eq)]
+pub struct ProtocolSplit {
+    candidate_view: CandidateView,
     evaluator: HoldoutEvaluator,
 }
 
@@ -76,9 +83,7 @@ impl std::fmt::Debug for ProtocolSplit {
     fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         formatter
             .debug_struct("ProtocolSplit")
-            .field("development", &self.development)
-            .field("holdout_inputs", &self.holdout_inputs)
-            .field("manifest", &self.manifest)
+            .field("candidate_view", &self.candidate_view)
             .field("evaluator", &"[REDACTED]")
             .finish()
     }
@@ -213,9 +218,11 @@ pub fn build_protocol_split(
     };
 
     Ok(ProtocolSplit {
-        development,
-        holdout_inputs,
-        manifest,
+        candidate_view: CandidateView {
+            development,
+            holdout_inputs,
+            manifest,
+        },
         evaluator,
     })
 }
@@ -327,11 +334,34 @@ pub fn build_model_family_split(
     };
 
     Ok(ProtocolSplit {
-        development,
-        holdout_inputs,
-        manifest,
+        candidate_view: CandidateView {
+            development,
+            holdout_inputs,
+            manifest,
+        },
         evaluator,
     })
+}
+
+impl ProtocolSplit {
+    /// Returns only candidate-visible observations and feature-only holdout inputs.
+    pub fn candidate_view(&self) -> &CandidateView {
+        &self.candidate_view
+    }
+
+    /// Trusted harness entry point. Do not pass ProtocolSplit itself to a
+    /// candidate process; serialize/pass only candidate_view().
+    pub fn evaluate(
+        &self,
+        submission: &CandidateSubmission,
+        candidate_query_count: usize,
+    ) -> Result<EvaluationReport, ProtocolError> {
+        self.evaluator.evaluate(submission, candidate_query_count)
+    }
+
+    pub fn evaluation_label_source(&self) -> LabelSource {
+        self.evaluator.label_source
+    }
 }
 
 impl HoldoutEvaluator {
@@ -418,11 +448,11 @@ mod tests {
     use super::*;
     use crate::{axis_aligned_landscape, noisy_boundary_landscape};
 
-    fn exact_axis_submission(split: &ProtocolSplit) -> CandidateSubmission {
+    fn exact_axis_submission(view: &CandidateView) -> CandidateSubmission {
         CandidateSubmission {
             method_id: "fixture-axis-rule".to_owned(),
             method_version: "1".to_owned(),
-            predictions: split
+            predictions: view
                 .holdout_inputs
                 .iter()
                 .map(|input| Prediction {
@@ -439,17 +469,17 @@ mod tests {
         let first = build_protocol_split(&points, LabelSource::LatentTruth, 25).unwrap();
         let second = build_protocol_split(&points, LabelSource::LatentTruth, 25).unwrap();
         assert_eq!(first, second);
-        assert_eq!(first.manifest.split_rule, "alternating_input_index_v0.1");
+        assert_eq!(first.candidate_view().manifest.split_rule, "alternating_input_index_v0.1");
         assert_eq!(
-            first.development.iter().map(|row| row.sample_id).collect::<Vec<_>>(),
-            first.manifest.development_sample_ids
+            first.candidate_view().development.iter().map(|row| row.sample_id).collect::<Vec<_>>(),
+            first.candidate_view().manifest.development_sample_ids
         );
         assert_eq!(
-            first.holdout_inputs.iter().map(|row| row.sample_id).collect::<Vec<_>>(),
-            first.manifest.holdout_sample_ids
+            first.candidate_view().holdout_inputs.iter().map(|row| row.sample_id).collect::<Vec<_>>(),
+            first.candidate_view().manifest.holdout_sample_ids
         );
-        assert!(first.development.iter().all(|row| row.sample_id % 2 == 0));
-        assert!(first.holdout_inputs.iter().all(|row| row.sample_id % 2 == 1));
+        assert!(first.candidate_view().development.iter().all(|row| row.sample_id % 2 == 0));
+        assert!(first.candidate_view().holdout_inputs.iter().all(|row| row.sample_id % 2 == 1));
     }
 
     #[test]
@@ -463,7 +493,7 @@ mod tests {
         fn candidate_input_has_no_label(input: &CandidateInput) -> (&[i32], bool, usize) {
             (&input.features, input.feasible, input.sample_id)
         }
-        assert!(split.holdout_inputs.iter().all(|row| {
+        assert!(split.candidate_view().holdout_inputs.iter().all(|row| {
             let (features, _feasible, id) = candidate_input_has_no_label(row);
             !features.is_empty() && id % 2 == 1
         }));
@@ -498,12 +528,12 @@ mod tests {
         )
         .unwrap();
         assert_eq!(
-            split.manifest.split_rule,
+            split.candidate_view().manifest.split_rule,
             "leave_one_model_family_out_v0.1"
         );
-        assert_eq!(split.manifest.holdout_family_id.as_deref(), Some("family_b"));
-        assert_eq!(split.development.len(), 9);
-        assert_eq!(split.holdout_inputs.len(), 9);
+        assert_eq!(split.candidate_view().manifest.holdout_family_id.as_deref(), Some("family_b"));
+        assert_eq!(split.candidate_view().development.len(), 9);
+        assert_eq!(split.candidate_view().holdout_inputs.len(), 9);
         assert!(split
             .development
             .iter()
@@ -535,7 +565,7 @@ mod tests {
                 })
                 .collect(),
         };
-        let report = split.evaluator.evaluate(&submission, 0).unwrap();
+        let report = split.evaluate(&submission, 0).unwrap();
         assert_eq!(report.score.true_positive, 0);
         assert_eq!(report.score.false_positive, 3);
         assert_eq!(report.score.false_negative, 3);
@@ -593,9 +623,9 @@ mod tests {
             0,
         )
         .unwrap();
-        let report = split.evaluator.evaluate(&exact_axis_submission(&split), 0).unwrap();
+        let report = split.evaluate(&exact_axis_submission(split.candidate_view()), 0).unwrap();
         assert_eq!(report.schema_version, SCHEMA_VERSION);
-        assert_eq!(report.holdout_sample_count, split.holdout_inputs.len());
+        assert_eq!(report.holdout_sample_count, split.candidate_view().holdout_inputs.len());
         assert_eq!(report.score.false_positive, 0);
         assert_eq!(report.score.false_negative, 0);
         assert_eq!(
@@ -613,9 +643,9 @@ mod tests {
             5,
         )
         .unwrap();
-        assert!(split.development.iter().any(|row| row.observed_failure));
-        assert_eq!(split.evaluator.evaluation_label_source(), LabelSource::ObservedLabel);
-        let report = split.evaluator.evaluate(&exact_axis_submission(&split), 0).unwrap();
+        assert!(split.candidate_view().development.iter().any(|row| row.observed_failure));
+        assert_eq!(split.evaluation_label_source(), LabelSource::ObservedLabel);
+        let report = split.evaluate(&exact_axis_submission(split.candidate_view()), 0).unwrap();
         assert_eq!(report.label_source, LabelSource::ObservedLabel);
     }
 
@@ -627,16 +657,16 @@ mod tests {
             5,
         )
         .unwrap();
-        let mut submission = exact_axis_submission(&split);
+        let mut submission = exact_axis_submission(split.candidate_view());
         submission.method_id = "  ".to_owned();
         assert_eq!(
-            split.evaluator.evaluate(&submission, 0),
+            split.evaluate(&submission, 0),
             Err(ProtocolError::EmptyMethodId)
         );
         submission.method_id = "test".to_owned();
         submission.method_version.clear();
         assert_eq!(
-            split.evaluator.evaluate(&submission, 0),
+            split.evaluate(&submission, 0),
             Err(ProtocolError::EmptyMethodVersion)
         );
     }
@@ -650,24 +680,24 @@ mod tests {
         )
         .unwrap();
 
-        let mut duplicate = exact_axis_submission(&split);
+        let mut duplicate = exact_axis_submission(split.candidate_view());
         duplicate.predictions.push(duplicate.predictions[0].clone());
         assert!(matches!(
-            split.evaluator.evaluate(&duplicate, 0),
+            split.evaluate(&duplicate, 0),
             Err(ProtocolError::DuplicatePredictionId(_))
         ));
 
-        let mut missing = exact_axis_submission(&split);
+        let mut missing = exact_axis_submission(split.candidate_view());
         missing.predictions.pop();
         assert!(matches!(
-            split.evaluator.evaluate(&missing, 0),
+            split.evaluate(&missing, 0),
             Err(ProtocolError::MissingPredictionId(_))
         ));
 
-        let mut unknown = exact_axis_submission(&split);
+        let mut unknown = exact_axis_submission(split.candidate_view());
         unknown.predictions[0].sample_id = usize::MAX;
         assert_eq!(
-            split.evaluator.evaluate(&unknown, 0),
+            split.evaluate(&unknown, 0),
             Err(ProtocolError::UnknownPredictionId(usize::MAX))
         );
     }
@@ -681,7 +711,7 @@ mod tests {
         )
         .unwrap();
         assert_eq!(
-            split.evaluator.evaluate(&exact_axis_submission(&split), 3),
+            split.evaluate(&exact_axis_submission(split.candidate_view()), 3),
             Err(ProtocolError::QueryBudgetExceeded {
                 supplied: 3,
                 maximum: 2
@@ -697,9 +727,9 @@ mod tests {
             5,
         )
         .unwrap();
-        let mut submission = exact_axis_submission(&split);
+        let mut submission = exact_axis_submission(split.candidate_view());
         submission.predictions.reverse();
-        let report = split.evaluator.evaluate(&submission, 0).unwrap();
+        let report = split.evaluate(&submission, 0).unwrap();
         assert_eq!(report.score.false_positive, 0);
         assert_eq!(report.score.false_negative, 0);
     }
