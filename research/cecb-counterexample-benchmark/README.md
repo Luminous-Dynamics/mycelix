@@ -57,7 +57,7 @@ The `cecb-tournament` binary emits three JSONL receipts for budgets 3, 5, and 9 
 | 5 | `x >= 2` | 0 | 3 | 3 | 3 |
 | 9 | `x >= 2` | 0 | 3 | 3 | 3 |
 
-All three fits are evaluated on family B while discovery sees family A's observed labels. More training examples recover the family-A boundary but do not resolve the structural reversal. The receipts bind the run to the source SHA supplied by CI, record the split and method versions, include selected sample IDs, and expose the confusion counts. The workflow reruns the binary and byte-compares the receipts.
+All three fits are evaluated on family B while discovery sees family A's observed labels. More training examples recover the family-A boundary but do not resolve the structural reversal. The receipts bind each run to the exact source SHA and the SHA-256 of the committed split manifest, record the evaluator and method versions, declare that no random seed is used, include the trusted query trace, and expose the confusion counts. CI verifies the manifest digest format and contents, reruns the binary, and byte-compares the receipts.
 
 This is one simple baseline and one tiny negative control, **not** a competition against SOTA. The labelled-row budget is enforced by the in-process oracle for this reference baseline; it does not meter arbitrary external simulator calls. A real tournament must isolate each candidate, give it only the candidate view and oracle capability, instrument all calls in a trusted harness, and record wall time and peak memory independently.
 
