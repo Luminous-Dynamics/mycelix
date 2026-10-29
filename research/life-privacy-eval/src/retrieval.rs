@@ -443,7 +443,7 @@ fn query_subject_cluster_bootstrap(
     let mut top5 = Vec::with_capacity(replicates);
     let mut mrr = Vec::with_capacity(replicates);
     for _ in 0..replicates {
-        let mut multiplicity: HashMap<&str, usize> = HashMap::new();
+        let mut multiplicity: BTreeMap<&str, usize> = BTreeMap::new();
         for _ in 0..subjects.len() {
             let index = (rng.next() % subjects.len() as u64) as usize;
             *multiplicity.entry(subjects[index].as_str()).or_insert(0) += 1;
