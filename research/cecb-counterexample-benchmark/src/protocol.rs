@@ -535,10 +535,12 @@ mod tests {
         assert_eq!(split.candidate_view().development.len(), 9);
         assert_eq!(split.candidate_view().holdout_inputs.len(), 9);
         assert!(split
+            .candidate_view()
             .development
             .iter()
             .all(|row| row.model_family_id.as_deref() == Some("family_a")));
         assert!(split
+            .candidate_view()
             .holdout_inputs
             .iter()
             .all(|row| row.model_family_id.as_deref() == Some("family_b")));
