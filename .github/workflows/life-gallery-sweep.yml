@@ -82,6 +82,8 @@ jobs:
           assert set(schema["required"]).issubset(report)
           assert report["schema_version"] == "1.0"
           assert report["evaluation_mode"] == "gallery_scaling_open_set_identification"
+          assert report["attacker_performance_status"] == "NOT_MEASURED_PRECOMPUTED_SCORE_INPUTS"
+          assert "precomputed scores" in report["performance_measurement_scope"]
           assert report["requested_bootstrap_replicates"] == 300
           assert "Bonferroni alpha 0.05 / draw_count" in report["per_draw_subject_risk_bound_policy"]
           assert abs(report["per_draw_subject_risk_bound_alpha"] - (0.05 / (4 * 8 * 2))) < 1e-15
