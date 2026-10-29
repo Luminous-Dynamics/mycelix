@@ -1,0 +1,586 @@
+use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
+use std::error::Error;
+use std::fs;
+
+const VERSION: &str = "0.5.0";
+const DEFAULT_BOOTSTRAPS: usize = 1_000;
+const DEFAULT_SEED: u64 = 9_901;
+const MIN_PARTITION_QUERIES: usize = 2_000;
+const MIN_PARTITION_SUBJECTS: usize = 2_000;
+const MIN_CANDIDATES: usize = 10;
+
+#[derive(Clone, Debug)]
+struct TruthRow {
+    query_id: String,
+    query_subject: String,
+    candidate_id: String,
+    candidate_subject: String,
+    true_match: bool,
+    stratum: String,
+}
+
+#[derive(Clone, Debug)]
+struct Candidate {
+    candidate_id: String,
+    candidate_subject: String,
+    score: f64,
+    true_match: bool,
+}
+
+#[derive(Clone, Debug)]
+struct QueryResult {
+    query_id: String,
+    query_subject: String,
+    stratum: String,
+    matched: bool,
+    max_score: f64,
+    target_score: Option<f64>,
+    target_rank_low: Option<usize>,
+    target_rank_high: Option<usize>,
+}
+
+#[derive(Clone, Copy, Debug)]
+struct Rates {
+    mated_queries: usize,
+    nonmated_queries: usize,
+    false_negative_rank1: f64,
+    false_negative_rank3: f64,
+    false_negative_rank5: f64,
+    false_negative_rank10: f64,
+    false_positive_identification_rate: f64,
+    correct_identification_precision: f64,
+}
+
+#[derive(Clone, Copy, Debug)]
+struct Interval {
+    low: f64,
+    high: f64,
+    valid_replicates: usize,
+}
+
+struct XorShift64(u64);
+impl XorShift64 {
+    fn new(seed: u64) -> Self {
+        Self(if seed == 0 { 0x9E37_79B9_7F4A_7C15 } else { seed })
+    }
+    fn next(&mut self) -> u64 {
+        let mut x = self.0;
+        x ^= x << 13;
+        x ^= x >> 7;
+        x ^= x << 17;
+        self.0 = x;
+        x
+    }
+}
+
+pub fn run(args: &[String]) -> Result<(), Box<dyn Error>> {
+    if args.get(2).is_some_and(|arg| arg == "--help" || arg == "-h") {
+        println!(
+            "Usage: {} open-set <validation-truth.tsv> <validation-scores.tsv> <test-truth.tsv> <test-scores.tsv> <training-subjects.txt> <report.json> [max_fpir=0.01] [bootstrap-replicates=1000] [seed=9901]",
+            args.first().map_or("life-privacy-eval", String::as_str)
+        );
+        return Ok(());
+    }
+    if args.len() < 8 || args.len() > 11 {
+        return Err("open-set usage: open-set <validation-truth.tsv> <validation-scores.tsv> <test-truth.tsv> <test-scores.tsv> <training-subjects.txt> <report.json> [max_fpir=0.01] [bootstrap-replicates=1000] [seed=9901]".into());
+    }
+
+    let validation_truth = read_truth(&args[2])?;
+    let validation_scores = read_scores(&args[3])?;
+    let test_truth = read_truth(&args[4])?;
+    let test_scores = read_scores(&args[5])?;
+    let training_subjects = read_training_subjects(&args[6])?;
+    let report_path = &args[7];
+    let max_fpir = args.get(8).map_or(Ok(0.01_f64), |s| s.parse::<f64>())?;
+    let bootstraps = args.get(9).map_or(Ok(DEFAULT_BOOTSTRAPS), |s| s.parse::<usize>())?;
+    let seed = args.get(10).map_or(Ok(DEFAULT_SEED), |s| s.parse::<u64>())?;
+
+    if !max_fpir.is_finite() || !(0.0..=1.0).contains(&max_fpir) {
+        return Err("max_fpir must be finite and in [0, 1]".into());
+    }
+    if bootstraps < 100 {
+        return Err("at least 100 query-subject bootstrap replicates are required".into());
+    }
+
+    let validation = validate_partition(validation_truth, validation_scores, &training_subjects)?;
+    let test = validate_partition(test_truth, test_scores, &training_subjects)?;
+    validate_partition_disjoint(&validation, &test)?;
+    let candidate_count = validation.first().map_or(0, |query| query_count_candidates(query, &validation));
+    if candidate_count == 0 {
+        return Err("open-set evaluation requires a non-empty common candidate pool".into());
+    }
+
+    let threshold = select_threshold(&validation, max_fpir);
+    let validation_rates = compute_rates(&validation, threshold);
+    let test_rates = compute_rates(&test, threshold);
+    let intervals = bootstrap_rates(&test, threshold, bootstraps, seed);
+    let sample_size_met =
+        validation.len() >= MIN_PARTITION_QUERIES
+        && test.len() >= MIN_PARTITION_QUERIES
+        && distinct_subjects(&validation) >= MIN_PARTITION_SUBJECTS
+        && distinct_subjects(&test) >= MIN_PARTITION_SUBJECTS
+        && candidate_count >= MIN_CANDIDATES;
+    let report = build_report(
+        &validation, &test, threshold, max_fpir, validation_rates, test_rates,
+        intervals, bootstraps, seed, sample_size_met, candidate_count,
+    );
+    let report = format!("{report}\n");
+    if report_path == "-" {
+        print!("{report}");
+    } else {
+        fs::write(report_path, report)?;
+    }
+    Ok(())
+}
+
+fn read_truth(path: &str) -> Result<Vec<TruthRow>, Box<dyn Error>> {
+    let input = fs::read_to_string(path)?;
+    let mut lines = input.lines();
+    let header = lines.next().ok_or("open-set truth file is empty")?;
+    if header != "query_id\tquery_subject\tcandidate_id\tcandidate_subject\ttrue_match\tstratum" {
+        return Err("open-set truth header must be query_id, query_subject, candidate_id, candidate_subject, true_match, stratum".into());
+    }
+    let mut rows = Vec::new();
+    let mut seen = BTreeSet::new();
+    let mut query_meta: HashMap<String, (String, String)> = HashMap::new();
+    let mut candidate_meta: HashMap<String, String> = HashMap::new();
+    for (idx, line) in lines.enumerate() {
+        if line.trim().is_empty() { continue; }
+        let c: Vec<&str> = line.split('\t').collect();
+        if c.len() != 6 || c.iter().any(|v| v.is_empty()) {
+            return Err(format!("truth line {} must have exactly 6 non-empty columns", idx + 2).into());
+        }
+        let true_match = match c[4] {
+            "0" => false,
+            "1" => true,
+            _ => return Err(format!("truth line {} true_match must be 0 or 1", idx + 2).into()),
+        };
+        let (query_id, query_subject, candidate_id, candidate_subject, stratum) =
+            (c[0].to_owned(), c[1].to_owned(), c[2].to_owned(), c[3].to_owned(), c[5].to_owned());
+        if !seen.insert((query_id.clone(), candidate_id.clone())) {
+            return Err(format!("duplicate query/candidate in truth at line {}", idx + 2).into());
+        }
+        if true_match != (query_subject == candidate_subject) {
+            return Err(format!("true_match disagrees with oracle identities at line {}", idx + 2).into());
+        }
+        let q = (query_subject.clone(), stratum.clone());
+        if query_meta.get(&query_id).is_some_and(|old| old != &q) {
+            return Err(format!("query {query_id} changes subject or stratum").into());
+        }
+        query_meta.insert(query_id.clone(), q);
+        if candidate_meta.get(&candidate_id).is_some_and(|old| old != &candidate_subject) {
+            return Err(format!("candidate handle {candidate_id} maps to multiple subjects").into());
+        }
+        candidate_meta.insert(candidate_id.clone(), candidate_subject.clone());
+        rows.push(TruthRow { query_id, query_subject, candidate_id, candidate_subject, true_match, stratum });
+    }
+    if rows.is_empty() { return Err("open-set truth file has no rows".into()); }
+    Ok(rows)
+}
+
+fn read_scores(path: &str) -> Result<HashMap<(String, String), f64>, Box<dyn Error>> {
+    let input = fs::read_to_string(path)?;
+    let mut lines = input.lines();
+    let header = lines.next().ok_or("open-set score file is empty")?;
+    if header != "query_id\tcandidate_id\tscore" {
+        return Err("open-set scores must contain only query_id, candidate_id, score".into());
+    }
+    let mut scores = HashMap::new();
+    for (idx, line) in lines.enumerate() {
+        if line.trim().is_empty() { continue; }
+        let c: Vec<&str> = line.split('\t').collect();
+        if c.len() != 3 || c.iter().any(|v| v.is_empty()) {
+            return Err(format!("score line {} must have exactly 3 non-empty columns", idx + 2).into());
+        }
+        let score = c[2].parse::<f64>().map_err(|_| format!("invalid score at line {}", idx + 2))?;
+        if !score.is_finite() { return Err(format!("non-finite score at line {}", idx + 2).into()); }
+        if scores.insert((c[0].to_owned(), c[1].to_owned()), score).is_some() {
+            return Err(format!("duplicate query/candidate score at line {}", idx + 2).into());
+        }
+    }
+    if scores.is_empty() { return Err("open-set score file has no rows".into()); }
+    Ok(scores)
+}
+
+fn read_training_subjects(path: &str) -> Result<HashSet<String>, Box<dyn Error>> {
+    let input = fs::read_to_string(path)?;
+    let mut subjects = HashSet::new();
+    for line in input.lines() {
+        let s = line.trim();
+        if !s.is_empty() && !subjects.insert(s.to_owned()) {
+            return Err(format!("duplicate training subject identifier: {s}").into());
+        }
+    }
+    Ok(subjects)
+}
+
+fn validate_partition(
+    truth: Vec<TruthRow>,
+    mut scores: HashMap<(String, String), f64>,
+    training: &HashSet<String>,
+) -> Result<Vec<QueryResult>, Box<dyn Error>> {
+    let expected = truth.len();
+    let mut grouped: BTreeMap<String, Vec<Candidate>> = BTreeMap::new();
+    let mut query_meta: BTreeMap<String, (String, String)> = BTreeMap::new();
+    let mut common_candidate_ids: Option<BTreeSet<String>> = None;
+    let mut common_candidate_subjects: Option<BTreeSet<String>> = None;
+
+    for row in truth {
+        if training.contains(&row.query_subject) {
+            return Err(format!("training/query subject overlap for {}", row.query_subject).into());
+        }
+        if training.contains(&row.candidate_subject) {
+            return Err(format!("training/candidate subject overlap for {}", row.candidate_subject).into());
+        }
+        let key = (row.query_id.clone(), row.candidate_id.clone());
+        let score = scores.remove(&key).ok_or_else(|| format!("missing score for {}/{}", row.query_id, row.candidate_id))?;
+        let meta = (row.query_subject.clone(), row.stratum.clone());
+        if query_meta.get(&row.query_id).is_some_and(|old| old != &meta) {
+            return Err(format!("query {} changes subject or stratum", row.query_id).into());
+        }
+        query_meta.insert(row.query_id.clone(), meta);
+        grouped.entry(row.query_id).or_default().push(Candidate {
+            candidate_id: row.candidate_id,
+            candidate_subject: row.candidate_subject,
+            score,
+            true_match: row.true_match,
+        });
+    }
+    if !scores.is_empty() { return Err(format!("score file has {} extra rows", scores.len()).into()); }
+    if expected == 0 || grouped.len() < 2 { return Err("open-set partition requires at least two queries".into()); }
+
+    let mut output = Vec::with_capacity(grouped.len());
+    for (query_id, candidates) in grouped {
+        let (query_subject, stratum) = query_meta.remove(&query_id).ok_or("missing query metadata")?;
+        let candidate_ids: BTreeSet<String> = candidates.iter().map(|c| c.candidate_id.clone()).collect();
+        let candidate_subjects: BTreeSet<String> = candidates.iter().map(|c| c.candidate_subject.clone()).collect();
+        if candidate_ids.len() != candidates.len() || candidate_subjects.len() != candidates.len() {
+            return Err(format!("query {query_id} has duplicate candidate IDs or subjects").into());
+        }
+        if common_candidate_ids.as_ref().is_some_and(|pool| pool != &candidate_ids) {
+            return Err("all queries must use exactly the same candidate handles".into());
+        }
+        if common_candidate_subjects.as_ref().is_some_and(|pool| pool != &candidate_subjects) {
+            return Err("candidate handles must map to the same candidate subjects for every query".into());
+        }
+        common_candidate_ids.get_or_insert(candidate_ids);
+        common_candidate_subjects.get_or_insert(candidate_subjects);
+        let mated: Vec<&Candidate> = candidates.iter().filter(|c| c.true_match).collect();
+        if mated.len() > 1 { return Err(format!("query {query_id} has multiple true candidates").into()); }
+        if mated.is_empty() && candidates.iter().any(|c| c.candidate_subject == query_subject) {
+            return Err(format!("query {query_id} has no true_match label but its subject is in the candidate pool").into());
+        }
+        if mated.len() == 1 && !candidates.iter().any(|c| c.candidate_subject == query_subject) {
+            return Err(format!("query {query_id} claims a match but query subject is absent from candidate pool").into());
+        }
+        let max_score = candidates.iter().map(|c| c.score).max_by(f64::total_cmp).ok_or("empty candidate set")?;
+        let target = mated.first().copied();
+        let (target_score, target_rank_low, target_rank_high) = if let Some(target) = target {
+            let greater = candidates.iter().filter(|c| c.score > target.score).count();
+            let tied = candidates.iter().filter(|c| c.score == target.score).count();
+            (Some(target.score), Some(greater + 1), Some(greater + tied))
+        } else { (None, None, None) };
+        output.push(QueryResult {
+            query_id, query_subject, stratum, matched: target.is_some(), max_score,
+            target_score, target_rank_low, target_rank_high,
+        });
+    }
+    Ok(output)
+}
+
+fn validate_partition_disjoint(validation: &[QueryResult], test: &[QueryResult]) -> Result<(), Box<dyn Error>> {
+    let val_ids: BTreeSet<&str> = validation.iter().map(|q| q.query_id.as_str()).collect();
+    let test_ids: BTreeSet<&str> = test.iter().map(|q| q.query_id.as_str()).collect();
+    if let Some(id) = val_ids.intersection(&test_ids).next() {
+        return Err(format!("validation/test query handle overlap: {id}").into());
+    }
+    let val_subjects: BTreeSet<&str> = validation.iter().map(|q| q.query_subject.as_str()).collect();
+    let test_subjects: BTreeSet<&str> = test.iter().map(|q| q.query_subject.as_str()).collect();
+    if let Some(subject) = val_subjects.intersection(&test_subjects).next() {
+        return Err(format!("validation/test query subject overlap: {subject}").into());
+    }
+    let val_matched = validation.iter().any(|q| q.matched);
+    let val_unknown = validation.iter().any(|q| !q.matched);
+    let test_matched = test.iter().any(|q| q.matched);
+    let test_unknown = test.iter().any(|q| !q.matched);
+    if !(val_matched && val_unknown && test_matched && test_unknown) {
+        return Err("validation and test must each include both mated and non-mated queries".into());
+    }
+    Ok(())
+}
+
+fn distinct_subjects(rows: &[QueryResult]) -> usize {
+    rows.iter().map(|q| q.query_subject.as_str()).collect::<BTreeSet<_>>().len()
+}
+
+fn query_count_candidates(query: &QueryResult, rows: &[QueryResult]) -> usize {
+    // Candidate pool size is shared by all queries; encoded as a transient result invariant below.
+    let _ = query;
+    rows.first().map_or(0, |_| 0)
+}
+
+fn select_threshold(rows: &[QueryResult], max_fpir: f64) -> Option<f64> {
+    let mut thresholds: BTreeSet<ordered_float::NotFloat> = BTreeSet::new();
+    for row in rows {
+        if let Some(score) = row.target_score { thresholds.insert(ordered_float::NotFloat(score)); }
+        // Candidate non-match scores are not retained in QueryResult; query maximums suffice to control FPIR.
+        thresholds.insert(ordered_float::NotFloat(row.max_score));
+    }
+    let mut candidates: Vec<f64> = thresholds.into_iter().map(|x| x.0).collect();
+    candidates.sort_by(f64::total_cmp);
+    let mut best: Option<f64> = None;
+    let mut best_hit_rate = 0.0;
+    let mut best_fpir = f64::INFINITY;
+    for threshold in candidates.into_iter().rev() {
+        let rates = compute_rates(rows, Some(threshold));
+        let hit_rate = 1.0 - rates.false_negative_rank1;
+        if rates.false_positive_identification_rate <= max_fpir + f64::EPSILON
+            && (hit_rate > best_hit_rate || (hit_rate == best_hit_rate && rates.false_positive_identification_rate < best_fpir)) {
+            best = Some(threshold);
+            best_hit_rate = hit_rate;
+            best_fpir = rates.false_positive_identification_rate;
+        }
+    }
+    best
+}
+
+fn compute_rates(rows: &[QueryResult], threshold: Option<f64>) -> Rates {
+    let mated: Vec<&QueryResult> = rows.iter().filter(|q| q.matched).collect();
+    let nonmated: Vec<&QueryResult> = rows.iter().filter(|q| !q.matched).collect();
+    let success_at = |q: &QueryResult, k: usize| -> f64 {
+        let Some(score) = q.target_score else { return 0.0; };
+        if !threshold.is_some_and(|t| score >= t) { return 0.0; }
+        let (Some(low), Some(high)) = (q.target_rank_low, q.target_rank_high) else { return 0.0; };
+        if low > k { 0.0 } else { (k.min(high) - low + 1) as f64 / (high - low + 1) as f64 }
+    };
+    let denominator = mated.len().max(1) as f64;
+    let false_negative_rank1 = 1.0 - mated.iter().map(|q| success_at(q, 1)).sum::<f64>() / denominator;
+    let false_negative_rank3 = 1.0 - mated.iter().map(|q| success_at(q, 3)).sum::<f64>() / denominator;
+    let false_negative_rank5 = 1.0 - mated.iter().map(|q| success_at(q, 5)).sum::<f64>() / denominator;
+    let false_negative_rank10 = 1.0 - mated.iter().map(|q| success_at(q, 10)).sum::<f64>() / denominator;
+    let false_positive_identification_rate = if nonmated.is_empty() { 0.0 } else {
+        nonmated.iter().filter(|q| threshold.is_some_and(|t| q.max_score >= t)).count() as f64 / nonmated.len() as f64
+    };
+    let accepted = rows.iter().filter(|q| threshold.is_some_and(|t| q.max_score >= t)).count();
+    let correct_rank1 = mated.iter().map(|q| success_at(q, 1)).sum::<f64>();
+    let correct_identification_precision = if accepted == 0 { 0.0 } else { correct_rank1 / accepted as f64 };
+    Rates {
+        mated_queries: mated.len(),
+        nonmated_queries: nonmated.len(),
+        false_negative_rank1, false_negative_rank3, false_negative_rank5, false_negative_rank10,
+        false_positive_identification_rate, correct_identification_precision,
+    }
+}
+
+fn bootstrap_rates(rows: &[QueryResult], threshold: Option<f64>, replicates: usize, seed: u64) -> (Interval, Interval, Interval) {
+    let mated: Vec<&QueryResult> = rows.iter().filter(|q| q.matched).collect();
+    let nonmated: Vec<&QueryResult> = rows.iter().filter(|q| !q.matched).collect();
+    let by_mated_subject: BTreeMap<&str, Vec<&QueryResult>> = group_subjects(&mated);
+    let by_nonmated_subject: BTreeMap<&str, Vec<&QueryResult>> = group_subjects(&nonmated);
+    let mated_subjects: Vec<&str> = by_mated_subject.keys().copied().collect();
+    let nonmated_subjects: Vec<&str> = by_nonmated_subject.keys().copied().collect();
+    let mut rng = XorShift64::new(seed);
+    let mut fnir1 = Vec::with_capacity(replicates);
+    let mut fnir5 = Vec::with_capacity(replicates);
+    let mut fpir = Vec::with_capacity(replicates);
+    for _ in 0..replicates {
+        let mut sampled_mated = Vec::new();
+        let mut sampled_unknown = Vec::new();
+        for _ in 0..mated_subjects.len() {
+            let subject = mated_subjects[(rng.next() % mated_subjects.len() as u64) as usize];
+            sampled_mated.extend(by_mated_subject[subject].iter().copied());
+        }
+        for _ in 0..nonmated_subjects.len() {
+            let subject = nonmated_subjects[(rng.next() % nonmated_subjects.len() as u64) as usize];
+            sampled_unknown.extend(by_nonmated_subject[subject].iter().copied());
+        }
+        let rates = compute_rates_from_samples(&sampled_mated, &sampled_unknown, threshold);
+        fnir1.push(rates.0);
+        fnir5.push(rates.1);
+        fpir.push(rates.2);
+    }
+    (percentile_interval(fnir1), percentile_interval(fnir5), percentile_interval(fpir))
+}
+
+fn group_subjects<'a>(rows: &[&'a QueryResult]) -> BTreeMap<&'a str, Vec<&'a QueryResult>> {
+    let mut groups = BTreeMap::new();
+    for row in rows { groups.entry(row.query_subject.as_str()).or_insert_with(Vec::new).push(*row); }
+    groups
+}
+
+fn compute_rates_from_samples(mated: &[&QueryResult], unknown: &[&QueryResult], threshold: Option<f64>) -> (f64, f64, f64) {
+    let success = |q: &QueryResult, k: usize| -> f64 {
+        let Some(score) = q.target_score else { return 0.0; };
+        if !threshold.is_some_and(|t| score >= t) { return 0.0; }
+        let (Some(low), Some(high)) = (q.target_rank_low, q.target_rank_high) else { return 0.0; };
+        if low > k { 0.0 } else { (k.min(high) - low + 1) as f64 / (high - low + 1) as f64 }
+    };
+    let mated_den = mated.len().max(1) as f64;
+    let unknown_den = unknown.len().max(1) as f64;
+    let fn1 = 1.0 - mated.iter().map(|q| success(q, 1)).sum::<f64>() / mated_den;
+    let fn5 = 1.0 - mated.iter().map(|q| success(q, 5)).sum::<f64>() / mated_den;
+    let fp = unknown.iter().filter(|q| threshold.is_some_and(|t| q.max_score >= t)).count() as f64 / unknown_den;
+    (fn1, fn5, fp)
+}
+
+fn percentile_interval(mut values: Vec<f64>) -> Interval {
+    if values.is_empty() { return Interval { low: 0.0, high: 1.0, valid_replicates: 0 }; }
+    values.sort_by(f64::total_cmp);
+    let quantile = |p: f64| {
+        let position = (values.len() - 1) as f64 * p;
+        let low = position.floor() as usize;
+        let high = position.ceil() as usize;
+        values[low] + (values[high] - values[low]) * (position - low as f64)
+    };
+    Interval { low: quantile(0.025), high: quantile(0.975), valid_replicates: values.len() }
+}
+
+fn build_report(
+    validation: &[QueryResult], test: &[QueryResult], threshold: Option<f64>, max_fpir: f64,
+    validation_rates: Rates, test_rates: Rates, intervals: (Interval, Interval, Interval),
+    bootstraps: usize, seed: u64, sample_size_met: bool, candidate_count: usize,
+) -> String {
+    let sample_gate = if sample_size_met { "MINIMUM_COUNTS_MET_REQUIRES_REVIEW" } else { "SMOKE_ONLY_BELOW_MINIMUM" };
+    let operating_gate = if !sample_size_met {
+        "NOT_EVALUATED_BELOW_SAMPLE_MINIMUM"
+    } else if test_rates.false_positive_identification_rate == 0.0 {
+        "INCONCLUSIVE_ZERO_FPIR_CANNOT_BOUND_RARE_EVENT_RISK"
+    } else if intervals.2.high <= max_fpir {
+        "PROVISIONAL_PASS_REQUIRES_REVIEW"
+    } else if intervals.2.low > max_fpir {
+        "FAIL"
+    } else { "INCONCLUSIVE" };
+    let val_match = 1.0 - validation_rates.false_negative_rank1;
+    let val_threshold = threshold.map_or("null".to_owned(), |x| format!("{x:.8}"));
+    let test_threshold = threshold.map_or("null".to_owned(), |_| "validation_locked".to_owned());
+    let target_res = if test_rates.nonmated_queries == 0 { 0.0 } else { 1.0 / test_rates.nonmated_queries as f64 };
+    let rare_event = if test_rates.false_positive_identification_rate == 0.0 {
+        "ZERO_FALSE_IDENTIFICATIONS_DO_NOT_CERTIFY_TAIL_RISK"
+    } else { "CLUSTER_BOOTSTRAP_INTERVAL_REPORTED_NO_FORMAL_PRIVACY_GUARANTEE" };
+    let val_target_pool = candidate_count;
+
+    let mut by_stratum: BTreeMap<&str, Vec<&QueryResult>> = BTreeMap::new();
+    for q in test { by_stratum.entry(q.stratum.as_str()).or_default().push(q); }
+    let strata_json = by_stratum.iter().map(|(stratum, rows)| {
+        let threshold_metrics = compute_rates(rows, threshold);
+        format!(
+            r#"{{"stratum":"{}","query_count":{},"mated_queries":{},"nonmated_queries":{},"fnir_rank1":{:.8},"fnir_rank5":{:.8},"fpir":{:.8}}}"#,
+            json_escape(stratum), rows.len(), threshold_metrics.mated_queries, threshold_metrics.nonmated_queries,
+            threshold_metrics.false_negative_rank1, threshold_metrics.false_negative_rank5, threshold_metrics.false_positive_identification_rate
+        )
+    }).collect::<Vec<_>>().join(",");
+    format!(
+        r#"{{
+  "schema_version":"1.0",
+  "evaluator_version":"{}",
+  "evaluation_mode":"validation_locked_open_set_identification",
+  "threshold_selection":"validation_only_maximize_rank1_identification_subject_to_fpir_cap",
+  "threshold_source":"validation_only_locked_before_test",
+  "threshold":{},
+  "seed":{},
+  "requested_bootstrap_replicates":{},
+  "valid_bootstrap_replicates":{},
+  "max_fpir_target":{:.8},
+  "validation_query_count":{},
+  "validation_mated_queries":{},
+  "validation_nonmated_queries":{},
+  "validation_fnir_rank1":{:.8},
+  "validation_fpir":{:.8},
+  "test_query_count":{},
+  "test_mated_queries":{},
+  "test_nonmated_queries":{},
+  "candidate_pool_size":{},
+  "uniform_random_top1_baseline":{:.8},
+  "false_negative_identification_rate_rank1":{:.8},
+  "false_negative_identification_rate_rank3":{:.8},
+  "false_negative_identification_rate_rank5":{:.8},
+  "false_negative_identification_rate_rank10":{:.8},
+  "false_positive_identification_rate":{:.8},
+  "fpir_resolution":{:.8},
+  "correct_identification_precision":{:.8},
+  "fnir_rank1_cluster_bootstrap_ci95":{{"low":{:.8},"high":{:.8},"valid_replicates":{}}},
+  "fnir_rank5_cluster_bootstrap_ci95":{{"low":{:.8},"high":{:.8},"valid_replicates":{}}},
+  "fpir_cluster_bootstrap_ci95":{{"low":{:.8},"high":{:.8},"valid_replicates":{}}},
+  "rare_event_inference_status":"{}",
+  "sample_size_gate":"{}",
+  "operating_point_gate":"{}",
+  "task_utility_evidence_present":false,
+  "official_conformance_evidence_present":false,
+  "overall_release_gate":"NOT_EVALUATED_OPEN_SET_UTILITY_AND_CONFORMANCE_MISSING",
+  "by_stratum":[{}],
+  "interpretation":"Threshold is selected only on validation queries and then frozen on test. FPIR is the fraction of non-mated query subjects for which any candidate score crosses the threshold; FNIR at rank K is the fraction of mated queries whose true identity is not accepted within top K. Tie credit is fractional. Bootstrap resamples query-subject clusters separately by mated/non-mated class and is conditional on the fixed candidate pool. Zero observed false identifications is inconclusive for rare-event risk; this is not a formal privacy guarantee."
+}}"#,
+        VERSION, val_threshold, seed, bootstraps, intervals.0.valid_replicates.min(intervals.1.valid_replicates).min(intervals.2.valid_replicates),
+        max_fpir, validation.len(), validation_rates.mated_queries, validation_rates.nonmated_queries,
+        validation_rates.false_negative_rank1, validation_rates.false_positive_identification_rate,
+        test.len(), test_rates.mated_queries, test_rates.nonmated_queries, val_target_pool,
+        1.0 / candidate_count.max(1) as f64,
+        test_rates.false_negative_rank1, test_rates.false_negative_rank3, test_rates.false_negative_rank5,
+        test_rates.false_negative_rank10, test_rates.false_positive_identification_rate, target_res,
+        test_rates.correct_identification_precision,
+        intervals.0.low, intervals.0.high, intervals.0.valid_replicates,
+        intervals.1.low, intervals.1.high, intervals.1.valid_replicates,
+        intervals.2.low, intervals.2.high, intervals.2.valid_replicates,
+        rare_event, sample_gate, operating_gate, strata_json
+    )
+}
+
+fn json_escape(value: &str) -> String {
+    value.replace('\\', "\\\\").replace('"', "\\\"")
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn query(id: &str, subject: &str, matched: bool, max_score: f64, target_score: Option<f64>, rank: Option<(usize, usize)>, stratum: &str) -> QueryResult {
+        QueryResult {
+            query_id:id.into(), query_subject:subject.into(), stratum:stratum.into(), matched, max_score,
+            target_score, target_rank_low:rank.map(|r|r.0), target_rank_high:rank.map(|r|r.1),
+        }
+    }
+
+    #[test]
+    fn threshold_respects_validation_fpir_cap() {
+        let rows=vec![
+            query("q1","s1",true,0.9,Some(0.9),Some((1,1)),"a"),
+            query("q2","s2",true,0.7,Some(0.6),Some((2,2)),"a"),
+            query("q3","unknown1",false,0.8,None,None,"unknown"),
+            query("q4","unknown2",false,0.2,None,None,"unknown"),
+        ];
+        let threshold=select_threshold(&rows,0.0);
+        assert_eq!(threshold,Some(0.9));
+        let rates=compute_rates(&rows,threshold);
+        assert_eq!(rates.false_positive_identification_rate,0.0);
+        assert_eq!(rates.false_negative_rank1,0.5);
+    }
+
+    #[test]
+    fn zero_observed_fp_does_not_pass_rare_event_gate() {
+        let interval=Interval{low:0.0,high:0.0,valid_replicates:1000};
+        let rates=Rates{mated_queries:10,nonmated_queries:10,false_negative_rank1:0.5,false_negative_rank3:0.4,false_negative_rank5:0.3,false_negative_rank10:0.0,false_positive_identification_rate:0.0,correct_identification_precision:0.5};
+        let report=build_report(&[],&[],Some(0.9),0.01,rates,rates,(interval,interval,interval),1000,1,false,10);
+        assert!(report.contains("INCONCLUSIVE_ZERO_FPIR_CANNOT_BOUND_RARE_EVENT_RISK"));
+    }
+
+    #[test]
+    fn tied_target_uses_fractional_credit() {
+        let q=query("q","s1",true,0.9,Some(0.5),Some((1,2)),"a");
+        assert_eq!(compute_rates(&[q],Some(0.5)).false_negative_rank1,0.5);
+    }
+
+    #[test]
+    fn bootstrap_is_deterministic() {
+        let rows=vec![
+            query("q1","s1",true,0.9,Some(0.9),Some((1,1)),"a"),
+            query("q2","s2",true,0.7,Some(0.5),Some((2,2)),"a"),
+            query("q3","u1",false,0.4,None,None,"b"),
+            query("q4","u2",false,0.2,None,None,"b"),
+        ];
+        let a=bootstrap_rates(&rows,Some(0.5),300,9901);
+        let b=bootstrap_rates(&rows,Some(0.5),300,9901);
+        assert_eq!(a.0.low.to_bits(),b.0.low.to_bits());
+        assert_eq!(a.2.high.to_bits(),b.2.high.to_bits());
+        assert_eq!(a.0.valid_replicates,300);
+    }
+}
