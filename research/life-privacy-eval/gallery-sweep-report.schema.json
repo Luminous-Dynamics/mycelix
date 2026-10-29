@@ -9,6 +9,8 @@
     "evaluation_mode",
     "seed",
     "requested_bootstrap_replicates",
+    "per_draw_subject_risk_bound_policy",
+    "per_draw_subject_risk_bound_alpha",
     "gallery_sampling",
     "gallery_sizes",
     "max_fpir_target",
@@ -175,7 +177,134 @@
                 "$ref": "#/$defs/intervals"
               },
               "per_gallery_draw_test_metrics": {
-                "type": "array"
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "required": [
+                    "draw_id",
+                    "mated_queries",
+                    "nonmated_queries",
+                    "fpir",
+                    "subject_level_any_false_identification"
+                  ],
+                  "properties": {
+                    "draw_id": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "mated_queries": {
+                      "type": "integer",
+                      "minimum": 0
+                    },
+                    "nonmated_queries": {
+                      "type": "integer",
+                      "minimum": 0
+                    },
+                    "fnir_at_rank_1": {
+                      "type": [
+                        "number",
+                        "null"
+                      ],
+                      "minimum": 0,
+                      "maximum": 1
+                    },
+                    "fnir_at_rank_3": {
+                      "type": [
+                        "number",
+                        "null"
+                      ],
+                      "minimum": 0,
+                      "maximum": 1
+                    },
+                    "fnir_at_rank_5": {
+                      "type": [
+                        "number",
+                        "null"
+                      ],
+                      "minimum": 0,
+                      "maximum": 1
+                    },
+                    "fnir_at_rank_10": {
+                      "type": [
+                        "number",
+                        "null"
+                      ],
+                      "minimum": 0,
+                      "maximum": 1
+                    },
+                    "fpir": {
+                      "type": [
+                        "number",
+                        "null"
+                      ],
+                      "minimum": 0,
+                      "maximum": 1
+                    },
+                    "subject_level_any_false_identification": {
+                      "type": "object",
+                      "required": [
+                        "status",
+                        "eligible_nonmated_subjects",
+                        "subjects_with_any_false_identification",
+                        "observed_rate",
+                        "exact_one_sided_upper_bound",
+                        "alpha",
+                        "confidence_method",
+                        "assumptions"
+                      ],
+                      "properties": {
+                        "status": {
+                          "enum": [
+                            "NO_VALIDATION_THRESHOLD_INCONCLUSIVE",
+                            "NO_ELIGIBLE_NONMATED_SUBJECTS",
+                            "CONDITIONAL_SUBJECT_CLUSTER_BOUND"
+                          ]
+                        },
+                        "eligible_nonmated_subjects": {
+                          "type": "integer",
+                          "minimum": 0
+                        },
+                        "subjects_with_any_false_identification": {
+                          "type": [
+                            "integer",
+                            "null"
+                          ],
+                          "minimum": 0
+                        },
+                        "observed_rate": {
+                          "type": [
+                            "number",
+                            "null"
+                          ],
+                          "minimum": 0,
+                          "maximum": 1
+                        },
+                        "exact_one_sided_upper_bound": {
+                          "type": [
+                            "number",
+                            "null"
+                          ],
+                          "minimum": 0,
+                          "maximum": 1
+                        },
+                        "alpha": {
+                          "type": "number",
+                          "exclusiveMinimum": 0,
+                          "maximum": 1
+                        },
+                        "confidence_method": {
+                          "const": "one_sided_exact_clopper_pearson_binomial_upper_bound"
+                        },
+                        "assumptions": {
+                          "type": "string",
+                          "minLength": 1
+                        }
+                      },
+                      "additionalProperties": false
+                    }
+                  },
+                  "additionalProperties": true
+                }
               },
               "validation_metrics_by_stratum": {
                 "type": "array",
@@ -246,7 +375,134 @@
                 "$ref": "#/$defs/intervals"
               },
               "per_gallery_draw_test_metrics": {
-                "type": "array"
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "required": [
+                    "draw_id",
+                    "mated_queries",
+                    "nonmated_queries",
+                    "fpir",
+                    "subject_level_any_false_identification"
+                  ],
+                  "properties": {
+                    "draw_id": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "mated_queries": {
+                      "type": "integer",
+                      "minimum": 0
+                    },
+                    "nonmated_queries": {
+                      "type": "integer",
+                      "minimum": 0
+                    },
+                    "fnir_at_rank_1": {
+                      "type": [
+                        "number",
+                        "null"
+                      ],
+                      "minimum": 0,
+                      "maximum": 1
+                    },
+                    "fnir_at_rank_3": {
+                      "type": [
+                        "number",
+                        "null"
+                      ],
+                      "minimum": 0,
+                      "maximum": 1
+                    },
+                    "fnir_at_rank_5": {
+                      "type": [
+                        "number",
+                        "null"
+                      ],
+                      "minimum": 0,
+                      "maximum": 1
+                    },
+                    "fnir_at_rank_10": {
+                      "type": [
+                        "number",
+                        "null"
+                      ],
+                      "minimum": 0,
+                      "maximum": 1
+                    },
+                    "fpir": {
+                      "type": [
+                        "number",
+                        "null"
+                      ],
+                      "minimum": 0,
+                      "maximum": 1
+                    },
+                    "subject_level_any_false_identification": {
+                      "type": "object",
+                      "required": [
+                        "status",
+                        "eligible_nonmated_subjects",
+                        "subjects_with_any_false_identification",
+                        "observed_rate",
+                        "exact_one_sided_upper_bound",
+                        "alpha",
+                        "confidence_method",
+                        "assumptions"
+                      ],
+                      "properties": {
+                        "status": {
+                          "enum": [
+                            "NO_VALIDATION_THRESHOLD_INCONCLUSIVE",
+                            "NO_ELIGIBLE_NONMATED_SUBJECTS",
+                            "CONDITIONAL_SUBJECT_CLUSTER_BOUND"
+                          ]
+                        },
+                        "eligible_nonmated_subjects": {
+                          "type": "integer",
+                          "minimum": 0
+                        },
+                        "subjects_with_any_false_identification": {
+                          "type": [
+                            "integer",
+                            "null"
+                          ],
+                          "minimum": 0
+                        },
+                        "observed_rate": {
+                          "type": [
+                            "number",
+                            "null"
+                          ],
+                          "minimum": 0,
+                          "maximum": 1
+                        },
+                        "exact_one_sided_upper_bound": {
+                          "type": [
+                            "number",
+                            "null"
+                          ],
+                          "minimum": 0,
+                          "maximum": 1
+                        },
+                        "alpha": {
+                          "type": "number",
+                          "exclusiveMinimum": 0,
+                          "maximum": 1
+                        },
+                        "confidence_method": {
+                          "const": "one_sided_exact_clopper_pearson_binomial_upper_bound"
+                        },
+                        "assumptions": {
+                          "type": "string",
+                          "minLength": 1
+                        }
+                      },
+                      "additionalProperties": false
+                    }
+                  },
+                  "additionalProperties": true
+                }
               },
               "test_metrics_by_stratum": {
                 "type": "array",
@@ -315,6 +571,15 @@
     "requested_bootstrap_replicates": {
       "type": "integer",
       "minimum": 100
+    },
+    "per_draw_subject_risk_bound_policy": {
+      "type": "string",
+      "minLength": 1
+    },
+    "per_draw_subject_risk_bound_alpha": {
+      "type": "number",
+      "exclusiveMinimum": 0,
+      "maximum": 1
     }
   },
   "$defs": {
