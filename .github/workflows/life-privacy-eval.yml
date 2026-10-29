@@ -91,7 +91,7 @@ jobs:
           assert all(scenario["required"] for scenario in matrix["scenarios"])
           retrieval_schema = json.loads((root / "retrieval-report.schema.json").read_text())
           assert retrieval_schema["$schema"] == "https://json-schema.org/draft/2020-12/schema"
-          assert manifest["version"] == "0.5.0"
+          assert manifest["version"] == "0.6.0"
           assert manifest["retrieval_report_schema_file"] == "retrieval-report.schema.json"
           assert manifest["retrieval_evaluation"]["mode"] == "closed_set_ranked_reidentification"
           assert retrieval_schema["properties"]["overall_release_gate"]["const"] == "NOT_EVALUATED_RETRIEVAL_ONLY_UTILITY_AND_CONFORMANCE_MISSING"
@@ -120,6 +120,8 @@ jobs:
           assert not train_subjects.intersection({row[1] for row in truth_rows} | {row[3] for row in truth_rows})
           open_schema = json.loads((root / "open-set-report.schema.json").read_text())
           assert open_schema["$schema"] == "https://json-schema.org/draft/2020-12/schema"
+          assert open_schema["properties"]["schema_version"]["const"] == "1.1"
+          assert manifest["open_set_evaluation"]["subject_level_risk_bound"]["zero_event_subject_clusters_for_target_1pct_at_95pct"] == 14979
           assert manifest["open_set_evaluation"]["report_schema_file"] == "open-set-report.schema.json"
           assert open_schema["properties"]["evaluation_mode"]["const"] == "validation_locked_open_set_identification"
           assert open_schema["properties"]["overall_release_gate"]["const"] == "NOT_EVALUATED_OPEN_SET_UTILITY_AND_CONFORMANCE_MISSING"
@@ -305,11 +307,12 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          cargo +1.96.0 run --quiet --locked --release --manifest-path research/life-privacy-eval/Cargo.toml -- open-set research/life-privacy-eval/fixtures/open-set-validation-truth.tsv research/life-privacy-eval/fixtures/open-set-validation-scores.tsv research/life-privacy-eval/fixtures/open-set-test-truth.tsv research/life-privacy-eval/fixtures/open-set-test-scores.tsv research/life-privacy-eval/fixtures/open-set-training-subjects.txt target/life-privacy-eval/open-set-report-a.json 0.0 300 9901
-          cargo +1.96.0 run --quiet --locked --release --manifest-path research/life-privacy-eval/Cargo.toml -- open-set research/life-privacy-eval/fixtures/open-set-validation-truth.tsv research/life-privacy-eval/fixtures/open-set-validation-scores.tsv research/life-privacy-eval/fixtures/open-set-test-truth.tsv research/life-privacy-eval/fixtures/open-set-test-scores.tsv research/life-privacy-eval/fixtures/open-set-training-subjects.txt target/life-privacy-eval/open-set-report-b.json 0.0 300 9901
+          cargo +1.96.0 run --quiet --locked --release --manifest-path research/life-privacy-eval/Cargo.toml -- open-set research/life-privacy-eval/fixtures/open-set-validation-truth.tsv research/life-privacy-eval/fixtures/open-set-validation-scores.tsv research/life-privacy-eval/fixtures/open-set-test-truth.tsv research/life-privacy-eval/fixtures/open-set-test-scores.tsv research/life-privacy-eval/fixtures/open-set-training-subjects.txt target/life-privacy-eval/open-set-report-a.json 0.01 300 9901
+          cargo +1.96.0 run --quiet --locked --release --manifest-path research/life-privacy-eval/Cargo.toml -- open-set research/life-privacy-eval/fixtures/open-set-validation-truth.tsv research/life-privacy-eval/fixtures/open-set-validation-scores.tsv research/life-privacy-eval/fixtures/open-set-test-truth.tsv research/life-privacy-eval/fixtures/open-set-test-scores.tsv research/life-privacy-eval/fixtures/open-set-training-subjects.txt target/life-privacy-eval/open-set-report-b.json 0.01 300 9901
           cmp target/life-privacy-eval/open-set-report-a.json target/life-privacy-eval/open-set-report-b.json
           python3 - <<'PY'
           import json
+          import math
           from pathlib import Path
           schema = json.loads(Path("research/life-privacy-eval/open-set-report.schema.json").read_text())
           report = json.loads(Path("target/life-privacy-eval/open-set-report-a.json").read_text())
@@ -318,7 +321,7 @@ jobs:
           assert report["threshold_selection"] == "validation_only_maximize_rank1_identification_subject_to_fpir_cap"
           assert report["threshold_source"] == "validation_only_locked_before_test"
           assert report["threshold"] == 0.95
-          assert report["max_fpir_target"] == 0.0
+          assert report["max_fpir_target"] == 0.01
           assert report["validation_mated_queries"] == 2 and report["validation_nonmated_queries"] == 2
           assert report["validation_fnir_rank1"] == 0.5 and report["validation_fpir"] == 0.0
           assert report["validation_false_identifications"] == 0
@@ -329,8 +332,18 @@ jobs:
           assert report["false_identifications"] == 0
           assert report["false_positive_identification_rate"] == 0.0
           assert report["fpir_resolution"] == 0.5
+          assert report["subject_fp_rate_bound_method"] == "one_sided_hoeffding_upper_bound_on_subject_level_any_session_false_identification"
+          assert report["subject_fp_rate_confidence_level"] == 0.95
+          assert report["validation_nonmated_subject_clusters"] == 2
+          assert report["validation_subjects_with_any_false_identification"] == 0
+          assert report["test_nonmated_subject_clusters"] == 2
+          assert report["test_subjects_with_any_false_identification"] == 0
+          expected_upper = min(1.0, math.sqrt(math.log(20.0) / 4.0))
+          assert abs(report["test_subject_any_false_identification_upper95"] - expected_upper) < 1e-8
+          assert report["test_subject_any_false_identification_upper95"] > report["max_fpir_target"]
+          assert report["nonmated_subject_clusters_required_for_zero_event_bound"] == 14979
           assert report["correct_identification_precision"] == 1.0
-          assert report["rare_event_inference_status"] == "ZERO_FALSE_IDENTIFICATIONS_DO_NOT_CERTIFY_TAIL_RISK"
+          assert report["rare_event_inference_status"] == "SUBJECT_CLUSTER_UPPER_BOUND_EXCEEDS_TARGET"
           assert report["sample_size_gate"] == "SMOKE_ONLY_BELOW_MINIMUM"
           assert report["operating_point_gate"] == "NOT_EVALUATED_BELOW_SAMPLE_MINIMUM"
           assert report["task_utility_evidence_present"] is False
