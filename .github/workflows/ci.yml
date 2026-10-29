@@ -457,6 +457,7 @@ jobs:
           jq empty research/terra-preta/tools/biochar-audit/audit-report.schema.json
           jq empty research/terra-preta/tools/prediction-audit/prediction-report.schema.json
           jq empty research/terra-preta/tools/split-audit/split-audit-report.schema.json
+          jq empty research/terra-preta/source-register.schema.json
       - name: Format standalone audit tools
         run: |
           cargo fmt --manifest-path research/terra-preta/tools/biochar-audit/Cargo.toml -- --check
