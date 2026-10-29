@@ -27,7 +27,7 @@ cargo run --release --manifest-path research/terra-preta/tools/split-audit/Cargo
 
 Run it independently for every required grouping dimension, e.g. `source_study_id`, `site_id`, or `material_batch_id`. The reported grouping-key label records the reviewed dimension selected by the caller; it does not prove that the CSV's `group_id` values correspond correctly to that dimension.
 
-The report contains SHA-256 of the original manifest bytes and a digest of canonical group-to-split assignments. A change to source rows or group assignments changes the corresponding digest.
+The report contains SHA-256 of the original manifest bytes, a digest of canonical group-to-split assignments, and only the input filename rather than the full local path. A change to source rows or group assignments changes the corresponding digest.
 
 ## Interpretation limits
 
