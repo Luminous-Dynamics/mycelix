@@ -237,3 +237,26 @@ It does not authorize deployment, change entitlement/legal authority, create a n
 - Grimm et al. (2023), [How to keep it adequate: A protocol for ensuring validity in agent-based simulation](https://doi.org/10.1016/J.ENVSOFT.2022.105559). Treats validity as context-dependent and requires uncertainty and methods to remain coherent throughout the modelling process.
 - NIST (2026), [TEVV-Athlon Framework for Evaluating AI Systems](https://www.nist.gov/artificial-intelligence/ai-research/tevv-athlon-framework-evaluating-ai-systems). A draft framework for structured test, evaluation, verification and validation.
 - Shavazipour & Stewart (2026), [A novel multi-stage multi-scenario multi-objective optimisation framework for adaptive robust decision-making under deep uncertainty](https://doi.org/10.1016/j.omega.2025.103405). A relevant adjacent approach to multi-objective decisions under deep uncertainty, not proof that one algorithm is universally best.
+
+
+## 13. Machine-readable split preregistration
+
+The accompanying schema and template make the split lifecycle explicit:
+
+- `schemas/CECB_MODEL_FAMILY_SPLIT_PREREGISTRATION_V0_1.schema.json` defines a strict `cecb.model_family_split_preregistration.v0.1` contract.
+- `fixtures/CECB_MODEL_FAMILY_SPLIT_PREREGISTRATION_V0_1.template.json` is **template-only**, with unresolved simulator/outcome/policy digests, no holdout commitment, no practical-effect threshold, and a `design_only` claim ceiling. It is not eligible to run a qualification tournament.
+- A registered manifest must bind exact simulator, outcome-contract, and policy-set SHA-256 digests; choose the primary outcome and practical-effect threshold; enumerate hard guardrails and required diagnostics; and carry a salted commitment to the evaluator-held holdout family manifest.
+- The commitment profile is domain-separated SHA-256 over the exact UTF-8 prefix `CECB-ROBUST-001:qualification-holdout:v0.1\n`, 32 raw salt bytes, and the held-out manifest's RFC 8785 JCS bytes. The salt and family membership stay with the independent evaluator until policy outputs and scoring artifacts are frozen. After reveal, anyone with the manifest and salt can recompute the commitment. Use a cryptographically random 256-bit salt; do not publish it early or reuse it.
+- Record the exact Git commit that first contains the commitment in the external run/evaluation receipt. Do not place a commit SHA inside the same file whose own commit is being identified (a self-reference would be impossible to satisfy cleanly).
+- The schema enforces field shape and lifecycle rules. It does **not** by itself verify that descriptor hashes are correct, the holdout is semantically distinct, the salt has sufficient entropy, the evaluator is independent, or the model-family split was actually kept secret. The runner/verifier must recompute hashes and audit those conditions.
+
+### Compose instead of duplicating
+
+Reuse existing Mycelix NRVCA work for adjacent capabilities:
+
+- [NRVCA-004 / #5399](https://github.com/Luminous-Dynamics/mycelix/issues/5399) already defines a tiny exhaustive known-answer oracle for constrained service allocation and outcome-specific regret on synthetic instances.
+- [NRVCA-005 / #5409](https://github.com/Luminous-Dynamics/mycelix/issues/5409) already owns coherent, correlated stress futures, scenario-neutral robust-feasibility and conditional vulnerability reporting.
+- [NRVCA-006 / #5417](https://github.com/Luminous-Dynamics/mycelix/issues/5417) owns machine-checkable scenario evidence provenance, dependencies and history.
+- [NRVCA-007 / #5419](https://github.com/Luminous-Dynamics/mycelix/issues/5419) already owns multi-objective Pareto fronts and per-constraint violation vectors.
+
+CECB's distinct contribution is **institutional policy comparison across held-out structural model families** in the Civilization Twin, with the candidate/evaluator separation and policy tuning firewall. Reuse the NRVCA stress scenarios and Pareto/constraint diagnostics where semantically appropriate; do not copy their water-service evaluator into a second CECB scoring engine. A family holdout is not the same as a correlated scenario holdout: a stress scenario changes the future conditions, while a model-family holdout tests a different account of how the system responds.
