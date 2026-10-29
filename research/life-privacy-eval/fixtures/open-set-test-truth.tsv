@@ -13,4 +13,5 @@ test_q_u3	unknown_test_3	cand_c	subject_c	0	test_unknown_high
 test_q_u3	unknown_test_3	cand_d	subject_d	0	test_unknown_high
 test_q_u4	unknown_test_4	cand_a	subject_a	0	test_unknown_low
 test_q_u4	unknown_test_4	cand_b	subject_b	0	test_unknown_low
-test_q_u4	cand_unk_subject	subject_c	0	test_unknown_low
+test_q_u4	unknown_test_4	cand_c	subject_c	0	test_unknown_low
+test_q_u4	unknown_test_4	cand_d	subject_d	0	test_unknown_low
