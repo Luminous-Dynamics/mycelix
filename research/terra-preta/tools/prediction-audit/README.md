@@ -22,13 +22,13 @@ cargo run --release --manifest-path research/terra-preta/tools/prediction-audit/
   /path/to/held-out-predictions.csv /path/to/prediction-report.json
 ```
 
-An optional third argument fixes the bootstrap RNG seed. Otherwise, a stable default is used. The JSON output contains a SHA-256 digest of the exact CSV bytes, observation and group counts, candidate/baseline MAE and RMSE, candidate signed bias, empirical prediction-interval coverage and width, relative MAE improvement, and a 95% percentile interval from 2,000 group-cluster bootstrap replicates. The report stores only the input filename, not the full local path. The CLI refuses to overwrite the input file if the report path resolves to the same file.
+An optional third argument fixes the bootstrap RNG seed. Otherwise, a stable default is used. The JSON output contains a SHA-256 digest of the exact CSV bytes, observation and group counts, candidate/baseline MAE and RMSE, candidate signed bias, empirical coverage and width of the candidate's nominal 90% prediction intervals, the mean 90% interval score, relative MAE improvement, and a 95% percentile interval from 2,000 group-cluster bootstrap replicates. The interval score is width plus a penalty of 20 times the distance for a miss outside the interval; lower scores are better, balancing sharpness and coverage. The report stores only the input filename, not the full local path. The CLI refuses to overwrite the input file if the report path resolves to the same file.
 
 ## Interpretation
 
 - A positive relative MAE improvement means the candidate's MAE is lower than the supplied baseline's MAE on this file.
 - The bootstrap resamples whole groups, preserving all rows in each sampled group; it is not a row-wise bootstrap.
-- Prediction-interval coverage is descriptive for the supplied held-out observations. It does not demonstrate calibration on future or shifted populations.
+- Prediction-interval coverage is descriptive for the supplied held-out observations. The evaluator assumes the supplied intervals are nominal 90% intervals and records that assumption. The interval score is a proper score for that nominal level, but neither metric demonstrates calibration on future or shifted populations.
 - If baseline MAE is zero, relative improvement is undefined and no relative-improvement interval is reported.
 - A confidence interval excluding zero does not prove causal identification, field efficacy, safety, profitability, or regulatory compliance.
 - The input's held-out status, split integrity, source crosswalk, and model freeze must be verified separately. Run the split-manifest verifier and preserve the frozen split manifest alongside the report.
