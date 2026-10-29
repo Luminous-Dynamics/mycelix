@@ -562,6 +562,58 @@ mod tests {
         assert_eq!(a.0.valid_replicates, 300);
     }
 
+    fn two_subject_fixture() -> (Vec<TruthRow>, HashMap<(String, String), f64>) {
+        let truth = vec![
+            TruthRow { query_id:"q1".into(), query_subject:"s1".into(), candidate_id:"c1".into(), candidate_subject:"s1".into(), true_match:true, stratum:"smoke".into() },
+            TruthRow { query_id:"q1".into(), query_subject:"s1".into(), candidate_id:"c2".into(), candidate_subject:"s2".into(), true_match:false, stratum:"smoke".into() },
+            TruthRow { query_id:"q2".into(), query_subject:"s2".into(), candidate_id:"c1".into(), candidate_subject:"s1".into(), true_match:false, stratum:"smoke".into() },
+            TruthRow { query_id:"q2".into(), query_subject:"s2".into(), candidate_id:"c2".into(), candidate_subject:"s2".into(), true_match:true, stratum:"smoke".into() },
+        ];
+        let scores = HashMap::from([
+            (("q1".into(), "c1".into()), 0.9),
+            (("q1".into(), "c2".into()), 0.1),
+            (("q2".into(), "c1".into()), 0.8),
+            (("q2".into(), "c2".into()), 0.2),
+        ]);
+        (truth, scores)
+    }
+
+    #[test]
+    fn retrieval_training_test_identity_overlap_fails_closed() {
+        let (truth, scores) = two_subject_fixture();
+        let training = HashSet::from(["s1".to_owned()]);
+        assert!(validate_and_rank(truth, scores, &training).is_err());
+    }
+
+    #[test]
+    fn retrieval_score_join_rejects_missing_and_extra_rows() {
+        let (truth, mut scores) = two_subject_fixture();
+        scores.remove(&("q2".to_owned(), "c2".to_owned()));
+        assert!(validate_and_rank(truth, scores, &HashSet::new()).is_err());
+
+        let (truth, mut scores) = two_subject_fixture();
+        scores.insert(("unexpected".to_owned(), "candidate".to_owned()), 0.4);
+        assert!(validate_and_rank(truth, scores, &HashSet::new()).is_err());
+    }
+
+    #[test]
+    fn retrieval_requires_the_same_candidate_pool_for_each_query() {
+        let (mut truth, mut scores) = two_subject_fixture();
+        truth.retain(|row| !(row.query_id == "q2" && row.candidate_id == "c2"));
+        scores.remove(&("q2".to_owned(), "c2".to_owned()));
+        assert!(validate_and_rank(truth, scores, &HashSet::new()).is_err());
+    }
+
+    #[test]
+    fn retrieval_report_does_not_claim_a_privacy_or_release_pass() {
+        let (truth, scores) = two_subject_fixture();
+        let queries = validate_and_rank(truth, scores, &HashSet::new()).unwrap();
+        let report = build_report(&queries, 100, 9901);
+        assert!(report.contains("SMOKE_ONLY_BELOW_MINIMUM"));
+        assert!(report.contains("NOT_EVALUATED_RETRIEVAL_ONLY_UTILITY_AND_CONFORMANCE_MISSING"));
+        assert!(report.contains("does not estimate an effective anonymity set"));
+    }
+
     #[test]
     fn fractional_tie_policy_does_not_depend_on_candidate_identifier_order() {
         let a = rank_query(
