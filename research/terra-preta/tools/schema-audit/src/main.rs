@@ -45,7 +45,9 @@ fn validate_schema(schema_bytes: &[u8], label: &str) -> Result<Value, Box<dyn Er
         .map_err(|error| format!("{label}: invalid JSON: {error}"))?;
     jsonschema::meta::validate(&schema)
         .map_err(|error| format!("{label}: invalid JSON Schema: {error}"))?;
-    jsonschema::validator_for(&schema)
+    jsonschema::options()
+        .should_validate_formats(true)
+        .build(&schema)
         .map_err(|error| format!("{label}: cannot build validator: {error}"))?;
     Ok(schema)
 }
@@ -58,7 +60,9 @@ fn validate_instance(
 ) -> Result<(), Box<dyn Error>> {
     let instance: Value = serde_json::from_slice(instance_bytes)
         .map_err(|error| format!("{instance_label}: invalid JSON: {error}"))?;
-    let validator = jsonschema::validator_for(schema)
+    let validator = jsonschema::options()
+        .should_validate_formats(true)
+        .build(schema)
         .map_err(|error| format!("{schema_label}: cannot build validator: {error}"))?;
     let errors: Vec<String> = validator
         .iter_errors(&instance)
@@ -158,9 +162,24 @@ mod tests {
     #[test]
     fn source_register_conforms_to_its_schema() {
         let schema: Value = serde_json::from_str(SCHEMA_FIXTURES[6].1).unwrap();
-        let validator = jsonschema::validator_for(&schema).unwrap();
+        let validator = jsonschema::options()
+            .should_validate_formats(true)
+            .build(&schema)
+            .unwrap();
         let register: Value = serde_json::from_str(SOURCE_REGISTER).unwrap();
         assert!(validator.is_valid(&register));
+    }
+
+    #[test]
+    fn rejects_source_register_with_invalid_date_format() {
+        let schema: Value = serde_json::from_str(SCHEMA_FIXTURES[6].1).unwrap();
+        let validator = jsonschema::options()
+            .should_validate_formats(true)
+            .build(&schema)
+            .unwrap();
+        let mut register: Value = serde_json::from_str(SOURCE_REGISTER).unwrap();
+        register["reviewed_on"] = json!("29-10-2026");
+        assert!(!validator.is_valid(&register));
     }
 
     #[test]
