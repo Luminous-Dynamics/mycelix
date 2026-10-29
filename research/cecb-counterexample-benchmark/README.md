@@ -2,7 +2,7 @@
 
 **Status:** deterministic synthetic reference landscapes and a scoring oracle. This is not an economic simulator, policy ranking, real-world evidence, or a claim that any discovery method is superior.
 
-The dependency-free Rust crate provides known-truth landscapes, a scorer, a candidate/evaluator protocol, and a transparent univariate-threshold discovery baseline. It does **not** yet implement PRIM, CART, an oblique tree, or a Symthaea-guided search. The threshold learner gives us a reproducible reference method before adding more sophisticated methods.
+The dependency-free Rust crate provides known-truth landscapes, a scorer, a candidate/evaluator protocol, a budgeted univariate-threshold learner, and a bounded exhaustive axis-aligned-box learner for one/two dimensions. It does **not** yet implement PRIM, CART, an oblique tree, or a Symthaea-guided search. These simple, auditable baselines establish a reproducible floor before more sophisticated methods are added.
 
 ## Run
 
@@ -11,6 +11,7 @@ cargo fmt --manifest-path research/cecb-counterexample-benchmark/Cargo.toml -- -
 cargo test --locked --manifest-path research/cecb-counterexample-benchmark/Cargo.toml
 cargo run --locked --manifest-path research/cecb-counterexample-benchmark/Cargo.toml
 cargo run --locked --manifest-path research/cecb-counterexample-benchmark/Cargo.toml --bin cecb-tournament
+cargo run --locked --manifest-path research/cecb-counterexample-benchmark/Cargo.toml --bin cecb-box-tournament
 ```
 
 The CLI emits deterministic JSON Lines: 18 per-rule score records plus three exhaustive box-search summaries. Score records include exact confusion counts and precision/recall numerator-denominator pairs. Search summaries expose the number of distinct prediction regions, Pareto-front size, maximum true positives, minimum false positives at that coverage, and whether exact recovery exists. Undefined precision/recall remains JSON `null`, never silently zero-filled.
@@ -60,6 +61,22 @@ The `cecb-tournament` binary emits three JSONL receipts for budgets 3, 5, and 9 
 All three fits are evaluated on family B while discovery sees family A's observed labels. More training examples recover the family-A boundary but do not resolve the structural reversal. The receipts bind each run to the exact checkout SHA, the pull-request head SHA, and the SHA-256 of the committed split manifest; they record evaluator and method versions, declare that no random seed is used, include the trusted query trace, and expose the confusion counts. CI verifies the manifest digest format and contents, reruns the binary, and byte-compares the receipts.
 
 This is one simple baseline and one tiny negative control, **not** a competition against SOTA. The labelled-row budget is enforced by the in-process oracle for this reference baseline; it does not meter arbitrary external simulator calls. A real tournament must isolate each candidate, give it only the candidate view and oracle capability, instrument all calls in a trusted harness, and record wall time and peak memory independently.
+
+## Two-dimensional box hypothesis tournament
+
+The `discover_exhaustive_axis_box` baseline fits an axis-aligned conjunction of one/two feature intervals by enumerating the bounded box hypothesis class over the labelled development observations. It minimizes training classification errors, then rule complexity, false positives, and predicted-positive count with deterministic tie-breaking. It requests each label through the budgeted oracle. This is deliberately called an **exhaustive box baseline**, not PRIM or CART, and it refuses dimensions greater than two.
+
+The `cecb-box-tournament` binary compares three known-truth shapes with the same 41 development-label queries and 40-point holdout. The expected known-answer receipts are:
+
+| Truth shape | Development errors | Rule complexity | Holdout TP | FP | FN | TN |
+|---|---:|---:|---:|---:|---:|---:|
+| Axis-aligned | 0 | 1 | 13 | 0 | 0 | 27 |
+| Oblique | 3 | 2 | 6 | 0 | 6 | 28 |
+| Nonlinear interaction | 5 | 2 | 3 | 0 | 5 | 32 |
+
+The axis-aligned case is exactly representable by one interval. The oblique and interaction cases expose a hypothesis-class limitation: this box learner chooses high-purity regions and therefore avoids false positives on this holdout, but it misses failures that the single box cannot cover. The reported values are deterministic known-answer expectations encoded in CI; they are not claimed as Rust-run results until that workflow completes. The fixture and all targets are public, so this is a regression/qualification suite rather than a blind generalization benchmark.
+
+Every receipt binds the exact checkout SHA, pull-request head SHA, and SHA-256 of the committed box-tournament manifest. It also records evaluator version, observation policy, query trace, development error, rule complexity, and held-out confusion counts. CI reruns the binary and byte-compares the output before validating the known answers.
 
 ## Candidate/evaluator protocol v0.1
 
