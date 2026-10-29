@@ -86,7 +86,6 @@ jobs:
               - 'docs/research/schemas/CECB_MODEL_FAMILY_SPLIT_PREREGISTRATION_V0_1.schema.json'
               - 'docs/research/fixtures/CECB_MODEL_FAMILY_SPLIT_PREREGISTRATION_V0_1.template.json'
               - '.github/workflows/ci.yml'
-              - '.github/workflows/cecb-robust-preregistration.yml'
 
 
   # CECB model-family split contract: no third-party schema runtime required.
@@ -105,7 +104,7 @@ jobs:
           jq -e . "$schema" >/dev/null
           jq -e . "$fixture" >/dev/null
           jq -e '
-            .["\$schema"] == "https://json-schema.org/draft/2020-12/schema"
+            .["$schema"] == "https://json-schema.org/draft/2020-12/schema"
             and .properties.schema_version.const == "cecb.model_family_split_preregistration.v0.1"
             and (.allOf | length == 2)
           ' "$schema" >/dev/null
@@ -137,7 +136,7 @@ jobs:
           for index in $(seq 0 "$((count - 1))"); do
             entry="$(jq -c ".development_set.model_families[$index]" "$fixture")"
             expected="$(jq -r '.descriptor_sha256' <<<"$entry")"
-            actual="$(jq -cS '.descriptor' <<<"$entry" | sha256sum | cut -d' ' -f1)"
+            actual="$(jq -cS -j '.descriptor' <<<"$entry" | sha256sum | cut -d' ' -f1)"
             test "$actual" = "$expected" || {
               echo "descriptor digest mismatch for $(jq -r '.descriptor.family_id' <<<"$entry")" >&2
               exit 1
