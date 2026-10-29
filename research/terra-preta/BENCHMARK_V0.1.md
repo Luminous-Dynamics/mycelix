@@ -145,7 +145,7 @@ No shared sample, repeat measurement, derived feature, or augmentation from a he
 | Independent review | Reproducible code/data path and reviewer disposition | Claim remains provisional |
 | Commercial release | Applicable registration and all relevant quality/legal obligations | Not eligible for sale/distribution |
 
-Exact chemical/biological acceptance thresholds must be specified for the actual formulation by qualified specialists and applicable rules; this benchmark does not invent universal thresholds.
+Exact chemical/biological acceptance thresholds must be specified for the actual formulation by qualified specialists and applicable rules; this benchmark does not invent universal thresholds. Industry certification schemes such as EBC/WBC provide useful quality-management, characterization, and traceability comparators, but their certification must not be presented as proof of site-specific crop efficacy or as a substitute for South African regulatory classification/registration.
 
 ## 7. Reporting contract
 
@@ -237,5 +237,6 @@ Maintain four separate data classes: (a) synthetic fixtures for software invaria
 - [Global synthesis of biochar field experiments on yield and water productivity (2024)](https://doi.org/10.1016/j.agwat.2024.109134).
 - [Systematic review: biochar and nutrient cycling in sandy soils (2024)](https://doi.org/10.1186/s13750-024-00326-5).
 - [Long-term soil hydraulic effects meta-analysis (2025)](https://doi.org/10.1016/j.geoderma.2025.117318).
-- [European Biochar Certificate guidelines](https://www.european-biochar.org/en/certificate).
-- [International Biochar Initiative standards](https://biochar-international.org/biochar-standards/).
+- [European Biochar Certificate (EBC) guidelines and updates](https://www.european-biochar.org/en/certificate) (the public update history lists v10.5E dated 14 August 2025).
+- [World Biochar Certificate / current industry certification context](https://biochar-international.org/biochar-testing-laboratories-for-certification/) (IBI reports that its former separate standard/certification program merged into the World Biochar Certificate administered by Carbon Standards International; verify the current standard and lab scope before a procurement decision).
+- [South African Agriculture Inputs Control](https://nda.gov.za/index.php/core-business/agricultural-production/inspection-services/agriculture-inputs-control) and [Act 36 of 1947](https://www.gov.za/documents/fertilizers-farm-feeds-seeds-and-remedies-act-28-may-2015-1101): request classification for the actual product, claims, and use before treating any registration path as known.
