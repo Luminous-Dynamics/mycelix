@@ -80,12 +80,12 @@ impl XorShift64 {
 pub fn run(args: &[String]) -> Result<(), Box<dyn Error>> {
     if args.get(2).is_some_and(|arg| arg == "--help" || arg == "-h") {
         println!(
-            "Usage: {} gallery-sweep <validation-query-truth.tsv> <validation-scores.tsv> <test-query-truth.tsv> <test-scores.tsv> <candidate-frame.tsv> <training-subjects.txt> <report.json> <max_fpir=0.01> <gallery-draws=100> <bootstrap-replicates=1000> <seed=9901> <gallery-sizes=100,1000,10000> [reference-size]",
+            "Usage: {} gallery-sweep <validation-query-truth.tsv> <validation-scores.tsv> <test-query-truth.tsv> <test-scores.tsv> <candidate-frame.tsv> <training-subjects.txt> <report.json> <max_fpir=0.01> <gallery-draws=100> <bootstrap-replicates=1000> <seed=9901> <gallery-sizes=100,1000,10000> [reference-size] [intended-operational-size]",
             args.first().map_or("life-privacy-eval", String::as_str)
         );
         return Ok(());
     }
-    if args.len() < 14 || args.len() > 15 {
+    if args.len() < 14 || args.len() > 16 {
         return Err("gallery-sweep usage: gallery-sweep <validation-query-truth.tsv> <validation-scores.tsv> <test-query-truth.tsv> <test-scores.tsv> <candidate-frame.tsv> <training-subjects.txt> <report.json> <max_fpir=0.01> <gallery-draws=100> <bootstrap-replicates=1000> <seed=9901> <gallery-sizes=100,1000,10000> [reference-size]".into());
     }
 
@@ -161,6 +161,12 @@ pub fn run(args: &[String]) -> Result<(), Box<dyn Error>> {
     if !sizes.contains(&reference_size) {
         return Err("reference-size must be one of the declared gallery sizes".into());
     }
+    let intended_operational_size = args.get(15)
+        .map(|value| value.parse::<usize>())
+        .transpose()?;
+    if intended_operational_size.is_some_and(|size| size == 0 || size < candidates.len()) {
+        return Err("intended-operational-size must be positive and at least as large as the largest evaluated gallery".into());
+    }
     let frozen_threshold = thresholds[&reference_size];
 
     let report = build_report(ReportContext {
@@ -172,6 +178,7 @@ pub fn run(args: &[String]) -> Result<(), Box<dyn Error>> {
         reference_size,
         frozen_threshold,
         candidate_count: candidates.len(),
+        intended_operational_size,
         validation_truth: &validation_truth,
         test_truth: &test_truth,
         max_fpir,
@@ -739,6 +746,7 @@ struct ReportContext<'a> {
     reference_size: usize,
     frozen_threshold: Option<f64>,
     candidate_count: usize,
+    intended_operational_size: Option<usize>,
     validation_truth: &'a [QueryTruth],
     test_truth: &'a [QueryTruth],
     max_fpir: f64,
@@ -757,6 +765,7 @@ fn build_report(context: ReportContext<'_>) -> String {
         reference_size,
         frozen_threshold,
         candidate_count,
+        intended_operational_size,
         validation_truth,
         test_truth,
         max_fpir,
@@ -764,6 +773,10 @@ fn build_report(context: ReportContext<'_>) -> String {
         bootstrap_replicates,
         seed,
     } = context;
+    let (operational_scale_gate, operational_size_ratio) =
+        operational_scale_metrics(candidate_count, intended_operational_size);
+    let declared_operational_size_json = intended_operational_size
+        .map_or_else(|| "null".to_owned(), |size| size.to_string());
     let draw_ids: Vec<String> = draws.iter().map(|draw| draw.draw_id.clone())
         .collect::<BTreeSet<_>>().into_iter().collect();
     let mut size_json = Vec::new();
@@ -808,12 +821,23 @@ fn build_report(context: ReportContext<'_>) -> String {
     }
 
     format!(
-        r#"{{"schema_version":"1.0","evaluator_version":"{}","evaluation_mode":"gallery_scaling_open_set_identification","attacker_performance_status":"NOT_MEASURED_PRECOMPUTED_SCORE_INPUTS","performance_measurement_scope":"Attack runtime, throughput, memory, payload bytes and energy are not measured because this evaluator consumes precomputed scores.","seed":{},"requested_bootstrap_replicates":{},"per_draw_subject_risk_bound_policy":"exact one-sided Clopper-Pearson with Bonferroni alpha 0.05 / (gallery_size_count * draw_count * 2 threshold policies), simultaneous across all reported size/draw/policy cells; assumes independent representative subjects conditional on each realized gallery","per_draw_subject_risk_bound_alpha":{},"gallery_sampling":{{"method":"deterministic_seeded_uniform_without_replacement_nested_prefix_draws","rng":"xorshift64","draw_count":{},"candidate_frame_size":{},"candidate_score_semantics":"pairwise_scores_are_assumed_gallery_invariant","uncertainty_scope":"conditional_on_candidate_frame; crossed query-subject and gallery-draw resampling","crossed_bootstrap_coverage_validation_status":"KNOWN_SPARSE_EVENT_UNDERCOVERAGE_DO_NOT_USE_FOR_CERTIFICATION"}},"gallery_sizes":{:?},"max_fpir_target":{},"validation_query_count":{},"validation_unique_query_subjects":{},"test_query_count":{},"test_unique_query_subjects":{},"threshold_policy":"validation-locked threshold selected independently per gallery size by maximizing expected rank-1 hit rate subject to empirical validation FPIR cap","frozen_threshold_policy":{{"reference_gallery_size":{},"threshold":{}}},"sample_size_gate":"SMOKE_ONLY_OR_RESEARCH_ONLY_UNTIL_PREREGISTERED_RELEASE_FLOORS_ARE_MET","operating_point_gate":"NOT_A_PRIVACY_PASS; empirical validation FPIR is not a confidence bound and crossed-bootstrap intervals have observed sparse-event undercoverage","size_results":[{}],"task_utility_evidence_present":false,"official_conformance_evidence_present":false,"overall_release_gate":"NOT_EVALUATED_CROSSED_GALLERY_EVIDENCE_IS_NOT_RELEASE_CERTIFICATION","limitations":["The candidate frame is fixed; inference does not generalize beyond its sampling frame without a separate transportability argument.","Scores are assumed invariant to candidate-set composition. Context-dependent scoring requires a separate score input for each draw and is not implemented in v0.9.","A finite-grid diagnostic reproduced substantial sparse-event undercoverage in the crossed percentile bootstrap; its intervals must not be used as certification evidence.","The score grid is complete over every query and every candidate in the supplied frame; very large benchmarks may need a streaming implementation.","A threshold selected on validation data is frozen for test evaluation. Test labels never select or retune thresholds.","A reduction in identification rates is not a formal unlinkability or differential-privacy guarantee."]}}"#,
-        VERSION, seed, bootstrap_replicates, 0.05 / draw_count as f64 / sizes.len() as f64 / 2.0, draw_count, candidate_count, sizes, max_fpir,
+        r#"{{"schema_version":"1.0","evaluator_version":"{}","evaluation_mode":"gallery_scaling_open_set_identification","attacker_performance_status":"NOT_MEASURED_PRECOMPUTED_SCORE_INPUTS","performance_measurement_scope":"Attack runtime, throughput, memory, payload bytes and energy are not measured because this evaluator consumes precomputed scores.","seed":{},"requested_bootstrap_replicates":{},"per_draw_subject_risk_bound_policy":"exact one-sided Clopper-Pearson with Bonferroni alpha 0.05 / (gallery_size_count * draw_count * 2 threshold policies), simultaneous across all reported size/draw/policy cells; assumes independent representative subjects conditional on each realized gallery","per_draw_subject_risk_bound_alpha":{},"gallery_sampling":{{"method":"deterministic_seeded_uniform_without_replacement_nested_prefix_draws","rng":"xorshift64","draw_count":{},"candidate_frame_size":{},"candidate_score_semantics":"pairwise_scores_are_assumed_gallery_invariant","uncertainty_scope":"conditional_on_candidate_frame; crossed query-subject and gallery-draw resampling","crossed_bootstrap_coverage_validation_status":"KNOWN_SPARSE_EVENT_UNDERCOVERAGE_DO_NOT_USE_FOR_CERTIFICATION"}},"gallery_sizes":{:?},"declared_operational_gallery_size":{},"largest_gallery_to_declared_operational_size_ratio":{},"operational_scale_gate":"{}","max_fpir_target":{},"validation_query_count":{},"validation_unique_query_subjects":{},"test_query_count":{},"test_unique_query_subjects":{},"threshold_policy":"validation-locked threshold selected independently per gallery size by maximizing expected rank-1 hit rate subject to empirical validation FPIR cap","frozen_threshold_policy":{{"reference_gallery_size":{},"threshold":{}}},"sample_size_gate":"SMOKE_ONLY_OR_RESEARCH_ONLY_UNTIL_PREREGISTERED_RELEASE_FLOORS_ARE_MET","operating_point_gate":"NOT_A_PRIVACY_PASS; empirical validation FPIR is not a confidence bound and crossed-bootstrap intervals have observed sparse-event undercoverage","size_results":[{}],"task_utility_evidence_present":false,"official_conformance_evidence_present":false,"overall_release_gate":"NOT_EVALUATED_CROSSED_GALLERY_EVIDENCE_IS_NOT_RELEASE_CERTIFICATION","limitations":["The candidate frame is fixed; inference does not generalize beyond its sampling frame without a separate transportability argument.","Scores are assumed invariant to candidate-set composition. Context-dependent scoring requires a separate score input for each draw and is not implemented in v0.9.","A finite-grid diagnostic reproduced substantial sparse-event undercoverage in the crossed percentile bootstrap; its intervals must not be used as certification evidence.","The score grid is complete over every query and every candidate in the supplied frame; very large benchmarks may need a streaming implementation.","A threshold selected on validation data is frozen for test evaluation. Test labels never select or retune thresholds.","A reduction in identification rates is not a formal unlinkability or differential-privacy guarantee."]}}"#,
+        VERSION, seed, bootstrap_replicates, 0.05 / draw_count as f64 / sizes.len() as f64 / 2.0, draw_count, candidate_count, sizes, declared_operational_size_json, metric_json(operational_size_ratio), operational_scale_gate, max_fpir,
         validation_truth.len(), unique_subject_count(validation_truth),
         test_truth.len(), unique_subject_count(test_truth),
         reference_size, metric_json(frozen_threshold), size_json.join(",")
     )
+}
+
+fn operational_scale_metrics(candidate_count: usize, intended_size: Option<usize>) -> (&'static str, Option<f64>) {
+    match intended_size {
+        None => ("NOT_DECLARED", None),
+        Some(0) => ("INVALID_DECLARATION", None),
+        Some(size) if candidate_count as u128 * 10 >= size as u128 * 9 => {
+            ("LARGEST_GALLERY_AT_LEAST_90_PERCENT_OF_DECLARED_OPERATIONAL_SIZE", Some(candidate_count as f64 / size as f64))
+        }
+        Some(size) => ("BELOW_90_PERCENT_OF_DECLARED_OPERATIONAL_SIZE", Some(candidate_count as f64 / size as f64)),
+    }
 }
 
 fn json_escape(value: &str) -> String {
@@ -860,6 +884,15 @@ mod tests {
             }
         }
         scores
+    }
+
+    #[test]
+    fn operational_size_gate_is_explicit_and_does_not_guess_missing_denominator() {
+        assert_eq!(operational_scale_metrics(90, Some(100)).0, "LARGEST_GALLERY_AT_LEAST_90_PERCENT_OF_DECLARED_OPERATIONAL_SIZE");
+        assert!((operational_scale_metrics(90, Some(100)).1.unwrap() - 0.9).abs() < 1e-12);
+        assert_eq!(operational_scale_metrics(89, Some(100)).0, "BELOW_90_PERCENT_OF_DECLARED_OPERATIONAL_SIZE");
+        assert_eq!(operational_scale_metrics(100, None), ("NOT_DECLARED", None));
+        assert_eq!(operational_scale_metrics(100, Some(0)).0, "INVALID_DECLARATION");
     }
 
     #[test]
@@ -954,6 +987,7 @@ mod tests {
             reference_size: 6,
             frozen_threshold: thresholds[&6],
             candidate_count: candidates.len(),
+            intended_operational_size: None,
             validation_truth: &validation,
             test_truth: &test,
             max_fpir: 0.01,
