@@ -2,7 +2,8 @@ use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
 use std::error::Error;
 use std::fs;
 
-const VERSION: &str = "0.5.0";
+const VERSION: &str = "0.6.0";
+const SUBJECT_RISK_ALPHA: f64 = 0.05;
 const DEFAULT_BOOTSTRAPS: usize = 1_000;
 const DEFAULT_SEED: u64 = 9_901;
 const MIN_QUERIES_PER_CLASS: usize = 2_000;
@@ -50,6 +51,14 @@ struct Rates {
     false_negative_rank10: f64,
     false_positive_identification_rate: f64,
     correct_identification_precision: Option<f64>,
+}
+
+#[derive(Clone, Copy, Debug)]
+struct SubjectRisk {
+    subjects: usize,
+    subjects_with_any_false_identification: usize,
+    empirical_rate: f64,
+    upper_bound_95: f64,
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -118,10 +127,13 @@ pub fn run(args: &[String]) -> Result<(), Box<dyn Error>> {
     let validation_rates = compute_rates(&validation, threshold);
     let test_rates = compute_rates(&test, threshold);
     let intervals = bootstrap_rates(&test, threshold, bootstraps, seed);
+    let validation_subject_risk = subject_risk(&validation, threshold);
+    let test_subject_risk = subject_risk(&test, threshold);
     let sample_size_met = meets_sample_minimums(&validation, &test, candidate_count);
     let report = build_report(
         &validation, &test, threshold, max_fpir, validation_rates, test_rates,
         intervals, bootstraps, seed, sample_size_met, candidate_count,
+        validation_subject_risk, test_subject_risk,
     );
     let report = format!("{report}\n");
     if report_path == "-" {
@@ -444,20 +456,72 @@ fn percentile_interval(mut values: Vec<f64>) -> Interval {
     Interval { low: quantile(0.025), high: quantile(0.975), valid_replicates: values.len() }
 }
 
+fn hoeffding_upper_bound_95(events: usize, independent_clusters: usize) -> f64 {
+    if independent_clusters == 0 {
+        return 1.0;
+    }
+    let empirical_rate = events.min(independent_clusters) as f64 / independent_clusters as f64;
+    let confidence_radius = ((1.0 / SUBJECT_RISK_ALPHA).ln()
+        / (2.0 * independent_clusters as f64)).sqrt();
+    (empirical_rate + confidence_radius).min(1.0)
+}
+
+fn subject_risk(rows: &[QueryResult], threshold: Option<f64>) -> SubjectRisk {
+    // One unknown subject is one Bernoulli unit. Repeated sessions count as a
+    // single event if any session falsely identifies a candidate.
+    let mut by_subject: BTreeMap<&str, bool> = BTreeMap::new();
+    for query in rows.iter().filter(|query| !query.matched) {
+        let crossed = threshold.is_some_and(|value| query.max_score >= value);
+        let event = by_subject.entry(query.query_subject.as_str()).or_insert(false);
+        *event |= crossed;
+    }
+    let subjects = by_subject.len();
+    let subjects_with_any_false_identification =
+        by_subject.values().filter(|&&event| event).count();
+    let empirical_rate = if subjects == 0 {
+        0.0
+    } else {
+        subjects_with_any_false_identification as f64 / subjects as f64
+    };
+    SubjectRisk {
+        subjects,
+        subjects_with_any_false_identification,
+        empirical_rate,
+        upper_bound_95: hoeffding_upper_bound_95(
+            subjects_with_any_false_identification,
+            subjects,
+        ),
+    }
+}
+
+fn required_subject_clusters_for_zero_event_bound(target: f64) -> Option<usize> {
+    if !target.is_finite() || target <= 0.0 || target > 1.0 {
+        return None;
+    }
+    let required = (1.0 / SUBJECT_RISK_ALPHA).ln() / (2.0 * target * target);
+    if !required.is_finite() || required > usize::MAX as f64 {
+        None
+    } else {
+        Some(required.ceil().max(1.0) as usize)
+    }
+}
+
 fn operating_point_gate(
     sample_size_met: bool,
-    observed_fpir: f64,
     fpir_interval: Interval,
+    subject_fp_upper95: f64,
     max_fpir: f64,
 ) -> &'static str {
     if !sample_size_met {
         "NOT_EVALUATED_BELOW_SAMPLE_MINIMUM"
-    } else if observed_fpir == 0.0 {
-        "INCONCLUSIVE_ZERO_FPIR_CANNOT_BOUND_RARE_EVENT_RISK"
-    } else if fpir_interval.high.is_finite() && fpir_interval.high <= max_fpir {
-        "PROVISIONAL_PASS_REQUIRES_REVIEW"
     } else if fpir_interval.low.is_finite() && fpir_interval.low > max_fpir {
         "FAIL"
+    } else if !subject_fp_upper95.is_finite()
+        || subject_fp_upper95 > max_fpir + f64::EPSILON
+    {
+        "INCONCLUSIVE_SUBJECT_LEVEL_UPPER_BOUND_EXCEEDS_TARGET"
+    } else if fpir_interval.high.is_finite() && fpir_interval.high <= max_fpir {
+        "PROVISIONAL_PASS_REQUIRES_REVIEW"
     } else {
         "INCONCLUSIVE"
     }
@@ -467,16 +531,21 @@ fn build_report(
     validation: &[QueryResult], test: &[QueryResult], threshold: Option<f64>, max_fpir: f64,
     validation_rates: Rates, test_rates: Rates, intervals: (Interval, Interval, Interval),
     bootstraps: usize, seed: u64, sample_size_met: bool, candidate_count: usize,
+    validation_subject_risk: SubjectRisk, test_subject_risk: SubjectRisk,
 ) -> String {
     let sample_gate = if sample_size_met { "MINIMUM_COUNTS_MET_REQUIRES_REVIEW" } else { "SMOKE_ONLY_BELOW_MINIMUM" };
     let operating_gate = operating_point_gate(
-        sample_size_met, test_rates.false_positive_identification_rate, intervals.2, max_fpir
+        sample_size_met, intervals.2, test_subject_risk.upper_bound_95, max_fpir
     );
     let val_threshold = threshold.map_or("null".to_owned(), |x| format!("{x:.8}"));
     let target_res = if test_rates.nonmated_queries == 0 { 0.0 } else { 1.0 / test_rates.nonmated_queries as f64 };
-    let rare_event = if test_rates.false_positive_identification_rate == 0.0 {
-        "ZERO_FALSE_IDENTIFICATIONS_DO_NOT_CERTIFY_TAIL_RISK"
-    } else { "CLUSTER_BOOTSTRAP_INTERVAL_REPORTED_NO_FORMAL_PRIVACY_GUARANTEE" };
+    let rare_event = if test_subject_risk.upper_bound_95 <= max_fpir {
+        "SUBJECT_CLUSTER_UPPER_BOUND_WITHIN_TARGET_NO_FORMAL_PRIVACY_GUARANTEE"
+    } else {
+        "SUBJECT_CLUSTER_UPPER_BOUND_EXCEEDS_TARGET"
+    };
+    let required_clusters = required_subject_clusters_for_zero_event_bound(max_fpir)
+        .map_or("null".to_owned(), |value| value.to_string());
     let val_target_pool = candidate_count;
 
     let mut by_stratum: BTreeMap<&str, Vec<&QueryResult>> = BTreeMap::new();
@@ -494,7 +563,7 @@ fn build_report(
     }).collect::<Vec<_>>().join(",");
     format!(
         r#"{{
-  "schema_version":"1.0",
+  "schema_version":"1.1",
   "evaluator_version":"{}",
   "evaluation_mode":"validation_locked_open_set_identification",
   "threshold_selection":"validation_only_maximize_rank1_identification_subject_to_fpir_cap",
@@ -527,6 +596,18 @@ fn build_report(
   "fnir_rank1_cluster_bootstrap_ci95":{{"low":{:.8},"high":{:.8},"valid_replicates":{}}},
   "fnir_rank5_cluster_bootstrap_ci95":{{"low":{:.8},"high":{:.8},"valid_replicates":{}}},
   "fpir_cluster_bootstrap_ci95":{{"low":{:.8},"high":{:.8},"valid_replicates":{}}},
+  "subject_fp_rate_bound_method":"one_sided_hoeffding_upper_bound_on_subject_level_any_session_false_identification",
+  "subject_fp_rate_confidence_level":0.95000000,
+  "subject_any_false_identification_target":{:.8},
+  "validation_nonmated_subject_clusters":{},
+  "validation_subjects_with_any_false_identification":{},
+  "validation_subject_any_false_identification_rate":{:.8},
+  "validation_subject_any_false_identification_upper95":{:.8},
+  "test_nonmated_subject_clusters":{},
+  "test_subjects_with_any_false_identification":{},
+  "test_subject_any_false_identification_rate":{:.8},
+  "test_subject_any_false_identification_upper95":{:.8},
+  "nonmated_subject_clusters_required_for_zero_event_bound":{},
   "rare_event_inference_status":"{}",
   "sample_size_gate":"{}",
   "operating_point_gate":"{}",
@@ -549,6 +630,16 @@ fn build_report(
         intervals.0.low, intervals.0.high, intervals.0.valid_replicates,
         intervals.1.low, intervals.1.high, intervals.1.valid_replicates,
         intervals.2.low, intervals.2.high, intervals.2.valid_replicates,
+        max_fpir,
+        validation_subject_risk.subjects,
+        validation_subject_risk.subjects_with_any_false_identification,
+        validation_subject_risk.empirical_rate,
+        validation_subject_risk.upper_bound_95,
+        test_subject_risk.subjects,
+        test_subject_risk.subjects_with_any_false_identification,
+        test_subject_risk.empirical_rate,
+        test_subject_risk.upper_bound_95,
+        required_clusters,
         rare_event, sample_gate, operating_gate, strata_json
     )
 }
@@ -614,10 +705,35 @@ mod tests {
     fn zero_observed_fp_does_not_pass_rare_event_gate() {
         let interval=Interval{low:0.0,high:0.0,valid_replicates:1000};
         let rates=Rates{mated_queries:10,nonmated_queries:10,false_identifications:0,false_negative_rank1:0.5,false_negative_rank3:0.4,false_negative_rank5:0.3,false_negative_rank10:0.0,false_positive_identification_rate:0.0,correct_identification_precision:Some(0.5)};
-        let report=build_report(&[],&[],Some(0.9),0.01,rates,rates,(interval,interval,interval),1000,1,false,10);
-        assert!(report.contains("ZERO_FALSE_IDENTIFICATIONS_DO_NOT_CERTIFY_TAIL_RISK"));
-        assert_eq!(operating_point_gate(false, 0.0, interval, 0.01), "NOT_EVALUATED_BELOW_SAMPLE_MINIMUM");
-        assert_eq!(operating_point_gate(true, 0.0, interval, 0.01), "INCONCLUSIVE_ZERO_FPIR_CANNOT_BOUND_RARE_EVENT_RISK");
+        let empty_risk = subject_risk(&[], Some(0.9));
+        let report=build_report(&[],&[],Some(0.9),0.01,rates,rates,(interval,interval,interval),1000,1,false,10,empty_risk,empty_risk);
+        assert!(report.contains("SUBJECT_CLUSTER_UPPER_BOUND_EXCEEDS_TARGET"));
+        assert_eq!(operating_point_gate(false, interval, 1.0, 0.01), "NOT_EVALUATED_BELOW_SAMPLE_MINIMUM");
+        assert_eq!(operating_point_gate(true, interval, 0.03, 0.01), "INCONCLUSIVE_SUBJECT_LEVEL_UPPER_BOUND_EXCEEDS_TARGET");
+        assert_eq!(operating_point_gate(true, interval, 0.005, 0.01), "PROVISIONAL_PASS_REQUIRES_REVIEW");
+    }
+
+    #[test]
+    fn subject_bound_is_nonzero_at_zero_events_and_sample_size_is_explicit() {
+        let at_2_000 = hoeffding_upper_bound_95(0, 2_000);
+        assert!(at_2_000 > 0.01);
+        assert!(hoeffding_upper_bound_95(0, 14_900) > 0.01);
+        assert!(hoeffding_upper_bound_95(0, 15_000) < 0.01);
+        assert_eq!(required_subject_clusters_for_zero_event_bound(0.01), Some(14_979));
+        assert_eq!(required_subject_clusters_for_zero_event_bound(0.0), None);
+    }
+
+    #[test]
+    fn repeated_unknown_sessions_count_as_one_subject_level_event() {
+        let rows = vec![
+            query("u1a", "unknown_a", false, 0.9, None, None, "unknown"),
+            query("u1b", "unknown_a", false, 0.1, None, None, "unknown"),
+            query("u2a", "unknown_b", false, 0.1, None, None, "unknown"),
+        ];
+        let risk = subject_risk(&rows, Some(0.5));
+        assert_eq!(risk.subjects, 2);
+        assert_eq!(risk.subjects_with_any_false_identification, 1);
+        assert_eq!(risk.empirical_rate, 0.5);
     }
 
     #[test]
