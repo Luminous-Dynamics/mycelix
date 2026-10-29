@@ -12,13 +12,21 @@ use std::collections::{BTreeMap, BTreeSet};
 const SCHEMA_VERSION: &str = "cecb.candidate_holdout_protocol.v0.1";
 const SPLIT_RULE: &str = "alternating_input_index_v0.1";
 
-/// One development example. Candidate code sees observed labels, never latent truth.
+/// Labelled development observation returned by the budgeted oracle, one query at a time.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct TrainingObservation {
     pub sample_id: usize,
     pub features: Vec<i32>,
     pub feasible: bool,
     pub observed_failure: bool,
+}
+
+/// Candidate-visible development inputs. This type deliberately has no label field.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct DevelopmentInput {
+    pub sample_id: usize,
+    pub features: Vec<i32>,
+    pub feasible: bool,
 }
 
 /// One holdout input. Deliberately contains no observed or latent outcome label.
@@ -72,7 +80,7 @@ pub struct CandidateManifest {
 /// original source IDs and model-family identity remain with the trusted harness.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct CandidateView {
-    pub development: Vec<TrainingObservation>,
+    pub development: Vec<DevelopmentInput>,
     pub holdout_inputs: Vec<CandidateInput>,
     pub manifest: CandidateManifest,
 }
@@ -82,6 +90,7 @@ pub struct CandidateView {
 #[derive(Clone, PartialEq, Eq)]
 pub struct ProtocolSplit {
     candidate_view: CandidateView,
+    development_oracle: DevelopmentOracle,
     evaluator: HoldoutEvaluator,
     trusted_manifest: SplitManifest,
 }
@@ -93,6 +102,7 @@ impl std::fmt::Debug for ProtocolSplit {
         formatter
             .debug_struct("ProtocolSplit")
             .field("candidate_view", &self.candidate_view)
+            .field("development_oracle", &"[REDACTED]")
             .field("trusted_manifest", &"[REDACTED]")
             .field("evaluator", &"[REDACTED]")
             .finish()
@@ -140,6 +150,48 @@ pub enum ProtocolError {
     DuplicatePredictionId(usize),
     UnknownPredictionId(usize),
     MissingPredictionId(usize),
+    UnknownDevelopmentSampleId(usize),
+}
+
+/// Budget-enforcing capability for querying observed development labels. Its
+/// ledger is private; each successful or unknown-ID attempt consumes budget,
+/// and holdout labels are never present in this object.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct DevelopmentOracle {
+    targets: BTreeMap<usize, TrainingObservation>,
+    max_queries: usize,
+    queries_used: usize,
+    queried_sample_ids: Vec<usize>,
+}
+
+impl DevelopmentOracle {
+    pub fn query(&mut self, sample_id: usize) -> Result<TrainingObservation, ProtocolError> {
+        if self.queries_used >= self.max_queries {
+            return Err(ProtocolError::QueryBudgetExceeded {
+                supplied: self.queries_used.saturating_add(1),
+                maximum: self.max_queries,
+            });
+        }
+        self.queries_used += 1;
+        self.queried_sample_ids.push(sample_id);
+        self.targets
+            .get(&sample_id)
+            .cloned()
+            .ok_or(ProtocolError::UnknownDevelopmentSampleId(sample_id))
+    }
+
+    pub fn queries_used(&self) -> usize {
+        self.queries_used
+    }
+
+    pub fn max_queries(&self) -> usize {
+        self.max_queries
+    }
+
+    /// Returns the trusted query trace without exposing labels.
+    pub fn queried_sample_ids(&self) -> &[usize] {
+        &self.queried_sample_ids
+    }
 }
 
 /// Creates a deterministic interleaved split over the supplied point order.
@@ -176,16 +228,25 @@ pub fn build_protocol_split(
     let mut holdout_sample_ids = Vec::new();
     let mut targets = BTreeMap::new();
 
+    let mut development_targets = BTreeMap::new();
     for (source_sample_id, point) in points.iter().enumerate() {
         if source_sample_id % 2 == 0 {
             let sample_id = development.len();
             development_sample_ids.push(source_sample_id);
-            development.push(TrainingObservation {
+            development.push(DevelopmentInput {
                 sample_id,
                 features: point.features.clone(),
                 feasible: point.feasible,
-                observed_failure: point.observed_failure,
             });
+            development_targets.insert(
+                sample_id,
+                TrainingObservation {
+                    sample_id,
+                    features: point.features.clone(),
+                    feasible: point.feasible,
+                    observed_failure: point.observed_failure,
+                },
+            );
         } else {
             let sample_id = holdout_inputs.len();
             holdout_sample_ids.push(source_sample_id);
@@ -233,12 +294,19 @@ pub fn build_protocol_split(
         max_candidate_queries,
     };
 
+    let development_oracle = DevelopmentOracle {
+        targets: development_targets,
+        max_queries: max_candidate_queries,
+        queries_used: 0,
+        queried_sample_ids: Vec::new(),
+    };
     Ok(ProtocolSplit {
         candidate_view: CandidateView {
             development,
             holdout_inputs,
             manifest: candidate_manifest,
         },
+        development_oracle,
         evaluator,
         trusted_manifest,
     })
@@ -304,6 +372,7 @@ pub fn build_model_family_split(
     let mut holdout_sample_ids = Vec::new();
     let mut targets = BTreeMap::new();
 
+    let mut development_targets = BTreeMap::new();
     for (source_sample_id, row) in points.iter().enumerate() {
         if row.family_id == heldout_family_id {
             let sample_id = holdout_inputs.len();
@@ -327,12 +396,20 @@ pub fn build_model_family_split(
         } else {
             let sample_id = development.len();
             development_sample_ids.push(source_sample_id);
-            development.push(TrainingObservation {
+            development.push(DevelopmentInput {
                 sample_id,
                 features: row.point.features.clone(),
                 feasible: row.point.feasible,
-                observed_failure: row.point.observed_failure,
             });
+            development_targets.insert(
+                sample_id,
+                TrainingObservation {
+                    sample_id,
+                    features: row.point.features.clone(),
+                    feasible: row.point.feasible,
+                    observed_failure: row.point.observed_failure,
+                },
+            );
         }
     }
 
@@ -361,12 +438,19 @@ pub fn build_model_family_split(
         max_candidate_queries,
     };
 
+    let development_oracle = DevelopmentOracle {
+        targets: development_targets,
+        max_queries: max_candidate_queries,
+        queries_used: 0,
+        queried_sample_ids: Vec::new(),
+    };
     Ok(ProtocolSplit {
         candidate_view: CandidateView {
             development,
             holdout_inputs,
             manifest: candidate_manifest,
         },
+        development_oracle,
         evaluator,
         trusted_manifest,
     })
@@ -376,6 +460,17 @@ impl ProtocolSplit {
     /// Returns only candidate-visible observations and feature-only holdout inputs.
     pub fn candidate_view(&self) -> &CandidateView {
         &self.candidate_view
+    }
+
+    /// Trusted harness capability. Give this only to the candidate adapter, not
+    /// the evaluator-bearing ProtocolSplit. Every label request is budgeted.
+    pub fn development_oracle_mut(&mut self) -> &mut DevelopmentOracle {
+        &mut self.development_oracle
+    }
+
+    /// Query count is read from trusted oracle state, not candidate metadata.
+    pub fn development_query_count(&self) -> usize {
+        self.development_oracle.queries_used()
     }
 
     /// Trusted harness entry point. Do not pass ProtocolSplit itself to a
