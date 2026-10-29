@@ -44,6 +44,18 @@ The grid cases enumerate all 81 integer pairs in [-4, 4], except the constrained
 - Malformed rules, out-of-range features, duplicate feature clauses, inverted intervals, empty datasets, inconsistent dimensions and mismatched prediction lengths fail closed. Exhaustive enumeration above two dimensions fails closed.
 - The exhaustive axis-aligned frontier is a bounded hypothesis-class reference, not a universal optimum. The latent-oracle score is an evaluator-only upper bound. It must never be passed to a candidate process as an observation. These public landscapes are for development, not a hidden-test/security boundary.
 
+## Candidate/evaluator protocol v0.1
+
+The new Rust protocol module introduces a typed boundary for candidate evaluation:
+
+- Development rows expose features, feasibility, and observed labels only. They do not expose latent truth.
+- Holdout inputs expose sample IDs, features, and feasibility only. Per-sample holdout labels live in private evaluator state and aggregate scores are the only evaluation output.
+- The candidate submission must identify its method and version and predict every holdout sample exactly once. Duplicate, missing, or unknown IDs; empty method metadata; and over-budget query receipts fail closed.
+- The candidate query count is passed separately by the trusted harness. It must be instrumented by that harness; a count reported by candidate code is not evidence of compliance.
+- The protocol split is deterministic and documented as `alternating_input_index_v0.1`. It is intended for API smoke tests and is **not** an independent generalization estimate: neighboring points may share structure. For robust policy comparisons, use held-out structural model families (CECB-ROBUST-001 / issue #5510).
+
+The evaluator field is private on the split object, and its derived-debug output is deliberately redacted so formatting the whole split does not accidentally print per-sample targets. This remains an API-level leakage barrier, not a process sandbox: candidate implementations that are untrusted must run separately, and the trusted harness must retain the evaluator and measure query usage externally. The current PR adds the contract and tests but does not yet include PRIM/CART or a Symthaea search method.
+
 ## Initial qualification targets
 
 These are targets encoded by deterministic tests, not achieved algorithm performance:
@@ -58,10 +70,10 @@ These are targets encoded by deterministic tests, not achieved algorithm perform
 
 ## Next steps
 
-1. Add a versioned candidate-result contract for rule/region sets and evaluator-visible predictions.
+1. Review and qualify the candidate/evaluator API on exact-head CI; then add a harness that instruments actual query usage and emits immutable evaluation receipts.
 2. Add exhaustive enumeration and random/stratified sampling baselines; then compare reviewed PRIM/CART-compatible implementations.
-3. Report coverage-density-complexity-runtime trade-offs and recall-versus-query-budget curves.
+3. Report coverage-density-complexity-runtime trade-offs, calibration where probabilities exist, and recall-versus-query-budget curves with repeated seeds and uncertainty intervals.
 4. Add more physically admissible correlated scenarios and held-out model-family splits.
-5. Connect this benchmark to CECB-ROBUST-001 only after the reference suite and candidate/evaluator boundary receive review.
+5. Connect this benchmark to CECB-ROBUST-001 only after the reference suite, split design, and candidate/evaluator boundary receive review.
 
 Related work: [CECB-ROBUST-002 / #5512](https://github.com/Luminous-Dynamics/mycelix/issues/5512); [CECB robust tournament PR #5511](https://github.com/Luminous-Dynamics/mycelix/pull/5511).
