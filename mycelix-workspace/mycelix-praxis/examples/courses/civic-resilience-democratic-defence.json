@@ -14,7 +14,7 @@
     "defence-literacy",
     "nonpartisan"
   ],
-  "model_id": "human-authored-draft-v0-1",
+  "model_id": null,
   "difficulty": "beginner",
   "estimated_hours": 30,
   "language": "en",
@@ -138,6 +138,7 @@
     "no_political_affiliation_or_enlistment_scoring": true,
     "no_weapons_or_combat_training": true,
     "learner_data_default": "local-only",
-    "external_certification": "not-provided-by-Praxis-course"
+    "external_certification": "not-provided-by-Praxis-course",
+    "model_status": "none"
   }
 }
