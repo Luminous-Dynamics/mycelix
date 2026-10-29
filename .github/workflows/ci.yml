@@ -96,6 +96,17 @@ jobs:
           components: rustfmt
       - name: Check formatting
         run: |
+          # Each check runs in a subshell `(cd "$dir" && ...)` rather than
+          # `cd "$dir" && ... && cd ..` -- the latter never runs the trailing
+          # `cd ..` when the fmt check itself fails (short-circuits on the
+          # first `&&`), leaving the script's cwd stuck inside that
+          # directory for every subsequent iteration and turning one real
+          # violation into a cascade of unrelated "No such file or
+          # directory" errors for every cluster checked after it. The
+          # subshell keeps cwd untouched regardless of outcome, and we keep
+          # checking every directory (not stop at the first failure) so a
+          # single CI run surfaces every cluster's violations at once,
+          # exiting non-zero at the end if any were found.
           status=0
           for dir in mycelix-commons mycelix-civic mycelix-hearth mycelix-finance mycelix-governance mycelix-identity mycelix-personal mycelix-attribution; do
             echo "=== Checking $dir ==="
@@ -173,6 +184,9 @@ jobs:
           submodules: recursive
       - uses: dtolnay/rust-toolchain@stable
         with:
+          targets: wasm32-unknown-unknown
+      - uses: Swatinem/rust-cache@v2
+        with:
           workspaces: mycelix-hearth
       - name: Test hearth
         run: cd mycelix-hearth && cargo test --workspace
@@ -195,6 +209,20 @@ jobs:
       - name: Test finance
         run: cd mycelix-finance && cargo test --workspace
 
+  # Separate from test-finance on purpose: this needs nix (for `hc`) and a much
+  # longer timeout (a cold `holochain` crate compile alone takes ~1h without a
+  # warm rust-cache), so it shouldn't share test-finance's fast 20-minute budget.
+  # `tests/` is excluded from the finance Cargo workspace and every sweettest is
+  # #[ignore]-gated, so `cargo test --workspace` in test-finance never runs them —
+  # this job is what actually packs the DNA and exercises the SweetConductor
+  # fail-closed-gate checks end to end.
+  #
+  # NOT yet in ci-pass's required job list: the finance zomes/types/tests this
+  # job needs (e.g. tests/sweettest_sap_finality_adversarial.rs) haven't been
+  # synced from the monorepo to this repo yet, so it is EXPECTED to fail until
+  # that sync lands. It still runs and reports for visibility — once the
+  # finance sync lands, add `test-finance-integration` to ci-pass's `needs`
+  # and failure-check loop below to make it a real merge gate.
   test-finance-integration:
     name: Finance Integration (SweetConductor)
     needs: changes
@@ -217,10 +245,23 @@ jobs:
             mycelix-finance
             mycelix-finance/tests
       - name: Build finance zomes (wasm32)
+        # hc dna pack reads dna.yaml's zome paths, which point at
+        # ../target/wasm32-unknown-unknown/release/*.wasm relative to dna/ —
+        # nothing builds those files on its own. Skipping this step is what
+        # made "Pack finance DNA" fail with "Failed to canonicalize resource
+        # path: .../recognition.wasm: No such file or directory" after a
+        # real ~25-minute nix toolchain build that otherwise succeeded.
         run: |
           cd mycelix-finance && nix develop .#ci --impure --command \
             cargo build --release --target wasm32-unknown-unknown --workspace --exclude finance-leptos-types
       - name: Pack finance DNA
+        # --impure: the flake's .#ci shell imports ../../nix/modules/
+        # holochain-base.nix, a relative path outside mycelix-finance's own
+        # flake root — flakes evaluate purely by default, so without this
+        # flag `nix develop` fails immediately with "access to absolute
+        # path '/nix/store/nix' is forbidden in pure evaluation mode",
+        # before ever reaching `hc`. Confirmed locally: the same command
+        # fails identically without --impure and proceeds to build with it.
         run: cd mycelix-finance && nix develop .#ci --impure --command hc dna pack dna/
       - name: Run SweetConductor integration tests
         run: |
@@ -292,6 +333,11 @@ jobs:
         with:
           submodules: recursive
       - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: mycelix-attribution
       - name: Test attribution
         run: cd mycelix-attribution && cargo test --workspace
 
@@ -325,6 +371,8 @@ jobs:
         with:
           submodules: recursive
       - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
       - uses: Swatinem/rust-cache@v2
         with:
           workspaces: mycelix-workspace/sdk
@@ -358,6 +406,10 @@ jobs:
       - uses: Swatinem/rust-cache@v2
         with:
           workspaces: mycelix-workspace
+      # `cargo fmt --all` needs full-workspace `cargo metadata`, which
+      # currently fails workspace-wide (mycelix-personal/crates/stress-tester
+      # depends on a missing crates/luminous-sim-core -- unrelated to Prism).
+      # Per-package `-p` flags avoid that full-graph walk.
       - name: Check formatting
         run: |
           cd mycelix-workspace/mycelix-prism
@@ -368,6 +420,12 @@ jobs:
             -p prism-tauri -p prism-node
       - name: Build prism-ui for wasm32 (Trunk target)
         run: cd mycelix-workspace/mycelix-prism/prism-ui && cargo build --target wasm32-unknown-unknown
+      # Each package is tested in its own `cargo test` invocation, not one
+      # combined `-p a -p b -p c` command: combining prism-shell and
+      # prism-ui in a single invocation triggers cross-package feature
+      # unification that pulls in an incompatible naga/termcolor pairing
+      # (naga 28.0.0 fails to compile against the resolved termcolor
+      # version) even though each crate builds and tests cleanly alone.
       - name: Test Prism crates
         run: |
           cd mycelix-workspace/mycelix-prism
@@ -380,13 +438,12 @@ jobs:
       - name: Check prism-tauri (desktop shell, compile-only)
         run: cd mycelix-workspace/mycelix-prism && cargo check -p prism-tauri
 
-  # Focused executable checks for Terra Preta research tools. These are
-  # structural/statistical checks only; they are not soil-efficacy evidence.
+  # Focused executable tests for the independent Terra Preta research audit tool.
   test-terra-preta-audit:
     needs: changes
     if: needs.changes.outputs.terra_preta_audit == 'true' || github.event_name == 'push'
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
@@ -443,6 +500,8 @@ jobs:
           echo "Civic: ${{ needs.test-civic.result }}"
           echo "Hearth: ${{ needs.test-hearth.result }}"
           echo "Finance: ${{ needs.test-finance.result }}"
+          # Reported but not gated below — expected red until the finance
+          # zomes/tests are synced from the monorepo. See the job's own comment.
           echo "Finance Integration (informational): ${{ needs.test-finance-integration.result }}"
           echo "Governance: ${{ needs.test-governance.result }}"
           echo "Identity: ${{ needs.test-identity.result }}"
@@ -453,6 +512,7 @@ jobs:
           echo "Prism: ${{ needs.test-prism.result }}"
           echo "Terra Preta audit: ${{ needs.test-terra-preta-audit.result }}"
           if [ "${{ needs.format.result }}" = "failure" ]; then exit 1; fi
+          # Skipped jobs are OK (path filter didn't match)
           for result in "${{ needs.test-cos-conformance.result }}" "${{ needs.test-commons.result }}" "${{ needs.test-civic.result }}" "${{ needs.test-hearth.result }}" "${{ needs.test-finance.result }}" "${{ needs.test-governance.result }}" "${{ needs.test-identity.result }}" "${{ needs.test-personal.result }}" "${{ needs.test-attribution.result }}" "${{ needs.test-bridge.result }}" "${{ needs.test-sdk.result }}" "${{ needs.test-prism.result }}" "${{ needs.test-terra-preta-audit.result }}"; do
             if [ "$result" = "failure" ]; then exit 1; fi
           done
