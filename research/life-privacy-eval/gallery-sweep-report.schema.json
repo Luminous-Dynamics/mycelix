@@ -729,6 +729,7 @@
       "required": [
         "method",
         "coverage_validation_status",
+        "operating_point_status",
         "fnir_at_rank_1",
         "fnir_at_rank_3",
         "fnir_at_rank_5",
@@ -756,6 +757,13 @@
         },
         "fpir": {
           "$ref": "#/$defs/interval"
+        },
+        "operating_point_status": {
+          "enum": [
+            "THRESHOLD_LOCKED",
+            "NO_VALIDATION_THRESHOLD_INCONCLUSIVE",
+            "NO_ELIGIBLE_QUERY_SUBJECTS"
+          ]
         }
       },
       "additionalProperties": true
