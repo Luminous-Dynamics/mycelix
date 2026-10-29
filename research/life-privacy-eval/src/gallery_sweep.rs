@@ -108,6 +108,8 @@ pub fn run(args: &[String]) -> Result<(), Box<dyn Error>> {
     if draw_count < 2 {
         return Err("at least two independent gallery draws are required to estimate between-draw variability".into());
     }
+    draw_count.checked_mul(sizes.len())
+        .ok_or("gallery draw count multiplied by size count overflows usize")?;
     if bootstrap_replicates < 100 {
         return Err("at least 100 crossed-bootstrap replicates are required".into());
     }
@@ -772,7 +774,23 @@ fn build_report(context: ReportContext<'_>) -> String {
 }
 
 fn json_escape(value: &str) -> String {
-    value.replace('\\', "\\\\").replace('"', "\\\"")
+    let mut escaped = String::with_capacity(value.len());
+    for character in value.chars() {
+        match character {
+            '"' => escaped.push_str("\\\""),
+            '\\' => escaped.push_str("\\\\"),
+            '\u{0008}' => escaped.push_str("\\b"),
+            '\u{000C}' => escaped.push_str("\\f"),
+            '\n' => escaped.push_str("\\n"),
+            '\r' => escaped.push_str("\\r"),
+            '\t' => escaped.push_str("\\t"),
+            control if control <= '\u{001F}' => {
+                escaped.push_str(&format!("\\u{:04x}", control as u32));
+            }
+            other => escaped.push(other),
+        }
+    }
+    escaped
 }
 
 #[cfg(test)]
@@ -799,6 +817,16 @@ mod tests {
             }
         }
         scores
+    }
+
+    #[test]
+    fn json_escape_encodes_quotes_backslashes_and_control_characters() {
+        let source = "quote\" slash\\ newline\n tab\t carriage\r backspace\u{0008} control\u{0001}";
+        let escaped = json_escape(source);
+        assert_eq!(
+            escaped,
+            "quote\\\" slash\\\\ newline\\n tab\\t carriage\\r backspace\\b control\\u0001"
+        );
     }
 
     #[test]
