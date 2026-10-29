@@ -347,6 +347,20 @@ mod tests {
     }
 
     #[test]
+    fn debug_formatting_redacts_private_evaluator_targets() {
+        let split = build_protocol_split(
+            &axis_aligned_landscape(),
+            LabelSource::LatentTruth,
+            5,
+        )
+        .unwrap();
+        let rendered = format!("{split:?}");
+        assert!(rendered.contains("[REDACTED]"));
+        assert!(!rendered.contains("targets:"));
+        assert!(!rendered.contains("HoldoutTarget"));
+    }
+
+    #[test]
     fn exact_rule_scores_perfectly_on_axis_aligned_holdout() {
         let split = build_protocol_split(
             &axis_aligned_landscape(),
