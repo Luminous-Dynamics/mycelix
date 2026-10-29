@@ -155,7 +155,10 @@
       "maximum": 1
     },
     "correct_identification_precision": {
-      "type": "number",
+      "type": [
+        "number",
+        "null"
+      ],
       "minimum": 0,
       "maximum": 1
     },
@@ -229,17 +232,26 @@
             "minimum": 0
           },
           "fnir_rank1": {
-            "type": "number",
+            "type": [
+              "number",
+              "null"
+            ],
             "minimum": 0,
             "maximum": 1
           },
           "fnir_rank5": {
-            "type": "number",
+            "type": [
+              "number",
+              "null"
+            ],
             "minimum": 0,
             "maximum": 1
           },
           "fpir": {
-            "type": "number",
+            "type": [
+              "number",
+              "null"
+            ],
             "minimum": 0,
             "maximum": 1
           }
