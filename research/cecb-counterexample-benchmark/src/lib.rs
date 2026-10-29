@@ -1,9 +1,10 @@
 //! Deterministic synthetic landscapes and a known-truth region scorer for CECB.
 //!
 //! This crate provides known-truth fixtures, independent scoring primitives,
-//! a candidate/evaluator protocol, and a transparent univariate-threshold
-//! baseline. It is a research benchmark, not a claim that any method is
-//! state of the art or that synthetic fixtures establish real-world validity.
+//! a candidate/evaluator protocol, a transparent univariate-threshold baseline,
+//! and a bounded exhaustive axis-aligned box learner for one/two dimensions.
+//! It is a research benchmark, not a claim that any method is state of the art
+//! or that synthetic fixtures establish real-world validity.
 
 pub mod protocol;
 pub mod discovery;
