@@ -11,7 +11,7 @@ The benchmark does **not** rank formulations by predicted crop yield alone. It h
 
 ## 2. Evaluation tracks
 
-#### Track A — deterministic accounting (synthetic tests first)
+### Track A — deterministic accounting (synthetic tests first)
 
 Build a reference water-storage model with explicit units and boundary fluxes before adding coupled processes.
 
@@ -34,11 +34,11 @@ where storage change \(\Delta S\), precipitation \(P\), irrigation \(I\), evapot
 
 **Provisional software gate:** synthetic mass-balance residual within \(10^{-9}\) relative scale for well-conditioned double-precision cases, or a stricter/looser explicitly justified tolerance for the solver used. This is a numerical test, not a permissible field-measurement error.
 
-#### Track B — laboratory-property prediction
+### Track B — laboratory-property prediction
 
 Predict only properties that have reliable paired inputs and measured labels. Report MAE and RMSE in the property's physical units, bias, performance by property range, and uncertainty calibration. For positive, non-near-zero quantities, also report relative error. Do not hide poor performance behind a combined score.
 
-#### Track C — soil-water behavior
+### Track C — soil-water behavior
 
 Use measured water-retention curves, infiltration, drainage, and soil moisture where available. Stratify by soil class and experimental setup. Evaluate time-series error and event-level error, not just a pooled correlation.
 
@@ -46,7 +46,7 @@ Initial aspirational target for a *predefined, well-supported domain*: median ab
 
 For values near zero or across mixed units, use absolute/normalized errors and do not rely on percentage error.
 
-#### Track D — crop response and treatment effects
+### Track D — crop response and treatment effects
 
 Primary outcomes must be predeclared with agronomists for each crop/site. Candidates include emergence/germination, phytotoxicity indicators, biomass, marketable yield, plant nutrient status, water productivity, and post-trial soil properties.
 
@@ -56,7 +56,7 @@ A model passes only if it improves on a transparent baseline on held-out data an
 
 **Provisional superiority target (not achieved):** for a preregistered primary endpoint, aim for at least a 10% relative reduction in MAE versus the strongest valid baseline on fully held-out groups, with a 95% cluster-bootstrap interval for improvement that excludes zero. The analysis plan must require an adequate number of independent study/site/batch clusters. If the dataset cannot support that inference, report the comparison as inconclusive rather than lowering the bar after seeing results.
 
-#### Track E — decisions and economics
+### Track E — decisions and economics
 
 Report, where data support it:
 - cost per hectare and cost per unit of marketable yield;
@@ -68,7 +68,7 @@ Report, where data support it:
 
 A formulation must not be described as “replacing fertilizer” unless nutrient supply and crop response have been tested against an appropriate nutrient-matched reference, for the stated crop and conditions.
 
-#### Track F — active-learning value
+### Track F — active-learning value
 
 Compare Symthaea's constrained experiment ranking against:
 1. random selection from the same approved candidate set;
@@ -92,7 +92,7 @@ Requirements:
 
 **Provisional target (not yet measured):** a time-aware model should improve a preregistered longitudinal endpoint against a static baseline on held-out study/time groups, with calibration reported by follow-up horizon. No numeric global persistence target is set until the available longitudinal data and endpoint definitions are audited.
 
-### 3. Estimand discipline: predict outcomes separately from treatment effects
+## 3. Estimand discipline: predict outcomes separately from treatment effects
 
 The primary scientific target should be a *predeclared contrast*, not just a raw crop-yield prediction. A model can predict yield accurately while still estimating the effect of an amendment incorrectly.
 
@@ -207,6 +207,10 @@ Start with available external evidence rather than fabricating synthetic labels 
 **Executable audit before modeling:** run the standalone Rust tool at [tools/biochar-audit](./tools/biochar-audit/README.md). It computes a digest of the exact input file and reports shape, missingness, ragged records, exact duplicate rows, ambiguous headers, and candidate study/treatment keys. Validate its JSON output against [audit-report.schema.json](./tools/biochar-audit/audit-report.schema.json). These are structural checks only; they do not approve grouping keys or treatment semantics.
 
 The published paper describes the CSV as a simplified data file and identifies `Reference` and `Explanation and unit` sheets in the full workbook. If the CSV does not provide a reviewed source-study key or does not provide enough treatment/comparator detail, stop the model benchmark, acquire the full workbook, and create a reviewed crosswalk. Do not proceed by treating the row index as an experiment identifier.
+
+**Executable audit before modeling:** run the standalone Rust tool at [tools/biochar-audit](./tools/biochar-audit/README.md). It fingerprints the exact input and reports shape, missingness, ragged records, exact duplicate rows, ambiguous headers, and candidate study/treatment keys. Validate the report with [audit-report.schema.json](./tools/biochar-audit/audit-report.schema.json). These are structural checks only; they do not approve grouping keys or treatment semantics.
+
+The paper describes the CSV as a simplified dataset and references `Reference` and `Explanation and unit` sheets in the full workbook. If the CSV lacks a reviewed study identifier or enough treatment/comparator information, stop the model benchmark, obtain the full workbook, and construct a reviewed crosswalk. Do not use row indices as experiment identifiers.
 
 **Dataset go/no-go checklist:** capture the source URI and license; retain the original files unchanged; hash files; audit variables and units; map each row to study, site, soil, crop, material/batch (when supplied), treatment, comparator, and outcome; log missingness and unit conversions; identify repeated measures and correlated comparisons; create group-level split manifests before fitting. Publish the dataset audit before reporting performance.
 
