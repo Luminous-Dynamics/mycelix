@@ -157,3 +157,28 @@ cargo run --locked --manifest-path research/life-privacy-eval/Cargo.toml -- retr
 ```
 
 The committed four-query fixture is a synthetic known-answer check only. It is expected to produce Top-1 = 0.375, Top-3 = 0.75, mean reciprocal rank = 0.58333333, and mean expected rank = 2.375. These are fixture semantics, not real-world measurements. Release remains closed without separate utility and official conformance evidence.
+
+
+## Open-set identification — v0.5
+
+Closed-set ranking assumes every query has a true candidate in the gallery. Real identification deployments also encounter queries whose subject is **not** represented in that gallery. The `open-set` subcommand evaluates those non-mated queries explicitly and follows the established open-set identification idea of false-negative identification rate at a specified false-positive identification rate (FNIR@FPIR). See the [NIST open-set fingerprint identification evaluation](https://www.nist.gov/publications/performance-evaluation-fingerprint-open-set-identification-algorithms) and the [ECCV 2024 Open-Set Biometrics benchmark paper](https://www.ecva.net/papers/eccv_2024/papers_ECCV/html/7925_ECCV_2024_paper.php).
+
+### Validation-locked operating point
+
+The command accepts validation and test truth/scores. Every query has zero or one true match; all queries use exactly the same candidate handle/subject pool. The candidate pool itself must match across validation and test. Validation and test query handles and query subject identities are disjoint; training subjects are disjoint from candidate and query subjects. The truth file remains oracle-only; score files contain only opaque query/candidate handles and finite scores.
+
+The operating threshold is selected on validation queries only by maximizing rank-1 correct-identification rate subject to the declared empirical false-positive identification rate (FPIR) cap; ties are not split, and the threshold is frozen before test evaluation. The test report includes FNIR at ranks 1/3/5/10, FPIR, precision among accepted queries, FPIR resolution, per-stratum outcomes and query-subject cluster-bootstrap intervals for FNIR@1, FNIR@5 and FPIR. Zero observed false identifications do not certify rare-event safety.
+
+Example:
+
+```sh
+cargo run --locked --manifest-path research/life-privacy-eval/Cargo.toml -- open-set \\
+  research/life-privacy-eval/fixtures/open-set-validation-truth.tsv \\
+  research/life-privacy-eval/fixtures/open-set-validation-scores.tsv \\
+  research/life-privacy-eval/fixtures/open-set-test-truth.tsv \\
+  research/life-privacy-eval/fixtures/open-set-test-scores.tsv \\
+  research/life-privacy-eval/fixtures/open-set-training-subjects.txt \\
+  /tmp/open-set-report.json 0.01 300 9901
+```
+
+The report's bootstrap intervals are conditional on the fixed candidate pool. The four-query-per-partition fixture is smoke-only; its expected locked threshold is 0.95 at a zero-FPIR validation cap, with validation FNIR@1 = 0.5. These are synthetic known-answer semantics only. The overall privacy/release gate remains closed without task-utility and official conformance evidence. Open-set identification is distinct from pairwise ROC-AUC and from protocol conformance; do not infer posterior probabilities or an effective anonymity set from arbitrary ranking scores.
