@@ -131,6 +131,7 @@ jobs:
                   ci = policy["test_crossed_bootstrap_ci95"]
                   assert ci["coverage_validation_status"] == "KNOWN_SPARSE_EVENT_UNDERCOVERAGE_DO_NOT_USE_FOR_CERTIFICATION"
                   assert ci["method"] == "crossed_query_subject_and_gallery_draw_cluster_percentile_bootstrap"
+                  assert ci["operating_point_status"] == "THRESHOLD_LOCKED"
           python3 "$root/coverage/gallery_crossed_bootstrap.py" 250 120 990117 > "$out/coverage-report.json"
           python3 - <<'PY'
           import json
