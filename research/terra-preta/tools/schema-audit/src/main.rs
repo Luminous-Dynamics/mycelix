@@ -32,7 +32,13 @@ const SCHEMA_FIXTURES: &[(&str, &str)] = &[
         "split-audit-report",
         include_str!("../../split-audit/split-audit-report.schema.json"),
     ),
+    (
+        "source-register",
+        include_str!("../../../source-register.schema.json"),
+    ),
 ];
+
+const SOURCE_REGISTER: &str = include_str!("../../../source-register.v0.1.json");
 
 fn validate_schema(schema_bytes: &[u8], label: &str) -> Result<Value, Box<dyn Error>> {
     let schema: Value = serde_json::from_slice(schema_bytes)
@@ -147,6 +153,14 @@ mod tests {
             "warnings": ["structural checks cannot prove scientific independence"],
             "interpretation_boundary": "synthetic schema fixture only"
         })
+    }
+
+    #[test]
+    fn source_register_conforms_to_its_schema() {
+        let schema: Value = serde_json::from_str(SCHEMA_FIXTURES[6].1).unwrap();
+        let validator = jsonschema::validator_for(&schema).unwrap();
+        let register: Value = serde_json::from_str(SOURCE_REGISTER).unwrap();
+        assert!(validator.is_valid(&register));
     }
 
     #[test]
