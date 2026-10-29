@@ -84,7 +84,7 @@ jobs:
           assert report["evaluation_mode"] == "gallery_scaling_open_set_identification"
           assert report["requested_bootstrap_replicates"] == 300
           assert "Bonferroni alpha 0.05 / draw_count" in report["per_draw_subject_risk_bound_policy"]
-          assert abs(report["per_draw_subject_risk_bound_alpha"] - (0.05 / 8)) < 1e-15
+          assert abs(report["per_draw_subject_risk_bound_alpha"] - (0.05 / (4 * 8 * 2))) < 1e-15
           assert report["gallery_sizes"] == [2, 4, 8, 12]
           assert report["gallery_sampling"]["candidate_frame_size"] == 12
           assert report["gallery_sampling"]["draw_count"] == 8
@@ -111,7 +111,7 @@ jobs:
                       assert risk["status"] == "CONDITIONAL_SUBJECT_CLUSTER_BOUND"
                       assert risk["eligible_nonmated_subjects"] >= 2
                       assert risk["subjects_with_any_false_identification"] == 0
-                      assert abs(risk["alpha"] - (0.05 / 8)) < 1e-15
+                      assert abs(risk["alpha"] - (0.05 / (4 * 8 * 2))) < 1e-15
                       expected_upper = 1 - risk["alpha"] ** (1 / risk["eligible_nonmated_subjects"])
                       assert abs(risk["exact_one_sided_upper_bound"] - expected_upper) < 1e-8
               assert locked["test_metrics"]["fpir"] == 0.0
