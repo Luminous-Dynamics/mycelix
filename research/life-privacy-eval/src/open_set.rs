@@ -524,7 +524,21 @@ fn metric_or_null(value: Option<f64>) -> String {
 }
 
 fn json_escape(value: &str) -> String {
-    value.replace('\\', "\\\\").replace('"', "\\\"")
+    let mut escaped = String::with_capacity(value.len());
+    for character in value.chars() {
+        match character {
+            '\\\\' => escaped.push_str("\\\\\\\\"),
+            '"' => escaped.push_str("\\\\""),
+            '\\n' => escaped.push_str("\\n"),
+            '\\r' => escaped.push_str("\\r"),
+            '\\t' => escaped.push_str("\\t"),
+            '\\u{08}' => escaped.push_str("\\b"),
+            '\\u{0c}' => escaped.push_str("\\f"),
+            ch if ch.is_control() => escaped.push_str(&format!("\\\\u{:04x}", ch as u32)),
+            ch => escaped.push(ch),
+        }
+    }
+    escaped
 }
 
 #[cfg(test)]
@@ -565,6 +579,30 @@ mod tests {
     fn tied_target_uses_fractional_credit() {
         let q=query("q","s1",true,0.9,Some(0.5),Some((1,2)),"a");
         assert_eq!(compute_rates(&[q],Some(0.5)).false_negative_rank1,0.5);
+    }
+
+    #[test]
+    fn validation_and_test_query_subject_overlap_fails_closed() {
+        let validation = vec![
+            query("qv1", "matched_subject", true, 0.9, Some(0.9), Some((1, 1)), "matched"),
+            query("qv2", "unknown_val", false, 0.2, None, None, "unknown"),
+        ];
+        let test = vec![
+            query("qt1", "matched_subject", true, 0.8, Some(0.8), Some((1, 1)), "matched"),
+            query("qt2", "unknown_test", false, 0.1, None, None, "unknown"),
+        ];
+        assert!(validate_partition_disjoint(&validation, &test).is_err());
+    }
+
+    #[test]
+    fn unknown_query_crossing_threshold_counts_as_false_identification() {
+        let rows = vec![
+            query("q1", "matched", true, 0.9, Some(0.9), Some((1, 1)), "matched"),
+            query("q2", "unknown", false, 0.8, None, None, "unknown"),
+        ];
+        let rates = compute_rates(&rows, Some(0.75));
+        assert_eq!(rates.false_positive_identification_rate, 1.0);
+        assert_eq!(rates.false_negative_rank1, 0.0);
     }
 
     #[test]
