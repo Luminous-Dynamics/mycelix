@@ -17,6 +17,7 @@ use std::path::Path;
 
 const AUDIT_VERSION: &str = "0.1.0";
 const BOOTSTRAP_REPLICATES: usize = 2_000;
+const NOMINAL_INTERVAL_COVERAGE: f64 = 0.90;
 const DEFAULT_SEED: u64 = 0x5450_5245_4441_5544; // "TPREDAUD"
 
 #[derive(Debug, Deserialize)]
@@ -37,6 +38,7 @@ struct Metrics {
     bias_prediction_minus_actual: f64,
     empirical_interval_coverage: Option<f64>,
     mean_interval_width: Option<f64>,
+    mean_interval_score: Option<f64>,
 }
 
 #[derive(Debug, Serialize)]
@@ -57,6 +59,7 @@ struct AuditReport {
     observations: usize,
     independent_groups: usize,
     bootstrap_seed: u64,
+    nominal_interval_coverage: f64,
     candidate: Metrics,
     baseline: Metrics,
     relative_mae_improvement: Option<f64>,
@@ -155,6 +158,7 @@ fn metrics(records: &[PredictionRecord], indices: &[usize], use_candidate: bool)
     let mut signed_error_sum = 0.0;
     let mut covered = 0_usize;
     let mut interval_width_sum = 0.0;
+    let mut interval_score_sum = 0.0;
 
     for &index in indices {
         let row = &records[index];
@@ -171,7 +175,18 @@ fn metrics(records: &[PredictionRecord], indices: &[usize], use_candidate: bool)
             covered += 1;
         }
         if use_candidate {
-            interval_width_sum += row.interval_upper - row.interval_lower;
+            let width = row.interval_upper - row.interval_lower;
+            interval_width_sum += width;
+            // Proper interval score for a declared nominal 90% prediction interval.
+            // Lower scores reward narrow intervals but heavily penalize misses.
+            let alpha = 1.0 - NOMINAL_INTERVAL_COVERAGE;
+            let mut score = width;
+            if row.actual < row.interval_lower {
+                score += (2.0 / alpha) * (row.interval_lower - row.actual);
+            } else if row.actual > row.interval_upper {
+                score += (2.0 / alpha) * (row.actual - row.interval_upper);
+            }
+            interval_score_sum += score;
         }
     }
 
@@ -187,6 +202,11 @@ fn metrics(records: &[PredictionRecord], indices: &[usize], use_candidate: bool)
         },
         mean_interval_width: if use_candidate {
             Some(interval_width_sum / count)
+        } else {
+            None
+        },
+        mean_interval_score: if use_candidate {
+            Some(interval_score_sum / count)
         } else {
             None
         },
@@ -336,6 +356,7 @@ fn audit(bytes: &[u8], input_label: &str, seed: u64) -> Result<AuditReport, Box<
         observations: records.len(),
         independent_groups: groups.len(),
         bootstrap_seed: seed,
+        nominal_interval_coverage: NOMINAL_INTERVAL_COVERAGE,
         candidate,
         baseline,
         relative_mae_improvement: relative_improvement,
