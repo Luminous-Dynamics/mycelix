@@ -493,14 +493,15 @@ impl ProtocolSplit {
         self.development_oracle.queried_sample_ids()
     }
 
-    /// Trusted harness entry point. Do not pass ProtocolSplit itself to a
-    /// candidate process; serialize/pass only candidate_view().
+    /// Trusted harness entry point. The score receipt's query count is derived
+    /// from private oracle state; callers cannot override it with a claimed count.
+    /// Never pass ProtocolSplit itself to a candidate process.
     pub fn evaluate(
         &self,
         submission: &CandidateSubmission,
-        candidate_query_count: usize,
     ) -> Result<EvaluationReport, ProtocolError> {
-        self.evaluator.evaluate(submission, candidate_query_count)
+        self.evaluator
+            .evaluate(submission, self.development_oracle.queries_used())
     }
 
     pub fn evaluation_label_source(&self) -> LabelSource {
@@ -523,7 +524,7 @@ impl HoldoutEvaluator {
 
     /// Evaluates a full, one-to-one prediction set. candidate_query_count must
     /// come from a trusted, instrumented harness—not from the candidate itself.
-    pub fn evaluate(
+    fn evaluate(
         &self,
         submission: &CandidateSubmission,
         candidate_query_count: usize,
@@ -739,7 +740,7 @@ mod tests {
                 })
                 .collect(),
         };
-        let report = split.evaluate(&submission, 0).unwrap();
+        let report = split.evaluate(&submission).unwrap();
         assert_eq!(report.score.true_positive, 0);
         assert_eq!(report.score.false_positive, 3);
         assert_eq!(report.score.false_negative, 3);
@@ -861,7 +862,7 @@ mod tests {
             0,
         )
         .unwrap();
-        let report = split.evaluate(&exact_axis_submission(split.candidate_view()), 0).unwrap();
+        let report = split.evaluate(&exact_axis_submission(split.candidate_view())).unwrap();
         assert_eq!(report.schema_version, SCHEMA_VERSION);
         assert_eq!(report.holdout_sample_count, split.candidate_view().holdout_inputs.len());
         assert_eq!(report.score.false_positive, 0);
@@ -887,7 +888,7 @@ mod tests {
         assert!(observation.observed_failure);
         assert_eq!(split.development_query_count(), 1);
         assert_eq!(split.evaluation_label_source(), LabelSource::ObservedLabel);
-        let report = split.evaluate(&exact_axis_submission(split.candidate_view()), 1).unwrap();
+        let report = split.evaluate(&exact_axis_submission(split.candidate_view())).unwrap();
         assert_eq!(report.label_source, LabelSource::ObservedLabel);
     }
 
@@ -902,13 +903,13 @@ mod tests {
         let mut submission = exact_axis_submission(split.candidate_view());
         submission.method_id = "  ".to_owned();
         assert_eq!(
-            split.evaluate(&submission, 0),
+            split.evaluate(&submission),
             Err(ProtocolError::EmptyMethodId)
         );
         submission.method_id = "test".to_owned();
         submission.method_version.clear();
         assert_eq!(
-            split.evaluate(&submission, 0),
+            split.evaluate(&submission),
             Err(ProtocolError::EmptyMethodVersion)
         );
     }
@@ -925,21 +926,21 @@ mod tests {
         let mut duplicate = exact_axis_submission(split.candidate_view());
         duplicate.predictions.push(duplicate.predictions[0].clone());
         assert!(matches!(
-            split.evaluate(&duplicate, 0),
+            split.evaluate(&duplicate),
             Err(ProtocolError::DuplicatePredictionId(_))
         ));
 
         let mut missing = exact_axis_submission(split.candidate_view());
         missing.predictions.pop();
         assert!(matches!(
-            split.evaluate(&missing, 0),
+            split.evaluate(&missing),
             Err(ProtocolError::MissingPredictionId(_))
         ));
 
         let mut unknown = exact_axis_submission(split.candidate_view());
         unknown.predictions[0].sample_id = usize::MAX;
         assert_eq!(
-            split.evaluate(&unknown, 0),
+            split.evaluate(&unknown),
             Err(ProtocolError::UnknownPredictionId(usize::MAX))
         );
     }
@@ -953,7 +954,9 @@ mod tests {
         )
         .unwrap();
         assert_eq!(
-            split.evaluate(&exact_axis_submission(split.candidate_view()), 3),
+            split
+                .evaluator
+                .evaluate(&exact_axis_submission(split.candidate_view()), 3),
             Err(ProtocolError::QueryBudgetExceeded {
                 supplied: 3,
                 maximum: 2
@@ -971,7 +974,7 @@ mod tests {
         .unwrap();
         let mut submission = exact_axis_submission(split.candidate_view());
         submission.predictions.reverse();
-        let report = split.evaluate(&submission, 0).unwrap();
+        let report = split.evaluate(&submission).unwrap();
         assert_eq!(report.score.false_positive, 0);
         assert_eq!(report.score.false_negative, 0);
     }
