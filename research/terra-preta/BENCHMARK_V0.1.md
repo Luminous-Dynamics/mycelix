@@ -11,7 +11,7 @@ The benchmark does **not** rank formulations by predicted crop yield alone. It h
 
 ## 2. Evaluation tracks
 
-### Track A — deterministic accounting (synthetic tests first)
+#### Track A — deterministic accounting (synthetic tests first)
 
 Build a reference water-storage model with explicit units and boundary fluxes before adding coupled processes.
 
@@ -34,11 +34,11 @@ where storage change \(\Delta S\), precipitation \(P\), irrigation \(I\), evapot
 
 **Provisional software gate:** synthetic mass-balance residual within \(10^{-9}\) relative scale for well-conditioned double-precision cases, or a stricter/looser explicitly justified tolerance for the solver used. This is a numerical test, not a permissible field-measurement error.
 
-### Track B — laboratory-property prediction
+#### Track B — laboratory-property prediction
 
 Predict only properties that have reliable paired inputs and measured labels. Report MAE and RMSE in the property's physical units, bias, performance by property range, and uncertainty calibration. For positive, non-near-zero quantities, also report relative error. Do not hide poor performance behind a combined score.
 
-### Track C — soil-water behavior
+#### Track C — soil-water behavior
 
 Use measured water-retention curves, infiltration, drainage, and soil moisture where available. Stratify by soil class and experimental setup. Evaluate time-series error and event-level error, not just a pooled correlation.
 
@@ -46,7 +46,7 @@ Initial aspirational target for a *predefined, well-supported domain*: median ab
 
 For values near zero or across mixed units, use absolute/normalized errors and do not rely on percentage error.
 
-### Track D — crop response and treatment effects
+#### Track D — crop response and treatment effects
 
 Primary outcomes must be predeclared with agronomists for each crop/site. Candidates include emergence/germination, phytotoxicity indicators, biomass, marketable yield, plant nutrient status, water productivity, and post-trial soil properties.
 
@@ -55,6 +55,29 @@ Report treatment effects against a matched comparator with uncertainty intervals
 A model passes only if it improves on a transparent baseline on held-out data and uncertainty is sufficiently calibrated for the decision at hand. No global yield-accuracy target is set until a dataset audit establishes the number and diversity of independent observations.
 
 **Provisional superiority target (not achieved):** for a preregistered primary endpoint, aim for at least a 10% relative reduction in MAE versus the strongest valid baseline on fully held-out groups, with a 95% cluster-bootstrap interval for improvement that excludes zero. The analysis plan must require an adequate number of independent study/site/batch clusters. If the dataset cannot support that inference, report the comparison as inconclusive rather than lowering the bar after seeing results.
+
+#### Track E — decisions and economics
+
+Report, where data support it:
+- cost per hectare and cost per unit of marketable yield;
+- gross-margin or net-benefit distributions under uncertain prices and yields;
+- water productivity and nutrient-use indicators with clear denominators;
+- sensitivity to transport distance, feedstock opportunity cost, processing energy, application, and labor;
+- downside risk, not only mean outcome;
+- comparison against farmer practice and a suitable conventional nutrient program.
+
+A formulation must not be described as “replacing fertilizer” unless nutrient supply and crop response have been tested against an appropriate nutrient-matched reference, for the stated crop and conditions.
+
+#### Track F — active-learning value
+
+Compare Symthaea's constrained experiment ranking against:
+1. random selection from the same approved candidate set;
+2. a fixed, expert-designed sequence;
+3. a simple uncertainty-based greedy baseline.
+
+Metrics: reduction in uncertainty on preregistered target parameters, decision regret, time/cost to reach a predefined evidence threshold, calibration, and the number of unsafe/disallowed candidates proposed. The target for unsafe/disallowed candidates is exactly zero after the independent safety gate. Include repeated seeds and confidence intervals.
+
+**Provisional efficiency target (not achieved):** at least 20% lower total cost to reach a preregistered uncertainty or decision threshold versus the better of the fixed expert-designed and random schedules, evaluated over repeated seeds with confidence intervals. Lower runtime alone does not count if laboratory, field, review, or safety costs increase. Any proposed candidate bypassing the safety gate is an automatic failure.
 
 ### Track G — longitudinal aging and transfer
 
@@ -69,30 +92,7 @@ Requirements:
 
 **Provisional target (not yet measured):** a time-aware model should improve a preregistered longitudinal endpoint against a static baseline on held-out study/time groups, with calibration reported by follow-up horizon. No numeric global persistence target is set until the available longitudinal data and endpoint definitions are audited.
 
-### Track E — decisions and economics
-
-Report, where data support it:
-- cost per hectare and cost per unit of marketable yield;
-- gross-margin or net-benefit distributions under uncertain prices and yields;
-- water productivity and nutrient-use indicators with clear denominators;
-- sensitivity to transport distance, feedstock opportunity cost, processing energy, application, and labor;
-- downside risk, not only mean outcome;
-- comparison against farmer practice and a suitable conventional nutrient program.
-
-A formulation must not be described as “replacing fertilizer” unless nutrient supply and crop response have been tested against an appropriate nutrient-matched reference, for the stated crop and conditions.
-
-### Track F — active-learning value
-
-Compare Symthaea's constrained experiment ranking against:
-1. random selection from the same approved candidate set;
-2. a fixed, expert-designed sequence;
-3. a simple uncertainty-based greedy baseline.
-
-Metrics: reduction in uncertainty on preregistered target parameters, decision regret, time/cost to reach a predefined evidence threshold, calibration, and the number of unsafe/disallowed candidates proposed. The target for unsafe/disallowed candidates is exactly zero after the independent safety gate. Include repeated seeds and confidence intervals.
-
-**Provisional efficiency target (not achieved):** at least 20% lower total cost to reach a preregistered uncertainty or decision threshold versus the better of the fixed expert-designed and random schedules, evaluated over repeated seeds with confidence intervals. Lower runtime alone does not count if laboratory, field, review, or safety costs increase. Any proposed candidate bypassing the safety gate is an automatic failure.
-
-## 2A. Estimand discipline: predict outcomes separately from treatment effects
+### 3. Estimand discipline: predict outcomes separately from treatment effects
 
 The primary scientific target should be a *predeclared contrast*, not just a raw crop-yield prediction. A model can predict yield accurately while still estimating the effect of an amendment incorrectly.
 
@@ -108,7 +108,7 @@ Because literature-extracted outcomes from the same study can be correlated, use
 
 Treat this public dataset as observational literature synthesis, with possible selective reporting, variable methods, and incomplete covariates. Do not upgrade an association to a causal claim just because a model predicts it. Publish evidence provenance, missingness, sensitivity analyses, and the conditions under which the estimand cannot be identified.
 
-## 3. Required baselines
+## 4. Required baselines
 
 At minimum, compare to:
 - **No-change / treatment-effect-zero baseline:** predicts no amendment effect.
@@ -119,7 +119,7 @@ At minimum, compare to:
 
 Do not claim superiority over a reference implementation if no matched, reproducible comparison was performed. Every baseline must receive the same data split and permitted input information.
 
-## 4. Dataset split and anti-leakage rules
+## 5. Dataset split and anti-leakage rules
 
 Use grouped splits, with split manifests committed before model fitting:
 - **in-domain holdout:** unseen samples within known soil/site group, if the use case supports it;
@@ -130,7 +130,7 @@ Use grouped splits, with split manifests committed before model fitting:
 
 No shared sample, repeat measurement, derived feature, or augmentation from a held-out group may enter training. Any learned preprocessing parameters must be fitted on training groups only. Report both interpolation and extrapolation separately. Results on a random row split alone are insufficient.
 
-## 5. Safety and evidence gate matrix
+## 6. Safety and evidence gate matrix
 
 | Gate | Required evidence | Failure behavior |
 | --- | --- | --- |
@@ -145,7 +145,7 @@ No shared sample, repeat measurement, derived feature, or augmentation from a he
 
 Exact chemical/biological acceptance thresholds must be specified for the actual formulation by qualified specialists and applicable rules; this benchmark does not invent universal thresholds.
 
-## 6. Reporting contract
+## 7. Reporting contract
 
 Every run must report:
 - protocol/benchmark version, run ID, timestamp, code commit, config digest, dependency/tool versions, RNG seed;
@@ -159,7 +159,7 @@ Every run must report:
 
 Do not publish personal or commercially confidential farm data without permission. Publish de-identified data or reproducible aggregation where appropriate; record any restrictions.
 
-## 7. Release gates
+## 8. Release gates
 
 - **B0 — executable spec:** metric definitions, JSON Schema, split rules, and synthetic test cases accepted.
 - **B1 — model sanity:** all synthetic conservation/property tests pass; deterministic replay and invalid-input tests pass.
@@ -167,13 +167,13 @@ Do not publish personal or commercially confidential farm data without permissio
 - **B3 — independent evaluation:** frozen model tested on a batch/site/season holdout by a reviewer not responsible for model fitting.
 - **B4 — decision support:** documented domain of applicability, calibrated uncertainty, safety workflow, and human agronomic review. The output is a *research recommendation for testing*, not permission to use/sell a product.
 
-## 8. Benchmark interpretation
+## 9. Benchmark interpretation
 
 The goal is not to “beat SOTA” on a single aggregate number. It is to beat appropriate baselines on held-out data while maintaining physical consistency, calibrated uncertainty, repeatable provenance, and zero bypass of safety gates. If a simpler model performs just as well, prefer the simpler model until complexity adds demonstrated value.
 
 A positive crop response is not required to pass the scientific benchmark; trustworthy identification of no benefit, harm, or a narrow domain of benefit is valuable.
 
-## 8. Contrast graph and comparator semantics
+## 10. Contrast graph and comparator semantics
 
 Every literature observation must be represented as a directed contrast from a precisely described control arm to a precisely described treatment arm. A high-level label such as “biochar alone” or “biochar + fertilizer” is insufficient unless the comparator's own components are known.
 
@@ -195,7 +195,7 @@ The BiocharDS paper describes the CSV as a simplified version containing target 
 
 This is a causal-identifiability gate: if the estimand cannot be recovered from the treatment/comparator pair, report `not_identifiable_from_source` rather than filling gaps with a model assumption.
 
-## 8. Initial dataset strategy and acquisition gates
+## 11. Initial dataset strategy and acquisition gates
 
 Start with available external evidence rather than fabricating synthetic labels or waiting for a field trial:
 
@@ -203,6 +203,10 @@ Start with available external evidence rather than fabricating synthetic labels 
 2. **African soil context:** [Soils4Africa / Soil Data of Africa](https://africasis.isric.org/download.html) offers sampled soil properties including texture, bulk density, organic carbon, and chemical properties as CSV/GeoPackage, with regional soil maps. Its own guidance says the recommended application scale is national to continental and discourages field-level use. Use it to stratify hypotheses and help select candidate regions, not as a replacement for soil sampling from a trial plot.
 3. **Standardized profiles and gaps:** [WoSIS](https://isric.org/explore/wosis) is a global, standardized soil-profile resource. Coverage is property-dependent and access is subject to source data-provider licenses. Record exactly which properties are measured versus predicted/harmonized; do not treat a map estimate as a laboratory observation.
 4. **Crop-water reference model:** FAO [AquaCrop v7.3](https://www.fao.org/aquacrop) is an established crop water-productivity model with source code and standalone versions. Use it as a version-pinned *external comparator* for matched crop/water questions when inputs, calibration, and boundary assumptions align. It is not a biochar-specific effect model and must not become an unexamined production dependency in the Rust kernel.
+
+**Executable audit before modeling:** run the standalone Rust tool at [tools/biochar-audit](./tools/biochar-audit/README.md). It computes a digest of the exact input file and reports shape, missingness, ragged records, exact duplicate rows, ambiguous headers, and candidate study/treatment keys. Validate its JSON output against [audit-report.schema.json](./tools/biochar-audit/audit-report.schema.json). These are structural checks only; they do not approve grouping keys or treatment semantics.
+
+The published paper describes the CSV as a simplified data file and identifies `Reference` and `Explanation and unit` sheets in the full workbook. If the CSV does not provide a reviewed source-study key or does not provide enough treatment/comparator detail, stop the model benchmark, acquire the full workbook, and create a reviewed crosswalk. Do not proceed by treating the row index as an experiment identifier.
 
 **Dataset go/no-go checklist:** capture the source URI and license; retain the original files unchanged; hash files; audit variables and units; map each row to study, site, soil, crop, material/batch (when supplied), treatment, comparator, and outcome; log missingness and unit conversions; identify repeated measures and correlated comparisons; create group-level split manifests before fitting. Publish the dataset audit before reporting performance.
 
