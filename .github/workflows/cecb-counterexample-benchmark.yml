@@ -104,6 +104,7 @@ jobs:
             and all(.[]; .schema_version == "cecb.discovery_receipt.v0.1"
               and .source_sha == $source_sha
               and .split_manifest_sha256 == $manifest_sha
+              and (.split_manifest_sha256 | test("^[0-9a-f]{64}$"))
               and .evaluator_version == "cecb.holdout_evaluator.v0.1"
               and .random_seed == null
               and .observation_selection == "evenly_spaced_v0.1"
@@ -115,6 +116,7 @@ jobs:
               and .method_version == "0.1.0"
               and .observations_used == .observation_budget
               and (.queried_sample_ids | length) == .observations_used
+              and ((.queried_sample_ids | unique | length) == .observations_used)
               and .candidate_query_count == .observations_used)
             and any(.[]; .observation_budget == 3
               and .threshold == 4 and .tp == 0 and .fp == 1 and .fn == 3 and .tn == 5)
