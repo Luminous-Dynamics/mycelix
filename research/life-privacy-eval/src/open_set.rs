@@ -460,7 +460,8 @@ fn hoeffding_upper_bound_95(events: usize, independent_clusters: usize) -> f64 {
     if independent_clusters == 0 {
         return 1.0;
     }
-    let empirical_rate = events.min(independent_clusters) as f64 / independent_clusters as f64;
+    let empirical_rate =
+        events.min(independent_clusters) as f64 / independent_clusters as f64;
     let confidence_radius = ((1.0 / SUBJECT_RISK_ALPHA).ln()
         / (2.0 * independent_clusters as f64)).sqrt();
     (empirical_rate + confidence_radius).min(1.0)
@@ -615,7 +616,7 @@ fn build_report(
   "official_conformance_evidence_present":false,
   "overall_release_gate":"NOT_EVALUATED_OPEN_SET_UTILITY_AND_CONFORMANCE_MISSING",
   "by_stratum":[{}],
-  "interpretation":"Threshold is selected only on validation queries and then frozen on test. FPIR is the fraction of non-mated query subjects for which any candidate score crosses the threshold; FNIR at rank K is the fraction of mated queries whose true identity is not accepted within top K. Tie credit is fractional. Bootstrap resamples query-subject clusters separately by mated/non-mated class and is conditional on the fixed candidate pool. Zero observed false identifications is inconclusive for rare-event risk; this is not a formal privacy guarantee."
+  "interpretation":"Threshold is selected only on validation queries and then frozen on test. FPIR is the fraction of non-mated query subjects for which any candidate score crosses the threshold; FNIR at rank K is the fraction of mated queries whose true identity is not accepted within top K. Tie credit is fractional. Bootstrap resamples query-subject clusters separately by mated/non-mated class and is conditional on the fixed candidate pool. The one-sided 95% Hoeffding bound is computed on per-unknown-subject any-session false-identification events, conditional on a frozen scorer and fixed candidate pool. It assumes independent subject clusters, does not cover population shift or gallery-sampling uncertainty, and is not a formal privacy guarantee."
 }}"#,
         VERSION, val_threshold, seed, bootstraps, intervals.0.valid_replicates.min(intervals.1.valid_replicates).min(intervals.2.valid_replicates),
         max_fpir, validation.len(), validation_rates.mated_queries, validation_rates.nonmated_queries,
@@ -702,11 +703,25 @@ mod tests {
     }
 
     #[test]
-    fn zero_observed_fp_does_not_pass_rare_event_gate() {
+    fn subject_level_bound_controls_provisional_gate() {
         let interval=Interval{low:0.0,high:0.0,valid_replicates:1000};
         let rates=Rates{mated_queries:10,nonmated_queries:10,false_identifications:0,false_negative_rank1:0.5,false_negative_rank3:0.4,false_negative_rank5:0.3,false_negative_rank10:0.0,false_positive_identification_rate:0.0,correct_identification_precision:Some(0.5)};
         let empty_risk = subject_risk(&[], Some(0.9));
-        let report=build_report(&[],&[],Some(0.9),0.01,rates,rates,(interval,interval,interval),1000,1,false,10,empty_risk,empty_risk);
+        let report = build_report(
+            &[],
+            &[],
+            Some(0.9),
+            0.01,
+            rates,
+            rates,
+            (interval, interval, interval),
+            1000,
+            1,
+            false,
+            10,
+            empty_risk,
+            empty_risk,
+        );
         assert!(report.contains("SUBJECT_CLUSTER_UPPER_BOUND_EXCEEDS_TARGET"));
         assert_eq!(operating_point_gate(false, interval, 1.0, 0.01), "NOT_EVALUATED_BELOW_SAMPLE_MINIMUM");
         assert_eq!(operating_point_gate(true, interval, 0.03, 0.01), "INCONCLUSIVE_SUBJECT_LEVEL_UPPER_BOUND_EXCEEDS_TARGET");
