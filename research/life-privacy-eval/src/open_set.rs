@@ -30,6 +30,7 @@ struct Candidate {
 #[derive(Clone, Debug)]
 struct QueryResult {
     query_id: String,
+    candidate_count: usize,
     query_subject: String,
     stratum: String,
     matched: bool,
@@ -102,10 +103,13 @@ pub fn run(args: &[String]) -> Result<(), Box<dyn Error>> {
         return Err("at least 100 query-subject bootstrap replicates are required".into());
     }
 
-    let validation = validate_partition(validation_truth, validation_scores, &training_subjects)?;
-    let test = validate_partition(test_truth, test_scores, &training_subjects)?;
+    let (validation, validation_pool) = validate_partition(validation_truth, validation_scores, &training_subjects)?;
+    let (test, test_pool) = validate_partition(test_truth, test_scores, &training_subjects)?;
     validate_partition_disjoint(&validation, &test)?;
-    let candidate_count = validation.first().map_or(0, |query| query_count_candidates(query, &validation));
+    if validation_pool != test_pool {
+        return Err("validation and test must use exactly the same candidate handles and subject mappings".into());
+    }
+    let candidate_count = validation_pool.len();
     if candidate_count == 0 {
         return Err("open-set evaluation requires a non-empty common candidate pool".into());
     }
@@ -218,12 +222,11 @@ fn validate_partition(
     truth: Vec<TruthRow>,
     mut scores: HashMap<(String, String), f64>,
     training: &HashSet<String>,
-) -> Result<Vec<QueryResult>, Box<dyn Error>> {
+) -> Result<(Vec<QueryResult>, BTreeSet<(String, String)>), Box<dyn Error>> {
     let expected = truth.len();
     let mut grouped: BTreeMap<String, Vec<Candidate>> = BTreeMap::new();
     let mut query_meta: BTreeMap<String, (String, String)> = BTreeMap::new();
-    let mut common_candidate_ids: Option<BTreeSet<String>> = None;
-    let mut common_candidate_subjects: Option<BTreeSet<String>> = None;
+    let mut common_candidate_pool: Option<BTreeSet<(String, String)>> = None;
 
     for row in truth {
         if training.contains(&row.query_subject) {
@@ -252,19 +255,15 @@ fn validate_partition(
     let mut output = Vec::with_capacity(grouped.len());
     for (query_id, candidates) in grouped {
         let (query_subject, stratum) = query_meta.remove(&query_id).ok_or("missing query metadata")?;
-        let candidate_ids: BTreeSet<String> = candidates.iter().map(|c| c.candidate_id.clone()).collect();
-        let candidate_subjects: BTreeSet<String> = candidates.iter().map(|c| c.candidate_subject.clone()).collect();
-        if candidate_ids.len() != candidates.len() || candidate_subjects.len() != candidates.len() {
+        let candidate_pool: BTreeSet<(String, String)> = candidates.iter()
+            .map(|c| (c.candidate_id.clone(), c.candidate_subject.clone())).collect();
+        if candidate_pool.len() != candidates.len() {
             return Err(format!("query {query_id} has duplicate candidate IDs or subjects").into());
         }
-        if common_candidate_ids.as_ref().is_some_and(|pool| pool != &candidate_ids) {
-            return Err("all queries must use exactly the same candidate handles".into());
+        if common_candidate_pool.as_ref().is_some_and(|pool| pool != &candidate_pool) {
+            return Err("all queries must use exactly the same candidate handles and subject mappings".into());
         }
-        if common_candidate_subjects.as_ref().is_some_and(|pool| pool != &candidate_subjects) {
-            return Err("candidate handles must map to the same candidate subjects for every query".into());
-        }
-        common_candidate_ids.get_or_insert(candidate_ids);
-        common_candidate_subjects.get_or_insert(candidate_subjects);
+        common_candidate_pool.get_or_insert(candidate_pool);
         let mated: Vec<&Candidate> = candidates.iter().filter(|c| c.true_match).collect();
         if mated.len() > 1 { return Err(format!("query {query_id} has multiple true candidates").into()); }
         if mated.is_empty() && candidates.iter().any(|c| c.candidate_subject == query_subject) {
@@ -281,11 +280,11 @@ fn validate_partition(
             (Some(target.score), Some(greater + 1), Some(greater + tied))
         } else { (None, None, None) };
         output.push(QueryResult {
-            query_id, query_subject, stratum, matched: target.is_some(), max_score,
+            query_id, candidate_count: candidates.len(), query_subject, stratum, matched: target.is_some(), max_score,
             target_score, target_rank_low, target_rank_high,
         });
     }
-    Ok(output)
+    Ok((output, common_candidate_pool.ok_or("missing candidate pool")?))
 }
 
 fn validate_partition_disjoint(validation: &[QueryResult], test: &[QueryResult]) -> Result<(), Box<dyn Error>> {
@@ -313,21 +312,16 @@ fn distinct_subjects(rows: &[QueryResult]) -> usize {
     rows.iter().map(|q| q.query_subject.as_str()).collect::<BTreeSet<_>>().len()
 }
 
-fn query_count_candidates(query: &QueryResult, rows: &[QueryResult]) -> usize {
-    // Candidate pool size is shared by all queries; encoded as a transient result invariant below.
-    let _ = query;
-    rows.first().map_or(0, |_| 0)
-}
 
 fn select_threshold(rows: &[QueryResult], max_fpir: f64) -> Option<f64> {
-    let mut thresholds: BTreeSet<ordered_float::NotFloat> = BTreeSet::new();
+    let mut candidates = Vec::new();
     for row in rows {
-        if let Some(score) = row.target_score { thresholds.insert(ordered_float::NotFloat(score)); }
-        // Candidate non-match scores are not retained in QueryResult; query maximums suffice to control FPIR.
-        thresholds.insert(ordered_float::NotFloat(row.max_score));
+        if let Some(score) = row.target_score { candidates.push(score); }
+        // Include each query's maximum; these determine false-positive identification for non-mated probes.
+        candidates.push(row.max_score);
     }
-    let mut candidates: Vec<f64> = thresholds.into_iter().map(|x| x.0).collect();
     candidates.sort_by(f64::total_cmp);
+    candidates.dedup_by(|left, right| left.total_cmp(right).is_eq());
     let mut best: Option<f64> = None;
     let mut best_hit_rate = 0.0;
     let mut best_fpir = f64::INFINITY;
@@ -450,9 +444,7 @@ fn build_report(
     } else if intervals.2.low > max_fpir {
         "FAIL"
     } else { "INCONCLUSIVE" };
-    let val_match = 1.0 - validation_rates.false_negative_rank1;
     let val_threshold = threshold.map_or("null".to_owned(), |x| format!("{x:.8}"));
-    let test_threshold = threshold.map_or("null".to_owned(), |_| "validation_locked".to_owned());
     let target_res = if test_rates.nonmated_queries == 0 { 0.0 } else { 1.0 / test_rates.nonmated_queries as f64 };
     let rare_event = if test_rates.false_positive_identification_rate == 0.0 {
         "ZERO_FALSE_IDENTIFICATIONS_DO_NOT_CERTIFY_TAIL_RISK"
@@ -535,7 +527,7 @@ mod tests {
 
     fn query(id: &str, subject: &str, matched: bool, max_score: f64, target_score: Option<f64>, rank: Option<(usize, usize)>, stratum: &str) -> QueryResult {
         QueryResult {
-            query_id:id.into(), query_subject:subject.into(), stratum:stratum.into(), matched, max_score,
+            query_id:id.into(), candidate_count:4, query_subject:subject.into(), stratum:stratum.into(), matched, max_score,
             target_score, target_rank_low:rank.map(|r|r.0), target_rank_high:rank.map(|r|r.1),
         }
     }
