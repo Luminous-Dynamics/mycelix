@@ -215,8 +215,9 @@ fn audit_bytes(bytes: &[u8], input_label: &str) -> Result<AuditReport, Box<dyn E
             column_indices: indices,
         })
         .collect();
-    let mut column_stats: Vec<MutableColumnStats> =
-        (0..headers.len()).map(|_| MutableColumnStats::new()).collect();
+    let mut column_stats: Vec<MutableColumnStats> = (0..headers.len())
+        .map(|_| MutableColumnStats::new())
+        .collect();
     let mut duplicate_rows_seen = HashSet::<String>::new();
     let mut duplicate_rows = 0usize;
     let mut row_count = 0usize;
@@ -465,11 +466,22 @@ mod tests {
     fn duplicate_headers_remain_visible() {
         let csv = b"Study,study,Yield\nA,A,1\n";
         let report = audit_bytes(csv, "duplicate-headers.csv").unwrap();
-        assert_eq!(report.columns[0].normalized_name, report.columns[1].normalized_name);
+        assert_eq!(
+            report.columns[0].normalized_name,
+            report.columns[1].normalized_name
+        );
         assert_ne!(report.columns[0].index, report.columns[1].index);
         assert_eq!(report.duplicate_normalized_headers.len(), 1);
-        assert_eq!(report.duplicate_normalized_headers[0].column_indices, vec![0, 1]);
-        assert!(report.warnings.iter().any(|warning| warning.contains("header collision")));
+        assert_eq!(
+            report.duplicate_normalized_headers[0].column_indices,
+            vec![0, 1]
+        );
+        assert!(
+            report
+                .warnings
+                .iter()
+                .any(|warning| warning.contains("header collision"))
+        );
     }
 
     #[test]
@@ -492,6 +504,11 @@ mod tests {
         let report = audit_bytes(csv, "no-study-key.csv").unwrap();
         assert!(!report.study_group_key_candidate_found);
         assert!(!report.study_group_key_has_variation);
-        assert!(report.warnings.iter().any(|warning| warning.contains("random-row validation")));
+        assert!(
+            report
+                .warnings
+                .iter()
+                .any(|warning| warning.contains("random-row validation"))
+        );
     }
 }
