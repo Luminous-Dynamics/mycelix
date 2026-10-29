@@ -1,7 +1,8 @@
 use cecb_counterexample_benchmark::{
-    axis_aligned_landscape, correlated_feasible_landscape, irrelevant_dimensions_landscape,
-    nonlinear_interaction_landscape, noisy_boundary_landscape, oblique_landscape, score_predictions,
-    score_rule, structural_family_a, structural_family_b, LabelSource, Point, Rule, Score,
+    axis_aligned_landscape, correlated_feasible_landscape, exhaustive_axis_aligned_boxes,
+    irrelevant_dimensions_landscape, nonlinear_interaction_landscape, noisy_boundary_landscape,
+    oblique_landscape, pareto_box_front, score_predictions, score_rule, structural_family_a,
+    structural_family_b, LabelSource, Point, Rule, Score,
 };
 
 fn fraction_json(value: Option<(usize, usize)>) -> String {
@@ -91,6 +92,51 @@ fn emit_pair(
     emit_latent_oracle(case_id, points)
 }
 
+fn emit_box_search_summary(case_id: &str, points: &[Point]) -> Result<(), String> {
+    let candidates = exhaustive_axis_aligned_boxes(points, LabelSource::LatentTruth)
+        .map_err(|error| format!("{error:?}"))?;
+    let pareto = pareto_box_front(&candidates);
+    let maximum_true_positives = candidates
+        .iter()
+        .map(|candidate| candidate.score.true_positive)
+        .max()
+        .unwrap_or(0);
+    let minimum_false_positives_at_maximum_coverage = candidates
+        .iter()
+        .filter(|candidate| candidate.score.true_positive == maximum_true_positives)
+        .map(|candidate| candidate.score.false_positive)
+        .min()
+        .unwrap_or(0);
+    let exact_recovery_exists = candidates.iter().any(|candidate| {
+        candidate.score.false_positive == 0 && candidate.score.false_negative == 0
+    });
+    let dimensions = points.first().map_or(0, |point| point.features.len());
+    println!(
+        concat!(
+            "{{",
+            "\"schema_version\":\"cecb.counterexample_box_search.v0.1\",",
+            "\"case_id\":\"{}\",",
+            "\"search_scope\":\"exhaustive_axis_aligned_boxes\",",
+            "\"label_source\":\"latent_truth\",",
+            "\"point_count\":{},\"feature_count\":{},",
+            "\"distinct_prediction_regions\":{},\"pareto_front_count\":{},",
+            "\"maximum_true_positives\":{},",
+            "\"minimum_false_positives_at_maximum_true_positives\":{},",
+            "\"exact_recovery_exists\":{}",
+            "}}"
+        ),
+        case_id,
+        points.len(),
+        dimensions,
+        candidates.len(),
+        pareto.len(),
+        maximum_true_positives,
+        minimum_false_positives_at_maximum_coverage,
+        exact_recovery_exists,
+    );
+    Ok(())
+}
+
 fn main() -> Result<(), String> {
     let axis = axis_aligned_landscape();
     emit_pair("axis_aligned_2d", &axis, LabelSource::LatentTruth)?;
@@ -135,6 +181,12 @@ fn main() -> Result<(), String> {
     emit_pair("structural_family_a", &family_a, LabelSource::LatentTruth)?;
     let family_b = structural_family_b();
     emit_pair("structural_family_b", &family_b, LabelSource::LatentTruth)?;
+
+    // Exhaustive search is deliberately limited to small spaces. These summary
+    // rows quantify the best axis-aligned box frontier against known truth.
+    emit_box_search_summary("axis_aligned_2d", &axis)?;
+    emit_box_search_summary("oblique_2d", &oblique)?;
+    emit_box_search_summary("nonlinear_interaction_2d", &nonlinear)?;
 
     Ok(())
 }
