@@ -616,7 +616,7 @@ fn build_report(
     }).collect::<Vec<_>>().join(",");
     format!(
         r#"{{
-  "schema_version":"1.1",
+  "schema_version":"1.2",
   "evaluator_version":"{}",
   "evaluation_mode":"validation_locked_open_set_identification",
   "threshold_selection":"validation_only_maximize_rank1_identification_subject_to_fpir_cap",
