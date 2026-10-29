@@ -569,6 +569,7 @@ mod tests {
             method_id: "transferred-x-ge-2".to_owned(),
             method_version: "1".to_owned(),
             predictions: split
+                .candidate_view()
                 .holdout_inputs
                 .iter()
                 .map(|input| Prediction {
