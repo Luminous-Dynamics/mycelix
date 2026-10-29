@@ -11,6 +11,7 @@
     "observations",
     "independent_groups",
     "bootstrap_seed",
+    "nominal_interval_coverage",
     "candidate",
     "baseline",
     "relative_mae_improvement",
@@ -25,6 +26,7 @@
     "observations": { "type": "integer", "minimum": 1 },
     "independent_groups": { "type": "integer", "minimum": 2 },
     "bootstrap_seed": { "type": "integer", "minimum": 0 },
+    "nominal_interval_coverage": { "const": 0.9 },
     "candidate": { "$ref": "#/$defs/metrics" },
     "baseline": { "$ref": "#/$defs/metrics" },
     "relative_mae_improvement": { "type": ["number", "null"] },
@@ -47,7 +49,8 @@
         "rmse",
         "bias_prediction_minus_actual",
         "empirical_interval_coverage",
-        "mean_interval_width"
+        "mean_interval_width",
+        "mean_interval_score"
       ],
       "properties": {
         "observations": { "type": "integer", "minimum": 1 },
@@ -55,7 +58,8 @@
         "rmse": { "type": "number", "minimum": 0 },
         "bias_prediction_minus_actual": { "type": "number" },
         "empirical_interval_coverage": { "type": ["number", "null"], "minimum": 0, "maximum": 1 },
-        "mean_interval_width": { "type": ["number", "null"], "minimum": 0 }
+        "mean_interval_width": { "type": ["number", "null"], "minimum": 0 },
+        "mean_interval_score": { "type": ["number", "null"], "minimum": 0 }
       }
     },
     "bootstrap_interval": {
