@@ -197,3 +197,10 @@ The next benchmark specification is `GALLERY-SCALING-BENCHMARK.md` (**design-onl
 For context, NIST's current IREX 10 identification evaluation reports FNIR at fixed FPIR, candidate ranking, computation timing and performance by enrollment size; its public report cards use a 500,000-person enrolled population for the operational dataset. See [NIST IREX 10](https://pages.nist.gov/IREX10/) and the [IREX 10 identification track](https://pages.nist.gov/IREX10/). Separately, NIST SP 800-63A-4 requires, within its 1:N biometric identity-proofing scope, FPIR of 1 in 1,000 (0.1%) or better and testing with a gallery no smaller than 90% of intended operational size. That is a specific identity-proofing requirement, not a universal credential unlinkability threshold. See [NIST SP 800-63A-4](https://pages.nist.gov/800-63-4/sp800-63a.html).
 
 The exact-head workflow checks the statistical endpoint, nonzero-event behavior, report schema and synthetic fixture determinism. It does not make synthetic data evidence of real credential unlinkability.
+
+
+## Exact interval coverage regression checks — v0.8
+
+The unit suite now validates more than a few known answers for the one-sided Clopper-Pearson subject-level upper bound. For each preregistered pair of sample size (n in {5,10,20,50,100}) and true event probability (p in {0.005,0.01,0.025,0.05,0.1,0.25,0.5,0.75,0.9,0.99}), it sums the exact binomial PMF over all observed event counts whose reported upper bound contains (p). The coverage must be at least 95% (within a stated floating-point tolerance). A separate test checks that the bound is monotone in the observed event count and that the zero-event bound decreases with sample size.
+
+These are deterministic exact-distribution numerical regression checks over a finite grid—not Monte Carlo and not a proof for all possible probabilities or for dependent/nonrepresentative subject clusters. The confidence guarantee still depends on the binomial sampling assumptions and remains conditional on the fixed gallery/scorer.
