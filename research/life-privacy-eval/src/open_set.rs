@@ -456,15 +456,64 @@ fn percentile_interval(mut values: Vec<f64>) -> Interval {
     Interval { low: quantile(0.025), high: quantile(0.975), valid_replicates: values.len() }
 }
 
-fn hoeffding_upper_bound_95(events: usize, independent_clusters: usize) -> f64 {
-    if independent_clusters == 0 {
+fn binomial_cdf_at_most(events: usize, trials: usize, probability: f64) -> f64 {
+    if events >= trials || probability <= 0.0 {
         return 1.0;
     }
-    let empirical_rate =
-        events.min(independent_clusters) as f64 / independent_clusters as f64;
-    let confidence_radius = ((1.0 / SUBJECT_RISK_ALPHA).ln()
-        / (2.0 * independent_clusters as f64)).sqrt();
-    (empirical_rate + confidence_radius).min(1.0)
+    if probability >= 1.0 {
+        return 0.0;
+    }
+
+    // Log-PMF recurrence avoids underflow in the first probability term.
+    // The log-sum-exp accumulator keeps the partial CDF numerically stable.
+    let log_p = probability.ln();
+    let log_q = (-probability).ln_1p();
+    let mut log_mass = trials as f64 * log_q;
+    let mut max_log_mass = f64::NEG_INFINITY;
+    let mut scaled_sum = 0.0;
+    for i in 0..=events {
+        if log_mass > max_log_mass {
+            scaled_sum = if max_log_mass.is_finite() {
+                scaled_sum * (max_log_mass - log_mass).exp() + 1.0
+            } else {
+                1.0
+            };
+            max_log_mass = log_mass;
+        } else {
+            scaled_sum += (log_mass - max_log_mass).exp();
+        }
+        if i < events {
+            log_mass += ((trials - i) as f64).ln()
+                - ((i + 1) as f64).ln()
+                + log_p
+                - log_q;
+        }
+    }
+    (max_log_mass.exp() * scaled_sum).clamp(0.0, 1.0)
+}
+
+fn exact_binomial_upper_bound_95(events: usize, independent_clusters: usize) -> f64 {
+    if independent_clusters == 0 || events >= independent_clusters {
+        return 1.0;
+    }
+    if events == 0 {
+        // Stable exact one-sided Clopper-Pearson endpoint for zero observed events.
+        return -((SUBJECT_RISK_ALPHA.ln() / independent_clusters as f64).exp_m1());
+    }
+
+    // Clopper-Pearson upper endpoint: choose the smallest p whose lower
+    // binomial tail P[X <= events] is no greater than alpha.
+    let mut low = events as f64 / independent_clusters as f64;
+    let mut high = 1.0;
+    for _ in 0..80 {
+        let mid = low + (high - low) * 0.5;
+        if binomial_cdf_at_most(events, independent_clusters, mid) > SUBJECT_RISK_ALPHA {
+            low = mid;
+        } else {
+            high = mid;
+        }
+    }
+    high
 }
 
 fn subject_risk(rows: &[QueryResult], threshold: Option<f64>) -> SubjectRisk {
@@ -488,7 +537,7 @@ fn subject_risk(rows: &[QueryResult], threshold: Option<f64>) -> SubjectRisk {
         subjects,
         subjects_with_any_false_identification,
         empirical_rate,
-        upper_bound_95: hoeffding_upper_bound_95(
+        upper_bound_95: exact_binomial_upper_bound_95(
             subjects_with_any_false_identification,
             subjects,
         ),
@@ -499,7 +548,10 @@ fn required_subject_clusters_for_zero_event_bound(target: f64) -> Option<usize> 
     if !target.is_finite() || target <= 0.0 || target > 1.0 {
         return None;
     }
-    let required = (1.0 / SUBJECT_RISK_ALPHA).ln() / (2.0 * target * target);
+    if target >= 1.0 {
+        return Some(1);
+    }
+    let required = SUBJECT_RISK_ALPHA.ln() / (-target).ln_1p();
     if !required.is_finite() || required > usize::MAX as f64 {
         None
     } else {
@@ -597,7 +649,7 @@ fn build_report(
   "fnir_rank1_cluster_bootstrap_ci95":{{"low":{:.8},"high":{:.8},"valid_replicates":{}}},
   "fnir_rank5_cluster_bootstrap_ci95":{{"low":{:.8},"high":{:.8},"valid_replicates":{}}},
   "fpir_cluster_bootstrap_ci95":{{"low":{:.8},"high":{:.8},"valid_replicates":{}}},
-  "subject_fp_rate_bound_method":"one_sided_hoeffding_upper_bound_on_subject_level_any_session_false_identification",
+  "subject_fp_rate_bound_method":"one_sided_exact_clopper_pearson_binomial_upper_bound_on_subject_level_any_session_false_identification",
   "subject_fp_rate_confidence_level":0.95000000,
   "subject_any_false_identification_target":{:.8},
   "validation_nonmated_subject_clusters":{},
@@ -729,13 +781,19 @@ mod tests {
     }
 
     #[test]
-    fn subject_bound_is_nonzero_at_zero_events_and_sample_size_is_explicit() {
-        let at_2_000 = hoeffding_upper_bound_95(0, 2_000);
-        assert!(at_2_000 > 0.01);
-        assert!(hoeffding_upper_bound_95(0, 14_900) > 0.01);
-        assert!(hoeffding_upper_bound_95(0, 15_000) < 0.01);
-        assert_eq!(required_subject_clusters_for_zero_event_bound(0.01), Some(14_979));
+    fn exact_subject_bound_has_known_zero_and_nonzero_event_cases() {
+        let at_2_000_for_one_percent = exact_binomial_upper_bound_95(0, 2_000);
+        assert!(at_2_000_for_one_percent < 0.01);
+        assert!(exact_binomial_upper_bound_95(0, 298) > 0.01);
+        assert!(exact_binomial_upper_bound_95(0, 299) <= 0.01);
+        assert_eq!(required_subject_clusters_for_zero_event_bound(0.01), Some(299));
+        assert_eq!(required_subject_clusters_for_zero_event_bound(0.001), Some(2_995));
         assert_eq!(required_subject_clusters_for_zero_event_bound(0.0), None);
+        assert_eq!(required_subject_clusters_for_zero_event_bound(1.0), Some(1));
+
+        let one_event_in_ten = exact_binomial_upper_bound_95(1, 10);
+        assert!(one_event_in_ten > 0.39 && one_event_in_ten < 0.40);
+        assert!(binomial_cdf_at_most(1, 10, one_event_in_ten) <= SUBJECT_RISK_ALPHA + 1e-12);
     }
 
     #[test]
