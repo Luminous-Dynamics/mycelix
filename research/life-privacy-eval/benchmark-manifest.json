@@ -48,7 +48,8 @@
     "not a linkability attacker",
     "not RFC/OIDF/W3C conformance",
     "not a differential-privacy proof",
-    "not a SOTA claim"
+    "not a SOTA claim",
+    "does not measure attack runtime, throughput, memory, payload size or energy"
   ],
   "source_contracts": [
     "Cargo.lock has no external dependencies",
@@ -276,6 +277,20 @@
         "minimum_coverage_by_grid_point": "1 - alpha (within stated floating-point tolerance)",
         "test_name": "exact_binomial_bound_has_coverage_at_bonferroni_family_alpha_levels"
       }
+    },
+    "performance_measurements": {
+      "status": "not measured in v0.9",
+      "reason": "gallery-sweep consumes precomputed attacker score grids and does not execute or profile the attacker",
+      "required_for_industry_comparison": [
+        "p50/p95/p99 per-query search latency",
+        "end-to-end throughput",
+        "peak resident memory",
+        "candidate/template and transmitted payload bytes",
+        "measured energy per query on named hardware",
+        "scorer/container/configuration digest",
+        "failure-to-process and excluded-query counts"
+      ],
+      "evidence_policy": "populate from a separately instrumented scorer-run receipt; never estimate these fields from evaluator runtime"
     }
   }
 }
