@@ -92,6 +92,12 @@ The checked-in fixtures are small, synthetic smoke tests. The report labels them
 
 For each format/profile and adversary, report the whole privacy–utility–cost frontier: ROC-AUC and 95% CI, AP, recall at low FPR, top-1 re-identification, subgroup/worst-stratum results, claims disclosed beyond necessity, payload bytes, p50/p95/p99 latency, memory and measured energy. Do not combine these into one weighted score.
 
+## Open-set population-shift diagnostic
+
+The companion OPEN-SET-SHIFT-BENCHMARK.md preregisters a synthetic test of whether a validation-locked FPIR threshold transports when the score distribution or population mix shifts. Run `python3 research/life-privacy-eval/coverage/open_set_threshold_shift.py --self-test`. The default diagnostic uses 100,000 calibration queries, seven test scenarios, a fixed 1% target, binomial Wilson intervals, and separate reporting for a newly observed shifted stratum.
+
+This is deliberately score-distribution simulation, not an implemented credential attack. The deterministic control illustrates a known failure mode: validation FPIR control does not guarantee future FPIR under shift. The report status is `NOT_A_PRIVACY_PASS_SYNTHETIC_SHIFT_DIAGNOSTIC_ONLY`; candidate-frame uncertainty, target-matched FNIR, utility, conformance, and real-world population transport remain unmeasured. The exact-head workflow replays the simulator and stores a digest receipt.
+
 ## Scope and non-claims
 
 - Does not parse, issue, or verify SD-JWT, BBS, mdoc, or OpenID4VP presentations.

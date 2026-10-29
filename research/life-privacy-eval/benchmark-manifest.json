@@ -388,5 +388,34 @@
       "interpretation": "compares the evaluated largest gallery with an explicitly supplied intended gallery size; if omitted, status is NOT_DECLARED",
       "nonclaim": "a 90% size ratio is only a scale-coverage indicator and is not protocol conformance or a universal credential-privacy requirement"
     }
+  },
+  "population_shift_stress": {
+    "script": "coverage/open_set_threshold_shift.py",
+    "report_schema_file": "coverage/open-set-shift-report.schema.json",
+    "protocol_file": "OPEN-SET-SHIFT-BENCHMARK.md",
+    "mode": "synthetic_open_set_validation_locked_threshold_transport_stress",
+    "status": "synthetic_research_diagnostic",
+    "default_seed": 990129,
+    "default_calibration_queries": 100000,
+    "default_test_queries_per_scenario": 100000,
+    "target_fpir": 0.01,
+    "scenario_count": 7,
+    "scenarios": [
+      "no_shift_control",
+      "mean_shift_plus_0_25_sd",
+      "mean_shift_plus_0_50_sd",
+      "scale_shift_1_25x",
+      "scale_shift_1_50x",
+      "one_percent_heavy_tail_contamination",
+      "new_shifted_stratum_10_percent"
+    ],
+    "metrics": [
+      "locked_threshold",
+      "observed_fpir",
+      "false_identification_count",
+      "wilson_95_binomial_interval",
+      "aggregate_and_worst_stratum_fpir"
+    ],
+    "claim_ceiling": "Synthetic score-distribution stress test only; no credential-format or deployed-attacker evidence; Wilson intervals do not cover population transport error; no privacy pass."
   }
 }

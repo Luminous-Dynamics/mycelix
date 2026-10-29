@@ -1,0 +1,21 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "LIFE synthetic open-set threshold-shift diagnostic report",
+  "type": "object",
+  "required": ["schema_version","diagnostic","qualification_status","seed","synthetic_only","score_semantics","threshold_policy","target_fpir","calibration","scenarios","directional_controls","limitations"],
+  "properties": {
+    "schema_version": {"const":"1.0"},
+    "diagnostic": {"const":"open_set_validation_locked_threshold_population_shift"},
+    "qualification_status": {"const":"NOT_A_PRIVACY_PASS_SYNTHETIC_SHIFT_DIAGNOSTIC_ONLY"},
+    "seed": {"type":"integer"},
+    "synthetic_only": {"const":true},
+    "score_semantics": {"type":"string"},
+    "threshold_policy": {"type":"string"},
+    "target_fpir": {"type":"number","exclusiveMinimum":0,"exclusiveMaximum":1},
+    "calibration": {"type":"object","required":["queries","false_identifications","observed_fpir","threshold","interpretation"]},
+    "scenarios": {"type":"array","minItems":7,"maxItems":7,"items":{"type":"object","required":["scenario","description","queries","false_identifications","observed_fpir","wilson_95_ci","strata"]}},
+    "directional_controls": {"type":"object","required":["no_shift_control_observed_fpir","mean_shift_plus_0_50_sd_observed_fpir","shifted_stratum_observed_fpir","mean_shift_exceeds_no_shift","shifted_stratum_exceeds_target"]},
+    "limitations": {"type":"array","minItems":4,"items":{"type":"string"}}
+  },
+  "expected_scenarios": {"const":["no_shift_control","mean_shift_plus_0_25_sd","mean_shift_plus_0_50_sd","scale_shift_1_25x","scale_shift_1_50x","one_percent_heavy_tail_contamination","new_shifted_stratum_10_percent"]}
+}
