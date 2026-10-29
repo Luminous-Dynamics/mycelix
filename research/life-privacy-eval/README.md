@@ -182,3 +182,18 @@ cargo run --locked --manifest-path research/life-privacy-eval/Cargo.toml -- open
 ```
 
 The report's bootstrap intervals are conditional on the fixed candidate pool. The screening minimum is 2,000 mated and 2,000 non-mated queries per partition, plus at least 2,000 distinct query subjects in each class and a candidate pool of at least 10; repeated sessions do not satisfy the distinct-subject floors. These are screening floors, not enough by themselves to bound rare false-identification risk. The four-query-per-partition fixture is smoke-only; its expected locked threshold is 0.95 at a zero-FPIR validation cap, with validation FNIR@1 = 0.5. These are synthetic known-answer semantics only. The overall privacy/release gate remains closed without task-utility and official conformance evidence. Open-set identification is distinct from pairwise ROC-AUC and from protocol conformance; do not infer posterior probabilities or an effective anonymity set from arbitrary ranking scores.
+
+
+## Subject-cluster tail-risk bound — v0.6
+
+The open-set report now keeps standard query-level FPIR/FNIR and the query-subject cluster bootstrap, but adds a distinct conservative tail-risk view: among subjects absent from the gallery, did **any** session/query for that subject cause any candidate to cross the locked threshold? Repeated sessions from the same unknown subject count as one subject-level Bernoulli event rather than pretending they are independent people.
+
+For `n` distinct non-mated query-subject clusters and observed subject-event rate `p_hat`, the report gives the one-sided 95% Hoeffding upper bound:
+
+`min(1, p_hat + sqrt(ln(1/alpha) / (2*n)))`, with `alpha = 0.05`.
+
+The subject-level event bound and the query-level FPIR bootstrap upper endpoint must both be at or below the declared target before the operating-point gate can become provisional. The overall release gate remains closed without utility and applicable conformance evidence. The bound treats subject clusters as independent draws conditional on the frozen scorer and fixed candidate gallery; it does not quantify candidate-gallery sampling uncertainty, distribution shift, or dependent populations and is not a formal privacy guarantee.
+
+This deliberately conservative bound makes sample requirements visible. At a 1% target, even **zero** false-identification events require **14,979 independent non-mated subject clusters** for this bound to reach 1%. The existing 2,000-per-class counts remain a screening floor, not an operating-point pass. If the target is zero, no finite sample can make the positive confidence radius zero, so the required-count field is null.
+
+The exact-head CI fixture checks the formula, subject-level session aggregation, schema, deterministic report output and zero-event sample-size calculation. Its four-query synthetic inputs are only known-answer smoke controls; they are not field data or evidence of real credential unlinkability. NIST open-set identification reporting likewise treats FPIR as dependent on enrollment/gallery size and threshold rather than as a universal score; see [NIST's open-set fingerprint identification evaluation](https://www.nist.gov/publications/performance-evaluation-fingerprint-open-set-identification-algorithms) and its [open-set identification definitions and evaluation report](https://nvlpubs.nist.gov/nistpubs/ir/2014/nist.ir.8034.pdf).
