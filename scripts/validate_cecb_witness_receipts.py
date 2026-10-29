@@ -47,7 +47,7 @@ def load_json(path: Path) -> dict[str, Any]:
 def validate_receipt(
     receipt: dict[str, Any], validator: Draft202012Validator, label: str
 ) -> None:
-    errors = sorted(validator.iter_errors(receipt), key=lambda error: list(error.path))
+    errors = sorted(validator.iter_errors(receipt), key=lambda error: tuple(str(part) for part in error.path))
     if errors:
         first = errors[0]
         location = "/".join(str(part) for part in first.path) or "<root>"
