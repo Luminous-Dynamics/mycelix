@@ -12,7 +12,7 @@ study-a,10.0,11.0,8.0,8.0,13.0
 study-b,20.0,19.0,18.0,16.0,22.0
 ```
 
-Each row is one scored observation. `group_id` must identify the true independent cluster used for resampling (for example, a source study, site, or batch consistent with the preregistered split). Do not use row IDs or treat repeated endpoints from one experiment as independent groups. The tool requires at least two groups and rejects blank groups, non-finite numeric values, missing required fields, and reversed prediction intervals.
+Each row is one scored observation. `group_id` must identify the true independent cluster used for resampling (for example, a source study, site, or batch consistent with the preregistered split). Do not use row IDs or treat repeated endpoints from one experiment as independent groups. The tool requires at least two groups and rejects blank groups, non-finite numeric values, missing required fields, and reversed prediction intervals. Results with fewer than ten groups carry an explicit warning that the bootstrap interval is exploratory; ten is a warning threshold, not proof of adequate power.
 
 ## Run
 
