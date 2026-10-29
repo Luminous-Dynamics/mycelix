@@ -667,12 +667,35 @@ fn unique_subject_count(rows: &[QueryTruth]) -> usize {
     rows.iter().map(|row| row.query_subject.as_str()).collect::<BTreeSet<_>>().len()
 }
 
+fn subject_event_risk_json(rows: &[QueryResult], threshold: Option<f64>, alpha: f64) -> String {
+    // For one realized gallery, aggregate repeated query sessions to one
+    // Bernoulli event per non-mated subject. This endpoint is conditional on
+    // the realized gallery and requires representative independent subjects.
+    let mut by_subject: BTreeMap<&str, bool> = BTreeMap::new();
+    for row in rows.iter().filter(|row| !row.matched) {
+        let crossed = threshold.is_some_and(|value| row.max_score >= value);
+        let event = by_subject.entry(row.query_subject.as_str()).or_insert(false);
+        *event |= crossed;
+    }
+    let subjects = by_subject.len();
+    let events = by_subject.values().filter(|&&event| event).count();
+    let observed = (subjects > 0).then_some(events as f64 / subjects as f64);
+    let upper = (subjects > 0).then_some(
+        crate::open_set::exact_binomial_upper_bound_with_alpha(events, subjects, alpha)
+    );
+    format!(
+        r#"{{"eligible_nonmated_subjects":{},"subjects_with_any_false_identification":{},"observed_rate":{},"exact_one_sided_upper_bound":{},"alpha":{},"confidence_method":"one_sided_exact_clopper_pearson_binomial_upper_bound","assumptions":"independent representative query-subject clusters conditional on the realized gallery and scorer"}}"#,
+        subjects, events, metric_json(observed), metric_json(upper), metric_json(Some(alpha))
+    )
+}
+
 fn draw_results_json(
     rows: &[QueryResult],
     draw_ids: &[String],
     size: usize,
     threshold: Option<f64>,
 ) -> String {
+    let adjusted_alpha = 0.05 / draw_ids.len() as f64;
     let mut draw_json = Vec::new();
     for draw_id in draw_ids {
         let draw_rows: Vec<QueryResult> = rows.iter()
@@ -682,10 +705,11 @@ fn draw_results_json(
         let nonmated = draw_rows.len() - mated;
         let rates = weighted_metrics(&draw_rows, threshold, None, None);
         draw_json.push(format!(
-            r#"{{"draw_id":"{}","mated_queries":{},"nonmated_queries":{},"fnir_at_rank_1":{},"fnir_at_rank_3":{},"fnir_at_rank_5":{},"fnir_at_rank_10":{},"fpir":{}}}"#,
+            r#"{{"draw_id":"{}","mated_queries":{},"nonmated_queries":{},"fnir_at_rank_1":{},"fnir_at_rank_3":{},"fnir_at_rank_5":{},"fnir_at_rank_10":{},"fpir":{},"subject_level_any_false_identification":{}}}"#,
             json_escape(draw_id), mated, nonmated,
             metric_json(rates.fnir1), metric_json(rates.fnir3), metric_json(rates.fnir5),
-            metric_json(rates.fnir10), metric_json(rates.fpir)
+            metric_json(rates.fnir10), metric_json(rates.fpir),
+            subject_event_risk_json(&draw_rows, threshold, adjusted_alpha)
         ));
     }
     format!("[{}]", draw_json.join(","))
@@ -765,8 +789,8 @@ fn build_report(context: ReportContext<'_>) -> String {
     }
 
     format!(
-        r#"{{"schema_version":"1.0","evaluator_version":"{}","evaluation_mode":"gallery_scaling_open_set_identification","seed":{},"requested_bootstrap_replicates":{},"gallery_sampling":{{"method":"deterministic_seeded_uniform_without_replacement_nested_prefix_draws","rng":"xorshift64","draw_count":{},"candidate_frame_size":{},"candidate_score_semantics":"pairwise_scores_are_assumed_gallery_invariant","uncertainty_scope":"conditional_on_candidate_frame; crossed query-subject and gallery-draw resampling","crossed_bootstrap_coverage_validation_status":"KNOWN_SPARSE_EVENT_UNDERCOVERAGE_DO_NOT_USE_FOR_CERTIFICATION"}},"gallery_sizes":{:?},"max_fpir_target":{},"validation_query_count":{},"validation_unique_query_subjects":{},"test_query_count":{},"test_unique_query_subjects":{},"threshold_policy":"validation-locked threshold selected independently per gallery size by maximizing expected rank-1 hit rate subject to empirical validation FPIR cap","frozen_threshold_policy":{{"reference_gallery_size":{},"threshold":{}}},"sample_size_gate":"SMOKE_ONLY_OR_RESEARCH_ONLY_UNTIL_PREREGISTERED_RELEASE_FLOORS_ARE_MET","operating_point_gate":"NOT_A_PRIVACY_PASS; validation FPIR is empirical and test uncertainty coverage study is pending","size_results":[{}],"task_utility_evidence_present":false,"official_conformance_evidence_present":false,"overall_release_gate":"NOT_EVALUATED_CROSSED_GALLERY_EVIDENCE_IS_NOT_RELEASE_CERTIFICATION","limitations":["The candidate frame is fixed; inference does not generalize beyond its sampling frame without a separate transportability argument.","Scores are assumed invariant to candidate-set composition. Context-dependent scoring requires a separate score input for each draw and is not implemented in v0.9.","A finite-grid diagnostic reproduced substantial sparse-event undercoverage in the crossed percentile bootstrap; its intervals must not be used as certification evidence.","The score grid is complete over every query and every candidate in the supplied frame; very large benchmarks may need a streaming implementation.","A threshold selected on validation data is frozen for test evaluation. Test labels never select or retune thresholds.","A reduction in identification rates is not a formal unlinkability or differential-privacy guarantee."]}}"#,
-        VERSION, seed, bootstrap_replicates, draw_count, candidate_count, sizes, max_fpir,
+        r#"{{"schema_version":"1.0","evaluator_version":"{}","evaluation_mode":"gallery_scaling_open_set_identification","seed":{},"requested_bootstrap_replicates":{},"per_draw_subject_risk_bound_policy":"exact one-sided Clopper-Pearson with Bonferroni alpha 0.05 / draw_count within each gallery-size and threshold-policy family; assumes independent representative subjects conditional on each realized gallery","per_draw_subject_risk_bound_alpha":{},"gallery_sampling":{{"method":"deterministic_seeded_uniform_without_replacement_nested_prefix_draws","rng":"xorshift64","draw_count":{},"candidate_frame_size":{},"candidate_score_semantics":"pairwise_scores_are_assumed_gallery_invariant","uncertainty_scope":"conditional_on_candidate_frame; crossed query-subject and gallery-draw resampling","crossed_bootstrap_coverage_validation_status":"KNOWN_SPARSE_EVENT_UNDERCOVERAGE_DO_NOT_USE_FOR_CERTIFICATION"}},"gallery_sizes":{:?},"max_fpir_target":{},"validation_query_count":{},"validation_unique_query_subjects":{},"test_query_count":{},"test_unique_query_subjects":{},"threshold_policy":"validation-locked threshold selected independently per gallery size by maximizing expected rank-1 hit rate subject to empirical validation FPIR cap","frozen_threshold_policy":{{"reference_gallery_size":{},"threshold":{}}},"sample_size_gate":"SMOKE_ONLY_OR_RESEARCH_ONLY_UNTIL_PREREGISTERED_RELEASE_FLOORS_ARE_MET","operating_point_gate":"NOT_A_PRIVACY_PASS; validation FPIR is empirical and test uncertainty coverage study is pending","size_results":[{}],"task_utility_evidence_present":false,"official_conformance_evidence_present":false,"overall_release_gate":"NOT_EVALUATED_CROSSED_GALLERY_EVIDENCE_IS_NOT_RELEASE_CERTIFICATION","limitations":["The candidate frame is fixed; inference does not generalize beyond its sampling frame without a separate transportability argument.","Scores are assumed invariant to candidate-set composition. Context-dependent scoring requires a separate score input for each draw and is not implemented in v0.9.","A finite-grid diagnostic reproduced substantial sparse-event undercoverage in the crossed percentile bootstrap; its intervals must not be used as certification evidence.","The score grid is complete over every query and every candidate in the supplied frame; very large benchmarks may need a streaming implementation.","A threshold selected on validation data is frozen for test evaluation. Test labels never select or retune thresholds.","A reduction in identification rates is not a formal unlinkability or differential-privacy guarantee."]}}"#,
+        VERSION, seed, bootstrap_replicates, 0.05 / draw_count as f64, draw_count, candidate_count, sizes, max_fpir,
         validation_truth.len(), unique_subject_count(validation_truth),
         test_truth.len(), unique_subject_count(test_truth),
         reference_size, metric_json(frozen_threshold), size_json.join(",")
