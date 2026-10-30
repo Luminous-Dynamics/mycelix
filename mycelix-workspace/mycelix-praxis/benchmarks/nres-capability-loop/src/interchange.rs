@@ -182,6 +182,14 @@ pub fn validate_evidence_envelope(envelope: &Value) -> Result<(), Vec<String>> {
     }
 
     for node in &graph {
+        if field_str(node, "nres:recordKind") == Some("after-action-finding")
+            && graph_relation_ids(node, "prov:wasDerivedFrom").is_empty()
+        {
+            errors.push(format!(
+                "{}: after-action finding must derive from a source observation",
+                field_str(node, "@id").unwrap_or("unknown-node")
+            ));
+        }
         let Some(node_name) = field_str(node, "@id") else {
             continue;
         };
@@ -478,14 +486,20 @@ pub fn export_evidence_envelope(
         if opened_activity.is_none() {
             return Err(vec![format!("{action_id}: opened cycle does not resolve during export")]);
         }
+        let finding_service = field_str(action, "retest_service").unwrap_or("");
+        let finding_source = service_observation_ids
+            .get(&format!("{opened_cycle}:{finding_service}"))
+            .ok_or_else(|| vec![format!("{action_id}: after-action finding has no linked source observation")])?;
         graph.push(json!({
             "@id": finding,
             "@type": ["prov:Entity", "nres:AfterActionFinding"],
             "nres:recordKind": "after-action-finding",
             "nres:description": action.get("finding"),
             "nres:rootCauseHypothesis": action.get("root_cause_hypothesis"),
+            "nres:linkedService": finding_service,
             "nres:syntheticOnly": true,
-            "prov:wasGeneratedBy": reference(opened_activity.unwrap())
+            "prov:wasGeneratedBy": reference(opened_activity.unwrap()),
+            "prov:wasDerivedFrom": reference(finding_source)
         }));
 
         let status = field_str(action, "status").unwrap_or("open");
@@ -771,6 +785,16 @@ mod tests {
     fn rejects_missing_provenance_reference() {
         let mut bundle = envelope();
         bundle["@graph"][0]["prov:wasDerivedFrom"] = json!([{ "@id": "urn:missing:entity" }]);
+        assert!(validate_evidence_envelope(&bundle).is_err());
+    }
+
+    #[test]
+    fn rejects_after_action_finding_without_source_observation() {
+        let mut bundle = envelope();
+        let finding = bundle["@graph"].as_array_mut().unwrap().iter_mut()
+            .find(|node| node.get("nres:recordKind").and_then(Value::as_str) == Some("after-action-finding"))
+            .expect("fixture has after-action findings");
+        finding.as_object_mut().unwrap().remove("prov:wasDerivedFrom");
         assert!(validate_evidence_envelope(&bundle).is_err());
     }
 
