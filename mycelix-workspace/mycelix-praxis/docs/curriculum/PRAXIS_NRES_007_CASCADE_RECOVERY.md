@@ -58,7 +58,7 @@ References:
 NRES-007 does not replace these programmes, certify alignment, or claim superior real-world performance. Its proposed contribution is a small, open, executable test object that can be adapted independently and compared against institutional exercise outputs.
 
 
-## 5. Cross-project composition boundary
+## 6. Cross-project composition boundary
 
 NRES-007 should not duplicate the simulation work already scoped in [Symtropy BANK-RES-SIM-001 (#2330)](https://github.com/Luminous-Dynamics/symtropy/issues/2330). The intended ownership boundary is:
 
@@ -69,7 +69,7 @@ NRES-007 should not duplicate the simulation work already scoped in [Symtropy BA
 
 A future adapter should preserve assumed / observed / evaluator-only edge status, source and graph digests, units, time base, missingness and whether a trajectory is simulated or measured. These systems remain separate until a versioned adapter contract is reviewed.
 
-## 6. Numerical definitions
+## 7. Numerical definitions
 
 For service floor (F), observed availability (A(t)), and time interval ([t_i,t_{i+1}]), define the deficit (D(t)=\max(0,F-A(t))). The reported deficit area is:
 
@@ -81,7 +81,7 @@ The implementation integrates the positive part of each piecewise-linear segment
 
 The sustained-recovery time is the earliest sample (t_i) for which all observations (A(t_j)\geq F) for every (j\geq i). Recovery after (T) is unknown and is never inferred.
 
-## 7. Hard integrity gates
+## 8. Hard integrity gates
 
 - 100% of scenarios reference the same frozen shock-sequence ID for a matched comparison.
 - 100% of service trajectories match the declared sample grid exactly.
@@ -94,7 +94,7 @@ The sustained-recovery time is the earliest sample (t_i) for which all observati
 
 These are data-integrity targets, not public-service performance targets. Service thresholds must come from an authorised local standard or be explicitly labelled as scenario assumptions before any confirmatory use.
 
-## 8. Research benchmarks and path to SOTA
+## 9. Research benchmarks and path to SOTA
 
 Do not define a single winner. Compare systems on a per-service Pareto surface:
 
@@ -117,7 +117,7 @@ Next research gates:
 
 A provisional engineering benchmark may measure evaluator latency, peak memory and bytes per sample at 10², 10³, 10⁴ and 10⁵ service-samples on a named machine. Publish the hardware, compiler, workload and repeated-run distribution; do not claim speed superiority without those measurements.
 
-## 9. Reproducibility and boundaries
+## 10. Reproducibility and boundaries
 
 Run from the `mycelix-praxis` directory:
 
