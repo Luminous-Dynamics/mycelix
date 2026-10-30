@@ -1,0 +1,27 @@
+{
+  "schema_version": "0.1.0",
+  "site_id": "SYN1",
+  "plot_id": "P01",
+  "event_id": "E001",
+  "event_start_utc": "2026-01-01T00:00:00Z",
+  "sensors": [
+    {
+      "sensor_id": "D10",
+      "depth_cm": 10,
+      "response_status": "detected",
+      "response_onset_utc": "2026-01-01T00:30:00Z"
+    },
+    {
+      "sensor_id": "D30",
+      "depth_cm": 30,
+      "response_status": "detected",
+      "response_onset_utc": "2026-01-01T00:10:00Z"
+    },
+    {
+      "sensor_id": "D60",
+      "depth_cm": 60,
+      "response_status": "detected",
+      "response_onset_utc": "2026-01-01T00:20:00Z"
+    }
+  ]
+}
