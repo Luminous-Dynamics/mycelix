@@ -1126,8 +1126,6 @@ mod tests {
         }
     }
 
-
-
     #[test]
     fn authorization_is_invariant_to_role_order_duplicates_and_irrelevant_attributes() {
         let corpus: Value = serde_json::from_str(include_str!(
