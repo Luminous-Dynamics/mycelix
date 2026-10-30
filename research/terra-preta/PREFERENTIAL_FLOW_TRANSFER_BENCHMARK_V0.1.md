@@ -4,6 +4,8 @@
 
 **Executable preprocessing:** [Preferential-flow eventizer](./tools/preferential-flow-eventizer/README.md) and [synthetic known-truth benchmark](./SYNTHETIC_KNOWN_TRUTH_BENCHMARK_V0.1.md). The eventizer consumes QA-filtered 10-minute normalized series; it does not parse raw NEON packages or certify pathways.
 
+**Implementation trackers:** [PF reproduction/transfer](https://github.com/Luminous-Dynamics/mycelix/issues/5534) · [NEON cohort and normalization](https://github.com/Luminous-Dynamics/mycelix/issues/5537).
+
 ## 1. Why this is the next benchmark
 
 The strongest recent event-scale preferential-flow (PF) reference located for this work is Li et al. (2026), *Earth's Future*, DOI [10.1029/2026EF008296](https://doi.org/10.1029/2026EF008296). It trained a two-block residual neural network on NEON soil-moisture and precipitation observations from 33 sites / 16 ecoregions. The post-QA dataset contained 15,554 event–sensor samples from 586 sensors. The paper reports test PF-classification F1 of 0.91 and accuracy of 0.85, while test event-response velocity prediction reached only (R^2=0.31).
