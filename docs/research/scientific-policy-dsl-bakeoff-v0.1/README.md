@@ -93,7 +93,20 @@ the governed event log:
 - Require a valid signed authority receipt and a contiguous receipt chain.
 - Commit the event and authority receipt atomically where the store supports it, or use the existing prepare/append/finalize recovery protocol.
 
-Those ten boundary cases are enumerated separately as \`prePolicyAndCommitGates\` in the JSON corpus. **They must not be rewritten as optional Cedar/OPA policy clauses.** An editable policy can add denials and narrower permissions, but it cannot disable the integrity kernel.
+Those eleven boundary cases are enumerated separately as \`prePolicyAndCommitGates\` in the JSON corpus. **They must not be rewritten as optional Cedar/OPA policy clauses.** An editable policy can add denials and narrower permissions, but it cannot disable the integrity kernel.
+
+## First candidate implementations
+
+The same pure-policy contract now has three reference artifacts:
+
+- `cases.json` plus `cases.schema.json`: the frozen test inputs and their versioned structural contract.
+- `mycelix-desci/src/core/src/scientific_governance.rs`: a Rust unit-test adapter builds signed synthetic events and typed claim projections, then calls the existing `DefaultScientificAuthorizationPolicy` directly for each of the 30 expected decisions. This preserves the real typed policy as the oracle; it does not test the governed storage/receipt kernel with synthetic bypasses.
+- `cedar-schema.json` and `cedar-policy.cedar`: a Cedar 4.14.0 candidate. Genesis actors can lack creator metadata; the schema declares that attribute optional and the policy guards every access with `has`. The request adapter must map absent actor organizations to an empty set and absent optional context fields to omission.
+- `opa-policy.rego` and `opa-policy_test.rego`: an OPA/Rego v1 candidate with a default-deny decision object and eight focused positive/negative controls.
+
+A dedicated workflow, `.github/workflows/scientific-policy-dsl-conformance.yml`, now runs the Rust scientific-governance tests, validates the Cedar policy against its JSON schema, and runs the Rego controls with OPA 1.22.0 (downloaded with a pinned SHA-256). The workflow has been committed but has not yet completed on the current PR head.
+
+The Cedar and Rego implementations are initial translations, not yet full-corpus equivalents. Their syntax/schema validation and representative unit controls are not enough to claim 30/30 parity. The next gate is an engine adapter that generates Cedar PARC requests and Rego inputs from every corpus row, then asserts exact decision agreement.
 
 ## What to compare
 
@@ -228,9 +241,10 @@ something we should claim to have surpassed before testing.
 
 1. Keep the existing Rust policy as the reference oracle for v0.1.
 2. Add stable rule codes and a normalized input/output contract.
-3. Build a small Cedar adapter and run the 30-case corpus; do not write a new
+3. Complete the Cedar request adapter and run all 30 vectors; do not write a new
    parser or custom language yet.
-4. Port the same corpus to OPA/Rego as the general-purpose baseline.
+4. Complete the OPA input adapter and run the same 30 vectors as a second
+   engine baseline.
 5. Compare decision equivalence first; compare latency only after all three
    systems return identical decisions.
 6. If Cedar handles the rules cleanly, use Cedar for editable authorization
@@ -240,7 +254,7 @@ something we should claim to have surpassed before testing.
 
 ## Explicitly not claimed
 
-- The corpus has not yet been executed against Cedar or OPA.
+- The Rust adapter has been added but has not yet completed a hosted compile/test run. Cedar and OPA candidates exist, with syntax/schema and representative tests scheduled in the new workflow; neither has yet run against all 30 corpus vectors.
 - The 30 expected decisions are an extraction from one Rust source revision,
   not an independent proof that the policy itself is normatively correct.
 - No latency numbers are collected here.
