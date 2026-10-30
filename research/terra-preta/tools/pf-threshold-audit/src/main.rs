@@ -15,14 +15,14 @@ const AUDIT_VERSION: &str = "0.1.0";
 #[serde(rename_all = "snake_case")]
 enum ValueScale {
     LinearCmPerDay,
-    Log10CmPerDay,
+    StoredLogScaleCmPerDay,
 }
 
 impl ValueScale {
     fn as_str(self) -> &'static str {
         match self {
             Self::LinearCmPerDay => "linear_cm_per_day",
-            Self::Log10CmPerDay => "log10_cm_per_day",
+            Self::StoredLogScaleCmPerDay => "stored_log_scale_cm_per_day",
         }
     }
 }
@@ -335,7 +335,7 @@ fn evaluate(input: &Input, input_sha256: String) -> Result<Report, String> {
         threshold_results,
         interpretation_boundary: "sensitivity of velocity-threshold proxy labels to declared hydraulic/model thresholds; not independent preferential-flow truth",
         warnings: vec![
-            "All compared values must use the same declared numeric scale. Log-scale inputs are compared in their stored scale; no exponentiation or unit conversion is inferred.".to_owned(),
+            "All compared values must use the same declared numeric scale. Stored log-scale inputs are compared as stored; the log base is not assumed, and no exponentiation or unit conversion is inferred.".to_owned(),
             "Rosetta Ksat thresholds and the matrix-model 99th-percentile velocity threshold are separate reference families and are not pooled into one consensus label.".to_owned(),
             "A stable label across the supplied thresholds only means robust to these declared threshold choices; it does not prove a physical preferential pathway.".to_owned(),
             "A threshold-sensitive result is evidence that the PF proxy class depends on the selected hydraulic/model reference and should not be treated as a binary ground-truth label.".to_owned(),
@@ -400,7 +400,7 @@ mod tests {
             threshold_id: id.to_owned(),
             kind,
             value,
-            value_scale: ValueScale::Log10CmPerDay,
+            value_scale: ValueScale::StoredLogScaleCmPerDay,
             source_column: id.to_owned(),
             evidence_ref: "synthetic fixture only".to_owned(),
         }
@@ -417,7 +417,7 @@ mod tests {
             sensor_depth_cm: 30.0,
             velocity: Velocity {
                 value: velocity,
-                value_scale: ValueScale::Log10CmPerDay,
+                value_scale: ValueScale::StoredLogScaleCmPerDay,
                 source_column: "velocity_computed_50X".to_owned(),
             },
             thresholds,
