@@ -214,7 +214,20 @@ Required negative/adversarial cases include:
 
 Hashes and model receipts prove artifact identity and computation provenance. They do not prove field sampling representativeness, chemical speciation, physical flux completeness, agronomic benefit or regulatory approval.
 
-## 11. Work packages and dependencies
+## 11. Event-record schema
+
+The companion machine-readable event contract is
+[`tools/coupled-event-audit/event-record.schema.json`](./tools/coupled-event-audit/event-record.schema.json),
+with a synthetic fixture and validation instructions in
+[`tools/coupled-event-audit/README.md`](./tools/coupled-event-audit/README.md).
+It distinguishes measured-qualified integrated dissolved export from
+estimated or concentration-only observations, separates particulate export,
+preserves sensor-only versus corroborated preferential-flow classifications,
+and discloses unmeasured pathways. Structural schema validation does not prove
+time synchronization, complete collection or scientifically valid tracer
+evidence.
+
+## 12. Work packages and dependencies
 
 1. **Event record:** define immutable event identity, forcing, initial state, sensor time series, water volume, flux sample, analyte and coverage semantics.
 2. **Hydrology audit:** verify time alignment, water units, event partitions, water-balance residual and missing-collection disclosure.

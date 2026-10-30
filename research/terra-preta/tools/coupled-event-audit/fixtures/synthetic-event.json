@@ -1,0 +1,200 @@
+{
+  "schema_version": "0.1.0",
+  "event_id": "synthetic-event-001",
+  "study_id": "synthetic-study",
+  "site_id": "synthetic-site",
+  "experimental_unit_id": "plot-01",
+  "treatment_arm_id": "treatment-a",
+  "comparator_arm_id": "local-practice",
+  "event_interval": {
+    "start": "2026-02-01T08:00:00Z",
+    "end": "2026-02-01T12:00:00Z"
+  },
+  "control_volume": {
+    "area_ha": 0.25,
+    "top_depth_cm": 0,
+    "bottom_depth_cm": 100,
+    "boundary_description": "Synthetic soil-plant event control volume; lower boundary at 100 cm"
+  },
+  "water_inputs": [
+    {
+      "flow_id": "rain-01",
+      "category": "precipitation",
+      "interval": {
+        "start": "2026-02-01T08:00:00Z",
+        "end": "2026-02-01T12:00:00Z"
+      },
+      "volume_depth_mm": 18,
+      "measurement_status": "measured",
+      "standard_uncertainty_mm": 0.5,
+      "method": "synthetic tipping-bucket fixture",
+      "evidence_ref": "synthetic-fixture"
+    }
+  ],
+  "water_outputs": [
+    {
+      "flow_id": "et-01",
+      "category": "evapotranspiration",
+      "interval": {
+        "start": "2026-02-01T08:00:00Z",
+        "end": "2026-02-01T12:00:00Z"
+      },
+      "volume_depth_mm": 1,
+      "measurement_status": "measured",
+      "standard_uncertainty_mm": 0.2,
+      "method": "synthetic lysimeter fixture",
+      "evidence_ref": "synthetic-fixture"
+    },
+    {
+      "flow_id": "runoff-01",
+      "category": "runoff",
+      "interval": {
+        "start": "2026-02-01T08:00:00Z",
+        "end": "2026-02-01T12:00:00Z"
+      },
+      "volume_depth_mm": 0.5,
+      "measurement_status": "measured",
+      "standard_uncertainty_mm": 0.1,
+      "method": "synthetic collection fixture",
+      "evidence_ref": "synthetic-fixture"
+    },
+    {
+      "flow_id": "drainage-01",
+      "category": "lower_boundary_drainage",
+      "interval": {
+        "start": "2026-02-01T08:00:00Z",
+        "end": "2026-02-01T12:00:00Z"
+      },
+      "volume_depth_mm": 4,
+      "measurement_status": "measured",
+      "standard_uncertainty_mm": 0.1,
+      "method": "synthetic drainage collector",
+      "evidence_ref": "synthetic-fixture"
+    }
+  ],
+  "soil_water_storage_change": {
+    "change_mm": 12.5,
+    "standard_uncertainty_mm": 0.8,
+    "method": "synthetic profile storage integration",
+    "evidence_ref": "synthetic-fixture"
+  },
+  "soil_moisture_observations": [
+    {
+      "sensor_id": "theta-10",
+      "location_id": "position-a",
+      "timestamp": "2026-02-01T08:00:00Z",
+      "depth_cm": 10,
+      "volumetric_water_content_m3_m3": 0.18,
+      "matric_potential_kpa": -20,
+      "standard_uncertainty_m3_m3": 0.01,
+      "method": "synthetic dielectric probe",
+      "calibration_ref": "synthetic-calibration"
+    },
+    {
+      "sensor_id": "theta-10",
+      "location_id": "position-a",
+      "timestamp": "2026-02-01T08:30:00Z",
+      "depth_cm": 10,
+      "volumetric_water_content_m3_m3": 0.23,
+      "matric_potential_kpa": -10,
+      "standard_uncertainty_m3_m3": 0.01,
+      "method": "synthetic dielectric probe",
+      "calibration_ref": "synthetic-calibration"
+    },
+    {
+      "sensor_id": "theta-60",
+      "location_id": "position-a",
+      "timestamp": "2026-02-01T08:00:00Z",
+      "depth_cm": 60,
+      "volumetric_water_content_m3_m3": 0.21,
+      "matric_potential_kpa": -35,
+      "standard_uncertainty_m3_m3": 0.01,
+      "method": "synthetic dielectric probe",
+      "calibration_ref": "synthetic-calibration"
+    },
+    {
+      "sensor_id": "theta-60",
+      "location_id": "position-a",
+      "timestamp": "2026-02-01T08:30:00Z",
+      "depth_cm": 60,
+      "volumetric_water_content_m3_m3": 0.24,
+      "matric_potential_kpa": -22,
+      "standard_uncertainty_m3_m3": 0.01,
+      "method": "synthetic dielectric probe",
+      "calibration_ref": "synthetic-calibration"
+    }
+  ],
+  "dissolved_exports": [
+    {
+      "flux_id": "nitrate-leaching-01",
+      "pathway": "leaching",
+      "element": "N",
+      "analyte": "nitrate_n",
+      "interval": {
+        "start": "2026-02-01T08:00:00Z",
+        "end": "2026-02-01T12:00:00Z"
+      },
+      "concentration_mg_element_per_l": 10,
+      "concentration_standard_uncertainty_mg_element_per_l": 0.2,
+      "concentration_sampling_design": "flow_weighted_composite",
+      "water_depth_mm": 4,
+      "water_depth_status": "measured",
+      "water_depth_standard_uncertainty_mm": 0.1,
+      "collection_coverage_fraction": 1,
+      "mass_flux_status": "measured_qualified",
+      "method": "synthetic flow-proportional composite",
+      "evidence_ref": "synthetic-fixture"
+    }
+  ],
+  "particulate_exports": [
+    {
+      "flux_id": "particulate-p-runoff-01",
+      "pathway": "runoff",
+      "element": "P",
+      "analyte": "particulate_p",
+      "interval": {
+        "start": "2026-02-01T08:00:00Z",
+        "end": "2026-02-01T12:00:00Z"
+      },
+      "sediment_export_kg_dry_per_ha": 80,
+      "sediment_measurement_status": "measured",
+      "sediment_standard_uncertainty_kg_dry_per_ha": 4,
+      "concentration_mg_element_per_kg_dry_sediment": 500,
+      "concentration_standard_uncertainty_mg_element_per_kg_dry_sediment": 20,
+      "collection_coverage_fraction": 1,
+      "mass_flux_status": "measured_qualified",
+      "method": "synthetic sediment mass and elemental assay",
+      "evidence_ref": "synthetic-fixture"
+    }
+  ],
+  "preferential_flow_assessments": [
+    {
+      "assessment_id": "pf-01",
+      "classification": "indeterminate",
+      "sensor_signature": "nonsequential_depth_response",
+      "sensor_ids": [
+        "theta-10",
+        "theta-60"
+      ],
+      "reference_method": "none",
+      "reference_evidence_ref": null,
+      "method": "synthetic paired sensor signature only",
+      "evidence_ref": "synthetic-fixture"
+    }
+  ],
+  "water_balance_review": {
+    "coverage_status": "reviewed_complete",
+    "review_ref": "synthetic-water-review",
+    "unmeasured_pathways": []
+  },
+  "solute_flux_review": {
+    "coverage_status": "reviewed_complete",
+    "review_ref": "synthetic-solute-review",
+    "unmeasured_pathways": []
+  },
+  "source_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "source_evidence_ref": "synthetic-fixture",
+  "warnings": [
+    "Synthetic conformance fixture only; not measured field evidence."
+  ]
+}

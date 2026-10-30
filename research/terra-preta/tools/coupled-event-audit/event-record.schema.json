@@ -1,0 +1,972 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/Luminous-Dynamics/mycelix/main/research/terra-preta/tools/coupled-event-audit/event-record.schema.json",
+  "title": "Terra Preta coupled hydrology and nutrient event record",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "event_id",
+    "study_id",
+    "site_id",
+    "experimental_unit_id",
+    "treatment_arm_id",
+    "comparator_arm_id",
+    "event_interval",
+    "control_volume",
+    "water_inputs",
+    "water_outputs",
+    "soil_water_storage_change",
+    "soil_moisture_observations",
+    "dissolved_exports",
+    "particulate_exports",
+    "preferential_flow_assessments",
+    "water_balance_review",
+    "solute_flux_review",
+    "source_sha256"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "0.1.0"
+    },
+    "event_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "study_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "site_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "experimental_unit_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "treatment_arm_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "comparator_arm_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "event_interval": {
+      "$ref": "#/$defs/time_interval"
+    },
+    "control_volume": {
+      "$ref": "#/$defs/control_volume"
+    },
+    "water_inputs": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/water_input"
+      }
+    },
+    "water_outputs": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/water_output"
+      }
+    },
+    "soil_water_storage_change": {
+      "$ref": "#/$defs/storage_change"
+    },
+    "soil_moisture_observations": {
+      "type": "array",
+      "minItems": 2,
+      "items": {
+        "$ref": "#/$defs/moisture_observation"
+      }
+    },
+    "dissolved_exports": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/dissolved_export"
+      }
+    },
+    "particulate_exports": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/particulate_export"
+      }
+    },
+    "preferential_flow_assessments": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/preferential_flow_assessment"
+      }
+    },
+    "water_balance_review": {
+      "$ref": "#/$defs/coverage_review"
+    },
+    "solute_flux_review": {
+      "$ref": "#/$defs/coverage_review"
+    },
+    "source_sha256": {
+      "type": "string",
+      "pattern": "^[A-Fa-f0-9]{64}$"
+    },
+    "source_evidence_ref": {
+      "type": "string",
+      "minLength": 1
+    },
+    "warnings": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    }
+  },
+  "$defs": {
+    "time_interval": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "start",
+        "end"
+      ],
+      "properties": {
+        "start": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "end": {
+          "type": "string",
+          "format": "date-time"
+        }
+      }
+    },
+    "control_volume": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "area_ha",
+        "top_depth_cm",
+        "bottom_depth_cm",
+        "boundary_description"
+      ],
+      "properties": {
+        "area_ha": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "top_depth_cm": {
+          "type": "number",
+          "minimum": 0
+        },
+        "bottom_depth_cm": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "boundary_description": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "water_flux_common": {
+      "type": "object",
+      "required": [
+        "flow_id",
+        "interval",
+        "volume_depth_mm",
+        "measurement_status",
+        "standard_uncertainty_mm",
+        "method",
+        "evidence_ref"
+      ],
+      "properties": {
+        "flow_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "interval": {
+          "$ref": "#/$defs/time_interval"
+        },
+        "volume_depth_mm": {
+          "type": "number",
+          "minimum": 0
+        },
+        "measurement_status": {
+          "enum": [
+            "measured",
+            "estimated",
+            "modelled"
+          ]
+        },
+        "standard_uncertainty_mm": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "method": {
+          "type": "string",
+          "minLength": 1
+        },
+        "evidence_ref": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "water_input": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/water_flux_common"
+        },
+        {
+          "type": "object",
+          "unevaluatedProperties": false,
+          "required": [
+            "category"
+          ],
+          "properties": {
+            "flow_id": {
+              "type": "string"
+            },
+            "interval": {
+              "$ref": "#/$defs/time_interval"
+            },
+            "volume_depth_mm": {
+              "type": "number",
+              "minimum": 0
+            },
+            "measurement_status": {
+              "enum": [
+                "measured",
+                "estimated",
+                "modelled"
+              ]
+            },
+            "standard_uncertainty_mm": {
+              "type": [
+                "number",
+                "null"
+              ],
+              "minimum": 0
+            },
+            "method": {
+              "type": "string"
+            },
+            "evidence_ref": {
+              "type": "string"
+            },
+            "category": {
+              "enum": [
+                "precipitation",
+                "irrigation",
+                "runon",
+                "lateral_inflow",
+                "capillary_rise",
+                "other_declared"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    "water_output": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/water_flux_common"
+        },
+        {
+          "type": "object",
+          "unevaluatedProperties": false,
+          "required": [
+            "category"
+          ],
+          "properties": {
+            "flow_id": {
+              "type": "string"
+            },
+            "interval": {
+              "$ref": "#/$defs/time_interval"
+            },
+            "volume_depth_mm": {
+              "type": "number",
+              "minimum": 0
+            },
+            "measurement_status": {
+              "enum": [
+                "measured",
+                "estimated",
+                "modelled"
+              ]
+            },
+            "standard_uncertainty_mm": {
+              "type": [
+                "number",
+                "null"
+              ],
+              "minimum": 0
+            },
+            "method": {
+              "type": "string"
+            },
+            "evidence_ref": {
+              "type": "string"
+            },
+            "category": {
+              "enum": [
+                "evapotranspiration",
+                "runoff",
+                "lower_boundary_drainage",
+                "lateral_outflow",
+                "other_declared"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    "storage_change": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "change_mm",
+        "standard_uncertainty_mm",
+        "method",
+        "evidence_ref"
+      ],
+      "properties": {
+        "change_mm": {
+          "type": "number"
+        },
+        "standard_uncertainty_mm": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "method": {
+          "type": "string",
+          "minLength": 1
+        },
+        "evidence_ref": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "moisture_observation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "sensor_id",
+        "location_id",
+        "timestamp",
+        "depth_cm",
+        "volumetric_water_content_m3_m3",
+        "standard_uncertainty_m3_m3",
+        "method",
+        "calibration_ref"
+      ],
+      "properties": {
+        "sensor_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "location_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "timestamp": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "depth_cm": {
+          "type": "number",
+          "minimum": 0
+        },
+        "volumetric_water_content_m3_m3": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "matric_potential_kpa": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "standard_uncertainty_m3_m3": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "method": {
+          "type": "string",
+          "minLength": 1
+        },
+        "calibration_ref": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "dissolved_export": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "flux_id",
+        "pathway",
+        "element",
+        "analyte",
+        "interval",
+        "concentration_mg_element_per_l",
+        "concentration_standard_uncertainty_mg_element_per_l",
+        "concentration_sampling_design",
+        "water_depth_mm",
+        "water_depth_status",
+        "water_depth_standard_uncertainty_mm",
+        "collection_coverage_fraction",
+        "mass_flux_status",
+        "method",
+        "evidence_ref"
+      ],
+      "properties": {
+        "flux_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "pathway": {
+          "enum": [
+            "leaching",
+            "runoff",
+            "lateral_outflow"
+          ]
+        },
+        "element": {
+          "enum": [
+            "N",
+            "P",
+            "K"
+          ]
+        },
+        "analyte": {
+          "enum": [
+            "nitrate_n",
+            "ammonium_n",
+            "dissolved_organic_n",
+            "total_dissolved_n",
+            "dissolved_reactive_p",
+            "dissolved_organic_p",
+            "dissolved_k",
+            "other_declared"
+          ]
+        },
+        "interval": {
+          "$ref": "#/$defs/time_interval"
+        },
+        "concentration_mg_element_per_l": {
+          "type": "number",
+          "minimum": 0
+        },
+        "concentration_standard_uncertainty_mg_element_per_l": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "concentration_sampling_design": {
+          "enum": [
+            "flow_weighted_composite",
+            "event_integrated_time_series",
+            "grab_sample",
+            "spot_sample"
+          ]
+        },
+        "water_depth_mm": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "water_depth_status": {
+          "enum": [
+            "measured",
+            "estimated",
+            "modelled",
+            "missing"
+          ]
+        },
+        "water_depth_standard_uncertainty_mm": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "collection_coverage_fraction": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "mass_flux_status": {
+          "enum": [
+            "measured_qualified",
+            "estimated",
+            "concentration_only",
+            "unqualified"
+          ]
+        },
+        "method": {
+          "type": "string",
+          "minLength": 1
+        },
+        "evidence_ref": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "mass_flux_status": {
+                "const": "measured_qualified"
+              }
+            },
+            "required": [
+              "mass_flux_status"
+            ]
+          },
+          "then": {
+            "properties": {
+              "water_depth_mm": {
+                "type": "number",
+                "exclusiveMinimum": 0
+              },
+              "water_depth_status": {
+                "const": "measured"
+              },
+              "concentration_sampling_design": {
+                "enum": [
+                  "flow_weighted_composite",
+                  "event_integrated_time_series"
+                ]
+              },
+              "water_depth_standard_uncertainty_mm": {
+                "type": "number",
+                "minimum": 0
+              },
+              "concentration_standard_uncertainty_mg_element_per_l": {
+                "type": "number",
+                "minimum": 0
+              },
+              "collection_coverage_fraction": {
+                "const": 1
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "mass_flux_status": {
+                "const": "estimated"
+              }
+            },
+            "required": [
+              "mass_flux_status"
+            ]
+          },
+          "then": {
+            "properties": {
+              "water_depth_mm": {
+                "type": "number",
+                "exclusiveMinimum": 0
+              },
+              "water_depth_status": {
+                "enum": [
+                  "estimated",
+                  "modelled"
+                ]
+              },
+              "concentration_sampling_design": {
+                "enum": [
+                  "flow_weighted_composite",
+                  "event_integrated_time_series"
+                ]
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "mass_flux_status": {
+                "const": "concentration_only"
+              }
+            },
+            "required": [
+              "mass_flux_status"
+            ]
+          },
+          "then": {
+            "properties": {
+              "water_depth_mm": {
+                "type": "null"
+              },
+              "water_depth_status": {
+                "const": "missing"
+              },
+              "concentration_sampling_design": {
+                "enum": [
+                  "grab_sample",
+                  "spot_sample"
+                ]
+              }
+            }
+          }
+        }
+      ]
+    },
+    "particulate_export": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "flux_id",
+        "pathway",
+        "element",
+        "analyte",
+        "interval",
+        "sediment_export_kg_dry_per_ha",
+        "sediment_measurement_status",
+        "sediment_standard_uncertainty_kg_dry_per_ha",
+        "concentration_mg_element_per_kg_dry_sediment",
+        "concentration_standard_uncertainty_mg_element_per_kg_dry_sediment",
+        "collection_coverage_fraction",
+        "mass_flux_status",
+        "method",
+        "evidence_ref"
+      ],
+      "properties": {
+        "flux_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "pathway": {
+          "enum": [
+            "runoff",
+            "erosion"
+          ]
+        },
+        "element": {
+          "enum": [
+            "N",
+            "P",
+            "K"
+          ]
+        },
+        "analyte": {
+          "enum": [
+            "particulate_n",
+            "particulate_p",
+            "particulate_k",
+            "other_declared"
+          ]
+        },
+        "interval": {
+          "$ref": "#/$defs/time_interval"
+        },
+        "sediment_export_kg_dry_per_ha": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "sediment_measurement_status": {
+          "enum": [
+            "measured",
+            "estimated",
+            "missing"
+          ]
+        },
+        "sediment_standard_uncertainty_kg_dry_per_ha": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "concentration_mg_element_per_kg_dry_sediment": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "concentration_standard_uncertainty_mg_element_per_kg_dry_sediment": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "collection_coverage_fraction": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "mass_flux_status": {
+          "enum": [
+            "measured_qualified",
+            "estimated",
+            "unqualified"
+          ]
+        },
+        "method": {
+          "type": "string",
+          "minLength": 1
+        },
+        "evidence_ref": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "mass_flux_status": {
+                "const": "measured_qualified"
+              }
+            },
+            "required": [
+              "mass_flux_status"
+            ]
+          },
+          "then": {
+            "properties": {
+              "sediment_export_kg_dry_per_ha": {
+                "type": "number"
+              },
+              "sediment_measurement_status": {
+                "const": "measured"
+              },
+              "sediment_standard_uncertainty_kg_dry_per_ha": {
+                "type": "number",
+                "minimum": 0
+              },
+              "concentration_mg_element_per_kg_dry_sediment": {
+                "type": "number",
+                "minimum": 0
+              },
+              "concentration_standard_uncertainty_mg_element_per_kg_dry_sediment": {
+                "type": "number",
+                "minimum": 0
+              },
+              "collection_coverage_fraction": {
+                "const": 1
+              }
+            }
+          }
+        }
+      ]
+    },
+    "preferential_flow_assessment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "assessment_id",
+        "classification",
+        "sensor_signature",
+        "sensor_ids",
+        "reference_method",
+        "reference_evidence_ref",
+        "method",
+        "evidence_ref"
+      ],
+      "properties": {
+        "assessment_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "classification": {
+          "enum": [
+            "corroborated",
+            "sensor_signature_only",
+            "indeterminate",
+            "not_detected"
+          ]
+        },
+        "sensor_signature": {
+          "enum": [
+            "nonsequential_depth_response",
+            "velocity_threshold",
+            "trajectory_pattern",
+            "spatial_heterogeneity",
+            "water_balance_component",
+            "model_comparison",
+            "other_declared"
+          ]
+        },
+        "sensor_ids": {
+          "type": "array",
+          "minItems": 2,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "reference_method": {
+          "enum": [
+            "dye_tracer",
+            "conservative_solute_tracer",
+            "stable_isotope",
+            "geophysical",
+            "water_table",
+            "none",
+            "other_declared"
+          ]
+        },
+        "reference_evidence_ref": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "method": {
+          "type": "string",
+          "minLength": 1
+        },
+        "evidence_ref": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "classification": {
+                "const": "corroborated"
+              }
+            },
+            "required": [
+              "classification"
+            ]
+          },
+          "then": {
+            "properties": {
+              "reference_method": {
+                "enum": [
+                  "dye_tracer",
+                  "conservative_solute_tracer",
+                  "stable_isotope",
+                  "geophysical",
+                  "water_table",
+                  "other_declared"
+                ]
+              },
+              "reference_evidence_ref": {
+                "type": "string",
+                "minLength": 1
+              }
+            }
+          }
+        }
+      ]
+    },
+    "unmeasured_pathway": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "pathway",
+        "reason"
+      ],
+      "properties": {
+        "pathway": {
+          "type": "string",
+          "minLength": 1
+        },
+        "reason": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "coverage_review": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "coverage_status",
+        "review_ref",
+        "unmeasured_pathways"
+      ],
+      "properties": {
+        "coverage_status": {
+          "enum": [
+            "reviewed_complete",
+            "reviewed_incomplete",
+            "unknown"
+          ]
+        },
+        "review_ref": {
+          "type": "string",
+          "minLength": 1
+        },
+        "unmeasured_pathways": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/unmeasured_pathway"
+          }
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "coverage_status": {
+                "const": "reviewed_complete"
+              }
+            },
+            "required": [
+              "coverage_status"
+            ]
+          },
+          "then": {
+            "properties": {
+              "unmeasured_pathways": {
+                "maxItems": 0
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "coverage_status": {
+                "const": "reviewed_incomplete"
+              }
+            },
+            "required": [
+              "coverage_status"
+            ]
+          },
+          "then": {
+            "properties": {
+              "unmeasured_pathways": {
+                "minItems": 1
+              }
+            }
+          }
+        }
+      ]
+    }
+  }
+}

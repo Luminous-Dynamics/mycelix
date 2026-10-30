@@ -60,6 +60,10 @@ const SCHEMA_FIXTURES: &[(&str, &str)] = &[
         "nutrient-budget-audit-report",
         include_str!("../../nutrient-budget-audit/nutrient-budget-audit-report.schema.json"),
     ),
+    (
+        "coupled-hydrology-nutrient-event",
+        include_str!("../../coupled-event-audit/event-record.schema.json"),
+    ),
 ];
 
 #[cfg(test)]
@@ -619,6 +623,63 @@ mod tests {
         let mut report = valid_nutrient_budget_report();
         report.as_object_mut().unwrap().remove("boundary_flux_review_ref");
         assert!(!validator.is_valid(&report));
+    }
+
+
+    fn coupled_event_schema() -> Value {
+        serde_json::from_str(SCHEMA_FIXTURES[12].1).unwrap()
+    }
+
+    const COUPLED_EVENT_FIXTURE: &str =
+        include_str!("../../coupled-event-audit/fixtures/synthetic-event.json");
+
+    #[test]
+    fn accepts_synthetic_coupled_hydrology_nutrient_event() {
+        let validator = jsonschema::validator_for(&coupled_event_schema()).unwrap();
+        let instance: Value = serde_json::from_str(COUPLED_EVENT_FIXTURE).unwrap();
+        assert!(validator.is_valid(&instance));
+    }
+
+    #[test]
+    fn rejects_measured_qualified_dissolved_flux_without_measured_water_volume() {
+        let validator = jsonschema::validator_for(&coupled_event_schema()).unwrap();
+        let mut instance: Value = serde_json::from_str(COUPLED_EVENT_FIXTURE).unwrap();
+        instance["dissolved_exports"][0]["water_depth_status"] = json!("estimated");
+        assert!(!validator.is_valid(&instance));
+    }
+
+    #[test]
+    fn rejects_measured_qualified_flux_with_spot_concentration_only() {
+        let validator = jsonschema::validator_for(&coupled_event_schema()).unwrap();
+        let mut instance: Value = serde_json::from_str(COUPLED_EVENT_FIXTURE).unwrap();
+        instance["dissolved_exports"][0]["concentration_sampling_design"] = json!("spot_sample");
+        assert!(!validator.is_valid(&instance));
+    }
+
+    #[test]
+    fn rejects_corroborated_preferential_flow_without_independent_reference() {
+        let validator = jsonschema::validator_for(&coupled_event_schema()).unwrap();
+        let mut instance: Value = serde_json::from_str(COUPLED_EVENT_FIXTURE).unwrap();
+        instance["preferential_flow_assessments"][0]["classification"] = json!("corroborated");
+        assert!(!validator.is_valid(&instance));
+    }
+
+    #[test]
+    fn rejects_complete_coverage_with_unmeasured_pathways() {
+        let validator = jsonschema::validator_for(&coupled_event_schema()).unwrap();
+        let mut instance: Value = serde_json::from_str(COUPLED_EVENT_FIXTURE).unwrap();
+        instance["solute_flux_review"]["unmeasured_pathways"] = json!([
+            {"pathway":"deep dissolved organic nitrogen","reason":"not sampled"}
+        ]);
+        assert!(!validator.is_valid(&instance));
+    }
+
+    #[test]
+    fn rejects_moisture_outside_physical_unit_interval() {
+        let validator = jsonschema::validator_for(&coupled_event_schema()).unwrap();
+        let mut instance: Value = serde_json::from_str(COUPLED_EVENT_FIXTURE).unwrap();
+        instance["soil_moisture_observations"][0]["volumetric_water_content_m3_m3"] = json!(1.2);
+        assert!(!validator.is_valid(&instance));
     }
 
     #[test]
