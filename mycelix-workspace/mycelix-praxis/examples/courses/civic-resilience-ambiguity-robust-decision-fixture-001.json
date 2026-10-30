@@ -1,0 +1,3100 @@
+{
+  "benchmark_id": "PRAXIS-NRES-012-AMBIGUITY-ROBUST-DECISION-001",
+  "schema_version": "1.0.0",
+  "status": "synthetic-demonstration-for-review",
+  "evaluation_split": "public-development-only",
+  "active_in_curriculum": false,
+  "title": "Ambiguity-Robust Decision and Minimax Regret Evaluation",
+  "purpose": "Compare point-probability decisions, worst-case expected-loss decisions and minimax-regret decisions under explicit total-variation ambiguity sets for Bernoulli severe-loss events.",
+  "scope_limits": [
+    "All forecasts, probability intervals, event observations, cost profiles, ambiguity radii and review fallbacks are fictional public-development data.",
+    "NRES-012 reuses the 128 public synthetic NRES-011 cases and is a linked benchmark increment, not independent confirmation.",
+    "The probability interval is a declared total-variation ambiguity set around a Bernoulli event probability; it is not a conformal confidence interval or a statistically calibrated prediction interval.",
+    "For Bernoulli distributions, total variation distance equals the absolute difference in event probabilities, so the ambiguity set is a closed interval.",
+    "All costs are normalized fictional planning-loss units, not currency, budgets or operational instructions.",
+    "No policy is legally authorized, operationally executable or causal-effect validated.",
+    "For missing/conflicting inputs, the model must abstain and the separately supplied human-review fallback is used; no point or interval forecast is emitted.",
+    "The benchmark compares deterministic decision rules on declared uncertainty sets; it does not train a decision-focused model or prove optimality under arbitrary shifts."
+  ],
+  "source_fixture": {
+    "benchmark_id": "PRAXIS-NRES-011-RELIABILITY-RESOLUTION-DECISION-VALUE-001",
+    "fixture_blob_sha": "a9f10ae28fe3c5031ed9ce0f88761e94ad6f4e51",
+    "source_case_count": 128,
+    "source_description": "Every source_case_id maps one-to-one to the pinned NRES-011 synthetic forecast/observation fixture. Candidate point probabilities, evaluator truth, scenario strata and review fallbacks are copied exactly."
+  },
+  "target": {
+    "quantity": "aggregate normalized service-deficit-hours",
+    "unit": "normalized-service-deficit-hours",
+    "threshold": 48,
+    "event_definition": "observed_normalized_service_deficit_hours strictly exceeds 48",
+    "horizon_hours": 72
+  },
+  "sampling_design": {
+    "status": "synthetic-stratified-importance-sampling-demonstration",
+    "strata": [
+      {
+        "sampling_stratum": "routine",
+        "proposal_probability": 0.75,
+        "target_probability": 0.97
+      },
+      {
+        "sampling_stratum": "tail_enriched",
+        "proposal_probability": 0.25,
+        "target_probability": 0.03
+      }
+    ],
+    "weight_formula": "importance_weight = target_stratum_probability / proposal_stratum_probability",
+    "expected_total_weight_per_regime": 32,
+    "design_note": "24 routine and 8 tail-enriched cases per regime; estimates target the declared 97%/3% stratum mixture only if cases are representative within their respective strata."
+  },
+  "calibration_reference": {
+    "sample_count": 5000,
+    "exceedance_count": 200,
+    "exceedance_probability": 0.04,
+    "status": "synthetic-training-reference",
+    "description": "Fictional historical training cohort used only to construct a fixed climatology comparison. It is not a real event base rate."
+  },
+  "decision_profiles": [
+    {
+      "profile_id": "low_cost_preparedness",
+      "readiness_cost": 1,
+      "event_loss_without_action": 24,
+      "event_loss_with_action": 6,
+      "deferral_cost": 0.75,
+      "decision_threshold_probability": 0.05555555555555555,
+      "cost_unit": "normalized-planning-loss-units"
+    },
+    {
+      "profile_id": "moderate_cost_preparedness",
+      "readiness_cost": 2.5,
+      "event_loss_without_action": 32,
+      "event_loss_with_action": 8,
+      "deferral_cost": 1,
+      "decision_threshold_probability": 0.10416666666666667,
+      "cost_unit": "normalized-planning-loss-units"
+    },
+    {
+      "profile_id": "high_cost_preparedness",
+      "readiness_cost": 5,
+      "event_loss_without_action": 40,
+      "event_loss_with_action": 8,
+      "deferral_cost": 1.5,
+      "decision_threshold_probability": 0.15625,
+      "cost_unit": "normalized-planning-loss-units"
+    }
+  ],
+  "regimes": [
+    {
+      "regime_id": "in_distribution",
+      "ambiguity_set": {
+        "kind": "bernoulli_total_variation_ball",
+        "total_variation_radius": 0.01,
+        "radius_interpretation": "absolute probability mass that may be shifted between event and non-event under the declared uncertainty set"
+      }
+    },
+    {
+      "regime_id": "temporal_shift",
+      "ambiguity_set": {
+        "kind": "bernoulli_total_variation_ball",
+        "total_variation_radius": 0.03,
+        "radius_interpretation": "absolute probability mass that may be shifted between event and non-event under the declared uncertainty set"
+      }
+    },
+    {
+      "regime_id": "structural_dependency_shift",
+      "ambiguity_set": {
+        "kind": "bernoulli_total_variation_ball",
+        "total_variation_radius": 0.07,
+        "radius_interpretation": "absolute probability mass that may be shifted between event and non-event under the declared uncertainty set"
+      }
+    },
+    {
+      "regime_id": "evidence_degradation",
+      "ambiguity_set": {
+        "kind": "bernoulli_total_variation_ball",
+        "total_variation_radius": 0.02,
+        "radius_interpretation": "absolute probability mass that may be shifted between event and non-event under the declared uncertainty set"
+      }
+    }
+  ],
+  "protocol": {
+    "forecast_origin_hour": 0,
+    "forecast_horizon_hours": 72,
+    "event_threshold": 48,
+    "probability_interval": "[max(0,p-rho), min(1,p+rho)]",
+    "ambiguity_metric": "total_variation_distance_between_bernoulli_event_distributions",
+    "nominal_policy": "prepare if point probability >= profile cost/loss threshold; otherwise no_action",
+    "worst_case_expected_loss_policy": "choose the action with the lower maximum expected loss over q in [lower,upper]; ties choose no_action",
+    "minimax_regret_policy": "choose the action with the lower maximum regret over q in [lower,upper]; ties choose no_action",
+    "worst_case_regret": "no_action regret=max(0, upper*(L0-L1)-C); prepare regret=max(0, C-lower*(L0-L1))",
+    "review_policy": "all abstentions use the evaluator-owned review_fallback_action plus the profile deferral cost",
+    "baseline_policies": [
+      "nominal_point_forecast",
+      "worst_case_expected_loss",
+      "minimax_regret",
+      "training_climatology",
+      "always_no_action",
+      "always_prepare",
+      "perfect_information_oracle"
+    ],
+    "aggregation_rule": "report each strategy, regime and decision profile separately; no cross-profile composite or pooled robustness score"
+  },
+  "evaluation_cases": [
+    {
+      "case_id": "NRES012-NRES011-IN_DISTRIBUTION-01",
+      "source_case_id": "IN_DISTRIBUTION-01",
+      "regime_id": "in_distribution",
+      "sampling_stratum": "routine",
+      "proposal_stratum_probability": 0.75,
+      "target_stratum_probability": 0.97,
+      "forecast_origin_hour": 0,
+      "forecast_horizon_hours": 72,
+      "evaluator": {
+        "observed_normalized_service_deficit_hours": 23,
+        "qualification_state": "qualified",
+        "review_fallback_action": null
+      },
+      "candidate_output": {
+        "action": "forecast",
+        "predicted_exceedance_probability": 0.015,
+        "probability_lower": 0.005,
+        "probability_upper": 0.025,
+        "ambiguity_radius": 0.01,
+        "abstention_reason": null
+      }
+    },
+    {
+      "case_id": "NRES012-NRES011-IN_DISTRIBUTION-02",
+      "source_case_id": "IN_DISTRIBUTION-02",
+      "regime_id": "in_distribution",
+      "sampling_stratum": "routine",
+      "proposal_stratum_probability": 0.75,
+      "target_stratum_probability": 0.97,
+      "forecast_origin_hour": 0,
+      "forecast_horizon_hours": 72,
+      "evaluator": {
+        "observed_normalized_service_deficit_hours": 36,
+        "qualification_state": "qualified",
+        "review_fallback_action": null
+      },
+      "candidate_output": {
+        "action": "forecast",
+        "predicted_exceedance_probability": 0.023,
+        "probability_lower": 0.013,
+        "probability_upper": 0.033,
+        "ambiguity_radius": 0.01,
+        "abstention_reason": null
+      }
+    },
+    {
+      "case_id": "NRES012-NRES011-IN_DISTRIBUTION-03",
+      "source_case_id": "IN_DISTRIBUTION-03",
+      "regime_id": "in_distribution",
+      "sampling_stratum": "routine",
+      "proposal_stratum_probability": 0.75,
+      "target_stratum_probability": 0.97,
+      "forecast_origin_hour": 0,
+      "forecast_horizon_hours": 72,
+      "evaluator": {
+        "observed_normalized_service_deficit_hours": 15,
+        "qualification_state": "qualified",
+        "review_fallback_action": null
+      },
+      "candidate_output": {
+        "action": "forecast",
+        "predicted_exceedance_probability": 0.031,
+        "probability_lower": 0.021,
+        "probability_upper": 0.041,
+        "ambiguity_radius": 0.01,
+        "abstention_reason": null
+      }
+    },
+    {
+      "case_id": "NRES012-NRES011-IN_DISTRIBUTION-04",
+      "source_case_id": "IN_DISTRIBUTION-04",
+      "regime_id": "in_distribution",
+      "sampling_stratum": "routine",
+      "proposal_stratum_probability": 0.75,
+      "target_stratum_probability": 0.97,
+      "forecast_origin_hour": 0,
+      "forecast_horizon_hours": 72,
+      "evaluator": {
+        "observed_normalized_service_deficit_hours": 28,
+        "qualification_state": "qualified",
+        "review_fallback_action": null
+      },
+      "candidate_output": {
+        "action": "forecast",
+        "predicted_exceedance_probability": 0.039,
+        "probability_lower": 0.029,
+        "probability_upper": 0.049,
+        "ambiguity_radius": 0.01,
+        "abstention_reason": null
+      }
+    },
+    {
+      "case_id": "NRES012-NRES011-IN_DISTRIBUTION-05",
+      "source_case_id": "IN_DISTRIBUTION-05",
+      "regime_id": "in_distribution",
+      "sampling_stratum": "routine",
+      "proposal_stratum_probability": 0.75,
+      "target_stratum_probability": 0.97,
+      "forecast_origin_hour": 0,
+      "forecast_horizon_hours": 72,
+      "evaluator": {
+        "observed_normalized_service_deficit_hours": 41,
+        "qualification_state": "qualified",
+        "review_fallback_action": null
+      },
+      "candidate_output": {
+        "action": "forecast",
+        "predicted_exceedance_probability": 0.047,
+        "probability_lower": 0.037,
+        "probability_upper": 0.057,
+        "ambiguity_radius": 0.01,
+        "abstention_reason": null
+      }
+    },
+    {
+      "case_id": "NRES012-NRES011-IN_DISTRIBUTION-06",
+      "source_case_id": "IN_DISTRIBUTION-06",
+      "regime_id": "in_distribution",
+      "sampling_stratum": "routine",
+      "proposal_stratum_probability": 0.75,
+      "target_stratum_probability": 0.97,
+      "forecast_origin_hour": 0,
+      "forecast_horizon_hours": 72,
+      "evaluator": {
+        "observed_normalized_service_deficit_hours": 20,
+        "qualification_state": "qualified",
+        "review_fallback_action": null
+      },
+      "candidate_output": {
+        "action": "forecast",
+        "predicted_exceedance_probability": 0.055,
+        "probability_lower": 0.045,
+        "probability_upper": 0.065,
+        "ambiguity_radius": 0.01,
+        "abstention_reason": null
+      }
+    },
+    {
+      "case_id": "NRES012-NRES011-IN_DISTRIBUTION-07",
+      "source_case_id": "IN_DISTRIBUTION-07",
+      "regime_id": "in_distribution",
+      "sampling_stratum": "routine",
+      "proposal_stratum_probability": 0.75,
+      "target_stratum_probability": 0.97,
+      "forecast_origin_hour": 0,
+      "forecast_horizon_hours": 72,
+      "evaluator": {
+        "observed_normalized_service_deficit_hours": 33,
+        "qualification_state": "qualified",
+        "review_fallback_action": null
+      },
+      "candidate_output": {
+        "action": "forecast",
+        "predicted_exceedance_probability": 0.015,
+        "probability_lower": 0.005,
+        "probability_upper": 0.025,
+        "ambiguity_radius": 0.01,
+        "abstention_reason": null
+      }
+    },
+    {
+      "case_id": "NRES012-NRES011-IN_DISTRIBUTION-08",
+      "source_case_id": "IN_DISTRIBUTION-08",
+      "regime_id": "in_distribution",
+      "sampling_stratum": "routine",
+      "proposal_stratum_probability": 0.75,
+      "target_stratum_probability": 0.97,
+      "forecast_origin_hour": 0,
+      "forecast_horizon_hours": 72,
+      "evaluator": {
+        "observed_normalized_service_deficit_hours": 66,
+        "qualification_state": "qualified",
+        "review_fallback_action": null
+      },
+      "candidate_output": {
+        "action": "forecast",
+        "predicted_exceedance_probability": 0.023,
+        "probability_lower": 0.013,
+        "probability_upper": 0.033,
+        "ambiguity_radius": 0.01,
+        "abstention_reason": null
+      }
+    },
+    {
+      "case_id": "NRES012-NRES011-IN_DISTRIBUTION-09",
+      "source_case_id": "IN_DISTRIBUTION-09",
+      "regime_id": "in_distribution",
+      "sampling_stratum": "routine",
+      "proposal_stratum_probability": 0.75,
+      "target_stratum_probability": 0.97,
+      "forecast_origin_hour": 0,
+      "forecast_horizon_hours": 72,
+      "evaluator": {
+        "observed_normalized_service_deficit_hours": 25,
+        "qualification_state": "qualified",
+        "review_fallback_action": null
+      },
+      "candidate_output": {
+        "action": "forecast",
+        "predicted_exceedance_probability": 0.031,
+        "probability_lower": 0.021,
+        "probability_upper": 0.041,
+        "ambiguity_radius": 0.01,
+        "abstention_reason": null
+      }
+    },
+    {
+      "case_id": "NRES012-NRES011-IN_DISTRIBUTION-10",
+      "source_case_id": "IN_DISTRIBUTION-10",
+      "regime_id": "in_distribution",
+      "sampling_stratum": "routine",
+      "proposal_stratum_probability": 0.75,
+      "target_stratum_probability": 0.97,
+      "forecast_origin_hour": 0,
+      "forecast_horizon_hours": 72,
+      "evaluator": {
+        "observed_normalized_service_deficit_hours": 38,
+        "qualification_state": "qualified",
+        "review_fallback_action": null
+      },
+      "candidate_output": {
+        "action": "forecast",
+        "predicted_exceedance_probability": 0.039,
+        "probability_lower": 0.029,
+        "probability_upper": 0.049,
+        "ambiguity_radius": 0.01,
+        "abstention_reason": null
+      }
+    },
+    {
+      "case_id": "NRES012-NRES011-IN_DISTRIBUTION-11",
+      "source_case_id": "IN_DISTRIBUTION-11",
+      "regime_id": "in_distribution",
+      "sampling_stratum": "routine",
+      "proposal_stratum_probability": 0.75,
+      "target_stratum_probability": 0.97,
+      "forecast_origin_hour": 0,
+      "forecast_horizon_hours": 72,
+      "evaluator": {
+        "observed_normalized_service_deficit_hours": 17,
+        "qualification_state": "qualified",
+        "review_fallback_action": null
+      },
+      "candidate_output": {
+        "action": "forecast",
+        "predicted_exceedance_probability": 0.047,
+        "probability_lower": 0.037,
+        "probability_upper": 0.057,
+        "ambiguity_radius": 0.01,
+        "abstention_reason": null
+      }
+    },
+    {
+      "case_id": "NRES012-NRES011-IN_DISTRIBUTION-12",
+      "source_case_id": "IN_DISTRIBUTION-12",
+      "regime_id": "in_distribution",
+      "sampling_stratum": "routine",
+      "proposal_stratum_probability": 0.75,
+      "target_stratum_probability": 0.97,
+      "forecast_origin_hour": 0,
+      "forecast_horizon_hours": 72,
+      "evaluator": {
+        "observed_normalized_service_deficit_hours": 30,
+        "qualification_state": "qualified",
+        "review_fallback_action": null
+      },
+      "candidate_output": {
+        "action": "forecast",
+        "predicted_exceedance_probability": 0.055,
+        "probability_lower": 0.045,
+        "probability_upper": 0.065,
+        "ambiguity_radius": 0.01,
+        "abstention_reason": null
+      }
+    },
+    {
+      "case_id": "NRES012-NRES011-IN_DISTRIBUTION-13",
+      "source_case_id": "IN_DISTRIBUTION-13",
+      "regime_id": "in_distribution",
+      "sampling_stratum": "routine",
+      "proposal_stratum_probability": 0.75,
+      "target_stratum_probability": 0.97,
+      "forecast_origin_hour": 0,
+      "forecast_horizon_hours": 72,
+      "evaluator": {
+        "observed_normalized_service_deficit_hours": 9,
+        "qualification_state": "qualified",
+        "review_fallback_action": null
+      },
+      "candidate_output": {
+        "action": "forecast",
+        "predicted_exceedance_probability": 0.015,
+        "probability_lower": 0.005,
+        "probability_upper": 0.025,
+        "ambiguity_radius": 0.01,
+        "abstention_reason": null
+      }
+    },
+    {
+      "case_id": "NRES012-NRES011-IN_DISTRIBUTION-14",
+      "source_case_id": "IN_DISTRIBUTION-14",
+      "regime_id": "in_distribution",
+      "sampling_stratum": "routine",
+      "proposal_stratum_probability": 0.75,
+      "target_stratum_probability": 0.97,
+      "forecast_origin_hour": 0,
+      "forecast_horizon_hours": 72,
+      "evaluator": {
+        "observed_normalized_service_deficit_hours": 22,
+        "qualification_state": "qualified",
+        "review_fallback_action": null
+      },
+      "candidate_output": {
+        "action": "forecast",
+        "predicted_exceedance_probability": 0.023,
+        "probability_lower": 0.013,
+        "probability_upper": 0.033,
+        "ambiguity_radius": 0.01,
+        "abstention_reason": null
+      }
+    },
+    {
+      "case_id": "NRES012-NRES011-IN_DISTRIBUTION-15",
+      "source_case_id": "IN_DISTRIBUTION-15",
+      "regime_id": "in_distribution",
+      "sampling_stratum": "routine",
+      "proposal_stratum_probability": 0.75,
+      "target_stratum_probability": 0.97,
+      "forecast_origin_hour": 0,
+      "forecast_horizon_hours": 72,
+      "evaluator": {
+        "observed_normalized_service_deficit_hours": 35,
+        "qualification_state": "qualified",
+        "review_fallback_action": null
+      },
+      "candidate_output": {
+        "action": "forecast",
+        "predicted_exceedance_probability": 0.031,
+        "probability_lower": 0.021,
+        "probability_upper": 0.041,
+        "ambiguity_radius": 0.01,
+        "abstention_reason": null
+      }
+    },
+    {
+      "case_id": "NRES012-NRES011-IN_DISTRIBUTION-16",
+      "source_case_id": "IN_DISTRIBUTION-16",
+      "regime_id": "in_distribution",
+      "sampling_stratum": "routine",
+      "proposal_stratum_probability": 0.75,
+      "target_stratum_probability": 0.97,
+      "forecast_origin_hour": 0,
+      "forecast_horizon_hours": 72,
+      "evaluator": {
+        "observed_normalized_service_deficit_hours": 14,
+        "qualification_state": "qualified",
+        "review_fallback_action": null
+      },
+      "candidate_output": {
+        "action": "forecast",
+        "predicted_exceedance_probability": 0.039,
+        "probability_lower": 0.029,
+        "probability_upper": 0.049,
+        "ambiguity_radius": 0.01,
+        "abstention_reason": null
+      }
+    },
+    {
+      "case_id": "NRES012-NRES011-IN_DISTRIBUTION-17",
+      "source_case_id": "IN_DISTRIBUTION-17",
+      "regime_id": "in_distribution",
+      "sampling_stratum": "routine",
+      "proposal_stratum_probability": 0.75,
+      "target_stratum_probability": 0.97,
+      "forecast_origin_hour": 0,
+      "forecast_horizon_hours": 72,
+      "evaluator": {
+        "observed_normalized_service_deficit_hours": 27,
+        "qualification_state": "qualified",
+        "review_fallback_action": null
+      },
+      "candidate_output": {
+        "action": "forecast",
+        "predicted_exceedance_probability": 0.047,
+        "probability_lower": 0.037,
+        "probability_upper": 0.057,
+        "ambiguity_radius": 0.01,
+        "abstention_reason": null
+      }
+    },
+    {
+      "case_id": "NRES012-NRES011-IN_DISTRIBUTION-18",
+      "source_case_id": "IN_DISTRIBUTION-18",
+      "regime_id": "in_distribution",
+      "sampling_stratum": "routine",
+      "proposal_stratum_probability": 0.75,
+      "target_stratum_probability": 0.97,
+      "forecast_origin_hour": 0,
+      "forecast_horizon_hours": 72,
+      "evaluator": {
+        "observed_normalized_service_deficit_hours": 40,
+        "qualification_state": "qualified",
+        "review_fallback_action": null
+      },
+      "candidate_output": {
+        "action": "forecast",
+        "predicted_exceedance_probability": 0.055,
+        "probability_lower": 0.045,
+        "probability_upper": 0.065,
+        "ambiguity_radius": 0.01,
+        "abstention_reason": null
+      }
+    },
+    {
+      "case_id": "NRES012-NRES011-IN_DISTRIBUTION-19",
+      "source_case_id": "IN_DISTRIBUTION-19",
+      "regime_id": "in_distribution",
+      "sampling_stratum": "routine",
+      "proposal_stratum_probability": 0.75,
+      "target_stratum_probability": 0.97,
+      "forecast_origin_hour": 0,
+      "forecast_horizon_hours": 72,
+      "evaluator": {
+        "observed_normalized_service_deficit_hours": 19,
+        "qualification_state": "qualified",
+        "review_fallback_action": null
+      },
+      "candidate_output": {
+        "action": "forecast",
+        "predicted_exceedance_probability": 0.015,
+        "probability_lower": 0.005,
+        "probability_upper": 0.025,
+        "ambiguity_radius": 0.01,
+        "abstention_reason": null
+      }
+    },
+    {
+      "case_id": "NRES012-NRES011-IN_DISTRIBUTION-20",
+      "source_case_id": "IN_DISTRIBUTION-20",
+      "regime_id": "in_distribution",
+      "sampling_stratum": "routine",
+      "proposal_stratum_probability": 0.75,
+      "target_stratum_probability": 0.97,
+      "forecast_origin_hour": 0,
+      "forecast_horizon_hours": 72,
+      "evaluator": {
+        "observed_normalized_service_deficit_hours": 32,
+        "qualification_state": "qualified",
+        "review_fallback_action": null
+      },
+      "candidate_output": {
+        "action": "forecast",
+        "predicted_exceedance_probability": 0.023,
+        "probability_lower": 0.013,
+        "probability_upper": 0.033,
+        "ambiguity_radius": 0.01,
+        "abstention_reason": null
+      }
+    },
+    {
+      "case_id": "NRES012-NRES011-IN_DISTRIBUTION-21",
+      "source_case_id": "IN_DISTRIBUTION-21",
+      "regime_id": "in_distribution",
+      "sampling_stratum": "routine",
+      "proposal_stratum_probability": 0.75,
+      "target_stratum_probability": 0.97,
+      "forecast_origin_hour": 0,
+      "forecast_horizon_hours": 72,
+      "evaluator": {
+        "observed_normalized_service_deficit_hours": 11,
+        "qualification_state": "qualified",
+        "review_fallback_action": null
+      },
+      "candidate_output": {
+        "action": "forecast",
+        "predicted_exceedance_probability": 0.031,
+        "probability_lower": 0.021,
+        "probability_upper": 0.041,
+        "ambiguity_radius": 0.01,
+        "abstention_reason": null
+      }
+    },
+    {
+      "case_id": "NRES012-NRES011-IN_DISTRIBUTION-22",
+      "source_case_id": "IN_DISTRIBUTION-22",
+      "regime_id": "in_distribution",
+      "sampling_stratum": "routine",
+      "proposal_stratum_probability": 0.75,
+      "target_stratum_probability": 0.97,
+      "forecast_origin_hour": 0,
+      "forecast_horizon_hours": 72,
+      "evaluator": {
+        "observed_normalized_service_deficit_hours": 24,
+        "qualification_state": "qualified",
+        "review_fallback_action": null
+      },
+      "candidate_output": {
+        "action": "forecast",
+        "predicted_exceedance_probability": 0.039,
+        "probability_lower": 0.029,
+        "probability_upper": 0.049,
+        "ambiguity_radius": 0.01,
+        "abstention_reason": null
+      }
+    },
+    {
+      "case_id": "NRES012-NRES011-IN_DISTRIBUTION-23",
+      "source_case_id": "IN_DISTRIBUTION-23",
+      "regime_id": "in_distribution",
+      "sampling_stratum": "routine",
+      "proposal_stratum_probability": 0.75,
+      "target_stratum_probability": 0.97,
+      "forecast_origin_hour": 0,
+      "forecast_horizon_hours": 72,
+      "evaluator": {
+        "observed_normalized_service_deficit_hours": 37,
+        "qualification_state": "qualified",
+        "review_fallback_action": null
+      },
+      "candidate_output": {
+        "action": "forecast",
+        "predicted_exceedance_probability": 0.047,
+        "probability_lower": 0.037,
+        "probability_upper": 0.057,
+        "ambiguity_radius": 0.01,
+        "abstention_reason": null
+      }
+    },
+    {
+      "case_id": "NRES012-NRES011-IN_DISTRIBUTION-24",
+      "source_case_id": "IN_DISTRIBUTION-24",
+      "regime_id": "in_distribution",
+      "sampling_stratum": "routine",
+      "proposal_stratum_probability": 0.75,
+      "target_stratum_probability": 0.97,
+      "forecast_origin_hour": 0,
+      "forecast_horizon_hours": 72,
+      "evaluator": {
+        "observed_normalized_service_deficit_hours": 16,
+        "qualification_state": "qualified",
+        "review_fallback_action": null
+      },
+      "candidate_output": {
+        "action": "forecast",
+        "predicted_exceedance_probability": 0.055,
+        "probability_lower": 0.045,
+        "probability_upper": 0.065,
+        "ambiguity_radius": 0.01,
+        "abstention_reason": null
+      }
+    },
+    {
+      "case_id": "NRES012-NRES011-IN_DISTRIBUTION-25",
+      "source_case_id": "IN_DISTRIBUTION-25",
+      "regime_id": "in_distribution",
+      "sampling_stratum": "tail_enriched",
+      "proposal_stratum_probability": 0.25,
+      "target_stratum_probability": 0.03,
+      "forecast_origin_hour": 0,
+      "forecast_horizon_hours": 72,
+      "evaluator": {
+        "observed_normalized_service_deficit_hours": 60,
+        "qualification_state": "qualified",
+        "review_fallback_action": null
+      },
+      "candidate_output": {
+        "action": "forecast",
+        "predicted_exceedance_probability": 0.12,
+        "probability_lower": 0.11,
+        "probability_upper": 0.13,
+        "ambiguity_radius": 0.01,
+        "abstention_reason": null
+      }
+    },
+    {
+      "case_id": "NRES012-NRES011-IN_DISTRIBUTION-26",
+      "source_case_id": "IN_DISTRIBUTION-26",
+      "regime_id": "in_distribution",
+      "sampling_stratum": "tail_enriched",
+      "proposal_stratum_probability": 0.25,
+      "target_stratum_probability": 0.03,
+      "forecast_origin_hour": 0,
+      "forecast_horizon_hours": 72,
+      "evaluator": {
+        "observed_normalized_service_deficit_hours": 8,
+        "qualification_state": "qualified",
+        "review_fallback_action": null
+      },
+      "candidate_output": {
+        "action": "forecast",
+        "predicted_exceedance_probability": 0.18,
+        "probability_lower": 0.17,
+        "probability_upper": 0.19,
+        "ambiguity_radius": 0.01,
+        "abstention_reason": null
+      }
+    },
+    {
+      "case_id": "NRES012-NRES011-IN_DISTRIBUTION-27",
+      "source_case_id": "IN_DISTRIBUTION-27",
+      "regime_id": "in_distribution",
+      "sampling_stratum": "tail_enriched",
+      "proposal_stratum_probability": 0.25,
+      "target_stratum_probability": 0.03,
+      "forecast_origin_hour": 0,
+      "forecast_horizon_hours": 72,
+      "evaluator": {
+        "observed_normalized_service_deficit_hours": 73,
+        "qualification_state": "qualified",
+        "review_fallback_action": null
+      },
+      "candidate_output": {
+        "action": "forecast",
+        "predicted_exceedance_probability": 0.24,
+        "probability_lower": 0.23,
+        "probability_upper": 0.25,
+        "ambiguity_radius": 0.01,
+        "abstention_reason": null
+      }
+    },
+    {
+      "case_id": "NRES012-NRES011-IN_DISTRIBUTION-28",
+      "source_case_id": "IN_DISTRIBUTION-28",
+      "regime_id": "in_distribution",
+      "sampling_stratum": "tail_enriched",
+      "proposal_stratum_probability": 0.25,
+      "target_stratum_probability": 0.03,
+      "forecast_origin_hour": 0,
+      "forecast_horizon_hours": 72,
+      "evaluator": {
+        "observed_normalized_service_deficit_hours": 34,
+        "qualification_state": "qualified",
+        "review_fallback_action": null
+      },
+      "candidate_output": {
+        "action": "forecast",
+        "predicted_exceedance_probability": 0.3,
+        "probability_lower": 0.29,
+        "probability_upper": 0.31,
+        "ambiguity_radius": 0.01,
+        "abstention_reason": null
+      }
+    },
+    {
+      "case_id": "NRES012-NRES011-IN_DISTRIBUTION-29",
+      "source_case_id": "IN_DISTRIBUTION-29",
+      "regime_id": "in_distribution",
+      "sampling_stratum": "tail_enriched",
+      "proposal_stratum_probability": 0.25,
+      "target_stratum_probability": 0.03,
+      "forecast_origin_hour": 0,
+      "forecast_horizon_hours": 72,
+      "evaluator": {
+        "observed_normalized_service_deficit_hours": 82,
+        "qualification_state": "qualified",
+        "review_fallback_action": null
+      },
+      "candidate_output": {
+        "action": "forecast",
+        "predicted_exceedance_probability": 0.12,
+        "probability_lower": 0.11,
+        "probability_upper": 0.13,
+        "ambiguity_radius": 0.01,
+        "abstention_reason": null
+      }
+    },
+    {
+      "case_id": "NRES012-NRES011-IN_DISTRIBUTION-30",
+      "source_case_id": "IN_DISTRIBUTION-30",
+      "regime_id": "in_distribution",
+      "sampling_stratum": "tail_enriched",
+      "proposal_stratum_probability": 0.25,
+      "target_stratum_probability": 0.03,
+      "forecast_origin_hour": 0,
+      "forecast_horizon_hours": 72,
+      "evaluator": {
+        "observed_normalized_service_deficit_hours": 26,
+        "qualification_state": "qualified",
+        "review_fallback_action": null
+      },
+      "candidate_output": {
+        "action": "forecast",
+        "predicted_exceedance_probability": 0.18,
+        "probability_lower": 0.17,
+        "probability_upper": 0.19,
+        "ambiguity_radius": 0.01,
+        "abstention_reason": null
+      }
+    },
+    {
+      "case_id": "NRES012-NRES011-IN_DISTRIBUTION-31",
+      "source_case_id": "IN_DISTRIBUTION-31",
+      "regime_id": "in_distribution",
+      "sampling_stratum": "tail_enriched",
+      "proposal_stratum_probability": 0.25,
+      "target_stratum_probability": 0.03,
+      "forecast_origin_hour": 0,
+      "forecast_horizon_hours": 72,
+      "evaluator": {
+        "observed_normalized_service_deficit_hours": 98,
+        "qualification_state": "qualified",
+        "review_fallback_action": null
+      },
+      "candidate_output": {
+        "action": "forecast",
+        "predicted_exceedance_probability": 0.24,
+        "probability_lower": 0.23,
+        "probability_upper": 0.25,
+        "ambiguity_radius": 0.01,
+        "abstention_reason": null
+      }
+    },
+    {
+      "case_id": "NRES012-NRES011-IN_DISTRIBUTION-32",
+      "source_case_id": "IN_DISTRIBUTION-32",
+      "regime_id": "in_distribution",
+      "sampling_stratum": "tail_enriched",
+      "proposal_stratum_probability": 0.25,
+      "target_stratum_probability": 0.03,
+      "forecast_origin_hour": 0,
+      "forecast_horizon_hours": 72,
+      "evaluator": {
+        "observed_normalized_service_deficit_hours": 18,
+        "qualification_state": "qualified",
+        "review_fallback_action": null
+      },
+      "candidate_output": {
+        "action": "forecast",
+        "predicted_exceedance_probability": 0.3,
+        "probability_lower": 0.29,
+        "probability_upper": 0.31,
+        "ambiguity_radius": 0.01,
+        "abstention_reason": null
+      }
+    },
+    {
+      "case_id": "NRES012-NRES011-TEMPORAL_SHIFT-01",
+      "source_case_id": "TEMPORAL_SHIFT-01",
+      "regime_id": "temporal_shift",
+      "sampling_stratum": "routine",
+      "proposal_stratum_probability": 0.75,
+      "target_stratum_probability": 0.97,
+      "forecast_origin_hour": 0,
+      "forecast_horizon_hours": 72,
+      "evaluator": {
+        "observed_normalized_service_deficit_hours": 22,
+        "qualification_state": "qualified",
+        "review_fallback_action": null
+      },
+      "candidate_output": {
+        "action": "forecast",
+        "predicted_exceedance_probability": 0.035,
+        "probability_lower": 0.005,
+        "probability_upper": 0.065,
+        "ambiguity_radius": 0.03,
+        "abstention_reason": null
+      }
+    },
+    {
+      "case_id": "NRES012-NRES011-TEMPORAL_SHIFT-02",
+      "source_case_id": "TEMPORAL_SHIFT-02",
+      "regime_id": "temporal_shift",
+      "sampling_stratum": "routine",
+      "proposal_stratum_probability": 0.75,
+      "target_stratum_probability": 0.97,
+      "forecast_origin_hour": 0,
+      "forecast_horizon_hours": 72,
+      "evaluator": {
+        "observed_normalized_service_deficit_hours": 35,
+        "qualification_state": "qualified",
+        "review_fallback_action": null
+      },
+      "candidate_output": {
+        "action": "forecast",
+        "predicted_exceedance_probability": 0.043,
+        "probability_lower": 0.013,
+        "probability_upper": 0.073,
+        "ambiguity_radius": 0.03,
+        "abstention_reason": null
+      }
+    },
+    {
+      "case_id": "NRES012-NRES011-TEMPORAL_SHIFT-03",
+      "source_case_id": "TEMPORAL_SHIFT-03",
+      "regime_id": "temporal_shift",
+      "sampling_stratum": "routine",
+      "proposal_stratum_probability": 0.75,
+      "target_stratum_probability": 0.97,
+      "forecast_origin_hour": 0,
+      "forecast_horizon_hours": 72,
+      "evaluator": {
+        "observed_normalized_service_deficit_hours": 14,
+        "qualification_state": "qualified",
+        "review_fallback_action": null
+      },
+      "candidate_output": {
+        "action": "forecast",
+        "predicted_exceedance_probability": 0.051,
+        "probability_lower": 0.021,
+        "probability_upper": 0.081,
+        "ambiguity_radius": 0.03,
+        "abstention_reason": null
+      }
+    },
+    {
+      "case_id": "NRES012-NRES011-TEMPORAL_SHIFT-04",
+      "source_case_id": "TEMPORAL_SHIFT-04",
+      "regime_id": "temporal_shift",
+      "sampling_stratum": "routine",
+      "proposal_stratum_probability": 0.75,
+      "target_stratum_probability": 0.97,
+      "forecast_origin_hour": 0,
+      "forecast_horizon_hours": 72,
+      "evaluator": {
+        "observed_normalized_service_deficit_hours": 27,
+        "qualification_state": "qualified",
+        "review_fallback_action": null
+      },
+      "candidate_output": {
+        "action": "forecast",
+        "predicted_exceedance_probability": 0.059,
+        "probability_lower": 0.029,
+        "probability_upper": 0.089,
+        "ambiguity_radius": 0.03,
+        "abstention_reason": null
+      }
+    },
+    {
+      "case_id": "NRES012-NRES011-TEMPORAL_SHIFT-05",
+      "source_case_id": "TEMPORAL_SHIFT-05",
+      "regime_id": "temporal_shift",
+      "sampling_stratum": "routine",
+      "proposal_stratum_probability": 0.75,
+      "target_stratum_probability": 0.97,
+      "forecast_origin_hour": 0,
+      "forecast_horizon_hours": 72,
+      "evaluator": {
+        "observed_normalized_service_deficit_hours": 72,
+        "qualification_state": "qualified",
+        "review_fallback_action": null
+      },
+      "candidate_output": {
+        "action": "forecast",
+        "predicted_exceedance_probability": 0.067,
+        "probability_lower": 0.037,
+        "probability_upper": 0.097,
+        "ambiguity_radius": 0.03,
+        "abstention_reason": null
+      }
+    },
+    {
+      "case_id": "NRES012-NRES011-TEMPORAL_SHIFT-06",
+      "source_case_id": "TEMPORAL_SHIFT-06",
+      "regime_id": "temporal_shift",
+      "sampling_stratum": "routine",
+      "proposal_stratum_probability": 0.75,
+      "target_stratum_probability": 0.97,
+      "forecast_origin_hour": 0,
+      "forecast_horizon_hours": 72,
+      "evaluator": {
+        "observed_normalized_service_deficit_hours": 19,
+        "qualification_state": "qualified",
+        "review_fallback_action": null
+      },
+      "candidate_output": {
+        "action": "forecast",
+        "predicted_exceedance_probability": 0.075,
+        "probability_lower": 0.045,
+        "probability_upper": 0.105,
+        "ambiguity_radius": 0.03,
+        "abstention_reason": null
+      }
+    },
+    {
+      "case_id": "NRES012-NRES011-TEMPORAL_SHIFT-07",
+      "source_case_id": "TEMPORAL_SHIFT-07",
+      "regime_id": "temporal_shift",
+      "sampling_stratum": "routine",
+      "proposal_stratum_probability": 0.75,
+      "target_stratum_probability": 0.97,
+      "forecast_origin_hour": 0,
+      "forecast_horizon_hours": 72,
+      "evaluator": {
+        "observed_normalized_service_deficit_hours": 32,
+        "qualification_state": "qualified",
+        "review_fallback_action": null
+      },
+      "candidate_output": {
+        "action": "forecast",
+        "predicted_exceedance_probability": 0.035,
+        "probability_lower": 0.005,
+        "probability_upper": 0.065,
+        "ambiguity_radius": 0.03,
+        "abstention_reason": null
+      }
+    },
+    {
+      "case_id": "NRES012-NRES011-TEMPORAL_SHIFT-08",
+      "source_case_id": "TEMPORAL_SHIFT-08",
+      "regime_id": "temporal_shift",
+      "sampling_stratum": "routine",
+      "proposal_stratum_probability": 0.75,
+      "target_stratum_probability": 0.97,
+      "forecast_origin_hour": 0,
+      "forecast_horizon_hours": 72,
+      "evaluator": {
+        "observed_normalized_service_deficit_hours": 11,
+        "qualification_state": "qualified",
+        "review_fallback_action": null
+      },
+      "candidate_output": {
+        "action": "forecast",
+        "predicted_exceedance_probability": 0.043,
+        "probability_lower": 0.013,
+        "probability_upper": 0.073,
+        "ambiguity_radius": 0.03,
+        "abstention_reason": null
+      }
+    },
+    {
+      "case_id": "NRES012-NRES011-TEMPORAL_SHIFT-09",
+      "source_case_id": "TEMPORAL_SHIFT-09",
+      "regime_id": "temporal_shift",
+      "sampling_stratum": "routine",
+      "proposal_stratum_probability": 0.75,
+      "target_stratum_probability": 0.97,
+      "forecast_origin_hour": 0,
+      "forecast_horizon_hours": 72,
+      "evaluator": {
+        "observed_normalized_service_deficit_hours": 24,
+        "qualification_state": "qualified",
+        "review_fallback_action": null
+      },
+      "candidate_output": {
+        "action": "forecast",
+        "predicted_exceedance_probability": 0.051,
+        "probability_lower": 0.021,
+        "probability_upper": 0.081,
+        "ambiguity_radius": 0.03,
+        "abstention_reason": null
+      }
+    },
+    {
+      "case_id": "NRES012-NRES011-TEMPORAL_SHIFT-10",
+      "source_case_id": "TEMPORAL_SHIFT-10",
+      "regime_id": "temporal_shift",
+      "sampling_stratum": "routine",
+      "proposal_stratum_probability": 0.75,
+      "target_stratum_probability": 0.97,
+      "forecast_origin_hour": 0,
+      "forecast_horizon_hours": 72,
+      "evaluator": {
+        "observed_normalized_service_deficit_hours": 37,
+        "qualification_state": "qualified",
+        "review_fallback_action": null
+      },
+      "candidate_output": {
+        "action": "forecast",
+        "predicted_exceedance_probability": 0.059,
+        "probability_lower": 0.029,
+        "probability_upper": 0.089,
+        "ambiguity_radius": 0.03,
+        "abstention_reason": null
+      }
+    },
+    {
+      "case_id": "NRES012-NRES011-TEMPORAL_SHIFT-11",
+      "source_case_id": "TEMPORAL_SHIFT-11",
+      "regime_id": "temporal_shift",
+      "sampling_stratum": "routine",
+      "proposal_stratum_probability": 0.75,
+      "target_stratum_probability": 0.97,
+      "forecast_origin_hour": 0,
+      "forecast_horizon_hours": 72,
+      "evaluator": {
+        "observed_normalized_service_deficit_hours": 16,
+        "qualification_state": "qualified",
+        "review_fallback_action": null
+      },
+      "candidate_output": {
+        "action": "forecast",
+        "predicted_exceedance_probability": 0.067,
+        "probability_lower": 0.037,
+        "probability_upper": 0.097,
+        "ambiguity_radius": 0.03,
+        "abstention_reason": null
+      }
+    },
+    {
+      "case_id": "NRES012-NRES011-TEMPORAL_SHIFT-12",
+      "source_case_id": "TEMPORAL_SHIFT-12",
+      "regime_id": "temporal_shift",
+      "sampling_stratum": "routine",
+      "proposal_stratum_probability": 0.75,
+      "target_stratum_probability": 0.97,
+      "forecast_origin_hour": 0,
+      "forecast_horizon_hours": 72,
+      "evaluator": {
+        "observed_normalized_service_deficit_hours": 29,
+        "qualification_state": "qualified",
+        "review_fallback_action": null
+      },
+      "candidate_output": {
+        "action": "forecast",
+        "predicted_exceedance_probability": 0.075,
+        "probability_lower": 0.045,
+        "probability_upper": 0.105,
+        "ambiguity_radius": 0.03,
+        "abstention_reason": null
+      }
+    },
+    {
+      "case_id": "NRES012-NRES011-TEMPORAL_SHIFT-13",
+      "source_case_id": "TEMPORAL_SHIFT-13",
+      "regime_id": "temporal_shift",
+      "sampling_stratum": "routine",
+      "proposal_stratum_probability": 0.75,
+      "target_stratum_probability": 0.97,
+      "forecast_origin_hour": 0,
+      "forecast_horizon_hours": 72,
+      "evaluator": {
+        "observed_normalized_service_deficit_hours": 90,
+        "qualification_state": "qualified",
+        "review_fallback_action": null
+      },
+      "candidate_output": {
+        "action": "forecast",
+        "predicted_exceedance_probability": 0.035,
+        "probability_lower": 0.005,
+        "probability_upper": 0.065,
+        "ambiguity_radius": 0.03,
+        "abstention_reason": null
+      }
+    },
+    {
+      "case_id": "NRES012-NRES011-TEMPORAL_SHIFT-14",
+      "source_case_id": "TEMPORAL_SHIFT-14",
+      "regime_id": "temporal_shift",
+      "sampling_stratum": "routine",
+      "proposal_stratum_probability": 0.75,
+      "target_stratum_probability": 0.97,
+      "forecast_origin_hour": 0,
+      "forecast_horizon_hours": 72,
+      "evaluator": {
+        "observed_normalized_service_deficit_hours": 21,
+        "qualification_state": "qualified",
+        "review_fallback_action": null
+      },
+      "candidate_output": {
+        "action": "forecast",
+        "predicted_exceedance_probability": 0.043,
+        "probability_lower": 0.013,
+        "probability_upper": 0.073,
+        "ambiguity_radius": 0.03,
+        "abstention_reason": null
+      }
+    },
+    {
+      "case_id": "NRES012-NRES011-TEMPORAL_SHIFT-15",
+      "source_case_id": "TEMPORAL_SHIFT-15",
+      "regime_id": "temporal_shift",
+      "sampling_stratum": "routine",
+      "proposal_stratum_probability": 0.75,
+      "target_stratum_probability": 0.97,
+      "forecast_origin_hour": 0,
+      "forecast_horizon_hours": 72,
+      "evaluator": {
+        "observed_normalized_service_deficit_hours": 34,
+        "qualification_state": "qualified",
+        "review_fallback_action": null
+      },
+      "candidate_output": {
+        "action": "forecast",
+        "predicted_exceedance_probability": 0.051,
+        "probability_lower": 0.021,
+        "probability_upper": 0.081,
+        "ambiguity_radius": 0.03,
+        "abstention_reason": null
+      }
+    },
+    {
+      "case_id": "NRES012-NRES011-TEMPORAL_SHIFT-16",
+      "source_case_id": "TEMPORAL_SHIFT-16",
+      "regime_id": "temporal_shift",
+      "sampling_stratum": "routine",
+      "proposal_stratum_probability": 0.75,
+      "target_stratum_probability": 0.97,
+      "forecast_origin_hour": 0,
+      "forecast_horizon_hours": 72,
+      "evaluator": {
+        "observed_normalized_service_deficit_hours": 13,
+        "qualification_state": "qualified",
+        "review_fallback_action": null
+      },
+      "candidate_output": {
+        "action": "forecast",
+        "predicted_exceedance_probability": 0.059,
+        "probability_lower": 0.029,
+        "probability_upper": 0.089,
+        "ambiguity_radius": 0.03,
+        "abstention_reason": null
+      }
+    },
+    {
+      "case_id": "NRES012-NRES011-TEMPORAL_SHIFT-17",
+      "source_case_id": "TEMPORAL_SHIFT-17",
+      "regime_id": "temporal_shift",
+      "sampling_stratum": "routine",
+      "proposal_stratum_probability": 0.75,
+      "target_stratum_probability": 0.97,
+      "forecast_origin_hour": 0,
+      "forecast_horizon_hours": 72,
+      "evaluator": {
+        "observed_normalized_service_deficit_hours": 26,
+        "qualification_state": "qualified",
+        "review_fallback_action": null
+      },
+      "candidate_output": {
+        "action": "forecast",
+        "predicted_exceedance_probability": 0.067,
+        "probability_lower": 0.037,
+        "probability_upper": 0.097,
+        "ambiguity_radius": 0.03,
+        "abstention_reason": null
+      }
+    },
+    {
+      "case_id": "NRES012-NRES011-TEMPORAL_SHIFT-18",
+      "source_case_id": "TEMPORAL_SHIFT-18",
+      "regime_id": "temporal_shift",
+      "sampling_stratum": "routine",
+      "proposal_stratum_probability": 0.75,
+      "target_stratum_probability": 0.97,
+      "forecast_origin_hour": 0,
+      "forecast_horizon_hours": 72,
+      "evaluator": {
+        "observed_normalized_service_deficit_hours": 39,
+        "qualification_state": "qualified",
+        "review_fallback_action": null
+      },
+      "candidate_output": {
+        "action": "forecast",
+        "predicted_exceedance_probability": 0.075,
+        "probability_lower": 0.045,
+        "probability_upper": 0.105,
+        "ambiguity_radius": 0.03,
+        "abstention_reason": null
+      }
+    },
+    {
+      "case_id": "NRES012-NRES011-TEMPORAL_SHIFT-19",
+      "source_case_id": "TEMPORAL_SHIFT-19",
+      "regime_id": "temporal_shift",
+      "sampling_stratum": "routine",
+      "proposal_stratum_probability": 0.75,
+      "target_stratum_probability": 0.97,
+      "forecast_origin_hour": 0,
+      "forecast_horizon_hours": 72,
+      "evaluator": {
+        "observed_normalized_service_deficit_hours": 18,
+        "qualification_state": "qualified",
+        "review_fallback_action": null
+      },
+      "candidate_output": {
+        "action": "forecast",
+        "predicted_exceedance_probability": 0.035,
+        "probability_lower": 0.005,
+        "probability_upper": 0.065,
+        "ambiguity_radius": 0.03,
+        "abstention_reason": null
+      }
+    },
+    {
+      "case_id": "NRES012-NRES011-TEMPORAL_SHIFT-20",
+      "source_case_id": "TEMPORAL_SHIFT-20",
+      "regime_id": "temporal_shift",
+      "sampling_stratum": "routine",
+      "proposal_stratum_probability": 0.75,
+      "target_stratum_probability": 0.97,
+      "forecast_origin_hour": 0,
+      "forecast_horizon_hours": 72,
+      "evaluator": {
+        "observed_normalized_service_deficit_hours": 31,
+        "qualification_state": "qualified",
+        "review_fallback_action": null
+      },
+      "candidate_output": {
+        "action": "forecast",
+        "predicted_exceedance_probability": 0.043,
+        "probability_lower": 0.013,
+        "probability_upper": 0.073,
+        "ambiguity_radius": 0.03,
+        "abstention_reason": null
+      }
+    },
+    {
+      "case_id": "NRES012-NRES011-TEMPORAL_SHIFT-21",
+      "source_case_id": "TEMPORAL_SHIFT-21",
+      "regime_id": "temporal_shift",
+      "sampling_stratum": "routine",
+      "proposal_stratum_probability": 0.75,
+      "target_stratum_probability": 0.97,
+      "forecast_origin_hour": 0,
+      "forecast_horizon_hours": 72,
+      "evaluator": {
+        "observed_normalized_service_deficit_hours": 10,
+        "qualification_state": "qualified",
+        "review_fallback_action": null
+      },
+      "candidate_output": {
+        "action": "forecast",
+        "predicted_exceedance_probability": 0.051,
+        "probability_lower": 0.021,
+        "probability_upper": 0.081,
+        "ambiguity_radius": 0.03,
+        "abstention_reason": null
+      }
+    },
+    {
+      "case_id": "NRES012-NRES011-TEMPORAL_SHIFT-22",
+      "source_case_id": "TEMPORAL_SHIFT-22",
+      "regime_id": "temporal_shift",
+      "sampling_stratum": "routine",
+      "proposal_stratum_probability": 0.75,
+      "target_stratum_probability": 0.97,
+      "forecast_origin_hour": 0,
+      "forecast_horizon_hours": 72,
+      "evaluator": {
+        "observed_normalized_service_deficit_hours": 23,
+        "qualification_state": "qualified",
+        "review_fallback_action": null
+      },
+      "candidate_output": {
+        "action": "forecast",
+        "predicted_exceedance_probability": 0.059,
+        "probability_lower": 0.029,
+        "probability_upper": 0.089,
+        "ambiguity_radius": 0.03,
+        "abstention_reason": null
+      }
+    },
+    {
+      "case_id": "NRES012-NRES011-TEMPORAL_SHIFT-23",
+      "source_case_id": "TEMPORAL_SHIFT-23",
+      "regime_id": "temporal_shift",
+      "sampling_stratum": "routine",
+      "proposal_stratum_probability": 0.75,
+      "target_stratum_probability": 0.97,
+      "forecast_origin_hour": 0,
+      "forecast_horizon_hours": 72,
+      "evaluator": {
+        "observed_normalized_service_deficit_hours": 36,
+        "qualification_state": "qualified",
+        "review_fallback_action": null
+      },
+      "candidate_output": {
+        "action": "forecast",
+        "predicted_exceedance_probability": 0.067,
+        "probability_lower": 0.037,
+        "probability_upper": 0.097,
+        "ambiguity_radius": 0.03,
+        "abstention_reason": null
+      }
+    },
+    {
+      "case_id": "NRES012-NRES011-TEMPORAL_SHIFT-24",
+      "source_case_id": "TEMPORAL_SHIFT-24",
+      "regime_id": "temporal_shift",
+      "sampling_stratum": "routine",
+      "proposal_stratum_probability": 0.75,
+      "target_stratum_probability": 0.97,
+      "forecast_origin_hour": 0,
+      "forecast_horizon_hours": 72,
+      "evaluator": {
+        "observed_normalized_service_deficit_hours": 15,
+        "qualification_state": "qualified",
+        "review_fallback_action": null
+      },
+      "candidate_output": {
+        "action": "forecast",
+        "predicted_exceedance_probability": 0.075,
+        "probability_lower": 0.045,
+        "probability_upper": 0.105,
+        "ambiguity_radius": 0.03,
+        "abstention_reason": null
+      }
+    },
+    {
+      "case_id": "NRES012-NRES011-TEMPORAL_SHIFT-25",
+      "source_case_id": "TEMPORAL_SHIFT-25",
+      "regime_id": "temporal_shift",
+      "sampling_stratum": "tail_enriched",
+      "proposal_stratum_probability": 0.25,
+      "target_stratum_probability": 0.03,
+      "forecast_origin_hour": 0,
+      "forecast_horizon_hours": 72,
+      "evaluator": {
+        "observed_normalized_service_deficit_hours": 66,
+        "qualification_state": "qualified",
+        "review_fallback_action": null
+      },
+      "candidate_output": {
+        "action": "forecast",
+        "predicted_exceedance_probability": 0.15,
+        "probability_lower": 0.12,
+        "probability_upper": 0.18,
+        "ambiguity_radius": 0.03,
+        "abstention_reason": null
+      }
+    },
+    {
+      "case_id": "NRES012-NRES011-TEMPORAL_SHIFT-26",
+      "source_case_id": "TEMPORAL_SHIFT-26",
+      "regime_id": "temporal_shift",
+      "sampling_stratum": "tail_enriched",
+      "proposal_stratum_probability": 0.25,
+      "target_stratum_probability": 0.03,
+      "forecast_origin_hour": 0,
+      "forecast_horizon_hours": 72,
+      "evaluator": {
+        "observed_normalized_service_deficit_hours": 83,
+        "qualification_state": "qualified",
+        "review_fallback_action": null
+      },
+      "candidate_output": {
+        "action": "forecast",
+        "predicted_exceedance_probability": 0.21,
+        "probability_lower": 0.18,
+        "probability_upper": 0.24,
+        "ambiguity_radius": 0.03,
+        "abstention_reason": null
+      }
+    },
+    {
+      "case_id": "NRES012-NRES011-TEMPORAL_SHIFT-27",
+      "source_case_id": "TEMPORAL_SHIFT-27",
+      "regime_id": "temporal_shift",
+      "sampling_stratum": "tail_enriched",
+      "proposal_stratum_probability": 0.25,
+      "target_stratum_probability": 0.03,
+      "forecast_origin_hour": 0,
+      "forecast_horizon_hours": 72,
+      "evaluator": {
+        "observed_normalized_service_deficit_hours": 20,
+        "qualification_state": "qualified",
+        "review_fallback_action": null
+      },
+      "candidate_output": {
+        "action": "forecast",
+        "predicted_exceedance_probability": 0.27,
+        "probability_lower": 0.24,
+        "probability_upper": 0.3,
+        "ambiguity_radius": 0.03,
+        "abstention_reason": null
+      }
+    },
+    {
+      "case_id": "NRES012-NRES011-TEMPORAL_SHIFT-28",
+      "source_case_id": "TEMPORAL_SHIFT-28",
+      "regime_id": "temporal_shift",
+      "sampling_stratum": "tail_enriched",
+      "proposal_stratum_probability": 0.25,
+      "target_stratum_probability": 0.03,
+      "forecast_origin_hour": 0,
+      "forecast_horizon_hours": 72,
+      "evaluator": {
+        "observed_normalized_service_deficit_hours": 106,
+        "qualification_state": "qualified",
+        "review_fallback_action": null
+      },
+      "candidate_output": {
+        "action": "forecast",
+        "predicted_exceedance_probability": 0.33,
+        "probability_lower": 0.3,
+        "probability_upper": 0.36,
+        "ambiguity_radius": 0.03,
+        "abstention_reason": null
+      }
+    },
+    {
+      "case_id": "NRES012-NRES011-TEMPORAL_SHIFT-29",
+      "source_case_id": "TEMPORAL_SHIFT-29",
+      "regime_id": "temporal_shift",
+      "sampling_stratum": "tail_enriched",
+      "proposal_stratum_probability": 0.25,
+      "target_stratum_probability": 0.03,
+      "forecast_origin_hour": 0,
+      "forecast_horizon_hours": 72,
+      "evaluator": {
+        "observed_normalized_service_deficit_hours": 12,
+        "qualification_state": "qualified",
+        "review_fallback_action": null
+      },
+      "candidate_output": {
+        "action": "forecast",
+        "predicted_exceedance_probability": 0.15,
+        "probability_lower": 0.12,
+        "probability_upper": 0.18,
+        "ambiguity_radius": 0.03,
+        "abstention_reason": null
+      }
+    },
+    {
+      "case_id": "NRES012-NRES011-TEMPORAL_SHIFT-30",
+      "source_case_id": "TEMPORAL_SHIFT-30",
+      "regime_id": "temporal_shift",
+      "sampling_stratum": "tail_enriched",
+      "proposal_stratum_probability": 0.25,
+      "target_stratum_probability": 0.03,
+      "forecast_origin_hour": 0,
+      "forecast_horizon_hours": 72,
+      "evaluator": {
+        "observed_normalized_service_deficit_hours": 123,
+        "qualification_state": "qualified",
+        "review_fallback_action": null
+      },
+      "candidate_output": {
+        "action": "forecast",
+        "predicted_exceedance_probability": 0.21,
+        "probability_lower": 0.18,
+        "probability_upper": 0.24,
+        "ambiguity_radius": 0.03,
+        "abstention_reason": null
+      }
+    },
+    {
+      "case_id": "NRES012-NRES011-TEMPORAL_SHIFT-31",
+      "source_case_id": "TEMPORAL_SHIFT-31",
+      "regime_id": "temporal_shift",
+      "sampling_stratum": "tail_enriched",
+      "proposal_stratum_probability": 0.25,
+      "target_stratum_probability": 0.03,
+      "forecast_origin_hour": 0,
+      "forecast_horizon_hours": 72,
+      "evaluator": {
+        "observed_normalized_service_deficit_hours": 38,
+        "qualification_state": "qualified",
+        "review_fallback_action": null
+      },
+      "candidate_output": {
+        "action": "forecast",
+        "predicted_exceedance_probability": 0.27,
+        "probability_lower": 0.24,
+        "probability_upper": 0.3,
+        "ambiguity_radius": 0.03,
+        "abstention_reason": null
+      }
+    },
+    {
+      "case_id": "NRES012-NRES011-TEMPORAL_SHIFT-32",
+      "source_case_id": "TEMPORAL_SHIFT-32",
+      "regime_id": "temporal_shift",
+      "sampling_stratum": "tail_enriched",
+      "proposal_stratum_probability": 0.25,
+      "target_stratum_probability": 0.03,
+      "forecast_origin_hour": 0,
+      "forecast_horizon_hours": 72,
+      "evaluator": {
+        "observed_normalized_service_deficit_hours": 143,
+        "qualification_state": "qualified",
+        "review_fallback_action": "no_action"
+      },
+      "candidate_output": {
+        "action": "abstain",
+        "predicted_exceedance_probability": null,
+        "probability_lower": null,
+        "probability_upper": null,
+        "ambiguity_radius": null,
+        "abstention_reason": "model_uncertainty"
+      }
+    },
+    {
+      "case_id": "NRES012-NRES011-STRUCTURAL_DEPENDENCY_SHIFT-01",
+      "source_case_id": "STRUCTURAL_DEPENDENCY_SHIFT-01",
+      "regime_id": "structural_dependency_shift",
+      "sampling_stratum": "routine",
+      "proposal_stratum_probability": 0.75,
+      "target_stratum_probability": 0.97,
+      "forecast_origin_hour": 0,
+      "forecast_horizon_hours": 72,
+      "evaluator": {
+        "observed_normalized_service_deficit_hours": 35,
+        "qualification_state": "qualified",
+        "review_fallback_action": null
+      },
+      "candidate_output": {
+        "action": "forecast",
+        "predicted_exceedance_probability": 0.055,
+        "probability_lower": 0,
+        "probability_upper": 0.125,
+        "ambiguity_radius": 0.07,
+        "abstention_reason": null
+      }
+    },
+    {
+      "case_id": "NRES012-NRES011-STRUCTURAL_DEPENDENCY_SHIFT-02",
+      "source_case_id": "STRUCTURAL_DEPENDENCY_SHIFT-02",
+      "regime_id": "structural_dependency_shift",
+      "sampling_stratum": "routine",
+      "proposal_stratum_probability": 0.75,
+      "target_stratum_probability": 0.97,
+      "forecast_origin_hour": 0,
+      "forecast_horizon_hours": 72,
+      "evaluator": {
+        "observed_normalized_service_deficit_hours": 14,
+        "qualification_state": "qualified",
+        "review_fallback_action": null
+      },
+      "candidate_output": {
+        "action": "forecast",
+        "predicted_exceedance_probability": 0.063,
+        "probability_lower": 0,
+        "probability_upper": 0.133,
+        "ambiguity_radius": 0.07,
+        "abstention_reason": null
+      }
+    },
+    {
+      "case_id": "NRES012-NRES011-STRUCTURAL_DEPENDENCY_SHIFT-03",
+      "source_case_id": "STRUCTURAL_DEPENDENCY_SHIFT-03",
+      "regime_id": "structural_dependency_shift",
+      "sampling_stratum": "routine",
+      "proposal_stratum_probability": 0.75,
+      "target_stratum_probability": 0.97,
+      "forecast_origin_hour": 0,
+      "forecast_horizon_hours": 72,
+      "evaluator": {
+        "observed_normalized_service_deficit_hours": 27,
+        "qualification_state": "qualified",
+        "review_fallback_action": null
+      },
+      "candidate_output": {
+        "action": "forecast",
+        "predicted_exceedance_probability": 0.071,
+        "probability_lower": 0.001,
+        "probability_upper": 0.141,
+        "ambiguity_radius": 0.07,
+        "abstention_reason": null
+      }
+    },
+    {
+      "case_id": "NRES012-NRES011-STRUCTURAL_DEPENDENCY_SHIFT-04",
+      "source_case_id": "STRUCTURAL_DEPENDENCY_SHIFT-04",
+      "regime_id": "structural_dependency_shift",
+      "sampling_stratum": "routine",
+      "proposal_stratum_probability": 0.75,
+      "target_stratum_probability": 0.97,
+      "forecast_origin_hour": 0,
+      "forecast_horizon_hours": 72,
+      "evaluator": {
+        "observed_normalized_service_deficit_hours": 78,
+        "qualification_state": "qualified",
+        "review_fallback_action": null
+      },
+      "candidate_output": {
+        "action": "forecast",
+        "predicted_exceedance_probability": 0.079,
+        "probability_lower": 0.009,
+        "probability_upper": 0.149,
+        "ambiguity_radius": 0.07,
+        "abstention_reason": null
+      }
+    },
+    {
+      "case_id": "NRES012-NRES011-STRUCTURAL_DEPENDENCY_SHIFT-05",
+      "source_case_id": "STRUCTURAL_DEPENDENCY_SHIFT-05",
+      "regime_id": "structural_dependency_shift",
+      "sampling_stratum": "routine",
+      "proposal_stratum_probability": 0.75,
+      "target_stratum_probability": 0.97,
+      "forecast_origin_hour": 0,
+      "forecast_horizon_hours": 72,
+      "evaluator": {
+        "observed_normalized_service_deficit_hours": 19,
+        "qualification_state": "qualified",
+        "review_fallback_action": null
+      },
+      "candidate_output": {
+        "action": "forecast",
+        "predicted_exceedance_probability": 0.087,
+        "probability_lower": 0.017,
+        "probability_upper": 0.157,
+        "ambiguity_radius": 0.07,
+        "abstention_reason": null
+      }
+    },
+    {
+      "case_id": "NRES012-NRES011-STRUCTURAL_DEPENDENCY_SHIFT-06",
+      "source_case_id": "STRUCTURAL_DEPENDENCY_SHIFT-06",
+      "regime_id": "structural_dependency_shift",
+      "sampling_stratum": "routine",
+      "proposal_stratum_probability": 0.75,
+      "target_stratum_probability": 0.97,
+      "forecast_origin_hour": 0,
+      "forecast_horizon_hours": 72,
+      "evaluator": {
+        "observed_normalized_service_deficit_hours": 32,
+        "qualification_state": "qualified",
+        "review_fallback_action": null
+      },
+      "candidate_output": {
+        "action": "forecast",
+        "predicted_exceedance_probability": 0.095,
+        "probability_lower": 0.025,
+        "probability_upper": 0.165,
+        "ambiguity_radius": 0.07,
+        "abstention_reason": null
+      }
+    },
+    {
+      "case_id": "NRES012-NRES011-STRUCTURAL_DEPENDENCY_SHIFT-07",
+      "source_case_id": "STRUCTURAL_DEPENDENCY_SHIFT-07",
+      "regime_id": "structural_dependency_shift",
+      "sampling_stratum": "routine",
+      "proposal_stratum_probability": 0.75,
+      "target_stratum_probability": 0.97,
+      "forecast_origin_hour": 0,
+      "forecast_horizon_hours": 72,
+      "evaluator": {
+        "observed_normalized_service_deficit_hours": 11,
+        "qualification_state": "qualified",
+        "review_fallback_action": null
+      },
+      "candidate_output": {
+        "action": "forecast",
+        "predicted_exceedance_probability": 0.055,
+        "probability_lower": 0,
+        "probability_upper": 0.125,
+        "ambiguity_radius": 0.07,
+        "abstention_reason": null
+      }
+    },
+    {
+      "case_id": "NRES012-NRES011-STRUCTURAL_DEPENDENCY_SHIFT-08",
+      "source_case_id": "STRUCTURAL_DEPENDENCY_SHIFT-08",
+      "regime_id": "structural_dependency_shift",
+      "sampling_stratum": "routine",
+      "proposal_stratum_probability": 0.75,
+      "target_stratum_probability": 0.97,
+      "forecast_origin_hour": 0,
+      "forecast_horizon_hours": 72,
+      "evaluator": {
+        "observed_normalized_service_deficit_hours": 24,
+        "qualification_state": "qualified",
+        "review_fallback_action": null
+      },
+      "candidate_output": {
+        "action": "forecast",
+        "predicted_exceedance_probability": 0.063,
+        "probability_lower": 0,
+        "probability_upper": 0.133,
+        "ambiguity_radius": 0.07,
+        "abstention_reason": null
+      }
+    },
+    {
+      "case_id": "NRES012-NRES011-STRUCTURAL_DEPENDENCY_SHIFT-09",
+      "source_case_id": "STRUCTURAL_DEPENDENCY_SHIFT-09",
+      "regime_id": "structural_dependency_shift",
+      "sampling_stratum": "routine",
+      "proposal_stratum_probability": 0.75,
+      "target_stratum_probability": 0.97,
+      "forecast_origin_hour": 0,
+      "forecast_horizon_hours": 72,
+      "evaluator": {
+        "observed_normalized_service_deficit_hours": 37,
+        "qualification_state": "qualified",
+        "review_fallback_action": null
+      },
+      "candidate_output": {
+        "action": "forecast",
+        "predicted_exceedance_probability": 0.071,
+        "probability_lower": 0.001,
+        "probability_upper": 0.141,
+        "ambiguity_radius": 0.07,
+        "abstention_reason": null
+      }
+    },
+    {
+      "case_id": "NRES012-NRES011-STRUCTURAL_DEPENDENCY_SHIFT-10",
+      "source_case_id": "STRUCTURAL_DEPENDENCY_SHIFT-10",
+      "regime_id": "structural_dependency_shift",
+      "sampling_stratum": "routine",
+      "proposal_stratum_probability": 0.75,
+      "target_stratum_probability": 0.97,
+      "forecast_origin_hour": 0,
+      "forecast_horizon_hours": 72,
+      "evaluator": {
+        "observed_normalized_service_deficit_hours": 96,
+        "qualification_state": "qualified",
+        "review_fallback_action": null
+      },
+      "candidate_output": {
+        "action": "forecast",
+        "predicted_exceedance_probability": 0.079,
+        "probability_lower": 0.009,
+        "probability_upper": 0.149,
+        "ambiguity_radius": 0.07,
+        "abstention_reason": null
+      }
+    },
+    {
+      "case_id": "NRES012-NRES011-STRUCTURAL_DEPENDENCY_SHIFT-11",
+      "source_case_id": "STRUCTURAL_DEPENDENCY_SHIFT-11",
+      "regime_id": "structural_dependency_shift",
+      "sampling_stratum": "routine",
+      "proposal_stratum_probability": 0.75,
+      "target_stratum_probability": 0.97,
+      "forecast_origin_hour": 0,
+      "forecast_horizon_hours": 72,
+      "evaluator": {
+        "observed_normalized_service_deficit_hours": 29,
+        "qualification_state": "qualified",
+        "review_fallback_action": null
+      },
+      "candidate_output": {
+        "action": "forecast",
+        "predicted_exceedance_probability": 0.087,
+        "probability_lower": 0.017,
+        "probability_upper": 0.157,
+        "ambiguity_radius": 0.07,
+        "abstention_reason": null
+      }
+    },
+    {
+      "case_id": "NRES012-NRES011-STRUCTURAL_DEPENDENCY_SHIFT-12",
+      "source_case_id": "STRUCTURAL_DEPENDENCY_SHIFT-12",
+      "regime_id": "structural_dependency_shift",
+      "sampling_stratum": "routine",
+      "proposal_stratum_probability": 0.75,
+      "target_stratum_probability": 0.97,
+      "forecast_origin_hour": 0,
+      "forecast_horizon_hours": 72,
+      "evaluator": {
+        "observed_normalized_service_deficit_hours": 8,
+        "qualification_state": "qualified",
+        "review_fallback_action": null
+      },
+      "candidate_output": {
+        "action": "forecast",
+        "predicted_exceedance_probability": 0.095,
+        "probability_lower": 0.025,
+        "probability_upper": 0.165,
+        "ambiguity_radius": 0.07,
+        "abstention_reason": null
+      }
+    },
+    {
+      "case_id": "NRES012-NRES011-STRUCTURAL_DEPENDENCY_SHIFT-13",
+      "source_case_id": "STRUCTURAL_DEPENDENCY_SHIFT-13",
+      "regime_id": "structural_dependency_shift",
+      "sampling_stratum": "routine",
+      "proposal_stratum_probability": 0.75,
+      "target_stratum_probability": 0.97,
+      "forecast_origin_hour": 0,
+      "forecast_horizon_hours": 72,
+      "evaluator": {
+        "observed_normalized_service_deficit_hours": 21,
+        "qualification_state": "qualified",
+        "review_fallback_action": null
+      },
+      "candidate_output": {
+        "action": "forecast",
+        "predicted_exceedance_probability": 0.055,
+        "probability_lower": 0,
+        "probability_upper": 0.125,
+        "ambiguity_radius": 0.07,
+        "abstention_reason": null
+      }
+    },
+    {
+      "case_id": "NRES012-NRES011-STRUCTURAL_DEPENDENCY_SHIFT-14",
+      "source_case_id": "STRUCTURAL_DEPENDENCY_SHIFT-14",
+      "regime_id": "structural_dependency_shift",
+      "sampling_stratum": "routine",
+      "proposal_stratum_probability": 0.75,
+      "target_stratum_probability": 0.97,
+      "forecast_origin_hour": 0,
+      "forecast_horizon_hours": 72,
+      "evaluator": {
+        "observed_normalized_service_deficit_hours": 34,
+        "qualification_state": "qualified",
+        "review_fallback_action": null
+      },
+      "candidate_output": {
+        "action": "forecast",
+        "predicted_exceedance_probability": 0.063,
+        "probability_lower": 0,
+        "probability_upper": 0.133,
+        "ambiguity_radius": 0.07,
+        "abstention_reason": null
+      }
+    },
+    {
+      "case_id": "NRES012-NRES011-STRUCTURAL_DEPENDENCY_SHIFT-15",
+      "source_case_id": "STRUCTURAL_DEPENDENCY_SHIFT-15",
+      "regime_id": "structural_dependency_shift",
+      "sampling_stratum": "routine",
+      "proposal_stratum_probability": 0.75,
+      "target_stratum_probability": 0.97,
+      "forecast_origin_hour": 0,
+      "forecast_horizon_hours": 72,
+      "evaluator": {
+        "observed_normalized_service_deficit_hours": 13,
+        "qualification_state": "qualified",
+        "review_fallback_action": null
+      },
+      "candidate_output": {
+        "action": "forecast",
+        "predicted_exceedance_probability": 0.071,
+        "probability_lower": 0.001,
+        "probability_upper": 0.141,
+        "ambiguity_radius": 0.07,
+        "abstention_reason": null
+      }
+    },
+    {
+      "case_id": "NRES012-NRES011-STRUCTURAL_DEPENDENCY_SHIFT-16",
+      "source_case_id": "STRUCTURAL_DEPENDENCY_SHIFT-16",
+      "regime_id": "structural_dependency_shift",
+      "sampling_stratum": "routine",
+      "proposal_stratum_probability": 0.75,
+      "target_stratum_probability": 0.97,
+      "forecast_origin_hour": 0,
+      "forecast_horizon_hours": 72,
+      "evaluator": {
+        "observed_normalized_service_deficit_hours": 26,
+        "qualification_state": "qualified",
+        "review_fallback_action": null
+      },
+      "candidate_output": {
+        "action": "forecast",
+        "predicted_exceedance_probability": 0.079,
+        "probability_lower": 0.009,
+        "probability_upper": 0.149,
+        "ambiguity_radius": 0.07,
+        "abstention_reason": null
+      }
+    },
+    {
+      "case_id": "NRES012-NRES011-STRUCTURAL_DEPENDENCY_SHIFT-17",
+      "source_case_id": "STRUCTURAL_DEPENDENCY_SHIFT-17",
+      "regime_id": "structural_dependency_shift",
+      "sampling_stratum": "routine",
+      "proposal_stratum_probability": 0.75,
+      "target_stratum_probability": 0.97,
+      "forecast_origin_hour": 0,
+      "forecast_horizon_hours": 72,
+      "evaluator": {
+        "observed_normalized_service_deficit_hours": 39,
+        "qualification_state": "qualified",
+        "review_fallback_action": null
+      },
+      "candidate_output": {
+        "action": "forecast",
+        "predicted_exceedance_probability": 0.087,
+        "probability_lower": 0.017,
+        "probability_upper": 0.157,
+        "ambiguity_radius": 0.07,
+        "abstention_reason": null
+      }
+    },
+    {
+      "case_id": "NRES012-NRES011-STRUCTURAL_DEPENDENCY_SHIFT-18",
+      "source_case_id": "STRUCTURAL_DEPENDENCY_SHIFT-18",
+      "regime_id": "structural_dependency_shift",
+      "sampling_stratum": "routine",
+      "proposal_stratum_probability": 0.75,
+      "target_stratum_probability": 0.97,
+      "forecast_origin_hour": 0,
+      "forecast_horizon_hours": 72,
+      "evaluator": {
+        "observed_normalized_service_deficit_hours": 18,
+        "qualification_state": "qualified",
+        "review_fallback_action": null
+      },
+      "candidate_output": {
+        "action": "forecast",
+        "predicted_exceedance_probability": 0.095,
+        "probability_lower": 0.025,
+        "probability_upper": 0.165,
+        "ambiguity_radius": 0.07,
+        "abstention_reason": null
+      }
+    },
+    {
+      "case_id": "NRES012-NRES011-STRUCTURAL_DEPENDENCY_SHIFT-19",
+      "source_case_id": "STRUCTURAL_DEPENDENCY_SHIFT-19",
+      "regime_id": "structural_dependency_shift",
+      "sampling_stratum": "routine",
+      "proposal_stratum_probability": 0.75,
+      "target_stratum_probability": 0.97,
+      "forecast_origin_hour": 0,
+      "forecast_horizon_hours": 72,
+      "evaluator": {
+        "observed_normalized_service_deficit_hours": 116,
+        "qualification_state": "qualified",
+        "review_fallback_action": null
+      },
+      "candidate_output": {
+        "action": "forecast",
+        "predicted_exceedance_probability": 0.055,
+        "probability_lower": 0,
+        "probability_upper": 0.125,
+        "ambiguity_radius": 0.07,
+        "abstention_reason": null
+      }
+    },
+    {
+      "case_id": "NRES012-NRES011-STRUCTURAL_DEPENDENCY_SHIFT-20",
+      "source_case_id": "STRUCTURAL_DEPENDENCY_SHIFT-20",
+      "regime_id": "structural_dependency_shift",
+      "sampling_stratum": "routine",
+      "proposal_stratum_probability": 0.75,
+      "target_stratum_probability": 0.97,
+      "forecast_origin_hour": 0,
+      "forecast_horizon_hours": 72,
+      "evaluator": {
+        "observed_normalized_service_deficit_hours": 10,
+        "qualification_state": "qualified",
+        "review_fallback_action": null
+      },
+      "candidate_output": {
+        "action": "forecast",
+        "predicted_exceedance_probability": 0.063,
+        "probability_lower": 0,
+        "probability_upper": 0.133,
+        "ambiguity_radius": 0.07,
+        "abstention_reason": null
+      }
+    },
+    {
+      "case_id": "NRES012-NRES011-STRUCTURAL_DEPENDENCY_SHIFT-21",
+      "source_case_id": "STRUCTURAL_DEPENDENCY_SHIFT-21",
+      "regime_id": "structural_dependency_shift",
+      "sampling_stratum": "routine",
+      "proposal_stratum_probability": 0.75,
+      "target_stratum_probability": 0.97,
+      "forecast_origin_hour": 0,
+      "forecast_horizon_hours": 72,
+      "evaluator": {
+        "observed_normalized_service_deficit_hours": 23,
+        "qualification_state": "qualified",
+        "review_fallback_action": null
+      },
+      "candidate_output": {
+        "action": "forecast",
+        "predicted_exceedance_probability": 0.071,
+        "probability_lower": 0.001,
+        "probability_upper": 0.141,
+        "ambiguity_radius": 0.07,
+        "abstention_reason": null
+      }
+    },
+    {
+      "case_id": "NRES012-NRES011-STRUCTURAL_DEPENDENCY_SHIFT-22",
+      "source_case_id": "STRUCTURAL_DEPENDENCY_SHIFT-22",
+      "regime_id": "structural_dependency_shift",
+      "sampling_stratum": "routine",
+      "proposal_stratum_probability": 0.75,
+      "target_stratum_probability": 0.97,
+      "forecast_origin_hour": 0,
+      "forecast_horizon_hours": 72,
+      "evaluator": {
+        "observed_normalized_service_deficit_hours": 36,
+        "qualification_state": "qualified",
+        "review_fallback_action": null
+      },
+      "candidate_output": {
+        "action": "forecast",
+        "predicted_exceedance_probability": 0.079,
+        "probability_lower": 0.009,
+        "probability_upper": 0.149,
+        "ambiguity_radius": 0.07,
+        "abstention_reason": null
+      }
+    },
+    {
+      "case_id": "NRES012-NRES011-STRUCTURAL_DEPENDENCY_SHIFT-23",
+      "source_case_id": "STRUCTURAL_DEPENDENCY_SHIFT-23",
+      "regime_id": "structural_dependency_shift",
+      "sampling_stratum": "routine",
+      "proposal_stratum_probability": 0.75,
+      "target_stratum_probability": 0.97,
+      "forecast_origin_hour": 0,
+      "forecast_horizon_hours": 72,
+      "evaluator": {
+        "observed_normalized_service_deficit_hours": 15,
+        "qualification_state": "qualified",
+        "review_fallback_action": null
+      },
+      "candidate_output": {
+        "action": "forecast",
+        "predicted_exceedance_probability": 0.087,
+        "probability_lower": 0.017,
+        "probability_upper": 0.157,
+        "ambiguity_radius": 0.07,
+        "abstention_reason": null
+      }
+    },
+    {
+      "case_id": "NRES012-NRES011-STRUCTURAL_DEPENDENCY_SHIFT-24",
+      "source_case_id": "STRUCTURAL_DEPENDENCY_SHIFT-24",
+      "regime_id": "structural_dependency_shift",
+      "sampling_stratum": "routine",
+      "proposal_stratum_probability": 0.75,
+      "target_stratum_probability": 0.97,
+      "forecast_origin_hour": 0,
+      "forecast_horizon_hours": 72,
+      "evaluator": {
+        "observed_normalized_service_deficit_hours": 28,
+        "qualification_state": "qualified",
+        "review_fallback_action": null
+      },
+      "candidate_output": {
+        "action": "forecast",
+        "predicted_exceedance_probability": 0.095,
+        "probability_lower": 0.025,
+        "probability_upper": 0.165,
+        "ambiguity_radius": 0.07,
+        "abstention_reason": null
+      }
+    },
+    {
+      "case_id": "NRES012-NRES011-STRUCTURAL_DEPENDENCY_SHIFT-25",
+      "source_case_id": "STRUCTURAL_DEPENDENCY_SHIFT-25",
+      "regime_id": "structural_dependency_shift",
+      "sampling_stratum": "tail_enriched",
+      "proposal_stratum_probability": 0.25,
+      "target_stratum_probability": 0.03,
+      "forecast_origin_hour": 0,
+      "forecast_horizon_hours": 72,
+      "evaluator": {
+        "observed_normalized_service_deficit_hours": 76,
+        "qualification_state": "qualified",
+        "review_fallback_action": null
+      },
+      "candidate_output": {
+        "action": "forecast",
+        "predicted_exceedance_probability": 0.18,
+        "probability_lower": 0.11,
+        "probability_upper": 0.25,
+        "ambiguity_radius": 0.07,
+        "abstention_reason": null
+      }
+    },
+    {
+      "case_id": "NRES012-NRES011-STRUCTURAL_DEPENDENCY_SHIFT-26",
+      "source_case_id": "STRUCTURAL_DEPENDENCY_SHIFT-26",
+      "regime_id": "structural_dependency_shift",
+      "sampling_stratum": "tail_enriched",
+      "proposal_stratum_probability": 0.25,
+      "target_stratum_probability": 0.03,
+      "forecast_origin_hour": 0,
+      "forecast_horizon_hours": 72,
+      "evaluator": {
+        "observed_normalized_service_deficit_hours": 103,
+        "qualification_state": "qualified",
+        "review_fallback_action": null
+      },
+      "candidate_output": {
+        "action": "forecast",
+        "predicted_exceedance_probability": 0.24,
+        "probability_lower": 0.17,
+        "probability_upper": 0.31,
+        "ambiguity_radius": 0.07,
+        "abstention_reason": null
+      }
+    },
+    {
+      "case_id": "NRES012-NRES011-STRUCTURAL_DEPENDENCY_SHIFT-27",
+      "source_case_id": "STRUCTURAL_DEPENDENCY_SHIFT-27",
+      "regime_id": "structural_dependency_shift",
+      "sampling_stratum": "tail_enriched",
+      "proposal_stratum_probability": 0.25,
+      "target_stratum_probability": 0.03,
+      "forecast_origin_hour": 0,
+      "forecast_horizon_hours": 72,
+      "evaluator": {
+        "observed_normalized_service_deficit_hours": 130,
+        "qualification_state": "qualified",
+        "review_fallback_action": null
+      },
+      "candidate_output": {
+        "action": "forecast",
+        "predicted_exceedance_probability": 0.3,
+        "probability_lower": 0.23,
+        "probability_upper": 0.37,
+        "ambiguity_radius": 0.07,
+        "abstention_reason": null
+      }
+    },
+    {
+      "case_id": "NRES012-NRES011-STRUCTURAL_DEPENDENCY_SHIFT-28",
+      "source_case_id": "STRUCTURAL_DEPENDENCY_SHIFT-28",
+      "regime_id": "structural_dependency_shift",
+      "sampling_stratum": "tail_enriched",
+      "proposal_stratum_probability": 0.25,
+      "target_stratum_probability": 0.03,
+      "forecast_origin_hour": 0,
+      "forecast_horizon_hours": 72,
+      "evaluator": {
+        "observed_normalized_service_deficit_hours": 12,
+        "qualification_state": "qualified",
+        "review_fallback_action": null
+      },
+      "candidate_output": {
+        "action": "forecast",
+        "predicted_exceedance_probability": 0.36,
+        "probability_lower": 0.29,
+        "probability_upper": 0.43,
+        "ambiguity_radius": 0.07,
+        "abstention_reason": null
+      }
+    },
+    {
+      "case_id": "NRES012-NRES011-STRUCTURAL_DEPENDENCY_SHIFT-29",
+      "source_case_id": "STRUCTURAL_DEPENDENCY_SHIFT-29",
+      "regime_id": "structural_dependency_shift",
+      "sampling_stratum": "tail_enriched",
+      "proposal_stratum_probability": 0.25,
+      "target_stratum_probability": 0.03,
+      "forecast_origin_hour": 0,
+      "forecast_horizon_hours": 72,
+      "evaluator": {
+        "observed_normalized_service_deficit_hours": 158,
+        "qualification_state": "qualified",
+        "review_fallback_action": null
+      },
+      "candidate_output": {
+        "action": "forecast",
+        "predicted_exceedance_probability": 0.18,
+        "probability_lower": 0.11,
+        "probability_upper": 0.25,
+        "ambiguity_radius": 0.07,
+        "abstention_reason": null
+      }
+    },
+    {
+      "case_id": "NRES012-NRES011-STRUCTURAL_DEPENDENCY_SHIFT-30",
+      "source_case_id": "STRUCTURAL_DEPENDENCY_SHIFT-30",
+      "regime_id": "structural_dependency_shift",
+      "sampling_stratum": "tail_enriched",
+      "proposal_stratum_probability": 0.25,
+      "target_stratum_probability": 0.03,
+      "forecast_origin_hour": 0,
+      "forecast_horizon_hours": 72,
+      "evaluator": {
+        "observed_normalized_service_deficit_hours": 183,
+        "qualification_state": "qualified",
+        "review_fallback_action": null
+      },
+      "candidate_output": {
+        "action": "forecast",
+        "predicted_exceedance_probability": 0.24,
+        "probability_lower": 0.17,
+        "probability_upper": 0.31,
+        "ambiguity_radius": 0.07,
+        "abstention_reason": null
+      }
+    },
+    {
+      "case_id": "NRES012-NRES011-STRUCTURAL_DEPENDENCY_SHIFT-31",
+      "source_case_id": "STRUCTURAL_DEPENDENCY_SHIFT-31",
+      "regime_id": "structural_dependency_shift",
+      "sampling_stratum": "tail_enriched",
+      "proposal_stratum_probability": 0.25,
+      "target_stratum_probability": 0.03,
+      "forecast_origin_hour": 0,
+      "forecast_horizon_hours": 72,
+      "evaluator": {
+        "observed_normalized_service_deficit_hours": 17,
+        "qualification_state": "qualified",
+        "review_fallback_action": null
+      },
+      "candidate_output": {
+        "action": "forecast",
+        "predicted_exceedance_probability": 0.3,
+        "probability_lower": 0.23,
+        "probability_upper": 0.37,
+        "ambiguity_radius": 0.07,
+        "abstention_reason": null
+      }
+    },
+    {
+      "case_id": "NRES012-NRES011-STRUCTURAL_DEPENDENCY_SHIFT-32",
+      "source_case_id": "STRUCTURAL_DEPENDENCY_SHIFT-32",
+      "regime_id": "structural_dependency_shift",
+      "sampling_stratum": "tail_enriched",
+      "proposal_stratum_probability": 0.25,
+      "target_stratum_probability": 0.03,
+      "forecast_origin_hour": 0,
+      "forecast_horizon_hours": 72,
+      "evaluator": {
+        "observed_normalized_service_deficit_hours": 213,
+        "qualification_state": "qualified",
+        "review_fallback_action": null
+      },
+      "candidate_output": {
+        "action": "forecast",
+        "predicted_exceedance_probability": 0.36,
+        "probability_lower": 0.29,
+        "probability_upper": 0.43,
+        "ambiguity_radius": 0.07,
+        "abstention_reason": null
+      }
+    },
+    {
+      "case_id": "NRES012-NRES011-EVIDENCE_DEGRADATION-01",
+      "source_case_id": "EVIDENCE_DEGRADATION-01",
+      "regime_id": "evidence_degradation",
+      "sampling_stratum": "routine",
+      "proposal_stratum_probability": 0.75,
+      "target_stratum_probability": 0.97,
+      "forecast_origin_hour": 0,
+      "forecast_horizon_hours": 72,
+      "evaluator": {
+        "observed_normalized_service_deficit_hours": 28,
+        "qualification_state": "qualified",
+        "review_fallback_action": null
+      },
+      "candidate_output": {
+        "action": "forecast",
+        "predicted_exceedance_probability": 0.03,
+        "probability_lower": 0.01,
+        "probability_upper": 0.05,
+        "ambiguity_radius": 0.02,
+        "abstention_reason": null
+      }
+    },
+    {
+      "case_id": "NRES012-NRES011-EVIDENCE_DEGRADATION-02",
+      "source_case_id": "EVIDENCE_DEGRADATION-02",
+      "regime_id": "evidence_degradation",
+      "sampling_stratum": "routine",
+      "proposal_stratum_probability": 0.75,
+      "target_stratum_probability": 0.97,
+      "forecast_origin_hour": 0,
+      "forecast_horizon_hours": 72,
+      "evaluator": {
+        "observed_normalized_service_deficit_hours": 41,
+        "qualification_state": "missing_critical_input",
+        "review_fallback_action": "prepare"
+      },
+      "candidate_output": {
+        "action": "abstain",
+        "predicted_exceedance_probability": null,
+        "probability_lower": null,
+        "probability_upper": null,
+        "ambiguity_radius": null,
+        "abstention_reason": "missing_critical_input"
+      }
+    },
+    {
+      "case_id": "NRES012-NRES011-EVIDENCE_DEGRADATION-03",
+      "source_case_id": "EVIDENCE_DEGRADATION-03",
+      "regime_id": "evidence_degradation",
+      "sampling_stratum": "routine",
+      "proposal_stratum_probability": 0.75,
+      "target_stratum_probability": 0.97,
+      "forecast_origin_hour": 0,
+      "forecast_horizon_hours": 72,
+      "evaluator": {
+        "observed_normalized_service_deficit_hours": 20,
+        "qualification_state": "qualified",
+        "review_fallback_action": null
+      },
+      "candidate_output": {
+        "action": "forecast",
+        "predicted_exceedance_probability": 0.046,
+        "probability_lower": 0.026,
+        "probability_upper": 0.066,
+        "ambiguity_radius": 0.02,
+        "abstention_reason": null
+      }
+    },
+    {
+      "case_id": "NRES012-NRES011-EVIDENCE_DEGRADATION-04",
+      "source_case_id": "EVIDENCE_DEGRADATION-04",
+      "regime_id": "evidence_degradation",
+      "sampling_stratum": "routine",
+      "proposal_stratum_probability": 0.75,
+      "target_stratum_probability": 0.97,
+      "forecast_origin_hour": 0,
+      "forecast_horizon_hours": 72,
+      "evaluator": {
+        "observed_normalized_service_deficit_hours": 33,
+        "qualification_state": "qualified",
+        "review_fallback_action": null
+      },
+      "candidate_output": {
+        "action": "forecast",
+        "predicted_exceedance_probability": 0.054,
+        "probability_lower": 0.034,
+        "probability_upper": 0.074,
+        "ambiguity_radius": 0.02,
+        "abstention_reason": null
+      }
+    },
+    {
+      "case_id": "NRES012-NRES011-EVIDENCE_DEGRADATION-05",
+      "source_case_id": "EVIDENCE_DEGRADATION-05",
+      "regime_id": "evidence_degradation",
+      "sampling_stratum": "routine",
+      "proposal_stratum_probability": 0.75,
+      "target_stratum_probability": 0.97,
+      "forecast_origin_hour": 0,
+      "forecast_horizon_hours": 72,
+      "evaluator": {
+        "observed_normalized_service_deficit_hours": 12,
+        "qualification_state": "qualified",
+        "review_fallback_action": null
+      },
+      "candidate_output": {
+        "action": "forecast",
+        "predicted_exceedance_probability": 0.062,
+        "probability_lower": 0.042,
+        "probability_upper": 0.082,
+        "ambiguity_radius": 0.02,
+        "abstention_reason": null
+      }
+    },
+    {
+      "case_id": "NRES012-NRES011-EVIDENCE_DEGRADATION-06",
+      "source_case_id": "EVIDENCE_DEGRADATION-06",
+      "regime_id": "evidence_degradation",
+      "sampling_stratum": "routine",
+      "proposal_stratum_probability": 0.75,
+      "target_stratum_probability": 0.97,
+      "forecast_origin_hour": 0,
+      "forecast_horizon_hours": 72,
+      "evaluator": {
+        "observed_normalized_service_deficit_hours": 25,
+        "qualification_state": "qualified",
+        "review_fallback_action": null
+      },
+      "candidate_output": {
+        "action": "forecast",
+        "predicted_exceedance_probability": 0.07,
+        "probability_lower": 0.05,
+        "probability_upper": 0.09,
+        "ambiguity_radius": 0.02,
+        "abstention_reason": null
+      }
+    },
+    {
+      "case_id": "NRES012-NRES011-EVIDENCE_DEGRADATION-07",
+      "source_case_id": "EVIDENCE_DEGRADATION-07",
+      "regime_id": "evidence_degradation",
+      "sampling_stratum": "routine",
+      "proposal_stratum_probability": 0.75,
+      "target_stratum_probability": 0.97,
+      "forecast_origin_hour": 0,
+      "forecast_horizon_hours": 72,
+      "evaluator": {
+        "observed_normalized_service_deficit_hours": 38,
+        "qualification_state": "qualified",
+        "review_fallback_action": null
+      },
+      "candidate_output": {
+        "action": "forecast",
+        "predicted_exceedance_probability": 0.03,
+        "probability_lower": 0.01,
+        "probability_upper": 0.05,
+        "ambiguity_radius": 0.02,
+        "abstention_reason": null
+      }
+    },
+    {
+      "case_id": "NRES012-NRES011-EVIDENCE_DEGRADATION-08",
+      "source_case_id": "EVIDENCE_DEGRADATION-08",
+      "regime_id": "evidence_degradation",
+      "sampling_stratum": "routine",
+      "proposal_stratum_probability": 0.75,
+      "target_stratum_probability": 0.97,
+      "forecast_origin_hour": 0,
+      "forecast_horizon_hours": 72,
+      "evaluator": {
+        "observed_normalized_service_deficit_hours": 17,
+        "qualification_state": "qualified",
+        "review_fallback_action": null
+      },
+      "candidate_output": {
+        "action": "forecast",
+        "predicted_exceedance_probability": 0.038,
+        "probability_lower": 0.018,
+        "probability_upper": 0.058,
+        "ambiguity_radius": 0.02,
+        "abstention_reason": null
+      }
+    },
+    {
+      "case_id": "NRES012-NRES011-EVIDENCE_DEGRADATION-09",
+      "source_case_id": "EVIDENCE_DEGRADATION-09",
+      "regime_id": "evidence_degradation",
+      "sampling_stratum": "routine",
+      "proposal_stratum_probability": 0.75,
+      "target_stratum_probability": 0.97,
+      "forecast_origin_hour": 0,
+      "forecast_horizon_hours": 72,
+      "evaluator": {
+        "observed_normalized_service_deficit_hours": 30,
+        "qualification_state": "qualified",
+        "review_fallback_action": null
+      },
+      "candidate_output": {
+        "action": "forecast",
+        "predicted_exceedance_probability": 0.046,
+        "probability_lower": 0.026,
+        "probability_upper": 0.066,
+        "ambiguity_radius": 0.02,
+        "abstention_reason": null
+      }
+    },
+    {
+      "case_id": "NRES012-NRES011-EVIDENCE_DEGRADATION-10",
+      "source_case_id": "EVIDENCE_DEGRADATION-10",
+      "regime_id": "evidence_degradation",
+      "sampling_stratum": "routine",
+      "proposal_stratum_probability": 0.75,
+      "target_stratum_probability": 0.97,
+      "forecast_origin_hour": 0,
+      "forecast_horizon_hours": 72,
+      "evaluator": {
+        "observed_normalized_service_deficit_hours": 9,
+        "qualification_state": "qualified",
+        "review_fallback_action": null
+      },
+      "candidate_output": {
+        "action": "forecast",
+        "predicted_exceedance_probability": 0.054,
+        "probability_lower": 0.034,
+        "probability_upper": 0.074,
+        "ambiguity_radius": 0.02,
+        "abstention_reason": null
+      }
+    },
+    {
+      "case_id": "NRES012-NRES011-EVIDENCE_DEGRADATION-11",
+      "source_case_id": "EVIDENCE_DEGRADATION-11",
+      "regime_id": "evidence_degradation",
+      "sampling_stratum": "routine",
+      "proposal_stratum_probability": 0.75,
+      "target_stratum_probability": 0.97,
+      "forecast_origin_hour": 0,
+      "forecast_horizon_hours": 72,
+      "evaluator": {
+        "observed_normalized_service_deficit_hours": 22,
+        "qualification_state": "qualified",
+        "review_fallback_action": null
+      },
+      "candidate_output": {
+        "action": "forecast",
+        "predicted_exceedance_probability": 0.062,
+        "probability_lower": 0.042,
+        "probability_upper": 0.082,
+        "ambiguity_radius": 0.02,
+        "abstention_reason": null
+      }
+    },
+    {
+      "case_id": "NRES012-NRES011-EVIDENCE_DEGRADATION-12",
+      "source_case_id": "EVIDENCE_DEGRADATION-12",
+      "regime_id": "evidence_degradation",
+      "sampling_stratum": "routine",
+      "proposal_stratum_probability": 0.75,
+      "target_stratum_probability": 0.97,
+      "forecast_origin_hour": 0,
+      "forecast_horizon_hours": 72,
+      "evaluator": {
+        "observed_normalized_service_deficit_hours": 35,
+        "qualification_state": "qualified",
+        "review_fallback_action": null
+      },
+      "candidate_output": {
+        "action": "forecast",
+        "predicted_exceedance_probability": 0.07,
+        "probability_lower": 0.05,
+        "probability_upper": 0.09,
+        "ambiguity_radius": 0.02,
+        "abstention_reason": null
+      }
+    },
+    {
+      "case_id": "NRES012-NRES011-EVIDENCE_DEGRADATION-13",
+      "source_case_id": "EVIDENCE_DEGRADATION-13",
+      "regime_id": "evidence_degradation",
+      "sampling_stratum": "routine",
+      "proposal_stratum_probability": 0.75,
+      "target_stratum_probability": 0.97,
+      "forecast_origin_hour": 0,
+      "forecast_horizon_hours": 72,
+      "evaluator": {
+        "observed_normalized_service_deficit_hours": 14,
+        "qualification_state": "qualified",
+        "review_fallback_action": null
+      },
+      "candidate_output": {
+        "action": "forecast",
+        "predicted_exceedance_probability": 0.03,
+        "probability_lower": 0.01,
+        "probability_upper": 0.05,
+        "ambiguity_radius": 0.02,
+        "abstention_reason": null
+      }
+    },
+    {
+      "case_id": "NRES012-NRES011-EVIDENCE_DEGRADATION-14",
+      "source_case_id": "EVIDENCE_DEGRADATION-14",
+      "regime_id": "evidence_degradation",
+      "sampling_stratum": "routine",
+      "proposal_stratum_probability": 0.75,
+      "target_stratum_probability": 0.97,
+      "forecast_origin_hour": 0,
+      "forecast_horizon_hours": 72,
+      "evaluator": {
+        "observed_normalized_service_deficit_hours": 27,
+        "qualification_state": "qualified",
+        "review_fallback_action": null
+      },
+      "candidate_output": {
+        "action": "forecast",
+        "predicted_exceedance_probability": 0.038,
+        "probability_lower": 0.018,
+        "probability_upper": 0.058,
+        "ambiguity_radius": 0.02,
+        "abstention_reason": null
+      }
+    },
+    {
+      "case_id": "NRES012-NRES011-EVIDENCE_DEGRADATION-15",
+      "source_case_id": "EVIDENCE_DEGRADATION-15",
+      "regime_id": "evidence_degradation",
+      "sampling_stratum": "routine",
+      "proposal_stratum_probability": 0.75,
+      "target_stratum_probability": 0.97,
+      "forecast_origin_hour": 0,
+      "forecast_horizon_hours": 72,
+      "evaluator": {
+        "observed_normalized_service_deficit_hours": 40,
+        "qualification_state": "qualified",
+        "review_fallback_action": null
+      },
+      "candidate_output": {
+        "action": "forecast",
+        "predicted_exceedance_probability": 0.046,
+        "probability_lower": 0.026,
+        "probability_upper": 0.066,
+        "ambiguity_radius": 0.02,
+        "abstention_reason": null
+      }
+    },
+    {
+      "case_id": "NRES012-NRES011-EVIDENCE_DEGRADATION-16",
+      "source_case_id": "EVIDENCE_DEGRADATION-16",
+      "regime_id": "evidence_degradation",
+      "sampling_stratum": "routine",
+      "proposal_stratum_probability": 0.75,
+      "target_stratum_probability": 0.97,
+      "forecast_origin_hour": 0,
+      "forecast_horizon_hours": 72,
+      "evaluator": {
+        "observed_normalized_service_deficit_hours": 19,
+        "qualification_state": "qualified",
+        "review_fallback_action": null
+      },
+      "candidate_output": {
+        "action": "forecast",
+        "predicted_exceedance_probability": 0.054,
+        "probability_lower": 0.034,
+        "probability_upper": 0.074,
+        "ambiguity_radius": 0.02,
+        "abstention_reason": null
+      }
+    },
+    {
+      "case_id": "NRES012-NRES011-EVIDENCE_DEGRADATION-17",
+      "source_case_id": "EVIDENCE_DEGRADATION-17",
+      "regime_id": "evidence_degradation",
+      "sampling_stratum": "routine",
+      "proposal_stratum_probability": 0.75,
+      "target_stratum_probability": 0.97,
+      "forecast_origin_hour": 0,
+      "forecast_horizon_hours": 72,
+      "evaluator": {
+        "observed_normalized_service_deficit_hours": 63,
+        "qualification_state": "qualified",
+        "review_fallback_action": null
+      },
+      "candidate_output": {
+        "action": "forecast",
+        "predicted_exceedance_probability": 0.062,
+        "probability_lower": 0.042,
+        "probability_upper": 0.082,
+        "ambiguity_radius": 0.02,
+        "abstention_reason": null
+      }
+    },
+    {
+      "case_id": "NRES012-NRES011-EVIDENCE_DEGRADATION-18",
+      "source_case_id": "EVIDENCE_DEGRADATION-18",
+      "regime_id": "evidence_degradation",
+      "sampling_stratum": "routine",
+      "proposal_stratum_probability": 0.75,
+      "target_stratum_probability": 0.97,
+      "forecast_origin_hour": 0,
+      "forecast_horizon_hours": 72,
+      "evaluator": {
+        "observed_normalized_service_deficit_hours": 11,
+        "qualification_state": "conflicting_sources",
+        "review_fallback_action": "no_action"
+      },
+      "candidate_output": {
+        "action": "abstain",
+        "predicted_exceedance_probability": null,
+        "probability_lower": null,
+        "probability_upper": null,
+        "ambiguity_radius": null,
+        "abstention_reason": "conflicting_sources"
+      }
+    },
+    {
+      "case_id": "NRES012-NRES011-EVIDENCE_DEGRADATION-19",
+      "source_case_id": "EVIDENCE_DEGRADATION-19",
+      "regime_id": "evidence_degradation",
+      "sampling_stratum": "routine",
+      "proposal_stratum_probability": 0.75,
+      "target_stratum_probability": 0.97,
+      "forecast_origin_hour": 0,
+      "forecast_horizon_hours": 72,
+      "evaluator": {
+        "observed_normalized_service_deficit_hours": 24,
+        "qualification_state": "qualified",
+        "review_fallback_action": null
+      },
+      "candidate_output": {
+        "action": "forecast",
+        "predicted_exceedance_probability": 0.03,
+        "probability_lower": 0.01,
+        "probability_upper": 0.05,
+        "ambiguity_radius": 0.02,
+        "abstention_reason": null
+      }
+    },
+    {
+      "case_id": "NRES012-NRES011-EVIDENCE_DEGRADATION-20",
+      "source_case_id": "EVIDENCE_DEGRADATION-20",
+      "regime_id": "evidence_degradation",
+      "sampling_stratum": "routine",
+      "proposal_stratum_probability": 0.75,
+      "target_stratum_probability": 0.97,
+      "forecast_origin_hour": 0,
+      "forecast_horizon_hours": 72,
+      "evaluator": {
+        "observed_normalized_service_deficit_hours": 37,
+        "qualification_state": "qualified",
+        "review_fallback_action": null
+      },
+      "candidate_output": {
+        "action": "forecast",
+        "predicted_exceedance_probability": 0.038,
+        "probability_lower": 0.018,
+        "probability_upper": 0.058,
+        "ambiguity_radius": 0.02,
+        "abstention_reason": null
+      }
+    },
+    {
+      "case_id": "NRES012-NRES011-EVIDENCE_DEGRADATION-21",
+      "source_case_id": "EVIDENCE_DEGRADATION-21",
+      "regime_id": "evidence_degradation",
+      "sampling_stratum": "routine",
+      "proposal_stratum_probability": 0.75,
+      "target_stratum_probability": 0.97,
+      "forecast_origin_hour": 0,
+      "forecast_horizon_hours": 72,
+      "evaluator": {
+        "observed_normalized_service_deficit_hours": 16,
+        "qualification_state": "qualified",
+        "review_fallback_action": null
+      },
+      "candidate_output": {
+        "action": "forecast",
+        "predicted_exceedance_probability": 0.046,
+        "probability_lower": 0.026,
+        "probability_upper": 0.066,
+        "ambiguity_radius": 0.02,
+        "abstention_reason": null
+      }
+    },
+    {
+      "case_id": "NRES012-NRES011-EVIDENCE_DEGRADATION-22",
+      "source_case_id": "EVIDENCE_DEGRADATION-22",
+      "regime_id": "evidence_degradation",
+      "sampling_stratum": "routine",
+      "proposal_stratum_probability": 0.75,
+      "target_stratum_probability": 0.97,
+      "forecast_origin_hour": 0,
+      "forecast_horizon_hours": 72,
+      "evaluator": {
+        "observed_normalized_service_deficit_hours": 29,
+        "qualification_state": "qualified",
+        "review_fallback_action": null
+      },
+      "candidate_output": {
+        "action": "forecast",
+        "predicted_exceedance_probability": 0.054,
+        "probability_lower": 0.034,
+        "probability_upper": 0.074,
+        "ambiguity_radius": 0.02,
+        "abstention_reason": null
+      }
+    },
+    {
+      "case_id": "NRES012-NRES011-EVIDENCE_DEGRADATION-23",
+      "source_case_id": "EVIDENCE_DEGRADATION-23",
+      "regime_id": "evidence_degradation",
+      "sampling_stratum": "routine",
+      "proposal_stratum_probability": 0.75,
+      "target_stratum_probability": 0.97,
+      "forecast_origin_hour": 0,
+      "forecast_horizon_hours": 72,
+      "evaluator": {
+        "observed_normalized_service_deficit_hours": 8,
+        "qualification_state": "qualified",
+        "review_fallback_action": null
+      },
+      "candidate_output": {
+        "action": "forecast",
+        "predicted_exceedance_probability": 0.062,
+        "probability_lower": 0.042,
+        "probability_upper": 0.082,
+        "ambiguity_radius": 0.02,
+        "abstention_reason": null
+      }
+    },
+    {
+      "case_id": "NRES012-NRES011-EVIDENCE_DEGRADATION-24",
+      "source_case_id": "EVIDENCE_DEGRADATION-24",
+      "regime_id": "evidence_degradation",
+      "sampling_stratum": "routine",
+      "proposal_stratum_probability": 0.75,
+      "target_stratum_probability": 0.97,
+      "forecast_origin_hour": 0,
+      "forecast_horizon_hours": 72,
+      "evaluator": {
+        "observed_normalized_service_deficit_hours": 21,
+        "qualification_state": "qualified",
+        "review_fallback_action": null
+      },
+      "candidate_output": {
+        "action": "forecast",
+        "predicted_exceedance_probability": 0.07,
+        "probability_lower": 0.05,
+        "probability_upper": 0.09,
+        "ambiguity_radius": 0.02,
+        "abstention_reason": null
+      }
+    },
+    {
+      "case_id": "NRES012-NRES011-EVIDENCE_DEGRADATION-25",
+      "source_case_id": "EVIDENCE_DEGRADATION-25",
+      "regime_id": "evidence_degradation",
+      "sampling_stratum": "tail_enriched",
+      "proposal_stratum_probability": 0.25,
+      "target_stratum_probability": 0.03,
+      "forecast_origin_hour": 0,
+      "forecast_horizon_hours": 72,
+      "evaluator": {
+        "observed_normalized_service_deficit_hours": 68,
+        "qualification_state": "qualified",
+        "review_fallback_action": null
+      },
+      "candidate_output": {
+        "action": "forecast",
+        "predicted_exceedance_probability": 0.1425,
+        "probability_lower": 0.1225,
+        "probability_upper": 0.1625,
+        "ambiguity_radius": 0.02,
+        "abstention_reason": null
+      }
+    },
+    {
+      "case_id": "NRES012-NRES011-EVIDENCE_DEGRADATION-26",
+      "source_case_id": "EVIDENCE_DEGRADATION-26",
+      "regime_id": "evidence_degradation",
+      "sampling_stratum": "tail_enriched",
+      "proposal_stratum_probability": 0.25,
+      "target_stratum_probability": 0.03,
+      "forecast_origin_hour": 0,
+      "forecast_horizon_hours": 72,
+      "evaluator": {
+        "observed_normalized_service_deficit_hours": 13,
+        "qualification_state": "missing_critical_input",
+        "review_fallback_action": "no_action"
+      },
+      "candidate_output": {
+        "action": "abstain",
+        "predicted_exceedance_probability": null,
+        "probability_lower": null,
+        "probability_upper": null,
+        "ambiguity_radius": null,
+        "abstention_reason": "missing_critical_input"
+      }
+    },
+    {
+      "case_id": "NRES012-NRES011-EVIDENCE_DEGRADATION-27",
+      "source_case_id": "EVIDENCE_DEGRADATION-27",
+      "regime_id": "evidence_degradation",
+      "sampling_stratum": "tail_enriched",
+      "proposal_stratum_probability": 0.25,
+      "target_stratum_probability": 0.03,
+      "forecast_origin_hour": 0,
+      "forecast_horizon_hours": 72,
+      "evaluator": {
+        "observed_normalized_service_deficit_hours": 88,
+        "qualification_state": "qualified",
+        "review_fallback_action": null
+      },
+      "candidate_output": {
+        "action": "forecast",
+        "predicted_exceedance_probability": 0.2625,
+        "probability_lower": 0.2425,
+        "probability_upper": 0.2825,
+        "ambiguity_radius": 0.02,
+        "abstention_reason": null
+      }
+    },
+    {
+      "case_id": "NRES012-NRES011-EVIDENCE_DEGRADATION-28",
+      "source_case_id": "EVIDENCE_DEGRADATION-28",
+      "regime_id": "evidence_degradation",
+      "sampling_stratum": "tail_enriched",
+      "proposal_stratum_probability": 0.25,
+      "target_stratum_probability": 0.03,
+      "forecast_origin_hour": 0,
+      "forecast_horizon_hours": 72,
+      "evaluator": {
+        "observed_normalized_service_deficit_hours": 113,
+        "qualification_state": "qualified",
+        "review_fallback_action": null
+      },
+      "candidate_output": {
+        "action": "forecast",
+        "predicted_exceedance_probability": 0.3225,
+        "probability_lower": 0.3025,
+        "probability_upper": 0.3425,
+        "ambiguity_radius": 0.02,
+        "abstention_reason": null
+      }
+    },
+    {
+      "case_id": "NRES012-NRES011-EVIDENCE_DEGRADATION-29",
+      "source_case_id": "EVIDENCE_DEGRADATION-29",
+      "regime_id": "evidence_degradation",
+      "sampling_stratum": "tail_enriched",
+      "proposal_stratum_probability": 0.25,
+      "target_stratum_probability": 0.03,
+      "forecast_origin_hour": 0,
+      "forecast_horizon_hours": 72,
+      "evaluator": {
+        "observed_normalized_service_deficit_hours": 18,
+        "qualification_state": "qualified",
+        "review_fallback_action": null
+      },
+      "candidate_output": {
+        "action": "forecast",
+        "predicted_exceedance_probability": 0.1425,
+        "probability_lower": 0.1225,
+        "probability_upper": 0.1625,
+        "ambiguity_radius": 0.02,
+        "abstention_reason": null
+      }
+    },
+    {
+      "case_id": "NRES012-NRES011-EVIDENCE_DEGRADATION-30",
+      "source_case_id": "EVIDENCE_DEGRADATION-30",
+      "regime_id": "evidence_degradation",
+      "sampling_stratum": "tail_enriched",
+      "proposal_stratum_probability": 0.25,
+      "target_stratum_probability": 0.03,
+      "forecast_origin_hour": 0,
+      "forecast_horizon_hours": 72,
+      "evaluator": {
+        "observed_normalized_service_deficit_hours": 143,
+        "qualification_state": "qualified",
+        "review_fallback_action": null
+      },
+      "candidate_output": {
+        "action": "forecast",
+        "predicted_exceedance_probability": 0.2025,
+        "probability_lower": 0.1825,
+        "probability_upper": 0.2225,
+        "ambiguity_radius": 0.02,
+        "abstention_reason": null
+      }
+    },
+    {
+      "case_id": "NRES012-NRES011-EVIDENCE_DEGRADATION-31",
+      "source_case_id": "EVIDENCE_DEGRADATION-31",
+      "regime_id": "evidence_degradation",
+      "sampling_stratum": "tail_enriched",
+      "proposal_stratum_probability": 0.25,
+      "target_stratum_probability": 0.03,
+      "forecast_origin_hour": 0,
+      "forecast_horizon_hours": 72,
+      "evaluator": {
+        "observed_normalized_service_deficit_hours": 10,
+        "qualification_state": "conflicting_sources",
+        "review_fallback_action": "no_action"
+      },
+      "candidate_output": {
+        "action": "abstain",
+        "predicted_exceedance_probability": null,
+        "probability_lower": null,
+        "probability_upper": null,
+        "ambiguity_radius": null,
+        "abstention_reason": "conflicting_sources"
+      }
+    },
+    {
+      "case_id": "NRES012-NRES011-EVIDENCE_DEGRADATION-32",
+      "source_case_id": "EVIDENCE_DEGRADATION-32",
+      "regime_id": "evidence_degradation",
+      "sampling_stratum": "tail_enriched",
+      "proposal_stratum_probability": 0.25,
+      "target_stratum_probability": 0.03,
+      "forecast_origin_hour": 0,
+      "forecast_horizon_hours": 72,
+      "evaluator": {
+        "observed_normalized_service_deficit_hours": 23,
+        "qualification_state": "qualified",
+        "review_fallback_action": null
+      },
+      "candidate_output": {
+        "action": "forecast",
+        "predicted_exceedance_probability": 0.3225,
+        "probability_lower": 0.3025,
+        "probability_upper": 0.3425,
+        "ambiguity_radius": 0.02,
+        "abstention_reason": null
+      }
+    }
+  ],
+  "interpretation_guardrails": [
+    "The lower/upper interval is an ambiguity set for a Bernoulli event probability, not a guarantee that the true probability is contained.",
+    "Worst-case expected-loss and minimax-regret policies are evaluated separately because they optimize different objectives.",
+    "Minimax regret compares each chosen action to the best action that would have been selected if the event probability were known.",
+    "Tie-breaking is frozen: choose no_action for exact worst-case minimax-regret ties.",
+    "The perfect-information oracle is an unattainable lower bound.",
+    "The point forecast policy remains the reference to show what the ambiguity set changes.",
+    "All weighted policy losses use the declared target/proposal stratum design; effective sample sizes accompany every policy/regime/profile result.",
+    "The ambiguity radii are synthetic protocol parameters, not inferred confidence levels and not tuned on a hidden test set.",
+    "No outcome-based action is attributed to the forecasting model after an abstention.",
+    "No composite resilience, political, loyalty, enlistment or personal-suitability score is accepted."
+  ]
+}
