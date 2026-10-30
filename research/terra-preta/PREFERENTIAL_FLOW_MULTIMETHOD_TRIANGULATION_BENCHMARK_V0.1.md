@@ -115,6 +115,8 @@ Do not instrument every plot identically by default. Use a staged, adaptive desi
 
 The value-of-information policy must be evaluated prospectively: compare adaptive sensor choice with fixed-layout control, using total experiment cost and downstream mechanism/flux error.
 
+**Target distinction:** the 2026 Li et al. ResNet benchmark uses the velocity-threshold PF proxy; its methods explicitly state that NSR was not used for the binary PF target. The 2025 Li et al. multi-ecoregion study uses both NSR and velocity-threshold approaches. Our NSR tool is therefore a separate method-comparison track, not part of the 2026 reproduction label. See the [raw NEON preprocessing contract](./NEON_PREFERENTIAL_FLOW_PREPROCESSING_CONTRACT_V0.1.md).
+
 ## 8. Data and implementation links
 
 - NEON event-scale predictor and transfer track: PREFERENTIAL_FLOW_TRANSFER_BENCHMARK_V0.1.md.
