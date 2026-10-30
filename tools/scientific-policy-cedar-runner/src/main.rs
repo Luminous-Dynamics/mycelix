@@ -133,7 +133,7 @@ fn sha256(bytes: &[u8]) -> String {
 
 fn git_blob_oid(bytes: &[u8]) -> String {
     let mut hasher = Sha1::new();
-    hasher.update(format!("blob {}\\0", bytes.len()).as_bytes());
+    hasher.update(format!("blob {}\0", bytes.len()).as_bytes());
     hasher.update(bytes);
     hex::encode(hasher.finalize())
 }
@@ -234,8 +234,27 @@ fn load_cases(path: &Path, expected_sha256: &str) -> Result<Vec<EngineInputCase>
         if case.case_id != case.cedar.case_id || case.case_id != case.rego.case_id {
             return Err(format!("cross-engine case ID mismatch at line {}", line_index + 1));
         }
-        if case.rego.input.get("action").is_none() {
-            return Err(format!("Rego input lacks action at line {}", line_index + 1));
+        if case.rego.input.get("action").is_none()
+            || case.rego.input.get("actor").is_none()
+            || case.rego.input.get("claim").is_none()
+            || case.rego.input.get("attestation").is_none()
+            || case.rego.input.get("targetAttestation").is_none()
+        {
+            return Err(format!("Rego input is missing a required source-policy field at line {}", line_index + 1));
+        }
+        if case.cedar.entities.len() != 3 {
+            return Err(format!("Cedar entity slice must contain actor, claim and action at line {}", line_index + 1));
+        }
+        for entity in &case.cedar.entities {
+            if entity["uid"]["type"].as_str().is_none()
+                || entity["uid"]["id"].as_str().is_none()
+                || entity.get("uid").and_then(|uid| uid.get("entity_type")).is_some()
+            {
+                return Err(format!("Cedar entity UID must use the native type/id shape at line {}", line_index + 1));
+            }
+        }
+        if !case.cedar.request.context.is_object() {
+            return Err(format!("Cedar request context must be a JSON record at line {}", line_index + 1));
         }
         if !ids.insert(case.case_id.clone()) {
             return Err(format!("duplicate case ID at line {}", line_index + 1));
