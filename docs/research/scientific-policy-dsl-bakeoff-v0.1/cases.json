@@ -691,5 +691,265 @@
     "An authorization-language adapter must preserve the distinction between policy ALLOW/DENY and hard pre-policy or commit-time rejection.",
     "Cases are data for an independent evaluator; they are not yet executable against the Rust implementation.",
     "Reason strings in the current Rust AuthorizationDecision are prose, not stable machine codes. The bake-off compares ALLOW/DENY first and separately evaluates explanation completeness."
+  ],
+  "projectionCases": [
+    {
+      "id": "PROJ-001",
+      "name": "creator_review_does_not_count_as_independent_reviewer",
+      "creatorActorId": "actor:alice",
+      "creatorOrganizationId": "org:creator",
+      "attestations": [
+        {
+          "actorId": "actor:alice",
+          "actingOrganizationId": "org:creator",
+          "kind": "review",
+          "status": "active"
+        }
+      ],
+      "expected": {
+        "reviewCount": 0,
+        "supportiveReproductionCount": 0,
+        "supportiveIndependentReplicationCount": 0,
+        "nonSupportingResultCount": 0,
+        "inconclusiveResultCount": 0,
+        "withdrawnAttestationCount": 0
+      }
+    },
+    {
+      "id": "PROJ-002",
+      "name": "creator_organization_review_does_not_count_as_independent_reviewer",
+      "creatorActorId": "actor:alice",
+      "creatorOrganizationId": "org:creator",
+      "attestations": [
+        {
+          "actorId": "actor:bob",
+          "actingOrganizationId": "org:creator",
+          "kind": "review",
+          "status": "active"
+        }
+      ],
+      "expected": {
+        "reviewCount": 0,
+        "supportiveReproductionCount": 0,
+        "supportiveIndependentReplicationCount": 0,
+        "nonSupportingResultCount": 0,
+        "inconclusiveResultCount": 0,
+        "withdrawnAttestationCount": 0
+      }
+    },
+    {
+      "id": "PROJ-003",
+      "name": "unaffiliated_non_creator_review_counts_by_actor_identity",
+      "creatorActorId": "actor:alice",
+      "creatorOrganizationId": "org:creator",
+      "attestations": [
+        {
+          "actorId": "actor:bob",
+          "kind": "review",
+          "status": "active"
+        }
+      ],
+      "expected": {
+        "reviewCount": 1,
+        "supportiveReproductionCount": 0,
+        "supportiveIndependentReplicationCount": 0,
+        "nonSupportingResultCount": 0,
+        "inconclusiveResultCount": 0,
+        "withdrawnAttestationCount": 0
+      }
+    },
+    {
+      "id": "PROJ-004",
+      "name": "reviewer_count_deduplicates_distinct_actor_identities",
+      "creatorActorId": "actor:alice",
+      "creatorOrganizationId": "org:creator",
+      "attestations": [
+        {
+          "actorId": "actor:bob",
+          "actingOrganizationId": "org:lab-b",
+          "kind": "review",
+          "status": "active"
+        },
+        {
+          "actorId": "actor:carol",
+          "actingOrganizationId": "org:lab-c",
+          "kind": "review",
+          "status": "active"
+        }
+      ],
+      "expected": {
+        "reviewCount": 2,
+        "supportiveReproductionCount": 0,
+        "supportiveIndependentReplicationCount": 0,
+        "nonSupportingResultCount": 0,
+        "inconclusiveResultCount": 0,
+        "withdrawnAttestationCount": 0
+      }
+    },
+    {
+      "id": "PROJ-005",
+      "name": "independent_replication_deduplicates_by_acting_organization",
+      "creatorActorId": "actor:alice",
+      "creatorOrganizationId": "org:creator",
+      "attestations": [
+        {
+          "actorId": "actor:bob",
+          "actingOrganizationId": "org:lab-b",
+          "kind": "independent_replication",
+          "outcome": "supports",
+          "status": "active"
+        },
+        {
+          "actorId": "actor:carol",
+          "actingOrganizationId": "org:lab-b",
+          "kind": "independent_replication",
+          "outcome": "supports",
+          "status": "active"
+        }
+      ],
+      "expected": {
+        "reviewCount": 0,
+        "supportiveReproductionCount": 0,
+        "supportiveIndependentReplicationCount": 1,
+        "nonSupportingResultCount": 0,
+        "inconclusiveResultCount": 0,
+        "withdrawnAttestationCount": 0
+      }
+    },
+    {
+      "id": "PROJ-006",
+      "name": "independent_replication_falls_back_to_actor_identity_without_organization",
+      "creatorActorId": "actor:alice",
+      "creatorOrganizationId": "org:creator",
+      "attestations": [
+        {
+          "actorId": "actor:bob",
+          "kind": "independent_replication",
+          "outcome": "supports",
+          "status": "active"
+        },
+        {
+          "actorId": "actor:carol",
+          "kind": "independent_replication",
+          "outcome": "supports",
+          "status": "active"
+        }
+      ],
+      "expected": {
+        "reviewCount": 0,
+        "supportiveReproductionCount": 0,
+        "supportiveIndependentReplicationCount": 2,
+        "nonSupportingResultCount": 0,
+        "inconclusiveResultCount": 0,
+        "withdrawnAttestationCount": 0
+      },
+      "reviewQuestion": "The current projection accepts an individual identity as an independent source when no acting organization exists. This records current behavior, not a normative recommendation."
+    },
+    {
+      "id": "PROJ-007",
+      "name": "non_supporting_and_inconclusive_results_are_counted_separately",
+      "creatorActorId": "actor:alice",
+      "creatorOrganizationId": "org:creator",
+      "attestations": [
+        {
+          "actorId": "actor:bob",
+          "actingOrganizationId": "org:lab-b",
+          "kind": "independent_replication",
+          "outcome": "does_not_support",
+          "status": "active"
+        },
+        {
+          "actorId": "actor:carol",
+          "actingOrganizationId": "org:lab-c",
+          "kind": "computational_reproduction",
+          "outcome": "inconclusive",
+          "status": "active"
+        }
+      ],
+      "expected": {
+        "reviewCount": 0,
+        "supportiveReproductionCount": 0,
+        "supportiveIndependentReplicationCount": 0,
+        "nonSupportingResultCount": 1,
+        "inconclusiveResultCount": 1,
+        "withdrawnAttestationCount": 0
+      }
+    },
+    {
+      "id": "PROJ-008",
+      "name": "withdrawn_supporting_replication_no_longer_counts_as_support",
+      "creatorActorId": "actor:alice",
+      "creatorOrganizationId": "org:creator",
+      "attestations": [
+        {
+          "actorId": "actor:bob",
+          "actingOrganizationId": "org:lab-b",
+          "kind": "independent_replication",
+          "outcome": "supports",
+          "status": "withdrawn"
+        }
+      ],
+      "expected": {
+        "reviewCount": 0,
+        "supportiveReproductionCount": 0,
+        "supportiveIndependentReplicationCount": 0,
+        "nonSupportingResultCount": 0,
+        "inconclusiveResultCount": 0,
+        "withdrawnAttestationCount": 1
+      }
+    },
+    {
+      "id": "PROJ-009",
+      "name": "computational_reproductions_deduplicate_by_organization",
+      "creatorActorId": "actor:alice",
+      "creatorOrganizationId": "org:creator",
+      "attestations": [
+        {
+          "actorId": "actor:bob",
+          "actingOrganizationId": "org:lab-b",
+          "kind": "computational_reproduction",
+          "outcome": "supports",
+          "status": "active"
+        },
+        {
+          "actorId": "actor:carol",
+          "actingOrganizationId": "org:lab-b",
+          "kind": "computational_reproduction",
+          "outcome": "supports",
+          "status": "active"
+        }
+      ],
+      "expected": {
+        "reviewCount": 0,
+        "supportiveReproductionCount": 1,
+        "supportiveIndependentReplicationCount": 0,
+        "nonSupportingResultCount": 0,
+        "inconclusiveResultCount": 0,
+        "withdrawnAttestationCount": 0
+      }
+    },
+    {
+      "id": "PROJ-010",
+      "name": "creator_organization_independent_replication_is_not_counted_as_support",
+      "creatorActorId": "actor:alice",
+      "creatorOrganizationId": "org:creator",
+      "attestations": [
+        {
+          "actorId": "actor:bob",
+          "actingOrganizationId": "org:creator",
+          "kind": "independent_replication",
+          "outcome": "supports",
+          "status": "active"
+        }
+      ],
+      "expected": {
+        "reviewCount": 0,
+        "supportiveReproductionCount": 0,
+        "supportiveIndependentReplicationCount": 0,
+        "nonSupportingResultCount": 0,
+        "inconclusiveResultCount": 0,
+        "withdrawnAttestationCount": 0
+      }
+    }
   ]
 }
