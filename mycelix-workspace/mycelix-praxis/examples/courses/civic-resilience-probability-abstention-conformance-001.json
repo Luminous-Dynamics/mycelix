@@ -140,6 +140,80 @@
         "mean_forecast_probability": 0.9,
         "observed_event_rate": 0.75
       }
+    ],
+    "per_service_metrics": {
+      "electricity_supply": {
+        "issued_forecasts": 3,
+        "breach_events": 2,
+        "brier_score": 0.1544,
+        "log_loss": 0.43876360018375377
+      },
+      "communications_access": {
+        "issued_forecasts": 3,
+        "breach_events": 1,
+        "brier_score": 0.07613333333333332,
+        "log_loss": 0.28502131281941967
+      },
+      "water_service_continuity": {
+        "issued_forecasts": 3,
+        "breach_events": 1,
+        "brier_score": 0.31759999999999994,
+        "log_loss": 0.8513760396099844
+      },
+      "public_information": {
+        "issued_forecasts": 3,
+        "breach_events": 1,
+        "brier_score": 0.10146666666666669,
+        "log_loss": 0.337541812108223
+      },
+      "welfare_check_coordination": {
+        "issued_forecasts": 3,
+        "breach_events": 2,
+        "brier_score": 0.07706666666666667,
+        "log_loss": 0.29219004789307423
+      },
+      "health_logistics_continuity": {
+        "issued_forecasts": 3,
+        "breach_events": 1,
+        "brier_score": 0.1544,
+        "log_loss": 0.43876360018375377
+      },
+      "transport_access": {
+        "issued_forecasts": 2,
+        "breach_events": 2,
+        "brier_score": 0.28239999999999993,
+        "log_loss": 0.7625483820001747
+      }
+    },
+    "risk_coverage_curve": [
+      {
+        "minimum_probability_confidence": 0,
+        "selected_forecasts": 20,
+        "population_coverage": 0.8,
+        "qualified_case_coverage": 0.9523809523809523,
+        "selective_brier_score": 0.16039999999999996
+      },
+      {
+        "minimum_probability_confidence": 0.25,
+        "selected_forecasts": 14,
+        "population_coverage": 0.56,
+        "qualified_case_coverage": 0.6666666666666666,
+        "selective_brier_score": 0.11039999999999997
+      },
+      {
+        "minimum_probability_confidence": 0.5,
+        "selected_forecasts": 10,
+        "population_coverage": 0.4,
+        "qualified_case_coverage": 0.47619047619047616,
+        "selective_brier_score": 0.08239999999999997
+      },
+      {
+        "minimum_probability_confidence": 0.75,
+        "selected_forecasts": 6,
+        "population_coverage": 0.24,
+        "qualified_case_coverage": 0.2857142857142857,
+        "selective_brier_score": 0.005866666666666666
+      }
     ]
   },
   "round_trip_requirements": [
