@@ -463,6 +463,8 @@ jobs:
           jq empty research/terra-preta/tools/water-retention-audit/water-retention-audit-report.schema.json
           jq empty research/terra-preta/tools/nutrient-budget-audit/nutrient-budget-input.schema.json
           jq empty research/terra-preta/tools/nutrient-budget-audit/nutrient-budget-audit-report.schema.json
+          jq empty research/terra-preta/tools/coupled-event-audit/event-record.schema.json
+          jq empty research/terra-preta/tools/coupled-event-audit/fixtures/synthetic-event.json
           bash -n research/terra-preta/tools/acquire-public-sources.sh
       - name: Format standalone audit tools
         run: |
