@@ -86,7 +86,7 @@ where (w_k) is the importance-weighted mass in bin (k), (ar p_k) is its weighte
 
 Because within-bin forecast variation is discarded by coarsening, the evaluator also reports the original unbinned Brier score and the binned-minus-original residual. The decomposition is a fixed-bin diagnostic, not a corrected unbiased estimate. Ferro and Fricker (2012) show that the ordinary finite-sample Brier decomposition components can be biased; bias correction and uncertainty intervals require adequate samples and a stated estimator. https://doi.org/10.1002/qj.1924.
 
-The forecast diagnostics always accompany issued-case count, raw and weighted coverage, importance-weight sum and effective sample size. The fixture reuses NRES-010's stress-enriched sample, so all decision costs are importance-weighted according to the frozen target/proposal stratum design.
+The forecast diagnostics always accompany issued-case count, raw and weighted coverage, importance-weight sum and effective sample size. NRES-011 additionally reports event-conditional and non-event-conditional forecast coverage, target-cohort event prevalence, event/non-event weight mass retained by the forecast, and the observed event rate among abstentions. These selection diagnostics make it harder for a model to look well calibrated merely by abstaining disproportionately on difficult event cases. The fixture reuses NRES-010's stress-enriched sample, so all decision costs are importance-weighted according to the frozen target/proposal stratum design.
 
 ## 5. Public fixture and limits
 
