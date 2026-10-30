@@ -746,7 +746,13 @@ mod tests {
         assert_eq!(projection.rego.input.acting_organization_id.as_deref(), Some("org:creator"));
         assert_eq!(projection.rego.input.claim.creator_organization_id.as_deref(), Some("org:creator"));
         assert_eq!(projection.cedar.entities.len(), 3);
-        assert_eq!(projection.cedar.request.action, "Mycelix::Action::\\"attestation_recorded\\"");
+        assert_eq!(
+            projection.cedar.request.action,
+            format!(
+                "Mycelix::Action::{}",
+                serde_json::to_string("attestation_recorded").expect("action name serializes")
+            )
+        );
     }
 
     #[test]
