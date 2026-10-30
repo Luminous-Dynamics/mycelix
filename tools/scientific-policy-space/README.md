@@ -14,7 +14,7 @@ The command writes a stable JSONL abstract corpus, a paired JSONL projection of 
 - 8 actions from the pinned Rust `ScientificAction` enum.
 - All 128 subsets of the 7 current `ScientificRole` values.
 - 1,024 absent-stream inputs: every action and role subset. Ownership, organization and target-attestation dimensions are not applicable because the source match returns before a current projection can be read.
-- 61,440 existing-stream inputs: actor is/is not creator; creator organization absent/present; acting organization absent/equal/different where equality is meaningful; ordinary/independent attestation; target attestation absent/authored by actor/authored by another.
+- 61,440 existing-stream inputs: actor is/is not creator; creator organization absent/present; acting organization absent/equal/different when a creator organization exists, or present-without-creator-organization when no creator organization exists; ordinary/independent attestation; target attestation absent/authored by actor/authored by another.
 - Total: 62,464 stable abstract cases.
 
 Dimensions not inspected by a given action are intentionally retained for existing streams. This makes them explicit noninterference controls instead of silently pruning them.
