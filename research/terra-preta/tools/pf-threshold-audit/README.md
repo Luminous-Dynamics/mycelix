@@ -12,7 +12,7 @@ This Rust CLI compares a sensor/event's apparent velocity against multiple decla
 ## Supported threshold families
 
 - Rosetta Ksat estimates: low, maximum, high, median-based and median-plus-standard-deviation upper estimate.
-- Matrix-flow model threshold: the 99th-percentile matrix velocity estimate, reported separately from Rosetta Ksat.
+- Matrix-flow model thresholds: the median, 95th-percentile and 99th-percentile matrix-velocity estimates, reported separately from Rosetta Ksat.
 
 All values must use the same explicitly declared scale: `linear_cm_per_day` or `stored_log_scale_cm_per_day`. Stored log-scale values are compared in their stored numeric scale without exponentiation or conversion; the log base must be reconciled from source metadata before any transform. The tool rejects mixed scales, duplicate threshold IDs/kinds, inverted Ksat intervals and invalid digests. It applies the strict operator velocity > threshold; equality is negative under that threshold.
 
@@ -24,6 +24,6 @@ All values must use the same explicitly declared scale: `linear_cm_per_day` or `
 - `single_reference_not_robustness_tested`: only one reference threshold was supplied.
 - `not_evaluated`: no threshold in that family was supplied.
 
-Rosetta Ksat and matrix-model 99th-percentile thresholds are not merged into one score. A label stable across these references is robust only to the supplied threshold set, not a tracer-confirmed preferential pathway. A threshold-sensitive result should be retained as an explicit label uncertainty rather than collapsed to a single binary class.
+Rosetta Ksat and matrix-model velocity thresholds are not merged into one score. The matrix-model family is summarized across its declared median/95th/99th-percentile thresholds, and the 99th-percentile member is also reported individually. A label stable across these references is robust only to the supplied threshold set, not a tracer-confirmed preferential pathway. A threshold-sensitive result should be retained as an explicit label uncertainty rather than collapsed to a single binary class.
 
 The synthetic fixture demonstrates a threshold-sensitive proxy label only. It is not an actual NEON/HydroShare observation or a field result.
