@@ -1,0 +1,729 @@
+{
+  "benchmark_id": "PRAXIS-NRES-007-CASCADE-RECOVERY-001",
+  "schema_version": "1.0.0",
+  "status": "synthetic-demonstration-for-review",
+  "evaluation_split": "public-development-only",
+  "active_in_curriculum": false,
+  "title": "Cascading Disruption and Service Recovery Trajectories",
+  "purpose": "Demonstrate a deterministic, non-compensatory evaluation of time-varying public-service availability under a shared synthetic disruption sequence.",
+  "scope_limits": [
+    "All values, dependencies, disruptions and resource amounts are fictional development data.",
+    "This fixture is not an operational contingency plan, public warning, infrastructure vulnerability assessment or real-world municipal estimate.",
+    "The comparison is descriptive and is not a randomized, causal or policy-effect estimate.",
+    "A dependency edge is a declared benchmark assumption, not a claim about the actual architecture of any place or provider.",
+    "Interpolated deficit area is a declared numerical convention between samples; it does not establish continuous observation.",
+    "Recovery is observed only within the declared sample horizon; no post-horizon persistence is inferred.",
+    "No participant, household or natural-person identity is represented or scored."
+  ],
+  "protocol": {
+    "time_unit": "hours",
+    "availability_unit": "percent",
+    "horizon_hours": 72,
+    "sample_hours": [
+      0,
+      6,
+      12,
+      18,
+      24,
+      36,
+      48,
+      72
+    ],
+    "interpolation_rule": "piecewise-linear interpolation between adjacent samples only for deficit-area integration",
+    "deficit_area_rule": "integrate max(0, service_floor_percent - availability_percent) over time",
+    "deficit_area_unit": "percentage_point_hours",
+    "sustained_recovery_rule": "earliest sampled hour at which the service is at or above its floor and every subsequent sample through the horizon remains at or above its floor",
+    "recovery_limit": "observed sample horizon only; a null recovery hour means sustained recovery was not observed by the horizon",
+    "pair_comparison_rule": "all scenario profiles must reference the same frozen shock_sequence_id; contrasts describe fixture differences and are not causal effects"
+  },
+  "resource_limits": {
+    "planning_points_available": 300,
+    "responder_hours_available": 240
+  },
+  "shock_sequence": {
+    "shock_sequence_id": "NRES007-SHOCK-72H-001",
+    "status": "synthetic-public-development",
+    "events": [
+      {
+        "event_id": "SHOCK-ENERGY-001",
+        "event_type": "electricity-supply-disruption",
+        "start_hour": 0,
+        "end_hour": 24,
+        "severity": "high-synthetic"
+      },
+      {
+        "event_id": "SHOCK-COMMS-001",
+        "event_type": "communications-degradation",
+        "start_hour": 0,
+        "end_hour": 18,
+        "severity": "high-synthetic"
+      },
+      {
+        "event_id": "SHOCK-ACCESS-001",
+        "event_type": "transport-access-constraint",
+        "start_hour": 6,
+        "end_hour": 36,
+        "severity": "moderate-synthetic"
+      }
+    ]
+  },
+  "services": [
+    {
+      "service_id": "electricity_supply",
+      "name": "Electricity supply",
+      "critical": true,
+      "floor_percent": 80,
+      "unit": "percent-of-scenario-defined-baseline"
+    },
+    {
+      "service_id": "communications_access",
+      "name": "Communications access",
+      "critical": true,
+      "floor_percent": 80,
+      "unit": "percent-of-scenario-defined-baseline"
+    },
+    {
+      "service_id": "water_service_continuity",
+      "name": "Water-service continuity",
+      "critical": true,
+      "floor_percent": 70,
+      "unit": "percent-of-scenario-defined-baseline"
+    },
+    {
+      "service_id": "public_information",
+      "name": "Public information availability",
+      "critical": true,
+      "floor_percent": 75,
+      "unit": "percent-of-scenario-defined-baseline"
+    },
+    {
+      "service_id": "welfare_check_coordination",
+      "name": "Welfare-check coordination",
+      "critical": true,
+      "floor_percent": 80,
+      "unit": "percent-of-scenario-defined-baseline"
+    },
+    {
+      "service_id": "health_logistics_continuity",
+      "name": "Health-logistics continuity",
+      "critical": true,
+      "floor_percent": 85,
+      "unit": "percent-of-scenario-defined-baseline"
+    },
+    {
+      "service_id": "transport_access",
+      "name": "Transport access",
+      "critical": true,
+      "floor_percent": 75,
+      "unit": "percent-of-scenario-defined-baseline"
+    }
+  ],
+  "dependency_edges": [
+    {
+      "prerequisite_service_id": "electricity_supply",
+      "dependent_service_id": "water_service_continuity",
+      "relationship": "required-input",
+      "assertion_status": "assumed"
+    },
+    {
+      "prerequisite_service_id": "electricity_supply",
+      "dependent_service_id": "health_logistics_continuity",
+      "relationship": "required-input",
+      "assertion_status": "assumed"
+    },
+    {
+      "prerequisite_service_id": "communications_access",
+      "dependent_service_id": "public_information",
+      "relationship": "required-input",
+      "assertion_status": "assumed"
+    },
+    {
+      "prerequisite_service_id": "communications_access",
+      "dependent_service_id": "welfare_check_coordination",
+      "relationship": "required-input",
+      "assertion_status": "assumed"
+    },
+    {
+      "prerequisite_service_id": "public_information",
+      "dependent_service_id": "welfare_check_coordination",
+      "relationship": "required-input",
+      "assertion_status": "assumed"
+    },
+    {
+      "prerequisite_service_id": "transport_access",
+      "dependent_service_id": "health_logistics_continuity",
+      "relationship": "required-input",
+      "assertion_status": "assumed"
+    },
+    {
+      "prerequisite_service_id": "water_service_continuity",
+      "dependent_service_id": "health_logistics_continuity",
+      "relationship": "required-input",
+      "assertion_status": "assumed"
+    }
+  ],
+  "scenarios": [
+    {
+      "scenario_id": "NRES007-REFERENCE-001",
+      "scenario_role": "reference",
+      "profile_name": "Reference response without added redundancy",
+      "description": "Synthetic reference trajectory under the frozen disruption sequence.",
+      "shock_sequence_id": "NRES007-SHOCK-72H-001",
+      "resource_use": {
+        "planning_points_committed": 100,
+        "responder_hours_committed": 160
+      },
+      "trajectories": [
+        {
+          "service_id": "electricity_supply",
+          "points": [
+            {
+              "hour": 0,
+              "availability_percent": 100
+            },
+            {
+              "hour": 6,
+              "availability_percent": 40
+            },
+            {
+              "hour": 12,
+              "availability_percent": 35
+            },
+            {
+              "hour": 18,
+              "availability_percent": 55
+            },
+            {
+              "hour": 24,
+              "availability_percent": 70
+            },
+            {
+              "hour": 36,
+              "availability_percent": 82
+            },
+            {
+              "hour": 48,
+              "availability_percent": 90
+            },
+            {
+              "hour": 72,
+              "availability_percent": 95
+            }
+          ]
+        },
+        {
+          "service_id": "communications_access",
+          "points": [
+            {
+              "hour": 0,
+              "availability_percent": 100
+            },
+            {
+              "hour": 6,
+              "availability_percent": 45
+            },
+            {
+              "hour": 12,
+              "availability_percent": 50
+            },
+            {
+              "hour": 18,
+              "availability_percent": 60
+            },
+            {
+              "hour": 24,
+              "availability_percent": 75
+            },
+            {
+              "hour": 36,
+              "availability_percent": 88
+            },
+            {
+              "hour": 48,
+              "availability_percent": 95
+            },
+            {
+              "hour": 72,
+              "availability_percent": 98
+            }
+          ]
+        },
+        {
+          "service_id": "water_service_continuity",
+          "points": [
+            {
+              "hour": 0,
+              "availability_percent": 100
+            },
+            {
+              "hour": 6,
+              "availability_percent": 75
+            },
+            {
+              "hour": 12,
+              "availability_percent": 60
+            },
+            {
+              "hour": 18,
+              "availability_percent": 55
+            },
+            {
+              "hour": 24,
+              "availability_percent": 65
+            },
+            {
+              "hour": 36,
+              "availability_percent": 72
+            },
+            {
+              "hour": 48,
+              "availability_percent": 85
+            },
+            {
+              "hour": 72,
+              "availability_percent": 92
+            }
+          ]
+        },
+        {
+          "service_id": "public_information",
+          "points": [
+            {
+              "hour": 0,
+              "availability_percent": 100
+            },
+            {
+              "hour": 6,
+              "availability_percent": 50
+            },
+            {
+              "hour": 12,
+              "availability_percent": 55
+            },
+            {
+              "hour": 18,
+              "availability_percent": 65
+            },
+            {
+              "hour": 24,
+              "availability_percent": 75
+            },
+            {
+              "hour": 36,
+              "availability_percent": 82
+            },
+            {
+              "hour": 48,
+              "availability_percent": 90
+            },
+            {
+              "hour": 72,
+              "availability_percent": 95
+            }
+          ]
+        },
+        {
+          "service_id": "welfare_check_coordination",
+          "points": [
+            {
+              "hour": 0,
+              "availability_percent": 100
+            },
+            {
+              "hour": 6,
+              "availability_percent": 40
+            },
+            {
+              "hour": 12,
+              "availability_percent": 45
+            },
+            {
+              "hour": 18,
+              "availability_percent": 55
+            },
+            {
+              "hour": 24,
+              "availability_percent": 65
+            },
+            {
+              "hour": 36,
+              "availability_percent": 78
+            },
+            {
+              "hour": 48,
+              "availability_percent": 85
+            },
+            {
+              "hour": 72,
+              "availability_percent": 90
+            }
+          ]
+        },
+        {
+          "service_id": "health_logistics_continuity",
+          "points": [
+            {
+              "hour": 0,
+              "availability_percent": 100
+            },
+            {
+              "hour": 6,
+              "availability_percent": 70
+            },
+            {
+              "hour": 12,
+              "availability_percent": 60
+            },
+            {
+              "hour": 18,
+              "availability_percent": 50
+            },
+            {
+              "hour": 24,
+              "availability_percent": 55
+            },
+            {
+              "hour": 36,
+              "availability_percent": 65
+            },
+            {
+              "hour": 48,
+              "availability_percent": 82
+            },
+            {
+              "hour": 72,
+              "availability_percent": 90
+            }
+          ]
+        },
+        {
+          "service_id": "transport_access",
+          "points": [
+            {
+              "hour": 0,
+              "availability_percent": 100
+            },
+            {
+              "hour": 6,
+              "availability_percent": 65
+            },
+            {
+              "hour": 12,
+              "availability_percent": 55
+            },
+            {
+              "hour": 18,
+              "availability_percent": 50
+            },
+            {
+              "hour": 24,
+              "availability_percent": 60
+            },
+            {
+              "hour": 36,
+              "availability_percent": 70
+            },
+            {
+              "hour": 48,
+              "availability_percent": 80
+            },
+            {
+              "hour": 72,
+              "availability_percent": 90
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "scenario_id": "NRES007-COMPARISON-001",
+      "scenario_role": "comparison",
+      "profile_name": "Illustrative continuity and redundancy measures",
+      "description": "Synthetic comparison trajectory using additional continuity measures; not an operational recommendation or causal intervention estimate.",
+      "shock_sequence_id": "NRES007-SHOCK-72H-001",
+      "resource_use": {
+        "planning_points_committed": 220,
+        "responder_hours_committed": 205
+      },
+      "trajectories": [
+        {
+          "service_id": "electricity_supply",
+          "points": [
+            {
+              "hour": 0,
+              "availability_percent": 100
+            },
+            {
+              "hour": 6,
+              "availability_percent": 70
+            },
+            {
+              "hour": 12,
+              "availability_percent": 65
+            },
+            {
+              "hour": 18,
+              "availability_percent": 75
+            },
+            {
+              "hour": 24,
+              "availability_percent": 85
+            },
+            {
+              "hour": 36,
+              "availability_percent": 90
+            },
+            {
+              "hour": 48,
+              "availability_percent": 95
+            },
+            {
+              "hour": 72,
+              "availability_percent": 98
+            }
+          ]
+        },
+        {
+          "service_id": "communications_access",
+          "points": [
+            {
+              "hour": 0,
+              "availability_percent": 100
+            },
+            {
+              "hour": 6,
+              "availability_percent": 75
+            },
+            {
+              "hour": 12,
+              "availability_percent": 80
+            },
+            {
+              "hour": 18,
+              "availability_percent": 85
+            },
+            {
+              "hour": 24,
+              "availability_percent": 90
+            },
+            {
+              "hour": 36,
+              "availability_percent": 95
+            },
+            {
+              "hour": 48,
+              "availability_percent": 98
+            },
+            {
+              "hour": 72,
+              "availability_percent": 99
+            }
+          ]
+        },
+        {
+          "service_id": "water_service_continuity",
+          "points": [
+            {
+              "hour": 0,
+              "availability_percent": 100
+            },
+            {
+              "hour": 6,
+              "availability_percent": 70
+            },
+            {
+              "hour": 12,
+              "availability_percent": 68
+            },
+            {
+              "hour": 18,
+              "availability_percent": 72
+            },
+            {
+              "hour": 24,
+              "availability_percent": 80
+            },
+            {
+              "hour": 36,
+              "availability_percent": 86
+            },
+            {
+              "hour": 48,
+              "availability_percent": 92
+            },
+            {
+              "hour": 72,
+              "availability_percent": 96
+            }
+          ]
+        },
+        {
+          "service_id": "public_information",
+          "points": [
+            {
+              "hour": 0,
+              "availability_percent": 100
+            },
+            {
+              "hour": 6,
+              "availability_percent": 75
+            },
+            {
+              "hour": 12,
+              "availability_percent": 80
+            },
+            {
+              "hour": 18,
+              "availability_percent": 85
+            },
+            {
+              "hour": 24,
+              "availability_percent": 90
+            },
+            {
+              "hour": 36,
+              "availability_percent": 95
+            },
+            {
+              "hour": 48,
+              "availability_percent": 98
+            },
+            {
+              "hour": 72,
+              "availability_percent": 99
+            }
+          ]
+        },
+        {
+          "service_id": "welfare_check_coordination",
+          "points": [
+            {
+              "hour": 0,
+              "availability_percent": 100
+            },
+            {
+              "hour": 6,
+              "availability_percent": 65
+            },
+            {
+              "hour": 12,
+              "availability_percent": 70
+            },
+            {
+              "hour": 18,
+              "availability_percent": 75
+            },
+            {
+              "hour": 24,
+              "availability_percent": 82
+            },
+            {
+              "hour": 36,
+              "availability_percent": 86
+            },
+            {
+              "hour": 48,
+              "availability_percent": 90
+            },
+            {
+              "hour": 72,
+              "availability_percent": 95
+            }
+          ]
+        },
+        {
+          "service_id": "health_logistics_continuity",
+          "points": [
+            {
+              "hour": 0,
+              "availability_percent": 100
+            },
+            {
+              "hour": 6,
+              "availability_percent": 70
+            },
+            {
+              "hour": 12,
+              "availability_percent": 68
+            },
+            {
+              "hour": 18,
+              "availability_percent": 75
+            },
+            {
+              "hour": 24,
+              "availability_percent": 82
+            },
+            {
+              "hour": 36,
+              "availability_percent": 86
+            },
+            {
+              "hour": 48,
+              "availability_percent": 92
+            },
+            {
+              "hour": 72,
+              "availability_percent": 96
+            }
+          ]
+        },
+        {
+          "service_id": "transport_access",
+          "points": [
+            {
+              "hour": 0,
+              "availability_percent": 100
+            },
+            {
+              "hour": 6,
+              "availability_percent": 65
+            },
+            {
+              "hour": 12,
+              "availability_percent": 60
+            },
+            {
+              "hour": 18,
+              "availability_percent": 70
+            },
+            {
+              "hour": 24,
+              "availability_percent": 78
+            },
+            {
+              "hour": 36,
+              "availability_percent": 85
+            },
+            {
+              "hour": 48,
+              "availability_percent": 90
+            },
+            {
+              "hour": 72,
+              "availability_percent": 95
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "interpretation_guardrails": [
+    "Report each service separately; do not sum or average service deficits into an overall resilience score.",
+    "Report resource pools independently; spare planning points do not compensate for excess responder hours.",
+    "An unobserved or missing sample is invalid or unknown, never silently interpolated as a measured value.",
+    "Passing the final sample is not proof of sustained recovery after the sample horizon.",
+    "A lower deficit area is a scenario-level descriptive difference only; causal attribution requires a separate preregistered study.",
+    "Do not use this public development fixture as confirmatory or held-out evidence."
+  ],
+  "dependency_graph_policy": {
+    "direction": "prerequisite-to-dependent",
+    "propagation_applied": false,
+    "allowed_assertion_statuses": [
+      "assumed",
+      "observed",
+      "evaluator-only"
+    ],
+    "semantics_note": "Dependency edges are contextual metadata only. The NRES-007 evaluator does not propagate failures or generate service availability from this graph; cycles are permitted."
+  }
+}

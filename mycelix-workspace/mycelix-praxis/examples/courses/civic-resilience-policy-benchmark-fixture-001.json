@@ -1,0 +1,276 @@
+{
+  "benchmark_id": "PRAXIS-NRES-002-FIXTURE-001",
+  "schema_version": "1.0.0",
+  "status": "synthetic-prototype-for-review",
+  "title": "Public Resilience Service Models Under a 72-Hour Service Disruption",
+  "purpose": "Assess whether learners can compare public-service and national-service policy options using evidence, legal boundaries, resource constraints, uncertainty, accessibility, and measurable outcomes.",
+  "scope": {
+    "domain": "civil protection and public-service resilience",
+    "setting": "fictional municipality",
+    "use": [
+      "education",
+      "policy-literacy",
+      "synthetic-tabletop"
+    ],
+    "prohibited_inferences": [
+      "This scenario does not estimate the effect of real-world conscription.",
+      "This scenario does not establish a preferred national service policy.",
+      "Completion does not confer military, law-enforcement, emergency-response, or first-aid certification."
+    ]
+  },
+  "scenario": {
+    "event_id": "SYN-MUNI-72H-001",
+    "description": "A fictional municipality experiences a 72-hour regional power and telecommunications disruption during severe weather. Several public services experience reduced capacity. The municipality must maintain essential public information, coordinate welfare checks through lawful channels, preserve essential water and health-service continuity, and restore services while protecting vulnerable residents.",
+    "known_facts": [
+      "The event is simulated and the municipal data are invented for this exercise.",
+      "Local public-service staff retain their existing legal responsibilities and authority.",
+      "No participant may assume that a military or emergency response is legally authorized solely because a course or model recommends it.",
+      "Some service dependencies, volunteer availability and restoration estimates are unknown.",
+      "A plan must continue to work when the central coordination channel is unavailable."
+    ],
+    "objectives": [
+      "Maintain declared minimum essential-service levels for the scenario duration.",
+      "Preserve a lawful, accountable and privacy-respecting division of responsibilities.",
+      "Avoid committing more trained personnel, hours, equipment or money than the scenario makes available.",
+      "Identify the evidence needed to estimate the long-term effect of each service model."
+    ]
+  },
+  "synthetic_constraints": {
+    "planning_horizon_hours": 72,
+    "planning_budget": {
+      "unit": "fictional budget points",
+      "available": 1000
+    },
+    "deployable_trained_responder_hours": {
+      "unit": "fictional responder-hours",
+      "available": 2400
+    },
+    "central_coordination_unavailable_for_hours": 18,
+    "minimum_service_floor_percent": {
+      "public_information": 70,
+      "welfare_check_coordination": 60,
+      "water_service_continuity": 80,
+      "health_logistics_continuity": 75
+    },
+    "constraint_note": "These numbers are toy exercise inputs, not estimates for any real municipality or military. They describe the scenario's 72-hour response allocation, not the cost or capacity of any national-service policy."
+  },
+  "policy_options_to_compare": [
+    {
+      "id": "OPT-A",
+      "name": "Universal two-year active military service",
+      "description": "A hypothetical proposal requiring every legally eligible participant to complete two years of full-time active military service.",
+      "unknowns_to_surface": [
+        "legal and constitutional pathway",
+        "force tasks and trained capability the policy is meant to produce",
+        "training estate, instructor, equipment, health and housing capacity",
+        "opportunity cost to education, employment and care responsibilities",
+        "alternative service, conscientious objection, accessibility and appeal arrangements",
+        "how many graduates remain trained and available when needed"
+      ]
+    },
+    {
+      "id": "OPT-B",
+      "name": "Universal preparedness education plus voluntary paid public-resilience pathways",
+      "description": "Broad access to preparedness education, paired with voluntary paid pathways in civil protection, emergency services, engineering, logistics, communications, cyber defence and other lawful public-interest work.",
+      "unknowns_to_surface": [
+        "recruitment and retention under fair pay and working conditions",
+        "coverage of specialist roles and hard-to-fill shifts",
+        "training quality and independent competence assessment",
+        "funding required to provide meaningful, accessible placements",
+        "readiness when volunteer availability is lower than forecast"
+      ]
+    },
+    {
+      "id": "OPT-C",
+      "name": "Role-specific reserve and professional pathways",
+      "description": "Professional defence and emergency-service staff supported by role-specific reserve training and refreshers, without assuming a universal two-year active-service term.",
+      "unknowns_to_surface": [
+        "required roles and readiness thresholds",
+        "reserve availability and refresher compliance",
+        "mobilisation and equipment constraints",
+        "training costs and retention",
+        "coverage of civil-protection tasks outside military roles"
+      ]
+    },
+    {
+      "id": "OPT-D",
+      "name": "Hybrid education, paid civilian service and role-specific defence pathways",
+      "description": "Universal preparedness learning, paid civilian-resilience placements, and professional/reserve defence pathways, with any compulsory element considered only under an explicit lawful public process.",
+      "unknowns_to_surface": [
+        "coordination overhead between institutions",
+        "duplication or gaps across curricula and credentials",
+        "the legal basis and safeguards for any compulsory element",
+        "total lifecycle cost and distribution of opportunity",
+        "which body owns readiness, assessment, appeals and independent review"
+      ]
+    }
+  ],
+  "required_learner_deliverable": {
+    "format": "structured policy memo plus resource-feasible 72-hour plan",
+    "must_include": [
+      "state the decision question and distinguish near-term emergency response from long-term service policy",
+      "use only the synthetic facts supplied or clearly label new assumptions",
+      "compare all four options without assuming the largest headcount produces the greatest readiness",
+      "produce a feasible 72-hour response allocation under the synthetic budget and responder-hour limits",
+      "identify missing evidence that prevents a confident long-term policy conclusion",
+      "show legal, privacy, accessibility, equity, health, education, employment and cost considerations",
+      "state a primary outcome and at least three secondary outcomes",
+      "describe a fair incumbent baseline, an independent evaluator and a held-out scenario",
+      "explain what result would cause the learner to change their provisional recommendation",
+      "distinguish a proposal from an authorized decision"
+    ],
+    "required_uncertainty_labels": [
+      "Observed in synthetic fixture",
+      "Assumption",
+      "Estimate",
+      "Unknown",
+      "Requires qualified legal or institutional review"
+    ]
+  },
+  "rubric": {
+    "scale": "0-4 per dimension; points support feedback and must not be used to rank political beliefs",
+    "dimensions": [
+      {
+        "id": "R1",
+        "name": "Evidence discipline",
+        "points": 4,
+        "anchor": "Separates fixture facts, assumptions, estimates and unknowns; proposes independent verification."
+      },
+      {
+        "id": "R2",
+        "name": "Legal authority and accountability",
+        "points": 4,
+        "anchor": "Does not invent authority; identifies legitimate decision owners, lawful process, review and appeal."
+      },
+      {
+        "id": "R3",
+        "name": "Resource and service feasibility",
+        "points": 4,
+        "anchor": "Budget and responder-hour totals fit the supplied limits; all service floors are checked."
+      },
+      {
+        "id": "R4",
+        "name": "Resilience and partition tolerance",
+        "points": 4,
+        "anchor": "Maintains local essential functions during loss of central coordination and provides a safe reconciliation plan."
+      },
+      {
+        "id": "R5",
+        "name": "Equity, accessibility and rights",
+        "points": 4,
+        "anchor": "Addresses reasonable accommodations, care and work costs, due process, non-discrimination and civilian alternatives."
+      },
+      {
+        "id": "R6",
+        "name": "Cost and opportunity-cost accounting",
+        "points": 4,
+        "anchor": "Identifies full lifecycle costs, training throughput, foregone work/study and support costs rather than using duration or headcount as a proxy."
+      },
+      {
+        "id": "R7",
+        "name": "Benchmark quality",
+        "points": 4,
+        "anchor": "Defines a fair baseline, primary outcome, uncertainty method, holdout and conditions that would falsify the claim."
+      },
+      {
+        "id": "R8",
+        "name": "Uncertainty and revisability",
+        "points": 4,
+        "anchor": "Offers a conditional conclusion; identifies decision-changing evidence and avoids false precision."
+      }
+    ],
+    "maximum_points": 32,
+    "scoring_rule": "Report each dimension separately. A total score may support feedback but may not override any hard-fail condition and may not be interpreted as political or ideological alignment."
+  },
+  "hard_fail_conditions": [
+    "Claims that the synthetic scenario proves a real-world service model works.",
+    "Treats a course completion, model output, popularity vote or reputation score as legal or operational authority.",
+    "Exceeds the fictional budget or available responder-hours without explicitly flagging infeasibility.",
+    "Claims any service floor is met without checking the allocated plan against its threshold.",
+    "Presents unknown or fabricated cost/readiness figures as established facts.",
+    "Ignores legal process, due process, accessibility or conscientious-objection/alternative-service considerations when proposing compulsion.",
+    "Scores learners on political affiliation, support for conscription, willingness to enlist or identity rather than the quality of their reasoning."
+  ],
+  "adversarial_variants": [
+    {
+      "id": "VAR-01",
+      "mutation": "Reduce budget points by 25 percent.",
+      "expected_skill": "Re-plan and state which objectives become infeasible rather than hide deficits."
+    },
+    {
+      "id": "VAR-02",
+      "mutation": "Increase central-coordination outage from 18 to 36 hours.",
+      "expected_skill": "Preserve local responsibilities and explicitly identify unavailable cross-organization coordination."
+    },
+    {
+      "id": "VAR-03",
+      "mutation": "Make responder availability 30 percent lower than the base case.",
+      "expected_skill": "Recalculate coverage and avoid counting unconfirmed volunteers as capacity."
+    },
+    {
+      "id": "VAR-04",
+      "mutation": "Add a documented accessibility requirement and a care-responsibility conflict.",
+      "expected_skill": "Update service design without assigning a personal or civic worth penalty."
+    },
+    {
+      "id": "VAR-05",
+      "mutation": "Supply a persuasive but unverified claim that a two-year term improves readiness by 40 percent.",
+      "expected_skill": "Label the claim unverified and request independent supporting evidence."
+    },
+    {
+      "id": "VAR-06",
+      "mutation": "Give two reputable sources contradictory service-cost estimates.",
+      "expected_skill": "Preserve the conflict, show sensitivity analysis and identify a resolution path."
+    },
+    {
+      "id": "VAR-07",
+      "mutation": "Remove one source for a critical dependency.",
+      "expected_skill": "Expose missingness and avoid treating an unknown service as available."
+    },
+    {
+      "id": "VAR-08",
+      "mutation": "Change the primary objective from minimum cost to minimum loss of essential-service hours.",
+      "expected_skill": "Re-evaluate alternatives rather than reuse the previous ranking unchanged."
+    }
+  ],
+  "evaluation_protocol": {
+    "baseline": "Existing credible preparedness lesson or instructor-led baseline, selected before the study.",
+    "design": "Pre-registered pre-test, post-test, and held-out scenario assessment; randomised or staged comparison where practical and ethically appropriate.",
+    "blind_scoring": "Two independent assessors score anonymised deliverables against the rubric without seeing learner identity, political preference or course arm.",
+    "metrics": [
+      "pre/post knowledge gain",
+      "30-day and 90-day retention",
+      "rubric dimension scores and inter-rater agreement",
+      "hard-fail rate",
+      "resource-feasibility error rate",
+      "uncertainty-label accuracy",
+      "performance on held-out scenario variants",
+      "accessibility and completion by relevant non-sensitive programme variables",
+      "fully loaded cost per learner reaching the preregistered competence threshold"
+    ],
+    "provisional_targets": {
+      "target_interrater_agreement": "weighted kappa >= 0.75 as an initial hypothesis; validate rubric reliability before using this gate",
+      "run_accounting": "100 percent of scheduled assessments have an explicit result, missingness reason or invalid-run disposition",
+      "critical_hard_fail": "zero accepted outputs with a known hard-fail violation",
+      "retention": "report 30-day and 90-day outcomes; set minimum practical effect after pilot baseline and before confirmatory study"
+    },
+    "non_claims": [
+      "A synthetic scenario does not prove real-world policy effectiveness.",
+      "A high learner score does not certify first aid or confer institutional authority.",
+      "A rubric score cannot be used to infer political views or enlistment propensity.",
+      "The benchmark does not identify a universally best service model absent the required real-world evidence and lawful public decision."
+    ]
+  },
+  "sources": [
+    {
+      "title": "UNDRR Strategic Framework 2026-2030",
+      "url": "https://www.undrr.org/strategic-framework-2026-2030",
+      "relevance": "Risk knowledge, locally led resilience, financing and recovery readiness."
+    },
+    {
+      "title": "UNESCO Global Citizenship Education: assessment and evaluation guidance",
+      "url": "https://unesdoc.unesco.org/in/rest/annotationSVC/DownloadWatermarkedAttachment/attach_import_59f36c73-b9c9-4898-aea4-f93623d8a898?_=232993eng.pdf",
+      "relevance": "Use multiple assessment modes aligned to learning outcomes; assess more than factual recall."
+    }
+  ]
+}

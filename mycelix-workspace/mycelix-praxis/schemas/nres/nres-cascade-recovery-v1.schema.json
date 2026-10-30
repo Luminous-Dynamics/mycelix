@@ -1,0 +1,423 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:mycelix:praxis:nres:007:cascade-recovery:v1",
+  "title": "Praxis NRES-007 Cascading Disruption and Service Recovery Fixture",
+  "description": "Structural schema for public synthetic NRES-007 fixtures. Graph, matched-shock, numeric integration and policy-boundary rules are additionally enforced by the Rust reference evaluator.",
+  "type": "object",
+  "required": [
+    "benchmark_id",
+    "schema_version",
+    "status",
+    "evaluation_split",
+    "active_in_curriculum",
+    "protocol",
+    "resource_limits",
+    "shock_sequence",
+    "services",
+    "dependency_edges",
+    "scenarios",
+    "interpretation_guardrails",
+    "dependency_graph_policy"
+  ],
+  "properties": {
+    "benchmark_id": {
+      "const": "PRAXIS-NRES-007-CASCADE-RECOVERY-001"
+    },
+    "schema_version": {
+      "const": "1.0.0"
+    },
+    "status": {
+      "const": "synthetic-demonstration-for-review"
+    },
+    "evaluation_split": {
+      "const": "public-development-only"
+    },
+    "active_in_curriculum": {
+      "const": false
+    },
+    "title": {
+      "type": "string",
+      "minLength": 1
+    },
+    "purpose": {
+      "type": "string",
+      "minLength": 1
+    },
+    "scope_limits": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      },
+      "minItems": 1
+    },
+    "protocol": {
+      "type": "object",
+      "required": [
+        "time_unit",
+        "availability_unit",
+        "horizon_hours",
+        "sample_hours",
+        "interpolation_rule",
+        "deficit_area_rule",
+        "deficit_area_unit",
+        "sustained_recovery_rule",
+        "recovery_limit",
+        "pair_comparison_rule"
+      ],
+      "properties": {
+        "time_unit": {
+          "const": "hours"
+        },
+        "availability_unit": {
+          "const": "percent"
+        },
+        "horizon_hours": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "sample_hours": {
+          "type": "array",
+          "minItems": 2,
+          "items": {
+            "type": "number",
+            "minimum": 0
+          }
+        },
+        "interpolation_rule": {
+          "type": "string",
+          "minLength": 1
+        },
+        "deficit_area_rule": {
+          "type": "string",
+          "minLength": 1
+        },
+        "deficit_area_unit": {
+          "const": "percentage_point_hours"
+        },
+        "sustained_recovery_rule": {
+          "type": "string",
+          "minLength": 1
+        },
+        "recovery_limit": {
+          "type": "string",
+          "minLength": 1
+        },
+        "pair_comparison_rule": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "additionalProperties": true
+    },
+    "resource_limits": {
+      "type": "object",
+      "required": [
+        "planning_points_available",
+        "responder_hours_available"
+      ],
+      "properties": {
+        "planning_points_available": {
+          "type": "number",
+          "minimum": 0
+        },
+        "responder_hours_available": {
+          "type": "number",
+          "minimum": 0
+        }
+      },
+      "additionalProperties": true
+    },
+    "shock_sequence": {
+      "type": "object",
+      "required": [
+        "shock_sequence_id",
+        "status",
+        "events"
+      ],
+      "properties": {
+        "shock_sequence_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "status": {
+          "const": "synthetic-public-development"
+        },
+        "events": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "required": [
+              "event_id",
+              "event_type",
+              "start_hour",
+              "end_hour",
+              "severity"
+            ],
+            "properties": {
+              "event_id": {
+                "type": "string",
+                "minLength": 1
+              },
+              "event_type": {
+                "type": "string",
+                "minLength": 1
+              },
+              "start_hour": {
+                "type": "number",
+                "minimum": 0
+              },
+              "end_hour": {
+                "type": "number",
+                "exclusiveMinimum": 0
+              },
+              "severity": {
+                "type": "string",
+                "minLength": 1
+              }
+            },
+            "additionalProperties": true
+          }
+        }
+      },
+      "additionalProperties": true
+    },
+    "services": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": [
+          "service_id",
+          "name",
+          "critical",
+          "floor_percent",
+          "unit"
+        ],
+        "properties": {
+          "service_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1
+          },
+          "critical": {
+            "type": "boolean"
+          },
+          "floor_percent": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 100
+          },
+          "unit": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "additionalProperties": true
+      }
+    },
+    "dependency_edges": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "prerequisite_service_id",
+          "dependent_service_id",
+          "relationship",
+          "assertion_status"
+        ],
+        "properties": {
+          "prerequisite_service_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "dependent_service_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "relationship": {
+            "const": "required-input"
+          },
+          "assertion_status": {
+            "enum": [
+              "assumed",
+              "observed",
+              "evaluator-only"
+            ]
+          }
+        },
+        "additionalProperties": true
+      }
+    },
+    "scenarios": {
+      "type": "array",
+      "minItems": 2,
+      "items": {
+        "type": "object",
+        "required": [
+          "scenario_id",
+          "scenario_role",
+          "profile_name",
+          "description",
+          "shock_sequence_id",
+          "resource_use",
+          "trajectories"
+        ],
+        "properties": {
+          "scenario_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "scenario_role": {
+            "enum": [
+              "reference",
+              "comparison"
+            ]
+          },
+          "profile_name": {
+            "type": "string",
+            "minLength": 1
+          },
+          "description": {
+            "type": "string",
+            "minLength": 1
+          },
+          "shock_sequence_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "resource_use": {
+            "type": "object",
+            "required": [
+              "planning_points_committed",
+              "responder_hours_committed"
+            ],
+            "properties": {
+              "planning_points_committed": {
+                "type": "number",
+                "minimum": 0
+              },
+              "responder_hours_committed": {
+                "type": "number",
+                "minimum": 0
+              }
+            },
+            "additionalProperties": true
+          },
+          "trajectories": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "object",
+              "required": [
+                "service_id",
+                "points"
+              ],
+              "properties": {
+                "service_id": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "points": {
+                  "type": "array",
+                  "minItems": 2,
+                  "items": {
+                    "type": "object",
+                    "required": [
+                      "hour",
+                      "availability_percent"
+                    ],
+                    "properties": {
+                      "hour": {
+                        "type": "number",
+                        "minimum": 0
+                      },
+                      "availability_percent": {
+                        "type": "number",
+                        "minimum": 0,
+                        "maximum": 100
+                      }
+                    },
+                    "additionalProperties": true
+                  }
+                }
+              },
+              "additionalProperties": true
+            }
+          }
+        },
+        "additionalProperties": true
+      }
+    },
+    "interpretation_guardrails": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "dependency_graph_policy": {
+      "type": "object",
+      "required": [
+        "direction",
+        "propagation_applied",
+        "allowed_assertion_statuses",
+        "semantics_note"
+      ],
+      "properties": {
+        "direction": {
+          "const": "prerequisite-to-dependent"
+        },
+        "propagation_applied": {
+          "const": false
+        },
+        "allowed_assertion_statuses": {
+          "type": "array",
+          "items": {
+            "enum": [
+              "assumed",
+              "observed",
+              "evaluator-only"
+            ]
+          },
+          "minItems": 1
+        },
+        "semantics_note": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "additionalProperties": true
+    }
+  },
+  "additionalProperties": true,
+  "not": {
+    "anyOf": [
+      {
+        "required": [
+          "overall_resilience_score"
+        ]
+      },
+      {
+        "required": [
+          "composite_score"
+        ]
+      },
+      {
+        "required": [
+          "leaderboard_score"
+        ]
+      },
+      {
+        "required": [
+          "personal_suitability_score"
+        ]
+      }
+    ]
+  }
+}

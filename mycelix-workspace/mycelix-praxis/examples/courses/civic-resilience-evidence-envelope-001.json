@@ -1,0 +1,1168 @@
+{
+  "@context": {
+    "nres": "urn:mycelix:praxis:nres:006:",
+    "prov": "http://www.w3.org/ns/prov#"
+  },
+  "@id": "urn:mycelix:praxis:nres:006:bundle:SYN-MUNI-72H-001",
+  "@type": "nres:EvidenceEnvelope",
+  "schema_version": "1.0.0",
+  "bundle_metadata": {
+    "bundle_id": "PRAXIS-NRES-006-DEMO-001",
+    "scenario_id": "SYN-MUNI-72H-001",
+    "status": "synthetic-demonstration",
+    "evaluation_split": "public-development-only",
+    "source_benchmark": "PRAXIS-NRES-005-CAPABILITY-LOOP-001",
+    "generated_by": "praxis-nres-capability-loop-rust/0.1.0",
+    "purpose": "Demonstrate portable exchange of synthetic exercise observations and corrective-action provenance.",
+    "no_real_world_effect_claim": true
+  },
+  "source_references": [
+    {
+      "source_id": "NRES-002",
+      "path": "examples/courses/civic-resilience-policy-benchmark-fixture-001.json",
+      "media_type": "application/json",
+      "evidence_status": "synthetic"
+    },
+    {
+      "source_id": "NRES-005",
+      "path": "examples/courses/civic-resilience-capability-loop-fixture-001.json",
+      "media_type": "application/json",
+      "evidence_status": "synthetic"
+    }
+  ],
+  "@graph": [
+    {
+      "@id": "urn:mycelix:praxis:nres:006:source:nres-002",
+      "@type": [
+        "prov:Entity",
+        "nres:SourceFixture"
+      ],
+      "nres:recordKind": "source-fixture",
+      "nres:path": "examples/courses/civic-resilience-policy-benchmark-fixture-001.json",
+      "nres:evidenceStatus": "synthetic",
+      "nres:contentIdentifier": "PRAXIS-NRES-002-FIXTURE-001"
+    },
+    {
+      "@id": "urn:mycelix:praxis:nres:006:source:nres-005",
+      "@type": [
+        "prov:Entity",
+        "nres:SourceFixture"
+      ],
+      "nres:recordKind": "source-fixture",
+      "nres:path": "examples/courses/civic-resilience-capability-loop-fixture-001.json",
+      "nres:evidenceStatus": "synthetic",
+      "nres:contentIdentifier": "PRAXIS-NRES-005-CAPABILITY-LOOP-001"
+    },
+    {
+      "@id": "urn:mycelix:praxis:nres:006:scenario:SYN-MUNI-72H-001",
+      "@type": [
+        "prov:Entity",
+        "nres:Scenario"
+      ],
+      "nres:recordKind": "scenario",
+      "nres:scenarioId": "SYN-MUNI-72H-001",
+      "nres:label": "A fictional municipality experiences a 72-hour regional power and telecommunications disruption during severe weather. Several public services experience reduced capacity. The municipality must maintain essential public information, coordinate welfare checks through lawful channels, preserve essential water and health-service continuity, and restore services while protecting vulnerable residents.",
+      "nres:syntheticOnly": true,
+      "prov:wasDerivedFrom": [
+        {
+          "@id": "urn:mycelix:praxis:nres:006:source:nres-002"
+        },
+        {
+          "@id": "urn:mycelix:praxis:nres:006:source:nres-005"
+        }
+      ]
+    },
+    {
+      "@id": "urn:mycelix:praxis:nres:006:agent:synthetic-fixture-origin",
+      "@type": [
+        "prov:Agent",
+        "nres:RolePlaceholder"
+      ],
+      "nres:recordKind": "role-placeholder",
+      "nres:label": "Synthetic fixture origin; not a real person, organization or authority",
+      "nres:subjectType": "non-person-placeholder"
+    },
+    {
+      "@id": "urn:mycelix:praxis:nres:006:agent:independent-verifier-role-placeholder",
+      "@type": [
+        "prov:Agent",
+        "nres:RolePlaceholder"
+      ],
+      "nres:recordKind": "role-placeholder",
+      "nres:label": "Independent-verifier role placeholder; no real individual is identified",
+      "nres:subjectType": "non-person-placeholder"
+    },
+    {
+      "@id": "urn:mycelix:praxis:nres:006:activity:CYCLE-01",
+      "@type": [
+        "prov:Activity",
+        "nres:ExerciseCycle"
+      ],
+      "nres:recordKind": "exercise-cycle",
+      "nres:cycleId": "CYCLE-01",
+      "nres:cycleOrder": 1,
+      "nres:dataStatus": "illustrative-synthetic",
+      "prov:used": [
+        {
+          "@id": "urn:mycelix:praxis:nres:006:scenario:SYN-MUNI-72H-001"
+        }
+      ],
+      "prov:wasAssociatedWith": {
+        "@id": "urn:mycelix:praxis:nres:006:agent:synthetic-fixture-origin"
+      }
+    },
+    {
+      "@id": "urn:mycelix:praxis:nres:006:evidence:EV-01",
+      "@type": [
+        "prov:Entity",
+        "nres:EvidenceRecord"
+      ],
+      "nres:recordKind": "evidence-record",
+      "nres:evidenceId": "EV-01",
+      "nres:evidenceType": "exercise-observation",
+      "nres:claimLabel": "Observed in synthetic fixture",
+      "nres:independentlyReviewed": true,
+      "nres:syntheticOnly": true,
+      "prov:wasGeneratedBy": {
+        "@id": "urn:mycelix:praxis:nres:006:activity:CYCLE-01"
+      }
+    },
+    {
+      "@id": "urn:mycelix:praxis:nres:006:evidence:EV-02",
+      "@type": [
+        "prov:Entity",
+        "nres:EvidenceRecord"
+      ],
+      "nres:recordKind": "evidence-record",
+      "nres:evidenceId": "EV-02",
+      "nres:evidenceType": "exercise-observation",
+      "nres:claimLabel": "Observed in synthetic fixture",
+      "nres:independentlyReviewed": true,
+      "nres:syntheticOnly": true,
+      "prov:wasGeneratedBy": {
+        "@id": "urn:mycelix:praxis:nres:006:activity:CYCLE-01"
+      }
+    },
+    {
+      "@id": "urn:mycelix:praxis:nres:006:evidence:EV-03",
+      "@type": [
+        "prov:Entity",
+        "nres:EvidenceRecord"
+      ],
+      "nres:recordKind": "evidence-record",
+      "nres:evidenceId": "EV-03",
+      "nres:evidenceType": "exercise-observation",
+      "nres:claimLabel": "Observed in synthetic fixture",
+      "nres:independentlyReviewed": true,
+      "nres:syntheticOnly": true,
+      "prov:wasGeneratedBy": {
+        "@id": "urn:mycelix:praxis:nres:006:activity:CYCLE-01"
+      }
+    },
+    {
+      "@id": "urn:mycelix:praxis:nres:006:evidence:EV-04",
+      "@type": [
+        "prov:Entity",
+        "nres:EvidenceRecord"
+      ],
+      "nres:recordKind": "evidence-record",
+      "nres:evidenceId": "EV-04",
+      "nres:evidenceType": "exercise-observation",
+      "nres:claimLabel": "Observed in synthetic fixture",
+      "nres:independentlyReviewed": true,
+      "nres:syntheticOnly": true,
+      "prov:wasGeneratedBy": {
+        "@id": "urn:mycelix:praxis:nres:006:activity:CYCLE-01"
+      }
+    },
+    {
+      "@id": "urn:mycelix:praxis:nres:006:observation:CYCLE-01:OBJ-01",
+      "@type": [
+        "prov:Entity",
+        "nres:ObjectiveObservation"
+      ],
+      "nres:recordKind": "objective-observation",
+      "nres:objectiveId": "OBJ-01",
+      "nres:acceptedObservation": true,
+      "nres:evidenceIds": [
+        "EV-01"
+      ],
+      "nres:syntheticOnly": true,
+      "prov:wasGeneratedBy": {
+        "@id": "urn:mycelix:praxis:nres:006:activity:CYCLE-01"
+      },
+      "prov:wasDerivedFrom": [
+        {
+          "@id": "urn:mycelix:praxis:nres:006:evidence:EV-01"
+        }
+      ]
+    },
+    {
+      "@id": "urn:mycelix:praxis:nres:006:observation:CYCLE-01:OBJ-02",
+      "@type": [
+        "prov:Entity",
+        "nres:ObjectiveObservation"
+      ],
+      "nres:recordKind": "objective-observation",
+      "nres:objectiveId": "OBJ-02",
+      "nres:acceptedObservation": true,
+      "nres:evidenceIds": [
+        "EV-02"
+      ],
+      "nres:syntheticOnly": true,
+      "prov:wasGeneratedBy": {
+        "@id": "urn:mycelix:praxis:nres:006:activity:CYCLE-01"
+      },
+      "prov:wasDerivedFrom": [
+        {
+          "@id": "urn:mycelix:praxis:nres:006:evidence:EV-02"
+        }
+      ]
+    },
+    {
+      "@id": "urn:mycelix:praxis:nres:006:observation:CYCLE-01:OBJ-03",
+      "@type": [
+        "prov:Entity",
+        "nres:ObjectiveObservation"
+      ],
+      "nres:recordKind": "objective-observation",
+      "nres:objectiveId": "OBJ-03",
+      "nres:acceptedObservation": true,
+      "nres:evidenceIds": [
+        "EV-03"
+      ],
+      "nres:syntheticOnly": true,
+      "prov:wasGeneratedBy": {
+        "@id": "urn:mycelix:praxis:nres:006:activity:CYCLE-01"
+      },
+      "prov:wasDerivedFrom": [
+        {
+          "@id": "urn:mycelix:praxis:nres:006:evidence:EV-03"
+        }
+      ]
+    },
+    {
+      "@id": "urn:mycelix:praxis:nres:006:observation:CYCLE-01:OBJ-04",
+      "@type": [
+        "prov:Entity",
+        "nres:ObjectiveObservation"
+      ],
+      "nres:recordKind": "objective-observation",
+      "nres:objectiveId": "OBJ-04",
+      "nres:acceptedObservation": true,
+      "nres:evidenceIds": [
+        "EV-04"
+      ],
+      "nres:syntheticOnly": true,
+      "prov:wasGeneratedBy": {
+        "@id": "urn:mycelix:praxis:nres:006:activity:CYCLE-01"
+      },
+      "prov:wasDerivedFrom": [
+        {
+          "@id": "urn:mycelix:praxis:nres:006:evidence:EV-04"
+        }
+      ]
+    },
+    {
+      "@id": "urn:mycelix:praxis:nres:006:service-observation:CYCLE-01:public_information",
+      "@type": [
+        "prov:Entity",
+        "nres:ServiceFloorObservation"
+      ],
+      "nres:recordKind": "service-floor-observation",
+      "nres:service": "public_information",
+      "nres:observedPercent": 64,
+      "nres:requiredFloorPercent": 70,
+      "nres:passed": false,
+      "nres:evidenceId": "EV-01",
+      "nres:syntheticOnly": true,
+      "prov:wasGeneratedBy": {
+        "@id": "urn:mycelix:praxis:nres:006:activity:CYCLE-01"
+      },
+      "prov:wasDerivedFrom": {
+        "@id": "urn:mycelix:praxis:nres:006:evidence:EV-01"
+      }
+    },
+    {
+      "@id": "urn:mycelix:praxis:nres:006:service-observation:CYCLE-01:welfare_check_coordination",
+      "@type": [
+        "prov:Entity",
+        "nres:ServiceFloorObservation"
+      ],
+      "nres:recordKind": "service-floor-observation",
+      "nres:service": "welfare_check_coordination",
+      "nres:observedPercent": 58,
+      "nres:requiredFloorPercent": 60,
+      "nres:passed": false,
+      "nres:evidenceId": "EV-02",
+      "nres:syntheticOnly": true,
+      "prov:wasGeneratedBy": {
+        "@id": "urn:mycelix:praxis:nres:006:activity:CYCLE-01"
+      },
+      "prov:wasDerivedFrom": {
+        "@id": "urn:mycelix:praxis:nres:006:evidence:EV-02"
+      }
+    },
+    {
+      "@id": "urn:mycelix:praxis:nres:006:service-observation:CYCLE-01:water_service_continuity",
+      "@type": [
+        "prov:Entity",
+        "nres:ServiceFloorObservation"
+      ],
+      "nres:recordKind": "service-floor-observation",
+      "nres:service": "water_service_continuity",
+      "nres:observedPercent": 82,
+      "nres:requiredFloorPercent": 80,
+      "nres:passed": true,
+      "nres:evidenceId": "EV-03",
+      "nres:syntheticOnly": true,
+      "prov:wasGeneratedBy": {
+        "@id": "urn:mycelix:praxis:nres:006:activity:CYCLE-01"
+      },
+      "prov:wasDerivedFrom": {
+        "@id": "urn:mycelix:praxis:nres:006:evidence:EV-03"
+      }
+    },
+    {
+      "@id": "urn:mycelix:praxis:nres:006:service-observation:CYCLE-01:health_logistics_continuity",
+      "@type": [
+        "prov:Entity",
+        "nres:ServiceFloorObservation"
+      ],
+      "nres:recordKind": "service-floor-observation",
+      "nres:service": "health_logistics_continuity",
+      "nres:observedPercent": 73,
+      "nres:requiredFloorPercent": 75,
+      "nres:passed": false,
+      "nres:evidenceId": "EV-04",
+      "nres:syntheticOnly": true,
+      "prov:wasGeneratedBy": {
+        "@id": "urn:mycelix:praxis:nres:006:activity:CYCLE-01"
+      },
+      "prov:wasDerivedFrom": {
+        "@id": "urn:mycelix:praxis:nres:006:evidence:EV-04"
+      }
+    },
+    {
+      "@id": "urn:mycelix:praxis:nres:006:activity:CYCLE-02",
+      "@type": [
+        "prov:Activity",
+        "nres:ExerciseCycle"
+      ],
+      "nres:recordKind": "exercise-cycle",
+      "nres:cycleId": "CYCLE-02",
+      "nres:cycleOrder": 2,
+      "nres:dataStatus": "illustrative-synthetic",
+      "prov:used": [
+        {
+          "@id": "urn:mycelix:praxis:nres:006:scenario:SYN-MUNI-72H-001"
+        }
+      ],
+      "prov:wasAssociatedWith": {
+        "@id": "urn:mycelix:praxis:nres:006:agent:synthetic-fixture-origin"
+      }
+    },
+    {
+      "@id": "urn:mycelix:praxis:nres:006:evidence:EV-11",
+      "@type": [
+        "prov:Entity",
+        "nres:EvidenceRecord"
+      ],
+      "nres:recordKind": "evidence-record",
+      "nres:evidenceId": "EV-11",
+      "nres:evidenceType": "retest-observation",
+      "nres:claimLabel": "Observed in synthetic fixture",
+      "nres:independentlyReviewed": true,
+      "nres:syntheticOnly": true,
+      "prov:wasGeneratedBy": {
+        "@id": "urn:mycelix:praxis:nres:006:activity:CYCLE-02"
+      }
+    },
+    {
+      "@id": "urn:mycelix:praxis:nres:006:evidence:EV-12",
+      "@type": [
+        "prov:Entity",
+        "nres:EvidenceRecord"
+      ],
+      "nres:recordKind": "evidence-record",
+      "nres:evidenceId": "EV-12",
+      "nres:evidenceType": "retest-observation",
+      "nres:claimLabel": "Observed in synthetic fixture",
+      "nres:independentlyReviewed": true,
+      "nres:syntheticOnly": true,
+      "prov:wasGeneratedBy": {
+        "@id": "urn:mycelix:praxis:nres:006:activity:CYCLE-02"
+      }
+    },
+    {
+      "@id": "urn:mycelix:praxis:nres:006:evidence:EV-13",
+      "@type": [
+        "prov:Entity",
+        "nres:EvidenceRecord"
+      ],
+      "nres:recordKind": "evidence-record",
+      "nres:evidenceId": "EV-13",
+      "nres:evidenceType": "retest-observation",
+      "nres:claimLabel": "Observed in synthetic fixture",
+      "nres:independentlyReviewed": true,
+      "nres:syntheticOnly": true,
+      "prov:wasGeneratedBy": {
+        "@id": "urn:mycelix:praxis:nres:006:activity:CYCLE-02"
+      }
+    },
+    {
+      "@id": "urn:mycelix:praxis:nres:006:evidence:EV-14",
+      "@type": [
+        "prov:Entity",
+        "nres:EvidenceRecord"
+      ],
+      "nres:recordKind": "evidence-record",
+      "nres:evidenceId": "EV-14",
+      "nres:evidenceType": "retest-observation",
+      "nres:claimLabel": "Observed in synthetic fixture",
+      "nres:independentlyReviewed": true,
+      "nres:syntheticOnly": true,
+      "prov:wasGeneratedBy": {
+        "@id": "urn:mycelix:praxis:nres:006:activity:CYCLE-02"
+      }
+    },
+    {
+      "@id": "urn:mycelix:praxis:nres:006:evidence:EV-21",
+      "@type": [
+        "prov:Entity",
+        "nres:EvidenceRecord"
+      ],
+      "nres:recordKind": "evidence-record",
+      "nres:evidenceId": "EV-21",
+      "nres:evidenceType": "action-completion-evidence",
+      "nres:claimLabel": "Synthetic exercise evidence",
+      "nres:independentlyReviewed": true,
+      "nres:syntheticOnly": true,
+      "prov:wasGeneratedBy": {
+        "@id": "urn:mycelix:praxis:nres:006:activity:CYCLE-02"
+      }
+    },
+    {
+      "@id": "urn:mycelix:praxis:nres:006:evidence:EV-22",
+      "@type": [
+        "prov:Entity",
+        "nres:EvidenceRecord"
+      ],
+      "nres:recordKind": "evidence-record",
+      "nres:evidenceId": "EV-22",
+      "nres:evidenceType": "action-completion-evidence",
+      "nres:claimLabel": "Synthetic exercise evidence",
+      "nres:independentlyReviewed": true,
+      "nres:syntheticOnly": true,
+      "prov:wasGeneratedBy": {
+        "@id": "urn:mycelix:praxis:nres:006:activity:CYCLE-02"
+      }
+    },
+    {
+      "@id": "urn:mycelix:praxis:nres:006:observation:CYCLE-02:OBJ-01",
+      "@type": [
+        "prov:Entity",
+        "nres:ObjectiveObservation"
+      ],
+      "nres:recordKind": "objective-observation",
+      "nres:objectiveId": "OBJ-01",
+      "nres:acceptedObservation": true,
+      "nres:evidenceIds": [
+        "EV-11"
+      ],
+      "nres:syntheticOnly": true,
+      "prov:wasGeneratedBy": {
+        "@id": "urn:mycelix:praxis:nres:006:activity:CYCLE-02"
+      },
+      "prov:wasDerivedFrom": [
+        {
+          "@id": "urn:mycelix:praxis:nres:006:evidence:EV-11"
+        }
+      ]
+    },
+    {
+      "@id": "urn:mycelix:praxis:nres:006:observation:CYCLE-02:OBJ-02",
+      "@type": [
+        "prov:Entity",
+        "nres:ObjectiveObservation"
+      ],
+      "nres:recordKind": "objective-observation",
+      "nres:objectiveId": "OBJ-02",
+      "nres:acceptedObservation": true,
+      "nres:evidenceIds": [
+        "EV-12"
+      ],
+      "nres:syntheticOnly": true,
+      "prov:wasGeneratedBy": {
+        "@id": "urn:mycelix:praxis:nres:006:activity:CYCLE-02"
+      },
+      "prov:wasDerivedFrom": [
+        {
+          "@id": "urn:mycelix:praxis:nres:006:evidence:EV-12"
+        }
+      ]
+    },
+    {
+      "@id": "urn:mycelix:praxis:nres:006:observation:CYCLE-02:OBJ-03",
+      "@type": [
+        "prov:Entity",
+        "nres:ObjectiveObservation"
+      ],
+      "nres:recordKind": "objective-observation",
+      "nres:objectiveId": "OBJ-03",
+      "nres:acceptedObservation": true,
+      "nres:evidenceIds": [
+        "EV-13"
+      ],
+      "nres:syntheticOnly": true,
+      "prov:wasGeneratedBy": {
+        "@id": "urn:mycelix:praxis:nres:006:activity:CYCLE-02"
+      },
+      "prov:wasDerivedFrom": [
+        {
+          "@id": "urn:mycelix:praxis:nres:006:evidence:EV-13"
+        }
+      ]
+    },
+    {
+      "@id": "urn:mycelix:praxis:nres:006:observation:CYCLE-02:OBJ-04",
+      "@type": [
+        "prov:Entity",
+        "nres:ObjectiveObservation"
+      ],
+      "nres:recordKind": "objective-observation",
+      "nres:objectiveId": "OBJ-04",
+      "nres:acceptedObservation": true,
+      "nres:evidenceIds": [
+        "EV-14"
+      ],
+      "nres:syntheticOnly": true,
+      "prov:wasGeneratedBy": {
+        "@id": "urn:mycelix:praxis:nres:006:activity:CYCLE-02"
+      },
+      "prov:wasDerivedFrom": [
+        {
+          "@id": "urn:mycelix:praxis:nres:006:evidence:EV-14"
+        }
+      ]
+    },
+    {
+      "@id": "urn:mycelix:praxis:nres:006:service-observation:CYCLE-02:public_information",
+      "@type": [
+        "prov:Entity",
+        "nres:ServiceFloorObservation"
+      ],
+      "nres:recordKind": "service-floor-observation",
+      "nres:service": "public_information",
+      "nres:observedPercent": 72,
+      "nres:requiredFloorPercent": 70,
+      "nres:passed": true,
+      "nres:evidenceId": "EV-11",
+      "nres:syntheticOnly": true,
+      "prov:wasGeneratedBy": {
+        "@id": "urn:mycelix:praxis:nres:006:activity:CYCLE-02"
+      },
+      "prov:wasDerivedFrom": {
+        "@id": "urn:mycelix:praxis:nres:006:evidence:EV-11"
+      }
+    },
+    {
+      "@id": "urn:mycelix:praxis:nres:006:service-observation:CYCLE-02:welfare_check_coordination",
+      "@type": [
+        "prov:Entity",
+        "nres:ServiceFloorObservation"
+      ],
+      "nres:recordKind": "service-floor-observation",
+      "nres:service": "welfare_check_coordination",
+      "nres:observedPercent": 63,
+      "nres:requiredFloorPercent": 60,
+      "nres:passed": true,
+      "nres:evidenceId": "EV-12",
+      "nres:syntheticOnly": true,
+      "prov:wasGeneratedBy": {
+        "@id": "urn:mycelix:praxis:nres:006:activity:CYCLE-02"
+      },
+      "prov:wasDerivedFrom": {
+        "@id": "urn:mycelix:praxis:nres:006:evidence:EV-12"
+      }
+    },
+    {
+      "@id": "urn:mycelix:praxis:nres:006:service-observation:CYCLE-02:water_service_continuity",
+      "@type": [
+        "prov:Entity",
+        "nres:ServiceFloorObservation"
+      ],
+      "nres:recordKind": "service-floor-observation",
+      "nres:service": "water_service_continuity",
+      "nres:observedPercent": 82,
+      "nres:requiredFloorPercent": 80,
+      "nres:passed": true,
+      "nres:evidenceId": "EV-13",
+      "nres:syntheticOnly": true,
+      "prov:wasGeneratedBy": {
+        "@id": "urn:mycelix:praxis:nres:006:activity:CYCLE-02"
+      },
+      "prov:wasDerivedFrom": {
+        "@id": "urn:mycelix:praxis:nres:006:evidence:EV-13"
+      }
+    },
+    {
+      "@id": "urn:mycelix:praxis:nres:006:service-observation:CYCLE-02:health_logistics_continuity",
+      "@type": [
+        "prov:Entity",
+        "nres:ServiceFloorObservation"
+      ],
+      "nres:recordKind": "service-floor-observation",
+      "nres:service": "health_logistics_continuity",
+      "nres:observedPercent": 74,
+      "nres:requiredFloorPercent": 75,
+      "nres:passed": false,
+      "nres:evidenceId": "EV-14",
+      "nres:syntheticOnly": true,
+      "prov:wasGeneratedBy": {
+        "@id": "urn:mycelix:praxis:nres:006:activity:CYCLE-02"
+      },
+      "prov:wasDerivedFrom": {
+        "@id": "urn:mycelix:praxis:nres:006:evidence:EV-14"
+      }
+    },
+    {
+      "@id": "urn:mycelix:praxis:nres:006:activity:improvement-planning:CYCLE-02",
+      "@type": [
+        "prov:Activity",
+        "nres:ImprovementPlanning"
+      ],
+      "nres:recordKind": "improvement-planning",
+      "nres:syntheticOnly": true,
+      "prov:used": [
+        {
+          "@id": "urn:mycelix:praxis:nres:006:finding:ACT-01"
+        },
+        {
+          "@id": "urn:mycelix:praxis:nres:006:finding:ACT-02"
+        },
+        {
+          "@id": "urn:mycelix:praxis:nres:006:finding:ACT-03"
+        }
+      ],
+      "prov:wasAssociatedWith": {
+        "@id": "urn:mycelix:praxis:nres:006:agent:synthetic-fixture-origin"
+      }
+    },
+    {
+      "@id": "urn:mycelix:praxis:nres:006:finding:ACT-01",
+      "@type": [
+        "prov:Entity",
+        "nres:AfterActionFinding"
+      ],
+      "nres:recordKind": "after-action-finding",
+      "nres:description": "Public-information continuity fell below its synthetic minimum floor in CYCLE-01.",
+      "nres:rootCauseHypothesis": "The exercise team had not tested an accessible fallback publishing process during loss of central coordination.",
+      "nres:syntheticOnly": true,
+      "prov:wasGeneratedBy": {
+        "@id": "urn:mycelix:praxis:nres:006:activity:CYCLE-01"
+      },
+      "nres:linkedService": "public_information",
+      "prov:wasDerivedFrom": [
+        {
+          "@id": "urn:mycelix:praxis:nres:006:service-observation:CYCLE-01:public_information"
+        }
+      ]
+    },
+    {
+      "@id": "urn:mycelix:praxis:nres:006:activity:verification:ACT-01",
+      "@type": [
+        "prov:Activity",
+        "nres:IndependentVerification"
+      ],
+      "nres:recordKind": "independent-verification-activity",
+      "nres:syntheticOnly": true,
+      "prov:used": [
+        {
+          "@id": "urn:mycelix:praxis:nres:006:evidence:EV-21"
+        },
+        {
+          "@id": "urn:mycelix:praxis:nres:006:service-observation:CYCLE-02:public_information"
+        }
+      ],
+      "prov:wasAssociatedWith": {
+        "@id": "urn:mycelix:praxis:nres:006:agent:independent-verifier-role-placeholder"
+      }
+    },
+    {
+      "@id": "urn:mycelix:praxis:nres:006:verification:ACT-01",
+      "@type": [
+        "prov:Entity",
+        "nres:VerificationRecord"
+      ],
+      "nres:recordKind": "verification-record",
+      "nres:actionId": "ACT-01",
+      "nres:result": "pass",
+      "nres:syntheticOnly": true,
+      "prov:wasGeneratedBy": {
+        "@id": "urn:mycelix:praxis:nres:006:activity:verification:ACT-01"
+      }
+    },
+    {
+      "@id": "urn:mycelix:praxis:nres:006:corrective-action:ACT-01",
+      "@type": [
+        "prov:Entity",
+        "nres:CorrectiveAction"
+      ],
+      "nres:recordKind": "corrective-action",
+      "nres:actionId": "ACT-01",
+      "nres:status": "closed-verified",
+      "nres:ownerRole": "Accountable public-information function",
+      "nres:dueByCycleId": "CYCLE-02",
+      "nres:retestResult": "pass",
+      "nres:independentlyVerified": true,
+      "nres:syntheticOnly": true,
+      "prov:wasGeneratedBy": {
+        "@id": "urn:mycelix:praxis:nres:006:activity:improvement-planning:CYCLE-02"
+      },
+      "prov:wasDerivedFrom": [
+        {
+          "@id": "urn:mycelix:praxis:nres:006:finding:ACT-01"
+        },
+        {
+          "@id": "urn:mycelix:praxis:nres:006:evidence:EV-21"
+        }
+      ],
+      "nres:completionEvidenceId": "EV-21",
+      "nres:retestActivity": {
+        "@id": "urn:mycelix:praxis:nres:006:activity:CYCLE-02"
+      },
+      "nres:retestObservation": {
+        "@id": "urn:mycelix:praxis:nres:006:service-observation:CYCLE-02:public_information"
+      },
+      "nres:verificationRecord": {
+        "@id": "urn:mycelix:praxis:nres:006:verification:ACT-01"
+      }
+    },
+    {
+      "@id": "urn:mycelix:praxis:nres:006:finding:ACT-02",
+      "@type": [
+        "prov:Entity",
+        "nres:AfterActionFinding"
+      ],
+      "nres:recordKind": "after-action-finding",
+      "nres:description": "Welfare-check coordination fell below its synthetic minimum floor in CYCLE-01.",
+      "nres:rootCauseHypothesis": "The exercise team had not documented a privacy-respecting role handoff and reconciliation step.",
+      "nres:syntheticOnly": true,
+      "prov:wasGeneratedBy": {
+        "@id": "urn:mycelix:praxis:nres:006:activity:CYCLE-01"
+      },
+      "nres:linkedService": "welfare_check_coordination",
+      "prov:wasDerivedFrom": [
+        {
+          "@id": "urn:mycelix:praxis:nres:006:service-observation:CYCLE-01:welfare_check_coordination"
+        }
+      ]
+    },
+    {
+      "@id": "urn:mycelix:praxis:nres:006:activity:verification:ACT-02",
+      "@type": [
+        "prov:Activity",
+        "nres:IndependentVerification"
+      ],
+      "nres:recordKind": "independent-verification-activity",
+      "nres:syntheticOnly": true,
+      "prov:used": [
+        {
+          "@id": "urn:mycelix:praxis:nres:006:evidence:EV-22"
+        },
+        {
+          "@id": "urn:mycelix:praxis:nres:006:service-observation:CYCLE-02:welfare_check_coordination"
+        }
+      ],
+      "prov:wasAssociatedWith": {
+        "@id": "urn:mycelix:praxis:nres:006:agent:independent-verifier-role-placeholder"
+      }
+    },
+    {
+      "@id": "urn:mycelix:praxis:nres:006:verification:ACT-02",
+      "@type": [
+        "prov:Entity",
+        "nres:VerificationRecord"
+      ],
+      "nres:recordKind": "verification-record",
+      "nres:actionId": "ACT-02",
+      "nres:result": "pass",
+      "nres:syntheticOnly": true,
+      "prov:wasGeneratedBy": {
+        "@id": "urn:mycelix:praxis:nres:006:activity:verification:ACT-02"
+      }
+    },
+    {
+      "@id": "urn:mycelix:praxis:nres:006:corrective-action:ACT-02",
+      "@type": [
+        "prov:Entity",
+        "nres:CorrectiveAction"
+      ],
+      "nres:recordKind": "corrective-action",
+      "nres:actionId": "ACT-02",
+      "nres:status": "closed-verified",
+      "nres:ownerRole": "Accountable civil-protection coordination function",
+      "nres:dueByCycleId": "CYCLE-02",
+      "nres:retestResult": "pass",
+      "nres:independentlyVerified": true,
+      "nres:syntheticOnly": true,
+      "prov:wasGeneratedBy": {
+        "@id": "urn:mycelix:praxis:nres:006:activity:improvement-planning:CYCLE-02"
+      },
+      "prov:wasDerivedFrom": [
+        {
+          "@id": "urn:mycelix:praxis:nres:006:finding:ACT-02"
+        },
+        {
+          "@id": "urn:mycelix:praxis:nres:006:evidence:EV-22"
+        }
+      ],
+      "nres:completionEvidenceId": "EV-22",
+      "nres:retestActivity": {
+        "@id": "urn:mycelix:praxis:nres:006:activity:CYCLE-02"
+      },
+      "nres:retestObservation": {
+        "@id": "urn:mycelix:praxis:nres:006:service-observation:CYCLE-02:welfare_check_coordination"
+      },
+      "nres:verificationRecord": {
+        "@id": "urn:mycelix:praxis:nres:006:verification:ACT-02"
+      }
+    },
+    {
+      "@id": "urn:mycelix:praxis:nres:006:finding:ACT-03",
+      "@type": [
+        "prov:Entity",
+        "nres:AfterActionFinding"
+      ],
+      "nres:recordKind": "after-action-finding",
+      "nres:description": "Health-logistics continuity remained below its synthetic minimum floor after retest.",
+      "nres:rootCauseHypothesis": "A critical dependency and its fallback evidence remain unresolved in the exercise record.",
+      "nres:syntheticOnly": true,
+      "prov:wasGeneratedBy": {
+        "@id": "urn:mycelix:praxis:nres:006:activity:CYCLE-01"
+      },
+      "nres:linkedService": "health_logistics_continuity",
+      "prov:wasDerivedFrom": [
+        {
+          "@id": "urn:mycelix:praxis:nres:006:service-observation:CYCLE-01:health_logistics_continuity"
+        }
+      ]
+    },
+    {
+      "@id": "urn:mycelix:praxis:nres:006:corrective-action:ACT-03",
+      "@type": [
+        "prov:Entity",
+        "nres:CorrectiveAction"
+      ],
+      "nres:recordKind": "corrective-action",
+      "nres:actionId": "ACT-03",
+      "nres:status": "open",
+      "nres:ownerRole": "Accountable health-logistics function",
+      "nres:dueByCycleId": "CYCLE-02",
+      "nres:retestResult": "fail",
+      "nres:independentlyVerified": false,
+      "nres:syntheticOnly": true,
+      "prov:wasGeneratedBy": {
+        "@id": "urn:mycelix:praxis:nres:006:activity:improvement-planning:CYCLE-02"
+      },
+      "prov:wasDerivedFrom": {
+        "@id": "urn:mycelix:praxis:nres:006:finding:ACT-03"
+      },
+      "nres:retestActivity": {
+        "@id": "urn:mycelix:praxis:nres:006:activity:CYCLE-02"
+      },
+      "nres:retestObservation": {
+        "@id": "urn:mycelix:praxis:nres:006:service-observation:CYCLE-02:health_logistics_continuity"
+      }
+    }
+  ],
+  "measurements": [
+    {
+      "measure_id": "M-OBJECTIVE-EVIDENCE",
+      "cycle_id": "CYCLE-01",
+      "unit": "ratio",
+      "result": {
+        "numerator": 4,
+        "denominator": 4
+      },
+      "evidence_ids": [
+        "EV-01",
+        "EV-02",
+        "EV-03",
+        "EV-04"
+      ]
+    },
+    {
+      "measure_id": "M-SERVICE-FLOOR",
+      "cycle_id": "CYCLE-01",
+      "unit": "per-service-percent-and-pass-fail",
+      "result": [
+        {
+          "service": "public_information",
+          "observed_percent": 64,
+          "required_floor_percent": 70,
+          "passed": false
+        },
+        {
+          "service": "welfare_check_coordination",
+          "observed_percent": 58,
+          "required_floor_percent": 60,
+          "passed": false
+        },
+        {
+          "service": "water_service_continuity",
+          "observed_percent": 82,
+          "required_floor_percent": 80,
+          "passed": true
+        },
+        {
+          "service": "health_logistics_continuity",
+          "observed_percent": 73,
+          "required_floor_percent": 75,
+          "passed": false
+        }
+      ],
+      "evidence_ids": [
+        "EV-01",
+        "EV-02",
+        "EV-03",
+        "EV-04"
+      ]
+    },
+    {
+      "measure_id": "M-RESOURCE-FEASIBILITY",
+      "cycle_id": "CYCLE-01",
+      "unit": "fictional-points-and-responder-hours",
+      "result": {
+        "planning_budget": {
+          "committed": 980,
+          "available": 1000
+        },
+        "responder_hours": {
+          "committed": 2350,
+          "available": 2400
+        }
+      },
+      "evidence_ids": []
+    },
+    {
+      "measure_id": "M-AUTHORITY-EVIDENCE",
+      "cycle_id": "CYCLE-01",
+      "unit": "ratio",
+      "result": {
+        "numerator": 2,
+        "denominator": 3
+      },
+      "evidence_ids": []
+    },
+    {
+      "measure_id": "M-ACCESSIBILITY-COVERAGE",
+      "cycle_id": "CYCLE-01",
+      "unit": "ratio",
+      "result": {
+        "numerator": 3,
+        "denominator": 4
+      },
+      "evidence_ids": []
+    },
+    {
+      "measure_id": "M-OBJECTIVE-EVIDENCE",
+      "cycle_id": "CYCLE-02",
+      "unit": "ratio",
+      "result": {
+        "numerator": 4,
+        "denominator": 4
+      },
+      "evidence_ids": [
+        "EV-11",
+        "EV-12",
+        "EV-13",
+        "EV-14"
+      ]
+    },
+    {
+      "measure_id": "M-SERVICE-FLOOR",
+      "cycle_id": "CYCLE-02",
+      "unit": "per-service-percent-and-pass-fail",
+      "result": [
+        {
+          "service": "public_information",
+          "observed_percent": 72,
+          "required_floor_percent": 70,
+          "passed": true
+        },
+        {
+          "service": "welfare_check_coordination",
+          "observed_percent": 63,
+          "required_floor_percent": 60,
+          "passed": true
+        },
+        {
+          "service": "water_service_continuity",
+          "observed_percent": 82,
+          "required_floor_percent": 80,
+          "passed": true
+        },
+        {
+          "service": "health_logistics_continuity",
+          "observed_percent": 74,
+          "required_floor_percent": 75,
+          "passed": false
+        }
+      ],
+      "evidence_ids": [
+        "EV-11",
+        "EV-12",
+        "EV-13",
+        "EV-14"
+      ]
+    },
+    {
+      "measure_id": "M-RESOURCE-FEASIBILITY",
+      "cycle_id": "CYCLE-02",
+      "unit": "fictional-points-and-responder-hours",
+      "result": {
+        "planning_budget": {
+          "committed": 990,
+          "available": 1000
+        },
+        "responder_hours": {
+          "committed": 2370,
+          "available": 2400
+        }
+      },
+      "evidence_ids": []
+    },
+    {
+      "measure_id": "M-AUTHORITY-EVIDENCE",
+      "cycle_id": "CYCLE-02",
+      "unit": "ratio",
+      "result": {
+        "numerator": 3,
+        "denominator": 3
+      },
+      "evidence_ids": []
+    },
+    {
+      "measure_id": "M-ACCESSIBILITY-COVERAGE",
+      "cycle_id": "CYCLE-02",
+      "unit": "ratio",
+      "result": {
+        "numerator": 4,
+        "denominator": 4
+      },
+      "evidence_ids": []
+    },
+    {
+      "measure_id": "M-ACTION-VERIFICATION",
+      "cycle_id": "CYCLE-02",
+      "unit": "ratio",
+      "result": {
+        "numerator": 2,
+        "denominator": 3
+      },
+      "evidence_ids": [
+        "EV-21",
+        "EV-22"
+      ]
+    },
+    {
+      "measure_id": "M-REPEAT-DEFECT",
+      "cycle_id": "CYCLE-02",
+      "unit": "ratio",
+      "result": {
+        "numerator": 1,
+        "denominator": 3
+      },
+      "evidence_ids": [
+        "EV-14"
+      ]
+    }
+  ],
+  "framework_crosswalks": [
+    {
+      "framework": "W3C PROV-O / PROV-DM",
+      "source_element": "prov:Entity, prov:Activity, prov:Agent, prov:used, prov:wasGeneratedBy, prov:wasDerivedFrom, prov:wasAssociatedWith",
+      "target_element": "@graph provenance nodes and relation properties",
+      "mapping_type": "exact-vocabulary",
+      "scope_note": "Reuses PROV terms; does not claim complete PROV conformance or authenticate assertions."
+    },
+    {
+      "framework": "W3C JSON-LD 1.1",
+      "source_element": "JSON-LD context and @graph",
+      "target_element": "@context and @graph",
+      "mapping_type": "exact-vocabulary",
+      "scope_note": "JSON-LD serialization profile; offline context mappings only."
+    },
+    {
+      "framework": "FEMA HSEEP",
+      "source_element": "Exercise objectives, evaluator observations, AAR/IP findings and corrective actions",
+      "target_element": "objective observations, evidence records, after-action findings and corrective actions",
+      "mapping_type": "conceptual",
+      "scope_note": "Conceptual alignment only; not a native FEMA schema or official EEG/AAR-IP template."
+    },
+    {
+      "framework": "IFRC Preparedness for Effective Response",
+      "source_element": "Assessment, Prioritisation & Analysis, Work-Plan, Action & Accountability",
+      "target_element": "measurements, findings, corrective actions, retests",
+      "mapping_type": "conceptual",
+      "scope_note": "Conceptual phase crosswalk; does not replace IFRC/National Society authority."
+    },
+    {
+      "framework": "IFRC Emergency Operations Centres Guide 2026",
+      "source_element": "EOC information management and readiness assessment",
+      "target_element": "source references, evidence status, readiness measures",
+      "mapping_type": "conceptual",
+      "scope_note": "No official EOC tool integration or authorization is implied."
+    },
+    {
+      "framework": "ISO 22301:2019",
+      "source_element": "Business continuity monitoring, performance evaluation and continual improvement",
+      "target_element": "service-floor measures, corrective actions, independent retests",
+      "mapping_type": "conceptual",
+      "scope_note": "No ISO clause-level mapping, conformity or certification is claimed."
+    },
+    {
+      "framework": "WHO Public Health EOC Framework, second edition (2026)",
+      "source_element": "Information systems/data standards; workforce, training, exercises, monitoring and evaluation",
+      "target_element": "evidence envelope, measure catalog, training and exercise observations",
+      "mapping_type": "conceptual",
+      "scope_note": "Conceptual crosswalk only; not a WHO-endorsed health-data exchange."
+    },
+    {
+      "framework": "OASIS Common Alerting Protocol v1.2",
+      "source_element": "All-hazard emergency alerts and public warnings",
+      "target_element": "out-of-scope for after-action evidence exchange",
+      "mapping_type": "out-of-scope",
+      "scope_note": "CAP is for alert messaging; an alert may be referenced as a source artifact but CAP is not the evidence-envelope schema."
+    }
+  ],
+  "privacy": {
+    "classification": "public-synthetic",
+    "subject_identifiers": "none-in-public-profile",
+    "default_purpose": "benchmark development and formative interoperability checks",
+    "prohibited_inferences": [
+      "political affiliation",
+      "ideology",
+      "loyalty",
+      "enlistment interest",
+      "personal military or coercive-service suitability"
+    ],
+    "personal_data_present": false
+  },
+  "integrity": {
+    "digest_algorithm": "SHA-256",
+    "digest_scope": "exact UTF-8 bytes of the exported envelope; no reserialization implied",
+    "payload_sha256": null,
+    "signature_status": "unsigned-demo",
+    "signature_reference": null
+  },
+  "extensions": {
+    "ext:reviewNote": "Unknown namespaced extension; lossless adapters must preserve this string.",
+    "ext:opaquePayload": {
+      "vendor": "synthetic-conformance",
+      "revision": 2
+    }
+  }
+}

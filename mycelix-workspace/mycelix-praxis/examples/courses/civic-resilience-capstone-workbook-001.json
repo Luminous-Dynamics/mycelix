@@ -1,0 +1,208 @@
+{
+  "workbook_id": "PRAXIS-NRES-003-WORKBOOK-001",
+  "schema_version": "1.0.0",
+  "status": "draft-review-only-not-active",
+  "active_in_curriculum": false,
+  "course_id": "civic-resilience-democratic-defence-v0-1",
+  "title": "Civic Resilience Capstone Workbook",
+  "purpose": "A structured, nonpartisan exercise in uncertainty-aware civic resilience planning. It assesses reasoning, evidence handling and service feasibility, not ideology, enlistment interest, military aptitude or personal worth.",
+  "benchmark_fixture": "examples/courses/civic-resilience-policy-benchmark-fixture-001.json",
+  "scoring_specification": "docs/curriculum/PRAXIS_NRES_003_SCORING_ANCHORS.md",
+  "study_protocol": "docs/curriculum/PRAXIS_NRES_004_PREREGISTRATION.md",
+  "estimated_hours": 4,
+  "learner_instructions": [
+    "Treat the scenario as fictional. Its numbers are exercise constraints, not estimates for an actual municipality or public service.",
+    "Use the supplied evidence. Label new assumptions; do not make up cost, readiness, legal or service-performance facts.",
+    "Separate the immediate 72-hour continuity plan from the long-term comparison of public-service models.",
+    "Do not assume the policy that uses the most people creates the most capability. Discuss training, retention, role fit, opportunity cost, lawful authority and delivery capacity.",
+    "A defensible conclusion can remain conditional or identify that available evidence is insufficient. State which evidence could change your conclusion.",
+    "No answer is preferred because it supports or opposes conscription. Assessment is based on the quality of the evidence, reasoning, constraints, rights analysis and evaluation plan."
+  ],
+  "learning_targets": [
+    "Separate observed scenario facts, assumptions, estimates, unknowns and items requiring qualified review.",
+    "Construct a resource-feasible plan that checks all supplied minimum service floors.",
+    "Identify decision authority, lawful process, privacy constraints and accountability.",
+    "Compare policy options without treating headcount or service duration as a proxy for readiness.",
+    "Design a fair evaluation with a credible baseline, a primary outcome, uncertainty analysis and genuinely held-out cases."
+  ],
+  "sections": [
+    {
+      "id": "S1",
+      "title": "Frame the decision",
+      "minutes": 20,
+      "prompts": [
+        "State the immediate decision that must be made during the fictional 72-hour disruption.",
+        "State the separate long-term public-service policy question and explain why the emergency allocation result cannot, by itself, answer it.",
+        "List the responsible decision owners and what authority must be verified rather than assumed."
+      ],
+      "evidence_to_submit": [
+        "decision statement",
+        "authority map",
+        "scope boundary"
+      ]
+    },
+    {
+      "id": "S2",
+      "title": "Build an uncertainty ledger",
+      "minutes": 25,
+      "prompts": [
+        "For each material claim, label it Observed in synthetic fixture, Assumption, Estimate, Unknown, or Requires qualified legal or institutional review.",
+        "Identify at least three unknowns that could reverse the choice between policy options.",
+        "For each unknown, specify what evidence would resolve it, who could independently verify it, and the decision it could change."
+      ],
+      "evidence_to_submit": [
+        "claim ledger",
+        "verification plan",
+        "decision-sensitive unknowns"
+      ]
+    },
+    {
+      "id": "S3",
+      "title": "Map essential-service dependencies",
+      "minutes": 25,
+      "prompts": [
+        "Draw a simple dependency map for public information, welfare checks, water continuity and health logistics using only the fictional scenario.",
+        "Mark shared dependencies, unavailable central coordination, information that may be stale, and any service with no verified fallback.",
+        "State how local actions remain within lawful authority and how conflicting records are reconciled when coordination returns."
+      ],
+      "evidence_to_submit": [
+        "dependency map",
+        "failure-mode notes",
+        "reconciliation rule"
+      ]
+    },
+    {
+      "id": "S4",
+      "title": "Produce the 72-hour allocation",
+      "minutes": 45,
+      "prompts": [
+        "Allocate the synthetic budget and responder-hours, showing units and totals.",
+        "Check every minimum service floor directly against the resulting plan; do not claim compliance without showing the calculation.",
+        "Mark infeasible elements explicitly. State which service outcome deteriorates under each resource-shortage variant and who must authorize any trade-off."
+      ],
+      "evidence_to_submit": [
+        "allocation table",
+        "budget reconciliation",
+        "responder-hour reconciliation",
+        "service-floor checks"
+      ]
+    },
+    {
+      "id": "S5",
+      "title": "Compare service-policy alternatives",
+      "minutes": 40,
+      "prompts": [
+        "Compare all four options in the public fixture with the same criteria and evidence threshold.",
+        "For each option, state legal pathway, training throughput, role fit, retention, total lifecycle cost, opportunity cost, accessibility, safeguards and major unknowns.",
+        "Do not assign unsupported numeric benefits or costs. Where comparable data are absent, report the comparison as unresolved."
+      ],
+      "evidence_to_submit": [
+        "four-option comparison matrix",
+        "assumption log",
+        "trade-off analysis"
+      ]
+    },
+    {
+      "id": "S6",
+      "title": "Design a falsifiable evaluation",
+      "minutes": 35,
+      "prompts": [
+        "Choose one primary service or learning outcome and at least three secondary outcomes; define each operationally.",
+        "Specify a credible incumbent baseline, assessment timing, blind scoring, uncertainty intervals, missing-data handling and fully loaded cost.",
+        "Explain how the confirmatory cases will be kept unavailable to course authors and learners until the analysis is locked, then released for audit.",
+        "State in advance what result would make you revise or withdraw your provisional recommendation."
+      ],
+      "evidence_to_submit": [
+        "evaluation plan",
+        "primary outcome definition",
+        "holdout integrity plan",
+        "falsification conditions"
+      ]
+    },
+    {
+      "id": "S7",
+      "title": "Accessibility, rights and governance review",
+      "minutes": 20,
+      "prompts": [
+        "Identify accessibility, caregiving, privacy, health, education, employment, due-process and nondiscrimination implications.",
+        "Separate a learner proposal from a decision that only a legitimate public institution may make.",
+        "Describe how affected communities, including people facing access barriers, could review the design without collecting unnecessary sensitive data."
+      ],
+      "evidence_to_submit": [
+        "safeguards checklist",
+        "consultation plan",
+        "data-minimization statement"
+      ]
+    },
+    {
+      "id": "S8",
+      "title": "Conditional recommendation and reflection",
+      "minutes": 30,
+      "prompts": [
+        "Present a provisional, evidence-bounded conclusion; identify material trade-offs and unresolved issues.",
+        "Name the two pieces of evidence most likely to change your conclusion and explain why.",
+        "Reflect on where your own confidence exceeded the evidence and how you corrected or would test it."
+      ],
+      "evidence_to_submit": [
+        "structured memo",
+        "decision-change triggers",
+        "confidence reflection"
+      ]
+    }
+  ],
+  "required_uncertainty_labels": [
+    "Observed in synthetic fixture",
+    "Assumption",
+    "Estimate",
+    "Unknown",
+    "Requires qualified legal or institutional review"
+  ],
+  "required_submission_sections": [
+    "decision question and scope separation",
+    "authority and accountability map",
+    "claim and uncertainty ledger",
+    "dependency map",
+    "resource-feasible 72-hour allocation",
+    "checks for every minimum service floor",
+    "fair comparison of all four policy options",
+    "primary and secondary outcomes",
+    "credible incumbent baseline",
+    "blind-scoring and genuinely held-out scenario plan",
+    "accessibility and rights safeguards",
+    "conditional recommendation and falsification conditions"
+  ],
+  "rubric_dimensions": [
+    "R1",
+    "R2",
+    "R3",
+    "R4",
+    "R5",
+    "R6",
+    "R7",
+    "R8"
+  ],
+  "non_compensable_guardrails": [
+    "Do not treat the synthetic fixture as evidence of real-world policy effectiveness.",
+    "Do not invent legal authority, external facts or unsupported cost/readiness values.",
+    "Do not accept a plan as feasible without checking budget, responder-hours and service floors.",
+    "Do not use the assessment to score political affiliation, support for conscription, willingness to enlist, loyalty, identity or suitability for coercive service.",
+    "Do not present course completion, an AI output or a rubric total as an official credential, practical emergency qualification or public authority."
+  ],
+  "learner_data": {
+    "default": "local-only",
+    "federated_learning_enabled": false,
+    "political_or_enlistment_inference": false,
+    "collect_only": "Assessment evidence needed for the stated learning outcome; avoid collecting identity, political belief, enlistment interest, medical information or other sensitive data unless separately justified, consented and governed.",
+    "retention": "Set and disclose the study-specific retention schedule before a real pilot; do not silently repurpose learner outputs."
+  },
+  "validation": {
+    "public_fixture_role": "development-and-formative-practice-only",
+    "public_variants_are_held_out": false,
+    "confirmatory_evaluation_requires": "Independently controlled, preregistered cases unavailable to curriculum authors and participants until outcomes and exclusions are locked.",
+    "no_claims": [
+      "This workbook has not been piloted.",
+      "The scoring anchors are proposed, not yet shown to be reliable.",
+      "The workbook is not currently active in the Praxis curriculum graph."
+    ]
+  }
+}

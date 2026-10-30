@@ -1,0 +1,310 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:mycelix:praxis:nres:008:probability-abstention:v1",
+  "title": "Praxis NRES-008 Probability Forecast and Abstention Fixture",
+  "description": "Structural schema for synthetic NRES-008 binary service-floor forecasts. Cross-field abstention policy and metric derivation are enforced by the Rust reference evaluator.",
+  "type": "object",
+  "required": [
+    "benchmark_id",
+    "schema_version",
+    "status",
+    "evaluation_split",
+    "active_in_curriculum",
+    "service_catalog",
+    "protocol",
+    "calibration_reference",
+    "evaluation_cases",
+    "interpretation_guardrails"
+  ],
+  "properties": {
+    "benchmark_id": {
+      "const": "PRAXIS-NRES-008-PROBABILITY-ABSTENTION-001"
+    },
+    "schema_version": {
+      "const": "1.0.0"
+    },
+    "status": {
+      "const": "synthetic-demonstration-for-review"
+    },
+    "evaluation_split": {
+      "const": "public-development-only"
+    },
+    "active_in_curriculum": {
+      "const": false
+    },
+    "title": {
+      "type": "string",
+      "minLength": 1
+    },
+    "purpose": {
+      "type": "string",
+      "minLength": 1
+    },
+    "scope_limits": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      },
+      "minItems": 1
+    },
+    "service_catalog": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": [
+          "service_id",
+          "floor_percent",
+          "unit"
+        ],
+        "properties": {
+          "service_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "floor_percent": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 100
+          },
+          "unit": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "additionalProperties": true
+      }
+    },
+    "protocol": {
+      "type": "object",
+      "required": [
+        "forecast_target",
+        "forecast_origin_hour",
+        "forecast_horizon_hours",
+        "probability_bins",
+        "bin_convention",
+        "log_loss_epsilon",
+        "proper_scores",
+        "baseline_rule",
+        "calibration_diagnostic",
+        "abstention_rule",
+        "optional_abstention_rule",
+        "selective_confidence_thresholds"
+      ],
+      "properties": {
+        "forecast_target": {
+          "type": "string",
+          "minLength": 1
+        },
+        "forecast_origin_hour": {
+          "type": "number",
+          "minimum": 0
+        },
+        "forecast_horizon_hours": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "probability_bins": {
+          "type": "array",
+          "minItems": 6,
+          "maxItems": 6,
+          "items": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1
+          }
+        },
+        "bin_convention": {
+          "type": "string",
+          "minLength": 1
+        },
+        "log_loss_epsilon": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "maximum": 0.01
+        },
+        "proper_scores": {
+          "type": "array",
+          "items": {
+            "enum": [
+              "brier_score",
+              "log_loss"
+            ]
+          },
+          "minItems": 1
+        },
+        "baseline_rule": {
+          "type": "string",
+          "minLength": 1
+        },
+        "calibration_diagnostic": {
+          "type": "string",
+          "minLength": 1
+        },
+        "abstention_rule": {
+          "type": "string",
+          "minLength": 1
+        },
+        "optional_abstention_rule": {
+          "type": "string",
+          "minLength": 1
+        },
+        "selective_confidence_thresholds": {
+          "type": "array",
+          "minItems": 4,
+          "maxItems": 4,
+          "items": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1
+          }
+        }
+      },
+      "additionalProperties": true
+    },
+    "calibration_reference": {
+      "type": "object",
+      "required": [
+        "sample_count",
+        "breach_count",
+        "status",
+        "description"
+      ],
+      "properties": {
+        "sample_count": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "breach_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "status": {
+          "const": "synthetic-public-development-reference"
+        },
+        "description": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "additionalProperties": true
+    },
+    "evaluation_cases": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": [
+          "case_id",
+          "service_id",
+          "forecast_origin_hour",
+          "forecast_horizon_hours",
+          "evaluator",
+          "candidate_output"
+        ],
+        "properties": {
+          "case_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "service_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "forecast_origin_hour": {
+            "type": "number",
+            "minimum": 0
+          },
+          "forecast_horizon_hours": {
+            "type": "number",
+            "exclusiveMinimum": 0
+          },
+          "evaluator": {
+            "type": "object",
+            "required": [
+              "input_qualification_state",
+              "observed_minimum_availability_percent"
+            ],
+            "properties": {
+              "input_qualification_state": {
+                "enum": [
+                  "qualified",
+                  "missing_critical_input",
+                  "conflicting_sources",
+                  "unsupported_distribution_shift"
+                ]
+              },
+              "observed_minimum_availability_percent": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 100
+              }
+            },
+            "additionalProperties": true
+          },
+          "candidate_output": {
+            "type": "object",
+            "required": [
+              "action",
+              "predicted_breach_probability",
+              "abstention_reason"
+            ],
+            "properties": {
+              "action": {
+                "enum": [
+                  "forecast",
+                  "abstain"
+                ]
+              },
+              "predicted_breach_probability": {
+                "type": [
+                  "number",
+                  "null"
+                ],
+                "minimum": 0,
+                "maximum": 1
+              },
+              "abstention_reason": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              }
+            },
+            "additionalProperties": true
+          }
+        },
+        "additionalProperties": true
+      }
+    },
+    "interpretation_guardrails": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      },
+      "minItems": 1
+    }
+  },
+  "additionalProperties": true,
+  "not": {
+    "anyOf": [
+      {
+        "required": [
+          "overall_resilience_score"
+        ]
+      },
+      {
+        "required": [
+          "composite_score"
+        ]
+      },
+      {
+        "required": [
+          "personal_suitability_score"
+        ]
+      }
+    ]
+  }
+}

@@ -1,0 +1,162 @@
+{
+  "course_id": "civic-resilience-democratic-defence-v0-1",
+  "title": "Civic Resilience and Democratic Defence Foundations",
+  "description": "A nonpartisan, evidence-based introduction to public preparedness, lawful democratic defence, critical-service resilience, responsible cyber hygiene, emergency coordination, and competing models of national service. This is a civic learning course, not military recruitment, weapons, or combat training. Learners compare proposals—including universal two-year active service—using explicit evidence, rights, readiness, equity, workforce, and cost criteria.",
+  "creator": "community-curation-draft",
+  "tags": [
+    "civic-resilience",
+    "disaster-preparedness",
+    "democratic-oversight",
+    "civil-protection",
+    "critical-infrastructure",
+    "cyber-hygiene",
+    "public-service",
+    "defence-literacy",
+    "nonpartisan"
+  ],
+  "model_id": null,
+  "difficulty": "beginner",
+  "estimated_hours": 30,
+  "language": "en",
+  "prerequisites": [],
+  "learning_outcomes": [
+    "Distinguish the responsibilities and legal boundaries of military defence, civil protection, disaster management, law enforcement, and ordinary public services.",
+    "Explain constitutional civilian oversight, nonpartisanship, rights, accountability, and the principle that unlawful orders must not be obeyed.",
+    "Create an accessible household or community preparedness plan using reliable public guidance and lawful local emergency channels.",
+    "Identify when to seek accredited first-aid instruction and demonstrate only those practical skills assessed by a qualified instructor.",
+    "Describe basic cyber-hygiene practices and report a simulated incident while preserving provenance, privacy, and uncertainty.",
+    "Map dependencies in a fictional essential service and propose a recovery plan that respects resource limits and minimum service needs.",
+    "Compare voluntary military service, reserves, professional specialist careers, civil protection, civilian service, and universal-service proposals using a balanced and documented framework.",
+    "Draft a nonpartisan doctrine-and-learning charter that defines mission, authority, safeguards, readiness measures, independent review, and correction of mistakes.",
+    "Explain how an exercise finding becomes a corrective action and why verified closure requires completion evidence, independent review, and a successful retest."
+  ],
+  "syllabus": [
+    {
+      "module": 1,
+      "title": "What public defence and resilience are for",
+      "topics": [
+        "Public security as a public good",
+        "Military defence, civil protection, disaster management, and law enforcement: distinct mandates",
+        "Hazards, infrastructure disruption, cyber incidents, misinformation, and uncertainty",
+        "What a preparedness course can and cannot teach"
+      ],
+      "estimated_hours": 3
+    },
+    {
+      "module": 2,
+      "title": "Constitution, law, rights, and civilian oversight",
+      "topics": [
+        "Constitutional purposes and legal limits of defence institutions",
+        "Civilian authority, parliamentary oversight, and nonpartisanship",
+        "International humanitarian law and human-rights foundations",
+        "Duty to question and refuse manifestly unlawful orders",
+        "Conscientious objection, accessibility, appeal, and due process"
+      ],
+      "estimated_hours": 4
+    },
+    {
+      "module": 3,
+      "title": "Personal and community preparedness",
+      "topics": [
+        "Household communication and check-in plans",
+        "Accessible emergency planning and support for people with disabilities or care responsibilities",
+        "Recognizing emergencies and using official reporting channels",
+        "Evacuation readiness, shelter information, and community mutual aid",
+        "Preparedness limits and avoiding false confidence"
+      ],
+      "estimated_hours": 4
+    },
+    {
+      "module": 4,
+      "title": "First aid and safe emergency support",
+      "topics": [
+        "Scene safety and when to call emergency services",
+        "First-aid and CPR learning pathways delivered by qualified instructors",
+        "Fire, heat, flood, and environmental-hazard awareness",
+        "Responder role limits, consent, safeguarding, and handover",
+        "Practical assessment must be conducted by an appropriately qualified instructor"
+      ],
+      "estimated_hours": 4
+    },
+    {
+      "module": 5,
+      "title": "Cyber hygiene, evidence, and trustworthy reporting",
+      "topics": [
+        "Account security, updates, backups, and phishing awareness",
+        "Safe reporting of a simulated cyber incident",
+        "Distinguishing observation, assertion, inference, verification, and unknown",
+        "Privacy, least privilege, and avoiding unauthorized investigation",
+        "Why a digital signature does not by itself prove a claim is true"
+      ],
+      "estimated_hours": 3
+    },
+    {
+      "module": 6,
+      "title": "Critical infrastructure and service continuity",
+      "topics": [
+        "Electricity, water, telecommunications, transport, healthcare, and supply dependencies",
+        "Single points of failure and common-cause disruptions",
+        "Minimum service levels, scarce resources, and feasible recovery plans",
+        "Coordination across organizations without erasing local authority",
+        "Synthetic tabletop exercise: a fictional town loses power and communications"
+      ],
+      "estimated_hours": 4
+    },
+    {
+      "module": 7,
+      "title": "Service models and better defence institutions",
+      "topics": [
+        "South Africa's existing South African National Service Institute (SANSI) youth-service/learnership initiative and the public 30-year force-planning process as subjects for critical study, not parallel Praxis programmes",
+        "Voluntary professional forces, reserve models, conscription, and civilian service",
+        "Comparing universal two-year active service with shorter, modular, and role-specific alternatives",
+        "Recruitment, training capacity, instructor quality, retention, and total lifecycle cost",
+        "Specialist roles in medicine, cyber defence, logistics, engineering, communications, and civil protection",
+        "Doctrine as a versioned, evidence-reviewed public-interest framework",
+        "Independent after-action learning, safety reporting, and institutional accountability"
+      ],
+      "estimated_hours": 4
+    },
+    {
+      "module": 8,
+      "title": "Capstone: design and evaluate a resilience pathway",
+      "topics": [
+        "Map a fictional community's essential services and dependencies",
+        "Build an evidence-bounded recovery plan under a fixed resource budget",
+        "Identify authority, privacy, accessibility, and legal constraints",
+        "Compare service-policy alternatives using a transparent rubric",
+        "Present a nonpartisan learning plan and identify open questions",
+        "Use benchmark fixture PRAXIS-NRES-002-FIXTURE-001 to compare service models under explicit synthetic constraints; report uncertainty and hard-fail conditions",
+        "Structured capstone workbook with evidence ledger, resource-feasibility checks, and conditional policy recommendation",
+        "Connect after-action findings to evidence, accountable role ownership, corrective actions, independent verification and a repeat exercise using the public synthetic capability-loop fixture"
+      ],
+      "estimated_hours": 4
+    }
+  ],
+  "fl_enabled": false,
+  "created_at": 1793299200,
+  "updated_at": 1793299200,
+  "metadata": {
+    "draft_status": "proposed-for-community-review",
+    "content_scope": "civic-preparedness-and-institutional-literacy",
+    "assessment_scope": "knowledge-and-scenario-competence-only",
+    "no_political_affiliation_or_enlistment_scoring": true,
+    "no_weapons_or_combat_training": true,
+    "learner_data_default": "local-only",
+    "external_certification": "not-provided-by-Praxis-course",
+    "model_status": "none",
+    "assessment_fixture": "examples/courses/civic-resilience-policy-benchmark-fixture-001.json",
+    "benchmark_spec": "docs/curriculum/PRAXIS_NRES_002_BENCHMARK.md",
+    "assessment_principle": "criterion-referenced reasoning; no political-affiliation or enlistment-propensity scoring",
+    "fixtures_are_synthetic": true,
+    "capstone_workbook": "examples/courses/civic-resilience-capstone-workbook-001.json",
+    "scoring_specification": "docs/curriculum/PRAXIS_NRES_003_SCORING_ANCHORS.md",
+    "study_protocol": "docs/curriculum/PRAXIS_NRES_004_PREREGISTRATION.md",
+    "capability_loop_benchmark": "examples/courses/civic-resilience-capability-loop-fixture-001.json",
+    "capability_loop_spec": "docs/curriculum/PRAXIS_NRES_005_CAPABILITY_LOOP.md",
+    "capability_loop_evaluator": "benchmarks/nres-capability-loop",
+    "evidence_interchange_profile": "docs/curriculum/PRAXIS_NRES_006_EVIDENCE_INTERCHANGE.md",
+    "evidence_interchange_schema": "schemas/nres/nres-evidence-envelope-v1.schema.json",
+    "evidence_interchange_example": "examples/courses/civic-resilience-evidence-envelope-001.json",
+    "evidence_conformance_corpus": "examples/courses/civic-resilience-evidence-conformance-001.json"
+  }
+}

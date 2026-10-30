@@ -1,0 +1,13 @@
+[workspace]
+members = ["."]
+resolver = "2"
+
+[package]
+name = "praxis-nres-capability-loop"
+version = "0.1.0"
+edition = "2024"
+license = "AGPL-3.0-or-later"
+description = "Deterministic reference evaluator for Praxis NRES exercise-to-improvement benchmark"
+
+[dependencies]
+serde_json = "1.0"

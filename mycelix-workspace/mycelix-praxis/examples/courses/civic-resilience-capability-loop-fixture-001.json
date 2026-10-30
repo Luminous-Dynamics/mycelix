@@ -1,0 +1,533 @@
+{
+  "benchmark_id": "PRAXIS-NRES-005-CAPABILITY-LOOP-001",
+  "schema_version": "1.0.0",
+  "status": "synthetic-demonstration-for-review",
+  "evaluation_split": "public-development-only",
+  "active_in_curriculum": false,
+  "scenario_id": "SYN-MUNI-72H-001",
+  "title": "Civic Resilience Exercise-to-Improvement Loop",
+  "purpose": "Demonstrate how a learning objective, exercise observation, evidence record, corrective action and independent retest can be connected without collapsing the result into one score.",
+  "scope_limits": [
+    "Every observation and numeric value in this fixture is synthetic and illustrative.",
+    "This is a tabletop exercise record, not an operational response plan or an estimate for a real municipality.",
+    "An authority-evidence completeness check is not a legal determination.",
+    "A service-floor pass in a synthetic exercise is not evidence of real-world readiness.",
+    "This public fixture is for schema development and formative practice, not confirmatory generalization testing."
+  ],
+  "framework_crosswalk": [
+    {
+      "framework": "FEMA Homeland Security Exercise and Evaluation Program (HSEEP)",
+      "url": "https://training.fema.gov/programs/nsec/hseep/",
+      "composition": "Exercise objectives, observation, evaluation, after-action findings and corrective-action follow-up.",
+      "boundary": "This fixture is not an HSEEP-compliant exercise package, FEMA evaluation guide or official after-action report."
+    },
+    {
+      "framework": "IFRC National Society Preparedness Framework and Preparedness for Effective Response",
+      "url": "https://www.ifrc.org/document/ifrc-national-society-preparedness-framework",
+      "composition": "Assessment, prioritisation, work planning, action and accountability, adapted as a learning loop.",
+      "boundary": "Praxis does not replace IFRC processes, local humanitarian coordination or National Society authority."
+    },
+    {
+      "framework": "ISO 22301:2019 Business continuity management systems",
+      "url": "https://www.iso.org/standard/75106.html",
+      "composition": "A management-system perspective on documented continuity, monitoring, review and continual improvement.",
+      "boundary": "No ISO conformity assessment or certification is implied."
+    },
+    {
+      "framework": "UNDRR Strategic Framework 2026–2030",
+      "url": "https://www.undrr.org/strategic-framework-2026-2030",
+      "composition": "Risk knowledge, locally led disaster risk reduction, financing and recovery readiness.",
+      "boundary": "Alignment is a design crosswalk, not UNDRR endorsement or measured impact."
+    },
+    {
+      "framework": "UNESCO DARE learning assessment guidance",
+      "url": "https://www.unesco.org/en/articles/assessing-learning-education-sustainable-development",
+      "composition": "Describe, appraise, redesign and evaluate assessment practice rather than treating assessment as a terminal grade.",
+      "boundary": "The framework is adapted conceptually; this prototype is not UNESCO-validated."
+    }
+  ],
+  "objectives": [
+    {
+      "id": "OBJ-01",
+      "capability": "Maintain the fictional minimum public-information service floor.",
+      "measure_ids": [
+        "M-SERVICE-FLOOR",
+        "M-OBJECTIVE-EVIDENCE"
+      ],
+      "critical_gate": true,
+      "service": "public_information"
+    },
+    {
+      "id": "OBJ-02",
+      "capability": "Maintain lawful, privacy-respecting welfare-check coordination.",
+      "measure_ids": [
+        "M-SERVICE-FLOOR",
+        "M-AUTHORITY-EVIDENCE",
+        "M-OBJECTIVE-EVIDENCE"
+      ],
+      "critical_gate": true,
+      "service": "welfare_check_coordination"
+    },
+    {
+      "id": "OBJ-03",
+      "capability": "Maintain minimum water-service continuity within the scenario constraints.",
+      "measure_ids": [
+        "M-SERVICE-FLOOR",
+        "M-RESOURCE-FEASIBILITY",
+        "M-OBJECTIVE-EVIDENCE"
+      ],
+      "critical_gate": true,
+      "service": "water_service_continuity"
+    },
+    {
+      "id": "OBJ-04",
+      "capability": "Maintain minimum health-logistics continuity and document unresolved dependencies.",
+      "measure_ids": [
+        "M-SERVICE-FLOOR",
+        "M-ACCESSIBILITY-COVERAGE",
+        "M-OBJECTIVE-EVIDENCE"
+      ],
+      "critical_gate": true,
+      "service": "health_logistics_continuity"
+    }
+  ],
+  "measure_catalog": [
+    {
+      "id": "M-OBJECTIVE-EVIDENCE",
+      "name": "Objective evidence coverage",
+      "layer": "exercise-evidence",
+      "numerator": "Number of scheduled objectives with at least one evaluator-accepted observation and evidence reference.",
+      "denominator": "Number of scheduled objectives.",
+      "unit": "ratio",
+      "formula": "numerator / denominator",
+      "guardrail": "A written claim without a traceable evidence reference does not count as an observed result."
+    },
+    {
+      "id": "M-SERVICE-FLOOR",
+      "name": "Service-floor attainment by service",
+      "layer": "exercise-capability",
+      "numerator": "For each service, the observed synthetic service-level percentage.",
+      "denominator": "The fixture-defined minimum service-floor percentage for that service.",
+      "unit": "percentage and per-service pass/fail",
+      "formula": "pass when observed_percent >= required_floor_percent; all-critical-floors-pass is the conjunction across services",
+      "guardrail": "Never average service floors into a compensating score. One critical floor failure remains visible even if every other service passes."
+    },
+    {
+      "id": "M-RESOURCE-FEASIBILITY",
+      "name": "Resource feasibility",
+      "layer": "exercise-capability",
+      "numerator": "Committed fictional budget points and responder-hours.",
+      "denominator": "Available fictional budget points and responder-hours.",
+      "unit": "utilization ratio",
+      "formula": "committed / available for each resource pool",
+      "guardrail": "Each pool must be checked independently; a budget surplus cannot compensate for exceeding responder-hours."
+    },
+    {
+      "id": "M-AUTHORITY-EVIDENCE",
+      "name": "Authority-evidence completeness",
+      "layer": "governance-evidence",
+      "numerator": "Sampled decisions with a named accountable role, cited authority basis and review path recorded.",
+      "denominator": "Sampled decisions.",
+      "unit": "ratio",
+      "formula": "complete decision records / sampled decisions",
+      "guardrail": "Measures documentation completeness only. It does not determine whether an action is legally authorized; qualified review remains necessary."
+    },
+    {
+      "id": "M-ACCESSIBILITY-COVERAGE",
+      "name": "Accessibility-check coverage",
+      "layer": "inclusive-capability",
+      "numerator": "Scenario-defined accessibility requirements tested and recorded.",
+      "denominator": "Scenario-defined accessibility requirements.",
+      "unit": "ratio",
+      "formula": "requirements tested / requirements specified",
+      "guardrail": "Do not infer disability, health status or other sensitive traits about participants. Test the service design, not a person's identity."
+    },
+    {
+      "id": "M-ACTION-VERIFICATION",
+      "name": "Corrective-action verification rate",
+      "layer": "improvement-system",
+      "numerator": "Due corrective actions closed with completion evidence, independent verification and a successful retest.",
+      "denominator": "Corrective actions due for review in the cycle.",
+      "unit": "ratio",
+      "formula": "independently verified and successfully retested actions / actions due for review",
+      "guardrail": "A self-reported 'closed' status without evidence and retest is not verified closure."
+    },
+    {
+      "id": "M-REPEAT-DEFECT",
+      "name": "Retested failure recurrence",
+      "layer": "improvement-system",
+      "numerator": "Previously failed capability conditions that fail again in the retest.",
+      "denominator": "Previously failed capability conditions actually retested.",
+      "unit": "ratio",
+      "formula": "repeated failures / previously failed conditions retested",
+      "guardrail": "Do not count untested conditions as passed. Report the denominator and missing retests."
+    },
+    {
+      "id": "M-LEARNING-TRANSFER",
+      "name": "Learner transfer and retention",
+      "layer": "learning-outcome",
+      "numerator": "Learner performance on delayed and novel assessment tasks, scored against the frozen rubric.",
+      "denominator": "Scheduled learner assessments, with missingness disposition.",
+      "unit": "separate outcome profile",
+      "formula": "Report immediate, 30-day, 90-day and held-out transfer outcomes separately.",
+      "guardrail": "Do not merge learner scores with municipal exercise outcomes or infer political beliefs, enlistment interest or personal suitability."
+    },
+    {
+      "id": "M-COST-PER-VERIFIED-IMPROVEMENT",
+      "name": "Cost per verified capability improvement",
+      "layer": "programme-economics",
+      "numerator": "Fully loaded programme, exercise, facilitation, access and follow-up costs.",
+      "denominator": "Number of independently verified capability improvements sustained at retest.",
+      "unit": "currency per verified improvement",
+      "formula": "fully_loaded_cost / verified_sustained_improvements",
+      "guardrail": "Define the cost boundary and currency before comparison. Do not report this metric when the denominator is zero; report the numerator and zero verified improvements."
+    }
+  ],
+  "cycles": [
+    {
+      "cycle_id": "CYCLE-01",
+      "cycle_order": 1,
+      "data_status": "illustrative-synthetic",
+      "scheduled_objective_ids": [
+        "OBJ-01",
+        "OBJ-02",
+        "OBJ-03",
+        "OBJ-04"
+      ],
+      "objective_observations": [
+        {
+          "objective_id": "OBJ-01",
+          "evidence_ids": [
+            "EV-01"
+          ],
+          "accepted_observation": true
+        },
+        {
+          "objective_id": "OBJ-02",
+          "evidence_ids": [
+            "EV-02"
+          ],
+          "accepted_observation": true
+        },
+        {
+          "objective_id": "OBJ-03",
+          "evidence_ids": [
+            "EV-03"
+          ],
+          "accepted_observation": true
+        },
+        {
+          "objective_id": "OBJ-04",
+          "evidence_ids": [
+            "EV-04"
+          ],
+          "accepted_observation": true
+        }
+      ],
+      "service_floor_observations": [
+        {
+          "service": "public_information",
+          "observed_percent": 64,
+          "required_floor_percent": 70,
+          "evidence_id": "EV-01"
+        },
+        {
+          "service": "welfare_check_coordination",
+          "observed_percent": 58,
+          "required_floor_percent": 60,
+          "evidence_id": "EV-02"
+        },
+        {
+          "service": "water_service_continuity",
+          "observed_percent": 82,
+          "required_floor_percent": 80,
+          "evidence_id": "EV-03"
+        },
+        {
+          "service": "health_logistics_continuity",
+          "observed_percent": 73,
+          "required_floor_percent": 75,
+          "evidence_id": "EV-04"
+        }
+      ],
+      "resources": {
+        "planning_budget_available": 1000,
+        "planning_budget_committed": 980,
+        "responder_hours_available": 2400,
+        "responder_hours_committed": 2350
+      },
+      "authority_evidence": {
+        "decisions_sampled": 3,
+        "decisions_with_role_basis_and_review_path": 2
+      },
+      "accessibility": {
+        "requirements_specified": 4,
+        "requirements_tested": 3,
+        "requirements_passing": 2
+      },
+      "evidence_records": [
+        {
+          "id": "EV-01",
+          "type": "exercise-observation",
+          "claim_label": "Observed in synthetic fixture",
+          "independently_reviewed": true
+        },
+        {
+          "id": "EV-02",
+          "type": "exercise-observation",
+          "claim_label": "Observed in synthetic fixture",
+          "independently_reviewed": true
+        },
+        {
+          "id": "EV-03",
+          "type": "exercise-observation",
+          "claim_label": "Observed in synthetic fixture",
+          "independently_reviewed": true
+        },
+        {
+          "id": "EV-04",
+          "type": "exercise-observation",
+          "claim_label": "Observed in synthetic fixture",
+          "independently_reviewed": true
+        }
+      ]
+    },
+    {
+      "cycle_id": "CYCLE-02",
+      "cycle_order": 2,
+      "data_status": "illustrative-synthetic",
+      "scheduled_objective_ids": [
+        "OBJ-01",
+        "OBJ-02",
+        "OBJ-03",
+        "OBJ-04"
+      ],
+      "objective_observations": [
+        {
+          "objective_id": "OBJ-01",
+          "evidence_ids": [
+            "EV-11"
+          ],
+          "accepted_observation": true
+        },
+        {
+          "objective_id": "OBJ-02",
+          "evidence_ids": [
+            "EV-12"
+          ],
+          "accepted_observation": true
+        },
+        {
+          "objective_id": "OBJ-03",
+          "evidence_ids": [
+            "EV-13"
+          ],
+          "accepted_observation": true
+        },
+        {
+          "objective_id": "OBJ-04",
+          "evidence_ids": [
+            "EV-14"
+          ],
+          "accepted_observation": true
+        }
+      ],
+      "service_floor_observations": [
+        {
+          "service": "public_information",
+          "observed_percent": 72,
+          "required_floor_percent": 70,
+          "evidence_id": "EV-11"
+        },
+        {
+          "service": "welfare_check_coordination",
+          "observed_percent": 63,
+          "required_floor_percent": 60,
+          "evidence_id": "EV-12"
+        },
+        {
+          "service": "water_service_continuity",
+          "observed_percent": 82,
+          "required_floor_percent": 80,
+          "evidence_id": "EV-13"
+        },
+        {
+          "service": "health_logistics_continuity",
+          "observed_percent": 74,
+          "required_floor_percent": 75,
+          "evidence_id": "EV-14"
+        }
+      ],
+      "resources": {
+        "planning_budget_available": 1000,
+        "planning_budget_committed": 990,
+        "responder_hours_available": 2400,
+        "responder_hours_committed": 2370
+      },
+      "authority_evidence": {
+        "decisions_sampled": 3,
+        "decisions_with_role_basis_and_review_path": 3
+      },
+      "accessibility": {
+        "requirements_specified": 4,
+        "requirements_tested": 4,
+        "requirements_passing": 4
+      },
+      "evidence_records": [
+        {
+          "id": "EV-11",
+          "type": "retest-observation",
+          "claim_label": "Observed in synthetic fixture",
+          "independently_reviewed": true
+        },
+        {
+          "id": "EV-12",
+          "type": "retest-observation",
+          "claim_label": "Observed in synthetic fixture",
+          "independently_reviewed": true
+        },
+        {
+          "id": "EV-13",
+          "type": "retest-observation",
+          "claim_label": "Observed in synthetic fixture",
+          "independently_reviewed": true
+        },
+        {
+          "id": "EV-14",
+          "type": "retest-observation",
+          "claim_label": "Observed in synthetic fixture",
+          "independently_reviewed": true
+        },
+        {
+          "id": "EV-21",
+          "type": "action-completion-evidence",
+          "claim_label": "Synthetic exercise evidence",
+          "independently_reviewed": true
+        },
+        {
+          "id": "EV-22",
+          "type": "action-completion-evidence",
+          "claim_label": "Synthetic exercise evidence",
+          "independently_reviewed": true
+        }
+      ]
+    }
+  ],
+  "corrective_actions": [
+    {
+      "action_id": "ACT-01",
+      "finding": "Public-information continuity fell below its synthetic minimum floor in CYCLE-01.",
+      "root_cause_hypothesis": "The exercise team had not tested an accessible fallback publishing process during loss of central coordination.",
+      "opened_cycle_id": "CYCLE-01",
+      "owner_role": "Accountable public-information function",
+      "due_by_cycle_id": "CYCLE-02",
+      "completion_evidence_id": "EV-21",
+      "independently_verified": true,
+      "retest_cycle_id": "CYCLE-02",
+      "retest_objective_id": "OBJ-01",
+      "retest_result": "pass",
+      "status": "closed-verified",
+      "retest_service": "public_information"
+    },
+    {
+      "action_id": "ACT-02",
+      "finding": "Welfare-check coordination fell below its synthetic minimum floor in CYCLE-01.",
+      "root_cause_hypothesis": "The exercise team had not documented a privacy-respecting role handoff and reconciliation step.",
+      "opened_cycle_id": "CYCLE-01",
+      "owner_role": "Accountable civil-protection coordination function",
+      "due_by_cycle_id": "CYCLE-02",
+      "completion_evidence_id": "EV-22",
+      "independently_verified": true,
+      "retest_cycle_id": "CYCLE-02",
+      "retest_objective_id": "OBJ-02",
+      "retest_result": "pass",
+      "status": "closed-verified",
+      "retest_service": "welfare_check_coordination"
+    },
+    {
+      "action_id": "ACT-03",
+      "finding": "Health-logistics continuity remained below its synthetic minimum floor after retest.",
+      "root_cause_hypothesis": "A critical dependency and its fallback evidence remain unresolved in the exercise record.",
+      "opened_cycle_id": "CYCLE-01",
+      "owner_role": "Accountable health-logistics function",
+      "due_by_cycle_id": "CYCLE-02",
+      "completion_evidence_id": null,
+      "independently_verified": false,
+      "retest_cycle_id": "CYCLE-02",
+      "retest_objective_id": "OBJ-04",
+      "retest_result": "fail",
+      "status": "open",
+      "retest_service": "health_logistics_continuity"
+    }
+  ],
+  "expected_derived_results": {
+    "CYCLE_01": {
+      "objective_evidence_coverage": {
+        "numerator": 4,
+        "denominator": 4
+      },
+      "service_floors_passed": {
+        "numerator": 1,
+        "denominator": 4
+      },
+      "planning_budget": {
+        "committed": 980,
+        "available": 1000
+      },
+      "responder_hours": {
+        "committed": 2350,
+        "available": 2400
+      },
+      "authority_evidence": {
+        "numerator": 2,
+        "denominator": 3
+      },
+      "accessibility": {
+        "numerator": 3,
+        "denominator": 4
+      }
+    },
+    "CYCLE_02": {
+      "objective_evidence_coverage": {
+        "numerator": 4,
+        "denominator": 4
+      },
+      "service_floors_passed": {
+        "numerator": 3,
+        "denominator": 4
+      },
+      "planning_budget": {
+        "committed": 990,
+        "available": 1000
+      },
+      "responder_hours": {
+        "committed": 2370,
+        "available": 2400
+      },
+      "authority_evidence": {
+        "numerator": 3,
+        "denominator": 3
+      },
+      "accessibility": {
+        "numerator": 4,
+        "denominator": 4
+      },
+      "verified_corrective_actions": {
+        "numerator": 2,
+        "denominator": 3
+      },
+      "retested_failure_recurrence": {
+        "numerator": 1,
+        "denominator": 3
+      }
+    }
+  },
+  "interpretation_guardrails": [
+    "Do not calculate a single overall resilience score from these dimensions.",
+    "Report each essential-service floor separately; a failed critical floor is not compensated by another service's excess.",
+    "A corrective action is not verified closed without completion evidence, independent verification and a successful retest.",
+    "Unresolved actions remain open and visible; missing evidence is not a pass.",
+    "Learning outcomes, exercise outcomes and institution-level capability improvement are separate measurement layers.",
+    "A synthetic improvement between two exercise cycles is not a causal estimate and cannot establish real-world readiness."
+  ]
+}

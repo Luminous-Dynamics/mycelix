@@ -119,6 +119,16 @@ mycelix-praxis/
 - **[Threat Model](docs/threat-model.md)**: Security threats and mitigations
 - **[Privacy Model](docs/privacy.md)**: Data handling, DP, selective disclosure
 - **[Curriculum and content contract](docs/content-contract.md)**: Graph and lesson integrity rules
+- **[NRES policy-learning benchmark](docs/curriculum/PRAXIS_NRES_002_BENCHMARK.md)**: Synthetic, rubric-based civic-resilience and service-policy assessment
+- **[NRES exercise-to-improvement benchmark](docs/curriculum/PRAXIS_NRES_005_CAPABILITY_LOOP.md)**: Evidence-linked exercises, corrective actions and independent retests
+- **[NRES portable evidence interchange](docs/curriculum/PRAXIS_NRES_006_EVIDENCE_INTERCHANGE.md)**: JSON-LD/PROV evidence envelope, framework crosswalks and conformance tests
+- **[NRES cascading recovery benchmark](docs/curriculum/PRAXIS_NRES_007_CASCADE_RECOVERY.md)**: matched-shock service trajectories, dependency checks, deficit area and sustained recovery
+- **[NRES probability and abstention benchmark](docs/curriculum/PRAXIS_NRES_008_PROBABILITY_ABSTENTION.md)**: calibrated breach probabilities, proper scoring rules and evidence-qualified abstention
+- **[NRES joint service forecast benchmark](docs/curriculum/PRAXIS_NRES_009_JOINT_SERVICE_FORECAST.md)**: joint breach distributions, dependence-sensitive proper scores and simultaneous service-risk verification
+- **[NRES-007 JSON Schema](schemas/nres/nres-cascade-recovery-v1.schema.json)**: structural profile for portable trajectory fixtures
+- **[NRES-008 JSON Schema](schemas/nres/nres-probability-abstention-v1.schema.json)**: structural profile separating evaluator truth and candidate forecast outputs
+- **[NRES-009 JSON Schema](schemas/nres/nres-joint-service-forecast-v1.schema.json)**: complete categorical state-space contract for joint service forecasts
+- **[Rust NRES reference evaluator](benchmarks/nres-capability-loop/README.md)**: Disaggregated capability measures and negative-control tests
 - **[Learning client contract](docs/learning-contract.md)**: Versioned browser/coordinator DTOs and privacy boundary
 - **[Live data lifecycle](docs/live-data-lifecycle.md)**: Reactive readiness, reconnect, and honest resource states
 - **[Governance](GOVERNANCE.md)**: Decision-making processes, roles, DAO alignment
@@ -141,6 +151,22 @@ See [`docs/adr/`](docs/adr/) for all ADRs.
 - **[Security Policy](SECURITY.md)**
 
 ---
+
+## Civic Resilience course proposal
+
+A draft, nonpartisan course about civic preparedness, lawful democratic defence, critical-service continuity, and evidence-based comparison of public-service models is under community review in [PR #5521](https://github.com/Luminous-Dynamics/mycelix/pull/5521). The course and its synthetic assessment fixture are not activated in the production curriculum graph.
+
+The draft now includes a learner-facing [capstone workbook](examples/courses/civic-resilience-capstone-workbook-001.json), [anchored rubric](docs/curriculum/PRAXIS_NRES_003_SCORING_ANCHORS.md), [study preregistration/split protocol](docs/curriculum/PRAXIS_NRES_004_PREREGISTRATION.md), [exercise-to-improvement benchmark](docs/curriculum/PRAXIS_NRES_005_CAPABILITY_LOOP.md), [portable evidence interchange profile](docs/curriculum/PRAXIS_NRES_006_EVIDENCE_INTERCHANGE.md), and a [standalone Rust reference evaluator](benchmarks/nres-capability-loop/README.md). The paired-cycle and evidence-envelope fixtures are synthetic, development-only, and do not establish real-world readiness. All additions remain draft-only and are not activated in the curriculum graph.
+
+For the proposal's offline fixture-structure check, use:
+
+```bash
+python3 scripts/validate_nres_benchmark.py --self-test
+```
+
+This validates internal structure and negative controls only. It does not validate policy claims, legal compliance, educational effectiveness, or first-aid competence.
+
+The separate Rust capability-loop reference evaluator and its tests can be invoked with `cargo test --manifest-path benchmarks/nres-capability-loop/Cargo.toml` from this directory. It validates synthetic exercise records only; its tests are not a substitute for independent field evaluation. Use `cargo run --manifest-path benchmarks/nres-capability-loop/Cargo.toml -- --envelope` to emit the NRES-006 JSON-LD/PROV interchange example.
 
 ## Development
 

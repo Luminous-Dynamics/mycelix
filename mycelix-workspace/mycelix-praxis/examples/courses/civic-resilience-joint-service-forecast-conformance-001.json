@@ -1,0 +1,265 @@
+{
+  "benchmark_id": "PRAXIS-NRES-009-JOINT-SERVICE-FORECAST-CONFORMANCE-001",
+  "schema_version": "1.0.0",
+  "status": "public-development-conformance-corpus",
+  "fixture_ref": "civic-resilience-joint-service-forecast-fixture-001.json",
+  "negative_cases": [
+    {
+      "case_id": "NEG-01",
+      "name": "Negative state probability",
+      "mutation": "Set a forecast probability to -0.01",
+      "expected_disposition": "reject-probability-out-of-range"
+    },
+    {
+      "case_id": "NEG-02",
+      "name": "Probability above one",
+      "mutation": "Set a forecast probability to 1.01",
+      "expected_disposition": "reject-probability-out-of-range"
+    },
+    {
+      "case_id": "NEG-03",
+      "name": "Probability mass does not sum to one",
+      "mutation": "Increase one state's probability without renormalizing",
+      "expected_disposition": "reject-probability-mass"
+    },
+    {
+      "case_id": "NEG-04",
+      "name": "Missing state",
+      "mutation": "Remove one state mask from a forecast",
+      "expected_disposition": "reject-incomplete-state-space"
+    },
+    {
+      "case_id": "NEG-05",
+      "name": "Duplicate state mask",
+      "mutation": "Duplicate one state_mask",
+      "expected_disposition": "reject-duplicate-state-mask"
+    },
+    {
+      "case_id": "NEG-06",
+      "name": "State mask outside service dimension",
+      "mutation": "Set state_mask to 16",
+      "expected_disposition": "reject-unknown-state-mask"
+    },
+    {
+      "case_id": "NEG-07",
+      "name": "Observed state outside service dimension",
+      "mutation": "Set observed_breach_mask to 16",
+      "expected_disposition": "reject-invalid-observed-mask"
+    },
+    {
+      "case_id": "NEG-08",
+      "name": "Duplicate service ID",
+      "mutation": "Duplicate one service_id",
+      "expected_disposition": "reject-duplicate-service-id"
+    },
+    {
+      "case_id": "NEG-09",
+      "name": "Duplicate bit index",
+      "mutation": "Assign two services the same bit_index",
+      "expected_disposition": "reject-duplicate-bit-index"
+    },
+    {
+      "case_id": "NEG-10",
+      "name": "Duplicate case ID",
+      "mutation": "Duplicate a case_id",
+      "expected_disposition": "reject-duplicate-case-id"
+    },
+    {
+      "case_id": "NEG-11",
+      "name": "Empty case cohort",
+      "mutation": "Remove every evaluation case",
+      "expected_disposition": "reject-empty-case-cohort"
+    },
+    {
+      "case_id": "NEG-12",
+      "name": "Composite score injection",
+      "mutation": "Add overall_resilience_score to root",
+      "expected_disposition": "reject-composite-score"
+    },
+    {
+      "case_id": "NEG-13",
+      "name": "Missing forecast state distribution",
+      "mutation": "Remove candidate_output.forecast_distribution",
+      "expected_disposition": "reject-missing-joint-distribution"
+    }
+  ],
+  "expected_metrics": {
+    "case_count": 8,
+    "service_count": 4,
+    "state_count": 16,
+    "pair_count": 6,
+    "mean_multiclass_brier_score": 0.831745894923294,
+    "mean_joint_log_loss": 2.1113927996948494,
+    "zero_probability_observed_states": 0,
+    "mean_energy_score": 0.5200929682152707,
+    "mean_variogram_score": 0.23452752164886148,
+    "mean_pairwise_joint_breach_brier": 0.13428767029713268,
+    "per_case": [
+      {
+        "case_id": "JOINT-01",
+        "multiclass_brier_score": 0.7817763322054059,
+        "joint_log_loss": 1.9137609708218446,
+        "energy_score": 0.47475272747697483,
+        "variogram_score": 0.21976829377692722,
+        "pairwise_joint_breach_brier": 0.02349319241247506
+      },
+      {
+        "case_id": "JOINT-02",
+        "multiclass_brier_score": 0.7374416335318777,
+        "joint_log_loss": 1.7463491299547154,
+        "energy_score": 0.43086917067527486,
+        "variogram_score": 0.2076222008815423,
+        "pairwise_joint_breach_brier": 0.09795722115671444
+      },
+      {
+        "case_id": "JOINT-03",
+        "multiclass_brier_score": 0.9132142907506401,
+        "joint_log_loss": 2.4800577525047625,
+        "energy_score": 0.6123167228433639,
+        "variogram_score": 0.25562754865806453,
+        "pairwise_joint_breach_brier": 0.0809038251531792
+      },
+      {
+        "case_id": "JOINT-04",
+        "multiclass_brier_score": 0.9230411810238112,
+        "joint_log_loss": 2.4941432835427206,
+        "energy_score": 0.6063698761381285,
+        "variogram_score": 0.2615384423768418,
+        "pairwise_joint_breach_brier": 0.15346541512746395
+      },
+      {
+        "case_id": "JOINT-05",
+        "multiclass_brier_score": 0.8977892992167954,
+        "joint_log_loss": 2.3188279169574613,
+        "energy_score": 0.5762658613886533,
+        "variogram_score": 0.2520724432715243,
+        "pairwise_joint_breach_brier": 0.25169790861770425
+      },
+      {
+        "case_id": "JOINT-06",
+        "multiclass_brier_score": 0.8699154162570483,
+        "joint_log_loss": 2.2501081467215536,
+        "energy_score": 0.5603309047183983,
+        "variogram_score": 0.24506504692932,
+        "pairwise_joint_breach_brier": 0.26099471147586023
+      },
+      {
+        "case_id": "JOINT-07",
+        "multiclass_brier_score": 0.7458937614004978,
+        "joint_log_loss": 1.7766621715717006,
+        "energy_score": 0.43919323947053346,
+        "variogram_score": 0.2100554537183722,
+        "pairwise_joint_breach_brier": 0.1002888709712733
+      },
+      {
+        "case_id": "JOINT-08",
+        "multiclass_brier_score": 0.784895245000276,
+        "joint_log_loss": 1.911233025484036,
+        "energy_score": 0.46064524301083865,
+        "variogram_score": 0.22447074357829952,
+        "pairwise_joint_breach_brier": 0.10550021746239119
+      }
+    ],
+    "marginal_metrics": [
+      {
+        "service_id": "electricity_supply",
+        "observations": 8,
+        "breach_events": 5,
+        "mean_brier_score": 0.15970243501358514,
+        "mean_predicted_breach_probability": 0.5291548402585886,
+        "observed_breach_rate": 0.625
+      },
+      {
+        "service_id": "communications_access",
+        "observations": 8,
+        "breach_events": 4,
+        "mean_brier_score": 0.17117244035859122,
+        "mean_predicted_breach_probability": 0.56087374455894,
+        "observed_breach_rate": 0.5
+      },
+      {
+        "service_id": "water_service_continuity",
+        "observations": 8,
+        "breach_events": 4,
+        "mean_brier_score": 0.1690298246528384,
+        "mean_predicted_breach_probability": 0.5545293656290592,
+        "observed_breach_rate": 0.5
+      },
+      {
+        "service_id": "health_logistics_continuity",
+        "observations": 8,
+        "breach_events": 2,
+        "mean_brier_score": 0.17948404387654904,
+        "mean_predicted_breach_probability": 0.4903628962925071,
+        "observed_breach_rate": 0.25
+      }
+    ],
+    "pairwise_metrics": [
+      {
+        "service_a": "electricity_supply",
+        "service_b": "communications_access",
+        "mean_pairwise_joint_breach_brier": 0.1918767590876704,
+        "mean_predicted_joint_breach_probability": 0.3122707861572772,
+        "observed_joint_breach_rate": 0.375
+      },
+      {
+        "service_a": "electricity_supply",
+        "service_b": "water_service_continuity",
+        "mean_pairwise_joint_breach_brier": 0.1331683875528402,
+        "mean_predicted_joint_breach_probability": 0.2976000174135367,
+        "observed_joint_breach_rate": 0.25
+      },
+      {
+        "service_a": "electricity_supply",
+        "service_b": "health_logistics_continuity",
+        "mean_pairwise_joint_breach_brier": 0.1316641156866074,
+        "mean_predicted_joint_breach_probability": 0.25523340059931,
+        "observed_joint_breach_rate": 0.125
+      },
+      {
+        "service_a": "communications_access",
+        "service_b": "water_service_continuity",
+        "mean_pairwise_joint_breach_brier": 0.1401242113020201,
+        "mean_predicted_joint_breach_probability": 0.31010469049809153,
+        "observed_joint_breach_rate": 0.25
+      },
+      {
+        "service_a": "communications_access",
+        "service_b": "health_logistics_continuity",
+        "mean_pairwise_joint_breach_brier": 0.10456144212624198,
+        "mean_predicted_joint_breach_probability": 0.2758792059590504,
+        "observed_joint_breach_rate": 0.125
+      },
+      {
+        "service_a": "water_service_continuity",
+        "service_b": "health_logistics_continuity",
+        "mean_pairwise_joint_breach_brier": 0.10433110602741616,
+        "mean_predicted_joint_breach_probability": 0.28156937509721225,
+        "observed_joint_breach_rate": 0.125
+      }
+    ]
+  },
+  "round_trip_requirements": [
+    "Preserve service IDs, bit indexes and state encoding exactly.",
+    "Preserve every state mask and its probability without rounding or renormalizing.",
+    "Preserve observed joint state masks exactly.",
+    "Preserve forecast origin and horizon.",
+    "Preserve units and synthetic/observed/unknown claim state.",
+    "Preserve zero-probability observed states and infinite-log-loss disposition distinctly.",
+    "Preserve unknown namespaced extensions without interpretation or loss."
+  ],
+  "conformance_targets": {
+    "valid_fixture_acceptance": "100 percent",
+    "listed_negative_case_rejection": "100 percent",
+    "probability_mass_absolute_tolerance": 1e-12,
+    "golden_metric_absolute_tolerance": 1e-12,
+    "state_space_completeness": "exact",
+    "composite_or_personal_scores_accepted": 0
+  },
+  "limitations": [
+    "This fixture is public-development-only, not a hidden confirmation set.",
+    "Eight observations are far too few to establish calibration or real-world dependence structure.",
+    "A second independent implementation and third-party verifier are required.",
+    "The evaluator scores the joint distribution as submitted; it does not prove the simulator generated realistic dependence."
+  ]
+}
