@@ -148,6 +148,17 @@ The defensible ambition is a set of **locally optimized, functionally verified s
 
 The optimization target is not "maximum predicted yield". It is **verified improvement across a stated set of soil functions per unit cost and risk**, subject to non-compensable safety, legal, ecological, and community-governance constraints.
 
+## 9A. Data sources for local context
+
+Keep three source types separate:
+- The Soils4Africa 2026 field-observation CSV is a survey-context table; its published schema describes plot, location, land use, crop, erosion and management fields. The publisher says quality control is ongoing.
+- The Soils4Africa October 2026 release announcement separately describes more than 11,000 MIR-derived soil-property estimates from 21 countries; these model-derived values need explicit lineage and should not be labelled as wet-chemistry measurements.
+- The Soils4Africa field-observation release is a continental context source rather than a treatment-response dataset. Its published tableschema includes plot/location, date, country, land-use, crop, erosion, residue/manure/fertilizer and irrigation information. A 5 October 2026 ISRIC announcement separately describes >11,000 MIR-derived soil-property estimates across >6,100 locations in 21 countries. Preserve the estimate/model lineage and do not treat MIR-derived predictions as wet-chemistry observations.
+
+A separate South African regional reference is the Western Highveld paired NIR/MIR and reference-chemistry dataset (Kock & Van Zijl, 2026; Zenodo DOI 10.5281/zenodo.17510653). The data article describes 790 composite topsoil samples from cultivated grain fields sampled in winter 2020, with pH (KCl), Bray-1 P and exchangeable K/Ca/Mg/Na. A third-party dataset catalogue reports 803 samples, so the exact Zenodo CSV must be audited before selecting an expected row count. This is a local soil/spectroscopy reference, not natural ADE samples or a biochar-treatment dataset.
+
+These sources can stratify the African/South African research domain and help plan local sampling. None provides the outcome labels required to claim biochar efficacy.
+
 ## 10. Research references
 
 - Kern, D. C. et al. (2017). "Terras pretas: Approaches to formation processes in a new paradigm." *Geoarchaeology*. https://doi.org/10.1002/gea.21647
