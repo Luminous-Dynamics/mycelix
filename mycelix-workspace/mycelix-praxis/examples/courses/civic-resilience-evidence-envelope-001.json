@@ -661,7 +661,13 @@
       "nres:syntheticOnly": true,
       "prov:wasGeneratedBy": {
         "@id": "urn:mycelix:praxis:nres:006:activity:CYCLE-01"
-      }
+      },
+      "nres:linkedService": "public_information",
+      "prov:wasDerivedFrom": [
+        {
+          "@id": "urn:mycelix:praxis:nres:006:service-observation:CYCLE-01:public_information"
+        }
+      ]
     },
     {
       "@id": "urn:mycelix:praxis:nres:006:activity:verification:ACT-01",
@@ -745,7 +751,13 @@
       "nres:syntheticOnly": true,
       "prov:wasGeneratedBy": {
         "@id": "urn:mycelix:praxis:nres:006:activity:CYCLE-01"
-      }
+      },
+      "nres:linkedService": "welfare_check_coordination",
+      "prov:wasDerivedFrom": [
+        {
+          "@id": "urn:mycelix:praxis:nres:006:service-observation:CYCLE-01:welfare_check_coordination"
+        }
+      ]
     },
     {
       "@id": "urn:mycelix:praxis:nres:006:activity:verification:ACT-02",
@@ -829,7 +841,13 @@
       "nres:syntheticOnly": true,
       "prov:wasGeneratedBy": {
         "@id": "urn:mycelix:praxis:nres:006:activity:CYCLE-01"
-      }
+      },
+      "nres:linkedService": "health_logistics_continuity",
+      "prov:wasDerivedFrom": [
+        {
+          "@id": "urn:mycelix:praxis:nres:006:service-observation:CYCLE-01:health_logistics_continuity"
+        }
+      ]
     },
     {
       "@id": "urn:mycelix:praxis:nres:006:corrective-action:ACT-03",
