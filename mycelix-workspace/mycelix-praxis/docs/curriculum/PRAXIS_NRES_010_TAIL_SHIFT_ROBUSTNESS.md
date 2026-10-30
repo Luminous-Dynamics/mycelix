@@ -75,7 +75,7 @@ For forecasts that are issued, report:
 - reliability bins by forecast probability;
 - case coverage, importance-weighted coverage, forecast ESS, observed tail count and tail-event ESS.
 
-A zero assigned to an observed exceedance yields infinite log loss and is reported explicitly, not epsilon-clipped for the tail-support audit. The epsilon is only used for finite numerical log-loss calculations where the candidate probability is positive but near machine precision.
+A zero assigned to an observed exceedance yields infinite log loss and is reported explicitly, not epsilon-clipped for the tail-support audit. The log score is evaluated without clipping. A zero probability assigned to an observed exceedance is recorded as infinite log loss and reported with an explicit count.
 
 ### Conditional tail severity
 
