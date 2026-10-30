@@ -10,13 +10,14 @@
       "paper_uri": "https://doi.org/10.1038/s41597-023-02867-9",
       "version": "V1.0 / DOI version v1",
       "source_class": "literature_extracted_biochar_response",
-      "license_status": "reported_cc0_requires_landing_page_confirmation",
+      "license_status": "CSV CC0 1.0 reported by NLM dataset catalog; workbook CC0 1.0 confirmed on official Springer Nature Figshare listing; re-check current artifact terms before redistribution.",
       "permitted_research_use": "Exploratory and study-grouped meta-analysis only after source-key, treatment-arm, unit, and repeated-measure review.",
       "acquisition_status": "metadata_reviewed_not_downloaded",
       "limitations": [
         "Published descriptions report 2439 rows and 209 columns and refer to 367 source studies; these are metadata, not an independently audited sample count.",
         "The full workbook's Reference and Explanation and unit sheets must be obtained and reconciled with the CSV before confirmatory grouped evaluation.",
-        "Biochar-plus-fertilizer versus untreated contrasts do not by themselves identify an incremental biochar effect or fertilizer substitution."
+        "Biochar-plus-fertilizer versus untreated contrasts do not by themselves identify an incremental biochar effect or fertilizer substitution.",
+        "Published count discrepancy must be reconciled from the original files: the Nature HTML describes 2,439 rows and 209 columns; its article PDF abstract reports 2,438 items. The HTML also says 891 independent experiments including 700 under B and 314 under BF, whose subtotals sum to 1,014. Do not infer the correct counts or meanings without inspecting the exact CSV, workbook, and definitions."
       ],
       "artifacts": [
         {
@@ -24,24 +25,26 @@
           "role": "primary_csv",
           "filename": "BiocharDS_V1.0.csv",
           "expected_size_bytes": null,
-          "expected_rows": 2439,
+          "expected_rows": null,
           "expected_columns": 209,
           "publisher_md5": null,
           "sha256": null,
           "acquisition_status": "not_downloaded",
-          "license_status": "reported_cc0_requires_landing_page_confirmation"
+          "license_status": "CC0 1.0 reported by NLM Dataset Catalog; official CSV item page could not be retrieved in this session; reconfirm at acquisition.",
+          "source_uri": "https://doi.org/10.6084/m9.figshare.24781764.v1"
         },
         {
           "artifact_id": "biochards_full_workbook",
           "role": "source_reference_and_units_workbook",
-          "filename": null,
+          "filename": "BiocharDS_V1.0.xlsx",
           "expected_size_bytes": null,
           "expected_rows": null,
           "expected_columns": null,
           "publisher_md5": null,
           "sha256": null,
           "acquisition_status": "not_downloaded",
-          "license_status": "review_required"
+          "license_status": "CC0 1.0 confirmed on official Springer Nature Figshare listing.",
+          "source_uri": "https://doi.org/10.6084/m9.figshare.24781737"
         }
       ]
     },
@@ -70,7 +73,8 @@
           "publisher_md5": null,
           "sha256": null,
           "acquisition_status": "not_downloaded",
-          "license_status": "review_required"
+          "license_status": "review_required",
+          "source_uri": null
         }
       ]
     },
@@ -101,7 +105,8 @@
           "publisher_md5": "a6c32ae2839f6e6357c2973aba0dfb07",
           "sha256": null,
           "acquisition_status": "metadata_viewed_not_downloaded",
-          "license_status": "not_stated_in_retrieved_record_confirm_before_use"
+          "license_status": "not_stated_in_retrieved_record_confirm_before_use",
+          "source_uri": "https://zenodo.org/records/17699297/files/README.md?download=1"
         },
         {
           "artifact_id": "soils4africa_tableschema",
@@ -113,7 +118,8 @@
           "publisher_md5": "4cdfe065de45814241fff7e09a35a405",
           "sha256": null,
           "acquisition_status": "metadata_reviewed_not_downloaded",
-          "license_status": "not_stated_in_retrieved_record_confirm_before_use"
+          "license_status": "not_stated_in_retrieved_record_confirm_before_use",
+          "source_uri": "https://zenodo.org/records/17699297/files/s4a_field_data-tableschema.csv?download=1"
         },
         {
           "artifact_id": "soils4africa_field_csv",
@@ -125,7 +131,8 @@
           "publisher_md5": "23416634c2a7ae89e715980f77021229",
           "sha256": null,
           "acquisition_status": "download_attempt_failed",
-          "license_status": "not_stated_in_retrieved_record_confirm_before_use"
+          "license_status": "not_stated_in_retrieved_record_confirm_before_use",
+          "source_uri": "https://zenodo.org/records/17699297/files/s4a_field_data.csv?download=1"
         }
       ]
     }
