@@ -80,6 +80,46 @@ impl ReferenceMethod {
 
 #[derive(Clone, Copy, Debug, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
+enum ReferenceReviewStatus {
+    PendingIndependentReview,
+    IndependentlyReviewedBlinded,
+    SyntheticTestOnly,
+}
+
+impl ReferenceReviewStatus {
+    fn as_str(self) -> &'static str {
+        match self {
+            Self::PendingIndependentReview => "pending_independent_review",
+            Self::IndependentlyReviewedBlinded => "independently_reviewed_blinded",
+            Self::SyntheticTestOnly => "synthetic_test_only",
+        }
+    }
+
+    fn eligible(self) -> bool {
+        matches!(self, Self::IndependentlyReviewedBlinded)
+    }
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+enum ReferenceQualityStatus {
+    Qualified,
+    Unqualified,
+    Indeterminate,
+}
+
+impl ReferenceQualityStatus {
+    fn as_str(self) -> &'static str {
+        match self {
+            Self::Qualified => "qualified",
+            Self::Unqualified => "unqualified",
+            Self::Indeterminate => "indeterminate",
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
 enum ReferenceOutcome {
     SupportsBypass,
     DoesNotSupportBypass,
@@ -113,6 +153,9 @@ struct IndependentReference {
     profile_id: String,
     method: ReferenceMethod,
     outcome: ReferenceOutcome,
+    review_status: ReferenceReviewStatus,
+    quality_status: ReferenceQualityStatus,
+    reviewer_evidence_ref: Option<String>,
     evidence_ref: String,
     detection_limit_or_resolution: String,
 }
@@ -159,6 +202,9 @@ struct ReferenceResult {
     profile_id: String,
     method: &'static str,
     outcome: &'static str,
+    review_status: &'static str,
+    quality_status: &'static str,
+    reviewer_evidence_ref: Option<String>,
     evidence_ref: String,
     detection_limit_or_resolution: String,
 }
@@ -185,6 +231,11 @@ struct Report {
     velocity_indeterminate_count: usize,
     trajectory_indeterminate_count: usize,
     independent_reference_count: usize,
+    eligible_independent_reference_count: usize,
+    pending_review_reference_count: usize,
+    synthetic_reference_count: usize,
+    unqualified_reference_count: usize,
+    quality_indeterminate_reference_count: usize,
     reference_supporting_count: usize,
     reference_not_supporting_count: usize,
     reference_indeterminate_count: usize,
@@ -287,6 +338,21 @@ fn validate(input: &Input) -> Result<(), String> {
             &reference.detection_limit_or_resolution,
             &format!("independent_references[{index}].detection_limit_or_resolution"),
         )?;
+        match (reference.review_status, reference.reviewer_evidence_ref.as_deref()) {
+            (ReferenceReviewStatus::IndependentlyReviewedBlinded, Some(value))
+                if !value.trim().is_empty() => {}
+            (ReferenceReviewStatus::IndependentlyReviewedBlinded, _) => {
+                return Err(format!(
+                    "independent_references[{index}] blinded review requires reviewer_evidence_ref"
+                ));
+            }
+            (_, Some(value)) if value.trim().is_empty() => {
+                return Err(format!(
+                    "independent_references[{index}].reviewer_evidence_ref must not be blank when supplied"
+                ));
+            }
+            _ => {}
+        }
         if !reference_ids.insert(reference.reference_id.as_str()) {
             return Err(format!("duplicate reference_id {:?}", reference.reference_id));
         }
@@ -369,14 +435,34 @@ fn evaluate(input: &Input, input_sha256: String) -> Result<Report, String> {
     let mut ref_supporting = 0usize;
     let mut ref_not_supporting = 0usize;
     let mut ref_indeterminate = 0usize;
+    let mut eligible_reference_count = 0usize;
+    let mut pending_review_count = 0usize;
+    let mut synthetic_reference_count = 0usize;
+    let mut unqualified_reference_count = 0usize;
+    let mut quality_indeterminate_reference_count = 0usize;
     let independent_references: Vec<_> = input
         .independent_references
         .iter()
         .map(|reference| {
-            match reference.outcome {
-                ReferenceOutcome::SupportsBypass => ref_supporting += 1,
-                ReferenceOutcome::DoesNotSupportBypass => ref_not_supporting += 1,
-                ReferenceOutcome::Indeterminate => ref_indeterminate += 1,
+            let eligible = reference.review_status.eligible()
+                && reference.quality_status == ReferenceQualityStatus::Qualified;
+            match reference.review_status {
+                ReferenceReviewStatus::PendingIndependentReview => pending_review_count += 1,
+                ReferenceReviewStatus::SyntheticTestOnly => synthetic_reference_count += 1,
+                ReferenceReviewStatus::IndependentlyReviewedBlinded => {}
+            }
+            if reference.quality_status == ReferenceQualityStatus::Unqualified {
+                unqualified_reference_count += 1;
+            } else if reference.quality_status == ReferenceQualityStatus::Indeterminate {
+                quality_indeterminate_reference_count += 1;
+            }
+            if eligible {
+                eligible_reference_count += 1;
+                match reference.outcome {
+                    ReferenceOutcome::SupportsBypass => ref_supporting += 1,
+                    ReferenceOutcome::DoesNotSupportBypass => ref_not_supporting += 1,
+                    ReferenceOutcome::Indeterminate => ref_indeterminate += 1,
+                }
             }
             ReferenceResult {
                 reference_id: reference.reference_id.clone(),
@@ -384,21 +470,28 @@ fn evaluate(input: &Input, input_sha256: String) -> Result<Report, String> {
                 profile_id: reference.profile_id.clone(),
                 method: reference.method.as_str(),
                 outcome: reference.outcome.as_str(),
+                review_status: reference.review_status.as_str(),
+                quality_status: reference.quality_status.as_str(),
+                reviewer_evidence_ref: reference.reviewer_evidence_ref.clone(),
                 evidence_ref: reference.evidence_ref.clone(),
                 detection_limit_or_resolution: reference.detection_limit_or_resolution.clone(),
             }
         })
         .collect();
 
-    let reference_state = reference_assessment(ref_supporting, ref_not_supporting, ref_indeterminate);
+    let reference_state = if eligible_reference_count == 0 {
+        "no_eligible_independent_reference"
+    } else {
+        reference_assessment(ref_supporting, ref_not_supporting, ref_indeterminate)
+    };
     let physical_claim_status = match reference_state {
-        "supports_bypass" => "independent_reference_support_present",
-        "supports_bypass_with_indeterminate_references" => "independent_reference_support_present_with_unresolved_evidence",
-        "does_not_support_bypass" => "independent_reference_does_not_support_bypass",
-        "does_not_support_bypass_with_indeterminate_references" => "independent_reference_non_support_with_unresolved_evidence",
-        "conflicting_independent_references" => "conflicting_independent_reference_evidence",
-        "indeterminate_references_only" => "independent_reference_indeterminate",
-        _ => "not_adjudicated_no_independent_reference",
+        "supports_bypass" => "reviewed_reference_support_present",
+        "supports_bypass_with_indeterminate_references" => "reviewed_reference_support_with_unresolved_evidence",
+        "does_not_support_bypass" => "reviewed_reference_does_not_support_bypass",
+        "does_not_support_bypass_with_indeterminate_references" => "reviewed_reference_non_support_with_unresolved_evidence",
+        "conflicting_independent_references" => "conflicting_reviewed_reference_evidence",
+        "indeterminate_references_only" => "reviewed_reference_indeterminate",
+        _ => "not_adjudicated_no_eligible_independent_reference",
     };
 
     Ok(Report {
@@ -422,6 +515,11 @@ fn evaluate(input: &Input, input_sha256: String) -> Result<Report, String> {
         velocity_indeterminate_count: velocity_indeterminate,
         trajectory_indeterminate_count: trajectory_indeterminate,
         independent_reference_count: input.independent_references.len(),
+        eligible_independent_reference_count: eligible_reference_count,
+        pending_review_reference_count: pending_review_count,
+        synthetic_reference_count: synthetic_reference_count,
+        unqualified_reference_count: unqualified_reference_count,
+        quality_indeterminate_reference_count: quality_indeterminate_reference_count,
         reference_supporting_count: ref_supporting,
         reference_not_supporting_count: ref_not_supporting,
         reference_indeterminate_count: ref_indeterminate,
@@ -440,7 +538,7 @@ fn evaluate(input: &Input, input_sha256: String) -> Result<Report, String> {
             "No majority vote or weighted consensus is computed across VT, NSR and trajectory signatures.".to_owned(),
             "NSR is profile-level while VT and trajectory proxies are sensor-level; this report preserves the NSR profile signature separately.".to_owned(),
             "Agreement between proxy methods is not independent validation because the methods may share sensor inputs, preprocessing and hydraulic priors.".to_owned(),
-            "Physical claim status is derived only from the declared independent references; reference evidence is not automatically validated by this aggregator.".to_owned(),
+            "Physical claim status uses only independent references explicitly marked independently_reviewed_blinded and quality_status=qualified; self-declared, pending or synthetic references cannot adjudicate field claims.".to_owned(),
             "Method artifact SHA-256 values are recorded as supplied; this tool does not open or independently verify the referenced report files.".to_owned(),
             "Different tracer/geophysical methods have different detection limits and spatial supports; preserve each reference record and do not treat the summary as a universal gold standard.".to_owned(),
         ],
