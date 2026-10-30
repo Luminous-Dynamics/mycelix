@@ -419,7 +419,7 @@ mod tests {
         assert_eq!(report.pointer("/counts/issued_forecasts").and_then(Value::as_u64), Some(20));
         assert_eq!(report.pointer("/counts/mandatory_abstentions").and_then(Value::as_u64), Some(4));
         assert_eq!(report.pointer("/counts/optional_abstentions").and_then(Value::as_u64), Some(1));
-        assert_eq!(report.pointer("/proper_scores/brier_score").and_then(Value::as_f64), Some(0.1604));
+        assert!((report.pointer("/proper_scores/brier_score").and_then(Value::as_f64).unwrap() - 0.1604).abs() < 1e-12);
         assert!(report.get("overall_resilience_score").is_none());
     }
 
