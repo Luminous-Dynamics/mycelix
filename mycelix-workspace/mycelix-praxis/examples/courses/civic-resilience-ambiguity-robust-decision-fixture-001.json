@@ -124,8 +124,8 @@
     "probability_interval": "[max(0,p-rho), min(1,p+rho)]",
     "ambiguity_metric": "total_variation_distance_between_bernoulli_event_distributions",
     "nominal_policy": "prepare if point probability >= profile cost/loss threshold; otherwise no_action",
-    "worst_case_expected_loss_policy": "choose the action with the lower maximum expected loss over q in [lower,upper]; ties choose no_action",
-    "minimax_regret_policy": "choose the action with the lower maximum regret over q in [lower,upper]; ties choose no_action",
+    "worst_case_expected_loss_policy": "choose the action with the lower maximum expected loss over q in [lower,upper]; exact ties choose no_action",
+    "minimax_regret_policy": "choose the action with the lower maximum regret over q in [lower,upper]; exact ties choose no_action",
     "worst_case_regret": "no_action regret=max(0, upper*(L0-L1)-C); prepare regret=max(0, C-lower*(L0-L1))",
     "review_policy": "all abstentions use the evaluator-owned review_fallback_action plus the profile deferral cost",
     "baseline_policies": [
@@ -142,7 +142,7 @@
   "evaluation_cases": [
     {
       "case_id": "NRES012-NRES011-IN_DISTRIBUTION-01",
-      "source_case_id": "IN_DISTRIBUTION-01",
+      "source_case_id": "NRES011-IN_DISTRIBUTION-01",
       "regime_id": "in_distribution",
       "sampling_stratum": "routine",
       "proposal_stratum_probability": 0.75,
@@ -161,11 +161,12 @@
         "probability_upper": 0.025,
         "ambiguity_radius": 0.01,
         "abstention_reason": null
-      }
+      },
+      "nres010_source_case_id": "IN_DISTRIBUTION-01"
     },
     {
       "case_id": "NRES012-NRES011-IN_DISTRIBUTION-02",
-      "source_case_id": "IN_DISTRIBUTION-02",
+      "source_case_id": "NRES011-IN_DISTRIBUTION-02",
       "regime_id": "in_distribution",
       "sampling_stratum": "routine",
       "proposal_stratum_probability": 0.75,
@@ -184,11 +185,12 @@
         "probability_upper": 0.033,
         "ambiguity_radius": 0.01,
         "abstention_reason": null
-      }
+      },
+      "nres010_source_case_id": "IN_DISTRIBUTION-02"
     },
     {
       "case_id": "NRES012-NRES011-IN_DISTRIBUTION-03",
-      "source_case_id": "IN_DISTRIBUTION-03",
+      "source_case_id": "NRES011-IN_DISTRIBUTION-03",
       "regime_id": "in_distribution",
       "sampling_stratum": "routine",
       "proposal_stratum_probability": 0.75,
@@ -207,11 +209,12 @@
         "probability_upper": 0.041,
         "ambiguity_radius": 0.01,
         "abstention_reason": null
-      }
+      },
+      "nres010_source_case_id": "IN_DISTRIBUTION-03"
     },
     {
       "case_id": "NRES012-NRES011-IN_DISTRIBUTION-04",
-      "source_case_id": "IN_DISTRIBUTION-04",
+      "source_case_id": "NRES011-IN_DISTRIBUTION-04",
       "regime_id": "in_distribution",
       "sampling_stratum": "routine",
       "proposal_stratum_probability": 0.75,
@@ -230,11 +233,12 @@
         "probability_upper": 0.049,
         "ambiguity_radius": 0.01,
         "abstention_reason": null
-      }
+      },
+      "nres010_source_case_id": "IN_DISTRIBUTION-04"
     },
     {
       "case_id": "NRES012-NRES011-IN_DISTRIBUTION-05",
-      "source_case_id": "IN_DISTRIBUTION-05",
+      "source_case_id": "NRES011-IN_DISTRIBUTION-05",
       "regime_id": "in_distribution",
       "sampling_stratum": "routine",
       "proposal_stratum_probability": 0.75,
@@ -253,11 +257,12 @@
         "probability_upper": 0.057,
         "ambiguity_radius": 0.01,
         "abstention_reason": null
-      }
+      },
+      "nres010_source_case_id": "IN_DISTRIBUTION-05"
     },
     {
       "case_id": "NRES012-NRES011-IN_DISTRIBUTION-06",
-      "source_case_id": "IN_DISTRIBUTION-06",
+      "source_case_id": "NRES011-IN_DISTRIBUTION-06",
       "regime_id": "in_distribution",
       "sampling_stratum": "routine",
       "proposal_stratum_probability": 0.75,
@@ -276,11 +281,12 @@
         "probability_upper": 0.065,
         "ambiguity_radius": 0.01,
         "abstention_reason": null
-      }
+      },
+      "nres010_source_case_id": "IN_DISTRIBUTION-06"
     },
     {
       "case_id": "NRES012-NRES011-IN_DISTRIBUTION-07",
-      "source_case_id": "IN_DISTRIBUTION-07",
+      "source_case_id": "NRES011-IN_DISTRIBUTION-07",
       "regime_id": "in_distribution",
       "sampling_stratum": "routine",
       "proposal_stratum_probability": 0.75,
@@ -299,11 +305,12 @@
         "probability_upper": 0.025,
         "ambiguity_radius": 0.01,
         "abstention_reason": null
-      }
+      },
+      "nres010_source_case_id": "IN_DISTRIBUTION-07"
     },
     {
       "case_id": "NRES012-NRES011-IN_DISTRIBUTION-08",
-      "source_case_id": "IN_DISTRIBUTION-08",
+      "source_case_id": "NRES011-IN_DISTRIBUTION-08",
       "regime_id": "in_distribution",
       "sampling_stratum": "routine",
       "proposal_stratum_probability": 0.75,
@@ -322,11 +329,12 @@
         "probability_upper": 0.033,
         "ambiguity_radius": 0.01,
         "abstention_reason": null
-      }
+      },
+      "nres010_source_case_id": "IN_DISTRIBUTION-08"
     },
     {
       "case_id": "NRES012-NRES011-IN_DISTRIBUTION-09",
-      "source_case_id": "IN_DISTRIBUTION-09",
+      "source_case_id": "NRES011-IN_DISTRIBUTION-09",
       "regime_id": "in_distribution",
       "sampling_stratum": "routine",
       "proposal_stratum_probability": 0.75,
@@ -345,11 +353,12 @@
         "probability_upper": 0.041,
         "ambiguity_radius": 0.01,
         "abstention_reason": null
-      }
+      },
+      "nres010_source_case_id": "IN_DISTRIBUTION-09"
     },
     {
       "case_id": "NRES012-NRES011-IN_DISTRIBUTION-10",
-      "source_case_id": "IN_DISTRIBUTION-10",
+      "source_case_id": "NRES011-IN_DISTRIBUTION-10",
       "regime_id": "in_distribution",
       "sampling_stratum": "routine",
       "proposal_stratum_probability": 0.75,
@@ -368,11 +377,12 @@
         "probability_upper": 0.049,
         "ambiguity_radius": 0.01,
         "abstention_reason": null
-      }
+      },
+      "nres010_source_case_id": "IN_DISTRIBUTION-10"
     },
     {
       "case_id": "NRES012-NRES011-IN_DISTRIBUTION-11",
-      "source_case_id": "IN_DISTRIBUTION-11",
+      "source_case_id": "NRES011-IN_DISTRIBUTION-11",
       "regime_id": "in_distribution",
       "sampling_stratum": "routine",
       "proposal_stratum_probability": 0.75,
@@ -391,11 +401,12 @@
         "probability_upper": 0.057,
         "ambiguity_radius": 0.01,
         "abstention_reason": null
-      }
+      },
+      "nres010_source_case_id": "IN_DISTRIBUTION-11"
     },
     {
       "case_id": "NRES012-NRES011-IN_DISTRIBUTION-12",
-      "source_case_id": "IN_DISTRIBUTION-12",
+      "source_case_id": "NRES011-IN_DISTRIBUTION-12",
       "regime_id": "in_distribution",
       "sampling_stratum": "routine",
       "proposal_stratum_probability": 0.75,
@@ -414,11 +425,12 @@
         "probability_upper": 0.065,
         "ambiguity_radius": 0.01,
         "abstention_reason": null
-      }
+      },
+      "nres010_source_case_id": "IN_DISTRIBUTION-12"
     },
     {
       "case_id": "NRES012-NRES011-IN_DISTRIBUTION-13",
-      "source_case_id": "IN_DISTRIBUTION-13",
+      "source_case_id": "NRES011-IN_DISTRIBUTION-13",
       "regime_id": "in_distribution",
       "sampling_stratum": "routine",
       "proposal_stratum_probability": 0.75,
@@ -437,11 +449,12 @@
         "probability_upper": 0.025,
         "ambiguity_radius": 0.01,
         "abstention_reason": null
-      }
+      },
+      "nres010_source_case_id": "IN_DISTRIBUTION-13"
     },
     {
       "case_id": "NRES012-NRES011-IN_DISTRIBUTION-14",
-      "source_case_id": "IN_DISTRIBUTION-14",
+      "source_case_id": "NRES011-IN_DISTRIBUTION-14",
       "regime_id": "in_distribution",
       "sampling_stratum": "routine",
       "proposal_stratum_probability": 0.75,
@@ -460,11 +473,12 @@
         "probability_upper": 0.033,
         "ambiguity_radius": 0.01,
         "abstention_reason": null
-      }
+      },
+      "nres010_source_case_id": "IN_DISTRIBUTION-14"
     },
     {
       "case_id": "NRES012-NRES011-IN_DISTRIBUTION-15",
-      "source_case_id": "IN_DISTRIBUTION-15",
+      "source_case_id": "NRES011-IN_DISTRIBUTION-15",
       "regime_id": "in_distribution",
       "sampling_stratum": "routine",
       "proposal_stratum_probability": 0.75,
@@ -483,11 +497,12 @@
         "probability_upper": 0.041,
         "ambiguity_radius": 0.01,
         "abstention_reason": null
-      }
+      },
+      "nres010_source_case_id": "IN_DISTRIBUTION-15"
     },
     {
       "case_id": "NRES012-NRES011-IN_DISTRIBUTION-16",
-      "source_case_id": "IN_DISTRIBUTION-16",
+      "source_case_id": "NRES011-IN_DISTRIBUTION-16",
       "regime_id": "in_distribution",
       "sampling_stratum": "routine",
       "proposal_stratum_probability": 0.75,
@@ -506,11 +521,12 @@
         "probability_upper": 0.049,
         "ambiguity_radius": 0.01,
         "abstention_reason": null
-      }
+      },
+      "nres010_source_case_id": "IN_DISTRIBUTION-16"
     },
     {
       "case_id": "NRES012-NRES011-IN_DISTRIBUTION-17",
-      "source_case_id": "IN_DISTRIBUTION-17",
+      "source_case_id": "NRES011-IN_DISTRIBUTION-17",
       "regime_id": "in_distribution",
       "sampling_stratum": "routine",
       "proposal_stratum_probability": 0.75,
@@ -529,11 +545,12 @@
         "probability_upper": 0.057,
         "ambiguity_radius": 0.01,
         "abstention_reason": null
-      }
+      },
+      "nres010_source_case_id": "IN_DISTRIBUTION-17"
     },
     {
       "case_id": "NRES012-NRES011-IN_DISTRIBUTION-18",
-      "source_case_id": "IN_DISTRIBUTION-18",
+      "source_case_id": "NRES011-IN_DISTRIBUTION-18",
       "regime_id": "in_distribution",
       "sampling_stratum": "routine",
       "proposal_stratum_probability": 0.75,
@@ -552,11 +569,12 @@
         "probability_upper": 0.065,
         "ambiguity_radius": 0.01,
         "abstention_reason": null
-      }
+      },
+      "nres010_source_case_id": "IN_DISTRIBUTION-18"
     },
     {
       "case_id": "NRES012-NRES011-IN_DISTRIBUTION-19",
-      "source_case_id": "IN_DISTRIBUTION-19",
+      "source_case_id": "NRES011-IN_DISTRIBUTION-19",
       "regime_id": "in_distribution",
       "sampling_stratum": "routine",
       "proposal_stratum_probability": 0.75,
@@ -575,11 +593,12 @@
         "probability_upper": 0.025,
         "ambiguity_radius": 0.01,
         "abstention_reason": null
-      }
+      },
+      "nres010_source_case_id": "IN_DISTRIBUTION-19"
     },
     {
       "case_id": "NRES012-NRES011-IN_DISTRIBUTION-20",
-      "source_case_id": "IN_DISTRIBUTION-20",
+      "source_case_id": "NRES011-IN_DISTRIBUTION-20",
       "regime_id": "in_distribution",
       "sampling_stratum": "routine",
       "proposal_stratum_probability": 0.75,
@@ -598,11 +617,12 @@
         "probability_upper": 0.033,
         "ambiguity_radius": 0.01,
         "abstention_reason": null
-      }
+      },
+      "nres010_source_case_id": "IN_DISTRIBUTION-20"
     },
     {
       "case_id": "NRES012-NRES011-IN_DISTRIBUTION-21",
-      "source_case_id": "IN_DISTRIBUTION-21",
+      "source_case_id": "NRES011-IN_DISTRIBUTION-21",
       "regime_id": "in_distribution",
       "sampling_stratum": "routine",
       "proposal_stratum_probability": 0.75,
@@ -621,11 +641,12 @@
         "probability_upper": 0.041,
         "ambiguity_radius": 0.01,
         "abstention_reason": null
-      }
+      },
+      "nres010_source_case_id": "IN_DISTRIBUTION-21"
     },
     {
       "case_id": "NRES012-NRES011-IN_DISTRIBUTION-22",
-      "source_case_id": "IN_DISTRIBUTION-22",
+      "source_case_id": "NRES011-IN_DISTRIBUTION-22",
       "regime_id": "in_distribution",
       "sampling_stratum": "routine",
       "proposal_stratum_probability": 0.75,
@@ -644,11 +665,12 @@
         "probability_upper": 0.049,
         "ambiguity_radius": 0.01,
         "abstention_reason": null
-      }
+      },
+      "nres010_source_case_id": "IN_DISTRIBUTION-22"
     },
     {
       "case_id": "NRES012-NRES011-IN_DISTRIBUTION-23",
-      "source_case_id": "IN_DISTRIBUTION-23",
+      "source_case_id": "NRES011-IN_DISTRIBUTION-23",
       "regime_id": "in_distribution",
       "sampling_stratum": "routine",
       "proposal_stratum_probability": 0.75,
@@ -667,11 +689,12 @@
         "probability_upper": 0.057,
         "ambiguity_radius": 0.01,
         "abstention_reason": null
-      }
+      },
+      "nres010_source_case_id": "IN_DISTRIBUTION-23"
     },
     {
       "case_id": "NRES012-NRES011-IN_DISTRIBUTION-24",
-      "source_case_id": "IN_DISTRIBUTION-24",
+      "source_case_id": "NRES011-IN_DISTRIBUTION-24",
       "regime_id": "in_distribution",
       "sampling_stratum": "routine",
       "proposal_stratum_probability": 0.75,
@@ -690,11 +713,12 @@
         "probability_upper": 0.065,
         "ambiguity_radius": 0.01,
         "abstention_reason": null
-      }
+      },
+      "nres010_source_case_id": "IN_DISTRIBUTION-24"
     },
     {
       "case_id": "NRES012-NRES011-IN_DISTRIBUTION-25",
-      "source_case_id": "IN_DISTRIBUTION-25",
+      "source_case_id": "NRES011-IN_DISTRIBUTION-25",
       "regime_id": "in_distribution",
       "sampling_stratum": "tail_enriched",
       "proposal_stratum_probability": 0.25,
@@ -713,11 +737,12 @@
         "probability_upper": 0.13,
         "ambiguity_radius": 0.01,
         "abstention_reason": null
-      }
+      },
+      "nres010_source_case_id": "IN_DISTRIBUTION-25"
     },
     {
       "case_id": "NRES012-NRES011-IN_DISTRIBUTION-26",
-      "source_case_id": "IN_DISTRIBUTION-26",
+      "source_case_id": "NRES011-IN_DISTRIBUTION-26",
       "regime_id": "in_distribution",
       "sampling_stratum": "tail_enriched",
       "proposal_stratum_probability": 0.25,
@@ -736,11 +761,12 @@
         "probability_upper": 0.19,
         "ambiguity_radius": 0.01,
         "abstention_reason": null
-      }
+      },
+      "nres010_source_case_id": "IN_DISTRIBUTION-26"
     },
     {
       "case_id": "NRES012-NRES011-IN_DISTRIBUTION-27",
-      "source_case_id": "IN_DISTRIBUTION-27",
+      "source_case_id": "NRES011-IN_DISTRIBUTION-27",
       "regime_id": "in_distribution",
       "sampling_stratum": "tail_enriched",
       "proposal_stratum_probability": 0.25,
@@ -759,11 +785,12 @@
         "probability_upper": 0.25,
         "ambiguity_radius": 0.01,
         "abstention_reason": null
-      }
+      },
+      "nres010_source_case_id": "IN_DISTRIBUTION-27"
     },
     {
       "case_id": "NRES012-NRES011-IN_DISTRIBUTION-28",
-      "source_case_id": "IN_DISTRIBUTION-28",
+      "source_case_id": "NRES011-IN_DISTRIBUTION-28",
       "regime_id": "in_distribution",
       "sampling_stratum": "tail_enriched",
       "proposal_stratum_probability": 0.25,
@@ -782,11 +809,12 @@
         "probability_upper": 0.31,
         "ambiguity_radius": 0.01,
         "abstention_reason": null
-      }
+      },
+      "nres010_source_case_id": "IN_DISTRIBUTION-28"
     },
     {
       "case_id": "NRES012-NRES011-IN_DISTRIBUTION-29",
-      "source_case_id": "IN_DISTRIBUTION-29",
+      "source_case_id": "NRES011-IN_DISTRIBUTION-29",
       "regime_id": "in_distribution",
       "sampling_stratum": "tail_enriched",
       "proposal_stratum_probability": 0.25,
@@ -805,11 +833,12 @@
         "probability_upper": 0.13,
         "ambiguity_radius": 0.01,
         "abstention_reason": null
-      }
+      },
+      "nres010_source_case_id": "IN_DISTRIBUTION-29"
     },
     {
       "case_id": "NRES012-NRES011-IN_DISTRIBUTION-30",
-      "source_case_id": "IN_DISTRIBUTION-30",
+      "source_case_id": "NRES011-IN_DISTRIBUTION-30",
       "regime_id": "in_distribution",
       "sampling_stratum": "tail_enriched",
       "proposal_stratum_probability": 0.25,
@@ -828,11 +857,12 @@
         "probability_upper": 0.19,
         "ambiguity_radius": 0.01,
         "abstention_reason": null
-      }
+      },
+      "nres010_source_case_id": "IN_DISTRIBUTION-30"
     },
     {
       "case_id": "NRES012-NRES011-IN_DISTRIBUTION-31",
-      "source_case_id": "IN_DISTRIBUTION-31",
+      "source_case_id": "NRES011-IN_DISTRIBUTION-31",
       "regime_id": "in_distribution",
       "sampling_stratum": "tail_enriched",
       "proposal_stratum_probability": 0.25,
@@ -851,11 +881,12 @@
         "probability_upper": 0.25,
         "ambiguity_radius": 0.01,
         "abstention_reason": null
-      }
+      },
+      "nres010_source_case_id": "IN_DISTRIBUTION-31"
     },
     {
       "case_id": "NRES012-NRES011-IN_DISTRIBUTION-32",
-      "source_case_id": "IN_DISTRIBUTION-32",
+      "source_case_id": "NRES011-IN_DISTRIBUTION-32",
       "regime_id": "in_distribution",
       "sampling_stratum": "tail_enriched",
       "proposal_stratum_probability": 0.25,
@@ -874,11 +905,12 @@
         "probability_upper": 0.31,
         "ambiguity_radius": 0.01,
         "abstention_reason": null
-      }
+      },
+      "nres010_source_case_id": "IN_DISTRIBUTION-32"
     },
     {
       "case_id": "NRES012-NRES011-TEMPORAL_SHIFT-01",
-      "source_case_id": "TEMPORAL_SHIFT-01",
+      "source_case_id": "NRES011-TEMPORAL_SHIFT-01",
       "regime_id": "temporal_shift",
       "sampling_stratum": "routine",
       "proposal_stratum_probability": 0.75,
@@ -897,11 +929,12 @@
         "probability_upper": 0.065,
         "ambiguity_radius": 0.03,
         "abstention_reason": null
-      }
+      },
+      "nres010_source_case_id": "TEMPORAL_SHIFT-01"
     },
     {
       "case_id": "NRES012-NRES011-TEMPORAL_SHIFT-02",
-      "source_case_id": "TEMPORAL_SHIFT-02",
+      "source_case_id": "NRES011-TEMPORAL_SHIFT-02",
       "regime_id": "temporal_shift",
       "sampling_stratum": "routine",
       "proposal_stratum_probability": 0.75,
@@ -920,11 +953,12 @@
         "probability_upper": 0.073,
         "ambiguity_radius": 0.03,
         "abstention_reason": null
-      }
+      },
+      "nres010_source_case_id": "TEMPORAL_SHIFT-02"
     },
     {
       "case_id": "NRES012-NRES011-TEMPORAL_SHIFT-03",
-      "source_case_id": "TEMPORAL_SHIFT-03",
+      "source_case_id": "NRES011-TEMPORAL_SHIFT-03",
       "regime_id": "temporal_shift",
       "sampling_stratum": "routine",
       "proposal_stratum_probability": 0.75,
@@ -943,11 +977,12 @@
         "probability_upper": 0.081,
         "ambiguity_radius": 0.03,
         "abstention_reason": null
-      }
+      },
+      "nres010_source_case_id": "TEMPORAL_SHIFT-03"
     },
     {
       "case_id": "NRES012-NRES011-TEMPORAL_SHIFT-04",
-      "source_case_id": "TEMPORAL_SHIFT-04",
+      "source_case_id": "NRES011-TEMPORAL_SHIFT-04",
       "regime_id": "temporal_shift",
       "sampling_stratum": "routine",
       "proposal_stratum_probability": 0.75,
@@ -966,11 +1001,12 @@
         "probability_upper": 0.089,
         "ambiguity_radius": 0.03,
         "abstention_reason": null
-      }
+      },
+      "nres010_source_case_id": "TEMPORAL_SHIFT-04"
     },
     {
       "case_id": "NRES012-NRES011-TEMPORAL_SHIFT-05",
-      "source_case_id": "TEMPORAL_SHIFT-05",
+      "source_case_id": "NRES011-TEMPORAL_SHIFT-05",
       "regime_id": "temporal_shift",
       "sampling_stratum": "routine",
       "proposal_stratum_probability": 0.75,
@@ -989,11 +1025,12 @@
         "probability_upper": 0.097,
         "ambiguity_radius": 0.03,
         "abstention_reason": null
-      }
+      },
+      "nres010_source_case_id": "TEMPORAL_SHIFT-05"
     },
     {
       "case_id": "NRES012-NRES011-TEMPORAL_SHIFT-06",
-      "source_case_id": "TEMPORAL_SHIFT-06",
+      "source_case_id": "NRES011-TEMPORAL_SHIFT-06",
       "regime_id": "temporal_shift",
       "sampling_stratum": "routine",
       "proposal_stratum_probability": 0.75,
@@ -1012,11 +1049,12 @@
         "probability_upper": 0.105,
         "ambiguity_radius": 0.03,
         "abstention_reason": null
-      }
+      },
+      "nres010_source_case_id": "TEMPORAL_SHIFT-06"
     },
     {
       "case_id": "NRES012-NRES011-TEMPORAL_SHIFT-07",
-      "source_case_id": "TEMPORAL_SHIFT-07",
+      "source_case_id": "NRES011-TEMPORAL_SHIFT-07",
       "regime_id": "temporal_shift",
       "sampling_stratum": "routine",
       "proposal_stratum_probability": 0.75,
@@ -1035,11 +1073,12 @@
         "probability_upper": 0.065,
         "ambiguity_radius": 0.03,
         "abstention_reason": null
-      }
+      },
+      "nres010_source_case_id": "TEMPORAL_SHIFT-07"
     },
     {
       "case_id": "NRES012-NRES011-TEMPORAL_SHIFT-08",
-      "source_case_id": "TEMPORAL_SHIFT-08",
+      "source_case_id": "NRES011-TEMPORAL_SHIFT-08",
       "regime_id": "temporal_shift",
       "sampling_stratum": "routine",
       "proposal_stratum_probability": 0.75,
@@ -1058,11 +1097,12 @@
         "probability_upper": 0.073,
         "ambiguity_radius": 0.03,
         "abstention_reason": null
-      }
+      },
+      "nres010_source_case_id": "TEMPORAL_SHIFT-08"
     },
     {
       "case_id": "NRES012-NRES011-TEMPORAL_SHIFT-09",
-      "source_case_id": "TEMPORAL_SHIFT-09",
+      "source_case_id": "NRES011-TEMPORAL_SHIFT-09",
       "regime_id": "temporal_shift",
       "sampling_stratum": "routine",
       "proposal_stratum_probability": 0.75,
@@ -1081,11 +1121,12 @@
         "probability_upper": 0.081,
         "ambiguity_radius": 0.03,
         "abstention_reason": null
-      }
+      },
+      "nres010_source_case_id": "TEMPORAL_SHIFT-09"
     },
     {
       "case_id": "NRES012-NRES011-TEMPORAL_SHIFT-10",
-      "source_case_id": "TEMPORAL_SHIFT-10",
+      "source_case_id": "NRES011-TEMPORAL_SHIFT-10",
       "regime_id": "temporal_shift",
       "sampling_stratum": "routine",
       "proposal_stratum_probability": 0.75,
@@ -1104,11 +1145,12 @@
         "probability_upper": 0.089,
         "ambiguity_radius": 0.03,
         "abstention_reason": null
-      }
+      },
+      "nres010_source_case_id": "TEMPORAL_SHIFT-10"
     },
     {
       "case_id": "NRES012-NRES011-TEMPORAL_SHIFT-11",
-      "source_case_id": "TEMPORAL_SHIFT-11",
+      "source_case_id": "NRES011-TEMPORAL_SHIFT-11",
       "regime_id": "temporal_shift",
       "sampling_stratum": "routine",
       "proposal_stratum_probability": 0.75,
@@ -1127,11 +1169,12 @@
         "probability_upper": 0.097,
         "ambiguity_radius": 0.03,
         "abstention_reason": null
-      }
+      },
+      "nres010_source_case_id": "TEMPORAL_SHIFT-11"
     },
     {
       "case_id": "NRES012-NRES011-TEMPORAL_SHIFT-12",
-      "source_case_id": "TEMPORAL_SHIFT-12",
+      "source_case_id": "NRES011-TEMPORAL_SHIFT-12",
       "regime_id": "temporal_shift",
       "sampling_stratum": "routine",
       "proposal_stratum_probability": 0.75,
@@ -1150,11 +1193,12 @@
         "probability_upper": 0.105,
         "ambiguity_radius": 0.03,
         "abstention_reason": null
-      }
+      },
+      "nres010_source_case_id": "TEMPORAL_SHIFT-12"
     },
     {
       "case_id": "NRES012-NRES011-TEMPORAL_SHIFT-13",
-      "source_case_id": "TEMPORAL_SHIFT-13",
+      "source_case_id": "NRES011-TEMPORAL_SHIFT-13",
       "regime_id": "temporal_shift",
       "sampling_stratum": "routine",
       "proposal_stratum_probability": 0.75,
@@ -1173,11 +1217,12 @@
         "probability_upper": 0.065,
         "ambiguity_radius": 0.03,
         "abstention_reason": null
-      }
+      },
+      "nres010_source_case_id": "TEMPORAL_SHIFT-13"
     },
     {
       "case_id": "NRES012-NRES011-TEMPORAL_SHIFT-14",
-      "source_case_id": "TEMPORAL_SHIFT-14",
+      "source_case_id": "NRES011-TEMPORAL_SHIFT-14",
       "regime_id": "temporal_shift",
       "sampling_stratum": "routine",
       "proposal_stratum_probability": 0.75,
@@ -1196,11 +1241,12 @@
         "probability_upper": 0.073,
         "ambiguity_radius": 0.03,
         "abstention_reason": null
-      }
+      },
+      "nres010_source_case_id": "TEMPORAL_SHIFT-14"
     },
     {
       "case_id": "NRES012-NRES011-TEMPORAL_SHIFT-15",
-      "source_case_id": "TEMPORAL_SHIFT-15",
+      "source_case_id": "NRES011-TEMPORAL_SHIFT-15",
       "regime_id": "temporal_shift",
       "sampling_stratum": "routine",
       "proposal_stratum_probability": 0.75,
@@ -1219,11 +1265,12 @@
         "probability_upper": 0.081,
         "ambiguity_radius": 0.03,
         "abstention_reason": null
-      }
+      },
+      "nres010_source_case_id": "TEMPORAL_SHIFT-15"
     },
     {
       "case_id": "NRES012-NRES011-TEMPORAL_SHIFT-16",
-      "source_case_id": "TEMPORAL_SHIFT-16",
+      "source_case_id": "NRES011-TEMPORAL_SHIFT-16",
       "regime_id": "temporal_shift",
       "sampling_stratum": "routine",
       "proposal_stratum_probability": 0.75,
@@ -1242,11 +1289,12 @@
         "probability_upper": 0.089,
         "ambiguity_radius": 0.03,
         "abstention_reason": null
-      }
+      },
+      "nres010_source_case_id": "TEMPORAL_SHIFT-16"
     },
     {
       "case_id": "NRES012-NRES011-TEMPORAL_SHIFT-17",
-      "source_case_id": "TEMPORAL_SHIFT-17",
+      "source_case_id": "NRES011-TEMPORAL_SHIFT-17",
       "regime_id": "temporal_shift",
       "sampling_stratum": "routine",
       "proposal_stratum_probability": 0.75,
@@ -1265,11 +1313,12 @@
         "probability_upper": 0.097,
         "ambiguity_radius": 0.03,
         "abstention_reason": null
-      }
+      },
+      "nres010_source_case_id": "TEMPORAL_SHIFT-17"
     },
     {
       "case_id": "NRES012-NRES011-TEMPORAL_SHIFT-18",
-      "source_case_id": "TEMPORAL_SHIFT-18",
+      "source_case_id": "NRES011-TEMPORAL_SHIFT-18",
       "regime_id": "temporal_shift",
       "sampling_stratum": "routine",
       "proposal_stratum_probability": 0.75,
@@ -1288,11 +1337,12 @@
         "probability_upper": 0.105,
         "ambiguity_radius": 0.03,
         "abstention_reason": null
-      }
+      },
+      "nres010_source_case_id": "TEMPORAL_SHIFT-18"
     },
     {
       "case_id": "NRES012-NRES011-TEMPORAL_SHIFT-19",
-      "source_case_id": "TEMPORAL_SHIFT-19",
+      "source_case_id": "NRES011-TEMPORAL_SHIFT-19",
       "regime_id": "temporal_shift",
       "sampling_stratum": "routine",
       "proposal_stratum_probability": 0.75,
@@ -1311,11 +1361,12 @@
         "probability_upper": 0.065,
         "ambiguity_radius": 0.03,
         "abstention_reason": null
-      }
+      },
+      "nres010_source_case_id": "TEMPORAL_SHIFT-19"
     },
     {
       "case_id": "NRES012-NRES011-TEMPORAL_SHIFT-20",
-      "source_case_id": "TEMPORAL_SHIFT-20",
+      "source_case_id": "NRES011-TEMPORAL_SHIFT-20",
       "regime_id": "temporal_shift",
       "sampling_stratum": "routine",
       "proposal_stratum_probability": 0.75,
@@ -1334,11 +1385,12 @@
         "probability_upper": 0.073,
         "ambiguity_radius": 0.03,
         "abstention_reason": null
-      }
+      },
+      "nres010_source_case_id": "TEMPORAL_SHIFT-20"
     },
     {
       "case_id": "NRES012-NRES011-TEMPORAL_SHIFT-21",
-      "source_case_id": "TEMPORAL_SHIFT-21",
+      "source_case_id": "NRES011-TEMPORAL_SHIFT-21",
       "regime_id": "temporal_shift",
       "sampling_stratum": "routine",
       "proposal_stratum_probability": 0.75,
@@ -1357,11 +1409,12 @@
         "probability_upper": 0.081,
         "ambiguity_radius": 0.03,
         "abstention_reason": null
-      }
+      },
+      "nres010_source_case_id": "TEMPORAL_SHIFT-21"
     },
     {
       "case_id": "NRES012-NRES011-TEMPORAL_SHIFT-22",
-      "source_case_id": "TEMPORAL_SHIFT-22",
+      "source_case_id": "NRES011-TEMPORAL_SHIFT-22",
       "regime_id": "temporal_shift",
       "sampling_stratum": "routine",
       "proposal_stratum_probability": 0.75,
@@ -1380,11 +1433,12 @@
         "probability_upper": 0.089,
         "ambiguity_radius": 0.03,
         "abstention_reason": null
-      }
+      },
+      "nres010_source_case_id": "TEMPORAL_SHIFT-22"
     },
     {
       "case_id": "NRES012-NRES011-TEMPORAL_SHIFT-23",
-      "source_case_id": "TEMPORAL_SHIFT-23",
+      "source_case_id": "NRES011-TEMPORAL_SHIFT-23",
       "regime_id": "temporal_shift",
       "sampling_stratum": "routine",
       "proposal_stratum_probability": 0.75,
@@ -1403,11 +1457,12 @@
         "probability_upper": 0.097,
         "ambiguity_radius": 0.03,
         "abstention_reason": null
-      }
+      },
+      "nres010_source_case_id": "TEMPORAL_SHIFT-23"
     },
     {
       "case_id": "NRES012-NRES011-TEMPORAL_SHIFT-24",
-      "source_case_id": "TEMPORAL_SHIFT-24",
+      "source_case_id": "NRES011-TEMPORAL_SHIFT-24",
       "regime_id": "temporal_shift",
       "sampling_stratum": "routine",
       "proposal_stratum_probability": 0.75,
@@ -1426,11 +1481,12 @@
         "probability_upper": 0.105,
         "ambiguity_radius": 0.03,
         "abstention_reason": null
-      }
+      },
+      "nres010_source_case_id": "TEMPORAL_SHIFT-24"
     },
     {
       "case_id": "NRES012-NRES011-TEMPORAL_SHIFT-25",
-      "source_case_id": "TEMPORAL_SHIFT-25",
+      "source_case_id": "NRES011-TEMPORAL_SHIFT-25",
       "regime_id": "temporal_shift",
       "sampling_stratum": "tail_enriched",
       "proposal_stratum_probability": 0.25,
@@ -1449,11 +1505,12 @@
         "probability_upper": 0.18,
         "ambiguity_radius": 0.03,
         "abstention_reason": null
-      }
+      },
+      "nres010_source_case_id": "TEMPORAL_SHIFT-25"
     },
     {
       "case_id": "NRES012-NRES011-TEMPORAL_SHIFT-26",
-      "source_case_id": "TEMPORAL_SHIFT-26",
+      "source_case_id": "NRES011-TEMPORAL_SHIFT-26",
       "regime_id": "temporal_shift",
       "sampling_stratum": "tail_enriched",
       "proposal_stratum_probability": 0.25,
@@ -1472,11 +1529,12 @@
         "probability_upper": 0.24,
         "ambiguity_radius": 0.03,
         "abstention_reason": null
-      }
+      },
+      "nres010_source_case_id": "TEMPORAL_SHIFT-26"
     },
     {
       "case_id": "NRES012-NRES011-TEMPORAL_SHIFT-27",
-      "source_case_id": "TEMPORAL_SHIFT-27",
+      "source_case_id": "NRES011-TEMPORAL_SHIFT-27",
       "regime_id": "temporal_shift",
       "sampling_stratum": "tail_enriched",
       "proposal_stratum_probability": 0.25,
@@ -1495,11 +1553,12 @@
         "probability_upper": 0.3,
         "ambiguity_radius": 0.03,
         "abstention_reason": null
-      }
+      },
+      "nres010_source_case_id": "TEMPORAL_SHIFT-27"
     },
     {
       "case_id": "NRES012-NRES011-TEMPORAL_SHIFT-28",
-      "source_case_id": "TEMPORAL_SHIFT-28",
+      "source_case_id": "NRES011-TEMPORAL_SHIFT-28",
       "regime_id": "temporal_shift",
       "sampling_stratum": "tail_enriched",
       "proposal_stratum_probability": 0.25,
@@ -1518,11 +1577,12 @@
         "probability_upper": 0.36,
         "ambiguity_radius": 0.03,
         "abstention_reason": null
-      }
+      },
+      "nres010_source_case_id": "TEMPORAL_SHIFT-28"
     },
     {
       "case_id": "NRES012-NRES011-TEMPORAL_SHIFT-29",
-      "source_case_id": "TEMPORAL_SHIFT-29",
+      "source_case_id": "NRES011-TEMPORAL_SHIFT-29",
       "regime_id": "temporal_shift",
       "sampling_stratum": "tail_enriched",
       "proposal_stratum_probability": 0.25,
@@ -1541,11 +1601,12 @@
         "probability_upper": 0.18,
         "ambiguity_radius": 0.03,
         "abstention_reason": null
-      }
+      },
+      "nres010_source_case_id": "TEMPORAL_SHIFT-29"
     },
     {
       "case_id": "NRES012-NRES011-TEMPORAL_SHIFT-30",
-      "source_case_id": "TEMPORAL_SHIFT-30",
+      "source_case_id": "NRES011-TEMPORAL_SHIFT-30",
       "regime_id": "temporal_shift",
       "sampling_stratum": "tail_enriched",
       "proposal_stratum_probability": 0.25,
@@ -1564,11 +1625,12 @@
         "probability_upper": 0.24,
         "ambiguity_radius": 0.03,
         "abstention_reason": null
-      }
+      },
+      "nres010_source_case_id": "TEMPORAL_SHIFT-30"
     },
     {
       "case_id": "NRES012-NRES011-TEMPORAL_SHIFT-31",
-      "source_case_id": "TEMPORAL_SHIFT-31",
+      "source_case_id": "NRES011-TEMPORAL_SHIFT-31",
       "regime_id": "temporal_shift",
       "sampling_stratum": "tail_enriched",
       "proposal_stratum_probability": 0.25,
@@ -1587,11 +1649,12 @@
         "probability_upper": 0.3,
         "ambiguity_radius": 0.03,
         "abstention_reason": null
-      }
+      },
+      "nres010_source_case_id": "TEMPORAL_SHIFT-31"
     },
     {
       "case_id": "NRES012-NRES011-TEMPORAL_SHIFT-32",
-      "source_case_id": "TEMPORAL_SHIFT-32",
+      "source_case_id": "NRES011-TEMPORAL_SHIFT-32",
       "regime_id": "temporal_shift",
       "sampling_stratum": "tail_enriched",
       "proposal_stratum_probability": 0.25,
@@ -1610,11 +1673,12 @@
         "probability_upper": null,
         "ambiguity_radius": null,
         "abstention_reason": "model_uncertainty"
-      }
+      },
+      "nres010_source_case_id": "TEMPORAL_SHIFT-32"
     },
     {
       "case_id": "NRES012-NRES011-STRUCTURAL_DEPENDENCY_SHIFT-01",
-      "source_case_id": "STRUCTURAL_DEPENDENCY_SHIFT-01",
+      "source_case_id": "NRES011-STRUCTURAL_DEPENDENCY_SHIFT-01",
       "regime_id": "structural_dependency_shift",
       "sampling_stratum": "routine",
       "proposal_stratum_probability": 0.75,
@@ -1633,11 +1697,12 @@
         "probability_upper": 0.125,
         "ambiguity_radius": 0.07,
         "abstention_reason": null
-      }
+      },
+      "nres010_source_case_id": "STRUCTURAL_DEPENDENCY_SHIFT-01"
     },
     {
       "case_id": "NRES012-NRES011-STRUCTURAL_DEPENDENCY_SHIFT-02",
-      "source_case_id": "STRUCTURAL_DEPENDENCY_SHIFT-02",
+      "source_case_id": "NRES011-STRUCTURAL_DEPENDENCY_SHIFT-02",
       "regime_id": "structural_dependency_shift",
       "sampling_stratum": "routine",
       "proposal_stratum_probability": 0.75,
@@ -1656,11 +1721,12 @@
         "probability_upper": 0.133,
         "ambiguity_radius": 0.07,
         "abstention_reason": null
-      }
+      },
+      "nres010_source_case_id": "STRUCTURAL_DEPENDENCY_SHIFT-02"
     },
     {
       "case_id": "NRES012-NRES011-STRUCTURAL_DEPENDENCY_SHIFT-03",
-      "source_case_id": "STRUCTURAL_DEPENDENCY_SHIFT-03",
+      "source_case_id": "NRES011-STRUCTURAL_DEPENDENCY_SHIFT-03",
       "regime_id": "structural_dependency_shift",
       "sampling_stratum": "routine",
       "proposal_stratum_probability": 0.75,
@@ -1679,11 +1745,12 @@
         "probability_upper": 0.141,
         "ambiguity_radius": 0.07,
         "abstention_reason": null
-      }
+      },
+      "nres010_source_case_id": "STRUCTURAL_DEPENDENCY_SHIFT-03"
     },
     {
       "case_id": "NRES012-NRES011-STRUCTURAL_DEPENDENCY_SHIFT-04",
-      "source_case_id": "STRUCTURAL_DEPENDENCY_SHIFT-04",
+      "source_case_id": "NRES011-STRUCTURAL_DEPENDENCY_SHIFT-04",
       "regime_id": "structural_dependency_shift",
       "sampling_stratum": "routine",
       "proposal_stratum_probability": 0.75,
@@ -1702,11 +1769,12 @@
         "probability_upper": 0.149,
         "ambiguity_radius": 0.07,
         "abstention_reason": null
-      }
+      },
+      "nres010_source_case_id": "STRUCTURAL_DEPENDENCY_SHIFT-04"
     },
     {
       "case_id": "NRES012-NRES011-STRUCTURAL_DEPENDENCY_SHIFT-05",
-      "source_case_id": "STRUCTURAL_DEPENDENCY_SHIFT-05",
+      "source_case_id": "NRES011-STRUCTURAL_DEPENDENCY_SHIFT-05",
       "regime_id": "structural_dependency_shift",
       "sampling_stratum": "routine",
       "proposal_stratum_probability": 0.75,
@@ -1725,11 +1793,12 @@
         "probability_upper": 0.157,
         "ambiguity_radius": 0.07,
         "abstention_reason": null
-      }
+      },
+      "nres010_source_case_id": "STRUCTURAL_DEPENDENCY_SHIFT-05"
     },
     {
       "case_id": "NRES012-NRES011-STRUCTURAL_DEPENDENCY_SHIFT-06",
-      "source_case_id": "STRUCTURAL_DEPENDENCY_SHIFT-06",
+      "source_case_id": "NRES011-STRUCTURAL_DEPENDENCY_SHIFT-06",
       "regime_id": "structural_dependency_shift",
       "sampling_stratum": "routine",
       "proposal_stratum_probability": 0.75,
@@ -1748,11 +1817,12 @@
         "probability_upper": 0.165,
         "ambiguity_radius": 0.07,
         "abstention_reason": null
-      }
+      },
+      "nres010_source_case_id": "STRUCTURAL_DEPENDENCY_SHIFT-06"
     },
     {
       "case_id": "NRES012-NRES011-STRUCTURAL_DEPENDENCY_SHIFT-07",
-      "source_case_id": "STRUCTURAL_DEPENDENCY_SHIFT-07",
+      "source_case_id": "NRES011-STRUCTURAL_DEPENDENCY_SHIFT-07",
       "regime_id": "structural_dependency_shift",
       "sampling_stratum": "routine",
       "proposal_stratum_probability": 0.75,
@@ -1771,11 +1841,12 @@
         "probability_upper": 0.125,
         "ambiguity_radius": 0.07,
         "abstention_reason": null
-      }
+      },
+      "nres010_source_case_id": "STRUCTURAL_DEPENDENCY_SHIFT-07"
     },
     {
       "case_id": "NRES012-NRES011-STRUCTURAL_DEPENDENCY_SHIFT-08",
-      "source_case_id": "STRUCTURAL_DEPENDENCY_SHIFT-08",
+      "source_case_id": "NRES011-STRUCTURAL_DEPENDENCY_SHIFT-08",
       "regime_id": "structural_dependency_shift",
       "sampling_stratum": "routine",
       "proposal_stratum_probability": 0.75,
@@ -1794,11 +1865,12 @@
         "probability_upper": 0.133,
         "ambiguity_radius": 0.07,
         "abstention_reason": null
-      }
+      },
+      "nres010_source_case_id": "STRUCTURAL_DEPENDENCY_SHIFT-08"
     },
     {
       "case_id": "NRES012-NRES011-STRUCTURAL_DEPENDENCY_SHIFT-09",
-      "source_case_id": "STRUCTURAL_DEPENDENCY_SHIFT-09",
+      "source_case_id": "NRES011-STRUCTURAL_DEPENDENCY_SHIFT-09",
       "regime_id": "structural_dependency_shift",
       "sampling_stratum": "routine",
       "proposal_stratum_probability": 0.75,
@@ -1817,11 +1889,12 @@
         "probability_upper": 0.141,
         "ambiguity_radius": 0.07,
         "abstention_reason": null
-      }
+      },
+      "nres010_source_case_id": "STRUCTURAL_DEPENDENCY_SHIFT-09"
     },
     {
       "case_id": "NRES012-NRES011-STRUCTURAL_DEPENDENCY_SHIFT-10",
-      "source_case_id": "STRUCTURAL_DEPENDENCY_SHIFT-10",
+      "source_case_id": "NRES011-STRUCTURAL_DEPENDENCY_SHIFT-10",
       "regime_id": "structural_dependency_shift",
       "sampling_stratum": "routine",
       "proposal_stratum_probability": 0.75,
@@ -1840,11 +1913,12 @@
         "probability_upper": 0.149,
         "ambiguity_radius": 0.07,
         "abstention_reason": null
-      }
+      },
+      "nres010_source_case_id": "STRUCTURAL_DEPENDENCY_SHIFT-10"
     },
     {
       "case_id": "NRES012-NRES011-STRUCTURAL_DEPENDENCY_SHIFT-11",
-      "source_case_id": "STRUCTURAL_DEPENDENCY_SHIFT-11",
+      "source_case_id": "NRES011-STRUCTURAL_DEPENDENCY_SHIFT-11",
       "regime_id": "structural_dependency_shift",
       "sampling_stratum": "routine",
       "proposal_stratum_probability": 0.75,
@@ -1863,11 +1937,12 @@
         "probability_upper": 0.157,
         "ambiguity_radius": 0.07,
         "abstention_reason": null
-      }
+      },
+      "nres010_source_case_id": "STRUCTURAL_DEPENDENCY_SHIFT-11"
     },
     {
       "case_id": "NRES012-NRES011-STRUCTURAL_DEPENDENCY_SHIFT-12",
-      "source_case_id": "STRUCTURAL_DEPENDENCY_SHIFT-12",
+      "source_case_id": "NRES011-STRUCTURAL_DEPENDENCY_SHIFT-12",
       "regime_id": "structural_dependency_shift",
       "sampling_stratum": "routine",
       "proposal_stratum_probability": 0.75,
@@ -1886,11 +1961,12 @@
         "probability_upper": 0.165,
         "ambiguity_radius": 0.07,
         "abstention_reason": null
-      }
+      },
+      "nres010_source_case_id": "STRUCTURAL_DEPENDENCY_SHIFT-12"
     },
     {
       "case_id": "NRES012-NRES011-STRUCTURAL_DEPENDENCY_SHIFT-13",
-      "source_case_id": "STRUCTURAL_DEPENDENCY_SHIFT-13",
+      "source_case_id": "NRES011-STRUCTURAL_DEPENDENCY_SHIFT-13",
       "regime_id": "structural_dependency_shift",
       "sampling_stratum": "routine",
       "proposal_stratum_probability": 0.75,
@@ -1909,11 +1985,12 @@
         "probability_upper": 0.125,
         "ambiguity_radius": 0.07,
         "abstention_reason": null
-      }
+      },
+      "nres010_source_case_id": "STRUCTURAL_DEPENDENCY_SHIFT-13"
     },
     {
       "case_id": "NRES012-NRES011-STRUCTURAL_DEPENDENCY_SHIFT-14",
-      "source_case_id": "STRUCTURAL_DEPENDENCY_SHIFT-14",
+      "source_case_id": "NRES011-STRUCTURAL_DEPENDENCY_SHIFT-14",
       "regime_id": "structural_dependency_shift",
       "sampling_stratum": "routine",
       "proposal_stratum_probability": 0.75,
@@ -1932,11 +2009,12 @@
         "probability_upper": 0.133,
         "ambiguity_radius": 0.07,
         "abstention_reason": null
-      }
+      },
+      "nres010_source_case_id": "STRUCTURAL_DEPENDENCY_SHIFT-14"
     },
     {
       "case_id": "NRES012-NRES011-STRUCTURAL_DEPENDENCY_SHIFT-15",
-      "source_case_id": "STRUCTURAL_DEPENDENCY_SHIFT-15",
+      "source_case_id": "NRES011-STRUCTURAL_DEPENDENCY_SHIFT-15",
       "regime_id": "structural_dependency_shift",
       "sampling_stratum": "routine",
       "proposal_stratum_probability": 0.75,
@@ -1955,11 +2033,12 @@
         "probability_upper": 0.141,
         "ambiguity_radius": 0.07,
         "abstention_reason": null
-      }
+      },
+      "nres010_source_case_id": "STRUCTURAL_DEPENDENCY_SHIFT-15"
     },
     {
       "case_id": "NRES012-NRES011-STRUCTURAL_DEPENDENCY_SHIFT-16",
-      "source_case_id": "STRUCTURAL_DEPENDENCY_SHIFT-16",
+      "source_case_id": "NRES011-STRUCTURAL_DEPENDENCY_SHIFT-16",
       "regime_id": "structural_dependency_shift",
       "sampling_stratum": "routine",
       "proposal_stratum_probability": 0.75,
@@ -1978,11 +2057,12 @@
         "probability_upper": 0.149,
         "ambiguity_radius": 0.07,
         "abstention_reason": null
-      }
+      },
+      "nres010_source_case_id": "STRUCTURAL_DEPENDENCY_SHIFT-16"
     },
     {
       "case_id": "NRES012-NRES011-STRUCTURAL_DEPENDENCY_SHIFT-17",
-      "source_case_id": "STRUCTURAL_DEPENDENCY_SHIFT-17",
+      "source_case_id": "NRES011-STRUCTURAL_DEPENDENCY_SHIFT-17",
       "regime_id": "structural_dependency_shift",
       "sampling_stratum": "routine",
       "proposal_stratum_probability": 0.75,
@@ -2001,11 +2081,12 @@
         "probability_upper": 0.157,
         "ambiguity_radius": 0.07,
         "abstention_reason": null
-      }
+      },
+      "nres010_source_case_id": "STRUCTURAL_DEPENDENCY_SHIFT-17"
     },
     {
       "case_id": "NRES012-NRES011-STRUCTURAL_DEPENDENCY_SHIFT-18",
-      "source_case_id": "STRUCTURAL_DEPENDENCY_SHIFT-18",
+      "source_case_id": "NRES011-STRUCTURAL_DEPENDENCY_SHIFT-18",
       "regime_id": "structural_dependency_shift",
       "sampling_stratum": "routine",
       "proposal_stratum_probability": 0.75,
@@ -2024,11 +2105,12 @@
         "probability_upper": 0.165,
         "ambiguity_radius": 0.07,
         "abstention_reason": null
-      }
+      },
+      "nres010_source_case_id": "STRUCTURAL_DEPENDENCY_SHIFT-18"
     },
     {
       "case_id": "NRES012-NRES011-STRUCTURAL_DEPENDENCY_SHIFT-19",
-      "source_case_id": "STRUCTURAL_DEPENDENCY_SHIFT-19",
+      "source_case_id": "NRES011-STRUCTURAL_DEPENDENCY_SHIFT-19",
       "regime_id": "structural_dependency_shift",
       "sampling_stratum": "routine",
       "proposal_stratum_probability": 0.75,
@@ -2047,11 +2129,12 @@
         "probability_upper": 0.125,
         "ambiguity_radius": 0.07,
         "abstention_reason": null
-      }
+      },
+      "nres010_source_case_id": "STRUCTURAL_DEPENDENCY_SHIFT-19"
     },
     {
       "case_id": "NRES012-NRES011-STRUCTURAL_DEPENDENCY_SHIFT-20",
-      "source_case_id": "STRUCTURAL_DEPENDENCY_SHIFT-20",
+      "source_case_id": "NRES011-STRUCTURAL_DEPENDENCY_SHIFT-20",
       "regime_id": "structural_dependency_shift",
       "sampling_stratum": "routine",
       "proposal_stratum_probability": 0.75,
@@ -2070,11 +2153,12 @@
         "probability_upper": 0.133,
         "ambiguity_radius": 0.07,
         "abstention_reason": null
-      }
+      },
+      "nres010_source_case_id": "STRUCTURAL_DEPENDENCY_SHIFT-20"
     },
     {
       "case_id": "NRES012-NRES011-STRUCTURAL_DEPENDENCY_SHIFT-21",
-      "source_case_id": "STRUCTURAL_DEPENDENCY_SHIFT-21",
+      "source_case_id": "NRES011-STRUCTURAL_DEPENDENCY_SHIFT-21",
       "regime_id": "structural_dependency_shift",
       "sampling_stratum": "routine",
       "proposal_stratum_probability": 0.75,
@@ -2093,11 +2177,12 @@
         "probability_upper": 0.141,
         "ambiguity_radius": 0.07,
         "abstention_reason": null
-      }
+      },
+      "nres010_source_case_id": "STRUCTURAL_DEPENDENCY_SHIFT-21"
     },
     {
       "case_id": "NRES012-NRES011-STRUCTURAL_DEPENDENCY_SHIFT-22",
-      "source_case_id": "STRUCTURAL_DEPENDENCY_SHIFT-22",
+      "source_case_id": "NRES011-STRUCTURAL_DEPENDENCY_SHIFT-22",
       "regime_id": "structural_dependency_shift",
       "sampling_stratum": "routine",
       "proposal_stratum_probability": 0.75,
@@ -2116,11 +2201,12 @@
         "probability_upper": 0.149,
         "ambiguity_radius": 0.07,
         "abstention_reason": null
-      }
+      },
+      "nres010_source_case_id": "STRUCTURAL_DEPENDENCY_SHIFT-22"
     },
     {
       "case_id": "NRES012-NRES011-STRUCTURAL_DEPENDENCY_SHIFT-23",
-      "source_case_id": "STRUCTURAL_DEPENDENCY_SHIFT-23",
+      "source_case_id": "NRES011-STRUCTURAL_DEPENDENCY_SHIFT-23",
       "regime_id": "structural_dependency_shift",
       "sampling_stratum": "routine",
       "proposal_stratum_probability": 0.75,
@@ -2139,11 +2225,12 @@
         "probability_upper": 0.157,
         "ambiguity_radius": 0.07,
         "abstention_reason": null
-      }
+      },
+      "nres010_source_case_id": "STRUCTURAL_DEPENDENCY_SHIFT-23"
     },
     {
       "case_id": "NRES012-NRES011-STRUCTURAL_DEPENDENCY_SHIFT-24",
-      "source_case_id": "STRUCTURAL_DEPENDENCY_SHIFT-24",
+      "source_case_id": "NRES011-STRUCTURAL_DEPENDENCY_SHIFT-24",
       "regime_id": "structural_dependency_shift",
       "sampling_stratum": "routine",
       "proposal_stratum_probability": 0.75,
@@ -2162,11 +2249,12 @@
         "probability_upper": 0.165,
         "ambiguity_radius": 0.07,
         "abstention_reason": null
-      }
+      },
+      "nres010_source_case_id": "STRUCTURAL_DEPENDENCY_SHIFT-24"
     },
     {
       "case_id": "NRES012-NRES011-STRUCTURAL_DEPENDENCY_SHIFT-25",
-      "source_case_id": "STRUCTURAL_DEPENDENCY_SHIFT-25",
+      "source_case_id": "NRES011-STRUCTURAL_DEPENDENCY_SHIFT-25",
       "regime_id": "structural_dependency_shift",
       "sampling_stratum": "tail_enriched",
       "proposal_stratum_probability": 0.25,
@@ -2185,11 +2273,12 @@
         "probability_upper": 0.25,
         "ambiguity_radius": 0.07,
         "abstention_reason": null
-      }
+      },
+      "nres010_source_case_id": "STRUCTURAL_DEPENDENCY_SHIFT-25"
     },
     {
       "case_id": "NRES012-NRES011-STRUCTURAL_DEPENDENCY_SHIFT-26",
-      "source_case_id": "STRUCTURAL_DEPENDENCY_SHIFT-26",
+      "source_case_id": "NRES011-STRUCTURAL_DEPENDENCY_SHIFT-26",
       "regime_id": "structural_dependency_shift",
       "sampling_stratum": "tail_enriched",
       "proposal_stratum_probability": 0.25,
@@ -2208,11 +2297,12 @@
         "probability_upper": 0.31,
         "ambiguity_radius": 0.07,
         "abstention_reason": null
-      }
+      },
+      "nres010_source_case_id": "STRUCTURAL_DEPENDENCY_SHIFT-26"
     },
     {
       "case_id": "NRES012-NRES011-STRUCTURAL_DEPENDENCY_SHIFT-27",
-      "source_case_id": "STRUCTURAL_DEPENDENCY_SHIFT-27",
+      "source_case_id": "NRES011-STRUCTURAL_DEPENDENCY_SHIFT-27",
       "regime_id": "structural_dependency_shift",
       "sampling_stratum": "tail_enriched",
       "proposal_stratum_probability": 0.25,
@@ -2231,11 +2321,12 @@
         "probability_upper": 0.37,
         "ambiguity_radius": 0.07,
         "abstention_reason": null
-      }
+      },
+      "nres010_source_case_id": "STRUCTURAL_DEPENDENCY_SHIFT-27"
     },
     {
       "case_id": "NRES012-NRES011-STRUCTURAL_DEPENDENCY_SHIFT-28",
-      "source_case_id": "STRUCTURAL_DEPENDENCY_SHIFT-28",
+      "source_case_id": "NRES011-STRUCTURAL_DEPENDENCY_SHIFT-28",
       "regime_id": "structural_dependency_shift",
       "sampling_stratum": "tail_enriched",
       "proposal_stratum_probability": 0.25,
@@ -2254,11 +2345,12 @@
         "probability_upper": 0.43,
         "ambiguity_radius": 0.07,
         "abstention_reason": null
-      }
+      },
+      "nres010_source_case_id": "STRUCTURAL_DEPENDENCY_SHIFT-28"
     },
     {
       "case_id": "NRES012-NRES011-STRUCTURAL_DEPENDENCY_SHIFT-29",
-      "source_case_id": "STRUCTURAL_DEPENDENCY_SHIFT-29",
+      "source_case_id": "NRES011-STRUCTURAL_DEPENDENCY_SHIFT-29",
       "regime_id": "structural_dependency_shift",
       "sampling_stratum": "tail_enriched",
       "proposal_stratum_probability": 0.25,
@@ -2277,11 +2369,12 @@
         "probability_upper": 0.25,
         "ambiguity_radius": 0.07,
         "abstention_reason": null
-      }
+      },
+      "nres010_source_case_id": "STRUCTURAL_DEPENDENCY_SHIFT-29"
     },
     {
       "case_id": "NRES012-NRES011-STRUCTURAL_DEPENDENCY_SHIFT-30",
-      "source_case_id": "STRUCTURAL_DEPENDENCY_SHIFT-30",
+      "source_case_id": "NRES011-STRUCTURAL_DEPENDENCY_SHIFT-30",
       "regime_id": "structural_dependency_shift",
       "sampling_stratum": "tail_enriched",
       "proposal_stratum_probability": 0.25,
@@ -2300,11 +2393,12 @@
         "probability_upper": 0.31,
         "ambiguity_radius": 0.07,
         "abstention_reason": null
-      }
+      },
+      "nres010_source_case_id": "STRUCTURAL_DEPENDENCY_SHIFT-30"
     },
     {
       "case_id": "NRES012-NRES011-STRUCTURAL_DEPENDENCY_SHIFT-31",
-      "source_case_id": "STRUCTURAL_DEPENDENCY_SHIFT-31",
+      "source_case_id": "NRES011-STRUCTURAL_DEPENDENCY_SHIFT-31",
       "regime_id": "structural_dependency_shift",
       "sampling_stratum": "tail_enriched",
       "proposal_stratum_probability": 0.25,
@@ -2323,11 +2417,12 @@
         "probability_upper": 0.37,
         "ambiguity_radius": 0.07,
         "abstention_reason": null
-      }
+      },
+      "nres010_source_case_id": "STRUCTURAL_DEPENDENCY_SHIFT-31"
     },
     {
       "case_id": "NRES012-NRES011-STRUCTURAL_DEPENDENCY_SHIFT-32",
-      "source_case_id": "STRUCTURAL_DEPENDENCY_SHIFT-32",
+      "source_case_id": "NRES011-STRUCTURAL_DEPENDENCY_SHIFT-32",
       "regime_id": "structural_dependency_shift",
       "sampling_stratum": "tail_enriched",
       "proposal_stratum_probability": 0.25,
@@ -2346,11 +2441,12 @@
         "probability_upper": 0.43,
         "ambiguity_radius": 0.07,
         "abstention_reason": null
-      }
+      },
+      "nres010_source_case_id": "STRUCTURAL_DEPENDENCY_SHIFT-32"
     },
     {
       "case_id": "NRES012-NRES011-EVIDENCE_DEGRADATION-01",
-      "source_case_id": "EVIDENCE_DEGRADATION-01",
+      "source_case_id": "NRES011-EVIDENCE_DEGRADATION-01",
       "regime_id": "evidence_degradation",
       "sampling_stratum": "routine",
       "proposal_stratum_probability": 0.75,
@@ -2369,11 +2465,12 @@
         "probability_upper": 0.05,
         "ambiguity_radius": 0.02,
         "abstention_reason": null
-      }
+      },
+      "nres010_source_case_id": "EVIDENCE_DEGRADATION-01"
     },
     {
       "case_id": "NRES012-NRES011-EVIDENCE_DEGRADATION-02",
-      "source_case_id": "EVIDENCE_DEGRADATION-02",
+      "source_case_id": "NRES011-EVIDENCE_DEGRADATION-02",
       "regime_id": "evidence_degradation",
       "sampling_stratum": "routine",
       "proposal_stratum_probability": 0.75,
@@ -2392,11 +2489,12 @@
         "probability_upper": null,
         "ambiguity_radius": null,
         "abstention_reason": "missing_critical_input"
-      }
+      },
+      "nres010_source_case_id": "EVIDENCE_DEGRADATION-02"
     },
     {
       "case_id": "NRES012-NRES011-EVIDENCE_DEGRADATION-03",
-      "source_case_id": "EVIDENCE_DEGRADATION-03",
+      "source_case_id": "NRES011-EVIDENCE_DEGRADATION-03",
       "regime_id": "evidence_degradation",
       "sampling_stratum": "routine",
       "proposal_stratum_probability": 0.75,
@@ -2415,11 +2513,12 @@
         "probability_upper": 0.066,
         "ambiguity_radius": 0.02,
         "abstention_reason": null
-      }
+      },
+      "nres010_source_case_id": "EVIDENCE_DEGRADATION-03"
     },
     {
       "case_id": "NRES012-NRES011-EVIDENCE_DEGRADATION-04",
-      "source_case_id": "EVIDENCE_DEGRADATION-04",
+      "source_case_id": "NRES011-EVIDENCE_DEGRADATION-04",
       "regime_id": "evidence_degradation",
       "sampling_stratum": "routine",
       "proposal_stratum_probability": 0.75,
@@ -2438,11 +2537,12 @@
         "probability_upper": 0.074,
         "ambiguity_radius": 0.02,
         "abstention_reason": null
-      }
+      },
+      "nres010_source_case_id": "EVIDENCE_DEGRADATION-04"
     },
     {
       "case_id": "NRES012-NRES011-EVIDENCE_DEGRADATION-05",
-      "source_case_id": "EVIDENCE_DEGRADATION-05",
+      "source_case_id": "NRES011-EVIDENCE_DEGRADATION-05",
       "regime_id": "evidence_degradation",
       "sampling_stratum": "routine",
       "proposal_stratum_probability": 0.75,
@@ -2461,11 +2561,12 @@
         "probability_upper": 0.082,
         "ambiguity_radius": 0.02,
         "abstention_reason": null
-      }
+      },
+      "nres010_source_case_id": "EVIDENCE_DEGRADATION-05"
     },
     {
       "case_id": "NRES012-NRES011-EVIDENCE_DEGRADATION-06",
-      "source_case_id": "EVIDENCE_DEGRADATION-06",
+      "source_case_id": "NRES011-EVIDENCE_DEGRADATION-06",
       "regime_id": "evidence_degradation",
       "sampling_stratum": "routine",
       "proposal_stratum_probability": 0.75,
@@ -2484,11 +2585,12 @@
         "probability_upper": 0.09,
         "ambiguity_radius": 0.02,
         "abstention_reason": null
-      }
+      },
+      "nres010_source_case_id": "EVIDENCE_DEGRADATION-06"
     },
     {
       "case_id": "NRES012-NRES011-EVIDENCE_DEGRADATION-07",
-      "source_case_id": "EVIDENCE_DEGRADATION-07",
+      "source_case_id": "NRES011-EVIDENCE_DEGRADATION-07",
       "regime_id": "evidence_degradation",
       "sampling_stratum": "routine",
       "proposal_stratum_probability": 0.75,
@@ -2507,11 +2609,12 @@
         "probability_upper": 0.05,
         "ambiguity_radius": 0.02,
         "abstention_reason": null
-      }
+      },
+      "nres010_source_case_id": "EVIDENCE_DEGRADATION-07"
     },
     {
       "case_id": "NRES012-NRES011-EVIDENCE_DEGRADATION-08",
-      "source_case_id": "EVIDENCE_DEGRADATION-08",
+      "source_case_id": "NRES011-EVIDENCE_DEGRADATION-08",
       "regime_id": "evidence_degradation",
       "sampling_stratum": "routine",
       "proposal_stratum_probability": 0.75,
@@ -2530,11 +2633,12 @@
         "probability_upper": 0.058,
         "ambiguity_radius": 0.02,
         "abstention_reason": null
-      }
+      },
+      "nres010_source_case_id": "EVIDENCE_DEGRADATION-08"
     },
     {
       "case_id": "NRES012-NRES011-EVIDENCE_DEGRADATION-09",
-      "source_case_id": "EVIDENCE_DEGRADATION-09",
+      "source_case_id": "NRES011-EVIDENCE_DEGRADATION-09",
       "regime_id": "evidence_degradation",
       "sampling_stratum": "routine",
       "proposal_stratum_probability": 0.75,
@@ -2553,11 +2657,12 @@
         "probability_upper": 0.066,
         "ambiguity_radius": 0.02,
         "abstention_reason": null
-      }
+      },
+      "nres010_source_case_id": "EVIDENCE_DEGRADATION-09"
     },
     {
       "case_id": "NRES012-NRES011-EVIDENCE_DEGRADATION-10",
-      "source_case_id": "EVIDENCE_DEGRADATION-10",
+      "source_case_id": "NRES011-EVIDENCE_DEGRADATION-10",
       "regime_id": "evidence_degradation",
       "sampling_stratum": "routine",
       "proposal_stratum_probability": 0.75,
@@ -2576,11 +2681,12 @@
         "probability_upper": 0.074,
         "ambiguity_radius": 0.02,
         "abstention_reason": null
-      }
+      },
+      "nres010_source_case_id": "EVIDENCE_DEGRADATION-10"
     },
     {
       "case_id": "NRES012-NRES011-EVIDENCE_DEGRADATION-11",
-      "source_case_id": "EVIDENCE_DEGRADATION-11",
+      "source_case_id": "NRES011-EVIDENCE_DEGRADATION-11",
       "regime_id": "evidence_degradation",
       "sampling_stratum": "routine",
       "proposal_stratum_probability": 0.75,
@@ -2599,11 +2705,12 @@
         "probability_upper": 0.082,
         "ambiguity_radius": 0.02,
         "abstention_reason": null
-      }
+      },
+      "nres010_source_case_id": "EVIDENCE_DEGRADATION-11"
     },
     {
       "case_id": "NRES012-NRES011-EVIDENCE_DEGRADATION-12",
-      "source_case_id": "EVIDENCE_DEGRADATION-12",
+      "source_case_id": "NRES011-EVIDENCE_DEGRADATION-12",
       "regime_id": "evidence_degradation",
       "sampling_stratum": "routine",
       "proposal_stratum_probability": 0.75,
@@ -2622,11 +2729,12 @@
         "probability_upper": 0.09,
         "ambiguity_radius": 0.02,
         "abstention_reason": null
-      }
+      },
+      "nres010_source_case_id": "EVIDENCE_DEGRADATION-12"
     },
     {
       "case_id": "NRES012-NRES011-EVIDENCE_DEGRADATION-13",
-      "source_case_id": "EVIDENCE_DEGRADATION-13",
+      "source_case_id": "NRES011-EVIDENCE_DEGRADATION-13",
       "regime_id": "evidence_degradation",
       "sampling_stratum": "routine",
       "proposal_stratum_probability": 0.75,
@@ -2645,11 +2753,12 @@
         "probability_upper": 0.05,
         "ambiguity_radius": 0.02,
         "abstention_reason": null
-      }
+      },
+      "nres010_source_case_id": "EVIDENCE_DEGRADATION-13"
     },
     {
       "case_id": "NRES012-NRES011-EVIDENCE_DEGRADATION-14",
-      "source_case_id": "EVIDENCE_DEGRADATION-14",
+      "source_case_id": "NRES011-EVIDENCE_DEGRADATION-14",
       "regime_id": "evidence_degradation",
       "sampling_stratum": "routine",
       "proposal_stratum_probability": 0.75,
@@ -2668,11 +2777,12 @@
         "probability_upper": 0.058,
         "ambiguity_radius": 0.02,
         "abstention_reason": null
-      }
+      },
+      "nres010_source_case_id": "EVIDENCE_DEGRADATION-14"
     },
     {
       "case_id": "NRES012-NRES011-EVIDENCE_DEGRADATION-15",
-      "source_case_id": "EVIDENCE_DEGRADATION-15",
+      "source_case_id": "NRES011-EVIDENCE_DEGRADATION-15",
       "regime_id": "evidence_degradation",
       "sampling_stratum": "routine",
       "proposal_stratum_probability": 0.75,
@@ -2691,11 +2801,12 @@
         "probability_upper": 0.066,
         "ambiguity_radius": 0.02,
         "abstention_reason": null
-      }
+      },
+      "nres010_source_case_id": "EVIDENCE_DEGRADATION-15"
     },
     {
       "case_id": "NRES012-NRES011-EVIDENCE_DEGRADATION-16",
-      "source_case_id": "EVIDENCE_DEGRADATION-16",
+      "source_case_id": "NRES011-EVIDENCE_DEGRADATION-16",
       "regime_id": "evidence_degradation",
       "sampling_stratum": "routine",
       "proposal_stratum_probability": 0.75,
@@ -2714,11 +2825,12 @@
         "probability_upper": 0.074,
         "ambiguity_radius": 0.02,
         "abstention_reason": null
-      }
+      },
+      "nres010_source_case_id": "EVIDENCE_DEGRADATION-16"
     },
     {
       "case_id": "NRES012-NRES011-EVIDENCE_DEGRADATION-17",
-      "source_case_id": "EVIDENCE_DEGRADATION-17",
+      "source_case_id": "NRES011-EVIDENCE_DEGRADATION-17",
       "regime_id": "evidence_degradation",
       "sampling_stratum": "routine",
       "proposal_stratum_probability": 0.75,
@@ -2737,11 +2849,12 @@
         "probability_upper": 0.082,
         "ambiguity_radius": 0.02,
         "abstention_reason": null
-      }
+      },
+      "nres010_source_case_id": "EVIDENCE_DEGRADATION-17"
     },
     {
       "case_id": "NRES012-NRES011-EVIDENCE_DEGRADATION-18",
-      "source_case_id": "EVIDENCE_DEGRADATION-18",
+      "source_case_id": "NRES011-EVIDENCE_DEGRADATION-18",
       "regime_id": "evidence_degradation",
       "sampling_stratum": "routine",
       "proposal_stratum_probability": 0.75,
@@ -2760,11 +2873,12 @@
         "probability_upper": null,
         "ambiguity_radius": null,
         "abstention_reason": "conflicting_sources"
-      }
+      },
+      "nres010_source_case_id": "EVIDENCE_DEGRADATION-18"
     },
     {
       "case_id": "NRES012-NRES011-EVIDENCE_DEGRADATION-19",
-      "source_case_id": "EVIDENCE_DEGRADATION-19",
+      "source_case_id": "NRES011-EVIDENCE_DEGRADATION-19",
       "regime_id": "evidence_degradation",
       "sampling_stratum": "routine",
       "proposal_stratum_probability": 0.75,
@@ -2783,11 +2897,12 @@
         "probability_upper": 0.05,
         "ambiguity_radius": 0.02,
         "abstention_reason": null
-      }
+      },
+      "nres010_source_case_id": "EVIDENCE_DEGRADATION-19"
     },
     {
       "case_id": "NRES012-NRES011-EVIDENCE_DEGRADATION-20",
-      "source_case_id": "EVIDENCE_DEGRADATION-20",
+      "source_case_id": "NRES011-EVIDENCE_DEGRADATION-20",
       "regime_id": "evidence_degradation",
       "sampling_stratum": "routine",
       "proposal_stratum_probability": 0.75,
@@ -2806,11 +2921,12 @@
         "probability_upper": 0.058,
         "ambiguity_radius": 0.02,
         "abstention_reason": null
-      }
+      },
+      "nres010_source_case_id": "EVIDENCE_DEGRADATION-20"
     },
     {
       "case_id": "NRES012-NRES011-EVIDENCE_DEGRADATION-21",
-      "source_case_id": "EVIDENCE_DEGRADATION-21",
+      "source_case_id": "NRES011-EVIDENCE_DEGRADATION-21",
       "regime_id": "evidence_degradation",
       "sampling_stratum": "routine",
       "proposal_stratum_probability": 0.75,
@@ -2829,11 +2945,12 @@
         "probability_upper": 0.066,
         "ambiguity_radius": 0.02,
         "abstention_reason": null
-      }
+      },
+      "nres010_source_case_id": "EVIDENCE_DEGRADATION-21"
     },
     {
       "case_id": "NRES012-NRES011-EVIDENCE_DEGRADATION-22",
-      "source_case_id": "EVIDENCE_DEGRADATION-22",
+      "source_case_id": "NRES011-EVIDENCE_DEGRADATION-22",
       "regime_id": "evidence_degradation",
       "sampling_stratum": "routine",
       "proposal_stratum_probability": 0.75,
@@ -2852,11 +2969,12 @@
         "probability_upper": 0.074,
         "ambiguity_radius": 0.02,
         "abstention_reason": null
-      }
+      },
+      "nres010_source_case_id": "EVIDENCE_DEGRADATION-22"
     },
     {
       "case_id": "NRES012-NRES011-EVIDENCE_DEGRADATION-23",
-      "source_case_id": "EVIDENCE_DEGRADATION-23",
+      "source_case_id": "NRES011-EVIDENCE_DEGRADATION-23",
       "regime_id": "evidence_degradation",
       "sampling_stratum": "routine",
       "proposal_stratum_probability": 0.75,
@@ -2875,11 +2993,12 @@
         "probability_upper": 0.082,
         "ambiguity_radius": 0.02,
         "abstention_reason": null
-      }
+      },
+      "nres010_source_case_id": "EVIDENCE_DEGRADATION-23"
     },
     {
       "case_id": "NRES012-NRES011-EVIDENCE_DEGRADATION-24",
-      "source_case_id": "EVIDENCE_DEGRADATION-24",
+      "source_case_id": "NRES011-EVIDENCE_DEGRADATION-24",
       "regime_id": "evidence_degradation",
       "sampling_stratum": "routine",
       "proposal_stratum_probability": 0.75,
@@ -2898,11 +3017,12 @@
         "probability_upper": 0.09,
         "ambiguity_radius": 0.02,
         "abstention_reason": null
-      }
+      },
+      "nres010_source_case_id": "EVIDENCE_DEGRADATION-24"
     },
     {
       "case_id": "NRES012-NRES011-EVIDENCE_DEGRADATION-25",
-      "source_case_id": "EVIDENCE_DEGRADATION-25",
+      "source_case_id": "NRES011-EVIDENCE_DEGRADATION-25",
       "regime_id": "evidence_degradation",
       "sampling_stratum": "tail_enriched",
       "proposal_stratum_probability": 0.25,
@@ -2921,11 +3041,12 @@
         "probability_upper": 0.1625,
         "ambiguity_radius": 0.02,
         "abstention_reason": null
-      }
+      },
+      "nres010_source_case_id": "EVIDENCE_DEGRADATION-25"
     },
     {
       "case_id": "NRES012-NRES011-EVIDENCE_DEGRADATION-26",
-      "source_case_id": "EVIDENCE_DEGRADATION-26",
+      "source_case_id": "NRES011-EVIDENCE_DEGRADATION-26",
       "regime_id": "evidence_degradation",
       "sampling_stratum": "tail_enriched",
       "proposal_stratum_probability": 0.25,
@@ -2944,11 +3065,12 @@
         "probability_upper": null,
         "ambiguity_radius": null,
         "abstention_reason": "missing_critical_input"
-      }
+      },
+      "nres010_source_case_id": "EVIDENCE_DEGRADATION-26"
     },
     {
       "case_id": "NRES012-NRES011-EVIDENCE_DEGRADATION-27",
-      "source_case_id": "EVIDENCE_DEGRADATION-27",
+      "source_case_id": "NRES011-EVIDENCE_DEGRADATION-27",
       "regime_id": "evidence_degradation",
       "sampling_stratum": "tail_enriched",
       "proposal_stratum_probability": 0.25,
@@ -2967,11 +3089,12 @@
         "probability_upper": 0.2825,
         "ambiguity_radius": 0.02,
         "abstention_reason": null
-      }
+      },
+      "nres010_source_case_id": "EVIDENCE_DEGRADATION-27"
     },
     {
       "case_id": "NRES012-NRES011-EVIDENCE_DEGRADATION-28",
-      "source_case_id": "EVIDENCE_DEGRADATION-28",
+      "source_case_id": "NRES011-EVIDENCE_DEGRADATION-28",
       "regime_id": "evidence_degradation",
       "sampling_stratum": "tail_enriched",
       "proposal_stratum_probability": 0.25,
@@ -2990,11 +3113,12 @@
         "probability_upper": 0.3425,
         "ambiguity_radius": 0.02,
         "abstention_reason": null
-      }
+      },
+      "nres010_source_case_id": "EVIDENCE_DEGRADATION-28"
     },
     {
       "case_id": "NRES012-NRES011-EVIDENCE_DEGRADATION-29",
-      "source_case_id": "EVIDENCE_DEGRADATION-29",
+      "source_case_id": "NRES011-EVIDENCE_DEGRADATION-29",
       "regime_id": "evidence_degradation",
       "sampling_stratum": "tail_enriched",
       "proposal_stratum_probability": 0.25,
@@ -3013,11 +3137,12 @@
         "probability_upper": 0.1625,
         "ambiguity_radius": 0.02,
         "abstention_reason": null
-      }
+      },
+      "nres010_source_case_id": "EVIDENCE_DEGRADATION-29"
     },
     {
       "case_id": "NRES012-NRES011-EVIDENCE_DEGRADATION-30",
-      "source_case_id": "EVIDENCE_DEGRADATION-30",
+      "source_case_id": "NRES011-EVIDENCE_DEGRADATION-30",
       "regime_id": "evidence_degradation",
       "sampling_stratum": "tail_enriched",
       "proposal_stratum_probability": 0.25,
@@ -3036,11 +3161,12 @@
         "probability_upper": 0.2225,
         "ambiguity_radius": 0.02,
         "abstention_reason": null
-      }
+      },
+      "nres010_source_case_id": "EVIDENCE_DEGRADATION-30"
     },
     {
       "case_id": "NRES012-NRES011-EVIDENCE_DEGRADATION-31",
-      "source_case_id": "EVIDENCE_DEGRADATION-31",
+      "source_case_id": "NRES011-EVIDENCE_DEGRADATION-31",
       "regime_id": "evidence_degradation",
       "sampling_stratum": "tail_enriched",
       "proposal_stratum_probability": 0.25,
@@ -3059,11 +3185,12 @@
         "probability_upper": null,
         "ambiguity_radius": null,
         "abstention_reason": "conflicting_sources"
-      }
+      },
+      "nres010_source_case_id": "EVIDENCE_DEGRADATION-31"
     },
     {
       "case_id": "NRES012-NRES011-EVIDENCE_DEGRADATION-32",
-      "source_case_id": "EVIDENCE_DEGRADATION-32",
+      "source_case_id": "NRES011-EVIDENCE_DEGRADATION-32",
       "regime_id": "evidence_degradation",
       "sampling_stratum": "tail_enriched",
       "proposal_stratum_probability": 0.25,
@@ -3082,7 +3209,8 @@
         "probability_upper": 0.3425,
         "ambiguity_radius": 0.02,
         "abstention_reason": null
-      }
+      },
+      "nres010_source_case_id": "EVIDENCE_DEGRADATION-32"
     }
   ],
   "interpretation_guardrails": [
