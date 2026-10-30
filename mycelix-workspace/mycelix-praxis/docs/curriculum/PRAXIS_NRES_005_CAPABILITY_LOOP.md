@@ -113,7 +113,20 @@ The proposed differentiation is the open, privacy-aware linkage between:
 
 This is valuable only if it improves auditability, transfer and follow-through without creating a surveillance or coercive scoring system. Test it against existing HSEEP/IFRC-style records, not only against a weak bespoke baseline.
 
-## 10. Implementation boundary
+## 10. Reference implementation
+
+A standalone Rust reference evaluator lives in `benchmarks/nres-capability-loop/`. It parses the public NRES-002 and NRES-005 fixtures, validates evidence-linked cycle records and action closure, and emits a machine-readable report containing separate measures rather than a composite score.
+
+Run from the `mycelix-praxis` directory:
+
+```bash
+cargo test --manifest-path benchmarks/nres-capability-loop/Cargo.toml
+cargo run --manifest-path benchmarks/nres-capability-loop/Cargo.toml
+```
+
+The crate is isolated in its own Cargo workspace and is not part of the production application. Tests are authored but have not been executed in the current environment.
+
+## 11. Implementation boundary
 
 - The course and all NRES-005 fixtures remain inactive in the production curriculum graph.
 - Do not collect participant political beliefs, enlistment interest, loyalty, health status or personal suitability.
@@ -122,7 +135,7 @@ This is valuable only if it improves auditability, transfer and follow-through w
 - Official service thresholds, authority and real exercise participation require the responsible institution's approval.
 - A synthetic result, Praxis credential or model-generated recommendation confers no legal authority or professional qualification.
 
-## 11. Sources
+## 12. Sources
 
 - FEMA, [Homeland Security Exercise and Evaluation Program](https://training.fema.gov/programs/nsec/hseep/) and [Exercise Evaluation Guides](https://preptoolkit.fema.gov/web/hseep-resources/eegs).
 - IFRC, [National Society Preparedness Framework](https://www.ifrc.org/document/ifrc-national-society-preparedness-framework).
