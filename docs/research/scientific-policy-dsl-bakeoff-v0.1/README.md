@@ -44,6 +44,41 @@ Two details are easy to accidentally change in a rewrite:
 
 The corpus represents these distinctions explicitly. Its 28 cases include 16 allows and 12 denies. They are one-fault decision vectors; they do not yet cover the full cross-product of every actor, role, organization, and event shape.
 
+## Separate permission from evidence qualification
+
+An accepted `AttestationRecorded` event is not automatically counted as
+independent support. `ClaimProjection::recompute_evidence_profile` has its
+own qualification semantics:
+
+- An ordinary Review by the claim creator, or by an actor acting for the
+  creator organization, does not increase `review_count`.
+- Reviewer count is deduplicated by actor identity.
+- Computational reproduction and independent replication sources are
+  deduplicated using the acting organization when present, otherwise actor
+  identity.
+- An IndependentReplication contributes supportive independent evidence only
+  when the actor is not the creator and the acting organization is not the
+  creator organization. Non-supporting and inconclusive outcomes are tracked
+  separately.
+- A self-submitted ordinary review is currently authorizable for a contributor,
+  but is not evidence of an independent reviewer. The corpus records this as
+  two separate expectations instead of incorrectly treating one as the other.
+
+The corpus now includes two explicit review cases:
+`AUTH-029` records that a non-creator reviewer without a declared acting
+organization can currently submit an independent replication (with actor
+identity used as the source key); whether that is sufficient independence is
+a normative policy question, not something the port may silently decide.
+`AUTH-030` records that the claim creator can submit an ordinary review under
+the authorization policy, while the evidence projection gives that review no
+reviewer credit. There is also a projection-level fixture expectation for the
+resulting evidence effect.
+
+This creates two separate equivalence targets: **authorization equivalence**
+(what events may be appended) and **epistemic qualification equivalence**
+(which accepted events count toward evidence maturity). Neither is a substitute
+for the other.
+
 ## Keep the authority kernel non-delegable
 
 The pure policy must not be able to waive the following gates already enforced by
