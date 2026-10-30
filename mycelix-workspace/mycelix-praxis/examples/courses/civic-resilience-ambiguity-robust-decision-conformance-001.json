@@ -1105,7 +1105,9 @@
           }
         }
       }
-    }
+    },
+    "mandatory_abstentions": 4,
+    "optional_abstentions": 1
   },
   "round_trip_requirements": [
     "Preserve pinned NRES-011 source fixture blob SHA and source-case count.",
