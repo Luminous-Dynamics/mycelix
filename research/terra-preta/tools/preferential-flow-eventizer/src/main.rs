@@ -66,13 +66,13 @@ struct MoistureSample {
     status: MoistureStatus,
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 struct Rain {
     time: DateTime<FixedOffset>,
     amount_mm: f64,
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 struct Moisture {
     time: DateTime<FixedOffset>,
     theta: Option<f64>,
