@@ -754,14 +754,13 @@ mod tests {
     use crate::scientific_authority_audit::MemoryScientificAuthorityAuditStore;
     use crate::scientific_events::{
         ArtifactAvailability, ArtifactId, AtomicClaim, Attestation, AttestationId,
-        AttestationStatus, ClaimId, ClaimLifecycle, ClaimOrigin, EvidenceArtifact,
-        EvidenceOutcome, EvidenceProfile, LegacyImportMetadata,
-        MemoryScientificEventLog, RecordedAttestation, ResearchObject, ResearchObjectId,
-        ResearchObjectType, ScientificEventEnvelope,
+        AttestationStatus, ClaimId, ClaimLifecycle, ClaimOrigin, EvidenceArtifact, EvidenceOutcome,
+        EvidenceProfile, LegacyImportMetadata, MemoryScientificEventLog, RecordedAttestation,
+        ResearchObject, ResearchObjectId, ResearchObjectType, ScientificEventEnvelope,
     };
     use chrono::{Duration, TimeZone};
     use ed25519_dalek::SigningKey;
-    use serde_json::{json, Value};
+    use serde_json::{Value, json};
     use std::sync::Arc;
 
     fn actor(value: &str) -> ActorId {
@@ -830,7 +829,6 @@ mod tests {
         }
     }
 
-
     fn corpus_role(value: &str) -> ScientificRole {
         match value {
             "contributor" => ScientificRole::Contributor,
@@ -870,7 +868,11 @@ mod tests {
 
     fn corpus_case_inputs(
         case: &Value,
-    ) -> (ResolvedScientificActor, SignedScientificEvent, Option<ClaimProjection>) {
+    ) -> (
+        ResolvedScientificActor,
+        SignedScientificEvent,
+        Option<ClaimProjection>,
+    ) {
         let now = Utc.timestamp_opt(1_700_000_000, 0).unwrap();
         let actor_obj = case.get("actor").expect("case actor");
         let actor_id = actor(
@@ -1028,11 +1030,7 @@ mod tests {
                 },
             },
             "attestation_recorded" => ScientificEventPayload::AttestationRecorded {
-                attestation: corpus_attestation(
-                    AttestationId::new(),
-                    claim_id,
-                    attestation_kind,
-                ),
+                attestation: corpus_attestation(AttestationId::new(), claim_id, attestation_kind),
             },
             "attestation_corrected" => {
                 let attestation_id = target_attestation_id.unwrap_or_else(AttestationId::new);
@@ -1068,12 +1066,7 @@ mod tests {
             ScientificEventEnvelope::genesis(actor_id.clone(), now, payload).unwrap()
         } else {
             let previous = SignedScientificEvent::sign(
-                ScientificEventEnvelope::genesis(
-                    creator,
-                    now.clone(),
-                    proposed(claim_id),
-                )
-                .unwrap(),
+                ScientificEventEnvelope::genesis(creator, now.clone(), proposed(claim_id)).unwrap(),
                 &key(32),
             )
             .unwrap();
@@ -1085,10 +1078,7 @@ mod tests {
             )
             .unwrap()
         };
-        let envelope = match case
-            .get("actingOrganizationId")
-            .and_then(Value::as_str)
-        {
+        let envelope = match case.get("actingOrganizationId").and_then(Value::as_str) {
             Some(organization) => {
                 envelope.with_acting_organization(OrganizationId::new(organization).unwrap())
             }
@@ -1174,18 +1164,17 @@ mod tests {
             }
 
             let (mutated_actor, mutated_event, mutated_claim) = corpus_case_inputs(&reordered);
-            let mutated = policy.authorize(
-                &mutated_actor,
-                &mutated_event,
-                mutated_claim.as_ref(),
-            );
+            let mutated = policy.authorize(&mutated_actor, &mutated_event, mutated_claim.as_ref());
             assert_eq!(
-                baseline.allowed,
-                mutated.allowed,
+                baseline.allowed, mutated.allowed,
                 "{}: irrelevant roles, duplicate roles, role order or unrelated actor organizations changed the decision",
                 case["id"]
             );
-            assert_eq!(baseline.reason, mutated.reason, "{}: decision explanation changed", case["id"]);
+            assert_eq!(
+                baseline.reason, mutated.reason,
+                "{}: decision explanation changed",
+                case["id"]
+            );
         }
     }
 
@@ -1281,7 +1270,10 @@ mod tests {
                         .is_some_and(|name| name.starts_with(&format!("{id} ")))
                 })
                 .unwrap_or_else(|| panic!("{id}: missing Cedar request"));
-            assert_eq!(cedar_case["decision"], expected, "{id}: Cedar expected decision");
+            assert_eq!(
+                cedar_case["decision"], expected,
+                "{id}: Cedar expected decision"
+            );
             assert_eq!(
                 cedar_case["request"]["principal"],
                 format!("Mycelix::Actor::{actor_id:?}"),
@@ -1298,19 +1290,16 @@ mod tests {
                 "{id}: Cedar resource"
             );
             assert_eq!(
-                cedar_case["request"]["context"]["attestationKind"],
-                attestation_kind,
+                cedar_case["request"]["context"]["attestationKind"], attestation_kind,
                 "{id}: Cedar attestation context"
             );
             assert_eq!(
-                cedar_case["request"]["context"]["targetAttestationExists"],
-                target_exists,
+                cedar_case["request"]["context"]["targetAttestationExists"], target_exists,
                 "{id}: Cedar target context"
             );
             if let Some(organization) = case.get("actingOrganizationId") {
                 assert_eq!(
-                    cedar_case["request"]["context"]["actingOrganizationId"],
-                    *organization,
+                    cedar_case["request"]["context"]["actingOrganizationId"], *organization,
                     "{id}: Cedar acting organization"
                 );
             }
@@ -1318,29 +1307,35 @@ mod tests {
             let cedar_actor = entity(cedar_entities, "Mycelix::Actor");
             assert_eq!(cedar_actor["uid"]["id"], actor_id, "{id}: Cedar actor UID");
             assert_eq!(
-                cedar_actor["attrs"]["roles"],
-                actor_case["roles"],
+                cedar_actor["attrs"]["roles"], actor_case["roles"],
                 "{id}: Cedar roles"
             );
             assert_eq!(
-                cedar_actor["attrs"]["organizations"],
-                actor_organizations,
+                cedar_actor["attrs"]["organizations"], actor_organizations,
                 "{id}: Cedar organizations"
             );
             let cedar_claim = entity(cedar_entities, "Mycelix::Claim");
-            assert_eq!(cedar_claim["uid"]["id"], resource_id, "{id}: Cedar claim UID");
             assert_eq!(
-                cedar_claim["attrs"]["exists"],
-                claim_case["exists"],
+                cedar_claim["uid"]["id"], resource_id,
+                "{id}: Cedar claim UID"
+            );
+            assert_eq!(
+                cedar_claim["attrs"]["exists"], claim_case["exists"],
                 "{id}: Cedar claim state"
             );
             for field in ["creatorActorId", "creatorOrganizationId"] {
                 if let Some(value) = claim_case.get(field) {
-                    assert_eq!(cedar_claim["attrs"][field], *value, "{id}: Cedar claim {field}");
+                    assert_eq!(
+                        cedar_claim["attrs"][field], *value,
+                        "{id}: Cedar claim {field}"
+                    );
                 }
             }
             let cedar_action = entity(cedar_entities, "Mycelix::Action");
-            assert_eq!(cedar_action["uid"]["id"], action, "{id}: Cedar action entity");
+            assert_eq!(
+                cedar_action["uid"]["id"], action,
+                "{id}: Cedar action entity"
+            );
 
             let function_name = format!("test_auth_{}", id.to_lowercase().replace('-', "_"));
             let test_start = rego_tests
@@ -1384,7 +1379,10 @@ mod tests {
             if let Some(organization) = case.get("actingOrganizationId") {
                 expected_input["actingOrganizationId"] = organization.clone();
             }
-            assert_eq!(actual_input, expected_input, "{id}: Rego input differs from corpus");
+            assert_eq!(
+                actual_input, expected_input,
+                "{id}: Rego input differs from corpus"
+            );
         }
     }
 
