@@ -61,6 +61,16 @@ struct ForecastAggregate {
     log_loss_sum: f64,
 }
 
+#[derive(Default)]
+struct ServiceCaseAggregate {
+    total_cases: usize,
+    qualified_cases: usize,
+    issued_forecasts: usize,
+    abstentions: usize,
+    mandatory_abstention_cases: usize,
+    mandatory_abstentions: usize,
+}
+
 fn probability_bin(probability: f64) -> usize {
     if probability >= 1.0 {
         4
@@ -151,7 +161,8 @@ pub fn evaluate_probability_forecasts(fixture: &Value) -> Result<Value, Vec<Stri
         let floor = num_field(service, "floor_percent");
         if id.is_none()
             || floor.is_none_or(|value| !value.is_finite() || !(0.0..=100.0).contains(&value))
-            || str_field(service, "unit").is_none()
+            || str_field(service, "unit").is_none_or(str::is_empty)
+            || id.is_some_and(str::is_empty)
         {
             errors.push("service catalog entry needs ID, 0-100 floor and unit".to_owned());
             continue;
@@ -190,6 +201,18 @@ pub fn evaluate_probability_forecasts(fixture: &Value) -> Result<Value, Vec<Stri
     }
 
     let mut case_ids = BTreeSet::new();
+    let mut service_case_counts: BTreeMap<String, ServiceCaseAggregate> = service_floors
+        .keys()
+        .map(|service_id| (service_id.clone(), ServiceCaseAggregate::default()))
+        .collect();
+    let mut mandatory_abstention_by_reason: BTreeMap<String, usize> = [
+        "missing_critical_input",
+        "conflicting_sources",
+        "unsupported_distribution_shift",
+    ]
+    .into_iter()
+    .map(|reason| (reason.to_owned(), 0))
+    .collect();
     let mut issued = Vec::new();
     let mut total_count = 0usize;
     let mut qualified_count = 0usize;
@@ -209,6 +232,11 @@ pub fn evaluate_probability_forecasts(fixture: &Value) -> Result<Value, Vec<Stri
             errors.push(format!("{case_id}: unknown service_id"));
             continue;
         };
+        let service_id_owned = service_id.unwrap().to_owned();
+        let service_case_count = service_case_counts
+            .get_mut(&service_id_owned)
+            .expect("service case counter must follow validated service catalog");
+        service_case_count.total_cases += 1;
         if num_field(case, "forecast_origin_hour") != Some(forecast_origin)
             || num_field(case, "forecast_horizon_hours") != Some(forecast_horizon)
         {
@@ -232,12 +260,14 @@ pub fn evaluate_probability_forecasts(fixture: &Value) -> Result<Value, Vec<Stri
         let action = str_field(candidate, "action");
         let probability_value = candidate.get("predicted_breach_probability");
         let probability = probability_value.and_then(Value::as_f64);
-        let reason = candidate.get("abstention_reason").and_then(Value::as_str);
+        let reason_value = candidate.get("abstention_reason");
+        let reason = reason_value.and_then(Value::as_str);
         let observed_breach = observed < floor;
 
         match qualification {
             Some("qualified") => {
                 qualified_count += 1;
+                service_case_count.qualified_cases += 1;
                 match action {
                     Some("forecast") => {
                         if probability.is_none_or(|value| !value.is_finite() || !(0.0..=1.0).contains(&value)) {
@@ -256,6 +286,7 @@ pub fn evaluate_probability_forecasts(fixture: &Value) -> Result<Value, Vec<Stri
                     Some("abstain") => {
                         abstention_count += 1;
                         optional_abstentions += 1;
+                        service_case_count.abstentions += 1;
                         if !probability_value.is_some_and(Value::is_null) {
                             errors.push(format!("{case_id}: abstention must carry a null probability"));
                         }
@@ -270,10 +301,16 @@ pub fn evaluate_probability_forecasts(fixture: &Value) -> Result<Value, Vec<Stri
             | Some("conflicting_sources")
             | Some("unsupported_distribution_shift") => {
                 mandatory_count += 1;
+                service_case_count.mandatory_abstention_cases += 1;
                 match action {
                     Some("abstain") => {
                         abstention_count += 1;
                         mandatory_abstentions += 1;
+                        service_case_count.abstentions += 1;
+                        service_case_count.mandatory_abstentions += 1;
+                        if let Some(count) = qualification.and_then(|reason| mandatory_abstention_by_reason.get_mut(reason)) {
+                            *count += 1;
+                        }
                         if !probability_value.is_some_and(Value::is_null) {
                             errors.push(format!("{case_id}: mandatory abstention must carry a null probability"));
                         }
@@ -380,6 +417,21 @@ pub fn evaluate_probability_forecasts(fixture: &Value) -> Result<Value, Vec<Stri
         })
         .sum::<f64>();
 
+    let per_service_case_metrics: Vec<Value> = service_case_counts
+        .iter()
+        .map(|(service_id, metrics)| {
+            json!({
+                "service_id": service_id,
+                "total_cases": metrics.total_cases,
+                "qualified_cases": metrics.qualified_cases,
+                "issued_forecasts": metrics.issued_forecasts,
+                "abstentions": metrics.abstentions,
+                "mandatory_abstention_cases": metrics.mandatory_abstention_cases,
+                "mandatory_abstentions": metrics.mandatory_abstentions
+            })
+        })
+        .collect();
+
     let per_service_metrics: Vec<Value> = per_service
         .iter()
         .map(|(service_id, metrics)| {
@@ -466,6 +518,8 @@ pub fn evaluate_probability_forecasts(fixture: &Value) -> Result<Value, Vec<Stri
             "brier_score": brier_score,
             "log_loss": log_loss,
             "climatology_reference_probability": reference_rate,
+            "climatology_reference_sample_count": reference_count,
+            "climatology_reference_breach_count": reference_breaches,
             "climatology_brier_score": reference_brier,
             "brier_skill_score": brier_skill
         },
@@ -474,6 +528,8 @@ pub fn evaluate_probability_forecasts(fixture: &Value) -> Result<Value, Vec<Stri
             "interpretation": "bin-dependent diagnostic only; not a proper score or standalone ranking metric",
             "reliability_bins": reliability_bins
         },
+        "mandatory_abstention_by_reason": mandatory_abstention_by_reason,
+        "per_service_case_metrics": per_service_case_metrics,
         "per_service_metrics": per_service_metrics,
         "risk_coverage_curve": risk_coverage_curve,
         "aggregation_policy": "no composite resilience or personal score; selective proper scores always accompanied by coverage and abstention counts"
@@ -692,6 +748,28 @@ mod tests {
     fn rejects_unknown_service_id() {
         let mut value = fixture();
         value["evaluation_cases"][0]["service_id"] = json!("invented_service");
+        assert!(evaluate_probability_forecasts(&value).is_err());
+    }
+
+
+    #[test]
+    fn rejects_numeric_abstention_reason_on_forecast() {
+        let mut value = fixture();
+        find_forecast(&mut value)["candidate_output"]["abstention_reason"] = json!(17);
+        assert!(evaluate_probability_forecasts(&value).is_err());
+    }
+
+    #[test]
+    fn rejects_missing_explicit_null_reason_on_forecast() {
+        let mut value = fixture();
+        find_forecast(&mut value)["candidate_output"].as_object_mut().unwrap().remove("abstention_reason");
+        assert!(evaluate_probability_forecasts(&value).is_err());
+    }
+
+    #[test]
+    fn rejects_empty_service_unit() {
+        let mut value = fixture();
+        value["service_catalog"][0]["unit"] = json!("");
         assert!(evaluate_probability_forecasts(&value).is_err());
     }
 
