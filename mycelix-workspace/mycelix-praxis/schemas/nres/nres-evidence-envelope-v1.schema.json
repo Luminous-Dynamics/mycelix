@@ -1,0 +1,422 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:mycelix:praxis:nres:006:evidence-envelope:v1",
+  "title": "Praxis NRES Evidence Envelope v1",
+  "description": "Portable, privacy-minimized interchange envelope for synthetic civic-resilience exercise and improvement evidence. Not an official HSEEP/IFRC/ISO/WHO schema.",
+  "type": "object",
+  "required": [
+    "@context",
+    "@id",
+    "@type",
+    "schema_version",
+    "bundle_metadata",
+    "source_references",
+    "@graph",
+    "measurements",
+    "framework_crosswalks",
+    "privacy",
+    "integrity"
+  ],
+  "properties": {
+    "@context": {
+      "type": "object",
+      "required": [
+        "nres",
+        "prov"
+      ],
+      "properties": {
+        "nres": {
+          "const": "urn:mycelix:praxis:nres:006:"
+        },
+        "prov": {
+          "const": "http://www.w3.org/ns/prov#"
+        }
+      },
+      "additionalProperties": true
+    },
+    "@id": {
+      "type": "string",
+      "pattern": "^urn:mycelix:praxis:nres:006:bundle:"
+    },
+    "@type": {
+      "oneOf": [
+        {
+          "const": "nres:EvidenceEnvelope"
+        },
+        {
+          "type": "array",
+          "contains": {
+            "const": "nres:EvidenceEnvelope"
+          }
+        }
+      ]
+    },
+    "schema_version": {
+      "const": "1.0.0"
+    },
+    "bundle_metadata": {
+      "type": "object",
+      "required": [
+        "bundle_id",
+        "scenario_id",
+        "status",
+        "evaluation_split",
+        "source_benchmark",
+        "generated_by",
+        "purpose"
+      ],
+      "properties": {
+        "bundle_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "scenario_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "status": {
+          "enum": [
+            "synthetic-demonstration",
+            "observed-exercise",
+            "mixed-evidence"
+          ]
+        },
+        "evaluation_split": {
+          "enum": [
+            "public-development-only",
+            "pilot-calibration",
+            "confirmatory-held-out",
+            "operational-restricted"
+          ]
+        },
+        "source_benchmark": {
+          "type": "string"
+        },
+        "generated_by": {
+          "type": "string"
+        },
+        "purpose": {
+          "type": "string",
+          "minLength": 1
+        },
+        "no_real_world_effect_claim": {
+          "const": true
+        }
+      },
+      "additionalProperties": true
+    },
+    "source_references": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": [
+          "source_id",
+          "path",
+          "media_type",
+          "evidence_status"
+        ],
+        "properties": {
+          "source_id": {
+            "type": "string"
+          },
+          "path": {
+            "type": "string"
+          },
+          "media_type": {
+            "type": "string"
+          },
+          "evidence_status": {
+            "enum": [
+              "synthetic",
+              "observed",
+              "assumption",
+              "estimate",
+              "unknown",
+              "external-reference"
+            ]
+          },
+          "sha256": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^[a-f0-9]{64}$"
+          }
+        },
+        "additionalProperties": true
+      }
+    },
+    "@graph": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/prov_node"
+      }
+    },
+    "measurements": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "measure_id",
+          "cycle_id",
+          "unit",
+          "result"
+        ],
+        "properties": {
+          "measure_id": {
+            "type": "string"
+          },
+          "cycle_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "unit": {
+            "type": "string"
+          },
+          "result": {
+            "type": "object"
+          },
+          "evidence_ids": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "additionalProperties": true
+      }
+    },
+    "framework_crosswalks": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "framework",
+          "source_element",
+          "target_element",
+          "mapping_type",
+          "scope_note"
+        ],
+        "properties": {
+          "framework": {
+            "type": "string"
+          },
+          "source_element": {
+            "type": "string"
+          },
+          "target_element": {
+            "type": "string"
+          },
+          "mapping_type": {
+            "enum": [
+              "exact-vocabulary",
+              "conceptual",
+              "out-of-scope"
+            ]
+          },
+          "scope_note": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    "privacy": {
+      "type": "object",
+      "required": [
+        "classification",
+        "subject_identifiers",
+        "default_purpose",
+        "prohibited_inferences",
+        "personal_data_present"
+      ],
+      "properties": {
+        "classification": {
+          "enum": [
+            "public-synthetic",
+            "restricted-operational",
+            "confidential"
+          ]
+        },
+        "subject_identifiers": {
+          "const": "none-in-public-profile"
+        },
+        "default_purpose": {
+          "type": "string"
+        },
+        "prohibited_inferences": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "personal_data_present": {
+          "const": false
+        }
+      },
+      "additionalProperties": true
+    },
+    "integrity": {
+      "type": "object",
+      "required": [
+        "digest_algorithm",
+        "digest_scope",
+        "payload_sha256",
+        "signature_status"
+      ],
+      "properties": {
+        "digest_algorithm": {
+          "const": "SHA-256"
+        },
+        "digest_scope": {
+          "const": "exact UTF-8 bytes of the exported envelope; no reserialization implied"
+        },
+        "payload_sha256": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "signature_status": {
+          "enum": [
+            "unsigned-demo",
+            "signed-detached",
+            "not-applicable"
+          ]
+        },
+        "signature_reference": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "additionalProperties": false
+    },
+    "extensions": {
+      "type": "object",
+      "description": "Unknown namespaced extension properties must be preserved by lossless adapters.",
+      "additionalProperties": true
+    }
+  },
+  "$defs": {
+    "prov_node": {
+      "type": "object",
+      "required": [
+        "@id",
+        "@type",
+        "nres:recordKind"
+      ],
+      "properties": {
+        "@id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "@type": {
+          "oneOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "array",
+              "items": {
+                "type": "string"
+              },
+              "minItems": 1
+            }
+          ]
+        },
+        "nres:recordKind": {
+          "type": "string"
+        },
+        "prov:used": {
+          "oneOf": [
+            {
+              "type": "object",
+              "required": [
+                "@id"
+              ],
+              "properties": {
+                "@id": {
+                  "type": "string"
+                }
+              }
+            },
+            {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "required": [
+                  "@id"
+                ],
+                "properties": {
+                  "@id": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          ]
+        },
+        "prov:wasGeneratedBy": {
+          "type": "object",
+          "required": [
+            "@id"
+          ],
+          "properties": {
+            "@id": {
+              "type": "string"
+            }
+          }
+        },
+        "prov:wasDerivedFrom": {
+          "oneOf": [
+            {
+              "type": "object",
+              "required": [
+                "@id"
+              ],
+              "properties": {
+                "@id": {
+                  "type": "string"
+                }
+              }
+            },
+            {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "required": [
+                  "@id"
+                ],
+                "properties": {
+                  "@id": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          ]
+        },
+        "prov:wasAssociatedWith": {
+          "type": "object",
+          "required": [
+            "@id"
+          ],
+          "properties": {
+            "@id": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "additionalProperties": true
+    }
+  },
+  "additionalProperties": false
+}
