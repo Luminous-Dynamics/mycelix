@@ -414,7 +414,70 @@
           }
         }
       },
-      "additionalProperties": true
+      "additionalProperties": true,
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "nres:recordKind": {
+                "const": "after-action-finding"
+              }
+            },
+            "required": [
+              "nres:recordKind"
+            ]
+          },
+          "then": {
+            "required": [
+              "prov:wasGeneratedBy",
+              "prov:wasDerivedFrom"
+            ]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "nres:recordKind": {
+                "const": "corrective-action"
+              }
+            },
+            "required": [
+              "nres:recordKind"
+            ]
+          },
+          "then": {
+            "required": [
+              "prov:wasGeneratedBy",
+              "prov:wasDerivedFrom"
+            ]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "nres:recordKind": {
+                "const": "corrective-action"
+              },
+              "nres:status": {
+                "const": "closed-verified"
+              }
+            },
+            "required": [
+              "nres:recordKind",
+              "nres:status"
+            ]
+          },
+          "then": {
+            "required": [
+              "nres:completionEvidenceId",
+              "nres:independentlyVerified",
+              "nres:retestResult",
+              "nres:verificationRecord",
+              "nres:retestObservation"
+            ]
+          }
+        }
+      ]
     }
   },
   "additionalProperties": false
