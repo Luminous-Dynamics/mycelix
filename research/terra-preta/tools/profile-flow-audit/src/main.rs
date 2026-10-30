@@ -69,7 +69,8 @@ struct Report {
     nsr_pair_count: usize,
     sequential_pair_count: usize,
     tied_pair_count: usize,
-    unobserved_sensor_count: usize,
+    not_detected_sensor_count: usize,
+    indeterminate_sensor_count: usize,
     profile_classification: &'static str,
     pair_results: Vec<PairResult>,
     interpretation_boundary: &'static str,
@@ -155,9 +156,13 @@ fn evaluate(input: &Input, input_sha256: String) -> Result<Report, String> {
         .iter()
         .filter(|sensor| sensor.response_status == ResponseStatus::Detected)
         .count();
-    let unobserved_sensor_count = sensors
+    let not_detected_sensor_count = sensors
         .iter()
-        .filter(|sensor| sensor.response_status != ResponseStatus::Detected)
+        .filter(|sensor| sensor.response_status == ResponseStatus::NotDetected)
+        .count();
+    let indeterminate_sensor_count = sensors
+        .iter()
+        .filter(|sensor| sensor.response_status == ResponseStatus::Indeterminate)
         .count();
 
     let mut pair_results = Vec::new();
@@ -222,7 +227,8 @@ fn evaluate(input: &Input, input_sha256: String) -> Result<Report, String> {
         nsr_pair_count,
         sequential_pair_count,
         tied_pair_count,
-        unobserved_sensor_count,
+        not_detected_sensor_count,
+        indeterminate_sensor_count,
         profile_classification,
         pair_results,
         interpretation_boundary: "NSR is a profile-level soil-moisture response-order diagnostic; it is not tracer confirmation, a unique macropore proof, or a direct flux measurement",
@@ -359,7 +365,8 @@ mod tests {
         let report = evaluate(&data, "e".repeat(64)).unwrap();
         assert_eq!(report.profile_classification, "insufficient_comparable_sensor_responses");
         assert_eq!(report.detected_sensor_count, 1);
-        assert_eq!(report.unobserved_sensor_count, 2);
+        assert_eq!(report.not_detected_sensor_count, 1);
+        assert_eq!(report.indeterminate_sensor_count, 1);
         assert_eq!(report.comparable_pair_count, 0);
     }
 
