@@ -79,7 +79,6 @@
       1
     ],
     "bin_convention": "lower-inclusive and upper-exclusive; final bin includes 1.0",
-    "log_loss_epsilon": 0.000001,
     "gpd_parameterization": "conditional excess X=Y-u given Y>u; GPD CDF 1-(1+xi*x/sigma)^(-1/xi), exponential limit when xi=0",
     "gpd_support": "sigma>0; when xi<0, 0<=x< -sigma/xi; an observation outside forecast support is counted as zero-support/infinite conditional log loss",
     "tail_quantile_levels": [
