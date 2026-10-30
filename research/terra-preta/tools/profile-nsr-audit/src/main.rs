@@ -61,7 +61,7 @@ struct EventInput {
     source_evidence_ref: String,
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 struct ParsedSensor<'a> {
     source: &'a SensorObservation,
     response_onset: Option<DateTime<FixedOffset>>,
