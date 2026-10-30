@@ -1,0 +1,79 @@
+name: Scientific policy DSL conformance
+
+on:
+  pull_request:
+    paths:
+      - "mycelix-desci/src/core/src/scientific_governance.rs"
+      - "mycelix-desci/src/core/src/scientific_events.rs"
+      - "mycelix-desci/Cargo.toml"
+      - "mycelix-desci/Cargo.lock"
+      - "docs/research/scientific-policy-dsl-bakeoff-v0.1/**"
+      - ".github/workflows/scientific-policy-dsl-conformance.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: scientific-policy-dsl-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  policy-conformance:
+    name: Rust oracle, Cedar validation, and Rego controls
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - name: Checkout exact revision
+        uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt
+
+      - name: Check changed Rust source formatting
+        run: rustfmt --check --edition 2024 mycelix-desci/src/core/src/scientific_governance.rs
+
+      - name: Execute frozen authorization corpus against Rust oracle
+        run: >
+          cargo test --locked
+          --manifest-path mycelix-desci/Cargo.toml
+          -p mycelix-desci-core
+          --lib scientific_governance::tests
+          -- --nocapture
+
+      - name: Install Cedar CLI 4.14.0
+        run: |
+          cargo install cedar-policy-cli --version 4.14.0 --locked
+          echo "$HOME/.cargo/bin" >> "$GITHUB_PATH"
+
+      - name: Validate Cedar reference policy against its schema
+        run: |
+          cedar validate \
+            --schema docs/research/scientific-policy-dsl-bakeoff-v0.1/cedar-schema.json \
+            --schema-format json \
+            --policies docs/research/scientific-policy-dsl-bakeoff-v0.1/cedar-policy.cedar
+
+      - name: Install OPA 1.22.0 with release checksum verification
+        run: |
+          curl --fail --location --silent --show-error \
+            https://github.com/open-policy-agent/opa/releases/download/v1.22.0/opa_linux_amd64_static \
+            --output "$RUNNER_TEMP/opa"
+          echo "791790254c598a942eb140959bcec9a47f844535a632fd01d11d870ba2a47047  $RUNNER_TEMP/opa" \
+            | sha256sum --check
+          chmod +x "$RUNNER_TEMP/opa"
+          echo "$RUNNER_TEMP" >> "$GITHUB_PATH"
+          "$RUNNER_TEMP/opa" version
+
+      - name: Check Rego modules in strict mode
+        run: |
+          opa check --strict \
+            docs/research/scientific-policy-dsl-bakeoff-v0.1/opa-policy.rego \
+            docs/research/scientific-policy-dsl-bakeoff-v0.1/opa-policy_test.rego
+
+      - name: Run Rego positive and negative controls
+        run: |
+          opa test -v \
+            docs/research/scientific-policy-dsl-bakeoff-v0.1/opa-policy.rego \
+            docs/research/scientific-policy-dsl-bakeoff-v0.1/opa-policy_test.rego
