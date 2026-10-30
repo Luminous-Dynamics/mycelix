@@ -759,9 +759,9 @@ mod tests {
         MemoryScientificEventLog, RecordedAttestation, ResearchObject, ResearchObjectId,
         ResearchObjectType, ScientificEventEnvelope,
     };
-    use serde_json::{json, Value};
     use chrono::{Duration, TimeZone};
     use ed25519_dalek::SigningKey;
+    use serde_json::{json, Value};
     use std::sync::Arc;
 
     fn actor(value: &str) -> ActorId {
