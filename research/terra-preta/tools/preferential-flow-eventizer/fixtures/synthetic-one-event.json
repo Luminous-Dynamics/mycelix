@@ -213,5 +213,6 @@
       "volumetric_water_content_m3_m3": 0.2,
       "status": "observed_good"
     }
-  ]
+  ],
+  "max_matrix_ksat_evidence_ref": "synthetic fixture only; no Rosetta3-derived field estimate"
 }
