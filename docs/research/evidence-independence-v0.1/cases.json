@@ -45,11 +45,12 @@
     "computational_reproduction": {
       "requiredDimensions": [
         "actor",
-        "method_family",
+        "organization",
         "execution_provenance"
       ],
       "requiredPresence": [
         "actor",
+        "organization",
         "dataset_lineage",
         "method_family",
         "execution_provenance",
@@ -216,7 +217,7 @@
           "labId": "lab:north-1",
           "datasetLineageId": "dataset:root-a",
           "datasetProvenanceStatus": "resolved",
-          "datasetArtifactDigest": "sha256:data-original",
+          "datasetArtifactDigest": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
           "protocolFamilyId": "protocol:registered:v1",
           "preregistrationId": "prereg:registered:1",
           "methodFamilyId": "method:assay-a",
@@ -236,7 +237,7 @@
           "labId": "lab:south-1",
           "datasetLineageId": "dataset:root-a",
           "datasetProvenanceStatus": "resolved",
-          "datasetArtifactDigest": "sha256:data-mirror",
+          "datasetArtifactDigest": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
           "protocolFamilyId": "protocol:registered:v1",
           "preregistrationId": "prereg:registered:1",
           "methodFamilyId": "method:assay-b",
@@ -464,7 +465,7 @@
           "reviewer_diversity": "qualified",
           "organization_independence": "qualified",
           "empirical_replication": "not_qualified",
-          "computational_reproduction": "not_qualified"
+          "computational_reproduction": "qualified"
         },
         "activeSourceCount": 2,
         "withdrawnSourceCount": 0
@@ -679,7 +680,7 @@
           "labId": "lab:north-1",
           "datasetLineageId": "dataset:root-a",
           "datasetProvenanceStatus": "resolved",
-          "datasetArtifactDigest": "sha256:shared-data",
+          "datasetArtifactDigest": "sha256:3333333333333333333333333333333333333333333333333333333333333333",
           "protocolFamilyId": "protocol:registered:v1",
           "preregistrationId": "prereg:registered:1",
           "methodFamilyId": "method:assay-a",
@@ -699,7 +700,7 @@
           "labId": "lab:south-1",
           "datasetLineageId": "dataset:root-b",
           "datasetProvenanceStatus": "resolved",
-          "datasetArtifactDigest": "sha256:shared-data",
+          "datasetArtifactDigest": "sha256:3333333333333333333333333333333333333333333333333333333333333333",
           "protocolFamilyId": "protocol:registered:v1",
           "preregistrationId": "prereg:registered:1",
           "methodFamilyId": "method:assay-a",
@@ -982,12 +983,12 @@
       ],
       "expected": {
         "dimensions": {
-          "actor": "unknown",
-          "organization": "unknown",
-          "lab": "unknown",
-          "dataset_lineage": "unknown",
-          "protocol": "unknown",
-          "method_family": "unknown"
+          "actor": "not_established",
+          "organization": "not_established",
+          "lab": "not_established",
+          "dataset_lineage": "not_established",
+          "protocol": "not_established",
+          "method_family": "not_established"
         },
         "profiles": {
           "reviewer_diversity": "not_qualified",
@@ -1013,7 +1014,7 @@
           "labId": "lab:north-1",
           "datasetLineageId": "dataset:derived-from-a",
           "datasetProvenanceStatus": "resolved",
-          "datasetArtifactDigest": "sha256:derived-a",
+          "datasetArtifactDigest": "sha256:4444444444444444444444444444444444444444444444444444444444444444",
           "protocolFamilyId": "protocol:registered:v1",
           "preregistrationId": "prereg:registered:1",
           "methodFamilyId": "method:assay-a",
@@ -1033,7 +1034,7 @@
           "labId": "lab:south-1",
           "datasetLineageId": "dataset:derived-from-a",
           "datasetProvenanceStatus": "resolved",
-          "datasetArtifactDigest": "sha256:derived-b",
+          "datasetArtifactDigest": "sha256:5555555555555555555555555555555555555555555555555555555555555555",
           "protocolFamilyId": "protocol:registered:v1",
           "preregistrationId": "prereg:registered:1",
           "methodFamilyId": "method:assay-b",
