@@ -154,6 +154,14 @@ Test first-flush and subsequent events, wetting/drying cycles, compaction/struct
 ### T7 — Conservation and uncertainty
 For water and each nutrient, publish event and cumulative residuals alongside measurement uncertainty. Propagate concentration and volume uncertainty with covariance where known. If covariance or coverage is missing, mark the closure result unqualified or explicitly approximate; do not label an invented tolerance as validation.
 
+## 6.1 Paired-forcing causal benchmark
+
+For amendment-effect questions, follow the separate
+[Paired-Forcing Causal Benchmark](./PAIRED_FORCING_CAUSAL_BENCHMARK_V0.1.md).
+It distinguishes Tier L randomized core/lysimeter mechanics from Tier F
+randomized field blocks, and prevents repeated events, sensors or depth
+observations from inflating the independent treatment sample size.
+
 ## 7. Experimental contrast and causal design
 
 The study question must state whether it estimates:

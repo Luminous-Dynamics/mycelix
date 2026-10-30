@@ -40,6 +40,12 @@ Predict only properties that have reliable paired inputs and measured labels. Re
 
 ### Track C — soil-water behavior
 
+For causal amendment effects on event response, use the
+[Paired-Forcing Causal Benchmark](./PAIRED_FORCING_CAUSAL_BENCHMARK_V0.1.md).
+Predictive preferential-flow performance is not treatment-effect evidence.
+
+
+
 The comparator hierarchy and parity rules are specified in
 [Industry and Physics-Based Comparator Benchmark](./INDUSTRY_PHYSICS_COMPARATOR_BENCHMARK_V0.1.md).
 Industry and process-model comparisons must identify exact executable,

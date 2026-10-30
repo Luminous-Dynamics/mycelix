@@ -176,6 +176,14 @@ All numerical targets below are **proposed research goals**, not measured result
 
 Do not compare the site-held-out goals directly against the paper's 0.91 F1 as if they were the same test. The paper's score is a temporal per-sensor result; the proposed benchmark is a harder spatial-transfer estimand. To claim a numerical win, all candidate models must be rerun on the identical frozen site-held-out folds.
 
+## 6.1 Treatment-effect boundary
+
+NEON PF prediction is a transportability benchmark, not amendment-effect
+evidence. Any claim that a soil amendment changes event response must use the
+[Paired-Forcing Causal Benchmark](./PAIRED_FORCING_CAUSAL_BENCHMARK_V0.1.md)
+with randomized treatment units, matched/measured hydrologic forcing and
+independent nutrient-mass outcomes.
+
 ## 7. Adversarial and counterfactual challenge suite
 
 The model should be tested on event pairs that distinguish precipitation amount from event structure:

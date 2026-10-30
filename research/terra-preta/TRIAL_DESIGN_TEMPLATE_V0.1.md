@@ -129,6 +129,15 @@ Do not inherit a conventional replicate count from a published study without che
 
 If variance, effect-size, or clustering information is insufficient, state that the power calculation is provisional and collect pilot information under appropriate approvals before a confirmatory trial. Do not claim significance or adequate power merely because a study has a familiar number of replicates.
 
+## 5.1 Matched-forcing event design
+
+For event-scale hydraulic or nutrient effects, use the companion
+[Paired-Forcing Causal Benchmark](./PAIRED_FORCING_CAUSAL_BENCHMARK_V0.1.md).
+Predefine randomized unit, block, matched hyetograph or plot-level rainfall
+measurements, antecedent water state, repeated-event structure and event-mass
+estimand. Storm events, depths, sensors and time points are not independent
+treatment replicates.
+
 ## 6. Measurement plan and data quality
 
 For every endpoint, define units, method, sampling schedule, instrument/lab, calibration, limits of detection/quantification when relevant, quality controls, and the rule for failed or missing measurements.
