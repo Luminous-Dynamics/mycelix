@@ -16,6 +16,7 @@ ROOT = Path(__file__).resolve().parents[1]
 FIXTURE_PATH = ROOT / "examples/courses/civic-resilience-policy-benchmark-fixture-001.json"
 COURSE_PATH = ROOT / "examples/courses/civic-resilience-democratic-defence.json"
 WORKBOOK_PATH = ROOT / "examples/courses/civic-resilience-capstone-workbook-001.json"
+CAPABILITY_LOOP_PATH = ROOT / "examples/courses/civic-resilience-capability-loop-fixture-001.json"
 
 
 def validate(fixture: dict[str, Any], course: dict[str, Any]) -> list[str]:
@@ -220,6 +221,255 @@ def validate_workbook(
     return errors
 
 
+
+def validate_capability_loop(loop: dict[str, Any], fixture: dict[str, Any]) -> list[str]:
+    errors: list[str] = []
+
+    if loop.get("benchmark_id") != "PRAXIS-NRES-005-CAPABILITY-LOOP-001":
+        errors.append("unexpected capability-loop benchmark_id")
+    if loop.get("schema_version") != "1.0.0":
+        errors.append("unsupported capability-loop schema_version")
+    if loop.get("status") != "synthetic-demonstration-for-review":
+        errors.append("capability-loop fixture must remain explicitly synthetic")
+    if loop.get("evaluation_split") != "public-development-only":
+        errors.append("capability-loop fixture must remain public development data")
+    if loop.get("active_in_curriculum") is not False:
+        errors.append("capability-loop fixture must remain inactive")
+    if loop.get("scenario_id") != fixture.get("scenario", {}).get("event_id"):
+        errors.append("capability-loop scenario_id must match the NRES-002 fixture")
+
+    objectives = loop.get("objectives", [])
+    objective_ids = [item.get("id") for item in objectives if isinstance(item, dict)]
+    if not isinstance(objectives, list) or not objectives:
+        errors.append("capability-loop objectives must be a non-empty array")
+        objectives = []
+    if len(objective_ids) != len(set(objective_ids)):
+        errors.append("capability-loop objective IDs must be unique")
+
+    measures = loop.get("measure_catalog", [])
+    measure_ids = [item.get("id") for item in measures if isinstance(item, dict)]
+    if len(measure_ids) != len(set(measure_ids)):
+        errors.append("capability-loop measure IDs must be unique")
+    for measure in measures:
+        if not isinstance(measure, dict):
+            errors.append("every measure definition must be an object")
+            continue
+        for field in ("name", "layer", "numerator", "denominator", "unit", "formula", "guardrail"):
+            if not measure.get(field):
+                errors.append(f"measure {measure.get('id')!r} is missing {field}")
+
+    required_measure_ids = {
+        "M-OBJECTIVE-EVIDENCE", "M-SERVICE-FLOOR", "M-RESOURCE-FEASIBILITY",
+        "M-AUTHORITY-EVIDENCE", "M-ACCESSIBILITY-COVERAGE",
+        "M-ACTION-VERIFICATION", "M-REPEAT-DEFECT",
+        "M-LEARNING-TRANSFER", "M-COST-PER-VERIFIED-IMPROVEMENT",
+    }
+    if not required_measure_ids.issubset(set(measure_ids)):
+        errors.append("capability-loop measure catalog is missing required measures")
+
+    cycles = loop.get("cycles", [])
+    cycle_ids = [item.get("cycle_id") for item in cycles if isinstance(item, dict)]
+    if not isinstance(cycles, list) or len(cycles) < 2:
+        errors.append("capability-loop requires at least two exercise cycles")
+        cycles = []
+    if len(cycle_ids) != len(set(cycle_ids)):
+        errors.append("capability-loop cycle IDs must be unique")
+    cycle_by_id = {item.get("cycle_id"): item for item in cycles if isinstance(item, dict)}
+
+    objectives_set = set(objective_ids)
+    service_floors = fixture.get("synthetic_constraints", {}).get("minimum_service_floor_percent", {})
+    expected_services = set(service_floors)
+
+    for cycle in cycles:
+        if not isinstance(cycle, dict):
+            errors.append("every capability-loop cycle must be an object")
+            continue
+        cycle_id = cycle.get("cycle_id")
+        if cycle.get("data_status") != "illustrative-synthetic":
+            errors.append(f"{cycle_id}: all public example cycle data must be labeled synthetic")
+
+        scheduled = cycle.get("scheduled_objective_ids", [])
+        if set(scheduled) != objectives_set or len(scheduled) != len(objectives_set):
+            errors.append(f"{cycle_id}: scheduled objectives must cover each declared objective exactly once")
+
+        observations = cycle.get("objective_observations", [])
+        observed_ids = [item.get("objective_id") for item in observations if isinstance(item, dict)]
+        if set(observed_ids) != objectives_set or len(observed_ids) != len(objectives_set):
+            errors.append(f"{cycle_id}: objective observations must cover each objective exactly once")
+        for observation in observations:
+            if not isinstance(observation, dict):
+                errors.append(f"{cycle_id}: objective observation must be an object")
+                continue
+            if observation.get("accepted_observation") is True and not observation.get("evidence_ids"):
+                errors.append(f"{cycle_id}: accepted observation must include evidence IDs")
+
+        service_observations = cycle.get("service_floor_observations", [])
+        service_names = [item.get("service") for item in service_observations if isinstance(item, dict)]
+        if set(service_names) != expected_services or len(service_names) != len(expected_services):
+            errors.append(f"{cycle_id}: service observations must cover every fixture service exactly once")
+        for observation in service_observations:
+            if not isinstance(observation, dict):
+                errors.append(f"{cycle_id}: service-floor observation must be an object")
+                continue
+            service = observation.get("service")
+            if observation.get("required_floor_percent") != service_floors.get(service):
+                errors.append(f"{cycle_id}: {service!r} floor must match the frozen NRES-002 fixture")
+            value = observation.get("observed_percent")
+            if not isinstance(value, (int, float)) or not 0 <= value <= 100:
+                errors.append(f"{cycle_id}: {service!r} observed percentage must be between 0 and 100")
+            if not observation.get("evidence_id"):
+                errors.append(f"{cycle_id}: {service!r} observation needs an evidence_id")
+
+        resources = cycle.get("resources", {})
+        expected_budget = fixture.get("synthetic_constraints", {}).get("planning_budget", {}).get("available")
+        expected_hours = fixture.get("synthetic_constraints", {}).get("deployable_trained_responder_hours", {}).get("available")
+        for available_key, committed_key, expected, label in (
+            ("planning_budget_available", "planning_budget_committed", expected_budget, "planning budget"),
+            ("responder_hours_available", "responder_hours_committed", expected_hours, "responder hours"),
+        ):
+            available, committed = resources.get(available_key), resources.get(committed_key)
+            if available != expected:
+                errors.append(f"{cycle_id}: {label} availability must match the frozen NRES-002 fixture")
+            if not isinstance(committed, (int, float)) or not isinstance(available, (int, float)) or committed < 0 or committed > available:
+                errors.append(f"{cycle_id}: {label} commitment must be non-negative and within availability")
+
+        authority = cycle.get("authority_evidence", {})
+        decisions, complete = authority.get("decisions_sampled"), authority.get("decisions_with_role_basis_and_review_path")
+        if not isinstance(decisions, int) or not isinstance(complete, int) or decisions < 0 or complete < 0 or complete > decisions:
+            errors.append(f"{cycle_id}: authority-evidence numerator/denominator is invalid")
+
+        accessibility = cycle.get("accessibility", {})
+        requirements, tested, passing = accessibility.get("requirements_specified"), accessibility.get("requirements_tested"), accessibility.get("requirements_passing")
+        if not all(isinstance(value, int) for value in (requirements, tested, passing)) or not 0 <= passing <= tested <= requirements:
+            errors.append(f"{cycle_id}: accessibility counts must satisfy 0 <= passing <= tested <= specified")
+
+        evidence = cycle.get("evidence_records", [])
+        evidence_ids = [item.get("id") for item in evidence if isinstance(item, dict)]
+        if len(evidence_ids) != len(set(evidence_ids)):
+            errors.append(f"{cycle_id}: evidence IDs must be unique within a cycle")
+
+    actions = loop.get("corrective_actions", [])
+    action_ids = [item.get("action_id") for item in actions if isinstance(item, dict)]
+    if len(action_ids) != len(set(action_ids)):
+        errors.append("corrective-action IDs must be unique")
+    for action in actions:
+        if not isinstance(action, dict):
+            errors.append("every corrective action must be an object")
+            continue
+        if action.get("opened_cycle_id") not in cycle_by_id or action.get("due_by_cycle_id") not in cycle_by_id:
+            errors.append(f"{action.get('action_id')!r}: opened and due cycles must exist")
+        retest_id = action.get("retest_cycle_id")
+        if retest_id is not None and retest_id not in cycle_by_id:
+            errors.append(f"{action.get('action_id')!r}: retest cycle must exist")
+        if not action.get("owner_role"):
+            errors.append(f"{action.get('action_id')!r}: corrective action needs an accountable owner role")
+        if action.get("status") == "closed-verified":
+            if not action.get("completion_evidence_id") or action.get("independently_verified") is not True:
+                errors.append(f"{action.get('action_id')!r}: verified closure requires completion evidence and independent verification")
+            if not retest_id or action.get("retest_result") != "pass":
+                errors.append(f"{action.get('action_id')!r}: verified closure requires a successful retest")
+        elif action.get("status") == "open" and action.get("retest_result") == "pass":
+            errors.append(f"{action.get('action_id')!r}: open action cannot report a passing retest without reconciliation")
+
+    expected = loop.get("expected_derived_results", {})
+    for cycle_key, cycle_id in (("CYCLE_01", "CYCLE-01"), ("CYCLE_02", "CYCLE-02")):
+        cycle = cycle_by_id.get(cycle_id)
+        if cycle is None:
+            errors.append(f"expected derived results require {cycle_id}")
+            continue
+        expected_cycle = expected.get(cycle_key, {})
+        observations = cycle.get("objective_observations", [])
+        evidence_count = sum(1 for item in observations if item.get("accepted_observation") is True and item.get("evidence_ids"))
+        scheduled_count = len(cycle.get("scheduled_objective_ids", []))
+        service_obs = cycle.get("service_floor_observations", [])
+        floor_passes = sum(1 for item in service_obs if item.get("observed_percent", -1) >= item.get("required_floor_percent", 101))
+        resources = cycle.get("resources", {})
+        authority = cycle.get("authority_evidence", {})
+        accessibility = cycle.get("accessibility", {})
+        derived_checks = (
+            (("objective_evidence_coverage", "numerator"), evidence_count),
+            (("objective_evidence_coverage", "denominator"), scheduled_count),
+            (("service_floors_passed", "numerator"), floor_passes),
+            (("service_floors_passed", "denominator"), len(service_obs)),
+            (("planning_budget", "committed"), resources.get("planning_budget_committed")),
+            (("planning_budget", "available"), resources.get("planning_budget_available")),
+            (("responder_hours", "committed"), resources.get("responder_hours_committed")),
+            (("responder_hours", "available"), resources.get("responder_hours_available")),
+            (("authority_evidence", "numerator"), authority.get("decisions_with_role_basis_and_review_path")),
+            (("authority_evidence", "denominator"), authority.get("decisions_sampled")),
+            (("accessibility", "numerator"), accessibility.get("requirements_tested")),
+            (("accessibility", "denominator"), accessibility.get("requirements_specified")),
+        )
+        for (group, field), value in derived_checks:
+            if expected_cycle.get(group, {}).get(field) != value:
+                errors.append(f"{cycle_id}: expected_derived_results mismatch for {group}.{field}")
+
+    if len(cycles) >= 2:
+        cycle2 = cycle_by_id.get("CYCLE-02", {})
+        cycle2_expected = expected.get("CYCLE_02", {})
+        due_actions = [item for item in actions if item.get("due_by_cycle_id") == "CYCLE-02"]
+        verified_actions = [item for item in due_actions if item.get("status") == "closed-verified" and item.get("completion_evidence_id") and item.get("independently_verified") is True and item.get("retest_result") == "pass"]
+        if cycle2_expected.get("verified_corrective_actions", {}).get("numerator") != len(verified_actions):
+            errors.append("CYCLE-02: expected verified corrective-action numerator is inconsistent")
+        if cycle2_expected.get("verified_corrective_actions", {}).get("denominator") != len(due_actions):
+            errors.append("CYCLE-02: expected verified corrective-action denominator is inconsistent")
+
+        c1 = cycle_by_id.get("CYCLE-01", {})
+        previous_failures = {
+            item.get("service") for item in c1.get("service_floor_observations", [])
+            if item.get("observed_percent", 101) < item.get("required_floor_percent", 0)
+        }
+        retest_failures = {
+            item.get("service") for item in cycle2.get("service_floor_observations", [])
+            if item.get("service") in previous_failures and item.get("observed_percent", 101) < item.get("required_floor_percent", 0)
+        }
+        retested_previous = previous_failures.intersection({
+            item.get("service") for item in cycle2.get("service_floor_observations", [])
+        })
+        if cycle2_expected.get("retested_failure_recurrence", {}).get("numerator") != len(retest_failures):
+            errors.append("CYCLE-02: expected recurrence numerator is inconsistent")
+        if cycle2_expected.get("retested_failure_recurrence", {}).get("denominator") != len(retested_previous):
+            errors.append("CYCLE-02: expected recurrence denominator is inconsistent")
+
+    guardrails = loop.get("interpretation_guardrails", [])
+    if len(guardrails) < 5 or not any("single overall" in item for item in guardrails):
+        errors.append("capability-loop must prohibit a single compensating overall score")
+
+    return errors
+
+
+def self_test_capability_loop(
+    loop: dict[str, Any],
+    fixture: dict[str, Any],
+) -> int:
+    cases: list[tuple[str, dict[str, Any], str]] = []
+
+    over_budget = copy.deepcopy(loop)
+    over_budget["cycles"][0]["resources"]["planning_budget_committed"] = 1001
+    cases.append(("budget overrun", over_budget, "planning budget commitment"))
+
+    floor_drift = copy.deepcopy(loop)
+    floor_drift["cycles"][1]["service_floor_observations"][3]["required_floor_percent"] = 70
+    cases.append(("service floor drift", floor_drift, "floor must match the frozen NRES-002 fixture"))
+
+    false_closure = copy.deepcopy(loop)
+    false_closure["corrective_actions"][2]["status"] = "closed-verified"
+    cases.append(("unverified action closure", false_closure, "verified closure requires completion evidence"))
+
+    aggregate = copy.deepcopy(loop)
+    aggregate["overall_resilience_score"] = 100
+    cases.append(("aggregate score added", aggregate, "capability-loop must prohibit a single compensating overall score"))
+
+    for name, test_loop, expected in cases:
+        errors = validate_capability_loop(test_loop, fixture)
+        if not any(expected in error for error in errors):
+            print(f"SELF-TEST FAIL: {name}: expected rejection containing {expected!r}", file=sys.stderr)
+            return 1
+
+    print(f"SELF-TEST PASS: {len(cases)} capability-loop negative controls rejected unsafe measurement mutations")
+    return 0
+
+
 def self_test_workbook(
     workbook: dict[str, Any],
     fixture: dict[str, Any],
@@ -307,20 +557,22 @@ def self_test(fixture: dict[str, Any], course: dict[str, Any]) -> int:
 
 
 def main() -> int:
-    if not FIXTURE_PATH.is_file() or not COURSE_PATH.is_file() or not WORKBOOK_PATH.is_file():
-        print("ERROR: required course, fixture or capstone workbook file is missing", file=sys.stderr)
+    if not FIXTURE_PATH.is_file() or not COURSE_PATH.is_file() or not WORKBOOK_PATH.is_file() or not CAPABILITY_LOOP_PATH.is_file():
+        print("ERROR: required course, fixture, workbook or capability-loop file is missing", file=sys.stderr)
         return 2
 
     try:
         fixture = json.loads(FIXTURE_PATH.read_text(encoding="utf-8"))
         course = json.loads(COURSE_PATH.read_text(encoding="utf-8"))
         workbook = json.loads(WORKBOOK_PATH.read_text(encoding="utf-8"))
+        capability_loop = json.loads(CAPABILITY_LOOP_PATH.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError) as error:
         print(f"ERROR: cannot read valid JSON inputs: {error}", file=sys.stderr)
         return 2
 
     errors = validate(fixture, course)
     errors.extend(validate_workbook(workbook, fixture, course))
+    errors.extend(validate_capability_loop(capability_loop, fixture))
     if errors:
         for error in errors:
             print(f"FAIL: {error}", file=sys.stderr)
@@ -331,7 +583,10 @@ def main() -> int:
         base_status = self_test(fixture, course)
         if base_status != 0:
             return base_status
-        return self_test_workbook(workbook, fixture, course)
+        workbook_status = self_test_workbook(workbook, fixture, course)
+        if workbook_status != 0:
+            return workbook_status
+        return self_test_capability_loop(capability_loop, fixture)
     return 0
 
 
