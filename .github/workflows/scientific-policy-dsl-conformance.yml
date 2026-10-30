@@ -33,7 +33,7 @@ jobs:
           components: rustfmt
 
       - name: Check changed Rust source formatting
-        run: rustfmt --check --edition 2024 mycelix-desci/src/core/src/scientific_governance.rs
+        run: rustfmt --check --edition 2024 mycelix-desci/src/core/src/scientific_governance.rs mycelix-desci/src/core/src/scientific_events.rs
 
       - name: Execute frozen authorization corpus against Rust oracle
         run: >
@@ -41,6 +41,14 @@ jobs:
           --manifest-path mycelix-desci/Cargo.toml
           -p mycelix-desci-core
           --lib scientific_governance::tests
+          -- --nocapture
+
+      - name: Execute epistemic projection conformance fixtures
+        run: >
+          cargo test --locked
+          --manifest-path mycelix-desci/Cargo.toml
+          -p mycelix-desci-core
+          --lib scientific_events::tests
           -- --nocapture
 
       - name: Install Cedar CLI 4.14.0
