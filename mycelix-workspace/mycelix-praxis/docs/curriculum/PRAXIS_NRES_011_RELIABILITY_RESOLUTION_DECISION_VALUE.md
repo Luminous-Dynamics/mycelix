@@ -22,7 +22,7 @@ NRES-011 combines these views without collapsing them into one score.
 
 ## 2. Fixed event definition and explicit decision profiles
 
-The event remains the NRES-010 event: aggregate normalized service-deficit-hours over a 72-hour horizon strictly exceed 48. It reuses NRES-010's public synthetic cases and stable source case IDs. It is a linked benchmark increment, not independent confirmation data.
+The event remains the NRES-010 event: aggregate normalized service-deficit-hours over a 72-hour horizon strictly exceed 48. It reuses NRES-010's public synthetic cases and stable source case IDs. The source Git blob SHA and source-case count are pinned, and the evaluator compares every copied regime, sampling, timing, qualification, outcome and forecast field to the embedded NRES-010 source fixture. It is a linked benchmark increment, not independent confirmation data.
 
 Each decision profile contains four declared quantities, all expressed in fictional normalized planning-loss units:
 - (C): cost of a readiness/preparation action;
@@ -90,7 +90,7 @@ The forecast diagnostics always accompany issued-case count, raw and weighted co
 
 ## 5. Public fixture and limits
 
-The 128 public synthetic cases span the same four NRES-010 regimes. Each case is evaluated under all three cost/loss profiles. The fixture carries a separate evaluator-owned review fallback action for the five abstentions (four mandatory, one optional).
+The 128 public synthetic cases span the same four NRES-010 regimes. Each case is evaluated under all three cost/loss profiles. The fixture carries an explicit four-regime catalog and a separate evaluator-owned review fallback action for the five abstentions (four mandatory, one optional). Its conformance corpus has 26 invalid-input negative controls and two valid-but-failing decision boundaries.
 
 The data are deliberately linked to NRES-010, with copied stable source IDs, regimes, probabilities, observations and importance-sampling metadata. This permits repeatable integration testing but does not create independent evidence. All loss values are invented normalized units, not budgets, currency, or observed infrastructure impact.
 
