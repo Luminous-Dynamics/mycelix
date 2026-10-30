@@ -94,13 +94,18 @@ jobs:
     steps:
       - name: Checkout exact revision
         uses: actions/checkout@v4
-      - name: Install OPA 1.22.0 with release checksum verification
+      - name: Install OPA 1.22.0 with verified release checksum manifest
         run: |
-          curl --fail --location --silent --show-error \
-            https://github.com/open-policy-agent/opa/releases/download/v1.22.0/opa_linux_amd64_static \
+          release="https://github.com/open-policy-agent/opa/releases/download/v1.22.0"
+          curl --fail --location --silent --show-error "$release/opa_linux_amd64_static" \
             --output "$RUNNER_TEMP/opa"
-          echo "2ab571f367f293bb19523b76f92f1945bbf245003392c7f392903f95c2b9b630  $RUNNER_TEMP/opa" \
+          curl --fail --location --silent --show-error "$release/opa_linux_amd64_static.sha256" \
+            --output "$RUNNER_TEMP/opa.sha256"
+          echo "ed073d3c5a15724e7c3d9c16db22f38cb51ce0e26e7310df1b94f74e06acca3f  $RUNNER_TEMP/opa.sha256" \
             | sha256sum --check
+          sed "s|opa_linux_amd64_static|$RUNNER_TEMP/opa|" "$RUNNER_TEMP/opa.sha256" \
+            > "$RUNNER_TEMP/opa.checksum"
+          sha256sum --check "$RUNNER_TEMP/opa.checksum"
           chmod +x "$RUNNER_TEMP/opa"
           echo "$RUNNER_TEMP" >> "$GITHUB_PATH"
           "$RUNNER_TEMP/opa" version
