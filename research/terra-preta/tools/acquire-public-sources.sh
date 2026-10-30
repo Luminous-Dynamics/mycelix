@@ -24,7 +24,7 @@ download() {
 }
 
 verify_file() {
-  local file="$1" expected_size="$2" expected_md5="$3" label="$4"
+  local file="$1" expected_size="$2" expected_md5="$3" expected_sha256="$4" label="$5"
   local actual_size actual_md5 actual_sha
   actual_size="$(stat -c '%s' "$file")"
   actual_md5="$(md5sum "$file" | awk '{print $1}')"
@@ -70,13 +70,13 @@ fetch_figshare_file() {
     return 1
   }
   download "$url" "$destination"
-  verify_file "$destination" "$expected_size" "$expected_md5" "$label"
+  verify_file "$destination" "$expected_size" "$expected_md5" "" "$label"
 }
 
 fetch_zenodo_file() {
   local record_id="$1" filename="$2" label="$3"
   local metadata="$RAW_DIR/.zenodo-\${record_id}.json"
-  local info url checksum expected_md5 expected_size destination
+  local info url checksum expected_md5 expected_sha256 expected_size destination
 
   if [[ ! -s "$metadata" ]]; then
     download "$ZENODO_API_BASE/\${record_id}" "$metadata"
@@ -101,7 +101,7 @@ fetch_zenodo_file() {
     return 1
   }
   download "$url" "$destination"
-  verify_file "$destination" "$expected_size" "$expected_md5" "$label"
+  verify_file "$destination" "$expected_size" "$expected_md5" "$expected_sha256" "$label"
 }
 
 : > "$RAW_DIR/acquisition-manifest.tsv"
