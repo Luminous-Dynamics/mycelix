@@ -732,6 +732,47 @@ mod tests {
     }
 
     #[test]
+    fn incomplete_flux_coverage_prevents_qualification_even_with_zero_residual() {
+        let mut value: Value = serde_json::from_slice(&fixture_bytes()).unwrap();
+        value["boundary_flux_review"]["all_relevant_fluxes_accounted_for"] = Value::Bool(false);
+        value["boundary_flux_review"]["unmeasured_pathways"] = serde_json::json!([
+            {"pathway":"dissolved organic nitrogen export","reason":"not measured in this synthetic control volume"}
+        ]);
+        let bytes = serde_json::to_vec(&value).unwrap();
+        let report = fixture_report(&bytes);
+        assert!(report.residual_kg_element_per_ha.abs() < 1e-12);
+        assert_eq!(report.status, "unqualified_incomplete_boundary_coverage");
+        assert_eq!(report.boundary_coverage_status, "declared_incomplete");
+    }
+
+    #[test]
+    fn incomplete_stock_coverage_prevents_qualification() {
+        let mut value: Value = serde_json::from_slice(&fixture_bytes()).unwrap();
+        value["stock_pool_partition_review"]["boundary_stocks_covered"] = Value::Bool(false);
+        let bytes = serde_json::to_vec(&value).unwrap();
+        let report = fixture_report(&bytes);
+        assert_eq!(report.status, "unqualified_incomplete_boundary_coverage");
+    }
+
+    #[test]
+    fn rejects_overlapping_stock_pool_declaration() {
+        let mut value: Value = serde_json::from_slice(&fixture_bytes()).unwrap();
+        value["stock_pool_partition_review"]["mutually_exclusive"] = Value::Bool(false);
+        let bytes = serde_json::to_vec(&value).unwrap();
+        assert!(audit(&bytes).unwrap_err().contains("mutually exclusive"));
+    }
+
+    #[test]
+    fn rejects_contradictory_boundary_flux_review() {
+        let mut value: Value = serde_json::from_slice(&fixture_bytes()).unwrap();
+        value["boundary_flux_review"]["unmeasured_pathways"] = serde_json::json!([
+            {"pathway":"runoff","reason":"not measured"}
+        ]);
+        let bytes = serde_json::to_vec(&value).unwrap();
+        assert!(audit(&bytes).unwrap_err().contains("declare complete coverage"));
+    }
+
+    #[test]
     fn missing_uncertainty_prevents_closure_qualification() {
         let mut value: Value = serde_json::from_slice(&fixture_bytes()).unwrap();
         value["outputs"][0]["standard_uncertainty_kg_element_per_ha"] = Value::Null;
