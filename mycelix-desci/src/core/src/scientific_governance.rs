@@ -754,8 +754,8 @@ mod tests {
     use crate::scientific_authority_audit::MemoryScientificAuthorityAuditStore;
     use crate::scientific_events::{
         ArtifactAvailability, ArtifactId, AtomicClaim, Attestation, AttestationId,
-        AttestationKind, AttestationStatus, ClaimId, ClaimLifecycle, ClaimOrigin, ContentHash,
-        EvidenceArtifact, EvidenceOutcome, EvidenceProfile, LegacyImportMetadata,
+        AttestationStatus, ClaimId, ClaimLifecycle, ClaimOrigin, EvidenceArtifact,
+        EvidenceOutcome, EvidenceProfile, LegacyImportMetadata,
         MemoryScientificEventLog, RecordedAttestation, ResearchObject, ResearchObjectId,
         ResearchObjectType, ScientificEventEnvelope,
     };
