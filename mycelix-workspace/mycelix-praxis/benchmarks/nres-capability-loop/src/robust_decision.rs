@@ -446,6 +446,23 @@ pub fn evaluate_ambiguity_robust_decisions(fixture: &Value) -> Result<Value, Vec
     }
     let target_threshold = target_threshold.unwrap_or(48.0);
     let target_horizon = target_horizon.unwrap_or(72.0);
+    if number(&source_fixture["target"], "threshold")
+        .is_none_or(|value| (value - target_threshold).abs() > 1e-12)
+        || number(&source_fixture["target"], "horizon_hours")
+            .is_none_or(|value| (value - target_horizon).abs() > 1e-12)
+        || string(&source_fixture["target"], "unit") != string(target, "unit")
+    {
+        errors.push("NRES-012 target definition differs from pinned NRES-011 source".to_owned());
+    }
+    if fixture.get("sampling_design") != source_fixture.get("sampling_design") {
+        errors.push("NRES-012 sampling design differs from pinned NRES-011 source".to_owned());
+    }
+    if fixture.get("calibration_reference") != source_fixture.get("calibration_reference") {
+        errors.push("NRES-012 training reference differs from pinned NRES-011 source".to_owned());
+    }
+    if fixture.get("decision_profiles") != source_fixture.get("decision_profiles") {
+        errors.push("NRES-012 decision profiles differ from pinned NRES-011 source".to_owned());
+    }
 
     let Some(protocol) = fixture.get("protocol") else {
         return Err(vec!["NRES-012 protocol is missing".to_owned()]);
@@ -1146,6 +1163,31 @@ mod tests {
         assert!(evaluate_ambiguity_robust_decisions(&value).is_err());
     }
 
+
+    #[test]
+    fn rejects_target_drift_from_nres011_source() {
+        let mut value = fixture();
+        value["target"]["threshold"] = json!(47.0);
+        value["protocol"]["event_threshold"] = json!(47.0);
+        assert!(evaluate_ambiguity_robust_decisions(&value).is_err());
+    }
+
+    #[test]
+    fn rejects_decision_profile_drift_from_nres011_source() {
+        let mut value = fixture();
+        value["decision_profiles"][0]["readiness_cost"] = json!(0.25);
+        value["decision_profiles"][0]["decision_threshold_probability"] = json!(0.013888888888888888);
+        assert!(evaluate_ambiguity_robust_decisions(&value).is_err());
+    }
+
+    #[test]
+    fn rejects_sampling_design_drift_from_nres011_source() {
+        let mut value = fixture();
+        value["sampling_design"]["strata"][0]["target_probability"] = json!(0.9);
+        assert!(evaluate_ambiguity_robust_decisions(&value).is_err());
+    }
+
+
     #[test]
     fn rejects_source_blob_sha_drift() {
         let mut value = fixture();
@@ -1212,9 +1254,9 @@ mod tests {
             row["candidate_output"]["probability_lower"] = Value::Null;
             row["candidate_output"]["probability_upper"] = Value::Null;
             row["candidate_output"]["ambiguity_radius"] = Value::Null;
-            let qualification = row["evaluator"]["qualification_state"].as_str().unwrap();
+            let qualification = row["evaluator"]["qualification_state"].as_str().unwrap().to_owned();
             row["candidate_output"]["abstention_reason"] = json!(
-                if qualification == "qualified" { "model_uncertainty" } else { qualification }
+                if qualification == "qualified" { "model_uncertainty".to_owned() } else { qualification }
             );
         }
         assert!(evaluate_ambiguity_robust_decisions(&value).is_err());
