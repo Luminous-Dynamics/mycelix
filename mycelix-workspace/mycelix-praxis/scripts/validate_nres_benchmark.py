@@ -17,6 +17,7 @@ FIXTURE_PATH = ROOT / "examples/courses/civic-resilience-policy-benchmark-fixtur
 COURSE_PATH = ROOT / "examples/courses/civic-resilience-democratic-defence.json"
 WORKBOOK_PATH = ROOT / "examples/courses/civic-resilience-capstone-workbook-001.json"
 CAPABILITY_LOOP_PATH = ROOT / "examples/courses/civic-resilience-capability-loop-fixture-001.json"
+EVIDENCE_ENVELOPE_PATH = ROOT / "examples/courses/civic-resilience-evidence-envelope-001.json"
 
 
 def validate(fixture: dict[str, Any], course: dict[str, Any]) -> list[str]:
@@ -475,6 +476,192 @@ def validate_capability_loop(loop: dict[str, Any], fixture: dict[str, Any]) -> l
     return errors
 
 
+
+def validate_evidence_envelope(envelope: dict[str, Any]) -> list[str]:
+    errors: list[str] = []
+    context = envelope.get("@context", {})
+    if not isinstance(context, dict) or set(context) != {"nres", "prov"}:
+        errors.append("envelope context must contain only pinned nres and prov mappings")
+    else:
+        if context.get("nres") != "urn:mycelix:praxis:nres:006:":
+            errors.append("incorrect NRES namespace mapping")
+        if context.get("prov") != "http://www.w3.org/ns/prov#":
+            errors.append("incorrect W3C PROV namespace mapping")
+    if envelope.get("@type") != "nres:EvidenceEnvelope":
+        errors.append("invalid evidence-envelope @type")
+    if envelope.get("schema_version") != "1.0.0":
+        errors.append("unsupported evidence-envelope schema_version")
+
+    metadata = envelope.get("bundle_metadata", {})
+    if metadata.get("status") != "synthetic-demonstration":
+        errors.append("public envelope must remain synthetic-demonstration")
+    if metadata.get("evaluation_split") != "public-development-only":
+        errors.append("public envelope cannot be relabeled as confirmatory")
+    if metadata.get("no_real_world_effect_claim") is not True:
+        errors.append("envelope must disclaim real-world effect claims")
+
+    privacy = envelope.get("privacy", {})
+    if privacy.get("classification") != "public-synthetic":
+        errors.append("public envelope privacy classification is invalid")
+    if privacy.get("subject_identifiers") != "none-in-public-profile":
+        errors.append("public envelope must not contain natural-person identifiers")
+    if privacy.get("personal_data_present") is not False:
+        errors.append("public envelope must declare personal_data_present=false")
+
+    integrity = envelope.get("integrity", {})
+    if integrity.get("digest_algorithm") != "SHA-256":
+        errors.append("envelope integrity algorithm must be SHA-256")
+    if integrity.get("signature_status") != "unsigned-demo":
+        errors.append("public fixture must remain explicitly unsigned-demo")
+    digest = integrity.get("payload_sha256")
+    if digest is not None and (
+        not isinstance(digest, str)
+        or len(digest) != 64
+        or any(character not in "0123456789abcdef" for character in digest)
+    ):
+        errors.append("payload_sha256 must be null or 64 lowercase hexadecimal characters")
+
+    graph = envelope.get("@graph", [])
+    if not isinstance(graph, list) or not graph:
+        errors.append("provenance @graph must be a non-empty array")
+        graph = []
+    ids: dict[str, dict[str, Any]] = {}
+    for node in graph:
+        if not isinstance(node, dict):
+            errors.append("every provenance graph node must be an object")
+            continue
+        node_id = node.get("@id")
+        if not isinstance(node_id, str) or not node_id:
+            errors.append("every provenance graph node requires a non-empty @id")
+            continue
+        if node_id in ids:
+            errors.append(f"duplicate provenance graph node id: {node_id}")
+        ids[node_id] = node
+        if not node.get("@type") or not isinstance(node.get("nres:recordKind"), str):
+            errors.append(f"provenance node {node_id} requires @type and nres:recordKind")
+
+    for node_id, node in ids.items():
+        for relation in ("prov:used", "prov:wasGeneratedBy", "prov:wasDerivedFrom", "prov:wasAssociatedWith"):
+            value = node.get(relation)
+            if value is None:
+                continue
+            references = value if isinstance(value, list) else [value]
+            if not isinstance(references, list):
+                errors.append(f"{node_id}: invalid provenance relation {relation}")
+                continue
+            for reference in references:
+                target = reference.get("@id") if isinstance(reference, dict) else None
+                if not isinstance(target, str) or target not in ids:
+                    errors.append(f"{node_id}: unresolved provenance relation {relation}")
+
+    for node_id, node in ids.items():
+        if node.get("nres:recordKind") != "corrective-action" or node.get("nres:status") != "closed-verified":
+            continue
+        action_id = node.get("nres:actionId", node_id)
+        completion_id = node.get("nres:completionEvidenceId")
+        if not completion_id:
+            errors.append(f"{action_id}: closed-verified action requires completion evidence")
+        else:
+            evidence = next(
+                (item for item in graph if item.get("nres:recordKind") == "evidence-record" and item.get("nres:evidenceId") == completion_id),
+                None,
+            )
+            if evidence is None or evidence.get("nres:independentlyReviewed") is not True:
+                errors.append(f"{action_id}: completion evidence must be independently reviewed")
+        if node.get("nres:independentlyVerified") is not True:
+            errors.append(f"{action_id}: closed-verified action requires independent verification")
+        if node.get("nres:retestResult") != "pass":
+            errors.append(f"{action_id}: closed-verified action requires a passing retest")
+        verification_ref = node.get("nres:verificationRecord", {})
+        verification_id = verification_ref.get("@id") if isinstance(verification_ref, dict) else None
+        if verification_id not in ids or ids.get(verification_id, {}).get("nres:recordKind") != "verification-record":
+            errors.append(f"{action_id}: verification record reference does not resolve")
+        retest_ref = node.get("nres:retestObservation", {})
+        retest_id = retest_ref.get("@id") if isinstance(retest_ref, dict) else None
+        if retest_id not in ids or ids.get(retest_id, {}).get("nres:recordKind") != "service-floor-observation" or ids.get(retest_id, {}).get("nres:passed") is not True:
+            errors.append(f"{action_id}: retest observation must resolve to a passing service-floor observation")
+
+    sources = envelope.get("source_references", [])
+    if not isinstance(sources, list) or not sources:
+        errors.append("source_references must be a non-empty array")
+    elif any(
+        not isinstance(source, dict)
+        or source.get("evidence_status") != "synthetic"
+        or not source.get("path")
+        or not source.get("media_type")
+        for source in sources
+    ):
+        errors.append("public source references must preserve synthetic status, path and media type")
+
+    if not isinstance(envelope.get("measurements"), list):
+        errors.append("measurements must be an array")
+    if not isinstance(envelope.get("framework_crosswalks"), list) or not envelope.get("framework_crosswalks"):
+        errors.append("framework_crosswalks must be a non-empty array")
+
+    forbidden_keys = {
+        "person_id", "learner_id", "natural_person_id", "political_affiliation",
+        "ideology_score", "enlistment_propensity", "enlistment_interest", "loyalty_score",
+        "military_suitability", "learner_suitability_score", "overall_resilience_score",
+        "composite_score", "leaderboard_score", "email", "phone", "full_name",
+        "first_name", "last_name", "national_id", "passport_number", "date_of_birth"
+    }
+
+    def scan(value: Any, location: str = "$") -> None:
+        if isinstance(value, dict):
+            for key, child in value.items():
+                if key.lower() in forbidden_keys:
+                    errors.append(f"prohibited field at {location}.{key}")
+                scan(child, f"{location}.{key}")
+        elif isinstance(value, list):
+            for index, child in enumerate(value):
+                scan(child, f"{location}[{index}]")
+
+    scan(envelope)
+    return errors
+
+
+def self_test_evidence_envelope(envelope: dict[str, Any]) -> int:
+    cases: list[tuple[str, dict[str, Any], str]] = []
+
+    missing_reference = copy.deepcopy(envelope)
+    missing_reference["@graph"][0]["prov:wasDerivedFrom"] = [{"@id": "urn:missing:evidence"}]
+    cases.append(("missing provenance reference", missing_reference, "unresolved provenance relation"))
+
+    relabeled = copy.deepcopy(envelope)
+    relabeled["bundle_metadata"]["evaluation_split"] = "confirmatory-held-out"
+    cases.append(("public fixture relabeled confirmatory", relabeled, "cannot be relabeled as confirmatory"))
+
+    no_evidence = copy.deepcopy(envelope)
+    action = next(item for item in no_evidence["@graph"] if item.get("nres:recordKind") == "corrective-action" and item.get("nres:status") == "closed-verified")
+    action.pop("nres:completionEvidenceId", None)
+    cases.append(("verified closure without completion evidence", no_evidence, "requires completion evidence"))
+
+    personal_data = copy.deepcopy(envelope)
+    personal_data["extensions"]["person_id"] = "synthetic-person"
+    cases.append(("personal identifier", personal_data, "prohibited field"))
+
+    aggregate = copy.deepcopy(envelope)
+    aggregate["measurements"][0]["composite_score"] = 100
+    cases.append(("composite score", aggregate, "prohibited field"))
+
+    bad_context = copy.deepcopy(envelope)
+    bad_context["@context"]["prov"] = "https://example.invalid/prov#"
+    cases.append(("incorrect PROV context", bad_context, "incorrect W3C PROV namespace"))
+
+    bad_digest = copy.deepcopy(envelope)
+    bad_digest["integrity"]["payload_sha256"] = "not-a-digest"
+    cases.append(("malformed digest", bad_digest, "payload_sha256 must be null"))
+
+    for name, test_envelope, expected in cases:
+        errors = validate_evidence_envelope(test_envelope)
+        if not any(expected in error for error in errors):
+            print(f"SELF-TEST FAIL: {name}: expected rejection containing {expected!r}", file=sys.stderr)
+            return 1
+
+    print(f"SELF-TEST PASS: {len(cases)} evidence-envelope negative controls rejected invalid mutations")
+    return 0
+
+
 def self_test_capability_loop(
     loop: dict[str, Any],
     fixture: dict[str, Any],
@@ -594,8 +781,8 @@ def self_test(fixture: dict[str, Any], course: dict[str, Any]) -> int:
 
 
 def main() -> int:
-    if not FIXTURE_PATH.is_file() or not COURSE_PATH.is_file() or not WORKBOOK_PATH.is_file() or not CAPABILITY_LOOP_PATH.is_file():
-        print("ERROR: required course, fixture, workbook or capability-loop file is missing", file=sys.stderr)
+    if not FIXTURE_PATH.is_file() or not COURSE_PATH.is_file() or not WORKBOOK_PATH.is_file() or not CAPABILITY_LOOP_PATH.is_file() or not EVIDENCE_ENVELOPE_PATH.is_file():
+        print("ERROR: required course, fixtures, workbook, capability-loop or evidence envelope file is missing", file=sys.stderr)
         return 2
 
     try:
@@ -603,6 +790,7 @@ def main() -> int:
         course = json.loads(COURSE_PATH.read_text(encoding="utf-8"))
         workbook = json.loads(WORKBOOK_PATH.read_text(encoding="utf-8"))
         capability_loop = json.loads(CAPABILITY_LOOP_PATH.read_text(encoding="utf-8"))
+        evidence_envelope = json.loads(EVIDENCE_ENVELOPE_PATH.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError) as error:
         print(f"ERROR: cannot read valid JSON inputs: {error}", file=sys.stderr)
         return 2
@@ -610,12 +798,13 @@ def main() -> int:
     errors = validate(fixture, course)
     errors.extend(validate_workbook(workbook, fixture, course))
     errors.extend(validate_capability_loop(capability_loop, fixture))
+    errors.extend(validate_evidence_envelope(evidence_envelope))
     if errors:
         for error in errors:
             print(f"FAIL: {error}", file=sys.stderr)
         return 1
 
-    print("PASS: course, fixture, workbook and capability-loop structural consistency only; no educational or real-world capability-effect claim")
+    print("PASS: course, fixtures, workbook, capability loop and evidence-envelope structural consistency only; no educational or real-world capability-effect claim")
     if "--self-test" in sys.argv[1:]:
         base_status = self_test(fixture, course)
         if base_status != 0:
@@ -623,7 +812,10 @@ def main() -> int:
         workbook_status = self_test_workbook(workbook, fixture, course)
         if workbook_status != 0:
             return workbook_status
-        return self_test_capability_loop(capability_loop, fixture)
+        loop_status = self_test_capability_loop(capability_loop, fixture)
+        if loop_status != 0:
+            return loop_status
+        return self_test_evidence_envelope(evidence_envelope)
     return 0
 
 
