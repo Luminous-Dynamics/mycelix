@@ -1,0 +1,460 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:mycelix:praxis:nres:010:tail-shift-robustness:v1",
+  "title": "Praxis NRES-010 Tail Calibration and Shift Robustness Fixture",
+  "description": "Structural schema for threshold exceedance probability forecasts and conditional GPD tail forecasts across importance-sampled regimes. Cross-field design and score rules are enforced by the Rust reference evaluator.",
+  "type": "object",
+  "required": [
+    "benchmark_id",
+    "schema_version",
+    "status",
+    "evaluation_split",
+    "active_in_curriculum",
+    "target",
+    "regimes",
+    "sampling_design",
+    "calibration_reference",
+    "protocol",
+    "evaluation_cases",
+    "interpretation_guardrails"
+  ],
+  "properties": {
+    "benchmark_id": {
+      "const": "PRAXIS-NRES-010-TAIL-SHIFT-ROBUSTNESS-001"
+    },
+    "schema_version": {
+      "const": "1.0.0"
+    },
+    "status": {
+      "const": "synthetic-demonstration-for-review"
+    },
+    "evaluation_split": {
+      "const": "public-development-only"
+    },
+    "active_in_curriculum": {
+      "const": false
+    },
+    "title": {
+      "type": "string",
+      "minLength": 1
+    },
+    "purpose": {
+      "type": "string",
+      "minLength": 1
+    },
+    "scope_limits": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      },
+      "minItems": 1
+    },
+    "target": {
+      "type": "object",
+      "required": [
+        "quantity",
+        "unit",
+        "threshold",
+        "event_definition",
+        "horizon_hours"
+      ],
+      "properties": {
+        "quantity": {
+          "type": "string",
+          "minLength": 1
+        },
+        "unit": {
+          "const": "normalized-service-deficit-hours"
+        },
+        "threshold": {
+          "type": "number",
+          "minimum": 0
+        },
+        "event_definition": {
+          "type": "string",
+          "minLength": 1
+        },
+        "horizon_hours": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        }
+      },
+      "additionalProperties": true
+    },
+    "regimes": {
+      "type": "array",
+      "minItems": 4,
+      "items": {
+        "type": "object",
+        "required": [
+          "regime_id",
+          "qualification_note"
+        ],
+        "properties": {
+          "regime_id": {
+            "enum": [
+              "in_distribution",
+              "temporal_shift",
+              "structural_dependency_shift",
+              "evidence_degradation"
+            ]
+          },
+          "qualification_note": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "additionalProperties": true
+      }
+    },
+    "sampling_design": {
+      "type": "object",
+      "required": [
+        "status",
+        "strata",
+        "weight_formula",
+        "expected_total_weight_per_regime",
+        "design_note"
+      ],
+      "properties": {
+        "status": {
+          "const": "synthetic-stratified-importance-sampling-demonstration"
+        },
+        "strata": {
+          "type": "array",
+          "minItems": 2,
+          "items": {
+            "type": "object",
+            "required": [
+              "sampling_stratum",
+              "proposal_probability",
+              "target_probability"
+            ],
+            "properties": {
+              "sampling_stratum": {
+                "enum": [
+                  "routine",
+                  "tail_enriched"
+                ]
+              },
+              "proposal_probability": {
+                "type": "number",
+                "exclusiveMinimum": 0,
+                "maximum": 1
+              },
+              "target_probability": {
+                "type": "number",
+                "exclusiveMinimum": 0,
+                "maximum": 1
+              }
+            },
+            "additionalProperties": true
+          }
+        },
+        "weight_formula": {
+          "type": "string",
+          "minLength": 1
+        },
+        "expected_total_weight_per_regime": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "design_note": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "additionalProperties": true
+    },
+    "calibration_reference": {
+      "type": "object",
+      "required": [
+        "sample_count",
+        "exceedance_count",
+        "exceedance_probability",
+        "status",
+        "description"
+      ],
+      "properties": {
+        "sample_count": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "exceedance_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "exceedance_probability": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "status": {
+          "const": "synthetic-training-reference"
+        },
+        "description": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "additionalProperties": true
+    },
+    "protocol": {
+      "type": "object",
+      "required": [
+        "forecast_origin_hour",
+        "forecast_horizon_hours",
+        "exceedance_threshold",
+        "probability_bins",
+        "bin_convention",
+        "log_loss_epsilon",
+        "gpd_parameterization",
+        "gpd_support",
+        "tail_quantile_levels",
+        "proper_scores",
+        "calibration_diagnostics",
+        "shift_comparison",
+        "abstention_rule",
+        "optional_abstention_rule",
+        "risk_reporting"
+      ],
+      "properties": {
+        "forecast_origin_hour": {
+          "type": "number",
+          "minimum": 0
+        },
+        "forecast_horizon_hours": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "exceedance_threshold": {
+          "type": "number",
+          "minimum": 0
+        },
+        "probability_bins": {
+          "type": "array",
+          "minItems": 7,
+          "maxItems": 7,
+          "items": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1
+          }
+        },
+        "bin_convention": {
+          "type": "string",
+          "minLength": 1
+        },
+        "log_loss_epsilon": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "maximum": 0.01
+        },
+        "gpd_parameterization": {
+          "type": "string",
+          "minLength": 1
+        },
+        "gpd_support": {
+          "type": "string",
+          "minLength": 1
+        },
+        "tail_quantile_levels": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "number",
+            "exclusiveMinimum": 0,
+            "exclusiveMaximum": 1
+          }
+        },
+        "proper_scores": {
+          "type": "array",
+          "minItems": 2,
+          "items": {
+            "type": "string"
+          }
+        },
+        "calibration_diagnostics": {
+          "type": "array",
+          "minItems": 2,
+          "items": {
+            "type": "string"
+          }
+        },
+        "shift_comparison": {
+          "type": "string",
+          "minLength": 1
+        },
+        "abstention_rule": {
+          "type": "string",
+          "minLength": 1
+        },
+        "optional_abstention_rule": {
+          "type": "string",
+          "minLength": 1
+        },
+        "risk_reporting": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "additionalProperties": true
+    },
+    "evaluation_cases": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": [
+          "case_id",
+          "regime_id",
+          "sampling_stratum",
+          "proposal_stratum_probability",
+          "target_stratum_probability",
+          "forecast_origin_hour",
+          "forecast_horizon_hours",
+          "evaluator",
+          "candidate_output"
+        ],
+        "properties": {
+          "case_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "regime_id": {
+            "enum": [
+              "in_distribution",
+              "temporal_shift",
+              "structural_dependency_shift",
+              "evidence_degradation"
+            ]
+          },
+          "sampling_stratum": {
+            "enum": [
+              "routine",
+              "tail_enriched"
+            ]
+          },
+          "proposal_stratum_probability": {
+            "type": "number",
+            "exclusiveMinimum": 0,
+            "maximum": 1
+          },
+          "target_stratum_probability": {
+            "type": "number",
+            "exclusiveMinimum": 0,
+            "maximum": 1
+          },
+          "forecast_origin_hour": {
+            "type": "number",
+            "minimum": 0
+          },
+          "forecast_horizon_hours": {
+            "type": "number",
+            "exclusiveMinimum": 0
+          },
+          "evaluator": {
+            "type": "object",
+            "required": [
+              "qualification_state",
+              "observed_normalized_service_deficit_hours"
+            ],
+            "properties": {
+              "qualification_state": {
+                "enum": [
+                  "qualified",
+                  "missing_critical_input",
+                  "conflicting_sources",
+                  "unsupported_distribution_shift"
+                ]
+              },
+              "observed_normalized_service_deficit_hours": {
+                "type": "number",
+                "minimum": 0
+              }
+            },
+            "additionalProperties": true
+          },
+          "candidate_output": {
+            "type": "object",
+            "required": [
+              "action",
+              "predicted_exceedance_probability",
+              "gpd_scale",
+              "gpd_shape",
+              "abstention_reason"
+            ],
+            "properties": {
+              "action": {
+                "enum": [
+                  "forecast",
+                  "abstain"
+                ]
+              },
+              "predicted_exceedance_probability": {
+                "type": [
+                  "number",
+                  "null"
+                ],
+                "minimum": 0,
+                "maximum": 1
+              },
+              "gpd_scale": {
+                "type": [
+                  "number",
+                  "null"
+                ],
+                "exclusiveMinimum": 0
+              },
+              "gpd_shape": {
+                "type": [
+                  "number",
+                  "null"
+                ],
+                "minimum": -0.5,
+                "maximum": 1
+              },
+              "abstention_reason": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              }
+            },
+            "additionalProperties": true
+          }
+        },
+        "additionalProperties": true
+      }
+    },
+    "interpretation_guardrails": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      },
+      "minItems": 1
+    }
+  },
+  "additionalProperties": true,
+  "not": {
+    "anyOf": [
+      {
+        "required": [
+          "overall_resilience_score"
+        ]
+      },
+      {
+        "required": [
+          "composite_score"
+        ]
+      },
+      {
+        "required": [
+          "personal_suitability_score"
+        ]
+      }
+    ]
+  }
+}
