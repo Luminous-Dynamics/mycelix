@@ -88,6 +88,38 @@ struct Flow<C> {
 type InputFlow = Flow<InputCategory>;
 type OutputFlow = Flow<OutputCategory>;
 
+trait CategoryName {
+    fn category_name(&self) -> &'static str;
+}
+
+impl CategoryName for InputCategory {
+    fn category_name(&self) -> &'static str {
+        match self {
+            Self::Fertilizer => "fertilizer",
+            Self::OrganicAmendment => "organic_amendment",
+            Self::Irrigation => "irrigation",
+            Self::AtmosphericDeposition => "atmospheric_deposition",
+            Self::BiologicalFixation => "biological_fixation",
+            Self::Weathering => "weathering",
+            Self::SeedInput => "seed_input",
+            Self::OtherDeclared => "other_declared",
+        }
+    }
+}
+
+impl CategoryName for OutputCategory {
+    fn category_name(&self) -> &'static str {
+        match self {
+            Self::HarvestExport => "harvest_export",
+            Self::Leaching => "leaching",
+            Self::Runoff => "runoff",
+            Self::Erosion => "erosion",
+            Self::GaseousLoss => "gaseous_loss",
+            Self::OtherDeclared => "other_declared",
+        }
+    }
+}
+
 #[derive(Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
 struct StoragePool {
@@ -160,6 +192,14 @@ struct BudgetInput {
 }
 
 #[derive(Debug, Serialize)]
+struct CategorySummary {
+    category: String,
+    count: usize,
+    amount_kg_element_per_ha: f64,
+    conservative_linear_standard_uncertainty_bound_kg_element_per_ha: Option<f64>,
+}
+
+#[derive(Debug, Serialize)]
 struct PlotScaled {
     input_kg_element: f64,
     output_kg_element: f64,
@@ -195,7 +235,9 @@ struct AuditReport {
     boundary_flux_review_ref: String,
     boundary_coverage_status: &'static str,
     input_total_kg_element_per_ha: f64,
+    input_category_summaries: Vec<CategorySummary>,
     output_total_kg_element_per_ha: f64,
+    output_category_summaries: Vec<CategorySummary>,
     storage_start_total_kg_element_per_ha: f64,
     storage_end_total_kg_element_per_ha: f64,
     storage_change_kg_element_per_ha: f64,
@@ -280,7 +322,6 @@ fn checked_sum(values: impl Iterator<Item = f64>, field: &str) -> Result<f64, St
 }
 
 fn validate_flow<C>(flow: &Flow<C>, seen: &mut HashSet<String>) -> Result<(), String> {
-    let _ = &flow.category;
     nonblank(&flow.flow_id, "flow_id")?;
     if !seen.insert(flow.flow_id.clone()) {
         return Err(format!("duplicate flow_id {:?}", flow.flow_id));
@@ -296,6 +337,38 @@ fn validate_flow<C>(flow: &Flow<C>, seen: &mut HashSet<String>) -> Result<(), St
     nonblank(&flow.method, "flow method")?;
     nonblank(&flow.evidence_ref, "flow evidence_ref")?;
     Ok(())
+}
+
+fn summarize_flows<C: CategoryName>(flows: &[Flow<C>]) -> Result<Vec<CategorySummary>, String> {
+    let mut grouped = BTreeMap::<&'static str, (usize, f64, f64, bool)>::new();
+    for flow in flows {
+        let entry = grouped
+            .entry(flow.category.category_name())
+            .or_insert((0, 0.0, 0.0, true));
+        entry.0 += 1;
+        entry.1 += flow.amount_kg_element_per_ha;
+        if !entry.1.is_finite() {
+            return Err("category amount total overflowed or became non-finite".to_owned());
+        }
+        if let Some(uncertainty) = flow.standard_uncertainty_kg_element_per_ha {
+            entry.2 += uncertainty;
+            if !entry.2.is_finite() {
+                return Err("category uncertainty bound overflowed or became non-finite".to_owned());
+            }
+        } else {
+            entry.3 = false;
+        }
+    }
+    Ok(grouped
+        .into_iter()
+        .map(|(category, (count, amount, uncertainty, complete))| CategorySummary {
+            category: category.to_owned(),
+            count,
+            amount_kg_element_per_ha: amount,
+            conservative_linear_standard_uncertainty_bound_kg_element_per_ha: complete
+                .then_some(uncertainty),
+        })
+        .collect())
 }
 
 fn validate_pool(pool: &StoragePool) -> Result<(), String> {
@@ -451,10 +524,12 @@ fn audit(bytes: &[u8]) -> Result<AuditReport, String> {
         input.inputs.iter().map(|flow| flow.amount_kg_element_per_ha),
         "input total",
     )?;
+    let input_category_summaries = summarize_flows(&input.inputs)?;
     let output_total = checked_sum(
         input.outputs.iter().map(|flow| flow.amount_kg_element_per_ha),
         "output total",
     )?;
+    let output_category_summaries = summarize_flows(&input.outputs)?;
     let storage_start_total = checked_sum(
         input
             .storage_start
@@ -582,7 +657,9 @@ fn audit(bytes: &[u8]) -> Result<AuditReport, String> {
             "declared_incomplete"
         },
         input_total_kg_element_per_ha: input_total,
+        input_category_summaries,
         output_total_kg_element_per_ha: output_total,
+        output_category_summaries,
         storage_start_total_kg_element_per_ha: storage_start_total,
         storage_end_total_kg_element_per_ha: storage_end_total,
         storage_change_kg_element_per_ha: storage_change,
@@ -682,6 +759,26 @@ mod tests {
             sha256_hex(&bytes)
         );
         assert_eq!(report.status, "within_conservative_uncertainty_bound");
+    }
+
+    #[test]
+    fn reports_input_and_output_pathways_separately() {
+        let report = fixture_report(&fixture_bytes());
+        let input_categories: BTreeMap<_, _> = report
+            .input_category_summaries
+            .iter()
+            .map(|summary| (summary.category.as_str(), summary.amount_kg_element_per_ha))
+            .collect();
+        let output_categories: BTreeMap<_, _> = report
+            .output_category_summaries
+            .iter()
+            .map(|summary| (summary.category.as_str(), summary.amount_kg_element_per_ha))
+            .collect();
+        assert_eq!(input_categories["fertilizer"], 40.0);
+        assert_eq!(input_categories["atmospheric_deposition"], 10.0);
+        assert_eq!(output_categories["harvest_export"], 20.0);
+        assert_eq!(output_categories["leaching"], 5.0);
+        assert_eq!(output_categories["gaseous_loss"], 3.0);
     }
 
     #[test]
