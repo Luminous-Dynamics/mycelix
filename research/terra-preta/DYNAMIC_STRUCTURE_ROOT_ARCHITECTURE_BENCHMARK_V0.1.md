@@ -21,6 +21,20 @@ The Hirmas model has material assumptions: uniform cube-like structural units, i
 
 ## 2. Paradigm shift: soil structure is a dynamic latent state, not a static covariate
 
+### Two clocks: structural evolution and event hydraulics
+
+The benchmark must separate slow structure evolution (seasons to decades) from fast event transport (minutes to days). Jarvis et al. (2024) describe the USSF soil-crop model, which evolves bulk density, porosity, retention and conductivity through root/earthworm activity, tillage, swell–shrink and organic-matter turnover. Its first version is a valuable slow-state comparator, but the authors explicitly say it does not simulate preferential macropore water flow or solute transport. It also neglects nutrient cycling and traffic compaction in that first version. USSF cannot therefore serve as a complete PF event-model baseline.
+
+The proposed Symtropy comparison should be **modular, not monolithic**:
+
+1. A slow structural-state module updates pore classes, aggregation, biopores, root effects, organic matter and shrink–swell across seasons/management events.
+2. An event-scale Richards / dual-permeability module resolves water and conservative/reactive solute movement over storms and drainage events.
+3. A measurement operator maps 3D structural state into 2D images, soil-moisture sensors, pressure heads, geophysics and tracer observations.
+4. An assimilation/decision layer updates competing structural hypotheses and selects new measurements without feeding test labels into calibration.
+
+The state handoff must be conservative and versioned: changes in structural porosity and layer volume must not create or destroy water, mineral mass, organic carbon or solute mass through bookkeeping alone. Structural evolution and preferential-flow transport must be validated both separately and when coupled.
+
+
 Replace the static descriptor vector with a state-space representation:
 
 - **Structural state:** pore-size distribution, aperture distribution, orientation, anisotropy, interpedal area/perimeter, depth-specific void fraction, connectedness, tortuosity, aggregate/ped geometry and root/biopore indicators.
@@ -61,6 +75,7 @@ Record moisture/pressure profiles, rainfall intensity, infiltration, runoff, dra
 | Static matrix Richards | Texture/pedotransfer retention and Ksat | Matrix baseline |
 | Static dual-domain | Fixed macropore fraction/aperture and exchange | Conventional preferential-flow physics |
 | Hirmas-style image-informed dynamic model | Image-derived interpedal geometry with moisture-dependent aperture/K(s) | Published dynamic morphology comparator |
+| USSF slow structure/function model | Roots, earthworms, tillage, swell-shrink and organic-matter-driven time-varying physical/hydraulic properties | Seasonal-to-century structural evolution comparator; v1 excludes preferential macropore transport and solute movement |
 | Image + root feature model | Image geometry plus measured root/biopore descriptors | Tests incremental biological structure information |
 | Dynamic hybrid Symtropy candidate | State-dependent morphology, hysteresis, domain exchange, conservative solute transport | Candidate advance |
 | Statistical multimodal baseline | Image/root/weather/sensor features with grouped splits | Tests predictive value without claiming physical causality |
@@ -130,5 +145,7 @@ Image hashes prove which image was used. They do not prove segmentation correctn
 ## References
 
 - Hirmas, D. R. et al. (2025). Predicting Soil Interpedal Macroporosity and Hydraulic Conductivity Dynamics: A Model for Integrating Laser-Scanned Profile Imagery With Soil Moisture Sensor Data. Water Resources Research, 61(9), e2024WR039836. https://doi.org/10.1029/2024WR039836
+- Jarvis, N. et al. (2024). Interactions between soil structure dynamics, hydrological processes, and organic matter cycling: A new soil-crop model. European Journal of Soil Science, 75(2), e13455. https://doi.org/10.1111/ejss.13455
+- Guthrie, A. et al. (2025). Deep Root Loss and Regeneration in the Anthropocene Drive Continental-Scale Changes in Deep Soil Structure. Earth's Future, 13(9), e2025EF006326. https://doi.org/10.1029/2025EF006326
 - Li, B. et al. (2026). Dominant Controls on Preferential Flow and Their Implications for Future Soil Water Fluxes. Earth's Future. https://doi.org/10.1029/2026EF008296
 - Nimmo, J. R. et al. (2025). Identifying preferential flow from soil moisture time series: Review of methodologies. Vadose Zone Journal, 24(2), e70017. https://doi.org/10.1002/vzj2.70017
