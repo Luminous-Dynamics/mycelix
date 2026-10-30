@@ -747,6 +747,11 @@ mod tests {
         assert_eq!(projection.rego.input.claim.creator_organization_id.as_deref(), Some("org:creator"));
         assert_eq!(projection.cedar.entities.len(), 3);
         assert_eq!(
+            projection.cedar.entities[0].attrs["organizations"],
+            serde_json::json!([]),
+            "claimed acting organization must not imply authenticated membership"
+        );
+        assert_eq!(
             projection.cedar.request.action,
             format!(
                 "Mycelix::Action::{}",
