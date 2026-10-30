@@ -100,8 +100,11 @@ Compare identical scenario/seed/graph digests, event thresholds, service definit
 4. candidate Symtropy forecast;
 5. candidate ablations without dependency-shift or evidence-quality signals.
 
+The public conformance corpus contains **21 invalid-input negative controls** and **two valid-but-failing forecast boundary cases**: zero probability assigned to an observed exceedance, and an observation outside the candidate GPD's finite support. These two cases are accepted as syntactically valid forecast outputs but must produce explicit infinite-loss / zero-support diagnostics rather than clipping or silent omission.
+
 Proposed integrity gates:
 - 100% valid range/support/proposal-weight checks;
+- 100% rejection of all 21 invalid-input negative cases;
 - 100% mandatory abstention when critical inputs are missing/conflicting/unsupported;
 - exact reproduction of weighted Brier/log-loss, occurrence and excess-PIT golden vectors;
 - exact preservation of importance weights and null forecast states;
