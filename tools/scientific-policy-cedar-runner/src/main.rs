@@ -484,7 +484,7 @@ fn run() -> Result<(), String> {
     let output_manifest = RunManifest {
         engine: "cedar-policy",
         engine_version: "4.14.0",
-        evaluation_method: "in-process-per-request-with-256-case-warmup; wall time includes warmup and all output writes",
+        evaluation_method: "in-process-per-request; 256-case prewarm excluded from latency distributions; wall time covers the full output pass and writes but excludes prewarm",
         generator_id: input_manifest.generator_id,
         generator_version: input_manifest.generator_version,
         baseline_revision: input_manifest.baseline_revision,
