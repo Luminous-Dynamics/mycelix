@@ -276,8 +276,8 @@ pub fn evaluate_probability_forecasts(fixture: &Value) -> Result<Value, Vec<Stri
                         if !probability_value.is_some_and(Value::is_number) {
                             errors.push(format!("{case_id}: forecast probability is missing or null"));
                         }
-                        if reason.is_some() {
-                            errors.push(format!("{case_id}: forecast action must not include abstention_reason"));
+                        if !reason_value.is_some_and(Value::is_null) {
+                            errors.push(format!("{case_id}: forecast action requires an explicit null abstention_reason"));
                         }
                         if let Some(probability) = probability.filter(|value| value.is_finite() && (0.0..=1.0).contains(value)) {
                             issued.push((service_id.unwrap().to_owned(), probability, observed_breach));
