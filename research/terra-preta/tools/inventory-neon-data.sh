@@ -55,7 +55,8 @@ printf '%s\n' $'product_code\trelease\tsite_code\tstart_month\tend_month\tpackag
 chmod 600 "$INVENTORY" "$QUERY_MANIFEST"
 REQUEST_PATH="$(mktemp)"
 TOKEN_HEADER="$(mktemp)"
-trap 'rm -f "$REQUEST_PATH" "$TOKEN_HEADER"' EXIT
+response_tmp=""
+trap 'rm -f "$REQUEST_PATH" "$TOKEN_HEADER" "$response_tmp"' EXIT
 chmod 600 "$REQUEST_PATH" "$TOKEN_HEADER"
 printf 'X-API-Token: %s\n' "$NEON_API_TOKEN" > "$TOKEN_HEADER"
 unset NEON_API_TOKEN
