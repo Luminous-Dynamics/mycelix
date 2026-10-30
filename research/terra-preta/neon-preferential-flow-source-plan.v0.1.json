@@ -172,7 +172,8 @@
         "event-level precipitation and soil-moisture response records",
         "sensor-depth-specific apparent velocity",
         "Rosetta Ksat estimates including max/low/high and median-based variants",
-        "soil texture, porosity, root density and site climate/topographic metadata"
+        "soil texture, porosity, root density and site climate/topographic metadata",
+        "Rosetta Ksat thresholds (low, maximum, high, median, and median plus standard deviation upper estimate) plus separate modelled matrix-flow velocity thresholds (median, 95th and 99th percentiles)."
       ],
       "site_caveats": {
         "not_recommended": [
@@ -202,7 +203,8 @@
         "Resolve version and field semantics against the Li et al. 2026 paper's specific target-construction method before claiming exact reproduction.",
         "The published README describes velocity and Ksat values as log scale, but the log base must be reconciled from the exact codebook/author workflow; do not assume log10 or exponentiate automatically.",
         "The modelled 99th-percentile matrix-flow velocity threshold is a distinct reference from Rosetta Ksat low/max/high/median/std-upper estimates; compare these threshold families separately.",
-        "The HydroShare v1.1 landing page declares content externally hosted. The actual v1.1 file host and per-file checksums remain unverified; the known Box folder link in v1.0 documentation must not be presumed to contain v1.1."
+        "The HydroShare v1.1 landing page declares content externally hosted. The actual v1.1 file host and per-file checksums remain unverified; the known Box folder link in v1.0 documentation must not be presumed to contain v1.1.",
+        "HydroShare v1.1 README maps PF_velocity_metric_50X to the Rosetta Ksat maximum threshold, but PF_ksat_metric_50X to the modelled 99th-percentile matrix velocity threshold; the column naming is not a reliable substitute for following each documented comparison."
       ]
     }
   ],
