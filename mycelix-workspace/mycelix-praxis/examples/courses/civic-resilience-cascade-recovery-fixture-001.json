@@ -122,37 +122,44 @@
     {
       "prerequisite_service_id": "electricity_supply",
       "dependent_service_id": "water_service_continuity",
-      "relationship": "required-input"
+      "relationship": "required-input",
+      "assertion_status": "assumed"
     },
     {
       "prerequisite_service_id": "electricity_supply",
       "dependent_service_id": "health_logistics_continuity",
-      "relationship": "required-input"
+      "relationship": "required-input",
+      "assertion_status": "assumed"
     },
     {
       "prerequisite_service_id": "communications_access",
       "dependent_service_id": "public_information",
-      "relationship": "required-input"
+      "relationship": "required-input",
+      "assertion_status": "assumed"
     },
     {
       "prerequisite_service_id": "communications_access",
       "dependent_service_id": "welfare_check_coordination",
-      "relationship": "required-input"
+      "relationship": "required-input",
+      "assertion_status": "assumed"
     },
     {
       "prerequisite_service_id": "public_information",
       "dependent_service_id": "welfare_check_coordination",
-      "relationship": "required-input"
+      "relationship": "required-input",
+      "assertion_status": "assumed"
     },
     {
       "prerequisite_service_id": "transport_access",
       "dependent_service_id": "health_logistics_continuity",
-      "relationship": "required-input"
+      "relationship": "required-input",
+      "assertion_status": "assumed"
     },
     {
       "prerequisite_service_id": "water_service_continuity",
       "dependent_service_id": "health_logistics_continuity",
-      "relationship": "required-input"
+      "relationship": "required-input",
+      "assertion_status": "assumed"
     }
   ],
   "scenarios": [
@@ -708,5 +715,15 @@
     "Passing the final sample is not proof of sustained recovery after the sample horizon.",
     "A lower deficit area is a scenario-level descriptive difference only; causal attribution requires a separate preregistered study.",
     "Do not use this public development fixture as confirmatory or held-out evidence."
-  ]
+  ],
+  "dependency_graph_policy": {
+    "direction": "prerequisite-to-dependent",
+    "propagation_applied": false,
+    "allowed_assertion_statuses": [
+      "assumed",
+      "observed",
+      "evaluator-only"
+    ],
+    "semantics_note": "Dependency edges are contextual metadata only. The NRES-007 evaluator does not propagate failures or generate service availability from this graph; cycles are permitted."
+  }
 }
