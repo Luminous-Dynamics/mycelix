@@ -178,7 +178,7 @@
       "case_id": "BOUNDARY-01",
       "name": "Point and interval collapsed at cost-loss threshold",
       "mutation": "Set lower=point=upper=decision threshold",
-      "expected_disposition": "nominal and robust expected choose prepare (inclusive); minimax regret tie chooses no_action"
+      "expected_disposition": "nominal point policy prepares at equality; worst-case expected-loss exact tie and minimax-regret exact tie both choose no_action"
     },
     {
       "case_id": "BOUNDARY-02",
