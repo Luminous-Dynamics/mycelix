@@ -18,6 +18,9 @@ pub use probability::evaluate_probability_forecasts;
 pub mod joint;
 pub use joint::evaluate_joint_service_forecasts;
 
+pub mod tail_shift;
+pub use tail_shift::evaluate_tail_shift_robustness;
+
 use std::collections::{BTreeMap, BTreeSet, HashMap};
 
 fn str_field<'a>(value: &'a Value, key: &str) -> Option<&'a str> {
