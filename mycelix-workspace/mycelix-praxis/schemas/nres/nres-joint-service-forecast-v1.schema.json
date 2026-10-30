@@ -1,0 +1,247 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:mycelix:praxis:nres:009:joint-service-forecast:v1",
+  "title": "Praxis NRES-009 Joint Service-Breach Forecast Fixture",
+  "description": "Structural schema for synthetic joint categorical distributions over binary service-breach combinations. Cross-field bit-index, complete-state-space, mass, uniqueness and metric rules are enforced by the Rust evaluator.",
+  "type": "object",
+  "required": [
+    "benchmark_id",
+    "schema_version",
+    "status",
+    "evaluation_split",
+    "active_in_curriculum",
+    "service_catalog",
+    "protocol",
+    "evaluation_cases",
+    "interpretation_guardrails"
+  ],
+  "properties": {
+    "benchmark_id": {
+      "const": "PRAXIS-NRES-009-JOINT-SERVICE-FORECAST-001"
+    },
+    "schema_version": {
+      "const": "1.0.0"
+    },
+    "status": {
+      "const": "synthetic-demonstration-for-review"
+    },
+    "evaluation_split": {
+      "const": "public-development-only"
+    },
+    "active_in_curriculum": {
+      "const": false
+    },
+    "title": {
+      "type": "string",
+      "minLength": 1
+    },
+    "purpose": {
+      "type": "string",
+      "minLength": 1
+    },
+    "scope_limits": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      },
+      "minItems": 1
+    },
+    "service_catalog": {
+      "type": "array",
+      "minItems": 2,
+      "maxItems": 12,
+      "items": {
+        "type": "object",
+        "required": [
+          "service_id",
+          "bit_index",
+          "unit"
+        ],
+        "properties": {
+          "service_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "bit_index": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 11
+          },
+          "unit": {
+            "const": "binary-breach-indicator"
+          }
+        },
+        "additionalProperties": true
+      }
+    },
+    "protocol": {
+      "type": "object",
+      "required": [
+        "forecast_origin_hour",
+        "forecast_horizon_hours",
+        "state_encoding",
+        "state_count",
+        "probability_sum_tolerance",
+        "log_score_rule",
+        "multiclass_brier_rule",
+        "energy_score_rule",
+        "variogram_score_rule",
+        "pairwise_joint_brier_rule",
+        "aggregation_rule"
+      ],
+      "properties": {
+        "forecast_origin_hour": {
+          "type": "number",
+          "minimum": 0
+        },
+        "forecast_horizon_hours": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "state_encoding": {
+          "type": "string",
+          "minLength": 1
+        },
+        "state_count": {
+          "type": "integer",
+          "minimum": 4,
+          "maximum": 4096
+        },
+        "probability_sum_tolerance": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "maximum": 0.000001
+        },
+        "log_score_rule": {
+          "type": "string",
+          "minLength": 1
+        },
+        "multiclass_brier_rule": {
+          "type": "string",
+          "minLength": 1
+        },
+        "energy_score_rule": {
+          "type": "string",
+          "minLength": 1
+        },
+        "variogram_score_rule": {
+          "type": "string",
+          "minLength": 1
+        },
+        "pairwise_joint_brier_rule": {
+          "type": "string",
+          "minLength": 1
+        },
+        "aggregation_rule": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "additionalProperties": true
+    },
+    "evaluation_cases": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": [
+          "case_id",
+          "forecast_origin_hour",
+          "forecast_horizon_hours",
+          "evaluator",
+          "candidate_output"
+        ],
+        "properties": {
+          "case_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "forecast_origin_hour": {
+            "type": "number",
+            "minimum": 0
+          },
+          "forecast_horizon_hours": {
+            "type": "number",
+            "exclusiveMinimum": 0
+          },
+          "evaluator": {
+            "type": "object",
+            "required": [
+              "observed_breach_mask"
+            ],
+            "properties": {
+              "observed_breach_mask": {
+                "type": "integer",
+                "minimum": 0
+              }
+            },
+            "additionalProperties": true
+          },
+          "candidate_output": {
+            "type": "object",
+            "required": [
+              "forecast_distribution"
+            ],
+            "properties": {
+              "forecast_distribution": {
+                "type": "array",
+                "minItems": 4,
+                "maxItems": 4096,
+                "items": {
+                  "type": "object",
+                  "required": [
+                    "state_mask",
+                    "probability"
+                  ],
+                  "properties": {
+                    "state_mask": {
+                      "type": "integer",
+                      "minimum": 0
+                    },
+                    "probability": {
+                      "type": "number",
+                      "minimum": 0,
+                      "maximum": 1
+                    }
+                  },
+                  "additionalProperties": true
+                }
+              }
+            },
+            "additionalProperties": true
+          }
+        },
+        "additionalProperties": true
+      }
+    },
+    "interpretation_guardrails": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      },
+      "minItems": 1
+    }
+  },
+  "additionalProperties": true,
+  "not": {
+    "anyOf": [
+      {
+        "required": [
+          "overall_resilience_score"
+        ]
+      },
+      {
+        "required": [
+          "composite_score"
+        ]
+      },
+      {
+        "required": [
+          "personal_suitability_score"
+        ]
+      }
+    ]
+  }
+}
