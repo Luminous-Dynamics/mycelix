@@ -2218,7 +2218,10 @@ mod tests {
                             Some("supports") => EvidenceOutcome::Supports,
                             Some("does_not_support") => EvidenceOutcome::DoesNotSupport,
                             Some("inconclusive") => EvidenceOutcome::Inconclusive,
-                            other => panic!("{}: invalid reproduction outcome {other:?}", case["id"]),
+                            other => panic!(
+                                "{}: invalid reproduction outcome {other:?}",
+                                case["id"]
+                            ),
                         };
                         AttestationKind::ComputationalReproduction { outcome }
                     }
@@ -2227,7 +2230,10 @@ mod tests {
                             Some("supports") => EvidenceOutcome::Supports,
                             Some("does_not_support") => EvidenceOutcome::DoesNotSupport,
                             Some("inconclusive") => EvidenceOutcome::Inconclusive,
-                            other => panic!("{}: invalid replication outcome {other:?}", case["id"]),
+                            other => panic!(
+                                "{}: invalid replication outcome {other:?}",
+                                case["id"]
+                            ),
                         };
                         AttestationKind::IndependentReplication { outcome }
                     }
@@ -2252,7 +2258,8 @@ mod tests {
                     protocol_reference: requires_evidence.then(|| "protocol:v1".to_string()),
                 };
 
-                let seed = u8::try_from(index + 2).expect("projection case has fewer than 254 attestations");
+                let seed = u8::try_from(index + 2)
+                    .expect("projection case has fewer than 254 attestations");
                 let signing_key = key(seed);
                 let envelope = ScientificEventEnvelope::next(
                     &previous,
