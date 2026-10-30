@@ -21,7 +21,7 @@ Validate inputs and reports against:
 
 `residual = external_inputs - external_outputs - (storage_end - storage_start)`
 
-The basis is kg of elemental N, P or K per hectare. Do not supply oxide mass (P2O5/K2O), product mass, or concentration without a declared conversion performed and recorded upstream.
+The basis is kg of elemental N, P or K per hectare. Do not supply oxide mass (P2O5/K2O), product mass, or concentration without a declared conversion performed and recorded upstream. The report retains separate input/output category totals (fertilizer, deposition, harvest export, leaching, runoff, erosion, gaseous loss, etc.) and their declared uncertainty sums so an aggregate balance cannot hide a pathway-specific increase.
 
 The control volume normally includes soil, standing biomass and retained residues. The boundary description must say what is included. Root uptake, mineralization, immobilization, sorption/desorption and residue return are internal transfers when both source and destination remain inside the control volume; they are not additional external inputs. Harvest removed, leaching across the declared lower boundary, runoff, erosion and gaseous export are boundary outputs where relevant.
 
