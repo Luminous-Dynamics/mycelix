@@ -71,8 +71,8 @@ identity used as the source key); whether that is sufficient independence is
 a normative policy question, not something the port may silently decide.
 `AUTH-030` records that the claim creator can submit an ordinary review under
 the authorization policy, while the evidence projection gives that review no
-reviewer credit. There is also a projection-effect expectations for the
-resulting evidence effect.
+reviewer credit. Both cases carry explicit projection-effect expectations for
+the resulting evidence profile.
 
 The projection fixtures are now consumed by a Rust test in
 `scientific_events.rs` that rebuilds signed event streams and compares the
