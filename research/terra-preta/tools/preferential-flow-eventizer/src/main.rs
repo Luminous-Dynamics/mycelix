@@ -664,7 +664,7 @@ mod tests {
 
     #[test]
     fn rejects_irregular_time_bins() {
-        let mut input = fixture(&[0], 0);
+        let mut input = fixture(&[0], 30);
         input.rainfall[2].timestamp_utc = stamp(20);
         assert!(
             validate(&input)
