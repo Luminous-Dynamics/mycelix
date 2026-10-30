@@ -237,6 +237,135 @@
         "mean_predicted_joint_breach_probability": 0.28156937509721225,
         "observed_joint_breach_rate": 0.125
       }
+    ],
+    "independence_projection_baseline": {
+      "mean_multiclass_brier_score": 0.8340507195492749,
+      "mean_energy_score": 0.520843191413638,
+      "mean_variogram_score": 0.23518338308920594,
+      "mean_pairwise_joint_breach_brier": 0.1340970980063078,
+      "mean_joint_log_loss": 2.116679300150455,
+      "zero_probability_observed_cases": 0
+    },
+    "independence_baseline_minus_candidate": {
+      "positive_means_candidate_has_lower_loss": true,
+      "multiclass_brier_score": 0.002304824625980917,
+      "energy_score": 0.0007502231983672614,
+      "variogram_score": 0.0006558614403444629,
+      "pairwise_joint_breach_brier": -0.00019057229082486415
+    },
+    "per_case_independence_projection": [
+      {
+        "case_id": "JOINT-01",
+        "multiclass_brier_score": 0.7947763738008998,
+        "joint_log_loss": 1.9612609061728268,
+        "energy_score": 0.47943382490874586,
+        "variogram_score": 0.22535822350274104,
+        "pairwise_joint_breach_brier": 0.0225620374957479,
+        "mean_marginal_probabilities": [
+          0.389639451796713,
+          0.389639451796713,
+          0.385486892154397,
+          0.385486892154397
+        ]
+      },
+      {
+        "case_id": "JOINT-02",
+        "multiclass_brier_score": 0.7505093984197968,
+        "joint_log_loss": 1.7874587249230898,
+        "energy_score": 0.4354548780931423,
+        "variogram_score": 0.21273517526256053,
+        "pairwise_joint_breach_brier": 0.09924208944485309,
+        "mean_marginal_probabilities": [
+          0.665691053517252,
+          0.665691053517252,
+          0.385409915568516,
+          0.385409915568516
+        ]
+      },
+      {
+        "case_id": "JOINT-03",
+        "multiclass_brier_score": 0.9152521489596452,
+        "joint_log_loss": 2.4896374745983847,
+        "energy_score": 0.6127334548224368,
+        "variogram_score": 0.25512223922404664,
+        "pairwise_joint_breach_brier": 0.07938915952294975,
+        "mean_marginal_probabilities": [
+          0.654857964170831,
+          0.401106729768021,
+          0.6508931352510461,
+          0.394227927442811
+        ]
+      },
+      {
+        "case_id": "JOINT-04",
+        "multiclass_brier_score": 0.9122342467459756,
+        "joint_log_loss": 2.4332206608852234,
+        "energy_score": 0.602190075702164,
+        "variogram_score": 0.25574069561296126,
+        "pairwise_joint_breach_brier": 0.15146205184847694,
+        "mean_marginal_probabilities": [
+          0.6656550834964501,
+          0.6656550834964501,
+          0.650856532496542,
+          0.39418998561236096
+        ]
+      },
+      {
+        "case_id": "JOINT-05",
+        "multiclass_brier_score": 0.8942959950977031,
+        "joint_log_loss": 2.3072582147836878,
+        "energy_score": 0.5753791658677662,
+        "variogram_score": 0.25208829883489875,
+        "pairwise_joint_breach_brier": 0.25233570857825105,
+        "mean_marginal_probabilities": [
+          0.6656196614488761,
+          0.6656196614488761,
+          0.659197692337017,
+          0.659197692337017
+        ]
+      },
+      {
+        "case_id": "JOINT-06",
+        "multiclass_brier_score": 0.8739960107686976,
+        "joint_log_loss": 2.2675259300872495,
+        "energy_score": 0.5616300816945387,
+        "variogram_score": 0.2460870880708656,
+        "pairwise_joint_breach_brier": 0.26272645724849064,
+        "mean_marginal_probabilities": [
+          0.401106729768021,
+          0.6548579641708321,
+          0.394227927442812,
+          0.6508931352510471
+        ]
+      },
+      {
+        "case_id": "JOINT-07",
+        "multiclass_brier_score": 0.7594848495018066,
+        "joint_log_loss": 1.8204024110771915,
+        "energy_score": 0.4439640551386106,
+        "variogram_score": 0.21537950430353944,
+        "pairwise_joint_breach_brier": 0.10108430486983312,
+        "mean_marginal_probabilities": [
+          0.38956204810254497,
+          0.38956204810254497,
+          0.6592696945310971,
+          0.6592696945310971
+        ]
+      },
+      {
+        "case_id": "JOINT-08",
+        "multiclass_brier_score": 0.7718567330996738,
+        "joint_log_loss": 1.8666700786759884,
+        "energy_score": 0.4559599950816994,
+        "variogram_score": 0.2189558399020343,
+        "pairwise_joint_breach_brier": 0.10397497504185993,
+        "mean_marginal_probabilities": [
+          0.401106729768021,
+          0.654857964170831,
+          0.6508931352510461,
+          0.394227927442811
+        ]
+      }
     ]
   },
   "round_trip_requirements": [
@@ -246,7 +375,8 @@
     "Preserve forecast origin and horizon.",
     "Preserve units and synthetic/observed/unknown claim state.",
     "Preserve zero-probability observed states and infinite-log-loss disposition distinctly.",
-    "Preserve unknown namespaced extensions without interpretation or loss."
+    "Preserve unknown namespaced extensions without interpretation or loss.",
+    "Preserve the derived independence-projection baseline as a same-marginal ablation, without labeling it an independent candidate model."
   ],
   "conformance_targets": {
     "valid_fixture_acceptance": "100 percent",
@@ -254,7 +384,8 @@
     "probability_mass_absolute_tolerance": 1e-12,
     "golden_metric_absolute_tolerance": 1e-12,
     "state_space_completeness": "exact",
-    "composite_or_personal_scores_accepted": 0
+    "composite_or_personal_scores_accepted": 0,
+    "independence_projection_marginal_fidelity": "exact"
   },
   "limitations": [
     "This fixture is public-development-only, not a hidden confirmation set.",
