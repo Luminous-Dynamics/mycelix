@@ -1,0 +1,370 @@
+{
+  "benchmark_id": "PRAXIS-NRES-008-PROBABILITY-ABSTENTION-001",
+  "schema_version": "1.0.0",
+  "status": "synthetic-demonstration-for-review",
+  "evaluation_split": "public-development-only",
+  "active_in_curriculum": false,
+  "title": "Probability Calibration and Evidence-Qualified Abstention",
+  "purpose": "Evaluate binary service-floor breach probability forecasts, proper scoring, calibration diagnostics and mandatory abstention under missing, conflicting or unsupported inputs.",
+  "scope_limits": [
+    "Every case, event outcome and calibration-reference count is fictional public-development data.",
+    "A successful evaluation establishes fixture consistency and metric reproducibility only; it does not estimate real outage probabilities.",
+    "Qualification states are supplied scenario labels, not a legal, institutional or factual adjudication.",
+    "No forecast or abstention is an operational instruction or a grant of civic/emergency authority.",
+    "Public development cases are not held-out or confirmatory data; no model should be tuned and evaluated on this fixture as independent evidence.",
+    "The calibration cohort is an aggregate synthetic reference rate; it does not establish a population base rate.",
+    "Distribution-free coverage claims are not made; exchangeability and distribution-shift assumptions require explicit study."
+  ],
+  "service_catalog": [
+    {
+      "service_id": "electricity_supply",
+      "floor_percent": 80,
+      "unit": "percent-of-scenario-defined-baseline"
+    },
+    {
+      "service_id": "communications_access",
+      "floor_percent": 80,
+      "unit": "percent-of-scenario-defined-baseline"
+    },
+    {
+      "service_id": "water_service_continuity",
+      "floor_percent": 70,
+      "unit": "percent-of-scenario-defined-baseline"
+    },
+    {
+      "service_id": "public_information",
+      "floor_percent": 75,
+      "unit": "percent-of-scenario-defined-baseline"
+    },
+    {
+      "service_id": "welfare_check_coordination",
+      "floor_percent": 80,
+      "unit": "percent-of-scenario-defined-baseline"
+    },
+    {
+      "service_id": "health_logistics_continuity",
+      "floor_percent": 85,
+      "unit": "percent-of-scenario-defined-baseline"
+    },
+    {
+      "service_id": "transport_access",
+      "floor_percent": 75,
+      "unit": "percent-of-scenario-defined-baseline"
+    }
+  ],
+  "protocol": {
+    "forecast_target": "minimum service availability falls strictly below the service floor at least once during the 24-hour forecast horizon",
+    "forecast_origin_hour": 0,
+    "forecast_horizon_hours": 24,
+    "probability_bins": [
+      0,
+      0.2,
+      0.4,
+      0.6,
+      0.8,
+      1
+    ],
+    "bin_convention": "lower-inclusive and upper-exclusive; the final bin includes probability 1.0",
+    "log_loss_epsilon": 0.000001,
+    "proper_scores": [
+      "brier_score",
+      "log_loss"
+    ],
+    "baseline_rule": "reference event probability = calibration_reference.breach_count / calibration_reference.sample_count; Brier skill = 1 - candidate Brier / reference Brier on the same issued cases",
+    "calibration_diagnostic": "fixed-bin expected calibration error (ECE), descriptive only and not a proper score",
+    "abstention_rule": "forecast only when qualification_state=qualified; missing_critical_input, conflicting_sources and unsupported_distribution_shift require abstention",
+    "optional_abstention_rule": "a qualified case may abstain only with abstention_reason=model_uncertainty; count it against eligible-case coverage"
+  },
+  "calibration_reference": {
+    "sample_count": 20,
+    "breach_count": 10,
+    "status": "synthetic-public-development-reference",
+    "description": "Aggregate fictional calibration cohort used only to define a climatology baseline for the public example."
+  },
+  "evaluation_cases": [
+    {
+      "case_id": "FORECAST-01",
+      "service_id": "electricity_supply",
+      "forecast_origin_hour": 0,
+      "forecast_horizon_hours": 24,
+      "qualification_state": "qualified",
+      "action": "forecast",
+      "predicted_breach_probability": 0.02,
+      "abstention_reason": null,
+      "observed_minimum_availability_percent": 82
+    },
+    {
+      "case_id": "FORECAST-02",
+      "service_id": "communications_access",
+      "forecast_origin_hour": 0,
+      "forecast_horizon_hours": 24,
+      "qualification_state": "qualified",
+      "action": "forecast",
+      "predicted_breach_probability": 0.06,
+      "abstention_reason": null,
+      "observed_minimum_availability_percent": 82
+    },
+    {
+      "case_id": "FORECAST-03",
+      "service_id": "water_service_continuity",
+      "forecast_origin_hour": 0,
+      "forecast_horizon_hours": 24,
+      "qualification_state": "qualified",
+      "action": "forecast",
+      "predicted_breach_probability": 0.1,
+      "abstention_reason": null,
+      "observed_minimum_availability_percent": 72
+    },
+    {
+      "case_id": "FORECAST-04",
+      "service_id": "public_information",
+      "forecast_origin_hour": 0,
+      "forecast_horizon_hours": 24,
+      "qualification_state": "qualified",
+      "action": "forecast",
+      "predicted_breach_probability": 0.14,
+      "abstention_reason": null,
+      "observed_minimum_availability_percent": 77
+    },
+    {
+      "case_id": "FORECAST-05",
+      "service_id": "welfare_check_coordination",
+      "forecast_origin_hour": 0,
+      "forecast_horizon_hours": 24,
+      "qualification_state": "qualified",
+      "action": "forecast",
+      "predicted_breach_probability": 0.22,
+      "abstention_reason": null,
+      "observed_minimum_availability_percent": 82
+    },
+    {
+      "case_id": "FORECAST-06",
+      "service_id": "health_logistics_continuity",
+      "forecast_origin_hour": 0,
+      "forecast_horizon_hours": 24,
+      "qualification_state": "qualified",
+      "action": "forecast",
+      "predicted_breach_probability": 0.28,
+      "abstention_reason": null,
+      "observed_minimum_availability_percent": 87
+    },
+    {
+      "case_id": "FORECAST-07",
+      "service_id": "transport_access",
+      "forecast_origin_hour": 0,
+      "forecast_horizon_hours": 24,
+      "qualification_state": "qualified",
+      "action": "forecast",
+      "predicted_breach_probability": 0.32,
+      "abstention_reason": null,
+      "observed_minimum_availability_percent": 70
+    },
+    {
+      "case_id": "FORECAST-08",
+      "service_id": "electricity_supply",
+      "forecast_origin_hour": 0,
+      "forecast_horizon_hours": 24,
+      "qualification_state": "qualified",
+      "action": "forecast",
+      "predicted_breach_probability": 0.38,
+      "abstention_reason": null,
+      "observed_minimum_availability_percent": 75
+    },
+    {
+      "case_id": "FORECAST-09",
+      "service_id": "communications_access",
+      "forecast_origin_hour": 0,
+      "forecast_horizon_hours": 24,
+      "qualification_state": "qualified",
+      "action": "forecast",
+      "predicted_breach_probability": 0.42,
+      "abstention_reason": null,
+      "observed_minimum_availability_percent": 82
+    },
+    {
+      "case_id": "FORECAST-10",
+      "service_id": "water_service_continuity",
+      "forecast_origin_hour": 0,
+      "forecast_horizon_hours": 24,
+      "qualification_state": "qualified",
+      "action": "forecast",
+      "predicted_breach_probability": 0.48,
+      "abstention_reason": null,
+      "observed_minimum_availability_percent": 65
+    },
+    {
+      "case_id": "FORECAST-11",
+      "service_id": "public_information",
+      "forecast_origin_hour": 0,
+      "forecast_horizon_hours": 24,
+      "qualification_state": "qualified",
+      "action": "forecast",
+      "predicted_breach_probability": 0.52,
+      "abstention_reason": null,
+      "observed_minimum_availability_percent": 77
+    },
+    {
+      "case_id": "FORECAST-12",
+      "service_id": "welfare_check_coordination",
+      "forecast_origin_hour": 0,
+      "forecast_horizon_hours": 24,
+      "qualification_state": "qualified",
+      "action": "forecast",
+      "predicted_breach_probability": 0.58,
+      "abstention_reason": null,
+      "observed_minimum_availability_percent": 75
+    },
+    {
+      "case_id": "FORECAST-13",
+      "service_id": "health_logistics_continuity",
+      "forecast_origin_hour": 0,
+      "forecast_horizon_hours": 24,
+      "qualification_state": "qualified",
+      "action": "forecast",
+      "predicted_breach_probability": 0.62,
+      "abstention_reason": null,
+      "observed_minimum_availability_percent": 87
+    },
+    {
+      "case_id": "FORECAST-14",
+      "service_id": "transport_access",
+      "forecast_origin_hour": 0,
+      "forecast_horizon_hours": 24,
+      "qualification_state": "qualified",
+      "action": "forecast",
+      "predicted_breach_probability": 0.68,
+      "abstention_reason": null,
+      "observed_minimum_availability_percent": 70
+    },
+    {
+      "case_id": "FORECAST-15",
+      "service_id": "electricity_supply",
+      "forecast_origin_hour": 0,
+      "forecast_horizon_hours": 24,
+      "qualification_state": "qualified",
+      "action": "forecast",
+      "predicted_breach_probability": 0.72,
+      "abstention_reason": null,
+      "observed_minimum_availability_percent": 75
+    },
+    {
+      "case_id": "FORECAST-16",
+      "service_id": "communications_access",
+      "forecast_origin_hour": 0,
+      "forecast_horizon_hours": 24,
+      "qualification_state": "qualified",
+      "action": "forecast",
+      "predicted_breach_probability": 0.78,
+      "abstention_reason": null,
+      "observed_minimum_availability_percent": 75
+    },
+    {
+      "case_id": "FORECAST-17",
+      "service_id": "water_service_continuity",
+      "forecast_origin_hour": 0,
+      "forecast_horizon_hours": 24,
+      "qualification_state": "qualified",
+      "action": "forecast",
+      "predicted_breach_probability": 0.82,
+      "abstention_reason": null,
+      "observed_minimum_availability_percent": 72
+    },
+    {
+      "case_id": "FORECAST-18",
+      "service_id": "public_information",
+      "forecast_origin_hour": 0,
+      "forecast_horizon_hours": 24,
+      "qualification_state": "qualified",
+      "action": "forecast",
+      "predicted_breach_probability": 0.88,
+      "abstention_reason": null,
+      "observed_minimum_availability_percent": 70
+    },
+    {
+      "case_id": "FORECAST-19",
+      "service_id": "welfare_check_coordination",
+      "forecast_origin_hour": 0,
+      "forecast_horizon_hours": 24,
+      "qualification_state": "qualified",
+      "action": "forecast",
+      "predicted_breach_probability": 0.92,
+      "abstention_reason": null,
+      "observed_minimum_availability_percent": 75
+    },
+    {
+      "case_id": "FORECAST-20",
+      "service_id": "health_logistics_continuity",
+      "forecast_origin_hour": 0,
+      "forecast_horizon_hours": 24,
+      "qualification_state": "qualified",
+      "action": "forecast",
+      "predicted_breach_probability": 0.98,
+      "abstention_reason": null,
+      "observed_minimum_availability_percent": 80
+    },
+    {
+      "forecast_origin_hour": 0,
+      "forecast_horizon_hours": 24,
+      "case_id": "ABSTAIN-MISSING-01",
+      "service_id": "water_service_continuity",
+      "qualification_state": "missing_critical_input",
+      "action": "abstain",
+      "predicted_breach_probability": null,
+      "abstention_reason": "missing_critical_input",
+      "observed_minimum_availability_percent": 61
+    },
+    {
+      "forecast_origin_hour": 0,
+      "forecast_horizon_hours": 24,
+      "case_id": "ABSTAIN-MISSING-02",
+      "service_id": "health_logistics_continuity",
+      "qualification_state": "missing_critical_input",
+      "action": "abstain",
+      "predicted_breach_probability": null,
+      "abstention_reason": "missing_critical_input",
+      "observed_minimum_availability_percent": 88
+    },
+    {
+      "forecast_origin_hour": 0,
+      "forecast_horizon_hours": 24,
+      "case_id": "ABSTAIN-CONFLICT-01",
+      "service_id": "public_information",
+      "qualification_state": "conflicting_sources",
+      "action": "abstain",
+      "predicted_breach_probability": null,
+      "abstention_reason": "conflicting_sources",
+      "observed_minimum_availability_percent": 82
+    },
+    {
+      "forecast_origin_hour": 0,
+      "forecast_horizon_hours": 24,
+      "case_id": "ABSTAIN-SHIFT-01",
+      "service_id": "electricity_supply",
+      "qualification_state": "unsupported_distribution_shift",
+      "action": "abstain",
+      "predicted_breach_probability": null,
+      "abstention_reason": "unsupported_distribution_shift",
+      "observed_minimum_availability_percent": 69
+    },
+    {
+      "forecast_origin_hour": 0,
+      "forecast_horizon_hours": 24,
+      "case_id": "ABSTAIN-UNCERTAINTY-01",
+      "service_id": "transport_access",
+      "qualification_state": "qualified",
+      "action": "abstain",
+      "predicted_breach_probability": null,
+      "abstention_reason": "model_uncertainty",
+      "observed_minimum_availability_percent": 72
+    }
+  ],
+  "interpretation_guardrails": [
+    "Report proper scores and coverage together; a system cannot appear safe by abstaining on every case.",
+    "Report mandatory-abstention compliance separately from optional abstentions.",
+    "Brier score and log loss are primary proper scores; ECE is a bin-dependent diagnostic, not a standalone ranking metric.",
+    "Do not compare models unless they use identical case IDs, outcome definitions, horizons, qualification states and evaluation splits.",
+    "No calibration guarantee is inferred under distribution shift or non-exchangeable time-series data.",
+    "Abstained cases do not receive invented probabilities and do not enter selective proper-score denominators.",
+    "Never convert missing/conflicting/unsupported evidence into a zero breach probability."
+  ]
+}
