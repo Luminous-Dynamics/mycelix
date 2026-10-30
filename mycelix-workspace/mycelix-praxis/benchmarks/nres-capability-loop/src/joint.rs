@@ -53,6 +53,7 @@ fn hamming_distance(left: usize, right: usize) -> usize {
 fn joint_scores(probabilities: &[f64], observed_mask: usize) -> (f64, Option<f64>, f64) {
     let mut multiclass_brier = 0.0;
     for (mask, probability) in probabilities.iter().enumerate() {
+        let probability = *probability;
         let target = if mask == observed_mask { 1.0 } else { 0.0 };
         multiclass_brier += (probability - target).powi(2);
     }
@@ -62,9 +63,11 @@ fn joint_scores(probabilities: &[f64], observed_mask: usize) -> (f64, Option<f64
     let mut first_term = 0.0;
     let mut second_term = 0.0;
     for (left_mask, left_probability) in probabilities.iter().enumerate() {
+        let left_probability = *left_probability;
         first_term += left_probability
             * (hamming_distance(left_mask, observed_mask) as f64).sqrt();
         for (right_mask, right_probability) in probabilities.iter().enumerate() {
+            let right_probability = *right_probability;
             second_term += left_probability
                 * right_probability
                 * (hamming_distance(left_mask, right_mask) as f64).sqrt();
@@ -509,7 +512,8 @@ mod tests {
         let target_index = distribution.iter().position(|x| x["state_mask"].as_u64() == Some(observed as u64)).unwrap();
         let donor_index = if target_index == 0 { 1 } else { 0 };
         let donor = distribution[donor_index]["probability"].as_f64().unwrap();
-        distribution[donor_index]["probability"] = json!(donor + distribution[target_index]["probability"].as_f64().unwrap());
+        let target_probability = distribution[target_index]["probability"].as_f64().unwrap();
+        distribution[donor_index]["probability"] = json!(donor + target_probability);
         distribution[target_index]["probability"] = json!(0.0);
         value["evaluation_cases"][0]["candidate_output"]["forecast_distribution"] = json!(distribution);
         let report = evaluate_joint_service_forecasts(&value).expect("zero-probability state is a valid forecast with infinite log loss");
