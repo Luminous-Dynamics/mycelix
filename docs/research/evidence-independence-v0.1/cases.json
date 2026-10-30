@@ -1,0 +1,1293 @@
+{
+  "schemaVersion": "0.1.0",
+  "title": "Mycelix evidence independence conformance corpus",
+  "status": "research_fixture_contract_not_runtime_evidence",
+  "semanticBoundary": "This corpus tests identity/provenance independence classifications. It does not establish scientific truth, evidential quality, or funding eligibility.",
+  "profileDefinitions": {
+    "reviewer_diversity": {
+      "requiredDimensions": [
+        "actor"
+      ],
+      "requiredPresence": [
+        "actor"
+      ],
+      "minimumDistinctSources": 2
+    },
+    "organization_independence": {
+      "requiredDimensions": [
+        "actor",
+        "organization"
+      ],
+      "requiredPresence": [
+        "actor",
+        "organization"
+      ],
+      "minimumDistinctSources": 2
+    },
+    "empirical_replication": {
+      "requiredDimensions": [
+        "actor",
+        "organization",
+        "lab",
+        "dataset_lineage"
+      ],
+      "requiredPresence": [
+        "actor",
+        "organization",
+        "lab",
+        "dataset_lineage",
+        "protocol",
+        "preregistration"
+      ],
+      "minimumDistinctSources": 2,
+      "sharedProtocolAllowed": true
+    },
+    "computational_reproduction": {
+      "requiredDimensions": [
+        "actor",
+        "method_family",
+        "execution_provenance"
+      ],
+      "requiredPresence": [
+        "actor",
+        "dataset_lineage",
+        "method_family",
+        "execution_provenance",
+        "protocol"
+      ],
+      "minimumDistinctSources": 2,
+      "sameDatasetAllowed": true
+    }
+  },
+  "dimensionStatuses": [
+    "established",
+    "not_established",
+    "unknown",
+    "conflicted"
+  ],
+  "qualificationStatuses": [
+    "qualified",
+    "not_qualified",
+    "indeterminate"
+  ],
+  "cases": [
+    {
+      "id": "EIP-001",
+      "title": "Repeated attempts by one researcher and lab are not independent sources",
+      "kind": "empirical_replication",
+      "sources": [
+        {
+          "sourceId": "s1",
+          "actorSubjectId": "actor:alice",
+          "actorIdentityBasis": "credential_registry_subject",
+          "organizationId": "org:north",
+          "organizationIdentityBasis": "registry_id",
+          "labId": "lab:north-1",
+          "datasetLineageId": "dataset:root-a",
+          "datasetProvenanceStatus": "resolved",
+          "datasetArtifactDigest": null,
+          "protocolFamilyId": "protocol:registered:v1",
+          "preregistrationId": "prereg:registered:1",
+          "methodFamilyId": "method:assay-a",
+          "executionProvenanceDigest": "sha256:s100000000000000000000000000000000000000000000000000000000000000",
+          "instrumentId": "instrument:known",
+          "siteId": "site:known",
+          "fundingSourceId": "funder:known",
+          "status": "active",
+          "attemptId": "attempt:s1"
+        },
+        {
+          "sourceId": "s2",
+          "actorSubjectId": "actor:alice",
+          "actorIdentityBasis": "credential_registry_subject",
+          "organizationId": "org:north",
+          "organizationIdentityBasis": "registry_id",
+          "labId": "lab:north-1",
+          "datasetLineageId": "dataset:root-a",
+          "datasetProvenanceStatus": "resolved",
+          "datasetArtifactDigest": null,
+          "protocolFamilyId": "protocol:registered:v1",
+          "preregistrationId": "prereg:registered:1",
+          "methodFamilyId": "method:assay-a",
+          "executionProvenanceDigest": "sha256:run-two",
+          "instrumentId": "instrument:known",
+          "siteId": "site:known",
+          "fundingSourceId": "funder:known",
+          "status": "active",
+          "attemptId": "attempt:s2"
+        }
+      ],
+      "expected": {
+        "dimensions": {
+          "actor": "not_established",
+          "organization": "not_established",
+          "lab": "not_established",
+          "dataset_lineage": "not_established",
+          "protocol": "not_established",
+          "method_family": "not_established",
+          "execution_provenance": "established"
+        },
+        "profiles": {
+          "reviewer_diversity": "not_qualified",
+          "organization_independence": "not_qualified",
+          "empirical_replication": "not_qualified",
+          "computational_reproduction": "not_qualified"
+        },
+        "activeSourceCount": 2,
+        "withdrawnSourceCount": 0
+      }
+    },
+    {
+      "id": "EIP-002",
+      "title": "Different people in one organization are distinct reviewers but not organization-independent replication",
+      "kind": "empirical_replication",
+      "sources": [
+        {
+          "sourceId": "s1",
+          "actorSubjectId": "actor:alice",
+          "actorIdentityBasis": "credential_registry_subject",
+          "organizationId": "org:north",
+          "organizationIdentityBasis": "registry_id",
+          "labId": "lab:north-1",
+          "datasetLineageId": "dataset:root-a",
+          "datasetProvenanceStatus": "resolved",
+          "datasetArtifactDigest": null,
+          "protocolFamilyId": "protocol:registered:v1",
+          "preregistrationId": "prereg:registered:1",
+          "methodFamilyId": "method:assay-a",
+          "executionProvenanceDigest": "sha256:s100000000000000000000000000000000000000000000000000000000000000",
+          "instrumentId": "instrument:known",
+          "siteId": "site:known",
+          "fundingSourceId": "funder:known",
+          "status": "active",
+          "attemptId": "attempt:s1"
+        },
+        {
+          "sourceId": "s2",
+          "actorSubjectId": "actor:bob",
+          "actorIdentityBasis": "credential_registry_subject",
+          "organizationId": "org:north",
+          "organizationIdentityBasis": "registry_id",
+          "labId": "lab:north-1",
+          "datasetLineageId": "dataset:root-b",
+          "datasetProvenanceStatus": "resolved",
+          "datasetArtifactDigest": null,
+          "protocolFamilyId": "protocol:registered:v1",
+          "preregistrationId": "prereg:registered:1",
+          "methodFamilyId": "method:assay-a",
+          "executionProvenanceDigest": "sha256:s200000000000000000000000000000000000000000000000000000000000000",
+          "instrumentId": "instrument:known",
+          "siteId": "site:known",
+          "fundingSourceId": "funder:known",
+          "status": "active",
+          "attemptId": "attempt:s2"
+        }
+      ],
+      "expected": {
+        "dimensions": {
+          "actor": "established",
+          "organization": "not_established",
+          "lab": "not_established",
+          "dataset_lineage": "established",
+          "protocol": "not_established",
+          "method_family": "not_established"
+        },
+        "profiles": {
+          "reviewer_diversity": "qualified",
+          "organization_independence": "not_qualified",
+          "empirical_replication": "not_qualified",
+          "computational_reproduction": "not_qualified"
+        },
+        "activeSourceCount": 2,
+        "withdrawnSourceCount": 0
+      }
+    },
+    {
+      "id": "EIP-003",
+      "title": "Different organizations mirroring one dataset do not establish independent empirical replication",
+      "kind": "empirical_replication",
+      "sources": [
+        {
+          "sourceId": "s1",
+          "actorSubjectId": "actor:alice",
+          "actorIdentityBasis": "credential_registry_subject",
+          "organizationId": "org:north",
+          "organizationIdentityBasis": "registry_id",
+          "labId": "lab:north-1",
+          "datasetLineageId": "dataset:root-a",
+          "datasetProvenanceStatus": "resolved",
+          "datasetArtifactDigest": "sha256:data-original",
+          "protocolFamilyId": "protocol:registered:v1",
+          "preregistrationId": "prereg:registered:1",
+          "methodFamilyId": "method:assay-a",
+          "executionProvenanceDigest": "sha256:s100000000000000000000000000000000000000000000000000000000000000",
+          "instrumentId": "instrument:known",
+          "siteId": "site:known",
+          "fundingSourceId": "funder:known",
+          "status": "active",
+          "attemptId": "attempt:s1"
+        },
+        {
+          "sourceId": "s2",
+          "actorSubjectId": "actor:bob",
+          "actorIdentityBasis": "credential_registry_subject",
+          "organizationId": "org:south",
+          "organizationIdentityBasis": "registry_id",
+          "labId": "lab:south-1",
+          "datasetLineageId": "dataset:root-a",
+          "datasetProvenanceStatus": "resolved",
+          "datasetArtifactDigest": "sha256:data-mirror",
+          "protocolFamilyId": "protocol:registered:v1",
+          "preregistrationId": "prereg:registered:1",
+          "methodFamilyId": "method:assay-b",
+          "executionProvenanceDigest": "sha256:s200000000000000000000000000000000000000000000000000000000000000",
+          "instrumentId": "instrument:known",
+          "siteId": "site:known",
+          "fundingSourceId": "funder:known",
+          "status": "active",
+          "attemptId": "attempt:s2"
+        }
+      ],
+      "relations": [
+        {
+          "from": "sha256:data-mirror",
+          "relation": "mirror_of",
+          "to": "sha256:data-original"
+        }
+      ],
+      "expected": {
+        "dimensions": {
+          "actor": "established",
+          "organization": "established",
+          "lab": "established",
+          "dataset_lineage": "not_established",
+          "protocol": "not_established",
+          "method_family": "established"
+        },
+        "profiles": {
+          "reviewer_diversity": "qualified",
+          "organization_independence": "qualified",
+          "empirical_replication": "not_qualified",
+          "computational_reproduction": "qualified"
+        },
+        "activeSourceCount": 2,
+        "withdrawnSourceCount": 0
+      }
+    },
+    {
+      "id": "EIP-004",
+      "title": "New data collected by separate people organizations and laboratories can qualify under the empirical profile",
+      "kind": "empirical_replication",
+      "sources": [
+        {
+          "sourceId": "s1",
+          "actorSubjectId": "actor:alice",
+          "actorIdentityBasis": "credential_registry_subject",
+          "organizationId": "org:north",
+          "organizationIdentityBasis": "registry_id",
+          "labId": "lab:north-1",
+          "datasetLineageId": "dataset:root-a",
+          "datasetProvenanceStatus": "resolved",
+          "datasetArtifactDigest": null,
+          "protocolFamilyId": "protocol:registered:v1",
+          "preregistrationId": "prereg:registered:1",
+          "methodFamilyId": "method:assay-a",
+          "executionProvenanceDigest": "sha256:s100000000000000000000000000000000000000000000000000000000000000",
+          "instrumentId": "instrument:known",
+          "siteId": "site:known",
+          "fundingSourceId": "funder:known",
+          "status": "active",
+          "attemptId": "attempt:s1"
+        },
+        {
+          "sourceId": "s2",
+          "actorSubjectId": "actor:bob",
+          "actorIdentityBasis": "credential_registry_subject",
+          "organizationId": "org:south",
+          "organizationIdentityBasis": "registry_id",
+          "labId": "lab:south-2",
+          "datasetLineageId": "dataset:root-b",
+          "datasetProvenanceStatus": "resolved",
+          "datasetArtifactDigest": null,
+          "protocolFamilyId": "protocol:registered:v1",
+          "preregistrationId": "prereg:registered:1",
+          "methodFamilyId": "method:assay-a",
+          "executionProvenanceDigest": "sha256:s200000000000000000000000000000000000000000000000000000000000000",
+          "instrumentId": "instrument:known",
+          "siteId": "site:known",
+          "fundingSourceId": "funder:known",
+          "status": "active",
+          "attemptId": "attempt:s2"
+        }
+      ],
+      "expected": {
+        "dimensions": {
+          "actor": "established",
+          "organization": "established",
+          "lab": "established",
+          "dataset_lineage": "established",
+          "protocol": "not_established",
+          "method_family": "not_established"
+        },
+        "profiles": {
+          "reviewer_diversity": "qualified",
+          "organization_independence": "qualified",
+          "empirical_replication": "qualified",
+          "computational_reproduction": "qualified"
+        },
+        "activeSourceCount": 2,
+        "withdrawnSourceCount": 0
+      }
+    },
+    {
+      "id": "EIP-005",
+      "title": "Independent analysis of the same data may qualify as computational reproduction, not empirical replication",
+      "kind": "computational_reproduction",
+      "sources": [
+        {
+          "sourceId": "s1",
+          "actorSubjectId": "actor:alice",
+          "actorIdentityBasis": "credential_registry_subject",
+          "organizationId": "org:north",
+          "organizationIdentityBasis": "registry_id",
+          "labId": "lab:north-1",
+          "datasetLineageId": "dataset:root-a",
+          "datasetProvenanceStatus": "resolved",
+          "datasetArtifactDigest": null,
+          "protocolFamilyId": "protocol:registered:v1",
+          "preregistrationId": "prereg:registered:1",
+          "methodFamilyId": "method:implementation-a",
+          "executionProvenanceDigest": "sha256:exec-a",
+          "instrumentId": "instrument:known",
+          "siteId": "site:known",
+          "fundingSourceId": "funder:known",
+          "status": "active",
+          "attemptId": "attempt:s1"
+        },
+        {
+          "sourceId": "s2",
+          "actorSubjectId": "actor:bob",
+          "actorIdentityBasis": "credential_registry_subject",
+          "organizationId": "org:south",
+          "organizationIdentityBasis": "registry_id",
+          "labId": "lab:south-2",
+          "datasetLineageId": "dataset:root-a",
+          "datasetProvenanceStatus": "resolved",
+          "datasetArtifactDigest": null,
+          "protocolFamilyId": "protocol:registered:v1",
+          "preregistrationId": "prereg:registered:1",
+          "methodFamilyId": "method:implementation-b",
+          "executionProvenanceDigest": "sha256:exec-b",
+          "instrumentId": "instrument:known",
+          "siteId": "site:known",
+          "fundingSourceId": "funder:known",
+          "status": "active",
+          "attemptId": "attempt:s2"
+        }
+      ],
+      "expected": {
+        "dimensions": {
+          "actor": "established",
+          "organization": "established",
+          "lab": "established",
+          "dataset_lineage": "not_established",
+          "protocol": "not_established",
+          "method_family": "established",
+          "execution_provenance": "established"
+        },
+        "profiles": {
+          "reviewer_diversity": "qualified",
+          "organization_independence": "qualified",
+          "empirical_replication": "not_qualified",
+          "computational_reproduction": "qualified"
+        },
+        "activeSourceCount": 2,
+        "withdrawnSourceCount": 0
+      }
+    },
+    {
+      "id": "EIP-006",
+      "title": "Distinct organizations using the same laboratory do not meet the empirical profile's lab-independence requirement",
+      "kind": "empirical_replication",
+      "sources": [
+        {
+          "sourceId": "s1",
+          "actorSubjectId": "actor:alice",
+          "actorIdentityBasis": "credential_registry_subject",
+          "organizationId": "org:north",
+          "organizationIdentityBasis": "registry_id",
+          "labId": "lab:shared",
+          "datasetLineageId": "dataset:root-a",
+          "datasetProvenanceStatus": "resolved",
+          "datasetArtifactDigest": null,
+          "protocolFamilyId": "protocol:registered:v1",
+          "preregistrationId": "prereg:registered:1",
+          "methodFamilyId": "method:assay-a",
+          "executionProvenanceDigest": "sha256:s100000000000000000000000000000000000000000000000000000000000000",
+          "instrumentId": "instrument:known",
+          "siteId": "site:known",
+          "fundingSourceId": "funder:known",
+          "status": "active",
+          "attemptId": "attempt:s1"
+        },
+        {
+          "sourceId": "s2",
+          "actorSubjectId": "actor:bob",
+          "actorIdentityBasis": "credential_registry_subject",
+          "organizationId": "org:south",
+          "organizationIdentityBasis": "registry_id",
+          "labId": "lab:shared",
+          "datasetLineageId": "dataset:root-b",
+          "datasetProvenanceStatus": "resolved",
+          "datasetArtifactDigest": null,
+          "protocolFamilyId": "protocol:registered:v1",
+          "preregistrationId": "prereg:registered:1",
+          "methodFamilyId": "method:assay-a",
+          "executionProvenanceDigest": "sha256:s200000000000000000000000000000000000000000000000000000000000000",
+          "instrumentId": "instrument:known",
+          "siteId": "site:known",
+          "fundingSourceId": "funder:known",
+          "status": "active",
+          "attemptId": "attempt:s2"
+        }
+      ],
+      "expected": {
+        "dimensions": {
+          "actor": "established",
+          "organization": "established",
+          "lab": "not_established",
+          "dataset_lineage": "established",
+          "protocol": "not_established",
+          "method_family": "not_established"
+        },
+        "profiles": {
+          "reviewer_diversity": "qualified",
+          "organization_independence": "qualified",
+          "empirical_replication": "not_qualified",
+          "computational_reproduction": "not_qualified"
+        },
+        "activeSourceCount": 2,
+        "withdrawnSourceCount": 0
+      }
+    },
+    {
+      "id": "EIP-007",
+      "title": "Different laboratories inside one organization remain organizationally correlated",
+      "kind": "empirical_replication",
+      "sources": [
+        {
+          "sourceId": "s1",
+          "actorSubjectId": "actor:alice",
+          "actorIdentityBasis": "credential_registry_subject",
+          "organizationId": "org:north",
+          "organizationIdentityBasis": "registry_id",
+          "labId": "lab:north-1",
+          "datasetLineageId": "dataset:root-a",
+          "datasetProvenanceStatus": "resolved",
+          "datasetArtifactDigest": null,
+          "protocolFamilyId": "protocol:registered:v1",
+          "preregistrationId": "prereg:registered:1",
+          "methodFamilyId": "method:assay-a",
+          "executionProvenanceDigest": "sha256:s100000000000000000000000000000000000000000000000000000000000000",
+          "instrumentId": "instrument:known",
+          "siteId": "site:known",
+          "fundingSourceId": "funder:known",
+          "status": "active",
+          "attemptId": "attempt:s1"
+        },
+        {
+          "sourceId": "s2",
+          "actorSubjectId": "actor:bob",
+          "actorIdentityBasis": "credential_registry_subject",
+          "organizationId": "org:north",
+          "organizationIdentityBasis": "registry_id",
+          "labId": "lab:north-2",
+          "datasetLineageId": "dataset:root-b",
+          "datasetProvenanceStatus": "resolved",
+          "datasetArtifactDigest": null,
+          "protocolFamilyId": "protocol:registered:v1",
+          "preregistrationId": "prereg:registered:1",
+          "methodFamilyId": "method:assay-b",
+          "executionProvenanceDigest": "sha256:s200000000000000000000000000000000000000000000000000000000000000",
+          "instrumentId": "instrument:known",
+          "siteId": "site:known",
+          "fundingSourceId": "funder:known",
+          "status": "active",
+          "attemptId": "attempt:s2"
+        }
+      ],
+      "expected": {
+        "dimensions": {
+          "actor": "established",
+          "organization": "not_established",
+          "lab": "established",
+          "dataset_lineage": "established",
+          "protocol": "not_established",
+          "method_family": "established"
+        },
+        "profiles": {
+          "reviewer_diversity": "qualified",
+          "organization_independence": "not_qualified",
+          "empirical_replication": "not_qualified",
+          "computational_reproduction": "qualified"
+        },
+        "activeSourceCount": 2,
+        "withdrawnSourceCount": 0
+      }
+    },
+    {
+      "id": "EIP-008",
+      "title": "Missing organization identity makes organizational and empirical independence indeterminate",
+      "kind": "empirical_replication",
+      "sources": [
+        {
+          "sourceId": "s1",
+          "actorSubjectId": "actor:alice",
+          "actorIdentityBasis": "credential_registry_subject",
+          "organizationId": null,
+          "organizationIdentityBasis": "missing",
+          "labId": "lab:north-1",
+          "datasetLineageId": "dataset:root-a",
+          "datasetProvenanceStatus": "resolved",
+          "datasetArtifactDigest": null,
+          "protocolFamilyId": "protocol:registered:v1",
+          "preregistrationId": "prereg:registered:1",
+          "methodFamilyId": "method:assay-a",
+          "executionProvenanceDigest": "sha256:s100000000000000000000000000000000000000000000000000000000000000",
+          "instrumentId": "instrument:known",
+          "siteId": "site:known",
+          "fundingSourceId": "funder:known",
+          "status": "active",
+          "attemptId": "attempt:s1"
+        },
+        {
+          "sourceId": "s2",
+          "actorSubjectId": "actor:bob",
+          "actorIdentityBasis": "credential_registry_subject",
+          "organizationId": "org:south",
+          "organizationIdentityBasis": "registry_id",
+          "labId": "lab:south-1",
+          "datasetLineageId": "dataset:root-b",
+          "datasetProvenanceStatus": "resolved",
+          "datasetArtifactDigest": null,
+          "protocolFamilyId": "protocol:registered:v1",
+          "preregistrationId": "prereg:registered:1",
+          "methodFamilyId": "method:assay-a",
+          "executionProvenanceDigest": "sha256:s200000000000000000000000000000000000000000000000000000000000000",
+          "instrumentId": "instrument:known",
+          "siteId": "site:known",
+          "fundingSourceId": "funder:known",
+          "status": "active",
+          "attemptId": "attempt:s2"
+        }
+      ],
+      "expected": {
+        "dimensions": {
+          "actor": "established",
+          "organization": "unknown",
+          "lab": "established",
+          "dataset_lineage": "established",
+          "protocol": "not_established",
+          "method_family": "not_established"
+        },
+        "profiles": {
+          "reviewer_diversity": "qualified",
+          "organization_independence": "indeterminate",
+          "empirical_replication": "indeterminate",
+          "computational_reproduction": "qualified"
+        },
+        "activeSourceCount": 2,
+        "withdrawnSourceCount": 0
+      }
+    },
+    {
+      "id": "EIP-009",
+      "title": "Missing dataset lineage prevents a claim of empirical independence",
+      "kind": "empirical_replication",
+      "sources": [
+        {
+          "sourceId": "s1",
+          "actorSubjectId": "actor:alice",
+          "actorIdentityBasis": "credential_registry_subject",
+          "organizationId": "org:north",
+          "organizationIdentityBasis": "registry_id",
+          "labId": "lab:north-1",
+          "datasetLineageId": null,
+          "datasetProvenanceStatus": "missing",
+          "datasetArtifactDigest": null,
+          "protocolFamilyId": "protocol:registered:v1",
+          "preregistrationId": "prereg:registered:1",
+          "methodFamilyId": "method:assay-a",
+          "executionProvenanceDigest": "sha256:s100000000000000000000000000000000000000000000000000000000000000",
+          "instrumentId": "instrument:known",
+          "siteId": "site:known",
+          "fundingSourceId": "funder:known",
+          "status": "active",
+          "attemptId": "attempt:s1"
+        },
+        {
+          "sourceId": "s2",
+          "actorSubjectId": "actor:bob",
+          "actorIdentityBasis": "credential_registry_subject",
+          "organizationId": "org:south",
+          "organizationIdentityBasis": "registry_id",
+          "labId": "lab:south-1",
+          "datasetLineageId": "dataset:root-b",
+          "datasetProvenanceStatus": "resolved",
+          "datasetArtifactDigest": null,
+          "protocolFamilyId": "protocol:registered:v1",
+          "preregistrationId": "prereg:registered:1",
+          "methodFamilyId": "method:assay-a",
+          "executionProvenanceDigest": "sha256:s200000000000000000000000000000000000000000000000000000000000000",
+          "instrumentId": "instrument:known",
+          "siteId": "site:known",
+          "fundingSourceId": "funder:known",
+          "status": "active",
+          "attemptId": "attempt:s2"
+        }
+      ],
+      "expected": {
+        "dimensions": {
+          "actor": "established",
+          "organization": "established",
+          "lab": "established",
+          "dataset_lineage": "unknown",
+          "protocol": "not_established",
+          "method_family": "not_established"
+        },
+        "profiles": {
+          "reviewer_diversity": "qualified",
+          "organization_independence": "qualified",
+          "empirical_replication": "indeterminate",
+          "computational_reproduction": "indeterminate"
+        },
+        "activeSourceCount": 2,
+        "withdrawnSourceCount": 0
+      }
+    },
+    {
+      "id": "EIP-010",
+      "title": "Conflicting lineage resolution for the same content digest must be indeterminate",
+      "kind": "empirical_replication",
+      "sources": [
+        {
+          "sourceId": "s1",
+          "actorSubjectId": "actor:alice",
+          "actorIdentityBasis": "credential_registry_subject",
+          "organizationId": "org:north",
+          "organizationIdentityBasis": "registry_id",
+          "labId": "lab:north-1",
+          "datasetLineageId": "dataset:root-a",
+          "datasetProvenanceStatus": "resolved",
+          "datasetArtifactDigest": "sha256:shared-data",
+          "protocolFamilyId": "protocol:registered:v1",
+          "preregistrationId": "prereg:registered:1",
+          "methodFamilyId": "method:assay-a",
+          "executionProvenanceDigest": "sha256:s100000000000000000000000000000000000000000000000000000000000000",
+          "instrumentId": "instrument:known",
+          "siteId": "site:known",
+          "fundingSourceId": "funder:known",
+          "status": "active",
+          "attemptId": "attempt:s1"
+        },
+        {
+          "sourceId": "s2",
+          "actorSubjectId": "actor:bob",
+          "actorIdentityBasis": "credential_registry_subject",
+          "organizationId": "org:south",
+          "organizationIdentityBasis": "registry_id",
+          "labId": "lab:south-1",
+          "datasetLineageId": "dataset:root-b",
+          "datasetProvenanceStatus": "resolved",
+          "datasetArtifactDigest": "sha256:shared-data",
+          "protocolFamilyId": "protocol:registered:v1",
+          "preregistrationId": "prereg:registered:1",
+          "methodFamilyId": "method:assay-a",
+          "executionProvenanceDigest": "sha256:s200000000000000000000000000000000000000000000000000000000000000",
+          "instrumentId": "instrument:known",
+          "siteId": "site:known",
+          "fundingSourceId": "funder:known",
+          "status": "active",
+          "attemptId": "attempt:s2"
+        }
+      ],
+      "relations": [
+        {
+          "from": "sha256:shared-data",
+          "relation": "has_conflicting_lineage_assertion",
+          "to": "dataset:root-b"
+        }
+      ],
+      "provenanceResolution": "conflicted",
+      "expected": {
+        "dimensions": {
+          "actor": "established",
+          "organization": "established",
+          "lab": "established",
+          "dataset_lineage": "conflicted",
+          "protocol": "not_established",
+          "method_family": "not_established"
+        },
+        "profiles": {
+          "reviewer_diversity": "qualified",
+          "organization_independence": "qualified",
+          "empirical_replication": "indeterminate",
+          "computational_reproduction": "indeterminate"
+        },
+        "activeSourceCount": 2,
+        "withdrawnSourceCount": 0
+      }
+    },
+    {
+      "id": "EIP-011",
+      "title": "Unverified actor aliases cannot be counted as distinct people",
+      "kind": "review",
+      "sources": [
+        {
+          "sourceId": "s1",
+          "actorSubjectId": "did:alias:1",
+          "actorIdentityBasis": "credential_registry_subject",
+          "organizationId": "org:north",
+          "organizationIdentityBasis": "registry_id",
+          "labId": "lab:north-1",
+          "datasetLineageId": "dataset:root-a",
+          "datasetProvenanceStatus": "resolved",
+          "datasetArtifactDigest": null,
+          "protocolFamilyId": "protocol:registered:v1",
+          "preregistrationId": "prereg:registered:1",
+          "methodFamilyId": "method:assay-a",
+          "executionProvenanceDigest": "sha256:s100000000000000000000000000000000000000000000000000000000000000",
+          "instrumentId": "instrument:known",
+          "siteId": "site:known",
+          "fundingSourceId": "funder:known",
+          "status": "active",
+          "attemptId": "attempt:s1"
+        },
+        {
+          "sourceId": "s2",
+          "actorSubjectId": "did:alias:2",
+          "actorIdentityBasis": "unverified_alias",
+          "organizationId": "org:south",
+          "organizationIdentityBasis": "registry_id",
+          "labId": "lab:south-1",
+          "datasetLineageId": "dataset:root-b",
+          "datasetProvenanceStatus": "resolved",
+          "datasetArtifactDigest": null,
+          "protocolFamilyId": "protocol:registered:v1",
+          "preregistrationId": "prereg:registered:1",
+          "methodFamilyId": "method:assay-a",
+          "executionProvenanceDigest": "sha256:s200000000000000000000000000000000000000000000000000000000000000",
+          "instrumentId": "instrument:known",
+          "siteId": "site:known",
+          "fundingSourceId": "funder:known",
+          "status": "active",
+          "attemptId": "attempt:s2"
+        }
+      ],
+      "expected": {
+        "dimensions": {
+          "actor": "unknown",
+          "organization": "established",
+          "lab": "established",
+          "dataset_lineage": "established",
+          "protocol": "not_established",
+          "method_family": "not_established"
+        },
+        "profiles": {
+          "reviewer_diversity": "indeterminate",
+          "organization_independence": "indeterminate",
+          "empirical_replication": "indeterminate",
+          "computational_reproduction": "indeterminate"
+        },
+        "activeSourceCount": 2,
+        "withdrawnSourceCount": 0
+      }
+    },
+    {
+      "id": "EIP-012",
+      "title": "Credential-backed key rotation preserves one actor identity",
+      "kind": "review",
+      "sources": [
+        {
+          "sourceId": "s1",
+          "actorSubjectId": "actor:alice",
+          "actorIdentityBasis": "credential_registry_subject",
+          "organizationId": "org:north",
+          "organizationIdentityBasis": "registry_id",
+          "labId": "lab:north-1",
+          "datasetLineageId": "dataset:root-a",
+          "datasetProvenanceStatus": "resolved",
+          "datasetArtifactDigest": null,
+          "protocolFamilyId": "protocol:registered:v1",
+          "preregistrationId": "prereg:registered:1",
+          "methodFamilyId": "method:assay-a",
+          "executionProvenanceDigest": "sha256:s100000000000000000000000000000000000000000000000000000000000000",
+          "instrumentId": "instrument:known",
+          "siteId": "site:known",
+          "fundingSourceId": "funder:known",
+          "status": "active",
+          "attemptId": "attempt:s1"
+        },
+        {
+          "sourceId": "s2",
+          "actorSubjectId": "actor:alice",
+          "actorIdentityBasis": "credential_registry_subject",
+          "organizationId": "org:south",
+          "organizationIdentityBasis": "registry_id",
+          "labId": "lab:south-1",
+          "datasetLineageId": "dataset:root-b",
+          "datasetProvenanceStatus": "resolved",
+          "datasetArtifactDigest": null,
+          "protocolFamilyId": "protocol:registered:v1",
+          "preregistrationId": "prereg:registered:1",
+          "methodFamilyId": "method:assay-a",
+          "executionProvenanceDigest": "sha256:key-rotated",
+          "instrumentId": "instrument:known",
+          "siteId": "site:known",
+          "fundingSourceId": "funder:known",
+          "status": "active",
+          "attemptId": "attempt:s2"
+        }
+      ],
+      "expected": {
+        "dimensions": {
+          "actor": "not_established",
+          "organization": "established",
+          "lab": "established",
+          "dataset_lineage": "established",
+          "protocol": "not_established",
+          "method_family": "not_established"
+        },
+        "profiles": {
+          "reviewer_diversity": "not_qualified",
+          "organization_independence": "not_qualified",
+          "empirical_replication": "not_qualified",
+          "computational_reproduction": "not_qualified"
+        },
+        "activeSourceCount": 2,
+        "withdrawnSourceCount": 0
+      }
+    },
+    {
+      "id": "EIP-013",
+      "title": "Different execution provenance cannot turn the same actor and method into independent computational replication",
+      "kind": "computational_reproduction",
+      "sources": [
+        {
+          "sourceId": "s1",
+          "actorSubjectId": "actor:alice",
+          "actorIdentityBasis": "credential_registry_subject",
+          "organizationId": "org:north",
+          "organizationIdentityBasis": "registry_id",
+          "labId": "lab:north-1",
+          "datasetLineageId": "dataset:root-a",
+          "datasetProvenanceStatus": "resolved",
+          "datasetArtifactDigest": null,
+          "protocolFamilyId": "protocol:registered:v1",
+          "preregistrationId": "prereg:registered:1",
+          "methodFamilyId": "method:script-v1",
+          "executionProvenanceDigest": "sha256:exec-1",
+          "instrumentId": "instrument:known",
+          "siteId": "site:known",
+          "fundingSourceId": "funder:known",
+          "status": "active",
+          "attemptId": "attempt:s1"
+        },
+        {
+          "sourceId": "s2",
+          "actorSubjectId": "actor:alice",
+          "actorIdentityBasis": "credential_registry_subject",
+          "organizationId": "org:north",
+          "organizationIdentityBasis": "registry_id",
+          "labId": "lab:north-1",
+          "datasetLineageId": "dataset:root-a",
+          "datasetProvenanceStatus": "resolved",
+          "datasetArtifactDigest": null,
+          "protocolFamilyId": "protocol:registered:v1",
+          "preregistrationId": "prereg:registered:1",
+          "methodFamilyId": "method:script-v1",
+          "executionProvenanceDigest": "sha256:exec-2",
+          "instrumentId": "instrument:known",
+          "siteId": "site:known",
+          "fundingSourceId": "funder:known",
+          "status": "active",
+          "attemptId": "attempt:s2"
+        }
+      ],
+      "expected": {
+        "dimensions": {
+          "actor": "not_established",
+          "organization": "not_established",
+          "lab": "not_established",
+          "dataset_lineage": "not_established",
+          "protocol": "not_established",
+          "method_family": "not_established",
+          "execution_provenance": "established"
+        },
+        "profiles": {
+          "reviewer_diversity": "not_qualified",
+          "organization_independence": "not_qualified",
+          "empirical_replication": "not_qualified",
+          "computational_reproduction": "not_qualified"
+        },
+        "activeSourceCount": 2,
+        "withdrawnSourceCount": 0
+      }
+    },
+    {
+      "id": "EIP-014",
+      "title": "A withdrawal removes a source from the current profile without erasing its historical event",
+      "kind": "empirical_replication",
+      "sources": [
+        {
+          "sourceId": "s1",
+          "actorSubjectId": "actor:alice",
+          "actorIdentityBasis": "credential_registry_subject",
+          "organizationId": "org:north",
+          "organizationIdentityBasis": "registry_id",
+          "labId": "lab:north-1",
+          "datasetLineageId": "dataset:root-a",
+          "datasetProvenanceStatus": "resolved",
+          "datasetArtifactDigest": null,
+          "protocolFamilyId": "protocol:registered:v1",
+          "preregistrationId": "prereg:registered:1",
+          "methodFamilyId": "method:assay-a",
+          "executionProvenanceDigest": "sha256:s100000000000000000000000000000000000000000000000000000000000000",
+          "instrumentId": "instrument:known",
+          "siteId": "site:known",
+          "fundingSourceId": "funder:known",
+          "status": "active",
+          "attemptId": "attempt:s1"
+        },
+        {
+          "sourceId": "s2",
+          "actorSubjectId": "actor:bob",
+          "actorIdentityBasis": "credential_registry_subject",
+          "organizationId": "org:south",
+          "organizationIdentityBasis": "registry_id",
+          "labId": "lab:south-2",
+          "datasetLineageId": "dataset:root-b",
+          "datasetProvenanceStatus": "resolved",
+          "datasetArtifactDigest": null,
+          "protocolFamilyId": "protocol:registered:v1",
+          "preregistrationId": "prereg:registered:1",
+          "methodFamilyId": "method:assay-a",
+          "executionProvenanceDigest": "sha256:s200000000000000000000000000000000000000000000000000000000000000",
+          "instrumentId": "instrument:known",
+          "siteId": "site:known",
+          "fundingSourceId": "funder:known",
+          "status": "withdrawn",
+          "attemptId": "attempt:s2"
+        }
+      ],
+      "expected": {
+        "dimensions": {
+          "actor": "unknown",
+          "organization": "unknown",
+          "lab": "unknown",
+          "dataset_lineage": "unknown",
+          "protocol": "unknown",
+          "method_family": "unknown"
+        },
+        "profiles": {
+          "reviewer_diversity": "not_qualified",
+          "organization_independence": "not_qualified",
+          "empirical_replication": "not_qualified",
+          "computational_reproduction": "not_qualified"
+        },
+        "activeSourceCount": 1,
+        "withdrawnSourceCount": 1
+      }
+    },
+    {
+      "id": "EIP-015",
+      "title": "Shared parent lineage makes transformed datasets correlated",
+      "kind": "empirical_replication",
+      "sources": [
+        {
+          "sourceId": "s1",
+          "actorSubjectId": "actor:alice",
+          "actorIdentityBasis": "credential_registry_subject",
+          "organizationId": "org:north",
+          "organizationIdentityBasis": "registry_id",
+          "labId": "lab:north-1",
+          "datasetLineageId": "dataset:derived-from-a",
+          "datasetProvenanceStatus": "resolved",
+          "datasetArtifactDigest": "sha256:derived-a",
+          "protocolFamilyId": "protocol:registered:v1",
+          "preregistrationId": "prereg:registered:1",
+          "methodFamilyId": "method:assay-a",
+          "executionProvenanceDigest": "sha256:s100000000000000000000000000000000000000000000000000000000000000",
+          "instrumentId": "instrument:known",
+          "siteId": "site:known",
+          "fundingSourceId": "funder:known",
+          "status": "active",
+          "attemptId": "attempt:s1"
+        },
+        {
+          "sourceId": "s2",
+          "actorSubjectId": "actor:bob",
+          "actorIdentityBasis": "credential_registry_subject",
+          "organizationId": "org:south",
+          "organizationIdentityBasis": "registry_id",
+          "labId": "lab:south-1",
+          "datasetLineageId": "dataset:derived-from-a",
+          "datasetProvenanceStatus": "resolved",
+          "datasetArtifactDigest": "sha256:derived-b",
+          "protocolFamilyId": "protocol:registered:v1",
+          "preregistrationId": "prereg:registered:1",
+          "methodFamilyId": "method:assay-b",
+          "executionProvenanceDigest": "sha256:s200000000000000000000000000000000000000000000000000000000000000",
+          "instrumentId": "instrument:known",
+          "siteId": "site:known",
+          "fundingSourceId": "funder:known",
+          "status": "active",
+          "attemptId": "attempt:s2"
+        }
+      ],
+      "relations": [
+        {
+          "from": "dataset:derived-from-a",
+          "relation": "derived_from",
+          "to": "dataset:root-a"
+        }
+      ],
+      "expected": {
+        "dimensions": {
+          "actor": "established",
+          "organization": "established",
+          "lab": "established",
+          "dataset_lineage": "not_established",
+          "protocol": "not_established",
+          "method_family": "established"
+        },
+        "profiles": {
+          "reviewer_diversity": "qualified",
+          "organization_independence": "qualified",
+          "empirical_replication": "not_qualified",
+          "computational_reproduction": "qualified"
+        },
+        "activeSourceCount": 2,
+        "withdrawnSourceCount": 0
+      }
+    },
+    {
+      "id": "EIP-016",
+      "title": "A common protocol is compatible with independent empirical replication when data and groups are independently sourced",
+      "kind": "empirical_replication",
+      "sources": [
+        {
+          "sourceId": "s1",
+          "actorSubjectId": "actor:alice",
+          "actorIdentityBasis": "credential_registry_subject",
+          "organizationId": "org:north",
+          "organizationIdentityBasis": "registry_id",
+          "labId": "lab:north-1",
+          "datasetLineageId": "dataset:root-a",
+          "datasetProvenanceStatus": "resolved",
+          "datasetArtifactDigest": null,
+          "protocolFamilyId": "protocol:registered:v1",
+          "preregistrationId": "prereg:north",
+          "methodFamilyId": "method:assay-a",
+          "executionProvenanceDigest": "sha256:s100000000000000000000000000000000000000000000000000000000000000",
+          "instrumentId": "instrument:known",
+          "siteId": "site:known",
+          "fundingSourceId": "funder:known",
+          "status": "active",
+          "attemptId": "attempt:s1"
+        },
+        {
+          "sourceId": "s2",
+          "actorSubjectId": "actor:bob",
+          "actorIdentityBasis": "credential_registry_subject",
+          "organizationId": "org:south",
+          "organizationIdentityBasis": "registry_id",
+          "labId": "lab:south-1",
+          "datasetLineageId": "dataset:root-b",
+          "datasetProvenanceStatus": "resolved",
+          "datasetArtifactDigest": null,
+          "protocolFamilyId": "protocol:registered:v1",
+          "preregistrationId": "prereg:south",
+          "methodFamilyId": "method:assay-a",
+          "executionProvenanceDigest": "sha256:s200000000000000000000000000000000000000000000000000000000000000",
+          "instrumentId": "instrument:known",
+          "siteId": "site:known",
+          "fundingSourceId": "funder:known",
+          "status": "active",
+          "attemptId": "attempt:s2"
+        }
+      ],
+      "expected": {
+        "dimensions": {
+          "actor": "established",
+          "organization": "established",
+          "lab": "established",
+          "dataset_lineage": "established",
+          "protocol": "not_established",
+          "method_family": "not_established"
+        },
+        "profiles": {
+          "reviewer_diversity": "qualified",
+          "organization_independence": "qualified",
+          "empirical_replication": "qualified",
+          "computational_reproduction": "qualified"
+        },
+        "activeSourceCount": 2,
+        "withdrawnSourceCount": 0
+      }
+    },
+    {
+      "id": "EIP-017",
+      "title": "Same site and instrument are recorded as correlations even when organization and dataset differ",
+      "kind": "empirical_replication",
+      "sources": [
+        {
+          "sourceId": "s1",
+          "actorSubjectId": "actor:alice",
+          "actorIdentityBasis": "credential_registry_subject",
+          "organizationId": "org:north",
+          "organizationIdentityBasis": "registry_id",
+          "labId": "lab:north-1",
+          "datasetLineageId": "dataset:root-a",
+          "datasetProvenanceStatus": "resolved",
+          "datasetArtifactDigest": null,
+          "protocolFamilyId": "protocol:registered:v1",
+          "preregistrationId": "prereg:registered:1",
+          "methodFamilyId": "method:assay-a",
+          "executionProvenanceDigest": "sha256:s100000000000000000000000000000000000000000000000000000000000000",
+          "instrumentId": "instrument:shared",
+          "siteId": "site:shared",
+          "fundingSourceId": "funder:known",
+          "status": "active",
+          "attemptId": "attempt:s1"
+        },
+        {
+          "sourceId": "s2",
+          "actorSubjectId": "actor:bob",
+          "actorIdentityBasis": "credential_registry_subject",
+          "organizationId": "org:south",
+          "organizationIdentityBasis": "registry_id",
+          "labId": "lab:south-2",
+          "datasetLineageId": "dataset:root-b",
+          "datasetProvenanceStatus": "resolved",
+          "datasetArtifactDigest": null,
+          "protocolFamilyId": "protocol:registered:v1",
+          "preregistrationId": "prereg:registered:1",
+          "methodFamilyId": "method:assay-b",
+          "executionProvenanceDigest": "sha256:s200000000000000000000000000000000000000000000000000000000000000",
+          "instrumentId": "instrument:shared",
+          "siteId": "site:shared",
+          "fundingSourceId": "funder:known",
+          "status": "active",
+          "attemptId": "attempt:s2"
+        }
+      ],
+      "expected": {
+        "dimensions": {
+          "actor": "established",
+          "organization": "established",
+          "lab": "established",
+          "dataset_lineage": "established",
+          "protocol": "not_established",
+          "method_family": "established",
+          "instrument": "not_established",
+          "site": "not_established"
+        },
+        "profiles": {
+          "reviewer_diversity": "qualified",
+          "organization_independence": "qualified",
+          "empirical_replication": "qualified",
+          "computational_reproduction": "qualified"
+        },
+        "activeSourceCount": 2,
+        "withdrawnSourceCount": 0
+      }
+    },
+    {
+      "id": "EIP-018",
+      "title": "A correction changing source lineage requires a new policy evaluation and preserves the earlier decision",
+      "kind": "empirical_replication",
+      "sources": [
+        {
+          "sourceId": "s1",
+          "actorSubjectId": "actor:alice",
+          "actorIdentityBasis": "credential_registry_subject",
+          "organizationId": "org:north",
+          "organizationIdentityBasis": "registry_id",
+          "labId": "lab:north-1",
+          "datasetLineageId": "dataset:root-a",
+          "datasetProvenanceStatus": "resolved",
+          "datasetArtifactDigest": null,
+          "protocolFamilyId": "protocol:registered:v1",
+          "preregistrationId": "prereg:registered:1",
+          "methodFamilyId": "method:assay-a",
+          "executionProvenanceDigest": "sha256:s100000000000000000000000000000000000000000000000000000000000000",
+          "instrumentId": "instrument:known",
+          "siteId": "site:known",
+          "fundingSourceId": "funder:known",
+          "status": "active",
+          "attemptId": "attempt:s1"
+        },
+        {
+          "sourceId": "s2",
+          "actorSubjectId": "actor:bob",
+          "actorIdentityBasis": "credential_registry_subject",
+          "organizationId": "org:south",
+          "organizationIdentityBasis": "registry_id",
+          "labId": "lab:south-1",
+          "datasetLineageId": "dataset:root-b",
+          "datasetProvenanceStatus": "resolved",
+          "datasetArtifactDigest": null,
+          "protocolFamilyId": "protocol:registered:v1",
+          "preregistrationId": "prereg:registered:1",
+          "methodFamilyId": "method:assay-a",
+          "executionProvenanceDigest": "sha256:s200000000000000000000000000000000000000000000000000000000000000",
+          "instrumentId": "instrument:known",
+          "siteId": "site:known",
+          "fundingSourceId": "funder:known",
+          "status": "active",
+          "attemptId": "attempt:s2"
+        }
+      ],
+      "history": [
+        {
+          "event": "assessment_issued",
+          "policyId": "mycelix-empirical-independence",
+          "policyVersion": "1.0.0",
+          "decision": "qualified"
+        },
+        {
+          "event": "attestation_corrected",
+          "sourceId": "s2",
+          "field": "datasetLineageId",
+          "before": "dataset:root-b",
+          "after": "dataset:root-a"
+        },
+        {
+          "event": "assessment_recomputed",
+          "policyId": "mycelix-empirical-independence",
+          "policyVersion": "1.0.0",
+          "decision": "not_qualified"
+        }
+      ],
+      "expected": {
+        "dimensions": {
+          "actor": "established",
+          "organization": "established",
+          "lab": "established",
+          "dataset_lineage": "not_established",
+          "protocol": "not_established",
+          "method_family": "not_established"
+        },
+        "profiles": {
+          "reviewer_diversity": "qualified",
+          "organization_independence": "qualified",
+          "empirical_replication": "not_qualified",
+          "computational_reproduction": "qualified"
+        },
+        "activeSourceCount": 2,
+        "withdrawnSourceCount": 0
+      }
+    }
+  ]
+}
