@@ -126,7 +126,8 @@ mycelix-praxis/
 - **[NRES probability and abstention benchmark](docs/curriculum/PRAXIS_NRES_008_PROBABILITY_ABSTENTION.md)**: calibrated breach probabilities, proper scoring rules and evidence-qualified abstention
 - **[NRES joint service forecast benchmark](docs/curriculum/PRAXIS_NRES_009_JOINT_SERVICE_FORECAST.md)**: joint breach distributions, dependence-sensitive proper scores and simultaneous service-risk verification
 - **[NRES rare-event tail and shift benchmark](docs/curriculum/PRAXIS_NRES_010_TAIL_SHIFT_ROBUSTNESS.md)**: tail calibration, importance-weighted stress sampling, GPD excess forecasts and shift-regime diagnostics
-- **[NRES forecast decision-value benchmark](docs/curriculum/PRAXIS_NRES_011_RELIABILITY_RESOLUTION_DECISION_VALUE.md)**: reliability/resolution decomposition, forecast-to-decision value, cost/loss profiles and human-review accounting
+- **[NRES forecast decision-value benchmark](docs/curriculum/PRAXIS_NRES_011_RELIABILITY_RESOLUTION_DECISION_VALUE.md)**: reliability/resolution decomposition, forecast-to-decision value, cost/loss profiles, decision calibration and human-review accounting
+- **[NRES ambiguity-robust decision benchmark](docs/curriculum/PRAXIS_NRES_012_AMBIGUITY_ROBUST_DECISION.md)**: Bernoulli TV ambiguity sets, worst-case expected loss, minimax regret and profile-specific policy comparison
 - **[NRES joint service forecast benchmark](docs/curriculum/PRAXIS_NRES_009_JOINT_SERVICE_FORECAST.md)**: joint breach distributions, dependence-sensitive proper scores and simultaneous service-risk verification
 - **[NRES-007 JSON Schema](schemas/nres/nres-cascade-recovery-v1.schema.json)**: structural profile for portable trajectory fixtures
 - **[NRES-008 JSON Schema](schemas/nres/nres-probability-abstention-v1.schema.json)**: structural profile separating evaluator truth and candidate forecast outputs
