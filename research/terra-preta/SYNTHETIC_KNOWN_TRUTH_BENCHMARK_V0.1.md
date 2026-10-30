@@ -2,6 +2,8 @@
 
 **Status:** executable challenge specification. The eventizer is a first preprocessing component; a coupled physical scenario generator has not yet been implemented. Scenarios and targets below are proposals, not simulated or measured results. No field application is authorized.
 
+**Implementation tracker:** [TERRA-SYNTH-001](https://github.com/Luminous-Dynamics/mycelix/issues/5536).
+
 ## 1. Paradigm shift: evaluate whether the model knows what it claims to know
 
 A sensor classifier can accurately reproduce a label derived from those same sensors and a hydraulic prior. That is useful proxy prediction; it is not independent evidence that a connected macropore exists, water bypassed the matrix, or nutrient mass crossed the root-zone boundary.
