@@ -214,7 +214,72 @@
         "qualified_case_coverage": 0.2857142857142857,
         "selective_brier_score": 0.005866666666666666
       }
-    ]
+    ],
+    "climatology_reference_sample_count": 20,
+    "climatology_reference_breach_count": 10,
+    "mandatory_abstention_by_reason": {
+      "missing_critical_input": 2,
+      "conflicting_sources": 1,
+      "unsupported_distribution_shift": 1
+    },
+    "per_service_case_metrics": {
+      "electricity_supply": {
+        "total_cases": 4,
+        "qualified_cases": 3,
+        "issued_forecasts": 3,
+        "abstentions": 1,
+        "mandatory_abstention_cases": 1,
+        "mandatory_abstentions": 1
+      },
+      "communications_access": {
+        "total_cases": 3,
+        "qualified_cases": 3,
+        "issued_forecasts": 3,
+        "abstentions": 0,
+        "mandatory_abstention_cases": 0,
+        "mandatory_abstentions": 0
+      },
+      "water_service_continuity": {
+        "total_cases": 4,
+        "qualified_cases": 3,
+        "issued_forecasts": 3,
+        "abstentions": 1,
+        "mandatory_abstention_cases": 1,
+        "mandatory_abstentions": 1
+      },
+      "public_information": {
+        "total_cases": 4,
+        "qualified_cases": 3,
+        "issued_forecasts": 3,
+        "abstentions": 1,
+        "mandatory_abstention_cases": 1,
+        "mandatory_abstentions": 1
+      },
+      "welfare_check_coordination": {
+        "total_cases": 3,
+        "qualified_cases": 3,
+        "issued_forecasts": 3,
+        "abstentions": 0,
+        "mandatory_abstention_cases": 0,
+        "mandatory_abstentions": 0
+      },
+      "health_logistics_continuity": {
+        "total_cases": 4,
+        "qualified_cases": 3,
+        "issued_forecasts": 3,
+        "abstentions": 1,
+        "mandatory_abstention_cases": 1,
+        "mandatory_abstentions": 1
+      },
+      "transport_access": {
+        "total_cases": 3,
+        "qualified_cases": 3,
+        "issued_forecasts": 2,
+        "abstentions": 1,
+        "mandatory_abstention_cases": 0,
+        "mandatory_abstentions": 0
+      }
+    }
   },
   "round_trip_requirements": [
     "Preserve case IDs, service IDs, forecast origin and horizon exactly.",
