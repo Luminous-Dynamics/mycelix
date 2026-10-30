@@ -1,6 +1,6 @@
-use chrono::{DateTime, Duration, FixedOffset};
+use chrono::{DateTime, FixedOffset};
 #[cfg(test)]
-use chrono::{TimeZone, Utc};
+use chrono::{Duration, TimeZone, Utc};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use std::{env, error::Error, fs, fs::OpenOptions, io::{self, Write}};
@@ -249,14 +249,14 @@ fn validate(input: &Input) -> Result<(Vec<ParsedForcing>, Pool, Pool), String> {
         return Err("macropore tracer mass requires nonzero macropore water storage".to_owned());
     }
 
-    let mut forcing = Vec::with_capacity(input.forcing.len());
+    let mut forcing: Vec<ParsedForcing> = Vec::with_capacity(input.forcing.len());
     for (index, sample) in input.forcing.iter().enumerate() {
         let timestamp = parse_utc(&sample.timestamp_utc, &format!("forcing[{index}]"))?;
         finite_nonnegative(sample.rainfall_mm, &format!("forcing[{index}].rainfall_mm"))?;
         finite_nonnegative(sample.potential_evaporation_mm, &format!("forcing[{index}].potential_evaporation_mm"))?;
         finite_nonnegative(sample.rainfall_tracer_concentration_mg_l, &format!("forcing[{index}].rainfall_tracer_concentration_mg_l"))?;
         if index > 0 {
-            let elapsed = (timestamp - forcing[index - 1].timestamp).num_seconds();
+            let elapsed = timestamp.timestamp() - forcing[index - 1].timestamp.timestamp();
             if elapsed != SUPPORTED_DT_SECONDS {
                 return Err(format!("forcing[{index}] must be contiguous at 10-minute cadence; found {elapsed} seconds"));
             }
