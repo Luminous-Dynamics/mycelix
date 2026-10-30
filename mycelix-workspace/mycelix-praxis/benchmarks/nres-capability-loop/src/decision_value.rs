@@ -904,6 +904,14 @@ mod tests {
                         - expected["selection_diagnostics"][key].as_f64().unwrap()).abs() <= tolerance, "{key}");
                 }
             }
+            for key in [
+                "mean_expected_selected_action_cost", "mean_observed_selected_action_cost",
+                "mean_signed_cost_gap_observed_minus_expected", "mean_absolute_cost_gap",
+                "median_absolute_cost_gap", "p90_absolute_cost_gap", "max_absolute_cost_gap"
+            ] {
+                assert!((actual["decision_calibration"][key].as_f64().unwrap()
+                    - expected["decision_calibration"][key].as_f64().unwrap()).abs() <= tolerance, "{key}");
+            }
             for key in ["reliability", "resolution", "uncertainty", "binned_brier_score",
                 "murphy_reconstructed_brier_score", "decomposition_identity_residual",
                 "original_brier_score", "binned_minus_original_residual"]
@@ -972,6 +980,21 @@ mod tests {
         assert!(evaluate_reliability_resolution_decision_value(&value).is_err());
     }
 
+
+
+    #[test]
+    fn decision_calibration_reports_casewise_cost_gap_distribution() {
+        let report = evaluate_reliability_resolution_decision_value(&fixture()).unwrap();
+        let high_cost = report["overall_by_profile"].as_array().unwrap().iter()
+            .find(|item| item["profile_id"] == "high_cost_preparedness").unwrap();
+        let calibration = &high_cost["decision_calibration"];
+        assert_eq!(calibration["issued_forecasts"].as_u64(), Some(123));
+        assert!(calibration["mean_absolute_cost_gap"].as_f64().unwrap() > 0.0);
+        assert!(calibration["p90_absolute_cost_gap"].as_f64().unwrap()
+            >= calibration["median_absolute_cost_gap"].as_f64().unwrap());
+        assert!(calibration["max_absolute_cost_gap"].as_f64().unwrap()
+            >= calibration["p90_absolute_cost_gap"].as_f64().unwrap());
+    }
 
     #[test]
     fn reports_event_conditional_coverage_and_abstention_selection() {
