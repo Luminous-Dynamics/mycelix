@@ -1,9 +1,17 @@
 {
-  "schema_version": "0.1.0",
+  "schema_version": "0.2.0",
+  "study_id": "SYNTHETIC",
   "site_id": "SYN1",
   "plot_id": "P01",
+  "profile_id": "PROFILE-01",
   "event_id": "E001",
   "event_start_utc": "2026-01-01T00:00:00Z",
+  "observation_window_end_utc": "2026-01-01T03:00:00Z",
+  "time_resolution_seconds": 600,
+  "response_threshold_m3_m3": 0.01,
+  "response_onset_method": "first_10min_bin_delta_theta_ge_threshold",
+  "source_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "source_evidence_ref": "synthetic fixture only; no field data",
   "sensors": [
     {
       "sensor_id": "D10",
@@ -22,6 +30,12 @@
       "depth_cm": 60,
       "response_status": "detected",
       "response_onset_utc": "2026-01-01T00:20:00Z"
+    },
+    {
+      "sensor_id": "D90",
+      "depth_cm": 90,
+      "response_status": "not_detected",
+      "response_onset_utc": null
     }
   ]
 }
