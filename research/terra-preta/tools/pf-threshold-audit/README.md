@@ -14,7 +14,7 @@ This Rust CLI compares a sensor/event's apparent velocity against multiple decla
 - Rosetta Ksat estimates: low, maximum, high, median-based and median-plus-standard-deviation upper estimate.
 - Matrix-flow model threshold: the 99th-percentile matrix velocity estimate, reported separately from Rosetta Ksat.
 
-All values must use the same explicitly declared scale: `linear_cm_per_day` or `log10_cm_per_day`. Log-scale values are compared in their stored scale without exponentiation or conversion. The tool rejects mixed scales, duplicate threshold IDs/kinds, inverted Ksat intervals and invalid digests. It applies the strict operator velocity > threshold; equality is negative under that threshold.
+All values must use the same explicitly declared scale: `linear_cm_per_day` or `stored_log_scale_cm_per_day`. Stored log-scale values are compared in their stored numeric scale without exponentiation or conversion; the log base must be reconciled from source metadata before any transform. The tool rejects mixed scales, duplicate threshold IDs/kinds, inverted Ksat intervals and invalid digests. It applies the strict operator velocity > threshold; equality is negative under that threshold.
 
 ## Output interpretation
 
