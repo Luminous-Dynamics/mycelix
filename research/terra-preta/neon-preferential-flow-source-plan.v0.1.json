@@ -199,7 +199,10 @@
         "Readme describes fields including stormStartTime, stormEndTime, stormSum, stormPeakIntensity, smBeforePrecip, smOnsetTime, flowTypes, flowPosition and velocity_computed.",
         "Version 1.1 adds multiple Rosetta Ksat estimate fields including ksat, ksat_low, ksat_high, ksat_std_median and ksat_std_upper.",
         "Do not treat the database's Ksat-derived PF flag as tracer ground truth.",
-        "Resolve version and field semantics against the Li et al. 2026 paper's specific target-construction method before claiming exact reproduction."
+        "Resolve version and field semantics against the Li et al. 2026 paper's specific target-construction method before claiming exact reproduction.",
+        "The published README describes velocity and Ksat values as log scale, but the log base must be reconciled from the exact codebook/author workflow; do not assume log10 or exponentiate automatically.",
+        "The modelled 99th-percentile matrix-flow velocity threshold is a distinct reference from Rosetta Ksat low/max/high/median/std-upper estimates; compare these threshold families separately.",
+        "The HydroShare v1.1 landing page declares content externally hosted. The actual v1.1 file host and per-file checksums remain unverified; the known Box folder link in v1.0 documentation must not be presumed to contain v1.1."
       ]
     }
   ],
