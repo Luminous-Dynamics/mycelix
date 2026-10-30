@@ -1137,6 +1137,53 @@ mod tests {
     }
 
 
+
+    #[test]
+    fn authorization_is_invariant_to_role_order_duplicates_and_irrelevant_attributes() {
+        let corpus: Value = serde_json::from_str(include_str!(
+            "../../../../docs/research/scientific-policy-dsl-bakeoff-v0.1/cases.json"
+        ))
+        .expect("committed authorization corpus must be valid JSON");
+        let cases = corpus["policyCases"].as_array().expect("policyCases");
+        let policy = DefaultScientificAuthorizationPolicy;
+
+        for case in cases {
+            let (base_actor, base_event, base_claim) = corpus_case_inputs(case);
+            let baseline = policy.authorize(&base_actor, &base_event, base_claim.as_ref());
+
+            let mut reordered = case.clone();
+            if let Some(roles) = reordered
+                .pointer_mut("/actor/roles")
+                .and_then(Value::as_array_mut)
+            {
+                roles.reverse();
+                if let Some(first) = roles.first().cloned() {
+                    roles.push(first);
+                }
+                roles.push(json!("service"));
+                roles.push(json!("registry_admin"));
+            }
+            if let Some(organizations) = reordered
+                .pointer_mut("/actor/organizations")
+                .and_then(Value::as_array_mut)
+            {
+                organizations.reverse();
+                organizations.push(json!("org:irrelevant-fixture"));
+            } else {
+                reordered["actor"]["organizations"] = json!(["org:irrelevant-fixture"]);
+            }
+
+            let (mutated_actor, mutated_event, mutated_claim) = corpus_case_inputs(&reordered);
+            let mutated = policy.authorize(&mutated_actor, &mutated_event, mutated_claim.as_ref());
+            assert_eq!(
+                baseline.allowed,
+                mutated.allowed,
+                "{}: irrelevant roles, duplicate roles, role order or unrelated actor organizations changed the decision",
+                case["id"]
+            );
+        }
+    }
+
     #[test]
     fn cedar_and_rego_adapters_match_every_frozen_corpus_row() {
         fn entity<'a>(entities: &'a [Value], entity_type: &str) -> &'a Value {
