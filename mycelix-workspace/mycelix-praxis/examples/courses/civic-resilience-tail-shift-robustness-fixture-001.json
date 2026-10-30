@@ -1,0 +1,2676 @@
+{
+  "benchmark_id": "PRAXIS-NRES-010-TAIL-SHIFT-ROBUSTNESS-001",
+  "schema_version": "1.0.0",
+  "status": "synthetic-demonstration-for-review",
+  "evaluation_split": "public-development-only",
+  "active_in_curriculum": false,
+  "title": "Rare-Event Tail Calibration and Distribution-Shift Stress Test",
+  "purpose": "Evaluate fixed-threshold exceedance probability forecasts and conditional generalized-Pareto tail severity forecasts across in-distribution, temporal-shift, structural-dependency-shift and evidence-degradation regimes, with explicit importance-sampling weights and abstention accounting.",
+  "scope_limits": [
+    "All cases, outcomes, probability forecasts, generalized Pareto parameters and sampling strata are fictional development data.",
+    "The fixture is intentionally stress-enriched. Unweighted event rates are not natural population prevalence estimates.",
+    "Importance weights are valid only for the declared routine/tail-enriched stratified sampling design; they do not correct model misspecification, within-stratum selection bias or unknown real-world prevalence.",
+    "The public cohort is a protocol/evaluator fixture, not an independently generated hidden test set.",
+    "A 128-case fixture cannot establish tail calibration, operational reliability, causal generalization or model superiority.",
+    "Tail calibration is distinct from overall calibration; a good overall proper score does not by itself establish reliable extreme-event forecasts.",
+    "The evaluator does not generate outages, make operational decisions, or infer causal mechanisms."
+  ],
+  "target": {
+    "quantity": "aggregate normalized service deficit-hours integrated over all declared critical services",
+    "unit": "normalized-service-deficit-hours",
+    "threshold": 48,
+    "event_definition": "observed_normalized_service_deficit_hours is strictly greater than 48",
+    "horizon_hours": 72
+  },
+  "regimes": [
+    {
+      "regime_id": "in_distribution",
+      "qualification_note": "reference regime"
+    },
+    {
+      "regime_id": "temporal_shift",
+      "qualification_note": "time-ordered shifted regime; explicitly included and qualified for robustness testing"
+    },
+    {
+      "regime_id": "structural_dependency_shift",
+      "qualification_note": "service dependency/common-cause structure shifted; explicitly included and qualified for robustness testing"
+    },
+    {
+      "regime_id": "evidence_degradation",
+      "qualification_note": "evidence quality degraded; missing/conflicting inputs require abstention"
+    }
+  ],
+  "sampling_design": {
+    "status": "synthetic-stratified-importance-sampling-demonstration",
+    "strata": [
+      {
+        "sampling_stratum": "routine",
+        "proposal_probability": 0.75,
+        "target_probability": 0.97
+      },
+      {
+        "sampling_stratum": "tail_enriched",
+        "proposal_probability": 0.25,
+        "target_probability": 0.03
+      }
+    ],
+    "weight_formula": "importance_weight = target_stratum_probability / proposal_stratum_probability",
+    "expected_total_weight_per_regime": 32,
+    "design_note": "24 routine and 8 tail-enriched cases per regime; estimates target the declared 97%/3% stratum mixture only if cases are representative within their respective strata."
+  },
+  "calibration_reference": {
+    "sample_count": 5000,
+    "exceedance_count": 200,
+    "exceedance_probability": 0.04,
+    "status": "synthetic-training-reference",
+    "description": "Fictional historical training cohort used only to construct a fixed climatology comparison. It is not a real event base rate."
+  },
+  "protocol": {
+    "forecast_origin_hour": 0,
+    "forecast_horizon_hours": 72,
+    "exceedance_threshold": 48,
+    "probability_bins": [
+      0,
+      0.05,
+      0.1,
+      0.2,
+      0.4,
+      0.7,
+      1
+    ],
+    "bin_convention": "lower-inclusive and upper-exclusive; final bin includes 1.0",
+    "log_loss_epsilon": 0.000001,
+    "gpd_parameterization": "conditional excess X=Y-u given Y>u; GPD CDF 1-(1+xi*x/sigma)^(-1/xi), exponential limit when xi=0",
+    "gpd_support": "sigma>0; when xi<0, 0<=x< -sigma/xi; an observation outside forecast support is counted as zero-support/infinite conditional log loss",
+    "tail_quantile_levels": [
+      0.5,
+      0.9,
+      0.95
+    ],
+    "proper_scores": [
+      "importance-weighted-brier",
+      "importance-weighted-log-loss"
+    ],
+    "calibration_diagnostics": [
+      "importance-weighted-occurrence-calibration",
+      "importance-weighted-tail-excess-PIT",
+      "weighted-tail-quantile-coverage"
+    ],
+    "shift_comparison": "report each regime separately and score deltas relative to in_distribution; do not aggregate away worst-slice failures",
+    "abstention_rule": "qualification_state missing_critical_input, conflicting_sources or unsupported_distribution_shift requires action=abstain and null probability/GPD parameters",
+    "optional_abstention_rule": "qualified cases may abstain only with reason=model_uncertainty; count against forecast coverage",
+    "risk_reporting": "report raw case count, sum of importance weights, effective sample size and tail-event effective sample size for every regime"
+  },
+  "evaluation_cases": [
+    {
+      "case_id": "IN_DISTRIBUTION-01",
+      "regime_id": "in_distribution",
+      "sampling_stratum": "routine",
+      "proposal_stratum_probability": 0.75,
+      "target_stratum_probability": 0.97,
+      "forecast_origin_hour": 0,
+      "forecast_horizon_hours": 72,
+      "evaluator": {
+        "qualification_state": "qualified",
+        "observed_normalized_service_deficit_hours": 23
+      },
+      "candidate_output": {
+        "action": "forecast",
+        "predicted_exceedance_probability": 0.015,
+        "gpd_scale": 20,
+        "gpd_shape": 0.12,
+        "abstention_reason": null
+      }
+    },
+    {
+      "case_id": "IN_DISTRIBUTION-02",
+      "regime_id": "in_distribution",
+      "sampling_stratum": "routine",
+      "proposal_stratum_probability": 0.75,
+      "target_stratum_probability": 0.97,
+      "forecast_origin_hour": 0,
+      "forecast_horizon_hours": 72,
+      "evaluator": {
+        "qualification_state": "qualified",
+        "observed_normalized_service_deficit_hours": 36
+      },
+      "candidate_output": {
+        "action": "forecast",
+        "predicted_exceedance_probability": 0.023,
+        "gpd_scale": 20,
+        "gpd_shape": 0.12,
+        "abstention_reason": null
+      }
+    },
+    {
+      "case_id": "IN_DISTRIBUTION-03",
+      "regime_id": "in_distribution",
+      "sampling_stratum": "routine",
+      "proposal_stratum_probability": 0.75,
+      "target_stratum_probability": 0.97,
+      "forecast_origin_hour": 0,
+      "forecast_horizon_hours": 72,
+      "evaluator": {
+        "qualification_state": "qualified",
+        "observed_normalized_service_deficit_hours": 15
+      },
+      "candidate_output": {
+        "action": "forecast",
+        "predicted_exceedance_probability": 0.031,
+        "gpd_scale": 20,
+        "gpd_shape": 0.12,
+        "abstention_reason": null
+      }
+    },
+    {
+      "case_id": "IN_DISTRIBUTION-04",
+      "regime_id": "in_distribution",
+      "sampling_stratum": "routine",
+      "proposal_stratum_probability": 0.75,
+      "target_stratum_probability": 0.97,
+      "forecast_origin_hour": 0,
+      "forecast_horizon_hours": 72,
+      "evaluator": {
+        "qualification_state": "qualified",
+        "observed_normalized_service_deficit_hours": 28
+      },
+      "candidate_output": {
+        "action": "forecast",
+        "predicted_exceedance_probability": 0.039,
+        "gpd_scale": 20,
+        "gpd_shape": 0.12,
+        "abstention_reason": null
+      }
+    },
+    {
+      "case_id": "IN_DISTRIBUTION-05",
+      "regime_id": "in_distribution",
+      "sampling_stratum": "routine",
+      "proposal_stratum_probability": 0.75,
+      "target_stratum_probability": 0.97,
+      "forecast_origin_hour": 0,
+      "forecast_horizon_hours": 72,
+      "evaluator": {
+        "qualification_state": "qualified",
+        "observed_normalized_service_deficit_hours": 41
+      },
+      "candidate_output": {
+        "action": "forecast",
+        "predicted_exceedance_probability": 0.047,
+        "gpd_scale": 20,
+        "gpd_shape": 0.12,
+        "abstention_reason": null
+      }
+    },
+    {
+      "case_id": "IN_DISTRIBUTION-06",
+      "regime_id": "in_distribution",
+      "sampling_stratum": "routine",
+      "proposal_stratum_probability": 0.75,
+      "target_stratum_probability": 0.97,
+      "forecast_origin_hour": 0,
+      "forecast_horizon_hours": 72,
+      "evaluator": {
+        "qualification_state": "qualified",
+        "observed_normalized_service_deficit_hours": 20
+      },
+      "candidate_output": {
+        "action": "forecast",
+        "predicted_exceedance_probability": 0.055,
+        "gpd_scale": 20,
+        "gpd_shape": 0.12,
+        "abstention_reason": null
+      }
+    },
+    {
+      "case_id": "IN_DISTRIBUTION-07",
+      "regime_id": "in_distribution",
+      "sampling_stratum": "routine",
+      "proposal_stratum_probability": 0.75,
+      "target_stratum_probability": 0.97,
+      "forecast_origin_hour": 0,
+      "forecast_horizon_hours": 72,
+      "evaluator": {
+        "qualification_state": "qualified",
+        "observed_normalized_service_deficit_hours": 33
+      },
+      "candidate_output": {
+        "action": "forecast",
+        "predicted_exceedance_probability": 0.015,
+        "gpd_scale": 20,
+        "gpd_shape": 0.12,
+        "abstention_reason": null
+      }
+    },
+    {
+      "case_id": "IN_DISTRIBUTION-08",
+      "regime_id": "in_distribution",
+      "sampling_stratum": "routine",
+      "proposal_stratum_probability": 0.75,
+      "target_stratum_probability": 0.97,
+      "forecast_origin_hour": 0,
+      "forecast_horizon_hours": 72,
+      "evaluator": {
+        "qualification_state": "qualified",
+        "observed_normalized_service_deficit_hours": 66
+      },
+      "candidate_output": {
+        "action": "forecast",
+        "predicted_exceedance_probability": 0.023,
+        "gpd_scale": 20,
+        "gpd_shape": 0.12,
+        "abstention_reason": null
+      }
+    },
+    {
+      "case_id": "IN_DISTRIBUTION-09",
+      "regime_id": "in_distribution",
+      "sampling_stratum": "routine",
+      "proposal_stratum_probability": 0.75,
+      "target_stratum_probability": 0.97,
+      "forecast_origin_hour": 0,
+      "forecast_horizon_hours": 72,
+      "evaluator": {
+        "qualification_state": "qualified",
+        "observed_normalized_service_deficit_hours": 25
+      },
+      "candidate_output": {
+        "action": "forecast",
+        "predicted_exceedance_probability": 0.031,
+        "gpd_scale": 20,
+        "gpd_shape": 0.12,
+        "abstention_reason": null
+      }
+    },
+    {
+      "case_id": "IN_DISTRIBUTION-10",
+      "regime_id": "in_distribution",
+      "sampling_stratum": "routine",
+      "proposal_stratum_probability": 0.75,
+      "target_stratum_probability": 0.97,
+      "forecast_origin_hour": 0,
+      "forecast_horizon_hours": 72,
+      "evaluator": {
+        "qualification_state": "qualified",
+        "observed_normalized_service_deficit_hours": 38
+      },
+      "candidate_output": {
+        "action": "forecast",
+        "predicted_exceedance_probability": 0.039,
+        "gpd_scale": 20,
+        "gpd_shape": 0.12,
+        "abstention_reason": null
+      }
+    },
+    {
+      "case_id": "IN_DISTRIBUTION-11",
+      "regime_id": "in_distribution",
+      "sampling_stratum": "routine",
+      "proposal_stratum_probability": 0.75,
+      "target_stratum_probability": 0.97,
+      "forecast_origin_hour": 0,
+      "forecast_horizon_hours": 72,
+      "evaluator": {
+        "qualification_state": "qualified",
+        "observed_normalized_service_deficit_hours": 17
+      },
+      "candidate_output": {
+        "action": "forecast",
+        "predicted_exceedance_probability": 0.047,
+        "gpd_scale": 20,
+        "gpd_shape": 0.12,
+        "abstention_reason": null
+      }
+    },
+    {
+      "case_id": "IN_DISTRIBUTION-12",
+      "regime_id": "in_distribution",
+      "sampling_stratum": "routine",
+      "proposal_stratum_probability": 0.75,
+      "target_stratum_probability": 0.97,
+      "forecast_origin_hour": 0,
+      "forecast_horizon_hours": 72,
+      "evaluator": {
+        "qualification_state": "qualified",
+        "observed_normalized_service_deficit_hours": 30
+      },
+      "candidate_output": {
+        "action": "forecast",
+        "predicted_exceedance_probability": 0.055,
+        "gpd_scale": 20,
+        "gpd_shape": 0.12,
+        "abstention_reason": null
+      }
+    },
+    {
+      "case_id": "IN_DISTRIBUTION-13",
+      "regime_id": "in_distribution",
+      "sampling_stratum": "routine",
+      "proposal_stratum_probability": 0.75,
+      "target_stratum_probability": 0.97,
+      "forecast_origin_hour": 0,
+      "forecast_horizon_hours": 72,
+      "evaluator": {
+        "qualification_state": "qualified",
+        "observed_normalized_service_deficit_hours": 9
+      },
+      "candidate_output": {
+        "action": "forecast",
+        "predicted_exceedance_probability": 0.015,
+        "gpd_scale": 20,
+        "gpd_shape": 0.12,
+        "abstention_reason": null
+      }
+    },
+    {
+      "case_id": "IN_DISTRIBUTION-14",
+      "regime_id": "in_distribution",
+      "sampling_stratum": "routine",
+      "proposal_stratum_probability": 0.75,
+      "target_stratum_probability": 0.97,
+      "forecast_origin_hour": 0,
+      "forecast_horizon_hours": 72,
+      "evaluator": {
+        "qualification_state": "qualified",
+        "observed_normalized_service_deficit_hours": 22
+      },
+      "candidate_output": {
+        "action": "forecast",
+        "predicted_exceedance_probability": 0.023,
+        "gpd_scale": 20,
+        "gpd_shape": 0.12,
+        "abstention_reason": null
+      }
+    },
+    {
+      "case_id": "IN_DISTRIBUTION-15",
+      "regime_id": "in_distribution",
+      "sampling_stratum": "routine",
+      "proposal_stratum_probability": 0.75,
+      "target_stratum_probability": 0.97,
+      "forecast_origin_hour": 0,
+      "forecast_horizon_hours": 72,
+      "evaluator": {
+        "qualification_state": "qualified",
+        "observed_normalized_service_deficit_hours": 35
+      },
+      "candidate_output": {
+        "action": "forecast",
+        "predicted_exceedance_probability": 0.031,
+        "gpd_scale": 20,
+        "gpd_shape": 0.12,
+        "abstention_reason": null
+      }
+    },
+    {
+      "case_id": "IN_DISTRIBUTION-16",
+      "regime_id": "in_distribution",
+      "sampling_stratum": "routine",
+      "proposal_stratum_probability": 0.75,
+      "target_stratum_probability": 0.97,
+      "forecast_origin_hour": 0,
+      "forecast_horizon_hours": 72,
+      "evaluator": {
+        "qualification_state": "qualified",
+        "observed_normalized_service_deficit_hours": 14
+      },
+      "candidate_output": {
+        "action": "forecast",
+        "predicted_exceedance_probability": 0.039,
+        "gpd_scale": 20,
+        "gpd_shape": 0.12,
+        "abstention_reason": null
+      }
+    },
+    {
+      "case_id": "IN_DISTRIBUTION-17",
+      "regime_id": "in_distribution",
+      "sampling_stratum": "routine",
+      "proposal_stratum_probability": 0.75,
+      "target_stratum_probability": 0.97,
+      "forecast_origin_hour": 0,
+      "forecast_horizon_hours": 72,
+      "evaluator": {
+        "qualification_state": "qualified",
+        "observed_normalized_service_deficit_hours": 27
+      },
+      "candidate_output": {
+        "action": "forecast",
+        "predicted_exceedance_probability": 0.047,
+        "gpd_scale": 20,
+        "gpd_shape": 0.12,
+        "abstention_reason": null
+      }
+    },
+    {
+      "case_id": "IN_DISTRIBUTION-18",
+      "regime_id": "in_distribution",
+      "sampling_stratum": "routine",
+      "proposal_stratum_probability": 0.75,
+      "target_stratum_probability": 0.97,
+      "forecast_origin_hour": 0,
+      "forecast_horizon_hours": 72,
+      "evaluator": {
+        "qualification_state": "qualified",
+        "observed_normalized_service_deficit_hours": 40
+      },
+      "candidate_output": {
+        "action": "forecast",
+        "predicted_exceedance_probability": 0.055,
+        "gpd_scale": 20,
+        "gpd_shape": 0.12,
+        "abstention_reason": null
+      }
+    },
+    {
+      "case_id": "IN_DISTRIBUTION-19",
+      "regime_id": "in_distribution",
+      "sampling_stratum": "routine",
+      "proposal_stratum_probability": 0.75,
+      "target_stratum_probability": 0.97,
+      "forecast_origin_hour": 0,
+      "forecast_horizon_hours": 72,
+      "evaluator": {
+        "qualification_state": "qualified",
+        "observed_normalized_service_deficit_hours": 19
+      },
+      "candidate_output": {
+        "action": "forecast",
+        "predicted_exceedance_probability": 0.015,
+        "gpd_scale": 20,
+        "gpd_shape": 0.12,
+        "abstention_reason": null
+      }
+    },
+    {
+      "case_id": "IN_DISTRIBUTION-20",
+      "regime_id": "in_distribution",
+      "sampling_stratum": "routine",
+      "proposal_stratum_probability": 0.75,
+      "target_stratum_probability": 0.97,
+      "forecast_origin_hour": 0,
+      "forecast_horizon_hours": 72,
+      "evaluator": {
+        "qualification_state": "qualified",
+        "observed_normalized_service_deficit_hours": 32
+      },
+      "candidate_output": {
+        "action": "forecast",
+        "predicted_exceedance_probability": 0.023,
+        "gpd_scale": 20,
+        "gpd_shape": 0.12,
+        "abstention_reason": null
+      }
+    },
+    {
+      "case_id": "IN_DISTRIBUTION-21",
+      "regime_id": "in_distribution",
+      "sampling_stratum": "routine",
+      "proposal_stratum_probability": 0.75,
+      "target_stratum_probability": 0.97,
+      "forecast_origin_hour": 0,
+      "forecast_horizon_hours": 72,
+      "evaluator": {
+        "qualification_state": "qualified",
+        "observed_normalized_service_deficit_hours": 11
+      },
+      "candidate_output": {
+        "action": "forecast",
+        "predicted_exceedance_probability": 0.031,
+        "gpd_scale": 20,
+        "gpd_shape": 0.12,
+        "abstention_reason": null
+      }
+    },
+    {
+      "case_id": "IN_DISTRIBUTION-22",
+      "regime_id": "in_distribution",
+      "sampling_stratum": "routine",
+      "proposal_stratum_probability": 0.75,
+      "target_stratum_probability": 0.97,
+      "forecast_origin_hour": 0,
+      "forecast_horizon_hours": 72,
+      "evaluator": {
+        "qualification_state": "qualified",
+        "observed_normalized_service_deficit_hours": 24
+      },
+      "candidate_output": {
+        "action": "forecast",
+        "predicted_exceedance_probability": 0.039,
+        "gpd_scale": 20,
+        "gpd_shape": 0.12,
+        "abstention_reason": null
+      }
+    },
+    {
+      "case_id": "IN_DISTRIBUTION-23",
+      "regime_id": "in_distribution",
+      "sampling_stratum": "routine",
+      "proposal_stratum_probability": 0.75,
+      "target_stratum_probability": 0.97,
+      "forecast_origin_hour": 0,
+      "forecast_horizon_hours": 72,
+      "evaluator": {
+        "qualification_state": "qualified",
+        "observed_normalized_service_deficit_hours": 37
+      },
+      "candidate_output": {
+        "action": "forecast",
+        "predicted_exceedance_probability": 0.047,
+        "gpd_scale": 20,
+        "gpd_shape": 0.12,
+        "abstention_reason": null
+      }
+    },
+    {
+      "case_id": "IN_DISTRIBUTION-24",
+      "regime_id": "in_distribution",
+      "sampling_stratum": "routine",
+      "proposal_stratum_probability": 0.75,
+      "target_stratum_probability": 0.97,
+      "forecast_origin_hour": 0,
+      "forecast_horizon_hours": 72,
+      "evaluator": {
+        "qualification_state": "qualified",
+        "observed_normalized_service_deficit_hours": 16
+      },
+      "candidate_output": {
+        "action": "forecast",
+        "predicted_exceedance_probability": 0.055,
+        "gpd_scale": 20,
+        "gpd_shape": 0.12,
+        "abstention_reason": null
+      }
+    },
+    {
+      "case_id": "IN_DISTRIBUTION-25",
+      "regime_id": "in_distribution",
+      "sampling_stratum": "tail_enriched",
+      "proposal_stratum_probability": 0.25,
+      "target_stratum_probability": 0.03,
+      "forecast_origin_hour": 0,
+      "forecast_horizon_hours": 72,
+      "evaluator": {
+        "qualification_state": "qualified",
+        "observed_normalized_service_deficit_hours": 60
+      },
+      "candidate_output": {
+        "action": "forecast",
+        "predicted_exceedance_probability": 0.12,
+        "gpd_scale": 20,
+        "gpd_shape": 0.12,
+        "abstention_reason": null
+      }
+    },
+    {
+      "case_id": "IN_DISTRIBUTION-26",
+      "regime_id": "in_distribution",
+      "sampling_stratum": "tail_enriched",
+      "proposal_stratum_probability": 0.25,
+      "target_stratum_probability": 0.03,
+      "forecast_origin_hour": 0,
+      "forecast_horizon_hours": 72,
+      "evaluator": {
+        "qualification_state": "qualified",
+        "observed_normalized_service_deficit_hours": 8
+      },
+      "candidate_output": {
+        "action": "forecast",
+        "predicted_exceedance_probability": 0.18,
+        "gpd_scale": 20,
+        "gpd_shape": 0.12,
+        "abstention_reason": null
+      }
+    },
+    {
+      "case_id": "IN_DISTRIBUTION-27",
+      "regime_id": "in_distribution",
+      "sampling_stratum": "tail_enriched",
+      "proposal_stratum_probability": 0.25,
+      "target_stratum_probability": 0.03,
+      "forecast_origin_hour": 0,
+      "forecast_horizon_hours": 72,
+      "evaluator": {
+        "qualification_state": "qualified",
+        "observed_normalized_service_deficit_hours": 73
+      },
+      "candidate_output": {
+        "action": "forecast",
+        "predicted_exceedance_probability": 0.24,
+        "gpd_scale": 20,
+        "gpd_shape": 0.12,
+        "abstention_reason": null
+      }
+    },
+    {
+      "case_id": "IN_DISTRIBUTION-28",
+      "regime_id": "in_distribution",
+      "sampling_stratum": "tail_enriched",
+      "proposal_stratum_probability": 0.25,
+      "target_stratum_probability": 0.03,
+      "forecast_origin_hour": 0,
+      "forecast_horizon_hours": 72,
+      "evaluator": {
+        "qualification_state": "qualified",
+        "observed_normalized_service_deficit_hours": 34
+      },
+      "candidate_output": {
+        "action": "forecast",
+        "predicted_exceedance_probability": 0.3,
+        "gpd_scale": 20,
+        "gpd_shape": 0.12,
+        "abstention_reason": null
+      }
+    },
+    {
+      "case_id": "IN_DISTRIBUTION-29",
+      "regime_id": "in_distribution",
+      "sampling_stratum": "tail_enriched",
+      "proposal_stratum_probability": 0.25,
+      "target_stratum_probability": 0.03,
+      "forecast_origin_hour": 0,
+      "forecast_horizon_hours": 72,
+      "evaluator": {
+        "qualification_state": "qualified",
+        "observed_normalized_service_deficit_hours": 82
+      },
+      "candidate_output": {
+        "action": "forecast",
+        "predicted_exceedance_probability": 0.12,
+        "gpd_scale": 20,
+        "gpd_shape": 0.12,
+        "abstention_reason": null
+      }
+    },
+    {
+      "case_id": "IN_DISTRIBUTION-30",
+      "regime_id": "in_distribution",
+      "sampling_stratum": "tail_enriched",
+      "proposal_stratum_probability": 0.25,
+      "target_stratum_probability": 0.03,
+      "forecast_origin_hour": 0,
+      "forecast_horizon_hours": 72,
+      "evaluator": {
+        "qualification_state": "qualified",
+        "observed_normalized_service_deficit_hours": 26
+      },
+      "candidate_output": {
+        "action": "forecast",
+        "predicted_exceedance_probability": 0.18,
+        "gpd_scale": 20,
+        "gpd_shape": 0.12,
+        "abstention_reason": null
+      }
+    },
+    {
+      "case_id": "IN_DISTRIBUTION-31",
+      "regime_id": "in_distribution",
+      "sampling_stratum": "tail_enriched",
+      "proposal_stratum_probability": 0.25,
+      "target_stratum_probability": 0.03,
+      "forecast_origin_hour": 0,
+      "forecast_horizon_hours": 72,
+      "evaluator": {
+        "qualification_state": "qualified",
+        "observed_normalized_service_deficit_hours": 98
+      },
+      "candidate_output": {
+        "action": "forecast",
+        "predicted_exceedance_probability": 0.24,
+        "gpd_scale": 20,
+        "gpd_shape": 0.12,
+        "abstention_reason": null
+      }
+    },
+    {
+      "case_id": "IN_DISTRIBUTION-32",
+      "regime_id": "in_distribution",
+      "sampling_stratum": "tail_enriched",
+      "proposal_stratum_probability": 0.25,
+      "target_stratum_probability": 0.03,
+      "forecast_origin_hour": 0,
+      "forecast_horizon_hours": 72,
+      "evaluator": {
+        "qualification_state": "qualified",
+        "observed_normalized_service_deficit_hours": 18
+      },
+      "candidate_output": {
+        "action": "forecast",
+        "predicted_exceedance_probability": 0.3,
+        "gpd_scale": 20,
+        "gpd_shape": 0.12,
+        "abstention_reason": null
+      }
+    },
+    {
+      "case_id": "TEMPORAL_SHIFT-01",
+      "regime_id": "temporal_shift",
+      "sampling_stratum": "routine",
+      "proposal_stratum_probability": 0.75,
+      "target_stratum_probability": 0.97,
+      "forecast_origin_hour": 0,
+      "forecast_horizon_hours": 72,
+      "evaluator": {
+        "qualification_state": "qualified",
+        "observed_normalized_service_deficit_hours": 22
+      },
+      "candidate_output": {
+        "action": "forecast",
+        "predicted_exceedance_probability": 0.035,
+        "gpd_scale": 18,
+        "gpd_shape": 0.05,
+        "abstention_reason": null
+      }
+    },
+    {
+      "case_id": "TEMPORAL_SHIFT-02",
+      "regime_id": "temporal_shift",
+      "sampling_stratum": "routine",
+      "proposal_stratum_probability": 0.75,
+      "target_stratum_probability": 0.97,
+      "forecast_origin_hour": 0,
+      "forecast_horizon_hours": 72,
+      "evaluator": {
+        "qualification_state": "qualified",
+        "observed_normalized_service_deficit_hours": 35
+      },
+      "candidate_output": {
+        "action": "forecast",
+        "predicted_exceedance_probability": 0.043,
+        "gpd_scale": 18,
+        "gpd_shape": 0.05,
+        "abstention_reason": null
+      }
+    },
+    {
+      "case_id": "TEMPORAL_SHIFT-03",
+      "regime_id": "temporal_shift",
+      "sampling_stratum": "routine",
+      "proposal_stratum_probability": 0.75,
+      "target_stratum_probability": 0.97,
+      "forecast_origin_hour": 0,
+      "forecast_horizon_hours": 72,
+      "evaluator": {
+        "qualification_state": "qualified",
+        "observed_normalized_service_deficit_hours": 14
+      },
+      "candidate_output": {
+        "action": "forecast",
+        "predicted_exceedance_probability": 0.051,
+        "gpd_scale": 18,
+        "gpd_shape": 0.05,
+        "abstention_reason": null
+      }
+    },
+    {
+      "case_id": "TEMPORAL_SHIFT-04",
+      "regime_id": "temporal_shift",
+      "sampling_stratum": "routine",
+      "proposal_stratum_probability": 0.75,
+      "target_stratum_probability": 0.97,
+      "forecast_origin_hour": 0,
+      "forecast_horizon_hours": 72,
+      "evaluator": {
+        "qualification_state": "qualified",
+        "observed_normalized_service_deficit_hours": 27
+      },
+      "candidate_output": {
+        "action": "forecast",
+        "predicted_exceedance_probability": 0.059,
+        "gpd_scale": 18,
+        "gpd_shape": 0.05,
+        "abstention_reason": null
+      }
+    },
+    {
+      "case_id": "TEMPORAL_SHIFT-05",
+      "regime_id": "temporal_shift",
+      "sampling_stratum": "routine",
+      "proposal_stratum_probability": 0.75,
+      "target_stratum_probability": 0.97,
+      "forecast_origin_hour": 0,
+      "forecast_horizon_hours": 72,
+      "evaluator": {
+        "qualification_state": "qualified",
+        "observed_normalized_service_deficit_hours": 72
+      },
+      "candidate_output": {
+        "action": "forecast",
+        "predicted_exceedance_probability": 0.067,
+        "gpd_scale": 18,
+        "gpd_shape": 0.05,
+        "abstention_reason": null
+      }
+    },
+    {
+      "case_id": "TEMPORAL_SHIFT-06",
+      "regime_id": "temporal_shift",
+      "sampling_stratum": "routine",
+      "proposal_stratum_probability": 0.75,
+      "target_stratum_probability": 0.97,
+      "forecast_origin_hour": 0,
+      "forecast_horizon_hours": 72,
+      "evaluator": {
+        "qualification_state": "qualified",
+        "observed_normalized_service_deficit_hours": 19
+      },
+      "candidate_output": {
+        "action": "forecast",
+        "predicted_exceedance_probability": 0.075,
+        "gpd_scale": 18,
+        "gpd_shape": 0.05,
+        "abstention_reason": null
+      }
+    },
+    {
+      "case_id": "TEMPORAL_SHIFT-07",
+      "regime_id": "temporal_shift",
+      "sampling_stratum": "routine",
+      "proposal_stratum_probability": 0.75,
+      "target_stratum_probability": 0.97,
+      "forecast_origin_hour": 0,
+      "forecast_horizon_hours": 72,
+      "evaluator": {
+        "qualification_state": "qualified",
+        "observed_normalized_service_deficit_hours": 32
+      },
+      "candidate_output": {
+        "action": "forecast",
+        "predicted_exceedance_probability": 0.035,
+        "gpd_scale": 18,
+        "gpd_shape": 0.05,
+        "abstention_reason": null
+      }
+    },
+    {
+      "case_id": "TEMPORAL_SHIFT-08",
+      "regime_id": "temporal_shift",
+      "sampling_stratum": "routine",
+      "proposal_stratum_probability": 0.75,
+      "target_stratum_probability": 0.97,
+      "forecast_origin_hour": 0,
+      "forecast_horizon_hours": 72,
+      "evaluator": {
+        "qualification_state": "qualified",
+        "observed_normalized_service_deficit_hours": 11
+      },
+      "candidate_output": {
+        "action": "forecast",
+        "predicted_exceedance_probability": 0.043,
+        "gpd_scale": 18,
+        "gpd_shape": 0.05,
+        "abstention_reason": null
+      }
+    },
+    {
+      "case_id": "TEMPORAL_SHIFT-09",
+      "regime_id": "temporal_shift",
+      "sampling_stratum": "routine",
+      "proposal_stratum_probability": 0.75,
+      "target_stratum_probability": 0.97,
+      "forecast_origin_hour": 0,
+      "forecast_horizon_hours": 72,
+      "evaluator": {
+        "qualification_state": "qualified",
+        "observed_normalized_service_deficit_hours": 24
+      },
+      "candidate_output": {
+        "action": "forecast",
+        "predicted_exceedance_probability": 0.051,
+        "gpd_scale": 18,
+        "gpd_shape": 0.05,
+        "abstention_reason": null
+      }
+    },
+    {
+      "case_id": "TEMPORAL_SHIFT-10",
+      "regime_id": "temporal_shift",
+      "sampling_stratum": "routine",
+      "proposal_stratum_probability": 0.75,
+      "target_stratum_probability": 0.97,
+      "forecast_origin_hour": 0,
+      "forecast_horizon_hours": 72,
+      "evaluator": {
+        "qualification_state": "qualified",
+        "observed_normalized_service_deficit_hours": 37
+      },
+      "candidate_output": {
+        "action": "forecast",
+        "predicted_exceedance_probability": 0.059,
+        "gpd_scale": 18,
+        "gpd_shape": 0.05,
+        "abstention_reason": null
+      }
+    },
+    {
+      "case_id": "TEMPORAL_SHIFT-11",
+      "regime_id": "temporal_shift",
+      "sampling_stratum": "routine",
+      "proposal_stratum_probability": 0.75,
+      "target_stratum_probability": 0.97,
+      "forecast_origin_hour": 0,
+      "forecast_horizon_hours": 72,
+      "evaluator": {
+        "qualification_state": "qualified",
+        "observed_normalized_service_deficit_hours": 16
+      },
+      "candidate_output": {
+        "action": "forecast",
+        "predicted_exceedance_probability": 0.067,
+        "gpd_scale": 18,
+        "gpd_shape": 0.05,
+        "abstention_reason": null
+      }
+    },
+    {
+      "case_id": "TEMPORAL_SHIFT-12",
+      "regime_id": "temporal_shift",
+      "sampling_stratum": "routine",
+      "proposal_stratum_probability": 0.75,
+      "target_stratum_probability": 0.97,
+      "forecast_origin_hour": 0,
+      "forecast_horizon_hours": 72,
+      "evaluator": {
+        "qualification_state": "qualified",
+        "observed_normalized_service_deficit_hours": 29
+      },
+      "candidate_output": {
+        "action": "forecast",
+        "predicted_exceedance_probability": 0.075,
+        "gpd_scale": 18,
+        "gpd_shape": 0.05,
+        "abstention_reason": null
+      }
+    },
+    {
+      "case_id": "TEMPORAL_SHIFT-13",
+      "regime_id": "temporal_shift",
+      "sampling_stratum": "routine",
+      "proposal_stratum_probability": 0.75,
+      "target_stratum_probability": 0.97,
+      "forecast_origin_hour": 0,
+      "forecast_horizon_hours": 72,
+      "evaluator": {
+        "qualification_state": "qualified",
+        "observed_normalized_service_deficit_hours": 90
+      },
+      "candidate_output": {
+        "action": "forecast",
+        "predicted_exceedance_probability": 0.035,
+        "gpd_scale": 18,
+        "gpd_shape": 0.05,
+        "abstention_reason": null
+      }
+    },
+    {
+      "case_id": "TEMPORAL_SHIFT-14",
+      "regime_id": "temporal_shift",
+      "sampling_stratum": "routine",
+      "proposal_stratum_probability": 0.75,
+      "target_stratum_probability": 0.97,
+      "forecast_origin_hour": 0,
+      "forecast_horizon_hours": 72,
+      "evaluator": {
+        "qualification_state": "qualified",
+        "observed_normalized_service_deficit_hours": 21
+      },
+      "candidate_output": {
+        "action": "forecast",
+        "predicted_exceedance_probability": 0.043,
+        "gpd_scale": 18,
+        "gpd_shape": 0.05,
+        "abstention_reason": null
+      }
+    },
+    {
+      "case_id": "TEMPORAL_SHIFT-15",
+      "regime_id": "temporal_shift",
+      "sampling_stratum": "routine",
+      "proposal_stratum_probability": 0.75,
+      "target_stratum_probability": 0.97,
+      "forecast_origin_hour": 0,
+      "forecast_horizon_hours": 72,
+      "evaluator": {
+        "qualification_state": "qualified",
+        "observed_normalized_service_deficit_hours": 34
+      },
+      "candidate_output": {
+        "action": "forecast",
+        "predicted_exceedance_probability": 0.051,
+        "gpd_scale": 18,
+        "gpd_shape": 0.05,
+        "abstention_reason": null
+      }
+    },
+    {
+      "case_id": "TEMPORAL_SHIFT-16",
+      "regime_id": "temporal_shift",
+      "sampling_stratum": "routine",
+      "proposal_stratum_probability": 0.75,
+      "target_stratum_probability": 0.97,
+      "forecast_origin_hour": 0,
+      "forecast_horizon_hours": 72,
+      "evaluator": {
+        "qualification_state": "qualified",
+        "observed_normalized_service_deficit_hours": 13
+      },
+      "candidate_output": {
+        "action": "forecast",
+        "predicted_exceedance_probability": 0.059,
+        "gpd_scale": 18,
+        "gpd_shape": 0.05,
+        "abstention_reason": null
+      }
+    },
+    {
+      "case_id": "TEMPORAL_SHIFT-17",
+      "regime_id": "temporal_shift",
+      "sampling_stratum": "routine",
+      "proposal_stratum_probability": 0.75,
+      "target_stratum_probability": 0.97,
+      "forecast_origin_hour": 0,
+      "forecast_horizon_hours": 72,
+      "evaluator": {
+        "qualification_state": "qualified",
+        "observed_normalized_service_deficit_hours": 26
+      },
+      "candidate_output": {
+        "action": "forecast",
+        "predicted_exceedance_probability": 0.067,
+        "gpd_scale": 18,
+        "gpd_shape": 0.05,
+        "abstention_reason": null
+      }
+    },
+    {
+      "case_id": "TEMPORAL_SHIFT-18",
+      "regime_id": "temporal_shift",
+      "sampling_stratum": "routine",
+      "proposal_stratum_probability": 0.75,
+      "target_stratum_probability": 0.97,
+      "forecast_origin_hour": 0,
+      "forecast_horizon_hours": 72,
+      "evaluator": {
+        "qualification_state": "qualified",
+        "observed_normalized_service_deficit_hours": 39
+      },
+      "candidate_output": {
+        "action": "forecast",
+        "predicted_exceedance_probability": 0.075,
+        "gpd_scale": 18,
+        "gpd_shape": 0.05,
+        "abstention_reason": null
+      }
+    },
+    {
+      "case_id": "TEMPORAL_SHIFT-19",
+      "regime_id": "temporal_shift",
+      "sampling_stratum": "routine",
+      "proposal_stratum_probability": 0.75,
+      "target_stratum_probability": 0.97,
+      "forecast_origin_hour": 0,
+      "forecast_horizon_hours": 72,
+      "evaluator": {
+        "qualification_state": "qualified",
+        "observed_normalized_service_deficit_hours": 18
+      },
+      "candidate_output": {
+        "action": "forecast",
+        "predicted_exceedance_probability": 0.035,
+        "gpd_scale": 18,
+        "gpd_shape": 0.05,
+        "abstention_reason": null
+      }
+    },
+    {
+      "case_id": "TEMPORAL_SHIFT-20",
+      "regime_id": "temporal_shift",
+      "sampling_stratum": "routine",
+      "proposal_stratum_probability": 0.75,
+      "target_stratum_probability": 0.97,
+      "forecast_origin_hour": 0,
+      "forecast_horizon_hours": 72,
+      "evaluator": {
+        "qualification_state": "qualified",
+        "observed_normalized_service_deficit_hours": 31
+      },
+      "candidate_output": {
+        "action": "forecast",
+        "predicted_exceedance_probability": 0.043,
+        "gpd_scale": 18,
+        "gpd_shape": 0.05,
+        "abstention_reason": null
+      }
+    },
+    {
+      "case_id": "TEMPORAL_SHIFT-21",
+      "regime_id": "temporal_shift",
+      "sampling_stratum": "routine",
+      "proposal_stratum_probability": 0.75,
+      "target_stratum_probability": 0.97,
+      "forecast_origin_hour": 0,
+      "forecast_horizon_hours": 72,
+      "evaluator": {
+        "qualification_state": "qualified",
+        "observed_normalized_service_deficit_hours": 10
+      },
+      "candidate_output": {
+        "action": "forecast",
+        "predicted_exceedance_probability": 0.051,
+        "gpd_scale": 18,
+        "gpd_shape": 0.05,
+        "abstention_reason": null
+      }
+    },
+    {
+      "case_id": "TEMPORAL_SHIFT-22",
+      "regime_id": "temporal_shift",
+      "sampling_stratum": "routine",
+      "proposal_stratum_probability": 0.75,
+      "target_stratum_probability": 0.97,
+      "forecast_origin_hour": 0,
+      "forecast_horizon_hours": 72,
+      "evaluator": {
+        "qualification_state": "qualified",
+        "observed_normalized_service_deficit_hours": 23
+      },
+      "candidate_output": {
+        "action": "forecast",
+        "predicted_exceedance_probability": 0.059,
+        "gpd_scale": 18,
+        "gpd_shape": 0.05,
+        "abstention_reason": null
+      }
+    },
+    {
+      "case_id": "TEMPORAL_SHIFT-23",
+      "regime_id": "temporal_shift",
+      "sampling_stratum": "routine",
+      "proposal_stratum_probability": 0.75,
+      "target_stratum_probability": 0.97,
+      "forecast_origin_hour": 0,
+      "forecast_horizon_hours": 72,
+      "evaluator": {
+        "qualification_state": "qualified",
+        "observed_normalized_service_deficit_hours": 36
+      },
+      "candidate_output": {
+        "action": "forecast",
+        "predicted_exceedance_probability": 0.067,
+        "gpd_scale": 18,
+        "gpd_shape": 0.05,
+        "abstention_reason": null
+      }
+    },
+    {
+      "case_id": "TEMPORAL_SHIFT-24",
+      "regime_id": "temporal_shift",
+      "sampling_stratum": "routine",
+      "proposal_stratum_probability": 0.75,
+      "target_stratum_probability": 0.97,
+      "forecast_origin_hour": 0,
+      "forecast_horizon_hours": 72,
+      "evaluator": {
+        "qualification_state": "qualified",
+        "observed_normalized_service_deficit_hours": 15
+      },
+      "candidate_output": {
+        "action": "forecast",
+        "predicted_exceedance_probability": 0.075,
+        "gpd_scale": 18,
+        "gpd_shape": 0.05,
+        "abstention_reason": null
+      }
+    },
+    {
+      "case_id": "TEMPORAL_SHIFT-25",
+      "regime_id": "temporal_shift",
+      "sampling_stratum": "tail_enriched",
+      "proposal_stratum_probability": 0.25,
+      "target_stratum_probability": 0.03,
+      "forecast_origin_hour": 0,
+      "forecast_horizon_hours": 72,
+      "evaluator": {
+        "qualification_state": "qualified",
+        "observed_normalized_service_deficit_hours": 66
+      },
+      "candidate_output": {
+        "action": "forecast",
+        "predicted_exceedance_probability": 0.15,
+        "gpd_scale": 18,
+        "gpd_shape": 0.05,
+        "abstention_reason": null
+      }
+    },
+    {
+      "case_id": "TEMPORAL_SHIFT-26",
+      "regime_id": "temporal_shift",
+      "sampling_stratum": "tail_enriched",
+      "proposal_stratum_probability": 0.25,
+      "target_stratum_probability": 0.03,
+      "forecast_origin_hour": 0,
+      "forecast_horizon_hours": 72,
+      "evaluator": {
+        "qualification_state": "qualified",
+        "observed_normalized_service_deficit_hours": 83
+      },
+      "candidate_output": {
+        "action": "forecast",
+        "predicted_exceedance_probability": 0.21,
+        "gpd_scale": 18,
+        "gpd_shape": 0.05,
+        "abstention_reason": null
+      }
+    },
+    {
+      "case_id": "TEMPORAL_SHIFT-27",
+      "regime_id": "temporal_shift",
+      "sampling_stratum": "tail_enriched",
+      "proposal_stratum_probability": 0.25,
+      "target_stratum_probability": 0.03,
+      "forecast_origin_hour": 0,
+      "forecast_horizon_hours": 72,
+      "evaluator": {
+        "qualification_state": "qualified",
+        "observed_normalized_service_deficit_hours": 20
+      },
+      "candidate_output": {
+        "action": "forecast",
+        "predicted_exceedance_probability": 0.27,
+        "gpd_scale": 18,
+        "gpd_shape": 0.05,
+        "abstention_reason": null
+      }
+    },
+    {
+      "case_id": "TEMPORAL_SHIFT-28",
+      "regime_id": "temporal_shift",
+      "sampling_stratum": "tail_enriched",
+      "proposal_stratum_probability": 0.25,
+      "target_stratum_probability": 0.03,
+      "forecast_origin_hour": 0,
+      "forecast_horizon_hours": 72,
+      "evaluator": {
+        "qualification_state": "qualified",
+        "observed_normalized_service_deficit_hours": 106
+      },
+      "candidate_output": {
+        "action": "forecast",
+        "predicted_exceedance_probability": 0.33,
+        "gpd_scale": 18,
+        "gpd_shape": 0.05,
+        "abstention_reason": null
+      }
+    },
+    {
+      "case_id": "TEMPORAL_SHIFT-29",
+      "regime_id": "temporal_shift",
+      "sampling_stratum": "tail_enriched",
+      "proposal_stratum_probability": 0.25,
+      "target_stratum_probability": 0.03,
+      "forecast_origin_hour": 0,
+      "forecast_horizon_hours": 72,
+      "evaluator": {
+        "qualification_state": "qualified",
+        "observed_normalized_service_deficit_hours": 12
+      },
+      "candidate_output": {
+        "action": "forecast",
+        "predicted_exceedance_probability": 0.15,
+        "gpd_scale": 18,
+        "gpd_shape": 0.05,
+        "abstention_reason": null
+      }
+    },
+    {
+      "case_id": "TEMPORAL_SHIFT-30",
+      "regime_id": "temporal_shift",
+      "sampling_stratum": "tail_enriched",
+      "proposal_stratum_probability": 0.25,
+      "target_stratum_probability": 0.03,
+      "forecast_origin_hour": 0,
+      "forecast_horizon_hours": 72,
+      "evaluator": {
+        "qualification_state": "qualified",
+        "observed_normalized_service_deficit_hours": 123
+      },
+      "candidate_output": {
+        "action": "forecast",
+        "predicted_exceedance_probability": 0.21,
+        "gpd_scale": 18,
+        "gpd_shape": 0.05,
+        "abstention_reason": null
+      }
+    },
+    {
+      "case_id": "TEMPORAL_SHIFT-31",
+      "regime_id": "temporal_shift",
+      "sampling_stratum": "tail_enriched",
+      "proposal_stratum_probability": 0.25,
+      "target_stratum_probability": 0.03,
+      "forecast_origin_hour": 0,
+      "forecast_horizon_hours": 72,
+      "evaluator": {
+        "qualification_state": "qualified",
+        "observed_normalized_service_deficit_hours": 38
+      },
+      "candidate_output": {
+        "action": "forecast",
+        "predicted_exceedance_probability": 0.27,
+        "gpd_scale": 18,
+        "gpd_shape": 0.05,
+        "abstention_reason": null
+      }
+    },
+    {
+      "case_id": "TEMPORAL_SHIFT-32",
+      "regime_id": "temporal_shift",
+      "sampling_stratum": "tail_enriched",
+      "proposal_stratum_probability": 0.25,
+      "target_stratum_probability": 0.03,
+      "forecast_origin_hour": 0,
+      "forecast_horizon_hours": 72,
+      "evaluator": {
+        "qualification_state": "model_uncertainty",
+        "observed_normalized_service_deficit_hours": 143
+      },
+      "candidate_output": {
+        "action": "abstain",
+        "predicted_exceedance_probability": null,
+        "gpd_scale": null,
+        "gpd_shape": null,
+        "abstention_reason": "model_uncertainty"
+      }
+    },
+    {
+      "case_id": "STRUCTURAL_DEPENDENCY_SHIFT-01",
+      "regime_id": "structural_dependency_shift",
+      "sampling_stratum": "routine",
+      "proposal_stratum_probability": 0.75,
+      "target_stratum_probability": 0.97,
+      "forecast_origin_hour": 0,
+      "forecast_horizon_hours": 72,
+      "evaluator": {
+        "qualification_state": "qualified",
+        "observed_normalized_service_deficit_hours": 35
+      },
+      "candidate_output": {
+        "action": "forecast",
+        "predicted_exceedance_probability": 0.055,
+        "gpd_scale": 22,
+        "gpd_shape": 0.08,
+        "abstention_reason": null
+      }
+    },
+    {
+      "case_id": "STRUCTURAL_DEPENDENCY_SHIFT-02",
+      "regime_id": "structural_dependency_shift",
+      "sampling_stratum": "routine",
+      "proposal_stratum_probability": 0.75,
+      "target_stratum_probability": 0.97,
+      "forecast_origin_hour": 0,
+      "forecast_horizon_hours": 72,
+      "evaluator": {
+        "qualification_state": "qualified",
+        "observed_normalized_service_deficit_hours": 14
+      },
+      "candidate_output": {
+        "action": "forecast",
+        "predicted_exceedance_probability": 0.063,
+        "gpd_scale": 22,
+        "gpd_shape": 0.08,
+        "abstention_reason": null
+      }
+    },
+    {
+      "case_id": "STRUCTURAL_DEPENDENCY_SHIFT-03",
+      "regime_id": "structural_dependency_shift",
+      "sampling_stratum": "routine",
+      "proposal_stratum_probability": 0.75,
+      "target_stratum_probability": 0.97,
+      "forecast_origin_hour": 0,
+      "forecast_horizon_hours": 72,
+      "evaluator": {
+        "qualification_state": "qualified",
+        "observed_normalized_service_deficit_hours": 27
+      },
+      "candidate_output": {
+        "action": "forecast",
+        "predicted_exceedance_probability": 0.071,
+        "gpd_scale": 22,
+        "gpd_shape": 0.08,
+        "abstention_reason": null
+      }
+    },
+    {
+      "case_id": "STRUCTURAL_DEPENDENCY_SHIFT-04",
+      "regime_id": "structural_dependency_shift",
+      "sampling_stratum": "routine",
+      "proposal_stratum_probability": 0.75,
+      "target_stratum_probability": 0.97,
+      "forecast_origin_hour": 0,
+      "forecast_horizon_hours": 72,
+      "evaluator": {
+        "qualification_state": "qualified",
+        "observed_normalized_service_deficit_hours": 78
+      },
+      "candidate_output": {
+        "action": "forecast",
+        "predicted_exceedance_probability": 0.079,
+        "gpd_scale": 22,
+        "gpd_shape": 0.08,
+        "abstention_reason": null
+      }
+    },
+    {
+      "case_id": "STRUCTURAL_DEPENDENCY_SHIFT-05",
+      "regime_id": "structural_dependency_shift",
+      "sampling_stratum": "routine",
+      "proposal_stratum_probability": 0.75,
+      "target_stratum_probability": 0.97,
+      "forecast_origin_hour": 0,
+      "forecast_horizon_hours": 72,
+      "evaluator": {
+        "qualification_state": "qualified",
+        "observed_normalized_service_deficit_hours": 19
+      },
+      "candidate_output": {
+        "action": "forecast",
+        "predicted_exceedance_probability": 0.087,
+        "gpd_scale": 22,
+        "gpd_shape": 0.08,
+        "abstention_reason": null
+      }
+    },
+    {
+      "case_id": "STRUCTURAL_DEPENDENCY_SHIFT-06",
+      "regime_id": "structural_dependency_shift",
+      "sampling_stratum": "routine",
+      "proposal_stratum_probability": 0.75,
+      "target_stratum_probability": 0.97,
+      "forecast_origin_hour": 0,
+      "forecast_horizon_hours": 72,
+      "evaluator": {
+        "qualification_state": "qualified",
+        "observed_normalized_service_deficit_hours": 32
+      },
+      "candidate_output": {
+        "action": "forecast",
+        "predicted_exceedance_probability": 0.095,
+        "gpd_scale": 22,
+        "gpd_shape": 0.08,
+        "abstention_reason": null
+      }
+    },
+    {
+      "case_id": "STRUCTURAL_DEPENDENCY_SHIFT-07",
+      "regime_id": "structural_dependency_shift",
+      "sampling_stratum": "routine",
+      "proposal_stratum_probability": 0.75,
+      "target_stratum_probability": 0.97,
+      "forecast_origin_hour": 0,
+      "forecast_horizon_hours": 72,
+      "evaluator": {
+        "qualification_state": "qualified",
+        "observed_normalized_service_deficit_hours": 11
+      },
+      "candidate_output": {
+        "action": "forecast",
+        "predicted_exceedance_probability": 0.055,
+        "gpd_scale": 22,
+        "gpd_shape": 0.08,
+        "abstention_reason": null
+      }
+    },
+    {
+      "case_id": "STRUCTURAL_DEPENDENCY_SHIFT-08",
+      "regime_id": "structural_dependency_shift",
+      "sampling_stratum": "routine",
+      "proposal_stratum_probability": 0.75,
+      "target_stratum_probability": 0.97,
+      "forecast_origin_hour": 0,
+      "forecast_horizon_hours": 72,
+      "evaluator": {
+        "qualification_state": "qualified",
+        "observed_normalized_service_deficit_hours": 24
+      },
+      "candidate_output": {
+        "action": "forecast",
+        "predicted_exceedance_probability": 0.063,
+        "gpd_scale": 22,
+        "gpd_shape": 0.08,
+        "abstention_reason": null
+      }
+    },
+    {
+      "case_id": "STRUCTURAL_DEPENDENCY_SHIFT-09",
+      "regime_id": "structural_dependency_shift",
+      "sampling_stratum": "routine",
+      "proposal_stratum_probability": 0.75,
+      "target_stratum_probability": 0.97,
+      "forecast_origin_hour": 0,
+      "forecast_horizon_hours": 72,
+      "evaluator": {
+        "qualification_state": "qualified",
+        "observed_normalized_service_deficit_hours": 37
+      },
+      "candidate_output": {
+        "action": "forecast",
+        "predicted_exceedance_probability": 0.071,
+        "gpd_scale": 22,
+        "gpd_shape": 0.08,
+        "abstention_reason": null
+      }
+    },
+    {
+      "case_id": "STRUCTURAL_DEPENDENCY_SHIFT-10",
+      "regime_id": "structural_dependency_shift",
+      "sampling_stratum": "routine",
+      "proposal_stratum_probability": 0.75,
+      "target_stratum_probability": 0.97,
+      "forecast_origin_hour": 0,
+      "forecast_horizon_hours": 72,
+      "evaluator": {
+        "qualification_state": "qualified",
+        "observed_normalized_service_deficit_hours": 96
+      },
+      "candidate_output": {
+        "action": "forecast",
+        "predicted_exceedance_probability": 0.079,
+        "gpd_scale": 22,
+        "gpd_shape": 0.08,
+        "abstention_reason": null
+      }
+    },
+    {
+      "case_id": "STRUCTURAL_DEPENDENCY_SHIFT-11",
+      "regime_id": "structural_dependency_shift",
+      "sampling_stratum": "routine",
+      "proposal_stratum_probability": 0.75,
+      "target_stratum_probability": 0.97,
+      "forecast_origin_hour": 0,
+      "forecast_horizon_hours": 72,
+      "evaluator": {
+        "qualification_state": "qualified",
+        "observed_normalized_service_deficit_hours": 29
+      },
+      "candidate_output": {
+        "action": "forecast",
+        "predicted_exceedance_probability": 0.087,
+        "gpd_scale": 22,
+        "gpd_shape": 0.08,
+        "abstention_reason": null
+      }
+    },
+    {
+      "case_id": "STRUCTURAL_DEPENDENCY_SHIFT-12",
+      "regime_id": "structural_dependency_shift",
+      "sampling_stratum": "routine",
+      "proposal_stratum_probability": 0.75,
+      "target_stratum_probability": 0.97,
+      "forecast_origin_hour": 0,
+      "forecast_horizon_hours": 72,
+      "evaluator": {
+        "qualification_state": "qualified",
+        "observed_normalized_service_deficit_hours": 8
+      },
+      "candidate_output": {
+        "action": "forecast",
+        "predicted_exceedance_probability": 0.095,
+        "gpd_scale": 22,
+        "gpd_shape": 0.08,
+        "abstention_reason": null
+      }
+    },
+    {
+      "case_id": "STRUCTURAL_DEPENDENCY_SHIFT-13",
+      "regime_id": "structural_dependency_shift",
+      "sampling_stratum": "routine",
+      "proposal_stratum_probability": 0.75,
+      "target_stratum_probability": 0.97,
+      "forecast_origin_hour": 0,
+      "forecast_horizon_hours": 72,
+      "evaluator": {
+        "qualification_state": "qualified",
+        "observed_normalized_service_deficit_hours": 21
+      },
+      "candidate_output": {
+        "action": "forecast",
+        "predicted_exceedance_probability": 0.055,
+        "gpd_scale": 22,
+        "gpd_shape": 0.08,
+        "abstention_reason": null
+      }
+    },
+    {
+      "case_id": "STRUCTURAL_DEPENDENCY_SHIFT-14",
+      "regime_id": "structural_dependency_shift",
+      "sampling_stratum": "routine",
+      "proposal_stratum_probability": 0.75,
+      "target_stratum_probability": 0.97,
+      "forecast_origin_hour": 0,
+      "forecast_horizon_hours": 72,
+      "evaluator": {
+        "qualification_state": "qualified",
+        "observed_normalized_service_deficit_hours": 34
+      },
+      "candidate_output": {
+        "action": "forecast",
+        "predicted_exceedance_probability": 0.063,
+        "gpd_scale": 22,
+        "gpd_shape": 0.08,
+        "abstention_reason": null
+      }
+    },
+    {
+      "case_id": "STRUCTURAL_DEPENDENCY_SHIFT-15",
+      "regime_id": "structural_dependency_shift",
+      "sampling_stratum": "routine",
+      "proposal_stratum_probability": 0.75,
+      "target_stratum_probability": 0.97,
+      "forecast_origin_hour": 0,
+      "forecast_horizon_hours": 72,
+      "evaluator": {
+        "qualification_state": "qualified",
+        "observed_normalized_service_deficit_hours": 13
+      },
+      "candidate_output": {
+        "action": "forecast",
+        "predicted_exceedance_probability": 0.071,
+        "gpd_scale": 22,
+        "gpd_shape": 0.08,
+        "abstention_reason": null
+      }
+    },
+    {
+      "case_id": "STRUCTURAL_DEPENDENCY_SHIFT-16",
+      "regime_id": "structural_dependency_shift",
+      "sampling_stratum": "routine",
+      "proposal_stratum_probability": 0.75,
+      "target_stratum_probability": 0.97,
+      "forecast_origin_hour": 0,
+      "forecast_horizon_hours": 72,
+      "evaluator": {
+        "qualification_state": "qualified",
+        "observed_normalized_service_deficit_hours": 26
+      },
+      "candidate_output": {
+        "action": "forecast",
+        "predicted_exceedance_probability": 0.079,
+        "gpd_scale": 22,
+        "gpd_shape": 0.08,
+        "abstention_reason": null
+      }
+    },
+    {
+      "case_id": "STRUCTURAL_DEPENDENCY_SHIFT-17",
+      "regime_id": "structural_dependency_shift",
+      "sampling_stratum": "routine",
+      "proposal_stratum_probability": 0.75,
+      "target_stratum_probability": 0.97,
+      "forecast_origin_hour": 0,
+      "forecast_horizon_hours": 72,
+      "evaluator": {
+        "qualification_state": "qualified",
+        "observed_normalized_service_deficit_hours": 39
+      },
+      "candidate_output": {
+        "action": "forecast",
+        "predicted_exceedance_probability": 0.087,
+        "gpd_scale": 22,
+        "gpd_shape": 0.08,
+        "abstention_reason": null
+      }
+    },
+    {
+      "case_id": "STRUCTURAL_DEPENDENCY_SHIFT-18",
+      "regime_id": "structural_dependency_shift",
+      "sampling_stratum": "routine",
+      "proposal_stratum_probability": 0.75,
+      "target_stratum_probability": 0.97,
+      "forecast_origin_hour": 0,
+      "forecast_horizon_hours": 72,
+      "evaluator": {
+        "qualification_state": "qualified",
+        "observed_normalized_service_deficit_hours": 18
+      },
+      "candidate_output": {
+        "action": "forecast",
+        "predicted_exceedance_probability": 0.095,
+        "gpd_scale": 22,
+        "gpd_shape": 0.08,
+        "abstention_reason": null
+      }
+    },
+    {
+      "case_id": "STRUCTURAL_DEPENDENCY_SHIFT-19",
+      "regime_id": "structural_dependency_shift",
+      "sampling_stratum": "routine",
+      "proposal_stratum_probability": 0.75,
+      "target_stratum_probability": 0.97,
+      "forecast_origin_hour": 0,
+      "forecast_horizon_hours": 72,
+      "evaluator": {
+        "qualification_state": "qualified",
+        "observed_normalized_service_deficit_hours": 116
+      },
+      "candidate_output": {
+        "action": "forecast",
+        "predicted_exceedance_probability": 0.055,
+        "gpd_scale": 22,
+        "gpd_shape": 0.08,
+        "abstention_reason": null
+      }
+    },
+    {
+      "case_id": "STRUCTURAL_DEPENDENCY_SHIFT-20",
+      "regime_id": "structural_dependency_shift",
+      "sampling_stratum": "routine",
+      "proposal_stratum_probability": 0.75,
+      "target_stratum_probability": 0.97,
+      "forecast_origin_hour": 0,
+      "forecast_horizon_hours": 72,
+      "evaluator": {
+        "qualification_state": "qualified",
+        "observed_normalized_service_deficit_hours": 10
+      },
+      "candidate_output": {
+        "action": "forecast",
+        "predicted_exceedance_probability": 0.063,
+        "gpd_scale": 22,
+        "gpd_shape": 0.08,
+        "abstention_reason": null
+      }
+    },
+    {
+      "case_id": "STRUCTURAL_DEPENDENCY_SHIFT-21",
+      "regime_id": "structural_dependency_shift",
+      "sampling_stratum": "routine",
+      "proposal_stratum_probability": 0.75,
+      "target_stratum_probability": 0.97,
+      "forecast_origin_hour": 0,
+      "forecast_horizon_hours": 72,
+      "evaluator": {
+        "qualification_state": "qualified",
+        "observed_normalized_service_deficit_hours": 23
+      },
+      "candidate_output": {
+        "action": "forecast",
+        "predicted_exceedance_probability": 0.071,
+        "gpd_scale": 22,
+        "gpd_shape": 0.08,
+        "abstention_reason": null
+      }
+    },
+    {
+      "case_id": "STRUCTURAL_DEPENDENCY_SHIFT-22",
+      "regime_id": "structural_dependency_shift",
+      "sampling_stratum": "routine",
+      "proposal_stratum_probability": 0.75,
+      "target_stratum_probability": 0.97,
+      "forecast_origin_hour": 0,
+      "forecast_horizon_hours": 72,
+      "evaluator": {
+        "qualification_state": "qualified",
+        "observed_normalized_service_deficit_hours": 36
+      },
+      "candidate_output": {
+        "action": "forecast",
+        "predicted_exceedance_probability": 0.079,
+        "gpd_scale": 22,
+        "gpd_shape": 0.08,
+        "abstention_reason": null
+      }
+    },
+    {
+      "case_id": "STRUCTURAL_DEPENDENCY_SHIFT-23",
+      "regime_id": "structural_dependency_shift",
+      "sampling_stratum": "routine",
+      "proposal_stratum_probability": 0.75,
+      "target_stratum_probability": 0.97,
+      "forecast_origin_hour": 0,
+      "forecast_horizon_hours": 72,
+      "evaluator": {
+        "qualification_state": "qualified",
+        "observed_normalized_service_deficit_hours": 15
+      },
+      "candidate_output": {
+        "action": "forecast",
+        "predicted_exceedance_probability": 0.087,
+        "gpd_scale": 22,
+        "gpd_shape": 0.08,
+        "abstention_reason": null
+      }
+    },
+    {
+      "case_id": "STRUCTURAL_DEPENDENCY_SHIFT-24",
+      "regime_id": "structural_dependency_shift",
+      "sampling_stratum": "routine",
+      "proposal_stratum_probability": 0.75,
+      "target_stratum_probability": 0.97,
+      "forecast_origin_hour": 0,
+      "forecast_horizon_hours": 72,
+      "evaluator": {
+        "qualification_state": "qualified",
+        "observed_normalized_service_deficit_hours": 28
+      },
+      "candidate_output": {
+        "action": "forecast",
+        "predicted_exceedance_probability": 0.095,
+        "gpd_scale": 22,
+        "gpd_shape": 0.08,
+        "abstention_reason": null
+      }
+    },
+    {
+      "case_id": "STRUCTURAL_DEPENDENCY_SHIFT-25",
+      "regime_id": "structural_dependency_shift",
+      "sampling_stratum": "tail_enriched",
+      "proposal_stratum_probability": 0.25,
+      "target_stratum_probability": 0.03,
+      "forecast_origin_hour": 0,
+      "forecast_horizon_hours": 72,
+      "evaluator": {
+        "qualification_state": "qualified",
+        "observed_normalized_service_deficit_hours": 76
+      },
+      "candidate_output": {
+        "action": "forecast",
+        "predicted_exceedance_probability": 0.18,
+        "gpd_scale": 22,
+        "gpd_shape": 0.08,
+        "abstention_reason": null
+      }
+    },
+    {
+      "case_id": "STRUCTURAL_DEPENDENCY_SHIFT-26",
+      "regime_id": "structural_dependency_shift",
+      "sampling_stratum": "tail_enriched",
+      "proposal_stratum_probability": 0.25,
+      "target_stratum_probability": 0.03,
+      "forecast_origin_hour": 0,
+      "forecast_horizon_hours": 72,
+      "evaluator": {
+        "qualification_state": "qualified",
+        "observed_normalized_service_deficit_hours": 103
+      },
+      "candidate_output": {
+        "action": "forecast",
+        "predicted_exceedance_probability": 0.24,
+        "gpd_scale": 22,
+        "gpd_shape": 0.08,
+        "abstention_reason": null
+      }
+    },
+    {
+      "case_id": "STRUCTURAL_DEPENDENCY_SHIFT-27",
+      "regime_id": "structural_dependency_shift",
+      "sampling_stratum": "tail_enriched",
+      "proposal_stratum_probability": 0.25,
+      "target_stratum_probability": 0.03,
+      "forecast_origin_hour": 0,
+      "forecast_horizon_hours": 72,
+      "evaluator": {
+        "qualification_state": "qualified",
+        "observed_normalized_service_deficit_hours": 130
+      },
+      "candidate_output": {
+        "action": "forecast",
+        "predicted_exceedance_probability": 0.3,
+        "gpd_scale": 22,
+        "gpd_shape": 0.08,
+        "abstention_reason": null
+      }
+    },
+    {
+      "case_id": "STRUCTURAL_DEPENDENCY_SHIFT-28",
+      "regime_id": "structural_dependency_shift",
+      "sampling_stratum": "tail_enriched",
+      "proposal_stratum_probability": 0.25,
+      "target_stratum_probability": 0.03,
+      "forecast_origin_hour": 0,
+      "forecast_horizon_hours": 72,
+      "evaluator": {
+        "qualification_state": "qualified",
+        "observed_normalized_service_deficit_hours": 12
+      },
+      "candidate_output": {
+        "action": "forecast",
+        "predicted_exceedance_probability": 0.36,
+        "gpd_scale": 22,
+        "gpd_shape": 0.08,
+        "abstention_reason": null
+      }
+    },
+    {
+      "case_id": "STRUCTURAL_DEPENDENCY_SHIFT-29",
+      "regime_id": "structural_dependency_shift",
+      "sampling_stratum": "tail_enriched",
+      "proposal_stratum_probability": 0.25,
+      "target_stratum_probability": 0.03,
+      "forecast_origin_hour": 0,
+      "forecast_horizon_hours": 72,
+      "evaluator": {
+        "qualification_state": "qualified",
+        "observed_normalized_service_deficit_hours": 158
+      },
+      "candidate_output": {
+        "action": "forecast",
+        "predicted_exceedance_probability": 0.18,
+        "gpd_scale": 22,
+        "gpd_shape": 0.08,
+        "abstention_reason": null
+      }
+    },
+    {
+      "case_id": "STRUCTURAL_DEPENDENCY_SHIFT-30",
+      "regime_id": "structural_dependency_shift",
+      "sampling_stratum": "tail_enriched",
+      "proposal_stratum_probability": 0.25,
+      "target_stratum_probability": 0.03,
+      "forecast_origin_hour": 0,
+      "forecast_horizon_hours": 72,
+      "evaluator": {
+        "qualification_state": "qualified",
+        "observed_normalized_service_deficit_hours": 183
+      },
+      "candidate_output": {
+        "action": "forecast",
+        "predicted_exceedance_probability": 0.24,
+        "gpd_scale": 22,
+        "gpd_shape": 0.08,
+        "abstention_reason": null
+      }
+    },
+    {
+      "case_id": "STRUCTURAL_DEPENDENCY_SHIFT-31",
+      "regime_id": "structural_dependency_shift",
+      "sampling_stratum": "tail_enriched",
+      "proposal_stratum_probability": 0.25,
+      "target_stratum_probability": 0.03,
+      "forecast_origin_hour": 0,
+      "forecast_horizon_hours": 72,
+      "evaluator": {
+        "qualification_state": "qualified",
+        "observed_normalized_service_deficit_hours": 17
+      },
+      "candidate_output": {
+        "action": "forecast",
+        "predicted_exceedance_probability": 0.3,
+        "gpd_scale": 22,
+        "gpd_shape": 0.08,
+        "abstention_reason": null
+      }
+    },
+    {
+      "case_id": "STRUCTURAL_DEPENDENCY_SHIFT-32",
+      "regime_id": "structural_dependency_shift",
+      "sampling_stratum": "tail_enriched",
+      "proposal_stratum_probability": 0.25,
+      "target_stratum_probability": 0.03,
+      "forecast_origin_hour": 0,
+      "forecast_horizon_hours": 72,
+      "evaluator": {
+        "qualification_state": "qualified",
+        "observed_normalized_service_deficit_hours": 213
+      },
+      "candidate_output": {
+        "action": "forecast",
+        "predicted_exceedance_probability": 0.36,
+        "gpd_scale": 22,
+        "gpd_shape": 0.08,
+        "abstention_reason": null
+      }
+    },
+    {
+      "case_id": "EVIDENCE_DEGRADATION-01",
+      "regime_id": "evidence_degradation",
+      "sampling_stratum": "routine",
+      "proposal_stratum_probability": 0.75,
+      "target_stratum_probability": 0.97,
+      "forecast_origin_hour": 0,
+      "forecast_horizon_hours": 72,
+      "evaluator": {
+        "qualification_state": "qualified",
+        "observed_normalized_service_deficit_hours": 28
+      },
+      "candidate_output": {
+        "action": "forecast",
+        "predicted_exceedance_probability": 0.03,
+        "gpd_scale": 20,
+        "gpd_shape": 0.1,
+        "abstention_reason": null
+      }
+    },
+    {
+      "case_id": "EVIDENCE_DEGRADATION-02",
+      "regime_id": "evidence_degradation",
+      "sampling_stratum": "routine",
+      "proposal_stratum_probability": 0.75,
+      "target_stratum_probability": 0.97,
+      "forecast_origin_hour": 0,
+      "forecast_horizon_hours": 72,
+      "evaluator": {
+        "qualification_state": "missing_critical_input",
+        "observed_normalized_service_deficit_hours": 41
+      },
+      "candidate_output": {
+        "action": "abstain",
+        "predicted_exceedance_probability": null,
+        "gpd_scale": null,
+        "gpd_shape": null,
+        "abstention_reason": "missing_critical_input"
+      }
+    },
+    {
+      "case_id": "EVIDENCE_DEGRADATION-03",
+      "regime_id": "evidence_degradation",
+      "sampling_stratum": "routine",
+      "proposal_stratum_probability": 0.75,
+      "target_stratum_probability": 0.97,
+      "forecast_origin_hour": 0,
+      "forecast_horizon_hours": 72,
+      "evaluator": {
+        "qualification_state": "qualified",
+        "observed_normalized_service_deficit_hours": 20
+      },
+      "candidate_output": {
+        "action": "forecast",
+        "predicted_exceedance_probability": 0.046,
+        "gpd_scale": 20,
+        "gpd_shape": 0.1,
+        "abstention_reason": null
+      }
+    },
+    {
+      "case_id": "EVIDENCE_DEGRADATION-04",
+      "regime_id": "evidence_degradation",
+      "sampling_stratum": "routine",
+      "proposal_stratum_probability": 0.75,
+      "target_stratum_probability": 0.97,
+      "forecast_origin_hour": 0,
+      "forecast_horizon_hours": 72,
+      "evaluator": {
+        "qualification_state": "qualified",
+        "observed_normalized_service_deficit_hours": 33
+      },
+      "candidate_output": {
+        "action": "forecast",
+        "predicted_exceedance_probability": 0.054,
+        "gpd_scale": 20,
+        "gpd_shape": 0.1,
+        "abstention_reason": null
+      }
+    },
+    {
+      "case_id": "EVIDENCE_DEGRADATION-05",
+      "regime_id": "evidence_degradation",
+      "sampling_stratum": "routine",
+      "proposal_stratum_probability": 0.75,
+      "target_stratum_probability": 0.97,
+      "forecast_origin_hour": 0,
+      "forecast_horizon_hours": 72,
+      "evaluator": {
+        "qualification_state": "qualified",
+        "observed_normalized_service_deficit_hours": 12
+      },
+      "candidate_output": {
+        "action": "forecast",
+        "predicted_exceedance_probability": 0.062,
+        "gpd_scale": 20,
+        "gpd_shape": 0.1,
+        "abstention_reason": null
+      }
+    },
+    {
+      "case_id": "EVIDENCE_DEGRADATION-06",
+      "regime_id": "evidence_degradation",
+      "sampling_stratum": "routine",
+      "proposal_stratum_probability": 0.75,
+      "target_stratum_probability": 0.97,
+      "forecast_origin_hour": 0,
+      "forecast_horizon_hours": 72,
+      "evaluator": {
+        "qualification_state": "qualified",
+        "observed_normalized_service_deficit_hours": 25
+      },
+      "candidate_output": {
+        "action": "forecast",
+        "predicted_exceedance_probability": 0.07,
+        "gpd_scale": 20,
+        "gpd_shape": 0.1,
+        "abstention_reason": null
+      }
+    },
+    {
+      "case_id": "EVIDENCE_DEGRADATION-07",
+      "regime_id": "evidence_degradation",
+      "sampling_stratum": "routine",
+      "proposal_stratum_probability": 0.75,
+      "target_stratum_probability": 0.97,
+      "forecast_origin_hour": 0,
+      "forecast_horizon_hours": 72,
+      "evaluator": {
+        "qualification_state": "qualified",
+        "observed_normalized_service_deficit_hours": 38
+      },
+      "candidate_output": {
+        "action": "forecast",
+        "predicted_exceedance_probability": 0.03,
+        "gpd_scale": 20,
+        "gpd_shape": 0.1,
+        "abstention_reason": null
+      }
+    },
+    {
+      "case_id": "EVIDENCE_DEGRADATION-08",
+      "regime_id": "evidence_degradation",
+      "sampling_stratum": "routine",
+      "proposal_stratum_probability": 0.75,
+      "target_stratum_probability": 0.97,
+      "forecast_origin_hour": 0,
+      "forecast_horizon_hours": 72,
+      "evaluator": {
+        "qualification_state": "qualified",
+        "observed_normalized_service_deficit_hours": 17
+      },
+      "candidate_output": {
+        "action": "forecast",
+        "predicted_exceedance_probability": 0.038,
+        "gpd_scale": 20,
+        "gpd_shape": 0.1,
+        "abstention_reason": null
+      }
+    },
+    {
+      "case_id": "EVIDENCE_DEGRADATION-09",
+      "regime_id": "evidence_degradation",
+      "sampling_stratum": "routine",
+      "proposal_stratum_probability": 0.75,
+      "target_stratum_probability": 0.97,
+      "forecast_origin_hour": 0,
+      "forecast_horizon_hours": 72,
+      "evaluator": {
+        "qualification_state": "qualified",
+        "observed_normalized_service_deficit_hours": 30
+      },
+      "candidate_output": {
+        "action": "forecast",
+        "predicted_exceedance_probability": 0.046,
+        "gpd_scale": 20,
+        "gpd_shape": 0.1,
+        "abstention_reason": null
+      }
+    },
+    {
+      "case_id": "EVIDENCE_DEGRADATION-10",
+      "regime_id": "evidence_degradation",
+      "sampling_stratum": "routine",
+      "proposal_stratum_probability": 0.75,
+      "target_stratum_probability": 0.97,
+      "forecast_origin_hour": 0,
+      "forecast_horizon_hours": 72,
+      "evaluator": {
+        "qualification_state": "qualified",
+        "observed_normalized_service_deficit_hours": 9
+      },
+      "candidate_output": {
+        "action": "forecast",
+        "predicted_exceedance_probability": 0.054,
+        "gpd_scale": 20,
+        "gpd_shape": 0.1,
+        "abstention_reason": null
+      }
+    },
+    {
+      "case_id": "EVIDENCE_DEGRADATION-11",
+      "regime_id": "evidence_degradation",
+      "sampling_stratum": "routine",
+      "proposal_stratum_probability": 0.75,
+      "target_stratum_probability": 0.97,
+      "forecast_origin_hour": 0,
+      "forecast_horizon_hours": 72,
+      "evaluator": {
+        "qualification_state": "qualified",
+        "observed_normalized_service_deficit_hours": 22
+      },
+      "candidate_output": {
+        "action": "forecast",
+        "predicted_exceedance_probability": 0.062,
+        "gpd_scale": 20,
+        "gpd_shape": 0.1,
+        "abstention_reason": null
+      }
+    },
+    {
+      "case_id": "EVIDENCE_DEGRADATION-12",
+      "regime_id": "evidence_degradation",
+      "sampling_stratum": "routine",
+      "proposal_stratum_probability": 0.75,
+      "target_stratum_probability": 0.97,
+      "forecast_origin_hour": 0,
+      "forecast_horizon_hours": 72,
+      "evaluator": {
+        "qualification_state": "qualified",
+        "observed_normalized_service_deficit_hours": 35
+      },
+      "candidate_output": {
+        "action": "forecast",
+        "predicted_exceedance_probability": 0.07,
+        "gpd_scale": 20,
+        "gpd_shape": 0.1,
+        "abstention_reason": null
+      }
+    },
+    {
+      "case_id": "EVIDENCE_DEGRADATION-13",
+      "regime_id": "evidence_degradation",
+      "sampling_stratum": "routine",
+      "proposal_stratum_probability": 0.75,
+      "target_stratum_probability": 0.97,
+      "forecast_origin_hour": 0,
+      "forecast_horizon_hours": 72,
+      "evaluator": {
+        "qualification_state": "qualified",
+        "observed_normalized_service_deficit_hours": 14
+      },
+      "candidate_output": {
+        "action": "forecast",
+        "predicted_exceedance_probability": 0.03,
+        "gpd_scale": 20,
+        "gpd_shape": 0.1,
+        "abstention_reason": null
+      }
+    },
+    {
+      "case_id": "EVIDENCE_DEGRADATION-14",
+      "regime_id": "evidence_degradation",
+      "sampling_stratum": "routine",
+      "proposal_stratum_probability": 0.75,
+      "target_stratum_probability": 0.97,
+      "forecast_origin_hour": 0,
+      "forecast_horizon_hours": 72,
+      "evaluator": {
+        "qualification_state": "qualified",
+        "observed_normalized_service_deficit_hours": 27
+      },
+      "candidate_output": {
+        "action": "forecast",
+        "predicted_exceedance_probability": 0.038,
+        "gpd_scale": 20,
+        "gpd_shape": 0.1,
+        "abstention_reason": null
+      }
+    },
+    {
+      "case_id": "EVIDENCE_DEGRADATION-15",
+      "regime_id": "evidence_degradation",
+      "sampling_stratum": "routine",
+      "proposal_stratum_probability": 0.75,
+      "target_stratum_probability": 0.97,
+      "forecast_origin_hour": 0,
+      "forecast_horizon_hours": 72,
+      "evaluator": {
+        "qualification_state": "qualified",
+        "observed_normalized_service_deficit_hours": 40
+      },
+      "candidate_output": {
+        "action": "forecast",
+        "predicted_exceedance_probability": 0.046,
+        "gpd_scale": 20,
+        "gpd_shape": 0.1,
+        "abstention_reason": null
+      }
+    },
+    {
+      "case_id": "EVIDENCE_DEGRADATION-16",
+      "regime_id": "evidence_degradation",
+      "sampling_stratum": "routine",
+      "proposal_stratum_probability": 0.75,
+      "target_stratum_probability": 0.97,
+      "forecast_origin_hour": 0,
+      "forecast_horizon_hours": 72,
+      "evaluator": {
+        "qualification_state": "qualified",
+        "observed_normalized_service_deficit_hours": 19
+      },
+      "candidate_output": {
+        "action": "forecast",
+        "predicted_exceedance_probability": 0.054,
+        "gpd_scale": 20,
+        "gpd_shape": 0.1,
+        "abstention_reason": null
+      }
+    },
+    {
+      "case_id": "EVIDENCE_DEGRADATION-17",
+      "regime_id": "evidence_degradation",
+      "sampling_stratum": "routine",
+      "proposal_stratum_probability": 0.75,
+      "target_stratum_probability": 0.97,
+      "forecast_origin_hour": 0,
+      "forecast_horizon_hours": 72,
+      "evaluator": {
+        "qualification_state": "qualified",
+        "observed_normalized_service_deficit_hours": 63
+      },
+      "candidate_output": {
+        "action": "forecast",
+        "predicted_exceedance_probability": 0.062,
+        "gpd_scale": 20,
+        "gpd_shape": 0.1,
+        "abstention_reason": null
+      }
+    },
+    {
+      "case_id": "EVIDENCE_DEGRADATION-18",
+      "regime_id": "evidence_degradation",
+      "sampling_stratum": "routine",
+      "proposal_stratum_probability": 0.75,
+      "target_stratum_probability": 0.97,
+      "forecast_origin_hour": 0,
+      "forecast_horizon_hours": 72,
+      "evaluator": {
+        "qualification_state": "conflicting_sources",
+        "observed_normalized_service_deficit_hours": 11
+      },
+      "candidate_output": {
+        "action": "abstain",
+        "predicted_exceedance_probability": null,
+        "gpd_scale": null,
+        "gpd_shape": null,
+        "abstention_reason": "conflicting_sources"
+      }
+    },
+    {
+      "case_id": "EVIDENCE_DEGRADATION-19",
+      "regime_id": "evidence_degradation",
+      "sampling_stratum": "routine",
+      "proposal_stratum_probability": 0.75,
+      "target_stratum_probability": 0.97,
+      "forecast_origin_hour": 0,
+      "forecast_horizon_hours": 72,
+      "evaluator": {
+        "qualification_state": "qualified",
+        "observed_normalized_service_deficit_hours": 24
+      },
+      "candidate_output": {
+        "action": "forecast",
+        "predicted_exceedance_probability": 0.03,
+        "gpd_scale": 20,
+        "gpd_shape": 0.1,
+        "abstention_reason": null
+      }
+    },
+    {
+      "case_id": "EVIDENCE_DEGRADATION-20",
+      "regime_id": "evidence_degradation",
+      "sampling_stratum": "routine",
+      "proposal_stratum_probability": 0.75,
+      "target_stratum_probability": 0.97,
+      "forecast_origin_hour": 0,
+      "forecast_horizon_hours": 72,
+      "evaluator": {
+        "qualification_state": "qualified",
+        "observed_normalized_service_deficit_hours": 37
+      },
+      "candidate_output": {
+        "action": "forecast",
+        "predicted_exceedance_probability": 0.038,
+        "gpd_scale": 20,
+        "gpd_shape": 0.1,
+        "abstention_reason": null
+      }
+    },
+    {
+      "case_id": "EVIDENCE_DEGRADATION-21",
+      "regime_id": "evidence_degradation",
+      "sampling_stratum": "routine",
+      "proposal_stratum_probability": 0.75,
+      "target_stratum_probability": 0.97,
+      "forecast_origin_hour": 0,
+      "forecast_horizon_hours": 72,
+      "evaluator": {
+        "qualification_state": "qualified",
+        "observed_normalized_service_deficit_hours": 16
+      },
+      "candidate_output": {
+        "action": "forecast",
+        "predicted_exceedance_probability": 0.046,
+        "gpd_scale": 20,
+        "gpd_shape": 0.1,
+        "abstention_reason": null
+      }
+    },
+    {
+      "case_id": "EVIDENCE_DEGRADATION-22",
+      "regime_id": "evidence_degradation",
+      "sampling_stratum": "routine",
+      "proposal_stratum_probability": 0.75,
+      "target_stratum_probability": 0.97,
+      "forecast_origin_hour": 0,
+      "forecast_horizon_hours": 72,
+      "evaluator": {
+        "qualification_state": "qualified",
+        "observed_normalized_service_deficit_hours": 29
+      },
+      "candidate_output": {
+        "action": "forecast",
+        "predicted_exceedance_probability": 0.054,
+        "gpd_scale": 20,
+        "gpd_shape": 0.1,
+        "abstention_reason": null
+      }
+    },
+    {
+      "case_id": "EVIDENCE_DEGRADATION-23",
+      "regime_id": "evidence_degradation",
+      "sampling_stratum": "routine",
+      "proposal_stratum_probability": 0.75,
+      "target_stratum_probability": 0.97,
+      "forecast_origin_hour": 0,
+      "forecast_horizon_hours": 72,
+      "evaluator": {
+        "qualification_state": "qualified",
+        "observed_normalized_service_deficit_hours": 8
+      },
+      "candidate_output": {
+        "action": "forecast",
+        "predicted_exceedance_probability": 0.062,
+        "gpd_scale": 20,
+        "gpd_shape": 0.1,
+        "abstention_reason": null
+      }
+    },
+    {
+      "case_id": "EVIDENCE_DEGRADATION-24",
+      "regime_id": "evidence_degradation",
+      "sampling_stratum": "routine",
+      "proposal_stratum_probability": 0.75,
+      "target_stratum_probability": 0.97,
+      "forecast_origin_hour": 0,
+      "forecast_horizon_hours": 72,
+      "evaluator": {
+        "qualification_state": "qualified",
+        "observed_normalized_service_deficit_hours": 21
+      },
+      "candidate_output": {
+        "action": "forecast",
+        "predicted_exceedance_probability": 0.07,
+        "gpd_scale": 20,
+        "gpd_shape": 0.1,
+        "abstention_reason": null
+      }
+    },
+    {
+      "case_id": "EVIDENCE_DEGRADATION-25",
+      "regime_id": "evidence_degradation",
+      "sampling_stratum": "tail_enriched",
+      "proposal_stratum_probability": 0.25,
+      "target_stratum_probability": 0.03,
+      "forecast_origin_hour": 0,
+      "forecast_horizon_hours": 72,
+      "evaluator": {
+        "qualification_state": "qualified",
+        "observed_normalized_service_deficit_hours": 68
+      },
+      "candidate_output": {
+        "action": "forecast",
+        "predicted_exceedance_probability": 0.1425,
+        "gpd_scale": 20,
+        "gpd_shape": 0.1,
+        "abstention_reason": null
+      }
+    },
+    {
+      "case_id": "EVIDENCE_DEGRADATION-26",
+      "regime_id": "evidence_degradation",
+      "sampling_stratum": "tail_enriched",
+      "proposal_stratum_probability": 0.25,
+      "target_stratum_probability": 0.03,
+      "forecast_origin_hour": 0,
+      "forecast_horizon_hours": 72,
+      "evaluator": {
+        "qualification_state": "missing_critical_input",
+        "observed_normalized_service_deficit_hours": 13
+      },
+      "candidate_output": {
+        "action": "abstain",
+        "predicted_exceedance_probability": null,
+        "gpd_scale": null,
+        "gpd_shape": null,
+        "abstention_reason": "missing_critical_input"
+      }
+    },
+    {
+      "case_id": "EVIDENCE_DEGRADATION-27",
+      "regime_id": "evidence_degradation",
+      "sampling_stratum": "tail_enriched",
+      "proposal_stratum_probability": 0.25,
+      "target_stratum_probability": 0.03,
+      "forecast_origin_hour": 0,
+      "forecast_horizon_hours": 72,
+      "evaluator": {
+        "qualification_state": "qualified",
+        "observed_normalized_service_deficit_hours": 88
+      },
+      "candidate_output": {
+        "action": "forecast",
+        "predicted_exceedance_probability": 0.2625,
+        "gpd_scale": 20,
+        "gpd_shape": 0.1,
+        "abstention_reason": null
+      }
+    },
+    {
+      "case_id": "EVIDENCE_DEGRADATION-28",
+      "regime_id": "evidence_degradation",
+      "sampling_stratum": "tail_enriched",
+      "proposal_stratum_probability": 0.25,
+      "target_stratum_probability": 0.03,
+      "forecast_origin_hour": 0,
+      "forecast_horizon_hours": 72,
+      "evaluator": {
+        "qualification_state": "qualified",
+        "observed_normalized_service_deficit_hours": 113
+      },
+      "candidate_output": {
+        "action": "forecast",
+        "predicted_exceedance_probability": 0.3225,
+        "gpd_scale": 20,
+        "gpd_shape": 0.1,
+        "abstention_reason": null
+      }
+    },
+    {
+      "case_id": "EVIDENCE_DEGRADATION-29",
+      "regime_id": "evidence_degradation",
+      "sampling_stratum": "tail_enriched",
+      "proposal_stratum_probability": 0.25,
+      "target_stratum_probability": 0.03,
+      "forecast_origin_hour": 0,
+      "forecast_horizon_hours": 72,
+      "evaluator": {
+        "qualification_state": "qualified",
+        "observed_normalized_service_deficit_hours": 18
+      },
+      "candidate_output": {
+        "action": "forecast",
+        "predicted_exceedance_probability": 0.1425,
+        "gpd_scale": 20,
+        "gpd_shape": 0.1,
+        "abstention_reason": null
+      }
+    },
+    {
+      "case_id": "EVIDENCE_DEGRADATION-30",
+      "regime_id": "evidence_degradation",
+      "sampling_stratum": "tail_enriched",
+      "proposal_stratum_probability": 0.25,
+      "target_stratum_probability": 0.03,
+      "forecast_origin_hour": 0,
+      "forecast_horizon_hours": 72,
+      "evaluator": {
+        "qualification_state": "qualified",
+        "observed_normalized_service_deficit_hours": 143
+      },
+      "candidate_output": {
+        "action": "forecast",
+        "predicted_exceedance_probability": 0.2025,
+        "gpd_scale": 20,
+        "gpd_shape": 0.1,
+        "abstention_reason": null
+      }
+    },
+    {
+      "case_id": "EVIDENCE_DEGRADATION-31",
+      "regime_id": "evidence_degradation",
+      "sampling_stratum": "tail_enriched",
+      "proposal_stratum_probability": 0.25,
+      "target_stratum_probability": 0.03,
+      "forecast_origin_hour": 0,
+      "forecast_horizon_hours": 72,
+      "evaluator": {
+        "qualification_state": "conflicting_sources",
+        "observed_normalized_service_deficit_hours": 10
+      },
+      "candidate_output": {
+        "action": "abstain",
+        "predicted_exceedance_probability": null,
+        "gpd_scale": null,
+        "gpd_shape": null,
+        "abstention_reason": "conflicting_sources"
+      }
+    },
+    {
+      "case_id": "EVIDENCE_DEGRADATION-32",
+      "regime_id": "evidence_degradation",
+      "sampling_stratum": "tail_enriched",
+      "proposal_stratum_probability": 0.25,
+      "target_stratum_probability": 0.03,
+      "forecast_origin_hour": 0,
+      "forecast_horizon_hours": 72,
+      "evaluator": {
+        "qualification_state": "qualified",
+        "observed_normalized_service_deficit_hours": 23
+      },
+      "candidate_output": {
+        "action": "forecast",
+        "predicted_exceedance_probability": 0.3225,
+        "gpd_scale": 20,
+        "gpd_shape": 0.1,
+        "abstention_reason": null
+      }
+    }
+  ],
+  "interpretation_guardrails": [
+    "Candidate output is separate from evaluator-owned regime, qualification and observed severity.",
+    "Temporal and structural shifts are supported stress-test regimes and remain forecast-eligible unless an explicit unsupported state is supplied.",
+    "Missing, conflicting or unsupported evidence must never be converted into a zero event probability.",
+    "Report importance-weighted Brier/log-loss alongside unweighted case counts, forecast coverage, sum of weights and ESS.",
+    "Report tail occurrence calibration and conditional excess severity calibration separately.",
+    "A weighted tail-excess PIT distance is a diagnostic, not a p-value or proof of tail calibration.",
+    "A forecast that abstains on all cases is invalid; coverage must accompany selective scores.",
+    "No composite resilience, political, personal-suitability or leaderboard score is permitted."
+  ]
+}
