@@ -17,7 +17,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: scientific-policy-space-\${{ github.workflow }}-\${{ github.event.pull_request.number || github.ref }}
+  group: scientific-policy-space-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
 jobs:
@@ -57,7 +57,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: scientific-policy-decision-space-\${{ github.sha }}
+          name: scientific-policy-decision-space-${{ github.sha }}
           path: |
             target/scientific-policy-space/
             tools/scientific-policy-space/Cargo.lock
