@@ -52,6 +52,18 @@ enum OutputCategory {
 
 #[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
 #[serde(rename_all = "snake_case")]
+enum InternalTransferCategory {
+    Mineralization,
+    Immobilization,
+    Sorption,
+    Desorption,
+    RootUptake,
+    ResidueReturn,
+    OtherDeclared,
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case")]
 enum Compartment {
     Soil,
     StandingBiomass,
@@ -88,6 +100,19 @@ struct Flow<C> {
 type InputFlow = Flow<InputCategory>;
 type OutputFlow = Flow<OutputCategory>;
 
+#[derive(Clone, Debug, Deserialize, Serialize)]
+#[serde(deny_unknown_fields)]
+struct InternalTransfer {
+    transfer_id: String,
+    category: InternalTransferCategory,
+    source_pool_id: String,
+    destination_pool_id: String,
+    amount_kg_element_per_ha: f64,
+    standard_uncertainty_kg_element_per_ha: Option<f64>,
+    method: String,
+    evidence_ref: String,
+}
+
 trait CategoryName {
     fn category_name(&self) -> &'static str;
 }
@@ -115,6 +140,20 @@ impl CategoryName for OutputCategory {
             Self::Runoff => "runoff",
             Self::Erosion => "erosion",
             Self::GaseousLoss => "gaseous_loss",
+            Self::OtherDeclared => "other_declared",
+        }
+    }
+}
+
+impl CategoryName for InternalTransferCategory {
+    fn category_name(&self) -> &'static str {
+        match self {
+            Self::Mineralization => "mineralization",
+            Self::Immobilization => "immobilization",
+            Self::Sorption => "sorption",
+            Self::Desorption => "desorption",
+            Self::RootUptake => "root_uptake",
+            Self::ResidueReturn => "residue_return",
             Self::OtherDeclared => "other_declared",
         }
     }
@@ -152,7 +191,7 @@ struct StockPoolPartitionReview {
     review_ref: String,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
 struct UnmeasuredPathway {
     pathway: String,
@@ -186,6 +225,7 @@ struct BudgetInput {
     boundary_flux_review: BoundaryFluxReview,
     inputs: Vec<InputFlow>,
     outputs: Vec<OutputFlow>,
+    internal_transfers: Vec<InternalTransfer>,
     storage_start: Vec<StoragePool>,
     storage_end: Vec<StoragePool>,
     availability_indicators: Vec<AvailabilityIndicator>,
@@ -212,6 +252,7 @@ struct PlotScaled {
 struct FlowCounts {
     inputs: usize,
     outputs: usize,
+    internal_transfers: usize,
     storage_pools: usize,
     availability_indicators: usize,
 }
@@ -238,6 +279,9 @@ struct AuditReport {
     input_category_summaries: Vec<CategorySummary>,
     output_total_kg_element_per_ha: f64,
     output_category_summaries: Vec<CategorySummary>,
+    internal_transfers: Vec<InternalTransfer>,
+    internal_transfer_category_summaries: Vec<CategorySummary>,
+    unmeasured_pathways: Vec<UnmeasuredPathway>,
     storage_start_total_kg_element_per_ha: f64,
     storage_end_total_kg_element_per_ha: f64,
     storage_change_kg_element_per_ha: f64,
@@ -371,6 +415,40 @@ fn summarize_flows<C: CategoryName>(flows: &[Flow<C>]) -> Result<Vec<CategorySum
         .collect())
 }
 
+fn summarize_internal_transfers(
+    transfers: &[InternalTransfer],
+) -> Result<Vec<CategorySummary>, String> {
+    let mut grouped = BTreeMap::<&'static str, (usize, f64, f64, bool)>::new();
+    for transfer in transfers {
+        let entry = grouped
+            .entry(transfer.category.category_name())
+            .or_insert((0, 0.0, 0.0, true));
+        entry.0 += 1;
+        entry.1 += transfer.amount_kg_element_per_ha;
+        if !entry.1.is_finite() {
+            return Err("internal-transfer category amount total overflowed or became non-finite".to_owned());
+        }
+        if let Some(uncertainty) = transfer.standard_uncertainty_kg_element_per_ha {
+            entry.2 += uncertainty;
+            if !entry.2.is_finite() {
+                return Err("internal-transfer category uncertainty total overflowed or became non-finite".to_owned());
+            }
+        } else {
+            entry.3 = false;
+        }
+    }
+    Ok(grouped
+        .into_iter()
+        .map(|(category, (count, amount, uncertainty, complete))| CategorySummary {
+            category: category.to_owned(),
+            count,
+            amount_kg_element_per_ha: amount,
+            conservative_linear_standard_uncertainty_bound_kg_element_per_ha: complete
+                .then_some(uncertainty),
+        })
+        .collect())
+}
+
 fn validate_pool(pool: &StoragePool) -> Result<(), String> {
     nonblank(&pool.pool_id, "pool_id")?;
     finite_nonnegative(pool.stock_kg_element_per_ha, "stock_kg_element_per_ha")?;
@@ -480,6 +558,28 @@ fn validate_input(input: &BudgetInput) -> Result<(), String> {
         return Err("storage_start and storage_end must have identical pool_id and compartment sets; represent absent pools with an explicit zero stock".to_owned());
     }
 
+    let mut transfer_ids = HashSet::new();
+    for transfer in &input.internal_transfers {
+        nonblank(&transfer.transfer_id, "internal transfer_id")?;
+        if !transfer_ids.insert(transfer.transfer_id.as_str()) {
+            return Err(format!("duplicate internal transfer_id {:?}", transfer.transfer_id));
+        }
+        nonblank(&transfer.source_pool_id, "internal transfer source_pool_id")?;
+        nonblank(&transfer.destination_pool_id, "internal transfer destination_pool_id")?;
+        if transfer.source_pool_id == transfer.destination_pool_id {
+            return Err(format!("internal transfer {:?} must have distinct source and destination pools", transfer.transfer_id));
+        }
+        if !start_pools.contains_key(transfer.source_pool_id.as_str())
+            || !start_pools.contains_key(transfer.destination_pool_id.as_str())
+        {
+            return Err(format!("internal transfer {:?} must connect two pools inside the declared, mutually exclusive stock partition", transfer.transfer_id));
+        }
+        finite_nonnegative(transfer.amount_kg_element_per_ha,"internal transfer amount_kg_element_per_ha")?;
+        validate_uncertainty(transfer.standard_uncertainty_kg_element_per_ha,"internal transfer standard_uncertainty_kg_element_per_ha")?;
+        nonblank(&transfer.method, "internal transfer method")?;
+        nonblank(&transfer.evidence_ref, "internal transfer evidence_ref")?;
+    }
+
     let mut indicator_ids = HashSet::new();
     for indicator in &input.availability_indicators {
         nonblank(&indicator.indicator_id, "availability indicator_id")?;
@@ -530,6 +630,8 @@ fn audit(bytes: &[u8]) -> Result<AuditReport, String> {
         "output total",
     )?;
     let output_category_summaries = summarize_flows(&input.outputs)?;
+    let internal_transfer_category_summaries =
+        summarize_internal_transfers(&input.internal_transfers)?;
     let storage_start_total = checked_sum(
         input
             .storage_start
@@ -586,6 +688,7 @@ fn audit(bytes: &[u8]) -> Result<AuditReport, String> {
     }
 
     let uncertainty_option = all_uncertainties_present.then_some(uncertainty_bound);
+    let internal_transfer_count = input.internal_transfers.len();
     let boundary_coverage_complete = input.stock_pool_partition_review.boundary_stocks_covered
         && input.boundary_flux_review.all_relevant_fluxes_accounted_for;
     let status = if !boundary_coverage_complete {
@@ -621,6 +724,7 @@ fn audit(bytes: &[u8]) -> Result<AuditReport, String> {
     let mut warnings = vec![
         "Arithmetic audit only: a residual within the uncertainty bound does not prove that all real-world fluxes were measured or that the control volume is complete.".to_owned(),
         "Internal transfers are not boundary inputs/outputs when both pools are inside the declared control volume; do not double-count root uptake, mineralization, immobilization, sorption/desorption or residue return.".to_owned(),
+        "Recorded internal transfers are retained for pathway inspection but are excluded from external-input/output totals, storage-change arithmetic and the boundary uncertainty bound.".to_owned(),
         "Availability indicators are method-dependent measurements and are reported separately; they are never added to the disjoint stock pools.".to_owned(),
         "The linear sum of standard uncertainties is a conservative bound under unspecified covariance, not a confidence interval and not a model of systematic bias.".to_owned(),
         "Stock-pool and boundary-flux completeness are reviewed declarations; the auditor cannot independently prove that physical pools are disjoint or that every real-world pathway was measured.".to_owned(),
@@ -660,6 +764,9 @@ fn audit(bytes: &[u8]) -> Result<AuditReport, String> {
         input_category_summaries,
         output_total_kg_element_per_ha: output_total,
         output_category_summaries,
+        internal_transfers: input.internal_transfers,
+        internal_transfer_category_summaries,
+        unmeasured_pathways: input.boundary_flux_review.unmeasured_pathways,
         storage_start_total_kg_element_per_ha: storage_start_total,
         storage_end_total_kg_element_per_ha: storage_end_total,
         storage_change_kg_element_per_ha: storage_change,
@@ -675,6 +782,7 @@ fn audit(bytes: &[u8]) -> Result<AuditReport, String> {
         flow_counts: FlowCounts {
             inputs: input.inputs.len(),
             outputs: input.outputs.len(),
+            internal_transfers: internal_transfer_count,
             storage_pools: input.storage_start.len(),
             availability_indicators: input.availability_indicators.len(),
         },
@@ -742,6 +850,69 @@ mod tests {
 
     fn fixture_report(bytes: &[u8]) -> AuditReport {
         audit(bytes).expect("synthetic fixture should audit")
+    }
+
+    #[test]
+    fn records_internal_transfers_without_counting_them_as_boundary_fluxes() {
+        let report = fixture_report(&fixture_bytes());
+        assert_eq!(report.internal_transfers.len(), 1);
+        assert_eq!(report.internal_transfers[0].transfer_id, "root-uptake-n");
+        assert_eq!(report.internal_transfers[0].source_pool_id, "soil-n");
+        assert_eq!(report.internal_transfers[0].destination_pool_id, "biomass-n");
+        assert_eq!(report.internal_transfer_category_summaries.len(), 1);
+        assert_eq!(report.internal_transfer_category_summaries[0].category, "root_uptake");
+        assert_eq!(report.internal_transfer_category_summaries[0].amount_kg_element_per_ha, 12.0);
+        assert_eq!(report.flow_counts.internal_transfers, 1);
+        assert!(report.residual_kg_element_per_ha.abs() < 1e-12);
+        assert_eq!(report.conservative_linear_standard_uncertainty_bound_kg_element_per_ha, Some(5.1));
+    }
+
+    #[test]
+    fn rejects_internal_transfer_to_pool_outside_declared_boundary() {
+        let mut value: Value = serde_json::from_slice(&fixture_bytes()).unwrap();
+        value["internal_transfers"][0]["destination_pool_id"] = Value::from("outside-profile");
+        let bytes = serde_json::to_vec(&value).unwrap();
+        assert!(audit(&bytes).unwrap_err().contains("inside the declared"));
+    }
+
+    #[test]
+    fn rejects_internal_transfer_from_pool_to_itself() {
+        let mut value: Value = serde_json::from_slice(&fixture_bytes()).unwrap();
+        value["internal_transfers"][0]["destination_pool_id"] = Value::from("soil-n");
+        let bytes = serde_json::to_vec(&value).unwrap();
+        assert!(audit(&bytes).unwrap_err().contains("distinct source and destination"));
+    }
+
+    #[test]
+    fn rejects_duplicate_internal_transfer_ids() {
+        let mut value: Value = serde_json::from_slice(&fixture_bytes()).unwrap();
+        let duplicate = value["internal_transfers"][0].clone();
+        value["internal_transfers"].as_array_mut().unwrap().push(duplicate);
+        let bytes = serde_json::to_vec(&value).unwrap();
+        assert!(audit(&bytes).unwrap_err().contains("duplicate internal transfer_id"));
+    }
+
+    #[test]
+    fn internal_transfer_uncertainty_is_not_added_to_boundary_uncertainty() {
+        let mut value: Value = serde_json::from_slice(&fixture_bytes()).unwrap();
+        value["internal_transfers"][0]["standard_uncertainty_kg_element_per_ha"] = Value::from(999.0);
+        let bytes = serde_json::to_vec(&value).unwrap();
+        let report = fixture_report(&bytes);
+        assert_eq!(report.conservative_linear_standard_uncertainty_bound_kg_element_per_ha, Some(5.1));
+    }
+
+    #[test]
+    fn reports_unmeasured_pathways_verbatim() {
+        let mut value: Value = serde_json::from_slice(&fixture_bytes()).unwrap();
+        value["boundary_flux_review"]["all_relevant_fluxes_accounted_for"] = Value::Bool(false);
+        value["boundary_flux_review"]["unmeasured_pathways"] = serde_json::json!([
+            {"pathway":"dissolved organic nitrogen export","reason":"not measured in this synthetic control volume"}
+        ]);
+        let bytes = serde_json::to_vec(&value).unwrap();
+        let report = fixture_report(&bytes);
+        assert_eq!(report.unmeasured_pathways.len(), 1);
+        assert_eq!(report.unmeasured_pathways[0].pathway, "dissolved organic nitrogen export");
+        assert_eq!(report.status, "unqualified_incomplete_boundary_coverage");
     }
 
     #[test]

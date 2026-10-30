@@ -50,6 +50,8 @@ The control volume must be stated so that no internal transfer is counted as a b
 
 Storage pools must be mutually exclusive. An extractable-P result is an availability indicator and must not be added to a total-P stock pool. The input carries an explicit stock-partition review reference and declarations that pools are mutually exclusive and that boundary stocks are covered. It also carries a boundary-flux review reference and a list of known unmeasured pathways. Overlapping stock pools are rejected; incomplete stock or flux coverage produces an unqualified result even when the numeric residual is zero. These review fields are declarations, not independent proof of physical completeness.
 
+Measured internal transfers are separately recorded with a category and explicit source/destination pool IDs. Both endpoints must exist within the reviewed stock partition and must differ. The auditor preserves the records and summarizes them by transfer category, but they do not change external-input/output totals, the stock-change calculation, or the uncertainty bound for the boundary residual. A transfer crossing the declared control-volume boundary is not an internal transfer and must be represented as an external flow.
+
 The experimental unit is the independently assigned plot/pot/mesocosm. Soil subsamples, plant subsamples, leachate aliquots and repeated instrument readings are nested measurements, not additional independent treatment replicates. Preserve their hierarchy outside the aggregate budget.
 
 ## 4. Uncertainty and closure interpretation
@@ -72,6 +74,8 @@ The standalone Rust tool in `tools/nutrient-budget-audit/` will:
 - require matching, non-overlapping pool identities at the start and end of the period;
 - compute inputs, exports, stock change, residual and plot-scaled values;
 - report pathway-specific input/output category totals and uncertainty sums so a pooled residual cannot hide a change in leaching, runoff, harvest export or another pathway;
+- preserve internal transfers with source/destination pool identities and category summaries without adding them to boundary arithmetic;
+- repeat the names/reasons for every declared unmeasured boundary pathway in the report;
 - compute the conservative linear uncertainty bound only when all terms have standard uncertainties;
 - keep availability indicators outside the mass-balance arithmetic;
 - bind the report to the exact input bytes with SHA-256;
@@ -146,3 +150,23 @@ A hash proves which bytes were audited; it does not prove sampling representativ
 - Dissanayake et al. (2026). “Applying Biochar With Fertilisers Decreases Nitrogen and Phosphorus Leaching and Improves Phosphorus Availability: A Meta-Analysis.” *GCB Bioenergy*. https://doi.org/10.1111/gcbb.70165
 - Zhang et al. (2025). “Biochar application to soils can regulate soil phosphorus availability: a review.” *Biochar* 7, 13. https://doi.org/10.1007/s42773-024-00415-1
 - Leitão et al. (2026). “Compartment-specific responses of soil, root, and earthworm gut microbiomes to Terra Preta de Índio–inspired amendments in a tropical latosol.” *Applied Soil Ecology* 225, 107278. https://doi.org/10.1016/j.apsoil.2026.107278
+
+
+## 10. Harmonization before cross-study comparison
+
+Before literature-level N/P/K synthesis, apply the companion
+[Nutrient Harmonization and Causal-Contrast Contract](./NUTRIENT_HARMONIZATION_AND_CAUSAL_CONTRASTS_V0.1.md).
+The crosswalk keeps analytical species, extraction methods, sampled depth,
+hydrologic volume, treatment bundle and experimental-unit dependence intact.
+Unconvertible records remain descriptive or excluded from a confirmatory
+estimand; they are not silently normalized into a superficially common table.
+
+
+## 10. Harmonization before cross-study comparison
+
+Before literature-level N/P/K synthesis, apply the companion
+[Nutrient Harmonization and Causal-Contrast Contract](./NUTRIENT_HARMONIZATION_AND_CAUSAL_CONTRASTS_V0.1.md).
+The crosswalk keeps analytical species, extraction methods, sampled depth,
+hydrologic volume, treatment bundle and experimental-unit dependence intact.
+Unconvertible records remain descriptive or excluded from a confirmatory
+estimand; they are not silently normalized into a superficially common table.

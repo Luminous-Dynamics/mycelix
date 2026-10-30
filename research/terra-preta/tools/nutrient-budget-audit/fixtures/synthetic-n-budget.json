@@ -120,5 +120,17 @@
     "all_relevant_fluxes_accounted_for": true,
     "review_ref": "synthetic-boundary-flux-review",
     "unmeasured_pathways": []
-  }
+  },
+  "internal_transfers": [
+    {
+      "transfer_id": "root-uptake-n",
+      "category": "root_uptake",
+      "source_pool_id": "soil-n",
+      "destination_pool_id": "biomass-n",
+      "amount_kg_element_per_ha": 12,
+      "standard_uncertainty_kg_element_per_ha": 0.35,
+      "method": "synthetic pool-to-pool transfer fixture",
+      "evidence_ref": "synthetic-fixture"
+    }
+  ]
 }

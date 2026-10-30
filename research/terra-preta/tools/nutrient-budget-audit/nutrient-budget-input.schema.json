@@ -23,7 +23,8 @@
     "outputs",
     "storage_start",
     "storage_end",
-    "availability_indicators"
+    "availability_indicators",
+    "internal_transfers"
   ],
   "properties": {
     "schema_version": {
@@ -203,6 +204,12 @@
             }
           }
         }
+      }
+    },
+    "internal_transfers": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/internal_transfer"
       }
     }
   },
@@ -423,6 +430,64 @@
         "depth_bottom_cm": {
           "type": "number",
           "exclusiveMinimum": 0
+        },
+        "method": {
+          "type": "string",
+          "minLength": 1
+        },
+        "evidence_ref": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "internal_transfer": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "transfer_id",
+        "category",
+        "source_pool_id",
+        "destination_pool_id",
+        "amount_kg_element_per_ha",
+        "standard_uncertainty_kg_element_per_ha",
+        "method",
+        "evidence_ref"
+      ],
+      "properties": {
+        "transfer_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "category": {
+          "enum": [
+            "mineralization",
+            "immobilization",
+            "sorption",
+            "desorption",
+            "root_uptake",
+            "residue_return",
+            "other_declared"
+          ]
+        },
+        "source_pool_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "destination_pool_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "amount_kg_element_per_ha": {
+          "type": "number",
+          "minimum": 0
+        },
+        "standard_uncertainty_kg_element_per_ha": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": 0
         },
         "method": {
           "type": "string",

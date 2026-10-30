@@ -444,6 +444,14 @@ mod tests {
     }
 
     #[test]
+    fn rejects_nutrient_input_missing_internal_transfer_endpoint() {
+        let validator = jsonschema::validator_for(&nutrient_budget_input_schema()).unwrap();
+        let mut instance: Value = serde_json::from_str(NUTRIENT_BUDGET_INPUT_FIXTURE).unwrap();
+        instance["internal_transfers"][0].as_object_mut().unwrap().remove("destination_pool_id");
+        assert!(!validator.is_valid(&instance));
+    }
+
+    #[test]
     fn rejects_non_elemental_nutrient_budget_basis() {
         let validator = jsonschema::validator_for(&nutrient_budget_input_schema()).unwrap();
         let mut instance: Value = serde_json::from_str(NUTRIENT_BUDGET_INPUT_FIXTURE).unwrap();
@@ -525,9 +533,31 @@ mod tests {
             "flow_counts": {
                 "inputs": 2,
                 "outputs": 3,
+                "internal_transfers": 1,
                 "storage_pools": 2,
                 "availability_indicators": 1
             },
+            "internal_transfers": [
+                {
+                    "transfer_id": "root-uptake-n",
+                    "category": "root_uptake",
+                    "source_pool_id": "soil-n",
+                    "destination_pool_id": "biomass-n",
+                    "amount_kg_element_per_ha": 12.0,
+                    "standard_uncertainty_kg_element_per_ha": 0.35,
+                    "method": "synthetic transfer fixture",
+                    "evidence_ref": "synthetic-fixture"
+                }
+            ],
+            "internal_transfer_category_summaries": [
+                {
+                    "category": "root_uptake",
+                    "count": 1,
+                    "amount_kg_element_per_ha": 12.0,
+                    "conservative_linear_standard_uncertainty_bound_kg_element_per_ha": 0.35
+                }
+            ],
+            "unmeasured_pathways": [],
             "availability_indicators": [
                 {
                     "indicator_id": "mineral-n",
@@ -549,6 +579,22 @@ mod tests {
     fn accepts_valid_nutrient_budget_report() {
         let validator = jsonschema::validator_for(&nutrient_budget_report_schema()).unwrap();
         assert!(validator.is_valid(&valid_nutrient_budget_report()));
+    }
+
+    #[test]
+    fn rejects_nutrient_report_without_internal_transfer_records() {
+        let validator = jsonschema::validator_for(&nutrient_budget_report_schema()).unwrap();
+        let mut report = valid_nutrient_budget_report();
+        report.as_object_mut().unwrap().remove("internal_transfers");
+        assert!(!validator.is_valid(&report));
+    }
+
+    #[test]
+    fn rejects_nutrient_report_without_unmeasured_pathway_disclosure() {
+        let validator = jsonschema::validator_for(&nutrient_budget_report_schema()).unwrap();
+        let mut report = valid_nutrient_budget_report();
+        report.as_object_mut().unwrap().remove("unmeasured_pathways");
+        assert!(!validator.is_valid(&report));
     }
 
     #[test]
