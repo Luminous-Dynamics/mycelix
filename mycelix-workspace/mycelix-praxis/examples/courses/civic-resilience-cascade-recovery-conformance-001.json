@@ -1,0 +1,91 @@
+{
+  "benchmark_id": "PRAXIS-NRES-007-CASCADE-RECOVERY-CONFORMANCE-001",
+  "schema_version": "1.0.0",
+  "status": "public-development-conformance-corpus",
+  "fixture_ref": "civic-resilience-cascade-recovery-fixture-001.json",
+  "negative_cases": [
+    {
+      "case_id": "NEG-01",
+      "name": "Availability above 100 percent",
+      "mutation": "Set any availability_percent to 101",
+      "expected_disposition": "reject-out-of-range-observation"
+    },
+    {
+      "case_id": "NEG-02",
+      "name": "Non-monotonic sample time",
+      "mutation": "Change one point hour so it precedes the previous point",
+      "expected_disposition": "reject-time-grid-mismatch"
+    },
+    {
+      "case_id": "NEG-03",
+      "name": "Missing service trajectory",
+      "mutation": "Remove one required service from one scenario",
+      "expected_disposition": "reject-service-coverage-gap"
+    },
+    {
+      "case_id": "NEG-04",
+      "name": "Different shock sequence",
+      "mutation": "Change one scenario shock_sequence_id",
+      "expected_disposition": "reject-unmatched-shock-pair"
+    },
+    {
+      "case_id": "NEG-05",
+      "name": "Dangling dependency",
+      "mutation": "Reference a prerequisite service absent from the service catalog",
+      "expected_disposition": "reject-dangling-dependency"
+    },
+    {
+      "case_id": "NEG-06",
+      "name": "Dependency cycle",
+      "mutation": "Add a reverse edge that closes a directed cycle",
+      "expected_disposition": "reject-cyclic-dependency-graph"
+    },
+    {
+      "case_id": "NEG-07",
+      "name": "Composite score injection",
+      "mutation": "Add overall_resilience_score to the fixture",
+      "expected_disposition": "reject-compensating-score"
+    },
+    {
+      "case_id": "NEG-08",
+      "name": "Resource overrun",
+      "mutation": "Set committed responder hours above available hours",
+      "expected_disposition": "reject-resource-limit-overrun"
+    },
+    {
+      "case_id": "NEG-09",
+      "name": "Duplicate service trajectory",
+      "mutation": "Add a second trajectory with an existing service_id",
+      "expected_disposition": "reject-duplicate-service-trajectory"
+    },
+    {
+      "case_id": "NEG-10",
+      "name": "Wrong sample count",
+      "mutation": "Remove one time sample from a trajectory",
+      "expected_disposition": "reject-sample-grid-mismatch"
+    }
+  ],
+  "round_trip_requirements": [
+    "Preserve every service_id, floor_percent, critical flag and unit exactly.",
+    "Preserve the shock_sequence_id and every stressor interval and severity label.",
+    "Preserve dependency direction and relationship semantics.",
+    "Preserve the exact sample hours and availability values without rounding or resampling.",
+    "Preserve planning-point and responder-hour units and denominators.",
+    "Preserve null sustained-recovery values as null; do not convert missing recovery to zero.",
+    "Preserve the public-development-only, synthetic and inactive status labels.",
+    "Preserve unknown namespaced extensions without silently interpreting or dropping them."
+  ],
+  "conformance_targets": {
+    "valid_fixture_acceptance": "100 percent",
+    "listed_negative_case_rejection": "100 percent",
+    "service_floor_fidelity": "exact",
+    "sample_grid_fidelity": "exact",
+    "unknown_extension_retention": "lossless",
+    "composite_or_personal_score_fields": "zero accepted"
+  },
+  "limitations": [
+    "This corpus is formative and is not an independently held-out validation set.",
+    "Conformance requires at least two independently implemented adapters and a third-party verifier.",
+    "A reference implementation passing its own corpus is necessary but not sufficient evidence of interoperability."
+  ]
+}
