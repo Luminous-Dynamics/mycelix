@@ -6,6 +6,20 @@
 
 ## 1. Acquisition command
 
+### Hirmas et al. (2025) dynamic morphology reference archive
+
+- Dataset: [Dryad 10.5061/dryad.zs7h44jkn](https://doi.org/10.5061/dryad.zs7h44jkn)
+- License: CC0 1.0 Universal
+- Publisher-reported size: 4.60 MB (Data_Analysis.zip 4.59 MB and README.md 15.89 KB)
+- Declared collection: Konza Prairie Biological Station, Kansas; 2018-10 to 2021-08.
+- Declared measurements: 10/40/120 cm moisture; 0.18 mm ImageJ MLT pore geometry for Ap1, Bt and Btkss2; shrink-swell/COLE; soil properties; daily weather; analysis code/functions/model outputs.
+- Access result in this pass: Data_Analysis.zip download endpoint returned HTTP 403. **Not acquired; no local SHA-256 or archive-file checksums exist.**
+
+The metadata is registered in `neon-preferential-flow-source-plan.v0.1.json`. Do not claim archive acquisition from the landing-page listing. Retry only from the published Dryad artifact link or after repository access is restored; verify the archive digest before extraction. The archive is a single-profile mechanism/reproduction dataset, not independent cross-site validation.
+
+The [morphology-audit CLI](./tools/morphology-audit/README.md) is the first executable reader for exported ImageJ object tables. Its synthetic CI fixture does not contain measured Dryad observations.
+
+
 From the Mycelix repository root, use:
 
 ```sh
