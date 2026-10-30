@@ -6,6 +6,9 @@
 use serde_json::{json, Value};
 use std::collections::{BTreeMap, BTreeSet};
 
+const SOURCE_FIXTURE: &str = include_str!("../../../examples/courses/civic-resilience-tail-shift-robustness-fixture-001.json");
+const SOURCE_FIXTURE_BLOB_SHA: &str = "f42d045924b91f09aa5a3a455cb12fb7bb7fdb02";
+
 const REGIMES: &[&str] = &[
     "in_distribution",
     "temporal_shift",
@@ -355,9 +358,21 @@ pub fn evaluate_reliability_resolution_decision_value(
     };
     if string(source, "benchmark_id")
         != Some("PRAXIS-NRES-010-TAIL-SHIFT-ROBUSTNESS-001")
+        || string(source, "fixture_blob_sha") != Some(SOURCE_FIXTURE_BLOB_SHA)
+        || source.get("source_case_count").and_then(Value::as_u64) != Some(128)
     {
-        errors.push("NRES-011 source fixture must explicitly identify NRES-010".to_owned());
+        errors.push("NRES-011 source fixture identity, pinned blob SHA or source case count mismatch".to_owned());
     }
+    let source_fixture: Value = serde_json::from_str(SOURCE_FIXTURE)
+        .expect("pinned NRES-010 source fixture must remain valid JSON");
+    let source_cases = source_fixture["evaluation_cases"].as_array()
+        .expect("pinned NRES-010 source cases must be an array");
+    if source_cases.len() != 128 {
+        errors.push("pinned NRES-010 source fixture case count changed".to_owned());
+    }
+    let source_by_id: BTreeMap<String, &Value> = source_cases.iter()
+        .filter_map(|case| string(case, "case_id").map(|id| (id.to_owned(), case)))
+        .collect();
 
     let Some(target) = fixture.get("target") else {
         return Err(vec!["NRES-011 target is missing".to_owned()]);
@@ -539,6 +554,24 @@ pub fn evaluate_reliability_resolution_decision_value(
         if source_case_id.is_empty() || !source_ids.insert(source_case_id.clone()) {
             errors.push(format!("{case_id}: source_case_id is absent or duplicated"));
         }
+        let Some(source_case) = source_by_id.get(&source_case_id) else {
+            errors.push(format!("{case_id}: source_case_id is not present in pinned NRES-010 fixture"));
+            continue;
+        };
+        if string(row, "regime_id") != string(source_case, "regime_id")
+            || string(row, "sampling_stratum") != string(source_case, "sampling_stratum")
+            || number(row, "proposal_stratum_probability") != number(source_case, "proposal_stratum_probability")
+            || number(row, "target_stratum_probability") != number(source_case, "target_stratum_probability")
+            || number(row, "forecast_origin_hour") != number(source_case, "forecast_origin_hour")
+            || number(row, "forecast_horizon_hours") != number(source_case, "forecast_horizon_hours")
+            || row["evaluator"]["qualification_state"] != source_case["evaluator"]["qualification_state"]
+            || row["evaluator"]["observed_normalized_service_deficit_hours"] != source_case["evaluator"]["observed_normalized_service_deficit_hours"]
+            || row["candidate_output"]["action"] != source_case["candidate_output"]["action"]
+            || row["candidate_output"]["predicted_exceedance_probability"] != source_case["candidate_output"]["predicted_exceedance_probability"]
+            || row["candidate_output"]["abstention_reason"] != source_case["candidate_output"]["abstention_reason"]
+        {
+            errors.push(format!("{case_id}: NRES-011 scenario/forecast fields drift from the pinned NRES-010 source case"));
+        }
         let regime = string(row, "regime_id");
         if regime.is_none_or(|value| !regime_ids.contains(value)) {
             errors.push(format!("{case_id}: regime is undeclared"));
@@ -667,6 +700,9 @@ pub fn evaluate_reliability_resolution_decision_value(
         }
     }
 
+    if source_ids.len() != source_cases.len() {
+        errors.push("NRES-011 must contain each pinned NRES-010 source case exactly once".to_owned());
+    }
     if !errors.is_empty() {
         return Err(errors);
     }
