@@ -461,6 +461,7 @@ jobs:
           jq empty research/terra-preta/tools/dependency-audit/dependency-audit-report.schema.json
           jq empty research/terra-preta/tools/water-retention-audit/curve-input.schema.json
           jq empty research/terra-preta/tools/water-retention-audit/water-retention-audit-report.schema.json
+          bash -n research/terra-preta/tools/acquire-public-sources.sh
       - name: Format standalone audit tools
         run: |
           cargo fmt --manifest-path research/terra-preta/tools/biochar-audit/Cargo.toml -- --check
