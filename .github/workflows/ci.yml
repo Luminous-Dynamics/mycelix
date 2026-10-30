@@ -473,6 +473,30 @@ jobs:
           bash -n research/terra-preta/tools/acquire-neon-data.sh
           bash -n research/terra-preta/tools/inventory-neon-data.sh
           bash research/terra-preta/tools/inventory-neon-data.sh --help
+      - name: Test NEON metadata inventory month guards
+        shell: bash
+        run: |
+          set -euo pipefail
+          work="$RUNNER_TEMP/neon-inventory-month-tests"
+          mkdir -p "$work"
+          printf 'SRER\\n' > "$work/sites.txt"
+          if NEON_API_TOKEN=ci-test bash research/terra-preta/tools/inventory-neon-data.sh \\
+            --product DP1.00094.001 --sites-file "$work/sites.txt" \\
+            --start 2021-02 --end 2021-01 --release RELEASE-2026 \\
+            --output "$work/reversed" >"$work/reversed.log" 2>&1; then
+            echo "reversed month range was unexpectedly accepted" >&2
+            exit 1
+          fi
+          grep -q "start month is after end month" "$work/reversed.log"
+          : > "$work/empty-sites.txt"
+          if NEON_API_TOKEN=ci-test bash research/terra-preta/tools/inventory-neon-data.sh \\
+            --product DP1.00094.001 --sites-file "$work/empty-sites.txt" \\
+            --start 2021-01 --end 2021-01 --release RELEASE-2026 \\
+            --output "$work/equal-month" >"$work/equal.log" 2>&1; then
+            echo "empty site list was unexpectedly accepted" >&2
+            exit 1
+          fi
+          grep -q "sites file contained no site codes" "$work/equal.log"
       - name: Format standalone audit tools
         run: |
           cargo fmt --manifest-path research/terra-preta/tools/biochar-audit/Cargo.toml -- --check
