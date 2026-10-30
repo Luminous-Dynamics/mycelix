@@ -66,6 +66,14 @@ fn contains_forbidden_key(value: &Value, path: &str, errors: &mut Vec<String>) {
         "overall_resilience_score",
         "composite_score",
         "leaderboard_score",
+        "email",
+        "phone",
+        "full_name",
+        "first_name",
+        "last_name",
+        "national_id",
+        "passport_number",
+        "date_of_birth",
     ];
     match value {
         Value::Object(object) => {
@@ -95,6 +103,9 @@ pub fn validate_evidence_envelope(envelope: &Value) -> Result<(), Vec<String>> {
     let mut errors = Vec::new();
 
     let context = envelope.get("@context");
+    if context.and_then(Value::as_object).is_none_or(|object| object.len() != 2) {
+        errors.push("@context must contain only the pinned local nres and W3C prov mappings".to_owned());
+    }
     if context.and_then(|value| value.get("nres")).and_then(Value::as_str) != Some(NS) {
         errors.push("NRES namespace context is missing or incorrect".to_owned());
     }
@@ -141,7 +152,7 @@ pub fn validate_evidence_envelope(envelope: &Value) -> Result<(), Vec<String>> {
         Some(Value::Null) => {}
         Some(Value::String(digest))
             if digest.len() == 64
-                && digest.chars().all(|character| character.is_ascii_hexdigit()) => {}
+                && digest.chars().all(|character| character.is_ascii_digit() || ('a'..='f').contains(&character)) => {}
         _ => errors.push("payload_sha256 must be null or a 64-character hexadecimal digest".to_owned()),
     }
 
@@ -188,9 +199,14 @@ pub fn validate_evidence_envelope(envelope: &Value) -> Result<(), Vec<String>> {
         }
     }
 
-    // Closed corrective actions must link to actual evidence and a verification
-    // record. The linked verifier node is a role placeholder in this public
-    // fixture; it is not an identified person or institutional attestation.
+    let graph_by_id: BTreeMap<String, &Value> = graph
+        .iter()
+        .filter_map(|node| field_str(node, "@id").map(|id| (id.to_owned(), node)))
+        .collect();
+
+    // Closed corrective actions must link to actual independently-reviewed
+    // evidence, a passing service-floor retest, and a verification record. The
+    // linked verifier node is a role placeholder, not a real attestation.
     for node in &graph {
         if field_str(node, "nres:recordKind") != Some("corrective-action")
             || field_str(node, "nres:status") != Some("closed-verified")
@@ -198,8 +214,19 @@ pub fn validate_evidence_envelope(envelope: &Value) -> Result<(), Vec<String>> {
             continue;
         }
         let action_id = field_str(node, "nres:actionId").unwrap_or("unknown-action");
-        if field_str(node, "nres:completionEvidenceId").is_none() {
+        let completion_id = field_str(node, "nres:completionEvidenceId");
+        if completion_id.is_none() {
             errors.push(format!("{action_id}: closed-verified action requires completion evidence"));
+        } else {
+            let evidence_node = graph.iter().find(|candidate| {
+                field_str(candidate, "nres:recordKind") == Some("evidence-record")
+                    && field_str(candidate, "nres:evidenceId") == completion_id
+            });
+            if evidence_node.is_none_or(|evidence| {
+                evidence.get("nres:independentlyReviewed").and_then(Value::as_bool) != Some(true)
+            }) {
+                errors.push(format!("{action_id}: completion evidence must be independently reviewed"));
+            }
         }
         if node.get("nres:independentlyVerified").and_then(Value::as_bool) != Some(true) {
             errors.push(format!("{action_id}: closed-verified action requires independent verification"));
@@ -207,17 +234,38 @@ pub fn validate_evidence_envelope(envelope: &Value) -> Result<(), Vec<String>> {
         if field_str(node, "nres:retestResult") != Some("pass") {
             errors.push(format!("{action_id}: closed-verified action requires a passing retest"));
         }
-        if node.get("nres:verificationRecord").and_then(|value| field_str(value, "@id")).is_none() {
-            errors.push(format!("{action_id}: closed-verified action requires a verification record"));
+        match node.get("nres:verificationRecord").and_then(|value| field_str(value, "@id")) {
+            Some(verification_id) => {
+                if graph_by_id.get(verification_id).is_none_or(|record| {
+                    field_str(record, "nres:recordKind") != Some("verification-record")
+                }) {
+                    errors.push(format!("{action_id}: verification record reference does not resolve"));
+                }
+            }
+            None => errors.push(format!("{action_id}: closed-verified action requires a verification record")),
         }
-        if node.get("nres:retestObservation").and_then(|value| field_str(value, "@id")).is_none() {
-            errors.push(format!("{action_id}: closed-verified action requires a retest observation"));
+        match node.get("nres:retestObservation").and_then(|value| field_str(value, "@id")) {
+            Some(observation_id) => {
+                if graph_by_id.get(observation_id).is_none_or(|observation| {
+                    field_str(observation, "nres:recordKind") != Some("service-floor-observation")
+                        || observation.get("nres:passed").and_then(Value::as_bool) != Some(true)
+                }) {
+                    errors.push(format!("{action_id}: retest observation must resolve to a passing service-floor observation"));
+                }
+            }
+            None => errors.push(format!("{action_id}: closed-verified action requires a retest observation")),
         }
     }
 
     let sources = envelope.get("source_references").and_then(Value::as_array);
     if sources.is_none_or(|items| items.is_empty()) {
         errors.push("source_references must be a non-empty array".to_owned());
+    } else if sources.unwrap().iter().any(|source| {
+        field_str(source, "evidence_status") != Some("synthetic")
+            || field_str(source, "path").is_none()
+            || field_str(source, "media_type").is_none()
+    }) {
+        errors.push("public source references must preserve synthetic status, path and media type".to_owned());
     }
     let measures = envelope.get("measurements").and_then(Value::as_array);
     if measures.is_none() {
