@@ -132,7 +132,7 @@ The same pure-policy contract now has three reference artifacts:
 - `cedar-schema.json`, `cedar-policy.cedar`, and `cedar-tests.json`: a Cedar 4.14.0 candidate plus **30 native Cedar CLI test requests** generated from the frozen Rust corpus. Genesis actors can lack creator metadata; the schema declares that attribute optional and the policy guards every access with `has`.
 - `opa-policy.rego` and `opa-policy_test.rego`: an OPA/Rego v1 candidate with a default-deny decision object, **30 generated corpus tests**, and eight additional focused positive/negative controls.
 
-A dedicated workflow, `.github/workflows/scientific-policy-dsl-conformance.yml`, now runs the Rust scientific-governance tests, validates the Cedar policy against its JSON schema, and runs the Rego controls with OPA 1.22.0 (downloaded with a pinned SHA-256). The workflow has been committed but has not yet completed on the current PR head.
+A dedicated workflow, `.github/workflows/scientific-policy-dsl-conformance.yml`, now runs the Rust authorization and projection tests, validates the Cedar policy against its JSON schema, executes all 30 Cedar `run-tests` cases, checks the Rego modules in strict mode, and runs all 30 Rego corpus cases plus eight additional controls with OPA 1.22.0. The OPA Linux static binary is pinned by its release SHA-256. The workflow has been committed but has not yet completed on the current PR head.
 
 The Cedar and Rego implementations are initial translations. Both now have test inputs for all 30 frozen policy cases: Cedar uses the project's native JSON test format and `cedar run-tests`; Rego contains one generated test per case plus eight focused controls. This allows the dedicated workflow to test decision equivalence without a custom wrapper. The tests and adapter files are committed but have not yet completed hosted execution; exact 30/30 parity remains unproven until the workflow succeeds.
 
@@ -281,7 +281,7 @@ something we should claim to have surpassed before testing.
 
 ## Explicitly not claimed
 
-- The Rust adapter has been added but has not yet completed a hosted compile/test run. Cedar and OPA candidates exist, with syntax/schema and representative tests scheduled in the new workflow; neither has yet run against all 30 corpus vectors.
+- The Rust authorization and projection adapters, Cedar native test corpus, and Rego test corpus are committed but have not yet completed a hosted compile/test run. Exact 30/30 cross-engine parity and 10/10 projection parity remain unproven until the workflow succeeds.
 - The 30 expected decisions are an extraction from one Rust source revision,
   not an independent proof that the policy itself is normatively correct.
 - No latency numbers are collected here.
