@@ -227,6 +227,8 @@ Use it to bootstrap data-dictionary and eventizer crosswalk work, test Ksat-thre
 
 **Executable profile diagnostic:** [profile-flow-audit](./tools/profile-flow-audit/README.md) performs all-pairs depth-order analysis while retaining mixed and indeterminate profiles.
 
+**Threshold sensitivity:** [PF threshold audit](./tools/pf-threshold-audit/README.md) reports label stability across Rosetta Ksat variants and the matrix-model 99th-percentile velocity threshold without pooling reference families. The exact stored-log base remains a source-reconciliation gate. Track implementation at [issue #5541](https://github.com/Luminous-Dynamics/mycelix/issues/5541).
+
 ## 9. Data provenance, overlap and stop rules
 
 - Freeze release tag, site roster, file inventory, publisher checksum, local SHA-256, query/API response, product code, sensor metadata and preprocessing commit before modelling.
