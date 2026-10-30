@@ -1174,13 +1174,18 @@ mod tests {
             }
 
             let (mutated_actor, mutated_event, mutated_claim) = corpus_case_inputs(&reordered);
-            let mutated = policy.authorize(&mutated_actor, &mutated_event, mutated_claim.as_ref());
+            let mutated = policy.authorize(
+                &mutated_actor,
+                &mutated_event,
+                mutated_claim.as_ref(),
+            );
             assert_eq!(
                 baseline.allowed,
                 mutated.allowed,
                 "{}: irrelevant roles, duplicate roles, role order or unrelated actor organizations changed the decision",
                 case["id"]
             );
+            assert_eq!(baseline.reason, mutated.reason, "{}: decision explanation changed", case["id"]);
         }
     }
 
