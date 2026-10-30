@@ -468,6 +468,7 @@ jobs:
           jq empty research/terra-preta/tools/coupled-event-audit/event-audit-report.schema.json
           jq empty research/terra-preta/tools/coupled-event-audit/fixtures/synthetic-event-report.json
           jq empty research/terra-preta/neon-preferential-flow-source-plan.v0.1.json
+          jq empty research/terra-preta/tools/preferential-flow-eventizer/fixtures/synthetic-one-event.json
           bash -n research/terra-preta/tools/acquire-public-sources.sh
           bash -n research/terra-preta/tools/acquire-neon-data.sh
       - name: Format standalone audit tools
@@ -480,6 +481,7 @@ jobs:
           cargo fmt --manifest-path research/terra-preta/tools/water-retention-audit/Cargo.toml -- --check
           cargo fmt --manifest-path research/terra-preta/tools/nutrient-budget-audit/Cargo.toml -- --check
           cargo fmt --manifest-path research/terra-preta/tools/coupled-event-audit/Cargo.toml -- --check
+          cargo fmt --manifest-path research/terra-preta/tools/preferential-flow-eventizer/Cargo.toml -- --check
       - name: Test standalone audit tools and JSON Schema conformance
         run: |
           cargo test --manifest-path research/terra-preta/tools/biochar-audit/Cargo.toml
@@ -490,6 +492,9 @@ jobs:
           cargo test --manifest-path research/terra-preta/tools/water-retention-audit/Cargo.toml
           cargo test --manifest-path research/terra-preta/tools/nutrient-budget-audit/Cargo.toml
           cargo test --manifest-path research/terra-preta/tools/coupled-event-audit/Cargo.toml
+          cargo test --manifest-path research/terra-preta/tools/preferential-flow-eventizer/Cargo.toml
+          cargo run --manifest-path research/terra-preta/tools/preferential-flow-eventizer/Cargo.toml -- research/terra-preta/tools/preferential-flow-eventizer/fixtures/synthetic-one-event.json "$RUNNER_TEMP/terra-preta-pf-report.json"
+          jq -e '.event_count == 1 and .response_detected_count == 1 and .proxy_classified_count == 1 and .events[0].response_lag_minutes == 20' "$RUNNER_TEMP/terra-preta-pf-report.json"
       - name: Test grouped split manifest fail-closed checks
         run: bash research/terra-preta/tools/test-split-manifest.sh
       - name: Lint standalone audit tools
@@ -502,6 +507,7 @@ jobs:
           cargo clippy --manifest-path research/terra-preta/tools/water-retention-audit/Cargo.toml --all-targets -- -D warnings
           cargo clippy --manifest-path research/terra-preta/tools/nutrient-budget-audit/Cargo.toml --all-targets -- -D warnings
           cargo clippy --manifest-path research/terra-preta/tools/coupled-event-audit/Cargo.toml --all-targets -- -D warnings
+          cargo clippy --manifest-path research/terra-preta/tools/preferential-flow-eventizer/Cargo.toml --all-targets -- -D warnings
 
   # Summary gate
   ci-pass:
