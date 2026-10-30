@@ -510,6 +510,7 @@ jobs:
           cargo fmt --manifest-path research/terra-preta/tools/coupled-event-audit/Cargo.toml -- --check
           cargo fmt --manifest-path research/terra-preta/tools/preferential-flow-eventizer/Cargo.toml -- --check
           cargo fmt --manifest-path research/terra-preta/tools/profile-flow-audit/Cargo.toml -- --check
+          cargo fmt --manifest-path research/terra-preta/tools/morphology-audit/Cargo.toml -- --check
       - name: Test standalone audit tools and JSON Schema conformance
         run: |
           cargo test --manifest-path research/terra-preta/tools/biochar-audit/Cargo.toml
@@ -526,6 +527,9 @@ jobs:
           cargo test --manifest-path research/terra-preta/tools/profile-flow-audit/Cargo.toml
           cargo run --manifest-path research/terra-preta/tools/profile-flow-audit/Cargo.toml -- research/terra-preta/tools/profile-flow-audit/fixtures/synthetic-mixed-profile.json "$RUNNER_TEMP/terra-preta-profile-report.json"
           jq -e '.profile_classification == "mixed_response_ordering" and .nsr_pair_count == 2 and .sequential_pair_count == 1' "$RUNNER_TEMP/terra-preta-profile-report.json"
+          cargo test --manifest-path research/terra-preta/tools/morphology-audit/Cargo.toml
+          cargo run --manifest-path research/terra-preta/tools/morphology-audit/Cargo.toml -- research/terra-preta/tools/morphology-audit/fixtures/synthetic-imagej-export.csv "$RUNNER_TEMP/terra-preta-morphology-report.json" --horizon Ap1 --resolution-um 180 --area-col Area --perimeter-col 'Perim.' --min-feret-col MinFeret --feret-col Feret --angle-col FeretAngle --cross-section-area-mm2 100
+          jq -e '.detected_object_count == 2 and .summed_projected_pore_area_mm2 == 6 and .projected_pore_area_fraction == 0.06 and .orientation_histogram_10deg_bins[0] == 1 and .orientation_histogram_10deg_bins[9] == 1' "$RUNNER_TEMP/terra-preta-morphology-report.json"
       - name: Test grouped split manifest fail-closed checks
         run: bash research/terra-preta/tools/test-split-manifest.sh
       - name: Lint standalone audit tools
@@ -540,6 +544,7 @@ jobs:
           cargo clippy --manifest-path research/terra-preta/tools/coupled-event-audit/Cargo.toml --all-targets -- -D warnings
           cargo clippy --manifest-path research/terra-preta/tools/preferential-flow-eventizer/Cargo.toml --all-targets -- -D warnings
           cargo clippy --manifest-path research/terra-preta/tools/profile-flow-audit/Cargo.toml --all-targets -- -D warnings
+          cargo clippy --manifest-path research/terra-preta/tools/morphology-audit/Cargo.toml --all-targets -- -D warnings
 
   # Summary gate
   ci-pass:
