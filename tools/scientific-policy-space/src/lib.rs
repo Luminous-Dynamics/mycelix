@@ -145,6 +145,7 @@ pub enum ActingOrganizationRelation {
     Absent,
     EqualToCreator,
     DifferentFromCreator,
+    PresentWithoutCreatorOrganization,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize)]
@@ -313,7 +314,8 @@ fn existing_stream_case(
     let acting_organization_id = match acting_organization_relation {
         ActingOrganizationRelation::Absent => None,
         ActingOrganizationRelation::EqualToCreator => Some("org:creator".to_owned()),
-        ActingOrganizationRelation::DifferentFromCreator => Some("org:other".to_owned()),
+        ActingOrganizationRelation::DifferentFromCreator
+        | ActingOrganizationRelation::PresentWithoutCreatorOrganization => Some("org:other".to_owned()),
     };
     let (target_exists, target_author) = match target_attestation_state {
         TargetAttestationState::Absent => (false, None),
@@ -611,6 +613,11 @@ pub fn enumerate_decision_space() -> Vec<DecisionCase> {
                                 ActingOrganizationRelation::Absent,
                                 ActingOrganizationRelation::DifferentFromCreator,
                             ]
+                        } else {
+                            &[
+                                ActingOrganizationRelation::Absent,
+                                ActingOrganizationRelation::PresentWithoutCreatorOrganization,
+                            ]
                         };
                     for relation in relations {
                         for attestation_kind in AttestationKind::ALL {
@@ -782,6 +789,17 @@ mod tests {
             case.domain_annotations.acting_organization_relation
                 != ActingOrganizationRelation::EqualToCreator
                 || case.context.claim.creator_organization_id.is_some()
+        }));
+        assert!(cases.iter().all(|case| {
+            case.domain_annotations.acting_organization_relation
+                != ActingOrganizationRelation::DifferentFromCreator
+                || case.context.claim.creator_organization_id.is_some()
+        }));
+        assert!(cases.iter().all(|case| {
+            case.domain_annotations.acting_organization_relation
+                != ActingOrganizationRelation::PresentWithoutCreatorOrganization
+                || (case.context.claim.creator_organization_id.is_none()
+                    && case.context.acting_organization_id.is_some())
         }));
     }
 
