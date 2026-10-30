@@ -930,6 +930,9 @@ mod tests {
         let corpus: Value = serde_json::from_str(CONFORMANCE).expect("conformance JSON valid");
         let expected = &corpus["expected_metrics"];
         let tolerance = corpus["conformance_targets"]["golden_metric_absolute_tolerance"].as_f64().unwrap_or(1e-12);
+        assert_eq!(report["total_cases"], expected["total_cases"]);
+        assert_eq!(report["mandatory_abstentions"], expected["mandatory_abstentions"]);
+        assert_eq!(report["optional_abstentions"], expected["optional_abstentions"]);
         let compare = |actual: &Value, expected: &Value| {
             for key in [
                 "cases", "issued_forecasts", "abstentions", "raw_forecast_coverage",
