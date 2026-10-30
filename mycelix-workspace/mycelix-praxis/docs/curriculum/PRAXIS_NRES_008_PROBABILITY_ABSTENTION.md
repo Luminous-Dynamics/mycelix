@@ -31,7 +31,7 @@ This composes with established preparedness practice. FEMA HSEEP already provide
 
 ## 3. Fixture and evaluator contract
 
-The public fixture has 25 fictional cases:
+The public fixture has 25 fictional cases. The conformance file adds 15 negative cases and eight round-trip preservation requirements:
 - 20 forecast outputs on qualified inputs;
 - 4 required abstentions: missing critical inputs (2), conflicting sources (1), and unsupported distribution shift (1);
 - 1 optional model-uncertainty abstention on otherwise-qualified input.
@@ -42,7 +42,7 @@ The aggregate calibration-reference cohort has 20 synthetic observations and 10 
 
 The evaluator returns:
 1. total and qualified-case forecast coverage;
-2. per-service case/forecast/abstention counts;
+2. per-service case counts, issued forecasts and abstention dispositions;
 3. abstention counts by mandatory reason, mandatory-abstention compliance and optional abstentions;
 3. overall selective Brier score and logarithmic loss, using the frozen epsilon for numerical stability;
 4. Brier skill score relative to the calibration-reference climatology on the exact same issued cases;
