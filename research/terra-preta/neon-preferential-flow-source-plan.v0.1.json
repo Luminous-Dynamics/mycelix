@@ -55,7 +55,7 @@
           26
         ]
       },
-      "role": "Primary soil-moisture time series for historical replication and site-transfer extensions.",
+      "role": "Current RELEASE-2026 data for a separate current-release extension and cross-release sensitivity analysis; not a substitute for the 2023 dataset DOI cited by Li et al. until the DOI-to-release crosswalk is reconciled.",
       "acquisition_status": "metadata_reviewed_not_downloaded",
       "exact_site_list": null,
       "exact_site_month_inventory": null,
@@ -141,6 +141,8 @@
     }
   ],
   "acquisition_gates": [
+    "Resolve exact NEON release tags for paper-cited dataset DOIs before claiming historical reproduction.",
+    "Keep RELEASE-2026 soil-water files in a separate release-extension track; do not treat them as the exact data identified by the paper's 2023 DOI citation.",
     "Fetch product availability by site and month and save exact API responses.",
     "Pin the NEON release tag and retrieve every selected file's publisher checksum, byte size and filename before download.",
     "Acquire raw files outside Git, recompute SHA-256 locally and preserve a read-only raw copy.",
@@ -235,6 +237,32 @@
       "status": "metadata_reviewed_file_endpoint_403_not_acquired",
       "local_sha256": null,
       "file_checksums": null
+    }
+  ],
+  "paper_cited_datasets": [
+    {
+      "product_code": "DP1.00094.001",
+      "citation_year": 2023,
+      "doi": "10.48443/7EXD-N727",
+      "exact_neon_release_tag": "unresolved"
+    },
+    {
+      "product_code": "DP1.00006.001",
+      "citation_year": 2023,
+      "doi": "10.48443/DXDR-W376",
+      "exact_neon_release_tag": "unresolved"
+    },
+    {
+      "product_code": "DP1.00096.001",
+      "citation_year": 2023,
+      "doi": "10.48443/T70Z-NP08",
+      "exact_neon_release_tag": "unresolved"
+    },
+    {
+      "product_code": "DP1.10047.001",
+      "citation_year": 2024,
+      "doi": "10.48443/r517-kg13",
+      "exact_neon_release_tag": "unresolved"
     }
   ]
 }
