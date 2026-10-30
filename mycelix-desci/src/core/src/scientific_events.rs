@@ -2128,7 +2128,6 @@ mod tests {
         }
     }
 
-
     #[test]
     fn frozen_projection_corpus_matches_epistemic_qualification_rules() {
         let corpus: Value = serde_json::from_str(include_str!(
@@ -2139,7 +2138,11 @@ mod tests {
             .get("projectionCases")
             .and_then(Value::as_array)
             .expect("corpus must contain projectionCases");
-        assert_eq!(cases.len(), 10, "update the frozen projection case count deliberately");
+        assert_eq!(
+            cases.len(),
+            10,
+            "update the frozen projection case count deliberately"
+        );
 
         for case in cases {
             let creator = actor(
@@ -2218,10 +2221,9 @@ mod tests {
                             Some("supports") => EvidenceOutcome::Supports,
                             Some("does_not_support") => EvidenceOutcome::DoesNotSupport,
                             Some("inconclusive") => EvidenceOutcome::Inconclusive,
-                            other => panic!(
-                                "{}: invalid reproduction outcome {other:?}",
-                                case["id"]
-                            ),
+                            other => {
+                                panic!("{}: invalid reproduction outcome {other:?}", case["id"])
+                            }
                         };
                         AttestationKind::ComputationalReproduction { outcome }
                     }
@@ -2230,10 +2232,9 @@ mod tests {
                             Some("supports") => EvidenceOutcome::Supports,
                             Some("does_not_support") => EvidenceOutcome::DoesNotSupport,
                             Some("inconclusive") => EvidenceOutcome::Inconclusive,
-                            other => panic!(
-                                "{}: invalid replication outcome {other:?}",
-                                case["id"]
-                            ),
+                            other => {
+                                panic!("{}: invalid replication outcome {other:?}", case["id"])
+                            }
                         };
                         AttestationKind::IndependentReplication { outcome }
                     }
@@ -2308,7 +2309,9 @@ mod tests {
                 ),
                 (
                     "supportiveIndependentReplicationCount",
-                    projection.evidence_profile.supportive_independent_replication_count,
+                    projection
+                        .evidence_profile
+                        .supportive_independent_replication_count,
                 ),
                 (
                     "nonSupportingResultCount",
@@ -2328,8 +2331,7 @@ mod tests {
                     .and_then(Value::as_u64)
                     .unwrap_or_else(|| panic!("{}: missing expected metric {field}", case["id"]));
                 assert_eq!(
-                    actual as u64,
-                    expected_value,
+                    actual as u64, expected_value,
                     "{} metric {field}",
                     case["id"]
                 );
