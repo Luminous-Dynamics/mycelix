@@ -141,6 +141,24 @@
       "name": "Missing decision profile",
       "mutation": "Remove one required decision profile",
       "expected_disposition": "reject-incomplete-profiles"
+    },
+    {
+      "case_id": "NEG-24",
+      "name": "Pinned source fixture digest drift",
+      "mutation": "Change source_fixture.fixture_blob_sha without changing the NRES-010 source artifact",
+      "expected_disposition": "reject-source-fixture-pin"
+    },
+    {
+      "case_id": "NEG-25",
+      "name": "Source scenario/outcome drift",
+      "mutation": "Change an NRES-011 evaluator outcome or forecast field without changing its source_case_id",
+      "expected_disposition": "reject-source-case-mismatch"
+    },
+    {
+      "case_id": "NEG-26",
+      "name": "Missing regime catalog",
+      "mutation": "Remove the explicit four-regime catalog",
+      "expected_disposition": "reject-regime-catalog"
     }
   ],
   "boundary_cases": [
@@ -1436,7 +1454,7 @@
         }
       }
     },
-    "negative_case_count": 23,
+    "negative_case_count": 26,
     "boundary_case_count": 2
   },
   "round_trip_requirements": [
@@ -1447,7 +1465,8 @@
     "Preserve reviewer fallback action separately from candidate output.",
     "Preserve event threshold, horizon, units and strict exceedance semantics.",
     "Preserve reliability/resolution bin boundaries and all decomposition terms.",
-    "Preserve every policy cost, regret/value denominator, profile and regime dimension."
+    "Preserve every policy cost, regret/value denominator, profile and regime dimension.",
+    "Preserve the pinned NRES-010 Git blob SHA and source case count; every NRES-011 row must match its source scenario and forecast fields exactly."
   ],
   "conformance_targets": {
     "valid_fixture_acceptance": "100 percent",
