@@ -22,7 +22,9 @@
     "boundary_flux_review_ref",
     "boundary_coverage_status",
     "input_total_kg_element_per_ha",
+    "input_category_summaries",
     "output_total_kg_element_per_ha",
+    "output_category_summaries",
     "storage_start_total_kg_element_per_ha",
     "storage_end_total_kg_element_per_ha",
     "storage_change_kg_element_per_ha",
@@ -282,6 +284,74 @@
         "declared_complete",
         "declared_incomplete"
       ]
+    },
+    "input_category_summaries": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "category",
+          "count",
+          "amount_kg_element_per_ha",
+          "conservative_linear_standard_uncertainty_bound_kg_element_per_ha"
+        ],
+        "properties": {
+          "category": {
+            "type": "string",
+            "minLength": 1
+          },
+          "count": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "amount_kg_element_per_ha": {
+            "type": "number",
+            "minimum": 0
+          },
+          "conservative_linear_standard_uncertainty_bound_kg_element_per_ha": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "minimum": 0
+          }
+        }
+      }
+    },
+    "output_category_summaries": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "category",
+          "count",
+          "amount_kg_element_per_ha",
+          "conservative_linear_standard_uncertainty_bound_kg_element_per_ha"
+        ],
+        "properties": {
+          "category": {
+            "type": "string",
+            "minLength": 1
+          },
+          "count": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "amount_kg_element_per_ha": {
+            "type": "number",
+            "minimum": 0
+          },
+          "conservative_linear_standard_uncertainty_bound_kg_element_per_ha": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "minimum": 0
+          }
+        }
+      }
     }
   }
 }
