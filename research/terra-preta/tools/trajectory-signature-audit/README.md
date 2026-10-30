@@ -22,4 +22,6 @@ No smoothing is applied. The maximum-rate metric may be dominated by a single no
 
 Trajectory-based response features complement NSR and velocity-threshold methods. They do not independently establish a preferential pathway. An absent threshold yields no PF proxy classification. A supplied threshold is a model/measurement-conditioned proxy, not tracer ground truth. The 2025 Nimmo et al. review notes that maximum rate of rise can reduce the need to identify one exact onset and can accommodate multiple rising limbs, but threshold selection and measurement cadence remain material.
 
+Implementation tracker: [PF-TRAJ-001](https://github.com/Luminous-Dynamics/mycelix/issues/5542).
+
 Reference: Nimmo et al. (2025), *Identifying preferential flow from soil moisture time series: Review of methodologies*, Vadose Zone Journal 24(2), e70017. https://doi.org/10.1002/vzj2.70017
