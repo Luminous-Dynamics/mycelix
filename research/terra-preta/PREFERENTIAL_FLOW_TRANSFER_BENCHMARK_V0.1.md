@@ -2,6 +2,8 @@
 
 **Status:** Research benchmark and data-acquisition plan. No field application, amendment recommendation, nutrient-loss claim, or site-specific forecast is authorized by this document.
 
+**Raw-data reproduction rules:** [NEON Preferential-Flow Preprocessing Contract](./NEON_PREFERENTIAL_FLOW_PREPROCESSING_CONTRACT_V0.1.md). The contract distinguishes the 2026 paper's velocity-threshold target from the separate 2025 NSR/VT study and pins source DOIs, release-resolution gates and QA/aggregation sensitivity.
+
 **Executable preprocessing:** [Preferential-flow eventizer](./tools/preferential-flow-eventizer/README.md) and [synthetic known-truth benchmark](./SYNTHETIC_KNOWN_TRUTH_BENCHMARK_V0.1.md). The eventizer consumes QA-filtered 10-minute normalized series; it does not parse raw NEON packages or certify pathways.
 
 **Implementation trackers:** [PF reproduction/transfer](https://github.com/Luminous-Dynamics/mycelix/issues/5534) · [NEON cohort and normalization](https://github.com/Luminous-Dynamics/mycelix/issues/5537).
