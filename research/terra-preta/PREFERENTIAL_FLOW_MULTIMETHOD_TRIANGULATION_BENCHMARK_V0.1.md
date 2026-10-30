@@ -123,6 +123,10 @@ The value-of-information policy must be evaluated prospectively: compare adaptiv
 
 **Target distinction:** the 2026 Li et al. ResNet benchmark uses the velocity-threshold PF proxy; its methods explicitly state that NSR was not used for the binary PF target. The 2025 Li et al. multi-ecoregion study uses both NSR and velocity-threshold approaches. Our NSR tool is therefore a separate method-comparison track, not part of the 2026 reproduction label. See the [raw NEON preprocessing contract](./NEON_PREFERENTIAL_FLOW_PREPROCESSING_CONTRACT_V0.1.md).
 
+### Executable evidence envelope
+
+The Rust [PF triangulation audit](./tools/pf-triangulation-audit/README.md) preserves VT/trajectory proxy concordance per sensor, carries the profile-level NSR signature separately, and binds independent tracer/geophysical references to the exact event/profile. It does not majority-vote proxy labels into physical truth. Upstream file SHA-256 values are recorded but must be independently verified before they are treated as artifact proof. Implementation tracker: [PF-EVIDENCE-001](https://github.com/Luminous-Dynamics/mycelix/issues/5543).
+
 ## 8. Data and implementation links
 
 - NEON event-scale predictor and transfer track: PREFERENTIAL_FLOW_TRANSFER_BENCHMARK_V0.1.md.
