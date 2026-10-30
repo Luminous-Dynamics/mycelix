@@ -1,0 +1,1137 @@
+{
+  "benchmark_id": "PRAXIS-NRES-012-AMBIGUITY-ROBUST-DECISION-CONFORMANCE-001",
+  "schema_version": "1.0.0",
+  "status": "public-development-conformance-corpus",
+  "fixture_ref": "civic-resilience-ambiguity-robust-decision-fixture-001.json",
+  "negative_cases": [
+    {
+      "case_id": "NEG-01",
+      "name": "Probability above one",
+      "mutation": "Set point probability=1.01",
+      "expected_disposition": "reject-point-range"
+    },
+    {
+      "case_id": "NEG-02",
+      "name": "Negative probability",
+      "mutation": "Set point probability=-0.01",
+      "expected_disposition": "reject-point-range"
+    },
+    {
+      "case_id": "NEG-03",
+      "name": "Lower bound negative",
+      "mutation": "Set lower=-0.01",
+      "expected_disposition": "reject-interval-range"
+    },
+    {
+      "case_id": "NEG-04",
+      "name": "Upper bound above one",
+      "mutation": "Set upper=1.01",
+      "expected_disposition": "reject-interval-range"
+    },
+    {
+      "case_id": "NEG-05",
+      "name": "Reversed interval",
+      "mutation": "Set lower greater than upper",
+      "expected_disposition": "reject-interval-order"
+    },
+    {
+      "case_id": "NEG-06",
+      "name": "Point below lower",
+      "mutation": "Set point probability below lower",
+      "expected_disposition": "reject-point-outside-interval"
+    },
+    {
+      "case_id": "NEG-07",
+      "name": "Point above upper",
+      "mutation": "Set point probability above upper",
+      "expected_disposition": "reject-point-outside-interval"
+    },
+    {
+      "case_id": "NEG-08",
+      "name": "Negative ambiguity radius",
+      "mutation": "Set total_variation_radius=-0.1",
+      "expected_disposition": "reject-radius-range"
+    },
+    {
+      "case_id": "NEG-09",
+      "name": "Radius differs from regime definition",
+      "mutation": "Change candidate ambiguity radius only",
+      "expected_disposition": "reject-regime-radius-drift"
+    },
+    {
+      "case_id": "NEG-10",
+      "name": "Interval not derived from declared TV ball",
+      "mutation": "Change lower or upper away from clipped p±rho",
+      "expected_disposition": "reject-interval-formula"
+    },
+    {
+      "case_id": "NEG-11",
+      "name": "Forecast missing interval bounds",
+      "mutation": "Set a forecast lower bound to null",
+      "expected_disposition": "reject-missing-interval"
+    },
+    {
+      "case_id": "NEG-12",
+      "name": "Interval emitted on abstention",
+      "mutation": "Set abstention lower or upper to a number",
+      "expected_disposition": "reject-interval-on-abstention"
+    },
+    {
+      "case_id": "NEG-13",
+      "name": "Forecast on missing input",
+      "mutation": "Change mandatory abstention to forecast",
+      "expected_disposition": "reject-mandatory-abstention"
+    },
+    {
+      "case_id": "NEG-14",
+      "name": "Missing abstention reason",
+      "mutation": "Remove abstention_reason from an abstention",
+      "expected_disposition": "reject-missing-abstention-reason"
+    },
+    {
+      "case_id": "NEG-15",
+      "name": "Missing review fallback",
+      "mutation": "Set reviewer fallback null on an abstention",
+      "expected_disposition": "reject-missing-review-fallback"
+    },
+    {
+      "case_id": "NEG-16",
+      "name": "Proposal probability invalid",
+      "mutation": "Set proposal stratum probability to zero",
+      "expected_disposition": "reject-proposal-probability"
+    },
+    {
+      "case_id": "NEG-17",
+      "name": "Target probability invalid",
+      "mutation": "Set target stratum probability negative",
+      "expected_disposition": "reject-target-probability"
+    },
+    {
+      "case_id": "NEG-18",
+      "name": "Sampling design drift",
+      "mutation": "Change target probability for one case",
+      "expected_disposition": "reject-sampling-drift"
+    },
+    {
+      "case_id": "NEG-19",
+      "name": "Duplicate NRES-011 source ID",
+      "mutation": "Duplicate source_case_id",
+      "expected_disposition": "reject-duplicate-source-id"
+    },
+    {
+      "case_id": "NEG-20",
+      "name": "Source fixture blob SHA drift",
+      "mutation": "Change pinned source blob SHA",
+      "expected_disposition": "reject-source-pin"
+    },
+    {
+      "case_id": "NEG-21",
+      "name": "Source point forecast drift",
+      "mutation": "Change copied point probability only",
+      "expected_disposition": "reject-source-case-mismatch"
+    },
+    {
+      "case_id": "NEG-22",
+      "name": "Decision profile threshold drift",
+      "mutation": "Alter threshold without changing cost/loss terms",
+      "expected_disposition": "reject-threshold-drift"
+    },
+    {
+      "case_id": "NEG-23",
+      "name": "Invalid loss order",
+      "mutation": "Set event loss with action >= loss without action",
+      "expected_disposition": "reject-loss-order"
+    },
+    {
+      "case_id": "NEG-24",
+      "name": "Forecast horizon drift",
+      "mutation": "Change one case horizon",
+      "expected_disposition": "reject-horizon-drift"
+    },
+    {
+      "case_id": "NEG-25",
+      "name": "Unknown regime",
+      "mutation": "Set regime ID to unknown",
+      "expected_disposition": "reject-regime-id"
+    },
+    {
+      "case_id": "NEG-26",
+      "name": "Composite score injection",
+      "mutation": "Add composite resilience score",
+      "expected_disposition": "reject-composite-score"
+    },
+    {
+      "case_id": "NEG-27",
+      "name": "Incomplete profile set",
+      "mutation": "Remove a decision profile",
+      "expected_disposition": "reject-profile-catalog"
+    },
+    {
+      "case_id": "NEG-28",
+      "name": "All policies abstain",
+      "mutation": "Convert all forecasts to abstentions",
+      "expected_disposition": "reject-all-abstention"
+    }
+  ],
+  "boundary_cases": [
+    {
+      "case_id": "BOUNDARY-01",
+      "name": "Point and interval collapsed at cost-loss threshold",
+      "mutation": "Set lower=point=upper=decision threshold",
+      "expected_disposition": "nominal and robust expected choose prepare (inclusive); minimax regret tie chooses no_action"
+    },
+    {
+      "case_id": "BOUNDARY-02",
+      "name": "Worst-case expected loss equality",
+      "mutation": "Set upper exactly equal to decision threshold",
+      "expected_disposition": "worst-case expected-loss tie chooses no_action"
+    }
+  ],
+  "expected_metrics": {
+    "total_cases": 128,
+    "profiles": [
+      "low_cost_preparedness",
+      "moderate_cost_preparedness",
+      "high_cost_preparedness"
+    ],
+    "overall": {
+      "low_cost_preparedness": {
+        "cases": 128,
+        "issued_forecasts": 123,
+        "abstentions": 5,
+        "raw_forecast_coverage": 0.9609375,
+        "weighted_forecast_coverage": 0.9769791666666665,
+        "importance_weight_sum": 128.00000000000028,
+        "effective_sample_size": 101.73802458668973,
+        "forecast_effective_sample_size": 99.1950123760287,
+        "mean_probability_interval_width": 0.06465977183068537,
+        "p90_probability_interval_width": 0.13999999999999999,
+        "max_probability_interval_width": 0.14,
+        "nominal_vs_robust_expected_action_disagreements": 35,
+        "nominal_vs_minimax_regret_action_disagreements": 4,
+        "robust_expected_vs_minimax_regret_action_disagreements": 31,
+        "baseline_policy_costs": {
+          "training_climatology": 2.1249999999999947,
+          "always_no_action": 2.1249999999999947,
+          "always_prepare": 1.5312499999999956,
+          "perfect_information_oracle_lower_bound": 0.6197916666666656
+        },
+        "strategies": {
+          "nominal_point_forecast": {
+            "realized_policy_cost": 1.5423697916666632,
+            "relative_economic_value": 0.3870761245674739,
+            "regret_vs_perfect_information": 0.9225781249999976,
+            "weighted_mean_worst_case_expected_cost_on_issued": 1.611759675871625,
+            "weighted_mean_worst_case_regret_on_issued": 0.3444384262714569,
+            "maximum_case_worst_case_regret": 1.25,
+            "prepared_decisions": 68,
+            "reviewed_cases": 5,
+            "false_negative_cases": 3,
+            "false_prepare_cases": 46
+          },
+          "worst_case_expected_loss": {
+            "realized_policy_cost": 1.5322656249999955,
+            "relative_economic_value": 0.3937889273356407,
+            "regret_vs_perfect_information": 0.9124739583333299,
+            "weighted_mean_worst_case_expected_cost_on_issued": 1.4900934001492667,
+            "weighted_mean_worst_case_regret_on_issued": 0.4399181149376258,
+            "maximum_case_worst_case_regret": 1,
+            "prepared_decisions": 103,
+            "reviewed_cases": 5,
+            "false_negative_cases": 1,
+            "false_prepare_cases": 79
+          },
+          "minimax_regret": {
+            "realized_policy_cost": 1.40091145833333,
+            "relative_economic_value": 0.4810553633217994,
+            "regret_vs_perfect_information": 0.7811197916666643,
+            "weighted_mean_worst_case_expected_cost_on_issued": 1.5600484060134312,
+            "weighted_mean_worst_case_regret_on_issued": 0.3340961722998181,
+            "maximum_case_worst_case_regret": 1,
+            "prepared_decisions": 72,
+            "reviewed_cases": 5,
+            "false_negative_cases": 2,
+            "false_prepare_cases": 49
+          }
+        }
+      },
+      "moderate_cost_preparedness": {
+        "cases": 128,
+        "issued_forecasts": 123,
+        "abstentions": 5,
+        "raw_forecast_coverage": 0.9609375,
+        "weighted_forecast_coverage": 0.9769791666666665,
+        "importance_weight_sum": 128.00000000000028,
+        "effective_sample_size": 101.73802458668973,
+        "forecast_effective_sample_size": 99.1950123760287,
+        "mean_probability_interval_width": 0.06465977183068537,
+        "p90_probability_interval_width": 0.13999999999999999,
+        "max_probability_interval_width": 0.14,
+        "nominal_vs_robust_expected_action_disagreements": 28,
+        "nominal_vs_minimax_regret_action_disagreements": 0,
+        "robust_expected_vs_minimax_regret_action_disagreements": 28,
+        "baseline_policy_costs": {
+          "training_climatology": 2.833333333333325,
+          "always_no_action": 2.833333333333325,
+          "always_prepare": 3.2083333333333273,
+          "perfect_information_oracle_lower_bound": 0.9296874999999982
+        },
+        "strategies": {
+          "nominal_point_forecast": {
+            "realized_policy_cost": 2.544583333333327,
+            "relative_economic_value": 0.1516826265389872,
+            "regret_vs_perfect_information": 1.6148958333333288,
+            "weighted_mean_worst_case_expected_cost_on_issued": 2.8207130824181634,
+            "weighted_mean_worst_case_regret_on_issued": 0.24407719373067438,
+            "maximum_case_worst_case_regret": 1.46,
+            "prepared_decisions": 29,
+            "reviewed_cases": 5,
+            "false_negative_cases": 7,
+            "false_prepare_cases": 11
+          },
+          "worst_case_expected_loss": {
+            "realized_policy_cost": 2.5243749999999916,
+            "relative_economic_value": 0.1622982216142277,
+            "regret_vs_perfect_information": 1.5946874999999934,
+            "weighted_mean_worst_case_expected_cost_on_issued": 2.5766358886874894,
+            "weighted_mean_worst_case_regret_on_issued": 0.6276507090308121,
+            "maximum_case_worst_case_regret": 2.5,
+            "prepared_decisions": 57,
+            "reviewed_cases": 5,
+            "false_negative_cases": 4,
+            "false_prepare_cases": 36
+          },
+          "minimax_regret": {
+            "realized_policy_cost": 2.544583333333327,
+            "relative_economic_value": 0.1516826265389872,
+            "regret_vs_perfect_information": 1.6148958333333288,
+            "weighted_mean_worst_case_expected_cost_on_issued": 2.8207130824181634,
+            "weighted_mean_worst_case_regret_on_issued": 0.24407719373067438,
+            "maximum_case_worst_case_regret": 1.46,
+            "prepared_decisions": 29,
+            "reviewed_cases": 5,
+            "false_negative_cases": 7,
+            "false_prepare_cases": 11
+          }
+        }
+      },
+      "high_cost_preparedness": {
+        "cases": 128,
+        "issued_forecasts": 123,
+        "abstentions": 5,
+        "raw_forecast_coverage": 0.9609375,
+        "weighted_forecast_coverage": 0.9769791666666665,
+        "importance_weight_sum": 128.00000000000028,
+        "effective_sample_size": 101.73802458668973,
+        "forecast_effective_sample_size": 99.1950123760287,
+        "mean_probability_interval_width": 0.06465977183068537,
+        "p90_probability_interval_width": 0.13999999999999999,
+        "max_probability_interval_width": 0.14,
+        "nominal_vs_robust_expected_action_disagreements": 12,
+        "nominal_vs_minimax_regret_action_disagreements": 0,
+        "robust_expected_vs_minimax_regret_action_disagreements": 12,
+        "baseline_policy_costs": {
+          "training_climatology": 3.54166666666666,
+          "always_no_action": 3.54166666666666,
+          "always_prepare": 5.70833333333332,
+          "perfect_information_oracle_lower_bound": 1.1510416666666643
+        },
+        "strategies": {
+          "nominal_point_forecast": {
+            "realized_policy_cost": 3.314531249999993,
+            "relative_economic_value": 0.0950108932461877,
+            "regret_vs_perfect_information": 2.1634895833333285,
+            "weighted_mean_worst_case_expected_cost_on_issued": 3.563339375199907,
+            "weighted_mean_worst_case_regret_on_issued": 0.017258982833990806,
+            "maximum_case_worst_case_regret": 1.48,
+            "prepared_decisions": 23,
+            "reviewed_cases": 5,
+            "false_negative_cases": 11,
+            "false_prepare_cases": 9
+          },
+          "worst_case_expected_loss": {
+            "realized_policy_cost": 3.6774479166666585,
+            "relative_economic_value": -0.05679738562091457,
+            "regret_vs_perfect_information": 2.526406249999994,
+            "weighted_mean_worst_case_expected_cost_on_issued": 3.548920780466992,
+            "weighted_mean_worst_case_regret_on_issued": 0.3652295553896996,
+            "maximum_case_worst_case_regret": 4.4559999999999995,
+            "prepared_decisions": 35,
+            "reviewed_cases": 5,
+            "false_negative_cases": 9,
+            "false_prepare_cases": 19
+          },
+          "minimax_regret": {
+            "realized_policy_cost": 3.314531249999993,
+            "relative_economic_value": 0.0950108932461877,
+            "regret_vs_perfect_information": 2.1634895833333285,
+            "weighted_mean_worst_case_expected_cost_on_issued": 3.563339375199907,
+            "weighted_mean_worst_case_regret_on_issued": 0.017258982833990806,
+            "maximum_case_worst_case_regret": 1.48,
+            "prepared_decisions": 23,
+            "reviewed_cases": 5,
+            "false_negative_cases": 11,
+            "false_prepare_cases": 9
+          }
+        }
+      }
+    },
+    "per_regime": {
+      "in_distribution": {
+        "low_cost_preparedness": {
+          "cases": 32,
+          "issued_forecasts": 32,
+          "abstentions": 0,
+          "raw_forecast_coverage": 1,
+          "weighted_forecast_coverage": 1,
+          "importance_weight_sum": 32,
+          "effective_sample_size": 25.43450614667232,
+          "forecast_effective_sample_size": 25.43450614667232,
+          "mean_probability_interval_width": 0.019999999999999997,
+          "p90_probability_interval_width": 0.020000000000000004,
+          "max_probability_interval_width": 0.020000000000000018,
+          "nominal_vs_robust_expected_action_disagreements": 8,
+          "nominal_vs_minimax_regret_action_disagreements": 0,
+          "robust_expected_vs_minimax_regret_action_disagreements": 8,
+          "baseline_policy_costs": {
+            "training_climatology": 1.3300000000000003,
+            "always_no_action": 1.3300000000000003,
+            "always_prepare": 1.3325000000000005,
+            "perfect_information_oracle_lower_bound": 0.38791666666666663
+          },
+          "strategies": {
+            "nominal_point_forecast": {
+              "realized_policy_cost": 1.09,
+              "relative_economic_value": 0.2547545333923044,
+              "regret_vs_perfect_information": 0.7020833333333334,
+              "weighted_mean_worst_case_expected_cost_on_issued": 1.1171999999999995,
+              "weighted_mean_worst_case_regret_on_issued": 0.031686666666666655,
+              "maximum_case_worst_case_regret": 0.16999999999999993,
+              "prepared_decisions": 8,
+              "reviewed_cases": 0,
+              "false_negative_cases": 1,
+              "false_prepare_cases": 4
+            },
+            "worst_case_expected_loss": {
+              "realized_policy_cost": 1.413333333333334,
+              "relative_economic_value": -0.08845643520566158,
+              "regret_vs_perfect_information": 1.0254166666666673,
+              "weighted_mean_worst_case_expected_cost_on_issued": 1.0855133333333329,
+              "weighted_mean_worst_case_regret_on_issued": 0.08471333333333335,
+              "maximum_case_worst_case_regret": 0.3340000000000001,
+              "prepared_decisions": 16,
+              "reviewed_cases": 0,
+              "false_negative_cases": 1,
+              "false_prepare_cases": 12
+            },
+            "minimax_regret": {
+              "realized_policy_cost": 1.09,
+              "relative_economic_value": 0.2547545333923044,
+              "regret_vs_perfect_information": 0.7020833333333334,
+              "weighted_mean_worst_case_expected_cost_on_issued": 1.1171999999999995,
+              "weighted_mean_worst_case_regret_on_issued": 0.031686666666666655,
+              "maximum_case_worst_case_regret": 0.16999999999999993,
+              "prepared_decisions": 8,
+              "reviewed_cases": 0,
+              "false_negative_cases": 1,
+              "false_prepare_cases": 4
+            }
+          }
+        },
+        "moderate_cost_preparedness": {
+          "cases": 32,
+          "issued_forecasts": 32,
+          "abstentions": 0,
+          "raw_forecast_coverage": 1,
+          "weighted_forecast_coverage": 1,
+          "importance_weight_sum": 32,
+          "effective_sample_size": 25.43450614667232,
+          "forecast_effective_sample_size": 25.43450614667232,
+          "mean_probability_interval_width": 0.019999999999999997,
+          "p90_probability_interval_width": 0.020000000000000004,
+          "max_probability_interval_width": 0.020000000000000018,
+          "nominal_vs_robust_expected_action_disagreements": 0,
+          "nominal_vs_minimax_regret_action_disagreements": 0,
+          "robust_expected_vs_minimax_regret_action_disagreements": 0,
+          "baseline_policy_costs": {
+            "training_climatology": 1.7733333333333334,
+            "always_no_action": 1.7733333333333334,
+            "always_prepare": 2.943333333333334,
+            "perfect_information_oracle_lower_bound": 0.581875
+          },
+          "strategies": {
+            "nominal_point_forecast": {
+              "realized_policy_cost": 1.4883333333333326,
+              "relative_economic_value": 0.23920265780730965,
+              "regret_vs_perfect_information": 0.9064583333333326,
+              "weighted_mean_worst_case_expected_cost_on_issued": 1.5245999999999997,
+              "weighted_mean_worst_case_regret_on_issued": 0,
+              "maximum_case_worst_case_regret": 0,
+              "prepared_decisions": 8,
+              "reviewed_cases": 0,
+              "false_negative_cases": 1,
+              "false_prepare_cases": 4
+            },
+            "worst_case_expected_loss": {
+              "realized_policy_cost": 1.4883333333333326,
+              "relative_economic_value": 0.23920265780730965,
+              "regret_vs_perfect_information": 0.9064583333333326,
+              "weighted_mean_worst_case_expected_cost_on_issued": 1.5245999999999997,
+              "weighted_mean_worst_case_regret_on_issued": 0,
+              "maximum_case_worst_case_regret": 0,
+              "prepared_decisions": 8,
+              "reviewed_cases": 0,
+              "false_negative_cases": 1,
+              "false_prepare_cases": 4
+            },
+            "minimax_regret": {
+              "realized_policy_cost": 1.4883333333333326,
+              "relative_economic_value": 0.23920265780730965,
+              "regret_vs_perfect_information": 0.9064583333333326,
+              "weighted_mean_worst_case_expected_cost_on_issued": 1.5245999999999997,
+              "weighted_mean_worst_case_regret_on_issued": 0,
+              "maximum_case_worst_case_regret": 0,
+              "prepared_decisions": 8,
+              "reviewed_cases": 0,
+              "false_negative_cases": 1,
+              "false_prepare_cases": 4
+            }
+          }
+        },
+        "high_cost_preparedness": {
+          "cases": 32,
+          "issued_forecasts": 32,
+          "abstentions": 0,
+          "raw_forecast_coverage": 1,
+          "weighted_forecast_coverage": 1,
+          "importance_weight_sum": 32,
+          "effective_sample_size": 25.43450614667232,
+          "forecast_effective_sample_size": 25.43450614667232,
+          "mean_probability_interval_width": 0.019999999999999997,
+          "p90_probability_interval_width": 0.020000000000000004,
+          "max_probability_interval_width": 0.020000000000000018,
+          "nominal_vs_robust_expected_action_disagreements": 0,
+          "nominal_vs_minimax_regret_action_disagreements": 0,
+          "robust_expected_vs_minimax_regret_action_disagreements": 0,
+          "baseline_policy_costs": {
+            "training_climatology": 2.2166666666666663,
+            "always_no_action": 2.2166666666666663,
+            "always_prepare": 5.443333333333333,
+            "perfect_information_oracle_lower_bound": 0.7204166666666665
+          },
+          "strategies": {
+            "nominal_point_forecast": {
+              "realized_policy_cost": 2.0891666666666664,
+              "relative_economic_value": 0.0852130325814536,
+              "regret_vs_perfect_information": 1.36875,
+              "weighted_mean_worst_case_expected_cost_on_issued": 1.9425000000000003,
+              "weighted_mean_worst_case_regret_on_issued": 0,
+              "maximum_case_worst_case_regret": 0,
+              "prepared_decisions": 6,
+              "reviewed_cases": 0,
+              "false_negative_cases": 3,
+              "false_prepare_cases": 4
+            },
+            "worst_case_expected_loss": {
+              "realized_policy_cost": 2.0891666666666664,
+              "relative_economic_value": 0.0852130325814536,
+              "regret_vs_perfect_information": 1.36875,
+              "weighted_mean_worst_case_expected_cost_on_issued": 1.9425000000000003,
+              "weighted_mean_worst_case_regret_on_issued": 0,
+              "maximum_case_worst_case_regret": 0,
+              "prepared_decisions": 6,
+              "reviewed_cases": 0,
+              "false_negative_cases": 3,
+              "false_prepare_cases": 4
+            },
+            "minimax_regret": {
+              "realized_policy_cost": 2.0891666666666664,
+              "relative_economic_value": 0.0852130325814536,
+              "regret_vs_perfect_information": 1.36875,
+              "weighted_mean_worst_case_expected_cost_on_issued": 1.9425000000000003,
+              "weighted_mean_worst_case_regret_on_issued": 0,
+              "maximum_case_worst_case_regret": 0,
+              "prepared_decisions": 6,
+              "reviewed_cases": 0,
+              "false_negative_cases": 3,
+              "false_prepare_cases": 4
+            }
+          }
+        }
+      },
+      "temporal_shift": {
+        "low_cost_preparedness": {
+          "cases": 32,
+          "issued_forecasts": 31,
+          "abstentions": 1,
+          "raw_forecast_coverage": 0.96875,
+          "weighted_forecast_coverage": 0.9962500000000001,
+          "importance_weight_sum": 32,
+          "effective_sample_size": 25.43450614667232,
+          "forecast_effective_sample_size": 25.253137382223937,
+          "mean_probability_interval_width": 0.05999999999999998,
+          "p90_probability_interval_width": 0.060000000000000005,
+          "max_probability_interval_width": 0.060000000000000005,
+          "nominal_vs_robust_expected_action_disagreements": 12,
+          "nominal_vs_minimax_regret_action_disagreements": 0,
+          "robust_expected_vs_minimax_regret_action_disagreements": 12,
+          "baseline_policy_costs": {
+            "training_climatology": 2.3899999999999992,
+            "always_no_action": 2.3899999999999992,
+            "always_prepare": 1.5975000000000013,
+            "perfect_information_oracle_lower_bound": 0.6970833333333333
+          },
+          "strategies": {
+            "nominal_point_forecast": {
+              "realized_policy_cost": 1.9065625000000006,
+              "relative_economic_value": 0.28556485355648464,
+              "regret_vs_perfect_information": 1.2094791666666673,
+              "weighted_mean_worst_case_expected_cost_on_issued": 1.690077791718946,
+              "weighted_mean_worst_case_regret_on_issued": 0.31546298619824337,
+              "maximum_case_worst_case_regret": 0.478,
+              "prepared_decisions": 19,
+              "reviewed_cases": 1,
+              "false_negative_cases": 1,
+              "false_prepare_cases": 14
+            },
+            "worst_case_expected_loss": {
+              "realized_policy_cost": 1.664062500000001,
+              "relative_economic_value": 0.42880876199852236,
+              "regret_vs_perfect_information": 0.9669791666666678,
+              "weighted_mean_worst_case_expected_cost_on_issued": 1.5372145545796736,
+              "weighted_mean_worst_case_regret_on_issued": 0.5355081555834377,
+              "maximum_case_worst_case_regret": 0.91,
+              "prepared_decisions": 31,
+              "reviewed_cases": 1,
+              "false_negative_cases": 0,
+              "false_prepare_cases": 25
+            },
+            "minimax_regret": {
+              "realized_policy_cost": 1.9065625000000006,
+              "relative_economic_value": 0.28556485355648464,
+              "regret_vs_perfect_information": 1.2094791666666673,
+              "weighted_mean_worst_case_expected_cost_on_issued": 1.690077791718946,
+              "weighted_mean_worst_case_regret_on_issued": 0.31546298619824337,
+              "maximum_case_worst_case_regret": 0.478,
+              "prepared_decisions": 19,
+              "reviewed_cases": 1,
+              "false_negative_cases": 1,
+              "false_prepare_cases": 14
+            }
+          }
+        },
+        "moderate_cost_preparedness": {
+          "cases": 32,
+          "issued_forecasts": 31,
+          "abstentions": 1,
+          "raw_forecast_coverage": 0.96875,
+          "weighted_forecast_coverage": 0.9962500000000001,
+          "importance_weight_sum": 32,
+          "effective_sample_size": 25.43450614667232,
+          "forecast_effective_sample_size": 25.253137382223937,
+          "mean_probability_interval_width": 0.05999999999999998,
+          "p90_probability_interval_width": 0.060000000000000005,
+          "max_probability_interval_width": 0.060000000000000005,
+          "nominal_vs_robust_expected_action_disagreements": 4,
+          "nominal_vs_minimax_regret_action_disagreements": 0,
+          "robust_expected_vs_minimax_regret_action_disagreements": 4,
+          "baseline_policy_costs": {
+            "training_climatology": 3.186666666666667,
+            "always_no_action": 3.186666666666667,
+            "always_prepare": 3.2966666666666673,
+            "perfect_information_oracle_lower_bound": 1.045625
+          },
+          "strategies": {
+            "nominal_point_forecast": {
+              "realized_policy_cost": 2.8960416666666666,
+              "relative_economic_value": 0.13574000194609334,
+              "regret_vs_perfect_information": 1.8504166666666666,
+              "weighted_mean_worst_case_expected_cost_on_issued": 2.76840652446675,
+              "weighted_mean_worst_case_regret_on_issued": 0.0032455039732329593,
+              "maximum_case_worst_case_regret": 0.020000000000000018,
+              "prepared_decisions": 7,
+              "reviewed_cases": 1,
+              "false_negative_cases": 2,
+              "false_prepare_cases": 3
+            },
+            "worst_case_expected_loss": {
+              "realized_policy_cost": 3.3002083333333334,
+              "relative_economic_value": -0.05303104018682483,
+              "regret_vs_perfect_information": 2.2545833333333336,
+              "weighted_mean_worst_case_expected_cost_on_issued": 2.7651610204935166,
+              "weighted_mean_worst_case_regret_on_issued": 0.2304307820995399,
+              "maximum_case_worst_case_regret": 1.42,
+              "prepared_decisions": 11,
+              "reviewed_cases": 1,
+              "false_negative_cases": 2,
+              "false_prepare_cases": 7
+            },
+            "minimax_regret": {
+              "realized_policy_cost": 2.8960416666666666,
+              "relative_economic_value": 0.13574000194609334,
+              "regret_vs_perfect_information": 1.8504166666666666,
+              "weighted_mean_worst_case_expected_cost_on_issued": 2.76840652446675,
+              "weighted_mean_worst_case_regret_on_issued": 0.0032455039732329593,
+              "maximum_case_worst_case_regret": 0.020000000000000018,
+              "prepared_decisions": 7,
+              "reviewed_cases": 1,
+              "false_negative_cases": 2,
+              "false_prepare_cases": 3
+            }
+          }
+        },
+        "high_cost_preparedness": {
+          "cases": 32,
+          "issued_forecasts": 31,
+          "abstentions": 1,
+          "raw_forecast_coverage": 0.96875,
+          "weighted_forecast_coverage": 0.9962500000000001,
+          "importance_weight_sum": 32,
+          "effective_sample_size": 25.43450614667232,
+          "forecast_effective_sample_size": 25.253137382223937,
+          "mean_probability_interval_width": 0.05999999999999998,
+          "p90_probability_interval_width": 0.060000000000000005,
+          "max_probability_interval_width": 0.060000000000000005,
+          "nominal_vs_robust_expected_action_disagreements": 2,
+          "nominal_vs_minimax_regret_action_disagreements": 0,
+          "robust_expected_vs_minimax_regret_action_disagreements": 2,
+          "baseline_policy_costs": {
+            "training_climatology": 3.9833333333333325,
+            "always_no_action": 3.9833333333333325,
+            "always_prepare": 5.796666666666667,
+            "perfect_information_oracle_lower_bound": 1.2945833333333336
+          },
+          "strategies": {
+            "nominal_point_forecast": {
+              "realized_policy_cost": 3.722708333333333,
+              "relative_economic_value": 0.09693165969316589,
+              "regret_vs_perfect_information": 2.428124999999999,
+              "weighted_mean_worst_case_expected_cost_on_issued": 3.502082810539523,
+              "weighted_mean_worst_case_regret_on_issued": 0.005721455457967375,
+              "maximum_case_worst_case_regret": 0.7599999999999998,
+              "prepared_decisions": 5,
+              "reviewed_cases": 1,
+              "false_negative_cases": 3,
+              "false_prepare_cases": 2
+            },
+            "worst_case_expected_loss": {
+              "realized_policy_cost": 3.640208333333333,
+              "relative_economic_value": 0.12761506276150622,
+              "regret_vs_perfect_information": 2.345624999999999,
+              "weighted_mean_worst_case_expected_cost_on_issued": 3.496361355081556,
+              "weighted_mean_worst_case_regret_on_issued": 0.008732747804265998,
+              "maximum_case_worst_case_regret": 1.1600000000000001,
+              "prepared_decisions": 7,
+              "reviewed_cases": 1,
+              "false_negative_cases": 2,
+              "false_prepare_cases": 3
+            },
+            "minimax_regret": {
+              "realized_policy_cost": 3.722708333333333,
+              "relative_economic_value": 0.09693165969316589,
+              "regret_vs_perfect_information": 2.428124999999999,
+              "weighted_mean_worst_case_expected_cost_on_issued": 3.502082810539523,
+              "weighted_mean_worst_case_regret_on_issued": 0.005721455457967375,
+              "maximum_case_worst_case_regret": 0.7599999999999998,
+              "prepared_decisions": 5,
+              "reviewed_cases": 1,
+              "false_negative_cases": 3,
+              "false_prepare_cases": 2
+            }
+          }
+        }
+      },
+      "structural_dependency_shift": {
+        "low_cost_preparedness": {
+          "cases": 32,
+          "issued_forecasts": 32,
+          "abstentions": 0,
+          "raw_forecast_coverage": 1,
+          "weighted_forecast_coverage": 1,
+          "importance_weight_sum": 32,
+          "effective_sample_size": 25.43450614667232,
+          "forecast_effective_sample_size": 25.43450614667232,
+          "mean_probability_interval_width": 0.1364433333333333,
+          "p90_probability_interval_width": 0.14,
+          "max_probability_interval_width": 0.14,
+          "nominal_vs_robust_expected_action_disagreements": 4,
+          "nominal_vs_minimax_regret_action_disagreements": 4,
+          "robust_expected_vs_minimax_regret_action_disagreements": 0,
+          "baseline_policy_costs": {
+            "training_climatology": 3.4499999999999993,
+            "always_no_action": 3.4499999999999993,
+            "always_prepare": 1.8625000000000016,
+            "perfect_information_oracle_lower_bound": 1.0062499999999999
+          },
+          "strategies": {
+            "nominal_point_forecast": {
+              "realized_policy_cost": 2.428333333333335,
+              "relative_economic_value": 0.418073316283034,
+              "regret_vs_perfect_information": 1.4220833333333351,
+              "weighted_mean_worst_case_expected_cost_on_issued": 2.1071833333333316,
+              "weighted_mean_worst_case_regret_on_issued": 0.8590966666666666,
+              "maximum_case_worst_case_regret": 1.25,
+              "prepared_decisions": 28,
+              "reviewed_cases": 0,
+              "false_negative_cases": 1,
+              "false_prepare_cases": 20
+            },
+            "worst_case_expected_loss": {
+              "realized_policy_cost": 1.8625000000000016,
+              "relative_economic_value": 0.6496163682864442,
+              "regret_vs_perfect_information": 0.8562500000000017,
+              "weighted_mean_worst_case_expected_cost_on_issued": 1.9051,
+              "weighted_mean_worst_case_regret_on_issued": 0.8186799999999997,
+              "maximum_case_worst_case_regret": 1,
+              "prepared_decisions": 32,
+              "reviewed_cases": 0,
+              "false_negative_cases": 0,
+              "false_prepare_cases": 23
+            },
+            "minimax_regret": {
+              "realized_policy_cost": 1.8625000000000016,
+              "relative_economic_value": 0.6496163682864442,
+              "regret_vs_perfect_information": 0.8562500000000017,
+              "weighted_mean_worst_case_expected_cost_on_issued": 1.9051,
+              "weighted_mean_worst_case_regret_on_issued": 0.8186799999999997,
+              "maximum_case_worst_case_regret": 1,
+              "prepared_decisions": 32,
+              "reviewed_cases": 0,
+              "false_negative_cases": 0,
+              "false_prepare_cases": 23
+            }
+          }
+        },
+        "moderate_cost_preparedness": {
+          "cases": 32,
+          "issued_forecasts": 32,
+          "abstentions": 0,
+          "raw_forecast_coverage": 1,
+          "weighted_forecast_coverage": 1,
+          "importance_weight_sum": 32,
+          "effective_sample_size": 25.43450614667232,
+          "forecast_effective_sample_size": 25.43450614667232,
+          "mean_probability_interval_width": 0.1364433333333333,
+          "p90_probability_interval_width": 0.14,
+          "max_probability_interval_width": 0.14,
+          "nominal_vs_robust_expected_action_disagreements": 24,
+          "nominal_vs_minimax_regret_action_disagreements": 0,
+          "robust_expected_vs_minimax_regret_action_disagreements": 24,
+          "baseline_policy_costs": {
+            "training_climatology": 4.6000000000000005,
+            "always_no_action": 4.6000000000000005,
+            "always_prepare": 3.650000000000001,
+            "perfect_information_oracle_lower_bound": 1.5093749999999995
+          },
+          "strategies": {
+            "nominal_point_forecast": {
+              "realized_policy_cost": 4.135,
+              "relative_economic_value": 0.1504550050556119,
+              "regret_vs_perfect_information": 2.6256250000000003,
+              "weighted_mean_worst_case_expected_cost_on_issued": 4.657399999999998,
+              "weighted_mean_worst_case_regret_on_issued": 0.9506000000000001,
+              "maximum_case_worst_case_regret": 1.46,
+              "prepared_decisions": 8,
+              "reviewed_cases": 0,
+              "false_negative_cases": 3,
+              "false_prepare_cases": 2
+            },
+            "worst_case_expected_loss": {
+              "realized_policy_cost": 3.650000000000001,
+              "relative_economic_value": 0.30738119312436785,
+              "regret_vs_perfect_information": 2.1406250000000013,
+              "weighted_mean_worst_case_expected_cost_on_issued": 3.7067999999999994,
+              "weighted_mean_worst_case_regret_on_issued": 2.2232399999999997,
+              "maximum_case_worst_case_regret": 2.5,
+              "prepared_decisions": 32,
+              "reviewed_cases": 0,
+              "false_negative_cases": 0,
+              "false_prepare_cases": 23
+            },
+            "minimax_regret": {
+              "realized_policy_cost": 4.135,
+              "relative_economic_value": 0.1504550050556119,
+              "regret_vs_perfect_information": 2.6256250000000003,
+              "weighted_mean_worst_case_expected_cost_on_issued": 4.657399999999998,
+              "weighted_mean_worst_case_regret_on_issued": 0.9506000000000001,
+              "maximum_case_worst_case_regret": 1.46,
+              "prepared_decisions": 8,
+              "reviewed_cases": 0,
+              "false_negative_cases": 3,
+              "false_prepare_cases": 2
+            }
+          }
+        },
+        "high_cost_preparedness": {
+          "cases": 32,
+          "issued_forecasts": 32,
+          "abstentions": 0,
+          "raw_forecast_coverage": 1,
+          "weighted_forecast_coverage": 1,
+          "importance_weight_sum": 32,
+          "effective_sample_size": 25.43450614667232,
+          "forecast_effective_sample_size": 25.43450614667232,
+          "mean_probability_interval_width": 0.1364433333333333,
+          "p90_probability_interval_width": 0.14,
+          "max_probability_interval_width": 0.14,
+          "nominal_vs_robust_expected_action_disagreements": 8,
+          "nominal_vs_minimax_regret_action_disagreements": 0,
+          "robust_expected_vs_minimax_regret_action_disagreements": 8,
+          "baseline_policy_costs": {
+            "training_climatology": 5.750000000000002,
+            "always_no_action": 5.750000000000002,
+            "always_prepare": 6.15,
+            "perfect_information_oracle_lower_bound": 1.8687500000000004
+          },
+          "strategies": {
+            "nominal_point_forecast": {
+              "realized_policy_cost": 5.18,
+              "relative_economic_value": 0.14685990338164298,
+              "regret_vs_perfect_information": 3.3112499999999994,
+              "weighted_mean_worst_case_expected_cost_on_issued": 5.8576,
+              "weighted_mean_worst_case_regret_on_issued": 0.060246666666666705,
+              "maximum_case_worst_case_regret": 1.48,
+              "prepared_decisions": 8,
+              "reviewed_cases": 0,
+              "false_negative_cases": 3,
+              "false_prepare_cases": 2
+            },
+            "worst_case_expected_loss": {
+              "realized_policy_cost": 6.796666666666666,
+              "relative_economic_value": -0.26967257112184573,
+              "regret_vs_perfect_information": 4.927916666666666,
+              "weighted_mean_worst_case_expected_cost_on_issued": 5.8084533333333335,
+              "weighted_mean_worst_case_regret_on_issued": 1.4104866666666664,
+              "maximum_case_worst_case_regret": 4.4559999999999995,
+              "prepared_decisions": 16,
+              "reviewed_cases": 0,
+              "false_negative_cases": 3,
+              "false_prepare_cases": 10
+            },
+            "minimax_regret": {
+              "realized_policy_cost": 5.18,
+              "relative_economic_value": 0.14685990338164298,
+              "regret_vs_perfect_information": 3.3112499999999994,
+              "weighted_mean_worst_case_expected_cost_on_issued": 5.8576,
+              "weighted_mean_worst_case_regret_on_issued": 0.060246666666666705,
+              "maximum_case_worst_case_regret": 1.48,
+              "prepared_decisions": 8,
+              "reviewed_cases": 0,
+              "false_negative_cases": 3,
+              "false_prepare_cases": 2
+            }
+          }
+        }
+      },
+      "evidence_degradation": {
+        "low_cost_preparedness": {
+          "cases": 32,
+          "issued_forecasts": 28,
+          "abstentions": 4,
+          "raw_forecast_coverage": 0.875,
+          "weighted_forecast_coverage": 0.9116666666666667,
+          "importance_weight_sum": 32,
+          "effective_sample_size": 25.43450614667232,
+          "forecast_effective_sample_size": 23.073316496693728,
+          "mean_probability_interval_width": 0.03999999999999997,
+          "p90_probability_interval_width": 0.04000000000000001,
+          "max_probability_interval_width": 0.040000000000000036,
+          "nominal_vs_robust_expected_action_disagreements": 11,
+          "nominal_vs_minimax_regret_action_disagreements": 0,
+          "robust_expected_vs_minimax_regret_action_disagreements": 11,
+          "baseline_policy_costs": {
+            "training_climatology": 1.3300000000000003,
+            "always_no_action": 1.3300000000000003,
+            "always_prepare": 1.3325000000000005,
+            "perfect_information_oracle_lower_bound": 0.38791666666666663
+          },
+          "strategies": {
+            "nominal_point_forecast": {
+              "realized_policy_cost": 0.7445833333333333,
+              "relative_economic_value": 0.6214064573197702,
+              "regret_vs_perfect_information": 0.35666666666666663,
+              "weighted_mean_worst_case_expected_cost_on_issued": 1.5252276051188298,
+              "weighted_mean_worst_case_regret_on_issued": 0.1546325411334552,
+              "maximum_case_worst_case_regret": 0.33199999999999985,
+              "prepared_decisions": 13,
+              "reviewed_cases": 4,
+              "false_negative_cases": 0,
+              "false_prepare_cases": 8
+            },
+            "worst_case_expected_loss": {
+              "realized_policy_cost": 1.1891666666666671,
+              "relative_economic_value": 0.1494913754975672,
+              "regret_vs_perfect_information": 0.8012500000000005,
+              "weighted_mean_worst_case_expected_cost_on_issued": 1.4271636197440585,
+              "weighted_mean_worst_case_regret_on_issued": 0.3096197440585008,
+              "maximum_case_worst_case_regret": 0.676,
+              "prepared_decisions": 24,
+              "reviewed_cases": 4,
+              "false_negative_cases": 0,
+              "false_prepare_cases": 19
+            },
+            "minimax_regret": {
+              "realized_policy_cost": 0.7445833333333333,
+              "relative_economic_value": 0.6214064573197702,
+              "regret_vs_perfect_information": 0.35666666666666663,
+              "weighted_mean_worst_case_expected_cost_on_issued": 1.5252276051188298,
+              "weighted_mean_worst_case_regret_on_issued": 0.1546325411334552,
+              "maximum_case_worst_case_regret": 0.33199999999999985,
+              "prepared_decisions": 13,
+              "reviewed_cases": 4,
+              "false_negative_cases": 0,
+              "false_prepare_cases": 8
+            }
+          }
+        },
+        "moderate_cost_preparedness": {
+          "cases": 32,
+          "issued_forecasts": 28,
+          "abstentions": 4,
+          "raw_forecast_coverage": 0.875,
+          "weighted_forecast_coverage": 0.9116666666666667,
+          "importance_weight_sum": 32,
+          "effective_sample_size": 25.43450614667232,
+          "forecast_effective_sample_size": 23.073316496693728,
+          "mean_probability_interval_width": 0.03999999999999997,
+          "p90_probability_interval_width": 0.04000000000000001,
+          "max_probability_interval_width": 0.040000000000000036,
+          "nominal_vs_robust_expected_action_disagreements": 0,
+          "nominal_vs_minimax_regret_action_disagreements": 0,
+          "robust_expected_vs_minimax_regret_action_disagreements": 0,
+          "baseline_policy_costs": {
+            "training_climatology": 1.7733333333333334,
+            "always_no_action": 1.7733333333333334,
+            "always_prepare": 2.943333333333334,
+            "perfect_information_oracle_lower_bound": 0.581875
+          },
+          "strategies": {
+            "nominal_point_forecast": {
+              "realized_policy_cost": 1.6589583333333326,
+              "relative_economic_value": 0.0959958034621444,
+              "regret_vs_perfect_information": 1.0770833333333325,
+              "weighted_mean_worst_case_expected_cost_on_issued": 2.284921389396709,
+              "weighted_mean_worst_case_regret_on_issued": 0,
+              "maximum_case_worst_case_regret": 0,
+              "prepared_decisions": 6,
+              "reviewed_cases": 4,
+              "false_negative_cases": 1,
+              "false_prepare_cases": 2
+            },
+            "worst_case_expected_loss": {
+              "realized_policy_cost": 1.6589583333333326,
+              "relative_economic_value": 0.0959958034621444,
+              "regret_vs_perfect_information": 1.0770833333333325,
+              "weighted_mean_worst_case_expected_cost_on_issued": 2.284921389396709,
+              "weighted_mean_worst_case_regret_on_issued": 0,
+              "maximum_case_worst_case_regret": 0,
+              "prepared_decisions": 6,
+              "reviewed_cases": 4,
+              "false_negative_cases": 1,
+              "false_prepare_cases": 2
+            },
+            "minimax_regret": {
+              "realized_policy_cost": 1.6589583333333326,
+              "relative_economic_value": 0.0959958034621444,
+              "regret_vs_perfect_information": 1.0770833333333325,
+              "weighted_mean_worst_case_expected_cost_on_issued": 2.284921389396709,
+              "weighted_mean_worst_case_regret_on_issued": 0,
+              "maximum_case_worst_case_regret": 0,
+              "prepared_decisions": 6,
+              "reviewed_cases": 4,
+              "false_negative_cases": 1,
+              "false_prepare_cases": 2
+            }
+          }
+        },
+        "high_cost_preparedness": {
+          "cases": 32,
+          "issued_forecasts": 28,
+          "abstentions": 4,
+          "raw_forecast_coverage": 0.875,
+          "weighted_forecast_coverage": 0.9116666666666667,
+          "importance_weight_sum": 32,
+          "effective_sample_size": 25.43450614667232,
+          "forecast_effective_sample_size": 23.073316496693728,
+          "mean_probability_interval_width": 0.03999999999999997,
+          "p90_probability_interval_width": 0.04000000000000001,
+          "max_probability_interval_width": 0.040000000000000036,
+          "nominal_vs_robust_expected_action_disagreements": 2,
+          "nominal_vs_minimax_regret_action_disagreements": 0,
+          "robust_expected_vs_minimax_regret_action_disagreements": 2,
+          "baseline_policy_costs": {
+            "training_climatology": 2.2166666666666663,
+            "always_no_action": 2.2166666666666663,
+            "always_prepare": 5.443333333333333,
+            "perfect_information_oracle_lower_bound": 0.7204166666666665
+          },
+          "strategies": {
+            "nominal_point_forecast": {
+              "realized_policy_cost": 2.2662500000000003,
+              "relative_economic_value": -0.033138401559454626,
+              "regret_vs_perfect_information": 1.5458333333333338,
+              "weighted_mean_worst_case_expected_cost_on_issued": 2.8916087751371102,
+              "weighted_mean_worst_case_regret_on_issued": 0.0016453382084095076,
+              "maximum_case_worst_case_regret": 0.20000000000000018,
+              "prepared_decisions": 4,
+              "reviewed_cases": 4,
+              "false_negative_cases": 2,
+              "false_prepare_cases": 1
+            },
+            "worst_case_expected_loss": {
+              "realized_policy_cost": 2.18375,
+              "relative_economic_value": 0.021999443052074512,
+              "regret_vs_perfect_information": 1.4633333333333334,
+              "weighted_mean_worst_case_expected_cost_on_issued": 2.8899634369287006,
+              "weighted_mean_worst_case_regret_on_issued": 0.008884826325411333,
+              "maximum_case_worst_case_regret": 1.08,
+              "prepared_decisions": 6,
+              "reviewed_cases": 4,
+              "false_negative_cases": 1,
+              "false_prepare_cases": 2
+            },
+            "minimax_regret": {
+              "realized_policy_cost": 2.2662500000000003,
+              "relative_economic_value": -0.033138401559454626,
+              "regret_vs_perfect_information": 1.5458333333333338,
+              "weighted_mean_worst_case_expected_cost_on_issued": 2.8916087751371102,
+              "weighted_mean_worst_case_regret_on_issued": 0.0016453382084095076,
+              "maximum_case_worst_case_regret": 0.20000000000000018,
+              "prepared_decisions": 4,
+              "reviewed_cases": 4,
+              "false_negative_cases": 2,
+              "false_prepare_cases": 1
+            }
+          }
+        }
+      }
+    }
+  },
+  "round_trip_requirements": [
+    "Preserve pinned NRES-011 source fixture blob SHA and source-case count.",
+    "Preserve source_case_id and NRES-010 source case lineage.",
+    "Preserve candidate point probability, interval lower/upper and total-variation radius exactly.",
+    "Preserve regime-specific ambiguity radii and the Bernoulli total-variation definition.",
+    "Preserve evaluator-owned outcomes, qualification and reviewer fallback separately from candidate forecasts.",
+    "Preserve proposal/target stratum probabilities and derived importance weights.",
+    "Preserve every decision profile cost/loss parameter and threshold.",
+    "Preserve strategy-specific costs, worst-case regret, decision counts and baseline costs."
+  ],
+  "conformance_targets": {
+    "valid_fixture_acceptance": "100 percent",
+    "listed_negative_case_rejection": "100 percent",
+    "golden_metric_absolute_tolerance": 1e-12,
+    "interval_bounds": "0 <= lower <= point <= upper <= 1",
+    "interval_formula": "[max(0,p-rho),min(1,p+rho)]",
+    "minimax_tie_break": "no_action",
+    "worst_case_expected_loss_tie_break": "no_action",
+    "composite_scores_accepted": 0
+  },
+  "limitations": [
+    "This is a Bernoulli total-variation ambiguity set; it is not a full Wasserstein distributionally robust optimization implementation.",
+    "The synthetic ambiguity radii are declared stress parameters, not statistical confidence levels.",
+    "The public cases are linked to NRES-011 and are not independent validation data.",
+    "The robust policy may incur higher realized costs in the observed public fixture; worst-case guarantees and realized-sample outcomes are separate quantities.",
+    "No real-world safety, causal effect, operational readiness or SOTA superiority is claimed."
+  ]
+}
