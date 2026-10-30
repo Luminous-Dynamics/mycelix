@@ -515,6 +515,22 @@ mod tests {
         } assert!(evaluate_tail_shift_robustness(&v).is_err());
     }
 
+
+    #[test] fn rejects_optional_abstention_reason_for_unqualified_input() {
+        let mut v=fixture();
+        let row=v["evaluation_cases"].as_array_mut().unwrap().iter_mut()
+            .find(|row| row["evaluator"]["qualification_state"]=="missing_critical_input").unwrap();
+        row["candidate_output"]["abstention_reason"]=json!("model_uncertainty");
+        assert!(evaluate_tail_shift_robustness(&v).is_err());
+    }
+
+    #[test] fn gpd_exponential_limit_quantile_inverts_cdf() {
+        let q=0.9;
+        let x=super::gpd_quantile(q,20.0,0.0).unwrap();
+        let p=super::gpd_cdf(x,20.0,0.0).unwrap();
+        assert!((p-q).abs()<1e-12);
+    }
+
     #[test] fn rejects_sampling_target_mass_not_normalized() {
         let mut v=fixture();
         v["sampling_design"]["strata"][0]["target_probability"]=json!(0.5);
