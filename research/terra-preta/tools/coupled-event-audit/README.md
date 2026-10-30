@@ -11,6 +11,37 @@ cargo run --manifest-path research/terra-preta/tools/schema-audit/Cargo.toml -- 
   research/terra-preta/tools/coupled-event-audit/fixtures/synthetic-event.json
 ```
 
+## Run the executable auditor
+
+From the repository root:
+
+```sh
+cargo test --manifest-path research/terra-preta/tools/coupled-event-audit/Cargo.toml
+cargo run --manifest-path research/terra-preta/tools/coupled-event-audit/Cargo.toml -- \
+  research/terra-preta/tools/coupled-event-audit/fixtures/synthetic-event.json \
+  /tmp/terra-preta-event-report.json
+```
+
+The report binds to the SHA-256 of exact event JSON bytes. Water residual
+qualification requires complete reviewed coverage, measured boundary terms,
+and declared uncertainty for every input/output/storage term. The conservative
+linear sum of standard uncertainties is **not** a confidence interval.
+
+Dissolved mass is calculated as
+`kg element/ha = concentration (mg/L) × water depth (mm) × 0.01`.
+Particulate mass is
+`kg element/ha = dry sediment export (kg/ha) × sediment concentration (mg/kg) ÷ 1,000,000`.
+First-order uncertainty bounds use linear product terms and do not model
+covariance or systematic error. Plot mass is the per-hectare result
+multiplied by the control-volume area.
+
+Concentration-only samples are never converted to mass. Estimated records
+remain estimates; partial collection is not scaled up to an event total.
+Preferential-flow corroboration requires referenced sensors at two or more
+distinct observed depths plus an independent reference method/evidence.
+Solute-review incompleteness is reported separately from individually
+qualified samples; no event-total nutrient loss is inferred from it.
+
 ## Contract
 
 - One event, study/site, independently assigned unit, treatment/comparator pair, control volume and time interval per record.
@@ -23,4 +54,8 @@ cargo run --manifest-path research/terra-preta/tools/schema-audit/Cargo.toml -- 
 
 Schema validation checks field shape and declared qualification. It does not prove timestamps align, event boundaries are complete, sensors are distinct in depth, concentration and discharge were truly synchronized, collectors recovered the full event or tracer evidence is scientifically valid. Those require a future executable auditor and independent review.
 
-The fixture is synthetic software-test data only. Never merge it with field data or use it to estimate treatment effects.
+The input and report fixtures are synthetic software-test data only. The input
+fixture has 18 mm water input − 5.5 mm water output − 12.5 mm storage gain = 0 mm
+residual; 10 mg N/L × 4 mm = 0.4 kg N/ha; 80 kg dry sediment/ha × 500 mg P/kg =
+0.04 kg P/ha. These values test arithmetic only. Never merge fixtures with
+field data or estimate treatment effects from them.

@@ -64,6 +64,10 @@ const SCHEMA_FIXTURES: &[(&str, &str)] = &[
         "coupled-hydrology-nutrient-event",
         include_str!("../../coupled-event-audit/event-record.schema.json"),
     ),
+    (
+        "coupled-hydrology-nutrient-event-report",
+        include_str!("../../coupled-event-audit/event-audit-report.schema.json"),
+    ),
 ];
 
 #[cfg(test)]
@@ -680,6 +684,29 @@ mod tests {
         let mut instance: Value = serde_json::from_str(COUPLED_EVENT_FIXTURE).unwrap();
         instance["soil_moisture_observations"][0]["volumetric_water_content_m3_m3"] = json!(1.2);
         assert!(!validator.is_valid(&instance));
+    }
+
+
+    fn coupled_event_report_schema() -> Value {
+        serde_json::from_str(SCHEMA_FIXTURES[13].1).unwrap()
+    }
+
+    const COUPLED_EVENT_REPORT_FIXTURE: &str =
+        include_str!("../../coupled-event-audit/fixtures/synthetic-event-report.json");
+
+    #[test]
+    fn accepts_synthetic_coupled_event_audit_report() {
+        let validator = jsonschema::validator_for(&coupled_event_report_schema()).unwrap();
+        let report: Value = serde_json::from_str(COUPLED_EVENT_REPORT_FIXTURE).unwrap();
+        assert!(validator.is_valid(&report));
+    }
+
+    #[test]
+    fn rejects_coupled_event_report_without_input_digest() {
+        let validator = jsonschema::validator_for(&coupled_event_report_schema()).unwrap();
+        let mut report: Value = serde_json::from_str(COUPLED_EVENT_REPORT_FIXTURE).unwrap();
+        report.as_object_mut().unwrap().remove("input_sha256");
+        assert!(!validator.is_valid(&report));
     }
 
     #[test]

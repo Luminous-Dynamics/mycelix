@@ -332,7 +332,8 @@
         "change_mm",
         "standard_uncertainty_mm",
         "method",
-        "evidence_ref"
+        "evidence_ref",
+        "measurement_status"
       ],
       "properties": {
         "change_mm": {
@@ -352,6 +353,13 @@
         "evidence_ref": {
           "type": "string",
           "minLength": 1
+        },
+        "measurement_status": {
+          "enum": [
+            "measured",
+            "estimated",
+            "modelled"
+          ]
         }
       }
     },

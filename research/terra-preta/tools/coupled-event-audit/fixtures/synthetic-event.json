@@ -76,7 +76,8 @@
     "change_mm": 12.5,
     "standard_uncertainty_mm": 0.8,
     "method": "synthetic profile storage integration",
-    "evidence_ref": "synthetic-fixture"
+    "evidence_ref": "synthetic-fixture",
+    "measurement_status": "measured"
   },
   "soil_moisture_observations": [
     {

@@ -1,0 +1,312 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/Luminous-Dynamics/mycelix/main/research/terra-preta/tools/coupled-event-audit/event-audit-report.schema.json",
+  "title": "Terra Preta coupled event audit report",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "audit_version",
+    "event_id",
+    "input_sha256",
+    "source_sha256",
+    "control_volume_area_ha",
+    "water_balance",
+    "solute_coverage",
+    "dissolved_export_audits",
+    "particulate_export_audits",
+    "flow_counts",
+    "warnings",
+    "interpretation_boundary"
+  ],
+  "properties": {
+    "audit_version": {
+      "const": "0.1.0"
+    },
+    "event_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "input_sha256": {
+      "type": "string",
+      "pattern": "^[A-Fa-f0-9]{64}$"
+    },
+    "source_sha256": {
+      "type": "string",
+      "pattern": "^[A-Fa-f0-9]{64}$"
+    },
+    "control_volume_area_ha": {
+      "type": "number",
+      "exclusiveMinimum": 0
+    },
+    "water_balance": {
+      "$ref": "#/$defs/water_balance"
+    },
+    "solute_coverage": {
+      "$ref": "#/$defs/coverage"
+    },
+    "dissolved_export_audits": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/export"
+      }
+    },
+    "particulate_export_audits": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/export"
+      }
+    },
+    "flow_counts": {
+      "$ref": "#/$defs/counts"
+    },
+    "warnings": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "interpretation_boundary": {
+      "type": "string",
+      "minLength": 1
+    }
+  },
+  "$defs": {
+    "pathway": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "category",
+        "count",
+        "volume_depth_mm"
+      ],
+      "properties": {
+        "category": {
+          "type": "string",
+          "minLength": 1
+        },
+        "count": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "volume_depth_mm": {
+          "type": "number",
+          "minimum": 0
+        }
+      }
+    },
+    "unmeasured": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "pathway",
+        "reason"
+      ],
+      "properties": {
+        "pathway": {
+          "type": "string",
+          "minLength": 1
+        },
+        "reason": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "water_balance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "status",
+        "input_total_mm",
+        "output_total_mm",
+        "storage_change_mm",
+        "residual_mm",
+        "conservative_linear_standard_uncertainty_bound_mm",
+        "input_pathways",
+        "output_pathways",
+        "unmeasured_pathways"
+      ],
+      "properties": {
+        "status": {
+          "enum": [
+            "within_conservative_linear_uncertainty_bound",
+            "outside_conservative_linear_uncertainty_bound",
+            "unqualified_missing_uncertainty",
+            "unqualified_incomplete_coverage",
+            "unqualified_estimated_or_modelled_terms"
+          ]
+        },
+        "input_total_mm": {
+          "type": "number",
+          "minimum": 0
+        },
+        "output_total_mm": {
+          "type": "number",
+          "minimum": 0
+        },
+        "storage_change_mm": {
+          "type": "number"
+        },
+        "residual_mm": {
+          "type": "number"
+        },
+        "conservative_linear_standard_uncertainty_bound_mm": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "input_pathways": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/pathway"
+          }
+        },
+        "output_pathways": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/pathway"
+          }
+        },
+        "unmeasured_pathways": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/unmeasured"
+          }
+        }
+      }
+    },
+    "coverage": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "status",
+        "unmeasured_pathways"
+      ],
+      "properties": {
+        "status": {
+          "enum": [
+            "reviewed_complete",
+            "reviewed_incomplete",
+            "unknown"
+          ]
+        },
+        "unmeasured_pathways": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/unmeasured"
+          }
+        }
+      }
+    },
+    "export": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "flux_id",
+        "pathway",
+        "element",
+        "analyte",
+        "mass_status",
+        "mass_kg_element_per_ha",
+        "plot_mass_kg_element",
+        "first_order_linear_uncertainty_bound_kg_element_per_ha",
+        "note"
+      ],
+      "properties": {
+        "flux_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "pathway": {
+          "type": "string",
+          "minLength": 1
+        },
+        "element": {
+          "enum": [
+            "N",
+            "P",
+            "K"
+          ]
+        },
+        "analyte": {
+          "type": "string",
+          "minLength": 1
+        },
+        "mass_status": {
+          "enum": [
+            "measured_qualified",
+            "estimated",
+            "concentration_only",
+            "unqualified",
+            "not_computed_partial_collection_coverage"
+          ]
+        },
+        "mass_kg_element_per_ha": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "plot_mass_kg_element": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "first_order_linear_uncertainty_bound_kg_element_per_ha": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "note": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "counts": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "water_inputs",
+        "water_outputs",
+        "soil_moisture_observations",
+        "dissolved_exports",
+        "particulate_exports",
+        "preferential_flow_assessments"
+      ],
+      "properties": {
+        "water_inputs": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "water_outputs": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "soil_moisture_observations": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "dissolved_exports": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "particulate_exports": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "preferential_flow_assessments": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    }
+  }
+}
