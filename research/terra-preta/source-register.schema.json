@@ -11,13 +11,23 @@
     "sources"
   ],
   "properties": {
-    "register_version": { "const": "0.1.0" },
-    "reviewed_on": { "type": "string", "format": "date" },
-    "interpretation_boundary": { "type": "string", "minLength": 1 },
+    "register_version": {
+      "const": "0.1.0"
+    },
+    "reviewed_on": {
+      "type": "string",
+      "format": "date"
+    },
+    "interpretation_boundary": {
+      "type": "string",
+      "minLength": 1
+    },
     "sources": {
       "type": "array",
       "minItems": 1,
-      "items": { "$ref": "#/$defs/source" }
+      "items": {
+        "$ref": "#/$defs/source"
+      }
     }
   },
   "$defs": {
@@ -37,11 +47,29 @@
         "artifacts"
       ],
       "properties": {
-        "source_id": { "type": "string", "minLength": 1 },
-        "title": { "type": "string", "minLength": 1 },
-        "source_uri": { "type": "string", "format": "uri" },
-        "paper_uri": { "type": ["string", "null"], "format": "uri" },
-        "version": { "type": "string", "minLength": 1 },
+        "source_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1
+        },
+        "source_uri": {
+          "type": "string",
+          "format": "uri"
+        },
+        "paper_uri": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "uri"
+        },
+        "version": {
+          "type": "string",
+          "minLength": 1
+        },
         "source_class": {
           "enum": [
             "literature_extracted_biochar_response",
@@ -52,14 +80,31 @@
             "prospective_trial"
           ]
         },
-        "license_status": { "type": "string", "minLength": 1 },
-        "permitted_research_use": { "type": "string", "minLength": 1 },
-        "acquisition_status": { "type": "string", "minLength": 1 },
-        "limitations": { "type": "array", "items": { "type": "string" }, "minItems": 1 },
+        "license_status": {
+          "type": "string",
+          "minLength": 1
+        },
+        "permitted_research_use": {
+          "type": "string",
+          "minLength": 1
+        },
+        "acquisition_status": {
+          "type": "string",
+          "minLength": 1
+        },
+        "limitations": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "minItems": 1
+        },
         "artifacts": {
           "type": "array",
           "minItems": 1,
-          "items": { "$ref": "#/$defs/artifact" }
+          "items": {
+            "$ref": "#/$defs/artifact"
+          }
         }
       }
     },
@@ -76,19 +121,74 @@
         "publisher_md5",
         "sha256",
         "acquisition_status",
-        "license_status"
+        "license_status",
+        "source_uri"
       ],
       "properties": {
-        "artifact_id": { "type": "string", "minLength": 1 },
-        "role": { "type": "string", "minLength": 1 },
-        "filename": { "type": ["string", "null"] },
-        "expected_size_bytes": { "type": ["integer", "null"], "minimum": 0 },
-        "expected_rows": { "type": ["integer", "null"], "minimum": 0 },
-        "expected_columns": { "type": ["integer", "null"], "minimum": 0 },
-        "publisher_md5": { "type": ["string", "null"], "pattern": "^[a-fA-F0-9]{32}$" },
-        "sha256": { "type": ["string", "null"], "pattern": "^[a-fA-F0-9]{64}$" },
-        "acquisition_status": { "type": "string", "minLength": 1 },
-        "license_status": { "type": "string", "minLength": 1 }
+        "artifact_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "role": {
+          "type": "string",
+          "minLength": 1
+        },
+        "filename": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "expected_size_bytes": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "expected_rows": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "expected_columns": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "publisher_md5": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "pattern": "^[a-fA-F0-9]{32}$"
+        },
+        "sha256": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "pattern": "^[a-fA-F0-9]{64}$"
+        },
+        "acquisition_status": {
+          "type": "string",
+          "minLength": 1
+        },
+        "license_status": {
+          "type": "string",
+          "minLength": 1
+        },
+        "source_uri": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "uri"
+        }
       }
     }
   }
