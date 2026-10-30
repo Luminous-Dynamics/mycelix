@@ -1,6 +1,7 @@
 use praxis_nres_capability_loop::{
     evaluate, evaluate_joint_service_forecasts, evaluate_probability_forecasts,
-    evaluate_resilience_trajectories, evaluate_tail_shift_robustness, export_evidence_envelope,
+    evaluate_reliability_resolution_decision_value, evaluate_resilience_trajectories,
+    evaluate_tail_shift_robustness, export_evidence_envelope,
 };
 use serde_json::Value;
 use std::process::ExitCode;
@@ -11,6 +12,7 @@ const NRES007: &str = include_str!("../../../examples/courses/civic-resilience-c
 const NRES008: &str = include_str!("../../../examples/courses/civic-resilience-probability-abstention-fixture-001.json");
 const NRES009: &str = include_str!("../../../examples/courses/civic-resilience-joint-service-forecast-fixture-001.json");
 const NRES010: &str = include_str!("../../../examples/courses/civic-resilience-tail-shift-robustness-fixture-001.json");
+const NRES011: &str = include_str!("../../../examples/courses/civic-resilience-reliability-resolution-decision-value-fixture-001.json");
 
 fn parse_fixture(contents: &str, label: &str) -> Result<Value, ExitCode> {
     serde_json::from_str(contents).map_err(|error| {
@@ -22,6 +24,13 @@ fn parse_fixture(contents: &str, label: &str) -> Result<Value, ExitCode> {
 fn main() -> ExitCode {
     let args: Vec<String> = std::env::args().skip(1).collect();
 
+    if args.iter().any(|arg| arg == "--decision-value") {
+        let nres011 = match parse_fixture(NRES011, "NRES-011") {
+            Ok(value) => value,
+            Err(code) => return code,
+        };
+        return emit(evaluate_reliability_resolution_decision_value(&nres011));
+    }
     if args.iter().any(|arg| arg == "--tail-shift") {
         let nres010 = match parse_fixture(NRES010, "NRES-010") {
             Ok(value) => value,
