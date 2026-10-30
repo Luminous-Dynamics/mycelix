@@ -2,9 +2,9 @@ package mycelix.authz
 
 import rego.v1
 
-// Default deny. This package implements only the pure policy layer.
-// Signature, identity, key validity, acting-organization membership,
-// replay/idempotency, receipt signing and durable commit stay in Rust.
+# Default deny. This package implements only the pure policy layer.
+# Signature, identity, key validity, acting-organization membership,
+# replay/idempotency, receipt signing and durable commit stay in Rust.
 default decision := {"effect": "deny", "rule": "DEFAULT_DENY"}
 
 has_role(role) if {
