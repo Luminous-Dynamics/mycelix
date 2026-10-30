@@ -759,7 +759,7 @@ mod tests {
         MemoryScientificEventLog, RecordedAttestation, ResearchObject, ResearchObjectId,
         ResearchObjectType, ScientificEventEnvelope,
     };
-    use serde_json::Value;
+    use serde_json::{json, Value};
     use chrono::{Duration, TimeZone};
     use ed25519_dalek::SigningKey;
     use std::sync::Arc;
@@ -1210,6 +1210,10 @@ mod tests {
             let attestation = case.get("attestation").unwrap_or(&Value::Null);
             let target_attestation = case.get("targetAttestation").unwrap_or(&Value::Null);
             let actor_id = actor_case["id"].as_str().expect("actor id");
+            let empty_organizations = json!([]);
+            let actor_organizations = actor_case
+                .get("organizations")
+                .unwrap_or(&empty_organizations);
             let resource_id = format!("claim-{id}");
             let attestation_kind = attestation["kind"].as_str().unwrap_or("ordinary");
             let target_exists = target_attestation["exists"].as_bool().unwrap_or(false);
@@ -1261,7 +1265,7 @@ mod tests {
             assert_eq!(cedar_actor["attrs"]["roles"], actor_case["roles"], "{id}: Cedar roles");
             assert_eq!(
                 cedar_actor["attrs"]["organizations"],
-                actor_case.get("organizations").unwrap_or(&json!([])),
+                actor_organizations,
                 "{id}: Cedar organizations"
             );
             let cedar_claim = entity(cedar_entities, "Mycelix::Claim");
@@ -1300,7 +1304,7 @@ mod tests {
                 "actor": {
                     "id": actor_id,
                     "roles": actor_case["roles"],
-                    "organizations": actor_case.get("organizations").unwrap_or(&json!([]))
+                    "organizations": actor_organizations
                 },
                 "claim": { "exists": claim_case["exists"] },
                 "attestation": { "kind": attestation_kind },
