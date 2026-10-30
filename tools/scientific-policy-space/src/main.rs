@@ -1,4 +1,4 @@
-use scientific_policy_space::{build_manifest, enumerate_decision_space};
+use scientific_policy_space::{build_manifest, enumerate_decision_space, project_engine_inputs};
 use sha2::{Digest, Sha256};
 use std::env;
 use std::fs::{self, File};
@@ -48,12 +48,34 @@ fn run() -> Result<ExitCode, String> {
     writer.flush().map_err(|error| format!("flush generated corpus: {error}"))?;
     let corpus_sha256 = hex::encode(hasher.finalize());
 
+    let engine_inputs_path = output_directory.join("scientific-policy-engine-inputs-v0.1.jsonl");
+    let engine_file = File::create(&engine_inputs_path)
+        .map_err(|error| format!("create engine input corpus: {error}"))?;
+    let mut engine_writer = BufWriter::new(engine_file);
+    let mut engine_hasher = Sha256::new();
+    for case in &cases {
+        let mut row = serde_json::to_vec(&project_engine_inputs(case))
+            .map_err(|error| format!("serialize projected engine inputs: {error}"))?;
+        row.push(b'\\n');
+        engine_writer
+            .write_all(&row)
+            .map_err(|error| format!("write projected engine inputs: {error}"))?;
+        engine_hasher.update(&row);
+    }
+    engine_writer.flush()
+        .map_err(|error| format!("flush projected engine inputs: {error}"))?;
+    let engine_inputs_sha256 = hex::encode(engine_hasher.finalize());
+
     #[derive(serde::Serialize)]
     struct OutputManifest {
         #[serde(flatten)]
         corpus: scientific_policy_space::CorpusManifest,
         corpus_file: String,
         corpus_sha256: String,
+        engine_inputs_file: String,
+        engine_inputs_sha256: String,
+        engine_input_count: usize,
+        engine_input_format: &'static str,
         encoding: &'static str,
     }
 
@@ -61,6 +83,10 @@ fn run() -> Result<ExitCode, String> {
         corpus: manifest,
         corpus_file: "scientific-policy-decision-space-v0.1.jsonl".to_owned(),
         corpus_sha256: corpus_sha256.clone(),
+        engine_inputs_file: "scientific-policy-engine-inputs-v0.1.jsonl".to_owned(),
+        engine_inputs_sha256: engine_inputs_sha256.clone(),
+        engine_input_count: cases.len(),
+        engine_input_format: "case_id+cedar_native_request+rego_input",
         encoding: "utf-8-jsonl-one-record-per-line",
     };
     let manifest_bytes = serde_json::to_vec_pretty(&output_manifest)
@@ -70,6 +96,8 @@ fn run() -> Result<ExitCode, String> {
 
     println!("case_count=62464");
     println!("corpus_sha256={corpus_sha256}");
+    println!("engine_inputs_sha256={engine_inputs_sha256}");
+    println!("engine_input_count={}", cases.len());
     println!("manifest_sha256={}", sha256(&manifest_bytes));
     println!("expected_decisions=pending_authentic_rust_oracle");
     Ok(ExitCode::SUCCESS)
