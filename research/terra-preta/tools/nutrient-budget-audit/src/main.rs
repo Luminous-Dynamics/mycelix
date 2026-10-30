@@ -306,7 +306,9 @@ fn sha256_hex(bytes: &[u8]) -> String {
 
 fn nonblank(value: &str, field: &str) -> Result<(), String> {
     if value.trim().is_empty() || value.trim() != value {
-        return Err(format!("{field} must be non-empty and have no surrounding whitespace"));
+        return Err(format!(
+            "{field} must be non-empty and have no surrounding whitespace"
+        ));
     }
     Ok(())
 }
@@ -370,10 +372,7 @@ fn validate_flow<C>(flow: &Flow<C>, seen: &mut HashSet<String>) -> Result<(), St
     if !seen.insert(flow.flow_id.clone()) {
         return Err(format!("duplicate flow_id {:?}", flow.flow_id));
     }
-    finite_nonnegative(
-        flow.amount_kg_element_per_ha,
-        "amount_kg_element_per_ha",
-    )?;
+    finite_nonnegative(flow.amount_kg_element_per_ha, "amount_kg_element_per_ha")?;
     validate_uncertainty(
         flow.standard_uncertainty_kg_element_per_ha,
         "standard_uncertainty_kg_element_per_ha",
@@ -405,13 +404,15 @@ fn summarize_flows<C: CategoryName>(flows: &[Flow<C>]) -> Result<Vec<CategorySum
     }
     Ok(grouped
         .into_iter()
-        .map(|(category, (count, amount, uncertainty, complete))| CategorySummary {
-            category: category.to_owned(),
-            count,
-            amount_kg_element_per_ha: amount,
-            conservative_linear_standard_uncertainty_bound_kg_element_per_ha: complete
-                .then_some(uncertainty),
-        })
+        .map(
+            |(category, (count, amount, uncertainty, complete))| CategorySummary {
+                category: category.to_owned(),
+                count,
+                amount_kg_element_per_ha: amount,
+                conservative_linear_standard_uncertainty_bound_kg_element_per_ha: complete
+                    .then_some(uncertainty),
+            },
+        )
         .collect())
 }
 
@@ -426,12 +427,18 @@ fn summarize_internal_transfers(
         entry.0 += 1;
         entry.1 += transfer.amount_kg_element_per_ha;
         if !entry.1.is_finite() {
-            return Err("internal-transfer category amount total overflowed or became non-finite".to_owned());
+            return Err(
+                "internal-transfer category amount total overflowed or became non-finite"
+                    .to_owned(),
+            );
         }
         if let Some(uncertainty) = transfer.standard_uncertainty_kg_element_per_ha {
             entry.2 += uncertainty;
             if !entry.2.is_finite() {
-                return Err("internal-transfer category uncertainty total overflowed or became non-finite".to_owned());
+                return Err(
+                    "internal-transfer category uncertainty total overflowed or became non-finite"
+                        .to_owned(),
+                );
             }
         } else {
             entry.3 = false;
@@ -439,13 +446,15 @@ fn summarize_internal_transfers(
     }
     Ok(grouped
         .into_iter()
-        .map(|(category, (count, amount, uncertainty, complete))| CategorySummary {
-            category: category.to_owned(),
-            count,
-            amount_kg_element_per_ha: amount,
-            conservative_linear_standard_uncertainty_bound_kg_element_per_ha: complete
-                .then_some(uncertainty),
-        })
+        .map(
+            |(category, (count, amount, uncertainty, complete))| CategorySummary {
+                category: category.to_owned(),
+                count,
+                amount_kg_element_per_ha: amount,
+                conservative_linear_standard_uncertainty_bound_kg_element_per_ha: complete
+                    .then_some(uncertainty),
+            },
+        )
         .collect())
 }
 
@@ -476,10 +485,15 @@ fn validate_input(input: &BudgetInput) -> Result<(), String> {
         nonblank(value, field)?;
     }
     if input.unit_basis != UNIT_BASIS {
-        return Err(format!("unit_basis must be {UNIT_BASIS:?}; convert elemental mass explicitly upstream"));
+        return Err(format!(
+            "unit_basis must be {UNIT_BASIS:?}; convert elemental mass explicitly upstream"
+        ));
     }
     if input.source_sha256.len() != 64
-        || !input.source_sha256.bytes().all(|byte| byte.is_ascii_hexdigit())
+        || !input
+            .source_sha256
+            .bytes()
+            .all(|byte| byte.is_ascii_hexdigit())
     {
         return Err("source_sha256 must contain exactly 64 hexadecimal characters".to_owned());
     }
@@ -496,12 +510,16 @@ fn validate_input(input: &BudgetInput) -> Result<(), String> {
         return Err("control_volume.area_ha must be finite and greater than zero".to_owned());
     }
     finite_nonnegative(volume.top_depth_cm, "control_volume.top_depth_cm")?;
-    if !volume.bottom_depth_cm.is_finite()
-        || volume.bottom_depth_cm <= volume.top_depth_cm
-    {
-        return Err("control_volume.bottom_depth_cm must be finite and greater than top_depth_cm".to_owned());
+    if !volume.bottom_depth_cm.is_finite() || volume.bottom_depth_cm <= volume.top_depth_cm {
+        return Err(
+            "control_volume.bottom_depth_cm must be finite and greater than top_depth_cm"
+                .to_owned(),
+        );
     }
-    nonblank(&volume.boundary_description, "control_volume.boundary_description")?;
+    nonblank(
+        &volume.boundary_description,
+        "control_volume.boundary_description",
+    )?;
 
     nonblank(
         &input.stock_pool_partition_review.review_ref,
@@ -526,7 +544,10 @@ fn validate_input(input: &BudgetInput) -> Result<(), String> {
     if !input.boundary_flux_review.all_relevant_fluxes_accounted_for
         && input.boundary_flux_review.unmeasured_pathways.is_empty()
     {
-        return Err("incomplete boundary flux review must list at least one unmeasured pathway and reason".to_owned());
+        return Err(
+            "incomplete boundary flux review must list at least one unmeasured pathway and reason"
+                .to_owned(),
+        );
     }
 
     let mut flow_ids = HashSet::new();
@@ -538,19 +559,31 @@ fn validate_input(input: &BudgetInput) -> Result<(), String> {
     }
 
     if input.storage_start.is_empty() || input.storage_end.is_empty() {
-        return Err("storage_start and storage_end must each contain at least one disjoint stock pool".to_owned());
+        return Err(
+            "storage_start and storage_end must each contain at least one disjoint stock pool"
+                .to_owned(),
+        );
     }
     let mut start_pools = BTreeMap::new();
     for pool in &input.storage_start {
         validate_pool(pool)?;
-        if start_pools.insert(pool.pool_id.as_str(), pool.compartment).is_some() {
-            return Err(format!("duplicate start storage pool_id {:?}", pool.pool_id));
+        if start_pools
+            .insert(pool.pool_id.as_str(), pool.compartment)
+            .is_some()
+        {
+            return Err(format!(
+                "duplicate start storage pool_id {:?}",
+                pool.pool_id
+            ));
         }
     }
     let mut end_pools = BTreeMap::new();
     for pool in &input.storage_end {
         validate_pool(pool)?;
-        if end_pools.insert(pool.pool_id.as_str(), pool.compartment).is_some() {
+        if end_pools
+            .insert(pool.pool_id.as_str(), pool.compartment)
+            .is_some()
+        {
             return Err(format!("duplicate end storage pool_id {:?}", pool.pool_id));
         }
     }
@@ -562,20 +595,38 @@ fn validate_input(input: &BudgetInput) -> Result<(), String> {
     for transfer in &input.internal_transfers {
         nonblank(&transfer.transfer_id, "internal transfer_id")?;
         if !transfer_ids.insert(transfer.transfer_id.as_str()) {
-            return Err(format!("duplicate internal transfer_id {:?}", transfer.transfer_id));
+            return Err(format!(
+                "duplicate internal transfer_id {:?}",
+                transfer.transfer_id
+            ));
         }
         nonblank(&transfer.source_pool_id, "internal transfer source_pool_id")?;
-        nonblank(&transfer.destination_pool_id, "internal transfer destination_pool_id")?;
+        nonblank(
+            &transfer.destination_pool_id,
+            "internal transfer destination_pool_id",
+        )?;
         if transfer.source_pool_id == transfer.destination_pool_id {
-            return Err(format!("internal transfer {:?} must have distinct source and destination pools", transfer.transfer_id));
+            return Err(format!(
+                "internal transfer {:?} must have distinct source and destination pools",
+                transfer.transfer_id
+            ));
         }
         if !start_pools.contains_key(transfer.source_pool_id.as_str())
             || !start_pools.contains_key(transfer.destination_pool_id.as_str())
         {
-            return Err(format!("internal transfer {:?} must connect two pools inside the declared, mutually exclusive stock partition", transfer.transfer_id));
+            return Err(format!(
+                "internal transfer {:?} must connect two pools inside the declared, mutually exclusive stock partition",
+                transfer.transfer_id
+            ));
         }
-        finite_nonnegative(transfer.amount_kg_element_per_ha,"internal transfer amount_kg_element_per_ha")?;
-        validate_uncertainty(transfer.standard_uncertainty_kg_element_per_ha,"internal transfer standard_uncertainty_kg_element_per_ha")?;
+        finite_nonnegative(
+            transfer.amount_kg_element_per_ha,
+            "internal transfer amount_kg_element_per_ha",
+        )?;
+        validate_uncertainty(
+            transfer.standard_uncertainty_kg_element_per_ha,
+            "internal transfer standard_uncertainty_kg_element_per_ha",
+        )?;
         nonblank(&transfer.method, "internal transfer method")?;
         nonblank(&transfer.evidence_ref, "internal transfer evidence_ref")?;
     }
@@ -596,7 +647,10 @@ fn validate_input(input: &BudgetInput) -> Result<(), String> {
         if !indicator.depth_bottom_cm.is_finite()
             || indicator.depth_bottom_cm <= indicator.depth_top_cm
         {
-            return Err("availability depth_bottom_cm must be finite and greater than depth_top_cm".to_owned());
+            return Err(
+                "availability depth_bottom_cm must be finite and greater than depth_top_cm"
+                    .to_owned(),
+            );
         }
         if indicator.depth_top_cm < volume.top_depth_cm
             || indicator.depth_bottom_cm > volume.bottom_depth_cm
@@ -607,7 +661,10 @@ fn validate_input(input: &BudgetInput) -> Result<(), String> {
             ));
         }
         nonblank(&indicator.method, "availability indicator method")?;
-        nonblank(&indicator.evidence_ref, "availability indicator evidence_ref")?;
+        nonblank(
+            &indicator.evidence_ref,
+            "availability indicator evidence_ref",
+        )?;
     }
     Ok(())
 }
@@ -621,12 +678,18 @@ fn audit(bytes: &[u8]) -> Result<AuditReport, String> {
     validate_input(&input)?;
 
     let input_total = checked_sum(
-        input.inputs.iter().map(|flow| flow.amount_kg_element_per_ha),
+        input
+            .inputs
+            .iter()
+            .map(|flow| flow.amount_kg_element_per_ha),
         "input total",
     )?;
     let input_category_summaries = summarize_flows(&input.inputs)?;
     let output_total = checked_sum(
-        input.outputs.iter().map(|flow| flow.amount_kg_element_per_ha),
+        input
+            .outputs
+            .iter()
+            .map(|flow| flow.amount_kg_element_per_ha),
         "output total",
     )?;
     let output_category_summaries = summarize_flows(&input.outputs)?;
@@ -695,16 +758,16 @@ fn audit(bytes: &[u8]) -> Result<AuditReport, String> {
         "unqualified_incomplete_boundary_coverage"
     } else {
         match uncertainty_option {
-        None => "unqualified_missing_uncertainty",
-        Some(bound) => {
-            let scale = input_total + output_total + storage_start_total + storage_end_total;
-            let floating_point_guard = 16.0 * f64::EPSILON * scale.max(1.0);
-            if residual.abs() <= bound + floating_point_guard {
-                "within_conservative_uncertainty_bound"
-            } else {
-                "outside_conservative_uncertainty_bound"
+            None => "unqualified_missing_uncertainty",
+            Some(bound) => {
+                let scale = input_total + output_total + storage_start_total + storage_end_total;
+                let floating_point_guard = 16.0 * f64::EPSILON * scale.max(1.0);
+                if residual.abs() <= bound + floating_point_guard {
+                    "within_conservative_uncertainty_bound"
+                } else {
+                    "outside_conservative_uncertainty_bound"
+                }
             }
-        }
         }
     };
 
@@ -794,7 +857,9 @@ fn audit(bytes: &[u8]) -> Result<AuditReport, String> {
 
 fn ensure_distinct_paths(input: &Path, output: &Path) -> Result<(), Box<dyn Error>> {
     if output.exists() {
-        return Err("output report already exists; refusing to overwrite an existing artifact".into());
+        return Err(
+            "output report already exists; refusing to overwrite an existing artifact".into(),
+        );
     }
     let canonical_input = fs::canonicalize(input)?;
     if output == canonical_input.as_path() {
@@ -819,7 +884,8 @@ fn run() -> Result<(), Box<dyn Error>> {
     let output_path = Path::new(&arguments[2]);
     ensure_distinct_paths(input_path, output_path)?;
     let bytes = fs::read(input_path)?;
-    let report = audit(&bytes).map_err(|message| io::Error::new(io::ErrorKind::InvalidData, message))?;
+    let report =
+        audit(&bytes).map_err(|message| io::Error::new(io::ErrorKind::InvalidData, message))?;
     let serialized = serde_json::to_vec_pretty(&report)?;
     fs::write(output_path, serialized)?;
     println!(
@@ -858,13 +924,25 @@ mod tests {
         assert_eq!(report.internal_transfers.len(), 1);
         assert_eq!(report.internal_transfers[0].transfer_id, "root-uptake-n");
         assert_eq!(report.internal_transfers[0].source_pool_id, "soil-n");
-        assert_eq!(report.internal_transfers[0].destination_pool_id, "biomass-n");
+        assert_eq!(
+            report.internal_transfers[0].destination_pool_id,
+            "biomass-n"
+        );
         assert_eq!(report.internal_transfer_category_summaries.len(), 1);
-        assert_eq!(report.internal_transfer_category_summaries[0].category, "root_uptake");
-        assert_eq!(report.internal_transfer_category_summaries[0].amount_kg_element_per_ha, 12.0);
+        assert_eq!(
+            report.internal_transfer_category_summaries[0].category,
+            "root_uptake"
+        );
+        assert_eq!(
+            report.internal_transfer_category_summaries[0].amount_kg_element_per_ha,
+            12.0
+        );
         assert_eq!(report.flow_counts.internal_transfers, 1);
         assert!(report.residual_kg_element_per_ha.abs() < 1e-12);
-        assert_eq!(report.conservative_linear_standard_uncertainty_bound_kg_element_per_ha, Some(5.1));
+        assert_eq!(
+            report.conservative_linear_standard_uncertainty_bound_kg_element_per_ha,
+            Some(5.1)
+        );
     }
 
     #[test]
@@ -880,25 +958,40 @@ mod tests {
         let mut value: Value = serde_json::from_slice(&fixture_bytes()).unwrap();
         value["internal_transfers"][0]["destination_pool_id"] = Value::from("soil-n");
         let bytes = serde_json::to_vec(&value).unwrap();
-        assert!(audit(&bytes).unwrap_err().contains("distinct source and destination"));
+        assert!(
+            audit(&bytes)
+                .unwrap_err()
+                .contains("distinct source and destination")
+        );
     }
 
     #[test]
     fn rejects_duplicate_internal_transfer_ids() {
         let mut value: Value = serde_json::from_slice(&fixture_bytes()).unwrap();
         let duplicate = value["internal_transfers"][0].clone();
-        value["internal_transfers"].as_array_mut().unwrap().push(duplicate);
+        value["internal_transfers"]
+            .as_array_mut()
+            .unwrap()
+            .push(duplicate);
         let bytes = serde_json::to_vec(&value).unwrap();
-        assert!(audit(&bytes).unwrap_err().contains("duplicate internal transfer_id"));
+        assert!(
+            audit(&bytes)
+                .unwrap_err()
+                .contains("duplicate internal transfer_id")
+        );
     }
 
     #[test]
     fn internal_transfer_uncertainty_is_not_added_to_boundary_uncertainty() {
         let mut value: Value = serde_json::from_slice(&fixture_bytes()).unwrap();
-        value["internal_transfers"][0]["standard_uncertainty_kg_element_per_ha"] = Value::from(999.0);
+        value["internal_transfers"][0]["standard_uncertainty_kg_element_per_ha"] =
+            Value::from(999.0);
         let bytes = serde_json::to_vec(&value).unwrap();
         let report = fixture_report(&bytes);
-        assert_eq!(report.conservative_linear_standard_uncertainty_bound_kg_element_per_ha, Some(5.1));
+        assert_eq!(
+            report.conservative_linear_standard_uncertainty_bound_kg_element_per_ha,
+            Some(5.1)
+        );
     }
 
     #[test]
@@ -911,7 +1004,10 @@ mod tests {
         let bytes = serde_json::to_vec(&value).unwrap();
         let report = fixture_report(&bytes);
         assert_eq!(report.unmeasured_pathways.len(), 1);
-        assert_eq!(report.unmeasured_pathways[0].pathway, "dissolved organic nitrogen export");
+        assert_eq!(
+            report.unmeasured_pathways[0].pathway,
+            "dissolved organic nitrogen export"
+        );
         assert_eq!(report.status, "unqualified_incomplete_boundary_coverage");
     }
 
@@ -925,10 +1021,7 @@ mod tests {
         assert_eq!(report.storage_end_total_kg_element_per_ha, 122.0);
         assert_eq!(report.storage_change_kg_element_per_ha, 22.0);
         assert!(report.residual_kg_element_per_ha.abs() < 1e-12);
-        assert_eq!(
-            report.input_sha256,
-            sha256_hex(&bytes)
-        );
+        assert_eq!(report.input_sha256, sha256_hex(&bytes));
         assert_eq!(report.status, "within_conservative_uncertainty_bound");
     }
 
@@ -967,7 +1060,12 @@ mod tests {
             .conservative_linear_standard_uncertainty_bound_kg_element_per_ha
             .unwrap();
         assert!((bound - 5.1).abs() < 1e-12);
-        assert!(report.warnings.iter().any(|warning| warning.contains("not a confidence interval")));
+        assert!(
+            report
+                .warnings
+                .iter()
+                .any(|warning| warning.contains("not a confidence interval"))
+        );
     }
 
     #[test]
@@ -978,9 +1076,18 @@ mod tests {
         value["availability_indicators"][0]["value"] = Value::from(999_999.0);
         let changed = serde_json::to_vec(&value).unwrap();
         let second = fixture_report(&changed);
-        assert_eq!(first.storage_start_total_kg_element_per_ha, second.storage_start_total_kg_element_per_ha);
-        assert_eq!(first.storage_end_total_kg_element_per_ha, second.storage_end_total_kg_element_per_ha);
-        assert_eq!(first.residual_kg_element_per_ha, second.residual_kg_element_per_ha);
+        assert_eq!(
+            first.storage_start_total_kg_element_per_ha,
+            second.storage_start_total_kg_element_per_ha
+        );
+        assert_eq!(
+            first.storage_end_total_kg_element_per_ha,
+            second.storage_end_total_kg_element_per_ha
+        );
+        assert_eq!(
+            first.residual_kg_element_per_ha,
+            second.residual_kg_element_per_ha
+        );
     }
 
     #[test]
@@ -988,7 +1095,11 @@ mod tests {
         let mut value: Value = serde_json::from_slice(&fixture_bytes()).unwrap();
         value["inputs"][0]["amount_kg_element_per_ha"] = Value::from(-1.0);
         let bytes = serde_json::to_vec(&value).unwrap();
-        assert!(audit(&bytes).unwrap_err().contains("finite and non-negative"));
+        assert!(
+            audit(&bytes)
+                .unwrap_err()
+                .contains("finite and non-negative")
+        );
     }
 
     #[test]
@@ -996,7 +1107,11 @@ mod tests {
         let mut value: Value = serde_json::from_slice(&fixture_bytes()).unwrap();
         value["outputs"][0]["standard_uncertainty_kg_element_per_ha"] = Value::from(-0.1);
         let bytes = serde_json::to_vec(&value).unwrap();
-        assert!(audit(&bytes).unwrap_err().contains("finite and non-negative"));
+        assert!(
+            audit(&bytes)
+                .unwrap_err()
+                .contains("finite and non-negative")
+        );
     }
 
     #[test]
@@ -1037,7 +1152,11 @@ mod tests {
             {"pathway":"runoff","reason":"not measured"}
         ]);
         let bytes = serde_json::to_vec(&value).unwrap();
-        assert!(audit(&bytes).unwrap_err().contains("declare complete coverage"));
+        assert!(
+            audit(&bytes)
+                .unwrap_err()
+                .contains("declare complete coverage")
+        );
     }
 
     #[test]
@@ -1076,7 +1195,11 @@ mod tests {
         let mut value: Value = serde_json::from_slice(&fixture_bytes()).unwrap();
         value["storage_start"][1]["pool_id"] = Value::from("soil-n");
         let bytes = serde_json::to_vec(&value).unwrap();
-        assert!(audit(&bytes).unwrap_err().contains("duplicate start storage pool_id"));
+        assert!(
+            audit(&bytes)
+                .unwrap_err()
+                .contains("duplicate start storage pool_id")
+        );
     }
 
     #[test]
@@ -1092,7 +1215,11 @@ mod tests {
         let mut value: Value = serde_json::from_slice(&fixture_bytes()).unwrap();
         value["unit_basis"] = Value::from("kg_P2O5_per_ha");
         let bytes = serde_json::to_vec(&value).unwrap();
-        assert!(audit(&bytes).unwrap_err().contains("elemental mass explicitly"));
+        assert!(
+            audit(&bytes)
+                .unwrap_err()
+                .contains("elemental mass explicitly")
+        );
     }
 
     #[test]
@@ -1117,7 +1244,11 @@ mod tests {
         let mut value: Value = serde_json::from_slice(&fixture_bytes()).unwrap();
         value["availability_indicators"][0]["depth_bottom_cm"] = Value::from(45.0);
         let bytes = serde_json::to_vec(&value).unwrap();
-        assert!(audit(&bytes).unwrap_err().contains("outside the declared control-volume"));
+        assert!(
+            audit(&bytes)
+                .unwrap_err()
+                .contains("outside the declared control-volume")
+        );
     }
 
     #[test]
@@ -1132,8 +1263,15 @@ mod tests {
     fn rejects_duplicate_availability_indicators() {
         let mut value: Value = serde_json::from_slice(&fixture_bytes()).unwrap();
         let duplicate = value["availability_indicators"][0].clone();
-        value["availability_indicators"].as_array_mut().unwrap().push(duplicate);
+        value["availability_indicators"]
+            .as_array_mut()
+            .unwrap()
+            .push(duplicate);
         let bytes = serde_json::to_vec(&value).unwrap();
-        assert!(audit(&bytes).unwrap_err().contains("duplicate availability indicator_id"));
+        assert!(
+            audit(&bytes)
+                .unwrap_err()
+                .contains("duplicate availability indicator_id")
+        );
     }
 }
