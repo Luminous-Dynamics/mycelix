@@ -23,23 +23,29 @@ enum ProxyStatus {
 #[derive(Clone, Copy, Debug, Deserialize)]
 #[serde(rename_all = "snake_case")]
 enum NsrSignature {
-    NonsequentialResponse,
-    SequentialResponse,
+    NonsequentialResponseDetected,
+    NonsequentialSignatureIncompleteProfile,
     MixedResponseOrdering,
-    SimultaneousResponse,
-    NotApplicable,
-    Indeterminate,
+    SequentialResponseOnly,
+    SequentialAndSimultaneousResponse,
+    AmbiguousSimultaneousResponse,
+    NotApplicableInsufficientResponders,
+    IndeterminateNoDistinctDepthPair,
+    IndeterminateIncompleteProfileWithoutNsr,
 }
 
 impl NsrSignature {
     fn as_str(self) -> &'static str {
         match self {
-            Self::NonsequentialResponse => "nonsequential_response",
-            Self::SequentialResponse => "sequential_response",
+            Self::NonsequentialResponseDetected => "nonsequential_response_detected",
+            Self::NonsequentialSignatureIncompleteProfile => "nonsequential_signature_incomplete_profile",
             Self::MixedResponseOrdering => "mixed_response_ordering",
-            Self::SimultaneousResponse => "simultaneous_response",
-            Self::NotApplicable => "not_applicable",
-            Self::Indeterminate => "indeterminate",
+            Self::SequentialResponseOnly => "sequential_response_only",
+            Self::SequentialAndSimultaneousResponse => "sequential_and_simultaneous_response",
+            Self::AmbiguousSimultaneousResponse => "ambiguous_simultaneous_response",
+            Self::NotApplicableInsufficientResponders => "not_applicable_insufficient_responders",
+            Self::IndeterminateNoDistinctDepthPair => "indeterminate_no_distinct_depth_pair",
+            Self::IndeterminateIncompleteProfileWithoutNsr => "indeterminate_incomplete_profile_without_nsr",
         }
     }
 }
@@ -50,8 +56,8 @@ enum ReferenceMethod {
     ConservativeTracer,
     StableIsotopeTracer,
     DyeTracer,
-    ERT,
-    GPR,
+    Ert,
+    Gpr,
     WaterTable,
     LysimeterBoundaryFlux,
     OtherDeclared,
@@ -63,8 +69,8 @@ impl ReferenceMethod {
             Self::ConservativeTracer => "conservative_tracer",
             Self::StableIsotopeTracer => "stable_isotope_tracer",
             Self::DyeTracer => "dye_tracer",
-            Self::ERT => "ert",
-            Self::GPR => "gpr",
+            Self::Ert => "ert",
+            Self::Gpr => "gpr",
             Self::WaterTable => "water_table",
             Self::LysimeterBoundaryFlux => "lysimeter_boundary_flux",
             Self::OtherDeclared => "other_declared",
@@ -103,6 +109,8 @@ struct SensorMethodEvidence {
 #[serde(deny_unknown_fields)]
 struct IndependentReference {
     reference_id: String,
+    event_id: String,
+    profile_id: String,
     method: ReferenceMethod,
     outcome: ReferenceOutcome,
     evidence_ref: String,
@@ -267,6 +275,11 @@ fn validate(input: &Input) -> Result<(), String> {
     let mut reference_ids = HashSet::new();
     for (index, reference) in input.independent_references.iter().enumerate() {
         nonblank(&reference.reference_id, &format!("independent_references[{index}].reference_id"))?;
+        nonblank(&reference.event_id, &format!("independent_references[{index}].event_id"))?;
+        nonblank(&reference.profile_id, &format!("independent_references[{index}].profile_id"))?;
+        if reference.event_id != input.event_id || reference.profile_id != input.profile_id {
+            return Err(format!("independent reference {:?} does not match the input event/profile", reference.reference_id));
+        }
         nonblank(&reference.evidence_ref, &format!("independent_references[{index}].evidence_ref"))?;
         nonblank(
             &reference.detection_limit_or_resolution,
@@ -499,7 +512,7 @@ mod tests {
             event_id: "E001".to_owned(),
             source_sha256: "a".repeat(64),
             source_evidence_ref: "synthetic fixture only".to_owned(),
-            nsr_profile_signature: NsrSignature::NonsequentialResponse,
+            nsr_profile_signature: NsrSignature::NonsequentialResponseDetected,
             sensor_evidence: vec![
                 SensorMethodEvidence {
                     sensor_id: "D10".to_owned(),
