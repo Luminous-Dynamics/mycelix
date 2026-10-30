@@ -158,7 +158,15 @@ fn audit_curve(
     }
 
     let (bulk_density, water_density) = match curve.measurement_basis {
-        MeasurementBasis::VolumetricFraction => (curve.bulk_density_kg_m3, curve.water_density_kg_m3),
+        MeasurementBasis::VolumetricFraction => {
+            if let Some(bulk) = curve.bulk_density_kg_m3 {
+                finite_positive("bulk_density_kg_m3", bulk)?;
+            }
+            if let Some(water) = curve.water_density_kg_m3 {
+                finite_positive("water_density_kg_m3", water)?;
+            }
+            (curve.bulk_density_kg_m3, curve.water_density_kg_m3)
+        },
         MeasurementBasis::GravimetricKgPerKgDrySoil => {
             let bulk = curve.bulk_density_kg_m3.ok_or(
                 "gravimetric input requires bulk_density_kg_m3 (dry soil mass per bulk volume)",
