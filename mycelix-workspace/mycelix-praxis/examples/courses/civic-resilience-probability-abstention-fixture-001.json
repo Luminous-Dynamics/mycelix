@@ -87,275 +87,375 @@
       "service_id": "electricity_supply",
       "forecast_origin_hour": 0,
       "forecast_horizon_hours": 24,
-      "qualification_state": "qualified",
-      "action": "forecast",
-      "predicted_breach_probability": 0.02,
-      "abstention_reason": null,
-      "observed_minimum_availability_percent": 82
+      "evaluator": {
+        "input_qualification_state": "qualified",
+        "observed_minimum_availability_percent": 82
+      },
+      "candidate_output": {
+        "action": "forecast",
+        "predicted_breach_probability": 0.02,
+        "abstention_reason": null
+      }
     },
     {
       "case_id": "FORECAST-02",
       "service_id": "communications_access",
       "forecast_origin_hour": 0,
       "forecast_horizon_hours": 24,
-      "qualification_state": "qualified",
-      "action": "forecast",
-      "predicted_breach_probability": 0.06,
-      "abstention_reason": null,
-      "observed_minimum_availability_percent": 82
+      "evaluator": {
+        "input_qualification_state": "qualified",
+        "observed_minimum_availability_percent": 82
+      },
+      "candidate_output": {
+        "action": "forecast",
+        "predicted_breach_probability": 0.06,
+        "abstention_reason": null
+      }
     },
     {
       "case_id": "FORECAST-03",
       "service_id": "water_service_continuity",
       "forecast_origin_hour": 0,
       "forecast_horizon_hours": 24,
-      "qualification_state": "qualified",
-      "action": "forecast",
-      "predicted_breach_probability": 0.1,
-      "abstention_reason": null,
-      "observed_minimum_availability_percent": 72
+      "evaluator": {
+        "input_qualification_state": "qualified",
+        "observed_minimum_availability_percent": 72
+      },
+      "candidate_output": {
+        "action": "forecast",
+        "predicted_breach_probability": 0.1,
+        "abstention_reason": null
+      }
     },
     {
       "case_id": "FORECAST-04",
       "service_id": "public_information",
       "forecast_origin_hour": 0,
       "forecast_horizon_hours": 24,
-      "qualification_state": "qualified",
-      "action": "forecast",
-      "predicted_breach_probability": 0.14,
-      "abstention_reason": null,
-      "observed_minimum_availability_percent": 77
+      "evaluator": {
+        "input_qualification_state": "qualified",
+        "observed_minimum_availability_percent": 77
+      },
+      "candidate_output": {
+        "action": "forecast",
+        "predicted_breach_probability": 0.14,
+        "abstention_reason": null
+      }
     },
     {
       "case_id": "FORECAST-05",
       "service_id": "welfare_check_coordination",
       "forecast_origin_hour": 0,
       "forecast_horizon_hours": 24,
-      "qualification_state": "qualified",
-      "action": "forecast",
-      "predicted_breach_probability": 0.22,
-      "abstention_reason": null,
-      "observed_minimum_availability_percent": 82
+      "evaluator": {
+        "input_qualification_state": "qualified",
+        "observed_minimum_availability_percent": 82
+      },
+      "candidate_output": {
+        "action": "forecast",
+        "predicted_breach_probability": 0.22,
+        "abstention_reason": null
+      }
     },
     {
       "case_id": "FORECAST-06",
       "service_id": "health_logistics_continuity",
       "forecast_origin_hour": 0,
       "forecast_horizon_hours": 24,
-      "qualification_state": "qualified",
-      "action": "forecast",
-      "predicted_breach_probability": 0.28,
-      "abstention_reason": null,
-      "observed_minimum_availability_percent": 87
+      "evaluator": {
+        "input_qualification_state": "qualified",
+        "observed_minimum_availability_percent": 87
+      },
+      "candidate_output": {
+        "action": "forecast",
+        "predicted_breach_probability": 0.28,
+        "abstention_reason": null
+      }
     },
     {
       "case_id": "FORECAST-07",
       "service_id": "transport_access",
       "forecast_origin_hour": 0,
       "forecast_horizon_hours": 24,
-      "qualification_state": "qualified",
-      "action": "forecast",
-      "predicted_breach_probability": 0.32,
-      "abstention_reason": null,
-      "observed_minimum_availability_percent": 70
+      "evaluator": {
+        "input_qualification_state": "qualified",
+        "observed_minimum_availability_percent": 70
+      },
+      "candidate_output": {
+        "action": "forecast",
+        "predicted_breach_probability": 0.32,
+        "abstention_reason": null
+      }
     },
     {
       "case_id": "FORECAST-08",
       "service_id": "electricity_supply",
       "forecast_origin_hour": 0,
       "forecast_horizon_hours": 24,
-      "qualification_state": "qualified",
-      "action": "forecast",
-      "predicted_breach_probability": 0.38,
-      "abstention_reason": null,
-      "observed_minimum_availability_percent": 75
+      "evaluator": {
+        "input_qualification_state": "qualified",
+        "observed_minimum_availability_percent": 75
+      },
+      "candidate_output": {
+        "action": "forecast",
+        "predicted_breach_probability": 0.38,
+        "abstention_reason": null
+      }
     },
     {
       "case_id": "FORECAST-09",
       "service_id": "communications_access",
       "forecast_origin_hour": 0,
       "forecast_horizon_hours": 24,
-      "qualification_state": "qualified",
-      "action": "forecast",
-      "predicted_breach_probability": 0.42,
-      "abstention_reason": null,
-      "observed_minimum_availability_percent": 82
+      "evaluator": {
+        "input_qualification_state": "qualified",
+        "observed_minimum_availability_percent": 82
+      },
+      "candidate_output": {
+        "action": "forecast",
+        "predicted_breach_probability": 0.42,
+        "abstention_reason": null
+      }
     },
     {
       "case_id": "FORECAST-10",
       "service_id": "water_service_continuity",
       "forecast_origin_hour": 0,
       "forecast_horizon_hours": 24,
-      "qualification_state": "qualified",
-      "action": "forecast",
-      "predicted_breach_probability": 0.48,
-      "abstention_reason": null,
-      "observed_minimum_availability_percent": 65
+      "evaluator": {
+        "input_qualification_state": "qualified",
+        "observed_minimum_availability_percent": 65
+      },
+      "candidate_output": {
+        "action": "forecast",
+        "predicted_breach_probability": 0.48,
+        "abstention_reason": null
+      }
     },
     {
       "case_id": "FORECAST-11",
       "service_id": "public_information",
       "forecast_origin_hour": 0,
       "forecast_horizon_hours": 24,
-      "qualification_state": "qualified",
-      "action": "forecast",
-      "predicted_breach_probability": 0.52,
-      "abstention_reason": null,
-      "observed_minimum_availability_percent": 77
+      "evaluator": {
+        "input_qualification_state": "qualified",
+        "observed_minimum_availability_percent": 77
+      },
+      "candidate_output": {
+        "action": "forecast",
+        "predicted_breach_probability": 0.52,
+        "abstention_reason": null
+      }
     },
     {
       "case_id": "FORECAST-12",
       "service_id": "welfare_check_coordination",
       "forecast_origin_hour": 0,
       "forecast_horizon_hours": 24,
-      "qualification_state": "qualified",
-      "action": "forecast",
-      "predicted_breach_probability": 0.58,
-      "abstention_reason": null,
-      "observed_minimum_availability_percent": 75
+      "evaluator": {
+        "input_qualification_state": "qualified",
+        "observed_minimum_availability_percent": 75
+      },
+      "candidate_output": {
+        "action": "forecast",
+        "predicted_breach_probability": 0.58,
+        "abstention_reason": null
+      }
     },
     {
       "case_id": "FORECAST-13",
       "service_id": "health_logistics_continuity",
       "forecast_origin_hour": 0,
       "forecast_horizon_hours": 24,
-      "qualification_state": "qualified",
-      "action": "forecast",
-      "predicted_breach_probability": 0.62,
-      "abstention_reason": null,
-      "observed_minimum_availability_percent": 87
+      "evaluator": {
+        "input_qualification_state": "qualified",
+        "observed_minimum_availability_percent": 87
+      },
+      "candidate_output": {
+        "action": "forecast",
+        "predicted_breach_probability": 0.62,
+        "abstention_reason": null
+      }
     },
     {
       "case_id": "FORECAST-14",
       "service_id": "transport_access",
       "forecast_origin_hour": 0,
       "forecast_horizon_hours": 24,
-      "qualification_state": "qualified",
-      "action": "forecast",
-      "predicted_breach_probability": 0.68,
-      "abstention_reason": null,
-      "observed_minimum_availability_percent": 70
+      "evaluator": {
+        "input_qualification_state": "qualified",
+        "observed_minimum_availability_percent": 70
+      },
+      "candidate_output": {
+        "action": "forecast",
+        "predicted_breach_probability": 0.68,
+        "abstention_reason": null
+      }
     },
     {
       "case_id": "FORECAST-15",
       "service_id": "electricity_supply",
       "forecast_origin_hour": 0,
       "forecast_horizon_hours": 24,
-      "qualification_state": "qualified",
-      "action": "forecast",
-      "predicted_breach_probability": 0.72,
-      "abstention_reason": null,
-      "observed_minimum_availability_percent": 75
+      "evaluator": {
+        "input_qualification_state": "qualified",
+        "observed_minimum_availability_percent": 75
+      },
+      "candidate_output": {
+        "action": "forecast",
+        "predicted_breach_probability": 0.72,
+        "abstention_reason": null
+      }
     },
     {
       "case_id": "FORECAST-16",
       "service_id": "communications_access",
       "forecast_origin_hour": 0,
       "forecast_horizon_hours": 24,
-      "qualification_state": "qualified",
-      "action": "forecast",
-      "predicted_breach_probability": 0.78,
-      "abstention_reason": null,
-      "observed_minimum_availability_percent": 75
+      "evaluator": {
+        "input_qualification_state": "qualified",
+        "observed_minimum_availability_percent": 75
+      },
+      "candidate_output": {
+        "action": "forecast",
+        "predicted_breach_probability": 0.78,
+        "abstention_reason": null
+      }
     },
     {
       "case_id": "FORECAST-17",
       "service_id": "water_service_continuity",
       "forecast_origin_hour": 0,
       "forecast_horizon_hours": 24,
-      "qualification_state": "qualified",
-      "action": "forecast",
-      "predicted_breach_probability": 0.82,
-      "abstention_reason": null,
-      "observed_minimum_availability_percent": 72
+      "evaluator": {
+        "input_qualification_state": "qualified",
+        "observed_minimum_availability_percent": 72
+      },
+      "candidate_output": {
+        "action": "forecast",
+        "predicted_breach_probability": 0.82,
+        "abstention_reason": null
+      }
     },
     {
       "case_id": "FORECAST-18",
       "service_id": "public_information",
       "forecast_origin_hour": 0,
       "forecast_horizon_hours": 24,
-      "qualification_state": "qualified",
-      "action": "forecast",
-      "predicted_breach_probability": 0.88,
-      "abstention_reason": null,
-      "observed_minimum_availability_percent": 70
+      "evaluator": {
+        "input_qualification_state": "qualified",
+        "observed_minimum_availability_percent": 70
+      },
+      "candidate_output": {
+        "action": "forecast",
+        "predicted_breach_probability": 0.88,
+        "abstention_reason": null
+      }
     },
     {
       "case_id": "FORECAST-19",
       "service_id": "welfare_check_coordination",
       "forecast_origin_hour": 0,
       "forecast_horizon_hours": 24,
-      "qualification_state": "qualified",
-      "action": "forecast",
-      "predicted_breach_probability": 0.92,
-      "abstention_reason": null,
-      "observed_minimum_availability_percent": 75
+      "evaluator": {
+        "input_qualification_state": "qualified",
+        "observed_minimum_availability_percent": 75
+      },
+      "candidate_output": {
+        "action": "forecast",
+        "predicted_breach_probability": 0.92,
+        "abstention_reason": null
+      }
     },
     {
       "case_id": "FORECAST-20",
       "service_id": "health_logistics_continuity",
       "forecast_origin_hour": 0,
       "forecast_horizon_hours": 24,
-      "qualification_state": "qualified",
-      "action": "forecast",
-      "predicted_breach_probability": 0.98,
-      "abstention_reason": null,
-      "observed_minimum_availability_percent": 80
+      "evaluator": {
+        "input_qualification_state": "qualified",
+        "observed_minimum_availability_percent": 80
+      },
+      "candidate_output": {
+        "action": "forecast",
+        "predicted_breach_probability": 0.98,
+        "abstention_reason": null
+      }
     },
     {
       "forecast_origin_hour": 0,
       "forecast_horizon_hours": 24,
       "case_id": "ABSTAIN-MISSING-01",
       "service_id": "water_service_continuity",
-      "qualification_state": "missing_critical_input",
-      "action": "abstain",
-      "predicted_breach_probability": null,
-      "abstention_reason": "missing_critical_input",
-      "observed_minimum_availability_percent": 61
+      "evaluator": {
+        "input_qualification_state": "missing_critical_input",
+        "observed_minimum_availability_percent": 61
+      },
+      "candidate_output": {
+        "action": "abstain",
+        "predicted_breach_probability": null,
+        "abstention_reason": "missing_critical_input"
+      }
     },
     {
       "forecast_origin_hour": 0,
       "forecast_horizon_hours": 24,
       "case_id": "ABSTAIN-MISSING-02",
       "service_id": "health_logistics_continuity",
-      "qualification_state": "missing_critical_input",
-      "action": "abstain",
-      "predicted_breach_probability": null,
-      "abstention_reason": "missing_critical_input",
-      "observed_minimum_availability_percent": 88
+      "evaluator": {
+        "input_qualification_state": "missing_critical_input",
+        "observed_minimum_availability_percent": 88
+      },
+      "candidate_output": {
+        "action": "abstain",
+        "predicted_breach_probability": null,
+        "abstention_reason": "missing_critical_input"
+      }
     },
     {
       "forecast_origin_hour": 0,
       "forecast_horizon_hours": 24,
       "case_id": "ABSTAIN-CONFLICT-01",
       "service_id": "public_information",
-      "qualification_state": "conflicting_sources",
-      "action": "abstain",
-      "predicted_breach_probability": null,
-      "abstention_reason": "conflicting_sources",
-      "observed_minimum_availability_percent": 82
+      "evaluator": {
+        "input_qualification_state": "conflicting_sources",
+        "observed_minimum_availability_percent": 82
+      },
+      "candidate_output": {
+        "action": "abstain",
+        "predicted_breach_probability": null,
+        "abstention_reason": "conflicting_sources"
+      }
     },
     {
       "forecast_origin_hour": 0,
       "forecast_horizon_hours": 24,
       "case_id": "ABSTAIN-SHIFT-01",
       "service_id": "electricity_supply",
-      "qualification_state": "unsupported_distribution_shift",
-      "action": "abstain",
-      "predicted_breach_probability": null,
-      "abstention_reason": "unsupported_distribution_shift",
-      "observed_minimum_availability_percent": 69
+      "evaluator": {
+        "input_qualification_state": "unsupported_distribution_shift",
+        "observed_minimum_availability_percent": 69
+      },
+      "candidate_output": {
+        "action": "abstain",
+        "predicted_breach_probability": null,
+        "abstention_reason": "unsupported_distribution_shift"
+      }
     },
     {
       "forecast_origin_hour": 0,
       "forecast_horizon_hours": 24,
       "case_id": "ABSTAIN-UNCERTAINTY-01",
       "service_id": "transport_access",
-      "qualification_state": "qualified",
-      "action": "abstain",
-      "predicted_breach_probability": null,
-      "abstention_reason": "model_uncertainty",
-      "observed_minimum_availability_percent": 72
+      "evaluator": {
+        "input_qualification_state": "qualified",
+        "observed_minimum_availability_percent": 72
+      },
+      "candidate_output": {
+        "action": "abstain",
+        "predicted_breach_probability": null,
+        "abstention_reason": "model_uncertainty"
+      }
     }
   ],
   "interpretation_guardrails": [
