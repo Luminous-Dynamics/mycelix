@@ -54,7 +54,8 @@
         "M-SERVICE-FLOOR",
         "M-OBJECTIVE-EVIDENCE"
       ],
-      "critical_gate": true
+      "critical_gate": true,
+      "service": "public_information"
     },
     {
       "id": "OBJ-02",
@@ -64,7 +65,8 @@
         "M-AUTHORITY-EVIDENCE",
         "M-OBJECTIVE-EVIDENCE"
       ],
-      "critical_gate": true
+      "critical_gate": true,
+      "service": "welfare_check_coordination"
     },
     {
       "id": "OBJ-03",
@@ -74,7 +76,8 @@
         "M-RESOURCE-FEASIBILITY",
         "M-OBJECTIVE-EVIDENCE"
       ],
-      "critical_gate": true
+      "critical_gate": true,
+      "service": "water_service_continuity"
     },
     {
       "id": "OBJ-04",
@@ -84,7 +87,8 @@
         "M-ACCESSIBILITY-COVERAGE",
         "M-OBJECTIVE-EVIDENCE"
       ],
-      "critical_gate": true
+      "critical_gate": true,
+      "service": "health_logistics_continuity"
     }
   ],
   "measure_catalog": [
@@ -422,7 +426,8 @@
       "retest_cycle_id": "CYCLE-02",
       "retest_objective_id": "OBJ-01",
       "retest_result": "pass",
-      "status": "closed-verified"
+      "status": "closed-verified",
+      "retest_service": "public_information"
     },
     {
       "action_id": "ACT-02",
@@ -436,7 +441,8 @@
       "retest_cycle_id": "CYCLE-02",
       "retest_objective_id": "OBJ-02",
       "retest_result": "pass",
-      "status": "closed-verified"
+      "status": "closed-verified",
+      "retest_service": "welfare_check_coordination"
     },
     {
       "action_id": "ACT-03",
@@ -450,7 +456,8 @@
       "retest_cycle_id": "CYCLE-02",
       "retest_objective_id": "OBJ-04",
       "retest_result": "fail",
-      "status": "open"
+      "status": "open",
+      "retest_service": "health_logistics_continuity"
     }
   ],
   "expected_derived_results": {
