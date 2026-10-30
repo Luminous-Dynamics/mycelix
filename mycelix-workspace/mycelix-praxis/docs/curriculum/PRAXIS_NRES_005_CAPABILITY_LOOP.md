@@ -1,6 +1,7 @@
 # PRAXIS-NRES-005: Exercise-to-improvement capability loop
 
 **Status:** synthetic benchmark specification for review. No real exercise, municipal capability, or educational effect has been measured.  
+**Evidence interchange:** [PRAXIS-NRES-006](PRAXIS_NRES_006_EVIDENCE_INTERCHANGE.md) defines a JSON-LD/PROV portable envelope and public conformance corpus.  
 **Fixture:** `examples/courses/civic-resilience-capability-loop-fixture-001.json`.  
 **Composes:** PRAXIS-NRES-001 through NRES-004, the existing Praxis content/privacy contracts, and the external practices below.
 
