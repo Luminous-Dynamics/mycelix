@@ -10,6 +10,7 @@ use std::error::Error;
 use std::fs;
 use std::path::Path;
 
+#[cfg(test)]
 const SCHEMA_FIXTURES: &[(&str, &str)] = &[
     (
         "batch-record",
@@ -53,6 +54,7 @@ const SCHEMA_FIXTURES: &[(&str, &str)] = &[
     ),
 ];
 
+#[cfg(test)]
 const SOURCE_REGISTER: &str = include_str!("../../../source-register.v0.1.json");
 
 fn validate_schema(schema_bytes: &[u8], label: &str) -> Result<Value, Box<dyn Error>> {
