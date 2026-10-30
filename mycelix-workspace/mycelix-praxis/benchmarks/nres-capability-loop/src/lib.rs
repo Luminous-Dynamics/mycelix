@@ -497,6 +497,7 @@ mod tests {
         assert_eq!(report.pointer("/improvement_system/retested_failure_recurrence/denominator").and_then(Value::as_u64), Some(3));
         assert_eq!(report.pointer("/improvement_system/all_critical_service_floors_pass_at_retest").and_then(Value::as_bool), Some(false));
         assert!(report.get("total_score").is_none());
+        assert!(report.get("composite_score").is_none());
     }
 
     #[test]
@@ -531,6 +532,20 @@ mod tests {
     fn rejects_missing_observation_evidence() {
         let (nres002, mut loop_fixture) = fixtures();
         loop_fixture["cycles"][0]["objective_observations"][0]["evidence_ids"] = json!(["MISSING-EVIDENCE"]);
+        assert!(evaluate(&nres002, &loop_fixture).is_err());
+    }
+
+    #[test]
+    fn rejects_completion_evidence_without_independent_review() {
+        let (nres002, mut loop_fixture) = fixtures();
+        loop_fixture["cycles"][1]["evidence_records"][4]["independently_reviewed"] = json!(false);
+        assert!(evaluate(&nres002, &loop_fixture).is_err());
+    }
+
+    #[test]
+    fn rejects_action_closure_when_linked_service_floor_fails() {
+        let (nres002, mut loop_fixture) = fixtures();
+        loop_fixture["cycles"][1]["service_floor_observations"][0]["observed_percent"] = json!(60);
         assert!(evaluate(&nres002, &loop_fixture).is_err());
     }
 }
