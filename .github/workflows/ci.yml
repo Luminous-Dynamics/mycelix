@@ -479,7 +479,7 @@ jobs:
           set -euo pipefail
           work="$RUNNER_TEMP/neon-inventory-month-tests"
           mkdir -p "$work"
-          printf 'SRER\\n' > "$work/sites.txt"
+          printf '%s\n' 'SRER' > "$work/sites.txt"
           if NEON_API_TOKEN=ci-test bash research/terra-preta/tools/inventory-neon-data.sh \\
             --product DP1.00094.001 --sites-file "$work/sites.txt" \\
             --start 2021-02 --end 2021-01 --release RELEASE-2026 \\
