@@ -79,6 +79,8 @@ BiocharDS can support study-grouped synthesis of published treatment responses o
 No model should be presented as evidence of South African efficacy, carbon permanence, product safety, or regulatory acceptance until those claims have their own appropriate evidence and approvals.
 
 
+**Exact paper preprocessing:** See [NEON Preferential-Flow Preprocessing Contract](./NEON_PREFERENTIAL_FLOW_PREPROCESSING_CONTRACT_V0.1.md). The 2026 paper cites 2023 NEON dataset DOIs; RELEASE-2026 is not a substitute until the DOI-to-release crosswalk is independently resolved.
+
 ## 6. NEON event-scale preferential-flow benchmark sources
 
 A new derived benchmark should be acquired before or alongside the raw NEON reconstruction:
