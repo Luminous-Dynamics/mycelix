@@ -111,6 +111,13 @@ fn probability_bin(probability: f64, edges: &[f64]) -> usize {
     edges.len() - 2
 }
 
+fn abstentions_weight(cases: &[EvaluationCase]) -> f64 {
+    cases.iter()
+        .filter(|case| case.action == "abstain")
+        .map(|case| case.importance_weight)
+        .sum()
+}
+
 fn summarize_cases(
     cases: &[EvaluationCase],
     profile: &DecisionProfile,
@@ -127,6 +134,25 @@ fn summarize_cases(
     let forecast_weight: f64 = forecast_weights.iter().sum();
     let forecast_ess = effective_sample_size(&forecast_weights);
     let forecast_coverage = (total_weight > 0.0).then_some(forecast_weight / total_weight);
+    let total_event_weight: f64 = cases.iter()
+        .filter(|case| case.observed_event)
+        .map(|case| case.importance_weight)
+        .sum();
+    let total_non_event_weight: f64 = cases.iter()
+        .filter(|case| !case.observed_event)
+        .map(|case| case.importance_weight)
+        .sum();
+    let forecast_event_weight: f64 = issued.iter()
+        .filter(|case| case.observed_event)
+        .map(|case| case.importance_weight)
+        .sum();
+    let forecast_non_event_weight: f64 = issued.iter()
+        .filter(|case| !case.observed_event)
+        .map(|case| case.importance_weight)
+        .sum();
+    let abstained_event_weight = total_event_weight - forecast_event_weight;
+    let abstained_non_event_weight = total_non_event_weight - forecast_non_event_weight;
+    let abstained_weight = abstentions_weight(cases);
 
     let mut brier_sum = 0.0;
     let mut log_loss_sum = 0.0;
@@ -284,6 +310,19 @@ fn summarize_cases(
 
     json!({
         "cases": cases.len(),
+        "selection_diagnostics": {
+            "target_population_event_rate": (total_weight > 0.0).then_some(total_event_weight / total_weight),
+            "event_forecast_coverage": (total_event_weight > 0.0).then_some(forecast_event_weight / total_event_weight),
+            "non_event_forecast_coverage": (total_non_event_weight > 0.0).then_some(forecast_non_event_weight / total_non_event_weight),
+            "target_event_weight": total_event_weight,
+            "target_non_event_weight": total_non_event_weight,
+            "forecast_event_weight": forecast_event_weight,
+            "forecast_non_event_weight": forecast_non_event_weight,
+            "abstained_event_weight": abstained_event_weight,
+            "abstained_non_event_weight": abstained_non_event_weight,
+            "abstained_weight": abstained_weight,
+            "abstained_event_rate": (abstained_weight > 0.0).then_some(abstained_event_weight / abstained_weight)
+        },
         "issued_forecasts": issued.len(),
         "reviewed_abstentions": reviewed_cases,
         "raw_forecast_coverage": (cases.len() > 0).then_some(issued.len() as f64 / cases.len() as f64),
