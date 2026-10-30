@@ -13,7 +13,7 @@ The report binds to the SHA-256 of exact input bytes and refuses to overwrite an
 
 ## Input contract
 
-One event, one site/profile, a precipitation start, an observation-window end, a 5–30 minute declared time resolution, and the full declared sensor roster. Each sensor is `responded`, `no_response` or `indeterminate`. Responded sensors require a response-onset timestamp. No-response and indeterminate sensors must have a null onset. Sensor IDs must be unique; sensors at the same depth are retained but are not compared as a vertical pair.
+One event, one site/profile, a precipitation start, an observation-window end, a 5–30 minute declared time resolution, an explicit volumetric response threshold and onset-detection method, and the full declared sensor roster. One installed sensor is a valid input and returns not-applicable rather than an error. Each sensor is `responded`, `no_response` or `indeterminate`. Responded sensors require a response-onset timestamp. Each profile event must declare the volumetric threshold and onset method used upstream; the auditor does not silently assume that all source datasets used the same onset definition. No-response and indeterminate sensors must have a null onset. Sensor IDs must be unique; sensors at the same depth are retained but are not compared as a vertical pair.
 
 ## Interpretations
 
