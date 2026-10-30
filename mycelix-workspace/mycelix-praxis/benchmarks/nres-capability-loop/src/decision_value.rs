@@ -3,7 +3,7 @@
 //! Evaluates probabilistic forecast quality separately from actions taken under
 //! explicit fictional cost/loss profiles. It is not an operational policy engine.
 
-use serde_json::{json, Map, Value};
+use serde_json::{json, Value};
 use std::collections::{BTreeMap, BTreeSet};
 
 const REGIMES: &[&str] = &[
@@ -64,16 +64,11 @@ struct DecisionProfile {
 
 #[derive(Clone, Debug)]
 struct EvaluationCase {
-    case_id: String,
-    source_case_id: String,
     regime_id: String,
-    sampling_stratum: String,
     importance_weight: f64,
     observed_event: bool,
-    qualification_state: String,
     action: String,
     probability: Option<f64>,
-    abstention_reason: Option<String>,
     review_fallback_action: Option<String>,
 }
 
@@ -211,7 +206,9 @@ fn summarize_cases(
     let uncertainty = forecast_event_rate.map(|rate| rate * (1.0 - rate));
     let reconstructed_brier = forecast_event_rate
         .map(|rate| reliability - resolution + rate * (1.0 - rate));
-    let decomposition_residual = reconstructed_brier.zip(original_brier)
+    let decomposition_identity_residual = reconstructed_brier
+        .map(|reconstructed| binned_brier - reconstructed);
+    let decomposition_residual = binned_brier.zip(original_brier)
         .map(|(binned, original)| binned - original);
 
     let mut candidate_cost = 0.0;
@@ -302,7 +299,9 @@ fn summarize_cases(
             "reliability": reliability,
             "resolution": resolution,
             "uncertainty": uncertainty,
-            "binned_brier_score": reconstructed_brier,
+            "binned_brier_score": (forecast_weight > 0.0).then_some(binned_brier),
+            "murphy_reconstructed_brier_score": reconstructed_brier,
+            "decomposition_identity_residual": decomposition_identity_residual,
             "original_brier_score": original_brier,
             "binned_minus_original_residual": decomposition_residual,
             "bins": reliability_bins
@@ -636,16 +635,11 @@ pub fn evaluate_reliability_resolution_decision_value(
         }
 
         cases.push(EvaluationCase {
-            case_id,
-            source_case_id,
             regime_id: regime,
-            sampling_stratum: stratum,
             importance_weight: target / proposal,
             observed_event,
-            qualification_state: qualification,
             action: action.unwrap_or("invalid").to_owned(),
             probability,
-            abstention_reason: reason.map(str::to_owned),
             review_fallback_action: review_action.map(str::to_owned),
         });
     }
@@ -749,25 +743,54 @@ mod tests {
         let corpus: Value = serde_json::from_str(CONFORMANCE).expect("conformance parses");
         let expected = &corpus["expected_metrics"];
         let tolerance = corpus["conformance_targets"]["golden_metric_absolute_tolerance"].as_f64().unwrap_or(1e-12);
-        for (actual, expected) in report["overall_by_profile"].as_array().unwrap()
-            .iter().zip(expected["overall"].as_object().unwrap().values())
-        {
-            for key in ["reliability", "resolution", "uncertainty", "binned_brier_score"] {
+
+        let compare_profile = |actual: &Value, expected: &Value| {
+            for key in [
+                "original_brier_score", "log_loss", "climatology_brier_score",
+                "brier_skill_score", "weighted_event_rate", "mean_candidate_probability",
+                "weighted_forecast_coverage", "effective_sample_size", "forecast_effective_sample_size"
+            ] {
+                assert!((actual[key].as_f64().unwrap() - expected[key].as_f64().unwrap()).abs() <= tolerance, "{key}");
+            }
+            for key in ["reliability", "resolution", "uncertainty", "binned_brier_score",
+                "murphy_reconstructed_brier_score", "decomposition_identity_residual",
+                "original_brier_score", "binned_minus_original_residual"]
+            {
                 assert!((actual["reliability_resolution_uncertainty"][key].as_f64().unwrap()
-                    - expected["reliability_resolution_uncertainty"][key].as_f64().unwrap()).abs() <= tolerance);
+                    - expected["reliability_resolution_uncertainty"][key].as_f64().unwrap()).abs() <= tolerance, "{key}");
             }
-            for key in ["candidate_forecast_and_review", "always_no_action", "always_prepare", "training_climatology", "perfect_information_oracle_lower_bound"] {
+            for key in ["candidate_forecast_and_review", "always_no_action", "always_prepare",
+                "training_climatology", "perfect_information_oracle_lower_bound"]
+            {
                 assert!((actual["policy_costs"][key].as_f64().unwrap()
-                    - expected["policy_costs"][key].as_f64().unwrap()).abs() <= tolerance);
+                    - expected["policy_costs"][key].as_f64().unwrap()).abs() <= tolerance, "{key}");
             }
-            for key in ["relative_economic_value", "regret_vs_perfect_information", "candidate_savings_vs_no_action"] {
+            for key in ["relative_economic_value", "relative_economic_value_denominator",
+                "regret_vs_perfect_information", "candidate_savings_vs_no_action",
+                "candidate_savings_vs_training_climatology"]
+            {
                 assert!((actual["decision_metrics"][key].as_f64().unwrap()
-                    - expected["decision_metrics"][key].as_f64().unwrap()).abs() <= tolerance);
+                    - expected["decision_metrics"][key].as_f64().unwrap()).abs() <= tolerance, "{key}");
+            }
+            for key in ["prepared_decisions", "reviewed_cases", "false_negative_cases", "false_prepare_cases"] {
+                assert_eq!(actual["decision_metrics"][key], expected["decision_metrics"][key], "{key}");
+            }
+        };
+
+        for actual in report["overall_by_profile"].as_array().unwrap() {
+            let profile_id = actual["profile_id"].as_str().unwrap();
+            compare_profile(actual, &expected["overall"][profile_id]);
+        }
+        assert_eq!(report["per_regime"].as_array().unwrap().len(), expected["per_regime"].as_object().unwrap().len());
+        for actual_regime in report["per_regime"].as_array().unwrap() {
+            let regime_id = actual_regime["regime_id"].as_str().unwrap();
+            let expected_regime = &expected["per_regime"][regime_id];
+            for actual_profile in actual_regime["profiles"].as_array().unwrap() {
+                let profile_id = actual_profile["profile_id"].as_str().unwrap();
+                compare_profile(actual_profile, &expected_regime[profile_id]);
             }
         }
-        assert_eq!(report["per_regime"].as_array().unwrap().len(), expected["per_regime"].as_array().unwrap().len());
     }
-
     #[test]
     fn rejects_probability_above_one() {
         let mut value = fixture();
