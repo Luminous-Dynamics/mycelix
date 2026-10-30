@@ -50,7 +50,7 @@ The evaluator returns:
 7. fixed-bin ECE, labelled a diagnostic; and
 8. a confidence-threshold risk/coverage curve.
 
-A fixed confidence-threshold risk/coverage curve is also reported, and every service receives its own proper-score row so a weak service cannot disappear inside an overall average. Abstained cases contribute to the coverage and abstention denominators but do not receive invented probabilities and do not enter proper-score denominators. Every denominator is explicit. A predictor that abstains on every case has zero coverage and is not comparable to one that forecasts at useful coverage.
+A fixed confidence-threshold risk/coverage curve is also reported. Confidence is defined as \\( |2p-1| \\), with thresholds 0, 0.25, 0.5 and 0.75; at each point the evaluator reports selected-case count, population/eligible coverage and selective Brier score. Every service receives its own proper-score row so a weak service cannot disappear inside an overall average. Abstained cases contribute to the coverage and abstention denominators but do not receive invented probabilities and do not enter proper-score denominators. Every denominator is explicit. A predictor that abstains on every case has zero coverage and is not comparable to one that forecasts at useful coverage.
 
 ## 4. Non-negotiable rules
 
@@ -87,7 +87,7 @@ Use at least these comparators on identical frozen cases:
 4. **Candidate model:** the method under evaluation.
 5. **Ablations:** remove source freshness, dependency completeness, or other candidate input groups one at a time.
 
-Compare Brier score and log loss, then per-service scores, calibration bins and the fixed confidence-threshold risk/coverage curve. For each system, publish uncertainty intervals over repeated scenario seeds and the entire risk/coverage curve. Use paired comparisons because every model sees the same scenario. Count invalid runs and abstentions; do not silently drop difficult cases.
+Compare Brier score and log loss, then per-service scores, calibration bins and the fixed confidence-threshold risk/coverage curve. Where a candidate uses conformal prediction or selective deferral, include its declared calibration assumptions, deferral cost, coverage guarantee and behavior under each shifted slice; do not compare a nominal coverage guarantee with a shifted dataset as if the exchangeability assumption were automatic. For each system, publish uncertainty intervals over repeated scenario seeds and the entire risk/coverage curve. Use paired comparisons because every model sees the same scenario. Count invalid runs and abstentions; do not silently drop difficult cases.
 
 A model should not be called superior merely because it improves mean Brier score while increasing false confidence under unsupported shift or reducing coverage drastically. Mandatory abstention compliance is a hard gate; probabilistic skill must be assessed at comparable coverage.
 
