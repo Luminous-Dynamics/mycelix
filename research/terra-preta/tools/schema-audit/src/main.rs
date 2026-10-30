@@ -52,6 +52,14 @@ const SCHEMA_FIXTURES: &[(&str, &str)] = &[
         "water-retention-audit-report",
         include_str!("../../water-retention-audit/water-retention-audit-report.schema.json"),
     ),
+    (
+        "nutrient-budget-input",
+        include_str!("../../nutrient-budget-audit/nutrient-budget-input.schema.json"),
+    ),
+    (
+        "nutrient-budget-audit-report",
+        include_str!("../../nutrient-budget-audit/nutrient-budget-audit-report.schema.json"),
+    ),
 ];
 
 #[cfg(test)]
@@ -414,6 +422,111 @@ mod tests {
         let validator = jsonschema::validator_for(&water_retention_report_schema()).unwrap();
         let mut report = valid_water_retention_report();
         report["uncertainty_status"] = json!("propagated");
+        assert!(!validator.is_valid(&report));
+    }
+
+    fn nutrient_budget_input_schema() -> Value {
+        serde_json::from_str(SCHEMA_FIXTURES[10].1).unwrap()
+    }
+
+    fn nutrient_budget_report_schema() -> Value {
+        serde_json::from_str(SCHEMA_FIXTURES[11].1).unwrap()
+    }
+
+    const NUTRIENT_BUDGET_INPUT_FIXTURE: &str =
+        include_str!("../../nutrient-budget-audit/fixtures/synthetic-n-budget.json");
+
+    #[test]
+    fn accepts_synthetic_nutrient_budget_input() {
+        let validator = jsonschema::validator_for(&nutrient_budget_input_schema()).unwrap();
+        let instance: Value = serde_json::from_str(NUTRIENT_BUDGET_INPUT_FIXTURE).unwrap();
+        assert!(validator.is_valid(&instance));
+    }
+
+    #[test]
+    fn rejects_non_elemental_nutrient_budget_basis() {
+        let validator = jsonschema::validator_for(&nutrient_budget_input_schema()).unwrap();
+        let mut instance: Value = serde_json::from_str(NUTRIENT_BUDGET_INPUT_FIXTURE).unwrap();
+        instance["unit_basis"] = json!("kg_P2O5_per_ha");
+        assert!(!validator.is_valid(&instance));
+    }
+
+    fn valid_nutrient_budget_report() -> Value {
+        json!({
+            "audit_version": "0.1.0",
+            "status": "within_conservative_uncertainty_bound",
+            "record_id": "synthetic-n-budget-01",
+            "element": "N",
+            "input_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "study_id": "synthetic-study",
+            "site_id": "synthetic-site",
+            "experimental_unit_id": "plot-01",
+            "treatment_arm_id": "treatment-a",
+            "comparator_arm_id": "local-practice",
+            "period_start_date": "2026-01-01",
+            "period_end_date": "2026-12-31",
+            "control_volume": {
+                "area_ha": 0.25,
+                "top_depth_cm": 0,
+                "bottom_depth_cm": 30,
+                "boundary_description": "synthetic soil + standing crop"
+            },
+            "input_total_kg_element_per_ha": 50,
+            "output_total_kg_element_per_ha": 28,
+            "storage_start_total_kg_element_per_ha": 100,
+            "storage_end_total_kg_element_per_ha": 122,
+            "storage_change_kg_element_per_ha": 22,
+            "residual_kg_element_per_ha": 0,
+            "conservative_linear_standard_uncertainty_bound_kg_element_per_ha": 5.1,
+            "plot_scaled": {
+                "input_kg_element": 12.5,
+                "output_kg_element": 7,
+                "storage_change_kg_element": 5.5,
+                "residual_kg_element": 0,
+                "uncertainty_bound_kg_element": 1.275
+            },
+            "flow_counts": {
+                "inputs": 2,
+                "outputs": 3,
+                "storage_pools": 2,
+                "availability_indicators": 1
+            },
+            "availability_indicators": [
+                {
+                    "indicator_id": "mineral-n",
+                    "name": "extractable mineral nitrogen",
+                    "value": 18,
+                    "unit": "mg N kg-1 dry soil",
+                    "depth_top_cm": 0,
+                    "depth_bottom_cm": 30,
+                    "method": "synthetic extraction fixture",
+                    "evidence_ref": "synthetic-fixture"
+                }
+            ],
+            "warnings": ["synthetic fixture only"],
+            "interpretation_boundary": "arithmetic schema fixture only"
+        })
+    }
+
+    #[test]
+    fn accepts_valid_nutrient_budget_report() {
+        let validator = jsonschema::validator_for(&nutrient_budget_report_schema()).unwrap();
+        assert!(validator.is_valid(&valid_nutrient_budget_report()));
+    }
+
+    #[test]
+    fn rejects_unknown_nutrient_budget_report_status() {
+        let validator = jsonschema::validator_for(&nutrient_budget_report_schema()).unwrap();
+        let mut report = valid_nutrient_budget_report();
+        report["status"] = json!("balanced");
+        assert!(!validator.is_valid(&report));
+    }
+
+    #[test]
+    fn rejects_negative_nutrient_budget_residual_components_that_must_be_nonnegative() {
+        let validator = jsonschema::validator_for(&nutrient_budget_report_schema()).unwrap();
+        let mut report = valid_nutrient_budget_report();
+        report["input_total_kg_element_per_ha"] = json!(-1.0);
         assert!(!validator.is_valid(&report));
     }
 
