@@ -243,8 +243,8 @@ fn load_cases(path: &Path, expected_sha256: &str) -> Result<Vec<EngineInputCase>
         {
             return Err(format!("Rego input is missing a required source-policy field at line {}", line_index + 1));
         }
-        if case.cedar.entities.len() != 3 {
-            return Err(format!("Cedar entity slice must contain actor, claim and action at line {}", line_index + 1));
+        if case.cedar.entities.len() != 2 {
+            return Err(format!("Cedar input must contain actor and claim only; action entities come from the pinned schema (line {})", line_index + 1));
         }
         for entity in &case.cedar.entities {
             if entity["uid"]["type"].as_str().is_none()
