@@ -469,6 +469,7 @@ jobs:
           jq empty research/terra-preta/tools/coupled-event-audit/fixtures/synthetic-event-report.json
           jq empty research/terra-preta/neon-preferential-flow-source-plan.v0.1.json
           bash -n research/terra-preta/tools/acquire-public-sources.sh
+          bash -n research/terra-preta/tools/acquire-neon-data.sh
       - name: Format standalone audit tools
         run: |
           cargo fmt --manifest-path research/terra-preta/tools/biochar-audit/Cargo.toml -- --check

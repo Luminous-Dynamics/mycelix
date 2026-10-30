@@ -216,6 +216,16 @@ A credible model should widen uncertainty or abstain when the data are insuffici
 
 Hashes establish artifact identity. They do not prove that a sensor measures a unique pore pathway, that a threshold is ground truth, that model parameters are identifiable, or that an amendment caused a change.
 
+## 11. Reproducible acquisition
+
+The companion `tools/acquire-neon-data.sh` helper queries the NEON Data Query
+endpoint for one product/site/month range, preserves the exact query response,
+verifies publisher file size and MD5, computes local SHA-256, and refuses to
+overwrite existing artifacts. It reads `NEON_API_TOKEN` from the environment,
+writes it to a protected temporary header file, and does not forward it to a
+signed storage URL. A file is not declared acquired until its checksum record
+is present in the local acquisition manifest.
+
 ## References
 
 - Li, B. et al. (2026). “Dominant Controls on Preferential Flow and Their Implications for Future Soil Water Fluxes.” *Earth's Future*. https://doi.org/10.1029/2026EF008296

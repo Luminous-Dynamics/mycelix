@@ -97,3 +97,20 @@ its Data Query endpoint is used to query files by product, site and date range
 and requires API token authentication. Store the exact API responses and
 downloaded file checksums in the acquisition manifest. Confirm current NEON
 data-use terms at acquisition and preserve attribution. 
+
+
+### NEON acquisition command
+
+The NEON-specific downloader is separate from the Figshare/Zenodo helper. It queries the authenticated NEON Data Query endpoint, stores its query response, verifies publisher byte size and MD5 for every file, computes local SHA-256, makes files read-only and refuses to overwrite existing artifacts:
+
+```sh
+export NEON_API_TOKEN='…'  # retrieve from your own NEON account; do not commit
+bash research/terra-preta/tools/acquire-neon-data.sh \
+  --product DP1.00094.001 --site SRER \
+  --start 2021-01 --end 2021-12 \
+  --release RELEASE-2026 --package basic \
+  --output /path/to/immutable/neon-raw
+unset NEON_API_TOKEN
+```
+
+This is an example, not a claim that SRER or every month has a file in RELEASE-2026. Query product/release availability before selecting site-month ranges. The tool reads the token from a protected header file, uses `X-API-Token` only for the metadata request, and does not forward it to the returned storage URL. Preserve query JSON and the acquisition manifest with the raw data.
