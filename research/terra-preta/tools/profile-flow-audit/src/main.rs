@@ -35,7 +35,7 @@ struct SensorResponse {
     response_onset_utc: Option<String>,
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 struct ParsedSensor {
     sensor_id: String,
     depth_cm: f64,
