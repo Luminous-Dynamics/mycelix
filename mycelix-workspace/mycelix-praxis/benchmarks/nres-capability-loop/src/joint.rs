@@ -5,7 +5,7 @@
 //! people, or estimate real-world incident probabilities.
 
 use serde_json::{json, Value};
-use std::collections::{BTreeMap, BTreeSet};
+use std::collections::BTreeSet;
 
 fn str_field<'a>(value: &'a Value, key: &str) -> Option<&'a str> {
     value.get(key)?.as_str()
@@ -543,8 +543,8 @@ mod tests {
     #[test]
     fn rejects_duplicate_state_mask() {
         let mut value = fixture();
-        value["evaluation_cases"][0]["candidate_output"]["forecast_distribution"][0]["state_mask"] =
-            value["evaluation_cases"][0]["candidate_output"]["forecast_distribution"][1]["state_mask"].clone();
+        let duplicate_mask = value["evaluation_cases"][0]["candidate_output"]["forecast_distribution"][1]["state_mask"].clone();
+        value["evaluation_cases"][0]["candidate_output"]["forecast_distribution"][0]["state_mask"] = duplicate_mask;
         assert!(evaluate_joint_service_forecasts(&value).is_err());
     }
 
@@ -565,7 +565,8 @@ mod tests {
     #[test]
     fn rejects_duplicate_service_id() {
         let mut value = fixture();
-        value["service_catalog"][1]["service_id"] = value["service_catalog"][0]["service_id"].clone();
+        let duplicate_id = value["service_catalog"][0]["service_id"].clone();
+        value["service_catalog"][1]["service_id"] = duplicate_id;
         assert!(evaluate_joint_service_forecasts(&value).is_err());
     }
 
@@ -579,7 +580,8 @@ mod tests {
     #[test]
     fn rejects_duplicate_case_id() {
         let mut value = fixture();
-        value["evaluation_cases"][1]["case_id"] = value["evaluation_cases"][0]["case_id"].clone();
+        let duplicate_id = value["evaluation_cases"][0]["case_id"].clone();
+        value["evaluation_cases"][1]["case_id"] = duplicate_id;
         assert!(evaluate_joint_service_forecasts(&value).is_err());
     }
 
