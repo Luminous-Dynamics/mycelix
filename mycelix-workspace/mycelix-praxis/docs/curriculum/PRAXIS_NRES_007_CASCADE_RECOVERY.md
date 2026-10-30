@@ -30,7 +30,7 @@ Every service remains an independent row. Do not aggregate deficit area, recover
 
 ## 3. Dependency graph semantics
 
-An edge `prerequisite_service_id → dependent_service_id` means the benchmark declares the first service a required input to the second. The graph is validated for unique, resolvable service IDs and acyclicity. Crucially, NRES-007 does **not** propagate failures across these edges or synthesize the input availability trajectories. The trajectories are supplied exercise observations or explicitly labelled simulation outputs; the evaluator only validates their grid and derives declared metrics. Keeping the generator separate from the evaluator prevents a benchmark validator from manufacturing its own evidence. This graph is a scenario assumption used to make dependency coverage inspectable; it is not an inferred model of any real utility, municipality or provider.
+An edge `prerequisite_service_id → dependent_service_id` means the benchmark declares the first service a required input to the second. The graph is validated for unique, resolvable service IDs, unique edges and explicit assertion status (assumed, observed, or evaluator-only). **Cycles are allowed.** Real interdependent services can form feedback loops, and NRES-007 does not need a DAG because it is not a propagation engine. Crucially, NRES-007 does **not** propagate failures across these edges or synthesize the input availability trajectories. The trajectories are supplied exercise observations or explicitly labelled simulation outputs; the evaluator only validates their grid and derives declared metrics. Keeping the generator separate from the evaluator prevents a benchmark validator from manufacturing its own evidence. A declared edge is not inferred from proximity or assumed to be true.
 
 The fixture includes electricity, communications, water, public information, welfare-check coordination, health logistics and transport access. It uses a directed acyclic graph to keep the reference case deterministic and interpretable. Future profiles may represent redundancy or substitutable inputs explicitly, but must version their semantics rather than overload the edge meaning.
 
@@ -57,6 +57,18 @@ References:
 
 NRES-007 does not replace these programmes, certify alignment, or claim superior real-world performance. Its proposed contribution is a small, open, executable test object that can be adapted independently and compared against institutional exercise outputs.
 
+
+## 5. Cross-project composition boundary
+
+NRES-007 should not duplicate the simulation work already scoped in [Symtropy BANK-RES-SIM-001 (#2330)](https://github.com/Luminous-Dynamics/symtropy/issues/2330). The intended ownership boundary is:
+
+- **Symtropy:** generate deterministic synthetic disruption scenarios and dependency-cascade outputs; expose model/build identity, assumptions, scenario digest, result digest, and simulated/unknown state. The generator must be evaluated by an independent oracle, not by its own output.
+- **Praxis / NRES-007:** consume an explicitly labelled trajectory packet and independently derive service-floor, deficit-area, breach and recovery metrics. It does not treat simulation output as a field observation.
+- **Mycelix / CIV-RES-000 (#2006):** own adopted civic state, claims, evidence custody, accountability and provenance. Software output does not confer civic authority.
+- **Sol-Atlas BANK-RES-GEO-001 (#204):** supply qualified site/lifeline context and source references where useful. Geographic proximity alone must not create an internal dependency edge or prove service capacity.
+
+A future adapter should preserve assumed / observed / evaluator-only edge status, source and graph digests, units, time base, missingness and whether a trajectory is simulated or measured. These systems remain separate until a versioned adapter contract is reviewed.
+
 ## 6. Numerical definitions
 
 For service floor (F), observed availability (A(t)), and time interval ([t_i,t_{i+1}]), define the deficit (D(t)=\max(0,F-A(t))). The reported deficit area is:
@@ -73,7 +85,7 @@ The sustained-recovery time is the earliest sample (t_i) for which all observati
 
 - 100% of scenarios reference the same frozen shock-sequence ID for a matched comparison.
 - 100% of service trajectories match the declared sample grid exactly.
-- 100% of service IDs and dependency endpoints resolve; dependency graph is acyclic under this profile.
+- 100% of service IDs and dependency endpoints resolve; duplicate edges and unsupported assertion statuses are rejected; dependency cycles are retained as metadata.
 - 100% of services, including every critical floor, are reported separately.
 - 100% of resource pools are checked against their own limits.
 - 100% of listed negative conformance cases are rejected.
