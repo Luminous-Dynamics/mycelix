@@ -18,7 +18,9 @@
   ],
   "source_fixture": {
     "benchmark_id": "PRAXIS-NRES-010-TAIL-SHIFT-ROBUSTNESS-001",
-    "source_description": "The 128 public synthetic NRES-010 forecast/observation cases are preserved with stable source_case_id values, regime IDs and importance-sampling metadata."
+    "source_description": "The 128 public synthetic NRES-010 forecast/observation cases are preserved with stable source_case_id values, regime IDs and importance-sampling metadata.",
+    "fixture_blob_sha": "f42d045924b91f09aa5a3a455cb12fb7bb7fdb02",
+    "source_case_count": 128
   },
   "target": {
     "quantity": "aggregate normalized service-deficit-hours",
@@ -2681,5 +2683,23 @@
     "Importance-weighted policy loss and effective sample size must be reported for every profile and regime.",
     "Abstention coverage and deferral costs cannot be omitted.",
     "No composite resilience, political, loyalty, enlistment or personal-suitability score is permitted."
+  ],
+  "regimes": [
+    {
+      "regime_id": "in_distribution",
+      "qualification_note": "reference regime"
+    },
+    {
+      "regime_id": "temporal_shift",
+      "qualification_note": "time-ordered shifted regime; explicitly included and qualified for robustness testing"
+    },
+    {
+      "regime_id": "structural_dependency_shift",
+      "qualification_note": "service dependency/common-cause structure shifted; explicitly included and qualified for robustness testing"
+    },
+    {
+      "regime_id": "evidence_degradation",
+      "qualification_note": "evidence quality degraded; missing/conflicting inputs require abstention"
+    }
   ]
 }
