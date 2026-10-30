@@ -753,9 +753,13 @@ mod tests {
     use super::*;
     use crate::scientific_authority_audit::MemoryScientificAuthorityAuditStore;
     use crate::scientific_events::{
-        AtomicClaim, ClaimId, MemoryScientificEventLog, ResearchObject, ResearchObjectId,
+        ArtifactAvailability, ArtifactId, AtomicClaim, Attestation, AttestationId,
+        AttestationKind, AttestationStatus, ClaimId, ClaimLifecycle, ClaimOrigin, ContentHash,
+        EvidenceArtifact, EvidenceOutcome, EvidenceProfile, LegacyImportMetadata,
+        MemoryScientificEventLog, RecordedAttestation, ResearchObject, ResearchObjectId,
         ResearchObjectType, ScientificEventEnvelope,
     };
+    use serde_json::Value;
     use chrono::{Duration, TimeZone};
     use ed25519_dalek::SigningKey;
     use std::sync::Arc;
@@ -823,6 +827,310 @@ mod tests {
             organizations: BTreeSet::new(),
             roles: BTreeSet::from([role]),
             authority_revision: None,
+        }
+    }
+
+
+    fn corpus_role(value: &str) -> ScientificRole {
+        match value {
+            "contributor" => ScientificRole::Contributor,
+            "reviewer" => ScientificRole::Reviewer,
+            "editor" => ScientificRole::Editor,
+            "institution" => ScientificRole::Institution,
+            "service" => ScientificRole::Service,
+            "migration_service" => ScientificRole::MigrationService,
+            "registry_admin" => ScientificRole::RegistryAdmin,
+            other => panic!("unknown corpus role: {other}"),
+        }
+    }
+
+    fn corpus_attestation(
+        id: AttestationId,
+        claim_id: ClaimId,
+        kind: AttestationKind,
+    ) -> Attestation {
+        let requires_protocol = matches!(
+            &kind,
+            AttestationKind::ComputationalReproduction { .. }
+                | AttestationKind::IndependentReplication { .. }
+        );
+        Attestation {
+            id,
+            claim_id,
+            kind,
+            evidence_ids: if requires_protocol {
+                vec![ArtifactId::new()]
+            } else {
+                Vec::new()
+            },
+            statement: Some("Synthetic policy conformance input".to_string()),
+            protocol_reference: requires_protocol.then(|| "protocol:v1".to_string()),
+        }
+    }
+
+    fn corpus_case_inputs(
+        case: &Value,
+    ) -> (ResolvedScientificActor, SignedScientificEvent, Option<ClaimProjection>) {
+        let now = Utc.timestamp_opt(1_700_000_000, 0).unwrap();
+        let actor_obj = case.get("actor").expect("case actor");
+        let actor_id = actor(
+            actor_obj
+                .get("id")
+                .and_then(Value::as_str)
+                .expect("actor id"),
+        );
+        let signing_key = key(31);
+        let roles = actor_obj
+            .get("roles")
+            .and_then(Value::as_array)
+            .expect("actor roles")
+            .iter()
+            .map(|role| corpus_role(role.as_str().expect("role string")))
+            .collect::<BTreeSet<_>>();
+        let organizations = actor_obj
+            .get("organizations")
+            .and_then(Value::as_array)
+            .into_iter()
+            .flatten()
+            .map(|organization| {
+                OrganizationId::new(organization.as_str().expect("organization string")).unwrap()
+            })
+            .collect::<BTreeSet<_>>();
+        let resolved = ResolvedScientificActor {
+            actor: actor_id.clone(),
+            authorized_keys: vec![AuthorizedActorKey {
+                public_key: signing_key.verifying_key().to_bytes(),
+                valid_from: now.clone() - Duration::days(1),
+                valid_until: None,
+                revoked_at: None,
+            }],
+            organizations,
+            roles,
+            authority_revision: None,
+        };
+
+        let claim_obj = case.get("claim").expect("case claim");
+        let claim_id = ClaimId::new();
+        let creator = actor(
+            claim_obj
+                .get("creatorActorId")
+                .and_then(Value::as_str)
+                .unwrap_or("actor:claim-owner"),
+        );
+        let creator_organization = claim_obj
+            .get("creatorOrganizationId")
+            .and_then(Value::as_str)
+            .map(OrganizationId::new)
+            .transpose()
+            .unwrap();
+        let research_object_id = ResearchObjectId::new();
+        let research_object = ResearchObject {
+            id: research_object_id,
+            title: "Synthetic policy conformance object".to_string(),
+            object_type: ResearchObjectType::Manuscript,
+            persistent_identifier: None,
+        };
+        let atomic_claim = AtomicClaim {
+            id: claim_id,
+            research_object_id,
+            statement: "Synthetic claim used only to test authorization semantics.".to_string(),
+            scope: None,
+        };
+
+        let target_attestation = case.get("targetAttestation");
+        let mut recorded_attestations = Vec::new();
+        let target_attestation_id = if target_attestation
+            .and_then(|target| target.get("exists"))
+            .and_then(Value::as_bool)
+            .unwrap_or(false)
+        {
+            let attestation_id = AttestationId::new();
+            let author = actor(
+                target_attestation
+                    .and_then(|target| target.get("authorActorId"))
+                    .and_then(Value::as_str)
+                    .unwrap_or("actor:attestation-author"),
+            );
+            recorded_attestations.push(RecordedAttestation {
+                attestation: corpus_attestation(attestation_id, claim_id, AttestationKind::Review),
+                actor: author,
+                acting_organization: None,
+                status: AttestationStatus::Active,
+                revision_count: 0,
+                last_reason: None,
+            });
+            Some(attestation_id)
+        } else {
+            None
+        };
+
+        let current = claim_obj
+            .get("exists")
+            .and_then(Value::as_bool)
+            .unwrap_or(false)
+            .then(|| ClaimProjection {
+                origin: ClaimOrigin::Native,
+                research_object: research_object.clone(),
+                claim: atomic_claim.clone(),
+                creator: creator.clone(),
+                creator_organization: creator_organization.clone(),
+                created_at: now,
+                updated_at: now,
+                lifecycle: ClaimLifecycle::Active,
+                evidence_profile: EvidenceProfile::default(),
+                evidence: Vec::new(),
+                attestations: recorded_attestations,
+                event_count: 1,
+                last_event_hash: ContentHash::digest(b"synthetic-policy-case"),
+            });
+
+        let action = case
+            .get("action")
+            .and_then(Value::as_str)
+            .expect("case action");
+        let attestation_kind = match case
+            .get("attestation")
+            .and_then(|attestation| attestation.get("kind"))
+            .and_then(Value::as_str)
+            .unwrap_or("ordinary")
+        {
+            "independent_replication" => AttestationKind::IndependentReplication {
+                outcome: EvidenceOutcome::Supports,
+            },
+            "ordinary" | "ordinary_review" => AttestationKind::Review,
+            other => panic!("unknown attestation kind: {other}"),
+        };
+        let payload = match action {
+            "claim_proposed" => proposed(claim_id),
+            "legacy_claim_imported" => ScientificEventPayload::LegacyClaimImported {
+                research_object,
+                claim: atomic_claim,
+                import: LegacyImportMetadata {
+                    source_system: "synthetic-policy-corpus".to_string(),
+                    source_record_hash: ContentHash::digest(b"legacy-policy-corpus"),
+                    source_locator: None,
+                    legacy_creator: None,
+                    legacy_tier: "unassessed".to_string(),
+                    legacy_verification_count: 0,
+                    legacy_provenance_count: 0,
+                    omitted_fields: Vec::new(),
+                },
+            },
+            "evidence_attached" => ScientificEventPayload::EvidenceAttached {
+                claim_id,
+                artifact: EvidenceArtifact {
+                    id: ArtifactId::new(),
+                    content_hash: ContentHash::digest(b"synthetic-evidence"),
+                    media_type: "application/octet-stream".to_string(),
+                    locator: "fixture://policy-corpus/evidence".to_string(),
+                    license: None,
+                    availability: ArtifactAvailability::Public,
+                },
+            },
+            "attestation_recorded" => ScientificEventPayload::AttestationRecorded {
+                attestation: corpus_attestation(
+                    AttestationId::new(),
+                    claim_id,
+                    attestation_kind,
+                ),
+            },
+            "attestation_corrected" => {
+                let attestation_id = target_attestation_id.unwrap_or_else(AttestationId::new);
+                ScientificEventPayload::AttestationCorrected {
+                    claim_id,
+                    attestation_id,
+                    replacement: corpus_attestation(
+                        attestation_id,
+                        claim_id,
+                        AttestationKind::Review,
+                    ),
+                    reason: "Synthetic policy correction".to_string(),
+                }
+            }
+            "attestation_withdrawn" => ScientificEventPayload::AttestationWithdrawn {
+                claim_id,
+                attestation_id: target_attestation_id.unwrap_or_else(AttestationId::new),
+                reason: "Synthetic policy withdrawal".to_string(),
+            },
+            "claim_superseded" => ScientificEventPayload::ClaimSuperseded {
+                claim_id,
+                replacement_claim_id: ClaimId::new(),
+                reason: "Synthetic policy supersession".to_string(),
+            },
+            "claim_retracted" => ScientificEventPayload::ClaimRetracted {
+                claim_id,
+                reason: "Synthetic policy retraction".to_string(),
+            },
+            other => panic!("unknown corpus action: {other}"),
+        };
+
+        let envelope = if matches!(action, "claim_proposed" | "legacy_claim_imported") {
+            ScientificEventEnvelope::genesis(actor_id.clone(), now, payload).unwrap()
+        } else {
+            let previous = SignedScientificEvent::sign(
+                ScientificEventEnvelope::genesis(
+                    creator,
+                    now,
+                    proposed(claim_id),
+                )
+                .unwrap(),
+                &key(32),
+            )
+            .unwrap();
+            ScientificEventEnvelope::next(
+                &previous,
+                actor_id.clone(),
+                now + Duration::seconds(1),
+                payload,
+            )
+            .unwrap()
+        };
+        let envelope = case
+            .get("actingOrganizationId")
+            .and_then(Value::as_str)
+            .map(|organization| {
+                envelope.with_acting_organization(OrganizationId::new(organization).unwrap())
+            })
+            .unwrap_or(envelope);
+        let event = SignedScientificEvent::sign(envelope, &signing_key).unwrap();
+        (resolved, event, current)
+    }
+
+    #[test]
+    fn normalized_authorization_corpus_matches_reference_rust_policy() {
+        let corpus: Value = serde_json::from_str(include_str!(
+            "../../../../docs/research/scientific-policy-dsl-bakeoff-v0.1/cases.json"
+        ))
+        .expect("committed authorization corpus must be valid JSON");
+        let cases = corpus
+            .get("policyCases")
+            .and_then(Value::as_array)
+            .expect("corpus must contain policyCases");
+        assert_eq!(cases.len(), 30, "update the frozen case count deliberately");
+
+        let policy = DefaultScientificAuthorizationPolicy;
+        for case in cases {
+            let (actor, event, current) = corpus_case_inputs(case);
+            let decision = policy.authorize(&actor, &event, current.as_ref());
+            let expected = case
+                .get("expected")
+                .and_then(Value::as_str)
+                .expect("case expected decision");
+            let expected_allowed = match expected {
+                "allow" => true,
+                "deny" => false,
+                other => panic!("{}: unknown expected decision {other}", case["id"]),
+            };
+            assert_eq!(
+                decision.allowed,
+                expected_allowed,
+                "{} ({}): expected {}, got {} ({})",
+                case["id"],
+                case["name"],
+                expected,
+                if decision.allowed { "allow" } else { "deny" },
+                decision.reason
+            );
         }
     }
 
