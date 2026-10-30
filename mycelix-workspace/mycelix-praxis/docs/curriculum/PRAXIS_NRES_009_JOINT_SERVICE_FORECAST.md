@@ -84,13 +84,15 @@ All measures are reported independently. There is no weighted composite or singl
 
 ## 5. Industry comparison and benchmark protocol
 
+The evaluator also constructs a **same-marginal independence projection** for each candidate forecast: it multiplies the candidate's own marginal probabilities to form a joint distribution under an independence assumption. This is a controlled ablation, not a separate trained model. It preserves every marginal exactly while removing dependence. Compare the candidate joint distribution and this projection on the same observed outcome; report each score difference separately. Positive baseline-minus-candidate means the candidate has lower loss on that metric. The fixture deliberately includes mixed outcomes: the candidate is better on some proper scores and slightly worse on pairwise joint-breach Brier. That is a design demonstration, not evidence of a reliable advantage.
+
 Use identical scenario IDs, service order, horizon, outcome definitions and hidden observations for:
-1. a product-of-marginals independent baseline (the baseline that assumes services fail independently);
+1. the automatic same-marginal independence projection (preserves candidate marginals, removes dependence);
 2. a transparent empirical joint-frequency baseline, with smoothing fixed using training data only;
 3. a candidate simulator/forecast distribution;
 4. candidate ablations that remove common-cause or dependency information.
 
-The independent baseline is especially important: it may estimate every marginal correctly while getting joint tail events wrong. NRES-009 is designed to make that error visible.
+The independence projection is especially important: by construction it has the same marginal breach probabilities as the candidate, so score differences isolate the consequences of the dependence assumption. A separate empirical-frequency baseline must be trained only on the training split.
 
 Report:
 - joint log loss and multiclass Brier;
@@ -119,7 +121,7 @@ Hard integrity gates:
 - probability mass within the frozen (10^{-12}) tolerance;
 - all observed masks valid for the service dimension;
 - all 13 negative cases rejected;
-- all golden score vectors reproduced within (10^{-12});
+- all golden candidate and independence-ablation score vectors reproduced within (10^{-12});
 - zero composite/personal scores accepted.
 
 These are structural and numerical conformance gates, not predictive-performance targets. The public fixture is synthetic and has only eight cases. No causal, operational, calibration, real-world readiness or SOTA superiority claim is made.
