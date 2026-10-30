@@ -1,0 +1,1468 @@
+{
+  "benchmark_id": "PRAXIS-NRES-011-RELIABILITY-RESOLUTION-DECISION-VALUE-CONFORMANCE-001",
+  "schema_version": "1.0.0",
+  "status": "public-development-conformance-corpus",
+  "fixture_ref": "civic-resilience-reliability-resolution-decision-value-fixture-001.json",
+  "negative_cases": [
+    {
+      "case_id": "NEG-01",
+      "name": "Probability above one",
+      "mutation": "Set predicted_exceedance_probability=1.01",
+      "expected_disposition": "reject-probability-range"
+    },
+    {
+      "case_id": "NEG-02",
+      "name": "Negative probability",
+      "mutation": "Set predicted_exceedance_probability=-0.01",
+      "expected_disposition": "reject-probability-range"
+    },
+    {
+      "case_id": "NEG-03",
+      "name": "Forecast missing probability",
+      "mutation": "Set action=forecast and probability=null",
+      "expected_disposition": "reject-missing-probability"
+    },
+    {
+      "case_id": "NEG-04",
+      "name": "Forecast probability on abstention",
+      "mutation": "Set action=abstain and probability=0.2",
+      "expected_disposition": "reject-probability-on-abstention"
+    },
+    {
+      "case_id": "NEG-05",
+      "name": "Missing abstention reason",
+      "mutation": "Remove abstention_reason from abstention",
+      "expected_disposition": "reject-missing-reason"
+    },
+    {
+      "case_id": "NEG-06",
+      "name": "Forecast on missing input",
+      "mutation": "Set missing_critical_input and action=forecast",
+      "expected_disposition": "reject-mandatory-abstention"
+    },
+    {
+      "case_id": "NEG-07",
+      "name": "Forecast on conflicting sources",
+      "mutation": "Set conflicting_sources and action=forecast",
+      "expected_disposition": "reject-mandatory-abstention"
+    },
+    {
+      "case_id": "NEG-08",
+      "name": "Abstention with no reviewer fallback",
+      "mutation": "Set review_fallback_action=null on abstention",
+      "expected_disposition": "reject-missing-review-fallback"
+    },
+    {
+      "case_id": "NEG-09",
+      "name": "Reviewer action provided for forecast",
+      "mutation": "Set review_fallback_action=prepare on forecast",
+      "expected_disposition": "reject-review-fallback-on-forecast"
+    },
+    {
+      "case_id": "NEG-10",
+      "name": "Negative readiness cost",
+      "mutation": "Set readiness_cost=-1",
+      "expected_disposition": "reject-negative-cost"
+    },
+    {
+      "case_id": "NEG-11",
+      "name": "Residual impact not below no-action impact",
+      "mutation": "Set event_loss_with_action>=event_loss_without_action",
+      "expected_disposition": "reject-invalid-loss-order"
+    },
+    {
+      "case_id": "NEG-12",
+      "name": "Negative deferral cost",
+      "mutation": "Set deferral_cost=-1",
+      "expected_disposition": "reject-negative-deferral-cost"
+    },
+    {
+      "case_id": "NEG-13",
+      "name": "Invalid profile threshold",
+      "mutation": "Set decision_threshold_probability to 1.1",
+      "expected_disposition": "reject-threshold-range"
+    },
+    {
+      "case_id": "NEG-14",
+      "name": "Threshold does not equal cost-loss ratio",
+      "mutation": "Change frozen threshold without changing profile losses",
+      "expected_disposition": "reject-decision-threshold-drift"
+    },
+    {
+      "case_id": "NEG-15",
+      "name": "Invalid proposal probability",
+      "mutation": "Set proposal_stratum_probability=0",
+      "expected_disposition": "reject-proposal-probability"
+    },
+    {
+      "case_id": "NEG-16",
+      "name": "Invalid target probability",
+      "mutation": "Set target_stratum_probability=-0.1",
+      "expected_disposition": "reject-target-probability"
+    },
+    {
+      "case_id": "NEG-17",
+      "name": "Stratum design drift",
+      "mutation": "Change a case's target mass within one stratum",
+      "expected_disposition": "reject-stratum-design-drift"
+    },
+    {
+      "case_id": "NEG-18",
+      "name": "Duplicate case identity",
+      "mutation": "Duplicate case_id",
+      "expected_disposition": "reject-duplicate-case-id"
+    },
+    {
+      "case_id": "NEG-19",
+      "name": "Empty shift regime",
+      "mutation": "Remove all cases from a regime",
+      "expected_disposition": "reject-empty-regime"
+    },
+    {
+      "case_id": "NEG-20",
+      "name": "Horizon drift",
+      "mutation": "Set forecast_horizon_hours=24",
+      "expected_disposition": "reject-horizon-drift"
+    },
+    {
+      "case_id": "NEG-21",
+      "name": "Composite score injection",
+      "mutation": "Add overall_resilience_score",
+      "expected_disposition": "reject-composite-score"
+    },
+    {
+      "case_id": "NEG-22",
+      "name": "Negative severity",
+      "mutation": "Set observed_normalized_service_deficit_hours=-1",
+      "expected_disposition": "reject-severity-range"
+    },
+    {
+      "case_id": "NEG-23",
+      "name": "Missing decision profile",
+      "mutation": "Remove one required decision profile",
+      "expected_disposition": "reject-incomplete-profiles"
+    }
+  ],
+  "boundary_cases": [
+    {
+      "case_id": "BOUNDARY-01",
+      "name": "Forecast probability equals decision threshold",
+      "mutation": "Set p exactly to readiness_cost/(loss_without_action-residual_loss)",
+      "expected_disposition": "prepare-because-threshold-is-inclusive"
+    },
+    {
+      "case_id": "BOUNDARY-02",
+      "name": "Event severity equals threshold",
+      "mutation": "Set observed severity to exactly 48 deficit-hours",
+      "expected_disposition": "non-event-strict-exceedance-definition"
+    }
+  ],
+  "expected_metrics": {
+    "total_cases": 128,
+    "profiles": [
+      "low_cost_preparedness",
+      "moderate_cost_preparedness",
+      "high_cost_preparedness"
+    ],
+    "overall": {
+      "low_cost_preparedness": {
+        "cases": 128,
+        "issued_forecasts": 123,
+        "reviewed_abstentions": 5,
+        "raw_forecast_coverage": 0.9609375,
+        "weighted_forecast_coverage": 0.9769791666666665,
+        "importance_weight_sum": 128.00000000000028,
+        "effective_sample_size": 101.73802458668973,
+        "weighted_event_rate": 0.08854166666666641,
+        "mean_candidate_probability": 0.058798272736965446,
+        "original_brier_score": 0.07849683436400443,
+        "log_loss": 0.2922853324790153,
+        "zero_probability_events": 0,
+        "reliability_resolution_uncertainty": {
+          "reliability": 0.0046140695688202185,
+          "resolution": 0.008449827186274562,
+          "uncertainty": 0.08070203993055534,
+          "binned_brier_score": 0.076866282313101,
+          "original_brier_score": 0.07849683436400443,
+          "binned_minus_original_residual": -0.0016305520509034277,
+          "bins": [
+            {
+              "bin_id": "BIN-0",
+              "count": 39,
+              "weight": 50.44000000000004,
+              "mean_probability": 0.034615384615384576,
+              "event_rate": 0.05128205128205124
+            },
+            {
+              "bin_id": "BIN-1",
+              "count": 55,
+              "weight": 71.13333333333343,
+              "mean_probability": 0.06730909090909083,
+              "event_rate": 0.09090909090909079
+            },
+            {
+              "bin_id": "BIN-2",
+              "count": 10,
+              "weight": 1.2000000000000002,
+              "mean_probability": 0.1545,
+              "event_rate": 0.5999999999999999
+            },
+            {
+              "bin_id": "BIN-3",
+              "count": 19,
+              "weight": 2.280000000000001,
+              "mean_probability": 0.27789473684210503,
+              "event_rate": 0.6315789473684209
+            },
+            {
+              "bin_id": "BIN-4",
+              "count": 0,
+              "weight": 0,
+              "mean_probability": null,
+              "event_rate": null
+            },
+            {
+              "bin_id": "BIN-5",
+              "count": 0,
+              "weight": 0,
+              "mean_probability": null,
+              "event_rate": null
+            }
+          ]
+        },
+        "policy_costs": {
+          "candidate": 1.5423697916666632,
+          "no_action": 2.1249999999999947,
+          "always_prepare": 1.5312499999999956,
+          "climatology": 2.1249999999999947,
+          "oracle": 0.6197916666666656
+        },
+        "decision_metrics": {
+          "relative_economic_value": 0.3870761245674739,
+          "relative_economic_value_denominator": 1.505208333333329,
+          "regret_vs_perfect_information": 0.9225781249999976,
+          "candidate_savings_vs_no_action": 0.5826302083333315,
+          "candidate_savings_vs_training_climatology": 0.5826302083333315,
+          "prepared_decisions": 69,
+          "reviewed_cases": 5,
+          "false_negative_cases": 4,
+          "false_prepare_cases": 47
+        }
+      },
+      "moderate_cost_preparedness": {
+        "cases": 128,
+        "issued_forecasts": 123,
+        "reviewed_abstentions": 5,
+        "raw_forecast_coverage": 0.9609375,
+        "weighted_forecast_coverage": 0.9769791666666665,
+        "importance_weight_sum": 128.00000000000028,
+        "effective_sample_size": 101.73802458668973,
+        "weighted_event_rate": 0.08854166666666641,
+        "mean_candidate_probability": 0.058798272736965446,
+        "original_brier_score": 0.07849683436400443,
+        "log_loss": 0.2922853324790153,
+        "zero_probability_events": 0,
+        "reliability_resolution_uncertainty": {
+          "reliability": 0.0046140695688202185,
+          "resolution": 0.008449827186274562,
+          "uncertainty": 0.08070203993055534,
+          "binned_brier_score": 0.076866282313101,
+          "original_brier_score": 0.07849683436400443,
+          "binned_minus_original_residual": -0.0016305520509034277,
+          "bins": [
+            {
+              "bin_id": "BIN-0",
+              "count": 39,
+              "weight": 50.44000000000004,
+              "mean_probability": 0.034615384615384576,
+              "event_rate": 0.05128205128205124
+            },
+            {
+              "bin_id": "BIN-1",
+              "count": 55,
+              "weight": 71.13333333333343,
+              "mean_probability": 0.06730909090909083,
+              "event_rate": 0.09090909090909079
+            },
+            {
+              "bin_id": "BIN-2",
+              "count": 10,
+              "weight": 1.2000000000000002,
+              "mean_probability": 0.1545,
+              "event_rate": 0.5999999999999999
+            },
+            {
+              "bin_id": "BIN-3",
+              "count": 19,
+              "weight": 2.280000000000001,
+              "mean_probability": 0.27789473684210503,
+              "event_rate": 0.6315789473684209
+            },
+            {
+              "bin_id": "BIN-4",
+              "count": 0,
+              "weight": 0,
+              "mean_probability": null,
+              "event_rate": null
+            },
+            {
+              "bin_id": "BIN-5",
+              "count": 0,
+              "weight": 0,
+              "mean_probability": null,
+              "event_rate": null
+            }
+          ]
+        },
+        "policy_costs": {
+          "candidate": 2.544583333333327,
+          "no_action": 2.833333333333325,
+          "always_prepare": 3.2083333333333273,
+          "climatology": 2.833333333333325,
+          "oracle": 0.9296874999999982
+        },
+        "decision_metrics": {
+          "relative_economic_value": 0.1516826265389872,
+          "relative_economic_value_denominator": 1.9036458333333268,
+          "regret_vs_perfect_information": 1.6148958333333288,
+          "candidate_savings_vs_no_action": 0.28874999999999806,
+          "candidate_savings_vs_training_climatology": 0.28874999999999806,
+          "prepared_decisions": 30,
+          "reviewed_cases": 5,
+          "false_negative_cases": 8,
+          "false_prepare_cases": 12
+        }
+      },
+      "high_cost_preparedness": {
+        "cases": 128,
+        "issued_forecasts": 123,
+        "reviewed_abstentions": 5,
+        "raw_forecast_coverage": 0.9609375,
+        "weighted_forecast_coverage": 0.9769791666666665,
+        "importance_weight_sum": 128.00000000000028,
+        "effective_sample_size": 101.73802458668973,
+        "weighted_event_rate": 0.08854166666666641,
+        "mean_candidate_probability": 0.058798272736965446,
+        "original_brier_score": 0.07849683436400443,
+        "log_loss": 0.2922853324790153,
+        "zero_probability_events": 0,
+        "reliability_resolution_uncertainty": {
+          "reliability": 0.0046140695688202185,
+          "resolution": 0.008449827186274562,
+          "uncertainty": 0.08070203993055534,
+          "binned_brier_score": 0.076866282313101,
+          "original_brier_score": 0.07849683436400443,
+          "binned_minus_original_residual": -0.0016305520509034277,
+          "bins": [
+            {
+              "bin_id": "BIN-0",
+              "count": 39,
+              "weight": 50.44000000000004,
+              "mean_probability": 0.034615384615384576,
+              "event_rate": 0.05128205128205124
+            },
+            {
+              "bin_id": "BIN-1",
+              "count": 55,
+              "weight": 71.13333333333343,
+              "mean_probability": 0.06730909090909083,
+              "event_rate": 0.09090909090909079
+            },
+            {
+              "bin_id": "BIN-2",
+              "count": 10,
+              "weight": 1.2000000000000002,
+              "mean_probability": 0.1545,
+              "event_rate": 0.5999999999999999
+            },
+            {
+              "bin_id": "BIN-3",
+              "count": 19,
+              "weight": 2.280000000000001,
+              "mean_probability": 0.27789473684210503,
+              "event_rate": 0.6315789473684209
+            },
+            {
+              "bin_id": "BIN-4",
+              "count": 0,
+              "weight": 0,
+              "mean_probability": null,
+              "event_rate": null
+            },
+            {
+              "bin_id": "BIN-5",
+              "count": 0,
+              "weight": 0,
+              "mean_probability": null,
+              "event_rate": null
+            }
+          ]
+        },
+        "policy_costs": {
+          "candidate": 3.314531249999993,
+          "no_action": 3.54166666666666,
+          "always_prepare": 5.70833333333332,
+          "climatology": 3.54166666666666,
+          "oracle": 1.1510416666666643
+        },
+        "decision_metrics": {
+          "relative_economic_value": 0.0950108932461877,
+          "relative_economic_value_denominator": 2.3906249999999956,
+          "regret_vs_perfect_information": 2.1634895833333285,
+          "candidate_savings_vs_no_action": 0.22713541666666703,
+          "candidate_savings_vs_training_climatology": 0.22713541666666703,
+          "prepared_decisions": 24,
+          "reviewed_cases": 5,
+          "false_negative_cases": 12,
+          "false_prepare_cases": 10
+        }
+      }
+    },
+    "per_regime": {
+      "in_distribution": {
+        "low_cost_preparedness": {
+          "cases": 32,
+          "issued_forecasts": 32,
+          "reviewed_abstentions": 0,
+          "raw_forecast_coverage": 1,
+          "weighted_forecast_coverage": 1,
+          "importance_weight_sum": 32,
+          "effective_sample_size": 25.43450614667232,
+          "weighted_event_rate": 0.05541666666666667,
+          "mean_candidate_probability": 0.04025,
+          "original_brier_score": 0.05098481666666663,
+          "log_loss": 0.21694616973651012,
+          "zero_probability_events": 0,
+          "reliability_resolution_uncertainty": {
+            "reliability": 0.0034118499999999997,
+            "resolution": 0.006449826388888889,
+            "uncertainty": 0.05234565972222222,
+            "binned_brier_score": 0.04930768333333333,
+            "original_brier_score": 0.05098481666666663,
+            "binned_minus_original_residual": -0.0016771333333332958,
+            "bins": [
+              {
+                "bin_id": "BIN-0",
+                "count": 20,
+                "weight": 25.866666666666664,
+                "mean_probability": 0.030999999999999996,
+                "event_rate": 0.05
+              },
+              {
+                "bin_id": "BIN-1",
+                "count": 4,
+                "weight": 5.173333333333333,
+                "mean_probability": 0.055,
+                "event_rate": 0
+              },
+              {
+                "bin_id": "BIN-2",
+                "count": 4,
+                "weight": 0.48,
+                "mean_probability": 0.15,
+                "event_rate": 0.5
+              },
+              {
+                "bin_id": "BIN-3",
+                "count": 4,
+                "weight": 0.48,
+                "mean_probability": 0.27,
+                "event_rate": 0.5
+              },
+              {
+                "bin_id": "BIN-4",
+                "count": 0,
+                "weight": 0,
+                "mean_probability": null,
+                "event_rate": null
+              },
+              {
+                "bin_id": "BIN-5",
+                "count": 0,
+                "weight": 0,
+                "mean_probability": null,
+                "event_rate": null
+              }
+            ]
+          },
+          "policy_costs": {
+            "candidate": 1.09,
+            "no_action": 1.3300000000000003,
+            "always_prepare": 1.3325000000000005,
+            "climatology": 1.3300000000000003,
+            "oracle": 0.38791666666666663
+          },
+          "decision_metrics": {
+            "relative_economic_value": 0.2547545333923044,
+            "relative_economic_value_denominator": 0.9420833333333336,
+            "regret_vs_perfect_information": 0.7020833333333334,
+            "candidate_savings_vs_no_action": 0.2400000000000002,
+            "candidate_savings_vs_training_climatology": 0.2400000000000002,
+            "prepared_decisions": 8,
+            "reviewed_cases": 0,
+            "false_negative_cases": 1,
+            "false_prepare_cases": 4
+          }
+        },
+        "moderate_cost_preparedness": {
+          "cases": 32,
+          "issued_forecasts": 32,
+          "reviewed_abstentions": 0,
+          "raw_forecast_coverage": 1,
+          "weighted_forecast_coverage": 1,
+          "importance_weight_sum": 32,
+          "effective_sample_size": 25.43450614667232,
+          "weighted_event_rate": 0.05541666666666667,
+          "mean_candidate_probability": 0.04025,
+          "original_brier_score": 0.05098481666666663,
+          "log_loss": 0.21694616973651012,
+          "zero_probability_events": 0,
+          "reliability_resolution_uncertainty": {
+            "reliability": 0.0034118499999999997,
+            "resolution": 0.006449826388888889,
+            "uncertainty": 0.05234565972222222,
+            "binned_brier_score": 0.04930768333333333,
+            "original_brier_score": 0.05098481666666663,
+            "binned_minus_original_residual": -0.0016771333333332958,
+            "bins": [
+              {
+                "bin_id": "BIN-0",
+                "count": 20,
+                "weight": 25.866666666666664,
+                "mean_probability": 0.030999999999999996,
+                "event_rate": 0.05
+              },
+              {
+                "bin_id": "BIN-1",
+                "count": 4,
+                "weight": 5.173333333333333,
+                "mean_probability": 0.055,
+                "event_rate": 0
+              },
+              {
+                "bin_id": "BIN-2",
+                "count": 4,
+                "weight": 0.48,
+                "mean_probability": 0.15,
+                "event_rate": 0.5
+              },
+              {
+                "bin_id": "BIN-3",
+                "count": 4,
+                "weight": 0.48,
+                "mean_probability": 0.27,
+                "event_rate": 0.5
+              },
+              {
+                "bin_id": "BIN-4",
+                "count": 0,
+                "weight": 0,
+                "mean_probability": null,
+                "event_rate": null
+              },
+              {
+                "bin_id": "BIN-5",
+                "count": 0,
+                "weight": 0,
+                "mean_probability": null,
+                "event_rate": null
+              }
+            ]
+          },
+          "policy_costs": {
+            "candidate": 1.4883333333333326,
+            "no_action": 1.7733333333333334,
+            "always_prepare": 2.943333333333334,
+            "climatology": 1.7733333333333334,
+            "oracle": 0.581875
+          },
+          "decision_metrics": {
+            "relative_economic_value": 0.23920265780730965,
+            "relative_economic_value_denominator": 1.1914583333333333,
+            "regret_vs_perfect_information": 0.9064583333333326,
+            "candidate_savings_vs_no_action": 0.2850000000000008,
+            "candidate_savings_vs_training_climatology": 0.2850000000000008,
+            "prepared_decisions": 8,
+            "reviewed_cases": 0,
+            "false_negative_cases": 1,
+            "false_prepare_cases": 4
+          }
+        },
+        "high_cost_preparedness": {
+          "cases": 32,
+          "issued_forecasts": 32,
+          "reviewed_abstentions": 0,
+          "raw_forecast_coverage": 1,
+          "weighted_forecast_coverage": 1,
+          "importance_weight_sum": 32,
+          "effective_sample_size": 25.43450614667232,
+          "weighted_event_rate": 0.05541666666666667,
+          "mean_candidate_probability": 0.04025,
+          "original_brier_score": 0.05098481666666663,
+          "log_loss": 0.21694616973651012,
+          "zero_probability_events": 0,
+          "reliability_resolution_uncertainty": {
+            "reliability": 0.0034118499999999997,
+            "resolution": 0.006449826388888889,
+            "uncertainty": 0.05234565972222222,
+            "binned_brier_score": 0.04930768333333333,
+            "original_brier_score": 0.05098481666666663,
+            "binned_minus_original_residual": -0.0016771333333332958,
+            "bins": [
+              {
+                "bin_id": "BIN-0",
+                "count": 20,
+                "weight": 25.866666666666664,
+                "mean_probability": 0.030999999999999996,
+                "event_rate": 0.05
+              },
+              {
+                "bin_id": "BIN-1",
+                "count": 4,
+                "weight": 5.173333333333333,
+                "mean_probability": 0.055,
+                "event_rate": 0
+              },
+              {
+                "bin_id": "BIN-2",
+                "count": 4,
+                "weight": 0.48,
+                "mean_probability": 0.15,
+                "event_rate": 0.5
+              },
+              {
+                "bin_id": "BIN-3",
+                "count": 4,
+                "weight": 0.48,
+                "mean_probability": 0.27,
+                "event_rate": 0.5
+              },
+              {
+                "bin_id": "BIN-4",
+                "count": 0,
+                "weight": 0,
+                "mean_probability": null,
+                "event_rate": null
+              },
+              {
+                "bin_id": "BIN-5",
+                "count": 0,
+                "weight": 0,
+                "mean_probability": null,
+                "event_rate": null
+              }
+            ]
+          },
+          "policy_costs": {
+            "candidate": 2.0891666666666664,
+            "no_action": 2.2166666666666663,
+            "always_prepare": 5.443333333333333,
+            "climatology": 2.2166666666666663,
+            "oracle": 0.7204166666666665
+          },
+          "decision_metrics": {
+            "relative_economic_value": 0.0852130325814536,
+            "relative_economic_value_denominator": 1.4962499999999999,
+            "regret_vs_perfect_information": 1.36875,
+            "candidate_savings_vs_no_action": 0.12749999999999995,
+            "candidate_savings_vs_training_climatology": 0.12749999999999995,
+            "prepared_decisions": 6,
+            "reviewed_cases": 0,
+            "false_negative_cases": 3,
+            "false_prepare_cases": 4
+          }
+        }
+      },
+      "temporal_shift": {
+        "low_cost_preparedness": {
+          "cases": 32,
+          "issued_forecasts": 31,
+          "reviewed_abstentions": 1,
+          "raw_forecast_coverage": 0.96875,
+          "weighted_forecast_coverage": 0.9962500000000001,
+          "importance_weight_sum": 32,
+          "effective_sample_size": 25.43450614667232,
+          "weighted_event_rate": 0.09958333333333334,
+          "mean_candidate_probability": 0.059535759096612274,
+          "original_brier_score": 0.08572976160602262,
+          "log_loss": 0.3226298959249164,
+          "zero_probability_events": 0,
+          "reliability_resolution_uncertainty": {
+            "reliability": 0.005524075282308656,
+            "resolution": 0.007022305215739578,
+            "uncertainty": 0.08966649305555556,
+            "binned_brier_score": 0.08816826312212464,
+            "original_brier_score": 0.08572976160602262,
+            "binned_minus_original_residual": 0.002438501516102018,
+            "bins": [
+              {
+                "bin_id": "BIN-0",
+                "count": 8,
+                "weight": 10.346666666666666,
+                "mean_probability": 0.03900000000000001,
+                "event_rate": 0.125
+              },
+              {
+                "bin_id": "BIN-1",
+                "count": 16,
+                "weight": 20.69333333333333,
+                "mean_probability": 0.063,
+                "event_rate": 0.0625
+              },
+              {
+                "bin_id": "BIN-2",
+                "count": 2,
+                "weight": 0.24,
+                "mean_probability": 0.15,
+                "event_rate": 0.5
+              },
+              {
+                "bin_id": "BIN-3",
+                "count": 5,
+                "weight": 0.6,
+                "mean_probability": 0.258,
+                "event_rate": 0.6
+              },
+              {
+                "bin_id": "BIN-4",
+                "count": 0,
+                "weight": 0,
+                "mean_probability": null,
+                "event_rate": null
+              },
+              {
+                "bin_id": "BIN-5",
+                "count": 0,
+                "weight": 0,
+                "mean_probability": null,
+                "event_rate": null
+              }
+            ]
+          },
+          "policy_costs": {
+            "candidate": 1.9065625000000006,
+            "no_action": 2.3899999999999992,
+            "always_prepare": 1.5975000000000013,
+            "climatology": 2.3899999999999992,
+            "oracle": 0.6970833333333333
+          },
+          "decision_metrics": {
+            "relative_economic_value": 0.28556485355648464,
+            "relative_economic_value_denominator": 1.692916666666666,
+            "regret_vs_perfect_information": 1.2094791666666673,
+            "candidate_savings_vs_no_action": 0.48343749999999863,
+            "candidate_savings_vs_training_climatology": 0.48343749999999863,
+            "prepared_decisions": 19,
+            "reviewed_cases": 1,
+            "false_negative_cases": 2,
+            "false_prepare_cases": 14
+          }
+        },
+        "moderate_cost_preparedness": {
+          "cases": 32,
+          "issued_forecasts": 31,
+          "reviewed_abstentions": 1,
+          "raw_forecast_coverage": 0.96875,
+          "weighted_forecast_coverage": 0.9962500000000001,
+          "importance_weight_sum": 32,
+          "effective_sample_size": 25.43450614667232,
+          "weighted_event_rate": 0.09958333333333334,
+          "mean_candidate_probability": 0.059535759096612274,
+          "original_brier_score": 0.08572976160602262,
+          "log_loss": 0.3226298959249164,
+          "zero_probability_events": 0,
+          "reliability_resolution_uncertainty": {
+            "reliability": 0.005524075282308656,
+            "resolution": 0.007022305215739578,
+            "uncertainty": 0.08966649305555556,
+            "binned_brier_score": 0.08816826312212464,
+            "original_brier_score": 0.08572976160602262,
+            "binned_minus_original_residual": 0.002438501516102018,
+            "bins": [
+              {
+                "bin_id": "BIN-0",
+                "count": 8,
+                "weight": 10.346666666666666,
+                "mean_probability": 0.03900000000000001,
+                "event_rate": 0.125
+              },
+              {
+                "bin_id": "BIN-1",
+                "count": 16,
+                "weight": 20.69333333333333,
+                "mean_probability": 0.063,
+                "event_rate": 0.0625
+              },
+              {
+                "bin_id": "BIN-2",
+                "count": 2,
+                "weight": 0.24,
+                "mean_probability": 0.15,
+                "event_rate": 0.5
+              },
+              {
+                "bin_id": "BIN-3",
+                "count": 5,
+                "weight": 0.6,
+                "mean_probability": 0.258,
+                "event_rate": 0.6
+              },
+              {
+                "bin_id": "BIN-4",
+                "count": 0,
+                "weight": 0,
+                "mean_probability": null,
+                "event_rate": null
+              },
+              {
+                "bin_id": "BIN-5",
+                "count": 0,
+                "weight": 0,
+                "mean_probability": null,
+                "event_rate": null
+              }
+            ]
+          },
+          "policy_costs": {
+            "candidate": 2.8960416666666666,
+            "no_action": 3.186666666666667,
+            "always_prepare": 3.2966666666666673,
+            "climatology": 3.186666666666667,
+            "oracle": 1.045625
+          },
+          "decision_metrics": {
+            "relative_economic_value": 0.13574000194609334,
+            "relative_economic_value_denominator": 2.141041666666667,
+            "regret_vs_perfect_information": 1.8504166666666666,
+            "candidate_savings_vs_no_action": 0.29062500000000036,
+            "candidate_savings_vs_training_climatology": 0.29062500000000036,
+            "prepared_decisions": 7,
+            "reviewed_cases": 1,
+            "false_negative_cases": 3,
+            "false_prepare_cases": 3
+          }
+        },
+        "high_cost_preparedness": {
+          "cases": 32,
+          "issued_forecasts": 31,
+          "reviewed_abstentions": 1,
+          "raw_forecast_coverage": 0.96875,
+          "weighted_forecast_coverage": 0.9962500000000001,
+          "importance_weight_sum": 32,
+          "effective_sample_size": 25.43450614667232,
+          "weighted_event_rate": 0.09958333333333334,
+          "mean_candidate_probability": 0.059535759096612274,
+          "original_brier_score": 0.08572976160602262,
+          "log_loss": 0.3226298959249164,
+          "zero_probability_events": 0,
+          "reliability_resolution_uncertainty": {
+            "reliability": 0.005524075282308656,
+            "resolution": 0.007022305215739578,
+            "uncertainty": 0.08966649305555556,
+            "binned_brier_score": 0.08816826312212464,
+            "original_brier_score": 0.08572976160602262,
+            "binned_minus_original_residual": 0.002438501516102018,
+            "bins": [
+              {
+                "bin_id": "BIN-0",
+                "count": 8,
+                "weight": 10.346666666666666,
+                "mean_probability": 0.03900000000000001,
+                "event_rate": 0.125
+              },
+              {
+                "bin_id": "BIN-1",
+                "count": 16,
+                "weight": 20.69333333333333,
+                "mean_probability": 0.063,
+                "event_rate": 0.0625
+              },
+              {
+                "bin_id": "BIN-2",
+                "count": 2,
+                "weight": 0.24,
+                "mean_probability": 0.15,
+                "event_rate": 0.5
+              },
+              {
+                "bin_id": "BIN-3",
+                "count": 5,
+                "weight": 0.6,
+                "mean_probability": 0.258,
+                "event_rate": 0.6
+              },
+              {
+                "bin_id": "BIN-4",
+                "count": 0,
+                "weight": 0,
+                "mean_probability": null,
+                "event_rate": null
+              },
+              {
+                "bin_id": "BIN-5",
+                "count": 0,
+                "weight": 0,
+                "mean_probability": null,
+                "event_rate": null
+              }
+            ]
+          },
+          "policy_costs": {
+            "candidate": 3.722708333333333,
+            "no_action": 3.9833333333333325,
+            "always_prepare": 5.796666666666667,
+            "climatology": 3.9833333333333325,
+            "oracle": 1.2945833333333336
+          },
+          "decision_metrics": {
+            "relative_economic_value": 0.09693165969316589,
+            "relative_economic_value_denominator": 2.688749999999999,
+            "regret_vs_perfect_information": 2.428124999999999,
+            "candidate_savings_vs_no_action": 0.26062499999999966,
+            "candidate_savings_vs_training_climatology": 0.26062499999999966,
+            "prepared_decisions": 5,
+            "reviewed_cases": 1,
+            "false_negative_cases": 4,
+            "false_prepare_cases": 2
+          }
+        }
+      },
+      "structural_dependency_shift": {
+        "low_cost_preparedness": {
+          "cases": 32,
+          "issued_forecasts": 32,
+          "reviewed_abstentions": 0,
+          "raw_forecast_coverage": 1,
+          "weighted_forecast_coverage": 1,
+          "importance_weight_sum": 32,
+          "effective_sample_size": 25.43450614667232,
+          "weighted_event_rate": 0.14375000000000002,
+          "mean_candidate_probability": 0.08084999999999998,
+          "original_brier_score": 0.12324181666666663,
+          "log_loss": 0.42411674299515056,
+          "zero_probability_events": 0,
+          "reliability_resolution_uncertainty": {
+            "reliability": 0.010493000000000002,
+            "resolution": 0.011992187499999998,
+            "uncertainty": 0.1230859375,
+            "binned_brier_score": 0.12158675000000001,
+            "original_brier_score": 0.12324181666666663,
+            "binned_minus_original_residual": -0.0016550666666666214,
+            "bins": [
+              {
+                "bin_id": "BIN-0",
+                "count": 0,
+                "weight": 0,
+                "mean_probability": null,
+                "event_rate": null
+              },
+              {
+                "bin_id": "BIN-1",
+                "count": 24,
+                "weight": 31.039999999999996,
+                "mean_probability": 0.075,
+                "event_rate": 0.12500000000000003
+              },
+              {
+                "bin_id": "BIN-2",
+                "count": 2,
+                "weight": 0.24,
+                "mean_probability": 0.18,
+                "event_rate": 1
+              },
+              {
+                "bin_id": "BIN-3",
+                "count": 6,
+                "weight": 0.72,
+                "mean_probability": 0.3,
+                "event_rate": 0.6666666666666666
+              },
+              {
+                "bin_id": "BIN-4",
+                "count": 0,
+                "weight": 0,
+                "mean_probability": null,
+                "event_rate": null
+              },
+              {
+                "bin_id": "BIN-5",
+                "count": 0,
+                "weight": 0,
+                "mean_probability": null,
+                "event_rate": null
+              }
+            ]
+          },
+          "policy_costs": {
+            "candidate": 2.428333333333335,
+            "no_action": 3.4499999999999993,
+            "always_prepare": 1.8625000000000016,
+            "climatology": 3.4499999999999993,
+            "oracle": 1.0062499999999999
+          },
+          "decision_metrics": {
+            "relative_economic_value": 0.418073316283034,
+            "relative_economic_value_denominator": 2.4437499999999996,
+            "regret_vs_perfect_information": 1.4220833333333351,
+            "candidate_savings_vs_no_action": 1.0216666666666643,
+            "candidate_savings_vs_training_climatology": 1.0216666666666643,
+            "prepared_decisions": 28,
+            "reviewed_cases": 0,
+            "false_negative_cases": 1,
+            "false_prepare_cases": 20
+          }
+        },
+        "moderate_cost_preparedness": {
+          "cases": 32,
+          "issued_forecasts": 32,
+          "reviewed_abstentions": 0,
+          "raw_forecast_coverage": 1,
+          "weighted_forecast_coverage": 1,
+          "importance_weight_sum": 32,
+          "effective_sample_size": 25.43450614667232,
+          "weighted_event_rate": 0.14375000000000002,
+          "mean_candidate_probability": 0.08084999999999998,
+          "original_brier_score": 0.12324181666666663,
+          "log_loss": 0.42411674299515056,
+          "zero_probability_events": 0,
+          "reliability_resolution_uncertainty": {
+            "reliability": 0.010493000000000002,
+            "resolution": 0.011992187499999998,
+            "uncertainty": 0.1230859375,
+            "binned_brier_score": 0.12158675000000001,
+            "original_brier_score": 0.12324181666666663,
+            "binned_minus_original_residual": -0.0016550666666666214,
+            "bins": [
+              {
+                "bin_id": "BIN-0",
+                "count": 0,
+                "weight": 0,
+                "mean_probability": null,
+                "event_rate": null
+              },
+              {
+                "bin_id": "BIN-1",
+                "count": 24,
+                "weight": 31.039999999999996,
+                "mean_probability": 0.075,
+                "event_rate": 0.12500000000000003
+              },
+              {
+                "bin_id": "BIN-2",
+                "count": 2,
+                "weight": 0.24,
+                "mean_probability": 0.18,
+                "event_rate": 1
+              },
+              {
+                "bin_id": "BIN-3",
+                "count": 6,
+                "weight": 0.72,
+                "mean_probability": 0.3,
+                "event_rate": 0.6666666666666666
+              },
+              {
+                "bin_id": "BIN-4",
+                "count": 0,
+                "weight": 0,
+                "mean_probability": null,
+                "event_rate": null
+              },
+              {
+                "bin_id": "BIN-5",
+                "count": 0,
+                "weight": 0,
+                "mean_probability": null,
+                "event_rate": null
+              }
+            ]
+          },
+          "policy_costs": {
+            "candidate": 4.135,
+            "no_action": 4.6000000000000005,
+            "always_prepare": 3.650000000000001,
+            "climatology": 4.6000000000000005,
+            "oracle": 1.5093749999999995
+          },
+          "decision_metrics": {
+            "relative_economic_value": 0.1504550050556119,
+            "relative_economic_value_denominator": 3.090625000000001,
+            "regret_vs_perfect_information": 2.6256250000000003,
+            "candidate_savings_vs_no_action": 0.46500000000000075,
+            "candidate_savings_vs_training_climatology": 0.46500000000000075,
+            "prepared_decisions": 8,
+            "reviewed_cases": 0,
+            "false_negative_cases": 3,
+            "false_prepare_cases": 2
+          }
+        },
+        "high_cost_preparedness": {
+          "cases": 32,
+          "issued_forecasts": 32,
+          "reviewed_abstentions": 0,
+          "raw_forecast_coverage": 1,
+          "weighted_forecast_coverage": 1,
+          "importance_weight_sum": 32,
+          "effective_sample_size": 25.43450614667232,
+          "weighted_event_rate": 0.14375000000000002,
+          "mean_candidate_probability": 0.08084999999999998,
+          "original_brier_score": 0.12324181666666663,
+          "log_loss": 0.42411674299515056,
+          "zero_probability_events": 0,
+          "reliability_resolution_uncertainty": {
+            "reliability": 0.010493000000000002,
+            "resolution": 0.011992187499999998,
+            "uncertainty": 0.1230859375,
+            "binned_brier_score": 0.12158675000000001,
+            "original_brier_score": 0.12324181666666663,
+            "binned_minus_original_residual": -0.0016550666666666214,
+            "bins": [
+              {
+                "bin_id": "BIN-0",
+                "count": 0,
+                "weight": 0,
+                "mean_probability": null,
+                "event_rate": null
+              },
+              {
+                "bin_id": "BIN-1",
+                "count": 24,
+                "weight": 31.039999999999996,
+                "mean_probability": 0.075,
+                "event_rate": 0.12500000000000003
+              },
+              {
+                "bin_id": "BIN-2",
+                "count": 2,
+                "weight": 0.24,
+                "mean_probability": 0.18,
+                "event_rate": 1
+              },
+              {
+                "bin_id": "BIN-3",
+                "count": 6,
+                "weight": 0.72,
+                "mean_probability": 0.3,
+                "event_rate": 0.6666666666666666
+              },
+              {
+                "bin_id": "BIN-4",
+                "count": 0,
+                "weight": 0,
+                "mean_probability": null,
+                "event_rate": null
+              },
+              {
+                "bin_id": "BIN-5",
+                "count": 0,
+                "weight": 0,
+                "mean_probability": null,
+                "event_rate": null
+              }
+            ]
+          },
+          "policy_costs": {
+            "candidate": 5.18,
+            "no_action": 5.750000000000002,
+            "always_prepare": 6.15,
+            "climatology": 5.750000000000002,
+            "oracle": 1.8687500000000004
+          },
+          "decision_metrics": {
+            "relative_economic_value": 0.14685990338164298,
+            "relative_economic_value_denominator": 3.8812500000000014,
+            "regret_vs_perfect_information": 3.3112499999999994,
+            "candidate_savings_vs_no_action": 0.5700000000000021,
+            "candidate_savings_vs_training_climatology": 0.5700000000000021,
+            "prepared_decisions": 8,
+            "reviewed_cases": 0,
+            "false_negative_cases": 3,
+            "false_prepare_cases": 2
+          }
+        }
+      },
+      "evidence_degradation": {
+        "low_cost_preparedness": {
+          "cases": 32,
+          "issued_forecasts": 28,
+          "reviewed_abstentions": 4,
+          "raw_forecast_coverage": 0.875,
+          "weighted_forecast_coverage": 0.9116666666666667,
+          "importance_weight_sum": 32,
+          "effective_sample_size": 25.43450614667232,
+          "weighted_event_rate": 0.05541666666666667,
+          "mean_candidate_probability": 0.054149451553930514,
+          "original_brier_score": 0.05169014145338206,
+          "log_loss": 0.19715953455586302,
+          "zero_probability_events": 0,
+          "reliability_resolution_uncertainty": {
+            "reliability": 0.005857242500415489,
+            "resolution": 0.011675828006989455,
+            "uncertainty": 0.05234565972222222,
+            "binned_brier_score": 0.04652707421564826,
+            "original_brier_score": 0.05169014145338206,
+            "binned_minus_original_residual": -0.005163067237733805,
+            "bins": [
+              {
+                "bin_id": "BIN-0",
+                "count": 11,
+                "weight": 14.226666666666665,
+                "mean_probability": 0.038,
+                "event_rate": 0
+              },
+              {
+                "bin_id": "BIN-1",
+                "count": 11,
+                "weight": 14.226666666666665,
+                "mean_probability": 0.06127272727272728,
+                "event_rate": 0.09090909090909091
+              },
+              {
+                "bin_id": "BIN-2",
+                "count": 2,
+                "weight": 0.24,
+                "mean_probability": 0.1425,
+                "event_rate": 0.5
+              },
+              {
+                "bin_id": "BIN-3",
+                "count": 4,
+                "weight": 0.48,
+                "mean_probability": 0.27749999999999997,
+                "event_rate": 0.75
+              },
+              {
+                "bin_id": "BIN-4",
+                "count": 0,
+                "weight": 0,
+                "mean_probability": null,
+                "event_rate": null
+              },
+              {
+                "bin_id": "BIN-5",
+                "count": 0,
+                "weight": 0,
+                "mean_probability": null,
+                "event_rate": null
+              }
+            ]
+          },
+          "policy_costs": {
+            "candidate": 0.7445833333333333,
+            "no_action": 1.3300000000000003,
+            "always_prepare": 1.3325000000000005,
+            "climatology": 1.3300000000000003,
+            "oracle": 0.38791666666666663
+          },
+          "decision_metrics": {
+            "relative_economic_value": 0.6214064573197702,
+            "relative_economic_value_denominator": 0.9420833333333336,
+            "regret_vs_perfect_information": 0.35666666666666663,
+            "candidate_savings_vs_no_action": 0.585416666666667,
+            "candidate_savings_vs_training_climatology": 0.585416666666667,
+            "prepared_decisions": 14,
+            "reviewed_cases": 4,
+            "false_negative_cases": 0,
+            "false_prepare_cases": 9
+          }
+        },
+        "moderate_cost_preparedness": {
+          "cases": 32,
+          "issued_forecasts": 28,
+          "reviewed_abstentions": 4,
+          "raw_forecast_coverage": 0.875,
+          "weighted_forecast_coverage": 0.9116666666666667,
+          "importance_weight_sum": 32,
+          "effective_sample_size": 25.43450614667232,
+          "weighted_event_rate": 0.05541666666666667,
+          "mean_candidate_probability": 0.054149451553930514,
+          "original_brier_score": 0.05169014145338206,
+          "log_loss": 0.19715953455586302,
+          "zero_probability_events": 0,
+          "reliability_resolution_uncertainty": {
+            "reliability": 0.005857242500415489,
+            "resolution": 0.011675828006989455,
+            "uncertainty": 0.05234565972222222,
+            "binned_brier_score": 0.04652707421564826,
+            "original_brier_score": 0.05169014145338206,
+            "binned_minus_original_residual": -0.005163067237733805,
+            "bins": [
+              {
+                "bin_id": "BIN-0",
+                "count": 11,
+                "weight": 14.226666666666665,
+                "mean_probability": 0.038,
+                "event_rate": 0
+              },
+              {
+                "bin_id": "BIN-1",
+                "count": 11,
+                "weight": 14.226666666666665,
+                "mean_probability": 0.06127272727272728,
+                "event_rate": 0.09090909090909091
+              },
+              {
+                "bin_id": "BIN-2",
+                "count": 2,
+                "weight": 0.24,
+                "mean_probability": 0.1425,
+                "event_rate": 0.5
+              },
+              {
+                "bin_id": "BIN-3",
+                "count": 4,
+                "weight": 0.48,
+                "mean_probability": 0.27749999999999997,
+                "event_rate": 0.75
+              },
+              {
+                "bin_id": "BIN-4",
+                "count": 0,
+                "weight": 0,
+                "mean_probability": null,
+                "event_rate": null
+              },
+              {
+                "bin_id": "BIN-5",
+                "count": 0,
+                "weight": 0,
+                "mean_probability": null,
+                "event_rate": null
+              }
+            ]
+          },
+          "policy_costs": {
+            "candidate": 1.6589583333333326,
+            "no_action": 1.7733333333333334,
+            "always_prepare": 2.943333333333334,
+            "climatology": 1.7733333333333334,
+            "oracle": 0.581875
+          },
+          "decision_metrics": {
+            "relative_economic_value": 0.0959958034621444,
+            "relative_economic_value_denominator": 1.1914583333333333,
+            "regret_vs_perfect_information": 1.0770833333333325,
+            "candidate_savings_vs_no_action": 0.11437500000000078,
+            "candidate_savings_vs_training_climatology": 0.11437500000000078,
+            "prepared_decisions": 7,
+            "reviewed_cases": 4,
+            "false_negative_cases": 1,
+            "false_prepare_cases": 3
+          }
+        },
+        "high_cost_preparedness": {
+          "cases": 32,
+          "issued_forecasts": 28,
+          "reviewed_abstentions": 4,
+          "raw_forecast_coverage": 0.875,
+          "weighted_forecast_coverage": 0.9116666666666667,
+          "importance_weight_sum": 32,
+          "effective_sample_size": 25.43450614667232,
+          "weighted_event_rate": 0.05541666666666667,
+          "mean_candidate_probability": 0.054149451553930514,
+          "original_brier_score": 0.05169014145338206,
+          "log_loss": 0.19715953455586302,
+          "zero_probability_events": 0,
+          "reliability_resolution_uncertainty": {
+            "reliability": 0.005857242500415489,
+            "resolution": 0.011675828006989455,
+            "uncertainty": 0.05234565972222222,
+            "binned_brier_score": 0.04652707421564826,
+            "original_brier_score": 0.05169014145338206,
+            "binned_minus_original_residual": -0.005163067237733805,
+            "bins": [
+              {
+                "bin_id": "BIN-0",
+                "count": 11,
+                "weight": 14.226666666666665,
+                "mean_probability": 0.038,
+                "event_rate": 0
+              },
+              {
+                "bin_id": "BIN-1",
+                "count": 11,
+                "weight": 14.226666666666665,
+                "mean_probability": 0.06127272727272728,
+                "event_rate": 0.09090909090909091
+              },
+              {
+                "bin_id": "BIN-2",
+                "count": 2,
+                "weight": 0.24,
+                "mean_probability": 0.1425,
+                "event_rate": 0.5
+              },
+              {
+                "bin_id": "BIN-3",
+                "count": 4,
+                "weight": 0.48,
+                "mean_probability": 0.27749999999999997,
+                "event_rate": 0.75
+              },
+              {
+                "bin_id": "BIN-4",
+                "count": 0,
+                "weight": 0,
+                "mean_probability": null,
+                "event_rate": null
+              },
+              {
+                "bin_id": "BIN-5",
+                "count": 0,
+                "weight": 0,
+                "mean_probability": null,
+                "event_rate": null
+              }
+            ]
+          },
+          "policy_costs": {
+            "candidate": 2.2662500000000003,
+            "no_action": 2.2166666666666663,
+            "always_prepare": 5.443333333333333,
+            "climatology": 2.2166666666666663,
+            "oracle": 0.7204166666666665
+          },
+          "decision_metrics": {
+            "relative_economic_value": -0.033138401559454626,
+            "relative_economic_value_denominator": 1.4962499999999999,
+            "regret_vs_perfect_information": 1.5458333333333338,
+            "candidate_savings_vs_no_action": -0.04958333333333398,
+            "candidate_savings_vs_training_climatology": -0.04958333333333398,
+            "prepared_decisions": 5,
+            "reviewed_cases": 4,
+            "false_negative_cases": 2,
+            "false_prepare_cases": 2
+          }
+        }
+      }
+    },
+    "negative_case_count": 23,
+    "boundary_case_count": 2
+  },
+  "round_trip_requirements": [
+    "Preserve source_case_id and regime/case IDs exactly.",
+    "Preserve forecast probability and null abstention values exactly.",
+    "Preserve proposal and target sampling probabilities and derived importance weights.",
+    "Preserve decision-profile costs, residual impacts, deferral costs and thresholds exactly.",
+    "Preserve reviewer fallback action separately from candidate output.",
+    "Preserve event threshold, horizon, units and strict exceedance semantics.",
+    "Preserve reliability/resolution bin boundaries and all decomposition terms.",
+    "Preserve every policy cost, regret/value denominator, profile and regime dimension."
+  ],
+  "conformance_targets": {
+    "valid_fixture_acceptance": "100 percent",
+    "listed_negative_case_rejection": "100 percent",
+    "golden_metric_absolute_tolerance": 1e-12,
+    "threshold_comparison": "inclusive-greater-than-or-equal",
+    "review_fallback_authority": "evaluator-owned-human-review-reference-only",
+    "composite_scores_accepted": 0
+  },
+  "limitations": [
+    "NRES-011 reuses NRES-010's public synthetic cases and is not independent confirmation.",
+    "Decision costs are normalized fictional units, not actual money or resource allocations.",
+    "The perfect-information policy is an unattainable lower bound.",
+    "Relative economic value is profile-specific and undefined if the climatology/perfect-information denominator is non-positive.",
+    "The fixed-bin Murphy decomposition is a finite-sample diagnostic and can be biased; it is not a corrected unbiased estimator.",
+    "The public fixture does not establish causal benefit or real-world savings."
+  ]
+}
