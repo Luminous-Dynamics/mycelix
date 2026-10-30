@@ -827,6 +827,35 @@ mod tests {
             }
         }
     }
+
+    #[test]
+    fn rejects_source_fixture_blob_sha_drift() {
+        let mut value = fixture();
+        value["source_fixture"]["fixture_blob_sha"] = json!("0000000000000000000000000000000000000000");
+        assert!(evaluate_reliability_resolution_decision_value(&value).is_err());
+    }
+
+    #[test]
+    fn rejects_source_case_not_in_pinned_nres010() {
+        let mut value = fixture();
+        value["evaluation_cases"][0]["source_case_id"] = json!("NOT-A-SOURCE-CASE");
+        assert!(evaluate_reliability_resolution_decision_value(&value).is_err());
+    }
+
+    #[test]
+    fn rejects_outcome_drift_from_pinned_nres010_source() {
+        let mut value = fixture();
+        value["evaluation_cases"][0]["evaluator"]["observed_normalized_service_deficit_hours"] = json!(47.0);
+        assert!(evaluate_reliability_resolution_decision_value(&value).is_err());
+    }
+
+    #[test]
+    fn rejects_missing_regime_catalog() {
+        let mut value = fixture();
+        value.as_object_mut().unwrap().remove("regimes");
+        assert!(evaluate_reliability_resolution_decision_value(&value).is_err());
+    }
+
     #[test]
     fn rejects_probability_above_one() {
         let mut value = fixture();
