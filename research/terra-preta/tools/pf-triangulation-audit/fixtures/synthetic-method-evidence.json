@@ -7,7 +7,7 @@
   "event_id": "E001",
   "source_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
   "source_evidence_ref": "synthetic fixture only; no field observation",
-  "nsr_profile_signature": "nonsequential_response",
+  "nsr_profile_signature": "nonsequential_response_detected",
   "sensor_evidence": [
     {
       "sensor_id": "D10",
@@ -40,7 +40,9 @@
       "method": "conservative_tracer",
       "outcome": "supports_bypass",
       "evidence_ref": "synthetic tracer truth",
-      "detection_limit_or_resolution": "arrival detected at lower boundary"
+      "detection_limit_or_resolution": "arrival detected at lower boundary",
+      "event_id": "E001",
+      "profile_id": "PROFILE-01"
     }
   ],
   "method_artifacts": [
