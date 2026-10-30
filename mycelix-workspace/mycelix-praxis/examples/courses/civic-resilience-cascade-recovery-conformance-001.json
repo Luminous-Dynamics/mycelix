@@ -36,9 +36,9 @@
     },
     {
       "case_id": "NEG-06",
-      "name": "Dependency cycle",
-      "mutation": "Add a reverse edge that closes a directed cycle",
-      "expected_disposition": "reject-cyclic-dependency-graph"
+      "name": "Duplicate dependency edge",
+      "mutation": "Add a second edge with the same prerequisite_service_id, dependent_service_id and relationship",
+      "expected_disposition": "reject-duplicate-dependency-edge"
     },
     {
       "case_id": "NEG-07",
@@ -63,12 +63,18 @@
       "name": "Wrong sample count",
       "mutation": "Remove one time sample from a trajectory",
       "expected_disposition": "reject-sample-grid-mismatch"
+    },
+    {
+      "case_id": "NEG-11",
+      "name": "Unsupported dependency assertion status",
+      "mutation": "Set dependency edge assertion_status to an unrecognized value",
+      "expected_disposition": "reject-unsupported-assertion-status"
     }
   ],
   "round_trip_requirements": [
     "Preserve every service_id, floor_percent, critical flag and unit exactly.",
     "Preserve the shock_sequence_id and every stressor interval and severity label.",
-    "Preserve dependency direction and relationship semantics.",
+    "Preserve dependency direction, relationship type and assertion_status exactly.",
     "Preserve the exact sample hours and availability values without rounding or resampling.",
     "Preserve planning-point and responder-hour units and denominators.",
     "Preserve null sustained-recovery values as null; do not convert missing recovery to zero.",
@@ -81,7 +87,9 @@
     "service_floor_fidelity": "exact",
     "sample_grid_fidelity": "exact",
     "unknown_extension_retention": "lossless",
-    "composite_or_personal_score_fields": "zero accepted"
+    "composite_or_personal_score_fields": "zero accepted",
+    "dependency_edge_fidelity": "exact endpoints, relationship and assertion-status preservation",
+    "dependency_cycles": "accepted as metadata; never used to synthesize trajectories"
   },
   "limitations": [
     "This corpus is formative and is not an independently held-out validation set.",
