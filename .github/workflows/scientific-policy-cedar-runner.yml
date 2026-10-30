@@ -1,0 +1,76 @@
+name: Scientific Policy Cedar Runner
+
+on:
+  pull_request:
+    paths:
+      - "tools/scientific-policy-cedar-runner/**"
+      - "tools/scientific-policy-space/**"
+      - "docs/research/scientific-policy-dsl-bakeoff-v0.1/cedar-policy.cedar"
+      - "docs/research/scientific-policy-dsl-bakeoff-v0.1/cedar-schema.json"
+      - ".github/workflows/scientific-policy-cedar-runner.yml"
+  push:
+    branches: ["main"]
+    paths:
+      - "tools/scientific-policy-cedar-runner/**"
+      - "tools/scientific-policy-space/**"
+      - "docs/research/scientific-policy-dsl-bakeoff-v0.1/cedar-policy.cedar"
+      - "docs/research/scientific-policy-dsl-bakeoff-v0.1/cedar-schema.json"
+      - ".github/workflows/scientific-policy-cedar-runner.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: scientific-policy-cedar-runner-\${{ github.workflow }}-\${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  cedar-runner:
+    name: Cedar 4.14.0 shared-input evaluation (Rust 1.96.0)
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install pinned Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: 1.96.0
+          components: clippy, rustfmt
+
+      - name: Generate source-pinned input corpus
+        run: |
+          cargo run --manifest-path tools/scientific-policy-space/Cargo.toml --locked -- target/scientific-policy-space
+          test "$(wc -l < target/scientific-policy-space/scientific-policy-engine-inputs-v0.1.jsonl)" -eq 62464
+
+      - name: Format runner
+        run: cargo fmt --manifest-path tools/scientific-policy-cedar-runner/Cargo.toml --all -- --check
+
+      - name: Resolve exact Cedar runner dependency lock
+        run: cargo generate-lockfile --manifest-path tools/scientific-policy-cedar-runner/Cargo.toml
+
+      - name: Run Cedar 4.14.0 runner tests and Clippy
+        run: |
+          cargo test --manifest-path tools/scientific-policy-cedar-runner/Cargo.toml --locked
+          cargo clippy --manifest-path tools/scientific-policy-cedar-runner/Cargo.toml --all-targets --locked -- -D warnings
+
+      - name: Evaluate all abstract cases through Cedar
+        run: |
+          cargo run --release --manifest-path tools/scientific-policy-cedar-runner/Cargo.toml --locked -- target/scientific-policy-space/manifest.json target/cedar-results
+          test "$(wc -l < target/cedar-results/cedar-decisions-v0.1.jsonl)" -eq 62464
+          jq -e '.case_count == 62464 and .indeterminate_count == 0 and .measured_cases == 62208 and (.allow_count + .deny_count) == .case_count' target/cedar-results/cedar-run-manifest-v0.1.json
+
+      - name: Publish exact inputs, decisions, metrics, lockfile and source
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: scientific-policy-cedar-results-\${{ github.sha }}
+          path: |
+            target/scientific-policy-space/
+            target/cedar-results/
+            tools/scientific-policy-cedar-runner/Cargo.lock
+            tools/scientific-policy-cedar-runner/Cargo.toml
+            tools/scientific-policy-cedar-runner/README.md
+            tools/scientific-policy-cedar-runner/src/main.rs
+          if-no-files-found: error
+          retention-days: 14
