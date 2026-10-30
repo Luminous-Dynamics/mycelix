@@ -32,24 +32,15 @@
           "const": "http://www.w3.org/ns/prov#"
         }
       },
-      "additionalProperties": true
+      "additionalProperties": false,
+      "maxProperties": 2
     },
     "@id": {
       "type": "string",
       "pattern": "^urn:mycelix:praxis:nres:006:bundle:"
     },
     "@type": {
-      "oneOf": [
-        {
-          "const": "nres:EvidenceEnvelope"
-        },
-        {
-          "type": "array",
-          "contains": {
-            "const": "nres:EvidenceEnvelope"
-          }
-        }
-      ]
+      "const": "nres:EvidenceEnvelope"
     },
     "schema_version": {
       "const": "1.0.0"
@@ -63,7 +54,8 @@
         "evaluation_split",
         "source_benchmark",
         "generated_by",
-        "purpose"
+        "purpose",
+        "no_real_world_effect_claim"
       ],
       "properties": {
         "bundle_id": {
