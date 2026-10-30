@@ -557,6 +557,54 @@
       },
       "expected": "allow",
       "referenceRule": "attestation_author_or_editor"
+    },
+    {
+      "id": "AUTH-029",
+      "name": "distinct_reviewer_without_declared_organization_can_record_independent_replication",
+      "stage": "policy",
+      "action": "attestation_recorded",
+      "actor": {
+        "id": "actor:bob",
+        "roles": [
+          "reviewer"
+        ],
+        "organizations": []
+      },
+      "claim": {
+        "exists": true,
+        "creatorActorId": "actor:alice",
+        "creatorOrganizationId": "org:creator"
+      },
+      "attestation": {
+        "kind": "independent_replication"
+      },
+      "expected": "allow",
+      "expectedProjectionEffect": "may_qualify_by_actor_identity_if_supports",
+      "referenceRule": "independent_replication_separation",
+      "reviewQuestion": "Current Rust permits a non-creator reviewer to submit an independent replication without an acting organization; projection then uses actor identity as the source key. Confirm whether person-level independence is sufficient or an external organization should be mandatory."
+    },
+    {
+      "id": "AUTH-030",
+      "name": "claim_creator_can_submit_ordinary_review_but_receives_no_reviewer_credit",
+      "stage": "policy",
+      "action": "attestation_recorded",
+      "actor": {
+        "id": "actor:alice",
+        "roles": [
+          "contributor"
+        ]
+      },
+      "claim": {
+        "exists": true,
+        "creatorActorId": "actor:alice"
+      },
+      "attestation": {
+        "kind": "ordinary_review"
+      },
+      "expected": "allow",
+      "expectedProjectionEffect": "review_count_delta_0",
+      "referenceRule": "attestation_role",
+      "reviewQuestion": "Authorization permits an ordinary review by the claim creator, while ClaimProjection excludes creator reviews from reviewer_count. Preserve this distinction between event admission and evidence qualification."
     }
   ],
   "prePolicyAndCommitGates": [
@@ -629,6 +677,13 @@
       "guard": "idempotency",
       "when": "same signed event exists but no committed authority receipt can be found",
       "expected": "reject"
+    },
+    {
+      "id": "GATE-011",
+      "name": "event_occurrence_time_exceeds_receipt_time_future_skew",
+      "guard": "event_time_validation",
+      "when": "event occurred_at is later than service-observed received_at plus MAX_EVENT_FUTURE_SKEW_SECONDS",
+      "expected": "reject_before_commit"
     }
   ],
   "notes": [
