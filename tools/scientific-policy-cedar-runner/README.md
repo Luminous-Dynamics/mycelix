@@ -13,7 +13,7 @@ The generator manifest and paired engine input corpus must be produced by `tools
 
 - Parse Cedar policy and schema once.
 - Verify generator manifest, baseline source pin, corpus digest, row count, unique case IDs and cross-engine case identity.
-- Construct Cedar entities, context and Request with schema validation enabled.
+- Construct actor and claim entities plus the context and Request with schema validation enabled. The pinned schema supplies Cedar action entities; the generator does not duplicate them.
 - Warm the authorizer with the first 256 requests, then re-evaluate all 62,464 input rows. Warmup latencies are excluded from p50/p95/p99.
 - Emit deterministic JSONL decisions and a run manifest containing exact policy/schema/input/output digests, allow/deny counts, p50/p95/p99, throughput, platform and peak RSS (Linux VmHWM when available).
 - Any input, parse, schema, entity, context, request or evaluation error fails the run as indeterminate. It is never converted into a deny or an allow.
