@@ -53,6 +53,12 @@ The Rust implementation is available at [tools/profile-flow-audit](./tools/profi
 
 The tool intentionally reports an NSR **signature**, not a physical-flow certificate. One observed deeper-before-shallower pair is retained even when other profile sensors are indeterminate, but the report marks coverage incomplete. Sequential response does not rule out PF. CI runs the synthetic event fixture and checks the expected pairwise signature.
 
+### Trajectory-based response signatures
+
+The Rust [trajectory-signature audit](./tools/trajectory-signature-audit/README.md) computes maximum positive rate of water-content rise, response amplitude, peak water content and cumulative positive increments across the full event window. It keeps observed/interpolated/missing samples separate, records window censoring and does not smooth by default. An optional diffuse-flow rise-rate threshold is reported as a proxy only when its method and evidence are supplied.
+
+The audit complements NSR and VT: it can capture multiple rising limbs without choosing one onset limb, but maximum slope is noise- and cadence-sensitive. Smoothing and downsampling are separate sensitivity experiments, not hidden preprocessing. Implementation tracker: [PF-TRAJ-001](https://github.com/Luminous-Dynamics/mycelix/issues/5542).
+
 ### Threshold-proxy sensitivity
 
 The Rust [PF threshold audit](./tools/pf-threshold-audit/README.md) runs velocity labels against multiple declared reference thresholds, with Rosetta Ksat estimates and the matrix-model 99th-percentile velocity reference kept separate. It reports stable-positive, stable-negative, threshold-sensitive and not-evaluated states. Stored log-scale values are not transformed until the exact log base and units are resolved from the source workflow.
