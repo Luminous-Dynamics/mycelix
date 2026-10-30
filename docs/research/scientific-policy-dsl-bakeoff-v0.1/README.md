@@ -74,10 +74,7 @@ the authorization policy, while the evidence projection gives that review no
 reviewer credit. Both cases carry explicit projection-effect expectations for
 the resulting evidence profile.
 
-The projection fixtures are now consumed by a Rust test in
-`scientific_events.rs` that rebuilds signed event streams and compares the
-resulting evidence-profile counters with the fixture expectations. The test
-source is committed but has not yet completed compilation or execution.
+The projection fixtures are consumed by a Rust test in `scientific_events.rs` that rebuilds signed event streams and compares the resulting evidence-profile counters with fixture expectations. The test source is committed, but its execution is currently blocked before compilation by the separately tracked missing `scientific_credentials` module (`E0583`; see [issue #5189](https://github.com/Luminous-Dynamics/mycelix/issues/5189)). No projection pass is claimed.
 
 This creates two separate equivalence targets: **authorization equivalence**
 (what events may be appended) and **epistemic qualification equivalence**
@@ -132,9 +129,9 @@ The same pure-policy contract now has three reference artifacts:
 - `cedar-schema.json`, `cedar-policy.cedar`, and `cedar-tests.json`: a Cedar 4.14.0 candidate plus **30 native Cedar CLI test requests** generated from the frozen Rust corpus. Genesis actors can lack creator metadata; the schema declares that attribute optional and the policy guards every access with `has`.
 - `opa-policy.rego` and `opa-policy_test.rego`: an OPA/Rego v1 candidate with a default-deny decision object, **30 generated corpus tests**, and eight additional focused positive/negative controls.
 
-A dedicated workflow, `.github/workflows/scientific-policy-dsl-conformance.yml`, now runs the Rust authorization and projection tests, validates the Cedar policy against its JSON schema, executes all 30 Cedar `run-tests` cases, checks the Rego modules in strict mode, and runs all 30 Rego corpus cases plus eight additional controls with OPA 1.22.0. The OPA engine is built from the `v1.22.0` Go module using Go's checksum database, rather than downloading an unverified release binary. The OPA policy and test files use Rego v1 syntax. The workflow now builds OPA from the pinned `v1.22.0` Go module with Go 1.27.2 and the Go checksum database. Current engine parity is still pending rerun after fixing the Rego comment syntax.
+A dedicated workflow, `.github/workflows/scientific-policy-dsl-conformance.yml`, runs the Rust authorization and projection tests, validates the Cedar policy against its JSON schema, executes all 30 Cedar `run-tests` cases, checks the Rego modules in strict mode, and runs all 30 Rego corpus cases plus eight additional controls with OPA 1.22.0. The OPA engine is built from the pinned `v1.22.0` Go module with Go 1.27.2 and the Go checksum database. In workflow run 41 (ID `41045383493`), Cedar schema validation and its 30-case suite passed, Rego strict checks and all 38 tests passed, and frozen corpus/adapter integrity checks passed. The Rust oracle job failed before compiling the adapter because the repository still lacks the declared `scientific_credentials` module; the compiler reports `E0583` plus downstream unresolved credential-registry calls. This is the pre-existing core build blocker tracked in [#5189](https://github.com/Luminous-Dynamics/mycelix/issues/5189), with a protocol-resolution contract in [PR #4968](https://github.com/Luminous-Dynamics/mycelix/pull/4968).
 
-The Cedar and Rego implementations are initial translations. Both now have test inputs for all 30 frozen policy cases: Cedar uses the project's native JSON test format and `cedar run-tests`; Rego contains one generated test per case plus eight focused controls. This allows the dedicated workflow to test decision equivalence without a custom wrapper. The tests and adapter files are committed but have not yet completed hosted execution; exact 30/30 parity remains unproven until the workflow succeeds.
+The Cedar and Rego implementations are initial translations. The current workflow has executed Cedar's 30 native cases successfully and all 38 Rego tests successfully. Rust's 30-case oracle adapter has not executed because the crate fails module resolution before reaching the test. Therefore **Cedar and Rego are each green against the frozen expected corpus, but three-way Rust/Cedar/Rego parity is not yet proven**. Projection equivalence is also unproven until the Rust core builds and the ten projection cases execute.
 
 ## What to compare
 
@@ -281,7 +278,7 @@ something we should claim to have surpassed before testing.
 
 ## Explicitly not claimed
 
-- The Rust authorization and projection adapters, Cedar native test corpus, and Rego test corpus are committed but have not yet completed a hosted compile/test run. Exact 30/30 cross-engine parity and 10/10 projection parity remain unproven until the workflow succeeds.
+- Cedar's native 30-case suite and OPA/Rego's 38 tests passed in workflow run 41; the Rust oracle and projection tests remain blocked by the known `scientific_credentials` module-resolution failure (`E0583`, issue #5189). Exact three-way parity and 10/10 projection parity are therefore unproven.
 - The 30 expected decisions are an extraction from one Rust source revision,
   not an independent proof that the policy itself is normatively correct.
 - No latency numbers are collected here.
