@@ -49,7 +49,7 @@ Calculate the declared sensor/event response velocity and compare with an explic
 
 ### Executable profile-level NSR diagnostic
 
-The Rust implementation is available at [tools/profile-nsr-audit](./tools/profile-nsr-audit/README.md). It compares all responding sensor pairs at distinct depths, preserves each pair's shallower/deeper onset times and ordering, reports simultaneous ties separately, distinguishes no-response from indeterminate measurements, and records profile coverage. Its input pins the response threshold and onset method so studies with different upstream onset definitions are not silently pooled.
+The Rust implementation is available at [tools/profile-flow-audit](./tools/profile-flow-audit/README.md). It compares all responding sensor pairs at distinct depths, preserves each pair's shallower/deeper onset times and ordering, reports simultaneous ties separately, distinguishes no-response from indeterminate measurements, and records profile coverage. Its input pins the response threshold and onset method so studies with different upstream onset definitions are not silently pooled.
 
 The tool intentionally reports an NSR **signature**, not a physical-flow certificate. One observed deeper-before-shallower pair is retained even when other profile sensors are indeterminate, but the report marks coverage incomplete. Sequential response does not rule out PF. CI runs the synthetic event fixture and checks the expected pairwise signature.
 
