@@ -25,3 +25,5 @@ This tool records method artifact SHA-256 strings as supplied; it does not open 
 Sensor-level proxy outcomes are counted as positive agreement, negative agreement, disagreement, one method only, neither method evaluable, or indeterminate. No consensus classification is produced. The report never calls a proxy-majority result a confirmed preferential pathway.
 
 The synthetic fixture includes intentional VT/trajectory disagreement and one independent tracer-positive reference. These are software-test values only, not measured soil observations.
+
+Implementation tracker: [PF-EVIDENCE-001](https://github.com/Luminous-Dynamics/mycelix/issues/5543). Independent references are required to match the input event/profile IDs; a record from a different event or profile fails closed.
