@@ -48,7 +48,7 @@ Recommended external exports: harvest and other biomass removed from the declare
 
 The control volume must be stated so that no internal transfer is counted as a boundary flux. For example, if standing crop biomass and retained residues are inside the system boundary, root uptake and residue return are internal transfers; crop harvest removed from the boundary is an export. If the experiment uses a soil-only boundary, plant uptake is an export from that soil-only compartment and must not also be counted as a whole-system harvest export.
 
-Storage pools must be mutually exclusive. An extractable-P result is an availability indicator and must not be added to a total-P stock pool. If pools overlap, the stock change is not auditable and the record must be rejected.
+Storage pools must be mutually exclusive. An extractable-P result is an availability indicator and must not be added to a total-P stock pool. The input carries an explicit stock-partition review reference and declarations that pools are mutually exclusive and that boundary stocks are covered. It also carries a boundary-flux review reference and a list of known unmeasured pathways. Overlapping stock pools are rejected; incomplete stock or flux coverage produces an unqualified result even when the numeric residual is zero. These review fields are declarations, not independent proof of physical completeness.
 
 The experimental unit is the independently assigned plot/pot/mesocosm. Soil subsamples, plant subsamples, leachate aliquots and repeated instrument readings are nested measurements, not additional independent treatment replicates. Preserve their hierarchy outside the aggregate budget.
 
