@@ -89,7 +89,8 @@
         "baseline_rule",
         "calibration_diagnostic",
         "abstention_rule",
-        "optional_abstention_rule"
+        "optional_abstention_rule",
+        "selective_confidence_thresholds"
       ],
       "properties": {
         "forecast_target": {
@@ -148,6 +149,16 @@
         "optional_abstention_rule": {
           "type": "string",
           "minLength": 1
+        },
+        "selective_confidence_thresholds": {
+          "type": "array",
+          "minItems": 4,
+          "maxItems": 4,
+          "items": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1
+          }
         }
       },
       "additionalProperties": true
