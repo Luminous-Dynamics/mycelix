@@ -70,7 +70,20 @@ The public envelope must:
 
 Real operational evidence requires explicit governance and a lawful data-sharing basis before export. This is not a consent or legal-compliance determination.
 
-## 6. Interoperability conformance suite
+## 6. Rust reference implementation
+
+The standalone Rust evaluator exposes `export_evidence_envelope` and `validate_evidence_envelope`. The CLI's `--envelope` mode emits the public NRES-006 profile, and the test module checks JSON-LD context, PROV graph closure, privacy-key rejection, unknown-extension retention, unsigned status, and invalid corrective-action closure.
+
+Run from the `mycelix-praxis` directory:
+
+```bash
+cargo test --manifest-path benchmarks/nres-capability-loop/Cargo.toml
+cargo run --manifest-path benchmarks/nres-capability-loop/Cargo.toml -- --envelope
+```
+
+The Rust code and tests are authored but have not been compiled or executed in this environment.
+
+## 7. Interoperability conformance suite
 
 The public corpus in `examples/courses/civic-resilience-evidence-conformance-001.json` covers:
 - valid import/export and graph-reference closure;
@@ -95,7 +108,7 @@ Report the following measures for every adapter pair:
 
 Do not compare adapter speed unless they perform the same transformation, use the same payload, hardware and validation rules. Do not claim standards compatibility from JSON parsing alone.
 
-## 7. Proposed acceptance targets
+## 8. Proposed acceptance targets
 
 These are engineering targets for the prototype, not externally recognized industry thresholds:
 - 100% of in-profile valid fixtures parse and preserve declared fields.
@@ -109,11 +122,11 @@ These are engineering targets for the prototype, not externally recognized indus
 
 A later confirmatory interoperability test should include at least two independently implemented adapters and a third-party validator. A self-round-trip in one implementation is necessary but insufficient evidence of interoperability.
 
-## 8. Execution boundary
+## 9. Execution boundary
 
 NRES-006 remains a public synthetic development profile. It is not enabled for operational incident data, live alerting, personnel records, deployment decisions or official credentials. The course and fixtures remain inactive in the Praxis curriculum. A responsible institution must approve any real-world exchange and the relevant data governance.
 
-## 9. Sources
+## 10. Sources
 
 - W3C, [PROV-O: The PROV Ontology](https://www.w3.org/TR/prov-o/) and [PROV-DM: The PROV Data Model](https://www.w3.org/TR/2013/REC-prov-dm-20130430/).
 - W3C, [JSON-LD 1.1](https://www.w3.org/TR/json-ld/).
