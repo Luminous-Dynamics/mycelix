@@ -76,7 +76,7 @@ jobs:
           curl --fail --location --silent --show-error \
             https://github.com/open-policy-agent/opa/releases/download/v1.22.0/opa_linux_amd64_static \
             --output "$RUNNER_TEMP/opa"
-          echo "791790254c598a942eb140959bcec9a47f844535a632fd01d11d870ba2a47047  $RUNNER_TEMP/opa" \
+          echo "2ab571f367f293bb19523b76f92f1945bbf245003392c7f392903f95c2b9b630  $RUNNER_TEMP/opa" \
             | sha256sum --check
           chmod +x "$RUNNER_TEMP/opa"
           echo "$RUNNER_TEMP" >> "$GITHUB_PATH"
