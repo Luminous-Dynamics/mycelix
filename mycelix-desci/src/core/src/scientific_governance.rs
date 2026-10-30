@@ -1142,7 +1142,9 @@ mod tests {
         fn entity<'a>(entities: &'a [Value], entity_type: &str) -> &'a Value {
             entities
                 .iter()
-                .find(|entry| entry.pointer("/uid/type").and_then(Value::as_str) == Some(entity_type))
+                .find(|entry| {
+                    entry.pointer("/uid/type").and_then(Value::as_str) == Some(entity_type)
+                })
                 .unwrap_or_else(|| panic!("missing Cedar entity type {entity_type}"))
         }
 
@@ -1207,8 +1209,9 @@ mod tests {
             let action = case["action"].as_str().expect("action");
             let actor_case = &case["actor"];
             let claim_case = &case["claim"];
-            let attestation = case.get("attestation").unwrap_or(&Value::Null);
-            let target_attestation = case.get("targetAttestation").unwrap_or(&Value::Null);
+            let null_value = Value::Null;
+            let attestation = case.get("attestation").unwrap_or(&null_value);
+            let target_attestation = case.get("targetAttestation").unwrap_or(&null_value);
             let actor_id = actor_case["id"].as_str().expect("actor id");
             let empty_organizations = json!([]);
             let actor_organizations = actor_case
@@ -1262,7 +1265,11 @@ mod tests {
             let cedar_entities = cedar_case["entities"].as_array().expect("Cedar entities");
             let cedar_actor = entity(cedar_entities, "Mycelix::Actor");
             assert_eq!(cedar_actor["uid"]["id"], actor_id, "{id}: Cedar actor UID");
-            assert_eq!(cedar_actor["attrs"]["roles"], actor_case["roles"], "{id}: Cedar roles");
+            assert_eq!(
+                cedar_actor["attrs"]["roles"],
+                actor_case["roles"],
+                "{id}: Cedar roles"
+            );
             assert_eq!(
                 cedar_actor["attrs"]["organizations"],
                 actor_organizations,
@@ -1270,7 +1277,11 @@ mod tests {
             );
             let cedar_claim = entity(cedar_entities, "Mycelix::Claim");
             assert_eq!(cedar_claim["uid"]["id"], resource_id, "{id}: Cedar claim UID");
-            assert_eq!(cedar_claim["attrs"]["exists"], claim_case["exists"], "{id}: Cedar claim state");
+            assert_eq!(
+                cedar_claim["attrs"]["exists"],
+                claim_case["exists"],
+                "{id}: Cedar claim state"
+            );
             for field in ["creatorActorId", "creatorOrganizationId"] {
                 if let Some(value) = claim_case.get(field) {
                     assert_eq!(cedar_claim["attrs"][field], *value, "{id}: Cedar claim {field}");
