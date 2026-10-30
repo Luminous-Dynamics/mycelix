@@ -148,6 +148,8 @@
     "fixtures_are_synthetic": true,
     "capstone_workbook": "examples/courses/civic-resilience-capstone-workbook-001.json",
     "scoring_specification": "docs/curriculum/PRAXIS_NRES_003_SCORING_ANCHORS.md",
-    "study_protocol": "docs/curriculum/PRAXIS_NRES_004_PREREGISTRATION.md"
+    "study_protocol": "docs/curriculum/PRAXIS_NRES_004_PREREGISTRATION.md",
+    "capability_loop_benchmark": "examples/courses/civic-resilience-capability-loop-fixture-001.json",
+    "capability_loop_spec": "docs/curriculum/PRAXIS_NRES_005_CAPABILITY_LOOP.md"
   }
 }
