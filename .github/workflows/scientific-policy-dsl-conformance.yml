@@ -63,6 +63,14 @@ jobs:
             --schema-format json \
             --policies docs/research/scientific-policy-dsl-bakeoff-v0.1/cedar-policy.cedar
 
+      - name: Run all 30 Cedar authorization corpus cases
+        run: |
+          cedar run-tests \
+            --policies docs/research/scientific-policy-dsl-bakeoff-v0.1/cedar-policy.cedar \
+            --schema docs/research/scientific-policy-dsl-bakeoff-v0.1/cedar-schema.json \
+            --schema-format json \
+            --tests docs/research/scientific-policy-dsl-bakeoff-v0.1/cedar-tests.json
+
       - name: Install OPA 1.22.0 with release checksum verification
         run: |
           curl --fail --location --silent --show-error \
