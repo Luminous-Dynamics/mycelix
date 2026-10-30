@@ -27,7 +27,8 @@
     "Describe basic cyber-hygiene practices and report a simulated incident while preserving provenance, privacy, and uncertainty.",
     "Map dependencies in a fictional essential service and propose a recovery plan that respects resource limits and minimum service needs.",
     "Compare voluntary military service, reserves, professional specialist careers, civil protection, civilian service, and universal-service proposals using a balanced and documented framework.",
-    "Draft a nonpartisan doctrine-and-learning charter that defines mission, authority, safeguards, readiness measures, independent review, and correction of mistakes."
+    "Draft a nonpartisan doctrine-and-learning charter that defines mission, authority, safeguards, readiness measures, independent review, and correction of mistakes.",
+    "Explain how an exercise finding becomes a corrective action and why verified closure requires completion evidence, independent review, and a successful retest."
   ],
   "syllabus": [
     {
@@ -125,7 +126,8 @@
         "Compare service-policy alternatives using a transparent rubric",
         "Present a nonpartisan learning plan and identify open questions",
         "Use benchmark fixture PRAXIS-NRES-002-FIXTURE-001 to compare service models under explicit synthetic constraints; report uncertainty and hard-fail conditions",
-        "Structured capstone workbook with evidence ledger, resource-feasibility checks, and conditional policy recommendation"
+        "Structured capstone workbook with evidence ledger, resource-feasibility checks, and conditional policy recommendation",
+        "Connect after-action findings to evidence, accountable role ownership, corrective actions, independent verification and a repeat exercise using the public synthetic capability-loop fixture"
       ],
       "estimated_hours": 4
     }
