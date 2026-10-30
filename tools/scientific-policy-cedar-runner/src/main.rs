@@ -1,6 +1,7 @@
 use cedar_policy::{Authorizer, Context, Decision, Entities, EntityUid, PolicySet, Request, Schema, ValidationMode, Validator};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
+use sha1::Sha1;
 use sha2::{Digest, Sha256};
 use std::collections::BTreeSet;
 use std::env;
@@ -130,6 +131,21 @@ fn sha256(bytes: &[u8]) -> String {
     hex::encode(Sha256::digest(bytes))
 }
 
+fn git_blob_oid(bytes: &[u8]) -> String {
+    let mut hasher = Sha1::new();
+    hasher.update(format!("blob {}\\0", bytes.len()).as_bytes());
+    hasher.update(bytes);
+    hex::encode(hasher.finalize())
+}
+
+fn verify_exact_file(path: &Path, expected_sha256: &str) -> Result<(), String> {
+    let bytes = fs::read(path).map_err(|error| format!("read {}: {error}", path.display()))?;
+    if sha256(&bytes) != expected_sha256 {
+        return Err(format!("SHA-256 mismatch for {}", path.display()));
+    }
+    Ok(())
+}
+
 fn percentile(values: &[u128], percentile: usize) -> u128 {
     if values.is_empty() {
         return 0;
@@ -183,10 +199,16 @@ fn validate_manifest(manifest: &InputManifest) -> Result<(), String> {
     {
         return Err("input manifest does not match the pinned v0.1 corpus contract".to_owned());
     }
-    if manifest.engine_inputs_sha256.len() != 64
-        || !manifest.engine_inputs_sha256.bytes().all(|byte| byte.is_ascii_hexdigit())
-    {
-        return Err("engine input manifest digest is malformed".to_owned());
+    for (label, digest) in [
+        ("abstract corpus", manifest.corpus_sha256.as_str()),
+        ("engine input corpus", manifest.engine_inputs_sha256.as_str()),
+    ] {
+        if digest.len() != 64 || !digest.bytes().all(|byte| byte.is_ascii_hexdigit()) {
+            return Err(format!("{label} manifest digest is malformed"));
+        }
+    }
+    if manifest.claim_ceiling.is_empty() {
+        return Err("abstract corpus claim ceiling is missing".to_owned());
     }
     Ok(())
 }
@@ -262,6 +284,58 @@ fn evaluate_case(
     Ok((decision, construction_ns, authorization_ns))
 }
 
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn git_blob_oid_matches_the_empty_blob_known_answer() {
+        assert_eq!(
+            git_blob_oid(b""),
+            "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391"
+        );
+    }
+
+    #[test]
+    fn timing_percentiles_use_nearest_rank() {
+        let values = [10_u128, 20, 30, 40, 50];
+        assert_eq!(percentile(&values, 50), 30);
+        assert_eq!(percentile(&values, 95), 50);
+        assert_eq!(percentile(&values, 99), 50);
+    }
+
+    #[test]
+    fn input_manifest_rejects_fabricated_expected_decision_status() {
+        let manifest = InputManifest {
+            generator_id: "mycelix-scientific-policy-space".to_owned(),
+            generator_version: "0.1.0".to_owned(),
+            baseline_revision: EXPECTED_BASELINE_REVISION.to_owned(),
+            baseline_source_path: "mycelix-desci/src/core/src/scientific_governance.rs".to_owned(),
+            baseline_source_blob_sha: EXPECTED_BASELINE_SOURCE_BLOB_SHA.to_owned(),
+            policy_id: "mycelix-default-scientific-authorization".to_owned(),
+            policy_version: "1.0.0".to_owned(),
+            case_count: EXPECTED_CASE_COUNT,
+            empty_stream_cases: 1_024,
+            existing_stream_cases: 61_440,
+            distinct_role_subsets: 128,
+            action_count: 8,
+            expected_decision_status: "pending_authentic_rust_oracle".to_owned(),
+            claim_ceiling: "bounded abstract input corpus".to_owned(),
+            corpus_file: "scientific-policy-decision-space-v0.1.jsonl".to_owned(),
+            corpus_sha256: "a".repeat(64),
+            engine_inputs_file: "scientific-policy-engine-inputs-v0.1.jsonl".to_owned(),
+            engine_inputs_sha256: "b".repeat(64),
+            engine_input_count: EXPECTED_CASE_COUNT,
+            engine_input_format: "case_id+cedar_native_request+rego_input".to_owned(),
+            encoding: "utf-8-jsonl-one-record-per-line".to_owned(),
+        };
+        assert!(validate_manifest(&manifest).is_ok());
+        let mut changed = manifest;
+        changed.expected_decision_status = "expected_allow_deny_attached".to_owned();
+        assert!(validate_manifest(&changed).is_err());
+    }
+}
+
 fn run() -> Result<(), String> {
     let mut args = env::args_os();
     let program = args.next().unwrap_or_default();
@@ -285,11 +359,23 @@ fn run() -> Result<(), String> {
         .map_err(|error| format!("parse generator manifest: {error}"))?;
     validate_manifest(&input_manifest)?;
 
-    let corpus_path = manifest_path
-        .parent()
-        .unwrap_or_else(|| Path::new("."))
-        .join(&input_manifest.engine_input_file);
-    let cases = load_cases(&corpus_path, &input_manifest.engine_inputs_sha256)?;
+    let corpus_directory = manifest_path.parent().unwrap_or_else(|| Path::new("."));
+    let abstract_corpus_path = corpus_directory.join(&input_manifest.corpus_file);
+    verify_exact_file(&abstract_corpus_path, &input_manifest.corpus_sha256)?;
+    let engine_inputs_path = corpus_directory.join(&input_manifest.engine_inputs_file);
+    let cases = load_cases(&engine_inputs_path, &input_manifest.engine_inputs_sha256)?;
+
+    let baseline_source_path = Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("../../")
+        .join(&input_manifest.baseline_source_path);
+    let baseline_source_bytes = fs::read(&baseline_source_path)
+        .map_err(|error| format!("read pinned Rust authorization source: {error}"))?;
+    let actual_blob_oid = git_blob_oid(&baseline_source_bytes);
+    if actual_blob_oid != EXPECTED_BASELINE_SOURCE_BLOB_SHA {
+        return Err(format!(
+            "checked-out authorization source Git blob mismatch: expected {EXPECTED_BASELINE_SOURCE_BLOB_SHA}, got {actual_blob_oid}"
+        ));
+    }
 
     let policy_path = Path::new(env!("CARGO_MANIFEST_DIR"))
         .join("../../docs/research/scientific-policy-dsl-bakeoff-v0.1/cedar-policy.cedar");
