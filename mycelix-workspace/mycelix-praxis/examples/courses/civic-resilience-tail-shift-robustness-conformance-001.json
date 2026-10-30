@@ -123,12 +123,6 @@
       "name": "Proposal and target masses do not sum to one",
       "mutation": "Alter one stratum probability without updating the other design stratum",
       "expected_disposition": "reject-sampling-design-normalization"
-    },
-    {
-      "case_id": "NEG-21",
-      "name": "Forecast probability endpoint gives infinite loss",
-      "mutation": "Set forecast probability to zero for an observed exceedance",
-      "expected_disposition": "accept-but-report-zero-probability-exceedance"
     }
   ],
   "expected_metrics": {
@@ -630,7 +624,8 @@
         "regime_id": "evidence_degradation",
         "brier_delta_vs_in_distribution": 0.0007053247867154361
       }
-    ]
+    ],
+    "negative_case_count": 20
   },
   "round_trip_requirements": [
     "Preserve regime IDs, case IDs, forecast origin and horizon.",
@@ -659,5 +654,13 @@
     "Weighted empirical tail PIT diagnostics are descriptive; formal inference requires design-aware uncertainty estimation and adequate independent tail observations.",
     "Distribution shift can make probabilistic prediction non-identifiable without assumptions or structural knowledge.",
     "No SOTA, real-world resilience or operational-validity claim is made."
+  ],
+  "boundary_cases": [
+    {
+      "case_id": "NEG-21",
+      "name": "Forecast probability endpoint gives infinite loss",
+      "mutation": "Set forecast probability to zero for an observed exceedance",
+      "expected_disposition": "accept-but-report-zero-probability-exceedance"
+    }
   ]
 }
