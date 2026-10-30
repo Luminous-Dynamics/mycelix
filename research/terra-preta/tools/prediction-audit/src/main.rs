@@ -85,7 +85,7 @@ fn parse_records(bytes: &[u8]) -> Result<Vec<PredictionRecord>, Box<dyn Error>> 
     let mut reader = ReaderBuilder::new()
         .has_headers(true)
         .flexible(false)
-        .trim(csv::Trim::All)
+        .trim(csv::Trim::None)
         .from_reader(bytes);
     let headers = reader.headers()?.clone();
     for required in [
@@ -447,7 +447,7 @@ study-c,32,31,26,27,35
 
     #[test]
     fn interval_score_penalizes_missed_intervals() {
-        let csv = "group_id,actual,candidate_prediction,baseline_prediction,interval_lower,interval_upper\\nstudy-a,1,1,1,2,3\\nstudy-b,10,10,10,9,11\\n";
+        let csv = "group_id,actual,candidate_prediction,baseline_prediction,interval_lower,interval_upper\nstudy-a,1,1,1,2,3\nstudy-b,10,10,10,9,11\n";
         let records = parse_records(csv.as_bytes()).unwrap();
         let scored = metrics(&records, &[0], true);
         // Width 1 + (2 / 0.1) * miss distance 1 = 21.
