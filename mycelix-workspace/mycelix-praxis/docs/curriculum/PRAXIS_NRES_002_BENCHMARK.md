@@ -5,7 +5,8 @@
 **Fixture:** `examples/courses/civic-resilience-policy-benchmark-fixture-001.json`.  
 **Learner task:** `examples/courses/civic-resilience-capstone-workbook-001.json`.  
 **Scoring anchors:** `PRAXIS_NRES_003_SCORING_ANCHORS.md`.  
-**Study protocol:** `PRAXIS_NRES_004_PREREGISTRATION.md`.
+**Study protocol:** `PRAXIS_NRES_004_PREREGISTRATION.md`.  
+**Exercise-to-improvement loop:** `PRAXIS_NRES_005_CAPABILITY_LOOP.md` and `examples/courses/civic-resilience-capability-loop-fixture-001.json`.
 
 ## 1. Research question
 
@@ -147,7 +148,8 @@ Any known critical rights/authority/data misuse finding blocks a positive overal
 4. Integrate an appropriate curriculum node and generated lesson only after its stable identity and ownership are confirmed.
 4. Run the existing read-only curriculum validator on an exact checkout; verify that the generated manifest matches source assets.
 5. Pilot assessment reliability and usability using synthetic scenarios.
-6. Preregister the confirmatory comparison and held-out variants.
+6. Pilot the exercise-to-improvement loop using the public synthetic paired-cycle fixture; do not treat it as evidence of real-world capability.
+7. Preregister the confirmatory comparison and held-out variants.
 7. Publish exact source/curriculum/fixture digests, methods, aggregate results, limitations, and all null/negative findings.
 
 No current result establishes that the course is active, validated, or better than existing practice. The fixture supplies the start of an evaluable contract, not evidence of success.
