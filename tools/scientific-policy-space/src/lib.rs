@@ -6,14 +6,15 @@
 //! Every row remains pending evaluation by the authentic compiled Rust oracle.
 
 use serde::Serialize;
+use sha1::Sha1;
 use sha2::{Digest, Sha256};
 use std::collections::BTreeSet;
 
 pub const GENERATOR_ID: &str = "mycelix-scientific-policy-space";
 pub const GENERATOR_VERSION: &str = "0.1.0";
-pub const BASELINE_REVISION: &str = "061e34f24d406f19f6de0e61867305b6989f455f";
+pub const BASELINE_REVISION: &str = "f89b4bcdcfb901961e2ca11a577775acbf53a74d";
 pub const BASELINE_SOURCE_PATH: &str = "mycelix-desci/src/core/src/scientific_governance.rs";
-pub const BASELINE_SOURCE_BLOB_SHA: &str = "488c69fd4b5540371f2714e9d5668aecc12e294d";
+pub const BASELINE_SOURCE_BLOB_SHA: &str = "dd9ea9267cdae2e2c67244e8a90821defaacefb3";
 pub const POLICY_ID: &str = "mycelix-default-scientific-authorization";
 pub const POLICY_VERSION: &str = "1.0.0";
 
@@ -247,6 +248,13 @@ fn sha256(bytes: &[u8]) -> String {
     hex::encode(Sha256::digest(bytes))
 }
 
+fn git_blob_oid(bytes: &[u8]) -> String {
+    let mut hasher = Sha1::new();
+    hasher.update(format!("blob {}\\0", bytes.len()).as_bytes());
+    hasher.update(bytes);
+    hex::encode(hasher.finalize())
+}
+
 fn role_subset(mask: u8) -> Vec<Role> {
     Role::ALL
         .into_iter()
@@ -467,6 +475,13 @@ pub fn build_manifest(cases: &[DecisionCase]) -> CorpusManifest {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn source_snapshot_matches_the_pinned_git_blob_oid() {
+        const SOURCE: &[u8] =
+            include_bytes!("../../../mycelix-desci/src/core/src/scientific_governance.rs");
+        assert_eq!(git_blob_oid(SOURCE), BASELINE_SOURCE_BLOB_SHA);
+    }
 
     #[test]
     fn emits_exact_expected_domain_denominators() {
