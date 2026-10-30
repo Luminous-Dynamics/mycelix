@@ -732,8 +732,7 @@ test_auth_auth_030 if {
 
 # Additional focused regression controls.
 test_contributor_can_propose_genesis_claim if {
-    decision.effect == "allow"
-    decision.rule == "CLAIM_PROPOSED_ROLE"
+    decision == {"effect": "allow", "rule": "CLAIM_PROPOSED_ROLE"}
     with input as {
         "action": "claim_proposed",
         "actor": {"id": "actor:alice", "roles": ["contributor"], "organizations": []},
