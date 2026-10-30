@@ -471,6 +471,9 @@ mod tests {
                 "bottom_depth_cm": 30,
                 "boundary_description": "synthetic soil + standing crop"
             },
+            "stock_pool_partition_review_ref": "synthetic-stock-partition-review",
+            "boundary_flux_review_ref": "synthetic-boundary-flux-review",
+            "boundary_coverage_status": "declared_complete",
             "input_total_kg_element_per_ha": 50,
             "output_total_kg_element_per_ha": 28,
             "storage_start_total_kg_element_per_ha": 100,
@@ -527,6 +530,14 @@ mod tests {
         let validator = jsonschema::validator_for(&nutrient_budget_report_schema()).unwrap();
         let mut report = valid_nutrient_budget_report();
         report["input_total_kg_element_per_ha"] = json!(-1.0);
+        assert!(!validator.is_valid(&report));
+    }
+
+    #[test]
+    fn rejects_nutrient_budget_report_missing_boundary_review_reference() {
+        let validator = jsonschema::validator_for(&nutrient_budget_report_schema()).unwrap();
+        let mut report = valid_nutrient_budget_report();
+        report.as_object_mut().unwrap().remove("boundary_flux_review_ref");
         assert!(!validator.is_valid(&report));
     }
 
