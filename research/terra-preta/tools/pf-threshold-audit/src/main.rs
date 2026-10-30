@@ -35,6 +35,8 @@ enum ThresholdKind {
     RosettaKsatHigh,
     RosettaKsatStdMedian,
     RosettaKsatStdUpper,
+    MatrixVelocityMedian,
+    MatrixVelocity95th,
     MatrixVelocity99th,
     OtherDeclared,
 }
@@ -47,9 +49,18 @@ impl ThresholdKind {
             Self::RosettaKsatHigh => "rosetta_ksat_high",
             Self::RosettaKsatStdMedian => "rosetta_ksat_std_median",
             Self::RosettaKsatStdUpper => "rosetta_ksat_std_upper",
+            Self::MatrixVelocityMedian => "matrix_velocity_median",
+            Self::MatrixVelocity95th => "matrix_velocity_95th",
             Self::MatrixVelocity99th => "matrix_velocity_99th",
             Self::OtherDeclared => "other_declared",
         }
+    }
+
+    fn is_matrix_model_velocity(self) -> bool {
+        matches!(
+            self,
+            Self::MatrixVelocityMedian | Self::MatrixVelocity95th | Self::MatrixVelocity99th
+        )
     }
 
     fn is_rosetta_ksat(self) -> bool {
@@ -131,6 +142,10 @@ struct Report {
     rosetta_ksat_positive_count: usize,
     rosetta_ksat_negative_count: usize,
     rosetta_ksat_proxy_stability: &'static str,
+    matrix_model_velocity_threshold_count: usize,
+    matrix_model_velocity_positive_count: usize,
+    matrix_model_velocity_negative_count: usize,
+    matrix_model_velocity_proxy_stability: &'static str,
     matrix_velocity_99th_threshold_count: usize,
     matrix_velocity_99th_positive_count: usize,
     matrix_velocity_99th_negative_count: usize,
@@ -273,8 +288,10 @@ fn evaluate(input: &Input, input_sha256: String) -> Result<Report, String> {
     let mut threshold_results = Vec::with_capacity(input.thresholds.len());
     let mut rosetta_count = 0usize;
     let mut rosetta_positive = 0usize;
-    let mut matrix_velocity_count = 0usize;
-    let mut matrix_velocity_positive = 0usize;
+    let mut matrix_model_velocity_count = 0usize;
+    let mut matrix_model_velocity_positive = 0usize;
+    let mut matrix_velocity_99th_count = 0usize;
+    let mut matrix_velocity_99th_positive = 0usize;
 
     for threshold in &input.thresholds {
         let margin = input.velocity.value - threshold.value;
@@ -284,10 +301,16 @@ fn evaluate(input: &Input, input_sha256: String) -> Result<Report, String> {
             if positive {
                 rosetta_positive += 1;
             }
-        } else if threshold.kind == ThresholdKind::MatrixVelocity99th {
-            matrix_velocity_count += 1;
+        } else if threshold.kind.is_matrix_model_velocity() {
+            matrix_model_velocity_count += 1;
             if positive {
-                matrix_velocity_positive += 1;
+                matrix_model_velocity_positive += 1;
+            }
+            if threshold.kind == ThresholdKind::MatrixVelocity99th {
+                matrix_velocity_99th_count += 1;
+                if positive {
+                    matrix_velocity_99th_positive += 1;
+                }
             }
         }
 
@@ -304,7 +327,10 @@ fn evaluate(input: &Input, input_sha256: String) -> Result<Report, String> {
     }
 
     let rosetta_negative = rosetta_count - rosetta_positive;
-    let matrix_velocity_negative = matrix_velocity_count - matrix_velocity_positive;
+    let matrix_model_velocity_negative =
+        matrix_model_velocity_count - matrix_model_velocity_positive;
+    let matrix_velocity_99th_negative =
+        matrix_velocity_99th_count - matrix_velocity_99th_positive;
 
     Ok(Report {
         audit_version: AUDIT_VERSION,
@@ -325,12 +351,19 @@ fn evaluate(input: &Input, input_sha256: String) -> Result<Report, String> {
         rosetta_ksat_positive_count: rosetta_positive,
         rosetta_ksat_negative_count: rosetta_negative,
         rosetta_ksat_proxy_stability: stability(rosetta_count, rosetta_positive),
-        matrix_velocity_99th_threshold_count: matrix_velocity_count,
-        matrix_velocity_99th_positive_count: matrix_velocity_positive,
-        matrix_velocity_99th_negative_count: matrix_velocity_negative,
+        matrix_model_velocity_threshold_count: matrix_model_velocity_count,
+        matrix_model_velocity_positive_count: matrix_model_velocity_positive,
+        matrix_model_velocity_negative_count: matrix_model_velocity_negative,
+        matrix_model_velocity_proxy_stability: stability(
+            matrix_model_velocity_count,
+            matrix_model_velocity_positive,
+        ),
+        matrix_velocity_99th_threshold_count: matrix_velocity_99th_count,
+        matrix_velocity_99th_positive_count: matrix_velocity_99th_positive,
+        matrix_velocity_99th_negative_count: matrix_velocity_99th_negative,
         matrix_velocity_99th_proxy_stability: stability(
-            matrix_velocity_count,
-            matrix_velocity_positive,
+            matrix_velocity_99th_count,
+            matrix_velocity_99th_positive,
         ),
         threshold_results,
         interpretation_boundary: "sensitivity of velocity-threshold proxy labels to declared hydraulic/model thresholds; not independent preferential-flow truth",
@@ -378,7 +411,7 @@ fn run() -> Result<(), Box<dyn Error>> {
         "PF threshold audit complete: {} thresholds; Rosetta stability={}; matrix-velocity stability={}; input_sha256={}",
         report.threshold_count,
         report.rosetta_ksat_proxy_stability,
-        report.matrix_velocity_99th_proxy_stability,
+        report.matrix_model_velocity_proxy_stability,
         report.input_sha256
     );
     Ok(())
