@@ -347,6 +347,15 @@ def validate_capability_loop(loop: dict[str, Any], fixture: dict[str, Any]) -> l
         evidence_ids = [item.get("id") for item in evidence if isinstance(item, dict)]
         if len(evidence_ids) != len(set(evidence_ids)):
             errors.append(f"{cycle_id}: evidence IDs must be unique within a cycle")
+        evidence_id_set = set(evidence_ids)
+        for observation in observations:
+            if isinstance(observation, dict):
+                referenced_ids = observation.get("evidence_ids", [])
+                if any(reference not in evidence_id_set for reference in referenced_ids):
+                    errors.append(f"{cycle_id}: objective observation references missing evidence")
+        for observation in service_observations:
+            if isinstance(observation, dict) and observation.get("evidence_id") not in evidence_id_set:
+                errors.append(f"{cycle_id}: service-floor observation references missing evidence")
 
     actions = loop.get("corrective_actions", [])
     action_ids = [item.get("action_id") for item in actions if isinstance(item, dict)]
@@ -363,11 +372,30 @@ def validate_capability_loop(loop: dict[str, Any], fixture: dict[str, Any]) -> l
             errors.append(f"{action.get('action_id')!r}: retest cycle must exist")
         if not action.get("owner_role"):
             errors.append(f"{action.get('action_id')!r}: corrective action needs an accountable owner role")
+        if action.get("status") not in {"open", "closed-verified", "blocked", "late", "not-tested", "reopened"}:
+            errors.append(f"{action.get('action_id')!r}: unsupported corrective-action status")
         if action.get("status") == "closed-verified":
             if not action.get("completion_evidence_id") or action.get("independently_verified") is not True:
                 errors.append(f"{action.get('action_id')!r}: verified closure requires completion evidence and independent verification")
             if not retest_id or action.get("retest_result") != "pass":
                 errors.append(f"{action.get('action_id')!r}: verified closure requires a successful retest")
+            retest_cycle = cycle_by_id.get(retest_id, {})
+            retest_evidence_ids = {
+                evidence.get("id") for evidence in retest_cycle.get("evidence_records", [])
+                if isinstance(evidence, dict)
+            }
+            if action.get("completion_evidence_id") not in retest_evidence_ids:
+                errors.append(f"{action.get('action_id')!r}: completion evidence must exist in the retest cycle")
+            objective = next((item for item in objectives if item.get("id") == action.get("retest_objective_id")), None)
+            if objective is None or action.get("retest_service") != objective.get("service"):
+                errors.append(f"{action.get('action_id')!r}: retest objective and service mapping must agree")
+            else:
+                retested_service = next(
+                    (item for item in retest_cycle.get("service_floor_observations", []) if item.get("service") == objective.get("service")),
+                    None,
+                )
+                if retested_service is None or retested_service.get("observed_percent", -1) < retested_service.get("required_floor_percent", 101):
+                    errors.append(f"{action.get('action_id')!r}: passing action retest must pass its linked service floor")
         elif action.get("status") == "open" and action.get("retest_result") == "pass":
             errors.append(f"{action.get('action_id')!r}: open action cannot report a passing retest without reconciliation")
 
@@ -431,6 +459,9 @@ def validate_capability_loop(loop: dict[str, Any], fixture: dict[str, Any]) -> l
         if cycle2_expected.get("retested_failure_recurrence", {}).get("denominator") != len(retested_previous):
             errors.append("CYCLE-02: expected recurrence denominator is inconsistent")
 
+    forbidden_composite_keys = {"overall_resilience_score", "composite_score", "leaderboard_score", "learner_suitability_score"}
+    if forbidden_composite_keys.intersection(loop):
+        errors.append("capability-loop must not include composite, leaderboard or personal suitability scores")
     guardrails = loop.get("interpretation_guardrails", [])
     if len(guardrails) < 5 or not any("single overall" in item for item in guardrails):
         errors.append("capability-loop must prohibit a single compensating overall score")
