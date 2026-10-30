@@ -121,6 +121,8 @@ data-use terms at acquisition and preserve attribution.
 
 **Implementation tracker:** [TERRA-NEON-001](https://github.com/Luminous-Dynamics/mycelix/issues/5537).
 
+**Cross-method validation tracker:** [PF-TRIANG-001](https://github.com/Luminous-Dynamics/mycelix/issues/5538).
+
 ### NEON metadata inventory (preflight)
 
 Before downloading files, create a local text file containing one NEON site code per line (comments beginning with # are ignored). Use only the paper's reconciled site roster; do not infer it from the paper's aggregate site count.
