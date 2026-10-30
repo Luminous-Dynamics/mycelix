@@ -804,7 +804,11 @@ pub fn evaluate_ambiguity_robust_decisions(fixture: &Value) -> Result<Value, Vec
         errors.push("NRES-012 must contain every pinned NRES-011/NRES-010 source case exactly once".to_owned());
     }
 
-    let expected_weight = number(design, "expected_total_weight_per_regime").unwrap_or(32.0);
+    let expected_weight = number(design, "expected_total_weight_per_regime");
+    if expected_weight.is_none_or(|value| !value.is_finite() || value <= 0.0) {
+        errors.push("expected_total_weight_per_regime must be finite and positive".to_owned());
+    }
+    let expected_weight = expected_weight.unwrap_or(32.0);
     for regime in REGIMES {
         let counts = regime_strata.get(*regime);
         let count = counts.map(|values| values.values().sum::<usize>()).unwrap_or(0);
@@ -822,7 +826,7 @@ pub fn evaluate_ambiguity_robust_decisions(fixture: &Value) -> Result<Value, Vec
         }
         let weight_sum = rows
             .iter()
-            .filter(|row| string(row, "regime_id") == Some(regime))
+            .filter(|row| string(row, "regime_id") == Some(*regime))
             .filter_map(|row| {
                 let proposal = number(row, "proposal_stratum_probability")?;
                 let target = number(row, "target_stratum_probability")?;
@@ -832,7 +836,7 @@ pub fn evaluate_ambiguity_robust_decisions(fixture: &Value) -> Result<Value, Vec
         if (weight_sum - expected_weight).abs() > 1e-9 {
             errors.push(format!("{regime}: total importance weight differs from declared regime weight"));
         }
-        if !cases.iter().any(|case| case.regime_id == *regime && case.action == "forecast") {
+        if !cases.iter().any(|case| case.regime_id.as_str() == *regime && case.action == "forecast") {
             errors.push(format!("{regime}: no forecasts issued"));
         }
     }
