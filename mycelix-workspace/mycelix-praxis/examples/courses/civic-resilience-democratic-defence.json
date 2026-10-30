@@ -153,6 +153,10 @@
     "study_protocol": "docs/curriculum/PRAXIS_NRES_004_PREREGISTRATION.md",
     "capability_loop_benchmark": "examples/courses/civic-resilience-capability-loop-fixture-001.json",
     "capability_loop_spec": "docs/curriculum/PRAXIS_NRES_005_CAPABILITY_LOOP.md",
-    "capability_loop_evaluator": "benchmarks/nres-capability-loop"
+    "capability_loop_evaluator": "benchmarks/nres-capability-loop",
+    "evidence_interchange_profile": "docs/curriculum/PRAXIS_NRES_006_EVIDENCE_INTERCHANGE.md",
+    "evidence_interchange_schema": "schemas/nres/nres-evidence-envelope-v1.schema.json",
+    "evidence_interchange_example": "examples/courses/civic-resilience-evidence-envelope-001.json",
+    "evidence_conformance_corpus": "examples/courses/civic-resilience-evidence-conformance-001.json"
   }
 }
