@@ -31,7 +31,8 @@
               "type": "Boolean"
             },
             "creatorActorId": {
-              "type": "String"
+              "type": "String",
+              "required": false
             },
             "creatorOrganizationId": {
               "type": "String",
