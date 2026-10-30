@@ -43,6 +43,14 @@ const SCHEMA_FIXTURES: &[(&str, &str)] = &[
         "dependency-audit-report",
         include_str!("../../dependency-audit/dependency-audit-report.schema.json"),
     ),
+    (
+        "water-retention-curve-input",
+        include_str!("../../water-retention-audit/curve-input.schema.json"),
+    ),
+    (
+        "water-retention-audit-report",
+        include_str!("../../water-retention-audit/water-retention-audit-report.schema.json"),
+    ),
 ];
 
 const SOURCE_REGISTER: &str = include_str!("../../../source-register.v0.1.json");
@@ -312,6 +320,76 @@ mod tests {
         let validator = jsonschema::validator_for(&schema).unwrap();
         let mut report = valid_split_report();
         report["status"] = json!("warning");
+        assert!(!validator.is_valid(&report));
+    }
+
+    fn water_retention_report_schema() -> Value {
+        serde_json::from_str(SCHEMA_FIXTURES[9].1).unwrap()
+    }
+
+    fn valid_water_retention_report() -> Value {
+        json!({
+            "audit_version": "0.1.0",
+            "status": "passed",
+            "sample_id": "sample-01",
+            "curve_id": "curve-01",
+            "input_label": "fixture.json",
+            "input_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "measurement_basis": "volumetric_fraction",
+            "bulk_density_kg_m3": null,
+            "water_density_kg_m3": null,
+            "method": {"name": "pressure-plate-fixture", "standard_or_protocol": "synthetic-only"},
+            "measurement_count": 3,
+            "normalized_points": [
+                {"matric_potential_kpa": -10.0, "suction_kpa": 10.0, "water_content_m3_m3": 0.30},
+                {"matric_potential_kpa": -100.0, "suction_kpa": 100.0, "water_content_m3_m3": 0.22},
+                {"matric_potential_kpa": -1500.0, "suction_kpa": 1500.0, "water_content_m3_m3": 0.12}
+            ],
+            "monotonicity_tolerance_m3_m3": 0.0,
+            "field_capacity": {
+                "target_matric_potential_kpa": -33.0,
+                "water_content_m3_m3": 0.2585,
+                "estimate_method": "log10_suction_linear_interpolation",
+                "less_suction_bracket_matric_potential_kpa": -10.0,
+                "greater_suction_bracket_matric_potential_kpa": -100.0,
+                "interpolation_fraction": 0.5185
+            },
+            "permanent_wilting_point": {
+                "target_matric_potential_kpa": -1500.0,
+                "water_content_m3_m3": 0.12,
+                "estimate_method": "observed",
+                "less_suction_bracket_matric_potential_kpa": null,
+                "greater_suction_bracket_matric_potential_kpa": null,
+                "interpolation_fraction": null
+            },
+            "available_water_fraction_m3_m3": 0.1385,
+            "layer_depth_mm": 200.0,
+            "available_water_storage_mm": 27.7,
+            "warnings": ["synthetic fixture only"],
+            "uncertainty_status": "not_propagated",
+            "interpretation_boundary": "schema conformance test only"
+        })
+    }
+
+    #[test]
+    fn accepts_valid_water_retention_audit_report() {
+        let validator = jsonschema::validator_for(&water_retention_report_schema()).unwrap();
+        assert!(validator.is_valid(&valid_water_retention_report()));
+    }
+
+    #[test]
+    fn rejects_negative_available_water_fraction() {
+        let validator = jsonschema::validator_for(&water_retention_report_schema()).unwrap();
+        let mut report = valid_water_retention_report();
+        report["available_water_fraction_m3_m3"] = json!(-0.01);
+        assert!(!validator.is_valid(&report));
+    }
+
+    #[test]
+    fn rejects_claim_of_uncertainty_propagation_in_v01_report() {
+        let validator = jsonschema::validator_for(&water_retention_report_schema()).unwrap();
+        let mut report = valid_water_retention_report();
+        report["uncertainty_status"] = json!("propagated");
         assert!(!validator.is_valid(&report));
     }
 
