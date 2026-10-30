@@ -451,7 +451,7 @@ study-c,32,31,26,27,35
         let records = parse_records(csv.as_bytes()).unwrap();
         let scored = metrics(&records, &[0], true);
         // Width 1 + (2 / 0.1) * miss distance 1 = 21.
-        assert_eq!(scored.mean_interval_score, Some(21.0));
+        assert!((scored.mean_interval_score.unwrap() - 21.0).abs() < 1e-12);
     }
 
     #[test]
