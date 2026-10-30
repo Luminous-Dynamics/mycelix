@@ -5,6 +5,10 @@
 //! issue operational instructions, or estimate real-world readiness.
 
 use serde_json::{json, Value};
+
+pub mod interchange;
+pub use interchange::{export_evidence_envelope, validate_evidence_envelope};
+
 use std::collections::{BTreeMap, BTreeSet, HashMap};
 
 fn str_field<'a>(value: &'a Value, key: &str) -> Option<&'a str> {
