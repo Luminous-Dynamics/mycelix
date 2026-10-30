@@ -489,7 +489,7 @@ def self_test_capability_loop(
 
     aggregate = copy.deepcopy(loop)
     aggregate["overall_resilience_score"] = 100
-    cases.append(("aggregate score added", aggregate, "capability-loop must prohibit a single compensating overall score"))
+    cases.append(("aggregate score added", aggregate, "must not include composite, leaderboard or personal suitability scores"))
 
     for name, test_loop, expected in cases:
         errors = validate_capability_loop(test_loop, fixture)
