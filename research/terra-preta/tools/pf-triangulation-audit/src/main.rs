@@ -155,6 +155,8 @@ struct SensorConcordance {
 #[derive(Serialize)]
 struct ReferenceResult {
     reference_id: String,
+    event_id: String,
+    profile_id: String,
     method: &'static str,
     outcome: &'static str,
     evidence_ref: String,
@@ -378,6 +380,8 @@ fn evaluate(input: &Input, input_sha256: String) -> Result<Report, String> {
             }
             ReferenceResult {
                 reference_id: reference.reference_id.clone(),
+                event_id: reference.event_id.clone(),
+                profile_id: reference.profile_id.clone(),
                 method: reference.method.as_str(),
                 outcome: reference.outcome.as_str(),
                 evidence_ref: reference.evidence_ref.clone(),
@@ -541,6 +545,8 @@ mod tests {
             ],
             independent_references: vec![IndependentReference {
                 reference_id: "TRACER-01".to_owned(),
+                event_id: "E001".to_owned(),
+                profile_id: "PROFILE-01".to_owned(),
                 method: ReferenceMethod::ConservativeTracer,
                 outcome: ReferenceOutcome::SupportsBypass,
                 evidence_ref: "synthetic tracer truth".to_owned(),
@@ -598,7 +604,9 @@ mod tests {
         let mut data = input();
         data.independent_references.push(IndependentReference {
             reference_id: "ERT-01".to_owned(),
-            method: ReferenceMethod::ERT,
+            event_id: "E001".to_owned(),
+            profile_id: "PROFILE-01".to_owned(),
+            method: ReferenceMethod::Ert,
             outcome: ReferenceOutcome::DoesNotSupportBypass,
             evidence_ref: "synthetic ERT reference".to_owned(),
             detection_limit_or_resolution: "spatial resolution 5 cm".to_owned(),
@@ -631,6 +639,8 @@ mod tests {
         let mut data = input();
         data.independent_references.push(IndependentReference {
             reference_id: "DYE-01".to_owned(),
+            event_id: "E001".to_owned(),
+            profile_id: "PROFILE-01".to_owned(),
             method: ReferenceMethod::DyeTracer,
             outcome: ReferenceOutcome::SupportsBypass,
             evidence_ref: "synthetic dye map".to_owned(),
@@ -665,12 +675,23 @@ mod tests {
         let mut data = input();
         data.independent_references.push(IndependentReference {
             reference_id: "TRACER-01".to_owned(),
+            event_id: "E001".to_owned(),
+            profile_id: "PROFILE-01".to_owned(),
             method: ReferenceMethod::DyeTracer,
             outcome: ReferenceOutcome::SupportsBypass,
             evidence_ref: "duplicate".to_owned(),
             detection_limit_or_resolution: "unknown".to_owned(),
         });
         assert!(validate(&data).unwrap_err().contains("duplicate reference_id"));
+    }
+
+    #[test]
+    fn rejects_independent_reference_from_different_event_or_profile() {
+        let mut data = input();
+        data.independent_references[0].event_id = "OTHER-EVENT".to_owned();
+        assert!(validate(&data)
+            .unwrap_err()
+            .contains("does not match the input event/profile"));
     }
 
     #[test]
