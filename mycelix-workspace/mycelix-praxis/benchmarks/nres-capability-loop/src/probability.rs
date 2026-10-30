@@ -583,6 +583,8 @@ mod tests {
             "brier_score",
             "log_loss",
             "climatology_reference_probability",
+            "climatology_reference_sample_count",
+            "climatology_reference_breach_count",
             "climatology_brier_score",
             "brier_skill_score",
             "expected_calibration_error_diagnostic",
@@ -629,6 +631,14 @@ mod tests {
             }
             for key in ["brier_score", "log_loss"] {
                 assert!((actual_service[key].as_f64().unwrap() - expected_service[key].as_f64().unwrap()).abs() <= tolerance);
+            }
+        }
+        assert_eq!(report["mandatory_abstention_by_reason"], expected["mandatory_abstention_by_reason"]);
+        for (service_id, expected_counts) in expected["per_service_case_metrics"].as_object().unwrap() {
+            let actual_counts = report["per_service_case_metrics"].as_array().unwrap()
+                .iter().find(|item| item["service_id"].as_str() == Some(service_id.as_str())).unwrap();
+            for key in ["total_cases", "qualified_cases", "issued_forecasts", "abstentions", "mandatory_abstention_cases", "mandatory_abstentions"] {
+                assert_eq!(actual_counts[key], expected_counts[key]);
             }
         }
         let actual_curve = report["risk_coverage_curve"].as_array().unwrap();
