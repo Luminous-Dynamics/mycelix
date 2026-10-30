@@ -147,6 +147,60 @@
     "Reconcile soil-water sensor IDs, plots, depths, calibration/QA flags and precipitation gauge type to the paper's 33-site/586-sensor source crosswalk.",
     "Keep DP1.00044.001, DP1.00045.001 and DP1.00046.001 as separate inputs with explicit measurement semantics.",
     "Reproduce the legacy eventizer and historical split before making any new-model comparison.",
-    "Do not treat the 2025 17-ecoregion NEON paper as an independent external dataset; reconcile overlapping sites/sensors/events."
+    "Do not treat the 2025 17-ecoregion NEON paper as an independent external dataset; reconcile overlapping sites/sensors/events.",
+    "Acquire and audit the HydroShare v1.1 NEON Soil Preferential Flow Database as a derived fast-start benchmark, recording external file URLs, exact filenames, publisher checksums, local SHA-256 and file-level license notices.",
+    "Reconcile HydroShare v1.1 source lineage and event/sensor/site fields against Li et al. (2026); do not treat it as an independent site holdout or independent reference method."
+  ],
+  "derived_datasets": [
+    {
+      "source_id": "neon_soil_preferential_flow_database_hydroshare_v1_1",
+      "title": "NEON Soil Preferential Flow Database",
+      "version": "v1.1",
+      "doi": "10.4211/hs.847b15cd15524b78acd58a2a8be242c1",
+      "uri": "https://hydroshare.cuahsi.org/resource/847b15cd15524b78acd58a2a8be242c1/",
+      "published_date": "2025-09-30",
+      "reported_resource_size_mb": 1015.6,
+      "license": "CC BY 4.0",
+      "source_lineage": [
+        "NEON DP1.00094.001 RELEASE-2023",
+        "NEON DP1.00094.001 provisional data",
+        "NEON DP1.00096.001 RELEASE-2023",
+        "NEON DP1.10047.001",
+        "NEON field-site metadata"
+      ],
+      "declared_contents": [
+        "event-level precipitation and soil-moisture response records",
+        "sensor-depth-specific apparent velocity",
+        "Rosetta Ksat estimates including max/low/high and median-based variants",
+        "soil texture, porosity, root density and site climate/topographic metadata"
+      ],
+      "site_caveats": {
+        "not_recommended": [
+          "BONA",
+          "DEJU",
+          "HEAL",
+          "TOOL",
+          "BARR"
+        ],
+        "excluded_from_analysis": [
+          "KONA"
+        ],
+        "exclusion_note": "HydroShare readme says Alaska sites listed are not recommended and KONA was excluded because it is closer to KONZ; do not transfer these source-specific exclusions to the 2026 paper cohort without reconciliation."
+      },
+      "role": "Fast-start derived-event comparison and data-dictionary crosswalk. Not independent field validation, not a replacement for raw NEON release-specific reconstruction, and not proof of the exact 2026 article cohort or split.",
+      "acquisition_status": "metadata_reviewed_external_content_not_acquired",
+      "content_hosting_note": "HydroShare landing page states that resource content contains external links and is not stored by HydroShare; confirm the actual downloadable file host, filenames, hashes and availability before acquisition.",
+      "exact_file_list": null,
+      "exact_checksums": null,
+      "local_sha256": null,
+      "row_count": null,
+      "license_status": "publisher page declares CC BY 4.0; retain attribution and verify file-level notices",
+      "methodology_notes": [
+        "Readme describes fields including stormStartTime, stormEndTime, stormSum, stormPeakIntensity, smBeforePrecip, smOnsetTime, flowTypes, flowPosition and velocity_computed.",
+        "Version 1.1 adds multiple Rosetta Ksat estimate fields including ksat, ksat_low, ksat_high, ksat_std_median and ksat_std_upper.",
+        "Do not treat the database's Ksat-derived PF flag as tracer ground truth.",
+        "Resolve version and field semantics against the Li et al. 2026 paper's specific target-construction method before claiming exact reproduction."
+      ]
+    }
   ]
 }
