@@ -1309,7 +1309,8 @@ mod tests {
                 "{id}: Cedar roles"
             );
             assert_eq!(
-                cedar_actor["attrs"]["organizations"], actor_organizations,
+                &cedar_actor["attrs"]["organizations"],
+                actor_organizations,
                 "{id}: Cedar organizations"
             );
             let cedar_claim = entity(cedar_entities, "Mycelix::Claim");
