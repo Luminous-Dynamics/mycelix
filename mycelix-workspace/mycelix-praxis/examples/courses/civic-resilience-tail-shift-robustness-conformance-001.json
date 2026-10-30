@@ -116,8 +116,8 @@
   "expected_metrics": {
     "total_cases": 128,
     "forecast_cases": 123,
-    "mandatory_abstentions": 5,
-    "optional_abstentions": 0,
+    "mandatory_abstentions": 4,
+    "optional_abstentions": 1,
     "overall": {
       "total_cases": 128,
       "issued_forecasts": 123,
