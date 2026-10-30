@@ -53,6 +53,12 @@ The Rust implementation is available at [tools/profile-flow-audit](./tools/profi
 
 The tool intentionally reports an NSR **signature**, not a physical-flow certificate. One observed deeper-before-shallower pair is retained even when other profile sensors are indeterminate, but the report marks coverage incomplete. Sequential response does not rule out PF. CI runs the synthetic event fixture and checks the expected pairwise signature.
 
+### Threshold-proxy sensitivity
+
+The Rust [PF threshold audit](./tools/pf-threshold-audit/README.md) runs velocity labels against multiple declared reference thresholds, with Rosetta Ksat estimates and the matrix-model 99th-percentile velocity reference kept separate. It reports stable-positive, stable-negative, threshold-sensitive and not-evaluated states. Stored log-scale values are not transformed until the exact log base and units are resolved from the source workflow.
+
+A label that changes across plausible matrix-flow references should be represented as threshold-sensitive evidence. A stable label is still a proxy robustness result, not independent tracer confirmation. Implementation tracker: [TERRA-PF-THRESH-001](https://github.com/Luminous-Dynamics/mycelix/issues/5541).
+
 ## 4. Known-confounder challenge set
 
 | Confounder | Expected failure | Required control |
