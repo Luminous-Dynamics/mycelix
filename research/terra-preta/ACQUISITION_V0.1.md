@@ -2,6 +2,8 @@
 
 **Purpose:** reproducibly acquire public source artifacts for research and independent audit. Raw datasets stay outside the Git repository.
 
+**Structural-data research track:** [Dynamic structure/root architecture benchmark](./DYNAMIC_STRUCTURE_ROOT_ARCHITECTURE_BENCHMARK_V0.1.md), tracked in [issue #5539](https://github.com/Luminous-Dynamics/mycelix/issues/5539). No imagery has been acquired for this work.
+
 ## 1. Acquisition command
 
 From the Mycelix repository root, use:
