@@ -3,7 +3,7 @@
 **Status:** Research and conformance-corpus proposal  
 **Baseline:** \`DefaultScientificAuthorizationPolicy\` v1.0.0  
 **Baseline revision:** \`061e34f24d406f19f6de0e61867305b6989f455f\`  
-**Corpus:** \`cases.json\` (28 pure-policy cases + 10 outer security/commit gates)
+**Corpus:** \`cases.json\` (30 pure-policy cases + 11 outer security/commit gates)
 
 ## The paradigm shift: benchmark semantics before syntax
 
@@ -42,7 +42,7 @@ Two details are easy to accidentally change in a rewrite:
 1. **Editor is not a general reviewer role.** The current policy lets Editor/Institution manage some lifecycle and evidence actions, but an Editor-only actor does not satisfy the \`attestation_recorded\` role check.
 2. **Independent replication is stricter than an ordinary attestation.** The claim creator cannot attest their own independent replication, and an acting organization equal to the creator organization cannot count as independent.
 
-The corpus represents these distinctions explicitly. Its 30 cases include 16 allows and 12 denies. They are one-fault decision vectors; they do not yet cover the full cross-product of every actor, role, organization, and event shape.
+The corpus represents these distinctions explicitly. Its 30 cases include 18 allows and 12 denies. They are one-fault decision vectors; they do not yet cover the full cross-product of every actor, role, organization, and event shape.
 
 ## Separate permission from evidence qualification
 
@@ -71,7 +71,7 @@ identity used as the source key); whether that is sufficient independence is
 a normative policy question, not something the port may silently decide.
 `AUTH-030` records that the claim creator can submit an ordinary review under
 the authorization policy, while the evidence projection gives that review no
-reviewer credit. There is also a projection-level fixture expectation for the
+reviewer credit. There is also a projection-effect expectations for the
 resulting evidence effect.
 
 This creates two separate equivalence targets: **authorization equivalence**
@@ -166,7 +166,7 @@ protocol revision can consider a cryptographic policy artifact digest.
 | Outer signature/identity/key/org/replay/receipt gates | 100% preserved | Guard tests remain in Rust and cannot be overridden by policy |
 | Policy upgrade equivalence | 100% where semantics are declared unchanged | Old/new policy differential report |
 
-Do not make the 28-case corpus the final security proof. Generate at least
+Do not make the 30-case corpus the final security proof. Generate at least
 1,000 deterministic mutations from valid and deny fixtures before calling the
 first version robust. Keep one-fault mutations separate from compound attacks;
 publish both denominators and any disagreements.
@@ -228,7 +228,7 @@ something we should claim to have surpassed before testing.
 
 1. Keep the existing Rust policy as the reference oracle for v0.1.
 2. Add stable rule codes and a normalized input/output contract.
-3. Build a small Cedar adapter and run the 28-case corpus; do not write a new
+3. Build a small Cedar adapter and run the 30-case corpus; do not write a new
    parser or custom language yet.
 4. Port the same corpus to OPA/Rego as the general-purpose baseline.
 5. Compare decision equivalence first; compare latency only after all three
@@ -241,7 +241,7 @@ something we should claim to have surpassed before testing.
 ## Explicitly not claimed
 
 - The corpus has not yet been executed against Cedar or OPA.
-- The 28 expected decisions are an extraction from one Rust source revision,
+- The 30 expected decisions are an extraction from one Rust source revision,
   not an independent proof that the policy itself is normatively correct.
 - No latency numbers are collected here.
 - No new language is selected by this document.
