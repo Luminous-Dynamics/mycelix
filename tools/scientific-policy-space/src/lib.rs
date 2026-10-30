@@ -519,10 +519,6 @@ pub fn project_engine_inputs(case: &DecisionCase) -> EngineInputProjection {
         entity_type: "Mycelix::Claim".to_owned(),
         id: claim_id.clone(),
     };
-    let action_uid = CedarUid {
-        entity_type: "Mycelix::Action".to_owned(),
-        id: action.clone(),
-    };
     let empty_parents = Vec::new();
     let entities = vec![
         CedarEntity {
@@ -533,11 +529,6 @@ pub fn project_engine_inputs(case: &DecisionCase) -> EngineInputProjection {
         CedarEntity {
             uid: claim_uid,
             attrs: serde_json::Value::Object(claim_attrs),
-            parents: empty_parents.clone(),
-        },
-        CedarEntity {
-            uid: action_uid,
-            attrs: serde_json::json!({}),
             parents: empty_parents,
         },
     ];
@@ -745,11 +736,13 @@ mod tests {
         );
         assert_eq!(projection.rego.input.acting_organization_id.as_deref(), Some("org:creator"));
         assert_eq!(projection.rego.input.claim.creator_organization_id.as_deref(), Some("org:creator"));
-        assert_eq!(projection.cedar.entities.len(), 3);
+        assert_eq!(projection.cedar.entities.len(), 2);
         let cedar_entities = serde_json::to_value(&projection.cedar.entities)
             .expect("Cedar entity list serializes");
         assert_eq!(cedar_entities[0]["uid"]["type"], "Mycelix::Actor");
         assert!(cedar_entities[0]["uid"].get("entity_type").is_none());
+        assert_eq!(cedar_entities[1]["uid"]["type"], "Mycelix::Claim");
+        assert_eq!(cedar_entities.len(), 2, "action entities are supplied canonically from the Cedar schema");
         assert_eq!(
             projection.cedar.entities[0].attrs["organizations"],
             serde_json::json!([]),
