@@ -1,0 +1,534 @@
+//! Standalone source-pinned abstract input generator for Mycelix scientific policy.
+//!
+//! This tool does not import the broken mycelix-desci-core crate and does not
+//! calculate expected allow/deny outcomes. It enumerates abstract contexts
+//! derived from the pure DefaultScientificAuthorizationPolicy match space.
+//! Every row remains pending evaluation by the authentic compiled Rust oracle.
+
+use serde::Serialize;
+use sha2::{Digest, Sha256};
+use std::collections::BTreeSet;
+
+pub const GENERATOR_ID: &str = "mycelix-scientific-policy-space";
+pub const GENERATOR_VERSION: &str = "0.1.0";
+pub const BASELINE_REVISION: &str = "061e34f24d406f19f6de0e61867305b6989f455f";
+pub const BASELINE_SOURCE_PATH: &str = "mycelix-desci/src/core/src/scientific_governance.rs";
+pub const BASELINE_SOURCE_BLOB_SHA: &str = "488c69fd4b5540371f2714e9d5668aecc12e294d";
+pub const POLICY_ID: &str = "mycelix-default-scientific-authorization";
+pub const POLICY_VERSION: &str = "1.0.0";
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum Action {
+    ClaimProposed,
+    LegacyClaimImported,
+    EvidenceAttached,
+    AttestationRecorded,
+    AttestationCorrected,
+    AttestationWithdrawn,
+    ClaimSuperseded,
+    ClaimRetracted,
+}
+
+impl Action {
+    pub const ALL: [Self; 8] = [
+        Self::ClaimProposed,
+        Self::LegacyClaimImported,
+        Self::EvidenceAttached,
+        Self::AttestationRecorded,
+        Self::AttestationCorrected,
+        Self::AttestationWithdrawn,
+        Self::ClaimSuperseded,
+        Self::ClaimRetracted,
+    ];
+
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::ClaimProposed => "claim_proposed",
+            Self::LegacyClaimImported => "legacy_claim_imported",
+            Self::EvidenceAttached => "evidence_attached",
+            Self::AttestationRecorded => "attestation_recorded",
+            Self::AttestationCorrected => "attestation_corrected",
+            Self::AttestationWithdrawn => "attestation_withdrawn",
+            Self::ClaimSuperseded => "claim_superseded",
+            Self::ClaimRetracted => "claim_retracted",
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum Role {
+    Contributor,
+    Reviewer,
+    Editor,
+    Institution,
+    Service,
+    MigrationService,
+    RegistryAdmin,
+}
+
+impl Role {
+    pub const ALL: [Self; 7] = [
+        Self::Contributor,
+        Self::Reviewer,
+        Self::Editor,
+        Self::Institution,
+        Self::Service,
+        Self::MigrationService,
+        Self::RegistryAdmin,
+    ];
+
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Contributor => "contributor",
+            Self::Reviewer => "reviewer",
+            Self::Editor => "editor",
+            Self::Institution => "institution",
+            Self::Service => "service",
+            Self::MigrationService => "migration_service",
+            Self::RegistryAdmin => "registry_admin",
+        }
+    }
+
+    pub const fn bit(self) -> u8 {
+        match self {
+            Self::Contributor => 1 << 0,
+            Self::Reviewer => 1 << 1,
+            Self::Editor => 1 << 2,
+            Self::Institution => 1 << 3,
+            Self::Service => 1 << 4,
+            Self::MigrationService => 1 << 5,
+            Self::RegistryAdmin => 1 << 6,
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum AttestationKind {
+    Ordinary,
+    IndependentReplication,
+}
+
+impl AttestationKind {
+    pub const ALL: [Self; 2] = [Self::Ordinary, Self::IndependentReplication];
+
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Ordinary => "ordinary",
+            Self::IndependentReplication => "independent_replication",
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum TargetAttestationState {
+    Absent,
+    AuthoredByActor,
+    AuthoredByOther,
+}
+
+impl TargetAttestationState {
+    pub const ALL: [Self; 3] = [
+        Self::Absent,
+        Self::AuthoredByActor,
+        Self::AuthoredByOther,
+    ];
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ActingOrganizationRelation {
+    Absent,
+    EqualToCreator,
+    DifferentFromCreator,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
+#[serde(deny_unknown_fields)]
+pub struct ActorInput {
+    pub id: String,
+    pub roles: Vec<Role>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
+#[serde(deny_unknown_fields)]
+pub struct ClaimInput {
+    pub exists: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub creator_actor_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub creator_organization_id: Option<String>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
+#[serde(deny_unknown_fields)]
+pub struct AttestationInput {
+    pub kind: AttestationKind,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
+#[serde(deny_unknown_fields)]
+pub struct TargetAttestationInput {
+    pub exists: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub author_actor_id: Option<String>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
+#[serde(deny_unknown_fields)]
+pub struct DecisionContext {
+    pub action: Action,
+    pub actor: ActorInput,
+    pub claim: ClaimInput,
+    pub attestation: AttestationInput,
+    pub target_attestation: TargetAttestationInput,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub acting_organization_id: Option<String>,
+}
+
+#[derive(Serialize)]
+struct CaseIdentity<'a> {
+    generator_id: &'static str,
+    generator_version: &'static str,
+    baseline_revision: &'static str,
+    baseline_source_blob_sha: &'static str,
+    policy_id: &'static str,
+    policy_version: &'static str,
+    context: &'a DecisionContext,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
+#[serde(deny_unknown_fields)]
+pub struct DecisionCase {
+    pub case_id: String,
+    pub baseline_revision: String,
+    pub baseline_source_path: String,
+    pub baseline_source_blob_sha: String,
+    pub policy_id: String,
+    pub policy_version: String,
+    pub generator_version: String,
+    pub context: DecisionContext,
+    /// Deliberately null until the authentic compiled Rust oracle executes.
+    pub expected_decision: Option<String>,
+    pub expected_decision_status: String,
+    pub domain_annotations: DomainAnnotations,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
+pub struct DomainAnnotations {
+    pub role_mask: u8,
+    pub actor_is_claim_creator: Option<bool>,
+    pub acting_organization_relation: ActingOrganizationRelation,
+    pub note: String,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
+pub struct CorpusManifest {
+    pub generator_id: String,
+    pub generator_version: String,
+    pub baseline_revision: String,
+    pub baseline_source_path: String,
+    pub baseline_source_blob_sha: String,
+    pub policy_id: String,
+    pub policy_version: String,
+    pub case_count: usize,
+    pub empty_stream_cases: usize,
+    pub existing_stream_cases: usize,
+    pub distinct_role_subsets: usize,
+    pub action_count: usize,
+    pub expected_decision_status: String,
+    pub claim_ceiling: String,
+}
+
+fn sha256(bytes: &[u8]) -> String {
+    hex::encode(Sha256::digest(bytes))
+}
+
+fn role_subset(mask: u8) -> Vec<Role> {
+    Role::ALL
+        .into_iter()
+        .filter(|role| mask & role.bit() != 0)
+        .collect()
+}
+
+fn empty_stream_case(action: Action, role_mask: u8) -> DecisionCase {
+    let context = DecisionContext {
+        action,
+        actor: ActorInput {
+            id: "actor:candidate".to_owned(),
+            roles: role_subset(role_mask),
+        },
+        claim: ClaimInput {
+            exists: false,
+            creator_actor_id: None,
+            creator_organization_id: None,
+        },
+        // These payload-side dimensions are held at neutral values for an empty
+        // stream; the Rust match returns before consulting a current projection.
+        attestation: AttestationInput {
+            kind: AttestationKind::Ordinary,
+        },
+        target_attestation: TargetAttestationInput {
+            exists: false,
+            author_actor_id: None,
+        },
+        acting_organization_id: None,
+    };
+    make_case(
+        context,
+        role_mask,
+        None,
+        ActingOrganizationRelation::Absent,
+        "current claim stream is absent; ownership, organization and target-attestation dimensions are not applicable to the source match branch",
+    )
+}
+
+fn existing_stream_case(
+    action: Action,
+    role_mask: u8,
+    actor_is_claim_creator: bool,
+    creator_organization_present: bool,
+    acting_organization_relation: ActingOrganizationRelation,
+    attestation_kind: AttestationKind,
+    target_attestation_state: TargetAttestationState,
+) -> DecisionCase {
+    let creator_actor_id = "actor:creator".to_owned();
+    let actor_id = if actor_is_claim_creator {
+        creator_actor_id.clone()
+    } else {
+        "actor:candidate".to_owned()
+    };
+    let creator_organization_id = creator_organization_present.then(|| "org:creator".to_owned());
+    let acting_organization_id = match acting_organization_relation {
+        ActingOrganizationRelation::Absent => None,
+        ActingOrganizationRelation::EqualToCreator => Some("org:creator".to_owned()),
+        ActingOrganizationRelation::DifferentFromCreator => Some("org:other".to_owned()),
+    };
+    let (target_exists, target_author) = match target_attestation_state {
+        TargetAttestationState::Absent => (false, None),
+        TargetAttestationState::AuthoredByActor => (true, Some(actor_id.clone())),
+        TargetAttestationState::AuthoredByOther => (true, Some("actor:other".to_owned())),
+    };
+    let context = DecisionContext {
+        action,
+        actor: ActorInput {
+            id: actor_id,
+            roles: role_subset(role_mask),
+        },
+        claim: ClaimInput {
+            exists: true,
+            creator_actor_id: Some(creator_actor_id),
+            creator_organization_id,
+        },
+        attestation: AttestationInput { kind: attestation_kind },
+        target_attestation: TargetAttestationInput {
+            exists: target_exists,
+            author_actor_id: target_author,
+        },
+        acting_organization_id,
+    };
+    make_case(
+        context,
+        role_mask,
+        Some(actor_is_claim_creator),
+        acting_organization_relation,
+        "current claim stream exists; all payload and projection dimensions are retained, including dimensions irrelevant to this action, to test noninterference",
+    )
+}
+
+fn make_case(
+    context: DecisionContext,
+    role_mask: u8,
+    actor_is_claim_creator: Option<bool>,
+    acting_organization_relation: ActingOrganizationRelation,
+    note: &str,
+) -> DecisionCase {
+    let identity = CaseIdentity {
+        generator_id: GENERATOR_ID,
+        generator_version: GENERATOR_VERSION,
+        baseline_revision: BASELINE_REVISION,
+        baseline_source_blob_sha: BASELINE_SOURCE_BLOB_SHA,
+        policy_id: POLICY_ID,
+        policy_version: POLICY_VERSION,
+        context: &context,
+    };
+    let identity_bytes =
+        serde_json::to_vec(&identity).expect("fixed abstract case identity serializes");
+    let case_id = format!("AUTH-GEN-{}", sha256(&identity_bytes));
+    DecisionCase {
+        case_id,
+        baseline_revision: BASELINE_REVISION.to_owned(),
+        baseline_source_path: BASELINE_SOURCE_PATH.to_owned(),
+        baseline_source_blob_sha: BASELINE_SOURCE_BLOB_SHA.to_owned(),
+        policy_id: POLICY_ID.to_owned(),
+        policy_version: POLICY_VERSION.to_owned(),
+        generator_version: GENERATOR_VERSION.to_owned(),
+        context,
+        expected_decision: None,
+        expected_decision_status: "pending_authentic_rust_oracle".to_owned(),
+        domain_annotations: DomainAnnotations {
+            role_mask,
+            actor_is_claim_creator,
+            acting_organization_relation,
+            note: note.to_owned(),
+        },
+    }
+}
+
+/// Materialize the full bounded abstract domain without synthesizing expected
+/// decisions. A future adapter can evaluate the same rows in Rust, Cedar, Rego
+/// and CEL, while preserving the baseline source and domain identities.
+pub fn enumerate_decision_space() -> Vec<DecisionCase> {
+    let mut cases = Vec::with_capacity(62_464);
+
+    // With no claim stream, the Rust match can only inspect action and roles:
+    // proposal role, migration role, or the catch-all existing-stream denial.
+    for action in Action::ALL {
+        for role_mask in 0_u8..128 {
+            cases.push(empty_stream_case(action, role_mask));
+        }
+    }
+
+    // Existing stream: retain all dimensions for every action. Where a source
+    // branch does not inspect a dimension, those values become metamorphic
+    // noninterference controls instead of being silently pruned.
+    for action in Action::ALL {
+        for role_mask in 0_u8..128 {
+            for actor_is_claim_creator in [false, true] {
+                for creator_organization_present in [false, true] {
+                    let relations: &[ActingOrganizationRelation] =
+                        if creator_organization_present {
+                            &[
+                                ActingOrganizationRelation::Absent,
+                                ActingOrganizationRelation::EqualToCreator,
+                                ActingOrganizationRelation::DifferentFromCreator,
+                            ]
+                        } else {
+                            &[
+                                ActingOrganizationRelation::Absent,
+                                ActingOrganizationRelation::DifferentFromCreator,
+                            ]
+                        };
+                    for relation in relations {
+                        for attestation_kind in AttestationKind::ALL {
+                            for target_attestation in TargetAttestationState::ALL {
+                                cases.push(existing_stream_case(
+                                    action,
+                                    role_mask,
+                                    actor_is_claim_creator,
+                                    creator_organization_present,
+                                    *relation,
+                                    attestation_kind,
+                                    target_attestation,
+                                ));
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+    cases
+}
+
+pub fn build_manifest(cases: &[DecisionCase]) -> CorpusManifest {
+    let empty_stream_cases = cases.iter().filter(|case| !case.context.claim.exists).count();
+    let existing_stream_cases = cases.len() - empty_stream_cases;
+    let role_masks = cases
+        .iter()
+        .map(|case| case.domain_annotations.role_mask)
+        .collect::<BTreeSet<_>>();
+    CorpusManifest {
+        generator_id: GENERATOR_ID.to_owned(),
+        generator_version: GENERATOR_VERSION.to_owned(),
+        baseline_revision: BASELINE_REVISION.to_owned(),
+        baseline_source_path: BASELINE_SOURCE_PATH.to_owned(),
+        baseline_source_blob_sha: BASELINE_SOURCE_BLOB_SHA.to_owned(),
+        policy_id: POLICY_ID.to_owned(),
+        policy_version: POLICY_VERSION.to_owned(),
+        case_count: cases.len(),
+        empty_stream_cases,
+        existing_stream_cases,
+        distinct_role_subsets: role_masks.len(),
+        action_count: Action::ALL.len(),
+        expected_decision_status: "pending_authentic_rust_oracle".to_owned(),
+        claim_ceiling: concat!(
+            "bounded abstract input corpus derived from the pinned Rust policy match structure; ",
+            "no expected decision is asserted and no authentic Rust policy execution, ",
+            "three-engine parity, formal equivalence or credential authority is claimed"
+        )
+        .to_owned(),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn emits_exact_expected_domain_denominators() {
+        let cases = enumerate_decision_space();
+        assert_eq!(cases.len(), 62_464);
+        assert_eq!(
+            cases.iter().filter(|case| !case.context.claim.exists).count(),
+            1_024
+        );
+        assert_eq!(
+            cases.iter().filter(|case| case.context.claim.exists).count(),
+            61_440
+        );
+        let manifest = build_manifest(&cases);
+        assert_eq!(manifest.distinct_role_subsets, 128);
+        assert_eq!(manifest.action_count, 8);
+    }
+
+    #[test]
+    fn identities_are_unique_and_source_bound() {
+        let cases = enumerate_decision_space();
+        let ids = cases.iter().map(|case| case.case_id.as_str()).collect::<BTreeSet<_>>();
+        assert_eq!(ids.len(), cases.len());
+        assert!(cases.iter().all(|case| {
+            case.baseline_revision == BASELINE_REVISION
+                && case.baseline_source_blob_sha == BASELINE_SOURCE_BLOB_SHA
+                && case.policy_id == POLICY_ID
+                && case.policy_version == POLICY_VERSION
+        }));
+    }
+
+    #[test]
+    fn generator_never_fabricates_expected_authorization_decisions() {
+        let cases = enumerate_decision_space();
+        assert!(cases.iter().all(|case| case.expected_decision.is_none()));
+        assert!(cases.iter().all(|case| {
+            case.expected_decision_status == "pending_authentic_rust_oracle"
+        }));
+    }
+
+    #[test]
+    fn equal_organization_relation_is_never_generated_without_creator_organization() {
+        let cases = enumerate_decision_space();
+        assert!(cases.iter().all(|case| {
+            case.domain_annotations.acting_organization_relation
+                != ActingOrganizationRelation::EqualToCreator
+                || case.context.claim.creator_organization_id.is_some()
+        }));
+    }
+
+    #[test]
+    fn source_irrelevant_dimensions_are_retained_for_noninterference() {
+        let cases = enumerate_decision_space();
+        assert!(cases.iter().any(|case| {
+            case.context.action == Action::EvidenceAttached
+                && case.context.attestation.kind == AttestationKind::IndependentReplication
+                && case.context.target_attestation.exists
+        }));
+        assert!(cases.iter().any(|case| {
+            case.context.action == Action::ClaimProposed
+                && case.context.claim.exists
+                && case.context.target_attestation.exists
+        }));
+    }
+}
