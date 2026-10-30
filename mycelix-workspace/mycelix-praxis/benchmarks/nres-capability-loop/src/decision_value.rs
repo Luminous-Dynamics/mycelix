@@ -919,6 +919,19 @@ mod tests {
                 assert!((actual["reliability_resolution_uncertainty"][key].as_f64().unwrap()
                     - expected["reliability_resolution_uncertainty"][key].as_f64().unwrap()).abs() <= tolerance, "{key}");
             }
+            for (actual_bin, expected_bin) in actual["reliability_resolution_uncertainty"]["bins"].as_array().unwrap()
+                .iter().zip(expected["reliability_resolution_uncertainty"]["bins"].as_array().unwrap())
+            {
+                assert_eq!(actual_bin["bin_id"], expected_bin["bin_id"]);
+                assert_eq!(actual_bin["count"], expected_bin["count"]);
+                for key in ["weight", "mean_probability", "event_rate"] {
+                    if expected_bin[key].is_null() {
+                        assert!(actual_bin[key].is_null(), "{key}");
+                    } else {
+                        assert!((actual_bin[key].as_f64().unwrap() - expected_bin[key].as_f64().unwrap()).abs() <= tolerance, "{key}");
+                    }
+                }
+            }
             for key in ["candidate_forecast_and_review", "always_no_action", "always_prepare",
                 "training_climatology", "perfect_information_oracle_lower_bound"]
             {
