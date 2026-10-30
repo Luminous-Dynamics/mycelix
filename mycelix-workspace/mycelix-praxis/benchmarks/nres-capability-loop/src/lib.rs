@@ -12,6 +12,9 @@ pub use interchange::{export_evidence_envelope, validate_evidence_envelope};
 pub mod trajectory;
 pub use trajectory::evaluate_resilience_trajectories;
 
+pub mod probability;
+pub use probability::evaluate_probability_forecasts;
+
 use std::collections::{BTreeMap, BTreeSet, HashMap};
 
 fn str_field<'a>(value: &'a Value, key: &str) -> Option<&'a str> {
