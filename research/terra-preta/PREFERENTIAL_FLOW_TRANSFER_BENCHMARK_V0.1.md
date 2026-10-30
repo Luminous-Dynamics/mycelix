@@ -223,6 +223,8 @@ The 2025 HydroShare [NEON Soil Preferential Flow Database v1.1](https://doi.org/
 
 Use it to bootstrap data-dictionary and eventizer crosswalk work, test Ksat-threshold sensitivity and inspect missingness before rebuilding the raw 2026 cohort. It is not independent of NEON, not necessarily identical to the 2026 article's model matrix, and not a substitute for exact-release raw reconstruction. The source-specific caveat that BONA, DEJU, HEAL, TOOL and BARR are not recommended, while KONA is excluded, must be retained as dataset metadata rather than converted into a guessed 2026 site roster.
 
+**Complementary validation design:** [Multi-method PF triangulation benchmark](./PREFERENTIAL_FLOW_MULTIMETHOD_TRIANGULATION_BENCHMARK_V0.1.md) and [implementation issue #5538](https://github.com/Luminous-Dynamics/mycelix/issues/5538).
+
 ## 9. Data provenance, overlap and stop rules
 
 - Freeze release tag, site roster, file inventory, publisher checksum, local SHA-256, query/API response, product code, sensor metadata and preprocessing commit before modelling.
