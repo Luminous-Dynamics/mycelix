@@ -7,9 +7,10 @@ Run from the `mycelix-praxis` directory:
 ```bash
 cargo test --manifest-path benchmarks/nres-capability-loop/Cargo.toml
 cargo run --manifest-path benchmarks/nres-capability-loop/Cargo.toml
+cargo run --manifest-path benchmarks/nres-capability-loop/Cargo.toml -- --envelope
 ```
 
-The CLI emits a machine-readable report with separate measures for objective-evidence coverage, per-service-floor attainment, budget and responder-hour utilization, authority-evidence completeness, accessibility-check coverage, verified corrective actions, and recurrence of previously failed conditions.
+The default CLI mode emits a machine-readable report with separate measures for objective-evidence coverage, per-service-floor attainment, budget and responder-hour utilization, authority-evidence completeness, accessibility-check coverage, verified corrective actions, and recurrence of previously failed conditions. The `--envelope` mode exports a JSON-LD 1.1 envelope using W3C PROV vocabulary, framework crosswalk metadata, privacy boundaries and an explicit unsigned-demo state.
 
 The evaluator rejects budget overruns, service-floor drift from the NRES-002 source fixture, accepted observations without evidence, corrective-action closure without completion evidence / independent verification / a successful service-floor retest, and attempts to add aggregate/leaderboard/personal-suitability scores.
 
@@ -21,4 +22,4 @@ The evaluator rejects budget overruns, service-floor drift from the NRES-002 sou
 - No participant identity, political belief, enlistment interest, loyalty, or personal suitability is scored.
 - This crate is isolated in its own Cargo workspace and is not part of Praxis's production application or active curriculum.
 
-Tests are authored in `src/lib.rs`. They have not been run in the current environment.
+Tests are authored in `src/lib.rs` and `src/interchange.rs`. They have not been run in the current environment. The envelope profile and public conformance corpus are documented in [PRAXIS-NRES-006](../../docs/curriculum/PRAXIS_NRES_006_EVIDENCE_INTERCHANGE.md).
