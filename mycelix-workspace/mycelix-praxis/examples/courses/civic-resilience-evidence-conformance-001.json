@@ -1,0 +1,123 @@
+{
+  "suite_id": "PRAXIS-NRES-006-CONFORMANCE-001",
+  "schema_version": "1.0.0",
+  "status": "public-development-only",
+  "valid_fixture": "examples/courses/civic-resilience-evidence-envelope-001.json",
+  "required_checks": [
+    "root-context-maps-nres-and-prov",
+    "unique-graph-node-identifiers",
+    "all-prov-relation-references-resolve",
+    "source-status-and-evaluation-split-preserved",
+    "service-floor-units-and-thresholds-preserved",
+    "corrective-action-closure-has-evidence-independent-review-and-successful-retest",
+    "no-natural-person-or-prohibited-inference-fields",
+    "unsigned-demo-status-preserved",
+    "unknown-namespaced-extensions-preserved"
+  ],
+  "negative_cases": [
+    {
+      "id": "NEG-01",
+      "mutation": "Remove a @graph node referenced by prov:wasDerivedFrom",
+      "expected": "reject unresolved provenance reference"
+    },
+    {
+      "id": "NEG-02",
+      "mutation": "Change bundle_metadata.evaluation_split from public-development-only to confirmatory-held-out",
+      "expected": "reject mismatch with source public fixture status"
+    },
+    {
+      "id": "NEG-03",
+      "mutation": "Remove completion evidence from a closed-verified corrective action",
+      "expected": "reject verified closure"
+    },
+    {
+      "id": "NEG-04",
+      "mutation": "Set independentlyReviewed=false for a verified completion evidence record",
+      "expected": "reject verified closure"
+    },
+    {
+      "id": "NEG-05",
+      "mutation": "Add a person_id, learner_id, political_affiliation, enlistment_propensity or loyalty_score property",
+      "expected": "reject prohibited personal or inference data"
+    },
+    {
+      "id": "NEG-06",
+      "mutation": "Add composite_score or overall_resilience_score",
+      "expected": "reject aggregate score"
+    },
+    {
+      "id": "NEG-07",
+      "mutation": "Change the source service-floor threshold while retaining an old observation",
+      "expected": "reject source-threshold drift"
+    },
+    {
+      "id": "NEG-08",
+      "mutation": "Remove the NRES namespace context or substitute the PROV namespace",
+      "expected": "reject context mismatch"
+    },
+    {
+      "id": "NEG-09",
+      "mutation": "Set payload_sha256 to a malformed non-null digest",
+      "expected": "reject malformed digest"
+    },
+    {
+      "id": "NEG-10",
+      "mutation": "Replace a synthetic evidence status with observed-exercise without a source authority",
+      "expected": "reject provenance/status escalation"
+    }
+  ],
+  "round_trip_cases": [
+    {
+      "id": "RT-01",
+      "input_extension_key": "ext:reviewNote",
+      "value": "preserve-me",
+      "expected": "unknown namespaced extension survives unchanged"
+    },
+    {
+      "id": "RT-02",
+      "input_extension_key": "ext:opaquePayload",
+      "value": {
+        "vendor": "external",
+        "revision": 2
+      },
+      "expected": "opaque nested extension survives unchanged"
+    },
+    {
+      "id": "RT-03",
+      "input_unit": "percentage",
+      "input_denominator": 4,
+      "expected": "units and denominators survive unchanged"
+    },
+    {
+      "id": "RT-04",
+      "input_missingness": "unknown",
+      "expected": "unknown is not converted to false or zero"
+    }
+  ],
+  "performance_protocol": {
+    "payload_sizes_bytes": [
+      10000,
+      100000,
+      1000000
+    ],
+    "adapters_required": 2,
+    "repetitions_per_size": 30,
+    "report": [
+      "median import latency",
+      "p95 import latency",
+      "median export latency",
+      "p95 export latency",
+      "peak memory",
+      "bytes per evidence record",
+      "validation error rate"
+    ],
+    "fairness": "Same fixture bytes, schema version, validation policy, hardware and dependency warm/cold state must be reported."
+  },
+  "non_claims": [
+    "A valid envelope does not prove the source claim is true.",
+    "A provenance link does not prove the action was lawful.",
+    "A hash does not authenticate a person or organization.",
+    "This profile is not an official HSEEP, IFRC, ISO, WHO or OASIS interchange schema.",
+    "Self-round-trip in one implementation is not independent interoperability evidence."
+  ]
+}
