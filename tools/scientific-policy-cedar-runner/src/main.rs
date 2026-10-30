@@ -296,6 +296,12 @@ fn evaluate_case(
     let authorization_start = Instant::now();
     let response = authorizer.is_authorized(&request, policy_set, &entities);
     let authorization_ns = authorization_start.elapsed().as_nanos();
+    if let Some(error) = response.diagnostics().errors().next() {
+        return Err(format!(
+            "Cedar evaluation diagnostic for {} (not a deny): {error:?}",
+            case.case_id
+        ));
+    }
 
     let decision = match response.decision() {
         Decision::Allow => "allow",
