@@ -1,4 +1,4 @@
-use cedar_policy::{Authorizer, Context, Decision, Entities, EntityUid, PolicySet, Request, Schema};
+use cedar_policy::{Authorizer, Context, Decision, Entities, EntityUid, PolicySet, Request, Schema, ValidationMode, Validator};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use sha2::{Digest, Sha256};
@@ -9,7 +9,7 @@ use std::io::{BufRead, BufReader, BufWriter, Write};
 use std::path::{Path, PathBuf};
 use std::process::ExitCode;
 use std::str::FromStr;
-use std::time::{Duration, Instant};
+use std::time::Instant;
 
 const EXPECTED_BASELINE_REVISION: &str = "f89b4bcdcfb901961e2ca11a577775acbf53a74d";
 const EXPECTED_BASELINE_SOURCE_BLOB_SHA: &str = "dd9ea9267cdae2e2c67244e8a90821defaacefb3";
@@ -27,11 +27,19 @@ struct InputManifest {
     policy_id: String,
     policy_version: String,
     case_count: usize,
+    empty_stream_cases: usize,
+    existing_stream_cases: usize,
+    distinct_role_subsets: usize,
+    action_count: usize,
     expected_decision_status: String,
+    claim_ceiling: String,
+    corpus_file: String,
+    corpus_sha256: String,
     engine_inputs_file: String,
     engine_inputs_sha256: String,
     engine_input_count: usize,
     engine_input_format: String,
+    encoding: String,
 }
 
 #[derive(Debug, Deserialize)]
@@ -162,10 +170,16 @@ fn validate_manifest(manifest: &InputManifest) -> Result<(), String> {
         || manifest.policy_id != "mycelix-default-scientific-authorization"
         || manifest.policy_version != "1.0.0"
         || manifest.case_count != EXPECTED_CASE_COUNT
-        || manifest.engine_input_count != EXPECTED_CASE_COUNT
+        || manifest.empty_stream_cases != 1_024
+        || manifest.existing_stream_cases != 61_440
+        || manifest.distinct_role_subsets != 128
+        || manifest.action_count != 8
         || manifest.expected_decision_status != "pending_authentic_rust_oracle"
-        || manifest.engine_input_file != "scientific-policy-engine-inputs-v0.1.jsonl"
+        || manifest.corpus_file != "scientific-policy-decision-space-v0.1.jsonl"
+        || manifest.engine_inputs_file != "scientific-policy-engine-inputs-v0.1.jsonl"
+        || manifest.engine_input_count != EXPECTED_CASE_COUNT
         || manifest.engine_input_format != "case_id+cedar_native_request+rego_input"
+        || manifest.encoding != "utf-8-jsonl-one-record-per-line"
     {
         return Err("input manifest does not match the pinned v0.1 corpus contract".to_owned());
     }
@@ -293,6 +307,13 @@ fn run() -> Result<(), String> {
         .map_err(|error| format!("parse Cedar policy: {error:?}"))?;
     let schema = Schema::from_json_str(schema_source)
         .map_err(|error| format!("parse Cedar JSON schema: {error:?}"))?;
+    let validator = Validator::new(schema.clone());
+    let validation = validator.validate(&policy_set, ValidationMode::Strict);
+    if !validation.validation_passed() {
+        return Err(format!(
+            "Cedar policy failed strict schema validation: {validation:?}"
+        ));
+    }
     let authorizer = Authorizer::new();
 
     fs::create_dir_all(&output_directory)
@@ -315,7 +336,7 @@ fn run() -> Result<(), String> {
     }
 
     let wall_start = Instant::now();
-    for case in cases.iter() {
+    for (case_index, case) in cases.iter().enumerate() {
         let start = Instant::now();
         let (decision, construction_ns, authorization_ns) =
             evaluate_case(&authorizer, &policy_set, &schema, case)?;
@@ -325,16 +346,11 @@ fn run() -> Result<(), String> {
         } else {
             deny_count += 1;
         }
-        if end_to_end_times.len() < cases.len() - warmup_cases {
-            // The first warmup_cases output records are evaluated again to
-            // keep a warmup denominator, but their latency is excluded.
-            if case.case_id == cases[end_to_end_times.len()].case_id {
-                continue;
-            }
+        if case_index >= warmup_cases {
+            construction_times.push(construction_ns);
+            authorization_times.push(authorization_ns);
+            end_to_end_times.push(total_ns);
         }
-        construction_times.push(construction_ns);
-        authorization_times.push(authorization_ns);
-        end_to_end_times.push(total_ns);
 
         let record = DecisionRecord {
             case_id: &case.case_id,
