@@ -1,0 +1,169 @@
+{
+  "benchmark_id": "PRAXIS-NRES-008-PROBABILITY-ABSTENTION-CONFORMANCE-001",
+  "schema_version": "1.0.0",
+  "status": "public-development-conformance-corpus",
+  "fixture_ref": "civic-resilience-probability-abstention-fixture-001.json",
+  "negative_cases": [
+    {
+      "case_id": "NEG-01",
+      "name": "Probability above one",
+      "mutation": "Set predicted_breach_probability=1.01",
+      "expected_disposition": "reject-probability-out-of-range"
+    },
+    {
+      "case_id": "NEG-02",
+      "name": "Probability below zero",
+      "mutation": "Set predicted_breach_probability=-0.01",
+      "expected_disposition": "reject-probability-out-of-range"
+    },
+    {
+      "case_id": "NEG-03",
+      "name": "Forecast with missing critical input",
+      "mutation": "Set qualification_state=missing_critical_input and action=forecast",
+      "expected_disposition": "reject-mandatory-abstention-violation"
+    },
+    {
+      "case_id": "NEG-04",
+      "name": "Forecast under unsupported shift",
+      "mutation": "Set qualification_state=unsupported_distribution_shift and action=forecast",
+      "expected_disposition": "reject-mandatory-abstention-violation"
+    },
+    {
+      "case_id": "NEG-05",
+      "name": "Abstain but emit probability",
+      "mutation": "Set action=abstain and predicted_breach_probability=0.4",
+      "expected_disposition": "reject-probability-on-abstention"
+    },
+    {
+      "case_id": "NEG-06",
+      "name": "Forecast without probability",
+      "mutation": "Set action=forecast and predicted_breach_probability=null",
+      "expected_disposition": "reject-missing-probability"
+    },
+    {
+      "case_id": "NEG-07",
+      "name": "Duplicate case identity",
+      "mutation": "Duplicate a case_id",
+      "expected_disposition": "reject-duplicate-case-id"
+    },
+    {
+      "case_id": "NEG-08",
+      "name": "Wrong forecast horizon",
+      "mutation": "Set forecast_horizon_hours=48",
+      "expected_disposition": "reject-horizon-drift"
+    },
+    {
+      "case_id": "NEG-09",
+      "name": "Invalid observed availability",
+      "mutation": "Set observed_minimum_availability_percent=101",
+      "expected_disposition": "reject-observation-out-of-range"
+    },
+    {
+      "case_id": "NEG-10",
+      "name": "Missing abstention reason",
+      "mutation": "Set action=abstain and abstention_reason=null",
+      "expected_disposition": "reject-missing-abstention-reason"
+    },
+    {
+      "case_id": "NEG-11",
+      "name": "Unqualified abstention reason mismatch",
+      "mutation": "Set conflicting_sources with reason=model_uncertainty",
+      "expected_disposition": "reject-abstention-reason-mismatch"
+    },
+    {
+      "case_id": "NEG-12",
+      "name": "Composite score injection",
+      "mutation": "Add overall_resilience_score to root object",
+      "expected_disposition": "reject-composite-score"
+    }
+  ],
+  "expected_metrics": {
+    "issued_case_count": 20,
+    "total_case_count": 25,
+    "qualified_case_count": 21,
+    "mandatory_abstention_case_count": 4,
+    "mandatory_abstention_count": 4,
+    "optional_abstention_count": 1,
+    "population_forecast_coverage": 0.8,
+    "qualified_case_forecast_coverage": 0.9523809523809523,
+    "mandatory_abstention_compliance": 1,
+    "brier_score": 0.16039999999999996,
+    "log_loss": 0.4728033001197488,
+    "climatology_reference_probability": 0.5,
+    "climatology_brier_score": 0.25,
+    "brier_skill_score": 0.35840000000000016,
+    "expected_calibration_error_diagnostic": 0.096,
+    "event_count": 10,
+    "reliability_bins": [
+      {
+        "bin_id": "BIN-0",
+        "lower_inclusive": 0,
+        "upper": 0.2,
+        "upper_inclusive": false,
+        "count": 4,
+        "mean_forecast_probability": 0.08,
+        "observed_event_rate": 0
+      },
+      {
+        "bin_id": "BIN-1",
+        "lower_inclusive": 0.2,
+        "upper": 0.4,
+        "upper_inclusive": false,
+        "count": 4,
+        "mean_forecast_probability": 0.30000000000000004,
+        "observed_event_rate": 0.5
+      },
+      {
+        "bin_id": "BIN-2",
+        "lower_inclusive": 0.4,
+        "upper": 0.6000000000000001,
+        "upper_inclusive": false,
+        "count": 4,
+        "mean_forecast_probability": 0.5,
+        "observed_event_rate": 0.5
+      },
+      {
+        "bin_id": "BIN-3",
+        "lower_inclusive": 0.6000000000000001,
+        "upper": 0.8,
+        "upper_inclusive": false,
+        "count": 4,
+        "mean_forecast_probability": 0.7,
+        "observed_event_rate": 0.75
+      },
+      {
+        "bin_id": "BIN-4",
+        "lower_inclusive": 0.8,
+        "upper": 1,
+        "upper_inclusive": true,
+        "count": 4,
+        "mean_forecast_probability": 0.9,
+        "observed_event_rate": 0.75
+      }
+    ]
+  },
+  "round_trip_requirements": [
+    "Preserve case IDs, service IDs, forecast origin and horizon exactly.",
+    "Preserve qualification state and forecast-versus-abstention action.",
+    "Preserve predicted probabilities without rounding or converting null to zero.",
+    "Preserve observed minimum availability and service-floor units.",
+    "Preserve the aggregate calibration-reference numerator and denominator.",
+    "Preserve log-loss epsilon and fixed reliability-bin boundaries.",
+    "Preserve synthetic/public-development-only/inactive status.",
+    "Preserve source/claim qualification labels and unknown namespaced extensions."
+  ],
+  "conformance_targets": {
+    "valid_fixture_acceptance": "100 percent",
+    "listed_negative_case_rejection": "100 percent",
+    "expected_metric_tolerance_absolute": 1e-12,
+    "null_probability_preservation": "exact",
+    "mandatory_abstention_violations_accepted": 0,
+    "composite_or_personal_scores_accepted": 0
+  },
+  "limitations": [
+    "This is a public development fixture, not a hidden test set.",
+    "A second independent implementation and third-party verifier are required for confirmatory conformance.",
+    "Proper scoring rules and calibration diagnostics do not establish causal impact or operational utility.",
+    "No distribution-free prediction interval or coverage guarantee is claimed."
+  ]
+}
