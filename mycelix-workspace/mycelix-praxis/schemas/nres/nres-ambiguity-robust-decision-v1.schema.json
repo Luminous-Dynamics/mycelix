@@ -1,0 +1,581 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:mycelix:praxis:nres:012:ambiguity-robust-decision:v1",
+  "title": "Praxis NRES-012 Bernoulli Ambiguity-Robust Decision Fixture",
+  "description": "Structural profile for point, worst-case expected-loss and minimax-regret decision policies under declared total-variation ambiguity intervals for a Bernoulli event. Cross-field lineage, interval and policy calculations are enforced by the Rust evaluator.",
+  "type": "object",
+  "required": [
+    "benchmark_id",
+    "schema_version",
+    "status",
+    "evaluation_split",
+    "active_in_curriculum",
+    "source_fixture",
+    "target",
+    "sampling_design",
+    "calibration_reference",
+    "decision_profiles",
+    "regimes",
+    "protocol",
+    "evaluation_cases",
+    "interpretation_guardrails"
+  ],
+  "properties": {
+    "benchmark_id": {
+      "const": "PRAXIS-NRES-012-AMBIGUITY-ROBUST-DECISION-001"
+    },
+    "schema_version": {
+      "const": "1.0.0"
+    },
+    "status": {
+      "const": "synthetic-demonstration-for-review"
+    },
+    "evaluation_split": {
+      "const": "public-development-only"
+    },
+    "active_in_curriculum": {
+      "const": false
+    },
+    "title": {
+      "type": "string",
+      "minLength": 1
+    },
+    "purpose": {
+      "type": "string",
+      "minLength": 1
+    },
+    "scope_limits": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "source_fixture": {
+      "type": "object",
+      "required": [
+        "benchmark_id",
+        "fixture_blob_sha",
+        "source_case_count",
+        "source_description"
+      ],
+      "properties": {
+        "benchmark_id": {
+          "const": "PRAXIS-NRES-011-RELIABILITY-RESOLUTION-DECISION-VALUE-001"
+        },
+        "fixture_blob_sha": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{40}$"
+        },
+        "source_case_count": {
+          "const": 128
+        },
+        "source_description": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "additionalProperties": true
+    },
+    "target": {
+      "type": "object",
+      "required": [
+        "quantity",
+        "unit",
+        "threshold",
+        "event_definition",
+        "horizon_hours"
+      ],
+      "properties": {
+        "quantity": {
+          "type": "string",
+          "minLength": 1
+        },
+        "unit": {
+          "const": "normalized-service-deficit-hours"
+        },
+        "threshold": {
+          "const": 48
+        },
+        "event_definition": {
+          "type": "string",
+          "minLength": 1
+        },
+        "horizon_hours": {
+          "const": 72
+        }
+      },
+      "additionalProperties": true
+    },
+    "sampling_design": {
+      "type": "object",
+      "required": [
+        "status",
+        "strata",
+        "weight_formula",
+        "expected_total_weight_per_regime",
+        "design_note"
+      ],
+      "properties": {
+        "status": {
+          "const": "synthetic-stratified-importance-sampling-demonstration"
+        },
+        "strata": {
+          "type": "array",
+          "minItems": 2,
+          "maxItems": 2,
+          "items": {
+            "type": "object",
+            "required": [
+              "sampling_stratum",
+              "proposal_probability",
+              "target_probability"
+            ],
+            "properties": {
+              "sampling_stratum": {
+                "enum": [
+                  "routine",
+                  "tail_enriched"
+                ]
+              },
+              "proposal_probability": {
+                "type": "number",
+                "exclusiveMinimum": 0,
+                "maximum": 1
+              },
+              "target_probability": {
+                "type": "number",
+                "exclusiveMinimum": 0,
+                "maximum": 1
+              }
+            },
+            "additionalProperties": true
+          }
+        },
+        "weight_formula": {
+          "type": "string",
+          "minLength": 1
+        },
+        "expected_total_weight_per_regime": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "design_note": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "additionalProperties": true
+    },
+    "calibration_reference": {
+      "type": "object",
+      "required": [
+        "sample_count",
+        "exceedance_count",
+        "exceedance_probability",
+        "status",
+        "description"
+      ],
+      "properties": {
+        "sample_count": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "exceedance_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "exceedance_probability": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "status": {
+          "const": "synthetic-training-reference"
+        },
+        "description": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "additionalProperties": true
+    },
+    "decision_profiles": {
+      "type": "array",
+      "minItems": 3,
+      "maxItems": 16,
+      "items": {
+        "type": "object",
+        "required": [
+          "profile_id",
+          "readiness_cost",
+          "event_loss_without_action",
+          "event_loss_with_action",
+          "deferral_cost",
+          "decision_threshold_probability",
+          "cost_unit"
+        ],
+        "properties": {
+          "profile_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "readiness_cost": {
+            "type": "number",
+            "minimum": 0
+          },
+          "event_loss_without_action": {
+            "type": "number",
+            "exclusiveMinimum": 0
+          },
+          "event_loss_with_action": {
+            "type": "number",
+            "minimum": 0
+          },
+          "deferral_cost": {
+            "type": "number",
+            "minimum": 0
+          },
+          "decision_threshold_probability": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1
+          },
+          "cost_unit": {
+            "const": "normalized-planning-loss-units"
+          }
+        },
+        "additionalProperties": true
+      }
+    },
+    "regimes": {
+      "type": "array",
+      "minItems": 4,
+      "maxItems": 4,
+      "items": {
+        "type": "object",
+        "required": [
+          "regime_id",
+          "ambiguity_set"
+        ],
+        "properties": {
+          "regime_id": {
+            "enum": [
+              "in_distribution",
+              "temporal_shift",
+              "structural_dependency_shift",
+              "evidence_degradation"
+            ]
+          },
+          "ambiguity_set": {
+            "type": "object",
+            "required": [
+              "kind",
+              "total_variation_radius",
+              "radius_interpretation"
+            ],
+            "properties": {
+              "kind": {
+                "const": "bernoulli_total_variation_ball"
+              },
+              "total_variation_radius": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 1
+              },
+              "radius_interpretation": {
+                "type": "string",
+                "minLength": 1
+              }
+            },
+            "additionalProperties": true
+          }
+        },
+        "additionalProperties": true
+      }
+    },
+    "protocol": {
+      "type": "object",
+      "required": [
+        "forecast_origin_hour",
+        "forecast_horizon_hours",
+        "event_threshold",
+        "probability_interval",
+        "ambiguity_metric",
+        "nominal_policy",
+        "worst_case_expected_loss_policy",
+        "minimax_regret_policy",
+        "worst_case_regret",
+        "review_policy",
+        "baseline_policies",
+        "aggregation_rule"
+      ],
+      "properties": {
+        "forecast_origin_hour": {
+          "type": "number",
+          "minimum": 0
+        },
+        "forecast_horizon_hours": {
+          "const": 72
+        },
+        "event_threshold": {
+          "const": 48
+        },
+        "probability_interval": {
+          "type": "string",
+          "minLength": 1
+        },
+        "ambiguity_metric": {
+          "const": "total_variation_distance_between_bernoulli_event_distributions"
+        },
+        "nominal_policy": {
+          "type": "string",
+          "minLength": 1
+        },
+        "worst_case_expected_loss_policy": {
+          "type": "string",
+          "minLength": 1
+        },
+        "minimax_regret_policy": {
+          "type": "string",
+          "minLength": 1
+        },
+        "worst_case_regret": {
+          "type": "string",
+          "minLength": 1
+        },
+        "review_policy": {
+          "type": "string",
+          "minLength": 1
+        },
+        "baseline_policies": {
+          "type": "array",
+          "minItems": 7,
+          "items": {
+            "enum": [
+              "nominal_point_forecast",
+              "worst_case_expected_loss",
+              "minimax_regret",
+              "training_climatology",
+              "always_no_action",
+              "always_prepare",
+              "perfect_information_oracle"
+            ]
+          }
+        },
+        "aggregation_rule": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "additionalProperties": true
+    },
+    "evaluation_cases": {
+      "type": "array",
+      "minItems": 128,
+      "maxItems": 128,
+      "items": {
+        "type": "object",
+        "required": [
+          "case_id",
+          "source_case_id",
+          "nres010_source_case_id",
+          "regime_id",
+          "sampling_stratum",
+          "proposal_stratum_probability",
+          "target_stratum_probability",
+          "forecast_origin_hour",
+          "forecast_horizon_hours",
+          "evaluator",
+          "candidate_output"
+        ],
+        "properties": {
+          "case_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "source_case_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "nres010_source_case_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "regime_id": {
+            "enum": [
+              "in_distribution",
+              "temporal_shift",
+              "structural_dependency_shift",
+              "evidence_degradation"
+            ]
+          },
+          "sampling_stratum": {
+            "enum": [
+              "routine",
+              "tail_enriched"
+            ]
+          },
+          "proposal_stratum_probability": {
+            "type": "number",
+            "exclusiveMinimum": 0,
+            "maximum": 1
+          },
+          "target_stratum_probability": {
+            "type": "number",
+            "exclusiveMinimum": 0,
+            "maximum": 1
+          },
+          "forecast_origin_hour": {
+            "type": "number",
+            "minimum": 0
+          },
+          "forecast_horizon_hours": {
+            "const": 72
+          },
+          "evaluator": {
+            "type": "object",
+            "required": [
+              "observed_normalized_service_deficit_hours",
+              "qualification_state",
+              "review_fallback_action"
+            ],
+            "properties": {
+              "observed_normalized_service_deficit_hours": {
+                "type": "number",
+                "minimum": 0
+              },
+              "qualification_state": {
+                "enum": [
+                  "qualified",
+                  "missing_critical_input",
+                  "conflicting_sources",
+                  "unsupported_distribution_shift"
+                ]
+              },
+              "review_fallback_action": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "enum": [
+                  "prepare",
+                  "no_action",
+                  null
+                ]
+              }
+            },
+            "additionalProperties": true
+          },
+          "candidate_output": {
+            "oneOf": [
+              {
+                "type": "object",
+                "required": [
+                  "action",
+                  "predicted_exceedance_probability",
+                  "probability_lower",
+                  "probability_upper",
+                  "ambiguity_radius",
+                  "abstention_reason"
+                ],
+                "properties": {
+                  "action": {
+                    "const": "forecast"
+                  },
+                  "predicted_exceedance_probability": {
+                    "type": "number",
+                    "minimum": 0,
+                    "maximum": 1
+                  },
+                  "probability_lower": {
+                    "type": "number",
+                    "minimum": 0,
+                    "maximum": 1
+                  },
+                  "probability_upper": {
+                    "type": "number",
+                    "minimum": 0,
+                    "maximum": 1
+                  },
+                  "ambiguity_radius": {
+                    "type": "number",
+                    "minimum": 0,
+                    "maximum": 1
+                  },
+                  "abstention_reason": {
+                    "type": "null"
+                  }
+                },
+                "additionalProperties": true
+              },
+              {
+                "type": "object",
+                "required": [
+                  "action",
+                  "predicted_exceedance_probability",
+                  "probability_lower",
+                  "probability_upper",
+                  "ambiguity_radius",
+                  "abstention_reason"
+                ],
+                "properties": {
+                  "action": {
+                    "const": "abstain"
+                  },
+                  "predicted_exceedance_probability": {
+                    "type": "null"
+                  },
+                  "probability_lower": {
+                    "type": "null"
+                  },
+                  "probability_upper": {
+                    "type": "null"
+                  },
+                  "ambiguity_radius": {
+                    "type": "null"
+                  },
+                  "abstention_reason": {
+                    "type": "string",
+                    "minLength": 1
+                  }
+                },
+                "additionalProperties": true
+              }
+            ]
+          }
+        },
+        "additionalProperties": true
+      }
+    },
+    "interpretation_guardrails": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    }
+  },
+  "additionalProperties": true,
+  "not": {
+    "anyOf": [
+      {
+        "required": [
+          "overall_resilience_score"
+        ]
+      },
+      {
+        "required": [
+          "composite_score"
+        ]
+      },
+      {
+        "required": [
+          "personal_suitability_score"
+        ]
+      }
+    ]
+  }
+}
