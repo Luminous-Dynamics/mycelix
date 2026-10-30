@@ -475,7 +475,41 @@ mod tests {
             "boundary_flux_review_ref": "synthetic-boundary-flux-review",
             "boundary_coverage_status": "declared_complete",
             "input_total_kg_element_per_ha": 50,
+            "input_category_summaries": [
+                {
+                    "category": "atmospheric_deposition",
+                    "count": 1,
+                    "amount_kg_element_per_ha": 10,
+                    "conservative_linear_standard_uncertainty_bound_kg_element_per_ha": 0.2
+                },
+                {
+                    "category": "fertilizer",
+                    "count": 1,
+                    "amount_kg_element_per_ha": 40,
+                    "conservative_linear_standard_uncertainty_bound_kg_element_per_ha": 0.4
+                }
+            ],
             "output_total_kg_element_per_ha": 28,
+            "output_category_summaries": [
+                {
+                    "category": "gaseous_loss",
+                    "count": 1,
+                    "amount_kg_element_per_ha": 3,
+                    "conservative_linear_standard_uncertainty_bound_kg_element_per_ha": 0.5
+                },
+                {
+                    "category": "harvest_export",
+                    "count": 1,
+                    "amount_kg_element_per_ha": 20,
+                    "conservative_linear_standard_uncertainty_bound_kg_element_per_ha": 0.3
+                },
+                {
+                    "category": "leaching",
+                    "count": 1,
+                    "amount_kg_element_per_ha": 5,
+                    "conservative_linear_standard_uncertainty_bound_kg_element_per_ha": 0.2
+                }
+            ],
             "storage_start_total_kg_element_per_ha": 100,
             "storage_end_total_kg_element_per_ha": 122,
             "storage_change_kg_element_per_ha": 22,
