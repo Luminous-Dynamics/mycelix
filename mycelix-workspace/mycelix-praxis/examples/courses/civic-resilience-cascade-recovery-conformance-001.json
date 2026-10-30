@@ -87,5 +87,121 @@
     "This corpus is formative and is not an independently held-out validation set.",
     "Conformance requires at least two independently implemented adapters and a third-party verifier.",
     "A reference implementation passing its own corpus is necessary but not sufficient evidence of interoperability."
-  ]
+  ],
+  "expected_numerical_outputs": {
+    "absolute_tolerance": 1e-9,
+    "scenario_metrics": {
+      "NRES007-REFERENCE-001": {
+        "electricity_supply": {
+          "deficit_area_percentage_point_hours": 700,
+          "max_shortfall_percentage_points": 45,
+          "breach_sample_count": 4,
+          "sustained_recovery_observed_hour": 36,
+          "horizon_floor_pass": true
+        },
+        "communications_access": {
+          "deficit_area_percentage_point_hours": 498.356643356643,
+          "max_shortfall_percentage_points": 35,
+          "breach_sample_count": 4,
+          "sustained_recovery_observed_hour": 36,
+          "horizon_floor_pass": true
+        },
+        "water_service_continuity": {
+          "deficit_area_percentage_point_hours": 176.428571428571,
+          "max_shortfall_percentage_points": 15,
+          "breach_sample_count": 3,
+          "sustained_recovery_observed_hour": 36,
+          "horizon_floor_pass": true
+        },
+        "public_information": {
+          "deficit_area_percentage_point_hours": 292.5,
+          "max_shortfall_percentage_points": 25,
+          "breach_sample_count": 3,
+          "sustained_recovery_observed_hour": 24,
+          "horizon_floor_pass": true
+        },
+        "welfare_check_coordination": {
+          "deficit_area_percentage_point_hours": 710.428571428571,
+          "max_shortfall_percentage_points": 40,
+          "breach_sample_count": 5,
+          "sustained_recovery_observed_hour": 48,
+          "horizon_floor_pass": true
+        },
+        "health_logistics_continuity": {
+          "deficit_area_percentage_point_hours": 969,
+          "max_shortfall_percentage_points": 35,
+          "breach_sample_count": 6,
+          "sustained_recovery_observed_hour": 72,
+          "horizon_floor_pass": true
+        },
+        "transport_access": {
+          "deficit_area_percentage_point_hours": 488.571428571429,
+          "max_shortfall_percentage_points": 25,
+          "breach_sample_count": 5,
+          "sustained_recovery_observed_hour": 48,
+          "horizon_floor_pass": true
+        }
+      },
+      "NRES007-COMPARISON-001": {
+        "electricity_supply": {
+          "deficit_area_percentage_point_hours": 152.5,
+          "max_shortfall_percentage_points": 15,
+          "breach_sample_count": 3,
+          "sustained_recovery_observed_hour": 24,
+          "horizon_floor_pass": true
+        },
+        "communications_access": {
+          "deficit_area_percentage_point_hours": 18,
+          "max_shortfall_percentage_points": 5,
+          "breach_sample_count": 1,
+          "sustained_recovery_observed_hour": 12,
+          "horizon_floor_pass": true
+        },
+        "water_service_continuity": {
+          "deficit_area_percentage_point_hours": 9,
+          "max_shortfall_percentage_points": 2,
+          "breach_sample_count": 1,
+          "sustained_recovery_observed_hour": 18,
+          "horizon_floor_pass": true
+        },
+        "public_information": {
+          "deficit_area_percentage_point_hours": 0,
+          "max_shortfall_percentage_points": 0,
+          "breach_sample_count": 0,
+          "sustained_recovery_observed_hour": 0,
+          "horizon_floor_pass": true
+        },
+        "welfare_check_coordination": {
+          "deficit_area_percentage_point_hours": 150,
+          "max_shortfall_percentage_points": 15,
+          "breach_sample_count": 3,
+          "sustained_recovery_observed_hour": 24,
+          "horizon_floor_pass": true
+        },
+        "health_logistics_continuity": {
+          "deficit_area_percentage_point_hours": 252,
+          "max_shortfall_percentage_points": 17,
+          "breach_sample_count": 4,
+          "sustained_recovery_observed_hour": 36,
+          "horizon_floor_pass": true
+        },
+        "transport_access": {
+          "deficit_area_percentage_point_hours": 152.946428571429,
+          "max_shortfall_percentage_points": 15,
+          "breach_sample_count": 3,
+          "sustained_recovery_observed_hour": 24,
+          "horizon_floor_pass": true
+        }
+      }
+    }
+  },
+  "expected_reference_minus_comparison_deficit_area_by_service": {
+    "electricity_supply": 547.5,
+    "communications_access": 480.356643356643,
+    "water_service_continuity": 167.428571428571,
+    "public_information": 292.5,
+    "welfare_check_coordination": 560.428571428571,
+    "health_logistics_continuity": 717,
+    "transport_access": 335.625
+  }
 }
