@@ -106,7 +106,10 @@ fn parse_dependency_columns(value: &str) -> Result<Vec<String>, Box<dyn Error>> 
     let mut seen = HashSet::new();
     for column in &columns {
         if column.is_empty() || column.trim() != column {
-            return Err("dependency column names must be non-empty and have no surrounding whitespace".into());
+            return Err(
+                "dependency column names must be non-empty and have no surrounding whitespace"
+                    .into(),
+            );
         }
         if column == "row_id" || column == "split" {
             return Err(format!("{column:?} is reserved and cannot be a dependency column").into());
@@ -176,12 +179,18 @@ fn parse_rows(
                 .get(column_index)
                 .ok_or_else(|| format!("{column} missing at data row {row_number}"))?;
             if value.is_empty() || is_placeholder(value) {
-                stats.get_mut(column).expect("stats initialized").rows_missing_value += 1;
+                stats
+                    .get_mut(column)
+                    .expect("stats initialized")
+                    .rows_missing_value += 1;
                 dependencies.push(None);
                 continue;
             }
             validate_identifier(value, column, row_number)?;
-            stats.get_mut(column).expect("stats initialized").rows_with_value += 1;
+            stats
+                .get_mut(column)
+                .expect("stats initialized")
+                .rows_with_value += 1;
             key_values
                 .get_mut(column)
                 .expect("key set initialized")
@@ -206,8 +215,10 @@ fn parse_rows(
         return Err("manifest contains a header but no rows".into());
     }
     for column in dependency_columns {
-        stats.get_mut(column).expect("stats initialized").distinct_values =
-            key_values.get(column).expect("key set initialized").len();
+        stats
+            .get_mut(column)
+            .expect("stats initialized")
+            .distinct_values = key_values.get(column).expect("key set initialized").len();
     }
     Ok((rows, stats))
 }
@@ -347,7 +358,9 @@ fn audit(
     }
 
     for split in ["train", "validation", "test"] {
-        let counts = split_counts.get(split).expect("all split counts initialized");
+        let counts = split_counts
+            .get(split)
+            .expect("all split counts initialized");
         if counts.rows == 0 || counts.components == 0 {
             return Err(format!("required split {split:?} is empty").into());
         }
@@ -474,14 +487,16 @@ r5,excluded,study-d,site-5,batch-5
 
     #[test]
     fn rejects_duplicate_row_ids() {
-        let csv = "row_id,split,study_id\nr1,train,study-a\nr1,test,study-b\nr3,validation,study-c\n";
+        let csv =
+            "row_id,split,study_id\nr1,train,study-a\nr1,test,study-b\nr3,validation,study-c\n";
         let keys = vec!["study_id".to_owned()];
         assert!(audit(csv.as_bytes(), "duplicate.csv", &keys).is_err());
     }
 
     #[test]
     fn rejects_missing_dependency_column() {
-        let csv = "row_id,split,study_id\nr1,train,study-a\nr2,validation,study-b\nr3,test,study-c\n";
+        let csv =
+            "row_id,split,study_id\nr1,train,study-a\nr2,validation,study-b\nr3,test,study-c\n";
         let keys = vec!["experiment_id".to_owned()];
         assert!(audit(csv.as_bytes(), "missing.csv", &keys).is_err());
     }
@@ -495,14 +510,16 @@ r5,excluded,study-d,site-5,batch-5
 
     #[test]
     fn rejects_identifier_whitespace_aliases() {
-        let csv = "row_id,split,study_id\nr1,train,study-a\nr2,test, study-a\nr3,validation,study-b\n";
+        let csv =
+            "row_id,split,study_id\nr1,train,study-a\nr2,test, study-a\nr3,validation,study-b\n";
         let keys = vec!["study_id".to_owned()];
         assert!(audit(csv.as_bytes(), "whitespace.csv", &keys).is_err());
     }
 
     #[test]
     fn rejects_unknown_split_label() {
-        let csv = "row_id,split,study_id\nr1,train,study-a\nr2,testing,study-b\nr3,validation,study-c\n";
+        let csv =
+            "row_id,split,study_id\nr1,train,study-a\nr2,testing,study-b\nr3,validation,study-c\n";
         let keys = vec!["study_id".to_owned()];
         assert!(audit(csv.as_bytes(), "unknown-split.csv", &keys).is_err());
     }
@@ -519,7 +536,12 @@ r5,excluded,study-d,site-5,batch-5
         let csv = "row_id,split,study_id,site_id\nr1,train,study-a,NA\nr2,validation,study-b,site-2\nr3,test,study-c,site-3\n";
         let keys = vec!["study_id".to_owned(), "site_id".to_owned()];
         let report = audit(csv.as_bytes(), "missing-values.csv", &keys).unwrap();
-        assert!(report.warnings.iter().any(|warning| warning.contains("1 of 3 rows")));
+        assert!(
+            report
+                .warnings
+                .iter()
+                .any(|warning| warning.contains("1 of 3 rows"))
+        );
     }
 
     #[test]
