@@ -142,6 +142,14 @@ The novelty is not merely a larger neural network. The strongest candidate is a 
 
 The model must abstain when event onset, sensor calibration, (K_{sat}) reference, forcing coverage or soil-domain support is inadequate.
 
+## 5.1 Physical and industry comparator parity
+
+Use the companion [Industry and Physics-Based Comparator Benchmark](./INDUSTRY_PHYSICS_COMPARATOR_BENCHMARK_V0.1.md)
+before claiming a competitive result. It distinguishes MACRO 5.2, RZWQM2 4.8,
+HYDRUS standard dual-porosity and HYDRUS DualPerm 2D; these are not one
+interchangeable “HYDRUS” baseline. The benchmark also separates physical
+forward prediction, event classification and site/treatment transfer.
+
 ## 6. Metrics and proposed targets
 
 All numerical targets below are **proposed research goals**, not measured results.

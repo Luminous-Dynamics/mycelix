@@ -40,6 +40,14 @@ Predict only properties that have reliable paired inputs and measured labels. Re
 
 ### Track C — soil-water behavior
 
+The comparator hierarchy and parity rules are specified in
+[Industry and Physics-Based Comparator Benchmark](./INDUSTRY_PHYSICS_COMPARATOR_BENCHMARK_V0.1.md).
+Industry and process-model comparisons must identify exact executable,
+module, configuration, parameter source and boundary conditions; a generic
+"HYDRUS" or "industry baseline" label is not adequate.
+
+
+
 For event-scale preferential-flow reproduction and site transfer, use the
 [preferential-flow transfer benchmark](./PREFERENTIAL_FLOW_TRANSFER_BENCHMARK_V0.1.md)
 and its [NEON source plan](./neon-preferential-flow-source-plan.v0.1.json).

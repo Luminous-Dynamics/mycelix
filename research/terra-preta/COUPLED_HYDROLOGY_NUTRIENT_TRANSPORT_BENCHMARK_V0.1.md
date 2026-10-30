@@ -115,6 +115,22 @@ A higher tier does not win merely because it has more parameters. Require parame
 
 Compare matched model implementations to a reference solver (for example, HYDRUS-1D) only when governing equations, constitutive functions, geometry, units, initial conditions, boundaries, numerical tolerances and parameter values are equivalent. Solver agreement is not independent physical validation.
 
+## 5.1 Established model-family comparators
+
+The companion [Industry and Physics-Based Comparator Benchmark](./INDUSTRY_PHYSICS_COMPARATOR_BENCHMARK_V0.1.md)
+defines the exact model variants and parity protocol. At minimum compare
+MACRO 5.2 (1D dual permeability), RZWQM2 4.8 (agricultural management,
+macropore flow and sub-hourly water/chemical movement), HYDRUS standard
+dual-porosity and the distinct HYDRUS DualPerm 2D add-on. Exact versions,
+modules, constitutive options, parameter sources and dimensionality must be
+pinned; a solver name alone is not a reproducible comparator.
+
+This is also an input-parity test: all candidates receive the same observed
+forcing, initial/boundary conditions, parameter information and frozen
+calibration/validation/test groups. Higher temporal resolution or additional
+measured parameters must not be supplied to one model without a separate,
+explicit sensitivity track.
+
 ## 6. Required benchmark tasks
 
 ### T1 — Water-volume and flux integrity
