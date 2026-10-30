@@ -2,6 +2,8 @@
 
 **Status:** Comparator specification and research plan. No head-to-head result is claimed. This document authorizes no field application, amendment recommendation, pesticide registration claim, product certification or regulatory decision.
 
+**Additional stateful comparator:** [Dynamic soil structure/root architecture benchmark](./DYNAMIC_STRUCTURE_ROOT_ARCHITECTURE_BENCHMARK_V0.1.md) specifies a Hirmas-style image-informed dynamic macropore model and a Symtropy state-dependent morphology candidate. This is a new comparator family, not a reported performance win.
+
 ## 1. The correct question is not “neural network versus HYDRUS?”
 
 Preferential flow and event-scale transport are served by several established physical model families. They solve different sub-problems, embody different assumptions, and are used in different operational contexts. A fair comparison must pin the exact executable, module, version, parameterization and boundary conditions.
