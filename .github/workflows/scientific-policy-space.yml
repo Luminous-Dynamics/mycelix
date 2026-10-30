@@ -36,14 +36,14 @@ jobs:
       - name: Format standalone decision-space generator
         run: cargo fmt --manifest-path tools/scientific-policy-space/Cargo.toml --all
 
-      - name: Resolve standalone dependency graph
-        run: cargo generate-lockfile --manifest-path tools/scientific-policy-space/Cargo.toml
+      - name: Verify committed standalone dependency lock
+        run: cargo metadata --manifest-path tools/scientific-policy-space/Cargo.toml --format-version 1 --locked > /dev/null
 
       - name: Run domain cardinality, source-binding and no-fabricated-oracle tests
-        run: cargo test --manifest-path tools/scientific-policy-space/Cargo.toml
+        run: cargo test --manifest-path tools/scientific-policy-space/Cargo.toml --locked
 
       - name: Run warning-denied Clippy
-        run: cargo clippy --manifest-path tools/scientific-policy-space/Cargo.toml --all-targets -- -D warnings
+        run: cargo clippy --manifest-path tools/scientific-policy-space/Cargo.toml --all-targets --locked -- -D warnings
 
       - name: Generate stable JSONL abstract corpus
         run: |
