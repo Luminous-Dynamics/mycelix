@@ -53,6 +53,14 @@ struct ReliabilityBin {
     event_count: usize,
 }
 
+#[derive(Default)]
+struct ForecastAggregate {
+    count: usize,
+    event_count: usize,
+    brier_sum: f64,
+    log_loss_sum: f64,
+}
+
 fn probability_bin(probability: f64) -> usize {
     if probability >= 1.0 {
         4
@@ -102,6 +110,22 @@ pub fn evaluate_probability_forecasts(fixture: &Value) -> Result<Value, Vec<Stri
     let epsilon = epsilon.unwrap_or(1e-6);
 
     let expected_edges = [0.0, 0.2, 0.4, 0.6, 0.8, 1.0];
+    let expected_confidence_thresholds = [0.0, 0.25, 0.5, 0.75];
+    let confidence_thresholds: Vec<f64> = protocol
+        .get("selective_confidence_thresholds")
+        .and_then(Value::as_array)
+        .into_iter()
+        .flatten()
+        .filter_map(Value::as_f64)
+        .collect();
+    if confidence_thresholds.len() != expected_confidence_thresholds.len()
+        || confidence_thresholds
+            .iter()
+            .zip(expected_confidence_thresholds.iter())
+            .any(|(actual, expected)| (actual - expected).abs() > 1e-12)
+    {
+        errors.push("selective confidence thresholds must use the frozen [0,.25,.5,.75] grid".to_owned());
+    }
     let edges: Vec<f64> = protocol
         .get("probability_bins")
         .and_then(Value::as_array)
@@ -226,7 +250,7 @@ pub fn evaluate_probability_forecasts(fixture: &Value) -> Result<Value, Vec<Stri
                             errors.push(format!("{case_id}: forecast action must not include abstention_reason"));
                         }
                         if let Some(probability) = probability.filter(|value| value.is_finite() && (0.0..=1.0).contains(value)) {
-                            issued.push((probability, observed_breach));
+                            issued.push((service_id.unwrap().to_owned(), probability, observed_breach));
                         }
                     }
                     Some("abstain") => {
@@ -273,24 +297,39 @@ pub fn evaluate_probability_forecasts(fixture: &Value) -> Result<Value, Vec<Stri
     }
 
     let issued_count = issued.len();
-    let event_count = issued.iter().filter(|(_, event)| *event).count();
+    let event_count = issued.iter().filter(|(_, _, event)| *event).count();
     let mut brier_sum = 0.0;
     let mut log_loss_sum = 0.0;
     let mut reference_brier_sum = 0.0;
     let mut bins: Vec<ReliabilityBin> = (0..5).map(|_| ReliabilityBin::default()).collect();
+    let mut per_service: BTreeMap<String, ForecastAggregate> = service_floors
+        .keys()
+        .map(|service_id| (service_id.clone(), ForecastAggregate::default()))
+        .collect();
 
-    for (probability, event) in &issued {
+    for (service_id, probability, event) in &issued {
+        let probability = *probability;
         let outcome = if *event { 1.0 } else { 0.0 };
-        brier_sum += (probability - outcome).powi(2);
+        let squared_error = (probability - outcome).powi(2);
         let clipped = probability.clamp(epsilon, 1.0 - epsilon);
-        log_loss_sum -= outcome * clipped.ln() + (1.0 - outcome) * (1.0 - clipped).ln();
+        let case_log_loss = -(outcome * clipped.ln() + (1.0 - outcome) * (1.0 - clipped).ln());
+        brier_sum += squared_error;
+        log_loss_sum += case_log_loss;
         reference_brier_sum += (reference_rate - outcome).powi(2);
 
-        let bin = &mut bins[probability_bin(*probability)];
+        let bin = &mut bins[probability_bin(probability)];
         bin.count += 1;
         bin.probability_sum += probability;
         if *event {
             bin.event_count += 1;
+        }
+        if let Some(service_metrics) = per_service.get_mut(service_id) {
+            service_metrics.count += 1;
+            service_metrics.brier_sum += squared_error;
+            service_metrics.log_loss_sum += case_log_loss;
+            if *event {
+                service_metrics.event_count += 1;
+            }
         }
     }
 
@@ -341,6 +380,50 @@ pub fn evaluate_probability_forecasts(fixture: &Value) -> Result<Value, Vec<Stri
         })
         .sum::<f64>();
 
+    let per_service_metrics: Vec<Value> = per_service
+        .iter()
+        .map(|(service_id, metrics)| {
+            json!({
+                "service_id": service_id,
+                "issued_forecasts": metrics.count,
+                "breach_events": metrics.event_count,
+                "brier_score": (metrics.count > 0).then_some(metrics.brier_sum / metrics.count as f64),
+                "log_loss": (metrics.count > 0).then_some(metrics.log_loss_sum / metrics.count as f64)
+            })
+        })
+        .collect();
+
+    let risk_coverage_curve: Vec<Value> = expected_confidence_thresholds
+        .iter()
+        .map(|threshold| {
+            let selected: Vec<&(String, f64, bool)> = issued
+                .iter()
+                .filter(|(_, probability, _)| (2.0 * probability - 1.0).abs() >= *threshold)
+                .collect();
+            let selected_brier = if selected.is_empty() {
+                None
+            } else {
+                Some(
+                    selected
+                        .iter()
+                        .map(|(_, probability, event)| {
+                            let outcome = if *event { 1.0 } else { 0.0 };
+                            (*probability - outcome).powi(2)
+                        })
+                        .sum::<f64>()
+                        / selected.len() as f64,
+                )
+            };
+            json!({
+                "minimum_probability_confidence": threshold,
+                "selected_forecasts": selected.len(),
+                "population_coverage": selected.len() as f64 / total_count as f64,
+                "qualified_case_coverage": (qualified_count > 0).then_some(selected.len() as f64 / qualified_count as f64),
+                "selective_brier_score": selected_brier
+            })
+        })
+        .collect();
+
     let population_coverage = issued_count as f64 / total_count as f64;
     let qualified_coverage = if qualified_count > 0 {
         Some(issued_count as f64 / qualified_count as f64)
@@ -387,6 +470,8 @@ pub fn evaluate_probability_forecasts(fixture: &Value) -> Result<Value, Vec<Stri
             "interpretation": "bin-dependent diagnostic only; not a proper score or standalone ranking metric",
             "reliability_bins": reliability_bins
         },
+        "per_service_metrics": per_service_metrics,
+        "risk_coverage_curve": risk_coverage_curve,
         "aggregation_policy": "no composite resilience or personal score; selective proper scores always accompanied by coverage and abstention counts"
     }))
 }
