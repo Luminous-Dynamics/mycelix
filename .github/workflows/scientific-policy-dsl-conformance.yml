@@ -94,21 +94,20 @@ jobs:
     steps:
       - name: Checkout exact revision
         uses: actions/checkout@v4
-      - name: Install OPA 1.22.0 with verified release checksum manifest
+      - name: Install pinned Go toolchain for OPA source build
+        uses: actions/setup-go@v6
+        with:
+          go-version: "1.27.2"
+
+      - name: Build OPA 1.22.0 from versioned Go module
+        env:
+          GOSUMDB: sum.golang.org
+          GOTOOLCHAIN: local
         run: |
-          release="https://github.com/open-policy-agent/opa/releases/download/v1.22.0"
-          curl --fail --location --silent --show-error "$release/opa_linux_amd64_static" \
-            --output "$RUNNER_TEMP/opa"
-          curl --fail --location --silent --show-error "$release/opa_linux_amd64_static.sha256" \
-            --output "$RUNNER_TEMP/opa.sha256"
-          echo "ed073d3c5a15724e7c3d9c16db22f38cb51ce0e26e7310df1b94f74e06acca3f  $RUNNER_TEMP/opa.sha256" \
-            | sha256sum --check
-          sed "s|opa_linux_amd64_static|$RUNNER_TEMP/opa|" "$RUNNER_TEMP/opa.sha256" \
-            > "$RUNNER_TEMP/opa.checksum"
-          sha256sum --check "$RUNNER_TEMP/opa.checksum"
-          chmod +x "$RUNNER_TEMP/opa"
-          echo "$RUNNER_TEMP" >> "$GITHUB_PATH"
-          "$RUNNER_TEMP/opa" version
+          go version
+          go install github.com/open-policy-agent/opa@v1.22.0
+          echo "$(go env GOPATH)/bin" >> "$GITHUB_PATH"
+          opa version
       - name: Check Rego modules in strict mode
         run: |
           opa check --strict \
