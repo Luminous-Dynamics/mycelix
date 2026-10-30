@@ -56,7 +56,9 @@
       "type": "object",
       "required": [
         "benchmark_id",
-        "source_description"
+        "source_description",
+        "fixture_blob_sha",
+        "source_case_count"
       ],
       "properties": {
         "benchmark_id": {
@@ -65,6 +67,13 @@
         "source_description": {
           "type": "string",
           "minLength": 1
+        },
+        "fixture_blob_sha": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{40}$"
+        },
+        "source_case_count": {
+          "const": 128
         }
       },
       "additionalProperties": true
