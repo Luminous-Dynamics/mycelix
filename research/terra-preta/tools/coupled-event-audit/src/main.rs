@@ -919,6 +919,14 @@ mod tests {
     }
 
     #[test]
+    fn estimated_storage_change_cannot_receive_measured_closure_status() {
+        let mut value: Value = serde_json::from_slice(&fixture_bytes()).unwrap();
+        value["soil_water_storage_change"]["measurement_status"] = json!("modelled");
+        let bytes = serde_json::to_vec(&value).unwrap();
+        assert_eq!(audited(&bytes).water_balance.status, "unqualified_estimated_or_modelled_terms");
+    }
+
+    #[test]
     fn missing_uncertainty_blocks_water_closure() {
         let mut value: Value = serde_json::from_slice(&fixture_bytes()).unwrap();
         value["water_outputs"][0]["standard_uncertainty_mm"] = Value::Null;
@@ -926,6 +934,26 @@ mod tests {
         let report = audited(&bytes);
         assert_eq!(report.water_balance.status, "unqualified_missing_uncertainty");
         assert_eq!(report.water_balance.conservative_linear_standard_uncertainty_bound_mm, None);
+    }
+
+    #[test]
+    fn partial_estimated_particulate_collection_is_not_scaled() {
+        let mut value: Value = serde_json::from_slice(&fixture_bytes()).unwrap();
+        value["particulate_exports"][0]["mass_flux_status"] = json!("estimated");
+        value["particulate_exports"][0]["sediment_measurement_status"] = json!("estimated");
+        value["particulate_exports"][0]["collection_coverage_fraction"] = json!(0.6);
+        let bytes = serde_json::to_vec(&value).unwrap();
+        let report = audited(&bytes);
+        assert_eq!(report.particulate_export_audits[0].mass_kg_element_per_ha, None);
+        assert_eq!(report.particulate_export_audits[0].mass_status, "not_computed_partial_collection_coverage");
+    }
+
+    #[test]
+    fn rejects_corroborated_preferential_flow_without_reference() {
+        let mut value: Value = serde_json::from_slice(&fixture_bytes()).unwrap();
+        value["preferential_flow_assessments"][0]["classification"] = json!("corroborated");
+        let bytes = serde_json::to_vec(&value).unwrap();
+        assert!(audit(&bytes).unwrap_err().contains("requires independent reference"));
     }
 
     #[test]

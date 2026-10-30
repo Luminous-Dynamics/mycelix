@@ -46,13 +46,13 @@ qualified samples; no event-total nutrient loss is inferred from it.
 
 - One event, study/site, independently assigned unit, treatment/comparator pair, control volume and time interval per record.
 - Water inputs and outputs use equivalent depth (mm) over the declared area and interval; storage change is signed.
-- Soil-moisture observations preserve sensor, position, timestamp, depth, volumetric basis, calibration and uncertainty. Two observations are a structural minimum; the schema does not prove distinct depths or adequate sampling frequency.
+- Soil-moisture observations preserve sensor, position, timestamp, depth, volumetric basis, calibration and uncertainty. The auditor verifies that referenced preferential-flow sensors occur at two or more distinct observed depths; neither schema nor auditor establishes adequate temporal sampling frequency.
 - Dissolved exports preserve analyte, concentration, synchronized water depth, time interval, sampling design and collection coverage. `measured_qualified` requires measured water depth, complete coverage, uncertainties and flow-weighted or event-integrated concentration. A grab/spot sample alone is concentration-only.
 - Particulate exports use dry sediment mass and its elemental concentration, not water volume.
 - Preferential flow may be corroborated, sensor-signature-only, indeterminate or not detected. A corroborated classification requires an independent tracer/geophysical/water-table reference.
 - Coverage reviews preserve unmeasured pathways. Complete coverage cannot list unmeasured pathways; incomplete coverage must state them.
 
-Schema validation checks field shape and declared qualification. It does not prove timestamps align, event boundaries are complete, sensors are distinct in depth, concentration and discharge were truly synchronized, collectors recovered the full event or tracer evidence is scientifically valid. Those require a future executable auditor and independent review.
+Schema validation checks field shape and declared qualification. The Rust auditor additionally checks RFC3339 timestamp parsing and event containment, analyte/element consistency, source digest syntax, distinct observed sensor depths, status/coverage conditions and arithmetic. Neither layer proves that concentration and discharge were physically synchronized, event boundaries were complete, collectors recovered the full event, sensor calibration remained valid or tracer evidence was scientifically valid; those require primary evidence and independent review.
 
 The input and report fixtures are synthetic software-test data only. The input
 fixture has 18 mm water input − 5.5 mm water output − 12.5 mm storage gain = 0 mm
