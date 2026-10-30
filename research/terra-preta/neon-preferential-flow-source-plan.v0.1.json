@@ -202,5 +202,34 @@
         "Resolve version and field semantics against the Li et al. 2026 paper's specific target-construction method before claiming exact reproduction."
       ]
     }
+  ],
+  "external_datasets": [
+    {
+      "source_id": "hirmas_2025_dryad_dynamic_macroporosity",
+      "doi": "10.5061/dryad.zs7h44jkn",
+      "url": "https://datadryad.org/dataset/doi:10.5061/dryad.zs7h44jkn",
+      "published": "2025-08-14",
+      "license": "CC0 1.0 Universal",
+      "reported_size_mb": 4.6,
+      "location": "Konza Prairie Biological Station, Kansas, USA",
+      "period": "2018-10 to 2021-08",
+      "scope": "One Konza APT agricultural soil profile; supporting measurements include other Kansas pedons but are not a multi-site PF validation cohort",
+      "files": [
+        "Data_Analysis.zip (4.59 MB)",
+        "README.md (15.89 KB)"
+      ],
+      "measurements": [
+        "10/40/120 cm soil moisture",
+        "0.18 mm MLT/ImageJ macropore geometry for Ap1, Bt and Btkss2 horizons",
+        "bulk density, porosity and retention parameters",
+        "COLE shrink-swell data",
+        "daily weather",
+        "R scripts, functions and model outputs"
+      ],
+      "role": "Reproducible dynamic-morphology case and method crosswalk, not external cross-site validation",
+      "status": "metadata_reviewed_file_endpoint_403_not_acquired",
+      "local_sha256": null,
+      "file_checksums": null
+    }
   ]
 }
