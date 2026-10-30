@@ -3,6 +3,8 @@
 **Status:** Proposed benchmark contract; target values below are acceptance goals, not achieved results.  
 **Pairs with:** [Protocol v0.1](./PROTOCOL_V0.1.md)
 
+**Specialized benchmark tracks:** [Preferential-flow transfer](./PREFERENTIAL_FLOW_TRANSFER_BENCHMARK_V0.1.md) · [Synthetic known-truth and identifiability](./SYNTHETIC_KNOWN_TRUTH_BENCHMARK_V0.1.md) · [Industry physics comparators](./INDUSTRY_PHYSICS_COMPARATOR_BENCHMARK_V0.1.md) · [Paired-forcing causal inference](./PAIRED_FORCING_CAUSAL_BENCHMARK_V0.1.md)
+
 ## 1. Benchmark objective
 
 Evaluate whether a transparent soil-amendment model and evidence pipeline can make more accurate, better-calibrated, more useful decisions than simple and established baselines on *held-out batches, soils, sites, and seasons*.
