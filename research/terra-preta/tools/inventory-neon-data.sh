@@ -34,7 +34,7 @@ done
 [[ "$NEON_API_TOKEN" != *$'\n'* && "$NEON_API_TOKEN" != *$'\r'* ]] || { echo "NEON_API_TOKEN must be single-line" >&2; exit 2; }
 valid_code "$PRODUCT" || { echo "invalid product code" >&2; exit 2; }
 valid_month "$START_MONTH" && valid_month "$END_MONTH" || { echo "months must use YYYY-MM" >&2; exit 2; }
-[[ "$START_MONTH" > "$END_MONTH" || "$START_MONTH" == "$END_MONTH" ]] || { echo "start month is after end month" >&2; exit 2; }
+[[ "$START_MONTH" < "$END_MONTH" || "$START_MONTH" == "$END_MONTH" ]] || { echo "start month is after end month" >&2; exit 2; }
 valid_label "$RELEASE" || { echo "invalid release tag" >&2; exit 2; }
 [[ "$PACKAGE" == "basic" || "$PACKAGE" == "expanded" ]] || { echo "package must be basic or expanded" >&2; exit 2; }
 [[ -f "$SITES_FILE" ]] || { echo "--sites-file must name an existing file" >&2; exit 2; }
