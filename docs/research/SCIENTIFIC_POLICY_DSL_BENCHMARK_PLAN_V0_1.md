@@ -178,7 +178,7 @@ Each benchmark result must bind:
 - corpus JSON SHA-256 and schema SHA-256;
 - policy source digest and normalized policy-engine configuration;
 - Rust toolchain and dependency lock digest;
-- Cedar CLI/API version and OPA binary version plus verified checksum;
+- Cedar CLI/API version, OPA Go module version, pinned Go toolchain, and Go module checksum database verification;
 - host CPU, memory, operating system, and runtime settings;
 - seed, warm-up, iteration count, concurrency and raw output digest.
 
