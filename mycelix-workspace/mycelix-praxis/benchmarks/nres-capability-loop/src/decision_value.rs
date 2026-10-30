@@ -110,6 +110,7 @@ fn weighted_quantile(samples: &[(f64, f64)], quantile: f64) -> Option<f64> {
         return None;
     }
     let target = quantile * total_weight;
+    let fallback = ordered.last().map(|sample| sample.0);
     let mut cumulative = 0.0;
     for (value, weight) in ordered {
         cumulative += weight;
@@ -117,7 +118,7 @@ fn weighted_quantile(samples: &[(f64, f64)], quantile: f64) -> Option<f64> {
             return Some(value);
         }
     }
-    ordered.last().map(|sample| sample.0)
+    fallback
 }
 
 fn probability_bin(probability: f64, edges: &[f64]) -> usize {
