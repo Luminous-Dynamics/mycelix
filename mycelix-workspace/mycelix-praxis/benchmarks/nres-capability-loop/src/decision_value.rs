@@ -99,6 +99,27 @@ fn decision_loss(action: &str, event: bool, profile: &DecisionProfile, deferral_
     loss + deferral_cost
 }
 
+fn weighted_quantile(samples: &[(f64, f64)], quantile: f64) -> Option<f64> {
+    if samples.is_empty() || !(0.0..=1.0).contains(&quantile) {
+        return None;
+    }
+    let mut ordered = samples.to_vec();
+    ordered.sort_by(|left, right| left.0.total_cmp(&right.0));
+    let total_weight: f64 = ordered.iter().map(|sample| sample.1).sum();
+    if total_weight <= 0.0 {
+        return None;
+    }
+    let target = quantile * total_weight;
+    let mut cumulative = 0.0;
+    for (value, weight) in ordered {
+        cumulative += weight;
+        if cumulative >= target {
+            return Some(value);
+        }
+    }
+    ordered.last().map(|sample| sample.0)
+}
+
 fn probability_bin(probability: f64, edges: &[f64]) -> usize {
     for index in 0..(edges.len() - 1) {
         let final_bin = index == edges.len() - 2;
@@ -160,6 +181,11 @@ fn summarize_cases(
     let mut weighted_probability_sum = 0.0;
     let mut weighted_event_sum = 0.0;
     let mut zero_probability_events = 0usize;
+    let mut expected_decision_cost_sum = 0.0;
+    let mut observed_decision_cost_sum = 0.0;
+    let mut signed_decision_cost_gap_sum = 0.0;
+    let mut absolute_decision_cost_gap_sum = 0.0;
+    let mut decision_cost_gaps: Vec<(f64, f64)> = Vec::with_capacity(issued.len());
     let mut bins: Vec<ReliabilityBin> = (0..edges.len() - 1)
         .map(|_| ReliabilityBin::default())
         .collect();
@@ -179,6 +205,25 @@ fn summarize_cases(
         } else {
             log_loss_sum -= weight * likelihood.ln();
         }
+
+        let selected_action = if probability >= profile.threshold {
+            "prepare"
+        } else {
+            "no_action"
+        };
+        let expected_cost = if selected_action == "prepare" {
+            profile.readiness_cost + probability * profile.event_loss_with_action
+        } else {
+            probability * profile.event_loss_without_action
+        };
+        let observed_cost = decision_loss(selected_action, case.observed_event, profile, 0.0);
+        let signed_gap = observed_cost - expected_cost;
+        let absolute_gap = signed_gap.abs();
+        expected_decision_cost_sum += weight * expected_cost;
+        observed_decision_cost_sum += weight * observed_cost;
+        signed_decision_cost_gap_sum += weight * signed_gap;
+        absolute_decision_cost_gap_sum += weight * absolute_gap;
+        decision_cost_gaps.push((absolute_gap, weight));
 
         let bin = &mut bins[probability_bin(probability, edges)];
         bin.count += 1;
@@ -337,6 +382,16 @@ fn summarize_cases(
         "zero_probability_events": zero_probability_events,
         "climatology_brier_score": reference_brier,
         "brier_skill_score": brier_skill,
+        "decision_calibration": {
+            "issued_forecasts": issued.len(),
+            "mean_expected_selected_action_cost": (forecast_weight > 0.0).then_some(expected_decision_cost_sum / forecast_weight),
+            "mean_observed_selected_action_cost": (forecast_weight > 0.0).then_some(observed_decision_cost_sum / forecast_weight),
+            "mean_signed_cost_gap_observed_minus_expected": (forecast_weight > 0.0).then_some(signed_decision_cost_gap_sum / forecast_weight),
+            "mean_absolute_cost_gap": (forecast_weight > 0.0).then_some(absolute_decision_cost_gap_sum / forecast_weight),
+            "median_absolute_cost_gap": weighted_quantile(&decision_cost_gaps, 0.5),
+            "p90_absolute_cost_gap": weighted_quantile(&decision_cost_gaps, 0.9),
+            "max_absolute_cost_gap": decision_cost_gaps.iter().map(|(gap, _)| *gap).reduce(f64::max)
+        },
         "reliability_resolution_uncertainty": {
             "reliability": reliability,
             "resolution": resolution,
