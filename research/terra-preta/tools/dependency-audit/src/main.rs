@@ -41,6 +41,12 @@ struct DependencyKeyStats {
     distinct_values: usize,
 }
 
+#[derive(Debug)]
+struct ParsedManifest {
+    rows: Vec<ManifestRow>,
+    dependency_key_stats: BTreeMap<String, DependencyKeyStats>,
+}
+
 #[derive(Debug, Serialize)]
 struct AuditReport {
     audit_version: &'static str,
@@ -124,7 +130,7 @@ fn parse_dependency_columns(value: &str) -> Result<Vec<String>, Box<dyn Error>> 
 fn parse_rows(
     bytes: &[u8],
     dependency_columns: &[String],
-) -> Result<(Vec<ManifestRow>, BTreeMap<String, DependencyKeyStats>), Box<dyn Error>> {
+) -> Result<ParsedManifest, Box<dyn Error>> {
     if bytes.is_empty() {
         return Err("input manifest is empty".into());
     }
@@ -220,7 +226,10 @@ fn parse_rows(
             .expect("stats initialized")
             .distinct_values = key_values.get(column).expect("key set initialized").len();
     }
-    Ok((rows, stats))
+    Ok(ParsedManifest {
+        rows,
+        dependency_key_stats: stats,
+    })
 }
 
 struct UnionFind {
@@ -293,7 +302,9 @@ fn audit(
     input_label: &str,
     dependency_columns: &[String],
 ) -> Result<AuditReport, Box<dyn Error>> {
-    let (rows, dependency_key_stats) = parse_rows(bytes, dependency_columns)?;
+    let parsed = parse_rows(bytes, dependency_columns)?;
+    let rows = parsed.rows;
+    let dependency_key_stats = parsed.dependency_key_stats;
     let mut sets = UnionFind::new(rows.len());
     let mut first_row_by_key = HashMap::<(usize, String), usize>::new();
 
