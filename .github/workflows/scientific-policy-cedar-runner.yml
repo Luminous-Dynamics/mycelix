@@ -118,8 +118,8 @@ jobs:
             --slurpfile opa target/opa-decisions-v0.1.jsonl \
             '
               def by_id: map({key:.case_id, value:.decision}) | from_entries;
-              ($cedar[0] | by_id) as $c |
-              ($opa[0] | by_id) as $o |
+              ($cedar | by_id) as $c |
+              ($opa | by_id) as $o |
               ($c | keys) as $ck |
               ($o | keys) as $ok |
               {
