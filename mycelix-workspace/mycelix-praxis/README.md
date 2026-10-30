@@ -123,7 +123,9 @@ mycelix-praxis/
 - **[NRES exercise-to-improvement benchmark](docs/curriculum/PRAXIS_NRES_005_CAPABILITY_LOOP.md)**: Evidence-linked exercises, corrective actions and independent retests
 - **[NRES portable evidence interchange](docs/curriculum/PRAXIS_NRES_006_EVIDENCE_INTERCHANGE.md)**: JSON-LD/PROV evidence envelope, framework crosswalks and conformance tests
 - **[NRES cascading recovery benchmark](docs/curriculum/PRAXIS_NRES_007_CASCADE_RECOVERY.md)**: matched-shock service trajectories, dependency checks, deficit area and sustained recovery
+- **[NRES probability and abstention benchmark](docs/curriculum/PRAXIS_NRES_008_PROBABILITY_ABSTENTION.md)**: calibrated breach probabilities, proper scoring rules and evidence-qualified abstention
 - **[NRES-007 JSON Schema](schemas/nres/nres-cascade-recovery-v1.schema.json)**: structural profile for portable trajectory fixtures
+- **[NRES-008 JSON Schema](schemas/nres/nres-probability-abstention-v1.schema.json)**: structural profile separating evaluator truth and candidate forecast outputs
 - **[Rust NRES reference evaluator](benchmarks/nres-capability-loop/README.md)**: Disaggregated capability measures and negative-control tests
 - **[Learning client contract](docs/learning-contract.md)**: Versioned browser/coordinator DTOs and privacy boundary
 - **[Live data lifecycle](docs/live-data-lifecycle.md)**: Reactive readiness, reconnect, and honest resource states
