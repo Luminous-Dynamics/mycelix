@@ -30,7 +30,7 @@ Every service remains an independent row. Do not aggregate deficit area, recover
 
 ## 3. Dependency graph semantics
 
-An edge `prerequisite_service_id → dependent_service_id` means the benchmark declares the first service a required input to the second. The graph is validated for unique, resolvable service IDs and acyclicity. This is a scenario assumption used to make dependency coverage inspectable; it is not an inferred model of any real utility, municipality or provider.
+An edge `prerequisite_service_id → dependent_service_id` means the benchmark declares the first service a required input to the second. The graph is validated for unique, resolvable service IDs and acyclicity. Crucially, NRES-007 does **not** propagate failures across these edges or synthesize the input availability trajectories. The trajectories are supplied exercise observations or explicitly labelled simulation outputs; the evaluator only validates their grid and derives declared metrics. Keeping the generator separate from the evaluator prevents a benchmark validator from manufacturing its own evidence. This graph is a scenario assumption used to make dependency coverage inspectable; it is not an inferred model of any real utility, municipality or provider.
 
 The fixture includes electricity, communications, water, public information, welfare-check coordination, health logistics and transport access. It uses a directed acyclic graph to keep the reference case deterministic and interpretable. Future profiles may represent redundancy or substitutable inputs explicitly, but must version their semantics rather than overload the edge meaning.
 
