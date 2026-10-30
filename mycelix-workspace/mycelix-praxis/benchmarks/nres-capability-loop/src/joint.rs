@@ -589,6 +589,55 @@ mod tests {
                 assert!((actual[key].as_f64().unwrap() - expected[key].as_f64().unwrap()).abs() <= tolerance);
             }
         }
+
+        let baseline = &expected["independence_projection_baseline"];
+        let actual_baseline = &report["independence_projection_baseline"];
+        for key in ["mean_multiclass_brier_score", "mean_joint_log_loss", "mean_energy_score", "mean_variogram_score", "mean_pairwise_joint_breach_brier"] {
+            assert!((actual_baseline[key].as_f64().unwrap() - baseline[key].as_f64().unwrap()).abs() <= tolerance);
+        }
+        assert_eq!(actual_baseline["zero_probability_observed_cases"], baseline["zero_probability_observed_cases"]);
+        for (actual, expected) in report["per_case"].as_array().unwrap().iter()
+            .zip(expected["per_case_independence_projection"].as_array().unwrap())
+        {
+            let actual_baseline = &actual["independence_projection_baseline"];
+            for key in ["multiclass_brier_score", "joint_log_loss", "energy_score", "variogram_score", "pairwise_joint_breach_brier"] {
+                assert!((actual_baseline[key].as_f64().unwrap() - expected[key].as_f64().unwrap()).abs() <= tolerance);
+            }
+            for (a, e) in actual_baseline["mean_marginal_probabilities"].as_array().unwrap()
+                .iter().zip(expected["mean_marginal_probabilities"].as_array().unwrap())
+            {
+                assert!((a.as_f64().unwrap() - e.as_f64().unwrap()).abs() <= tolerance);
+            }
+        }
+        for key in ["multiclass_brier_score", "energy_score", "variogram_score", "pairwise_joint_breach_brier"] {
+            assert!((report["independence_baseline_minus_candidate"][key].as_f64().unwrap()
+                - expected["independence_baseline_minus_candidate"][key].as_f64().unwrap()).abs() <= tolerance);
+        }
+    }
+
+
+    #[test]
+    fn independence_projection_preserves_candidate_marginals() {
+        let report = evaluate_joint_service_forecasts(&fixture()).expect("fixture should validate");
+        let first_case = &report["per_case"][0];
+        let baseline = &first_case["independence_projection_baseline"];
+        for (marginal, baseline_probability) in first_case["marginal_metrics"].as_array().unwrap()
+            .iter().zip(baseline["mean_marginal_probabilities"].as_array().unwrap())
+        {
+            assert!((marginal["predicted_breach_probability"].as_f64().unwrap()
+                - baseline_probability.as_f64().unwrap()).abs() < 1e-12);
+        }
+        assert!(
+            (first_case["variogram_score"].as_f64().unwrap()
+                - baseline["variogram_score"].as_f64().unwrap()).abs() > 1e-6
+        );
+    }
+
+    #[test]
+    fn rejects_missing_service_bit_index_without_panicking() {
+        let mut value = fixture();
+        value["service_catalog"][0]["bit_index"] = json!(9);
+        assert!(evaluate_joint_service_forecasts(&value).is_err());
     }
 
     #[test]
