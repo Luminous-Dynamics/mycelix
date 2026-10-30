@@ -96,6 +96,7 @@ struct TimingSummary {
 struct RunManifest {
     engine: &'static str,
     engine_version: &'static str,
+    evaluation_method: &'static str,
     generator_id: String,
     generator_version: String,
     baseline_revision: String,
@@ -483,6 +484,7 @@ fn run() -> Result<(), String> {
     let output_manifest = RunManifest {
         engine: "cedar-policy",
         engine_version: "4.14.0",
+        evaluation_method: "in-process-per-request-with-256-case-warmup; wall time includes warmup and all output writes",
         generator_id: input_manifest.generator_id,
         generator_version: input_manifest.generator_version,
         baseline_revision: input_manifest.baseline_revision,
