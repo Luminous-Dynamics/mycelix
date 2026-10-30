@@ -398,7 +398,7 @@ pub fn evaluate_probability_forecasts(fixture: &Value) -> Result<Value, Vec<Stri
         .map(|threshold| {
             let selected: Vec<&(String, f64, bool)> = issued
                 .iter()
-                .filter(|(_, probability, _)| (2.0 * probability - 1.0).abs() >= *threshold)
+                .filter(|(_, probability, _)| (2.0 * *probability - 1.0).abs() >= *threshold)
                 .collect();
             let selected_brier = if selected.is_empty() {
                 None
@@ -407,8 +407,9 @@ pub fn evaluate_probability_forecasts(fixture: &Value) -> Result<Value, Vec<Stri
                     selected
                         .iter()
                         .map(|(_, probability, event)| {
+                            let probability = *probability;
                             let outcome = if *event { 1.0 } else { 0.0 };
-                            (*probability - outcome).powi(2)
+                            (probability - outcome).powi(2)
                         })
                         .sum::<f64>()
                         / selected.len() as f64,
