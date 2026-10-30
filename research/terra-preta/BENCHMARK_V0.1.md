@@ -40,7 +40,7 @@ Predict only properties that have reliable paired inputs and measured labels. Re
 
 ### Track C — soil-water behavior
 
-Use measured water-retention curves, infiltration, drainage, and soil moisture where available. Stratify by soil class and experimental setup. Evaluate time-series error and event-level error, not just a pooled correlation.
+Use measured water-retention curves, infiltration, drainage, and soil moisture where available. Stratify by soil class and experimental setup. Before scoring any model, audit the underlying desorption curves with the [water-retention metrology contract](./WATER_RETENTION_METROLOGY_V0.1.md) and [Rust curve auditor](./tools/water-retention-audit/README.md). Require explicit water-content basis, density-backed gravimetric conversion, declared FC/PWP potentials, raw input digests, observed brackets for every target, and zero silent smoothing or extrapolation. Evaluate time-series error and event-level error, not just a pooled correlation.
 
 Initial aspirational target for a *predefined, well-supported domain*: median absolute relative error no greater than 10% for selected water-retention measurements and 90% prediction-interval coverage between 85% and 95%. These are development targets, not claims of current performance. The team must publish the sample size, properties/units, domain, reference methods, baseline scores, and confidence intervals; if the target is not attainable on the available data, report the failure and revise only prospectively.
 
