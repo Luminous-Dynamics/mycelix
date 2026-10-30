@@ -386,6 +386,207 @@ fn make_case(
     }
 }
 
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
+pub struct RegoActor {
+    pub id: String,
+    pub roles: Vec<String>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RegoClaim {
+    pub exists: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub creator_actor_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub creator_organization_id: Option<String>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
+pub struct RegoAttestation {
+    pub kind: String,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RegoTargetAttestation {
+    pub exists: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub author_actor_id: Option<String>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RegoInput {
+    pub action: String,
+    pub actor: RegoActor,
+    pub claim: RegoClaim,
+    pub attestation: RegoAttestation,
+    pub target_attestation: RegoTargetAttestation,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub acting_organization_id: Option<String>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
+pub struct RegoCaseProjection {
+    pub case_id: String,
+    pub input: RegoInput,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
+pub struct CedarUid {
+    #[serde(rename = "type")]
+    pub entity_type: String,
+    pub id: String,
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize)]
+pub struct CedarEntity {
+    pub uid: CedarUid,
+    pub attrs: serde_json::Value,
+    pub parents: Vec<CedarUid>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CedarContext {
+    pub attestation_kind: String,
+    pub target_attestation_exists: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub target_attestation_author_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub acting_organization_id: Option<String>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
+pub struct CedarRequest {
+    pub principal: String,
+    pub action: String,
+    pub resource: String,
+    pub context: CedarContext,
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize)]
+pub struct CedarCaseProjection {
+    pub case_id: String,
+    pub request: CedarRequest,
+    pub entities: Vec<CedarEntity>,
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize)]
+pub struct EngineInputProjection {
+    pub case_id: String,
+    pub cedar: CedarCaseProjection,
+    pub rego: RegoCaseProjection,
+}
+
+fn cedar_entity_uid(entity_type: &str, id: &str) -> String {
+    format!("{entity_type}::{}", serde_json::to_string(id).expect("generated Cedar entity ID serializes"))
+}
+
+/// Translate the exact same abstract case into the frozen Cedar PARC request
+/// shape and the OPA/Rego input object. No expected authorization result is
+/// added, and organization membership remains an outer Rust gate.
+pub fn project_engine_inputs(case: &DecisionCase) -> EngineInputProjection {
+    let context = &case.context;
+    let role_names = context.actor.roles.iter().map(|role| role.as_str().to_owned()).collect::<Vec<_>>();
+    let action = context.action.as_str().to_owned();
+    let actor_id = context.actor.id.clone();
+    let claim_id = case.case_id.clone();
+
+    let mut actor_attrs = serde_json::Map::new();
+    actor_attrs.insert("actorId".to_owned(), serde_json::Value::String(actor_id.clone()));
+    actor_attrs.insert("roles".to_owned(), serde_json::json!(role_names));
+    // Organization-membership authorization is enforced before the policy
+    // kernel. No membership facts are inferred from a claimed acting org.
+    actor_attrs.insert("organizations".to_owned(), serde_json::json!([]));
+
+    let mut claim_attrs = serde_json::Map::new();
+    claim_attrs.insert("exists".to_owned(), serde_json::Value::Bool(context.claim.exists));
+    if let Some(creator) = &context.claim.creator_actor_id {
+        claim_attrs.insert("creatorActorId".to_owned(), serde_json::Value::String(creator.clone()));
+    }
+    if let Some(organization) = &context.claim.creator_organization_id {
+        claim_attrs.insert("creatorOrganizationId".to_owned(), serde_json::Value::String(organization.clone()));
+    }
+
+    let actor_uid = CedarUid {
+        entity_type: "Mycelix::Actor".to_owned(),
+        id: actor_id.clone(),
+    };
+    let claim_uid = CedarUid {
+        entity_type: "Mycelix::Claim".to_owned(),
+        id: claim_id.clone(),
+    };
+    let action_uid = CedarUid {
+        entity_type: "Mycelix::Action".to_owned(),
+        id: action.clone(),
+    };
+    let empty_parents = Vec::new();
+    let entities = vec![
+        CedarEntity {
+            uid: actor_uid,
+            attrs: serde_json::Value::Object(actor_attrs),
+            parents: empty_parents.clone(),
+        },
+        CedarEntity {
+            uid: claim_uid,
+            attrs: serde_json::Value::Object(claim_attrs),
+            parents: empty_parents.clone(),
+        },
+        CedarEntity {
+            uid: action_uid,
+            attrs: serde_json::json!({}),
+            parents: empty_parents,
+        },
+    ];
+    let cedar = CedarCaseProjection {
+        case_id: case.case_id.clone(),
+        request: CedarRequest {
+            principal: cedar_entity_uid("Mycelix::Actor", &actor_id),
+            action: cedar_entity_uid("Mycelix::Action", &action),
+            resource: cedar_entity_uid("Mycelix::Claim", &claim_id),
+            context: CedarContext {
+                attestation_kind: context.attestation.kind.as_str().to_owned(),
+                target_attestation_exists: context.target_attestation.exists,
+                target_attestation_author_id: context.target_attestation.author_actor_id.clone(),
+                acting_organization_id: context.acting_organization_id.clone(),
+            },
+        },
+        entities,
+    };
+
+    let rego = RegoCaseProjection {
+        case_id: case.case_id.clone(),
+        input: RegoInput {
+            action,
+            actor: RegoActor {
+                id: actor_id,
+                roles: role_names,
+            },
+            claim: RegoClaim {
+                exists: context.claim.exists,
+                creator_actor_id: context.claim.creator_actor_id.clone(),
+                creator_organization_id: context.claim.creator_organization_id.clone(),
+            },
+            attestation: RegoAttestation {
+                kind: context.attestation.kind.as_str().to_owned(),
+            },
+            target_attestation: RegoTargetAttestation {
+                exists: context.target_attestation.exists,
+                author_actor_id: context.target_attestation.author_actor_id.clone(),
+            },
+            acting_organization_id: context.acting_organization_id.clone(),
+        },
+    };
+    EngineInputProjection {
+        case_id: case.case_id.clone(),
+        cedar,
+        rego,
+    }
+}
+
 /// Materialize the full bounded abstract domain without synthesizing expected
 /// decisions. A future adapter can evaluate the same rows in Rust, Cedar, Rego
 /// and CEL, while preserving the baseline source and domain identities.
@@ -520,6 +721,50 @@ mod tests {
         assert!(cases.iter().all(|case| {
             case.expected_decision_status == "pending_authentic_rust_oracle"
         }));
+    }
+
+    #[test]
+    fn cedar_and_rego_projections_preserve_the_same_policy_inputs() {
+        let cases = enumerate_decision_space();
+        let selected = cases.iter().find(|case| {
+            case.context.action == Action::AttestationRecorded
+                && case.context.claim.exists
+                && case.context.attestation.kind == AttestationKind::IndependentReplication
+                && case.context.actor.roles.contains(&Role::Reviewer)
+                && case.domain_annotations.acting_organization_relation
+                    == ActingOrganizationRelation::EqualToCreator
+        }).expect("generated domain includes same-org independent replication control");
+        let projection = project_engine_inputs(selected);
+
+        assert_eq!(projection.case_id, selected.case_id);
+        assert_eq!(projection.cedar.case_id, projection.rego.case_id);
+        assert_eq!(projection.cedar.request.context.attestation_kind, "independent_replication");
+        assert_eq!(
+            projection.cedar.request.context.acting_organization_id.as_deref(),
+            Some("org:creator")
+        );
+        assert_eq!(projection.rego.input.acting_organization_id.as_deref(), Some("org:creator"));
+        assert_eq!(projection.rego.input.claim.creator_organization_id.as_deref(), Some("org:creator"));
+        assert_eq!(projection.cedar.entities.len(), 3);
+        assert_eq!(projection.cedar.request.action, "Mycelix::Action::\\"attestation_recorded\\"");
+    }
+
+    #[test]
+    fn cedar_and_rego_projection_omit_missing_optional_attributes() {
+        let cases = enumerate_decision_space();
+        let selected = cases.iter().find(|case| {
+            case.context.action == Action::AttestationRecorded
+                && case.context.claim.exists
+                && case.context.claim.creator_organization_id.is_none()
+                && case.context.acting_organization_id.is_none()
+        }).expect("generated domain includes absent optional organizations");
+        let projection = project_engine_inputs(selected);
+        let rego = serde_json::to_value(&projection.rego).expect("Rego projection serializes");
+        let cedar = serde_json::to_value(&projection.cedar).expect("Cedar projection serializes");
+        assert!(rego["input"]["claim"].get("creatorOrganizationId").is_none());
+        assert!(rego["input"].get("actingOrganizationId").is_none());
+        assert!(cedar["request"]["context"].get("actingOrganizationId").is_none());
+        assert!(cedar["entities"][1]["attrs"].get("creatorOrganizationId").is_none());
     }
 
     #[test]
