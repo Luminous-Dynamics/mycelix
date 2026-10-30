@@ -1,0 +1,640 @@
+{
+  "suite": "MYCELIX-SCIENTIFIC-AUTHZ-CONFORMANCE-0.1",
+  "status": "research-corpus-extracted-from-existing-rust-baseline",
+  "baseline": {
+    "repository": "https://github.com/Luminous-Dynamics/mycelix",
+    "revision": "061e34f24d406f19f6de0e61867305b6989f455f",
+    "path": "mycelix-desci/src/core/src/scientific_governance.rs",
+    "blobSha": "488c69fd4b5540371f2714e9d5668aecc12e294d",
+    "policyId": "mycelix-default-scientific-authorization",
+    "policyVersion": "1.0.0",
+    "description": "Normalized decision inputs for DefaultScientificAuthorizationPolicy::authorize. These cases isolate the pure policy result from event signature, identity resolution, key authorization, organization membership, receipt signing, replay, and commit guards."
+  },
+  "policyCases": [
+    {
+      "id": "AUTH-001",
+      "name": "contributor_can_propose_genesis_claim",
+      "stage": "policy",
+      "action": "claim_proposed",
+      "actor": {
+        "id": "actor:alice",
+        "roles": [
+          "contributor"
+        ]
+      },
+      "claim": {
+        "exists": false
+      },
+      "expected": "allow",
+      "referenceRule": "proposal_role_and_empty_stream"
+    },
+    {
+      "id": "AUTH-002",
+      "name": "editor_can_propose_genesis_claim",
+      "stage": "policy",
+      "action": "claim_proposed",
+      "actor": {
+        "id": "actor:editor",
+        "roles": [
+          "editor"
+        ]
+      },
+      "claim": {
+        "exists": false
+      },
+      "expected": "allow",
+      "referenceRule": "proposal_role_and_empty_stream"
+    },
+    {
+      "id": "AUTH-003",
+      "name": "institution_can_propose_genesis_claim",
+      "stage": "policy",
+      "action": "claim_proposed",
+      "actor": {
+        "id": "actor:institution",
+        "roles": [
+          "institution"
+        ]
+      },
+      "claim": {
+        "exists": false
+      },
+      "expected": "allow",
+      "referenceRule": "proposal_role_and_empty_stream"
+    },
+    {
+      "id": "AUTH-004",
+      "name": "reviewer_alone_cannot_propose_genesis_claim",
+      "stage": "policy",
+      "action": "claim_proposed",
+      "actor": {
+        "id": "actor:reviewer",
+        "roles": [
+          "reviewer"
+        ]
+      },
+      "claim": {
+        "exists": false
+      },
+      "expected": "deny",
+      "referenceRule": "proposal_role_and_empty_stream"
+    },
+    {
+      "id": "AUTH-005",
+      "name": "proposal_cannot_reinitialize_existing_claim_stream",
+      "stage": "policy",
+      "action": "claim_proposed",
+      "actor": {
+        "id": "actor:alice",
+        "roles": [
+          "contributor"
+        ]
+      },
+      "claim": {
+        "exists": true,
+        "creatorActorId": "actor:alice"
+      },
+      "expected": "deny",
+      "referenceRule": "proposal_requires_empty_stream"
+    },
+    {
+      "id": "AUTH-006",
+      "name": "migration_service_can_import_legacy_genesis",
+      "stage": "policy",
+      "action": "legacy_claim_imported",
+      "actor": {
+        "id": "actor:migrator",
+        "roles": [
+          "migration_service"
+        ]
+      },
+      "claim": {
+        "exists": false
+      },
+      "expected": "allow",
+      "referenceRule": "migration_service_and_empty_stream"
+    },
+    {
+      "id": "AUTH-007",
+      "name": "contributor_cannot_import_legacy_genesis",
+      "stage": "policy",
+      "action": "legacy_claim_imported",
+      "actor": {
+        "id": "actor:alice",
+        "roles": [
+          "contributor"
+        ]
+      },
+      "claim": {
+        "exists": false
+      },
+      "expected": "deny",
+      "referenceRule": "migration_service_and_empty_stream"
+    },
+    {
+      "id": "AUTH-008",
+      "name": "legacy_import_cannot_reinitialize_existing_stream",
+      "stage": "policy",
+      "action": "legacy_claim_imported",
+      "actor": {
+        "id": "actor:migrator",
+        "roles": [
+          "migration_service"
+        ]
+      },
+      "claim": {
+        "exists": true,
+        "creatorActorId": "actor:alice"
+      },
+      "expected": "deny",
+      "referenceRule": "legacy_import_requires_empty_stream"
+    },
+    {
+      "id": "AUTH-009",
+      "name": "claim_owner_can_attach_evidence",
+      "stage": "policy",
+      "action": "evidence_attached",
+      "actor": {
+        "id": "actor:alice",
+        "roles": [
+          "contributor"
+        ]
+      },
+      "claim": {
+        "exists": true,
+        "creatorActorId": "actor:alice"
+      },
+      "expected": "allow",
+      "referenceRule": "claim_owner_or_editor"
+    },
+    {
+      "id": "AUTH-010",
+      "name": "editor_can_attach_evidence_to_another_claim",
+      "stage": "policy",
+      "action": "evidence_attached",
+      "actor": {
+        "id": "actor:editor",
+        "roles": [
+          "editor"
+        ]
+      },
+      "claim": {
+        "exists": true,
+        "creatorActorId": "actor:alice"
+      },
+      "expected": "allow",
+      "referenceRule": "claim_owner_or_editor"
+    },
+    {
+      "id": "AUTH-011",
+      "name": "institution_can_attach_evidence_to_another_claim",
+      "stage": "policy",
+      "action": "evidence_attached",
+      "actor": {
+        "id": "actor:institution",
+        "roles": [
+          "institution"
+        ]
+      },
+      "claim": {
+        "exists": true,
+        "creatorActorId": "actor:alice"
+      },
+      "expected": "allow",
+      "referenceRule": "claim_owner_or_editor"
+    },
+    {
+      "id": "AUTH-012",
+      "name": "unrelated_contributor_cannot_attach_evidence",
+      "stage": "policy",
+      "action": "evidence_attached",
+      "actor": {
+        "id": "actor:bob",
+        "roles": [
+          "contributor"
+        ]
+      },
+      "claim": {
+        "exists": true,
+        "creatorActorId": "actor:alice"
+      },
+      "expected": "deny",
+      "referenceRule": "claim_owner_or_editor"
+    },
+    {
+      "id": "AUTH-013",
+      "name": "reviewer_can_record_attestation",
+      "stage": "policy",
+      "action": "attestation_recorded",
+      "actor": {
+        "id": "actor:reviewer",
+        "roles": [
+          "reviewer"
+        ]
+      },
+      "claim": {
+        "exists": true,
+        "creatorActorId": "actor:alice"
+      },
+      "attestation": {
+        "kind": "ordinary"
+      },
+      "expected": "allow",
+      "referenceRule": "attestation_role"
+    },
+    {
+      "id": "AUTH-014",
+      "name": "contributor_can_record_attestation",
+      "stage": "policy",
+      "action": "attestation_recorded",
+      "actor": {
+        "id": "actor:contributor",
+        "roles": [
+          "contributor"
+        ]
+      },
+      "claim": {
+        "exists": true,
+        "creatorActorId": "actor:alice"
+      },
+      "attestation": {
+        "kind": "ordinary"
+      },
+      "expected": "allow",
+      "referenceRule": "attestation_role"
+    },
+    {
+      "id": "AUTH-015",
+      "name": "institution_can_record_attestation",
+      "stage": "policy",
+      "action": "attestation_recorded",
+      "actor": {
+        "id": "actor:institution",
+        "roles": [
+          "institution"
+        ]
+      },
+      "claim": {
+        "exists": true,
+        "creatorActorId": "actor:alice"
+      },
+      "attestation": {
+        "kind": "ordinary"
+      },
+      "expected": "allow",
+      "referenceRule": "attestation_role"
+    },
+    {
+      "id": "AUTH-016",
+      "name": "editor_role_alone_cannot_record_attestation",
+      "stage": "policy",
+      "action": "attestation_recorded",
+      "actor": {
+        "id": "actor:editor",
+        "roles": [
+          "editor"
+        ]
+      },
+      "claim": {
+        "exists": true,
+        "creatorActorId": "actor:alice"
+      },
+      "attestation": {
+        "kind": "ordinary"
+      },
+      "expected": "deny",
+      "referenceRule": "attestation_role"
+    },
+    {
+      "id": "AUTH-017",
+      "name": "claim_creator_cannot_attest_own_independent_replication",
+      "stage": "policy",
+      "action": "attestation_recorded",
+      "actor": {
+        "id": "actor:alice",
+        "roles": [
+          "reviewer"
+        ]
+      },
+      "claim": {
+        "exists": true,
+        "creatorActorId": "actor:alice"
+      },
+      "attestation": {
+        "kind": "independent_replication"
+      },
+      "expected": "deny",
+      "referenceRule": "independent_replication_separation"
+    },
+    {
+      "id": "AUTH-018",
+      "name": "creator_organization_cannot_count_as_independent_replication",
+      "stage": "policy",
+      "action": "attestation_recorded",
+      "actor": {
+        "id": "actor:bob",
+        "roles": [
+          "reviewer"
+        ],
+        "organizations": [
+          "org:creator"
+        ]
+      },
+      "claim": {
+        "exists": true,
+        "creatorActorId": "actor:alice",
+        "creatorOrganizationId": "org:creator"
+      },
+      "attestation": {
+        "kind": "independent_replication"
+      },
+      "actingOrganizationId": "org:creator",
+      "expected": "deny",
+      "referenceRule": "independent_replication_separation"
+    },
+    {
+      "id": "AUTH-019",
+      "name": "distinct_authorized_organization_can_record_independent_replication",
+      "stage": "policy",
+      "action": "attestation_recorded",
+      "actor": {
+        "id": "actor:bob",
+        "roles": [
+          "reviewer"
+        ],
+        "organizations": [
+          "org:independent"
+        ]
+      },
+      "claim": {
+        "exists": true,
+        "creatorActorId": "actor:alice",
+        "creatorOrganizationId": "org:creator"
+      },
+      "attestation": {
+        "kind": "independent_replication"
+      },
+      "actingOrganizationId": "org:independent",
+      "expected": "allow",
+      "referenceRule": "independent_replication_separation"
+    },
+    {
+      "id": "AUTH-020",
+      "name": "attestation_author_can_correct_own_attestation",
+      "stage": "policy",
+      "action": "attestation_corrected",
+      "actor": {
+        "id": "actor:reviewer",
+        "roles": [
+          "reviewer"
+        ]
+      },
+      "claim": {
+        "exists": true,
+        "creatorActorId": "actor:alice"
+      },
+      "targetAttestation": {
+        "exists": true,
+        "authorActorId": "actor:reviewer"
+      },
+      "expected": "allow",
+      "referenceRule": "attestation_author_or_editor"
+    },
+    {
+      "id": "AUTH-021",
+      "name": "editor_can_correct_another_attestation",
+      "stage": "policy",
+      "action": "attestation_corrected",
+      "actor": {
+        "id": "actor:editor",
+        "roles": [
+          "editor"
+        ]
+      },
+      "claim": {
+        "exists": true,
+        "creatorActorId": "actor:alice"
+      },
+      "targetAttestation": {
+        "exists": true,
+        "authorActorId": "actor:reviewer"
+      },
+      "expected": "allow",
+      "referenceRule": "attestation_author_or_editor"
+    },
+    {
+      "id": "AUTH-022",
+      "name": "unrelated_reviewer_cannot_correct_another_attestation",
+      "stage": "policy",
+      "action": "attestation_corrected",
+      "actor": {
+        "id": "actor:bob",
+        "roles": [
+          "reviewer"
+        ]
+      },
+      "claim": {
+        "exists": true,
+        "creatorActorId": "actor:alice"
+      },
+      "targetAttestation": {
+        "exists": true,
+        "authorActorId": "actor:reviewer"
+      },
+      "expected": "deny",
+      "referenceRule": "attestation_author_or_editor"
+    },
+    {
+      "id": "AUTH-023",
+      "name": "nonexistent_attestation_cannot_be_corrected",
+      "stage": "policy",
+      "action": "attestation_corrected",
+      "actor": {
+        "id": "actor:reviewer",
+        "roles": [
+          "reviewer"
+        ]
+      },
+      "claim": {
+        "exists": true,
+        "creatorActorId": "actor:alice"
+      },
+      "targetAttestation": {
+        "exists": false
+      },
+      "expected": "deny",
+      "referenceRule": "attestation_must_exist"
+    },
+    {
+      "id": "AUTH-024",
+      "name": "claim_owner_can_retract_claim",
+      "stage": "policy",
+      "action": "claim_retracted",
+      "actor": {
+        "id": "actor:alice",
+        "roles": [
+          "contributor"
+        ]
+      },
+      "claim": {
+        "exists": true,
+        "creatorActorId": "actor:alice"
+      },
+      "expected": "allow",
+      "referenceRule": "claim_owner_or_editor_lifecycle"
+    },
+    {
+      "id": "AUTH-025",
+      "name": "editor_can_supersede_another_claim",
+      "stage": "policy",
+      "action": "claim_superseded",
+      "actor": {
+        "id": "actor:editor",
+        "roles": [
+          "editor"
+        ]
+      },
+      "claim": {
+        "exists": true,
+        "creatorActorId": "actor:alice"
+      },
+      "expected": "allow",
+      "referenceRule": "claim_owner_or_editor_lifecycle"
+    },
+    {
+      "id": "AUTH-026",
+      "name": "unrelated_contributor_cannot_retract_another_claim",
+      "stage": "policy",
+      "action": "claim_retracted",
+      "actor": {
+        "id": "actor:bob",
+        "roles": [
+          "contributor"
+        ]
+      },
+      "claim": {
+        "exists": true,
+        "creatorActorId": "actor:alice"
+      },
+      "expected": "deny",
+      "referenceRule": "claim_owner_or_editor_lifecycle"
+    },
+    {
+      "id": "AUTH-027",
+      "name": "all_non_genesis_actions_require_existing_claim_stream",
+      "stage": "policy",
+      "action": "evidence_attached",
+      "actor": {
+        "id": "actor:alice",
+        "roles": [
+          "contributor"
+        ]
+      },
+      "claim": {
+        "exists": false
+      },
+      "expected": "deny",
+      "referenceRule": "non_genesis_requires_existing_stream"
+    },
+    {
+      "id": "AUTH-028",
+      "name": "claim_creator_can_correct_their_own_attestation_without_editor_role",
+      "stage": "policy",
+      "action": "attestation_withdrawn",
+      "actor": {
+        "id": "actor:reviewer",
+        "roles": [
+          "reviewer"
+        ]
+      },
+      "claim": {
+        "exists": true,
+        "creatorActorId": "actor:alice"
+      },
+      "targetAttestation": {
+        "exists": true,
+        "authorActorId": "actor:reviewer"
+      },
+      "expected": "allow",
+      "referenceRule": "attestation_author_or_editor"
+    }
+  ],
+  "prePolicyAndCommitGates": [
+    {
+      "id": "GATE-001",
+      "name": "invalid_event_signature",
+      "guard": "event_signature",
+      "when": "event signature invalid",
+      "expected": "reject_before_policy"
+    },
+    {
+      "id": "GATE-002",
+      "name": "unresolved_actor",
+      "guard": "actor_resolution",
+      "when": "identity resolver returns no actor",
+      "expected": "reject_before_policy"
+    },
+    {
+      "id": "GATE-003",
+      "name": "identity_resolver_actor_mismatch",
+      "guard": "actor_binding",
+      "when": "resolved actor id differs from signed event actor id",
+      "expected": "reject_before_policy"
+    },
+    {
+      "id": "GATE-004",
+      "name": "expired_or_revoked_signing_key_at_service_receipt_time",
+      "guard": "key_authorization",
+      "when": "signing key is not active at service-observed received_at",
+      "expected": "reject_before_policy"
+    },
+    {
+      "id": "GATE-005",
+      "name": "unauthorized_acting_organization",
+      "guard": "organization_membership",
+      "when": "acting_organization is present but absent from resolved actor organizations",
+      "expected": "reject_before_policy"
+    },
+    {
+      "id": "GATE-006",
+      "name": "missing_authority_receipt_signing_key",
+      "guard": "receipt_signing",
+      "when": "authority receipt signing is not configured",
+      "expected": "reject_before_commit"
+    },
+    {
+      "id": "GATE-007",
+      "name": "receipt_sequence_gap",
+      "guard": "receipt_chain",
+      "when": "prior authority receipt sequence plus one differs from event sequence",
+      "expected": "reject_before_commit"
+    },
+    {
+      "id": "GATE-008",
+      "name": "event_id_reused_for_different_signed_bytes",
+      "guard": "idempotency",
+      "when": "event id already exists but signed event bytes differ",
+      "expected": "reject"
+    },
+    {
+      "id": "GATE-009",
+      "name": "exact_retry_with_attested_receipt",
+      "guard": "idempotency",
+      "when": "same signed event already committed and receipt status is ReceiptAttested",
+      "expected": "return_original_append_receipt_without_reauthorizing"
+    },
+    {
+      "id": "GATE-010",
+      "name": "exact_retry_without_committed_receipt",
+      "guard": "idempotency",
+      "when": "same signed event exists but no committed authority receipt can be found",
+      "expected": "reject"
+    }
+  ],
+  "notes": [
+    "Expected decisions are derived from the referenced baseline source, not from Cedar, OPA, or a new custom language.",
+    "An authorization-language adapter must preserve the distinction between policy ALLOW/DENY and hard pre-policy or commit-time rejection.",
+    "Cases are data for an independent evaluator; they are not yet executable against the Rust implementation.",
+    "Reason strings in the current Rust AuthorizationDecision are prose, not stable machine codes. The bake-off compares ALLOW/DENY first and separately evaluates explanation completeness."
+  ]
+}
