@@ -469,6 +469,7 @@ jobs:
           jq empty research/terra-preta/tools/coupled-event-audit/fixtures/synthetic-event-report.json
           jq empty research/terra-preta/neon-preferential-flow-source-plan.v0.1.json
           jq empty research/terra-preta/tools/preferential-flow-eventizer/fixtures/synthetic-one-event.json
+          jq empty research/terra-preta/tools/profile-nsr-audit/fixtures/synthetic-nsr-event.json
           jq empty research/terra-preta/tools/profile-flow-audit/fixtures/synthetic-mixed-profile.json
           bash -n research/terra-preta/tools/acquire-public-sources.sh
           bash -n research/terra-preta/tools/acquire-neon-data.sh
@@ -509,6 +510,7 @@ jobs:
           cargo fmt --manifest-path research/terra-preta/tools/nutrient-budget-audit/Cargo.toml -- --check
           cargo fmt --manifest-path research/terra-preta/tools/coupled-event-audit/Cargo.toml -- --check
           cargo fmt --manifest-path research/terra-preta/tools/preferential-flow-eventizer/Cargo.toml -- --check
+          cargo fmt --manifest-path research/terra-preta/tools/profile-nsr-audit/Cargo.toml -- --check
           cargo fmt --manifest-path research/terra-preta/tools/profile-flow-audit/Cargo.toml -- --check
           cargo fmt --manifest-path research/terra-preta/tools/morphology-audit/Cargo.toml -- --check
           cargo fmt --manifest-path research/terra-preta/tools/known-truth-generator/Cargo.toml -- --check
@@ -525,6 +527,9 @@ jobs:
           cargo test --manifest-path research/terra-preta/tools/preferential-flow-eventizer/Cargo.toml
           cargo run --manifest-path research/terra-preta/tools/preferential-flow-eventizer/Cargo.toml -- research/terra-preta/tools/preferential-flow-eventizer/fixtures/synthetic-one-event.json "$RUNNER_TEMP/terra-preta-pf-report.json"
           jq -e '.event_count == 1 and .response_detected_count == 1 and .proxy_classified_count == 1 and .events[0].response_lag_minutes == 20' "$RUNNER_TEMP/terra-preta-pf-report.json"
+          cargo test --manifest-path research/terra-preta/tools/profile-nsr-audit/Cargo.toml
+          cargo run --manifest-path research/terra-preta/tools/profile-nsr-audit/Cargo.toml -- research/terra-preta/tools/profile-nsr-audit/fixtures/synthetic-nsr-event.json "$RUNNER_TEMP/terra-preta-nsr-report.json"
+          jq -e '.response_signature == "nonsequential_response_signature" and .nonsequential_pair_count == 2 and .profile_coverage_status == "complete_for_declared_sensor_roster"' "$RUNNER_TEMP/terra-preta-nsr-report.json"
           cargo test --manifest-path research/terra-preta/tools/profile-flow-audit/Cargo.toml
           cargo run --manifest-path research/terra-preta/tools/profile-flow-audit/Cargo.toml -- research/terra-preta/tools/profile-flow-audit/fixtures/synthetic-mixed-profile.json "$RUNNER_TEMP/terra-preta-profile-report.json"
           jq -e '.profile_classification == "mixed_response_ordering" and .nsr_pair_count == 2 and .sequential_pair_count == 1' "$RUNNER_TEMP/terra-preta-profile-report.json"
@@ -547,6 +552,7 @@ jobs:
           cargo clippy --manifest-path research/terra-preta/tools/nutrient-budget-audit/Cargo.toml --all-targets -- -D warnings
           cargo clippy --manifest-path research/terra-preta/tools/coupled-event-audit/Cargo.toml --all-targets -- -D warnings
           cargo clippy --manifest-path research/terra-preta/tools/preferential-flow-eventizer/Cargo.toml --all-targets -- -D warnings
+          cargo clippy --manifest-path research/terra-preta/tools/profile-nsr-audit/Cargo.toml --all-targets -- -D warnings
           cargo clippy --manifest-path research/terra-preta/tools/profile-flow-audit/Cargo.toml --all-targets -- -D warnings
           cargo clippy --manifest-path research/terra-preta/tools/morphology-audit/Cargo.toml --all-targets -- -D warnings
           cargo clippy --manifest-path research/terra-preta/tools/known-truth-generator/Cargo.toml --all-targets -- -D warnings
