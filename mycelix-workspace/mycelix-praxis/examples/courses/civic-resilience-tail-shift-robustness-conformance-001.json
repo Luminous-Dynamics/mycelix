@@ -1,0 +1,635 @@
+{
+  "benchmark_id": "PRAXIS-NRES-010-TAIL-SHIFT-ROBUSTNESS-CONFORMANCE-001",
+  "schema_version": "1.0.0",
+  "status": "public-development-conformance-corpus",
+  "fixture_ref": "civic-resilience-tail-shift-robustness-fixture-001.json",
+  "negative_cases": [
+    {
+      "case_id": "NEG-01",
+      "name": "Probability out of range",
+      "mutation": "Set predicted_exceedance_probability=1.01",
+      "expected_disposition": "reject-probability-range"
+    },
+    {
+      "case_id": "NEG-02",
+      "name": "Negative probability",
+      "mutation": "Set predicted_exceedance_probability=-0.01",
+      "expected_disposition": "reject-probability-range"
+    },
+    {
+      "case_id": "NEG-03",
+      "name": "Missing probability on forecast",
+      "mutation": "Set action=forecast and probability=null",
+      "expected_disposition": "reject-missing-probability"
+    },
+    {
+      "case_id": "NEG-04",
+      "name": "Probability emitted on abstention",
+      "mutation": "Set action=abstain and probability=0.2",
+      "expected_disposition": "reject-probability-on-abstention"
+    },
+    {
+      "case_id": "NEG-05",
+      "name": "Missing abstention reason",
+      "mutation": "Remove abstention_reason",
+      "expected_disposition": "reject-missing-reason"
+    },
+    {
+      "case_id": "NEG-06",
+      "name": "Forecast on missing input",
+      "mutation": "Set qualification_state=missing_critical_input and action=forecast",
+      "expected_disposition": "reject-mandatory-abstention"
+    },
+    {
+      "case_id": "NEG-07",
+      "name": "Forecast on conflicting sources",
+      "mutation": "Set qualification_state=conflicting_sources and action=forecast",
+      "expected_disposition": "reject-mandatory-abstention"
+    },
+    {
+      "case_id": "NEG-08",
+      "name": "GPD scale not positive",
+      "mutation": "Set gpd_scale=0",
+      "expected_disposition": "reject-gpd-scale"
+    },
+    {
+      "case_id": "NEG-09",
+      "name": "Invalid GPD shape",
+      "mutation": "Set gpd_shape to NaN or infinity",
+      "expected_disposition": "reject-gpd-shape"
+    },
+    {
+      "case_id": "NEG-10",
+      "name": "Observed severity below zero",
+      "mutation": "Set observed_normalized_service_deficit_hours=-1",
+      "expected_disposition": "reject-severity-range"
+    },
+    {
+      "case_id": "NEG-11",
+      "name": "Invalid importance proposal probability",
+      "mutation": "Set proposal_stratum_probability=0",
+      "expected_disposition": "reject-proposal-probability"
+    },
+    {
+      "case_id": "NEG-12",
+      "name": "Invalid importance target probability",
+      "mutation": "Set target_stratum_probability=-0.1",
+      "expected_disposition": "reject-target-probability"
+    },
+    {
+      "case_id": "NEG-13",
+      "name": "Importance weights inconsistent within stratum",
+      "mutation": "Change target probability for one case in a stratum",
+      "expected_disposition": "reject-stratum-design-drift"
+    },
+    {
+      "case_id": "NEG-14",
+      "name": "Duplicate case ID",
+      "mutation": "Duplicate case_id",
+      "expected_disposition": "reject-duplicate-case-id"
+    },
+    {
+      "case_id": "NEG-15",
+      "name": "Composite score injection",
+      "mutation": "Add overall_resilience_score",
+      "expected_disposition": "reject-composite-score"
+    },
+    {
+      "case_id": "NEG-16",
+      "name": "Empty regime cohort",
+      "mutation": "Remove all cases for one regime",
+      "expected_disposition": "reject-empty-regime"
+    },
+    {
+      "case_id": "NEG-17",
+      "name": "Horizon drift",
+      "mutation": "Set one case horizon to 24",
+      "expected_disposition": "reject-horizon-drift"
+    },
+    {
+      "case_id": "NEG-18",
+      "name": "Negative GPD support violation silently clipped",
+      "mutation": "Change shape to negative and make an observed excess exceed its finite endpoint",
+      "expected_disposition": "reject-invalid-tail-support"
+    }
+  ],
+  "expected_metrics": {
+    "total_cases": 128,
+    "forecast_cases": 123,
+    "mandatory_abstentions": 5,
+    "optional_abstentions": 0,
+    "overall": {
+      "total_cases": 128,
+      "issued_forecasts": 123,
+      "abstentions": 5,
+      "population_forecast_coverage": 0.9609375,
+      "weighted_forecast_coverage": 0.9769791666666665,
+      "importance_weight_sum": 125.0533333333336,
+      "forecast_effective_sample_size": 99.1950123760287,
+      "observed_tail_events": 25,
+      "tail_event_importance_weight_sum": 11.213333333333324,
+      "tail_event_effective_sample_size": 10.506097651550018,
+      "weighted_observed_exceedance_rate": 0.0896684081458575,
+      "weighted_mean_predicted_exceedance_probability": 0.058798272736965446,
+      "tail_occurrence_calibration_ratio": 1.5250177253843809,
+      "brier_score": 0.07849683436400443,
+      "log_loss": 0.2922853324790153,
+      "climatology_brier_score": 0.08409493549418887,
+      "brier_skill_score": 0.0665688260212921,
+      "reliability_bins": [
+        {
+          "bin_id": "BIN-0",
+          "lower": 0,
+          "upper": 0.16666666666666666,
+          "count": 100,
+          "weight": 122.29333333333355,
+          "mean_forecast_probability": 0.05423778892280845,
+          "observed_event_rate": 0.0779546445704316
+        },
+        {
+          "bin_id": "BIN-1",
+          "lower": 0.16666666666666666,
+          "upper": 0.3333333333333333,
+          "count": 21,
+          "weight": 2.5200000000000014,
+          "mean_forecast_probability": 0.2514285714285712,
+          "observed_event_rate": 0.619047619047619
+        },
+        {
+          "bin_id": "BIN-2",
+          "lower": 0.3333333333333333,
+          "upper": 0.5,
+          "count": 2,
+          "weight": 0.24,
+          "mean_forecast_probability": 0.36,
+          "observed_event_rate": 0.5
+        },
+        {
+          "bin_id": "BIN-3",
+          "lower": 0.5,
+          "upper": 0.6666666666666666,
+          "count": 0,
+          "weight": 0,
+          "mean_forecast_probability": null,
+          "observed_event_rate": null
+        },
+        {
+          "bin_id": "BIN-4",
+          "lower": 0.6666666666666666,
+          "upper": 0.8333333333333334,
+          "count": 0,
+          "weight": 0,
+          "mean_forecast_probability": null,
+          "observed_event_rate": null
+        },
+        {
+          "bin_id": "BIN-5",
+          "lower": 0.8333333333333334,
+          "upper": 1,
+          "count": 0,
+          "weight": 0,
+          "mean_forecast_probability": null,
+          "observed_event_rate": null
+        }
+      ],
+      "tail_excess_observations": 25,
+      "weighted_tail_excess_pit_ks_distance": 0.42905500300339816,
+      "weighted_tail_excess_log_loss": 4.9249334709252635,
+      "zero_support_tail_excesses": 0,
+      "conditional_tail_quantile_coverage": [
+        {
+          "nominal": 0.5,
+          "observed_weighted_coverage": 0.01070154577883473
+        },
+        {
+          "nominal": 0.9,
+          "observed_weighted_coverage": 0.7990487514863263
+        },
+        {
+          "nominal": 0.95,
+          "observed_weighted_coverage": 0.935790725326992
+        }
+      ]
+    },
+    "per_regime": [
+      {
+        "regime_id": "in_distribution",
+        "total_cases": 32,
+        "issued_forecasts": 32,
+        "abstentions": 0,
+        "population_forecast_coverage": 1,
+        "weighted_forecast_coverage": 1,
+        "importance_weight_sum": 32,
+        "forecast_effective_sample_size": 25.43450614667232,
+        "observed_tail_events": 5,
+        "tail_event_importance_weight_sum": 1.7733333333333334,
+        "tail_event_effective_sample_size": 1.817425254289531,
+        "weighted_observed_exceedance_rate": 0.05541666666666667,
+        "weighted_mean_predicted_exceedance_probability": 0.04025,
+        "tail_occurrence_calibration_ratio": 1.3768115942028987,
+        "brier_score": 0.05098481666666663,
+        "log_loss": 0.21694616973651012,
+        "climatology_brier_score": 0.05258333333333329,
+        "brier_skill_score": 0.030399683042789172,
+        "reliability_bins": [
+          {
+            "bin_id": "BIN-0",
+            "lower": 0,
+            "upper": 0.16666666666666666,
+            "count": 26,
+            "weight": 31.279999999999998,
+            "mean_forecast_probability": 0.03565217391304348,
+            "observed_event_rate": 0.049019607843137254
+          },
+          {
+            "bin_id": "BIN-1",
+            "lower": 0.16666666666666666,
+            "upper": 0.3333333333333333,
+            "count": 6,
+            "weight": 0.72,
+            "mean_forecast_probability": 0.24000000000000002,
+            "observed_event_rate": 0.3333333333333333
+          },
+          {
+            "bin_id": "BIN-2",
+            "lower": 0.3333333333333333,
+            "upper": 0.5,
+            "count": 0,
+            "weight": 0,
+            "mean_forecast_probability": null,
+            "observed_event_rate": null
+          },
+          {
+            "bin_id": "BIN-3",
+            "lower": 0.5,
+            "upper": 0.6666666666666666,
+            "count": 0,
+            "weight": 0,
+            "mean_forecast_probability": null,
+            "observed_event_rate": null
+          },
+          {
+            "bin_id": "BIN-4",
+            "lower": 0.6666666666666666,
+            "upper": 0.8333333333333334,
+            "count": 0,
+            "weight": 0,
+            "mean_forecast_probability": null,
+            "observed_event_rate": null
+          },
+          {
+            "bin_id": "BIN-5",
+            "lower": 0.8333333333333334,
+            "upper": 1,
+            "count": 0,
+            "weight": 0,
+            "mean_forecast_probability": null,
+            "observed_event_rate": null
+          }
+        ],
+        "tail_excess_observations": 5,
+        "weighted_tail_excess_pit_ks_distance": 0.3720873758499021,
+        "weighted_tail_excess_log_loss": 4.1089746324967935,
+        "zero_support_tail_excesses": 0,
+        "conditional_tail_quantile_coverage": [
+          {
+            "nominal": 0.5,
+            "observed_weighted_coverage": 0.06766917293233082
+          },
+          {
+            "nominal": 0.9,
+            "observed_weighted_coverage": 1
+          },
+          {
+            "nominal": 0.95,
+            "observed_weighted_coverage": 1
+          }
+        ]
+      },
+      {
+        "regime_id": "temporal_shift",
+        "total_cases": 32,
+        "issued_forecasts": 31,
+        "abstentions": 1,
+        "population_forecast_coverage": 0.96875,
+        "weighted_forecast_coverage": 0.9962500000000001,
+        "importance_weight_sum": 31.880000000000003,
+        "forecast_effective_sample_size": 25.253137382223937,
+        "observed_tail_events": 6,
+        "tail_event_importance_weight_sum": 3.066666666666667,
+        "tail_event_effective_sample_size": 2.7635565771601716,
+        "weighted_observed_exceedance_rate": 0.09619406106231702,
+        "weighted_mean_predicted_exceedance_probability": 0.059535759096612274,
+        "tail_occurrence_calibration_ratio": 1.6157358623112055,
+        "brier_score": 0.08572976160602262,
+        "log_loss": 0.3226298959249164,
+        "climatology_brier_score": 0.0900985361773317,
+        "brier_skill_score": 0.048488851835622127,
+        "reliability_bins": [
+          {
+            "bin_id": "BIN-0",
+            "lower": 0,
+            "upper": 0.16666666666666666,
+            "count": 26,
+            "weight": 31.279999999999998,
+            "mean_forecast_probability": 0.05572890025575447,
+            "observed_event_rate": 0.0865302642796249
+          },
+          {
+            "bin_id": "BIN-1",
+            "lower": 0.16666666666666666,
+            "upper": 0.3333333333333333,
+            "count": 5,
+            "weight": 0.6,
+            "mean_forecast_probability": 0.258,
+            "observed_event_rate": 0.6
+          },
+          {
+            "bin_id": "BIN-2",
+            "lower": 0.3333333333333333,
+            "upper": 0.5,
+            "count": 0,
+            "weight": 0,
+            "mean_forecast_probability": null,
+            "observed_event_rate": null
+          },
+          {
+            "bin_id": "BIN-3",
+            "lower": 0.5,
+            "upper": 0.6666666666666666,
+            "count": 0,
+            "weight": 0,
+            "mean_forecast_probability": null,
+            "observed_event_rate": null
+          },
+          {
+            "bin_id": "BIN-4",
+            "lower": 0.6666666666666666,
+            "upper": 0.8333333333333334,
+            "count": 0,
+            "weight": 0,
+            "mean_forecast_probability": null,
+            "observed_event_rate": null
+          },
+          {
+            "bin_id": "BIN-5",
+            "lower": 0.8333333333333334,
+            "upper": 1,
+            "count": 0,
+            "weight": 0,
+            "mean_forecast_probability": null,
+            "observed_event_rate": null
+          }
+        ],
+        "tail_excess_observations": 6,
+        "weighted_tail_excess_pit_ks_distance": 0.5839800823443909,
+        "weighted_tail_excess_log_loss": 4.833850520484199,
+        "zero_support_tail_excesses": 0,
+        "conditional_tail_quantile_coverage": [
+          {
+            "nominal": 0.5,
+            "observed_weighted_coverage": 0
+          },
+          {
+            "nominal": 0.9,
+            "observed_weighted_coverage": 0.9217391304347825
+          },
+          {
+            "nominal": 0.95,
+            "observed_weighted_coverage": 0.9608695652173913
+          }
+        ]
+      },
+      {
+        "regime_id": "structural_dependency_shift",
+        "total_cases": 32,
+        "issued_forecasts": 32,
+        "abstentions": 0,
+        "population_forecast_coverage": 1,
+        "weighted_forecast_coverage": 1,
+        "importance_weight_sum": 32,
+        "forecast_effective_sample_size": 25.43450614667232,
+        "observed_tail_events": 9,
+        "tail_event_importance_weight_sum": 4.6000000000000005,
+        "tail_event_effective_sample_size": 4.145334865740257,
+        "weighted_observed_exceedance_rate": 0.14375000000000002,
+        "weighted_mean_predicted_exceedance_probability": 0.08084999999999998,
+        "tail_occurrence_calibration_ratio": 1.7779839208410644,
+        "brier_score": 0.12324181666666663,
+        "log_loss": 0.42411674299515056,
+        "climatology_brier_score": 0.13385000000000002,
+        "brier_skill_score": 0.07925426472419417,
+        "reliability_bins": [
+          {
+            "bin_id": "BIN-0",
+            "lower": 0,
+            "upper": 0.16666666666666666,
+            "count": 24,
+            "weight": 31.039999999999996,
+            "mean_forecast_probability": 0.075,
+            "observed_event_rate": 0.12500000000000003
+          },
+          {
+            "bin_id": "BIN-1",
+            "lower": 0.16666666666666666,
+            "upper": 0.3333333333333333,
+            "count": 6,
+            "weight": 0.72,
+            "mean_forecast_probability": 0.24000000000000002,
+            "observed_event_rate": 0.8333333333333334
+          },
+          {
+            "bin_id": "BIN-2",
+            "lower": 0.3333333333333333,
+            "upper": 0.5,
+            "count": 2,
+            "weight": 0.24,
+            "mean_forecast_probability": 0.36,
+            "observed_event_rate": 0.5
+          },
+          {
+            "bin_id": "BIN-3",
+            "lower": 0.5,
+            "upper": 0.6666666666666666,
+            "count": 0,
+            "weight": 0,
+            "mean_forecast_probability": null,
+            "observed_event_rate": null
+          },
+          {
+            "bin_id": "BIN-4",
+            "lower": 0.6666666666666666,
+            "upper": 0.8333333333333334,
+            "count": 0,
+            "weight": 0,
+            "mean_forecast_probability": null,
+            "observed_event_rate": null
+          },
+          {
+            "bin_id": "BIN-5",
+            "lower": 0.8333333333333334,
+            "upper": 1,
+            "count": 0,
+            "weight": 0,
+            "mean_forecast_probability": null,
+            "observed_event_rate": null
+          }
+        ],
+        "tail_excess_observations": 9,
+        "weighted_tail_excess_pit_ks_distance": 0.67631791574908,
+        "weighted_tail_excess_log_loss": 5.5483152131291735,
+        "zero_support_tail_excesses": 0,
+        "conditional_tail_quantile_coverage": [
+          {
+            "nominal": 0.5,
+            "observed_weighted_coverage": 0
+          },
+          {
+            "nominal": 0.9,
+            "observed_weighted_coverage": 0.6144927536231883
+          },
+          {
+            "nominal": 0.95,
+            "observed_weighted_coverage": 0.8956521739130434
+          }
+        ]
+      },
+      {
+        "regime_id": "evidence_degradation",
+        "total_cases": 32,
+        "issued_forecasts": 28,
+        "abstentions": 4,
+        "population_forecast_coverage": 0.875,
+        "weighted_forecast_coverage": 0.9116666666666667,
+        "importance_weight_sum": 29.173333333333336,
+        "forecast_effective_sample_size": 23.073316496693728,
+        "observed_tail_events": 5,
+        "tail_event_importance_weight_sum": 1.7733333333333334,
+        "tail_event_effective_sample_size": 1.817425254289531,
+        "weighted_observed_exceedance_rate": 0.06078610603290676,
+        "weighted_mean_predicted_exceedance_probability": 0.054149451553930514,
+        "tail_occurrence_calibration_ratio": 1.1225618042015888,
+        "brier_score": 0.05169014145338206,
+        "log_loss": 0.19715953455586302,
+        "climatology_brier_score": 0.057523217550274196,
+        "brier_skill_score": 0.10140385648271732,
+        "reliability_bins": [
+          {
+            "bin_id": "BIN-0",
+            "lower": 0,
+            "upper": 0.16666666666666666,
+            "count": 24,
+            "weight": 28.69333333333333,
+            "mean_forecast_probability": 0.05041310408921932,
+            "observed_event_rate": 0.04925650557620817
+          },
+          {
+            "bin_id": "BIN-1",
+            "lower": 0.16666666666666666,
+            "upper": 0.3333333333333333,
+            "count": 4,
+            "weight": 0.48,
+            "mean_forecast_probability": 0.27749999999999997,
+            "observed_event_rate": 0.75
+          },
+          {
+            "bin_id": "BIN-2",
+            "lower": 0.3333333333333333,
+            "upper": 0.5,
+            "count": 0,
+            "weight": 0,
+            "mean_forecast_probability": null,
+            "observed_event_rate": null
+          },
+          {
+            "bin_id": "BIN-3",
+            "lower": 0.5,
+            "upper": 0.6666666666666666,
+            "count": 0,
+            "weight": 0,
+            "mean_forecast_probability": null,
+            "observed_event_rate": null
+          },
+          {
+            "bin_id": "BIN-4",
+            "lower": 0.6666666666666666,
+            "upper": 0.8333333333333334,
+            "count": 0,
+            "weight": 0,
+            "mean_forecast_probability": null,
+            "observed_event_rate": null
+          },
+          {
+            "bin_id": "BIN-5",
+            "lower": 0.8333333333333334,
+            "upper": 1,
+            "count": 0,
+            "weight": 0,
+            "mean_forecast_probability": null,
+            "observed_event_rate": null
+          }
+        ],
+        "tail_excess_observations": 5,
+        "weighted_tail_excess_pit_ks_distance": 0.21451723657214095,
+        "weighted_tail_excess_log_loss": 4.281361313422093,
+        "zero_support_tail_excesses": 0,
+        "conditional_tail_quantile_coverage": [
+          {
+            "nominal": 0.5,
+            "observed_weighted_coverage": 0
+          },
+          {
+            "nominal": 0.9,
+            "observed_weighted_coverage": 0.8646616541353382
+          },
+          {
+            "nominal": 0.95,
+            "observed_weighted_coverage": 0.9323308270676691
+          }
+        ]
+      }
+    ],
+    "worst_slice_brier_score": 0.12324181666666663,
+    "shifted_brier_deltas": [
+      {
+        "regime_id": "temporal_shift",
+        "brier_delta_vs_in_distribution": 0.034744944939355996
+      },
+      {
+        "regime_id": "structural_dependency_shift",
+        "brier_delta_vs_in_distribution": 0.072257
+      },
+      {
+        "regime_id": "evidence_degradation",
+        "brier_delta_vs_in_distribution": 0.0007053247867154361
+      }
+    ]
+  },
+  "round_trip_requirements": [
+    "Preserve regime IDs, case IDs, forecast origin and horizon.",
+    "Preserve evaluator-owned qualification and observed deficit-hours exactly.",
+    "Preserve proposal and target stratum probabilities without rounding.",
+    "Preserve candidate exceedance probabilities and GPD scale/shape exactly.",
+    "Preserve abstention action, null forecasts and abstention reason.",
+    "Preserve threshold, units, log-loss epsilon and calibration-reference numerator/denominator.",
+    "Preserve synthetic/public-development-only status and unknown extension fields."
+  ],
+  "conformance_targets": {
+    "valid_fixture_acceptance": "100 percent",
+    "listed_negative_case_rejection": "100 percent",
+    "golden_metric_absolute_tolerance": 1e-12,
+    "probability_range": "[0,1]",
+    "gpd_scale": "strictly-positive",
+    "importance_weight_formula": "target_stratum_probability/proposal_stratum_probability",
+    "composite_scores_accepted": 0,
+    "unsupported_evidence_forecasts_accepted": 0
+  },
+  "limitations": [
+    "The 128-case fixture is a deterministic development example and is not a statistically powered tail-calibration study.",
+    "Stress-enriched cases must not be interpreted as naturally occurring event prevalence.",
+    "Importance weighting is valid only for the declared sampling design and representative within-stratum draws.",
+    "Weighted empirical tail PIT diagnostics are descriptive; formal inference requires design-aware uncertainty estimation and adequate independent tail observations.",
+    "Distribution shift can make probabilistic prediction non-identifiable without assumptions or structural knowledge.",
+    "No SOTA, real-world resilience or operational-validity claim is made."
+  ]
+}
