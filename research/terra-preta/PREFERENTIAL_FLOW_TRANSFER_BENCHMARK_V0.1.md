@@ -225,6 +225,8 @@ Use it to bootstrap data-dictionary and eventizer crosswalk work, test Ksat-thre
 
 **Complementary validation design:** [Multi-method PF triangulation benchmark](./PREFERENTIAL_FLOW_MULTIMETHOD_TRIANGULATION_BENCHMARK_V0.1.md) and [implementation issue #5538](https://github.com/Luminous-Dynamics/mycelix/issues/5538).
 
+**Executable profile diagnostic:** [profile-flow-audit](./tools/profile-flow-audit/README.md) performs all-pairs depth-order analysis while retaining mixed and indeterminate profiles.
+
 ## 9. Data provenance, overlap and stop rules
 
 - Freeze release tag, site roster, file inventory, publisher checksum, local SHA-256, query/API response, product code, sensor metadata and preprocessing commit before modelling.
