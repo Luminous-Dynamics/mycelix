@@ -5,7 +5,7 @@
 //! issue operational instructions, or estimate causal intervention effects.
 
 use serde_json::{json, Value};
-use std::collections::{BTreeMap, BTreeSet, VecDeque};
+use std::collections::{BTreeMap, BTreeSet};
 
 fn str_field<'a>(value: &'a Value, key: &str) -> Option<&'a str> {
     value.get(key)?.as_str()
