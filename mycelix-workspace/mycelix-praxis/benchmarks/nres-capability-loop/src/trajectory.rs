@@ -214,57 +214,42 @@ pub fn evaluate_resilience_trajectories(fixture: &Value) -> Result<Value, Vec<St
         errors.push("service catalog must include at least one critical service".to_owned());
     }
 
-    // Validate prerequisite -> dependent edges and reject cycles. Acyclicity is a
-    // profile constraint, not a claim that real infrastructure never has cycles.
-    let mut adjacency: BTreeMap<String, Vec<String>> = service_catalog
-        .keys()
-        .map(|id| (id.clone(), Vec::new()))
-        .collect();
-    let mut indegree: BTreeMap<String, usize> = service_catalog
-        .keys()
-        .map(|id| (id.clone(), 0))
-        .collect();
+    // Validate the dependency graph as typed metadata only. Cycles are allowed:
+    // NRES-007 does not propagate outages over edges or synthesize trajectories.
+    let Some(graph_policy) = fixture.get("dependency_graph_policy") else {
+        return Err(vec!["dependency_graph_policy is missing".to_owned()]);
+    };
+    if str_field(graph_policy, "direction") != Some("prerequisite-to-dependent")
+        || graph_policy.get("propagation_applied").and_then(Value::as_bool) != Some(false)
+    {
+        errors.push("dependency graph must be directional metadata with propagation_applied=false".to_owned());
+    }
+    let Some(dependency_edges) = array_field(fixture, "dependency_edges") else {
+        return Err(vec!["dependency_edges are missing".to_owned()]);
+    };
     let mut edge_ids = BTreeSet::new();
-    for edge in array_field(fixture, "dependency_edges").cloned().unwrap_or_default() {
-        let prerequisite = str_field(&edge, "prerequisite_service_id");
-        let dependent = str_field(&edge, "dependent_service_id");
-        let relationship = str_field(&edge, "relationship");
+    for edge in dependency_edges {
+        let prerequisite = str_field(edge, "prerequisite_service_id");
+        let dependent = str_field(edge, "dependent_service_id");
+        let relationship = str_field(edge, "relationship");
+        let assertion_status = str_field(edge, "assertion_status");
         match (prerequisite, dependent) {
             (Some(from), Some(to))
-                if from != to
+                if !from.is_empty()
+                    && !to.is_empty()
+                    && from != to
                     && service_catalog.contains_key(from)
                     && service_catalog.contains_key(to)
-                    && relationship == Some("required-input") =>
+                    && relationship == Some("required-input")
+                    && matches!(assertion_status, Some("assumed") | Some("observed") | Some("evaluator-only")) =>
             {
-                let key = format!("{from}->{to}");
+                let key = format!("{from}->{to}:{relationship}");
                 if !edge_ids.insert(key) {
                     errors.push("duplicate dependency edge".to_owned());
-                } else {
-                    adjacency.entry(from.to_owned()).or_default().push(to.to_owned());
-                    *indegree.entry(to.to_owned()).or_default() += 1;
                 }
             }
-            _ => errors.push("dependency edge has a dangling endpoint, self-edge or unsupported relationship".to_owned()),
+            _ => errors.push("dependency edge has a dangling endpoint, self-edge or unsupported relationship/assertion status".to_owned()),
         }
-    }
-    let mut ready: VecDeque<String> = indegree
-        .iter()
-        .filter_map(|(id, degree)| (*degree == 0).then_some(id.clone()))
-        .collect();
-    let mut visited = 0usize;
-    while let Some(node) = ready.pop_front() {
-        visited += 1;
-        for dependent in adjacency.get(&node).into_iter().flatten() {
-            if let Some(degree) = indegree.get_mut(dependent) {
-                *degree -= 1;
-                if *degree == 0 {
-                    ready.push_back(dependent.clone());
-                }
-            }
-        }
-    }
-    if visited != service_catalog.len() {
-        errors.push("dependency graph contains a directed cycle".to_owned());
     }
 
     let Some(resource_limits) = fixture.get("resource_limits") else {
@@ -538,13 +523,29 @@ mod tests {
     }
 
     #[test]
-    fn rejects_dependency_cycles() {
+    fn accepts_dependency_cycles_as_descriptive_metadata() {
         let mut value = fixture();
         value["dependency_edges"].as_array_mut().unwrap().push(json!({
             "prerequisite_service_id": "health_logistics_continuity",
             "dependent_service_id": "electricity_supply",
-            "relationship": "required-input"
+            "relationship": "required-input",
+            "assertion_status": "assumed"
         }));
+        assert!(evaluate_resilience_trajectories(&value).is_ok());
+    }
+
+    #[test]
+    fn rejects_duplicate_dependency_edge() {
+        let mut value = fixture();
+        let duplicate = value["dependency_edges"][0].clone();
+        value["dependency_edges"].as_array_mut().unwrap().push(duplicate);
+        assert!(evaluate_resilience_trajectories(&value).is_err());
+    }
+
+    #[test]
+    fn rejects_unsupported_dependency_assertion_status() {
+        let mut value = fixture();
+        value["dependency_edges"][0]["assertion_status"] = json!("inferred-by-proximity");
         assert!(evaluate_resilience_trajectories(&value).is_err());
     }
 
