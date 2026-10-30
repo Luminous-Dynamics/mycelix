@@ -25,7 +25,9 @@ The basis is kg of elemental N, P or K per hectare. Do not supply oxide mass (P2
 
 The control volume normally includes soil, standing biomass and retained residues. The boundary description must say what is included. Root uptake, mineralization, immobilization, sorption/desorption and residue return are internal transfers when both source and destination remain inside the control volume; they are not additional external inputs. Harvest removed, leaching across the declared lower boundary, runoff, erosion and gaseous export are boundary outputs where relevant.
 
-Storage pools must be mutually exclusive and have exactly matching IDs/compartments at the start and end of the period. Extractable/available nutrient indicators are reported separately and are **never added** to stock pools.
+Storage pools must be mutually exclusive and have exactly matching IDs/compartments at the start and end of the period. The input requires a `stock_pool_partition_review` declaration with `mutually_exclusive=true` and `boundary_stocks_covered=true` before the budget can be qualified. The input also requires a `boundary_flux_review`; any listed unmeasured pathway or incomplete coverage makes the result unqualified regardless of residual size. Review references are auditable declarations, not proof that the physical pools are truly disjoint or that every real-world flux was measured.
+
+Extractable/available nutrient indicators are reported separately and are **never added** to stock pools.
 
 ## Uncertainty status
 
