@@ -71,6 +71,7 @@ The standalone Rust tool in `tools/nutrient-budget-audit/` will:
 - validate elemental basis, dates, control-volume dimensions, IDs, and non-negative finite terms;
 - require matching, non-overlapping pool identities at the start and end of the period;
 - compute inputs, exports, stock change, residual and plot-scaled values;
+- report pathway-specific input/output category totals and uncertainty sums so a pooled residual cannot hide a change in leaching, runoff, harvest export or another pathway;
 - compute the conservative linear uncertainty bound only when all terms have standard uncertainties;
 - keep availability indicators outside the mass-balance arithmetic;
 - bind the report to the exact input bytes with SHA-256;
