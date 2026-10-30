@@ -7,37 +7,37 @@
     {
       "case_id": "NEG-01",
       "name": "Probability above one",
-      "mutation": "Set predicted_breach_probability=1.01",
+      "mutation": "Set candidate_output.predicted_breach_probability=1.01",
       "expected_disposition": "reject-probability-out-of-range"
     },
     {
       "case_id": "NEG-02",
       "name": "Probability below zero",
-      "mutation": "Set predicted_breach_probability=-0.01",
+      "mutation": "Set candidate_output.predicted_breach_probability=-0.01",
       "expected_disposition": "reject-probability-out-of-range"
     },
     {
       "case_id": "NEG-03",
       "name": "Forecast with missing critical input",
-      "mutation": "Set qualification_state=missing_critical_input and action=forecast",
+      "mutation": "Set evaluator.input_qualification_state=missing_critical_input and candidate_output.action=forecast",
       "expected_disposition": "reject-mandatory-abstention-violation"
     },
     {
       "case_id": "NEG-04",
       "name": "Forecast under unsupported shift",
-      "mutation": "Set qualification_state=unsupported_distribution_shift and action=forecast",
+      "mutation": "Set evaluator.input_qualification_state=unsupported_distribution_shift and candidate_output.action=forecast",
       "expected_disposition": "reject-mandatory-abstention-violation"
     },
     {
       "case_id": "NEG-05",
       "name": "Abstain but emit probability",
-      "mutation": "Set action=abstain and predicted_breach_probability=0.4",
+      "mutation": "Set candidate_output.action=abstain and candidate_output.predicted_breach_probability=0.4",
       "expected_disposition": "reject-probability-on-abstention"
     },
     {
       "case_id": "NEG-06",
       "name": "Forecast without probability",
-      "mutation": "Set action=forecast and predicted_breach_probability=null",
+      "mutation": "Set candidate_output.action=forecast and candidate_output.predicted_breach_probability=null",
       "expected_disposition": "reject-missing-probability"
     },
     {
@@ -55,13 +55,13 @@
     {
       "case_id": "NEG-09",
       "name": "Invalid observed availability",
-      "mutation": "Set observed_minimum_availability_percent=101",
+      "mutation": "Set evaluator.observed_minimum_availability_percent=101",
       "expected_disposition": "reject-observation-out-of-range"
     },
     {
       "case_id": "NEG-10",
       "name": "Missing abstention reason",
-      "mutation": "Set action=abstain and abstention_reason=null",
+      "mutation": "Set candidate_output.action=abstain and candidate_output.abstention_reason=null",
       "expected_disposition": "reject-missing-abstention-reason"
     },
     {
