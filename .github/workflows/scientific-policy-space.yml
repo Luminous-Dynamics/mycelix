@@ -49,7 +49,9 @@ jobs:
         run: |
           cargo run --manifest-path tools/scientific-policy-space/Cargo.toml -- target/scientific-policy-space
           test "$(wc -l < target/scientific-policy-space/scientific-policy-decision-space-v0.1.jsonl)" -eq 62464
-          jq -e '.case_count == 62464 and .empty_stream_cases == 1024 and .existing_stream_cases == 61440 and .distinct_role_subsets == 128 and .expected_decision_status == "pending_authentic_rust_oracle"' target/scientific-policy-space/manifest.json
+          test "$(wc -l < target/scientific-policy-space/scientific-policy-engine-inputs-v0.1.jsonl)" -eq 62464
+          jq -e '.case_count == 62464 and .empty_stream_cases == 1024 and .existing_stream_cases == 61440 and .distinct_role_subsets == 128 and .expected_decision_status == "pending_authentic_rust_oracle" and .engine_input_count == 62464 and .engine_input_format == "case_id+cedar_native_request+rego_input"' target/scientific-policy-space/manifest.json
+          jq -s -e 'length == 62464 and all(.[]; .case_id == .cedar.case_id and .case_id == .rego.case_id and (.cedar.entities | length) == 3 and (.cedar.request.action | type) == "string" and (.rego.input.action | type) == "string")' target/scientific-policy-space/scientific-policy-engine-inputs-v0.1.jsonl
 
       - name: Publish generated corpus and source
         if: always()
