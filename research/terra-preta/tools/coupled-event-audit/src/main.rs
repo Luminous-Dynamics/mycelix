@@ -469,10 +469,10 @@ fn validate_input(input: &EventInput) -> Result<(), String> {
                 }
             }
             FluxStatus::Estimated => {
-                if !matches!(export.water_depth_status, WaterDepthStatus::Estimated | WaterDepthStatus::Modelled)
+                if matches!(export.water_depth_status, WaterDepthStatus::Missing)
                     || export.water_depth_mm.unwrap_or(0.0) <= 0.0
                     || !export.concentration_sampling_design.integrated() {
-                    return Err(format!("estimated dissolved flux {:?} lacks estimated water volume or integrated concentration", export.flux_id));
+                    return Err(format!("estimated dissolved flux {:?} lacks a non-missing water-volume basis or integrated concentration", export.flux_id));
                 }
             }
             FluxStatus::ConcentrationOnly => {
@@ -882,6 +882,17 @@ mod tests {
         let report = audited(&bytes);
         assert_eq!(report.dissolved_export_audits[0].mass_kg_element_per_ha, None);
         assert_eq!(report.dissolved_export_audits[0].mass_status, "not_computed_partial_collection_coverage");
+    }
+
+    #[test]
+    fn estimated_flux_can_use_measured_water_depth_without_becoming_measured() {
+        let mut value: Value = serde_json::from_slice(&fixture_bytes()).unwrap();
+        value["dissolved_exports"][0]["mass_flux_status"] = json!("estimated");
+        value["dissolved_exports"][0]["water_depth_status"] = json!("measured");
+        let bytes = serde_json::to_vec(&value).unwrap();
+        let report = audited(&bytes);
+        assert_eq!(report.dissolved_export_audits[0].mass_status, "estimated");
+        assert!(report.dissolved_export_audits[0].mass_kg_element_per_ha.is_some());
     }
 
     #[test]

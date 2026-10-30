@@ -638,6 +638,39 @@
               }
             }
           }
+        },
+        {
+          "if": {
+            "properties": {
+              "mass_flux_status": {
+                "const": "estimated"
+              }
+            },
+            "required": [
+              "mass_flux_status"
+            ]
+          },
+          "then": {
+            "properties": {
+              "water_depth_mm": {
+                "type": "number",
+                "exclusiveMinimum": 0
+              },
+              "water_depth_status": {
+                "enum": [
+                  "measured",
+                  "estimated",
+                  "modelled"
+                ]
+              },
+              "concentration_sampling_design": {
+                "enum": [
+                  "flow_weighted_composite",
+                  "event_integrated_time_series"
+                ]
+              }
+            }
+          }
         }
       ]
     },

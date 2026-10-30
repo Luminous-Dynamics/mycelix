@@ -638,6 +638,16 @@ mod tests {
         include_str!("../../coupled-event-audit/fixtures/synthetic-event.json");
 
     #[test]
+    fn rejects_estimated_dissolved_flux_without_water_volume() {
+        let validator = jsonschema::validator_for(&coupled_event_schema()).unwrap();
+        let mut instance: Value = serde_json::from_str(COUPLED_EVENT_FIXTURE).unwrap();
+        instance["dissolved_exports"][0]["mass_flux_status"] = json!("estimated");
+        instance["dissolved_exports"][0]["water_depth_mm"] = Value::Null;
+        instance["dissolved_exports"][0]["water_depth_status"] = json!("missing");
+        assert!(!validator.is_valid(&instance));
+    }
+
+    #[test]
     fn accepts_synthetic_coupled_hydrology_nutrient_event() {
         let validator = jsonschema::validator_for(&coupled_event_schema()).unwrap();
         let instance: Value = serde_json::from_str(COUPLED_EVENT_FIXTURE).unwrap();
