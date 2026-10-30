@@ -223,7 +223,7 @@ fn valid_date(value: &str) -> bool {
         2 => 28,
         _ => return false,
     };
-    day >= 1 && day <= days_in_month
+    (1..=days_in_month).contains(&day)
 }
 
 fn finite_nonnegative(value: f64, field: &str) -> Result<(), String> {
@@ -252,6 +252,7 @@ fn checked_sum(values: impl Iterator<Item = f64>, field: &str) -> Result<f64, St
 }
 
 fn validate_flow<C>(flow: &Flow<C>, seen: &mut HashSet<String>) -> Result<(), String> {
+    let _ = &flow.category;
     nonblank(&flow.flow_id, "flow_id")?;
     if !seen.insert(flow.flow_id.clone()) {
         return Err(format!("duplicate flow_id {:?}", flow.flow_id));
@@ -540,7 +541,7 @@ fn ensure_distinct_paths(input: &Path, output: &Path) -> Result<(), Box<dyn Erro
         return Err("output report already exists; refusing to overwrite an existing artifact".into());
     }
     let canonical_input = fs::canonicalize(input)?;
-    if output == canonical_input {
+    if output == canonical_input.as_path() {
         return Err("input and output paths must differ; refusing to overwrite source".into());
     }
     Ok(())
@@ -750,7 +751,8 @@ mod tests {
     #[test]
     fn rejects_duplicate_availability_indicators() {
         let mut value: Value = serde_json::from_slice(&fixture_bytes()).unwrap();
-        value["availability_indicators"].push(value["availability_indicators"][0].clone());
+        let duplicate = value["availability_indicators"][0].clone();
+        value["availability_indicators"].as_array_mut().unwrap().push(duplicate);
         let bytes = serde_json::to_vec(&value).unwrap();
         assert!(audit(&bytes).unwrap_err().contains("duplicate availability indicator_id"));
     }
