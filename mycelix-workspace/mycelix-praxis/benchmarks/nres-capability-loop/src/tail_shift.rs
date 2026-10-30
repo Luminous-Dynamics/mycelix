@@ -534,6 +534,11 @@ mod tests {
     #[test] fn rejects_sampling_target_mass_not_normalized() {
         let mut v=fixture();
         v["sampling_design"]["strata"][0]["target_probability"]=json!(0.5);
+        for row in v["evaluation_cases"].as_array_mut().unwrap() {
+            if row["sampling_stratum"]=="routine" {
+                row["target_stratum_probability"]=json!(0.5);
+            }
+        }
         assert!(evaluate_tail_shift_robustness(&v).is_err());
     }
 
