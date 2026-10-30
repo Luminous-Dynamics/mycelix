@@ -530,7 +530,7 @@
           "reviewer_diversity": "qualified",
           "organization_independence": "not_qualified",
           "empirical_replication": "not_qualified",
-          "computational_reproduction": "qualified"
+          "computational_reproduction": "not_qualified"
         },
         "activeSourceCount": 2,
         "withdrawnSourceCount": 0
@@ -595,7 +595,7 @@
           "reviewer_diversity": "qualified",
           "organization_independence": "indeterminate",
           "empirical_replication": "indeterminate",
-          "computational_reproduction": "qualified"
+          "computational_reproduction": "indeterminate"
         },
         "activeSourceCount": 2,
         "withdrawnSourceCount": 0
@@ -1236,7 +1236,7 @@
           "organizationId": "org:south",
           "organizationIdentityBasis": "registry_id",
           "labId": "lab:south-1",
-          "datasetLineageId": "dataset:root-b",
+          "datasetLineageId": "dataset:root-a",
           "datasetProvenanceStatus": "resolved",
           "datasetArtifactDigest": null,
           "protocolFamilyId": "protocol:registered:v1",
