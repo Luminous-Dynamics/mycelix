@@ -106,6 +106,8 @@ struct Report {
     observed_count: usize,
     interpolated_count: usize,
     missing_count: usize,
+    event_window_start_covered: bool,
+    event_window_end_covered: bool,
     adjacent_intervals_evaluable: usize,
     adjacent_intervals_missing: usize,
     positive_rise_interval_count: usize,
@@ -273,6 +275,10 @@ fn status_name(status: SampleStatus) -> &'static str {
 fn evaluate(input: &Input, input_sha256: String) -> Result<Report, String> {
     let (_start, _end, _baseline_time, observations) = validate(input)?;
     let baseline = input.baseline.volumetric_water_content_m3_m3;
+    let event_start = DateTime::parse_from_rfc3339(&input.event_start_utc).expect("validated UTC event start");
+    let event_end = DateTime::parse_from_rfc3339(&input.observation_window_end_utc).expect("validated UTC event end");
+    let event_window_start_covered = observations.first().is_some_and(|x| x.timestamp.timestamp() == event_start.timestamp());
+    let event_window_end_covered = observations.last().is_some_and(|x| x.timestamp.timestamp() == event_end.timestamp());
     let observed_count = observations.iter().filter(|x| x.status == SampleStatus::Observed).count();
     let interpolated_count = observations.iter().filter(|x| x.status.is_interpolated()).count();
     let missing_count = observations.iter().filter(|x| x.status.is_missing()).count();
@@ -333,7 +339,9 @@ fn evaluate(input: &Input, input_sha256: String) -> Result<Report, String> {
         (Some(_), Some(_)) => "not_above_declared_rate_threshold",
     };
 
-    let coverage_status = if missing_count > 0 || missing_intervals > 0 {
+    let coverage_status = if !event_window_start_covered || !event_window_end_covered {
+        "incomplete_event_window_boundary"
+    } else if missing_count > 0 || missing_intervals > 0 {
         "incomplete_due_to_missing_observations"
     } else if interpolated_count > 0 {
         "complete_with_interpolated_observations"
@@ -349,6 +357,9 @@ fn evaluate(input: &Input, input_sha256: String) -> Result<Report, String> {
         "Cumulative positive rise sums successive positive water-content increments and is not a volume or flux without a spatial support/control-volume model.".to_owned(),
         "The observation window, sample interval and baseline are explicit; peak/maximum metrics can depend on window length and cadence.".to_owned(),
     ];
+    if !event_window_start_covered || !event_window_end_covered {
+        warnings.push("The observed series does not span the full declared event window; the trajectory is left- or right-censored.".to_owned());
+    }
     if interpolated_count > 0 {
         warnings.push("At least one interpolated observation contributed to the trajectory; report a no-interpolation sensitivity result.".to_owned());
     }
@@ -376,6 +387,8 @@ fn evaluate(input: &Input, input_sha256: String) -> Result<Report, String> {
         observed_count,
         interpolated_count,
         missing_count,
+        event_window_start_covered,
+        event_window_end_covered,
         adjacent_intervals_evaluable: evaluable,
         adjacent_intervals_missing: missing_intervals,
         positive_rise_interval_count: positive_intervals,
@@ -563,13 +576,39 @@ mod tests {
     }
 
     #[test]
-    fn missing_baseline_does_not_produce_amplitude_or_threshold_label() {
+    fn missing_baseline_does_not_produce_amplitude_but_rate_remains_evaluable() {
         let mut input = base();
         input.baseline.status = SampleStatus::Missing;
         input.baseline.volumetric_water_content_m3_m3 = None;
         let report = evaluate(&input, "1".repeat(64)).unwrap();
         assert_eq!(report.amplitude_from_baseline_m3_m3, None);
         assert_eq!(report.trajectory_threshold_status, "above_declared_rate_threshold_proxy_only");
+    }
+
+    #[test]
+    fn partial_event_window_is_marked_censored() {
+        let mut input = base();
+        input.observation_window_end_utc = stamp(50);
+        let report = evaluate(&input, "2".repeat(64)).unwrap();
+        assert!(report.event_window_start_covered);
+        assert!(!report.event_window_end_covered);
+        assert_eq!(report.coverage_status, "incomplete_event_window_boundary");
+    }
+
+    #[test]
+    fn left_censored_event_window_is_marked_incomplete() {
+        let mut input = base();
+        input.observations.remove(0);
+        input.observations.push(Observation {
+            timestamp_utc: stamp(50),
+            volumetric_water_content_m3_m3: Some(0.22),
+            status: SampleStatus::Observed,
+        });
+        input.observation_window_end_utc = stamp(50);
+        let report = evaluate(&input, "3".repeat(64)).unwrap();
+        assert!(!report.event_window_start_covered);
+        assert!(report.event_window_end_covered);
+        assert_eq!(report.coverage_status, "incomplete_event_window_boundary");
     }
 
     #[test]
