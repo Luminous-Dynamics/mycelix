@@ -42,13 +42,13 @@ The aggregate calibration-reference cohort has 20 synthetic observations and 10 
 
 The evaluator returns:
 1. total and qualified-case forecast coverage;
-2. per-service Brier/log-loss summaries with explicit sample counts;
 2. abstention count, mandatory-abstention compliance and optional abstentions;
-3. selective Brier score;
-4. selective logarithmic loss, using the frozen epsilon for numerical stability;
-5. Brier skill score relative to the calibration-reference climatology on the exact same issued cases;
-6. fixed reliability-bin counts, mean forecast probability and observed event rate; and
-7. fixed-bin ECE, labelled a diagnostic.
+3. overall selective Brier score and logarithmic loss, using the frozen epsilon for numerical stability;
+4. Brier skill score relative to the calibration-reference climatology on the exact same issued cases;
+5. per-service Brier and log-loss summaries with explicit sample counts;
+6. fixed reliability-bin counts, mean forecast probability and observed event rate;
+7. fixed-bin ECE, labelled a diagnostic; and
+8. a confidence-threshold risk/coverage curve.
 
 A fixed confidence-threshold risk/coverage curve is also reported, and every service receives its own proper-score row so a weak service cannot disappear inside an overall average. Abstained cases contribute to the coverage and abstention denominators but do not receive invented probabilities and do not enter proper-score denominators. Every denominator is explicit. A predictor that abstains on every case has zero coverage and is not comparable to one that forecasts at useful coverage.
 
